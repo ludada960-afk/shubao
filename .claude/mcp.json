@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "agent-reach": {
+      "command": "npx",
+      "args": ["openclaw", "mcp", "--transport", "stdio"]
+    },
+    "codebase-memory-mcp": {
+      "command": "npx",
+      "args": ["codebase-memory-mcp"]
+    },
+    "headroom": {
+      "command": "npx",
+      "args": ["-y", "headroom-mcp"]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+node_modules/
+.vite/
+server/cache_img/
+*.log
+.DS_Store
+.env
