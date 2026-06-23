@@ -1,1 +1,233 @@
-[{"_inputText":"🎀JK穿搭OOTD","cover_url":"","image_urls":[],"cover_prompt":"","image_prompts":[],"id":1782209335442,"at":"2026/6/23"},{"title":"���Ա���","_inputText":"test_backup","_saveKey":12345,"body_text":"test","id":1782208261630,"at":"2026/6/23"}]
+[
+  {
+    "title": "3套JK搭配闭眼入！🔥显高显瘦太绝了",
+    "category": "穿搭分享",
+    "body_text": "姐妹们谁懂啊！穿JK真的太上头了，但很多宝子总怕穿成小短腿？今天我就用空箱实测3套超显身材的JK搭配，从选裙长到搭鞋袜，全部说清楚！\n\n✅第一套：经典绀色西装+白衬衫+灰格裙\n西装版型微收腰，约250；衬衫小尖领，约80；裙长45厘米，显腿长神器，约150。配黑色厚底皮鞋，约200。整体风格甜酷，穿去学校被追着问链接。\n\n✅第二套：水手服+藏蓝百褶裙+领结\n水手服注意选版型硬挺的，约180；裙子带褶活褶设计，约120。搭配及膝袜和乐福鞋，约250。这套温柔又清爽，周末逛街拍片绝绝子。\n\n✅第三套：针织背心+白T+咖色格裙\n背心马甲细针织，约100；T恤纯棉不透，约40；格裙低调高级，约130。配小白鞋，约150。这套慵懒风，平时上课或约会都合适。\n\n⚠️避雷点：裙长选42-45厘米最显比例，太长压身高，太短容易走光。肤色袜比白袜更自然。领结打个蝴蝶结更甜美。\n\n快艾特你的笨蛋闺蜜一起做元气JK少女吧！",
+    "hashtags": [
+      "#JK穿搭",
+      "#日系穿搭",
+      "#学生党穿搭",
+      "#显高穿搭",
+      "#平价穿搭",
+      "#百褶裙",
+      "#水手服"
+    ],
+    "pages": [
+      {
+        "page_id": 1,
+        "page_type": "content",
+        "title": "三套总览",
+        "hook": "看看哪套是你的菜？",
+        "story": "三套不同风格的JK搭配，从甜酷到温柔，总有一款适合你。每套都标注了单品和价位，学生党也能轻松入。",
+        "info_blocks": [
+          {
+            "label": "总花费",
+            "value": "约800-1200"
+          },
+          {
+            "label": "风格",
+            "value": "甜酷/温柔/慵懒"
+          }
+        ],
+        "layout_hint": "九宫格拼图：左上绀色西装一套、中上水手服一套、右上针织背心一套，下方三个小图分别展示鞋子、领结、袜子特写，中央大字'3套JK，闭眼入'"
+      },
+      {
+        "page_id": 2,
+        "page_type": "content",
+        "title": "甜酷绀色",
+        "hook": "第一套，回头率爆棚",
+        "story": "绀色西装+白衬衫+灰格裙，经典搭配。西装微收腰显瘦，裙长45厘米正好露出一截大腿，配黑色厚底皮鞋增高5厘米。",
+        "info_blocks": [
+          {
+            "label": "西装",
+            "value": "约250"
+          },
+          {
+            "label": "衬衫",
+            "value": "约80"
+          },
+          {
+            "label": "裙子",
+            "value": "约150"
+          },
+          {
+            "label": "鞋子",
+            "value": "约200"
+          }
+        ],
+        "layout_hint": "全身照拼图：左半身站姿正面+右半身侧后方45度看裙摆，标注线标出西装收腰、裙长、皮鞋厚底，左上角写'甜酷'艺术字"
+      },
+      {
+        "page_id": 3,
+        "page_type": "content",
+        "title": "温柔水手",
+        "hook": "第二套，温柔学姐风",
+        "story": "白色水手服+藏蓝百褶裙+领结。水手服领口大海蓝色条，裙子褶活褶有垂感，配及膝袜和乐福鞋，乖巧又不失个性。",
+        "info_blocks": [
+          {
+            "label": "水手服",
+            "value": "约180"
+          },
+          {
+            "label": "裙子",
+            "value": "约120"
+          },
+          {
+            "label": "袜子鞋",
+            "value": "约250"
+          }
+        ],
+        "layout_hint": "单图：女生斜坐在课桌旁，侧身照，手拉领结，裙摆自然垂下，及膝袜和乐福鞋特写，背景教室柔光，文字标注'温柔学姐标配'"
+      },
+      {
+        "page_id": 4,
+        "page_type": "content",
+        "title": "慵懒针织",
+        "hook": "第三套，日常超舒服",
+        "story": "米白针织背心+白T+咖色格裙。背心细针织贴身，白T打底不闷，格裙颜色复古，配上小白鞋，随意又时髦。",
+        "info_blocks": [
+          {
+            "label": "背心",
+            "value": "约100"
+          },
+          {
+            "label": "T恤",
+            "value": "约40"
+          },
+          {
+            "label": "裙子",
+            "value": "约130"
+          },
+          {
+            "label": "鞋子",
+            "value": "约150"
+          }
+        ],
+        "layout_hint": "拼图：左图坐在咖啡厅椅子上的全身照，右图特写针织背心理纹和格裙格纹，两图间有斜线分割，右上角写'慵懒感满分'"
+      },
+      {
+        "page_id": 5,
+        "page_type": "content",
+        "title": "配饰点睛",
+        "hook": "小物件提升精致度",
+        "story": "JK穿搭的灵魂在配饰：领结选深蓝或红色，袜子选白色褶边或纯黑，包包选帆布托特包或小方包。耳钉尽量简约，避免喧宾夺主。",
+        "info_blocks": [
+          {
+            "label": "领结",
+            "value": "约30-50"
+          },
+          {
+            "label": "袜子",
+            "value": "约20-40"
+          },
+          {
+            "label": "包包",
+            "value": "约60-100"
+          }
+        ],
+        "layout_hint": "手绘标注线风格：在白色背景上放置领结、袜子、包包实物照片，每件上有白色手绘圆圈和线引出文字标注，底部排列3张小图"
+      },
+      {
+        "page_id": 6,
+        "page_type": "content",
+        "title": "显高技巧",
+        "hook": "小个子也能穿出好比例",
+        "story": "1. 上衣塞进裙子里，提高腰线。2. 裙长选膝盖以上10-15厘米（42-45厘米）。3. 穿厚底鞋或增高鞋垫。4. 袜子长度在小腿肚以下，避免截断腿。",
+        "info_blocks": [
+          {
+            "label": "裙长",
+            "value": "42-45厘米"
+          },
+          {
+            "label": "增高",
+            "value": "鞋垫+3-5厘米"
+          }
+        ],
+        "layout_hint": "对比分屏：左图穿长裙显矮效果（标注差），右图穿42厘米短裙+厚底鞋显高效果（标注好），中间箭头从差到好，底部文字'细节决定比例'"
+      },
+      {
+        "page_id": 7,
+        "page_type": "content",
+        "title": "材质对比",
+        "hook": "买JK裙要注意什么",
+        "story": "百褶裙尽量选TR面料（涤粘混纺），不易皱且垂感好；纯棉容易皱，需要熨烫。格纹要选对格（格子对齐），否则显廉价。西装选含羊毛的混纺，版型更好。",
+        "info_blocks": [
+          {
+            "label": "推荐面料",
+            "value": "TR混纺"
+          },
+          {
+            "label": "避雷面料",
+            "value": "纯棉易皱"
+          }
+        ],
+        "layout_hint": "产品爆炸图：裙子悬浮展开，标注各部分面料，左侧是TR面料特写（标注'不易皱'），右侧是纯棉面料特写（标注'易皱'），中间有箭头对比"
+      },
+      {
+        "page_id": 8,
+        "page_type": "content",
+        "title": "总结推荐",
+        "hook": "选对搭配，每天都是元气JK",
+        "story": "三套总花费约800-1200，性价比超高。首推第一套绀色西装，甜酷又百搭；第二套水手服适合温柔系女生；第三套针织背心适合日常懒人。记得评论区交出你的JK穿搭呀！",
+        "info_blocks": [
+          {
+            "label": "总花费",
+            "value": "约800-1200"
+          },
+          {
+            "label": "推荐首套",
+            "value": "绀色西装套"
+          }
+        ],
+        "layout_hint": "总结卡片：暖色背景，中央放三套小缩略图排列，下方文字'一起做青春美少女吧！'，右下角手绘箭头+互动文字'评论区晒照！'"
+      }
+    ],
+    "_inputText": "🎀JK穿搭OOTD",
+    "cover_url": "https://image.65535.space/jobs/img_f5ebe7e5ec10c2a0ad204817dd54e4f9/0.png",
+    "image_urls": [
+      "https://image.65535.space/jobs/img_f21e28b0ef80c52738f339173cc451b9/0.png",
+      "https://image.65535.space/jobs/img_9d380a9b18e04c49df9195971b36e1dd/0.png",
+      "https://image.65535.space/jobs/img_d0d2664b7ea74a9bf62a843f99c11d98/0.png",
+      "https://image.65535.space/jobs/img_c8d3ced49784b2b2e50910fd9c012203/0.png",
+      "https://image.65535.space/jobs/img_993c8dec0fad2bf5c618fafb6579f5d8/0.png",
+      "https://image.65535.space/jobs/img_8b7efb49349a78466f716881bc612186/0.png"
+    ],
+    "cover_prompt": "Portrait vertical 3:4, magazine-style cover. Top 20%: bold Chinese title '3套JK搭配闭眼入！显高显瘦太绝了' in large white font with soft shadow, against a pale pink gradient background. Middle 60%: three JK outfits displayed in a diagonal collage – left: a girl in navy blazer+white shirt+gray skirt (sweet-cool), center: a girl in white sailor uniform+navy pleated skirt (gentle), right: a girl in cream knit vest+white T+caramel plaid skirt (lazy). Each small figure in dynamic poses, soft natural lighting. Bottom 20%: subtle wave pattern with tiny school supply icons (book, shoe, bow), plus Chinese text '总价约800-1200' and '学生党必备' in elegant serif. Overall fresh, youthful vibe, 5% margin all around. No dark colors.",
+    "image_prompts": [
+      {
+        "page_id": 1,
+        "prompt": "Xiaohongshu poster, vertical 3:4, info-graphic style. Include Chinese text labels, price tags, and titles visible on the image. Showing: 三套总览. Clean layout, professional, readable Chinese text."
+      },
+      {
+        "page_id": 2,
+        "prompt": "Portrait 3:4, dual view of a girl in sweet-cool navy JK. Left 50%: front standing pose, girl with shoulder-length hair and round face, wearing navy blazer+white shirt+gray pleated skirt, black thick-soled shoes. Right 50%: same girl from back-left 45°, showing skirt length and blazer waist cut. Top 10%: artistic Chinese word '甜酷' in graffiti style. Annotation lines pointing: blazer waist '收腰', skirt hem '裙长45cm', shoes '厚底+5cm'. Price tags: '西装约250', '衬衫约80', '裙子约150', '鞋子约200' in bottom-left corner. Pale blue-gray background, soft atmospheric light. 5% margin."
+      },
+      {
+        "page_id": 3,
+        "prompt": "Portrait 3:4, single figure of a gentle girl in sailor uniform. Girl with high ponytail, oval face, sitting sideways on a classroom desk. She holds her navy bow tie with left hand. White sailor uniform with navy stripe collar, navy pleated skirt falling naturally. Visible knee-high white socks and brown loafers. Background: soft classroom window light, warm beige walls. Top area: Chinese text '温柔学姐标配' in elegant handwritten font. Right side: price list '水手服约180', '裙子约120', '袜子鞋约250' in small white cards. 5% margin. Light beige base tone."
+      },
+      {
+        "page_id": 4,
+        "prompt": "Portrait 3:4, split layout with diagonal line. Left 55%: full-body girl with shoulder-length wavy hair, square face, sitting on a café chair. She wears cream knit vest over white T, caramel plaid skirt, and white sneakers. Right 45%: macro close-ups of knit texture (ribbed weave) and plaid pattern. Top-right corner: Chinese title '慵懒感满分' in casual brush font. Price tags: '背心约100', 'T恤约40', '裙子约130', '鞋子约150' along the diagonal. Background: light coffee cream with warm café bokeh. 5% margin."
+      },
+      {
+        "page_id": 5,
+        "prompt": "Portrait 3:4, hand-drawn annotation style on pure white background. Central area: three real-object photos arranged in a diagonal – top-left: navy bow tie with white circle and line leading to text '领结约30-50'. Center: white ruffled socks with annotation '袜子约20-40'. Bottom-right: canvas tote bag with '包包约60-100'. All objects have soft drop shadows. Bottom area: row of three smaller thumbnails of the same items. Minimalist, clean. Chinese title '配饰点睛' in top-left corner. 5% margin. No model."
+      },
+      {
+        "page_id": 6,
+        "prompt": "Portrait 3:4, before-after comparison. Left 50%: a girl (short hair, pear-shaped) wearing a long pleated skirt below knee (marked '差 裙长太长') making legs look shorter. Right 50%: same girl (or similar) wearing 42cm short skirt + thick-soled shoes with annotation '好 裙长42cm+厚底鞋'. Arrow from left to right labeled '细节决定比例' at bottom. Top includes Chinese text '显高技巧', '裙长42-45cm', '增高鞋垫+3-5cm'. Soft lavender background, warm lighting. 5% margin."
+      },
+      {
+        "page_id": 7,
+        "prompt": "Portrait 3:4, exploded view of a pleated skirt suspended in air. Central: skirt structure with arrows pointing to fabric sections. Left side: macro close-up of TR fabric with Chinese label '不易皱 推荐'. Right side: macro close-up of cotton fabric with label '易皱 避雷'. Between them: comparison arrow. Top: Chinese title '材质对比'. Bottom: '百褶裙选TR混纺 对格重要' in small text. Light gray background, clean studio lighting. 5% margin."
+      },
+      {
+        "page_id": 8,
+        "prompt": "Portrait 3:4, warm summary card. Background: soft peach gradient with subtle school doodles (books, cherries). Center: three small circular thumbnails of the three JK outfits (same as page1 but different poses). Below them: Chinese text '一起做青春美少女吧！' in festive font. Bottom: price summary '总花费约800-1200', recommended '首推绀色西装套'. Right corner: hand-drawn arrow and text '评论区晒照！'. Cozy vibe. 5% margin."
+      }
+    ],
+    "id": 1782209335442,
+    "at": "2026/6/23"
+  }
+]
