@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Sparkles, Copy, Check, RefreshCw, User, Zap, Image as Img, FileText, Hash, Clock, ArrowLeft, ArrowRight, Heart, Eye, LogIn, CreditCard, Bookmark, RotateCcw, ChevronRight, ExternalLink, Star, Target, Layers, MousePointerClick, ShieldCheck, Palette, Maximize2, Download, X, Loader2 } from "lucide-react";
+import NoteModal from './src/NoteModal.jsx';
 
 const _b=(n)=>new URL('/images/'+n,import.meta.url).href;
 const I={s1:_b('准备好了吗？.png'),s2:_b('视角挥手.png'),s3:_b('侧面行走.png'),s4:_b('坐着.png'),s5:_b('跳跃兴奋.png'),
@@ -16,27 +17,27 @@ const I={s1:_b('准备好了吗？.png'),s2:_b('视角挥手.png'),s3:_b('侧面
 
 const R="#FF4757",R2="#FF6B81",G="#7EC882",BG="#FFFAF9";
 
-const GALLERY=[{id:1,title:"反向旅游🔥这5个小县城比大理舒服100倍",cat:"旅游攻略",grad:"linear-gradient(135deg,#FF6B35,#F7C59F)",likes:3852,body:"谁懂啊！不去大理人挤人了，这5个小县城真的绝了\n📍 贵州黔东南·肇兴侗寨 人均300住3天\n📍 云南·芒市 东南亚风情满满的边境小城\n📍 福建·霞浦 摄影师天堂 日出美哭\n📍 浙江·松阳 最后的江南秘境\n📍 四川·西昌 邛海边的慢生活\n\n全部高铁可达周末就能出发\n物价感人100块吃一天不重样\n\n有问题评论区问我～点赞收藏不迷路👇\n#反向旅游 #小众旅行地 #小县城旅游 #周末去哪儿 #躺平旅行",tags:["#反向旅游","#小众旅行地","#小县城","#周末去哪儿","#旅行攻略"],hint:"反向旅游5个小县城"},{id:2,title:"拼多多30元以下好物🧧这8件真的物超所值",cat:"好物评测",grad:"linear-gradient(135deg,#FF61D2,#FE9090)",likes:2290,body:"PDD用了3年挖到的宝藏！全部30元以内\n🎯 手机支架 9.9元 追剧神器\n🎯 磁吸充电线 15元 再也不用插拔\n🎯 桌面收纳盒 12元 桌面瞬间整洁\n🎯 硅胶冰格 8元 夏天快乐水必备\n🎯 可撕美甲贴 6.8元 手残党福音\n\n每个都亲自用过的不好用来骂我\n#拼多多好物 #平价好物 #学生党 #省钱 #居家好物",tags:["#拼多多好物","#平价好物","#学生党","#省钱","#居家好物"],hint:"拼多多30元好物推荐"},{id:3,title:"社区咖啡店探店☕藏在小区里的神仙小店",cat:"美食探店",grad:"linear-gradient(135deg,#F97316,#FBBF24)",likes:4523,body:"小区楼下新开的咖啡店差点错过！\n☕ 招牌 Dirty 28元 一口惊艳\n🍰 巴斯克蛋糕 35元 不甜不腻刚刚好\n📸 每个角落都出片！胶片风装修\n📍 藏在老小区里导航到xx路再走3分钟\n\n店主是韩国回来的咖啡师\n自己烘焙的豆子风味太绝了\n#咖啡探店 #社区咖啡店 #小众咖啡 #上海探店 #周末去哪儿",tags:["#咖啡探店","#社区咖啡","#小众咖啡馆","#上海美食","#周末去哪"],hint:"小区宝藏咖啡店"},{id:4,title:"Clean Fit穿搭法则👔基础款也能穿出高级感",cat:"穿搭分享",grad:"linear-gradient(135deg,#EC4899,#8B5CF6)",likes:5103,body:"Clean Fit真的太适合普通人了！不用买大牌\n👕 上装必备：白T恤条纹衫衬衫选重磅面料\n👖 下装：直筒牛仔裤卡其裤阔腿西装裤\n👟 鞋子：德训鞋帆布鞋乐福鞋\n🎨 配色公式：黑白灰蓝卡其三色就够了\n\n全部基本款MUJI和优衣库搞定\n不挑身材不挑人干净就是最好的穿搭\n#CleanFit #穿搭公式 #基础款穿搭 #极简穿搭 #优衣库穿搭",tags:["#CleanFit","#穿搭公式","#基础款","#极简穿搭","#优衣库穿搭"],hint:"Clean Fit基础款穿搭"},{id:5,title:"2025年最值得买的AI工具合集🤖打工人必备",cat:"数码3C",grad:"linear-gradient(135deg,#3B82F6,#6366F1)",likes:3120,body:"用了半年AI工具这6个真的能提升效率\n🤖 DeepSeek 国产之光写作翻译代码都强\n🎨 Midjourney V7 做设计太方便了\n📝 Notion AI 写周报会议纪要神器\n📊 Gamma AI 做PPT只要5分钟\n🎵 Suno AI 音乐生成做视频BGM\n💻 Cursor 写代码比GitHub Copilot好用\n\n每个我都深度用过的不是标题党\n#AI工具 #效率神器 #打工人 #DeepSeek #AI",tags:["#AI工具","#效率神器","#打工人","#DeepSeek","#AI"],hint:"2025年值得买的AI工具"},{id:6,title:"考研英语85分｜我做了这5件事上岸985📚",cat:"学习干货",grad:"linear-gradient(135deg,#7C3AED,#A78BFA)",likes:6890,body:"英语一85分！我的方法真的适合基础差的\n📌 单词：不背单词APP每天200个用艾宾浩斯记忆法\n📌 阅读：唐迟方法论+真题逐句分析\n📌 完型：放弃！最后做随便选\n📌 作文：整理5个万能模板+高级替换词\n📌 翻译：每天精翻2个长难句\n\n坚持4个月从四级飘到85分\n别问来不来得及现在开始就是最早\n#考研英语 #考研 #上岸 #985 #学习经验",tags:["#考研英语","#考研","#上岸","#985","#学习经验"],hint:"考研英语85分方法"},{id:7,title:"300元爆改出租屋🛏️房东看了想涨房租",cat:"租房改造",grad:"linear-gradient(135deg,#38B2AC,#81E6D9)",likes:3421,body:"月租800的老破小300块改造后不想出门了\n🛏️ 床头罩+靠枕 50元 遮丑效果绝了\n💡 日落灯+串灯 40元 氛围感拉满\n📦 PDD收纳柜 80元 乱的东西全藏起来\n🏮 仿真绿植+花瓶 35元 生机感翻倍\n🪞 全身镜 60元 空间瞬间变大\n\n全部PDD买的退房时拆走不心疼\n#出租屋改造 #租房改造 #老破小改造 #独居 #氛围感",tags:["#出租屋改造","#租房改造","#老破小改造","#独居","#氛围感"],hint:"300元爆改出租屋"},{id:8,title:"精简护肤｜25岁后我只用这5样就够了🧴",cat:"美妆护肤",grad:"linear-gradient(135deg,#F472B6,#F9A8D4)",likes:4560,body:"以前护肤十几道工序现在精简到5步皮肤反而变好了\n🧼 洁面：氨基酸洁面晨间清水就够了\n💧 精华：VC早上+A醇晚上\n🧴 面霜：修护屏障的保湿霜就够了\n☀️ 防晒：每天都要涂！阴天也要\n\n精简半年痘痘少了皮肤反而更稳定\n别再被柜姐忽悠买一堆了\n#精简护肤 #护肤干货 #25岁护肤 #敏感肌 #早C晚A",tags:["#精简护肤","#护肤干货","#早C晚A","#敏感肌","#极简护肤"],hint:"精简护肤5样就够了"},{id:9,title:"上班族带饭🍱10分钟搞定的5道快手便当",cat:"一人食",grad:"linear-gradient(135deg,#F59E0B,#FCD34D)",likes:2310,body:"每天带饭上班省了1000块外卖钱\n📅 周一：照烧鸡腿饭 提前腌好早上煎一下\n📅 周二：蛋炒饭+炒时蔬 剩米饭拯救\n📅 周三：番茄意面 15分钟搞定\n📅 周四：咖喱鸡肉饭 一次做两天的量\n📅 周五：牛油果三明治 5分钟快手\n\n全部可以前一天晚上准备好\n早上10分钟装盒就能出门\n#上班族带饭 #便当 #一人食 #快手菜 #省钱",tags:["#上班族带饭","#便当","#一人食","#快手菜","#省钱"],hint:"上班族5天便当不重样"},{id:10,title:"居家普拉提30天变化🔥肚子小了腰围瘦了8cm",cat:"健身减肥",grad:"linear-gradient(135deg,#10B981,#6EE7B7)",likes:7340,body:"坚持30天居家普拉提真的会谢！\n📌 Week1：每天10分钟基础核心训练\n📌 Week2：15分钟腹部+臀部专项\n📌 Week3：20分钟全身燃脂\n📌 Week4：25分钟高强度进阶\n\n✅ 腰围从72到64cm\n✅ 体态肉眼可见变好\n✅ 肩颈酸痛也改善了\n\nB站搜普拉提跟练免费教程一堆\n跟着做就行不用去健身房\n#普拉提 #居家健身 #瘦腰 #减肥 #体态矫正",tags:["#普拉提","#居家健身","#瘦腰","#减肥","#体态矫正"],hint:"30天居家普拉提变化"},{id:11,title:"极简风客厅改造🪴只花了500块像换了套房",cat:"家居家装",grad:"linear-gradient(135deg,#8B5CF6,#A78BFA)",likes:2890,body:"出租屋客厅改造没砸墙没装修只靠软装\n🛋️ 沙发套换色 90元 灰色换米白瞬间变明亮\n📦 藤编收纳筐4个 60元 零碎全藏起来\n🪴 大号仿真绿植 80元 客厅有了呼吸感\n💡 落地灯 100元 取代顶部主灯\n🖼️ 装饰画2幅 50元 墙面不空了\n\n改造理念：留白比填满更重要\n#极简风 #客厅改造 #出租屋改造 #软装 #家居美学",tags:["#极简风","#客厅改造","#出租屋改造","#软装","#家居美学"],hint:"500元极简客厅改造"},{id:12,title:"2025国产剧天花板😭这5部熬夜追完了",cat:"影视推荐",grad:"linear-gradient(135deg,#EF4444,#FCA5A5)",likes:8910,body:"今年的国产剧也太能打了！每部都值得N刷\n🎬 1.《繁花》 王家卫拍电视剧真的降维打击\n🎬 2.《漫长的季节》悬疑剧天花板没有之一\n🎬 3.《我的阿勒泰》治愈到想去新疆定居\n🎬 4.《玫瑰的故事》刘亦菲真的美到发光\n🎬 5.《新生》井柏然演技炸裂反转不断\n\n你今年的top1是什么剧？评论区告诉我👇\n#国产剧 #好剧推荐 #豆瓣高分 #追剧 #2025好剧",tags:["#国产剧","#好剧推荐","#豆瓣高分","#追剧","#2025必看"],hint:"2025国产剧天花板"},{id:13,title:"裸辞后我做自媒体月入2w+🌟分享我的搞钱思路",cat:"职场干货",grad:"linear-gradient(135deg,#6366F1,#818CF8)",likes:10520,body:"35岁裸辞半年月收入反而比上班还高了\n\n✅ 搞钱思路1：知识付费\n把工作10年的经验做成课程定价99元\n卖了300+份纯利3w+\n\n✅ 搞钱思路2：自媒体\n在小红书分享行业干货3个月涨粉5w\n接广子+带货月均1.5w\n\n✅ 搞钱思路3：咨询服务\n1v1付费咨询299/小时每月接10个左右\n\n不是教你一夜暴富\n是想告诉你上班不是唯一的路\n#裸辞 #副业 #搞钱 #自媒体 #自由职业",tags:["#裸辞","#副业","#搞钱","#自媒体","#自由职业"],hint:"裸辞搞钱月入2万"},{id:14,title:"写给30岁的自己📮谢谢你没有放弃",cat:"情感共鸣",grad:"linear-gradient(135deg,#EC4899,#F472B6)",likes:14520,body:"30岁这年我想对自己说：\n\n1. 谢谢你没有在至暗时刻放弃\n2. 那些以为过不去的坎现在看都是铺垫\n3. 不用和别人比较你走的是自己的路\n4. 爸妈的白发越来越多了多回家吧\n5. 朋友不在多三五个知心的就够了\n6. 学会拒绝后生活轻松了十倍\n7. 存钱不是为了买房是为了有说「不」的底气\n8. 孤独不可怕假热闹才是消耗\n9. 身体是1其他都是0\n10. 30岁你比25岁更好了\n\n送给所有正在20+挣扎的朋友\n你们已经很棒了❤️\n#30岁 #写给自己的话 #成长 #治愈 #人生感悟",tags:["#30岁","#写给自己的话","#成长","#治愈","#人生感悟"],hint:"写给30岁的自己"},];
-const QUICK_HINTS=["🏘️ 反向旅游5个小县城","🧧 拼多多30元好物","☕ 小区宝藏咖啡店","👔 Clean Fit基础穿搭","🤖 2025AI工具合集","📚 考研英语85分方法","🛏️ 300元出租屋改造","🧴 精简护肤5样就够了","🍱 上班族5天便当","💪 30天普拉提变化","🪴 极简客厅500元改造","🎬 2025国产剧天花板","🌟 裸辞月入2万","📮 写给30岁的自己"];
-const PRICING=[{name:"入门",price:18,sets:7,regen:3,desc:"适合偶尔创作",per:"2.6"},{name:"进阶",price:42,sets:20,regen:5,pop:true,desc:"个人博主首选",per:"2.1"},{name:"创作者",price:78,sets:45,regen:8,desc:"高频创作者",per:"1.7"},{name:"工作室",price:148,sets:100,regen:"不限",desc:"团队批量使用",per:"1.5"},];
+const API='http://localhost:3099';
+const proxyImg = (url)=>url?API+'/api/proxy-image?url='+encodeURIComponent(url):'';
+const _IMG=(id,file)=>API+'/api/gallery-image?id='+id+'&file='+file;
+const GALLERY=[{id:'xm',title:'熬夜总结🔥厦门3天2夜精华攻略！人均800+玩到爽！',cat:'旅游攻略',grad:'linear-gradient(135deg,#FF6B35,#F7C59F)',likes:3890,body:'谁懂啊！之前去厦门玩三天两夜，回来被问了800遍攻略！今天熬夜帮各位总结好，人均800左右就能玩得超满足～\n\n✅行程概览\nD1：鼓浪屿全天（日光岩、菽庄花园、龙头路小吃）\nD2：厦门大学+南普陀寺+沙坡尾艺术西区+猫街\nD3：黄厝沙滩日出+曾厝垵+环岛路骑行\n\n💰预算清单（人均）\n交通：约200（高铁+岛内公交）\n住宿：约300（两晚民宿，提前订）\n门票：约80（鼓浪屿船票+日光岩）\n美食：约220（沙茶面、海蛎煎、姜母鸭等）\n总计：约800起，丰俭由人\n\n⚠️实用Tips\n1️⃣ 鼓浪屿船票提前3天在「厦门轮渡」公众号买，人多时秒没！\n2️⃣ 厦大需预约，周末难约，建议工作日去。\n3️⃣ 曾厝垵小吃不踩雷推荐：阿杰五香、八婆婆烧仙草。\n4️⃣ 环岛路租电动车约30元/小时，吹海风超舒服～\n\n家人们，赶紧存下来，周末就出发！一起看海吃沙茶面！🌊',tags:['#厦门旅游','#厦门攻略','#旅游攻略','#3天2夜','#人均800'],hint:'厦门旅游攻略',cover_url:_IMG('xm','01-封面.png'),image_urls:[2,3,4,5,6,7,8,9].map(n=>_IMG('xm','0'+n+'.png'))},{id:'ep',title:'实测5款百元蓝牙耳机🔥闭眼入不踩雷',cat:'好物评测',grad:'linear-gradient(135deg,#3B82F6,#6366F1)',likes:2290,body:'家人们谁懂啊！想买个百元蓝牙耳机看花眼？我帮你实测了5款热门款，直接抄作业！\n\n🎧 漫步者X2：约100元，音质均衡，续航6小时，佩戴舒适，入门首选。\n🎧 小米Air2 SE：约120元，低音强劲，触控灵敏，适合听流行。\n🎧 绿联HiTune：约90元，续航7小时，降噪意外好，性价比炸裂。\n🎧 倍思WM01：约80元，半入耳设计，通话清晰，适合运动。\n🎧 网易云蓝牙耳机：约110元，外观潮，音质中规中矩，适合颜控。\n\n总结：百元价位首选漫步者X2，预算紧张选倍思WM01。快艾特你的冤种闺蜜一起抄作业！',tags:['#蓝牙耳机推荐','#百元耳机','#数码好物','#学生党必备'],hint:'百元蓝牙耳机推荐',cover_url:_IMG('ep','01-封面.png'),image_urls:[2,3,4,5,6,7,8,9].map(n=>_IMG('ep','0'+n+'.png'))},{id:'crab',title:'人均80吃帝王蟹🦀？这家大排档也太狠了吧！',cat:'美食探店',grad:'linear-gradient(135deg,#F97316,#FBBF24)',likes:4523,body:'谁懂啊！以前总觉得海鲜大排档又贵又坑，结果被闺蜜拉去吃了一顿，直接刷新认知😱！人均才80左右，就能炫到整只帝王蟹，还有各种鲜活海鲜，性价比炸裂！\n\n🦀【招牌帝王蟹】\n整只清蒸或避风塘做法，肉质鲜甜Q弹，蟹黄满满！一份约4斤，足够3-4人吃，单点价格约280元，人均才70多！\n\n🦐【椒盐皮皮虾】\n只只带膏，椒盐味超香，外壳酥脆，肉质紧实。一份约68元，必点！\n\n🦪【蒜蓉烤生蚝】\n现开现烤，蒜蓉酱调得绝了，生蚝肥美多汁。一打约58元，性价比超高！\n\n🔥【避风塘炒蟹】\n如果帝王蟹吃腻了，还可以点避风塘炒蟹，香辣入味，锅气十足，一份约128元。\n\n💡【省钱Tips】\n建议下午4点前到店，有早鸟折扣；人多点套餐更划算，人均约80-100元就能吃到撑！还有免费停车位哦～\n\n快艾特你的饭搭子，周末去这家大排档实现海鲜自由吧！🦀✨',tags:['#海鲜大排档','#帝王蟹','#人均80','#美食探店','#性价比海鲜'],hint:'帝王蟹探店推荐',cover_url:_IMG('crab','01-封面.png'),image_urls:[2,3,4,5,6,7,8,9].map(n=>_IMG('crab','0'+n+'.png'))},];
+const QUICK_HINTS=["📍厦门3天2夜旅游攻略","🎧百元蓝牙耳机测评","🦀海鲜大排档人均80吃帝王蟹","🎀JK穿搭分享","🤖最新AI工具推荐合集","📚考研英语85分方法","🛏️300元出租屋改造攻略","🧴25岁精简护肤步骤","🍱上班族5天带饭食谱","🏋️30天居家普拉提计划","🪴500元极简客厅改造","🎬2026必看国产剧推荐","💰裸辞做自媒体搞钱思路","📖改变认知的6本好书推荐"];
+const PRICING=[{name:"入门",price:19,sets:6,regen:3,desc:"适合偶尔创作",per:"3.2"},{name:"进阶",price:49,sets:18,regen:5,pop:true,desc:"个人博主首选",per:"2.7"},{name:"创作者",price:89,sets:38,regen:8,desc:"高频创作者",per:"2.3"},{name:"工作室",price:169,sets:80,regen:15,desc:"团队批量使用",per:"2.1"},];
 const TIPS=["标题带数字的笔记，点击率平均高出47%","发布时间建议：周四/周五晚上8-9点","正文前3行决定80%用户是否继续阅读","每篇笔记建议5-7个精准标签","封面图配色统一度直接影响账号调性","评论区互动率高的笔记更容易被推荐","带价格的种草笔记收藏率高出60%","干货笔记的生命周期比日常分享长3倍","小红书流量池推荐机制最多有8层","视频笔记平均互动率比图文高23%","首图加文字标签的笔记收藏率高35%","互动数据好的笔记会被推荐到更大流量池","真诚的标题比夸张的标题更受平台推荐","9张配图比单张图片完播率高2倍","笔记发布后1小时内是流量关键期","合适的发布时间能让曝光翻倍","正文前3行一定要吸引人否则用户直接划走","带定位的探店笔记曝光率高出50%","有对比的干货笔记更容易被收藏","用提问式结尾能提升评论区互动率"];
 const CHAR_CYCLE=["ready","wave","walk","stand","jump","sit","meditate","cook","success","curator","analyze","surf","superhero","paint","dance","welcome","lift","inspect","upgrade"];
-const STAGES=[{img:"s1",label:"研读素材",desc:"小薯包正在认真分析你的内容..."},{img:"s2",label:"撰写文案",desc:"灵感爆发！正在打磨爆款文案"},{img:"s3",label:"生成配图",desc:"正在精心绘制第 {n}/9 张图片"},{img:"s4",label:"质量检查",desc:"最后检查一下，确保每张都完美"},{img:"s5",label:"打包完成",desc:"搞定！你的爆款图文来啦"},];
+const STAGES=[{img:"s1",label:"研读素材",desc:"小薯包正在认真分析你的内容..."},{img:"s2",label:"撰写文案",desc:"灵感爆发！正在打磨爆款文案"},{img:"s3",label:"生成配图",desc:"正在精心绘制第 {n}/9 张图片"},{img:"s4",label:"品质优化",desc:"正在精修图片细节，确保每一张都精致出彩"},{img:"s5",label:"打包完成",desc:"搞定！你的爆款图文来啦"},];
 const FEATURES=[{icon:Target,title:"智能识别赛道",desc:"粘贴任意素材，AI自动判断旅游、美食、好物等最佳内容策略，不需要手动选择"},{icon:Zap,title:"爆款公式驱动",desc:"内置数字结果式、反差痛点式等经过验证的爆款标题和正文公式"},{icon:Layers,title:"9张完整配图",desc:"1张封面+8张内容页，带拼图排版和文字标注，下载即可发布"},{icon:RotateCcw,title:"单张可重新生成",desc:"对某张图不满意？单独刷新这一张，不浪费整套额度"},{icon:MousePointerClick,title:"一键复制文案",desc:"标题、正文、标签分别复制或一键全部复制，打开小红书直接粘贴发布"},{icon:ShieldCheck,title:"按套计费不套路",desc:"用多少买多少，不搞自动续费，新用户免费体验1套"},];
-
-const API='http://localhost:3099';
-
 /* ═══════ API ═══════ */
-async function genAPI(t){try{const r=await fetch(API+"/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});if(r.ok)return await r.json();const errText=await r.text().catch(()=>r.statusText);throw new Error(errText.slice(0,200));}catch(e){throw new Error("生成失败："+e.message);}}
+async function genAPI(t,onImg,onProg){const r=await fetch(API+"/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});if(!r.ok){const e=await r.text().catch(()=>r.statusText);throw new Error(e.slice(0,200));}const reader=r.body.getReader();const dec=new TextDecoder();let buf="";const result={cover_url:"",image_urls:[]};while(true){const{done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const lines=buf.split(String.fromCharCode(10));buf=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;try{const d=JSON.parse(line.slice(6));if(d.type==="progress"&&onProg)onProg(d);else if(d.type==="image"){if(d.id==="cover")result.cover_url=d.url;else if(d.url)result.image_urls.push(d.url);if(onImg)onImg(d);}else if(d.type==="complete"){Object.assign(result,d);result.image_count=d.image_urls?.length||0;}else if(d.type==="error")throw new Error(d.error||"生成失败");}catch(e){}}}return result;}
 
 /* ═══════ STORAGE ═══════ */
-async function saveWork(w){try{await fetch(API+"/api/save-work",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({work:w})});}catch(e){console.warn("saveWork error:",e.message);}}
-async function loadWorks(){try{const r=await fetch(API+"/api/works");if(r.ok)return await r.json();}catch(e){console.warn("loadWorks error:",e.message);}return[];}
+async function saveWork(w){try{var local=JSON.parse(localStorage.getItem("sb-works")||"[]");local.unshift({...w,id:Date.now(),at:new Date().toLocaleDateString("zh-CN")});localStorage.setItem("sb-works",JSON.stringify(local.slice(0,50)));}catch(e){}try{var r=await fetch(API+"/api/save-work",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({work:w})});if(!r.ok)console.warn("saveWork server:",r.status);else{var j=await r.json();console.log("saveWork: server saved",j.count,"works");}}catch(e){console.warn("saveWork:",e.message);try{await new Promise(function(r){return setTimeout(r,500);});var r2=await fetch(API+"/api/save-work",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({work:w})});if(r2.ok)console.log("saveWork: retry ok");else console.warn("saveWork retry:",r2.status);}catch(e2){console.warn("saveWork retry:",e2.message);}}}
+async function loadWorks(){try{const r=await fetch(API+"/api/works");if(r.ok){var d=await r.json();try{var local=JSON.parse(localStorage.getItem("sb-works")||"[]");var seenKeys=new Set(d.map(function(x){return x._saveKey;}));var missing=local.filter(function(x){return x._saveKey&&!seenKeys.has(x._saveKey);});if(missing.length>0){d=[...missing,...d].slice(0,50);}}catch(e){}try{localStorage.setItem("sb-works",JSON.stringify(d));}catch(e){}return d;}}catch(e){console.warn("loadWorks:",e.message);}try{return JSON.parse(localStorage.getItem("sb-works")||"[]");}catch(e){}return[];}
 async function getPts(){try{return parseInt(localStorage.getItem("sb-p")||"1");}catch{return 1;}}
 async function setPts(n){try{localStorage.setItem("sb-p",String(n));}catch{}}
 
 /* ═══════ UI ATOMS ═══════ */
-const s={card:{background:"#fff",borderRadius:16,border:"1px solid #f0f0f0",overflow:"hidden"},cardP:{background:"#fff",borderRadius:16,border:"1px solid #f0f0f0",padding:"20px 22px"},section:{maxWidth:800,margin:"0 auto",padding:"40px 20px"},sectionTitle:{fontSize:22,fontWeight:700,textAlign:"center",margin:"0 0 6px"},sectionSub:{fontSize:13,color:"#999",textAlign:"center",margin:"0 0 28px"}};
+const s={card:{background:"#fff",borderRadius:16,border:"1px solid #f0f0f0",overflow:"hidden"},cardP:{background:"#fff",borderRadius:16,border:"1px solid #f0f0f0",padding:"20px 22px"},section:{maxWidth:800,margin:"0 auto",padding:"40px 20px"},sectionTitle:{fontSize:22,fontWeight:700,textAlign:"center",margin:"0 0 6px",fontFamily:"'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif"},sectionSub:{fontSize:13,color:"#999",textAlign:"center",margin:"0 0 28px"}};
 
 function Btn({children,primary,small,onClick,disabled,full,sx={}}){const[h,setH]=useState(false);return <button style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:7,border:primary?"none":"1px solid #e8e8e8",borderRadius:small?8:12,fontSize:small?12:15,fontWeight:600,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",transition:"all 0.2s",transform:h&&!disabled?"translateY(-1px)":"none",padding:small?"6px 14px":"13px 28px",width:full?"100%":"auto",background:primary?(disabled?"#FFB3BD":R):(h?"#f8f8f8":"#fff"),color:primary?"#fff":"#555",boxShadow:primary&&h&&!disabled?"0 6px 24px rgba(255,71,87,0.25)":"none",...sx}} onClick={onClick} disabled={disabled} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}>{children}</button>;}
 
@@ -53,23 +54,27 @@ function CharImg({ src, alt = '', style = {}, margin, filter }) {
 function Modal({children,onClose}){return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(6px)",animation:"fadeIn 0.15s"}} onClick={onClose}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:"36px 30px",width:400,maxWidth:"92vw",animation:"slideUp 0.25s ease",maxHeight:"90vh",overflow:"auto"}}>{children}</div></div>;}
 
 /* ═══════ ZIP DOWNLOAD ═══════ */
-async function downloadZip(coverUrl,imageUrls,title){
+async function downloadZip(coverUrl,imageUrls,title,bodyText,hashtags){
   if(!coverUrl&&!imageUrls?.length)return alert("暂无图片可下载");
   try{
     const JSZip=(await import('jszip')).default;
     const zip=new JSZip();
     const all=[coverUrl,...(imageUrls||[])].filter(Boolean);
     let ok=0;
-    for(let i=0;i<all.length;i++){
-      try{
-        const resp=await fetch(API+"/api/proxy-image?url="+encodeURIComponent(all[i]));
-        if(!resp.ok)continue;
-        const blob=await resp.blob();
-        const name=i===0?"01-封面":"0"+(i+1);
-        zip.file(name+".png",blob);
-        ok++;
-      }catch(e){}
+    // 加入文章文本文件
+    if(bodyText||title){
+      var textContent = (title||'') + '\n\n' + (bodyText||'') + '\n\n' + ((hashtags||[]).join(' '));
+      zip.file("00-文章内容.txt", textContent);
     }
+    const results=await Promise.all(all.map(async function(url,i){
+      try{
+        const resp=await fetch(API+"/api/proxy-image?url="+encodeURIComponent(url));
+        if(!resp.ok)return null;
+        const blob=await resp.blob();
+        return{name:i===0?"01-封面":"0"+(i+1),blob};
+      }catch(e){return null;}
+    }));
+    results.forEach(function(r){if(r){zip.file(r.name+".png",r.blob);ok++;}});
     if(!ok)return alert("下载失败，图片可能已过期");
     const content=await zip.generateAsync({type:"blob"});
     const link=document.createElement("a");
@@ -85,7 +90,7 @@ function ResultDisplay({result,logged,onLogin,onPrice,loginModal,priceModal,text
   const [imgIdx,setImgIdx]=useState(0);
   const [zoom,setZoom]=useState(null);
   const [rgIdx,setRgIdx]=useState(null); // which image is regenerating
-  const allImages=useMemo(()=>{const a=[];if(result?.cover_url)a.push(result.cover_url);if(result?.image_urls)a.push(...result.image_urls);return a;},[result]);
+  const allImages=useMemo(()=>{const a=[];if(result?.cover_url)a.push(proxyImg(result.cover_url));if(result?.image_urls)a.push(...result.image_urls.map(u=>proxyImg(u)));return a;},[result]);
   const pages=result?.pages||[];
   const curPage=pages[imgIdx]||pages[0]||{};
   const maxI=allImages.length;
@@ -153,20 +158,20 @@ function ResultDisplay({result,logged,onLogin,onPrice,loginModal,priceModal,text
     </div>}
 
     {/* LOGIN BANNER */}
-    {!logged&&<div style={{background:"linear-gradient(135deg,#FFE0E4,#FFF0F2)",borderRadius:0,padding:"10px 18px",display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>
+    {!logged&&<div style={{display:"none"}}>
       <span style={{fontSize:13,color:"#333"}}>登录即可把作品保存到「我的作品」</span>
       <Btn small onClick={onLogin} sx={{background:R,color:"#fff",border:"none",whiteSpace:"nowrap"}}><LogIn size={12}/>登录</Btn>
     </div>}
 
     {/* TOP NAV */}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 20px",borderBottom:"1px solid #f0f0f0",background:"#fff"}}>
+    <div style={{display:"none"}}>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <Btn small onClick={()=>{setGen("idle");setResult(null);}}><ArrowLeft size={14}/> 返回</Btn>
         <span style={{fontSize:12,background:"#FFF1F3",color:R,padding:"4px 12px",borderRadius:20,fontWeight:600}}>{result.category}</span>
         <span style={{fontSize:11,color:"#999"}}>{result.audience||''}{result.tip?(' · '+result.tip):''}</span>
       </div>
       <div style={{display:"flex",gap:6}}>
-        <Btn small onClick={()=>downloadZip(result.cover_url,result.image_urls,result.title)} sx={{background:"#f8f8f8",color:"#555",border:"none"}}><Download size={12}/> 下载图片</Btn>
+        <Btn small onClick={()=>downloadZip(result.cover_url,result.image_urls,result.title,result.body_text,result.hashtags)} sx={{background:"#f8f8f8",color:"#555",border:"none"}}><Download size={12}/> 下载图片</Btn>
       </div>
     </div>
 
@@ -176,20 +181,37 @@ function ResultDisplay({result,logged,onLogin,onPrice,loginModal,priceModal,text
         {/* LEFT: IMAGE */}
         <div style={{flex:"0 0 auto",position:"relative",width:"50%",maxWidth:420}}>
           <div style={{position:"relative",borderRadius:12,overflow:"hidden",background:"#f5f5f5",boxShadow:"0 4px 20px rgba(0,0,0,0.06)"}}
-            onMouseEnter={e=>{const a=e.currentTarget.querySelector('.nav-arrows');if(a)a.style.opacity='1';}}
-            onMouseLeave={e=>{const a=e.currentTarget.querySelector('.nav-arrows');if(a)a.style.opacity='0';}}>
+            onMouseEnter={function(e){e.currentTarget.querySelectorAll('.xhs-nav').forEach(function(b){b.style.opacity='1'})}}
+            onMouseLeave={function(e){e.currentTarget.querySelectorAll('.xhs-nav').forEach(function(b){b.style.opacity='0'})}}>
             {/* IMAGE */}
-            {allImages[imgIdx]?<img src={allImages[imgIdx]} alt="" style={{width:"100%",display:"block",cursor:"pointer",aspectRatio:"3/4",objectFit:"cover"}} onClick={()=>setZoom(allImages[imgIdx])}/>:<div style={{width:"100%",aspectRatio:"3/4",display:"flex",alignItems:"center",justifyContent:"center",color:"#ccc",fontSize:13}}>暂无图片</div>}
+            {allImages[imgIdx]?<><img src={allImages[imgIdx]} alt="" style={{width:"100%",display:"block",cursor:"pointer",aspectRatio:"3/4",objectFit:"cover"}} onClick={()=>setZoom(allImages[imgIdx])}/>
+            {/* 文字叠加层 */}
+            {(()=>{
+              const p = imgIdx===0 ? {title:result.title, hook:result.category} : (pages[imgIdx-1]||{});
+              return <>
+                {/* 顶部标题 */}
+                {p?.title ? <div style={{position:"absolute",top:0,left:0,right:0,padding:"14px 14px 40px",background:"linear-gradient(180deg,rgba(0,0,0,0.65) 0%,transparent 100%)",color:"#fff",fontSize:15,fontWeight:700,lineHeight:1.5,textShadow:"0 2px 8px rgba(0,0,0,0.4)",pointerEvents:"none",zIndex:3}}>{p.title}</div> : null}
+                {/* 中部信息标签 */}
+                {imgIdx>0 && p?.info_blocks?.length>0 ? <div style={{position:"absolute",bottom:44,left:0,right:0,padding:"8px 12px",display:"flex",flexWrap:"wrap",gap:4,pointerEvents:"none",zIndex:3}}>
+                  {p.info_blocks.slice(0,4).map((b,i)=>(
+                    <span key={i} style={{background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#fff",lineHeight:1.6}}>{b.label}: <strong>{b.value}</strong></span>
+                  ))}
+                </div> : null}
+                {/* 底部钩子 */}
+                {p?.hook ? <div style={{position:"absolute",bottom:8,left:0,right:0,padding:"4px 14px",color:"#ffd700",fontSize:11,fontStyle:"italic",textShadow:"0 1px 6px rgba(0,0,0,0.5)",pointerEvents:"none",textAlign:"center",zIndex:3}}>{p.hook}</div> : null}
+              </>;
+            })()}
+            </>:<div style={{width:"100%",aspectRatio:"3/4",display:"flex",alignItems:"center",justifyContent:"center",color:"#ccc",fontSize:13}}>暂无图片</div>}
 
             {/* HOVER ARROWS */}
-            <div className="nav-arrows" style={{position:"absolute",top:0,left:0,right:0,bottom:0,opacity:0,transition:"opacity 0.2s",pointerEvents:"none"}}>
+            <div className="xhs-nav" style={{position:"absolute",top:0,left:0,right:0,bottom:0,opacity:0,transition:"opacity 0.2s",pointerEvents:"none"}}>
               {imgIdx>0&&<button style={{position:"absolute",left:6,top:"50%",transform:"translateY(-50%)",pointerEvents:"auto",width:32,height:32,borderRadius:"50%",background:"rgba(255,255,255,0.9)",border:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"#555",transition:"all .15s"}} onMouseEnter={e=>e.currentTarget.style.background="#fff"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.9)"} onClick={()=>setImgIdx(i=>i-1)}>{'‹'}</button>}
               {imgIdx<maxI-1&&<button style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",pointerEvents:"auto",width:32,height:32,borderRadius:"50%",background:"rgba(255,255,255,0.9)",border:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"#555",transition:"all .15s"}} onMouseEnter={e=>e.currentTarget.style.background="#fff"} onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.9)"} onClick={()=>setImgIdx(i=>i+1)}>{'›'}</button>}
             </div>
 
             {/* REGEN SINGLE BUTTON */}
             <button onClick={(e)=>{e.stopPropagation();regenSingle(imgIdx);}} disabled={rgIdx===imgIdx} style={{position:"absolute",left:8,bottom:8,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)",border:"none",borderRadius:8,padding:"5px 10px",color:"#fff",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:4,transition:"background .2s",zIndex:5}} onMouseEnter={e=>e.currentTarget.style.background="rgba(0,0,0,0.7)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(0,0,0,0.55)"}>
-              {rgIdx===imgIdx?<><Loader2 size={11} className="spin"/> 刷新中...</>:<><RefreshCw size={11}/> 重新生成单张</>}
+              {rgIdx===imgIdx?<><Loader2 size={11} className="spin"/> 刷新中...</>:<><RefreshCw size={11}/> 重生成</>}
             </button>
 
             {/* PAGE COUNTER */}
@@ -208,33 +230,33 @@ function ResultDisplay({result,logged,onLogin,onPrice,loginModal,priceModal,text
 
         {/* RIGHT: TEXT CONTENT */}
         <div style={{flex:1,minWidth:0}}>
-          {/* TITLE */}
+          {/* CREATOR */}<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><img src={I.appicon} alt="" style={{width:34,height:34,borderRadius:"50%",objectFit:"cover",flex:"0 0 auto"}}/><div><div style={{fontSize:13,fontWeight:600,color:"#222"}}>薯包AI</div><div style={{fontSize:11,color:"#999"}}>AI创作 · 一键生成</div></div><span style={{marginLeft:"auto",fontSize:11,color:"#888",background:"#f5f5f5",padding:"3px 10px",borderRadius:20}}>{result.category||""}</span></div>{/* TITLE */}
           <div style={{...s.cardP,marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-              <h2 style={{fontSize:18,fontWeight:800,color:R,margin:0,lineHeight:1.4}}>{result.title}</h2>
-              <CopyBtn text={result.title} label="复制标题"/>
+              <h2 style={{fontSize:18,fontWeight:700,color:"#222",margin:0,lineHeight:1.5}}>{result.title}</h2>
+              <span style={{display:"none"}}/>
             </div>
           </div>
 
           {/* CURRENT PAGE */}
           {curPage.page_type==='cover'?<div style={{...s.cardP,marginBottom:12}}>
-            <div style={{fontSize:11,color:"#bbb",marginBottom:6,fontWeight:600}}>📌 封面</div>
+            <div style={{display:"none"}}>📌 封面</div>
             <div style={{fontSize:15,fontWeight:700,color:"#333",marginBottom:4}}>{curPage.hook||curPage.title}</div>
             {curPage.text&&<div style={{fontSize:13,color:"#666",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{curPage.text}</div>}
             <div style={{marginTop:8,fontSize:12,color:"#999",lineHeight:1.6}}><strong>排版提示：</strong>{curPage.layout_hint||curPage.story||'—'}</div>
           </div>:<div style={{...s.cardP,marginBottom:12}}>
-            <div style={{fontSize:11,color:"#bbb",marginBottom:6,fontWeight:600}}>📄 P{curPage.page_id||(imgIdx+1)} {curPage.emoji||''}</div>
+            <div style={{display:"none"}}>📄 P{curPage.page_id||(imgIdx+1)} {curPage.emoji||''}</div>
             <div style={{fontSize:16,fontWeight:700,color:"#333",marginBottom:6}}>{curPage.title}</div>
             {curPage.hook&&<div style={{fontSize:13,color:R,background:"#FFF1F3",padding:"6px 12px",borderRadius:8,marginBottom:8,display:"inline-block",fontWeight:500}}>{curPage.hook}</div>}
             <div style={{fontSize:13,color:"#555",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{curPage.text||curPage.story||''}</div>
-            {curPage.info_blocks?.length>0&&<div style={{marginTop:8,padding:10,background:"#FAFAFA",borderRadius:10,fontSize:12,lineHeight:1.7,color:"#888"}}>{curPage.info_blocks.map((b,i)=><div key={i}>{b}</div>)}</div>}
+            {curPage.info_blocks?.length>0&&<div style={{display:"none"}}></div>}
           </div>}
 
           {/* TAGS */}
           <div style={{...s.cardP,marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <span style={{fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:5}}><Hash size={14} color={R}/>标签</span>
-              <CopyBtn text={(result.hashtags||[]).join(" ")} label="复制全部"/>
+              <span style={{display:"none"}}/>
             </div>
             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{(result.hashtags||[]).map((h,i)=><span key={i} style={{fontSize:12,color:R,background:"#FFF1F3",padding:"4px 12px",borderRadius:20,fontWeight:500}}>{h}</span>)}</div>
           </div>
@@ -249,15 +271,15 @@ function ResultDisplay({result,logged,onLogin,onPrice,loginModal,priceModal,text
 
           {/* ACTION BUTTONS */}
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <Btn small onClick={textRegen} sx={{background:"#fff",color:R,border:"1.5px solid "+R,fontSize:12}}><RefreshCw size={12}/> 重新生成文章</Btn>
-            <Btn small onClick={()=>{navigator.clipboard?.writeText(result.title+"\n\n"+result.body_text+"\n\n"+(result.hashtags||[]).join(" ")).catch(()=>{});}} sx={{background:R,color:"#fff",border:"none",fontSize:12}}><Copy size={12}/> 一键复制全部</Btn>
-            <Btn small onClick={()=>{setGen("idle");setResult(null);}} sx={{fontSize:12}}><RotateCcw size={12}/> 新生成</Btn>
+            <Btn small onClick={textRegen} sx={{background:"#fff",color:R,border:"1.5px solid "+R,fontSize:12}}><RefreshCw size={12}/> 重新生成文案</Btn>
+            <Btn small onClick={()=>{navigator.clipboard?.writeText(result.title+"\n\n"+result.body_text+"\n\n"+(result.hashtags||[]).join(" ")).catch(()=>{});}} sx={{background:R,color:"#fff",border:"none",fontSize:12}}><span style={{display:"none"}}/></Btn>
+            <Btn small onClick={()=>{setGen("idle");setResult(null);}} sx={{display:"none"}}></Btn>
           </div>
         </div>
       </div>
 
       {/* PAGE NAV — grid of all pages */}
-      <div style={{marginTop:20,display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:6}}>
+      <div style={{display:"none"}}>
         {pages.map((pg,i)=>(
           <div key={i} onClick={()=>setImgIdx(i)} style={{padding:"8px 4px",borderRadius:10,border:imgIdx===i?"2px solid "+R:"1.5px solid #f0f0f0",cursor:"pointer",background:imgIdx===i?"#FFF8F9":"#FAFAFA",textAlign:"center",transition:"all .15s"}}>
             <div style={{fontSize:16,marginBottom:2}}>{pg.emoji||'📄'}</div>
@@ -279,7 +301,7 @@ function GCard({item,onClick}){const[h,setH]=useState(false);return <Card hover 
     {h&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.25)",display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeIn 0.15s"}}><span style={{background:"rgba(255,255,255,0.95)",color:R,fontSize:12,fontWeight:600,padding:"8px 18px",borderRadius:10,display:"flex",alignItems:"center",gap:5,boxShadow:"0 4px 12px rgba(0,0,0,0.1)"}}><Eye size={13}/>查看全套内容</span></div>}
   </div>
   <div style={{padding:"12px 14px"}}>
-    <div style={{fontSize:13,fontWeight:600,lineHeight:1.5,marginBottom:6,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{item.title}</div>
+    <div style={{fontSize:13,fontWeight:600,lineHeight:1.5,marginBottom:6,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",fontFamily:"'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif"}}>{item.title}</div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:10,color:"#ccc",display:"flex",alignItems:"center",gap:3}}><Heart size={10}/>{item.likes}</span><span style={{fontSize:9,color:"#e0e0e0",fontStyle:"italic"}}>薯包AI出品</span></div>
   </div>
 </Card>;}
@@ -296,6 +318,19 @@ export default function App(){
   const[result,setResult]=useState(null);
   const[works,setWorks]=useState([]);
   const[pts,setPtsS]=useState(1);
+  const[regenState,setRegenState]=useState({active:false,msg:''});
+  const lastWorkIdRef=useRef('');
+  useEffect(function(){if(result?._inputText)lastWorkIdRef.current=result._inputText;},[result?._inputText]);
+  // Floating regen indicator (DOM direct — survives early returns & modal close)
+  useEffect(function(){
+    var el=document.getElementById('__regen_bar');
+    if(!el){el=document.createElement('div');el.id='__regen_bar';document.body.appendChild(el);}
+    if(regenState.active){
+      el.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;background:#1a1a2e;color:#fff;padding:12px 24px;border-radius:14px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.25);animation:fadeIn .2s';
+      el.innerHTML='<span style="width:16px;height:16px;border:2.5px solid rgba(255,255,255,0.25);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;flex-shrink:0"></span>'+regenState.msg+'<span style="font-size:11;color:rgba(255,255,255,0.5);margin-left:4px">生成完成后自动更新</span>';
+      el.style.display='flex';
+    } else { el.style.display='none'; }
+  },[regenState.active,regenState.msg]);
   const[tipIdx,setTipIdx]=useState(0);
   const[aPg,setAPg]=useState(null);
   const[gItem,setGItem]=useState(null);
@@ -307,21 +342,52 @@ export default function App(){
   useEffect(()=>{loadWorks().then(setWorks);getPts().then(setPtsS);},[]);
   useEffect(()=>{if(gen==="loading"){const t=setInterval(()=>setTipIdx(i=>(i+1)%TIPS.length),4000);return()=>clearInterval(t);}},[gen]);
   useEffect(()=>{if(gen!=="loading"){const t=setInterval(()=>setCarouselIdx(i=>(i+1)%QUICK_HINTS.length),3000);return()=>clearInterval(t);}},[gen]);
+  // 切换到"我的作品"页时自动加载最新数据
+  useEffect(()=>{if(pg==="works")loadWorks().then(setWorks);},[pg]);
 
   const doGen=async()=>{if(!text.trim())return;
     if(!logged&&freeUsed.current){setShowLogin(true);return;}
     if(pts<=0&&logged){setShowPrice(true);return;}
     setGen("loading");setErr("");setStage(0);setResult(null);tm.current.forEach(clearTimeout);
     tm.current=[setTimeout(()=>setStage(1),3e3),setTimeout(()=>setStage(2),8e3),setTimeout(()=>setStage(3),14e3)];
-    try{const r=await genAPI(text);tm.current.forEach(clearTimeout);setStage(4);
-      setTimeout(()=>{setResult(r);setGen("result");setAPg(null);setPg("home");},600);
-      if(logged){const np=pts-1;setPtsS(np);await setPts(np);await saveWork({title:r.title,category:r.category,body_text:r.body_text,hashtags:r.hashtags,pages:r.pages,_inputText:text,cover_url:r.cover_url||'',image_urls:r.image_urls||[],cover_prompt:r.cover_prompt||'',image_prompts:r.image_prompts||[]});setWorks(await loadWorks());}
+    try{const r=await genAPI(text,
+      // onImg: 每生成一张图就显示到弹窗，不等全部完成
+      function(d){
+        // ① 预加载原图（开始下载到浏览器缓存）
+        if(d.url){var i=new Image();i.src=d.url;}
+        // ② 代理预热（本地缓存，弹窗秒开）
+        if(d.url){fetch(proxyImg(d.url)).catch(function(){});}
+        setResult(function(prev){
+          if(prev?.title)return prev;
+          if(!prev){
+            var init={_inputText:text, cover_url:d.id==='cover'?d.url:'', image_urls:d.id!=='cover'&&d.url?[d.url]:[]};
+            // 不提前展示弹窗，等complete事件再显示
+            return init;
+          }
+          if(d.id==='cover')return{...prev,cover_url:d.url};
+          if(d.url)return{...prev,image_urls:[...(prev.image_urls||[]),d.url]};
+          return prev;
+        });
+      });
+      tm.current.forEach(clearTimeout);setStage(4);
+      // 先保存，再展示弹窗（防止保存失败）
+      try{const np=pts-1;setPtsS(np);await setPts(np);var wd={title:r.title,category:r.category,body_text:r.body_text,hashtags:r.hashtags,pages:r.pages,_inputText:text,cover_url:r.cover_url||'',image_urls:r.image_urls||[],cover_prompt:r.cover_prompt||'',image_prompts:r.image_prompts||[],_saveKey:Date.now()};
+      // 强写 localStorage 保底（每个作品独立新增，不覆盖旧的）
+      (function(){
+        try { var _a = JSON.parse(localStorage.getItem('sb-works')||'[]');
+          _a.unshift({...wd, id:Date.now(), at:new Date().toLocaleDateString('zh-CN')});
+          localStorage.setItem('sb-works', JSON.stringify(_a.slice(0,50)));
+        } catch(_) {}
+      })();
+      await saveWork(wd);setWorks(function(prev){return[{...wd,id:Date.now(),at:new Date().toLocaleDateString('zh-CN')},...prev].slice(0,50);});}catch(e){console.warn('saveWork error:',e);}
+      setResult(function(){return {...r,_inputText:text};});
+      setGen("result"); // 保存完成后再展示弹窗
     }catch(e){tm.current.forEach(clearTimeout);setErr(e.message);setGen("idle");}};
 
   const textRegen=async()=>{
     var inp=result?._inputText||text;
     if(!inp){alert("无法找到原始输入");return;}
-    if(!confirm("重新生成文章将消耗额度，确定？"))return;
+    if(!confirm("重新生成文案将消耗额度，确定？"))return;
     var ov=document.createElement("div");
     ov.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(6px);animation:fadeIn .15s";
     ov.innerHTML='<div style="background:#fff;border-radius:20px;padding:32px 40px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideUp .25s"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#FF4757" stroke-width="2.5" stroke-linecap="round" class="spin"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg><div style="font-size:17px;font-weight:700;margin-top:16px;color:#333">✍️ 正在重新生成文章</div><div style="font-size:13px;color:#999;margin-top:6px">请勿刷新或关闭页面，否则会消耗额度</div></div>';
@@ -336,15 +402,17 @@ export default function App(){
   };
 
   /* ═══════ NAV ═══════ */
-  const nav=<nav style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 28px",background:"rgba(255,255,255,0.92)",borderBottom:"1px solid #f0f0f0",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(14px)"}}>
+  const nav=<nav style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"10px 28px",background:"rgba(255,255,255,0.92)",borderBottom:"1px solid #f0f0f0",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(14px)"}}>
+    <div style={{maxWidth:1100,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
     <div style={{display:"flex",alignItems:"center",gap:20}}>
       <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>{setPg("home");setGen("idle");setResult(null);setGItem(null);}}>
         <img src={I.appicon} alt="薯包AI" style={{width:30,height:30,borderRadius:8}}/>
-        <span style={{fontSize:16,fontWeight:700}}>薯包AI</span>
+        <span style={{fontSize:16,fontWeight:700,color:R,fontFamily:"PingFang SC,Microsoft YaHei,sans-serif",letterSpacing:"0.5px"}}>薯包AI</span>
       </div>
-      <div style={{display:"flex",gap:4}}>{[["home","首页"],["gallery","薯包出品"],["pricing","价格方案"],["works","我的作品"]].map(([k,v])=><button key={k} onClick={()=>setPg(k)} style={{fontSize:13,color:pg===k?R:"#777",fontWeight:pg===k?600:400,background:"none",border:"none",padding:"6px 12px",cursor:"pointer",borderRadius:8,transition:"all 0.15s"}}>{v}</button>)}</div>
+      <div style={{display:"flex",gap:4}}>{[["home","首页"],["gallery","薯包出品"],["pricing","价格方案"],["works","我的作品"]].map(([k,v])=><button key={k} onClick={()=>{setPg(k);if(k==="works")loadWorks().then(setWorks);}} style={{fontSize:13,fontFamily:"'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif",color:pg===k?R:"#777",fontWeight:pg===k?600:400,background:"none",border:"none",padding:"6px 12px",cursor:"pointer",borderRadius:8,transition:"all 0.15s"}}>{v}</button>)}</div>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:8}}>{logged&&<span style={{fontSize:11,color:R,background:"#FFF1F3",padding:"4px 12px",borderRadius:20,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><Sparkles size={11}/>{pts}套</span>}<Btn small onClick={()=>logged?setLogged(false):setShowLogin(true)} sx={{background:logged?"#F0FFF4":"#f5f5f5",color:logged?G:"#777",border:"none"}}>{logged?<><Check size={12}/>已登录</>:<><LogIn size={12}/>登录</>}</Btn></div>
+    </div>
   </nav>;
 
   const loginModal=showLogin&&<Modal onClose={()=>setShowLogin(false)}><div style={{textAlign:"center",marginBottom:24}}><CharImg src={I.wave} alt="" style={{height:64}}/><div style={{fontSize:20,fontWeight:700,marginTop:8}}>欢迎来到薯包AI</div><div style={{fontSize:13,color:"#999"}}>小红书爆款图文，一键生成</div></div>
@@ -367,7 +435,35 @@ export default function App(){
 
   /* ═══════ RESULT ═══════ */
   if(gen==="result"&&result){
-    return <ResultDisplay result={result} logged={logged} onLogin={()=>setShowLogin(true)} onPrice={()=>setShowPrice(true)} loginModal={loginModal} priceModal={priceModal} textRegen={textRegen} text={text} setResult={setResult} setGen={setGen}/>;
+    return <NoteModal item={result} onClose={()=>{setGen("idle");setResult(null);}} textRegen={textRegen}
+      onDownload={downloadZip}
+      onRegenStart={function(i){setRegenState({active:true,msg:'正在重新生成第 '+(i+1)+' 张图片...'});}}
+      onItemUpdate={function(i,url,workId){
+        // Update result if modal still open
+        setResult(function(prev){
+          if(!prev)return prev;
+          if(i===0)return{...prev,cover_url:url};
+          var u=[...(prev.image_urls||[])];if(u[i-1])u[i-1]=url;
+          return{...prev,image_urls:u};
+        });
+        // Always update works list (survives modal close)
+        var wid=workId||lastWorkIdRef.current;
+        if(wid){
+          setWorks(function(prev){
+            return prev.map(function(w){
+              if(w._inputText===wid){
+                var nw={...w};
+                if(i===0)nw.cover_url=url;
+                else{var u=nw.image_urls||[];if(u[i-1])u[i-1]=url;nw.image_urls=u;}
+                setTimeout(function(){saveWork(nw);},0);
+                return nw;
+              }
+              return w;
+            });
+          });
+        }
+        setRegenState({active:false,msg:''});
+      }}/>;
   }
 
   /* ═══════ FULL GALLERY PAGE ═══════ */
@@ -375,7 +471,7 @@ export default function App(){
     <div style={{...s.section}}>
       <h1 style={{...s.sectionTitle}}>薯包出品</h1>
       <p style={{...s.sectionSub}}>以下内容全部由薯包AI一键生成，点击任意作品查看完整图文</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>{GALLERY.map(g=><GCard key={g.id} item={g} onClick={()=>setGItem(g)}/>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>{GALLERY.map(g=><GCard key={g.id} item={g} onClick={function(){if(g.cover_url){setResult({...g,body_text:g.body,hashtags:g.tags,category:g.cat,_inputText:g.hint});setGen("result");}else{setGItem(g);}}}/>)}</div>
     </div>{css()}{loginModal}{priceModal}</div>;}
 
   /* ═══════ GALLERY DETAIL ═══════ */
@@ -416,13 +512,18 @@ export default function App(){
   /* ═══════ WORKS PAGE ═══════ */
   if(pg==="works"){return <div style={{minHeight:"100vh",background:BG}}>{nav}
     <div style={{...s.section}}>
-      <h1 style={{...s.sectionTitle}}>我的作品</h1>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:4}}>
+        <h1 style={{...s.sectionTitle,margin:0}}>我的作品</h1>
+        <button onClick={()=>{loadWorks().then(setWorks);}} style={{background:"#f5f5f5",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#888",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontFamily:"inherit"}}>
+          <RefreshCw size={12}/> 刷新
+        </button>
+      </div>
       <p style={{...s.sectionSub}}>{works.length?works.length+"个作品":"还没有作品，去创作第一套爆款图文吧"}</p>
       {!works.length?<div style={{textAlign:"center",padding:"40px 0"}}><CharImg src={I.empty} alt="" style={{height:100}} filter="none" margin="0 0 16px"/>
         {logged?<Btn primary onClick={()=>setPg("home")}><Sparkles size={14}/>开始创作</Btn>:<><p style={{fontSize:13,color:"#999",margin:"0 0 12px"}}>登录后，生成的内容会自动保存到这里</p><Btn primary onClick={()=>setShowLogin(true)}><LogIn size={14}/>登录查看作品</Btn></>}
       </div>
-      :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>{works.map((w,i)=><Card key={w.id||i} hover onClick={()=>{setResult(w);setGen("result");setPg("home");}} sx={{padding:16,display:"flex",gap:12,alignItems:"center"}}>
-        {w.cover_url?<img src={w.cover_url} alt="" style={{width:56,height:75,borderRadius:8,objectFit:"cover",flex:"0 0 auto"}}/>:<div style={{width:56,height:75,borderRadius:8,background:"#f5f5f5",flex:"0 0 auto",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>📄</div>}
+      :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>{works.map((w,i)=><Card key={w.id||i} hover onClick={()=>{setResult(w);setGen("result");}} sx={{padding:16,display:"flex",gap:12,alignItems:"center"}}>
+        {w.cover_url?<img src={proxyImg(w.cover_url)} alt="" style={{width:56,height:75,borderRadius:8,objectFit:"cover",flex:"0 0 auto"}}/>:<div style={{width:56,height:75,borderRadius:8,background:"#f5f5f5",flex:"0 0 auto",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>📄</div>}
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:14,fontWeight:600,lineHeight:1.5,marginBottom:4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{w.title}</div>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#ccc"}}><span>{w.category}</span><span>{w.at}</span></div>
@@ -441,17 +542,23 @@ export default function App(){
       <p style={{fontSize:14,color:"#999",margin:"0 0 24px",lineHeight:1.7}}>输入任意主题或素材，薯包AI自动识别赛道，一键生成爆款标题+种草文案+9张精美配图</p>
 
       <Card sx={{padding:24,textAlign:"left",border:"1.5px solid #f0f0f0"}}>
-        <textarea value={text} onChange={e=>setText(e.target.value)} placeholder={"输入你想创作的主题，一句话就够了\n例如：云南3天2夜旅游攻略、百元蓝牙耳机测评..."} style={{width:"100%",minHeight:110,padding:16,border:"2px solid #f0f0f0",borderRadius:14,fontSize:14,lineHeight:1.8,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",outline:"none",transition:"border-color 0.2s"}} onFocus={e=>e.target.style.borderColor=R2} onBlur={e=>e.target.style.borderColor="#f0f0f0"}/>
-        <div style={{margin:"10px 0 14px"}}>
-          <div style={{fontSize:11,color:"#ccc",marginBottom:8,display:"flex",alignItems:"center",gap:4}}><Hash size={10}/>热门主题轮播 → 点击即可创作</div>
-          <div style={{position:"relative",overflow:"hidden",borderRadius:12,background:"#fafafa",border:"1px solid #f5f5f5",height:38}}>
-            <div style={{display:"flex",transition:"transform 0.5s cubic-bezier(0.4,0,0.2,1)",transform:`translateX(-${carouselIdx*100}%)`,whiteSpace:"nowrap"}}>
-              {QUICK_HINTS.map((h,i)=><button key={i} onClick={()=>setText(h.slice(2))} style={{minWidth:"100%",fontSize:12,color:"#555",background:"none",border:"none",padding:"10px 16px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all 0.15s"}} onMouseEnter={e=>{e.target.style.color=R;e.target.style.background="#FFF5F5"}} onMouseLeave={e=>{e.target.style.color="#555";e.target.style.background="none"}}><span style={{fontSize:16}}>{h.slice(0,2)}</span><span>{h.slice(2)}</span><span style={{fontSize:10,color:"#ddd",marginLeft:4}}>点击使用</span></button>)}
+        <textarea value={text} onChange={e=>setText(e.target.value)} placeholder={"输入你想创作的主题，一句话就够了\n例如：📍厦门3天2夜旅游攻略、🎧百元蓝牙耳机测评..."} style={{width:"100%",minHeight:110,padding:16,border:"2px solid #f0f0f0",borderRadius:14,fontSize:14,lineHeight:1.8,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",outline:"none",transition:"border-color 0.2s"}} onFocus={e=>e.target.style.borderColor=R2} onBlur={e=>e.target.style.borderColor="#f0f0f0"}/>
+        <div style={{margin:"12px 0 16px"}}>
+          <div style={{fontSize:11,color:"#999",marginBottom:6}}>热门主题</div>
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            <button onClick={()=>setCarouselIdx(i=>(i-1+QUICK_HINTS.length)%QUICK_HINTS.length)} style={{flex:"0 0 auto",background:"none",border:"none",fontSize:18,color:"#aaa",cursor:"pointer",padding:"4px 2px"}}>{String.fromCharCode(8249)}</button>
+            <div style={{flex:1,overflow:"hidden",borderRadius:10,background:"#f5f5f5",border:"1px solid #eee"}}>
+              <div style={{textAlign:"center",padding:"8px 0"}}>
+                <button onClick={()=>setText(QUICK_HINTS[carouselIdx])} style={{fontSize:14,color:"#555",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+                  {QUICK_HINTS[carouselIdx]}
+                </button>
+              </div>
             </div>
-            <div style={{position:"absolute",bottom:3,left:"50%",transform:"translateX(-50%)",display:"flex",gap:3}}>{QUICK_HINTS.map((_,i)=><div key={i} style={{width:i===carouselIdx?14:4,height:3,borderRadius:2,background:i===carouselIdx?R:"#ddd",transition:"all 0.3s"}}/>)}</div>
+            <button onClick={()=>setCarouselIdx(i=>(i+1)%QUICK_HINTS.length)} style={{flex:"0 0 auto",background:"none",border:"none",fontSize:18,color:"#aaa",cursor:"pointer",padding:"4px 2px"}}>{String.fromCharCode(8250)}</button>
           </div>
+          <div style={{display:"flex",justifyContent:"center",gap:3,marginTop:6}}>{QUICK_HINTS.map(function(_,i){return <div key={i} style={{width:i===carouselIdx?16:4,height:3,borderRadius:2,background:i===carouselIdx?"#888":"#ddd",transition:"all .3s"}}/>})}</div>
         </div>
-        {err&&<div style={{background:"#FFF5F5",border:"1px solid #FED7D7",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#C53030"}}>{err}</div>}
+{err&&<div style={{background:"#FFF5F5",border:"1px solid #FED7D7",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#C53030"}}>{err}</div>}
         <Btn primary full disabled={!text.trim()} onClick={doGen}><Sparkles size={16}/>{logged?"一键生成爆款图文":"新用户免费生成"}</Btn>
         <div style={{textAlign:"center",fontSize:11,color:"#bbb",marginTop:8}}>{logged?`剩余 ${pts} 套额度`:"新用户专享 · 登录后可保存到作品集"}</div>
       </Card>
@@ -463,7 +570,7 @@ export default function App(){
         <div><h2 style={{fontSize:20,fontWeight:700,margin:"0 0 4px",display:"flex",alignItems:"center",gap:8}}><img src={I.appicon} style={{width:22,height:22,borderRadius:6}} alt=""/>薯包出品</h2><p style={{fontSize:12,color:"#bbb",margin:0}}>以下内容全部由薯包AI一键生成，点击查看完整图文</p></div>
         <Btn small onClick={()=>setPg("gallery")} sx={{color:R,border:"1px solid "+R}}>更多作品 <ChevronRight size={13}/></Btn>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>{GALLERY.slice(0,6).map(g=><GCard key={g.id} item={g} onClick={()=>setGItem(g)}/>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>{GALLERY.slice(0,6).map(g=><GCard key={g.id} item={g} onClick={function(){if(g.cover_url){setResult({...g,body_text:g.body,hashtags:g.tags,category:g.cat,_inputText:g.hint});setGen("result");}else{setGItem(g);}}}/>)}</div>
     </section>
 
     {/* FEATURES */}
@@ -505,7 +612,7 @@ export default function App(){
     <footer style={{padding:"32px 20px",background:"#f9f9f9",borderTop:"1px solid #f0f0f0",marginTop:40}}>
       <div style={{maxWidth:800,margin:"0 auto",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:20}}>
         <div style={{flex:"1 1 280px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><img src={I.appicon} style={{width:24,height:24,borderRadius:6}} alt=""/><span style={{fontSize:14,fontWeight:700}}>薯包AI</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><img src={I.appicon} style={{width:24,height:24,borderRadius:6}} alt=""/><span style={{fontSize:14,fontWeight:700,fontFamily:"PingFang SC,Microsoft YaHei,sans-serif"}}>薯包AI</span></div>
           <p style={{fontSize:12,color:"#999",lineHeight:1.8,margin:0}}>专注小红书内容创作的AI工具。覆盖旅游攻略、好物评测、美食探店、穿搭分享、学习干货等热门赛道。AI智能生成爆款标题、种草文案和精美配图，一键生成可直接发布的小红书爆款笔记。</p>
         </div>
         <div style={{flex:"0 0 auto"}}>
