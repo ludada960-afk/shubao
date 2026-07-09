@@ -1,0 +1,30 @@
+{
+  "taskId": "ext_1782973978985_ba1d6e0b",
+  "status": "failed",
+  "progress": 0,
+  "createdAt": 1782973978985,
+  "updatedAt": 1782973980142,
+  "images": [
+    "https://example.com/a.jpg",
+    "https://example.com/b.jpg"
+  ],
+  "title": "������Ʒ",
+  "platform": "taobao",
+  "pageUrl": "",
+  "ratios": [],
+  "downloadedImages": [],
+  "downloadErrors": [
+    {
+      "url": "https://example.com/a.jpg",
+      "error": "HTTP 404 for https://example.com/a.jpg"
+    },
+    {
+      "url": "https://example.com/b.jpg",
+      "error": "HTTP 404 for https://example.com/b.jpg"
+    }
+  ],
+  "analysis": null,
+  "userProduct": null,
+  "generatedImages": [],
+  "error": "所有图片下载失败"
+}

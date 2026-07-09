@@ -1,0 +1,30 @@
+{
+  "taskId": "ext_1782904324962_1f213812",
+  "status": "failed",
+  "progress": 0,
+  "createdAt": 1782904324962,
+  "updatedAt": 1782904326310,
+  "images": [
+    "https://example.com/a.jpg",
+    "https://example.com/b.jpg"
+  ],
+  "title": "测试商品",
+  "platform": "taobao",
+  "pageUrl": "",
+  "ratios": [],
+  "downloadedImages": [],
+  "downloadErrors": [
+    {
+      "url": "https://example.com/a.jpg",
+      "error": "HTTP 404 for https://example.com/a.jpg"
+    },
+    {
+      "url": "https://example.com/b.jpg",
+      "error": "HTTP 404 for https://example.com/b.jpg"
+    }
+  ],
+  "analysis": null,
+  "userProduct": null,
+  "generatedImages": [],
+  "error": "所有图片下载失败"
+}

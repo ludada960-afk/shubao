@@ -1,0 +1,25 @@
+{
+  "taskId": "ext_1782972691261_3f723527",
+  "status": "failed",
+  "progress": 0,
+  "createdAt": 1782972691261,
+  "updatedAt": 1782972691434,
+  "images": [
+    "https://img.alicdn.com/imgextra/i1/2212538668691/O1CN017jS3CL1JfBgHR6NLK_!!2212538668691.jpg"
+  ],
+  "title": "������Ʒ",
+  "platform": "taobao",
+  "pageUrl": "https://detail.tmall.com/item.htm?id=123",
+  "ratios": [],
+  "downloadedImages": [],
+  "downloadErrors": [
+    {
+      "url": "https://img.alicdn.com/imgextra/i1/2212538668691/O1CN017jS3CL1JfBgHR6NLK_!!2212538668691.jpg",
+      "error": "HTTP 404 for https://img.alicdn.com/imgextra/i1/2212538668691/O1CN017jS3CL1JfBgHR6NLK_!!22125"
+    }
+  ],
+  "analysis": null,
+  "userProduct": null,
+  "generatedImages": [],
+  "error": "所有图片下载失败"
+}

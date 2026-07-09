@@ -1,0 +1,17 @@
+<!-- @dsCard group="Brand" viewport="700x220" name="Logo" subtitle="App icon, wordmark & clear-space" -->
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:26px;background:var(--grad-spotlight);font-family:var(--font-body)}
+  .row{display:flex;gap:30px;align-items:center;flex-wrap:wrap}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .n{font-size:10px;color:var(--text-faint);font-family:var(--font-num)}
+  .ondark{background:var(--grad-brand);padding:18px 24px;border-radius:var(--r-lg);box-shadow:var(--glow-coral)}
+</style></head>
+<body>
+  <div class="row">
+    <div class="cell"><img src="../assets/logo-icon.webp" style="width:84px;border-radius:var(--r-lg);box-shadow:var(--sh-md)" /><span class="n">App icon</span></div>
+    <div class="cell"><img src="../assets/logo-wordmark.webp" style="height:74px" /><span class="n">Wordmark (light)</span></div>
+    <div class="cell"><div class="ondark"><img src="../assets/logo-wordmark.webp" style="height:54px;filter:brightness(0) invert(1)" /></div><span class="n">Reversed on coral</span></div>
+  </div>
+</body></html>

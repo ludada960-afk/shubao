@@ -1,0 +1,1852 @@
+/**
+ * 薯包AI 后端服务
+ * 复刻 Coze 工作流：内容分析 → 视觉规划 → 图片生成 → 结果组装
+ */
+import express from 'express';
+import cors from 'cors';
+import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import { dirname, resolve, join, extname } from 'path';
+import { execSync } from 'child_process';
+import fs from 'fs';
+import crypto from 'crypto';
+import sharp from 'sharp';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envPath = resolve(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const m = line.match(/^\s*([^#\s=]+)\s*=\s*(.+)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/["']/g, '');
+  });
+  console.log('  → 已加载 .env 配置');
+}
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+
+const PORT = process.env.PORT || 3001;
+
+// 全局未捕获异常处理
+process.on('uncaughtException', err => {
+  console.error('‼️ 未捕获异常:', err.message, err.stack?.split('\n').slice(0,5).join('\n'));
+});
+process.on('unhandledRejection', err => {
+  console.error('‼️ 未处理Promise拒绝:', err.message);
+});
+
+// ============================================================
+// API 配置
+// ============================================================
+const LLM_KEY = process.env.LLM_API_KEY || '';
+const LLM_BASE = (process.env.LLM_BASE_URL || '').replace(/\/+$/, '');
+const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
+const IMG_KEY = process.env.IMAGE_API_KEY || '';
+const IMG_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
+const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
+
+// ============================================================
+// LLM 调用（兼容 OpenAI 格式，自动重试 + 双通道降级）
+// ============================================================
+async function callLLM(systemPrompt, userContent, options = {}) {
+  const { temperature = 0.6, maxTokens = 4000 } = options;
+  const errors = [];
+
+  if (LLM_BASE) {
+    const url = `${LLM_BASE}/v1/chat/completions`;
+    const body = {
+      model: LLM_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      temperature,
+      max_tokens: maxTokens,
+      "通用": `视觉风格：小红书信息图风格，干净明亮的浅色背景
+每页内容：标题+核心信息点+配图，图文结合
+布局：封面标题+主视觉，P2-P7按内容逻辑排列（清单/步骤/对比/场景），P8总结
+配色：根据内容氛围选色，保持柔和
+禁止：❌文字堆砌 ❌无配图 ❌版面太空`,
+};
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LLM_KEY}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || '';
+      }
+      const errText = await res.text().catch(() => '');
+      console.warn('OpenAI LLM:', res.status, errText.slice(0, 200));
+      if (res.status === 503) {
+        await new Promise(r => setTimeout(r, 3000));
+        const retryRes = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LLM_KEY}` },
+          body: JSON.stringify(body),
+        });
+        if (retryRes.ok) {
+          const data = await retryRes.json();
+          return data.choices?.[0]?.message?.content || '';
+        }
+      }
+      errors.push(`OpenAI ${res.status}: ${errText.slice(0, 100)}`);
+    } catch (e) {
+      errors.push(`OpenAI error: ${e.message}`);
+    }
+  } else {
+    errors.push('未配置 LLM API（LLM_BASE_URL）');
+  }
+
+  throw new Error(`LLM 调用失败: ${errors.join(' | ')}`);
+}
+
+// ============================================================
+// 赛道图片生成指令（每个赛道独立设计，释放GPT-image-2上限）
+// ============================================================
+const CATEGORY_IMG_DIRECTIVES = {
+  "旅游攻略": 'Travel destination photography. Natural scenic views, architecture, landscapes, local people. Warm sunlight, rich colors, depth of field. Atmospheric and inviting. Pure visual only.',
+  "好物评测": 'Product photography. Clean studio lighting, soft reflections, product on simple surface. Close-up details, macro shots, natural shadows. Professional commercial photography style.',
+  "美食探店": 'Real restaurant/cafe interior photography. Food close-ups with steam, natural window light, wooden tables, cozy atmosphere. Barista or diner naturally in frame. Warm golden tones, soft bokeh. Ingredients naturally arranged.',
+  "穿搭分享": 'Fashion photography. Model in urban setting, natural light, full-body and half-body shots. Fabric texture close-ups, clean background. Street style aesthetic, natural poses.',
+  "美妆护肤": 'Beauty portrait photography. Soft natural lighting on skin, close-up face shots. Product next to skin, ingredient textures. Clean, fresh aesthetic with pastel tones.',
+  "数码3C": 'Tech product photography. Product on clean surface, dramatic lighting, metallic reflections. Close-up details of materials and textures. Dark or neutral background. Sleek modern aesthetic.',
+  "学习干货": 'Clean desk flat lay photography. Notebooks, pens, glasses, natural window light. Organized study space. Warm neutral tones. Soft shadows and natural materials.',
+  "职场干货": 'Modern office photography. Clean workspace, laptop, natural light. Minimalist composition. Plants and personal items for warmth. Professional calm atmosphere.',
+  "家居家装": 'Interior design photography. Well-lit room with natural light. Furniture, plants, textiles. Cozy warm atmosphere. Scandinavian or Japanese aesthetic. Clean uncluttered spaces.',
+  "健身减肥": 'Active lifestyle photography. Person exercising in bright space. Yoga mat, weights, water bottle. Natural light streaming in. Energetic and fresh atmosphere.',
+  "美妆·化妆教程": 'Step-by-step face close-up photography. Model skin at different stages. Soft natural window light. Clean white or neutral background. Beauty editorial aesthetic.',
+  "情感共鸣": 'Atmospheric mood photography. Soft focus, warm lamp light, window with rain, cozy corner with plants and books. Gentle warm tones. Peaceful contemplative mood.',
+  "影视推荐": 'Cinematic collage style. Dark background with warm accent lighting. Multiple scene compositions arranged artistically. Dramatic shadows, rich colors, film grain texture.',
+  "一人食": 'Cozy food photography. Single dish on wooden table, chopsticks, natural window light. Warm homey atmosphere. Ingredients naturally placed around the dish.',
+  "美甲": 'Hand model close-up photography. Well-manicured hands in natural light. Clean neutral background. Soft focus background. Elegant and minimal.',
+  "书单推荐": 'Books flat lay photography. Books stacked and open on wooden surface. Cozy reading corner with soft lamp light. Warm comfortable atmosphere. Natural textures.',
+  "健康养生": 'Natural ingredients photography. Fresh herbs, fruits, tea leaves on wooden surface. Bright natural light. Green and warm tones. Organic clean aesthetic.',
+  "通用": 'Clean photography-style image. One main subject centered. Soft natural lighting, warm neutral tones. Professional composition. Portrait vertical 3:4.'
+};
+
+// ============================================================
+// 图片生成
+// ============================================================
+async function generateImage(prompt, category, isCover, jkContext) {
+  const jkKeywords = [/水手服/,/JK/,/制服/,/百褶裙/,/领结/,/sailor/i,/seifuku/i,/校服/i,/校园/i,/学院风/i,/青春/i,/学校/i,/日系/i];
+  const isJK = jkContext || (category === '穿搭分享' && jkKeywords.some(k => k.test(prompt)));
+
+  let finalPrompt;
+  if (isJK) {
+    // GPT-image-2 安全过滤器阻止"school-age character"类图片
+    // API建议改用 "adult fashion model" + "Japanese-inspired academy uniform look"
+    // 做词汇替换以安全通过，保持人物/模特/价格标注完整
+    let safe = prompt
+      // 年龄明确化：adult (age 22)
+      .replace(/\b(model|girl|woman)\b/gi, 'adult fashion model (age 22)')
+      .replace(/\b(person|figure)\b/gi, 'adult model')
+      // "sailor uniform" 优先整体替换 → 安全术语
+      .replace(/\bsailor\s+uniform\b/gi, 'Japanese-inspired academy style')
+      .replace(/\buniform\b/gi, 'fashion style')
+      .replace(/\bsailor\b/gi, 'nautical')
+      // school → 避免触发
+      .replace(/\b(school|schoolgirl|schoolboy|student|teen|teenage|teenager)\b/gi, 'fashion')
+      .replace(/校服|校园|学生|高中生|初中生/g, '学院风')
+      // "wearing" ← 保留
+      .replace(/\s{2,}/g, ' ').trim();
+    const prefix = isCover
+      ? `Fashion editorial photography. Adult female model portrait. `  // 封面不加价格标注
+      : `Fashion editorial photography. Adult female model, Chinese price labels on clothing. `;
+    finalPrompt = prefix + safe + ` Soft natural light, vertical 3:4, street style photography.`;
+    console.log('[JK safe] len=' + finalPrompt.length);
+  } else {
+    // 非JK路径：原样
+    const promptPrefix = `Xiaohongshu poster, vertical 3:4, photo-realistic, photography style. `;
+    const textRule = isCover
+      ? ' Cover text must use Chinese characters only. For example, large bold Chinese title at top, price labels in Chinese at bottom. NO English text except brand names.'
+      : ' Chinese text annotations REQUIRED on this image. Include Chinese labels, prices, titles, and tags as part of the image design. Text must be Simplified Chinese. Do NOT add English text.';
+    const promptSuffix = ` Leave 5% margin from ALL edges. Portrait ONLY. High quality, detailed, professional.${textRule}`;
+    finalPrompt = promptPrefix + prompt + promptSuffix;
+  }
+  return await callImageAPI(finalPrompt);
+}
+
+// 图片API调用（复用）
+async function callImageAPI(fullPrompt) {
+  const url = `${IMG_BASE}/v1/images/generations`;
+  const body = {
+    model: IMG_MODEL,
+    prompt: fullPrompt,
+    n: 1,
+    size: '1024x1366',
+    quality: 'standard',
+    response_format: 'url',
+  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => { try { controller.abort(); } catch(e) {} }, 300000);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': IMG_KEY },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally { clearTimeout(timeout); }
+
+  if (!res.ok) {
+    const err = await res.text().catch(() => res.statusText);
+    throw new Error(`Image API error ${res.status}: ${err}`);
+  }
+  const data = await res.json();
+  return data.data?.[0]?.url || data.data?.[0]?.b64_json || '';
+}
+
+// ============================================================
+// Coze 工作流 - 内容分析 prompt
+// ============================================================
+const CONTENT_ANALYSIS_SP = `# 角色定义
+你是一位顶级小红书爆款图文内容策划专家，精通红鸦（RedCrow）的爆款内容创作体系。你的核心任务是根据用户提供的原始文本和品类，生成符合红鸦风格的高质量图文内容方案。
+
+## 🚨 最核心规则（违反即不合格，必须100%遵守）
+**所有输出内容必须使用简体中文。标题、正文、标签、page story、info_blocks label/value 全部用中文写。禁止出现任何英文单词、英文句子、英文段落。品牌名可以保留英文，但必须附中文翻译/说明。菜品名、产品名、地名都要用中文。如果用户输入中有英文，翻译成中文后再用。例："coffee"→"咖啡"，"restaurant"→"餐厅"，"OOTD"→"今日穿搭"。如果你的输出包含超过3个英文单词（品牌名除外），整个输出不合格。
+**但emoji表情符号🔥/💰/✅/⭐/💡/😱/✨/📌 不在此限，必须使用emoji！**
+
+# 你必须深度理解红鸦内容体系的核心公式
+## 1. 爆款标题公式（必须使用）
+- 数字结果式：3天2夜/人均800/5个技巧/7天逆袭
+- 身份场景式：打工人/学生党/宝妈/00后 + 场景痛点
+- 反差痛点式：谁懂啊/再也不/原来/才/千万别
+- 清单总结式：合集/汇总/必看/指南
+- 恐惧共鸣式：别等才/再就晚了
+标题必须带emoji（🔥/✨/💡/😱/✅）
+
+## 2. 正文结构黄金公式
+第一部分：谁懂啊/家人们/再也不开头，用个人经历引发共鸣（1-2句话）
+第二部分：正文干货（按品类不同密度）：
+  - 干货类（旅游/科普/育儿/学习/职场/书单）：使用✅/⭐/📌做分割，3-5个info_blocks，每块含核心信息+个人体验+价格/数据
+  - 好物种草类（好物评测/产品实测/数码/家居家电）：使用🔥/🎧/💡/🎯做分割，每块聚焦1个产品核心卖点
+  - 视觉导向类（穿搭/美妆/美食/美甲/护肤）：简短有力，2-3个信息点足矣
+第三部分：结尾CTA互动引导
+
+## 3. 情绪价值表达规则
+- 每段用emoji做标题分割（🔥/💰/🎧/💡/✅/⭐/📌/😱）
+- 用口语化表达，**不同赛道用不同流行语**：
+  穿搭/美妆→OOTD/一衣多穿/叠穿大法/谁穿谁好看/显白/氛围感/穿搭公式/甜酷/慵懒风/清冷感
+  美食→真的被香迷糊了/大口满足/幸福感爆棚/太上头了/一口就沦陷
+  旅游→这辈子一定要去/美哭了/合集码住/不踩雷/被问疯了
+  好物→闭眼入/后悔没早买/真香/懒人必备/被夸爆了
+  通用→我直接惊了/谁懂啊/真的绝了/绝绝子/建议收藏/码住
+- 穿插个人真实体验（我试过了/亲测有效/用了3个月）
+- 结尾加互动引导
+
+
+
+# 重要：主题保留规则（必须严格遵守）
+- 用户输入的文案就是你要写的内容主题，**必须围绕该主题生成内容**，不能换主题、不能自由发挥、不能生成与输入无关的内容
+- 例如：如果用户输入「云南旅游」，你生成关于云南旅游的内容；如果用户输入「咖啡机」，你生成咖啡机评测。**不要偏差**
+- **禁止**：用户写A内容，你生成B内容。这是严重错误
+
+# 每页内容规则（pages数组，共8个元素，P1-P8全部为内容页，封面独立生成）
+每页结构：{"page_id":1-8,"page_type":"content","title":"本页标题（10字以内）","hook":"一句话钩子","story":"核心内容（按赛道控制长度）","info_blocks":[{"label":"标签如价格/时间","value":"值"}],"layout_hint":"画面描述：指定用拼图还是单图、主体什么、文字标注位置"}
+
+
+## 特别提示：可复用模板概念（参考GPT Image 2已验证有效的模板类型）
+以下模板类型是已验证能稳定出图的排版方式，可用于参考生成layout_hint和prompt：
+- 食物时间切片：一个食物拆成4-6阶段(未成熟→成熟→过熟→变质)，每段配中文阶段名+外观+内部变化+保存建议
+- 手绘标注线：白色手绘线/箭头/圈注叠加在真实照片上，每处写2-6个字
+- 路线手账图：暖色纸张背景，城市节点+线条连接+景点+天数+交通图标
+- 一周穿搭/清单：7天/多项目网格排列，每格小图+标签
+- 九宫格：9张规整排列+中央文字，适合总结页
+- 对比分屏：左右Before/After，关键差异处标签标注
+- 情绪治愈风：低饱和配色+温柔手绘线条+留白
+- 知识流程图：竖排步骤+箭头串联+编号+短说明
+- 产品爆炸图：产品配件分散排列+引导线+部件名称
+- 斜切拼接：斜线分割画面为2个区域，各放不同场景
+## 赛道内容密度分级（**必须严格遵守字数限制**）
+### 🏔️ 干货类（旅游/科普/育儿/学习/职场/书单）
+- story长度：**80-150字**，3-5个info_blocks
+- info_blocks必须含具体数字（价格/时间/数据/评分）
+- 信息必须详实：每页只说1-2个重点，但说透
+- layout_hint：指定具体拼图版式
+- P7: 延伸/额外推荐/深度对比（各赛道具体规则可能不同，以后者为准）
+- P8: 总结推荐+总花费/推荐理由+互动引导（**不能是end**）（各赛道具体规则可能不同，以后者为准）
+- 信息密度：高
+
+### 🛍️ 好物种草类（好物评测/数码3C/家居家装/美妆·产品测评）
+- story长度：**60-100字**，3-4个info_blocks
+- 聚焦产品核心卖点+使用场景+真实体验
+- P7: 横向对比/优缺点
+- P8: 总结推荐+价格+购买引导
+- 信息密度：中高
+
+### 👗 视觉导向类（穿搭/美妆教程/美食探店/美甲/一人食/养生花茶/健身减肥）
+- story长度：**60-100字**（**必须写满，低于60字扣分**），2-3个info_blocks
+- body_text总字数：**150-250字（低于150字扣分）**
+- 简洁有力，突出视觉描述，但**必须有具体内容**（价格/菜品名/口味/尺寸/颜色等）
+- P7: 搭配技巧/延伸推荐（各赛道具体规则可能不同，以后者为准）
+- P8: 总结+互动（各赛道具体规则可能不同，以后者为准）
+- 信息密度：中高（探店类必须有菜品名+价格+口味+环境描述）
+
+# 情感共鸣、影视推荐 特殊处理
+- 情感共鸣：story 30-50字，每页1个金句+感悟，P8为总结+互动
+- 影视推荐：story 40-60字，每部一页，P8为横向推荐+互动
+
+# 严格的输出约束
+- 每页必须填写layout_hint字段，明确描述画面布局
+- 必须填写category字段：根据内容判断品类
+- 禁止在story中堆砌与主题无关的内容
+- 禁止生造不存在的品牌或产品规格
+- **禁止篡改用户原文中的地点/名称**
+- **P8不能是end/结束**：P8必须为总结推荐+总花费/推荐理由+互动引导CTA
+- **时效性**：正文中涉及年份统一使用{{current_year}}年，月份使用{{current_month}}月
+- 所有内容必须有实质信息（具体价格/数据/步骤），避免空洞的形容词堆砌
+
+# 输出格式
+必须返回JSON，包含category, title, body_text, hashtags, tags, pages字段
+**pages数组必须包含8个元素（page_id 1-8），一条都不能少**
+
+**重要提醒：不要默认选旅游攻略。只有内容明确是行程、景点、天数时才是旅游攻略。美妆产品、美食、穿搭、家居家装等内容不要误判为旅游攻略。仔细阅读用户输入再决定品类。**
+
+===== 标题公式（必须使用，注意多样化，每次不能重复使用同一公式） =====
+格式：[情绪钩子][emoji] + [内容承诺] + [数字/量化]
+- 数字结果式：3天2夜💨人均800+玩到爽！/ N天N夜攻略🔥人均XXX拿下
+- 熬夜付出式：熬夜总结🔥XXX精华攻略/花了N天整理出这份XXX/实测N天才敢来分享
+- 闭眼冲式：XXX闭眼冲！N款XXX推荐💅/黄黑皮/干皮/油皮闭眼入！
+- 实测背书式：实测XXX🆘效果太狠了/XXX亲测N天，效果真的绝了/用空瓶了才来说真话
+- 目标达成式：养成XXX✨这N种方法太厉害了/从XX到XX，我做对了什么
+- 格局炸裂式：格局炸裂🤯建议反复阅读这N本XXX/看完彻底醒悟了🔥
+- 新手友好式：新手必看🔥XXX全攻略/保姆级教程💡XXX一篇看懂
+- 情绪共鸣式：「真的被XXX惊艳到了！」/「后悔没早点发现！」/「无限回购！」
+- 避坑指南式：XXX避雷指南⚠️这N个坑千万别踩/花过XX万冤枉钱才总结出的XXX
+- 省钱攻略式：N元搞定XXX🔥打工人学生党必看/不到XX元拿下XXX性价比之王
+注意：禁止反复使用熬夜总结/3天2夜等固定开头，每次必须换不同的标题切入点
+
+===== 正文写作规则（必须遵守） =====
+【第1段 开头钩子（3-4句）】（多样化，禁止连续重复使用同一句式）
+模式1 共鸣痛点：谁懂啊！/家人们谁懂啊！！/是不是还在纠结/有没有姐妹和我一样
+模式2 反常识：不要只顾着/以前总觉得/做了XX年XXX才明白
+模式3 实测背书：我帮大家实测了/花了一个月时间亲测/用空瓶了才敢来分享
+模式4 焦虑放大：真的太容易了/再不做就来不及了/别等了才后悔
+模式5 惊喜发现式：发现了一个宝藏XXX！/终于找到了！/姐妹们快去试试这个！
+模式6 对比反差式：用之前vs用之后/以前的我vs现在的我
+注意：每次生成的【第1段 开头钩子】不能与之前使用过的重复，禁止连续多次使用谁懂啊
+
+【第2段起 正文干货】
+- 使用emoji作为每段标题分割（🔥/💰/🚄/✅/⭐/⚠️/💡/🔸/👉）
+- 列表格式：每项编号或emoji开头，2-3句
+- 段落之间空行分隔
+- **必须包含具体数字/价格/时间/步骤等数据**
+
+【最后一段 结尾CTA】（多样化选择，避免重复使用同一句式）
+1. 呼吁行动型：快艾特你的笨蛋闺蜜一起出发吧！/赶紧存下来，周末就去！/码住这篇，下次直接用！
+2. 祝福口号型：一起做个气血满满的元气少女吧！💪/愿我们都能在生活里闪闪发光✨/这个夏天，一起美到发光！
+3. 鼓励坚持型：坚持28天，皮肤自带打光板！/三天打鱼两天晒网可不行/给自己一个月的时间
+4. 金句型：生活不是为了赶路而是为了感受路/取悦自己才是终身浪漫的开始
+5. 价值强调型：阅读是回报率超高的投资/这笔钱花得最值的就是XXX/用一杯奶茶的钱换一个好皮肤
+6. 互动提问型：评论区交出你的宝藏XXX！/你觉得哪个最值得入手？/有没有和我一样踩过雷的姐妹？
+注意：每次生成的结尾CTA不能与之前生成过的重复
+
+===== 🚨 赛道特有规则 — 严格执行，不可跳过 =====
+每条规则指定了该赛道 **每页应该讲什么**，以及 **页与页之间的逻辑关系**。
+
+**【通用红线】body_text 与 pages 必须严格一致**
+pages里写什么菜/什么步骤/什么景点，body_text就必须写同样的内容，不能自己编一套。
+- 用户输入了具体的菜品名/方法名/产品名，body_text 和 pages 都必须使用这些名称，不能替换成AI自己想出来的新名词。
+- 例：用户写"番茄牛腩便当"，pages的title/hook/body_text里不能写成"番茄鸡蛋豆腐饭"。
+
+【🏔️ 旅游攻略 — 按天拆分行前中后】
+**逻辑**：行前准备→每天行程→美食→避坑→总结
+- body_text：行程概览（不要逐日详述）+ 预算 + 2-3个Tips。**禁止逐日写行程**
+- pages结构（8页，明确P1-P8）：
+  P1=总览+亮点推荐（总天数+目的地+预算+核心亮点关键词）
+  P2=行前准备清单（证件+穿搭+必备app+交通建议）
+  P3=Day1行程（具体景点+时间安排+门票价格+交通方式）
+  P4=Day2行程（同上结构，不同景点）
+  P5=Day3/美食推荐（如无Day3则改为当地必吃美食+推荐餐厅+价格）
+  P6=出片点位+预算明细（具体拍照机位+各项目花费明细）
+  P7=避坑指南（3-5个坑点，每个带小标题+正确做法）
+  P8=总结+CTA（总花费+推荐理由+互动引导）
+- 每条行程必须有具体景点名+时间+价格
+- info_blocks示例：[{"label":"Day1","value":"鼓浪屿+中山路"},{"label":"门票","value":"约80元"},{"label":"交通","value":"船票约35元"}]
+- **禁止出现P2为空或跳过P2**
+
+【💄 美妆护肤 — 按产品使用步骤拆分】
+**逻辑**：产品总览→质地→成分→手法→效果→对比→横评→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=产品外观+规格参数+价格（产品全貌+核心功效+适合肤质+价格标签）
+  P2=质地实测（产品挤在手背/化妆棉上、颜色/气味/延展性特写+评分）
+  P3=成分功效分析（核心成分图解+功效说明+适合肤质标签）
+  P4=使用手法教程（分步骤：取量→涂抹→按摩→吸收→注意事项）
+  P5=效果对比Before/After（使用前vs使用后皮肤状态对比+时间跨度）
+  P6=优缺点分析（左右分栏：优点/缺点各3-4条+综合评分）
+  P7=同价位横向对比（该产品vs其他2-3款竞品的价格+成分+效果对比）
+  P8=总结推荐（推荐理由+适合肤质+价格回顾+互动引导）
+- **每页必须包含产品实物图片**，不能只有文字或图表
+
+【👗 穿搭分享 — 按套系拆分】
+**逻辑**：总览→逐套展示→面料→技巧→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=总览（多套缩略图+风格标签+本期刊容主题标题）
+  P2=第一套搭配详情（全身展示+单品标注+价格+风格关键词）
+  P3=第二套搭配详情（不同模特/不同风格+全身展示+单品标注+价格）
+  P4=第三套搭配详情（不同模特/不同风格+全身展示+单品标注+价格）
+  P5=第四套搭配详情（不同模特/不同风格+全身展示+单品标注+价格）
+  P6=面料/版型细节（局部特写+面料标签+版型对比）或场景穿搭（三格图：校园/通勤/约会）
+  P7=搭配技巧（左右分屏对比+技巧说明+颜色/款式建议）
+  P8=总结+推荐（总价+最推荐的一套+互动引导）
+- **每页模特不同**：禁止连续两页同一人设/场景/姿势
+- info_blocks：每页至少3个（价格、面料、版型、颜色数据）
+- **禁止出现P2为空或跳过P2**
+
+【🍳 美食探店 — 按菜式拆分】
+**逻辑**：招牌菜→各道菜逐一展示→拼盘→环境→对比→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=招牌菜特写（推荐菜品名称+价格+口感描述+推荐程度）
+  P2=第一道菜展示（菜品大图+价格+口味+食材+推荐指数⭐）
+  P3=第二道菜展示（同上结构，不同菜品）
+  P4=第三道菜展示（同上结构，不同菜品）
+  P5=第四道菜展示（同上结构，不同菜品）
+  P6=拼盘展示（3-4道菜排列+环境氛围+位置信息）
+  P7=同类对比（该店vs其他店同类菜品对比+推荐）
+  P8=总结+推荐组合（最佳搭配+人均+互动CTA）
+
+【📱 好物评测 — 产品横评】
+**逻辑**：产品总览→逐品详测→对比→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=所有产品总览（网格排列+名称+核心卖点标签+价格区间）
+  P2=第一产品详测（产品全景+规格+实测体验+价格）
+  P3=第二产品详测（同上结构，不同产品）
+  P4=第三产品详测（同上结构，不同产品）
+  P5=第四产品详测（同上结构，不同产品）
+  P6=横向对比表（多产品参数+价格+评分对比）
+  P7=优缺点分栏+综合推荐
+  P8=总结+推荐购买的型号+理由+互动
+
+【💻 学习干货 — 方法分步解析】
+**逻辑**：总览→逐方法解析→资源→避坑→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=方法总览（核心方法论+适用人群+目标数据+时间规划）
+  P2=方法一（具体步骤+实施方式+所需时间+效果数据）
+  P3=方法二（同上结构，不同方法）
+  P4=方法三（同上结构，不同方法）
+  P5=方法四（同上结构，不同方法）
+  P6=资源推荐（工具/书籍/app清单+价格+使用建议）
+  P7=常见误区/避坑（3-5个常见问题+正确做法）
+  P8=总结+行动计划+互动
+
+【💼 职场干货 — 技巧逐条拆解】
+**逻辑**：总览→逐条技巧→案例→避坑→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=总览（核心方法论+适用人群+核心数据）
+  P2=第一技巧（技巧名+具体做法+案例+效果）
+  P3=第二技巧（同上结构，不同技巧）
+  P4=第三技巧（同上结构，不同技巧）
+  P5=第四技巧（同上结构，不同技巧）
+  P6=实际案例（真实场景应用+前后对比）
+  P7=常见误区（3-5个坑+正确做法）
+  P8=总结+行动清单+互动
+
+【🏠 家居家装 — 区域拆分改造】
+**逻辑**：总览→各区域逐一展示→好物→避坑→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=改造前全景（原貌+问题标注+改造目标+预算）
+  P2=区域1展示（改造后全景+核心单品+价格+改造心得）
+  P3=区域2展示（改造后全景+核心单品+价格+改造心得）
+  P4=区域3展示（改造后全景+核心单品+价格+改造心得）
+  P5=区域4展示（改造后全景+核心单品+价格+改造心得）
+  P6=好物推荐清单（推荐单品+价格+购买渠道）
+  P7=避坑Tips（3-5个装修/改造注意事项）
+  P8=费用明细+总结+互动
+
+【💪 健身减肥 — 阶段/部位/天数拆分】
+**逻辑**：总览→各阶段训练→饮食→对比→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=计划总览（训练目标+时长+频率+核心动作概览）
+  P2=训练模块1（训练动作+组数+时间+效果说明）
+  P3=训练模块2（同上结构，不同动作）
+  P4=训练模块3（同上结构，不同动作）
+  P5=训练模块4（同上结构，不同动作）
+  P6=饮食方案（每日食谱+热量+营养搭配）
+  P7=效果对比（Before/After+周期+数据变化）
+  P8=总结+坚持建议+互动
+
+【🧴 美妆·化妆教程 — 上妆步骤拆分】
+**逻辑**：底妆→眼妆→唇妆→修容→定妆→发型→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=完妆效果+所需产品清单+难度等级+预计用时
+  P2=底妆步骤（妆前→粉底→遮瑕→定妆，每步配图+产品名）
+  P3=眼妆步骤（眼影→眼线→睫毛，颜色+手法）
+  P4=唇妆+腮红（色号+涂抹手法）
+  P5=修容+高光（位置示意+手法）
+  P6=定妆+持久技巧（产品+手法）
+  P7=发型搭配（与妆容搭配的发型建议+完成效果）
+  P8=全妆展示+产品清单+价格+互动
+
+【📖 书单推荐 — 逐本介绍】
+**逻辑**：总览→逐本介绍→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=总览（所有推荐汇总+数量+类型标签）
+  P2=第一本推荐（封面+评分+类型+金句+推荐理由+适合人群）
+  P3=第二本推荐（同上结构，不同书籍）
+  P4=第三本推荐（同上结构，不同书籍）
+  P5=第四本推荐（同上结构，不同书籍）
+  P6=第五本推荐（同上结构，不同书籍）
+  P7=同类型扩展（类似书单+搭配阅读建议）
+  P8=总结+最推荐+互动
+
+【📺 影视推荐 — 逐部介绍】
+**逻辑**：总览→逐部介绍→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=总览（所有推荐汇总+数量+类型标签）
+  P2=第一部推荐（海报+评分+类型+剧情概要+推荐理由+适合人群）
+  P3=第二部推荐（同上结构，不同作品）
+  P4=第三部推荐（同上结构，不同作品）
+  P5=第四部推荐（同上结构，不同作品）
+  P6=第五部推荐（同上结构，不同作品）
+  P7=同类型扩展（类似推荐+搭配观看建议）
+  P8=总结+最推荐+互动
+
+【🧘 情感共鸣 — 情境递进】
+**逻辑**：引出共鸣→逐层递进→升华→互动
+- pages结构（8页，P1-P8全部有内容）：
+  P1=开篇引语（核心情感主题+氛围配图）
+  P2=第一情境/感悟（情境描述+个人经历+金句）
+  P3=第二情境/感悟（同上结构，不同角度）
+  P4=第三情境/感悟（同上结构，不同角度）
+  P5=第四情境/感悟（同上结构，不同角度）
+  P6=第五情境/感悟（同上结构，不同角度）
+  P7=升华（核心观点+治愈金句）
+  P8=回顾+互动引导
+
+【🍱 一人食·带饭食谱 — 按天拆分，每天一页】
+**逻辑**：周一到周五每天一页(菜品打头阵) → 备餐技巧 → 总览花费 → 总结互动
+**核心规则**：用户输入了什么菜，页面就必须写什么菜，一个字都不能改。
+body_text 和 pages 中的菜名必须与用户输入完全一致。
+**P1（第一张内容页）必须是用户输入的第一个菜，不是总览！**
+**本赛道规则覆盖通用规则，P7/P8 定义以本赛道为准，通用规则的 P7/P8 不适用。**
+
+pages结构（8页，菜谱在前，严禁页面内容重复）：
+P1=周一食谱（第一个菜）
+  - 标题示例：「周一：番茄牛腩便当」
+  - 内容：菜名（用户输入的第一个菜）+食材清单+做法简述+烹饪时间+成本
+  - 关键：story必须包含具体烹饪步骤（2-3句），body_text要体现
+  - info_blocks：[{"label":"食材","value":"番茄+牛腩+洋葱"},{"label":"耗时","value":"约40分钟"},{"label":"成本","value":"约18元"}]
+
+P2=周二食谱（第二个菜，同上结构）
+  - 标题示例：「周二：青椒肉丝盖饭」
+
+P3=周三食谱（第三个菜，同上结构）
+  - 标题示例：「周三：蒜蓉西兰花+煎鸡胸」
+
+P4=周四食谱（第四个菜，同上结构）
+  - 标题示例：「周四：土豆炖鸡翅」
+
+P5=周五食谱（第五个菜，同上结构）
+  - 标题示例：「周五：虾仁炒蛋+杂蔬丁」
+
+P6=实用小贴士（信息卡，只做这一页，不要再出现第二页）
+  - 标题：「备餐技巧」（固定标题）
+  - 内容：3-4条备餐技巧（批量制作+储存方法+加热建议+省钱技巧）
+  - 不涉及具体菜名，纯通用技巧
+  - info_blocks：[{"label":"技巧","value":"批量备菜"},{"label":"储存","value":"冷藏分装"},{"label":"省钱","value":"比外卖省60%"}]
+
+P7=本周总览（不是备餐技巧、不是延伸推荐！）
+  - 标题示例：「5天带饭计划🔥月省800元」
+  - 内容：5天食谱缩略图排列+总花费估算+省了多少钱+总备餐时长
+  - info_blocks：[{"label":"总花费","value":"约200元"},{"label":"省下","value":"约800元"},{"label":"备餐","value":"约2小时"}]
+
+P8=总结推荐
+  - 标题：「一周总结」
+  - 内容：一周总花费+对比外卖省了多少钱+最推荐的一天+互动引导
+  - info_blocks：[{"label":"总花费","value":"约200元"},{label:"外卖参考","value":"约1000元"},{"label":"省下","value":"约800元"}]
+
+**⚠️ 禁止**：不能有两页内容相同。P6是备餐技巧，P7就是本周总览，不能写两遍备餐技巧。如果用户输入了5个菜，P1-P5必须是5个不同的菜。body_text和pages不能编造用户没写的菜名。
+
+【💅 美甲 — 按款式拆分】
+**逻辑**：总览→各款展示→对比→总结
+- pages结构（8页，P1-P8全部有内容）：
+  P1=成品款展示+标题（本期主题+风格标签）
+  P2=第一款展示（手部特写+色号+价格+风格标签）
+  P3=第二款展示（同上结构，不同款式）
+  P4=第三款展示（同上结构，不同款式）
+  P5=第四款展示（同上结构，不同款式）
+  P6=第五款展示（同上结构，不同款式）
+  P7=各款横向对比（款式+适合场景+推荐指数）
+  P8=总结+最推荐+互动
+
+===== 标签规则 =====
+- 5-8个标签，放在body_text末尾（小红书格式：正文后空一行写标签）
+- 标签格式：#标签名 用空格分隔，不用换行
+- hashtags数组仅用于导出文件，不单独展示在界面上
+
+===== 整体风格约束 =====
+- 人称：姐妹们/宝子们（美妆/穿搭/美食/旅游），各位（通用/职场/书单/数码）
+- 语气：口语化（谁懂啊/真的绝了/闭眼入/太狠了）
+- 每段必须有实质信息（具体价格/数据/步骤），禁止空洞形容词堆砌
+- ⚠️ **价格免责声明**：价格用模糊词（约/起/左右），禁止精确到个位数。**不要每个物品都标价**
+- 所有文字必须是简体中文，**禁止出现任何英文内容**。标题、正文、标签、page story全部用简体中文。品牌名/产品名如有英文原称也请翻译或加中文注。**emoji表情不在此限，必须使用emoji：🔥/💰/✅/⭐/💡/📌**
+- **正文内容必须充实完整，信息密度要高**。干货类300-500字，种草类200-350字，视觉类也要达到150-250字。body_text绝对不能只有几十个字。每段必须有具体价格/数据/步骤。禁止空洞形容词堆砌。
+- **小红书各赛道最优字数**：标题≤20字（含emoji），正文因赛道不同
+  干货类（旅游/学习/职场/育儿/书单）：300-500字
+  种草类（好物/数码/家居）：200-350字
+  视觉类（穿搭/美妆/美食/美甲）：150-250字
+- 如果正文超过上述限制，必须精简内容，不能截断
+- **pages必须生成8个元素（page_id 1-8），全部为内容页，封面图独立生成**
+- **禁止篡改用户输入中的地点名**
+- **时效性：年份必须使用{{current_year}}年，月份使用{{current_month}}月**
+- **P8不能是end/结束**：P8必须为总结推荐+总花费/推荐理由+互动引导CTA
+- **内容多样化要求**：每次生成的标题句式、开头钩子、结尾CTA必须各不相同
+
+【再次提醒】⚠️ **所有内容必须简体中文，禁止任何英文**。品牌名可保留但必须附中文。如果输出包含>3个英文单词（品牌名除外），输出不合格。**emoji🔥/💰/✅/⭐/💡/😱/✨/📌不在此限，正文必须每段以emoji开头。**
+
+=== 输入内容 ===
+品类：由用户输入的内容自动判断
+文案：
+{{text_content}}
+
+== 如果品类是旅游攻略，P5必须是美食推荐页 ==
+`;
+
+const CONTENT_ANALYSIS_UP = `【强制】你只能基于「文案」字段的内容来写。文案写什么主题，你就生成什么内容。
+▶ 文案是旅行内容 → 生成旅游攻略
+▶ 文案是产品介绍 → 生成好物评测
+▶ 文案是美食体验 → 生成美食探店
+▶ 文案是护肤美妆 → 生成美妆护肤
+▶ 文案是穿搭描述 → 生成穿搭分享
+▶ 文案是学习经验 → 生成学习干货
+▶ 文案是职场心得 → 生成职场干货
+▶ 文案是影视/书籍 → 生成影视推荐/书单
+▶ 文案是健康养生 → 生成健康养生
+
+【强制】所有内容必须使用简体中文，**禁止输出任何英文**。菜品名、品牌名、产品名都必须用中文写。例如"coffee"写"咖啡"，"restaurant"写"餐厅"。
+▶ 文案是家居改造 → 生成家居家装
+▶ 文案是情感抒发 → 生成情感共鸣
+▶ 文案是亲子育儿 → 生成育儿知识
+生成的内容主题必须与文案一致，不能偏差。如果文案提到具体地名（如云南、大理），标题和正文必须保留这些地名。
+
+品类：根据文案内容自动判断品类
+检测到的品类：{{detected_category}}
+
+严格按照以下JSON结构输出，不要输出任何多余内容。
+
+**body_text字数由赛道决定（干货类300-500字，种草类200-350字，视觉类150-250字），严禁超出上限**。
+
+**重要：category字段必须在JSON开头位置填写**
+品类可选值：旅游攻略 | 好物评测 | 美食探店 | 穿搭分享 | 美妆护肤 | 美妆·化妆教程 | 数码3C | 学习干货 | 职场干货 | 家居家装 | 健身减肥 | 情感共鸣 | 影视推荐 | 一人食 | 书单推荐 | 美甲 | 健康养生 | 育儿知识 | 养生花茶
+
+**pages数组必须包含8个元素（page_id 1-8），全部为内容页**
+
+**body_text必须每段用emoji开头**，emoji是必需的正文分割符，不是装饰。至少3个emoji。
+例："🔥周一便当：番茄牛腩炖得软烂，汤汁浓郁超下饭！\n💰成本只要18元，比外卖省一半！\n✅做法简单，新手也能搞定～"
+
+{
+  "category": "此处填写品类名，从上方列表选一个",
+  "title": "标题（红鸦式，参考【标题公式】，必须带emoji）",
+  "body_text": "完整正文，必须每段以emoji开头（🔥/💰/✅/⭐/💡/😱等），干货≤500字，种草≤350字，视觉≤250字",
+  "hashtags": ["#标签1", "#标签2"],
+  "tags": [],
+  "pages": [
+    {"page_id":1,"page_type":"content","title":"页标题","hook":"一句话钩子","story":"核心内容（按赛道字数限制）","info_blocks":[{"label":"标签","value":"值"}],"layout_hint":"画面描述"},
+    {"page_id":2,"page_type":"content","title":"页标题","hook":"钩子","story":"内容","info_blocks":[{"label":"标签","value":"值"}],"layout_hint":"画面描述"},
+    {"page_id":3,"page_type":"content","title":"页标题","hook":"钩子","story":"内容","info_blocks":[{"label":"标签","value":"值"}],"layout_hint":"画面描述"},
+    {"page_id":4,"page_type":"content","title":"页标题","hook":"钩子","story":"内容","info_blocks":[{"label":"标签","value":"值"}],"layout_hint":"画面描述"},
+    {"page_id":5,"page_type":"content","title":"页标题","hook":"钩子","story":"内容","info_blocks":[{"label":"标签","value":"值"}],"layout_hint":"画面描述"},
+    {"page_id":6,"page_type":"content","title":"页标题","hook":"钩子","story":"内容","info_blocks":[{"label":"标签","value":"值"}],"layout_hint":"画面描述"},
+    {"page_id":7,"page_type":"content","title":"延伸/对比","hook":"补充钩子","story":"横向对比或深度延伸","info_blocks":[{"label":"标签","value":"值"}],"layout_hint":"画面描述"},
+    {"page_id":8,"page_type":"content","title":"总结推荐","hook":"互动引导","story":"总花费+推荐理由+CTA","info_blocks":[{"label":"总计","value":"金额"}],"layout_hint":"总结卡片+互动引导"}
+  ]
+}
+
+
+=== 输入内容 ===
+文案：
+{{text_content}}
+
+必须严格按照以上JSON结构输出，不要输出任何多余内容。`;
+
+// ============================================================
+// 工作流：内容分析
+// ============================================================
+async function contentAnalysis(textContent) {
+  // ===== 前置关键词分类：从用户输入提取品类（绕开LLM分类不可靠的问题） =====
+  function detectCategory(text) {
+    const t = text.toLowerCase();
+    if (/旅游|旅行|攻略|景点|民宿|酒店|打卡|机票|高铁|自驾|古镇|县城|小众|反向|周末|度假|海滩|雪山|湖泊|路线|行程/.test(t)) return "旅游攻略";
+    if (/护肤|精华|面霜|眼霜|洁面|防晒|面膜|水乳|早c晚a|成分|肤质|敏感肌/.test(t)) return "美妆护肤";
+    if (/口红|眼影|腮红|粉底|化妆|教程|妆容|美妆/.test(t)) return "美妆·化妆教程";
+    if (/穿搭|ootd|搭配|显瘦|显白|裙子|裤子|外套|鞋|包|配饰|风格/.test(t)) return "穿搭分享";
+    if (/美食|探店|咖啡|餐厅|甜品|小吃|火锅|烧烤|外卖|菜单/.test(t)) return "美食探店";
+    if (/便当|一人食|快手菜|做饭|食谱|烹饪|厨房/.test(t)) return "一人食";
+    if (/评测|实测|测评|开箱|推荐|好物|种草|平价|购物/.test(t)) return "好物评测";
+    if (/数码|手机|电脑|耳机|相机|平板|智能|科技|app/.test(t)) return "数码3C";
+    if (/学习|考研|英语|考试|读书|笔记|方法|自律|打卡|成长/.test(t)) return "学习干货";
+    if (/职场|工作|面试|简历|升职|加薪|打工|裸辞|副业/.test(t)) return "职场干货";
+    if (/家居|装修|出租屋|改造|收纳|软装|北欧|极简/.test(t)) return "家居家装";
+    if (/健身|减肥|瘦|运动|瑜伽|普拉提|跑步|健身/.test(t)) return "健身减肥";
+    if (/情感|共鸣|治愈|心情|感悟|人生|成长|深夜/.test(t)) return "情感共鸣";
+    if (/影视|电影|电视剧|综艺|追剧|纪录片/.test(t)) return "影视推荐";
+    if (/书单|读书|书籍|阅读|推荐/.test(t)) return "书单推荐";
+    if (/美甲|指甲/.test(t)) return "美甲";
+    if (/养生|花茶|健康|中医|内调|食疗/.test(t)) return "健康养生";
+    if (/育儿|宝宝|孩子|亲子|早教/.test(t)) return "育儿知识";
+    if (/花草茶|花茶/.test(t)) return "养生花茶";
+    return "";
+  }
+  const detectedCat = detectCategory(textContent);
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const sysPrompt = CONTENT_ANALYSIS_SP.replace(/{{current_year}}/g, String(currentYear)).replace(/{{current_month}}/g, String(currentMonth)).replace(/{{text_content}}/g, textContent)
+    .replace('{{detected_category}}', detectedCat || '');
+  const userPrompt = CONTENT_ANALYSIS_UP
+    .replace('{{category}}', '自动判断')
+    .replace('{{text_content}}', textContent)
+    .replace(/{{current_year}}/g, String(currentYear))
+    .replace(/{{current_month}}/g, String(currentMonth));
+
+  let raw = await callLLM(sysPrompt, userPrompt, { temperature: 0.5, maxTokens: 12000 });
+  raw = raw.replace(/20(?:2[0-9]|3[0-9])[年]?/g, `${currentYear}年`).replace(/20(?:2[0-9]|3[0-9])/g, String(currentYear));
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  raw = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  raw = raw.replace(/\r?\n|\r/g, ' ');
+
+  function extractAndPad(rawText) {
+    try { return JSON.parse(rawText); } catch (e) {}
+    try {
+      const fixed = rawText.replace(/\}\s*\{/g, '},{').replace(/\]\s*\{/g, '],{').replace(/\}\s*\[/g, '},[');
+      let s = fixed;
+      const start2 = s.indexOf('{');
+      if (start2 >= 0) s = s.slice(start2);
+      let opens2 = 0, arrays2 = 0, inStr2 = false, esc2 = false;
+      for (const ch of s) {
+        if (esc2) { esc2 = false; continue; }
+        if (ch === '\\' && inStr2) { esc2 = true; continue; }
+        if (ch === '"') { inStr2 = !inStr2; continue; }
+        if (!inStr2) {
+          if (ch === '{') opens2++;
+          if (ch === '}') opens2--;
+          if (ch === '[') arrays2++;
+          if (ch === ']') arrays2--;
+        }
+      }
+      if (inStr2) s += '"';
+      while (arrays2 > 0) { s += ']'; arrays2--; }
+      while (opens2 > 0) { s += '}'; opens2--; }
+      const m = s.match(/\{[\s\S]*\}/);
+      if (m) return JSON.parse(m[0]);
+    } catch (e) {}
+    try {
+      let s = rawText.replace(/[^\x20-\x7E一-鿿　-〿＀-￯{},:\[\]\"\-. ]/g, '');
+      const start = s.indexOf('{');
+      if (start === -1) throw new Error('no json');
+      s = s.slice(start);
+      let opens = 0, arrays = 0, inStr = false, esc = false;
+      for (const ch of s) {
+        if (esc) { esc = false; continue; }
+        if (ch === '\\' && inStr) { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (!inStr) {
+          if (ch === '{') opens++;
+          if (ch === '}') opens--;
+          if (ch === '[') arrays++;
+          if (ch === ']') arrays--;
+        }
+      }
+      if (inStr) s += '"';
+      while (arrays > 0) { s += ']'; arrays--; }
+      while (opens > 0) { s += '}'; opens--; }
+      return JSON.parse(s);
+    } catch (e) {}
+    // 方法4：用正则提取顶层字段（title/body_text/hashtags），放弃pages
+    try {
+      const titleM = rawText.match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const bodyM = rawText.match(/"body_text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const tagsM = rawText.match(/"hashtags"\s*:\s*\[([^\]]*)\]/);
+      if (titleM) {
+        const result = { title: titleM[1], body_text: bodyM ? bodyM[1] : '', hashtags: tagsM ? [tagsM[1]] : [], tags: [] };
+        result.pages = [];
+        const cats = rawText.match(/"category"\s*:\s*"([^"]*)"/);
+        if (cats) result.category = cats[1];
+        return result;
+      }
+    } catch (e) {}
+    throw new Error('内容分析JSON解析失败(前): ' + rawText.slice(0, 150) + '...(后): ' + rawText.slice(-80));
+  }
+
+  const parsed = extractAndPad(raw);
+  // Fix: LLM sometimes returns \n as literal backslash-n instead of actual newlines
+  if (parsed.body_text) parsed.body_text = parsed.body_text.replace(/\\n/g, '\n');
+
+  // ===== 英文检测 + 三级重试机制 =====
+  function countEnglish(text) {
+    const words = (text || '').match(/[a-zA-Z]{3,}/g);
+    const brandExceptions = ['OOTD','DIY','vs','Vlog','vlog','APP','App'];
+    return words ? words.filter(w => !brandExceptions.includes(w)).length : 0;
+  }
+  let enCount = countEnglish(parsed.body_text);
+  let retries = 0;
+  while (enCount > 5 && retries < 3) {
+    retries++;
+    console.log('[EN检测] body_text含英文' + enCount + '个，第' + retries + '次重试...');
+    const threatMsg = retries === 1 ? '你的输出包含了太多英文！全部用简体中文写，一个英文字母都不能有。'
+      : retries === 2 ? '【最后一次机会】再出现英文你的回复将被丢弃！只准写中文，不许写英文。'
+      : 'WARNING: YOUR OUTPUT WILL BE DISCARDED IF IT CONTAINS ENGLISH. WRITE ONLY IN CHINESE. DO NOT USE ANY ENGLISH.';
+    const retryPrompt = sysPrompt + '\n\n【严重警告】' + threatMsg;
+    const retryRaw = await callLLM(retryPrompt, userPrompt, { temperature: Math.max(0.1, 0.5 - retries * 0.15), maxTokens: 12000 });
+    const fixedRaw = retryRaw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    try {
+      const parsed2 = extractAndPad(fixedRaw);
+      if (parsed2.body_text) {
+        parsed2.body_text = parsed2.body_text.replace(/\\n/g, '\n');
+        const enAgain = countEnglish(parsed2.body_text);
+        if (enAgain <= 5) {
+          Object.assign(parsed, parsed2);
+          enCount = enAgain;
+          break;
+        }
+      }
+    } catch(e) { continue; }
+  }
+
+  // 最后一招：如果还是有英文，调LLM专门翻译 body_text
+  if (countEnglish(parsed.body_text) > 5) {
+    console.log('[EN检测] 重试用尽，强制翻译body_text...');
+    try {
+      const translatePrompt = '你是一个翻译助手。将以下文本翻译成简体中文小红书风格，保持emoji和格式不变。只返回翻译结果，不要解释。\n\n' + (parsed.body_text || '');
+      const translated = await callLLM('你是翻译助手，只输出翻译结果。', translatePrompt, { temperature: 0.1, maxTokens: 4000 });
+      if (translated && translated.length > 20) {
+        parsed.body_text = translated.replace(/^["']|["']$/g, '');
+        console.log('[EN检测] 翻译完成，长度:' + parsed.body_text.length);
+      }
+    } catch(e) { console.warn('[EN检测] 翻译失败:', e.message); }
+  }
+
+  const pages = parsed.pages || [];
+  if (pages.length < 8) {
+    const existingIds = new Set(pages.map(p => p.page_id));
+    for (let i = 1; i <= 8; i++) {
+      if (!existingIds.has(i)) {
+        const prev = pages.find(p => p.page_id === i - 1) || pages[pages.length - 1] || {};
+        pages.push({ page_id: i, page_type: i === 1 ? 'cover' : 'content', title: i === 9 ? '总结推荐' : (prev.title || '') + '续', hook: i === 9 ? '别忘了收藏哦～' : (prev.hook || ''), story: i === 9 ? '总结：快来评论区告诉我吧！' : (prev.story || ''), info_blocks: i === 9 ? [{ label: '总计', value: '待补充' }] : (prev.info_blocks || []), layout_hint: i === 9 ? '总结卡片+互动引导' : (prev.layout_hint || '') });
+      }
+    }
+  }
+  // 截断到8页(LLM可能输出多于8页)
+  console.log(); if (pages.length > 8) pages.length = 8; console.log();
+
+  // 旅游攻略后处理：P5改为美食推荐页（仅限category明确为旅游攻略且P5内容为空或可替换）
+  if (parsed.category === '旅游攻略' && pages.length >= 5) {
+    const p5 = pages.find(p => p.page_id === 5);
+    if (p5 && (!p5.story || p5.story.length < 20 || p5.story.includes('推荐当地') || p5.story.includes('特色菜'))) {
+      // 从title或body_text中提取目的地地名
+      const titleOrBody = parsed.title + parsed.body_text;
+      let dest = '此';
+      // 匹配常见的城市名模式：标题/正文前几个字经常是目的地
+      const cityMatch = titleOrBody.match(/^([^\d\s]{2,4})(?:\d|旅游|攻略|之行|之旅|出发|周末)/);
+      if (cityMatch) dest = cityMatch[1];
+      else {
+        // 后备：提取body_text中第一个城市名（查找常见后缀）
+        const knownCities = titleOrBody.match(/(重庆|成都|长沙|西安|杭州|苏州|南京|武汉|广州|深圳|北京|上海|厦门|丽江|大理|昆明|贵阳|桂林|青岛|三亚|海口|哈尔滨|乌鲁木齐|拉萨|兰州|西宁|银川|呼和浩特|南宁|福州|南昌|合肥|郑州|济南|太原|石家庄|沈阳|大连|长春|天津)[^\s]{0,2}/);
+        if (knownCities) dest = knownCities[1];
+      }
+      p5.title = '美食推荐';
+      p5.story = `推荐${dest}当地3-4道地道特色美食，每道写明菜名+价格(参考当地人实际消费)+口感详细描述+推荐理由。必须围绕"${dest}"本地的真实招牌菜/小吃，不能写其他城市的菜系。`;
+      p5.info_blocks = [{label:'推荐菜1',value:'价格'},{label:'推荐菜2',value:'价格'},{label:'推荐菜3',value:'价格'}];
+      p5.layout_hint = '食物特写+拼盘展示(3-4样当地美食排列)，每样标注名称+价格+口感描述';
+    }
+  }
+
+    // 最终保底：强制截断到8页
+  if (pages.length > 8) pages.length = 8;
+
+  return {
+    category: parsed.category || '未分类',
+    title: parsed.title || '',
+    body_text: parsed.body_text || '',
+    hashtags: parsed.hashtags || [],
+    tags: parsed.tags || [],
+    pages,
+  };
+}
+
+// ============================================================
+// Coze 工作流 - 视觉规划 prompt
+// ============================================================
+const VISUAL_PLANNING_SP = `# 角色：小红书视觉编排师
+任务：根据内容方案，为【{{category}}】赛道生成8条内容页prompt，以及1条**独立封面prompt**，输出JSON。
+
+## 核心规则
+1. ⛔ 禁止横图：必须 portrait vertical 3:4 exact
+2. ✅ **图片上必须包含中文文字标注**。用英文在prompt中描述中文文字的内容和位置，例如："top area with bold Chinese title '白衬衫+百褶裙 全身搭配展示'". 中文文字要清晰可读，与背景有足够对比度。
+3. ✅ 所有内容留5%边距，不贴边
+4. ⛔ 禁止深色/黑色/暗色背景，全部浅色/白色/柔和色
+    **背景色根据内容氛围适配**：分析画面主题的情绪和氛围选择配色，避免全部使用相同的米黄/奶油色，让不同内容有视觉区分度
+5. ✅ **每页必须不同排版**：连续两页严格禁止相同排版。8页中至少变化4种以上视觉结构。**排版要有创意**：避免死板的网格/行列排列。尝试放射状环绕排列、层叠交错、大小错落、透视角度。让画面有动感和设计感。有些页用上下分层，有些用左右分栏，有些用居中聚焦，有些用网格/拼贴排列，有些用错落叠放，有些用斜切/对角线分割。禁止连续2页相同排版。
+6. ✅ 价格用模糊词（约/起/左右），只在总价或首项标价
+7. ✅ 允许适度装饰：圆角卡片、柔和渐变、小图标/emoji点缀
+8. ✅ 内容必须填满画布：3:4竖图覆盖≥75%画布高度。禁止大面积空白
+9. ✅ 每页有明确视觉焦点：主体→陪体→背景层次
+10. ✅ 画面要有真实感和质感，光影自然，材质细节丰富
+
+**【关键】图片内容必须与页面内容严格对应**
+每页的图片必须反映该页的【title】和【hook】和【layout_hint】中描述的主体内容。赛道模板只提供样式和排版参考，不能替代页面内容。
+- 例如：如果P2的title是"甜酷水手服"，图片必须画水手服，不能画白衬衫/通勤装。
+- 例如：如果P3是"面料/版型细节"，图片必须展示面料纹理或版型特写。
+- 赛道模板的排版建议（如"全身搭配图"）要结合页面具体内容来执行。
+
+## 【关键】JK/制服类专用英文术语（防止被误判为通勤装）
+当内容涉及JK制服、水手服、西式制服、校园时尚时，以下英文术语**必须使用**：
+- 水手服 sailor 类 → 必须写 "Japanese sailor school uniform, oversized navy collar with triple white stripes, red ribbon bow tie"
+- 西式制服 blazer 类 → 必须写 "Japanese school blazer uniform, fitted navy jacket with gold school crest button, striped necktie"
+- 百褶裙 → "Japanese school pleated miniskirt, box pleats, above knee length"
+- 领结/领带 → "ribbon necktie, striped school tie, bow tie"
+- 整体氛围 → "Japanese high school girl, kawaii, youthful street snap"
+**禁止使用的词汇（导致通勤风误判）：**
+❌ "corporate / office / professional / business casual / workwear"
+❌ "white blouse" → 改用 "white dress shirt" 或 "sailor top"
+❌ "navy jacket" → 改用 "sailor collar top" 或 "school blazer with crest"
+❌ "business suit / office lady / workplace"
+
+## 【关键】通用术语替换规则（所有赛道适用）
+即使不属于JK制服类，也禁止在prompt中使用商务/办公室类词汇。上衣+裙子的搭配用 "campus style / preppy look" 而非 "office wear / work outfit"。
+
+## 赛道专属视觉模板
+{{category_rules}}
+
+**【关键】赛道规则中提到的文字（标题、标签、标注、价格、品牌名等）必须直接渲染在图片上。在prompt里用英文描述这些中文文字的位置、大小和内容，确保图片上有清晰可读的中文文字。**
+
+## 每页prompt生成规则
+- **prompt用结构化字段驱动**：描述场景、主体、光线、构图、配色
+- **必须使用三段式区域结构**：TOP x% + MIDDLE y% + BOTTOM z%，精确描述每块区域放什么
+  - TOP区域：主视觉主体上部（约占15%）
+  - MIDDLE区域：主体内容/场景/人物/物体（约占60%）
+  - BOTTOM区域：底部装饰/背景延伸（约占20%）
+- 英文prompt描述画面，同时必须描述图片上需要呈现的中文文字（标题、价格、标签、产品名等），例如："bottom 20%: Chinese price tag '约200元'"
+- 竖图3:4（1024×1366）
+- **背景色根据内容适配**：分析画面主题的氛围和情绪，选择最匹配的配色方案。例如：海滨内容用蓝白色系，美食内容用暖色系，科技内容用冷色系，护肤内容用柔和粉白色系。**避免每张图都用相同的米黄/奶油色**，让不同内容的图片有视觉区分度
+- 连续两页不能用同一种排版方式
+- 内容覆盖≥75%画布高度
+
+## 封面prompt生成规则
+- 封面图单独生成，**不包含在pages的8条prompt中**
+- 封面prompt格式：竖图3:4 + 封面标题（**只能用中文写，禁止英文**）+ 视觉冲击力强的画面
+- 封面标题必须使用简体中文汉字，不能用英文字母。品牌名/数字可以用英文/数字混排。
+- 封面与内容页风格统一
+- **封面必须用三段式区域结构**：TOP 20%（标题区，中文大标题）+ MIDDLE 60%（主视觉区）+ BOTTOM 20%
+
+## 内容页prompt生成规则（8条）
+- 内容页prompt**必须包含中文文字标注**（标题、价格标签、产品名等），用英文描述文字位置和内容
+- 注意文字要与背景有对比度，确保可读
+- **⛔ 禁止写 "Showing: 标题" 这种空泛描述**。必须根据该页的layout_hint写出具体的画面内容：人物姿态、场景配置、构图排版、配色方案、标注线/箭头位置。layout_hint里的描述必须100%转化为英文prompt。
+- **【关键】模特多样性**：每页的模特必须不同——变脸型、发型、发色、身高体型、拍摄角度（正面/侧面/斜侧/背面）、姿势和站姿。禁止连续两页出现同一张脸。例如：P1齐肩发圆脸正面，P2高马尾长脸斜侧，P3双丸子头方脸背面。让人感觉每套搭配穿在不同真实的人身上。
+
+## 输出格式
+{"visual_system":"简短描述≤30字","cover_prompt":"英文prompt(竖图+中文标题+视觉冲击)≤280字符，标题必须简体中文","image_prompts":[{"page_id":1,"prompt":"英文prompt(含中文文字标注描述)≤280字符"},...]}
+image_prompts共8条page 1-8。纯JSON。封面和内容页都需要包含中文文字，用英文描述文字位置和内容。
+`;
+
+const CATEGORY_RULES = {
+  "旅游攻略": `视觉：手绘路线地图+拼贴风景，暖色纸张底纹，信息密度极高
+封面：多景拼贴（4宫格地标照）+大字标题+价格数字
+P1：行程总览卡（出发地->目的地路线图+总天数+人均预算+核心亮点关键词标签，暖色底纹手绘风格地图）
+P2：路线图+节点标注城市/景点/交通方式/时间
+P3-P5：每日行程（时间线+景点照+价格+Tips）
+P6：美食拼盘（菜名+价格+口感）
+P7：预算表格（交通/住宿/门票/餐饮）
+P8：总结+CTA
+配色：暖米/蓝白/翠绿底，文字用白/深褐
+禁止：❌纯风景大片无标注 ❌信息量太少 ❌看不懂路线`,
+  "好物评测": `视觉：产品实拍+拆解图+横向对比，白/浅灰底
+封面：多品评测则封面必须展示所有产品（网格排列或多个产品环绕），非单品图
+P1：产品总览卡（产品全景图+核心卖点标签+价格区间，左上角标题，底部评分星级。冷白/浅灰背景，产品居中高亮展示）
+P2：产品平面图+配件+规格标签
+P3：拆解爆炸图（零件分散+引导线+部件名）
+P4：使用场景+功能标注
+P5：Before/After对比图
+P6：横向对比表（本品+竞品参数/价格/评分）
+P7：优缺点分栏+综合评分
+P8：总结+推荐+购买建议
+配色：根据产品类型适配（科技=深灰/蓝调、生活=暖白/木色、美妆=柔粉/米色、运动=亮白/绿调）
+信息密度：高——每页必须有价格/参数/评分
+禁止：❌产品太小 ❌无参数/价格 ❌多品评测却只画一个产品`,
+  "美食探店": `视觉：食物微距特写+手绘标注线+价格标签，暖橙/棕色调
+封面：招牌菜大图+店名+人均价格
+P1：美食总览（3-4道招牌菜缩略图排列+店名+人均价格+营业时间，暖橙色调，菜单风格排版）
+P2-P4：各道菜特写（白色描边+价格+口感文字）
+P5：拼盘展示（3-4道菜排列+名称）
+P6：环境氛围+位置
+P7：同类对比或推荐榜
+P8：总结+推荐组合
+禁止：❌冷色调 ❌无价格 ❌食物太小`,
+  "穿搭分享": `视觉：杂志街拍风+单品拆解+干净背景
+封面：全身照+风格标签+标题大字
+P1：穿搭灵感板（3-4套不同风格缩略图拼贴+风格关键词标签，如"甜系/酷感/文艺"，每套标注核心单品名。左上角大标题显示本期穿搭主题，底部显示'今日穿搭灵感'副标题。整体柔和暖色调，杂志感版面设计）
+P2-P4：各套详情页（每页展示一套完整搭配：全身展示+单品标注+价格标签+风格关键词，模特正面全身，标注每一个单品品牌/价格。短外套类突出腰线，连衣裙类展示裙摆，叠穿类展示层次）
+P5：面料/版型细节（局部特写，对比展示不同版型差异，含价格标签标注）或配饰特写（袜子/鞋/包/发饰，标注价格和品牌）
+P6：场景穿搭（校园/通勤/约会三格图）
+P7：搭配技巧/风格对比（左右分屏对比图，标注差异点）
+P8：总结+推荐单品（总价标注+推荐理由+互动CTA）
+关键：必须包含模特全身展示、单品标注、价格标签、风格对比、OOTD`,
+  "美妆护肤": `视觉：美妆杂志风，柔和自然光，面部/产品特写
+封面：产品+使用效果+标题
+P1：美妆单品总览（产品全貌+核心功效标签+适合肤质+价格，柔粉/米色背景，杂志感排版）
+P2：产品参数+质地特写+评分
+P3：成分功效分析图
+P4：使用步骤教程
+P5：Before/After效果对比
+P6：优缺点+评分
+P7：横向对比
+P8：总结推荐
+禁止：❌冷硬光线 ❌无成分/功效说明`,
+  "数码3C": `视觉：科技产品摄影，冷白/深灰背景
+封面：产品场景图+标题+核心卖点
+P1：数码产品概览（产品全景+核心参数标签+价格，科技感排版，冷色调背景，参数围绕产品排列）
+P2：产品全景+环绕参数标签
+P3：拆解爆炸图（内部结构+元件标注）
+P4：功能演示+界面
+P5：参数对比表（本品+竞品）
+P6：细节特写
+P7：使用场景
+P8：总结+推荐
+禁止：❌暖色调 ❌无参数对比`,
+  "学习干货": `视觉：知识信息图+卡片风，清爽有层次
+封面：学习场景+标题+目标数据
+P1：学习目录卡（核心方法/学习目标+时间规划+难度标签，卡片式排版，清爽蓝白配色）
+P2-P7：方法步骤/避坑对比/资源推荐
+P8：总结+CTA
+禁止：❌纯文字无图 ❌排版千篇一律`,
+  "职场干货": `视觉：商务知识卡，简洁有力
+封面：办公场景+标题+核心数据
+P1：职场知识目录（核心方法论+适用人群+核心数据标签，商务蓝/灰配色，简洁卡片式排版）
+P2-P7：方法论/清单/案例/对比
+P8：总结+行动建议
+禁止：❌信息堆砌无层次`,
+  "家居家装": `视觉：家居实景杂志风
+封面：改造后全景+标题+花费
+P1：改造前全景（房间原貌+核心问题标注+改造目标+预算区间，暖米色底，对比前状态展示）
+P2：Before/After对比
+P3-P5：各分区展示+单品标注
+P6：好物推荐清单
+P7：避坑Tips
+P8：费用明细+总结
+禁止：❌无人的空房间`,
+  "健身减肥": `视觉：运动健身风，明亮活力
+封面：运动场景+标题+成果数据
+P1：健身计划总览（训练目标+时长+频率+核心动作概览，明亮活力配色，动感排版）
+P2：数据总览+时间线
+P3-P6：训练方法+动作图解
+P7：饮食+食谱
+P8：成果对比+CTA
+禁止：❌无数据 ❌排版单一`,
+  "美妆·化妆教程": `视觉：步骤式教程，柔和自然光
+封面：完妆效果+标题
+P1：妆容总览（完妆效果+所需产品清单+难度等级+预计用时，柔粉/浅米背景，优雅排版）
+P2-P7：分步教程（底妆/眼妆/唇妆等）
+P8：产品清单+总结
+禁止：❌步骤不清 ❌无产品标注`,
+  "情感共鸣": `视觉：治愈系文字+氛围感+留白
+封面：大号金句+小装饰
+P1：开篇引语（核心情感主题的大字，配柔和氛围插画或渐变背景，留白多，营造温暖治愈感）
+P2-P7：每页一条感悟+留白
+P8：回顾+互动
+禁止：❌排版拥挤 ❌色彩艳丽`,
+  "影视推荐": `视觉：影视海报+评分推荐卡
+封面：多部拼接+标题
+P1：片单总览（多部推荐剧集封面缩略图网格排列+类型标签+豆瓣评分，标题居中或左上，电影感排版）
+P2-P7：每部一页（海报+评分+推荐语）
+P8：总结+互动
+禁止：❌海报太小 ❌无评分`,
+  "一人食": `视觉：美食食谱卡，暖白/米色调
+封面：成品+标题+时长
+P2-P6：各天食谱（食材+步骤）
+P7：备餐技巧
+P8：总结
+禁止：❌步骤不清 ❌食物不可口`,
+  "美甲": `视觉：精致美甲展示，手部特写
+封面：完成款+标题+色号
+P2-P7：各款展示/步骤/对比
+P8：总结
+禁止：❌手部太小 ❌无颜色标注`,
+  "书单推荐": `视觉：文艺书本实拍+金句卡
+封面：书本堆叠+标题+数量
+P2-P7：每本（封面+金句+推荐语+评分）
+P8：总结+互动
+禁止：❌书太小 ❌无推荐理由`,
+  "健康养生": `视觉：自然食材+功效卡片风
+封面：食材+标题+功效
+P2-P7：食材拆解+功效/做法/注意
+P8：总结
+禁止：❌食材模糊 ❌无功效说明`,
+  "通用": `视觉：小红书信息图，干净明亮浅色底
+封面：标题+主视觉
+P2-P7：按内容逻辑排列
+P8：总结
+禁止：❌文字堆砌 ❌无配图`,
+};
+
+const VISUAL_PLANNING_UP = `根据以下内容方案和品类，生成8条内容页图片创作提示词，以及1条封面图提示词。
+
+【重要】每张图片的内容必须反映对应页面的title/hook/layout_hint，赛道视觉模板只提供排版和样式参考，具体的画面主体（人物、产品、场景、服饰等）必须来自页面内容本身。
+
+内容方案：
+{{analysis_result}}
+品类：{{category}}
+
+输出JSON，包含visual_system、cover_prompt（封面独立）、image_prompts数组（8条，page_id 1-8）。
+每条prompt包含：竖图3:4 + 该赛道对应页固定版式 + 赛道配色 + 留5%边距。prompt中必须描述图片里要出现的中文文字内容（标题、价格、标签等），用英文说明文字位置和内容。
+`;
+
+
+// ============================================================
+// 工作流：视觉规划
+// ============================================================
+async function visualPlanning(analysisResult) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const analysisStr = JSON.stringify({
+    category: analysisResult.category,
+    title: analysisResult.title,
+    pages: (analysisResult.pages || []).map(p => ({
+      page_id: p.page_id, title: p.title, hook: p.hook,
+      story: p.story, info_blocks: p.info_blocks, layout_hint: p.layout_hint
+    }))
+  }, null, 2);
+  const categoryKey = analysisResult.category;
+  const catRules = CATEGORY_RULES[categoryKey] || CATEGORY_RULES["通用"] || CATEGORY_RULES["好物评测"];
+  const sysPrompt = VISUAL_PLANNING_SP
+    .replace(/{{category}}/g, categoryKey)
+    .replace(/{{category_rules}}/g, catRules)
+    .replace(/{{current_year}}/g, String(currentYear))
+    .replace(/{{current_month}}/g, String(currentMonth));
+  const userPrompt = VISUAL_PLANNING_UP
+    .replace('{{analysis_result}}', analysisStr)
+    .replace('{{category}}', analysisResult.category)
+    .replace(/{{current_year}}/g, String(currentYear))
+    .replace(/{{current_month}}/g, String(currentMonth));
+
+  let raw = await callLLM(sysPrompt, userPrompt, { temperature: 0.7, maxTokens: 22000 });
+  raw = raw.replace(/20(?:2[0-9]|3[0-9])[年]?/g, `${currentYear}年`).replace(/20(?:2[0-9]|3[0-9])/g, String(currentYear));
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  raw = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  raw = raw.replace(/\r?\n|\r/g, ' ');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    // 智能修复：尝试提取最外层JSON对象
+    let fixed = raw.replace(/\}\s*\{/g, '},{').replace(/\]\s*\{/g, '],{').replace(/\}\s*\[/g, '},[');
+    // 尝试补全不完整的JSON末尾
+    if (raw.indexOf('"cover_prompt"') > 0 && raw.indexOf('"image_prompts"') > 0) {
+      const lastBrace = raw.lastIndexOf('}');
+      const expectedEnd = raw.lastIndexOf('"}]}');
+      if (lastBrace < 0 && expectedEnd < 0) fixed = raw + '}]}}';
+      else if (raw.lastIndexOf('}') < raw.length - 1 && raw.lastIndexOf('}') > raw.length - 10) fixed = raw + '}';
+    }
+    fixed += fixed.endsWith('}') ? '' : '"}]}}';
+    try {
+      const m = fixed.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
+      else throw new Error('No JSON object found');
+    } catch (e2) {
+      try {
+        const clean = raw.replace(/[^\x20-\x7E一-鿿　-〿＀-￯{},:\[\]\"\-. ]/g, '') + '"}]}}';
+        const m = clean.match(/\{[\s\S]*\}/);
+        if (m) parsed = JSON.parse(m[0]);
+        else throw new Error('No JSON after clean');
+      } catch (e3) {
+        throw new Error('视觉规划JSON解析失败: ' + raw.slice(0, 200));
+      }
+    }
+  }
+
+  let prompts = (parsed.image_prompts || [])
+    .filter(p => p.page_id && p.page_id > 1)
+    .sort((a, b) => a.page_id - b.page_id);
+
+  const needed = 8;
+  if (prompts.length < needed && analysisResult.pages) {
+    const existingIds = new Set(prompts.map(p => p.page_id));
+    for (let pageId = 1; pageId <= 8; pageId++) {
+      if (!existingIds.has(pageId)) {
+        const page = analysisResult.pages.find(p => p.page_id === pageId);
+        const story = page?.story || '';
+        const title = page?.title || '';
+        prompts.push({
+          page_id: pageId,
+          prompt: `Xiaohongshu poster, vertical 3:4, info-graphic style. Include Chinese text labels, price tags, and titles visible on the image. Showing: ${title || 'scene'}. Clean layout, professional, readable Chinese text.`
+        });
+      }
+    }
+    prompts.sort((a, b) => a.page_id - b.page_id);
+  }
+
+    return {
+      visualSystem: parsed.visual_system || analysisResult.category,
+      coverPrompt: parsed.cover_prompt || '',
+      imagePrompts: prompts,
+    };
+}
+
+// ============================================================
+// 工作流：图片生成（并发，队列管理）
+// ============================================================
+async function generateAllImages(coverPrompt, imagePrompts) {
+  const allPrompts = [
+    { id: 'cover', prompt: coverPrompt },
+    ...imagePrompts.map(p => ({ id: `p${p.page_id}`, prompt: p.prompt })),
+  ];
+  const results = [];
+  const queue = [...allPrompts];
+  const failed = new Set();
+  const MAX_WORKERS = 5;
+
+  async function worker() {
+    while (queue.length > 0) {
+      const task = queue.shift();
+      if (failed.has(task.id)) continue;
+      try {
+        const url = await generateImage(task.prompt, task.category || '通用');
+        results.push({ id: task.id, url });
+        console.log(`[gen] ${task.id} ok (${results.filter(r=>r.url).length}/${allPrompts.length})`);
+      } catch (err) {
+        console.error(`[gen] ${task.id} failed: ${err.message}. Not retrying.`);
+        failed.add(task.id);
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(MAX_WORKERS, allPrompts.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+// ============================================================
+// 工作流：结果组装
+// ============================================================
+function assembleResults(analysis, visual, imageResults) {
+  const coverResult = imageResults.find(r => r.id === 'cover');
+  const contentResults = imageResults
+    .filter(r => r.id !== 'cover')
+    .sort((a, b) => {
+      const na = parseInt(a.id.replace('p', ''));
+      const nb = parseInt(b.id.replace('p', ''));
+      return na - nb;
+    });
+
+  function extractPath(url) {
+    try { return url.replace(/\?.*$/, ''); } catch(e) { return url; }
+  }
+  const seenPaths = new Set();
+  let uniqueUrls = contentResults
+    .map(r => r.url)
+    .filter(Boolean)
+    .filter(url => {
+      const path = extractPath(url);
+      if (seenPaths.has(path)) return false;
+      seenPaths.add(path);
+      return true;
+    });
+
+    // ===== 封面二次校验：封面URL不能出现在内容列表中 =====
+    if (coverResult?.url) {
+      const coverPath = extractPath(coverResult.url);
+      uniqueUrls = uniqueUrls.filter(u => extractPath(u) !== coverPath);
+    }
+return {
+    title: analysis.title,
+    body_text: analysis.body_text,
+    hashtags: analysis.hashtags,
+    tags: analysis.tags,
+    category: analysis.category,
+    visual_system: visual.visualSystem,
+    pages: analysis.pages,
+    cover_prompt: visual.coverPrompt,
+    image_prompts: visual.imagePrompts,
+    cover_url: coverResult?.url || '',
+    image_urls: uniqueUrls,
+    image_count: uniqueUrls.length,
+  };
+}
+
+// ============================================================
+// 单张图片重新生成
+// ============================================================
+app.post('/api/regenerate-image', async (req, res) => {
+  const { prompt, category } = req.body;
+  if (!prompt) return res.status(400).json({ error: '缺少prompt' });
+  try {
+    // 复用 generateImage 以获得JK检测/赛道优化
+    const url = await generateImage(prompt, category || '', false);
+    if (!url) throw new Error('生成失败');
+    res.json({ url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post('/api/regenerate-text', async (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
+  try {
+    const analysis = await contentAnalysis(text);
+    res.json({
+      title: analysis.title || '',
+      body_text: analysis.body_text || '',
+      hashtags: analysis.hashtags || [],
+      category: analysis.category || '',
+      pages: analysis.pages || []
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ============================================================
+// API 路由
+// ============================================================
+
+// P2（封面后第一张）完全独立生成——基于用户原始输入构造，不走 LLM 视觉规划
+function buildP2SafePrompt(analysis, userText) {
+  const p2Page = (analysis.pages || []).find(p => p.page_id === 1);
+  if (!p2Page) {
+    console.log('[P2] WARN: no page data, fallback to topic prompt');
+    const t = (userText || '').replace(/\p{Emoji}/gu, '').trim().slice(0, 60);
+    const fb = 'Xiaohongshu poster, vertical 3:4. A clean scene with Chinese text "' + t + '" visible. Chinese text annotations required. Professional photography.';
+    console.log('[P2] fallback len=' + fb.length);
+    return fb;
+  }
+
+  const title = p2Page.title || '';
+  const story = (p2Page.story || '').slice(0, 80);
+  const cat = analysis.category || '';
+  // 从用户原始输入提取核心主题（去掉 emoji 和空格）
+  const topic = (userText || '').replace(/[\u{1F300}-\u{1FAFF}]|[\u{2600}-\u{27BF}]|[\u{FE00}-\u{FEFF}]/gu, '').trim().slice(0, 60);
+
+  // 【全新思路】每个赛道写死一个强绑定的 prompt，把用户原文嵌入其中，
+  // 确保图片内容 100% 围绕主题，不给 AI 任何自由发挥空间
+  let prompt;
+  if (/学习干货|书单推荐/.test(cat)) {
+    prompt = `A wooden study desk. ON THE DESK: 1) An open textbook with Chinese title "${topic}" on its cover page. 2) A black ballpoint pen resting on the book. 3) A yellow highlighter. 4) A cup of coffee. Soft natural window light. The textbook shows Chinese text clearly. DO NOT show skincare, beauty products, or fashion items.`;
+  } else if (/旅游攻略/.test(cat)) {
+    prompt = `A travel planning desk. ON THE DESK: 1) A printed travel map with Chinese labels. 2) A passport. 3) A camera. 4) A coffee cup. 5) A luggage tag with "${topic}" in Chinese. Natural sunlight. Travel mood. Chinese text labels visible.`;
+  } else if (/美食探店|一人食/.test(cat)) {
+    prompt = `A restaurant dining table. ON THE TABLE: 1) A plate of delicious food. 2) Chopsticks. 3) A Chinese menu showing "${topic}". 4) A small price tag. Warm golden lighting, steam rising from the dish. Chinese text visible.`;
+  } else if (/好物评测/.test(cat)) {
+    prompt = `A clean white surface. ON THE SURFACE: 1) The product being reviewed with Chinese label "${topic}". 2) A handwritten review card in Chinese. 3) A price tag. Soft studio lighting. Chinese product labels clearly visible.`;
+  } else if (/穿搭分享/.test(cat)) {
+    prompt = `Studio fashion photography. An adult female model (age 25-28). SHE WEARS: a navy blue blouse with wide sailor-style collar and white trim, a red ribbon necktie, a gray pleated mini skirt, knee-high socks, and black leather shoes. Full body shot facing forward. Clean light gray background. Soft studio lighting. Chinese price labels visible on each clothing item. Fashion editorial style. NO office wear, NO business suit.`;
+  } else if (/美妆护肤|美妆·化妆教程/.test(cat)) {
+    prompt = `A clean white vanity table. ON THE TABLE: 1) Skincare products with Chinese label "${topic}". 2) A mirror. 3) Small price tags in Chinese. Soft natural light. Clean minimal composition. Chinese labels visible.`;
+  } else if (/数码3C/.test(cat)) {
+    prompt = `A dark gray surface. ON THE SURFACE: 1) The tech product with Chinese label "${topic}". 2) Product specs card in Chinese. 3) A price tag. Dramatic side lighting, metallic reflections. Chinese text visible.`;
+  } else if (/职场干货/.test(cat)) {
+    prompt = `A clean office desk. ON THE DESK: 1) An open notebook with Chinese handwriting "${topic}". 2) A laptop. 3) A coffee cup. 4) A pen holder. Natural light streaming in. Clean minimalist workspace. Chinese sticky notes visible.`;
+  } else if (/家居家装/.test(cat)) {
+    prompt = `A cozy room interior. IN THE ROOM: 1) A comfortable sofa. 2) A coffee table with a Chinese home magazine showing "${topic}". 3) A potted plant. 4) Warm throw pillows. Natural light through curtains. Scandinavian style. Chinese furniture labels visible.`;
+  } else if (/健身减肥/.test(cat)) {
+    prompt = `A clean workout space. IN THE SPACE: 1) A yoga mat. 2) A pair of dumbbells. 3) A water bottle. 4) A Chinese fitness guide with "${topic}". Bright natural light. Clean workout area. Chinese fitness text visible.`;
+  } else if (/情感共鸣/.test(cat)) {
+    prompt = `A cozy corner. IN THE SCENE: 1) A warm desk lamp. 2) An open book. 3) A cup of tea. 4) A handwritten Chinese quote about "${topic}". Soft warm lighting. Peaceful mood. Chinese calligraphy text visible.`;
+  } else if (/影视推荐/.test(cat)) {
+    prompt = `A cinematic display. ON THE DISPLAY: Chinese text "${topic}" in large film-poster style typography. Dark background with warm gold accent lighting. Chinese title and rating visible.`;
+  } else {
+    prompt = `A clean scene related to "${topic}". ${title}. Chinese text labels visible. Soft natural lighting, professional photography.`;
+  }
+
+  // 加上通用前缀和后缀，保证生成质量和中文文字
+  const prefix = 'Xiaohongshu poster, vertical 3:4, photo-realistic, photography style. ';
+  const suffix = ' Chinese text annotations REQUIRED. Leave 5% margin from ALL edges. Portrait ONLY. High quality, detailed, professional.';
+  const full = prefix + prompt + suffix;
+  if (full.length > 700) return full.slice(0, 697) + '...';
+  return full;
+}
+
+app.post('/api/generate', async (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
+  // SSE 流式输出 - 每完成一张图立刻推送给前端
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  const send = (type, data) => {
+    try { res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n'); } catch(e) {}
+  };
+  console.log('\n=== 开始工作流: "' + text.slice(0, 40) + '..." ===');
+  try {
+    send('progress', { step: 'content_analysis', msg: '正在分析内容...' });
+    const analysis = await contentAnalysis(text);
+    send('progress', { step: 'visual_planning', msg: '正在规划视觉...' });
+    const visual = await visualPlanning(analysis);
+
+    // ===== 构建 allPrompts：page_id 匹配 =====
+    // visual.imagePrompts 已在 visualPlanning 中过滤+补齐为8条内容提示（page_id 1-8），
+    // 与 analysis.pages（page_id 1-8）完全对齐。
+    // page_id 1 的 prompt 可能是 fallback（来自analysis数据），其他7条为LLM设计。
+
+    // 从 analysis.pages 获取 page_id 1 的内容用于fallback
+    const firstPageData = (analysis.pages || []).find(p => p.page_id === 1);
+    const category = analysis.category || '';
+    // 按赛道改进 fallback prompt
+    let fallbackPrompt;
+    if (firstPageData) {
+      if (/一人食/.test(category)) {
+        fallbackPrompt = `Food photography. A delicious homemade Chinese dish on a wooden table. Natural window light, warm atmosphere. Steam rising from the dish. Chopsticks, ceramic bowl. The dish is: "${firstPageData.title}". Ingredients visible. Vertical 3:4, high quality, photography style.`;
+      } else if (/穿搭/.test(category)) {
+        fallbackPrompt = `Fashion photography. An adult female model wearing the outfit "${firstPageData.title}". Street style, natural light, full body shot. Clothing details visible. Vertical 3:4.`;
+      } else if (/美妆/.test(category)) {
+        fallbackPrompt = `Beauty editorial. Beauty products and skincare items on a clean surface. The title "${firstPageData.title}" visible on a card. Soft natural light. Vertical 3:4.`;
+      } else if (/旅游/.test(category)) {
+        fallbackPrompt = `Travel photography. Scenic landscape or cityscape view related to "${firstPageData.title}". Natural light, vibrant colors, inviting atmosphere. Vertical 3:4.`;
+      } else {
+        fallbackPrompt = `Xiaohongshu poster, vertical 3:4, info-graphic style. Include Chinese text labels and titles. Showing: "${firstPageData.title}". ${firstPageData.story || ''}. Clean layout, professional photography style, readable Chinese text. Leave 5% margin.`;
+      }
+    } else {
+      fallbackPrompt = `Xiaohongshu poster, vertical 3:4, clean information card design. White background with elegant card layout. Soft pastel colors. Minimalist flat design.`;
+    }
+    // 限制长度
+    if (fallbackPrompt.length > 680) fallbackPrompt = fallbackPrompt.slice(0, 677) + '...';
+
+    // 如果 visual.imagePrompts 中 page_id 1 的 prompt 是 fallback，用我们改进的替换
+    const vPrompts = (visual.imagePrompts || []);
+    if (vPrompts.length > 0) {
+      const p1 = vPrompts.find(p => p.page_id === 1);
+      if (p1) {
+        // 如果是 fallback（包含 info-graphic style 关键词），替换为改进版
+        if (p1.prompt.includes('info-graphic style') || p1.prompt.includes('vertical 3:4, info')) {
+          p1.prompt = fallbackPrompt;
+        }
+      }
+    }
+
+    // 每个内容页注入该页精确内容（按 page_id 匹配）
+    vPrompts.forEach(p => {
+      const pageData = (analysis.pages || []).find(ap => ap.page_id === p.page_id);
+      if (pageData && pageData.title) {
+        const items = (pageData.info_blocks || []).map(b => `${b.label}: ${b.value}`).join(', ');
+        const dishTag = ` The image MUST show: "${pageData.title}". ${items ? `Items: ${items}.` : ''}`;
+        p.prompt = (p.prompt || '') + dishTag;
+      }
+    });
+
+    // 构建 allPrompts（9张：1封面 + 8内容页）
+    const allPrompts = [
+      { id: 'cover', prompt: visual.coverPrompt, category: analysis.category },
+      ...vPrompts.map(p => ({ id: 'p' + p.page_id, prompt: p.prompt, category: analysis.category })),
+    ];
+
+    // 一人食：P6（备餐技巧位置）替换为通用信息卡片
+    if (analysis.category === '一人食') {
+      const p6Page = (analysis.pages || []).find(ap => ap.page_id === 6);
+      const p6Task = allPrompts.find(p => p.id === 'p6');
+      if (p6Task && p6Page) {
+        const p6Title = p6Page.title || '实用小贴士';
+        p6Task.prompt = `Clean information card design. White background with elegant card layout. Chinese text title "${p6Title}" at top. Below it show 3-4 bullet points in Chinese. Minimalist flat design, soft pastel colors, rounded corners. No photography, no people, no products. Clean modern graphic design. Vertical 3:4.`;
+        console.log('[一人食 P6] replaced with info card: "' + p6Title + '"');
+      }
+    }
+    // 其他赛道不替换，利用完整的视觉规划prompt
+
+    // ===== 产品类赛道（美妆护肤/好物评测/数码3C等）内容页强制显示产品 =====
+    const productCats = ['美妆护肤','美妆·化妆教程','好物评测','数码3C'];
+    allPrompts.forEach(t => {
+      if (t.id !== 'cover' && productCats.some(c => analysis.category?.includes(c))) {
+        t.prompt = (t.prompt || '') + ' The product with Chinese price label must be clearly visible.';
+      }
+    });
+
+    // 【关键】全局检测：如果这组prompts中任何一张涉及JK制服，所有图都追加制服风格描述
+    const jkKeywordsGlobal = [/水手服/,/JK/,/制服/,/百褶裙/,/领结/,/sailor/i,/seifuku/i,/校服/,/校园/,/日系/];
+    const hasJKContext = allPrompts.some(t => jkKeywordsGlobal.some(k => k.test(t.prompt))) ||
+      (analysis.pages || []).some(p => /水手服|JK|制服|校服|校园|日系/.test(JSON.stringify(p)));
+    // 给所有任务打上jkContext标记
+    allPrompts.forEach(t => t.jkContext = hasJKContext);
+    if (hasJKContext) console.log('[JK context] 全部 ' + allPrompts.length + ' 张图启用校园风覆盖模式');
+
+    const results = [];
+    const queue = [...allPrompts];
+    const MAX_WORKERS = 5;
+
+    send('progress', { step: 'generating_images', msg: '正在生成图片...', total: allPrompts.length });
+
+    async function worker() {
+      while (queue.length > 0) {
+        const task = queue.shift();
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            if (attempt > 1) await new Promise(r => setTimeout(r, 2000 * (attempt - 1)));
+            const url = await generateImage(task.prompt, task.category, task.id === 'cover', task.jkContext);
+            if (url) {
+              results.push({ id: task.id, url });
+              send('image', { id: task.id, url });
+              lastErr = null;
+              break;
+            }
+          } catch(e) {
+            lastErr = e.message;
+            console.error('[gen]', task.id, 'attempt', attempt, 'failed:', e.message);
+          }
+        }
+        if (lastErr) console.error('[gen]', task.id, 'all attempts failed:', lastErr);
+      }
+    }
+    const workers = Array.from({ length: Math.min(MAX_WORKERS, allPrompts.length) }, () => worker());
+    await Promise.all(workers);
+
+    send('progress', { step: 'assembling', msg: '正在组装结果...' });
+    const result = assembleResults(analysis, visual, results);
+
+    send('complete', {
+      title: analysis.title,
+      body_text: analysis.body_text,
+      hashtags: analysis.hashtags,
+      category: analysis.category,
+      visual_system: visual.visualSystem,
+      pages: analysis.pages,
+      cover_url: result.cover_url || '',
+      image_urls: result.image_urls || [],
+      image_count: result.image_count || 0,
+      cover_prompt: visual.coverPrompt || '',
+      image_prompts: (visual.imagePrompts || []).map(p => ({ page_id: p.page_id, prompt: p.prompt })),
+    });
+  } catch(err) {
+    console.error('!! 工作流失败:', err.message);
+    send('error', { error: err.message });
+  } finally { res.end(); }
+});app.post('/api/analyze', async (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
+  try {
+    const analysis = await contentAnalysis(text);
+    res.json(analysis);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// 作品存储
+// ============================================================
+const WORKS_PATH = resolve(__dirname, 'works.json');
+const SNAP_DIR = resolve(__dirname, 'backups');
+function loadWorks() {
+  try {
+    if (fs.existsSync(WORKS_PATH)) {
+      const data = JSON.parse(fs.readFileSync(WORKS_PATH, 'utf8'));
+      // 主文件正常（非空数组）直接返回
+      if (Array.isArray(data) && data.length > 0) return data;
+      // 主文件异常（空数组等），尝试从备份恢复
+      if (Array.isArray(data) && data.length === 0) {
+        console.warn('[loadWorks] 主文件为空，尝试从备份恢复...');
+        for (const ext of ['.bak1', '.bak2', '.bak3']) {
+          const bakPath = WORKS_PATH + ext;
+          if (fs.existsSync(bakPath)) {
+            try {
+              const bak = JSON.parse(fs.readFileSync(bakPath, 'utf8'));
+              if (Array.isArray(bak) && bak.length > 0) {
+                fs.writeFileSync(WORKS_PATH, JSON.stringify(bak), 'utf8');
+                console.log('[loadWorks] 从 ' + ext + ' 恢复成功，共 ' + bak.length + ' 条');
+                return bak;
+              }
+            } catch(e) { continue; }
+          }
+        }
+        // 从快照目录恢复最新的
+        try {
+          if (fs.existsSync(SNAP_DIR)) {
+            const snaps = fs.readdirSync(SNAP_DIR).filter(f => f.startsWith('works-') && f.endsWith('.json')).sort();
+            if (snaps.length > 0) {
+              const last = JSON.parse(fs.readFileSync(join(SNAP_DIR, snaps[snaps.length-1]), 'utf8'));
+              if (Array.isArray(last) && last.length > 0) {
+                fs.writeFileSync(WORKS_PATH, JSON.stringify(last), 'utf8');
+                console.log('[loadWorks] 从快照 ' + snaps[snaps.length-1] + ' 恢复成功');
+                return last;
+              }
+            }
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    // JSON 解析失败，尝试从备份恢复
+    console.warn('[loadWorks] 主文件损坏，尝试从备份恢复...');
+    for (const ext of ['.bak1', '.bak2', '.bak3']) {
+      const bakPath = WORKS_PATH + ext;
+      if (fs.existsSync(bakPath)) {
+        try {
+          const bak = JSON.parse(fs.readFileSync(bakPath, 'utf8'));
+          if (Array.isArray(bak) && bak.length > 0) {
+            fs.writeFileSync(WORKS_PATH, JSON.stringify(bak), 'utf8');
+            console.log('[loadWorks] 从 ' + ext + ' 恢复成功');
+            return bak;
+          }
+        } catch(e) { continue; }
+      }
+    }
+  }
+  return [];
+}
+function saveWorks(works) {
+  try {
+    const now = new Date();
+    const ts = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + 'T' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0') + String(now.getSeconds()).padStart(2,'0');
+    const data = JSON.stringify(works.slice(0, 100));
+
+    // ① 轮转备份：保留最近3份
+    try {
+      if (fs.existsSync(WORKS_PATH + '.bak2')) fs.renameSync(WORKS_PATH + '.bak2', WORKS_PATH + '.bak3');
+      if (fs.existsSync(WORKS_PATH + '.bak1')) fs.renameSync(WORKS_PATH + '.bak1', WORKS_PATH + '.bak2');
+      if (fs.existsSync(WORKS_PATH)) fs.copyFileSync(WORKS_PATH, WORKS_PATH + '.bak1');
+    } catch(e) {}
+
+    // ② 写入主文件
+    fs.writeFileSync(WORKS_PATH, data, 'utf8');
+
+    // ③ 时间戳快照（每天最多保留30份，自动清理旧快照）
+    const SNAP_DIR = resolve(__dirname, 'backups');
+    try {
+      if (!fs.existsSync(SNAP_DIR)) fs.mkdirSync(SNAP_DIR, { recursive: true });
+      const snapPath = join(SNAP_DIR, 'works-' + ts + '.json');
+      fs.writeFileSync(snapPath, data, 'utf8');
+      // 清理超过30份的旧快照
+      const snaps = fs.readdirSync(SNAP_DIR).filter(f => f.startsWith('works-') && f.endsWith('.json')).sort();
+      while (snaps.length > 30) {
+        fs.unlinkSync(join(SNAP_DIR, snaps[0]));
+        snaps.shift();
+      }
+    } catch(e) {}
+
+    // ④ Git 自动备份
+    try {
+      execSync('git add ' + WORKS_PATH + ' && git commit -m "backup works ' + ts + '" --allow-empty', {
+        cwd: resolve(__dirname, '..'), stdio: 'ignore', timeout: 3000
+      });
+    } catch(e) {}
+
+    // ⑤ 校验：读回来确认一致
+    try {
+      const verify = fs.readFileSync(WORKS_PATH, 'utf8');
+      if (verify === data) {
+        console.log('[saveWorks] ✓ ' + works.length + ' 条作品已保存');
+        return true;
+      } else {
+        console.error('[saveWorks] ⚠ 写入校验失败，长度不匹配');
+        return false;
+      }
+    } catch(e) {
+      console.error('[saveWorks] ⚠ 校验读取失败:', e.message);
+      return false;
+    }
+  } catch(e) {
+    console.error('[saveWorks] 保存失败:', e.message);
+    return false;
+  }
+}
+app.post('/api/save-work', (req, res) => {
+  const { work } = req.body;
+  if (!work) return res.status(400).json({ error: 'no work' });
+  var works = loadWorks();
+  // 每个作品独立新增，不覆盖旧的（即使用相同的输入文字也保留为独立作品）
+  works.unshift({ ...work, id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
+  if (works.length > 100) works.length = 100;
+  var saved = saveWorks(works);
+  if (saved) {
+    res.json({ ok: true, count: works.length });
+  } else {
+    console.error('[save-work] ⚠ 保存到磁盘失败');
+    res.status(500).json({ error: '保存失败', count: works.length });
+  }
+});
+app.get('/api/works', (req, res) => { res.json(loadWorks()); });
+
+// 图片代理：后端下载图片并缓存（内存+磁盘双缓存，持久化避免重启丢失）
+const imgCache2 = new Map();
+const IMG_CACHE_DIR = resolve(__dirname, 'cache_img');
+if (!fs.existsSync(IMG_CACHE_DIR)) fs.mkdirSync(IMG_CACHE_DIR, { recursive: true });
+app.get('/api/proxy-image', async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).end('missing url');
+  const hash = crypto.createHash('md5').update(url).digest('hex');
+  const diskPath = join(IMG_CACHE_DIR, hash);
+
+  // 1. 内存缓存
+  const mem = imgCache2.get(url);
+  if (mem && Date.now() - mem.t < 1800000) {
+    res.set('Content-Type', mem.ct); res.set('Cache-Control','max-age=1800');
+    return res.send(mem.d);
+  }
+
+  // 2. 磁盘缓存（持久化，重启不丢）
+  if (fs.existsSync(diskPath)) {
+    try {
+      const disk = fs.readFileSync(diskPath);
+      const meta = JSON.parse(fs.readFileSync(diskPath + '.meta', 'utf8'));
+      imgCache2.set(url, { d: disk, ct: meta.ct, t: Date.now() });
+      res.set('Content-Type', meta.ct); res.set('Cache-Control', 'max-age=3600');
+      return res.send(disk);
+    } catch(e) {}
+  }
+
+  // 3. 远程获取
+  try {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    if (!resp.ok) return res.status(502).end('upstream error');
+    const buf = Buffer.from(await resp.arrayBuffer());
+    const ct = resp.headers.get('content-type') || 'image/png';
+    // 写入内存缓存
+    imgCache2.set(url, { d: buf, ct, t: Date.now() });
+    if (imgCache2.size > 200) { const k = imgCache2.keys().next().value; imgCache2.delete(k); }
+    // 写入磁盘缓存（永不删除）
+    fs.writeFile(diskPath, buf, () => {});
+    fs.writeFile(diskPath + '.meta', JSON.stringify({ ct }), () => {});
+    res.set('Content-Type', ct); res.set('Cache-Control', 'max-age=3600');
+    res.send(buf);
+  } catch (e) { res.status(502).end('proxy error: ' + e.message); }
+});
+
+// 薯包出品本地图片服务
+const GALLERY_DIR = resolve(__dirname, '../薯包出品');
+const GALLERY_FILE_MAP = {
+  xm: '熬夜总结🔥厦门3天2夜精华攻略！人均800+玩到爽！',
+  ep: '实测5款百元蓝牙耳机🔥闭眼入不踩雷图文',
+  crab: '人均80吃帝王蟹🦀？这家大排档也太狠了图文'
+};
+app.get('/api/gallery-image', (req, res) => {
+  const { id, file } = req.query;
+  if (!id || !file) return res.status(400).end('missing params');
+  const folder = GALLERY_FILE_MAP[id];
+  if (!folder) return res.status(404).end('unknown id');
+  const filePath = join(GALLERY_DIR, folder, file);
+  if (!fs.existsSync(filePath)) return res.status(404).end('file not found');
+  const ext = extname(file).toLowerCase();
+  const CT_MAP = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
+  res.set('Content-Type', CT_MAP[ext] || 'image/png');
+  res.set('Cache-Control', 'max-age=86400');
+  res.sendFile(filePath);
+});
+
+// ============================================================
+// 图片文字叠加（用 Sharp 把文字画到图片上，带内存缓存）
+// ============================================================
+app.get('/api/img-proxy-ping', (req, res) => res.json({ok:true}));
+
+const overlayCache = new Map();
+const OVERLAY_CACHE_DIR = resolve(__dirname, 'cache_overlay');
+if (!fs.existsSync(OVERLAY_CACHE_DIR)) fs.mkdirSync(OVERLAY_CACHE_DIR, { recursive: true });
+
+app.get('/api/image-proxy', async (req, res) => {
+  const { url, title, hook, blocks } = req.query;
+  if (!url) return res.status(400).end('missing url');
+
+  // 缓存 key = url + 所有参数
+  const cacheRaw = url + '|' + (title || '') + '|' + (hook || '') + '|' + (blocks || '');
+  const cacheKey = crypto.createHash('md5').update(cacheRaw).digest('hex');
+  const diskPath = join(OVERLAY_CACHE_DIR, cacheKey);
+
+  // 1. 内存缓存
+  if (overlayCache.has(cacheKey) && Date.now() - overlayCache.get(cacheKey).t < 1800000) {
+    const mem = overlayCache.get(cacheKey);
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'max-age=600');
+    return res.send(mem.d);
+  }
+
+  // 2. 磁盘缓存
+  if (fs.existsSync(diskPath)) {
+    try {
+      const d = fs.readFileSync(diskPath);
+      overlayCache.set(cacheKey, { d, t: Date.now() });
+      while (overlayCache.size > 100) { const k = overlayCache.keys().next().value; overlayCache.delete(k); }
+      res.set('Content-Type', 'image/png');
+      res.set('Cache-Control', 'max-age=600');
+      return res.send(d);
+    } catch(e) {}
+  }
+
+  // 3. 远程获取原图（先走本地代理缓存，没有才去外部）
+  try {
+    let resp;
+    try {
+      // 先从代理缓存取（避免重复下载源站）
+      const proxyUrl = `http://localhost:${PORT}/api/proxy-image?url=${encodeURIComponent(url)}`;
+      resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(3000) });
+    } catch(e) {
+      // 代理没缓存，直接请求源站
+      resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    }
+    if (!resp.ok) return res.status(502).end('fetch failed');
+    const buf = Buffer.from(await resp.arrayBuffer());
+
+    // 获取图片实际尺寸
+    const meta = await sharp(buf).metadata();
+    const w = meta.width || 1024;
+    const h = meta.height || 1366;
+    const gradH = Math.round(h * 0.28);
+    const gradY = h - gradH;
+    const titleY = gradY + Math.round(h * 0.21);
+    const hookY = gradY + Math.round(h * 0.26);
+    const fontSize1 = Math.round(h * 0.023);
+    const fontSize2 = Math.round(h * 0.016);
+
+    // 生成 SVG 文字叠加层
+    let svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">`;
+    svg += `<defs><linearGradient id="bg" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="rgba(0,0,0,0.8)"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>`;
+    svg += `<rect x="0" y="${gradY}" width="${w}" height="${gradH}" fill="url(#bg)"/>`;
+
+    // 标题（白色大字）
+    if (title) {
+      const displayTitle = (title || '').slice(0, 40);
+      svg += `<text x="${Math.round(w * 0.029)}" y="${titleY}" font-size="${fontSize1}" fill="white" font-weight="bold" font-family="sans-serif">${displayTitle.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text>`;
+    }
+
+    // 钩子（和白字同一 x 坐标）
+    if (hook) {
+      const displayHook = (hook || '').slice(0, 50);
+      svg += `<text x="${Math.round(w * 0.029)}" y="${hookY}" font-size="${fontSize2}" fill="#ffd700" font-family="sans-serif" font-weight="bold" font-style="italic">${displayHook.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</text>`;
+    }
+
+    svg += `</svg>`;
+
+    const result = await sharp(buf)
+      .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+      .png()
+      .toBuffer();
+
+    // 缓存
+    overlayCache.set(cacheKey, { d: result, t: Date.now() });
+    while (overlayCache.size > 100) { const k = overlayCache.keys().next().value; overlayCache.delete(k); }
+    fs.writeFile(diskPath, result, () => {});
+
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'max-age=600');
+    return res.send(result);
+  } catch (e) {
+    console.error('[image-proxy]', e.message);
+    // fallback: 返回原图
+    try {
+      const resp = await fetch(url);
+      const fb = Buffer.from(await resp.arrayBuffer());
+      res.set('Content-Type', 'image/png');
+      res.send(fb);
+    } catch(e2) {
+      res.status(502).end('proxy error');
+    }
+  }
+});
+
+// ============================================================
+// 启动
+// ============================================================
+app.listen(PORT, () => {
+  console.log(`\n🧩 薯包AI 后端服务运行中`);
+  console.log(`   LLM: ${LLM_BASE ? LLM_BASE + '/v1/chat/completions' : '未配置'} (${LLM_MODEL})`);
+  console.log(`   Image: ${IMG_BASE}/v1/images/generations`);
+  console.log(`   Anthropic 备用: ${process.env.ANTHROPIC_API_KEY ? '已配置' : '未配置'}`);
+  console.log(`   API: http://localhost:${PORT}/api/generate`);
+  console.log('');
+});

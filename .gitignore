@@ -4,3 +4,4 @@ server/cache_img/
 *.log
 .DS_Store
 .env
+.gstack/

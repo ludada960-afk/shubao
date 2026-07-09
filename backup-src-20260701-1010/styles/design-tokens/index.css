@@ -1,0 +1,10 @@
+/* ============================================================
+   薯包AI Design System — global entry point
+   Modified for Vite project. All tokens in same directory.
+   ============================================================ */
+@import url("./fonts.css");
+@import url("./colors.css");
+@import url("./typography.css");
+@import url("./spacing.css");
+@import url("./effects.css");
+@import url("./base.css");

@@ -1,0 +1,1 @@
+const a = 1;export default function App() { return "Hello"; }{ const b = 2; }

@@ -11,6 +11,8 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import crypto from 'crypto';
 import sharp from 'sharp';
+import { mountOnApp as mountExtRoutes } from './extensionRoutes.mjs';
+import { buildECPrompt, buildBeautyReportPrompt, getTierImages, getSmartRecommendations, buildOutline, IMAGE_TYPE_INFO, PLATFORM_SIZES, IMAGE_ROLES } from './ecommercePromptEngine.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '.env');
@@ -46,6 +48,11 @@ const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
 const IMG_KEY = process.env.IMAGE_API_KEY || '';
 const IMG_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
 const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
+
+// Mini API — 廉价 Vision 分析
+const MINI_KEY = process.env.MINI_API_KEY || '';
+const MINI_BASE = (process.env.MINI_BASE_URL || '').replace(/\/+$/, '');
+const MINI_MODEL = process.env.MINI_MODEL || 'gpt-4o-mini';
 
 // ============================================================
 // LLM 调用（兼容 OpenAI 格式，自动重试 + 双通道降级）
@@ -106,8 +113,105 @@ async function callLLM(systemPrompt, userContent, options = {}) {
 }
 
 // ============================================================
-// 赛道图片生成指令（每个赛道独立设计，释放GPT-image-2上限）
+// LLM Vision 调用 — 主模型看图分析（多图，支持 Claude / GPT）
 // ============================================================
+async function callLLMWithVision(systemPrompt, images, userPrompt) {
+  if (!LLM_KEY || !LLM_BASE) throw new Error('LLM API 未配置');
+  const url = `${LLM_BASE}/v1/chat/completions`;
+  const content = [{ type: 'text', text: userPrompt }];
+  for (const img of images.slice(0, 3)) {
+    if (img) content.push({ type: 'image_url', image_url: { url: img } });
+  }
+  const body = {
+    model: LLM_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content },
+    ],
+    max_tokens: 1500,
+    temperature: 0.3,
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LLM_KEY}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => res.statusText);
+    throw new Error(`Vision API error ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// ============================================================
+// Mini LLM 调用 — 廉价 Vision 分析（GPT-4o mini）
+// ============================================================
+async function callMiniLLM(systemPrompt, imageUrl, userPrompt) {
+  if (!MINI_KEY || !MINI_BASE) throw new Error('Mini API 未配置');
+  const url = `${MINI_BASE}/v1/chat/completions`;
+  const messages = [{ role: 'system', content: systemPrompt }];
+  if (imageUrl) {
+    // 支持单张图或多张图（数组）
+    const images = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'text', text: userPrompt || '分析这些图片' },
+        ...images.map(u => ({ type: 'image_url', image_url: { url: u } })),
+      ],
+    });
+  } else {
+    messages.push({ role: 'user', content: userPrompt || '' });
+  }
+  const body = { model: MINI_MODEL, messages, max_tokens: 1500, temperature: 0.3 };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MINI_KEY}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => res.statusText);
+    throw new Error(`Mini API error ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+/**
+ * 分析参考图 — 用 GPT-4o mini Vision 提取风格/颜色/光线/材质
+ * @param {string[]} imageUrls - 参考图 URL 或 data URL
+ * @returns {Promise<Object>} 分析结果
+ */
+async function analyzeReferenceImages(imageUrls) {
+  if (!imageUrls?.length) return null;
+  const systemPrompt = `你是一个电商产品图片分析专家。分析这些参考图，提取以下信息，用 JSON 格式返回（只返回 JSON，不要其他文字）：
+{
+  "product_shape": "产品形状描述",
+  "dominant_colors": ["主色1", "主色2", ...],
+  "style_vibe": "整体风格感觉（极简/奢华/自然/科技感/温馨等）",
+  "lighting": "光线类型（柔光/硬光/侧光/顶光/自然光等）",
+  "background": "背景描述",
+  "material_texture": "材质质感描述",
+  "composition": "构图方式（居中/三分法/特写/俯拍等）",
+  "color_temperature": "色温（暖/冷/中性）",
+  "key_visual_elements": ["关键视觉元素1", "元素2", ...]
+}
+多看几张图，综合提取共通的视觉特征。如果有多张图，统一描述它们的共性。`
+  try {
+    // 传所有参考图（最多 5 张）一次分析，比逐张分析更省钱且能看到共性
+    const maxImages = Math.min(imageUrls.length, 5);
+    const imagesToAnalyze = imageUrls.slice(0, maxImages);
+    const result = await callMiniLLM(systemPrompt, imagesToAnalyze,
+      `综合这些商品图片的视觉特征，输出统一的视觉报告 JSON。`);
+    const match = result.match(/\{[^]*\}/);
+    if (match) return JSON.parse(match[0]);
+    return null;
+  } catch (e) {
+    console.warn('[Vision] 分析失败:', e.message);
+    return null;
+  }
+}
 const CATEGORY_IMG_DIRECTIVES = {
   "旅游攻略": 'Travel destination photography. Natural scenic views, architecture, landscapes, local people. Warm sunlight, rich colors, depth of field. Atmospheric and inviting. Pure visual only.',
   "好物评测": 'Product photography. Clean studio lighting, soft reflections, product on simple surface. Close-up details, macro shots, natural shadows. Professional commercial photography style.',
@@ -131,8 +235,7 @@ const CATEGORY_IMG_DIRECTIVES = {
 
 // ============================================================
 // 图片生成
-// ============================================================
-async function generateImage(prompt, category, isCover, jkContext) {
+async function generateImage(prompt, category, isCover, jkContext, customSize, refImageBase64) {
   const jkKeywords = [/水手服/,/JK/,/制服/,/百褶裙/,/领结/,/sailor/i,/seifuku/i,/校服/i,/校园/i,/学院风/i,/青春/i,/学校/i,/日系/i];
   const isJK = jkContext || (category === '穿搭分享' && jkKeywords.some(k => k.test(prompt)));
 
@@ -168,20 +271,26 @@ async function generateImage(prompt, category, isCover, jkContext) {
     const promptSuffix = ` Leave 5% margin from ALL edges. Portrait ONLY. High quality, detailed, professional.${textRule}`;
     finalPrompt = promptPrefix + prompt + promptSuffix;
   }
-  return await callImageAPI(finalPrompt);
+  return await callImageAPI(finalPrompt, customSize, refImageBase64);
 }
 
-// 图片API调用（复用）
-async function callImageAPI(fullPrompt) {
+// Ref: 参考图 base64，传给 GPT-Image-2 做视觉参考
+async function callImageAPI(fullPrompt, customSize, refImageBase64) {
   const url = `${IMG_BASE}/v1/images/generations`;
+  const size = customSize || '1024x1366';
   const body = {
     model: IMG_MODEL,
     prompt: fullPrompt,
     n: 1,
-    size: '1024x1366',
+    size,
     quality: 'standard',
     response_format: 'url',
   };
+  // 传参考图到生图模型（模型能看到产品原本的样子）
+  // 不额外收费——GPT-Image-2/image2image 按输出张数计费
+  if (refImageBase64) {
+    body.image = refImageBase64;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => { try { controller.abort(); } catch(e) {} }, 300000);
   let res;
@@ -1540,7 +1649,8 @@ app.get('/api/proxy-image', async (req, res) => {
 
   // 3. 远程获取
   try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    const targetUrl = url.startsWith('/') ? `http://localhost:${PORT}${url}` : url;
+	    const resp = await fetch(targetUrl, { signal: AbortSignal.timeout(60000) });
     if (!resp.ok) return res.status(502).end('upstream error');
     const buf = Buffer.from(await resp.arrayBuffer());
     const ct = resp.headers.get('content-type') || 'image/png';
@@ -1558,9 +1668,20 @@ app.get('/api/proxy-image', async (req, res) => {
 // 薯包出品本地图片服务
 const GALLERY_DIR = resolve(__dirname, '../薯包出品');
 const GALLERY_FILE_MAP = {
-  xm: '熬夜总结🔥厦门3天2夜精华攻略！人均800+玩到爽！',
-  ep: '实测5款百元蓝牙耳机🔥闭眼入不踩雷图文',
-  crab: '人均80吃帝王蟹🦀？这家大排档也太狠了图文'
+  'xm': '熬夜总结🔥厦门3天2夜精华攻略！人均800+玩到爽！',
+  'ep': '实测5款百元蓝牙耳机🔥闭眼入不踩雷',
+  'crab': '人均80吃帝王蟹🦀？这家大排档也太狠了',
+  'jk': '3套JK制服搭配🔥附价格参考！甜酷风',
+  'skincare': '25岁精简护肤🔥3步养出透亮肌！别再叠',
+  'pilates': '30天居家普拉提🔥腰围缩了5cm！',
+  'livingroom': '500元爆改极简客厅😱朋友都以为花了几万',
+  'rent': '实测300元出租屋改造🆘效果真的绝了',
+  'aitools': '实测推荐🔥这5款AI工具让我效率翻倍！',
+  'mealprep': '打工人带饭一周🔥月省800元💰5分钟',
+  'books': '改变认知的6本好书🔥读完格局直接炸裂',
+  'tv2026': '格局炸裂🤯2026年必看国产剧清单🔥',
+  'english': '考研英语85分不是梦🔥学姐3个月提分秘',
+  'selfmedia': '裸辞做自媒体🔥3个月收入破万，我做了什么'
 };
 app.get('/api/gallery-image', (req, res) => {
   const { id, file } = req.query;
@@ -1686,11 +1807,719 @@ app.get('/api/image-proxy', async (req, res) => {
 });
 
 // ============================================================
+// 电商链接分析 API — 粘贴商品链接 → 自动提取信息
+// ============================================================
+// ============================================================
+// 商品链接智能提取（JSON-LD + OG + Vision 风格分析）
+// ============================================================
+const EC_CATS = ['美妆护肤','数码3C','食品饮料','服饰穿搭','家居生活','母婴用品','宠物用品','其他'];
+
+// 提取 HTML 中 JSON-LD 结构化数据
+function extractJSONLD(html) {
+  const results = [];
+  const regex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = regex.exec(html)) !== null) {
+    try {
+      const parsed = JSON.parse(m[1].trim());
+      results.push(parsed);
+    } catch {}
+  }
+  return results;
+}
+
+// 从 JSON-LD 中提取商品信息
+function extractProductFromLD(ld) {
+  const items = Array.isArray(ld) ? ld : [ld];
+  for (const item of items) {
+    const graph = item['@graph'] || [item];
+    for (const g of graph) {
+      if (g['@type'] === 'Product' || g['@type'] === 'ItemPage' || g['@type'] === 'Offer') {
+        const name = g.name || '';
+        const desc = g.description || '';
+        const images = (Array.isArray(g.image) ? g.image : [g.image]).filter(Boolean).map(i =>
+          typeof i === 'string' ? i : (i?.url || '')
+        );
+        const offers = g.offers || {};
+        const brand = g.brand?.name || '';
+        const category = guessCategory(name + ' ' + desc);
+        return { title: name, description: desc, images, brand, category };
+      }
+    }
+  }
+  return null;
+}
+
+// 提取 OG 标签
+function extractOGTags(html) {
+  const tags = {};
+  const regex = /<meta[^>]*property=(?:"|')og:(\w+)(?:"|')[^>]*content=(?:"|')([^"']*)(?:"|')[^>]*\/?>/gi;
+  let m;
+  while ((m = regex.exec(html)) !== null) tags[m[1]] = m[2];
+  // 也匹配另一种顺序
+  const regex2 = /<meta[^>]*content=(?:"|')([^"']*)(?:"|')[^>]*property=(?:"|')og:(\w+)(?:"|')[^>]*\/?>/gi;
+  while ((m = regex2.exec(html)) !== null) tags[m[2]] = m[1];
+  return tags;
+}
+
+// 根据标题+描述猜测品类
+function guessCategory(text) {
+  const t = text.toLowerCase();
+  if (/(美妆|护肤|化妆|精华|面霜|面膜|口红|粉底|眼影|防晒)/.test(t)) return '美妆护肤';
+  if (/(手机|数码|电脑|耳机|充电|智能|手表|蓝牙|相机|电子)/.test(t)) return '数码3C';
+  if (/(食品|零食|饮料|茶|咖啡|酒水|牛奶|保健品|营养)/.test(t)) return '食品饮料';
+  if (/(服饰|衣服|穿搭|鞋|包|配饰|女装|男装|连衣裙|T恤|裤子)/.test(t)) return '服饰穿搭';
+  if (/(家居|家具|家纺|床|桌|椅|灯|装饰|收纳|厨具|餐具)/.test(t)) return '家居生活';
+  if (/(母婴|奶粉|尿不湿|奶瓶|婴儿|儿童|宝宝|玩具)/.test(t)) return '母婴用品';
+  if (/(宠物|猫粮|狗粮|猫砂|宠物用品)/.test(t)) return '宠物用品';
+  return '其他';
+}
+
+// 将 Vision 分析结果映射到风格包 & 推荐图片类型
+function visionToStylePack(vision) {
+  if (!vision) return { stylePack: '', imageTypes: [] };
+
+  const vibe = (vision.style_vibe || '').toLowerCase();
+  const bg = (vision.background || '').toLowerCase();
+  const light = (vision.lighting || '').toLowerCase();
+  const comp = (vision.composition || '').toLowerCase();
+  const temp = (vision.color_temperature || '').toLowerCase();
+  const colors = (vision.dominant_colors || []).join(' ').toLowerCase();
+  const elements = (vision.key_visual_elements || []).join(' ').toLowerCase();
+
+  // 计算各风格包得分
+  const scores = {
+    '':                    { score: 0, desc: '' },
+    '官方主图风格': { score: 0, desc: '白底 · 棚拍 · 产品居中' },
+    '场景种草风格': { score: 0, desc: '真实场景 · 生活感' },
+    '促销大促风格': { score: 0, desc: '促销氛围 · 吸引点击' },
+    '真实买家感':   { score: 0, desc: '手机实拍感 · 降低广告感' },
+    '品牌质感风格': { score: 0, desc: '统一色板 · 提升溢价' },
+    '卖点解说风格': { score: 0, desc: '信息图排版 · 卖点一目了然' },
+  };
+
+  // 官方主图
+  if (/(白底|white|clean|纯色|studio|纯白)/.test(bg)) scores['官方主图风格'].score += 3;
+  if (/(顶光|柔光|soft|diffuse|棚拍)/.test(light)) scores['官方主图风格'].score += 2;
+  if (/(居中|centered|center)/.test(comp)) scores['官方主图风格'].score += 2;
+  if (/(专业|professional|studio|product)/.test(vibe)) scores['官方主图风格'].score += 2;
+  if (/(极简|minimal|简洁|洁净)/.test(vibe)) scores['官方主图风格'].score += 1;
+
+  // 场景种草
+  if (/(场景|环境|lifestyle|setting|场景|生活)/.test(bg)) scores['场景种草风格'].score += 3;
+  if (/(自然光|warm|ambient|自然|window)/.test(light)) scores['场景种草风格'].score += 2;
+  if (/(使用中|in.use|生活|lifestyle)/.test(elements)) scores['场景种草风格'].score += 2;
+  if (/(温馨|warm|自然|casual)/.test(vibe)) scores['场景种草风格'].score += 2;
+
+  // 促销大促
+  if (/(促销|promotion|sale|折扣|优惠|deal)/.test(elements)) scores['促销大促风格'].score += 4;
+  if (/(文字|text|overlay|标签|label|tag)/.test(elements)) scores['促销大促风格'].score += 2;
+  if (/(暖|暖色|鲜艳|vibrant|bright|红|橙|黄)/.test(colors)) scores['促销大促风格'].score += 1;
+  if (/(促销|promotional)/.test(vibe)) scores['促销大促风格'].score += 2;
+
+  // 真实买家感
+  if (/(手机|实拍|实拍|casual|unpolished|自然)/.test(vibe)) scores['真实买家感'].score += 3;
+  if (/(随手|自然|生活|straight)/.test(comp)) scores['真实买家感'].score += 1;
+  if (/(硬光|harsh|自然|朴素|朴实)/.test(light)) scores['真实买家感'].score += 1;
+  if (/(买家秀|平民|unpolished|手机)/.test(elements)) scores['真实买家感'].score += 3;
+
+  // 品牌质感
+  if (/(高端|奢华|luxury|premium|elegant|高档)/.test(vibe)) scores['品牌质感风格'].score += 3;
+  if (/(莫兰迪|高级|dark|深沉|质感)/.test(colors)) scores['品牌质感风格'].score += 2;
+  if (/(统一|consistent|品牌|brand)/.test(elements)) scores['品牌质感风格'].score += 2;
+  if (/(极简|minimal|干净|clean)/.test(bg)) scores['品牌质感风格'].score += 1;
+
+  // 卖点解说
+  if (/(信息图|infographic|排版|布局)/.test(vibe)) scores['卖点解说风格'].score += 3;
+  if (/(标注|label|注解|annotation|文字)/.test(elements)) scores['卖点解说风格'].score += 3;
+  if (/(教育|educational|解说|说明)/.test(vibe)) scores['卖点解说风格'].score += 2;
+
+  // 默认：冷/中性色温 + 干净背景 → 官方主图
+  if (/(冷|中性|neutral|clean)/.test(temp)) scores['官方主图风格'].score += 1;
+
+  // 选最高分
+  let best = '官方主图风格';
+  for (const [k, v] of Object.entries(scores)) {
+    if (v.score > scores[best].score) best = k;
+  }
+
+  // 推荐图片类型
+  const imageTypes = [{ key: 'white_bg', count: 1 }];
+  if (best === '场景种草风格') imageTypes.push({ key: 'scene', count: 1 });
+  if (best === '卖点解说风格') imageTypes.push({ key: 'feature', count: 2 });
+  if (best === '品牌质感风格') imageTypes.push({ key: 'macro', count: 1 });
+  if (best === '促销大促风格') {
+    imageTypes.push({ key: 'feature', count: 1 });
+    imageTypes.push({ key: 'package', count: 1 });
+  }
+
+  return { stylePack: best, imageTypes, confidence: Math.min(10, Math.round(scores[best].score * 1.5)) };
+}
+
+app.post('/api/extract-product-link', async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ error: '缺少商品链接' });
+
+  console.log(`[extract-link] 分析链接: ${url.slice(0, 80)}`);
+
+  try {
+    // ——— 抓取页面 ———
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const pageRes = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!pageRes.ok) {
+      return res.json({ ok: true, note: '页面无法直接访问，请手动填写商品信息', title: '', images: [], stylePack: '' });
+    }
+
+    const html = await pageRes.text();
+
+    // ——— Step 1: 提取 JSON-LD 结构化数据（最干净） ———
+    const ld = extractJSONLD(html);
+    let product = extractProductFromLD(ld);
+
+    // ——— Step 2: 提取 OG 标签补充 ———
+    const og = extractOGTags(html);
+    const ogImages = [];
+    if (og.image) ogImages.push(og.image);
+    if (og['image:secure_url']) ogImages.push(og['image:secure_url']);
+
+    // ——— Step 3: 如果 JSON-LD 没找到，降级到 LLM 从干净内容提取 ———
+    if (!product) {
+      // 只提取页面 clean text（去掉脚步/导航/版权等）
+      const cleanText = html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+        .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
+        .replace(/<header[\s\S]*?<\/header>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&[a-z]+;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .slice(0, 3000);
+
+      const systemPrompt = `你是一个电商商品信息提取器。从商品页内容中提取商品本身的信息，返回纯JSON（不要markdown）。忽略导航、公司介绍、营业执照、品牌介绍等无关内容。
+{
+  "title": "商品标题",
+  "description": "商品简短描述（2-3句话）",
+  "materials": "材质/成分描述",
+  "sellingPoints": ["卖点1", "卖点2", "卖点3"]
+}`;
+
+      const result = await callLLM(systemPrompt, `商品页面内容：\n${cleanText}`, { temperature: 0.3, maxTokens: 2000 });
+      try {
+        const jsonMatch = result.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[0]);
+          product = {
+            title: data.title || '',
+            description: data.description || '',
+            images: [],
+            category: guessCategory((data.title || '') + ' ' + (data.description || '')),
+            sellingPoints: data.sellingPoints || [],
+            materials: data.materials || '',
+          };
+        }
+      } catch {}
+    }
+
+    // 如果还是没取到，返回空
+    if (!product || !product.title) {
+      return res.json({ ok: true, note: '未能从页面提取到商品信息，请手动填写', title: '', images: [], stylePack: '' });
+    }
+
+    // ——— Step 4: 整理图片列表 ———
+    // JSON-LD 图片优先，其次 OG 图，最后手动提取
+    let images = (product.images || []).filter(Boolean);
+    if (!images.length) images = ogImages.filter(Boolean);
+    // 过滤掉非商品图的 URL（logo、icon、banner 等）
+    images = images.filter(u =>
+      !/(logo|icon|banner|avatar|favicon|sprite|bg_|footer|header)/i.test(u)
+    );
+    // 去重取前 5
+    images = [...new Set(images)].slice(0, 5);
+
+    // ——— Step 5: Vision 风格分析（用主 LLM 看图） ———
+    let vision = null;
+    let styleMapping = { stylePack: '', imageTypes: [], confidence: 0 };
+    if (images.length > 0) {
+      try {
+        const visionSysPrompt = `你是一个电商产品图片分析专家。分析商品图的视觉风格，返回纯 JSON（不要 markdown）：
+{
+  "style_vibe": "整体风格感觉（极简/奢华/自然/科技感/温馨/专业/促销等）",
+  "background": "背景描述（白底/场景/渐变/实景等）",
+  "lighting": "光线类型（柔光/硬光/侧光/顶光/自然光等）",
+  "composition": "构图方式（居中/三分法/特写/俯拍/平铺等）",
+  "dominant_colors": ["主色1", "主色2", "主色3"],
+  "color_temperature": "色温（暖/冷/中性）",
+  "material_texture": "材质质感描述",
+  "has_text_overlay": true/false,
+  "overall_feel": "一句话描述整体视觉氛围"
+}`;
+        const visionRaw = await callLLMWithVision(visionSysPrompt, images,
+          `分析这些商品图片的视觉风格。产品是什么？构图？光线？背景？整体风格？`
+        );
+        const jsonMatch = visionRaw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          vision = JSON.parse(jsonMatch[0]);
+          styleMapping = visionToStylePack(vision);
+          console.log(`[extract-link] Vision 风格分析: ${styleMapping.stylePack} (置信度 ${styleMapping.confidence}/10)`);
+        }
+      } catch (e) {
+        console.warn(`[extract-link] Vision 分析失败: ${e.message}`);
+      }
+    }
+
+    // ——— Step 6: 提取卖点（如果 JSON-LD 没有，从描述中推） ———
+    let sellingPoints = product.sellingPoints || [];
+    if (!sellingPoints.length && product.description) {
+      // 用逗号/句号分隔描述作为卖点候选
+      sellingPoints = product.description
+        .split(/[。，；;]/)
+        .map(s => s.trim())
+        .filter(s => s.length > 4 && s.length < 30)
+        .slice(0, 4);
+    }
+
+    console.log(`[extract-link] 成功: ${(product.title || '').slice(0, 40)}`);
+
+    return res.json({
+      ok: true,
+      title: product.title || '',
+      description: product.description || '',
+      category: product.category || guessCategory(product.title || ''),
+      images,
+      sellingPoints,
+      materials: product.materials || '',
+      brand: product.brand || '',
+      // ★ 新增：风格分析结果
+      stylePack: styleMapping.stylePack,
+      styleConfidence: styleMapping.confidence,
+      styleNote: styleMapping.stylePack ? `检测到商品图风格偏向「${styleMapping.stylePack}」` : '',
+      imageTypes: styleMapping.imageTypes,
+    });
+
+  } catch (err) {
+    console.error(`[extract-link] 失败:`, err.message);
+    res.json({ ok: true, note: '链接访问失败，请手动填写', title: '', images: [], stylePack: '' });
+  }
+});
+
+// ── 持久化的 bookmarklet 存储（重启不丢） ──
+const BOOKMARKLET_FILE = join(__dirname, 'bookmarklet_store.json');
+const BOOKMARKLET_TTL = 30 * 60 * 1000; // 30 分钟有效期
+
+function loadBmStore() {
+  try {
+    if (fs.existsSync(BOOKMARKLET_FILE)) {
+      const raw = fs.readFileSync(BOOKMARKLET_FILE, 'utf-8');
+      const data = JSON.parse(raw);
+      const now = Date.now();
+      for (const k of Object.keys(data)) {
+        if (now - (data[k].ts || 0) > BOOKMARKLET_TTL) delete data[k];
+      }
+      return data;
+    }
+  } catch (e) { /* ignore */ }
+  return {};
+}
+function saveBmStore(s) {
+  try {
+    const now = Date.now();
+    for (const k of Object.keys(s)) { if (now - (s[k].ts || 0) > BOOKMARKLET_TTL) delete s[k]; }
+    fs.writeFileSync(BOOKMARKLET_FILE, JSON.stringify(s), 'utf-8');
+  } catch (e) { console.warn('[bm] persist fail:', e.message); }
+}
+const _bm = loadBmStore();
+setInterval(() => saveBmStore(_bm), 60000);
+process.on('exit', () => saveBmStore(_bm));
+const bmGet = k => _bm[k] || null;
+const bmSet = (k, v) => { _bm[k] = v; saveBmStore(_bm); };
+const bmHas = k => !!_bm[k];
+const bmDel = k => { delete _bm[k]; saveBmStore(_bm); };
+
+app.post('/api/bookmarklet-extract', (req, res) => {
+  const { title, desc, brand, images, sellingPoints, base64Images, detailIframeUrl } = req.body || {};
+  if (!title && !images?.length) return res.status(400).json({ error: '未提取到有效数据' });
+  const token = 'ext_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const cleanImages = (images || []).filter(u => !/logo|icon|banner|avatar|sprite/i.test(u)).slice(0, 200);
+  bmSet(token, {
+    title: title || '', desc: desc || '', brand: brand || '',
+    images: cleanImages,
+    sellingPoints: sellingPoints || [],
+    analysis: null,
+    analysisReady: false,
+    ts: Date.now(),
+  });
+  // 异步启动视觉反推 + 详情 iframe 抓取
+  analyzeProductImages(token, cleanImages, base64Images).catch(e => {
+    console.error('[bookmarklet] 视觉反推出错:', e.message);
+    markAnalysisDone(token, null);
+  });
+  // 详情 iframe 抓取（异步补充图片）
+  if (detailIframeUrl) {
+    fetchDetailImages(detailIframeUrl, token).catch(err => {
+      console.warn(`[bookmarklet] 详情页抓取失败:`, err.message);
+    });
+  }
+  res.json({ ok: true, token });
+});
+
+app.get('/api/bookmarklet-data', (req, res) => {
+  const { token } = req.query;
+  if (!token || !bmHas(token)) return res.json({ ok: false });
+  const data = bmGet(token);
+  // 分析还没完成——图可以先给
+  if (!data.analysisReady) return res.json({ ok: true, ready: false, title: data.title, images: data.images || [], sellingPoints: data.sellingPoints || [], desc: data.desc || '', brand: data.brand || '' });
+  bmDel(token); // 一次性读取
+  res.json({ ok: true, ready: true, ...data });
+});
+
+// ── 视觉反推：下载图片 → base64 → vision API 分析 ──
+async function analyzeProductImages(token, allImages, base64Images) {
+  const urls = (allImages || []).filter(Boolean).slice(0, 3);
+  // 优先用浏览器传来的 base64（解决 CDN 防外链问题）
+  const imageData = (base64Images || []).filter(Boolean).slice(0, 3);
+  if (!imageData.length && !urls.length) return markAnalysisDone(token, null);
+
+  const systemPrompt = `你是一位电商视觉分析师。分析用户提供的商品图片，输出一份完整的视觉报告。
+输出纯 JSON（不要 markdown 标记）：
+{
+  "category": "商品类目（美妆护肤/数码3C/食品饮料/服饰穿搭/家居生活/母婴用品/宠物用品/其他）",
+  "stylePack": "最佳匹配风格包（default | scene_selling | detail_selling | ugc_trust | brand_unified | promo_sale）",
+  "visualDirection": "一句话描述整体视觉方向",
+  "dominantColors": ["主色1", "主色2", "主色3"],
+  "lighting": "光照风格描述",
+  "composition": "构图特点",
+  "background": "背景/场景类型",
+  "material": "可见材质特征",
+  "keySellingPoints": ["卖点1", "卖点2", "卖点3"],
+  "mood": "画面情绪/风格调性"
+}`;
+
+  try {
+    // 1. 收集可用的 base64 data URI（已有 base64 的优先）
+    const dataUris = [...imageData];
+
+    // 2. 尝试下载 URL 图片并转 base64（只试没 base64 的）
+    for (let i = dataUris.length; i < 3 && i < urls.length; i++) {
+      try {
+        const host = new URL(urls[i]).hostname;
+        const referer = host.includes('alicdn') ? 'https://www.taobao.com/'
+          : host.includes('360buyimg') ? 'https://www.jd.com/'
+          : host.includes('pddpic') || host.includes('pinduoduo') ? 'https://mobile.yangkeduo.com/'
+          : urls[i];
+        const res = await fetch(urls[i], {
+          headers: { 'Referer': referer, 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          if (buf.byteLength >= 1000) {
+            const ext = urls[i].match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpg';
+            dataUris.push('data:image/' + ext + ';base64,' + Buffer.from(buf).toString('base64'));
+          }
+        }
+      } catch (e) { /* skip */ }
+    }
+    if (!dataUris.length) return markAnalysisDone(token, null);
+
+    // 3. 发 vision API
+    const res = await fetch(MINI_BASE + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + MINI_KEY },
+      body: JSON.stringify({
+        model: MINI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: [
+            { type: 'text', text: '请分析这些商品图片，输出 JSON 格式的视觉报告。' },
+            ...dataUris.map(u => ({ type: 'image_url', image_url: { url: u } })),
+          ]},
+        ],
+        max_tokens: 1500,
+        temperature: 0.3,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) return markAnalysisDone(token, null);
+    const data = await res.json();
+    const result = data.choices?.[0]?.message?.content || '';
+    const cleaned = result.replace(/```json|```/g, '').trim();
+    const analysis = JSON.parse(cleaned);
+
+    const store = bmGet(token);
+    if (store) {
+      store.analysis = analysis;
+      store.analysisReady = true;
+      console.log(`[bookmarklet] 反推完成: ${analysis.category}, 风格=${analysis.stylePack}`);
+    }
+  } catch (err) {
+    markAnalysisDone(token, null);
+    console.warn(`[bookmarklet] 视觉反推失败:`, err.message);
+  }
+}
+
+function markAnalysisDone(token, analysis) {
+  const store = bmGet(token);
+  if (store) {
+    store.analysis = analysis || null;
+    store.analysisReady = true;
+  }
+}
+
+// ── 详情 iframe URL 抓取：淘宝/JD 的图文详情在 iframe 里 ──
+async function fetchDetailImages(iframeUrl, token) {
+  try {
+    const res = await fetch(iframeUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Referer': new URL(iframeUrl).origin,
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return;
+    const html = await res.text();
+    // 从 HTML 里提取所有图片 URL
+    const urls = [];
+    const re = /https?:\/\/[^\s"'\\)<>]+\.(?:jpg|jpeg|png|webp|gif|avif)(?:\?[^\s"'\)<>]*)?/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const u = m[0].split('"')[0].split("'")[0].split(')')[0];
+      if (u && u.length < 500 && !/(logo|icon|avatar|sprite|banner)/i.test(u)) {
+        urls.push(u);
+      }
+    }
+    // 去重后合并到 stored data
+    const unique = [...new Set(urls)];
+    if (!unique.length) return;
+    const store = bmGet(token);
+    if (store) {
+      const existing = new Set(store.images.map(u => u.split('#')[0].split('?')[0]));
+      const newImgs = unique.filter(u => !existing.has(u.split('#')[0].split('?')[0]));
+      if (newImgs.length) {
+        store.images = [...store.images, ...newImgs.slice(0, 100)];
+        console.log(`[bookmarklet] 详情 iframe 抓到 ${newImgs.length} 张新图 (共 ${store.images.length})`);
+      }
+    }
+  } catch (e) {
+    // 静默失败——详情图没有也能用
+  }
+}
+
+// ============================================================
+// 电商 API（v3：预览 + 生成）
+// ============================================================
+
+app.post('/api/ecommerce-preview', (req, res) => {
+  const { product_name, category, selling_points, ref_count, has_material, style_pack } = req.body || {};
+  if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
+
+  const sellingPoints = (typeof selling_points === 'string' ? selling_points : '').split(/[\n,;，；]/).filter(Boolean);
+
+  const recommendations = getSmartRecommendations({
+    category: category || '其他',
+    sellingPoints,
+    refCount: ref_count || 0,
+    hasMaterial: !!has_material,
+    stylePack: style_pack || null,
+  });
+
+  const imageTypes = IMAGE_TYPE_INFO.map(t => ({
+    ...t,
+    recommended: recommendations.find(r => r.key === t.key)?.count || 0,
+    recommendReason: recommendations.find(r => r.key === t.key)?.reason || '',
+  }));
+
+  const selections = recommendations.map(r => ({ key: r.key, count: r.count }));
+  const outline = buildOutline({
+    productName: product_name,
+    category: category || '其他',
+    imageSelections: selections,
+    sellingPoints,
+  });
+
+  res.json({ product_name, category: category || '其他', imageTypes, outline });
+});
+
+app.post('/api/generate-ecommerce', async (req, res) => {
+  const { product_name, category, tier, image_selections, image_size, platform, selling_points, reference_images, beauty_report, style_pack, campaign_lock, conversion_driver, material, target_audience, restrictions } = req.body || {};
+  if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
+
+  console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || tier || 'basic'}, style=${style_pack || 'default'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
+
+  const sellingPoints = (typeof selling_points === 'string' ? selling_points : '').split(/[\n,;，；]/).filter(Boolean);
+  const images = {};
+  const errors = [];
+
+  // 从 image_selections 或 tier 构建图片角色列表
+  const expandedImages = [];
+  if (image_selections?.length > 0) {
+    for (const sel of image_selections) {
+      const count = sel.count || 1;
+      for (let i = 0; i < count; i++) {
+        // 所有同类多图加后缀 _1, _2, _3，确保 images dict 的 key 唯一
+        const roleKey = count > 1 ? `${sel.key}_${i + 1}` : sel.key;
+        const sp = sel.key === 'feature' ? (sellingPoints[i] || sellingPoints[0] || '') : (sellingPoints[0] || '');
+        const roleObj = IMAGE_ROLES[roleKey.replace(/_d+$/, '') === 'feature' ? 'feature_1' : roleKey.replace(/_d+$/, '')] || IMAGE_ROLES[roleKey.replace(/_d+$/, '')];
+        expandedImages.push({ key: roleKey, label: roleKey, sellingPoint: sp, ratio: roleObj?.ratio || '1:1' });
+      }
+    }
+  } else {
+    const tierImages = getTierImages(tier || 'basic', sellingPoints, category || '其他');
+    for (const img of tierImages) {
+      expandedImages.push({ key: img.key, label: img.label, sellingPoint: img.sellingPoint || sellingPoints[0] || '', cat: img.cat });
+    }
+  }
+
+  // 收集额外 prompt 上下文
+  const extraContext = [];
+  if (material) extraContext.push(`Material/Spec: ${material}`);
+  if (target_audience) extraContext.push(`Target audience: ${target_audience}`);
+  if (restrictions) extraContext.push(`Restrictions/avoid: ${restrictions}`);
+  let contextSuffix = extraContext.length > 0 ? '\n\n' + extraContext.join('. ') + '.' : '';
+
+  // 自定义尺寸解析
+  const customSizeStr = (image_size?.width && image_size?.height) ? `${image_size.width}x${image_size.height}` : null;
+  // 参考图：分析 + 准备视觉输入
+  let refImageBase64 = null;
+  if (reference_images?.length > 0) {
+    try {
+      console.log(`[ec-gen] Vision 分析 ${reference_images.length} 张参考图...`);
+      const vision = await analyzeReferenceImages(reference_images);
+      if (vision) {
+        const visionNote = `\n\nREFERENCE IMAGE ANALYSIS:\n` +
+          `- Product shape: ${vision.product_shape || 'N/A'}\n` +
+          `- Colors: ${vision.dominant_colors?.join(', ') || 'N/A'}\n` +
+          `- Style: ${vision.style_vibe || 'N/A'}\n` +
+          `- Lighting: ${vision.lighting || 'N/A'}\n` +
+          `- Background: ${vision.background || 'N/A'}\n` +
+          `- Material: ${vision.material_texture || 'N/A'}\n` +
+          `- Composition: ${vision.composition || 'N/A'}\n` +
+          `- Color temperature: ${vision.color_temperature || 'N/A'}\n` +
+          `Apply these visual references to maintain consistency with the reference images.`;
+        contextSuffix += visionNote;
+        console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}`);
+      }
+      // 取第 1 张参考图转 base64，传给生图模型做视觉参考
+      const refUrl = reference_images[0];
+      if (refUrl) {
+        if (typeof refUrl === 'string' && refUrl.startsWith('data:image')) {
+          refImageBase64 = refUrl; // 用户上传的 data URI
+        } else if (typeof refUrl === 'string' && /^https?:\/\//i.test(refUrl)) {
+          const refRes = await fetch(refUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            signal: AbortSignal.timeout(8000),
+          });
+          if (refRes.ok) {
+            const buf = await refRes.arrayBuffer();
+            if (buf.byteLength > 1000) {
+              const ext = refUrl.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpeg';
+              refImageBase64 = 'data:image/' + ext + ';base64,' + Buffer.from(buf).toString('base64');
+              console.log(`[ec-gen] 参考图已转 base64 (${(buf.byteLength / 1024).toFixed(0)}KB)`);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[ec-gen] 参考图处理失败（不阻断）:', e.message);
+    }
+  }
+
+  try {
+    // 美妆分析报告模式：生成一张信息图
+    if (beauty_report) {
+      const prompt = buildBeautyReportPrompt({
+        productName: product_name,
+        category: category || '美妆护肤',
+        sellingPoints,
+        platform: platform || '淘宝',
+      });
+      try {
+        const url = await generateImage(prompt, category || '美妆护肤', false, null, customSizeStr, refImageBase64);
+        if (url) images['美妆分析报告'] = url;
+        else errors.push({ style: '美妆分析报告', error: '生成失败' });
+      } catch (err) {
+        errors.push({ style: '美妆分析报告', error: err.message });
+      }
+    } else {
+      // 标准分图模式 — 并行生图（单张 20-30s，5 路并发大幅缩短总耗时）
+      const CONCURRENCY = 5;
+      const imgResults = new Array(expandedImages.length).fill(null);
+      const genOne = async (img, idx) => {
+        const prompt = buildECPrompt({
+          productName: product_name,
+          category: category || '其他',
+          roleKey: img.key,
+          sellingPoints,
+          platform: platform || '淘宝',
+          stylePack: style_pack || null,
+          campaignLock: campaign_lock || null,
+          conversionDriver: conversion_driver || null,
+        }) + contextSuffix;
+        try {
+          const url = await generateImage(prompt, category || '其他', false, null, customSizeStr, refImageBase64);
+          imgResults[idx] = url ? { label: img.label, url } : { label: img.label, error: '生成空结果' };
+        } catch (err) {
+          console.warn(`[ec-gen] 图片失败 [${img.label}]: ${err.message}`);
+          imgResults[idx] = { label: img.label, error: err.message };
+        }
+      };
+      // 并发调度：一次最多 CONCURRENCY 个 in-flight
+      let cursor = 0;
+      async function worker() {
+        while (cursor < expandedImages.length) {
+          const idx = cursor++;
+          await genOne(expandedImages[idx], idx);
+        }
+      }
+      await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+      // 整理结果
+      for (const r of imgResults) {
+        if (r) {
+          if (r.url) images[r.label] = r.url;
+          else errors.push({ style: r.label, error: r.error || '未知错误' });
+        }
+      }
+    }
+
+    const result = {
+      product_name,
+      category: category || '其他',
+      platform: platform || '淘宝',
+      image_selections: image_selections || null,
+      images,
+      errors,
+    };
+
+    console.log(`[ec-gen] 完成: ${Object.keys(images).length} 张图, ${errors.length} 个错误`);
+    res.json(result);
+  } catch (err) {
+    console.error('[ec-gen] 失败:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// 扩展端 API 路由
+// ============================================================
+mountExtRoutes(app);
+
+// ============================================================
 // 启动
 // ============================================================
 app.listen(PORT, () => {
   console.log(`\n🧩 薯包AI 后端服务运行中`);
   console.log(`   LLM: ${LLM_BASE ? LLM_BASE + '/v1/chat/completions' : '未配置'} (${LLM_MODEL})`);
+  console.log(`   Mini: ${MINI_BASE ? MINI_BASE + '/v1/chat/completions' : '未配置'} (${MINI_MODEL}) — Vision 分析`);
   console.log(`   Image: ${IMG_BASE}/v1/images/generations`);
   console.log(`   Anthropic 备用: ${process.env.ANTHROPIC_API_KEY ? '已配置' : '未配置'}`);
   console.log(`   API: http://localhost:${PORT}/api/generate`);

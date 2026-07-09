@@ -1,0 +1,41 @@
+/* ============================================================
+   薯包AI · Base element defaults (light reset)
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--text-body);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: var(--lh-tight);
+  color: var(--text-strong);
+  margin: 0;
+}
+
+p { margin: 0; }
+a { color: var(--brand); text-decoration: none; }
+
+::selection { background: var(--coral-100); color: var(--coral-700); }
+
+/* slim warm scrollbar */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--ink-200); border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--ink-300); }
+
+/* utility: gradient text */
+.sb-grad-text {
+  background: var(--grad-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

@@ -1,0 +1,84 @@
+<!-- @dsCard group="Components" viewport="700x560" name="Core — Button / Card / Badge / Tag / Avatar / Mascot" subtitle="Buttons, note cards, pills, avatars & the mascot" -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 24px; background: var(--grad-spotlight); }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .grp { margin-bottom: 22px; }
+  .lbl { font-family: var(--font-body); font-size: 11px; font-weight: 700; letter-spacing:.08em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Button, Card, Badge, Tag, Avatar, Mascot } = window.AIDesignSystem_67568f;
+  const Star = () => <span style={{fontSize:15}}>✦</span>;
+
+  function Demo() {
+    return (
+      <div>
+        <div className="grp">
+          <p className="lbl">Button · 3D 果冻按钮</p>
+          <div className="row">
+            <Button variant="primary" size="lg" icon={<Star/>}>一键生成</Button>
+            <Button variant="sun">充值套餐</Button>
+            <Button variant="sprout">已保存</Button>
+            <Button variant="secondary">重新生成</Button>
+            <Button variant="ghost">查看更多</Button>
+            <Button variant="primary" size="sm">小号</Button>
+            <Button variant="primary" disabled>已用完</Button>
+          </div>
+        </div>
+
+        <div className="grp">
+          <p className="lbl">Badge & Tag</p>
+          <div className="row">
+            <Badge tone="coral">旅游攻略</Badge>
+            <Badge tone="sun" variant="solid">推荐</Badge>
+            <Badge tone="sprout">美食探店</Badge>
+            <Badge tone="grape">学习干货</Badge>
+            <Badge tone="neutral">日常分享</Badge>
+            <span style={{width:14}} />
+            <Tag>反向旅游</Tag>
+            <Tag active>小众旅行地</Tag>
+            <Tag>周末去哪儿</Tag>
+          </div>
+        </div>
+
+        <div className="row" style={{alignItems:'flex-start', gap:18}}>
+          <div style={{width:240}}>
+            <p className="lbl">Card · 笔记封面</p>
+            <Card hover gradient="var(--grad-sunset)"
+              header={<><Badge tone="coral" variant="solid">旅游攻略</Badge><h3 style={{color:'#fff',margin:'8px 0 0',fontSize:18,textShadow:'0 2px 8px rgba(0,0,0,.3)'}}>反向旅游🔥这5个小县城</h3></>}>
+              <p style={{margin:0,fontSize:13,color:'var(--text-body)'}}>谁懂啊！不去大理人挤人了，这5个小县城真的绝了…</p>
+            </Card>
+          </div>
+          <div>
+            <p className="lbl">Avatar</p>
+            <div className="row">
+              <Avatar name="薯" size={48} ring />
+              <Avatar name="小红薯" size={40} />
+              <Avatar name="A" size={32} />
+            </div>
+            <p className="lbl" style={{marginTop:20}}>Mascot</p>
+            <div className="row">
+              <Mascot base="../../assets" pose="superhero" size={120} />
+              <Mascot base="../../assets" pose="jump" size={90} anim="bob" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script>
+</body>
+</html>

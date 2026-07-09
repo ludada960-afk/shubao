@@ -1,0 +1,11 @@
+/* ============================================================
+   薯包AI · Webfonts
+   Display (playful, rounded, bubbly — matches the logo wordmark):
+     - ZCOOL KuaiLe  (站酷快乐体) for Chinese display
+     - Fredoka       for Latin / numerals / "AI"
+   Body / UI:
+     - Noto Sans SC  (思源黑体) for Chinese + Latin running text
+   Loaded from Google Fonts CDN. For fully-offline standalone HTML,
+   self-host these and swap the @import for local @font-face rules.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=ZCOOL+KuaiLe&display=swap');

@@ -1,0 +1,18 @@
+<!-- @dsCard group="Brand" viewport="700x420" name="Mascot — 小薯包 Poses" subtitle="26 expressions for every product moment" -->
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:22px;background:var(--grad-spotlight);font-family:var(--font-body)}
+  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+  .cell{background:var(--surface-card);border-radius:var(--r-md);box-shadow:var(--sh-sm);padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .25s var(--ease-spring),box-shadow .25s}
+  .cell:hover{transform:translateY(-5px);box-shadow:var(--sh-md)}
+  .cell img{width:100%;height:64px;object-fit:contain}
+  .n{font-size:9px;color:var(--text-muted);font-family:var(--font-num)}
+</style></head>
+<body>
+  <div class="grid" id="g"></div>
+  <script>
+    const poses=[["wave","挥手"],["welcome","欢迎"],["jump","兴奋"],["ready","准备"],["superhero","英雄"],["done","完成"],["writing","写作"],["paint","绘画"],["analyze","分析"],["cook","烹饪"],["curator","策展"],["photographer","摄影"],["inspect","检查"],["approve","批准"],["lift","举重"],["surf","冲浪"],["dance","跳舞"],["meditate","冥想"],["sit","坐着"],["walk","行走"],["lookup","向上看"],["sleep","睡觉"],["upgrade","升级"],["empty","空状态"],["error","错误"],["crash","崩溃"]];
+    document.getElementById('g').innerHTML=poses.map(([p,l])=>`<div class="cell"><img src="../assets/mascot-${p}.webp" alt="${l}" loading="lazy" decoding="async"/><span class="n">${l}</span></div>`).join('');
+  </script>
+</body></html>

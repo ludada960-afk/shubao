@@ -1,0 +1,20 @@
+<!-- @dsCard group="Colors" viewport="700x230" name="Gradients" subtitle="Warm coral transitions — the brand's signature surface" -->
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:20px;background:var(--surface-card);font-family:var(--font-body)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .g{height:74px;border-radius:var(--r-md);box-shadow:var(--sh-sm);display:flex;align-items:flex-end;padding:9px 11px;position:relative;overflow:hidden}
+  .g::before{content:"";position:absolute;inset:0;background:var(--gloss);opacity:.5}
+  .g span{position:relative;color:#fff;font-size:11px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.25);font-family:var(--font-num)}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="g" style="background:var(--grad-brand)"><span>--grad-brand</span></div>
+    <div class="g" style="background:var(--grad-coral)"><span>--grad-coral</span></div>
+    <div class="g" style="background:var(--grad-sunset)"><span>--grad-sunset</span></div>
+    <div class="g" style="background:var(--grad-blush)"><span style="color:var(--coral-700);text-shadow:none">--grad-blush</span></div>
+    <div class="g" style="background:var(--grad-sprout)"><span>--grad-sprout</span></div>
+    <div class="g" style="background:var(--grad-grape)"><span>--grad-grape</span></div>
+  </div>
+</body></html>

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "薯包AI 商品提取器",
+  "version": "3.3.0",
+  "description": "一键提取淘宝/京东/拼多多商品信息到薯包AI — 直接在当前页面提取",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": [
+    "http://localhost:3099/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "提取商品到薯包AI",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

@@ -1,0 +1,24 @@
+<!-- @dsCard group="Spacing" viewport="700x230" name="3D Depth & Shadows" subtitle="Clay-raised, inset wells, coral glow & button edges" -->
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:26px;background:var(--surface-page);font-family:var(--font-body)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .item{text-align:center}
+  .box{height:78px;border-radius:var(--r-lg);background:var(--surface-card);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text-muted)}
+  .n{font-size:10px;color:var(--text-faint);margin-top:10px;font-family:var(--font-num)}
+  .coral{background:var(--grad-brand);color:#fff;position:relative;overflow:hidden}
+  .coral::before{content:"";position:absolute;inset:0;background:var(--gloss);opacity:.5}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="item"><div class="box" style="box-shadow:var(--sh-md)">elevation</div><div class="n">--sh-md</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--clay-raised)">clay</div><div class="n">--clay-raised</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--clay-inset)">inset well</div><div class="n">--clay-inset</div></div>
+    <div class="item"><div class="box coral" style="box-shadow:var(--btn-3d-coral);margin-bottom:8px"><span style="position:relative">3D 边缘</span></div><div class="n">--btn-3d-coral</div></div>
+  </div>
+  <div style="display:flex;gap:18px;margin-top:22px;align-items:center">
+    <div class="box coral" style="width:120px;box-shadow:var(--glow-coral)"><span style="position:relative">coral glow</span></div>
+    <span class="n" style="margin:0">--glow-coral · 用于主按钮发光</span>
+  </div>
+</body></html>

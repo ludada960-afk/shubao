@@ -1,0 +1,40 @@
+/* ============================================================
+   薯包AI · Spacing, radii & layout tokens
+   ============================================================ */
+:root {
+  /* ---- Spacing scale (4px base) ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 56px;
+  --sp-10: 72px;
+  --sp-11: 96px;
+  --sp-12: 128px;
+
+  /* ---- Radii (chunky, jelly-soft — the brand is very rounded) ---- */
+  --r-xs:   8px;
+  --r-sm:   12px;
+  --r-md:   18px;
+  --r-lg:   24px;
+  --r-xl:   32px;
+  --r-2xl:  40px;
+  --r-pill: 999px;
+  --r-blob: 46% 54% 52% 48% / 55% 48% 52% 45%; /* @kind radius */
+
+  /* ---- Container widths ---- */
+  --w-prose:  720px;  /* @kind spacing */
+  --w-content: 960px; /* @kind spacing */
+  --w-wide:   1200px; /* @kind spacing */
+
+  /* ---- Z-index ladder ---- */
+  --z-base: 1;       /* @kind other */
+  --z-sticky: 100;   /* @kind other */
+  --z-overlay: 500;  /* @kind other */
+  --z-modal: 900;    /* @kind other */
+  --z-toast: 1200;   /* @kind other */
+}

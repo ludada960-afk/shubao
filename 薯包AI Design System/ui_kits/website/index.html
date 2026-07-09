@@ -1,0 +1,161 @@
+<!-- @dsCard group="Website" viewport="1100x760" name="薯包AI 网站" subtitle="Hero generator · gallery · note · pricing — click through" -->
+<!-- @startingPoint section="Website" subtitle="薯包AI marketing + generator site" viewport="1100x760" -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>薯包AI · 小红书爆款图文一键生成</title>
+<meta name="description" content="薯包AI — 输入一句话主题，AI 自动识别赛道，一键生成小红书爆款标题、种草文案和 9 张精美配图，打开即可发布。" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="data.js"></script>
+<style>
+  body { margin: 0; background: var(--surface-page); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="Nav.jsx"></script>
+<script type="text/babel" src="HomeScreen.jsx"></script>
+<script type="text/babel" src="GalleryScreen.jsx"></script>
+<script type="text/babel" src="PricingScreen.jsx"></script>
+<script type="text/babel" src="ResultScreen.jsx"></script>
+<script type="text/babel" data-presets="react">
+(function () {
+const { useState, useRef } = React;
+const { Button, Mascot } = window.AIDesignSystem_67568f;
+const { Sparkles, LogIn } = window;
+
+function Modal({ children, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 900, background: "rgba(43,26,28,.45)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", animation: "sb-pop-in .18s" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "var(--surface-card)", borderRadius: "var(--r-2xl)", padding: "34px 30px", width: 400, maxWidth: "92vw", boxShadow: "var(--sh-xl)", animation: "sb-pop-in .26s var(--ease-spring)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer style={{ borderTop: "1.5px solid var(--coral-100)", background: "var(--cream-2)", padding: "34px 20px", textAlign: "center" }}>
+      <img src="../../assets/logo-wordmark.webp" alt="薯包AI" style={{ height: 40, marginBottom: 12 }} />
+      <p style={{ margin: "0 0 6px", fontSize: 13, color: "var(--text-muted)" }}>小红书爆款图文，一键生成 · 让灵感不打烊</p>
+      <p style={{ margin: 0, fontSize: 11.5, color: "var(--text-faint)" }}>© 2026 薯包AI · 本页为设计系统演示用 UI Kit</p>
+    </footer>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState("home");
+  const [view, setView] = useState("browse");   // browse | loading | result
+  const [stage, setStage] = useState(0);
+  const [note, setNote] = useState(null);
+  const [logged, setLogged] = useState(false);
+  const [pts, setPts] = useState(1);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showPrice, setShowPrice] = useState(false);
+  const [toast, setToast] = useState("");
+  const tm = useRef([]);
+
+  function runGen(text) {
+    if (!text || !text.trim()) return;
+    setView("loading"); setStage(0); setPage("home");
+    tm.current.forEach(clearTimeout);
+    tm.current = [0, 1, 2, 3, 4].map((s, i) => setTimeout(() => setStage(s), i * 700));
+    tm.current.push(setTimeout(() => {
+      const D = window.SB_DATA;
+      const base = D.gallery[Math.floor(Math.random() * D.gallery.length)];
+      setNote({ ...base, title: text.length > 4 ? text + "🔥这样写真的会火" : base.title });
+      setView("result");
+      if (logged) setPts(p => Math.max(0, p - 1));
+    }, 3800));
+  }
+
+  function openNote(item) {
+    if (!item) { setPage("gallery"); return; }
+    setNote(item); setView("result");
+  }
+  function buy(p) {
+    if (!logged) { setShowLogin(true); return; }
+    setPts(x => x + p.sets); setShowPrice(false);
+    setToast(`已充值 ${p.sets} 套 · ¥${p.price}`); setTimeout(() => setToast(""), 1800);
+  }
+
+  let body;
+  if (view === "loading") body = <window.LoadingScreen stage={stage} />;
+  else if (view === "result" && note) body = <window.ResultScreen item={note} onBack={() => { setView("browse"); }} onRemix={() => { setView("browse"); setPage("home"); }} />;
+  else if (page === "gallery") body = <window.GalleryScreen onOpenNote={openNote} onRemix={(it) => runGen(it.title)} />;
+  else if (page === "pricing") body = <window.PricingScreen onBuy={buy} />;
+  else if (page === "works") body = <WorksEmpty logged={logged} onLogin={() => setShowLogin(true)} onStart={() => setPage("home")} />;
+  else body = <window.HomeScreen onGenerate={runGen} onOpenNote={openNote} />;
+
+  return (
+    <div>
+      <window.Nav page={page} setPage={(p) => { setPage(p); setView("browse"); }} logged={logged} setLogged={setLogged} pts={pts} onLogin={() => setShowLogin(true)} />
+      {body}
+      {view === "browse" && <Footer />}
+
+      {showLogin && (
+        <Modal onClose={() => setShowLogin(false)}>
+          <div style={{ textAlign: "center", marginBottom: 22 }}>
+            <Mascot src="../../assets/mascot-welcome.webp" size={96} anim="bob" style={{ margin: "0 auto" }} />
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, margin: "10px 0 2px", color: "var(--text-strong)" }}>欢迎来到薯包 AI</h2>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>小红书爆款图文，一键生成</p>
+          </div>
+          {["手机号", "验证码"].map((ph, i) => (
+            <input key={i} placeholder={ph} style={{ width: "100%", padding: "13px 16px", borderRadius: "var(--r-md)", border: "1.5px solid var(--border-soft)", boxShadow: "var(--clay-inset)", fontSize: 14, marginBottom: 12, boxSizing: "border-box", outline: "none", fontFamily: "var(--font-body)" }} />
+          ))}
+          <Button variant="primary" block icon={<LogIn size={16} />} onClick={() => { setLogged(true); setShowLogin(false); }}>登录 / 注册</Button>
+          <p style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: "var(--text-faint)" }}>登录后作品自动保存到个人作品集</p>
+        </Modal>
+      )}
+
+      {showPrice && (
+        <Modal onClose={() => setShowPrice(false)}>
+          <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <Mascot src="../../assets/mascot-upgrade.webp" size={84} anim="bob" style={{ margin: "0 auto" }} />
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, margin: "8px 0 2px" }}>额度用完啦</h2>
+            <p style={{ fontSize: 12.5, color: "var(--text-muted)", margin: 0 }}>选个套餐继续创作吧</p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+            {window.SB_DATA.pricing.map((p, i) => (
+              <div key={i} onClick={() => buy(p)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 16px", borderRadius: "var(--r-md)", border: p.pop ? "2px solid var(--coral-400)" : "1.5px solid var(--border-soft)", cursor: "pointer", background: p.pop ? "var(--coral-50)" : "#fff" }}>
+                <div><div style={{ fontWeight: 700, fontSize: 14 }}>{p.name} · {p.sets}套</div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>约 ¥{p.per}/套</div></div>
+                <div className="sb-grad-text" style={{ fontFamily: "var(--font-num)", fontWeight: 700, fontSize: 22 }}>¥{p.price}</div>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 1200, background: "var(--ink-900)", color: "#fff", padding: "12px 22px", borderRadius: "var(--r-pill)", fontSize: 13.5, fontWeight: 600, boxShadow: "var(--sh-lg)", animation: "sb-pop-in .25s var(--ease-spring)" }}>✅ {toast}</div>}
+    </div>
+  );
+}
+
+function WorksEmpty({ logged, onLogin, onStart }) {
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 20px", textAlign: "center" }}>
+      <Mascot src="../../assets/mascot-empty.webp" size={140} anim="bob" glow={false} style={{ margin: "0 auto 16px" }} />
+      <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, margin: "0 0 8px", color: "var(--text-strong)" }}>还没有作品</h1>
+      <p style={{ fontSize: 14, color: "var(--text-muted)", margin: "0 0 20px" }}>
+        {logged ? "去创作第一套爆款图文吧～" : "登录后，生成的内容会自动保存到这里"}
+      </p>
+      {logged
+        ? <Button variant="primary" icon={<Sparkles size={16} />} onClick={onStart}>开始创作</Button>
+        : <Button variant="primary" icon={<LogIn size={16} />} onClick={onLogin}>登录查看作品</Button>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+})();
+</script>
+</body>
+</html>

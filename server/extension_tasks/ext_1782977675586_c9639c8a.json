@@ -1,0 +1,25 @@
+{
+  "taskId": "ext_1782977675586_c9639c8a",
+  "status": "failed",
+  "progress": 0,
+  "createdAt": 1782977675586,
+  "updatedAt": 1782977676173,
+  "images": [
+    "https://example.com/a.jpg"
+  ],
+  "title": "test",
+  "platform": "taobao",
+  "pageUrl": "",
+  "ratios": [],
+  "downloadedImages": [],
+  "downloadErrors": [
+    {
+      "url": "https://example.com/a.jpg",
+      "error": "HTTP 404 for https://example.com/a.jpg"
+    }
+  ],
+  "analysis": null,
+  "userProduct": null,
+  "generatedImages": [],
+  "error": "所有图片下载失败"
+}

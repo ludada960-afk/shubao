@@ -1,0 +1,45 @@
+/* ============================================================
+   薯包AI · Typography tokens
+   ============================================================ */
+:root {
+  /* ---- Families ---- */
+  --font-display: 'ZCOOL KuaiLe', 'Fredoka', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-latin-display: 'Fredoka', 'ZCOOL KuaiLe', sans-serif; /* numbers, "AI", latin headers */
+  --font-body: 'Noto Sans SC', 'PingFang SC', -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-num: 'Fredoka', 'Noto Sans SC', sans-serif;
+
+  /* ---- Fluid display scale (clamp for responsive heroes) ---- */
+  --fs-hero:    clamp(38px, 6vw, 72px);   /* @kind font */
+  --fs-d1:      clamp(30px, 4.4vw, 52px); /* @kind font */
+  --fs-d2:      clamp(26px, 3.4vw, 40px); /* @kind font */
+  --fs-h1:      30px;
+  --fs-h2:      24px;
+  --fs-h3:      20px;
+  --fs-lead:    18px;
+  --fs-body:    15px;
+  --fs-sm:      13px;
+  --fs-xs:      11px;
+  --fs-micro:   10px;
+
+  /* ---- Weights ---- */
+  --fw-normal: 400; /* @kind other */
+  --fw-medium: 500; /* @kind other */
+  --fw-bold:   700; /* @kind other */
+  --fw-black:  900; /* @kind other */
+
+  /* ---- Line heights ---- */
+  --lh-tight:  1.18; /* @kind other */
+  --lh-snug:   1.4;  /* @kind other */
+  --lh-body:   1.75; /* @kind other */
+  --lh-loose:  2.0;  /* @kind other */
+
+  /* ---- Letter spacing ---- */
+  --ls-tight: -0.01em; /* @kind other */
+  --ls-normal: 0;      /* @kind other */
+  --ls-wide:  0.04em;  /* @kind other */
+}
+
+/* Optional helper classes (components mostly use the vars directly) */
+.sb-display { font-family: var(--font-display); font-weight: 400; line-height: var(--lh-tight); color: var(--text-strong); }
+.sb-num     { font-family: var(--font-num); font-weight: 600; }
+.sb-body    { font-family: var(--font-body); font-weight: 400; line-height: var(--lh-body); color: var(--text-body); }

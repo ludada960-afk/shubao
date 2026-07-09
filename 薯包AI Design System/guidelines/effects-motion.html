@@ -1,0 +1,23 @@
+<!-- @dsCard group="Spacing" viewport="700x230" name="Motion & Hover" subtitle="Springy bounce · hover-lift · float — hover the tiles" -->
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:26px;background:var(--surface-page);font-family:var(--font-body)}
+  .grid{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .tile{width:140px;height:90px;border-radius:var(--r-lg);background:var(--surface-card);box-shadow:var(--clay-raised);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-body)}
+  .tile .n{font-size:9px;color:var(--text-faint);font-family:var(--font-num)}
+  .lift{transition:transform .28s var(--ease-spring),box-shadow .28s}
+  .lift:hover{transform:translateY(-8px);box-shadow:var(--sh-lg)}
+  .grow{transition:transform .2s var(--ease-spring)}
+  .grow:hover{transform:scale(1.07) rotate(-1.5deg)}
+  .float{animation:sb-float 3s ease-in-out infinite}
+  .twk{font-size:30px;animation:sb-twinkle 1.6s ease-in-out infinite}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="tile lift">悬停上浮<span class="n">--ease-spring</span></div>
+    <div class="tile grow">悬停放大<span class="n">scale + tilt</span></div>
+    <div class="tile float">持续漂浮<span class="n">@sb-float</span></div>
+    <div class="tile" style="box-shadow:var(--sh-sm)"><span class="twk">✦</span><span class="n">@sb-twinkle</span></div>
+  </div>
+</body></html>

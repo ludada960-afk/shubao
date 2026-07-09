@@ -1,0 +1,25 @@
+{
+  "taskId": "ext_1782977763124_35c04c7a",
+  "status": "failed",
+  "progress": 0,
+  "createdAt": 1782977763124,
+  "updatedAt": 1782977763131,
+  "images": [
+    "x.jpg"
+  ],
+  "title": "t",
+  "platform": "t",
+  "pageUrl": "",
+  "ratios": [],
+  "downloadedImages": [],
+  "downloadErrors": [
+    {
+      "url": "x.jpg",
+      "error": "Invalid URL"
+    }
+  ],
+  "analysis": null,
+  "userProduct": null,
+  "generatedImages": [],
+  "error": "所有图片下载失败"
+}

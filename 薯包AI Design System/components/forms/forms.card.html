@@ -1,0 +1,52 @@
+<!-- @dsCard group="Components" viewport="700x340" name="Forms — Input / Textarea / Switch" subtitle="Clay-inset fields and the springy toggle" -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 24px; background: var(--grad-spotlight); }
+  .lbl { font-family: var(--font-body); font-size: 11px; font-weight: 700; letter-spacing:.08em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 10px; }
+  .grp { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Input, Switch } = window.AIDesignSystem_67568f;
+  const Hash = () => <span style={{fontSize:15,fontWeight:700}}>#</span>;
+
+  function Demo() {
+    const [v, setV] = React.useState("云南3天2夜旅游攻略");
+    const [t, setT] = React.useState("");
+    const [on1, setOn1] = React.useState(true);
+    const [on2, setOn2] = React.useState(false);
+    return (
+      <div>
+        <div className="grp" style={{maxWidth:420}}>
+          <p className="lbl">Input</p>
+          <Input label="创作主题" icon={<Hash/>} value={v} onChange={e=>setV(e.target.value)} />
+        </div>
+        <div className="grp" style={{maxWidth:420}}>
+          <p className="lbl">Textarea</p>
+          <Input as="textarea" rows={3} value={t} onChange={e=>setT(e.target.value)} placeholder={"输入你想创作的主题，一句话就够了\n例如：百元蓝牙耳机测评…"} />
+        </div>
+        <div className="grp">
+          <p className="lbl">Switch</p>
+          <div style={{display:'flex',gap:24,alignItems:'center'}}>
+            <span style={{display:'flex',gap:10,alignItems:'center',fontSize:13}}><Switch checked={on1} onChange={setOn1} /> 自动保存作品</span>
+            <span style={{display:'flex',gap:10,alignItems:'center',fontSize:13}}><Switch size="sm" checked={on2} onChange={setOn2} /> 仅自己可见</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script>
+</body>
+</html>

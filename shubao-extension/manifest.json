@@ -1,0 +1,82 @@
+{
+  "manifest_version": 3,
+  "name": "薯包AI · 电商图片提取器",
+  "version": "1.0.0",
+  "description": "一键提取电商商品图片，AI 逆向复刻 — 支持淘宝、京东、Amazon、Shopify、1688、拼多多",
+  "author": "薯包AI",
+  "homepage_url": "http://localhost:5173",
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "薯包AI · 一键提取",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "*://*.taobao.com/*",
+    "*://*.tmall.com/*",
+    "*://*.1688.com/*",
+    "*://*.jd.com/*",
+    "*://*.amazon.com/*",
+    "*://*.amazon.co.uk/*",
+    "*://*.amazon.de/*",
+    "*://*.amazon.co.jp/*",
+    "*://myshopify.com/*",
+    "*://*.myshopify.com/*",
+    "*://*.shopify.com/*",
+    "*://*.pinduoduo.com/*",
+    "*://*.yangkeduo.com/*",
+    "*://*.shopee.com/*",
+    "*://*.shopee.cn/*",
+    "*://*.shopee.sg/*",
+    "*://*.shopee.tw/*",
+    "*://localhost:3099/*"
+  ],
+
+  "background": {
+    "service_worker": "bg-wrapper.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.taobao.com/*",
+        "*://*.tmall.com/*",
+        "*://*.1688.com/*",
+        "*://*.jd.com/*",
+        "*://*.amazon.com/*",
+        "*://*.amazon.co.uk/*",
+        "*://*.amazon.de/*",
+        "*://*.amazon.co.jp/*",
+        "*://myshopify.com/*",
+        "*://*.myshopify.com/*",
+        "*://*.shopify.com/*",
+        "*://*.pinduoduo.com/*",
+        "*://*.yangkeduo.com/*",
+        "*://*.shopee.com/*",
+        "*://*.shopee.cn/*",
+        "*://*.shopee.sg/*",
+        "*://*.shopee.tw/*"
+      ],
+      "js": ["content_bundle.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

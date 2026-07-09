@@ -1,0 +1,106 @@
+/* ============================================================
+   薯包AI · Color tokens
+   Brand: kawaii coral-red potato mascot · Xiaohongshu viral vibe
+   ============================================================ */
+:root {
+  /* ---- Brand coral (primary) ---- */
+  --coral-50:  #FFF1F2;
+  --coral-100: #FFE0E4;
+  --coral-200: #FFC2CB;
+  --coral-300: #FF9FAD;
+  --coral-400: #FF7587;
+  --coral-500: #FF4757;   /* core brand red */
+  --coral-600: #ED2E45;
+  --coral-700: #C81E37;
+  --coral-800: #9E1730;
+  --coral-900: #7A152A;
+
+  /* ---- Sprout green (mascot leaf / success) ---- */
+  --sprout-50:  #EFFBEF;
+  --sprout-100: #D6F5D4;
+  --sprout-300: #9FE39A;
+  --sprout-500: #5CC97A;
+  --sprout-600: #3FAE61;
+  --sprout-700: #2E8A4C;
+
+  /* ---- Sunshine yellow (sparkle accent) ---- */
+  --sun-100: #FFF3CC;
+  --sun-300: #FFE08A;
+  --sun-400: #FFD24D;
+  --sun-500: #FFC329;
+  --sun-600: #F0A800;
+
+  /* ---- Blush pink (cheeks / soft accent) ---- */
+  --blush-200: #FFD6DE;
+  --blush-300: #FFB3C1;
+  --blush-400: #FF8FA6;
+
+  /* ---- Grape (cool counter-accent for category tags) ---- */
+  --grape-300: #C9B0F5;
+  --grape-500: #8B5CF6;
+  --grape-600: #7340E0;
+
+  /* ---- Warm neutrals (cream-tinted) ---- */
+  --ink-900: #2B1A1C;   /* near-black warm */
+  --ink-800: #43292D;
+  --ink-700: #5A4145;
+  --ink-600: #7A5E63;
+  --ink-500: #9C8488;
+  --ink-400: #C0AEB1;
+  --ink-300: #E0D2D3;
+  --ink-200: #F0E6E5;
+  --ink-100: #F8F0EF;
+  --cream:   #FFFAF9;   /* default page bg */
+  --cream-2: #FFF3F1;   /* pink-cream surface */
+  --cream-3: #FFF8F2;   /* warm-cream surface */
+  --white:   #FFFFFF;
+
+  /* ============================================================
+     Gradients — the brand leans hard on warm coral transitions
+     ============================================================ */
+  --grad-brand:   linear-gradient(135deg, #FF6B4A 0%, #FF4757 48%, #FF5C8A 100%); /* @kind color */
+  --grad-coral:   linear-gradient(135deg, #FF7587 0%, #FF4757 100%); /* @kind color */
+  --grad-sunset:  linear-gradient(120deg, #FFC329 0%, #FF6B4A 52%, #FF4757 100%); /* @kind color */
+  --grad-blush:   linear-gradient(135deg, #FFD6DE 0%, #FF9FAD 100%); /* @kind color */
+  --grad-sprout:  linear-gradient(135deg, #9FE39A 0%, #5CC97A 100%); /* @kind color */
+  --grad-grape:   linear-gradient(135deg, #C9B0F5 0%, #8B5CF6 100%); /* @kind color */
+  --grad-cream:   linear-gradient(180deg, #FFFAF9 0%, #FFF1F2 100%); /* @kind color */
+  --grad-glass:   linear-gradient(135deg, rgba(255,255,255,.7), rgba(255,255,255,.25)); /* @kind color */
+  /* radial spotlight for hero / page backdrops */
+  --grad-spotlight: radial-gradient(1200px 600px at 50% -10%, #FFE7EA 0%, rgba(255,231,234,0) 60%),
+                    radial-gradient(900px 500px at 100% 0%, #FFF3CC55 0%, rgba(255,243,204,0) 55%),
+                    var(--cream); /* @kind color */
+
+  /* ============================================================
+     Semantic aliases
+     ============================================================ */
+  --brand:            var(--coral-500);
+  --brand-strong:     var(--coral-600);
+  --brand-soft:       var(--coral-50);
+  --on-brand:         #ffffff;
+
+  --text-strong:      var(--ink-900);
+  --text-body:        var(--ink-700);
+  --text-muted:       var(--ink-500);
+  --text-faint:       var(--ink-400);
+  --text-on-coral:    #ffffff;
+
+  --surface-page:     var(--cream);
+  --surface-card:     var(--white);
+  --surface-soft:     var(--cream-2);
+  --surface-sunken:   var(--cream-3);
+
+  --border-soft:      var(--ink-200);
+  --border-strong:    var(--ink-300);
+  --border-brand:     var(--coral-200);
+
+  --success:          var(--sprout-600);
+  --success-soft:     var(--sprout-50);
+  --warning:          var(--sun-600);
+  --warning-soft:     var(--sun-100);
+  --danger:           var(--coral-600);
+  --danger-soft:      var(--coral-50);
+
+  /* like / heart (Xiaohongshu staple) */
+  --like: var(--coral-500);
+}
