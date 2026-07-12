@@ -118,7 +118,50 @@ export const EC_PLATFORM_DESC = {
   小红书电商:'小红书商城', 抖音电商:'抖音小店', 亚马逊:'Amazon跨境',
 };
 
-/* ═══════ 电商平台规格详情 ═══════ */
+/* ═══════ 电商平台尺寸映射 ═══════ */
+export const EC_PLATFORM_DIMS = {
+  '淘宝': { '1:1': [800,800], '3:4': [750,1000] },
+  '京东': { '1:1': [800,800], '3:4': [790,1024] },
+  '拼多多': { '1:1': [480,480], '3:4': [750,1000] },
+  '小红书电商': { '1:1': [800,800], '3:4': [1242,1660] },
+  '抖音电商': { '1:1': [800,800], '3:4': [720,960] },
+  '亚马逊': { '1:1': [1000,1000], '3:4': [1500,2000] },
+};
+
+/* ═══════ 图片类型 → 比例映射 ═══════ */
+export const EC_IMG_RATIOS = {
+  white_bg:'1:1', main_text:'1:1', scene:'3:4', detail:'3:4',
+  composite:'3:4', sku:'1:1', comparison:'3:4', package:'3:4',
+  beauty_report:'3:4', transparent:'1:1',
+};
+
+/* ═══════ 电商核心图片类型 ═══════ */
+export const EC_MAIN_TYPES = [
+  { key:'white_bg',    label:'白底图',   emoji:'⬜', maxCount:3, mandatory:true,  desc:'纯白背景，产品居中，首图合规' },
+  { key:'main_text',   label:'主图文案', emoji:'🖼️', maxCount:3, mandatory:false, desc:'白底+促销角标' },
+  { key:'scene',       label:'场景图',   emoji:'🌄', maxCount:4, mandatory:false, desc:'融入使用环境' },
+  { key:'detail',      label:'详情图',   emoji:'📋', maxCount:6, mandatory:false, desc:'细节特写+标注' },
+  { key:'composite',   label:'组合图',   emoji:'🖼️', maxCount:2, mandatory:false, desc:'多面板三合一' },
+];
+
+/* ═══════ 电商高级图片类型 ═══════ */
+export const EC_ADV_TYPES = [
+  { key:'comparison',    label:'效果对比',      emoji:'↔️', maxCount:2 },
+  { key:'sku',           label:'多规格展示',    emoji:'🎨', maxCount:3 },
+  { key:'package',       label:'包装组合',      emoji:'📦', maxCount:2 },
+  { key:'transparent',   label:'透明PNG',       emoji:'🎯', maxCount:1 },
+  { key:'beauty_report', label:'美妆分析报告',  emoji:'📊', maxCount:1 },
+];
+
+/* ═══════ 视觉风格包 ═══════ */
+export const EC_STYLE_PACKS = [
+  { key:'',               label:'官方主图',   subtitle:'纯白棚拍',   desc:'棚拍级纯白背景，产品居中凸显质感，符合所有平台首图规范', img:'/images/style-packs/standard.png', ar:'5/4' },
+  { key:'scene_selling',  label:'场景种草',   subtitle:'融入环境',   desc:'产品放入真实生活场景，买家看了想下单，详情页转化首选',     img:'/images/style-packs/scene.png',    ar:'3/2' },
+  { key:'promo_sale',     label:'促销大促',   subtitle:'促销配色',   desc:'大促配色+价格角标预留，双11/618一眼抓住点击',              img:'/images/style-packs/promo.png',    ar:'3/2' },
+  { key:'ugc_trust',      label:'真实买家感', subtitle:'手机实拍',   desc:'实拍感降低购买顾虑，手机感构图看起来像真实买家秀',          img:'/images/style-packs/ugc.png',     ar:'2/3' },
+  { key:'brand_unified',  label:'品牌质感',   subtitle:'统一色板',   desc:'统一色板+光线，多款商品放店铺里像同一家出品，溢价感拉满',  img:'/images/style-packs/brand.png',   ar:'2/3' },
+  { key:'detail_selling', label:'卖点解说',   subtitle:'信息图排版', desc:'每张图聚焦一个卖点+中文标注，买家扫一眼就get到值在哪',    img:'/images/style-packs/detail.png',  ar:'2/3' },
+];
 export const EC_PLATFORM_SPECS = {
   '淘宝': {
     name:'淘宝/天猫',

@@ -506,20 +506,12 @@ function buildRolePrompt(roleKey, ctx) {
   switch (roleKey) {
     case 'white_bg':
       return (
-        `E-commerce pure white background product photo of ${productName}. ` +
-        `PRODUCT: ${productName}, ${category}. ${cat.materials}. ${cat.texture}. ` +
-        `BACKGROUND: Absolutely pure white background (RGB #FFFFFF, no gradient, no texture, no pattern). ` +
-        `The entire background behind the product must be uniform pure white. ` +
-        `LIGHTING: ${cat.lighting}. Soft diffused shadow below product on white surface. ` +
-        `COMPOSITION: Product centered, 3/4 elevated angle, covering 60-70% of frame. ` +
-        `Ample whitespace around product. Product edges clearly defined. ` +
-        `STYLE: Professional commercial product photography. Hyper-realistic 8K. Extreme sharp focus. ` +
-        `CRITICAL — TEXT RULE: ABSOLUTELY NO text, Chinese characters, badges, labels, logos, watermarks, ` +
-        `price tags, brand marks, or any writing on this image. The image must be completely text-free. ` +
-        `CRITICAL — NO PEOPLE: No models, no hands, no body parts. Product only. ` +
-        `CRITICAL — NO DECOR: No flowers, no props, no decorative elements. Just the product on white. ` +
-        `ASPECT RATIO: 1:1 square. Final output: ${sizeInfo}. ` +
-        `PLATFORM: ${platformVisual}`
+        'Product on pure white background #FFFFFF. ' +
+        'Product: ' + productName + '. ' + cat.materials + '. ' + cat.texture + '. ' +
+        'Keep product as in reference. Extract from original bg. ' +
+        'No new text: no prices, no badges, no labels. ' +
+        'Only product original printed text preserved. ' +
+        'Style: commercial catalog. 8K. 1:1. Final: ' + sizeInfo + '.'
       );
 
     case 'main_text':

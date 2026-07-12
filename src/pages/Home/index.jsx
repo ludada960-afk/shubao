@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Sparkles, Upload, ChevronRight, Pencil, ShoppingCart, Target, Palette, RefreshCw, Copy, Monitor, ShieldCheck, ChevronDown, Eye, Check, X, RotateCcw as RotateIcon } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { GALLERY, QUICK_HINTS, PRICING_XHS, PRICING_EC, EC_CATS } from '../../constants/data';
-import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview, extractProductLink, regenerateImage, saveWork, getTrialStatus, consumeTrial } from '../../services/api';
+import { GALLERY, QUICK_HINTS, PRICING_XHS, PRICING_EC, EC_CATS, EC_PLATFORM_DIMS, EC_IMG_RATIOS, EC_MAIN_TYPES, EC_ADV_TYPES, EC_STYLE_PACKS } from '../../constants/data';
+import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, getTrialStatus, consumeTrial } from '../../services/api';
 import { getSession } from '../../services/auth';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
@@ -29,16 +29,14 @@ export default function HomePage() {
   const [ecPlatform, setEcPlatform] = useState('淘宝');
   const [ecPoints, setEcPoints] = useState('');       // 逗号/分号/换行分隔
   const [ecBeauty, setEcBeauty] = useState(false);
-  const [ecLink, setEcLink] = useState('');
-  const [ecExtracting, setEcExtracting] = useState(false);
   const [ecMaterial, setEcMaterial] = useState('');
   const [ecTargetAudience, setEcTargetAudience] = useState('');
   const [ecRestrictions, setEcRestrictions] = useState('');
   const [ecCollapsed, setEcCollapsed] = useState(false); // 图片配置折叠
-  const [showExtractGuide, setShowExtractGuide] = useState(false); // 提取引导弹窗
-  const [toast, setToast] = useState(null); // { message, type: 'success'|'error' }
-  const [extractingProduct, setExtractingProduct] = useState(false); // 书签数据反推加载中
+  const [toast, setToast] = useState(null);
+  const [extractingProduct, setExtractingProduct] = useState(false); // 插件数据反推加载中
   const ecFileRef = useRef(null);
+  const [showRefModal, setShowRefModal] = useState(false);
 
   // Toast 自动消失
   useEffect(() => {
@@ -47,19 +45,13 @@ export default function HomePage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // 平台尺寸映射（与后端同步）
-  const PLATFORM_DIMS = {
-    '淘宝': { '1:1': [800,800], '3:4': [750,1000] },
-    '京东': { '1:1': [800,800], '3:4': [790,1024] },
-    '拼多多': { '1:1': [480,480], '3:4': [750,1000] },
-    '小红书电商': { '1:1': [800,800], '3:4': [1242,1660] },
-    '抖音电商': { '1:1': [800,800], '3:4': [720,960] },
-    '亚马逊': { '1:1': [1000,1000], '3:4': [2000,2000] },
-  };
-  const IMG_RATIOS = { white_bg:'1:1', main_text:'1:1', scene:'3:4', detail:'3:4', composite:'3:4', sku:'1:1', comparison:'3:4', package:'3:4', beauty_report:'3:4', transparent:'1:1' };
-  const getDim = (key) => PLATFORM_DIMS[ecPlatform]?.[IMG_RATIOS[key] || '1:1'] || [800,800];
+  // 平台尺寸映射（共享常量）
+  const ALL_TYPES = [...EC_MAIN_TYPES, ...EC_ADV_TYPES];
+  const getDim = (key) => EC_PLATFORM_DIMS[ecPlatform]?.[EC_IMG_RATIOS[key] || '1:1'] || [800,800];
   // 生成流程状态: config → preview → generating → result
   const [genPhase, setGenPhase] = useState('config');
+  const [genECLoading, setGenECLoading] = useState(false);
+  const [ecLoadingMsg, setEcLoadingMsg] = useState('');
   const [ecOutline, setEcOutline] = useState([]);       // 大纲列表（含用户编辑后的 prompt）
   const [ecOutlineLoading, setEcOutlineLoading] = useState(false);
   const [ecResults, setEcResults] = useState(null);      // 生成结果
@@ -194,28 +186,7 @@ export default function HomePage() {
       }
     })();
   }, []);
-
-  // 图片类型定义
-  // 主类型 — 电商常用图片类型
-  const MAIN_TYPES = [
-    { key:'white_bg', label:'白底图', emoji:'⬜', maxCount:3, desc:'纯白底+产品居中，无文字无水印无模特。平台首图合规必备' },
-    { key:'main_text', label:'主图文案', emoji:'🖼️', maxCount:3, desc:'白底图上叠加促销文案/角标/价格标签。淘宝/京东/拼多多主图可选' },
-    { key:'scene', label:'场景图', emoji:'🌄', maxCount:4, desc:'产品融入真实使用环境，自然光影。详情页提升购买欲' },
-    { key:'detail', label:'详情图', emoji:'📋', maxCount:6, desc:'产品细节特写+中文标注callout。卖点/材质/功能一图讲清楚' },
-    { key:'composite', label:'组合图', emoji:'🖼️', maxCount:2, desc:'一张图=主图+细节+场景三合一。品牌展示、套装展示专用' },
-  ];
-  // 特殊类型 — 按需选配
-  const SPECIAL_TYPES = [
-    { key:'comparison', label:'效果对比', emoji:'↔️', maxCount:2, desc:'使用前/后左右对比，结果说话最有说服力' },
-    { key:'sku', label:'多规格展示', emoji:'🎨', maxCount:3, desc:'不同颜色/尺寸放在一张图里，挑款不用来回翻' },
-    { key:'package', label:'包装组合', emoji:'📦', maxCount:2, desc:'全套产品+包装+配件一起展示' },
-    { key:'transparent', label:'透明PNG素材', emoji:'🎯', maxCount:1, desc:'去底透明图，可导入 PS/Canva 自己排版' },
-    { key:'beauty_report', label:'美妆分析报告', emoji:'📊', maxCount:1, desc:'肤质分析+产品推荐+试色矩阵（美妆专用）' },
-  ];
-  const ALL_TYPES = [...MAIN_TYPES, ...SPECIAL_TYPES];
-  // 根据 key 取中文标签
   const ecLabel = (key) => ALL_TYPES.find(t => t.key === key)?.label || key;
-  // 提取基础 key（detail_2 → detail）
   const baseKey = (k) => k.replace(/_\d+$/, '');
 
   // 解析卖点文案（逗号/分号/换行分隔）
@@ -280,7 +251,7 @@ export default function HomePage() {
   const updateSelection = (key, delta) => {
     setEcSelections(prev => {
       const existing = prev.find(s => s.key === key);
-      const type = IMAGE_TYPES.find(t => t.key === key);
+      const type = ALL_TYPES.find(t => t.key === key);
       if (!type) return prev;
       if (existing) {
         const newCount = existing.count + delta;
@@ -301,48 +272,7 @@ export default function HomePage() {
     });
   };
 
-  // 执行链接提取
-  const doExtractLink = async () => {
-    if (!ecLink.trim() || ecExtracting) return;
-    setEcExtracting(true);
-    setErr('');
-    try {
-      const d = await extractProductLink(ecLink.trim());
-      // 统计提取到了什么
-      const hasTitle = !!d.title;
-      const hasImages = !!(d.images?.length);
-      const hasPoints = !!(d.sellingPoints?.length);
-      const hasStyle = !!(d.stylePack && d.styleConfidence >= 4);
-      const hasCat = !!d.category;
-      const anyData = hasTitle || hasImages || hasPoints || hasStyle || hasCat;
-
-      if (hasTitle) setEcName(d.title);
-      if (hasCat) setEcCat(d.category);
-      if (d.sellingPoints?.length) setEcPoints(d.sellingPoints.join(', '));
-      if (d.materials) setEcMaterial(d.materials);
-      if (d.images?.length) setEcRefImgs(d.images.slice(0, 5));
-      if (hasStyle) setEcStylePack(d.stylePack);
-      if (d.imageTypes?.length) {
-        setEcSelections(d.imageTypes.map(t => ({
-          key: t.key, count: t.count || 1,
-          width: getDim(t.key)[0], height: getDim(t.key)[1],
-        })));
-      }
-
-      if (anyData) {
-        // 有数据就说具体提取到了什么
-        const parts = [];
-        if (hasTitle) parts.push('名称');
-        if (hasImages) parts.push(`${d.images.length}张参考图`);
-        if (hasPoints) parts.push(`${d.sellingPoints.length}个卖点`);
-        if (hasStyle) parts.push('风格');
-        setToast({ message: `✅ 已提取${parts.join('、')}`, type: 'success' });
-      } else {
-        setErr('未能提取到商品信息，请检查链接或手动填写');
-      }
-    } catch (e) { setErr('提取失败：' + e.message); }
-    setEcExtracting(false);
-  };
+  // 链接提取已交由插件处理，不再使用服务端解析
 
   // 计算总生成张数
   const totalImageCount = ecSelections.reduce((sum, s) => sum + s.count, 0);
@@ -395,46 +325,53 @@ export default function HomePage() {
 
   const doGenEC = async () => {
     if (!ecName.trim()) return;
-    // if (!logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; } // 测试环境跳过登录
     setErr('');
-    setGenPhase('generating');
-    dispatch({ type: 'START_GEN' });
-    // 只在开始时推进 0→1，stage 2/3 由 API 完成触发
-    const stageTimers = [
-      setTimeout(() => dispatch({ type: 'SET_STAGE', stage: 1 }), 2000),
-    ];
+    setGenECLoading(true);
+    setEcLoadingMsg('正在分析商品信息...');
     try {
-      const data = await generateEcommerce({
-        productName: ecName, category: ecCat, refImgs: ecRefImgs, imageSelections: ecSelections,
-        platform: ecPlatform, points: ecPoints, beautyReport: !!ecSelections.find(s => s.key === 'beauty_report'),
-        stylePack: ecStylePack || null, material: ecMaterial,
-        targetAudience: ecTargetAudience, restrictions: ecRestrictions,
-        imageSize: null,
-      stageTimers.forEach(t => clearTimeout(t));
-      // API 返回后：品质优化(1.5s) → 打包完成(600ms) → 结果页
-      dispatch({ type: 'SET_STAGE', stage: 2 });
-      await new Promise(r => setTimeout(r, 1500));
-      dispatch({ type: 'SET_STAGE', stage: 3 });
-      await new Promise(r => setTimeout(r, 600));
-      dispatch({ type: 'CLOSE_RESULT' });
-      setEcResults(data);
+      // 判断输入类型
+      const isRaw = ecName.trim().length >= 80;
+
+      if (isRaw) {
+        // 详细模式
+        setEcLoadingMsg('详细模式，按描述精确执行...');
+        const { regenerateImage } = await import('../../services/api');
+        const images = {};
+        for (let i = 0; i < 5; i++) {
+          setEcLoadingMsg(`正在生成第 ${i+1}/5 张...`);
+          try {
+            const url = await regenerateImage(ecName.trim(), '');
+            if (url) images[`图${i+1}`] = url;
+          } catch(e) {}
+        }
+        setEcResults({ images, errors: [], product_name: ecName.trim().slice(0, 20), raw_mode: true });
+      } else {
+        // 标准模式
+        setEcLoadingMsg('正在调用 AI 生成商品图...');
+        const data = await generateEcommerce({
+          productName: ecName.trim(),
+          category: ecCat,
+          platform: ecPlatform,
+          points: ecPoints,
+          refImgs: ecRefImgs,
+          stylePack: null,
+          beautyReport: false,
+          material: ecMaterial,
+          imageSelections: null,
+          imageSize: null,
+        });
+        setEcResults(data);
+        // 自动保存
+        try {
+          const { saveWork } = await import('../../services/api');
+          saveWork({ ...data, _ecResult: true, _saveKey: 'ec-'+Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: data.images || {} });
+        } catch(e) {}
+      }
+      setGenECLoading(false);
       setGenPhase('result');
-      // 自动保存到作品
-      saveWork({
-        ...data,
-        _ecResult: true,
-        _saveKey: 'ec-' + Date.now(),
-        product_name: ecName,
-        category: ecCat,
-        platform: ecPlatform,
-        at: new Date().toLocaleDateString('zh-CN'),
-        images: data.images || {},
-      });
     } catch (e) {
-      stageTimers.forEach(t => clearTimeout(t));
       setErr(e.message || '生成失败');
-      setGenPhase('config');
-      dispatch({ type: 'CLOSE_RESULT' });
+      setGenECLoading(false);
     }
   };
 
@@ -463,24 +400,26 @@ export default function HomePage() {
     const usePreview = !logged;
     setErr('');
     dispatch({ type: 'START_GEN' });
-    // 渐进式进度：0→1→2→3→4（只由实际进展驱动，不用虚假定时器）
-    const stageTimers = [
-      setTimeout(() => dispatch({ type: 'SET_STAGE', stage: 1 }), 3000),
-      setTimeout(() => dispatch({ type: 'SET_STAGE', stage: 2 }), 10000),
-    ];
     try {
-      const result = await generateContent(inputText, [], { preview: usePreview });
-      stageTimers.forEach(t => clearTimeout(t));
-      // API 返回后：品质优化(1.5s) → 打包完成(800ms) → 结果页
-      dispatch({ type: 'SET_STAGE', stage: 3 });
-      await new Promise(r => setTimeout(r, 1500));
+      // SSE 流式回调：用后端真实进度替换假定时器
+      const result = await generateContent(inputText, [], {
+        preview: usePreview,
+        onProgress: (d) => {
+          if (d.step === 'content_analysis' || d.step === 'visual_planning')
+            dispatch({ type: 'SET_STAGE', stage: 1 });
+          else if (d.step === 'generating_images')
+            dispatch({ type: 'SET_STAGE', stage: 2 });
+          else if (d.step === 'assembling')
+            dispatch({ type: 'SET_STAGE', stage: 3 });
+        },
+      });
       dispatch({ type: 'SET_STAGE', stage: 4 });
       await new Promise(r => setTimeout(r, 800));
       const work = { ...result, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, _trialLocked: isTrial, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
       dispatch({ type: 'SET_RESULT', result: work });
       if (isTrial) { const session = await getSession(); if (session?.phone) await consumeTrial(session.phone); setTrialRemaining(0); }
       else if (isPaid) { saveWork(work); dispatch({ type: 'SET_CREDITS', credits: credits - 1 }); }
-    } catch (e) { stageTimers.forEach(t => clearTimeout(t)); setErr(e.message || '生成失败'); dispatch({ type: 'CLOSE_RESULT' }); }
+    } catch (e) { setErr(e.message || '生成失败'); dispatch({ type: 'CLOSE_RESULT' }); }
   };
 
   const addRefImage = (files, setter, current, max) => {
@@ -568,489 +507,135 @@ export default function HomePage() {
               </div>
             )}
 
-            {!isXHS && genPhase === 'config' && (
-              <div className="ec-form">
-                {/* 🔗 爆款复刻 — 可选 */}
-                <div className="ec-section ec-section-highlight">
-                  <div className="ec-section-title">
-                    🔗 爆款复刻 <span className="ec-link-tag">可选</span>
-                    <span className="ec-section-hint">粘贴爆款商品链接 → AI 自动分析出商品信息，一键复刻同款商品图的风格和布局。省时省力，直接照着爆款出图</span>
+            {!isXHS && (
+              <div style={{ padding:'0 0 16px' }}>
+                {/* 平台选择 — 横向滑动 */}
+                <div style={{ display:'flex', gap:8, padding:'14px 16px', borderBottom:'1.5px solid var(--border)', background:'#FAFBFC', alignItems:'center', overflowX:'auto', flexWrap:'nowrap', WebkitOverflowScrolling:'touch' }}>
+                  {['淘宝','京东','拼多多','抖音','小红书','亚马逊'].map(p => (
+                    <span key={p} className={`ec-cat-pill ${ecPlatform === p ? 'on' : ''}`} onClick={() => setEcPlatform(p)}
+                      style={{ flexShrink:0 }}>
+                      {p === '淘宝' ? '🟠' : p === '京东' ? '🛒' : p === '拼多多' ? '🟢' : p === '抖音' ? '🎵' : p === '小红书' ? '📕' : '🌐'} {p}
+                    </span>
+                  ))}
+                  <span style={{ marginLeft:'auto', fontSize:12, color:'#4338CA', cursor:'pointer', whiteSpace:'nowrap', padding:'5px 12px', borderRadius:6, background:'#EEF2FF', fontWeight:500, transition:'all 0.12s', border:'1px solid #C7D2FE', flexShrink:0 }}
+                    onClick={() => dispatch({ type:'NAVIGATE', page:'ec-studio' })}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#C7D2FE'; e.currentTarget.style.borderColor = '#818CF8'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#EEF2FF'; e.currentTarget.style.borderColor = '#C7D2FE'; }}>
+                    🔧 精修工坊
+                  </span>
+                </div>
+
+                {/* 输入框 */}
+                <div className="hero-textarea-wrap">
+                  <textarea className="hero-textarea" value={ecName} onChange={e => setEcName(e.target.value)} placeholder=" " />
+                  <div className="custom-placeholder">
+                    <div className="ph-main">
+                      ✍️ 描述你的商品，AI 自动生成全套商品图
+                    </div>
+                    <div className="ph-sub">
+                      例如：白色陶瓷杯简约办公风、无线蓝牙耳机入耳式...<br />
+                      也可输入详细描述，AI按需求生成全套商品图
+                    </div>
                   </div>
-                  <div className="ec-link-inner">
-                    <input className="ec-link-input" value={ecLink} onChange={e => setEcLink(e.target.value)} placeholder="粘贴淘宝/京东/拼多多 商品链接，AI 自动填充..." />
-                    <button className="ec-link-btn" onClick={() => setShowExtractGuide(true)}>
-                      🚀 提取并自动填充
+                </div>
+
+                {/* 参考图 — 弹窗上传 */}
+                <div className="ref-images-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+                    <button onClick={() => setShowRefModal(true)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '8px 14px', borderRadius: 8,
+                        border: '1px solid #e0e0e0', background: '#fff',
+                        cursor: 'pointer', fontSize: 12, color: '#555',
+                        fontFamily: 'inherit', transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4338CA'; e.currentTarget.style.color = '#4338CA'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e0e0e0'; e.currentTarget.style.color = '#555'; }}>
+                      <Upload size={13} /> 上传商品参考图
+                      {ecRefImgs.length > 0 && <span style={{ background: '#EEF2FF', color: '#4338CA', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10 }}>{ecRefImgs.length}</span>}
                     </button>
+                    <span className="ref-hint">正面照最有用，1 张也能出图</span>
                   </div>
-                  <div className="ec-link-benefits">
-                    <span>✅ 识别商品名称</span>
-                    <span>✅ 分析品类</span>
-                    <span>✅ 提取卖点</span>
-                    <span>✅ 获取参考图</span>
-                    <span>✅ 匹配视觉风格</span>
-                  </div>
-                </div>
-
-                {/* 爆款复刻: 提取引导弹窗 */}
-                {showExtractGuide && (
-                  <div className="ec-guide-overlay" onClick={() => setShowExtractGuide(false)}>
-                    <div className="ec-guide-modal" onClick={e => e.stopPropagation()}>
-                      <button className="ec-guide-close" onClick={() => setShowExtractGuide(false)}>x</button>
-                      <div className="ec-guide-title">安装薯包AI提取插件</div>
-                      <p className="ec-guide-subtitle">在淘宝/京东/拼多多页面点一下插件，商品信息自动提取到薯包AI。</p>
-
-                      <div className="ec-guide-download-wrap">
-                        <a className="ec-guide-download-btn" href="/extensions/shubao-extractor.zip" download>
-                          下载插件
-                        </a>
-                        <span className="ec-guide-download-hint">470KB · 装一次永久用 · 不占电脑性能</span>
-                      </div>
-
-                      {/* ── 使用步骤预览 ── */}
-                      <div className="ec-guide-preview-section">
-                        <div className="ec-guide-preview-title">安装后怎么用</div>
-                        <div className="ec-guide-preview-steps">
-                          <div className="ec-guide-preview-card">
-                            <div className="ec-guide-preview-card-header">① 打开商品页，点插件图标</div>
-                            <div className="ec-guide-preview-card-body">
-                              <div className="ec-guide-popup-mock">
-                                <div className="ec-gpm-header">薯包AI 商品提取器</div>
-                                <div className="ec-gpm-content">
-                                  <div className="ec-gpm-status">已识别商品信息</div>
-                                  <div className="ec-gpm-field"><span className="ec-gpm-label">商品名称</span><span className="ec-gpm-val">高保湿精华液 50ml</span></div>
-                                  <div className="ec-gpm-field"><span className="ec-gpm-label">商品图</span><span className="ec-gpm-val"><span className="ec-gpm-thumb" /><span className="ec-gpm-thumb" /><span className="ec-gpm-thumb" /></span></div>
-                                  <div className="ec-gpm-field"><span className="ec-gpm-label">卖点</span><span className="ec-gpm-val"><span className="ec-gpm-tag">高保湿</span><span className="ec-gpm-tag">敏感肌</span><span className="ec-gpm-tag">24h持久</span></span></div>
-                                </div>
-                                <div className="ec-gpm-btn">发送到薯包AI</div>
-                              </div>
-                            </div>
-                            <div className="ec-guide-preview-card-desc">💡 插件会自动滚动页面触发懒加载，无需手动操作</div>
-                          </div>
-                          <div className="ec-guide-preview-arrow">→</div>
-                          <div className="ec-guide-preview-card">
-                            <div className="ec-guide-preview-card-header">② 点击「发送到薯包AI」</div>
-                            <div className="ec-guide-preview-card-body" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'40px 20px',background:'#FAFAFA',borderRadius:8,minHeight:160}}>
-                              <div style={{textAlign:'center'}}>
-                                <div style={{fontSize:32,marginBottom:8}}>📤</div>
-                                <div style={{fontSize:13,color:'#333',fontWeight:600}}>一键发送</div>
-                                <div style={{fontSize:11,color:'#999',marginTop:4}}>后台处理中...</div>
-                              </div>
-                            </div>
-                            <div className="ec-guide-preview-card-desc">数据安全暂存，自动跳回薯包AI</div>
-                          </div>
-                          <div className="ec-guide-preview-arrow">→</div>
-                          <div className="ec-guide-preview-card">
-                            <div className="ec-guide-preview-card-header">③ 回到薯包AI，自动填好</div>
-                            <div className="ec-guide-preview-card-body" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'40px 20px',background:'#F5F3FF',borderRadius:8,minHeight:160}}>
-                              <div style={{textAlign:'center'}}>
-                                <div style={{fontSize:32,marginBottom:8}}>✅</div>
-                                <div style={{fontSize:13,color:'#4338CA',fontWeight:600}}>信息已自动填充</div>
-                                <div style={{fontSize:11,color:'#888',marginTop:4}}>名称 · 品类 · 图片 · 风格均已填好</div>
-                              </div>
-                            </div>
-                            <div className="ec-guide-preview-card-desc">所有字段已填好，直接预览生成</div>
-                          </div>
+                  {ecRefImgs.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8, overflowX: 'auto', paddingBottom: 4, flexWrap: 'nowrap' }}>
+                      {ecRefImgs.map((src, i) => (
+                        <div key={i} style={{ position:'relative', width:68, height:68, borderRadius:8, overflow:'hidden', border:'1px solid #e0e0e0', flexShrink:0, cursor:'pointer' }}
+                          onClick={() => setEcPreviewLightbox(src)}>
+                          <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                          <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
+                            style={{ position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'none', fontWeight:700, lineHeight:1, boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }}>×</div>
                         </div>
-                      </div>
-
-                      {/* ── 安装教程 ── */}
-                      <details className="ec-guide-details">
-                        <summary>Chrome / Edge 详细安装教程（点击展开）</summary>
-                        <div className="ec-guide-browser-tabs">
-                          <div className="ec-guide-browser-col">
-                            <div className="ec-guide-browser-title">
-                              <span style={{background:'#2563EB',color:'#fff',borderRadius:4,padding:'1px 8px',fontSize:10,marginRight:6}}>Chrome</span>
-                              安装步骤
-                            </div>
-                            <div className="ec-guide-browser-steps">
-                              <span><strong>①</strong> 下载ZIP并解压到电脑（右键 → 解压到当前文件夹）</span>
-                              <span><strong>②</strong> 地址栏输入 <kbd>chrome://extensions</kbd> 回车</span>
-                              <span><strong>③</strong> 打开右上角「开发者模式」</span>
-                              <span><strong>④</strong> 点击「加载已解压的扩展程序」</span>
-                              <span><strong>⑤</strong> 选择解压出来的 <kbd>shubao-extractor</kbd> 文件夹</span>
-                              <span><strong>⑥</strong> 安装完成，插件图标会出现</span>
-                            </div>
-                            <div className="ec-guide-tip" style={{marginTop:8,fontSize:11,color:'#666',background:'#FEF3C7',padding:'8px 12px',borderRadius:6,lineHeight:1.6}}>
-                              💡 <strong>使用技巧：</strong>插件会自动滚动触发懒加载，点插件就能提取到最全图片。
-                            </div>
-                          </div>
-                          <div className="ec-guide-browser-col">
-                            <div className="ec-guide-browser-title">
-                              <span style={{background:'#059669',color:'#fff',borderRadius:4,padding:'1px 8px',fontSize:10,marginRight:6}}>Edge</span>
-                              安装步骤
-                            </div>
-                            <div className="ec-guide-browser-steps">
-                              <span><strong>①</strong> 下载ZIP并解压到电脑（右键 → 解压到当前文件夹）</span>
-                              <span><strong>②</strong> 地址栏输入 <kbd>edge://extensions</kbd> 回车</span>
-                              <span><strong>③</strong> 打开左下角「开发人员模式」</span>
-                              <span><strong>④</strong> 点击「加载解压缩的扩展」</span>
-                              <span><strong>⑤</strong> 选择解压出来的 <kbd>shubao-extractor</kbd> 文件夹</span>
-                              <span><strong>⑥</strong> 安装完成，插件图标会出现</span>
-                            </div>
-                            <div className="ec-guide-tip" style={{marginTop:8,fontSize:11,color:'#666',background:'#FEF3C7',padding:'8px 12px',borderRadius:6,lineHeight:1.6}}>
-                              💡 <strong>使用技巧：</strong>操作一样——点插件就行，页面自动滚动加载所有图片。
-                            </div>
-                          </div>
-                        </div>
-                      </details>
-
-                      <div className="ec-guide-actions">
-                        <button className="ec-guide-btn primary" onClick={() => setShowExtractGuide(false)}>
-                          安装好了，开始使用
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 📸 参考图（选填·最多5张） */}
-                <div className="ec-section">
-                  <div className="ec-section-title">
-                    📸 商品参考图 <span className="ec-section-tag">选填</span>
-                    <span className="ec-section-hint">上传你已有的商品实拍图（最多 8 张），AI 参考实物生成更还原的效果图。</span>
-                  </div>
-                  <div className="ec-ref-advice">
-                    💡 <strong>怎么拍最好？</strong> 不同角度各 1 张（正面+侧面+细节）效果最好；只有 1-2 张也可以，AI 会尽量还原
-                  </div>
-                  <div className="ec-ref-grid">
-                    {[0,1,2,3,4,5,6,7].map(i => (
-                      <div key={i} className={`ec-ref-slot ${i < ecRefImgs.length ? 'filled' : ''}`}
-                        onClick={() => { if (i < ecRefImgs.length) setEcRefImgs(p => p.filter((_, j) => j !== i)); else if (ecRefImgs.length < 8) ecFileRef.current?.click(); }}>
-                        {i < ecRefImgs.length ? (
-                          <><img src={ecRefImgs[i]} alt="" className="ec-ref-img" /><div className="ec-ref-remove">×</div></>
-                        ) : (
-                          <div className="ec-ref-empty"><Upload size={18} /><span>{i === 0 ? '正面' : i === 1 ? '侧面' : i === 2 ? '细节' : i === 3 ? '角度' : i === 4 ? '包装' : i === 5 ? '场景' : '其他'}</span></div>
-                        )}
-                      </div>
-                    ))}
-                    <input ref={ecFileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setEcRefImgs, ecRefImgs, 8); e.target.value = ''; }} />
-                    <span className="ec-ref-badge">{ecRefImgs.length}/8 张</span>
-                  </div>
-                </div>
-
-                {/* ✏️ 商品信息 */}
-                <div className="ec-section">
-                  <div className="ec-section-title">✏️ 商品信息</div>
-                  <div className="ec-info-fields">
-                    <div className="ec-field-primary">
-                      <label className="ec-label-lg">商品名称 <span className="ec-required">*</span></label>
-                      <input className="ec-input-primary" value={ecName} onChange={e => setEcName(e.target.value)} placeholder="例如：高保湿精华液、无线蓝牙耳机、智能手表..." />
-                    </div>
-                    <div className="ec-field-primary">
-                      <label className="ec-label-lg">品类</label>
-                      <div className="ec-cat-pills">{EC_CATS.map(c => (<span key={c} className={`ec-cat-pill ${ecCat === c ? 'on' : ''}`} onClick={() => setEcCat(c)}>{c}</span>))}</div>
-                    </div>
-                    <div className="ec-field-primary">
-                      <label className="ec-label-lg">卖点文案</label>
-                      <div className="ec-points-input-wrap">
-                        <input className="ec-points-input" value={ecPoints} onChange={e => setEcPoints(e.target.value)} placeholder="输入卖点，用逗号或分号隔开，例如：高保湿锁水, 24小时持久, 敏感肌适用" />
-                      </div>
-                      {parsePoints(ecPoints).length > 0 && (
-                        <div className="ec-points-tags">{parsePoints(ecPoints).map((p, i) => (<span key={i} className="ec-point-tag">{p}</span>))}</div>
-                      )}
-                      <div className="ec-field-hint">💡 每个卖点会生成一张对应的卖点解说图，建议填 2-4 个卖点</div>
-                    </div>
-                    {/* 扩展信息（材质+人群+限制）— 用紧凑布局 */}
-                    <div className="ec-ext-info">
-                      <div><label className="ec-label-sm">材质/规格 <span className="ec-optional">(选填)</span></label><input className="ec-input-sm" value={ecMaterial} onChange={e => setEcMaterial(e.target.value)} placeholder="玻尿酸、304不锈钢..." /></div>
-                      <div><label className="ec-label-sm">目标人群 <span className="ec-optional">(选填)</span></label><input className="ec-input-sm" value={ecTargetAudience} onChange={e => setEcTargetAudience(e.target.value)} placeholder="25-35岁女性、运动爱好者..." /></div>
-                      <div><label className="ec-label-sm">限制条件 <span className="ec-optional">(选填)</span></label><input className="ec-input-sm" value={ecRestrictions} onChange={e => setEcRestrictions(e.target.value)} placeholder="避免什么内容、品牌禁忌..." /></div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 🎨 视觉风格 — 6 种风格 + 价值传达 */}
-                <div className="ec-section">
-                  <div className="ec-section-title">
-                    🎨 视觉风格
-                    <span className="ec-section-hint">选择一种风格，所有生成的图片视觉统一。选完后下面的「图片数量」会根据风格自动推荐</span>
-                  </div>
-                  <div className="ec-style-grid">
-                    {[
-                      {key:'', label:'官方主图风格', sub:'纯白背景 · 产品居中', desc:'适合所有电商平台的首图和白底图。专业棚拍光线突出产品本身，买家搜索时一眼看到的就是清晰的产品外观。支持叠加促销角标。', img:'/images/style-packs/standard.jpg'},
-                      {key:'scene_selling', label:'场景种草风格', sub:'融入环境 · 激发购买欲', desc:'把产品放到真实使用场景中，买家下意识会想象自己也在用。适合详情页和社交媒体推广，让图片自己说话。', img:'/images/style-packs/scene.jpg'},
-                      {key:'promo_sale', label:'促销大促风格', sub:'促销配色 · 吸引点击', desc:'促销氛围配色+预留价格/折扣位。双11、618、新品首发时用，买家一眼识别"有优惠"。', img:'/images/style-packs/promo.jpg'},
-                      {key:'ugc_trust', label:'真实买家感', sub:'手机实拍感 · 降低广告感', desc:'像真实买家随手拍的照片，不是精修广告图。适合详情页信任区，降低买家"怕买回来不一样"的顾虑。', img:'/images/style-packs/ugc.jpg'},
-                      {key:'brand_unified', label:'品牌质感风格', sub:'统一色板 · 提升溢价', desc:'多款商品共用一套视觉体系（色板/光线/背景），放在店铺里像同一品牌出品。适合精品店、品牌路线。', img:'/images/style-packs/brand.jpg'},
-                      {key:'detail_selling', label:'卖点解说风格', sub:'信息图排版 · 卖点一目了然', desc:'每张图讲一个核心卖点，配图标+标注文字。适合卖点明确、需要减少客服咨询量的商品。', img:'/images/style-packs/detail.jpg'},
-                    ].map(s => (
-                      <div key={s.key} className={`ec-style-card ${ecStylePack === s.key ? 'on' : ''}`} onClick={() => setEcStylePack(s.key)}>
-                        <img src={s.img} alt={s.label} className="ec-style-img" loading="lazy" />
-                        <div className="ec-style-body">
-                          <div className="ec-style-name">{s.label}</div>
-                          <span className="ec-style-subtag">{s.sub}</span>
-                          <div className="ec-style-divider" />
-                          <div className="ec-style-detail">{s.desc}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ⚙️ 图片配置（折叠式：包含平台 + 图片数量+尺寸） */}
-                <div className="ec-section">
-                  <div className="ec-section-title ec-collapsible-header" onClick={() => setEcCollapsed(!ecCollapsed)}>
-                    <span>⚙️ 图片配置</span>
-                    <span className="ec-config-summary">{totalImageCount} 张图 · {ecPlatform} · {ecCollapsed ? '展开' : '收起'} <ChevronDown size={14} style={{ transform: ecCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: '0.2s' }} /></span>
-                  </div>
-                  {!ecCollapsed && (
-                    <div>
-                      {/* 平台选择 — 放在配置内 */}
-                      <div className="ec-config-row">
-                        <label className="ec-label-md">目标平台</label>
-                        <div className="ec-platform-pills">{['淘宝','京东','拼多多','小红书电商','抖音电商','亚马逊'].map(p => (
-                          <span key={p} className={`ec-platform-pill ${ecPlatform === p ? 'on' : ''}`} onClick={() => setEcPlatform(p)}>{p}</span>
-                        ))}</div>
-                      </div>
-                      {/* 图片类型 + 数量 + 独立尺寸 */}
-                      <div className="ec-config-row">
-                        <label className="ec-label-md">要生成的图片</label>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 2 }}>⬇ 核心类型（推荐）</div>
-                          {MAIN_TYPES.map(t => {
-                            const sel = ecSelections.find(s => s.key === t.key);
-                            const count = sel?.count || 0;
-                            const w = sel?.width || getDim(t.key)[0];
-                            const h = sel?.height || getDim(t.key)[1];
-                            const isEditingSize = sel?.editingSize || false;
-                            return (
-                              <div key={t.key} className={`ec-imgtype-row ${count > 0 ? 'active' : ''}`}>
-                                <div className="ec-imgtype-info">
-                                  <span className="ec-imgtype-emoji">{t.emoji}</span>
-                                  <div>
-                                    <span className="ec-imgtype-label">{t.label}</span>
-                                    {t.mandatory && <span className="ec-imgtype-badge">必选</span>}
-                                    <span className="ec-imgtype-desc">{t.desc}</span>
-                                  </div>
-                                </div>
-                                <div className="ec-imgtype-controls">
-                                  {isEditingSize ? (
-                                    <div className="ec-imgtype-dim-edit"
-                                      onBlur={e => {
-                                        if (!e.currentTarget.contains(e.relatedTarget)) {
-                                          setEcSelections(prev => prev.map(s => s.key === t.key ? { ...s, editingSize: false } : s));
-                                        }
-                                      }}
-                                      tabIndex={-1}>
-                                      <input className="ec-dim-input" type="number" min={100} max={9999}
-                                        value={w} onChange={e => updateDimension(t.key, 'width', e.target.value)} />
-                                      <span className="ec-dim-x">×</span>
-                                      <input className="ec-dim-input" type="number" min={100} max={9999}
-                                        value={h} onChange={e => updateDimension(t.key, 'height', e.target.value)} />
-                                    </div>
-                                  ) : (
-                                    <div className="ec-imgtype-dim"
-                                      onClick={() => {
-                                        setEcSelections(prev => prev.map(s => s.key === t.key ? { ...s, editingSize: !s.editingSize } : s));
-                                      }}
-                                      title="点击修改尺寸">
-                                      <span className="ec-dim-label">{w}×{h}</span>
-                                    </div>
-                                  )}
-                                  <button className="ec-imgtype-btn" onClick={() => updateSelection(t.key, -1)}
-                                    disabled={count <= 0 || (t.mandatory && count <= 1)}>−</button>
-                                  <input className="ec-imgtype-input" type="number" min={t.mandatory ? 1 : 0}
-                                    max={t.maxCount} value={count}
-                                    onChange={e => {
-                                      const v = parseInt(e.target.value) || 0;
-                                      const clamped = Math.min(Math.max(v, t.mandatory ? 1 : 0), t.maxCount);
-                                      setEcSelections(prev => {
-                                        if (clamped === 0 && !t.mandatory) return prev.filter(s => s.key !== t.key);
-                                        const exist = prev.find(s => s.key === t.key);
-                                        const dim = getDim(t.key);
-                                        if (exist) return prev.map(s => s.key === t.key ? { ...s, count: clamped } : s);
-                                        return [...prev, { key: t.key, count: clamped, width: dim[0], height: dim[1] }];
-                                      });
-                                    }} />
-                                  <button className="ec-imgtype-btn" onClick={() => updateSelection(t.key, 1)}
-                                    disabled={count >= t.maxCount}>+</button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        
-                          {/* 进阶类型 */}
-                          <div style={{ fontSize:11, color:'var(--text-faint)', marginTop:10, marginBottom:2 }}>⬇ 进阶类型（按需勾选）</div>
-                          {SPECIAL_TYPES.map(t => {
-                            const sel = ecSelections.find(s => s.key === t.key);
-                            const count = sel?.count || 0;
-                            const w = sel?.width || getDim(t.key)[0];
-                            const h = sel?.height || getDim(t.key)[1];
-                            return (
-                              <div key={t.key} className={`ec-imgtype-row ${count > 0 ? 'active' : ''}`}>
-                                <div className="ec-imgtype-info">
-                                  <span className="ec-imgtype-emoji">{t.emoji}</span>
-                                  <div>
-                                    <span className="ec-imgtype-label">{t.label}</span>
-                                    <span className="ec-imgtype-desc">{t.desc}</span>
-                                  </div>
-                                </div>
-                                <div className="ec-imgtype-controls">
-                                  <div className="ec-imgtype-dim">
-                                    <span className="ec-dim-label">{w}x{h}</span>
-                                  </div>
-                                  <button className="ec-imgtype-btn" onClick={() => updateSelection(t.key, -1)}
-                                    disabled={count <= 0}>-</button>
-                                  <input className="ec-imgtype-input" type="number" min={0}
-                                    max={t.maxCount} value={count}
-                                    onChange={e => {
-                                      const v = parseInt(e.target.value) || 0;
-                                      const clamped = Math.min(Math.max(v, 0), t.maxCount);
-                                      setEcSelections(prev => {
-                                        if (clamped === 0) return prev.filter(s => s.key !== t.key);
-                                        const dim = getDim(t.key);
-                                        const exist = prev.find(s => s.key === t.key);
-                                        if (exist) return prev.map(s => s.key === t.key ? { ...s, count: clamped } : s);
-                                        return [...prev, { key: t.key, count: clamped, width: dim[0], height: dim[1] }];
-                                      });
-                                    }} />
-                                  <button className="ec-imgtype-btn" onClick={() => updateSelection(t.key, 1)}
-                                    disabled={count >= t.maxCount}>+</button>
-                                </div>
-                              </div>
-                            );
-                          })}
-</div>
-                      </div>
+                      ))}
                     </div>
                   )}
                 </div>
 
-                {err && <div className="ec-error-bar">{err}</div>}
-                <div className="ec-footer">
-                  <div className="ec-footer-left">
-                    <span className="ec-count-badge">{totalImageCount} 张图</span>
-                    <span className="ec-count-hint">预览确认后可调整每张图的生成逻辑</span>
-                  </div>
-                  <button className="ec-preview-btn" onClick={doPreviewOutline} disabled={!ecName.trim() || ecOutlineLoading}>
-                    <Eye size={16} /> {ecOutlineLoading ? '生成大纲中...' : '👀 预览生成大纲'}
-                  </button>
+                {/* 卖点+材质 — 与 tags-cloud-wrap 相同的 padding 和分隔线 */}
+                <div style={{ display:'flex', gap:10, padding:'12px 16px', borderBottom:'1.5px solid var(--border)' }}>
+                  <input className="ec-link-input" value={ecPoints} onChange={e => setEcPoints(e.target.value)}
+                    placeholder="卖点（逗号分隔）例如：高保湿, 24小时持久" style={{ flex:2 }} />
+                  <input className="ec-link-input" value={ecMaterial} onChange={e => setEcMaterial(e.target.value)}
+                    placeholder="材质/规格（选填）" style={{ flex:1 }} />
                 </div>
-              </div>
-            )}
 
-            {/* ═══════ 预览大纲阶段 ═══════ */}
-            {!isXHS && genPhase === 'preview' && (
-              <div className="ec-form">
-                <div className="ec-preview-header">
-                  <div className="ec-preview-title">📋 生成大纲 — 共 {ecOutline.length} 张图</div>
-                  <div className="ec-preview-sub">每张图都可以自定义生成逻辑，确认后再开始生成</div>
+                {err && <div className="error-bar">{err}</div>}
+                <button className="gen-btn" onClick={doGenEC} disabled={!ecName.trim() || genECLoading}
+                  style={{ margin:'12px 16px', width:'calc(100% - 32px)', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'11px 24px', border:'none', borderRadius:10, background: genECLoading ? '#999' : '#4338CA', color:'#fff', fontSize:14, fontWeight:600, cursor: genECLoading ? 'not-allowed' : 'pointer', fontFamily:'inherit', boxShadow: genECLoading ? 'none' : '0 4px 16px rgba(67,56,202,0.25)' }}>
+                  <Sparkles size={15} /> {genECLoading ? '生成中...' : '一键生成全套电商图'}
+                </button>
+                <div className="gen-hint" style={{ padding:'0 16px', marginTop:8, color:'#888', fontSize:12 }}>
+                  {!ecName.trim() ? '输入商品描述，AI自动生成全套商品图' :
+                   ecName.trim().length >= 80 ? '📝 详细模式 · 按描述精确执行' :
+                   '📐 标准模式 · AI 自动生成全套套图'}
                 </div>
-                {/* 参考图总览条 — 让用户清楚看到所有提取到的参考图 */}
-                {ecRefImgs.length > 0 && (
-                  <div className="ec-preview-ref-strip">
-                    <div className="ec-preview-ref-strip-title">📸 参考图（共 {ecRefImgs.length} 张 — 每张生成图均参考了这些实物图）</div>
-                    <div className="ec-preview-ref-strip-imgs">
-                      {ecRefImgs.map((src, i) => (
-                        <div key={i} className="ec-preview-ref-strip-item" onClick={() => setEcPreviewLightbox(src)}>
-                          <img src={src} alt="" className="ec-preview-ref-strip-img" />
-                          <span className="ec-preview-ref-strip-label">参考 {i + 1}</span>
-                        </div>
-                      ))}
-                    </div>
+
+                {genECLoading && (
+                  <div style={{ margin:'12px 16px', padding:'14px 16px', background:'#F5F3FF', borderRadius:10, textAlign:'center' }}>
+                    <div style={{ width:32, height:32, border:'2px solid #E0E7FF', borderTopColor:'#4338CA', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 10px' }} />
+                    <div style={{ fontSize:13, color:'#4338CA', fontWeight:500 }}>{ecLoadingMsg}</div>
                   </div>
                 )}
-                {ecOutline.map((item, idx) => (
-                  <div key={idx} className="ec-preview-card">
-                    <div className="ec-preview-card-body">
-                      {/* 左侧：参考图 — 大，可点击放大 */}
-                      {item.refImageIndex >= 0 && item.refImageIndex < ecRefImgs.length && (
-                        <div className="ec-preview-ref" onClick={() => setEcPreviewLightbox(ecRefImgs[item.refImageIndex])}>
-                          <img src={ecRefImgs[item.refImageIndex]} alt="" className="ec-preview-ref-img" />
-                          <span className="ec-preview-ref-label">参考图 {item.refImageIndex + 1}</span>
-                        </div>
-                      )}
-                      {/* 右侧：标题 + 卖点 + prompt */}
-                      <div className="ec-preview-content">
-                        <div className="ec-preview-card-header">
-                          <span className="ec-preview-num">图 {idx + 1}</span>
-                          <span>{item.emoji || '🖼️'}</span>
-                          <span className="ec-preview-label">{item.label}</span>
-                          {item.sellingPoint && <span className="ec-preview-point">「{item.sellingPoint}」</span>}
-                        </div>
-                        <div className="ec-preview-prompt">
-                          <textarea className="ec-prompt-textarea" value={item.userPrompt}
-                            onChange={e => updateOutlinePrompt(idx, e.target.value)} rows={4} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {err && <div className="ec-error-bar">{err}</div>}
-                <div className="ec-footer">
-                  <button className="ec-back-btn" onClick={() => setGenPhase('config')}><X size={16} /> 返回修改</button>
-                  <button className="ec-preview-btn" onClick={doGenEC} style={{ background: '#059669' }}>
-                    <Check size={16} /> 确认生成 {ecOutline.length} 张图
-                  </button>
-                </div>
               </div>
             )}
-
-            {/* ═══════ 生成结果阶段 ═══════ */}
             {!isXHS && genPhase === 'result' && ecResults && (
-              <div className="ec-form">
-                <div className="ec-preview-header">
-                  <div className="ec-preview-title" style={{ color: '#059669' }}>✅ 生成完成</div>
-                  <div className="ec-preview-sub">共生成 {Object.keys(ecResults.images || {}).length} 张图，点击「重新生成」可单独调整某张</div>
+              <div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                  <div style={{ fontSize:15, fontWeight:600, color:'#059669' }}>✅ 生成完成</div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button onClick={() => { setGenPhase('config'); setEcResults(null); }}
+                      style={{ padding:'6px 14px', borderRadius:6, border:'1px solid #e0e0e0', background:'#fff', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'#666' }}>
+                      继续生成
+                    </button>
+                    <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
+                      style={{ padding:'6px 14px', borderRadius:6, border:'1px solid #4338CA', background:'#EEF2FF', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'#4338CA', fontWeight:500 }}>
+                      去精修工坊
+                    </button>
+                  </div>
                 </div>
-                <div className="ec-result-grid">
-                  {Object.entries(ecResults.images || {}).map(([label, url]) => (
-                    <div key={label} className="ec-result-card">
-                      <div className="ec-result-img-wrap" style={{ cursor:'zoom-in' }} onClick={() => setEcLightbox(url)}>
-                        <img src={url} alt={label} className="ec-result-img-full" loading="lazy" />
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(120px,1fr))', gap:10 }}>
+                  {Object.entries(ecResults.images||{}).map(([label,url]) => (
+                    <div key={label} style={{ background:'#f8f8f8', borderRadius:8, overflow:'hidden', border:'1px solid #f0f0f0' }}>
+                      <div style={{ aspectRatio:'1/1', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', cursor:'pointer' }}
+                        onClick={() => setEcLightbox(url)}>
+                        <img src={proxyImg(url)} alt={label} style={{ width:'100%', height:'100%', objectFit:'contain' }} loading="lazy" />
                       </div>
-                      <div className="ec-result-card-body">
-                        <div className="ec-result-label">{ecLabel(baseKey(label))}</div>
-                        {ecRegenEdit.visible && ecRegenEdit.label === label ? (
-                          <div className="ec-regen-edit">
-                            <textarea className="ec-regen-textarea" value={ecRegenEdit.prompt}
-                              onChange={e => setEcRegenEdit(p => ({ ...p, prompt: e.target.value }))}
-                              rows={3} placeholder="修改生成逻辑，AI 将按新描述重新绘制..."
-                            />
-                            <div className="ec-regen-actions">
-                              <button className="ec-regen-cancel" onClick={() => setEcRegenEdit({ label: null, prompt: '', visible: false })}>
-                                取消
-                              </button>
-                              <button className="ec-regen-confirm" onClick={() => doRegenerateImage(label, ecRegenEdit.prompt)}
-                                disabled={ecRegeneratingKey === label}>
-                                {ecRegeneratingKey === label ? '生成中...' : '✅ 确认重新生成'}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="ec-result-prompt-trunc">
-                              {ecOutline.find(o => o.key === baseKey(label) || o.label === label)?.userPrompt?.slice(0, 80) || ''}
-                            </div>
-                            <button className="ec-regen-btn" onClick={() => {
-                              const prompt = ecOutline.find(o => o.key === baseKey(label) || o.label === label)?.userPrompt || '';
-                              setEcRegenEdit({ label, prompt, visible: true });
-                            }}>
-                              <RotateIcon size={13} /> 编辑并重新生成
-                            </button>
-                          </>
-                        )}
+                      <div style={{ padding:'6px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid #f0f0f0' }}>
+                        <span style={{ fontSize:10, fontWeight:600, color:'#666' }}>{ecLabel(baseKey(label))}</span>
+                        <button onClick={() => { const a=document.createElement('a'); a.href=url; a.download=label+'.png'; a.click(); }}
+                          style={{ fontSize:9, padding:'2px 6px', borderRadius:4, background:'#EEF2FF', border:'none', color:'#4338CA', cursor:'pointer', fontWeight:500, fontFamily:'inherit' }}>
+                          下载
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-                {ecResults.errors?.length > 0 && (
-                  <div className="ec-error-bar" style={{ background: '#FFF8F0', borderColor: '#FDDCB5', color: '#C05621' }}>
-                    部分图片生成失败：{ecResults.errors.map(e => ecLabel(baseKey(e.style || e.key || ''))).join('、')}
+                {ecLightbox && (
+                  <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
+                    onClick={() => setEcLightbox(null)}>
+                    <img src={ecLightbox} style={{ maxWidth:'90%', maxHeight:'90vh', objectFit:'contain', borderRadius:8 }} alt="" />
                   </div>
                 )}
-                <div className="ec-footer">
-                  <button className="ec-back-btn" onClick={() => { setGenPhase('config'); setEcResults(null); }}>
-                    ← 继续生成新图
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* 图片放大查看 */}
-            {ecLightbox && (
-              <div className="ec-lightbox-overlay" onClick={() => setEcLightbox(null)}>
-                <img src={ecLightbox} className="ec-lightbox-img" alt="放大查看" />
               </div>
             )}
           </div>
@@ -1153,11 +738,82 @@ export default function HomePage() {
 
       {/* 参考图放大查看 Lightbox */}
       {ecPreviewLightbox && (
-        <div className="ec-lightbox-overlay" onClick={() => setEcPreviewLightbox(null)}>
+        <div className="ec-lightbox-overlay" style={{ zIndex: 999999 }} onClick={() => setEcPreviewLightbox(null)}>
           <div className="ec-lightbox-content" onClick={e => e.stopPropagation()}>
             <button className="ec-lightbox-close" onClick={() => setEcPreviewLightbox(null)}>×</button>
             <img src={ecPreviewLightbox} alt="参考图放大" className="ec-lightbox-img" />
             <div className="ec-lightbox-hint">点击空白处关闭</div>
+          </div>
+        </div>
+      )}
+
+      {/* 上传参考图弹窗 */}
+      {showRefModal && (
+        <div style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+          onClick={() => setShowRefModal(false)}>
+          <div style={{ background:'#fff', borderRadius:16, maxWidth:600, width:'100%', maxHeight:'85vh', overflow:'auto', padding:28 }}
+            onClick={e => e.stopPropagation()}>
+            {/* 头部 */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <div style={{ fontSize:17, fontWeight:600, color:'#333' }}>📸 上传商品实拍图</div>
+              <div onClick={() => setShowRefModal(false)} style={{ width:28, height:28, borderRadius:'50%', background:'#f5f5f5', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#999', fontSize:16, lineHeight:1 }}>✕</div>
+            </div>
+
+            {/* 主体 */}
+            <div style={{ marginBottom:16 }}>
+              {/* 上传区 — 居中 */}
+              <div onClick={() => ecFileRef.current?.click()} style={{
+                border:'2px dashed #d0d0d0', borderRadius:12, padding:'36px 20px',
+                textAlign:'center', cursor:'pointer', marginBottom:12,
+                background:'#FAFBFC', transition:'all 0.15s',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#4338CA'; e.currentTarget.style.background = '#F5F3FF'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#d0d0d0'; e.currentTarget.style.background = '#FAFBFC'; }}>
+                <Upload size={28} style={{ color:'#bbb', marginBottom:8 }} />
+                <div style={{ fontSize:15, fontWeight:600, color:'#555' }}>点击上传商品参考图</div>
+              </div>
+              <div style={{ fontSize:11, color:'#bbb', textAlign:'center', marginBottom:16, lineHeight:1.6 }}>
+                支持 JPG / PNG / WebP，每张不超过 5MB<br />
+                建议 1:1 或 3:4 比例，产品居中、背景简洁效果最好
+              </div>
+              <input ref={ecFileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setEcRefImgs, ecRefImgs, 10); e.target.value=''; }} />
+
+              {/* 已上传 — 显示在下方 */}
+              {ecRefImgs.length > 0 && (
+                <div>
+                  <div style={{ fontSize:13, fontWeight:500, color:'#555', marginBottom:10 }}>已上传 {ecRefImgs.length}/10 张</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+                    {ecRefImgs.map((src, i) => (
+                      <div key={i} style={{ position:'relative', aspectRatio:'1/1', borderRadius:8, overflow:'hidden', border:'1px solid #e8e8e8', cursor:'pointer' }}
+                        onClick={() => setEcPreviewLightbox(src)}>
+                        <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        <div onClick={e => { e.stopPropagation(); setEcRefImgs(p => p.filter((_, j) => j !== i)); }}
+                          style={{ position:'absolute', top:-4, right:-4, width:20, height:20, borderRadius:'50%', background:'#FF4757', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700, lineHeight:1 }}>×</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 拍摄建议 */}
+            <div style={{ background:'#F5F3FF', borderRadius:10, padding:14, marginBottom:20 }}>
+              <div style={{ fontSize:13, fontWeight:600, color:'#4338CA', marginBottom:8 }}>🎯 什么样的图最有用？</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 16px', fontSize:12, color:'#555', lineHeight:1.8 }}>
+                <span>• <b>正面照</b> — 产品整体外观</span>
+                <span>• <b>侧面45°</b> — 展示立体感</span>
+                <span>• <b>细节特写</b> — 材质/工艺放大</span>
+                <span>• <b>包装图</b> — 外包装+配件</span>
+                <span>• <b>使用场景</b> — 模拟真实环境</span>
+                <span>• <b>多角度</b> — 背面/顶部/底部</span>
+              </div>
+              <div style={{ fontSize:11, color:'#888', marginTop:8 }}>只要 1 张正面照也能出图，拍得越清晰 AI 效果越好</div>
+            </div>
+
+            <button onClick={() => setShowRefModal(false)}
+              style={{ width:'100%', padding:'12px 0', border:'none', borderRadius:10, background:'#4338CA', color:'#fff', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              完成 ({ecRefImgs.length} 张)
+            </button>
           </div>
         </div>
       )}

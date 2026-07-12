@@ -2320,26 +2320,32 @@ async function fetchDetailImages(iframeUrl, token) {
 // ============================================================
 
 app.post('/api/ecommerce-preview', (req, res) => {
-  const { product_name, category, selling_points, ref_count, has_material, style_pack } = req.body || {};
+  const { product_name, category, selling_points, ref_count, has_material, style_pack, image_selections } = req.body || {};
   if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
 
+  console.log("[preview-debug] image_selections:", JSON.stringify(image_selections));
+  console.log("[preview-debug] hasUserSel:", Array.isArray(image_selections) && image_selections.length > 0);
   const sellingPoints = (typeof selling_points === 'string' ? selling_points : '').split(/[\n,;，；]/).filter(Boolean);
 
-  const recommendations = getSmartRecommendations({
-    category: category || '其他',
-    sellingPoints,
-    refCount: ref_count || 0,
-    hasMaterial: !!has_material,
-    stylePack: style_pack || null,
-  });
+  // 用户自选优先，否则智能推荐
+  const hasUserSel = Array.isArray(image_selections) && image_selections.length > 0;
+  const recs = hasUserSel
+    ? image_selections.map(t => ({ key: t.key || t.k, count: t.count || t.c || 1, reason: '用户配置' }))
+    : getSmartRecommendations({
+      category: category || '其他',
+      sellingPoints,
+      refCount: ref_count || 0,
+      hasMaterial: !!has_material,
+      stylePack: style_pack || null,
+    });
 
   const imageTypes = IMAGE_TYPE_INFO.map(t => ({
     ...t,
-    recommended: recommendations.find(r => r.key === t.key)?.count || 0,
-    recommendReason: recommendations.find(r => r.key === t.key)?.reason || '',
+    recommended: recs.find(r => r.key === t.key)?.count || 0,
+    recommendReason: recs.find(r => r.key === t.key)?.reason || '',
   }));
 
-  const selections = recommendations.map(r => ({ key: r.key, count: r.count }));
+  const selections = recs.map(r => ({ key: r.key, count: r.count }));
   const outline = buildOutline({
     productName: product_name,
     category: category || '其他',

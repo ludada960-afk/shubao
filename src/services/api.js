@@ -97,7 +97,7 @@ export async function generateEcommerce({ productName, category, refImgs, tier, 
 }
 
 /* ── 电商大纲预览（v3） ── */
-export async function generateEcommercePreview({ productName, category, points, refCount, hasMaterial, stylePack }) {
+export async function generateEcommercePreview({ productName, category, points, refCount, hasMaterial, stylePack, imageSelections }) {
   const res = await fetch(`${API_BASE}/api/ecommerce-preview`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -108,6 +108,7 @@ export async function generateEcommercePreview({ productName, category, points, 
       ref_count: refCount || 0,
       has_material: !!hasMaterial,
       style_pack: stylePack || null,
+      image_selections: imageSelections || null,
     }),
   });
   if (!res.ok) throw new Error('预览请求失败');
@@ -276,3 +277,18 @@ export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags
     URL.revokeObjectURL(link.href);
   } catch { alert('下载失败，请重试'); }
 }
+
+/* ── 一键出图 ── */
+export async function autoGenerate({ platform, input, refImages }) {
+  const res = await fetch(`${API_BASE}/api/auto-generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform, input, refImages: refImages || [] }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => res.statusText);
+    throw new Error(msg.slice(0, 200));
+  }
+  return res.json();
+}
+

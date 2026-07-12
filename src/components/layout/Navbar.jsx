@@ -35,7 +35,6 @@ export default function Navbar() {
               <button key={item.key} className={`sb-nav-link ${active ? 'active' : ''} ${hoveredItem === item.key ? 'hovered' : ''}`}
                 onClick={() => {
                   dispatch({ type: 'NAVIGATE', page: item.key });
-                  if (item.key === 'home') dispatch({ type: 'SET_MODE', mode: 'content' });
                 }}
                 onMouseEnter={() => setHoveredItem(item.key)}
                 onMouseLeave={() => setHoveredItem(null)}
@@ -83,7 +82,6 @@ export default function Navbar() {
                 <button key={item.key} className={`sb-nav-mobile-item ${active ? 'active' : ''}`}
                   onClick={() => {
                     dispatch({ type: 'NAVIGATE', page: item.key });
-                    if (item.key === 'home') dispatch({ type: 'SET_MODE', mode: 'content' });
                     setMobileOpen(false);
                   }}
                 >
