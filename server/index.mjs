@@ -2385,37 +2385,46 @@ async function fetchDetailImages(iframeUrl, token) {
 // ============================================================
 
 app.post('/api/ecommerce-preview', (req, res) => {
-  const { product_name, category, selling_points, ref_count, has_material, style_pack, image_selections } = req.body || {};
+  const { product_name, category, selling_points, ref_count, has_material, image_selections, skus, detail_plan, maintenance } = req.body || {};
   if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
 
-  console.log("[preview-debug] image_selections:", JSON.stringify(image_selections));
-  console.log("[preview-debug] hasUserSel:", Array.isArray(image_selections) && image_selections.length > 0);
   const sellingPoints = (typeof selling_points === 'string' ? selling_points : '').split(/[\n,;，；]/).filter(Boolean);
 
-  // 用户自选优先，否则智能推荐
+  // 用户自选优先，否则按默认套图（主图1:1×5 + 主图3:4×5 + 透明×1 + SKU×用户数 + 勾选切片）
   const hasUserSel = Array.isArray(image_selections) && image_selections.length > 0;
-  const recs = hasUserSel
-    ? image_selections.map(t => ({ key: t.key || t.k, count: t.count || t.c || 1, reason: '用户配置' }))
-    : getSmartRecommendations({
-      category: category || '其他',
-      sellingPoints,
-      refCount: ref_count || 0,
-      hasMaterial: !!has_material,
-      stylePack: style_pack || null,
-    });
+  const selections = hasUserSel
+    ? image_selections.map(t => ({ key: t.key || t.k, count: t.count || t.c || 1, variant: t.variant, sliceNote: t.sliceNote }))
+    : (() => {
+        const def = [
+          { key: 'white_bg', count: 1 },
+          { key: 'main_text', count: 5 },
+          { key: 'main_3x4', count: 5 },
+          { key: 'transparent', count: 1 },
+        ];
+        if (Array.isArray(skus) && skus.length) def.push({ key: 'sku', count: skus.length });
+        const dp = detail_plan || {};
+        if (dp.sizeAnnot)  def.push({ key: 'detail_slice_size', count: 1, sliceNote: dp.notes?.sizeAnnot });
+        if (dp.scene)      def.push({ key: 'detail_slice_scene', count: 1, sliceNote: dp.notes?.scene });
+        if (dp.qc)         def.push({ key: 'detail_slice_qc', count: 1, sliceNote: dp.notes?.qc });
+        if (dp.compare)    def.push({ key: 'detail_slice_compare', count: 1, sliceNote: dp.notes?.compare });
+        if (dp.feature)    def.push({ key: 'detail_slice_feature', count: 1, sliceNote: dp.notes?.feature });
+        if (maintenance)   def.push({ key: 'detail_slice_care', count: 1, sliceNote: maintenance });
+        return def;
+      })();
 
-  const imageTypes = IMAGE_TYPE_INFO.map(t => ({
-    ...t,
-    recommended: recs.find(r => r.key === t.key)?.count || 0,
-    recommendReason: recs.find(r => r.key === t.key)?.reason || '',
-  }));
+  const imageTypes = IMAGE_TYPE_INFO.map(t => {
+    const r = selections.find(s => s.key === t.key);
+    return { ...t, recommended: r?.count || 0, recommendReason: r ? '已配置' : '' };
+  });
 
-  const selections = recs.map(r => ({ key: r.key, count: r.count }));
   const outline = buildOutline({
     productName: product_name,
     category: category || '其他',
     imageSelections: selections,
     sellingPoints,
+    skus,
+    detailPlan: detail_plan,
+    maintenance,
   });
 
   res.json({ product_name, category: category || '其他', imageTypes, outline });
@@ -2534,10 +2543,11 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
 });
 
 app.post('/api/generate-ecommerce', async (req, res) => {
-  const { product_name, category, tier, image_selections, image_size, platform, selling_points, reference_images, beauty_report, style_pack, campaign_lock, conversion_driver, material, target_audience, restrictions } = req.body || {};
+  const { product_name, category, image_selections, image_size, platform, selling_points, reference_images, real_shots, skus, detail_plan, maintenance, material, target_audience, restrictions } = req.body || {};
   if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
 
-  console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || tier || 'basic'}, style=${style_pack || 'default'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
+  const sliceCount = [detail_plan?.sizeAnnot, detail_plan?.scene, detail_plan?.qc, detail_plan?.compare, detail_plan?.feature].filter(Boolean).length;
+  console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || 'default'}, skus=${skus?.length || 0}, slices=${sliceCount}${maintenance ? '+care' : ''}, platform=${platform || '淘宝'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
 
   // SSE 流式输出（与 Plog/图文一致）
   res.setHeader('Content-Type', 'text/event-stream');
@@ -2551,22 +2561,50 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   const images = {};
   const errors = [];
 
-  // 从 image_selections 或 tier 构建图片角色列表
+  // 构建图片角色列表：image_selections 或默认套
   const expandedImages = [];
   if (image_selections?.length > 0) {
     for (const sel of image_selections) {
+      const key = sel.key;
+      const roleObj = IMAGE_ROLES[key.replace(/_\d+$/, '')];
+      if (key === 'sku' && Array.isArray(skus) && skus.length) {
+        // SKU 按 skus 行展开
+        skus.forEach((variant, i) => {
+          expandedImages.push({ key: `sku_${i + 1}`, baseKey: 'sku', label: `SKU ${i + 1}`, variant, ratio: '1:1' });
+        });
+        continue;
+      }
       const count = sel.count || 1;
       for (let i = 0; i < count; i++) {
-        const roleKey = count > 1 ? `${sel.key}_${i + 1}` : sel.key;
-        const sp = sel.key === 'feature' ? (sellingPoints[i] || sellingPoints[0] || '') : (sellingPoints[0] || '');
-        const roleObj = IMAGE_ROLES[roleKey.replace(/_d+$/, '') === 'feature' ? 'feature_1' : roleKey.replace(/_d+$/, '')] || IMAGE_ROLES[roleKey.replace(/_d+$/, '')];
-        expandedImages.push({ key: roleKey, label: roleKey, sellingPoint: sp, ratio: roleObj?.ratio || '1:1' });
+        const roleKey = count > 1 ? `${key}_${i + 1}` : key;
+        expandedImages.push({
+          key: roleKey, baseKey: key, label: roleKey,
+          sliceNote: sel.sliceNote, ratio: roleObj?.ratio || '1:1',
+        });
       }
     }
   } else {
-    const tierImages = getTierImages(tier || 'basic', sellingPoints, category || '其他');
-    for (const img of tierImages) {
-      expandedImages.push({ key: img.key, label: img.label, sellingPoint: img.sellingPoint || sellingPoints[0] || '', cat: img.cat });
+    // 默认套
+    const def = [
+      { key: 'white_bg', count: 1 }, { key: 'main_text', count: 5 }, { key: 'main_3x4', count: 5 }, { key: 'transparent', count: 1 },
+    ];
+    if (Array.isArray(skus) && skus.length) def.push({ key: 'sku', count: skus.length });
+    const dp = detail_plan || {};
+    if (dp.sizeAnnot)  def.push({ key: 'detail_slice_size', count: 1, sliceNote: dp.notes?.sizeAnnot });
+    if (dp.scene)      def.push({ key: 'detail_slice_scene', count: 1, sliceNote: dp.notes?.scene });
+    if (dp.qc)         def.push({ key: 'detail_slice_qc', count: 1, sliceNote: dp.notes?.qc });
+    if (dp.compare)    def.push({ key: 'detail_slice_compare', count: 1, sliceNote: dp.notes?.compare });
+    if (dp.feature)    def.push({ key: 'detail_slice_feature', count: 1, sliceNote: dp.notes?.feature });
+    if (maintenance)   def.push({ key: 'detail_slice_care', count: 1, sliceNote: maintenance });
+    for (const sel of def) {
+      if (sel.key === 'sku' && Array.isArray(skus) && skus.length) {
+        skus.forEach((variant, i) => expandedImages.push({ key: `sku_${i + 1}`, baseKey: 'sku', label: `SKU ${i + 1}`, variant, ratio: '1:1' }));
+        continue;
+      }
+      for (let i = 0; i < sel.count; i++) {
+        const roleKey = sel.count > 1 ? `${sel.key}_${i + 1}` : sel.key;
+        expandedImages.push({ key: roleKey, baseKey: sel.key, label: roleKey, sliceNote: sel.sliceNote, ratio: IMAGE_ROLES[sel.key]?.ratio || '1:1' });
+      }
     }
   }
 
@@ -2625,22 +2663,7 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   }
 
   try {
-    if (beauty_report) {
-      send('progress', { step: 'generating', msg: '正在生成分析报告...', total: 1, current: 0 });
-      const prompt = buildBeautyReportPrompt({
-        productName: product_name,
-        category: category || '美妆护肤',
-        sellingPoints,
-        platform: platform || '淘宝',
-      });
-      try {
-        const url = await generateImage(prompt, category || '美妆护肤', false, null, customSizeStr, refImageBase64);
-        if (url) { images['美妆分析报告'] = url; send('image', { id: '美妆分析报告', url }); }
-        else errors.push({ style: '美妆分析报告', error: '生成失败' });
-      } catch (err) {
-        errors.push({ style: '美妆分析报告', error: err.message });
-      }
-    } else {
+    {
       const total = expandedImages.length;
       send('progress', { step: 'generating', msg: '正在生成商品图...', total, current: 0 });
       const CONCURRENCY = 5;
@@ -2650,12 +2673,11 @@ app.post('/api/generate-ecommerce', async (req, res) => {
         const prompt = buildECPrompt({
           productName: product_name,
           category: category || '其他',
-          roleKey: img.key,
+          roleKey: img.baseKey || img.key,
           sellingPoints,
           platform: platform || '淘宝',
-          stylePack: style_pack || null,
-          campaignLock: campaign_lock || null,
-          conversionDriver: conversion_driver || null,
+          variant: img.variant,
+          sliceNote: img.sliceNote,
         }) + contextSuffix;
         try {
           const url = await generateImage(prompt, category || '其他', false, null, customSizeStr, refImageBase64);
@@ -2691,6 +2713,9 @@ app.post('/api/generate-ecommerce', async (req, res) => {
       category: category || '其他',
       platform: platform || '淘宝',
       image_selections: image_selections || null,
+      skus: skus || [],
+      detail_plan: detail_plan || null,
+      maintenance: maintenance || '',
       images,
       errors,
     });
