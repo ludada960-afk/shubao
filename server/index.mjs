@@ -1,9 +1,11 @@
+
 /**
  * 薯包AI 后端服务
  * 复刻 Coze 工作流：内容分析 → 视觉规划 → 图片生成 → 结果组装
  */
 import express from 'express';
 import cors from 'cors';
+import https from 'https';
 import 'dotenv/config';
 import { fileURLToPath } from 'url';
 import { dirname, resolve, join, extname } from 'path';
@@ -12,7 +14,15 @@ import fs from 'fs';
 import crypto from 'crypto';
 import sharp from 'sharp';
 import { mountOnApp as mountExtRoutes } from './extensionRoutes.mjs';
-import { buildECPrompt, buildBeautyReportPrompt, getTierImages, getSmartRecommendations, buildOutline, IMAGE_TYPE_INFO, PLATFORM_SIZES, IMAGE_ROLES } from './ecommercePromptEngine.mjs';
+import { sendVerificationCode, verifyCode } from './mailService.mjs';
+import { buildECPrompt, buildOutline, IMAGE_TYPE_INFO, PLATFORM_SIZES, IMAGE_ROLES } from './ecommercePromptEngine.mjs';
+import {
+  PLOG_STYLES, PLOG_CATEGORIES, SCENE_LENSES, LAYOUT_TEMPLATES, COVER_VARIANTS,
+  classifyScene, getLensesForScene, extractToneFromImage, buildToneCard,
+  buildPlogPrompt, generatePlogCopy, generatePlogCaption, enrichLensesWithLLM
+} from './plogPromptEngine.mjs';
+
+import Stripe from 'stripe';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '.env');
@@ -25,9 +35,44 @@ if (fs.existsSync(envPath)) {
   console.log('  → 已加载 .env 配置');
 }
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// ── 用户额度持久化 ──
+const USERS_FILE = resolve(__dirname, 'users.json');
+function loadUsers() {
+  try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch { return {}; }
+}
+function saveUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
+if (!fs.existsSync(USERS_FILE)) saveUsers({});
+
 const app = express();
+
+// HTTP → HTTPS 跳转
+// HTTP → HTTPS 跳转（仅 shuimg.cn, 仅 HTTP, 非 API）
+app.use((req, res, next) => {
+  const host = req.headers.host || '';
+  const isShuimg = host.indexOf('shuimg') !== -1;
+  const isSecure = req.secure || !!req.headers['x-forwarded-proto'];
+  console.log('[dbg] host=' + host + ' shuimg=' + isShuimg + ' secure=' + isSecure + ' path=' + req.path);
+  if (isShuimg && !req.path.startsWith('/api/') && !isSecure) {
+    const target = 'https://' + host.replace(/:[0-9]+$/, '') + req.url;
+    console.log('[301] → ' + target);
+    return res.redirect(301, target);
+  }
+  next();
+});
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// 生产模式：serve 前端构建产物
+const distPath = resolve(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  console.log(`  → 静态文件: ${distPath}`);
+}
 
 const PORT = process.env.PORT || 3001;
 
@@ -1473,7 +1518,9 @@ app.post('/api/generate', async (req, res) => {
     console.error('!! 工作流失败:', err.message);
     send('error', { error: err.message });
   } finally { res.end(); }
-});app.post('/api/analyze', async (req, res) => {
+});
+
+app.post('/api/analyze', async (req, res) => {
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
   try {
@@ -1602,12 +1649,25 @@ function saveWorks(works) {
     return false;
   }
 }
+// 迁移旧作品到指定手机号
+app.post('/api/migrate-works', (req, res) => {
+  const { phone } = req.body;
+  if (!phone) return res.status(400).json({ error: '需要手机号' });
+  var works = loadWorks();
+  let count = 0;
+  works = works.map(w => {
+    if (!w._phone) { w._phone = phone; count++; }
+    return w;
+  });
+  saveWorks(works);
+  res.json({ ok: true, migrated: count, total: works.length });
+});
 app.post('/api/save-work', (req, res) => {
-  const { work } = req.body;
+  const { work, phone } = req.body;
   if (!work) return res.status(400).json({ error: 'no work' });
   var works = loadWorks();
-  // 每个作品独立新增，不覆盖旧的（即使用相同的输入文字也保留为独立作品）
-  works.unshift({ ...work, id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
+  // 每个作品绑定手机号
+  works.unshift({ ...work, _phone: phone || '', id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
   if (works.length > 100) works.length = 100;
   var saved = saveWorks(works);
   if (saved) {
@@ -1617,7 +1677,12 @@ app.post('/api/save-work', (req, res) => {
     res.status(500).json({ error: '保存失败', count: works.length });
   }
 });
-app.get('/api/works', (req, res) => { res.json(loadWorks()); });
+app.get('/api/works', (req, res) => {
+  const { phone } = req.query;
+  let works = loadWorks();
+  if (phone) works = works.filter(w => w._phone === phone);
+  res.json(works);
+});
 
 // 图片代理：后端下载图片并缓存（内存+磁盘双缓存，持久化避免重启丢失）
 const imgCache2 = new Map();
@@ -2356,11 +2421,131 @@ app.post('/api/ecommerce-preview', (req, res) => {
   res.json({ product_name, category: category || '其他', imageTypes, outline });
 });
 
+// ============================================================
+// 智能识别：Vision 分析参考图 + smartBrief 文字 → 回填 5 步字段
+// ============================================================
+app.post('/api/ecommerce/auto-recognize', async (req, res) => {
+  const { smartBrief, refShots } = req.body || {};
+  if (!smartBrief && !refShots?.length) {
+    return res.status(400).json({ error: '请填写描述或上传参考图' });
+  }
+  try {
+    // 1) Vision 分析参考图（复用现有函数）
+    let vision = null;
+    if (refShots?.length) {
+      vision = await analyzeReferenceImages(refShots.slice(0, 5));
+    }
+
+    // 2) 让 LLM 综合参考图 + smartBrief 推断 5 步字段
+    const sys = `你是电商运营专家。根据用户描述和参考图分析，推断商品信息并返回严格 JSON（只返回 JSON，不要其他文字）：
+{
+  "product": { "name": "商品名", "category": "品类(从候选里选)", "material": "材质/工艺", "dimensions": "长x宽x高 cm" },
+  "skus": [ { "color": "颜色名≤4字", "size": "规格/尺码", "capacity": "容量/数量", "dimLabel": "标注尺寸" } ],
+  "detailPlan": { "sizeAnnot": true, "scene": true, "qc": false, "compare": false, "feature": true, "notes": { "sizeAnnot":"", "scene":"", "qc":"", "compare":"", "feature":"" } },
+  "maintenance": "一句保养建议"
+}
+规则：
+- skus 至少 1 行，最多 6 行；颜色名用常见中文名（月岩白/曜石黑/雾霾蓝），不自创生僻字。
+- detailPlan 只勾选对商品有意义的项；notes 简短或空字符串。
+- category 必须从候选里选，找不到就填"其他"。`;
+
+    const candidates = ['美妆护肤','数码3C','食品饮料','服饰穿搭','家居生活','母婴用品','宠物用品','其他'];
+    const userMsg = `用户描述：${smartBrief || '（未填）'}\n候选品类：${candidates.join('、')}\n参考图分析：${vision ? JSON.stringify(vision) : '（无参考图）'}`;
+
+    const llmRes = await callMiniLLM(sys, refShots?.slice(0,5) || [], userMsg);
+    const match = (llmRes || '').match(/\{[\s\S]*\}/);
+    if (!match) return res.status(500).json({ error: 'AI 识别失败，请重试' });
+    const parsed = JSON.parse(match[0]);
+
+    // 兜底：确保字段存在
+    parsed.product = parsed.product || { name:'', category:'其他', material:'', dimensions:'' };
+    parsed.skus = Array.isArray(parsed.skus) && parsed.skus.length ? parsed.skus : [{ color:'', size:'', capacity:'', dimLabel:'' }];
+    parsed.detailPlan = Object.assign({ sizeAnnot:true, scene:true, qc:false, compare:false, feature:true, notes:{} }, parsed.detailPlan || {});
+    parsed.detailPlan.notes = Object.assign({ sizeAnnot:'', scene:'', qc:'', compare:'', feature:'' }, parsed.detailPlan.notes || {});
+    parsed.maintenance = parsed.maintenance || '';
+    parsed.rawVision = vision;
+
+    res.json(parsed);
+  } catch (e) {
+    console.warn('[auto-recognize] 失败:', e.message);
+    res.status(500).json({ error: 'AI 识别失败：' + (e.message || '') });
+  }
+});
+
+// ============================================================
+// 详情切片 → 纵向拼成长图（用于微信分享）
+// ============================================================
+app.post('/api/ecommerce/stitch-long', async (req, res) => {
+  const { imageUrls } = req.body || {};
+  if (!imageUrls?.length) return res.status(400).json({ error: '缺少切片图' });
+  if (imageUrls.length > 20) return res.status(400).json({ error: '切片数不能超过 20' });
+  try {
+    // 下载所有切片为 Buffer
+    const bufs = [];
+    for (const u of imageUrls) {
+      let buf;
+      if (typeof u === 'string' && u.startsWith('data:image')) {
+        buf = Buffer.from(u.split(',')[1], 'base64');
+      } else if (typeof u === 'string' && /^https?:\/\//i.test(u)) {
+        const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15000) });
+        if (!r.ok) throw new Error('下载切片失败: ' + u);
+        buf = Buffer.from(await r.arrayBuffer());
+      } else {
+        continue;
+      }
+      bufs.push(buf);
+    }
+    if (bufs.length === 0) return res.status(400).json({ error: '没有可拼接的有效图片' });
+
+    // 统一宽度为 1440，纵向拼接
+    const TARGET_W = 1440;
+    const resized = await Promise.all(bufs.map(b => sharp(b).resize({ width: TARGET_W, withoutEnlargement: false }).toBuffer()));
+    const metas = await Promise.all(resized.map(b => sharp(b).metadata()));
+    const totalH = metas.reduce((s, m) => s + (m.height || 0), 0);
+
+    if (totalH > 30000) {
+      return res.status(400).json({ error: '拼接后长图过高（' + totalH + 'px），请减少切片数' });
+    }
+
+    // 用 sharp 的 raw pixel 纵向堆叠：创建空白大图 composite
+    const composites = [];
+    let yOff = 0;
+    for (let i = 0; i < resized.length; i++) {
+      composites.push({ input: resized[i], top: yOff, left: 0 });
+      yOff += metas[i].height || 0;
+    }
+    const longBuf = await sharp({
+      create: { width: TARGET_W, height: totalH, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
+    }).composite(composites).png().toBuffer();
+
+    // 保存到 dist 下的合成图目录，返回 URL
+    const outDir = join(process.cwd(), 'dist', 'stitched');
+    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+    const fileName = `long-${Date.now()}-${Math.random().toString(36).slice(2,8)}.png`;
+    const outPath = join(outDir, fileName);
+    fs.writeFileSync(outPath, longBuf);
+    const url = `/stitched/${fileName}`;
+    console.log(`[stitch-long] 拼接 ${bufs.length} 片 → ${TARGET_W}x${totalH} → ${url}`);
+    res.json({ url, width: TARGET_W, height: totalH, count: bufs.length });
+  } catch (e) {
+    console.warn('[stitch-long] 失败:', e.message);
+    res.status(500).json({ error: '拼接失败：' + (e.message || '') });
+  }
+});
+
 app.post('/api/generate-ecommerce', async (req, res) => {
   const { product_name, category, tier, image_selections, image_size, platform, selling_points, reference_images, beauty_report, style_pack, campaign_lock, conversion_driver, material, target_audience, restrictions } = req.body || {};
   if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
 
   console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || tier || 'basic'}, style=${style_pack || 'default'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
+
+  // SSE 流式输出（与 Plog/图文一致）
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  const NL = '\n';
+  const send = (type, data) => { try { res.write('data: ' + JSON.stringify({ type, ...data }) + NL + NL); } catch(e) {} };
 
   const sellingPoints = (typeof selling_points === 'string' ? selling_points : '').split(/[\n,;，；]/).filter(Boolean);
   const images = {};
@@ -2372,7 +2557,6 @@ app.post('/api/generate-ecommerce', async (req, res) => {
     for (const sel of image_selections) {
       const count = sel.count || 1;
       for (let i = 0; i < count; i++) {
-        // 所有同类多图加后缀 _1, _2, _3，确保 images dict 的 key 唯一
         const roleKey = count > 1 ? `${sel.key}_${i + 1}` : sel.key;
         const sp = sel.key === 'feature' ? (sellingPoints[i] || sellingPoints[0] || '') : (sellingPoints[0] || '');
         const roleObj = IMAGE_ROLES[roleKey.replace(/_d+$/, '') === 'feature' ? 'feature_1' : roleKey.replace(/_d+$/, '')] || IMAGE_ROLES[roleKey.replace(/_d+$/, '')];
@@ -2398,6 +2582,7 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   // 参考图：分析 + 准备视觉输入
   let refImageBase64 = null;
   if (reference_images?.length > 0) {
+    send('progress', { step: 'vision', msg: '正在分析参考图...' });
     try {
       console.log(`[ec-gen] Vision 分析 ${reference_images.length} 张参考图...`);
       const vision = await analyzeReferenceImages(reference_images);
@@ -2415,11 +2600,10 @@ app.post('/api/generate-ecommerce', async (req, res) => {
         contextSuffix += visionNote;
         console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}`);
       }
-      // 取第 1 张参考图转 base64，传给生图模型做视觉参考
       const refUrl = reference_images[0];
       if (refUrl) {
         if (typeof refUrl === 'string' && refUrl.startsWith('data:image')) {
-          refImageBase64 = refUrl; // 用户上传的 data URI
+          refImageBase64 = refUrl;
         } else if (typeof refUrl === 'string' && /^https?:\/\//i.test(refUrl)) {
           const refRes = await fetch(refUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -2441,8 +2625,8 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   }
 
   try {
-    // 美妆分析报告模式：生成一张信息图
     if (beauty_report) {
+      send('progress', { step: 'generating', msg: '正在生成分析报告...', total: 1, current: 0 });
       const prompt = buildBeautyReportPrompt({
         productName: product_name,
         category: category || '美妆护肤',
@@ -2451,15 +2635,17 @@ app.post('/api/generate-ecommerce', async (req, res) => {
       });
       try {
         const url = await generateImage(prompt, category || '美妆护肤', false, null, customSizeStr, refImageBase64);
-        if (url) images['美妆分析报告'] = url;
+        if (url) { images['美妆分析报告'] = url; send('image', { id: '美妆分析报告', url }); }
         else errors.push({ style: '美妆分析报告', error: '生成失败' });
       } catch (err) {
         errors.push({ style: '美妆分析报告', error: err.message });
       }
     } else {
-      // 标准分图模式 — 并行生图（单张 20-30s，5 路并发大幅缩短总耗时）
+      const total = expandedImages.length;
+      send('progress', { step: 'generating', msg: '正在生成商品图...', total, current: 0 });
       const CONCURRENCY = 5;
-      const imgResults = new Array(expandedImages.length).fill(null);
+      const imgResults = new Array(total).fill(null);
+      let completed = 0;
       const genOne = async (img, idx) => {
         const prompt = buildECPrompt({
           productName: product_name,
@@ -2473,45 +2659,65 @@ app.post('/api/generate-ecommerce', async (req, res) => {
         }) + contextSuffix;
         try {
           const url = await generateImage(prompt, category || '其他', false, null, customSizeStr, refImageBase64);
-          imgResults[idx] = url ? { label: img.label, url } : { label: img.label, error: '生成空结果' };
+          if (url) {
+            imgResults[idx] = { label: img.label, url };
+            images[img.label] = url;
+            send('image', { id: img.label, url, index: idx, total });
+          } else {
+            imgResults[idx] = { label: img.label, error: '生成空结果' };
+            errors.push({ style: img.label, error: '生成空结果' });
+          }
         } catch (err) {
           console.warn(`[ec-gen] 图片失败 [${img.label}]: ${err.message}`);
           imgResults[idx] = { label: img.label, error: err.message };
+          errors.push({ style: img.label, error: err.message });
         }
+        completed++;
+        send('progress', { step: 'generating', msg: '正在生成商品图...', total, current: completed });
       };
-      // 并发调度：一次最多 CONCURRENCY 个 in-flight
       let cursor = 0;
       async function worker() {
-        while (cursor < expandedImages.length) {
+        while (cursor < total) {
           const idx = cursor++;
           await genOne(expandedImages[idx], idx);
         }
       }
       await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-      // 整理结果
-      for (const r of imgResults) {
-        if (r) {
-          if (r.url) images[r.label] = r.url;
-          else errors.push({ style: r.label, error: r.error || '未知错误' });
-        }
-      }
     }
 
-    const result = {
+    console.log(`[ec-gen] 完成: ${Object.keys(images).length} 张图, ${errors.length} 个错误`);
+    send('complete', {
       product_name,
       category: category || '其他',
       platform: platform || '淘宝',
       image_selections: image_selections || null,
       images,
       errors,
-    };
-
-    console.log(`[ec-gen] 完成: ${Object.keys(images).length} 张图, ${errors.length} 个错误`);
-    res.json(result);
+    });
   } catch (err) {
     console.error('[ec-gen] 失败:', err.message);
-    res.status(500).json({ error: err.message });
+    send('error', { error: err.message });
+  } finally { res.end(); }
+});
+
+// ── 邮箱验证码 ──
+app.post('/api/auth/send-code', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email || !email.includes('@')) return res.status(400).json({ error: '请输入正确的邮箱' });
+  try {
+    const result = await sendVerificationCode(email);
+    res.json(result);
+  } catch (e) {
+    res.status(429).json({ error: e.message });
   }
+});
+
+app.post('/api/auth/verify-code', (req, res) => {
+  const { email, code } = req.body || {};
+  if (!email || !code) return res.status(400).json({ error: '参数不完整' });
+  const result = verifyCode(email, code);
+  if (result.ok) res.json({ ok: true, email });
+  else res.status(400).json(result);
 });
 
 // ============================================================
@@ -2522,12 +2728,220 @@ mountExtRoutes(app);
 // ============================================================
 // 启动
 // ============================================================
+
+
+// ── Plog 生活氛围感（V2：独立引擎，与种草完全隔离）──
+app.post("/api/plog-generate", async (req, res) => {
+  const { text, refImage, style, layout, coverVariant, skipEnrich } = req.body || {};
+  if (!text?.trim()) return res.status(400).json({ error: "请输入内容" });
+  const plogStyle = PLOG_STYLES[style] ? style : 'ins-minimal';
+  const plogLayout = LAYOUT_TEMPLATES[layout] ? layout : 'casual';
+  const plogCover = COVER_VARIANTS[coverVariant] ? coverVariant : 'collage';
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  const NL = String.fromCharCode(10);
+  const send = (type, data) => { try { res.write("data: " + JSON.stringify({ type, ...data }) + NL + NL); } catch(e) {} };
+  try {
+    // Step 1: 场景分类
+    send("progress", { step: "scene", msg: "正在分析场景..." });
+    const scene = classifyScene(text);
+
+    // Step 2: 镜头拆分 + LLM 微调
+    send("progress", { step: "lens", msg: "正在拆分生活碎片镜头..." });
+    const totalCount = 9;
+    let lenses = getLensesForScene(scene, totalCount);
+    if (!skipEnrich && text.length > 6) {
+      try {
+        lenses = await enrichLensesWithLLM(lenses, text, scene, callMiniLLM);
+      } catch(e) { console.error('[plog] enrich失败, 使用预定义:', e.message); }
+    }
+
+    // Step 3: 色调分析（如果有参考图）
+    send("progress", { step: "tone", msg: refImage ? "正在分析参考图色调..." : "已选风格色调" });
+    let toneInfo = null;
+    if (refImage) {
+      toneInfo = await extractToneFromImage(refImage, callMiniLLM);
+    }
+
+    // Step 4: 生成每张图的 prompt + 调用图片API
+    send("progress", { step: "generating", msg: "正在绘制 Plog 图片...", total: totalCount, current: 0 });
+    const results = [];
+    for (let i = 0; i < totalCount; i++) {
+      const isCover = (i === 0);
+      const prompt = buildPlogPrompt({
+        lens: lenses[i],
+        style: plogStyle,
+        toneInfo,
+        isCover,
+        index: i,
+        totalCount,
+        category: scene,
+        layout: plogLayout,
+        coverVariant: plogCover,
+      });
+      try {
+        const imageUrl = await callImageAPI(prompt, null, null);
+        if (imageUrl) {
+          const id = isCover ? 'cover' : 'p' + i;
+          results.push({ id, url: imageUrl });
+          send("image", { id, url: imageUrl, index: i, total: totalCount });
+          send("progress", { step: "generating", msg: `正在绘制 Plog 图片...`, total: totalCount, current: i + 1 });
+        }
+      } catch(e) {
+        console.error("[plog-v2]", i, "failed:", e.message);
+      }
+    }
+
+    // Step 5: 生成配套文案
+    const copyLines = generatePlogCopy(scene, lenses, toneInfo);
+    const caption = generatePlogCaption(scene, scene, plogStyle);
+
+    // Step 6: 组装结果
+    const coverUrl = results.find(r => r.id === 'cover')?.url || '';
+    const imageUrls = results.filter(r => r.id !== 'cover').map(r => r.url);
+    send("complete", {
+      scene, style: plogStyle,
+      layout: plogLayout, coverVariant: plogCover,
+      caption,
+      copyLines, cover_url: coverUrl,
+      image_urls: imageUrls,
+      image_count: imageUrls.length,
+      total_count: totalCount,
+      toneInfo,
+    });
+  } catch(err) {
+    console.error('[plog-v2] 失败:', err);
+    send("error", { error: err.message || '生成失败' });
+  }
+  finally { res.end(); }
+});
+
+// ============================================================
+// Stripe 支付
+// ============================================================
+
+/* 创建 Stripe Checkout Session */
+app.post('/api/create-payment', async (req, res) => {
+  try {
+    const { plan, type, email, sets, amount } = req.body;
+    if (!email) return res.json({ code: 0, error: '请先登录' });
+
+    const sessionParams = {
+      payment_method_types: type === 'wxpay' ? ['wechat_pay'] : ['alipay'],
+      line_items: [{
+        price_data: {
+          currency: 'cny',
+          product_data: { name: plan },
+          unit_amount: Math.round(amount * 100),
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: `https://shuimg.cn/api/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://shuimg.cn/pricing`,
+      metadata: { email, plan, sets: String(sets) },
+    };
+
+    // 微信支付需要指明客户端类型
+    if (type === 'wxpay') {
+      sessionParams.payment_method_options = {
+        wechat_pay: { client: 'web' },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    res.json({ code: 1, url: session.url });
+  } catch (e) {
+    console.error('[payment] create error:', e);
+    res.json({ code: 0, error: e.message });
+  }
+});
+
+/* 支付成功回调 */
+app.get('/api/payment/success', async (req, res) => {
+  try {
+    const { session_id } = req.query;
+    if (session_id) {
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      if (session.payment_status === 'paid') {
+        const sets = parseInt(session.metadata.sets || '0');
+        const email = session.metadata.email;
+        if (sets > 0 && email) {
+          const users = loadUsers();
+          users[email] = (users[email] || 0) + sets;
+          saveUsers(users);
+          console.log(`[payment] ${email} +${sets} credits ✅`);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[payment] success error:', e);
+  }
+  res.redirect('/pricing?paid=1');
+});
+
+/* 获取用户额度 */
+app.get('/api/user/credits', (req, res) => {
+  const email = req.query.email;
+  if (!email) return res.json({ credits: 0 });
+  const users = loadUsers();
+  res.json({ credits: users[email] || 0 });
+});
+
+/* Stripe Webhook */
+app.post('/api/payment/webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    if (event.type === 'checkout.session.completed') {
+      const s = event.data.object;
+      const sets = parseInt(s.metadata.sets || '0');
+      const email = s.metadata.email;
+      if (sets > 0 && email) {
+        const users = loadUsers();
+        users[email] = (users[email] || 0) + sets;
+        saveUsers(users);
+        console.log(`[payment] ${email} +${sets} credits (webhook)`);
+      }
+    }
+    res.json({ received: true });
+  } catch (e) {
+    console.error('[payment] webhook error:', e.message);
+    res.status(400).send(e.message);
+  }
+});
+
+// SPA fallback：非 API 路由返回 index.html（支持前端路由）
+app.get('*', (req, res) => {
+  const indexPath = resolve(__dirname, '..', 'dist', 'index.html');
+  if (fs.existsSync(indexPath)) res.sendFile(indexPath);
+  else res.status(404).send('Not Found');
+});
+
+// HTTP 服务
 app.listen(PORT, () => {
   console.log(`\n🧩 薯包AI 后端服务运行中`);
   console.log(`   LLM: ${LLM_BASE ? LLM_BASE + '/v1/chat/completions' : '未配置'} (${LLM_MODEL})`);
   console.log(`   Mini: ${MINI_BASE ? MINI_BASE + '/v1/chat/completions' : '未配置'} (${MINI_MODEL}) — Vision 分析`);
   console.log(`   Image: ${IMG_BASE}/v1/images/generations`);
   console.log(`   Anthropic 备用: ${process.env.ANTHROPIC_API_KEY ? '已配置' : '未配置'}`);
-  console.log(`   API: http://localhost:${PORT}/api/generate`);
-  console.log('');
+  console.log(`   HTTP: http://localhost:${PORT}`);
 });
+
+// HTTPS 服务
+const certDir = resolve(__dirname, '..', 'cert');
+const certPath = join(certDir, 'cert.pem');
+const keyPath = join(certDir, 'key.pem');
+if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+  const credentials = { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) };
+  const SSL_PORT = process.env.SSL_PORT || 3443;
+  https.createServer(credentials, app).listen(SSL_PORT, () => {
+    console.log(`   HTTPS: https://shuimg.cn:${SSL_PORT}`);
+    console.log(`   → 路由器端口转发 443 → ${SSL_PORT}`);
+  });
+} else {
+  console.log(`   证书不存在，跳过 HTTPS`);
+  console.log(`   生成证书: cd cert && openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout key.pem -out cert.pem`);
+}
