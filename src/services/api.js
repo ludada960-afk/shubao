@@ -60,20 +60,19 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-/* ── 电商图生成 ── */
-export async function generateEcommerce({ productName, category, refImgs, tier, platform, points, beautyReport, stylePack, campaignLock, conversionDriver, material, targetAudience, restrictions, imageSelections, imageSize }) {
+/* ── 电商图生成（精修工坊重构版） ── */
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, onImage, onProgress }) {
   const body = {
     product_name: productName,
     category,
-    reference_images: refImgs,
+    reference_images: refImgs || [],
+    real_shots: realShots || [],
     platform,
-    selling_points: points,
-    beauty_report: beautyReport || false,
-    style_pack: stylePack || null,
-    campaign_lock: campaignLock || null,
-    conversion_driver: conversionDriver || null,
+    selling_points: points || '',
+    skus: skus || [],
+    detail_plan: detailPlan || null,
+    maintenance: maintenance || '',
     material: material || '',
-    target_audience: targetAudience || '',
     restrictions: restrictions || '',
   };
   if (imageSize?.width && imageSize?.height) {
@@ -81,8 +80,6 @@ export async function generateEcommerce({ productName, category, refImgs, tier, 
   }
   if (imageSelections?.length > 0) {
     body.image_selections = imageSelections;
-  } else {
-    body.tier = tier || 'basic';
   }
   const res = await fetch(`${API_BASE}/api/generate-ecommerce`, {
     method: 'POST',
@@ -93,11 +90,73 @@ export async function generateEcommerce({ productName, category, refImgs, tier, 
     const msg = await res.text().catch(() => res.statusText);
     throw new Error(msg.slice(0, 200));
   }
+
+  // SSE 流式解析（与 generateContent 一致）
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  const result = { images: {}, errors: [] };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const d = JSON.parse(line.slice(6));
+        if (d.type === 'progress') {
+          if (onProgress) onProgress(d);
+        } else if (d.type === 'image') {
+          if (d.id && d.url) result.images[d.id] = d.url;
+          if (onImage) onImage(d);
+        } else if (d.type === 'complete') {
+          Object.assign(result, d);
+          result.images = result.images || {};
+        } else if (d.type === 'error') {
+          throw new Error(d.error || '生成失败');
+        }
+      } catch (e) {
+        if (e.message && !e.message.includes('JSON')) throw e;
+      }
+    }
+  }
+  return result;
+}
+
+/* ── 电商智能识别（Vision 回填 5 步字段） ── */
+export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
+  const res = await fetch(`${API_BASE}/api/ecommerce/auto-recognize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ smartBrief: smartBrief || '', refShots: refShots || [] }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => res.statusText);
+    throw new Error(msg.slice(0, 200));
+  }
   return res.json();
 }
 
-/* ── 电商大纲预览（v3） ── */
-export async function generateEcommercePreview({ productName, category, points, refCount, hasMaterial, stylePack, imageSelections }) {
+/* ── 详情切片拼长图（微信分享用） ── */
+export async function stitchLongImage(imageUrls) {
+  const res = await fetch(`${API_BASE}/api/ecommerce/stitch-long`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageUrls }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => res.statusText);
+    throw new Error(msg.slice(0, 200));
+  }
+  return res.json();
+}
+
+/* ── 电商大纲预览（重构版） ── */
+export async function generateEcommercePreview({ productName, category, points, refCount, hasMaterial, imageSelections, skus, detailPlan, maintenance }) {
   const res = await fetch(`${API_BASE}/api/ecommerce-preview`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -107,8 +166,10 @@ export async function generateEcommercePreview({ productName, category, points, 
       selling_points: points,
       ref_count: refCount || 0,
       has_material: !!hasMaterial,
-      style_pack: stylePack || null,
       image_selections: imageSelections || null,
+      skus: skus || [],
+      detail_plan: detailPlan || null,
+      maintenance: maintenance || '',
     }),
   });
   if (!res.ok) throw new Error('预览请求失败');
@@ -156,7 +217,7 @@ export async function regenerateText(text, category) {
 }
 
 /* ── 作品存取 ── */
-export async function saveWork(work) {
+export async function saveWork(work, phone) {
   // 本地先存
   try {
     const local = JSON.parse(localStorage.getItem('sb-works') || '[]');
@@ -176,16 +237,17 @@ export async function saveWork(work) {
     await fetch(`${API_BASE}/api/save-work`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ work }),
+      body: JSON.stringify({ work, phone: phone || '' }),
     });
   } catch (e) {
     console.warn('saveWork:', e.message);
   }
 }
 
-export async function loadWorks() {
+export async function loadWorks(phone) {
   try {
-    const res = await fetch(`${API_BASE}/api/works`);
+    const url = phone ? `${API_BASE}/api/works?phone=${encodeURIComponent(phone)}` : `${API_BASE}/api/works`;
+    const res = await fetch(url);
     if (res.ok) {
       let data = await res.json();
       try {
