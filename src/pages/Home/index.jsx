@@ -2,7 +2,26 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Sparkles, Upload, ChevronRight, Pencil, ShoppingCart, Target, Palette, RefreshCw, Copy, Monitor, ShieldCheck, ChevronDown, Eye, Check, X, RotateCcw as RotateIcon } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { GALLERY, QUICK_HINTS, PRICING_XHS, PRICING_EC, EC_CATS, EC_PLATFORM_DIMS, EC_IMG_RATIOS, EC_MAIN_TYPES, EC_ADV_TYPES, EC_STYLE_PACKS } from '../../constants/data';
+import { GALLERY, QUICK_HINTS, PRICING_XHS, PRICING_EC, EC_CATS, EC_PLATFORM_DIMS, EC_IMG_RATIOS, EC_MAIN_TYPES } from '../../constants/data';
+// 兼容：旧版首页电商 tab 仍引用已删除的 EC_ADV_TYPES / EC_STYLE_PACKS。
+// 用本地 stub 保持旧 tab 的运行行为不变（type-shape 与常量同名；服务端忽略 stylePack）。
+const EC_ADV_TYPES = [
+  { key:'scene',        label:'使用场景图', emoji:'🌿', mandatory:false, defaultCount:0, maxCount:4, desc:'产品出现在真实使用环境中' },
+  { key:'detail',       label:'详情图',     emoji:'📋', mandatory:false, defaultCount:0, maxCount:6, desc:'每张讲一个卖点' },
+  { key:'feature',      label:'卖点解说图', emoji:'💬', mandatory:false, defaultCount:0, maxCount:6, desc:'在白底/场景上加卖点标注' },
+  { key:'composite',    label:'组合图',     emoji:'🎁', mandatory:false, defaultCount:0, maxCount:2, desc:'全家福 / 套装组合' },
+  { key:'package',      label:'包装图',     emoji:'📦', mandatory:false, defaultCount:0, maxCount:2, desc:'外包装 / 配件 / 标签' },
+  { key:'macro',        label:'特写图',     emoji:'🔍', mandatory:false, defaultCount:0, maxCount:3, desc:'材质/工艺微距' },
+  { key:'comparison',   label:'对比图',     emoji:'⚖️', mandatory:false, defaultCount:0, maxCount:2, desc:'vs 同款 / 自家多色' },
+];
+const EC_STYLE_PACKS = [
+  { key:'scene_selling', label:'场景种草', subtitle:'卖场景', desc:'产品放在真实使用场景里', img:'', ar:'1/1' },
+  { key:'detail_selling',label:'卖点图解', subtitle:'卖功能', desc:'每张图讲一个核心卖点',    img:'', ar:'1/1' },
+  { key:'ugc_trust',     label:'买家秀风', subtitle:'真实感',desc:'模拟用户晒单的口吻',       img:'', ar:'1/1' },
+  { key:'brand_unified', label:'品牌统一', subtitle:'统一感',desc:'全套视觉风格一致',          img:'', ar:'1/1' },
+  { key:'promo_sale',    label:'促销热卖', subtitle:'促销感',desc:'价格/优惠/抢购角标',        img:'', ar:'1/1' },
+  { key:'',              label:'无风格（默认）', subtitle:'自动',desc:'AI 自由发挥',         img:'', ar:'1/1' },
+];
 import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, getTrialStatus, consumeTrial } from '../../services/api';
 import { getSession } from '../../services/auth';
 import { CharImg } from '../../components/ui/index';
@@ -20,6 +39,16 @@ export default function HomePage() {
   const [refImages, setRefImages] = useState([]);
   const fileRef = useRef(null);
   const [trialRemaining, setTrialRemaining] = useState(0);
+  // 小红书子模式：content(种草) / plog(生活碎片)
+  const [xhsSubMode, setXhsSubMode] = useState('content');
+
+  // Plog 专属状态
+  const [plogText, setPlogText] = useState('');
+  const [plogStyle, setPlogStyle] = useState('ins-minimal');
+  const [plogLayout, setPlogLayout] = useState('casual');
+  const [plogRefImg, setPlogRefImg] = useState(null);
+  const [plogRefPreview, setPlogRefPreview] = useState('');
+  const plogFileRef = useRef(null);
 
   const [ecName, setEcName] = useState('');
   const [ecCat, setEcCat] = useState('美妆护肤');
@@ -326,6 +355,8 @@ export default function HomePage() {
   const doGenEC = async () => {
     if (!ecName.trim()) return;
     setErr('');
+    dispatch({ type: 'START_GEN' });
+    dispatch({ type: 'SET_STAGE', stage: 1 });
     setGenECLoading(true);
     setEcLoadingMsg('正在分析商品信息...');
     try {
@@ -357,21 +388,26 @@ export default function HomePage() {
           stylePack: null,
           beautyReport: false,
           material: ecMaterial,
-          imageSelections: null,
+          tier:'basic',
+          imageSelections: ecSelections,
           imageSize: null,
         });
         setEcResults(data);
         // 自动保存
         try {
           const { saveWork } = await import('../../services/api');
-          saveWork({ ...data, _ecResult: true, _saveKey: 'ec-'+Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: data.images || {} });
+          saveWork({ ...data, _ecResult: true, _saveKey: 'ec-'+Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: data.images || {} }, state.phone);
         } catch(e) {}
       }
+      dispatch({ type: 'SET_STAGE', stage: 2 });
+      await new Promise(r => setTimeout(r, 800));
       setGenECLoading(false);
+      dispatch({ type: 'CLOSE_RESULT' });
       setGenPhase('result');
     } catch (e) {
-      setErr(e.message || '生成失败');
+      setErr('生成失败: ' + (e.message || '未知错误'));
       setGenECLoading(false);
+      dispatch({ type: 'CLOSE_RESULT' });
     }
   };
 
@@ -418,7 +454,55 @@ export default function HomePage() {
       const work = { ...result, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, _trialLocked: isTrial, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
       dispatch({ type: 'SET_RESULT', result: work });
       if (isTrial) { const session = await getSession(); if (session?.phone) await consumeTrial(session.phone); setTrialRemaining(0); }
-      else if (isPaid) { saveWork(work); dispatch({ type: 'SET_CREDITS', credits: credits - 1 }); }
+      else if (isPaid) { saveWork(work, state.phone); dispatch({ type: 'SET_CREDITS', credits: credits - 1 }); }
+    } catch (e) { setErr(e.message || '生成失败'); dispatch({ type: 'CLOSE_RESULT' }); }
+  };
+
+  const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const doGenPlog = async () => {
+    if (!plogText.trim()) return;
+    setErr('');
+    dispatch({ type: 'START_GEN' });
+    try {
+      const body = { text: plogText.trim(), style: plogStyle, layout: plogLayout, coverVariant: 'collage' };
+      if (plogRefImg) body.refImage = await readFileAsBase64(plogRefImg);
+      const res = await fetch('/api/plog-generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('请求失败');
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '', result = { cover_url: '', image_urls: [], copyLines: [], caption: '' };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n'); buf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const d = JSON.parse(line.slice(6));
+            if (d.type === 'progress') {
+              const stageMap = { scene: 1, lens: 1, tone: 1, generating: 2 };
+              dispatch({ type: 'SET_STAGE', stage: stageMap[d.step] || 1 });
+            } else if (d.type === 'image') {
+              if (d.id === 'cover') result.cover_url = d.url;
+              else result.image_urls.push(d.url);
+              dispatch({ type: 'SET_STAGE', stage: 2 });
+            } else if (d.type === 'complete') {
+              Object.assign(result, d);
+            } else if (d.type === 'error') throw new Error(d.error || '生成失败');
+          } catch(e) { if (e.message && !e.message.includes('JSON')) throw e; }
+        }
+      }
+      const work = { ...result, _plogResult: true, _saveKey: 'plog-' + Date.now(), images: { cover: result.cover_url } };
+      dispatch({ type: 'SET_RESULT', result: work });
     } catch (e) { setErr(e.message || '生成失败'); dispatch({ type: 'CLOSE_RESULT' }); }
   };
 
@@ -460,9 +544,17 @@ export default function HomePage() {
           <div style={{ fontSize: 12, color: '#9CA3AF' }}>AI 正在识别类目、风格、颜色、材质等参数</div>
         </div>
       )}
-      <section className="hero-section">
+      <section className="hero-section" style={{ paddingTop: 40 }}>
+        <div style={{
+          display:'inline-flex', alignItems:'center', gap:4,
+          padding:'3px 12px', borderRadius:20, background:'#FFF0F0', color:'#e84142',
+          fontSize:11, fontWeight:600, letterSpacing:0.5, marginBottom:12,
+        }}>
+          <span style={{ width:5, height:5, borderRadius:'50%', background:'#e84142', display:'inline-block' }} />
+          AI 图文创作工具
+        </div>
         <h1 className="hero-title">AI 一键生成<span className="hero-accent">爆款内容</span></h1>
-        <p className="hero-sub">小红书博主用它出图文，电商卖家用它做商品图 — 两条产品线，一个工具搞定</p>
+        <p className="hero-sub">小红书博主用它做图文，电商卖家用它出商品图</p>
         <div className="mode-tabs">
           <button className={`mode-tab ${isXHS ? 'active-xhs' : ''}`} onClick={() => setMode('content')}><Pencil size={14} /> 小红书图文</button>
           <button className={`mode-tab ${!isXHS ? 'active-ec' : ''}`} onClick={() => setMode('ecommerce')}><ShoppingCart size={14} /> 电商商品图</button>
@@ -476,34 +568,173 @@ export default function HomePage() {
 
             {isXHS && (
               <div>
-                <div className="hero-textarea-wrap">
-                  <textarea className="hero-textarea" value={inputText} onChange={e => setText(e.target.value)} placeholder=" " />
-                  <div className="custom-placeholder">
-                    <div className="ph-main">✍️ 在这里输入创作主题，一句话就够了…</div>
-                    <div className="ph-sub">例如：厦门3天2夜旅游攻略、百元蓝牙耳机测评</div>
+                {/* 子模式切换 */}
+                <div style={{ display:'flex', gap:3, margin:'12px 16px', padding:3, background:'#e8e8e8', borderRadius:10 }}>
+                  <div onClick={() => setXhsSubMode('content')}
+                    style={{
+                      flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
+                      textAlign:'center', transition:'all .12s', letterSpacing:0.3,
+                      background: xhsSubMode === 'content' ? '#fff' : 'transparent',
+                      color: xhsSubMode === 'content' ? '#e84142' : '#888',
+                      boxShadow: xhsSubMode === 'content' ? '0 1px 6px rgba(0,0,0,0.12)' : 'none',
+                      border: xhsSubMode === 'content' ? '1px solid rgba(0,0,0,0.04)' : '1px solid transparent',
+                      position:'relative',
+                    }}
+                    onMouseEnter={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = '#f0f0f0'; }}
+                    onMouseLeave={e => { if(xhsSubMode !== 'content') e.currentTarget.style.background = 'transparent'; }}>
+                    种草图文
+                    <div style={{
+                      position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
+                      width: xhsSubMode === 'content' ? 16 : 0, height:2.5, borderRadius:2,
+                      background:'#e84142', transition:'all .2s',
+                    }} />
+                  </div>
+                  <div onClick={() => setXhsSubMode('plog')}
+                    style={{
+                      flex:1, padding:'8px 0', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:500,
+                      textAlign:'center', transition:'all .12s', letterSpacing:0.3,
+                      background: xhsSubMode === 'plog' ? '#fff' : 'transparent',
+                      color: xhsSubMode === 'plog' ? '#c2185b' : '#888',
+                      boxShadow: xhsSubMode === 'plog' ? '0 1px 6px rgba(0,0,0,0.12)' : 'none',
+                      border: xhsSubMode === 'plog' ? '1px solid rgba(0,0,0,0.04)' : '1px solid transparent',
+                      position:'relative',
+                    }}
+                    onMouseEnter={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = '#f0f0f0'; }}
+                    onMouseLeave={e => { if(xhsSubMode !== 'plog') e.currentTarget.style.background = 'transparent'; }}>
+                    Plog 生活碎片
+                    <div style={{
+                      position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
+                      width: xhsSubMode === 'plog' ? 16 : 0, height:2.5, borderRadius:2,
+                      background:'#c2185b', transition:'all .2s',
+                    }} />
                   </div>
                 </div>
-                <div className="ref-images-row">
-                  {refImages.map((src, i) => (
-                    <div key={i} className="ref-thumb"><img src={src} alt="" /><div className="ref-remove" onClick={() => setRefImages(p => p.filter((_, j) => j !== i))}>×</div></div>
-                  ))}
-                  {refImages.length < 3 && <div className="ref-add" onClick={() => fileRef.current?.click()}><Upload size={14} /></div>}
-                  <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value = ''; }} />
-                  <span className="ref-hint">参考图（可选，最多3张）</span>
-                </div>
-                <div className="tags-cloud-wrap">
-                  <div className="tags-hint"><span>💡 试试这些热门主题，点击即可填入</span></div>
-                  <div className="tags-cloud">{QUICK_HINTS.map((h, i) => (<button key={i} className="hint-tag" onClick={() => setText(h)}>{h}</button>))}</div>
-                </div>
-                {err && <div className="error-bar">{err}</div>}
-                {logged && credits === 0 && trialRemaining === 0 ? (
-                  <button className="gen-btn xhs" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}><Sparkles size={14} /> 购买套餐继续使用</button>
-                ) : (
-                  <button className="gen-btn xhs" onClick={doGenXHS} disabled={!inputText.trim()}>
-                    <Sparkles size={14} /> {!logged ? '免费预览（文案+封面）' : credits > 0 ? '一键生成爆款图文' : '🎁 免费试玩生成'}
-                  </button>
+                {xhsSubMode === 'content' && (
+                  <div>
+                    <div className="hero-textarea-wrap">
+                      <textarea className="hero-textarea" value={inputText} onChange={e => setText(e.target.value)} placeholder=" " />
+                      <div className="custom-placeholder">
+                        <div className="ph-main">✍️ 在这里输入创作主题，一句话就够了…</div>
+                        <div className="ph-sub">例如：厦门3天2夜旅游攻略、百元蓝牙耳机测评</div>
+                      </div>
+                    </div>
+                    <div className="ref-images-row">
+                      {refImages.map((src, i) => (
+                        <div key={i} className="ref-thumb"><img src={src} alt="" /><div className="ref-remove" onClick={() => setRefImages(p => p.filter((_, j) => j !== i))}>×</div></div>
+                      ))}
+                      {refImages.length < 3 && <div className="ref-add" onClick={() => fileRef.current?.click()}><Upload size={14} /></div>}
+                      <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value = ''; }} />
+                      <span className="ref-hint">参考图（可选，最多3张）</span>
+                    </div>
+                    <div className="tags-cloud-wrap">
+                      <div className="tags-hint"><span>💡 试试这些热门主题，点击即可填入</span></div>
+                      <div className="tags-cloud">{QUICK_HINTS.map((h, i) => (<button key={i} className="hint-tag" onClick={() => setText(h)}>{h}</button>))}</div>
+                    </div>
+                    {err && <div className="error-bar">{err}</div>}
+                    {logged && credits === 0 && trialRemaining === 0 ? (
+                      <button className="gen-btn xhs" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}><Sparkles size={14} /> 购买套餐继续使用</button>
+                    ) : (
+                      <button className="gen-btn xhs" onClick={doGenXHS} disabled={!inputText.trim()}>
+                        <Sparkles size={14} /> {!logged ? '免费预览（文案+封面）' : credits > 0 ? '一键生成爆款图文' : '🎁 免费试玩生成'}
+                      </button>
+                    )}
+                    <div className="gen-hint">{!logged ? '🎁 免费预览：AI 生成完整文案 + 1 张封面图 — 登录后解锁全部 9 张配图' : credits > 0 ? `剩余 ${credits} 套 · 1套 = 完整文案 + 9张配图` : trialRemaining > 0 ? '🎁 免费试玩：完整生成 9 张配图（仅展示封面）— 充值解锁全部' : '已用完免费次数 · 购买套餐继续使用'}</div>
+                  </div>
                 )}
-                <div className="gen-hint">{!logged ? '🎁 免费预览：AI 生成完整文案 + 1 张封面图 — 登录后解锁全部 9 张配图' : credits > 0 ? `剩余 ${credits} 套 · 1套 = 完整文案 + 9张配图` : trialRemaining > 0 ? '🎁 免费试玩：完整生成 9 张配图（仅展示封面）— 充值解锁全部' : '已用完免费次数 · 购买套餐继续使用'}</div>
+                {xhsSubMode === 'plog' && (
+                  <div>
+                    {/* 输入 */}
+                    <div className="hero-textarea-wrap">
+                      <textarea className="hero-textarea" value={plogText} onChange={e => setPlogText(e.target.value)} placeholder=" " />
+                      <div className="custom-placeholder">
+                        <div className="ph-main">📝 描述你的生活场景</div>
+                        <div className="ph-sub">例如：独居日常｜周末宅家看书喝咖啡</div>
+                      </div>
+                    </div>
+                    {/* 参考图（与种草图文一样的样式） */}
+                    <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'#FAFBFC', borderTop:'1.5px solid var(--border)' }}>
+                      {plogRefPreview ? (
+                        <div style={{ position:'relative', width:60, height:60, borderRadius:8, overflow:'hidden', border:'2px solid #ddd', flex:'0 0 auto' }}>
+                          <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                          <div onClick={() => { setPlogRefImg(null); setPlogRefPreview(''); }}
+                            style={{ position:'absolute', top:-5, right:-5, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700, lineHeight:1 }}>×</div>
+                        </div>
+                      ) : (
+                        <div onClick={() => plogFileRef.current?.click()}
+                          style={{ width:60, height:60, borderRadius:8, border:'2px dashed #ccc', display:'flex', alignItems:'center', justifyContent:'center', color:'#999', cursor:'pointer', fontSize:20, background:'#fff', flex:'0 0 auto' }}>
+                          +
+                        </div>
+                      )}
+                      <span style={{ fontSize:13, color:'#999' }}>参考图（可选，AI自动统一整组色调）</span>
+                      <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => {
+                        const f=e.target.files?.[0]; if(f){setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));}
+                        e.target.value='';
+                      }} />
+                    </div>
+                    {/* 风格 + 排版设置 */}
+                    <div className="tags-cloud-wrap" style={{ borderTop:'none', padding:'8px 16px 10px' }}>
+                      <div className="tags-hint"><span>🎨 选择色调风格</span></div>
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
+                        {[
+                          { k:'ins-minimal', label:'🤍 Ins极简', color:'#555' },
+                          { k:'korean-clear', label:'💎 韩系清透', color:'#4A6FA5' },
+                          { k:'japanese-cream', label:'🍦 日系奶油', color:'#B8956A' },
+                          { k:'film-vintage', label:'🎞️ 胶片复古', color:'#8B6F47' },
+                        ].map(s => {
+                          const active = plogStyle === s.k;
+                          return (
+                            <div key={s.k} onClick={() => setPlogStyle(s.k)}
+                              style={{
+                                padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
+                                transition:'all .12s', lineHeight:'20px',
+                                background: active ? s.color : '#f5f5f5',
+                                color: active ? '#fff' : '#666',
+                                boxShadow: active ? '0 1px 4px ' + s.color + '50' : 'none',
+                                border: active ? '1px solid ' + s.color : '1px solid #eee',
+                              }}
+                              onMouseEnter={e => { if(!active) { e.currentTarget.style.borderColor = '#ccc'; } }}
+                              onMouseLeave={e => { if(!active) { e.currentTarget.style.borderColor = '#eee'; } }}>
+                              {s.label}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="tags-hint" style={{ marginTop:4 }}><span>📐 选择排版样式</span></div>
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                        {[
+                          { k:'casual', label:'📸 碎片风' },
+                          { k:'polaroid', label:'📷 拍立得' },
+                          { k:'cinematic', label:'🎬 电影感' },
+                          { k:'journal', label:'📔 手账风' },
+                          { k:'magazine', label:'✨ 杂志风' },
+                        ].map(t => {
+                          const active = plogLayout === t.k;
+                          return (
+                            <div key={t.k} onClick={() => setPlogLayout(t.k)}
+                              style={{
+                                padding:'4px 10px', borderRadius:8, cursor:'pointer', fontSize:11, transition:'all .12s',
+                                background: active ? '#BE185D' : '#fff',
+                                color: active ? '#fff' : '#BE185D',
+                                border: active ? '1px solid #BE185D' : '1px solid #f0d4df',
+                                fontWeight: active ? 600 : 400,
+                              }}
+                              onMouseEnter={e => { if(!active) { e.currentTarget.style.background = '#fdf2f8'; e.currentTarget.style.borderColor = '#BE185D'; } }}
+                              onMouseLeave={e => { if(!active) { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#f0d4df'; } }}>
+                              {t.label}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {err && <div className="error-bar">{err}</div>}
+                    <button className="gen-btn xhs" onClick={doGenPlog} disabled={!plogText.trim()}
+                      style={{ background: !plogText.trim() ? 'var(--border)' : 'linear-gradient(135deg,#BE185D,#DB2777)' }}>
+                      🎨 生成{['碎片风','拍立得','电影感','手账风','杂志风'][['casual','polaroid','cinematic','journal','magazine'].indexOf(plogLayout)] || '碎片风'} Plog
+                    </button>
+                    <div className="gen-hint">{!plogText.trim() ? '✏️ 输入场景描述后即可生成 9 张生活碎片' : '✨ 1套 = 9 张 Plog 碎片 + 情绪文案'}</div>
+                  </div>
+                )}
+
               </div>
             )}
 
@@ -709,7 +940,7 @@ export default function HomePage() {
           <div className="pricing-col">
             <div className="pricing-header" style={{ color:'var(--red)' }}>📝 小红书图文</div>
             <div className="pricing-plans">{PRICING_XHS.slice(0,3).map((p,i) => (
-              <div key={i} className={`plan-card ${p.pop?'pop-red':''}`} onClick={() => { if(!logged) dispatch({ type:'SHOW_LOGIN', show:true }); else dispatch({ type:'ADD_CREDITS', amount:p.sets }); }}>
+              <div key={i} className={`plan-card ${p.pop?'pop-red':''}`} onClick={() => { if(!logged) dispatch({ type:'SHOW_LOGIN', show:true }); else dispatch({ type:'NAVIGATE', page:'pricing' }); }}>
                 <div className="plan-name">{p.name}</div><div className="plan-price red">¥{p.price}</div><div className="plan-detail">{p.sets}套 · {p.imgs}</div>
               </div>
             ))}</div>
@@ -717,7 +948,7 @@ export default function HomePage() {
           <div className="pricing-col">
             <div className="pricing-header" style={{ color:'var(--blue)' }}>🛍️ 电商商品图</div>
             <div className="pricing-plans">{PRICING_EC.slice(0,3).map((p,i) => (
-              <div key={i} className={`plan-card ${p.pop?'pop-blue':''}`} onClick={() => { if(!logged) dispatch({ type:'SHOW_LOGIN', show:true }); else dispatch({ type:'ADD_CREDITS', amount:p.sets }); }}>
+              <div key={i} className={`plan-card ${p.pop?'pop-blue':''}`} onClick={() => { if(!logged) dispatch({ type:'SHOW_LOGIN', show:true }); else dispatch({ type:'NAVIGATE', page:'pricing' }); }}>
                 <div className="plan-name">{p.name}</div><div className="plan-price blue">¥{p.price}</div><div className="plan-detail">{p.sets}套 · {p.imgs}</div>
               </div>
             ))}</div>
