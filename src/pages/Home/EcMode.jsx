@@ -106,7 +106,21 @@ export default function EcMode() {
               background: 'rgba(255,255,255,0.6)',
               cursor: 'pointer', fontSize: 13, fontWeight: 500,
               color: 'var(--text-muted)',
-              transition: 'all 0.12s',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
+              e.currentTarget.style.borderColor = 'var(--accent)';
+              e.currentTarget.style.color = 'var(--accent)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.6)';
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.transform = 'none';
             }}>
             <Upload size={15} />
             上传参考图
@@ -201,8 +215,12 @@ export default function EcMode() {
         className="btn-pill btn-primary"
         style={{
           width: '100%', marginTop: 18, height: 48, fontSize: 16,
-          opacity: !ecName.trim() ? 0.45 : 1,
-        }}>
+          opacity: !ecName.trim() || generating ? 0.45 : 1,
+          transform: 'none',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+        onMouseEnter={e => { if (!generating && ecName.trim()) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-xl)'; } }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; }}>
         <Sparkles size={18} />
         {generating ? '正在生成...' : '一键生成全套电商图'}
       </button>
