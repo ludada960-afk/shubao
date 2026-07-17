@@ -26,7 +26,6 @@ import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview,
 import { getSession } from '../../services/auth';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
-import Footer from '../../components/layout/Footer';
 import './Home.css';
 
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
@@ -880,39 +879,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="section">
-        <h2 className="section-title">两条产品线，看看效果</h2>
-        <p className="section-sub">所有内容均由薯包AI一键生成</p>
-        <div className="dual-grid">
-          <div className="dual-col">
-            <div className="dual-col-header">
-              <div style={{ display:'flex', alignItems:'center', gap:6 }}><span className="dual-col-tag" style={{ background:'var(--red-bg)', color:'#C53030' }}>📝 小红书图文</span><span style={{ fontSize:10, color:'var(--text-faint)' }}>一句话 → 文案+9张图</span></div>
-              <span style={{ fontSize:10, color:'var(--red)', cursor:'pointer' }} onClick={() => dispatch({ type:'NAVIGATE', page:'gallery' })}>更多 <ChevronRight size={10} /></span>
-            </div>
-            <div className="dual-col-body">
-              <div className="mini-grid">{GALLERY.slice(0,6).map(g => (
-                <div key={g.id} className="mini-card" onClick={() => dispatch({ type:'SET_RESULT', result:{...g, body_text:g.body, hashtags:g.tags, category:g.cat, _inputText:g.hint, _galleryItem:true} })}>
-                  {g.cover_url ? <img className="mini-cover" src={proxyImg(g.cover_url)} alt="" loading="lazy" /> : <div className="mini-cover" style={{ background:g.grad }} />}
-                  <div className="mini-title">{g.title}</div>
-                </div>
-              ))}</div>
-            </div>
-          </div>
-          <div className="dual-col">
-            <div className="dual-col-header">
-              <div style={{ display:'flex', alignItems:'center', gap:6 }}><span className="dual-col-tag" style={{ background:'var(--blue-bg)', color:'#3730A3' }}>🛍️ 电商商品图</span><span style={{ fontSize:10, color:'var(--text-faint)' }}>商品照 → 白底/场景/详情</span></div>
-            </div>
-            <div className="dual-col-body">
-              <div className="ec-result-grid">{['⬜ 白底主图','🌄 场景图','📋 详情图','🖼️ 组合图'].map((l,i) => (
-                <div key={i} className="ec-result-card"><div className="ec-result-img" style={{ background:['linear-gradient(135deg,#f8f8f8,#eee)','linear-gradient(135deg,#E8F5E9,#C8E6C9)','linear-gradient(135deg,#FFF3E0,#FFE0B2)','linear-gradient(135deg,#E3F2FD,#BBDEFB)'][i]}} /><div className="ec-result-label">{l}</div></div>
-              ))}</div>
-              <div style={{ marginTop:8, display:'flex', flexWrap:'wrap', gap:4 }}>{['淘宝','京东','拼多多','小红书电商','抖音电商','亚马逊'].map(p => <span key={p} style={{ fontSize:9, padding:'2px 8px', borderRadius:4, background:'#f5f5f5', color:'var(--text-hint)' }}>{p}</span>)}</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-
       {/* 参考图放大查看 Lightbox */}
       {ecPreviewLightbox && (
         <div className="ec-lightbox-overlay" style={{ zIndex: 999999 }} onClick={() => setEcPreviewLightbox(null)}>
@@ -995,7 +961,6 @@ export default function HomePage() {
         </div>
       )}
 
-      <Footer />
     </div>
   );
 }
