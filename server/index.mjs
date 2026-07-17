@@ -67,6 +67,73 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// ── IP 速率限制（止血：防止 API 被盗刷 LLM 额度）──
+// 对消耗 LLM 额度的生图路由限 10 次/分钟/IP
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;   // 1 分钟
+const RATE_LIMIT_MAX = 10;                // 每窗口每 IP 最多 10 次
+const rateLimitStore = new Map();         // key: `${ip}:${minuteBucket}` -> count
+function getClientIp(req) {
+  const xf = req.headers['x-forwarded-for'];
+  if (xf) return String(xf).split(',')[0].trim();
+  return req.socket?.remoteAddress || req.ip || 'unknown';
+}
+function rateLimiter(req, res, next) {
+  const ip = getClientIp(req);
+  const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS);
+  const key = `${ip}:${bucket}`;
+  const count = (rateLimitStore.get(key) || 0) + 1;
+  rateLimitStore.set(key, count);
+  // 清理过期桶（简单 GC）
+  if (rateLimitStore.size > 10000) {
+    for (const k of rateLimitStore.keys()) {
+      const b = Number(k.split(':').pop());
+      if (bucket - b > 5) rateLimitStore.delete(k);
+    }
+  }
+  if (count > RATE_LIMIT_MAX) {
+    console.warn(`[rate-limit] ${ip} 超限 ${count}/${RATE_LIMIT_MAX} on ${req.path}`);
+    return res.status(429).json({ error: '请求过于频繁，请稍后再试（每分钟限 10 次生成）' });
+  }
+  next();
+}
+// 仅对消耗 LLM 额度的核心生图路由启用
+const GUARDED_ROUTES = [
+  '/api/generate', '/api/regenerate-image', '/api/regenerate-text',
+  '/api/analyze', '/api/generate-ecommerce', '/api/ecommerce/analyze'  , '/api/plog-generate',
+];
+app.use((req, res, next) => {
+  if (req.method === 'POST' && GUARDED_ROUTES.includes(req.path)) {
+    return rateLimiter(req, res, next);
+  }
+  next();
+});
+
+// ── 额度校验中间件（登录用户扣额度，阻止匿名盗刷）──
+// 要求请求体带 email（登录前端已有），查 users.json 是否有额度
+function requireCredits(req, res, next) {
+  const body = req.body || {};
+  const email = (body.email || body.phone || '').trim().toLowerCase();
+  if (!email) {
+    return res.status(401).json({ error: '未登录，请先登录' });
+  }
+  const users = loadUsers();
+  const credits = users[email] || 0;
+  if (credits < 1) {
+    return res.status(402).json({ error: '额度不足，请购买套餐' });
+  }
+  req._userEmail = email;
+  req._creditsBefore = credits;
+  next();
+}
+// 扣额度（生图完成后调用）
+function deductCredit(email) {
+  const users = loadUsers();
+  if (users[email] && users[email] > 0) {
+    users[email] = users[email] - 1;
+    saveUsers(users);
+  }
+}
+
 // 生产模式：serve 前端构建产物
 const distPath = resolve(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
