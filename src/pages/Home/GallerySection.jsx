@@ -11,7 +11,10 @@ export default function GallerySection({ maxItems = 18, showHeader = true }) {
   const { state, dispatch } = useApp();
 
   return (
-    <section style={{ marginTop: 48, paddingBottom: 40 }}>
+    <section style={{
+      marginTop: 60, paddingBottom: 20,
+      maxWidth: 'var(--max-width-content)', margin: '60px auto 0', paddingInline: 0,
+    }}>
       {showHeader && (
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
@@ -33,14 +36,10 @@ export default function GallerySection({ maxItems = 18, showHeader = true }) {
             </h2>
           </div>
           <span style={{
-            fontSize: 13, fontWeight: 600,
-            color: 'var(--text-muted)', cursor: 'pointer',
-            transition: 'color 0.15s',
-          }}
-            onClick={() => dispatch({ type: 'NAVIGATE', page: 'gallery' })}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
-            {GALLERY.length} / {GALLERY.length} 全部
+            fontSize: 13, fontWeight: 600, color: 'var(--text-muted)',
+            cursor: 'default',
+          }}>
+            {GALLERY.length} 个案例
           </span>
         </div>
       )}

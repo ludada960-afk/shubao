@@ -100,9 +100,10 @@
 
   /* ── 布局 ── */
   --max-width: 1680px;
-  --max-width-narrow: 1100px;
+  --max-width-narrow: 1240px;
+  --max-width-content: 1240px;       /* 主页内容宽度（对齐灵图） */
   --max-width-xs: 620px;
-  --nav-height: 72px;
+  --nav-height: 60px;
 
   /* ── 动效 ── */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -308,12 +309,16 @@ input, textarea { font-family: inherit; }
 /* ── 灵图风格渐变背景光晕 ── */
 .creative-bg-glow {
   pointer-events: none;
-  position: absolute;
+  position: fixed;
   inset-inline: 0;
   top: 0;
-  height: 420px;
-  background: radial-gradient(circle at 18% 10%, rgba(255,204,128,0.30), transparent 28rem),
-              radial-gradient(circle at 80% 4%, rgba(168,141,255,0.22), transparent 30rem);
+  height: 100vh;
+  min-height: 800px;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255,204,128,0.28), transparent 32rem),
+    radial-gradient(circle at 82% 6%, rgba(168,141,255,0.18), transparent 34rem),
+    radial-gradient(circle at 50% 40%, rgba(255,235,200,0.10), transparent 40rem);
+  z-index: 0;
 }
 
 /* ── 灵图风格案例区覆盖文字 ── */
@@ -333,8 +338,9 @@ input, textarea { font-family: inherit; }
     --text-3xl: 22px;
     --text-2xl: 18px;
     --text-hero: 32px;
-    --nav-height: 64px;
+    --nav-height: 56px;
     --radius-lg: 20px;
     --radius-xl: 28px;
+    --max-width-content: 100%;
   }
 }
