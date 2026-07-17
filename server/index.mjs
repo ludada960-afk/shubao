@@ -1495,7 +1495,7 @@ function buildP2SafePrompt(analysis, userText) {
 }
 
 app.post('/api/generate', async (req, res) => {
-  const { text } = req.body;
+  const { text, images } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
   // SSE 流式输出 - 每完成一张图立刻推送给前端
   res.setHeader('Content-Type', 'text/event-stream');
@@ -1508,7 +1508,37 @@ app.post('/api/generate', async (req, res) => {
   console.log('\n=== 开始工作流: "' + text.slice(0, 40) + '..." ===');
   try {
     send('progress', { step: 'content_analysis', msg: '正在分析内容...' });
-    const analysis = await contentAnalysis(text);
+
+    // 【XHS 参考图 Vision 分析】
+    let visionContext = '';
+    if (images?.length) {
+      send('progress', { step: 'vision', msg: '正在分析参考图...' });
+      try {
+        const visionPrompt = `你是一个小红书内容图片分析专家。分析这些参考图，提取视觉风格特征，用 JSON 返回：
+{
+  "color_palette": ["#hex1", "#hex2", "#hex3"],
+  "style_vibe": "风格描述（简约/清新/复古/治愈/高级/可爱等）",
+  "mood": "整体氛围",
+  "lighting": "光线特色",
+  "composition": "构图特点",
+  "aesthetic_tags": ["标签1", "标签2"]
+}`;
+        const visionResult = await callMiniLLM(visionPrompt, images.slice(0, 3), '分析这些参考图的视觉风格');
+        const parsed = JSON.parse((visionResult || '{}').replace(/```(json)?/g, '').trim());
+        if (parsed?.color_palette?.length || parsed?.style_vibe) {
+          visionContext = '\n\n[参考图视觉特征]\n' +
+            (parsed.style_vibe ? `风格：${parsed.style_vibe}\n` : '') +
+            (parsed.mood ? `氛围：${parsed.mood}\n` : '') +
+            (parsed.color_palette?.length ? `色调：${parsed.color_palette.join('、')}\n` : '') +
+            (parsed.lighting ? `光线：${parsed.lighting}\n` : '') +
+            (parsed.composition ? `构图：${parsed.composition}\n` : '');
+        }
+      } catch (e) {
+        console.warn('[XHS Vision] 参考图分析失败（不阻断）:', e.message);
+      }
+    }
+
+    const analysis = await contentAnalysis(text + visionContext);
     send('progress', { step: 'visual_planning', msg: '正在规划视觉...' });
     const visual = await visualPlanning(analysis);
 
@@ -3022,10 +3052,15 @@ app.get('*', (req, res) => {
 // HTTP 服务
 app.listen(PORT, () => {
   console.log(`\n🧩 薯包AI 后端服务运行中`);
-  console.log(`   LLM: ${LLM_BASE ? LLM_BASE + '/v1/chat/completions' : '未配置'} (${LLM_MODEL})`);
-  console.log(`   Mini: ${MINI_BASE ? MINI_BASE + '/v1/chat/completions' : '未配置'} (${MINI_MODEL}) — Vision 分析`);
-  console.log(`   Image: ${IMG_BASE}/v1/images/generations`);
-  console.log(`   Anthropic 备用: ${process.env.ANTHROPIC_API_KEY ? '已配置' : '未配置'}`);
+  console.log(`╔══════════════════════════════════════════════════╗`);
+  console.log(`║  三 API 分工:`);
+  console.log(`║  ① 💬 LLM(文本): ${LLM_BASE ? LLM_BASE + '/v1/chat/completions' : '未配置'} (${LLM_MODEL})`);
+  console.log(`║     → 内容策划/文案生成/分析推理 (纯文本)`);
+  console.log(`║  ② 👁️ MINI(识图): ${MINI_BASE ? MINI_BASE + '/v1/chat/completions' : '未配置'} (${MINI_MODEL})`);
+  console.log(`║     → 参考图分析/VLM视觉解析/产品识别`);
+  console.log(`║  ③ 🎨 IMAGE(生图): ${IMG_BASE}/v1/images/generations (${IMG_MODEL})`);
+  console.log(`║     → 电商商品图/XHS配图/Plog图片生成`);
+  console.log(`╚══════════════════════════════════════════════════╝`);
   console.log(`   HTTP: http://localhost:${PORT}`);
 });
 

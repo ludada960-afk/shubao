@@ -1,34 +1,31 @@
 /**
  * 薯包AI v4 VLM API 客户端
  *
- * ⚠️ 预留接口位：VLM_API_KEY 和 VLM_BASE_URL 需要在 .env 中配置
- * 当前使用空壳实现，网络恢复后填入真实 API 即可启用
+ * 使用 MINI_* 环境变量配置的 Vision 模型 (gpt-5.4-mini / api.65535.space)
+ * 在 server/.env 中设置：
+ *   MINI_API_KEY=xxx
+ *   MINI_BASE_URL=https://api.65535.space
+ *   MINI_MODEL=gpt-5.4-mini
  *
- * 对接方式（填入下方标记位）：
- *   1. 在 server/.env 添加：
- *      VLM_API_KEY=xxx
- *      VLM_BASE_URL=https://api.xxx.com/v1
- *      VLM_MODEL=xxx-vision
- *   2. 重启服务 → 自动启用
- *   3. 零代码改动
+ * 无 API 时自动降级为 Mock 数据输出，不影响业务流程。
  */
 
 import { buildVlmPrompt, parseRealShot, parseStyleRef, aggregateAnalyses } from './vlmSchema.mjs';
 
 // ============================================================
-// ★★★★★ 接入点：替换为真实 VLM API ★★★★★
+// 从环境变量读取 Vision API 配置
 // ============================================================
 const VLM_CONFIG = {
-  apiKey: process.env.VLM_API_KEY || '',      // ← 填入 API Key
-  baseUrl: process.env.VLM_BASE_URL || '',     // ← 填入 API URL
-  model: process.env.VLM_MODEL || '',           // ← 填入模型名
-  enabled: false,                               // ← true 后启用
+  apiKey: process.env.MINI_API_KEY || '',
+  baseUrl: (process.env.MINI_BASE_URL || '').replace(/\/+$/, ''),
+  model: process.env.MINI_MODEL || 'gpt-5.4-mini',
+  enabled: !!(process.env.MINI_API_KEY && process.env.MINI_BASE_URL),
 };
 // ============================================================
 
 /**
- * 调用 VLM 分析图片
- * 当前为 mock 实现在无 API 时返回模拟数据
+ * 调用 Vision 模型分析图片
+ * 降级链：真实 API → Mock
  *
  * @param {string[]} imageUrls - 图片 URL 列表
  * @param {'real_shot'|'style_ref'} type - 分析类型
@@ -38,21 +35,34 @@ export async function analyzeImages(imageUrls, type = 'real_shot') {
   if (!imageUrls || imageUrls.length === 0) return null;
 
   if (VLM_CONFIG.enabled && VLM_CONFIG.apiKey) {
-    // ★★★ 真实 VLM API 调用 ★★★
     return await callVlmApi(imageUrls, type);
   }
 
-  // ★★★ Mock 实现（API 不可用时返回模拟数据）★★★
+  // 无 Vision API 时降级 Mock
   return mockVlmAnalysis(imageUrls, type);
 }
 
 /**
- * 真实 VLM API 调用 (预留实现)
+ * 调用 Vision API (兼容 OpenAI 格式)
  */
 async function callVlmApi(imageUrls, type) {
   const { systemPrompt, userPrompt } = buildVlmPrompt(type, imageUrls);
 
-  const response = await fetch(`${VLM_CONFIG.baseUrl}/chat/completions`, {
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: userPrompt },
+        ...imageUrls.slice(0, 5).map(url => ({
+          type: 'image_url',
+          image_url: { url, detail: 'high' },
+        })),
+      ],
+    },
+  ];
+
+  const response = await fetch(`${VLM_CONFIG.baseUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -60,21 +70,9 @@ async function callVlmApi(imageUrls, type) {
     },
     body: JSON.stringify({
       model: VLM_CONFIG.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt },
-            ...imageUrls.map(url => ({
-              type: 'image_url',
-              image_url: { url, detail: 'high' },
-            })),
-          ],
-        },
-      ],
-      temperature: 0.1,
+      messages,
       max_tokens: 2048,
+      temperature: 0.1,
     }),
   });
 
@@ -87,25 +85,17 @@ async function callVlmApi(imageUrls, type) {
   try {
     return JSON.parse(content.replace(/```(json)?/g, '').trim());
   } catch {
-    console.warn('[VLM] Failed to parse VLM response as JSON, returning null');
+    console.warn('[VLM] Vision 返回非 JSON，返回原始文本');
     return null;
   }
 }
 
 /**
- * 执行完整的 VLM 分析流程：
- *   1. 分析实拍图 → RealShotAnalysis
- *   2. 分析风格图 → StyleRefAnalysis
- *   3. 聚合结果
- *
- * @param {string[]} realShots - 实拍图 URL 列表
- * @param {string[]} styleRefs - 风格参考图 URL 列表
- * @returns {Promise<{realShot: Object, styleRef: Object, mode: string}>}
+ * 执行完整 VLM 分析流程
  */
 export async function runFullAnalysis(realShots = [], styleRefs = []) {
   const hasReal = realShots.length > 0;
   const hasStyle = styleRefs.length > 0;
-
   const mode = hasReal && hasStyle ? 'dual' : hasReal ? 'real_only' : hasStyle ? 'style_only' : 'none';
 
   let realShot = null;
