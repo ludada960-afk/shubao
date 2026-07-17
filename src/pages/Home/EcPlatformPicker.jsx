@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings } from 'lucide-react';
+import { SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 
 const PLATFORMS = [
   { key: '淘宝', icon: '🟠', desc: '800×800 / 白底+场景' },
@@ -23,6 +23,9 @@ const RESOLUTIONS = [
   { key: '2K', label: '2048×2048' },
 ];
 
+/**
+ * 电商平台选择 — 灵图风格：平台pill + 智能默认/自定义下拉
+ */
 export default function EcPlatformPicker({ platform, onChange }) {
   const [customOpen, setCustomOpen] = useState(false);
   const [customRatio, setCustomRatio] = useState('1:1');
@@ -35,119 +38,138 @@ export default function EcPlatformPicker({ platform, onChange }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+      {/* Platform pills — lingtuai style */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
         {PLATFORMS.map(p => {
           const active = platform === p.key;
           return (
-            <div key={p.key}
-              onClick={() => onChange(p.key)}
+            <button key={p.key} onClick={() => onChange(p.key)}
               style={{
-                padding: '10px 14px',
-                borderRadius: 'var(--radius-md)',
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px',
+                borderRadius: 'var(--radius-full)',
                 cursor: 'pointer', transition: 'all 0.15s',
-                background: active ? 'var(--accent)' : 'rgba(255,255,255,0.7)',
+                background: active ? 'var(--accent)' : '#fff',
                 color: active ? '#fff' : 'var(--text-secondary)',
                 border: active ? 'none' : '1px solid var(--border)',
-                fontSize: 13, fontWeight: active ? 600 : 450,
-                minWidth: 90,
+                fontSize: 12, fontWeight: active ? 900 : 600,
+                fontFamily: 'inherit',
+                boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               }}>
-              <div>{p.icon} {p.key}</div>
-              <div style={{ fontSize: 11, marginTop: 3, opacity: active ? 0.8 : 0.6 }}>{p.desc}</div>
-            </div>
+              <span>{p.icon}</span>
+              <span>{p.key}</span>
+            </button>
           );
         })}
       </div>
 
-      {/* 智能默认 / 自定义切换 */}
+      {/* Size config — lingtuai pill style */}
       <div style={{
-        padding: '10px 14px',
-        borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--border-light)',
-        background: 'rgba(0,0,0,0.02)',
-        marginBottom: customOpen ? 10 : 0,
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
-            <span style={{ fontSize: 13, marginRight: 6 }}>⚙️</span>
-            {customOpen ? '自定义参数' : '智能默认 — 按平台自动适配'}
-          </div>
-          <div onClick={handleCustomToggle}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={handleCustomToggle}
             style={{
-              fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer',
-              padding: '3px 10px', borderRadius: 'var(--radius-sm)',
-              background: 'rgba(0,0,0,0.04)',
+              display: 'flex', alignItems: 'center', gap: 6,
+              height: 40, padding: '0 12px',
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--border)',
+              background: '#fff',
+              fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
+              cursor: 'pointer', fontFamily: 'inherit',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            <SlidersHorizontal size={15} />
+            <span style={{ fontWeight: 900, color: 'var(--text-primary)' }}>{customOpen ? '自定义' : '智能'}</span>
+            <span>{customRes}</span>
+            <span style={{ opacity: 0.5 }}>×</span>
+            <span>{customCount}</span>
+            {customOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {/* Dropdown panel */}
+          {customOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+              minWidth: 240, zIndex: 50,
+              borderRadius: 18, border: '1px solid var(--border)',
+              background: 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(16px)',
+              padding: 12,
+              boxShadow: '0 18px 46px rgba(57,45,26,0.16)',
+              animation: 'fadeIn 0.12s ease',
             }}>
-            {customOpen ? '使用智能默认' : '自定义比例'}
-          </div>
-        </div>
-
-        {customOpen && (
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeIn 0.15s ease' }}>
-            {/* 比例选择 */}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>画面比例</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {RATIOS.map(r => {
-                  const active = customRatio === r.key;
-                  return (
-                    <div key={r.key} onClick={() => setCustomRatio(r.key)}
-                      style={{
-                        padding: '6px 14px', borderRadius: 'var(--radius-sm)',
-                        fontSize: 12, cursor: 'pointer',
-                        background: active ? 'var(--accent)' : '#fff',
-                        color: active ? '#fff' : 'var(--text-secondary)',
-                        border: active ? 'none' : '1px solid var(--border)',
-                        fontWeight: active ? 600 : 400,
-                      }}>
-                      {r.label}
-                    </div>
-                  );
-                })}
+              {/* Ratio */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: 0.3 }}>
+                  画面比例
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {RATIOS.map(r => {
+                    const active = customRatio === r.key;
+                    return (
+                      <div key={r.key} onClick={() => setCustomRatio(r.key)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 8,
+                          fontSize: 12, cursor: 'pointer',
+                          background: active ? 'var(--accent)' : 'rgba(0,0,0,0.04)',
+                          color: active ? '#fff' : 'var(--text-secondary)',
+                          fontWeight: active ? 900 : 600,
+                          transition: 'all 0.12s',
+                        }}>
+                        {r.label}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* 清晰度 */}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>清晰度</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {RESOLUTIONS.map(r => {
-                  const active = customRes === r.key;
-                  return (
-                    <div key={r.key} onClick={() => setCustomRes(r.key)}
-                      style={{
-                        padding: '6px 14px', borderRadius: 'var(--radius-sm)',
-                        fontSize: 12, cursor: 'pointer',
-                        background: active ? 'var(--accent)' : '#fff',
-                        color: active ? '#fff' : 'var(--text-secondary)',
-                        border: active ? 'none' : '1px solid var(--border)',
-                        fontWeight: active ? 600 : 400,
-                      }}>
-                      {r.label}
-                    </div>
-                  );
-                })}
+              {/* Resolution */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: 0.3 }}>
+                  清晰度
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {RESOLUTIONS.map(r => {
+                    const active = customRes === r.key;
+                    return (
+                      <div key={r.key} onClick={() => setCustomRes(r.key)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 8,
+                          fontSize: 12, cursor: 'pointer',
+                          background: active ? 'var(--accent)' : 'rgba(0,0,0,0.04)',
+                          color: active ? '#fff' : 'var(--text-secondary)',
+                          fontWeight: active ? 900 : 600,
+                          transition: 'all 0.12s',
+                        }}>
+                        {r.label}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* 生成张数 */}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>生成张数</div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {/* Count slider */}
+              <div>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  marginBottom: 6,
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', letterSpacing: 0.3 }}>生成张数</span>
+                  <span style={{ fontSize: 14, fontWeight: 900, color: 'var(--text-primary)' }}>{customCount}</span>
+                </div>
                 <input type="range" min="1" max="20" value={customCount}
                   onChange={e => setCustomCount(parseInt(e.target.value))}
-                  style={{ flex: 1, accentColor: 'var(--accent)' }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', minWidth: 24 }}>{customCount}</span>
+                  style={{ width: '100%', accentColor: 'var(--accent)', height: 4 }} />
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {!customOpen && (
-        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)', padding: '6px 12px', background: 'var(--accent-bg)', borderRadius: 'var(--radius-sm)' }}>
-          💡 智能默认按平台规格自动匹配比例和尺寸。点击「自定义比例」可手动调整
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

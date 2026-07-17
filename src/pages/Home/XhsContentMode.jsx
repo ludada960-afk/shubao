@@ -31,7 +31,7 @@ import './Home.css';
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
 let _extractSessionToken = null;
 
-export default function HomePage() {
+export default function HomePage({ inlineMode }) {
   const { state, dispatch } = useApp();
   const { inputText, logged, credits, mode } = state;
   const [err, setErr] = useState('');
@@ -516,7 +516,7 @@ export default function HomePage() {
   const isXHS = mode === 'content';
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={inlineMode ? { position: 'relative', zIndex: 10 } : { minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Toast 通知 */}
       {toast && (
         <div style={{

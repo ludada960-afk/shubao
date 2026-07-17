@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Sparkles, Upload, X, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Upload, X, Settings, ChevronDown, ChevronUp, ImagePlus } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import EcExpertPanel from './EcExpertPanel';
 
 /**
- * 电商生图模式 — 统一入口（简单输入 + 主区域参考图 + 折叠精修面板）
+ * 电商生图模式 — 灵图风格输入区
+ * 保留全部原有字段/功能，视觉层完全复刻灵图
  */
 export default function EcMode() {
   const { state, dispatch } = useApp();
@@ -28,18 +29,13 @@ export default function EcMode() {
   // 同步主区域上传到精修面板的 refShots
   const addRefImages = (newImgs) => {
     setRefImages(prev => [...prev, ...newImgs].slice(0, 10));
-    // 同步到精修面板
     const asShot = newImgs.map(url => ({ preview: url }));
     setRefShots(prev => [...prev, ...asShot].slice(0, 10));
   };
 
   const removeRefImage = (i) => {
-    setRefImages(prev => {
-      const next = [...prev]; next.splice(i, 1); return next;
-    });
-    setRefShots(prev => {
-      const next = [...prev]; next.splice(i, 1); return next;
-    });
+    setRefImages(prev => { const next = [...prev]; next.splice(i, 1); return next; });
+    setRefShots(prev => { const next = [...prev]; next.splice(i, 1); return next; });
   };
 
   const doGen = async () => {
@@ -68,130 +64,188 @@ export default function EcMode() {
     setGenerating(false);
   };
 
+  // 生成按钮是否可用
+  const canGenerate = ecName.trim().length > 0;
+
   return (
     <div>
-      {/* 一句话输入 */}
-      <div style={{ position: 'relative', marginBottom: 16 }}>
-        <textarea
-          value={ecName} onChange={e => { setEcName(e.target.value); setErr(''); }}
-          placeholder=" "
-          style={{
-            width: '100%', border: 'none', background: 'transparent',
-            fontSize: 18, color: 'var(--text-primary)',
-            outline: 'none', resize: 'none', minHeight: 52,
-            lineHeight: 1.7,
-          }}
-        />
-        {!ecName && (
-          <div style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
-            <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-hint)', marginBottom: 4 }}>
-              ✍️ 一句话描述你的商品
-            </div>
-            <div style={{ fontSize: 14, color: 'var(--text-faint)' }}>
-              例如：白色陶瓷杯简约办公风 / 无线蓝牙耳机运动款
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ⭐ 主区域参考图上传（简单模式也可用） */}
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div onClick={() => fileRef.current?.click()}
+      {/* ⭐ 灵图风格 2列布局：左上传 + 右输入 */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '112px minmax(0, 1fr)',
+        gap: 16, alignItems: 'start',
+      }}>
+        {/* Left: Upload button (lingtuai style) */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => fileRef.current?.click()}
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '9px 18px',
-              borderRadius: 'var(--radius-full)',
-              border: '1px solid var(--border)',
-              background: 'rgba(255,255,255,0.6)',
-              cursor: 'pointer', fontSize: 13, fontWeight: 500,
-              color: 'var(--text-muted)',
+              position: 'relative', width: 90, height: 112,
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: 6,
+              borderRadius: 16, border: '2px dashed var(--border)',
+              background: '#fff',
+              boxShadow: '0 14px 36px rgba(57,45,26,0.10)',
+              cursor: 'pointer', fontFamily: 'inherit',
+              transform: 'rotate(-5deg)',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              overflow: 'hidden',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
+              e.currentTarget.style.transform = 'translateY(-4px) rotate(0deg)';
               e.currentTarget.style.borderColor = 'var(--accent)';
-              e.currentTarget.style.color = 'var(--accent)';
-              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 20px 46px rgba(57,45,26,0.16)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.6)';
+              e.currentTarget.style.transform = 'rotate(-5deg)';
               e.currentTarget.style.borderColor = 'var(--border)';
-              e.currentTarget.style.color = 'var(--text-muted)';
-              e.currentTarget.style.boxShadow = 'none';
-              e.currentTarget.style.transform = 'none';
+              e.currentTarget.style.boxShadow = '0 14px 36px rgba(57,45,26,0.10)';
+            }}
+          >
+            <span style={{
+              display: 'grid', width: 40, height: 40,
+              placeItems: 'center',
+              borderRadius: '50%',
+              background: '#f8f3ea',
+              color: 'var(--text-secondary)',
+              boxShadow: '0 10px 24px rgba(57,45,26,0.12)',
+              transition: 'transform 0.2s',
+            }}
+              className="upload-icon-rotate">
+              <ImagePlus size={20} />
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>
+              加图
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>
+              最多 10 张
+            </span>
+          </button>
+
+          {/* Hidden file input */}
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden
+            onChange={e => {
+              const files = Array.from(e.target.files || []);
+              const previews = files.map(f => URL.createObjectURL(f));
+              addRefImages(previews);
+              e.target.value = '';
+            }} />
+        </div>
+
+        {/* Right: Textarea */}
+        <div style={{ minHeight: 110 }}>
+          <textarea
+            value={ecName} onChange={e => { setEcName(e.target.value); setErr(''); }}
+            placeholder="描述主体、场景、风格与画面细节，可以上传参考图后补充想法。"
+            style={{
+              width: '100%', minHeight: 110,
+              border: 'none', background: 'transparent',
+              fontSize: 15, lineHeight: 1.8,
+              color: 'var(--text-primary)',
+              outline: 'none', resize: 'none',
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Uploaded image previews */}
+      {refImages.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+          {refImages.map((src, i) => (
+            <div key={i} style={{
+              position: 'relative', width: 56, height: 56,
+              borderRadius: 12, overflow: 'hidden',
+              border: '1px solid var(--border)',
+              flexShrink: 0,
             }}>
-            <Upload size={15} />
-            上传参考图
-          </div>
-          <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-            上传商品实拍图、尺寸图，AI 参照生成更精准
-          </span>
-        </div>
-        <input ref={fileRef} type="file" accept="image/*" multiple hidden
-          onChange={e => {
-            const files = Array.from(e.target.files || []);
-            const previews = files.map(f => URL.createObjectURL(f));
-            addRefImages(previews);
-            e.target.value = '';
-          }} />
-        {refImages.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            {refImages.map((src, i) => (
-              <div key={i} style={{
-                position: 'relative', width: 64, height: 64,
-                borderRadius: 'var(--radius-sm)', overflow: 'hidden',
-                border: '1px solid var(--border)',
-              }}>
-                <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <div onClick={() => removeRefImage(i)}
-                  style={{
-                    position: 'absolute', top: 1, right: 1,
-                    width: 16, height: 16, borderRadius: '50%',
-                    background: 'var(--text-muted)', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: 8, opacity: 0.8,
-                  }}>✕</div>
-              </div>
-            ))}
-            {refImages.length < 10 && (
-              <div onClick={() => fileRef.current?.click()}
+              <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div onClick={() => removeRefImage(i)}
                 style={{
-                  width: 64, height: 64,
-                  borderRadius: 'var(--radius-sm)',
-                  border: '2px dashed var(--border)',
+                  position: 'absolute', top: 2, right: 2,
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.6)', color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', color: 'var(--text-faint)', fontSize: 18,
-                }}>+</div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* 精修工坊入口 */}
-      <div onClick={() => setExpertOpen(!expertOpen)}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 16px', borderRadius: 'var(--radius-md)',
-          background: 'var(--accent-bg)', cursor: 'pointer',
-          marginBottom: 0,
-          transition: 'all 0.2s',
-        }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Settings size={15} style={{ color: 'var(--text-muted)' }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
-            精修工坊
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
-            — 需要更多控制？展开深度定制参数
-          </span>
+                  cursor: 'pointer', fontSize: 9,
+                }}>✕</div>
+            </div>
+          ))}
         </div>
-        {expertOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+      )}
+
+      {/* Bottom bar: expert panel toggle + generate button */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10, marginTop: 12,
+        borderTop: '1px solid var(--border)',
+        paddingTop: 12,
+      }}>
+        {/* Left: controls */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {/* Expert panel toggle */}
+          <button
+            onClick={() => setExpertOpen(!expertOpen)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              height: 40, padding: '0 14px',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-full)',
+              background: '#fff',
+              fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
+              cursor: 'pointer', fontFamily: 'inherit',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+            <Settings size={14} />
+            精修工坊
+            {expertOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+        </div>
+
+        {/* Right: Generate button */}
+        <button onClick={doGen} disabled={!canGenerate || generating}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            height: 44, padding: '0 20px 0 14px',
+            border: 'none', borderRadius: 'var(--radius-full)',
+            background: canGenerate && !generating ? '#fff' : 'rgba(255,255,255,0.6)',
+            fontSize: 14, fontWeight: 900,
+            color: canGenerate && !generating ? 'var(--text-muted)' : 'var(--text-faint)',
+            cursor: canGenerate && !generating ? 'pointer' : 'not-allowed',
+            fontFamily: 'inherit',
+            boxShadow: canGenerate && !generating ? '0 14px 36px rgba(57,45,26,0.12)' : 'none',
+            transition: 'all 0.2s',
+            opacity: generating ? 0.6 : 1,
+          }}
+          onMouseEnter={e => {
+            if (canGenerate && !generating) {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 18px 44px rgba(57,45,26,0.18)';
+            }
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'none';
+            if (canGenerate && !generating) {
+              e.currentTarget.style.boxShadow = '0 14px 36px rgba(57,45,26,0.12)';
+            }
+          }}>
+          <span style={{
+            display: 'grid', width: 34, height: 34,
+            placeItems: 'center',
+            borderRadius: '50%',
+            background: canGenerate && !generating ? 'var(--accent)' : 'var(--text-faint)',
+            color: '#fff',
+            transition: 'all 0.2s',
+          }}>
+            <Sparkles size={16} fill="#fff" />
+          </span>
+          {generating ? '正在生成...' : '一键生成全套电商图'}
+        </button>
       </div>
 
+      {/* Expert Panel (collapsible) */}
       {expertOpen && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 16 }}>
           <EcExpertPanel
             refShots={refShots}
             setRefShots={setRefShots}
@@ -209,29 +263,14 @@ export default function EcMode() {
         </div>
       )}
 
-      {err && <div style={{ padding: '10px 16px', marginTop: 12, background: 'var(--red-bg)', borderRadius: 'var(--radius-md)', color: 'var(--red)', fontSize: 13, fontWeight: 500 }}>{err}</div>}
-
-      <button onClick={doGen} disabled={!ecName.trim() || generating}
-        className="btn-pill btn-primary"
-        style={{
-          width: '100%', marginTop: 18, height: 48, fontSize: 16,
-          opacity: !ecName.trim() || generating ? 0.45 : 1,
-          transform: 'none',
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-        onMouseEnter={e => { if (!generating && ecName.trim()) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-xl)'; } }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; }}>
-        <Sparkles size={18} />
-        {generating ? '正在生成...' : '一键生成全套电商图'}
-      </button>
-
-      <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: 'var(--text-faint)' }}>
-        {expertOpen
-          ? '✨ 专业模式 — 按你的精确参数生成'
-          : refImages.length > 0
-            ? `📷 已上传 ${refImages.length} 张参考图，AI 将参照实拍图生成`
-            : '输入商品描述，可上传参考图让生成更精准'}
-      </div>
+      {/* Error */}
+      {err && (
+        <div style={{
+          padding: '10px 16px', marginTop: 12,
+          background: '#FEF2F0', borderRadius: 12,
+          color: 'var(--red)', fontSize: 13, fontWeight: 600,
+        }}>{err}</div>
+      )}
     </div>
   );
 }

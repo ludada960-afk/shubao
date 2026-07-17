@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pencil, ShoppingCart, Sparkles } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
 import EcMode from './EcMode';
@@ -7,74 +7,67 @@ import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
 
 /**
- * 薯包AI 首页 — 暖白轻奢 V2
- * Tab 切换：小红书图文 / 电商生图
- * 底部案例、Footer 两种模式共用
+ * 薯包AI 首页 — 灵图风格 V3
+ * XHS 全页渲染（保留原功能结构）
+ * EC 模式套灵图表面卡
  */
 export default function HomePage() {
   const { state, dispatch } = useApp();
   const { mode } = state;
-  const [toast, setToast] = useState(null);
+  const isXHS = mode === 'content';
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
-  const isXHS = mode === 'content';
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
-          background: 'var(--accent)',
-          color: '#fff', padding: '12px 24px', borderRadius: 'var(--radius-full)',
-          boxShadow: 'var(--shadow-xl)',
-          fontSize: 14, fontWeight: 500, maxWidth: '90vw',
-          animation: 'slideDown 0.3s ease',
-        }}>{toast.message}</div>
-      )}
-
-      {/* XHS 模式 — 全页（不含Footer，由下方共享的 Gallery+Footer 补） */}
       {isXHS ? (
-        <>
-          <XhsContentMode />
-          <GallerySection maxItems={12} />
-          <Footer />
-        </>
+        /* ──── XHS 全页模式（保留原有功能结构，仅继承全局 tokens）──── */
+        <div style={{ position: 'relative' }}>
+          <div className="creative-bg-glow" />
+          <XhsContentMode inlineMode />
+        </div>
       ) : (
-        <>
-          {/* 电商模式 Tab */}
-          <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 32px 0' }}>
+        /* ──── EC 模式：灵图风格表面卡 ──── */
+        <div style={{ position: 'relative', overflow: 'hidden', paddingBottom: 80 }}>
+          <div className="creative-bg-glow" />
+
+          {/* Mode Tab */}
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 20, marginBottom: 0 }}>
             <div style={{
               display: 'flex', gap: 3,
-              background: 'rgba(255,255,255,0.6)',
+              background: 'rgba(255,255,255,0.70)',
               borderRadius: 'var(--radius-full)',
-              padding: 4, width: 'fit-content', margin: '0 auto',
+              padding: 4, width: 'fit-content',
               backdropFilter: 'blur(12px)',
             }}>
               <button onClick={() => setMode('content')}
-                className="btn-pill" style={{ padding: '10px 28px', background: 'transparent', color: 'var(--text-muted)', fontWeight: 450, fontSize: 14 }}>
-                <Pencil size={15} /> 小红书图文
+                className="btn-pill" style={{ padding: '8px 24px', background: 'transparent', color: 'var(--text-muted)', fontWeight: 500, fontSize: 13 }}>
+                小红书图文
               </button>
               <button onClick={() => setMode('ecommerce')}
-                className="btn-pill"
-                style={{ padding: '10px 28px', background: 'var(--accent)', color: '#fff', fontWeight: 600, boxShadow: 'var(--shadow-sm)', fontSize: 14 }}>
-                <ShoppingCart size={15} /> 电商生图
+                className="btn-pill" style={{ padding: '8px 24px', background: 'var(--accent)', color: '#fff', fontWeight: 900, fontSize: 13 }}>
+                <ShoppingCart size={14} /> 电商生图
               </button>
             </div>
           </div>
 
-          {/* EC 玻璃卡 */}
-          <div style={{ maxWidth: 860, margin: '24px auto 0', padding: '0 32px' }}>
-            <div className="card-glass" style={{ padding: 28, position: 'relative', minHeight: 200 }}>
-              <EcMode />
+          {/* Surface card */}
+          <main style={{ position: 'relative', zIndex: 10, margin: '16px auto', width: '100%', maxWidth: 860, padding: '0 20px' }}>
+            <div className="surface-card">
+              <div className="surface-card-inner">
+                <div className="surface-card-gradient" style={{ padding: '8px 16px' }}>
+                  <EcMode />
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* 底部案例 + Footer — 与 XHS 模式完全一致的组件 */}
-          <GallerySection maxItems={18} />
-          <Footer />
-        </>
+            <GallerySection maxItems={18} />
+          </main>
+        </div>
       )}
+
+      {/* Global Footer */}
+      {!isXHS && <Footer />}
     </div>
   );
 }
