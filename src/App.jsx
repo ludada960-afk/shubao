@@ -1,13 +1,11 @@
 /**
- * 薯包AI · App 路由
+ * 薯包AI · App 路由（V2 暖白轻奢）
  */
 import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import Navbar from './components/layout/Navbar';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import HomePage from './pages/Home/index';
-import EcAutoPage from './pages/EcAuto/index';
-import EcStudioPage from './pages/EcStudio/index';
 import GalleryPage from './pages/Gallery/index';
 import PricingPage from './pages/Pricing/index';
 import WorksPage from './pages/Works/index';
@@ -55,8 +53,7 @@ function AppRouter() {
     downloadZip(result.cover_url, result.image_urls, result.title, result.body_text, result.hashtags);
   };
 
-  // 生成中：LoadingView 悬浮遮罩，不卸载当前页面组件
-  const PageComponent = { home: HomePage, 'ec-auto': EcAutoPage, 'ec-studio': EcStudioPage, gallery: GalleryPage, pricing: PricingPage, works: WorksPage, remake: RemakePage, 'plog': PlogPage }[page] || HomePage;
+  const PageComponent = { home: HomePage, gallery: GalleryPage, pricing: PricingPage, works: WorksPage, remake: RemakePage, 'plog': PlogPage }[page] || HomePage;
   return (<>
     <Navbar />
     {genState === 'result' && result ? (
