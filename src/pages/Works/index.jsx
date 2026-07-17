@@ -17,12 +17,12 @@ const EC_STYLE_ICONS = { '白底主图': '⬜', '场景图': '🌄', '详情图'
 
 export default function WorksPage() {
   const { state, dispatch } = useApp();
-  const { works, logged, mode } = state;
+  const { works, logged, mode, phone } = state;
   const [tab, setTab] = useState(mode === 'ecommerce' ? 'ec' : 'xhs');
 
-  const refresh = () => loadWorks().then(w => dispatch({ type: 'SET_WORKS', works: w }));
+  const refresh = () => loadWorks(phone).then(w => dispatch({ type: 'SET_WORKS', works: w }));
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { if (logged) refresh(); }, [logged]);
 
   const xhsWorks = works.filter(w => !w._ecResult);
   const ecWorks = works.filter(w => w._ecResult);
@@ -37,9 +37,25 @@ export default function WorksPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <div style={{ maxWidth: 'var(--max-width)', margin: '0 auto', padding: '48px 28px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
-          <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 'var(--weight-heavy)', margin: 0 }}>我的作品</h1>
+        {/* 未登录提示 */}
+        {!logged ? (
+          <div style={{ textAlign:'center', padding:'80px 0' }}>
+            <div style={{ fontSize:48, marginBottom:16 }}>🔒</div>
+            <h2 style={{ fontSize:'var(--text-2xl)', fontWeight:'var(--weight-bold)', margin:'0 0 8px' }}>登录后查看作品</h2>
+            <p style={{ fontSize:'var(--text-base)', color:'var(--text-hint)', margin:'0 0 24px' }}>你的作品已保存到云端，登录即可随时查看</p>
+            <button onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
+              style={{
+                padding:'12px 32px', borderRadius:10, border:'none', background:'#e84142', color:'#fff',
+                fontSize:15, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+              }}>
+              立即登录
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
+              <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 'var(--weight-heavy)', margin: 0 }}>我的作品</h1>
           <button onClick={refresh} style={{
             background: 'var(--border-light)', border: 'none', borderRadius: 'var(--radius-md)',
             padding: '6px 12px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
@@ -176,6 +192,8 @@ export default function WorksPage() {
               </Card>
             ))}
           </div>
+            )}
+          </>
         )}
       </div>
       <Footer />

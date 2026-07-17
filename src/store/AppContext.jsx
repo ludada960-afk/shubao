@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { getSession } from '../services/auth';
 
 const AppContext = createContext(null);
 
@@ -11,6 +12,7 @@ const initialState = {
   result: null,
   // 用户
   logged: false,
+  phone: '',
   credits: 1,
   // UI
   showLogin: false,
@@ -46,7 +48,7 @@ function reducer(state, action) {
     case 'UPDATE_RESULT':
       return { ...state, result: action.updater(state.result) };
     case 'SET_LOGGED':
-      return { ...state, logged: action.logged };
+      return { ...state, logged: action.logged, phone: action.phone || state.phone };
     case 'SET_CREDITS':
       return { ...state, credits: action.credits };
     case 'ADD_CREDITS':
@@ -69,8 +71,29 @@ function reducer(state, action) {
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  const fetchCredits = useCallback(async (email) => {
+    if (!email) return;
+    try {
+      const r = await fetch(`/api/user/credits?email=${encodeURIComponent(email)}`);
+      const d = await r.json();
+      dispatch({ type: 'SET_CREDITS', credits: d.credits || 0 });
+    } catch(e) {}
+  }, [dispatch]);
+
+  // 页面加载时从 localStorage 恢复登录状态
+  useEffect(() => {
+    const restore = async () => {
+      const session = await getSession();
+      if (session?.email) {
+        dispatch({ type: 'SET_LOGGED', logged: true, phone: session.email });
+        fetchCredits(session.email);
+      }
+    };
+    restore();
+  }, [fetchCredits]);
+
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch, fetchCredits }}>
       {children}
     </AppContext.Provider>
   );

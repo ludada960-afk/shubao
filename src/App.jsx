@@ -12,6 +12,7 @@ import GalleryPage from './pages/Gallery/index';
 import PricingPage from './pages/Pricing/index';
 import WorksPage from './pages/Works/index';
 import RemakePage from './pages/Remake/index';
+import PlogPage from './pages/Plog/index';
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText } from './services/api';
@@ -55,7 +56,7 @@ function AppRouter() {
   };
 
   // 生成中：LoadingView 悬浮遮罩，不卸载当前页面组件
-  const PageComponent = { home: HomePage, 'ec-auto': EcAutoPage, 'ec-studio': EcStudioPage, gallery: GalleryPage, pricing: PricingPage, works: WorksPage, remake: RemakePage }[page] || HomePage;
+  const PageComponent = { home: HomePage, 'ec-auto': EcAutoPage, 'ec-studio': EcStudioPage, gallery: GalleryPage, pricing: PricingPage, works: WorksPage, remake: RemakePage, 'plog': PlogPage }[page] || HomePage;
   return (<>
     <Navbar />
     {genState === 'result' && result ? (

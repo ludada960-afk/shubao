@@ -8,18 +8,32 @@
   border-radius: 0 0 32px 32px;
 }
 .hero-title {
-  font-size: var(--text-4xl);
-  font-weight: var(--weight-heavy);
-  line-height: var(--leading-tight);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.2;
   margin: 0 0 8px;
-  letter-spacing: 1px;
+  letter-spacing: -0.5px;
 }
-.hero-accent { color: var(--red); }
+@media (max-width: 768px) {
+  .hero-title { font-size: 28px; }
+}
+.hero-accent {
+  background: linear-gradient(135deg, #e84142 0%, #ff4757 50%, #ff6b81 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+}
 .hero-sub {
-  font-size: var(--text-lg);
-  color: var(--text-muted);
-  margin: 0 0 28px;
-  line-height: var(--leading-relaxed);
+  font-size: 15px;
+  color: #aaa;
+  margin: 0 auto 24px;
+  line-height: 1.5;
+  letter-spacing: 0.3px;
+  max-width: 360px;
+}
+@media (max-width: 768px) {
+  .hero-sub { font-size: 13px; }
 }
 
 /* ── Mode Tabs ── */

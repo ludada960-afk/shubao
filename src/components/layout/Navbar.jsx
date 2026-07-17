@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, LogIn, Check, Menu, X } from 'lucide-react';
 import { IMAGES } from '../../constants/images';
 import { useApp } from '../../store/AppContext';
@@ -11,10 +11,15 @@ const NAV_ITEMS = [
 ];
 
 export default function Navbar() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, fetchCredits } = useApp();
   const { page, logged, credits } = state;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
+
+  // 页面加载/登录状态变化时拉取额度
+  useEffect(() => {
+    if (logged && state.phone) fetchCredits(state.phone);
+  }, [logged, state.phone]);
 
   return (
     <nav className="sb-navbar">
@@ -56,7 +61,7 @@ export default function Navbar() {
             </div>
           )}
           {logged ? (
-            <button className="sb-nav-login-btn logged" onClick={() => dispatch({ type: 'SET_LOGGED', logged: false })}>
+            <button className="sb-nav-login-btn logged" onClick={() => dispatch({ type: 'SET_LOGGED', logged: false, phone: '' })}>
               <Check size={14} />
               <span>已登录</span>
             </button>

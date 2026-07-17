@@ -1,65 +1,66 @@
 /**
- * 认证服务 - Supabase Auth 对接骨架
+ * 认证服务 - 邮箱验证码
  *
- * 当前使用 localStorage 模拟，切换到 Supabase 只需：
- * 1. npm install @supabase/supabase-js
- * 2. 取消下面的注释，删除 mock 实现
- * 3. 在 .env 中配置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY
+ * 流程：
+ * 1. 用户填邮箱 → POST /api/auth/send-code → 发验证码
+ * 2. 用户填验证码 → POST /api/auth/verify-code → 验证登录
  */
 
-// ═══════ Supabase 真实实现（取消注释即可启用）═══════
-//
-// import { createClient } from '@supabase/supabase-js';
-//
-// const supabase = createClient(
-//   import.meta.env.VITE_SUPABASE_URL,
-//   import.meta.env.VITE_SUPABASE_ANON_KEY,
-// );
-//
-// export async function sendOTP(phone) {
-//   const { error } = await supabase.auth.signInWithOtp({ phone });
-//   if (error) throw new Error(error.message);
-//   return true;
-// }
-//
-// export async function verifyOTP(phone, code) {
-//   const { data, error } = await supabase.auth.verifyOtp({
-//     phone, token: code, type: 'sms',
-//   });
-//   if (error) throw new Error(error.message);
-//   return data.user;
-// }
-//
-// export async function getSession() {
-//   const { data } = await supabase.auth.getSession();
-//   return data.session;
-// }
-//
-// export async function signOut() {
-//   await supabase.auth.signOut();
-// }
-//
-// export function onAuthChange(callback) {
-//   return supabase.auth.onAuthStateChange(callback);
-// }
-
-// ═══════ Mock 实现（当前使用）═══════
-
 const STORAGE_KEY = 'sb-auth';
+const API_BASE = '';
 
 function getStored() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
 }
 
-export async function sendOTP(phone) {
-  // Mock: 直接返回成功
-  console.log('[auth-mock] 发送验证码到:', phone);
-  return true;
+/* 判断是否配置了真实邮箱 SMTP */
+async function checkMockMode() {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/send-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'mock@check.test' }),
+    });
+    const d = await res.json();
+    return !!d.mock;
+  } catch { return true; }
 }
 
-export async function verifyOTP(phone, code) {
-  // Mock: 任意验证码都通过
-  const user = { id: 'mock-' + Date.now(), phone, nickname: '用户' + phone.slice(-4) };
+/* 初始 mock 状态 */
+let _mockMode = true;
+
+export async function sendOTP(email) {
+  // 如果是手机号格式，报错提示
+  if (/^1\d{10}$/.test(email)) {
+    throw new Error('请输入邮箱地址，如 user@example.com');
+  }
+
+  const res = await fetch(`${API_BASE}/api/auth/send-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.error || '发送失败');
+
+  _mockMode = !!d.mock;
+  if (d.mock) {
+    console.log('[auth-mock] 验证码: 123456');
+  }
+  return { ok: true, mock: d.mock };
+}
+
+export async function verifyOTP(email, code) {
+  const res = await fetch(`${API_BASE}/api/auth/verify-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  const d = await res.json();
+
+  if (!d.ok) throw new Error(d.error || '验证失败');
+
+  const user = { id: d.email, email: d.email, nickname: email.split('@')[0] };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
   return user;
 }
@@ -73,6 +74,5 @@ export async function signOut() {
 }
 
 export function onAuthChange(callback) {
-  // Mock: 不支持实时监听
   return { unsubscribe: () => {} };
 }
