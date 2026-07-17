@@ -39,7 +39,7 @@ export default function HomePage() {
       ) : (
         <>
           {/* 电商模式 Tab 放在顶部 */}
-          <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 32px 0' }}>
+          <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 32px 0' }}>
             <div style={{
               display: 'flex', gap: 3,
               background: 'rgba(255,255,255,0.6)',
@@ -74,14 +74,14 @@ export default function HomePage() {
           </div>
 
           {/* EC 玻璃卡 */}
-          <div style={{ maxWidth: 720, margin: '24px auto 0', padding: '0 32px' }}>
+          <div style={{ maxWidth: 860, margin: '24px auto 0', padding: '0 32px' }}>
             <div className="card-glass" style={{ padding: 28, position: 'relative', minHeight: 200 }}>
               <EcMode />
             </div>
           </div>
 
           {/* 灵感发现 */}
-          <section style={{ maxWidth: 1100, margin: '48px auto 0', padding: '0 32px' }}>
+          <section style={{ maxWidth: 'var(--max-width)', margin: '48px auto 0', padding: '0 32px' }}>
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
               marginBottom: 20,

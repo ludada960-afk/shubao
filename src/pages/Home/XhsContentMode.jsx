@@ -912,60 +912,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="section" style={{ paddingTop:0 }}>
-        <h2 className="section-title">核心能力</h2>
-        <p className="section-sub">两条产品线共享的 AI 底层能力</p>
-        <div className="features-grid">
-          {[
-            { Icon:Target, title:'智能赛道识别', desc:'自动判断内容类型，匹配最优生成策略', bg:'var(--red-bg)', color:'var(--red)' },
-            { Icon:Palette, title:'多风格生成', desc:'小红书14赛道 + 电商4种图片风格', bg:'var(--blue-bg)', color:'var(--blue)' },
-            { Icon:RefreshCw, title:'单张重生成', desc:'不满意单独刷新一张，不浪费整套额度', bg:'#E8F5E9', color:'#2E7D32' },
-            { Icon:Copy, title:'一键复制导出', desc:'文案一键复制，图文打包ZIP下载', bg:'#FFF3E0', color:'#E65100' },
-            { Icon:Monitor, title:'6大平台适配', desc:'电商图自动适配各平台主图尺寸规范', bg:'#F3E5F5', color:'#7B1FA2' },
-            { Icon:ShieldCheck, title:'按套计费不套路', desc:'不自动续费，套餐不过期，用多少买多少', bg:'#f5f5f5', color:'#555' },
-          ].map(({Icon,title,desc,bg,color},i) => (
-            <div key={i} className="feature-card">
-              <div className="feature-icon" style={{ background:bg, color }}><Icon size={15} /></div>
-              <div className="feature-title">{title}</div>
-              <div className="feature-desc">{desc}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="section" style={{ paddingTop:0 }}>
-        <h2 className="section-title">定价</h2>
-        <p className="section-sub">两种套餐独立计费，按需购买</p>
-        <div className="pricing-row">
-          <div className="pricing-col">
-            <div className="pricing-header" style={{ color:'var(--red)' }}>📝 小红书图文</div>
-            <div className="pricing-plans">{PRICING_XHS.slice(0,3).map((p,i) => (
-              <div key={i} className={`plan-card ${p.pop?'pop-red':''}`} onClick={() => { if(!logged) dispatch({ type:'SHOW_LOGIN', show:true }); else dispatch({ type:'NAVIGATE', page:'pricing' }); }}>
-                <div className="plan-name">{p.name}</div><div className="plan-price red">¥{p.price}</div><div className="plan-detail">{p.sets}套 · {p.imgs}</div>
-              </div>
-            ))}</div>
-          </div>
-          <div className="pricing-col">
-            <div className="pricing-header" style={{ color:'var(--blue)' }}>🛍️ 电商商品图</div>
-            <div className="pricing-plans">{PRICING_EC.slice(0,3).map((p,i) => (
-              <div key={i} className={`plan-card ${p.pop?'pop-blue':''}`} onClick={() => { if(!logged) dispatch({ type:'SHOW_LOGIN', show:true }); else dispatch({ type:'NAVIGATE', page:'pricing' }); }}>
-                <div className="plan-name">{p.name}</div><div className="plan-price blue">¥{p.price}</div><div className="plan-detail">{p.sets}套 · {p.imgs}</div>
-              </div>
-            ))}</div>
-          </div>
-        </div>
-        <div style={{ textAlign:'center', marginTop:8, fontSize:10, color:'var(--text-faint)' }}>所有套餐一次性购买，不清零，不限时间 · <span style={{ color:'var(--red)', cursor:'pointer' }} onClick={() => dispatch({ type:'NAVIGATE', page:'pricing' })}>查看全部方案 →</span></div>
-      </section>
-
-      <section style={{ textAlign:'center', padding:'28px 20px 24px' }}>
-        <CharImg src={IMAGES.jump} size={50} float />
-        <h2 style={{ fontSize:'var(--text-2xl)', fontWeight:'var(--weight-heavy)', margin:'10px 0 4px' }}>一个工具，两种能力</h2>
-        <p style={{ fontSize:'var(--text-sm)', color:'var(--text-hint)', margin:'0 0 14px' }}>小红书博主和电商卖家都在用</p>
-        <div className="cta-btns">
-          <button className="cta-btn red" onClick={() => { setMode('content'); window.scrollTo({ top:0, behavior:'smooth' }); }}>生成小红书图文</button>
-          <button className="cta-btn blue" onClick={() => { setMode('ecommerce'); window.scrollTo({ top:0, behavior:'smooth' }); }}>生成电商商品图</button>
-        </div>
-      </section>
 
       {/* 参考图放大查看 Lightbox */}
       {ecPreviewLightbox && (

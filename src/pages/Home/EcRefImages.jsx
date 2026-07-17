@@ -2,16 +2,14 @@ import React, { useRef } from 'react';
 import { Upload, X } from 'lucide-react';
 
 /**
- * 双栏参考图上传区
- * 左侧：产品实拍图（锁定产品不畸变）
- * 右侧：竞品风格参考图（只学光影/构图，不学产品）
+ * 双栏参考图上传区 — 精修工坊内
  */
 export default function EcRefImages({ refShots, setRefShots, refStyles, setRefStyles }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
       <RefColumn
-        label="📷 产品实拍图"
-        sub="锁定产品主体，避免AI变形"
+        label="📷 商品实拍图"
+        sub="把产品实物照片传上来，AI 照着你的产品画，不会跑偏变形"
         images={refShots}
         onAdd={f => setRefShots(p => [...p, ...f])}
         onRemove={i => setRefShots(p => p.filter((_, j) => j !== i))}
@@ -19,8 +17,8 @@ export default function EcRefImages({ refShots, setRefShots, refStyles, setRefSt
         color="#2D6A4F"
       />
       <RefColumn
-        label="🎨 竞品风格参考图"
-        sub="只取光影/色调/构图，不学生产品"
+        label="🎨 参考风格图"
+        sub="传一张你喜欢的风格图、竞品图，AI 学习它的光影和氛围，但保留你的产品"
         images={refStyles}
         onAdd={f => setRefStyles(p => [...p, ...f])}
         onRemove={i => setRefStyles(p => p.filter((_, j) => j !== i))}

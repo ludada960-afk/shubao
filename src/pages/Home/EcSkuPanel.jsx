@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 /**
@@ -6,6 +6,13 @@ import { Plus, Trash2 } from 'lucide-react';
  * 每个变体：颜色 / 规格 / 尺寸 / 数量 / 标注
  */
 export default function EcSkuPanel({ skus, onChange }) {
+  // 默认展示 1 组变体，降低用户感知门槛
+  useEffect(() => {
+    if (skus.length === 0) {
+      onChange([{ id: Date.now(), color: '', spec: '', size: '', count: 1, label: '' }]);
+    }
+  }, []);
+
   const addSku = () => {
     onChange([...skus, {
       id: Date.now(),
