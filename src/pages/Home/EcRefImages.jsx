@@ -55,6 +55,11 @@ function RefColumn({ label, sub, images, onAdd, onRemove, max, color }) {
           }}>
           <Upload size={22} style={{ color: 'var(--text-faint)', marginBottom: 8 }} />
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>点击上传</div>
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+            {color === '#2D6A4F'
+              ? '正面照、侧面45°、细节特写都很有用\n1 张正面照也能出图，越清晰效果越好'
+              : '光影、色调、构图的参考 — 竞品好图或杂志风\nAI 会学习氛围但保留你的产品'}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

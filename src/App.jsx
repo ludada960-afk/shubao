@@ -15,7 +15,7 @@ import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText } from './services/api';
 
-/* ═══════ TopBar（灵图风格：Logo左 + 右功能按钮）═══════ */
+/* ═══════ TopBar（无容器，直接浮在页面）═══════ */
 function TopBar() {
   const { state, dispatch } = useApp();
   const { page, logged, credits } = state;
@@ -23,75 +23,64 @@ function TopBar() {
   return (
     <div style={{
       position: 'sticky', top: 0, zIndex: 100,
-      paddingTop: 16, userSelect: 'none',
+      paddingTop: 28, userSelect: 'none',
     }}>
+      {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
       <div style={{
-        margin: '0 auto', height: 60,
-        width: 'calc(100% - 32px)', maxWidth: 1680,
+        maxWidth: 1680, margin: '0 auto',
+        paddingLeft: 36, paddingRight: 36,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 8, padding: '0 16px',
-        background: 'rgba(255,255,255,0.75)',
-        border: '1px solid rgba(255,255,255,0.60)',
-        borderRadius: 'var(--radius-full)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        boxShadow: '0 12px 30px rgba(57,45,26,0.10)',
       }}>
-        {/* Left: Logo */}
+        {/* Left: Logo — 灵图: 46x46 icon + 24/30px text */}
         <div onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}>
-          <span style={{
-            display: 'flex', width: 36, height: 36, borderRadius: 9, overflow: 'hidden', flexShrink: 0,
-            alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg, #7c3aed, #6366f1, #e879f9)',
-            boxShadow: '0 12px 24px rgba(124,92,255,0.22)',
-          }}>
-            <Sparkles size={18} color="#fff" fill="#fff" />
+          style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', height: 50 }}>
+          <span style={{ display: 'flex', width: 46, height: 46, borderRadius: 12, overflow: 'hidden', flexShrink: 0 }}>
+            <img src={IMAGES.appicon} alt="薯包AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </span>
-          <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent)', lineHeight: 1 }}>
+          <span style={{ fontSize: 24, fontWeight: 900, lineHeight: 1, color: 'var(--accent)', letterSpacing: 'normal' }}
+            className="topbar-logo">
             薯包AI
           </span>
+          <style>{`@media (min-width: 640px) { .topbar-logo { font-size: 30px !important; } .topbar-logo-wrap { gap: 16px !important; } }`}</style>
         </div>
 
-        {/* Right */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* 我的作品 (replaces credits area) */}
+        {/* Right: 按钮组 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* 我的作品 */}
           <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'works' })}
             style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              height: 36, padding: '0 14px',
-              borderRadius: 'var(--radius-full)',
-              border: '1px solid rgba(255,255,255,0.6)',
-              background: page === 'works' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.6)',
-              fontSize: 12, fontWeight: page === 'works' ? 900 : 500,
+              display: 'flex', alignItems: 'center', gap: 8, height: 44,
+              padding: '0 14px', border: 'none', borderRadius: 'var(--radius-full)',
+              background: page === 'works' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)',
+              fontSize: 13, fontWeight: page === 'works' ? 900 : 500,
               color: page === 'works' ? 'var(--accent)' : 'var(--text-muted)',
               cursor: 'pointer', fontFamily: 'inherit',
               backdropFilter: 'blur(8px)',
-              transition: 'all 0.12s',
-            }}>
-            <LayoutGrid size={14} />
-            <span>我的作品</span>
+              transition: 'all 0.12s', whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(57,45,26,0.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = page === 'works' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)'; e.currentTarget.style.boxShadow = 'none'; }}>
+            <LayoutGrid size={16} />
+            <span style={{ display: 'none' }} className="topbar-works-label">我的作品</span>
+            <style>{`@media (min-width: 640px) { .topbar-works-label { display: inline !important; } }`}</style>
             {logged && (
-              <span style={{
-                fontWeight: 700, fontSize: 11,
-                background: 'var(--accent)', color: '#fff',
-                padding: '1px 7px', borderRadius: 8,
-                marginLeft: 2,
-              }}>{credits}</span>
+              <span style={{ fontWeight: 700, fontSize: 11, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 8 }}>{credits}</span>
             )}
           </button>
 
           {/* 套餐 */}
           <button onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}
             style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              height: 36, padding: '0 14px', border: 'none',
-              borderRadius: 'var(--radius-full)',
+              display: 'flex', alignItems: 'center', gap: 8, height: 44,
+              padding: '0 20px', border: 'none', borderRadius: 'var(--radius-full)',
               background: 'var(--accent)', color: '#fff',
-              fontSize: 12, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit',
               boxShadow: '0 14px 32px rgba(28,25,23,0.18)',
-            }}>
-            <Sparkles size={13} fill="rgba(252,211,77,0.8)" color="#FCD34D" />
+              transition: 'all 0.15s', whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#2A2521'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.background = 'var(--accent)'; }}>
+            <Sparkles size={16} fill="rgba(252,211,77,0.8)" color="#FCD34D" />
             套餐
           </button>
 
@@ -99,25 +88,27 @@ function TopBar() {
           {logged ? (
             <button onClick={() => dispatch({ type: 'SET_LOGGED', logged: false, phone: '' })}
               style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                height: 36, padding: '0 14px', border: 'none',
-                borderRadius: 'var(--radius-full)',
-                background: 'transparent',
-                fontSize: 12, fontWeight: 600, color: 'var(--text-muted)',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-              <Check size={13} /> 已登录
+                display: 'flex', alignItems: 'center', gap: 6, height: 44,
+                padding: '0 24px', border: 'none', borderRadius: 'var(--radius-full)',
+                background: 'transparent', fontSize: 15, fontWeight: 700,
+                color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+                whiteSpace: 'nowrap', transition: 'all 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.5)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+              <Check size={16} /> 已登录
             </button>
           ) : (
             <button onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
               style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                height: 36, padding: '0 16px', border: 'none',
-                borderRadius: 'var(--radius-full)',
-                background: 'transparent',
-                fontSize: 12, fontWeight: 600, color: 'var(--text-muted)',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
+                display: 'flex', alignItems: 'center', gap: 6, height: 44,
+                padding: '0 24px', border: 'none', borderRadius: 'var(--radius-full)',
+                background: 'transparent', fontSize: 15, fontWeight: 700,
+                color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
+                whiteSpace: 'nowrap', transition: 'all 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.5)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
               去登录
             </button>
           )}

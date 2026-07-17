@@ -838,7 +838,7 @@ const S = {
     fontSize: 18, fontWeight: 700, lineHeight: 1.4, color: '#222',
     margin: '0 0 12px',
   },
-  body: { fontSize: 14.5, lineHeight: 1.85, color: '#444', marginBottom: 14 },
+  body: { fontSize: 14.5, lineHeight: 1.85, color: '#444', marginBottom: 14, whiteSpace: 'pre-wrap' },
   tags: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 },
   tag: {
     fontSize: 12, color: '#888', background: '#f5f5f5',

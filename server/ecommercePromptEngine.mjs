@@ -198,7 +198,7 @@ const PLATFORM_VISUAL_GUIDE = {
  * @param {Object} [params.campaignLock] - 主图统一 lock（可选）
  * @returns {string}
  */
-export function buildECPrompt({ productName, category, roleKey, sellingPoints = [], platform = '淘宝', variant, sliceNote, campaignLock }) {
+export function buildECPrompt({ productName, category, roleKey, sellingPoints = [], platform = '淘宝', variant, sliceNote, campaignLock, styleSkill }) {
   const cat = CATEGORY_VISUALS[category] || CATEGORY_VISUALS['其他'];
   const baseKey = roleKey.replace(/_\d+$/, '');
   const role = IMAGE_ROLES[baseKey];
@@ -227,9 +227,16 @@ export function buildECPrompt({ productName, category, roleKey, sellingPoints = 
 
   // 主图（非白底）套用统一 lock，保证一套主图视觉一致
   if (baseKey !== 'white_bg' && (baseKey === 'main_text' || baseKey === 'main_3x4')) {
-    const lock = campaignLock || DEFAULT_CAMPAIGN_LOCK;
+    const lock = campaignLock || getCampaignLock(styleSkill);
     const lockText = buildCampaignLockText(lock);
     if (lockText) prompt = `${lockText}\n\n${prompt}`;
+  }
+  // 白底图也用 style skill 的氛围（更轻量）
+  if (baseKey === 'white_bg' && styleSkill) {
+    const skill = STYLE_SKILLS[styleSkill];
+    if (skill) {
+      prompt = `${skill.name} style: ${skill.desc}. ${prompt}`;
+    }
   }
   return prompt;
 }
@@ -244,6 +251,110 @@ const DEFAULT_CAMPAIGN_LOCK = {
   layoutSystem: 'Centered composition, 60-70% product coverage, generous whitespace',
   productPresentation: '3/4 elevated angle, product as hero, sharp focus on details',
 };
+
+// ============================================================
+// 多风格 Skill 包 — 5 套差异化视觉风格
+// ============================================================
+const STYLE_SKILLS = {
+  premium_minimal: {
+    name: '高级极简',
+    emoji: '⬜',
+    desc: '大量留白·低饱和·产品细节突出',
+    campaignLock: {
+      visualDirection: 'Premium minimal e-commerce photography, clean and luxurious',
+      palette: ['#FFFFFF', '#F5F0EB', '#333333', '#C4A882'],
+      colorTemp: 'neutral-warm',
+      backgroundSystem: 'Pure white or off-white seamless, generous whitespace around product',
+      lightingSystem: 'Large softbox from above-left, diffused fill right, soft gradient shadow on surface',
+      layoutSystem: 'Minimal centered composition, 50% product coverage, luxury editorial whitespace',
+      productPresentation: 'Hero product isolated, 3/4 elevated angle, sharp focus on silhouette and material',
+    },
+  },
+  lifestyle_scene: {
+    name: '生活场景',
+    emoji: '🌿',
+    desc: '真实使用环境·生活感·故事性',
+    campaignLock: {
+      visualDirection: 'Lifestyle/editorial photography showing product in real use context',
+      palette: ['#F8F4EF', '#E8DDD3', '#8B817A', '#4A4540'],
+      colorTemp: 'warm',
+      backgroundSystem: 'Soft lifestyle setting — warm wood table, cozy interior corner, natural textures',
+      lightingSystem: 'Natural window light from the side, warm tone, soft shadows, gentle atmosphere',
+      layoutSystem: 'Contextual composition showing product in use, lifestyle arrangement, 70% product',
+      productPresentation: 'Product in authentic use context with complementary objects, not isolated',
+    },
+  },
+  fashion_editorial: {
+    name: '时尚杂志',
+    emoji: '✨',
+    desc: '高对比·戏剧光影·杂志封面感',
+    campaignLock: {
+      visualDirection: 'High-fashion editorial product photography, dramatic and bold',
+      palette: ['#FFFFFF', '#000000', '#C0C0C0', '#FFD700'],
+      colorTemp: 'cool-neutral',
+      backgroundSystem: 'Clean dramatic backdrop — dark gradient or bright minimal, strong contrast',
+      lightingSystem: 'Dramatic directional key light from above, strong rim light, hard shadows for edge definition',
+      layoutSystem: 'Bold centered composition, product as hero object, strong geometric framing',
+      productPresentation: 'Sculptural product presentation, dramatic angle, premium magazine quality',
+    },
+  },
+  warm_natural: {
+    name: '自然暖调',
+    emoji: '🌅',
+    desc: '日落光感·柔和温暖·治愈感',
+    campaignLock: {
+      visualDirection: 'Warm natural-light product photography, cozy and inviting',
+      palette: ['#FFF8F0', '#F5E6C8', '#D4A574', '#8B6914'],
+      colorTemp: 'warm-golden',
+      backgroundSystem: 'Warm golden-hour inspired backdrop, subtle warm gradient, honey-toned',
+      lightingSystem: 'Golden-hour warm side light simulating late afternoon sun, warm fill, long soft shadows',
+      layoutSystem: 'Soft composition, product in warm light, cozy arrangement, 60% product coverage',
+      productPresentation: 'Product bathed in warm golden light, soft focus background, inviting atmosphere',
+    },
+  },
+  tech_precision: {
+    name: '科技精工',
+    emoji: '🔬',
+    desc: '冷调·锐利·高科技感·细节放大',
+    campaignLock: {
+      visualDirection: 'Precision tech product photography, sharp and modern',
+      palette: ['#F5F5F7', '#1D1D1F', '#007AFF', '#86868B'],
+      colorTemp: 'cool',
+      backgroundSystem: 'Clean cool backdrop — dark charcoal or bright clean, subtle gradient, sharp edges',
+      lightingSystem: 'Multiple controlled studio lights: cool key, blue rim for edge definition, minimal shadows',
+      layoutSystem: 'Precision centered composition, product as tech artifact, modular grid-aligned layout',
+      productPresentation: 'Product on clean pedestal, sharp detail on surfaces, technical precision aesthetic',
+    },
+  },
+};
+
+/**
+ * 根据风格技能 key 获取 campaign lock
+ * @param {string} skillKey - STYLE_SKILLS 的 key
+ * @returns {Object} campaign lock
+ */
+function getCampaignLock(skillKey) {
+  const skill = STYLE_SKILLS[skillKey];
+  return skill ? skill.campaignLock : DEFAULT_CAMPAIGN_LOCK;
+}
+
+/**
+ * 根据品类推荐最适合的风格技能
+ * @param {string} category - 品类
+ * @returns {string} 推荐的 skillKey
+ */
+function recommendStyleSkill(category) {
+  const map = {
+    '美妆护肤': 'premium_minimal',
+    '数码3C': 'tech_precision',
+    '食品饮料': 'warm_natural',
+    '服饰穿搭': 'fashion_editorial',
+    '家居生活': 'lifestyle_scene',
+    '母婴用品': 'lifestyle_scene',
+    '宠物用品': 'lifestyle_scene',
+  };
+  return map[category] || 'premium_minimal';
+}
 
 // ============================================================
 // 各角色提示词构建
@@ -558,4 +669,5 @@ export function buildOutline({ productName, category, imageSelections, sellingPo
 
 export {
   CATEGORY_VISUALS, IMAGE_TYPE_INFO, PLATFORM_SIZES, PLATFORM_VISUAL_GUIDE, IMAGE_ROLES,
+  STYLE_SKILLS, getCampaignLock, recommendStyleSkill,
 };

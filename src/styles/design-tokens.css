@@ -101,9 +101,10 @@
   /* ── 布局 ── */
   --max-width: 1680px;
   --max-width-narrow: 1240px;
-  --max-width-content: 1240px;       /* 主页内容宽度（对齐灵图） */
+  --max-width-content: 1240px;       /* 输入生图区宽度（对齐灵图） */
+  --max-width-gallery: 1580px;       /* 案例发现区宽度（宽于输入区） */
   --max-width-xs: 620px;
-  --nav-height: 60px;
+  --nav-height: 72px;                /* 顶部栏高度（含mt-16） */
 
   /* ── 动效 ── */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -290,18 +291,21 @@ input, textarea { font-family: inherit; }
 
 /* ── 灵图风格表面卡（三层嵌套结构）── */
 .surface-card {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg);  /* 30px */
+  padding: 12px;                     /* 外框：让页面暖色穿透作为"frame" */
+  box-shadow: 0 28px 90px rgba(57,45,26,0.14);
   background: transparent;
-  box-shadow: var(--shadow-xl);
 }
 .surface-card-inner {
   border-radius: 26px;
-  background: rgba(255,255,255,0.90);
+  background: rgba(255,255,255,0.88);  /* 白框 — 0.88 更通透 */
+  padding: 10px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
 }
 .surface-card-gradient {
   border-radius: 24px;
   min-height: 224px;
+  padding: 12px 20px;
   background: radial-gradient(circle at 18% 18%, rgba(244,234,219,0.86), transparent 34%),
               linear-gradient(135deg, rgba(251,248,241,0.94), rgba(255,255,255,0.88));
 }
@@ -339,8 +343,11 @@ input, textarea { font-family: inherit; }
     --text-2xl: 18px;
     --text-hero: 32px;
     --nav-height: 56px;
-    --radius-lg: 20px;
+    --radius-lg: 24px;
     --radius-xl: 28px;
     --max-width-content: 100%;
   }
+  .surface-card { padding: 8px; }
+  .surface-card-inner { padding: 6px; }
+  .surface-card-gradient { padding: 10px 14px; }
 }

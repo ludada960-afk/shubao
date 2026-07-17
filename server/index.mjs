@@ -2517,16 +2517,19 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
 {
   "product": { "name": "商品名", "category": "品类(从候选里选)", "material": "材质/工艺", "dimensions": "长x宽x高 cm" },
   "skus": [ { "color": "颜色名≤4字", "size": "规格/尺码", "capacity": "容量/数量", "dimLabel": "标注尺寸" } ],
+  "style_skill": "推荐风格(高级极简/生活场景/时尚杂志/自然暖调/科技精工，从候选选最匹配的)",
   "detailPlan": { "sizeAnnot": true, "scene": true, "qc": false, "compare": false, "feature": true, "notes": { "sizeAnnot":"", "scene":"", "qc":"", "compare":"", "feature":"" } },
   "maintenance": "一句保养建议"
 }
 规则：
 - skus 至少 1 行，最多 6 行；颜色名用常见中文名（月岩白/曜石黑/雾霾蓝），不自创生僻字。
 - detailPlan 只勾选对商品有意义的项；notes 简短或空字符串。
+- style_skill 从候选风格中选最能匹配该商品视觉调性的。
 - category 必须从候选里选，找不到就填"其他"。`;
 
     const candidates = ['美妆护肤','数码3C','食品饮料','服饰穿搭','家居生活','母婴用品','宠物用品','其他'];
-    const userMsg = `用户描述：${smartBrief || '（未填）'}\n候选品类：${candidates.join('、')}\n参考图分析：${vision ? JSON.stringify(vision) : '（无参考图）'}`;
+    const style_skill_candidates = ['高级极简','生活场景','时尚杂志','自然暖调','科技精工'];
+    const userMsg = `用户描述：${smartBrief || '（未填）'}\n候选品类：${candidates.join('、')}\n候选风格：${style_skill_candidates.join('、')}\n参考图分析：${vision ? JSON.stringify(vision) : '（无参考图）'}`;
 
     const llmRes = await callMiniLLM(sys, refShots?.slice(0,5) || [], userMsg);
     const match = (llmRes || '').match(/\{[\s\S]*\}/);
@@ -2539,6 +2542,9 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
     parsed.detailPlan = Object.assign({ sizeAnnot:true, scene:true, qc:false, compare:false, feature:true, notes:{} }, parsed.detailPlan || {});
     parsed.detailPlan.notes = Object.assign({ sizeAnnot:'', scene:'', qc:'', compare:'', feature:'' }, parsed.detailPlan.notes || {});
     parsed.maintenance = parsed.maintenance || '';
+    // 风格映射
+    const STYLE_MAP = { '高级极简':'premium_minimal', '生活场景':'lifestyle_scene', '时尚杂志':'fashion_editorial', '自然暖调':'warm_natural', '科技精工':'tech_precision' };
+    parsed.style_skill = STYLE_MAP[parsed.style_skill] || 'premium_minimal';
     parsed.rawVision = vision;
 
     res.json(parsed);
@@ -2610,11 +2616,11 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
 });
 
 app.post('/api/generate-ecommerce', async (req, res) => {
-  const { product_name, category, image_selections, image_size, platform, selling_points, reference_images, real_shots, skus, detail_plan, maintenance, material, target_audience, restrictions } = req.body || {};
+  const { product_name, category, image_selections, image_size, platform, selling_points, reference_images, real_shots, skus, detail_plan, maintenance, material, target_audience, restrictions, style_skill } = req.body || {};
   if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
 
   const sliceCount = [detail_plan?.sizeAnnot, detail_plan?.scene, detail_plan?.qc, detail_plan?.compare, detail_plan?.feature].filter(Boolean).length;
-  console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || 'default'}, skus=${skus?.length || 0}, slices=${sliceCount}${maintenance ? '+care' : ''}, platform=${platform || '淘宝'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
+  console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || 'default'}, skus=${skus?.length || 0}, slices=${sliceCount}${maintenance ? '+care' : ''}, platform=${platform || '淘宝'}, style=${style_skill || 'default'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
 
   // SSE 流式输出（与 Plog/图文一致）
   res.setHeader('Content-Type', 'text/event-stream');
@@ -2745,6 +2751,7 @@ app.post('/api/generate-ecommerce', async (req, res) => {
           platform: platform || '淘宝',
           variant: img.variant,
           sliceNote: img.sliceNote,
+          styleSkill: style_skill,
         }) + contextSuffix;
         try {
           const url = await generateImage(prompt, category || '其他', false, null, customSizeStr, refImageBase64);
