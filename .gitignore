@@ -1,7 +1,43 @@
 node_modules/
 .vite/
+
+# 环境变量 / 凭据（永不进 git）
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+*.pem
+*.key
+
+# 运行时数据（服务器独有，不进 git）
+server/works.json
+server/users.json
+server/bookmarklet_store.json
+server/works.db
+server/uploads/
 server/cache_img/
+server/cache_overlay/
+server/extension_downloads/
+server/extension_tasks/
+server/prompts/
+
+# 备份文件
+*.bak
+*.bak_*
+server/*.bak*
+
+# dist 构建产物（每次 vite build 重建，不追踪）
+dist/assets/index-*.js
+dist/assets/index-*.css
+dist/assets/jszip.min-*.js
+dist/index.html
+dist/stitched/
+
+# 出品素材目录
+薯包出品/
+
+# 日志 / 系统
 *.log
 .DS_Store
-.env
 .gstack/
