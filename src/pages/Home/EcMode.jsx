@@ -71,11 +71,11 @@ export default function EcMode() {
 
   return (
     <div>
-      {/* ═══ 黄梯度区 — 仅包裹网格（在白层内） ═══ */}
+      {/* ═══ 内容区 — 暖色渐变（灵图风格）═══ */}
       <div style={{
-        borderRadius: 24, minHeight: 224,
-        background: 'radial-gradient(circle at 18% 18%, rgba(244,234,219,0.86), transparent 34%), linear-gradient(135deg, rgba(251,248,241,0.94), rgba(255,255,255,0.88))',
-        padding: '12px 20px',
+        borderRadius: 20, margin: '12px 12px 0',
+        background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFBF5 40%, #FFFFFF 100%)',
+        padding: '16px 18px 12px',
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: '112px minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
           {/* Left: Upload button */}
@@ -110,9 +110,12 @@ export default function EcMode() {
             ))}
           </div>
         )}
+      </div>
 
-        {/* 风格选择 — 横向pill */}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 10 }}>
+      {/* ═══ 底栏 — 风格选择 + 精修工坊 + 生成 ═══ */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 16px 4px' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+          {/* 风格选择 pills */}
           {STYLE_SKILLS_LIST.map(s => {
             const active = styleSkill === s.key;
             return (
@@ -129,25 +132,26 @@ export default function EcMode() {
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* ═══ 底栏（在白层内、黄层外） ═══ */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {/* 精修工坊按钮 */}
           <button onClick={() => setExpertOpen(!expertOpen)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, height: 44, padding: '0 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-full)', background: '#fff', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, height: 30, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-full)', background: '#fff', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-            <Settings size={14} /> 精修工坊 {expertOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
+            <Settings size={12} /> 精修工坊 {expertOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
           </button>
         </div>
         <button onClick={doGen} disabled={!canGenerate || generating}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 54, padding: '0 14px 0 20px', border: 'none', borderRadius: 'var(--radius-full)', background: canGenerate && !generating ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: 900, color: canGenerate && !generating ? 'var(--text-muted)' : 'var(--text-faint)', cursor: canGenerate && !generating ? 'pointer' : 'not-allowed', fontFamily: 'inherit', boxShadow: canGenerate && !generating ? '0 14px 36px rgba(57,45,26,0.12)' : 'none', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', opacity: generating ? 0.6 : 1, whiteSpace: 'nowrap' }}
-          onMouseEnter={e => { if (canGenerate && !generating) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(57,45,26,0.18)'; } }}
-          onMouseLeave={e => { if (canGenerate && !generating) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 14px 36px rgba(57,45,26,0.12)'; } }}>
-          <span style={{ display: 'grid', width: 44, height: 44, placeItems: 'center', borderRadius: '50%', background: canGenerate && !generating ? 'var(--accent)' : 'var(--text-faint)', color: '#fff' }}><Sparkles size={18} fill="#fff" /></span>
-          {generating ? '正在生成...' : '一键生成全套电商图'}
+          style={{
+            width: 40, height: 40, borderRadius: '50%', border: 'none',
+            background: canGenerate && !generating ? 'var(--accent)' : 'var(--border)',
+            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: canGenerate && !generating ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s',
+            boxShadow: canGenerate && !generating ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+            opacity: generating ? 0.6 : 1,
+            flexShrink: 0,
+          }}>
+          <Sparkles size={16} fill="#fff" />
         </button>
       </div>
 

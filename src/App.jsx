@@ -1,11 +1,14 @@
 /**
  * 薯包AI · App 路由（V3 灵图风格视觉统一）
  */
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
+import { TaskProvider, useTasks } from './store/taskStore';
 import { Sparkles, LogIn, Check, Menu, X, User, LayoutGrid } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
+import TaskSidebar from './components/task/TaskSidebar';
+import GenModal from './components/task/GenModal';
 import HomePage from './pages/Home/index';
 import PricingPage from './pages/Pricing/index';
 import WorksPage from './pages/Works/index';
@@ -31,17 +34,20 @@ function TopBar() {
         paddingLeft: 36, paddingRight: 36,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        {/* Left: Logo — 灵图: 46x46 icon + 24/30px text */}
+        {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
         <div onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', height: 50 }}>
-          <span style={{ display: 'flex', width: 46, height: 46, borderRadius: 12, overflow: 'hidden', flexShrink: 0 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', height: 50 }}>
+          <span style={{
+            display: 'flex', width: 42, height: 42, borderRadius: 12, overflow: 'hidden', flexShrink: 0,
+            boxShadow: '3px 6px 18px rgba(160,130,220,0.35), 1px 2px 6px rgba(0,0,0,0.10)',
+          }}>
             <img src={IMAGES.appicon} alt="薯包AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </span>
-          <span style={{ fontSize: 24, fontWeight: 900, lineHeight: 1, color: 'var(--accent)', letterSpacing: 'normal' }}
+          <span style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: '#333', letterSpacing: '0.03em' }}
             className="topbar-logo">
-            薯包AI
+            薯包 AI
           </span>
-          <style>{`@media (min-width: 640px) { .topbar-logo { font-size: 30px !important; } .topbar-logo-wrap { gap: 16px !important; } }`}</style>
+          <style>{`@media (min-width: 640px) { .topbar-logo { font-size: 26px !important; font-weight: 800 !important; letter-spacing: 0.03em !important; } }`}</style>
         </div>
 
         {/* Right: 按钮组 */}
@@ -120,7 +126,10 @@ function TopBar() {
 
 function AppRouter() {
   const { state, dispatch } = useApp();
+  const { tasks, addTask, updateTask } = useTasks();
   const { page, genState, result } = state;
+  const [activeTaskId, setActiveTaskId] = useState(null);
+  const [genModalOpen, setGenModalOpen] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -167,6 +176,7 @@ function AppRouter() {
   const PageComponent = pageMap[page] || HomePage;
 
   return (<>
+    <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
     <TopBar />
     {genState === 'result' && result ? (
       <NoteModal
@@ -199,11 +209,19 @@ function AppRouter() {
         <LoadingView />
       </div>
     )}
+    {/* 生图弹窗 */}
+    {genModalOpen && activeTaskId && (
+      <GenModal
+        activeTaskId={activeTaskId}
+        onClose={() => setGenModalOpen(false)}
+        onMinimize={() => setGenModalOpen(false)}
+      />
+    )}
     <LoginModal />
     <PricingModal />
   </>);
 }
 
 export default function App() {
-  return (<AppProvider><AppRouter /></AppProvider>);
+  return (<AppProvider><TaskProvider><AppRouter /></TaskProvider></AppProvider>);
 }

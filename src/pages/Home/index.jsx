@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pencil, ShoppingCart, Sparkles } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
@@ -8,12 +8,13 @@ import Footer from '../../components/layout/Footer';
 
 /**
  * 薯包AI 首页 — 灵图结构精确复刻
- * 白层∈表面卡 → {黄梯度区 + 底栏} 平行同级
+ * 白色卡片 → {干净内容区 + 底栏} 平行同级
  */
 export default function HomePage() {
   const { state, dispatch } = useApp();
   const { mode } = state;
   const isXHS = mode === 'content';
+  const [xhsSubMode, setXhsSubMode] = useState('content');
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', overflow: 'hidden', paddingBottom: 80 }}>
@@ -53,10 +54,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* ═══ 灵图三层表面卡 — 组件内部自行分割梯度层+底栏 ═══ */}
-          <div className="surface-card" style={{ marginTop: 20 }}>
+          {/* ═══ 白色表面卡（子模式切换在卡片内部）═══ */}
+          <div className="surface-card" style={{ marginTop: isXHS ? 10 : 20 }}>
             <div className="surface-card-inner">
-              {isXHS ? <XhsContentMode compactMode /> : <EcMode />}
+              {isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} /> : <EcMode />}
             </div>
           </div>
         </div>

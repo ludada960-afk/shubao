@@ -31,15 +31,17 @@ import './Home.css';
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
 let _extractSessionToken = null;
 
-export default function HomePage({ inlineMode, compactMode, renderMode }) {
+export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp }) {
   const { state, dispatch } = useApp();
   const { inputText, logged, credits, mode } = state;
   const [err, setErr] = useState('');
   const [refImages, setRefImages] = useState([]);
   const fileRef = useRef(null);
   const [trialRemaining, setTrialRemaining] = useState(0);
-  // 小红书子模式：content(种草) / plog(生活碎片)
-  const [xhsSubMode, setXhsSubMode] = useState('content');
+  // 小红书子模式：content(种草) / plog(生活碎片) — 支持外部传入或内部管理
+  const [xhsSubModeInternal, setXhsSubModeInternal] = useState('content');
+  const xhsSubMode = xhsSubModeProp !== undefined ? xhsSubModeProp : xhsSubModeInternal;
+  const setXhsSubMode = setXhsSubModeProp || setXhsSubModeInternal;
 
   // Plog 专属状态
   const [plogText, setPlogText] = useState('');
@@ -521,302 +523,285 @@ export default function HomePage({ inlineMode, compactMode, renderMode }) {
   if (compactMode) {
     return (
       <div>
-        {/* ═══ 黄梯度区 — 仅包裹网格+折叠项（在白层内） ═══ */}
-        <div style={{
-          borderRadius: 24, minHeight: 224,
-          background: 'radial-gradient(circle at 18% 18%, rgba(244,234,219,0.86), transparent 34%), linear-gradient(135deg, rgba(251,248,241,0.94), rgba(255,255,255,0.88))',
-          padding: '12px 20px',
-        }}>
-        {/* 子模式切换 */}
-        <div style={{ display:'flex', gap:3, margin:'0 0 12px', padding:3, background:'rgba(0,0,0,0.04)', borderRadius:12, height:44 }}>
-          <div onClick={() => setXhsSubMode('content')}
+        {/* ═══ 子模式切换 — 卡片内顶部 ═══ */}
+        <div style={{ display: 'flex', gap: 3, padding: '14px 20px 0' }}>
+          <button onClick={() => setXhsSubMode('content')}
             style={{
-              flex:1, padding:'10px 0', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight: xhsSubMode === 'content' ? 900 : 500,
-              textAlign:'center', transition:'all .12s',
-              background: xhsSubMode === 'content' ? '#fff' : 'transparent',
-              color: xhsSubMode === 'content' ? 'var(--accent)' : 'var(--text-muted)',
-              boxShadow: xhsSubMode === 'content' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-              lineHeight:'24px',
+              padding: '8px 18px', borderRadius: 20, border: 'none',
+              background: xhsSubMode === 'content' ? 'var(--accent)' : 'rgba(0,0,0,0.04)',
+              color: xhsSubMode === 'content' ? '#fff' : 'var(--text-muted)',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              transition: 'all 0.12s',
             }}>
-            种草图文
-          </div>
-          <div onClick={() => setXhsSubMode('plog')}
+            📝 种草图文
+          </button>
+          <button onClick={() => setXhsSubMode('plog')}
             style={{
-              flex:1, padding:'10px 0', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight: xhsSubMode === 'plog' ? 900 : 500,
-              textAlign:'center', transition:'all .12s',
-              background: xhsSubMode === 'plog' ? '#fff' : 'transparent',
-              color: xhsSubMode === 'plog' ? '#BE185D' : 'var(--text-muted)',
-              boxShadow: xhsSubMode === 'plog' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-              lineHeight:'24px',
+              padding: '8px 18px', borderRadius: 20, border: xhsSubMode === 'plog' ? '1px solid var(--border)' : '1px solid transparent',
+              background: xhsSubMode === 'plog' ? '#fff' : 'rgba(0,0,0,0.04)',
+              color: xhsSubMode === 'plog' ? 'var(--accent)' : 'var(--text-muted)',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              transition: 'all 0.12s',
             }}>
-            Plog 生活碎片
-          </div>
+            📸 Plog 生活碎片
+          </button>
         </div>
 
-        {/* 种草图文（灵图精确尺寸：86×108上传按钮 + 208px textarea + 16px gap） */}
-        {xhsSubMode === 'content' && (
-          <div>
-            <div style={{ display:'grid', gridTemplateColumns:'112px minmax(0,1fr)', gap:16 }}>
-              <div>
-                <button onClick={() => fileRef.current?.click()}
-                  style={{
-                    width:86, height:108,
-                    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
-                    borderRadius:16, border:'2px dashed var(--border)', background:'#fff',
-                    boxShadow:'0 14px 36px rgba(57,45,26,0.10)',
-                    cursor:'pointer', fontFamily:'inherit',
-                    transform:'rotate(-5deg)', transition:'all 0.2s',
-                    overflow:'hidden',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor='var(--accent)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform='rotate(-5deg)'; e.currentTarget.style.borderColor='var(--border)'; }}>
-                  <span style={{ display:'grid', width:40, height:40, placeItems:'center', borderRadius:'50%', background:'#f8f3ea', color:'var(--text-secondary)', boxShadow:'0 10px 24px rgba(57,45,26,0.12)' }}>
-                    <ImagePlus size={20} />
-                  </span>
-                  <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
-                  <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 3 张</span>
-                </button>
-                <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value=''; }} />
+        {/* ═══ 内容区 — 暖色渐变（灵图风格）═══ */}
+        <div style={{
+          borderRadius: 20, margin: '10px 12px 0',
+          background: 'linear-gradient(180deg, #FFF8F0 0%, #FFFBF5 40%, #FFFFFF 100%)',
+          padding: '16px 18px 12px',
+        }}>
+          {/* 种草图文 */}
+          {xhsSubMode === 'content' && (
+            <div>
+              <div style={{ display:'grid', gridTemplateColumns:'112px minmax(0,1fr)', gap:16 }}>
+                <div>
+                  <button onClick={() => fileRef.current?.click()}
+                    style={{
+                      width:86, height:108,
+                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
+                      borderRadius:16, border:'2px dashed var(--border)', background:'#fff',
+                      boxShadow:'0 14px 36px rgba(57,45,26,0.10)',
+                      cursor:'pointer', fontFamily:'inherit',
+                      transform:'rotate(-5deg)', transition:'all 0.2s',
+                      overflow:'hidden',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor='var(--accent)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform='rotate(-5deg)'; e.currentTarget.style.borderColor='var(--border)'; }}>
+                    <span style={{ display:'grid', width:40, height:40, placeItems:'center', borderRadius:'50%', background:'#f8f3ea', color:'var(--text-secondary)', boxShadow:'0 10px 24px rgba(57,45,26,0.12)' }}>
+                      <ImagePlus size={20} />
+                    </span>
+                    <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
+                    <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 3 张</span>
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value=''; }} />
+                </div>
+
+                <div>
+                  <textarea value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
+                    placeholder="描述主体、场景、风格与画面细节，可以上传参考图后补充想法。"
+                    style={{
+                      width:'100%', minHeight:208, border:'none', background:'transparent',
+                      fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
+                      outline:'none', resize:'none', fontFamily:'inherit',
+                    }} />
+                </div>
               </div>
 
-              <div>
-                <textarea value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
-                  placeholder="描述主体、场景、风格与画面细节，可以上传参考图后补充想法。"
-                  style={{
-                    width:'100%', minHeight:208, border:'none', background:'transparent',
-                    fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
-                    outline:'none', resize:'none', fontFamily:'inherit',
-                  }} />
-              </div>
-            </div>
-
-            {/* 已上传图片预览 */}
-            {refImages.length > 0 && (
-              <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
-                {refImages.map((src, i) => (
-                  <div key={i} style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)', flexShrink:0 }}>
-                    <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    <div onClick={() => setRefImages(p => p.filter((_,j) => j!==i))}
-                      style={{ position:'absolute', top:1, right:1, width:16, height:16, borderRadius:'50%', background:'rgba(0,0,0,0.6)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:8 }}>✕</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* 热门主题 — 折叠pill */}
-            <div style={{ marginTop: 12 }}>
-              <button onClick={() => setTopicsOpen(!topicsOpen)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  height: 36, padding: '0 14px',
-                  borderRadius: 'var(--radius-full)',
-                  border: '1px solid var(--border)', background: '#fff',
-                  fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  transition: 'all 0.12s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-                <Lightbulb size={14} /> 热门主题
-                {topicsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              </button>
-              {topicsOpen && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                  {QUICK_HINTS.map((h, i) => (
-                    <button key={i} onClick={() => setText(h)}
-                      style={{
-                        padding: '6px 14px', borderRadius: 'var(--radius-full)',
-                        border: '1px solid var(--border-light)', background: '#fff',
-                        fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                        color: 'var(--text-secondary)', fontFamily: 'inherit',
-                        transition: 'all 0.12s', whiteSpace: 'nowrap',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = '#f8f3ea'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = '#fff'; }}>
-                      {h}
-                    </button>
+              {/* 已上传图片预览 */}
+              {refImages.length > 0 && (
+                <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
+                  {refImages.map((src, i) => (
+                    <div key={i} style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)', flexShrink:0 }}>
+                      <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                      <div onClick={() => setRefImages(p => p.filter((_,j) => j!==i))}
+                        style={{ position:'absolute', top:1, right:1, width:16, height:16, borderRadius:'50%', background:'rgba(0,0,0,0.6)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:8 }}>✕</div>
+                    </div>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        )}
 
-        {/* Plog（相同外壳：86×108上传+208px textarea+16px gap） */}
-        {xhsSubMode === 'plog' && (
-          <div>
-            <div style={{ display:'grid', gridTemplateColumns:'112px minmax(0,1fr)', gap:16 }}>
-              <div>
-                <button onClick={() => plogFileRef.current?.click()}
+              {/* 热门主题 — 折叠展开 */}
+              <div style={{ marginTop: 12 }}>
+                <button onClick={() => setTopicsOpen(!topicsOpen)}
                   style={{
-                    width:86, height:108,
-                    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
-                    borderRadius:16, border:'2px dashed var(--border)', background:'#fff',
-                    boxShadow:'0 14px 36px rgba(57,45,26,0.10)',
-                    cursor:'pointer', fontFamily:'inherit',
-                    transform:'rotate(-5deg)', transition:'all 0.2s',
-                    overflow:'hidden',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    height: 36, padding: '0 14px',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--border)', background: '#fff',
+                    fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.12s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor='var(--accent)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform='rotate(-5deg)'; e.currentTarget.style.borderColor='var(--border)'; }}>
-                  <span style={{ display:'grid', width:40, height:40, placeItems:'center', borderRadius:'50%', background:'#f8f3ea', color:'var(--text-secondary)', boxShadow:'0 10px 24px rgba(57,45,26,0.12)' }}>
-                    <ImagePlus size={20} />
-                  </span>
-                  <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
-                  <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 1 张</span>
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+                  <Lightbulb size={14} /> 热门主题
+                  {topicsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 </button>
-                <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => { const f=e.target.files?.[0]; if(f){setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));} e.target.value=''; }} />
+                {topicsOpen && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    {QUICK_HINTS.map((h, i) => (
+                      <button key={i} onClick={() => setText(h)}
+                        style={{
+                          padding: '6px 14px', borderRadius: 'var(--radius-full)',
+                          border: '1px solid var(--border-light)', background: '#fff',
+                          fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                          color: 'var(--text-secondary)', fontFamily: 'inherit',
+                          transition: 'all 0.12s', whiteSpace: 'nowrap',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = '#f8f3ea'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = '#fff'; }}>
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+            </div>
+          )}
 
-              <div>
-                <textarea value={plogText} onChange={e => setPlogText(e.target.value)}
-                  placeholder="描述你的生活场景"
-                  style={{
-                    width:'100%', minHeight:208, border:'none', background:'transparent',
-                    fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
-                    outline:'none', resize:'none', fontFamily:'inherit',
-                  }} />
-
-                {/* Plog 参考图预览 + 风格/排版选择 */}
-                <div style={{ marginTop:12 }}>
-                  {plogRefPreview ? (
-                    <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:10 }}>
-                      <div style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)' }}>
-                        <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        <div onClick={() => { setPlogRefImg(null); setPlogRefPreview(''); }}
-                          style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700 }}>×</div>
-                      </div>
-                      <span style={{ fontSize:12, color:'var(--text-muted)' }}>参考图</span>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize:11, color:'var(--text-faint)', marginBottom:10 }}>
-                      📷 可上传 1 张参考图，AI 自动统一整组色调
-                    </div>
-                  )}
-
-                  {/* Plog 设置 — 折叠面板 */}
-                  <button onClick={() => setPlogOptionsOpen(!plogOptionsOpen)}
+          {/* Plog */}
+          {xhsSubMode === 'plog' && (
+            <div>
+              <div style={{ display:'grid', gridTemplateColumns:'112px minmax(0,1fr)', gap:16 }}>
+                <div>
+                  <button onClick={() => plogFileRef.current?.click()}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      height: 36, padding: '0 14px',
-                      borderRadius: 'var(--radius-full)',
-                      border: '1px solid var(--border)', background: '#fff',
-                      fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                      transition: 'all 0.12s', marginTop: 10,
+                      width:86, height:108,
+                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
+                      borderRadius:16, border:'2px dashed var(--border)', background:'#fff',
+                      boxShadow:'0 14px 36px rgba(57,45,26,0.10)',
+                      cursor:'pointer', fontFamily:'inherit',
+                      transform:'rotate(-5deg)', transition:'all 0.2s',
+                      overflow:'hidden',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-                    <Palette size={14} /> Plog 设置
-                    {plogOptionsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor='var(--accent)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform='rotate(-5deg)'; e.currentTarget.style.borderColor='var(--border)'; }}>
+                    <span style={{ display:'grid', width:40, height:40, placeItems:'center', borderRadius:'50%', background:'#f8f3ea', color:'var(--text-secondary)', boxShadow:'0 10px 24px rgba(57,45,26,0.12)' }}>
+                      <ImagePlus size={20} />
+                    </span>
+                    <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
+                    <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 1 张</span>
                   </button>
-                  {plogOptionsOpen && (
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ fontSize:12, fontWeight:900, color:'var(--text-muted)', marginBottom:6, letterSpacing:0.3 }}>🎨 选择色调风格</div>
-                      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
-                        {[
-                          { k:'ins-minimal', label:'🤍 Ins极简', color:'#555' },
-                          { k:'korean-clear', label:'💎 韩系清透', color:'#4A6FA5' },
-                          { k:'japanese-cream', label:'🍦 日系奶油', color:'#B8956A' },
-                          { k:'film-vintage', label:'🎞️ 胶片复古', color:'#8B6F47' },
-                        ].map(s => {
-                          const active = plogStyle === s.k;
-                          return (
-                            <div key={s.k} onClick={() => setPlogStyle(s.k)}
-                              style={{
-                                padding:'5px 12px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
-                                transition:'all .12s', lineHeight:'20px',
-                                background: active ? s.color : 'rgba(0,0,0,0.04)',
-                                color: active ? '#fff' : 'var(--text-muted)',
-                                fontWeight: active ? 700 : 500,
-                                border: active ? '1px solid ' + s.color : '1px solid transparent',
-                              }}>
-                              {s.label}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ fontSize:12, fontWeight:900, color:'var(--text-muted)', marginBottom:6, letterSpacing:0.3 }}>📐 选择排版样式</div>
-                      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
-                        {[
-                          { k:'casual', label:'📸 碎片风' },
-                          { k:'polaroid', label:'📷 拍立得' },
-                          { k:'cinematic', label:'🎬 电影感' },
-                          { k:'journal', label:'📔 手账风' },
-                          { k:'magazine', label:'✨ 杂志风' },
-                        ].map(t => {
-                          const active = plogLayout === t.k;
-                          return (
-                            <div key={t.k} onClick={() => setPlogLayout(t.k)}
-                              style={{
-                                padding:'5px 12px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
-                                transition:'all .12s', lineHeight:'20px',
-                                background: active ? '#BE185D' : 'rgba(0,0,0,0.04)',
-                                color: active ? '#fff' : 'var(--text-muted)',
-                                fontWeight: active ? 700 : 500,
-                                border: active ? '1px solid #BE185D' : '1px solid transparent',
-                              }}>
-                              {t.label}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => { const f=e.target.files?.[0]; if(f){setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));} e.target.value=''; }} />
+                </div>
+
+                <div>
+                  <textarea value={plogText} onChange={e => setPlogText(e.target.value)}
+                    placeholder="描述你的生活场景"
+                    style={{
+                      width:'100%', minHeight:208, border:'none', background:'transparent',
+                      fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
+                      outline:'none', resize:'none', fontFamily:'inherit',
+                    }} />
                 </div>
               </div>
+
+              {/* Plog 参考图预览 */}
+              {plogRefPreview && (
+                <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8 }}>
+                  <div style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)' }}>
+                    <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    <div onClick={() => { setPlogRefImg(null); setPlogRefPreview(''); }}
+                      style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700 }}>×</div>
+                  </div>
+                  <span style={{ fontSize:12, color:'var(--text-muted)' }}>参考图</span>
+                </div>
+              )}
+
+              {/* Plog 设置 — 折叠展开 */}
+              <div style={{ marginTop: 12 }}>
+                <button onClick={() => setPlogOptionsOpen(!plogOptionsOpen)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    height: 36, padding: '0 14px',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--border)', background: '#fff',
+                    fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.12s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
+                  <Palette size={14} /> Plog 设置
+                  {plogOptionsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+                {plogOptionsOpen && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize:12, fontWeight:900, color:'var(--text-muted)', marginBottom:6, letterSpacing:0.3 }}>🎨 选择色调风格</div>
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
+                      {[
+                        { k:'ins-minimal', label:'🤍 Ins极简', color:'#555' },
+                        { k:'korean-clear', label:'💎 韩系清透', color:'#4A6FA5' },
+                        { k:'japanese-cream', label:'🍦 日系奶油', color:'#B8956A' },
+                        { k:'film-vintage', label:'🎞️ 胶片复古', color:'#8B6F47' },
+                      ].map(s => {
+                        const active = plogStyle === s.k;
+                        return (
+                          <div key={s.k} onClick={() => setPlogStyle(s.k)}
+                            style={{
+                              padding:'5px 12px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
+                              transition:'all .12s', lineHeight:'20px',
+                              background: active ? s.color : 'rgba(0,0,0,0.04)',
+                              color: active ? '#fff' : 'var(--text-muted)',
+                              fontWeight: active ? 700 : 500,
+                              border: active ? '1px solid ' + s.color : '1px solid transparent',
+                            }}>
+                            {s.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize:12, fontWeight:900, color:'var(--text-muted)', marginBottom:6, letterSpacing:0.3 }}>📐 选择排版样式</div>
+                    <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                      {[
+                        { k:'casual', label:'📸 碎片风' },
+                        { k:'polaroid', label:'📷 拍立得' },
+                        { k:'cinematic', label:'🎬 电影感' },
+                        { k:'journal', label:'📔 手账风' },
+                        { k:'magazine', label:'✨ 杂志风' },
+                      ].map(t => {
+                        const active = plogLayout === t.k;
+                        return (
+                          <div key={t.k} onClick={() => setPlogLayout(t.k)}
+                            style={{
+                              padding:'5px 12px', borderRadius:8, cursor:'pointer', fontSize:11, whiteSpace:'nowrap',
+                              transition:'all .12s', lineHeight:'20px',
+                              background: active ? '#BE185D' : 'rgba(0,0,0,0.04)',
+                              color: active ? '#fff' : 'var(--text-muted)',
+                              fontWeight: active ? 700 : 500,
+                              border: active ? '1px solid #BE185D' : '1px solid transparent',
+                            }}>
+                            {t.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-
+          )}
         </div>
-        {/* ═══ 底栏（在白层内、黄层外）═══ */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginTop:8, borderTop:'1px solid var(--border)', paddingTop:8 }}>
-          {/* Left: padding only (content mode has no pills in bar) */}
-          <div />
 
-          {/* Right: Generate button — 灵图: h-50px, white, shadow, icon circle 44x44 */}
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        {/* ═══ 底栏 — 灵图风格：左侧信息 + 右侧生成 ═══ */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'8px 16px 4px' }}>
+          {/* Left: Plog info or hint */}
+          <div style={{ flex:1 }}>
             {xhsSubMode === 'plog' && (
-              <div style={{ fontSize:11, color:'var(--text-faint)', textAlign:'right', lineHeight:1.4 }}>
+              <div style={{ fontSize:11, color:'var(--text-faint)', lineHeight:1.4 }}>
                 {!plogText.trim()
                   ? '✏️ 输入场景描述后即可生成 9 张生活碎片'
                   : '✨ 1套 = 9 张 Plog 碎片 + 情绪文案'}
               </div>
             )}
-            <button onClick={xhsSubMode === 'content' ? doGenXHS : doGenPlog}
-              disabled={xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()}
-              style={{
-                display:'flex', alignItems:'center', gap:8,
-                height:54, padding:'0 14px 0 20px', border:'none', borderRadius:'var(--radius-full)',
-                background:'#fff', fontSize:15, fontWeight:900,
-                color:'var(--text-muted)', cursor:'pointer', fontFamily:'inherit',
-                boxShadow:'0 14px 36px rgba(57,45,26,0.12)',
-                transition:'all 0.2s cubic-bezier(0.4,0,0.2,1)',
-                whiteSpace:'nowrap',
-                opacity: (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()) ? 0.45 : 1,
-              }}
-              onMouseEnter={e => { if (!(xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim())) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(57,45,26,0.18)'; } }}
-              onMouseLeave={e => { if (!(xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim())) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 14px 36px rgba(57,45,26,0.12)'; } }}>
-              <span style={{ display:'grid', width:44, height:44, placeItems:'center', borderRadius:'50%', background:'var(--accent)', color:'#fff' }}>
-                <Sparkles size={18} fill="#fff" />
-              </span>
-              {xhsSubMode === 'content'
-                ? '一键生成爆款图文'
-                : '🎨 生成' + (['碎片风','拍立得','电影感','手账风','杂志风'][['casual','polaroid','cinematic','journal','magazine'].indexOf(plogLayout)] || '碎片风') + ' Plog'}
-            </button>
+            {xhsSubMode === 'content' && (
+              <div style={{ fontSize:11, color:'var(--text-faint)', lineHeight:1.4 }}>
+                {!inputText.trim() ? '输入创作主题，AI 生成完整图文' : '✨ 1套 = 完整文案 + 9 张配图'}
+              </div>
+            )}
           </div>
+
+          {/* Right: Generate button */}
+          <button onClick={xhsSubMode === 'content' ? doGenXHS : doGenPlog}
+            disabled={xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()}
+            style={{
+              width:40, height:40, borderRadius:'50%', border:'none',
+              background: (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()) ? 'var(--border)' : 'var(--accent)',
+              color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+              cursor: (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()) ? 'not-allowed' : 'pointer',
+              transition:'all 0.15s',
+              boxShadow: (xhsSubMode === 'content' ? !inputText.trim() : !plogText.trim()) ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
+              flexShrink: 0,
+            }}>
+            <Sparkles size={16} fill="#fff" />
+          </button>
         </div>
 
-        {/* Hint text for content mode */}
-        {xhsSubMode === 'content' && (
-          <div style={{ fontSize:11, color:'var(--text-faint)', marginTop:6, textAlign:'right' }}>
-            {!inputText.trim() ? '输入创作主题，AI 生成完整图文' : '✨ 1套 = 完整文案 + 9 张配图'}
-          </div>
-        )}
-
         {/* Error */}
-        {err && <div style={{ padding:'8px 14px', marginTop:10, background:'#FEF2F0', borderRadius:10, color:'var(--red)', fontSize:13, fontWeight:600 }}>{err}</div>}
+        {err && <div style={{ padding:'8px 14px', margin:'0 16px 8px', background:'#FEF2F0', borderRadius:10, color:'var(--red)', fontSize:13, fontWeight:600 }}>{err}</div>}
       </div>
     );
   }
