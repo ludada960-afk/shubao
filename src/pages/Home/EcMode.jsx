@@ -236,20 +236,17 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         </div>
 
         {/* ═══ 悬浮配置面板 ═══ */}
-        {activePanel && (() => {
-          const wide = isWidePanel(activePanel);
-          return (
+        {activePanel && (
             <div id="ec-floating-panel" style={{
               position: 'absolute',
               bottom: panelPos.bottom,
-              ...(wide
-                ? { left: 8, right: 8 }
-                : { left: panelPos.left, width: panelPos.width }),
+              left: panelPos.left,
+              width: panelPos.width,
               zIndex: 20,
               background: '#fff', borderRadius: 14,
               boxShadow: '0 8px 40px rgba(0,0,0,0.14), 0 2px 12px rgba(0,0,0,0.08)',
               border: '1px solid rgba(0,0,0,0.08)',
-              maxHeight: wide ? 480 : 360, overflowY: 'auto',
+              maxHeight: 440, overflowY: 'auto',
               animation: 'ecPanelSlideUp 0.2s ease-out',
             }}>
               {activePanel === 'sizing' && (
@@ -269,8 +266,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
               {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} />}
               {activePanel === 'copy' && <CopyPanel copywriting={copywriting} onChange={setCopywriting} />}
             </div>
-          );
-        })()}
+        )}
 
         {/* ═══ 配置按钮行 ═══ */}
         <div ref={btnRowRef} style={{
@@ -324,13 +320,16 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 if (el && card) {
                   const cardRect = card.getBoundingClientRect();
                   const btnRect = el.getBoundingClientRect();
-                  const panelW = isWidePanel(btn.key)
-                    ? cardRect.width - 16
-                    : Math.max(Math.min(btnRect.width + 40, 520), 380);
                   const cardW = cardRect.width;
-                  let panelLeft = isWidePanel(btn.key) ? 8 : btnRect.left - cardRect.left;
+                  const maxPW = Math.min(cardW - 16, 580);
+                  const panelW = isWidePanel(btn.key)
+                    ? maxPW
+                    : Math.max(Math.min(btnRect.width + 40, maxPW), 360);
+                  let panelLeft = isWidePanel(btn.key)
+                    ? (cardW - panelW) / 2
+                    : btnRect.left - cardRect.left;
                   if (!isWidePanel(btn.key)) {
-                    if (panelLeft + panelW > cardW) panelLeft = cardW - panelW - 8;
+                    if (panelLeft + panelW > cardW - 8) panelLeft = cardW - panelW - 8;
                     if (panelLeft < 8) panelLeft = 8;
                   }
                   const bottomDist = cardRect.bottom - btnRect.top + 8;
