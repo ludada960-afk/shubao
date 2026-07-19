@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 
 const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', '食品饮料', '母婴用品', '宠物用品', '运动户外', '汽车用品', '图书文具', '珠宝配饰', '其他'];
 
-const lbl = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 };
+const lbl = { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 };
 const inp = {
   width: '100%', padding: '8px 12px', fontSize: 13, borderRadius: 8,
-  border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(0,0,0,0.02)',
+  border: '1px solid rgba(0,0,0,0.12)', background: 'rgba(0,0,0,0.03)',
   color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
 };
 

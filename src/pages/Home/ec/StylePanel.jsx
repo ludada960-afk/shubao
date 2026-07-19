@@ -40,8 +40,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
                 padding: '10px 4px', borderRadius: 10, cursor: 'pointer',
                 border: '1.5px solid',
-                borderColor: active ? '#1a1a1a' : 'rgba(0,0,0,0.06)',
-                background: active ? '#1a1a1a' : 'rgba(0,0,0,0.02)',
+                borderColor: active ? '#1a1a1a' : 'rgba(0,0,0,0.08)',
+                background: active ? '#1a1a1a' : 'rgba(0,0,0,0.03)',
                 transition: 'all 0.18s ease',
               }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; }}
@@ -62,7 +62,8 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
                 {s.label}
               </span>
               <span style={{
-                fontSize: 9, color: active ? 'rgba(255,255,255,0.7)' : 'var(--text-faint)',
+                fontSize: 10, fontWeight: 500,
+                color: active ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)',
                 textAlign: 'center', lineHeight: 1.2,
               }}>{s.desc}</span>
             </div>
@@ -72,13 +73,13 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
 
       {/* ── 自定义色彩调色板 ── */}
       <div style={{
-        background: 'rgba(0,0,0,0.02)', borderRadius: 10, padding: '10px 12px',
-        border: '1px solid rgba(0,0,0,0.05)',
+        background: 'rgba(0,0,0,0.03)', borderRadius: 10, padding: '10px 12px',
+        border: '1px solid rgba(0,0,0,0.06)',
       }}>
         <div onClick={() => setShowColors(!showColors)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)',
+            cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)',
           }}>
           <span>🎨 自定义色调</span>
           <span style={{

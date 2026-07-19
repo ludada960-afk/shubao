@@ -146,8 +146,8 @@ export default function SizingPanel({
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
                 border: '1.5px solid', fontSize: 12, fontWeight: 600,
-                borderColor: active ? '#1a1a1a' : 'rgba(0,0,0,0.08)',
-                background: active ? '#1a1a1a' : 'rgba(0,0,0,0.02)',
+                borderColor: active ? '#1a1a1a' : 'rgba(0,0,0,0.1)',
+                background: active ? '#1a1a1a' : 'rgba(0,0,0,0.03)',
                 color: active ? '#fff' : 'var(--text-secondary)',
                 transition: 'all 0.18s ease',
                 whiteSpace: 'nowrap',
@@ -163,9 +163,9 @@ export default function SizingPanel({
 
       {/* ── 智能套餐展示 ── */}
       <div style={{
-        background: agentMode && !showCustom ? 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(236,72,153,0.04))' : 'rgba(0,0,0,0.02)',
+        background: agentMode && !showCustom ? 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(236,72,153,0.04))' : 'rgba(0,0,0,0.03)',
         borderRadius: 12, padding: '14px 16px', marginBottom: 14,
-        border: `1.5px solid ${agentMode && !showCustom ? 'rgba(124,58,237,0.15)' : 'rgba(0,0,0,0.06)'}`,
+        border: `1.5px solid ${agentMode && !showCustom ? 'rgba(124,58,237,0.15)' : 'rgba(0,0,0,0.08)'}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -199,7 +199,7 @@ export default function SizingPanel({
         </div>
 
         {pDef.desc && (
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 10 }}>{pDef.desc}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>{pDef.desc}</div>
         )}
 
         {/* 套餐明细 */}
@@ -211,7 +211,7 @@ export default function SizingPanel({
             }}>
               <span style={{ fontSize: 12 }}>{img.emoji}</span>
               <span style={{ fontWeight: 600, minWidth: 60 }}>{img.label}</span>
-              <span style={{ color: 'var(--text-muted)' }}>×</span>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>×</span>
               {showCustom ? (
                 <input type="number" min={0} max={20} value={img.count}
                   onChange={e => updateImage(idx, { count: Math.max(0, parseInt(e.target.value) || 0) })}
@@ -223,8 +223,8 @@ export default function SizingPanel({
               ) : (
                 <span style={{ fontWeight: 600 }}>{img.count}</span>
               )}
-              <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{img.ratio}</span>
-              <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>{img.size}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 10 }}>{img.ratio}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{img.size}</span>
               {showCustom && (
                 <select value={img.ratio}
                   onChange={e => updateImage(idx, { ratio: e.target.value })}

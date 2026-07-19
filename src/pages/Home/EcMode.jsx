@@ -166,7 +166,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             )}
 
             {/* × 分隔符 */}
-            <div style={{ display: 'flex', alignItems: 'center', height: 108, color: '#999', fontSize: 14, fontWeight: 600, flexShrink: 0, paddingLeft: 2, paddingRight: 2 }}>×</div>
+            <div style={{ display: 'flex', alignItems: 'center', height: 108, color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, flexShrink: 0, paddingLeft: 2, paddingRight: 2 }}>×</div>
 
             {/* 参考图区域 */}
             <div style={{ position: 'relative', flexShrink: 0, zIndex: 3 }}>
@@ -247,8 +247,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 : { left: panelPos.left, width: panelPos.width }),
               zIndex: 20,
               background: '#fff', borderRadius: 14,
-              boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 2px 12px rgba(0,0,0,0.06)',
-              border: '1px solid rgba(0,0,0,0.06)',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.14), 0 2px 12px rgba(0,0,0,0.08)',
+              border: '1px solid rgba(0,0,0,0.08)',
               maxHeight: wide ? 480 : 360, overflowY: 'auto',
               animation: 'ecPanelSlideUp 0.2s ease-out',
             }}>
@@ -286,9 +286,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
               height: 36, padding: '0 14px', borderRadius: 20,
               cursor: 'pointer',
               border: '2px solid',
-              borderColor: agentMode ? '#7c3aed' : 'rgba(0,0,0,0.2)',
+              borderColor: agentMode ? '#7c3aed' : 'rgba(0,0,0,0.15)',
               background: agentMode ? 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(236,72,153,0.06))' : '#fff',
-              color: agentMode ? '#7c3aed' : '#444',
+              color: agentMode ? '#7c3aed' : 'var(--text-secondary)',
               fontSize: 13, fontWeight: 600,
               fontFamily: 'inherit',
               transition: 'all 0.2s ease',
@@ -379,17 +379,17 @@ function CfgBtn2({ label, icon, isOpen, onClick, btnRef }) {
       height: 36, padding: '0 14px', borderRadius: 20,
       cursor: 'pointer',
       border: '2px solid',
-      borderColor: isOpen ? '#1a1a1a' : 'rgba(0,0,0,0.2)',
+      borderColor: isOpen ? '#1a1a1a' : 'rgba(0,0,0,0.15)',
       background: isOpen ? '#1a1a1a' : '#fff',
-      color: isOpen ? '#fff' : '#444',
+      color: isOpen ? '#fff' : 'var(--text-secondary)',
       fontSize: 13, fontWeight: 600,
       fontFamily: 'inherit',
       transition: 'all 0.15s ease',
       boxShadow: isOpen ? 'inset 0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
       userSelect: 'none', whiteSpace: 'nowrap',
     }}
-    onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.35)'; e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; } }}
-    onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.2)'; e.currentTarget.style.background = '#fff'; } }}>
+    onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; } }}
+    onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'; e.currentTarget.style.background = '#fff'; } }}>
       <span style={{ display: 'flex', color: isOpen ? '#fff' : '#e74c3c', transition: 'color 0.18s' }}>{icon}</span>
       <span>{label}</span>
       <MdExpandMore size={13} style={{

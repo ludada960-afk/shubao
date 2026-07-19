@@ -29,14 +29,14 @@
   --blue: #5275CC;
   --blue-bg: #F0F4FD;
 
-  /* ── 文字层级 ── */
-  --text-primary: #0C0A09;        /* 标题/主内容(暖黑) */
-  --text-secondary: #444038;      /* 正文 */
-  --text-muted: #8B8580;          /* 辅助文字 */
-  --text-hint: #B5B0AA;          /* 提示 */
-  --text-faint: #CCC8C4;         /* 弱提示 */
-  --text-ghost: #DBD8D5;         /* 最弱 */
-  --text-invisible: #E8E5E2;     /* 分割用 */
+  /* ── 文字层级（加深对比度，确保白底面板清晰可读）── */
+  --text-primary: #1A1614;        /* 标题/主内容 */
+  --text-secondary: #3D3835;      /* 正文 */
+  --text-muted: #6B6560;          /* 辅助文字 */
+  --text-hint: #9A9490;           /* 提示 */
+  --text-faint: #B0AAA5;          /* 弱提示 */
+  --text-ghost: #CCC8C4;          /* 最弱 */
+  --text-invisible: #E8E5E2;      /* 分割用 */
 
   /* ── 边框 & 分割 ── */
   --border: rgba(231, 229, 228, 0.8);     /* 卡片边框 */

@@ -1,9 +1,9 @@
 import React from 'react';
 
-const lbl = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 };
+const lbl = { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 };
 const inp = {
   width: '100%', padding: '8px 12px', fontSize: 13, borderRadius: 8,
-  border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(0,0,0,0.02)',
+  border: '1px solid rgba(0,0,0,0.12)', background: 'rgba(0,0,0,0.03)',
   color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
 };
 
