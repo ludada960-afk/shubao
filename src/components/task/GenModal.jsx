@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { X, Minimize2, Maximize2, Sparkles } from 'lucide-react';
+import { MdClose, MdFullscreenExit, MdFullscreen, MdAutoAwesome } from 'react-icons/md';
 import { useTasks } from '../../store/taskStore';
 import ReadProgress from './ReadProgress';
 import BatchProgress from './BatchProgress';
@@ -45,7 +45,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
                         task.status === 'done' ? 'rgba(92,168,108,0.12)' : 'rgba(0,0,0,0.04)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Sparkles size={16} color={isActive ? '#F59E0B' : task.status === 'done' ? '#5CA86C' : 'var(--text-muted)'}
+            <MdAutoAwesome size={16} color={isActive ? '#F59E0B' : task.status === 'done' ? '#5CA86C' : 'var(--text-muted)'}
               className={isActive ? 'animate-spin' : ''} />
           </div>
           <div>
@@ -67,7 +67,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <Minimize2 size={14} />
+            <MdFullscreenExit size={14} />
           </button>
           <button onClick={onClose}
             style={{
@@ -77,7 +77,7 @@ export default function GenModal({ activeTaskId, onClose, onMinimize }) {
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <X size={14} />
+            <MdClose size={14} />
           </button>
         </div>
       </div>

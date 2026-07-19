@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider, useTasks } from './store/taskStore';
-import { Sparkles, LogIn, Check, Menu, X, User, LayoutGrid } from 'lucide-react';
+import { MdAutoAwesome, MdLogin, MdCheck, MdDashboard } from 'react-icons/md';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -14,6 +14,7 @@ import PricingPage from './pages/Pricing/index';
 import WorksPage from './pages/Works/index';
 import RemakePage from './pages/Remake/index';
 import PlogPage from './pages/Plog/index';
+const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText } from './services/api';
@@ -66,7 +67,7 @@ function TopBar() {
             }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(57,45,26,0.08)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = page === 'works' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)'; e.currentTarget.style.boxShadow = 'none'; }}>
-            <LayoutGrid size={16} />
+            <MdDashboard size={16} />
             <span style={{ display: 'none' }} className="topbar-works-label">我的作品</span>
             <style>{`@media (min-width: 640px) { .topbar-works-label { display: inline !important; } }`}</style>
             {logged && (
@@ -86,7 +87,7 @@ function TopBar() {
             }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#2A2521'; }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.background = 'var(--accent)'; }}>
-            <Sparkles size={16} fill="rgba(252,211,77,0.8)" color="#FCD34D" />
+            <MdAutoAwesome size={16} fill="rgba(252,211,77,0.8)" color="#FCD34D" />
             套餐
           </button>
 
@@ -102,7 +103,7 @@ function TopBar() {
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.5)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-              <Check size={16} /> 已登录
+              <MdCheck size={16} /> 已登录
             </button>
           ) : (
             <button onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
@@ -172,6 +173,7 @@ function AppRouter() {
     works: WorksPage,
     remake: RemakePage,
     plog: PlogPage,
+    'ec-canvas': EcCanvasPage,
   };
   const PageComponent = pageMap[page] || HomePage;
 
@@ -202,7 +204,9 @@ function AppRouter() {
         }}
       />
     ) : (
-      <PageComponent />
+      <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>
+        <PageComponent />
+      </React.Suspense>
     )}
     {genState === 'loading' && (
       <div style={{ position:'fixed', inset:0, zIndex:9999, background:'var(--bg)' }}>

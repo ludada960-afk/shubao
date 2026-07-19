@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Eye } from 'lucide-react';
+import { MdAutoAwesome, MdVisibility } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { GALLERY } from '../../constants/data';
 import { proxyImg } from '../../services/api';
@@ -115,7 +115,7 @@ function GCard({ item, onClick, onSameStyle }) {
             display: 'flex', alignItems: 'center', gap: 5,
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onClick(); }}>
-            <Eye size={13} /> 查看全套内容
+            <MdVisibility size={13} /> 查看全套内容
           </span>
           <span style={{
             background: 'var(--red)', color: '#fff',
@@ -124,7 +124,7 @@ function GCard({ item, onClick, onSameStyle }) {
             display: 'flex', alignItems: 'center', gap: 5,
             boxShadow: 'var(--shadow-md)',
           }} onClick={(e) => { e.stopPropagation(); onSameStyle?.(); }}>
-            <Sparkles size={13} /> 一键同款
+            <MdAutoAwesome size={13} /> 一键同款
           </span>
         </div>
       )}

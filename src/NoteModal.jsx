@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Copy, Check, RefreshCw, Download, X, Loader2, ArrowLeft, ArrowRight, Maximize2 } from 'lucide-react';
+import { MdContentCopy, MdCheck, MdRefresh, MdDownload, MdClose, MdAutorenew, MdArrowBack, MdArrowForward, MdFullscreen } from 'react-icons/md';
 import { proxyImg, regenerateImage, downloadZip } from './services/api';
 import { IMAGES } from './constants/images';
 import { EC_PLATFORM_SPECS } from './constants/data';
@@ -147,14 +147,14 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             {images.length > 1 && ecIdx > 0 && (
               <button style={{ ...S.zoomNav, left: 12, color: '#fff', background: 'rgba(255,255,255,0.15)' }}
                 onClick={(e) => { e.stopPropagation(); setEcIdx(i => i - 1); }}>
-                <ArrowLeft size={18} />
+                <MdArrowBack size={18} />
               </button>
             )}
             <img src={proxyImg(getUrl(images[ecIdx]))} alt="" style={S.zoomImg} onClick={e => e.stopPropagation()} />
             {images.length > 1 && ecIdx < images.length - 1 && (
               <button style={{ ...S.zoomNav, right: 12, color: '#fff', background: 'rgba(255,255,255,0.15)' }}
                 onClick={(e) => { e.stopPropagation(); setEcIdx(i => i + 1); }}>
-                <ArrowRight size={18} />
+                <MdArrowForward size={18} />
               </button>
             )}
             <div style={{
@@ -211,7 +211,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               }}>
-                <X size={16} />
+                <MdClose size={16} />
               </button>
             </div>
           </div>
@@ -314,7 +314,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           opacity: 0, transition: 'all 0.2s',
                           color: '#fff', fontSize: 12, fontWeight: 600, gap: 4,
                         }}>
-                          <Maximize2 size={14} /> 点击放大
+                          <MdFullscreen size={14} /> 点击放大
                         </div>
                       )}
                       {size && (
@@ -424,7 +424,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
                 onMouseLeave={e => e.currentTarget.style.opacity = '1'}
               >
-                <Download size={13} /> 下载全部图片
+                <MdDownload size={13} /> 下载全部图片
               </button>
             )}
             <button onClick={onClose} style={{
@@ -453,13 +453,13 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
           <div style={S.zoomBg} onClick={(e) => { e.stopPropagation(); setZoom(false); }}>
             {imgIdx > 0 && (
               <button style={{ ...S.zoomNav, left: 12 }} onClick={(e) => { e.stopPropagation(); setImgIdx(i => Math.max(0, i - 1)); }}>
-                <ArrowLeft size={18} />
+                <MdArrowBack size={18} />
               </button>
             )}
             <img src={imgs[imgIdx]} alt="" style={S.zoomImg} onClick={e => e.stopPropagation()} />
             {imgIdx < maxI - 1 && (
               <button style={{ ...S.zoomNav, right: 12 }} onClick={(e) => { e.stopPropagation(); setImgIdx(i => Math.min(maxI - 1, i + 1)); }}>
-                <ArrowRight size={18} />
+                <MdArrowForward size={18} />
               </button>
             )}
             <div style={S.zoomCounter}>{imgIdx + 1}/{maxI} · ← → 切换 · ESC 关闭</div>
@@ -562,7 +562,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 {/* 重生成按钮 - 预览/试用锁定模式不显示 */}
                 {!isPreview && !(isTrialLocked && imgIdx > 0) && (
                   <button className="nhb" style={S.regenBtn} onClick={() => regenSingle(imgIdx)}>
-                    {rgIdx === imgIdx ? <><Loader2 size={11} className="animate-spin" /> 刷新中...</> : <><RefreshCw size={11} /> 重生成此图</>}
+                    {rgIdx === imgIdx ? <><MdAutorenew size={11} className="animate-spin" /> 刷新中...</> : <><MdRefresh size={11} /> 重生成此图</>}
                   </button>
                 )}
 
@@ -626,7 +626,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     </div>
                   </div>
                   <button onClick={onClose} style={S.closeBtn}>
-                    <X size={18} />
+                    <MdClose size={18} />
                   </button>
                 </div>
 
@@ -736,20 +736,20 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                         setEditing(true);
                       }
                     }}>
-                    {editing ? <><Check size={13} /> 保存修改</> : <>✏️ 编辑文案</>}
+                    {editing ? <><MdCheck size={13} /> 保存修改</> : <>✏️ 编辑文案</>}
                   </button>
                 )}
 
                 {/* 复制 */}
                 <button style={{ ...S.actionBtn, background: copied ? '#e8f5e9' : '#f5f5f5', color: copied ? '#2e7d32' : '#333' }} onClick={copyAll}>
-                  {copied ? <><Check size={13} /> 已复制</> : <><Copy size={13} /> 复制全文</>}
+                  {copied ? <><MdCheck size={13} /> 已复制</> : <><MdContentCopy size={13} /> 复制全文</>}
                 </button>
                 {textRegen && !editing && (
                   <button style={S.actionBtn} onClick={() => {
                     if (item._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }
                     textRegen();
                   }}>
-                    <RefreshCw size={13} /> 重新生成
+                    <MdRefresh size={13} /> 重新生成
                   </button>
                 )}
                 {!editing && (
@@ -760,7 +760,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     </button>
                   ) : (
                     <button style={S.actionBtn} onClick={handleExport}>
-                      {exporting ? <><Loader2 size={13} className="animate-spin" /> 打包中...</> : <><Download size={13} /> 导出图文</>}
+                      {exporting ? <><MdAutorenew size={13} className="animate-spin" /> 打包中...</> : <><MdDownload size={13} /> 导出图文</>}
                     </button>
                   )
                 )}

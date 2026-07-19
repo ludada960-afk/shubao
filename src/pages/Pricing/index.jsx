@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { MdAutoAwesome, MdClose } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import Footer from '../../components/layout/Footer';
@@ -135,7 +135,7 @@ export default function PricingPage() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: colors[i], flexShrink: 0,
                 }}>
-                  <Sparkles size={22} color="#fff" fill="#fff" />
+                  <MdAutoAwesome size={22} color="#fff" fill="#fff" />
                 </span>
 
                 <div style={{ flex: 1 }}>

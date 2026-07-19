@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload } from 'lucide-react';
+import { MdClose } from 'react-icons/md';
 
 /**
  * 双栏参考图上传区 — 精修工坊内

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Loader2 } from 'lucide-react';
+import { Upload } from 'lucide-react';
+import { MdClose, MdAutorenew } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { generateEcommerce, extractProductLink, proxyImg } from '../../services/api';
 import { EC_CATS, EC_PLATFORMS } from '../../constants/data';
@@ -307,7 +308,7 @@ export default function EcLegacyForm() {
         cursor: (!name.trim() || loading) ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
-        {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+        {loading ? <MdAutorenew size={16} className="animate-spin" /> : null}
         {loading ? '生成中...' : '🚀 生成商品图'}
       </button>
     </div>

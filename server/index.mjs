@@ -2585,6 +2585,130 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
 });
 
 // ============================================================
+// 设计方向：VLM 分析产品+参考图 → 输出 3-4 组差异化设计方向
+// ============================================================
+app.post('/api/ecommerce/design-directions', async (req, res) => {
+  const { product_name, description, category, real_shots, ref_shots, platform, style_skill, product_params, skus, copywriting } = req.body || {};
+  if (!product_name && !description && !real_shots?.length) {
+    return res.status(400).json({ error: '请至少填写产品名称或上传产品图' });
+  }
+  try {
+    // 1) VLM 分析产品实拍图
+    let productVision = null;
+    if (real_shots?.length) {
+      productVision = await analyzeReferenceImages(real_shots.slice(0, 5));
+    }
+
+    // 2) VLM 分析参考图
+    let refVision = null;
+    if (ref_shots?.length) {
+      refVision = await analyzeReferenceImages(ref_shots.slice(0, 5));
+    }
+
+    // 3) 构建 LLM prompt 生成设计方向
+    const platformDesc = {
+      smart: '智能推荐（AI自动选择最佳平台规范）',
+      '淘宝': '淘宝/天猫，主图1440×1440，品质优先',
+      '京东': '京东，品质优先，高端感',
+      '拼多多': '拼多多，性价比风格，可含促销',
+      '抖音': '抖音小店，竖版3:4为主，动态感',
+      '小红书': '小红书商城，3:4竖版，生活方式调性',
+      '亚马逊': 'Amazon，首图纯白底必选，不可含文字',
+    }[platform] || '通用电商';
+
+    const sys = `你是资深电商视觉总监。根据产品信息和视觉分析，设计 3-4 组差异化完整的电商套图设计方向。
+
+每组方向必须是完整的视觉方案，包含：
+- 标题（4-8字，概括视觉方向）
+- 详细描述（100-200字，说明光影、布景、色调、氛围、产品呈现方式）
+- 视觉调性（2-4个关键词）
+- 该方向下每张图的具体描述（白底图怎么拍、主图什么风格、3:4场景图什么环境、详情切片怎么排版）
+- 色调预览（3个hex色值，代表主色调）
+
+返回严格 JSON（只返回 JSON）：
+{
+  "directions": [
+    {
+      "id": "dir_1",
+      "title": "方向标题",
+      "description": "100-200字详细视觉描述",
+      "visual_tone": "关键词1·关键词2·关键词3",
+      "image_plan": {
+        "white_bg": "白底图具体描述",
+        "main_text": "主图1:1具体描述",
+        "main_3x4": "3:4主图具体描述",
+        "transparent": "透明图描述",
+        "detail_slices": "详情切片描述"
+      },
+      "preview_colors": ["#hex1", "#hex2", "#hex3"]
+    }
+  ]
+}
+
+设计方向要求：
+1. 3-4组方向必须有明显差异化（如：极简白底 vs 生活场景 vs 暗调质感 vs 杂志排版）
+2. 每组方向基于实际产品特征，不要脱离产品本身
+3. 风格要匹配目标平台的调性
+4. 考虑用户提供的参考图氛围（如有）`;
+
+    const productInfo = [
+      `产品名称：${product_name || '未指定'}`,
+      `品类：${category || '其他'}`,
+      `描述：${description || '未填写'}`,
+      `目标平台：${platformDesc}`,
+      product_params?.material ? `材质：${product_params.material}` : '',
+      product_params?.craft ? `工艺：${product_params.craft}` : '',
+      product_params?.size ? `尺寸：${product_params.size}` : '',
+      skus?.length ? `SKU变体：${skus.map(s => [s.color, s.size, s.capacity].filter(Boolean).join('/')).join('、')}` : '',
+      copywriting?.sellingPoints ? `卖点：${copywriting.sellingPoints}` : '',
+      copywriting?.plan ? `策划思路：${copywriting.plan}` : '',
+    ].filter(Boolean).join('\n');
+
+    const visionContext = [
+      productVision ? `产品视觉分析：形状=${productVision.product_shape || '未知'}, 颜色=${productVision.dominant_colors?.join(',') || '未知'}, 材质=${productVision.material_texture || '未知'}, 光影=${productVision.lighting || '未知'}, 背景=${productVision.background || '未知'}` : '',
+      refVision ? `参考图视觉分析：风格=${refVision.style_vibe || '未知'}, 色温=${refVision.color_temperature || '未知'}, 构图=${refVision.composition || '未知'}, 光影=${refVision.lighting || '未知'}` : '',
+    ].filter(Boolean).join('\n');
+
+    const userMsg = `${productInfo}\n\n${visionContext ? visionContext + '\n\n' : ''}请输出 3-4 组差异化设计方向。`;
+
+    const llmRes = await callMiniLLM(sys, [...(real_shots || []).slice(0, 3), ...(ref_shots || []).slice(0, 3)], userMsg);
+    const match = (llmRes || '').match(/\{[\s\S]*\}/);
+    if (!match) return res.status(500).json({ error: 'AI 设计方向生成失败，请重试' });
+    const parsed = JSON.parse(match[0]);
+
+    // 兜底：确保方向数据完整
+    const directions = (parsed.directions || []).slice(0, 4).map((d, i) => ({
+      id: d.id || `dir_${i + 1}`,
+      title: d.title || `设计方向 ${i + 1}`,
+      description: d.description || '',
+      visual_tone: d.visual_tone || '',
+      image_plan: d.image_plan || {},
+      preview_colors: Array.isArray(d.preview_colors) ? d.preview_colors.slice(0, 3) : ['#f5f5f5', '#333333', '#999999'],
+    }));
+
+    if (directions.length === 0) {
+      // 兜底方向
+      directions.push(
+        { id: 'dir_1', title: '产品主视觉展示', description: '以产品为核心，高级极简光影，纯白背景突出产品细节，适合所有电商平台首图。', visual_tone: '极简·高级·白底', image_plan: {}, preview_colors: ['#ffffff', '#333333', '#c4a882'] },
+        { id: 'dir_2', title: '生活场景应用', description: '将产品融入真实使用场景，自然光影，让消费者想象拥有后的使用画面。', visual_tone: '自然·温暖·生活', image_plan: {}, preview_colors: ['#fde68a', '#bbf7d0', '#f5f0eb'] },
+        { id: 'dir_3', title: '质感细节特写', description: '微距特写产品材质与工艺细节，用光影展现产品的精工品质。', visual_tone: '质感·微距·高级', image_plan: {}, preview_colors: ['#1a1a2e', '#d4a574', '#666666'] },
+      );
+    }
+
+    res.json({
+      directions,
+      analysis: {
+        product_vision: productVision,
+        ref_vision: refVision,
+      },
+    });
+  } catch (e) {
+    console.warn('[design-directions] 失败:', e.message);
+    res.status(500).json({ error: '设计方向生成失败：' + (e.message || '') });
+  }
+});
+
+// ============================================================
 // 详情切片 → 纵向拼成长图（用于微信分享）
 // ============================================================
 app.post('/api/ecommerce/stitch-long', async (req, res) => {

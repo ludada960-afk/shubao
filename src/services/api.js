@@ -141,6 +141,20 @@ export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
   return res.json();
 }
 
+/* ── 设计方向（VLM分析+LLM生成3-4组差异化方向） ── */
+export async function getDesignDirections(params) {
+  const res = await fetch(`${API_BASE}/api/ecommerce/design-directions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => res.statusText);
+    throw new Error(msg.slice(0, 200));
+  }
+  return res.json();
+}
+
 /* ── 详情切片拼长图（微信分享用） ── */
 export async function stitchLongImage(imageUrls) {
   const res = await fetch(`${API_BASE}/api/ecommerce/stitch-long`, {

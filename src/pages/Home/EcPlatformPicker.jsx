@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { MdTune, MdExpandMore, MdExpandLess } from 'react-icons/md';
 
 const PLATFORMS = [
   { key: '淘宝', icon: '🟠', desc: '800×800 / 白底+场景' },
@@ -83,12 +83,12 @@ export default function EcPlatformPicker({ platform, onChange }) {
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}>
-            <SlidersHorizontal size={15} />
+            <MdTune size={15} />
             <span style={{ fontWeight: 900, color: 'var(--text-primary)' }}>{customOpen ? '自定义' : '智能'}</span>
             <span>{customRes}</span>
             <span style={{ opacity: 0.5 }}>×</span>
             <span>{customCount}</span>
-            {customOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {customOpen ? <MdExpandLess size={14} /> : <MdExpandMore size={14} />}
           </button>
 
           {/* Dropdown panel */}

@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Loader, CheckCircle, AlertCircle, X, RotateCcw, Pause, Play } from 'lucide-react';
+import { MdAutorenew, MdCheckCircle, MdError, MdClose, MdRotateLeft, MdPause, MdPlayArrow } from 'react-icons/md';
 
 export default function BatchProgress({ task, onRetry, onCancel, onPause, onResume }) {
   const { progress, status, stage } = task;
@@ -96,19 +96,19 @@ export default function BatchProgress({ task, onRetry, onCancel, onPause, onResu
       {/* 控制按钮 */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {isActive && (
-          <ControlBtn icon={<Pause size={13} />} label="暂停" onClick={onPause} />
+          <ControlBtn icon={<MdPause size={13} />} label="暂停" onClick={onPause} />
         )}
         {isPaused && (
-          <ControlBtn icon={<Play size={13} />} label="继续" onClick={onResume} />
+          <ControlBtn icon={<MdPlayArrow size={13} />} label="继续" onClick={onResume} />
         )}
         {isError && (
-          <ControlBtn icon={<RotateCcw size={13} />} label="重试" onClick={onRetry} primary />
+          <ControlBtn icon={<MdRotateLeft size={13} />} label="重试" onClick={onRetry} primary />
         )}
         {(isActive || isPaused) && (
-          <ControlBtn icon={<X size={13} />} label="终止" onClick={onCancel} danger />
+          <ControlBtn icon={<MdClose size={13} />} label="终止" onClick={onCancel} danger />
         )}
         {isDone && (
-          <ControlBtn icon={<X size={13} />} label="清除" onClick={onCancel} />
+          <ControlBtn icon={<MdClose size={13} />} label="清除" onClick={onCancel} />
         )}
       </div>
     </div>

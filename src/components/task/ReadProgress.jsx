@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { CheckCircle, Loader, AlertCircle } from 'lucide-react';
+import { MdCheckCircle, MdAutorenew, MdError } from 'react-icons/md';
 
 const STAGES = [
   { key: 'uploading',       label: '上传图片',     icon: '📤' },
@@ -47,9 +47,9 @@ export default function ReadProgress({ currentStage, error }) {
                             isDone ? 'rgba(92,168,108,0.12)' :
                             isCurrent ? 'rgba(99,102,241,0.12)' : 'rgba(0,0,0,0.04)',
               }}>
-                {isError ? <AlertCircle size={12} color="#E8544B" /> :
-                 isDone ? <CheckCircle size={12} color="#5CA86C" /> :
-                 isCurrent ? <Loader size={12} color="#6366F1" className="animate-spin" /> :
+                {isError ? <MdError size={12} color="#E8544B" /> :
+                 isDone ? <MdCheckCircle size={12} color="#5CA86C" /> :
+                 isCurrent ? <MdAutorenew size={12} color="#6366F1" className="animate-spin" /> :
                  <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{i + 1}</span>}
               </div>
 

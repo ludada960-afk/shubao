@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Zap, ShoppingCart } from 'lucide-react';
+import { MdSchedule, MdFlashOn, MdShoppingCart } from 'react-icons/md';
 import { IMAGES, CHAR_CYCLE } from '../../constants/images';
 import { LOADING_STAGES, EC_LOADING_STAGES, TIPS, EC_TIPS } from '../../constants/data';
 import { CharImg } from '../../components/ui/index';
@@ -111,7 +111,7 @@ export default function LoadingView() {
           display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
           lineHeight: 1.6,
         }}>
-          <Clock size={14} /> <strong>生成中请勿刷新页面</strong>，否则将浪费一次生成额度
+          <MdSchedule size={14} /> <strong>生成中请勿刷新页面</strong>，否则将浪费一次生成额度
         </div>
 
         {/* Tip */}
@@ -123,7 +123,7 @@ export default function LoadingView() {
             fontSize: 'var(--text-xs)', color: 'var(--text-ghost)',
             marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4,
           }}>
-            {isEC ? <ShoppingCart size={10} /> : <Zap size={10} />}
+            {isEC ? <MdShoppingCart size={10} /> : <MdFlashOn size={10} />}
             {isEC ? ' 电商冷知识' : ' 小红书冷知识'}
           </div>
           <div style={{

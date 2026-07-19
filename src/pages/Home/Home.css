@@ -1797,3 +1797,57 @@
   cursor: pointer;
   font-weight: 500;
 }
+
+/* ═══════ EC Floating Panel ═══════ */
+@keyframes ecPanelSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ec-panel-float::-webkit-scrollbar { width: 4px; }
+.ec-panel-float::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
+
+/* ── 自定义 placeholder 光标动画 ── */
+@keyframes ecCursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.ec-textarea-wrap {
+  position: relative;
+}
+.ec-textarea-placeholder {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.ec-textarea-placeholder .ec-placeholder-line {
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--text-faint);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ec-textarea-placeholder .ec-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--accent, #e74c3c);
+  border-radius: 1px;
+  animation: ecCursorBlink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+.ec-textarea-wrap textarea {
+  transition: none;
+}
+.ec-textarea-wrap textarea.ec-empty {
+  caret-color: transparent;
+}
+.ec-textarea-wrap:hover textarea {
+  box-shadow: none;
+}
+.ec-textarea-wrap:focus-within textarea {
+  box-shadow: none;
+}

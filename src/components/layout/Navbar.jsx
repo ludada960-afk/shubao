@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, LogIn, Check, Menu, X, Image, ShoppingBag, Megaphone } from 'lucide-react';
+import { Image, ShoppingBag, Megaphone } from 'lucide-react';
+import { MdAutoAwesome, MdLogin, MdCheck, MdMenu, MdClose } from 'react-icons/md';
 import { IMAGES } from '../../constants/images';
 import { useApp } from '../../store/AppContext';
 
@@ -54,7 +55,7 @@ export default function Navbar() {
             background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 55%, #e879f9 100%)',
             boxShadow: '0 14px 28px rgba(124,92,255,0.24)',
           }}>
-            <Sparkles size={22} color="#fff" fill="#fff" />
+            <MdAutoAwesome size={22} color="#fff" fill="#fff" />
           </span>
           <span style={{
             fontSize: 22, fontWeight: 900, lineHeight: 1,
@@ -97,7 +98,7 @@ export default function Navbar() {
               fontSize: 13, fontWeight: 900, color: 'var(--accent)',
               whiteSpace: 'nowrap',
             }}>
-              <Sparkles size={14} fill="var(--amber-400)" color="var(--amber-500)" />
+              <MdAutoAwesome size={14} fill="var(--amber-400)" color="var(--amber-500)" />
               <span>{credits}</span>
               <span style={{ fontWeight: 500, fontSize: 11, opacity: 0.5 }}>套</span>
             </div>
@@ -117,7 +118,7 @@ export default function Navbar() {
             className="show-sm-flex"
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#2A2521'; }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.background = 'var(--accent)'; }}>
-            <Sparkles size={15} fill="rgba(252,211,77,0.8)" color="#FCD34D" />
+            <MdAutoAwesome size={15} fill="rgba(252,211,77,0.8)" color="#FCD34D" />
             套餐
           </button>
 
@@ -132,7 +133,7 @@ export default function Navbar() {
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}>
-              <Check size={14} /> 已登录
+              <MdCheck size={14} /> 已登录
             </button>
           ) : (
             <button onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
@@ -157,7 +158,7 @@ export default function Navbar() {
               cursor: 'pointer', color: 'var(--text-muted)',
             }}
             className="show-mobile-flex">
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            {mobileOpen ? <MdClose size={20} /> : <MdMenu size={20} />}
           </button>
         </div>
       </div>

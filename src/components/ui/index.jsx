@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { MdContentCopy, MdCheck } from 'react-icons/md';
 import Button from './Button';
 
 /* ═══════ Card ═══════ */
@@ -74,7 +74,7 @@ export function CopyButton({ text, label = '复制' }) {
         border: 'none',
       }}
     >
-      {ok ? <><Check size={12} /> 已复制</> : <><Copy size={12} /> {label}</>}
+      {ok ? <><MdCheck size={12} /> 已复制</> : <><MdContentCopy size={12} /> {label}</>}
     </Button>
   );
 }

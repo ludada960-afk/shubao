@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, Sparkles, Loader2, X } from 'lucide-react';
+import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose } from 'react-icons/md';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
 import { IMAGES } from '../../constants/images';
@@ -95,7 +95,7 @@ export function LoginModal() {
       )}
 
       <Button primary full onClick={step === 'email' ? handleSendCode : handleVerify} disabled={loading}>
-        {loading ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />}
+        {loading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLogin size={15} />}
         {step === 'email' ? ' 发送验证码' : ' 登录 / 注册'}
       </Button>
 
@@ -195,7 +195,7 @@ export function PricingModal() {
           }}
           onMouseEnter={e => { e.currentTarget.style.background = '#e0e0e0'; e.currentTarget.style.color = '#333'; }}
           onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f5'; e.currentTarget.style.color = '#999'; }}>
-          <X size={16} />
+          <MdClose size={16} />
         </button>
 
         {/* Header */}
@@ -270,7 +270,7 @@ export function PricingModal() {
                   background: colors[i],
                   flexShrink: 0,
                 }}>
-                  <Sparkles size={22} color="#fff" fill="#fff" />
+                  <MdAutoAwesome size={22} color="#fff" fill="#fff" />
                 </span>
 
                 <div style={{ flex: 1 }}>

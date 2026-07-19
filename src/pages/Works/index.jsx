@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, LogIn, RefreshCw, ShoppingCart, Pencil } from 'lucide-react';
+import { MdAutoAwesome, MdLogin, MdRefresh, MdShoppingCart, MdEdit } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
 import { loadWorks, proxyImg } from '../../services/api';
@@ -61,7 +61,7 @@ export default function WorksPage() {
             padding: '6px 12px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit',
           }}>
-            <RefreshCw size={12} /> 刷新
+            <MdRefresh size={12} /> 刷新
           </button>
         </div>
 
@@ -89,7 +89,7 @@ export default function WorksPage() {
               transition: 'all 0.15s',
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              {t.key === 'xhs' ? <Pencil size={14} /> : <ShoppingCart size={14} />}
+              {t.key === 'xhs' ? <MdEdit size={14} /> : <MdShoppingCart size={14} />}
               {t.label}
               <span style={{
                 fontSize: 10, background: tab === t.key ? (t.key === 'xhs' ? '#FED7D7' : '#C7D2FE') : '#e0e0e0',
@@ -115,10 +115,10 @@ export default function WorksPage() {
             action={
               logged
                 ? <Button primary onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}>
-                    <Sparkles size={14} /> 开始创作
+                    <MdAutoAwesome size={14} /> 开始创作
                   </Button>
                 : <Button primary onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>
-                    <LogIn size={14} /> 登录查看作品
+                    <MdLogin size={14} /> 登录查看作品
                   </Button>
             }
           />

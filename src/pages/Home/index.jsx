@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Pencil, ShoppingCart, Sparkles } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { MdAutoAwesome, MdEdit, MdShoppingCart } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
 import EcMode from './EcMode';
+import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
 
@@ -15,6 +16,8 @@ export default function HomePage() {
   const { mode } = state;
   const isXHS = mode === 'content';
   const [xhsSubMode, setXhsSubMode] = useState('content');
+  const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
+  const ecParamsRef = useRef({});  // 第一步收集的参数
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', overflow: 'hidden', paddingBottom: 80 }}>
@@ -25,7 +28,7 @@ export default function HomePage() {
         <div style={{ maxWidth: 1240, margin: '0 auto', padding: '24px 20px 0' }}>
           <div style={{ textAlign: 'center' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 900, color: 'var(--text-secondary)', boxShadow: 'var(--shadow-sm)' }}>
-              <Sparkles size={16} fill="#FBBF24" color="#F59E0B" />
+              <MdAutoAwesome size={16} fill="#FBBF24" color="#F59E0B" />
               薯包 AI · <span style={{opacity:0.7}}>小红书图文</span><span style={{opacity:0.3}}> + </span><span style={{opacity:0.7}}>电商商品图</span>
             </span>
 
@@ -40,26 +43,65 @@ export default function HomePage() {
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>
 
-          {/* Mode Tabs */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-            <div style={{ display: 'flex', gap: 3, background: 'rgba(255,255,255,0.70)', borderRadius: 'var(--radius-full)', padding: 4, width: 'fit-content', backdropFilter: 'blur(12px)' }}>
-              <button onClick={() => dispatch({ type: 'SET_MODE', mode: 'content' })} className="btn-pill"
-                style={{ padding: '8px 24px', background: isXHS ? 'var(--accent)' : 'transparent', color: isXHS ? '#fff' : 'var(--text-muted)', fontWeight: isXHS ? 900 : 500, fontSize: 13, boxShadow: isXHS ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
-                <Pencil size={14} /> 小红书图文
+          {/* ═══ 主模式切换 — 大号胶囊 ═══ */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
+            <div style={{ display: 'flex', gap: 5, padding: 5, borderRadius: 30, background: 'rgba(0,0,0,0.04)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.06)' }}>
+              <button onClick={() => { dispatch({ type: 'SET_MODE', mode: 'content' }); setEcStep(1); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '11px 28px', borderRadius: 25,
+                  border: 'none',
+                  background: isXHS ? '#1a1a1a' : 'transparent',
+                  color: isXHS ? '#fff' : '#555',
+                  fontWeight: 700, fontSize: 15,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'all 0.2s',
+                  boxShadow: isXHS ? 'inset 0 2px 6px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+                onMouseEnter={e => { if (!isXHS) { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#1a1a1a'; } }}
+                onMouseLeave={e => { if (!isXHS) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555'; } }}>
+                <MdEdit size={16} /> 小红书图文
               </button>
-              <button onClick={() => dispatch({ type: 'SET_MODE', mode: 'ecommerce' })} className="btn-pill"
-                style={{ padding: '8px 24px', background: !isXHS ? 'var(--accent)' : 'transparent', color: !isXHS ? '#fff' : 'var(--text-muted)', fontWeight: !isXHS ? 900 : 500, fontSize: 13, boxShadow: !isXHS ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
-                <ShoppingCart size={14} /> 电商生图
+              <button onClick={() => dispatch({ type: 'SET_MODE', mode: 'ecommerce' })}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '11px 28px', borderRadius: 25,
+                  border: 'none',
+                  background: !isXHS ? '#1a1a1a' : 'transparent',
+                  color: !isXHS ? '#fff' : '#555',
+                  fontWeight: 700, fontSize: 15,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'all 0.2s',
+                  boxShadow: !isXHS ? 'inset 0 2px 6px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+                onMouseEnter={e => { if (isXHS) { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#1a1a1a'; } }}
+                onMouseLeave={e => { if (isXHS) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555'; } }}>
+                <MdShoppingCart size={16} /> 电商生图
               </button>
             </div>
           </div>
 
-          {/* ═══ 白色表面卡（子模式切换在卡片内部）═══ */}
-          <div className="surface-card" style={{ marginTop: isXHS ? 10 : 20 }}>
-            <div className="surface-card-inner">
-              {isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} /> : <EcMode />}
+          {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}
+          {ecStep === 2 ? (
+            <DesignDirection
+              params={ecParamsRef.current}
+              onBack={() => setEcStep(1)}
+              onGenerated={() => setEcStep(3)}
+            />
+          ) : (
+            <div className="surface-card" style={{ marginTop: 20 }}>
+              <div className="surface-card-inner">
+                {isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} /> : (
+                  <EcMode ecStep={ecStep} setEcStep={(step) => {
+                    if (step === 2) {
+                      // EcMode 会在 setEcStep(2) 时通过 onStepChange 传参
+                    }
+                    setEcStep(step);
+                  }} onStepChange={(params) => { ecParamsRef.current = params; }} />
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* 案例发现区 */}

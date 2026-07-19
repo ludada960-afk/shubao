@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Sparkles, RefreshCw, Download } from 'lucide-react';
+import { MdArrowBack, MdAutoAwesome, MdRefresh, MdDownload } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 const EXT_API = '';
 import Button from '../../components/ui/Button';
@@ -185,7 +185,7 @@ export default function RemakePage() {
           <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })} style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: 4,
             color: 'var(--text-muted)', fontSize: 18,
-          }}><ArrowLeft size={20} /></button>
+          }}><MdArrowBack size={20} /></button>
           <div>
             <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--weight-heavy)', margin: 0 }}>
               🎨 AI 复刻
@@ -238,7 +238,7 @@ export default function RemakePage() {
         {/* Loading */}
         {taskId && (!task || task.status === 'pending' || task.status === 'downloading') && (
           <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-            <RefreshCw size={32} className="spin" style={{ color: 'var(--blue)', marginBottom: 16 }} />
+            <MdRefresh size={32} className="spin" style={{ color: 'var(--blue)', marginBottom: 16 }} />
             <p style={{ color: 'var(--text-hint)' }}>正在下载图片并分析中...</p>
             {task && <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-invisible)', marginTop: 4 }}>
               {task.downloadedImages?.length || 0}/{task.imageCount || 0} 张已下载
@@ -390,7 +390,7 @@ export default function RemakePage() {
                   marginTop: 8, transition: 'all .15s',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 }}>
-                  {generating ? <RefreshCw size={18} className="spin" /> : <Sparkles size={18} />}
+                  {generating ? <MdRefresh size={18} className="spin" /> : <MdAutoAwesome size={18} />}
                   {generating ? '生成中，请稍候...' : '🚀 一键复刻生成'}
                 </button>
               </div>
@@ -432,7 +432,7 @@ export default function RemakePage() {
         {task?.status === 'downloaded' && (
           <div style={{ textAlign: 'center', padding: 20 }}>
             <Button primary onClick={startAnalysis} disabled={loading}>
-              <Sparkles size={14} /> {loading ? '分析中...' : '启动 AI 分析'}
+              <MdAutoAwesome size={14} /> {loading ? '分析中...' : '启动 AI 分析'}
             </Button>
           </div>
         )}

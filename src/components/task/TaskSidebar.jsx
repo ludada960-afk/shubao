@@ -9,19 +9,17 @@
  */
 
 import React, { useState, useRef } from 'react';
-import {
-  Sparkles, X, RotateCcw, ChevronRight, Loader,
-  CheckCircle, AlertCircle, Clock, Image as ImageIcon,
-} from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
+import { MdAutoAwesome, MdClose, MdRotateLeft, MdChevronRight, MdAutorenew, MdCheckCircle, MdError, MdSchedule } from 'react-icons/md';
 import { useTasks } from '../../store/taskStore';
 
 const STATUS_META = {
-  queued:     { icon: Clock,       color: '#8B8580', label: '排队中' },
-  reading:    { icon: Loader,      color: '#5275CC', label: '读图中' },
-  parsing:    { icon: Loader,      color: '#6366F1', label: '解析中' },
-  generating: { icon: Sparkles,    color: '#F59E0B', label: '生成中' },
-  done:       { icon: CheckCircle, color: '#5CA86C', label: '已完成' },
-  error:      { icon: AlertCircle, color: '#E8544B', label: '失败' },
+  queued:     { icon: MdSchedule,    color: '#8B8580', label: '排队中' },
+  reading:    { icon: MdAutorenew,   color: '#5275CC', label: '读图中' },
+  parsing:    { icon: MdAutorenew,   color: '#6366F1', label: '解析中' },
+  generating: { icon: MdAutoAwesome, color: '#F59E0B', label: '生成中' },
+  done:       { icon: MdCheckCircle, color: '#5CA86C', label: '已完成' },
+  error:      { icon: MdError,       color: '#E8544B', label: '失败' },
 };
 
 const SIDEBAR_WIDTH_COLLAPSED = 8;   // narrow
@@ -83,8 +81,8 @@ export default function TaskSidebar({ onOpenTask }) {
             color: activeCount > 0 || errorCount > 0 ? '#fff' : 'var(--text-muted)',
             transition: 'all 0.2s',
           }}>
-            {activeCount > 0 ? <Loader size={16} className="animate-spin" /> :
-             errorCount > 0 ? <AlertCircle size={16} /> :
+            {activeCount > 0 ? <MdAutorenew size={16} className="animate-spin" /> :
+             errorCount > 0 ? <MdError size={16} /> :
              <ImageIcon size={16} />}
           </div>
           {(activeCount > 0 || errorCount > 0) && (
@@ -203,13 +201,13 @@ export default function TaskSidebar({ onOpenTask }) {
                     {task.status === 'error' && (
                       <button onClick={(e) => { e.stopPropagation(); retryTask(task.id); }}
                         style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, borderRadius: 4, color: 'var(--text-muted)' }}>
-                        <RotateCcw size={13} />
+                        <MdRotateLeft size={13} />
                       </button>
                     )}
                     {task.status === 'done' && (
                       <button onClick={(e) => { e.stopPropagation(); removeTask(task.id); }}
                         style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, borderRadius: 4, color: 'var(--text-muted)' }}>
-                        <X size={13} />
+                        <MdClose size={13} />
                       </button>
                     )}
                   </div>
