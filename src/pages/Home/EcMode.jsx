@@ -19,8 +19,6 @@ const BTN_BASE = {
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
   whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
 };
-const BTN_HOVER = { ...BTN_BASE, background: 'rgba(0,0,0,0.08)' };
-const BTN_ACTIVE = { ...BTN_BASE, background: '#1a1a1a', color: '#fff', borderColor: '#1a1a1a' };
 
 /* ═══════ 统一面板样式 ═══════ */
 const PANEL_STYLE = {
@@ -350,26 +348,23 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           {/* ── 5 个功能按钮 ── */}
           {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;
-            const isOverridden = smartOverrides[btn.key];
-            const showDot = smartMode && isOverridden;
+            const isOverridden = smartMode && smartOverrides[btn.key];
             return (
               <div key={btn.key} ref={el => { if (el) btnRefs.current[btn.key] = el; }}
                 onClick={() => openPanel(btn.key)}
                 style={{
                   ...BTN_BASE,
-                  ...(isOpen ? BTN_ACTIVE : {}),
+                  // 黑边 = 智能方案下有人工干预
+                  borderColor: isOverridden ? '#1a1a1a' : 'transparent',
+                  borderStyle: 'solid',
+                  // 打开状态 = 轻微背景高亮
+                  background: isOpen ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)',
                   position: 'relative',
                 }}
                 onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; }}
                 onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}>
-                <span style={{ color: isOpen ? '#fff' : 'var(--text-muted)', flexShrink: 0 }}>{btn.icon}</span>
+                <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{btn.icon}</span>
                 <span>{btn.label}</span>
-                {showDot && (
-                  <span style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: '#7c3aed', flexShrink: 0,
-                  }} />
-                )}
                 <ChevronDown size={13} style={{
                   opacity: 0.5,
                   transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
