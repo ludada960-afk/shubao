@@ -180,7 +180,7 @@ function AppRouter() {
   return (<>
     <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
     <TopBar />
-    {genState === 'result' && result ? (
+    {genState === 'result' && result && !(result._ecResult && page === 'ec-canvas') ? (
       <NoteModal
         item={result}
         onClose={() => { dispatch({ type: 'CLOSE_RESULT' }); if (state.scrollPos) setTimeout(() => window.scrollTo(0, state.scrollPos), 50); }}
