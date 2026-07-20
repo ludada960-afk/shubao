@@ -49,16 +49,27 @@ export default function CopyPanel({ copywriting, onChange, smartMode = true, onO
 
       <div style={{ padding: '14px 16px 12px' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>文案策划</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {detailFields.map(f => (
+        {/* 第1行：创意思路（满宽） */}
+        <div style={{ marginBottom: 8 }}>
+          <label style={{ ...lbl, fontSize: 11 }}>📝 创意思路</label>
+          <textarea value={copywriting.plan || ''} onChange={e => setF('plan', e.target.value)}
+            placeholder="整体策划方向、产品定位、目标人群..."
+            rows={1}
+            style={{ ...inp, resize: 'none', lineHeight: 1.4, padding: '5px 8px', minHeight: 30, fontSize: 11 }} />
+        </div>
+        {/* 第2-3行：2列网格 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {[
+            { key: 'sellingPoints', label: '🎯 核心卖点', ph: '每行一个卖点，如：24小时持久' },
+            { key: 'qc', label: '✅ 质检报告', ph: '合格证信息、检测报告...' },
+            { key: 'details', label: '🔍 细节特写', ph: '材质纹理、接口、包装...' },
+            { key: 'maintenance', label: '🧴 保养维护', ph: '使用注意、保养方法...' },
+          ].map(f => (
             <div key={f.key}>
               <label style={{ ...lbl, fontSize: 11 }}>{f.label}</label>
               <textarea value={copywriting[f.key] || ''} onChange={e => setF(f.key, e.target.value)}
                 placeholder={f.ph} rows={1}
-                style={{
-                  ...inp, resize: 'none', lineHeight: 1.4,
-                  padding: '5px 8px', minHeight: 32, fontSize: 11,
-                }} />
+                style={{ ...inp, resize: 'none', lineHeight: 1.4, padding: '5px 8px', minHeight: 30, fontSize: 11 }} />
             </div>
           ))}
         </div>

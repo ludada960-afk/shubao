@@ -214,6 +214,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           bottom: panelPos.bottom,
           left: panelPos.left,
           width: panelPos.width,
+          maxHeight: panelPos.maxH,
+          overflowY: 'auto',
           zIndex: 10000,
           transformOrigin: 'bottom center',
         }}>

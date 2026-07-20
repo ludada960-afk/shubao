@@ -1834,8 +1834,9 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
-.ec-panel-float::-webkit-scrollbar { width: 4px; }
-.ec-panel-float::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
+#ec-floating-panel::-webkit-scrollbar { width: 4px; }
+#ec-floating-panel::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
+#ec-floating-panel::-webkit-scrollbar-track { background: transparent; }
 
 /* ── 自定义 placeholder 光标动画 ── */
 @keyframes ecCursorBlink {
