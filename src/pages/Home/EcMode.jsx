@@ -24,12 +24,12 @@ const BTN_BASE = {
 /* ═══════ 玻璃拟态面板样式 ═══════ */
 const GLASS_PANEL = {
   borderRadius: 16,
-  background: 'rgba(255, 255, 255, 0.92)',
-  backdropFilter: 'blur(24px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-  border: '1px solid rgba(255, 255, 255, 0.8)',
-  boxShadow: '0 8px 40px rgba(0,0,0,0.10), 0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
-  animation: 'ecGlassSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1)',
+  background: 'rgba(255, 255, 255, 0.78)',
+  backdropFilter: 'blur(32px) saturate(200%)',
+  WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+  border: '1px solid rgba(255, 255, 255, 0.6)',
+  boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 2px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(255,255,255,0.4)',
+  animation: 'ecGlassSlideUp 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
 };
 
 const WIDE_PANELS = ['sizing', 'style', 'sku'];
@@ -67,7 +67,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   /* — 面板（Portal 定位用视口坐标）—— */
   const [activePanel, setActivePanel] = useState(null);
-  const [panelPos, setPanelPos] = useState({ left: 0, top: 0, width: 0, maxH: 400 });
+  const [panelPos, setPanelPos] = useState({ left: 0, bottom: 0, width: 0, maxH: 400 });
 
   /* — SKU 初始化 —— */
   useEffect(() => {
@@ -187,11 +187,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       // 边缘修正
       if (panelLeft < 16) panelLeft = 16;
       if (panelLeft + panelW > vw - 16) panelLeft = vw - panelW - 16;
-      // 面板紧贴按钮上方（面板底部 = 按钮顶部 - 8px间距）
-      const panelTop = btnRect.top - 8;
-      // 最大高度 = 按钮上方空间 - 16px边距
+      // 面板紧贴按钮正上方（面板底部 = 按钮顶部 - gap）
+      // 使用 bottom 定位，面板向上展开
+      const gap = 8;
+      const panelBottom = window.innerHeight - btnRect.top + gap;
+      // 最大高度 = 按钮上方可用空间 - 16px边距
       const maxH = Math.max(200, btnRect.top - 16);
-      setPanelPos({ left: panelLeft, top: panelTop, width: panelW, maxH });
+      setPanelPos({ left: panelLeft, bottom: panelBottom, width: panelW, maxH });
     }
     setActivePanel(key);
   }, [activePanel]);
@@ -203,7 +205,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       <div id="ec-floating-panel" style={{
         ...GLASS_PANEL,
         position: 'fixed',
-        top: panelPos.top,
+        bottom: panelPos.bottom,
         left: panelPos.left,
         width: panelPos.width,
         maxHeight: panelPos.maxH,
