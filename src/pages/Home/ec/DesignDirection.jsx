@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MdAutoAwesome, MdArrowBack, MdRefresh, MdCheck } from 'react-icons/md';
-import { getDesignDirections, generateEcommerce } from '../../../services/api';
+import { getDesignDirections, generateEcommerce, saveWork } from '../../../services/api';
 import { useApp } from '../../../store/AppContext';
 
 /* ═══════ 设计方向确认页（三段式第二步）═══ */
 export default function DesignDirection({ params, onBack, onGenerated }) {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [loading, setLoading] = useState(true);
   const [loadStage, setLoadStage] = useState(0); // 0=产品分析, 1=参考图分析, 2=生成方案
   const [directions, setDirections] = useState([]);
@@ -77,8 +77,28 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         onImage: (d) => { /* SSE image events */ },
       });
       if (result && (result.images || result.product_name)) {
+        const finalResult = { ...result, product_name: params?.productName || '商品', _ecResult: true, _direction: dir, category: params?.category || '其他', platform: params?.platform || '淘宝' };
+
+        // ★ 立即保存到服务器作品集
+        const phone = state.phone || 'guest';
+        const imageEntries = Object.entries(finalResult.images || {});
+        const serverWork = {
+          product_name: finalResult.product_name,
+          category: finalResult.category,
+          platform: finalResult.platform,
+          _ecResult: true,
+          at: new Date().toLocaleDateString('zh-CN'),
+          images: imageEntries.map(([key, url]) => ({ url, key, label: key, style: key })),
+        };
+        try {
+          await saveWork(serverWork, phone);
+          console.log('[EC] ★ 作品已保存到服务器:', finalResult.product_name);
+        } catch (e) {
+          console.warn('[EC] 服务器保存失败:', e.message);
+        }
+
         // 存储结果到全局 state 并跳转到画布
-        dispatch({ type: 'SET_RESULT', result: { ...result, product_name: params?.productName || '商品', _ecResult: true, _direction: dir } });
+        dispatch({ type: 'SET_RESULT', result: finalResult });
         dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
         onGenerated?.();
       } else {
