@@ -23,7 +23,7 @@ export default function SkuPanel({ skus, onChange }) {
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>定义颜色、规格、尺寸，每个变体生成一张 SKU 图</div>
       </div>
 
-      <div style={{ padding: '12px 16px', maxHeight: 320, overflowY: 'auto' }}>
+      <div style={{ padding: '12px 16px' }}>
         {skus.map((sku, idx) => (
           <div key={sku.id} style={{
             background: 'rgba(0,0,0,0.03)', borderRadius: 12, padding: 12, marginBottom: 8,

@@ -32,8 +32,6 @@ const GLASS_PANEL = {
   animation: 'ecGlassSlideUp 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
 };
 
-const WIDE_PANELS = ['sizing', 'style', 'sku'];
-
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
 export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const { state } = useApp();
@@ -67,7 +65,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   /* — 面板（Portal 定位用视口坐标）—— */
   const [activePanel, setActivePanel] = useState(null);
-  const [panelPos, setPanelPos] = useState({ left: 0, bottom: 0, width: 0, maxH: 400 });
+  const [panelPos, setPanelPos] = useState({ left: 0, bottom: 0, width: 0, maxH: 400, btnCenterX: 0 });
 
   /* — SKU 初始化 —— */
   useEffect(() => {
@@ -167,33 +165,24 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const openPanel = useCallback((key) => {
     if (activePanel === key) { setActivePanel(null); return; }
     const el = btnRefs.current[key];
-    const card = cardRef.current;
-    if (el && card) {
+    if (el) {
       const vw = window.innerWidth;
       const btnRect = el.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
+      // 所有面板统一居中于自己的按钮
       const maxPW = Math.min(vw - 32, 580);
-      const panelW = WIDE_PANELS.includes(key)
-        ? maxPW
-        : Math.max(Math.min(btnRect.width + 40, maxPW), 340);
-      let panelLeft;
-      if (WIDE_PANELS.includes(key)) {
-        // 宽面板：居中于卡片
-        panelLeft = cardRect.left + cardRect.width / 2 - panelW / 2;
-      } else {
-        // 窄面板：左对齐按钮
-        panelLeft = btnRect.left + btnRect.width / 2 - panelW / 2;
-      }
+      const panelW = Math.min(Math.max(btnRect.width + 80, 380), maxPW);
+      let panelLeft = btnRect.left + btnRect.width / 2 - panelW / 2;
       // 边缘修正
       if (panelLeft < 16) panelLeft = 16;
       if (panelLeft + panelW > vw - 16) panelLeft = vw - panelW - 16;
-      // 面板紧贴按钮正上方（面板底部 = 按钮顶部 - gap）
-      // 使用 bottom 定位，面板向上展开
-      const gap = 8;
+      // 面板底部紧贴按钮上方（留 10px 给连接箭头）
+      const gap = 10;
       const panelBottom = window.innerHeight - btnRect.top + gap;
-      // 最大高度 = 按钮上方可用空间 - 16px边距
-      const maxH = Math.max(200, btnRect.top - 16);
-      setPanelPos({ left: panelLeft, bottom: panelBottom, width: panelW, maxH });
+      // 安全最大高度 = 按钮上方可用空间
+      const maxH = Math.max(240, btnRect.top - 16);
+      // 按钮中心 X（用于箭头定位）
+      const btnCenterX = btnRect.left + btnRect.width / 2;
+      setPanelPos({ left: panelLeft, bottom: panelBottom, width: panelW, maxH, btnCenterX });
     }
     setActivePanel(key);
   }, [activePanel]);
@@ -201,18 +190,33 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   /* ── Portal 渲染面板 ── */
   const renderPanel = () => {
     if (!activePanel) return null;
+    // 箭头相对于面板的水平位置
+    const arrowLeft = Math.max(16, Math.min(panelPos.btnCenterX - panelPos.left, panelPos.width - 16));
     return createPortal(
-      <div id="ec-floating-panel" style={{
-        ...GLASS_PANEL,
-        position: 'fixed',
-        bottom: panelPos.bottom,
-        left: panelPos.left,
-        width: panelPos.width,
-        maxHeight: panelPos.maxH,
-        overflowY: 'auto',
-        zIndex: 9999,
-        transformOrigin: 'bottom center',
-      }}>
+      <>
+        {/* ── 连接箭头（指向按钮）── */}
+        <div className="ec-panel-arrow" style={{
+          position: 'fixed',
+          bottom: panelPos.bottom - 8,
+          left: panelPos.btnCenterX - 8,
+          width: 0, height: 0,
+          borderLeft: '8px solid transparent',
+          borderRight: '8px solid transparent',
+          borderTop: '8px solid rgba(255,255,255,0.78)',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.08))',
+          zIndex: 9999,
+          pointerEvents: 'none',
+        }} />
+        {/* ── 面板本体 ── */}
+        <div id="ec-floating-panel" style={{
+          ...GLASS_PANEL,
+          position: 'fixed',
+          bottom: panelPos.bottom,
+          left: panelPos.left,
+          width: panelPos.width,
+          zIndex: 10000,
+          transformOrigin: 'bottom center',
+        }}>
         {activePanel === 'sizing' && (
           <SizingPanel
             platform={platform} onPlatformChange={setPlatform}
@@ -238,7 +242,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           <CopyPanel copywriting={copywriting} onChange={setCopywriting}
             smartMode={smartMode} onOverride={() => handleOverride('copy')} />
         )}
-      </div>,
+      </div>
+      </>,
       document.body
     );
   };

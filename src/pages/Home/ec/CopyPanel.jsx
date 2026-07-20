@@ -48,16 +48,16 @@ export default function CopyPanel({ copywriting, onChange, smartMode = true, onO
       )}
 
       <div style={{ padding: '14px 16px 12px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: 0.3 }}>文案策划</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>文案策划</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {detailFields.map(f => (
             <div key={f.key}>
               <label style={{ ...lbl, fontSize: 11 }}>{f.label}</label>
               <textarea value={copywriting[f.key] || ''} onChange={e => setF(f.key, e.target.value)}
                 placeholder={f.ph} rows={1}
                 style={{
-                  ...inp, resize: 'vertical', lineHeight: 1.5,
-                  padding: '6px 10px', minHeight: 42, fontSize: 12,
+                  ...inp, resize: 'none', lineHeight: 1.4,
+                  padding: '5px 8px', minHeight: 32, fontSize: 11,
                 }} />
             </div>
           ))}
