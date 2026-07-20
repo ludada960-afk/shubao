@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MdAutoAwesome, MdEdit, MdShoppingCart } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
@@ -6,6 +6,11 @@ import EcMode from './EcMode';
 import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
+
+/* ═══════ 检查是否有历史作品 ═══════ */
+const hasPastWorks = () => {
+  try { const w = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]'); return w.length > 0; } catch { return false; }
+};
 
 /**
  * 薯包AI 首页 — 灵图结构精确复刻
@@ -18,6 +23,15 @@ export default function HomePage() {
   const [xhsSubMode, setXhsSubMode] = useState('content');
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
   const ecParamsRef = useRef({});  // 第一步收集的参数
+  const [showPastWorks, setShowPastWorks] = useState(hasPastWorks());
+
+  // 切换到电商模式时刷新作品状态 + 页面可见时刷新
+  useEffect(() => {
+    if (!isXHS) setShowPastWorks(hasPastWorks());
+    const onFocus = () => { if (!isXHS) setShowPastWorks(hasPastWorks()); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [isXHS]);
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', overflow: 'hidden', paddingBottom: 80 }}>
@@ -80,6 +94,24 @@ export default function HomePage() {
               </button>
             </div>
           </div>
+
+          {/* ═══ 电商模式：作品集入口 ═══ */}
+          {!isXHS && showPastWorks && ecStep === 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+              <div onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-canvas' })}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 18px', borderRadius: 20,
+                  background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)',
+                  cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#7c3aed',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,0.1)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,0.25)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(124,58,237,0.06)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,0.15)'; }}>
+                📂 查看我的作品集
+              </div>
+            </div>
+          )}
 
           {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}
           {ecStep === 2 ? (

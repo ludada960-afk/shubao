@@ -1,26 +1,37 @@
 import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { Tldraw } from '@tldraw/tldraw';
 import '@tldraw/tldraw/tldraw.css';
-import { MdArrowBack, MdDownload } from 'react-icons/md';
+import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import ContextMenu from './ContextMenu';
 
-/* ═══════ EcCanvas — 无限画布工作台（三段式第三步）═══ */
+/* ═══════ localStorage 持久化 ═══════ */
+const WORKS_KEY = 'shubao_ec_works';
+const loadWorks = () => {
+  try { return JSON.parse(localStorage.getItem(WORKS_KEY) || '[]'); } catch { return []; }
+};
+const saveWorksToStorage = (works) => {
+  try { localStorage.setItem(WORKS_KEY, JSON.stringify(works)); } catch {}
+};
+
+/* ═══════ 标签映射 ═══════ */
+const LABEL_MAP = {
+  white_bg: '白底图', main_text: '主图', main_3x4: '3:4主图',
+  transparent: '透明PNG', sku: 'SKU规格图',
+  detail_slice_size: '尺寸标注', detail_slice_scene: '场景拍摄',
+  detail_slice_qc: '质检报告', detail_slice_compare: '优势对比',
+  detail_slice_feature: '细节功能', detail_slice_care: '保养维护',
+};
+
+/* ═══════ EcCanvas — 无限画布工作台 + 作品管理 ═══════ */
 export default function EcCanvas() {
   const { state, dispatch } = useApp();
   const result = state.result || {};
   const images = result.images || {};
   const [loaded, setLoaded] = useState(false);
   const editorRef = useRef(null);
-
-  // 图片标签映射
-  const LABEL_MAP = {
-    white_bg: '白底图', main_text: '主图', main_3x4: '3:4主图',
-    transparent: '透明PNG', sku: 'SKU规格图',
-    detail_slice_size: '尺寸标注', detail_slice_scene: '场景拍摄',
-    detail_slice_qc: '质检报告', detail_slice_compare: '优势对比',
-    detail_slice_feature: '细节功能', detail_slice_care: '保养维护',
-  };
+  const [tab, setTab] = useState('current'); // 'current' | 'past'
+  const [pastWorks, setPastWorks] = useState([]);
 
   // 从 result.images 提取所有图片
   const imageList = Object.entries(images).map(([label, url], i) => ({
@@ -30,13 +41,37 @@ export default function EcCanvas() {
     index: i,
   }));
 
+  // 加载历史作品
+  useEffect(() => { setPastWorks(loadWorks()); }, []);
+
+  // 当有生成结果时，自动保存到作品集
+  useEffect(() => {
+    if (imageList.length > 0 && result.product_name) {
+      const works = loadWorks();
+      const newWork = {
+        id: Date.now(),
+        name: result.product_name || '未命名产品',
+        images: imageList.map(img => ({ url: img.url, key: img.label, label: img.title })),
+        createdAt: new Date().toISOString(),
+      };
+      // 避免重复保存（5秒内相同名称）
+      const isDupe = works.length > 0 && works[0].name === newWork.name
+        && (Date.now() - works[0].id) < 5000;
+      if (!isDupe) {
+        works.unshift(newWork);
+        if (works.length > 50) works.length = 50;
+        saveWorksToStorage(works);
+        setPastWorks(works);
+      }
+    }
+  }, [imageList.length, result.product_name]);
+
   // 右键菜单状态
   const [ctxMenu, setCtxMenu] = useState({ visible: false, x: 0, y: 0, image: null });
 
-  // 全局右键监听（捕获画布上的右键事件）
+  // 全局右键监听
   useEffect(() => {
     const handler = (e) => {
-      // 检查是否右键点击了图片
       const img = e.target.closest('img');
       if (img && img.src) {
         e.preventDefault();
@@ -53,7 +88,6 @@ export default function EcCanvas() {
     editorRef.current = editor;
     if (loaded) return;
 
-    // 等一帧让画布初始化
     setTimeout(() => {
       if (!editor || imageList.length === 0) { setLoaded(true); return; }
 
@@ -67,7 +101,6 @@ export default function EcCanvas() {
         const x = col * (CARD_W + GAP);
         const y = row * (CARD_W + GAP + 40);
 
-        // 创建一个图片形状
         const assetId = editor.createAssetId();
         editor.createAssets([{
           id: assetId,
@@ -83,37 +116,25 @@ export default function EcCanvas() {
           },
         }]);
 
-        // 创建图片形状
         const shapeId = editor.createShapeId();
         editor.createShapes([{
           id: shapeId,
           type: 'image',
           x,
           y,
-          props: {
-            assetId,
-            w: CARD_W,
-            h: CARD_W,
-          },
+          props: { assetId, w: CARD_W, h: CARD_W },
         }]);
 
-        // 创建标注文字
         const textId = editor.createShapeId();
         editor.createShapes([{
           id: textId,
           type: 'text',
           x,
           y: y + CARD_W + 8,
-          props: {
-            text: `${img.title}`,
-            size: 's',
-            font: 'draw',
-            color: 'black',
-          },
+          props: { text: img.title, size: 's', font: 'draw', color: 'black' },
         }]);
       });
 
-      // 适配视口
       editor.zoomToFit({ animation: { duration: 500 } });
       setLoaded(true);
     }, 300);
@@ -123,8 +144,12 @@ export default function EcCanvas() {
     dispatch({ type: 'NAVIGATE', page: 'home' });
   };
 
+  const handleNewWork = () => {
+    dispatch({ type: 'CLOSE_RESULT' });
+    dispatch({ type: 'NAVIGATE', page: 'home' });
+  };
+
   const handleDownloadAll = async () => {
-    // 逐张下载
     for (const img of imageList) {
       if (!img.url) continue;
       const a = document.createElement('a');
@@ -133,6 +158,23 @@ export default function EcCanvas() {
       a.click();
       await new Promise(r => setTimeout(r, 200));
     }
+  };
+
+  const handleDownloadWork = (work) => {
+    work.images.forEach((img, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = img.url;
+        a.download = `${work.name}_${img.label || i + 1}.png`;
+        a.click();
+      }, i * 300);
+    });
+  };
+
+  const handleDeleteWork = (id) => {
+    const works = pastWorks.filter(w => w.id !== id);
+    setPastWorks(works);
+    saveWorksToStorage(works);
   };
 
   const handleCtxAction = (action) => {
@@ -154,6 +196,132 @@ export default function EcCanvas() {
     }
   };
 
+  // ── 作品集视图 ──
+  if (tab === 'past') {
+    return (
+      <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#0f0f1a', color: '#fff', overflow: 'auto' }}>
+        {/* 顶部栏 */}
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 100,
+          height: 52, background: 'rgba(15,15,26,0.9)', backdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex', alignItems: 'center', padding: '0 16px', gap: 12,
+        }}>
+          <div onClick={handleBack}
+            style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}>
+            <MdArrowBack size={18} color="rgba(255,255,255,0.6)" />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>我的作品</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>共 {pastWorks.length} 个作品</div>
+
+          {/* Tab 切换 */}
+          <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 10, background: 'rgba(255,255,255,0.06)', marginLeft: 12 }}>
+            <div onClick={() => setTab('current')}
+              style={{
+                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                background: 'transparent', color: 'rgba(255,255,255,0.4)',
+              }}>
+              <MdGridOn size={13} style={{ marginRight: 3, verticalAlign: -1 }} />当前
+            </div>
+            <div onClick={() => setTab('past')}
+              style={{
+                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                background: 'rgba(167,139,250,0.2)', color: '#a78bfa',
+              }}>
+              <MdCollections size={13} style={{ marginRight: 3, verticalAlign: -1 }} />作品集
+            </div>
+          </div>
+
+          <div onClick={handleNewWork}
+            style={{
+              marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 14px', borderRadius: 8,
+              background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+              color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            }}>
+            <MdAdd size={14} /> 新建
+          </div>
+        </div>
+
+        {/* 作品列表 */}
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: 24 }}>
+          {pastWorks.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+              <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>📁</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>还没有历史作品</div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.25)', marginTop: 8 }}>生成的电商图会自动保存到这里</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {pastWorks.map(work => (
+                <div key={work.id} style={{
+                  borderRadius: 16, overflow: 'hidden',
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  {/* 作品标题行 */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{work.name}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
+                        {new Date(work.createdAt).toLocaleString('zh-CN')} · {work.images.length} 张
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <div onClick={() => handleDownloadWork(work)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          background: 'rgba(167,139,250,0.12)', color: '#a78bfa', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                        }}>
+                        <MdDownload size={12} /> 下载全部
+                      </div>
+                      <div onClick={() => handleDeleteWork(work.id)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          background: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                        }}>
+                        <MdDelete size={12} /> 删除
+                      </div>
+                    </div>
+                  </div>
+                  {/* 缩略图 */}
+                  <div style={{ display: 'flex', gap: 8, padding: 12, overflowX: 'auto' }}>
+                    {work.images.slice(0, 10).map((img, i) => (
+                      <img key={i} src={img.url} alt={img.key}
+                        style={{
+                          width: 100, height: 100, objectFit: 'cover', borderRadius: 10,
+                          border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0,
+                        }} />
+                    ))}
+                    {work.images.length > 10 && (
+                      <div style={{
+                        width: 100, height: 100, borderRadius: 10,
+                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 13, color: 'rgba(255,255,255,0.3)', flexShrink: 0,
+                      }}>
+                        +{work.images.length - 10}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── 画布视图 ──
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#f8f9fa' }}>
       {/* ── 顶部工具栏 ── */}
@@ -182,6 +350,24 @@ export default function EcCanvas() {
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
           {imageList.length} 张素材 · 双指缩放/拖拽画布 · 右键图片查看 AI 能力
+        </div>
+
+        {/* Tab 切换 */}
+        <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 10, background: 'rgba(0,0,0,0.04)', marginLeft: 12 }}>
+          <div onClick={() => setTab('current')}
+            style={{
+              padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: 'rgba(0,0,0,0.08)', color: '#1a1a1a',
+            }}>
+            <MdGridOn size={13} style={{ marginRight: 3, verticalAlign: -1 }} />当前
+          </div>
+          <div onClick={() => setTab('past')}
+            style={{
+              padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: 'transparent', color: 'var(--text-muted)',
+            }}>
+            <MdCollections size={13} style={{ marginRight: 3, verticalAlign: -1 }} />作品集 ({pastWorks.length})
+          </div>
         </div>
 
         {/* 右侧操作 */}
