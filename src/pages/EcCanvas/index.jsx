@@ -57,16 +57,27 @@ export default function EcCanvas() {
     const local = [];
     try { local.push(...JSON.parse(localStorage.getItem('shubao_ec_works') || '[]')); } catch {}
     try {
-      const server = await loadWorks(''); // 不传phone，加载所有作品
+      console.log('[EC] 加载作品...');
+      const server = await loadWorks('');
+      console.log('[EC] 服务器返回', server?.length, '个作品');
       const ecWorks = server.filter(w => w._ecResult);
+      console.log('[EC] 电商作品', ecWorks.length, '个');
       // 合并去重
       const names = new Set(local.map(w => w.name));
       for (const w of ecWorks) {
         if (!names.has(w.product_name)) {
-          local.push({ id: w.id || Date.now(), name: w.product_name, images: (w.images || []).map(i => ({ url: i.url, key: i.key, label: i.label || i.style || i.key })), createdAt: w.at || '' });
+          local.push({
+            id: w.id || Date.now(),
+            name: w.product_name,
+            images: Array.isArray(w.images)
+              ? w.images.map(i => ({ url: i.url, key: i.key, label: i.label || i.style || i.key }))
+              : Object.entries(w.images || {}).map(([key, url]) => ({ url, key, label: key })),
+            createdAt: w.at || '',
+          });
         }
       }
-    } catch {}
+    } catch (e) { console.error('[EC] 加载失败:', e.message); }
+    console.log('[EC] 最终作品数:', local.length);
     setPastWorks(local);
   };
 
@@ -97,8 +108,12 @@ export default function EcCanvas() {
 
   // 打开一个历史作品到画布
   const openWork = (work) => {
-    const images = {};
-    (work.images || []).forEach(img => { if (img.url) images[img.key || img.label || ''] = img.url; });
+    let images = {};
+    if (Array.isArray(work.images)) {
+      work.images.forEach(img => { if (img.url) images[img.key || img.label || ''] = img.url; });
+    } else {
+      images = work.images || {};
+    }
     dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝' } });
     setTab('current');
   };
