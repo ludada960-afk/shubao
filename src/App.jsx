@@ -28,8 +28,8 @@ function SideNav() {
 
   const items = [
     { icon: <MdHome size={20} />, label: '首页', page: 'home', active: page === 'home' },
-    { icon: <MdAdd size={20} />, label: '新建', page: 'home', active: false, accent: true,
-      onClick: () => dispatch({ type: 'NEW_WORK' }) },
+    { icon: <MdAdd size={20} />, label: '新建', page: 'ec-canvas', active: false, accent: true,
+      onClick: () => { dispatch({ type: 'CLOSE_RESULT' }); dispatch({ type: 'NAVIGATE', page: 'ec-canvas' }); } },
     { icon: <MdFolder size={20} />, label: '作品', page: 'works', active: page === 'works' || page === 'ec-canvas' },
     ...(hasResult ? [{ icon: <MdGridOn size={20} />, label: '画布', page: 'ec-canvas', active: page === 'ec-canvas' }] : []),
   ];
