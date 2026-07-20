@@ -1,23 +1,25 @@
 import React, { useMemo, useCallback } from 'react';
-import { Check, Info, Zap, Pencil } from 'lucide-react';
+import { Check, Info, ChevronDown, Zap, Pencil } from 'lucide-react';
 
 /* ═══════ 图片类型组件库 ═══════ */
 const IMAGE_TYPES = [
-  { key: 'white_bg', label: '白底首图', icon: '⬜',
+  { key: 'white_bg', label: '白底首图', icon: '⬜', defaultRatio: '1:1', defaultCount: 1,
     desc: '纯白底产品居中，电商必选', usage: '淘宝/京东/亚马逊首图', maxCount: 5 },
-  { key: 'main', label: '商品主图', icon: '🖼️',
-    desc: '核心卖点展示，比例随平台自动适配', usage: '全平台通用', maxCount: 10 },
-  { key: 'transparent', label: '透明 PNG', icon: '🔲',
+  { key: 'main_text', label: '商品主图 1:1', icon: '🖼️', defaultRatio: '1:1', defaultCount: 5,
+    desc: '核心卖点展示，可含促销文字', usage: '淘宝/京东/拼多多主图', maxCount: 5 },
+  { key: 'main_3x4', label: '商品主图 3:4', icon: '📱', defaultRatio: '3:4', defaultCount: 5,
+    desc: '竖版主图，适合移动端展示', usage: '详情页/社交媒体', maxCount: 5 },
+  { key: 'transparent', label: '透明 PNG', icon: '🔲', defaultRatio: '1:1', defaultCount: 1,
     desc: '去底素材，方便二次设计', usage: '通用素材/合成用', maxCount: 1 },
-  { key: 'sku', label: 'SKU 规格图', icon: '🏷️',
+  { key: 'sku', label: 'SKU 规格图', icon: '🏷️', defaultRatio: '1:1', defaultCount: 0,
     desc: '同款不同色/规格展示', usage: '详情页/SKU选择', maxCount: 20 },
-  { key: 'detail', label: '详情切片', icon: '📋',
+  { key: 'detail', label: '详情切片', icon: '📋', defaultRatio: '3:4', defaultCount: 6,
     desc: '长图详情页切片，含多种子类', usage: '详情页长图拼接', maxCount: 6 },
-  { key: 'poster', label: '营销海报', icon: '🎯',
+  { key: 'poster', label: '营销海报', icon: '🎯', defaultRatio: '3:4', defaultCount: 0,
     desc: '促销活动、节日海报、Banner', usage: '活动推广/社媒分享', maxCount: 5 },
 ];
 
-/* ═══════ 比例选项 ═══════ */
+/* ═══════ 比例选项（带用途注释）═══ */
 const RATIOS = [
   { key: '1:1', label: '1:1', usage: '淘宝/京东商品主图' },
   { key: '3:4', label: '3:4', usage: '抖音/小红书竖版主图' },
@@ -26,54 +28,22 @@ const RATIOS = [
   { key: '16:9', label: '16:9', usage: '宽屏海报/Banner' },
 ];
 
-/* ═══════ 平台推荐（ratio 由平台决定）═══ */
+/* ═══════ 平台推荐组合 ═══════ */
 const PLATFORM_PRESETS = {
-  smart:    { name: '智能推荐', icon: '🤖', desc: 'AI 根据产品自动选择最佳平台和图片组合',
-              types: [
-                { key: 'white_bg', count: 1, ratio: '1:1' },
-                { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'transparent', count: 1, ratio: '1:1' },
-                { key: 'detail', count: 6, ratio: '3:4' },
-              ]},
-  '淘宝':   { name: '淘宝/天猫', icon: '🟠', desc: '主图800×800，1:1标准',
-              types: [
-                { key: 'white_bg', count: 1, ratio: '1:1' },
-                { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'transparent', count: 1, ratio: '1:1' },
-                { key: 'detail', count: 6, ratio: '3:4' },
-              ]},
+  smart:    { name: '智能推荐', icon: '🤖', desc: 'AI 根据产品自动选择最佳平台和套餐',
+              types: ['white_bg', 'main_text', 'transparent', 'detail'] },
+  '淘宝':   { name: '淘宝/天猫', icon: '🟠', desc: '首图800×800，品质优先',
+              types: ['white_bg', 'main_text', 'transparent', 'detail'] },
   '京东':   { name: '京东', icon: '🔴', desc: '品质优先，主图800×800',
-              types: [
-                { key: 'white_bg', count: 1, ratio: '1:1' },
-                { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'transparent', count: 1, ratio: '1:1' },
-                { key: 'detail', count: 6, ratio: '3:4' },
-              ]},
+              types: ['white_bg', 'main_text', 'transparent', 'detail'] },
   '拼多多': { name: '拼多多', icon: '🟢', desc: '可含促销文字，性价比风格',
-              types: [
-                { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'transparent', count: 1, ratio: '1:1' },
-                { key: 'detail', count: 6, ratio: '3:4' },
-              ]},
+              types: ['main_text', 'transparent', 'detail'] },
   '抖音':   { name: '抖音小店', icon: '🎵', desc: '主图1:1，最低600×600px',
-              types: [
-                { key: 'white_bg', count: 1, ratio: '1:1' },
-                { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'transparent', count: 1, ratio: '1:1' },
-                { key: 'detail', count: 6, ratio: '3:4' },
-              ]},
-  '小红书': { name: '小红书商城', icon: '📕', desc: '主图1:1，商品详情页标准',
-              types: [
-                { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'transparent', count: 1, ratio: '1:1' },
-                { key: 'detail', count: 6, ratio: '3:4' },
-              ]},
+              types: ['white_bg', 'main_text', 'transparent', 'detail'] },
+  '小红书': { name: '小红书商城', icon: '📕', desc: '主图1:1，生活方式调性',
+              types: ['main_text', 'transparent', 'detail'] },
   '亚马逊': { name: 'Amazon', icon: '🌐', desc: '首图纯白底必选，不可含文字',
-              types: [
-                { key: 'white_bg', count: 1, ratio: '1:1' },
-                { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'transparent', count: 1, ratio: '1:1' },
-              ]},
+              types: ['white_bg', 'main_text', 'transparent'] },
 };
 
 const PLATFORMS = [
@@ -86,21 +56,14 @@ const PLATFORMS = [
   { key: '亚马逊', label: '亚马逊', icon: '🌐' },
 ];
 
-/* ═══════ 根据平台构建默认 images 数组 ═══════ */
-function buildDefaultImages(platform) {
-  const preset = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
-  return preset.types.map(t => {
-    const typeDef = IMAGE_TYPES.find(d => d.key === t.key);
-    return {
-      key: t.key,
-      count: t.count,
-      ratio: t.ratio,
-      label: typeDef?.label || t.key,
-    };
-  });
+/* ═══════ 构建默认 images 数组 ═══════ */
+function buildDefaultImages(typeKeys) {
+  return IMAGE_TYPES
+    .filter(t => typeKeys.includes(t.key))
+    .map(t => ({ key: t.key, count: t.defaultCount, ratio: t.defaultRatio, label: t.label }));
 }
 
-/* ═══════ SizingPanel ═══════ */
+/* ═══════ SizingPanel — 图片类型组件库 + 平台推荐 ═══════ */
 export default function SizingPanel({
   platform = 'smart',
   onPlatformChange,
@@ -109,18 +72,18 @@ export default function SizingPanel({
   smartMode = true,
   onOverride,
 }) {
-  const activeImages = sizing.images?.length ? sizing.images : buildDefaultImages(platform);
-  const activeKeys = useMemo(() => {
-    const keys = new Set();
-    activeImages.forEach(i => keys.add(i.key));
-    return keys;
-  }, [activeImages]);
+  // 当前激活的图片类型列表
+  const activeImages = sizing.images?.length ? sizing.images : buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+  // 已激活的 key 集合
+  const activeKeys = useMemo(() => new Set(activeImages.map(i => i.key)), [activeImages]);
+  // 是否已被用户自定义
   const isCustomized = sizing.smart === false || (sizing.images?.length > 0 && !sizing.smart);
 
   /* ── 平台切换 ── */
   const handlePlatform = useCallback((key) => {
     onPlatformChange?.(key);
-    const newImages = buildDefaultImages(key);
+    const preset = PLATFORM_PRESETS[key] || PLATFORM_PRESETS.smart;
+    const newImages = buildDefaultImages(preset.types);
     onSizingChange?.({ smart: true, images: newImages });
   }, [onPlatformChange, onSizingChange]);
 
@@ -130,29 +93,26 @@ export default function SizingPanel({
     if (!typeDef) return;
     let next;
     if (activeKeys.has(typeKey)) {
+      // 取消勾选 → 移除
       next = activeImages.filter(i => i.key !== typeKey);
     } else {
-      const defaultRatio = typeKey === 'detail' ? '3:4' : '1:1';
-      next = [...activeImages, { key: typeKey, count: 5, ratio: defaultRatio, label: typeDef.label }];
+      // 勾选 → 添加（默认数量）
+      next = [...activeImages, { key: typeKey, count: typeDef.defaultCount || 1, ratio: typeDef.defaultRatio, label: typeDef.label }];
     }
     onSizingChange?.({ smart: false, images: next });
     onOverride?.();
-  }, [activeKeys, activeImages, platform, onSizingChange, onOverride]);
+  }, [activeKeys, activeImages, onSizingChange, onOverride]);
 
   /* ── 修改数量 ── */
-  const updateCount = useCallback((idx, count) => {
-    const next = activeImages.map((item, i) => {
-      if (i !== idx) return item;
-      const typeDef = IMAGE_TYPES.find(t => t.key === item.key);
-      return { ...item, count: Math.max(0, Math.min(count, typeDef?.maxCount || 20)) };
-    });
+  const updateCount = useCallback((typeKey, count) => {
+    const next = activeImages.map(i => i.key === typeKey ? { ...i, count: Math.max(0, Math.min(count, IMAGE_TYPES.find(t => t.key === typeKey)?.maxCount || 20)) } : i);
     onSizingChange?.({ smart: false, images: next });
     onOverride?.();
   }, [activeImages, onSizingChange, onOverride]);
 
   /* ── 修改比例 ── */
-  const updateRatio = useCallback((idx, ratio) => {
-    const next = activeImages.map((item, i) => i === idx ? { ...item, ratio } : item);
+  const updateRatio = useCallback((typeKey, ratio) => {
+    const next = activeImages.map(i => i.key === typeKey ? { ...i, ratio } : i);
     onSizingChange?.({ smart: false, images: next });
     onOverride?.();
   }, [activeImages, onSizingChange, onOverride]);
@@ -189,7 +149,7 @@ export default function SizingPanel({
       <div style={{ padding: '14px 16px 12px' }}>
         {/* ── 平台选择 ── */}
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>目标平台</div>
-        <div style={{ display: 'flex', gap: 5, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 5, marginBottom: 16, flexWrap: 'wrap' }}>
           {PLATFORMS.map(p => {
             const active = platform === p.key;
             return (
@@ -213,76 +173,68 @@ export default function SizingPanel({
 
         {/* ── 平台说明 ── */}
         {pDef.desc && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, padding: '6px 10px', background: 'rgba(0,0,0,0.025)', borderRadius: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, padding: '6px 10px', background: 'rgba(0,0,0,0.025)', borderRadius: 8 }}>
             <Info size={12} /> {pDef.desc}
           </div>
         )}
 
-        {/* ── 图片列表（每个条目一行，含数量+比例）── */}
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>图片配置</div>
+        {/* ── 图片类型列表 ── */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>图片类型</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {activeImages.map((item, idx) => {
-            const typeDef = IMAGE_TYPES.find(t => t.key === item.key);
-            if (!typeDef) return null;
+          {IMAGE_TYPES.map(typeDef => {
+            const checked = activeKeys.has(typeDef.key);
+            const activeItem = activeImages.find(i => i.key === typeDef.key);
             return (
-              <div key={`${item.key}-${item.ratio}-${idx}`} style={{
+              <div key={typeDef.key} style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '8px 10px', borderRadius: 10,
-                background: 'rgba(0,0,0,0.03)',
-                border: '1.5px solid rgba(0,0,0,0.08)',
+                background: checked ? 'rgba(0,0,0,0.03)' : 'transparent',
+                border: `1.5px solid ${checked ? 'rgba(0,0,0,0.1)' : 'transparent'}`,
                 transition: 'all 0.15s',
               }}>
                 {/* 勾选框 */}
-                <div onClick={() => toggleType(item.key)} style={{
+                <div onClick={() => toggleType(typeDef.key)} style={{
                   width: 20, height: 20, borderRadius: 6, cursor: 'pointer',
-                  border: '2px solid #1a1a1a', background: '#1a1a1a',
+                  border: `2px solid ${checked ? '#1a1a1a' : 'rgba(0,0,0,0.15)'}`,
+                  background: checked ? '#1a1a1a' : '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 0.15s', flexShrink: 0,
                 }}>
-                  <Check size={12} color="#fff" strokeWidth={3} />
+                  {checked && <Check size={12} color="#fff" strokeWidth={3} />}
                 </div>
 
-                {/* 图标 + 标签 + 比例 */}
+                {/* 图标 + 标签 */}
                 <span style={{ fontSize: 14, flexShrink: 0 }}>{typeDef.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{typeDef.label}</span>
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
-                      background: 'rgba(0,0,0,0.06)', color: 'var(--text-muted)',
-                    }}>{item.ratio}</span>
-                    {item.key === 'main' && (
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                        {platform === 'smart' ? '比例跟平台' : `${pDef.name}标准`}
-                      </span>
-                    )}
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{typeDef.label}</div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{typeDef.desc}</div>
                 </div>
 
-                {/* 数量 + 比例选择 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>数量</span>
-                  <input type="number" min={0} max={typeDef.maxCount || 20}
-                    value={item.count}
-                    onChange={e => updateCount(idx, parseInt(e.target.value) || 0)}
-                    style={{
-                      width: 38, height: 26, textAlign: 'center', borderRadius: 6,
-                      border: '1px solid rgba(0,0,0,0.12)', background: '#fff',
-                      fontSize: 12, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
-                      color: 'var(--text-primary)',
-                    }} />
-                  <select value={item.ratio}
-                    onChange={e => updateRatio(idx, e.target.value)}
-                    style={{
-                      height: 26, borderRadius: 6, padding: '0 4px',
-                      border: '1px solid rgba(0,0,0,0.12)', background: '#fff',
-                      fontSize: 11, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
-                      color: 'var(--text-primary)', cursor: 'pointer',
-                    }}>
-                    {RATIOS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
-                  </select>
-                </div>
+                {/* 数量 + 比例（勾选后显示） */}
+                {checked && activeItem && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>数量</span>
+                    <input type="number" min={0} max={typeDef.maxCount || 20}
+                      value={activeItem.count}
+                      onChange={e => updateCount(typeDef.key, parseInt(e.target.value) || 0)}
+                      style={{
+                        width: 38, height: 26, textAlign: 'center', borderRadius: 6,
+                        border: '1px solid rgba(0,0,0,0.12)', background: '#fff',
+                        fontSize: 12, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
+                        color: 'var(--text-primary)',
+                      }} />
+                    <select value={activeItem.ratio}
+                      onChange={e => updateRatio(typeDef.key, e.target.value)}
+                      style={{
+                        height: 26, borderRadius: 6, padding: '0 4px',
+                        border: '1px solid rgba(0,0,0,0.12)', background: '#fff',
+                        fontSize: 11, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
+                        color: 'var(--text-primary)', cursor: 'pointer',
+                      }}>
+                      {RATIOS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
             );
           })}
