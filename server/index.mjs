@@ -2600,6 +2600,50 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
 });
 
 // ============================================================
+// 临时图片上传 — 前端先上传图片到服务器，再用 URL 请求 API
+// ============================================================
+const TEMP_UPLOAD_DIR = resolve(__dirname, 'temp_uploads');
+if (!fs.existsSync(TEMP_UPLOAD_DIR)) fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
+
+app.post('/api/ec-temp-upload', async (req, res) => {
+  try {
+    const { images } = req.body; // [{ name, data: 'data:image/...' }]
+    if (!images?.length) return res.status(400).json({ error: 'no images' });
+    const urls = [];
+    for (const img of images.slice(0, 15)) {
+      const match = (img.data || '').match(/^data:image\/(\w+);base64,(.+)$/);
+      if (!match) continue;
+      const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+      const buf = Buffer.from(match[2], 'base64');
+      const fname = `ec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      fs.writeFileSync(resolve(TEMP_UPLOAD_DIR, fname), buf);
+      urls.push(`/api/ec-temp-img/${fname}`);
+    }
+    res.json({ urls });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/ec-temp-img/:name', (req, res) => {
+  const fp = resolve(TEMP_UPLOAD_DIR, req.params.name);
+  if (!fs.existsSync(fp)) return res.status(404).end();
+  res.sendFile(fp);
+});
+
+// 清理超过1小时的临时文件
+setInterval(() => {
+  try {
+    const now = Date.now();
+    fs.readdirSync(TEMP_UPLOAD_DIR).forEach(f => {
+      const fp = resolve(TEMP_UPLOAD_DIR, f);
+      const stat = fs.statSync(fp);
+      if (now - stat.mtimeMs > 3600000) fs.unlinkSync(fp);
+    });
+  } catch {}
+}, 600000);
+
+// ============================================================
 // 设计方向：VLM 分析产品+参考图 → 输出 3-4 组差异化设计方向
 // ============================================================
 app.post('/api/ecommerce/design-directions', async (req, res) => {
@@ -2607,17 +2651,39 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
   if (!product_name && !description && !real_shots?.length) {
     return res.status(400).json({ error: '请至少填写产品名称或上传产品图' });
   }
+
+  // 将相对路径 URL 转为 base64（临时上传的图片）
+  const resolveImages = async (imgs) => {
+    const resolved = [];
+    for (const u of (imgs || []).slice(0, 6)) {
+      if (u.startsWith('data:') || u.startsWith('http')) { resolved.push(u); continue; }
+      // 相对路径：读文件转 base64
+      try {
+        const fp = resolve(__dirname, u.replace(/^\//, ''));
+        if (fs.existsSync(fp)) {
+          const buf = fs.readFileSync(fp);
+          const ext = fp.split('.').pop() || 'jpg';
+          resolved.push(`data:image/${ext};base64,${buf.toString('base64')}`);
+        }
+      } catch {}
+    }
+    return resolved;
+  };
+
   try {
+    const resolvedReal = await resolveImages(real_shots);
+    const resolvedRef = await resolveImages(ref_shots);
+
     // 1) VLM 分析产品实拍图
     let productVision = null;
-    if (real_shots?.length) {
-      productVision = await analyzeReferenceImages(real_shots.slice(0, 5));
+    if (resolvedReal.length) {
+      productVision = await analyzeReferenceImages(resolvedReal.slice(0, 5));
     }
 
     // 2) VLM 分析参考图
     let refVision = null;
-    if (ref_shots?.length) {
-      refVision = await analyzeReferenceImages(ref_shots.slice(0, 5));
+    if (resolvedRef.length) {
+      refVision = await analyzeReferenceImages(resolvedRef.slice(0, 5));
     }
 
     // 3) 构建 LLM prompt 生成设计方向
@@ -2686,7 +2752,7 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
 
     const userMsg = `${productInfo}\n\n${visionContext ? visionContext + '\n\n' : ''}请输出 3-4 组差异化设计方向。`;
 
-    const llmRes = await callMiniLLM(sys, [...(real_shots || []).slice(0, 3), ...(ref_shots || []).slice(0, 2)], userMsg);
+    const llmRes = await callMiniLLM(sys, [...resolvedReal.slice(0, 3), ...resolvedRef.slice(0, 2)], userMsg);
     // 健壮 JSON 解析：修复 LLM 常见格式问题
     let parsed = null;
     try {
@@ -2887,13 +2953,47 @@ app.post('/api/generate-ecommerce', async (req, res) => {
 
   // 自定义尺寸解析
   const customSizeStr = (image_size?.width && image_size?.height) ? `${image_size.width}x${image_size.height}` : null;
+
+  // 将相对路径 URL 转为 base64
+  const resolveImgUrl = async (u) => {
+    if (!u || typeof u !== 'string') return null;
+    if (u.startsWith('data:image')) return u;
+    if (u.startsWith('http')) {
+      const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10000) }).catch(() => null);
+      if (r?.ok) {
+        const buf = await r.arrayBuffer();
+        if (buf.byteLength > 1000) {
+          const ext = u.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpeg';
+          return 'data:image/' + ext + ';base64,' + Buffer.from(buf).toString('base64');
+        }
+      }
+      return null;
+    }
+    // 相对路径
+    try {
+      const fp = resolve(__dirname, u.replace(/^\//, ''));
+      if (fs.existsSync(fp)) {
+        const buf = fs.readFileSync(fp);
+        const ext = fp.split('.').pop() || 'jpg';
+        return 'data:image/' + ext + ';base64,' + buf.toString('base64');
+      }
+    } catch {}
+    return null;
+  };
+
   // 参考图：分析 + 准备视觉输入
   let refImageBase64 = null;
   if (reference_images?.length > 0) {
     send('progress', { step: 'vision', msg: '正在分析参考图...' });
     try {
-      console.log(`[ec-gen] Vision 分析 ${reference_images.length} 张参考图...`);
-      const vision = await analyzeReferenceImages(reference_images);
+      // 解析所有参考图 URL
+      const resolvedRefs = [];
+      for (const u of reference_images.slice(0, 6)) {
+        const resolved = await resolveImgUrl(u);
+        if (resolved) resolvedRefs.push(resolved);
+      }
+      console.log(`[ec-gen] Vision 分析 ${resolvedRefs.length} 张参考图...`);
+      const vision = await analyzeReferenceImages(resolvedRefs);
       if (vision) {
         const visionNote = `\n\nREFERENCE IMAGE ANALYSIS:\n` +
           `- Product shape: ${vision.product_shape || 'N/A'}\n` +
@@ -2908,25 +3008,7 @@ app.post('/api/generate-ecommerce', async (req, res) => {
         contextSuffix += visionNote;
         console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}`);
       }
-      const refUrl = reference_images[0];
-      if (refUrl) {
-        if (typeof refUrl === 'string' && refUrl.startsWith('data:image')) {
-          refImageBase64 = refUrl;
-        } else if (typeof refUrl === 'string' && /^https?:\/\//i.test(refUrl)) {
-          const refRes = await fetch(refUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            signal: AbortSignal.timeout(8000),
-          });
-          if (refRes.ok) {
-            const buf = await refRes.arrayBuffer();
-            if (buf.byteLength > 1000) {
-              const ext = refUrl.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpeg';
-              refImageBase64 = 'data:image/' + ext + ';base64,' + Buffer.from(buf).toString('base64');
-              console.log(`[ec-gen] 参考图已转 base64 (${(buf.byteLength / 1024).toFixed(0)}KB)`);
-            }
-          }
-        }
-      }
+      refImageBase64 = resolvedRefs[0] || null;
     } catch (e) {
       console.warn('[ec-gen] 参考图处理失败（不阻断）:', e.message);
     }

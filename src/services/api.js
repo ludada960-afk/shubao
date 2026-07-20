@@ -62,11 +62,21 @@ export async function generateContent(text, images, { onImage, onProgress, previ
 
 /* ── 电商图生成（精修工坊重构版） ── */
 export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, onImage, onProgress }) {
+  // 上传图片到服务器
+  const uploadImgs = async (imgs) => {
+    if (!imgs?.length) return [];
+    const urls = imgs.filter(u => typeof u === 'string' && (u.startsWith('http') || u.startsWith('/api/')));
+    const base64s = imgs.filter(u => typeof u === 'string' && u.startsWith('data:'));
+    if (base64s.length === 0) return urls;
+    const uploaded = await uploadECTempImages(base64s);
+    return [...urls, ...uploaded];
+  };
+
   const body = {
     product_name: productName,
     category,
-    reference_images: refImgs || [],
-    real_shots: realShots || [],
+    reference_images: await uploadImgs(refImgs),
+    real_shots: await uploadImgs(realShots),
     platform,
     selling_points: points || '',
     skus: skus || [],
@@ -142,11 +152,37 @@ export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
 }
 
 /* ── 设计方向（VLM分析+LLM生成3-4组差异化方向） ── */
+/* ── 电商：上传临时图片 → 返回服务器 URL ── */
+export async function uploadECTempImages(base64Images) {
+  const res = await fetch(`${API_BASE}/api/ec-temp-upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ images: base64Images.map((data, i) => ({ name: `img_${i}`, data })) }),
+  });
+  if (!res.ok) throw new Error('图片上传失败');
+  return (await res.json()).urls || [];
+}
+
 export async function getDesignDirections(params) {
+  // 先上传图片到服务器，再用 URL 请求
+  const uploadAndReplace = async (imgs) => {
+    if (!imgs?.length) return [];
+    // 已经是 URL 的直接返回
+    const urls = imgs.filter(u => u.startsWith('http') || u.startsWith('/api/'));
+    const base64s = imgs.filter(u => u.startsWith('data:'));
+    if (base64s.length === 0) return urls;
+    // 上传 base64 到服务器
+    const uploaded = await uploadECTempImages(base64s);
+    return [...urls, ...uploaded];
+  };
+
+  const real_shots = await uploadAndReplace(params.real_shots);
+  const ref_shots = await uploadAndReplace(params.ref_shots);
+
   const res = await fetch(`${API_BASE}/api/ecommerce/design-directions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, real_shots, ref_shots }),
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => res.statusText);
