@@ -3,6 +3,7 @@ import { Tldraw } from '@tldraw/tldraw';
 import '@tldraw/tldraw/tldraw.css';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
+import { saveWork } from '../../services/api';
 import ContextMenu from './ContextMenu';
 
 /* ═══════ localStorage 持久化 ═══════ */
@@ -44,6 +45,7 @@ export default function EcCanvas() {
   const { state, dispatch } = useApp();
   const result = state.result || {};
   const images = result.images || {};
+  const phone = state.phone || '';
   const [loaded, setLoaded] = useState(false);
   const editorRef = useRef(null);
   const [tab, setTab] = useState('current'); // 'current' | 'past'
@@ -71,24 +73,46 @@ export default function EcCanvas() {
   // 加载历史作品
   useEffect(() => { setPastWorks(loadWorks()); }, []);
 
-  // 当有生成结果时，自动保存到作品集
+  // 当有生成结果时，自动保存到作品集（服务器 + 本地）
   useEffect(() => {
     if (imageList.length > 0 && result.product_name) {
       const works = loadWorks();
+      // 避免重复保存（5秒内相同名称）
+      const isDupe = works.length > 0 && works[0].name === result.product_name
+        && (Date.now() - works[0].id) < 5000;
+      if (isDupe) return;
+
+      // 本地保存
       const newWork = {
         id: Date.now(),
         name: result.product_name || '未命名产品',
         images: imageList.map(img => ({ url: img.url, key: img.label, label: img.displayLabel, group: img.group, ratio: img.ratio, size: img.size })),
         createdAt: new Date().toISOString(),
       };
-      // 避免重复保存（5秒内相同名称）
-      const isDupe = works.length > 0 && works[0].name === newWork.name
-        && (Date.now() - works[0].id) < 5000;
-      if (!isDupe) {
-        works.unshift(newWork);
-        if (works.length > 50) works.length = 50;
-        saveWorksToStorage(works);
-        setPastWorks(works);
+      works.unshift(newWork);
+      if (works.length > 50) works.length = 50;
+      saveWorksToStorage(works);
+      setPastWorks(works);
+
+      // 服务器保存（格式与 Works 页面兼容）
+      if (phone) {
+        const serverWork = {
+          product_name: result.product_name || '未命名产品',
+          category: result.category || '其他',
+          platform: result.platform || '淘宝',
+          _ecResult: true,
+          at: new Date().toLocaleDateString('zh-CN'),
+          images: imageList.map(img => ({
+            url: img.url,
+            key: img.label,
+            label: img.displayLabel,
+            style: img.title,
+            group: img.group,
+            ratio: img.ratio,
+            size: img.size,
+          })),
+        };
+        saveWork(serverWork, phone).catch(e => console.warn('[EC] 保存到服务器失败:', e.message));
       }
     }
   }, [imageList.length, result.product_name]);

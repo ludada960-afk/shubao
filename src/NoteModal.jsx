@@ -120,19 +120,30 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
     // 获取图片的URL和标签（兼容新旧格式）
     const KEY_LABELS = {
-      white_bg:'白底图', main_text:'主图文案', feature:'卖点解说图', scene:'使用场景图',
-      detail:'详情图', macro:'材质特写', sku:'多规格展示', comparison:'效果对比',
-      package:'包装组合', transparent:'透明PNG素材', beauty_report:'美妆分析报告',
-      main_white:'白底图',
+      white_bg:'白底图', main_text:'主图 1:1', main_3x4:'主图 3:4',
+      transparent:'透明PNG', sku:'SKU规格图',
+      detail_slice_size:'尺寸标注', detail_slice_scene:'场景拍摄',
+      detail_slice_qc:'质检报告', detail_slice_compare:'优势对比',
+      detail_slice_feature:'细节功能', detail_slice_care:'保养维护',
+      // 旧格式兼容
+      feature:'卖点解说图', scene:'使用场景图',
+      detail:'详情图', macro:'材质特写', comparison:'效果对比',
+      package:'包装组合', beauty_report:'美妆分析报告',
+      main_white:'白底图', main:'主图',
     };
     const getUrl = (img) => Array.isArray(img) ? img[1] : img.url;
     const getLabel = (img) => {
       const raw = Array.isArray(img) ? img[0] : (img.style || img.label || img.key || '商品图');
       return KEY_LABELS[raw] || raw;
     };
+    const getSize = (img) => Array.isArray(img) ? '' : (img.size || '');
     // 从标签查平台规格尺寸（兼容新旧标签名）
-    const specKeyMap = { '白底图':'白底主图', '主图文案':'白底主图' };
-    const getSpec = (label) => specs.sizes[label] || specs.sizes[specKeyMap[label]] || '';
+    const specKeyMap = { '白底图':'白底主图', '主图文案':'白底主图', '白底首图':'白底主图', '商品主图 1:1':'白底主图' };
+    const getSpec = (label, img) => {
+      const fromImg = getSize(img);
+      if (fromImg) return fromImg;
+      return specs.sizes[label] || specs.sizes[specKeyMap[label]] || '';
+    };
     const getSellingPoint = (img) => Array.isArray(img) ? '' : (img.sellingPoint || '');
 
     return (
@@ -166,7 +177,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             }}>
               <span>{styleIcon(getLabel(images[ecIdx]))} {getLabel(images[ecIdx])}{getSellingPoint(images[ecIdx]) ? ' · ' + getSellingPoint(images[ecIdx]) : ''}</span>
               <span style={{ opacity: 0.6 }}>|</span>
-              <span style={{ opacity: 0.7 }}>{getSpec(getLabel(images[ecIdx]))}</span>
+              <span style={{ opacity: 0.7 }}>{getSpec(getLabel(images[ecIdx]), images[ecIdx])}</span>
               <span style={{ opacity: 0.6 }}>|</span>
               <span>{ecIdx + 1}/{images.length}</span>
               <span style={{ opacity: 0.35, marginLeft: 4 }}>← → 切换 · ESC 关闭</span>
@@ -262,7 +273,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               {images.map((img, i) => {
                 const style = getLabel(img);
                 const url = getUrl(img);
-                const size = getSpec(style);
+                const size = getSpec(style, img);
                 const isLocked = isTrialLocked;
                 return (
                   <div key={style} className="ec-card" style={{
