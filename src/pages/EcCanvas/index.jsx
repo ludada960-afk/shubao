@@ -57,7 +57,7 @@ export default function EcCanvas() {
     const local = [];
     try { local.push(...JSON.parse(localStorage.getItem('shubao_ec_works') || '[]')); } catch {}
     try {
-      const server = await loadWorks(phone || '');
+      const server = await loadWorks(''); // 不传phone，加载所有作品
       const ecWorks = server.filter(w => w._ecResult);
       // 合并去重
       const names = new Set(local.map(w => w.name));
