@@ -335,7 +335,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                   onMouseLeave={e => { e.currentTarget.style.transform = 'rotate(-3deg)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
                   <span style={{ display: 'grid', width: 32, height: 32, placeItems: 'center', borderRadius: '50%', background: '#f8f3ea', color: 'var(--text-secondary)' }}><ImagePlus size={16} /></span>
                   <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line' }}>
-                    {productImages.length === 0 ? '上传产品\n实拍原图' : '继续添加'}
+                    {productImages.length === 0
+                      ? '上传产品\n实拍原图'
+                      : productImages.length === 1
+                      ? '上传侧面图\n或俯拍图'
+                      : productImages.length === 2
+                      ? '细节/材质\n特写更佳'
+                      : '继续添加'}
                   </span>
                 </div>
                 <input ref={prodFileRef} type="file" accept="image/*" multiple hidden onChange={handleProdUpload} />

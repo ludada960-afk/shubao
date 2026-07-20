@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Check, Info, ChevronDown, Zap, Pencil } from 'lucide-react';
 
 /* ═══════ 图片类型组件库 ═══════ */
@@ -19,14 +19,85 @@ const IMAGE_TYPES = [
     desc: '促销活动、节日海报、Banner', usage: '活动推广/社媒分享', maxCount: 5 },
 ];
 
-/* ═══════ 比例选项（带用途注释）═══ */
+/* ═══════ 比例选项（带形状预览）═══ */
 const RATIOS = [
-  { key: '1:1', label: '1:1', usage: '淘宝/京东商品主图' },
-  { key: '3:4', label: '3:4', usage: '抖音/小红书竖版主图' },
-  { key: '4:3', label: '4:3', usage: '横版详情/PC端展示' },
-  { key: '9:16', label: '9:16', usage: '小红书种草竖图/手机全屏' },
-  { key: '16:9', label: '16:9', usage: '宽屏海报/Banner' },
+  { key: '1:1',  label: '1:1',  w: 18, h: 18, usage: '主图/白底' },
+  { key: '3:4',  label: '3:4',  w: 14, h: 18, usage: '竖版主图' },
+  { key: '4:3',  label: '4:3',  w: 18, h: 14, usage: '横版详情' },
+  { key: '9:16', label: '9:16', w: 10, h: 18, usage: '抖音/全屏' },
+  { key: '16:9', label: '16:9', w: 18, h: 10, usage: '宽屏Banner' },
+  { key: '2:3',  label: '2:3',  w: 12, h: 18, usage: '小红书竖图' },
+  { key: '21:9', label: '21:9', w: 21, h: 9,  usage: '超宽横条' },
 ];
+
+/* 比例形状预览图标 */
+function RatioShape({ w, h, active }) {
+  return (
+    <svg width={w+2} height={h+2} viewBox={`0 0 ${w+2} ${h+2}`} style={{ flexShrink: 0 }}>
+      <rect x={1} y={1} width={w} height={h} rx={2}
+        fill={active ? '#7c3aed' : 'none'}
+        stroke={active ? '#7c3aed' : 'rgba(0,0,0,0.35)'} strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+/* 内联比例选择器（替代原生 select）*/
+function RatioSelect({ value, onChange }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  const current = RATIOS.find(r => r.key === value) || RATIOS[0];
+
+  React.useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    setTimeout(() => window.addEventListener('mousedown', close), 0);
+    return () => window.removeEventListener('mousedown', close);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4, height: 26, padding: '0 7px',
+          borderRadius: 7, border: '1px solid rgba(0,0,0,0.14)', background: '#fff',
+          cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#1a1a1a', userSelect: 'none',
+        }}>
+        <RatioShape w={current.w} h={current.h} active={false} />
+        <span>{current.label}</span>
+        <svg width={8} height={8} viewBox="0 0 8 8"><path d="M1 2.5 L4 5.5 L7 2.5" stroke="#999" strokeWidth={1.5} fill="none" strokeLinecap="round"/></svg>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 30, right: 0, zIndex: 1000,
+          background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
+          borderRadius: 10, border: '1px solid rgba(0,0,0,0.10)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: '6px',
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, minWidth: 160,
+        }}>
+          {RATIOS.map(r => {
+            const sel = r.key === value;
+            return (
+              <div key={r.key} onClick={() => { onChange(r.key); setOpen(false); }}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  padding: '6px 4px', borderRadius: 7, cursor: 'pointer',
+                  background: sel ? 'rgba(124,58,237,0.08)' : 'transparent',
+                  border: `1px solid ${sel ? 'rgba(124,58,237,0.3)' : 'transparent'}`,
+                  transition: 'all 0.12s',
+                }}
+                onMouseEnter={e => { if (!sel) e.currentTarget.style.background='rgba(0,0,0,0.04)'; }}
+                onMouseLeave={e => { if (!sel) e.currentTarget.style.background='transparent'; }}>
+                <RatioShape w={r.w} h={r.h} active={sel} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: sel ? '#7c3aed' : '#555' }}>{r.label}</span>
+                <span style={{ fontSize: 9, color: '#aaa', textAlign: 'center', lineHeight: 1.2 }}>{r.usage}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ═══════ 平台推荐组合 ═══════ */
 const PLATFORM_PRESETS = {
@@ -223,16 +294,7 @@ export default function SizingPanel({
                         fontSize: 12, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
                         color: 'var(--text-primary)',
                       }} />
-                    <select value={activeItem.ratio}
-                      onChange={e => updateRatio(typeDef.key, e.target.value)}
-                      style={{
-                        height: 26, borderRadius: 6, padding: '0 4px',
-                        border: '1px solid rgba(0,0,0,0.12)', background: '#fff',
-                        fontSize: 11, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
-                        color: 'var(--text-primary)', cursor: 'pointer',
-                      }}>
-                      {RATIOS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
-                    </select>
+                    <RatioSelect value={activeItem.ratio} onChange={r => updateRatio(typeDef.key, r)} />
                   </div>
                 )}
               </div>

@@ -49,7 +49,7 @@ export default function TaskSidebar({ onOpenTask }) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{
-        position: 'fixed', left: 0, top: '50%', transform: 'translateY(-50%)',
+        position: 'fixed', left: 0, bottom: 80, top: 'auto', transform: 'none',
         zIndex: 999,
         width, height: hovered && hasTasks ? 'auto' : 'auto',
         maxHeight: hovered && hasTasks ? '70vh' : 'auto',
