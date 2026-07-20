@@ -1,4 +1,5 @@
 import React from 'react';
+import { Sparkles, Pencil } from 'lucide-react';
 
 const lbl = { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 };
 const inp = {
@@ -7,8 +8,10 @@ const inp = {
   color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function CopyPanel({ copywriting, onChange }) {
-  const setF = (key, val) => onChange({ ...copywriting, [key]: val });
+export default function CopyPanel({ copywriting, onChange, smartMode = true, onOverride }) {
+  const setF = (key, val) => { onChange({ ...copywriting, [key]: val }); onOverride?.(); };
+
+  const isCustomized = copywriting.plan || copywriting.sellingPoints || copywriting.qc || copywriting.details || copywriting.maintenance;
 
   const detailFields = [
     { key: 'plan', label: '📝 创意思路', ph: '整体策划方向、产品定位、目标人群...' },
@@ -19,20 +22,46 @@ export default function CopyPanel({ copywriting, onChange }) {
   ];
 
   return (
-    <div style={{ padding: '16px 20px 14px' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, letterSpacing: 0.3 }}>文案策划</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
-        {detailFields.map(f => (
-          <div key={f.key}>
-            <label style={{ ...lbl, fontSize: 11 }}>{f.label}</label>
-            <textarea value={copywriting[f.key] || ''} onChange={e => setF(f.key, e.target.value)}
-              placeholder={f.ph} rows={1}
-              style={{
-                ...inp, resize: 'vertical', lineHeight: 1.5,
-                padding: '6px 10px', minHeight: 42, fontSize: 12,
-              }} />
-          </div>
-        ))}
+    <div style={{ padding: 0 }}>
+      {/* ── 智能方案指示 ── */}
+      {smartMode && !isCustomized && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.04))',
+          borderBottom: '1px solid rgba(34,197,94,0.12)',
+          fontSize: 12, fontWeight: 600, color: '#16a34a',
+        }}>
+          <Sparkles size={14} />
+          <span>当前：已启用智能方案 · 系统自动匹配平台标题、卖点、详情文案风格</span>
+        </div>
+      )}
+      {isCustomized && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.03))',
+          borderBottom: '1px solid rgba(124,58,237,0.1)',
+          fontSize: 12, fontWeight: 600, color: '#7c3aed',
+        }}>
+          <Pencil size={14} />
+          <span>已自定义配置</span>
+        </div>
+      )}
+
+      <div style={{ padding: '14px 16px 12px' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10, letterSpacing: 0.3 }}>文案策划</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
+          {detailFields.map(f => (
+            <div key={f.key}>
+              <label style={{ ...lbl, fontSize: 11 }}>{f.label}</label>
+              <textarea value={copywriting[f.key] || ''} onChange={e => setF(f.key, e.target.value)}
+                placeholder={f.ph} rows={1}
+                style={{
+                  ...inp, resize: 'vertical', lineHeight: 1.5,
+                  padding: '6px 10px', minHeight: 42, fontSize: 12,
+                }} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
