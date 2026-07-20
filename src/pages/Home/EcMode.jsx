@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, LayoutGrid, Palette, Tag, ShoppingBag, PenLine, ChevronDown, Plus, ImagePlus } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import SizingPanel from './ec/SizingPanel';
@@ -20,13 +21,15 @@ const BTN_BASE = {
   whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
 };
 
-/* ═══════ 统一面板样式 ═══════ */
-const PANEL_STYLE = {
-  borderRadius: 16, background: '#fff',
-  boxShadow: '0 -8px 40px rgba(57,45,26,0.14), 0 -2px 12px rgba(57,45,26,0.08)',
-  border: '1px solid rgba(0,0,0,0.06)',
-  overflowY: 'auto',
-  animation: 'ecPanelSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1)',
+/* ═══════ 玻璃拟态面板样式 ═══════ */
+const GLASS_PANEL = {
+  borderRadius: 16,
+  background: 'rgba(255, 255, 255, 0.92)',
+  backdropFilter: 'blur(24px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+  border: '1px solid rgba(255, 255, 255, 0.8)',
+  boxShadow: '0 8px 40px rgba(0,0,0,0.10), 0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+  animation: 'ecGlassSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1)',
 };
 
 const WIDE_PANELS = ['sizing', 'style', 'sku'];
@@ -62,11 +65,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const [skus, setSkus] = useState([]);
   const [copywriting, setCopywriting] = useState({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
 
-  /* — 面板 — */
+  /* — 面板（Portal 定位用视口坐标）—— */
   const [activePanel, setActivePanel] = useState(null);
-  const [panelPos, setPanelPos] = useState({ left: 0, width: 0, bottom: 0, maxH: 440 });
+  const [panelPos, setPanelPos] = useState({ left: 0, top: 0, width: 0, maxH: 400 });
 
-  /* — SKU 初始化（修复 remount 丢失 bug）—— */
+  /* — SKU 初始化 —— */
   useEffect(() => {
     if (skus.length === 0) {
       setSkus([{ id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
@@ -75,7 +78,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   /* Esc 关闭 + 点击外部关闭 */
   useEffect(() => {
-    if (!activePanel) { document.body.style.overflow = ''; return; }
+    if (!activePanel) { return; }
     const handleKey = (e) => { if (e.key === 'Escape') setActivePanel(null); };
     const handleClick = (e) => {
       const panel = document.getElementById('ec-floating-panel');
@@ -84,11 +87,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       if (btnRow && btnRow.contains(e.target)) return;
       setActivePanel(null);
     };
-    document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', handleKey);
     setTimeout(() => window.addEventListener('mousedown', handleClick), 0);
     return () => {
-      document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKey);
       window.removeEventListener('mousedown', handleClick);
     };
@@ -107,7 +108,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   const canGen = productImages.length > 0 || description.trim().length > 0;
 
-  /* ── 下一步 → 跳转第二步 ── */
+  /* ── 下一步 ── */
   const handleNext = () => {
     if (!canGen) return;
     const effectiveSizing = (smartMode && !smartOverrides.sizing) ? { smart: true, images: [] } : sizing;
@@ -148,10 +149,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const toggleSmart = () => {
     const next = !smartMode;
     setSmartMode(next);
-    if (!next) {
-      // 关闭智能 → 保持当前面板值（用户手动配置）
-    } else {
-      // 开启智能 → 重置所有 override
+    if (next) {
       setSmartOverrides({ sizing: false, style: false, params: false, copy: false });
     }
   };
@@ -165,38 +163,83 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     { key: 'copy', label: '文案策划', icon: <PenLine size={15} /> },
   ];
 
-  /* ── 面板定位（向上吸附按钮行）── */
+  /* ── 面板定位（Portal 视口坐标，紧贴按钮正上方）── */
   const openPanel = useCallback((key) => {
     if (activePanel === key) { setActivePanel(null); return; }
     const el = btnRefs.current[key];
     const card = cardRef.current;
-    const btnRow = btnRowRef.current;
-    if (el && card && btnRow) {
-      const cardRect = card.getBoundingClientRect();
+    if (el && card) {
+      const vw = window.innerWidth;
       const btnRect = el.getBoundingClientRect();
-      const btnRowRect = btnRow.getBoundingClientRect();
-      const cardW = cardRect.width;
-      const maxPW = Math.min(cardW - 16, 580);
+      const cardRect = card.getBoundingClientRect();
+      const maxPW = Math.min(vw - 32, 580);
       const panelW = WIDE_PANELS.includes(key)
         ? maxPW
-        : Math.max(Math.min(btnRect.width + 40, maxPW), 360);
-      let panelLeft = WIDE_PANELS.includes(key)
-        ? (cardW - panelW) / 2
-        : btnRect.left - cardRect.left + btnRect.width / 2 - panelW / 2;
-      // 窄面板边缘修正
-      if (!WIDE_PANELS.includes(key)) {
-        if (panelLeft + panelW > cardW - 8) panelLeft = cardW - panelW - 8;
-        if (panelLeft < 8) panelLeft = 8;
+        : Math.max(Math.min(btnRect.width + 40, maxPW), 340);
+      let panelLeft;
+      if (WIDE_PANELS.includes(key)) {
+        // 宽面板：居中于卡片
+        panelLeft = cardRect.left + cardRect.width / 2 - panelW / 2;
+      } else {
+        // 窄面板：左对齐按钮
+        panelLeft = btnRect.left + btnRect.width / 2 - panelW / 2;
       }
-      // 面板从按钮行上方展开（向上）
-      const btnRowTopInCard = btnRowRect.top - cardRect.top;
-      const availableAbove = btnRowTopInCard - 10;
-      const panelBottom = cardRect.height - btnRowTopInCard + 6;
-      const maxPanelH = Math.min(440, Math.max(200, availableAbove));
-      setPanelPos({ left: panelLeft, width: panelW, bottom: panelBottom, maxH: maxPanelH });
+      // 边缘修正
+      if (panelLeft < 16) panelLeft = 16;
+      if (panelLeft + panelW > vw - 16) panelLeft = vw - panelW - 16;
+      // 面板紧贴按钮上方（面板底部 = 按钮顶部 - 8px间距）
+      const panelTop = btnRect.top - 8;
+      // 最大高度 = 按钮上方空间 - 16px边距
+      const maxH = Math.max(200, btnRect.top - 16);
+      setPanelPos({ left: panelLeft, top: panelTop, width: panelW, maxH });
     }
     setActivePanel(key);
   }, [activePanel]);
+
+  /* ── Portal 渲染面板 ── */
+  const renderPanel = () => {
+    if (!activePanel) return null;
+    return createPortal(
+      <div id="ec-floating-panel" style={{
+        ...GLASS_PANEL,
+        position: 'fixed',
+        top: panelPos.top,
+        left: panelPos.left,
+        width: panelPos.width,
+        maxHeight: panelPos.maxH,
+        overflowY: 'auto',
+        zIndex: 9999,
+        transformOrigin: 'bottom center',
+      }}>
+        {activePanel === 'sizing' && (
+          <SizingPanel
+            platform={platform} onPlatformChange={setPlatform}
+            sizing={sizing} onSizingChange={setSizing}
+            smartMode={smartMode} onOverride={() => handleOverride('sizing')}
+          />
+        )}
+        {activePanel === 'style' && (
+          <StylePanel
+            value={styleSkill} onChange={setStyleSkill}
+            customColors={customColors} onColorsChange={setCustomColors}
+            smartMode={smartMode} onOverride={() => handleOverride('style')}
+          />
+        )}
+        {activePanel === 'params' && (
+          <ParamsPanel params={productParams} onChange={setProductParams}
+            smartMode={smartMode} onOverride={() => handleOverride('params')} />
+        )}
+        {activePanel === 'sku' && (
+          <SkuPanel skus={skus} onChange={setSkus} />
+        )}
+        {activePanel === 'copy' && (
+          <CopyPanel copywriting={copywriting} onChange={setCopywriting}
+            smartMode={smartMode} onOverride={() => handleOverride('copy')} />
+        )}
+      </div>,
+      document.body
+    );
+  };
 
   return (
     <div>
@@ -352,12 +395,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             return (
               <div key={btn.key} ref={el => { if (el) btnRefs.current[btn.key] = el; }}
                 onClick={() => openPanel(btn.key)}
+                className={isOverridden ? 'ec-btn-overridden' : ''}
                 style={{
                   ...BTN_BASE,
-                  // 黑边 = 智能方案下有人工干预
                   borderColor: isOverridden ? '#1a1a1a' : 'transparent',
                   borderStyle: 'solid',
-                  // 打开状态 = 轻微背景高亮
                   background: isOpen ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)',
                   position: 'relative',
                 }}
@@ -365,6 +407,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}>
                 <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{btn.icon}</span>
                 <span>{btn.label}</span>
+                {isOverridden && <span className="ec-override-dot" />}
                 <ChevronDown size={13} style={{
                   opacity: 0.5,
                   transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -392,46 +435,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             下一步 <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
           </button>
         </div>
-
-        {/* ═══ 悬浮配置面板（向上吸附按钮行）═══ */}
-        {activePanel && (
-          <div id="ec-floating-panel" style={{
-            ...PANEL_STYLE,
-            position: 'absolute',
-            bottom: panelPos.bottom,
-            left: panelPos.left,
-            width: panelPos.width,
-            maxHeight: panelPos.maxH,
-            zIndex: 20,
-          }}>
-            {activePanel === 'sizing' && (
-              <SizingPanel
-                platform={platform} onPlatformChange={setPlatform}
-                sizing={sizing} onSizingChange={setSizing}
-                smartMode={smartMode} onOverride={() => handleOverride('sizing')}
-              />
-            )}
-            {activePanel === 'style' && (
-              <StylePanel
-                value={styleSkill} onChange={setStyleSkill}
-                customColors={customColors} onColorsChange={setCustomColors}
-                smartMode={smartMode} onOverride={() => handleOverride('style')}
-              />
-            )}
-            {activePanel === 'params' && (
-              <ParamsPanel params={productParams} onChange={setProductParams}
-                smartMode={smartMode} onOverride={() => handleOverride('params')} />
-            )}
-            {activePanel === 'sku' && (
-              <SkuPanel skus={skus} onChange={setSkus} />
-            )}
-            {activePanel === 'copy' && (
-              <CopyPanel copywriting={copywriting} onChange={setCopywriting}
-                smartMode={smartMode} onOverride={() => handleOverride('copy')} />
-            )}
-          </div>
-        )}
       </div>
+
+      {/* ═══ 玻璃拟态面板（Portal → body 层）═══ */}
+      {renderPanel()}
     </div>
   );
 }

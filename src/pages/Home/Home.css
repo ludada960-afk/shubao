@@ -1803,6 +1803,29 @@
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes ecGlassSlideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* 按钮呼吸光环：已修改配置的标记 */
+.ec-btn-overridden {
+  box-shadow: 0 0 0 0 rgba(26,26,26,0.25);
+  animation: ecBreathRing 2.4s ease-in-out infinite;
+}
+@keyframes ecBreathRing {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(26,26,26,0.2); }
+  50% { box-shadow: 0 0 0 3px rgba(26,26,26,0.08); }
+}
+/* 按钮右上角覆盖标记圆点 */
+.ec-override-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #1a1a1a; flex-shrink: 0;
+  animation: ecDotPulse 2s ease-in-out infinite;
+}
+@keyframes ecDotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 .ec-panel-float::-webkit-scrollbar { width: 4px; }
 .ec-panel-float::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
 
