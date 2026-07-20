@@ -24,10 +24,10 @@ const BTN_ACTIVE = { ...BTN_BASE, background: '#1a1a1a', color: '#fff', borderCo
 /* ═══════ 统一面板样式 ═══════ */
 const PANEL_STYLE = {
   borderRadius: 16, background: '#fff',
-  boxShadow: '0 12px 48px rgba(57,45,26,0.14), 0 4px 16px rgba(57,45,26,0.08)',
+  boxShadow: '0 -8px 40px rgba(57,45,26,0.14), 0 -2px 12px rgba(57,45,26,0.08)',
   border: '1px solid rgba(0,0,0,0.06)',
   overflowY: 'auto',
-  animation: 'ecPanelSlideDown 0.22s cubic-bezier(0.22, 1, 0.36, 1)',
+  animation: 'ecPanelSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1)',
 };
 
 const WIDE_PANELS = ['sizing', 'style', 'sku'];
@@ -65,7 +65,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   /* — 面板 — */
   const [activePanel, setActivePanel] = useState(null);
-  const [panelPos, setPanelPos] = useState({ left: 0, width: 0, top: 0 });
+  const [panelPos, setPanelPos] = useState({ left: 0, width: 0, bottom: 0, maxH: 440 });
 
   /* — SKU 初始化（修复 remount 丢失 bug）—— */
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     { key: 'copy', label: '文案策划', icon: <PenLine size={15} /> },
   ];
 
-  /* ── 面板定位（向下吸附）── */
+  /* ── 面板定位（向上吸附按钮行）── */
   const openPanel = useCallback((key) => {
     if (activePanel === key) { setActivePanel(null); return; }
     const el = btnRefs.current[key];
@@ -183,14 +183,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         : Math.max(Math.min(btnRect.width + 40, maxPW), 360);
       let panelLeft = WIDE_PANELS.includes(key)
         ? (cardW - panelW) / 2
-        : btnRect.left - cardRect.left;
+        : btnRect.left - cardRect.left + btnRect.width / 2 - panelW / 2;
+      // 窄面板边缘修正
       if (!WIDE_PANELS.includes(key)) {
         if (panelLeft + panelW > cardW - 8) panelLeft = cardW - panelW - 8;
         if (panelLeft < 8) panelLeft = 8;
       }
-      // 面板从按钮行下方展开
-      const panelTop = btnRowRect.bottom - cardRect.top + 6;
-      setPanelPos({ left: panelLeft, width: panelW, top: panelTop });
+      // 面板从按钮行上方展开（向上）
+      const btnRowTopInCard = btnRowRect.top - cardRect.top;
+      const availableAbove = btnRowTopInCard - 10;
+      const panelBottom = cardRect.height - btnRowTopInCard + 6;
+      const maxPanelH = Math.min(440, Math.max(200, availableAbove));
+      setPanelPos({ left: panelLeft, width: panelW, bottom: panelBottom, maxH: maxPanelH });
     }
     setActivePanel(key);
   }, [activePanel]);
@@ -393,15 +397,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           </button>
         </div>
 
-        {/* ═══ 悬浮配置面板（向下吸附）═══ */}
+        {/* ═══ 悬浮配置面板（向上吸附按钮行）═══ */}
         {activePanel && (
           <div id="ec-floating-panel" style={{
             ...PANEL_STYLE,
             position: 'absolute',
-            top: panelPos.top,
+            bottom: panelPos.bottom,
             left: panelPos.left,
             width: panelPos.width,
-            maxHeight: 440,
+            maxHeight: panelPos.maxH,
             zIndex: 20,
           }}>
             {activePanel === 'sizing' && (
