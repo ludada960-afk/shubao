@@ -14,13 +14,29 @@ const saveWorksToStorage = (works) => {
   try { localStorage.setItem(WORKS_KEY, JSON.stringify(works)); } catch {}
 };
 
-/* ═══════ 标签映射 ═══════ */
+/* ═══════ 标签映射（含类型+尺寸信息）═══ */
 const LABEL_MAP = {
-  white_bg: '白底图', main_text: '主图', main_3x4: '3:4主图',
-  transparent: '透明PNG', sku: 'SKU规格图',
-  detail_slice_size: '尺寸标注', detail_slice_scene: '场景拍摄',
-  detail_slice_qc: '质检报告', detail_slice_compare: '优势对比',
-  detail_slice_feature: '细节功能', detail_slice_care: '保养维护',
+  white_bg: { title: '白底图', group: '主图', ratio: '1:1', desc: '纯白底·无文字·首图必选' },
+  main_text: { title: '主图 1:1', group: '主图', ratio: '1:1', desc: '白底+促销文案·卖点展示' },
+  main_3x4: { title: '主图 3:4', group: '主图', ratio: '3:4', desc: '竖版多角度·移动端优先' },
+  transparent: { title: '透明PNG', group: '素材', ratio: '1:1', desc: '去底透明·二次设计用' },
+  sku: { title: 'SKU规格图', group: '规格', ratio: '1:1', desc: '变体颜色/规格展示' },
+  detail_slice_size: { title: '尺寸标注', group: '详情', ratio: '3:4', desc: '引线标注产品尺寸' },
+  detail_slice_scene: { title: '场景拍摄', group: '详情', ratio: '3:4', desc: '真实使用环境展示' },
+  detail_slice_qc: { title: '质检报告', group: '详情', ratio: '3:4', desc: '合格证/检测信息' },
+  detail_slice_compare: { title: '优势对比', group: '详情', ratio: '3:4', desc: 'vs同款差异化对比' },
+  detail_slice_feature: { title: '细节功能', group: '详情', ratio: '3:4', desc: '功能点callout标注' },
+  detail_slice_care: { title: '保养维护', group: '详情', ratio: '3:4', desc: '使用保养说明' },
+};
+
+/* ═══════ 平台尺寸映射 ═════ PLATFORM_SIZES */
+const PLATFORM_SIZES = {
+  '淘宝': { '1:1': '1440×1440', '3:4': '1440×1920' },
+  '京东': { '1:1': '1440×1440', '3:4': '1440×1920' },
+  '拼多多': { '1:1': '1440×1440', '3:4': '1440×1920' },
+  '小红书': { '1:1': '1440×1440', '3:4': '1440×1920' },
+  '抖音': { '1:1': '1440×1440', '3:4': '1440×1920' },
+  '亚马逊': { '1:1': '1000×1000', '3:4': '1500×2000' },
 };
 
 /* ═══════ EcCanvas — 无限画布工作台 + 作品管理 ═══════ */
@@ -34,12 +50,23 @@ export default function EcCanvas() {
   const [pastWorks, setPastWorks] = useState([]);
 
   // 从 result.images 提取所有图片
-  const imageList = Object.entries(images).map(([label, url], i) => ({
-    label,
-    url,
-    title: LABEL_MAP[label.replace(/_\d+$/, '')] || label,
-    index: i,
-  }));
+  const imageList = Object.entries(images).map(([label, url], i) => {
+    const baseKey = label.replace(/_\d+$/, '');
+    const info = LABEL_MAP[baseKey] || { title: label, group: '其他', ratio: '1:1', desc: '' };
+    const platform = result.platform || '淘宝';
+    const size = (PLATFORM_SIZES[platform] || PLATFORM_SIZES['淘宝'])[info.ratio] || '1440×1440';
+    return {
+      label,
+      url,
+      title: info.title,
+      group: info.group,
+      ratio: info.ratio,
+      size,
+      desc: info.desc,
+      displayLabel: info.title + (label !== baseKey ? ` ${label.replace(baseKey, '')}` : ''),
+      index: i,
+    };
+  });
 
   // 加载历史作品
   useEffect(() => { setPastWorks(loadWorks()); }, []);
@@ -51,7 +78,7 @@ export default function EcCanvas() {
       const newWork = {
         id: Date.now(),
         name: result.product_name || '未命名产品',
-        images: imageList.map(img => ({ url: img.url, key: img.label, label: img.title })),
+        images: imageList.map(img => ({ url: img.url, key: img.label, label: img.displayLabel, group: img.group, ratio: img.ratio, size: img.size })),
         createdAt: new Date().toISOString(),
       };
       // 避免重复保存（5秒内相同名称）
@@ -131,7 +158,7 @@ export default function EcCanvas() {
           type: 'text',
           x,
           y: y + CARD_W + 8,
-          props: { text: img.title, size: 's', font: 'draw', color: 'black' },
+          props: { text: `${img.group} · ${img.displayLabel} · ${img.size}`, size: 's', font: 'draw', color: 'black' },
         }]);
       });
 

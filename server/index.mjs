@@ -386,6 +386,21 @@ async function generateImage(prompt, category, isCover, jkContext, customSize, r
   return await callImageAPI(finalPrompt, customSize, refImageBase64);
 }
 
+// ── 电商专用生图（不加小红书前缀，按图片角色选尺寸）──
+async function generateECImage(prompt, roleKey, platform, refImageBase64) {
+  // 根据图片角色确定尺寸
+  const baseKey = (roleKey || '').replace(/_\d+$/, '');
+  const role = IMAGE_ROLES[baseKey];
+  const ratio = role?.ratio || '1:1';
+  const platformSizes = PLATFORM_SIZES[platform] || PLATFORM_SIZES['淘宝'];
+  const sizeStr = platformSizes[ratio] || '1440×1440px';
+  // API 格式: "1440x1440"
+  const apiSize = sizeStr.replace('×', 'x').replace('px', '');
+
+  console.log(`[ec-img] role=${baseKey} ratio=${ratio} platform=${platform} size=${apiSize}`);
+  return await callImageAPI(prompt, apiSize, refImageBase64);
+}
+
 // Ref: 参考图 base64，传给 GPT-Image-2 做视觉参考
 async function callImageAPI(fullPrompt, customSize, refImageBase64) {
   const url = `${IMG_BASE}/v1/images/generations`;
@@ -2790,10 +2805,22 @@ app.post('/api/generate-ecommerce', async (req, res) => {
 
   // 构建图片角色列表：image_selections 或默认套
   const expandedImages = [];
+  // 前端 detail → 后端 6 种 detail_slice_* 映射
+  const DETAIL_SLICE_KEYS = ['detail_slice_size', 'detail_slice_scene', 'detail_slice_qc', 'detail_slice_compare', 'detail_slice_feature', 'detail_slice_care'];
+
   if (image_selections?.length > 0) {
     for (const sel of image_selections) {
-      const key = sel.key;
+      let key = sel.key;
       const roleObj = IMAGE_ROLES[key.replace(/_\d+$/, '')];
+      // 前端 'detail' → 展开为 6 种切片
+      if (key === 'detail') {
+        const count = Math.min(sel.count || 6, DETAIL_SLICE_KEYS.length);
+        for (let i = 0; i < count; i++) {
+          const sliceKey = DETAIL_SLICE_KEYS[i];
+          expandedImages.push({ key: sliceKey, baseKey: sliceKey, label: sliceKey, ratio: IMAGE_ROLES[sliceKey]?.ratio || '3:4' });
+        }
+        continue;
+      }
       if (key === 'sku' && Array.isArray(skus) && skus.length) {
         // SKU 按 skus 行展开
         skus.forEach((variant, i) => {
@@ -2908,7 +2935,7 @@ app.post('/api/generate-ecommerce', async (req, res) => {
           styleSkill: style_skill,
         }) + contextSuffix;
         try {
-          const url = await generateImage(prompt, category || '其他', false, null, customSizeStr, refImageBase64);
+          const url = await generateECImage(prompt, img.baseKey || img.key, platform || '淘宝', refImageBase64);
           if (url) {
             imgResults[idx] = { label: img.label, url };
             images[img.label] = url;
