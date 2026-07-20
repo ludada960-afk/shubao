@@ -106,20 +106,42 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   const canGen = productImages.length > 0 || description.trim().length > 0;
 
+  /* ── blob URL → base64 data URL（外部API需要）── */
+  const blobToBase64 = (blobUrl) => new Promise((resolve) => {
+    fetch(blobUrl).then(r => r.blob()).then(blob => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    }).catch(() => resolve(blobUrl));
+  });
+
+  const imageToBase64 = async (imgs) => {
+    const results = [];
+    for (const img of imgs) {
+      if (img.url.startsWith('data:')) results.push(img.url);
+      else if (img.url.startsWith('blob:')) results.push(await blobToBase64(img.url));
+      else results.push(img.url);
+    }
+    return results;
+  };
+
   /* ── 下一步 ── */
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!canGen) return;
     const effectiveSizing = (smartMode && !smartOverrides.sizing) ? { smart: true, images: [] } : sizing;
     const effectiveStyle = (smartMode && !smartOverrides.style) ? 'smart' : styleSkill;
     const effectiveParams = (smartMode && !smartOverrides.params) ? productParams : productParams;
     const effectiveCopy = (smartMode && !smartOverrides.copy) ? copywriting : copywriting;
 
+    const realShots = await imageToBase64(productImages);
+    const refShots = await imageToBase64(refImages);
+
     onStepChange?.({
       productName: description.trim() || '商品',
       description: description.trim(),
       category: effectiveParams.category || '其他',
-      realShots: productImages.map(img => img.url),
-      refShots: refImages.map(img => img.url),
+      realShots,
+      refShots,
       platform,
       sizing: effectiveSizing,
       styleSkill: effectiveStyle,
