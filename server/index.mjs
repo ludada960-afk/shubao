@@ -292,6 +292,7 @@ async function callMiniLLM(systemPrompt, imageUrl, userPrompt) {
 
 /**
  * 分析参考图 — 用 GPT-4o mini Vision 提取风格/颜色/光线/材质
+ * 支持分批分析大量图片（每批最多5张），最终合并结果
  * @param {string[]} imageUrls - 参考图 URL 或 data URL
  * @returns {Promise<Object>} 分析结果
  */
@@ -310,15 +311,47 @@ async function analyzeReferenceImages(imageUrls) {
   "key_visual_elements": ["关键视觉元素1", "元素2", ...]
 }
 多看几张图，综合提取共通的视觉特征。如果有多张图，统一描述它们的共性。`
+
+  const BATCH_SIZE = 5; // 每批最多5张（API限制）
+  const batches = [];
+  for (let i = 0; i < imageUrls.length; i += BATCH_SIZE) {
+    batches.push(imageUrls.slice(i, i + BATCH_SIZE));
+  }
+
   try {
-    // 传所有参考图（最多 5 张）一次分析，比逐张分析更省钱且能看到共性
-    const maxImages = Math.min(imageUrls.length, 5);
-    const imagesToAnalyze = imageUrls.slice(0, maxImages);
-    const result = await callMiniLLM(systemPrompt, imagesToAnalyze,
-      `综合这些商品图片的视觉特征，输出统一的视觉报告 JSON。`);
-    const match = result.match(/\{[^]*\}/);
-    if (match) return JSON.parse(match[0]);
-    return null;
+    if (batches.length === 1) {
+      // 单批：直接分析
+      const result = await callMiniLLM(systemPrompt, batches[0],
+        `综合这些商品图片的视觉特征，输出统一的视觉报告 JSON。共 ${batches[0].length} 张。`);
+      const match = result.match(/\{[^]*\}/);
+      if (match) return JSON.parse(match[0]);
+      return null;
+    }
+
+    // 多批：分批分析后合并
+    const batchResults = [];
+    for (let i = 0; i < batches.length; i++) {
+      try {
+        const r = await callMiniLLM(systemPrompt, batches[i],
+          `分析第 ${i+1}/${batches.length} 批图片（共 ${batches[i].length} 张），输出视觉报告 JSON。`);
+        const m = r.match(/\{[^]*\}/);
+        if (m) batchResults.push(JSON.parse(m[0]));
+      } catch (e) { /* 单批失败不中断 */ }
+    }
+    if (!batchResults.length) return null;
+    if (batchResults.length === 1) return batchResults[0];
+
+    // 合并多批：取最频繁的 style_vibe，合并 dominant_colors 去重
+    const merged = batchResults[0];
+    const allColors = new Set(merged.dominant_colors || []);
+    const allElements = new Set(merged.key_visual_elements || []);
+    for (const r of batchResults.slice(1)) {
+      (r.dominant_colors || []).forEach(c => allColors.add(c));
+      (r.key_visual_elements || []).forEach(e => allElements.add(e));
+    }
+    merged.dominant_colors = [...allColors].slice(0, 6);
+    merged.key_visual_elements = [...allElements].slice(0, 8);
+    return merged;
   } catch (e) {
     console.warn('[Vision] 分析失败:', e.message);
     return null;
@@ -2652,10 +2685,11 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
     return res.status(400).json({ error: '请至少填写产品名称或上传产品图' });
   }
 
-  // 将相对路径 URL 转为 base64（临时上传的图片）
+  // 将相对路径 URL 转为 base64（临时上传的图片），不设数量上限
   const resolveImages = async (imgs) => {
     const resolved = [];
-    for (const u of (imgs || []).slice(0, 6)) {
+    for (const u of (imgs || [])) {
+      if (!u || typeof u !== 'string') continue;
       if (u.startsWith('data:') || u.startsWith('http')) { resolved.push(u); continue; }
       // 相对路径：读文件转 base64
       try {
@@ -2674,16 +2708,18 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
     const resolvedReal = await resolveImages(real_shots);
     const resolvedRef = await resolveImages(ref_shots);
 
-    // 1) VLM 分析产品实拍图
+    // 1) VLM 分析产品实拍图（全量，analyzeReferenceImages 内部自动分批）
     let productVision = null;
     if (resolvedReal.length) {
-      productVision = await analyzeReferenceImages(resolvedReal.slice(0, 5));
+      console.log(`[design-dir] VLM 分析产品图 ${resolvedReal.length} 张...`);
+      productVision = await analyzeReferenceImages(resolvedReal);
     }
 
-    // 2) VLM 分析参考图
+    // 2) VLM 分析参考图（全量）
     let refVision = null;
     if (resolvedRef.length) {
-      refVision = await analyzeReferenceImages(resolvedRef.slice(0, 5));
+      console.log(`[design-dir] VLM 分析参考图 ${resolvedRef.length} 张...`);
+      refVision = await analyzeReferenceImages(resolvedRef);
     }
 
     // 3) 构建 LLM prompt 生成设计方向
@@ -2802,6 +2838,24 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
   } catch (e) {
     console.warn('[design-directions] 失败:', e.message);
     res.status(500).json({ error: '设计方向生成失败：' + (e.message || '') });
+  }
+});
+
+// ============================================================
+// AI 润色电商文案（供第二步「补充描述」使用）
+// ============================================================
+app.post('/api/polish-ec-text', async (req, res) => {
+  const { text, product_name, category } = req.body || {};
+  if (!text?.trim()) return res.status(400).json({ error: '请输入需要润色的文案' });
+
+  const sys = `你是资深电商策划文案。将用户提供的产品描述/需求，润色为专业的电商生图 prompt 关键词组合，保留核心需求，补充光影、材质、风格、平台规格等专业维度，让 AI 出图更精准。直接输出润色后的文案，不要解释，不要标题，不超过 150 字。`;
+  const userMsg = `产品：${product_name || '未知'}，品类：${category || '其他'}\n原始描述：${text}`;
+
+  try {
+    const result = await callMiniLLM(sys, [], userMsg);
+    res.json({ polished: (result || '').trim() });
+  } catch (e) {
+    res.status(500).json({ error: '润色失败：' + e.message });
   }
 });
 
@@ -2981,21 +3035,22 @@ app.post('/api/generate-ecommerce', async (req, res) => {
     return null;
   };
 
-  // 参考图：分析 + 准备视觉输入
+  // 参考图：全量分析 + 准备视觉输入（不再截断6张）
   let refImageBase64 = null;
   if (reference_images?.length > 0) {
-    send('progress', { step: 'vision', msg: '正在分析参考图...' });
+    send('progress', { step: 'vision', msg: `正在分析 ${reference_images.length} 张参考图...` });
     try {
-      // 解析所有参考图 URL
+      // 解析所有参考图 URL（无数量上限）
       const resolvedRefs = [];
-      for (const u of reference_images.slice(0, 6)) {
+      for (const u of reference_images) {
         const resolved = await resolveImgUrl(u);
         if (resolved) resolvedRefs.push(resolved);
       }
-      console.log(`[ec-gen] Vision 分析 ${resolvedRefs.length} 张参考图...`);
+      console.log(`[ec-gen] Vision 全量分析 ${resolvedRefs.length} 张参考图（分批处理）...`);
+      // analyzeReferenceImages 内部自动分批，全量处理
       const vision = await analyzeReferenceImages(resolvedRefs);
       if (vision) {
-        const visionNote = `\n\nREFERENCE IMAGE ANALYSIS:\n` +
+        const visionNote = `\n\nREFERENCE IMAGE ANALYSIS (from ${resolvedRefs.length} images):\n` +
           `- Product shape: ${vision.product_shape || 'N/A'}\n` +
           `- Colors: ${vision.dominant_colors?.join(', ') || 'N/A'}\n` +
           `- Style: ${vision.style_vibe || 'N/A'}\n` +
@@ -3004,10 +3059,12 @@ app.post('/api/generate-ecommerce', async (req, res) => {
           `- Material: ${vision.material_texture || 'N/A'}\n` +
           `- Composition: ${vision.composition || 'N/A'}\n` +
           `- Color temperature: ${vision.color_temperature || 'N/A'}\n` +
-          `Apply these visual references to maintain consistency with the reference images.`;
+          `- Key elements: ${vision.key_visual_elements?.join(', ') || 'N/A'}\n` +
+          `Apply these visual references strictly to maintain brand consistency.`;
         contextSuffix += visionNote;
-        console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}`);
+        console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}, ${resolvedRefs.length} 张`);
       }
+      // 传入最具代表性的参考图作为图像输入
       refImageBase64 = resolvedRefs[0] || null;
     } catch (e) {
       console.warn('[ec-gen] 参考图处理失败（不阻断）:', e.message);

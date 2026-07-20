@@ -404,3 +404,15 @@ export async function autoGenerate({ platform, input, refImages }) {
   return res.json();
 }
 
+
+
+/* ── EC 文案 AI 润色 ── */
+export async function polishECText({ text, product_name, category }) {
+  const res = await fetch(`${API_BASE}/api/polish-ec-text`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, product_name, category }),
+  });
+  if (!res.ok) throw new Error('润色失败');
+  return res.json();
+}

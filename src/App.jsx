@@ -28,10 +28,12 @@ function SideNav() {
 
   const items = [
     { icon: <MdHome size={20} />, label: '首页', page: 'home', active: page === 'home' },
-    { icon: <MdAdd size={20} />, label: '新建', page: 'ec-canvas', active: false, accent: true,
-      onClick: () => { dispatch({ type: 'CLOSE_RESULT' }); dispatch({ type: 'NAVIGATE', page: 'ec-canvas' }); } },
-    { icon: <MdFolder size={20} />, label: '作品', page: 'works', active: page === 'works' || page === 'ec-canvas' },
-    ...(hasResult ? [{ icon: <MdGridOn size={20} />, label: '画布', page: 'ec-canvas', active: page === 'ec-canvas' }] : []),
+    { icon: <MdAdd size={20} />, label: '新建', accent: true,
+      onClick: () => { dispatch({ type: 'CLOSE_RESULT' }); dispatch({ type: 'NAVIGATE', page: 'home' }); dispatch({ type: 'SET_MODE', mode: 'ecommerce' }); } },
+    { icon: <MdGridOn size={20} />, label: '画布', active: page === 'ec-canvas',
+      onClick: () => dispatch({ type: 'NAVIGATE', page: 'ec-canvas' }) },
+    { icon: <MdFolder size={20} />, label: '作品', active: page === 'works',
+      onClick: () => dispatch({ type: 'NAVIGATE', page: 'works' }) },
   ];
 
   return (
@@ -98,19 +100,19 @@ function TopBar() {
         {/* Right: 按钮组 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* 我的作品 */}
-          <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'works' })}
+          <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-canvas' })}
             style={{
               display: 'flex', alignItems: 'center', gap: 8, height: 44,
               padding: '0 14px', border: 'none', borderRadius: 'var(--radius-full)',
-              background: page === 'works' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)',
-              fontSize: 13, fontWeight: page === 'works' ? 900 : 500,
-              color: page === 'works' ? 'var(--accent)' : 'var(--text-muted)',
+              background: page === 'ec-canvas' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)',
+              fontSize: 13, fontWeight: page === 'ec-canvas' ? 900 : 500,
+              color: page === 'ec-canvas' ? 'var(--accent)' : 'var(--text-muted)',
               cursor: 'pointer', fontFamily: 'inherit',
               backdropFilter: 'blur(8px)',
               transition: 'all 0.12s', whiteSpace: 'nowrap',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(57,45,26,0.08)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = page === 'works' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)'; e.currentTarget.style.boxShadow = 'none'; }}>
+            onMouseLeave={e => { e.currentTarget.style.background = page === 'ec-canvas' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)'; e.currentTarget.style.boxShadow = 'none'; }}>
             <MdDashboard size={16} />
             <span style={{ display: 'none' }} className="topbar-works-label">我的作品</span>
             <style>{`@media (min-width: 640px) { .topbar-works-label { display: inline !important; } }`}</style>

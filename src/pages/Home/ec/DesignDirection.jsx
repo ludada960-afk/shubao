@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MdAutoAwesome, MdArrowBack, MdRefresh, MdCheck } from 'react-icons/md';
-import { getDesignDirections, generateEcommerce, saveWork } from '../../../services/api';
+import { MdAutoAwesome, MdArrowBack, MdRefresh, MdCheck, MdAddPhotoAlternate } from 'react-icons/md';
+import { getDesignDirections, generateEcommerce, saveWork, polishECText } from '../../../services/api';
 import { useApp } from '../../../store/AppContext';
 
 /* ═══════ 设计方向确认页（三段式第二步）═══ */
@@ -13,9 +13,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [polishing, setPolishing] = useState(false);
 
   // 补充输入
   const [extraDesc, setExtraDesc] = useState(params?.description || '');
+  // 补充上传图片
+  const [extraImages, setExtraImages] = useState([]);
+  const extraImgRef = useRef(null);
 
   useEffect(() => {
     loadDirections();
@@ -26,16 +30,25 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setError('');
     setLoadStage(0);
     try {
-      // 模拟阶段进度
       const timer1 = setTimeout(() => setLoadStage(1), 2000);
       const timer2 = setTimeout(() => setLoadStage(2), 4000);
 
+      // 补充图片转 base64 并合并到 ref_shots
+      const extraBase64 = (await Promise.all(extraImages.map(img => new Promise(resolve => {
+        if (img.url.startsWith('data:')) { resolve(img.url); return; }
+        fetch(img.url).then(r => r.blob()).then(blob => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        }).catch(() => resolve(null));
+      })))).filter(Boolean);
+
       const res = await getDesignDirections({
         product_name: params?.productName || params?.description?.slice(0, 20) || '商品',
-        description: params?.description || '',
+        description: extraDesc || params?.description || '',
         category: params?.category || '其他',
         real_shots: params?.realShots || [],
-        ref_shots: params?.refShots || [],
+        ref_shots: [...(params?.refShots || []), ...extraBase64],
         platform: params?.platform || 'smart',
         style_skill: params?.styleSkill || 'smart',
         product_params: params?.productParams || {},
@@ -54,6 +67,23 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       setError(e.message || '加载失败');
     }
     setLoading(false);
+  };
+
+  /* ── AI 润色文案 ── */
+  const handlePolish = async () => {
+    if (!extraDesc.trim() || polishing) return;
+    setPolishing(true);
+    try {
+      const result = await polishECText({ text: extraDesc, product_name: params?.productName || '商品', category: params?.category || '其他' });
+      if (result?.polished) setExtraDesc(result.polished);
+    } catch (e) { console.warn('[polish]', e.message); }
+    setPolishing(false);
+  };
+
+  /* ── 补充图片上传 ── */
+  const handleExtraImgUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    setExtraImages(prev => [...prev, ...files.map(f => ({ url: URL.createObjectURL(f), file: f }))]);
   };
 
   /* ── 确认方向 → 生成 ── */
@@ -273,15 +303,58 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               border: '1px solid rgba(0,0,0,0.06)',
               marginBottom: 20,
             }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 10 }}>补充调整</div>
-              <textarea value={extraDesc} onChange={e => setExtraDesc(e.target.value)}
-                placeholder="补充描述、修改需求…AI 会根据你的调整重新优化方向"
-                style={{
-                  width: '100%', minHeight: 60, padding: '10px 14px', borderRadius: 10,
-                  border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.01)',
-                  fontSize: 13, lineHeight: 1.6, color: '#1a1a1a',
-                  outline: 'none', resize: 'vertical', fontFamily: 'inherit',
-                }} />
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>补充调整</div>
+
+              {/* 补充上传图片 */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#888', marginBottom: 8 }}>
+                  补充参考图 <span style={{ fontWeight: 400 }}>· 追加产品图或竞品图，AI 重新优化方向</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {extraImages.map((img, i) => (
+                    <div key={i} style={{ position: 'relative' }}>
+                      <img src={img.url} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)' }} />
+                      <div onClick={() => setExtraImages(prev => prev.filter((_, idx) => idx !== i))}
+                        style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, cursor: 'pointer' }}>×</div>
+                    </div>
+                  ))}
+                  <div onClick={() => extraImgRef.current?.click()}
+                    style={{ width: 56, height: 56, borderRadius: 8, border: '2px dashed rgba(0,0,0,0.12)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', transition: 'all 0.15s', background: '#fafafa' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)'; e.currentTarget.style.background = '#fafafa'; }}>
+                    <MdAddPhotoAlternate size={16} style={{ color: '#aaa' }} />
+                    <span style={{ fontSize: 8, color: '#bbb', fontWeight: 600 }}>添加图片</span>
+                  </div>
+                  <input ref={extraImgRef} type="file" accept="image/*" multiple hidden onChange={handleExtraImgUpload} />
+                </div>
+              </div>
+
+              {/* 补充描述 + AI 润色 */}
+              <div style={{ position: 'relative' }}>
+                <textarea value={extraDesc} onChange={e => setExtraDesc(e.target.value)}
+                  placeholder="补充描述或修改需求…AI 会根据你的调整重新优化方向"
+                  style={{
+                    width: '100%', minHeight: 64, padding: '10px 14px', paddingRight: 90, borderRadius: 10,
+                    border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.01)',
+                    fontSize: 13, lineHeight: 1.6, color: '#1a1a1a',
+                    outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box',
+                  }} />
+                {/* AI 润色按钮 */}
+                <div onClick={handlePolish}
+                  style={{
+                    position: 'absolute', right: 8, top: 8,
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '5px 10px', borderRadius: 8,
+                    background: polishing ? '#e5e5e5' : 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                    color: '#fff', fontSize: 11, fontWeight: 700, cursor: polishing ? 'wait' : 'pointer',
+                    transition: 'all 0.15s', whiteSpace: 'nowrap',
+                    opacity: extraDesc.trim() ? 1 : 0.4, pointerEvents: extraDesc.trim() ? 'auto' : 'none',
+                  }}>
+                  <MdAutoAwesome size={12} style={{ animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
+                  {polishing ? '润色中…' : 'AI 润色'}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <div onClick={loadDirections}
                   style={{

@@ -301,91 +301,91 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#fff', padding: '16px 20px 20px', position: 'relative' }}>
         {/* ═══ 暖色渐变区：上传+文字 ═══ */}
         <div style={{ borderRadius: 16, padding: '4px', background: 'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)', overflow: 'visible', position: 'relative' }}>
-          {/* ── 上传行 ── */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, overflow: 'visible', padding: '12px 16px 4px 28px', position: 'relative', zIndex: 2 }}>
-            {/* 产品图区域 */}
-            {productImages.length === 0 ? (
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div onClick={() => prodFileRef.current?.click()}
-                  style={{
-                    width: 86, height: 108, borderRadius: 16, background: '#fff',
-                    transform: 'rotate(-5deg)', cursor: 'pointer',
-                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    border: '2px dashed var(--border)',
-                    boxShadow: '0 14px 36px rgba(57,45,26,0.10)',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'rotate(-5deg)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
-                  <span style={{ display: 'grid', width: 40, height: 40, placeItems: 'center', borderRadius: '50%', background: '#f8f3ea', color: 'var(--text-secondary)', boxShadow: '0 10px 24px rgba(57,45,26,0.12)' }}><ImagePlus size={20} /></span>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>产品图</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>最多 5 张</span>
-                </div>
-                <input ref={prodFileRef} type="file" accept="image/*" multiple hidden onChange={handleProdUpload} />
+
+          {/* ── 上传行：横向滚动，无数量限制 ── */}
+          <div style={{ padding: '12px 16px 4px 20px', position: 'relative', zIndex: 2 }}>
+
+            {/* 产品图组 */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>📸 产品实拍图</span>
+                <span style={{ fontWeight: 500, opacity: 0.7 }}>正面·侧面·细节·场景，多角度让AI精准还原产品</span>
+                {productImages.length > 0 && (
+                  <span style={{ marginLeft: 'auto', color: '#7c3aed', fontWeight: 700 }}>{productImages.length} 张</span>
+                )}
               </div>
-            ) : (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, alignItems: 'flex-end', WebkitOverflowScrolling: 'touch' }}>
                 {productImages.map((img, idx) => (
-                  <div key={idx} style={{ position: 'relative', flexShrink: 0, transform: 'rotate(-5deg)' }}>
-                    <img src={img.url} style={{ width: 86, height: 108, objectFit: 'cover', borderRadius: 16, boxShadow: '0 14px 36px rgba(57,45,26,0.10)' }} />
-                    <div onClick={() => removeProdImg(idx)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, cursor: 'pointer' }}>×</div>
+                  <div key={idx} style={{ position: 'relative', flexShrink: 0, transform: 'rotate(-3deg)' }}>
+                    <img src={img.url} style={{ width: 78, height: 96, objectFit: 'cover', borderRadius: 12, boxShadow: '0 8px 24px rgba(57,45,26,0.12)', display: 'block' }} />
+                    <div onClick={() => removeProdImg(idx)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, cursor: 'pointer', zIndex: 2 }}>×</div>
                   </div>
                 ))}
-                <div onClick={() => prodFileRef.current?.click()} style={{ width: 86, height: 108, borderRadius: 16, border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transform: 'rotate(-5deg)' }}>
-                  <Plus size={18} style={{ color: 'var(--text-muted)' }} />
+                {/* 始终保留一个空插槽 */}
+                <div onClick={() => prodFileRef.current?.click()}
+                  style={{
+                    width: 78, height: 96, borderRadius: 12, background: '#fff',
+                    transform: 'rotate(-3deg)', cursor: 'pointer', flexShrink: 0,
+                    transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                    border: '2px dashed var(--border)',
+                    boxShadow: '0 8px 24px rgba(57,45,26,0.08)',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'rotate(-3deg)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+                  <span style={{ display: 'grid', width: 32, height: 32, placeItems: 'center', borderRadius: '50%', background: '#f8f3ea', color: 'var(--text-secondary)' }}><ImagePlus size={16} /></span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-secondary)', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line' }}>
+                    {productImages.length === 0 ? '上传产品\n实拍原图' : '继续添加'}
+                  </span>
                 </div>
                 <input ref={prodFileRef} type="file" accept="image/*" multiple hidden onChange={handleProdUpload} />
               </div>
-            )}
+            </div>
 
-            {/* × 分隔符 */}
-            <div style={{ display: 'flex', alignItems: 'center', height: 108, color: 'var(--text-muted)', fontSize: 14, fontWeight: 600, flexShrink: 0, paddingLeft: 2, paddingRight: 2 }}>×</div>
+            {/* 分隔线 */}
+            <div style={{ height: 1, background: 'rgba(0,0,0,0.05)', margin: '2px 0 10px' }} />
 
-            {/* 参考图区域 */}
-            <div style={{ position: 'relative', flexShrink: 0, zIndex: 3 }}>
-              <div style={{
-                position: 'absolute', top: -4, right: -4, zIndex: 10,
-                background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
-                color: '#fff', fontSize: 9, fontWeight: 700,
-                padding: '2px 6px', borderRadius: 8,
-                boxShadow: '0 2px 8px rgba(139,92,246,0.3)',
-                letterSpacing: 0.5, lineHeight: '14px', whiteSpace: 'nowrap',
-              }}>可选</div>
-              {refImages.length === 0 ? (
+            {/* 参考图组 */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: '#8b5cf6' }}>🎨 竞品参考图</span>
+                <span style={{ padding: '1px 6px', borderRadius: 6, background: 'rgba(139,92,246,0.08)', color: '#8b5cf6', fontSize: 9, fontWeight: 700 }}>可选</span>
+                <span style={{ fontWeight: 500, opacity: 0.7 }}>同品类爆款主图·场景图·详情图，越多风格越贴合平台</span>
+                {refImages.length > 0 && (
+                  <span style={{ marginLeft: 'auto', color: '#8b5cf6', fontWeight: 700 }}>{refImages.length} 张</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, alignItems: 'flex-end', WebkitOverflowScrolling: 'touch' }}>
+                {refImages.map((img, idx) => (
+                  <div key={idx} style={{ position: 'relative', flexShrink: 0, transform: 'rotate(3deg)' }}>
+                    <img src={img.url} style={{ width: 78, height: 96, objectFit: 'cover', borderRadius: 12, boxShadow: '0 8px 24px rgba(57,45,26,0.12)', display: 'block' }} />
+                    <div onClick={() => removeRefImg(idx)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, cursor: 'pointer', zIndex: 2 }}>×</div>
+                  </div>
+                ))}
+                {/* 始终保留一个空插槽 */}
                 <div onClick={() => refFileRef.current?.click()}
                   style={{
-                    width: 86, height: 108, borderRadius: 16, background: '#fff',
-                    transform: 'rotate(5deg)', cursor: 'pointer',
-                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    border: '2px dashed var(--border)',
-                    boxShadow: '0 14px 36px rgba(57,45,26,0.10)',
+                    width: 78, height: 96, borderRadius: 12, background: '#fff',
+                    transform: 'rotate(3deg)', cursor: 'pointer', flexShrink: 0,
+                    transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                    border: '2px dashed rgba(139,92,246,0.3)',
+                    boxShadow: '0 8px 24px rgba(139,92,246,0.06)',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor = '#8b5cf6'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'rotate(5deg)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
-                  <span style={{ display: 'grid', width: 40, height: 40, placeItems: 'center', borderRadius: '50%', background: '#f0ecff', color: '#8b5cf6', boxShadow: '0 10px 24px rgba(139,92,246,0.15)' }}><ImagePlus size={20} /></span>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-secondary)' }}>参考图</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)' }}>可选</span>
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'rotate(3deg)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; }}>
+                  <span style={{ display: 'grid', width: 32, height: 32, placeItems: 'center', borderRadius: '50%', background: '#f0ecff', color: '#8b5cf6' }}><ImagePlus size={16} /></span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: '#8b5cf6', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line' }}>
+                    {refImages.length === 0 ? '上传竞品\n爆款参考' : '继续添加'}
+                  </span>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {refImages.map((img, idx) => (
-                    <div key={idx} style={{ position: 'relative', flexShrink: 0, transform: 'rotate(5deg)' }}>
-                      <img src={img.url} style={{ width: 86, height: 108, objectFit: 'cover', borderRadius: 16, boxShadow: '0 14px 36px rgba(57,45,26,0.10)' }} />
-                      <div onClick={() => removeRefImg(idx)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, cursor: 'pointer' }}>×</div>
-                    </div>
-                  ))}
-                  <div onClick={() => refFileRef.current?.click()} style={{ width: 86, height: 108, borderRadius: 16, border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transform: 'rotate(5deg)' }}>
-                    <Plus size={18} style={{ color: 'var(--text-muted)' }} />
-                  </div>
-                </div>
-              )}
-              <input ref={refFileRef} type="file" accept="image/*" multiple hidden onChange={handleRefUpload} />
+                <input ref={refFileRef} type="file" accept="image/*" multiple hidden onChange={handleRefUpload} />
+              </div>
             </div>
           </div>
 
           {/* ── 文字输入框 ── */}
-          <div className="ec-textarea-wrap" style={{ position: 'relative', margin: '8px 16px 16px 28px' }}>
+          <div className="ec-textarea-wrap" style={{ position: 'relative', margin: '8px 16px 16px 20px' }}>
             {!description && (
               <div className="ec-textarea-placeholder" style={{ fontSize: 15, lineHeight: '28px' }}>
                 <span className="ec-placeholder-line">描述你的产品…</span>

@@ -3,19 +3,19 @@ import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOp
 import { useApp } from '../../store/AppContext';
 import { saveWork, loadWorks } from '../../services/api';
 
-/* ═══════ 标签映射 ═══════ */
+/* ═══════ 标签映射（含商用释义）═══════ */
 const LABEL_MAP = {
-  white_bg: { title: '白底图', group: '主图', ratio: '1:1' },
-  main_text: { title: '主图 1:1', group: '主图', ratio: '1:1' },
-  main_3x4: { title: '主图 3:4', group: '主图', ratio: '3:4' },
-  transparent: { title: '透明PNG', group: '素材', ratio: '1:1' },
-  sku: { title: 'SKU规格图', group: '规格', ratio: '1:1' },
-  detail_slice_size: { title: '尺寸标注', group: '详情', ratio: '3:4' },
-  detail_slice_scene: { title: '场景拍摄', group: '详情', ratio: '3:4' },
-  detail_slice_qc: { title: '质检报告', group: '详情', ratio: '3:4' },
-  detail_slice_compare: { title: '优势对比', group: '详情', ratio: '3:4' },
-  detail_slice_feature: { title: '细节功能', group: '详情', ratio: '3:4' },
-  detail_slice_care: { title: '保养维护', group: '详情', ratio: '3:4' },
+  white_bg: { title: '白底主图', group: '主图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
+  main_text: { title: '场景主图 1:1', group: '主图', ratio: '1:1', usage: '搜索展示主力图，场景+卖点文案，吸引买家点击' },
+  main_3x4: { title: '竖版主图 3:4', group: '主图', ratio: '3:4', usage: '抖音/小红书竖版流量，竖版构图更沉浸，利于转化' },
+  transparent: { title: '透明PNG素材', group: '素材', ratio: '1:1', usage: '二次合成素材，可自由叠加任意背景，设计师必备' },
+  sku: { title: 'SKU规格图', group: '规格', ratio: '1:1', usage: '颜色/尺码选择器展示图，降低买家决策成本，减少退货' },
+  detail_slice_size: { title: '尺寸标注图', group: '详情', ratio: '3:4', usage: '详情页尺寸背书，精准尺码参考，降低因尺码不符退货率' },
+  detail_slice_scene: { title: '场景使用图', group: '详情', ratio: '3:4', usage: '真实使用场景展示，帮助买家代入使用感，提升购买欲' },
+  detail_slice_qc: { title: '质检报告图', group: '详情', ratio: '3:4', usage: '品质信任背书，降低买家疑虑，适用于食品/母婴/医疗类' },
+  detail_slice_compare: { title: '优势对比图', group: '详情', ratio: '3:4', usage: '与竞品直观对比，突出差异化卖点，提升转化' },
+  detail_slice_feature: { title: '细节功能图', group: '详情', ratio: '3:4', usage: '产品细节/工艺放大展示，建立品质感知，支撑定价溢价' },
+  detail_slice_care: { title: '保养维护图', group: '详情', ratio: '3:4', usage: '使用注意事项说明，减少因误用导致的差评和退货' },
 };
 
 const PLATFORM_SIZES = {
@@ -29,12 +29,14 @@ const PLATFORM_SIZES = {
 
 /* ═══════ 解析图片列表 ═══════ */
 function parseImages(images, platform) {
-  return Object.entries(images).map(([label, url], i) => {
+  if (!images || typeof images !== 'object') return [];
+  const entries = Array.isArray(images) ? images.map(i => [i.key || i.label || '', i.url]) : Object.entries(images);
+  return entries.map(([label, url], i) => {
     const baseKey = label.replace(/_\d+$/, '');
-    const info = LABEL_MAP[baseKey] || { title: label, group: '其他', ratio: '1:1' };
+    const info = LABEL_MAP[baseKey] || { title: label, group: '其他', ratio: '1:1', usage: '' };
     const size = (PLATFORM_SIZES[platform] || PLATFORM_SIZES['淘宝'])[info.ratio] || '1440×1440';
-    return { label, url, title: info.title, group: info.group, ratio: info.ratio, size,
-      displayLabel: info.title + (label !== baseKey ? ` ${label.replace(baseKey, '')}` : '') };
+    return { label, url, title: info.title, group: info.group, ratio: info.ratio, size, usage: info.usage,
+      displayLabel: info.title + (label !== baseKey ? ` ${label.replace(baseKey + '_', '#')}` : '') };
   });
 }
 
@@ -180,9 +182,10 @@ export default function EcCanvas() {
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; }}>
                   <img src={img.url} alt={img.label} style={{ width: '100%', aspectRatio: img.ratio === '3:4' ? '3/4' : '1/1', objectFit: 'cover', display: 'block' }} />
-                  <div style={{ padding: '8px 10px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>{img.group} · {img.displayLabel}</div>
-                    <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>{img.size}</div>
+                  <div style={{ padding: '8px 10px 10px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>{img.group} · {img.displayLabel}</div>
+                    <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{img.size}</div>
+                    {img.usage && <div style={{ fontSize: 10, color: '#b45309', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.05)', borderRadius: 6, padding: '4px 6px' }}>{img.usage}</div>}
                   </div>
                 </div>
               ))}
