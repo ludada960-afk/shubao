@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider, useTasks } from './store/taskStore';
-import { MdAutoAwesome, MdLogin, MdCheck, MdDashboard } from 'react-icons/md';
+import { MdAutoAwesome, MdLogin, MdCheck, MdDashboard, MdHome, MdFolder, MdAdd, MdGridOn, MdShoppingCart } from 'react-icons/md';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -18,6 +18,50 @@ const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText } from './services/api';
+
+/* ═══════ 左侧导航栏（椒图AI风格）═══════ */
+function SideNav() {
+  const { state, dispatch } = useApp();
+  const { page, mode } = state;
+  const isEC = mode === 'ecommerce';
+  const hasResult = !!state.result?.images;
+
+  const items = [
+    { icon: <MdHome size={20} />, label: '首页', page: 'home', active: page === 'home' },
+    { icon: <MdAdd size={20} />, label: '新建', page: 'home', active: false, accent: true,
+      onClick: () => { dispatch({ type: 'CLOSE_RESULT' }); dispatch({ type: 'NAVIGATE', page: 'home' }); } },
+    { icon: <MdFolder size={20} />, label: '作品', page: 'works', active: page === 'works' || page === 'ec-canvas' },
+    ...(hasResult ? [{ icon: <MdGridOn size={20} />, label: '画布', page: 'ec-canvas', active: page === 'ec-canvas' }] : []),
+  ];
+
+  return (
+    <div style={{
+      position: 'fixed', left: 0, top: '50%', transform: 'translateY(-50%)',
+      zIndex: 200, display: 'flex', flexDirection: 'column', gap: 4,
+      padding: '8px', marginLeft: 10,
+      background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(16px)',
+      borderRadius: 16, border: '1px solid rgba(0,0,0,0.06)',
+      boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+    }}>
+      {items.map((item, i) => (
+        <div key={i} onClick={item.onClick || (() => dispatch({ type: 'NAVIGATE', page: item.page }))}
+          title={item.label}
+          style={{
+            width: 40, height: 40, borderRadius: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'all 0.15s',
+            background: item.accent ? 'linear-gradient(135deg, #7c3aed, #a78bfa)' : item.active ? 'rgba(0,0,0,0.06)' : 'transparent',
+            color: item.accent ? '#fff' : item.active ? '#1a1a1a' : '#999',
+            fontWeight: item.active ? 700 : 500,
+          }}
+          onMouseEnter={e => { if (!item.accent && !item.active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+          onMouseLeave={e => { if (!item.accent && !item.active) e.currentTarget.style.background = 'transparent'; }}>
+          {item.icon}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ═══════ TopBar（无容器，直接浮在页面）═══════ */
 function TopBar() {
@@ -178,6 +222,7 @@ function AppRouter() {
   const PageComponent = pageMap[page] || HomePage;
 
   return (<>
+    {page !== 'ec-canvas' && <SideNav />}
     <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
     <TopBar />
     {genState === 'result' && result && !(result._ecResult && page === 'ec-canvas') ? (
