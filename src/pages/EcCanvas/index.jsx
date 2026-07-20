@@ -112,7 +112,11 @@ export default function EcCanvas() {
             size: img.size,
           })),
         };
-        saveWork(serverWork, phone).catch(e => console.warn('[EC] 保存到服务器失败:', e.message));
+        saveWork(serverWork, phone).then(r => {
+          console.log('[EC] 作品已保存到服务器:', result.product_name);
+        }).catch(e => console.warn('[EC] 保存到服务器失败:', e.message));
+      } else {
+        console.warn('[EC] 无法保存到服务器: 未登录');
       }
     }
   }, [imageList.length, result.product_name]);

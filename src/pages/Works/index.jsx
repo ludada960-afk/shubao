@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MdAutoAwesome, MdLogin, MdRefresh, MdShoppingCart, MdEdit } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { loadWorks, proxyImg } from '../../services/api';
+import { loadWorks, proxyImg, saveWork } from '../../services/api';
 import { EC_PLATFORM_SPECS } from '../../constants/data';
 import { Card, CharImg, EmptyState } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
@@ -15,12 +15,46 @@ const TABS = [
 
 const EC_STYLE_ICONS = { '白底主图': '⬜', '场景图': '🌄', '详情图': '📋', '组合图': '🖼️' };
 
+/* ═══════ 从 localStorage 加载 EC 作品（旧格式兼容）═══ */
+const loadLocalECWorks = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
+    return raw.map(w => ({
+      product_name: w.name || '未命名产品',
+      category: '其他',
+      platform: '淘宝',
+      _ecResult: true,
+      at: w.createdAt ? new Date(w.createdAt).toLocaleDateString('zh-CN') : '',
+      images: (w.images || []).map(img => ({
+        url: img.url, key: img.key || '', label: img.label || '',
+        style: img.label || img.key || '商品图',
+      })),
+      _phone: '',
+    }));
+  } catch { return []; }
+};
+
 export default function WorksPage() {
   const { state, dispatch } = useApp();
   const { works, logged, mode, phone } = state;
   const [tab, setTab] = useState(mode === 'ecommerce' ? 'ec' : 'xhs');
 
-  const refresh = () => loadWorks(phone).then(w => dispatch({ type: 'SET_WORKS', works: w }));
+  const refresh = async () => {
+    const serverWorks = await loadWorks(phone);
+    // 合并 localStorage 中的 EC 作品（旧格式兼容）
+    const localEC = loadLocalECWorks();
+    // 去重：用产品名+图片数去重
+    const allNames = new Set(serverWorks.map(w => w.product_name + (w.images?.length || 0)));
+    const merged = [...serverWorks];
+    for (const lw of localEC) {
+      const key = lw.product_name + (lw.images?.length || 0);
+      if (!allNames.has(key)) {
+        merged.unshift(lw);
+        allNames.add(key);
+      }
+    }
+    dispatch({ type: 'SET_WORKS', works: merged });
+  };
 
   useEffect(() => { if (logged) refresh(); }, [logged]);
 
