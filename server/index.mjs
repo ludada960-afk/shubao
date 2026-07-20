@@ -65,7 +65,7 @@ app.use((req, res, next) => {
 });
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '30mb' }));
 
 // ── IP 速率限制（止血：防止 API 被盗刷 LLM 额度）──
 // 对消耗 LLM 额度的生图路由限 10 次/分钟/IP
@@ -2686,13 +2686,29 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
 
     const userMsg = `${productInfo}\n\n${visionContext ? visionContext + '\n\n' : ''}请输出 3-4 组差异化设计方向。`;
 
-    const llmRes = await callMiniLLM(sys, [...(real_shots || []).slice(0, 3), ...(ref_shots || []).slice(0, 3)], userMsg);
-    const match = (llmRes || '').match(/\{[\s\S]*\}/);
-    if (!match) return res.status(500).json({ error: 'AI 设计方向生成失败，请重试' });
-    const parsed = JSON.parse(match[0]);
+    const llmRes = await callMiniLLM(sys, [...(real_shots || []).slice(0, 3), ...(ref_shots || []).slice(0, 2)], userMsg);
+    // 健壮 JSON 解析：修复 LLM 常见格式问题
+    let parsed = null;
+    try {
+      const match = (llmRes || '').match(/\{[\s\S]*\}/);
+      if (match) parsed = JSON.parse(match[0]);
+    } catch (e) {
+      // 尝试修复常见问题：尾逗号、单引号、注释
+      try {
+        const raw = (llmRes || '').match(/\{[\s\S]*\}/)?.[0] || '';
+        const fixed = raw
+          .replace(/,\s*([}\]])/g, '$1')       // 尾逗号
+          .replace(/'/g, '"')                    // 单引号→双引号
+          .replace(/\/\/.*$/gm, '')              // 行注释
+          .replace(/\/\*[\s\S]*?\*\//g, '');     // 块注释
+        parsed = JSON.parse(fixed);
+      } catch (e2) {
+        console.warn('[design-directions] JSON 修复失败，使用兜底方向');
+      }
+    }
 
     // 兜底：确保方向数据完整
-    const directions = (parsed.directions || []).slice(0, 4).map((d, i) => ({
+    const directions = (parsed?.directions || []).slice(0, 4).map((d, i) => ({
       id: d.id || `dir_${i + 1}`,
       title: d.title || `设计方向 ${i + 1}`,
       description: d.description || '',

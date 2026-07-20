@@ -118,12 +118,35 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const imageToBase64 = async (imgs) => {
     const results = [];
     for (const img of imgs) {
-      if (img.url.startsWith('data:')) results.push(img.url);
-      else if (img.url.startsWith('blob:')) results.push(await blobToBase64(img.url));
-      else results.push(img.url);
+      let url = img.url;
+      if (url.startsWith('blob:')) url = await blobToBase64(url);
+      else if (!url.startsWith('data:')) { results.push(url); continue; }
+      // 压缩：限制最大边 800px，JPEG 0.7 质量
+      const compressed = await compressImage(url, 800, 0.7);
+      results.push(compressed);
     }
     return results;
   };
+
+  /* ── 图片压缩工具 ── */
+  const compressImage = (dataUrl, maxDim = 800, quality = 0.7) => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 
   /* ── 下一步 ── */
   const handleNext = async () => {
