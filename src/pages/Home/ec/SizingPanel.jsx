@@ -32,18 +32,17 @@ const PLATFORM_PRESETS = {
               types: [
                 { key: 'white_bg', count: 1, ratio: '1:1' },
                 { key: 'main', count: 5, ratio: '1:1' },
-                { key: 'main', count: 5, ratio: '3:4' },
                 { key: 'transparent', count: 1, ratio: '1:1' },
                 { key: 'detail', count: 6, ratio: '3:4' },
               ]},
-  '淘宝':   { name: '淘宝/天猫', icon: '🟠', desc: '主图1440×1440，1:1为主',
+  '淘宝':   { name: '淘宝/天猫', icon: '🟠', desc: '主图800×800，1:1标准',
               types: [
                 { key: 'white_bg', count: 1, ratio: '1:1' },
                 { key: 'main', count: 5, ratio: '1:1' },
                 { key: 'transparent', count: 1, ratio: '1:1' },
                 { key: 'detail', count: 6, ratio: '3:4' },
               ]},
-  '京东':   { name: '京东', icon: '🔴', desc: '品质优先，主图1440×1440',
+  '京东':   { name: '京东', icon: '🔴', desc: '品质优先，主图800×800',
               types: [
                 { key: 'white_bg', count: 1, ratio: '1:1' },
                 { key: 'main', count: 5, ratio: '1:1' },
@@ -56,16 +55,16 @@ const PLATFORM_PRESETS = {
                 { key: 'transparent', count: 1, ratio: '1:1' },
                 { key: 'detail', count: 6, ratio: '3:4' },
               ]},
-  '抖音':   { name: '抖音小店', icon: '🎵', desc: '竖版为主，3:4信息流',
+  '抖音':   { name: '抖音小店', icon: '🎵', desc: '主图1:1，最低600×600px',
               types: [
                 { key: 'white_bg', count: 1, ratio: '1:1' },
-                { key: 'main', count: 5, ratio: '3:4' },
+                { key: 'main', count: 5, ratio: '1:1' },
                 { key: 'transparent', count: 1, ratio: '1:1' },
                 { key: 'detail', count: 6, ratio: '3:4' },
               ]},
-  '小红书': { name: '小红书商城', icon: '📕', desc: '3:4竖版为主，生活方式调性',
+  '小红书': { name: '小红书商城', icon: '📕', desc: '主图1:1，商品详情页标准',
               types: [
-                { key: 'main', count: 5, ratio: '3:4' },
+                { key: 'main', count: 5, ratio: '1:1' },
                 { key: 'transparent', count: 1, ratio: '1:1' },
                 { key: 'detail', count: 6, ratio: '3:4' },
               ]},
@@ -133,9 +132,7 @@ export default function SizingPanel({
     if (activeKeys.has(typeKey)) {
       next = activeImages.filter(i => i.key !== typeKey);
     } else {
-      const defaultRatio = typeKey === 'main'
-        ? (['抖音', '小红书'].includes(platform) ? '3:4' : '1:1')
-        : (typeKey === 'detail' ? '3:4' : '1:1');
+      const defaultRatio = typeKey === 'detail' ? '3:4' : '1:1';
       next = [...activeImages, { key: typeKey, count: 5, ratio: defaultRatio, label: typeDef.label }];
     }
     onSizingChange?.({ smart: false, images: next });
