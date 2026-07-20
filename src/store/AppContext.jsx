@@ -33,6 +33,8 @@ function reducer(state, action) {
   switch (action.type) {
     case 'NAVIGATE':
       return { ...state, page: action.page, galleryItem: null };
+    case 'NEW_WORK':
+      return { ...state, page: 'home', genState: 'idle', result: null, galleryItem: null };
     case 'SET_MODE':
       return { ...state, mode: action.mode };
     case 'SET_INPUT':

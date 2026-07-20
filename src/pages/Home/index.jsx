@@ -25,6 +25,13 @@ export default function HomePage() {
   const ecParamsRef = useRef({});  // 第一步收集的参数
   const [showPastWorks, setShowPastWorks] = useState(hasPastWorks());
 
+  // 当结果被清除（新建作品）时，重置步骤
+  useEffect(() => {
+    if (state.genState === 'idle' && ecStep !== 1) {
+      setEcStep(1);
+    }
+  }, [state.genState]);
+
   // 切换到电商模式时刷新作品状态 + 页面可见时刷新
   useEffect(() => {
     if (!isXHS) setShowPastWorks(hasPastWorks());
