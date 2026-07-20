@@ -250,7 +250,7 @@ function AppRouter() {
       />
     ) : (
       <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>
-        <PageComponent />
+        <PageComponent key={state._workVersion || 0} />
       </React.Suspense>
     )}
     {genState === 'loading' && (

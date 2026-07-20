@@ -34,7 +34,7 @@ function reducer(state, action) {
     case 'NAVIGATE':
       return { ...state, page: action.page, galleryItem: null };
     case 'NEW_WORK':
-      return { ...state, page: 'home', genState: 'idle', result: null, galleryItem: null };
+      return { ...state, page: 'home', genState: 'idle', result: null, galleryItem: null, _workVersion: (state._workVersion || 0) + 1 };
     case 'SET_MODE':
       return { ...state, mode: action.mode };
     case 'SET_INPUT':
