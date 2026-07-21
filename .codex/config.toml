@@ -1,0 +1,14 @@
+model_provider = "openai"
+openai_base_url = "http://127.0.0.1:15721/v1"
+openai_api_key = "12345678"
+default_model = "gpt-5.6-luna"
+use_local_gateway = true
+local_gateway_port = 15721
+
+[mcp_servers.playwright]
+command = "npx"
+args = [
+    "@playwright/mcp",
+    "--cdp-endpoint",
+    "http://localhost:9223",
+]

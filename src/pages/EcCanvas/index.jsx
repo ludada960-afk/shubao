@@ -2,12 +2,11 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete,
-  MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdRefresh, MdBrush,
-  MdCrop, MdAutoAwesome, MdTextFields, MdLayers, MdClose, MdCheck,
-  MdAddPhotoAlternate, MdContentCut, MdOutlineFileDownload,
+  MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose,
+  MdAddPhotoAlternate,
 } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { saveWork, loadWorks, polishECText } from '../../services/api';
+import { saveWork, loadWorks, polishECText, reversePrompt, removeBg } from '../../services/api';
 
 /* ═══ 标签映射（含商用释义）═══ */
 const LABEL_MAP = {
@@ -322,7 +321,7 @@ function ImageNode({ node, selected, onPointerDown, onContextMenu }) {
           }}>
             <div title="下载" onClick={e => { e.stopPropagation(); const a=document.createElement('a'); a.href=node.url; a.download=`${node.label}.png`; a.click(); }}
               style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <MdOutlineFileDownload size={14} color="#fff" />
+              <MdDownload size={14} color="#fff" />
             </div>
           </div>
         )}
@@ -436,13 +435,12 @@ export default function EcCanvas() {
 
   /* ════ 交互：平移画布 ════ */
   const handleCanvasPointerDown = useCallback((e) => {
-    // 只响应画布背景（非节点）上的拖拽
-    if (e.target !== canvasRef.current && !e.target.classList.contains('canvas-bg')) return;
+    // 节点会 stopPropagation，到达这里的都是画布背景点击 → 开始平移
     if (e.button !== 0) return;
     setSelected(null);
     setContextMenu(null);
     setPanning({ startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
-    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId); // 捕获到外层容器，保证 move/up 持续响应
   }, [viewport.x, viewport.y]);
 
   const handleCanvasPointerMove = useCallback((e) => {
@@ -488,7 +486,7 @@ export default function EcCanvas() {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     setDragging({ nodeId, startX: e.clientX, startY: e.clientY, nodeStartX: node.x, nodeStartY: node.y });
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // 不使用 setPointerCapture，让 onPointerMove/Up 在外层 div 上处理
   }, [nodes]);
 
   /* ════ 右键菜单 ════ */
@@ -509,13 +507,32 @@ export default function EcCanvas() {
     } else if (action === 'redraw') {
       setRedrawPanel(node);
     } else if (action === 'remove-bg') {
-      alert('去除背景功能开发中，即将上线');
+      // 调用真实去背景 API
+      const loadingId = node.id;
+      setNodes(ns => ns.map(n => n.id === loadingId ? { ...n, removing: true } : n));
+      try {
+        const res = await removeBg({ image_url: node.url });
+        if (res.result_url) {
+          setNodes(ns => ns.map(n => n.id === loadingId ? { ...n, url: res.result_url, removing: false } : n));
+        }
+      } catch (e) {
+        alert('去除背景：' + e.message);
+        setNodes(ns => ns.map(n => n.id === loadingId ? { ...n, removing: false } : n));
+      }
     } else if (action === 'grid-cut') {
-      alert('宫格切分功能开发中，即将上线');
+      alert('宫格切分功能即将上线');
     } else if (action === 'reverse-prompt') {
-      alert('反推提示词功能开发中，即将上线');
+      // 调用真实反推 API，结果显示在重绘面板
+      try {
+        const res = await reversePrompt({ image_url: node.url, product_name: result.product_name });
+        if (res.prompt) {
+          setRedrawPanel({ ...node, prefillPrompt: res.prompt });
+        }
+      } catch (e) {
+        alert('反推失败：' + e.message);
+      }
     } else if (action === 'crop') {
-      alert('裁剪功能开发中，即将上线');
+      alert('裁剪功能即将上线');
     }
   }, []);
 
@@ -596,8 +613,8 @@ export default function EcCanvas() {
           <MdArrowBack size={16} color="#666" />
         </div>
         <div style={{ flexShrink: 0, marginLeft: 4 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.2 }}>{tab === 'canvas' ? (result.product_name || 'CANVAS') : 'WORKS'}</div>
-          <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} IMG` : `${pastWorks.length} WORKS`}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.2 }}>{tab === 'canvas' ? (result.product_name || '画布') : '我的作品集'}</div>
+          <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} 张图片` : `${pastWorks.length} 个作品`}</div>
         </div>
         <div style={{ display: 'flex', gap: 3, padding: 3, borderRadius: 10, background: 'rgba(0,0,0,0.05)', marginLeft: 12, flexShrink: 0 }}>
           {[['canvas','当前画布'],['works','作品集']].map(([id,label]) => (

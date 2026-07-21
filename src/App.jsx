@@ -255,7 +255,7 @@ function AppRouter() {
   return (<>
     <SideNav />
     <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
-    <TopBar />
+    {page !== 'ec-canvas' && <TopBar />}
     {genState === 'result' && result && !(result._ecResult && page === 'ec-canvas') ? (
       <NoteModal
         item={result}

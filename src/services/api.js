@@ -406,6 +406,33 @@ export async function autoGenerate({ platform, input, refImages }) {
 
 
 
+/* ── 反推提示词 ── */
+export async function reversePrompt({ image_url, product_name }) {
+  const res = await fetch(`${API_BASE}/api/reverse-prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_url, product_name }),
+  });
+  if (!res.ok) throw new Error('反推失败');
+  return res.json(); // { prompt }
+}
+
+// ── 去除背景 ──
+export async function removeBg({ image_url }) {
+  const res = await fetch(`${API_BASE}/api/remove-bg`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_url }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '去除背景失败');
+  }
+
+  return res.json(); // { result_url }
+}
+
 /* ── EC 文案 AI 润色 ── */
 export async function polishECText({ text, product_name, category }) {
   const res = await fetch(`${API_BASE}/api/polish-ec-text`, {

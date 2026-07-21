@@ -2860,6 +2860,75 @@ app.post('/api/polish-ec-text', async (req, res) => {
 });
 
 // ============================================================
+// 反推提示词（VLM 看图输出完整生图 prompt）
+// ============================================================
+app.post('/api/reverse-prompt', async (req, res) => {
+  const { image_url, product_name } = req.body || {};
+  if (!image_url) return res.status(400).json({ error: '缺少图片' });
+
+  try {
+    // 下载图片转 base64
+    let base64 = image_url;
+    if (image_url.startsWith('http')) {
+      const resp = await fetch(image_url);
+      const buf = Buffer.from(await resp.arrayBuffer());
+      base64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+    }
+    const sys = `你是专业的AI生图提示词工程师。分析这张电商产品图，还原生成这张图所用的完整提示词，包含：产品描述、背景场景、光影风格、构图方式、色调、平台规格说明等。输出格式：直接给出英文关键词组合（逗号分隔），附上中文说明，总字数不超过200字。`;
+    const userMsg = `产品：${product_name || '商品'}。请反推这张图的生图提示词。`;
+
+    const aiRes = await callLLMWithVision(sys, [base64], userMsg);
+    res.json({ prompt: (aiRes || '').trim() });
+  } catch (e) {
+    res.status(500).json({ error: '反推失败：' + e.message });
+  }
+});
+
+// ============================================================
+// 去除背景（调用 remove.bg 或本地 rembg）
+// ============================================================
+app.post('/api/remove-bg', async (req, res) => {
+  const { image_url } = req.body || {};
+  if (!image_url) return res.status(400).json({ error: '缺少图片' });
+
+  const REMOVE_BG_KEY = process.env.REMOVE_BG_KEY || '';
+
+  try {
+    // 方案A：使用 remove.bg API（需配置 REMOVE_BG_KEY）
+    if (REMOVE_BG_KEY) {
+      let imgBuf;
+      if (image_url.startsWith('http')) {
+        const r = await fetch(image_url);
+        imgBuf = Buffer.from(await r.arrayBuffer());
+      } else {
+        // base64
+        const base64Data = image_url.replace(/^data:image\/\w+;base64,/, '');
+        imgBuf = Buffer.from(base64Data, 'base64');
+      }
+
+      const form = new FormData();
+      form.append('image_file', new Blob([imgBuf]), 'image.png');
+      form.append('size', 'auto');
+
+      const resp = await fetch('https://api.remove.bg/v1.0/removebg', {
+        method: 'POST',
+        headers: { 'X-Api-Key': REMOVE_BG_KEY },
+        body: form,
+      });
+      if (!resp.ok) throw new Error(`remove.bg HTTP ${resp.status}`);
+      const outBuf = Buffer.from(await resp.arrayBuffer());
+      const b64 = `data:image/png;base64,${outBuf.toString('base64')}`;
+      return res.json({ result_url: b64 });
+    }
+
+    // 方案B：返回提示（未配置 API key）
+    res.status(400).json({ error: '去除背景功能需配置 REMOVE_BG_KEY 环境变量，请在服务器设置后使用' });
+  } catch (e) {
+    res.status(500).json({ error: '去除背景失败：' + e.message });
+  }
+});
+
+// ============================================================
 // 详情切片 → 纵向拼成长图（用于微信分享）
 // ============================================================
 app.post('/api/ecommerce/stitch-long', async (req, res) => {
