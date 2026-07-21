@@ -72,11 +72,9 @@ else
 fi
 
 # ───────────────────────────── 3. vite build ─────────────────────────────
-step "3. 构建前端 (vite build)"
-# vite build 会覆盖 dist/assets 和 dist/index.html
-# dist/generated dist/images dist/imgs dist/extensions dist/redcrow_reference dist/stitched
-# 这些素材目录 vite 不会删，但全新 clone 时会缺 —— 本脚本不管这部分，靠部署者保证
-npx vite build
+step "3. 构建前端 (npm run build)"
+# npm run build = verify-exports → vite build
+npm run build
 # 抓出新的 bundle 文件名，待会儿校验线上确实在用它
 NEW_BUNDLE=$(ls -1 dist/assets/index-*.js 2>/dev/null | head -n1 | xargs basename 2>/dev/null || true)
 [[ -n "$NEW_BUNDLE" ]] || die "vite build 后没找到 dist/assets/index-*.js"

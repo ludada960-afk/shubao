@@ -1,16 +1,153 @@
-const API_BASE = '';
+// ─────────────────────────────────────────────────────────────
+// API 服务层：标准化重构版
+// ─────────────────────────────────────────────────────────────
+
+const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 
 export const API = API_BASE;
 
+// 图片代理（解决跨域）
 export function proxyImg(url) {
-  return url ? `${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}` : '';
+}
+
+// ─────────────────────────────────────────────────────────────
+// 核心生图接口：智能成套生成 (重构版)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 发起成套电商生图任务
+ * @param {Object} payload
+ * @param {Array<File|string>} payload.productImages - 必须保持不变的产品图
+ * @param {Array<File|string>} payload.referenceImages - 仅参考风格的参考图
+ * @param {string} payload.sceneStyle - 场景风格 ID 或描述
+ * @param {string} payload.platform - 平台 taobao/xiaohongshu
+ * @param {Object} payload.batchPlan - 生成计划配置
+ */
+export async function generateEcommerceSuite({
+  productImages,
+  referenceImages,
+  sceneStyle,
+  platform,
+  batchPlan,
+  onProgress,
+  onImage
+}) {
+  // 1. 图片预处理：区分上传
+  const uploadImgs = async (imgs) => {
+    if (!imgs?.length) return [];
+    const urls = imgs.filter(u => typeof u === 'string' && (u.startsWith('http') || u.startsWith('/api/')));
+    const base64s = imgs.filter(u => typeof u === 'string' && u.startsWith('data:'));
+    if (base64s.length === 0) return urls;
+    const uploaded = await uploadECTempImages(base64s);
+    return [...urls, ...uploaded];
+  };
+
+  const productUrls = await uploadImgs(productImages);
+  const refUrls = await uploadImgs(referenceImages);
+
+  // 2. 构建严格请求体
+  const body = {
+    product_images: productUrls,
+    reference_images: refUrls,
+    scene_style: sceneStyle || 'default',
+    platform: platform || 'taobao',
+    plan: batchPlan || { main: 1, scene: 3, sku: 3, detail: 3 }
+  };
+
+  const res = await fetch(`${API_BASE}/api/generate-ecommerce-v2`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => res.statusText);
+    throw new Error(msg.slice(0, 200));
+  }
+
+  // 3. SSE 流式解析
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  const result = { images: [] };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const d = JSON.parse(line.slice(6));
+
+        if (d.type === 'progress' && onProgress) onProgress(d);
+        else if (d.type === 'image') {
+          const normalizedImage = {
+            id: d.id || Date.now().toString(),
+            url: d.url,
+            category: d.category || 'main',
+            name: d.name || '生成图片',
+            width: d.width || 1024,
+            height: d.height || 1024
+          };
+          result.images.push(normalizedImage);
+          if (onImage) onImage(normalizedImage);
+        }
+        else if (d.type === 'complete') Object.assign(result, d);
+        else if (d.type === 'error') throw new Error(d.error || '生成失败');
+      } catch (e) {
+        console.warn('Parse error', e);
+      }
+    }
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 基础工具接口 (保留原有逻辑)
+// ─────────────────────────────────────────────────────────────
+
+export async function uploadECTempImages(base64Images) {
+  const res = await fetch(`${API_BASE}/api/ec-temp-upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ images: base64Images.map((data, i) => ({ name: `img_${i}`, data })) }),
+  });
+  if (!res.ok) throw new Error('图片上传失败');
+  return (await res.json()).urls || [];
+}
+
+export async function reversePrompt({ image_url, product_name }) {
+  const res = await fetch(`${API_BASE}/api/reverse-prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_url, product_name }),
+  });
+  if (!res.ok) throw new Error('反推失败');
+  return res.json();
+}
+
+export async function removeBg({ image_url }) {
+  const res = await fetch(`${API_BASE}/api/remove-bg`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_url }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '去除背景失败');
+  }
+  return res.json();
 }
 
 export function galleryImg(id, file) {
-  return `${API_BASE}/api/gallery-image?id=${id}&file=${file}&t=${Date.now()}`;
+  return `${API_BASE}/api/gallery-image?id=${id}&file=${encodeURIComponent(file)}&t=${Date.now()}`;
 }
 
-/* ── 小红书图文生成 (SSE 流式) ── */
 export async function generateContent(text, images, { onImage, onProgress, preview = false }) {
   const res = await fetch(`${API_BASE}/api/generate`, {
     method: 'POST',
@@ -60,7 +197,6 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-/* ── 电商图生成（精修工坊重构版） ── */
 export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, onImage, onProgress }) {
   // 上传图片到服务器
   const uploadImgs = async (imgs) => {
@@ -151,18 +287,6 @@ export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
   return res.json();
 }
 
-/* ── 设计方向（VLM分析+LLM生成3-4组差异化方向） ── */
-/* ── 电商：上传临时图片 → 返回服务器 URL ── */
-export async function uploadECTempImages(base64Images) {
-  const res = await fetch(`${API_BASE}/api/ec-temp-upload`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ images: base64Images.map((data, i) => ({ name: `img_${i}`, data })) }),
-  });
-  if (!res.ok) throw new Error('图片上传失败');
-  return (await res.json()).urls || [];
-}
-
 export async function getDesignDirections(params) {
   // 先上传图片到服务器，再用 URL 请求
   const uploadAndReplace = async (imgs) => {
@@ -188,6 +312,17 @@ export async function getDesignDirections(params) {
     const msg = await res.text().catch(() => res.statusText);
     throw new Error(msg.slice(0, 200));
   }
+  return res.json();
+}
+
+/* ── EC 文案 AI 润色 ── */
+export async function polishECText({ text, product_name, category }) {
+  const res = await fetch(`${API_BASE}/api/polish-ec-text`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, product_name, category }),
+  });
+  if (!res.ok) throw new Error('润色失败');
   return res.json();
 }
 
@@ -225,7 +360,6 @@ export async function generateEcommercePreview({ productName, category, points, 
   if (!res.ok) throw new Error('预览请求失败');
   return res.json();
 }
-
 export async function extractProductLink(url) {
   const res = await fetch(`${API_BASE}/api/extract-product-link`, {
     method: 'POST',
@@ -266,7 +400,6 @@ export async function regenerateText(text, category) {
   return res.json();
 }
 
-/* ── 作品存取 ── */
 export async function saveWork(work, phone) {
   // 本地先存
   try {
@@ -406,40 +539,4 @@ export async function autoGenerate({ platform, input, refImages }) {
 
 
 
-/* ── 反推提示词 ── */
-export async function reversePrompt({ image_url, product_name }) {
-  const res = await fetch(`${API_BASE}/api/reverse-prompt`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image_url, product_name }),
-  });
-  if (!res.ok) throw new Error('反推失败');
-  return res.json(); // { prompt }
-}
-
-// ── 去除背景 ──
-export async function removeBg({ image_url }) {
-  const res = await fetch(`${API_BASE}/api/remove-bg`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image_url }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || '去除背景失败');
-  }
-
-  return res.json(); // { result_url }
-}
-
 /* ── EC 文案 AI 润色 ── */
-export async function polishECText({ text, product_name, category }) {
-  const res = await fetch(`${API_BASE}/api/polish-ec-text`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, product_name, category }),
-  });
-  if (!res.ok) throw new Error('润色失败');
-  return res.json();
-}

@@ -137,6 +137,10 @@ function deductCredit(email) {
 // 生产模式：serve 前端构建产物
 const distPath = resolve(__dirname, '..', 'dist');
 if (fs.existsSync(distPath)) {
+  app.use((req, res, next) => {
+    if (req.path === '/') res.set('Cache-Control', 'no-store, must-revalidate');
+    next();
+  });
   app.use(express.static(distPath));
   console.log(`  → 静态文件: ${distPath}`);
 }
@@ -154,6 +158,11 @@ process.on('unhandledRejection', err => {
 // ============================================================
 // API 配置
 // ============================================================
+
+/* async 路由包装器：Express 4 不自带 async 错误捕获 */
+const asyncRoute = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
+
 const LLM_KEY = process.env.LLM_API_KEY || '';
 const LLM_BASE = (process.env.LLM_BASE_URL || '').replace(/\/+$/, '');
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
@@ -3415,6 +3424,17 @@ app.post('/api/payment/webhook', async (req, res) => {
     console.error('[payment] webhook error:', e.message);
     res.status(400).send(e.message);
   }
+});
+
+/* ── 全局 Express 错误处理器（兜底）──
+ * 任何 async route handler 未捕获的异常会到这里。
+ * 防止「一个路由崩 → 整个进程挂」。
+ */
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  console.error('‼️ Express 路由异常:', err.message, err.stack?.split('\n').slice(1,4).join(' '));
+  if (res.headersSent) return;
+  res.status(500).json({ error: '服务器内部错误，请稍后重试' });
 });
 
 // SPA fallback：非 API 路由返回 index.html（支持前端路由）

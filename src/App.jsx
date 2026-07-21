@@ -1,7 +1,7 @@
 /**
  * 薯包AI · App 路由（V3 灵图风格视觉统一）
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider, useTasks } from './store/taskStore';
 import { MdAutoAwesome, MdCheck, MdDashboard, MdFolder, MdGridOn } from 'react-icons/md';
@@ -9,11 +9,12 @@ import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
 import GenModal from './components/task/GenModal';
-import HomePage from './pages/Home/index';
-import PricingPage from './pages/Pricing/index';
-import WorksPage from './pages/Works/index';
-import RemakePage from './pages/Remake/index';
-import PlogPage from './pages/Plog/index';
+import ErrorBoundary from './components/ErrorBoundary';
+const HomePage = React.lazy(() => import('./pages/Home/index'));
+const PricingPage = React.lazy(() => import('./pages/Pricing/index'));
+const WorksPage = React.lazy(() => import('./pages/Works/index'));
+const RemakePage = React.lazy(() => import('./pages/Remake/index'));
+const PlogPage = React.lazy(() => import('./pages/Plog/index'));
 const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
@@ -303,5 +304,5 @@ function AppRouter() {
 }
 
 export default function App() {
-  return (<AppProvider><TaskProvider><AppRouter /></TaskProvider></AppProvider>);
+  return (<AppProvider><TaskProvider><ErrorBoundary><AppRouter /></ErrorBoundary></TaskProvider></AppProvider>);
 }

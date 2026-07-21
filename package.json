@@ -6,30 +6,26 @@
   "scripts": {
     "dev": "vite",
     "server": "node server/index.mjs",
-    "build": "vite build",
+    "verify": "node scripts/verify-exports.mjs",
+    "build": "node scripts/verify-exports.mjs && vite build",
+    "check": "node scripts/check-build.mjs",
     "preview": "vite preview",
     "start": "concurrently \"npm run server\" \"npm run dev\""
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
-    "@supabase/supabase-js": "^2.110.5",
-    "@tldraw/tldraw": "^5.2.5",
     "better-sqlite3": "^12.11.1",
-    "canvas": "^3.2.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "4.22.2",
     "jszip": "^3.10.1",
     "lucide-react": "^1.24.0",
     "nodemailer": "^9.0.3",
-    "phosphor-react": "^1.4.1",
-    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-colorful": "^5.8.0",
     "react-dom": "^18.3.1",
     "react-icons": "^5.7.0",
     "sharp": "^0.35.2",
-    "ssh2": "^1.17.0",
     "stripe": "^22.3.1"
   },
   "devDependencies": {
