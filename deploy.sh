@@ -75,9 +75,8 @@ fi
 step "3. 构建前端 (npm run build)"
 # npm run build = verify-exports → vite build
 npm run build
-# 抓出新的 bundle 文件名，待会儿校验线上确实在用它
-NEW_BUNDLE=$(ls -1 dist/assets/index-*.js 2>/dev/null | head -n1 | xargs basename 2>/dev/null || true)
-[[ -n "$NEW_BUNDLE" ]] || die "vite build 后没找到 dist/assets/index-*.js"
+NEW_BUNDLE=$(node -e "const h=require('fs').readFileSync('dist/index.html','utf8');const m=h.match(/assets\\/(index-[^.]+\.js)/);console.log(m?m[1]:'')" 2>/dev/null || true)
+[[ -n "$NEW_BUNDLE" ]] || die "从 dist/index.html 未找到 bundle 引用"
 ok "新 bundle: $NEW_BUNDLE"
 
 # ───────────────────────────── 4. pm2 restart ─────────────────────────────
