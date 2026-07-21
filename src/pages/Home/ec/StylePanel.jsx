@@ -25,11 +25,12 @@ const STYLES = [
     tone: '冷蓝金属' },
 ];
 
-export default function StylePanel({ value = 'smart', onChange, customColors, onColorsChange, smartMode = true, onOverride }) {
+export default function StylePanel({ value = 'smart', onChange, customColors, onColorsChange, smartMode = true, onOverride, onResetOverride }) {
   const [showBrandColor, setShowBrandColor] = useState(false);
   const [pickerColor, setPickerColor] = useState('#7c3aed');
 
-  const isCustomized = value !== 'smart' || (customColors && customColors !== null);
+  // 修复：只有当风格不是 smart 或者品牌色被锁定时才算自定义
+  const isCustomized = value !== 'smart' || (customColors && customColors.length > 0);
 
   // 外部 customColors 变化时同步取色器
   useEffect(() => {
@@ -48,15 +49,19 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
 
   /* ── 品牌色锁定开关 ── */
   const toggleBrandLock = useCallback(() => {
-    if (customColors) {
+    if (customColors && customColors.length > 0) {
       // 关闭 → 解除锁定
-      onColorsChange?.(null);
+      onColorsChange?.([]);
+      // 只有当风格也是 smart 时才重置 override 状态
+      if (value === 'smart') {
+        onResetOverride?.();
+      }
     } else {
       // 开启 → 锁定当前取色器颜色
       onColorsChange?.([pickerColor, pickerColor]);
       onOverride?.();
     }
-  }, [customColors, pickerColor, onColorsChange, onOverride]);
+  }, [customColors, pickerColor, onColorsChange, onOverride, onResetOverride, value]);
 
   /* ── 取色器拖动 ── */
   const handlePickerChange = useCallback((color) => {

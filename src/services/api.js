@@ -8,6 +8,10 @@ export const API = API_BASE;
 
 // 图片代理（解决跨域）
 export function proxyImg(url) {
+  if (!url) return '';
+  // 已经是代理地址或 data URI 则直接返回
+  if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  return `${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -148,13 +152,21 @@ export function galleryImg(id, file) {
   return `${API_BASE}/api/gallery-image?id=${id}&file=${encodeURIComponent(file)}&t=${Date.now()}`;
 }
 
-export async function generateContent(text, images, { onImage, onProgress, preview = false }) {
+export async function generateContent(text, images, { onImage, onProgress, preview = false, signal } = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 3分钟超时
+  // 合并外部 signal
+  if (signal) signal.addEventListener('abort', () => controller.abort());
+
   const res = await fetch(`${API_BASE}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, images: images || [], preview }),
-  });
+    signal: controller.signal,
+  }).catch(e => { clearTimeout(timeoutId); throw new Error('网络请求失败: ' + e.message); });
+
   if (!res.ok) {
+    clearTimeout(timeoutId);
     const msg = await res.text().catch(() => res.statusText);
     throw new Error(msg.slice(0, 200));
   }
@@ -165,39 +177,44 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   let gotComplete = false;
   const result = { cover_url: '', image_urls: [] };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      try {
-        const d = JSON.parse(line.slice(6));
-        if (d.type === 'progress' && onProgress) onProgress(d);
-        else if (d.type === 'image') {
-          if (d.id === 'cover') result.cover_url = d.url;
-          else if (d.url) result.image_urls.push(d.url);
-          if (onImage) onImage(d);
-        } else if (d.type === 'complete') {
-          gotComplete = true;
-          Object.assign(result, d);
-          result.image_count = d.image_urls?.length || 0;
-        } else if (d.type === 'error') {
-          throw new Error(d.error || '生成失败');
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const d = JSON.parse(line.slice(6));
+          if (d.type === 'progress' && onProgress) onProgress(d);
+          else if (d.type === 'image') {
+            if (d.id === 'cover') result.cover_url = d.url;
+            else if (d.url) result.image_urls.push(d.url);
+            if (onImage) onImage(d);
+          } else if (d.type === 'complete') {
+            gotComplete = true;
+            Object.assign(result, d);
+            result.image_count = d.image_urls?.length || 0;
+          } else if (d.type === 'error') {
+            throw new Error(d.error || '生成失败');
+          }
+        } catch (e) {
+          if (e.message && !e.message.includes('JSON')) throw e;
         }
-      } catch (e) {
-        if (e.message && !e.message.includes('JSON')) throw e;
       }
     }
+  } finally {
+    clearTimeout(timeoutId);
+    try { reader.releaseLock(); } catch {}
   }
   if (!gotComplete) throw new Error('生成未完成，请重试');
   return result;
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, onImage, onProgress }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, styleSkill, customColors, sizing, onImage, onProgress }) {
   // 上传图片到服务器
   const uploadImgs = async (imgs) => {
     if (!imgs?.length) return [];
@@ -227,12 +244,22 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   if (imageSelections?.length > 0) {
     body.image_selections = imageSelections;
   }
+  // B5: 传递场景预设风格到后端
+  if (styleSkill) body.style_skill = styleSkill;
+  if (customColors) body.custom_colors = customColors;
+  if (sizing) body.sizing = sizing;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分钟超时（电商生图更慢）
+
   const res = await fetch(`${API_BASE}/api/generate-ecommerce`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
+    signal: controller.signal,
+  }).catch(e => { clearTimeout(timeoutId); throw new Error('网络请求失败: ' + e.message); });
+
   if (!res.ok) {
+    clearTimeout(timeoutId);
     const msg = await res.text().catch(() => res.statusText);
     throw new Error(msg.slice(0, 200));
   }
@@ -243,32 +270,37 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   let buf = '';
   const result = { images: {}, errors: [] };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      try {
-        const d = JSON.parse(line.slice(6));
-        if (d.type === 'progress') {
-          if (onProgress) onProgress(d);
-        } else if (d.type === 'image') {
-          if (d.id && d.url) result.images[d.id] = d.url;
-          if (onImage) onImage(d);
-        } else if (d.type === 'complete') {
-          Object.assign(result, d);
-          result.images = result.images || {};
-        } else if (d.type === 'error') {
-          throw new Error(d.error || '生成失败');
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const d = JSON.parse(line.slice(6));
+          if (d.type === 'progress') {
+            if (onProgress) onProgress(d);
+          } else if (d.type === 'image') {
+            if (d.id && d.url) result.images[d.id] = d.url;
+            if (onImage) onImage(d);
+          } else if (d.type === 'complete') {
+            Object.assign(result, d);
+            result.images = result.images || {};
+          } else if (d.type === 'error') {
+            throw new Error(d.error || '生成失败');
+          }
+        } catch (e) {
+          if (e.message && !e.message.includes('JSON')) throw e;
         }
-      } catch (e) {
-        if (e.message && !e.message.includes('JSON')) throw e;
       }
     }
+  } finally {
+    clearTimeout(timeoutId);
+    try { reader.releaseLock(); } catch {}
   }
   return result;
 }

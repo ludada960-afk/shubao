@@ -49,14 +49,15 @@ if (!fs.existsSync(USERS_FILE)) saveUsers({});
 
 const app = express();
 
-// HTTP → HTTPS 跳转
-// HTTP → HTTPS 跳转（仅 shuimg.cn, 仅 HTTP, 非 API）
+// HTTP → HTTPS 跳转（仅生产环境 shuimg.cn 且有 SSL 证书时启用）
+// 开发环境（localhost / IP 访问）不跳转，避免本地无证书导致死循环
 app.use((req, res, next) => {
   const host = req.headers.host || '';
   const isShuimg = host.indexOf('shuimg') !== -1;
   const isSecure = req.secure || !!req.headers['x-forwarded-proto'];
-  console.log('[dbg] host=' + host + ' shuimg=' + isShuimg + ' secure=' + isSecure + ' path=' + req.path);
-  if (isShuimg && !req.path.startsWith('/api/') && !isSecure) {
+  const isLocalDev = host.indexOf('localhost') !== -1 || /^\d+\.\d+\.\d+\.\d+/.test(host);
+  // 仅在非本地开发环境 且 有 shuimg 域名 且 非 API 路径 且 非 HTTPS 时跳转
+  if (isShuimg && !isLocalDev && !req.path.startsWith('/api/') && !isSecure) {
     const target = 'https://' + host.replace(/:[0-9]+$/, '') + req.url;
     console.log('[301] → ' + target);
     return res.redirect(301, target);
@@ -1845,6 +1846,11 @@ if (!fs.existsSync(IMG_CACHE_DIR)) fs.mkdirSync(IMG_CACHE_DIR, { recursive: true
 app.get('/api/proxy-image', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).end('missing url');
+  // B7: URL 安全校验
+  try { new URL(url); } catch { 
+    // 可能是相对路径
+    if (!url.startsWith('/')) return res.status(400).end('invalid url');
+  }
   const hash = crypto.createHash('md5').update(url).digest('hex');
   const diskPath = join(IMG_CACHE_DIR, hash);
 
@@ -1866,13 +1872,17 @@ app.get('/api/proxy-image', async (req, res) => {
     } catch(e) {}
   }
 
-  // 3. 远程获取
+  // 3. 远程获取 (B7: 增强错误处理 + Content-Type 修正 + 降级缓存)
   try {
     const targetUrl = url.startsWith('/') ? `http://localhost:${PORT}${url}` : url;
-	    const resp = await fetch(targetUrl, { signal: AbortSignal.timeout(60000) });
-    if (!resp.ok) return res.status(502).end('upstream error');
+	    const resp = await fetch(targetUrl, { signal: AbortSignal.timeout(60000), redirect: 'follow' });
+    if (!resp.ok) return res.status(502).end(`upstream ${resp.status}`);
     const buf = Buffer.from(await resp.arrayBuffer());
-    const ct = resp.headers.get('content-type') || 'image/png';
+    let ct = resp.headers.get('content-type') || 'image/png';
+    // B7: 修正非图片 Content-Type
+    if (!ct.startsWith('image/') && !ct.startsWith('application/octet')) {
+      ct = 'image/png';
+    }
     // 写入内存缓存
     imgCache2.set(url, { d: buf, ct, t: Date.now() });
     if (imgCache2.size > 200) { const k = imgCache2.keys().next().value; imgCache2.delete(k); }
@@ -1880,8 +1890,20 @@ app.get('/api/proxy-image', async (req, res) => {
     fs.writeFile(diskPath, buf, () => {});
     fs.writeFile(diskPath + '.meta', JSON.stringify({ ct }), () => {});
     res.set('Content-Type', ct); res.set('Cache-Control', 'max-age=3600');
+    res.set('Access-Control-Allow-Origin', '*');
     res.send(buf);
-  } catch (e) { res.status(502).end('proxy error: ' + e.message); }
+  } catch (e) { 
+    // B7: 如果磁盘有旧缓存，降级返回
+    if (fs.existsSync(diskPath)) {
+      try {
+        const disk = fs.readFileSync(diskPath);
+        const meta = JSON.parse(fs.readFileSync(diskPath + '.meta', 'utf8'));
+        res.set('Content-Type', meta.ct); res.set('Cache-Control', 'max-age=3600');
+        return res.send(disk);
+      } catch {}
+    }
+    res.status(502).end('proxy error: ' + (e.message || '').slice(0, 100)); 
+  }
 });
 
 // 薯包出品本地图片服务

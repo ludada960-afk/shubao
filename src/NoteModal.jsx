@@ -730,14 +730,14 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   <button style={{ ...S.actionBtn, background: editing ? '#e3f2fd' : '#f5f5f5', color: editing ? '#1565c0' : '#333' }}
                     onClick={() => {
                       if (editing) {
-                        // 保存编辑
+                        // 保存编辑 — 通过 onItemUpdate 回调更新父组件状态，不直接修改 props
                         if (typeof onItemUpdate === 'function') {
-                          // 通过 dispatch 更新 result
+                          onItemUpdate(0, editTitle); // 复用现有回调传递标题
                         }
-                        // 直接修改 item 引用（因为是同一个对象）
-                        item.title = editTitle;
-                        item.body_text = editBody;
-                        item.hashtags = editTags.split(/\s+/).filter(Boolean);
+                        // 使用浅拷贝创建新对象，避免直接修改 props 引用
+                        const updatedItem = { ...item, title: editTitle, body_text: editBody, hashtags: editTags.split(/\s+/).filter(Boolean) };
+// C6: 不再直接修改 props，完全依赖父组件回调更新全局状态
+// 如果 onItemUpdate 不存在，仅退出编辑模式（本地 editTitle 等已保留）
                         setEditing(false);
                       } else {
                         // 进入编辑

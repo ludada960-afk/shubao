@@ -13,6 +13,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState(''); // C4: SSE 进度文本
+  const [genStage, setGenStage] = useState(0); // C4: 生成阶段
   const [polishing, setPolishing] = useState(false);
 
   // 补充输入
@@ -85,11 +87,20 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     const files = Array.from(e.target.files || []);
     setExtraImages(prev => [...prev, ...files.map(f => ({ url: URL.createObjectURL(f), file: f }))]);
   };
+  const removeExtraImg = (idx) => {
+    setExtraImages(prev => {
+      const removed = prev[idx];
+      if (removed?.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
 
   /* ── 确认方向 → 生成 ── */
   const handleConfirm = async () => {
     if (generating) return;
     setGenerating(true);
+    setGenProgress('正在生成…');
+    setGenStage(0);
     try {
       const dir = directions[selected];
       const result = await generateEcommerce({
@@ -97,14 +108,30 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         category: params?.category || '其他',
         points: params?.copywriting?.sellingPoints || params?.description || '',
         platform: params?.platform || '淘宝',
-        refImgs: [...(params?.refShots || [])],
-        realShots: [...(params?.realShots || [])],
+        refImgs: [...(params?.refShots || []), ...extraImages.map(img => img.url)],
+        realShots: [...(params?.realShots || []), ...((params?.productImages || []).map(img => typeof img === 'string' ? img : img.url))],
         skus: params?.skus || [],
         detailPlan: params?.copywriting?.detailPlan || {},
         maintenance: params?.copywriting?.maintenance || '',
         material: params?.productParams?.material || '',
-        onProgress: (d) => { /* SSE progress events */ },
-        onImage: (d) => { /* SSE image events */ },
+        restrictions: params?.restrictions || '',
+        // B5/B9: 正确传递场景预设和图片选择
+        imageSelections: params?.imageSelections || params?.sizing?.images || null,
+        imageSize: params?.imageSize || (params?.sizing?.smart ? null : null),
+        // B5: 场景预设通过 style_skill 字段传递，不是 imageSelections
+        styleSkill: params?.styleSkill || 'smart',
+        customColors: params?.customColors || null,
+        sizing: params?.sizing || null,
+        onProgress: (d) => {
+          // C4: SSE 实时进度
+          if (d.step) setGenProgress(d.step);
+          if (d.stage) setGenStage(d.stage);
+          if (d.message) setGenProgress(d.message);
+        },
+        onImage: (d) => {
+          // C4: 每张图片生成时更新进度
+          if (d.id) setGenProgress(`已生成: ${d.id}`);
+        },
       });
       if (result && (result.images || result.product_name)) {
         const finalResult = { ...result, product_name: params?.productName || '商品', _ecResult: true, _direction: dir, category: params?.category || '其他', platform: params?.platform || '淘宝' };
@@ -138,6 +165,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       setError(e.message || '生成失败');
     }
     setGenerating(false);
+    setGenProgress('');
+    setGenStage(0);
   };
 
   const LOAD_STAGES = [
@@ -383,7 +412,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   display: 'flex', alignItems: 'center', gap: 8,
                 }}>
                 {generating ? (
-                  <><MdAutoAwesome size={18} style={{ animation: 'spin 1s linear infinite' }} /> 生成中…</>
+                  <><MdAutoAwesome size={18} style={{ animation: 'spin 1s linear infinite' }} /> {genProgress || '生成中…'}</>
                 ) : (
                   <>确认方向，开始生成 <span style={{ fontSize: 18 }}>→</span></>
                 )}

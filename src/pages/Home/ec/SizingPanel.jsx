@@ -4,30 +4,33 @@ import { Check, Info, ChevronDown, Zap, Pencil } from 'lucide-react';
 /* ═══════ 图片类型组件库 ═══════ */
 const IMAGE_TYPES = [
   { key: 'white_bg', label: '白底首图', icon: '⬜', defaultRatio: '1:1', defaultCount: 1,
-    desc: '纯白底产品居中，电商必选', usage: '淘宝/京东/亚马逊首图', maxCount: 5 },
+    desc: '纯白底产品居中，电商必选', usage: '首图/主图', maxCount: 5 },
   { key: 'main_text', label: '商品主图 1:1', icon: '🖼️', defaultRatio: '1:1', defaultCount: 5,
-    desc: '核心卖点展示，可含促销文字', usage: '淘宝/京东/拼多多主图', maxCount: 5 },
+    desc: '核心卖点展示，可含促销文字', usage: '主图轮播', maxCount: 5 },
   { key: 'main_3x4', label: '商品主图 3:4', icon: '📱', defaultRatio: '3:4', defaultCount: 5,
-    desc: '竖版主图，适合移动端展示', usage: '详情页/社交媒体', maxCount: 5 },
+    desc: '竖版主图，适合移动端展示', usage: '竖版主图', maxCount: 5 },
   { key: 'transparent', label: '透明 PNG', icon: '🔲', defaultRatio: '1:1', defaultCount: 1,
-    desc: '去底素材，方便二次设计', usage: '通用素材/合成用', maxCount: 1 },
+    desc: '去底素材，方便二次设计', usage: '素材/合成用', maxCount: 1 },
   { key: 'sku', label: 'SKU 规格图', icon: '🏷️', defaultRatio: '1:1', defaultCount: 0,
-    desc: '同款不同色/规格展示', usage: '详情页/SKU选择', maxCount: 20 },
-  { key: 'detail', label: '详情切片', icon: '📋', defaultRatio: '3:4', defaultCount: 6,
-    desc: '长图详情页切片，含多种子类', usage: '详情页长图拼接', maxCount: 6 },
+    desc: '同款不同色/规格展示', usage: 'SKU选择', maxCount: 20 },
+  { key: 'detail', label: '详情切片', icon: '📋', defaultRatio: '3:4', defaultCount: 5,
+    desc: '长图详情页切片，含多种子类', usage: '详情页长图', maxCount: 10 },
   { key: 'poster', label: '营销海报', icon: '🎯', defaultRatio: '3:4', defaultCount: 0,
-    desc: '促销活动、节日海报、Banner', usage: '活动推广/社媒分享', maxCount: 5 },
+    desc: '促销活动、节日海报、Banner', usage: '活动推广', maxCount: 5 },
 ];
 
-/* ═══════ 比例选项（带形状预览）═══ */
+/* ═══════ 比例选项（带形状预览，去平台名）═══ */
 const RATIOS = [
-  { key: '1:1',  label: '1:1',  w: 18, h: 18, usage: '主图/白底' },
-  { key: '3:4',  label: '3:4',  w: 14, h: 18, usage: '竖版主图' },
-  { key: '4:3',  label: '4:3',  w: 18, h: 14, usage: '横版详情' },
-  { key: '9:16', label: '9:16', w: 10, h: 18, usage: '抖音/全屏' },
-  { key: '16:9', label: '16:9', w: 18, h: 10, usage: '宽屏Banner' },
-  { key: '2:3',  label: '2:3',  w: 12, h: 18, usage: '小红书竖图' },
-  { key: '21:9', label: '21:9', w: 21, h: 9,  usage: '超宽横条' },
+  { key: '1:1',    label: '1:1',    w: 18, h: 18, usage: '正方形' },
+  { key: '3:4',    label: '3:4',    w: 14, h: 18, usage: '竖版' },
+  { key: '4:3',    label: '4:3',    w: 18, h: 14, usage: '横版' },
+  { key: '9:16',   label: '9:16',   w: 10, h: 18, usage: '全屏竖版' },
+  { key: '16:9',   label: '16:9',   w: 18, h: 10, usage: '宽屏' },
+  { key: '2:3',    label: '2:3',    w: 12, h: 18, usage: '经典竖版' },
+  { key: '21:9',   label: '21:9',   w: 21, h: 9,  usage: '超宽横条' },
+  { key: '5:4',    label: '5:4',    w: 16, h: 13, usage: '传统比例' },
+  { key: '4:5',    label: '4:5',    w: 13, h: 16, usage: '社交竖版' },
+  { key: '32:9',   label: '32:9',   w: 24, h: 7,  usage: '全景横幅' },
 ];
 
 /* 比例形状预览图标 */

@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, LayoutGrid, Palette, Tag, ShoppingBag, PenLine, ChevronDown, Plus, ImagePlus } from 'lucide-react';
+import {
+  Sparkles, ChevronDown, Plus, ImagePlus,
+  // 高级 AI 感图标
+  Images,  // 套图配置
+  Wand2,   // 画面风格
+  SlidersHorizontal, // 产品参数
+  Package, // SKU 变体
+  FileText // 文案策划
+} from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import SizingPanel from './ec/SizingPanel';
 import StylePanel from './ec/StylePanel';
@@ -11,25 +19,28 @@ import CopyPanel from './ec/CopyPanel';
 /* ═══════ 智能方案状态常量 ═══════ */
 const SMART_LABELS = { on: '智能生图方案', tuned: '智能方案（已微调）', off: '手动配置' };
 
-/* ═══════ 统一按钮样式 ═══════ */
+/* ═══════ 统一按钮样式（升级：胶囊形状+渐变）═══════ */
 const BTN_BASE = {
-  height: 38, padding: '0 16px', borderRadius: 12,
+  height: 40, padding: '0 18px', borderRadius: 20,
   fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-  border: '1.5px solid transparent', background: 'rgba(0,0,0,0.04)',
-  color: 'var(--text-secondary)', transition: 'all 0.18s ease',
-  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+  border: '1.5px solid transparent', 
+  background: 'rgba(255,255,255,0.8)',
+  color: 'var(--text-secondary)', 
+  transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
   whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
+  boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)',
 };
 
-/* ═══════ 玻璃拟态面板样式 ═══════ */
+/* ═══════ 玻璃拟态面板样式（AI 感升级）═══════ */
 const GLASS_PANEL = {
-  borderRadius: 16,
-  background: 'rgba(255, 255, 255, 0.78)',
-  backdropFilter: 'blur(32px) saturate(200%)',
-  WebkitBackdropFilter: 'blur(32px) saturate(200%)',
-  border: '1px solid rgba(255, 255, 255, 0.6)',
-  boxShadow: '0 8px 40px rgba(0,0,0,0.12), 0 2px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(255,255,255,0.4)',
-  animation: 'ecGlassSlideUp 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
+  borderRadius: 20,
+  background: 'rgba(255, 255, 255, 0.85)',
+  backdropFilter: 'blur(40px) saturate(220%)',
+  WebkitBackdropFilter: 'blur(40px) saturate(220%)',
+  border: '1px solid rgba(255, 255, 255, 0.7)',
+  boxShadow: '0 12px 48px rgba(124, 58, 237, 0.15), 0 4px 16px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(255,255,255,0.5)',
+  animation: 'ecGlassSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
 };
 
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
@@ -94,8 +105,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   }, [activePanel]);
 
   /* — 智能方案 override 回调 —— */
-  const handleOverride = useCallback((panel) => {
-    setSmartOverrides(prev => ({ ...prev, [panel]: true }));
+  const handleOverride = useCallback((panel, isOverridden = true) => {
+    setSmartOverrides(prev => ({ ...prev, [panel]: isOverridden }));
+  }, []);
+
+  /* — 重置特定面板的 override 状态 —— */
+  const resetOverride = useCallback((panel) => {
+    setSmartOverrides(prev => ({ ...prev, [panel]: false }));
   }, []);
 
   /* — 智能方案标签 —— */
@@ -185,8 +201,28 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     const files = Array.from(e.target.files || []);
     setRefImages(prev => [...prev, ...files.map(f => ({ url: URL.createObjectURL(f), file: f }))]);
   };
-  const removeProdImg = (idx) => setProductImages(prev => prev.filter((_, i) => i !== idx));
-  const removeRefImg = (idx) => setRefImages(prev => prev.filter((_, i) => i !== idx));
+  const removeProdImg = (idx) => {
+    setProductImages(prev => {
+      const removed = prev[idx];
+      if (removed?.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+  const removeRefImg = (idx) => {
+    setRefImages(prev => {
+      const removed = prev[idx];
+      if (removed?.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  /* ── 组件卸载时释放所有 Object URL 防止内存泄漏 ── */
+  useEffect(() => {
+    return () => {
+      productImages.forEach(img => { if (img?.url?.startsWith('blob:')) URL.revokeObjectURL(img.url); });
+      refImages.forEach(img => { if (img?.url?.startsWith('blob:')) URL.revokeObjectURL(img.url); });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── 智能方案切换 ── */
   const toggleSmart = () => {
@@ -197,34 +233,37 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     }
   };
 
-  /* ── 5 个功能按钮 ── */
+  /* ── 5 个功能按钮（AI 感图标升级）── */
   const BUTTONS = [
-    { key: 'sizing', label: '套图配置', icon: <LayoutGrid size={15} /> },
-    { key: 'style', label: '画面风格', icon: <Palette size={15} /> },
-    { key: 'params', label: '产品参数', icon: <Tag size={15} /> },
-    { key: 'sku', label: 'SKU 变体', icon: <ShoppingBag size={15} /> },
-    { key: 'copy', label: '文案策划', icon: <PenLine size={15} /> },
+    { key: 'sizing', label: '套图配置', icon: <Images size={15} strokeWidth={1.8} /> },
+    { key: 'style', label: '画面风格', icon: <Wand2 size={15} strokeWidth={1.8} /> },
+    { key: 'params', label: '产品参数', icon: <SlidersHorizontal size={15} strokeWidth={1.8} /> },
+    { key: 'sku', label: 'SKU 变体', icon: <Package size={15} strokeWidth={1.8} /> },
+    { key: 'copy', label: '文案策划', icon: <FileText size={15} strokeWidth={1.8} /> },
   ];
 
-  /* ── 面板定位（Portal 视口坐标，紧贴按钮正上方）── */
+  /* ── 面板定位（Portal 视口坐标，吸附按钮正上方）── */
   const openPanel = useCallback((key) => {
     if (activePanel === key) { setActivePanel(null); return; }
     const el = btnRefs.current[key];
     if (el) {
       const vw = window.innerWidth;
       const btnRect = el.getBoundingClientRect();
-      // 所有面板统一居中于自己的按钮
-      const maxPW = Math.min(vw - 32, 580);
-      const panelW = Math.min(Math.max(btnRect.width + 80, 380), maxPW);
+      // 面板宽度：根据内容类型调整，文案策划更宽
+      const isCopyPanel = key === 'copy';
+      const isSizingPanel = key === 'sizing';
+      const baseWidth = isCopyPanel ? 520 : isSizingPanel ? 460 : 420;
+      const maxPW = Math.min(vw - 32, 640);
+      const panelW = Math.min(Math.max(baseWidth, 400), maxPW);
       let panelLeft = btnRect.left + btnRect.width / 2 - panelW / 2;
       // 边缘修正
       if (panelLeft < 16) panelLeft = 16;
       if (panelLeft + panelW > vw - 16) panelLeft = vw - panelW - 16;
-      // 面板底部紧贴按钮上方（留 10px 给连接箭头）
-      const gap = 10;
+      // 面板底部紧贴按钮上方（吸附效果：gap 减小到 6px）
+      const gap = 6;
       const panelBottom = window.innerHeight - btnRect.top + gap;
       // 安全最大高度 = 按钮上方可用空间
-      const maxH = Math.max(240, btnRect.top - 16);
+      const maxH = Math.max(280, btnRect.top - 24);
       // 按钮中心 X（用于箭头定位）
       const btnCenterX = btnRect.left + btnRect.width / 2;
       setPanelPos({ left: panelLeft, bottom: panelBottom, width: panelW, maxH, btnCenterX });
@@ -276,6 +315,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             value={styleSkill} onChange={setStyleSkill}
             customColors={customColors} onColorsChange={setCustomColors}
             smartMode={smartMode} onOverride={() => handleOverride('style')}
+            onResetOverride={() => resetOverride('style')}
           />
         )}
         {activePanel === 'params' && (
@@ -303,12 +343,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         <div style={{ borderRadius: 16, padding: '4px', background: 'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)', overflow: 'visible', position: 'relative' }}>
 
           {/* ── 上传行：单排横滚，产品图左倾/参考图右倾，对称互歪 ── */}
-          <div style={{ padding: '14px 16px 0 20px', position: 'relative', zIndex: 2 }}>
+          {/* 增加左侧 padding 避免左侧截断，增加 overflow visible 避免阴影截断 */}
+          <div style={{ padding: '14px 16px 0 24px', position: 'relative', zIndex: 2 }}>
 
-            {/* 单排滚动容器：paddingTop/Bottom 给旋转留空间 */}
+            {/* 单排滚动容器：padding 给旋转和阴影留空间 */}
             <div style={{
-              display: 'flex', gap: 10, alignItems: 'flex-end',
-              overflowX: 'auto', paddingTop: 16, paddingBottom: 14,
+              display: 'flex', gap: 12, alignItems: 'flex-end',
+              overflowX: 'auto', padding: '20px 12px 18px 8px', margin: '-8px -8px',
               WebkitOverflowScrolling: 'touch',
               scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.12) transparent',
             }}>
@@ -323,23 +364,32 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 </div>
               ))}
 
-              {/* 产品图空插槽（左倾 + 标签嵌入） */}
+              {/* 产品图空插槽（左倾 + 优化标签） */}
               <div onClick={() => prodFileRef.current?.click()} style={{
-                width: 74, height: 92, borderRadius: 11, background: 'rgba(255,255,255,0.95)',
+                width: 74, height: 92, borderRadius: 11, background: 'rgba(255,255,255,0.98)',
                 transform: 'rotate(-3deg)', cursor: 'pointer', flexShrink: 0,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
-                border: '2px dashed rgba(0,0,0,0.16)',
-                boxShadow: '0 6px 18px rgba(57,45,26,0.08)',
-                transition: 'all 0.2s', position: 'relative',
+                border: '2px dashed rgba(124,58,237,0.35)',
+                boxShadow: '0 4px 12px rgba(124,58,237,0.08), 0 0 0 1px rgba(124,58,237,0.05)',
+                transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)', position: 'relative',
               }}
-                onMouseEnter={e => { e.currentTarget.style.transform='rotate(-3deg) translateY(-6px)'; e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.boxShadow='0 12px 28px rgba(124,58,237,0.18)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform='rotate(-3deg)'; e.currentTarget.style.borderColor='rgba(0,0,0,0.16)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(57,45,26,0.08)'; }}>
-                {/* 小标签 */}
+                onMouseEnter={e => { e.currentTarget.style.transform='rotate(-3deg) translateY(-6px) scale(1.02)'; e.currentTarget.style.borderColor='#7c3aed'; e.currentTarget.style.boxShadow='0 12px 32px rgba(124,58,237,0.22), 0 0 0 1px rgba(124,58,237,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform='rotate(-3deg)'; e.currentTarget.style.borderColor='rgba(124,58,237,0.35)'; e.currentTarget.style.boxShadow='0 4px 12px rgba(124,58,237,0.08), 0 0 0 1px rgba(124,58,237,0.05)'; }}>
+                {/* 产品图标签 - 独立样式，白色背景+紫色边框 */}
                 {productImages.length === 0 && (
-                  <div style={{ position: 'absolute', top: -9, left: '50%', transform: 'translateX(-50%) rotate(3deg)', background: 'var(--accent)', color: '#fff', fontSize: 8, fontWeight: 800, padding: '1px 6px', borderRadius: 5, whiteSpace: 'nowrap' }}>📸 产品图</div>
+                  <div style={{
+                    position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%) rotate(3deg)',
+                    background: '#fff', color: '#7c3aed', fontSize: 9, fontWeight: 800,
+                    padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(124,58,237,0.2), 0 0 0 1px rgba(124,58,237,0.15)',
+                    display: 'flex', alignItems: 'center', gap: 3,
+                    zIndex: 3,
+                  }}>
+                    <span style={{ fontSize: 10 }}>📸</span> 产品图
+                  </div>
                 )}
-                <span style={{ display: 'grid', width: 26, height: 26, placeItems: 'center', borderRadius: '50%', background: '#f8f3ea', color: 'var(--text-secondary)' }}><ImagePlus size={13} /></span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.4, whiteSpace: 'pre-line' }}>
+                <span style={{ display: 'grid', width: 28, height: 28, placeItems: 'center', borderRadius: '50%', background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)', color: '#7c3aed' }}><ImagePlus size={14} /></span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: 'center', lineHeight: 1.4, whiteSpace: 'pre-line' }}>
                   {productImages.length === 0 ? '上传产品\n实拍图' : productImages.length === 1 ? '建议补充\n侧面图' : productImages.length === 2 ? '建议补充\n细节特写' : '+添加'}
                 </span>
               </div>
@@ -358,21 +408,41 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 </div>
               ))}
 
-              {/* 参考图空插槽（右倾 + "可选"标签嵌入） */}
+              {/* 参考图空插槽（右倾 + 独立"可选"标签） */}
               <div onClick={() => refFileRef.current?.click()} style={{
-                width: 74, height: 92, borderRadius: 11, background: 'rgba(255,255,255,0.95)',
+                width: 74, height: 92, borderRadius: 11, background: 'rgba(255,255,255,0.98)',
                 transform: 'rotate(3deg)', cursor: 'pointer', flexShrink: 0,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
-                border: '2px dashed rgba(139,92,246,0.28)',
-                boxShadow: '0 6px 18px rgba(139,92,246,0.08)',
-                transition: 'all 0.2s', position: 'relative',
+                border: '2px dashed rgba(236,72,153,0.35)',
+                boxShadow: '0 4px 12px rgba(236,72,153,0.08), 0 0 0 1px rgba(236,72,153,0.05)',
+                transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)', position: 'relative',
               }}
-                onMouseEnter={e => { e.currentTarget.style.transform='rotate(3deg) translateY(-6px)'; e.currentTarget.style.borderColor='#8b5cf6'; e.currentTarget.style.boxShadow='0 12px 28px rgba(139,92,246,0.22)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform='rotate(3deg)'; e.currentTarget.style.borderColor='rgba(139,92,246,0.28)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(139,92,246,0.08)'; }}>
-                {/* "可选" badge 嵌在参考图插槽上 */}
-                <div style={{ position: 'absolute', top: -9, left: '50%', transform: 'translateX(-50%) rotate(-3deg)', background: 'rgba(139,92,246,0.12)', color: '#8b5cf6', fontSize: 8, fontWeight: 800, padding: '1px 7px', borderRadius: 5, border: '1px solid rgba(139,92,246,0.25)', whiteSpace: 'nowrap' }}>🎨 参考图 可选</div>
-                <span style={{ display: 'grid', width: 26, height: 26, placeItems: 'center', borderRadius: '50%', background: '#f0ecff', color: '#8b5cf6' }}><ImagePlus size={13} /></span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: '#8b5cf6', textAlign: 'center', lineHeight: 1.4, whiteSpace: 'pre-line' }}>
+                onMouseEnter={e => { e.currentTarget.style.transform='rotate(3deg) translateY(-6px) scale(1.02)'; e.currentTarget.style.borderColor='#ec4899'; e.currentTarget.style.boxShadow='0 12px 32px rgba(236,72,153,0.22), 0 0 0 1px rgba(236,72,153,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform='rotate(3deg)'; e.currentTarget.style.borderColor='rgba(236,72,153,0.35)'; e.currentTarget.style.boxShadow='0 4px 12px rgba(236,72,153,0.08), 0 0 0 1px rgba(236,72,153,0.05)'; }}>
+                {/* 参考图标签 - 独立样式 */}
+                <div style={{
+                  position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%) rotate(-3deg)',
+                  background: '#fff', color: '#ec4899', fontSize: 9, fontWeight: 800,
+                  padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 8px rgba(236,72,153,0.2), 0 0 0 1px rgba(236,72,153,0.15)',
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  zIndex: 3,
+                }}>
+                  <span style={{ fontSize: 10 }}>🎨</span> 参考图
+                </div>
+                {/* "可选" 独立标签 - 右下角小徽章 */}
+                <div style={{
+                  position: 'absolute', bottom: -6, right: -6,
+                  background: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
+                  color: '#fff', fontSize: 8, fontWeight: 800,
+                  padding: '3px 8px', borderRadius: 10,
+                  boxShadow: '0 2px 8px rgba(236,72,153,0.35)',
+                  whiteSpace: 'nowrap',
+                  zIndex: 3,
+                  letterSpacing: '0.5px',
+                }}>可选</div>
+                <span style={{ display: 'grid', width: 28, height: 28, placeItems: 'center', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)', color: '#ec4899' }}><ImagePlus size={14} /></span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textAlign: 'center', lineHeight: 1.4, whiteSpace: 'pre-line' }}>
                   {refImages.length === 0 ? '上传竞品\n参考图' : '+添加'}
                 </span>
               </div>
@@ -438,30 +508,107 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             </div>
           </div>
 
-          {/* ── 5 个功能按钮 ── */}
+          {/* ── 5 个功能按钮（带配置回显）── */}
           {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;
             const isOverridden = smartMode && smartOverrides[btn.key];
+            // 计算配置摘要
+            const getConfigSummary = () => {
+              if (!smartMode || !isOverridden) return null;
+              switch (btn.key) {
+                case 'sizing': {
+                  if (sizing?.smart) return null;
+                  const counts = sizing?.images?.reduce((acc, img) => {
+                    acc[img.type] = (acc[img.type] || 0) + 1;
+                    return acc;
+                  }, {});
+                  const parts = [];
+                  if (counts?.white) parts.push(`${counts.white}白底`);
+                  if (counts?.main) parts.push(`${counts.main}主图`);
+                  if (counts?.detail) parts.push(`${counts.detail}详情`);
+                  return parts.length ? parts.join('·') : null;
+                }
+                case 'style': {
+                  if (styleSkill === 'smart') return null;
+                  const styleMap = { clean: '简约白', scene: '场景图', brand: '品牌色' };
+                  const colorCount = customColors?.length || 0;
+                  const base = styleMap[styleSkill] || styleSkill;
+                  return colorCount ? `${base}+${colorCount}色` : base;
+                }
+                case 'params': {
+                  const filled = Object.entries(productParams).filter(([k, v]) => v && v.trim?.()).map(([k]) => k);
+                  return filled.length ? `${filled.length}项已填` : null;
+                }
+                case 'sku': {
+                  const validSkus = skus?.filter(s => s.color || s.size || s.capacity) || [];
+                  return validSkus.length ? `${validSkus.length}个变体` : null;
+                }
+                case 'copy': {
+                  const hasCopy = copywriting?.sellingPoints || copywriting?.plan;
+                  return hasCopy ? '已配置' : null;
+                }
+                default: return null;
+              }
+            };
+            const summary = getConfigSummary();
             return (
               <div key={btn.key} ref={el => { if (el) btnRefs.current[btn.key] = el; }}
                 onClick={() => openPanel(btn.key)}
                 className={isOverridden ? 'ec-btn-overridden' : ''}
                 style={{
                   ...BTN_BASE,
-                  borderColor: isOverridden ? '#1a1a1a' : 'transparent',
+                  borderColor: isOverridden ? '#7c3aed' : 'rgba(0,0,0,0.08)',
                   borderStyle: 'solid',
-                  background: isOpen ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)',
+                  background: isOpen 
+                    ? 'linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(236,72,153,0.08) 100%)' 
+                    : isOverridden 
+                      ? 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(255,255,255,0.95) 100%)'
+                      : 'rgba(255,255,255,0.85)',
                   position: 'relative',
+                  boxShadow: isOpen 
+                    ? '0 4px 16px rgba(124,58,237,0.2), inset 0 1px 0 rgba(255,255,255,0.8)' 
+                    : isOverridden 
+                      ? '0 2px 8px rgba(124,58,237,0.12), inset 0 1px 0 rgba(255,255,255,0.9)'
+                      : BTN_BASE.boxShadow,
                 }}
-                onMouseEnter={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; }}
-                onMouseLeave={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}>
-                <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{btn.icon}</span>
-                <span>{btn.label}</span>
-                {isOverridden && <span className="ec-override-dot" />}
+                onMouseEnter={e => { 
+                  if (!isOpen) {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(255,255,255,0.98) 100%)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(124,58,237,0.15), inset 0 1px 0 rgba(255,255,255,0.9)';
+                  }
+                }}
+                onMouseLeave={e => { 
+                  if (!isOpen) {
+                    e.currentTarget.style.background = isOverridden 
+                      ? 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(255,255,255,0.95) 100%)'
+                      : 'rgba(255,255,255,0.85)';
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = isOverridden 
+                      ? '0 2px 8px rgba(124,58,237,0.12), inset 0 1px 0 rgba(255,255,255,0.9)'
+                      : BTN_BASE.boxShadow;
+                  }
+                }}>
+                <span style={{ 
+                  color: isOverridden ? '#7c3aed' : 'var(--text-muted)', 
+                  flexShrink: 0,
+                  filter: isOverridden ? 'drop-shadow(0 1px 2px rgba(124,58,237,0.2))' : 'none',
+                }}>{btn.icon}</span>
+                <span style={{ color: isOverridden ? '#1a1a1a' : 'var(--text-secondary)' }}>{btn.label}</span>
+                {summary && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: '#7c3aed',
+                    background: 'rgba(124,58,237,0.1)', padding: '2px 8px',
+                    borderRadius: 10, marginLeft: 4,
+                    border: '1px solid rgba(124,58,237,0.15)',
+                  }}>{summary}</span>
+                )}
+                {isOverridden && !summary && <span className="ec-override-dot" />}
                 <ChevronDown size={13} style={{
-                  opacity: 0.5,
+                  opacity: isOpen ? 0.8 : 0.4,
+                  color: isOverridden ? '#7c3aed' : 'var(--text-muted)',
                   transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.22s ease',
+                  transition: 'transform 0.22s ease, opacity 0.2s',
                 }} />
               </div>
             );

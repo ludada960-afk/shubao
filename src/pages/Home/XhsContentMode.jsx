@@ -432,6 +432,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     setEcRegenEdit({ label: null, prompt: '', visible: false });
   };
 
+  // B4: SSE 流泄漏修复 — 组件卸载时 AbortController 中断
+  const genAbortRef = useRef(null);
+  useEffect(() => {
+    return () => { if (genAbortRef.current) genAbortRef.current.abort(); };
+  }, []);
+
   const doGenXHS = async () => {
     if (!inputText.trim()) return;
     if (logged && credits === 0 && trialRemaining === 0) { dispatch({ type: 'SHOW_PRICE', show: true }); return; }
@@ -440,10 +446,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     const usePreview = !logged;
     setErr('');
     dispatch({ type: 'START_GEN' });
+    // 创建 AbortController 以便组件卸载时中断
+    genAbortRef.current = new AbortController();
     try {
       // SSE 流式回调：用后端真实进度替换假定时器
       const result = await generateContent(inputText, [], {
         preview: usePreview,
+        signal: genAbortRef.current.signal,
         onProgress: (d) => {
           if (d.step === 'content_analysis' || d.step === 'visual_planning')
             dispatch({ type: 'SET_STAGE', stage: 1 });

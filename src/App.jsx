@@ -18,7 +18,7 @@ const PlogPage = React.lazy(() => import('./pages/Plog/index'));
 const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
-import { downloadZip, saveWork, regenerateText } from './services/api';
+import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
 
 /* ═══════ 左侧导航栏（3按钮精简版）═══════ */
 function SideNav() {
@@ -215,6 +215,20 @@ function AppRouter() {
     }
   }, []);
 
+  // B3: 全局 resize 节流 — 防止高频重排导致崩溃
+  useEffect(() => {
+    let rafId = null;
+    const handleResize = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => { rafId = null; });
+    };
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   const textRegen = async () => {
     if (!result || result._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }
     try {
@@ -231,8 +245,10 @@ function AppRouter() {
       const imgs = Object.entries(result.images || {});
       imgs.forEach(([style, url]) => {
         const a = document.createElement('a');
-        a.href = url;
+        // B2: 走代理 URL 避免跨域 404
+        a.href = proxyImg(url);
         a.download = `${result.product_name || '商品'}-${style}.png`;
+        a.target = '_blank';
         a.click();
       });
       return;
