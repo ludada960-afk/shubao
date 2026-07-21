@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { HexColorPicker } from 'react-colorful';
-import { Sparkles, Pencil, Lock, Unlock } from 'lucide-react';
+import { Sparkles, Pencil, Lock, Unlock, ImageIcon, Trees, Coffee, Sun, Moon, Briefcase, Home } from 'lucide-react';
 
 /* ═══════ 6 套风格 = 完整方案（含光影+色调+构图）═══ */
 const STYLES = [
@@ -23,6 +23,59 @@ const STYLES = [
   { key: 'tech_precision', label: '科技精工', desc: '冷蓝·锐利·金属质感',
     gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
     tone: '冷蓝金属' },
+];
+
+/* ═══════ 智能场景预设 ═══ */
+const SCENE_PRESETS = [
+  { 
+    key: 'studio_white', 
+    label: '专业白底', 
+    icon: <ImageIcon size={14} />,
+    desc: '电商标准白底图',
+    prompt: 'Professional e-commerce photography on pure white background #FFFFFF, clean studio lighting, soft shadow, product photography style'
+  },
+  { 
+    key: 'lifestyle_home', 
+    label: '居家场景', 
+    icon: <Home size={14} />,
+    desc: '温馨家居环境',
+    prompt: 'Cozy home interior setting, warm natural window light, wooden table surface, soft lifestyle arrangement, inviting atmosphere'
+  },
+  { 
+    key: 'outdoor_nature', 
+    label: '户外自然', 
+    icon: <Trees size={14} />,
+    desc: '自然光户外场景',
+    prompt: 'Outdoor natural setting, golden hour sunlight, green nature background, fresh air feeling, organic lifestyle'
+  },
+  { 
+    key: 'cafe_coffee', 
+    label: '咖啡休闲', 
+    icon: <Coffee size={14} />,
+    desc: '咖啡厅氛围',
+    prompt: 'Modern cafe setting, marble or wooden table, coffee cup nearby, warm ambient lighting, relaxed lifestyle mood'
+  },
+  { 
+    key: 'office_desk', 
+    label: '办公桌面', 
+    icon: <Briefcase size={14} />,
+    desc: '职场商务场景',
+    prompt: 'Clean office desk setup, minimal stationery, laptop in background, professional workspace, natural desk lighting'
+  },
+  { 
+    key: 'sunset_glow', 
+    label: '日落暖光', 
+    icon: <Sun size={14} />,
+    desc: '黄昏温暖光线',
+    prompt: 'Golden hour sunset lighting, warm orange glow, long soft shadows, cozy evening atmosphere, dreamy warm tone'
+  },
+  { 
+    key: 'night_mood', 
+    label: '夜晚氛围', 
+    icon: <Moon size={14} />,
+    desc: '暗调夜景风格',
+    prompt: 'Night time mood lighting, dark background with subtle ambient light, dramatic shadows, sophisticated evening atmosphere'
+  },
 ];
 
 export default function StylePanel({ value = 'smart', onChange, customColors, onColorsChange, smartMode = true, onOverride, onResetOverride }) {
@@ -103,6 +156,58 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
       )}
 
       <div style={{ padding: '14px 16px 12px' }}>
+        {/* ── 智能场景预设 ── */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4, letterSpacing: 0.3 }}>场景预设</div>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>选择产品展示的场景环境</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 16 }}>
+          {SCENE_PRESETS.map(scene => (
+            <div key={scene.key} 
+              onClick={() => {
+                // 场景预设选择逻辑
+                onOverride?.();
+              }}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                padding: '10px 4px', borderRadius: 10, cursor: 'pointer',
+                border: '1.5px solid rgba(0,0,0,0.08)',
+                background: 'rgba(0,0,0,0.02)',
+                transition: 'all 0.18s ease',
+              }}
+              onMouseEnter={e => { 
+                e.currentTarget.style.background = 'rgba(124,58,237,0.08)'; 
+                e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)';
+              }}
+              onMouseLeave={e => { 
+                e.currentTarget.style.background = 'rgba(0,0,0,0.02)'; 
+                e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)';
+              }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#7c3aed',
+              }}>
+                {scene.icon}
+              </div>
+              <span style={{
+                fontSize: 10, fontWeight: 600,
+                color: 'var(--text-secondary)',
+                textAlign: 'center',
+              }}>
+                {scene.label}
+              </span>
+              <span style={{
+                fontSize: 8,
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+              }}>
+                {scene.desc}
+              </span>
+            </div>
+          ))}
+        </div>
+
         {/* ── 风格选择（完整方案）── */}
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4, letterSpacing: 0.3 }}>画面风格</div>
         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>每种风格包含完整的光影、色调、构图方案</div>
