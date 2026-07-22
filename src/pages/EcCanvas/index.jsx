@@ -244,7 +244,12 @@ export default function EcCanvas() {
     load();
   }, []);
 
-  // B10: 全局键盘快捷键
+  // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
+  const handleDeleteRef = useRef(handleDelete);
+  const fitViewRef = useRef(fitView);
+  useEffect(() => { handleDeleteRef.current = handleDelete; }, [handleDelete]);
+  useEffect(() => { fitViewRef.current = fitView; }, [fitView]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Esc: 取消所有选中/连线/菜单
@@ -260,7 +265,7 @@ export default function EcCanvas() {
       // Delete/Backspace: 删除选中节点
       if ((e.key === 'Delete' || e.key === 'Backspace') && (selected || multiSelected.size > 0)) {
         e.preventDefault();
-        handleDelete();
+        handleDeleteRef.current?.();
         return;
       }
       // Ctrl+A / Cmd+A: 全选
@@ -280,13 +285,13 @@ export default function EcCanvas() {
       // F: 适配视口
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
-        fitView();
+        fitViewRef.current?.();
         return;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [tab, selected, multiSelected, nodes, handleDelete, fitView]);
+  }, [tab, selected, multiSelected, nodes]);
 
   // B3: 清理 wheel RAF
   useEffect(() => {
@@ -385,21 +390,6 @@ export default function EcCanvas() {
 
   const zoomTo = useCallback((s) => { setViewport(v => ({ ...v, scale: Math.max(0.15, Math.min(4, s)) })); }, []);
 
-  // A6: 适配视口
-  const fitView = useCallback(() => {
-    if (nodes.length === 0) return;
-    const minX = Math.min(...nodes.map(n => n.x));
-    const minY = Math.min(...nodes.map(n => n.y));
-    const maxX = Math.max(...nodes.map(n => n.x + n.w));
-    const maxY = Math.max(...nodes.map(n => n.y + n.h + 60));
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const scaleX = (rect.width - 80) / (maxX - minX + 40);
-    const scaleY = (rect.height - 80) / (maxY - minY + 40);
-    const scale = Math.max(0.15, Math.min(1.5, Math.min(scaleX, scaleY)));
-    setViewport({ x: 40 - minX * scale, y: 40 - minY * scale, scale });
-  }, [nodes]);
-
   const handleDownload = (id) => {
     const n = id ? nodes.find(n => n.id === id) : nodes.find(n => n.id === selected);
     if (n) {
@@ -424,18 +414,6 @@ export default function EcCanvas() {
         a.click();
       }
     });
-  };
-
-  const handleDelete = () => {
-    if (selected) {
-      setNodes(ns => ns.filter(n => n.id !== selected));
-      setSelected(null);
-    }
-    if (multiSelected.size > 0) {
-      setNodes(ns => ns.filter(n => !multiSelected.has(n.id)));
-      setConnections(prev => prev.filter(c => !multiSelected.has(c.from) && !multiSelected.has(c.to)));
-      setMultiSelected(new Set());
-    }
   };
 
   // A6: 右键菜单动作
@@ -512,6 +490,34 @@ export default function EcCanvas() {
     setTab('canvas');
   };
   const deleteWork = (id) => { const w = pastWorks.filter(x => x.id !== id); setPastWorks(w); localStorage.setItem('shubao_ec_works', JSON.stringify(w)); };
+
+  // A6: 适配视口（提前定义以避免循环依赖）
+  const fitView = useCallback(() => {
+    if (nodes.length === 0) return;
+    const minX = Math.min(...nodes.map(n => n.x));
+    const minY = Math.min(...nodes.map(n => n.y));
+    const maxX = Math.max(...nodes.map(n => n.x + n.w));
+    const maxY = Math.max(...nodes.map(n => n.y + n.h + 60));
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scaleX = (rect.width - 80) / (maxX - minX + 40);
+    const scaleY = (rect.height - 80) / (maxY - minY + 40);
+    const scale = Math.max(0.15, Math.min(1.5, Math.min(scaleX, scaleY)));
+    setViewport({ x: 40 - minX * scale, y: 40 - minY * scale, scale });
+  }, [nodes]);
+
+  // 删除节点（提前定义以避免循环依赖）
+  const handleDelete = useCallback(() => {
+    if (selected) {
+      setNodes(ns => ns.filter(n => n.id !== selected));
+      setSelected(null);
+    }
+    if (multiSelected.size > 0) {
+      setNodes(ns => ns.filter(n => !multiSelected.has(n.id)));
+      setConnections(prev => prev.filter(c => !multiSelected.has(c.from) && !multiSelected.has(c.to)));
+      setMultiSelected(new Set());
+    }
+  }, [selected, multiSelected]);
 
   // 选中状态（单选 or 多选）
   const isNodeSelected = (id) => selected === id || multiSelected.has(id);

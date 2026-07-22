@@ -51,42 +51,54 @@ function SideNav() {
   return (
     <div style={{
       position: 'fixed', left: 0, top: '50%', transform: 'translateY(-50%)',
-      zIndex: 200, display: 'flex', flexDirection: 'column', gap: 3,
-      padding: '6px', marginLeft: 12,
-      background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
-      borderRadius: 18, border: '1px solid rgba(0,0,0,0.07)',
-      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+      zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8,
+      padding: '10px', marginLeft: 16,
+      background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
+      borderRadius: 20, border: '1px solid rgba(0,0,0,0.08)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
     }}>
       {items.map((item, i) => {
         const isGen = item.isPrimary;
-        // 生图按钮：在生图页=全渐变白字；其他页=淡紫底+紫字+紫色边框
+        // 按钮样式：更像可点击的按钮，有明确的背景和边框
         const bg = isGen
           ? (item.active
               ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
-              : 'linear-gradient(135deg, rgba(124,58,237,0.10), rgba(167,139,250,0.08))')
-          : item.active ? 'rgba(0,0,0,0.07)' : 'transparent';
+              : 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(167,139,250,0.08))')
+          : item.active 
+            ? 'linear-gradient(135deg, rgba(0,0,0,0.08), rgba(0,0,0,0.04))' 
+            : 'rgba(0,0,0,0.03)';
         const color = isGen
           ? (item.active ? '#fff' : '#7c3aed')
-          : item.active ? '#1a1a1a' : '#999';
-        const border = isGen && !item.active
-          ? '1.5px solid rgba(124,58,237,0.22)'
-          : '1.5px solid transparent';
+          : item.active ? '#1a1a1a' : '#666';
+        const border = isGen
+          ? (item.active ? 'none' : '1.5px solid rgba(124,58,237,0.25)')
+          : item.active ? '1.5px solid rgba(0,0,0,0.15)' : '1.5px solid rgba(0,0,0,0.08)';
+        const shadow = item.active 
+          ? '0 4px 12px rgba(0,0,0,0.15)' 
+          : '0 2px 6px rgba(0,0,0,0.04)';
 
         return (
           <div key={i} onClick={item.onClick} title={item.label}
             style={{
-              width: 40, height: 40, borderRadius: 12,
+              width: 44, height: 44, borderRadius: 14,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all 0.15s',
-              background: bg, color, border,
+              cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
+              background: bg, color, border, boxShadow: shadow,
             }}
             onMouseEnter={e => {
-              if (!item.active)
+              if (!item.active) {
                 e.currentTarget.style.background = isGen
-                  ? 'linear-gradient(135deg, rgba(124,58,237,0.18), rgba(167,139,250,0.15))'
+                  ? 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(167,139,250,0.15))'
                   : 'rgba(0,0,0,0.06)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+              }
             }}
-            onMouseLeave={e => { e.currentTarget.style.background = bg; }}>
+            onMouseLeave={e => { 
+              e.currentTarget.style.background = bg; 
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = shadow;
+            }}>
             {item.icon}
           </div>
         );
@@ -129,28 +141,6 @@ function TopBar() {
 
         {/* Right: 按钮组 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* 我的作品 */}
-          <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-canvas' })}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, height: 44,
-              padding: '0 14px', border: 'none', borderRadius: 'var(--radius-full)',
-              background: page === 'ec-canvas' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)',
-              fontSize: 13, fontWeight: page === 'ec-canvas' ? 900 : 500,
-              color: page === 'ec-canvas' ? 'var(--accent)' : 'var(--text-muted)',
-              cursor: 'pointer', fontFamily: 'inherit',
-              backdropFilter: 'blur(8px)',
-              transition: 'all 0.12s', whiteSpace: 'nowrap',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.85)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(57,45,26,0.08)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = page === 'ec-canvas' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)'; e.currentTarget.style.boxShadow = 'none'; }}>
-            <MdDashboard size={16} />
-            <span style={{ display: 'none' }} className="topbar-works-label">我的作品</span>
-            <style>{`@media (min-width: 640px) { .topbar-works-label { display: inline !important; } }`}</style>
-            {logged && (
-              <span style={{ fontWeight: 700, fontSize: 11, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 8 }}>{credits}</span>
-            )}
-          </button>
-
           {/* 套餐 */}
           <button onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}
             style={{

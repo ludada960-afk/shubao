@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import {
   Sparkles, ChevronDown, Plus, ImagePlus,
   // 高级 AI 感图标
@@ -10,14 +9,23 @@ import {
   FileText // 文案策划
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
-import SizingPanel from './ec/SizingPanel';
+import SizingPanel, { PLATFORM_PRESETS } from './ec/SizingPanel';
 import StylePanel from './ec/StylePanel';
 import ParamsPanel from './ec/ParamsPanel';
 import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
 
-/* ═══════ 智能方案状态常量 ═══════ */
-const SMART_LABELS = { on: '智能生图方案', tuned: '智能方案（已微调）', off: '手动配置' };
+/* ═══════ 智能方案状态常量 ═══════
+ * 智能方案逻辑：
+ * - ON:  完全由AI根据产品信息自动选择最佳配置（平台、风格、文案等）
+ * - TUNED: 基于智能推荐，但用户在某个面板做了自定义调整
+ * - OFF: 完全手动配置，不使用AI推荐
+ * 交互规则：
+ * - 打开面板修改配置 → 该面板标记为已覆盖（紫色边框+标签）
+ * - 关闭智能开关 → 所有配置转为手动，保留当前值
+ * - 重新开启智能 → 重置所有覆盖，恢复AI推荐
+ */
+const SMART_LABELS = { on: 'AI智能方案', tuned: 'AI方案·已微调', off: '手动配置' };
 
 /* ═══════ 统一按钮样式（升级：胶囊形状+渐变）═══════ */
 const BTN_BASE = {
@@ -242,65 +250,84 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     { key: 'copy', label: '文案策划', icon: <FileText size={15} strokeWidth={1.8} /> },
   ];
 
-  /* ── 面板定位（Portal 视口坐标，吸附按钮正上方）── */
+  /* ── 面板定位（相对于按钮行的绝对定位，滚动时跟随）── */
   const openPanel = useCallback((key) => {
     if (activePanel === key) { setActivePanel(null); return; }
     const el = btnRefs.current[key];
-    if (el) {
-      const vw = window.innerWidth;
+    const btnRow = btnRowRef.current;
+    if (el && btnRow) {
       const btnRect = el.getBoundingClientRect();
-      // 面板宽度：根据内容类型调整，文案策划更宽
+      const rowRect = btnRow.getBoundingClientRect();
+      const vw = window.innerWidth;
+      
+      // 面板宽度：根据内容类型调整
       const isCopyPanel = key === 'copy';
       const isSizingPanel = key === 'sizing';
       const baseWidth = isCopyPanel ? 520 : isSizingPanel ? 460 : 420;
       const maxPW = Math.min(vw - 32, 640);
       const panelW = Math.min(Math.max(baseWidth, 400), maxPW);
-      let panelLeft = btnRect.left + btnRect.width / 2 - panelW / 2;
-      // 边缘修正
-      if (panelLeft < 16) panelLeft = 16;
-      if (panelLeft + panelW > vw - 16) panelLeft = vw - panelW - 16;
-      // 面板底部紧贴按钮上方（吸附效果：gap 减小到 6px）
-      const gap = 6;
-      const panelBottom = window.innerHeight - btnRect.top + gap;
-      // 安全最大高度 = 按钮上方可用空间
-      const maxH = Math.max(280, btnRect.top - 24);
-      // 按钮中心 X（用于箭头定位）
-      const btnCenterX = btnRect.left + btnRect.width / 2;
-      setPanelPos({ left: panelLeft, bottom: panelBottom, width: panelW, maxH, btnCenterX });
+      
+      // 计算相对于按钮行的位置
+      const btnCenterInRow = (btnRect.left - rowRect.left) + btnRect.width / 2;
+      let panelLeft = btnCenterInRow - panelW / 2;
+      
+      // 边缘修正（确保不超出视口）
+      const rowLeftInViewport = rowRect.left;
+      if (rowLeftInViewport + panelLeft < 16) {
+        panelLeft = 16 - rowLeftInViewport;
+      }
+      if (rowLeftInViewport + panelLeft + panelW > vw - 16) {
+        panelLeft = vw - 16 - panelW - rowLeftInViewport;
+      }
+      
+      // 面板底部紧贴按钮上方（相对于按钮行）
+      const gap = 8;
+      const panelBottom = rowRect.height + gap;
+      
+      // 安全最大高度
+      const maxH = Math.max(300, rowRect.top - 24);
+      
+      setPanelPos({ 
+        left: panelLeft, 
+        bottom: panelBottom, 
+        width: panelW, 
+        maxH, 
+        btnCenterX: btnCenterInRow 
+      });
     }
     setActivePanel(key);
   }, [activePanel]);
 
-  /* ── Portal 渲染面板 ── */
+  /* ── 内联渲染面板（相对于按钮行定位，滚动时跟随）── */
   const renderPanel = () => {
     if (!activePanel) return null;
     // 箭头相对于面板的水平位置
     const arrowLeft = Math.max(16, Math.min(panelPos.btnCenterX - panelPos.left, panelPos.width - 16));
-    return createPortal(
+    return (
       <>
         {/* ── 连接箭头（指向按钮）── */}
         <div className="ec-panel-arrow" style={{
-          position: 'fixed',
-          bottom: panelPos.bottom - 8,
+          position: 'absolute',
+          bottom: panelPos.bottom - 6,
           left: panelPos.btnCenterX - 8,
           width: 0, height: 0,
           borderLeft: '8px solid transparent',
           borderRight: '8px solid transparent',
-          borderTop: '8px solid rgba(255,255,255,0.78)',
+          borderTop: '8px solid rgba(255,255,255,0.95)',
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.08))',
-          zIndex: 9999,
+          zIndex: 100,
           pointerEvents: 'none',
         }} />
         {/* ── 面板本体 ── */}
         <div id="ec-floating-panel" style={{
           ...GLASS_PANEL,
-          position: 'fixed',
+          position: 'absolute',
           bottom: panelPos.bottom,
           left: panelPos.left,
           width: panelPos.width,
           maxHeight: panelPos.maxH,
           overflowY: 'auto',
-          zIndex: 10000,
+          zIndex: 101,
           transformOrigin: 'bottom center',
         }}>
         {activePanel === 'sizing' && (
@@ -330,8 +357,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             smartMode={smartMode} onOverride={() => handleOverride('copy')} />
         )}
       </div>
-      </>,
-      document.body
+      </>
     );
   };
 
@@ -427,23 +453,22 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       
       {/* ═══ 白色卡片 ═══ */}
       <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#fff', padding: '16px 20px 20px', position: 'relative' }}>
-        {/* ═══ 左右分栏布局：左侧上传区 + 右侧文字输入 ═══ */}
-        <div style={{ display: 'flex', gap: 20, minHeight: 280 }}>
+        {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           
-          {/* ── 左侧：上传区 ── */}
-          <div style={{ 
-            width: 280, flexShrink: 0,
-            borderRadius: 16, 
-            background: 'linear-gradient(180deg, #FAF7F2 0%, #FDF9F5 100%)',
-            border: '1px solid rgba(139,92,246,0.08)',
-            padding: 16,
-            display: 'flex', flexDirection: 'column', gap: 12,
-          }}>
+          {/* ── 上方：双列上传区（产品图 + 参考图并排）── */}
+          <div style={{ display: 'flex', gap: 16 }}>
             {/* 产品图上传区 */}
-            <div>
+            <div style={{ 
+              flex: 1,
+              borderRadius: 16, 
+              background: 'linear-gradient(180deg, #FAF7F2 0%, #FDF9F5 100%)',
+              border: '1px solid rgba(139,92,246,0.08)',
+              padding: 16,
+            }}>
               <div style={{ 
                 display: 'flex', alignItems: 'center', gap: 6, 
-                marginBottom: 10,
+                marginBottom: 12,
                 fontSize: 13, fontWeight: 700, color: '#1a1a1a' 
               }}>
                 <span style={{ 
@@ -509,21 +534,24 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
               </div>
               
               {/* 提示文字 */}
-              <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
                 {productImages.length === 0 ? '建议上传正面、侧面、细节图' : `已上传 ${productImages.length} 张`}
               </div>
+              
+              <input ref={prodFileRef} type="file" accept="image/*" multiple hidden onChange={handleProdUpload} />
             </div>
             
-            <input ref={prodFileRef} type="file" accept="image/*" multiple hidden onChange={handleProdUpload} />
-            
-            {/* 分隔线 */}
-            <div style={{ height: 1, background: 'rgba(0,0,0,0.06)', margin: '4px 0' }} />
-            
             {/* 参考图上传区 */}
-            <div>
+            <div style={{ 
+              flex: 1,
+              borderRadius: 16, 
+              background: 'linear-gradient(180deg, #FAF7F2 0%, #FDF9F5 100%)',
+              border: '1px solid rgba(139,92,246,0.08)',
+              padding: 16,
+            }}>
               <div style={{ 
                 display: 'flex', alignItems: 'center', gap: 6, 
-                marginBottom: 10,
+                marginBottom: 12,
                 fontSize: 13, fontWeight: 700, color: '#1a1a1a' 
               }}>
                 <span style={{ 
@@ -543,34 +571,34 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
               {/* 参考图网格 */}
               <div style={{ 
                 display: 'flex', flexWrap: 'wrap', gap: 8,
-                minHeight: 72, alignContent: 'flex-start',
+                minHeight: 90, alignContent: 'flex-start',
               }}>
                 {refImages.map((img, idx) => (
                   <div key={idx} style={{ 
                     position: 'relative', 
-                    width: 64, height: 64,
-                    borderRadius: 8,
+                    width: 72, height: 72,
+                    borderRadius: 10,
                     overflow: 'hidden',
                     boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
                   }}>
                     <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <div onClick={() => removeRefImg(idx)} style={{ 
                       position: 'absolute', top: 2, right: 2,
-                      width: 16, height: 16, borderRadius: '50%',
+                      width: 18, height: 18, borderRadius: '50%',
                       background: 'rgba(0,0,0,0.7)', color: '#fff',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 9, cursor: 'pointer', zIndex: 2,
+                      fontSize: 10, cursor: 'pointer', zIndex: 2,
                     }}>×</div>
                   </div>
                 ))}
                 
                 {/* 添加按钮 */}
                 <div onClick={() => refFileRef.current?.click()} style={{
-                  width: 64, height: 64, borderRadius: 8,
+                  width: 72, height: 72, borderRadius: 10,
                   border: '2px dashed rgba(236,72,153,0.3)',
                   background: 'rgba(255,255,255,0.8)',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 3, cursor: 'pointer',
+                  gap: 4, cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
                   onMouseEnter={e => {
@@ -581,27 +609,27 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                     e.currentTarget.style.borderColor = 'rgba(236,72,153,0.3)';
                     e.currentTarget.style.background = 'rgba(255,255,255,0.8)';
                   }}>
-                  <ImagePlus size={16} color="#ec4899" />
-                  <span style={{ fontSize: 8, color: '#ec4899', fontWeight: 600 }}>
-                    {refImages.length === 0 ? '上传' : '+添加'}
+                  <ImagePlus size={18} color="#ec4899" />
+                  <span style={{ fontSize: 9, color: '#ec4899', fontWeight: 600 }}>
+                    {refImages.length === 0 ? '点击上传' : '+添加'}
                   </span>
                 </div>
               </div>
               
               {/* 提示文字 */}
-              <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
                 {refImages.length === 0 ? '上传竞品参考图，AI学习其风格' : `已上传 ${refImages.length} 张`}
               </div>
+              
+              <input ref={refFileRef} type="file" accept="image/*" multiple hidden onChange={handleRefUpload} />
             </div>
-            
-            <input ref={refFileRef} type="file" accept="image/*" multiple hidden onChange={handleRefUpload} />
           </div>
           
-          {/* ── 右侧：文字输入区 ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* ── 下方：产品描述输入区 ── */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ 
               display: 'flex', alignItems: 'center', gap: 6, 
-              marginBottom: 12,
+              marginBottom: 10,
               fontSize: 13, fontWeight: 700, color: '#1a1a1a' 
             }}>
               <span style={{ 
@@ -615,11 +643,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             
             <div className="ec-textarea-wrap" style={{ 
               position: 'relative', 
-              flex: 1,
               background: 'linear-gradient(180deg, #FAF7F2 0%, #FDF9F5 100%)',
               borderRadius: 12,
               border: '1px solid rgba(139,92,246,0.08)',
               padding: 16,
+              minHeight: 120,
             }}>
               {!description && (
                 <div className="ec-textarea-placeholder" style={{ 
@@ -628,11 +656,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                   pointerEvents: 'none',
                 }}>
                   <div>描述你的产品名称、特点、材质、用途…</div>
-                  <div style={{ marginTop: 12, color: '#bbb' }}>
-                    例如：<br/>
-                    • 白色陶瓷马克杯，简约北欧风<br/>
-                    • 容量350ml，带木质把手<br/>
-                    • 适合办公家用，可定制logo
+                  <div style={{ marginTop: 8, color: '#bbb' }}>
+                    例如：白色陶瓷马克杯，简约北欧风，容量350ml，带木质把手，适合办公家用，可定制logo
                   </div>
                 </div>
               )}
@@ -641,7 +666,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 onChange={e => setDescription(e.target.value)}
                 placeholder={!description ? '' : '描述你的产品…'}
                 style={{
-                  width: '100%', height: '100%', minHeight: 180,
+                  width: '100%', height: '100%', minHeight: 100,
                   border: 'none', background: 'transparent',
                   padding: 0, fontSize: 15, lineHeight: '28px', 
                   color: 'var(--text-primary)',
@@ -653,13 +678,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           </div>
         </div>
 
-        {/* ═══ 配置按钮行 ═══ */}
+        {/* ═══ 配置按钮行（相对定位容器，面板在此内部绝对定位）═══ */}
         <div ref={btnRowRef} style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '12px 2px 14px', flexWrap: 'wrap',
           position: 'relative', zIndex: 10,
           borderTop: '1px solid rgba(0,0,0,0.06)',
         }}>
+          {/* ═══ 面板渲染（内联，相对于按钮行定位）═══ */}
+          {renderPanel()}
           {/* ── 智能方案开关 ── */}
           <div onClick={toggleSmart}
             style={{
@@ -689,46 +716,75 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             </div>
           </div>
 
-          {/* ── 5 个功能按钮（带配置回显）── */}
+          {/* ── 5 个功能按钮（带配置回显 - 类似椒图AI）── */}
           {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;
             const isOverridden = smartMode && smartOverrides[btn.key];
-            // 计算配置摘要
+            // 计算配置摘要（始终显示，类似椒图AI）
             const getConfigSummary = () => {
-              if (!smartMode || !isOverridden) return null;
               switch (btn.key) {
                 case 'sizing': {
-                  if (sizing?.smart) return null;
-                  const counts = sizing?.images?.reduce((acc, img) => {
-                    acc[img.type] = (acc[img.type] || 0) + 1;
-                    return acc;
-                  }, {});
-                  const parts = [];
-                  if (counts?.white) parts.push(`${counts.white}白底`);
-                  if (counts?.main) parts.push(`${counts.main}主图`);
-                  if (counts?.detail) parts.push(`${counts.detail}详情`);
-                  return parts.length ? parts.join('·') : null;
+                  // 智能模式下未覆盖时显示智能推荐
+                  if (smartMode && !smartOverrides.sizing) {
+                    const preset = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
+                    return { text: preset.name, isSmart: true };
+                  }
+                  // 显示具体配置
+                  const images = sizing?.images || [];
+                  const total = images.reduce((s, img) => s + (img.count || 0), 0);
+                  if (total === 0) return { text: '未配置', isSmart: false };
+                  const typeLabels = [];
+                  images.forEach(img => {
+                    if (img.count > 0) {
+                      const shortLabel = img.label?.replace('商品', '').replace('图片', '').replace('白底', '白底') || img.key;
+                      typeLabels.push(`${img.count}${shortLabel}`);
+                    }
+                  });
+                  const text = typeLabels.slice(0, 2).join('·');
+                  return { text: typeLabels.length > 2 ? `${text}…` : text, isSmart: false };
                 }
                 case 'style': {
-                  if (styleSkill === 'smart') return null;
-                  const styleMap = { clean: '简约白', scene: '场景图', brand: '品牌色' };
-                  const colorCount = customColors?.length || 0;
+                  if (smartMode && !smartOverrides.style) {
+                    return { text: '智能匹配', isSmart: true };
+                  }
+                  const styleMap = {
+                    smart: '智能',
+                    premium_minimal: '高级极简',
+                    lifestyle_scene: '生活场景',
+                    fashion_editorial: '时尚杂志',
+                    warm_natural: '自然暖调',
+                    tech_precision: '科技精工'
+                  };
                   const base = styleMap[styleSkill] || styleSkill;
-                  return colorCount ? `${base}+${colorCount}色` : base;
+                  const hasColor = customColors && customColors.length > 0;
+                  return { text: hasColor ? `${base}+品牌色` : base, isSmart: false };
                 }
                 case 'params': {
-                  const filled = Object.entries(productParams).filter(([k, v]) => v && v.trim?.()).map(([k]) => k);
-                  return filled.length ? `${filled.length}项已填` : null;
+                  if (smartMode && !smartOverrides.params) {
+                    return { text: '智能提取', isSmart: true };
+                  }
+                  const filled = Object.entries(productParams).filter(([k, v]) => v && v.trim?.()).length;
+                  return filled > 0
+                    ? { text: `${filled}项已填`, isSmart: false }
+                    : { text: '未填写', isSmart: false };
                 }
                 case 'sku': {
                   const validSkus = skus?.filter(s => s.color || s.size || s.capacity) || [];
-                  return validSkus.length ? `${validSkus.length}个变体` : null;
+                  const totalSkuImages = validSkus.reduce((a, s) => a + (s.count || 1), 0);
+                  if (validSkus.length === 0) return { text: '未配置', isSmart: false };
+                  return { text: `${validSkus.length}变体·${totalSkuImages}张`, isSmart: false };
                 }
                 case 'copy': {
-                  const hasCopy = copywriting?.sellingPoints || copywriting?.plan;
-                  return hasCopy ? '已配置' : null;
+                  if (smartMode && !smartOverrides.copy) {
+                    return { text: '智能生成', isSmart: true };
+                  }
+                  const fields = ['plan', 'sellingPoints', 'qc', 'details', 'maintenance'];
+                  const filled = fields.filter(k => copywriting?.[k]?.trim?.()).length;
+                  return filled > 0
+                    ? { text: `${filled}项已填`, isSmart: false }
+                    : { text: '未填写', isSmart: false };
                 }
-                default: return null;
+                default: return { text: null, isSmart: false };
               }
             };
             const summary = getConfigSummary();
@@ -776,15 +832,17 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                   filter: isOverridden ? 'drop-shadow(0 1px 2px rgba(124,58,237,0.2))' : 'none',
                 }}>{btn.icon}</span>
                 <span style={{ color: isOverridden ? '#1a1a1a' : 'var(--text-secondary)' }}>{btn.label}</span>
-                {summary && (
+                {summary.text && (
                   <span style={{
-                    fontSize: 10, fontWeight: 700, color: '#7c3aed',
-                    background: 'rgba(124,58,237,0.1)', padding: '2px 8px',
+                    fontSize: 10, fontWeight: 700,
+                    color: summary.isSmart ? '#16a34a' : '#7c3aed',
+                    background: summary.isSmart ? 'rgba(34,197,94,0.1)' : 'rgba(124,58,237,0.1)',
+                    padding: '2px 8px',
                     borderRadius: 10, marginLeft: 4,
-                    border: '1px solid rgba(124,58,237,0.15)',
-                  }}>{summary}</span>
+                    border: `1px solid ${summary.isSmart ? 'rgba(34,197,94,0.2)' : 'rgba(124,58,237,0.15)'}`,
+                  }}>{summary.text}</span>
                 )}
-                {isOverridden && !summary && <span className="ec-override-dot" />}
+                {isOverridden && !summary.text && <span className="ec-override-dot" />}
                 <ChevronDown size={13} style={{
                   opacity: isOpen ? 0.8 : 0.4,
                   color: isOverridden ? '#7c3aed' : 'var(--text-muted)',
@@ -814,9 +872,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           </button>
         </div>
       </div>
-
-      {/* ═══ 玻璃拟态面板（Portal → body 层）═══ */}
-      {renderPanel()}
     </div>
   );
 }

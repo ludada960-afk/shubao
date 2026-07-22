@@ -53,22 +53,6 @@ export default function HomePage() {
           {/* ═══ 主模式切换 — 大号胶囊 ═══ */}
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
             <div style={{ display: 'flex', gap: 5, padding: 5, borderRadius: 30, background: 'rgba(0,0,0,0.04)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.06)' }}>
-              <button onClick={() => { dispatch({ type: 'SET_MODE', mode: 'content' }); setEcStep(1); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '11px 28px', borderRadius: 25,
-                  border: 'none',
-                  background: isXHS ? '#1a1a1a' : 'transparent',
-                  color: isXHS ? '#fff' : '#555',
-                  fontWeight: 700, fontSize: 15,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  transition: 'all 0.2s',
-                  boxShadow: isXHS ? 'inset 0 2px 6px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                }}
-                onMouseEnter={e => { if (!isXHS) { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#1a1a1a'; } }}
-                onMouseLeave={e => { if (!isXHS) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555'; } }}>
-                <MdEdit size={16} /> 小红书图文
-              </button>
               <button onClick={() => dispatch({ type: 'SET_MODE', mode: 'ecommerce' })}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -84,6 +68,22 @@ export default function HomePage() {
                 onMouseEnter={e => { if (isXHS) { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#1a1a1a'; } }}
                 onMouseLeave={e => { if (isXHS) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555'; } }}>
                 <MdShoppingCart size={16} /> 电商生图
+              </button>
+              <button onClick={() => { dispatch({ type: 'SET_MODE', mode: 'content' }); setEcStep(1); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '11px 28px', borderRadius: 25,
+                  border: 'none',
+                  background: isXHS ? '#1a1a1a' : 'transparent',
+                  color: isXHS ? '#fff' : '#555',
+                  fontWeight: 700, fontSize: 15,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'all 0.2s',
+                  boxShadow: isXHS ? 'inset 0 2px 6px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+                onMouseEnter={e => { if (!isXHS) { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#1a1a1a'; } }}
+                onMouseLeave={e => { if (!isXHS) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555'; } }}>
+                <MdEdit size={16} /> 小红书图文
               </button>
             </div>
           </div>
