@@ -191,11 +191,16 @@ export default function WorksPage() {
                 ) : (
                   /* ═══ EC 作品卡片 ═══ */
                   <>
-                    <div style={{
-                      width: 56, height: 56, borderRadius: 'var(--radius-md)',
-                      background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
-                      flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                    }}>🛍️</div>
+                    {Array.isArray(w.images) && w.images[0]?.url ? (
+                      <img src={proxyImg(w.images[0].url)} alt=""
+                        style={{ width: 56, height: 56, borderRadius: 'var(--radius-md)', objectFit: 'cover', flex: '0 0 auto' }} />
+                    ) : (
+                      <div style={{
+                        width: 56, height: 56, borderRadius: 'var(--radius-md)',
+                        background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
+                        flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                      }}>🛍️</div>
+                    )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="truncate-1" style={{
                         fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)',

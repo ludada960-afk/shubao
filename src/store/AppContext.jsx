@@ -18,7 +18,7 @@ const initialState = {
   showLogin: false,
   showPrice: false,
   // 模式
-  mode: 'content',    // content | ecommerce
+  mode: 'ecommerce',  // content | ecommerce — 默认电商生图
   priceTab: 'content',
   // 作品集
   works: [],
