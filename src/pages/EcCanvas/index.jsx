@@ -245,10 +245,9 @@ export default function EcCanvas() {
   }, []);
 
   // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
-  const handleDeleteRef = useRef(handleDelete);
-  const fitViewRef = useRef(fitView);
-  useEffect(() => { handleDeleteRef.current = handleDelete; }, [handleDelete]);
-  useEffect(() => { fitViewRef.current = fitView; }, [fitView]);
+  // 注意：ref 初始值为空函数，在下面的 useEffect 中更新
+  const handleDeleteRef = useRef(() => {});
+  const fitViewRef = useRef(() => {});
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -518,6 +517,10 @@ export default function EcCanvas() {
       setMultiSelected(new Set());
     }
   }, [selected, multiSelected]);
+
+  // 更新 ref（在函数定义之后）
+  useEffect(() => { handleDeleteRef.current = handleDelete; }, [handleDelete]);
+  useEffect(() => { fitViewRef.current = fitView; }, [fitView]);
 
   // 选中状态（单选 or 多选）
   const isNodeSelected = (id) => selected === id || multiSelected.has(id);

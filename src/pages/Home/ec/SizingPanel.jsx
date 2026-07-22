@@ -45,7 +45,7 @@ function RatioShape({ w, h, active }) {
 }
 
 /* 内联比例选择器（替代原生 select）*/
-function RatioSelect({ value, onChange }) {
+function RatioSelect({ value, onChange, disabled }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const current = RATIOS.find(r => r.key === value) || RATIOS[0];
@@ -59,15 +59,19 @@ function RatioSelect({ value, onChange }) {
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <div onClick={() => setOpen(o => !o)}
+      <div onClick={() => !disabled && setOpen(o => !o)}
         style={{
           display: 'flex', alignItems: 'center', gap: 4, height: 26, padding: '0 7px',
-          borderRadius: 7, border: '1px solid rgba(0,0,0,0.14)', background: '#fff',
-          cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#1a1a1a', userSelect: 'none',
+          borderRadius: 7, border: `1px solid ${disabled ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.14)'}`, 
+          background: disabled ? 'rgba(0,0,0,0.03)' : '#fff',
+          cursor: disabled ? 'not-allowed' : 'pointer', 
+          fontSize: 11, fontWeight: 700, 
+          color: disabled ? 'var(--text-muted)' : '#1a1a1a', 
+          userSelect: 'none',
         }}>
         <RatioShape w={current.w} h={current.h} active={false} />
         <span>{current.label}</span>
-        <svg width={8} height={8} viewBox="0 0 8 8"><path d="M1 2.5 L4 5.5 L7 2.5" stroke="#999" strokeWidth={1.5} fill="none" strokeLinecap="round"/></svg>
+        {!disabled && <svg width={8} height={8} viewBox="0 0 8 8"><path d="M1 2.5 L4 5.5 L7 2.5" stroke="#999" strokeWidth={1.5} fill="none" strokeLinecap="round"/></svg>}
       </div>
       {open && (
         <div style={{
@@ -284,22 +288,32 @@ export default function SizingPanel({
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{typeDef.desc}</div>
                 </div>
 
-                {/* 数量 + 比例（勾选后显示） */}
-                {checked && activeItem && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>数量</span>
-                    <input type="number" min={0} max={typeDef.maxCount || 20}
-                      value={activeItem.count}
-                      onChange={e => updateCount(typeDef.key, parseInt(e.target.value) || 0)}
-                      style={{
-                        width: 38, height: 26, textAlign: 'center', borderRadius: 6,
-                        border: '1px solid rgba(0,0,0,0.12)', background: '#fff',
-                        fontSize: 12, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
-                        color: 'var(--text-primary)',
-                      }} />
-                    <RatioSelect value={activeItem.ratio} onChange={r => updateRatio(typeDef.key, r)} />
-                  </div>
-                )}
+                {/* 数量 + 比例（始终显示，未勾选时禁用） */}
+                <div style={{ 
+                  display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                  opacity: checked ? 1 : 0.35,
+                  pointerEvents: checked ? 'auto' : 'none',
+                  transition: 'opacity 0.2s',
+                }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>数量</span>
+                  <input type="number" min={0} max={typeDef.maxCount || 20}
+                    value={checked && activeItem ? activeItem.count : typeDef.defaultCount}
+                    onChange={e => updateCount(typeDef.key, parseInt(e.target.value) || 0)}
+                    disabled={!checked}
+                    style={{
+                      width: 38, height: 26, textAlign: 'center', borderRadius: 6,
+                      border: `1px solid ${checked ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)'}`, 
+                      background: checked ? '#fff' : 'rgba(0,0,0,0.03)',
+                      fontSize: 12, fontWeight: 600, outline: 'none', fontFamily: 'inherit',
+                      color: checked ? 'var(--text-primary)' : 'var(--text-muted)',
+                      cursor: checked ? 'text' : 'not-allowed',
+                    }} />
+                  <RatioSelect 
+                    value={checked && activeItem ? activeItem.ratio : typeDef.defaultRatio} 
+                    onChange={r => checked && updateRatio(typeDef.key, r)} 
+                    disabled={!checked}
+                  />
+                </div>
               </div>
             );
           })}

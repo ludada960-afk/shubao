@@ -456,20 +456,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           
-          {/* ── 上方：双列上传区（产品图 + 参考图并排）── */}
-          <div style={{ display: 'flex', gap: 16 }}>
-            {/* 产品图上传区 */}
-            <div style={{ 
-              flex: 1,
-              borderRadius: 16, 
-              background: 'linear-gradient(180deg, #FAF7F2 0%, #FDF9F5 100%)',
-              border: '1px solid rgba(139,92,246,0.08)',
-              padding: 16,
-            }}>
+          {/* ── 上方：双列上传区（产品图 + 参考图并排，斜框对称样式）── */}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            {/* 产品图上传区 - 左歪斜框 */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ 
-                display: 'flex', alignItems: 'center', gap: 6, 
-                marginBottom: 12,
-                fontSize: 13, fontWeight: 700, color: '#1a1a1a' 
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 13, fontWeight: 700, color: '#1a1a1a',
+                paddingLeft: 8,
               }}>
                 <span style={{ 
                   width: 22, height: 22, borderRadius: 6,
@@ -485,74 +479,97 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 }}>必须</span>
               </div>
               
-              {/* 产品图网格 */}
-              <div style={{ 
-                display: 'flex', flexWrap: 'wrap', gap: 8,
-                minHeight: 90, alignContent: 'flex-start',
+              {/* 斜框上传区域 - 左歪 */}
+              <div style={{
+                position: 'relative',
+                transform: 'rotate(-2deg)',
+                transformOrigin: 'center center',
               }}>
-                {productImages.map((img, idx) => (
-                  <div key={idx} style={{ 
-                    position: 'relative', 
-                    width: 72, height: 72,
-                    borderRadius: 10,
-                    overflow: 'hidden',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  }}>
-                    <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div onClick={() => removeProdImg(idx)} style={{ 
-                      position: 'absolute', top: 2, right: 2,
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.7)', color: '#fff',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, cursor: 'pointer', zIndex: 2,
-                    }}>×</div>
-                  </div>
-                ))}
-                
-                {/* 添加按钮 */}
-                <div onClick={() => prodFileRef.current?.click()} style={{
-                  width: 72, height: 72, borderRadius: 10,
-                  border: '2px dashed rgba(124,58,237,0.3)',
-                  background: 'rgba(255,255,255,0.8)',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 4, cursor: 'pointer',
-                  transition: 'all 0.2s',
+                <div style={{
+                  borderRadius: 16, 
+                  background: 'linear-gradient(135deg, #FAF7F2 0%, #F5F0FF 100%)',
+                  border: '2px dashed rgba(124,58,237,0.25)',
+                  padding: '16px 14px',
+                  minHeight: 120,
+                  transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = '#7c3aed';
-                    e.currentTarget.style.background = 'rgba(124,58,237,0.05)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)';
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.8)';
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #F5F0FF 0%, #EDE9FE 100%)';
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.1)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'rgba(124,58,237,0.25)';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #FAF7F2 0%, #F5F0FF 100%)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}>
+                  
+                  {/* 产品图网格 */}
+                  <div style={{ 
+                    display: 'flex', flexWrap: 'wrap', gap: 8,
+                    alignContent: 'flex-start',
                   }}>
-                  <ImagePlus size={18} color="#7c3aed" />
-                  <span style={{ fontSize: 9, color: '#7c3aed', fontWeight: 600 }}>
-                    {productImages.length === 0 ? '点击上传' : '+添加'}
-                  </span>
+                    {productImages.map((img, idx) => (
+                      <div key={idx} style={{ 
+                        position: 'relative', 
+                        width: 68, height: 68,
+                        borderRadius: 10,
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        transform: 'rotate(2deg)', // 抵消父级旋转
+                      }}>
+                        <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div onClick={() => removeProdImg(idx)} style={{ 
+                          position: 'absolute', top: 2, right: 2,
+                          width: 18, height: 18, borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.7)', color: '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, cursor: 'pointer', zIndex: 2,
+                        }}>×</div>
+                      </div>
+                    ))}
+                    
+                    {/* 添加按钮 */}
+                    <div onClick={() => prodFileRef.current?.click()} style={{
+                      width: 68, height: 68, borderRadius: 10,
+                      border: '2px dashed rgba(124,58,237,0.3)',
+                      background: 'rgba(255,255,255,0.8)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 4, cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      transform: 'rotate(2deg)', // 抵消父级旋转
+                    }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = '#7c3aed';
+                        e.currentTarget.style.background = 'rgba(124,58,237,0.05)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.8)';
+                      }}>
+                      <ImagePlus size={18} color="#7c3aed" />
+                      <span style={{ fontSize: 9, color: '#7c3aed', fontWeight: 600 }}>
+                        {productImages.length === 0 ? '上传' : '+添加'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* 提示文字 */}
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 10, transform: 'rotate(2deg)' }}>
+                    {productImages.length === 0 ? '建议上传正面、侧面、细节图，多角度效果更佳' : `已上传 ${productImages.length} 张产品图`}
+                  </div>
                 </div>
-              </div>
-              
-              {/* 提示文字 */}
-              <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
-                {productImages.length === 0 ? '建议上传正面、侧面、细节图' : `已上传 ${productImages.length} 张`}
               </div>
               
               <input ref={prodFileRef} type="file" accept="image/*" multiple hidden onChange={handleProdUpload} />
             </div>
             
-            {/* 参考图上传区 */}
-            <div style={{ 
-              flex: 1,
-              borderRadius: 16, 
-              background: 'linear-gradient(180deg, #FAF7F2 0%, #FDF9F5 100%)',
-              border: '1px solid rgba(139,92,246,0.08)',
-              padding: 16,
-            }}>
+            {/* 参考图上传区 - 右歪斜框 */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ 
-                display: 'flex', alignItems: 'center', gap: 6, 
-                marginBottom: 12,
-                fontSize: 13, fontWeight: 700, color: '#1a1a1a' 
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 13, fontWeight: 700, color: '#1a1a1a',
+                paddingLeft: 8,
               }}>
                 <span style={{ 
                   width: 22, height: 22, borderRadius: 6,
@@ -568,57 +585,86 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 }}>可选</span>
               </div>
               
-              {/* 参考图网格 */}
-              <div style={{ 
-                display: 'flex', flexWrap: 'wrap', gap: 8,
-                minHeight: 90, alignContent: 'flex-start',
+              {/* 斜框上传区域 - 右歪 */}
+              <div style={{
+                position: 'relative',
+                transform: 'rotate(2deg)',
+                transformOrigin: 'center center',
               }}>
-                {refImages.map((img, idx) => (
-                  <div key={idx} style={{ 
-                    position: 'relative', 
-                    width: 72, height: 72,
-                    borderRadius: 10,
-                    overflow: 'hidden',
-                    boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
-                  }}>
-                    <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div onClick={() => removeRefImg(idx)} style={{ 
-                      position: 'absolute', top: 2, right: 2,
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.7)', color: '#fff',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, cursor: 'pointer', zIndex: 2,
-                    }}>×</div>
-                  </div>
-                ))}
-                
-                {/* 添加按钮 */}
-                <div onClick={() => refFileRef.current?.click()} style={{
-                  width: 72, height: 72, borderRadius: 10,
-                  border: '2px dashed rgba(236,72,153,0.3)',
-                  background: 'rgba(255,255,255,0.8)',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 4, cursor: 'pointer',
-                  transition: 'all 0.2s',
+                <div style={{
+                  borderRadius: 16, 
+                  background: 'linear-gradient(135deg, #FFF5F7 0%, #FDF2F8 100%)',
+                  border: '2px dashed rgba(236,72,153,0.25)',
+                  padding: '16px 14px',
+                  minHeight: 120,
+                  transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = '#ec4899';
-                    e.currentTarget.style.background = 'rgba(236,72,153,0.05)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = 'rgba(236,72,153,0.3)';
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.8)';
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'rgba(236,72,153,0.5)';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%)';
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(236,72,153,0.1)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'rgba(236,72,153,0.25)';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #FFF5F7 0%, #FDF2F8 100%)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}>
+                  
+                  {/* 参考图网格 */}
+                  <div style={{ 
+                    display: 'flex', flexWrap: 'wrap', gap: 8,
+                    alignContent: 'flex-start',
                   }}>
-                  <ImagePlus size={18} color="#ec4899" />
-                  <span style={{ fontSize: 9, color: '#ec4899', fontWeight: 600 }}>
-                    {refImages.length === 0 ? '点击上传' : '+添加'}
-                  </span>
+                    {refImages.map((img, idx) => (
+                      <div key={idx} style={{ 
+                        position: 'relative', 
+                        width: 68, height: 68,
+                        borderRadius: 10,
+                        overflow: 'hidden',
+                        boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
+                        transform: 'rotate(-2deg)', // 抵消父级旋转
+                      }}>
+                        <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div onClick={() => removeRefImg(idx)} style={{ 
+                          position: 'absolute', top: 2, right: 2,
+                          width: 18, height: 18, borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.7)', color: '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, cursor: 'pointer', zIndex: 2,
+                        }}>×</div>
+                      </div>
+                    ))}
+                    
+                    {/* 添加按钮 */}
+                    <div onClick={() => refFileRef.current?.click()} style={{
+                      width: 68, height: 68, borderRadius: 10,
+                      border: '2px dashed rgba(236,72,153,0.3)',
+                      background: 'rgba(255,255,255,0.8)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 4, cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      transform: 'rotate(-2deg)', // 抵消父级旋转
+                    }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = '#ec4899';
+                        e.currentTarget.style.background = 'rgba(236,72,153,0.05)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = 'rgba(236,72,153,0.3)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.8)';
+                      }}>
+                      <ImagePlus size={18} color="#ec4899" />
+                      <span style={{ fontSize: 9, color: '#ec4899', fontWeight: 600 }}>
+                        {refImages.length === 0 ? '上传' : '+添加'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* 提示文字 */}
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 10, transform: 'rotate(-2deg)' }}>
+                    {refImages.length === 0 ? '上传竞品/爆款参考图，AI学习风格' : `已上传 ${refImages.length} 张参考图`}
+                  </div>
                 </div>
-              </div>
-              
-              {/* 提示文字 */}
-              <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
-                {refImages.length === 0 ? '上传竞品参考图，AI学习其风格' : `已上传 ${refImages.length} 张`}
               </div>
               
               <input ref={refFileRef} type="file" accept="image/*" multiple hidden onChange={handleRefUpload} />
@@ -687,35 +733,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         }}>
           {/* ═══ 面板渲染（内联，相对于按钮行定位）═══ */}
           {renderPanel()}
-          {/* ── 智能方案开关 ── */}
-          <div onClick={toggleSmart}
-            style={{
-              ...BTN_BASE,
-              height: 38, padding: '0 14px', borderRadius: 20,
-              border: `2px solid ${smartMode ? '#7c3aed' : 'rgba(0,0,0,0.15)'}`,
-              background: smartMode
-                ? (hasOverrides
-                  ? 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(236,72,153,0.04))'
-                  : 'linear-gradient(135deg, rgba(124,58,237,0.10), rgba(236,72,153,0.08))')
-                : '#fff',
-              color: smartMode ? '#7c3aed' : 'var(--text-secondary)',
-            }}>
-            <Sparkles size={14} style={{ transition: 'transform 0.3s', transform: smartMode ? 'rotate(15deg) scale(1.1)' : 'none' }} />
-            <span style={{ fontSize: 12, fontWeight: 700 }}>{smartLabel}</span>
-            <div style={{
-              width: 28, height: 16, borderRadius: 8,
-              background: smartMode ? '#7c3aed' : 'rgba(0,0,0,0.12)',
-              position: 'relative', transition: 'all 0.2s', flexShrink: 0,
-            }}>
-              <div style={{
-                width: 12, height: 12, borderRadius: '50%', background: '#fff',
-                position: 'absolute', top: 2,
-                left: smartMode ? 14 : 2,
-                transition: 'all 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              }} />
-            </div>
-          </div>
-
           {/* ── 5 个功能按钮（带配置回显 - 类似椒图AI）── */}
           {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;

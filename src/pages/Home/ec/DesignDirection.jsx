@@ -253,68 +253,88 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         {/* ── 方向卡片 ── */}
         {!loading && directions.length > 0 && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 24 }}>
+            {/* 2×2 对称布局 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 24 }}>
               {directions.map((dir, i) => {
                 const active = selected === i;
+                // 使用方向自身的配色，确保每个卡片有独特的色调
+                const primaryColor = dir.preview_colors?.[0] || '#7c3aed';
+                const secondaryColor = dir.preview_colors?.[1] || '#a78bfa';
                 return (
                   <div key={dir.id} onClick={() => setSelected(i)}
                     style={{
                       background: '#fff', borderRadius: 16, padding: 0,
                       cursor: 'pointer', overflow: 'hidden',
-                      border: `2px solid ${active ? '#1a1a1a' : 'rgba(0,0,0,0.06)'}`,
-                      boxShadow: active ? '0 4px 20px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
+                      border: `2px solid ${active ? primaryColor : 'rgba(0,0,0,0.06)'}`,
+                      boxShadow: active ? `0 4px 20px ${primaryColor}30` : '0 2px 8px rgba(0,0,0,0.04)',
                       transition: 'all 0.2s',
                       position: 'relative',
                     }}>
-                    {/* 色调预览条 */}
+                    {/* 色调预览条 - 使用方向自身的配色 */}
                     <div style={{
-                      height: 6,
-                      background: dir.preview_colors?.length
-                        ? `linear-gradient(90deg, ${dir.preview_colors.join(', ')})`
-                        : 'linear-gradient(90deg, #f5f5f5, #333)',
+                      height: 8,
+                      background: dir.preview_colors?.length >= 2
+                        ? `linear-gradient(90deg, ${dir.preview_colors.slice(0, 4).join(', ')})`
+                        : `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})`,
                     }} />
 
                     <div style={{ padding: '16px 18px' }}>
                       {/* 标题 + 选中标记 */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1a1a1a' }}>{dir.title}</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.3 }}>{dir.title}</h3>
                         {active && (
                           <div style={{
                             width: 22, height: 22, borderRadius: '50%',
-                            background: '#1a1a1a', color: '#fff',
+                            background: primaryColor, color: '#fff',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}><MdCheck size={14} /></div>
                         )}
                       </div>
 
+                      {/* 一句话描述 */}
+                      {dir.one_liner && (
+                        <div style={{ 
+                          fontSize: 12, fontWeight: 600, 
+                          color: primaryColor,
+                          marginBottom: 8,
+                          padding: '4px 10px',
+                          background: `${primaryColor}10`,
+                          borderRadius: 8,
+                          display: 'inline-block',
+                        }}>
+                          {dir.one_liner}
+                        </div>
+                      )}
+
                       {/* 视觉调性标签 */}
                       {dir.visual_tone && (
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
-                          {dir.visual_tone.split(/[·/、]/).map((t, j) => (
+                          {dir.visual_tone.split(/[·/、]/).slice(0, 3).map((t, j) => (
                             <span key={j} style={{
                               padding: '2px 8px', borderRadius: 6,
-                              background: active ? 'rgba(26,26,26,0.06)' : 'rgba(0,0,0,0.03)',
-                              fontSize: 10, fontWeight: 600, color: 'var(--text-muted)',
+                              background: active ? `${primaryColor}12` : 'rgba(0,0,0,0.03)',
+                              fontSize: 10, fontWeight: 600, 
+                              color: active ? primaryColor : 'var(--text-muted)',
                             }}>{t.trim()}</span>
                           ))}
                         </div>
                       )}
 
-                      {/* 描述 */}
+                      {/* 简洁描述 - 不使用省略号 */}
                       <p style={{
-                        margin: 0, fontSize: 13, lineHeight: 1.6,
+                        margin: 0, fontSize: 12, lineHeight: 1.5,
                         color: 'var(--text-secondary)',
-                        display: '-webkit-box', WebkitLineClamp: 4,
-                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                      }}>{dir.description}</p>
+                      }}>{dir.short_desc || dir.description?.slice(0, 80)}{dir.description?.length > 80 ? '...' : ''}</p>
 
                       {/* 色块预览 */}
                       {dir.preview_colors?.length > 0 && (
-                        <div style={{ display: 'flex', gap: 4, marginTop: 12 }}>
-                          {dir.preview_colors.map((c, j) => (
+                        <div style={{ display: 'flex', gap: 6, marginTop: 12, alignItems: 'center' }}>
+                          <span style={{ fontSize: 10, color: '#999', marginRight: 4 }}>配色:</span>
+                          {dir.preview_colors.slice(0, 5).map((c, j) => (
                             <div key={j} style={{
-                              width: 24, height: 24, borderRadius: 6,
-                              background: c, border: '1px solid rgba(0,0,0,0.08)',
+                              width: 20, height: 20, borderRadius: '50%',
+                              background: c, border: '2px solid #fff',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
                             }} />
                           ))}
                         </div>
@@ -334,28 +354,75 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>补充调整</div>
 
-              {/* 补充上传图片 */}
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#888', marginBottom: 8 }}>
-                  补充参考图 <span style={{ fontWeight: 400 }}>· 追加产品图或竞品图，AI 重新优化方向</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {extraImages.map((img, i) => (
-                    <div key={i} style={{ position: 'relative' }}>
-                      <img src={img.url} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)' }} />
-                      <div onClick={() => setExtraImages(prev => prev.filter((_, idx) => idx !== i))}
-                        style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, cursor: 'pointer' }}>×</div>
-                    </div>
-                  ))}
-                  <div onClick={() => extraImgRef.current?.click()}
-                    style={{ width: 56, height: 56, borderRadius: 8, border: '2px dashed rgba(0,0,0,0.12)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', transition: 'all 0.15s', background: '#fafafa' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)'; e.currentTarget.style.background = '#fafafa'; }}>
-                    <MdAddPhotoAlternate size={16} style={{ color: '#aaa' }} />
-                    <span style={{ fontSize: 8, color: '#bbb', fontWeight: 600 }}>添加图片</span>
+              {/* 双列上传：产品图 + 参考图 */}
+              <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+                {/* 补充产品图 - 左歪 */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#7c3aed', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>📸</span> 补充产品图
+                    <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>· 多角度拍摄，提升生成效果</span>
                   </div>
-                  <input ref={extraImgRef} type="file" accept="image/*" multiple hidden onChange={handleExtraImgUpload} />
+                  <div style={{
+                    transform: 'rotate(-1.5deg)',
+                    borderRadius: 12,
+                    background: 'linear-gradient(135deg, #FAF7F2 0%, #F5F0FF 100%)',
+                    border: '2px dashed rgba(124,58,237,0.2)',
+                    padding: 10,
+                    minHeight: 80,
+                  }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', transform: 'rotate(1.5deg)' }}>
+                      {extraImages.filter((_, i) => i % 2 === 0).map((img, i) => (
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img src={img.url} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)' }} />
+                          <div onClick={() => setExtraImages(prev => prev.filter((_, idx) => idx !== i * 2))}
+                            style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, cursor: 'pointer' }}>×</div>
+                        </div>
+                      ))}
+                      <div onClick={() => extraImgRef.current?.click()}
+                        style={{ width: 52, height: 52, borderRadius: 8, border: '2px dashed rgba(124,58,237,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', transition: 'all 0.15s', background: '#fff' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.background = 'rgba(124,58,237,0.05)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,0.25)'; e.currentTarget.style.background = '#fff'; }}>
+                        <MdAddPhotoAlternate size={14} style={{ color: '#7c3aed' }} />
+                        <span style={{ fontSize: 8, color: '#7c3aed', fontWeight: 600 }}>添加</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* 补充参考图 - 右歪 */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#ec4899', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>🎨</span> 补充参考图
+                    <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>· 竞品/爆款风格参考</span>
+                  </div>
+                  <div style={{
+                    transform: 'rotate(1.5deg)',
+                    borderRadius: 12,
+                    background: 'linear-gradient(135deg, #FFF5F7 0%, #FDF2F8 100%)',
+                    border: '2px dashed rgba(236,72,153,0.2)',
+                    padding: 10,
+                    minHeight: 80,
+                  }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', transform: 'rotate(-1.5deg)' }}>
+                      {extraImages.filter((_, i) => i % 2 === 1).map((img, i) => (
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img src={img.url} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)' }} />
+                          <div onClick={() => setExtraImages(prev => prev.filter((_, idx) => idx !== i * 2 + 1))}
+                            style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, cursor: 'pointer' }}>×</div>
+                        </div>
+                      ))}
+                      <div onClick={() => extraImgRef.current?.click()}
+                        style={{ width: 52, height: 52, borderRadius: 8, border: '2px dashed rgba(236,72,153,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', transition: 'all 0.15s', background: '#fff' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#ec4899'; e.currentTarget.style.background = 'rgba(236,72,153,0.05)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(236,72,153,0.25)'; e.currentTarget.style.background = '#fff'; }}>
+                        <MdAddPhotoAlternate size={14} style={{ color: '#ec4899' }} />
+                        <span style={{ fontSize: 8, color: '#ec4899', fontWeight: 600 }}>添加</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <input ref={extraImgRef} type="file" accept="image/*" multiple hidden onChange={handleExtraImgUpload} />
               </div>
 
               {/* 补充描述 + AI 润色 */}
@@ -412,12 +479,46 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   display: 'flex', alignItems: 'center', gap: 8,
                 }}>
                 {generating ? (
-                  <><MdAutoAwesome size={18} style={{ animation: 'spin 1s linear infinite' }} /> {genProgress || '生成中…'}</>
+                  <><MdAutoAwesome size={18} style={{ animation: 'spin 1s linear infinite' }} /> {genProgress || '正在生成图片，请稍候…'}</>
                 ) : (
                   <>确认方向，开始生成 <span style={{ fontSize: 18 }}>→</span></>
                 )}
               </button>
             </div>
+
+            {/* ── 生成进度面板（可折叠）── */}
+            {generating && (
+              <div style={{
+                background: '#fff', borderRadius: 16, padding: '16px 20px',
+                boxShadow: '0 4px 20px rgba(124,58,237,0.15)',
+                border: '2px solid rgba(124,58,237,0.2)',
+                marginTop: 16,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #7c3aed, #ec4899)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <MdAutoAwesome size={18} color="#fff" style={{ animation: 'spin 1.5s linear infinite' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>AI 正在生成图片</div>
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>生成过程中请勿关闭页面，图片将自动保存到您的账户</div>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>{genProgress || '准备中…'}</div>
+                </div>
+                {/* 进度条 */}
+                <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 2,
+                    background: 'linear-gradient(90deg, #7c3aed, #ec4899)',
+                    width: genProgress?.includes('%') ? genProgress : '30%',
+                    transition: 'width 0.5s ease',
+                  }} />
+                </div>
+              </div>
+            )}
           </>
         )}
 
