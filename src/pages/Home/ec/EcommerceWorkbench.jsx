@@ -2,35 +2,25 @@ import React, { useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 
-function InlineUploadGroup({ role, title, hint, items, onAdd, onRemove }) {
-  const isProduct = role === 'product';
-  const nextSlot = isProduct ? nextProductSlot(items.length) : null;
-
+function ImageCard({ role, image, label, index, onRemove }) {
   return (
-    <div className={`ec-inline-upload-group ec-inline-upload-group-${role}`}>
-      <span className="ec-inline-upload-label">{title}</span>
-      <div className="ec-inline-upload-track" aria-label={`${title}上传区`}>
-        {items.map((image, index) => (
-          <div className="ref-thumb ec-inline-thumb" key={`${image.url}-${index}`}>
-            <img src={image.url} alt={`${title}${index + 1}`} />
-            {isProduct && <span className="ec-inline-thumb-label">{nextProductSlot(index).label}</span>}
-            <button
-              type="button"
-              className="ref-remove"
-              aria-label={`移除${title}第${index + 1}张`}
-              onClick={() => onRemove(index)}
-            >
-              <X size={10} />
-            </button>
-          </div>
-        ))}
-        <button type="button" className="ref-add ec-inline-add" onClick={onAdd}>
-          <ImagePlus size={15} />
-          <span>{isProduct ? (items.length ? `继续${nextSlot.label}` : '产品图') : (items.length ? '继续添加' : '参考图')}</span>
-          {!items.length && <small>{hint}</small>}
-        </button>
-      </div>
+    <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
+      <img src={image.url} alt={label} />
+      <span className="ec-xhs-card-caption">{label}</span>
+      <button type="button" className="ec-xhs-card-remove" aria-label={`移除${label}`} onClick={() => onRemove(index)}>
+        <X size={10} />
+      </button>
     </div>
+  );
+}
+
+function AddCard({ role, label, meta, onClick, title }) {
+  return (
+    <button type="button" className={`ec-xhs-upload-card ec-xhs-add-card ec-xhs-card-${role}`} onClick={onClick} title={title}>
+      <span className="ec-xhs-add-icon"><ImagePlus size={20} /></span>
+      <span className="ec-xhs-card-title">{label}</span>
+      <span className="ec-xhs-card-meta">{meta}</span>
+    </button>
   );
 }
 
@@ -47,6 +37,7 @@ export default function EcommerceWorkbench({
   const productInputRef = useRef(null);
   const referenceInputRef = useRef(null);
   const deck = buildUploadDeck({ productImages, refImages });
+  const nextSlot = nextProductSlot(productImages.length);
 
   return (
     <section className="ec-workbench" aria-label="电商生图工作台">
@@ -55,37 +46,65 @@ export default function EcommerceWorkbench({
         <span>上传产品图与参考图，快速生成主图、详情图和营销素材。</span>
       </div>
 
-      <div className="hero-textarea-wrap ec-brief-input">
-        <div className="ec-inline-upload-row">
-          <InlineUploadGroup
-            role="product"
-            title="产品图"
-            hint="建议先传正面主视图"
-            items={deck.productRail}
-            onAdd={() => productInputRef.current?.click()}
-            onRemove={onRemoveProduct}
-          />
-          <span className="ec-upload-operator" aria-hidden="true">×</span>
-          <InlineUploadGroup
-            role="reference"
-            title="参考图"
-            hint="竞品图、风格图、详情图"
-            items={deck.referenceRail}
-            onAdd={() => referenceInputRef.current?.click()}
-            onRemove={onRemoveReference}
-          />
+      <div className="ec-xhs-composer">
+        <div className="ec-xhs-media-column">
+          <div className="ec-xhs-media-strip">
+            {deck.productRail.map((image, index) => (
+              <ImageCard
+                key={`product-${image.url}-${index}`}
+                role="product"
+                image={image}
+                label={nextProductSlot(index).label}
+                index={index}
+                onRemove={onRemoveProduct}
+              />
+            ))}
+            <AddCard
+              role="product"
+              label={productImages.length ? nextSlot.label : '产品图'}
+              meta={productImages.length ? '建议补充' : '正面图'}
+              title={nextSlot.hint}
+              onClick={() => productInputRef.current?.click()}
+            />
+
+            <span className="ec-xhs-multiply" aria-hidden="true">×</span>
+
+            {deck.referenceRail.map((image, index) => (
+              <ImageCard
+                key={`reference-${image.url}-${index}`}
+                role="reference"
+                image={image}
+                label={`参考图 ${index + 1}`}
+                index={index}
+                onRemove={onRemoveReference}
+              />
+            ))}
+            <AddCard
+              role="reference"
+              label="参考图"
+              meta={refImages.length ? '继续添加' : '风格参考'}
+              title="可上传竞品主图、详情图、店铺视觉或希望借鉴的风格图片"
+              onClick={() => referenceInputRef.current?.click()}
+            />
+          </div>
         </div>
 
-        <textarea
-          className="hero-textarea"
-          value={description}
-          onChange={event => onDescriptionChange(event.target.value)}
-          placeholder=" "
-          aria-label="补充商品信息"
-        />
-        <div className="custom-placeholder">
-          <div className="ph-main">补充商品信息（可选）：名称、卖点、材质、用途或希望避免出现的内容</div>
-          <div className="ph-sub">例如：白色陶瓷马克杯，350ml，木质把手；画面干净，不出现错误文字或多余配件</div>
+        <div className="ec-textarea-wrap ec-xhs-prompt">
+          {!description && (
+            <div className="ec-textarea-placeholder ec-xhs-placeholder">
+              <span className="ec-placeholder-line">描述想生成的商品视觉，一句话就够了</span>
+              <span className="ec-placeholder-line ec-xhs-example-first">例：为白色陶瓷杯生成高级简约的电商详情页</span>
+              <span className="ec-placeholder-line">例：保留商品结构，替换成清透夏日场景</span>
+              <span className="ec-placeholder-line">例：画面干净，不出现错误文字和多余配件</span>
+              <span className="ec-cursor ec-xhs-cursor" />
+            </div>
+          )}
+          <textarea
+            value={description}
+            onChange={event => onDescriptionChange(event.target.value)}
+            className={!description ? 'ec-empty' : ''}
+            aria-label="补充商品信息和生成要求"
+          />
         </div>
       </div>
 

@@ -11,8 +11,13 @@ import {
 
 test('guides each added product photo to a complementary angle', () => {
   assert.equal(nextProductSlot(0).key, 'front');
+  assert.equal(nextProductSlot(0).label, '正面图');
   assert.equal(nextProductSlot(1).key, 'angle');
+  assert.equal(nextProductSlot(1).label, '45°侧面图');
+  assert.equal(nextProductSlot(2).label, '背面图');
   assert.equal(nextProductSlot(3).key, 'detail');
+  assert.equal(nextProductSlot(3).label, '细节图');
+  assert.equal(nextProductSlot(4).label, '场景图');
   assert.equal(nextProductSlot(99).key, PRODUCT_SLOT_PLAN.at(-1).key);
 });
 
