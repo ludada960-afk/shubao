@@ -507,8 +507,17 @@ export default function EcCanvas() {
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
     let images = {};
-    if (Array.isArray(work.images)) { work.images.forEach(img => { if (img.url) images[img.key || img.label || ''] = img.url; }); }
-    else { images = work.images || {}; }
+    if (Array.isArray(work.images)) {
+      work.images.forEach((img, index) => {
+        const url = typeof img === 'string' ? img : (img?.url || img?.src || img?.image_url || img?.cover_url);
+        if (url) images[img?.key || img?.label || `image_${index + 1}`] = url;
+      });
+    } else {
+      images = Object.fromEntries(Object.entries(work.images || {}).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value : (value?.url || value?.src || value?.image_url || ''),
+      ]).filter(([, value]) => value));
+    }
     dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝' } });
     setTab('canvas');
   };

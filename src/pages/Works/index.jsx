@@ -66,9 +66,15 @@ export default function WorksPage() {
     // 规范化图片格式后跳转到画布
     let images = {};
     if (Array.isArray(w.images)) {
-      w.images.forEach(img => { if (img.url) images[img.key || img.label || ''] = img.url; });
+      w.images.forEach((img, index) => {
+        const url = typeof img === 'string' ? img : (img?.url || img?.src || img?.image_url || img?.cover_url);
+        if (url) images[img?.key || img?.label || `image_${index + 1}`] = url;
+      });
     } else {
-      images = w.images || {};
+      images = Object.fromEntries(Object.entries(w.images || {}).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? value : (value?.url || value?.src || value?.image_url || ''),
+      ]).filter(([, value]) => value));
     }
     const normalized = {
       ...w,

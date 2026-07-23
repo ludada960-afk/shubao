@@ -12,6 +12,8 @@ export function proxyImg(url) {
   if (typeof url === 'object') {
     return proxyImg(url.url || url.src || url.image_url || url.cover_url || '');
   }
+  const sameOrigin = url.match(/^https?:\/\/(?:www\.)?shuimg\.cn(\/.*)$/i);
+  if (sameOrigin) return sameOrigin[1];
   // 已经是代理地址或 data URI 则直接返回
   if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
   // 本地相对路径也直接返回

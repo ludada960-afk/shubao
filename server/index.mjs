@@ -551,7 +551,8 @@ async function callImageAPI(fullPrompt, customSize, refImageBase64, generationSe
     prompt: fullPrompt,
     n: 1,
     size,
-    quality: generationSettings.quality === 'final' ? 'high' : 'standard',
+    // 电商成片统一使用最佳质量，前端不再暴露会造成误解的“品质”开关。
+    quality: 'high',
     response_format: 'url',
   };
   // 传参考图到生图模型（模型能看到产品原本的样子）

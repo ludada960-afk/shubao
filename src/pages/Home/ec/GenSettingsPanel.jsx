@@ -1,23 +1,10 @@
 import React from 'react';
-import { Monitor, Gauge, Ban, Info, SlidersHorizontal } from 'lucide-react';
+import { Monitor, Ban, Info } from 'lucide-react';
 
 const RESOLUTIONS = [
   { key: '1K', label: '1K', ratio: '预览', desc: '快速确认构图与风格' },
   { key: '2K', label: '2K', ratio: '成片', desc: '商品细节与电商主图' },
   { key: '4K', label: '4K', ratio: '超清', desc: '仅在上游支持时启用' },
-];
-
-const QUALITIES = [
-  { key: 'preview', label: '先看构图', desc: '快速试错，减少重复生成' },
-  { key: 'final', label: '最终成片', desc: '优先商品一致性与细节' },
-];
-
-const RATIOS = [
-  { key: 'auto', label: '自动', desc: '按套图类型匹配' },
-  { key: '1:1', label: '1:1', desc: '主图/白底图' },
-  { key: '3:4', label: '3:4', desc: '详情/场景图' },
-  { key: '4:3', label: '4:3', desc: '横版场景' },
-  { key: '9:16', label: '9:16', desc: '短视频封面' },
 ];
 
 const lbl = { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 };
@@ -38,7 +25,7 @@ export default function GenSettingsPanel({ value, onChange }) {
         borderBottom: '1px solid rgba(0,0,0,0.06)',
       }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 0.3 }}>生图设置</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>分辨率与出图品质</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>输出尺寸与一致性约束</div>
       </div>
 
       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -78,62 +65,8 @@ export default function GenSettingsPanel({ value, onChange }) {
           </div>
         </div>
 
-        {/* 构图比例 */}
-        <div>
-          <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <SlidersHorizontal size={13} color="#7c3aed" /> 构图比例
-          </label>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {RATIOS.map(r => {
-              const active = (value.aspectRatio || 'auto') === r.key;
-              return (
-                <div key={r.key} onClick={() => set('aspectRatio', r.key)} style={{
-                  ...cardBase, padding: '8px 10px', flex: '1 1 70px',
-                  borderColor: active ? '#7c3aed' : 'rgba(0,0,0,0.08)',
-                  background: active ? 'rgba(124,58,237,0.06)' : '#fff',
-                }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>{r.label}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{r.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 品质 */}
-        <div>
-          <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Gauge size={13} color="#7c3aed" /> 出图品质
-          </label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {QUALITIES.map(q => {
-              const active = value.quality === q.key;
-              return (
-                <div key={q.key} onClick={() => set('quality', q.key)}
-                  style={{
-                    flex: 1, ...cardBase,
-                    borderColor: active ? '#7c3aed' : 'rgba(0,0,0,0.08)',
-                    background: active ? 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.02))' : '#fff',
-                    boxShadow: active ? '0 2px 8px rgba(124,58,237,0.12)' : 'none',
-                  }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = 'rgba(124,58,237,0.3)'; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)'; }}
-                >
-                  <div style={{
-                    width: 8, height: 8, borderRadius: '50%',
-                    background: active ? '#7c3aed' : 'rgba(0,0,0,0.15)',
-                    flexShrink: 0,
-                  }} />
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: active ? '#7c3aed' : 'var(--text-primary)' }}>{q.label}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{q.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', background: 'rgba(124,58,237,0.05)', padding: '8px 10px', borderRadius: 8 }}>
+          图片比例由“套图配置”按主图、详情图和营销图分别决定，这里只控制输出尺寸，避免重复设置互相冲突。
         </div>
 
         {/* 避免出现的元素 */}

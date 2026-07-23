@@ -319,8 +319,8 @@
   border: 2px dashed var(--border);
   border-radius: 16px;
   background: #fff;
-  /* 保持纸片边缘干净，不绘制会形成矩形轮廓的外阴影 */
-  box-shadow: none;
+  /* 轻量、低扩散的纸片投影：保留层次，不形成矩形光晕 */
+  box-shadow: 0 5px 10px rgba(57, 45, 26, .055);
   filter: none;
   font-family: inherit;
   transition: transform .2s, border-color .2s, box-shadow .2s;
@@ -340,6 +340,7 @@
 .ec-xhs-add-card:focus-visible {
   transform: translateY(-4px) rotate(0deg);
   border-color: var(--accent);
+  box-shadow: 0 8px 14px rgba(57, 45, 26, .08);
   filter: none;
   outline: none;
 }

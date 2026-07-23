@@ -44,23 +44,21 @@ const PRODUCT_SHOT_PLAN = [
 const BTN_BASE = {
   height: 40, padding: '0 18px', borderRadius: 20,
   fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-  border: '1.5px solid transparent', 
-  background: 'rgba(255,255,255,0.8)',
+  border: '1px solid rgba(28, 25, 23, 0.10)',
+  background: '#fff',
   color: 'var(--text-secondary)', 
   transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
   whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
-  boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)',
+  boxShadow: '0 2px 7px rgba(62,43,26,0.07)',
 };
 
 /* ═══════ 玻璃拟态面板样式（AI 感升级）═══════ */
 const GLASS_PANEL = {
   borderRadius: 20,
-  background: 'rgba(255, 255, 255, 0.85)',
-  backdropFilter: 'blur(40px) saturate(220%)',
-  WebkitBackdropFilter: 'blur(40px) saturate(220%)',
-  border: '1px solid rgba(255, 255, 255, 0.7)',
-  boxShadow: '0 12px 48px rgba(124, 58, 237, 0.15), 0 4px 16px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(255,255,255,0.5)',
+  background: '#fff',
+  border: '1px solid rgba(28, 25, 23, 0.09)',
+  boxShadow: '0 18px 48px rgba(62,43,26,0.16), 0 4px 14px rgba(62,43,26,0.08)',
   animation: 'ecGlassSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
 };
 
@@ -98,11 +96,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
   const [genSettings, setGenSettings] = useState({
     resolution: '1K',
-    quality: 'final',
-    aspectRatio: 'auto',
-    creativity: 0.7,
     negativePrompt: '',
-    seed: '',
   });
 
   /* — 面板（Portal 定位用视口坐标）—— */
@@ -406,7 +400,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     setStyleSkill('smart');
     setCustomColors(null);
     setCopywriting({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
-    setGenSettings({ resolution: '1K', quality: 'final', aspectRatio: 'auto', creativity: 0.7, negativePrompt: '', seed: '' });
+    setGenSettings({ resolution: '1K', negativePrompt: '' });
     setSmartMode(true);
     setSmartOverrides({ sizing: false, style: false, params: false, copy: false, settings: false });
     setActivePanel(null);
@@ -500,7 +494,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   return (
     <div>
       {/* ═══ 暖黄色背景卡片（与小红书图文一致）═══ */}
-      <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#FAF7F2', padding: '16px 20px 20px', position: 'relative' }}>
+      <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#fff', padding: '16px 20px 20px', position: 'relative' }}>
         <EcommerceWorkbench
           productImages={productImages}
           refImages={refImages}
@@ -708,7 +702,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '12px 2px 14px', flexWrap: 'wrap',
           position: 'relative', zIndex: 10,
-          borderTop: '1px solid rgba(0,0,0,0.06)',
+          borderTop: '1px solid rgba(28,25,23,0.08)',
+          background: '#fff',
         }}>
           {/* ═══ 面板渲染（内联，相对于按钮行定位）═══ */}
           {renderPanel()}
@@ -767,9 +762,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                     : { text: '文案策划', isSmart: false };
                 }
                 case 'settings': {
-                  const { resolution = '1K', quality = 'final', aspectRatio = 'auto' } = genSettings;
-                  const qLabel = quality === 'final' ? '成片' : '预览';
-                  return { text: `${resolution}·${aspectRatio === 'auto' ? '自动比例' : aspectRatio}·${qLabel}`, isSmart: false };
+                  const { resolution = '1K' } = genSettings;
+                  return { text: `${resolution}·最佳质量`, isSmart: false };
                 }
                 default: return { text: null, isSmart: false };
               }
@@ -781,35 +775,29 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 className={isOverridden ? 'ec-btn-overridden' : ''}
                 style={{
                   ...BTN_BASE,
-                  borderColor: isOverridden ? '#7c3aed' : 'rgba(0,0,0,0.08)',
+                  borderColor: isOpen ? '#8b5cf6' : isOverridden ? 'rgba(139,92,246,0.55)' : 'rgba(28,25,23,0.10)',
                   borderStyle: 'solid',
-                  background: isOpen 
-                    ? 'linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(236,72,153,0.08) 100%)' 
-                    : isOverridden 
-                      ? 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(255,255,255,0.95) 100%)'
-                      : 'rgba(255,255,255,0.85)',
+                  background: isOpen ? '#f1e9ff' : isOverridden ? '#fbf8ff' : '#fff',
                   position: 'relative',
                   boxShadow: isOpen 
-                    ? '0 4px 16px rgba(124,58,237,0.2), inset 0 1px 0 rgba(255,255,255,0.8)' 
+                    ? '0 4px 14px rgba(124,58,237,0.15)'
                     : isOverridden 
-                      ? '0 2px 8px rgba(124,58,237,0.12), inset 0 1px 0 rgba(255,255,255,0.9)'
+                      ? '0 3px 10px rgba(124,58,237,0.10)'
                       : BTN_BASE.boxShadow,
                 }}
                 onMouseEnter={e => { 
                   if (!isOpen) {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(255,255,255,0.98) 100%)';
+                    e.currentTarget.style.background = '#faf7ff';
                     e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(124,58,237,0.15), inset 0 1px 0 rgba(255,255,255,0.9)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(62,43,26,0.10)';
                   }
                 }}
                 onMouseLeave={e => { 
                   if (!isOpen) {
-                    e.currentTarget.style.background = isOverridden 
-                      ? 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(255,255,255,0.95) 100%)'
-                      : 'rgba(255,255,255,0.85)';
+                    e.currentTarget.style.background = isOverridden ? '#fbf8ff' : '#fff';
                     e.currentTarget.style.transform = 'none';
                     e.currentTarget.style.boxShadow = isOverridden 
-                      ? '0 2px 8px rgba(124,58,237,0.12), inset 0 1px 0 rgba(255,255,255,0.9)'
+                      ? '0 3px 10px rgba(124,58,237,0.10)'
                       : BTN_BASE.boxShadow;
                   }
                 }}>
