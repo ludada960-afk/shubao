@@ -627,11 +627,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!inputText && (
                     <div className="ec-textarea-placeholder" style={{ fontSize:15, lineHeight:'28px' }}>
-                      <span className="ec-placeholder-line">写什么？一句话就够了</span>
+                      <span className="ec-placeholder-line"><span className="ec-cursor" aria-hidden="true"></span>写什么？一句话就够了</span>
                       <span className="ec-placeholder-line" style={{ marginTop:28 }}>例：厦门3天2夜旅游攻略</span>
                       <span className="ec-placeholder-line">例：平价好用的防晒霜推荐</span>
                       <span className="ec-placeholder-line">例：独居女生的晚间护肤流程</span>
-                      <span className="ec-cursor" style={{ position:'absolute', top:0, left:0 }}></span>
                     </div>
                   )}
                   <textarea value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
@@ -686,11 +685,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!plogText && (
                     <div className="ec-textarea-placeholder" style={{ fontSize:15, lineHeight:'28px' }}>
-                      <span className="ec-placeholder-line">描述你想记录的生活瞬间</span>
+                      <span className="ec-placeholder-line"><span className="ec-cursor" aria-hidden="true"></span>描述你想记录的生活瞬间</span>
                       <span className="ec-placeholder-line" style={{ marginTop:28 }}>例：周末午后，阳光洒进房间，猫趴在窗台打盹</span>
                       <span className="ec-placeholder-line">例：下班路上买了一束花，回家插在玻璃瓶里</span>
                       <span className="ec-placeholder-line">例：雨天窝在沙发上看书喝热可可</span>
-                      <span className="ec-cursor" style={{ position:'absolute', top:0, left:0 }}></span>
                     </div>
                   )}
                   <textarea value={plogText} onChange={e => setPlogText(e.target.value)}
