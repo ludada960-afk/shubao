@@ -277,33 +277,114 @@
 .ref-add:hover { border-color: var(--red); color: var(--red); background: #FFF5F5; }
 .ref-hint { font-size: var(--text-sm); color: var(--text-faint); white-space: nowrap; }
 
-/* ── 电商紧凑工作台：沿用小红书上传卡、缩略图和输入框语义 ── */
+/* ── 电商紧凑工作台：复用小红书同款单一输入面板 ── */
 .ec-workbench { display: flex; flex-direction: column; gap: 12px; }
 .ec-workbench-heading { display: flex; flex-direction: column; gap: 3px; padding: 2px 4px; }
 .ec-workbench-heading strong { font-size: 18px; color: var(--text-primary); letter-spacing: -0.3px; }
 .ec-workbench-heading span { font-size: 12px; color: var(--text-muted); }
-.ec-upload-deck { min-height: 130px; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 6px 4px; }
-.ec-upload-card { width: 118px; min-height: 114px; padding: 12px 10px; border: 1.5px dashed var(--border-hover); border-radius: 16px; background: #fff; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; box-shadow: 0 5px 16px rgba(20, 25, 36, 0.06); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; overflow: hidden; }
-.ec-upload-card:hover { transform: translateY(-3px) rotate(0deg); box-shadow: 0 10px 24px rgba(20, 25, 36, .12); }
-.ec-upload-card img { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; }
-.ec-upload-card-product { border-color: rgba(255, 71, 87, .45); color: var(--red); }
-.ec-upload-card-reference { border-color: rgba(102, 126, 234, .45); color: var(--blue); }
-.ec-upload-card-right { transform: rotate(4deg); }
-.ec-upload-card-left { transform: rotate(-4deg); }
-.ec-upload-card-title { color: var(--text-primary); font-size: 13px; font-weight: 700; }
-.ec-upload-card-hint { max-width: 96px; font-size: 10px; line-height: 1.35; color: var(--text-faint); }
-.ec-upload-operator { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: #fff; font-size: 16px; font-weight: 800; background: linear-gradient(135deg, #7c3aed, #ec4899); box-shadow: 0 3px 10px rgba(124, 58, 237, .25); }
-.ec-media-rails { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
-.ec-media-rail-group { min-width: 0; padding: 9px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.66); }
-.ec-media-rail-label { margin-bottom: 7px; font-size: 11px; font-weight: 700; color: var(--text-secondary); }
-.ec-media-rail-scroller { display: flex; min-width: 0; gap: 8px; overflow-x: auto; padding: 1px 2px 5px; scrollbar-width: thin; }
-.ec-media-thumb { width: 54px; height: 54px; }
-.ec-media-thumb-slot { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px; font-size: 9px; color: #fff; text-align: center; background: linear-gradient(transparent, rgba(0,0,0,.72)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ec-media-add { width: 54px; height: 54px; flex: 0 0 auto; flex-direction: column; gap: 2px; font-size: 9px; font-family: inherit; }
-.ec-brief-input { margin: 0; }
-.ec-brief-input .hero-textarea { min-height: 82px; font-size: 13px; }
+.ec-brief-input { margin: 0; min-height: 188px; }
+.ec-brief-input .hero-textarea { min-height: 188px; padding: 112px 16px 16px; font-size: 13px; }
+.ec-brief-input .custom-placeholder { top: 108px; }
 .ec-brief-input .custom-placeholder .ph-main { font-size: 13px; }
-@media (max-width: 640px) { .ec-media-rails { grid-template-columns: 1fr; } .ec-upload-deck { justify-content: space-around; } }
+.ec-brief-input .custom-placeholder .ph-sub { font-size: 11px; }
+.ec-inline-upload-row {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  min-width: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.ec-inline-upload-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.ec-inline-upload-label {
+  padding-left: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.ec-inline-upload-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 82px;
+  max-width: min(42vw, 360px);
+  overflow-x: auto;
+  padding: 2px 2px 4px;
+  scrollbar-width: thin;
+}
+.ec-inline-upload-group-product .ec-inline-upload-track { border-left: 2px solid rgba(255, 71, 87, .28); }
+.ec-inline-upload-group-reference .ec-inline-upload-track { border-left: 2px solid rgba(102, 126, 234, .28); }
+.ec-inline-thumb { width: 60px; height: 60px; }
+.ec-inline-thumb-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3px 2px;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .72));
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+.ec-inline-add {
+  width: 60px;
+  height: 60px;
+  min-width: 60px;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px;
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1.15;
+}
+.ec-inline-add small {
+  max-width: 58px;
+  overflow: hidden;
+  color: var(--text-faint);
+  font-size: 8px;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ec-inline-upload-group-product .ec-inline-add:hover { border-color: var(--red); color: var(--red); background: #FFF5F5; }
+.ec-inline-upload-group-reference .ec-inline-add:hover { border-color: var(--blue); color: var(--blue); background: rgba(102, 126, 234, .04); }
+.ec-upload-operator {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  margin-bottom: 17px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  box-shadow: 0 3px 10px rgba(124, 58, 237, .25);
+}
+@media (max-width: 640px) {
+  .ec-brief-input { min-height: 205px; }
+  .ec-brief-input .hero-textarea { min-height: 205px; padding-top: 124px; }
+  .ec-brief-input .custom-placeholder { top: 120px; }
+  .ec-inline-upload-row { gap: 6px; }
+  .ec-inline-upload-track { max-width: 46vw; }
+}
 
 /* ── Stats Row ── */
 .stats-row {
