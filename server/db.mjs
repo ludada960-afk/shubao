@@ -40,6 +40,7 @@ export function initDB(dbPath = DB_PATH) {
       tags TEXT DEFAULT '[]',
       error TEXT DEFAULT '',
       payload TEXT DEFAULT '{}',
+      deleted_at TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     );
@@ -75,6 +76,9 @@ export function initDB(dbPath = DB_PATH) {
   if (!workColumns.includes('payload')) {
     db.exec("ALTER TABLE works ADD COLUMN payload TEXT DEFAULT '{}'");
   }
+  if (!workColumns.includes('deleted_at')) {
+    db.exec("ALTER TABLE works ADD COLUMN deleted_at TEXT DEFAULT ''");
+  }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
 
   console.log('  → SQLite 数据库就绪:', dbPath);
@@ -84,10 +88,15 @@ export function initDB(dbPath = DB_PATH) {
 // =========== 作品 CRUD ===========
 
 /** 获取全部作品，按创建时间倒序 */
-export function getAllWorks() {
+export function getAllWorks({ includeDeleted = false } = {}) {
   if (!db) initDB();
-  const rows = db.prepare('SELECT * FROM works ORDER BY id DESC LIMIT 100').all();
+  const rows = db.prepare(`SELECT * FROM works ${includeDeleted ? '' : "WHERE COALESCE(deleted_at, '') = ''"} ORDER BY id DESC LIMIT 100`).all();
   return rows.map(rowToWork);
+}
+
+export function getDeletedWorks() {
+  if (!db) initDB();
+  return db.prepare("SELECT * FROM works WHERE COALESCE(deleted_at, '') <> '' ORDER BY updated_at DESC LIMIT 100").all().map(rowToWork);
 }
 
 /** 按 _saveKey 查单个作品 */
@@ -148,15 +157,20 @@ export function upsertWork(work) {
 }
 
 /** 删除作品 */
-export function deleteWork(saveKey) {
+export function softDeleteWork(saveKey) {
   if (!db) initDB();
-  db.prepare('DELETE FROM works WHERE _saveKey = ?').run(saveKey);
+  db.prepare("UPDATE works SET deleted_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE _saveKey = ?").run(saveKey);
+}
+
+export function restoreWork(saveKey) {
+  if (!db) initDB();
+  db.prepare("UPDATE works SET deleted_at = '', updated_at = datetime('now', 'localtime') WHERE _saveKey = ?").run(saveKey);
 }
 
 /** 获取作品总数 */
 export function getWorkCount() {
   if (!db) initDB();
-  const row = db.prepare('SELECT COUNT(*) as count FROM works').get();
+  const row = db.prepare("SELECT COUNT(*) as count FROM works WHERE COALESCE(deleted_at, '') = ''").get();
   return row?.count || 0;
 }
 
@@ -338,6 +352,7 @@ function rowToWork(row) {
     at: row.created_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    ...(row.deleted_at ? { deleted_at: row.deleted_at, _deleted: true } : {}),
   };
 }
 
@@ -347,6 +362,6 @@ function safeParseJSON(str, fallback) {
 }
 
 export default {
-  initDB, getAllWorks, getWorkBySaveKey, upsertWork, deleteWork, getWorkCount,
+  initDB, getAllWorks, getDeletedWorks, getWorkBySaveKey, upsertWork, softDeleteWork, restoreWork, getWorkCount,
   importFromJSON, closeDB, getUserCredits, getAllUsers, addUserCredits, consumeUserCredit,
 };

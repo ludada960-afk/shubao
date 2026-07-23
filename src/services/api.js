@@ -9,6 +9,9 @@ export const API = API_BASE;
 // 图片代理（解决跨域）
 export function proxyImg(url) {
   if (!url) return '';
+  if (typeof url === 'object') {
+    return proxyImg(url.url || url.src || url.image_url || url.cover_url || '');
+  }
   // 已经是代理地址或 data URI 则直接返回
   if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
   // 本地相对路径也直接返回
@@ -223,7 +226,7 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, styleSkill, customColors, sizing, onImage, onProgress }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, onImage, onProgress }) {
   // 上传图片到服务器
   const uploadImgs = async (imgs) => {
     if (!imgs?.length) return [];
@@ -255,6 +258,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   if (imageSize?.width && imageSize?.height) {
     body.image_size = imageSize;
   }
+  if (generationSettings) body.generation_settings = generationSettings;
   if (imageSelections?.length > 0) {
     body.image_selections = imageSelections;
   }
@@ -476,13 +480,69 @@ export async function saveWork(work, phone) {
 
   // 服务器存
   try {
-    await fetch(`${API_BASE}/api/save-work`, {
+    const response = await fetch(`${API_BASE}/api/save-work`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ work, phone: phone || '' }),
     });
+    if (response.ok) {
+      const saved = await response.json().catch(() => ({}));
+      if (saved._saveKey && !work._saveKey) {
+        try {
+          const next = JSON.parse(localStorage.getItem('sb-works') || '[]');
+          const item = next.find(x => x.title === work.title && !x._saveKey);
+          if (item) item._saveKey = saved._saveKey;
+          localStorage.setItem('sb-works', JSON.stringify(next));
+        } catch { /* ignore local cache repair */ }
+      }
+      return saved;
+    }
   } catch (e) {
     console.warn('saveWork:', e.message);
+  }
+  return null;
+}
+
+export async function deleteWork(saveKey) {
+  if (!saveKey) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/delete-work`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _saveKey: saveKey }),
+    });
+    if (res.ok) return true;
+  } catch (e) {
+    console.warn('deleteWork:', e.message);
+  }
+  return false;
+}
+
+export async function restoreWork(saveKey) {
+  if (!saveKey) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/restore-work`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _saveKey: saveKey }),
+    });
+    return res.ok;
+  } catch (e) {
+    console.warn('restoreWork:', e.message);
+    return false;
+  }
+}
+
+export async function loadTrash(phone) {
+  try {
+    const url = phone ? `${API_BASE}/api/trash?phone=${encodeURIComponent(phone)}` : `${API_BASE}/api/trash`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.warn('loadTrash:', e.message);
+    return [];
   }
 }
 

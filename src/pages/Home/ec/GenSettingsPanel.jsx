@@ -1,16 +1,23 @@
 import React from 'react';
-import { Monitor, Gauge, Ban, Info } from 'lucide-react';
+import { Monitor, Gauge, Ban, Info, SlidersHorizontal } from 'lucide-react';
 
 const RESOLUTIONS = [
-  { key: '1024x1024', label: '1024×1024', ratio: '1:1', desc: '正方形·适合主图' },
-  { key: '1536x1024', label: '1536×1024', ratio: '3:2', desc: '横版·适合场景图' },
-  { key: '1024x1536', label: '1024×1536', ratio: '2:3', desc: '竖版·适合详情图' },
-  { key: '2048x2048', label: '2048×2048', ratio: '1:1', desc: '2K高清·细节更丰富' },
+  { key: '1K', label: '1K', ratio: '预览', desc: '快速确认构图与风格' },
+  { key: '2K', label: '2K', ratio: '成片', desc: '商品细节与电商主图' },
+  { key: '4K', label: '4K', ratio: '超清', desc: '仅在上游支持时启用' },
 ];
 
 const QUALITIES = [
-  { key: 'standard', label: '标准', desc: '速度快·适合快速预览' },
-  { key: 'hd', label: '高清', desc: '细节好·适合最终出图' },
+  { key: 'preview', label: '先看构图', desc: '快速试错，减少重复生成' },
+  { key: 'final', label: '最终成片', desc: '优先商品一致性与细节' },
+];
+
+const RATIOS = [
+  { key: 'auto', label: '自动', desc: '按套图类型匹配' },
+  { key: '1:1', label: '1:1', desc: '主图/白底图' },
+  { key: '3:4', label: '3:4', desc: '详情/场景图' },
+  { key: '4:3', label: '4:3', desc: '横版场景' },
+  { key: '9:16', label: '9:16', desc: '短视频封面' },
 ];
 
 const lbl = { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 };
@@ -71,6 +78,30 @@ export default function GenSettingsPanel({ value, onChange }) {
           </div>
         </div>
 
+        {/* 构图比例 */}
+        <div>
+          <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <SlidersHorizontal size={13} color="#7c3aed" /> 构图比例
+          </label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {RATIOS.map(r => {
+              const active = (value.aspectRatio || 'auto') === r.key;
+              return (
+                <div key={r.key} onClick={() => set('aspectRatio', r.key)} style={{
+                  ...cardBase, padding: '8px 10px', flex: '1 1 70px',
+                  borderColor: active ? '#7c3aed' : 'rgba(0,0,0,0.08)',
+                  background: active ? 'rgba(124,58,237,0.06)' : '#fff',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{r.label}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{r.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* 品质 */}
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -109,7 +140,9 @@ export default function GenSettingsPanel({ value, onChange }) {
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
             <Ban size={13} color="#7c3aed" /> 避免出现的元素
-            <Info size={12} color="var(--text-muted)" aria-hidden="true" />
+            <span title="只会作为生成约束补充，不会覆盖产品图中的真实结构">
+              <Info size={12} color="var(--text-muted)" aria-hidden="true" />
+            </span>
           </label>
           <div role="note" style={{
             fontSize: 11, color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)',

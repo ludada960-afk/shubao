@@ -22,7 +22,7 @@ import {
 } from './plogPromptEngine.mjs';
 
 import Stripe from 'stripe';
-import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getWorkCount, upsertWork } from './db.mjs';
+import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
 import { normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
@@ -514,22 +514,36 @@ async function generateImage(prompt, category, isCover, jkContext, customSize, r
 }
 
 // ── 电商专用生图（不加小红书前缀，按图片角色选尺寸）──
-async function generateECImage(prompt, roleKey, platform, refImageBase64) {
+async function generateECImage(prompt, roleKey, platform, refImageBase64, generationSettings = {}) {
   // 根据图片角色确定尺寸
   const baseKey = (roleKey || '').replace(/_\d+$/, '');
   const role = IMAGE_ROLES[baseKey];
   const ratio = role?.ratio || '1:1';
   const platformSizes = PLATFORM_SIZES[platform] || PLATFORM_SIZES['淘宝'];
-  const sizeStr = platformSizes[ratio] || '1440×1440px';
+  const requestedResolution = ['1K', '2K', '4K'].includes(generationSettings.resolution) ? generationSettings.resolution : '';
+  const requestedRatio = ['1:1', '3:4', '4:3', '9:16'].includes(generationSettings.aspectRatio) ? generationSettings.aspectRatio : ratio;
+  const sizeMap = {
+    '1K': { '1:1': '1024×1024px', '3:4': '1024×1366px', '4:3': '1366×1024px', '9:16': '1024×1820px' },
+    '2K': { '1:1': '2048×2048px', '3:4': '2048×2730px', '4:3': '2730×2048px', '9:16': '2048×3640px' },
+    '4K': { '1:1': '4096×4096px', '3:4': '4096×5460px', '4:3': '5460×4096px', '9:16': '4096×7280px' },
+  };
+  const sizeStr = (requestedResolution && sizeMap[requestedResolution]?.[requestedRatio])
+    || platformSizes[ratio] || '1440×1440px';
   // API 格式: "1440x1440"
   const apiSize = sizeStr.replace('×', 'x').replace('px', '');
 
   console.log(`[ec-img] role=${baseKey} ratio=${ratio} platform=${platform} size=${apiSize}`);
-  return await callImageAPI(prompt, apiSize, refImageBase64);
+  const fallbackSize = {
+    '1:1': '1024x1024',
+    '3:4': '1024x1536',
+    '4:3': '1536x1024',
+    '9:16': '1024x1536',
+  }[requestedRatio] || '1024x1024';
+  return await callImageAPI(prompt, apiSize, refImageBase64, generationSettings, fallbackSize);
 }
 
 // Ref: 参考图 base64，传给 GPT-Image-2 做视觉参考
-async function callImageAPI(fullPrompt, customSize, refImageBase64) {
+async function callImageAPI(fullPrompt, customSize, refImageBase64, generationSettings = {}, fallbackSize = '1024x1024') {
   const url = `${IMG_BASE}/v1/images/generations`;
   const size = customSize || '1024x1366';
   const body = {
@@ -537,7 +551,7 @@ async function callImageAPI(fullPrompt, customSize, refImageBase64) {
     prompt: fullPrompt,
     n: 1,
     size,
-    quality: 'standard',
+    quality: generationSettings.quality === 'final' ? 'high' : 'standard',
     response_format: 'url',
   };
   // 传参考图到生图模型（模型能看到产品原本的样子）
@@ -558,6 +572,19 @@ async function callImageAPI(fullPrompt, customSize, refImageBase64) {
       });
     } finally { clearTimeout(timeout); }
 
+    if (!res.ok && ['400', '422'].includes(String(res.status)) && body.size !== fallbackSize) {
+      const retryBody = { ...body, size: fallbackSize };
+      const retry = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': IMG_KEY },
+        body: JSON.stringify(retryBody),
+        signal: controller.signal,
+      });
+      if (retry.ok) {
+        const retryData = await retry.json();
+        return retryData.data?.[0]?.url || retryData.data?.[0]?.b64_json || '';
+      }
+    }
     if (!res.ok) {
       const err = await res.text().catch(() => res.statusText);
       throw new Error(`Image API error ${res.status}: ${err}`);
@@ -1911,6 +1938,24 @@ app.get('/api/works', (req, res) => {
   if (phone) works = works.filter(w => w._phone === phone);
   res.json(works);
 });
+app.get('/api/trash', (req, res) => {
+  const { phone } = req.query;
+  let works = getDeletedWorks();
+  if (phone) works = works.filter(w => w._phone === phone);
+  res.json(works);
+});
+app.post('/api/delete-work', (req, res) => {
+  const saveKey = req.body?._saveKey;
+  if (!saveKey) return res.status(400).json({ error: 'missing _saveKey' });
+  softDeleteWork(saveKey);
+  res.json({ ok: true, _saveKey: saveKey });
+});
+app.post('/api/restore-work', (req, res) => {
+  const saveKey = req.body?._saveKey;
+  if (!saveKey) return res.status(400).json({ error: 'missing _saveKey' });
+  restoreWork(saveKey);
+  res.json({ ok: true, _saveKey: saveKey });
+});
 
 // 图片代理：后端下载图片并缓存（内存+磁盘双缓存，持久化避免重启丢失）
 const imgCache2 = new Map();
@@ -3100,7 +3145,7 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
 });
 
 app.post('/api/generate-ecommerce', async (req, res) => {
-  const { product_name, category, image_selections, image_size, platform, selling_points, reference_images, real_shots, skus, detail_plan, maintenance, material, target_audience, restrictions, style_skill } = req.body || {};
+  const { product_name, category, image_selections, image_size, generation_settings, platform, selling_points, reference_images, real_shots, skus, detail_plan, maintenance, material, target_audience, restrictions, style_skill } = req.body || {};
   if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
   const taskId = `ec_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   createTask(taskId, product_name, req._userEmail);
@@ -3300,7 +3345,10 @@ app.post('/api/generate-ecommerce', async (req, res) => {
           styleSkill: style_skill,
         }) + contextSuffix;
         try {
-          const upstreamUrl = await generateECImage(prompt, img.baseKey || img.key, platform || '淘宝', refImageBase64);
+          const promptWithControls = generation_settings?.negativePrompt
+            ? `${prompt}\n\nAVOID: ${String(generation_settings.negativePrompt).slice(0, 500)}`
+            : prompt;
+          const upstreamUrl = await generateECImage(promptWithControls, img.baseKey || img.key, platform || '淘宝', refImageBase64, generation_settings || {});
           if (upstreamUrl) {
             const asset = await generatedAssetStore.persist({ sourceUrl: upstreamUrl, taskId, label: img.label });
             imgResults[idx] = { label: img.label, url: asset.url };

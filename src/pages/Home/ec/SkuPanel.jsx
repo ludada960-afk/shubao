@@ -36,7 +36,7 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
           fontSize: 12, color: '#16a34a',
         }}>
           <CheckCircle2 size={14} />
-          <span>填写变体后，系统会自动生成对应 SKU 规格图；无需再去套图配置重复开启。</span>
+          <span>填写颜色、规格或容量后，系统会自动生成对应的 SKU 变体图。</span>
         </div>
       </div>
 
@@ -50,17 +50,15 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>变体 #{idx + 1}</span>
-              {skus.length > 1 && (
-                <div onClick={() => rm(sku.id)}
-                  style={{
-                    fontSize: 11, fontWeight: 600, color: '#e74c3c', cursor: 'pointer',
-                    padding: '2px 8px', borderRadius: 6,
-                    transition: 'all 0.15s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(231,76,60,0.1)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >删除</div>
-              )}
+              <div onClick={() => rm(sku.id)}
+                style={{
+                  fontSize: 11, fontWeight: 600, color: '#e74c3c', cursor: 'pointer',
+                  padding: '2px 8px', borderRadius: 6,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(231,76,60,0.1)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >删除</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
               <div>

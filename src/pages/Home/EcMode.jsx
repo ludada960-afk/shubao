@@ -92,13 +92,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const [styleSkill, setStyleSkill] = useState('smart');
   const [customColors, setCustomColors] = useState(null);
   const [productParams, setProductParams] = useState({ category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' });
-  const [skus, setSkus] = useState([]);
+  const [skus, setSkus] = useState([{ id: `sku_${Date.now()}`, color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
   const [copywriting, setCopywriting] = useState({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
 
   /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
   const [genSettings, setGenSettings] = useState({
-    resolution: '1024x1024',
-    quality: 'standard',
+    resolution: '1K',
+    quality: 'final',
+    aspectRatio: 'auto',
     creativity: 0.7,
     negativePrompt: '',
     seed: '',
@@ -279,14 +280,43 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   /* ── 6 个功能按钮（AI 感图标升级）── */
   const BUTTONS = [
     { key: 'sizing', label: '套图方案', icon: <Images size={15} strokeWidth={1.8} /> },
+    { key: 'sku', label: 'SKU变体', icon: <Package size={15} strokeWidth={1.8} /> },
     { key: 'style', label: '视觉方向', icon: <Wand2 size={15} strokeWidth={1.8} /> },
     { key: 'params', label: '商品信息', icon: <SlidersHorizontal size={15} strokeWidth={1.8} /> },
-    { key: 'sku', label: 'SKU 规格', icon: <Package size={15} strokeWidth={1.8} /> },
     { key: 'copy', label: '内容规范', icon: <FileText size={15} strokeWidth={1.8} /> },
     { key: 'settings', label: '生成设置', icon: <Settings2 size={15} strokeWidth={1.8} /> },
   ];
 
-  /* ── 面板定位（相对于按钮行的绝对定位，滚动时跟随）── */
+  /* ── 面板定位：Portal 固定到当前按钮，并在滚动时持续跟随 ── */
+  const repositionPanel = useCallback(() => {
+    if (!activePanel) return;
+    const el = btnRefs.current[activePanel];
+    if (!el) return;
+    const btnRect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const baseWidth = activePanel === 'copy' ? 520 : activePanel === 'sizing' ? 460 : activePanel === 'settings' ? 420 : 420;
+    const panelW = Math.min(Math.max(baseWidth, 400), Math.max(320, vw - 32));
+    const btnCenterX = btnRect.left + btnRect.width / 2;
+    setPanelPos({
+      left: Math.max(16, Math.min(btnCenterX - panelW / 2, vw - panelW - 16)),
+      bottom: Math.max(16, window.innerHeight - btnRect.top + 10),
+      width: panelW,
+      maxH: Math.max(300, Math.min(620, btnRect.top - 24)),
+      btnCenterX,
+    });
+  }, [activePanel]);
+
+  useEffect(() => {
+    if (!activePanel) return;
+    repositionPanel();
+    window.addEventListener('resize', repositionPanel);
+    window.addEventListener('scroll', repositionPanel, true);
+    return () => {
+      window.removeEventListener('resize', repositionPanel);
+      window.removeEventListener('scroll', repositionPanel, true);
+    };
+  }, [activePanel, repositionPanel]);
+
   const openPanel = useCallback((key) => {
     if (activePanel === key) { setActivePanel(null); return; }
     const el = btnRefs.current[key];
@@ -376,7 +406,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     setStyleSkill('smart');
     setCustomColors(null);
     setCopywriting({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
-    setGenSettings({ resolution: '1024x1024', quality: 'standard', creativity: 0.7, negativePrompt: '', seed: '' });
+    setGenSettings({ resolution: '1K', quality: 'final', aspectRatio: 'auto', creativity: 0.7, negativePrompt: '', seed: '' });
     setSmartMode(true);
     setSmartOverrides({ sizing: false, style: false, params: false, copy: false, settings: false });
     setActivePanel(null);
@@ -470,7 +500,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   return (
     <div>
       {/* ═══ 暖黄色背景卡片（与小红书图文一致）═══ */}
-      <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#FAF7F2', padding: '16px 20px 20px', position: 'relative', border: '1px solid rgba(139,92,246,0.06)' }}>
+      <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#FAF7F2', padding: '16px 20px 20px', position: 'relative' }}>
         <EcommerceWorkbench
           productImages={productImages}
           refImages={refImages}
@@ -682,12 +712,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         }}>
           {/* ═══ 面板渲染（内联，相对于按钮行定位）═══ */}
           {renderPanel()}
-          {hasOverrides && (
-            <button type="button" onClick={restoreSmartPlan} style={{
-              ...BTN_BASE, height: 34, padding: '0 12px', borderColor: 'rgba(124,58,237,0.22)',
-              background: 'rgba(124,58,237,0.06)', color: '#6d28d9', fontSize: 12,
-            }}>恢复智能方案</button>
-          )}
           {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}
           {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;
@@ -743,10 +767,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                     : { text: '文案策划', isSmart: false };
                 }
                 case 'settings': {
-                  const { resolution, quality, creativity } = genSettings;
-                  const resLabel = resolution === '1024x1024' ? '1:1' : resolution === '1536x1024' ? '3:2' : resolution === '1024x1536' ? '2:3' : resolution === '2048x2048' ? '2K' : resolution;
-                  const qLabel = quality === 'hd' ? '高清' : '标准';
-                  return { text: `${resLabel}·${qLabel}`, isSmart: false };
+                  const { resolution = '1K', quality = 'final', aspectRatio = 'auto' } = genSettings;
+                  const qLabel = quality === 'final' ? '成片' : '预览';
+                  return { text: `${resolution}·${aspectRatio === 'auto' ? '自动比例' : aspectRatio}·${qLabel}`, isSmart: false };
                 }
                 default: return { text: null, isSmart: false };
               }
@@ -814,6 +837,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
               </div>
             );
           })}
+          {hasOverrides && (
+            <button type="button" onClick={restoreSmartPlan} style={{
+              ...BTN_BASE, height: 34, padding: '0 12px', borderColor: 'rgba(124,58,237,0.22)',
+              background: 'rgba(124,58,237,0.06)', color: '#6d28d9', fontSize: 12,
+              marginLeft: 'auto', flexShrink: 0,
+            }}>恢复智能方案</button>
+          )}
 
           {/* ── 下一步按钮 ── */}
           <button disabled={!canGen} onClick={handleNext}

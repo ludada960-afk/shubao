@@ -207,7 +207,7 @@ export default function WorksPage() {
                   /* ═══ EC 作品卡片 ═══ */
                   <>
                     {Array.isArray(w.images) && w.images[0]?.url ? (
-                      <img src={proxyImg(w.images[0].url)} alt=""
+                      <img src={proxyImg(w.images[0])} alt=""
                         style={{ width: 56, height: 56, borderRadius: 'var(--radius-md)', objectFit: 'cover', flex: '0 0 auto' }} />
                     ) : (
                       <div style={{

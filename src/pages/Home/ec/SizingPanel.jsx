@@ -11,8 +11,6 @@ const IMAGE_TYPES = [
     desc: '竖版主图，适合移动端展示', usage: '竖版主图', maxCount: 5 },
   { key: 'transparent', label: '透明 PNG', icon: '🔲', defaultRatio: '1:1', defaultCount: 1,
     desc: '去底素材，方便二次设计', usage: '素材/合成用', maxCount: 3 },
-  { key: 'sku', label: 'SKU 规格图', icon: '🏷️', defaultRatio: '1:1', defaultCount: 0,
-    desc: '同款不同色/规格展示（勾选后自动启用SKU变体配置）', usage: 'SKU选择', maxCount: 20 },
   { key: 'detail', label: '详情切片', icon: '📋', defaultRatio: '3:4', defaultCount: 5,
     desc: '长图详情页切片，含多种子类', usage: '详情页长图', maxCount: 10 },
   { key: 'poster', label: '营销海报', icon: '🎯', defaultRatio: '3:4', defaultCount: 0,
@@ -212,6 +210,10 @@ export default function SizingPanel({
 
   const totalImages = activeImages.reduce((s, img) => s + (img.count || 0), 0);
   const pDef = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
+  const planSummary = activeImages
+    .filter(item => item.count > 0)
+    .map(item => `${item.label || item.key}×${item.count}`)
+    .join('、') || '尚未选择图片类型';
 
   return (
     <div style={{ padding: 0 }}>
@@ -267,7 +269,7 @@ export default function SizingPanel({
         {/* ── 平台说明 ── */}
         {pDef.desc && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, padding: '6px 10px', background: 'rgba(0,0,0,0.025)', borderRadius: 8 }}>
-            <Info size={12} /> {pDef.desc}
+            <Info size={12} /> 当前方案：{pDef.name} · {planSummary}
           </div>
         )}
 

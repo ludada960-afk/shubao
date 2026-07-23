@@ -118,6 +118,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         // B5/B9: 正确传递场景预设和图片选择
         imageSelections: params?.imageSelections || params?.sizing?.images || null,
         imageSize: params?.imageSize || (params?.sizing?.smart ? null : null),
+        generationSettings: params?.genSettings || null,
         // B5: 场景预设通过 style_skill 字段传递，不是 imageSelections
         styleSkill: params?.styleSkill || 'smart',
         customColors: params?.customColors || null,

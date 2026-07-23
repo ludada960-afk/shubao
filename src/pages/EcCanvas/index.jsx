@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { saveWork, loadWorks, proxyImg } from '../../services/api';
+import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork } from '../../services/api';
 
 const LABEL_MAP = {
   white_bg: { title: '白底首图', group: '首图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
@@ -19,7 +19,9 @@ const LABEL_MAP = {
 
 function parseImages(images, platform) {
   if (!images || typeof images !== 'object') return [];
-  const entries = Array.isArray(images) ? images.map(i => [i.key || i.label || '', i.url]) : Object.entries(images);
+  const entries = Array.isArray(images)
+    ? images.map(i => [i.key || i.label || '', i.url || i.src || i.image_url])
+    : Object.entries(images).map(([key, value]) => [key, typeof value === 'object' ? (value.url || value.src || value.image_url) : value]);
   return entries.map(([label, url], i) => {
     const baseKey = label.replace(/_\d+$/, '');
     const info = LABEL_MAP[baseKey] || { title: label, group: '其他', ratio: '1:1', usage: '' };
@@ -216,6 +218,7 @@ export default function EcCanvas() {
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
   const [tab, setTab] = useState('canvas');
   const [pastWorks, setPastWorks] = useState([]);
+  const [trashWorks, setTrashWorks] = useState([]);
   const [zoomImg, setZoomImg] = useState(null);
   const [toast, setToast] = useState(null);
   const containerRef = useRef(null);
@@ -250,15 +253,17 @@ export default function EcCanvas() {
             local.push({ 
               id: w.id || Date.now(), 
               name: w.product_name, 
-              images: Array.isArray(w.images) 
-                ? w.images.map(i => ({ url: i.url, key: i.key, label: i.label || i.style || i.key })) 
-                : Object.entries(w.images || {}).map(([key, url]) => ({ url, key, label: key })), 
-              createdAt: w.at || '' 
+              images: Array.isArray(w.images)
+                ? w.images.map(i => ({ url: i.url || i.src || i.image_url, key: i.key, label: i.label || i.style || i.key }))
+                : Object.entries(w.images || {}).map(([key, value]) => ({ url: typeof value === 'object' ? (value.url || value.src || value.image_url) : value, key, label: key })),
+              createdAt: w.at || '',
+              _saveKey: w._saveKey || '',
             }); 
           } 
         } 
       } catch {}
       setPastWorks(local);
+      setTrashWorks(await loadTrash(''));
     };
     load();
   }, []);
@@ -507,7 +512,29 @@ export default function EcCanvas() {
     dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝' } });
     setTab('canvas');
   };
-  const deleteWork = (id) => { const w = pastWorks.filter(x => x.id !== id); setPastWorks(w); localStorage.setItem('shubao_ec_works', JSON.stringify(w)); };
+  const deleteWork = async (id) => {
+    const work = pastWorks.find(x => x.id === id);
+    if (!work) return;
+    if (work._saveKey) await softDeleteWork(work._saveKey);
+    const next = pastWorks.filter(x => x.id !== id);
+    setPastWorks(next);
+    localStorage.setItem('shubao_ec_works', JSON.stringify(next));
+    showToast('已移入回收站，可恢复', 'success');
+  };
+
+  const restoreDeletedWork = async (work) => {
+    if (!work?._saveKey) return;
+    const ok = await restoreWork(work._saveKey);
+    if (!ok) return showToast('恢复失败，请重试', 'error');
+    setPastWorks(prev => [...prev, {
+      id: work.id,
+      name: work.product_name || work.name || '历史作品',
+      images: Array.isArray(work.images) ? work.images : Object.entries(work.images || {}).map(([key, url]) => ({ url, key, label: key })),
+      createdAt: work.at || '',
+      _saveKey: work._saveKey,
+    }]);
+    showToast('作品已恢复', 'success');
+  };
 
   // A6: 适配视口（提前定义以避免循环依赖）
   const fitView = useCallback(() => {
@@ -550,11 +577,11 @@ export default function EcCanvas() {
       <div style={{ height: 52, flexShrink: 0, background: 'rgba(255,255,255,0.9)', borderBottom: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', padding: '0 16px 0 72px', gap: 10, zIndex: 100 }}>
         <div onClick={handleBack} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><MdArrowBack size={16} color="#666" /></div>
         <div style={{ flexShrink: 0, marginLeft: 4 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{tab === 'canvas' ? (result.product_name || '画布') : '我的作品集'}</div>
-          <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} 张图片${multiSelected.size > 0 ? ` · ${multiSelected.size} 已选中` : ''}` : `${pastWorks.length} 个作品`}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{tab === 'canvas' ? (result.product_name || '画布') : tab === 'trash' ? '回收站' : '我的作品集'}</div>
+          <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} 张图片${multiSelected.size > 0 ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : pastWorks.length} 个作品`}</div>
         </div>
         <div style={{ display: 'flex', gap: 3, padding: 3, borderRadius: 10, background: 'rgba(0,0,0,0.05)', marginLeft: 12, flexShrink: 0 }}>
-          {[['canvas','当前画布'],['works','作品集']].map(([id,label]) => (
+          {[['canvas','当前画布'],['works','作品集'],['trash','回收站']].map(([id,label]) => (
             <div key={id} onClick={() => setTab(id)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: tab===id ? '#fff' : 'transparent', color: tab===id ? '#1a1a1a' : '#999', boxShadow: tab===id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>{label}</div>
           ))}
         </div>
@@ -645,14 +672,14 @@ export default function EcCanvas() {
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 20px 72px' }}>
-          {pastWorks.length === 0 ? (
+          {((tab === 'trash' ? trashWorks : pastWorks).length === 0) ? (
             <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-              <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.15 }}>📁</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#999' }}>还没有作品</div>
+              <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.15 }}>{tab === 'trash' ? '🗑️' : '📁'}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#999' }}>{tab === 'trash' ? '回收站是空的' : '还没有作品'}</div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16 }}>
-              {pastWorks.map(work => (
+              {(tab === 'trash' ? trashWorks : pastWorks).map(work => (
                 <div key={work.id} style={{ borderRadius: 16, overflow: 'hidden', background: '#fff', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px' }}>
                     <div>
@@ -661,12 +688,16 @@ export default function EcCanvas() {
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <div onClick={() => openWork(work)} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdOpenInNew size={14} /></div>
-                      <div onClick={() => deleteWork(work.id)} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(239,68,68,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}><MdDelete size={14} /></div>
+                      {tab === 'trash' ? (
+                        <div onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</div>
+                      ) : (
+                        <div onClick={() => deleteWork(work.id)} title="移入回收站" style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(239,68,68,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}><MdDelete size={14} /></div>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, padding: '0 14px 12px', overflowX: 'auto' }}>
                     {(work.images || []).slice(0, 6).map((img, i) => (
-                      <img key={i} src={img.url} alt="" onClick={() => setZoomImg({ url: img.url, label: img.label || '' })} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'pointer' }} />
+                      <img key={i} src={proxyImg(img)} alt="" onClick={() => setZoomImg({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'pointer' }} />
                     ))}
                   </div>
                 </div>
@@ -690,7 +721,7 @@ export default function EcCanvas() {
       {/* 图片放大预览 */}
       {zoomImg && (
         <div onClick={() => setZoomImg(null)} style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <img src={zoomImg.url} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} onClick={e => e.stopPropagation()} />
+          <img src={proxyImg(zoomImg.url)} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} onClick={e => e.stopPropagation()} />
           <div onClick={() => setZoomImg(null)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</div>
         </div>
       )}

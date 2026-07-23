@@ -97,7 +97,11 @@ export default function HomePage() {
               onGenerated={() => setEcStep(3)}
             />
           ) : (
-            <div className="surface-card" style={{ marginTop: 20 }}>
+            <div className="surface-card" style={{
+              marginTop: 20,
+              background: isXHS ? '#fff' : 'transparent',
+              boxShadow: isXHS ? undefined : 'none',
+            }}>
               <div className="surface-card-inner">
                 {isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} /> : (
                   <EcMode ecStep={ecStep} setEcStep={(step) => {
