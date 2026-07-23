@@ -289,7 +289,7 @@
   padding: 8px 10px 10px;
   border-radius: 16px;
   /* 与小红书图文一致：暖黄从左侧铺开，右侧三分之一自然回到白色。 */
-  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 34%, #fdf8f3 54%, #fff 70%, #fff 100%);
+  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, #fff 79%, #fff 100%);
 }
 .ec-xhs-media-column {
   min-width: 0;
@@ -356,6 +356,7 @@
 }
 .ec-xhs-card-title { max-width: 74px; font-size: 12px; font-weight: 900; line-height: 1.15; text-align: center; }
 .ec-xhs-card-meta { font-size: 10px; font-weight: 700; color: var(--text-muted); }
+.ec-xhs-optional { position: absolute; top: 7px; right: 7px; padding: 2px 5px; border-radius: 5px; background: rgba(255,255,255,.92); color: var(--text-secondary); font-size: 9px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .ec-xhs-image-card { border-style: solid; }
 .ec-xhs-image-card img { width: 100%; height: 100%; object-fit: cover; }
 .ec-xhs-card-caption {
@@ -402,16 +403,16 @@
 .ec-xhs-prompt {
   min-width: 0;
   width: 100%;
-  min-height: 104px;
+  min-height: 92px;
   display: flex;
   flex-direction: column;
-  padding: 8px 20px 8px 8px;
+  padding: 6px 20px 6px 18px;
 }
 .ec-xhs-prompt textarea {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: 104px;
+  min-height: 92px;
   flex: 1;
   padding: 0;
   border: none;
@@ -438,8 +439,8 @@
 @media (max-width: 760px) {
   .ec-xhs-media-column { padding: 10px 8px 0; }
   .ec-xhs-media-strip { min-height: 122px; }
-  .ec-xhs-prompt { min-height: 104px; padding: 8px 16px; }
-  .ec-xhs-prompt textarea { min-height: 104px; }
+  .ec-xhs-prompt { min-height: 92px; padding: 6px 16px; }
+  .ec-xhs-prompt textarea { min-height: 92px; }
 }
 
 /* ── Stats Row ── */

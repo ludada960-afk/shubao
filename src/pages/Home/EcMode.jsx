@@ -95,7 +95,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
   const [genSettings, setGenSettings] = useState({
-    resolution: '1K',
+    resolution: '2K',
     negativePrompt: '',
   });
 
@@ -400,7 +400,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     setStyleSkill('smart');
     setCustomColors(null);
     setCopywriting({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
-    setGenSettings({ resolution: '1K', negativePrompt: '' });
+    setGenSettings({ resolution: '2K', negativePrompt: '' });
     setSmartMode(true);
     setSmartOverrides({ sizing: false, style: false, params: false, copy: false, settings: false });
     setActivePanel(null);
@@ -774,7 +774,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 onClick={() => openPanel(btn.key)}
                 className={isOverridden ? 'ec-btn-overridden' : ''}
                 style={{
-                  ...BTN_BASE,
+                    ...BTN_BASE,
+                    border: `1.5px solid ${activePanel === btn.key ? '#1f2937' : 'rgba(28,25,23,.28)'}`,
                   borderColor: isOpen ? '#8b5cf6' : isOverridden ? 'rgba(139,92,246,0.55)' : 'rgba(28,25,23,0.10)',
                   borderStyle: 'solid',
                   background: isOpen ? '#f1e9ff' : isOverridden ? '#fbf8ff' : '#fff',

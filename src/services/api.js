@@ -505,6 +505,16 @@ export async function saveWork(work, phone) {
   return null;
 }
 
+export async function regenerateCanvasImage({ prompt, imageUrl, ratio }) {
+  const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, image_url: imageUrl, ratio }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.url) throw new Error(data.error || '重新生成失败');
+  return data.url;
+}
+
 export async function deleteWork(saveKey) {
   if (!saveKey) return false;
   try {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork } from '../../services/api';
+import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage } from '../../services/api';
+import { canStitch, fitViewport, zoomAroundCursor } from './canvasState';
 
 const LABEL_MAP = {
   white_bg: { title: '白底首图', group: '首图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
@@ -221,6 +222,9 @@ export default function EcCanvas() {
   const [trashWorks, setTrashWorks] = useState([]);
   const [zoomImg, setZoomImg] = useState(null);
   const [toast, setToast] = useState(null);
+  const [promptPanel, setPromptPanel] = useState(null);
+  const [promptText, setPromptText] = useState('');
+  const [promptLoading, setPromptLoading] = useState(false);
   const containerRef = useRef(null);
 
   const imageList = parseImages(result.images || {}, result.platform || '淘宝');
@@ -236,6 +240,10 @@ export default function EcCanvas() {
     if (!hasCurrent) return;
     const newNodes = autoLayout(imageList);
     setNodes(newNodes);
+    requestAnimationFrame(() => {
+      const next = fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
+      if (next) setViewport(next);
+    });
   }, [result.product_name, imageList.length]);
 
   useEffect(() => {
@@ -356,18 +364,12 @@ export default function EcCanvas() {
   const handleWheel = useCallback((e) => {
     try { e.preventDefault(); } catch {}
     if (wheelRafRef.current) return; // 已有一帧在排队
+    const rect = e.currentTarget.getBoundingClientRect();
+    const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const factor = e.deltaY > 0 ? 0.92 : 1.09;
     wheelRafRef.current = requestAnimationFrame(() => {
       wheelRafRef.current = null;
-      try {
-        const factor = e.deltaY > 0 ? 0.92 : 1.09;
-        setViewport(v => {
-          const ns = Math.max(0.15, Math.min(4, v.scale * factor));
-          const rect = e.currentTarget?.getBoundingClientRect();
-          if (!rect) return v;
-          const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-          return { x: (cx - v.x) * (1 - ns / v.scale) + v.x, y: (cy - v.y) * (1 - ns / v.scale) + v.y, scale: ns };
-        });
-      } catch {}
+      setViewport(v => zoomAroundCursor(v, point, factor));
     });
   }, []);
 
@@ -472,24 +474,16 @@ export default function EcCanvas() {
       case 'reverse-prompt':
         showToast('AI 反向提示词分析中…', 'info');
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/reverse-prompt`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_url: node.url, product_name: node.label }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.prompt) {
-              showToast('提示词已生成（已复制）', 'success');
-              navigator.clipboard?.writeText(data.prompt);
-            } else {
-              showToast(data.error || '生成失败', 'error');
-            }
-          } else {
-            showToast('反向提示词服务暂不可用', 'error');
-          }
+          setPromptLoading(true);
+          const data = await reversePrompt({ image_url: node.url, product_name: node.displayLabel || node.label });
+          if (!data.prompt) throw new Error('未得到可编辑的提示词');
+          setPromptPanel(node);
+          setPromptText(data.prompt);
+          showToast('已生成可编辑提示词', 'success');
         } catch (e) {
           showToast('请求失败: ' + e.message, 'error');
+        } finally {
+          setPromptLoading(false);
         }
         break;
       case 'copy-url':
@@ -547,18 +541,35 @@ export default function EcCanvas() {
 
   // A6: 适配视口（提前定义以避免循环依赖）
   const fitView = useCallback(() => {
-    if (nodes.length === 0) return;
-    const minX = Math.min(...nodes.map(n => n.x));
-    const minY = Math.min(...nodes.map(n => n.y));
-    const maxX = Math.max(...nodes.map(n => n.x + n.w));
-    const maxY = Math.max(...nodes.map(n => n.y + n.h + 60));
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const scaleX = (rect.width - 80) / (maxX - minX + 40);
-    const scaleY = (rect.height - 80) / (maxY - minY + 40);
-    const scale = Math.max(0.15, Math.min(1.5, Math.min(scaleX, scaleY)));
-    setViewport({ x: 40 - minX * scale, y: 40 - minY * scale, scale });
+    const next = fitViewport(nodes, containerRef.current?.getBoundingClientRect());
+    if (next) setViewport(next);
   }, [nodes]);
+
+  const handleStitch = async () => {
+    const selectedNodes = nodes.filter(node => multiSelected.has(node.id) && node.group === '详情');
+    if (selectedNodes.length < 2) return;
+    try {
+      showToast('正在合成长详情图…', 'info');
+      const data = await stitchLongImage(selectedNodes.map(node => node.url));
+      if (!data.url) throw new Error('合成结果为空');
+      const y = Math.max(...nodes.map(node => node.y + node.h + 120), 0);
+      setNodes(prev => [...prev, { id: `node_long_${Date.now()}`, url: data.url, x: 0, y, w: 240, h: Math.round(240 * (data.height / data.width)), label: 'long_detail', displayLabel: '详情长图', group: '详情', ratio: '长图', usage: '将选中的详情切片合成为一张长图，便于审核和交付' }]);
+      setMultiSelected(new Set());
+      showToast('详情长图已加入画布', 'success');
+    } catch (error) { showToast(error.message || '合成长图失败', 'error'); }
+  };
+
+  const handlePromptRegenerate = async () => {
+    if (!promptPanel || !promptText.trim() || promptLoading) return;
+    setPromptLoading(true);
+    try {
+      const url = await regenerateCanvasImage({ prompt: promptText, imageUrl: promptPanel.url, ratio: promptPanel.ratio });
+      setNodes(prev => [...prev, { ...promptPanel, id: `node_regenerated_${Date.now()}`, url, x: promptPanel.x + promptPanel.w + 48, y: promptPanel.y, displayLabel: `${promptPanel.displayLabel} · 二次生成` }]);
+      setPromptPanel(null);
+      showToast('新图已加入画布', 'success');
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { setPromptLoading(false); }
+  };
 
   // 删除节点（提前定义以避免循环依赖）
   const handleDelete = useCallback(() => {
@@ -608,6 +619,11 @@ export default function EcCanvas() {
                   <MdDownload size={14} /> 批量下载({multiSelected.size})
                 </div>
               )}
+              {canStitch(nodes, multiSelected) && (
+                <div onClick={handleStitch} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: '#1f2937', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <MdCollections size={14} /> 合成长详情图
+                </div>
+              )}
               {(selected || multiSelected.size > 0) && (
                 <div onClick={handleDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   <MdDelete size={14} /> 删除
@@ -624,7 +640,7 @@ export default function EcCanvas() {
       {tab === 'canvas' ? (
         <div
           ref={containerRef}
-          style={{ flex: 1, position: 'relative', overflow: 'hidden' }}
+          style={{ flex: 1, position: 'relative', overflow: 'hidden', backgroundColor: '#f6f5f2', backgroundImage: 'radial-gradient(rgba(58, 50, 39, .16) 1px, transparent 1px)', backgroundSize: '18px 18px' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -725,6 +741,15 @@ export default function EcCanvas() {
           onClose={() => setContextMenu(null)}
           onAction={handleContextAction}
         />
+      )}
+
+      {promptPanel && (
+        <div style={{ position: 'fixed', zIndex: 10004, right: 22, bottom: 22, width: 'min(440px, calc(100vw - 44px))', background: '#fff', border: '1px solid rgba(0,0,0,.1)', boxShadow: '0 18px 50px rgba(0,0,0,.18)', borderRadius: 12, padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}><strong style={{ fontSize: 14 }}>编辑后重新生成</strong><button type="button" onClick={() => setPromptPanel(null)} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 18 }}>×</button></div>
+          <div style={{ fontSize: 11, color: '#777', marginBottom: 8 }}>以当前图片为参考，保留商品本体，按你的修改生成新图。</div>
+          <textarea value={promptText} onChange={e => setPromptText(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minHeight: 140, resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid rgba(0,0,0,.15)', font: '12px/1.6 inherit' }} />
+          <button type="button" onClick={handlePromptRegenerate} disabled={promptLoading} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 8, padding: '10px 14px', background: '#1f2937', color: '#fff', fontWeight: 700, cursor: promptLoading ? 'wait' : 'pointer' }}>{promptLoading ? '正在生成…' : '按此方案生成'}</button>
+        </div>
       )}
 
       {/* 图片放大预览 */}

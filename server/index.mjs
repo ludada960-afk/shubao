@@ -3398,6 +3398,27 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   } finally { res.end(); }
 });
 
+// 画布内的二次生成：沿用现有图生图通道，保证提示词编辑不是只复制到剪贴板。
+app.post('/api/canvas/regenerate', async (req, res) => {
+  const { prompt, image_url, ratio } = req.body || {};
+  if (!prompt?.trim() || !image_url) return res.status(400).json({ error: '缺少图片或生成说明' });
+  try {
+    let reference = image_url;
+    if (image_url.startsWith('http')) {
+      const source = await fetch(image_url, { signal: AbortSignal.timeout(20000) });
+      if (!source.ok) throw new Error('读取原图失败');
+      const contentType = source.headers.get('content-type') || 'image/jpeg';
+      reference = `data:${contentType};base64,${Buffer.from(await source.arrayBuffer()).toString('base64')}`;
+    }
+    const size = ratio === '3:4' ? '1024x1366' : ratio === '4:3' ? '1366x1024' : '1024x1024';
+    const generated = await callImageAPI(`Create a polished ecommerce product visual. Preserve the supplied product identity and structure. ${prompt.trim()}`, size, reference, {}, '1024x1024');
+    const asset = await generatedAssetStore.persist({ sourceUrl: generated, taskId: `canvas_${Date.now()}`, label: 'canvas_regenerated' });
+    res.json({ url: asset.url });
+  } catch (error) {
+    res.status(500).json({ error: '重新生成失败：' + error.message });
+  }
+});
+
 // 页面关闭、网络中断后仍可读取已持久化的电商任务结果；按任务归属校验，避免 ID 枚举泄露。
 app.get('/api/ecommerce/jobs/:id', (req, res) => {
   const access = requireBetaEmail(req.query?.email);

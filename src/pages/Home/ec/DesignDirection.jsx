@@ -71,6 +71,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setLoading(false);
   };
 
+  const updateDirection = (index, key, value) => {
+    setDirections(prev => prev.map((direction, i) => i === index ? { ...direction, [key]: value } : direction));
+  };
+
   /* ── AI 润色文案 ── */
   const handlePolish = async () => {
     if (!extraDesc.trim() || polishing) return;
@@ -103,10 +107,11 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setGenStage(0);
     try {
       const dir = directions[selected];
+      const directionBrief = [dir?.title, dir?.one_liner, dir?.description].filter(Boolean).join('。');
       const result = await generateEcommerce({
         productName: params?.productName || params?.description?.slice(0, 20) || '商品',
         category: params?.category || '其他',
-        points: params?.copywriting?.sellingPoints || params?.description || '',
+        points: [params?.copywriting?.sellingPoints || params?.description || '', directionBrief].filter(Boolean).join('。设计方向：'),
         platform: params?.platform || '淘宝',
         refImgs: [...(params?.refShots || []), ...extraImages.map(img => img.url)],
         realShots: [...(params?.realShots || []), ...((params?.productImages || []).map(img => typeof img === 'string' ? img : img.url))],
@@ -282,7 +287,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                     <div style={{ padding: '16px 18px' }}>
                       {/* 标题 + 选中标记 */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.3 }}>{dir.title}</h3>
+                        <input value={dir.title || ''} onClick={event => event.stopPropagation()} onChange={event => updateDirection(i, 'title', event.target.value)} aria-label="方案名称" style={{ width: 'calc(100% - 30px)', border: 0, borderBottom: '1px solid transparent', outline: 'none', padding: '2px 0', background: 'transparent', font: '800 15px/1.3 inherit', color: '#1a1a1a' }} onFocus={event => { event.currentTarget.style.borderBottomColor = primaryColor; }} onBlur={event => { event.currentTarget.style.borderBottomColor = 'transparent'; }} />
                         {active && (
                           <div style={{
                             width: 22, height: 22, borderRadius: '50%',
@@ -322,10 +327,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                       )}
 
                       {/* 简洁描述 - 不使用省略号 */}
-                      <p style={{
-                        margin: 0, fontSize: 12, lineHeight: 1.5,
-                        color: 'var(--text-secondary)',
-                      }}>{dir.short_desc || dir.description?.slice(0, 80)}{dir.description?.length > 80 ? '...' : ''}</p>
+                      <textarea value={dir.description || dir.short_desc || ''} onClick={event => event.stopPropagation()} onChange={event => updateDirection(i, 'description', event.target.value)} aria-label="编辑方案说明" style={{ width: '100%', minHeight: 62, boxSizing: 'border-box', resize: 'vertical', border: '1px solid transparent', borderRadius: 6, background: 'transparent', outline: 'none', padding: 5, margin: '-5px', font: '12px/1.5 inherit', color: 'var(--text-secondary)' }} onFocus={event => { event.currentTarget.style.borderColor = `${primaryColor}55`; event.currentTarget.style.background = '#fff'; }} onBlur={event => { event.currentTarget.style.borderColor = 'transparent'; event.currentTarget.style.background = 'transparent'; }} />
 
                       {/* 色块预览 */}
                       {dir.preview_colors?.length > 0 && (

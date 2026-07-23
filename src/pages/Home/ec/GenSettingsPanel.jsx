@@ -2,9 +2,9 @@ import React from 'react';
 import { Monitor, Ban, Info } from 'lucide-react';
 
 const RESOLUTIONS = [
-  { key: '1K', label: '1K', ratio: '预览', desc: '快速确认构图与风格' },
-  { key: '2K', label: '2K', ratio: '成片', desc: '商品细节与电商主图' },
-  { key: '4K', label: '4K', ratio: '超清', desc: '仅在上游支持时启用' },
+  { key: '1K', label: '1K', ratio: '标准', desc: '适合快速试方向' },
+  { key: '2K', label: '2K', ratio: '高清', desc: '推荐：兼顾细节与效率' },
+  { key: '4K', label: '4K', ratio: '超清', desc: '适合放大查看细节' },
 ];
 
 const lbl = { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 };
@@ -25,14 +25,14 @@ export default function GenSettingsPanel({ value, onChange }) {
         borderBottom: '1px solid rgba(0,0,0,0.06)',
       }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 0.3 }}>生图设置</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>输出尺寸与一致性约束</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>按商品用途控制清晰度与画面约束</div>
       </div>
 
       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* 分辨率 */}
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Monitor size={13} color="#7c3aed" /> 分辨率
+            <Monitor size={13} color="#7c3aed" /> 清晰度
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {RESOLUTIONS.map(r => {
@@ -65,10 +65,6 @@ export default function GenSettingsPanel({ value, onChange }) {
           </div>
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', background: 'rgba(124,58,237,0.05)', padding: '8px 10px', borderRadius: 8 }}>
-          图片比例由“套图配置”按主图、详情图和营销图分别决定，这里只控制输出尺寸，避免重复设置互相冲突。
-        </div>
-
         {/* 避免出现的元素 */}
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -81,12 +77,12 @@ export default function GenSettingsPanel({ value, onChange }) {
             fontSize: 11, color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)',
             padding: '6px 10px', borderRadius: 8, marginBottom: 6,
           }}>
-            告诉 AI 不希望出现什么，例如“模糊、变形、水印、多余手指”。
+            例如商品结构错误、SKU 颜色不一致、无关道具、错误品牌元素或密集文字。
           </div>
           <input
             value={value.negativePrompt || ''}
             onChange={e => set('negativePrompt', e.target.value)}
-            placeholder="例如：模糊、变形、水印、文字..."
+            placeholder="例如：SKU颜色不一致、错误品牌元素、无关道具"
             style={{
               width: '100%', padding: '8px 12px', fontSize: 12, borderRadius: 8,
               border: '1px solid rgba(0,0,0,0.12)', background: 'rgba(0,0,0,0.03)',

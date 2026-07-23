@@ -18,6 +18,7 @@ function AddCard({ role, label, meta, onClick, title }) {
   return (
     <button type="button" className={`ec-xhs-upload-card ec-xhs-add-card ec-xhs-card-${role}`} onClick={onClick} title={title}>
       <span className="ec-xhs-add-icon"><ImagePlus size={20} /></span>
+      {role === 'reference' && <span className="ec-xhs-optional">可选</span>}
       <span className="ec-xhs-card-title">{label}</span>
       <span className="ec-xhs-card-meta">{meta}</span>
     </button>
@@ -42,8 +43,8 @@ export default function EcommerceWorkbench({
   return (
     <section className="ec-workbench" aria-label="电商生图工作台">
       <div className="ec-workbench-heading">
-        <strong>把商品图变成上新视觉</strong>
-        <span>上传产品图与参考图，快速生成主图、详情图和营销素材。</span>
+        <strong>上传商品素材，生成整套电商视觉</strong>
+        <span>先放入一张清晰商品图；补充角度或参考图，能让画面更贴近你的商品。</span>
       </div>
 
       <div className="ec-xhs-composer">
@@ -62,7 +63,7 @@ export default function EcommerceWorkbench({
             <AddCard
               role="product"
               label={productImages.length ? nextSlot.label : '产品图'}
-              meta={productImages.length ? '建议补充' : '正面图'}
+              meta={productImages.length ? '建议补充' : '清晰商品图'}
               title={nextSlot.hint}
               onClick={() => productInputRef.current?.click()}
             />
@@ -82,7 +83,7 @@ export default function EcommerceWorkbench({
             <AddCard
               role="reference"
               label="参考图"
-              meta={refImages.length ? '继续添加' : '风格参考'}
+              meta={refImages.length ? '继续添加' : '竞品或风格'}
               title="可上传竞品主图、详情图、店铺视觉或希望借鉴的风格图片"
               onClick={() => referenceInputRef.current?.click()}
             />
@@ -94,7 +95,7 @@ export default function EcommerceWorkbench({
             <div className="ec-textarea-placeholder ec-xhs-placeholder">
               <span className="ec-placeholder-line"><span className="ec-cursor ec-xhs-cursor" aria-hidden="true" />描述想生成的商品视觉，一句话就够了</span>
               <span className="ec-placeholder-line ec-xhs-example-first">例：为白色陶瓷杯生成高级简约的电商详情页</span>
-              <span className="ec-placeholder-line">例：保留商品结构，替换成清透夏日场景</span>
+              <span className="ec-placeholder-line">例：保留商品结构，换成清透夏日场景</span>
             </div>
           )}
           <textarea
