@@ -286,10 +286,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 292px;
   padding: 8px 10px 10px;
   border-radius: 16px;
-  background: linear-gradient(180deg, #FAF0E4 0%, #FBF3EA 48%, #FDF9F5 100%);
+  /* 与小红书图文一致：暖黄从左侧铺开，右侧三分之一自然回到白色。 */
+  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 34%, #fdf8f3 54%, #fff 70%, #fff 100%);
 }
 .ec-xhs-media-column {
   min-width: 0;
@@ -402,16 +402,16 @@
 .ec-xhs-prompt {
   min-width: 0;
   width: 100%;
-  min-height: 132px;
+  min-height: 104px;
   display: flex;
   flex-direction: column;
-  padding: 12px 20px 12px 8px;
+  padding: 8px 20px 8px 8px;
 }
 .ec-xhs-prompt textarea {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: 132px;
+  min-height: 104px;
   flex: 1;
   padding: 0;
   border: none;
@@ -424,7 +424,7 @@
   line-height: 28px;
 }
 .ec-xhs-placeholder { font-size: 15px; line-height: 28px; }
-.ec-xhs-example-first { margin-top: 28px; }
+.ec-xhs-example-first { margin-top: 12px; }
 .ec-xhs-cursor {
   display: inline-block;
   width: 2px;
@@ -438,8 +438,8 @@
 @media (max-width: 760px) {
   .ec-xhs-media-column { padding: 10px 8px 0; }
   .ec-xhs-media-strip { min-height: 122px; }
-  .ec-xhs-prompt { padding: 6px 16px 14px; }
-  .ec-xhs-prompt textarea { min-height: 136px; }
+  .ec-xhs-prompt { min-height: 104px; padding: 8px 16px; }
+  .ec-xhs-prompt textarea { min-height: 104px; }
 }
 
 /* ── Stats Row ── */

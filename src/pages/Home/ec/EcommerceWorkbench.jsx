@@ -95,7 +95,6 @@ export default function EcommerceWorkbench({
               <span className="ec-placeholder-line"><span className="ec-cursor ec-xhs-cursor" aria-hidden="true" />描述想生成的商品视觉，一句话就够了</span>
               <span className="ec-placeholder-line ec-xhs-example-first">例：为白色陶瓷杯生成高级简约的电商详情页</span>
               <span className="ec-placeholder-line">例：保留商品结构，替换成清透夏日场景</span>
-              <span className="ec-placeholder-line">例：画面干净，不出现错误文字和多余配件</span>
             </div>
           )}
           <textarea
