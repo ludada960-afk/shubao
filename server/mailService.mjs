@@ -50,6 +50,11 @@ function generateCode() {
 export async function sendVerificationCode(email) {
   const transport = getTransporter();
   if (!transport) {
+    if (process.env.NODE_ENV === 'production') {
+      const error = new Error('内测登录邮件尚未配置，请联系管理员');
+      error.statusCode = 503;
+      throw error;
+    }
     console.warn('[mail] SMTP 未配置，使用 mock 模式');
     // 未配置时存储 mock 码 "123456"
     codeStore.set(email, { code: '123456', expiresAt: Date.now() + 300000 });

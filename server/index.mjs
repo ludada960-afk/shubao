@@ -22,7 +22,10 @@ import {
 } from './plogPromptEngine.mjs';
 
 import Stripe from 'stripe';
-import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit } from './db.mjs';
+import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask } from './db.mjs';
+import { normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
+import { imageGenerationPool } from './imageGenerationPool.mjs';
+import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '.env');
@@ -70,7 +73,7 @@ const app = express();
 
 // 轻量健康检查：供 PM2、反向代理和部署脚本判断进程是否真的能响应。
 app.get('/health', (req, res) => {
-  res.json({ ok: true, service: 'shubao', pid: process.pid, uptime: Math.round(process.uptime()) });
+  res.json({ ok: true, service: 'shubao', pid: process.pid, uptime: Math.round(process.uptime()), imageQueue: imageGenerationPool.stats() });
 });
 
 // HTTP → HTTPS 跳转（仅生产环境 shuimg.cn 且有 SSL 证书时启用）
@@ -133,14 +136,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// 内测阶段，生成能力只能由受邀账号调用。前端提示只是体验层，
+// 这里才是不能被绕过的服务端权限边界。
+const BETA_GUARDED_ROUTES = ['/api/generate-ecommerce'];
+app.use((req, res, next) => {
+  if (req.method === 'POST' && BETA_GUARDED_ROUTES.includes(req.path)) {
+    return betaAccessMiddleware(req, res, next);
+  }
+  next();
+});
+
+function betaAccessMiddleware(req, res, next) {
+  const access = requireBetaEmail(req.body?.email);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
+  req._userEmail = access.email;
+  next();
+}
+
 // ── 额度校验中间件（登录用户扣额度，阻止匿名盗刷）──
 // 要求请求体带 email（登录前端已有），查 users.json 是否有额度
 function requireCredits(req, res, next) {
   const body = req.body || {};
-  const email = (body.email || body.phone || '').trim().toLowerCase();
-  if (!email) {
-    return res.status(401).json({ error: '未登录，请先登录' });
-  }
+  const access = requireBetaEmail(body.email || body.phone);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
+  const email = access.email;
   const credits = getUserCredits(email);
   if (credits < 1) {
     return res.status(402).json({ error: '额度不足，请购买套餐' });
@@ -502,24 +521,26 @@ async function callImageAPI(fullPrompt, customSize, refImageBase64) {
   if (refImageBase64) {
     body.image = refImageBase64;
   }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => { try { controller.abort(); } catch(e) {} }, 300000);
-  let res;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': IMG_KEY },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } finally { clearTimeout(timeout); }
+  return imageGenerationPool.run(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => { try { controller.abort(); } catch(e) {} }, 300000);
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': IMG_KEY },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } finally { clearTimeout(timeout); }
 
-  if (!res.ok) {
-    const err = await res.text().catch(() => res.statusText);
-    throw new Error(`Image API error ${res.status}: ${err}`);
-  }
-  const data = await res.json();
-  return data.data?.[0]?.url || data.data?.[0]?.b64_json || '';
+    if (!res.ok) {
+      const err = await res.text().catch(() => res.statusText);
+      throw new Error(`Image API error ${res.status}: ${err}`);
+    }
+    const data = await res.json();
+    return data.data?.[0]?.url || data.data?.[0]?.b64_json || '';
+  });
 }
 
 // ============================================================
@@ -3065,6 +3086,14 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
 app.post('/api/generate-ecommerce', async (req, res) => {
   const { product_name, category, image_selections, image_size, platform, selling_points, reference_images, real_shots, skus, detail_plan, maintenance, material, target_audience, restrictions, style_skill } = req.body || {};
   if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
+  const taskId = `ec_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  createTask(taskId, product_name, req._userEmail);
+  startTask(taskId);
+
+  // 产品图最佳实践是 3–5 张多角度图；参考图允许较多用于风格分析，
+  // 但必须有硬上限，避免单个请求把 JSON 解析、内存和上游视觉调用拖垮。
+  const productImageInputs = Array.isArray(real_shots) ? real_shots.slice(0, 8) : [];
+  const referenceImageInputs = Array.isArray(reference_images) ? reference_images.slice(0, 48) : [];
 
   const sliceCount = [detail_plan?.sizeAnnot, detail_plan?.scene, detail_plan?.qc, detail_plan?.compare, detail_plan?.feature].filter(Boolean).length;
   console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || 'default'}, skus=${skus?.length || 0}, slices=${sliceCount}${maintenance ? '+care' : ''}, platform=${platform || '淘宝'}, style=${style_skill || 'default'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
@@ -3075,7 +3104,13 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
   const NL = '\n';
-  const send = (type, data) => { try { res.write('data: ' + JSON.stringify({ type, ...data }) + NL + NL); } catch(e) {} };
+  const send = (type, data) => {
+    if (type === 'progress') {
+      try { updateTaskProgress(taskId, data); } catch (error) { console.warn('[ec-gen] 任务进度持久化失败:', error.message); }
+    }
+    try { res.write('data: ' + JSON.stringify({ type, ...data }) + NL + NL); } catch(e) {}
+  };
+  send('job', { taskId });
 
   const sellingPoints = (typeof selling_points === 'string' ? selling_points : '').split(/[\n,;，；]/).filter(Boolean);
   const images = {};
@@ -3179,12 +3214,22 @@ app.post('/api/generate-ecommerce', async (req, res) => {
 
   // 参考图：全量分析 + 准备视觉输入（不再截断6张）
   let refImageBase64 = null;
-  if (reference_images?.length > 0) {
-    send('progress', { step: 'vision', msg: `正在分析 ${reference_images.length} 张参考图...` });
+  try {
+  const resolvedProductImages = [];
+  for (const productImage of productImageInputs) {
+    const resolved = await resolveImgUrl(productImage);
+    if (resolved) resolvedProductImages.push(resolved);
+  }
+  if (resolvedProductImages.length) {
+    contextSuffix += `\n\nPRODUCT VISUAL INPUT: ${resolvedProductImages.length} product views were supplied. Preserve product silhouette, material, proportions, logos, and SKU differences faithfully.`;
+  }
+
+  if (referenceImageInputs.length > 0) {
+    send('progress', { step: 'vision', msg: `正在分析 ${referenceImageInputs.length} 张参考图...` });
     try {
       // 解析所有参考图 URL（无数量上限）
       const resolvedRefs = [];
-      for (const u of reference_images) {
+      for (const u of referenceImageInputs) {
         const resolved = await resolveImgUrl(u);
         if (resolved) resolvedRefs.push(resolved);
       }
@@ -3206,18 +3251,25 @@ app.post('/api/generate-ecommerce', async (req, res) => {
         contextSuffix += visionNote;
         console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}, ${resolvedRefs.length} 张`);
       }
-      // 传入最具代表性的参考图作为图像输入
-      refImageBase64 = resolvedRefs[0] || null;
+      // 当前图片网关只兼容一个 image 字段：把 3–5 张商品图置前，
+      // 再带少量风格参考做成视觉锚点，避免过去“只用第一张参考图、忽略产品图”的失真。
+      refImageBase64 = await buildReferenceContactSheet([
+        ...resolvedProductImages.slice(0, 5),
+        ...resolvedRefs.slice(0, 3),
+      ]) || resolvedProductImages[0] || resolvedRefs[0] || null;
     } catch (e) {
       console.warn('[ec-gen] 参考图处理失败（不阻断）:', e.message);
     }
   }
+  if (!refImageBase64 && resolvedProductImages.length) {
+    refImageBase64 = await buildReferenceContactSheet(resolvedProductImages.slice(0, 5)) || resolvedProductImages[0];
+  }
 
-  try {
     {
       const total = expandedImages.length;
       send('progress', { step: 'generating', msg: '正在生成商品图...', total, current: 0 });
-      const CONCURRENCY = 5;
+      // 单任务也与全局阈值一致，避免把待执行工作一次性堆满内存队列。
+      const CONCURRENCY = 3;
       const imgResults = new Array(total).fill(null);
       let completed = 0;
       const genOne = async (img, idx) => {
@@ -3260,7 +3312,7 @@ app.post('/api/generate-ecommerce', async (req, res) => {
     }
 
     console.log(`[ec-gen] 完成: ${Object.keys(images).length} 张图, ${errors.length} 个错误`);
-    send('complete', {
+    const taskResult = {
       product_name,
       category: category || '其他',
       platform: platform || '淘宝',
@@ -3270,30 +3322,47 @@ app.post('/api/generate-ecommerce', async (req, res) => {
       maintenance: maintenance || '',
       images,
       errors,
-    });
+    };
+    completeTask(taskId, taskResult);
+    send('complete', { taskId, ...taskResult });
   } catch (err) {
     console.error('[ec-gen] 失败:', err.message);
+    failTask(taskId, err.message);
     send('error', { error: err.message });
   } finally { res.end(); }
 });
 
+// 页面关闭、网络中断后仍可读取已持久化的电商任务结果；按任务归属校验，避免 ID 枚举泄露。
+app.get('/api/ecommerce/jobs/:id', (req, res) => {
+  const access = requireBetaEmail(req.query?.email);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
+  const task = getTask(req.params.id);
+  if (!task || task.owner_email !== access.email) return res.status(404).json({ error: '未找到该任务' });
+  res.json({ ok: true, task });
+});
+
 // ── 邮箱验证码 ──
 app.post('/api/auth/send-code', async (req, res) => {
-  const { email } = req.body || {};
+  const email = normalizeEmail(req.body?.email);
   if (!email || !email.includes('@')) return res.status(400).json({ error: '请输入正确的邮箱' });
+  const access = requireBetaEmail(email);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
   try {
-    const result = await sendVerificationCode(email);
+    const result = await sendVerificationCode(access.email);
     res.json(result);
   } catch (e) {
-    res.status(429).json({ error: e.message });
+    res.status(e.statusCode || 429).json({ error: e.message });
   }
 });
 
 app.post('/api/auth/verify-code', (req, res) => {
-  const { email, code } = req.body || {};
+  const email = normalizeEmail(req.body?.email);
+  const { code } = req.body || {};
   if (!email || !code) return res.status(400).json({ error: '参数不完整' });
-  const result = verifyCode(email, code);
-  if (result.ok) res.json({ ok: true, email });
+  const access = requireBetaEmail(email);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
+  const result = verifyCode(access.email, code);
+  if (result.ok) res.json({ ok: true, email: access.email });
   else res.status(400).json(result);
 });
 

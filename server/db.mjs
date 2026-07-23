@@ -10,9 +10,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = resolve(__dirname, 'works.db');
 
 let db;
+let activeDbPath;
 
-export function initDB() {
-  db = new Database(DB_PATH);
+export function initDB(dbPath = DB_PATH) {
+  if (db && activeDbPath === dbPath) return db;
+  if (db) { try { db.close(); } catch {} }
+  db = new Database(dbPath);
+  activeDbPath = dbPath;
   // WAL 模式：读不阻塞写，写不阻塞读
   db.pragma('journal_mode = WAL');
   db.pragma('busy_timeout = 5000');
@@ -45,6 +49,7 @@ export function initDB() {
       id TEXT PRIMARY KEY,
       status TEXT DEFAULT 'pending',
       text TEXT DEFAULT '',
+      owner_email TEXT DEFAULT '',
       progress TEXT DEFAULT '{}',
       result TEXT DEFAULT '{}',
       error TEXT DEFAULT '',
@@ -60,8 +65,14 @@ export function initDB() {
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     );
   `);
+  // 兼容已经运行过旧版表结构的线上数据库。
+  const taskColumns = db.prepare("PRAGMA table_info(tasks)").all().map(column => column.name);
+  if (!taskColumns.includes('owner_email')) {
+    db.exec("ALTER TABLE tasks ADD COLUMN owner_email TEXT DEFAULT ''");
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
 
-  console.log('  → SQLite 数据库就绪:', DB_PATH);
+  console.log('  → SQLite 数据库就绪:', dbPath);
   return db;
 }
 
@@ -178,9 +189,9 @@ export function importFromJSON(worksArray) {
 // =========== 异步任务队列 ===========
 
 /** 创建任务 */
-export function createTask(id, text) {
+export function createTask(id, text, ownerEmail = '') {
   if (!db) initDB();
-  db.prepare('INSERT INTO tasks (id, text, status) VALUES (?, ?, ?)').run(id, text, 'pending');
+  db.prepare('INSERT INTO tasks (id, text, owner_email, status) VALUES (?, ?, ?, ?)').run(id, text, ownerEmail, 'pending');
 }
 
 /** 更新任务进度 */
@@ -219,6 +230,7 @@ export function getTask(id) {
     id: row.id,
     status: row.status,
     text: row.text,
+    owner_email: row.owner_email || '',
     progress: safeParseJSON(row.progress, {}),
     result: safeParseJSON(row.result, null),
     error: row.error,
@@ -255,6 +267,8 @@ export function cleanOldTasks() {
 /** 关闭数据库 */
 export function closeDB() {
   if (db) { try { db.close(); } catch(e) {} }
+  db = undefined;
+  activeDbPath = undefined;
 }
 
 // =========== 用户额度（与作品、任务共用同一 SQLite 数据源）===========

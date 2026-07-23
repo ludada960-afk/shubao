@@ -174,8 +174,10 @@ export async function generateContent(text, images, { onImage, onProgress, previ
 
   if (!res.ok) {
     clearTimeout(timeoutId);
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg.slice(0, 200));
+    const raw = await res.text().catch(() => res.statusText);
+    let message = raw;
+    try { message = JSON.parse(raw).error || raw; } catch {}
+    throw new Error(String(message).slice(0, 200));
   }
 
   const reader = res.body.getReader();
@@ -245,6 +247,11 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     material: material || '',
     restrictions: restrictions || '',
   };
+  // 电商生图属于封闭内测能力；请求携带本地会话邮箱，服务端仍会二次校验。
+  try {
+    const session = JSON.parse(localStorage.getItem('sb-auth') || 'null');
+    if (session?.email) body.email = session.email;
+  } catch {}
   if (imageSize?.width && imageSize?.height) {
     body.image_size = imageSize;
   }
@@ -291,6 +298,9 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
           const d = JSON.parse(line.slice(6));
           if (d.type === 'progress') {
             if (onProgress) onProgress(d);
+          } else if (d.type === 'job') {
+            result.taskId = d.taskId;
+            try { localStorage.setItem('sb-last-ecommerce-task', d.taskId); } catch {}
           } else if (d.type === 'image') {
             if (d.id && d.url) result.images[d.id] = d.url;
             if (onImage) onImage(d);
@@ -310,6 +320,16 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     try { reader.releaseLock(); } catch {}
   }
   return result;
+}
+
+export async function getEcommerceTask(taskId) {
+  if (!taskId) throw new Error('缺少任务编号');
+  let email = '';
+  try { email = JSON.parse(localStorage.getItem('sb-auth') || 'null')?.email || ''; } catch {}
+  const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}?email=${encodeURIComponent(email)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '读取任务失败');
+  return data.task;
 }
 
 /* ── 电商智能识别（Vision 回填 5 步字段） ── */

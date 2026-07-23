@@ -16,6 +16,7 @@ const initialState = {
   credits: 1,
   // UI
   showLogin: false,
+  loginIntent: null,
   showPrice: false,
   // 模式
   mode: 'ecommerce',  // content | ecommerce — 默认电商生图
@@ -57,6 +58,8 @@ function reducer(state, action) {
       return { ...state, credits: state.credits + action.amount };
     case 'SHOW_LOGIN':
       return { ...state, showLogin: action.show };
+    case 'SET_LOGIN_INTENT':
+      return { ...state, loginIntent: action.intent || null };
     case 'SHOW_PRICE':
       return { ...state, showPrice: action.show };
     case 'SET_PRICE_TAB':

@@ -8,37 +8,30 @@
 
 const STORAGE_KEY = 'sb-auth';
 const API_BASE = '';
+export const CLOSED_BETA_EMAIL = '867550189@qq.com';
 
 function getStored() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
 }
 
-/* 判断是否配置了真实邮箱 SMTP */
-async function checkMockMode() {
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/send-code`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'mock@check.test' }),
-    });
-    const d = await res.json();
-    return !!d.mock;
-  } catch { return true; }
+export function isClosedBetaEmail(email) {
+  return String(email || '').trim().toLowerCase() === CLOSED_BETA_EMAIL;
 }
 
-/* 初始 mock 状态 */
-let _mockMode = true;
-
 export async function sendOTP(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
   // 如果是手机号格式，报错提示
-  if (/^1\d{10}$/.test(email)) {
+  if (/^1\d{10}$/.test(normalizedEmail)) {
     throw new Error('请输入邮箱地址，如 user@example.com');
+  }
+  if (!isClosedBetaEmail(normalizedEmail)) {
+    throw new Error('薯包AI 正在内测，此邮箱暂未获邀');
   }
 
   const res = await fetch(`${API_BASE}/api/auth/send-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email: normalizedEmail }),
   });
   
   // 检查 Content-Type 确保是 JSON
@@ -52,24 +45,21 @@ export async function sendOTP(email) {
   const d = await res.json();
   if (!res.ok) throw new Error(d.error || '发送失败');
 
-  _mockMode = !!d.mock;
-  if (d.mock) {
-    console.log('[auth-mock] 验证码: 123456');
-  }
   return { ok: true, mock: d.mock };
 }
 
 export async function verifyOTP(email, code) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
   const res = await fetch(`${API_BASE}/api/auth/verify-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, code }),
+    body: JSON.stringify({ email: normalizedEmail, code }),
   });
   const d = await res.json();
 
   if (!d.ok) throw new Error(d.error || '验证失败');
 
-  const user = { id: d.email, email: d.email, nickname: email.split('@')[0] };
+  const user = { id: d.email, email: d.email, nickname: normalizedEmail.split('@')[0] };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
   return user;
 }

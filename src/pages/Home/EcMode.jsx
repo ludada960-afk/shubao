@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Sparkles, ChevronDown, Plus, ImagePlus,
   // 高级 AI 感图标
@@ -28,6 +29,15 @@ import GenSettingsPanel from './ec/GenSettingsPanel';
  * - 重新开启智能 → 重置所有覆盖，恢复AI推荐
  */
 const SMART_LABELS = { on: 'AI智能方案', tuned: 'AI方案·已微调', off: '手动配置' };
+
+// 3–5 张清晰、多角度的产品实拍通常能提供足够的商品事实，继续堆叠近似角度反而会稀释参考。
+const PRODUCT_SHOT_PLAN = [
+  { title: '正面主视图', short: '正面图', hint: '完整展示商品正面与轮廓' },
+  { title: '侧面 45°', short: '侧面图', hint: '补足厚度、结构与比例' },
+  { title: '核心细节', short: '细节图', hint: '材质、接口、纹理或工艺特写' },
+  { title: '背面 / 俯视', short: '背面图', hint: '补足背部、顶部或底部信息' },
+  { title: '使用尺度', short: '场景图', hint: '有人手持或真实场景，便于判断大小' },
+];
 
 /* ═══════ 统一按钮样式（升级：胶囊形状+渐变）═══════ */
 const BTN_BASE = {
@@ -224,10 +234,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const handleProdUpload = (e) => {
     const files = Array.from(e.target.files || []);
     setProductImages(prev => [...prev, ...files.map(f => ({ url: URL.createObjectURL(f), file: f }))]);
+    e.target.value = '';
   };
   const handleRefUpload = (e) => {
     const files = Array.from(e.target.files || []);
     setRefImages(prev => [...prev, ...files.map(f => ({ url: URL.createObjectURL(f), file: f }))]);
+    e.target.value = '';
   };
   const removeProdImg = (idx) => {
     setProductImages(prev => {
@@ -252,6 +264,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     if (count >= 3 && count <= 5) return `✓ 已上传 ${count} 张，数量合适，AI 生成效果最佳`;
     return `已上传 ${count} 张产品图`;
   };
+
+  const getNextProductShot = (count) => PRODUCT_SHOT_PLAN[Math.min(count, PRODUCT_SHOT_PLAN.length - 1)];
 
   /* ── 参考图上传建议提示 ── */
   const getRefHint = (count) => {
@@ -304,74 +318,43 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       const maxPW = Math.min(vw - 32, 640);
       const panelW = Math.min(Math.max(baseWidth, 400), maxPW);
       
-      // 计算相对于按钮行的位置
-      const btnCenterInRow = (btnRect.left - rowRect.left) + btnRect.width / 2;
-      let panelLeft = btnCenterInRow - panelW / 2;
-      
-      // 边缘修正（确保不超出视口）
-      const rowLeftInViewport = rowRect.left;
-      if (rowLeftInViewport + panelLeft < 16) {
-        panelLeft = 16 - rowLeftInViewport;
-      }
-      if (rowLeftInViewport + panelLeft + panelW > vw - 16) {
-        panelLeft = vw - 16 - panelW - rowLeftInViewport;
-      }
-      
-      // 面板底部紧贴按钮上方（相对于按钮行）
-      const gap = 8;
-      const panelBottom = rowRect.height + gap;
-      
-      // 安全最大高度
-      const maxH = Math.max(300, rowRect.top - 24);
+      // 使用 Portal 固定在视口：不受顶部导航、父级 overflow 或卡片高度裁切。
+      const btnCenterX = btnRect.left + btnRect.width / 2;
+      const panelLeft = Math.max(16, Math.min(btnCenterX - panelW / 2, vw - panelW - 16));
+      const panelBottom = Math.max(16, window.innerHeight - btnRect.top + 10);
+      const maxH = Math.max(300, Math.min(620, btnRect.top - 24));
       
       setPanelPos({ 
         left: panelLeft, 
         bottom: panelBottom, 
         width: panelW, 
         maxH, 
-        btnCenterX: btnCenterInRow 
+        btnCenterX
       });
     }
     setActivePanel(key);
   }, [activePanel]);
 
-  /* ── 内联渲染面板（相对于按钮行定位，滚动时跟随）── */
+  /* ── 浮层渲染：Portal 到 body，彻底避免卡片与导航裁切 ── */
   const renderPanel = () => {
     if (!activePanel) return null;
-    // 箭头相对于面板的水平位置
-    const arrowLeft = Math.max(16, Math.min(panelPos.btnCenterX - panelPos.left, panelPos.width - 16));
-    return (
-      <>
-        {/* ── 连接箭头（指向按钮）── */}
-        <div className="ec-panel-arrow" style={{
-          position: 'absolute',
-          bottom: panelPos.bottom - 6,
-          left: panelPos.btnCenterX - 8,
-          width: 0, height: 0,
-          borderLeft: '8px solid transparent',
-          borderRight: '8px solid transparent',
-          borderTop: '8px solid rgba(255,255,255,0.95)',
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.08))',
-          zIndex: 100,
-          pointerEvents: 'none',
-        }} />
-        {/* ── 面板本体 ── */}
+    return createPortal(
         <div id="ec-floating-panel" style={{
           ...GLASS_PANEL,
-          position: 'absolute',
+          position: 'fixed',
           bottom: panelPos.bottom,
           left: panelPos.left,
           width: panelPos.width,
           maxHeight: panelPos.maxH,
           overflowY: 'auto',
-          zIndex: 101,
+          zIndex: 1100,
           transformOrigin: 'bottom center',
         }}>
         {activePanel === 'sizing' && (
           <SizingPanel
             platform={platform} onPlatformChange={setPlatform}
             sizing={sizing} onSizingChange={setSizing}
-            smartMode={smartMode} onOverride={() => handleOverride('sizing')}
+            smartMode={smartMode} onOverride={(isOverridden) => handleOverride('sizing', isOverridden)}
           />
         )}
         {activePanel === 'style' && (
@@ -396,8 +379,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         {activePanel === 'settings' && (
           <GenSettingsPanel value={genSettings} onChange={setGenSettings} />
         )}
-      </div>
-      </>
+      </div>,
+      document.body,
     );
   };
 
@@ -496,7 +479,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           {/* ── 上方：双列上传区（产品图 × 参考图，小红书同款样式）── */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
             {/* 产品图上传区 */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', transform: 'rotate(-1.25deg)' }}>
               <div style={{
                 background: '#fff',
                 borderRadius: 16,
@@ -517,12 +500,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 {/* 标题行 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                   <span style={{ fontSize: 12 }}>📸</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>产品实拍图</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>产品图</span>
                   <span style={{ fontSize: 10, color: '#fff', background: 'var(--red)', padding: '2px 8px', borderRadius: 8, marginLeft: 'auto', fontWeight: 600 }}>必须</span>
                 </div>
 
                 {/* 横向滚动的图片行 */}
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 7, scrollbarWidth: 'thin' }}>
                   {productImages.map((img, idx) => (
                     <div key={idx} style={{
                       position: 'relative', width: 64, height: 64,
@@ -530,6 +513,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                       border: '2px solid #eee', flex: '0 0 auto',
                     }}>
                       <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '3px 4px', background: 'linear-gradient(transparent, rgba(0,0,0,0.72))', color: '#fff', fontSize: 8, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {PRODUCT_SHOT_PLAN[Math.min(idx, PRODUCT_SHOT_PLAN.length - 1)].short}
+                      </div>
                       <div onClick={() => removeProdImg(idx)} style={{
                         position: 'absolute', top: -5, right: -5,
                         width: 18, height: 18, borderRadius: '50%',
@@ -559,7 +545,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                       e.currentTarget.style.background = '#fff';
                     }}>
                     <ImagePlus size={16} color="#999" />
-                    <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>{productImages.length === 0 ? '上传' : '+'}</span>
+                    <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>+ {getNextProductShot(productImages.length).short}</span>
                   </div>
                 </div>
 
@@ -587,7 +573,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             </div>
 
             {/* 参考图上传区 */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', transform: 'rotate(1.25deg)' }}>
               <div style={{
                 background: '#fff',
                 borderRadius: 16,
@@ -608,12 +594,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 {/* 标题行 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                   <span style={{ fontSize: 12 }}>🎨</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>风格参考图</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>参考图</span>
                   <span style={{ fontSize: 10, color: '#666', background: 'rgba(0,0,0,0.04)', padding: '2px 8px', borderRadius: 8, marginLeft: 'auto', fontWeight: 500 }}>可选</span>
                 </div>
 
                 {/* 横向滚动的图片行 */}
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 7, scrollbarWidth: 'thin' }}>
                   {refImages.map((img, idx) => (
                     <div key={idx} style={{
                       position: 'relative', width: 64, height: 64,
@@ -650,7 +636,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                       e.currentTarget.style.background = '#fff';
                     }}>
                     <ImagePlus size={16} color="#999" />
-                    <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>{refImages.length === 0 ? '上传' : '+'}</span>
+                    <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>{refImages.length === 0 ? '上传参考' : '+ 继续添加'}</span>
                   </div>
                 </div>
 

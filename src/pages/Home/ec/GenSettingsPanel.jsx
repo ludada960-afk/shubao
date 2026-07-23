@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Monitor, Gauge, Ban, Info } from 'lucide-react';
 
 const RESOLUTIONS = [
@@ -21,8 +21,6 @@ const cardBase = {
 };
 
 export default function GenSettingsPanel({ value, onChange }) {
-  const [showTip, setShowTip] = useState(false);
-
   const set = (key, val) => onChange?.({ ...value, [key]: val });
 
   return (
@@ -111,20 +109,14 @@ export default function GenSettingsPanel({ value, onChange }) {
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
             <Ban size={13} color="#7c3aed" /> 避免出现的元素
-            <span style={{ marginLeft: 4, cursor: 'pointer' }} 
-              onMouseEnter={() => setShowTip(true)} 
-              onMouseLeave={() => setShowTip(false)}>
-              <Info size={12} color="var(--text-muted)" />
-            </span>
+            <Info size={12} color="var(--text-muted)" aria-hidden="true" />
           </label>
-          {showTip && (
-            <div style={{
-              fontSize: 11, color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)',
-              padding: '6px 10px', borderRadius: 8, marginBottom: 6,
-            }}>
-              告诉AI你不希望在图中看到什么，比如"模糊"、"变形"、"多余的手指"等
-            </div>
-          )}
+          <div role="note" style={{
+            fontSize: 11, color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)',
+            padding: '6px 10px', borderRadius: 8, marginBottom: 6,
+          }}>
+            告诉 AI 不希望出现什么，例如“模糊、变形、水印、多余手指”。
+          </div>
           <input
             value={value.negativePrompt || ''}
             onChange={e => set('negativePrompt', e.target.value)}

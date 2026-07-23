@@ -141,6 +141,14 @@ function buildDefaultImages(typeKeys) {
     .map(t => ({ key: t.key, count: t.defaultCount, ratio: t.defaultRatio, label: t.label }));
 }
 
+function hasSameImages(left, right) {
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => {
+    const baseline = right[index];
+    return item.key === baseline.key && item.count === baseline.count && item.ratio === baseline.ratio;
+  });
+}
+
 /* ═══════ SizingPanel — 图片类型组件库 + 平台推荐 ═══════ */
 export default function SizingPanel({
   platform = 'smart',
@@ -163,7 +171,8 @@ export default function SizingPanel({
     const preset = PLATFORM_PRESETS[key] || PLATFORM_PRESETS.smart;
     const newImages = buildDefaultImages(preset.types);
     onSizingChange?.({ smart: true, images: newImages });
-  }, [onPlatformChange, onSizingChange]);
+    onOverride?.(false);
+  }, [onPlatformChange, onSizingChange, onOverride]);
 
   /* ── 切换图片类型勾选 ── */
   const toggleType = useCallback((typeKey) => {
@@ -177,23 +186,29 @@ export default function SizingPanel({
       // 勾选 → 添加（默认数量）
       next = [...activeImages, { key: typeKey, count: typeDef.defaultCount || 1, ratio: typeDef.defaultRatio, label: typeDef.label }];
     }
-    onSizingChange?.({ smart: false, images: next });
-    onOverride?.();
-  }, [activeKeys, activeImages, onSizingChange, onOverride]);
+    const baseline = buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+    const isBackToRecommended = hasSameImages(next, baseline);
+    onSizingChange?.({ smart: isBackToRecommended, images: next });
+    onOverride?.(!isBackToRecommended);
+  }, [activeKeys, activeImages, onSizingChange, onOverride, platform]);
 
   /* ── 修改数量 ── */
   const updateCount = useCallback((typeKey, count) => {
     const next = activeImages.map(i => i.key === typeKey ? { ...i, count: Math.max(0, Math.min(count, IMAGE_TYPES.find(t => t.key === typeKey)?.maxCount || 20)) } : i);
-    onSizingChange?.({ smart: false, images: next });
-    onOverride?.();
-  }, [activeImages, onSizingChange, onOverride]);
+    const baseline = buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+    const isBackToRecommended = hasSameImages(next, baseline);
+    onSizingChange?.({ smart: isBackToRecommended, images: next });
+    onOverride?.(!isBackToRecommended);
+  }, [activeImages, onSizingChange, onOverride, platform]);
 
   /* ── 修改比例 ── */
   const updateRatio = useCallback((typeKey, ratio) => {
     const next = activeImages.map(i => i.key === typeKey ? { ...i, ratio } : i);
-    onSizingChange?.({ smart: false, images: next });
-    onOverride?.();
-  }, [activeImages, onSizingChange, onOverride]);
+    const baseline = buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+    const isBackToRecommended = hasSameImages(next, baseline);
+    onSizingChange?.({ smart: isBackToRecommended, images: next });
+    onOverride?.(!isBackToRecommended);
+  }, [activeImages, onSizingChange, onOverride, platform]);
 
   const totalImages = activeImages.reduce((s, img) => s + (img.count || 0), 0);
   const pDef = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;

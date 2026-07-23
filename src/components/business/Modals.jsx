@@ -5,7 +5,7 @@ import Button from '../ui/Button';
 import { IMAGES } from '../../constants/images';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
-import { sendOTP, verifyOTP } from '../../services/auth';
+import { sendOTP, verifyOTP, isClosedBetaEmail } from '../../services/auth';
 import { registerTrial } from '../../services/api';
 
 /* ═══════ Login Modal ═══════ */
@@ -24,6 +24,7 @@ export function LoginModal() {
 
   const handleSendCode = async () => {
     if (!email.trim() || !email.includes('@')) { setErr('请输入正确的邮箱地址'); return; }
+    if (!isClosedBetaEmail(email)) { setErr('薯包AI 正在内测，此邮箱暂未获邀'); return; }
     setLoading(true); setErr('');
     try {
       const result = await sendOTP(email.trim());
@@ -37,9 +38,13 @@ export function LoginModal() {
     if (!code.trim()) { setErr('请输入验证码'); return; }
     setLoading(true); setErr('');
     try {
-      await verifyOTP(email.trim(), code.trim());
-      dispatch({ type: 'SET_LOGGED', logged: true, phone: email.trim() });
-      setTimeout(() => { fetchCredits(email.trim()); }, 100);
+      const user = await verifyOTP(email.trim(), code.trim());
+      dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email });
+      setTimeout(() => { fetchCredits(user.email); }, 100);
+      if (state.loginIntent) {
+        dispatch({ type: 'NAVIGATE', page: state.loginIntent });
+        dispatch({ type: 'SET_LOGIN_INTENT', intent: null });
+      }
       close();
     } catch (e) { setErr(e.message); }
     setLoading(false);
@@ -53,7 +58,7 @@ export function LoginModal() {
           登录薯包AI
         </div>
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', marginTop: 4 }}>
-          AI 小红书内容创作 + 电商商品图生成
+          薯包AI 正在内测，仅受邀邮箱可以进入
         </div>
       </div>
 
@@ -96,13 +101,13 @@ export function LoginModal() {
 
       <Button primary full onClick={step === 'email' ? handleSendCode : handleVerify} disabled={loading}>
         {loading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLogin size={15} />}
-        {step === 'email' ? ' 发送验证码' : ' 登录 / 注册'}
+        {step === 'email' ? ' 发送内测验证码' : ' 登录内测'}
       </Button>
 
-      {mockMode && step === 'code' && (
+      {mockMode && step === 'code' && import.meta.env.DEV && (
         <div style={{ textAlign: 'center', marginTop: 10 }}>
           <span style={{ fontSize: 'var(--text-xs)', color: '#999', background: '#f5f5f5', padding: '3px 10px', borderRadius: 4 }}>
-            ⚡ mock 模式 · 验证码为 <strong>123456</strong>
+            ⚡ 本地开发模式：请从服务端日志读取测试验证码
           </span>
         </div>
       )}
@@ -110,8 +115,8 @@ export function LoginModal() {
       {step === 'code' && (
         <div style={{ textAlign: 'center', marginTop: 10 }}>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-ghost)', cursor: 'pointer' }}
-            onClick={() => setStep('phone')}>
-            ← 换个手机号
+            onClick={() => setStep('email')}>
+            ← 更换邮箱
           </span>
         </div>
       )}

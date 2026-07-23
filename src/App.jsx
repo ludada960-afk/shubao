@@ -39,12 +39,13 @@ function SideNav() {
       label: '画布',
       active: page === 'ec-canvas',
       onClick: () => {
-        // 如果已经有结果，直接进画布；否则提示去生成
-        if (state.result?._ecResult) {
-          dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
-        } else {
-          dispatch({ type: 'NAVIGATE', page: 'home' });
+        // 画布是个人工作台：先完成受邀账号登录，再允许进入。
+        if (!state.logged) {
+          dispatch({ type: 'SET_LOGIN_INTENT', intent: 'ec-canvas' });
+          dispatch({ type: 'SHOW_LOGIN', show: true });
+          return;
         }
+        dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
       },
     },
     {

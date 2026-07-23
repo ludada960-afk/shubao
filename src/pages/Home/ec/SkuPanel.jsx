@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, CheckCircle2 } from 'lucide-react';
 
 const sInp = {
   padding: '6px 10px', borderRadius: 8, fontSize: 12, border: '1px solid rgba(0,0,0,0.12)',
@@ -12,12 +12,8 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
   const upd = (id, key, val) => onChange(skus.map(s => s.id === id ? { ...s, [key]: val } : s));
   const rm = (id) => onChange(skus.filter(s => s.id !== id));
 
-  // 检查套图配置中是否勾选了 SKU 规格图
-  const hasSkuInSizing = sizing?.images?.some(i => i.key === 'sku' && i.count > 0);
-  const skuImageItem = sizing?.images?.find(i => i.key === 'sku');
-  const skuImageCount = skuImageItem?.count || 0;
-
-  // 联动：变体数量与 SKU 规格图数量同步
+  // SKU 是独立的商品事实；生成时会自动加入对应的 SKU 规格图，
+  // 不再要求用户先去另一个面板勾选一次。
   const totalSkuImages = skus.reduce((a, s) => a + (s.count || 1), 0);
 
   return (
@@ -33,27 +29,15 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
 
       {/* ── 联动状态提示 ── */}
       <div style={{ padding: '10px 16px' }}>
-        {!hasSkuInSizing ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 12px', background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.04))',
-            borderRadius: 10, border: '1px solid rgba(245,158,11,0.15)',
-            fontSize: 12, color: '#d97706',
-          }}>
-            <AlertCircle size={14} />
-            <span>未启用 SKU 规格图。请先在「套图配置」中勾选「SKU 规格图」并设置数量。</span>
-          </div>
-        ) : (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 12px', background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.04))',
-            borderRadius: 10, border: '1px solid rgba(34,197,94,0.15)',
-            fontSize: 12, color: '#16a34a',
-          }}>
-            <CheckCircle2 size={14} />
-            <span>已启用 SKU 规格图（{skuImageCount}张）。当前 {skus.length} 个变体，共 {totalSkuImages} 张。</span>
-          </div>
-        )}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 12px', background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.04))',
+          borderRadius: 10, border: '1px solid rgba(34,197,94,0.15)',
+          fontSize: 12, color: '#16a34a',
+        }}>
+          <CheckCircle2 size={14} />
+          <span>填写变体后，系统会自动生成对应 SKU 规格图；无需再去套图配置重复开启。</span>
+        </div>
       </div>
 
       <div style={{ padding: '0 16px 12px' }}>
@@ -62,8 +46,6 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
           <div key={sku.id} style={{
             background: 'rgba(0,0,0,0.03)', borderRadius: 12, padding: 12, marginBottom: 8,
             border: '1px solid rgba(0,0,0,0.06)',
-            opacity: hasSkuInSizing ? 1 : 0.5,
-            pointerEvents: hasSkuInSizing ? 'auto' : 'none',
             transition: 'opacity 0.2s',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -119,26 +101,23 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
             padding: '10px', borderRadius: 10,
             border: '1.5px dashed rgba(0,0,0,0.15)',
             color: 'var(--text-muted)', fontSize: 12, fontWeight: 600,
-            cursor: hasSkuInSizing ? 'pointer' : 'not-allowed',
-            opacity: hasSkuInSizing ? 1 : 0.4,
+            cursor: 'pointer',
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => { if (hasSkuInSizing) { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.color = '#7c3aed'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; } }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.color = '#7c3aed'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}>
           <Plus size={14} /> 添加 SKU 变体
         </div>
 
         {/* ── 底部统计 ── */}
-        {hasSkuInSizing && (
-          <div style={{
-            marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.06)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontSize: 11, color: 'var(--text-muted)',
-          }}>
-            <span>变体数：<b style={{ color: 'var(--text-primary)' }}>{skus.length}</b> 个</span>
-            <span>总图数：<b style={{ color: 'var(--text-primary)' }}>{totalSkuImages}</b> / {skuImageCount} 张</span>
-          </div>
-        )}
+        <div style={{
+          marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.06)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontSize: 11, color: 'var(--text-muted)',
+        }}>
+          <span>变体数：<b style={{ color: 'var(--text-primary)' }}>{skus.length}</b> 个</span>
+          <span>将生成：<b style={{ color: 'var(--text-primary)' }}>{totalSkuImages}</b> 张 SKU 图</span>
+        </div>
       </div>
     </div>
   );
