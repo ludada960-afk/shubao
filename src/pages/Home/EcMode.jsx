@@ -488,9 +488,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   return (
     <div>
-      {/* ═══ 步骤指示器 ═══ */}
-      <StepIndicator />
-      
       {/* ═══ 暖黄色背景卡片（与小红书图文一致）═══ */}
       <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#FAF7F2', padding: '16px 20px 20px', position: 'relative', border: '1px solid rgba(139,92,246,0.06)' }}>
         {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
@@ -699,15 +696,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             const getConfigSummary = () => {
               switch (btn.key) {
                 case 'sizing': {
-                  // 智能模式下未覆盖时显示智能推荐
-                  if (smartMode && !smartOverrides.sizing) {
-                    const preset = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
-                    return { text: preset.name, isSmart: true };
-                  }
-                  // 显示具体配置
+                  // 始终显示具体配置摘要（类似椒图AI）
                   const images = sizing?.images || [];
                   const total = images.reduce((s, img) => s + (img.count || 0), 0);
-                  if (total === 0) return { text: '未配置', isSmart: false };
+                  if (total === 0) return { text: '套图配置', isSmart: false };
                   const typeLabels = [];
                   images.forEach(img => {
                     if (img.count > 0) {
@@ -719,11 +711,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                   return { text: typeLabels.length > 2 ? `${text}…` : text, isSmart: false };
                 }
                 case 'style': {
-                  if (smartMode && !smartOverrides.style) {
-                    return { text: '智能匹配', isSmart: true };
-                  }
                   const styleMap = {
-                    smart: '智能',
+                    smart: '智能风格',
                     premium_minimal: '高级极简',
                     lifestyle_scene: '生活场景',
                     fashion_editorial: '时尚杂志',
@@ -735,29 +724,23 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                   return { text: hasColor ? `${base}+品牌色` : base, isSmart: false };
                 }
                 case 'params': {
-                  if (smartMode && !smartOverrides.params) {
-                    return { text: '智能提取', isSmart: true };
-                  }
                   const filled = Object.entries(productParams).filter(([k, v]) => v && v.trim?.()).length;
                   return filled > 0
-                    ? { text: `${filled}项已填`, isSmart: false }
-                    : { text: '未填写', isSmart: false };
+                    ? { text: `${filled}项参数`, isSmart: false }
+                    : { text: '产品参数', isSmart: false };
                 }
                 case 'sku': {
                   const validSkus = skus?.filter(s => s.color || s.size || s.capacity) || [];
                   const totalSkuImages = validSkus.reduce((a, s) => a + (s.count || 1), 0);
-                  if (validSkus.length === 0) return { text: '未配置', isSmart: false };
+                  if (validSkus.length === 0) return { text: 'SKU变体', isSmart: false };
                   return { text: `${validSkus.length}变体·${totalSkuImages}张`, isSmart: false };
                 }
                 case 'copy': {
-                  if (smartMode && !smartOverrides.copy) {
-                    return { text: '智能生成', isSmart: true };
-                  }
                   const fields = ['plan', 'sellingPoints', 'qc', 'details', 'maintenance'];
                   const filled = fields.filter(k => copywriting?.[k]?.trim?.()).length;
                   return filled > 0
-                    ? { text: `${filled}项已填`, isSmart: false }
-                    : { text: '未填写', isSmart: false };
+                    ? { text: `${filled}项文案`, isSmart: false }
+                    : { text: '文案策划', isSmart: false };
                 }
                 case 'settings': {
                   const { resolution, quality, creativity } = genSettings;

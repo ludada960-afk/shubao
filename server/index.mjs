@@ -9,7 +9,6 @@ import https from 'https';
 import 'dotenv/config';
 import { fileURLToPath } from 'url';
 import { dirname, resolve, join, extname } from 'path';
-import { execSync } from 'child_process';
 import fs from 'fs';
 import crypto from 'crypto';
 import sharp from 'sharp';
@@ -23,6 +22,7 @@ import {
 } from './plogPromptEngine.mjs';
 
 import Stripe from 'stripe';
+import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit } from './db.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '.env');
@@ -37,17 +37,41 @@ if (fs.existsSync(envPath)) {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+// 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
+initDB();
+
 // ── 用户额度持久化 ──
 const USERS_FILE = resolve(__dirname, 'users.json');
+// 首次升级时把旧 JSON 额度导入 SQLite；旧文件保留作为只读回退，不覆盖用户数据。
+if (Object.keys(getAllUsers()).length === 0 && fs.existsSync(USERS_FILE)) {
+  try {
+    const legacyUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    for (const [email, credits] of Object.entries(legacyUsers || {})) {
+      if (Number(credits) > 0) addUserCredits(email, Number(credits));
+    }
+    console.log(`  → 已迁移 ${Object.keys(legacyUsers || {}).length} 个旧用户额度到 SQLite`);
+  } catch (error) {
+    console.warn('  → users.json 迁移跳过:', error.message);
+  }
+}
 function loadUsers() {
-  try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch { return {}; }
+  return getAllUsers();
 }
 function saveUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  for (const [email, credits] of Object.entries(users || {})) {
+    const current = getUserCredits(email);
+    const delta = Number(credits) - current;
+    if (delta > 0) addUserCredits(email, delta);
+    else if (delta < 0) consumeUserCredit(email, -delta);
+  }
 }
-if (!fs.existsSync(USERS_FILE)) saveUsers({});
 
 const app = express();
+
+// 轻量健康检查：供 PM2、反向代理和部署脚本判断进程是否真的能响应。
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'shubao', pid: process.pid, uptime: Math.round(process.uptime()) });
+});
 
 // HTTP → HTTPS 跳转（仅生产环境 shuimg.cn 且有 SSL 证书时启用）
 // 开发环境（localhost / IP 访问）不跳转，避免本地无证书导致死循环
@@ -117,8 +141,7 @@ function requireCredits(req, res, next) {
   if (!email) {
     return res.status(401).json({ error: '未登录，请先登录' });
   }
-  const users = loadUsers();
-  const credits = users[email] || 0;
+  const credits = getUserCredits(email);
   if (credits < 1) {
     return res.status(402).json({ error: '额度不足，请购买套餐' });
   }
@@ -128,11 +151,7 @@ function requireCredits(req, res, next) {
 }
 // 扣额度（生图完成后调用）
 function deductCredit(email) {
-  const users = loadUsers();
-  if (users[email] && users[email] > 0) {
-    users[email] = users[email] - 1;
-    saveUsers(users);
-  }
+  consumeUserCredit(email, 1);
 }
 
 // 生产模式：serve 前端构建产物
@@ -148,12 +167,34 @@ if (fs.existsSync(distPath)) {
 
 const PORT = process.env.PORT || 3001;
 
-// 全局未捕获异常处理
+// 临时上传只用于一次分析，定期回收，避免长期运行后磁盘持续膨胀。
+const TEMP_UPLOAD_CLEANUP_MS = 60 * 60 * 1000;
+const TEMP_UPLOAD_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const tempUploadCleanup = setInterval(() => {
+  const dir = resolve(__dirname, 'temp_uploads');
+  if (!fs.existsSync(dir)) return;
+  const cutoff = Date.now() - TEMP_UPLOAD_MAX_AGE_MS;
+  for (const file of fs.readdirSync(dir)) {
+    const path = join(dir, file);
+    try {
+      if (fs.statSync(path).mtimeMs < cutoff) fs.unlinkSync(path);
+    } catch (e) {
+      console.warn('[temp-upload] cleanup failed:', file, e.message);
+    }
+  }
+}, TEMP_UPLOAD_CLEANUP_MS);
+tempUploadCleanup.unref();
+
+// 全局未捕获异常处理：进程状态不再被错误污染，交给 PM2 重新拉起。
 process.on('uncaughtException', err => {
   console.error('‼️ 未捕获异常:', err.message, err.stack?.split('\n').slice(0,5).join('\n'));
+  process.exitCode = 1;
+  setImmediate(() => process.exit(1));
 });
 process.on('unhandledRejection', err => {
-  console.error('‼️ 未处理Promise拒绝:', err.message);
+  console.error('‼️ 未处理Promise拒绝:', err?.message || err);
+  process.exitCode = 1;
+  setImmediate(() => process.exit(1));
 });
 
 // ============================================================
@@ -1761,8 +1802,10 @@ function saveWorks(works) {
       if (fs.existsSync(WORKS_PATH)) fs.copyFileSync(WORKS_PATH, WORKS_PATH + '.bak1');
     } catch(e) {}
 
-    // ② 写入主文件
-    fs.writeFileSync(WORKS_PATH, data, 'utf8');
+    // ② 原子替换主文件，避免进程在写入中途退出留下半截 JSON。
+    const tmpPath = `${WORKS_PATH}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, data, 'utf8');
+    fs.renameSync(tmpPath, WORKS_PATH);
 
     // ③ 时间戳快照（每天最多保留30份，自动清理旧快照）
     const SNAP_DIR = resolve(__dirname, 'backups');
@@ -1778,14 +1821,7 @@ function saveWorks(works) {
       }
     } catch(e) {}
 
-    // ④ Git 自动备份
-    try {
-      execSync('git add ' + WORKS_PATH + ' && git commit -m "backup works ' + ts + '" --allow-empty', {
-        cwd: resolve(__dirname, '..'), stdio: 'ignore', timeout: 3000
-      });
-    } catch(e) {}
-
-    // ⑤ 校验：读回来确认一致
+    // ④ 校验：读回来确认一致
     try {
       const verify = fs.readFileSync(WORKS_PATH, 'utf8');
       if (verify === data) {
@@ -1846,10 +1882,14 @@ if (!fs.existsSync(IMG_CACHE_DIR)) fs.mkdirSync(IMG_CACHE_DIR, { recursive: true
 app.get('/api/proxy-image', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).end('missing url');
-  // B7: URL 安全校验
-  try { new URL(url); } catch { 
-    // 可能是相对路径
-    if (!url.startsWith('/')) return res.status(400).end('invalid url');
+  // 代理只接受 http(s) 外链或本站相对路径，并限制响应体，避免被当作任意下载器/SSRF 放大器。
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url, `http://localhost:${PORT}`);
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) return res.status(400).end('unsupported protocol');
+    if (parsedUrl.hostname === 'localhost' && !url.startsWith('/')) return res.status(400).end('invalid host');
+  } catch {
+    return res.status(400).end('invalid url');
   }
   const hash = crypto.createHash('md5').update(url).digest('hex');
   const diskPath = join(IMG_CACHE_DIR, hash);
@@ -1874,15 +1914,15 @@ app.get('/api/proxy-image', async (req, res) => {
 
   // 3. 远程获取 (B7: 增强错误处理 + Content-Type 修正 + 降级缓存)
   try {
-    const targetUrl = url.startsWith('/') ? `http://localhost:${PORT}${url}` : url;
+    const targetUrl = parsedUrl.href;
 	    const resp = await fetch(targetUrl, { signal: AbortSignal.timeout(60000), redirect: 'follow' });
     if (!resp.ok) return res.status(502).end(`upstream ${resp.status}`);
+    const contentLength = Number(resp.headers.get('content-length') || 0);
+    if (contentLength > 20 * 1024 * 1024) return res.status(413).end('image too large');
     const buf = Buffer.from(await resp.arrayBuffer());
+    if (buf.length > 20 * 1024 * 1024) return res.status(413).end('image too large');
     let ct = resp.headers.get('content-type') || 'image/png';
-    // B7: 修正非图片 Content-Type
-    if (!ct.startsWith('image/') && !ct.startsWith('application/octet')) {
-      ct = 'image/png';
-    }
+    if (!ct.startsWith('image/') && !ct.startsWith('application/octet-stream')) return res.status(415).end('not an image');
     // 写入内存缓存
     imgCache2.set(url, { d: buf, ct, t: Date.now() });
     if (imgCache2.size > 200) { const k = imgCache2.keys().next().value; imgCache2.delete(k); }
@@ -2677,8 +2717,10 @@ app.post('/api/ec-temp-upload', async (req, res) => {
     for (const img of images.slice(0, 15)) {
       const match = (img.data || '').match(/^data:image\/(\w+);base64,(.+)$/);
       if (!match) continue;
+      if (match[2].length > 20 * 1024 * 1024) return res.status(413).json({ error: '单张图片过大' });
       const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
       const buf = Buffer.from(match[2], 'base64');
+      if (buf.length > 15 * 1024 * 1024) return res.status(413).json({ error: '单张图片过大' });
       const fname = `ec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
       fs.writeFileSync(resolve(TEMP_UPLOAD_DIR, fname), buf);
       urls.push(`/api/ec-temp-img/${fname}`);
@@ -3405,9 +3447,7 @@ app.get('/api/payment/success', async (req, res) => {
         const sets = parseInt(session.metadata.sets || '0');
         const email = session.metadata.email;
         if (sets > 0 && email) {
-          const users = loadUsers();
-          users[email] = (users[email] || 0) + sets;
-          saveUsers(users);
+          addUserCredits(email, sets);
           console.log(`[payment] ${email} +${sets} credits ✅`);
         }
       }
@@ -3422,8 +3462,7 @@ app.get('/api/payment/success', async (req, res) => {
 app.get('/api/user/credits', (req, res) => {
   const email = req.query.email;
   if (!email) return res.json({ credits: 0 });
-  const users = loadUsers();
-  res.json({ credits: users[email] || 0 });
+  res.json({ credits: getUserCredits(String(email).trim().toLowerCase()) });
 });
 
 /* Stripe Webhook */
@@ -3435,9 +3474,7 @@ app.post('/api/payment/webhook', async (req, res) => {
       const sets = parseInt(s.metadata.sets || '0');
       const email = s.metadata.email;
       if (sets > 0 && email) {
-        const users = loadUsers();
-        users[email] = (users[email] || 0) + sets;
-        saveUsers(users);
+        addUserCredits(email, sets);
         console.log(`[payment] ${email} +${sets} credits (webhook)`);
       }
     }
@@ -3466,8 +3503,15 @@ app.get('*', (req, res) => {
   else res.status(404).send('Not Found');
 });
 
-// HTTP 服务
-app.listen(PORT, () => {
+// HTTP/HTTPS 服务句柄：统一处理启动失败和优雅退出，避免重复启动后留下假活进程。
+let httpServer;
+let httpsServer;
+const closeServer = (server) => new Promise(resolve => {
+  if (!server?.listening) return resolve();
+  server.close(() => resolve());
+});
+
+httpServer = app.listen(PORT, () => {
   console.log(`\n🧩 薯包AI 后端服务运行中`);
   console.log(`╔══════════════════════════════════════════════════╗`);
   console.log(`║  三 API 分工:`);
@@ -3480,6 +3524,14 @@ app.listen(PORT, () => {
   console.log(`╚══════════════════════════════════════════════════╝`);
   console.log(`   HTTP: http://localhost:${PORT}`);
 });
+httpServer.on('error', err => {
+  console.error(`‼️ HTTP 服务启动失败 (${PORT}):`, err.message);
+  process.exitCode = 1;
+  process.exit(1);
+});
+httpServer.requestTimeout = 15 * 60 * 1000;
+httpServer.headersTimeout = 30 * 1000;
+httpServer.keepAliveTimeout = 65 * 1000;
 
 // HTTPS 服务
 const certDir = resolve(__dirname, '..', 'cert');
@@ -3488,11 +3540,30 @@ const keyPath = join(certDir, 'key.pem');
 if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
   const credentials = { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) };
   const SSL_PORT = process.env.SSL_PORT || 3443;
-  https.createServer(credentials, app).listen(SSL_PORT, () => {
+  httpsServer = https.createServer(credentials, app).listen(SSL_PORT, () => {
     console.log(`   HTTPS: https://shuimg.cn:${SSL_PORT}`);
     console.log(`   → 路由器端口转发 443 → ${SSL_PORT}`);
+  });
+  httpsServer.on('error', err => {
+    console.error(`‼️ HTTPS 服务启动失败 (${SSL_PORT}):`, err.message);
+    process.exitCode = 1;
+    process.exit(1);
   });
 } else {
   console.log(`   证书不存在，跳过 HTTPS`);
   console.log(`   生成证书: cd cert && openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout key.pem -out cert.pem`);
 }
+
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] 收到 ${signal}，停止接收新请求`);
+  const force = setTimeout(() => process.exit(1), 10000);
+  force.unref();
+  await Promise.all([closeServer(httpServer), closeServer(httpsServer)]);
+  clearTimeout(force);
+  process.exit(0);
+}
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));

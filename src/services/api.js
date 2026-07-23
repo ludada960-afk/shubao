@@ -13,7 +13,12 @@ export function proxyImg(url) {
   if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
   // 本地相对路径也直接返回
   if (url.startsWith('/')) return url;
-  return `${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}`;
+  // 处理 http/https 图片 URL
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return `${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  // 其他情况直接返回原 URL
+  return url;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -238,8 +238,26 @@ export default function EcCanvas() {
   useEffect(() => {
     const load = async () => {
       const local = [];
-      try { local.push(...JSON.parse(localStorage.getItem('shubao_ec_works') || '[]')); } catch {}
-      try { const server = await loadWorks(''); const ec = server.filter(w => w._ecResult); const names = new Set(local.map(w => w.name)); for (const w of ec) { if (!names.has(w.product_name)) { local.push({ id: w.id || Date.now(), name: w.product_name, images: Array.isArray(w.images) ? w.images.map(i => ({ url: i.url, key: i.key, label: i.label || i.style || i.key })) : Object.entries(w.images || {}).map(([key, url]) => ({ url, key, label: key })), createdAt: w.at || '' }); } } } catch {}
+      try { 
+        local.push(...JSON.parse(localStorage.getItem('shubao_ec_works') || '[]')); 
+      } catch {}
+      try { 
+        const server = await loadWorks(''); 
+        const ec = server.filter(w => w._ecResult); 
+        const names = new Set(local.map(w => w.name)); 
+        for (const w of ec) { 
+          if (!names.has(w.product_name)) { 
+            local.push({ 
+              id: w.id || Date.now(), 
+              name: w.product_name, 
+              images: Array.isArray(w.images) 
+                ? w.images.map(i => ({ url: i.url, key: i.key, label: i.label || i.style || i.key })) 
+                : Object.entries(w.images || {}).map(([key, url]) => ({ url, key, label: key })), 
+              createdAt: w.at || '' 
+            }); 
+          } 
+        } 
+      } catch {}
       setPastWorks(local);
     };
     load();

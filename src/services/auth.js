@@ -40,6 +40,15 @@ export async function sendOTP(email) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   });
+  
+  // 检查 Content-Type 确保是 JSON
+  const contentType = res.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await res.text();
+    console.error('服务器返回非JSON:', text.substring(0, 200));
+    throw new Error('服务器响应异常，请稍后重试');
+  }
+  
   const d = await res.json();
   if (!res.ok) throw new Error(d.error || '发送失败');
 

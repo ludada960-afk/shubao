@@ -52,6 +52,13 @@ export function initDB() {
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     );
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+
+    CREATE TABLE IF NOT EXISTS users (
+      email TEXT PRIMARY KEY,
+      credits INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+    );
   `);
 
   console.log('  → SQLite 数据库就绪:', DB_PATH);
@@ -250,6 +257,38 @@ export function closeDB() {
   if (db) { try { db.close(); } catch(e) {} }
 }
 
+// =========== 用户额度（与作品、任务共用同一 SQLite 数据源）===========
+
+export function getUserCredits(email) {
+  if (!db) initDB();
+  return db.prepare('SELECT credits FROM users WHERE email = ?').get(email)?.credits || 0;
+}
+
+export function getAllUsers() {
+  if (!db) initDB();
+  return Object.fromEntries(db.prepare('SELECT email, credits FROM users').all().map(row => [row.email, row.credits]));
+}
+
+export function addUserCredits(email, amount) {
+  if (!db) initDB();
+  db.prepare(`
+    INSERT INTO users (email, credits) VALUES (?, ?)
+    ON CONFLICT(email) DO UPDATE SET credits = users.credits + excluded.credits,
+      updated_at = datetime('now', 'localtime')
+  `).run(email, amount);
+}
+
+/** 原子扣减额度，返回扣减后余额；余额不足返回 null。 */
+export function consumeUserCredit(email, amount = 1) {
+  if (!db) initDB();
+  const result = db.prepare(`
+    UPDATE users SET credits = credits - ?, updated_at = datetime('now', 'localtime')
+    WHERE email = ? AND credits >= ?
+  `).run(amount, email, amount);
+  if (!result.changes) return null;
+  return getUserCredits(email);
+}
+
 // =========== 辅助 ===========
 
 function rowToWork(row) {
@@ -280,4 +319,7 @@ function safeParseJSON(str, fallback) {
   try { return JSON.parse(str); } catch(e) { return fallback; }
 }
 
-export default { initDB, getAllWorks, getWorkBySaveKey, upsertWork, deleteWork, getWorkCount, importFromJSON, closeDB };
+export default {
+  initDB, getAllWorks, getWorkBySaveKey, upsertWork, deleteWork, getWorkCount,
+  importFromJSON, closeDB, getUserCredits, getAllUsers, addUserCredits, consumeUserCredit,
+};

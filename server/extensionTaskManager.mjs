@@ -17,6 +17,19 @@ if (!fs.existsSync(TASKS_DIR)) fs.mkdirSync(TASKS_DIR, { recursive: true });
 /* ── 内存中的任务缓存（加速读取） ── */
 const taskCache = new Map();
 
+function taskFile(taskId) {
+  if (!/^[A-Za-z0-9_-]+$/.test(String(taskId))) return null;
+  return path.join(TASKS_DIR, `${taskId}.json`);
+}
+
+function persistTask(task) {
+  const filePath = taskFile(task.taskId);
+  if (!filePath) throw new Error('invalid task id');
+  const tempPath = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(task, null, 2), 'utf8');
+  fs.renameSync(tempPath, filePath);
+}
+
 /* ── 任务状态枚举 ── */
 export const TASK_STATUS = {
   PENDING:       'pending',       // 已接收，等待处理
@@ -63,7 +76,7 @@ export function createTask(data) {
     error: null,
   };
 
-  fs.writeFileSync(path.join(TASKS_DIR, `${taskId}.json`), JSON.stringify(task, null, 2));
+  persistTask(task);
   taskCache.set(taskId, task);
   return taskId;
 }
@@ -72,7 +85,8 @@ export function createTask(data) {
 export function getTask(taskId) {
   if (taskCache.has(taskId)) return taskCache.get(taskId);
 
-  const filePath = path.join(TASKS_DIR, `${taskId}.json`);
+  const filePath = taskFile(taskId);
+  if (!filePath) return null;
   if (!fs.existsSync(filePath)) return null;
 
   try {
@@ -90,7 +104,7 @@ export function updateTask(taskId, updates) {
   if (!task) return;
 
   Object.assign(task, updates, { updatedAt: Date.now() });
-  fs.writeFileSync(path.join(TASKS_DIR, `${taskId}.json`), JSON.stringify(task, null, 2));
+  persistTask(task);
   taskCache.set(taskId, task);
   return task;
 }
@@ -131,3 +145,32 @@ export function cleanExpiredTasks() {
     } catch { /* skip */ }
   }
 }
+
+// 进程异常退出后，避免任务永久停留在“处理中”。下次启动将其标记为可重试失败。
+export function recoverStaleTasks(maxAgeMs = 30 * 60 * 1000) {
+  const now = Date.now();
+  const active = new Set([
+    TASK_STATUS.DOWNLOADING,
+    TASK_STATUS.ANALYZING,
+    TASK_STATUS.GENERATING,
+  ]);
+  for (const file of fs.readdirSync(TASKS_DIR).filter(f => f.endsWith('.json'))) {
+    try {
+      const filePath = path.join(TASKS_DIR, file);
+      const task = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      if (active.has(task.status) && now - (task.updatedAt || 0) > maxAgeMs) {
+        updateTask(task.taskId, {
+          status: TASK_STATUS.FAILED,
+          error: '任务所在进程异常退出，请重新提交',
+        });
+      }
+    } catch { /* 损坏任务由后续清理流程处理 */ }
+  }
+}
+
+recoverStaleTasks();
+const taskCleanupTimer = setInterval(() => {
+  recoverStaleTasks();
+  cleanExpiredTasks();
+}, 60 * 60 * 1000);
+taskCleanupTimer.unref();
