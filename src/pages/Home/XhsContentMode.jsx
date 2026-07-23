@@ -894,8 +894,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           <span style={{ width:5, height:5, borderRadius:'50%', background:'#e84142', display:'inline-block' }} />
           AI 图文创作工具
         </div>
-        <h1 className="hero-title">AI 一键生成<span className="hero-accent">爆款内容</span></h1>
-        <p className="hero-sub">小红书博主用它做图文，电商卖家用它出商品图</p>
+        <h1 className="hero-title">AI 一键生成<span className="hero-accent">电商商品图</span></h1>
+        <p className="hero-sub">电商卖家用它出商品图，小红书博主用它做图文</p>
         <div className="mode-tabs">
           <button className={`mode-tab ${isXHS ? 'active-xhs' : ''}`} onClick={() => setMode('content')}><MdEdit size={14} /> 小红书图文</button>
           <button className={`mode-tab ${!isXHS ? 'active-ec' : ''}`} onClick={() => setMode('ecommerce')}><MdShoppingCart size={14} /> 电商商品图</button>

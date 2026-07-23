@@ -12,7 +12,7 @@ const IMAGE_TYPES = [
   { key: 'transparent', label: '透明 PNG', icon: '🔲', defaultRatio: '1:1', defaultCount: 1,
     desc: '去底素材，方便二次设计', usage: '素材/合成用', maxCount: 3 },
   { key: 'sku', label: 'SKU 规格图', icon: '🏷️', defaultRatio: '1:1', defaultCount: 0,
-    desc: '同款不同色/规格展示', usage: 'SKU选择', maxCount: 20 },
+    desc: '同款不同色/规格展示（勾选后自动启用SKU变体配置）', usage: 'SKU选择', maxCount: 20 },
   { key: 'detail', label: '详情切片', icon: '📋', defaultRatio: '3:4', defaultCount: 5,
     desc: '长图详情页切片，含多种子类', usage: '详情页长图', maxCount: 10 },
   { key: 'poster', label: '营销海报', icon: '🎯', defaultRatio: '3:4', defaultCount: 0,

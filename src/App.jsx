@@ -38,7 +38,14 @@ function SideNav() {
       icon: <MdGridOn size={20} />,
       label: '画布',
       active: page === 'ec-canvas',
-      onClick: () => dispatch({ type: 'NAVIGATE', page: 'ec-canvas' }),
+      onClick: () => {
+        // 如果已经有结果，直接进画布；否则提示去生成
+        if (state.result?._ecResult) {
+          dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+        } else {
+          dispatch({ type: 'NAVIGATE', page: 'home' });
+        }
+      },
     },
     {
       icon: <MdFolder size={20} />,

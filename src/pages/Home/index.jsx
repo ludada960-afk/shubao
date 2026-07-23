@@ -36,7 +36,7 @@ export default function HomePage() {
           <div style={{ textAlign: 'center' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 900, color: 'var(--text-secondary)', boxShadow: 'var(--shadow-sm)' }}>
               <MdAutoAwesome size={16} fill="#FBBF24" color="#F59E0B" />
-              薯包 AI · <span style={{opacity:0.7}}>小红书图文</span><span style={{opacity:0.3}}> + </span><span style={{opacity:0.7}}>电商商品图</span>
+              薯包 AI · <span style={{opacity:0.7}}>电商商品图</span><span style={{opacity:0.3}}> + </span><span style={{opacity:0.7}}>小红书图文</span>
             </span>
 
             <h1 style={{ fontSize: 38, fontWeight: 900, lineHeight: 1.05, color: 'var(--accent)', marginTop: 16, marginBottom: 0, letterSpacing: 'normal' }} className="homepage-h1">
@@ -45,7 +45,7 @@ export default function HomePage() {
             <style>{`@media (min-width:640px){.homepage-h1{font-size:54px!important}}@media(min-width:1024px){.homepage-h1{font-size:62px!important}}`}</style>
 
             <p style={{ margin: '12px auto 0', maxWidth: 860, fontSize: 15, fontWeight: 500, color: 'var(--text-muted)' }} className="homepage-subtitle">
-              <span>📝 小红书图文</span><span style={{margin:'0 10px',opacity:0.2}}>|</span><span>🛒 电商商品图</span><span style={{margin:'0 10px',opacity:0.2}}>|</span><span>⚡ 双模式一键切换，一个AI搞定全部视觉内容</span>
+              <span>🛒 电商商品图</span><span style={{margin:'0 10px',opacity:0.2}}>|</span><span>📝 小红书图文</span><span style={{margin:'0 10px',opacity:0.2}}>|</span><span>⚡ 双模式一键切换，一个AI搞定全部视觉内容</span>
             </p>
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>

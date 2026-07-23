@@ -4,7 +4,7 @@ import { useApp } from '../../store/AppContext';
 import { saveWork, loadWorks, proxyImg } from '../../services/api';
 
 const LABEL_MAP = {
-  white_bg: { title: '白底主图', group: '主图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
+  white_bg: { title: '白底首图', group: '首图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
   main_text: { title: '场景主图 1:1', group: '主图', ratio: '1:1', usage: '搜索展示主力图，场景+卖点文案，吸引买家点击' },
   main_3x4: { title: '竖版主图 3:4', group: '主图', ratio: '3:4', usage: '抖音/小红书竖版流量，竖版构图更沉浸，利于转化' },
   transparent: { title: '透明PNG素材', group: '素材', ratio: '1:1', usage: '二次合成素材，可自由叠加任意背景，设计师必备' },
@@ -113,7 +113,7 @@ function ImageNode({ node, selected, onPointerDown, onContextMenu, onShiftDragSt
         {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
           <div style={{ width: '100%', height: node.h, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fef2f2' }}>
-            <div style={{ fontSize: 28, opacity: 0.3 }}>🖼️</div>
+            <div style={{ fontSize: 28, opacity: 0.3 }}>😵‍💫</div>
             <div style={{ fontSize: 11, color: '#ef4444' }}>加载失败</div>
             <div onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }} style={{ fontSize: 11, color: '#7c3aed', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
           </div>
@@ -123,6 +123,7 @@ function ImageNode({ node, selected, onPointerDown, onContextMenu, onShiftDragSt
           src={displayUrl}
           alt={node.label}
           draggable={false}
+          crossOrigin="anonymous"
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
           style={{ width: '100%', height: node.h, objectFit: 'cover', display: 'block', borderRadius: '12px 12px 0 0', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}

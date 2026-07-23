@@ -63,7 +63,22 @@ export default function WorksPage() {
   const currentWorks = tab === 'xhs' ? xhsWorks : ecWorks;
 
   const viewWork = (w) => {
-    dispatch({ type: 'SET_RESULT', result: w });
+    // 规范化图片格式后跳转到画布
+    let images = {};
+    if (Array.isArray(w.images)) {
+      w.images.forEach(img => { if (img.url) images[img.key || img.label || ''] = img.url; });
+    } else {
+      images = w.images || {};
+    }
+    const normalized = {
+      ...w,
+      images,
+      product_name: w.product_name || w.name || '历史作品',
+      _ecResult: true,
+      platform: w.platform || '淘宝',
+    };
+    dispatch({ type: 'SET_RESULT', result: normalized });
+    dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
   };
 
   const styleIcon = (s) => EC_STYLE_ICONS[s] || '🖼️';

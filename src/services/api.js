@@ -11,6 +11,8 @@ export function proxyImg(url) {
   if (!url) return '';
   // 已经是代理地址或 data URI 则直接返回
   if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  // 本地相对路径也直接返回
+  if (url.startsWith('/')) return url;
   return `${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 

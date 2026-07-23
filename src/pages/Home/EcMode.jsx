@@ -6,7 +6,8 @@ import {
   Wand2,   // 画面风格
   SlidersHorizontal, // 产品参数
   Package, // SKU 变体
-  FileText // 文案策划
+  FileText, // 文案策划
+  Settings2, // 生图设置
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import SizingPanel, { PLATFORM_PRESETS } from './ec/SizingPanel';
@@ -14,6 +15,7 @@ import StylePanel from './ec/StylePanel';
 import ParamsPanel from './ec/ParamsPanel';
 import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
+import GenSettingsPanel from './ec/GenSettingsPanel';
 
 /* ═══════ 智能方案状态常量 ═══════
  * 智能方案逻辑：
@@ -70,7 +72,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   /* — 智能方案 — */
   const [smartMode, setSmartMode] = useState(true);
   const [smartOverrides, setSmartOverrides] = useState({
-    sizing: false, style: false, params: false, copy: false,
+    sizing: false, style: false, params: false, copy: false, settings: false,
   });
 
   /* — 配置 — */
@@ -82,6 +84,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const [skus, setSkus] = useState([]);
   const [copywriting, setCopywriting] = useState({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
 
+  /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
+  const [genSettings, setGenSettings] = useState({
+    resolution: '1024x1024',
+    quality: 'standard',
+    creativity: 0.7,
+    negativePrompt: '',
+    seed: '',
+  });
+
   /* — 面板（Portal 定位用视口坐标）—— */
   const [activePanel, setActivePanel] = useState(null);
   const [panelPos, setPanelPos] = useState({ left: 0, bottom: 0, width: 0, maxH: 400, btnCenterX: 0 });
@@ -92,6 +103,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       setSkus([{ id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
     }
   }, []);
+
+  /* — 套图配置中勾选/取消 SKU 规格图时，自动联动 SKU 变体 —— */
+  const hasSkuInSizing = sizing.images?.some(i => i.key === 'sku' && i.count > 0);
+  useEffect(() => {
+    if (hasSkuInSizing && skus.length === 0) {
+      setSkus([{ id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
+    }
+  }, [hasSkuInSizing]);
 
   /* Esc 关闭 + 点击外部关闭 */
   useEffect(() => {
@@ -196,6 +215,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       productParams: effectiveParams,
       skus,
       copywriting: effectiveCopy,
+      genSettings,
     });
     setEcStep?.(2);
   };
@@ -252,17 +272,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     const next = !smartMode;
     setSmartMode(next);
     if (next) {
-      setSmartOverrides({ sizing: false, style: false, params: false, copy: false });
+      setSmartOverrides({ sizing: false, style: false, params: false, copy: false, settings: false });
     }
   };
 
-  /* ── 5 个功能按钮（AI 感图标升级）── */
+  /* ── 6 个功能按钮（AI 感图标升级）── */
   const BUTTONS = [
     { key: 'sizing', label: '套图配置', icon: <Images size={15} strokeWidth={1.8} /> },
     { key: 'style', label: '画面风格', icon: <Wand2 size={15} strokeWidth={1.8} /> },
     { key: 'params', label: '产品参数', icon: <SlidersHorizontal size={15} strokeWidth={1.8} /> },
     { key: 'sku', label: 'SKU 变体', icon: <Package size={15} strokeWidth={1.8} /> },
     { key: 'copy', label: '文案策划', icon: <FileText size={15} strokeWidth={1.8} /> },
+    { key: 'settings', label: '生图设置', icon: <Settings2 size={15} strokeWidth={1.8} /> },
   ];
 
   /* ── 面板定位（相对于按钮行的绝对定位，滚动时跟随）── */
@@ -278,7 +299,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       // 面板宽度：根据内容类型调整
       const isCopyPanel = key === 'copy';
       const isSizingPanel = key === 'sizing';
-      const baseWidth = isCopyPanel ? 520 : isSizingPanel ? 460 : 420;
+      const isSettingsPanel = key === 'settings';
+      const baseWidth = isCopyPanel ? 520 : isSizingPanel ? 460 : isSettingsPanel ? 380 : 420;
       const maxPW = Math.min(vw - 32, 640);
       const panelW = Math.min(Math.max(baseWidth, 400), maxPW);
       
@@ -365,11 +387,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             smartMode={smartMode} onOverride={() => handleOverride('params')} />
         )}
         {activePanel === 'sku' && (
-          <SkuPanel skus={skus} onChange={setSkus} />
+          <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />
         )}
         {activePanel === 'copy' && (
           <CopyPanel copywriting={copywriting} onChange={setCopywriting}
             smartMode={smartMode} onOverride={() => handleOverride('copy')} />
+        )}
+        {activePanel === 'settings' && (
+          <GenSettingsPanel value={genSettings} onChange={setGenSettings} />
         )}
       </div>
       </>
@@ -470,46 +495,45 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#FAF7F2', padding: '16px 20px 20px', position: 'relative', border: '1px solid rgba(139,92,246,0.06)' }}>
         {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          
-          {/* ── 上方：双列上传区（产品图 × 参考图，斜框对称样式）── */}
+
+          {/* ── 上方：双列上传区（产品图 × 参考图，小红书同款样式）── */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
-            {/* 产品图上传区 - 左歪（基于小红书图文样式） */}
+            {/* 产品图上传区 */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div className="ec-upload-tilt-left" style={{
+              <div style={{
                 background: '#fff',
                 borderRadius: 16,
-                border: '2px dashed #ddd',
+                border: '2px solid var(--red)',
+                boxShadow: '0 6px 32px rgba(255,71,87,0.18)',
                 padding: '14px 12px',
                 minHeight: 110,
                 transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
-                transform: 'rotate(-1.5deg)',
-                transformOrigin: 'center center',
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.borderColor = '#7c3aed';
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.12)';
+                e.currentTarget.style.borderColor = 'var(--red)';
+                e.currentTarget.style.boxShadow = '0 6px 32px rgba(255,71,87,0.25)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.borderColor = '#ddd';
-                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.borderColor = 'var(--red)';
+                e.currentTarget.style.boxShadow = '0 6px 32px rgba(255,71,87,0.18)';
               }}>
                 {/* 标题行 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, transform: 'rotate(1.5deg)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                   <span style={{ fontSize: 12 }}>📸</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>产品实拍图</span>
-                  <span style={{ fontSize: 10, color: '#7c3aed', background: 'rgba(124,58,237,0.08)', padding: '1px 6px', borderRadius: 8, marginLeft: 'auto', fontWeight: 600 }}>必须</span>
+                  <span style={{ fontSize: 10, color: '#fff', background: 'var(--red)', padding: '2px 8px', borderRadius: 8, marginLeft: 'auto', fontWeight: 600 }}>必须</span>
                 </div>
-                
+
                 {/* 横向滚动的图片行 */}
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, transform: 'rotate(1.5deg)' }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
                   {productImages.map((img, idx) => (
-                    <div key={idx} style={{ 
+                    <div key={idx} style={{
                       position: 'relative', width: 64, height: 64,
                       borderRadius: 10, overflow: 'hidden',
                       border: '2px solid #eee', flex: '0 0 auto',
                     }}>
                       <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <div onClick={() => removeProdImg(idx)} style={{ 
+                      <div onClick={() => removeProdImg(idx)} style={{
                         position: 'absolute', top: -5, right: -5,
                         width: 18, height: 18, borderRadius: '50%',
                         background: '#FF3B5C', color: '#fff',
@@ -518,7 +542,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                       }}>×</div>
                     </div>
                   ))}
-                  
+
                   {/* 添加按钮 */}
                   <div onClick={() => prodFileRef.current?.click()} style={{
                     width: 64, height: 64, borderRadius: 10,
@@ -528,9 +552,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                     background: '#fff', flex: '0 0 auto',
                   }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = '#7c3aed';
-                      e.currentTarget.style.color = '#7c3aed';
-                      e.currentTarget.style.background = 'rgba(124,58,237,0.04)';
+                      e.currentTarget.style.borderColor = 'var(--red)';
+                      e.currentTarget.style.color = 'var(--red)';
+                      e.currentTarget.style.background = '#FFF5F5';
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.borderColor = '#ccc';
@@ -541,18 +565,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                     <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>{productImages.length === 0 ? '上传' : '+'}</span>
                   </div>
                 </div>
-                
+
                 {/* 提示文字 */}
-                <div style={{ fontSize: 11, color: '#999', marginTop: 8, transform: 'rotate(1.5deg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: 11, color: '#999', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {getProdHint(productImages.length)}
                 </div>
               </div>
-              
+
               <input ref={prodFileRef} type="file" accept="image/*" multiple hidden onChange={handleProdUpload} />
             </div>
-            
+
             {/* 乘号分隔 */}
-            <div style={{ 
+            <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               flex: '0 0 auto', padding: '0 4px', alignSelf: 'center',
             }}>
@@ -564,44 +588,43 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 boxShadow: '0 2px 8px rgba(124,58,237,0.3)',
               }}>×</div>
             </div>
-            
-            {/* 参考图上传区 - 右歪（基于小红书图文样式，对称翻转） */}
+
+            {/* 参考图上传区 */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div className="ec-upload-tilt-right" style={{
+              <div style={{
                 background: '#fff',
                 borderRadius: 16,
-                border: '2px dashed #ddd',
+                border: '2px solid var(--blue)',
+                boxShadow: '0 6px 32px rgba(102,126,234,0.18)',
                 padding: '14px 12px',
                 minHeight: 110,
                 transition: 'all 0.25s cubic-bezier(0.22, 1, 0.36, 1)',
-                transform: 'rotate(1.5deg)',
-                transformOrigin: 'center center',
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.borderColor = '#ec4899';
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(236,72,153,0.12)';
+                e.currentTarget.style.borderColor = 'var(--blue)';
+                e.currentTarget.style.boxShadow = '0 6px 32px rgba(102,126,234,0.25)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.borderColor = '#ddd';
-                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.borderColor = 'var(--blue)';
+                e.currentTarget.style.boxShadow = '0 6px 32px rgba(102,126,234,0.18)';
               }}>
                 {/* 标题行 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, transform: 'rotate(-1.5deg)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                   <span style={{ fontSize: 12 }}>🎨</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a' }}>风格参考图</span>
-                  <span style={{ fontSize: 10, color: '#999', background: 'rgba(0,0,0,0.04)', padding: '1px 6px', borderRadius: 8, marginLeft: 'auto', fontWeight: 500 }}>可选</span>
+                  <span style={{ fontSize: 10, color: '#666', background: 'rgba(0,0,0,0.04)', padding: '2px 8px', borderRadius: 8, marginLeft: 'auto', fontWeight: 500 }}>可选</span>
                 </div>
-                
+
                 {/* 横向滚动的图片行 */}
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, transform: 'rotate(-1.5deg)' }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
                   {refImages.map((img, idx) => (
-                    <div key={idx} style={{ 
+                    <div key={idx} style={{
                       position: 'relative', width: 64, height: 64,
                       borderRadius: 10, overflow: 'hidden',
                       border: '2px solid #eee', flex: '0 0 auto',
                     }}>
                       <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <div onClick={() => removeRefImg(idx)} style={{ 
+                      <div onClick={() => removeRefImg(idx)} style={{
                         position: 'absolute', top: -5, right: -5,
                         width: 18, height: 18, borderRadius: '50%',
                         background: '#FF3B5C', color: '#fff',
@@ -610,7 +633,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                       }}>×</div>
                     </div>
                   ))}
-                  
+
                   {/* 添加按钮 */}
                   <div onClick={() => refFileRef.current?.click()} style={{
                     width: 64, height: 64, borderRadius: 10,
@@ -620,9 +643,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                     background: '#fff', flex: '0 0 auto',
                   }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = '#ec4899';
-                      e.currentTarget.style.color = '#ec4899';
-                      e.currentTarget.style.background = 'rgba(236,72,153,0.04)';
+                      e.currentTarget.style.borderColor = 'var(--blue)';
+                      e.currentTarget.style.color = 'var(--blue)';
+                      e.currentTarget.style.background = 'rgba(102,126,234,0.04)';
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.borderColor = '#ccc';
@@ -633,52 +656,28 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                     <span style={{ fontSize: 9, color: '#999', fontWeight: 600 }}>{refImages.length === 0 ? '上传' : '+'}</span>
                   </div>
                 </div>
-                
+
                 {/* 提示文字 */}
-                <div style={{ fontSize: 11, color: '#999', marginTop: 8, transform: 'rotate(-1.5deg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: 11, color: '#999', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {getRefHint(refImages.length)}
                 </div>
               </div>
-              
+
               <input ref={refFileRef} type="file" accept="image/*" multiple hidden onChange={handleRefUpload} />
             </div>
           </div>
-          
-          {/* ── 下方：产品描述输入区 ── */}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div className="ec-textarea-wrap" style={{ 
-              position: 'relative', 
-              background: '#fff',
-              borderRadius: 12,
-              border: '1px solid rgba(0,0,0,0.08)',
-              padding: 16,
-              minHeight: 120,
-            }}>
-              {!description && (
-                <div className="ec-textarea-placeholder" style={{ 
-                  fontSize: 15, lineHeight: '28px', color: '#999',
-                  position: 'absolute', top: 16, left: 16, right: 16,
-                  pointerEvents: 'none',
-                }}>
-                  <div>描述你的产品名称、特点、材质、用途…</div>
-                  <div style={{ marginTop: 8, color: '#bbb' }}>
-                    例如：白色陶瓷马克杯，简约北欧风，容量350ml，带木质把手，适合办公家用，可定制logo
-                  </div>
-                </div>
-              )}
-              <textarea 
-                value={description} 
-                onChange={e => setDescription(e.target.value)}
-                placeholder={!description ? '' : '描述你的产品…'}
-                style={{
-                  width: '100%', height: '100%', minHeight: 100,
-                  border: 'none', background: 'transparent',
-                  padding: 0, fontSize: 15, lineHeight: '28px', 
-                  color: 'var(--text-primary)',
-                  outline: 'none', resize: 'none', fontFamily: 'inherit',
-                  position: 'relative', zIndex: 1,
-                }}
-              />
+
+          {/* ── 下方：产品描述输入区（小红书同款 textarea）── */}
+          <div className="hero-textarea-wrap" style={{ margin: 0 }}>
+            <textarea
+              className="hero-textarea"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder=" "
+            />
+            <div className="custom-placeholder">
+              <div className="ph-main">描述你的产品名称、特点、材质、用途…</div>
+              <div className="ph-sub">例如：白色陶瓷马克杯，简约北欧风，容量350ml，带木质把手，适合办公家用</div>
             </div>
           </div>
         </div>
@@ -692,7 +691,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         }}>
           {/* ═══ 面板渲染（内联，相对于按钮行定位）═══ */}
           {renderPanel()}
-          {/* ── 5 个功能按钮（带配置回显 - 类似椒图AI）── */}
+          {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}
           {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;
             const isOverridden = smartMode && smartOverrides[btn.key];
@@ -759,6 +758,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                   return filled > 0
                     ? { text: `${filled}项已填`, isSmart: false }
                     : { text: '未填写', isSmart: false };
+                }
+                case 'settings': {
+                  const { resolution, quality, creativity } = genSettings;
+                  const resLabel = resolution === '1024x1024' ? '1:1' : resolution === '1536x1024' ? '3:2' : resolution === '1024x1536' ? '2:3' : resolution === '2048x2048' ? '2K' : resolution;
+                  const qLabel = quality === 'hd' ? '高清' : '标准';
+                  return { text: `${resLabel}·${qLabel}`, isSmart: false };
                 }
                 default: return { text: null, isSmart: false };
               }
