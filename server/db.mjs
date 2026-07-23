@@ -39,6 +39,7 @@ export function initDB(dbPath = DB_PATH) {
       image_prompts TEXT DEFAULT '[]',
       tags TEXT DEFAULT '[]',
       error TEXT DEFAULT '',
+      payload TEXT DEFAULT '{}',
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     );
@@ -70,6 +71,10 @@ export function initDB(dbPath = DB_PATH) {
   if (!taskColumns.includes('owner_email')) {
     db.exec("ALTER TABLE tasks ADD COLUMN owner_email TEXT DEFAULT ''");
   }
+  const workColumns = db.prepare("PRAGMA table_info(works)").all().map(column => column.name);
+  if (!workColumns.includes('payload')) {
+    db.exec("ALTER TABLE works ADD COLUMN payload TEXT DEFAULT '{}'");
+  }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
 
   console.log('  → SQLite 数据库就绪:', dbPath);
@@ -99,8 +104,8 @@ export function upsertWork(work) {
   const stmt = db.prepare(`
     INSERT INTO works (_saveKey, title, body_text, hashtags, category, pages,
       cover_url, image_urls, image_count, _inputText, visual_system,
-      cover_prompt, image_prompts, tags, error, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+      cover_prompt, image_prompts, tags, error, payload, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       datetime('now', 'localtime'))
     ON CONFLICT(_saveKey) DO UPDATE SET
       title = excluded.title,
@@ -117,6 +122,7 @@ export function upsertWork(work) {
       image_prompts = excluded.image_prompts,
       tags = excluded.tags,
       error = excluded.error,
+      payload = excluded.payload,
       updated_at = datetime('now', 'localtime')
   `);
 
@@ -135,7 +141,8 @@ export function upsertWork(work) {
     work.cover_prompt || '',
     JSON.stringify(work.image_prompts || []),
     JSON.stringify(work.tags || []),
-    work.error || ''
+    work.error || '',
+    JSON.stringify(work)
   );
   return saveKey;
 }
@@ -306,6 +313,7 @@ export function consumeUserCredit(email, amount = 1) {
 // =========== 辅助 ===========
 
 function rowToWork(row) {
+  const payload = safeParseJSON(row.payload, {});
   return {
     _saveKey: row._saveKey,
     title: row.title,
@@ -322,6 +330,11 @@ function rowToWork(row) {
     image_prompts: safeParseJSON(row.image_prompts, []),
     tags: safeParseJSON(row.tags, []),
     error: row.error,
+    at: row.created_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    ...payload,
+    _saveKey: row._saveKey,
     at: row.created_at,
     created_at: row.created_at,
     updated_at: row.updated_at,

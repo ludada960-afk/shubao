@@ -17,6 +17,7 @@ import ParamsPanel from './ec/ParamsPanel';
 import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
+import EcommerceWorkbench from './ec/EcommerceWorkbench';
 
 /* ═══════ 智能方案状态常量 ═══════
  * 智能方案逻辑：
@@ -106,21 +107,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   /* — 面板（Portal 定位用视口坐标）—— */
   const [activePanel, setActivePanel] = useState(null);
   const [panelPos, setPanelPos] = useState({ left: 0, bottom: 0, width: 0, maxH: 400, btnCenterX: 0 });
-
-  /* — SKU 初始化 —— */
-  useEffect(() => {
-    if (skus.length === 0) {
-      setSkus([{ id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
-    }
-  }, []);
-
-  /* — 套图配置中勾选/取消 SKU 规格图时，自动联动 SKU 变体 —— */
-  const hasSkuInSizing = sizing.images?.some(i => i.key === 'sku' && i.count > 0);
-  useEffect(() => {
-    if (hasSkuInSizing && skus.length === 0) {
-      setSkus([{ id: Date.now(), color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
-    }
-  }, [hasSkuInSizing]);
 
   /* Esc 关闭 + 点击外部关闭 */
   useEffect(() => {
@@ -292,12 +278,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   /* ── 6 个功能按钮（AI 感图标升级）── */
   const BUTTONS = [
-    { key: 'sizing', label: '套图配置', icon: <Images size={15} strokeWidth={1.8} /> },
-    { key: 'style', label: '画面风格', icon: <Wand2 size={15} strokeWidth={1.8} /> },
-    { key: 'params', label: '产品参数', icon: <SlidersHorizontal size={15} strokeWidth={1.8} /> },
-    { key: 'sku', label: 'SKU 变体', icon: <Package size={15} strokeWidth={1.8} /> },
-    { key: 'copy', label: '文案策划', icon: <FileText size={15} strokeWidth={1.8} /> },
-    { key: 'settings', label: '生图设置', icon: <Settings2 size={15} strokeWidth={1.8} /> },
+    { key: 'sizing', label: '套图方案', icon: <Images size={15} strokeWidth={1.8} /> },
+    { key: 'style', label: '视觉方向', icon: <Wand2 size={15} strokeWidth={1.8} /> },
+    { key: 'params', label: '商品信息', icon: <SlidersHorizontal size={15} strokeWidth={1.8} /> },
+    { key: 'sku', label: 'SKU 规格', icon: <Package size={15} strokeWidth={1.8} /> },
+    { key: 'copy', label: '内容规范', icon: <FileText size={15} strokeWidth={1.8} /> },
+    { key: 'settings', label: '生成设置', icon: <Settings2 size={15} strokeWidth={1.8} /> },
   ];
 
   /* ── 面板定位（相对于按钮行的绝对定位，滚动时跟随）── */
@@ -382,6 +368,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       </div>,
       document.body,
     );
+  };
+
+  const restoreSmartPlan = () => {
+    setPlatform('smart');
+    setSizing({ smart: true, images: [] });
+    setStyleSkill('smart');
+    setCustomColors(null);
+    setCopywriting({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
+    setGenSettings({ resolution: '1024x1024', quality: 'standard', creativity: 0.7, negativePrompt: '', seed: '' });
+    setSmartMode(true);
+    setSmartOverrides({ sizing: false, style: false, params: false, copy: false, settings: false });
+    setActivePanel(null);
   };
 
   // 步骤指示器组件
@@ -473,8 +471,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     <div>
       {/* ═══ 暖黄色背景卡片（与小红书图文一致）═══ */}
       <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#FAF7F2', padding: '16px 20px 20px', position: 'relative', border: '1px solid rgba(139,92,246,0.06)' }}>
+        <EcommerceWorkbench
+          productImages={productImages}
+          refImages={refImages}
+          description={description}
+          onDescriptionChange={setDescription}
+          onProductUpload={handleProdUpload}
+          onReferenceUpload={handleRefUpload}
+          onRemoveProduct={removeProdImg}
+          onRemoveReference={removeRefImg}
+        />
         {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'none' }}>
 
           {/* ── 上方：双列上传区（产品图 × 参考图，小红书同款样式）── */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
@@ -674,6 +682,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         }}>
           {/* ═══ 面板渲染（内联，相对于按钮行定位）═══ */}
           {renderPanel()}
+          {hasOverrides && (
+            <button type="button" onClick={restoreSmartPlan} style={{
+              ...BTN_BASE, height: 34, padding: '0 12px', borderColor: 'rgba(124,58,237,0.22)',
+              background: 'rgba(124,58,237,0.06)', color: '#6d28d9', fontSize: 12,
+            }}>恢复智能方案</button>
+          )}
           {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}
           {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;

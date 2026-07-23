@@ -19,6 +19,7 @@ const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
+import { shouldShowNoteModal } from './routing/resultRouting';
 
 /* ═══════ 左侧导航栏（3按钮精简版）═══════ */
 function SideNav() {
@@ -271,7 +272,7 @@ function AppRouter() {
     <SideNav />
     <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
     {page !== 'ec-canvas' && <TopBar />}
-    {genState === 'result' && result && !(result._ecResult && page === 'ec-canvas') ? (
+    {genState === 'result' && shouldShowNoteModal({ page, result }) ? (
       <NoteModal
         item={result}
         onClose={() => { dispatch({ type: 'CLOSE_RESULT' }); if (state.scrollPos) setTimeout(() => window.scrollTo(0, state.scrollPos), 50); }}

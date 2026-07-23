@@ -277,6 +277,34 @@
 .ref-add:hover { border-color: var(--red); color: var(--red); background: #FFF5F5; }
 .ref-hint { font-size: var(--text-sm); color: var(--text-faint); white-space: nowrap; }
 
+/* ── 电商紧凑工作台：沿用小红书上传卡、缩略图和输入框语义 ── */
+.ec-workbench { display: flex; flex-direction: column; gap: 12px; }
+.ec-workbench-heading { display: flex; flex-direction: column; gap: 3px; padding: 2px 4px; }
+.ec-workbench-heading strong { font-size: 18px; color: var(--text-primary); letter-spacing: -0.3px; }
+.ec-workbench-heading span { font-size: 12px; color: var(--text-muted); }
+.ec-upload-deck { min-height: 130px; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 6px 4px; }
+.ec-upload-card { width: 118px; min-height: 114px; padding: 12px 10px; border: 1.5px dashed var(--border-hover); border-radius: 16px; background: #fff; color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; box-shadow: 0 5px 16px rgba(20, 25, 36, 0.06); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; overflow: hidden; }
+.ec-upload-card:hover { transform: translateY(-3px) rotate(0deg); box-shadow: 0 10px 24px rgba(20, 25, 36, .12); }
+.ec-upload-card img { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; }
+.ec-upload-card-product { border-color: rgba(255, 71, 87, .45); color: var(--red); }
+.ec-upload-card-reference { border-color: rgba(102, 126, 234, .45); color: var(--blue); }
+.ec-upload-card-right { transform: rotate(4deg); }
+.ec-upload-card-left { transform: rotate(-4deg); }
+.ec-upload-card-title { color: var(--text-primary); font-size: 13px; font-weight: 700; }
+.ec-upload-card-hint { max-width: 96px; font-size: 10px; line-height: 1.35; color: var(--text-faint); }
+.ec-upload-operator { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: #fff; font-size: 16px; font-weight: 800; background: linear-gradient(135deg, #7c3aed, #ec4899); box-shadow: 0 3px 10px rgba(124, 58, 237, .25); }
+.ec-media-rails { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.ec-media-rail-group { min-width: 0; padding: 9px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.66); }
+.ec-media-rail-label { margin-bottom: 7px; font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+.ec-media-rail-scroller { display: flex; min-width: 0; gap: 8px; overflow-x: auto; padding: 1px 2px 5px; scrollbar-width: thin; }
+.ec-media-thumb { width: 54px; height: 54px; }
+.ec-media-thumb-slot { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px; font-size: 9px; color: #fff; text-align: center; background: linear-gradient(transparent, rgba(0,0,0,.72)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-media-add { width: 54px; height: 54px; flex: 0 0 auto; flex-direction: column; gap: 2px; font-size: 9px; font-family: inherit; }
+.ec-brief-input { margin: 0; }
+.ec-brief-input .hero-textarea { min-height: 82px; font-size: 13px; }
+.ec-brief-input .custom-placeholder .ph-main { font-size: 13px; }
+@media (max-width: 640px) { .ec-media-rails { grid-template-columns: 1fr; } .ec-upload-deck { justify-content: space-around; } }
+
 /* ── Stats Row ── */
 .stats-row {
   display: flex;

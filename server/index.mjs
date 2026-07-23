@@ -22,10 +22,11 @@ import {
 } from './plogPromptEngine.mjs';
 
 import Stripe from 'stripe';
-import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask } from './db.mjs';
+import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getWorkCount, upsertWork } from './db.mjs';
 import { normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
+import { createGeneratedAssetStore } from './generatedAssets.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '.env');
@@ -42,6 +43,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
 initDB();
+const generatedAssetStore = createGeneratedAssetStore({ directory: resolve(__dirname, 'generated-assets') });
+const legacyWorksPath = resolve(__dirname, 'works.json');
+if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
+  try {
+    const legacyWorks = JSON.parse(fs.readFileSync(legacyWorksPath, 'utf8'));
+    let migratedWorks = 0;
+    for (const work of legacyWorks) {
+      upsertWork({ ...work, _saveKey: work._saveKey || `legacy_${work.id || crypto.randomUUID()}` });
+      migratedWorks++;
+    }
+    console.log(`  → 已迁移 ${migratedWorks} 条旧作品到 SQLite`);
+  } catch (error) {
+    console.warn('  → works.json 迁移跳过:', error.message);
+  }
+}
 
 // ── 用户额度持久化 ──
 const USERS_FILE = resolve(__dirname, 'users.json');
@@ -94,6 +110,14 @@ app.use((req, res, next) => {
 
 app.use(cors());
 app.use(express.json({ limit: '30mb' }));
+
+app.get('/api/generated-assets/:id', async (req, res) => {
+  const asset = await generatedAssetStore.read(req.params.id);
+  if (!asset) return res.status(404).end('generated asset not found');
+  res.setHeader('Content-Type', asset.contentType);
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(asset.buffer);
+});
 
 // ── IP 速率限制（止血：防止 API 被盗刷 LLM 额度）──
 // 对消耗 LLM 额度的生图路由限 10 次/分钟/IP
@@ -1877,21 +1901,13 @@ app.post('/api/migrate-works', (req, res) => {
 app.post('/api/save-work', (req, res) => {
   const { work, phone } = req.body;
   if (!work) return res.status(400).json({ error: 'no work' });
-  var works = loadWorks();
-  // 每个作品绑定手机号
-  works.unshift({ ...work, _phone: phone || '', id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
-  if (works.length > 100) works.length = 100;
-  var saved = saveWorks(works);
-  if (saved) {
-    res.json({ ok: true, count: works.length });
-  } else {
-    console.error('[save-work] ⚠ 保存到磁盘失败');
-    res.status(500).json({ error: '保存失败', count: works.length });
-  }
+  const saveKey = work._saveKey || `work_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  upsertWork({ ...work, _saveKey: saveKey, _phone: phone || work._phone || '' });
+  res.json({ ok: true, _saveKey: saveKey, count: getWorkCount() });
 });
 app.get('/api/works', (req, res) => {
   const { phone } = req.query;
-  let works = loadWorks();
+  let works = getAllWorks();
   if (phone) works = works.filter(w => w._phone === phone);
   res.json(works);
 });
@@ -3284,11 +3300,12 @@ app.post('/api/generate-ecommerce', async (req, res) => {
           styleSkill: style_skill,
         }) + contextSuffix;
         try {
-          const url = await generateECImage(prompt, img.baseKey || img.key, platform || '淘宝', refImageBase64);
-          if (url) {
-            imgResults[idx] = { label: img.label, url };
-            images[img.label] = url;
-            send('image', { id: img.label, url, index: idx, total });
+          const upstreamUrl = await generateECImage(prompt, img.baseKey || img.key, platform || '淘宝', refImageBase64);
+          if (upstreamUrl) {
+            const asset = await generatedAssetStore.persist({ sourceUrl: upstreamUrl, taskId, label: img.label });
+            imgResults[idx] = { label: img.label, url: asset.url };
+            images[img.label] = asset.url;
+            send('image', { id: img.label, url: asset.url, index: idx, total });
           } else {
             imgResults[idx] = { label: img.label, error: '生成空结果' };
             errors.push({ style: img.label, error: '生成空结果' });

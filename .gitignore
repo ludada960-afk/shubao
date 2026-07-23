@@ -18,6 +18,7 @@ server/works.db
 server/uploads/
 server/cache_img/
 server/cache_overlay/
+server/generated-assets/
 server/extension_downloads/
 server/extension_tasks/
 server/prompts/
