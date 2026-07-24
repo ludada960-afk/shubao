@@ -1,32 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch } from 'react-icons/md';
+import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage } from '../../services/api';
-import { canStitch, fitViewport, zoomAroundCursor } from './canvasState';
-
-const LABEL_MAP = {
-  white_bg: { title: '白底首图', group: '首图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
-  main_text: { title: '场景主图 1:1', group: '主图', ratio: '1:1', usage: '搜索展示主力图，场景+卖点文案，吸引买家点击' },
-  main_3x4: { title: '竖版主图 3:4', group: '主图', ratio: '3:4', usage: '抖音/小红书竖版流量，竖版构图更沉浸，利于转化' },
-  transparent: { title: '透明PNG素材', group: '素材', ratio: '1:1', usage: '二次合成素材，可自由叠加任意背景，设计师必备' },
-  sku: { title: 'SKU规格图', group: '规格', ratio: '1:1', usage: '颜色/尺码选择器展示图，降低买家决策成本，减少退货' },
-  detail_slice_size: { title: '尺寸标注图', group: '详情', ratio: '3:4', usage: '详情页尺寸背书，精准尺码参考，降低因尺码不符退货率' },
-  detail_slice_scene: { title: '场景使用图', group: '详情', ratio: '3:4', usage: '真实使用场景展示，帮助买家代入使用感，提升购买欲' },
-  detail_slice_qc: { title: '质检报告图', group: '详情', ratio: '3:4', usage: '品质信任背书，降低买家疑虑，适用于食品/母婴/医疗类' },
-  detail_slice_compare: { title: '优势对比图', group: '详情', ratio: '3:4', usage: '与竞品直观对比，突出差异化卖点，提升转化' },
-  detail_slice_feature: { title: '细节功能图', group: '详情', ratio: '3:4', usage: '产品细节/工艺放大展示，建立品质感知，支撑定价溢价' },
-  detail_slice_care: { title: '保养维护图', group: '详情', ratio: '3:4', usage: '使用注意事项说明，减少因误用导致的差评和退货' },
-};
+import {
+  ASSET_GROUPS,
+  addConnection,
+  canStitch,
+  fitViewport,
+  getAssetMeta,
+  moveSelectedNodes,
+  normalizeAsset,
+  removeConnectionsForNodes,
+  selectNodesInRect,
+  zoomAroundCursor,
+} from './canvasState';
 
 function parseImages(images, platform) {
   if (!images || typeof images !== 'object') return [];
   const entries = Array.isArray(images)
-    ? images.map(i => [i.key || i.label || '', i.url || i.src || i.image_url])
-    : Object.entries(images).map(([key, value]) => [key, typeof value === 'object' ? (value.url || value.src || value.image_url) : value]);
-  return entries.map(([label, url], i) => {
-    const baseKey = label.replace(/_\d+$/, '');
-    const info = LABEL_MAP[baseKey] || { title: label, group: '其他', ratio: '1:1', usage: '' };
-    return { label, url, title: info.title, group: info.group, ratio: info.ratio, size: info.size, usage: info.usage, displayLabel: info.title + (label !== baseKey ? ` ${label.replace(baseKey + '_', '#')}` : '') };
+    ? images.map(i => ({ ...i, sourceKey: i.key || i.label || '' }))
+    : Object.entries(images).map(([key, value]) => ({ sourceKey: key, ...(typeof value === 'object' ? value : { url: value }) }));
+  const counters = {};
+  return entries.map((input, i) => {
+    const asset = normalizeAsset(input, i, counters);
+    const info = getAssetMeta(asset.sourceKey);
+    return { ...asset, title: info.name, platform };
   });
 }
 
@@ -43,7 +41,7 @@ function autoLayout(imageList) {
     groups[g].push(img);
   });
 
-  const groupOrder = ['主图', '素材', '规格', '详情', '其他'];
+  const groupOrder = ASSET_GROUPS;
   const sortedGroups = groupOrder.filter(g => groups[g]);
 
   const nodes = [];
@@ -60,19 +58,13 @@ function autoLayout(imageList) {
       const h = img.ratio === '3:4' ? Math.round(NODE_W * 4 / 3) : NODE_W;
       maxRowH = Math.max(maxRowH, h + 60);
       nodes.push({
-        id: `node_${img.label}_${i}`,
-        url: img.url,
+        ...img,
+        id: img.id || `node_${img.sourceKey}_${i}`,
+        assetId: img.assetId || `asset_${img.sourceKey}_${i}`,
         x: col * (NODE_W + GAP),
         y: groupY + row * (h + 60 + GAP),
         w: NODE_W,
         h,
-        rotation: 0,
-        label: img.label,
-        displayLabel: img.displayLabel,
-        group: img.group,
-        ratio: img.ratio,
-        usage: img.usage,
-        size: img.size,
         loaded: false,
       });
     });
@@ -95,7 +87,7 @@ function SkeletonCard({ w, h }) {
 }
 
 /* A8: 图片加载骨架屏 + 错误重试 + C3: proxyImg 代理显示 */
-function ImageNode({ node, selected, onPointerDown, onContextMenu, onShiftDragStart, onShiftDragEnd }) {
+function ImageNode({ node, selected, multiSelected, onPointerDown, onContextMenu, onToggleSelect, onPortPointerDown, onPortPointerUp }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -112,6 +104,16 @@ function ImageNode({ node, selected, onPointerDown, onContextMenu, onShiftDragSt
         background: '#fff', transition: 'box-shadow 0.15s', touchAction: 'none',
       }}
     >
+      <button
+        type="button"
+        aria-label={selected ? '取消选择' : '选择节点'}
+        onPointerDown={e => { e.stopPropagation(); onToggleSelect?.(e, node.id); }}
+        style={{ position: 'absolute', zIndex: 3, left: 8, top: 8, width: 22, height: 22, border: 0, borderRadius: 6, background: 'rgba(255,255,255,.92)', color: selected ? '#7c3aed' : '#777', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 7px rgba(0,0,0,.16)' }}
+      >
+        {selected ? <MdCheckBox size={17} /> : <MdCheckBoxOutlineBlank size={17} />}
+      </button>
+      {selected && <div style={{ position: 'absolute', zIndex: 2, left: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />}
+      {selected && <div style={{ position: 'absolute', zIndex: 2, right: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'out'); }} />}
       <div style={{ position: 'relative', width: '100%', borderRadius: '12px 12px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
         {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
@@ -133,8 +135,11 @@ function ImageNode({ node, selected, onPointerDown, onContextMenu, onShiftDragSt
         />
       </div>
       <div style={{ padding: '8px 10px 10px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3 }}>{node.group} · {node.displayLabel}</div>
-        <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{node.size}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || node.displayLabel}</div>
+          <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, color: '#7c3aed', background: 'rgba(124,58,237,.08)', borderRadius: 999, padding: '2px 5px' }}>{node.group}</span>
+        </div>
+        <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{node.ratio}{node.size ? ` · ${node.size}` : ''}</div>
         {node.usage && <div style={{ fontSize: 9, color: '#b45309', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.06)', borderRadius: 5, padding: '3px 6px' }}>{node.usage}</div>}
       </div>
     </div>
@@ -154,15 +159,18 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
 
   const items = [
     { icon: <MdDownload size={14} />, label: '下载图片', action: 'download' },
+    { icon: <MdEdit size={14} />, label: '重命名', action: 'rename' },
+    { icon: <MdCategory size={14} />, label: '修改分类', action: 'classify' },
     { icon: <MdAutoFixHigh size={14} />, label: 'AI 抠图去背', action: 'remove-bg' },
     { icon: <MdImageSearch size={14} />, label: 'AI 反向提示词', action: 'reverse-prompt' },
+    { icon: <MdMergeType size={14} />, label: '再次编辑方案', action: 'edit-direction' },
     { icon: <MdLink size={14} />, label: '复制图片链接', action: 'copy-url' },
     { icon: <MdDelete size={14} />, label: '删除节点', action: 'delete', danger: true },
   ];
 
   return (
-    <div ref={menuRef} style={{ position: 'fixed', left: x, top: y, zIndex: 10002, background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.16)', border: '1px solid rgba(0,0,0,0.06)', padding: 4, minWidth: 180 }}>
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#999', borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 4 }}>{node?.displayLabel || '节点'}</div>
+      <div ref={menuRef} style={{ position: 'fixed', left: x, top: y, zIndex: 10002, background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.16)', border: '1px solid rgba(0,0,0,0.06)', padding: 4, minWidth: 190 }}>
+      <div style={{ padding: '6px 10px', fontSize: 10, color: '#999', borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 4 }}>{node?.name || node?.displayLabel || '节点'}</div>
       {items.map(item => (
         <div
           key={item.action}
@@ -179,11 +187,16 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
 }
 
 /* A6: 连线 SVG 层 */
-function ConnectionLines({ connections, nodes, viewport }) {
+function ConnectionLines({ connections, nodes, viewport, onRemove }) {
   if (!connections?.length) return null;
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const styles = {
+    reference: { stroke: '#7c3aed', dash: undefined, label: '引用素材' },
+    variant: { stroke: '#2563eb', dash: '6 4', label: '生成变体' },
+    merge: { stroke: '#374151', dash: undefined, label: '合并产物' },
+  };
   return (
-    <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
+    <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'auto', overflow: 'visible' }}>
       {connections.map((conn, i) => {
         const from = nodeMap.get(conn.from);
         const to = nodeMap.get(conn.to);
@@ -193,10 +206,12 @@ function ConnectionLines({ connections, nodes, viewport }) {
         const x2 = to.x * viewport.scale + viewport.x;
         const y2 = (to.y + to.h / 2) * viewport.scale + viewport.y;
         const mx = (x1 + x2) / 2;
+        const style = styles[conn.type] || styles.reference;
         return (
           <g key={i}>
-            <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke="#7c3aed" strokeWidth={2} fill="none" strokeDasharray="4 3" opacity={0.5} />
-            <circle cx={x2} cy={y2} r={4} fill="#7c3aed" opacity={0.6} />
+            <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={2.4} fill="none" strokeDasharray={style.dash} opacity={0.75} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer' }} />
+            <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={0.8} />
+            <text x={mx} y={(y1 + y2) / 2 - 6} textAnchor="middle" fontSize="10" fill={style.stroke} style={{ pointerEvents: 'none' }}>{style.label}</text>
           </g>
         );
       })}
@@ -210,12 +225,22 @@ export default function EcCanvas() {
   const phone = state.phone || '';
   const [viewport, setViewport] = useState({ x: 80, y: 40, scale: 1 });
   const [nodes, setNodes] = useState([]);
-  const [selected, setSelected] = useState(null);          // 单选
-  const [multiSelected, setMultiSelected] = useState(new Set()); // A6: 多选
-  const [connections, setConnections] = useState([]);       // A6: 连线
-  const [panning, setPanning] = useState(null);
-  const [dragging, setDragging] = useState(null);
-  const [shiftLinking, setShiftLinking] = useState(null);   // A6: Shift+拖拽连线源
+  const [selected, setSelected] = useState(null);
+  const [multiSelected, setMultiSelected] = useState(new Set());
+  const [connections, setConnections] = useState([]);
+  const [pointerMode, setPointerMode] = useState(null);
+  const [marquee, setMarquee] = useState(null);
+  const [connectionDraft, setConnectionDraft] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('全部');
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [directionDraft, setDirectionDraft] = useState(null);
+  const [directionTitle, setDirectionTitle] = useState('');
+  const [directionPurpose, setDirectionPurpose] = useState('');
+  const [directionComposition, setDirectionComposition] = useState('');
+  const [directionCopy, setDirectionCopy] = useState('');
+  const [directionRatio, setDirectionRatio] = useState('3:4');
+  const [nodeNameDraft, setNodeNameDraft] = useState('');
+  const [groupDraft, setGroupDraft] = useState('详情图');
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
   const [tab, setTab] = useState('canvas');
   const [pastWorks, setPastWorks] = useState([]);
@@ -229,6 +254,7 @@ export default function EcCanvas() {
 
   const imageList = parseImages(result.images || {}, result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
+  const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
 
   // toast helper
   const showToast = useCallback((msg, type = 'info') => {
@@ -285,7 +311,9 @@ export default function EcCanvas() {
     const handleKeyDown = (e) => {
       // Esc: 取消所有选中/连线/菜单
       if (e.key === 'Escape') {
-        setShiftLinking(null);
+        setConnectionDraft(null);
+        setPointerMode(null);
+        setMarquee(null);
         setContextMenu(null);
         setSelected(null);
         setMultiSelected(new Set());
@@ -307,7 +335,7 @@ export default function EcCanvas() {
         return;
       }
       // Ctrl+D / Cmd+D: 取消全选
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         setSelected(null);
         setMultiSelected(new Set());
@@ -329,35 +357,59 @@ export default function EcCanvas() {
     return () => { if (wheelRafRef.current) cancelAnimationFrame(wheelRafRef.current); };
   }, []);
 
+  const toWorldPoint = useCallback((e) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    return {
+      x: ((e.clientX - (rect?.left || 0)) - viewport.x) / viewport.scale,
+      y: ((e.clientY - (rect?.top || 0)) - viewport.y) / viewport.scale,
+    };
+  }, [viewport.x, viewport.y, viewport.scale]);
+
   const handlePointerDown = useCallback((e) => {
     if (e.button !== 0) return;
-    // 点击空白区域取消所有选中
-    setSelected(null);
-    setMultiSelected(new Set());
-    setPanning({ startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
-    // B3: 安全调用 setPointerCapture，某些浏览器可能不支持
-    try {
-      if (e.currentTarget && e.pointerId !== undefined && e.currentTarget.setPointerCapture) {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      }
-    } catch (err) {
-      // 忽略不支持 setPointerCapture 的情况
+    const point = toWorldPoint(e);
+    const additive = e.ctrlKey || e.metaKey;
+    const panRequested = e.button === 1 || e.altKey || e.getModifierState?.(' ') || e.shiftKey === false && e.target?.dataset?.canvasPan === 'true';
+    if (!panRequested) {
+      setPointerMode({ kind: 'marquee', start: point, additive });
+      setMarquee({ x: point.x, y: point.y, w: 0, h: 0 });
+    } else {
+      setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
+      setSelected(null);
+      setMultiSelected(new Set());
     }
-  }, [viewport.x, viewport.y]);
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
+  }, [toWorldPoint, viewport.x, viewport.y]);
 
   const handlePointerMove = useCallback((e) => {
-    if (panning) {
-      setViewport(v => ({ ...v, x: panning.vpX + (e.clientX - panning.startX), y: panning.vpY + (e.clientY - panning.startY) }));
+    if (!pointerMode) return;
+    if (pointerMode.kind === 'pan') {
+      setViewport(v => ({ ...v, x: pointerMode.vpX + (e.clientX - pointerMode.startX), y: pointerMode.vpY + (e.clientY - pointerMode.startY) }));
       return;
     }
-    if (dragging) {
-      const dx = (e.clientX - dragging.startX) / viewport.scale;
-      const dy = (e.clientY - dragging.startY) / viewport.scale;
-      setNodes(ns => ns.map(n => n.id === dragging.nodeId ? { ...n, x: dragging.nodeStartX + dx, y: dragging.nodeStartY + dy } : n));
+    if (pointerMode.kind === 'marquee') {
+      const point = toWorldPoint(e);
+      setMarquee({ x: pointerMode.start.x, y: pointerMode.start.y, w: point.x - pointerMode.start.x, h: point.y - pointerMode.start.y });
+      return;
     }
-  }, [panning, dragging, viewport.scale]);
+    if (pointerMode.kind === 'drag') {
+      const point = toWorldPoint(e);
+      const dx = point.x - pointerMode.start.x;
+      const dy = point.y - pointerMode.start.y;
+      setNodes(ns => moveSelectedNodes(ns, pointerMode.ids, dx, dy));
+      setPointerMode(prev => ({ ...prev, start: point }));
+    }
+  }, [pointerMode, toWorldPoint]);
 
-  const handlePointerUp = useCallback(() => { setPanning(null); setDragging(null); setShiftLinking(null); }, []);
+  const handlePointerUp = useCallback(() => {
+    if (pointerMode?.kind === 'marquee' && marquee) {
+      const ids = new Set(selectNodesInRect(nodes, marquee));
+      setMultiSelected(pointerMode.additive ? new Set([...multiSelected, ...ids]) : ids);
+      setSelected(null);
+    }
+    setPointerMode(null);
+    setMarquee(null);
+  }, [pointerMode, marquee, nodes, multiSelected]);
 
   // B3: 使用 requestAnimationFrame 节流 wheel 事件
   const wheelRafRef = useRef(null);
@@ -373,45 +425,45 @@ export default function EcCanvas() {
     });
   }, []);
 
-  // A6: 节点点击 — 支持 Ctrl/Cmd 多选，Shift 开始连线
+  // 节点点击：Ctrl/Cmd 切换多选，拖动已选节点会批量移动
   const handleNodeDown = useCallback((e, id) => {
     e.stopPropagation();
     if (e.button !== 0) return;
-
-    // Shift + 点击 → 连线模式
-    if (e.shiftKey) {
-      if (shiftLinking) {
-        // 第二次 shift 点击 → 建立连线
-        if (shiftLinking !== id) {
-          setConnections(prev => [...prev, { from: shiftLinking, to: id }]);
-          showToast('已建立连线', 'success');
-        }
-        setShiftLinking(null);
-      } else {
-        setShiftLinking(id);
-        showToast('选择目标节点建立连线（Shift+点击目标）', 'info');
-      }
-      return;
-    }
-
-    // Ctrl/Cmd + 点击 → 多选切换
-    if (e.ctrlKey || e.metaKey) {
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
       setMultiSelected(prev => {
         const next = new Set(prev);
         if (next.has(id)) next.delete(id); else next.add(id);
-        return next;
+      return next;
       });
       setSelected(null);
       return;
     }
+    const ids = multiSelected.has(id) ? multiSelected : new Set([id]);
+    setSelected(ids.size === 1 ? id : null);
+    setMultiSelected(ids);
+    setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
+  }, [multiSelected, toWorldPoint]);
 
-    // 普通点击 → 单选 + 拖拽
-    setSelected(id);
-    setMultiSelected(new Set());
-    const node = nodes.find(n => n.id === id);
-    if (!node) return;
-    setDragging({ nodeId: id, startX: e.clientX, startY: e.clientY, nodeStartX: node.x, nodeStartY: node.y });
-  }, [nodes, shiftLinking, showToast]);
+  const handleToggleSelect = useCallback((e, id) => {
+    const next = new Set(multiSelected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setMultiSelected(next);
+    setSelected(next.size === 1 ? [...next][0] : null);
+  }, [multiSelected]);
+
+  const handlePortPointerDown = useCallback((e, nodeId, side) => {
+    if (side !== 'out') return;
+    setConnectionDraft({ from: nodeId, type: 'reference' });
+    setPointerMode({ kind: 'connect', from: nodeId });
+  }, []);
+
+  const handlePortPointerUp = useCallback((e, nodeId, side) => {
+    if (side !== 'in' || !connectionDraft || connectionDraft.from === nodeId) return;
+    setConnections(prev => addConnection(prev, connectionDraft.from, nodeId, connectionDraft.type));
+    setConnectionDraft(null);
+    setPointerMode(null);
+    showToast('已建立素材关系', 'success');
+  }, [connectionDraft, showToast]);
 
   const zoomTo = useCallback((s) => { setViewport(v => ({ ...v, scale: Math.max(0.15, Math.min(4, s)) })); }, []);
 
@@ -421,7 +473,7 @@ export default function EcCanvas() {
       const a = document.createElement('a');
       // B2: 走代理 URL 避免跨域 404
       a.href = proxyImg(n.url);
-      a.download = `${n.label}.png`;
+      a.download = `${n.name || n.displayLabel || n.label}.png`;
       a.target = '_blank';
       a.click();
     }
@@ -434,7 +486,7 @@ export default function EcCanvas() {
       if (n) {
         const a = document.createElement('a');
         a.href = proxyImg(n.url);
-        a.download = `${n.label}.png`;
+        a.download = `${n.name || n.displayLabel || n.label}.png`;
         a.target = '_blank';
         a.click();
       }
@@ -446,6 +498,30 @@ export default function EcCanvas() {
     switch (action) {
       case 'download':
         handleDownload(node.id);
+        break;
+      case 'rename': {
+        const next = window.prompt('为这张电商图命名', node.name || node.displayLabel || '');
+        if (next?.trim()) {
+          setNodes(ns => ns.map(n => n.id === node.id ? { ...n, name: next.trim(), displayLabel: next.trim() } : n));
+          showToast('已更新图片名称', 'success');
+        }
+        break;
+      }
+      case 'classify': {
+        const next = window.prompt(`修改分类：${ASSET_GROUPS.join(' / ')}`, node.group);
+        if (ASSET_GROUPS.includes(next)) {
+          setNodes(ns => ns.map(n => n.id === node.id ? { ...n, group: next } : n));
+          showToast(`已归入${next}`, 'success');
+        }
+        break;
+      }
+      case 'edit-direction':
+        setDirectionDraft(node);
+        setDirectionTitle(node.direction?.title || node.name || '');
+        setDirectionPurpose(node.direction?.purpose || node.usage || '');
+        setDirectionComposition(node.direction?.composition || '');
+        setDirectionCopy(node.direction?.copy || '');
+        setDirectionRatio(node.ratio || '3:4');
         break;
       case 'remove-bg':
         showToast('AI 抠图中…请稍候', 'info');
@@ -475,7 +551,7 @@ export default function EcCanvas() {
         showToast('AI 反向提示词分析中…', 'info');
         try {
           setPromptLoading(true);
-          const data = await reversePrompt({ image_url: node.url, product_name: node.displayLabel || node.label });
+          const data = await reversePrompt({ image_url: node.url, product_name: node.name || node.displayLabel || node.label });
           if (!data.prompt) throw new Error('未得到可编辑的提示词');
           setPromptPanel(node);
           setPromptText(data.prompt);
@@ -492,7 +568,7 @@ export default function EcCanvas() {
         break;
       case 'delete':
         setNodes(ns => ns.filter(n => n.id !== node.id));
-        setConnections(prev => prev.filter(c => c.from !== node.id && c.to !== node.id));
+        setConnections(prev => removeConnectionsForNodes(prev, new Set([node.id])));
         break;
     }
   };
@@ -545,15 +621,36 @@ export default function EcCanvas() {
     if (next) setViewport(next);
   }, [nodes]);
 
+  const handleRemoveConnection = useCallback((connection) => {
+    setConnections(prev => prev.filter(edge => edge !== connection));
+    showToast('已删除素材关系', 'success');
+  }, [showToast]);
+
   const handleStitch = async () => {
-    const selectedNodes = nodes.filter(node => multiSelected.has(node.id) && node.group === '详情');
+    const selectedNodes = nodes.filter(node => multiSelected.has(node.id) && node.group === '详情图');
     if (selectedNodes.length < 2) return;
     try {
       showToast('正在合成长详情图…', 'info');
       const data = await stitchLongImage(selectedNodes.map(node => node.url));
       if (!data.url) throw new Error('合成结果为空');
       const y = Math.max(...nodes.map(node => node.y + node.h + 120), 0);
-      setNodes(prev => [...prev, { id: `node_long_${Date.now()}`, url: data.url, x: 0, y, w: 240, h: Math.round(240 * (data.height / data.width)), label: 'long_detail', displayLabel: '详情长图', group: '详情', ratio: '长图', usage: '将选中的详情切片合成为一张长图，便于审核和交付' }]);
+      const counter = nodes.filter(node => node.role === '详情长图').length + 1;
+      const merged = normalizeAsset({
+        id: `node_long_${Date.now()}`,
+        assetId: `asset_long_${Date.now()}`,
+        url: data.url,
+        sourceKey: 'detail_long',
+        name: `详情长图-${String(counter).padStart(2, '0')}`,
+        group: '详情图',
+        role: '详情长图',
+        ratio: '长图',
+        w: 240,
+        h: Math.round(240 * ((data.height || 1200) / (data.width || 800))),
+        x: 0,
+        y,
+      }, nodes.length);
+      setNodes(prev => [...prev, merged]);
+      setConnections(prev => selectedNodes.reduce((acc, source) => addConnection(acc, source.id, merged.id, 'merge'), prev));
       setMultiSelected(new Set());
       showToast('详情长图已加入画布', 'success');
     } catch (error) { showToast(error.message || '合成长图失败', 'error'); }
@@ -563,25 +660,70 @@ export default function EcCanvas() {
     if (!promptPanel || !promptText.trim() || promptLoading) return;
     setPromptLoading(true);
     try {
-      const url = await regenerateCanvasImage({ prompt: promptText, imageUrl: promptPanel.url, ratio: promptPanel.ratio });
-      setNodes(prev => [...prev, { ...promptPanel, id: `node_regenerated_${Date.now()}`, url, x: promptPanel.x + promptPanel.w + 48, y: promptPanel.y, displayLabel: `${promptPanel.displayLabel} · 二次生成` }]);
+      const direction = directionDraft ? {
+        id: directionDraft.direction?.id || `direction_${Date.now()}`,
+        title: directionTitle || directionDraft.name,
+        purpose: directionPurpose,
+        composition: directionComposition,
+        copy: directionCopy,
+        ratio: directionRatio,
+      } : null;
+      const url = await regenerateCanvasImage({ prompt: promptText, imageUrl: promptPanel.url, ratio: promptPanel.ratio, sourceDirectionId: direction?.id });
+      const newNode = {
+        ...promptPanel,
+        id: `node_regenerated_${Date.now()}`,
+        assetId: `asset_regenerated_${Date.now()}`,
+        url,
+        x: promptPanel.x + promptPanel.w + 48,
+        y: promptPanel.y,
+        name: `${promptPanel.name || promptPanel.displayLabel || '电商图'}-二次生成`,
+        displayLabel: `${promptPanel.name || promptPanel.displayLabel || '电商图'}-二次生成`,
+        sourceDirectionId: direction?.id,
+        direction,
+      };
+      setNodes(prev => [...prev, newNode]);
+      setConnections(prev => addConnection(prev, promptPanel.id, newNode.id, 'variant'));
       setPromptPanel(null);
+      setDirectionDraft(null);
       showToast('新图已加入画布', 'success');
     } catch (error) { showToast(error.message, 'error'); }
     finally { setPromptLoading(false); }
   };
 
+  const handleDirectionSave = () => {
+    if (!directionDraft) return;
+    const direction = {
+      id: directionDraft.direction?.id || directionDraft.sourceDirectionId || `direction_${Date.now()}`,
+      title: directionTitle.trim() || directionDraft.name || '电商设计方案',
+      purpose: directionPurpose.trim(),
+      composition: directionComposition.trim(),
+      copy: directionCopy.trim(),
+      ratio: directionRatio,
+      platform: result.platform || '淘宝',
+    };
+    setNodes(prev => prev.map(node => node.id === directionDraft.id ? { ...node, direction, ratio: direction.ratio } : node));
+    setDirectionDraft(null);
+    setPromptPanel({ ...directionDraft, direction });
+    setPromptText([direction.purpose, direction.composition, direction.copy].filter(Boolean).join('\n'));
+    showToast('设计方案已更新，可继续生成变体', 'success');
+  };
+
+  const handleBatchClassify = (group) => {
+    if (!ASSET_GROUPS.includes(group) || !multiSelected.size) return;
+    setNodes(prev => prev.map(node => multiSelected.has(node.id) ? { ...node, group } : node));
+    setGroupDraft(group);
+    setInspectorOpen(false);
+    showToast(`已将 ${multiSelected.size} 张图归入${group}`, 'success');
+  };
+
   // 删除节点（提前定义以避免循环依赖）
   const handleDelete = useCallback(() => {
-    if (selected) {
-      setNodes(ns => ns.filter(n => n.id !== selected));
-      setSelected(null);
-    }
-    if (multiSelected.size > 0) {
-      setNodes(ns => ns.filter(n => !multiSelected.has(n.id)));
-      setConnections(prev => prev.filter(c => !multiSelected.has(c.from) && !multiSelected.has(c.to)));
-      setMultiSelected(new Set());
-    }
+    const ids = new Set([...multiSelected, ...(selected ? [selected] : [])]);
+    if (!ids.size) return;
+    setNodes(ns => ns.filter(n => !ids.has(n.id)));
+    setConnections(prev => removeConnectionsForNodes(prev, ids));
+    setSelected(null);
+    setMultiSelected(new Set());
   }, [selected, multiSelected]);
 
   // 更新 ref（在函数定义之后）
@@ -594,11 +736,11 @@ export default function EcCanvas() {
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#F0EEE9', display: 'flex', flexDirection: 'column' }}>
       {/* ── 顶部工具栏 ── */}
-      <div style={{ height: 52, flexShrink: 0, background: 'rgba(255,255,255,0.9)', borderBottom: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', padding: '0 16px 0 72px', gap: 10, zIndex: 100 }}>
+      <div style={{ height: 58, flexShrink: 0, background: 'rgba(255,255,255,0.94)', borderBottom: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, zIndex: 100 }}>
         <div onClick={handleBack} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><MdArrowBack size={16} color="#666" /></div>
         <div style={{ flexShrink: 0, marginLeft: 4 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{tab === 'canvas' ? (result.product_name || '画布') : tab === 'trash' ? '回收站' : '我的作品集'}</div>
-          <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} 张图片${multiSelected.size > 0 ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : pastWorks.length} 个作品`}</div>
+          <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} 张资产${multiSelected.size > 0 ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : pastWorks.length} 个作品`}</div>
         </div>
         <div style={{ display: 'flex', gap: 3, padding: 3, borderRadius: 10, background: 'rgba(0,0,0,0.05)', marginLeft: 12, flexShrink: 0 }}>
           {[['canvas','当前画布'],['works','作品集'],['trash','回收站']].map(([id,label]) => (
@@ -608,6 +750,11 @@ export default function EcCanvas() {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
           {tab === 'canvas' && (
             <>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginRight: 6 }}>
+                {['全部', ...ASSET_GROUPS].map(group => (
+                  <button key={group} type="button" onClick={() => setActiveFilter(group)} style={{ border: 0, borderRadius: 999, padding: '6px 9px', background: activeFilter === group ? '#1f2937' : 'rgba(0,0,0,.05)', color: activeFilter === group ? '#fff' : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>
+                ))}
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: 3, borderRadius: 8, background: 'rgba(0,0,0,0.05)' }}>
                 <div onClick={() => zoomTo(viewport.scale * 0.8)} style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#666' }}><MdZoomOut size={16} /></div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#666', minWidth: 38, textAlign: 'center' }}>{Math.round(viewport.scale * 100)}%</div>
@@ -621,7 +768,12 @@ export default function EcCanvas() {
               )}
               {canStitch(nodes, multiSelected) && (
                 <div onClick={handleStitch} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: '#1f2937', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                  <MdCollections size={14} /> 合成长详情图
+                  <MdCollections size={14} /> 合并详情图
+                </div>
+              )}
+              {multiSelected.size > 0 && (
+                <div onClick={() => setInspectorOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 8, background: 'rgba(37,99,235,.08)', color: '#2563eb', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <MdCategory size={14} /> 批量分类
                 </div>
               )}
               {(selected || multiSelected.size > 0) && (
@@ -657,42 +809,51 @@ export default function EcCanvas() {
             </div>
           )}
 
-          {/* A6: 连线 SVG 层 */}
-          <ConnectionLines connections={connections} nodes={nodes} viewport={viewport} />
+          <ConnectionLines connections={connections} nodes={nodes} viewport={viewport} onRemove={handleRemoveConnection} />
 
           <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
-            {/* C7: 分组标题 */}
             {(() => {
               const groups = {};
-              nodes.forEach(n => { if (!groups[n.group]) groups[n.group] = n.y; });
+              visibleNodes.forEach(n => { if (!groups[n.group]) groups[n.group] = n.y; });
               return Object.entries(groups).map(([group, y]) => (
                 <div key={group} style={{ position: 'absolute', left: 0, top: y - 28, fontSize: 14, fontWeight: 800, color: 'rgba(0,0,0,0.35)', pointerEvents: 'none', userSelect: 'none' }}>
                   {group}
                 </div>
               ));
             })()}
-            {nodes.map(node => (
+            {visibleNodes.map(node => (
               <ImageNode
                 key={node.id}
                 node={node}
                 selected={isNodeSelected(node.id)}
+                multiSelected={multiSelected.has(node.id)}
                 onPointerDown={handleNodeDown}
+                onToggleSelect={handleToggleSelect}
+                onPortPointerDown={handlePortPointerDown}
+                onPortPointerUp={handlePortPointerUp}
                 onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
               />
             ))}
           </div>
 
-          {/* Shift 连线提示 */}
-          {shiftLinking && (
-            <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(124,58,237,0.9)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 8, zIndex: 50, boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
-              🔗 连线模式：Shift+点击目标节点建立连线 · 按 Esc 取消
+          {marquee && (
+            <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: Math.abs(marquee.w) * viewport.scale, height: Math.abs(marquee.h) * viewport.scale, transform: `translate(${marquee.w < 0 ? marquee.w * viewport.scale : 0}px,${marquee.h < 0 ? marquee.h * viewport.scale : 0})`, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
+          )}
+
+          {connectionDraft && (
+            <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 8, background: '#1f2937', color: '#fff', padding: '7px 12px', borderRadius: 9, fontSize: 11, zIndex: 40 }}>
+              <span>正在连接素材</span>
+              {['reference', 'variant', 'merge'].map(type => (
+                <button key={type} type="button" onClick={() => setConnectionDraft(prev => ({ ...prev, type }))} style={{ border: 0, borderRadius: 999, padding: '4px 8px', background: connectionDraft.type === type ? '#a78bfa' : 'rgba(255,255,255,.12)', color: '#fff', fontSize: 10, cursor: 'pointer' }}>{type === 'reference' ? '引用' : type === 'variant' ? '变体' : '合并'}</button>
+              ))}
+              <span style={{ opacity: .65 }}>点击目标节点左端口完成</span>
             </div>
           )}
 
           {/* 操作提示 */}
           <div style={{ position: 'absolute', bottom: 16, right: 16, fontSize: 11, color: 'rgba(0,0,0,0.28)', pointerEvents: 'none', textAlign: 'right', lineHeight: 1.6 }}>
-            拖拽平移 · 滚轮缩放 · 点击选中<br/>
-            Ctrl+点击多选 · Shift+点击连线 · 右键菜单
+            空白拖拽框选 · Space/Alt 拖拽平移 · 滚轮缩放<br/>
+            Ctrl/Shift 多选 · 端口连线
           </div>
         </div>
       ) : (
@@ -741,6 +902,42 @@ export default function EcCanvas() {
           onClose={() => setContextMenu(null)}
           onAction={handleContextAction}
         />
+      )}
+
+      {inspectorOpen && multiSelected.size > 0 && (
+        <div style={{ position: 'fixed', top: 70, right: 18, zIndex: 10003, width: 220, background: '#fff', border: '1px solid rgba(0,0,0,.08)', borderRadius: 12, boxShadow: '0 12px 36px rgba(0,0,0,.16)', padding: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#1f2937', marginBottom: 8 }}>批量修改分类</div>
+          <div style={{ fontSize: 11, color: '#777', marginBottom: 10 }}>已选 {multiSelected.size} 张资产</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {ASSET_GROUPS.map(group => <button key={group} type="button" onClick={() => handleBatchClassify(group)} style={{ border: 0, borderRadius: 8, padding: '8px 6px', background: groupDraft === group ? 'rgba(124,58,237,.12)' : 'rgba(0,0,0,.04)', color: groupDraft === group ? '#7c3aed' : '#555', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>)}
+          </div>
+        </div>
+      )}
+
+      {directionDraft && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: 'min(540px, 100%)', background: '#fff', borderRadius: 16, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>再次编辑设计方案</div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>修改后可继续生成变体，原图不会被覆盖</div>
+              </div>
+              <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, background: 'rgba(0,0,0,.05)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button>
+            </div>
+            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>方案名称<input value={directionTitle} onChange={e => setDirectionTitle(e.target.value)} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12 }} /></label>
+            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>电商用途<textarea value={directionPurpose} onChange={e => setDirectionPurpose(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
+            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>构图与视觉<textarea value={directionComposition} onChange={e => setDirectionComposition(e.target.value)} rows={3} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
+            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 10 }}>文案要求<textarea value={directionCopy} onChange={e => setDirectionCopy(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: 11, color: '#6b7280' }}>画面比例</span>
+              {['1:1', '3:4', '9:16', '长图'].map(ratio => <button key={ratio} type="button" onClick={() => setDirectionRatio(ratio)} style={{ border: 0, borderRadius: 999, padding: '5px 9px', background: directionRatio === ratio ? '#1f2937' : 'rgba(0,0,0,.05)', color: directionRatio === ratio ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{ratio}</button>)}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, borderRadius: 8, padding: '9px 14px', background: 'rgba(0,0,0,.05)', color: '#555', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>取消</button>
+              <button type="button" onClick={handleDirectionSave} style={{ border: 0, borderRadius: 8, padding: '9px 16px', background: '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>保存方案并继续编辑</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {promptPanel && (

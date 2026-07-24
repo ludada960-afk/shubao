@@ -269,7 +269,7 @@ function AppRouter() {
   const PageComponent = pageMap[page] || HomePage;
 
   return (<>
-    <SideNav />
+    {page !== 'ec-canvas' && <SideNav />}
     <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
     {page !== 'ec-canvas' && <TopBar />}
     {genState === 'result' && shouldShowNoteModal({ page, result }) ? (
