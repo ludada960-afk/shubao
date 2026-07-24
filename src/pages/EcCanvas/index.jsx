@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox } from 'react-icons/md';
+import JSZip from 'jszip';
+import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdViewQuilt, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage } from '../../services/api';
 import {
@@ -30,6 +31,32 @@ function parseImages(images, platform) {
 
 const NODE_W = 200;
 const GAP = 28;
+
+const ECOMMERCE_ACTIONS = [
+  { id: 'rename', label: '改图名', hint: '按投放位置给图片命名', icon: MdEdit },
+  { id: 'classify', label: '改用途', hint: '归入主图、详情图、SKU或素材', icon: MdCategory },
+  { id: 'crop', label: '裁切画幅', hint: '按平台比例重新构图', icon: MdCrop },
+  { id: 'grid-split', label: '宫格切图', hint: '拆成多张可单独使用的切片', icon: MdGridOn },
+  { id: 'annotation', label: '卖点标注', hint: '添加卖点、尺寸或规格说明', icon: MdTextFields },
+  { id: 'remove-bg', label: '商品抠图', hint: '去背景得到透明商品素材', icon: MdAutoFixHigh },
+  { id: 'reverse-prompt', label: '反推画面描述', hint: '生成可二次修改的画面说明', icon: MdImageSearch },
+  { id: 'retouch', label: '局部重绘', hint: '保留商品主体，修改局部内容', icon: MdTune },
+  { id: 'extend', label: '智能扩图', hint: '扩展画面并适配新画幅', icon: MdAspectRatio },
+  { id: 'translate', label: '图文翻译', hint: '翻译画面文案并保留版式', icon: MdTranslate },
+  { id: 'upscale', label: '高清放大', hint: '生成更高清的电商交付图', icon: MdHighQuality },
+  { id: 'layers', label: '图文分层', hint: '拆分商品、背景与文案结构', icon: MdLayers },
+  { id: 'reference', label: '引用生成', hint: '把当前图作为参考继续生成', icon: MdAddPhotoAlternate },
+  { id: 'download', label: '下载单图', hint: '下载当前图片', icon: MdDownload },
+];
+
+const PLATFORM_PRESETS = {
+  淘宝: ['1:1 主图', '3:4 主图', '详情长图'],
+  天猫: ['1:1 主图', '3:4 主图', '详情长图'],
+  京东: ['1:1 主图', '详情长图'],
+  抖音: ['1:1 商品卡', '3:4 商品卡', '9:16 竖版素材'],
+  小红书: ['3:4 种草图', '1:1 封面'],
+  亚马逊: ['1:1 白底主图', '1:1 A+配图'],
+};
 
 /* A7: 按 category 分组的智能排版 */
 function autoLayout(imageList) {
@@ -131,8 +158,10 @@ function ImageNode({ node, selected, multiSelected, onPointerDown, onContextMenu
           crossOrigin="anonymous"
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
-          style={{ width: '100%', height: node.h, objectFit: 'cover', display: 'block', borderRadius: '12px 12px 0 0', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}
+          style={{ width: '100%', height: node.h, objectFit: 'cover', objectPosition: node.crop?.grid ? `${(node.crop.index % 2) * 100}% ${Math.floor(node.crop.index / 2) * 100}%` : 'center', display: 'block', borderRadius: '12px 12px 0 0', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}
         />
+        {node.crop?.grid === 2 && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(90deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%)' }} />}
+        {node.annotations?.length > 0 && <div style={{ position: 'absolute', right: 8, bottom: 8, maxWidth: '82%', padding: '4px 6px', borderRadius: 6, background: 'rgba(17,24,39,.78)', color: '#fff', fontSize: 9, lineHeight: 1.4 }}>{node.annotations[0].text}</div>}
       </div>
       <div style={{ padding: '8px 10px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
@@ -141,6 +170,7 @@ function ImageNode({ node, selected, multiSelected, onPointerDown, onContextMenu
         </div>
         <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{node.ratio}{node.size ? ` · ${node.size}` : ''}</div>
         {node.usage && <div style={{ fontSize: 9, color: '#b45309', marginTop: 5, lineHeight: 1.5, background: 'rgba(180,83,9,0.06)', borderRadius: 5, padding: '3px 6px' }}>{node.usage}</div>}
+        {node.layerStatus && <div style={{ fontSize: 9, color: '#2563eb', marginTop: 5 }}>▦ {node.layerStatus} · {node.layers?.length || 0} 层</div>}
       </div>
     </div>
   );
@@ -158,11 +188,11 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
   }, [onClose]);
 
   const items = [
-    { icon: <MdDownload size={14} />, label: '下载图片', action: 'download' },
-    { icon: <MdEdit size={14} />, label: '重命名', action: 'rename' },
-    { icon: <MdCategory size={14} />, label: '修改分类', action: 'classify' },
-    { icon: <MdAutoFixHigh size={14} />, label: 'AI 抠图去背', action: 'remove-bg' },
-    { icon: <MdImageSearch size={14} />, label: 'AI 反向提示词', action: 'reverse-prompt' },
+    ...ECOMMERCE_ACTIONS.slice(0, 13).map(action => {
+      const Icon = action.icon;
+      return { icon: <Icon size={14} />, label: action.label, action: action.id };
+    }),
+    { icon: <MdDownload size={14} />, label: '下载单图', action: 'download' },
     { icon: <MdMergeType size={14} />, label: '再次编辑方案', action: 'edit-direction' },
     { icon: <MdLink size={14} />, label: '复制图片链接', action: 'copy-url' },
     { icon: <MdDelete size={14} />, label: '删除节点', action: 'delete', danger: true },
@@ -219,6 +249,40 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
   );
 }
 
+function SelectionActionBar({ node, onAction, onClose }) {
+  if (!node) return null;
+  return (
+    <div style={{ position: 'absolute', zIndex: 70, left: node.x, top: Math.max(0, node.y - 52), display: 'flex', alignItems: 'center', gap: 3, padding: 5, borderRadius: 11, background: '#fff', border: '1px solid rgba(15,23,42,.08)', boxShadow: '0 10px 30px rgba(15,23,42,.16)', whiteSpace: 'nowrap' }}>
+      {ECOMMERCE_ACTIONS.slice(0, 8).map(action => {
+        const Icon = action.icon;
+        return <button key={action.id} type="button" title={action.hint} onClick={() => onAction(action.id, node)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 0, borderRadius: 7, padding: '7px 8px', background: 'transparent', color: '#374151', fontSize: 10, fontWeight: 700, cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.08)'; e.currentTarget.style.color = '#7c3aed'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; }}><Icon size={14} />{action.label}</button>;
+      })}
+      <button type="button" title="关闭工具条" onClick={onClose} style={{ border: 0, background: 'rgba(0,0,0,.05)', borderRadius: 7, width: 25, height: 25, cursor: 'pointer', color: '#999' }}>×</button>
+    </div>
+  );
+}
+
+function ReferenceComposer({ references, promptText, setPromptText, onRemoveReference, onGenerate, loading }) {
+  return (
+    <div style={{ position: 'fixed', zIndex: 10004, right: 20, bottom: 20, width: 'min(520px, calc(100vw - 40px))', background: '#fff', border: '1px solid rgba(15,23,42,.10)', boxShadow: '0 18px 55px rgba(15,23,42,.20)', borderRadius: 16, padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div><div style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>引用素材生成</div><div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>保留商品主体，按新的电商用途重新生成</div></div>
+        <span style={{ fontSize: 10, color: '#7c3aed', background: 'rgba(124,58,237,.08)', padding: '4px 7px', borderRadius: 999 }}>{references.length} 张参考图</span>
+      </div>
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 8 }}>
+        {references.map(node => <div key={node.id} style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}><img src={proxyImg(node.url)} alt={node.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} /><button type="button" onClick={() => onRemoveReference(node.id)} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 11, cursor: 'pointer' }}>×</button></div>)}
+      </div>
+      <textarea value={promptText} onChange={e => setPromptText(e.target.value)} placeholder="例如：保留产品外观，制作一张 3:4 的核心卖点场景图，突出防水和便携" rows={3} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', border: '1px solid #e5e7eb', borderRadius: 10, padding: '9px 10px', fontSize: 12, lineHeight: 1.6 }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 9 }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {['淘宝', '抖音', '小红书', '亚马逊'].map(platform => <span key={platform} style={{ fontSize: 10, color: '#6b7280', background: '#f3f4f6', padding: '4px 7px', borderRadius: 999 }}>{platform}</span>)}
+        </div>
+        <button type="button" onClick={onGenerate} disabled={loading || !promptText.trim()} style={{ border: 0, borderRadius: 9, padding: '9px 14px', background: loading ? '#c4b5fd' : '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}>{loading ? '生成中…' : '生成电商图'}</button>
+      </div>
+    </div>
+  );
+}
+
 export default function EcCanvas() {
   const { state, dispatch } = useApp();
   const result = state.result || {};
@@ -241,6 +305,18 @@ export default function EcCanvas() {
   const [directionRatio, setDirectionRatio] = useState('3:4');
   const [nodeNameDraft, setNodeNameDraft] = useState('');
   const [groupDraft, setGroupDraft] = useState('详情图');
+  const [toolNodeId, setToolNodeId] = useState(null);
+  const [composerNodes, setComposerNodes] = useState([]);
+  const [composerText, setComposerText] = useState('');
+  const [cropNode, setCropNode] = useState(null);
+  const [cropRatio, setCropRatio] = useState('3:4');
+  const [annotationNode, setAnnotationNode] = useState(null);
+  const [annotationText, setAnnotationText] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState('PNG');
+  const [exportMode, setExportMode] = useState('逐张导出');
+  const [alignMode, setAlignMode] = useState('left');
+  const [generationMenuOpen, setGenerationMenuOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
   const [tab, setTab] = useState('canvas');
   const [pastWorks, setPastWorks] = useState([]);
@@ -255,6 +331,7 @@ export default function EcCanvas() {
   const imageList = parseImages(result.images || {}, result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
+  const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
 
   // toast helper
   const showToast = useCallback((msg, type = 'info') => {
@@ -264,13 +341,31 @@ export default function EcCanvas() {
 
   useEffect(() => {
     if (!hasCurrent) return;
-    const newNodes = autoLayout(imageList);
+    let restored = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem('shubao_ec_canvas_state') || 'null');
+      if (saved?.productName === result.product_name && Array.isArray(saved.nodes) && saved.nodes.length) restored = saved;
+    } catch {}
+    const newNodes = restored?.nodes || autoLayout(imageList);
     setNodes(newNodes);
+    if (restored?.connections) setConnections(restored.connections);
     requestAnimationFrame(() => {
       const next = fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
       if (next) setViewport(next);
     });
   }, [result.product_name, imageList.length]);
+
+  useEffect(() => {
+    if (!hasCurrent || !result.product_name || !nodes.length) return;
+    try {
+      localStorage.setItem('shubao_ec_canvas_state', JSON.stringify({
+        productName: result.product_name,
+        nodes,
+        connections,
+        savedAt: Date.now(),
+      }));
+    } catch {}
+  }, [hasCurrent, result.product_name, nodes, connections]);
 
   useEffect(() => {
     const load = async () => {
@@ -441,6 +536,7 @@ export default function EcCanvas() {
     const ids = multiSelected.has(id) ? multiSelected : new Set([id]);
     setSelected(ids.size === 1 ? id : null);
     setMultiSelected(ids);
+    setToolNodeId(id);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
   }, [multiSelected, toWorldPoint]);
 
@@ -570,6 +666,183 @@ export default function EcCanvas() {
         setNodes(ns => ns.filter(n => n.id !== node.id));
         setConnections(prev => removeConnectionsForNodes(prev, new Set([node.id])));
         break;
+    }
+  };
+
+  const handleToolAction = async (action, node) => {
+    if (!node) return;
+    setToolNodeId(node.id);
+    if (action === 'copy-url') {
+      navigator.clipboard?.writeText(node.url);
+      showToast('图片链接已复制', 'success');
+      return;
+    }
+    if (action === 'delete') {
+      await handleContextAction('delete', node);
+      setSelected(null);
+      return;
+    }
+    if (['rename', 'classify', 'remove-bg', 'reverse-prompt', 'edit-direction', 'download'].includes(action)) {
+      await handleContextAction(action, node);
+      return;
+    }
+    if (action === 'crop') {
+      setCropNode(node);
+      setCropRatio(node.ratio === '1:1' ? '1:1' : '3:4');
+      return;
+    }
+    if (action === 'annotation') {
+      setAnnotationNode(node);
+      setAnnotationText(node.annotations?.[0]?.text || '');
+      return;
+    }
+    if (action === 'grid-split') {
+      const parts = [0, 1, 2, 3].map(index => ({
+        ...node,
+        id: `${node.id}_grid_${index + 1}_${Date.now()}`,
+        assetId: `${node.assetId}_grid_${index + 1}`,
+        name: `${node.name || '电商图'}-宫格${index + 1}`,
+        displayLabel: `${node.name || '电商图'}-宫格${index + 1}`,
+        role: '宫格切片',
+        group: '素材',
+        sourceKey: `${node.sourceKey}_grid_${index + 1}`,
+        x: node.x + (index % 2) * (node.w + GAP),
+        y: node.y + Math.floor(index / 2) * (node.h + 76),
+        crop: { grid: 2, index },
+      }));
+      setNodes(prev => [...prev, ...parts]);
+      setConnections(prev => parts.reduce((acc, child) => addConnection(acc, node.id, child.id, 'variant'), prev));
+      showToast('已拆成 4 张宫格切片，可分别编辑和下载', 'success');
+      return;
+    }
+    if (action === 'layers') {
+      setNodes(prev => prev.map(n => n.id === node.id ? { ...n, layers: ['商品主体', '背景氛围', '卖点文案'], layerStatus: '结构已识别' } : n));
+      showToast('已标记图文结构，可继续做局部编辑', 'success');
+      return;
+    }
+    if (action === 'reference') {
+      setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
+      setComposerText('');
+      showToast('已加入引用素材，可继续补充生成要求', 'success');
+      return;
+    }
+    const prompts = {
+      retouch: '只修改局部细节，保留商品主体、材质、logo和整体构图：',
+      extend: '智能扩展画布，保持商品比例和光影一致，补全边缘空间：',
+      translate: '把画面中的文案翻译成目标语言，保持字体层级、版式和商品主体不变：',
+      upscale: '输出一张高清电商交付图，提升细节和清晰度，不改变商品外观：',
+    };
+    if (prompts[action]) {
+      setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
+      setComposerText(prompts[action]);
+      showToast(`已进入${ECOMMERCE_ACTIONS.find(item => item.id === action)?.label || '图片编辑'}流程`, 'info');
+    }
+  };
+
+  const handleSaveCrop = () => {
+    if (!cropNode) return;
+    setNodes(prev => prev.map(node => node.id === cropNode.id ? { ...node, ratio: cropRatio, crop: { ...(node.crop || {}), ratio: cropRatio } } : node));
+    setCropNode(null);
+    showToast(`已将画幅调整为 ${cropRatio}`, 'success');
+  };
+
+  const handleSaveAnnotation = () => {
+    if (!annotationNode) return;
+    const text = annotationText.trim();
+    setNodes(prev => prev.map(node => node.id === annotationNode.id ? { ...node, annotations: text ? [{ id: `annotation_${Date.now()}`, text, kind: '卖点标注' }] : [] } : node));
+    setAnnotationNode(null);
+    showToast(text ? '卖点标注已保存' : '卖点标注已清空', 'success');
+  };
+
+  const handleAlignSelected = (mode) => {
+    const selectedNodes = nodes.filter(node => multiSelected.has(node.id));
+    if (selectedNodes.length < 2) return;
+    const anchor = selectedNodes[0];
+    setNodes(prev => prev.map(node => {
+      if (!multiSelected.has(node.id) || node.id === anchor.id) return node;
+      if (mode === 'left') return { ...node, x: anchor.x };
+      if (mode === 'right') return { ...node, x: anchor.x + anchor.w - node.w };
+      if (mode === 'center') return { ...node, x: anchor.x + (anchor.w - node.w) / 2 };
+      if (mode === 'top') return { ...node, y: anchor.y };
+      if (mode === 'bottom') return { ...node, y: anchor.y + anchor.h - node.h };
+      return node;
+    }));
+    setAlignMode(mode);
+    showToast('已按电商排版规范对齐', 'success');
+  };
+
+  const handleExport = async () => {
+    const exportNodes = nodes.filter(node => multiSelected.size ? multiSelected.has(node.id) : true);
+    if (!exportNodes.length) return;
+    try {
+      if (exportMode === '合并为详情长图') {
+        const detailNodes = exportNodes.filter(node => node.group === '详情图');
+        if (detailNodes.length < 2) throw new Error('请至少选择 2 张详情图再合并');
+        const data = await stitchLongImage(detailNodes.map(node => node.url));
+        if (!data.url) throw new Error('详情长图合成失败');
+        const link = document.createElement('a');
+        link.href = proxyImg(data.url);
+        link.download = `${result.product_name || '商品'}-详情长图.png`;
+        link.click();
+        showToast('详情长图已导出', 'success');
+      } else if (exportMode === '素材包清单') {
+        const zip = new JSZip();
+        const manifest = exportNodes.map(node => ({ name: node.name, group: node.group, role: node.role, ratio: node.ratio, usage: node.usage, sourceDirectionId: node.sourceDirectionId || null }));
+        zip.file('素材清单.json', JSON.stringify({ product: result.product_name || '商品', platform: result.platform || '淘宝', assets: manifest }, null, 2));
+        for (const node of exportNodes) {
+          try {
+            const response = await fetch(proxyImg(node.url));
+            if (response.ok) zip.file(`${node.name || node.id}.${exportFormat.toLowerCase()}`, await response.blob());
+          } catch {}
+        }
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${result.product_name || '商品'}-电商素材包.zip`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        showToast('电商素材包已导出', 'success');
+      } else {
+        exportNodes.forEach(node => {
+          const link = document.createElement('a');
+          link.href = proxyImg(node.url);
+          link.download = `${node.name || node.id}.${exportFormat.toLowerCase()}`;
+          link.click();
+        });
+        showToast(`已导出 ${exportNodes.length} 张${exportFormat}素材`, 'success');
+      }
+      setExportOpen(false);
+    } catch (error) {
+      showToast(error.message || '导出失败', 'error');
+    }
+  };
+
+  const handleComposerGenerate = async () => {
+    if (!composerNodes.length || !composerText.trim() || promptLoading) return;
+    setPromptLoading(true);
+    try {
+      const source = composerNodes[0];
+      const url = await regenerateCanvasImage({ prompt: composerText, imageUrl: source.url, ratio: source.ratio });
+      const newNode = {
+        ...source,
+        id: `node_edit_${Date.now()}`,
+        assetId: `asset_edit_${Date.now()}`,
+        url,
+        name: `${source.name || '电商图'}-编辑稿`,
+        displayLabel: `${source.name || '电商图'}-编辑稿`,
+        sourceDirectionId: source.sourceDirectionId,
+        x: source.x + source.w + 56,
+        y: source.y,
+      };
+      setNodes(prev => [...prev, newNode]);
+      setConnections(prev => addConnection(prev, source.id, newNode.id, 'variant'));
+      setComposerNodes([]);
+      setComposerText('');
+      showToast('编辑稿已生成并加入画布', 'success');
+    } catch (error) {
+      showToast(error.message || '图片编辑失败', 'error');
+    } finally {
+      setPromptLoading(false);
     }
   };
 
@@ -776,6 +1049,9 @@ export default function EcCanvas() {
                   <MdCategory size={14} /> 批量分类
                 </div>
               )}
+              <div onClick={() => setExportOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 8, background: 'rgba(16,185,129,.10)', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                <MdFileDownload size={14} /> 交付导出
+              </div>
               {(selected || multiSelected.size > 0) && (
                 <div onClick={handleDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   <MdDelete size={14} /> 删除
@@ -834,6 +1110,7 @@ export default function EcCanvas() {
                 onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
               />
             ))}
+            {selectedNode && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
           </div>
 
           {marquee && (
@@ -847,6 +1124,20 @@ export default function EcCanvas() {
                 <button key={type} type="button" onClick={() => setConnectionDraft(prev => ({ ...prev, type }))} style={{ border: 0, borderRadius: 999, padding: '4px 8px', background: connectionDraft.type === type ? '#a78bfa' : 'rgba(255,255,255,.12)', color: '#fff', fontSize: 10, cursor: 'pointer' }}>{type === 'reference' ? '引用' : type === 'variant' ? '变体' : '合并'}</button>
               ))}
               <span style={{ opacity: .65 }}>点击目标节点左端口完成</span>
+            </div>
+          )}
+
+          {selectedNode && (
+            <div style={{ position: 'absolute', right: 18, top: '38%', zIndex: 45 }}>
+              <button type="button" onClick={() => setGenerationMenuOpen(v => !v)} style={{ width: 34, height: 34, borderRadius: '50%', border: 0, background: '#7c3aed', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', boxShadow: '0 8px 20px rgba(124,58,237,.28)' }}>+</button>
+              {generationMenuOpen && <div style={{ position: 'absolute', right: 44, top: -12, width: 190, background: '#fff', border: '1px solid rgba(15,23,42,.08)', borderRadius: 12, boxShadow: '0 14px 36px rgba(15,23,42,.16)', padding: 7 }}>
+                <div style={{ padding: '7px 9px', fontSize: 10, color: '#9ca3af' }}>引用该元素生成</div>
+                {[
+                  ['reference', '图片生成（编辑）', MdAddPhotoAlternate],
+                  ['text', '文本生成', MdTextFields],
+                  ['video', '视频分镜生成', MdViewQuilt],
+                ].map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { if (id === 'reference') handleToolAction('reference', selectedNode); else { setComposerNodes([selectedNode]); setComposerText(id === 'text' ? '根据当前商品图，生成一张电商卖点视觉图：' : '根据当前商品图，生成一条 9:16 电商视频分镜方案：'); } setGenerationMenuOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '9px', background: 'transparent', color: '#374151', fontSize: 11, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,.08)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}><Icon size={15} />{label}</button>)}
+              </div>}
             </div>
           )}
 
@@ -900,7 +1191,7 @@ export default function EcCanvas() {
           y={contextMenu.y}
           node={contextMenu.node}
           onClose={() => setContextMenu(null)}
-          onAction={handleContextAction}
+          onAction={handleToolAction}
         />
       )}
 
@@ -946,6 +1237,55 @@ export default function EcCanvas() {
           <div style={{ fontSize: 11, color: '#777', marginBottom: 8 }}>以当前图片为参考，保留商品本体，按你的修改生成新图。</div>
           <textarea value={promptText} onChange={e => setPromptText(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minHeight: 140, resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid rgba(0,0,0,.15)', font: '12px/1.6 inherit' }} />
           <button type="button" onClick={handlePromptRegenerate} disabled={promptLoading} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 8, padding: '10px 14px', background: '#1f2937', color: '#fff', fontWeight: 700, cursor: promptLoading ? 'wait' : 'pointer' }}>{promptLoading ? '正在生成…' : '按此方案生成'}</button>
+        </div>
+      )}
+
+      {composerNodes.length > 0 && (
+        <ReferenceComposer
+          references={composerNodes}
+          promptText={composerText}
+          setPromptText={setComposerText}
+          onRemoveReference={id => setComposerNodes(prev => prev.filter(node => node.id !== id))}
+          onGenerate={handleComposerGenerate}
+          loading={promptLoading}
+        />
+      )}
+
+      {cropNode && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: 360, background: '#fff', borderRadius: 15, padding: 18, boxShadow: '0 24px 70px rgba(15,23,42,.22)' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>裁切画幅</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 14 }}>用于适配平台主图、商品卡或详情模块</div>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
+              {[['1:1', '方形主图'], ['3:4', '竖版详情'], ['9:16', '短视频封面'], ['长图', '详情长图']].map(([ratio, label]) => <button key={ratio} type="button" onClick={() => setCropRatio(ratio)} style={{ border: 0, borderRadius: 9, padding: '9px 10px', background: cropRatio === ratio ? '#1f2937' : '#f3f4f6', color: cropRatio === ratio ? '#fff' : '#4b5563', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{label}<span style={{ display: 'block', fontSize: 9, opacity: .7, marginTop: 2 }}>{ratio}</span></button>)}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setCropNode(null)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" onClick={handleSaveCrop} style={{ border: 0, borderRadius: 8, padding: '9px 15px', background: '#7c3aed', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>应用画幅</button></div>
+          </div>
+        </div>
+      )}
+
+      {annotationNode && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: 420, background: '#fff', borderRadius: 15, padding: 18, boxShadow: '0 24px 70px rgba(15,23,42,.22)' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>卖点 / 尺寸标注</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 12 }}>适合添加“食品级材质”“容量 500ml”“防泼水”等购买决策信息</div>
+            <textarea value={annotationText} onChange={e => setAnnotationText(e.target.value)} rows={4} placeholder="请输入一条简短标注，例如：食品级 304 不锈钢" style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, fontSize: 12, resize: 'vertical' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 13 }}><button type="button" onClick={() => setAnnotationNode(null)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" onClick={handleSaveAnnotation} style={{ border: 0, borderRadius: 8, padding: '9px 15px', background: '#7c3aed', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>保存标注</button></div>
+          </div>
+        </div>
+      )}
+
+      {exportOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: 'min(500px,100%)', background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>电商素材交付</div><div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>按平台交付习惯导出单图、详情长图或素材包</div></div><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button></div>
+            <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+              {[['逐张导出', '每张图片按业务名称分别导出'], ['合并为详情长图', '将选中的详情图按顺序拼成长图'], ['素材包清单', '图片 + 分组 + 用途 + 方案来源一起打包']].map(([mode, desc]) => <button key={mode} type="button" onClick={() => setExportMode(mode)} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #7c3aed' : '1px solid #e5e7eb', borderRadius: 10, padding: '10px 12px', background: exportMode === mode ? 'rgba(124,58,237,.06)' : '#fff', cursor: 'pointer' }}><div style={{ fontSize: 12, fontWeight: 800, color: '#374151' }}>{mode}</div><div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>{desc}</div></button>)}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" onClick={() => setExportFormat(format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{format}</button>)}</div>
+            {multiSelected.size > 1 && <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 12, marginBottom: 14 }}><div style={{ fontSize: 11, fontWeight: 800, color: '#374151', marginBottom: 7 }}>选中素材排版</div><div style={{ display: 'flex', gap: 5 }}>{[['left', '左对齐'], ['center', '水平居中'], ['right', '右对齐'], ['top', '顶对齐'], ['bottom', '底对齐']].map(([mode, label]) => <button key={mode} type="button" onClick={() => handleAlignSelected(mode)} style={{ border: 0, borderRadius: 7, padding: '6px 7px', background: alignMode === mode ? 'rgba(124,58,237,.12)' : '#f3f4f6', color: alignMode === mode ? '#7c3aed' : '#666', fontSize: 10, cursor: 'pointer' }}>{label}</button>)}</div></div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" onClick={handleExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', background: '#047857', color: '#fff', fontWeight: 800, cursor: 'pointer' }}><MdFileDownload size={14} /> 确认导出</button></div>
+          </div>
         </div>
       )}
 
