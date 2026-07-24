@@ -1,7 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MdAutoAwesome, MdArrowBack, MdRefresh, MdCheck, MdAddPhotoAlternate } from 'react-icons/md';
+import { MdAutoAwesome, MdArrowBack, MdRefresh, MdCheck, MdEdit } from 'react-icons/md';
 import { getDesignDirections, generateEcommerce, saveWork, polishECText } from '../../../services/api';
 import { useApp } from '../../../store/AppContext';
+import { isInsufficientCreditsError } from '../../../services/apiError';
+import EcommerceWorkbench from './EcommerceWorkbench';
+import { buildSupplementDeck } from './workbenchState';
+
+function normalizeDirectionImages(images = []) {
+  const seen = new Set();
+  return images.map(image => typeof image === 'string' ? { url: image } : { ...(image || {}), url: image?.url || image?.src || image?.image_url || '' })
+    .filter(image => image.url && !seen.has(image.url) && seen.add(image.url));
+}
+
+async function supplementImageToDataUrl(image) {
+  if (!image?.url) return null;
+  if (image.url.startsWith('data:')) return image.url;
+  if (image.file instanceof File) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(image.file);
+    });
+  }
+  return image.url;
+}
 
 /* ═══════ 设计方向确认页（三段式第二步）═══ */
 export default function DesignDirection({ params, onBack, onGenerated }) {
@@ -19,9 +42,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
   // 补充输入
   const [extraDesc, setExtraDesc] = useState(params?.description || '');
-  // 补充上传图片
-  const [extraImages, setExtraImages] = useState([]);
-  const extraImgRef = useRef(null);
+  // 补充上传图片必须保持产品事实与视觉参考两条独立数据流。
+  const [extraProductImages, setExtraProductImages] = useState([]);
+  const [extraReferenceImages, setExtraReferenceImages] = useState([]);
+  const [blockedByCredits, setBlockedByCredits] = useState(false);
 
   useEffect(() => {
     loadDirections();
@@ -35,22 +59,17 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       const timer1 = setTimeout(() => setLoadStage(1), 2000);
       const timer2 = setTimeout(() => setLoadStage(2), 4000);
 
-      // 补充图片转 base64 并合并到 ref_shots
-      const extraBase64 = (await Promise.all(extraImages.map(img => new Promise(resolve => {
-        if (img.url.startsWith('data:')) { resolve(img.url); return; }
-        fetch(img.url).then(r => r.blob()).then(blob => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(blob);
-        }).catch(() => resolve(null));
-      })))).filter(Boolean);
+      const [extraProductBase64, extraReferenceBase64] = await Promise.all([
+        Promise.all(extraProductImages.map(supplementImageToDataUrl)),
+        Promise.all(extraReferenceImages.map(supplementImageToDataUrl)),
+      ]);
 
       const res = await getDesignDirections({
         product_name: params?.productName || params?.description?.slice(0, 20) || '商品',
         description: extraDesc || params?.description || '',
         category: params?.category || '其他',
-        real_shots: params?.realShots || [],
-        ref_shots: [...(params?.refShots || []), ...extraBase64],
+        real_shots: [...(params?.realShots || []), ...extraProductBase64.filter(Boolean)],
+        ref_shots: [...(params?.refShots || []), ...extraReferenceBase64.filter(Boolean)],
         platform: params?.platform || 'smart',
         style_skill: params?.styleSkill || 'smart',
         product_params: params?.productParams || {},
@@ -87,15 +106,19 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   };
 
   /* ── 补充图片上传 ── */
-  const handleExtraImgUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    setExtraImages(prev => [...prev, ...files.map(f => ({ url: URL.createObjectURL(f), file: f }))]);
+  const appendSupplementImages = (event, type) => {
+    const files = Array.from(event.target.files || []);
+    const additions = files.map(file => ({ url: URL.createObjectURL(file), file }));
+    if (type === 'product') setExtraProductImages(prev => [...prev, ...additions]);
+    else setExtraReferenceImages(prev => [...prev, ...additions]);
+    event.target.value = '';
   };
-  const removeExtraImg = (idx) => {
-    setExtraImages(prev => {
-      const removed = prev[idx];
+  const removeSupplementImage = (type, index) => {
+    const setter = type === 'product' ? setExtraProductImages : setExtraReferenceImages;
+    setter(prev => {
+      const removed = prev[index];
       if (removed?.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
-      return prev.filter((_, i) => i !== idx);
+      return prev.filter((_, itemIndex) => itemIndex !== index);
     });
   };
 
@@ -103,9 +126,14 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const handleConfirm = async () => {
     if (generating) return;
     setGenerating(true);
+    setBlockedByCredits(false);
     setGenProgress('正在生成…');
     setGenStage(0);
     try {
+      const [extraProductPayload, extraReferencePayload] = await Promise.all([
+        Promise.all(extraProductImages.map(supplementImageToDataUrl)),
+        Promise.all(extraReferenceImages.map(supplementImageToDataUrl)),
+      ]);
       const dir = directions[selected];
       const directionBrief = [dir?.title, dir?.one_liner, dir?.description].filter(Boolean).join('。');
       const result = await generateEcommerce({
@@ -113,8 +141,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         category: params?.category || '其他',
         points: [params?.copywriting?.sellingPoints || params?.description || '', directionBrief].filter(Boolean).join('。设计方向：'),
         platform: params?.platform || '淘宝',
-        refImgs: [...(params?.refShots || []), ...extraImages.map(img => img.url)],
-        realShots: [...(params?.realShots || []), ...((params?.productImages || []).map(img => typeof img === 'string' ? img : img.url))],
+        refImgs: [...(params?.refShots || []), ...extraReferencePayload.filter(Boolean)],
+        realShots: [...(params?.realShots || []), ...((params?.productImages || []).map(image => typeof image === 'string' ? image : image.url)), ...extraProductPayload.filter(Boolean)],
         skus: params?.skus || [],
         detailPlan: params?.copywriting?.detailPlan || {},
         maintenance: params?.copywriting?.maintenance || '',
@@ -163,12 +191,27 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         // 存储结果到全局 state 并跳转到画布
         dispatch({ type: 'SET_RESULT', result: finalResult });
         dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+        dispatch({ type: 'CLEAR_PAYWALL' });
         onGenerated?.();
       } else {
         setError('生成失败，请重试');
       }
     } catch (e) {
-      setError(e.message || '生成失败');
+      if (isInsufficientCreditsError(e)) {
+        setBlockedByCredits(true);
+        setError('');
+        dispatch({
+          type: 'OPEN_PAYWALL',
+          tab: 'ecommerce',
+          reason: 'INSUFFICIENT_CREDITS',
+          pendingAction: {
+            source: 'ecommerce-direction',
+            message: '你选择的设计方向、修改后的方案说明、补充图片和提示词都已保留。',
+          },
+        });
+      } else {
+        setError(e.message || '生成失败');
+      }
     }
     setGenerating(false);
     setGenProgress('');
@@ -180,6 +223,17 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     { label: 'VLM 解析参考图', desc: '提取光影氛围、布景调性...' },
     { label: '生成设计方案', desc: 'AI 设计师构思差异化方向...' },
   ];
+
+  const inheritedProductImages = normalizeDirectionImages([...(params?.realShots || []), ...(params?.productImages || [])]);
+  const inheritedReferenceImages = normalizeDirectionImages(params?.refShots || []);
+  const supplementDeck = buildSupplementDeck({
+    inheritedProductImages,
+    addedProductImages: extraProductImages,
+    inheritedReferenceImages,
+    addedReferenceImages: extraReferenceImages,
+  });
+  const inheritedProductCount = inheritedProductImages.length;
+  const inheritedReferenceCount = inheritedReferenceImages.length;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100 }}>
@@ -260,212 +314,71 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         {!loading && directions.length > 0 && (
           <>
             {/* 2×2 对称布局 */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 24 }}>
+            <div role="radiogroup" aria-label="选择一个设计方向" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 24 }}>
               {directions.map((dir, i) => {
                 const active = selected === i;
-                // 使用方向自身的配色，确保每个卡片有独特的色调
-                const primaryColor = dir.preview_colors?.[0] || '#7c3aed';
-                const secondaryColor = dir.preview_colors?.[1] || '#a78bfa';
+                const rawPrimary = dir.preview_colors?.[0] || '#7c3aed';
+                const accent = /^#[0-9a-f]{6}$/i.test(rawPrimary) ? rawPrimary : '#7c3aed';
+                const secondary = /^#[0-9a-f]{6}$/i.test(dir.preview_colors?.[1] || '') ? dir.preview_colors[1] : '#a78bfa';
                 return (
-                  <div key={dir.id} onClick={() => setSelected(i)}
-                    style={{
-                      background: '#fff', borderRadius: 16, padding: 0,
-                      cursor: 'pointer', overflow: 'hidden',
-                      border: `2px solid ${active ? primaryColor : 'rgba(0,0,0,0.06)'}`,
-                      boxShadow: active ? `0 4px 20px ${primaryColor}30` : '0 2px 8px rgba(0,0,0,0.04)',
-                      transition: 'all 0.2s',
-                      position: 'relative',
-                    }}>
-                    {/* 色调预览条 - 使用方向自身的配色 */}
-                    <div style={{
-                      height: 8,
-                      background: dir.preview_colors?.length >= 2
-                        ? `linear-gradient(90deg, ${dir.preview_colors.slice(0, 4).join(', ')})`
-                        : `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})`,
-                    }} />
-
-                    <div style={{ padding: '16px 18px' }}>
-                      {/* 标题 + 选中标记 */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <input value={dir.title || ''} onClick={event => event.stopPropagation()} onChange={event => updateDirection(i, 'title', event.target.value)} aria-label="方案名称" style={{ width: 'calc(100% - 30px)', border: 0, borderBottom: '1px solid transparent', outline: 'none', padding: '2px 0', background: 'transparent', font: '800 15px/1.3 inherit', color: '#1a1a1a' }} onFocus={event => { event.currentTarget.style.borderBottomColor = primaryColor; }} onBlur={event => { event.currentTarget.style.borderBottomColor = 'transparent'; }} />
-                        {active && (
-                          <div style={{
-                            width: 22, height: 22, borderRadius: '50%',
-                            background: primaryColor, color: '#fff',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}><MdCheck size={14} /></div>
-                        )}
+                  <div key={dir.id || i} role="radio" aria-checked={active} tabIndex={0}
+                    onClick={() => setSelected(i)}
+                    onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(i); } }}
+                    style={{ background: active ? `linear-gradient(180deg, #fff 0%, ${accent}0D 100%)` : '#fff', borderRadius: 16, padding: 0, cursor: 'pointer', overflow: 'hidden', border: `2px solid ${active ? accent : 'rgba(0,0,0,0.08)'}`, boxShadow: active ? `0 8px 28px ${accent}24` : '0 2px 8px rgba(0,0,0,0.04)', transition: 'border-color .18s, box-shadow .18s, transform .18s', position: 'relative', outline: 'none' }}>
+                    <div style={{ height: 8, background: dir.preview_colors?.length >= 2 ? `linear-gradient(90deg, ${dir.preview_colors.slice(0, 4).join(', ')})` : `linear-gradient(90deg, ${accent}, ${secondary})` }} />
+                    <div style={{ padding: '16px 18px 18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+                        <div>
+                          <div style={{ font: '800 15px/1.3 inherit', color: '#1a1a1a' }}>{dir.title || `设计方向 ${i + 1}`}</div>
+                          <div style={{ marginTop: 4, fontSize: 10, color: '#8a8177' }}>方向名称由 AI 定义，修改下面的执行说明即可</div>
+                        </div>
+                        <div style={{ flexShrink: 0, minWidth: 64, height: 24, borderRadius: 999, padding: '0 8px', border: `1px solid ${active ? accent : 'rgba(0,0,0,.12)'}`, background: active ? accent : '#fff', color: active ? '#fff' : '#8a8177', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 10, fontWeight: 800 }}>
+                          {active ? <><MdCheck size={13} />已选择</> : '点击选择'}
+                        </div>
                       </div>
-
-                      {/* 一句话描述 */}
-                      {dir.one_liner && (
-                        <div style={{ 
-                          fontSize: 12, fontWeight: 600, 
-                          color: primaryColor,
-                          marginBottom: 8,
-                          padding: '4px 10px',
-                          background: `${primaryColor}10`,
-                          borderRadius: 8,
-                          display: 'inline-block',
-                        }}>
-                          {dir.one_liner}
-                        </div>
-                      )}
-
-                      {/* 视觉调性标签 */}
-                      {dir.visual_tone && (
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
-                          {dir.visual_tone.split(/[·/、]/).slice(0, 3).map((t, j) => (
-                            <span key={j} style={{
-                              padding: '2px 8px', borderRadius: 6,
-                              background: active ? `${primaryColor}12` : 'rgba(0,0,0,0.03)',
-                              fontSize: 10, fontWeight: 600, 
-                              color: active ? primaryColor : 'var(--text-muted)',
-                            }}>{t.trim()}</span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* 简洁描述 - 不使用省略号 */}
-                      <textarea value={dir.description || dir.short_desc || ''} onClick={event => event.stopPropagation()} onChange={event => updateDirection(i, 'description', event.target.value)} aria-label="编辑方案说明" style={{ width: '100%', minHeight: 62, boxSizing: 'border-box', resize: 'vertical', border: '1px solid transparent', borderRadius: 6, background: 'transparent', outline: 'none', padding: 5, margin: '-5px', font: '12px/1.5 inherit', color: 'var(--text-secondary)' }} onFocus={event => { event.currentTarget.style.borderColor = `${primaryColor}55`; event.currentTarget.style.background = '#fff'; }} onBlur={event => { event.currentTarget.style.borderColor = 'transparent'; event.currentTarget.style.background = 'transparent'; }} />
-
-                      {/* 色块预览 */}
-                      {dir.preview_colors?.length > 0 && (
-                        <div style={{ display: 'flex', gap: 6, marginTop: 12, alignItems: 'center' }}>
-                          <span style={{ fontSize: 10, color: '#999', marginRight: 4 }}>配色:</span>
-                          {dir.preview_colors.slice(0, 5).map((c, j) => (
-                            <div key={j} style={{
-                              width: 20, height: 20, borderRadius: '50%',
-                              background: c, border: '2px solid #fff',
-                              boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                            }} />
-                          ))}
-                        </div>
-                      )}
+                      {dir.one_liner && <div style={{ fontSize: 12, fontWeight: 700, color: '#554c43', marginBottom: 9, padding: '5px 10px', background: '#F7F4EE', borderRadius: 8, display: 'inline-block' }}>{dir.one_liner}</div>}
+                      {dir.visual_tone && <div aria-label="视觉标签" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>{dir.visual_tone.split(/[·/、]/).map(tag => tag.trim()).filter(Boolean).slice(0, 3).map((tag, tagIndex) => <span key={`${tag}-${tagIndex}`} style={{ padding: '3px 8px', borderRadius: 999, background: '#F3F1ED', border: '1px solid #E7E2DA', fontSize: 10, fontWeight: 700, color: '#5F574F', pointerEvents: 'none' }}>{tag}</span>)}</div>}
+                      <div onClick={event => event.stopPropagation()} style={{ border: '1px solid #DED7CC', background: '#FFFEFC', borderRadius: 10, padding: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7, fontSize: 11, fontWeight: 800, color: '#6B5E50' }}><MdEdit size={13} />执行说明可编辑<span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 500, color: '#A49A8F' }}>生成前可继续加工</span></div>
+                        <textarea value={dir.description || dir.short_desc || ''} onChange={event => updateDirection(i, 'description', event.target.value)} onFocus={() => setSelected(i)} aria-label={`编辑${dir.title || `方向 ${i + 1}`}的执行说明`} style={{ width: '100%', minHeight: 72, boxSizing: 'border-box', resize: 'vertical', border: '1px solid #E5DED5', borderRadius: 8, background: '#fff', outline: 'none', padding: '9px 10px', font: '12px/1.6 inherit', color: '#3E3934' }} />
+                      </div>
+                      {dir.preview_colors?.length > 0 && <div style={{ display: 'flex', gap: 6, marginTop: 12, alignItems: 'center' }}><span style={{ fontSize: 10, color: '#999', marginRight: 4 }}>配色</span>{dir.preview_colors.slice(0, 5).map((color, colorIndex) => <div key={colorIndex} title={color} style={{ width: 20, height: 20, borderRadius: '50%', background: color, border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,.12)' }} />)}</div>}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* ── 底部二次调整区 ── */}
-            <div style={{
-              background: '#fff', borderRadius: 16, padding: '18px 20px',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-              border: '1px solid rgba(0,0,0,0.06)',
-              marginBottom: 20,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', marginBottom: 12 }}>补充调整</div>
+            {/* ── 补充素材与调整：复用第一步工作台 ── */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: '16px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', marginBottom: 20 }}>
+              <EcommerceWorkbench
+                productImages={supplementDeck.productImages}
+                refImages={supplementDeck.referenceImages}
+                description={extraDesc}
+                onDescriptionChange={value => { setExtraDesc(value); setBlockedByCredits(false); }}
+                onProductUpload={event => appendSupplementImages(event, 'product')}
+                onReferenceUpload={event => appendSupplementImages(event, 'reference')}
+                onRemoveProduct={index => { if (index >= inheritedProductCount) removeSupplementImage('product', index - inheritedProductCount); }}
+                onRemoveReference={index => { if (index >= inheritedReferenceCount) removeSupplementImage('reference', index - inheritedReferenceCount); }}
+                heading="补充素材与调整方向"
+                subheading="第一步素材已经带入；还可以补充商品角度、竞品风格或新的生成要求。"
+                promptTitle="补充你希望调整的画面、卖点或场景"
+                promptExamples={['例：主图更突出材质和尺寸感，减少装饰元素', '例：参考竞品构图，但保留我的品牌配色和商品结构']}
+              />
 
-              {/* 双列上传：产品图 + 参考图 */}
-              <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-                {/* 补充产品图 - 左歪 */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#7c3aed', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span>📸</span> 补充产品图
-                    <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>· 多角度拍摄，提升生成效果</span>
-                  </div>
-                  <div style={{
-                    transform: 'rotate(-1.5deg)',
-                    borderRadius: 12,
-                    background: 'linear-gradient(135deg, #FAF7F2 0%, #F5F0FF 100%)',
-                    border: '2px dashed rgba(124,58,237,0.2)',
-                    padding: 10,
-                    minHeight: 80,
-                  }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', transform: 'rotate(1.5deg)' }}>
-                      {extraImages.filter((_, i) => i % 2 === 0).map((img, i) => (
-                        <div key={i} style={{ position: 'relative' }}>
-                          <img src={img.url} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)' }} />
-                          <div onClick={() => setExtraImages(prev => prev.filter((_, idx) => idx !== i * 2))}
-                            style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, cursor: 'pointer' }}>×</div>
-                        </div>
-                      ))}
-                      <div onClick={() => extraImgRef.current?.click()}
-                        style={{ width: 52, height: 52, borderRadius: 8, border: '2px dashed rgba(124,58,237,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', transition: 'all 0.15s', background: '#fff' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.background = 'rgba(124,58,237,0.05)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,0.25)'; e.currentTarget.style.background = '#fff'; }}>
-                        <MdAddPhotoAlternate size={14} style={{ color: '#7c3aed' }} />
-                        <span style={{ fontSize: 8, color: '#7c3aed', fontWeight: 600 }}>添加</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 补充参考图 - 右歪 */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#ec4899', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span>🎨</span> 补充参考图
-                    <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>· 竞品/爆款风格参考</span>
-                  </div>
-                  <div style={{
-                    transform: 'rotate(1.5deg)',
-                    borderRadius: 12,
-                    background: 'linear-gradient(135deg, #FFF5F7 0%, #FDF2F8 100%)',
-                    border: '2px dashed rgba(236,72,153,0.2)',
-                    padding: 10,
-                    minHeight: 80,
-                  }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', transform: 'rotate(-1.5deg)' }}>
-                      {extraImages.filter((_, i) => i % 2 === 1).map((img, i) => (
-                        <div key={i} style={{ position: 'relative' }}>
-                          <img src={img.url} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)' }} />
-                          <div onClick={() => setExtraImages(prev => prev.filter((_, idx) => idx !== i * 2 + 1))}
-                            style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, cursor: 'pointer' }}>×</div>
-                        </div>
-                      ))}
-                      <div onClick={() => extraImgRef.current?.click()}
-                        style={{ width: 52, height: 52, borderRadius: 8, border: '2px dashed rgba(236,72,153,0.25)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, cursor: 'pointer', transition: 'all 0.15s', background: '#fff' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#ec4899'; e.currentTarget.style.background = 'rgba(236,72,153,0.05)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(236,72,153,0.25)'; e.currentTarget.style.background = '#fff'; }}>
-                        <MdAddPhotoAlternate size={14} style={{ color: '#ec4899' }} />
-                        <span style={{ fontSize: 8, color: '#ec4899', fontWeight: 600 }}>添加</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <input ref={extraImgRef} type="file" accept="image/*" multiple hidden onChange={handleExtraImgUpload} />
-              </div>
-
-              {/* 补充描述 + AI 润色 */}
-              <div style={{ position: 'relative' }}>
-                <textarea value={extraDesc} onChange={e => setExtraDesc(e.target.value)}
-                  placeholder="补充描述或修改需求…AI 会根据你的调整重新优化方向"
-                  style={{
-                    width: '100%', minHeight: 64, padding: '10px 14px', paddingRight: 90, borderRadius: 10,
-                    border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.01)',
-                    fontSize: 13, lineHeight: 1.6, color: '#1a1a1a',
-                    outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box',
-                  }} />
-                {/* AI 润色按钮 */}
-                <div onClick={handlePolish}
-                  style={{
-                    position: 'absolute', right: 8, top: 8,
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '5px 10px', borderRadius: 8,
-                    background: polishing ? '#e5e5e5' : 'linear-gradient(135deg, #7c3aed, #a78bfa)',
-                    color: '#fff', fontSize: 11, fontWeight: 700, cursor: polishing ? 'wait' : 'pointer',
-                    transition: 'all 0.15s', whiteSpace: 'nowrap',
-                    opacity: extraDesc.trim() ? 1 : 0.4, pointerEvents: extraDesc.trim() ? 'auto' : 'none',
-                  }}>
-                  <MdAutoAwesome size={12} style={{ animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
-                  {polishing ? '润色中…' : 'AI 润色'}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 11, color: '#8A8177', lineHeight: 1.5 }}>已带入素材不可在这里删除；“本轮新增”素材可随时移除，不影响第一步内容。</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={handlePolish} disabled={!extraDesc.trim() || polishing} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: '1px solid #DED7CC', background: '#fff', color: '#5F574F', fontSize: 12, fontWeight: 700, cursor: !extraDesc.trim() || polishing ? 'not-allowed' : 'pointer', opacity: !extraDesc.trim() ? .45 : 1 }}>
+                    <MdAutoAwesome size={13} />{polishing ? '润色中…' : 'AI 润色补充说明'}
+                  </button>
+                  <button type="button" onClick={loadDirections} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: 0, background: '#1F2937', color: '#fff', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}>
+                    <MdRefresh size={14} />重新分析四个方向
+                  </button>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <div onClick={loadDirections}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '8px 16px', borderRadius: 10,
-                    border: '1.5px solid rgba(0,0,0,0.1)',
-                    cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                    color: 'var(--text-secondary)', transition: 'all 0.15s',
-                  }}>
-                  <MdRefresh size={14} /> 重新生成方向
-                </div>
-              </div>
+              {blockedByCredits && <div style={{ marginTop: 12, borderRadius: 12, padding: '10px 12px', background: '#FFF8E7', border: '1px solid #F4D88A', color: '#73510D', fontSize: 12 }}>当前方案和补充内容已经保留。完成充值后，直接点击下方“继续生成”即可。</div>}
             </div>
 
             {/* ── 确认按钮 ── */}
@@ -484,7 +397,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 {generating ? (
                   <><MdAutoAwesome size={18} style={{ animation: 'spin 1s linear infinite' }} /> {genProgress || '正在生成图片，请稍候…'}</>
                 ) : (
-                  <>确认方向，开始生成 <span style={{ fontSize: 18 }}>→</span></>
+                  <>{blockedByCredits ? '继续生成' : '确认方向，开始生成'} <span style={{ fontSize: 18 }}>→</span></>
                 )}
               </button>
             </div>

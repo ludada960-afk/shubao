@@ -41,3 +41,21 @@ export function summarizePackage({ platform = 'smart', images = [] } = {}) {
   const imageCount = images.reduce((total, item) => total + (item?.count || 0), 0);
   return imageCount ? `${imageCount} 张套图` : '自定义套图方案';
 }
+
+function normalizeSupplementImage(image, locked, status) {
+  const value = typeof image === 'string' ? { url: image } : { ...(image || {}) };
+  return { ...value, url: value.url || value.src || value.image_url || '', locked, status };
+}
+
+export function buildSupplementDeck({ inheritedProductImages = [], addedProductImages = [], inheritedReferenceImages = [], addedReferenceImages = [] } = {}) {
+  return {
+    productImages: [
+      ...inheritedProductImages.map(image => normalizeSupplementImage(image, true, '已带入')),
+      ...addedProductImages.map(image => normalizeSupplementImage(image, false, '本轮新增')),
+    ].filter(image => image.url),
+    referenceImages: [
+      ...inheritedReferenceImages.map(image => normalizeSupplementImage(image, true, '已带入')),
+      ...addedReferenceImages.map(image => normalizeSupplementImage(image, false, '本轮新增')),
+    ].filter(image => image.url),
+  };
+}

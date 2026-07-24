@@ -7,9 +7,12 @@ function ImageCard({ role, image, label, index, onRemove }) {
     <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
       <img src={image.url} alt={label} />
       <span className="ec-xhs-card-caption">{label}</span>
-      <button type="button" className="ec-xhs-card-remove" aria-label={`移除${label}`} onClick={() => onRemove(index)}>
-        <X size={10} />
-      </button>
+      {image.status && <span style={{ position: 'absolute', left: 6, top: 6, padding: '2px 6px', borderRadius: 999, background: image.locked ? 'rgba(17,24,39,.76)' : 'rgba(180,83,9,.86)', color: '#fff', fontSize: 8, fontWeight: 800 }}>{image.status}</span>}
+      {!image.locked && (
+        <button type="button" className="ec-xhs-card-remove" aria-label={`移除${label}`} onClick={() => onRemove(index)}>
+          <X size={10} />
+        </button>
+      )}
     </div>
   );
 }
@@ -34,6 +37,10 @@ export default function EcommerceWorkbench({
   onReferenceUpload,
   onRemoveProduct,
   onRemoveReference,
+  heading = '上传商品素材，生成整套电商视觉',
+  subheading = '先放入一张清晰商品图；补充角度或参考图，能让画面更贴近你的商品。',
+  promptTitle = '描述想生成的商品视觉，一句话就够了',
+  promptExamples = ['例：为白色陶瓷杯生成高级简约的电商详情页', '例：保留商品结构，换成清透夏日场景'],
 }) {
   const productInputRef = useRef(null);
   const referenceInputRef = useRef(null);
@@ -43,8 +50,8 @@ export default function EcommerceWorkbench({
   return (
     <section className="ec-workbench" aria-label="电商生图工作台">
       <div className="ec-workbench-heading">
-        <strong>上传商品素材，生成整套电商视觉</strong>
-        <span>先放入一张清晰商品图；补充角度或参考图，能让画面更贴近你的商品。</span>
+        <strong>{heading}</strong>
+        <span>{subheading}</span>
       </div>
 
       <div className="ec-xhs-composer">
@@ -93,9 +100,8 @@ export default function EcommerceWorkbench({
         <div className="ec-textarea-wrap ec-xhs-prompt">
           {!description && (
             <div className="ec-textarea-placeholder ec-xhs-placeholder">
-              <span className="ec-placeholder-line"><span className="ec-cursor ec-xhs-cursor" aria-hidden="true" />描述想生成的商品视觉，一句话就够了</span>
-              <span className="ec-placeholder-line ec-xhs-example-first">例：为白色陶瓷杯生成高级简约的电商详情页</span>
-              <span className="ec-placeholder-line">例：保留商品结构，换成清透夏日场景</span>
+              <span className="ec-placeholder-line"><span className="ec-cursor ec-xhs-cursor" aria-hidden="true" />{promptTitle}</span>
+              {promptExamples.slice(0, 2).map((example, index) => <span key={example} className={`ec-placeholder-line ${index === 0 ? 'ec-xhs-example-first' : ''}`}>{example}</span>)}
             </div>
           )}
           <textarea

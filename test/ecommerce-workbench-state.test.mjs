@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PRODUCT_SLOT_PLAN,
+  buildSupplementDeck,
   buildUploadDeck,
   createWorkbenchState,
   nextProductSlot,
@@ -51,4 +52,21 @@ test('upload deck keeps two starter cards while later uploads enter scrollable r
     productRail: ['a', 'b'],
     referenceRail: ['r'],
   });
+});
+
+test('supplement deck keeps inherited and newly added product/reference images independent', () => {
+  const deck = buildSupplementDeck({
+    inheritedProductImages: ['/product-old.png'],
+    addedProductImages: [{ url: '/product-new.png' }],
+    inheritedReferenceImages: ['/reference-old.png'],
+    addedReferenceImages: [{ url: '/reference-new.png' }],
+  });
+  assert.deepEqual(deck.productImages.map(image => [image.url, image.locked, image.status]), [
+    ['/product-old.png', true, '已带入'],
+    ['/product-new.png', false, '本轮新增'],
+  ]);
+  assert.deepEqual(deck.referenceImages.map(image => [image.url, image.locked, image.status]), [
+    ['/reference-old.png', true, '已带入'],
+    ['/reference-new.png', false, '本轮新增'],
+  ]);
 });
