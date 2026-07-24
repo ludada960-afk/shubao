@@ -121,11 +121,30 @@ export function moveSelectedNodes(nodes, selectedIds, dx, dy) {
 
 export function addConnection(connections, from, to, type = 'reference') {
   if (!from || !to || from === to) return connections;
-  if (connections.some(edge => edge.from === from && edge.to === to && edge.type === type)) return connections;
-  return [...connections, { from, to, type }];
+  if (connections.some(edge => {
+    const edgeFrom = edge.fromNodeId || edge.from;
+    const edgeTo = edge.toNodeId || edge.to;
+    const edgeRelation = edge.relation || edge.type;
+    return edgeFrom === from && edgeTo === to && edgeRelation === type;
+  })) return connections;
+  return [...connections, {
+    id: `edge_${from}_${to}_${type}`,
+    fromNodeId: from,
+    fromPort: 'output',
+    toNodeId: to,
+    toPort: 'input',
+    relation: type,
+    from,
+    to,
+    type,
+  }];
 }
 
 export function removeConnectionsForNodes(connections, ids) {
   const set = ids instanceof Set ? ids : new Set(ids || []);
-  return connections.filter(edge => !set.has(edge.from) && !set.has(edge.to));
+  return connections.filter(edge => {
+    const from = edge.fromNodeId || edge.from;
+    const to = edge.toNodeId || edge.to;
+    return !set.has(from) && !set.has(to);
+  });
 }
