@@ -5,12 +5,35 @@ import {
   bindNonPassiveWheel,
   canStitch,
   fitViewport,
+  getCanvasPointerIntent,
+  canvasCursorForState,
   moveSelectedNodes,
   normalizeAsset,
   removeConnectionsForNodes,
   selectNodesInRect,
   zoomAroundCursor,
 } from '../src/pages/EcCanvas/canvasState.js';
+
+
+test('plain left drag pans the canvas while Shift drag starts marquee selection', () => {
+  assert.equal(getCanvasPointerIntent({ button: 0 }), 'pan');
+  assert.equal(getCanvasPointerIntent({ button: 0, shiftKey: true }), 'marquee');
+  assert.equal(getCanvasPointerIntent({ button: 1 }), 'pan');
+  assert.equal(getCanvasPointerIntent({ button: 0, altKey: true }), 'pan');
+  assert.equal(getCanvasPointerIntent({ button: 0, spaceKey: true }), 'pan');
+});
+
+test('canvas controls do not start pan or marquee gestures', () => {
+  assert.equal(getCanvasPointerIntent({ button: 0, isInteractive: true }), 'ignore');
+  assert.equal(getCanvasPointerIntent({ button: 2 }), 'ignore');
+});
+
+test('canvas cursor communicates pan and marquee modes', () => {
+  assert.equal(canvasCursorForState({ pointerKind: null, shiftKey: false }), 'grab');
+  assert.equal(canvasCursorForState({ pointerKind: 'pan' }), 'grabbing');
+  assert.equal(canvasCursorForState({ pointerKind: 'marquee' }), 'crosshair');
+  assert.equal(canvasCursorForState({ pointerKind: null, shiftKey: true }), 'crosshair');
+});
 
 test('binds canvas wheel handling as non-passive and removes it cleanly', () => {
   const calls = [];

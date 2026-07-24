@@ -8,7 +8,9 @@ import {
   addConnection,
   bindNonPassiveWheel,
   canStitch,
+  canvasCursorForState,
   fitViewport,
+  getCanvasPointerIntent,
   getAssetMeta,
   moveSelectedNodes,
   normalizeAsset,
@@ -295,6 +297,8 @@ export default function EcCanvas() {
   const [multiSelected, setMultiSelected] = useState(new Set());
   const [connections, setConnections] = useState([]);
   const [pointerMode, setPointerMode] = useState(null);
+  const [spacePressed, setSpacePressed] = useState(false);
+  const [shiftPressed, setShiftPressed] = useState(false);
   const [marquee, setMarquee] = useState(null);
   const [connectionDraft, setConnectionDraft] = useState(null);
   const [activeFilter, setActiveFilter] = useState('全部');
@@ -430,6 +434,12 @@ export default function EcCanvas() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+      if (e.code === 'Space' && !isTyping && tab === 'canvas') {
+        e.preventDefault();
+        setSpacePressed(true);
+      }
+      if (e.key === 'Shift' && tab === 'canvas') setShiftPressed(true);
       // Esc: 取消所有选中/连线/菜单
       if (e.key === 'Escape') {
         setConnectionDraft(null);
@@ -469,8 +479,19 @@ export default function EcCanvas() {
         return;
       }
     };
+    const handleKeyUp = (e) => {
+      if (e.code === 'Space') setSpacePressed(false);
+      if (e.key === 'Shift') setShiftPressed(false);
+    };
+    const handleWindowBlur = () => { setSpacePressed(false); setShiftPressed(false); };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
   }, [tab, selected, multiSelected, nodes]);
 
   // B3: 清理 wheel RAF
@@ -487,20 +508,29 @@ export default function EcCanvas() {
   }, [viewport.x, viewport.y, viewport.scale]);
 
   const handlePointerDown = useCallback((e) => {
-    if (e.button !== 0) return;
-    const point = toWorldPoint(e);
-    const additive = e.ctrlKey || e.metaKey;
-    const panRequested = e.button === 1 || e.altKey || e.getModifierState?.(' ') || e.shiftKey === false && e.target?.dataset?.canvasPan === 'true';
-    if (!panRequested) {
-      setPointerMode({ kind: 'marquee', start: point, additive });
+    const interactiveTarget = e.target?.closest?.('button,input,textarea,select,a,[contenteditable="true"],[data-canvas-control="true"]');
+    const intent = getCanvasPointerIntent({
+      button: e.button,
+      shiftKey: e.shiftKey,
+      altKey: e.altKey,
+      spaceKey: spacePressed,
+      isInteractive: Boolean(interactiveTarget),
+    });
+    if (intent === 'ignore') return;
+    e.preventDefault();
+    if (intent === 'marquee') {
+      const point = toWorldPoint(e);
+      setPointerMode({ kind: 'marquee', start: point, additive: e.ctrlKey || e.metaKey });
       setMarquee({ x: point.x, y: point.y, w: 0, h: 0 });
     } else {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
       setSelected(null);
       setMultiSelected(new Set());
+      setToolNodeId(null);
+      setContextMenu(null);
     }
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [toWorldPoint, viewport.x, viewport.y]);
+  }, [spacePressed, toWorldPoint, viewport.x, viewport.y]);
 
   const handlePointerMove = useCallback((e) => {
     if (!pointerMode) return;
@@ -1142,10 +1172,11 @@ export default function EcCanvas() {
       {tab === 'canvas' ? (
         <div
           ref={containerRef}
-          style={{ flex: 1, position: 'relative', overflow: 'hidden', backgroundColor: '#f6f5f2', backgroundImage: 'radial-gradient(rgba(58, 50, 39, .16) 1px, transparent 1px)', backgroundSize: '18px 18px' }}
+          style={{ flex: 1, position: 'relative', overflow: 'hidden', backgroundColor: '#f6f5f2', backgroundImage: 'radial-gradient(rgba(58, 50, 39, .16) 1px, transparent 1px)', backgroundSize: '18px 18px', cursor: canvasCursorForState({ pointerKind: pointerMode?.kind, shiftKey: shiftPressed }), userSelect: 'none', touchAction: 'none' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
           {!hasCurrent && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -1216,7 +1247,7 @@ export default function EcCanvas() {
 
           {/* 操作提示 */}
           <div style={{ position: 'absolute', bottom: 16, right: 16, fontSize: 11, color: 'rgba(0,0,0,0.28)', pointerEvents: 'none', textAlign: 'right', lineHeight: 1.6 }}>
-            空白拖拽框选 · Space/Alt 拖拽平移 · 滚轮缩放<br/>
+            空白拖拽平移 · Shift 拖拽框选 · Space/Alt/中键平移 · 滚轮缩放<br/>
             Ctrl/Shift 多选 · 端口连线
           </div>
         </div>

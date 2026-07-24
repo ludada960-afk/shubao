@@ -1,3 +1,18 @@
+export function getCanvasPointerIntent({ button = 0, shiftKey = false, altKey = false, spaceKey = false, isInteractive = false } = {}) {
+  if (isInteractive) return 'ignore';
+  if (button === 1) return 'pan';
+  if (button !== 0) return 'ignore';
+  if (shiftKey) return 'marquee';
+  if (altKey || spaceKey) return 'pan';
+  return 'pan';
+}
+
+export function canvasCursorForState({ pointerKind = null, shiftKey = false } = {}) {
+  if (pointerKind === 'pan') return 'grabbing';
+  if (pointerKind === 'marquee' || shiftKey) return 'crosshair';
+  return 'grab';
+}
+
 export function bindNonPassiveWheel(element, handler) {
   if (!element?.addEventListener || !handler) return () => {};
   const options = { passive: false };
