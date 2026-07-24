@@ -7,6 +7,7 @@
     "dev": "vite",
     "server": "node server/index.mjs",
     "verify": "node scripts/verify-exports.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "build": "node scripts/verify-exports.mjs && vite build",
     "check": "node scripts/check-build.mjs",
     "preview": "vite preview",

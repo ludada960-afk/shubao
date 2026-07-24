@@ -506,9 +506,11 @@ export async function saveWork(work, phone) {
 }
 
 export async function regenerateCanvasImage({ prompt, imageUrl, ratio }) {
+  let email = '';
+  try { email = JSON.parse(localStorage.getItem('sb-auth') || 'null')?.email || ''; } catch {}
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, image_url: imageUrl, ratio }),
+    body: JSON.stringify({ prompt, image_url: imageUrl, ratio, email }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.url) throw new Error(data.error || '重新生成失败');

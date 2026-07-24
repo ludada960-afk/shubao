@@ -69,11 +69,18 @@ export default function GenSettingsPanel({ value, onChange }) {
         <div>
           <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
             <Ban size={13} color="#7c3aed" /> 避免出现的元素
-            <span title="只会作为生成约束补充，不会覆盖产品图中的真实结构">
+            <span
+              tabIndex={0}
+              role="img"
+              aria-label="避免项说明"
+              aria-describedby="negative-prompt-help"
+              title="只会作为生成约束补充，不会覆盖产品图中的真实结构"
+              style={{ display: 'inline-flex', outline: 'none' }}
+            >
               <Info size={12} color="var(--text-muted)" aria-hidden="true" />
             </span>
           </label>
-          <div role="note" style={{
+          <div id="negative-prompt-help" role="note" style={{
             fontSize: 11, color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)',
             padding: '6px 10px', borderRadius: 8, marginBottom: 6,
           }}>

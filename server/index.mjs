@@ -27,6 +27,8 @@ import { normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 import { createGeneratedAssetStore } from './generatedAssets.mjs';
+import { normalizeEcommerceInput } from './ecommerceInput.mjs';
+import { createGenerationJobs } from './generationJobs.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '.env');
@@ -44,6 +46,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
 initDB();
 const generatedAssetStore = createGeneratedAssetStore({ directory: resolve(__dirname, 'generated-assets') });
+const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
   try {
@@ -162,7 +165,7 @@ app.use((req, res, next) => {
 
 // 内测阶段，生成能力只能由受邀账号调用。前端提示只是体验层，
 // 这里才是不能被绕过的服务端权限边界。
-const BETA_GUARDED_ROUTES = ['/api/generate-ecommerce'];
+const BETA_GUARDED_ROUTES = ['/api/generate-ecommerce', '/api/canvas/regenerate'];
 app.use((req, res, next) => {
   if (req.method === 'POST' && BETA_GUARDED_ROUTES.includes(req.path)) {
     return betaAccessMiddleware(req, res, next);
@@ -174,6 +177,7 @@ function betaAccessMiddleware(req, res, next) {
   const access = requireBetaEmail(req.body?.email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   req._userEmail = access.email;
+  if (req.path === '/api/generate-ecommerce') return requireCredits(req, res, next);
   next();
 }
 
@@ -3151,11 +3155,23 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   const taskId = `ec_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
   createTask(taskId, product_name, req._userEmail);
   startTask(taskId);
+  ecommerceJobs.create({
+    id: taskId,
+    ownerEmail: req._userEmail,
+    payload: { product_name, category: category || '', platform: platform || '淘宝' },
+  });
+  ecommerceJobs.transition(taskId, 'analyzing');
 
   // 产品图最佳实践是 3–5 张多角度图；参考图允许较多用于风格分析，
   // 但必须有硬上限，避免单个请求把 JSON 解析、内存和上游视觉调用拖垮。
-  const productImageInputs = Array.isArray(real_shots) ? real_shots.slice(0, 8) : [];
-  const referenceImageInputs = Array.isArray(reference_images) ? reference_images.slice(0, 48) : [];
+  const normalizedInput = normalizeEcommerceInput({
+    productImages: real_shots,
+    referenceImages: reference_images,
+    productName: product_name,
+    category,
+  });
+  const productImageInputs = normalizedInput.productImages;
+  const referenceImageInputs = normalizedInput.referenceImages;
 
   const sliceCount = [detail_plan?.sizeAnnot, detail_plan?.scene, detail_plan?.qc, detail_plan?.compare, detail_plan?.feature].filter(Boolean).length;
   console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || 'default'}, skus=${skus?.length || 0}, slices=${sliceCount}${maintenance ? '+care' : ''}, platform=${platform || '淘宝'}, style=${style_skill || 'default'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
@@ -3313,12 +3329,17 @@ app.post('/api/generate-ecommerce', async (req, res) => {
         contextSuffix += visionNote;
         console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}, ${resolvedRefs.length} 张`);
       }
-      // 当前图片网关只兼容一个 image 字段：把 3–5 张商品图置前，
-      // 再带少量风格参考做成视觉锚点，避免过去“只用第一张参考图、忽略产品图”的失真。
+      // 当前图片网关只兼容一个 image 字段：把商品图置前，
+      // 再带抽样后的风格参考做成视觉锚点，避免把 50 张参考图全部塞进单次调用。
+      const resolvedAnchors = [];
+      for (const u of normalizedInput.styleAnchorCandidates) {
+        const resolved = await resolveImgUrl(u);
+        if (resolved) resolvedAnchors.push(resolved);
+      }
       refImageBase64 = await buildReferenceContactSheet([
         ...resolvedProductImages.slice(0, 5),
-        ...resolvedRefs.slice(0, 3),
-      ]) || resolvedProductImages[0] || resolvedRefs[0] || null;
+        ...resolvedAnchors,
+      ]) || resolvedProductImages[0] || resolvedAnchors[0] || null;
     } catch (e) {
       console.warn('[ec-gen] 参考图处理失败（不阻断）:', e.message);
     }
@@ -3329,6 +3350,7 @@ app.post('/api/generate-ecommerce', async (req, res) => {
 
     {
       const total = expandedImages.length;
+      ecommerceJobs.transition(taskId, 'generating');
       send('progress', { step: 'generating', msg: '正在生成商品图...', total, current: 0 });
       // 单任务也与全局阈值一致，避免把待执行工作一次性堆满内存队列。
       const CONCURRENCY = 3;
@@ -3390,12 +3412,24 @@ app.post('/api/generate-ecommerce', async (req, res) => {
       errors,
     };
     completeTask(taskId, taskResult);
+    ecommerceJobs.transition(taskId, 'completed', { output: taskResult, progress: { current: Object.keys(images).length, total: expandedImages.length } });
+    deductCredit(req._userEmail);
     send('complete', { taskId, ...taskResult });
   } catch (err) {
     console.error('[ec-gen] 失败:', err.message);
     failTask(taskId, err.message);
+    try { ecommerceJobs.transition(taskId, 'failed', { error: err.message }); } catch {}
     send('error', { error: err.message });
   } finally { res.end(); }
+});
+
+app.get('/api/ecommerce/jobs/:id', (req, res) => {
+  const access = requireBetaEmail(req.query?.email || req.headers['x-shubao-email']);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
+  const job = ecommerceJobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: '任务不存在' });
+  if (job.ownerEmail !== access.email) return res.status(403).json({ error: '无权查看该任务' });
+  res.json(job);
 });
 
 // 画布内的二次生成：沿用现有图生图通道，保证提示词编辑不是只复制到剪贴板。
