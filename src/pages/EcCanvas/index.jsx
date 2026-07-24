@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdViewQuilt, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage } from '../../services/api';
+import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -145,8 +145,9 @@ function ImageNode({ node, selected, multiSelected, onPointerDown, onContextMenu
         {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
           <div style={{ width: '100%', height: node.h, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fef2f2' }}>
-            <div style={{ fontSize: 28, opacity: 0.3 }}>😵‍💫</div>
-            <div style={{ fontSize: 11, color: '#ef4444' }}>加载失败</div>
+            <div style={{ fontSize: 24, opacity: 0.45 }}>!</div>
+            <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>原图已失效</div>
+            <div style={{ fontSize: 9, color: '#9f1239', textAlign: 'center', padding: '0 12px' }}>可用右键“再次生成”创建稳定新图</div>
             <div onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }} style={{ fontSize: 11, color: '#7c3aed', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
           </div>
         )}
@@ -326,7 +327,9 @@ export default function EcCanvas() {
   const [promptPanel, setPromptPanel] = useState(null);
   const [promptText, setPromptText] = useState('');
   const [promptLoading, setPromptLoading] = useState(false);
+  const [composerAction, setComposerAction] = useState('');
   const containerRef = useRef(null);
+  const canvasSaveKeyRef = useRef(null);
 
   const imageList = parseImages(result.images || {}, result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
@@ -341,10 +344,10 @@ export default function EcCanvas() {
 
   useEffect(() => {
     if (!hasCurrent) return;
-    let restored = null;
+    let restored = result.canvas_state || null;
     try {
       const saved = JSON.parse(localStorage.getItem('shubao_ec_canvas_state') || 'null');
-      if (saved?.productName === result.product_name && Array.isArray(saved.nodes) && saved.nodes.length) restored = saved;
+      if (!restored && saved?.productName === result.product_name && Array.isArray(saved.nodes) && saved.nodes.length) restored = saved;
     } catch {}
     const newNodes = restored?.nodes || autoLayout(imageList);
     setNodes(newNodes);
@@ -357,6 +360,26 @@ export default function EcCanvas() {
 
   useEffect(() => {
     if (!hasCurrent || !result.product_name || !nodes.length) return;
+    const saveKey = canvasSaveKeyRef.current || result._saveKey || `canvas-${result.taskId || result.product_name}`;
+    canvasSaveKeyRef.current = saveKey;
+    const timer = setTimeout(() => {
+      saveWork({
+        _saveKey: saveKey,
+        _ecResult: true,
+        product_name: result.product_name,
+        title: result.product_name,
+        platform: result.platform || '淘宝',
+        images: nodes.map(node => ({
+          url: node.url,
+          key: node.sourceKey,
+          label: node.name || node.displayLabel,
+          name: node.name,
+          group: node.group,
+          role: node.role,
+        })),
+        canvas_state: { productName: result.product_name, nodes, connections, savedAt: Date.now() },
+      }, phone);
+    }, 700);
     try {
       localStorage.setItem('shubao_ec_canvas_state', JSON.stringify({
         productName: result.product_name,
@@ -365,7 +388,8 @@ export default function EcCanvas() {
         savedAt: Date.now(),
       }));
     } catch {}
-  }, [hasCurrent, result.product_name, nodes, connections]);
+    return () => clearTimeout(timer);
+  }, [hasCurrent, result.product_name, result.platform, result._saveKey, result.taskId, nodes, connections, phone]);
 
   useEffect(() => {
     const load = async () => {
@@ -379,15 +403,16 @@ export default function EcCanvas() {
         const names = new Set(local.map(w => w.name)); 
         for (const w of ec) { 
           if (!names.has(w.product_name)) { 
-            local.push({ 
-              id: w.id || Date.now(), 
-              name: w.product_name, 
+              local.push({
+               id: w.id || Date.now(),
+               name: w.product_name,
               images: Array.isArray(w.images)
                 ? w.images.map(i => ({ url: i.url || i.src || i.image_url, key: i.key, label: i.label || i.style || i.key }))
                 : Object.entries(w.images || {}).map(([key, value]) => ({ url: typeof value === 'object' ? (value.url || value.src || value.image_url) : value, key, label: key })),
-              createdAt: w.at || '',
-              _saveKey: w._saveKey || '',
-            }); 
+               createdAt: w.at || '',
+               _saveKey: w._saveKey || '',
+               canvas_state: w.canvas_state || null,
+             });
           } 
         } 
       } catch {}
@@ -697,32 +722,52 @@ export default function EcCanvas() {
       return;
     }
     if (action === 'grid-split') {
-      const parts = [0, 1, 2, 3].map(index => ({
-        ...node,
-        id: `${node.id}_grid_${index + 1}_${Date.now()}`,
-        assetId: `${node.assetId}_grid_${index + 1}`,
-        name: `${node.name || '电商图'}-宫格${index + 1}`,
-        displayLabel: `${node.name || '电商图'}-宫格${index + 1}`,
-        role: '宫格切片',
-        group: '素材',
-        sourceKey: `${node.sourceKey}_grid_${index + 1}`,
-        x: node.x + (index % 2) * (node.w + GAP),
-        y: node.y + Math.floor(index / 2) * (node.h + 76),
-        crop: { grid: 2, index },
-      }));
-      setNodes(prev => [...prev, ...parts]);
-      setConnections(prev => parts.reduce((acc, child) => addConnection(acc, node.id, child.id, 'variant'), prev));
-      showToast('已拆成 4 张宫格切片，可分别编辑和下载', 'success');
+      setPromptLoading(true);
+      try {
+        const data = await transformCanvasImage({ action, imageUrl: node.url });
+        const parts = (data.urls || []).map(({ url }, index) => ({
+          ...node,
+          id: `${node.id}_grid_${index + 1}_${Date.now()}`,
+          assetId: `${node.assetId}_grid_${index + 1}`,
+          url,
+          name: `${node.name || '电商图'}-切片${index + 1}`,
+          displayLabel: `${node.name || '电商图'}-切片${index + 1}`,
+          role: '详情切片',
+          group: '详情图',
+          sourceKey: `${node.sourceKey}_grid_${index + 1}`,
+          x: node.x + (index % 2) * (node.w + GAP),
+          y: node.y + Math.floor(index / 2) * (node.h + 76),
+          crop: null,
+          loaded: false,
+        }));
+        if (!parts.length) throw new Error('没有生成切片');
+        setNodes(prev => [...prev, ...parts]);
+        setConnections(prev => parts.reduce((acc, child) => addConnection(acc, node.id, child.id, 'variant'), prev));
+        showToast('已生成 4 张独立切片', 'success');
+      } catch (error) {
+        showToast(error.message || '宫格切图失败', 'error');
+      } finally {
+        setPromptLoading(false);
+      }
       return;
     }
     if (action === 'layers') {
-      setNodes(prev => prev.map(n => n.id === node.id ? { ...n, layers: ['商品主体', '背景氛围', '卖点文案'], layerStatus: '结构已识别' } : n));
-      showToast('已标记图文结构，可继续做局部编辑', 'success');
+      setPromptLoading(true);
+      try {
+        const data = await analyzeCanvasLayers(node.url);
+        setNodes(prev => prev.map(n => n.id === node.id ? { ...n, layers: data.layers || [], layerStatus: data.status || '已识别' } : n));
+        showToast(`已识别 ${data.layers?.length || 0} 个图层`, 'success');
+      } catch (error) {
+        showToast(error.message || '图层分析失败', 'error');
+      } finally {
+        setPromptLoading(false);
+      }
       return;
     }
     if (action === 'reference') {
       setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
       setComposerText('');
+      setComposerAction('');
       showToast('已加入引用素材，可继续补充生成要求', 'success');
       return;
     }
@@ -735,23 +780,45 @@ export default function EcCanvas() {
     if (prompts[action]) {
       setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
       setComposerText(prompts[action]);
+      setComposerAction(action);
       showToast(`已进入${ECOMMERCE_ACTIONS.find(item => item.id === action)?.label || '图片编辑'}流程`, 'info');
     }
   };
 
-  const handleSaveCrop = () => {
+  const handleSaveCrop = async () => {
     if (!cropNode) return;
-    setNodes(prev => prev.map(node => node.id === cropNode.id ? { ...node, ratio: cropRatio, crop: { ...(node.crop || {}), ratio: cropRatio } } : node));
-    setCropNode(null);
-    showToast(`已将画幅调整为 ${cropRatio}`, 'success');
+    setPromptLoading(true);
+    try {
+      const data = await transformCanvasImage({ action: 'crop', imageUrl: cropNode.url, ratio: cropRatio });
+      setNodes(prev => prev.map(node => node.id === cropNode.id ? { ...node, url: data.url, ratio: cropRatio, crop: null, loaded: false } : node));
+      setCropNode(null);
+      showToast(`已生成 ${cropRatio} 稳定裁切图`, 'success');
+    } catch (error) {
+      showToast(error.message || '裁切失败', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
   };
 
-  const handleSaveAnnotation = () => {
+  const handleSaveAnnotation = async () => {
     if (!annotationNode) return;
     const text = annotationText.trim();
-    setNodes(prev => prev.map(node => node.id === annotationNode.id ? { ...node, annotations: text ? [{ id: `annotation_${Date.now()}`, text, kind: '卖点标注' }] : [] } : node));
-    setAnnotationNode(null);
-    showToast(text ? '卖点标注已保存' : '卖点标注已清空', 'success');
+    if (!text) {
+      setNodes(prev => prev.map(node => node.id === annotationNode.id ? { ...node, annotations: [] } : node));
+      setAnnotationNode(null);
+      return;
+    }
+    setPromptLoading(true);
+    try {
+      const data = await transformCanvasImage({ action: 'annotation', imageUrl: annotationNode.url, annotation: text });
+      setNodes(prev => prev.map(node => node.id === annotationNode.id ? { ...node, url: data.url, annotations: [{ id: `annotation_${Date.now()}`, text, kind: '卖点标注' }], loaded: false } : node));
+      setAnnotationNode(null);
+      showToast('标注已写入图片', 'success');
+    } catch (error) {
+      showToast(error.message || '标注失败', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
   };
 
   const handleAlignSelected = (mode) => {
@@ -822,7 +889,10 @@ export default function EcCanvas() {
     setPromptLoading(true);
     try {
       const source = composerNodes[0];
-      const url = await regenerateCanvasImage({ prompt: composerText, imageUrl: source.url, ratio: source.ratio });
+      const data = composerAction
+        ? await transformCanvasImage({ action: composerAction, prompt: composerText, imageUrl: source.url, ratio: source.ratio })
+        : { url: await regenerateCanvasImage({ prompt: composerText, imageUrl: source.url, ratio: source.ratio }) };
+      const url = data.url;
       const newNode = {
         ...source,
         id: `node_edit_${Date.now()}`,
@@ -838,6 +908,7 @@ export default function EcCanvas() {
       setConnections(prev => addConnection(prev, source.id, newNode.id, 'variant'));
       setComposerNodes([]);
       setComposerText('');
+      setComposerAction('');
       showToast('编辑稿已生成并加入画布', 'success');
     } catch (error) {
       showToast(error.message || '图片编辑失败', 'error');
@@ -861,7 +932,7 @@ export default function EcCanvas() {
         typeof value === 'string' ? value : (value?.url || value?.src || value?.image_url || ''),
       ]).filter(([, value]) => value));
     }
-    dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝' } });
+    dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝', _saveKey: work._saveKey, canvas_state: work.canvas_state || null } });
     setTab('canvas');
   };
   const deleteWork = async (id) => {

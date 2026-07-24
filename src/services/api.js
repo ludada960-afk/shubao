@@ -506,8 +506,7 @@ export async function saveWork(work, phone) {
 }
 
 export async function regenerateCanvasImage({ prompt, imageUrl, ratio }) {
-  let email = '';
-  try { email = JSON.parse(localStorage.getItem('sb-auth') || 'null')?.email || ''; } catch {}
+  const email = getSessionEmail();
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, image_url: imageUrl, ratio, email }),
@@ -515,6 +514,49 @@ export async function regenerateCanvasImage({ prompt, imageUrl, ratio }) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.url) throw new Error(data.error || '重新生成失败');
   return data.url;
+}
+
+function getSessionEmail() {
+  try { return JSON.parse(localStorage.getItem('sb-auth') || 'null')?.email || ''; } catch { return ''; }
+}
+
+export async function transformCanvasImage({
+  action,
+  imageUrl,
+  prompt = '',
+  ratio = '1:1',
+  targetLanguage = '中文',
+  resolution = '2K',
+  annotation = '',
+}) {
+  const res = await fetch(`${API_BASE}/api/canvas/transform`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action,
+      image_url: imageUrl,
+      prompt,
+      ratio,
+      target_language: targetLanguage,
+      resolution,
+      annotation,
+      email: getSessionEmail(),
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || '画布处理失败');
+  return data;
+}
+
+export async function analyzeCanvasLayers(imageUrl) {
+  const res = await fetch(`${API_BASE}/api/canvas/analyze-layers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_url: imageUrl, email: getSessionEmail() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || '图层分析失败');
+  return data;
 }
 
 export async function deleteWork(saveKey) {
@@ -570,7 +612,8 @@ export async function loadWorks(phone) {
         const local = JSON.parse(localStorage.getItem('sb-works') || '[]');
         const localMap = new Map();
         local.forEach(x => { if (x._saveKey != null) localMap.set(String(x._saveKey), x); });
-        data = data.map(sv => localMap.get(String(sv._saveKey)) || sv);
+        // 服务端是稳定来源；本地只补充尚未同步的字段，避免旧缓存覆盖最新的稳定图片 URL。
+        data = data.map(sv => ({ ...(localMap.get(String(sv._saveKey)) || {}), ...sv }));
         const seenKeys = new Set(data.map(x => String(x._saveKey)));
         const missing = local.filter(x =>
           x._saveKey != null && !seenKeys.has(String(x._saveKey)) && (x.title || x.product_name) && !(x.title || '').includes('�')

@@ -57,6 +57,25 @@ export function createGeneratedAssetStore({
     };
   }
 
+  async function persistBuffer({ buffer, contentType = 'image/png', taskId = '', label = '' } = {}) {
+    if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error('生成图片内容为空');
+    if (!MIME_EXTENSIONS[contentType]) throw new Error('生成图片类型不受支持');
+    if (buffer.length > maxBytes) throw new Error('生成图片文件过大');
+    const extension = MIME_EXTENSIONS[contentType];
+    const fileName = assetNameFor(buffer, extension);
+    await mkdir(root, { recursive: true });
+    const filePath = resolve(root, fileName);
+    try { await stat(filePath); } catch { await writeFile(filePath, buffer, { flag: 'wx' }); }
+    return {
+      id: fileName,
+      fileName,
+      taskId,
+      label,
+      contentType,
+      url: `${publicPath}/${fileName}`,
+    };
+  }
+
   async function read(assetId) {
     const safeName = basename(assetId || '');
     if (!/^[a-f0-9]{64}\.(jpg|png|webp)$/.test(safeName)) return null;
@@ -68,5 +87,5 @@ export function createGeneratedAssetStore({
     } catch { return null; }
   }
 
-  return { persist, read };
+  return { persist, persistBuffer, read };
 }

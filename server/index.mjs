@@ -29,6 +29,12 @@ import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 import { createGeneratedAssetStore } from './generatedAssets.mjs';
 import { normalizeEcommerceInput } from './ecommerceInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
+import {
+  buildCanvasTransformPrompt,
+  cropRectForRatio,
+  gridRects,
+  parseVisionLayers,
+} from './canvasTools.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '.env');
@@ -165,7 +171,12 @@ app.use((req, res, next) => {
 
 // 内测阶段，生成能力只能由受邀账号调用。前端提示只是体验层，
 // 这里才是不能被绕过的服务端权限边界。
-const BETA_GUARDED_ROUTES = ['/api/generate-ecommerce', '/api/canvas/regenerate'];
+const BETA_GUARDED_ROUTES = [
+  '/api/generate-ecommerce',
+  '/api/canvas/regenerate',
+  '/api/canvas/transform',
+  '/api/canvas/analyze-layers',
+];
 app.use((req, res, next) => {
   if (req.method === 'POST' && BETA_GUARDED_ROUTES.includes(req.path)) {
     return betaAccessMiddleware(req, res, next);
@@ -3450,6 +3461,166 @@ app.post('/api/canvas/regenerate', async (req, res) => {
     res.json({ url: asset.url });
   } catch (error) {
     res.status(500).json({ error: '重新生成失败：' + error.message });
+  }
+});
+
+async function readCanvasImage(imageUrl) {
+  if (typeof imageUrl !== 'string' || !imageUrl.trim()) throw new Error('缺少图片');
+  const source = imageUrl.trim();
+  if (source.startsWith('data:image/')) {
+    const match = source.match(/^data:image\/[^;]+;base64,(.+)$/);
+    if (!match) throw new Error('图片格式无效');
+    return Buffer.from(match[1], 'base64');
+  }
+  const generatedMatch = source.match(/^\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))$/i);
+  if (generatedMatch) {
+    const asset = await generatedAssetStore.read(generatedMatch[1]);
+    if (!asset) throw new Error('生成图片已失效');
+    return asset.buffer;
+  }
+  const remoteUrl = source.startsWith('/')
+    ? `http://127.0.0.1:${PORT}${source}`
+    : source;
+  let parsed;
+  try { parsed = new URL(remoteUrl); } catch { throw new Error('图片地址无效'); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('图片地址无效');
+  const response = await fetch(parsed.href, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) throw new Error(`读取图片失败（${response.status}）`);
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > 20 * 1024 * 1024) throw new Error('图片文件过大');
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (!buffer.length || buffer.length > 20 * 1024 * 1024) throw new Error('图片文件过大或为空');
+  return buffer;
+}
+
+function canvasSizeForRatio(ratio, resolution = '2K') {
+  const sizes = {
+    '1K': { '1:1': '1024x1024', '3:4': '1024x1366', '4:3': '1366x1024', '9:16': '1024x1536' },
+    '2K': { '1:1': '2048x2048', '3:4': '2048x2730', '4:3': '2730x2048', '9:16': '2048x3640' },
+    '4K': { '1:1': '4096x4096', '3:4': '4096x5460', '4:3': '5460x4096', '9:16': '4096x7280' },
+  };
+  return sizes[resolution]?.[ratio] || sizes['2K']['1:1'];
+}
+
+function escapeXml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// 画布二次处理：像素级工具与 AI 工具统一返回稳定素材地址。
+app.post('/api/canvas/transform', async (req, res) => {
+  const {
+    action,
+    image_url: imageUrl,
+    prompt = '',
+    ratio = '1:1',
+    target_language: targetLanguage = '中文',
+    resolution = '2K',
+    annotation = '',
+  } = req.body || {};
+  if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
+  const pixelActions = new Set(['crop', 'grid-split', 'annotation']);
+  const aiActions = new Set(['retouch', 'extend', 'translate', 'upscale']);
+  if (!pixelActions.has(action) && !aiActions.has(action)) {
+    return res.status(400).json({ error: '不支持的画布操作' });
+  }
+  try {
+    const sourceBuffer = await readCanvasImage(imageUrl);
+    const taskId = `canvas_${action}_${Date.now()}`;
+
+    if (action === 'crop') {
+      const metadata = await sharp(sourceBuffer).metadata();
+      const rect = cropRectForRatio(metadata.width || 1, metadata.height || 1, ratio);
+      const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
+      const asset = await generatedAssetStore.persistBuffer({ buffer: output, taskId, label: 'canvas_crop' });
+      return res.json({ url: asset.url, ratio, width: rect.width, height: rect.height });
+    }
+
+    if (action === 'grid-split') {
+      const metadata = await sharp(sourceBuffer).metadata();
+      const width = metadata.width || 1;
+      const height = metadata.height || 1;
+      if (width < 2 || height < 2) {
+        return res.status(400).json({ error: '图片尺寸过小，无法拆分为 4 张独立切片' });
+      }
+      const urls = [];
+      for (const [index, rect] of gridRects(width, height).entries()) {
+        const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
+        const asset = await generatedAssetStore.persistBuffer({
+          buffer: output,
+          taskId,
+          label: `canvas_grid_${index + 1}`,
+        });
+        urls.push({ url: asset.url, index });
+      }
+      return res.json({ urls, count: urls.length, columns: 2, rows: 2 });
+    }
+
+    if (action === 'annotation') {
+      const metadata = await sharp(sourceBuffer).metadata();
+      const width = metadata.width || 1024;
+      const height = metadata.height || 1024;
+      const text = String(annotation || prompt).trim().slice(0, 120);
+      if (!text) return res.status(400).json({ error: '请输入标注内容' });
+      const fontSize = Math.max(20, Math.round(width * 0.035));
+      const padding = Math.round(width * 0.04);
+      const boxHeight = fontSize * 2.1;
+      const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="${padding / 2}" y="${height - boxHeight - padding / 2}" width="${width - padding}" height="${boxHeight}" rx="${fontSize / 2}" fill="#111827" fill-opacity=".82"/>
+        <text x="${padding}" y="${height - padding}" fill="#fff" font-size="${fontSize}" font-family="sans-serif" font-weight="700">${escapeXml(text)}</text>
+      </svg>`;
+      const output = await sharp(sourceBuffer).composite([{ input: Buffer.from(svg), top: 0, left: 0 }]).png().toBuffer();
+      const asset = await generatedAssetStore.persistBuffer({ buffer: output, taskId, label: 'canvas_annotation' });
+      return res.json({ url: asset.url, annotation: text });
+    }
+
+    const reference = `data:image/png;base64,${(await sharp(sourceBuffer).png().toBuffer()).toString('base64')}`;
+    const requestedRatio = ['1:1', '3:4', '4:3', '9:16'].includes(ratio) ? ratio : '1:1';
+    const requestedResolution = ['1K', '2K', '4K'].includes(resolution) ? resolution : '2K';
+    const generated = await callImageAPI(
+      buildCanvasTransformPrompt({ action, prompt, targetLanguage }),
+      canvasSizeForRatio(requestedRatio, requestedResolution),
+      reference,
+      { resolution: requestedResolution, aspectRatio: requestedRatio },
+      canvasSizeForRatio(requestedRatio, '1K'),
+    );
+    const asset = await generatedAssetStore.persist({
+      sourceUrl: generated,
+      taskId,
+      label: `canvas_${action}`,
+    });
+    return res.json({ url: asset.url, action, ratio: requestedRatio, resolution: requestedResolution });
+  } catch (error) {
+    console.error(`[canvas/${action}] 失败:`, error.message);
+    return res.status(500).json({ error: `画布${action}失败：${error.message}` });
+  }
+});
+
+// 画布图文分层：返回 Vision 真实识别结果，前端只展示已识别的层。
+app.post('/api/canvas/analyze-layers', async (req, res) => {
+  const { image_url: imageUrl } = req.body || {};
+  if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
+  try {
+    const buffer = await readCanvasImage(imageUrl);
+    const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
+    const raw = await callLLMWithVision(
+      '你是电商视觉拆解专家。只识别图片中真实存在的可编辑结构，不要臆造。只返回 JSON：{"layers":[{"name":"商品主体","description":"..."}]}。层级最多 8 个。',
+      [image],
+      '请识别这张商品图的结构层，至少尝试区分商品主体、背景氛围、可见文案、装饰元素；不存在的层不要输出。',
+    );
+    const layers = parseVisionLayers(raw);
+    if (!layers.length) return res.status(502).json({ error: '未识别到可编辑图层' });
+    res.json({ layers, status: '已识别' });
+  } catch (error) {
+    console.error('[canvas/analyze-layers] 失败:', error.message);
+    res.status(500).json({ error: `图层分析失败：${error.message}` });
   }
 });
 
