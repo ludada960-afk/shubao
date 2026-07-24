@@ -131,12 +131,18 @@ export function LoginModal() {
 /* ═══════ Pricing Modal (灵图风格) ═══════ */
 export function PricingModal() {
   const { state, dispatch, fetchCredits } = useApp();
-  const [tab, setTab] = useState('content');
+  const [tab, setTab] = useState(state.priceTab || 'content');
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('');
+
+  useEffect(() => {
+    if (state.showPrice) setTab(state.priceTab || 'content');
+  }, [state.showPrice, state.priceTab]);
 
   if (!state.showPrice) return null;
   const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
+  const interrupted = state.priceReason === 'INSUFFICIENT_CREDITS';
   const plans = tab === 'content' ? PRICING_XHS : PRICING_EC;
 
   const buy = (p) => {
@@ -158,10 +164,25 @@ export function PricingModal() {
       });
       const d = await r.json();
       if (d.code === 1 && d.url) {
-        window.location.href = d.url;
+        const paymentWindow = window.open(d.url, '_blank', 'noopener,noreferrer');
+        if (!paymentWindow) window.location.href = d.url;
+        else setPaymentStatus('支付页面已在新窗口打开。完成支付后回到这里确认，当前创作内容不会丢失。');
       } else alert(d.error || '下单失败');
     } catch(e) { alert(e.message); }
     setPayLoading(false);
+  };
+
+  const confirmPayment = async () => {
+    setPayLoading(true);
+    const entitlement = await fetchCredits(state.phone);
+    setPayLoading(false);
+    if (entitlement?.unlimited || (entitlement?.credits || 0) > 0) {
+      setPayModal(null);
+      setPaymentStatus('');
+      dispatch({ type: 'CLEAR_PAYWALL' });
+      return;
+    }
+    setPaymentStatus('暂未查询到可用额度。如果刚刚完成支付，请稍等几秒后再次确认。');
   };
 
   return (
@@ -210,12 +231,19 @@ export function PricingModal() {
             color: 'var(--accent)',
             marginBottom: 4,
           }}>
-            创作权益
+            {interrupted ? '继续当前创作' : '创作权益'}
           </h3>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
-            选择适合你的月度套餐
+            {interrupted ? '当前设计方向、图片和补充说明都已保留，充值后可以从这里继续。' : '选择适合你的月度套餐'}
           </p>
         </div>
+
+        {interrupted && (
+          <div style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 14, background: '#FFF8E7', border: '1px solid #F4D88A', color: '#73510D', fontSize: 12, lineHeight: 1.6 }}>
+            <strong style={{ display: 'block', marginBottom: 2 }}>不会清空当前操作</strong>
+            {state.pendingPaidAction?.message || '关闭弹窗后仍会停留在当前步骤；支付完成后点击继续生成即可。'}
+          </div>
+        )}
 
         {/* Tab pills */}
         <div style={{
@@ -333,8 +361,10 @@ export function PricingModal() {
           <button onClick={() => {
             if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
             close();
-            dispatch({ type: 'NAVIGATE', page: 'home' });
-            if (tab === 'ecommerce') dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
+            if (!interrupted) {
+              dispatch({ type: 'NAVIGATE', page: 'home' });
+              if (tab === 'ecommerce') dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
+            }
           }}
             style={{
               display: 'inline-block', padding: '8px 24px', borderRadius: 10,
@@ -396,9 +426,14 @@ export function PricingModal() {
             <div style={{
               fontSize: 11, color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
             }}>
-              支付后将自动跳转回本站，额度实时到账<br />
+              支付页面会在新窗口打开，当前页面和草稿保持不变<br />
               🔒 由 Stripe 安全支付，支持支付宝/微信
             </div>
+
+            {paymentStatus && <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10 }}>{paymentStatus}</div>}
+            <button onClick={confirmPayment} disabled={payLoading} style={{ width: '100%', marginTop: 12, padding: '12px 0', borderRadius: 12, border: 0, background: '#1f2937', color: '#fff', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}>
+              {payLoading ? '正在确认额度…' : '我已完成支付，确认额度'}
+            </button>
           </div>
         </div>
       )}

@@ -23,7 +23,7 @@ import {
 
 import Stripe from 'stripe';
 import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
-import { normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
+import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 import { createGeneratedAssetStore } from './generatedAssets.mjs';
@@ -199,16 +199,26 @@ function requireCredits(req, res, next) {
   const access = requireBetaEmail(body.email || body.phone);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   const email = access.email;
+  req._userEmail = email;
+  req._unlimitedCredits = isUnlimitedBetaEmail(email);
+  if (req._unlimitedCredits) {
+    req._creditsBefore = null;
+    return next();
+  }
   const credits = getUserCredits(email);
   if (credits < 1) {
-    return res.status(402).json({ error: '额度不足，请购买套餐' });
+    return res.status(402).json({
+      error: '额度不足，请购买套餐',
+      code: 'INSUFFICIENT_CREDITS',
+      resumeable: true,
+    });
   }
-  req._userEmail = email;
   req._creditsBefore = credits;
   next();
 }
 // 扣额度（生图完成后调用）
 function deductCredit(email) {
+  if (isUnlimitedBetaEmail(email)) return;
   consumeUserCredit(email, 1);
 }
 
@@ -3821,9 +3831,10 @@ app.get('/api/payment/success', async (req, res) => {
 
 /* 获取用户额度 */
 app.get('/api/user/credits', (req, res) => {
-  const email = req.query.email;
-  if (!email) return res.json({ credits: 0 });
-  res.json({ credits: getUserCredits(String(email).trim().toLowerCase()) });
+  const email = normalizeEmail(req.query.email);
+  if (!email) return res.json({ credits: 0, unlimited: false });
+  if (isUnlimitedBetaEmail(email)) return res.json({ credits: null, unlimited: true });
+  res.json({ credits: getUserCredits(email), unlimited: false });
 });
 
 /* Stripe Webhook */

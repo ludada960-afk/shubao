@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import { getSession } from '../services/auth';
+import { normalizeEntitlement } from './entitlementState';
 
 const AppContext = createContext(null);
 
@@ -13,11 +14,14 @@ const initialState = {
   // 用户
   logged: false,
   phone: '',
-  credits: 1,
+  credits: 0,
+  unlimited: false,
   // UI
   showLogin: false,
   loginIntent: null,
   showPrice: false,
+  priceReason: null,
+  pendingPaidAction: null,
   // 模式
   mode: 'ecommerce',  // content | ecommerce — 默认电商生图
   priceTab: 'content',
@@ -53,15 +57,19 @@ function reducer(state, action) {
     case 'SET_LOGGED':
       return { ...state, logged: action.logged, phone: action.phone || state.phone };
     case 'SET_CREDITS':
-      return { ...state, credits: action.credits };
+      return { ...state, credits: action.credits, unlimited: Boolean(action.unlimited) };
     case 'ADD_CREDITS':
-      return { ...state, credits: state.credits + action.amount };
+      return state.unlimited ? state : { ...state, credits: (state.credits || 0) + action.amount };
     case 'SHOW_LOGIN':
       return { ...state, showLogin: action.show };
     case 'SET_LOGIN_INTENT':
       return { ...state, loginIntent: action.intent || null };
     case 'SHOW_PRICE':
       return { ...state, showPrice: action.show };
+    case 'OPEN_PAYWALL':
+      return { ...state, showPrice: true, priceTab: action.tab || 'ecommerce', priceReason: action.reason || 'INSUFFICIENT_CREDITS', pendingPaidAction: action.pendingAction || null };
+    case 'CLEAR_PAYWALL':
+      return { ...state, showPrice: false, priceReason: null, pendingPaidAction: null };
     case 'SET_PRICE_TAB':
       return { ...state, priceTab: action.tab };
     case 'SET_WORKS':
@@ -81,7 +89,9 @@ export function AppProvider({ children }) {
     try {
       const r = await fetch(`/api/user/credits?email=${encodeURIComponent(email)}`);
       const d = await r.json();
-      dispatch({ type: 'SET_CREDITS', credits: d.credits || 0 });
+      const entitlement = normalizeEntitlement(d);
+      dispatch({ type: 'SET_CREDITS', ...entitlement });
+      return entitlement;
     } catch(e) {}
   }, [dispatch]);
 

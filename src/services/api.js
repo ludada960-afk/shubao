@@ -2,6 +2,8 @@
 // API 服务层：标准化重构版
 // ─────────────────────────────────────────────────────────────
 
+import { createApiError } from './apiError';
+
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 
 export const API = API_BASE;
@@ -280,8 +282,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
 
   if (!res.ok) {
     clearTimeout(timeoutId);
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg.slice(0, 200));
+    throw await createApiError(res, '生成失败');
   }
 
   // SSE 流式解析（与 generateContent 一致）

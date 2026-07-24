@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isAllowedBetaEmail, normalizeEmail, requireBetaEmail } from '../server/accessPolicy.mjs';
+import { isAllowedBetaEmail, isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from '../server/accessPolicy.mjs';
 
 test('normalizes and allows the closed-beta owner email', () => {
   assert.equal(normalizeEmail(' 867550189@QQ.COM '), '867550189@qq.com');
   assert.equal(isAllowedBetaEmail(' 867550189@QQ.COM '), true);
+});
+
+
+test('grants unlimited generation entitlement only to the owner account', () => {
+  assert.equal(isUnlimitedBetaEmail(' 867550189@QQ.COM '), true);
+  assert.equal(isUnlimitedBetaEmail('other@example.com'), false);
+  assert.equal(isUnlimitedBetaEmail(''), false);
 });
 
 test('rejects other closed-beta emails and missing privileged identity', () => {

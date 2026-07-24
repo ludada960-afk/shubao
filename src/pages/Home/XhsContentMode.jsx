@@ -34,7 +34,7 @@ let _extractSessionToken = null;
 
 export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp }) {
   const { state, dispatch } = useApp();
-  const { inputText, logged, credits, mode } = state;
+  const { inputText, logged, credits, unlimited, mode } = state;
   const [err, setErr] = useState('');
   const [refImages, setRefImages] = useState([]);
   const fileRef = useRef(null);
@@ -440,9 +440,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   const doGenXHS = async () => {
     if (!inputText.trim()) return;
-    if (logged && credits === 0 && trialRemaining === 0) { dispatch({ type: 'SHOW_PRICE', show: true }); return; }
-    const isPaid = logged && credits > 0;
-    const isTrial = logged && credits === 0 && trialRemaining > 0;
+    if (!unlimited && logged && credits === 0 && trialRemaining === 0) { dispatch({ type: 'SHOW_PRICE', show: true }); return; }
+    const isPaid = logged && (unlimited || credits > 0);
+    const isTrial = !unlimited && logged && credits === 0 && trialRemaining > 0;
     const usePreview = !logged;
     setErr('');
     dispatch({ type: 'START_GEN' });
@@ -467,7 +467,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       const work = { ...result, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, _trialLocked: isTrial, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
       dispatch({ type: 'SET_RESULT', result: work });
       if (isTrial) { const session = await getSession(); if (session?.phone) await consumeTrial(session.phone); setTrialRemaining(0); }
-      else if (isPaid) { saveWork(work, state.phone); dispatch({ type: 'SET_CREDITS', credits: credits - 1 }); }
+      else if (isPaid) { saveWork(work, state.phone); if (!unlimited) dispatch({ type: 'SET_CREDITS', credits: credits - 1, unlimited: false }); }
     } catch (e) { setErr(e.message || '生成失败'); dispatch({ type: 'CLOSE_RESULT' }); }
   };
 
@@ -970,14 +970,14 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <div className="tags-cloud">{QUICK_HINTS.map((h, i) => (<button key={i} className="hint-tag" onClick={() => setText(h)}>{h}</button>))}</div>
                     </div>
                     {err && <div className="error-bar">{err}</div>}
-                    {logged && credits === 0 && trialRemaining === 0 ? (
+                    {!unlimited && logged && credits === 0 && trialRemaining === 0 ? (
                       <button className="gen-btn xhs" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}><MdAutoAwesome size={14} /> 购买套餐继续使用</button>
                     ) : (
                       <button className="gen-btn xhs" onClick={doGenXHS} disabled={!inputText.trim()}>
-                        <MdAutoAwesome size={14} /> {!logged ? '免费预览（文案+封面）' : credits > 0 ? '一键生成爆款图文' : '🎁 免费试玩生成'}
+                        <MdAutoAwesome size={14} /> {!logged ? '免费预览（文案+封面）' : unlimited ? '无限内测生成' : credits > 0 ? '一键生成爆款图文' : '🎁 免费试玩生成'}
                       </button>
                     )}
-                    <div className="gen-hint">{!logged ? '🎁 免费预览：AI 生成完整文案 + 1 张封面图 — 登录后解锁全部 9 张配图' : credits > 0 ? `剩余 ${credits} 套 · 1套 = 完整文案 + 9张配图` : trialRemaining > 0 ? '🎁 免费试玩：完整生成 9 张配图（仅展示封面）— 充值解锁全部' : '已用完免费次数 · 购买套餐继续使用'}</div>
+                    <div className="gen-hint">{!logged ? '🎁 免费预览：AI 生成完整文案 + 1 张封面图 — 登录后解锁全部 9 张配图' : unlimited ? '内测账号不限次数，可持续验证完整生成流程' : credits > 0 ? `剩余 ${credits} 套 · 1套 = 完整文案 + 9张配图` : trialRemaining > 0 ? '🎁 免费试玩：完整生成 9 张配图（仅展示封面）— 充值解锁全部' : '已用完免费次数 · 购买套餐继续使用'}</div>
                   </div>
                 )}
                 {xhsSubMode === 'plog' && (

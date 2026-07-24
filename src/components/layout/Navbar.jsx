@@ -9,7 +9,7 @@ import { useApp } from '../../store/AppContext';
  */
 export default function Navbar() {
   const { state, dispatch, fetchCredits } = useApp();
-  const { page, logged, credits } = state;
+  const { page, logged, credits, unlimited } = state;
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {

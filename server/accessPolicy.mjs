@@ -1,4 +1,5 @@
 const CLOSED_BETA_EMAILS = new Set(['867550189@qq.com']);
+const UNLIMITED_BETA_EMAILS = new Set(['867550189@qq.com']);
 
 export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -6,6 +7,10 @@ export function normalizeEmail(value) {
 
 export function isAllowedBetaEmail(value) {
   return CLOSED_BETA_EMAILS.has(normalizeEmail(value));
+}
+
+export function isUnlimitedBetaEmail(value) {
+  return UNLIMITED_BETA_EMAILS.has(normalizeEmail(value));
 }
 
 export function requireBetaEmail(value) {
