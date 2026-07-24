@@ -1,3 +1,10 @@
+export function bindNonPassiveWheel(element, handler) {
+  if (!element?.addEventListener || !handler) return () => {};
+  const options = { passive: false };
+  element.addEventListener('wheel', handler, options);
+  return () => element.removeEventListener('wheel', handler, options);
+}
+
 export function zoomAroundCursor(viewport, point, factor) {
   const scale = Math.max(0.15, Math.min(4, viewport.scale * factor));
   const worldX = (point.x - viewport.x) / viewport.scale;

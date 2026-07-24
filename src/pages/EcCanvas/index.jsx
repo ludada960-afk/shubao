@@ -6,6 +6,7 @@ import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash,
 import {
   ASSET_GROUPS,
   addConnection,
+  bindNonPassiveWheel,
   canStitch,
   fitViewport,
   getAssetMeta,
@@ -544,6 +545,8 @@ export default function EcCanvas() {
       setViewport(v => zoomAroundCursor(v, point, factor));
     });
   }, []);
+
+  useEffect(() => bindNonPassiveWheel(containerRef.current, handleWheel), [handleWheel, tab]);
 
   // 节点点击：Ctrl/Cmd 切换多选，拖动已选节点会批量移动
   const handleNodeDown = useCallback((e, id) => {
@@ -1143,7 +1146,6 @@ export default function EcCanvas() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onWheel={handleWheel}
         >
           {!hasCurrent && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

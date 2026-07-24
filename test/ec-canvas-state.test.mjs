@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addConnection,
+  bindNonPassiveWheel,
   canStitch,
   fitViewport,
   moveSelectedNodes,
@@ -10,6 +11,25 @@ import {
   selectNodesInRect,
   zoomAroundCursor,
 } from '../src/pages/EcCanvas/canvasState.js';
+
+test('binds canvas wheel handling as non-passive and removes it cleanly', () => {
+  const calls = [];
+  const element = {
+    addEventListener(type, listener, options) { calls.push(['add', type, listener, options]); },
+    removeEventListener(type, listener, options) { calls.push(['remove', type, listener, options]); },
+  };
+  const handler = () => {};
+
+  const cleanup = bindNonPassiveWheel(element, handler);
+
+  assert.equal(calls[0][0], 'add');
+  assert.equal(calls[0][1], 'wheel');
+  assert.equal(calls[0][2], handler);
+  assert.deepEqual(calls[0][3], { passive: false });
+
+  cleanup();
+  assert.deepEqual(calls[1], ['remove', 'wheel', handler, { passive: false }]);
+});
 
 test('zoom keeps the canvas point under the cursor fixed', () => {
   const before = { x: 40, y: 60, scale: 1 };
