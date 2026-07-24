@@ -13,6 +13,7 @@ import {
   normalizeDirectionTags,
   isValidDirection,
   getDirectionEditState,
+  shouldActivateDirection,
 } from '../src/pages/Home/ec/components/directionUiModel.js';
 
 test('normalizeDirectionColor - 应该返回有效的十六进制颜色', () => {
@@ -137,6 +138,28 @@ test('getDirectionCardState - 应该生成正确的渐变', () => {
   assert.ok(state.styles.headerGradient.includes('linear-gradient'));
   assert.ok(state.styles.headerGradient.includes('#7c3aed'));
   assert.ok(state.styles.headerGradient.includes('#ec4899'));
+});
+
+test('getDirectionCardState - 浅色方案仍应使用清晰可见的选择强调色', () => {
+  const state = getDirectionCardState({
+    direction: {
+      id: 'dir-light',
+      title: '浅色方案',
+      preview_colors: ['#ffffff', '#f5efe5', '#fffaf0'],
+    },
+    selected: true,
+    index: 0,
+  });
+
+  assert.equal(state.colors.primary, '#7c3aed');
+  assert.ok(state.styles.border.includes('#7c3aed'));
+});
+
+test('shouldActivateDirection - 编辑区域输入空格时不能触发方向选择', () => {
+  assert.equal(shouldActivateDirection({ key: ' ', withinEditableArea: true }), false);
+  assert.equal(shouldActivateDirection({ key: 'Enter', withinEditableArea: true }), false);
+  assert.equal(shouldActivateDirection({ key: ' ', withinEditableArea: false }), true);
+  assert.equal(shouldActivateDirection({ key: 'Enter', withinEditableArea: false }), true);
 });
 
 test('normalizeDirectionTags - 应该处理字符串标签', () => {

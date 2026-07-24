@@ -100,6 +100,15 @@ export function getReadableTextColor(
 }
 
 /**
+ * 判断键盘事件是否应该激活方向卡片。编辑区域内的空格和回车属于文本输入，
+ * 不能冒泡成卡片选择。
+ */
+export function shouldActivateDirection({ key, withinEditableArea = false } = {}) {
+  if (withinEditableArea) return false;
+  return key === 'Enter' || key === ' ';
+}
+
+/**
  * 获取方向卡片状态 - 包含颜色、选中状态样式等
  * @param {Object} params
  * @param {Object} params.direction - 方向数据对象
@@ -110,15 +119,15 @@ export function getReadableTextColor(
 export function getDirectionCardState({ direction, selected, index }) {
   const rawColors = direction?.preview_colors || [];
 
-  // 获取主色和辅色
-  const primaryColor = normalizeDirectionColor(
-    rawColors[0],
-    '#7c3aed'
-  );
-  const secondaryColor = normalizeDirectionColor(
-    rawColors[1],
-    '#a78bfa'
-  );
+  // 预览色可以很浅，但选择边框必须始终清晰可见。
+  const visualPrimaryColor = normalizeDirectionColor(rawColors[0], '#7c3aed');
+  const secondaryColor = normalizeDirectionColor(rawColors[1], '#a78bfa');
+  const accentCandidate = getRelativeLuminance(visualPrimaryColor) <= 0.78
+    ? visualPrimaryColor
+    : secondaryColor;
+  const primaryColor = getRelativeLuminance(accentCandidate) <= 0.78
+    ? accentCandidate
+    : '#7c3aed';
 
   // 计算文字颜色确保对比度
   const primaryTextColor = getReadableTextColor(primaryColor);

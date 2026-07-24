@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MdAutoAwesome, MdArrowBack, MdRefresh, MdCheck, MdEdit } from 'react-icons/md';
+import { MdAutoAwesome, MdArrowBack, MdRefresh } from 'react-icons/md';
 import { getDesignDirections, generateEcommerce, saveWork, polishECText } from '../../../services/api';
 import { useApp } from '../../../store/AppContext';
 import { isInsufficientCreditsError } from '../../../services/apiError';
 import EcommerceWorkbench from './EcommerceWorkbench';
 import { buildSupplementDeck } from './workbenchState';
+import DirectionOptionCard from './components/DirectionOptionCard';
+import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 
 function normalizeDirectionImages(images = []) {
   const seen = new Set();
@@ -46,6 +48,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [extraProductImages, setExtraProductImages] = useState([]);
   const [extraReferenceImages, setExtraReferenceImages] = useState([]);
   const [blockedByCredits, setBlockedByCredits] = useState(false);
+  const [supplementError, setSupplementError] = useState('');
 
   useEffect(() => {
     loadDirections();
@@ -108,9 +111,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   /* ── 补充图片上传 ── */
   const appendSupplementImages = (event, type) => {
     const files = Array.from(event.target.files || []);
-    const additions = files.map(file => ({ url: URL.createObjectURL(file), file }));
-    if (type === 'product') setExtraProductImages(prev => [...prev, ...additions]);
-    else setExtraReferenceImages(prev => [...prev, ...additions]);
+    const checked = files.map(file => ({ file, result: validateImageFile(file) }));
+    const validFiles = checked.filter(item => item.result.valid).map(item => item.file);
+    const rejected = checked.find(item => !item.result.valid);
+    setSupplementError(rejected ? `${rejected.file.name || '图片'}：${rejected.result.error}` : '');
+    if (validFiles.length) {
+      const setter = type === 'product' ? setExtraProductImages : setExtraReferenceImages;
+      setter(prev => appendSupplementFiles(prev, validFiles, { sourceType: type }));
+      setBlockedByCredits(false);
+    }
     event.target.value = '';
   };
   const removeSupplementImage = (type, index) => {
@@ -315,38 +324,17 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <>
             {/* 2×2 对称布局 */}
             <div role="radiogroup" aria-label="选择一个设计方向" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 24 }}>
-              {directions.map((dir, i) => {
-                const active = selected === i;
-                const rawPrimary = dir.preview_colors?.[0] || '#7c3aed';
-                const accent = /^#[0-9a-f]{6}$/i.test(rawPrimary) ? rawPrimary : '#7c3aed';
-                const secondary = /^#[0-9a-f]{6}$/i.test(dir.preview_colors?.[1] || '') ? dir.preview_colors[1] : '#a78bfa';
-                return (
-                  <div key={dir.id || i} role="radio" aria-checked={active} tabIndex={0}
-                    onClick={() => setSelected(i)}
-                    onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(i); } }}
-                    style={{ background: active ? `linear-gradient(180deg, #fff 0%, ${accent}0D 100%)` : '#fff', borderRadius: 16, padding: 0, cursor: 'pointer', overflow: 'hidden', border: `2px solid ${active ? accent : 'rgba(0,0,0,0.08)'}`, boxShadow: active ? `0 8px 28px ${accent}24` : '0 2px 8px rgba(0,0,0,0.04)', transition: 'border-color .18s, box-shadow .18s, transform .18s', position: 'relative', outline: 'none' }}>
-                    <div style={{ height: 8, background: dir.preview_colors?.length >= 2 ? `linear-gradient(90deg, ${dir.preview_colors.slice(0, 4).join(', ')})` : `linear-gradient(90deg, ${accent}, ${secondary})` }} />
-                    <div style={{ padding: '16px 18px 18px' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-                        <div>
-                          <div style={{ font: '800 15px/1.3 inherit', color: '#1a1a1a' }}>{dir.title || `设计方向 ${i + 1}`}</div>
-                          <div style={{ marginTop: 4, fontSize: 10, color: '#8a8177' }}>方向名称由 AI 定义，修改下面的执行说明即可</div>
-                        </div>
-                        <div style={{ flexShrink: 0, minWidth: 64, height: 24, borderRadius: 999, padding: '0 8px', border: `1px solid ${active ? accent : 'rgba(0,0,0,.12)'}`, background: active ? accent : '#fff', color: active ? '#fff' : '#8a8177', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 10, fontWeight: 800 }}>
-                          {active ? <><MdCheck size={13} />已选择</> : '点击选择'}
-                        </div>
-                      </div>
-                      {dir.one_liner && <div style={{ fontSize: 12, fontWeight: 700, color: '#554c43', marginBottom: 9, padding: '5px 10px', background: '#F7F4EE', borderRadius: 8, display: 'inline-block' }}>{dir.one_liner}</div>}
-                      {dir.visual_tone && <div aria-label="视觉标签" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>{dir.visual_tone.split(/[·/、]/).map(tag => tag.trim()).filter(Boolean).slice(0, 3).map((tag, tagIndex) => <span key={`${tag}-${tagIndex}`} style={{ padding: '3px 8px', borderRadius: 999, background: '#F3F1ED', border: '1px solid #E7E2DA', fontSize: 10, fontWeight: 700, color: '#5F574F', pointerEvents: 'none' }}>{tag}</span>)}</div>}
-                      <div onClick={event => event.stopPropagation()} style={{ border: '1px solid #DED7CC', background: '#FFFEFC', borderRadius: 10, padding: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 7, fontSize: 11, fontWeight: 800, color: '#6B5E50' }}><MdEdit size={13} />执行说明可编辑<span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 500, color: '#A49A8F' }}>生成前可继续加工</span></div>
-                        <textarea value={dir.description || dir.short_desc || ''} onChange={event => updateDirection(i, 'description', event.target.value)} onFocus={() => setSelected(i)} aria-label={`编辑${dir.title || `方向 ${i + 1}`}的执行说明`} style={{ width: '100%', minHeight: 72, boxSizing: 'border-box', resize: 'vertical', border: '1px solid #E5DED5', borderRadius: 8, background: '#fff', outline: 'none', padding: '9px 10px', font: '12px/1.6 inherit', color: '#3E3934' }} />
-                      </div>
-                      {dir.preview_colors?.length > 0 && <div style={{ display: 'flex', gap: 6, marginTop: 12, alignItems: 'center' }}><span style={{ fontSize: 10, color: '#999', marginRight: 4 }}>配色</span>{dir.preview_colors.slice(0, 5).map((color, colorIndex) => <div key={colorIndex} title={color} style={{ width: 20, height: 20, borderRadius: '50%', background: color, border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,.12)' }} />)}</div>}
-                    </div>
-                  </div>
-                );
-              })}
+              {directions.map((dir, i) => (
+                <DirectionOptionCard
+                  key={dir.id || i}
+                  direction={dir}
+                  index={i}
+                  selected={selected === i}
+                  onSelect={index => { setSelected(index); setBlockedByCredits(false); }}
+                  editableDescription={dir.description || dir.short_desc || ''}
+                  onDescriptionChange={value => { updateDirection(i, 'description', value); setBlockedByCredits(false); }}
+                />
+              ))}
             </div>
 
             {/* ── 补充素材与调整：复用第一步工作台 ── */}
@@ -365,6 +353,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 promptTitle="补充你希望调整的画面、卖点或场景"
                 promptExamples={['例：主图更突出材质和尺寸感，减少装饰元素', '例：参考竞品构图，但保留我的品牌配色和商品结构']}
               />
+
+              {supplementError && (
+                <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', fontSize: 11 }}>
+                  {supplementError}
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                 <div style={{ fontSize: 11, color: '#8A8177', lineHeight: 1.5 }}>已带入素材不可在这里删除；“本轮新增”素材可随时移除，不影响第一步内容。</div>

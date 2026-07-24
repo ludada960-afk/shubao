@@ -1,10 +1,11 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MdCheck, MdEdit } from 'react-icons/md';
 import {
   getDirectionCardState,
   normalizeDirectionTags,
   getReadableTextColor,
   normalizeDirectionColor,
+  shouldActivateDirection,
 } from './directionUiModel';
 
 /**
@@ -38,7 +39,6 @@ export default function DirectionOptionCard({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const textareaRef = useRef(null);
 
   // 获取卡片状态
   const cardState = getDirectionCardState({ direction, selected, index });
@@ -62,10 +62,10 @@ export default function DirectionOptionCard({
   // 处理键盘选择
   const handleKeyDown = useCallback(
     (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onSelect?.(index);
-      }
+      const withinEditableArea = Boolean(e.target.closest?.('[data-editable-area]'));
+      if (!shouldActivateDirection({ key: e.key, withinEditableArea })) return;
+      e.preventDefault();
+      onSelect?.(index);
     },
     [index, onSelect]
   );
@@ -73,6 +73,7 @@ export default function DirectionOptionCard({
   // 编辑区聚焦
   const handleEditFocus = () => {
     setIsEditing(true);
+    onSelect?.(index);
   };
 
   // 编辑区失焦
@@ -139,54 +140,44 @@ export default function DirectionOptionCard({
             marginBottom: 10,
           }}
         >
-          <h3
-            style={{
-              margin: 0,
-              fontSize: 15,
-              fontWeight: 800,
-              color: colors.cardText,
-              lineHeight: 1.3,
-            }}
-          >
-            {direction?.title}
-          </h3>
-
-          {/* 选中状态指示器 */}
-          {selected && (
-            <div
+          <div>
+            <h3
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
+                margin: 0,
+                fontSize: 15,
+                fontWeight: 800,
+                color: colors.cardText,
+                lineHeight: 1.3,
               }}
             >
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: colors.primary,
-                }}
-              >
-                已选择
-              </span>
-              <div
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: '50%',
-                  background: colors.primary,
-                  color: getReadableTextColor(colors.primary),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                <MdCheck size={14} />
-              </div>
+              {direction?.title || `设计方向 ${index + 1}`}
+            </h3>
+            <div style={{ marginTop: 4, fontSize: 10, color: '#8a8177' }}>
+              方向名称由 AI 定义，修改下面的执行说明即可
             </div>
-          )}
+          </div>
+
+          {/* 选中状态指示器 */}
+          <div
+            style={{
+              flexShrink: 0,
+              minWidth: 72,
+              height: 26,
+              borderRadius: 999,
+              padding: '0 9px',
+              border: `1px solid ${selected ? colors.primary : 'rgba(0,0,0,.12)'}`,
+              background: selected ? colors.primary : '#fff',
+              color: selected ? getReadableTextColor(colors.primary) : '#8a8177',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              fontSize: 10,
+              fontWeight: 800,
+            }}
+          >
+            {selected ? <><MdCheck size={13} />已选择</> : '点击选择'}
+          </div>
         </div>
 
         {/* 一句话定位 */}
@@ -223,12 +214,11 @@ export default function DirectionOptionCard({
                 style={{
                   padding: '2px 8px',
                   borderRadius: 6,
-                  background: selected
-                    ? `${colors.primary}12`
-                    : 'rgba(0,0,0,0.03)',
+                  background: '#F3F1ED',
+                  border: '1px solid #E7E2DA',
                   fontSize: 10,
                   fontWeight: 600,
-                  color: selected ? colors.primary : 'var(--text-muted, #666)',
+                  color: '#5F574F',
                   transition: 'all 0.15s',
                 }}
               >
@@ -236,23 +226,6 @@ export default function DirectionOptionCard({
               </span>
             ))}
           </div>
-        )}
-
-        {/* 简短描述 */}
-        {(direction?.short_desc || direction?.description) && (
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              lineHeight: 1.5,
-              color: 'var(--text-secondary, #666)',
-              marginBottom: 12,
-            }}
-          >
-            {direction?.short_desc ||
-              direction?.description?.slice(0, 80) +
-                (direction?.description?.length > 80 ? '...' : '')}
-          </p>
         )}
 
         {/* 可编辑区域 - 方案执行说明 */}
@@ -292,7 +265,7 @@ export default function DirectionOptionCard({
                   transition: 'color 0.15s',
                 }}
               >
-                方案执行说明
+                执行说明可编辑
               </span>
               {!isEditing && (
                 <span
@@ -302,13 +275,13 @@ export default function DirectionOptionCard({
                     marginLeft: 'auto',
                   }}
                 >
-                  点击编辑
+                  生成前可继续加工
                 </span>
               )}
             </div>
             <textarea
-              ref={textareaRef}
               value={editableDescription}
+              aria-label={`编辑${direction?.title || `方向 ${index + 1}`}的执行说明`}
               onChange={handleEditChange}
               onFocus={handleEditFocus}
               onBlur={handleEditBlur}
