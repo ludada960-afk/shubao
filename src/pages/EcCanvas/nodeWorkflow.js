@@ -1,5 +1,5 @@
 const ACTION_SIZES = {
-  'smart-remix': { w: 380, h: 430 },
+  'smart-remix': { w: 380, h: 560 },
   'layer-workbench': { w: 380, h: 420 },
   inpaint: { w: 320, h: 260 },
   'remove-bg': { w: 320, h: 220 },
@@ -107,4 +107,3 @@ export function createChildConnection(fromNodeId, toNodeId, actionId = 'derived'
     actionId,
   });
 }
-

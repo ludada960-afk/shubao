@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
-import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdViewQuilt, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
+import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers } from '../../services/api';
+import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -18,6 +18,14 @@ import {
   selectNodesInRect,
   zoomAroundCursor,
 } from './canvasState';
+import {
+  CANVAS_NODE_ACTIONS,
+  createChildConnection,
+  createDerivedNode,
+  normalizeCanvasConnection,
+  normalizeCanvasNode,
+} from './nodeWorkflow';
+import { CanvasNodeActionPicker, CanvasWorkflowNode } from './components/workflowNodes';
 
 function parseImages(images, platform) {
   if (!images || typeof images !== 'object') return [];
@@ -34,6 +42,18 @@ function parseImages(images, platform) {
 
 const NODE_W = 200;
 const GAP = 28;
+
+function normalizeLayerItems(layers, nodeId) {
+  return (layers || []).map((layer, index) => ({
+    id: layer.id || `layer_${nodeId}_${index + 1}`,
+    name: layer.name || `图层 ${index + 1}`,
+    kind: layer.kind || '元素',
+    description: layer.description || '',
+    visible: layer.visible !== false,
+    locked: Boolean(layer.locked),
+    preview_url: layer.preview_url || '',
+  }));
+}
 
 const ECOMMERCE_ACTIONS = [
   { id: 'rename', label: '改图名', hint: '按投放位置给图片命名', icon: MdEdit },
@@ -192,7 +212,13 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
   }, [onClose]);
 
   const items = [
-    ...ECOMMERCE_ACTIONS.slice(0, 13).map(action => {
+    ...CANVAS_NODE_ACTIONS.map(action => ({
+      icon: <MdAutoFixHigh size={14} />,
+      label: action.label,
+      hint: action.description,
+      action: `create:${action.id}`,
+    })),
+    ...ECOMMERCE_ACTIONS.filter(action => !['reference', 'reverse-prompt', 'layers', 'retouch', 'extend', 'translate', 'upscale', 'remove-bg'].includes(action.id)).map(action => {
       const Icon = action.icon;
       return { icon: <Icon size={14} />, label: action.label, action: action.id };
     }),
@@ -203,7 +229,7 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
   ];
 
   return (
-      <div ref={menuRef} style={{ position: 'fixed', left: x, top: y, zIndex: 10002, background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.16)', border: '1px solid rgba(0,0,0,0.06)', padding: 4, minWidth: 190 }}>
+      <div ref={menuRef} style={{ position: 'fixed', left: x, top: y, zIndex: 10002, background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.16)', border: '1px solid rgba(0,0,0,0.06)', padding: 4, minWidth: 210, maxHeight: 'min(620px, calc(100vh - 24px))', overflowY: 'auto' }}>
       <div style={{ padding: '6px 10px', fontSize: 10, color: '#999', borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 4 }}>{node?.name || node?.displayLabel || '节点'}</div>
       {items.map(item => (
         <div
@@ -213,7 +239,8 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
           onMouseEnter={e => e.currentTarget.style.background = item.danger ? 'rgba(239,68,68,0.06)' : 'rgba(124,58,237,0.06)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
-          {item.icon} {item.label}
+          {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
+          {item.hint && <span title={item.hint} style={{ color: '#a0a8b6', fontSize: 9 }}>i</span>}
         </div>
       ))}
     </div>
@@ -228,19 +255,20 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
     reference: { stroke: '#7c3aed', dash: undefined, label: '引用素材' },
     variant: { stroke: '#2563eb', dash: '6 4', label: '生成变体' },
     merge: { stroke: '#374151', dash: undefined, label: '合并产物' },
+    derived: { stroke: '#6558e8', dash: undefined, label: '电商任务' },
   };
   return (
     <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'auto', overflow: 'visible' }}>
       {connections.map((conn, i) => {
-        const from = nodeMap.get(conn.from);
-        const to = nodeMap.get(conn.to);
+        const from = nodeMap.get(conn.fromNodeId || conn.from);
+        const to = nodeMap.get(conn.toNodeId || conn.to);
         if (!from || !to) return null;
         const x1 = (from.x + from.w) * viewport.scale + viewport.x;
         const y1 = (from.y + from.h / 2) * viewport.scale + viewport.y;
         const x2 = to.x * viewport.scale + viewport.x;
         const y2 = (to.y + to.h / 2) * viewport.scale + viewport.y;
         const mx = (x1 + x2) / 2;
-        const style = styles[conn.type] || styles.reference;
+        const style = styles[conn.relation || conn.type] || styles.reference;
         return (
           <g key={i}>
             <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={2.4} fill="none" strokeDasharray={style.dash} opacity={0.75} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer' }} />
@@ -253,11 +281,28 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
   );
 }
 
+function ConnectionDraftLine({ draft, nodes, viewport }) {
+  if (!draft?.sourceNodeId || !draft.pointer) return null;
+  const source = nodes.find(node => node.id === draft.sourceNodeId);
+  if (!source) return null;
+  const x1 = (source.x + source.w) * viewport.scale + viewport.x;
+  const y1 = (source.y + source.h / 2) * viewport.scale + viewport.y;
+  const x2 = draft.pointer.x * viewport.scale + viewport.x;
+  const y2 = draft.pointer.y * viewport.scale + viewport.y;
+  const mx = (x1 + x2) / 2;
+  return (
+    <svg aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 12 }}>
+      <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke="#6558e8" strokeWidth="2.5" strokeDasharray="7 5" fill="none" />
+      <circle cx={x2} cy={y2} r="5" fill="#6558e8" />
+    </svg>
+  );
+}
+
 function SelectionActionBar({ node, onAction, onClose }) {
   if (!node) return null;
   return (
     <div style={{ position: 'absolute', zIndex: 70, left: node.x, top: Math.max(0, node.y - 52), display: 'flex', alignItems: 'center', gap: 3, padding: 5, borderRadius: 11, background: '#fff', border: '1px solid rgba(15,23,42,.08)', boxShadow: '0 10px 30px rgba(15,23,42,.16)', whiteSpace: 'nowrap' }}>
-      {ECOMMERCE_ACTIONS.slice(0, 8).map(action => {
+      {ECOMMERCE_ACTIONS.filter(action => action.id !== 'reverse-prompt').slice(0, 8).map(action => {
         const Icon = action.icon;
         return <button key={action.id} type="button" title={action.hint} onClick={() => onAction(action.id, node)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 0, borderRadius: 7, padding: '7px 8px', background: 'transparent', color: '#374151', fontSize: 10, fontWeight: 700, cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.08)'; e.currentTarget.style.color = '#7c3aed'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; }}><Icon size={14} />{action.label}</button>;
       })}
@@ -322,7 +367,7 @@ export default function EcCanvas() {
   const [exportFormat, setExportFormat] = useState('PNG');
   const [exportMode, setExportMode] = useState('逐张导出');
   const [alignMode, setAlignMode] = useState('left');
-  const [generationMenuOpen, setGenerationMenuOpen] = useState(false);
+  const [connectionPicker, setConnectionPicker] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
   const [tab, setTab] = useState('canvas');
   const [pastWorks, setPastWorks] = useState([]);
@@ -354,9 +399,13 @@ export default function EcCanvas() {
       const saved = JSON.parse(localStorage.getItem('shubao_ec_canvas_state') || 'null');
       if (!restored && saved?.productName === result.product_name && Array.isArray(saved.nodes) && saved.nodes.length) restored = saved;
     } catch {}
-    const newNodes = restored?.nodes || autoLayout(imageList);
+    const newNodes = (restored?.nodes || autoLayout(imageList)).map(normalizeCanvasNode);
     setNodes(newNodes);
-    if (restored?.connections) setConnections(restored.connections);
+    setConnections(Array.isArray(restored?.connections) ? restored.connections.map(normalizeCanvasConnection) : []);
+    setSelected(null);
+    setMultiSelected(new Set());
+    setConnectionDraft(null);
+    setConnectionPicker(null);
     requestAnimationFrame(() => {
       const next = fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
       if (next) setViewport(next);
@@ -374,7 +423,7 @@ export default function EcCanvas() {
         product_name: result.product_name,
         title: result.product_name,
         platform: result.platform || '淘宝',
-        images: nodes.map(node => ({
+        images: nodes.filter(node => node.kind === 'image' && node.url).map(node => ({
           url: node.url,
           key: node.sourceKey,
           label: node.name || node.displayLabel,
@@ -421,8 +470,13 @@ export default function EcCanvas() {
           } 
         } 
       } catch {}
+      const localTrash = (() => {
+        try { return JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]'); } catch { return []; }
+      })();
+      const serverTrash = await loadTrash('');
+      const trashKeys = new Set(serverTrash.map(item => String(item._saveKey || item.id)));
       setPastWorks(local);
-      setTrashWorks(await loadTrash(''));
+      setTrashWorks([...localTrash.filter(item => !trashKeys.has(String(item._saveKey || item.id))), ...serverTrash]);
     };
     load();
   }, []);
@@ -534,6 +588,11 @@ export default function EcCanvas() {
 
   const handlePointerMove = useCallback((e) => {
     if (!pointerMode) return;
+    if (pointerMode.kind === 'connect') {
+      const point = toWorldPoint(e);
+      setConnectionDraft(prev => prev ? { ...prev, pointer: point } : prev);
+      return;
+    }
     if (pointerMode.kind === 'pan') {
       setViewport(v => ({ ...v, x: pointerMode.vpX + (e.clientX - pointerMode.startX), y: pointerMode.vpY + (e.clientY - pointerMode.startY) }));
       return;
@@ -552,7 +611,24 @@ export default function EcCanvas() {
     }
   }, [pointerMode, toWorldPoint]);
 
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback((e) => {
+    if (pointerMode?.kind === 'connect' && connectionDraft) {
+      if (e?.type === 'pointercancel') {
+        setConnectionDraft(null);
+        setPointerMode(null);
+        return;
+      }
+      const rect = containerRef.current?.getBoundingClientRect();
+      const point = toWorldPoint(e);
+      setConnectionPicker({
+        sourceNodeId: connectionDraft.sourceNodeId || connectionDraft.from,
+        world: point,
+        screen: { x: (e.clientX - (rect?.left || 0)) + 14, y: (e.clientY - (rect?.top || 0)) + 14 },
+      });
+      setConnectionDraft(null);
+      setPointerMode(null);
+      return;
+    }
     if (pointerMode?.kind === 'marquee' && marquee) {
       const ids = new Set(selectNodesInRect(nodes, marquee));
       setMultiSelected(pointerMode.additive ? new Set([...multiSelected, ...ids]) : ids);
@@ -560,7 +636,7 @@ export default function EcCanvas() {
     }
     setPointerMode(null);
     setMarquee(null);
-  }, [pointerMode, marquee, nodes, multiSelected]);
+  }, [pointerMode, connectionDraft, marquee, nodes, multiSelected, toWorldPoint]);
 
   // B3: 使用 requestAnimationFrame 节流 wheel 事件
   const wheelRafRef = useRef(null);
@@ -596,6 +672,7 @@ export default function EcCanvas() {
     setMultiSelected(ids);
     setToolNodeId(id);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
   }, [multiSelected, toWorldPoint]);
 
   const handleToggleSelect = useCallback((e, id) => {
@@ -607,17 +684,228 @@ export default function EcCanvas() {
 
   const handlePortPointerDown = useCallback((e, nodeId, side) => {
     if (side !== 'out') return;
-    setConnectionDraft({ from: nodeId, type: 'reference' });
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
+    setConnectionPicker(null);
+    setConnectionDraft({ from: nodeId, sourceNodeId: nodeId, type: 'reference', pointer: toWorldPoint(e) });
     setPointerMode({ kind: 'connect', from: nodeId });
-  }, []);
+  }, [toWorldPoint]);
 
   const handlePortPointerUp = useCallback((e, nodeId, side) => {
-    if (side !== 'in' || !connectionDraft || connectionDraft.from === nodeId) return;
-    setConnections(prev => addConnection(prev, connectionDraft.from, nodeId, connectionDraft.type));
+    const sourceNodeId = connectionDraft?.sourceNodeId || connectionDraft?.from;
+    if (side !== 'in' || !sourceNodeId || sourceNodeId === nodeId) return;
+    setConnections(prev => addConnection(prev, sourceNodeId, nodeId, connectionDraft.type));
     setConnectionDraft(null);
+    setConnectionPicker(null);
     setPointerMode(null);
     showToast('已建立素材关系', 'success');
   }, [connectionDraft, showToast]);
+
+  const handleCreateDerivedNode = useCallback((sourceNodeId, action, world) => {
+    const source = nodes.find(node => node.id === sourceNodeId);
+    if (!source || !action?.id) return;
+    const promptSeed = source.direction
+      ? [source.direction.purpose, source.direction.composition, source.direction.copy].filter(Boolean).join('\n')
+      : '';
+    const child = createDerivedNode({
+      sourceNodeIds: [source.id],
+      actionId: action.id,
+      x: Math.max(16, world?.x ?? source.x + source.w + GAP * 2),
+      y: Math.max(16, world?.y ?? source.y),
+      inputs: {
+        sourceNodeId: source.id,
+        sourceUrl: source.url || null,
+        prompt: promptSeed,
+        productImages: [],
+        referenceImages: [],
+        instruction: '',
+        outputCount: 1,
+        layers: [],
+        selectedLayerId: null,
+      },
+    });
+    child.group = source.group;
+    setNodes(prev => [...prev, child]);
+    setConnections(prev => [...prev, createChildConnection(source.id, child.id, action.id)]);
+    setSelected(child.id);
+    setMultiSelected(new Set([child.id]));
+    setConnectionDraft(null);
+    setConnectionPicker(null);
+    showToast(`已创建${action.label}节点`, 'success');
+
+    if (action.id === 'smart-remix' && source.url) {
+      setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'analyzing' } : node));
+      reversePrompt({ image_url: source.url, product_name: source.name || source.displayLabel || '电商图片' })
+        .then(data => setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'ready', inputs: { ...(node.inputs || {}), prompt: data.prompt || promptSeed } } : node)))
+        .catch(error => setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'error', error: error.message || '画面描述生成失败' } : node)));
+    }
+    if (action.id === 'layer-edit' && source.url) {
+      setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'analyzing' } : node));
+      analyzeCanvasLayers(source.url)
+        .then(data => {
+          const layers = normalizeLayerItems(data.layers, child.id);
+          setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null } } : node));
+        })
+        .catch(error => setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'error', error: error.message || '图层分析失败' } : node)));
+    }
+  }, [nodes, showToast]);
+
+  const updateWorkflowNode = useCallback((nodeId, patch) => {
+    setNodes(prev => prev.map(node => node.id === nodeId ? { ...node, ...patch } : node));
+  }, []);
+
+  const updateWorkflowInputs = useCallback((nodeId, patch) => {
+    setNodes(prev => prev.map(node => node.id === nodeId ? { ...node, inputs: { ...(node.inputs || {}), ...patch } } : node));
+  }, []);
+
+  const handleWorkflowGenerate = useCallback(async (node) => {
+    const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
+    const prompt = [node.inputs?.prompt, node.inputs?.instruction].filter(Boolean).join('\n').trim();
+    if (!source?.url || !prompt || promptLoading) {
+      showToast('请先补充可编辑的画面描述', 'info');
+      return;
+    }
+    updateWorkflowNode(node.id, { status: 'running', error: null });
+    setPromptLoading(true);
+    try {
+      const count = Math.max(1, Math.min(4, Number(node.inputs?.outputCount) || 1));
+      const urls = await Promise.all(Array.from({ length: count }, () => regenerateCanvasImage({ prompt, imageUrl: source.url, ratio: node.inputs?.ratio || source.ratio })));
+      const outputs = urls.map((url, index) => normalizeCanvasNode({
+        ...source,
+        id: `node_output_${Date.now()}_${index}`,
+        kind: 'image',
+        status: 'ready',
+        url,
+        x: node.x + node.w + GAP * 2,
+        y: node.y + index * (source.h + 76),
+        name: `${source.name || source.displayLabel || '电商图'}-二创结果${count > 1 ? `-${index + 1}` : ''}`,
+        displayLabel: `${source.name || source.displayLabel || '电商图'}-二创结果${count > 1 ? `-${index + 1}` : ''}`,
+        sourceNodeIds: [node.id],
+      }));
+      setNodes(prev => prev.map(item => item.id === node.id ? { ...item, status: 'success', output: { nodeIds: outputs.map(output => output.id), urls } } : item).concat(outputs));
+      setConnections(prev => outputs.reduce((edges, output) => [...edges, createChildConnection(node.id, output.id, 'smart-remix-output')], prev));
+      setSelected(outputs[0].id);
+      setMultiSelected(new Set(outputs.map(output => output.id)));
+      showToast(`已生成 ${outputs.length} 张新的电商图`, 'success');
+    } catch (error) {
+      updateWorkflowNode(node.id, { status: 'error', error: error.message || '生成失败，请重试' });
+      showToast(error.message || '生成失败，请重试', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [nodes, promptLoading, showToast, updateWorkflowNode]);
+
+  const handleWorkflowRetry = useCallback((node) => {
+    const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
+    updateWorkflowNode(node.id, { status: 'draft', error: null });
+    if (!source?.url) return;
+    if (node.actionId === 'smart-remix') {
+      updateWorkflowNode(node.id, { status: 'analyzing' });
+      reversePrompt({ image_url: source.url, product_name: source.name || source.displayLabel || '电商图片' })
+        .then(data => updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), prompt: data.prompt || '' } }))
+        .catch(error => updateWorkflowNode(node.id, { status: 'error', error: error.message || '画面描述生成失败' }));
+    } else if (node.actionId === 'layer-edit') {
+      updateWorkflowNode(node.id, { status: 'analyzing' });
+      analyzeCanvasLayers(source.url)
+        .then(data => {
+          const layers = normalizeLayerItems(data.layers, node.id);
+          updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null } });
+        })
+        .catch(error => updateWorkflowNode(node.id, { status: 'error', error: error.message || '图层分析失败' }));
+    }
+  }, [nodes, updateWorkflowNode]);
+
+  const handleWorkflowAddImages = useCallback(async (nodeId, field, files = []) => {
+    if (!files.length) return;
+    setPromptLoading(true);
+    try {
+      const dataUrls = await Promise.all(files.slice(0, 20).map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('读取图片失败'));
+        reader.readAsDataURL(file);
+      })));
+      const urls = await uploadECTempImages(dataUrls);
+      const images = urls.map((url, index) => ({ id: `workflow_ref_${Date.now()}_${index}`, url, name: files[index]?.name || '追加素材' }));
+      setNodes(prev => prev.map(node => node.id === nodeId ? { ...node, inputs: { ...(node.inputs || {}), [field]: [...(node.inputs?.[field] || []), ...images] } } : node));
+      showToast(`已添加 ${images.length} 张素材`, 'success');
+    } catch (error) {
+      showToast(error.message || '素材上传失败', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [showToast]);
+
+  const handleWorkflowProcess = useCallback(async (node) => {
+    const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
+    if (!source?.url || promptLoading) {
+      showToast('源图片暂不可用，请稍后重试', 'info');
+      return;
+    }
+    updateWorkflowNode(node.id, { status: 'running', error: null });
+    setPromptLoading(true);
+    try {
+      const actionId = node.actionId;
+      const prompt = [node.inputs?.prompt, node.inputs?.instruction].filter(Boolean).join('\n').trim();
+      let url = '';
+      if (actionId === 'remove-bg') {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/remove-bg`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_url: source.url }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || '商品抠图失败');
+        url = data.result_url || data.url || '';
+      } else if (actionId === 'inpaint') {
+        url = await regenerateCanvasImage({ prompt: prompt || '保留商品主体，只优化指定区域的电商视觉表现', imageUrl: source.url, ratio: node.inputs?.ratio || source.ratio });
+      } else {
+        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: source.url, ratio: node.inputs?.ratio || source.ratio });
+        url = data.url || data.result_url || '';
+      }
+      if (!url) throw new Error('处理结果为空');
+      const output = normalizeCanvasNode({
+        ...source,
+        id: `node_output_${Date.now()}`,
+        kind: 'image',
+        status: 'ready',
+        url,
+        x: node.x + node.w + GAP * 2,
+        y: node.y,
+        name: `${source.name || source.displayLabel || '电商图'}-${node.title || '处理结果'}`,
+        displayLabel: `${source.name || source.displayLabel || '电商图'}-${node.title || '处理结果'}`,
+        sourceNodeIds: [node.id],
+      });
+      setNodes(prev => prev.map(item => item.id === node.id ? { ...item, status: 'success', output: { nodeId: output.id, url } } : item).concat(output));
+      setConnections(prev => [...prev, createChildConnection(node.id, output.id, `${actionId}-output`)]);
+      setSelected(output.id);
+      setMultiSelected(new Set([output.id]));
+      showToast(`${node.title || '电商处理'}已完成`, 'success');
+    } catch (error) {
+      updateWorkflowNode(node.id, { status: 'error', error: error.message || '处理失败，请重试' });
+      showToast(error.message || '处理失败，请重试', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [nodes, promptLoading, showToast, updateWorkflowNode]);
+
+  const updateWorkflowLayers = useCallback((nodeId, updater) => {
+    setNodes(prev => prev.map(node => {
+      if (node.id !== nodeId) return node;
+      const layers = updater(node.inputs?.layers || []);
+      return { ...node, inputs: { ...(node.inputs || {}), layers } };
+    }));
+  }, []);
+
+  const handleWorkflowLayerExport = useCallback((layer) => {
+    if (!layer?.preview_url) {
+      showToast('当前接口只返回图层识别结果，像素图层导出尚未就绪', 'info');
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = proxyImg(layer.preview_url);
+    link.download = `${layer.name || '图层'}.png`;
+    link.click();
+  }, [showToast]);
 
   const zoomTo = useCallback((s) => { setViewport(v => ({ ...v, scale: Math.max(0.15, Math.min(4, s)) })); }, []);
 
@@ -649,6 +937,24 @@ export default function EcCanvas() {
 
   // A6: 右键菜单动作
   const handleContextAction = async (action, node) => {
+    if (action?.startsWith('create:')) {
+      const actionId = action.slice('create:'.length);
+      const sourceIndex = Math.max(0, nodes.findIndex(item => item.id === node?.id));
+      const source = nodes[sourceIndex] || node;
+      const child = createDerivedNode({
+        sourceNodeIds: [source.id],
+        actionId,
+        x: source.x + source.w + GAP * 2,
+        y: source.y,
+        inputs: { sourceNodeId: source.id, sourceUrl: source.url || null },
+      });
+      setNodes(prev => [...prev, child]);
+      setConnections(prev => [...prev, createChildConnection(source.id, child.id, actionId)]);
+      setSelected(child.id);
+      setMultiSelected(new Set([child.id]));
+      showToast(`已创建${child.title}节点`, 'success');
+      return;
+    }
     switch (action) {
       case 'download':
         handleDownload(node.id);
@@ -730,6 +1036,11 @@ export default function EcCanvas() {
   const handleToolAction = async (action, node) => {
     if (!node) return;
     setToolNodeId(node.id);
+    if (action?.startsWith('create:')) {
+      const actionSpec = CANVAS_NODE_ACTIONS.find(item => item.id === action.slice('create:'.length));
+      if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
+      return;
+    }
     if (action === 'copy-url') {
       navigator.clipboard?.writeText(node.url);
       showToast('图片链接已复制', 'success');
@@ -972,16 +1283,24 @@ export default function EcCanvas() {
     const work = pastWorks.find(x => x.id === id);
     if (!work) return;
     if (work._saveKey) await softDeleteWork(work._saveKey);
+    const trashItem = { ...work, deletedAt: Date.now() };
     const next = pastWorks.filter(x => x.id !== id);
     setPastWorks(next);
+    setTrashWorks(prev => [trashItem, ...prev.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))]);
     localStorage.setItem('shubao_ec_works', JSON.stringify(next));
+    try {
+      const localTrash = JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]');
+      localStorage.setItem('shubao_ec_trash', JSON.stringify([trashItem, ...localTrash.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))]));
+    } catch {}
     showToast('已移入回收站，可恢复', 'success');
   };
 
   const restoreDeletedWork = async (work) => {
-    if (!work?._saveKey) return;
-    const ok = await restoreWork(work._saveKey);
-    if (!ok) return showToast('恢复失败，请重试', 'error');
+    if (!work) return;
+    if (work._saveKey) {
+      const ok = await restoreWork(work._saveKey);
+      if (!ok) return showToast('恢复失败，请重试', 'error');
+    }
     setPastWorks(prev => [...prev, {
       id: work.id,
       name: work.product_name || work.name || '历史作品',
@@ -989,6 +1308,11 @@ export default function EcCanvas() {
       createdAt: work.at || '',
       _saveKey: work._saveKey,
     }]);
+    setTrashWorks(prev => prev.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id)));
+    try {
+      const localTrash = JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]');
+      localStorage.setItem('shubao_ec_trash', JSON.stringify(localTrash.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id))));
+    } catch {}
     showToast('作品已恢复', 'success');
   };
 
@@ -1190,6 +1514,7 @@ export default function EcCanvas() {
           )}
 
           <ConnectionLines connections={connections} nodes={nodes} viewport={viewport} onRemove={handleRemoveConnection} />
+          <ConnectionDraftLine draft={connectionDraft} nodes={nodes} viewport={viewport} />
 
           <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             {(() => {
@@ -1201,20 +1526,83 @@ export default function EcCanvas() {
                 </div>
               ));
             })()}
-            {visibleNodes.map(node => (
-              <ImageNode
-                key={node.id}
-                node={node}
-                selected={isNodeSelected(node.id)}
-                multiSelected={multiSelected.has(node.id)}
-                onPointerDown={handleNodeDown}
-                onToggleSelect={handleToggleSelect}
-                onPortPointerDown={handlePortPointerDown}
-                onPortPointerUp={handlePortPointerUp}
-                onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-              />
-            ))}
-            {selectedNode && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
+            {visibleNodes.map(node => {
+              const selectedNodeState = isNodeSelected(node.id);
+              const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);
+              const sourcePreview = nodeSource?.url ? { ...nodeSource, url: proxyImg(nodeSource.url) } : null;
+              const workflowPortDown = (event, side) => handlePortPointerDown(event, node.id, side);
+              const workflowPortUp = (event, side) => handlePortPointerUp(event, node.id, side);
+              const workflowContext = event => setContextMenu({ x: event.clientX, y: event.clientY, node });
+              if (node.kind === 'image') {
+                return <ImageNode
+                  key={node.id}
+                  node={node}
+                  selected={selectedNodeState}
+                  multiSelected={multiSelected.has(node.id)}
+                  onPointerDown={handleNodeDown}
+                  onToggleSelect={handleToggleSelect}
+                  onPortPointerDown={handlePortPointerDown}
+                  onPortPointerUp={handlePortPointerUp}
+                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                />;
+              }
+              const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
+              const referenceImages = (node.inputs?.referenceImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
+              return <div key={node.id} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h }}>
+                <CanvasWorkflowNode
+                  node={node}
+                  sourceNode={sourcePreview}
+                  actions={CANVAS_NODE_ACTIONS}
+                  selected={selectedNodeState}
+                  onPointerDown={event => handleNodeDown(event, node.id)}
+                  onContextMenu={workflowContext}
+                  onRetry={() => handleWorkflowRetry(node)}
+                  onPortPointerDown={workflowPortDown}
+                  onPortPointerUp={workflowPortUp}
+                  smartRemixProps={node.kind === 'smart-remix' ? {
+                    prompt: node.inputs?.prompt || '',
+                    productImages,
+                    referenceImages,
+                    instruction: node.inputs?.instruction || '',
+                    outputCount: node.inputs?.outputCount || 1,
+                    error: node.error,
+                    onPromptChange: value => updateWorkflowInputs(node.id, { prompt: value }),
+                    onAddProductImages: files => handleWorkflowAddImages(node.id, 'productImages', files),
+                    onRemoveProductImage: image => updateWorkflowInputs(node.id, { productImages: (node.inputs?.productImages || []).filter(item => item.id !== image.id) }),
+                    onAddReferenceImages: files => handleWorkflowAddImages(node.id, 'referenceImages', files),
+                    onRemoveReferenceImage: image => updateWorkflowInputs(node.id, { referenceImages: (node.inputs?.referenceImages || []).filter(item => item.id !== image.id) }),
+                    onInstructionChange: value => updateWorkflowInputs(node.id, { instruction: value }),
+                    onOutputCountChange: value => updateWorkflowInputs(node.id, { outputCount: value }),
+                    onGenerate: () => handleWorkflowGenerate(node),
+                  } : undefined}
+                  layerProps={node.kind === 'layer-workbench' ? {
+                    layers: node.inputs?.layers || [],
+                    selectedLayerId: node.inputs?.selectedLayerId,
+                    capabilities: { psdExport: false },
+                    onSelectLayer: layerId => updateWorkflowInputs(node.id, { selectedLayerId: layerId }),
+                    onToggleVisibility: layer => updateWorkflowLayers(node.id, layers => layers.map(item => item.id === layer.id ? { ...item, visible: item.visible === false } : item)),
+                    onToggleLock: layer => updateWorkflowLayers(node.id, layers => layers.map(item => item.id === layer.id ? { ...item, locked: !item.locked } : item)),
+                    onMoveLayer: (layer, direction) => updateWorkflowLayers(node.id, layers => {
+                      const index = layers.findIndex(item => item.id === layer.id);
+                      const nextIndex = direction === 'up' ? index - 1 : index + 1;
+                      if (index < 0 || nextIndex < 0 || nextIndex >= layers.length) return layers;
+                      const next = [...layers];
+                      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+                      return next;
+                    }),
+                    onExportPng: handleWorkflowLayerExport,
+                    onExportPsd: () => showToast('像素分层能力完成后才可导出 PSD', 'info'),
+                  } : undefined}
+                  compactProps={node.kind !== 'smart-remix' && node.kind !== 'layer-workbench' ? {
+                    sourceImage: sourcePreview?.url,
+                    resultImage: node.output?.url ? proxyImg(node.output.url) : '',
+                    error: node.error,
+                    onRun: () => handleWorkflowProcess(node),
+                  } : undefined}
+                />
+              </div>;
+            })}
+            {selectedNode?.kind === 'image' && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
           </div>
 
           {marquee && (
@@ -1223,27 +1611,16 @@ export default function EcCanvas() {
 
           {connectionDraft && (
             <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 8, background: '#1f2937', color: '#fff', padding: '7px 12px', borderRadius: 9, fontSize: 11, zIndex: 40 }}>
-              <span>正在连接素材</span>
-              {['reference', 'variant', 'merge'].map(type => (
-                <button key={type} type="button" onClick={() => setConnectionDraft(prev => ({ ...prev, type }))} style={{ border: 0, borderRadius: 999, padding: '4px 8px', background: connectionDraft.type === type ? '#a78bfa' : 'rgba(255,255,255,.12)', color: '#fff', fontSize: 10, cursor: 'pointer' }}>{type === 'reference' ? '引用' : type === 'variant' ? '变体' : '合并'}</button>
-              ))}
-              <span style={{ opacity: .65 }}>点击目标节点左端口完成</span>
+              <span>正在连接素材</span><span style={{ opacity: .65 }}>拖到目标节点完成连接，松开空白处创建电商任务</span>
             </div>
           )}
 
-          {selectedNode && (
-            <div style={{ position: 'absolute', right: 18, top: '38%', zIndex: 45 }}>
-              <button type="button" onClick={() => setGenerationMenuOpen(v => !v)} style={{ width: 34, height: 34, borderRadius: '50%', border: 0, background: '#7c3aed', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', boxShadow: '0 8px 20px rgba(124,58,237,.28)' }}>+</button>
-              {generationMenuOpen && <div style={{ position: 'absolute', right: 44, top: -12, width: 190, background: '#fff', border: '1px solid rgba(15,23,42,.08)', borderRadius: 12, boxShadow: '0 14px 36px rgba(15,23,42,.16)', padding: 7 }}>
-                <div style={{ padding: '7px 9px', fontSize: 10, color: '#9ca3af' }}>引用该元素生成</div>
-                {[
-                  ['reference', '图片生成（编辑）', MdAddPhotoAlternate],
-                  ['text', '文本生成', MdTextFields],
-                  ['video', '视频分镜生成', MdViewQuilt],
-                ].map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { if (id === 'reference') handleToolAction('reference', selectedNode); else { setComposerNodes([selectedNode]); setComposerText(id === 'text' ? '根据当前商品图，生成一张电商卖点视觉图：' : '根据当前商品图，生成一条 9:16 电商视频分镜方案：'); } setGenerationMenuOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '9px', background: 'transparent', color: '#374151', fontSize: 11, fontWeight: 700, cursor: 'pointer', textAlign: 'left' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,.08)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}><Icon size={15} />{label}</button>)}
-              </div>}
-            </div>
-          )}
+          {connectionPicker && <CanvasNodeActionPicker
+            actions={CANVAS_NODE_ACTIONS}
+            position={connectionPicker.screen}
+            onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
+            onSelect={action => handleCreateDerivedNode(connectionPicker.sourceNodeId, action, connectionPicker.world)}
+          />}
 
           {/* 操作提示 */}
           <div style={{ position: 'absolute', bottom: 16, right: 16, fontSize: 11, color: 'rgba(0,0,0,0.28)', pointerEvents: 'none', textAlign: 'right', lineHeight: 1.6 }}>
