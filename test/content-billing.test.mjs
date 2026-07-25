@@ -1,10 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import { EventEmitter } from 'node:events';
+import Database from 'better-sqlite3';
 import {
+  authenticateContentRequest,
+  contentBillingHttpError,
+  createBilledSseRunner,
   createContentBilling,
+  createGeneratedAssetPersister,
+  createPreviewSseRunner,
+  createSessionTokenService,
   describeContentGenerationFailure,
 } from '../server/billing/contentBilling.mjs';
+import { ensureBillingSchema } from '../server/billing/schema.mjs';
+import { createWalletService } from '../server/billing/walletService.mjs';
+import { createContentEntitlements } from '../server/billing/contentEntitlements.mjs';
 
 const OWNER = 'buyer@example.com';
 const STABLE_ASSET_RE = /^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|png|webp)$/;
@@ -160,10 +171,88 @@ function createFakeHarness({
     },
   };
 
+  const db = new Database(':memory:');
+
   return {
+    db,
     calls,
-    service: createContentBilling({ contentEntitlements, walletService }),
+    service: createContentBilling({ db, contentEntitlements, walletService }),
   };
+}
+
+function createDurableHarness({ leaseMs = 1_000 } = {}) {
+  let clock = Date.parse('2026-07-25T12:00:00.000Z');
+  const db = new Database(':memory:');
+  ensureBillingSchema(db);
+  const walletService = createWalletService(db, {
+    isUnlimited: email => email === OWNER,
+    now: () => clock,
+  });
+  const contentEntitlements = createContentEntitlements(db, walletService);
+  const createService = () => createContentBilling({
+    db,
+    contentEntitlements,
+    walletService,
+    now: () => clock,
+    leaseMs,
+  });
+  return {
+    db,
+    createService,
+    service: createService(),
+    advance(ms) { clock += ms; },
+  };
+}
+
+class FakeResponse extends EventEmitter {
+  constructor({ writeResult = true, writeError = null } = {}) {
+    super();
+    this.writeResult = writeResult;
+    this.writeError = writeError;
+    this.headers = {};
+    this.headersSent = false;
+    this.flushed = false;
+    this.ended = false;
+    this.statusCode = 200;
+    this.jsonBody = null;
+    this.writes = [];
+  }
+
+  setHeader(name, value) {
+    this.headers[String(name).toLowerCase()] = value;
+  }
+
+  flushHeaders() {
+    this.flushed = true;
+    this.headersSent = true;
+  }
+
+  write(chunk) {
+    if (this.writeError) throw this.writeError;
+    this.writes.push(String(chunk));
+    return this.writeResult;
+  }
+
+  end() {
+    this.ended = true;
+  }
+
+  status(code) {
+    this.statusCode = code;
+    return this;
+  }
+
+  json(body) {
+    this.headersSent = true;
+    this.jsonBody = body;
+    return this;
+  }
+}
+
+function parsedSseEvents(response) {
+  return response.writes.flatMap(chunk => chunk.split('\n\n'))
+    .filter(Boolean)
+    .map(frame => JSON.parse(frame.replace(/^data:\s*/, '')));
 }
 
 test('beginContentGeneration derives a stable work id, ignores client authority, and reuses the same hold', () => {
@@ -181,7 +270,10 @@ test('beginContentGeneration derives a stable work id, ignores client authority,
   const first = service.beginContentGeneration(request);
   const repeated = service.beginContentGeneration(request);
 
-  assert.deepEqual(repeated, first);
+  assert.equal(first.action, 'start');
+  assert.equal(repeated.action, 'in_progress');
+  assert.equal(repeated.leaseToken, null);
+  assert.deepEqual(repeated.billing, first.billing);
   assert.deepEqual(calls.holdSet, [
     {
       ownerEmail: OWNER,
@@ -189,14 +281,8 @@ test('beginContentGeneration derives a stable work id, ignores client authority,
       workId: 'content-client_generation-01',
       mode: 'xhs',
     },
-    {
-      ownerEmail: OWNER,
-      generationId: 'client_generation-01',
-      workId: 'content-client_generation-01',
-      mode: 'xhs',
-    },
   ]);
-  assert.deepEqual(first, {
+  assert.deepEqual(first.billing, {
     currency: 'content_sets',
     status: 'held',
     settledUnits: 0,
@@ -233,11 +319,12 @@ test('beginContentGeneration validates generation ids and decorates insufficient
 
 test('completeContentGeneration settles exactly nine stable assets and returns the authoritative balance', () => {
   const { service, calls } = createFakeHarness();
-  service.beginContentGeneration({ ownerEmail: OWNER, generationId: 'settle-1', mode: 'xhs' });
+  const begun = service.beginContentGeneration({ ownerEmail: OWNER, generationId: 'settle-1', mode: 'xhs' });
 
   const billing = service.completeContentGeneration({
     ownerEmail: OWNER,
     generationId: 'settle-1',
+    leaseToken: begun.leaseToken,
     workId: 'client-work',
     result: delivery(),
     planSnapshot: { regenPerWork: 999 },
@@ -250,7 +337,8 @@ test('completeContentGeneration settles exactly nine stable assets and returns t
     'generationId', 'ownerEmail', 'result', 'workId',
   ]);
   assert.equal(calls.completeSet[0].workId, 'content-settle-1');
-  assert.deepEqual(billing, {
+  assert.equal(billing.jobStatus, 'completed');
+  assert.deepEqual(billing.billing, {
     currency: 'content_sets',
     status: 'settled',
     settledUnits: 1,
@@ -272,17 +360,19 @@ test('completeContentGeneration settles exactly nine stable assets and returns t
 
 test('completeContentGeneration keeps one to eight stable assets in needs_review without releasing the hold', () => {
   const { service, calls } = createFakeHarness();
-  service.beginContentGeneration({ ownerEmail: OWNER, generationId: 'review-1', mode: 'plog' });
+  const begun = service.beginContentGeneration({ ownerEmail: OWNER, generationId: 'review-1', mode: 'plog' });
 
   const billing = service.completeContentGeneration({
     ownerEmail: OWNER,
     generationId: 'review-1',
+    leaseToken: begun.leaseToken,
     result: delivery(8, { copyLines: ['一段完整情绪文案'] }),
   });
 
   assert.equal(calls.completeSet.length, 1);
   assert.equal(calls.failSet.length, 0);
-  assert.deepEqual(billing, {
+  assert.equal(billing.jobStatus, 'needs_review');
+  assert.deepEqual(billing.billing, {
     currency: 'content_sets',
     status: 'needs_review',
     settledUnits: 0,
@@ -306,9 +396,14 @@ test('completeContentGeneration releases zero-delivery or copyless results inste
     await t.test(label, () => {
       const { service, calls } = createFakeHarness();
       const generationId = `empty-${index}`;
-      service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' });
+      const begun = service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' });
 
-      const billing = service.completeContentGeneration({ ownerEmail: OWNER, generationId, result });
+      const billing = service.completeContentGeneration({
+        ownerEmail: OWNER,
+        generationId,
+        leaseToken: begun.leaseToken,
+        result,
+      });
 
       assert.equal(calls.completeSet.length, 0);
       assert.equal(calls.failSet.length, 1);
@@ -323,27 +418,28 @@ test('completeContentGeneration releases zero-delivery or copyless results inste
 
 test('failContentGeneration is idempotent across catch and finally reasons', () => {
   const { service, calls } = createFakeHarness();
-  service.beginContentGeneration({ ownerEmail: OWNER, generationId: 'failure-1', mode: 'plog' });
+  const begun = service.beginContentGeneration({ ownerEmail: OWNER, generationId: 'failure-1', mode: 'plog' });
 
   const first = service.failContentGeneration({
     ownerEmail: OWNER,
     generationId: 'failure-1',
+    leaseToken: begun.leaseToken,
     reason: 'provider_failed',
     kind: 'system',
   });
   const repeated = service.failContentGeneration({
     ownerEmail: OWNER,
     generationId: 'failure-1',
+    leaseToken: begun.leaseToken,
     reason: 'client_disconnected',
     kind: 'user',
   });
 
-  assert.deepEqual(repeated, first);
-  assert.deepEqual(calls.failSet.map(call => call.reason), [
-    'generation_failed',
-    'generation_failed',
-  ]);
-  assert.deepEqual(first, {
+  assert.equal(first.action, 'failed');
+  assert.equal(repeated.action, 'terminal');
+  assert.deepEqual(repeated.billing, first.billing);
+  assert.deepEqual(calls.failSet.map(call => call.reason), ['generation_failed']);
+  assert.deepEqual(first.billing, {
     currency: 'content_sets',
     status: 'released',
     settledUnits: 0,
@@ -367,6 +463,7 @@ test('successful billing mutations use their transaction balance without a follo
   const completed = settledHarness.service.completeContentGeneration({
     ownerEmail: OWNER,
     generationId: 'mutation-balance-settle',
+    leaseToken: begun.leaseToken,
     result: delivery(),
   });
 
@@ -376,7 +473,7 @@ test('successful billing mutations use their transaction balance without a follo
   assert.equal(completed.heldUnits, 0);
 
   const releasedHarness = createFakeHarness({ failBalanceReads: true });
-  releasedHarness.service.beginContentGeneration({
+  const releaseBegun = releasedHarness.service.beginContentGeneration({
     ownerEmail: OWNER,
     generationId: 'mutation-balance-release',
     mode: 'plog',
@@ -384,6 +481,7 @@ test('successful billing mutations use their transaction balance without a follo
   const released = releasedHarness.service.failContentGeneration({
     ownerEmail: OWNER,
     generationId: 'mutation-balance-release',
+    leaseToken: releaseBegun.leaseToken,
   });
 
   assert.equal(released.balance, 3);
@@ -417,12 +515,145 @@ test('failure messaging only claims a refund after billing confirms release', ()
   );
 });
 
+test('HMAC sessions authenticate the signed owner and reject tampering or expiry', () => {
+  let clock = Date.parse('2026-07-25T12:00:00.000Z');
+  const sessions = createSessionTokenService({
+    secret: 'test-only-session-secret-with-32-bytes',
+    now: () => clock,
+    ttlMs: 60_000,
+  });
+  const issued = sessions.issue(' Buyer@Example.COM ');
+
+  assert.equal(issued.email, OWNER);
+  assert.equal(issued.expiresAt, '2026-07-25T12:01:00.000Z');
+  assert.deepEqual(sessions.verify(issued.token), {
+    email: OWNER,
+    iat: Math.floor(clock / 1000),
+    exp: Math.floor((clock + 60_000) / 1000),
+    expiresAt: issued.expiresAt,
+  });
+  assert.throws(
+    () => sessions.verify(`${issued.token.slice(0, -1)}${issued.token.endsWith('a') ? 'b' : 'a'}`),
+    error => error.code === 'AUTH_SESSION_INVALID',
+  );
+  clock += 60_001;
+  assert.throws(() => sessions.verify(issued.token), error => error.code === 'AUTH_SESSION_EXPIRED');
+});
+
+test('content authentication trusts only a verified session token and ignores body email authority', () => {
+  const sessions = createSessionTokenService({
+    secret: 'test-only-session-secret-with-32-bytes',
+    now: () => Date.parse('2026-07-25T12:00:00.000Z'),
+  });
+  const token = sessions.issue(OWNER).token;
+  const authorizeEmail = email => ({ ok: true, email });
+
+  assert.equal(authenticateContentRequest({
+    headers: { authorization: `Bearer ${token}` },
+    body: { email: '867550189@qq.com' },
+  }, { sessionTokens: sessions, authorizeEmail }), OWNER);
+  assert.equal(authenticateContentRequest({
+    headers: { 'x-shubao-session': token },
+    body: { email: '867550189@qq.com' },
+  }, { sessionTokens: sessions, authorizeEmail }), OWNER);
+  assert.throws(() => authenticateContentRequest({
+    headers: {},
+    body: { email: '867550189@qq.com' },
+  }, { sessionTokens: sessions, authorizeEmail }), error => error.code === 'AUTH_SESSION_REQUIRED');
+});
+
+test('billing HTTP errors distinguish validation, auth, insufficient balance, and conflicts', () => {
+  assert.deepEqual(contentBillingHttpError(Object.assign(new Error('bad input'), {
+    code: 'CONTENT_GENERATION_ID_INVALID',
+  })), {
+    status: 400,
+    body: { error: '生成任务参数无效，请刷新后重试', code: 'CONTENT_GENERATION_ID_INVALID', resumeable: false },
+  });
+  assert.equal(contentBillingHttpError(Object.assign(new Error('expired'), {
+    code: 'AUTH_SESSION_EXPIRED',
+  })).status, 401);
+  assert.deepEqual(contentBillingHttpError(Object.assign(new Error('low'), {
+    code: 'BILLING_INSUFFICIENT_CREDITS',
+    required: 1,
+    available: 0,
+  })), {
+    status: 402,
+    body: {
+      error: '创作套数不足，请购买套餐后继续',
+      code: 'BILLING_INSUFFICIENT_CREDITS',
+      required: 1,
+      available: 0,
+      resumeable: true,
+    },
+  });
+  for (const code of [
+    'CONTENT_GENERATION_IDEMPOTENCY_CONFLICT',
+    'CONTENT_GENERATION_CONFLICT',
+    'CONTENT_GENERATION_LEASE_LOST',
+    'CONTENT_GENERATION_TERMINAL',
+  ]) {
+    const mapped = contentBillingHttpError(Object.assign(new Error('conflict'), { code }));
+    assert.equal(mapped.status, 409, code);
+    assert.equal(mapped.body.resumeable, false, code);
+  }
+});
+
+test('generated asset persister supports HTTP, data URLs, and raw b64_json with magic-byte validation', async () => {
+  const calls = { persist: [], persistBuffer: [] };
+  const generatedAssetStore = {
+    async persist(input) {
+      calls.persist.push(input);
+      return { url: assetUrl(40, 'jpg') };
+    },
+    async persistBuffer(input) {
+      calls.persistBuffer.push(input);
+      return { url: assetUrl(41, input.contentType === 'image/png' ? 'png' : 'webp') };
+    },
+  };
+  const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore, maxBytes: 64 });
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.from([4, 0, 0, 0]), Buffer.from('WEBP'), Buffer.from([1])]);
+
+  assert.equal(await persistGeneratedAsset({
+    source: 'https://provider.example/image.jpg',
+    generationId: 'asset-http',
+    label: 'cover',
+  }), assetUrl(40, 'jpg'));
+  assert.equal(await persistGeneratedAsset({
+    source: `data:image/png;base64,${png.toString('base64')}`,
+    generationId: 'asset-data',
+    label: 'cover',
+  }), assetUrl(41, 'png'));
+  assert.equal(await persistGeneratedAsset({
+    source: { b64_json: webp.toString('base64') },
+    generationId: 'asset-raw',
+    label: 'p1',
+  }), assetUrl(41, 'webp'));
+
+  assert.equal(calls.persist.length, 1);
+  assert.equal(calls.persistBuffer.length, 2);
+  assert.equal(calls.persistBuffer[0].contentType, 'image/png');
+  assert.deepEqual(calls.persistBuffer[0].buffer, png);
+  assert.equal(calls.persistBuffer[1].contentType, 'image/webp');
+  assert.deepEqual(calls.persistBuffer[1].buffer, webp);
+
+  await assert.rejects(
+    persistGeneratedAsset({ source: { b64_json: Buffer.from('not-an-image').toString('base64') } }),
+    error => error.code === 'GENERATED_ASSET_INVALID',
+  );
+  await assert.rejects(
+    persistGeneratedAsset({ source: { b64_json: Buffer.alloc(65, 1).toString('base64') } }),
+    error => error.code === 'GENERATED_ASSET_TOO_LARGE',
+  );
+});
+
 test('unlimited owners expose unlimited billing while still settling one shadow unit', () => {
   const { service } = createFakeHarness({ unlimited: true });
   const begun = service.beginContentGeneration({ ownerEmail: OWNER, generationId: 'unlimited-1', mode: 'xhs' });
   const completed = service.completeContentGeneration({
     ownerEmail: OWNER,
     generationId: 'unlimited-1',
+    leaseToken: begun.leaseToken,
     result: delivery(),
   });
 
@@ -445,7 +676,8 @@ test('preview billing creates a safe server identity without touching entitlemen
   });
   const generated = service.previewContentGeneration({ mode: 'xhs' });
 
-  assert.deepEqual(explicit, {
+  assert.equal(explicit.action, 'preview');
+  assert.deepEqual(explicit.billing, {
     currency: 'content_sets',
     status: 'preview',
     settledUnits: 0,
@@ -460,6 +692,299 @@ test('preview billing creates a safe server identity without touching entitlemen
   assert.match(generated.generationId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   assert.equal(generated.workId, `content-${generated.generationId}`);
   assert.deepEqual(calls, { holdSet: [], completeSet: [], failSet: [] });
+});
+
+test('durable jobs hold once, report in-progress, and replay completed delivery after restart', t => {
+  const harness = createDurableHarness();
+  t.after(() => harness.db.close());
+  const generationId = 'durable-complete-1';
+  const first = harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' });
+  const concurrent = harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' });
+
+  assert.equal(first.action, 'start');
+  assert.equal(first.jobStatus, 'processing');
+  assert.match(first.leaseToken, /^[0-9a-f-]{36}$/i);
+  assert.equal(concurrent.action, 'in_progress');
+  assert.equal(concurrent.leaseToken, null);
+  assert.equal(
+    harness.db.prepare("SELECT COUNT(*) AS count FROM billing_holds WHERE quote_id = ?").get(generationId).count,
+    1,
+  );
+
+  const fullDelivery = {
+    ...delivery(),
+    image_count: 8,
+    pages: [{ page_id: 1 }],
+    custom: { stable: true },
+  };
+  const completed = harness.service.completeContentGeneration({
+    ownerEmail: OWNER,
+    generationId,
+    leaseToken: first.leaseToken,
+    result: fullDelivery,
+  });
+  assert.equal(completed.jobStatus, 'completed');
+  assert.equal(completed.billing.status, 'settled');
+
+  const restarted = harness.createService();
+  const replay = restarted.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' });
+  assert.equal(replay.action, 'replay');
+  assert.equal(replay.replay, true);
+  assert.deepEqual(replay.delivery, fullDelivery);
+  assert.deepEqual(replay.billing, completed.billing);
+  assert.equal(
+    harness.db.prepare('SELECT COUNT(*) AS count FROM usage_events WHERE reference_id = ?').get(first.workId).count,
+    1,
+  );
+});
+
+test('expired processing leases are reclaimed with fencing against the old worker', t => {
+  const harness = createDurableHarness({ leaseMs: 100 });
+  t.after(() => harness.db.close());
+  const generationId = 'durable-reclaim-1';
+  const first = harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'plog' });
+  harness.advance(101);
+  const reclaimed = harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'plog' });
+
+  assert.equal(reclaimed.action, 'start');
+  assert.equal(reclaimed.reclaimed, true);
+  assert.notEqual(reclaimed.leaseToken, first.leaseToken);
+  assert.throws(() => harness.service.completeContentGeneration({
+    ownerEmail: OWNER,
+    generationId,
+    leaseToken: first.leaseToken,
+    result: delivery(9, { caption: '旧 worker' }),
+  }), error => error.code === 'CONTENT_GENERATION_LEASE_LOST');
+
+  const completed = harness.service.completeContentGeneration({
+    ownerEmail: OWNER,
+    generationId,
+    leaseToken: reclaimed.leaseToken,
+    result: delivery(9, { caption: '新 worker' }),
+  });
+  assert.equal(completed.jobStatus, 'completed');
+});
+
+test('needs-review and failed jobs persist replayable terminal state without duplicate billing', async t => {
+  await t.test('needs review', () => {
+    const harness = createDurableHarness();
+    t.after(() => harness.db.close());
+    const generationId = 'durable-review-1';
+    const begun = harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'plog' });
+    const partial = { ...delivery(4, { caption: '部分稳定结果' }), image_count: 3 };
+    const completed = harness.service.completeContentGeneration({
+      ownerEmail: OWNER,
+      generationId,
+      leaseToken: begun.leaseToken,
+      result: partial,
+    });
+    const replay = harness.createService().beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'plog' });
+
+    assert.equal(completed.jobStatus, 'needs_review');
+    assert.equal(completed.billing.status, 'needs_review');
+    assert.equal(completed.billing.heldUnits, 0);
+    assert.equal(replay.action, 'replay');
+    assert.deepEqual(replay.delivery, partial);
+    assert.equal(replay.billing.status, 'needs_review');
+  });
+
+  await t.test('failed and released', () => {
+    const harness = createDurableHarness();
+    t.after(() => harness.db.close());
+    const generationId = 'durable-failed-1';
+    const begun = harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' });
+    const failed = harness.service.failContentGeneration({
+      ownerEmail: OWNER,
+      generationId,
+      leaseToken: begun.leaseToken,
+      error: Object.assign(new Error('provider failed'), { code: 'IMAGE_PROVIDER_FAILED' }),
+    });
+    const terminal = harness.createService().beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' });
+
+    assert.equal(failed.jobStatus, 'failed');
+    assert.equal(failed.billing.status, 'released');
+    assert.equal(terminal.action, 'terminal');
+    assert.equal(terminal.error.code, 'IMAGE_PROVIDER_FAILED');
+    assert.deepEqual(terminal.billing, failed.billing);
+    assert.deepEqual(
+      harness.service.failContentGeneration({
+        ownerEmail: OWNER,
+        generationId,
+        leaseToken: begun.leaseToken,
+        error: new Error('repeated'),
+      }).billing,
+      failed.billing,
+    );
+  });
+});
+
+test('billed SSE runner completes durably after disconnect and replays without upstream work', async t => {
+  const harness = createDurableHarness();
+  t.after(() => harness.db.close());
+  const runner = createBilledSseRunner(harness.service);
+  const generationId = 'runner-disconnect-1';
+  let upstreamCalls = 0;
+  const disconnected = new FakeResponse();
+
+  const completed = await runner({
+    res: disconnected,
+    ownerEmail: OWNER,
+    generationId,
+    mode: 'xhs',
+    generate: async ({ send }) => {
+      upstreamCalls += 1;
+      send('progress', { step: 'image' });
+      disconnected.emit('close');
+      return delivery();
+    },
+  });
+  assert.equal(completed.jobStatus, 'completed');
+  assert.equal(upstreamCalls, 1);
+  assert.equal(parsedSseEvents(disconnected).some(event => event.type === 'complete'), false);
+
+  const replayResponse = new FakeResponse();
+  const replayed = await runner({
+    res: replayResponse,
+    ownerEmail: OWNER,
+    generationId,
+    mode: 'xhs',
+    generate: async () => {
+      upstreamCalls += 1;
+      throw new Error('replay must not call upstream');
+    },
+  });
+  const replayEvent = parsedSseEvents(replayResponse).find(event => event.type === 'complete');
+  assert.equal(replayed.action, 'replay');
+  assert.equal(upstreamCalls, 1);
+  assert.equal(replayEvent.replay, true);
+  assert.equal(replayEvent.cover_url, assetUrl(0));
+  assert.equal(replayEvent.billing.status, 'settled');
+});
+
+test('write false or throw closes only transport while durable completion continues', async t => {
+  for (const [label, response] of [
+    ['write false', new FakeResponse({ writeResult: false })],
+    ['write throw', new FakeResponse({ writeError: new Error('socket closed') })],
+  ]) {
+    await t.test(label, async () => {
+      const harness = createDurableHarness();
+      t.after(() => harness.db.close());
+      const runner = createBilledSseRunner(harness.service);
+      const result = await runner({
+        res: response,
+        ownerEmail: OWNER,
+        generationId: `runner-${label.replace(' ', '-')}`,
+        mode: 'plog',
+        generate: async ({ send }) => {
+          send('image', { id: 'cover', url: assetUrl(0) });
+          return delivery(9, { caption: '后台继续完成' });
+        },
+      });
+      assert.equal(result.jobStatus, 'completed');
+      assert.equal(result.billing.status, 'settled');
+    });
+  }
+});
+
+test('billed SSE runner releases persist failures and returns 402 or 202 before flushing', async t => {
+  await t.test('persist failure releases', async () => {
+    const harness = createDurableHarness();
+    t.after(() => harness.db.close());
+    const runner = createBilledSseRunner(harness.service);
+    const generationId = 'runner-persist-fail';
+    const response = new FakeResponse();
+    const failed = await runner({
+      res: response,
+      ownerEmail: OWNER,
+      generationId,
+      mode: 'xhs',
+      generate: async () => {
+        throw Object.assign(new Error('invalid base64 image'), { code: 'GENERATED_ASSET_INVALID' });
+      },
+    });
+    assert.equal(failed.jobStatus, 'failed');
+    assert.equal(failed.billing.status, 'released');
+    assert.equal(
+      harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'xhs' }).action,
+      'terminal',
+    );
+  });
+
+  await t.test('402 before SSE flush', async () => {
+    const harness = createFakeHarness({ availableUnits: 0 });
+    t.after(() => harness.db.close());
+    const runner = createBilledSseRunner(harness.service);
+    const response = new FakeResponse();
+    let generated = false;
+    await runner({
+      res: response,
+      ownerEmail: OWNER,
+      generationId: 'runner-insufficient',
+      mode: 'xhs',
+      generate: async () => { generated = true; return delivery(); },
+    });
+    assert.equal(response.statusCode, 402);
+    assert.equal(response.jsonBody.code, 'BILLING_INSUFFICIENT_CREDITS');
+    assert.equal(response.jsonBody.resumeable, true);
+    assert.equal(response.flushed, false);
+    assert.equal(generated, false);
+  });
+
+  await t.test('202 in progress before SSE flush', async () => {
+    const harness = createDurableHarness();
+    t.after(() => harness.db.close());
+    const generationId = 'runner-in-progress';
+    harness.service.beginContentGeneration({ ownerEmail: OWNER, generationId, mode: 'plog' });
+    const runner = createBilledSseRunner(harness.service);
+    const response = new FakeResponse();
+    let generated = false;
+    await runner({
+      res: response,
+      ownerEmail: OWNER,
+      generationId,
+      mode: 'plog',
+      generate: async () => { generated = true; return delivery(); },
+    });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.jsonBody.code, 'CONTENT_GENERATION_IN_PROGRESS');
+    assert.equal(response.flushed, false);
+    assert.equal(generated, false);
+  });
+});
+
+test('preview SSE runner calls one cover generator, never bills, and strips full-plan fields', async () => {
+  const harness = createFakeHarness();
+  const runner = createPreviewSseRunner({ previewContentGeneration: harness.service.previewContentGeneration });
+  const response = new FakeResponse();
+  let coverCalls = 0;
+  await runner({
+    res: response,
+    generationId: 'preview-runner-1',
+    mode: 'xhs',
+    generateCover: async () => {
+      coverCalls += 1;
+      return {
+        url: assetUrl(0),
+        delivery: {
+          title: '本地预览',
+          cover_url: assetUrl(0),
+          image_urls: [],
+          pages: [{ page_id: 1 }],
+          image_prompts: [{ page_id: 1, prompt: 'full plan' }],
+          cover_prompt: 'hidden prompt',
+        },
+      };
+    },
+  });
+  const complete = parsedSseEvents(response).find(event => event.type === 'complete');
+  assert.equal(coverCalls, 1);
+  assert.equal(complete.billing.status, 'preview');
+  assert.equal(complete.billing.settledUnits, 0);
+  assert.equal(Object.hasOwn(complete, 'pages'), false);
+  assert.equal(Object.hasOwn(complete, 'image_prompts'), false);
+  assert.equal(Object.hasOwn(complete, 'cover_prompt'), false);
+  assert.deepEqual(harness.calls, { holdSet: [], completeSet: [], failSet: [] });
+  harness.db.close();
 });
 
 function extractBalancedBlock(source, openingBrace) {
@@ -546,7 +1071,8 @@ function extractRouteHandler(source, routePath, nextRoutePath) {
 function extractNamedFunction(source, name) {
   const start = source.indexOf(`function ${name}`);
   assert.notEqual(start, -1, `function ${name} exists`);
-  return extractBalancedBlock(source, source.indexOf('{', start));
+  const parameterEnd = source.indexOf(')', start);
+  return extractBalancedBlock(source, source.indexOf('{', parameterEnd));
 }
 
 function assertBefore(source, earlier, later, message) {
@@ -557,30 +1083,42 @@ function assertBefore(source, earlier, later, message) {
   assert.ok(earlierIndex < laterIndex, message);
 }
 
-test('server initializes content billing from the same SQLite handle and gives preview a rate-limited access boundary', async () => {
+test('server initializes durable billing, signed sessions, trusted proxy IPs, and token-only paid auth', async () => {
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   assert.match(server, /const db = initDB\(\);/);
   assert.match(server, /createWalletService\(db,\s*\{\s*isUnlimited:\s*isUnlimitedBetaEmail\s*\}\)/);
   assert.match(server, /createContentEntitlements\(db, walletService\)/);
-  assert.match(server, /createContentBilling\(\{\s*contentEntitlements,\s*walletService,?\s*\}\)/);
+  assert.match(server, /createContentBilling\(\{\s*db,\s*contentEntitlements,\s*walletService,?\s*\}\)/);
+  assert.match(server, /createGeneratedAssetPersister\(\{\s*generatedAssetStore/);
+  assert.match(server, /createBilledSseRunner\(/);
+  assert.match(server, /createPreviewSseRunner\(/);
+  assert.match(server, /process\.env\.AUTH_SESSION_SECRET/);
+  assert.match(server, /crypto\.randomBytes\(32\)/);
+  assert.match(server, /createSessionTokenService\(/);
+  assert.match(server, /console\.warn\([^)]*AUTH_SESSION_SECRET/);
+  assert.match(server, /app\.set\(['"]trust proxy['"],\s*['"]loopback['"]\)/);
 
   assert.match(server, /CONTENT_PREVIEW_ROUTES\s*=\s*new Set\(\[\s*['"]\/api\/generate['"],\s*['"]\/api\/plog-generate['"]\s*\]\)/);
+  const getClientIp = extractNamedFunction(server, 'getClientIp');
+  assert.match(getClientIp, /req\.ip/);
+  assert.doesNotMatch(getClientIp, /x-forwarded-for/i);
+
   const middleware = extractNamedFunction(server, 'betaAccessMiddleware');
   assert.match(middleware, /CONTENT_PREVIEW_ROUTES\.has\(req\.path\)/);
   assert.match(middleware, /req\.body\?\.preview === true/);
   assert.match(middleware, /req\._contentPreview = true/);
-  assertBefore(middleware, 'req._contentPreview = true', 'requireBetaEmail', 'preview is separated before beta email auth');
+  assert.match(middleware, /authenticateContentRequest\(req/);
+  assertBefore(middleware, 'req._contentPreview = true', 'authenticateContentRequest', 'preview is separated before session auth');
+  assertBefore(middleware, 'authenticateContentRequest', 'requireBetaEmail(req.body?.email)', 'paid content auth precedes legacy body auth');
   assert.match(server, /betaAccessMiddleware\(req, res, continueWithRateLimit\)/);
 
-  const startError = extractNamedFunction(server, 'sendContentBillingStartError');
-  assert.match(startError, /BILLING_INSUFFICIENT_CREDITS/);
-  assert.match(startError, /status\(402\)/);
-  for (const field of ['code', 'required', 'available', 'resumeable']) {
-    assert.match(startError, new RegExp(`\\b${field}\\b`));
-  }
+  const verifyRoute = extractRouteHandler(server, '/api/auth/verify-code', '/api/plog-generate');
+  assert.match(verifyRoute, /contentSessionTokens\.issue\(access\.email\)/);
+  assert.match(verifyRoute, /token/);
+  assert.match(verifyRoute, /expiresAt/);
 });
 
-test('XHS and Plog routes hold before upstream work, persist before image events, and finalize billing before complete', async t => {
+test('XHS and Plog routes use shared runners, stable persistence, and local one-cover previews', async t => {
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const cases = [
     {
@@ -588,43 +1126,48 @@ test('XHS and Plog routes hold before upstream work, persist before image events
       path: '/api/generate',
       nextPath: '/api/analyze',
       mode: 'xhs',
-      firstUpstream: 'contentAnalysis(',
-      previewLimit: /const allPrompts = preview\s*\?\s*\[coverPromptTask\]/,
+      paidFunction: 'generateXhsContentSet',
+      previewFunction: 'runXhsPreview',
+      paidUpstream: /contentAnalysis\(/,
+      forbiddenPreview: /contentAnalysis\(|visualPlanning\(|callMiniLLM\(/,
     },
     {
       name: 'Plog',
       path: '/api/plog-generate',
       nextPath: '/api/create-payment',
       mode: 'plog',
-      firstUpstream: 'enrichLensesWithLLM(',
-      previewLimit: /const totalCount = preview \? 1 : 9;/,
+      paidFunction: 'generatePlogContentSet',
+      previewFunction: 'runPlogPreview',
+      paidUpstream: /enrichLensesWithLLM\(/,
+      forbiddenPreview: /enrichLensesWithLLM\(|extractToneFromImage\(|callMiniLLM\(/,
     },
   ];
 
   for (const spec of cases) {
     await t.test(spec.name, () => {
       const route = extractRouteHandler(server, spec.path, spec.nextPath);
-      assert.match(route, /const preview = req\._contentPreview === true/);
-      assert.match(route, /previewContentGeneration\(/);
-      assert.match(route, /beginContentGeneration\(\{[\s\S]*ownerEmail:\s*req\._userEmail[\s\S]*generationId:\s*req\.body\?\.generationId[\s\S]*mode:\s*['"]/);
+      assert.match(route, /req\._contentPreview === true/);
+      assert.match(route, new RegExp(`${spec.previewFunction}\\(req, res\\)`));
+      assert.match(route, /runBilledContentSse\(\{/);
+      assert.match(route, /ownerEmail:\s*req\._userEmail/);
+      assert.match(route, /generationId:\s*req\.body\?\.generationId/);
       assert.match(route, new RegExp(`mode:\\s*['"]${spec.mode}['"]`));
-      assertBefore(route, 'beginContentGeneration(', 'res.setHeader', `${spec.name} holds before SSE headers`);
-      assertBefore(route, 'beginContentGeneration(', spec.firstUpstream, `${spec.name} holds before upstream work`);
-      assert.match(route, spec.previewLimit);
-
-      assertBefore(route, 'await persistGeneratedAsset(', 'results.push(', `${spec.name} persists before collecting results`);
-      assertBefore(route, 'await persistGeneratedAsset(', /send\((?:'|")image(?:'|")/, `${spec.name} persists before image SSE`);
-      assertBefore(route, 'completeContentGeneration(', /send\((?:'|")complete(?:'|")/, `${spec.name} bills before complete SSE`);
-      assert.match(route, /billingLifecycleHandled = true;[\s\S]*send\((?:'|")complete(?:'|")/);
-      assert.match(route, /catch\s*\([^)]*\)\s*\{[\s\S]*failContentGeneration\(/);
-      assert.match(route, /finally\s*\{[\s\S]*if \(!preview && !billingLifecycleHandled\)[\s\S]*failContentGeneration\(/);
-
-      assert.match(route, /generationId:\s*billingContext\.generationId/);
-      assert.match(route, /workId:\s*billingContext\.workId/);
-      assert.match(route, /billing/);
+      assertBefore(route, `${spec.previewFunction}(req, res)`, 'runBilledContentSse(', `${spec.name} preview exits before paid runner`);
       assert.doesNotMatch(route, /req\.body\?\.email|req\.body\.email|body\.email/);
       assert.doesNotMatch(route, /req\.body\?\.kind|req\.body\.kind|body\.kind/);
+      assert.doesNotMatch(route, /req\.body\?\.workId|req\.body\.workId|body\.workId/);
       assert.doesNotMatch(route, /consumeUserCredit|deductCredit/);
+
+      const paid = extractNamedFunction(server, spec.paidFunction);
+      assert.match(paid, spec.paidUpstream);
+      assertBefore(paid, 'await persistGeneratedAsset(', 'results.push(', `${spec.name} persists before collecting results`);
+      assertBefore(paid, 'await persistGeneratedAsset(', /send\((?:'|")image(?:'|")/, `${spec.name} persists before image SSE`);
+
+      const preview = extractNamedFunction(server, spec.previewFunction);
+      assert.match(preview, /runContentPreviewSse\(/);
+      assert.match(preview, /await persistGeneratedAsset\(/);
+      assert.doesNotMatch(preview, spec.forbiddenPreview);
+      assert.doesNotMatch(preview, /pages|image_prompts|cover_prompt/);
     });
   }
 });

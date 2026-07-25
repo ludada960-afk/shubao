@@ -27,8 +27,13 @@ import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './access
 import { createWalletService } from './billing/walletService.mjs';
 import { createContentEntitlements } from './billing/contentEntitlements.mjs';
 import {
+  authenticateContentRequest,
+  contentBillingHttpError,
+  createBilledSseRunner,
   createContentBilling,
-  describeContentGenerationFailure,
+  createGeneratedAssetPersister,
+  createPreviewSseRunner,
+  createSessionTokenService,
 } from './billing/contentBilling.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
@@ -67,21 +72,27 @@ const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SEC
 const db = initDB();
 const walletService = createWalletService(db, { isUnlimited: isUnlimitedBetaEmail });
 const contentEntitlements = createContentEntitlements(db, walletService);
+let authSessionSecret = process.env.AUTH_SESSION_SECRET;
+if (!authSessionSecret) {
+  authSessionSecret = crypto.randomBytes(32);
+  console.warn('[auth] AUTH_SESSION_SECRET 未配置，使用本进程随机密钥；服务重启后需重新登录');
+}
+const contentSessionTokens = createSessionTokenService({ secret: authSessionSecret });
+const contentBilling = createContentBilling({ db, contentEntitlements, walletService });
 const {
   beginContentGeneration,
   completeContentGeneration,
   failContentGeneration,
   previewContentGeneration,
-} = createContentBilling({ contentEntitlements, walletService });
+} = contentBilling;
 const generatedAssetStore = createGeneratedAssetStore({ directory: resolve(__dirname, 'generated-assets') });
-async function persistGeneratedAsset({ sourceUrl, generationId, label }) {
-  const asset = await generatedAssetStore.persist({
-    sourceUrl,
-    taskId: generationId,
-    label,
-  });
-  return asset.url;
-}
+const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
+const runBilledContentSse = createBilledSseRunner({
+  beginContentGeneration,
+  completeContentGeneration,
+  failContentGeneration,
+});
+const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
@@ -125,6 +136,7 @@ function saveUsers(users) {
 }
 
 const app = express();
+app.set('trust proxy', 'loopback');
 
 // 轻量健康检查：供 PM2、反向代理和部署脚本判断进程是否真的能响应。
 app.get('/health', (req, res) => {
@@ -163,9 +175,7 @@ app.get('/api/generated-assets/:id', async (req, res) => {
 const rateLimitStore = new Map();         // key: `${email-or-ip}:${minuteBucket}` -> count
 const CONTENT_PREVIEW_ROUTES = new Set(['/api/generate', '/api/plog-generate']);
 function getClientIp(req) {
-  const xf = req.headers['x-forwarded-for'];
-  if (xf) return String(xf).split(',')[0].trim();
-  return req.socket?.remoteAddress || req.ip || 'unknown';
+  return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 function rateLimiter(req, res, next) {
   const ip = getClientIp(req);
@@ -207,6 +217,18 @@ function betaAccessMiddleware(req, res, next) {
     req._contentPreview = true;
     return next();
   }
+  if (CONTENT_PREVIEW_ROUTES.has(req.path)) {
+    try {
+      req._userEmail = authenticateContentRequest(req, {
+        sessionTokens: contentSessionTokens,
+        authorizeEmail: requireBetaEmail,
+      });
+      return next();
+    } catch (error) {
+      const mapped = contentBillingHttpError(error);
+      return res.status(mapped.status).json(mapped.body);
+    }
+  }
   const access = requireBetaEmail(req.body?.email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   req._userEmail = access.email;
@@ -244,33 +266,11 @@ function deductCredit(email) {
   consumeUserCredit(email, 1);
 }
 
-function sendContentBillingStartError(res, error) {
-  if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
-    return res.status(402).json({
-      error: '创作套数不足，请购买套餐后继续',
-      code: error.code,
-      required: error.required ?? 1,
-      available: error.available ?? 0,
-      resumeable: true,
-    });
-  }
-  const invalidRequest = ['CONTENT_GENERATION_ID_INVALID', 'CONTENT_MODE_INVALID'].includes(error?.code);
-  return res.status(invalidRequest ? 400 : 500).json({
-    error: invalidRequest ? '生成任务参数无效，请刷新后重试' : '暂时无法开始生成，请稍后重试',
-    code: error?.code || 'CONTENT_BILLING_START_FAILED',
-    resumeable: true,
-  });
-}
-
-function contentGenerationErrorPayload(error, billingContext, billing = null) {
-  const code = error?.code || 'CONTENT_GENERATION_FAILED';
-  return {
-    error: describeContentGenerationFailure(error, billing),
-    code,
-    generationId: billingContext.generationId,
-    workId: billingContext.workId,
-    ...(billing ? { billing } : {}),
-  };
+function sendContentInputError(res) {
+  const error = new Error('请输入内容');
+  error.code = 'CONTENT_INPUT_INVALID';
+  const mapped = contentBillingHttpError(error);
+  return res.status(mapped.status).json({ ...mapped.body, error: '请输入内容' });
 }
 
 // 生产模式：serve 前端构建产物
@@ -1742,42 +1742,48 @@ function buildP2SafePrompt(analysis, userText) {
   return full;
 }
 
-app.post('/api/generate', async (req, res) => {
-  const { text, images } = req.body || {};
-  if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
-  const preview = req._contentPreview === true;
-  let billingContext;
-  try {
-    billingContext = preview
-      ? previewContentGeneration({ generationId: req.body?.generationId, mode: 'xhs' })
-      : await beginContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: req.body?.generationId,
-          mode: 'xhs',
-        });
-  } catch (error) {
-    console.error('[xhs-billing] 无法开始生成:', error.message);
-    return sendContentBillingStartError(res, error);
-  }
-  let billingLifecycleHandled = preview;
-  // SSE 流式输出 - 每完成一张图立刻推送给前端
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-  const send = (type, data) => {
-    try { res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n'); } catch(e) {}
-  };
-  console.log('\n=== 开始工作流: "' + text.slice(0, 40) + '..." ===');
-  try {
-    send('progress', { step: 'content_analysis', msg: '正在分析内容...' });
+function buildXhsPreviewCoverPrompt(text) {
+  const topic = String(text || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+  return `小红书封面预览，主题“${topic}”，简洁中文大标题，单一视觉主体，明亮自然光，竖版3:4，不生成内容页。`;
+}
 
-    // 【XHS 参考图 Vision 分析】
-    let visionContext = '';
-    if (images?.length) {
-      send('progress', { step: 'vision', msg: '正在分析参考图...' });
-      try {
-        const visionPrompt = `你是一个小红书内容图片分析专家。分析这些参考图，提取视觉风格特征，用 JSON 返回：
+async function runXhsPreview(req, res) {
+  const text = String(req.body?.text || '').trim();
+  return runContentPreviewSse({
+    res,
+    generationId: req.body?.generationId,
+    mode: 'xhs',
+    generateCover: async ({ generationId, send }) => {
+      send('progress', { step: 'preview_cover', msg: '正在生成封面预览...' });
+      const source = await generateImage(buildXhsPreviewCoverPrompt(text), '通用', true, false);
+      const url = await persistGeneratedAsset({ source, generationId, label: 'xhs-preview-cover' });
+      return {
+        url,
+        delivery: {
+          title: text.slice(0, 30),
+          body_text: text,
+          hashtags: [],
+          category: '预览',
+          visual_system: 'preview',
+          cover_url: url,
+          image_urls: [],
+          image_count: 0,
+        },
+      };
+    },
+  });
+}
+
+async function generateXhsContentSet({ text, images, send, generationId, workId }) {
+  console.log('\n=== 开始工作流: "' + text.slice(0, 40) + '..." ===');
+  send('progress', { step: 'content_analysis', msg: '正在分析内容...' });
+
+  // 【XHS 参考图 Vision 分析】
+  let visionContext = '';
+  if (images?.length) {
+    send('progress', { step: 'vision', msg: '正在分析参考图...' });
+    try {
+      const visionPrompt = `你是一个小红书内容图片分析专家。分析这些参考图，提取视觉风格特征，用 JSON 返回：
 {
   "color_palette": ["#hex1", "#hex2", "#hex3"],
   "style_vibe": "风格描述（简约/清新/复古/治愈/高级/可爱等）",
@@ -1786,152 +1792,106 @@ app.post('/api/generate', async (req, res) => {
   "composition": "构图特点",
   "aesthetic_tags": ["标签1", "标签2"]
 }`;
-        const visionResult = await callMiniLLM(visionPrompt, images.slice(0, 3), '分析这些参考图的视觉风格');
-        const parsed = JSON.parse((visionResult || '{}').replace(/```(json)?/g, '').trim());
-        if (parsed?.color_palette?.length || parsed?.style_vibe) {
-          visionContext = '\n\n[参考图视觉特征]\n' +
-            (parsed.style_vibe ? `风格：${parsed.style_vibe}\n` : '') +
-            (parsed.mood ? `氛围：${parsed.mood}\n` : '') +
-            (parsed.color_palette?.length ? `色调：${parsed.color_palette.join('、')}\n` : '') +
-            (parsed.lighting ? `光线：${parsed.lighting}\n` : '') +
-            (parsed.composition ? `构图：${parsed.composition}\n` : '');
-        }
-      } catch (e) {
-        console.warn('[XHS Vision] 参考图分析失败（不阻断）:', e.message);
+      const visionResult = await callMiniLLM(visionPrompt, images.slice(0, 3), '分析这些参考图的视觉风格');
+      const parsed = JSON.parse((visionResult || '{}').replace(/```(json)?/g, '').trim());
+      if (parsed?.color_palette?.length || parsed?.style_vibe) {
+        visionContext = '\n\n[参考图视觉特征]\n' +
+          (parsed.style_vibe ? `风格：${parsed.style_vibe}\n` : '') +
+          (parsed.mood ? `氛围：${parsed.mood}\n` : '') +
+          (parsed.color_palette?.length ? `色调：${parsed.color_palette.join('、')}\n` : '') +
+          (parsed.lighting ? `光线：${parsed.lighting}\n` : '') +
+          (parsed.composition ? `构图：${parsed.composition}\n` : '');
       }
+    } catch (e) {
+      console.warn('[XHS Vision] 参考图分析失败（不阻断）:', e.message);
     }
-
-    const analysis = await contentAnalysis(text + visionContext);
-    send('progress', { step: 'visual_planning', msg: '正在规划视觉...' });
-    const visual = await visualPlanning(analysis);
-
-    // 并发生图（每完成一张就推送）
-    const coverPromptTask = { id: 'cover', prompt: visual.coverPrompt, category: analysis.category };
-    const allPrompts = preview ? [coverPromptTask] : [
-      coverPromptTask,
-      ...visual.imagePrompts.map(p => ({ id: 'p' + p.page_id, prompt: p.prompt, category: analysis.category })),
-    ];
-
-    // ===== 产品类赛道（美妆护肤/好物评测/数码3C等）内容页强制显示产品 =====
-    const productCats = ['美妆护肤','美妆·化妆教程','好物评测','数码3C'];
-    allPrompts.forEach(t => {
-      if (t.id !== 'cover' && productCats.some(c => analysis.category?.includes(c))) {
-        t.prompt = (t.prompt || '') + ' The product with Chinese price label must be clearly visible.';
-      }
-    });
-
-    // 【关键】全局检测：如果这组prompts中任何一张涉及JK制服，所有图都追加制服风格描述
-    const jkKeywordsGlobal = [/水手服/,/JK/,/制服/,/百褶裙/,/领结/,/sailor/i,/seifuku/i,/校服/,/校园/,/日系/];
-    const hasJKContext = allPrompts.some(t => jkKeywordsGlobal.some(k => k.test(t.prompt))) ||
-      (analysis.pages || []).some(p => /水手服|JK|制服|校服|校园|日系/.test(JSON.stringify(p)));
-    // 给所有任务打上jkContext标记
-    allPrompts.forEach(t => t.jkContext = hasJKContext);
-    if (hasJKContext) console.log('[JK context] 全部 ' + allPrompts.length + ' 张图启用校园风覆盖模式');
-
-    const results = [];
-    const queue = [...allPrompts];
-    const MAX_WORKERS = 5;
-
-    send('progress', { step: 'generating_images', msg: '正在生成图片...', total: allPrompts.length });
-
-    async function worker() {
-      while (queue.length > 0) {
-        const task = queue.shift();
-        let lastErr = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            if (attempt > 1) await new Promise(r => setTimeout(r, 2000 * (attempt - 1)));
-            const upstreamUrl = await generateImage(task.prompt, task.category, task.id === 'cover', task.jkContext);
-            if (upstreamUrl) {
-              const url = await persistGeneratedAsset({
-                sourceUrl: upstreamUrl,
-                generationId: billingContext.generationId,
-                label: `xhs-${task.id}`,
-              });
-              results.push({ id: task.id, url });
-              send('image', {
-                id: task.id,
-                url,
-                generationId: billingContext.generationId,
-                workId: billingContext.workId,
-              });
-              lastErr = null;
-              break;
-            }
-          } catch(e) {
-            lastErr = e.message;
-            console.error('[gen]', task.id, 'attempt', attempt, 'failed:', e.message);
-          }
-        }
-        if (lastErr) console.error('[gen]', task.id, 'all attempts failed:', lastErr);
-      }
-    }
-    const workers = Array.from({ length: Math.min(MAX_WORKERS, allPrompts.length) }, () => worker());
-    await Promise.all(workers);
-
-    send('progress', { step: 'assembling', msg: '正在组装结果...' });
-    const result = assembleResults(analysis, visual, results);
-    const billing = preview
-      ? billingContext
-      : await completeContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: billingContext.generationId,
-          result,
-        });
-    billingLifecycleHandled = true;
-
-    if (billing.status === 'released') {
-      const deliveryError = new Error('未生成可交付内容，创作额度已退回');
-      deliveryError.code = 'CONTENT_DELIVERY_EMPTY';
-      send('error', contentGenerationErrorPayload(deliveryError, billingContext, billing));
-      return;
-    }
-
-    send('complete', {
-      title: analysis.title,
-      body_text: analysis.body_text,
-      hashtags: analysis.hashtags,
-      category: analysis.category,
-      visual_system: visual.visualSystem,
-      pages: analysis.pages,
-      cover_url: result.cover_url || '',
-      image_urls: result.image_urls || [],
-      image_count: result.image_count || 0,
-      cover_prompt: visual.coverPrompt || '',
-      image_prompts: (visual.imagePrompts || []).map(p => ({ page_id: p.page_id, prompt: p.prompt })),
-      generationId: billingContext.generationId,
-      workId: billingContext.workId,
-      billing,
-    });
-  } catch(err) {
-    console.error('!! 工作流失败:', err.message);
-    let billing = null;
-    if (!preview && !billingLifecycleHandled) {
-      try {
-        billing = await failContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: billingContext.generationId,
-        });
-        billingLifecycleHandled = true;
-      } catch (releaseError) {
-        console.error('[xhs-billing] catch 释放失败:', releaseError.message);
-      }
-    }
-    send('error', contentGenerationErrorPayload(err, billingContext, billing));
-  } finally {
-    if (!preview && !billingLifecycleHandled) {
-      try {
-        await failContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: billingContext.generationId,
-        });
-        billingLifecycleHandled = true;
-      } catch (releaseError) {
-        console.error('[xhs-billing] finally 兜底释放失败:', releaseError.message);
-      }
-    }
-    res.end();
   }
+
+  const analysis = await contentAnalysis(text + visionContext);
+  send('progress', { step: 'visual_planning', msg: '正在规划视觉...' });
+  const visual = await visualPlanning(analysis);
+
+  // 并发生图（每完成一张就推送）
+  const allPrompts = [
+    { id: 'cover', prompt: visual.coverPrompt, category: analysis.category },
+    ...visual.imagePrompts.map(p => ({ id: 'p' + p.page_id, prompt: p.prompt, category: analysis.category })),
+  ];
+
+  // ===== 产品类赛道（美妆护肤/好物评测/数码3C等）内容页强制显示产品 =====
+  const productCats = ['美妆护肤','美妆·化妆教程','好物评测','数码3C'];
+  allPrompts.forEach(t => {
+    if (t.id !== 'cover' && productCats.some(c => analysis.category?.includes(c))) {
+      t.prompt = (t.prompt || '') + ' The product with Chinese price label must be clearly visible.';
+    }
+  });
+
+  // 【关键】全局检测：如果这组prompts中任何一张涉及JK制服，所有图都追加制服风格描述
+  const jkKeywordsGlobal = [/水手服/,/JK/,/制服/,/百褶裙/,/领结/,/sailor/i,/seifuku/i,/校服/,/校园/,/日系/];
+  const hasJKContext = allPrompts.some(t => jkKeywordsGlobal.some(k => k.test(t.prompt))) ||
+    (analysis.pages || []).some(p => /水手服|JK|制服|校服|校园|日系/.test(JSON.stringify(p)));
+  allPrompts.forEach(t => t.jkContext = hasJKContext);
+  if (hasJKContext) console.log('[JK context] 全部 ' + allPrompts.length + ' 张图启用校园风覆盖模式');
+
+  const results = [];
+  const queue = [...allPrompts];
+  const MAX_WORKERS = 5;
+
+  send('progress', { step: 'generating_images', msg: '正在生成图片...', total: allPrompts.length });
+
+  async function worker() {
+    while (queue.length > 0) {
+      const task = queue.shift();
+      let lastErr = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          if (attempt > 1) await new Promise(r => setTimeout(r, 2000 * (attempt - 1)));
+          const source = await generateImage(task.prompt, task.category, task.id === 'cover', task.jkContext);
+          if (source) {
+            const url = await persistGeneratedAsset({ source, generationId, label: `xhs-${task.id}` });
+            results.push({ id: task.id, url });
+            send('image', { id: task.id, url, generationId, workId });
+            lastErr = null;
+            break;
+          }
+        } catch(e) {
+          lastErr = e.message;
+          console.error('[gen]', task.id, 'attempt', attempt, 'failed:', e.message);
+        }
+      }
+      if (lastErr) console.error('[gen]', task.id, 'all attempts failed:', lastErr);
+    }
+  }
+  const workers = Array.from({ length: Math.min(MAX_WORKERS, allPrompts.length) }, () => worker());
+  await Promise.all(workers);
+
+  send('progress', { step: 'assembling', msg: '正在组装结果...' });
+  const result = assembleResults(analysis, visual, results);
+  return {
+    title: analysis.title,
+    body_text: analysis.body_text,
+    hashtags: analysis.hashtags,
+    category: analysis.category,
+    visual_system: visual.visualSystem,
+    pages: analysis.pages,
+    cover_url: result.cover_url || '',
+    image_urls: result.image_urls || [],
+    image_count: result.image_count || 0,
+    cover_prompt: visual.coverPrompt || '',
+    image_prompts: (visual.imagePrompts || []).map(p => ({ page_id: p.page_id, prompt: p.prompt })),
+  };
+}
+
+app.post('/api/generate', async (req, res) => {
+  const { text, images } = req.body || {};
+  if (!text?.trim()) return sendContentInputError(res);
+  if (req._contentPreview === true) return runXhsPreview(req, res);
+  return runBilledContentSse({
+    res,
+    ownerEmail: req._userEmail,
+    generationId: req.body?.generationId,
+    mode: 'xhs',
+    generate: context => generateXhsContentSet({ ...context, text: text.trim(), images }),
+  });
 });
 
 app.post('/api/analyze', async (req, res) => {
@@ -3721,7 +3681,10 @@ app.post('/api/auth/verify-code', (req, res) => {
   const access = requireBetaEmail(email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   const result = verifyCode(access.email, code);
-  if (result.ok) res.json({ ok: true, email: access.email });
+  if (result.ok) {
+    const session = contentSessionTokens.issue(access.email);
+    res.json({ ok: true, email: access.email, token: session.token, expiresAt: session.expiresAt });
+  }
   else res.status(400).json(result);
 });
 
@@ -3735,168 +3698,168 @@ mountExtRoutes(app);
 // ============================================================
 
 
-// ── Plog 生活氛围感（V2：独立引擎，与种草完全隔离）──
-app.post("/api/plog-generate", async (req, res) => {
-  const { text, refImage, style, layout, coverVariant, skipEnrich } = req.body || {};
-  if (!text?.trim()) return res.status(400).json({ error: "请输入内容" });
-  const preview = req._contentPreview === true;
-  let billingContext;
-  try {
-    billingContext = preview
-      ? previewContentGeneration({ generationId: req.body?.generationId, mode: 'plog' })
-      : await beginContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: req.body?.generationId,
-          mode: 'plog',
-        });
-  } catch (error) {
-    console.error('[plog-billing] 无法开始生成:', error.message);
-    return sendContentBillingStartError(res, error);
-  }
-  let billingLifecycleHandled = preview;
-  const plogStyle = PLOG_STYLES[style] ? style : 'ins-minimal';
-  const plogLayout = LAYOUT_TEMPLATES[layout] ? layout : 'casual';
-  const plogCover = COVER_VARIANTS[coverVariant] ? coverVariant : 'collage';
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
-  const NL = String.fromCharCode(10);
-  const send = (type, data) => { try { res.write("data: " + JSON.stringify({ type, ...data }) + NL + NL); } catch(e) {} };
-  try {
-    // Step 1: 场景分类
-    send("progress", { step: "scene", msg: "正在分析场景..." });
-    const scene = classifyScene(text);
+function plogOptions({ style, layout, coverVariant } = {}) {
+  return {
+    style: PLOG_STYLES[style] ? style : 'ins-minimal',
+    layout: LAYOUT_TEMPLATES[layout] ? layout : 'casual',
+    coverVariant: COVER_VARIANTS[coverVariant] ? coverVariant : 'collage',
+  };
+}
 
-    // Step 2: 镜头拆分 + LLM 微调
-    send("progress", { step: "lens", msg: "正在拆分生活碎片镜头..." });
-    const totalCount = preview ? 1 : 9;
-    let lenses = getLensesForScene(scene, totalCount);
-    if (!skipEnrich && text.length > 6) {
-      try {
-        lenses = await enrichLensesWithLLM(lenses, text, scene, callMiniLLM);
-      } catch(e) { console.error('[plog] enrich失败, 使用预定义:', e.message); }
-    }
-
-    // Step 3: 色调分析（如果有参考图）
-    send("progress", { step: "tone", msg: refImage ? "正在分析参考图色调..." : "已选风格色调" });
-    let toneInfo = null;
-    if (refImage) {
-      toneInfo = await extractToneFromImage(refImage, callMiniLLM);
-    }
-
-    // Step 4: 生成每张图的 prompt + 调用图片API
-    send("progress", { step: "generating", msg: "正在绘制 Plog 图片...", total: totalCount, current: 0 });
-    const results = [];
-    for (let i = 0; i < totalCount; i++) {
-      const isCover = (i === 0);
+async function runPlogPreview(req, res) {
+  const text = String(req.body?.text || '').trim();
+  const options = plogOptions(req.body);
+  const scene = classifyScene(text);
+  const lens = getLensesForScene(scene, 1)[0];
+  return runContentPreviewSse({
+    res,
+    generationId: req.body?.generationId,
+    mode: 'plog',
+    generateCover: async ({ generationId, send }) => {
+      send('progress', { step: 'preview_cover', msg: '正在生成 Plog 封面预览...' });
       const prompt = buildPlogPrompt({
-        lens: lenses[i],
-        style: plogStyle,
-        toneInfo,
-        isCover,
-        index: i,
-        totalCount,
+        lens,
+        style: options.style,
+        toneInfo: null,
+        isCover: true,
+        index: 0,
+        totalCount: 1,
         category: scene,
-        layout: plogLayout,
-        coverVariant: plogCover,
+        layout: options.layout,
+        coverVariant: options.coverVariant,
       });
-      try {
-        const imageUrl = await callImageAPI(prompt, null, null);
-        if (imageUrl) {
-          const id = isCover ? 'cover' : 'p' + i;
-          const url = await persistGeneratedAsset({
-            sourceUrl: imageUrl,
-            generationId: billingContext.generationId,
-            label: `plog-${id}`,
-          });
-          results.push({ id, url });
-          send("image", {
-            id,
-            url,
-            index: i,
-            total: totalCount,
-            generationId: billingContext.generationId,
-            workId: billingContext.workId,
-          });
-          send("progress", { step: "generating", msg: `正在绘制 Plog 图片...`, total: totalCount, current: i + 1 });
-        }
-      } catch(e) {
-        console.error("[plog-v2]", i, "failed:", e.message);
-      }
-    }
+      const source = await callImageAPI(prompt, null, null);
+      const url = await persistGeneratedAsset({
+        source,
+        generationId,
+        label: 'plog-preview-cover',
+      });
+      return {
+        url,
+        delivery: {
+          caption: generatePlogCaption(scene, scene, options.style),
+          copyLines: [],
+          cover_url: url,
+          image_urls: [],
+          image_count: 0,
+        },
+      };
+    },
+  });
+}
 
-    // Step 5: 生成配套文案
-    const copyLines = generatePlogCopy(scene, lenses, toneInfo);
-    const caption = generatePlogCaption(scene, scene, plogStyle);
+async function generatePlogContentSet({
+  text,
+  refImage,
+  style,
+  layout,
+  coverVariant,
+  skipEnrich,
+  send,
+  generationId,
+  workId,
+}) {
+  const options = plogOptions({ style, layout, coverVariant });
+  send('progress', { step: 'scene', msg: '正在分析场景...' });
+  const scene = classifyScene(text);
 
-    // Step 6: 组装结果
-    const coverUrl = results.find(r => r.id === 'cover')?.url || '';
-    const imageUrls = results.filter(r => r.id !== 'cover').map(r => r.url);
-    const result = {
-      caption,
-      copyLines,
-      cover_url: coverUrl,
-      image_urls: imageUrls,
-    };
-    const billing = preview
-      ? billingContext
-      : await completeContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: billingContext.generationId,
-          result,
-        });
-    billingLifecycleHandled = true;
-
-    if (billing.status === 'released') {
-      const deliveryError = new Error('未生成可交付内容，创作额度已退回');
-      deliveryError.code = 'CONTENT_DELIVERY_EMPTY';
-      send("error", contentGenerationErrorPayload(deliveryError, billingContext, billing));
-      return;
+  send('progress', { step: 'lens', msg: '正在拆分生活碎片镜头...' });
+  const totalCount = 9;
+  let lenses = getLensesForScene(scene, totalCount);
+  if (!skipEnrich && text.length > 6) {
+    try {
+      lenses = await enrichLensesWithLLM(lenses, text, scene, callMiniLLM);
+    } catch (error) {
+      console.error('[plog] enrich失败, 使用预定义:', error.message);
     }
-
-    send("complete", {
-      scene, style: plogStyle,
-      layout: plogLayout, coverVariant: plogCover,
-      caption,
-      copyLines, cover_url: coverUrl,
-      image_urls: imageUrls,
-      image_count: imageUrls.length,
-      total_count: totalCount,
-      toneInfo,
-      generationId: billingContext.generationId,
-      workId: billingContext.workId,
-      billing,
-    });
-  } catch(err) {
-    console.error('[plog-v2] 失败:', err);
-    let billing = null;
-    if (!preview && !billingLifecycleHandled) {
-      try {
-        billing = await failContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: billingContext.generationId,
-        });
-        billingLifecycleHandled = true;
-      } catch (releaseError) {
-        console.error('[plog-billing] catch 释放失败:', releaseError.message);
-      }
-    }
-    send("error", contentGenerationErrorPayload(err, billingContext, billing));
-  } finally {
-    if (!preview && !billingLifecycleHandled) {
-      try {
-        await failContentGeneration({
-          ownerEmail: req._userEmail,
-          generationId: billingContext.generationId,
-        });
-        billingLifecycleHandled = true;
-      } catch (releaseError) {
-        console.error('[plog-billing] finally 兜底释放失败:', releaseError.message);
-      }
-    }
-    res.end();
   }
+
+  send('progress', { step: 'tone', msg: refImage ? '正在分析参考图色调...' : '已选风格色调' });
+  const toneInfo = refImage
+    ? await extractToneFromImage(refImage, callMiniLLM)
+    : null;
+
+  send('progress', { step: 'generating', msg: '正在绘制 Plog 图片...', total: totalCount, current: 0 });
+  const results = [];
+  for (let index = 0; index < totalCount; index += 1) {
+    const isCover = index === 0;
+    const prompt = buildPlogPrompt({
+      lens: lenses[index],
+      style: options.style,
+      toneInfo,
+      isCover,
+      index,
+      totalCount,
+      category: scene,
+      layout: options.layout,
+      coverVariant: options.coverVariant,
+    });
+    try {
+      const source = await callImageAPI(prompt, null, null);
+      if (!source) continue;
+      const id = isCover ? 'cover' : 'p' + index;
+      const url = await persistGeneratedAsset({
+        source,
+        generationId,
+        label: 'plog-' + id,
+      });
+      results.push({ id, url });
+      send('image', {
+        id,
+        url,
+        index,
+        total: totalCount,
+        generationId,
+        workId,
+      });
+      send('progress', {
+        step: 'generating',
+        msg: '正在绘制 Plog 图片...',
+        total: totalCount,
+        current: index + 1,
+      });
+    } catch (error) {
+      console.error('[plog-v2]', index, 'failed:', error.message);
+    }
+  }
+
+  const coverUrl = results.find(result => result.id === 'cover')?.url || '';
+  const imageUrls = results.filter(result => result.id !== 'cover').map(result => result.url);
+  return {
+    scene,
+    style: options.style,
+    layout: options.layout,
+    coverVariant: options.coverVariant,
+    caption: generatePlogCaption(scene, scene, options.style),
+    copyLines: generatePlogCopy(scene, lenses, toneInfo),
+    cover_url: coverUrl,
+    image_urls: imageUrls,
+    image_count: imageUrls.length,
+    total_count: totalCount,
+    toneInfo,
+  };
+}
+
+// ── Plog 生活氛围感（V2：独立引擎，与种草完全隔离）──
+app.post('/api/plog-generate', async (req, res) => {
+  const { text, refImage, style, layout, coverVariant, skipEnrich } = req.body || {};
+  if (!text?.trim()) return sendContentInputError(res);
+  if (req._contentPreview === true) return runPlogPreview(req, res);
+  return runBilledContentSse({
+    res,
+    ownerEmail: req._userEmail,
+    generationId: req.body?.generationId,
+    mode: 'plog',
+    generate: context => generatePlogContentSet({
+      ...context,
+      text: text.trim(),
+      refImage,
+      style,
+      layout,
+      coverVariant,
+      skipEnrich,
+    }),
+  });
 });
 
 // ============================================================
