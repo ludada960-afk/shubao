@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MdAutoAwesome, MdArrowBack, MdRefresh } from 'react-icons/md';
 import { getDesignDirections, generateEcommerce, saveWork, polishECText } from '../../../services/api';
 import { useApp } from '../../../store/AppContext';
-import { isInsufficientCreditsError } from '../../../services/apiError';
+import { handleGenerationAccessError } from '../../../utils/generationAccess.js';
 import EcommerceWorkbench from './EcommerceWorkbench';
 import { buildSupplementDeck } from './workbenchState';
 import DirectionOptionCard from './components/DirectionOptionCard';
@@ -30,7 +30,7 @@ async function supplementImageToDataUrl(image) {
 
 /* ═══════ 设计方向确认页（三段式第二步）═══ */
 export default function DesignDirection({ params, onBack, onGenerated }) {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, fetchCredits } = useApp();
   const [loading, setLoading] = useState(true);
   const [loadStage, setLoadStage] = useState(0); // 0=产品分析, 1=参考图分析, 2=生成方案
   const [directions, setDirections] = useState([]);
@@ -150,6 +150,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         category: params?.category || '其他',
         points: [params?.copywriting?.sellingPoints || params?.description || '', directionBrief].filter(Boolean).join('。设计方向：'),
         platform: params?.platform || '淘宝',
+        email: state.phone,
         refImgs: [...(params?.refShots || []), ...extraReferencePayload.filter(Boolean)],
         realShots: [...(params?.realShots || []), ...((params?.productImages || []).map(image => typeof image === 'string' ? image : image.url)), ...extraProductPayload.filter(Boolean)],
         skus: params?.skus || [],
@@ -180,7 +181,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         const finalResult = { ...result, product_name: params?.productName || '商品', _ecResult: true, _direction: dir, category: params?.category || '其他', platform: params?.platform || '淘宝' };
 
         // ★ 立即保存到服务器作品集
-        const phone = state.phone || 'guest';
+        const phone = state.phone || '';
         const imageEntries = Object.entries(finalResult.images || {});
         const serverWork = {
           product_name: finalResult.product_name,
@@ -196,6 +197,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         } catch (e) {
           console.warn('[EC] 服务器保存失败:', e.message);
         }
+        fetchCredits(phone);
 
         // 存储结果到全局 state 并跳转到画布
         dispatch({ type: 'SET_RESULT', result: finalResult });
@@ -206,18 +208,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         setError('生成失败，请重试');
       }
     } catch (e) {
-      if (isInsufficientCreditsError(e)) {
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'ecommerce-direction',
+        message: '你选择的设计方向、修改后的方案说明、补充图片和提示词都已保留。',
+      });
+      if (accessResult === 'credits') {
         setBlockedByCredits(true);
         setError('');
-        dispatch({
-          type: 'OPEN_PAYWALL',
-          tab: 'ecommerce',
-          reason: 'INSUFFICIENT_CREDITS',
-          pendingAction: {
-            source: 'ecommerce-direction',
-            message: '你选择的设计方向、修改后的方案说明、补充图片和提示词都已保留。',
-          },
-        });
+      } else if (accessResult === 'login') {
+        setError('');
       } else {
         setError(e.message || '生成失败');
       }

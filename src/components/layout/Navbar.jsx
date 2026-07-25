@@ -3,6 +3,7 @@ import { Image, ShoppingBag, Megaphone } from 'lucide-react';
 import { MdAutoAwesome, MdLogin, MdCheck, MdMenu, MdClose } from 'react-icons/md';
 import { IMAGES } from '../../constants/images';
 import { useApp } from '../../store/AppContext';
+import { signOut } from '../../services/auth';
 
 /**
  * 薯包AI 导航 — 灵图风格：72px 浮动玻璃导航
@@ -124,7 +125,7 @@ export default function Navbar() {
 
           {/* Login / Logged */}
           {logged ? (
-            <button onClick={() => dispatch({ type: 'SET_LOGGED', logged: false, phone: '' })}
+            <button onClick={async () => { await signOut(); dispatch({ type: 'SET_LOGGED', logged: false, phone: '' }); }}
               style={{
                 height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: 6, padding: '0 18px', border: 'none', borderRadius: 'var(--radius-full)',

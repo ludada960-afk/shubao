@@ -10,6 +10,9 @@ import { useApp } from '../../store/AppContext';
 const EXT_API = '';
 import Button from '../../components/ui/Button';
 import Footer from '../../components/layout/Footer';
+import { withSessionEmail } from '../../services/api';
+import { createApiError } from '../../services/apiError.js';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 
 const EC_TIERS = [
   { key: 'basic', label: '基础版', count: 3, desc: '白底主图+卖点+场景' },
@@ -103,12 +106,14 @@ export default function RemakePage() {
       const res = await fetch(`${EXT_API}/api/extension/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId }),
+        body: JSON.stringify(withSessionEmail({ taskId })),
       });
+      if (!res.ok) throw await createApiError(res, '分析失败');
       const data = await res.json();
       if (!data.ok) setError(data.error || '分析失败');
     } catch (err) {
-      setError(err.message);
+      const accessResult = handleGenerationAccessError(err, dispatch, { source: 'remake-analyze' });
+      setError(accessResult ? '' : err.message);
     }
     setLoading(false);
   };
@@ -129,15 +134,16 @@ export default function RemakePage() {
       const res = await fetch(`${EXT_API}/api/extension/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(withSessionEmail({
           taskId,
           productName: productName.trim(),
           category,
           sellingPoints: sellingPoints.split('\n').filter(Boolean).map(s => s.trim()),
           tier,
           platform,
-        }),
+        })),
       });
+      if (!res.ok) throw await createApiError(res, '生成失败');
       const data = await res.json();
       if (!data.ok) {
         setError(data.error || '生成失败');
@@ -154,7 +160,11 @@ export default function RemakePage() {
         }, 2000);
       }
     } catch (err) {
-      setError(err.message);
+      const accessResult = handleGenerationAccessError(err, dispatch, {
+        source: 'remake-generate',
+        message: '当前商品名、卖点和平台选择都已保留，登录或充值后可以继续生成。',
+      });
+      setError(accessResult ? '' : err.message);
       setGenerating(false);
     }
   };

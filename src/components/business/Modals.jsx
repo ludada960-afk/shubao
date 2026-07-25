@@ -6,7 +6,6 @@ import { IMAGES } from '../../constants/images';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
 import { sendOTP, verifyOTP, isClosedBetaEmail } from '../../services/auth';
-import { registerTrial } from '../../services/api';
 
 /* ═══════ Login Modal ═══════ */
 export function LoginModal() {
@@ -141,7 +140,7 @@ export function PricingModal() {
   }, [state.showPrice, state.priceTab]);
 
   if (!state.showPrice) return null;
-  const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
+  const close = () => dispatch({ type: 'CLEAR_PAYWALL' });
   const interrupted = state.priceReason === 'INSUFFICIENT_CREDITS';
   const plans = tab === 'content' ? PRICING_XHS : PRICING_EC;
 

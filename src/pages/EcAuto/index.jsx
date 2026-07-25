@@ -7,8 +7,14 @@ import { Sparkle, CaretRight, Download, ArrowsClockwise, Lightning } from '@phos
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
 import { proxyImg, autoGenerate } from '../../services/api';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
+
+const Sparkles = Sparkle;
+const Zap = Lightning;
+const RotateCcw = ArrowsClockwise;
+const ChevronRight = CaretRight;
 
 const PLATFORMS = [
   { key: '淘宝', label: '淘宝/天猫', emoji: '🟠', desc: '800×800白底主图 + 详情分段' },
@@ -20,7 +26,7 @@ const PLATFORMS = [
 ];
 
 export default function EcAutoPage() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, fetchCredits } = useApp();
   const [platform, setPlatform] = useState('淘宝');
   const [input, setInput] = useState('');
   const [genState, setGenState] = useState('idle'); // idle | generating | done
@@ -56,12 +62,17 @@ export default function EcAutoPage() {
     setError('');
     dispatch({ type: 'START_GEN' });
     try {
-      const data = await autoGenerate({ platform, input: input.trim() });
+      const data = await autoGenerate({ platform, input: input.trim(), email: state.phone });
       setResults(data);
+      fetchCredits(state.phone);
       setGenState('done');
       dispatch({ type: 'CLOSE_RESULT' });
     } catch (e) {
-      setError(e.message || '生成失败，请重试');
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'ecommerce-auto',
+        message: '当前平台、商品描述和参考图片都已保留，充值后可以继续生成。',
+      });
+      setError(accessResult ? '' : (e.message || '生成失败，请重试'));
       setGenState('idle');
       dispatch({ type: 'CLOSE_RESULT' });
     }

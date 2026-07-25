@@ -55,7 +55,12 @@ function reducer(state, action) {
     case 'UPDATE_RESULT':
       return { ...state, result: action.updater(state.result) };
     case 'SET_LOGGED':
-      return { ...state, logged: action.logged, phone: action.phone || state.phone };
+      return {
+        ...state,
+        logged: Boolean(action.logged),
+        phone: Object.prototype.hasOwnProperty.call(action, 'phone') ? action.phone : state.phone,
+        ...(action.logged ? {} : { credits: 0, unlimited: false }),
+      };
     case 'SET_CREDITS':
       return { ...state, credits: action.credits, unlimited: Boolean(action.unlimited) };
     case 'ADD_CREDITS':

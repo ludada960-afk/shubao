@@ -1,0 +1,107 @@
+.node {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .12);
+  color: #111827;
+}
+
+.nodeSelected { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124, 58, 237, .18), 0 14px 34px rgba(124, 58, 237, .16); }
+.nodeHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 14px; border-bottom: 1px solid #f1f5f9; }
+.nodeTitleGroup { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.nodeIcon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; background: #f3e8ff; color: #7c3aed; }
+.nodeTitle { margin: 0; font-size: 14px; line-height: 1.3; font-weight: 800; }
+.nodeSubtitle { margin: 3px 0 0; color: #6b7280; font-size: 10px; line-height: 1.4; }
+.nodeHeaderActions { display: flex; align-items: center; gap: 6px; }
+.status { padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.statusNeutral { background: #f3f4f6; color: #6b7280; }
+.statusInfo { background: #eff6ff; color: #2563eb; }
+.statusSuccess { background: #ecfdf5; color: #047857; }
+.statusDanger { background: #fef2f2; color: #b91c1c; }
+.iconButton { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: #6b7280; cursor: pointer; }
+.iconButton:hover { background: #f3f4f6; color: #111827; }
+.port { position: absolute; top: 50%; z-index: 4; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; opacity: 0; pointer-events: none; transform: translateY(-50%); cursor: crosshair; }
+.portVisible { opacity: 1; pointer-events: auto; }
+.portLeft { left: -10px; }
+.portRight { right: -10px; }
+.portDot { display: block; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #7c3aed; box-shadow: 0 2px 6px rgba(124, 58, 237, .32); }
+.portLeft .portDot { background: #fff; border-color: #7c3aed; }
+.portPlus { position: absolute; right: -7px; top: -7px; display: grid; place-items: center; width: 13px; height: 13px; border-radius: 50%; background: #111827; color: #fff; font-size: 11px; line-height: 1; }
+.portActive .portDot, .port:hover .portDot { animation: portPulse 1.2s ease-in-out infinite; }
+.portConnected .portDot { background: #10b981; }
+@keyframes portPulse { 50% { transform: scale(1.22); box-shadow: 0 0 0 5px rgba(124, 58, 237, .13); } }
+.nodeBody { padding: 14px; }
+.sourcePreview { position: relative; margin-bottom: 12px; height: 112px; overflow: hidden; border-radius: 10px; background: #f3f4f6; }
+.sourcePreview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sourcePreview span { position: absolute; left: 7px; bottom: 7px; padding: 3px 6px; border-radius: 5px; background: rgba(17, 24, 39, .72); color: #fff; font-size: 10px; }
+.fieldLabel { display: flex; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 11px; font-weight: 800; color: #374151; }
+.fieldLabel em { color: #7c3aed; font-size: 10px; font-style: normal; font-weight: 700; }
+.promptEditor, .textarea, .pickerSearch { box-sizing: border-box; width: 100%; border: 1px solid #e5e7eb; border-radius: 9px; background: #fafafa; color: #111827; font: inherit; font-size: 12px; line-height: 1.5; outline: 0; resize: vertical; }
+.promptEditor, .textarea { padding: 9px 10px; }
+.promptEditor:focus, .textarea:focus, .pickerSearch:focus { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(124, 58, 237, .1); }
+.imageRail { margin-top: 13px; }
+.sectionLabel { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 7px; font-size: 11px; }
+.sectionLabel span { overflow: hidden; color: #9ca3af; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.imageRailScroll { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.railImage, .uploadTile { position: relative; flex: 0 0 54px; width: 54px; height: 54px; overflow: hidden; border-radius: 8px; }
+.railImage { background: #f3f4f6; }
+.railImage img { width: 100%; height: 100%; object-fit: cover; }
+.railImage button { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 17px; height: 17px; padding: 0; border: 0; border-radius: 50%; background: rgba(17, 24, 39, .72); color: #fff; cursor: pointer; }
+.uploadTile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px dashed #c4b5fd; background: #faf5ff; color: #7c3aed; cursor: pointer; font-size: 9px; }
+.uploadTile:hover { background: #f3e8ff; }
+.footerRow { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.countControl { display: flex; align-items: center; gap: 4px; color: #6b7280; font-size: 11px; white-space: nowrap; }
+.countControl select { padding: 6px 4px; border: 1px solid #e5e7eb; border-radius: 7px; background: #fff; color: #374151; font-size: 11px; }
+.primaryButton, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 32px; padding: 0 11px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.primaryButton { border: 1px solid #7c3aed; background: #7c3aed; color: #fff; }
+.primaryButton:hover:not(:disabled) { background: #6d28d9; }
+.primaryButton:disabled, .secondaryButton:disabled { cursor: not-allowed; opacity: .45; }
+.secondaryButton { border: 1px solid #e5e7eb; background: #fff; color: #374151; }
+.secondaryButton:hover:not(:disabled) { border-color: #c4b5fd; background: #faf5ff; }
+.errorBox { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 8px 9px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; color: #b91c1c; font-size: 10px; line-height: 1.4; }
+.errorBox button { flex: 0 0 auto; border: 0; background: transparent; color: #991b1b; cursor: pointer; font-size: 10px; font-weight: 800; }
+.actionPicker { position: absolute; z-index: 100; width: 294px; max-height: 470px; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 13px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, .2); }
+.pickerHeader { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px 8px; }
+.pickerHeader strong, .pickerHeader span { display: block; }
+.pickerHeader strong { font-size: 13px; }
+.pickerHeader span { margin-top: 3px; color: #9ca3af; font-size: 10px; }
+.pickerSearch { margin: 0 12px 9px; width: calc(100% - 24px); padding: 8px 9px; }
+.pickerList { max-height: 365px; overflow-y: auto; padding: 0 8px 9px; }
+.pickerGroup { padding: 7px 6px 5px; color: #9ca3af; font-size: 10px; font-weight: 800; }
+.pickerItem { display: flex; align-items: center; width: 100%; gap: 8px; padding: 9px 7px; border: 0; border-radius: 9px; background: transparent; color: #374151; text-align: left; cursor: pointer; }
+.pickerItem:hover { background: #faf5ff; color: #6d28d9; }
+.pickerItemIcon { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 8px; background: #f3f4f6; color: #7c3aed; }
+.pickerItemText { min-width: 0; flex: 1; }
+.pickerItemText strong, .pickerItemText small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickerItemText strong { font-size: 11px; }
+.pickerItemText small { margin-top: 2px; color: #9ca3af; font-size: 9px; }
+.layerList { display: grid; gap: 5px; max-height: 210px; overflow-y: auto; }
+.layerRow { display: flex; align-items: center; gap: 7px; padding: 7px; border: 1px solid transparent; border-radius: 8px; background: #fafafa; cursor: pointer; }
+.layerRow:hover, .layerSelected { border-color: #ddd6fe; background: #faf5ff; }
+.layerRow img, .layerThumb { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 6px; background: #e5e7eb; color: #6b7280; object-fit: cover; }
+.layerName { min-width: 0; flex: 1; }
+.layerName strong, .layerName small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layerName strong { font-size: 11px; }
+.layerName small { margin-top: 2px; color: #9ca3af; font-size: 9px; }
+.layerActions { display: flex; gap: 2px; }
+.layerActions button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #6b7280; cursor: pointer; }
+.layerActions button:hover { background: #fff; color: #7c3aed; }
+.layerInspector { margin-top: 11px; padding-top: 10px; border-top: 1px solid #f1f5f9; }
+.quickActions { display: flex; gap: 6px; margin-top: 8px; }
+.quickActions button { padding: 5px 8px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; color: #4b5563; cursor: pointer; font-size: 10px; }
+.capabilityList { display: flex; flex-wrap: wrap; gap: 6px 9px; margin-top: 9px; color: #6b7280; font-size: 10px; }
+.capabilityList span { display: inline-flex; align-items: center; gap: 3px; }
+.layerSkeleton { display: grid; gap: 7px; }
+.layerSkeleton span { display: block; height: 42px; border-radius: 8px; background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.emptyState { padding: 20px 8px; color: #9ca3af; font-size: 11px; text-align: center; }
+.compactBody { padding-top: 10px; }
+.compactPreview { display: grid; place-items: center; height: 128px; overflow: hidden; border-radius: 9px; background: #f3f4f6; color: #a78bfa; }
+.compactPreview img { width: 100%; height: 100%; object-fit: cover; }
+.progress { height: 4px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: #ede9fe; }
+.progress span { display: block; height: 100%; border-radius: inherit; background: #7c3aed; transition: width .2s ease; }
+.fullButton { width: 100%; margin-top: 10px; }

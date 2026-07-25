@@ -7,6 +7,7 @@ import {
   createDerivedNode,
   createChildConnection,
   isDerivedAction,
+  shouldShowQuickCanvasAction,
 } from '../src/pages/EcCanvas/nodeWorkflow.js';
 
 test('legacy image assets normalize as image nodes', () => {
@@ -53,3 +54,11 @@ test('derived actions exclude video and create a child node', () => {
   assert.equal(createChildConnection('asset-1', child.id, 'smart-remix').relation, 'derived');
 });
 
+test('right-click quick actions do not duplicate node-based workflows', () => {
+  for (const actionId of ['remove-bg', 'reverse-prompt', 'retouch', 'extend', 'translate', 'upscale', 'layers', 'download']) {
+    assert.equal(shouldShowQuickCanvasAction(actionId), false, actionId);
+  }
+  for (const actionId of ['rename', 'classify', 'crop', 'grid-split', 'annotation', 'reference']) {
+    assert.equal(shouldShowQuickCanvasAction(actionId), true, actionId);
+  }
+});

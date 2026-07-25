@@ -19,6 +19,7 @@ import {
   MdUpload,
 } from 'react-icons/md';
 import './workflowNodes.css';
+import ModularCanvasWorkflowNode from './modular/CanvasWorkflowNode';
 
 const ICONS = {
   'smart-remix': MdImageSearch,
@@ -200,8 +201,18 @@ export function CompactProcessNodeCard({ title, description, sourceImage, status
 }
 
 export function CanvasWorkflowNode({ node, sourceNode, actions, selected = false, onActionSelect, onClose, onRetry, smartRemixProps = {}, layerProps = {}, compactProps = {}, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
-  if (node.kind === 'smart-remix') return <SmartRemixNodeCard node={node} sourceImage={sourceNode} {...smartRemixProps} selected={selected} status={node.status} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} />;
-  if (node.kind === 'layer-workbench') return <LayerWorkbenchNodeCard {...layerProps} error={node.error} selected={selected} status={node.status} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} />;
-  const action = actions?.find(item => item.id === node.actionId);
-  return <CompactProcessNodeCard title={action?.label || node.title || '电商处理'} description={action?.description || node.description} {...compactProps} selected={selected} status={node.status} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} />;
+  return <ModularCanvasWorkflowNode
+    node={node}
+    sourceNode={sourceNode}
+    actions={actions}
+    selected={selected}
+    onRetry={onRetry}
+    smartRemixProps={smartRemixProps}
+    layerProps={layerProps}
+    compactProps={compactProps}
+    onPointerDown={onPointerDown}
+    onContextMenu={onContextMenu}
+    onPortPointerDown={onPortPointerDown}
+    onPortPointerUp={onPortPointerUp}
+  />;
 }

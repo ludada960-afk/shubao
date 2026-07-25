@@ -23,8 +23,9 @@ const EC_STYLE_PACKS = [
   { key:'promo_sale',    label:'促销热卖', subtitle:'促销感',desc:'价格/优惠/抢购角标',        img:'', ar:'1/1' },
   { key:'',              label:'无风格（默认）', subtitle:'自动',desc:'AI 自由发挥',         img:'', ar:'1/1' },
 ];
-import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, getTrialStatus, consumeTrial } from '../../services/api';
-import { getSession } from '../../services/auth';
+import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, withSessionEmail } from '../../services/api';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import { createApiError } from '../../services/apiError.js';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import './Home.css';
@@ -33,7 +34,7 @@ import './Home.css';
 let _extractSessionToken = null;
 
 export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp }) {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, fetchCredits } = useApp();
   const { inputText, logged, credits, unlimited, mode } = state;
   const [err, setErr] = useState('');
   const [refImages, setRefImages] = useState([]);
@@ -95,14 +96,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
-
-  useEffect(() => {
-    if (logged) {
-      getSession().then(user => {
-        if (user?.phone) getTrialStatus(user.phone).then(s => setTrialRemaining(s.freeRemaining || 0));
-      });
-    }
-  }, [logged]);
 
   // 检查书签工具返回的提取数据
   useEffect(() => {
@@ -364,52 +357,40 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     setGenECLoading(true);
     setEcLoadingMsg('正在分析商品信息...');
     try {
-      // 判断输入类型
+      // 长描述和普通描述都走同一条电商任务链：统一 SSE、任务记录、额度和失败状态。
+      // 长描述只把文本作为更多上下文，并减少默认输出为 5 张主视觉图。
       const isRaw = ecName.trim().length >= 80;
-
-      if (isRaw) {
-        // 详细模式
-        setEcLoadingMsg('详细模式，按描述精确执行...');
-        const { regenerateImage } = await import('../../services/api');
-        const images = {};
-        for (let i = 0; i < 5; i++) {
-          setEcLoadingMsg(`正在生成第 ${i+1}/5 张...`);
-          try {
-            const url = await regenerateImage(ecName.trim(), '');
-            if (url) images[`图${i+1}`] = url;
-          } catch(e) {}
-        }
-        setEcResults({ images, errors: [], product_name: ecName.trim().slice(0, 20), raw_mode: true });
-      } else {
-        // 标准模式
-        setEcLoadingMsg('正在调用 AI 生成商品图...');
-        const data = await generateEcommerce({
-          productName: ecName.trim(),
-          category: ecCat,
-          platform: ecPlatform,
-          points: ecPoints,
-          refImgs: ecRefImgs,
-          stylePack: null,
-          beautyReport: false,
-          material: ecMaterial,
-          tier:'basic',
-          imageSelections: ecSelections,
-          imageSize: null,
-        });
-        setEcResults(data);
-        // 自动保存
-        try {
-          const { saveWork } = await import('../../services/api');
-          saveWork({ ...data, _ecResult: true, _saveKey: 'ec-'+Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: data.images || {} }, state.phone);
-        } catch(e) {}
-      }
+      setEcLoadingMsg(isRaw ? '正在按完整商品描述生成…' : '正在调用 AI 生成商品图...');
+      const data = await generateEcommerce({
+        productName: isRaw ? ecName.trim().slice(0, 120) : ecName.trim(),
+        category: ecCat,
+        platform: ecPlatform,
+        points: [ecPoints, isRaw ? ecName.trim() : ''].filter(Boolean).join('\n'),
+        refImgs: ecRefImgs,
+        realShots: [],
+        email: state.phone,
+        material: ecMaterial,
+        restrictions: ecRestrictions,
+        imageSelections: isRaw ? [{ key: 'main_3x4', count: 5 }] : ecSelections,
+        imageSize: null,
+      });
+      setEcResults({ ...data, product_name: ecName.trim().slice(0, 80), raw_mode: isRaw });
+      // 自动保存。保存失败不影响当前结果展示，但不吞掉生成任务错误。
+      try {
+        await saveWork({ ...data, _ecResult: true, _saveKey: 'ec-' + Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: data.images || {} }, state.phone);
+      } catch (saveError) { console.warn('[home ecommerce] 保存作品失败:', saveError.message); }
+      fetchCredits(state.phone);
       dispatch({ type: 'SET_STAGE', stage: 2 });
       await new Promise(r => setTimeout(r, 800));
       setGenECLoading(false);
       dispatch({ type: 'CLOSE_RESULT' });
       setGenPhase('result');
     } catch (e) {
-      setErr('生成失败: ' + (e.message || '未知错误'));
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'home-ecommerce',
+        message: '当前商品图片、套图配置和提示词都已保留，充值后可以继续生成。',
+      });
+      setErr(accessResult ? '' : '生成失败: ' + (e.message || '未知错误'));
       setGenECLoading(false);
       dispatch({ type: 'CLOSE_RESULT' });
     }
@@ -440,7 +421,15 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   const doGenXHS = async () => {
     if (!inputText.trim()) return;
-    if (!unlimited && logged && credits === 0 && trialRemaining === 0) { dispatch({ type: 'SHOW_PRICE', show: true }); return; }
+    if (!unlimited && logged && credits === 0 && trialRemaining === 0) {
+      dispatch({
+        type: 'OPEN_PAYWALL',
+        tab: 'content',
+        reason: 'INSUFFICIENT_CREDITS',
+        pendingAction: { source: 'xhs-content', message: '当前文案、参考图和编辑内容都已保留，充值后可以继续生成。' },
+      });
+      return;
+    }
     const isPaid = logged && (unlimited || credits > 0);
     const isTrial = !unlimited && logged && credits === 0 && trialRemaining > 0;
     const usePreview = !logged;
@@ -466,9 +455,15 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       await new Promise(r => setTimeout(r, 800));
       const work = { ...result, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, _trialLocked: isTrial, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
       dispatch({ type: 'SET_RESULT', result: work });
-      if (isTrial) { const session = await getSession(); if (session?.phone) await consumeTrial(session.phone); setTrialRemaining(0); }
-      else if (isPaid) { saveWork(work, state.phone); if (!unlimited) dispatch({ type: 'SET_CREDITS', credits: credits - 1, unlimited: false }); }
-    } catch (e) { setErr(e.message || '生成失败'); dispatch({ type: 'CLOSE_RESULT' }); }
+      if (isPaid) { saveWork(work, state.phone); if (!unlimited) dispatch({ type: 'SET_CREDITS', credits: credits - 1, unlimited: false }); }
+    } catch (e) {
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'xhs-content',
+        message: '当前文案、参考图和编辑内容都已保留，充值后可以继续生成。',
+      });
+      setErr(accessResult ? '' : (e.message || '生成失败'));
+      dispatch({ type: 'CLOSE_RESULT' });
+    }
   };
 
   const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
@@ -486,9 +481,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       const body = { text: plogText.trim(), style: plogStyle, layout: plogLayout, coverVariant: 'collage' };
       if (plogRefImg) body.refImage = await readFileAsBase64(plogRefImg);
       const res = await fetch('/api/plog-generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withSessionEmail(body)),
       });
-      if (!res.ok) throw new Error('请求失败');
+      if (!res.ok) throw await createApiError(res, 'Plog 生成失败');
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let buf = '', result = { cover_url: '', image_urls: [], copyLines: [], caption: '' };
@@ -516,7 +511,14 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       }
       const work = { ...result, _plogResult: true, _saveKey: 'plog-' + Date.now(), images: { cover: result.cover_url } };
       dispatch({ type: 'SET_RESULT', result: work });
-    } catch (e) { setErr(e.message || '生成失败'); dispatch({ type: 'CLOSE_RESULT' }); }
+    } catch (e) {
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'xhs-plog',
+        message: '当前 Plog 文案、参考图和风格选择都已保留，登录或充值后可以继续生成。',
+      });
+      setErr(accessResult ? '' : (e.message || '生成失败'));
+      dispatch({ type: 'CLOSE_RESULT' });
+    }
   };
 
   const addRefImage = (files, setter, current, max) => {

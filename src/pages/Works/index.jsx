@@ -4,6 +4,7 @@ import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
 import { loadWorks, proxyImg, saveWork } from '../../services/api';
 import { EC_PLATFORM_SPECS } from '../../constants/data';
+import { normalizeWorkImages } from '../../utils/workImages.js';
 import { Card, CharImg, EmptyState } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import Footer from '../../components/layout/Footer';
@@ -14,6 +15,7 @@ const TABS = [
 ];
 
 const EC_STYLE_ICONS = { '白底主图': '⬜', '场景图': '🌄', '详情图': '📋', '组合图': '🖼️' };
+const getEcImages = work => normalizeWorkImages(work?.images);
 
 /* ═══════ 从 localStorage 加载 EC 作品（旧格式兼容）═══ */
 const loadLocalECWorks = () => {
@@ -25,8 +27,8 @@ const loadLocalECWorks = () => {
       platform: '淘宝',
       _ecResult: true,
       at: w.createdAt ? new Date(w.createdAt).toLocaleDateString('zh-CN') : '',
-      images: (w.images || []).map(img => ({
-        url: img.url, key: img.key || '', label: img.label || '',
+      images: normalizeWorkImages(w.images).map(img => ({
+        ...img,
         style: img.label || img.key || '商品图',
       })),
       _phone: '',
@@ -40,14 +42,16 @@ export default function WorksPage() {
   const [tab, setTab] = useState(mode === 'ecommerce' ? 'ec' : 'xhs');
 
   const refresh = async () => {
-    const serverWorks = await loadWorks(phone);
+    const serverWorks = (await loadWorks(phone)).map(work => work._ecResult
+      ? { ...work, images: normalizeWorkImages(work.images) }
+      : work);
     // 合并 localStorage 中的 EC 作品（旧格式兼容）
     const localEC = loadLocalECWorks();
     // 去重：用产品名+图片数去重
-    const allNames = new Set(serverWorks.map(w => w.product_name + (w.images?.length || 0)));
+    const allNames = new Set(serverWorks.map(w => w.product_name + (w._ecResult ? normalizeWorkImages(w.images).length : (w.images?.length || 0))));
     const merged = [...serverWorks];
     for (const lw of localEC) {
-      const key = lw.product_name + (lw.images?.length || 0);
+      const key = lw.product_name + normalizeWorkImages(lw.images).length;
       if (!allNames.has(key)) {
         merged.unshift(lw);
         allNames.add(key);
@@ -56,7 +60,7 @@ export default function WorksPage() {
     dispatch({ type: 'SET_WORKS', works: merged });
   };
 
-  useEffect(() => { if (logged) refresh(); }, [logged]);
+  useEffect(() => { if (logged) refresh(); }, [logged, phone]);
 
   const xhsWorks = works.filter(w => !w._ecResult);
   const ecWorks = works.filter(w => w._ecResult);
@@ -64,18 +68,10 @@ export default function WorksPage() {
 
   const viewWork = (w) => {
     // 规范化图片格式后跳转到画布
-    let images = {};
-    if (Array.isArray(w.images)) {
-      w.images.forEach((img, index) => {
-        const url = typeof img === 'string' ? img : (img?.url || img?.src || img?.image_url || img?.cover_url);
-        if (url) images[img?.key || img?.label || `image_${index + 1}`] = url;
-      });
-    } else {
-      images = Object.fromEntries(Object.entries(w.images || {}).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? value : (value?.url || value?.src || value?.image_url || ''),
-      ]).filter(([, value]) => value));
-    }
+    const images = Object.fromEntries(getEcImages(w).map((image, index) => [
+      image.key || image.label || `image_${index + 1}`,
+      image.url,
+    ]));
     const normalized = {
       ...w,
       images,
@@ -212,8 +208,8 @@ export default function WorksPage() {
                 ) : (
                   /* ═══ EC 作品卡片 ═══ */
                   <>
-                    {Array.isArray(w.images) && w.images[0]?.url ? (
-                      <img src={proxyImg(w.images[0])} alt=""
+                    {getEcImages(w)[0]?.url ? (
+                      <img src={proxyImg(getEcImages(w)[0].url)} alt=""
                         style={{ width: 56, height: 56, borderRadius: 'var(--radius-md)', objectFit: 'cover', flex: '0 0 auto' }} />
                     ) : (
                       <div style={{
@@ -241,8 +237,8 @@ export default function WorksPage() {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-ghost)' }}>
                         <span>
-                          {Array.isArray(w.images) ? w.images.length : Object.keys(w.images || {}).length}张 ·{' '}
-                          {(Array.isArray(w.images) ? w.images.map(i => i.style || i.label) : Object.keys(w.images || {})).map(s => styleIcon(s)).join(' ')}
+                          {getEcImages(w).length}张 ·{' '}
+                          {getEcImages(w).map(i => i.style || i.label || i.key).map(s => styleIcon(s)).join(' ')}
                         </span>
                         <span>{w.at}</span>
                       </div>

@@ -19,6 +19,15 @@ export const CANVAS_NODE_ACTIONS = [
 ];
 
 const ACTION_BY_ID = new Map(CANVAS_NODE_ACTIONS.map(action => [action.id, action]));
+const DIRECT_ACTIONS_REPLACED_BY_NODES = new Set([
+  'remove-bg',
+  'reverse-prompt',
+  'retouch',
+  'extend',
+  'translate',
+  'upscale',
+  'layers',
+]);
 
 function makeId(prefix) {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -32,6 +41,10 @@ export function getActionById(actionId) {
 
 export function isDerivedAction(actionId) {
   return ACTION_BY_ID.has(actionId);
+}
+
+export function shouldShowQuickCanvasAction(actionId) {
+  return actionId !== 'download' && !DIRECT_ACTIONS_REPLACED_BY_NODES.has(actionId);
 }
 
 export function normalizeCanvasNode(input = {}) {

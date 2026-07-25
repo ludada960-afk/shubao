@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages } from '../../services/api';
+import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -24,14 +24,14 @@ import {
   createDerivedNode,
   normalizeCanvasConnection,
   normalizeCanvasNode,
+  shouldShowQuickCanvasAction,
 } from './nodeWorkflow';
 import { CanvasNodeActionPicker, CanvasWorkflowNode } from './components/workflowNodes';
+import { normalizeWorkImages } from '../../utils/workImages.js';
 
 function parseImages(images, platform) {
-  if (!images || typeof images !== 'object') return [];
-  const entries = Array.isArray(images)
-    ? images.map(i => ({ ...i, sourceKey: i.key || i.label || '' }))
-    : Object.entries(images).map(([key, value]) => ({ sourceKey: key, ...(typeof value === 'object' ? value : { url: value }) }));
+  const entries = normalizeWorkImages(images).map(image => ({ ...image, sourceKey: image.key || image.label || '' }));
+  if (!entries.length) return [];
   const counters = {};
   return entries.map((input, i) => {
     const asset = normalizeAsset(input, i, counters);
@@ -218,7 +218,7 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
       hint: action.description,
       action: `create:${action.id}`,
     })),
-    ...ECOMMERCE_ACTIONS.filter(action => !['reference', 'reverse-prompt', 'layers', 'retouch', 'extend', 'translate', 'upscale', 'remove-bg'].includes(action.id)).map(action => {
+    ...ECOMMERCE_ACTIONS.filter(action => shouldShowQuickCanvasAction(action.id)).map(action => {
       const Icon = action.icon;
       return { icon: <Icon size={14} />, label: action.label, action: action.id };
     }),
@@ -311,7 +311,8 @@ function SelectionActionBar({ node, onAction, onClose }) {
   );
 }
 
-function ReferenceComposer({ references, promptText, setPromptText, onRemoveReference, onGenerate, loading }) {
+function ReferenceComposer({ references, promptText, setPromptText, onRemoveReference, onAddReferenceFiles, onGenerate, loading }) {
+  const inputRef = useRef(null);
   return (
     <div style={{ position: 'fixed', zIndex: 10004, right: 20, bottom: 20, width: 'min(520px, calc(100vw - 40px))', background: '#fff', border: '1px solid rgba(15,23,42,.10)', boxShadow: '0 18px 55px rgba(15,23,42,.20)', borderRadius: 16, padding: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -320,6 +321,8 @@ function ReferenceComposer({ references, promptText, setPromptText, onRemoveRefe
       </div>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 8 }}>
         {references.map(node => <div key={node.id} style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}><img src={proxyImg(node.url)} alt={node.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} /><button type="button" onClick={() => onRemoveReference(node.id)} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 11, cursor: 'pointer' }}>×</button></div>)}
+        <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAddReferenceFiles?.([...event.target.files]); event.target.value = ''; }} />
+        <button type="button" onClick={() => inputRef.current?.click()} style={{ width: 48, height: 48, flexShrink: 0, border: '1px dashed #c4b5fd', borderRadius: 8, background: '#faf5ff', color: '#7c3aed', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>+ 添加</button>
       </div>
       <textarea value={promptText} onChange={e => setPromptText(e.target.value)} placeholder="例如：保留产品外观，制作一张 3:4 的核心卖点场景图，突出防水和便携" rows={3} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', border: '1px solid #e5e7eb', borderRadius: 10, padding: '9px 10px', fontSize: 12, lineHeight: 1.6 }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 9 }}>
@@ -376,6 +379,7 @@ export default function EcCanvas() {
   const [toast, setToast] = useState(null);
   const [promptPanel, setPromptPanel] = useState(null);
   const [promptText, setPromptText] = useState('');
+  const [promptReferences, setPromptReferences] = useState([]);
   const [promptLoading, setPromptLoading] = useState(false);
   const [composerAction, setComposerAction] = useState('');
   const containerRef = useRef(null);
@@ -448,11 +452,12 @@ export default function EcCanvas() {
   useEffect(() => {
     const load = async () => {
       const local = [];
-      try { 
-        local.push(...JSON.parse(localStorage.getItem('shubao_ec_works') || '[]')); 
+      try {
+        const localWorks = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
+        local.push(...(Array.isArray(localWorks) ? localWorks.map(work => ({ ...work, images: normalizeWorkImages(work.images) })) : []));
       } catch {}
       try { 
-        const server = await loadWorks(''); 
+        const server = await loadWorks(phone);
         const ec = server.filter(w => w._ecResult); 
         const names = new Set(local.map(w => w.name)); 
         for (const w of ec) { 
@@ -460,9 +465,7 @@ export default function EcCanvas() {
               local.push({
                id: w.id || Date.now(),
                name: w.product_name,
-              images: Array.isArray(w.images)
-                ? w.images.map(i => ({ url: i.url || i.src || i.image_url, key: i.key, label: i.label || i.style || i.key }))
-                : Object.entries(w.images || {}).map(([key, value]) => ({ url: typeof value === 'object' ? (value.url || value.src || value.image_url) : value, key, label: key })),
+              images: normalizeWorkImages(w.images),
                createdAt: w.at || '',
                _saveKey: w._saveKey || '',
                canvas_state: w.canvas_state || null,
@@ -473,13 +476,13 @@ export default function EcCanvas() {
       const localTrash = (() => {
         try { return JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]'); } catch { return []; }
       })();
-      const serverTrash = await loadTrash('');
+      const serverTrash = await loadTrash(phone);
       const trashKeys = new Set(serverTrash.map(item => String(item._saveKey || item.id)));
       setPastWorks(local);
       setTrashWorks([...localTrash.filter(item => !trashKeys.has(String(item._saveKey || item.id))), ...serverTrash]);
     };
     load();
-  }, []);
+  }, [phone]);
 
   // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
   // 注意：ref 初始值为空函数，在下面的 useEffect 中更新
@@ -684,7 +687,8 @@ export default function EcCanvas() {
 
   const handlePortPointerDown = useCallback((e, nodeId, side) => {
     if (side !== 'out') return;
-    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
+    // 输出端口不能捕获指针，否则空白处松手时 pointerup 仍会落在端口上，
+    // 画布就无法打开“从素材派生”的任务选择器。
     setConnectionPicker(null);
     setConnectionDraft({ from: nodeId, sourceNodeId: nodeId, type: 'reference', pointer: toWorldPoint(e) });
     setPointerMode({ kind: 'connect', from: nodeId });
@@ -768,7 +772,16 @@ export default function EcCanvas() {
     setPromptLoading(true);
     try {
       const count = Math.max(1, Math.min(4, Number(node.inputs?.outputCount) || 1));
-      const urls = await Promise.all(Array.from({ length: count }, () => regenerateCanvasImage({ prompt, imageUrl: source.url, ratio: node.inputs?.ratio || source.ratio })));
+      const referenceImages = [
+        ...(node.inputs?.productImages || []),
+        ...(node.inputs?.referenceImages || []),
+      ].map(image => image?.url || image?.src || image?.image_url).filter(Boolean);
+      const urls = await Promise.all(Array.from({ length: count }, () => regenerateCanvasImage({
+        prompt,
+        imageUrl: source.url,
+        referenceImages,
+        ratio: node.inputs?.ratio || source.ratio,
+      })));
       const outputs = urls.map((url, index) => normalizeCanvasNode({
         ...source,
         id: `node_output_${Date.now()}_${index}`,
@@ -835,6 +848,51 @@ export default function EcCanvas() {
     }
   }, [showToast]);
 
+  const handleComposerAddImages = useCallback(async (files = []) => {
+    if (!files.length || promptLoading) return;
+    setPromptLoading(true);
+    try {
+      const dataUrls = await Promise.all(files.slice(0, 15).map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('读取图片失败'));
+        reader.readAsDataURL(file);
+      })));
+      const urls = await uploadECTempImages(dataUrls);
+      const images = urls.map((url, index) => ({ id: `composer_ref_${Date.now()}_${index}`, url, name: files[index]?.name || '补充参考图' }));
+      setComposerNodes(prev => [...prev, ...images]);
+      showToast(`已添加 ${images.length} 张参考图`, 'success');
+    } catch (error) {
+      showToast(error.message || '参考图上传失败', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [promptLoading, showToast]);
+
+  const handlePromptAddImages = useCallback(async (files = []) => {
+    if (!files.length || promptLoading) return;
+    setPromptLoading(true);
+    try {
+      const dataUrls = await Promise.all(files.slice(0, 15).map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('读取图片失败'));
+        reader.readAsDataURL(file);
+      })));
+      const urls = await uploadECTempImages(dataUrls);
+      setPromptReferences(prev => [...prev, ...urls.map((url, index) => ({
+        id: `prompt_ref_${Date.now()}_${index}`,
+        url,
+        name: files[index]?.name || '补充参考图',
+      }))]);
+      showToast(`已添加 ${urls.length} 张参考图`, 'success');
+    } catch (error) {
+      showToast(error.message || '参考图上传失败', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [promptLoading, showToast]);
+
   const handleWorkflowProcess = useCallback(async (node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
     if (!source?.url || promptLoading) {
@@ -848,13 +906,7 @@ export default function EcCanvas() {
       const prompt = [node.inputs?.prompt, node.inputs?.instruction].filter(Boolean).join('\n').trim();
       let url = '';
       if (actionId === 'remove-bg') {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/remove-bg`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image_url: source.url }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || '商品抠图失败');
+        const data = await removeBg({ image_url: source.url });
         url = data.result_url || data.url || '';
       } else if (actionId === 'inpaint') {
         url = await regenerateCanvasImage({ prompt: prompt || '保留商品主体，只优化指定区域的电商视觉表现', imageUrl: source.url, ratio: node.inputs?.ratio || source.ratio });
@@ -986,25 +1038,16 @@ export default function EcCanvas() {
       case 'remove-bg':
         showToast('AI 抠图中…请稍候', 'info');
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/remove-bg`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_url: node.url }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const resultUrl = data.result_url || data.url;
-            if (resultUrl) {
-              setNodes(ns => ns.map(n => n.id === node.id ? { ...n, url: resultUrl, loaded: false } : n));
-              showToast('抠图完成！', 'success');
-            } else {
-              showToast(data.error || '抠图返回为空', 'error');
-            }
+          const data = await removeBg({ image_url: node.url });
+          const resultUrl = data.result_url || data.url;
+          if (resultUrl) {
+            setNodes(ns => ns.map(n => n.id === node.id ? { ...n, url: resultUrl, loaded: false } : n));
+            showToast('抠图完成！', 'success');
           } else {
-            showToast('抠图服务暂不可用', 'error');
+            showToast(data.error || '抠图返回为空', 'error');
           }
         } catch (e) {
-          showToast('抠图请求失败: ' + e.message, 'error');
+          showToast(e.message || '抠图请求失败', 'error');
         }
         break;
       case 'reverse-prompt':
@@ -1013,9 +1056,10 @@ export default function EcCanvas() {
           setPromptLoading(true);
           const data = await reversePrompt({ image_url: node.url, product_name: node.name || node.displayLabel || node.label });
           if (!data.prompt) throw new Error('未得到可编辑的提示词');
-          setPromptPanel(node);
-          setPromptText(data.prompt);
-          showToast('已生成可编辑提示词', 'success');
+           setPromptPanel(node);
+           setPromptText(data.prompt);
+           setPromptReferences([]);
+           showToast('已生成可编辑提示词', 'success');
         } catch (e) {
           showToast('请求失败: ' + e.message, 'error');
         } finally {
@@ -1029,6 +1073,10 @@ export default function EcCanvas() {
       case 'delete':
         setNodes(ns => ns.filter(n => n.id !== node.id));
         setConnections(prev => removeConnectionsForNodes(prev, new Set([node.id])));
+        break;
+      default:
+        // 裁切、宫格切图、卖点标注、引用生成等统一复用顶部工具条的真实处理链路。
+        await handleToolAction(action, node);
         break;
     }
   };
@@ -1235,7 +1283,7 @@ export default function EcCanvas() {
       const source = composerNodes[0];
       const data = composerAction
         ? await transformCanvasImage({ action: composerAction, prompt: composerText, imageUrl: source.url, ratio: source.ratio })
-        : { url: await regenerateCanvasImage({ prompt: composerText, imageUrl: source.url, ratio: source.ratio }) };
+        : { url: await regenerateCanvasImage({ prompt: composerText, imageUrl: source.url, referenceImages: composerNodes.slice(1).map(node => node.url).filter(Boolean), ratio: source.ratio }) };
       const url = data.url;
       const newNode = {
         ...source,
@@ -1264,18 +1312,10 @@ export default function EcCanvas() {
   const handleNew = () => dispatch({ type: 'NEW_WORK' });
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
-    let images = {};
-    if (Array.isArray(work.images)) {
-      work.images.forEach((img, index) => {
-        const url = typeof img === 'string' ? img : (img?.url || img?.src || img?.image_url || img?.cover_url);
-        if (url) images[img?.key || img?.label || `image_${index + 1}`] = url;
-      });
-    } else {
-      images = Object.fromEntries(Object.entries(work.images || {}).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? value : (value?.url || value?.src || value?.image_url || ''),
-      ]).filter(([, value]) => value));
-    }
+    const images = Object.fromEntries(normalizeWorkImages(work.images).map((image, index) => [
+      image.key || image.label || `image_${index + 1}`,
+      image.url,
+    ]));
     dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝', _saveKey: work._saveKey, canvas_state: work.canvas_state || null } });
     setTab('canvas');
   };
@@ -1304,7 +1344,7 @@ export default function EcCanvas() {
     setPastWorks(prev => [...prev, {
       id: work.id,
       name: work.product_name || work.name || '历史作品',
-      images: Array.isArray(work.images) ? work.images : Object.entries(work.images || {}).map(([key, url]) => ({ url, key, label: key })),
+      images: normalizeWorkImages(work.images),
       createdAt: work.at || '',
       _saveKey: work._saveKey,
     }]);
@@ -1369,7 +1409,13 @@ export default function EcCanvas() {
         copy: directionCopy,
         ratio: directionRatio,
       } : null;
-      const url = await regenerateCanvasImage({ prompt: promptText, imageUrl: promptPanel.url, ratio: promptPanel.ratio, sourceDirectionId: direction?.id });
+      const url = await regenerateCanvasImage({
+        prompt: promptText,
+        imageUrl: promptPanel.url,
+        referenceImages: promptReferences.map(node => node.url).filter(Boolean),
+        ratio: promptPanel.ratio,
+        sourceDirectionId: direction?.id,
+      });
       const newNode = {
         ...promptPanel,
         id: `node_regenerated_${Date.now()}`,
@@ -1385,6 +1431,7 @@ export default function EcCanvas() {
       setNodes(prev => [...prev, newNode]);
       setConnections(prev => addConnection(prev, promptPanel.id, newNode.id, 'variant'));
       setPromptPanel(null);
+      setPromptReferences([]);
       setDirectionDraft(null);
       showToast('新图已加入画布', 'success');
     } catch (error) { showToast(error.message, 'error'); }
@@ -1696,7 +1743,7 @@ export default function EcCanvas() {
               </div>
               <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, background: 'rgba(0,0,0,.05)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button>
             </div>
-            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>方案名称<input value={directionTitle} onChange={e => setDirectionTitle(e.target.value)} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12 }} /></label>
+            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>方案名称<input value={directionTitle} readOnly aria-readonly="true" title="方案名称由 AI 生成，编辑下面的执行说明即可" style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, background: '#f7f7f8', color: '#6b7280', cursor: 'default' }} /></label>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>电商用途<textarea value={directionPurpose} onChange={e => setDirectionPurpose(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>构图与视觉<textarea value={directionComposition} onChange={e => setDirectionComposition(e.target.value)} rows={3} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 10 }}>文案要求<textarea value={directionCopy} onChange={e => setDirectionCopy(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
@@ -1714,9 +1761,14 @@ export default function EcCanvas() {
 
       {promptPanel && (
         <div style={{ position: 'fixed', zIndex: 10004, right: 22, bottom: 22, width: 'min(440px, calc(100vw - 44px))', background: '#fff', border: '1px solid rgba(0,0,0,.1)', boxShadow: '0 18px 50px rgba(0,0,0,.18)', borderRadius: 12, padding: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}><strong style={{ fontSize: 14 }}>编辑后重新生成</strong><button type="button" onClick={() => setPromptPanel(null)} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 18 }}>×</button></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}><strong style={{ fontSize: 14 }}>反推提示词并重新生成</strong><button type="button" onClick={() => { setPromptPanel(null); setPromptReferences([]); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 18 }}>×</button></div>
           <div style={{ fontSize: 11, color: '#777', marginBottom: 8 }}>以当前图片为参考，保留商品本体，按你的修改生成新图。</div>
           <textarea value={promptText} onChange={e => setPromptText(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minHeight: 140, resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid rgba(0,0,0,.15)', font: '12px/1.6 inherit' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, overflowX: 'auto' }}>
+            {promptReferences.map(reference => <div key={reference.id} style={{ position: 'relative', width: 42, height: 42, flexShrink: 0 }}><img src={proxyImg(reference.url)} alt={reference.name || '补充参考图'} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }} /><button type="button" aria-label="移除补充参考图" onClick={() => setPromptReferences(prev => prev.filter(item => item.id !== reference.id))} style={{ position: 'absolute', top: -5, right: -5, width: 15, height: 15, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 10, cursor: 'pointer' }}>×</button></div>)}
+            <button type="button" onClick={() => document.getElementById('canvas-prompt-reference-input')?.click()} style={{ height: 42, padding: '0 10px', border: '1px dashed #c4b5fd', borderRadius: 7, background: '#faf5ff', color: '#7c3aed', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ 补充参考图</button>
+            <input id="canvas-prompt-reference-input" type="file" accept="image/*" multiple hidden onChange={async event => { await handlePromptAddImages(event.target.files ? [...event.target.files] : []); event.target.value = ''; }} />
+          </div>
           <button type="button" onClick={handlePromptRegenerate} disabled={promptLoading} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 8, padding: '10px 14px', background: '#1f2937', color: '#fff', fontWeight: 700, cursor: promptLoading ? 'wait' : 'pointer' }}>{promptLoading ? '正在生成…' : '按此方案生成'}</button>
         </div>
       )}
@@ -1727,6 +1779,7 @@ export default function EcCanvas() {
           promptText={composerText}
           setPromptText={setComposerText}
           onRemoveReference={id => setComposerNodes(prev => prev.filter(node => node.id !== id))}
+          onAddReferenceFiles={handleComposerAddImages}
           onGenerate={handleComposerGenerate}
           loading={promptLoading}
         />

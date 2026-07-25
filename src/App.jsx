@@ -16,9 +16,12 @@ const WorksPage = React.lazy(() => import('./pages/Works/index'));
 const RemakePage = React.lazy(() => import('./pages/Remake/index'));
 const PlogPage = React.lazy(() => import('./pages/Plog/index'));
 const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
+const EcStudioPage = React.lazy(() => import('./pages/EcStudio/index'));
+const EcAutoPage = React.lazy(() => import('./pages/EcAuto/index'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
+import { signOut } from './services/auth';
 import { shouldShowNoteModal } from './routing/resultRouting';
 
 /* ═══════ 左侧导航栏（3按钮精简版）═══════ */
@@ -168,7 +171,7 @@ function TopBar() {
 
           {/* 登录 */}
           {logged ? (
-            <button onClick={() => dispatch({ type: 'SET_LOGGED', logged: false, phone: '' })}
+            <button onClick={async () => { await signOut(); dispatch({ type: 'SET_LOGGED', logged: false, phone: '' }); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, height: 44,
                 padding: '0 24px', border: 'none', borderRadius: 'var(--radius-full)',
@@ -265,6 +268,8 @@ function AppRouter() {
     remake: RemakePage,
     plog: PlogPage,
     'ec-canvas': EcCanvasPage,
+    'ec-studio': EcStudioPage,
+    'ec-auto': EcAutoPage,
   };
   const PageComponent = pageMap[page] || HomePage;
 
@@ -291,7 +296,7 @@ function AppRouter() {
             const updated = { ...result };
             if (i === 0) updated.cover_url = url;
             else { const u = [...(updated.image_urls || [])]; if (u[i-1]) u[i-1] = url; updated.image_urls = u; }
-            saveWork(updated);
+            saveWork(updated, state.phone);
           }
         }}
       />

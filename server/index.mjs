@@ -27,8 +27,15 @@ import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './access
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 import { createGeneratedAssetStore } from './generatedAssets.mjs';
+import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { normalizeEcommerceInput } from './ecommerceInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
+import { summarizeEcommerceResult } from './ecommerceResult.mjs';
+import {
+  BETA_GUARDED_POST_ROUTES,
+  RATE_LIMITED_POST_ROUTES,
+  getGenerationRateLimit,
+} from './generationRouteGuard.mjs';
 import {
   buildCanvasTransformPrompt,
   cropRectForRatio,
@@ -47,7 +54,8 @@ if (fs.existsSync(envPath)) {
   console.log('  → 已加载 .env 配置');
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// 支付配置缺失不应阻断整套图片服务启动；支付接口会返回可读的配置提示。
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
 initDB();
@@ -130,9 +138,7 @@ app.get('/api/generated-assets/:id', async (req, res) => {
 
 // ── IP 速率限制（止血：防止 API 被盗刷 LLM 额度）──
 // 对消耗 LLM 额度的生图路由限 10 次/分钟/IP
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;   // 1 分钟
-const RATE_LIMIT_MAX = 10;                // 每窗口每 IP 最多 10 次
-const rateLimitStore = new Map();         // key: `${ip}:${minuteBucket}` -> count
+const rateLimitStore = new Map();         // key: `${email-or-ip}:${minuteBucket}` -> count
 function getClientIp(req) {
   const xf = req.headers['x-forwarded-for'];
   if (xf) return String(xf).split(',')[0].trim();
@@ -140,8 +146,10 @@ function getClientIp(req) {
 }
 function rateLimiter(req, res, next) {
   const ip = getClientIp(req);
-  const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS);
-  const key = `${ip}:${bucket}`;
+  const identity = req._userEmail || ip;
+  const { max, windowMs } = getGenerationRateLimit(req._userEmail);
+  const bucket = Math.floor(Date.now() / windowMs);
+  const key = `${identity}:${bucket}`;
   const count = (rateLimitStore.get(key) || 0) + 1;
   rateLimitStore.set(key, count);
   // 清理过期桶（简单 GC）
@@ -151,37 +159,24 @@ function rateLimiter(req, res, next) {
       if (bucket - b > 5) rateLimitStore.delete(k);
     }
   }
-  if (count > RATE_LIMIT_MAX) {
-    console.warn(`[rate-limit] ${ip} 超限 ${count}/${RATE_LIMIT_MAX} on ${req.path}`);
-    return res.status(429).json({ error: '请求过于频繁，请稍后再试（每分钟限 10 次生成）' });
+  if (count > max) {
+    console.warn(`[rate-limit] ${identity} 超限 ${count}/${max} on ${req.path}`);
+    return res.status(429).json({ error: `请求过于频繁，请稍后再试（每分钟限 ${max} 次生成）` });
   }
   next();
 }
-// 仅对消耗 LLM 额度的核心生图路由启用
-const GUARDED_ROUTES = [
-  '/api/generate', '/api/regenerate-image', '/api/regenerate-text',
-  '/api/analyze', '/api/generate-ecommerce', '/api/ecommerce/analyze'  , '/api/plog-generate',
-];
-app.use((req, res, next) => {
-  if (req.method === 'POST' && GUARDED_ROUTES.includes(req.path)) {
-    return rateLimiter(req, res, next);
-  }
-  next();
-});
 
-// 内测阶段，生成能力只能由受邀账号调用。前端提示只是体验层，
-// 这里才是不能被绕过的服务端权限边界。
-const BETA_GUARDED_ROUTES = [
-  '/api/generate-ecommerce',
-  '/api/canvas/regenerate',
-  '/api/canvas/transform',
-  '/api/canvas/analyze-layers',
-];
+// 所有会调用生图、识图或 LLM 上游的 POST 路由统一经过服务端权限与限流边界。
+// 权限先于限流执行，避免匿名请求占用受邀用户的限流桶。
 app.use((req, res, next) => {
-  if (req.method === 'POST' && BETA_GUARDED_ROUTES.includes(req.path)) {
-    return betaAccessMiddleware(req, res, next);
+  if (req.method !== 'POST') return next();
+  const continueWithRateLimit = () => (
+    RATE_LIMITED_POST_ROUTES.has(req.path) ? rateLimiter(req, res, next) : next()
+  );
+  if (BETA_GUARDED_POST_ROUTES.has(req.path)) {
+    return betaAccessMiddleware(req, res, continueWithRateLimit);
   }
-  next();
+  return continueWithRateLimit();
 });
 
 function betaAccessMiddleware(req, res, next) {
@@ -2816,6 +2811,7 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
 // ============================================================
 const TEMP_UPLOAD_DIR = resolve(__dirname, 'temp_uploads');
 if (!fs.existsSync(TEMP_UPLOAD_DIR)) fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
+const imageInputReader = createImageInputReader({ generatedAssetStore, tempUploadDir: TEMP_UPLOAD_DIR });
 
 app.post('/api/ec-temp-upload', async (req, res) => {
   try {
@@ -2840,7 +2836,9 @@ app.post('/api/ec-temp-upload', async (req, res) => {
 });
 
 app.get('/api/ec-temp-img/:name', (req, res) => {
-  const fp = resolve(TEMP_UPLOAD_DIR, req.params.name);
+  const name = String(req.params.name || '');
+  if (!/^[a-z0-9][a-z0-9_.-]*$/i.test(name)) return res.status(404).end();
+  const fp = resolve(TEMP_UPLOAD_DIR, name);
   if (!fs.existsSync(fp)) return res.status(404).end();
   res.sendFile(fp);
 });
@@ -2871,15 +2869,9 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
     const resolved = [];
     for (const u of (imgs || [])) {
       if (!u || typeof u !== 'string') continue;
-      if (u.startsWith('data:') || u.startsWith('http')) { resolved.push(u); continue; }
-      // 相对路径：读文件转 base64
       try {
-        const fp = resolve(__dirname, u.replace(/^\//, ''));
-        if (fs.existsSync(fp)) {
-          const buf = fs.readFileSync(fp);
-          const ext = fp.split('.').pop() || 'jpg';
-          resolved.push(`data:image/${ext};base64,${buf.toString('base64')}`);
-        }
+        const image = await imageInputReader.read(u);
+        resolved.push(imageBufferToDataUrl(image));
       } catch {}
     }
     return resolved;
@@ -3048,13 +3040,7 @@ app.post('/api/reverse-prompt', async (req, res) => {
   if (!image_url) return res.status(400).json({ error: '缺少图片' });
 
   try {
-    // 下载图片转 base64
-    let base64 = image_url;
-    if (image_url.startsWith('http')) {
-      const resp = await fetch(image_url);
-      const buf = Buffer.from(await resp.arrayBuffer());
-      base64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
-    }
+    const base64 = imageBufferToDataUrl(await imageInputReader.read(image_url));
     const sys = `你是专业的AI生图提示词工程师。分析这张电商产品图，还原生成这张图所用的完整提示词，包含：产品描述、背景场景、光影风格、构图方式、色调、平台规格说明等。输出格式：直接给出英文关键词组合（逗号分隔），附上中文说明，总字数不超过200字。`;
     const userMsg = `产品：${product_name || '商品'}。请反推这张图的生图提示词。`;
 
@@ -3077,15 +3063,7 @@ app.post('/api/remove-bg', async (req, res) => {
   try {
     // 方案A：使用 remove.bg API（需配置 REMOVE_BG_KEY）
     if (REMOVE_BG_KEY) {
-      let imgBuf;
-      if (image_url.startsWith('http')) {
-        const r = await fetch(image_url);
-        imgBuf = Buffer.from(await r.arrayBuffer());
-      } else {
-        // base64
-        const base64Data = image_url.replace(/^data:image\/\w+;base64,/, '');
-        imgBuf = Buffer.from(base64Data, 'base64');
-      }
+      const { buffer: imgBuf } = await imageInputReader.read(image_url);
 
       const form = new FormData();
       form.append('image_file', new Blob([imgBuf]), 'image.png');
@@ -3120,17 +3098,12 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
     // 下载所有切片为 Buffer
     const bufs = [];
     for (const u of imageUrls) {
-      let buf;
-      if (typeof u === 'string' && u.startsWith('data:image')) {
-        buf = Buffer.from(u.split(',')[1], 'base64');
-      } else if (typeof u === 'string' && /^https?:\/\//i.test(u)) {
-        const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15000) });
-        if (!r.ok) throw new Error('下载切片失败: ' + u);
-        buf = Buffer.from(await r.arrayBuffer());
-      } else {
-        continue;
+      try {
+        const { buffer } = await imageInputReader.read(u);
+        bufs.push(buffer);
+      } catch (error) {
+        throw new Error(`下载切片失败：${error.message}`);
       }
-      bufs.push(buf);
     }
     if (bufs.length === 0) return res.status(400).json({ error: '没有可拼接的有效图片' });
 
@@ -3284,31 +3257,10 @@ app.post('/api/generate-ecommerce', async (req, res) => {
   // 自定义尺寸解析
   const customSizeStr = (image_size?.width && image_size?.height) ? `${image_size.width}x${image_size.height}` : null;
 
-  // 将相对路径 URL 转为 base64
+  // 所有图片入口统一转换为上游可读取的 data URL，支持稳定素材、临时上传和外链。
   const resolveImgUrl = async (u) => {
     if (!u || typeof u !== 'string') return null;
-    if (u.startsWith('data:image')) return u;
-    if (u.startsWith('http')) {
-      const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10000) }).catch(() => null);
-      if (r?.ok) {
-        const buf = await r.arrayBuffer();
-        if (buf.byteLength > 1000) {
-          const ext = u.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || 'jpeg';
-          return 'data:image/' + ext + ';base64,' + Buffer.from(buf).toString('base64');
-        }
-      }
-      return null;
-    }
-    // 相对路径
-    try {
-      const fp = resolve(__dirname, u.replace(/^\//, ''));
-      if (fs.existsSync(fp)) {
-        const buf = fs.readFileSync(fp);
-        const ext = fp.split('.').pop() || 'jpg';
-        return 'data:image/' + ext + ';base64,' + buf.toString('base64');
-      }
-    } catch {}
-    return null;
+    try { return imageBufferToDataUrl(await imageInputReader.read(u)); } catch { return null; }
   };
 
   // 参考图：全量分析 + 准备视觉输入（不再截断6张）
@@ -3420,7 +3372,8 @@ app.post('/api/generate-ecommerce', async (req, res) => {
       await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
     }
 
-    console.log(`[ec-gen] 完成: ${Object.keys(images).length} 张图, ${errors.length} 个错误`);
+    const resultSummary = summarizeEcommerceResult(images);
+    console.log(`[ec-gen] 完成: ${resultSummary.imageCount} 张图, ${errors.length} 个错误`);
     const taskResult = {
       product_name,
       category: category || '其他',
@@ -3432,6 +3385,13 @@ app.post('/api/generate-ecommerce', async (req, res) => {
       images,
       errors,
     };
+    if (!resultSummary.hasImages) {
+      const failureMessage = errors.find(item => item?.error)?.error || '生成完成但没有返回有效图片';
+      failTask(taskId, failureMessage);
+      try { ecommerceJobs.transition(taskId, 'failed', { error: failureMessage }); } catch {}
+      send('error', { error: failureMessage, code: 'NO_IMAGES' });
+      return;
+    }
     completeTask(taskId, taskResult);
     ecommerceJobs.transition(taskId, 'completed', { output: taskResult, progress: { current: Object.keys(images).length, total: expandedImages.length } });
     deductCredit(req._userEmail);
@@ -3450,23 +3410,32 @@ app.get('/api/ecommerce/jobs/:id', (req, res) => {
   const job = ecommerceJobs.get(req.params.id);
   if (!job) return res.status(404).json({ error: '任务不存在' });
   if (job.ownerEmail !== access.email) return res.status(403).json({ error: '无权查看该任务' });
-  res.json(job);
+  res.json({ ok: true, task: job });
 });
 
 // 画布内的二次生成：沿用现有图生图通道，保证提示词编辑不是只复制到剪贴板。
 app.post('/api/canvas/regenerate', async (req, res) => {
-  const { prompt, image_url, ratio } = req.body || {};
+  const { prompt, image_url, reference_images: referenceImages = [], ratio } = req.body || {};
   if (!prompt?.trim() || !image_url) return res.status(400).json({ error: '缺少图片或生成说明' });
   try {
-    let reference = image_url;
-    if (image_url.startsWith('http')) {
-      const source = await fetch(image_url, { signal: AbortSignal.timeout(20000) });
-      if (!source.ok) throw new Error('读取原图失败');
-      const contentType = source.headers.get('content-type') || 'image/jpeg';
-      reference = `data:${contentType};base64,${Buffer.from(await source.arrayBuffer()).toString('base64')}`;
+    const visualInputs = [image_url, ...(Array.isArray(referenceImages) ? referenceImages : [])]
+      .filter(value => typeof value === 'string' && value.trim())
+      .slice(0, 9);
+    const resolvedInputs = [];
+    for (const input of visualInputs) {
+      try {
+        resolvedInputs.push(imageBufferToDataUrl(await imageInputReader.read(input)));
+      } catch (error) {
+        if (input === image_url) throw error;
+      }
     }
+    const reference = await buildReferenceContactSheet(resolvedInputs) || resolvedInputs[0];
+    if (!reference) throw new Error('读取原图失败');
     const size = ratio === '3:4' ? '1024x1366' : ratio === '4:3' ? '1366x1024' : '1024x1024';
-    const generated = await callImageAPI(`Create a polished ecommerce product visual. Preserve the supplied product identity and structure. ${prompt.trim()}`, size, reference, {}, '1024x1024');
+    const referenceNote = resolvedInputs.length > 1
+      ? ` Use the supplied contact sheet as visual guidance; keep the product identity from the first view and borrow only compatible composition or style cues from the additional references.`
+      : '';
+    const generated = await callImageAPI(`Create a polished ecommerce product visual. Preserve the supplied product identity and structure.${referenceNote} ${prompt.trim()}`, size, reference, {}, '1024x1024');
     const asset = await generatedAssetStore.persist({ sourceUrl: generated, taskId: `canvas_${Date.now()}`, label: 'canvas_regenerated' });
     res.json({ url: asset.url });
   } catch (error) {
@@ -3475,35 +3444,7 @@ app.post('/api/canvas/regenerate', async (req, res) => {
 });
 
 async function readCanvasImage(imageUrl) {
-  if (typeof imageUrl !== 'string' || !imageUrl.trim()) throw new Error('缺少图片');
-  const source = imageUrl.trim();
-  if (source.startsWith('data:image/')) {
-    const match = source.match(/^data:image\/[^;]+;base64,(.+)$/);
-    if (!match) throw new Error('图片格式无效');
-    return Buffer.from(match[1], 'base64');
-  }
-  const generatedMatch = source.match(/^\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))$/i);
-  if (generatedMatch) {
-    const asset = await generatedAssetStore.read(generatedMatch[1]);
-    if (!asset) throw new Error('生成图片已失效');
-    return asset.buffer;
-  }
-  const remoteUrl = source.startsWith('/')
-    ? `http://127.0.0.1:${PORT}${source}`
-    : source;
-  let parsed;
-  try { parsed = new URL(remoteUrl); } catch { throw new Error('图片地址无效'); }
-  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('图片地址无效');
-  const response = await fetch(parsed.href, {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!response.ok) throw new Error(`读取图片失败（${response.status}）`);
-  const contentLength = Number(response.headers.get('content-length') || 0);
-  if (contentLength > 20 * 1024 * 1024) throw new Error('图片文件过大');
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (!buffer.length || buffer.length > 20 * 1024 * 1024) throw new Error('图片文件过大或为空');
-  return buffer;
+  return (await imageInputReader.read(imageUrl)).buffer;
 }
 
 function canvasSizeForRatio(ratio, resolution = '2K') {
@@ -3632,15 +3573,6 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
     console.error('[canvas/analyze-layers] 失败:', error.message);
     res.status(500).json({ error: `图层分析失败：${error.message}` });
   }
-});
-
-// 页面关闭、网络中断后仍可读取已持久化的电商任务结果；按任务归属校验，避免 ID 枚举泄露。
-app.get('/api/ecommerce/jobs/:id', (req, res) => {
-  const access = requireBetaEmail(req.query?.email);
-  if (!access.ok) return res.status(access.status).json({ error: access.error });
-  const task = getTask(req.params.id);
-  if (!task || task.owner_email !== access.email) return res.status(404).json({ error: '未找到该任务' });
-  res.json({ ok: true, task });
 });
 
 // ── 邮箱验证码 ──
@@ -3775,6 +3707,7 @@ app.post('/api/create-payment', async (req, res) => {
   try {
     const { plan, type, email, sets, amount } = req.body;
     if (!email) return res.json({ code: 0, error: '请先登录' });
+    if (!stripe) return res.status(503).json({ code: 0, error: '支付服务尚未配置，请稍后再试' });
 
     const sessionParams = {
       payment_method_types: type === 'wxpay' ? ['wechat_pay'] : ['alipay'],
@@ -3812,7 +3745,7 @@ app.post('/api/create-payment', async (req, res) => {
 app.get('/api/payment/success', async (req, res) => {
   try {
     const { session_id } = req.query;
-    if (session_id) {
+    if (session_id && stripe) {
       const session = await stripe.checkout.sessions.retrieve(session_id);
       if (session.payment_status === 'paid') {
         const sets = parseInt(session.metadata.sets || '0');

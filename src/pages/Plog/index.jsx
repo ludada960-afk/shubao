@@ -3,6 +3,9 @@ import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
+import { withSessionEmail } from '../../services/api';
+import { createApiError } from '../../services/apiError.js';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 
 // ── 风格包 ──
 const PLOG_STYLES = {
@@ -124,9 +127,9 @@ export default function PlogPage() {
       const res = await fetch('/api/plog-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(withSessionEmail(body)),
       });
-      if (!res.ok) throw new Error('请求失败');
+      if (!res.ok) throw await createApiError(res, '生成失败');
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let buf = '', result = { cover_url: '', image_urls: [], copyLines: [], caption: '', scene: '', style: '', layout: '' };
@@ -160,7 +163,11 @@ export default function PlogPage() {
       setGenState('done');
       dispatch({ type: 'CLOSE_RESULT' });
     } catch (e) {
-      setErr(e.message || '生成失败');
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'plog',
+        message: '当前生活场景、参考图和排版选择都已保留，登录或充值后可以继续生成。',
+      });
+      setErr(accessResult ? '' : (e.message || '生成失败'));
       setGenState('idle');
       dispatch({ type: 'CLOSE_RESULT' });
     }

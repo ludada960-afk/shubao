@@ -6,6 +6,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, Sparkle, Package, Gear, Download, MagicWand } from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
 import { proxyImg, generateEcommerce, generateEcommercePreview, autoRecognizeEcommerce, stitchLongImage, saveWork, regenerateImage } from '../../services/api';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { EC_CATS, EC_PLATFORM_DIMS, EC_DETAIL_SLICES, EC_SKU_FIELDS } from '../../constants/data';
 import { IMAGES } from '../../constants/images';
 import { CharImg } from '../../components/ui/index';
@@ -58,7 +59,7 @@ const SLICE_KEY_BY_PLAN = {
 };
 
 export default function EcStudioPage() {
-  const { dispatch } = useApp();
+  const { state, dispatch, fetchCredits } = useApp();
   const [smartBrief, setSmartBrief] = useState('');
   const [realShots, setRealShots] = useState([]);
   const [refShots, setRefShots] = useState([]);
@@ -206,6 +207,7 @@ export default function EcStudioPage() {
         refImgs: refShots,
         realShots,
         platform,
+        email: state.phone,
         points: product.material || '',
         skus,
         detailPlan,
@@ -231,13 +233,15 @@ export default function EcStudioPage() {
         platform,
         at: new Date().toLocaleDateString('zh-CN'),
         images: d.images || {},
-      });
+      }, state.phone);
+      fetchCredits(state.phone);
     } catch (e) {
       const msg = e.message || '';
-      setErr(
-        '生成失败: ' +
-          (msg.includes('Image API error') ? '图片API暂时不可用，请稍后重试' : msg.slice(0, 100))
-      );
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'ecommerce-studio',
+        message: '精修工坊中的商品图、SKU、详情配置和说明都已保留，充值后可以继续生成。',
+      });
+      setErr(accessResult ? '' : '生成失败: ' + (msg.includes('Image API error') ? '图片API暂时不可用，请稍后重试' : msg.slice(0, 100)));
       setPhase('config');
       dispatch({ type: 'CLOSE_RESULT' });
     }

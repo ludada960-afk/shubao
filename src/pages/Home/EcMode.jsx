@@ -774,10 +774,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
                 onClick={() => openPanel(btn.key)}
                 className={isOverridden ? 'ec-btn-overridden' : ''}
                 style={{
-                    ...BTN_BASE,
+                  ...BTN_BASE,
                     border: `1.5px solid ${activePanel === btn.key ? '#1f2937' : 'rgba(28,25,23,.28)'}`,
                   borderColor: isOpen ? '#8b5cf6' : isOverridden ? 'rgba(139,92,246,0.55)' : 'rgba(28,25,23,0.10)',
-                  borderStyle: 'solid',
                   background: isOpen ? '#f1e9ff' : isOverridden ? '#fbf8ff' : '#fff',
                   position: 'relative',
                   boxShadow: isOpen 

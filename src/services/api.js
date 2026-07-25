@@ -2,11 +2,20 @@
 // API 服务层：标准化重构版
 // ─────────────────────────────────────────────────────────────
 
-import { createApiError } from './apiError';
+import { createApiError } from './apiError.js';
+import { consumeSseJson } from './sse.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 
 export const API = API_BASE;
+
+export function getSessionEmail() {
+  try { return JSON.parse(localStorage.getItem('sb-auth') || 'null')?.email || ''; } catch { return ''; }
+}
+
+export function withSessionEmail(payload = {}) {
+  return { ...payload, email: payload.email || getSessionEmail() };
+}
 
 // 图片代理（解决跨域）
 export function proxyImg(url) {
@@ -28,6 +37,44 @@ export function proxyImg(url) {
   return url;
 }
 
+function imageValue(image) {
+  if (typeof image === 'string') return image;
+  if (image && typeof image === 'object') return image.url || image.src || image.image_url || '';
+  return '';
+}
+
+async function imageToDataUrl(image) {
+  if (typeof image === 'string') return image;
+  if (image?.file) return imageToDataUrl(image.file);
+  if (typeof Blob !== 'undefined' && image instanceof Blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('图片读取失败'));
+      reader.readAsDataURL(image);
+    });
+  }
+  return imageValue(image);
+}
+
+async function prepareImageInputs(images) {
+  if (!images?.length) return [];
+  const values = (await Promise.all(images.map(imageToDataUrl))).filter(Boolean);
+  const urls = values.filter(value => /^(?:https?:\/\/|\/api\/)/i.test(value));
+  const base64s = values.filter(value => value.startsWith('data:image/'));
+  if (!base64s.length) return urls;
+  return [...urls, ...(await uploadECTempImages(base64s))];
+}
+
+function planToSelections(batchPlan) {
+  if (Array.isArray(batchPlan?.imageSelections)) return batchPlan.imageSelections;
+  if (!batchPlan || typeof batchPlan !== 'object') return null;
+  const keyMap = { main: 'main_text', scene: 'main_3x4', sku: 'sku', detail: 'detail_slice_feature' };
+  return Object.entries(batchPlan)
+    .filter(([key, count]) => keyMap[key] && Number(count) > 0)
+    .map(([key, count]) => ({ key: keyMap[key], count: Math.min(20, Number(count)) }));
+}
+
 // ─────────────────────────────────────────────────────────────
 // 核心生图接口：智能成套生成 (重构版)
 // ─────────────────────────────────────────────────────────────
@@ -47,82 +94,21 @@ export async function generateEcommerceSuite({
   sceneStyle,
   platform,
   batchPlan,
+  email,
   onProgress,
   onImage
 }) {
-  // 1. 图片预处理：区分上传
-  const uploadImgs = async (imgs) => {
-    if (!imgs?.length) return [];
-    const urls = imgs.filter(u => typeof u === 'string' && (u.startsWith('http') || u.startsWith('/api/')));
-    const base64s = imgs.filter(u => typeof u === 'string' && u.startsWith('data:'));
-    if (base64s.length === 0) return urls;
-    const uploaded = await uploadECTempImages(base64s);
-    return [...urls, ...uploaded];
-  };
-
-  const productUrls = await uploadImgs(productImages);
-  const refUrls = await uploadImgs(referenceImages);
-
-  // 2. 构建严格请求体
-  const body = {
-    product_images: productUrls,
-    reference_images: refUrls,
-    scene_style: sceneStyle || 'default',
-    platform: platform || 'taobao',
-    plan: batchPlan || { main: 1, scene: 3, sku: 3, detail: 3 }
-  };
-
-  const res = await fetch(`${API_BASE}/api/generate-ecommerce-v2`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+  return generateEcommerce({
+    productName: sceneStyle || '商品',
+    category: '其他',
+    refImgs: referenceImages || [],
+    realShots: productImages || [],
+    platform: platform || '淘宝',
+    imageSelections: planToSelections(batchPlan),
+    email,
+    onProgress,
+    onImage,
   });
-
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg.slice(0, 200));
-  }
-
-  // 3. SSE 流式解析
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '';
-  const result = { images: [] };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
-
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      try {
-        const d = JSON.parse(line.slice(6));
-
-        if (d.type === 'progress' && onProgress) onProgress(d);
-        else if (d.type === 'image') {
-          const normalizedImage = {
-            id: d.id || Date.now().toString(),
-            url: d.url,
-            category: d.category || 'main',
-            name: d.name || '生成图片',
-            width: d.width || 1024,
-            height: d.height || 1024
-          };
-          result.images.push(normalizedImage);
-          if (onImage) onImage(normalizedImage);
-        }
-        else if (d.type === 'complete') Object.assign(result, d);
-        else if (d.type === 'error') throw new Error(d.error || '生成失败');
-      } catch (e) {
-        console.warn('Parse error', e);
-      }
-    }
-  }
-  return result;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -143,9 +129,9 @@ export async function reversePrompt({ image_url, product_name }) {
   const res = await fetch(`${API_BASE}/api/reverse-prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image_url, product_name }),
+    body: JSON.stringify(withSessionEmail({ image_url, product_name })),
   });
-  if (!res.ok) throw new Error('反推失败');
+  if (!res.ok) throw await createApiError(res, '反推失败');
   return res.json();
 }
 
@@ -153,7 +139,7 @@ export async function removeBg({ image_url }) {
   const res = await fetch(`${API_BASE}/api/remove-bg`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image_url }),
+    body: JSON.stringify(withSessionEmail({ image_url })),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -175,16 +161,13 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   const res = await fetch(`${API_BASE}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, images: images || [], preview }),
+    body: JSON.stringify(withSessionEmail({ text, images: images || [], preview })),
     signal: controller.signal,
   }).catch(e => { clearTimeout(timeoutId); throw new Error('网络请求失败: ' + e.message); });
 
   if (!res.ok) {
     clearTimeout(timeoutId);
-    const raw = await res.text().catch(() => res.statusText);
-    let message = raw;
-    try { message = JSON.parse(raw).error || raw; } catch {}
-    throw new Error(String(message).slice(0, 200));
+    throw await createApiError(res, '生成失败');
   }
 
   const reader = res.body.getReader();
@@ -215,7 +198,10 @@ export async function generateContent(text, images, { onImage, onProgress, previ
             Object.assign(result, d);
             result.image_count = d.image_urls?.length || 0;
           } else if (d.type === 'error') {
-            throw new Error(d.error || '生成失败');
+            const error = new Error(d.error || '生成失败');
+            error.code = d.code;
+            error.resumeable = d.resumeable;
+            throw error;
           }
         } catch (e) {
           if (e.message && !e.message.includes('JSON')) throw e;
@@ -230,22 +216,12 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, onImage, onProgress }) {
-  // 上传图片到服务器
-  const uploadImgs = async (imgs) => {
-    if (!imgs?.length) return [];
-    const urls = imgs.filter(u => typeof u === 'string' && (u.startsWith('http') || u.startsWith('/api/')));
-    const base64s = imgs.filter(u => typeof u === 'string' && u.startsWith('data:'));
-    if (base64s.length === 0) return urls;
-    const uploaded = await uploadECTempImages(base64s);
-    return [...urls, ...uploaded];
-  };
-
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, email, onImage, onProgress }) {
   const body = {
     product_name: productName,
     category,
-    reference_images: await uploadImgs(refImgs),
-    real_shots: await uploadImgs(realShots),
+    reference_images: await prepareImageInputs(refImgs),
+    real_shots: await prepareImageInputs(realShots),
     platform,
     selling_points: points || '',
     skus: skus || [],
@@ -257,7 +233,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   // 电商生图属于封闭内测能力；请求携带本地会话邮箱，服务端仍会二次校验。
   try {
     const session = JSON.parse(localStorage.getItem('sb-auth') || 'null');
-    if (session?.email) body.email = session.email;
+    if (email || session?.email) body.email = email || session.email;
   } catch {}
   if (imageSize?.width && imageSize?.height) {
     body.image_size = imageSize;
@@ -286,45 +262,38 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   }
 
   // SSE 流式解析（与 generateContent 一致）
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '';
   const result = { images: {}, errors: [] };
+  let gotComplete = false;
 
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const d = JSON.parse(line.slice(6));
-          if (d.type === 'progress') {
-            if (onProgress) onProgress(d);
-          } else if (d.type === 'job') {
-            result.taskId = d.taskId;
-            try { localStorage.setItem('sb-last-ecommerce-task', d.taskId); } catch {}
-          } else if (d.type === 'image') {
-            if (d.id && d.url) result.images[d.id] = d.url;
-            if (onImage) onImage(d);
-          } else if (d.type === 'complete') {
-            Object.assign(result, d);
-            result.images = result.images || {};
-          } else if (d.type === 'error') {
-            throw new Error(d.error || '生成失败');
-          }
-        } catch (e) {
-          if (e.message && !e.message.includes('JSON')) throw e;
-        }
+    await consumeSseJson(res.body.getReader(), d => {
+      if (d.type === 'progress') {
+        if (onProgress) onProgress(d);
+      } else if (d.type === 'job') {
+        result.taskId = d.taskId;
+        try { localStorage.setItem('sb-last-ecommerce-task', d.taskId); } catch {}
+      } else if (d.type === 'image') {
+        if (d.id && d.url) result.images[d.id] = d.url;
+        if (onImage) onImage(d);
+      } else if (d.type === 'complete') {
+        gotComplete = true;
+        Object.assign(result, d);
+        result.images = result.images || {};
+      } else if (d.type === 'error') {
+        const error = new Error(d.error || '生成失败');
+        error.code = d.code;
+        error.resumeable = d.resumeable;
+        throw error;
       }
-    }
+    });
   } finally {
     clearTimeout(timeoutId);
-    try { reader.releaseLock(); } catch {}
+  }
+  if (!gotComplete) throw new Error('生成未完成，请重试');
+  const imageCount = Object.keys(result.images || {}).length;
+  if (imageCount === 0) {
+    const firstError = Array.isArray(result.errors) ? result.errors.find(item => item?.error)?.error : '';
+    throw new Error(firstError || '生成完成但没有返回图片，请重试');
   }
   return result;
 }
@@ -336,7 +305,7 @@ export async function getEcommerceTask(taskId) {
   const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}?email=${encodeURIComponent(email)}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '读取任务失败');
-  return data.task;
+  return data.task || data;
 }
 
 /* ── 电商智能识别（Vision 回填 5 步字段） ── */
@@ -344,12 +313,9 @@ export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
   const res = await fetch(`${API_BASE}/api/ecommerce/auto-recognize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ smartBrief: smartBrief || '', refShots: refShots || [] }),
+    body: JSON.stringify(withSessionEmail({ smartBrief: smartBrief || '', refShots: refShots || [] })),
   });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg.slice(0, 200));
-  }
+  if (!res.ok) throw await createApiError(res, '智能识别失败');
   return res.json();
 }
 
@@ -357,13 +323,7 @@ export async function getDesignDirections(params) {
   // 先上传图片到服务器，再用 URL 请求
   const uploadAndReplace = async (imgs) => {
     if (!imgs?.length) return [];
-    // 已经是 URL 的直接返回
-    const urls = imgs.filter(u => u.startsWith('http') || u.startsWith('/api/'));
-    const base64s = imgs.filter(u => u.startsWith('data:'));
-    if (base64s.length === 0) return urls;
-    // 上传 base64 到服务器
-    const uploaded = await uploadECTempImages(base64s);
-    return [...urls, ...uploaded];
+    return prepareImageInputs(imgs);
   };
 
   const real_shots = await uploadAndReplace(params.real_shots);
@@ -372,12 +332,9 @@ export async function getDesignDirections(params) {
   const res = await fetch(`${API_BASE}/api/ecommerce/design-directions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...params, real_shots, ref_shots }),
+    body: JSON.stringify(withSessionEmail({ ...params, real_shots, ref_shots })),
   });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg.slice(0, 200));
-  }
+  if (!res.ok) throw await createApiError(res, '设计方向生成失败');
   return res.json();
 }
 
@@ -386,9 +343,9 @@ export async function polishECText({ text, product_name, category }) {
   const res = await fetch(`${API_BASE}/api/polish-ec-text`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, product_name, category }),
+    body: JSON.stringify(withSessionEmail({ text, product_name, category })),
   });
-  if (!res.ok) throw new Error('润色失败');
+  if (!res.ok) throw await createApiError(res, '润色失败');
   return res.json();
 }
 
@@ -430,9 +387,9 @@ export async function extractProductLink(url) {
   const res = await fetch(`${API_BASE}/api/extract-product-link`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify(withSessionEmail({ url })),
   });
-  if (!res.ok) throw new Error('链接分析失败');
+  if (!res.ok) throw await createApiError(res, '链接分析失败');
   return res.json();
 }
 
@@ -447,9 +404,9 @@ export async function regenerateImage(prompt, category) {
   const res = await fetch(`${API_BASE}/api/regenerate-image`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, category: category || '' }),
+    body: JSON.stringify(withSessionEmail({ prompt, category: category || '' })),
   });
-  if (!res.ok) throw new Error('请求失败');
+  if (!res.ok) throw await createApiError(res, '图片重生成失败');
   const d = await res.json();
   if (!d.url) throw new Error('生成失败');
   return d.url;
@@ -460,9 +417,9 @@ export async function regenerateText(text, category) {
   const res = await fetch(`${API_BASE}/api/regenerate-text`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, category }),
+    body: JSON.stringify(withSessionEmail({ text, category })),
   });
-  if (!res.ok) throw new Error('文案重生成失败');
+  if (!res.ok) throw await createApiError(res, '文案重生成失败');
   return res.json();
 }
 
@@ -506,19 +463,16 @@ export async function saveWork(work, phone) {
   return null;
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, ratio }) {
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio }) {
   const email = getSessionEmail();
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, image_url: imageUrl, ratio, email }),
+    body: JSON.stringify({ prompt, image_url: imageUrl, reference_images: referenceImages, ratio, email }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.url) throw new Error(data.error || '重新生成失败');
+  if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
+  if (!data.url) throw new Error(data.error || '重新生成失败');
   return data.url;
-}
-
-function getSessionEmail() {
-  try { return JSON.parse(localStorage.getItem('sb-auth') || 'null')?.email || ''; } catch { return ''; }
 }
 
 export async function transformCanvasImage({
@@ -545,7 +499,7 @@ export async function transformCanvasImage({
     }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || '画布处理失败');
+  if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '画布处理失败');
   return data;
 }
 
@@ -556,7 +510,7 @@ export async function analyzeCanvasLayers(imageUrl) {
     body: JSON.stringify({ image_url: imageUrl, email: getSessionEmail() }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || '图层分析失败');
+  if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '图层分析失败');
   return data;
 }
 
@@ -631,39 +585,6 @@ export async function loadWorks(phone) {
   try { return JSON.parse(localStorage.getItem('sb-works') || '[]'); } catch { return []; }
 }
 
-/* ── 免费试用状态（基于手机号）── */
-export async function getTrialStatus(phone) {
-  if (!phone) return { freeRemaining: 0 };
-  try {
-    const res = await fetch(`${API_BASE}/api/trial/status?phone=${encodeURIComponent(phone)}`);
-    if (res.ok) return res.json();
-  } catch (e) { /* ignore */ }
-  return { freeRemaining: 0 };
-}
-
-export async function registerTrial(phone) {
-  try {
-    const res = await fetch(`${API_BASE}/api/trial/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
-    });
-    if (res.ok) return res.json();
-  } catch (e) { /* ignore */ }
-  return { freeRemaining: 0, isNew: false };
-}
-
-export async function consumeTrial(phone) {
-  try {
-    const res = await fetch(`${API_BASE}/api/trial/consume`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone }),
-    });
-    return res.ok;
-  } catch (e) { return false; }
-}
-
 /* ── ZIP 下载 ── */
 export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags) {
   if (!coverUrl && !imageUrls?.length) { alert('暂无图片可下载'); return; }
@@ -701,17 +622,17 @@ export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags
 }
 
 /* ── 一键出图 ── */
-export async function autoGenerate({ platform, input, refImages }) {
-  const res = await fetch(`${API_BASE}/api/auto-generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ platform, input, refImages: refImages || [] }),
+export async function autoGenerate({ platform, input, refImages, email }) {
+  const prompt = String(input || '').trim();
+  return generateEcommerce({
+    productName: prompt.slice(0, 80) || '商品',
+    category: '其他',
+    points: prompt,
+    refImgs: refImages || [],
+    realShots: [],
+    platform: platform || '淘宝',
+    email,
   });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg.slice(0, 200));
-  }
-  return res.json();
 }
 
 
