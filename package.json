@@ -10,6 +10,7 @@
     "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "build": "node scripts/verify-exports.mjs && vite build",
     "check": "node scripts/check-build.mjs",
+    "collab:check": "node scripts/collaboration-policy.mjs",
     "preview": "vite preview",
     "start": "concurrently \"npm run server\" \"npm run dev\""
   },

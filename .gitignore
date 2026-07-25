@@ -14,7 +14,7 @@ server/.env.*
 server/works.json
 server/users.json
 server/bookmarklet_store.json
-server/works.db
+server/works.db*
 server/uploads/
 server/cache_img/
 server/cache_overlay/
@@ -29,11 +29,7 @@ server/prompts/
 server/*.bak*
 
 # dist 构建产物（每次 vite build 重建，不追踪）
-dist/assets/index-*.js
-dist/assets/index-*.css
-dist/assets/jszip.min-*.js
-dist/index.html
-dist/stitched/
+dist/
 
 # 出品素材目录
 薯包出品/

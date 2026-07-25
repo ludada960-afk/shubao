@@ -14,6 +14,8 @@ $commit = (git -C $repo rev-parse --short HEAD).Trim()
 $archive = Join-Path $env:TEMP "shubao-deploy-$commit-$stamp.tgz"
 $target = "$User@$HostName"
 $ssh = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
+$remoteLock = "/tmp/.shubao-deploy.lock"
+$lockAcquired = $false
 
 Write-Host "Building $commit..."
 Push-Location $repo
@@ -45,15 +47,27 @@ tar -czf $archive -C $repo `
   --exclude='dist/stitched' `
   dist server package.json package-lock.json ecosystem.config.cjs
 
-$remoteStamp = "$stamp-$commit"
-& ssh @ssh $target "set -e; mkdir -p $RemoteDir/deploy-backups/$remoteStamp; cp -a $RemoteDir/dist $RemoteDir/deploy-backups/$remoteStamp/dist; cp -a $RemoteDir/server $RemoteDir/deploy-backups/$remoteStamp/server; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $RemoteDir/deploy-backups/$remoteStamp/webroot"
-if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
+$lockCommand = "set -e; lock='$remoteLock'; if ! mkdir `$lock 2>/dev/null; then if find `$lock -maxdepth 0 -mmin +30 | grep -q .; then rm -rf -- `$lock; mkdir `$lock; else echo 'Another deployment is active:'; cat `$lock/owner 2>/dev/null || true; exit 73; fi; fi; printf '%s\n' '$User@$env:COMPUTERNAME $commit $stamp' > `$lock/owner"
+& ssh @ssh $target $lockCommand
+if ($LASTEXITCODE -ne 0) { throw "Could not acquire remote deployment lock" }
+$lockAcquired = $true
 
-& scp @ssh $archive "$target`:$RemoteDir/deploy.tgz"
-if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
+try {
+  $remoteStamp = "$stamp-$commit"
+  & ssh @ssh $target "set -e; mkdir -p $RemoteDir/deploy-backups/$remoteStamp; cp -a $RemoteDir/dist $RemoteDir/deploy-backups/$remoteStamp/dist; cp -a $RemoteDir/server $RemoteDir/deploy-backups/$remoteStamp/server; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $RemoteDir/deploy-backups/$remoteStamp/webroot"
+  if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
 
-& ssh @ssh $target "set -e; cd $RemoteDir; tar xzf deploy.tgz; rm -f deploy.tgz; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env; sleep 3; curl -fsS http://127.0.0.1:3001/health"
-if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
+  & scp @ssh $archive "$target`:$RemoteDir/deploy.tgz"
+  if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
 
-Write-Host "Deployed $commit to https://shuimg.cn/"
-Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+  & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf deploy.tgz; rm -f deploy.tgz; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env; sleep 3; curl -fsS http://127.0.0.1:3001/health"
+  if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
+
+  Write-Host "Deployed $commit to https://shuimg.cn/"
+} finally {
+  if ($lockAcquired) {
+    & ssh @ssh $target "rm -rf -- '$remoteLock'"
+    Write-Host "Release remote deployment lock"
+  }
+  Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+}
