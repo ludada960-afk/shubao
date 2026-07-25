@@ -27,6 +27,8 @@ try {
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
 tar -czf $archive -C $repo `
   --exclude='server/works.db' `
+  --exclude='server/works.db-shm' `
+  --exclude='server/works.db-wal' `
   --exclude='server/works.json' `
   --exclude='server/users.json' `
   --exclude='server/bookmarklet_store.json' `
@@ -37,6 +39,7 @@ tar -czf $archive -C $repo `
   --exclude='server/extension_tasks' `
   --exclude='server/uploads' `
   --exclude='server/generated-assets' `
+  --exclude='server/temp_uploads' `
   --exclude='server/node_modules' `
   --exclude='server/.env' `
   --exclude='dist/stitched' `
