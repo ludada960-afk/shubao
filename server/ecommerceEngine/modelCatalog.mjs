@@ -65,7 +65,7 @@ export function selectGenerationModel(input = {}) {
     && input.batchEligible !== false
     && campaignBibleIsConfirmed(input)
     && input.sameStyle === true
-    && input.highRiskFacts !== true
+    && input.highRiskFacts === false
     && !hasExplicitFourKRequirement(input);
 
   return eligibleBatch ? 'gpt-image-2-n' : 'gpt-image-2';
@@ -74,7 +74,7 @@ export function selectGenerationModel(input = {}) {
 export function buildModelRoute(input = {}) {
   const resolution = RESOLUTIONS.has(input.resolution) ? input.resolution : '2K';
   const requestedRatio = input.ratio ?? input.aspectRatio;
-  const ratio = requestedRatio in LEGAL_IMAGE_SIZES[resolution] ? requestedRatio : '1:1';
+  const ratio = Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio) ? requestedRatio : '1:1';
   const size = LEGAL_IMAGE_SIZES[resolution][ratio];
 
   validateGenerationSize(size);

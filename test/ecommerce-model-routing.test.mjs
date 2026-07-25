@@ -40,6 +40,15 @@ test('uses gpt-image-2-n only for confirmed same-style batches', () => {
   );
 });
 
+test('requires an explicit false high-risk assessment for batch routing', () => {
+  const eligibleBatch = { assetCount: 4, campaignConfirmed: true, sameStyle: true };
+
+  assert.equal(selectGenerationModel(eligibleBatch), 'gpt-image-2');
+  for (const highRiskFacts of [undefined, 'false', [], ['certification'], true, 1, null, {}]) {
+    assert.equal(selectGenerationModel({ ...eligibleBatch, highRiskFacts }), 'gpt-image-2');
+  }
+});
+
 test('validates legal numeric dimensions and rejects unsafe dimensions', () => {
   for (const size of Object.values(LEGAL_IMAGE_SIZES).flatMap((ratios) => Object.values(ratios))) {
     assert.equal(validateGenerationSize(size), true);
@@ -65,6 +74,15 @@ test('defaults an unavailable ratio to the legal square ratio', () => {
   assert.deepEqual(buildModelRoute({ resolution: '1K', ratio: '9:16' }), {
     model: 'gpt-image-2',
     size: '1024x1024',
+    async: true,
+    mode: 'edit',
+  });
+});
+
+test('defaults inherited ratio keys to the legal square ratio', () => {
+  assert.deepEqual(buildModelRoute({ resolution: '2K', ratio: 'toString' }), {
+    model: 'gpt-image-2',
+    size: '2048x2048',
     async: true,
     mode: 'edit',
   });
