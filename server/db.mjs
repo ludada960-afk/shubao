@@ -5,6 +5,7 @@
 import Database from 'better-sqlite3';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { ensureBillingSchema } from './billing/schema.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = resolve(__dirname, 'works.db');
@@ -80,8 +81,14 @@ export function initDB(dbPath = DB_PATH) {
     db.exec("ALTER TABLE works ADD COLUMN deleted_at TEXT DEFAULT ''");
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
+  ensureBillingSchema(db);
 
   console.log('  → SQLite 数据库就绪:', dbPath);
+  return db;
+}
+
+export function getDatabase() {
+  if (!db) initDB();
   return db;
 }
 
