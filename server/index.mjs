@@ -24,6 +24,12 @@ import {
 import Stripe from 'stripe';
 import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
 import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
+import { createWalletService } from './billing/walletService.mjs';
+import { createContentEntitlements } from './billing/contentEntitlements.mjs';
+import {
+  createContentBilling,
+  describeContentGenerationFailure,
+} from './billing/contentBilling.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 import { createGeneratedAssetStore } from './generatedAssets.mjs';
@@ -58,8 +64,24 @@ if (fs.existsSync(envPath)) {
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
-initDB();
+const db = initDB();
+const walletService = createWalletService(db, { isUnlimited: isUnlimitedBetaEmail });
+const contentEntitlements = createContentEntitlements(db, walletService);
+const {
+  beginContentGeneration,
+  completeContentGeneration,
+  failContentGeneration,
+  previewContentGeneration,
+} = createContentBilling({ contentEntitlements, walletService });
 const generatedAssetStore = createGeneratedAssetStore({ directory: resolve(__dirname, 'generated-assets') });
+async function persistGeneratedAsset({ sourceUrl, generationId, label }) {
+  const asset = await generatedAssetStore.persist({
+    sourceUrl,
+    taskId: generationId,
+    label,
+  });
+  return asset.url;
+}
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
@@ -139,6 +161,7 @@ app.get('/api/generated-assets/:id', async (req, res) => {
 // ── IP 速率限制（止血：防止 API 被盗刷 LLM 额度）──
 // 对消耗 LLM 额度的生图路由限 10 次/分钟/IP
 const rateLimitStore = new Map();         // key: `${email-or-ip}:${minuteBucket}` -> count
+const CONTENT_PREVIEW_ROUTES = new Set(['/api/generate', '/api/plog-generate']);
 function getClientIp(req) {
   const xf = req.headers['x-forwarded-for'];
   if (xf) return String(xf).split(',')[0].trim();
@@ -180,6 +203,10 @@ app.use((req, res, next) => {
 });
 
 function betaAccessMiddleware(req, res, next) {
+  if (CONTENT_PREVIEW_ROUTES.has(req.path) && req.body?.preview === true) {
+    req._contentPreview = true;
+    return next();
+  }
   const access = requireBetaEmail(req.body?.email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   req._userEmail = access.email;
@@ -215,6 +242,35 @@ function requireCredits(req, res, next) {
 function deductCredit(email) {
   if (isUnlimitedBetaEmail(email)) return;
   consumeUserCredit(email, 1);
+}
+
+function sendContentBillingStartError(res, error) {
+  if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
+    return res.status(402).json({
+      error: '创作套数不足，请购买套餐后继续',
+      code: error.code,
+      required: error.required ?? 1,
+      available: error.available ?? 0,
+      resumeable: true,
+    });
+  }
+  const invalidRequest = ['CONTENT_GENERATION_ID_INVALID', 'CONTENT_MODE_INVALID'].includes(error?.code);
+  return res.status(invalidRequest ? 400 : 500).json({
+    error: invalidRequest ? '生成任务参数无效，请刷新后重试' : '暂时无法开始生成，请稍后重试',
+    code: error?.code || 'CONTENT_BILLING_START_FAILED',
+    resumeable: true,
+  });
+}
+
+function contentGenerationErrorPayload(error, billingContext, billing = null) {
+  const code = error?.code || 'CONTENT_GENERATION_FAILED';
+  return {
+    error: describeContentGenerationFailure(error, billing),
+    code,
+    generationId: billingContext.generationId,
+    workId: billingContext.workId,
+    ...(billing ? { billing } : {}),
+  };
 }
 
 // 生产模式：serve 前端构建产物
@@ -1687,8 +1743,23 @@ function buildP2SafePrompt(analysis, userText) {
 }
 
 app.post('/api/generate', async (req, res) => {
-  const { text, images } = req.body;
+  const { text, images } = req.body || {};
   if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
+  const preview = req._contentPreview === true;
+  let billingContext;
+  try {
+    billingContext = preview
+      ? previewContentGeneration({ generationId: req.body?.generationId, mode: 'xhs' })
+      : await beginContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: req.body?.generationId,
+          mode: 'xhs',
+        });
+  } catch (error) {
+    console.error('[xhs-billing] 无法开始生成:', error.message);
+    return sendContentBillingStartError(res, error);
+  }
+  let billingLifecycleHandled = preview;
   // SSE 流式输出 - 每完成一张图立刻推送给前端
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -1735,8 +1806,9 @@ app.post('/api/generate', async (req, res) => {
     const visual = await visualPlanning(analysis);
 
     // 并发生图（每完成一张就推送）
-    const allPrompts = [
-      { id: 'cover', prompt: visual.coverPrompt, category: analysis.category },
+    const coverPromptTask = { id: 'cover', prompt: visual.coverPrompt, category: analysis.category };
+    const allPrompts = preview ? [coverPromptTask] : [
+      coverPromptTask,
       ...visual.imagePrompts.map(p => ({ id: 'p' + p.page_id, prompt: p.prompt, category: analysis.category })),
     ];
 
@@ -1769,10 +1841,20 @@ app.post('/api/generate', async (req, res) => {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             if (attempt > 1) await new Promise(r => setTimeout(r, 2000 * (attempt - 1)));
-            const url = await generateImage(task.prompt, task.category, task.id === 'cover', task.jkContext);
-            if (url) {
+            const upstreamUrl = await generateImage(task.prompt, task.category, task.id === 'cover', task.jkContext);
+            if (upstreamUrl) {
+              const url = await persistGeneratedAsset({
+                sourceUrl: upstreamUrl,
+                generationId: billingContext.generationId,
+                label: `xhs-${task.id}`,
+              });
               results.push({ id: task.id, url });
-              send('image', { id: task.id, url });
+              send('image', {
+                id: task.id,
+                url,
+                generationId: billingContext.generationId,
+                workId: billingContext.workId,
+              });
               lastErr = null;
               break;
             }
@@ -1789,6 +1871,21 @@ app.post('/api/generate', async (req, res) => {
 
     send('progress', { step: 'assembling', msg: '正在组装结果...' });
     const result = assembleResults(analysis, visual, results);
+    const billing = preview
+      ? billingContext
+      : await completeContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: billingContext.generationId,
+          result,
+        });
+    billingLifecycleHandled = true;
+
+    if (billing.status === 'released') {
+      const deliveryError = new Error('未生成可交付内容，创作额度已退回');
+      deliveryError.code = 'CONTENT_DELIVERY_EMPTY';
+      send('error', contentGenerationErrorPayload(deliveryError, billingContext, billing));
+      return;
+    }
 
     send('complete', {
       title: analysis.title,
@@ -1802,11 +1899,39 @@ app.post('/api/generate', async (req, res) => {
       image_count: result.image_count || 0,
       cover_prompt: visual.coverPrompt || '',
       image_prompts: (visual.imagePrompts || []).map(p => ({ page_id: p.page_id, prompt: p.prompt })),
+      generationId: billingContext.generationId,
+      workId: billingContext.workId,
+      billing,
     });
   } catch(err) {
     console.error('!! 工作流失败:', err.message);
-    send('error', { error: err.message });
-  } finally { res.end(); }
+    let billing = null;
+    if (!preview && !billingLifecycleHandled) {
+      try {
+        billing = await failContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: billingContext.generationId,
+        });
+        billingLifecycleHandled = true;
+      } catch (releaseError) {
+        console.error('[xhs-billing] catch 释放失败:', releaseError.message);
+      }
+    }
+    send('error', contentGenerationErrorPayload(err, billingContext, billing));
+  } finally {
+    if (!preview && !billingLifecycleHandled) {
+      try {
+        await failContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: billingContext.generationId,
+        });
+        billingLifecycleHandled = true;
+      } catch (releaseError) {
+        console.error('[xhs-billing] finally 兜底释放失败:', releaseError.message);
+      }
+    }
+    res.end();
+  }
 });
 
 app.post('/api/analyze', async (req, res) => {
@@ -3614,6 +3739,21 @@ mountExtRoutes(app);
 app.post("/api/plog-generate", async (req, res) => {
   const { text, refImage, style, layout, coverVariant, skipEnrich } = req.body || {};
   if (!text?.trim()) return res.status(400).json({ error: "请输入内容" });
+  const preview = req._contentPreview === true;
+  let billingContext;
+  try {
+    billingContext = preview
+      ? previewContentGeneration({ generationId: req.body?.generationId, mode: 'plog' })
+      : await beginContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: req.body?.generationId,
+          mode: 'plog',
+        });
+  } catch (error) {
+    console.error('[plog-billing] 无法开始生成:', error.message);
+    return sendContentBillingStartError(res, error);
+  }
+  let billingLifecycleHandled = preview;
   const plogStyle = PLOG_STYLES[style] ? style : 'ins-minimal';
   const plogLayout = LAYOUT_TEMPLATES[layout] ? layout : 'casual';
   const plogCover = COVER_VARIANTS[coverVariant] ? coverVariant : 'collage';
@@ -3630,7 +3770,7 @@ app.post("/api/plog-generate", async (req, res) => {
 
     // Step 2: 镜头拆分 + LLM 微调
     send("progress", { step: "lens", msg: "正在拆分生活碎片镜头..." });
-    const totalCount = 9;
+    const totalCount = preview ? 1 : 9;
     let lenses = getLensesForScene(scene, totalCount);
     if (!skipEnrich && text.length > 6) {
       try {
@@ -3665,8 +3805,20 @@ app.post("/api/plog-generate", async (req, res) => {
         const imageUrl = await callImageAPI(prompt, null, null);
         if (imageUrl) {
           const id = isCover ? 'cover' : 'p' + i;
-          results.push({ id, url: imageUrl });
-          send("image", { id, url: imageUrl, index: i, total: totalCount });
+          const url = await persistGeneratedAsset({
+            sourceUrl: imageUrl,
+            generationId: billingContext.generationId,
+            label: `plog-${id}`,
+          });
+          results.push({ id, url });
+          send("image", {
+            id,
+            url,
+            index: i,
+            total: totalCount,
+            generationId: billingContext.generationId,
+            workId: billingContext.workId,
+          });
           send("progress", { step: "generating", msg: `正在绘制 Plog 图片...`, total: totalCount, current: i + 1 });
         }
       } catch(e) {
@@ -3681,6 +3833,28 @@ app.post("/api/plog-generate", async (req, res) => {
     // Step 6: 组装结果
     const coverUrl = results.find(r => r.id === 'cover')?.url || '';
     const imageUrls = results.filter(r => r.id !== 'cover').map(r => r.url);
+    const result = {
+      caption,
+      copyLines,
+      cover_url: coverUrl,
+      image_urls: imageUrls,
+    };
+    const billing = preview
+      ? billingContext
+      : await completeContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: billingContext.generationId,
+          result,
+        });
+    billingLifecycleHandled = true;
+
+    if (billing.status === 'released') {
+      const deliveryError = new Error('未生成可交付内容，创作额度已退回');
+      deliveryError.code = 'CONTENT_DELIVERY_EMPTY';
+      send("error", contentGenerationErrorPayload(deliveryError, billingContext, billing));
+      return;
+    }
+
     send("complete", {
       scene, style: plogStyle,
       layout: plogLayout, coverVariant: plogCover,
@@ -3690,12 +3864,39 @@ app.post("/api/plog-generate", async (req, res) => {
       image_count: imageUrls.length,
       total_count: totalCount,
       toneInfo,
+      generationId: billingContext.generationId,
+      workId: billingContext.workId,
+      billing,
     });
   } catch(err) {
     console.error('[plog-v2] 失败:', err);
-    send("error", { error: err.message || '生成失败' });
+    let billing = null;
+    if (!preview && !billingLifecycleHandled) {
+      try {
+        billing = await failContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: billingContext.generationId,
+        });
+        billingLifecycleHandled = true;
+      } catch (releaseError) {
+        console.error('[plog-billing] catch 释放失败:', releaseError.message);
+      }
+    }
+    send("error", contentGenerationErrorPayload(err, billingContext, billing));
+  } finally {
+    if (!preview && !billingLifecycleHandled) {
+      try {
+        await failContentGeneration({
+          ownerEmail: req._userEmail,
+          generationId: billingContext.generationId,
+        });
+        billingLifecycleHandled = true;
+      } catch (releaseError) {
+        console.error('[plog-billing] finally 兜底释放失败:', releaseError.message);
+      }
+    }
+    res.end();
   }
-  finally { res.end(); }
 });
 
 // ============================================================
