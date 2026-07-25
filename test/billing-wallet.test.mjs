@@ -143,7 +143,7 @@ test('a hold prevents overspending and partial failure releases units atomically
         balance_held: 1000,
         reference_type: 'asset',
         reference_id: 'asset-1',
-        idempotency_key: `settle:${hold.id}:one`,
+        idempotency_key: `${INTERNAL_IDEMPOTENCY_PREFIX}settle:${hold.id}:one`,
       },
       {
         event_type: 'release',
@@ -153,7 +153,7 @@ test('a hold prevents overspending and partial failure releases units atomically
         balance_held: 0,
         reference_type: 'billing_hold_item',
         reference_id: hold.items.find(item => item.key === 'two').id,
-        idempotency_key: `release:${hold.id}:two`,
+        idempotency_key: `${INTERNAL_IDEMPOTENCY_PREFIX}release:${hold.id}:two`,
       },
     ],
   );
@@ -327,7 +327,7 @@ test('opposite terminal transitions fail without altering balances or usage', t 
 });
 
 test('paid settlement consumes credit lots in FEFO order without negative lots', t => {
-  const { db, service } = createTestService();
+  const { db, service } = createTestService(() => false, { now: () => TEST_NOW_MS });
   t.after(() => db.close());
 
   service.grant({
@@ -343,7 +343,7 @@ test('paid settlement consumes credit lots in FEFO order without negative lots',
     units: 1000,
     idempotencyKey: 'later-expiry-grant',
     sourceId: 'later-expiry',
-    expiresAt: '2026-09-01T00:00:00.000Z',
+    expiresAt: '2101-09-01T00:00:00.000Z',
   });
   service.grant({
     ownerEmail: 'fefo@example.com',
@@ -351,7 +351,7 @@ test('paid settlement consumes credit lots in FEFO order without negative lots',
     units: 1000,
     idempotencyKey: 'earlier-expiry-grant',
     sourceId: 'earlier-expiry',
-    expiresAt: '2026-08-01T00:00:00.000Z',
+    expiresAt: '2101-08-01T00:00:00.000Z',
   });
   const hold = service.createHold({
     ownerEmail: 'fefo@example.com',
@@ -375,6 +375,57 @@ test('paid settlement consumes credit lots in FEFO order without negative lots',
     permanent: 1000,
   });
   assert.equal(db.prepare('SELECT MIN(remaining_units) AS units FROM credit_lots').get().units, 0);
+});
+
+test('FEFO compares mixed ISO and SQLite expiry formats by actual time', t => {
+  const ownerEmail = 'mixed-fefo@example.com';
+  const { db, service } = createTestService(() => false, { now: () => TEST_NOW_MS });
+  t.after(() => db.close());
+
+  service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1000,
+    idempotencyKey: 'mixed-fefo-permanent-grant',
+    sourceId: 'permanent',
+  });
+  const later = service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1000,
+    idempotencyKey: 'mixed-fefo-later-grant',
+    sourceId: 'later-sqlite',
+    expiresAt: '2100-01-02T00:00:00.000Z',
+  });
+  service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1000,
+    idempotencyKey: 'mixed-fefo-earlier-grant',
+    sourceId: 'earlier-iso',
+    expiresAt: '2100-01-01T01:00:00.000Z',
+  });
+  db.prepare('UPDATE credit_lots SET expires_at = ? WHERE id = ?').run(
+    '2100-01-01 12:00:00',
+    later.creditLotId,
+  );
+
+  service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'mixed-fefo-quote',
+    idempotencyKey: 'mixed-fefo-hold',
+    items: [{ key: 'image', sku: 'ec_image_2k', units: 1500 }],
+  });
+
+  const lots = Object.fromEntries(db.prepare(`
+    SELECT source_id, remaining_units FROM credit_lots ORDER BY source_id
+  `).all().map(row => [row.source_id, row.remaining_units]));
+  assert.deepEqual(lots, {
+    'earlier-iso': 0,
+    'later-sqlite': 500,
+    permanent: 1000,
+  });
 });
 
 test('settlement rollback restores the wallet, lot, hold, and item when usage persistence fails', t => {
@@ -1005,6 +1056,100 @@ test('external callers cannot preempt the internal expiry idempotency namespace'
     balance_available: 0,
     balance_held: 3000,
   });
+});
+
+test('unrelated operations cannot preempt protected keyless terminal mutations', t => {
+  const ownerEmail = 'terminal-key-preemption@example.com';
+  const { db, service } = createTestService();
+  t.after(() => db.close());
+
+  service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 4000,
+    idempotencyKey: 'terminal-key-preemption-funding',
+  });
+  const hold = service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'terminal-key-preemption-quote',
+    idempotencyKey: 'terminal-key-preemption-hold',
+    items: [
+      { key: 'settle', sku: 'ec_image_2k', units: 1000 },
+      { key: 'release', sku: 'ec_image_2k', units: 1000 },
+      { key: 'remainder', sku: 'ec_image_2k', units: 1000 },
+    ],
+  });
+
+  const settleDefaultKey = `${INTERNAL_IDEMPOTENCY_PREFIX}settle:${hold.id}:settle`;
+  const releaseDefaultKey = `${INTERNAL_IDEMPOTENCY_PREFIX}release:${hold.id}:release`;
+  const remainderDefaultKey = `${INTERNAL_IDEMPOTENCY_PREFIX}release-remainder:${hold.id}`;
+  const assertReserved = callback => assert.throws(callback, /idempotencyKey.*reserved/i);
+
+  assertReserved(() => service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1,
+    idempotencyKey: settleDefaultKey,
+  }));
+  assertReserved(() => service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'terminal-key-reserved-attack',
+    idempotencyKey: releaseDefaultKey,
+    items: [{ key: 'attack', sku: 'ec_image_2k', units: 1 }],
+  }));
+  assertReserved(() => service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1,
+    idempotencyKey: remainderDefaultKey,
+  }));
+
+  service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1,
+    idempotencyKey: `settle:${hold.id}:settle`,
+  });
+  service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'terminal-key-legacy-release-attack',
+    idempotencyKey: `release:${hold.id}:release`,
+    items: [{ key: 'attack', sku: 'ec_image_2k', units: 1 }],
+  });
+  service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1,
+    idempotencyKey: `release-remainder:${hold.id}`,
+  });
+
+  const settleInput = {
+    referenceId: 'terminal-key-settle-asset',
+    providerCostCny: 0.038,
+  };
+  const settled = service.settleItem(hold.id, 'settle', settleInput);
+  assert.deepEqual(service.settleItem(hold.id, 'settle', settleInput), settled);
+
+  const releaseInput = { reason: 'provider_failed' };
+  const released = service.releaseItem(hold.id, 'release', releaseInput);
+  assert.deepEqual(service.releaseItem(hold.id, 'release', releaseInput), released);
+
+  const remainderInput = { reason: 'job_finished' };
+  const remainder = service.releaseRemainder(hold.id, remainderInput);
+  assert.deepEqual(service.releaseRemainder(hold.id, remainderInput), remainder);
+
+  assert.deepEqual(db.prepare(`
+    SELECT event_type, idempotency_key FROM wallet_ledger
+    WHERE idempotency_key IN (?, ?, ?)
+    ORDER BY event_type
+  `).all(settleDefaultKey, releaseDefaultKey, remainderDefaultKey), [
+    { event_type: 'release', idempotency_key: releaseDefaultKey },
+    { event_type: 'release_remainder', idempotency_key: remainderDefaultKey },
+    { event_type: 'settle', idempotency_key: settleDefaultKey },
+  ]);
 });
 
 test('unlimited accounts keep zero balances and record shadow usage with real cost', t => {

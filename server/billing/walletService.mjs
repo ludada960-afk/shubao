@@ -265,7 +265,7 @@ function normalizeSettlementInput(holdId, itemKey, options = {}) {
   const metadata = jsonValue(options.metadata);
   const idempotencyKey = normalizeOptionalIdempotencyKey(
     options.idempotencyKey,
-    `settle:${normalizedHoldId}:${normalizedItemKey}`,
+    `${INTERNAL_IDEMPOTENCY_PREFIX}settle:${normalizedHoldId}:${normalizedItemKey}`,
   );
   const operationInput = {
     holdId: normalizedHoldId,
@@ -289,7 +289,7 @@ function normalizeReleaseInput(holdId, itemKey, options = {}) {
   const metadata = jsonValue(options.metadata);
   const idempotencyKey = normalizeOptionalIdempotencyKey(
     options.idempotencyKey,
-    `release:${normalizedHoldId}:${normalizedItemKey}`,
+    `${INTERNAL_IDEMPOTENCY_PREFIX}release:${normalizedHoldId}:${normalizedItemKey}`,
   );
   const operationInput = {
     holdId: normalizedHoldId,
@@ -310,7 +310,7 @@ function normalizeRemainderInput(holdId, options = {}) {
   const metadata = jsonValue(options.metadata);
   const idempotencyKey = normalizeOptionalIdempotencyKey(
     options.idempotencyKey,
-    `release-remainder:${normalizedHoldId}`,
+    `${INTERNAL_IDEMPOTENCY_PREFIX}release-remainder:${normalizedHoldId}`,
   );
   const operationInput = {
     holdId: normalizedHoldId,
@@ -446,7 +446,7 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
         AND (expires_at IS NULL OR julianday(expires_at) > julianday(?))
       ORDER BY
         CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END ASC,
-        expires_at ASC,
+        julianday(expires_at) ASC,
         created_at ASC,
         id ASC
     `),
