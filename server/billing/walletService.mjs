@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
 const INTERNAL_METADATA_KEY = '_walletService';
+const INTERNAL_METADATA_VERSION = 1;
 const DEFAULT_HOLD_DURATION_MS = 60 * 60 * 1000;
+const KNOWN_OPERATIONS = new Set([
+  'grant',
+  'hold',
+  'settle',
+  'release',
+  'release_remainder',
+  'expire',
+]);
 
 function nonEmptyString(value, label) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -65,6 +74,88 @@ function parseJsonSafely(value, fallback = {}) {
   }
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasNonEmptyString(value, key) {
+  return typeof value?.[key] === 'string' && value[key].trim() !== '';
+}
+
+function hasBalanceShape(value) {
+  return isPlainObject(value)
+    && Number.isSafeInteger(value.availableUnits)
+    && Number.isSafeInteger(value.heldUnits)
+    && typeof value.unlimited === 'boolean';
+}
+
+function hasStoredResultShape(operation, result) {
+  if (!isPlainObject(result)) return false;
+  if (operation === 'grant') {
+    return hasNonEmptyString(result, 'id')
+      && hasNonEmptyString(result, 'creditLotId')
+      && hasNonEmptyString(result, 'ledgerId')
+      && hasBalanceShape(result.balance);
+  }
+  if (operation === 'hold') {
+    return hasNonEmptyString(result, 'id')
+      && hasNonEmptyString(result, 'ledgerId')
+      && Array.isArray(result.items)
+      && hasBalanceShape(result.balance);
+  }
+  if (operation === 'settle') {
+    return result.status === 'settled'
+      && hasNonEmptyString(result, 'holdId')
+      && hasNonEmptyString(result, 'itemId')
+      && hasNonEmptyString(result, 'itemKey')
+      && hasNonEmptyString(result, 'usageEventId')
+      && hasNonEmptyString(result, 'ledgerId')
+      && hasBalanceShape(result.balance);
+  }
+  if (operation === 'release') {
+    return result.status === 'released'
+      && hasNonEmptyString(result, 'holdId')
+      && hasNonEmptyString(result, 'itemId')
+      && hasNonEmptyString(result, 'itemKey')
+      && hasNonEmptyString(result, 'ledgerId')
+      && hasBalanceShape(result.balance);
+  }
+  if (operation === 'release_remainder') {
+    return hasNonEmptyString(result, 'holdId')
+      && hasNonEmptyString(result, 'ledgerId')
+      && Array.isArray(result.releasedItemKeys)
+      && hasBalanceShape(result.balance);
+  }
+  if (operation === 'expire') {
+    return hasNonEmptyString(result, 'ledgerId')
+      && Array.isArray(result.lotIds)
+      && result.lotIds.length > 0
+      && Number.isSafeInteger(result.expiredUnits)
+      && result.expiredUnits > 0
+      && hasBalanceShape(result.balance);
+  }
+  return false;
+}
+
+function readMetadataEnvelope(rawMetadata, fallback = {}) {
+  const parsed = parseJsonSafely(rawMetadata, fallback);
+  const internal = isPlainObject(parsed) ? parsed[INTERNAL_METADATA_KEY] : null;
+  const valid = isPlainObject(parsed)
+    && Object.prototype.hasOwnProperty.call(parsed, 'userMetadata')
+    && isPlainObject(internal)
+    && internal.version === INTERNAL_METADATA_VERSION
+    && KNOWN_OPERATIONS.has(internal.operation)
+    && typeof internal.fingerprint === 'string'
+    && internal.fingerprint.trim() !== ''
+    && hasStoredResultShape(internal.operation, internal.result);
+  return {
+    parsed,
+    internal: valid ? internal : null,
+    userMetadata: valid ? parsed.userMetadata : parsed,
+    valid,
+  };
+}
+
 function normalizeOptionalDate(value, label) {
   if (value === undefined || value === null) return null;
   const text = nonEmptyString(value, label);
@@ -91,6 +182,9 @@ function normalizeGrantInput(input = {}) {
     ? idempotencyKey
     : nonEmptyString(input.sourceId, 'sourceId');
   const expiresAt = normalizeOptionalDate(input.expiresAt, 'expiresAt');
+  if (expiresAt !== null && Date.parse(expiresAt) <= Date.now()) {
+    throw new TypeError('expiresAt must be in the future');
+  }
   const metadata = jsonValue(input.metadata);
   const refundable = input.refundable === undefined ? false : input.refundable;
   if (typeof refundable !== 'boolean') {
@@ -278,11 +372,6 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     selectLedgerByKey: db.prepare(`
       SELECT * FROM wallet_ledger WHERE idempotency_key = ?
     `),
-    selectLedgerByEvent: db.prepare(`
-      SELECT * FROM wallet_ledger
-      WHERE owner_email = ? AND currency = ? AND event_type = ?
-      ORDER BY created_at DESC, id DESC
-    `),
     insertLedger: db.prepare(`
       INSERT INTO wallet_ledger (
         id, owner_email, currency, event_type, delta_available, delta_held,
@@ -290,29 +379,66 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
         idempotency_key, metadata
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
-    updateLedgerMetadata: db.prepare(`
-      UPDATE wallet_ledger SET metadata = ? WHERE id = ?
-    `),
     insertLot: db.prepare(`
       INSERT INTO credit_lots (
         id, owner_email, currency, source_type, source_id, granted_units,
         remaining_units, refundable, expires_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
-    selectConsumableLots: db.prepare(`
-      SELECT id, remaining_units
+    selectExpiredLots: db.prepare(`
+      SELECT id, remaining_units, expires_at
+      FROM credit_lots
+      WHERE owner_email = ? AND currency = ?
+        AND expires_at IS NOT NULL
+        AND julianday(expires_at) <= julianday(?)
+        AND remaining_units > 0
+      ORDER BY expires_at ASC, created_at ASC, id ASC
+    `),
+    sumExpiredLots: db.prepare(`
+      SELECT COALESCE(SUM(remaining_units), 0) AS units
+      FROM credit_lots
+      WHERE owner_email = ? AND currency = ?
+        AND expires_at IS NOT NULL
+        AND julianday(expires_at) <= julianday(?)
+        AND remaining_units > 0
+    `),
+    expireLot: db.prepare(`
+      UPDATE credit_lots
+      SET remaining_units = 0
+      WHERE id = ? AND remaining_units = ?
+    `),
+    selectReservableLots: db.prepare(`
+      SELECT id, granted_units, remaining_units, expires_at
       FROM credit_lots
       WHERE owner_email = ? AND currency = ? AND remaining_units > 0
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday(?))
       ORDER BY
         CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END ASC,
         expires_at ASC,
         created_at ASC,
         id ASC
     `),
-    consumeLot: db.prepare(`
+    reserveLot: db.prepare(`
       UPDATE credit_lots
       SET remaining_units = remaining_units - ?
       WHERE id = ? AND remaining_units >= ?
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday(?))
+    `),
+    selectLot: db.prepare(`
+      SELECT id, granted_units, remaining_units, expires_at,
+             CASE
+               WHEN expires_at IS NULL OR julianday(expires_at) > julianday(?) THEN 1
+               ELSE 0
+             END AS unexpired
+      FROM credit_lots
+      WHERE id = ?
+    `),
+    restoreLot: db.prepare(`
+      UPDATE credit_lots
+      SET remaining_units = remaining_units + ?
+      WHERE id = ?
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday(?))
+        AND remaining_units + ? <= granted_units
     `),
     insertHold: db.prepare(`
       INSERT INTO billing_holds (
@@ -353,6 +479,9 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
           updated_at = datetime('now')
       WHERE id = ?
     `),
+    updateHoldMetadata: db.prepare(`
+      UPDATE billing_holds SET metadata = ? WHERE id = ?
+    `),
     insertUsage: db.prepare(`
       INSERT INTO usage_events (
         id, owner_email, currency, sku, charged_units, shadow_units,
@@ -374,7 +503,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
   function storedLedgerMetadata(operation, operationFingerprint, userMetadata, extra = {}, result) {
     return JSON.stringify({
       [INTERNAL_METADATA_KEY]: {
-        version: 1,
+        version: INTERNAL_METADATA_VERSION,
         operation,
         fingerprint: operationFingerprint,
         ...extra,
@@ -387,36 +516,22 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
   function existingMutation(idempotencyKey, operation, operationFingerprint) {
     const row = statements.selectLedgerByKey.get(idempotencyKey);
     if (!row) return { found: false };
-    const metadata = parseJsonSafely(row.metadata, null);
-    const internal = metadata?.[INTERNAL_METADATA_KEY];
+    const envelope = readMetadataEnvelope(row.metadata, null);
+    const internal = envelope.internal;
     if (
       !internal
       || internal.operation !== operation
       || internal.fingerprint !== operationFingerprint
-      || !Object.prototype.hasOwnProperty.call(internal, 'result')
     ) {
       throw idempotencyConflict(idempotencyKey);
     }
     return { found: true, result: internal.result };
   }
 
-  function priorItemMutation(ownerEmail, currency, eventType, itemId, operationFingerprint) {
-    const rows = statements.selectLedgerByEvent.all(ownerEmail, currency, eventType);
-    for (const row of rows) {
-      const metadata = parseJsonSafely(row.metadata, null);
-      const internal = metadata?.[INTERNAL_METADATA_KEY];
-      if (internal?.holdItemId !== itemId) continue;
-      if (internal.fingerprint !== operationFingerprint) {
-        throw idempotencyConflict(row.idempotency_key);
-      }
-      return internal.result;
-    }
-    return null;
-  }
-
   function buildHoldResult(holdId) {
     const hold = statements.selectHold.get(holdId);
     if (!hold) throw new Error(`Unknown hold: ${holdId}`);
+    const metadataEnvelope = readMetadataEnvelope(hold.metadata, {});
     const items = statements.selectHoldItems.all(holdId).map(item => ({
       id: item.id,
       key: item.item_key,
@@ -437,24 +552,171 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       expiresAt: hold.expires_at,
       createdAt: hold.created_at,
       updatedAt: hold.updated_at,
+      metadata: metadataEnvelope.userMetadata,
       items,
     };
   }
 
-  function consumeCreditLots(ownerEmail, currency, units) {
-    let remaining = units;
-    for (const lot of statements.selectConsumableLots.all(ownerEmail, currency)) {
-      if (remaining === 0) break;
-      const consumed = Math.min(remaining, lot.remaining_units);
-      const update = statements.consumeLot.run(consumed, lot.id, consumed);
-      if (update.changes !== 1) {
-        throw new Error(`Credit lot changed during settlement: ${lot.id}`);
+  function loadHoldAccounting(hold) {
+    const envelope = readMetadataEnvelope(hold.metadata, null);
+    const internal = envelope.internal;
+    if (!internal || internal.operation !== 'hold') {
+      throw new Error(`Hold accounting metadata is invalid: ${hold.id}`);
+    }
+    if (!['paid', 'unlimited'].includes(internal.accountingMode)) {
+      throw new Error(`Hold accounting mode is invalid: ${hold.id}`);
+    }
+    if (!Array.isArray(internal.allocations)) {
+      throw new Error(`Hold allocations are invalid: ${hold.id}`);
+    }
+    return {
+      accountingMode: internal.accountingMode,
+      allocations: internal.allocations,
+    };
+  }
+
+  function reconcileExpiredLots(ownerEmail, currency, wallet, nowIso) {
+    const expiredLots = statements.selectExpiredLots.all(ownerEmail, currency, nowIso);
+    if (expiredLots.length === 0) return wallet;
+
+    let expiredUnits = 0;
+    for (const lot of expiredLots) {
+      expiredUnits = checkedAdd(expiredUnits, lot.remaining_units, 'expired units');
+    }
+    if (wallet.available_units < expiredUnits) {
+      throw new Error(`Expired lot balance invariant violation for ${ownerEmail}`);
+    }
+    for (const lot of expiredLots) {
+      if (statements.expireLot.run(lot.id, lot.remaining_units).changes !== 1) {
+        throw new Error(`Credit lot changed during expiry reconciliation: ${lot.id}`);
       }
-      remaining -= consumed;
     }
-    if (remaining !== 0) {
-      throw new Error(`Credit lot invariant violation: ${remaining} units unavailable`);
+
+    const availableUnits = wallet.available_units - expiredUnits;
+    statements.updateWallet.run(availableUnits, wallet.held_units, ownerEmail, currency);
+    const postWallet = statements.selectWallet.get(ownerEmail, currency);
+    const balance = balanceResult(postWallet, false);
+    const lotIds = expiredLots.map(lot => lot.id);
+    const expiryInput = {
+      ownerEmail,
+      currency,
+      lots: expiredLots.map(lot => ({
+        id: lot.id,
+        units: lot.remaining_units,
+        expiresAt: lot.expires_at,
+      })),
+    };
+    const operationFingerprint = fingerprint(expiryInput);
+    const ledgerId = randomUUID();
+    const referenceId = lotIds.join(',');
+    const result = { ledgerId, lotIds, expiredUnits, balance };
+    statements.insertLedger.run(
+      ledgerId,
+      ownerEmail,
+      currency,
+      'expire',
+      -expiredUnits,
+      0,
+      balance.availableUnits,
+      balance.heldUnits,
+      'credit_lot_expiry',
+      referenceId,
+      `expire:${ownerEmail}:${currency}:${referenceId}`,
+      storedLedgerMetadata(
+        'expire',
+        operationFingerprint,
+        {},
+        { lotIds },
+        result,
+      ),
+    );
+    return postWallet;
+  }
+
+  function reserveHoldLots(ownerEmail, currency, items, nowIso) {
+    const lots = statements.selectReservableLots
+      .all(ownerEmail, currency, nowIso)
+      .map(lot => ({ ...lot }));
+    const allocations = [];
+
+    for (const item of items) {
+      let remaining = item.units;
+      const itemAllocation = {
+        itemId: item.id,
+        itemKey: item.key,
+        lots: [],
+      };
+      for (const lot of lots) {
+        if (remaining === 0) break;
+        if (lot.remaining_units === 0) continue;
+        const reserved = Math.min(remaining, lot.remaining_units);
+        const update = statements.reserveLot.run(reserved, lot.id, reserved, nowIso);
+        if (update.changes !== 1) {
+          throw new Error(`Credit lot changed during hold reservation: ${lot.id}`);
+        }
+        itemAllocation.lots.push({
+          lotId: lot.id,
+          units: reserved,
+          expiresAt: lot.expires_at,
+        });
+        lot.remaining_units -= reserved;
+        remaining -= reserved;
+      }
+      if (remaining !== 0) {
+        throw new Error(`Credit lot invariant violation: ${remaining} units unavailable`);
+      }
+      allocations.push(itemAllocation);
     }
+    return allocations;
+  }
+
+  function allocationForItem(accounting, item) {
+    const allocation = accounting.allocations.find(entry => (
+      entry?.itemId === item.id && entry?.itemKey === item.item_key
+    ));
+    if (!allocation || !Array.isArray(allocation.lots)) {
+      throw new Error(`Hold item allocation is invalid: ${item.id}`);
+    }
+    let allocatedUnits = 0;
+    for (const lot of allocation.lots) {
+      if (!hasNonEmptyString(lot, 'lotId')) {
+        throw new Error(`Hold lot allocation is invalid: ${item.id}`);
+      }
+      positiveSafeInteger(lot.units, 'allocated units');
+      allocatedUnits = checkedAdd(allocatedUnits, lot.units, 'allocated units');
+    }
+    if (accounting.accountingMode === 'paid' && allocatedUnits !== item.units) {
+      throw new Error(`Hold item allocation does not match units: ${item.id}`);
+    }
+    if (accounting.accountingMode === 'unlimited' && allocatedUnits !== 0) {
+      throw new Error(`Unlimited hold unexpectedly has paid allocations: ${item.id}`);
+    }
+    return allocation;
+  }
+
+  function restoreItemAllocation(accounting, item, nowIso) {
+    const allocation = allocationForItem(accounting, item);
+    let restoredUnits = 0;
+    let expiredUnits = 0;
+    for (const reserved of allocation.lots) {
+      const lot = statements.selectLot.get(nowIso, reserved.lotId);
+      if (!lot) throw new Error(`Unknown allocated credit lot: ${reserved.lotId}`);
+      if (lot.unexpired === 1) {
+        const update = statements.restoreLot.run(
+          reserved.units,
+          lot.id,
+          nowIso,
+          reserved.units,
+        );
+        if (update.changes !== 1) {
+          throw new Error(`Credit lot changed during hold release: ${lot.id}`);
+        }
+        restoredUnits = checkedAdd(restoredUnits, reserved.units, 'restored units');
+      } else {
+        expiredUnits = checkedAdd(expiredUnits, reserved.units, 'expired released units');
+      }
+    }
+    return { restoredUnits, expiredUnits };
   }
 
   const grantTx = db.transaction(input => {
@@ -523,14 +785,32 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     const existing = existingMutation(input.idempotencyKey, 'hold', input.fingerprint);
     if (existing.found) return existing.result;
 
-    const wallet = ensureWallet(input.ownerEmail, input.currency);
-    const unlimited = Boolean(isUnlimited(input.ownerEmail));
+    let wallet = ensureWallet(input.ownerEmail, input.currency);
+    const accountingMode = Boolean(isUnlimited(input.ownerEmail)) ? 'unlimited' : 'paid';
+    const unlimited = accountingMode === 'unlimited';
+    const nowIso = new Date().toISOString();
+    if (!unlimited) {
+      wallet = reconcileExpiredLots(input.ownerEmail, input.currency, wallet, nowIso);
+    }
     let availableUnits = wallet.available_units;
     let heldUnits = wallet.held_units;
     if (!unlimited) {
       if (availableUnits < input.totalUnits) {
-        throw insufficientCredits(input.currency, input.totalUnits, availableUnits);
+        return {
+          insufficient: true,
+          currency: input.currency,
+          required: input.totalUnits,
+          available: availableUnits,
+        };
       }
+    }
+
+    const holdId = randomUUID();
+    const holdItems = input.items.map(item => ({ ...item, id: randomUUID() }));
+    const allocations = unlimited
+      ? holdItems.map(item => ({ itemId: item.id, itemKey: item.key, lots: [] }))
+      : reserveHoldLots(input.ownerEmail, input.currency, holdItems, nowIso);
+    if (!unlimited) {
       availableUnits -= input.totalUnits;
       heldUnits = checkedAdd(heldUnits, input.totalUnits, 'held units');
       statements.updateWallet.run(
@@ -541,7 +821,6 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       );
     }
 
-    const holdId = randomUUID();
     const expiresAt = input.expiresAt
       ?? new Date(Date.now() + DEFAULT_HOLD_DURATION_MS).toISOString();
     statements.insertHold.run(
@@ -554,9 +833,9 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       expiresAt,
       JSON.stringify(input.metadata),
     );
-    for (const item of input.items) {
+    for (const item of holdItems) {
       statements.insertHoldItem.run(
-        randomUUID(),
+        item.id,
         holdId,
         item.key,
         item.sku,
@@ -572,6 +851,13 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     const result = buildHoldResult(holdId);
     result.ledgerId = ledgerId;
     result.balance = balance;
+    const storedMetadata = storedLedgerMetadata(
+      'hold',
+      input.fingerprint,
+      input.metadata,
+      { holdId, accountingMode, allocations },
+      result,
+    );
     statements.insertLedger.run(
       ledgerId,
       input.ownerEmail,
@@ -584,8 +870,9 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       'quote',
       input.quoteId,
       input.idempotencyKey,
-      storedLedgerMetadata('hold', input.fingerprint, input.metadata, { holdId }, result),
+      storedMetadata,
     );
+    statements.updateHoldMetadata.run(storedMetadata, holdId);
     return result;
   });
 
@@ -601,25 +888,18 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       throw new Error(`Hold item ${input.itemKey} is already released; cannot settle`);
     }
     if (item.status === 'settled') {
-      const prior = priorItemMutation(
-        hold.owner_email,
-        hold.currency,
-        'settle',
-        item.id,
-        input.fingerprint,
-      );
-      if (prior) return prior;
-      throw new Error(`Hold item ${input.itemKey} is already settled`);
+      throw idempotencyConflict(input.idempotencyKey);
     }
 
+    const accounting = loadHoldAccounting(hold);
+    allocationForItem(accounting, item);
     const wallet = ensureWallet(hold.owner_email, hold.currency);
-    const unlimited = Boolean(isUnlimited(hold.owner_email));
+    const unlimited = accounting.accountingMode === 'unlimited';
     let heldUnits = wallet.held_units;
     if (!unlimited) {
       if (heldUnits < item.units) {
         throw new Error(`Held balance invariant violation for hold ${hold.id}`);
       }
-      consumeCreditLots(hold.owner_email, hold.currency, item.units);
       heldUnits -= item.units;
       statements.updateWallet.run(
         wallet.available_units,
@@ -702,43 +982,30 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       throw new Error(`Hold item ${input.itemKey} is already settled; cannot release`);
     }
     if (item.status === 'released') {
-      const prior = priorItemMutation(
-        hold.owner_email,
-        hold.currency,
-        'release',
-        item.id,
-        input.fingerprint,
-      );
-      if (prior) return prior;
-      if (item.reference_id !== input.reason) {
-        throw idempotencyConflict(input.idempotencyKey);
-      }
-      const unlimited = Boolean(isUnlimited(hold.owner_email));
-      return {
-        holdId: hold.id,
-        itemId: item.id,
-        itemKey: item.item_key,
-        status: 'released',
-        units: item.units,
-        reason: input.reason,
-        ledgerId: null,
-        holdStatus: hold.status,
-        balance: balanceResult(
-          statements.selectWallet.get(hold.owner_email, hold.currency),
-          unlimited,
-        ),
-      };
+      throw idempotencyConflict(input.idempotencyKey);
     }
 
+    const accounting = loadHoldAccounting(hold);
     const wallet = ensureWallet(hold.owner_email, hold.currency);
-    const unlimited = Boolean(isUnlimited(hold.owner_email));
+    const unlimited = accounting.accountingMode === 'unlimited';
+    let restoredUnits = 0;
+    let expiredUnits = 0;
+    if (unlimited) {
+      allocationForItem(accounting, item);
+    } else {
+      ({ restoredUnits, expiredUnits } = restoreItemAllocation(
+        accounting,
+        item,
+        new Date().toISOString(),
+      ));
+    }
     let availableUnits = wallet.available_units;
     let heldUnits = wallet.held_units;
     if (!unlimited) {
       if (heldUnits < item.units) {
         throw new Error(`Held balance invariant violation for hold ${hold.id}`);
       }
-      availableUnits = checkedAdd(availableUnits, item.units, 'available units');
+      availableUnits = checkedAdd(availableUnits, restoredUnits, 'available units');
       heldUnits -= item.units;
       statements.updateWallet.run(
         availableUnits,
@@ -767,6 +1034,8 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       status: 'released',
       units: item.units,
       reason: input.reason,
+      restoredUnits,
+      expiredUnits,
       ledgerId,
       holdStatus: nextStatus,
       balance,
@@ -776,7 +1045,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       hold.owner_email,
       hold.currency,
       'release',
-      unlimited ? 0 : item.units,
+      unlimited ? 0 : restoredUnits,
       unlimited ? 0 : -item.units,
       balance.availableUnits,
       balance.heldUnits,
@@ -807,20 +1076,31 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     const pendingItems = statements.selectHoldItems
       .all(input.holdId)
       .filter(item => item.status === 'pending');
+    const accounting = loadHoldAccounting(hold);
     let releasedNow = 0;
+    let restoredNow = 0;
+    let expiredNow = 0;
+    const nowIso = new Date().toISOString();
     for (const item of pendingItems) {
       releasedNow = checkedAdd(releasedNow, item.units, 'released remainder units');
+      if (accounting.accountingMode === 'paid') {
+        const restored = restoreItemAllocation(accounting, item, nowIso);
+        restoredNow = checkedAdd(restoredNow, restored.restoredUnits, 'restored units');
+        expiredNow = checkedAdd(expiredNow, restored.expiredUnits, 'expired released units');
+      } else {
+        allocationForItem(accounting, item);
+      }
     }
 
     const wallet = ensureWallet(hold.owner_email, hold.currency);
-    const unlimited = Boolean(isUnlimited(hold.owner_email));
+    const unlimited = accounting.accountingMode === 'unlimited';
     let availableUnits = wallet.available_units;
     let heldUnits = wallet.held_units;
     if (!unlimited && releasedNow > 0) {
       if (heldUnits < releasedNow) {
         throw new Error(`Held balance invariant violation for hold ${hold.id}`);
       }
-      availableUnits = checkedAdd(availableUnits, releasedNow, 'available units');
+      availableUnits = checkedAdd(availableUnits, restoredNow, 'available units');
       heldUnits -= releasedNow;
       statements.updateWallet.run(
         availableUnits,
@@ -848,6 +1128,8 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       holdId: hold.id,
       status: nextStatus,
       releasedUnits: releasedNow,
+      restoredUnits: restoredNow,
+      expiredUnits: expiredNow,
       releasedItemKeys: pendingItems.map(item => item.item_key),
       reason: input.reason,
       ledgerId,
@@ -858,7 +1140,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       hold.owner_email,
       hold.currency,
       'release_remainder',
-      unlimited ? 0 : releasedNow,
+      unlimited ? 0 : restoredNow,
       unlimited ? 0 : -releasedNow,
       balance.availableUnits,
       balance.heldUnits,
@@ -886,11 +1168,21 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       const normalizedCurrency = nonEmptyString(currency, 'currency');
       const unlimited = Boolean(isUnlimited(normalizedOwnerEmail));
       const wallet = statements.selectWallet.get(normalizedOwnerEmail, normalizedCurrency);
-      return balanceResult(wallet, unlimited);
+      if (unlimited || !wallet) return balanceResult(wallet, unlimited);
+      const expiredUnits = statements.sumExpiredLots
+        .get(normalizedOwnerEmail, normalizedCurrency, new Date().toISOString()).units;
+      return balanceResult({
+        ...wallet,
+        available_units: Math.max(0, wallet.available_units - expiredUnits),
+      }, false);
     },
 
     createHold(input) {
-      return createHoldTx(normalizeHoldInput(input));
+      const result = createHoldTx(normalizeHoldInput(input));
+      if (result?.insufficient) {
+        throw insufficientCredits(result.currency, result.required, result.available);
+      }
+      return result;
     },
 
     settleItem(holdId, itemKey, options) {
@@ -909,14 +1201,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       const normalizedOwnerEmail = nonEmptyString(ownerEmail, 'ownerEmail');
       const normalizedCurrency = nonEmptyString(currency, 'currency');
       return statements.listLedger.all(normalizedOwnerEmail, normalizedCurrency).map(row => {
-        const parsedMetadata = parseJsonSafely(row.metadata, {});
-        const metadata = parsedMetadata
-          && typeof parsedMetadata === 'object'
-          && !Array.isArray(parsedMetadata)
-          && Object.prototype.hasOwnProperty.call(parsedMetadata, INTERNAL_METADATA_KEY)
-          && Object.prototype.hasOwnProperty.call(parsedMetadata, 'userMetadata')
-          ? parsedMetadata.userMetadata
-          : parsedMetadata;
+        const metadata = readMetadataEnvelope(row.metadata, {}).userMetadata;
         return {
           id: row.id,
           ownerEmail: row.owner_email,
