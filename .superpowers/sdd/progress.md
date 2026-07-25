@@ -16,7 +16,8 @@
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).
-- Next implementation task: Billing Ledger plan, Task 2.
+- Billing Ledger Task 2: complete (`90bedce..fccb9bf`, three-commit review/fix loop clean, focused 13/13 and full 148/148 tests passed).
+- Next implementation task: Billing Ledger plan, Task 3.
 
 ## Ownership
 
