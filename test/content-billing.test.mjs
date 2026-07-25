@@ -1148,18 +1148,17 @@ function findFirst(source, values) {
   return indexes.length ? Math.min(...indexes) : -1;
 }
 
-function extractRouteHandler(source, routePath, nextRoutePath) {
+function extractRouteHandler(source, routePath) {
   const routeStart = findFirst(source, [
     `app.post('${routePath}'`,
     `app.post("${routePath}"`,
   ]);
   assert.notEqual(routeStart, -1, `route ${routePath} exists`);
-  const nextStart = findFirst(source.slice(routeStart + 1), [
-    `app.post('${nextRoutePath}'`,
-    `app.post("${nextRoutePath}"`,
-  ]);
-  assert.notEqual(nextStart, -1, `route ${nextRoutePath} follows ${routePath}`);
-  return source.slice(routeStart, routeStart + 1 + nextStart);
+  const routeSource = source.slice(routeStart);
+  const callback = /,\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{/.exec(routeSource);
+  assert.ok(callback, `route ${routePath} has an arrow callback`);
+  const openingBrace = routeStart + callback.index + callback[0].lastIndexOf('{');
+  return source.slice(routeStart, openingBrace) + extractBalancedBlock(source, openingBrace);
 }
 
 function extractNamedFunction(source, name) {
@@ -1206,7 +1205,7 @@ test('server initializes durable billing, signed sessions, trusted proxy IPs, an
   assertBefore(middleware, 'authenticateContentRequest', 'requireBetaEmail(req.body?.email)', 'paid content auth precedes legacy body auth');
   assert.match(server, /betaAccessMiddleware\(req, res, continueWithRateLimit\)/);
 
-  const verifyRoute = extractRouteHandler(server, '/api/auth/verify-code', '/api/plog-generate');
+  const verifyRoute = extractRouteHandler(server, '/api/auth/verify-code');
   assert.match(verifyRoute, /contentSessionTokens\.issue\(access\.email\)/);
   assert.match(verifyRoute, /token/);
   assert.match(verifyRoute, /expiresAt/);
@@ -1218,7 +1217,6 @@ test('XHS and Plog routes use shared runners, stable persistence, and local one-
     {
       name: 'XHS',
       path: '/api/generate',
-      nextPath: '/api/analyze',
       mode: 'xhs',
       paidFunction: 'generateXhsContentSet',
       previewFunction: 'runXhsPreview',
@@ -1228,7 +1226,6 @@ test('XHS and Plog routes use shared runners, stable persistence, and local one-
     {
       name: 'Plog',
       path: '/api/plog-generate',
-      nextPath: '/api/create-payment',
       mode: 'plog',
       paidFunction: 'generatePlogContentSet',
       previewFunction: 'runPlogPreview',
@@ -1239,7 +1236,7 @@ test('XHS and Plog routes use shared runners, stable persistence, and local one-
 
   for (const spec of cases) {
     await t.test(spec.name, () => {
-      const route = extractRouteHandler(server, spec.path, spec.nextPath);
+      const route = extractRouteHandler(server, spec.path);
       assert.match(route, /req\._contentPreview === true/);
       assert.match(route, new RegExp(`${spec.previewFunction}\\(req, res\\)`));
       assert.match(route, /runBilledContentSse\(\{/);

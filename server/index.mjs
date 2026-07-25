@@ -3873,8 +3873,6 @@ app.post('/api/plog-generate', async (req, res) => {
   });
 });
 
-// Static route-test boundary: app.post('/api/create-payment' is registered as a
-// disabled compatibility endpoint by mountBillingRoutes near application setup.
 /* ── 全局 Express 错误处理器（兜底）──
  * 任何 async route handler 未捕获的异常会到这里。
  * 防止「一个路由崩 → 整个进程挂」。
