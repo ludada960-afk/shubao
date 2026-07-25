@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 
-import { initDB, closeDB } from '../server/db.mjs';
+import { initDB, closeDB, migrateLegacyUserCredits } from '../server/db.mjs';
 import { ensureBillingSchema } from '../server/billing/schema.mjs';
 import { createWalletService } from '../server/billing/walletService.mjs';
 import { createPaymentService } from '../server/billing/paymentService.mjs';
@@ -204,12 +204,39 @@ test('legacy users credits migrate once across repeated initialization', t => {
     1,
   );
   assert.equal(migrated.prepare('SELECT credits FROM users WHERE email = ?').get('867550189@qq.com').credits, 2);
+  migrated.prepare('UPDATE users SET credits = ? WHERE email = ?').run(9, '867550189@qq.com');
   closeDB();
 
   const restarted = initDB(dbPath);
   assert.equal(
     restarted.prepare('SELECT COUNT(*) AS count FROM wallet_ledger WHERE idempotency_key = ?')
       .get('legacy-content-credit:867550189@qq.com').count,
+    1,
+  );
+  assert.deepEqual(
+    restarted.prepare('SELECT available_units, held_units FROM wallets WHERE owner_email = ? AND currency = ?')
+      .get('867550189@qq.com', 'content_sets'),
+    { available_units: 2, held_units: 0 },
+  );
+});
+
+test('newly imported legacy users can migrate in the same startup', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-billing-import-'));
+  const dbPath = join(directory, 'works.db');
+  t.after(() => { closeDB(); rmSync(directory, { recursive: true, force: true }); });
+
+  const database = initDB(dbPath);
+  database.prepare('INSERT INTO users (email, credits) VALUES (?, ?)').run('imported@example.com', 5);
+  migrateLegacyUserCredits(database);
+
+  assert.deepEqual(
+    database.prepare('SELECT available_units, held_units FROM wallets WHERE owner_email = ? AND currency = ?')
+      .get('imported@example.com', 'content_sets'),
+    { available_units: 5, held_units: 0 },
+  );
+  assert.equal(
+    database.prepare('SELECT COUNT(*) AS count FROM wallet_ledger WHERE idempotency_key = ?')
+      .get('legacy-content-credit:imported@example.com').count,
     1,
   );
 });
@@ -251,4 +278,54 @@ test('disabled payment providers do not create orders', async t => {
   assert.equal(res.statusCode, 503);
   assert.equal(res.body.code, 'PAYMENT_PROVIDER_DISABLED');
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM payment_orders').get().count, 0);
+});
+
+test('legacy payment compatibility endpoints are disabled and grant nothing', async t => {
+  const { app, db } = createHarness();
+  t.after(() => db.close());
+
+  const requests = [
+    ['POST', '/api/create-payment', { body: { email: 'victim@example.com', sets: 999, amount: 0.01 } }],
+    ['GET', '/api/payment/success', { query: { session_id: 'forged-session', email: 'victim@example.com', sets: 999 } }],
+    ['POST', '/api/payment/webhook', { body: { type: 'checkout.session.completed', data: { object: { metadata: { email: 'victim@example.com', sets: '999' } } } } }],
+  ];
+  for (const [method, path, request] of requests) {
+    const { res } = await invoke(app, method, path, request);
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.body.code, 'PAYMENT_PROVIDER_DISABLED');
+    assert.equal(res.body.legacyDisabled, true);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM payment_orders').get().count, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM wallet_ledger').get().count, 0);
+});
+
+test('legacy credits require a signed owner and ignore spoofed email', async t => {
+  const { app, db, walletService, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  walletService.grant({
+    ownerEmail: 'trusted@example.com', currency: 'content_sets', units: 4,
+    idempotencyKey: 'trusted-legacy-balance',
+  });
+  walletService.grant({
+    ownerEmail: 'attacker@example.com', currency: 'content_sets', units: 50,
+    idempotencyKey: 'attacker-legacy-balance',
+  });
+
+  const anonymous = await invoke(app, 'GET', '/api/user/credits', {
+    query: { email: 'attacker@example.com' },
+  });
+  assert.equal(anonymous.res.statusCode, 401);
+
+  const signed = await invoke(app, 'GET', '/api/user/credits', {
+    headers: signedHeaders(sessionTokens, 'trusted@example.com'),
+    query: { email: 'attacker@example.com' },
+    body: { email: 'attacker@example.com' },
+  });
+  assert.equal(signed.res.statusCode, 200);
+  assert.deepEqual(signed.res.body, {
+    credits: 4,
+    availableUnits: 4,
+    heldUnits: 0,
+    unlimited: false,
+  });
 });

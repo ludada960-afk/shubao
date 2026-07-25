@@ -4,6 +4,12 @@ const CURRENCIES = new Set(['ec_points', 'content_sets']);
 const SAFE_IDENTIFIER = /^[a-z0-9][a-z0-9_-]{0,127}$/i;
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
+const LEGACY_PAYMENT_DISABLED_BODY = Object.freeze({
+  error: '旧支付接口已停用，支付服务暂不可用',
+  code: 'PAYMENT_PROVIDER_DISABLED',
+  retryable: false,
+  legacyDisabled: true,
+});
 
 function codedError(code) {
   const error = new Error(code);
@@ -164,6 +170,10 @@ export function createBillingRouteHandlers({ walletService, paymentService, auth
 
     catalog: handler((_req, res) => res.json(publicCatalog())),
 
+    legacyPaymentDisabled: handler((_req, res) => (
+      res.status(503).json({ ...LEGACY_PAYMENT_DISABLED_BODY })
+    )),
+
     balance: handler((req, res) => {
       const ownerEmail = ownerFor(req);
       const balances = Object.fromEntries(
@@ -172,6 +182,16 @@ export function createBillingRouteHandlers({ walletService, paymentService, auth
       return res.json({
         unlimited: Object.values(balances).some(balance => balance.unlimited),
         balances,
+      });
+    }),
+
+    legacyCredits: handler((req, res) => {
+      const balance = walletService.getBalance(ownerFor(req), 'content_sets');
+      return res.json({
+        credits: balance.availableUnits,
+        availableUnits: balance.availableUnits,
+        heldUnits: balance.heldUnits,
+        unlimited: balance.unlimited,
       });
     }),
 
@@ -226,5 +246,9 @@ export function mountBillingRoutes(app, deps) {
   app.post('/api/billing/orders', handlers.requireUser, handlers.createOrder);
   app.get('/api/billing/orders/:id', handlers.requireUser, handlers.order);
   app.get('/api/billing/ledger', handlers.requireUser, handlers.ledger);
+  app.post('/api/create-payment', handlers.legacyPaymentDisabled);
+  app.get('/api/payment/success', handlers.legacyPaymentDisabled);
+  app.post('/api/payment/webhook', handlers.legacyPaymentDisabled);
+  app.get('/api/user/credits', handlers.requireUser, handlers.legacyCredits);
   return handlers;
 }

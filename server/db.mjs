@@ -14,18 +14,21 @@ const DB_PATH = resolve(__dirname, 'works.db');
 let db;
 let activeDbPath;
 
-function migrateLegacyUserCredits(database) {
+export function migrateLegacyUserCredits(database) {
   const walletService = createWalletService(database);
   const rows = database.prepare('SELECT email, credits FROM users WHERE credits > 0').all();
+  const hasMigrated = database.prepare('SELECT 1 FROM wallet_ledger WHERE idempotency_key = ?');
   for (const row of rows) {
     const ownerEmail = String(row.email || '').trim().toLowerCase();
     const units = Number(row.credits);
     if (!ownerEmail || !Number.isSafeInteger(units) || units <= 0) continue;
+    const idempotencyKey = `legacy-content-credit:${ownerEmail}`;
+    if (hasMigrated.get(idempotencyKey)) continue;
     walletService.grant({
       ownerEmail,
       currency: 'content_sets',
       units,
-      idempotencyKey: `legacy-content-credit:${ownerEmail}`,
+      idempotencyKey,
       sourceType: 'legacy_users_credits',
       sourceId: ownerEmail,
       metadata: { legacyCredits: units },

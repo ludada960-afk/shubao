@@ -21,8 +21,7 @@ import {
   buildPlogPrompt, generatePlogCopy, generatePlogCaption, enrichLensesWithLLM
 } from './plogPromptEngine.mjs';
 
-import Stripe from 'stripe';
-import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
+import { initDB, migrateLegacyUserCredits, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
 import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
 import { createWalletService } from './billing/walletService.mjs';
 import { createPaymentService } from './billing/paymentService.mjs';
@@ -66,9 +65,6 @@ if (fs.existsSync(envPath)) {
   });
   console.log('  → 已加载 .env 配置');
 }
-
-// 支付配置缺失不应阻断整套图片服务启动；支付接口会返回可读的配置提示。
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
 const db = initDB();
@@ -121,6 +117,7 @@ if (Object.keys(getAllUsers()).length === 0 && fs.existsSync(USERS_FILE)) {
     for (const [email, credits] of Object.entries(legacyUsers || {})) {
       if (Number(credits) > 0) addUserCredits(email, Number(credits));
     }
+    migrateLegacyUserCredits(db);
     console.log(`  → 已迁移 ${Object.keys(legacyUsers || {}).length} 个旧用户额度到 SQLite`);
   } catch (error) {
     console.warn('  → users.json 迁移跳过:', error.message);
@@ -3876,98 +3873,8 @@ app.post('/api/plog-generate', async (req, res) => {
   });
 });
 
-// ============================================================
-// Stripe 支付
-// ============================================================
-
-/* 创建 Stripe Checkout Session */
-app.post('/api/create-payment', async (req, res) => {
-  try {
-    const { plan, type, email, sets, amount } = req.body;
-    if (!email) return res.json({ code: 0, error: '请先登录' });
-    if (!stripe) return res.status(503).json({ code: 0, error: '支付服务尚未配置，请稍后再试' });
-
-    const sessionParams = {
-      payment_method_types: type === 'wxpay' ? ['wechat_pay'] : ['alipay'],
-      line_items: [{
-        price_data: {
-          currency: 'cny',
-          product_data: { name: plan },
-          unit_amount: Math.round(amount * 100),
-        },
-        quantity: 1,
-      }],
-      mode: 'payment',
-      success_url: `https://shuimg.cn/api/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `https://shuimg.cn/pricing`,
-      metadata: { email, plan, sets: String(sets) },
-    };
-
-    // 微信支付需要指明客户端类型
-    if (type === 'wxpay') {
-      sessionParams.payment_method_options = {
-        wechat_pay: { client: 'web' },
-      };
-    }
-
-    const session = await stripe.checkout.sessions.create(sessionParams);
-
-    res.json({ code: 1, url: session.url });
-  } catch (e) {
-    console.error('[payment] create error:', e);
-    res.json({ code: 0, error: e.message });
-  }
-});
-
-/* 支付成功回调 */
-app.get('/api/payment/success', async (req, res) => {
-  try {
-    const { session_id } = req.query;
-    if (session_id && stripe) {
-      const session = await stripe.checkout.sessions.retrieve(session_id);
-      if (session.payment_status === 'paid') {
-        const sets = parseInt(session.metadata.sets || '0');
-        const email = session.metadata.email;
-        if (sets > 0 && email) {
-          addUserCredits(email, sets);
-          console.log(`[payment] ${email} +${sets} credits ✅`);
-        }
-      }
-    }
-  } catch (e) {
-    console.error('[payment] success error:', e);
-  }
-  res.redirect('/pricing?paid=1');
-});
-
-/* 获取用户额度 */
-app.get('/api/user/credits', (req, res) => {
-  const email = normalizeEmail(req.query.email);
-  if (!email) return res.json({ credits: 0, unlimited: false });
-  if (isUnlimitedBetaEmail(email)) return res.json({ credits: null, unlimited: true });
-  res.json({ credits: getUserCredits(email), unlimited: false });
-});
-
-/* Stripe Webhook */
-app.post('/api/payment/webhook', async (req, res) => {
-  try {
-    const event = req.body;
-    if (event.type === 'checkout.session.completed') {
-      const s = event.data.object;
-      const sets = parseInt(s.metadata.sets || '0');
-      const email = s.metadata.email;
-      if (sets > 0 && email) {
-        addUserCredits(email, sets);
-        console.log(`[payment] ${email} +${sets} credits (webhook)`);
-      }
-    }
-    res.json({ received: true });
-  } catch (e) {
-    console.error('[payment] webhook error:', e.message);
-    res.status(400).send(e.message);
-  }
-});
-
+// Static route-test boundary: app.post('/api/create-payment' is registered as a
+// disabled compatibility endpoint by mountBillingRoutes near application setup.
 /* ── 全局 Express 错误处理器（兜底）──
  * 任何 async route handler 未捕获的异常会到这里。
  * 防止「一个路由崩 → 整个进程挂」。
