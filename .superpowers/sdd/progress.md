@@ -21,7 +21,8 @@
 - Billing Ledger Task 4: complete (`683901e..a12044a`, three-commit review/fix loop approved, focused 15/15, wallet regression 43/43, full 191/191 tests passed).
 - Billing Ledger Task 5: complete (`8cd41f9..0394c00`, two-commit review/fix loop approved, focused 16/16, wallet 28/28, payment 15/15, full 207/207 tests passed).
 - Billing Ledger Task 6: complete (`c55a33f..8eb9e30`, generation-job idempotency, signed identity, disconnect-safe durable replay, isolated one-cover previews, stable URL/data/Base64 persistence, and fenced lease heartbeat independently reviewed and approved; focused 35/35, billing regression 107/107, full 242/242 tests passed).
-- Next implementation task: Billing Ledger plan, Task 7.
+- Billing Ledger Task 7: complete (`92a35f0..8427c4d`, secure billing APIs, owner-scoped order/ledger access, retryable SQLite busy mapping, same-start idempotent legacy migration, hard-disabled legacy payment authority, signed compatibility balance endpoint, and structural route tests independently reviewed and approved; focused 52/52 and billing regression 120/120 passed).
+- Next implementation task: Billing Ledger plan, Task 8.
 
 ## Ownership
 
@@ -31,5 +32,5 @@
 
 ## Minor findings backlog
 
-- Billing Task 4: a second process holding the SQLite write lock can surface `SQLITE_BUSY` from order creation; correctness remains protected, but route-level retryable error mapping should be added during Billing API integration.
-- Billing Task 6: route-boundary source parsing in `test/content-billing.test.mjs` is brittle under large route refactors; replace it with an app-factory route test when `server/index.mjs` is decomposed. Non-blocking for Task 6 because injected runner behavior tests cover the critical lifecycle.
+- Billing Task 4: resolved in Task 7 by mapping SQLite busy/locked failures to structured retryable HTTP responses.
+- Billing Task 6: resolved during Task 7 final review by replacing next-route source markers with balanced structural handler extraction and removing the production marker comment.
