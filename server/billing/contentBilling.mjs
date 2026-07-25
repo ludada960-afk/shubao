@@ -340,14 +340,75 @@ function completedEvent(result, replay) {
 
 export function createBilledSseRunner({
   beginContentGeneration,
+  renewContentGenerationLease = beginContentGeneration?.renewLease,
   completeContentGeneration,
   failContentGeneration,
   onReleaseError = error => console.error('[content-billing] release failed:', error.message),
+  now = Date.now,
+  heartbeatMs = null,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval,
 } = {}) {
   if (typeof beginContentGeneration !== 'function'
+    || typeof renewContentGenerationLease !== 'function'
     || typeof completeContentGeneration !== 'function'
     || typeof failContentGeneration !== 'function') {
     throw new TypeError('content billing lifecycle methods are required');
+  }
+  if (typeof now !== 'function') throw new TypeError('now must be a function');
+  if (heartbeatMs !== null && (!Number.isSafeInteger(heartbeatMs) || heartbeatMs <= 0)) {
+    throw new TypeError('heartbeatMs must be a positive safe integer');
+  }
+  if (typeof setIntervalFn !== 'function' || typeof clearIntervalFn !== 'function') {
+    throw new TypeError('heartbeat interval functions are required');
+  }
+
+  function startLeaseHeartbeat({ ownerEmail, begun }) {
+    const leaseRemainingMs = Date.parse(begun.leaseExpiresAt || '') - finiteNow(now);
+    const intervalMs = heartbeatMs ?? Math.max(
+      1,
+      Math.floor(
+        Number.isFinite(leaseRemainingMs) && leaseRemainingMs > 0
+          ? leaseRemainingMs / 3
+          : DEFAULT_LEASE_MS / 3,
+      ),
+    );
+    let stopped = false;
+    let renewalError = null;
+    let pendingRenewal = null;
+
+    const renew = () => {
+      if (stopped || renewalError || pendingRenewal) return pendingRenewal;
+      pendingRenewal = Promise.resolve()
+        .then(() => renewContentGenerationLease({
+          ownerEmail,
+          generationId: begun.generationId,
+          leaseToken: begun.leaseToken,
+        }))
+        .catch(error => {
+          renewalError = error;
+        })
+        .finally(() => {
+          pendingRenewal = null;
+        });
+      return pendingRenewal;
+    };
+
+    const timer = setIntervalFn(renew, intervalMs);
+    timer?.unref?.();
+    return {
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        clearIntervalFn(timer);
+      },
+      async settle() {
+        while (pendingRenewal) await pendingRenewal;
+      },
+      assertOwned() {
+        if (renewalError) throw renewalError;
+      },
+    };
   }
 
   return async function runBilledSse({
@@ -398,14 +459,23 @@ export function createBilledSseRunner({
     }
 
     let lifecycleHandled = false;
+    let heartbeat = null;
     try {
-      const delivery = await generate({
-        send: (type, data) => transport.send(type, data),
-        generationId: begun.generationId,
-        workId: begun.workId,
-        leaseToken: begun.leaseToken,
-        billing: begun.billing,
-      });
+      heartbeat = startLeaseHeartbeat({ ownerEmail, begun });
+      let delivery;
+      try {
+        delivery = await generate({
+          send: (type, data) => transport.send(type, data),
+          generationId: begun.generationId,
+          workId: begun.workId,
+          leaseToken: begun.leaseToken,
+          billing: begun.billing,
+        });
+      } finally {
+        heartbeat.stop();
+        await heartbeat.settle();
+      }
+      heartbeat.assertOwned();
       const completed = await completeContentGeneration({
         ownerEmail,
         generationId: begun.generationId,
@@ -454,6 +524,7 @@ export function createBilledSseRunner({
         error: serializedError(error),
       };
     } finally {
+      heartbeat?.stop();
       if (!lifecycleHandled) {
         try {
           await failContentGeneration({
@@ -693,6 +764,12 @@ export function createContentBilling({
       WHERE generation_id = ? AND status = 'processing'
         AND lease_token = ? AND lease_expires_at = ?
     `),
+    renewJob: db.prepare(`
+      UPDATE ${JOB_TABLE}
+      SET lease_expires_at = ?, updated_at = ?
+      WHERE owner_email = ? AND generation_id = ?
+        AND status = 'processing' AND lease_token = ?
+    `),
     finishJob: db.prepare(`
       UPDATE ${JOB_TABLE}
       SET status = ?, lease_token = NULL, lease_expires_at = NULL,
@@ -886,6 +963,33 @@ export function createContentBilling({
     }
   }
 
+  function renewContentGenerationLease(input = {}) {
+    const ownerEmail = normalizeOwnerEmail(input.ownerEmail);
+    const generationId = normalizeGenerationId(input.generationId);
+    const leaseToken = typeof input.leaseToken === 'string' ? input.leaseToken.trim() : '';
+    if (!leaseToken) {
+      throw codedError('CONTENT_GENERATION_LEASE_REQUIRED', 'Content generation lease token is required');
+    }
+    const renewedAtMs = currentTimeMs();
+    const updatedAt = new Date(renewedAtMs).toISOString();
+    const leaseExpiresAt = new Date(renewedAtMs + leaseMs).toISOString();
+    const renewed = statements.renewJob.run(
+      leaseExpiresAt,
+      updatedAt,
+      ownerEmail,
+      generationId,
+      leaseToken,
+    );
+    if (renewed.changes !== 1) {
+      throw codedError('CONTENT_GENERATION_LEASE_LOST', 'Content generation lease is no longer owned by this worker');
+    }
+    return {
+      generationId,
+      leaseToken,
+      leaseExpiresAt,
+    };
+  }
+
   const failTx = db.transaction(input => {
     const row = statements.selectJob.get(input.generationId);
     validateJobOwner(row, input.ownerEmail);
@@ -1056,8 +1160,10 @@ export function createContentBilling({
     };
   }
 
+  beginContentGeneration.renewLease = renewContentGenerationLease;
   return {
     beginContentGeneration,
+    renewContentGenerationLease,
     completeContentGeneration,
     failContentGeneration,
     previewContentGeneration,

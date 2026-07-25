@@ -200,7 +200,36 @@ function createDurableHarness({ leaseMs = 1_000 } = {}) {
     db,
     createService,
     service: createService(),
+    now() { return clock; },
     advance(ms) { clock += ms; },
+  };
+}
+
+function createManualIntervalScheduler() {
+  const handles = new Set();
+  return {
+    setInterval(fn, intervalMs) {
+      const handle = {
+        fn,
+        intervalMs,
+        unrefCalled: false,
+        unref() { this.unrefCalled = true; },
+      };
+      handles.add(handle);
+      return handle;
+    },
+    clearInterval(handle) {
+      handles.delete(handle);
+    },
+    async tick() {
+      for (const handle of [...handles]) await handle.fn();
+    },
+    get activeCount() {
+      return handles.size;
+    },
+    get firstHandle() {
+      return [...handles][0] || null;
+    },
   };
 }
 
@@ -749,6 +778,11 @@ test('expired processing leases are reclaimed with fencing against the old worke
   assert.equal(reclaimed.action, 'start');
   assert.equal(reclaimed.reclaimed, true);
   assert.notEqual(reclaimed.leaseToken, first.leaseToken);
+  assert.throws(() => harness.service.renewContentGenerationLease({
+    ownerEmail: OWNER,
+    generationId,
+    leaseToken: first.leaseToken,
+  }), error => error.code === 'CONTENT_GENERATION_LEASE_LOST');
   assert.throws(() => harness.service.completeContentGeneration({
     ownerEmail: OWNER,
     generationId,
@@ -763,6 +797,66 @@ test('expired processing leases are reclaimed with fencing against the old worke
     result: delivery(9, { caption: '新 worker' }),
   });
   assert.equal(completed.jobStatus, 'completed');
+});
+
+test('active billed runner renews its lease so retries stay in progress without duplicate upstream work', async t => {
+  const harness = createDurableHarness({ leaseMs: 100 });
+  const scheduler = createManualIntervalScheduler();
+  t.after(() => harness.db.close());
+  const runner = createBilledSseRunner({
+    ...harness.service,
+    now: harness.now,
+    heartbeatMs: 50,
+    setIntervalFn: scheduler.setInterval,
+    clearIntervalFn: scheduler.clearInterval,
+  });
+  const generationId = 'runner-heartbeat-1';
+  let upstreamCalls = 0;
+  let markStarted;
+  let releaseExecutor;
+  const started = new Promise(resolve => { markStarted = resolve; });
+  const executorGate = new Promise(resolve => { releaseExecutor = resolve; });
+  const firstRun = runner({
+    res: new FakeResponse(),
+    ownerEmail: OWNER,
+    generationId,
+    mode: 'xhs',
+    generate: async () => {
+      upstreamCalls += 1;
+      markStarted();
+      await executorGate;
+      return delivery();
+    },
+  });
+
+  await started;
+  const heartbeatHandle = scheduler.firstHandle;
+  try {
+    harness.advance(60);
+    await scheduler.tick();
+    harness.advance(50);
+    const retryResponse = new FakeResponse();
+    const retry = await runner({
+      res: retryResponse,
+      ownerEmail: OWNER,
+      generationId,
+      mode: 'xhs',
+      generate: async () => {
+        upstreamCalls += 1;
+        return delivery();
+      },
+    });
+
+    assert.equal(upstreamCalls, 1, 'retry must not start a second upstream executor');
+    assert.equal(retry.action, 'http');
+    assert.equal(retry.httpStatus, 202);
+    assert.equal(retryResponse.statusCode, 202);
+    assert.equal(heartbeatHandle?.unrefCalled, true);
+  } finally {
+    releaseExecutor();
+    await firstRun;
+  }
+  assert.equal(scheduler.activeCount, 0);
 });
 
 test('needs-review and failed jobs persist replayable terminal state without duplicate billing', async t => {
