@@ -44,3 +44,4 @@ dist/
 .superpowers/sdd/*-task-*-brief.md
 .superpowers/sdd/*-task-*-report.md
 .superpowers/sdd/review-*.diff
+.superpowers/sdd/review-*.md
