@@ -7,13 +7,54 @@ import Database from 'better-sqlite3';
 import { ensureBillingSchema } from '../server/billing/schema.mjs';
 import { createWalletService } from '../server/billing/walletService.mjs';
 
-function createTestService(isUnlimited = () => false) {
+function createTestService(isUnlimited = () => false, serviceOptions = {}) {
   const db = new Database(':memory:');
   ensureBillingSchema(db);
   return {
     db,
-    service: createWalletService(db, { isUnlimited }),
+    service: createWalletService(db, { isUnlimited, ...serviceOptions }),
   };
+}
+
+const TEST_NOW_MS = Date.parse('2100-01-01T00:00:00.000Z');
+const TEST_FUTURE_EXPIRY = '2101-01-01T00:00:00.000Z';
+const TEST_EXPIRED_AT = '2099-01-01T00:00:00.000Z';
+const INTERNAL_IDEMPOTENCY_PREFIX = '__wallet_internal__:';
+
+function createPartiallyReservedExpiredLot(db, service, ownerEmail, suffix) {
+  const grant = service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 2000,
+    idempotencyKey: `${suffix}-grant`,
+    expiresAt: TEST_FUTURE_EXPIRY,
+  });
+  const hold = service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: `${suffix}-quote`,
+    idempotencyKey: `${suffix}-hold`,
+    items: [{ key: 'one', sku: 'ec_image_2k', units: 1000 }],
+  });
+  db.prepare('UPDATE credit_lots SET expires_at = ? WHERE id = ?').run(
+    TEST_EXPIRED_AT,
+    grant.creditLotId,
+  );
+  return { grant, hold };
+}
+
+function assertPaidBalanceState(db, service, ownerEmail, expected) {
+  assert.deepEqual(
+    db.prepare(`
+      SELECT available_units AS availableUnits, held_units AS heldUnits
+      FROM wallets WHERE owner_email = ? AND currency = 'ec_points'
+    `).get(ownerEmail),
+    expected,
+  );
+  assert.deepEqual(service.getBalance(ownerEmail, 'ec_points'), {
+    ...expected,
+    unlimited: false,
+  });
 }
 
 test('a hold prevents overspending and partial failure releases units atomically', t => {
@@ -610,6 +651,198 @@ test('release after allocation expiry reduces held units without resurrecting sp
   );
 });
 
+test('paid grant reconciles an expired unreserved lot before returning and writing its ledger row', t => {
+  const ownerEmail = 'grant-reconcile@example.com';
+  const { db, service } = createTestService(() => false, { now: () => TEST_NOW_MS });
+  t.after(() => db.close());
+  createPartiallyReservedExpiredLot(db, service, ownerEmail, 'grant-reconcile');
+
+  const result = service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 500,
+    idempotencyKey: 'grant-reconcile-new-grant',
+  });
+
+  assert.deepEqual(result.balance, {
+    availableUnits: 500,
+    heldUnits: 1000,
+    unlimited: false,
+  });
+  assertPaidBalanceState(db, service, ownerEmail, { availableUnits: 500, heldUnits: 1000 });
+  assert.deepEqual(db.prepare(`
+    SELECT delta_available, delta_held, balance_available, balance_held
+    FROM wallet_ledger WHERE idempotency_key = ?
+  `).get('grant-reconcile-new-grant'), {
+    delta_available: 500,
+    delta_held: 0,
+    balance_available: 500,
+    balance_held: 1000,
+  });
+  assert.deepEqual(db.prepare(`
+    SELECT delta_available, delta_held, balance_available, balance_held
+    FROM wallet_ledger WHERE event_type = 'expire'
+  `).get(), {
+    delta_available: -1000,
+    delta_held: 0,
+    balance_available: 0,
+    balance_held: 1000,
+  });
+});
+
+test('paid settlement reconciles an expired unreserved remainder before consuming held units', t => {
+  const ownerEmail = 'settle-reconcile@example.com';
+  const { db, service } = createTestService(() => false, { now: () => TEST_NOW_MS });
+  t.after(() => db.close());
+  const { hold } = createPartiallyReservedExpiredLot(
+    db,
+    service,
+    ownerEmail,
+    'settle-reconcile',
+  );
+
+  const result = service.settleItem(hold.id, 'one', {
+    referenceId: 'settle-reconcile-asset',
+    providerCostCny: 0.038,
+    idempotencyKey: 'settle-reconcile-item',
+  });
+
+  assert.deepEqual(result.balance, {
+    availableUnits: 0,
+    heldUnits: 0,
+    unlimited: false,
+  });
+  assertPaidBalanceState(db, service, ownerEmail, { availableUnits: 0, heldUnits: 0 });
+  assert.deepEqual(db.prepare(`
+    SELECT delta_available, delta_held, balance_available, balance_held
+    FROM wallet_ledger WHERE idempotency_key = ?
+  `).get('settle-reconcile-item'), {
+    delta_available: 0,
+    delta_held: -1000,
+    balance_available: 0,
+    balance_held: 0,
+  });
+  assert.deepEqual(db.prepare(`
+    SELECT balance_available, balance_held
+    FROM wallet_ledger WHERE event_type = 'expire'
+  `).get(), { balance_available: 0, balance_held: 1000 });
+});
+
+test('paid release reconciles expiry and does not resurrect an expired reserved allocation', t => {
+  const ownerEmail = 'release-reconcile@example.com';
+  const { db, service } = createTestService(() => false, { now: () => TEST_NOW_MS });
+  t.after(() => db.close());
+  const { hold } = createPartiallyReservedExpiredLot(
+    db,
+    service,
+    ownerEmail,
+    'release-reconcile',
+  );
+
+  const result = service.releaseItem(hold.id, 'one', {
+    reason: 'provider_failed',
+    idempotencyKey: 'release-reconcile-item',
+  });
+
+  assert.equal(result.restoredUnits, 0);
+  assert.equal(result.expiredUnits, 1000);
+  assert.deepEqual(result.balance, {
+    availableUnits: 0,
+    heldUnits: 0,
+    unlimited: false,
+  });
+  assertPaidBalanceState(db, service, ownerEmail, { availableUnits: 0, heldUnits: 0 });
+  assert.deepEqual(db.prepare(`
+    SELECT delta_available, delta_held, balance_available, balance_held
+    FROM wallet_ledger WHERE idempotency_key = ?
+  `).get('release-reconcile-item'), {
+    delta_available: 0,
+    delta_held: -1000,
+    balance_available: 0,
+    balance_held: 0,
+  });
+});
+
+test('paid releaseRemainder reconciles expiry and does not resurrect expired allocations', t => {
+  const ownerEmail = 'remainder-reconcile@example.com';
+  const { db, service } = createTestService(() => false, { now: () => TEST_NOW_MS });
+  t.after(() => db.close());
+  const { hold } = createPartiallyReservedExpiredLot(
+    db,
+    service,
+    ownerEmail,
+    'remainder-reconcile',
+  );
+
+  const result = service.releaseRemainder(hold.id, {
+    reason: 'job_finished',
+    idempotencyKey: 'remainder-reconcile-release',
+  });
+
+  assert.equal(result.restoredUnits, 0);
+  assert.equal(result.expiredUnits, 1000);
+  assert.deepEqual(result.balance, {
+    availableUnits: 0,
+    heldUnits: 0,
+    unlimited: false,
+  });
+  assertPaidBalanceState(db, service, ownerEmail, { availableUnits: 0, heldUnits: 0 });
+  assert.deepEqual(db.prepare(`
+    SELECT delta_available, delta_held, balance_available, balance_held
+    FROM wallet_ledger WHERE idempotency_key = ?
+  `).get('remainder-reconcile-release'), {
+    delta_available: 0,
+    delta_held: -1000,
+    balance_available: 0,
+    balance_held: 0,
+  });
+});
+
+test('grant rechecks a critical expiry after acquiring its transaction write lock', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'billing-grant-expiry-lock-'));
+  const databasePath = join(directory, 'billing.db');
+  const dbOne = new Database(databasePath, { timeout: 25 });
+  ensureBillingSchema(dbOne);
+  const dbTwo = new Database(databasePath, { timeout: 25 });
+  ensureBillingSchema(dbTwo);
+  const beforeExpiry = Date.parse('2100-01-01T00:00:00.000Z');
+  const afterExpiry = Date.parse('2100-01-01T00:00:02.000Z');
+  let nowCalls = 0;
+  const service = createWalletService(dbOne, {
+    isUnlimited: () => false,
+    now: () => {
+      nowCalls += 1;
+      if (nowCalls === 1) return beforeExpiry;
+      assert.equal(dbOne.inTransaction, true);
+      assert.throws(() => dbTwo.prepare(`
+        INSERT INTO wallets (owner_email, currency) VALUES (?, ?)
+      `).run('grant-lock-probe@example.com', 'ec_points'), error => {
+        assert.equal(error.code, 'SQLITE_BUSY');
+        return true;
+      });
+      return afterExpiry;
+    },
+  });
+  t.after(() => {
+    dbOne.close();
+    dbTwo.close();
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  assert.throws(() => service.grant({
+    ownerEmail: 'critical-expiry@example.com',
+    currency: 'ec_points',
+    units: 1000,
+    idempotencyKey: 'critical-expiry-grant',
+    expiresAt: '2100-01-01T00:00:01.000Z',
+  }), /expiresAt.*future/i);
+
+  assert.equal(nowCalls, 2);
+  assert.equal(dbOne.prepare('SELECT COUNT(*) AS count FROM wallets').get().count, 0);
+  assert.equal(dbOne.prepare('SELECT COUNT(*) AS count FROM credit_lots').get().count, 0);
+  assert.equal(dbOne.prepare('SELECT COUNT(*) AS count FROM wallet_ledger').get().count, 0);
+});
+
 test('releaseRemainder releases every pending item once and closes the hold', t => {
   const { db, service } = createTestService();
   t.after(() => db.close());
@@ -646,6 +879,16 @@ test('releaseRemainder releases every pending item once and closes the hold', t 
     () => service.releaseRemainder(hold.id, { ...input, reason: 'different_reason' }),
     /idempotency.*conflict/i,
   );
+  assert.throws(
+    () => service.releaseRemainder(hold.id, {
+      reason: input.reason,
+      idempotencyKey: 'release-remainder-terminal-alias',
+    }),
+    error => {
+      assert.equal(error.code, 'BILLING_IDEMPOTENCY_CONFLICT');
+      return true;
+    },
+  );
 
   assert.deepEqual(result.releasedItemKeys, ['failed', 'cancelled']);
   assert.equal(result.releasedUnits, 2000);
@@ -670,6 +913,98 @@ test('releaseRemainder releases every pending item once and closes the hold', t 
     db.prepare("SELECT COUNT(*) AS count FROM wallet_ledger WHERE event_type = 'release_remainder'").get().count,
     1,
   );
+});
+
+test('external callers cannot preempt the internal expiry idempotency namespace', t => {
+  const ownerEmail = 'internal-key-attack@example.com';
+  const { db, service } = createTestService(() => false, { now: () => TEST_NOW_MS });
+  t.after(() => db.close());
+
+  const grant = service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 5000,
+    idempotencyKey: 'internal-key-normal-grant',
+    expiresAt: TEST_FUTURE_EXPIRY,
+  });
+  const expiryKey = `${INTERNAL_IDEMPOTENCY_PREFIX}expire:${ownerEmail}:ec_points:${grant.creditLotId}`;
+  const assertReserved = callback => assert.throws(callback, /idempotencyKey.*reserved/i);
+
+  assertReserved(() => service.grant({
+    ownerEmail,
+    currency: 'ec_points',
+    units: 1,
+    idempotencyKey: expiryKey,
+  }));
+  assertReserved(() => service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'internal-key-rejected-quote',
+    idempotencyKey: `${INTERNAL_IDEMPOTENCY_PREFIX}hold:attack`,
+    items: [{ key: 'one', sku: 'ec_image_2k', units: 1 }],
+  }));
+
+  const settleHold = service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'internal-key-settle-quote',
+    idempotencyKey: 'internal-key-settle-hold',
+    items: [{ key: 'one', sku: 'ec_image_2k', units: 1000 }],
+  });
+  const releaseHold = service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'internal-key-release-quote',
+    idempotencyKey: 'internal-key-release-hold',
+    items: [{ key: 'one', sku: 'ec_image_2k', units: 1000 }],
+  });
+  const remainderHold = service.createHold({
+    ownerEmail,
+    currency: 'ec_points',
+    quoteId: 'internal-key-remainder-quote',
+    idempotencyKey: 'internal-key-remainder-hold',
+    items: [{ key: 'one', sku: 'ec_image_2k', units: 1000 }],
+  });
+
+  assertReserved(() => service.settleItem(settleHold.id, 'one', {
+    referenceId: 'internal-key-rejected-settle',
+    providerCostCny: 0.038,
+    idempotencyKey: `${INTERNAL_IDEMPOTENCY_PREFIX}settle:attack`,
+  }));
+  assertReserved(() => service.releaseItem(releaseHold.id, 'one', {
+    reason: 'provider_failed',
+    idempotencyKey: `${INTERNAL_IDEMPOTENCY_PREFIX}release:attack`,
+  }));
+  assertReserved(() => service.releaseRemainder(remainderHold.id, {
+    reason: 'job_finished',
+    idempotencyKey: `${INTERNAL_IDEMPOTENCY_PREFIX}remainder:attack`,
+  }));
+  assert.equal(
+    db.prepare('SELECT COUNT(*) AS count FROM wallet_ledger WHERE idempotency_key = ?')
+      .get(expiryKey).count,
+    0,
+  );
+
+  db.prepare('UPDATE credit_lots SET expires_at = ? WHERE id = ?').run(
+    TEST_EXPIRED_AT,
+    grant.creditLotId,
+  );
+  service.settleItem(settleHold.id, 'one', {
+    referenceId: 'internal-key-normal-settle',
+    providerCostCny: 0.038,
+    idempotencyKey: 'internal-key-normal-settle',
+  });
+
+  assert.deepEqual(db.prepare(`
+    SELECT event_type, idempotency_key, delta_available, balance_available, balance_held
+    FROM wallet_ledger WHERE event_type = 'expire'
+  `).get(), {
+    event_type: 'expire',
+    idempotency_key: expiryKey,
+    delta_available: -2000,
+    balance_available: 0,
+    balance_held: 3000,
+  });
 });
 
 test('unlimited accounts keep zero balances and record shadow usage with real cost', t => {

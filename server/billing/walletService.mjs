@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 const INTERNAL_METADATA_KEY = '_walletService';
 const INTERNAL_METADATA_VERSION = 1;
+const INTERNAL_IDEMPOTENCY_PREFIX = '__wallet_internal__:';
 const DEFAULT_HOLD_DURATION_MS = 60 * 60 * 1000;
 const KNOWN_OPERATIONS = new Set([
   'grant',
@@ -167,14 +168,22 @@ function normalizeOptionalDate(value, label) {
 function normalizeOptionalIdempotencyKey(value, fallback) {
   return value === undefined
     ? fallback
-    : nonEmptyString(value, 'idempotencyKey');
+    : externalIdempotencyKey(value);
 }
 
-function normalizeGrantInput(input = {}) {
+function externalIdempotencyKey(value) {
+  const normalized = nonEmptyString(value, 'idempotencyKey');
+  if (normalized.startsWith(INTERNAL_IDEMPOTENCY_PREFIX)) {
+    throw new TypeError('idempotencyKey uses a reserved internal prefix');
+  }
+  return normalized;
+}
+
+function normalizeGrantInput(input = {}, validationNowMs = Date.now()) {
   const ownerEmail = nonEmptyString(input.ownerEmail, 'ownerEmail');
   const currency = nonEmptyString(input.currency, 'currency');
   const units = positiveSafeInteger(input.units);
-  const idempotencyKey = nonEmptyString(input.idempotencyKey, 'idempotencyKey');
+  const idempotencyKey = externalIdempotencyKey(input.idempotencyKey);
   const sourceType = input.sourceType === undefined
     ? 'grant'
     : nonEmptyString(input.sourceType, 'sourceType');
@@ -182,9 +191,6 @@ function normalizeGrantInput(input = {}) {
     ? idempotencyKey
     : nonEmptyString(input.sourceId, 'sourceId');
   const expiresAt = normalizeOptionalDate(input.expiresAt, 'expiresAt');
-  if (expiresAt !== null && Date.parse(expiresAt) <= Date.now()) {
-    throw new TypeError('expiresAt must be in the future');
-  }
   const metadata = jsonValue(input.metadata);
   const refundable = input.refundable === undefined ? false : input.refundable;
   if (typeof refundable !== 'boolean') {
@@ -202,14 +208,18 @@ function normalizeGrantInput(input = {}) {
     expiresAt,
     metadata,
   };
-  return { ...operationInput, fingerprint: fingerprint(operationInput) };
+  return {
+    ...operationInput,
+    validationNowMs,
+    fingerprint: fingerprint(operationInput),
+  };
 }
 
 function normalizeHoldInput(input = {}) {
   const ownerEmail = nonEmptyString(input.ownerEmail, 'ownerEmail');
   const currency = nonEmptyString(input.currency, 'currency');
   const quoteId = nonEmptyString(input.quoteId, 'quoteId');
-  const idempotencyKey = nonEmptyString(input.idempotencyKey, 'idempotencyKey');
+  const idempotencyKey = externalIdempotencyKey(input.idempotencyKey);
   const expiresAt = normalizeOptionalDate(input.expiresAt, 'expiresAt');
   const metadata = jsonValue(input.metadata);
   if (!Array.isArray(input.items) || input.items.length === 0) {
@@ -344,12 +354,34 @@ function insufficientCredits(currency, required, available) {
   return error;
 }
 
-export function createWalletService(db, { isUnlimited = () => false } = {}) {
+export function createWalletService(db, { isUnlimited = () => false, now = Date.now } = {}) {
   if (!db || typeof db.prepare !== 'function' || typeof db.transaction !== 'function') {
     throw new TypeError('db must be a better-sqlite3 database');
   }
   if (typeof isUnlimited !== 'function') {
     throw new TypeError('isUnlimited must be a function');
+  }
+  if (typeof now !== 'function') {
+    throw new TypeError('now must be a function');
+  }
+
+  function currentTimeMs() {
+    const value = now();
+    const timestamp = value instanceof Date ? value.getTime() : value;
+    if (!Number.isFinite(timestamp)) {
+      throw new TypeError('now must return a finite timestamp');
+    }
+    return timestamp;
+  }
+
+  function currentTimeIso() {
+    return new Date(currentTimeMs()).toISOString();
+  }
+
+  function assertFutureExpiry(expiresAt, nowMs) {
+    if (expiresAt !== null && Date.parse(expiresAt) <= nowMs) {
+      throw new TypeError('expiresAt must be in the future');
+    }
   }
 
   const statements = {
@@ -621,7 +653,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       balance.heldUnits,
       'credit_lot_expiry',
       referenceId,
-      `expire:${ownerEmail}:${currency}:${referenceId}`,
+      `${INTERNAL_IDEMPOTENCY_PREFIX}expire:${ownerEmail}:${currency}:${referenceId}`,
       storedLedgerMetadata(
         'expire',
         operationFingerprint,
@@ -723,8 +755,19 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     const existing = existingMutation(input.idempotencyKey, 'grant', input.fingerprint);
     if (existing.found) return existing.result;
 
-    const wallet = ensureWallet(input.ownerEmail, input.currency);
+    assertFutureExpiry(input.expiresAt, input.validationNowMs);
+    let wallet = ensureWallet(input.ownerEmail, input.currency);
+    const mutationNowMs = currentTimeMs();
+    assertFutureExpiry(input.expiresAt, mutationNowMs);
     const unlimited = Boolean(isUnlimited(input.ownerEmail));
+    if (!unlimited) {
+      wallet = reconcileExpiredLots(
+        input.ownerEmail,
+        input.currency,
+        wallet,
+        new Date(mutationNowMs).toISOString(),
+      );
+    }
     let availableUnits = wallet.available_units;
     const heldUnits = wallet.held_units;
     if (!unlimited) {
@@ -788,7 +831,8 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     let wallet = ensureWallet(input.ownerEmail, input.currency);
     const accountingMode = Boolean(isUnlimited(input.ownerEmail)) ? 'unlimited' : 'paid';
     const unlimited = accountingMode === 'unlimited';
-    const nowIso = new Date().toISOString();
+    const mutationNowMs = currentTimeMs();
+    const nowIso = new Date(mutationNowMs).toISOString();
     if (!unlimited) {
       wallet = reconcileExpiredLots(input.ownerEmail, input.currency, wallet, nowIso);
     }
@@ -822,7 +866,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     }
 
     const expiresAt = input.expiresAt
-      ?? new Date(Date.now() + DEFAULT_HOLD_DURATION_MS).toISOString();
+      ?? new Date(mutationNowMs + DEFAULT_HOLD_DURATION_MS).toISOString();
     statements.insertHold.run(
       holdId,
       input.ownerEmail,
@@ -893,8 +937,16 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
 
     const accounting = loadHoldAccounting(hold);
     allocationForItem(accounting, item);
-    const wallet = ensureWallet(hold.owner_email, hold.currency);
+    let wallet = ensureWallet(hold.owner_email, hold.currency);
     const unlimited = accounting.accountingMode === 'unlimited';
+    if (!unlimited) {
+      wallet = reconcileExpiredLots(
+        hold.owner_email,
+        hold.currency,
+        wallet,
+        currentTimeIso(),
+      );
+    }
     let heldUnits = wallet.held_units;
     if (!unlimited) {
       if (heldUnits < item.units) {
@@ -986,8 +1038,17 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     }
 
     const accounting = loadHoldAccounting(hold);
-    const wallet = ensureWallet(hold.owner_email, hold.currency);
+    let wallet = ensureWallet(hold.owner_email, hold.currency);
     const unlimited = accounting.accountingMode === 'unlimited';
+    const nowIso = currentTimeIso();
+    if (!unlimited) {
+      wallet = reconcileExpiredLots(
+        hold.owner_email,
+        hold.currency,
+        wallet,
+        nowIso,
+      );
+    }
     let restoredUnits = 0;
     let expiredUnits = 0;
     if (unlimited) {
@@ -996,7 +1057,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       ({ restoredUnits, expiredUnits } = restoreItemAllocation(
         accounting,
         item,
-        new Date().toISOString(),
+        nowIso,
       ));
     }
     let availableUnits = wallet.available_units;
@@ -1076,11 +1137,24 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
     const pendingItems = statements.selectHoldItems
       .all(input.holdId)
       .filter(item => item.status === 'pending');
+    if (pendingItems.length === 0) {
+      throw idempotencyConflict(input.idempotencyKey);
+    }
     const accounting = loadHoldAccounting(hold);
+    const unlimited = accounting.accountingMode === 'unlimited';
+    const nowIso = currentTimeIso();
+    let wallet = ensureWallet(hold.owner_email, hold.currency);
+    if (!unlimited) {
+      wallet = reconcileExpiredLots(
+        hold.owner_email,
+        hold.currency,
+        wallet,
+        nowIso,
+      );
+    }
     let releasedNow = 0;
     let restoredNow = 0;
     let expiredNow = 0;
-    const nowIso = new Date().toISOString();
     for (const item of pendingItems) {
       releasedNow = checkedAdd(releasedNow, item.units, 'released remainder units');
       if (accounting.accountingMode === 'paid') {
@@ -1092,8 +1166,6 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       }
     }
 
-    const wallet = ensureWallet(hold.owner_email, hold.currency);
-    const unlimited = accounting.accountingMode === 'unlimited';
     let availableUnits = wallet.available_units;
     let heldUnits = wallet.held_units;
     if (!unlimited && releasedNow > 0) {
@@ -1160,7 +1232,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
 
   return {
     grant(input) {
-      return grantTx(normalizeGrantInput(input));
+      return grantTx(normalizeGrantInput(input, currentTimeMs()));
     },
 
     getBalance(ownerEmail, currency) {
@@ -1170,7 +1242,7 @@ export function createWalletService(db, { isUnlimited = () => false } = {}) {
       const wallet = statements.selectWallet.get(normalizedOwnerEmail, normalizedCurrency);
       if (unlimited || !wallet) return balanceResult(wallet, unlimited);
       const expiredUnits = statements.sumExpiredLots
-        .get(normalizedOwnerEmail, normalizedCurrency, new Date().toISOString()).units;
+        .get(normalizedOwnerEmail, normalizedCurrency, currentTimeIso()).units;
       return balanceResult({
         ...wallet,
         available_units: Math.max(0, wallet.available_units - expiredUnits),
