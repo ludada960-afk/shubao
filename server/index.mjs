@@ -25,6 +25,8 @@ import Stripe from 'stripe';
 import { initDB, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
 import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
 import { createWalletService } from './billing/walletService.mjs';
+import { createPaymentService } from './billing/paymentService.mjs';
+import { mountBillingRoutes } from './billing/routes.mjs';
 import { createContentEntitlements } from './billing/contentEntitlements.mjs';
 import {
   authenticateContentRequest,
@@ -71,6 +73,7 @@ const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SEC
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
 const db = initDB();
 const walletService = createWalletService(db, { isUnlimited: isUnlimitedBetaEmail });
+const paymentService = createPaymentService(db, walletService);
 const contentEntitlements = createContentEntitlements(db, walletService);
 let authSessionSecret = process.env.AUTH_SESSION_SECRET;
 if (!authSessionSecret) {
@@ -265,6 +268,17 @@ function deductCredit(email) {
   if (isUnlimitedBetaEmail(email)) return;
   consumeUserCredit(email, 1);
 }
+
+mountBillingRoutes(app, {
+  walletService,
+  paymentService,
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: requireBetaEmail,
+    });
+  },
+});
 
 function sendContentInputError(res) {
   const error = new Error('请输入内容');

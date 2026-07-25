@@ -6,12 +6,32 @@ import Database from 'better-sqlite3';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { ensureBillingSchema } from './billing/schema.mjs';
+import { createWalletService } from './billing/walletService.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = resolve(__dirname, 'works.db');
 
 let db;
 let activeDbPath;
+
+function migrateLegacyUserCredits(database) {
+  const walletService = createWalletService(database);
+  const rows = database.prepare('SELECT email, credits FROM users WHERE credits > 0').all();
+  for (const row of rows) {
+    const ownerEmail = String(row.email || '').trim().toLowerCase();
+    const units = Number(row.credits);
+    if (!ownerEmail || !Number.isSafeInteger(units) || units <= 0) continue;
+    walletService.grant({
+      ownerEmail,
+      currency: 'content_sets',
+      units,
+      idempotencyKey: `legacy-content-credit:${ownerEmail}`,
+      sourceType: 'legacy_users_credits',
+      sourceId: ownerEmail,
+      metadata: { legacyCredits: units },
+    });
+  }
+}
 
 export function initDB(dbPath = DB_PATH) {
   if (db && activeDbPath === dbPath) return db;
@@ -82,6 +102,7 @@ export function initDB(dbPath = DB_PATH) {
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
   ensureBillingSchema(db);
+  migrateLegacyUserCredits(db);
 
   console.log('  → SQLite 数据库就绪:', dbPath);
   return db;
