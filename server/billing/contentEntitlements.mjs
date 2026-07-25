@@ -3,6 +3,7 @@ const CONTENT_ITEM_KEY = 'content-set';
 const CONTENT_ITEM_SKU = 'content_full_set';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PERMANENT_EXPIRY = '9999-12-31T23:59:59.999Z';
+const GENERATED_ASSET_URL_RE = /^\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))$/;
 
 function codedError(code, message = code) {
   const error = new Error(message);
@@ -104,25 +105,37 @@ function hasCopy(result) {
     && result.copyLines.some(line => typeof line === 'string' && line.trim() !== '');
 }
 
-function stableAssetUrl(value) {
-  const prefix = '/api/generated-assets/';
-  return typeof value === 'string'
-    && value === value.trim()
-    && value.startsWith(prefix)
-    && value.length > prefix.length;
+function generatedAssetId(value) {
+  if (typeof value !== 'string') return null;
+  return GENERATED_ASSET_URL_RE.exec(value)?.[1] ?? null;
 }
 
 export function isCompleteContentDelivery(result) {
   if (!isPlainObject(result)
-    || !stableAssetUrl(result.cover_url)
+    || !generatedAssetId(result.cover_url)
     || !Array.isArray(result.image_urls)) {
     return false;
   }
   const urls = [result.cover_url, ...result.image_urls];
+  const assetIds = urls.map(generatedAssetId);
   return hasCopy(result)
     && urls.length === 9
-    && urls.every(stableAssetUrl)
-    && new Set(urls).size === urls.length;
+    && assetIds.every(Boolean)
+    && new Set(assetIds).size === assetIds.length;
+}
+
+export function isAcceptablePartialContentDelivery(result) {
+  if (!isPlainObject(result) || !hasCopy(result)) return false;
+  const urls = [];
+  if (Object.hasOwn(result, 'cover_url')) urls.push(result.cover_url);
+  if (Object.hasOwn(result, 'image_urls')) {
+    if (!Array.isArray(result.image_urls)) return false;
+    urls.push(...result.image_urls);
+  }
+  const assetIds = urls.map(generatedAssetId);
+  return assetIds.length > 0
+    && assetIds.every(Boolean)
+    && new Set(assetIds).size === assetIds.length;
 }
 
 function catalogSourceError(reason) {
@@ -457,6 +470,12 @@ export function createContentEntitlements(db, walletService) {
       throw codedError(
         'CONTENT_SET_STATE_INVALID',
         `Content set cannot complete from ${context.item.status}`,
+      );
+    }
+    if (acceptedPartial && !isAcceptablePartialContentDelivery(result)) {
+      throw codedError(
+        'CONTENT_PARTIAL_DELIVERY_INVALID',
+        'Accepted partial delivery requires unique stable assets and non-blank copy',
       );
     }
     if (!acceptedPartial && !isCompleteContentDelivery(result)) {

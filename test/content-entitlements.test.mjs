@@ -49,13 +49,21 @@ function purchaseEntryPlan(paymentService, ownerEmail = OWNER, suffix = 'default
   return order;
 }
 
+function assetId(index, extension = 'png') {
+  return `${index.toString(16).padStart(64, '0')}.${extension}`;
+}
+
+function assetUrl(index, extension = 'png') {
+  return `/api/generated-assets/${assetId(index, extension)}`;
+}
+
 function delivery(totalImages = 9, text = { title: 'A durable content set' }) {
   return {
     ...text,
-    cover_url: '/api/generated-assets/cover.png',
+    cover_url: assetUrl(0),
     image_urls: Array.from(
       { length: Math.max(0, totalImages - 1) },
-      (_, index) => `/api/generated-assets/image-${index + 1}.png`,
+      (_, index) => assetUrl(index + 1),
     ),
   };
 }
@@ -102,6 +110,28 @@ function readEntitlement(db, workId = 'work-1') {
   return { ...row, plan_snapshot: JSON.parse(row.plan_snapshot) };
 }
 
+function readSetMutationState(harness, holdId, workId) {
+  return {
+    hold: harness.db.prepare(`
+      SELECT status, settled_units, released_units
+      FROM billing_holds WHERE id = ?
+    `).get(holdId),
+    item: harness.db.prepare(`
+      SELECT status, reference_id
+      FROM billing_hold_items WHERE hold_id = ? AND item_key = 'content-set'
+    `).get(holdId),
+    ledger: harness.db.prepare(`
+      SELECT event_type, delta_available, delta_held, reference_type,
+             reference_id, idempotency_key
+      FROM wallet_ledger
+      ORDER BY rowid
+    `).all(),
+    usage: harness.db.prepare('SELECT COUNT(*) AS count FROM usage_events').get().count,
+    entitlement: readEntitlement(harness.db, workId),
+    balance: harness.walletService.getBalance(OWNER, 'content_sets'),
+  };
+}
+
 test('complete delivery requires unique stable cover plus images and non-blank copy', () => {
   assert.equal(isCompleteContentDelivery(delivery()), true);
   assert.equal(isCompleteContentDelivery(delivery(8)), false);
@@ -129,6 +159,67 @@ test('complete delivery requires unique stable cover plus images and non-blank c
   const blankUrl = delivery();
   blankUrl.image_urls[2] = '   ';
   assert.equal(isCompleteContentDelivery(blankUrl), false);
+
+  const queryAlias = delivery();
+  queryAlias.image_urls[0] = `${queryAlias.cover_url}?cache=other`;
+  assert.equal(isCompleteContentDelivery(queryAlias), false);
+
+  const hashFragment = delivery();
+  hashFragment.image_urls[0] = `${assetUrl(1)}#fragment`;
+  assert.equal(isCompleteContentDelivery(hashFragment), false);
+
+  const uppercaseHash = delivery();
+  uppercaseHash.image_urls[0] = `/api/generated-assets/${'A'.repeat(64)}.png`;
+  assert.equal(isCompleteContentDelivery(uppercaseHash), false);
+
+  const encodedHash = delivery();
+  encodedHash.image_urls[0] = `/api/generated-assets/%61${'a'.repeat(63)}.png`;
+  assert.equal(isCompleteContentDelivery(encodedHash), false);
+
+  const fakePath = delivery();
+  fakePath.image_urls[0] = `${assetUrl(1)}/extra.png`;
+  assert.equal(isCompleteContentDelivery(fakePath), false);
+});
+
+test('invalid or duplicate generated asset ids never auto-settle a complete result', t => {
+  const cases = [
+    ['same hash with query', result => {
+      result.image_urls[0] = `${result.cover_url}?version=2`;
+    }],
+    ['uppercase hash', result => {
+      result.image_urls[0] = `/api/generated-assets/${'A'.repeat(64)}.png`;
+    }],
+    ['encoded hash', result => {
+      result.image_urls[0] = `/api/generated-assets/%61${'a'.repeat(63)}.png`;
+    }],
+    ['extra path', result => {
+      result.image_urls[0] = `${assetUrl(1)}/preview`;
+    }],
+    ['duplicate asset id', result => {
+      result.image_urls[0] = result.cover_url;
+    }],
+  ];
+
+  for (const [index, [label, mutate]] of cases.entries()) {
+    const harness = createHarness();
+    t.after(() => harness.db.close());
+    const generationId = `generation-invalid-asset-${index}`;
+    const workId = `work-invalid-asset-${index}`;
+    const hold = holdPaidSet(harness, { generationId, workId });
+    const result = delivery();
+    mutate(result);
+
+    assert.equal(harness.service.completeSet({
+      ownerEmail: OWNER,
+      generationId,
+      workId,
+      result,
+    }).status, 'needs_review', label);
+    assert.equal(harness.db.prepare('SELECT status FROM billing_hold_items WHERE hold_id = ?')
+      .get(hold.id).status, 'pending', label);
+    assert.equal(harness.db.prepare('SELECT COUNT(*) AS count FROM usage_events').get().count, 0, label);
+    assert.equal(readEntitlement(harness.db, workId), null, label);
+  }
 });
 
 test('holdSet reserves one content set idempotently and stores only server context', t => {
@@ -265,6 +356,72 @@ test('eight images remain pending until acceptPartial explicitly settles the set
     heldUnits: 0,
     unlimited: false,
   });
+});
+
+test('acceptPartial settles one valid stable asset with copy and creates normal regeneration rights', t => {
+  const harness = createHarness();
+  t.after(() => harness.db.close());
+  const hold = holdPaidSet(harness, {
+    generationId: 'generation-one-image-partial',
+    workId: 'work-one-image-partial',
+  });
+
+  const accepted = harness.service.acceptPartial({
+    ownerEmail: OWNER,
+    generationId: 'generation-one-image-partial',
+    workId: 'work-one-image-partial',
+    result: delivery(1),
+  });
+
+  assert.equal(accepted.status, 'settled');
+  assert.equal(harness.db.prepare('SELECT status FROM billing_hold_items WHERE hold_id = ?')
+    .get(hold.id).status, 'settled');
+  assert.equal(harness.db.prepare('SELECT COUNT(*) AS count FROM usage_events').get().count, 1);
+  const entitlement = readEntitlement(harness.db, 'work-one-image-partial');
+  assert.equal(entitlement.included_count, 5);
+  assert.equal(entitlement.plan_snapshot.acceptedPartial, true);
+});
+
+test('invalid partial delivery is rejected atomically without changing billing state', t => {
+  const cases = [
+    ['missing result', undefined],
+    ['empty object', {}],
+    ['blank copy', { title: '  ', cover_url: assetUrl(1) }],
+    ['zero images', { title: 'usable copy', image_urls: [] }],
+    ['malformed image list', { title: 'usable copy', image_urls: assetUrl(1) }],
+    ['invalid provided url', {
+      title: 'usable copy',
+      cover_url: assetUrl(1),
+      image_urls: ['http://temporary.example/image.png'],
+    }],
+    ['duplicate asset id', {
+      title: 'usable copy',
+      cover_url: assetUrl(1),
+      image_urls: [assetUrl(1)],
+    }],
+    ['query alias', {
+      title: 'usable copy',
+      cover_url: assetUrl(1),
+      image_urls: [`${assetUrl(2)}?version=2`],
+    }],
+  ];
+
+  for (const [index, [label, result]] of cases.entries()) {
+    const harness = createHarness();
+    t.after(() => harness.db.close());
+    const generationId = `generation-invalid-partial-${index}`;
+    const workId = `work-invalid-partial-${index}`;
+    const hold = holdPaidSet(harness, { generationId, workId });
+    const before = readSetMutationState(harness, hold.id, workId);
+
+    assert.throws(() => harness.service.acceptPartial({
+      ownerEmail: OWNER,
+      generationId,
+      workId,
+      result,
+    }), error => error.code === 'CONTENT_PARTIAL_DELIVERY_INVALID', label);
+    assert.deepEqual(readSetMutationState(harness, hold.id, workId), before, label);
+  }
 });
 
 test('failSet releases a pending set idempotently and rejects settlement afterward', t => {
