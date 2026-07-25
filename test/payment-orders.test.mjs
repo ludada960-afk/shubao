@@ -343,12 +343,13 @@ test('settlement uses the persisted billing catalog snapshot rather than mutable
     validityDays: 30,
     regenPerWork: 5,
   });
+  const retiredSnapshot = { ...snapshot, sku: 'retired_xhs_entry_19' };
   db.prepare(`
-    UPDATE billing_catalog SET sku = 'retired_xhs_entry_19' WHERE sku = ? AND version = 1
-  `).run('xhs_entry_19');
+    UPDATE billing_catalog SET sku = 'retired_xhs_entry_19', payload = ? WHERE sku = ? AND version = 1
+  `).run(JSON.stringify(retiredSnapshot), 'xhs_entry_19');
   db.prepare(`
     UPDATE payment_orders
-    SET product_sku = 'retired_xhs_entry_19', amount_cny = 1, grant_currency = 'tampered', grant_units = 999999
+    SET product_sku = 'retired_xhs_entry_19'
     WHERE id = ?
   `).run(order.id);
   assert.throws(() => getProduct('retired_xhs_entry_19'), /Unknown product SKU/);
@@ -365,6 +366,114 @@ test('settlement uses the persisted billing catalog snapshot rather than mutable
     granted_units: 3,
     expires_at: new Date(Date.parse(order.createdAt) + 30 * 24 * 60 * 60 * 1000).toISOString(),
   });
+});
+
+test('creates a new immutable catalog version when a SKU payload changes and settles each order from its version', t => {
+  const { db, service } = createHarness();
+  t.after(() => db.close());
+  const oldProduct = {
+    sku: 'ec_starter_29',
+    priceFen: 100,
+    currency: 'ec_points',
+    grantUnits: 1000,
+    validityDays: null,
+  };
+  db.prepare(`
+    INSERT INTO billing_catalog (sku, version, payload, enabled, effective_at)
+    VALUES (?, 1, ?, 1, ?)
+  `).run(oldProduct.sku, JSON.stringify(oldProduct), '2026-01-01T00:00:00.000Z');
+  db.prepare(`
+    INSERT INTO payment_orders (
+      id, owner_email, product_sku, catalog_version, amount_cny, grant_currency,
+      grant_units, provider, provider_order_id, status, idempotency_key, created_at, updated_at
+    ) VALUES (?, ?, ?, 1, ?, ?, ?, 'stripe', 'remote-old-catalog', 'pending', ?, ?, ?)
+  `).run(
+    'old-catalog-order',
+    'old-catalog@example.com',
+    oldProduct.sku,
+    oldProduct.priceFen,
+    oldProduct.currency,
+    oldProduct.grantUnits,
+    'old-catalog-order-key',
+    '2026-01-01T00:00:00.000Z',
+    '2026-01-01T00:00:00.000Z',
+  );
+
+  const currentOrder = service.createOrder({
+    ownerEmail: 'current-catalog@example.com',
+    productSku: 'ec_starter_29',
+    provider: 'stripe',
+    idempotencyKey: 'current-catalog-order-key',
+  });
+  assert.notEqual(currentOrder.catalogVersion, 1);
+  assert.deepEqual({
+    amountCny: currentOrder.amountCny,
+    grantCurrency: currentOrder.grantCurrency,
+    grantUnits: currentOrder.grantUnits,
+  }, {
+    amountCny: 2900,
+    grantCurrency: 'ec_points',
+    grantUnits: 105000,
+  });
+  const samePayloadOrder = service.createOrder({
+    ownerEmail: 'same-current-catalog@example.com',
+    productSku: 'ec_starter_29',
+    provider: 'stripe',
+    idempotencyKey: 'same-current-catalog-order-key',
+  });
+  assert.equal(samePayloadOrder.catalogVersion, currentOrder.catalogVersion);
+  assert.deepEqual(db.prepare(`
+    SELECT version, payload FROM billing_catalog WHERE sku = ? ORDER BY version
+  `).all('ec_starter_29').map(row => ({ ...row, payload: JSON.parse(row.payload) })), [
+    { version: 1, payload: oldProduct },
+    {
+      version: currentOrder.catalogVersion,
+      payload: {
+        sku: 'ec_starter_29',
+        priceFen: 2900,
+        currency: 'ec_points',
+        grantUnits: 105000,
+        validityDays: null,
+      },
+    },
+  ]);
+
+  service.applyProviderEvent('stripe', {
+    eventId: 'evt-old-catalog', providerOrderId: 'remote-old-catalog', status: 'paid',
+  });
+  service.applyProviderEvent('stripe', {
+    eventId: 'evt-current-catalog', providerOrderId: currentOrder.providerOrderId, status: 'paid',
+  });
+  assert.deepEqual(db.prepare(`
+    SELECT owner_email, granted_units FROM credit_lots ORDER BY owner_email
+  `).all(), [
+    { owner_email: 'current-catalog@example.com', granted_units: 105000 },
+    { owner_email: 'old-catalog@example.com', granted_units: 1000 },
+  ]);
+});
+
+test('rejects missing or mismatched order snapshots with a coded integrity error and rolls back events', t => {
+  const { db, service } = createHarness();
+  t.after(() => db.close());
+  const order = createStripeOrder(service, { idempotencyKey: 'integrity-order' });
+  db.prepare('UPDATE payment_orders SET grant_units = ? WHERE id = ?').run(1, order.id);
+
+  assert.throws(() => service.applyProviderEvent('stripe', {
+    eventId: 'evt-snapshot-integrity', providerOrderId: order.providerOrderId, status: 'paid',
+  }), error => error.code === 'PAYMENT_CATALOG_INTEGRITY_ERROR');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM processed_provider_events').get().count, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM wallet_ledger').get().count, 0);
+  assert.equal(service.getOrder(order.id).status, 'pending');
+
+  db.prepare('DELETE FROM billing_catalog WHERE sku = ? AND version = ?').run(
+    order.productSku,
+    order.catalogVersion,
+  );
+  assert.throws(() => service.applyProviderEvent('stripe', {
+    eventId: 'evt-missing-snapshot', providerOrderId: order.providerOrderId, status: 'paid',
+  }), error => error.code === 'PAYMENT_CATALOG_INTEGRITY_ERROR');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM processed_provider_events').get().count, 0);
+  assert.equal(service.getOrder(order.id).status, 'pending');
 });
 
 test('prevents duplicate provider order ids during creation and webhook binding', t => {

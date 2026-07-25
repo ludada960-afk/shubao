@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { getProduct } from './catalog.mjs';
 
-const CATALOG_VERSION = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function codedError(code, message = code) {
@@ -83,12 +82,36 @@ function sameOrderRequest(order, input) {
     && order.provider === input.provider;
 }
 
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value).sort().map(key => [key, canonicalizeJson(value[key])]),
+    );
+  }
+  if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
+    throw new TypeError('Catalog snapshot must be JSON-serializable');
+  }
+  return value;
+}
+
+function canonicalPayload(value) {
+  return JSON.stringify(canonicalizeJson(value));
+}
+
+function catalogIntegrityError(order, reason) {
+  return codedError(
+    'PAYMENT_CATALOG_INTEGRITY_ERROR',
+    `Payment order ${order.id} catalog snapshot integrity error: ${reason}`,
+  );
+}
+
 function productSnapshotFromPayload(payload, order) {
   let product;
   try {
     product = JSON.parse(payload);
   } catch {
-    throw new Error(`Payment order ${order.id} has an invalid catalog snapshot`);
+    throw catalogIntegrityError(order, 'payload is not valid JSON');
   }
   if (!product || typeof product !== 'object'
     || typeof product.sku !== 'string' || product.sku.trim() === ''
@@ -97,7 +120,7 @@ function productSnapshotFromPayload(payload, order) {
     || !Number.isSafeInteger(product.grantUnits) || product.grantUnits <= 0
     || (product.validityDays !== null
       && (!Number.isSafeInteger(product.validityDays) || product.validityDays < 0))) {
-    throw new Error(`Payment order ${order.id} has an invalid catalog snapshot`);
+    throw catalogIntegrityError(order, 'payload has an invalid product shape');
   }
   return product;
 }
@@ -143,7 +166,6 @@ export function createPaymentService(db, walletService, providers = {}) {
     insertCatalogSnapshot: db.prepare(`
       INSERT INTO billing_catalog (sku, version, payload, enabled, effective_at)
       VALUES (?, ?, ?, 1, ?)
-      ON CONFLICT(sku, version) DO NOTHING
     `),
     selectOrderById: db.prepare('SELECT * FROM payment_orders WHERE id = ?'),
     selectOrderByIdempotencyKey: db.prepare('SELECT * FROM payment_orders WHERE idempotency_key = ?'),
@@ -159,6 +181,9 @@ export function createPaymentService(db, walletService, providers = {}) {
     selectOrderByIdAnyProvider: db.prepare('SELECT * FROM payment_orders WHERE id = ?'),
     selectCatalogSnapshot: db.prepare(`
       SELECT payload FROM billing_catalog WHERE sku = ? AND version = ?
+    `),
+    selectCatalogSnapshotsBySku: db.prepare(`
+      SELECT version, payload FROM billing_catalog WHERE sku = ? ORDER BY version ASC
     `),
     updateProviderOrder: db.prepare(`
       UPDATE payment_orders
@@ -206,6 +231,26 @@ export function createPaymentService(db, walletService, providers = {}) {
     return existing;
   }
 
+  function allocateCatalogSnapshot(product, now) {
+    const payload = canonicalPayload(product);
+    const snapshots = statements.selectCatalogSnapshotsBySku.all(product.sku);
+    for (const snapshot of snapshots) {
+      try {
+        if (canonicalPayload(JSON.parse(snapshot.payload)) === payload) {
+          return { version: snapshot.version, payload };
+        }
+      } catch {
+        // A malformed historical payload cannot represent this valid product snapshot.
+      }
+    }
+    const version = snapshots.reduce(
+      (maximum, snapshot) => Math.max(maximum, Number.isSafeInteger(snapshot.version) ? snapshot.version : 0),
+      0,
+    ) + 1;
+    statements.insertCatalogSnapshot.run(product.sku, version, payload, now);
+    return { version, payload };
+  }
+
   const createOrderSnapshot = db.transaction((input, product) => {
     const existing = orderFromRow(statements.selectOrderByIdempotencyKey.get(input.idempotencyKey));
     if (existing) {
@@ -216,14 +261,14 @@ export function createPaymentService(db, walletService, providers = {}) {
     }
 
     const now = new Date().toISOString();
-    statements.insertCatalogSnapshot.run(product.sku, CATALOG_VERSION, JSON.stringify(product), now);
+    const snapshot = allocateCatalogSnapshot(product, now);
     const id = randomUUID();
     try {
       statements.insertOrder.run(
         id,
         input.ownerEmail,
         product.sku,
-        CATALOG_VERSION,
+        snapshot.version,
         product.priceFen,
         product.currency,
         product.grantUnits,
@@ -286,7 +331,7 @@ export function createPaymentService(db, walletService, providers = {}) {
     const normalized = normalizeCreateInput(input);
     const product = getProduct(normalized.productSku);
     const adapter = adapterFor(normalized.provider, 'createOrder');
-    const order = createOrderSnapshot(normalized, product);
+    const order = createOrderSnapshot.immediate(normalized, product);
     if (order.status === 'pending' && order.providerOrderId === '') {
       return createRemoteOrder(order, adapter);
     }
@@ -347,9 +392,15 @@ export function createPaymentService(db, walletService, providers = {}) {
 
     const catalogRow = statements.selectCatalogSnapshot.get(order.productSku, order.catalogVersion);
     if (!catalogRow) {
-      throw new Error(`Payment order ${order.id} catalog snapshot was not found`);
+      throw catalogIntegrityError(order, 'snapshot was not found');
     }
     const product = productSnapshotFromPayload(catalogRow.payload, order);
+    if (product.sku !== order.productSku
+      || product.priceFen !== order.amountCny
+      || product.currency !== order.grantCurrency
+      || product.grantUnits !== order.grantUnits) {
+      throw catalogIntegrityError(order, 'payload does not match the order snapshot');
+    }
     walletService.grant({
       ownerEmail: order.ownerEmail,
       currency: product.currency,
