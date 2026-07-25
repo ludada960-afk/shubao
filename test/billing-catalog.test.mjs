@@ -12,6 +12,13 @@ test('client cannot choose the price or grant amount', () => {
   assert.equal(getProduct('ec_starter_29').grantUnits, 105000);
 });
 
+test('catalog lookups reject inherited prototype keys', () => {
+  for (const sku of ['toString', '__proto__', 'constructor']) {
+    assert.throws(() => getProduct(sku), /unknown product sku/i);
+    assert.throws(() => quoteFeature(sku, 1), /unknown feature sku/i);
+  }
+});
+
 test('exported catalog entries cannot be mutated by callers', () => {
   assert.equal(Object.isFrozen(PRODUCTS), true);
   assert.equal(Object.isFrozen(PRODUCTS.ec_starter_29), true);
@@ -36,12 +43,23 @@ test('quote quantity must be a positive integer', () => {
   }
 });
 
+test('rejects quotes whose total units are not a safe integer', () => {
+  assert.throws(
+    () => quoteFeature('ec_image_2k', Number.MAX_SAFE_INTEGER),
+    /totalUnits.*safe integer/i,
+  );
+});
+
 test('rejects a feature price below the 70 percent contribution margin gate', () => {
   assert.throws(() => assertContributionMargin({ providerCostCny: 0.0694 }, 0.20), /margin/i);
 });
 
 test('accepts a feature price at the 70 percent contribution margin gate', () => {
   assert.ok(Math.abs(assertContributionMargin({ providerCostCny: 0.027 }, 0.1) - 0.7) < 1e-12);
+});
+
+test('accepts the exact 70 percent contribution margin boundary', () => {
+  assert.doesNotThrow(() => assertContributionMargin({ providerCostCny: 0.5373 }, 1.99));
 });
 
 test('prices and provider costs must be positive finite numbers', () => {

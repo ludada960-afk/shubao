@@ -32,15 +32,32 @@ function assertPositiveFinite(value, label) {
   }
 }
 
+function toMicroYuan(value, label) {
+  assertPositiveFinite(value, label);
+  const [mantissa, exponentText] = value.toString().toLowerCase().split('e');
+  const [whole, fraction = ''] = mantissa.split('.');
+  const exponent = Number(exponentText ?? 0);
+  const digits = BigInt(`${whole}${fraction}`);
+  const decimalPlaces = exponent + 6 - fraction.length;
+  if (decimalPlaces >= 0) return digits * (10n ** BigInt(decimalPlaces));
+
+  const divisor = 10n ** BigInt(-decimalPlaces);
+  const rounded = (digits + divisor / 2n) / divisor;
+  if (rounded <= 0n) {
+    throw new TypeError(`${label} must be at least 0.000001 CNY`);
+  }
+  return rounded;
+}
+
 export function getProduct(sku) {
+  if (!Object.hasOwn(PRODUCTS, sku)) throw new Error(`Unknown product SKU: ${sku}`);
   const product = PRODUCTS[sku];
-  if (!product) throw new Error(`Unknown product SKU: ${sku}`);
   return { ...product };
 }
 
 export function quoteFeature(sku, quantity) {
+  if (!Object.hasOwn(FEATURE_SKUS, sku)) throw new Error(`Unknown feature SKU: ${sku}`);
   const feature = FEATURE_SKUS[sku];
-  if (!feature) throw new Error(`Unknown feature SKU: ${sku}`);
   if (!Number.isSafeInteger(quantity) || quantity <= 0) {
     throw new TypeError('quantity must be a positive integer');
   }
@@ -48,25 +65,30 @@ export function quoteFeature(sku, quantity) {
     throw new Error(`Feature ${sku} is not enabled`);
   }
 
+  const totalUnits = feature.units * quantity;
+  if (!Number.isSafeInteger(totalUnits)) {
+    throw new RangeError('totalUnits must be a safe integer');
+  }
+
   return {
     sku,
     quantity,
     units: feature.units,
-    totalUnits: feature.units * quantity,
+    totalUnits,
     currency: feature.currency ?? 'ec_points',
     providerCostCny: feature.providerCostCny,
   };
 }
 
 export function assertContributionMargin(item, unitPriceCny) {
-  assertPositiveFinite(unitPriceCny, 'unit price');
   if (!item || typeof item !== 'object') {
     throw new TypeError('feature item is required');
   }
-  assertPositiveFinite(item.providerCostCny, 'provider cost');
+  const unitPriceMicroYuan = toMicroYuan(unitPriceCny, 'unit price');
+  const providerCostMicroYuan = toMicroYuan(item.providerCostCny, 'provider cost');
 
   const margin = (unitPriceCny - unitPriceCny * 0.03 - item.providerCostCny) / unitPriceCny;
-  if (margin < CONTRIBUTION_MARGIN_GATE) {
+  if (providerCostMicroYuan * 100n > unitPriceMicroYuan * 27n) {
     throw new Error(`Contribution margin ${margin.toFixed(4)} is below ${CONTRIBUTION_MARGIN_GATE.toFixed(2)}`);
   }
   return margin;
