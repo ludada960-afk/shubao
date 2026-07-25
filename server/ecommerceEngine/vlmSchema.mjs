@@ -10,6 +10,10 @@
  *   3. parseStyleRef(raw) → StyleRefAnalysis (校验+兜底)
  */
 
+import { buildProductTruthPrompt } from './productTruth.mjs';
+
+export { buildProductTruthPrompt };
+
 // ============================================================
 // 实拍图分析 Schema (TypeScript 类型标注，实际为 JS)
 // ============================================================
@@ -275,6 +279,9 @@ export function parseStyleRef(raw) {
  * @returns {Object} { systemPrompt, userPrompt }
  */
 export function buildVlmPrompt(type, imageUrls = []) {
+  if (type === 'product_truth') {
+    return buildProductTruthPrompt({ sourceAssetIds: imageUrls });
+  }
   const systemReal = `You are an e-commerce product image analysis expert. Analyze the product photo(s) below and return a JSON object with EXACTLY this structure (return ONLY valid JSON, no markdown, no explanation):
 
 {
