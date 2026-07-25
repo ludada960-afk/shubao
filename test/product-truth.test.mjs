@@ -156,6 +156,32 @@ test('derives deduplicated forbidden mutations from product identity details', (
   assert.deepEqual(truth.logos, [{ description: 'circular leaf logo', confidence: 0.91, sourceAssetId: 'front' }]);
 });
 
+test('protects localized and equivalent confirmed label and model values', () => {
+  const truth = normalizeProductTruth({
+    confirmedFacts: {
+      型号: { value: 'M-100', source: 'user' },
+      色号: { value: '暖瓷 01', source: 'ocr', visible: true, confidence: 0.98 },
+      标签: { value: '限定版', source: 'user' },
+      款号: { value: 'STYLE-7', source: 'user' },
+      货号: { value: 'ITEM-9', source: 'user' },
+      modelNumber: { value: 'MN-2', source: 'user' },
+      colorCode: { value: 'BLK-01', source: 'ocr', visible: true },
+      productLabel: { value: 'Daily Care', source: 'user' },
+    },
+  });
+
+  assert.deepEqual(truth.forbiddenMutations, [
+    'label: M-100',
+    'label: 暖瓷 01',
+    'label: 限定版',
+    'label: STYLE-7',
+    'label: ITEM-9',
+    'label: MN-2',
+    'label: BLK-01',
+    'label: Daily Care',
+  ]);
+});
+
 test('normalizes defensively without prototype keys and fingerprints equivalent truth deterministically', () => {
   const unsafe = JSON.parse('{"category":" serum ","primaryColors":[" #ffffff ","#ffffff"],"__proto__":{"polluted":true}}');
   const inherited = Object.create({ category: 'inherited category', primaryColors: ['#000000'] });
@@ -225,6 +251,19 @@ test('builds a JSON-only product truth prompt that prohibits risky inferred clai
   }
   assert.match(prompt.systemPrompt, /uncertain/i);
   assert.match(prompt.userPrompt, /2/);
+});
+
+test('routes product_truth VLM requests through the dedicated risky-inference prompt', () => {
+  const routed = buildVlmPrompt('product_truth', ['front', 'side']);
+  const dedicated = buildProductTruthPrompt({ sourceAssetIds: ['front', 'side'] });
+
+  assert.deepEqual(routed, dedicated);
+  assert.match(routed.systemPrompt, /JSON only/i);
+  assert.match(routed.systemPrompt, /Never infer or invent dimensions/i);
+  assert.match(routed.systemPrompt, /certification/i);
+  assert.match(routed.systemPrompt, /SKU values/i);
+  assert.match(routed.systemPrompt, /uncertainFacts/);
+  assert.doesNotMatch(routed.systemPrompt, /photography style analyst/i);
 });
 
 test('preserves existing real-shot and style VLM prompt and parser behavior', () => {

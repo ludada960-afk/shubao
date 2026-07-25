@@ -248,6 +248,12 @@ function buildFingerprint(truth) {
   return createHash('sha256').update(stableSerialize(fingerprintInput)).digest('hex');
 }
 
+function isProtectedLabelFactName(name) {
+  const normalizedName = cleanString(name).toLowerCase().replace(/[\s_-]+/g, '');
+  return /label|variant|model|shade|colorcode|colourcode|colorname|colourname/.test(normalizedName)
+    || /型号|色号|标签|款号|货号|品号|编号/.test(normalizedName);
+}
+
 function deriveForbiddenMutations(truth) {
   const derived = [
     ...cleanStringList(truth.forbiddenMutations),
@@ -259,7 +265,7 @@ function deriveForbiddenMutations(truth) {
     ]),
     ...truth.logos.map((logo) => `logo: ${logo.description}`),
     ...ownEntries(truth.confirmedFacts)
-      .filter(([name, fact]) => /label|variant|model|shade/i.test(name) && ['user', 'ocr'].includes(fact.source))
+      .filter(([name, fact]) => isProtectedLabelFactName(name) && ['user', 'ocr'].includes(fact.source))
       .map(([, fact]) => `label: ${fact.value}`),
   ];
   return unique(derived);
