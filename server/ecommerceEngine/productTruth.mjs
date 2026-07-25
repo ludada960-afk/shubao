@@ -1,16 +1,38 @@
 import { createHash } from 'node:crypto';
 
-const STRUCTURAL_FIELDS = new Set([
-  'category', 'productName', 'silhouette', 'primaryColors', 'materials', 'components',
-  'packageText', 'logos', 'skuFacts', 'confirmedFacts', 'uncertainFacts',
-  'forbiddenMutations', 'sourceAssetIds', 'fingerprint', 'facts',
+const FIELD_ALIASES = Object.freeze({
+  category: ['category'],
+  productName: ['productName', 'product_name'],
+  silhouette: ['silhouette'],
+  primaryColors: ['primaryColors', 'primary_colors'],
+  materials: ['materials'],
+  components: ['components'],
+  packageText: ['packageText', 'package_text'],
+  logos: ['logos'],
+  skuFacts: ['skuFacts', 'sku_facts'],
+  confirmedFacts: ['confirmedFacts', 'confirmed_facts'],
+  uncertainFacts: ['uncertainFacts', 'uncertain_facts'],
+  forbiddenMutations: ['forbiddenMutations', 'forbidden_mutations'],
+  sourceAssetIds: ['sourceAssetIds', 'source_asset_ids'],
+  fingerprint: ['fingerprint'],
+  facts: ['facts'],
+});
+
+const STRUCTURAL_FIELDS = new Set(Object.values(FIELD_ALIASES).flat());
+
+const VISUAL_SAFE_FACT_NAMES = new Set([
+  'material', 'materials', 'color', 'colors', 'colour', 'colours',
+  'shape', 'silhouette', 'texture', 'component', 'components', 'logo', 'packagetext',
 ]);
 
-const HIGH_RISK_FACT_PATTERNS = [
-  /certif/, /test\s*report|report/, /ingredient/, /efficacy|effect|claim/,
-  /quantity|count|pack/, /dimension|size|measurement|length|width|height/,
-  /sku|specification|spec/, /price|promotion|discount/, /comparison|compare/,
-];
+const DETERMINISTIC_FACT_NAMES = new Set([
+  'dimension', 'dimensions', 'size', 'measurement', 'length', 'width', 'height',
+  'volume', 'capacity', 'netweight', 'weight', 'certification', 'testreport', 'report',
+  'ingredient', 'ingredients', 'efficacy', 'effect', 'claim', 'claims', 'quantity',
+  'count', 'pack', 'sku', 'specification', 'specifications', 'spec', 'model', 'price',
+  'promotion', 'discount', 'comparison', 'comparisonclaim', 'compare',
+  '容量', '净含量', '重量', '尺寸', '规格', '型号', '认证', '成分', '功效', '数量', '对比', '检测报告',
+]);
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -18,9 +40,17 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function cleanKey(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function ownEntries(value) {
   if (!isRecord(value)) return [];
-  return Object.entries(value).filter(([key]) => !DANGEROUS_KEYS.has(key));
+  return Object.keys(value).flatMap((rawKey) => {
+    const key = cleanKey(rawKey);
+    if (!key || DANGEROUS_KEYS.has(key.toLowerCase())) return [];
+    return [[key, value[rawKey]]];
+  });
 }
 
 function cleanString(value) {
@@ -42,16 +72,23 @@ function unique(values) {
   return [...new Set(values)];
 }
 
+function getField(source, key) {
+  for (const alias of FIELD_ALIASES[key] || [key]) {
+    if (Object.hasOwn(source, alias)) return source[alias];
+  }
+  return undefined;
+}
+
 function pickFirstString(sources, key) {
   for (const source of sources) {
-    const value = cleanString(source[key]);
+    const value = cleanString(getField(source, key));
     if (value) return value;
   }
   return '';
 }
 
 function mergeStringLists(sources, key) {
-  return unique(sources.flatMap((source) => cleanStringList(source[key])));
+  return unique(sources.flatMap((source) => cleanStringList(getField(source, key))));
 }
 
 function normalizeTextEntries(value) {
@@ -108,7 +145,9 @@ function cloneSafeValue(value) {
   if (Array.isArray(value)) return value.map(cloneSafeValue);
   if (!isRecord(value)) return value;
 
-  return Object.fromEntries(ownEntries(value).map(([key, item]) => [key, cloneSafeValue(item)]));
+  const clone = Object.create(null);
+  for (const [key, item] of ownEntries(value)) clone[key] = cloneSafeValue(item);
+  return clone;
 }
 
 function normalizeFactValue(value, source) {
@@ -119,17 +158,18 @@ function normalizeFactValue(value, source) {
 
   const confidence = cleanConfidence(record.confidence);
   const sourceAssetId = cleanString(record.sourceAssetId ?? record.source_asset_id);
+  const visible = record.visible === true || record.is_visible === true || record.field_visible === true;
   return {
     value: normalizedValue,
     source,
     ...(confidence === undefined ? {} : { confidence }),
     ...(sourceAssetId ? { sourceAssetId } : {}),
-    ...(record.visible === true || isDirectValue ? { visible: true } : {}),
+    ...(visible || isDirectValue ? { visible: true } : {}),
   };
 }
 
 function normalizeFacts(value, defaultSource = '') {
-  const facts = {};
+  const facts = Object.create(null);
   for (const [name, rawFact] of ownEntries(value)) {
     const factName = cleanString(name);
     const source = cleanString(isRecord(rawFact) ? rawFact.source : '') || defaultSource;
@@ -159,7 +199,8 @@ function normalizedUncertainFact(name, fact) {
 }
 
 function collectSourceFacts(source, sourceName) {
-  const facts = {};
+  const facts = Object.create(null);
+  const skuNames = new Set();
   for (const [name, value] of ownEntries(source)) {
     if (!STRUCTURAL_FIELDS.has(name)) {
       const fact = normalizeFactValue(value, sourceName);
@@ -167,24 +208,37 @@ function collectSourceFacts(source, sourceName) {
     }
   }
 
-  for (const factGroup of [source.facts, source.skuFacts, source.confirmedFacts]) {
+  for (const factGroup of [getField(source, 'facts'), getField(source, 'confirmedFacts')]) {
     for (const [name, value] of ownEntries(factGroup)) {
       const fact = normalizeFactValue(value, sourceName);
       if (fact) facts[cleanString(name)] = fact;
     }
   }
-  return facts;
+  for (const [name, value] of ownEntries(getField(source, 'skuFacts'))) {
+    const factName = cleanString(name);
+    const fact = normalizeFactValue(value, sourceName);
+    if (factName && fact) {
+      facts[factName] = fact;
+      skuNames.add(factName);
+    }
+  }
+  return { facts, skuNames };
 }
 
 function isExplicitOcrFact(fact) {
   return fact.visible === true && (fact.confidence === undefined || fact.confidence >= 0.8);
 }
 
+function canConfirmFact(name, fact, forceDeterministic = false) {
+  if (!forceDeterministic && classifyFactRisk(name) === 'visual_ok') return true;
+  return fact.source === 'user' || (fact.source === 'ocr' && isExplicitOcrFact(fact));
+}
+
 function stableSerialize(value) {
   if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
   if (!isRecord(value)) return JSON.stringify(value);
   return `{${ownEntries(value)
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
     .map(([key, item]) => `${JSON.stringify(key)}:${stableSerialize(item)}`)
     .join(',')}}`;
 }
@@ -217,10 +271,9 @@ function deriveForbiddenMutations(truth) {
  * @returns {'deterministic_only'|'visual_ok'}
  */
 export function classifyFactRisk(name) {
-  const normalizedName = cleanString(name).toLowerCase();
-  return HIGH_RISK_FACT_PATTERNS.some((pattern) => pattern.test(normalizedName))
-    ? 'deterministic_only'
-    : 'visual_ok';
+  const normalizedName = cleanString(name).toLowerCase().replace(/[\s_-]+/g, '');
+  if (DETERMINISTIC_FACT_NAMES.has(normalizedName)) return 'deterministic_only';
+  return VISUAL_SAFE_FACT_NAMES.has(normalizedName) ? 'visual_ok' : 'deterministic_only';
 }
 
 /**
@@ -230,23 +283,31 @@ export function classifyFactRisk(name) {
  */
 export function normalizeProductTruth(input = {}) {
   const source = isRecord(input) ? cloneSafeValue(input) : {};
-  const packageText = normalizeTextEntries(source.packageText);
-  const logos = normalizeLogos(source.logos);
-  const confirmedFacts = {};
-  const uncertainFacts = (Array.isArray(source.uncertainFacts) ? source.uncertainFacts : [])
+  const packageText = normalizeTextEntries(getField(source, 'packageText'));
+  const logos = normalizeLogos(getField(source, 'logos'));
+  const confirmedFacts = Object.create(null);
+  const skuFacts = Object.create(null);
+  const rawUncertainFacts = getField(source, 'uncertainFacts');
+  const uncertainFacts = (Array.isArray(rawUncertainFacts) ? rawUncertainFacts : [])
     .flatMap((item) => {
       if (!isRecord(item)) return [];
-      const name = cleanString(item.name);
+      const name = cleanKey(item.name);
+      if (!name || DANGEROUS_KEYS.has(name.toLowerCase())) return [];
       const fact = normalizeFactValue(item, cleanString(item.source));
       return name && fact ? [normalizedUncertainFact(name, fact)] : [];
     });
-  for (const [name, fact] of ownEntries(normalizeFacts(source.confirmedFacts))) {
-    const highRiskFact = classifyFactRisk(name) === 'deterministic_only';
-    const allowed = !highRiskFact
-      || fact.source === 'user'
-      || (fact.source === 'ocr' && isExplicitOcrFact(fact));
-    if (allowed) {
+  for (const [name, fact] of ownEntries(normalizeFacts(getField(source, 'confirmedFacts')))) {
+    if (canConfirmFact(name, fact)) {
       confirmedFacts[name] = normalizedFactOutput(fact);
+    } else {
+      uncertainFacts.push(normalizedUncertainFact(name, fact));
+    }
+  }
+  for (const [name, fact] of ownEntries(normalizeFacts(getField(source, 'skuFacts')))) {
+    if (canConfirmFact(name, fact, true)) {
+      const output = normalizedFactOutput(fact);
+      skuFacts[name] = output;
+      confirmedFacts[name] = output;
     } else {
       uncertainFacts.push(normalizedUncertainFact(name, fact));
     }
@@ -261,30 +322,34 @@ export function normalizeProductTruth(input = {}) {
     }
   }
   const sourceAssetIds = unique([
-    ...cleanStringList(source.sourceAssetIds),
+    ...cleanStringList(getField(source, 'sourceAssetIds')),
     ...packageText.map((entry) => entry.sourceAssetId).filter(Boolean),
     ...logos.map((entry) => entry.sourceAssetId).filter(Boolean),
     ...ownEntries(confirmedFacts).map(([, fact]) => fact.sourceAssetId).filter(Boolean),
+    ...ownEntries(skuFacts).map(([, fact]) => fact.sourceAssetId).filter(Boolean),
     ...deduplicatedUncertainFacts.map((fact) => fact.sourceAssetId).filter(Boolean),
   ]);
 
   const truth = {
-    category: cleanString(source.category),
-    productName: cleanString(source.productName ?? source.product_name),
-    silhouette: cleanString(source.silhouette),
-    primaryColors: cleanStringList(source.primaryColors ?? source.primary_colors),
-    materials: cleanStringList(source.materials),
-    components: cleanStringList(source.components),
+    category: cleanString(getField(source, 'category')),
+    productName: cleanString(getField(source, 'productName')),
+    silhouette: cleanString(getField(source, 'silhouette')),
+    primaryColors: cleanStringList(getField(source, 'primaryColors')),
+    materials: cleanStringList(getField(source, 'materials')),
+    components: cleanStringList(getField(source, 'components')),
     packageText,
     logos,
-    skuFacts: normalizeFacts(source.skuFacts),
-    confirmedFacts,
+    skuFacts: { ...skuFacts },
+    confirmedFacts: { ...confirmedFacts },
     uncertainFacts: deduplicatedUncertainFacts,
     forbiddenMutations: [],
     sourceAssetIds,
     fingerprint: '',
   };
-  truth.forbiddenMutations = deriveForbiddenMutations({ ...truth, forbiddenMutations: source.forbiddenMutations });
+  truth.forbiddenMutations = deriveForbiddenMutations({
+    ...truth,
+    forbiddenMutations: getField(source, 'forbiddenMutations'),
+  });
   truth.fingerprint = buildFingerprint(truth);
   return truth;
 }
@@ -301,29 +366,36 @@ export function mergeProductFacts({ vision = {}, ocr = {}, user = {} } = {}) {
     user: isRecord(user) ? cloneSafeValue(user) : {},
   };
   const prioritySources = [sources.user, sources.ocr, sources.vision];
-  const candidates = Object.fromEntries(
+  const sourceFacts = Object.fromEntries(
     Object.entries(sources).map(([name, source]) => [name, collectSourceFacts(source, name)]),
   );
-  const factNames = unique(Object.values(candidates).flatMap((facts) => Object.keys(facts)));
-  const confirmedFacts = {};
+  const factNames = unique(Object.values(sourceFacts).flatMap(({ facts }) => Object.keys(facts)));
+  const confirmedFacts = Object.create(null);
+  const skuFacts = Object.create(null);
   const uncertainFacts = [];
 
   for (const name of factNames) {
-    const risk = classifyFactRisk(name);
-    const userFact = candidates.user[name];
-    const ocrFact = candidates.ocr[name];
-    const visionFact = candidates.vision[name];
+    const isSkuFact = Object.values(sourceFacts).some(({ skuNames }) => skuNames.has(name));
+    const risk = isSkuFact ? 'deterministic_only' : classifyFactRisk(name);
+    const userFact = sourceFacts.user.facts[name];
+    const ocrFact = sourceFacts.ocr.facts[name];
+    const visionFact = sourceFacts.vision.facts[name];
 
     if (risk === 'deterministic_only') {
+      let selected;
       if (userFact) {
-        confirmedFacts[name] = userFact;
+        selected = userFact;
       } else if (ocrFact && isExplicitOcrFact(ocrFact)) {
-        confirmedFacts[name] = ocrFact;
+        selected = ocrFact;
       }
-      if (!userFact && ocrFact && !isExplicitOcrFact(ocrFact)) {
+      if (selected) {
+        confirmedFacts[name] = selected;
+        if (isSkuFact) skuFacts[name] = selected;
+      }
+      if (ocrFact && !isExplicitOcrFact(ocrFact)) {
         uncertainFacts.push(normalizedUncertainFact(name, ocrFact));
       }
-      if (!userFact && !ocrFact && visionFact) {
+      if (visionFact) {
         uncertainFacts.push(normalizedUncertainFact(name, visionFact));
       }
       continue;
@@ -333,6 +405,12 @@ export function mergeProductFacts({ vision = {}, ocr = {}, user = {} } = {}) {
     if (selected) confirmedFacts[name] = selected;
   }
 
+  const propagatedSourceAssetIds = unique([
+    ...prioritySources.flatMap((source) => cleanStringList(getField(source, 'sourceAssetIds'))),
+    ...['user', 'ocr', 'vision'].flatMap((sourceName) =>
+      ownEntries(sourceFacts[sourceName].facts).map(([, fact]) => fact.sourceAssetId).filter(Boolean)),
+  ]);
+
   return normalizeProductTruth({
     category: pickFirstString(prioritySources, 'category'),
     productName: pickFirstString(prioritySources, 'productName'),
@@ -340,13 +418,19 @@ export function mergeProductFacts({ vision = {}, ocr = {}, user = {} } = {}) {
     primaryColors: mergeStringLists(prioritySources, 'primaryColors'),
     materials: mergeStringLists(prioritySources, 'materials'),
     components: mergeStringLists(prioritySources, 'components'),
-    packageText: prioritySources.flatMap((source) => Array.isArray(source.packageText) ? source.packageText : []),
-    logos: prioritySources.flatMap((source) => Array.isArray(source.logos) ? source.logos : []),
-    skuFacts: sources.user.skuFacts || sources.ocr.skuFacts || sources.vision.skuFacts || {},
+    packageText: prioritySources.flatMap((source) => {
+      const value = getField(source, 'packageText');
+      return Array.isArray(value) ? value : value == null ? [] : [value];
+    }),
+    logos: prioritySources.flatMap((source) => {
+      const value = getField(source, 'logos');
+      return Array.isArray(value) ? value : value == null ? [] : [value];
+    }),
+    skuFacts,
     confirmedFacts,
     uncertainFacts,
-    forbiddenMutations: prioritySources.flatMap((source) => cleanStringList(source.forbiddenMutations)),
-    sourceAssetIds: prioritySources.flatMap((source) => cleanStringList(source.sourceAssetIds)),
+    forbiddenMutations: prioritySources.flatMap((source) => cleanStringList(getField(source, 'forbiddenMutations'))),
+    sourceAssetIds: propagatedSourceAssetIds,
   });
 }
 
