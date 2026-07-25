@@ -62,6 +62,14 @@ test('accepts the exact 70 percent contribution margin boundary', () => {
   assert.doesNotThrow(() => assertContributionMargin({ providerCostCny: 0.5373 }, 1.99));
 });
 
+test('rejects a mathematically below-gate margin without micro-yuan rounding', () => {
+  assert.throws(() => assertContributionMargin({ providerCostCny: 0.2700004 }, 1), /margin/i);
+});
+
+test('accepts a positive provider cost smaller than one micro-yuan', () => {
+  assert.doesNotThrow(() => assertContributionMargin({ providerCostCny: 0.0000004 }, 1));
+});
+
 test('prices and provider costs must be positive finite numbers', () => {
   for (const unitPriceCny of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(() => assertContributionMargin({ providerCostCny: 0.01 }, unitPriceCny), /price/i);

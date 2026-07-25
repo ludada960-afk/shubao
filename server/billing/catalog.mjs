@@ -32,21 +32,18 @@ function assertPositiveFinite(value, label) {
   }
 }
 
-function toMicroYuan(value, label) {
+function toDecimalRational(value, label) {
   assertPositiveFinite(value, label);
   const [mantissa, exponentText] = value.toString().toLowerCase().split('e');
   const [whole, fraction = ''] = mantissa.split('.');
   const exponent = Number(exponentText ?? 0);
-  const digits = BigInt(`${whole}${fraction}`);
-  const decimalPlaces = exponent + 6 - fraction.length;
-  if (decimalPlaces >= 0) return digits * (10n ** BigInt(decimalPlaces));
-
-  const divisor = 10n ** BigInt(-decimalPlaces);
-  const rounded = (digits + divisor / 2n) / divisor;
-  if (rounded <= 0n) {
-    throw new TypeError(`${label} must be at least 0.000001 CNY`);
+  let numerator = BigInt(`${whole}${fraction}`);
+  let scale = fraction.length - exponent;
+  if (scale < 0) {
+    numerator *= 10n ** BigInt(-scale);
+    scale = 0;
   }
-  return rounded;
+  return { numerator, scale };
 }
 
 export function getProduct(sku) {
@@ -84,11 +81,14 @@ export function assertContributionMargin(item, unitPriceCny) {
   if (!item || typeof item !== 'object') {
     throw new TypeError('feature item is required');
   }
-  const unitPriceMicroYuan = toMicroYuan(unitPriceCny, 'unit price');
-  const providerCostMicroYuan = toMicroYuan(item.providerCostCny, 'provider cost');
+  const unitPrice = toDecimalRational(unitPriceCny, 'unit price');
+  const providerCost = toDecimalRational(item.providerCostCny, 'provider cost');
+  const commonScale = Math.max(unitPrice.scale, providerCost.scale);
+  const unitPriceNumerator = unitPrice.numerator * 10n ** BigInt(commonScale - unitPrice.scale);
+  const providerCostNumerator = providerCost.numerator * 10n ** BigInt(commonScale - providerCost.scale);
 
   const margin = (unitPriceCny - unitPriceCny * 0.03 - item.providerCostCny) / unitPriceCny;
-  if (providerCostMicroYuan * 100n > unitPriceMicroYuan * 27n) {
+  if (providerCostNumerator * 100n > unitPriceNumerator * 27n) {
     throw new Error(`Contribution margin ${margin.toFixed(4)} is below ${CONTRIBUTION_MARGIN_GATE.toFixed(2)}`);
   }
   return margin;
