@@ -18,7 +18,8 @@
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).
 - Billing Ledger Task 2: complete (`90bedce..fccb9bf`, three-commit review/fix loop clean, focused 13/13 and full 148/148 tests passed).
 - Billing Ledger Task 3: complete (`c0410c6..7d1947b`, four-commit review/fix loop clean, focused 29/29 and full 176/176 tests passed).
-- Next implementation task: Billing Ledger plan, Task 4.
+- Billing Ledger Task 4: complete (`683901e..a12044a`, three-commit review/fix loop approved, focused 15/15, wallet regression 43/43, full 191/191 tests passed).
+- Next implementation task: Billing Ledger plan, Task 5.
 
 ## Ownership
 
@@ -28,4 +29,4 @@
 
 ## Minor findings backlog
 
-- None recorded for the current implementation wave.
+- Billing Task 4: a second process holding the SQLite write lock can surface `SQLITE_BUSY` from order creation; correctness remains protected, but route-level retryable error mapping should be added during Billing API integration.
