@@ -28,7 +28,8 @@
 - Structured Ecommerce Engine Task 3: complete (`bc9d75c..946a828`, immutable direction title with clearable editable brief, canonical custom palette locking, provenance-bearing recommendation policies, category-over-role policy layering, prototype-safe policy and generation inputs, and deterministic post-processing export targets independently reviewed and approved; focused 13/13 passed).
 - Structured Ecommerce Engine Task 4: complete (`f77267b..21042e6`, category-aware dynamic asset roles, user-fact-only parameter/SKU planning, proof-gated QC roles with independent proof assets, per-item legal dimensions and deterministic exports, prototype-safe deterministic IDs, and independent main_text/main_3x4 planning independently reviewed and approved; focused 8/8 passed).
 - Structured Ecommerce Engine Task 5: complete (`58ddffa..b350899`, deterministic indexed multipart selection, exact per-index duties, Product Truth/proof-correlated fact gating, evidence-only deterministic overlays, multilingual exact-text redaction, reference anti-substitution, catalog-owned model routing, adversarial JSON safety, and no Contact Sheet dependency independently reviewed and approved; focused 13/13 and Task 1–5 regression 56/56 passed).
-- Next implementation task: Structured Ecommerce Generation Engine plan, Task 6.
+- Structured Ecommerce Engine Task 6: complete (`4e0e958..ab005f5`, async indexed multipart provider jobs, bounded idempotent retries, durable sanitized request/provider/output state, startup recovery, fenced leases and persistent-state transitions, and explicit targeted repair resubmission; focused 19/19 and Task 1–6 regression 75/75 passed).
+- Next implementation task: Structured Ecommerce Generation Engine plan, Task 7.
 
 ## Ownership
 
