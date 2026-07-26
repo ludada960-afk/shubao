@@ -234,11 +234,15 @@ test('creates a stable draft id and a complete reference-only ecommerce pending 
   });
 });
 
-test('ecommerce pending action rejects raw binary strings and bounds field-specific human text', async () => {
+test('ecommerce pending action rejects actual image payloads without deleting normal encoded-looking text', async () => {
   const { buildEcommercePendingAction } = await planModel();
   const rawPngBase64 = `iVBORw0KGgoAAAANSUhEUgAA${'A'.repeat(180)}`;
   const rawJpegBase64 = `/9j/4AAQSkZJRgABAQAAAQABAAD${'B'.repeat(180)}`;
-  const rawBase64Url = `eyJpbWFnZSI6${'-_'.repeat(100)}`;
+  const shortPngBase64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64');
+  const shortJpegBase64Url = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46])
+    .toString('base64url');
+  const longNoPunctuation = 'ProductMaterialStructureAccuracy'.repeat(12);
+  const sha256Text = '0123456789abcdef'.repeat(4);
   const preservedChinese = '保留商品真实结构、中文包装信息和材质细节，避免虚构参数。'.repeat(60);
 
   const sanitized = buildEcommercePendingAction({
@@ -251,6 +255,8 @@ test('ecommerce pending action rejects raw binary strings and bounds field-speci
     skus: [
       { color: '银'.repeat(180), size: '标准版' },
       { color: rawJpegBase64 },
+      { color: sha256Text },
+      { color: `说明文字 blob:https://shuimg.cn/temporary-preview` },
     ],
     originalProductAssets: [
       { assetId: PRODUCT_ORIGINAL_ID },
@@ -259,31 +265,44 @@ test('ecommerce pending action rejects raw binary strings and bounds field-speci
     ],
     originalReferenceAssets: [
       { assetId: REFERENCE_ORIGINAL_ID },
-      { assetId: rawBase64Url },
+      { assetId: sha256Text },
     ],
     promptText: '中'.repeat(7000),
     promptReferences: [
       { key: '键'.repeat(120), text: preservedChinese },
       { key: 'binary_png', text: rawPngBase64 },
-      { key: rawBase64Url, text: '普通说明' },
+      { key: 'short_png', text: ` \n ${shortPngBase64} \t ` },
+      { key: 'short_jpeg_url', text: shortJpegBase64Url },
+      { key: 'embedded_data_url', text: `正常前缀 data:image/png;base64,${shortPngBase64} 正常后缀` },
+      { key: 'embedded_blob_url', text: '正常前缀 blob:https://shuimg.cn/temporary-preview 正常后缀' },
+      { key: 'long_plain_english', text: longNoPunctuation },
+      { key: 'sha256', text: sha256Text },
     ],
   });
 
   assert.equal(sanitized.direction.id.length, 96);
   assert.equal(sanitized.direction.brief.length, 1200);
-  assert.equal(sanitized.skus.length, 1);
+  assert.equal(sanitized.skus.length, 2);
   assert.equal(sanitized.skus[0].color.length, 120);
+  assert.equal(sanitized.skus[1].color, sha256Text);
   assert.deepEqual(sanitized.assetIds.product.original, [PRODUCT_ORIGINAL_ID]);
   assert.deepEqual(sanitized.assetIds.reference.original, [REFERENCE_ORIGINAL_ID]);
   assert.equal(sanitized.prompt.text.length, 6000);
-  assert.deepEqual(sanitized.prompt.references, [{
-    key: '键'.repeat(80),
-    text: preservedChinese,
-  }]);
+  assert.deepEqual(sanitized.prompt.references, [
+    {
+      key: '键'.repeat(80),
+      text: preservedChinese,
+    },
+    { key: 'long_plain_english', text: longNoPunctuation },
+    { key: 'sha256', text: sha256Text },
+  ]);
 
   const binaryPrompt = buildEcommercePendingAction({
-    direction: { id: rawBase64Url, brief: rawJpegBase64 },
-    skus: [{ color: rawPngBase64 }],
+    direction: {
+      id: shortJpegBase64Url,
+      brief: `普通前缀 data:image/png;base64,${shortPngBase64}`,
+    },
+    skus: [{ color: `\r\n${shortPngBase64}\n` }],
     promptText: rawPngBase64,
   });
   assert.deepEqual(binaryPrompt.direction, { id: 'smart', brief: '' });

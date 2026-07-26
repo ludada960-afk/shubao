@@ -1,3 +1,5 @@
+import { containsUnsafeImagePayload } from './imagePayloadText.js';
+
 const STORAGE_KEY = 'shubao.pendingPaidAction.v1';
 const VERSION = 1;
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -30,12 +32,7 @@ function binaryField(key) {
 }
 
 function imagePayload(value) {
-  const normalized = value.trim();
-  if (/^data:/i.test(normalized) || /^blob:/i.test(normalized)) return true;
-  const compact = normalized.replace(/\s+/g, '');
-  if (compact.length < 64) return false;
-  return /^[a-z0-9+/]+={0,2}$/i.test(compact)
-    || /^[a-z0-9_-]+={0,2}$/i.test(compact);
+  return containsUnsafeImagePayload(value);
 }
 
 function unsafeObject(value) {

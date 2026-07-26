@@ -1,3 +1,5 @@
+import { containsUnsafeImagePayload } from '../../../utils/imagePayloadText.js';
+
 const RESOLUTION_RATIOS = Object.freeze({
   '1K': Object.freeze(['1:1', '3:4', '4:3']),
   '2K': Object.freeze(['1:1', '3:4', '4:3', '9:16']),
@@ -210,18 +212,9 @@ const PENDING_TEXT_LIMITS = Object.freeze({
   promptText: 6000,
   promptReference: 3000,
 });
-const RAW_BINARY_MIN_LENGTH = 64;
-
-function looksLikeRawBinary(value) {
-  const compact = value.replace(/\s+/g, '');
-  if (compact.length < RAW_BINARY_MIN_LENGTH) return false;
-  return /^[a-z0-9+/]+={0,2}$/i.test(compact)
-    || /^[a-z0-9_-]+={0,2}$/i.test(compact);
-}
-
 function safeReferenceText(value, maxLength) {
   const text = typeof value === 'string' ? value.trim() : '';
-  if (!text || /^(?:data|blob):/i.test(text) || looksLikeRawBinary(text)) return '';
+  if (!text || containsUnsafeImagePayload(text)) return '';
   return Number.isSafeInteger(maxLength) && maxLength > 0
     ? text.slice(0, maxLength)
     : text;

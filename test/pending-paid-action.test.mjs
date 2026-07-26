@@ -52,12 +52,18 @@ test('persists only serializable action references and excludes image payloads',
   assert.deepEqual(loadPendingPaidAction('CREATOR@example.com', { storage, now: () => 1001 }), action);
 });
 
-test('keeps long normal text while stripping binary fields without a length threshold', () => {
+test('keeps encoded-looking human text and hashes while stripping only real image payloads or binary fields', () => {
   const longPrompt = 'Keep the product shape and typography accurate while using a warm studio scene. '.repeat(4);
   const longChinese = '保留商品真实结构、材质、中文包装和品牌标识，不要虚构参数。'.repeat(80);
   const standardBase64 = `iVBORw0KGgoAAAANSUhEUgAA${'A'.repeat(96)}`;
   const jpegBase64 = `/9j/4AAQSkZJRgABAQAAAQABAAD${'B'.repeat(96)}`;
   const urlSafeBase64 = `eyJpbWFnZSI6${'-_'.repeat(48)}`;
+  const shortPngBase64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64');
+  const shortJpegBase64Url = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46])
+    .toString('base64url');
+  const shortWebpBase64 = Buffer.from('RIFF1234WEBP', 'ascii').toString('base64');
+  const longNoPunctuation = 'ProductMaterialStructureAccuracy'.repeat(12);
+  const sha256Text = '0123456789abcdef'.repeat(4);
   const stableAssetId = `${'a'.repeat(64)}.png`;
   const action = createPendingPaidAction({
     ownerEmail: 'creator@example.com',
@@ -71,9 +77,16 @@ test('keeps long normal text while stripping binary fields without a length thre
       chineseCopy: longChinese,
       label: standardBase64,
       sku: urlSafeBase64,
+      plainLabel: longNoPunctuation,
+      checksum: sha256Text,
       imageId: stableAssetId,
       harmlessKey: jpegBase64,
       urlSafeValue: urlSafeBase64,
+      shortPng: ` \n${shortPngBase64}\t `,
+      shortJpegUrl: shortJpegBase64Url,
+      shortWebp: shortWebpBase64,
+      embeddedData: `普通前缀 data:image/png;base64,${shortPngBase64} 普通后缀`,
+      embeddedBlob: '普通前缀 blob:https://shuimg.cn/temporary-preview 普通后缀',
       imageData: standardBase64,
       raw_bytes: urlSafeBase64,
       buffer: standardBase64,
@@ -93,12 +106,17 @@ test('keeps long normal text while stripping binary fields without a length thre
     prompt: longPrompt,
     notes: longPrompt,
     chineseCopy: longChinese,
+    sku: urlSafeBase64,
+    plainLabel: longNoPunctuation,
+    checksum: sha256Text,
     imageId: stableAssetId,
+    urlSafeValue: urlSafeBase64,
     nested: { text: longPrompt },
   });
 });
 
-test('rejects data and blob URLs even when surrounded by whitespace', () => {
+test('rejects complete data and blob URLs anywhere in text with surrounding whitespace', () => {
+  const shortPngBase64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64');
   const action = createPendingPaidAction({
     ownerEmail: 'creator@example.com',
     source: 'ecommerce',
@@ -108,6 +126,8 @@ test('rejects data and blob URLs even when surrounded by whitespace', () => {
       type: 'ecommerce_generate',
       preview: ` \n\tdata:image/png;base64,${'a'.repeat(64)} \r\n`,
       reference: '  blob:https://shuimg.cn/temporary-preview  ',
+      embeddedPreview: `保留前缀 data:image/png;base64,${shortPngBase64} 保留后缀`,
+      embeddedReference: '保留前缀 blob:https://shuimg.cn/temporary-preview 保留后缀',
       prompt: '  keep meaningful prompt whitespace  ',
     },
   }, { now: () => 1000 });

@@ -179,6 +179,43 @@ test('keeps a light neutral edge-touching product opaque when Product Truth mark
   assert.equal(output.alphas.every(alpha => alpha === 255), true);
 });
 
+test('refuses alpha repair when a light product part invades the foreground from the canvas edge', async () => {
+  const input = await sharp({
+    create: {
+      width: 128,
+      height: 128,
+      channels: 3,
+      background: '#fafafa',
+    },
+  }).composite([{
+    input: Buffer.from(`
+      <svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+        <rect x="34" y="22" width="60" height="84" rx="8" fill="#202020"/>
+        <rect x="0" y="56" width="58" height="12" rx="2" fill="#f2f2f2"/>
+      </svg>
+    `),
+  }]).png().toBuffer();
+
+  const repaired = await repairEcommerceAsset({
+    buffer: input,
+    action: { type: 'sharp_repair', operations: ['normalize_transparent_background'] },
+    item: { role: 'transparent', generationSize: '128x128' },
+  });
+  const output = await alphaSnapshot(repaired.buffer);
+  const partOffset = ((62 * 128) + 48) * 4;
+  const quality = await evaluateAsset({
+    buffer: repaired.buffer,
+    role: 'transparent',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+  });
+
+  assert.equal(output.alphas.every(alpha => alpha === 255), true);
+  assert.ok(output.data[partOffset] >= 235, 'light edge-touching product part remains intact');
+  assert.equal(quality.passed, false);
+  assert.ok(quality.checks.platformCompliance.issueCodes.includes('transparent_background_missing'));
+});
+
 test('converts a centered dark product on a consistent white background to meaningful alpha', async () => {
   const repaired = await repairEcommerceAsset({
     buffer: await opaqueProductScene(),

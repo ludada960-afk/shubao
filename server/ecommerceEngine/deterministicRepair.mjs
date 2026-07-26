@@ -107,6 +107,39 @@ function opaquePng(data, info) {
   return sharp(opaque, { raw: info }).png().toBuffer();
 }
 
+function removableRegionIntrudesForeground(connected, info) {
+  let minX = info.width;
+  let minY = info.height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let index = 0; index < connected.length; index += 1) {
+    if (connected[index]) continue;
+    const x = index % info.width;
+    const y = Math.floor(index / info.width);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  if (maxX < minX || maxY < minY) return true;
+
+  const foregroundWidth = maxX - minX + 1;
+  const foregroundHeight = maxY - minY + 1;
+  const inset = Math.max(8, Math.ceil(Math.min(foregroundWidth, foregroundHeight) * 0.12));
+  const innerMinX = minX + inset;
+  const innerMaxX = maxX - inset;
+  const innerMinY = minY + inset;
+  const innerMaxY = maxY - inset;
+  if (innerMinX > innerMaxX || innerMinY > innerMaxY) return true;
+
+  for (let y = innerMinY; y <= innerMaxY; y += 1) {
+    for (let x = innerMinX; x <= innerMaxX; x += 1) {
+      if (connected[y * info.width + x]) return true;
+    }
+  }
+  return false;
+}
+
 export async function normalizeTransparentBackground({
   buffer,
   width,
@@ -158,7 +191,8 @@ export async function normalizeTransparentBackground({
 
   const removableCoverage = connected.reduce((sum, value) => sum + value, 0) / count;
   if (removableCoverage < MIN_REMOVABLE_BACKGROUND_COVERAGE
-    || removableCoverage > MAX_REMOVABLE_BACKGROUND_COVERAGE) {
+    || removableCoverage > MAX_REMOVABLE_BACKGROUND_COVERAGE
+    || removableRegionIntrudesForeground(connected, raw.info)) {
     return opaquePng(data, raw.info);
   }
 
