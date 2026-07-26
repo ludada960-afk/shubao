@@ -1,0 +1,160 @@
+.priceBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent, #0C0A09);
+  border-radius: var(--radius-full, 9999px);
+  background: var(--bg-card-solid, #fff);
+  color: var(--text-primary, #1A1614);
+  font-size: var(--text-sm, 13px);
+  font-weight: var(--weight-semibold, 600);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.priceBadgeCompact {
+  min-height: 24px;
+  padding: 3px 8px;
+  font-size: var(--text-xs, 11px);
+}
+
+.balanceCard,
+.quoteCard,
+.historyCard {
+  padding: var(--space-6, 24px);
+  border: 1px solid var(--border, rgba(231, 229, 228, 0.8));
+  border-radius: var(--radius-lg, 30px);
+  background: var(--bg-card-solid, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(57, 45, 26, 0.06));
+}
+
+.balanceHeader,
+.sectionHeader,
+.quoteRow,
+.historyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--text-hint, #9A9490);
+  font-size: var(--text-xs, 11px);
+  font-weight: var(--weight-semibold, 600);
+  letter-spacing: 0.04em;
+}
+
+.balanceTitle,
+.sectionTitle {
+  margin: 0;
+  color: var(--text-primary, #1A1614);
+  font-size: var(--text-xl, 20px);
+  line-height: 1.25;
+}
+
+.unlimitedBadge {
+  padding: 5px 9px;
+  border: 1px solid var(--accent, #0C0A09);
+  border-radius: var(--radius-full, 9999px);
+  color: var(--text-primary, #1A1614);
+  font-size: var(--text-xs, 11px);
+  font-weight: var(--weight-semibold, 600);
+  white-space: nowrap;
+}
+
+.balanceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-5, 20px);
+}
+
+.balanceItem {
+  padding: var(--space-4, 16px);
+  border: 1px solid var(--border-light, rgba(231, 229, 228, 0.4));
+  border-radius: var(--radius-md, 16px);
+  background: var(--bg, #F5EFE4);
+}
+
+.balanceLabel,
+.historyCopy span,
+.mutedText,
+.emptyText {
+  color: var(--text-muted, #6B6560);
+  font-size: var(--text-sm, 13px);
+}
+
+.balanceValue {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-primary, #1A1614);
+  font-size: var(--text-lg, 17px);
+}
+
+.quoteTotal {
+  color: var(--text-primary, #1A1614);
+  font-size: var(--text-lg, 17px);
+}
+
+.quoteList,
+.historyList {
+  display: grid;
+  gap: 0;
+  margin: var(--space-4, 16px) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quoteRow,
+.historyRow {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-light, rgba(231, 229, 228, 0.4));
+  color: var(--text-secondary, #3D3835);
+  font-size: var(--text-sm, 13px);
+}
+
+.mutedText,
+.emptyText {
+  margin: var(--space-4, 16px) 0 0;
+}
+
+.historyCopy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.historyCopy strong {
+  color: var(--text-primary, #1A1614);
+  font-size: var(--text-sm, 13px);
+}
+
+.historyAmount {
+  font-size: var(--text-sm, 13px);
+  font-weight: var(--weight-semibold, 600);
+  white-space: nowrap;
+}
+
+.tonepositive { color: var(--green, #5CA86C); }
+.tonewarning { color: #A66A00; }
+.tonenegative { color: var(--red, #E8544B); }
+.toneneutral { color: var(--text-muted, #6B6560); }
+
+.insufficientHint {
+  padding: 10px 12px;
+  border: 1px solid #E9C46A;
+  border-radius: var(--radius-sm, 8px);
+  background: #FFF7D6;
+  color: #7A5600;
+  font-size: var(--text-sm, 13px);
+}
+
+@media (max-width: 600px) {
+  .balanceGrid { grid-template-columns: 1fr; }
+  .balanceCard,
+  .quoteCard,
+  .historyCard { padding: var(--space-5, 20px); }
+}
