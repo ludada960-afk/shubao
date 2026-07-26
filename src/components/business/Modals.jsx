@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose } from 'react-icons/md';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
@@ -8,6 +8,15 @@ import { useApp } from '../../store/AppContext';
 import { sendOTP, verifyOTP, isClosedBetaEmail } from '../../services/auth';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
 import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
+import BillingBalanceCard from '../billing/BillingBalanceCard.jsx';
+import {
+  buildPricingPlans,
+  createOrderRequest,
+  enabledPaymentProviders,
+  formatCatalogGrant,
+  formatCatalogPrice,
+} from '../billing/pricingCatalogModel.js';
+import { createBillingOrder } from '../../services/billing.js';
 
 /* ═══════ Login Modal ═══════ */
 export function LoginModal() {
@@ -131,15 +140,27 @@ export function LoginModal() {
 
 /* ═══════ Pricing Modal (灵图风格) ═══════ */
 export function PricingModal() {
-  const { state, dispatch, refreshBillingBalance } = useApp();
+  const { state, dispatch, refreshBillingBalance, refreshBillingCatalog } = useApp();
   const [tab, setTab] = useState(state.priceTab || 'content');
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('');
+  const metadata = tab === 'content' ? PRICING_XHS : PRICING_EC;
+  const currency = tab === 'content' ? 'content_sets' : 'ec_points';
+  const plans = useMemo(
+    () => buildPricingPlans(state.billingCatalog, metadata, currency),
+    [currency, metadata, state.billingCatalog],
+  );
+  const providers = useMemo(
+    () => enabledPaymentProviders(state.billingCatalog),
+    [state.billingCatalog],
+  );
 
   useEffect(() => {
-    if (state.showPrice) setTab(state.priceTab || 'content');
-  }, [state.showPrice, state.priceTab]);
+    if (!state.showPrice) return;
+    setTab(state.priceTab || 'content');
+    refreshBillingCatalog().catch(() => {});
+  }, [refreshBillingCatalog, state.showPrice, state.priceTab]);
 
   if (!state.showPrice) return null;
   const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
@@ -162,24 +183,28 @@ export function PricingModal() {
       onResume={close}
     />;
   }
-  const plans = tab === 'content' ? PRICING_XHS : PRICING_EC;
-
   const buy = (p) => {
     if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
+    if (!p.enabled || providers.length === 0) return;
+    setPaymentStatus('');
     setPayModal(p);
   };
 
-  const confirmPayment = async () => {
+  const createOrder = async (provider) => {
+    if (!payModal) return;
     setPayLoading(true);
-    const entitlement = await refreshBillingBalance().catch(() => undefined);
-    setPayLoading(false);
-    if (entitlement?.unlimited || (entitlement?.[tab === 'content' ? 'contentSets' : 'ecPoints'] || 0) > 0) {
-      setPayModal(null);
-      setPaymentStatus('');
-      dispatch({ type: 'CLEAR_PAYWALL' });
-      return;
+    setPaymentStatus('');
+    try {
+      await createBillingOrder(createOrderRequest({
+        productSku: payModal.sku,
+        provider: provider.id,
+      }));
+      setPaymentStatus('订单已安全创建，请按支付通道指引完成后刷新余额。');
+    } catch (error) {
+      setPaymentStatus(error?.message || '订单创建失败，请稍后重试。');
+    } finally {
+      setPayLoading(false);
     }
-    setPaymentStatus('暂未查询到可用额度。如果刚刚完成支付，请稍等几秒后再次确认。');
   };
 
   return (
@@ -231,9 +256,19 @@ export function PricingModal() {
             创作权益
           </h3>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
-            选择适合你的月度套餐
+            按需补充额度，关闭后当前工作仍会保留
           </p>
         </div>
+
+        {state.logged && (
+          <div style={{ marginBottom: 18 }}>
+            <BillingBalanceCard
+              ecommercePoints={state.ecPoints}
+              contentSets={state.contentSets}
+              unlimited={state.unlimited}
+            />
+          </div>
+        )}
 
         {/* Tab pills */}
         <div style={{
@@ -243,8 +278,8 @@ export function PricingModal() {
           marginBottom: 20,
         }}>
           {[
-            { key: 'content', label: '月度套餐' },
-            { key: 'ecommerce', label: '永久积分包' },
+            { key: 'content', label: '创作套数' },
+            { key: 'ecommerce', label: '永久 AI 积分包' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               style={{
@@ -262,8 +297,20 @@ export function PricingModal() {
           ))}
         </div>
 
+        {providers.length === 0 && (
+          <div role="status" style={{ marginBottom: 14, padding: 12, borderRadius: 12, border: '1px solid #E9C46A', background: '#FFF7D6', color: '#7A5600', fontSize: 13, lineHeight: 1.6 }}>
+            <strong>支付服务接入中</strong>
+            <div>当前没有已启用的在线支付通道，套餐仅供查看，不会打开付款窗口或创建订单。</div>
+          </div>
+        )}
+
         {/* Pricing cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {plans.length === 0 && (
+            <div role="status" style={{ padding: 18, textAlign: 'center', color: 'var(--text-muted)' }}>
+              正在加载权威套餐信息…
+            </div>
+          )}
           {plans.map((p, i) => {
             const colors = [
               'linear-gradient(135deg, #f59e0b, #f97316)',
@@ -277,15 +324,15 @@ export function PricingModal() {
                   gap: 16,
                   padding: 18,
                   borderRadius: 20,
-                  border: p.pop ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  background: p.pop ? '#FAFAF9' : '#fff',
-                  cursor: 'pointer',
+                  border: p.recommended ? '2px solid var(--accent)' : '1px solid var(--border)',
+                  background: p.recommended ? '#FAFAF9' : '#fff',
+                  cursor: p.enabled && providers.length > 0 ? 'pointer' : 'default',
                   transition: 'all 0.15s',
                   position: 'relative',
                 }}
-                onClick={() => buy(p)}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = p.pop ? 'var(--accent)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                onClick={p.enabled && providers.length > 0 ? () => buy(p) : undefined}
+                onMouseEnter={p.enabled && providers.length > 0 ? e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; } : undefined}
+                onMouseLeave={p.enabled && providers.length > 0 ? e => { e.currentTarget.style.borderColor = p.recommended ? 'var(--accent)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; } : undefined}>
                 {/* Small gradient icon */}
                 <span style={{
                   width: 44, height: 44, borderRadius: 14,
@@ -299,7 +346,7 @@ export function PricingModal() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--accent)' }}>
                     {p.name}
-                    {p.pop && (
+                    {p.recommended && (
                       <span style={{
                         fontSize: 9, fontWeight: 900, color: '#fff',
                         background: 'var(--accent)',
@@ -309,10 +356,10 @@ export function PricingModal() {
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, fontWeight: 500 }}>
-                    {p.sets}套 · 每套{p.imgs} · 重生成{p.regen}次/套
+                    {formatCatalogGrant(p)} · {p.validityDays ? `${p.validityDays} 天有效` : '永久有效'}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>
-                    约 ¥{p.per}/套
+                    {p.description}
                   </div>
                 </div>
 
@@ -322,10 +369,10 @@ export function PricingModal() {
                     color: 'var(--accent)',
                     lineHeight: 1,
                   }}>
-                    ¥{p.price}
+                    ¥{formatCatalogPrice(p.priceFen)}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    /月
+                    {p.enabled ? (providers.length > 0 ? '选择套餐' : '暂不可购买') : '套餐已停用'}
                   </div>
                 </div>
               </div>
@@ -333,44 +380,10 @@ export function PricingModal() {
           })}
         </div>
 
-        {/* Free trial */}
-        <div style={{
-          marginTop: 16,
-          padding: '14px 16px',
-          borderRadius: 16,
-          background: 'linear-gradient(135deg, #F5F3FF, #EEF2FF)',
-          border: '2px dashed #6366F1',
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#4338CA', marginBottom: 2 }}>
-            🎁 新用户免费体验 1 套
-          </div>
-          <div style={{ fontSize: 12, color: '#6366F1', marginBottom: 10, lineHeight: 1.5 }}>
-            注册后免费使用一次。不收任何费用，无需绑定支付方式
-          </div>
-          <button onClick={() => {
-            if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
-            close();
-            if (!interrupted) {
-              dispatch({ type: 'NAVIGATE', page: 'home' });
-              if (tab === 'ecommerce') dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
-            }
-          }}
-            style={{
-              display: 'inline-block', padding: '8px 24px', borderRadius: 10,
-              background: '#4338CA', color: '#fff', fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit', border: 'none',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#3730A3'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#4338CA'; e.currentTarget.style.transform = 'none'; }}>
-            立即免费体验
-          </button>
-        </div>
       </div>
 
       {/* Payment modal */}
-      {payModal && (
+      {payModal && providers.length > 0 && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,
           background: 'rgba(0,0,0,0.5)', display: 'flex',
@@ -384,27 +397,34 @@ export function PricingModal() {
               {payModal.name}
             </div>
             <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
-              ¥{payModal.price} · {payModal.sets}套
+              ¥{formatCatalogPrice(payModal.priceFen)} · {formatCatalogGrant(payModal)}
             </div>
 
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 14 }}>
               选择支付方式
             </div>
 
-            <div role="status" style={{ padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>
-              支付通道暂未开放，暂不提供支付宝或微信支付。
+            <div style={{ display: 'grid', gap: 10 }}>
+              {providers.map(provider => (
+                <button
+                  key={provider.id}
+                  type="button"
+                  onClick={() => createOrder(provider)}
+                  disabled={payLoading}
+                  style={{ width: '100%', padding: '12px 0', borderRadius: 12, border: 0, background: '#1f2937', color: '#fff', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}
+                >
+                  {payLoading ? '正在创建安全订单…' : `使用 ${provider.id} 支付`}
+                </button>
+              ))}
             </div>
 
             <div style={{
               fontSize: 11, color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
             }}>
-              当前页面和草稿保持不变；支付通道开放后会在这里显示。
+              订单只提交套餐 SKU、支付通道和幂等标识；当前页面和草稿保持不变。
             </div>
 
             {paymentStatus && <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10 }}>{paymentStatus}</div>}
-            <button onClick={confirmPayment} disabled={payLoading} style={{ width: '100%', marginTop: 12, padding: '12px 0', borderRadius: 12, border: 0, background: '#1f2937', color: '#fff', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}>
-              {payLoading ? '正在确认额度…' : '我已完成支付，确认额度'}
-            </button>
           </div>
         </div>
       )}

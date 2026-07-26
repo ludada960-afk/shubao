@@ -278,13 +278,18 @@ test('direct generation screens cannot bypass the authenticated API payload help
 
 test('pricing page exposes no legacy or clickable payment-provider path while providers are unavailable', async () => {
   const pricing = await fs.readFile(new URL('../src/pages/Pricing/index.jsx', import.meta.url), 'utf8');
+  const pricingModal = await fs.readFile(new URL('../src/components/business/Modals.jsx', import.meta.url), 'utf8');
+  const constants = await fs.readFile(new URL('../src/constants/data.js', import.meta.url), 'utf8');
 
-  assert.doesNotMatch(pricing, /\/api\/create-payment/);
-  assert.doesNotMatch(pricing, /createOrder\s*=/);
-  assert.doesNotMatch(pricing, /支付宝支付|微信支付/);
-  assert.doesNotMatch(pricing, /Stripe[\s\S]{0,80}(支付宝|微信)/);
-  assert.doesNotMatch(pricing, /paid=1/);
-  assert.doesNotMatch(pricing, /\bpaidSuccess\b/);
-  assert.doesNotMatch(pricing, /\bfetchCredits\s*\(/);
-  assert.match(pricing, /支付通道接入中/);
+  for (const source of [pricing, pricingModal]) {
+    assert.doesNotMatch(source, /\/api\/create-payment/);
+    assert.doesNotMatch(source, /支付宝支付|微信支付/);
+    assert.doesNotMatch(source, /Stripe[\s\S]{0,80}(支付宝|微信)/);
+    assert.doesNotMatch(source, /paid=1/);
+    assert.doesNotMatch(source, /\bpaidSuccess\b/);
+    assert.match(source, /支付服务接入中/);
+  }
+  assert.match(pricing, /永久 AI 积分包/);
+  assert.doesNotMatch(pricing, /每套套餐中的「套」是什么意思/);
+  assert.doesNotMatch(constants, /PRICING_EC[\s\S]{0,900}(?:price|sets|credits|grantUnits|validityDays)\s*:/);
 });

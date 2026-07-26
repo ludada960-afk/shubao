@@ -42,7 +42,7 @@ function currency(value) {
   return normalized;
 }
 
-function publicCatalog() {
+function publicCatalog(paymentService) {
   const products = Object.values(PRODUCTS)
     .filter(product => product.enabled !== false)
     .map(({ enabled, providerCostCny, ...product }) => ({ ...product }));
@@ -53,7 +53,12 @@ function publicCatalog() {
       units: feature.units,
       currency: feature.currency ?? 'ec_points',
     }));
-  return { products, features };
+  const paymentProviders = (typeof paymentService?.listProviders === 'function'
+    ? paymentService.listProviders()
+    : [])
+    .filter(provider => SAFE_IDENTIFIER.test(provider?.id || ''))
+    .map(provider => ({ id: provider.id, enabled: provider.enabled === true }));
+  return { products, features, paymentProviders };
 }
 
 function publicQuote(quote) {
@@ -168,7 +173,7 @@ export function createBillingRouteHandlers({ walletService, paymentService, auth
       }
     },
 
-    catalog: handler((_req, res) => res.json(publicCatalog())),
+    catalog: handler((_req, res) => res.json(publicCatalog(paymentService))),
 
     legacyPaymentDisabled: handler((_req, res) => (
       res.status(503).json({ ...LEGACY_PAYMENT_DISABLED_BODY })

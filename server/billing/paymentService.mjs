@@ -429,5 +429,12 @@ export function createPaymentService(db, walletService, providers = {}) {
     return settleVerifiedEvent(provider, verifiedEvent);
   }
 
-  return { createOrder, applyProviderEvent, getOrder };
+  function listProviders() {
+    return Object.entries(providers).map(([id, adapter]) => ({
+      id,
+      enabled: adapter?.enabled === true,
+    }));
+  }
+
+  return { createOrder, applyProviderEvent, getOrder, listProviders };
 }

@@ -33,17 +33,17 @@ export const QUICK_HINTS = [
 
 /* ═══════ 定价方案 ═══════ */
 export const PRICING_XHS = [
-  { name:'入门', price:19, sets:3, regen:5, desc:'偶尔创作的博主', per:'6.3', imgs:'约27张配图' },
-  { name:'进阶', price:49, sets:10, regen:8, pop:true, desc:'个人博主首选', per:'4.9', imgs:'约90张配图' },
-  { name:'创作者', price:99, sets:25, regen:15, desc:'高频创作者', per:'4.0', imgs:'约225张配图' },
-  { name:'工作室', price:199, sets:60, regen:30, desc:'团队批量使用', per:'3.3', imgs:'约540张配图' },
+  { sku:'xhs_entry_19', name:'入门', desc:'适合偶尔创作的小红书与 Plog 用户' },
+  { sku:'xhs_growth_49', name:'进阶', pop:true, desc:'适合稳定更新的个人创作者' },
+  { sku:'xhs_creator_99', name:'创作者', desc:'适合高频内容创作' },
+  { sku:'xhs_studio_199', name:'工作室', desc:'适合团队批量创作' },
 ];
 
 export const PRICING_EC = [
-  { name:'入门', price:19, sets:5, regen:5, desc:'偶尔出图的卖家', per:'3.8', imgs:'约5~20张商品图' },
-  { name:'进阶', price:49, sets:15, regen:8, pop:true, desc:'电商卖家首选', per:'3.3', imgs:'约15~60张商品图' },
-  { name:'专业', price:99, sets:40, regen:15, desc:'高频出图', per:'2.5', imgs:'约40~160张商品图' },
-  { name:'工作室', price:199, sets:100, regen:30, desc:'批量作业', per:'2.0', imgs:'约100~400张商品图' },
+  { sku:'ec_trial_990', name:'体验包', desc:'适合少量试用电商生图能力' },
+  { sku:'ec_starter_29', name:'入门包', pop:true, desc:'适合日常上新与素材补充' },
+  { sku:'ec_growth_79', name:'成长包', desc:'适合稳定上新和多 SKU 运营' },
+  { sku:'ec_studio_199', name:'工作室包', desc:'适合团队批量生产电商视觉' },
 ];
 
 /* ═══════ 功能亮点 ═══════ */

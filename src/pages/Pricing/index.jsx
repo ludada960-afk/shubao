@@ -1,196 +1,262 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MdAutoAwesome } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import Footer from '../../components/layout/Footer';
+import BillingBalanceCard from '../../components/billing/BillingBalanceCard.jsx';
+import {
+  buildPricingPlans,
+  createOrderRequest,
+  enabledPaymentProviders,
+  formatCatalogGrant,
+  formatCatalogPrice,
+} from '../../components/billing/pricingCatalogModel.js';
+import { createBillingOrder } from '../../services/billing.js';
 
 const FAQ_CONTENT = {
   content: [
-    { q: '每套套餐中的「套」是什么意思？', a: '每次输入一个创作主题，AI 生成完整的 1 篇文案 + 9 张配图，算消耗 1 套。' },
-    { q: '生成的图片可以商用吗？', a: '可以。通过薯包AI生成的所有图片，用户拥有完整的商用使用权。' },
-    { q: '可以退款吗？', a: '未使用的套餐额度可随时申请退款，已消耗的部分按比例扣除。' },
+    { q: '创作套数如何计算？', a: '每次完成一篇小红书或 Plog 内容及整套配图，结算 1 个创作套数。' },
+    { q: '创作套数多久有效？', a: '当前套餐自到账起 30 天有效，具体有效期以套餐卡片展示为准。' },
+    { q: '生成内容可以商用吗？', a: '可以。请在发布前检查平台规范、品牌素材授权和生成内容准确性。' },
   ],
   ecommerce: [
-    { q: '每套套餐中的「套」是什么意思？', a: '每次输入一个商品，AI 按你选的风格生成对应的商品图片，算消耗 1 套。' },
-    { q: 'AI生成的电商商品图可以直接用吗？', a: '可以。生成的白底主图符合淘宝/京东/亚马逊主图规范。' },
-    { q: '支持哪些平台？', a: '电商生图支持淘宝、京东、拼多多、小红书电商、抖音电商、亚马逊。' },
+    { q: 'AI 积分如何使用？', a: '不同电商生图与画布能力按服务端实时报价扣除积分，确认生成前会展示本次所需积分。' },
+    { q: 'AI 积分会过期吗？', a: '电商 AI 积分永久有效，不按月清零。' },
+    { q: '支持哪些电商场景？', a: '可用于主图、白底图、详情图、SKU 图和画布二创等场景，具体以产品内已开放功能为准。' },
   ],
 };
 
-/**
- * 套餐页 — 灵图风格弹窗式
- */
+const CARD_COLORS = [
+  'linear-gradient(135deg, #f59e0b, #f97316)',
+  'linear-gradient(135deg, #6366f1, #8b5cf6)',
+  'linear-gradient(135deg, #ec4899, #f43f5e)',
+  'linear-gradient(135deg, #0f766e, #14b8a6)',
+];
+
 export default function PricingPage() {
-  const { state, dispatch } = useApp();
+  const {
+    state,
+    dispatch,
+    refreshBillingCatalog,
+  } = useApp();
   const [tab, setTab] = useState('content');
-  const plans = tab === 'content' ? PRICING_XHS : PRICING_EC;
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [catalogError, setCatalogError] = useState('');
+  const [orderStatus, setOrderStatus] = useState('');
+  const [orderingProvider, setOrderingProvider] = useState('');
+  const metadata = tab === 'content' ? PRICING_XHS : PRICING_EC;
+  const currency = tab === 'content' ? 'content_sets' : 'ec_points';
+  const plans = useMemo(
+    () => buildPricingPlans(state.billingCatalog, metadata, currency),
+    [currency, metadata, state.billingCatalog],
+  );
+  const providers = useMemo(
+    () => enabledPaymentProviders(state.billingCatalog),
+    [state.billingCatalog],
+  );
   const faqs = FAQ_CONTENT[tab];
 
-  const [payModal, setPayModal] = useState(null);
+  useEffect(() => {
+    refreshBillingCatalog()
+      .then(() => setCatalogError(''))
+      .catch(() => setCatalogError('套餐信息暂时无法加载，请稍后重试。'));
+  }, [refreshBillingCatalog]);
 
-  const buy = (p) => {
-    if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
-    setPayModal(p);
+  const openPurchase = (plan) => {
+    if (!state.logged) {
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    if (!plan.enabled || providers.length === 0) return;
+    setOrderStatus('');
+    setSelectedPlan(plan);
+  };
+
+  const createOrder = async (provider) => {
+    if (!selectedPlan) return;
+    setOrderingProvider(provider.id);
+    setOrderStatus('');
+    try {
+      const payload = createOrderRequest({
+        productSku: selectedPlan.sku,
+        provider: provider.id,
+      });
+      await createBillingOrder(payload);
+      setOrderStatus('订单已安全创建，请按支付通道指引完成后刷新余额。');
+    } catch (error) {
+      setOrderStatus(error?.message || '订单创建失败，请稍后重试。');
+    } finally {
+      setOrderingProvider('');
+    }
   };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '48px 20px' }}>
-        {/* Header */}
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '48px 20px' }}>
         <div style={{ marginBottom: 24, textAlign: 'center' }}>
           <h1 style={{ fontSize: 30, fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
             创作权益
           </h1>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
-            选择适合你的月度套餐
+            按需补充额度，当前工作和草稿不会因查看套餐而丢失
           </p>
         </div>
 
-        {/* Tab pills */}
+        {state.logged && (
+          <div style={{ marginBottom: 18 }}>
+            <BillingBalanceCard
+              ecommercePoints={state.ecPoints}
+              contentSets={state.contentSets}
+              unlimited={state.unlimited}
+            />
+          </div>
+        )}
+
         <div style={{
-          display: 'flex', gap: 4,
+          display: 'flex',
+          gap: 4,
           background: 'rgba(0,0,0,0.04)',
-          borderRadius: 12, padding: 4, marginBottom: 20,
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 20,
         }}>
           {[
-            { key: 'content', label: '月度套餐' },
-            { key: 'ecommerce', label: '永久积分包' },
-          ].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            { key: 'content', label: '小红书 / Plog · 创作套数' },
+            { key: 'ecommerce', label: '电商 · 永久 AI 积分包' },
+          ].map(item => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setTab(item.key)}
               style={{
-                flex: 1, padding: '10px 0', border: 'none',
-                background: tab === t.key ? '#fff' : 'transparent',
-                borderRadius: 10, fontFamily: 'inherit',
-                fontSize: 13, fontWeight: tab === t.key ? 900 : 600,
-                color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)',
+                flex: 1,
+                padding: '10px 8px',
+                border: 'none',
+                background: tab === item.key ? '#fff' : 'transparent',
+                borderRadius: 10,
+                fontFamily: 'inherit',
+                fontSize: 12,
+                fontWeight: tab === item.key ? 900 : 600,
+                color: tab === item.key ? 'var(--accent)' : 'var(--text-muted)',
                 cursor: 'pointer',
-                boxShadow: tab === t.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s',
-              }}>
-              {t.label}
+                boxShadow: tab === item.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              {item.label}
             </button>
           ))}
         </div>
 
-        {/* Pricing cards */}
+        {providers.length === 0 && (
+          <div role="status" style={{
+            marginBottom: 14,
+            padding: 14,
+            borderRadius: 14,
+            border: '1px solid #E9C46A',
+            background: '#FFF7D6',
+            color: '#7A5600',
+            fontSize: 13,
+            lineHeight: 1.6,
+          }}>
+            <strong>支付服务接入中</strong>
+            <div>当前没有已启用的在线支付通道，套餐仅供查看，不会打开付款窗口或创建订单。</div>
+          </div>
+        )}
+
+        {catalogError && (
+          <div role="alert" style={{ marginBottom: 14, color: '#B42318', fontSize: 13 }}>
+            {catalogError}
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {plans.map((p, i) => {
-            const colors = [
-              'linear-gradient(135deg, #f59e0b, #f97316)',
-              'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              'linear-gradient(135deg, #ec4899, #f43f5e)',
-            ];
-            return (
-              <div key={i}
-                onClick={() => buy(p)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 16,
-                  padding: 18, borderRadius: 20,
-                  border: p.pop ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  background: p.pop ? '#FAFAF9' : '#fff',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                  position: 'relative',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = p.pop ? 'var(--accent)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}>
+          {plans.length === 0 && !catalogError && (
+            <div role="status" style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>
+              正在加载权威套餐信息…
+            </div>
+          )}
+          {plans.map((plan, index) => {
+            const canPurchase = plan.enabled && providers.length > 0;
+            const card = (
+              <>
                 <span style={{
-                  width: 44, height: 44, borderRadius: 14,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: colors[i], flexShrink: 0,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: CARD_COLORS[index % CARD_COLORS.length],
+                  flexShrink: 0,
                 }}>
                   <MdAutoAwesome size={22} color="#fff" fill="#fff" />
                 </span>
-
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--accent)' }}>
-                    {p.name}
-                    {p.pop && (
+                <span style={{ flex: 1, textAlign: 'left' }}>
+                  <span style={{ display: 'block', fontSize: 16, fontWeight: 900, color: 'var(--accent)' }}>
+                    {plan.name}
+                    {plan.recommended && (
                       <span style={{
-                        fontSize: 9, fontWeight: 900, color: '#fff',
-                        background: 'var(--accent)', padding: '2px 8px',
-                        borderRadius: 6, marginLeft: 8, letterSpacing: 0.3,
-                      }}>推荐</span>
+                        fontSize: 9,
+                        fontWeight: 900,
+                        color: '#fff',
+                        background: 'var(--accent)',
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        marginLeft: 8,
+                      }}>
+                        推荐
+                      </span>
                     )}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {p.sets}套 · 每套{p.imgs} · 重生成{p.regen}次/套
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>
-                    约 ¥{p.per}/套
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--accent)', lineHeight: 1 }}>
-                    ¥{p.price}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>/月</div>
-                </div>
-              </div>
+                  </span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                    {formatCatalogGrant(plan)}
+                    {plan.validityDays ? ` · ${plan.validityDays} 天有效` : ' · 永久有效'}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+                    {plan.description}
+                  </span>
+                </span>
+                <span style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ display: 'block', fontSize: 26, fontWeight: 900, color: 'var(--accent)', lineHeight: 1 }}>
+                    ¥{formatCatalogPrice(plan.priceFen)}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                    {plan.enabled ? (canPurchase ? '选择套餐' : '暂不可购买') : '套餐已停用'}
+                  </span>
+                </span>
+              </>
+            );
+            const style = {
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              padding: 18,
+              borderRadius: 20,
+              border: plan.recommended ? '2px solid var(--accent)' : '1px solid var(--border)',
+              background: plan.recommended ? '#FAFAF9' : '#fff',
+              position: 'relative',
+              boxSizing: 'border-box',
+              fontFamily: 'inherit',
+            };
+            return canPurchase ? (
+              <button key={plan.sku} type="button" onClick={() => openPurchase(plan)} style={{ ...style, cursor: 'pointer' }}>
+                {card}
+              </button>
+            ) : (
+              <article key={plan.sku} aria-disabled="true" style={{ ...style, opacity: plan.enabled ? 1 : 0.6 }}>
+                {card}
+              </article>
             );
           })}
         </div>
 
-        {/* Free trial */}
-        <div style={{
-          marginTop: 16, padding: '14px 16px', borderRadius: 16,
-          background: 'linear-gradient(135deg, #F5F3FF, #EEF2FF)',
-          border: '2px dashed #6366F1', textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#4338CA', marginBottom: 2 }}>
-            🎁 新用户免费体验 1 套
-          </div>
-          <div style={{ fontSize: 12, color: '#6366F1', marginBottom: 10, lineHeight: 1.5 }}>
-            注册后免费使用一次。不收任何费用，无需绑定支付方式
-          </div>
-          <button onClick={() => {
-            if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
-            dispatch({ type: 'NAVIGATE', page: 'home' });
-            if (tab === 'ecommerce') dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
-          }}
-            style={{
-              display: 'inline-block', padding: '8px 24px', borderRadius: 10,
-              background: '#4338CA', color: '#fff', fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit', border: 'none',
-            }}>
-            立即免费体验
-          </button>
-        </div>
-
-        {/* Payment modal */}
-        {payModal && (
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 99999,
-            background: 'rgba(0,0,0,0.5)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', padding: 20,
-          }} onClick={() => setPayModal(null)}>
-            <div style={{
-              background: '#fff', borderRadius: 20, maxWidth: 360,
-              width: '100%', padding: 28, textAlign: 'center',
-            }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent)', marginBottom: 4 }}>
-                {payModal.name}
-              </div>
-              <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
-                ¥{payModal.price} · {payModal.sets}套
-              </div>
-              <div role="status" style={{ padding: 14, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 14, fontWeight: 700 }}>
-                支付通道接入中
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 14, lineHeight: 1.6 }}>
-                当前暂不提供在线支付。套餐信息仅供查看，支付能力开放后会在此处显示。
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* FAQ */}
         <div style={{ maxWidth: 520, margin: '40px auto 0', textAlign: 'left' }}>
           <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 16, textAlign: 'center', color: 'var(--accent)' }}>
             常见问题
           </div>
-          {faqs.map((faq, i) => (
-            <details key={i} style={{ borderBottom: '1px solid var(--border)', padding: '14px 0', fontSize: 14 }}>
+          {faqs.map((faq) => (
+            <details key={faq.q} style={{ borderBottom: '1px solid var(--border)', padding: '14px 0', fontSize: 14 }}>
               <summary style={{ fontWeight: 700, cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'inherit' }}>
                 {faq.q}
               </summary>
@@ -201,6 +267,46 @@ export default function PricingPage() {
           ))}
         </div>
       </div>
+
+      {selectedPlan && providers.length > 0 && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="选择支付通道"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+          onClick={() => setSelectedPlan(null)}
+        >
+          <div style={{ background: '#fff', borderRadius: 20, maxWidth: 360, width: '100%', padding: 28, textAlign: 'center' }} onClick={event => event.stopPropagation()}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>{selectedPlan.name}</h2>
+            <p style={{ color: 'var(--text-muted)' }}>
+              ¥{formatCatalogPrice(selectedPlan.priceFen)} · {formatCatalogGrant(selectedPlan)}
+            </p>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {providers.map(provider => (
+                <button
+                  key={provider.id}
+                  type="button"
+                  disabled={Boolean(orderingProvider)}
+                  onClick={() => createOrder(provider)}
+                  style={{ minHeight: 44, border: '1px solid #1A1614', borderRadius: 12, background: '#1A1614', color: '#fff', cursor: orderingProvider ? 'wait' : 'pointer' }}
+                >
+                  {orderingProvider === provider.id ? '正在创建安全订单…' : `使用 ${provider.id} 支付`}
+                </button>
+              ))}
+            </div>
+            {orderStatus && <p role="status" style={{ color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10, fontSize: 12 }}>{orderStatus}</p>}
+          </div>
+        </div>
+      )}
       <Footer />
     </div>
   );

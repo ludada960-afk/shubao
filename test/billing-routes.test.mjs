@@ -280,6 +280,41 @@ test('disabled payment providers do not create orders', async t => {
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM payment_orders').get().count, 0);
 });
 
+test('public catalog exposes only safe payment provider availability', async t => {
+  const providers = {
+    testpay: {
+      enabled: true,
+      secret: 'must-not-leak',
+      url: 'https://private.invalid',
+      createOrder: () => ({ providerOrderId: 'remote-order-1' }),
+      verifyEvent: event => event,
+    },
+    disabled: {
+      enabled: false,
+      secret: 'also-private',
+    },
+  };
+  const { app, db } = createHarness({ providers });
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'GET', '/api/billing/catalog');
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.paymentProviders, [
+    { id: 'testpay', enabled: true },
+    { id: 'disabled', enabled: false },
+  ]);
+  assert.doesNotMatch(JSON.stringify(res.body), /must-not-leak|private\.invalid|also-private/);
+});
+
+test('public catalog reports no enabled payment route in production-equivalent configuration', async t => {
+  const { app, db } = createHarness();
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'GET', '/api/billing/catalog');
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.paymentProviders, []);
+});
+
 test('legacy payment compatibility endpoints are disabled and grant nothing', async t => {
   const { app, db } = createHarness();
   t.after(() => db.close());

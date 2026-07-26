@@ -38,7 +38,16 @@ test('billing client sends each private request with a bearer token and server-o
   await fetchBillingCatalog();
   await fetchBillingBalance();
   await quoteBillingAction({ sku: 'ec_100', quantity: 2, email: 'untrusted@example.com' });
-  await createBillingOrder({ productSku: 'ec_100', provider: 'manual', idempotencyKey: 'order-1', email: 'untrusted@example.com' });
+  await createBillingOrder({
+    productSku: 'ec_100',
+    provider: 'manual',
+    idempotencyKey: 'order-1',
+    email: 'untrusted@example.com',
+    amount: 0.01,
+    price: 0.01,
+    sets: 999,
+    credits: 999,
+  });
   await fetchBillingLedger({ currency: 'ec_points', limit: 20, offset: 10 });
 
   assert.deepEqual(requests.map(({ url, options }) => ({

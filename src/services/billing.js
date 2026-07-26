@@ -37,10 +37,15 @@ export function quoteBillingAction(input) {
 }
 
 export function createBillingOrder(input) {
+  const payload = {
+    productSku: input?.productSku,
+    provider: input?.provider,
+    idempotencyKey: input?.idempotencyKey,
+  };
   return requestJson('/api/billing/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withoutEmail(input)),
+    body: JSON.stringify(payload),
   });
 }
 
