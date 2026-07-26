@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { getSession } from '../services/auth';
 import { fetchBillingBalance, fetchBillingCatalog, fetchBillingLedger } from '../services/billing';
+import { clearPendingPaidAction, loadPendingPaidAction } from '../utils/pendingPaidAction.js';
 import {
   createSessionRequestGate,
   normalizeEntitlement,
@@ -111,6 +112,8 @@ function reducer(state, action) {
       return { ...state, showPrice: action.show };
     case 'OPEN_PAYWALL':
       return { ...state, showPrice: true, priceTab: action.tab || 'ecommerce', priceReason: action.reason || 'INSUFFICIENT_CREDITS', pendingPaidAction: action.pendingAction || null };
+    case 'RESTORE_PENDING_PAID_ACTION':
+      return { ...state, pendingPaidAction: action.pendingAction || null };
     case 'CLEAR_PAYWALL':
       return { ...state, showPrice: false, priceReason: null, pendingPaidAction: null };
     case 'SET_PRICE_TAB':
@@ -133,6 +136,8 @@ export function AppProvider({ children }) {
   const sessionRequestGate = sessionRequestGateRef.current;
   const dispatch = useCallback((action) => {
     if (action?.type === 'SET_LOGGED') sessionRequestGate.invalidate();
+    if (action?.type === 'SET_LOGGED' && !action.logged) clearPendingPaidAction();
+    if (action?.type === 'CLEAR_PAYWALL') clearPendingPaidAction();
     reducerDispatch(action);
   }, [sessionRequestGate]);
 
@@ -177,6 +182,8 @@ export function AppProvider({ children }) {
       const session = await getSession();
       if (session?.token) {
         dispatch({ type: 'SET_LOGGED', logged: true, phone: session.email || '' });
+        const pendingPaidAction = loadPendingPaidAction(session.email);
+        dispatch({ type: 'RESTORE_PENDING_PAID_ACTION', pendingAction: pendingPaidAction });
         refreshBillingBalance().catch(() => {});
         refreshBillingCatalog().catch(() => {});
       }

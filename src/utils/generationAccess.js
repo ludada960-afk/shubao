@@ -1,6 +1,59 @@
 import { isInsufficientCreditsError } from '../services/apiError.js';
 import { createPendingPaidAction, savePendingPaidAction } from './pendingPaidAction.js';
 
+const DRAFT_REFERENCES_STORAGE_KEY = 'shubao.pendingPaidDrafts.v1';
+
+function activeSessionOwner(storage, now) {
+  try {
+    const session = JSON.parse(storage?.getItem?.('sb-auth') || 'null');
+    if (!session?.token || typeof session.email !== 'string') return '';
+    const expiresAt = Date.parse(session.expiresAt);
+    if (session.expiresAt && Number.isFinite(expiresAt) && expiresAt <= now) return '';
+    return session.email.trim().toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function currentStorage(storage) {
+  if (storage) return storage;
+  try { return globalThis.localStorage; } catch { return null; }
+}
+
+function currentRoute(route, location) {
+  if (typeof route === 'string' && route.trim()) return route.trim();
+  const current = location || globalThis.location;
+  return typeof current?.pathname === 'string' && current.pathname.startsWith('/')
+    ? current.pathname
+    : '/';
+}
+
+function draftReference(ownerEmail, source) {
+  const value = `${ownerEmail || 'anonymous'}\n${source}`;
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `pending-${(hash >>> 0).toString(36)}`;
+}
+
+function stableDraftReference(storage, ownerEmail, source) {
+  const key = `${ownerEmail || 'anonymous'}\n${source}`;
+  try {
+    const stored = JSON.parse(storage?.getItem?.(DRAFT_REFERENCES_STORAGE_KEY) || '{}');
+    if (stored && typeof stored === 'object' && typeof stored[key] === 'string' && stored[key]) {
+      return stored[key];
+    }
+    const draftId = draftReference(ownerEmail, source);
+    const references = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    storage?.setItem?.(DRAFT_REFERENCES_STORAGE_KEY, JSON.stringify({ ...references, [key]: draftId }));
+    return draftId;
+  } catch {
+    return draftReference(ownerEmail, source);
+  }
+}
+
 /**
  * Keep generation access failures consistent across all ecommerce entrypoints.
  * The caller owns its form state; this helper only opens the appropriate modal.
@@ -14,20 +67,49 @@ export function handleGenerationAccessError(error, dispatch, {
   quoteId,
   storage,
   now,
+  location,
 } = {}) {
   if (isInsufficientCreditsError(error)) {
-    const storedPendingAction = createPendingPaidAction({
-      ownerEmail, source, route, draftId, action, quoteId,
-    }, { now });
-    if (storedPendingAction) savePendingPaidAction(storedPendingAction, { storage, now });
+    const requestedNow = typeof now === 'function' ? now() : Date.now();
+    const createdAt = Number.isFinite(requestedNow) ? requestedNow : Date.now();
+    const backingStorage = currentStorage(storage);
+    const resolvedOwner = typeof ownerEmail === 'string' && ownerEmail.trim()
+      ? ownerEmail.trim().toLowerCase()
+      : activeSessionOwner(backingStorage, createdAt);
+    const resolvedSource = typeof source === 'string' && source.trim() ? source.trim() : 'ecommerce';
+    const resolvedRoute = currentRoute(route, location);
+    const resolvedDraftId = typeof draftId === 'string' && draftId.trim()
+      ? draftId.trim()
+      : stableDraftReference(backingStorage, resolvedOwner, resolvedSource);
     const payload = error?.payload || error || {};
-    const pendingAction = storedPendingAction && {
-      ...storedPendingAction,
-      billing: {
-        required: payload.required ?? error?.required,
-        available: payload.available ?? error?.available,
-      },
+    const resolvedAction = {
+      ...(action && typeof action === 'object' && !Array.isArray(action) ? action : {}),
+      type: typeof action?.type === 'string' && action.type.trim() ? action.type.trim() : resolvedSource,
     };
+    const billing = {
+      required: payload.required ?? error?.required,
+      available: payload.available ?? error?.available,
+    };
+    const storedPendingAction = createPendingPaidAction({
+      ownerEmail: resolvedOwner,
+      source: resolvedSource,
+      route: resolvedRoute,
+      draftId: resolvedDraftId,
+      action: resolvedAction,
+      quoteId,
+    }, { now: () => createdAt });
+    if (storedPendingAction) {
+      savePendingPaidAction(storedPendingAction, { storage: backingStorage });
+    }
+    const pendingReference = storedPendingAction || {
+      source: resolvedSource,
+      route: resolvedRoute,
+      draftId: resolvedDraftId,
+      action: resolvedAction,
+      createdAt,
+      ...(typeof quoteId === 'string' && quoteId ? { quoteId } : {}),
+    };
+    const pendingAction = { ...pendingReference, billing };
     dispatch({
       type: 'OPEN_PAYWALL',
       tab: 'ecommerce',

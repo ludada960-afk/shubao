@@ -40,7 +40,7 @@ export default function InsufficientBalanceModal({
     try {
       const updated = await onRefreshBalance?.();
       if (hasAuthoritativeQuote && unitBalance(updated, currency) >= requiredUnits) {
-        setNotice('额度已满足，可以继续刚才的操作。');
+        setNotice('额度已满足，可以返回继续创作。');
       } else {
         setNotice('额度仍不足，当前工作会继续保留。');
       }
@@ -76,7 +76,7 @@ export default function InsufficientBalanceModal({
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           <button onClick={refresh} disabled={refreshing} style={{ flex: 1, minHeight: 42, border: '1px solid #1A1614', borderRadius: 12, background: '#fff', cursor: refreshing ? 'wait' : 'pointer' }}>{refreshing ? '正在刷新…' : '刷新余额'}</button>
-          {sufficient && <button onClick={() => onResume?.(pendingAction)} style={{ flex: 1, minHeight: 42, border: 0, borderRadius: 12, background: '#1A1614', color: '#fff', cursor: 'pointer' }}>继续刚才的操作</button>}
+          {sufficient && <button onClick={() => onResume?.(pendingAction)} style={{ flex: 1, minHeight: 42, border: 0, borderRadius: 12, background: '#1A1614', color: '#fff', cursor: 'pointer' }}>返回继续创作</button>}
         </div>
       </section>
     </div>

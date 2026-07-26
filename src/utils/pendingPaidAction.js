@@ -1,7 +1,6 @@
 const STORAGE_KEY = 'shubao.pendingPaidAction.v1';
 const VERSION = 1;
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const BASE64_IMAGE_PATTERN = /^[A-Za-z0-9+/\s]+={0,2}$/;
 
 function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -13,11 +12,25 @@ function plainObject(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function binaryField(key) {
+  const normalized = String(key || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  if (!normalized) return false;
+  if (/(?:base64|blob|bytes|buffer|objecturl|dataurl)/.test(normalized)) return true;
+  if (/(?:id|ids|key|keys|ref|refs|url|urls|name|names|label|labels|sku|skus)$/.test(normalized)) return false;
+  return normalized === 'file'
+    || normalized === 'files'
+    || normalized === 'raw'
+    || normalized === 'binary'
+    || /^(?:arraybuffer|binarydata|filedata|imagedata|encodedimage|rawdata|rawimage)$/.test(normalized)
+    || ((normalized.includes('image') || normalized.includes('file'))
+      && /(?:raw|data|encoded|payload|content|upload)/.test(normalized));
+}
+
 function imagePayload(value) {
-  const compact = value.replace(/\s/g, '');
-  return /^data:/i.test(value)
-    || /^blob:/i.test(value)
-    || (compact.length >= 128 && compact.length % 4 === 0 && BASE64_IMAGE_PATTERN.test(compact));
+  return /^data:/i.test(value) || /^blob:/i.test(value);
 }
 
 function unsafeObject(value) {
@@ -26,7 +39,8 @@ function unsafeObject(value) {
   return typeof value?.nodeType === 'number' || typeof value?.ownerDocument === 'object';
 }
 
-function sanitizeJson(value, ancestors = new WeakSet()) {
+function sanitizeJson(value, key = '', ancestors = new WeakSet()) {
+  if (binaryField(key)) return undefined;
   if (value === null || typeof value === 'boolean' || typeof value === 'number') {
     return Number.isFinite(value) || typeof value !== 'number' ? value : undefined;
   }
@@ -37,11 +51,11 @@ function sanitizeJson(value, ancestors = new WeakSet()) {
   ancestors.add(value);
   const sanitized = Array.isArray(value) ? [] : plainObject(value) ? {} : undefined;
   if (sanitized !== undefined) {
-    for (const [key, child] of Object.entries(value)) {
-      const result = sanitizeJson(child, ancestors);
+    for (const [childKey, child] of Object.entries(value)) {
+      const result = sanitizeJson(child, childKey, ancestors);
       if (result !== undefined) {
         if (Array.isArray(sanitized)) sanitized.push(result);
-        else sanitized[key] = result;
+        else sanitized[childKey] = result;
       }
     }
   }

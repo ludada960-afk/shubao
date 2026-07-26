@@ -155,10 +155,7 @@ export function PricingModal() {
       catalog={state.billingCatalog}
       onClose={close}
       onRefreshBalance={refreshBillingBalance}
-      onResume={(action) => {
-        dispatch({ type: 'RESUME_PENDING_PAID_ACTION', pendingAction: action });
-        close();
-      }}
+      onResume={close}
     />;
   }
   const plans = tab === 'content' ? PRICING_XHS : PRICING_EC;
@@ -227,19 +224,12 @@ export function PricingModal() {
             color: 'var(--accent)',
             marginBottom: 4,
           }}>
-            {interrupted ? '继续当前创作' : '创作权益'}
+            创作权益
           </h3>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>
-            {interrupted ? '当前设计方向、图片和补充说明都已保留，充值后可以从这里继续。' : '选择适合你的月度套餐'}
+            选择适合你的月度套餐
           </p>
         </div>
-
-        {interrupted && (
-          <div style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 14, background: '#FFF8E7', border: '1px solid #F4D88A', color: '#73510D', fontSize: 12, lineHeight: 1.6 }}>
-            <strong style={{ display: 'block', marginBottom: 2 }}>不会清空当前操作</strong>
-            {state.pendingPaidAction?.message || '关闭弹窗后仍会停留在当前步骤；支付完成后点击继续生成即可。'}
-          </div>
-        )}
 
         {/* Tab pills */}
         <div style={{

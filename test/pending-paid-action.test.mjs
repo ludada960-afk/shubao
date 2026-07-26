@@ -52,6 +52,47 @@ test('persists only serializable action references and excludes image payloads',
   assert.deepEqual(loadPendingPaidAction('CREATOR@example.com', { storage, now: () => 1001 }), action);
 });
 
+test('keeps long normal text while stripping binary fields without a length threshold', () => {
+  const longPrompt = 'Keep the product shape and typography accurate while using a warm studio scene. '.repeat(4);
+  const standardBase64 = 'A'.repeat(96);
+  const urlSafeBase64 = '-_'.repeat(48);
+  const action = createPendingPaidAction({
+    ownerEmail: 'creator@example.com',
+    source: 'ecommerce',
+    route: '/ecommerce',
+    draftId: 'draft-long-text',
+    action: {
+      type: 'ecommerce_generate',
+      prompt: longPrompt,
+      notes: longPrompt,
+      label: standardBase64,
+      sku: urlSafeBase64,
+      imageId: standardBase64,
+      imageData: standardBase64,
+      raw_bytes: urlSafeBase64,
+      buffer: standardBase64,
+      objectUrl: 'https://example.com/temporary-object-reference',
+      sourceImageBase64: standardBase64,
+      preview_image_bytes: urlSafeBase64,
+      uploadedFileBlob: standardBase64,
+      nested: {
+        text: longPrompt,
+        blob: urlSafeBase64,
+      },
+    },
+  }, { now: () => 1000 });
+
+  assert.deepEqual(action.action, {
+    type: 'ecommerce_generate',
+    prompt: longPrompt,
+    notes: longPrompt,
+    label: standardBase64,
+    sku: urlSafeBase64,
+    imageId: standardBase64,
+    nested: { text: longPrompt },
+  });
+});
+
 test('fails closed and clears records that are expired, malformed, version-mismatched, or owned by another user', () => {
   const storage = createStorage();
   const storageKey = 'shubao.pendingPaidAction.v1';
