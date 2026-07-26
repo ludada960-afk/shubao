@@ -439,6 +439,69 @@ test('missing generation context is explicit and an immediate work rotation abor
   assert.equal(aborted, 1);
 });
 
+test('generation lifecycle controller aborts A on B rotation and ignores A callbacks before unmount aborts B', async () => {
+  let aborted = 0;
+  const lifecycle = taskProgressModel.createEcommerceGenerationLifecycleController({
+    ownerEmail: 'owner@example.com',
+    draftId: 'draft-a',
+    createAbortController: () => ({
+      signal: { kind: 'test-signal' },
+      abort: () => { aborted += 1; },
+    }),
+  });
+  const view = { preview: '', result: '' };
+  const applyImage = (generation, url) => {
+    if (lifecycle.isCurrent(generation.token)) view.preview = url;
+  };
+  const applyCompletion = (generation, value) => {
+    if (lifecycle.isCurrent(generation.token)) view.result = value;
+  };
+
+  const requestA = lifecycle.begin();
+  assert.equal(requestA.signal.kind, 'test-signal');
+  let settleA;
+  const lateA = new Promise(resolve => { settleA = resolve; }).then(({ image, result }) => {
+    applyImage(requestA, image);
+    applyCompletion(requestA, result);
+  });
+  lifecycle.rotate({ ownerEmail: 'owner@example.com', draftId: 'draft-b' });
+  assert.equal(aborted, 1);
+
+  settleA({ image: 'stable-a', result: 'complete-a' });
+  await lateA;
+  assert.deepEqual(view, { preview: '', result: '' });
+
+  const requestB = lifecycle.begin();
+  applyImage(requestB, 'stable-b');
+  applyCompletion(requestB, 'complete-b');
+  assert.deepEqual(view, { preview: 'stable-b', result: 'complete-b' });
+
+  lifecycle.unmount();
+  assert.equal(aborted, 2);
+  applyImage(requestB, 'late-b');
+  assert.equal(view.preview, 'stable-b');
+});
+
+test('generation lifecycle surfaces a missing context before a missing quote and restores UI loading', () => {
+  const view = { loading: true, error: '' };
+  const lifecycle = taskProgressModel.createEcommerceGenerationLifecycleController({
+    ownerEmail: '',
+    draftId: '',
+  });
+  const generation = taskProgressModel.startEcommerceGenerationLifecycle({
+    lifecycle,
+    quoteReady: false,
+    onError: (error) => {
+      view.loading = false;
+      view.error = error.message;
+    },
+  });
+
+  assert.equal(generation, null);
+  assert.equal(view.loading, false);
+  assert.match(view.error, /登录|草稿/);
+});
+
 test('task reference helpers reject malformed owner, draft, task, and record data', () => {
   const storage = memoryStorage();
   assert.equal(taskKey({ ownerEmail: '', draftId: 'ec-draft-1' }), '');

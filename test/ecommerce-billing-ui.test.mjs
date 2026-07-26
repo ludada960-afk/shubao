@@ -448,10 +448,11 @@ test('every running ecommerce entry binds callbacks and completion to its owner-
 
   for (const [name, relativePath] of entries) {
     const source = await fs.readFile(new URL(relativePath, import.meta.url), 'utf8');
-    assert.match(source, /createEcommerceGenerationToken/, `${name} creates a generation token`);
-    assert.match(source, /isEcommerceGenerationTokenCurrent/, `${name} guards callbacks`);
-    assert.match(source, /generationTokenRef\.current\s*=\s*null/, `${name} invalidates stale requests`);
-    assert.match(source, /useEffect\(\(\)\s*=>\s*(?:\(\)\s*=>\s*\{|[\s\S]{0,80}return\s*\(\)\s*=>\s*\{)[\s\S]{0,500}(?:generationTokenRef\.current\s*=\s*null|invalidateEcommerceGenerationRequest)/, `${name} invalidates on unmount`);
+    const usesLifecycleController = name === 'DesignDirection' || name === 'EcAuto';
+    assert.match(source, usesLifecycleController ? /createEcommerceGenerationLifecycleController/ : /createEcommerceGenerationToken/, `${name} creates a generation token`);
+    assert.match(source, usesLifecycleController ? /generationLifecycle\.isCurrent/ : /isEcommerceGenerationTokenCurrent/, `${name} guards callbacks`);
+    assert.match(source, usesLifecycleController ? /generationLifecycle\.(?:invalidate|release)/ : /generationTokenRef\.current\s*=\s*null/, `${name} invalidates stale requests`);
+    assert.match(source, usesLifecycleController ? /generationLifecycle\.unmount\(\)/ : /useEffect\(\(\)\s*=>\s*(?:\(\)\s*=>\s*\{|[\s\S]{0,80}return\s*\(\)\s*=>\s*\{)[\s\S]{0,500}(?:generationTokenRef\.current\s*=\s*null|invalidateEcommerceGenerationRequest)/, `${name} invalidates on unmount`);
   }
 });
 
@@ -472,12 +473,12 @@ test('direction analysis is token-free while all entrypoints reject missing cont
   ];
   for (const entrypoint of entries) {
     const source = await fs.readFile(new URL(entrypoint, import.meta.url), 'utf8');
-    assert.match(source, /createEcommerceGenerationPreconditionError/, `${entrypoint} handles missing owner/draft`);
-    assert.match(source, /if \(!generationToken\)/, `${entrypoint} avoids a tokenless API call`);
+    assert.match(source, /(?:createEcommerceGenerationPreconditionError|startEcommerceGenerationLifecycle|onPreconditionError)/, `${entrypoint} handles missing owner/draft`);
+    assert.match(source, /if \(!(?:generationToken|generation)\)/, `${entrypoint} avoids a tokenless API call`);
   }
 
   const ecAuto = await fs.readFile(new URL('../src/pages/EcAuto/index.jsx', import.meta.url), 'utf8');
-  assert.match(ecAuto, /invalidateEcommerceGenerationRequest/);
+  assert.match(ecAuto, /generationLifecycle\.invalidate\(\)/);
   assert.match(ecAuto, /if \(workVersion > observedWorkVersionRef\.current\)/);
 
   const ecMode = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');

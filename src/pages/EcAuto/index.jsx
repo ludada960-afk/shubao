@@ -14,10 +14,7 @@ import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
-  createEcommerceGenerationPreconditionError,
-  createEcommerceGenerationToken,
-  invalidateEcommerceGenerationRequest,
-  isEcommerceGenerationTokenCurrent,
+  createEcommerceGenerationLifecycleController,
   loadOrCreateEcommerceDraft,
   mergeEcommerceInProgressPreview,
   rotateEcommerceDraft,
@@ -62,25 +59,26 @@ export default function EcAutoPage() {
   const generationTokenRef = useRef(null);
   const generationAbortRef = useRef(null);
   const observedWorkVersionRef = useRef(workVersion);
-  const generationIdentityRef = useRef({ ownerEmail, draftId });
-  generationIdentityRef.current = { ownerEmail, draftId };
+  const generationLifecycleRef = useRef(null);
+  if (!generationLifecycleRef.current) {
+    generationLifecycleRef.current = createEcommerceGenerationLifecycleController({
+      ownerEmail,
+      draftId,
+      tokenRef: generationTokenRef,
+      abortRef: generationAbortRef,
+    });
+  }
+  const generationLifecycle = generationLifecycleRef.current;
+  generationLifecycle.syncContext({ ownerEmail, draftId });
   if (workVersion > observedWorkVersionRef.current) {
-    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
+    generationLifecycle.invalidate();
     observedWorkVersionRef.current = workVersion;
   }
-  const beginGeneration = () => {
-    const token = createEcommerceGenerationToken({ ownerEmail, draftId });
-    generationTokenRef.current = token;
-    return token;
-  };
-  const isGenerationCurrent = (token) => isEcommerceGenerationTokenCurrent(token, {
-    currentToken: generationTokenRef.current,
-    ownerEmail: generationIdentityRef.current.ownerEmail,
-    draftId: generationIdentityRef.current.draftId,
-  });
+  const beginGeneration = (options) => generationLifecycle.begin(options);
+  const isGenerationCurrent = (token) => generationLifecycle.isCurrent(token);
 
   useEffect(() => {
-    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
+    generationLifecycle.invalidate();
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
@@ -97,7 +95,7 @@ export default function EcAutoPage() {
   useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
-    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
+    generationLifecycle.invalidate();
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
@@ -114,7 +112,7 @@ export default function EcAutoPage() {
   }, [draftId, ownerEmail, workVersion]);
 
   useEffect(() => () => {
-    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
+    generationLifecycle.unmount();
   }, []);
 
   // 生成计时器
@@ -138,15 +136,16 @@ export default function EcAutoPage() {
 
   const handleGenerate = async () => {
     if (!input.trim() || genState === 'generating') return;
-    const generationToken = beginGeneration();
-    if (!generationToken) {
-      const contextError = createEcommerceGenerationPreconditionError();
-      setError(contextError.message);
-      setGenState('idle');
+    const generation = beginGeneration({
+      onPreconditionError: (preconditionError) => {
+        setError(preconditionError.message);
+        setGenState('idle');
+      },
+    });
+    if (!generation) {
       return;
     }
-    const generationController = new AbortController();
-    generationAbortRef.current = generationController;
+    const { token: generationToken, signal: generationSignal } = generation;
     setGenState('generating');
     setError('');
     setResults(null);
@@ -159,7 +158,7 @@ export default function EcAutoPage() {
         input: input.trim(),
         email: state.phone,
         draftId,
-        signal: generationController.signal,
+        signal: generationSignal,
         isCurrent: () => isGenerationCurrent(generationToken),
         onProgress: (task) => {
           if (!isGenerationCurrent(generationToken)) return;
@@ -193,14 +192,13 @@ export default function EcAutoPage() {
       dispatch({ type: 'CLOSE_RESULT' });
     } finally {
       if (isGenerationCurrent(generationToken)) {
-        generationTokenRef.current = null;
-        generationAbortRef.current = null;
+        generationLifecycle.release(generationToken);
       }
     }
   };
 
   const startNewProduct = () => {
-    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
+    generationLifecycle.invalidate();
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,

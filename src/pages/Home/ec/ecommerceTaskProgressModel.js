@@ -108,6 +108,88 @@ export function invalidateEcommerceGenerationRequest({ tokenRef, abortRef } = {}
   return Boolean(controller);
 }
 
+function generationContext({ ownerEmail, draftId } = {}) {
+  return {
+    ownerEmail: normalizedOwner(ownerEmail),
+    draftId: cleanText(draftId),
+  };
+}
+
+function sameGenerationContext(left, right) {
+  return left.ownerEmail === right.ownerEmail && left.draftId === right.draftId;
+}
+
+function defaultGenerationAbortController() {
+  return typeof AbortController === 'function' ? new AbortController() : null;
+}
+
+export function createEcommerceGenerationLifecycleController({
+  ownerEmail,
+  draftId,
+  tokenRef = { current: null },
+  abortRef = { current: null },
+  createAbortController = defaultGenerationAbortController,
+} = {}) {
+  let context = generationContext({ ownerEmail, draftId });
+  const invalidate = () => invalidateEcommerceGenerationRequest({ tokenRef, abortRef });
+  const syncContext = (nextContext = {}) => {
+    const next = generationContext(nextContext);
+    if (!sameGenerationContext(context, next)) {
+      invalidate();
+      context = next;
+    }
+    return { ...context };
+  };
+
+  return {
+    syncContext,
+    begin({ onPreconditionError } = {}) {
+      invalidate();
+      const token = createEcommerceGenerationToken(context);
+      if (!token) {
+        const error = createEcommerceGenerationPreconditionError();
+        onPreconditionError?.(error);
+        return null;
+      }
+      const controller = createAbortController?.() || null;
+      tokenRef.current = token;
+      abortRef.current = controller;
+      return { token, controller, signal: controller?.signal };
+    },
+    isCurrent(token) {
+      return isEcommerceGenerationTokenCurrent(token, {
+        currentToken: tokenRef.current,
+        ownerEmail: context.ownerEmail,
+        draftId: context.draftId,
+      });
+    },
+    release(token) {
+      if (!this.isCurrent(token)) return false;
+      tokenRef.current = null;
+      abortRef.current = null;
+      return true;
+    },
+    invalidate,
+    rotate(nextContext = {}) {
+      invalidate();
+      context = generationContext(nextContext);
+      return { ...context };
+    },
+    unmount: invalidate,
+  };
+}
+
+export function startEcommerceGenerationLifecycle({ lifecycle, quoteReady = true, onError } = {}) {
+  const generation = lifecycle?.begin({ onPreconditionError: onError });
+  if (!generation) return null;
+  if (quoteReady) return generation;
+  lifecycle.release(generation.token);
+  const error = new Error('报价尚未准备完成，请稍后重试');
+  error.code = 'ECOMMERCE_GENERATION_QUOTE_REQUIRED';
+  onError?.(error);
+  return null;
+}
+
 export function resolveEcommerceSupplementUpload({
   product,
   reference,

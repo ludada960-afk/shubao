@@ -22,10 +22,9 @@ import { buildSupplementDeck } from './workbenchState';
 import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import {
-  createEcommerceGenerationToken,
-  createEcommerceGenerationPreconditionError,
-  isEcommerceGenerationTokenCurrent,
+  createEcommerceGenerationLifecycleController,
   resolveEcommerceSupplementUpload,
+  startEcommerceGenerationLifecycle,
 } from './ecommerceTaskProgressModel.js';
 
 function normalizeDirectionImages(images = []) {
@@ -67,23 +66,21 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const draftId = String(params?.draftId || '').trim();
   const generationTokenRef = useRef(null);
   const generationAbortRef = useRef(null);
-  const generationIdentityRef = useRef({ ownerEmail, draftId });
-  generationIdentityRef.current = { ownerEmail, draftId };
-  const beginGeneration = () => {
-    const token = createEcommerceGenerationToken({ ownerEmail, draftId });
-    generationTokenRef.current = token;
-    return token;
-  };
-  const isGenerationCurrent = (token) => isEcommerceGenerationTokenCurrent(token, {
-    currentToken: generationTokenRef.current,
-    ownerEmail: generationIdentityRef.current.ownerEmail,
-    draftId: generationIdentityRef.current.draftId,
-  });
+  const generationLifecycleRef = useRef(null);
+  if (!generationLifecycleRef.current) {
+    generationLifecycleRef.current = createEcommerceGenerationLifecycleController({
+      ownerEmail,
+      draftId,
+      tokenRef: generationTokenRef,
+      abortRef: generationAbortRef,
+    });
+  }
+  const generationLifecycle = generationLifecycleRef.current;
+  generationLifecycle.syncContext({ ownerEmail, draftId });
+  const isGenerationCurrent = (token) => generationLifecycle.isCurrent(token);
 
   useEffect(() => {
-    generationTokenRef.current = null;
-    generationAbortRef.current?.abort();
-    generationAbortRef.current = null;
+    generationLifecycle.invalidate();
     setGenerating(false);
     setStableImages([]);
     setAssetProgress([]);
@@ -91,8 +88,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   }, [ownerEmail, draftId]);
 
   useEffect(() => () => {
-    generationTokenRef.current = null;
-    generationAbortRef.current?.abort();
+    generationLifecycle.unmount();
   }, []);
 
   const ecommercePlan = useMemo(() => resolveEcommercePlan({
@@ -238,23 +234,24 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
   /* ── 确认方向 → 生成 ── */
   const handleConfirm = async () => {
-    if (generating || !billingQuote || !ecommercePlan.quoteRequest) return;
-    const generationToken = beginGeneration();
-    if (!generationToken) {
-      const contextError = createEcommerceGenerationPreconditionError();
-      setError(contextError.message);
-      setGenerating(false);
-      return;
-    }
-    const generationController = new AbortController();
-    generationAbortRef.current = generationController;
+    if (generating) return;
+    const generation = startEcommerceGenerationLifecycle({
+      lifecycle: generationLifecycle,
+      quoteReady: Boolean(billingQuote && ecommercePlan.quoteRequest),
+      onError: (preconditionError) => {
+        setError(preconditionError.message);
+        setGenerating(false);
+      },
+    });
+    if (!generation) return;
+    const { token: generationToken, signal: generationSignal } = generation;
     setGenerating(true);
     setBlockedByCredits(false);
     setGenProgress('正在生成…');
     setGenStage(0);
     let pendingAction = null;
     try {
-      const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationController.signal);
+      const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationSignal);
       if (!isGenerationCurrent(generationToken) || !uploadedSupplement) return;
       const dir = directions[selected];
       const directionBrief = [dir?.title, dir?.one_liner, dir?.description].filter(Boolean).join('。');
@@ -311,7 +308,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         billingQuoteId: billingQuote.quoteId,
         draftId: params?.draftId || '',
         retry: retryTaskRequested,
-        signal: generationController.signal,
+        signal: generationSignal,
         isCurrent: () => isGenerationCurrent(generationToken),
         onProgress: (task) => {
           if (!isGenerationCurrent(generationToken)) return;
@@ -351,7 +348,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           images: imageEntries.map(([key, url]) => ({ url, key, label: key, style: key })),
         };
         try {
-          await saveWork(serverWork, phone, { signal: generationController.signal });
+          await saveWork(serverWork, phone, { signal: generationSignal });
           console.log('[EC] ★ 作品已保存到服务器:', finalResult.product_name);
         } catch (e) {
           console.warn('[EC] 服务器保存失败:', e.message);
@@ -426,8 +423,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         setGenerating(false);
         setGenProgress('');
         setGenStage(0);
-        generationTokenRef.current = null;
-        generationAbortRef.current = null;
+        generationLifecycle.release(generationToken);
       }
     }
   };
