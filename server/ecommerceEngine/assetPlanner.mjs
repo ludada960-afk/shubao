@@ -119,11 +119,17 @@ function normalizeSizing(value) {
 }
 
 function selectionKeys(item) {
-  if (item.role === 'main') return ['main', 'main_text', 'main_3x4'];
+  if (item.role === 'main') return ['main'];
+  if (item.role === 'main_text') return ['main_text', 'main'];
+  if (item.role === 'main_3x4') return ['main_3x4', 'main'];
   if (item.role === 'white_background') return ['white_background', 'white_bg'];
   if (item.role === 'sku') return ['sku'];
   if (item.role.startsWith('detail_slice_')) return ['detail', item.role];
   return [item.role];
+}
+
+function explicitMainRoles(sizing) {
+  return ['main_text', 'main_3x4'].filter((role) => sizing.images.some((entry) => entry.key === role));
 }
 
 function resolveRatio(item, sizing, defaultRatio) {
@@ -135,7 +141,7 @@ function resolveRatio(item, sizing, defaultRatio) {
 }
 
 function policyRole(role) {
-  if (role === 'main') return 'main';
+  if (role === 'main' || role === 'main_text' || role === 'main_3x4') return 'main';
   if (role === 'white_background') return 'white_background';
   if (role === 'sku') return 'sku';
   return 'detail';
@@ -194,18 +200,19 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const identity = productIdentity(truth);
   const userFacts = confirmedUserFacts(truth);
   const normalizedPlatform = cleanString(platform) || 'taobao';
+  const mainRoles = explicitMainRoles(normalizedSizing);
   const items = [
-    buildItem({
-      role: 'main',
+    ...(mainRoles.length ? mainRoles : ['main']).map((role) => buildItem({
+      role,
       purpose: 'Representative product image that establishes the shared campaign direction.',
-      defaultRatio: '1:1',
+      defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
       requiredFacts: identity,
       productAssetIds,
       styleReferenceIds,
       category,
       platform: normalizedPlatform,
       sizing: normalizedSizing,
-    }),
+    })),
     buildItem({
       role: 'white_background',
       purpose: 'Product-first white background deliverable for marketplace use.',

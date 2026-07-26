@@ -121,7 +121,7 @@ test('applies sizing overrides per matching role with legal generation dimension
     },
   });
   const details = plan.filter((item) => item.role.startsWith('detail_slice_') && item.role !== 'detail_slice_parameters');
-  const main = plan.find((item) => item.role === 'main');
+  const main = plan.find((item) => item.role === 'main_text');
   const whiteBackground = plan.find((item) => item.role === 'white_background');
 
   assert.ok(details.length >= 4 && details.length <= 7);
@@ -146,15 +146,42 @@ test('prefers exact sizing roles over generic aliases regardless of input order'
       images: [
         { key: 'detail', ratio: '4:3' },
         { role: 'detail_slice_package', ratio: '1:1' },
-        { key: 'main_text', ratio: '3:4' },
-        { role: 'main', ratio: '1:1' },
+        { key: 'white_bg', ratio: '3:4' },
+        { role: 'white_background', ratio: '1:1' },
       ],
     },
   });
 
   assert.equal(plan.find((item) => item.role === 'detail_slice_package').ratio, '1:1');
   assert.equal(plan.find((item) => item.role === 'detail_slice_flavor').ratio, '4:3');
-  assert.equal(plan.find((item) => item.role === 'main').ratio, '1:1');
+  assert.equal(plan.find((item) => item.role === 'white_background').ratio, '1:1');
+});
+
+test('plans explicit main roles independently and is invariant to sizing order', () => {
+  const mainSelections = [
+    { key: 'main_text', ratio: '1:1' },
+    { key: 'main_3x4', ratio: '3:4' },
+  ];
+  const build = (images) => buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible,
+    platform: 'taobao',
+    sizing: { smart: false, images },
+  });
+  const snapshot = (plan) => plan
+    .filter((item) => ['main', 'main_text', 'main_3x4'].includes(item.role))
+    .map(({ id, role, ratio, generationSize, exportTargets }) => ({ id, role, ratio, generationSize, exportTargets }));
+
+  const first = snapshot(build(mainSelections));
+  const reversed = snapshot(build([...mainSelections].reverse()));
+  const smart = snapshot(build([]));
+
+  assert.deepEqual(first, reversed);
+  assert.deepEqual(first.map((item) => item.role), ['main_3x4', 'main_text']);
+  assert.deepEqual(first.map((item) => item.id), ['main-3x4', 'main-text']);
+  assert.deepEqual(first.map((item) => item.ratio), ['3:4', '1:1']);
+  assert.deepEqual(first.map((item) => item.generationSize), ['1536x2048', '2048x2048']);
+  assert.deepEqual(smart.map((item) => item.role), ['main']);
 });
 
 test('normalizes prototype-sensitive inputs and returns deterministic stable item IDs', () => {
