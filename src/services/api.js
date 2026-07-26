@@ -104,6 +104,65 @@ async function prepareImageInputs(images) {
   return [...urls, ...(await uploadECTempImages(base64s))];
 }
 
+function ownedAssetReference(image) {
+  if (!image || typeof image !== 'object') return null;
+  const assetId = typeof image.assetId === 'string' ? image.assetId.trim() : '';
+  const url = imageValue(image);
+  return assetId && url ? { assetId, url } : null;
+}
+
+function splitEcommerceInputs(images) {
+  const owned = [];
+  const legacy = [];
+  for (const image of Array.isArray(images) ? images : []) {
+    const asset = ownedAssetReference(image);
+    if (asset) owned.push(asset);
+    else legacy.push(image);
+  }
+  return { owned, legacy };
+}
+
+export async function uploadEcommerceAsset({ data, file, role = 'product' } = {}) {
+  const sourceData = data || await imageToDataUrl(file);
+  if (typeof sourceData !== 'string' || !sourceData.startsWith('data:image/')) {
+    throw new Error('请选择 JPEG 或 PNG 原图后重试');
+  }
+  const res = await fetch(`${API_BASE}/api/ecommerce/assets`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ data: sourceData, role }),
+  });
+  if (!res.ok) throw await createApiError(res, '原图上传失败');
+  const response = await res.json();
+  if (!response?.original?.assetId || !response?.original?.url || !response?.preview?.url) {
+    throw new Error('原图上传结果不完整，请重试');
+  }
+  return {
+    assetId: response.original.assetId,
+    url: response.original.url,
+    previewUrl: response.preview.url,
+    role: response.original.role || role,
+  };
+}
+
+export async function uploadEcommerceAssets(images, role = 'product') {
+  return Promise.all((Array.isArray(images) ? images : []).map(async image => {
+    const existing = ownedAssetReference(image);
+    if (existing) {
+      return {
+        ...existing,
+        previewUrl: image.previewUrl || image.preview?.url || image.url,
+        role: image.role || role,
+      };
+    }
+    return uploadEcommerceAsset({
+      data: typeof image === 'string' && image.startsWith('data:image/') ? image : undefined,
+      file: image?.file || image,
+      role,
+    });
+  }));
+}
+
 function planToSelections(batchPlan) {
   if (Array.isArray(batchPlan?.imageSelections)) return batchPlan.imageSelections;
   if (!batchPlan || typeof batchPlan !== 'object') return null;
@@ -255,11 +314,11 @@ export async function generateContent(text, images, { onImage, onProgress, previ
 }
 
 export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, email, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600 }) {
+  const productInputs = splitEcommerceInputs(realShots);
+  const referenceInputs = splitEcommerceInputs(refImgs);
   const body = {
     product_name: productName,
     category,
-    reference_images: await prepareImageInputs(refImgs),
-    real_shots: await prepareImageInputs(realShots),
     platform,
     selling_points: points || '',
     skus: skus || [],
@@ -269,6 +328,18 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     restrictions: restrictions || '',
     direction: direction || null,
   };
+  if (productInputs.owned.length || referenceInputs.owned.length) {
+    body.assets = {
+      product: productInputs.owned,
+      reference: referenceInputs.owned,
+    };
+  }
+  if (productInputs.legacy.length) {
+    body.real_shots = await prepareImageInputs(productInputs.legacy);
+  }
+  if (referenceInputs.legacy.length) {
+    body.reference_images = await prepareImageInputs(referenceInputs.legacy);
+  }
   // 电商生图属于封闭内测能力；请求携带本地会话邮箱，服务端仍会二次校验。
   try {
     const session = JSON.parse(localStorage.getItem('sb-auth') || 'null');
@@ -284,7 +355,12 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   // B5: 传递场景预设风格到后端
   if (styleSkill) body.style_skill = styleSkill;
   if (customColors) body.custom_colors = customColors;
-  if (sizing) body.sizing = sizing;
+  if (sizing || generationSettings?.resolution) {
+    body.sizing = {
+      ...(sizing || {}),
+      resolution: generationSettings?.resolution || sizing?.resolution || '2K',
+    };
+  }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分钟超时（电商生图更慢）
 

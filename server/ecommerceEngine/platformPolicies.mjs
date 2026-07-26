@@ -241,6 +241,7 @@ function exportPolicyVersion(value) {
 }
 
 function canonicalExportTarget(target, policyVersion) {
+  const assetPlanItemId = normalizeString(target.assetPlanItemId);
   return {
     platform: target.platform,
     categoryScope: target.categoryScope,
@@ -253,6 +254,7 @@ function canonicalExportTarget(target, policyVersion) {
     fit: target.fit,
     policyVersion,
     targetVersion: EXPORT_TARGET_VERSION,
+    ...(assetPlanItemId ? { assetPlanItemId } : {}),
   };
 }
 
@@ -333,5 +335,6 @@ export function planExportTargets(policyOrOptions, generation = {}) {
     format,
     maxFileBytes: policy.maxFileBytes,
     fit: sourceRatio === targetRatio ? 'inside' : 'cover',
+    assetPlanItemId: ownValue(source, 'assetPlanItemId'),
   }, { policyVersion: policy.verifiedAt })));
 }

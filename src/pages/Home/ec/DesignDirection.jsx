@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MdAutoAwesome, MdArrowBack, MdRefresh } from 'react-icons/md';
-import { getDesignDirections, generateEcommerce, saveWork, polishECText } from '../../../services/api';
+import {
+  getDesignDirections,
+  generateEcommerce,
+  saveWork,
+  polishECText,
+  uploadEcommerceAssets,
+} from '../../../services/api';
+import { quoteBillingAction } from '../../../services/billing.js';
 import { useApp } from '../../../store/AppContext';
 import { handleGenerationAccessError } from '../../../utils/generationAccess.js';
 import EcommerceWorkbench from './EcommerceWorkbench';
+import { formatEcommerceQuote, resolveEcommercePlan } from './ecommercePlanModel.js';
 import { buildSupplementDeck } from './workbenchState';
 import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
@@ -12,20 +20,6 @@ function normalizeDirectionImages(images = []) {
   const seen = new Set();
   return images.map(image => typeof image === 'string' ? { url: image } : { ...(image || {}), url: image?.url || image?.src || image?.image_url || '' })
     .filter(image => image.url && !seen.has(image.url) && seen.add(image.url));
-}
-
-async function supplementImageToDataUrl(image) {
-  if (!image?.url) return null;
-  if (image.url.startsWith('data:')) return image.url;
-  if (image.file instanceof File) {
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(image.file);
-    });
-  }
-  return image.url;
 }
 
 /* ═══════ 设计方向确认页（三段式第二步）═══ */
@@ -49,10 +43,44 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [extraReferenceImages, setExtraReferenceImages] = useState([]);
   const [blockedByCredits, setBlockedByCredits] = useState(false);
   const [supplementError, setSupplementError] = useState('');
+  const [billingQuote, setBillingQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState('');
+
+  const ecommercePlan = useMemo(() => resolveEcommercePlan({
+    platform: params?.platform || 'smart',
+    sizing: params?.sizing || {},
+    resolution: params?.genSettings?.resolution || '2K',
+    skus: params?.skus || [],
+  }), [params?.genSettings?.resolution, params?.platform, params?.sizing, params?.skus]);
+  const quoteText = formatEcommerceQuote({
+    quantity: ecommercePlan.quantity,
+    quote: billingQuote,
+    unlimited: state.unlimited,
+  });
 
   useEffect(() => {
     loadDirections();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBillingQuote(null);
+    setQuoteError('');
+    if (!ecommercePlan.quoteRequest) return () => { cancelled = true; };
+    setQuoteLoading(true);
+    quoteBillingAction(ecommercePlan.quoteRequest)
+      .then(response => {
+        if (!cancelled) setBillingQuote(response?.quote || null);
+      })
+      .catch(error => {
+        if (!cancelled) setQuoteError(error?.message || '费用计算失败，请稍后重试');
+      })
+      .finally(() => {
+        if (!cancelled) setQuoteLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [ecommercePlan.quoteRequest?.quantity, ecommercePlan.quoteRequest?.sku]);
 
   const loadDirections = async () => {
     setLoading(true);
@@ -62,17 +90,14 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       const timer1 = setTimeout(() => setLoadStage(1), 2000);
       const timer2 = setTimeout(() => setLoadStage(2), 4000);
 
-      const [extraProductBase64, extraReferenceBase64] = await Promise.all([
-        Promise.all(extraProductImages.map(supplementImageToDataUrl)),
-        Promise.all(extraReferenceImages.map(supplementImageToDataUrl)),
-      ]);
+      const uploadedSupplement = await uploadSupplementAssets();
 
       const res = await getDesignDirections({
         product_name: params?.productName || params?.description?.slice(0, 20) || '商品',
         description: extraDesc || params?.description || '',
         category: params?.category || '其他',
-        real_shots: [...(params?.realShots || []), ...extraProductBase64.filter(Boolean)],
-        ref_shots: [...(params?.refShots || []), ...extraReferenceBase64.filter(Boolean)],
+        real_shots: [...(params?.realShots || []), ...uploadedSupplement.product],
+        ref_shots: [...(params?.refShots || []), ...uploadedSupplement.reference],
         platform: params?.platform || 'smart',
         style_skill: params?.styleSkill || 'smart',
         product_params: params?.productParams || {},
@@ -131,18 +156,25 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     });
   };
 
+  const uploadSupplementAssets = async () => {
+    const [product, reference] = await Promise.all([
+      uploadEcommerceAssets(extraProductImages, 'product'),
+      uploadEcommerceAssets(extraReferenceImages, 'reference'),
+    ]);
+    setExtraProductImages(product);
+    setExtraReferenceImages(reference);
+    return { product, reference };
+  };
+
   /* ── 确认方向 → 生成 ── */
   const handleConfirm = async () => {
-    if (generating) return;
+    if (generating || !billingQuote || !ecommercePlan.quoteRequest) return;
     setGenerating(true);
     setBlockedByCredits(false);
     setGenProgress('正在生成…');
     setGenStage(0);
     try {
-      const [extraProductPayload, extraReferencePayload] = await Promise.all([
-        Promise.all(extraProductImages.map(supplementImageToDataUrl)),
-        Promise.all(extraReferenceImages.map(supplementImageToDataUrl)),
-      ]);
+      const uploadedSupplement = await uploadSupplementAssets();
       const dir = directions[selected];
       const directionBrief = [dir?.title, dir?.one_liner, dir?.description].filter(Boolean).join('。');
       const result = await generateEcommerce({
@@ -151,8 +183,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         points: [params?.copywriting?.sellingPoints || params?.description || '', directionBrief].filter(Boolean).join('。设计方向：'),
         platform: params?.platform || '淘宝',
         email: state.phone,
-        refImgs: [...(params?.refShots || []), ...extraReferencePayload.filter(Boolean)],
-        realShots: [...(params?.realShots || []), ...((params?.productImages || []).map(image => typeof image === 'string' ? image : image.url)), ...extraProductPayload.filter(Boolean)],
+        refImgs: [...(params?.refShots || []), ...uploadedSupplement.reference],
+        realShots: [...(params?.realShots || []), ...uploadedSupplement.product],
         skus: params?.skus || [],
         detailPlan: params?.copywriting?.detailPlan || {},
         maintenance: params?.copywriting?.maintenance || '',
@@ -380,14 +412,14 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
             {/* ── 确认按钮 ── */}
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <button onClick={handleConfirm} disabled={generating}
+              <button onClick={handleConfirm} disabled={generating || quoteLoading || !billingQuote || !ecommercePlan.quoteRequest}
                 style={{
                   padding: '14px 48px', borderRadius: 25,
                   border: 'none', fontSize: 16, fontWeight: 800,
                   fontFamily: 'inherit',
-                  background: generating ? '#ddd' : 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',
-                  color: '#fff', cursor: generating ? 'not-allowed' : 'pointer',
-                  boxShadow: generating ? 'none' : '0 6px 24px rgba(124,58,237,0.35)',
+                   background: generating || quoteLoading || !billingQuote ? '#ddd' : 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)',
+                   color: '#fff', cursor: generating || quoteLoading || !billingQuote ? 'not-allowed' : 'pointer',
+                   boxShadow: generating || quoteLoading || !billingQuote ? 'none' : '0 6px 24px rgba(124,58,237,0.35)',
                   transition: 'all 0.2s',
                   display: 'flex', alignItems: 'center', gap: 8,
                 }}>
@@ -397,6 +429,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   <>{blockedByCredits ? '继续生成' : '确认方向，开始生成'} <span style={{ fontSize: 18 }}>→</span></>
                 )}
               </button>
+            </div>
+            <div style={{ textAlign: 'center', marginTop: 9, fontSize: 12, fontWeight: 700, color: quoteError ? '#b91c1c' : '#6b625a' }}>
+              {quoteError || quoteText}
             </div>
 
             {/* ── 生成进度面板（可折叠）── */}

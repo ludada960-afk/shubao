@@ -11,13 +11,15 @@ import {
   Settings2, // 生图设置
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
-import SizingPanel, { PLATFORM_PRESETS } from './ec/SizingPanel';
+import SizingPanel from './ec/SizingPanel';
 import StylePanel from './ec/StylePanel';
 import ParamsPanel from './ec/ParamsPanel';
 import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
+import { uploadEcommerceAssets } from '../../services/api.js';
+import { resolveSizingImages } from './ec/ecommercePlanModel.js';
 
 /* ═══════ 智能方案状态常量 ═══════
  * 智能方案逻辑：
@@ -69,6 +71,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   /* — 图片 — */
   const [productImages, setProductImages] = useState([]);
   const [refImages, setRefImages] = useState([]);
+  const [uploadingAssets, setUploadingAssets] = useState(false);
+  const [assetUploadError, setAssetUploadError] = useState('');
   const prodFileRef = useRef(null);
   const refFileRef = useRef(null);
   const cardRef = useRef(null);
@@ -140,75 +144,48 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   const canGen = productImages.length > 0 || description.trim().length > 0;
 
-  /* ── blob URL → base64 data URL（外部API需要）── */
-  const blobToBase64 = (blobUrl) => new Promise((resolve) => {
-    fetch(blobUrl).then(r => r.blob()).then(blob => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    }).catch(() => resolve(blobUrl));
-  });
-
-  const imageToBase64 = async (imgs) => {
-    const results = [];
-    for (const img of imgs) {
-      let url = img.url;
-      if (url.startsWith('blob:')) url = await blobToBase64(url);
-      else if (!url.startsWith('data:')) { results.push(url); continue; }
-      // 压缩：限制最大边 800px，JPEG 0.7 质量
-      const compressed = await compressImage(url, 800, 0.7);
-      results.push(compressed);
-    }
-    return results;
-  };
-
-  /* ── 图片压缩工具 ── */
-  const compressImage = (dataUrl, maxDim = 800, quality = 0.7) => new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      let w = img.width, h = img.height;
-      if (w > maxDim || h > maxDim) {
-        const scale = maxDim / Math.max(w, h);
-        w = Math.round(w * scale);
-        h = Math.round(h * scale);
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-
   /* ── 下一步 ── */
   const handleNext = async () => {
-    if (!canGen) return;
-    const effectiveSizing = (smartMode && !smartOverrides.sizing) ? { smart: true, images: [] } : sizing;
+    if (!canGen || uploadingAssets) return;
+    setUploadingAssets(true);
+    setAssetUploadError('');
+    const baseSizing = (smartMode && !smartOverrides.sizing) ? { smart: true, images: [] } : sizing;
+    const effectiveSizing = {
+      smart: baseSizing.smart !== false,
+      resolution: genSettings.resolution,
+      images: resolveSizingImages(platform, { ...baseSizing, resolution: genSettings.resolution }),
+    };
     const effectiveStyle = (smartMode && !smartOverrides.style) ? 'smart' : styleSkill;
     const effectiveParams = (smartMode && !smartOverrides.params) ? productParams : productParams;
     const effectiveCopy = (smartMode && !smartOverrides.copy) ? copywriting : copywriting;
 
-    const realShots = await imageToBase64(productImages);
-    const refShots = await imageToBase64(refImages);
-
-    onStepChange?.({
-      productName: description.trim() || '商品',
-      description: description.trim(),
-      category: effectiveParams.category || '其他',
-      realShots,
-      refShots,
-      platform,
-      sizing: effectiveSizing,
-      styleSkill: effectiveStyle,
-      customColors,
-      productParams: effectiveParams,
-      skus,
-      copywriting: effectiveCopy,
-      genSettings,
-    });
-    setEcStep?.(2);
+    try {
+      const [realShots, refShots] = await Promise.all([
+        uploadEcommerceAssets(productImages, 'product'),
+        uploadEcommerceAssets(refImages, 'reference'),
+      ]);
+      onStepChange?.({
+        productName: description.trim() || '商品',
+        description: description.trim(),
+        category: effectiveParams.category || '其他',
+        realShots,
+        refShots,
+        productImages: realShots,
+        platform,
+        sizing: effectiveSizing,
+        styleSkill: effectiveStyle,
+        customColors,
+        productParams: effectiveParams,
+        skus,
+        copywriting: effectiveCopy,
+        genSettings,
+      });
+      setEcStep?.(2);
+    } catch (error) {
+      setAssetUploadError(error?.message || '原图上传失败，请重试');
+    } finally {
+      setUploadingAssets(false);
+    }
   };
 
   /* ── 图片上传 ── */
@@ -365,6 +342,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
             platform={platform} onPlatformChange={setPlatform}
             sizing={sizing} onSizingChange={setSizing}
             smartMode={smartMode} onOverride={(isOverridden) => handleOverride('sizing', isOverridden)}
+            resolution={genSettings.resolution}
           />
         )}
         {activePanel === 'style' && (
@@ -716,7 +694,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
               switch (btn.key) {
                 case 'sizing': {
                   // 始终显示具体配置摘要（类似椒图AI）
-                  const images = sizing?.images || [];
+                  const images = resolveSizingImages(platform, { ...sizing, resolution: genSettings.resolution });
                   const total = images.reduce((s, img) => s + (img.count || 0), 0);
                   if (total === 0) return { text: '套图配置', isSmart: false };
                   const typeLabels = [];
@@ -834,21 +812,26 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
           )}
 
           {/* ── 下一步按钮 ── */}
-          <button disabled={!canGen} onClick={handleNext}
+          {assetUploadError && (
+            <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginRight: 8 }}>
+              {assetUploadError}
+            </div>
+          )}
+          <button disabled={!canGen || uploadingAssets} onClick={handleNext}
             style={{
               marginLeft: 'auto', height: 38, padding: '0 22px', borderRadius: 12,
               border: 'none', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-              background: canGen
+              background: canGen && !uploadingAssets
                 ? 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)'
                 : '#e5e5e5',
-              color: canGen ? '#fff' : '#aaa', cursor: canGen ? 'pointer' : 'not-allowed',
+              color: canGen && !uploadingAssets ? '#fff' : '#aaa', cursor: canGen && !uploadingAssets ? 'pointer' : 'not-allowed',
               display: 'flex', alignItems: 'center', gap: 6,
               transition: 'all 0.2s', flexShrink: 0,
-              boxShadow: canGen ? '0 4px 16px rgba(124,58,237,0.3)' : 'none',
+              boxShadow: canGen && !uploadingAssets ? '0 4px 16px rgba(124,58,237,0.3)' : 'none',
             }}
-            onMouseEnter={e => { if (canGen) { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(124,58,237,0.4)'; } }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = canGen ? '0 4px 16px rgba(124,58,237,0.3)' : 'none'; }}>
-            下一步 <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
+            onMouseEnter={e => { if (canGen && !uploadingAssets) { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(124,58,237,0.4)'; } }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = canGen && !uploadingAssets ? '0 4px 16px rgba(124,58,237,0.3)' : 'none'; }}>
+            {uploadingAssets ? '正在上传原图…' : '下一步'} <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
           </button>
         </div>
       </div>

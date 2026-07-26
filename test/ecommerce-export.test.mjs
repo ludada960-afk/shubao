@@ -607,6 +607,78 @@ test('resolves duplicate-content job assets by the unique targetId instead of st
   );
 });
 
+test('exports repeated plan items with item-scoped target IDs when generated content is identical', async (t) => {
+  const {
+    db,
+    exportService,
+    generatedAssetStore,
+  } = await harness(t, { generatedSource: true });
+  const stable = await generatedAssetStore.persistBuffer({
+    buffer: await whiteProductFixture(),
+    contentType: 'image/png',
+    taskId: 'repeated-content-job',
+    label: 'shared',
+  });
+  const plan = buildAssetPlan({
+    productTruth: {
+      category: '数码3C',
+      productName: 'Repeated plan product',
+      sourceAssetIds: [],
+      confirmedFacts: {},
+    },
+    campaignBible: {
+      directionId: 'repeated-plan',
+      title: 'Repeated plan',
+      confirmed: true,
+      referenceAssetIds: [],
+    },
+    platform: 'taobao',
+    sizing: {
+      resolution: '2K',
+      images: [{ key: 'main_text', count: 2, ratio: '1:1' }],
+    },
+  });
+  const [firstItem, secondItem] = plan;
+  const firstTarget = firstItem.exportTargets.find(target => target.format === 'png');
+  const secondTarget = secondItem.exportTargets.find(target => target.format === 'png');
+
+  assert.equal(plan.length, 2);
+  assert.notEqual(firstItem.id, secondItem.id);
+  assert.notEqual(firstTarget.targetId, secondTarget.targetId);
+
+  db.prepare('INSERT INTO ecommerce_jobs (id, owner_email, progress) VALUES (?, ?, ?)').run(
+    'repeated-content-job',
+    'owner@example.com',
+    JSON.stringify({ orchestrationSnapshot: { assetPlan: plan } }),
+  );
+  const insertAsset = db.prepare(
+    'INSERT INTO ecommerce_job_assets (job_id, asset_id, stable_url) VALUES (?, ?, ?)',
+  );
+  insertAsset.run('repeated-content-job', firstItem.id, stable.url);
+  insertAsset.run('repeated-content-job', secondItem.id, stable.url);
+
+  const firstExport = await exportService.createExport({
+    ownerEmail: 'owner@example.com',
+    body: {
+      jobId: 'repeated-content-job',
+      sourceAssetId: stable.id,
+      targetId: firstTarget.targetId,
+    },
+  });
+  const secondExport = await exportService.createExport({
+    ownerEmail: 'owner@example.com',
+    body: {
+      jobId: 'repeated-content-job',
+      sourceAssetId: stable.id,
+      targetId: secondTarget.targetId,
+    },
+  });
+
+  assert.equal(firstExport.targetId, firstTarget.targetId);
+  assert.equal(secondExport.targetId, secondTarget.targetId);
+  assert.notEqual(firstExport.transformFingerprint, secondExport.transformFingerprint);
+});
+
 test('rejects an ambiguous targetId shared by duplicate-content plan items before persistence', async (t) => {
   const {
     db,
@@ -624,6 +696,7 @@ test('rejects an ambiguous targetId shared by duplicate-content plan items befor
   const firstItem = plan.find(item => item.role === 'detail_slice_feature');
   const secondItem = plan.find(item => item.role === 'detail_slice_usage');
   const sharedTarget = firstItem.exportTargets.find(target => target.format === 'png');
+  secondItem.exportTargets = [sharedTarget];
   assert.equal(
     secondItem.exportTargets.some(target => target.targetId === sharedTarget.targetId),
     true,

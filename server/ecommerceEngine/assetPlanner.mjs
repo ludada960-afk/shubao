@@ -4,6 +4,7 @@ import { getPlatformPolicy, planExportTargets } from './platformPolicies.mjs';
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const FACT_FIELDS = ['color', 'size', 'capacity', 'dimLabel', 'count'];
+const COUNTED_SIZING_KEYS = new Set(['white_bg', 'white_background', 'main_text', 'main_3x4', 'transparent', 'detail']);
 const CATEGORY_ALIASES = Object.freeze({
   '3c': '数码3C',
   '数码': '数码3C',
@@ -107,13 +108,28 @@ function normalizeSizing(value) {
   const sizing = isRecord(value) ? value : {};
   const resolution = safeKey(ownValue(sizing, 'resolution'));
   const images = Array.isArray(ownValue(sizing, 'images')) ? ownValue(sizing, 'images') : [];
+  const normalizedImages = images.flatMap((image) => {
+    if (!isRecord(image)) return [];
+    const key = safeKey(ownValue(image, 'id') ?? ownValue(image, 'role') ?? ownValue(image, 'key'));
+    if (!key || key === 'poster') return [];
+    const ratio = cleanString(ownValue(image, 'ratio'));
+    const hasCount = hasOwn(image, 'count');
+    const rawCount = Number(ownValue(image, 'count'));
+    const count = hasCount && Number.isFinite(rawCount)
+      ? Math.max(0, Math.min(20, Math.trunc(rawCount)))
+      : null;
+    return [{ key, ratio, count, hasCount }];
+  });
+  const hasExplicitCounts = normalizedImages.some(image => image.hasCount);
+  const seen = new Set();
   return {
     resolution: Object.hasOwn(LEGAL_IMAGE_SIZES, resolution) ? resolution : '2K',
-    images: images.flatMap((image) => {
-      if (!isRecord(image)) return [];
-      const key = safeKey(ownValue(image, 'id') ?? ownValue(image, 'role') ?? ownValue(image, 'key'));
-      const ratio = cleanString(ownValue(image, 'ratio'));
-      return key && ratio ? [{ key, ratio }] : [];
+    hasExplicitCounts,
+    images: normalizedImages.flatMap((image) => {
+      if (seen.has(image.key)) return [];
+      if (hasExplicitCounts && (!image.hasCount || !COUNTED_SIZING_KEYS.has(image.key))) return [];
+      seen.add(image.key);
+      return [{ key: image.key, ratio: image.ratio, count: image.count }];
     }),
   };
 }
@@ -132,6 +148,11 @@ function explicitMainRoles(sizing) {
   return ['main_text', 'main_3x4'].filter((role) => sizing.images.some((entry) => entry.key === role));
 }
 
+function configuredCount(sizing, ...keys) {
+  const selection = sizing.images.find(entry => keys.includes(entry.key));
+  return Number.isSafeInteger(selection?.count) && selection.count > 0 ? selection.count : 0;
+}
+
 function resolveRatio(item, sizing, defaultRatio) {
   const exactSelection = sizing.images.find((entry) => entry.key === item.role);
   const aliasKeys = new Set(selectionKeys(item).filter((key) => key !== item.role));
@@ -142,6 +163,7 @@ function resolveRatio(item, sizing, defaultRatio) {
 
 function policyRole(role) {
   if (role === 'main' || role === 'main_text' || role === 'main_3x4') return 'main';
+  if (role === 'transparent') return 'main';
   if (role === 'white_background') return 'white_background';
   if (role === 'sku') return 'sku';
   return 'detail';
@@ -161,18 +183,25 @@ function riskLevel(role) {
   return 'low';
 }
 
-function buildItem({ role, purpose, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], category, platform, sizing }) {
+function buildItem({ id: requestedId, role, purpose, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], category, platform, sizing }) {
   const ratio = resolveRatio({ role }, sizing, defaultRatio);
   const generationSize = LEGAL_IMAGE_SIZES[sizing.resolution][ratio];
   const policy = getPlatformPolicy(platform, policyRole(role), category);
-  const id = role.replaceAll('_', '-');
+  const id = requestedId || role.replaceAll('_', '-');
+  const exportTargets = planExportTargets(policy, {
+    generationSize,
+    ratio,
+    assetPlanItemId: id,
+  });
   return {
     id,
     role,
     purpose,
     ratio,
     generationSize,
-    exportTargets: planExportTargets(policy, { generationSize, ratio }),
+    exportTargets: role === 'transparent'
+      ? exportTargets.filter(target => target.format === 'png')
+      : exportTargets,
     generationMode,
     productAssetIds: [...productAssetIds],
     styleReferenceIds: [...styleReferenceIds],
@@ -181,6 +210,37 @@ function buildItem({ role, purpose, defaultRatio = '3:4', requiredFacts, generat
     riskLevel: riskLevel(role),
     qualityChecks: qualityChecks(role, generationMode),
   };
+}
+
+function indexedItemId(role, index, count) {
+  const base = role.replaceAll('_', '-');
+  return count === 1 ? base : `${base}-${index + 1}`;
+}
+
+function appendRepeatedItems(items, count, createItem) {
+  for (let index = 0; index < count; index += 1) {
+    items.push(createItem(index, count));
+  }
+}
+
+function explicitDetailSpecs(strategy, proofAssetIds) {
+  const specs = strategy.detailRoles.map((roleName, index) => ({
+    roleName,
+    purpose: strategy.buyingQuestions[index] || 'Answer one category-specific buying question.',
+    proofAssetIds: [],
+  }));
+  if (strategy.proofRole && proofAssetIds.length && !specs.some(spec => spec.roleName === strategy.proofRole)) {
+    specs.push({
+      roleName: strategy.proofRole,
+      purpose: 'Quality or certification information backed only by uploaded proof assets.',
+      proofAssetIds,
+    });
+  }
+  return specs.length ? specs : [{
+    roleName: 'feature',
+    purpose: 'Answer one category-specific buying question.',
+    proofAssetIds: [],
+  }];
 }
 
 /**
@@ -201,19 +261,28 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const userFacts = confirmedUserFacts(truth);
   const normalizedPlatform = cleanString(platform) || 'taobao';
   const mainRoles = explicitMainRoles(normalizedSizing);
-  const items = [
-    ...(mainRoles.length ? mainRoles : ['main']).map((role) => buildItem({
-      role,
-      purpose: 'Representative product image that establishes the shared campaign direction.',
-      defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
-      requiredFacts: identity,
-      productAssetIds,
-      styleReferenceIds,
-      category,
-      platform: normalizedPlatform,
-      sizing: normalizedSizing,
-    })),
-    buildItem({
+  const items = [];
+
+  if (normalizedSizing.hasExplicitCounts) {
+    for (const role of ['main_text', 'main_3x4']) {
+      const count = configuredCount(normalizedSizing, role);
+      appendRepeatedItems(items, count, (index, total) => buildItem({
+        id: indexedItemId(role, index, total),
+        role,
+        purpose: 'Representative product image that establishes the shared campaign direction.',
+        defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
+        requiredFacts: identity,
+        productAssetIds,
+        styleReferenceIds,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      }));
+    }
+
+    const whiteCount = configuredCount(normalizedSizing, 'white_background', 'white_bg');
+    appendRepeatedItems(items, whiteCount, (index, total) => buildItem({
+      id: indexedItemId('white_background', index, total),
       role: 'white_background',
       purpose: 'Product-first white background deliverable for marketplace use.',
       defaultRatio: '1:1',
@@ -223,42 +292,107 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       category,
       platform: normalizedPlatform,
       sizing: normalizedSizing,
-    }),
-  ];
+    }));
 
-  for (const roleName of strategy.detailRoles) {
-    const role = `detail_slice_${roleName}`;
-    const isParameterSlice = roleName === 'parameters';
-    items.push(buildItem({
-      role,
-      purpose: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
-      requiredFacts: isParameterSlice ? userFacts : identity,
-      generationMode: isParameterSlice ? 'deterministic_overlay' : 'edit',
+    const transparentCount = configuredCount(normalizedSizing, 'transparent');
+    appendRepeatedItems(items, transparentCount, (index, total) => buildItem({
+      id: indexedItemId('transparent', index, total),
+      role: 'transparent',
+      purpose: 'Isolated product cutout on a fully transparent background for PNG design reuse.',
+      defaultRatio: '1:1',
+      requiredFacts: identity,
       productAssetIds,
       styleReferenceIds,
       category,
       platform: normalizedPlatform,
       sizing: normalizedSizing,
     }));
-  }
 
-  if (strategy.proofRole && proofAssetIds.length) {
-    items.push(buildItem({
-      role: `detail_slice_${strategy.proofRole}`,
-      purpose: 'Quality or certification information backed only by uploaded proof assets.',
-      requiredFacts: proofAssetIds.map((assetId) => ({ name: 'proofAssetId', value: assetId })),
-      generationMode: 'deterministic_overlay',
-      productAssetIds,
-      styleReferenceIds,
-      proofAssetIds,
-      category,
-      platform: normalizedPlatform,
-      sizing: normalizedSizing,
-    }));
+    const detailCount = configuredCount(normalizedSizing, 'detail');
+    const detailSpecs = explicitDetailSpecs(strategy, proofAssetIds);
+    for (let index = 0; index < detailCount; index += 1) {
+      const spec = detailSpecs[index % detailSpecs.length];
+      const occurrence = Math.floor(index / detailSpecs.length) + 1;
+      const role = `detail_slice_${spec.roleName}`;
+      const isParameterSlice = spec.roleName === 'parameters';
+      const isProofSlice = spec.proofAssetIds.length > 0;
+      items.push(buildItem({
+        id: occurrence === 1 ? role.replaceAll('_', '-') : `${role.replaceAll('_', '-')}-${occurrence}`,
+        role,
+        purpose: spec.purpose,
+        requiredFacts: isProofSlice
+          ? spec.proofAssetIds.map(assetId => ({ name: 'proofAssetId', value: assetId }))
+          : isParameterSlice ? userFacts : identity,
+        generationMode: isParameterSlice || isProofSlice ? 'deterministic_overlay' : 'edit',
+        productAssetIds,
+        styleReferenceIds,
+        proofAssetIds: spec.proofAssetIds,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      }));
+    }
+  } else {
+    items.push(
+      ...(mainRoles.length ? mainRoles : ['main']).map((role) => buildItem({
+        role,
+        purpose: 'Representative product image that establishes the shared campaign direction.',
+        defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
+        requiredFacts: identity,
+        productAssetIds,
+        styleReferenceIds,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      })),
+      buildItem({
+        role: 'white_background',
+        purpose: 'Product-first white background deliverable for marketplace use.',
+        defaultRatio: '1:1',
+        requiredFacts: identity,
+        productAssetIds,
+        styleReferenceIds,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      }),
+    );
+
+    for (const roleName of strategy.detailRoles) {
+      const role = `detail_slice_${roleName}`;
+      const isParameterSlice = roleName === 'parameters';
+      items.push(buildItem({
+        role,
+        purpose: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
+        requiredFacts: isParameterSlice ? userFacts : identity,
+        generationMode: isParameterSlice ? 'deterministic_overlay' : 'edit',
+        productAssetIds,
+        styleReferenceIds,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      }));
+    }
+
+    if (strategy.proofRole && proofAssetIds.length) {
+      items.push(buildItem({
+        role: `detail_slice_${strategy.proofRole}`,
+        purpose: 'Quality or certification information backed only by uploaded proof assets.',
+        requiredFacts: proofAssetIds.map((assetId) => ({ name: 'proofAssetId', value: assetId })),
+        generationMode: 'deterministic_overlay',
+        productAssetIds,
+        styleReferenceIds,
+        proofAssetIds,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      }));
+    }
   }
 
   normalizeSkus(skus).forEach((skuFacts, index) => {
-    const item = buildItem({
+    items.push(buildItem({
+      id: `sku-${index + 1}`,
       role: 'sku',
       purpose: 'One user-provided SKU variant with deterministic values.',
       defaultRatio: '1:1',
@@ -269,9 +403,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       category,
       platform: normalizedPlatform,
       sizing: normalizedSizing,
-    });
-    item.id = `sku-${index + 1}`;
-    items.push(item);
+    }));
   });
 
   return items.sort((left, right) => left.id.localeCompare(right.id));

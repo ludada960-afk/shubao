@@ -1,35 +1,12 @@
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { Check, Info, ChevronDown, Zap, Pencil } from 'lucide-react';
-
-/* ═══════ 图片类型组件库 ═══════ */
-const IMAGE_TYPES = [
-  { key: 'white_bg', label: '白底首图', icon: '⬜', defaultRatio: '1:1', defaultCount: 1,
-    desc: '纯白底产品居中，电商必选', usage: '首图/主图', maxCount: 3 },
-  { key: 'main_text', label: '商品主图', icon: '🖼️', defaultRatio: '1:1', defaultCount: 3,
-    desc: '核心卖点展示，可含促销文字', usage: '主图轮播', maxCount: 5 },
-  { key: 'main_3x4', label: '商品主图 3:4', icon: '📱', defaultRatio: '3:4', defaultCount: 3,
-    desc: '竖版主图，适合移动端展示', usage: '竖版主图', maxCount: 5 },
-  { key: 'transparent', label: '透明 PNG', icon: '🔲', defaultRatio: '1:1', defaultCount: 1,
-    desc: '去底素材，方便二次设计', usage: '素材/合成用', maxCount: 3 },
-  { key: 'detail', label: '详情切片', icon: '📋', defaultRatio: '3:4', defaultCount: 5,
-    desc: '长图详情页切片，含多种子类', usage: '详情页长图', maxCount: 10 },
-  { key: 'poster', label: '营销海报', icon: '🎯', defaultRatio: '3:4', defaultCount: 0,
-    desc: '促销活动、节日海报、Banner', usage: '活动推广', maxCount: 5 },
-];
-
-/* ═══════ 比例选项（带形状预览，去平台名）═══ */
-const RATIOS = [
-  { key: '1:1',    label: '1:1',    w: 18, h: 18, usage: '正方形' },
-  { key: '3:4',    label: '3:4',    w: 14, h: 18, usage: '竖版' },
-  { key: '4:3',    label: '4:3',    w: 18, h: 14, usage: '横版' },
-  { key: '9:16',   label: '9:16',   w: 10, h: 18, usage: '全屏竖版' },
-  { key: '16:9',   label: '16:9',   w: 18, h: 10, usage: '宽屏' },
-  { key: '2:3',    label: '2:3',    w: 12, h: 18, usage: '经典竖版' },
-  { key: '21:9',   label: '21:9',   w: 21, h: 9,  usage: '超宽横条' },
-  { key: '5:4',    label: '5:4',    w: 16, h: 13, usage: '传统比例' },
-  { key: '4:5',    label: '4:5',    w: 13, h: 16, usage: '社交竖版' },
-  { key: '32:9',   label: '32:9',   w: 24, h: 7,  usage: '全景横幅' },
-];
+import React, { useMemo, useCallback } from 'react';
+import { Check, Info, Zap, Pencil } from 'lucide-react';
+import {
+  getLegalRatios,
+  IMAGE_TYPES,
+  PLATFORM_PRESETS,
+  RATIOS,
+  resolveSizingImages,
+} from './ecommercePlanModel.js';
 
 /* 比例形状预览图标 */
 function RatioShape({ w, h, active }) {
@@ -43,10 +20,11 @@ function RatioShape({ w, h, active }) {
 }
 
 /* 内联比例选择器（替代原生 select）*/
-function RatioSelect({ value, onChange, disabled }) {
+function RatioSelect({ value, onChange, disabled, resolution }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
-  const current = RATIOS.find(r => r.key === value) || RATIOS[0];
+  const legalRatios = getLegalRatios(resolution);
+  const current = legalRatios.find(r => r.key === value) || legalRatios[0];
 
   React.useEffect(() => {
     if (!open) return;
@@ -79,7 +57,7 @@ function RatioSelect({ value, onChange, disabled }) {
           boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: '6px',
           display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, minWidth: 160,
         }}>
-          {RATIOS.map(r => {
+          {legalRatios.map(r => {
             const sel = r.key === value;
             return (
               <div key={r.key} onClick={() => { onChange(r.key); setOpen(false); }}
@@ -104,24 +82,6 @@ function RatioSelect({ value, onChange, disabled }) {
   );
 }
 
-/* ═══════ 平台推荐组合 ═══════ */
-const PLATFORM_PRESETS = {
-  smart:    { name: '智能推荐', icon: '🤖', desc: 'AI 根据产品自动选择最佳平台和套餐',
-              types: ['white_bg', 'main_text', 'transparent', 'detail'] },
-  '淘宝':   { name: '淘宝/天猫', icon: '🟠', desc: '1白底首图+3商品主图+1透明PNG+5详情=10张',
-              types: ['white_bg', 'main_text', 'transparent', 'detail'] },
-  '京东':   { name: '京东', icon: '🔴', desc: '1白底首图+3商品主图+1透明PNG+5详情=10张',
-              types: ['white_bg', 'main_text', 'transparent', 'detail'] },
-  '拼多多': { name: '拼多多', icon: '🟢', desc: '5商品主图+3详情切片，促销风格',
-              types: ['main_text', 'detail'] },
-  '抖音':   { name: '抖音小店', icon: '🎵', desc: '3商品主图+1透明PNG+3详情，竖版优先',
-              types: ['main_3x4', 'transparent', 'detail'] },
-  '小红书': { name: '小红书商城', icon: '📕', desc: '3竖版主图+2详情，生活方式调性',
-              types: ['main_3x4', 'detail'] },
-  '亚马逊': { name: 'Amazon', icon: '🌐', desc: '1纯白底首图+4商品主图+1透明PNG，不可含文字',
-              types: ['white_bg', 'main_text', 'transparent'] },
-};
-
 const PLATFORMS = [
   { key: 'smart', label: '智能', icon: '🤖' },
   { key: '淘宝', label: '淘宝', icon: '🟠' },
@@ -131,13 +91,6 @@ const PLATFORMS = [
   { key: '小红书', label: '小红书', icon: '📕' },
   { key: '亚马逊', label: '亚马逊', icon: '🌐' },
 ];
-
-/* ═══════ 构建默认 images 数组 ═══════ */
-function buildDefaultImages(typeKeys) {
-  return IMAGE_TYPES
-    .filter(t => typeKeys.includes(t.key))
-    .map(t => ({ key: t.key, count: t.defaultCount, ratio: t.defaultRatio, label: t.label }));
-}
 
 function hasSameImages(left, right) {
   if (left.length !== right.length) return false;
@@ -155,9 +108,10 @@ export default function SizingPanel({
   onSizingChange,
   smartMode = true,
   onOverride,
+  resolution = '2K',
 }) {
   // 当前激活的图片类型列表
-  const activeImages = sizing.images?.length ? sizing.images : buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+  const activeImages = resolveSizingImages(platform, { ...sizing, resolution });
   // 已激活的 key 集合
   const activeKeys = useMemo(() => new Set(activeImages.map(i => i.key)), [activeImages]);
   // 是否已被用户自定义
@@ -166,11 +120,10 @@ export default function SizingPanel({
   /* ── 平台切换 ── */
   const handlePlatform = useCallback((key) => {
     onPlatformChange?.(key);
-    const preset = PLATFORM_PRESETS[key] || PLATFORM_PRESETS.smart;
-    const newImages = buildDefaultImages(preset.types);
+    const newImages = resolveSizingImages(key, { smart: true, images: [], resolution });
     onSizingChange?.({ smart: true, images: newImages });
     onOverride?.(false);
-  }, [onPlatformChange, onSizingChange, onOverride]);
+  }, [onPlatformChange, onSizingChange, onOverride, resolution]);
 
   /* ── 切换图片类型勾选 ── */
   const toggleType = useCallback((typeKey) => {
@@ -184,29 +137,30 @@ export default function SizingPanel({
       // 勾选 → 添加（默认数量）
       next = [...activeImages, { key: typeKey, count: typeDef.defaultCount || 1, ratio: typeDef.defaultRatio, label: typeDef.label }];
     }
-    const baseline = buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeKeys, activeImages, onSizingChange, onOverride, platform]);
+  }, [activeKeys, activeImages, onSizingChange, onOverride, platform, resolution]);
 
   /* ── 修改数量 ── */
   const updateCount = useCallback((typeKey, count) => {
     const next = activeImages.map(i => i.key === typeKey ? { ...i, count: Math.max(0, Math.min(count, IMAGE_TYPES.find(t => t.key === typeKey)?.maxCount || 20)) } : i);
-    const baseline = buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeImages, onSizingChange, onOverride, platform]);
+  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
 
   /* ── 修改比例 ── */
   const updateRatio = useCallback((typeKey, ratio) => {
+    if (!getLegalRatios(resolution).some(option => option.key === ratio)) return;
     const next = activeImages.map(i => i.key === typeKey ? { ...i, ratio } : i);
-    const baseline = buildDefaultImages(PLATFORM_PRESETS[platform]?.types || PLATFORM_PRESETS.smart.types);
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeImages, onSizingChange, onOverride, platform]);
+  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
 
   const totalImages = activeImages.reduce((s, img) => s + (img.count || 0), 0);
   const pDef = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
@@ -329,6 +283,7 @@ export default function SizingPanel({
                     value={checked && activeItem ? activeItem.ratio : typeDef.defaultRatio} 
                     onChange={r => checked && updateRatio(typeDef.key, r)} 
                     disabled={!checked}
+                    resolution={resolution}
                   />
                 </div>
               </div>
@@ -354,4 +309,4 @@ export default function SizingPanel({
   );
 }
 
-export { IMAGE_TYPES, PLATFORM_PRESETS, RATIOS };
+export { IMAGE_TYPES, PLATFORM_PRESETS, RATIOS, resolveSizingImages };

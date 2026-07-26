@@ -85,6 +85,8 @@ test('plans exactly one SKU item per valid user SKU variant and preserves its fi
     ['color:月岩白', 'size:标准版', 'dimLabel:120 mm'],
   ]);
   assert.deepEqual(skuItems.map((item) => item.id), ['sku-1', 'sku-2']);
+  const skuTargetIds = skuItems.flatMap(item => item.exportTargets.map(target => target.targetId));
+  assert.equal(new Set(skuTargetIds).size, skuTargetIds.length);
 });
 
 test('adds QC slice only with a real proof asset and assigns that asset to the slice', () => {
@@ -185,6 +187,45 @@ test('plans explicit main roles independently and is invariant to sizing order',
   assert.deepEqual(first.map((item) => item.ratio), ['3:4', '1:1']);
   assert.deepEqual(first.map((item) => item.generationSize), ['1536x2048', '2048x2048']);
   assert.deepEqual(smart.map((item) => item.role), ['main']);
+});
+
+test('honors configured counts including transparent assets and expands deterministic unique IDs', () => {
+  const input = {
+    productTruth: productTruth(),
+    campaignBible,
+    platform: 'taobao',
+    sizing: {
+      resolution: '4K',
+      smart: false,
+      images: [
+        { key: 'white_bg', count: 2, ratio: '1:1' },
+        { key: 'main_text', count: 2, ratio: '1:1' },
+        { key: 'main_3x4', count: 1, ratio: '9:16' },
+        { key: 'transparent', count: 2, ratio: '1:1' },
+        { key: 'detail', count: 6, ratio: '3:4' },
+        { key: 'poster', count: 9, ratio: '3:4' },
+      ],
+    },
+  };
+  const first = buildAssetPlan(input);
+  const second = buildAssetPlan(input);
+  const roleCount = role => first.filter(item => item.role === role).length;
+
+  assert.equal(roleCount('white_background'), 2);
+  assert.equal(roleCount('main_text'), 2);
+  assert.equal(roleCount('main_3x4'), 1);
+  assert.equal(roleCount('transparent'), 2);
+  assert.equal(first.filter(item => item.role.startsWith('detail_slice_')).length, 6);
+  assert.equal(first.length, 13);
+  assert.equal(first.some(item => item.role === 'poster'), false);
+  assert.equal(new Set(first.map(item => item.id)).size, first.length);
+  const targetIds = first.flatMap(item => item.exportTargets.map(target => target.targetId));
+  assert.equal(new Set(targetIds).size, targetIds.length);
+  assert.ok(first
+    .filter(item => item.role === 'transparent')
+    .every(item => item.exportTargets.length > 0 && item.exportTargets.every(target => target.format === 'png')));
+  assert.equal(first.find(item => item.role === 'main_3x4').generationSize, '2160x3840');
+  assert.deepEqual(first, second);
 });
 
 test('normalizes prototype-sensitive inputs and returns deterministic stable item IDs', () => {
