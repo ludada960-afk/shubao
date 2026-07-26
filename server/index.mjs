@@ -42,6 +42,14 @@ import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import {
+  createEcommerceAssetRouteHandlers,
+  createEcommerceAssetUploadService,
+} from './ecommerceEngine/assetUpload.mjs';
+import {
+  createEcommerceExportRouteHandlers,
+  createEcommerceExportService,
+} from './ecommerceEngine/exportService.mjs';
+import {
   buildAssetPlan,
   buildProductTruthPrompt,
   canRetry,
@@ -3141,6 +3149,21 @@ const orchestrator = createEcommerceOrchestrator({
   },
 });
 const ecommerceRouteHandlers = createEcommerceRouteHandlers({ orchestrator });
+const ecommerceAssetUploadService = createEcommerceAssetUploadService({
+  db,
+  generatedAssetStore,
+});
+const ecommerceAssetRouteHandlers = createEcommerceAssetRouteHandlers({
+  assetUploadService: ecommerceAssetUploadService,
+});
+const ecommerceExportService = createEcommerceExportService({
+  db,
+  generatedAssetStore,
+  assetUploadService: ecommerceAssetUploadService,
+});
+const ecommerceExportRouteHandlers = createEcommerceExportRouteHandlers({
+  exportService: ecommerceExportService,
+});
 
 app.post('/api/ec-temp-upload', async (req, res) => {
   try {
@@ -3488,6 +3511,8 @@ function authenticateEcommerceRequest(req, res, next) {
   }
 }
 
+app.post('/api/ecommerce/assets', authenticateEcommerceRequest, ecommerceAssetRouteHandlers.upload);
+app.post('/api/ecommerce/exports', authenticateEcommerceRequest, ecommerceExportRouteHandlers.create);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
 // 画布内的二次生成：沿用现有图生图通道，保证提示词编辑不是只复制到剪贴板。
