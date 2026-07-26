@@ -351,6 +351,31 @@ function evidenceGatedPackageText(productTruth) {
   return approved;
 }
 
+const TEXTUAL_IDENTITY_MUTATION_PREFIXES = new Set([
+  'packagetext',
+  'label',
+  'logo',
+  'brandlogo',
+  '包装文字',
+  '包装文本',
+  '标签',
+  '品牌logo',
+  '商标',
+]);
+
+function normalizeMutationPrefix(mutation) {
+  const normalized = cleanString(mutation).normalize('NFKC');
+  const colonIndex = normalized.indexOf(':');
+  if (colonIndex < 0) return '';
+  return normalized.slice(0, colonIndex).trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function classifyMutationPrefix(mutation) {
+  return TEXTUAL_IDENTITY_MUTATION_PREFIXES.has(normalizeMutationPrefix(mutation))
+    ? 'textual_identity'
+    : 'structural_or_other';
+}
+
 function splitFactsForRendering(assetPlanItem, productTruth) {
   const visualFacts = [];
   const overlays = [];
@@ -384,7 +409,7 @@ function safeForbiddenMutations(productTruth) {
   for (const rawMutation of ownArray(productTruth, 'forbiddenMutations')) {
     const mutation = cleanString(rawMutation);
     if (!mutation) continue;
-    if (/^(?:package\s*text|label|logo|包装文字|标签|标志|商标)\s*:/i.test(mutation)) {
+    if (classifyMutationPrefix(mutation) === 'textual_identity') {
       requiresTextualIdentityProtection = true;
       continue;
     }

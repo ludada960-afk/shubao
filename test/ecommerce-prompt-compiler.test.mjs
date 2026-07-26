@@ -349,6 +349,59 @@ test('evidence-gates package text and does not promote arbitrary forbidden mutat
   assert.match(schema.sections.forbiddenMutations.items.join(' '), /invent no text/i);
 });
 
+test('redacts normalized multilingual text aliases while retaining structural mutations', () => {
+  const redactedValues = [
+    'Snake Package Text',
+    'Hyphen Package Text',
+    'Brand Space Logo',
+    'Brand Under Logo',
+    '包装文字秘密',
+    '包装文本秘密',
+    '标签秘密',
+    '品牌Logo秘密',
+    '商标秘密',
+    'Logo秘密',
+  ];
+  const structuralMutations = [
+    'silhouette: tapered bottle',
+    'component: silver pump',
+    'package layout: centered front-label grid',
+    'package-layout：keep the existing spacing',
+  ];
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem(),
+    productTruth: productTruth({
+      packageText: [],
+      forbiddenMutations: [
+        'package_text: Snake Package Text',
+        'package-text : Hyphen Package Text',
+        'brand logo: Brand Space Logo',
+        'brand_logo：Brand Under Logo',
+        '包装文字：包装文字秘密',
+        '包装文本: 包装文本秘密',
+        '标签：标签秘密',
+        '品牌Logo：品牌Logo秘密',
+        '商标：商标秘密',
+        'logo：Logo秘密',
+        ...structuralMutations,
+      ],
+    }),
+    campaignBible: campaignBible(),
+    assets: {
+      product: [asset('product-front'), asset('product-side')],
+      reference: [asset('style-editorial'), asset('style-lighting')],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+  const mutations = schema.sections.forbiddenMutations.items;
+
+  for (const value of redactedValues) assert.doesNotMatch(result.prompt, new RegExp(value));
+  for (const mutation of structuralMutations) assert.ok(mutations.includes(mutation));
+  assert.equal(mutations.filter((mutation) => (
+    /preserve packaging, labels, and logos exactly as shown/i.test(mutation)
+  )).length, 1);
+});
+
 test('compiles campaign, role, platform, quality, risk, and anti-substitution sections without leaking route or export pixels', () => {
   const result = compileAssetRequest({
     assetPlanItem: assetPlanItem(),
