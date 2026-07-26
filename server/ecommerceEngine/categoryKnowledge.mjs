@@ -29,6 +29,10 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['size', 'scene', 'feature'],
       mainTextStyle: 'beauty promotional with elegance',
       showSKU: true,
+      assetPlan: {
+        detailRoles: ['feature', 'texture', 'shade', 'usage', 'package'],
+        buyingQuestions: ['What is the product?', 'What is its texture?', 'Which user-confirmed variant is shown?', 'How is it used?', 'What packaging detail should be protected?'],
+      },
     },
   },
   '数码3C': {
@@ -53,6 +57,10 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['feature', 'size', 'compare'],
       mainTextStyle: 'tech spec promotional',
       showSKU: true,
+      assetPlan: {
+        detailRoles: ['feature', 'parameters', 'structure', 'compatibility', 'usage'],
+        buyingQuestions: ['Which feature matters?', 'Which user-confirmed parameters apply?', 'What physical structure must stay accurate?', 'Which confirmed compatibility information is available?', 'How is it used?'],
+      },
     },
   },
   '食品饮料': {
@@ -77,6 +85,11 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['scene', 'feature', 'qc'],
       mainTextStyle: 'appetizing text with flavor highlights',
       showSKU: false,
+      assetPlan: {
+        detailRoles: ['package', 'flavor', 'texture', 'serving', 'scene'],
+        buyingQuestions: ['What is in the package?', 'Which user-confirmed flavor is shown?', 'What visual texture is visible?', 'How can it be presented?', 'Which serving scene fits the product?'],
+        proofRole: 'qc',
+      },
     },
   },
   '服饰穿搭': {
@@ -101,6 +114,10 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['feature', 'size', 'care'],
       mainTextStyle: 'fashion editorial with style tags',
       showSKU: true,
+      assetPlan: {
+        detailRoles: ['silhouette', 'material', 'fit', 'detail', 'scene'],
+        buyingQuestions: ['What is the silhouette?', 'What material is visible?', 'Which user-confirmed fit information applies?', 'Which construction detail matters?', 'How does it look in context?'],
+      },
     },
   },
   '家居生活': {
@@ -125,6 +142,10 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['scene', 'size', 'feature'],
       mainTextStyle: 'lifestyle promotional with space aesthetics',
       showSKU: false,
+      assetPlan: {
+        detailRoles: ['scale', 'material', 'craft', 'scene', 'feature'],
+        buyingQuestions: ['What scale should the buyer understand?', 'Which material is visible?', 'Which craft detail matters?', 'How does it fit a room?', 'Which feature answers the buying question?'],
+      },
     },
   },
   '母婴用品': {
@@ -149,6 +170,10 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['qc', 'scene', 'feature'],
       mainTextStyle: 'gentle parenting tone',
       showSKU: false,
+      assetPlan: {
+        detailRoles: ['feature', 'material', 'scale', 'scene', 'care'],
+        buyingQuestions: ['Which feature matters?', 'Which visible material is shown?', 'What user-confirmed scale applies?', 'How is it used?', 'Which care information is user-confirmed?'],
+      },
     },
   },
   '宠物用品': {
@@ -173,6 +198,10 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['scene', 'feature'],
       mainTextStyle: 'playful pet-friendly tone',
       showSKU: true,
+      assetPlan: {
+        detailRoles: ['feature', 'material', 'scale', 'scene', 'detail'],
+        buyingQuestions: ['Which feature matters?', 'Which material is visible?', 'What user-confirmed scale applies?', 'How is it used?', 'Which product detail matters?'],
+      },
     },
   },
   '其他': {
@@ -197,6 +226,10 @@ export const CATEGORY_KNOWLEDGE = {
       detailSlices: ['size', 'feature'],
       mainTextStyle: 'clean generic promotional',
       showSKU: false,
+      assetPlan: {
+        detailRoles: ['feature', 'material', 'scale', 'usage', 'detail'],
+        buyingQuestions: ['Which feature matters?', 'Which material is visible?', 'What user-confirmed scale applies?', 'How is it used?', 'Which product detail matters?'],
+      },
     },
   },
 };
@@ -214,6 +247,11 @@ export function getCategoryList() {
 /** 获取推荐出图策略 */
 export function getGenStrategy(category) {
   return (CATEGORY_KNOWLEDGE[category] || CATEGORY_KNOWLEDGE['其他']).genStrategy;
+}
+
+/** 获取动态资产规划策略（保留旧版 genStrategy 导出不变） */
+export function getAssetPlanStrategy(category) {
+  return getGenStrategy(category).assetPlan || CATEGORY_KNOWLEDGE['其他'].genStrategy.assetPlan;
 }
 
 /** 构建品类视觉描述文字 (与旧版兼容) */
