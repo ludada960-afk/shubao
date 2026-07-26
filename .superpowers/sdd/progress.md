@@ -35,7 +35,8 @@
 - Structured Ecommerce Engine Task 10: complete (`ae74f64..3252cad`, Canvas provider execution now uses the shared pool and durable fenced leases with heartbeat renewal, signed owner authority across all Canvas AI routes, bearer-authenticated frontend helpers, bounded Retry-After-aware submit/poll retries, structured 504 timeout preservation, and trailing-slash/case-normalized route guards independently reviewed and approved; focused and adjacent 62/62, Vite build, collaboration policy, and diff-check passed).
 - Paid Workflow Task 1: complete (`ec76693..325a500`, pure billing presentation components, user-facing AI-point/content-set formatting, unlimited owner display, and real warm-yellow insufficient-balance presentation path independently reviewed and approved; focused 6/6 and Vite build passed).
 - Paid Workflow Task 2: complete (`d0485c6..a0d216c`, signed billing client, separate ecommerce/content entitlements, legacy credits compatibility, and session-epoch guards preventing stale balance/catalog/ledger responses across logout or account switches independently reviewed and approved; focused 7/7 and Vite build passed).
-- Next implementation task: Paid Workflow Task 3.
+- Paid Workflow Task 3: complete (`e4f93ae`, versioned owner-bound pending-action storage, 24-hour fail-closed expiry, serializable-only action persistence, authoritative 402 quote preservation in transient paywall state, dedicated insufficient-balance modal, and legacy payment fallback removal; focused 9/9, Vite build, collab check, and diff-check passed).
+- Next implementation task: Paid Workflow Task 4.
 
 ## Ownership
 
