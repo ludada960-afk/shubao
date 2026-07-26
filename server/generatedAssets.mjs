@@ -87,5 +87,12 @@ export function createGeneratedAssetStore({
     } catch { return null; }
   }
 
-  return { persist, persistBuffer, read };
+  async function persistAndRead(input = {}) {
+    const asset = await persist(input);
+    const stored = await read(asset.id);
+    if (!stored) throw new Error('生成图片稳定落盘后读取失败');
+    return { asset, ...stored };
+  }
+
+  return { persist, persistBuffer, persistAndRead, read };
 }

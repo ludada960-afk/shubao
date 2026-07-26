@@ -14,6 +14,13 @@ function getStored() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
 }
 
+export function getSessionToken() {
+  const session = getStored();
+  if (!session || typeof session.token !== 'string' || !session.token.trim()) return '';
+  if (session.expiresAt && Number.isFinite(Date.parse(session.expiresAt)) && Date.parse(session.expiresAt) <= Date.now()) return '';
+  return session.token.trim();
+}
+
 export function isClosedBetaEmail(email) {
   return String(email || '').trim().toLowerCase() === CLOSED_BETA_EMAIL;
 }
@@ -59,7 +66,13 @@ export async function verifyOTP(email, code) {
 
   if (!d.ok) throw new Error(d.error || '验证失败');
 
-  const user = { id: d.email, email: d.email, nickname: normalizedEmail.split('@')[0] };
+  const user = {
+    id: d.id || d.email,
+    email: d.email || normalizedEmail,
+    nickname: d.nickname || normalizedEmail.split('@')[0],
+    token: d.token || '',
+    expiresAt: d.expiresAt || '',
+  };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
   return user;
 }

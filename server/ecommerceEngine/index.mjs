@@ -49,6 +49,24 @@ export {
 export {
   planRepair, canRetry,
 } from './repairPlanner.mjs';
+export {
+  createEcommerceOrchestrator, createEcommerceRouteHandlers,
+} from './orchestrator.mjs';
+export {
+  createProviderAdapter,
+} from './providerAdapter.mjs';
+export {
+  normalizeProductTruth, mergeProductFacts, buildProductTruthPrompt,
+} from './productTruth.mjs';
+export {
+  compileCampaignBible,
+} from './campaignBible.mjs';
+export {
+  buildAssetPlan,
+} from './assetPlanner.mjs';
+export {
+  compileAssetRequest,
+} from './promptCompiler.mjs';
 
 // 后处理
 export {

@@ -2,12 +2,13 @@ import Database from 'better-sqlite3';
 import crypto from 'node:crypto';
 import { createEcommerceJobStore } from './ecommerceEngine/jobStore.mjs';
 
-const STATES = new Set(['queued', 'analyzing', 'generating', 'completed', 'failed', 'cancelled']);
+const STATES = new Set(['queued', 'analyzing', 'generating', 'completed', 'needs_review', 'failed', 'cancelled']);
 const TRANSITIONS = {
   queued: new Set(['analyzing', 'cancelled']),
   analyzing: new Set(['generating', 'failed', 'cancelled', 'queued']),
-  generating: new Set(['completed', 'failed', 'cancelled', 'queued']),
+  generating: new Set(['completed', 'needs_review', 'failed', 'cancelled', 'queued']),
   completed: new Set(),
+  needs_review: new Set(['queued', 'cancelled']),
   failed: new Set(['queued']),
   cancelled: new Set(),
 };

@@ -166,6 +166,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         styleSkill: params?.styleSkill || 'smart',
         customColors: params?.customColors || null,
         sizing: params?.sizing || null,
+        direction: {
+          ...dir,
+          editableBrief: dir?.description || dir?.short_desc || '',
+        },
         onProgress: (d) => {
           // C4: SSE 实时进度
           if (d.step) setGenProgress(d.step);

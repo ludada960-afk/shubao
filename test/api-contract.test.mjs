@@ -11,6 +11,7 @@ test('frontend generation entrypoints only target implemented generation routes'
   assert.match(server, /app\.post\('\/api\/generate-ecommerce'/);
   assert.match(server, /app\.post\('\/api\/ecommerce\/design-directions'/);
   assert.match(server, /app\.post\('\/api\/canvas\/regenerate'/);
+  assert.doesNotMatch(server, /quality:\s*['"]high['"]/);
 });
 
 test('generation rejects a stream that never reaches complete', async t => {

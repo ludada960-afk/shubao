@@ -14,7 +14,7 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 import { mountOnApp as mountExtRoutes } from './extensionRoutes.mjs';
 import { sendVerificationCode, verifyCode } from './mailService.mjs';
-import { buildECPrompt, buildOutline, IMAGE_TYPE_INFO, PLATFORM_SIZES, IMAGE_ROLES } from './ecommercePromptEngine.mjs';
+import { buildOutline, IMAGE_TYPE_INFO } from './ecommercePromptEngine.mjs';
 import {
   PLOG_STYLES, PLOG_CATEGORIES, SCENE_LENSES, LAYOUT_TEMPLATES, COVER_VARIANTS,
   classifyScene, getLensesForScene, extractToneFromImage, buildToneCard,
@@ -40,9 +40,22 @@ import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 import { createGeneratedAssetStore } from './generatedAssets.mjs';
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
-import { normalizeEcommerceInput } from './ecommerceInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
-import { summarizeEcommerceResult } from './ecommerceResult.mjs';
+import {
+  buildAssetPlan,
+  buildProductTruthPrompt,
+  canRetry,
+  compileAssetRequest,
+  compileCampaignBible,
+  createEcommerceOrchestrator,
+  createEcommerceRouteHandlers,
+  createProviderAdapter,
+  evaluateAsset,
+  mergeProductFacts,
+  normalizeProductTruth,
+  planRepair,
+} from './ecommerceEngine/index.mjs';
+import { quoteFeature } from './billing/catalog.mjs';
 import {
   BETA_GUARDED_POST_ROUTES,
   RATE_LIMITED_POST_ROUTES,
@@ -174,6 +187,7 @@ app.get('/api/generated-assets/:id', async (req, res) => {
 // 对消耗 LLM 额度的生图路由限 10 次/分钟/IP
 const rateLimitStore = new Map();         // key: `${email-or-ip}:${minuteBucket}` -> count
 const CONTENT_PREVIEW_ROUTES = new Set(['/api/generate', '/api/plog-generate']);
+const SIGNED_GENERATION_ROUTES = new Set([...CONTENT_PREVIEW_ROUTES, '/api/generate-ecommerce']);
 function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
@@ -217,7 +231,7 @@ function betaAccessMiddleware(req, res, next) {
     req._contentPreview = true;
     return next();
   }
-  if (CONTENT_PREVIEW_ROUTES.has(req.path)) {
+  if (SIGNED_GENERATION_ROUTES.has(req.path)) {
     try {
       req._userEmail = authenticateContentRequest(req, {
         sessionTokens: contentSessionTokens,
@@ -232,38 +246,7 @@ function betaAccessMiddleware(req, res, next) {
   const access = requireBetaEmail(req.body?.email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   req._userEmail = access.email;
-  if (req.path === '/api/generate-ecommerce') return requireCredits(req, res, next);
   next();
-}
-
-// ── 额度校验中间件（登录用户扣额度，阻止匿名盗刷）──
-// 要求请求体带 email（登录前端已有），查 users.json 是否有额度
-function requireCredits(req, res, next) {
-  const body = req.body || {};
-  const access = requireBetaEmail(body.email || body.phone);
-  if (!access.ok) return res.status(access.status).json({ error: access.error });
-  const email = access.email;
-  req._userEmail = email;
-  req._unlimitedCredits = isUnlimitedBetaEmail(email);
-  if (req._unlimitedCredits) {
-    req._creditsBefore = null;
-    return next();
-  }
-  const credits = getUserCredits(email);
-  if (credits < 1) {
-    return res.status(402).json({
-      error: '额度不足，请购买套餐',
-      code: 'INSUFFICIENT_CREDITS',
-      resumeable: true,
-    });
-  }
-  req._creditsBefore = credits;
-  next();
-}
-// 扣额度（生图完成后调用）
-function deductCredit(email) {
-  if (isUnlimitedBetaEmail(email)) return;
-  consumeUserCredit(email, 1);
 }
 
 mountBillingRoutes(app, {
@@ -600,35 +583,6 @@ async function generateImage(prompt, category, isCover, jkContext, customSize, r
   return await callImageAPI(finalPrompt, customSize, refImageBase64);
 }
 
-// ── 电商专用生图（不加小红书前缀，按图片角色选尺寸）──
-async function generateECImage(prompt, roleKey, platform, refImageBase64, generationSettings = {}) {
-  // 根据图片角色确定尺寸
-  const baseKey = (roleKey || '').replace(/_\d+$/, '');
-  const role = IMAGE_ROLES[baseKey];
-  const ratio = role?.ratio || '1:1';
-  const platformSizes = PLATFORM_SIZES[platform] || PLATFORM_SIZES['淘宝'];
-  const requestedResolution = ['1K', '2K', '4K'].includes(generationSettings.resolution) ? generationSettings.resolution : '';
-  const requestedRatio = ['1:1', '3:4', '4:3', '9:16'].includes(generationSettings.aspectRatio) ? generationSettings.aspectRatio : ratio;
-  const sizeMap = {
-    '1K': { '1:1': '1024×1024px', '3:4': '1024×1366px', '4:3': '1366×1024px', '9:16': '1024×1820px' },
-    '2K': { '1:1': '2048×2048px', '3:4': '2048×2730px', '4:3': '2730×2048px', '9:16': '2048×3640px' },
-    '4K': { '1:1': '4096×4096px', '3:4': '4096×5460px', '4:3': '5460×4096px', '9:16': '4096×7280px' },
-  };
-  const sizeStr = (requestedResolution && sizeMap[requestedResolution]?.[requestedRatio])
-    || platformSizes[ratio] || '1440×1440px';
-  // API 格式: "1440x1440"
-  const apiSize = sizeStr.replace('×', 'x').replace('px', '');
-
-  console.log(`[ec-img] role=${baseKey} ratio=${ratio} platform=${platform} size=${apiSize}`);
-  const fallbackSize = {
-    '1:1': '1024x1024',
-    '3:4': '1024x1536',
-    '4:3': '1536x1024',
-    '9:16': '1024x1536',
-  }[requestedRatio] || '1024x1024';
-  return await callImageAPI(prompt, apiSize, refImageBase64, generationSettings, fallbackSize);
-}
-
 // Ref: 参考图 base64，传给 GPT-Image-2 做视觉参考
 async function callImageAPI(fullPrompt, customSize, refImageBase64, generationSettings = {}, fallbackSize = '1024x1024') {
   const url = `${IMG_BASE}/v1/images/generations`;
@@ -638,8 +592,6 @@ async function callImageAPI(fullPrompt, customSize, refImageBase64, generationSe
     prompt: fullPrompt,
     n: 1,
     size,
-    // 电商成片统一使用最佳质量，前端不再暴露会造成误解的“品质”开关。
-    quality: 'high',
     response_format: 'url',
   };
   // 传参考图到生图模型（模型能看到产品原本的样子）
@@ -2909,6 +2861,265 @@ const TEMP_UPLOAD_DIR = resolve(__dirname, 'temp_uploads');
 if (!fs.existsSync(TEMP_UPLOAD_DIR)) fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
 const imageInputReader = createImageInputReader({ generatedAssetStore, tempUploadDir: TEMP_UPLOAD_DIR });
 
+function parseJsonObject(value) {
+  const text = String(value || '').replace(/```(?:json)?/gi, '').trim();
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return {};
+  try {
+    const parsed = JSON.parse(match[0]);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function ecommerceUserFacts(payload) {
+  const skuFacts = {};
+  for (const [index, sku] of (Array.isArray(payload.skus) ? payload.skus : []).entries()) {
+    if (!sku || typeof sku !== 'object') continue;
+    for (const field of ['color', 'size', 'capacity', 'dimLabel', 'count']) {
+      const value = String(sku[field] || '').trim();
+      if (value) skuFacts[`sku_${index + 1}_${field}`] = { value, source: 'user', visible: true };
+    }
+  }
+  return {
+    productName: String(payload.product_name || '').trim(),
+    category: String(payload.category || '').trim(),
+    materials: String(payload.material || '').trim() ? [String(payload.material).trim()] : [],
+    skuFacts,
+    sourceAssetIds: (payload.assets?.product || []).map(asset => asset.assetId).filter(Boolean),
+  };
+}
+
+async function analyzeEcommerceProductTruth(payload) {
+  const productAssets = Array.isArray(payload.assets?.product) ? payload.assets.product : [];
+  const sourceAssetIds = productAssets.map(asset => asset.assetId).filter(Boolean);
+  const imageUrls = [];
+  for (const asset of productAssets.slice(0, 5)) {
+    const source = asset?.url;
+    if (!source) continue;
+    const image = await imageInputReader.read(source);
+    imageUrls.push(imageBufferToDataUrl(image));
+  }
+
+  let vision = {};
+  if (imageUrls.length > 0) {
+    const prompt = buildProductTruthPrompt({ sourceAssetIds });
+    const raw = MINI_KEY && MINI_BASE
+      ? await callMiniLLM(prompt.systemPrompt, imageUrls, prompt.userPrompt)
+      : await callLLMWithVision(prompt.systemPrompt, imageUrls, prompt.userPrompt);
+    vision = parseJsonObject(raw);
+  }
+
+  return mergeProductFacts({
+    vision: normalizeProductTruth({ ...vision, sourceAssetIds }),
+    user: ecommerceUserFacts(payload),
+  });
+}
+
+async function prepareEcommerceProviderRequest(request) {
+  const inputAssets = [];
+  for (const [index, asset] of (Array.isArray(request.inputAssets) ? request.inputAssets : []).entries()) {
+    const source = asset?.url || asset?.sourceUrl;
+    if (!source) continue;
+    const image = await imageInputReader.read(source);
+    const extension = image.contentType === 'image/jpeg'
+      ? 'jpg'
+      : image.contentType === 'image/webp'
+        ? 'webp'
+        : 'png';
+    inputAssets.push({
+      ...asset,
+      buffer: image.buffer,
+      contentType: image.contentType,
+      fileName: `${asset.assetId || `image-${index + 1}`}.${extension}`,
+    });
+  }
+  if (inputAssets.length === 0) {
+    const error = new Error('请至少上传一张清晰的产品图后再生成');
+    error.status = 400;
+    error.code = 'PRODUCT_IMAGE_REQUIRED';
+    throw error;
+  }
+  return { ...request, inputAssets };
+}
+
+const ecommerceQualityCache = new Map();
+async function analyzeEcommerceOutputQuality({ buffer, productTruth }) {
+  const key = crypto.createHash('sha256')
+    .update(buffer)
+    .update(String(productTruth?.fingerprint || ''))
+    .digest('hex');
+  if (!ecommerceQualityCache.has(key)) {
+    const systemPrompt = `你是电商商品图质检系统。只返回 JSON：
+{
+  "productFidelity":{"passed":true,"confidence":0.0,"issueCodes":[]},
+  "copyAndLogo":{"passed":true,"confidence":0.0,"issueCodes":[]},
+  "visualQuality":{"passed":true,"confidence":0.0,"issueCodes":[]}
+}
+根据 Product Truth 检查商品主体是否漂移、结构/颜色/包装/Logo 是否被篡改，检查是否存在乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。没有足够证据时降低 confidence，不要臆造问题。`;
+    const image = imageBufferToDataUrl({ buffer, contentType: 'image/png' });
+    const userPrompt = `Product Truth：${JSON.stringify(productTruth || {})}`;
+    const promise = (MINI_KEY && MINI_BASE
+      ? callMiniLLM(systemPrompt, [image], userPrompt)
+      : callLLMWithVision(systemPrompt, [image], userPrompt))
+      .then(parseJsonObject)
+      .catch(error => {
+        ecommerceQualityCache.delete(key);
+        throw error;
+      });
+    ecommerceQualityCache.set(key, promise);
+    if (ecommerceQualityCache.size > 200) {
+      const oldest = ecommerceQualityCache.keys().next().value;
+      ecommerceQualityCache.delete(oldest);
+    }
+  }
+  return ecommerceQualityCache.get(key);
+}
+
+function qualityAdapter(section, fallbackCode) {
+  return async payload => {
+    const report = await analyzeEcommerceOutputQuality(payload);
+    const value = report?.[section];
+    if (!value || typeof value.passed !== 'boolean') {
+      throw new Error(`质检结果缺少 ${section}`);
+    }
+    return {
+      passed: value.passed,
+      confidence: Number.isFinite(value.confidence) ? Math.max(0, Math.min(1, value.confidence)) : 0.5,
+      issueCodes: Array.isArray(value.issueCodes) && value.issueCodes.length
+        ? value.issueCodes.map(code => String(code).trim()).filter(Boolean)
+        : value.passed ? [] : [fallbackCode],
+    };
+  };
+}
+
+async function repairEcommerceAsset({ buffer, action, item }) {
+  const match = /^(\d+)x(\d+)$/.exec(String(item?.generationSize || ''));
+  if (!match) throw new Error('修复目标尺寸无效');
+  let pipeline = sharp(buffer).rotate().resize({
+    width: Number(match[1]),
+    height: Number(match[2]),
+    fit: 'fill',
+  });
+  if (action?.operations?.includes('normalize_white_background')) {
+    pipeline = pipeline.flatten({ background: '#ffffff' });
+  }
+  return {
+    buffer: await pipeline.png().toBuffer(),
+    contentType: 'image/png',
+  };
+}
+
+function ecommerceFeatureForItem(item) {
+  const is4K = Object.values({
+    '1:1': '2880x2880',
+    '3:4': '2448x3264',
+    '4:3': '3264x2448',
+    '9:16': '2160x3840',
+  }).includes(item.generationSize);
+  return quoteFeature(is4K ? 'ec_image_4k' : 'ec_image_2k', 1);
+}
+
+const ecommerceBilling = {
+  async hold({ job, assetPlan }) {
+    const items = assetPlan.map(item => {
+      const quote = ecommerceFeatureForItem(item);
+      return { key: item.id, sku: quote.sku, units: quote.units };
+    });
+    try {
+      return walletService.createHold({
+        ownerEmail: job.ownerEmail,
+        currency: 'ec_points',
+        quoteId: `ec-quote:${job.id}`,
+        idempotencyKey: `ec-hold:${job.id}`,
+        items,
+        metadata: { taskId: job.id, source: 'ecommerce_generate' },
+      });
+    } catch (error) {
+      if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
+        const balance = walletService.getBalance(job.ownerEmail, 'ec_points');
+        const billingError = new Error('AI 积分不足，请购买套餐后继续');
+        billingError.status = 402;
+        billingError.code = error.code;
+        billingError.resumeable = true;
+        billingError.required = items.reduce((total, item) => total + item.units, 0);
+        billingError.available = balance.unlimited ? billingError.required : balance.availableUnits;
+        throw billingError;
+      }
+      throw error;
+    }
+  },
+  async settle({ holdId, job, item, stableAsset, quality }) {
+    const quote = ecommerceFeatureForItem(item);
+    return walletService.settleItem(holdId, item.id, {
+      referenceType: 'ecommerce_asset',
+      referenceId: stableAsset.id,
+      providerCostCny: quote.providerCostCny,
+      idempotencyKey: `ec-settle:${job.id}:${item.id}`,
+      metadata: {
+        taskId: job.id,
+        role: item.role,
+        generationSize: item.generationSize,
+        qualityConfidence: quality?.confidence || '',
+      },
+    });
+  },
+  async release({ holdId, job, item, reason, quality }) {
+    return walletService.releaseItem(holdId, item.id, {
+      reason,
+      idempotencyKey: `ec-release:${job.id}:${item.id}`,
+      metadata: {
+        taskId: job.id,
+        role: item.role,
+        qualityConfidence: quality?.confidence || '',
+      },
+    });
+  },
+};
+
+const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderAdapter({
+  baseUrl: IMG_BASE,
+  apiKey: IMG_KEY,
+  authStrategy: 'x-api-key',
+  editPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
+  pollPath: process.env.IMAGE_TASK_PATH || '/v1/images/tasks/{id}',
+}) : {
+  async submitEdit() {
+    const error = new Error('图片生成服务暂未配置');
+    error.status = 503;
+    error.code = 'IMAGE_PROVIDER_UNAVAILABLE';
+    throw error;
+  },
+  async pollUntilReady() {
+    const error = new Error('图片生成服务暂未配置');
+    error.status = 503;
+    error.code = 'IMAGE_PROVIDER_UNAVAILABLE';
+    throw error;
+  },
+};
+const orchestrator = createEcommerceOrchestrator({
+  jobs: ecommerceJobs,
+  analyzeProductTruth: analyzeEcommerceProductTruth,
+  compileCampaignBible,
+  buildAssetPlan,
+  compileAssetRequest,
+  providerAdapter: ecommerceProviderAdapter,
+  generatedAssetStore,
+  evaluateAsset,
+  planRepair,
+  canRetry,
+  billing: ecommerceBilling,
+  prepareProviderRequest: prepareEcommerceProviderRequest,
+  repairAsset: repairEcommerceAsset,
+  qualityAdapters: {
+    productFidelity: qualityAdapter('productFidelity', 'product_fidelity_failed'),
+    ocr: qualityAdapter('copyAndLogo', 'copy_or_logo_failed'),
+    visualQuality: qualityAdapter('visualQuality', 'visual_quality_failed'),
+  },
+});
+const ecommerceRouteHandlers = createEcommerceRouteHandlers({ orchestrator });
+
 app.post('/api/ec-temp-upload', async (req, res) => {
   try {
     const { images } = req.body; // [{ name, data: 'data:image/...' }]
@@ -3239,275 +3450,23 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
   }
 });
 
-app.post('/api/generate-ecommerce', async (req, res) => {
-  const { product_name, category, image_selections, image_size, generation_settings, platform, selling_points, reference_images, real_shots, skus, detail_plan, maintenance, material, target_audience, restrictions, style_skill } = req.body || {};
-  if (!product_name) return res.status(400).json({ error: '缺少商品名称' });
-  const taskId = `ec_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-  createTask(taskId, product_name, req._userEmail);
-  startTask(taskId);
-  ecommerceJobs.create({
-    id: taskId,
-    ownerEmail: req._userEmail,
-    payload: { product_name, category: category || '', platform: platform || '淘宝' },
-  });
-  ecommerceJobs.transition(taskId, 'analyzing');
+// 电商正式生成只注册持久化编排路由；旧同步 Contact Sheet 流程已移除。
+app.post('/api/generate-ecommerce', ecommerceRouteHandlers.generate);
 
-  // 产品图最佳实践是 3–5 张多角度图；参考图允许较多用于风格分析，
-  // 但必须有硬上限，避免单个请求把 JSON 解析、内存和上游视觉调用拖垮。
-  const normalizedInput = normalizeEcommerceInput({
-    productImages: real_shots,
-    referenceImages: reference_images,
-    productName: product_name,
-    category,
-  });
-  const productImageInputs = normalizedInput.productImages;
-  const referenceImageInputs = normalizedInput.referenceImages;
-
-  const sliceCount = [detail_plan?.sizeAnnot, detail_plan?.scene, detail_plan?.qc, detail_plan?.compare, detail_plan?.feature].filter(Boolean).length;
-  console.log(`[ec-gen] 开始生成: ${product_name}, selections=${image_selections?.length || 'default'}, skus=${skus?.length || 0}, slices=${sliceCount}${maintenance ? '+care' : ''}, platform=${platform || '淘宝'}, style=${style_skill || 'default'}${image_size ? `, size=${image_size.width}x${image_size.height}` : ''}`);
-
-  // SSE 流式输出（与 Plog/图文一致）
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-  const NL = '\n';
-  const send = (type, data) => {
-    if (type === 'progress') {
-      try { updateTaskProgress(taskId, data); } catch (error) { console.warn('[ec-gen] 任务进度持久化失败:', error.message); }
-    }
-    try { res.write('data: ' + JSON.stringify({ type, ...data }) + NL + NL); } catch(e) {}
-  };
-  send('job', { taskId });
-
-  const sellingPoints = (typeof selling_points === 'string' ? selling_points : '').split(/[\n,;，；]/).filter(Boolean);
-  const images = {};
-  const errors = [];
-
-  // 构建图片角色列表：image_selections 或默认套
-  const expandedImages = [];
-  // 前端 detail → 后端 6 种 detail_slice_* 映射
-  const DETAIL_SLICE_KEYS = ['detail_slice_size', 'detail_slice_scene', 'detail_slice_qc', 'detail_slice_compare', 'detail_slice_feature', 'detail_slice_care'];
-
-  if (image_selections?.length > 0) {
-    for (const sel of image_selections) {
-      let key = sel.key;
-      const roleObj = IMAGE_ROLES[key.replace(/_\d+$/, '')];
-      // 前端 'detail' → 展开为 6 种切片
-      if (key === 'detail') {
-        const count = Math.min(sel.count || 6, DETAIL_SLICE_KEYS.length);
-        for (let i = 0; i < count; i++) {
-          const sliceKey = DETAIL_SLICE_KEYS[i];
-          expandedImages.push({ key: sliceKey, baseKey: sliceKey, label: sliceKey, ratio: IMAGE_ROLES[sliceKey]?.ratio || '3:4' });
-        }
-        continue;
-      }
-      if (key === 'sku' && Array.isArray(skus) && skus.length) {
-        // SKU 按 skus 行展开
-        skus.forEach((variant, i) => {
-          expandedImages.push({ key: `sku_${i + 1}`, baseKey: 'sku', label: `SKU ${i + 1}`, variant, ratio: '1:1' });
-        });
-        continue;
-      }
-      const count = sel.count || 1;
-      for (let i = 0; i < count; i++) {
-        const roleKey = count > 1 ? `${key}_${i + 1}` : key;
-        expandedImages.push({
-          key: roleKey, baseKey: key, label: roleKey,
-          sliceNote: sel.sliceNote, ratio: roleObj?.ratio || '1:1',
-        });
-      }
-    }
-  } else {
-    // 默认套
-    const def = [
-      { key: 'white_bg', count: 1 }, { key: 'main_text', count: 5 }, { key: 'main_3x4', count: 5 }, { key: 'transparent', count: 1 },
-    ];
-    if (Array.isArray(skus) && skus.length) def.push({ key: 'sku', count: skus.length });
-    const dp = detail_plan || {};
-    if (dp.sizeAnnot)  def.push({ key: 'detail_slice_size', count: 1, sliceNote: dp.notes?.sizeAnnot });
-    if (dp.scene)      def.push({ key: 'detail_slice_scene', count: 1, sliceNote: dp.notes?.scene });
-    if (dp.qc)         def.push({ key: 'detail_slice_qc', count: 1, sliceNote: dp.notes?.qc });
-    if (dp.compare)    def.push({ key: 'detail_slice_compare', count: 1, sliceNote: dp.notes?.compare });
-    if (dp.feature)    def.push({ key: 'detail_slice_feature', count: 1, sliceNote: dp.notes?.feature });
-    if (maintenance)   def.push({ key: 'detail_slice_care', count: 1, sliceNote: maintenance });
-    for (const sel of def) {
-      if (sel.key === 'sku' && Array.isArray(skus) && skus.length) {
-        skus.forEach((variant, i) => expandedImages.push({ key: `sku_${i + 1}`, baseKey: 'sku', label: `SKU ${i + 1}`, variant, ratio: '1:1' }));
-        continue;
-      }
-      for (let i = 0; i < sel.count; i++) {
-        const roleKey = sel.count > 1 ? `${sel.key}_${i + 1}` : sel.key;
-        expandedImages.push({ key: roleKey, baseKey: sel.key, label: roleKey, sliceNote: sel.sliceNote, ratio: IMAGE_ROLES[sel.key]?.ratio || '1:1' });
-      }
-    }
-  }
-
-  // 收集额外 prompt 上下文
-  const extraContext = [];
-  if (material) extraContext.push(`Material/Spec: ${material}`);
-  if (target_audience) extraContext.push(`Target audience: ${target_audience}`);
-  if (restrictions) extraContext.push(`Restrictions/avoid: ${restrictions}`);
-  let contextSuffix = extraContext.length > 0 ? '\n\n' + extraContext.join('. ') + '.' : '';
-
-  // 自定义尺寸解析
-  const customSizeStr = (image_size?.width && image_size?.height) ? `${image_size.width}x${image_size.height}` : null;
-
-  // 所有图片入口统一转换为上游可读取的 data URL，支持稳定素材、临时上传和外链。
-  const resolveImgUrl = async (u) => {
-    if (!u || typeof u !== 'string') return null;
-    try { return imageBufferToDataUrl(await imageInputReader.read(u)); } catch { return null; }
-  };
-
-  // 参考图：全量分析 + 准备视觉输入（不再截断6张）
-  let refImageBase64 = null;
+function authenticateEcommerceRequest(req, res, next) {
   try {
-  const resolvedProductImages = [];
-  for (const productImage of productImageInputs) {
-    const resolved = await resolveImgUrl(productImage);
-    if (resolved) resolvedProductImages.push(resolved);
+    req._userEmail = authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: requireBetaEmail,
+    });
+    next();
+  } catch (error) {
+    const mapped = contentBillingHttpError(error);
+    res.status(mapped.status).json(mapped.body);
   }
-  if (resolvedProductImages.length) {
-    contextSuffix += `\n\nPRODUCT VISUAL INPUT: ${resolvedProductImages.length} product views were supplied. Preserve product silhouette, material, proportions, logos, and SKU differences faithfully.`;
-  }
+}
 
-  if (referenceImageInputs.length > 0) {
-    send('progress', { step: 'vision', msg: `正在分析 ${referenceImageInputs.length} 张参考图...` });
-    try {
-      // 解析所有参考图 URL（无数量上限）
-      const resolvedRefs = [];
-      for (const u of referenceImageInputs) {
-        const resolved = await resolveImgUrl(u);
-        if (resolved) resolvedRefs.push(resolved);
-      }
-      console.log(`[ec-gen] Vision 全量分析 ${resolvedRefs.length} 张参考图（分批处理）...`);
-      // analyzeReferenceImages 内部自动分批，全量处理
-      const vision = await analyzeReferenceImages(resolvedRefs);
-      if (vision) {
-        const visionNote = `\n\nREFERENCE IMAGE ANALYSIS (from ${resolvedRefs.length} images):\n` +
-          `- Product shape: ${vision.product_shape || 'N/A'}\n` +
-          `- Colors: ${vision.dominant_colors?.join(', ') || 'N/A'}\n` +
-          `- Style: ${vision.style_vibe || 'N/A'}\n` +
-          `- Lighting: ${vision.lighting || 'N/A'}\n` +
-          `- Background: ${vision.background || 'N/A'}\n` +
-          `- Material: ${vision.material_texture || 'N/A'}\n` +
-          `- Composition: ${vision.composition || 'N/A'}\n` +
-          `- Color temperature: ${vision.color_temperature || 'N/A'}\n` +
-          `- Key elements: ${vision.key_visual_elements?.join(', ') || 'N/A'}\n` +
-          `Apply these visual references strictly to maintain brand consistency.`;
-        contextSuffix += visionNote;
-        console.log(`[ec-gen] Vision 完成: ${vision.style_vibe || 'unknown'}, ${resolvedRefs.length} 张`);
-      }
-      // 当前图片网关只兼容一个 image 字段：把商品图置前，
-      // 再带抽样后的风格参考做成视觉锚点，避免把 50 张参考图全部塞进单次调用。
-      const resolvedAnchors = [];
-      for (const u of normalizedInput.styleAnchorCandidates) {
-        const resolved = await resolveImgUrl(u);
-        if (resolved) resolvedAnchors.push(resolved);
-      }
-      refImageBase64 = await buildReferenceContactSheet([
-        ...resolvedProductImages.slice(0, 5),
-        ...resolvedAnchors,
-      ]) || resolvedProductImages[0] || resolvedAnchors[0] || null;
-    } catch (e) {
-      console.warn('[ec-gen] 参考图处理失败（不阻断）:', e.message);
-    }
-  }
-  if (!refImageBase64 && resolvedProductImages.length) {
-    refImageBase64 = await buildReferenceContactSheet(resolvedProductImages.slice(0, 5)) || resolvedProductImages[0];
-  }
-
-    {
-      const total = expandedImages.length;
-      ecommerceJobs.transition(taskId, 'generating');
-      send('progress', { step: 'generating', msg: '正在生成商品图...', total, current: 0 });
-      // 单任务也与全局阈值一致，避免把待执行工作一次性堆满内存队列。
-      const CONCURRENCY = 3;
-      const imgResults = new Array(total).fill(null);
-      let completed = 0;
-      const genOne = async (img, idx) => {
-        const prompt = buildECPrompt({
-          productName: product_name,
-          category: category || '其他',
-          roleKey: img.baseKey || img.key,
-          sellingPoints,
-          platform: platform || '淘宝',
-          variant: img.variant,
-          sliceNote: img.sliceNote,
-          styleSkill: style_skill,
-        }) + contextSuffix;
-        try {
-          const promptWithControls = generation_settings?.negativePrompt
-            ? `${prompt}\n\nAVOID: ${String(generation_settings.negativePrompt).slice(0, 500)}`
-            : prompt;
-          const upstreamUrl = await generateECImage(promptWithControls, img.baseKey || img.key, platform || '淘宝', refImageBase64, generation_settings || {});
-          if (upstreamUrl) {
-            const asset = await generatedAssetStore.persist({ sourceUrl: upstreamUrl, taskId, label: img.label });
-            imgResults[idx] = { label: img.label, url: asset.url };
-            images[img.label] = asset.url;
-            send('image', { id: img.label, url: asset.url, index: idx, total });
-          } else {
-            imgResults[idx] = { label: img.label, error: '生成空结果' };
-            errors.push({ style: img.label, error: '生成空结果' });
-          }
-        } catch (err) {
-          console.warn(`[ec-gen] 图片失败 [${img.label}]: ${err.message}`);
-          imgResults[idx] = { label: img.label, error: err.message };
-          errors.push({ style: img.label, error: err.message });
-        }
-        completed++;
-        send('progress', { step: 'generating', msg: '正在生成商品图...', total, current: completed });
-      };
-      let cursor = 0;
-      async function worker() {
-        while (cursor < total) {
-          const idx = cursor++;
-          await genOne(expandedImages[idx], idx);
-        }
-      }
-      await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-    }
-
-    const resultSummary = summarizeEcommerceResult(images);
-    console.log(`[ec-gen] 完成: ${resultSummary.imageCount} 张图, ${errors.length} 个错误`);
-    const taskResult = {
-      product_name,
-      category: category || '其他',
-      platform: platform || '淘宝',
-      image_selections: image_selections || null,
-      skus: skus || [],
-      detail_plan: detail_plan || null,
-      maintenance: maintenance || '',
-      images,
-      errors,
-    };
-    if (!resultSummary.hasImages) {
-      const failureMessage = errors.find(item => item?.error)?.error || '生成完成但没有返回有效图片';
-      failTask(taskId, failureMessage);
-      try { ecommerceJobs.transition(taskId, 'failed', { error: failureMessage }); } catch {}
-      send('error', { error: failureMessage, code: 'NO_IMAGES' });
-      return;
-    }
-    completeTask(taskId, taskResult);
-    ecommerceJobs.transition(taskId, 'completed', { output: taskResult, progress: { current: Object.keys(images).length, total: expandedImages.length } });
-    deductCredit(req._userEmail);
-    send('complete', { taskId, ...taskResult });
-  } catch (err) {
-    console.error('[ec-gen] 失败:', err.message);
-    failTask(taskId, err.message);
-    try { ecommerceJobs.transition(taskId, 'failed', { error: err.message }); } catch {}
-    send('error', { error: err.message });
-  } finally { res.end(); }
-});
-
-app.get('/api/ecommerce/jobs/:id', (req, res) => {
-  const access = requireBetaEmail(req.query?.email || req.headers['x-shubao-email']);
-  if (!access.ok) return res.status(access.status).json({ error: access.error });
-  const job = ecommerceJobs.get(req.params.id);
-  if (!job) return res.status(404).json({ error: '任务不存在' });
-  if (job.ownerEmail !== access.email) return res.status(403).json({ error: '无权查看该任务' });
-  res.json({ ok: true, task: job });
-});
+app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
 // 画布内的二次生成：沿用现有图生图通道，保证提示词编辑不是只复制到剪贴板。
 app.post('/api/canvas/regenerate', async (req, res) => {
@@ -3897,6 +3856,14 @@ let httpsServer;
 const closeServer = (server) => new Promise(resolve => {
   if (!server?.listening) return resolve();
   server.close(() => resolve());
+});
+
+orchestrator.resumeJobs().then(results => {
+  const resumed = results.filter(result => result.status === 'fulfilled').length;
+  const failed = results.length - resumed;
+  if (results.length) console.log(`[ecommerce] 启动恢复完成: ${resumed} 个任务恢复, ${failed} 个失败`);
+}).catch(error => {
+  console.error('[ecommerce] 启动恢复失败:', error.message);
 });
 
 httpServer = app.listen(PORT, () => {

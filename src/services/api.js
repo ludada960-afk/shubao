@@ -4,6 +4,7 @@
 
 import { createApiError } from './apiError.js';
 import { consumeSseJson } from './sse.js';
+import { getSessionToken } from './auth.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 
@@ -15,6 +16,43 @@ export function getSessionEmail() {
 
 export function withSessionEmail(payload = {}) {
   return { ...payload, email: payload.email || getSessionEmail() };
+}
+
+function signedSessionHeaders(headers = {}) {
+  const token = getSessionToken();
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
+}
+
+function ecommerceTaskError(task) {
+  const errors = task?.output?.errors || task?.errors || [];
+  const detail = Array.isArray(errors)
+    ? errors.find(item => item?.error || item?.message) || {}
+    : {};
+  const error = new Error(
+    detail.error
+    || detail.message
+    || task?.error
+    || (task?.status === 'needs_review'
+      ? '部分图片未通过质量检查，请调整后重试'
+      : '生成任务失败，请重试'),
+  );
+  for (const key of ['code', 'resumeable', 'required', 'available']) {
+    if (detail[key] !== undefined) error[key] = detail[key];
+  }
+  return error;
+}
+
+function stableTaskImages(task) {
+  const outputImages = task?.output?.images;
+  if (outputImages && Object.keys(outputImages).length > 0) return outputImages;
+  return (task?.assets || []).reduce((images, asset) => {
+    if (asset?.assetId && asset.stableUrl) images[asset.assetId] = asset.stableUrl;
+    return images;
+  }, {});
+}
+
+function waitFor(ms) {
+  return ms > 0 ? new Promise(resolve => setTimeout(resolve, ms)) : Promise.resolve();
 }
 
 // 图片代理（解决跨域）
@@ -216,7 +254,7 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, email, onImage, onProgress }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, email, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600 }) {
   const body = {
     product_name: productName,
     category,
@@ -229,6 +267,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     maintenance: maintenance || '',
     material: material || '',
     restrictions: restrictions || '',
+    direction: direction || null,
   };
   // 电商生图属于封闭内测能力；请求携带本地会话邮箱，服务端仍会二次校验。
   try {
@@ -251,7 +290,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
 
   const res = await fetch(`${API_BASE}/api/generate-ecommerce`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     signal: controller.signal,
   }).catch(e => { clearTimeout(timeoutId); throw new Error('网络请求失败: ' + e.message); });
@@ -259,6 +298,54 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   if (!res.ok) {
     clearTimeout(timeoutId);
     throw await createApiError(res, '生成失败');
+  }
+
+  if (res.status === 202) {
+    try {
+      const queued = await res.json();
+      const taskId = queued.taskId || queued.task?.id;
+      if (!taskId) throw new Error('生成任务创建失败，请重试');
+      try { localStorage.setItem('sb-last-ecommerce-task', taskId); } catch {}
+
+      const pollLimit = Number.isSafeInteger(maxPollAttempts) && maxPollAttempts > 0
+        ? maxPollAttempts
+        : 600;
+      for (let pollAttempt = 0; pollAttempt < pollLimit; pollAttempt += 1) {
+        await waitFor(Number.isFinite(pollIntervalMs) ? Math.max(0, pollIntervalMs) : 1500);
+        const task = await getEcommerceTask(taskId);
+        if (onProgress) onProgress(task);
+        if (task?.status === 'completed') {
+          const images = stableTaskImages(task);
+          if (Object.keys(images).length === 0) {
+            const errors = task?.output?.errors || [];
+            const message = errors.find(item => item?.error)?.error;
+            throw new Error(message || '生成完成但没有可用图片，请重试');
+          }
+          Object.entries(images).forEach(([id, url]) => onImage?.({ id, url, stableUrl: url }));
+          return { taskId, images, errors: task?.output?.errors || [], task };
+        }
+        if (task?.status === 'needs_review') {
+          const images = stableTaskImages(task);
+          if (Object.keys(images).length === 0) throw ecommerceTaskError(task);
+          Object.entries(images).forEach(([id, url]) => onImage?.({ id, url, stableUrl: url }));
+          return {
+            taskId,
+            status: 'needs_review',
+            images,
+            errors: task?.output?.errors || [],
+            task,
+          };
+        }
+        if (task?.status === 'failed') throw ecommerceTaskError(task);
+      }
+      const error = new Error('生成任务仍在后台处理中，请稍后从作品页继续查看');
+      error.code = 'ECOMMERCE_POLL_TIMEOUT';
+      error.taskId = taskId;
+      error.resumeable = true;
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   // SSE 流式解析（与 generateContent 一致）
@@ -300,9 +387,9 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
 
 export async function getEcommerceTask(taskId) {
   if (!taskId) throw new Error('缺少任务编号');
-  let email = '';
-  try { email = JSON.parse(localStorage.getItem('sb-auth') || 'null')?.email || ''; } catch {}
-  const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}?email=${encodeURIComponent(email)}`);
+  const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`, {
+    headers: signedSessionHeaders(),
+  });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '读取任务失败');
   return data.task || data;
