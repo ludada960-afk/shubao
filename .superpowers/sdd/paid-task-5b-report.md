@@ -219,4 +219,72 @@ peer ownership conflicts: 0
 
 Implementation: `a9c59c9 fix: persist task 5b drafts across ecommerce surfaces`
 
-Report: `PENDING`
+Report: `4837884 docs: record final task 5b review closure`
+
+---
+
+## Final review epoch/SSE closure (2026-07-26)
+
+### Findings closed
+
+- Added pure `createEcommerceGenerationToken` / `isEcommerceGenerationTokenCurrent` guards in `ecommerceTaskProgressModel.js`. Each token contains a monotonic epoch plus normalized owner and draft ID; callbacks are current only when all three bindings match the live identity.
+- Wired the guard through `EcMode`, `DesignDirection`, `EcStudio`, `EcAuto`, `EcLegacyForm`, and `XhsContentMode`. Every active generation/upload path invalidates its token and aborts its controller on explicit rotation, owner/draft change, and unmount.
+- Guarded progress/image callbacks, awaited completion, stage/result writes, access-error handling, `saveWork`, credits refresh, navigation, and `catch`/`finally` cleanup. The API also accepts the guard and stops polling, POST task-reference persistence, SSE callbacks, and stale completion before they can reattach an old task to a new draft.
+- Added optional AbortController propagation through ecommerce POST/GET/poll/SSE and `saveWork`; token checks remain authoritative even when a callback has already arrived.
+- Fixed the SSE completion path so only a successful `completed` result clears its task reference. `needs_review` remains stored, and a refresh resumes it through GET without a duplicate POST. SSE `failed`/`cancelled` clear according to the existing terminal rule.
+
+### TDD evidence
+
+RED was observed first:
+
+1. The new SSE POST `needs_review` test found the task reference missing after completion.
+2. The real A→B generation-token behavior test failed because the model exports did not exist.
+3. The six-entry contract failed because none of the entrypoints created or invalidated a generation token.
+
+GREEN was then observed after the minimal model, API, and entrypoint wiring. The A→B test is behavior-based: a late A stable-image/completion effect is rejected after B becomes current, while B remains current.
+
+### Verification
+
+```text
+focused:
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-task-progress.test.mjs
+tests 47
+pass 47
+fail 0
+
+Task5A required current exact collection:
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-asset-upload.test.mjs test/billing-routes.test.mjs test/billing-client.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-repair-planner.test.mjs test/ecommerce-prompt-compiler.test.mjs
+tests 100
+pass 100
+fail 0
+
+adjacent:
+node --test --test-concurrency=1 test/billing-quote-token.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-deterministic-repair.test.mjs test/generation-access.test.mjs test/pending-paid-action.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs test/ecommerce-export.test.mjs
+tests 73
+pass 73
+fail 0
+
+npm run build
+exit 0; export verification passed; Vite transformed 6406 modules.
+
+git diff --check
+exit 0; only expected LF/CRLF normalization warnings.
+
+npm run collab:check
+[collaboration] READY
+tracked runtime paths: 0
+peer ownership conflicts: 0
+```
+
+### Scope and self-review
+
+- Changed only the allowed frontend/model/test files plus this report. No server, database, `dist`, uploads, cache, deployment, Task 6, or Task 7 files were changed.
+- The API guard checks occur before legacy image preparation completes, before 202 task-reference persistence, before SSE job persistence, and before all poll callbacks. A stale request therefore cannot reattach task A after draft B rotation.
+- `needs_review`, timeout, and retryable paths preserve references; only successful completed results and existing terminal failure/cancel rules clear references. The SSE needs-review refresh test verifies GET-only recovery.
+- No paid provider call was made. The remaining environment warning is the pre-existing inability to read `C:\Users\SHEJI/.config/git/ignore`; collaboration status is READY.
+
+### Final commits
+
+Implementation: `b3ef6dd fix: guard stale ecommerce generation callbacks`
+
+Report: documentation commit for this closure
