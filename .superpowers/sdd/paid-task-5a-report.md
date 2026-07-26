@@ -406,6 +406,116 @@ This review fix did not modify either test or the corresponding behavior, and th
 
 ---
 
+## Final independent re-review closure
+
+Baseline:
+
+```text
+49e2a63 docs: record second task 5a review fixes
+```
+
+Implementation commit:
+
+```text
+2dfcf1c fix: harden task 5a payload and alpha safety
+```
+
+### Important: image-payload detection no longer deletes normal text
+
+- Replaced character-set/length heuristics in both pending-action paths with a shared pure utility at `src/utils/imagePayloadText.js`.
+- Field schema still rejects known binary-bearing fields and ecommerce asset IDs still use the exact server-issued `64 hex + .jpg/.png/.webp` schema.
+- Complete `data:` and `blob:` URLs are rejected at any position in a text value, including ordinary text before the URL and surrounding whitespace.
+- Raw Base64/Base64url is rejected only when decoded prefix bytes match real image signatures (PNG, JPEG, WebP, GIF, BMP, TIFF, ICO, or supported ISO-BMFF image brands).
+- Long punctuation-free English, 64-character hashes, non-image Base64url text, and valid server asset IDs remain preserved.
+- Short image payloads are detected by magic bytes, so the previous 64-character threshold is gone.
+
+### Important: pixel-space foreground-intrusion veto
+
+- Transparent flood-fill repair now computes the non-removable foreground bounds and refuses removal when the connected removable region penetrates the eroded foreground interior.
+- This is independent of the finite color-keyword Product Truth veto and catches a dark body with a light edge-touching label/part even without matching color facts.
+- Refused repairs return an opaque PNG; the existing transparent alpha gate therefore routes the item to retry/needs review instead of settlement.
+- The existing centered dark product on a consistent white background remains a successful automatic repair.
+
+### Final re-review TDD evidence
+
+RED command:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-billing-ui.test.mjs test/pending-paid-action.test.mjs test/ecommerce-deterministic-repair.test.mjs
+tests 22
+pass 18
+fail 4
+```
+
+The four failures were the intended regressions: long punctuation-free/hash text was deleted, short/embedded image payloads were retained, and the edge-touching light part was erased by alpha repair.
+
+Focused GREEN:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-billing-ui.test.mjs test/pending-paid-action.test.mjs test/ecommerce-deterministic-repair.test.mjs
+tests 22
+pass 22
+fail 0
+```
+
+Required 90-test command:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-asset-upload.test.mjs test/billing-routes.test.mjs test/billing-client.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-repair-planner.test.mjs test/ecommerce-prompt-compiler.test.mjs
+tests 90
+pass 90
+fail 0
+```
+
+Adjacent command:
+
+```text
+node --test --test-concurrency=1 test/billing-quote-token.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-deterministic-repair.test.mjs test/generation-access.test.mjs test/pending-paid-action.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs test/ecommerce-export.test.mjs
+tests 73
+pass 73
+fail 0
+```
+
+The adjacent suite is the former 72-test command plus the new edge-intrusion regression, so all original 72 tests remain covered.
+
+Build and repository checks:
+
+```text
+npm run build
+exit 0; export verification passed; Vite transformed 6405 modules.
+
+git diff --check
+exit 0; no whitespace errors.
+
+npm run collab:check
+[collaboration] READY
+tracked runtime paths: 0
+ignored runtime changes: 0
+peer ownership conflicts: 0
+```
+
+### Exact final re-review files
+
+- `src/utils/imagePayloadText.js`
+- `src/pages/Home/ec/ecommercePlanModel.js`
+- `src/utils/pendingPaidAction.js`
+- `server/ecommerceEngine/deterministicRepair.mjs`
+- `test/ecommerce-billing-ui.test.mjs`
+- `test/pending-paid-action.test.mjs`
+- `test/ecommerce-deterministic-repair.test.mjs`
+- `.superpowers/sdd/paid-task-5a-report.md`
+
+### Final self-review
+
+- No character-set/length-only Base64 decision remains in either pending-action path; decoding is bounded to the prefix needed for magic detection and never treats arbitrary decoded bytes as an image.
+- Data/blob URL detection is value-based and position-independent, while schema-based binary keys and the exact original asset-ID allowlist remain intact.
+- Pixel-space intrusion safety is independent of Product Truth keyword coverage; ambiguous edge-connected structures are kept opaque and sent through the existing quality retry/needs-review path.
+- The safe centered dark-product case and all prior quote, upload, planner, billing, orchestration, and quality regressions remain green.
+- No Task 5B polling, `onImage`, or resume work was started.
+- No runtime database, uploads, cache, dist, deployment, XHS, Plog, or Canvas files were modified or staged.
+
+---
+
 ## Second re-review closure
 
 Implementation commit:
