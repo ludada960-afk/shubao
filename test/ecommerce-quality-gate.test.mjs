@@ -67,6 +67,24 @@ async function checkerFixture({ blurred = false } = {}) {
   return (blurred ? image.blur(9) : image).png().toBuffer();
 }
 
+async function transparentProductFixture() {
+  return sharp({
+    create: {
+      width: 128,
+      height: 128,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  }).composite([{
+    input: Buffer.from(`
+      <svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+        <rect x="36" y="24" width="56" height="80" rx="10" fill="#e34b38"/>
+        <rect x="48" y="38" width="32" height="12" rx="3" fill="#ffffff"/>
+      </svg>
+    `),
+  }]).png().toBuffer();
+}
+
 test('passes a valid stable product image while reporting optional adapters unavailable', async () => {
   const result = await evaluateAsset({
     buffer: await productFixture(),
@@ -133,6 +151,37 @@ test('accepts a large centered product when the surrounding white background and
   assert.equal(result.checks.platformCompliance.status, 'pass');
   assert.ok(result.checks.platformCompliance.metrics.nearWhiteCoverage > 0.25);
   assert.ok(result.checks.platformCompliance.metrics.nearWhiteCoverage < 0.7);
+});
+
+test('rejects an opaque PNG for a transparent role and plans deterministic alpha normalization', async () => {
+  const result = await evaluateAsset({
+    buffer: await productFixture(),
+    role: 'transparent',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+  });
+
+  assert.equal(result.passed, false);
+  assert.equal(result.checks.platformCompliance.status, 'fail');
+  assert.ok(result.checks.platformCompliance.issueCodes.includes('transparent_background_missing'));
+  assert.equal(result.checks.platformCompliance.metrics.transparentCoverage, 0);
+  assert.equal(result.repairAction.type, 'sharp_repair');
+  assert.ok(result.repairAction.operations.includes('normalize_transparent_background'));
+});
+
+test('accepts a PNG with meaningful transparent background and enough opaque product pixels', async () => {
+  const result = await evaluateAsset({
+    buffer: await transparentProductFixture(),
+    role: 'transparent',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+  });
+
+  assert.equal(result.checks.technical.status, 'pass');
+  assert.equal(result.checks.platformCompliance.status, 'pass');
+  assert.ok(result.checks.platformCompliance.metrics.transparentCoverage > 0.4);
+  assert.ok(result.checks.platformCompliance.metrics.opaqueCoverage > 0.1);
+  assert.ok(result.checks.platformCompliance.metrics.edgeTransparentCoverage > 0.9);
 });
 
 test('rejects blank or near-uniform generated output deterministically', async () => {

@@ -199,3 +199,115 @@ export function formatEcommerceQuote({ quantity = 0, quote = null, unlimited = f
   if (!quote) return `生成 ${quantity} 张 · 费用计算中`;
   return `生成 ${quantity} 张 · ${readablePoints(quote.totalUnits)} AI 积分`;
 }
+
+function safeReferenceText(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return /^(?:data|blob):/i.test(text) ? '' : text;
+}
+
+function uniqueAssetIds(values) {
+  const result = [];
+  const seen = new Set();
+  for (const value of Array.isArray(values) ? values : []) {
+    const assetId = safeReferenceText(value?.assetId);
+    if (!assetId || seen.has(assetId)) continue;
+    seen.add(assetId);
+    result.push(assetId);
+  }
+  return result;
+}
+
+function pendingSkus(values) {
+  return (Array.isArray(values) ? values : []).flatMap((sku) => {
+    const normalized = {
+      color: safeReferenceText(sku?.color),
+      size: safeReferenceText(sku?.size),
+      capacity: safeReferenceText(sku?.capacity),
+      dimLabel: safeReferenceText(sku?.dimLabel),
+      count: Number.isSafeInteger(Number(sku?.count)) && Number(sku.count) > 0
+        ? Number(sku.count)
+        : 1,
+    };
+    return [normalized.color, normalized.size, normalized.capacity, normalized.dimLabel].some(Boolean)
+      ? [normalized]
+      : [];
+  });
+}
+
+function pendingPromptReferences(values) {
+  const result = [];
+  const seen = new Set();
+  for (const value of Array.isArray(values) ? values : []) {
+    const key = safeReferenceText(value?.key);
+    const text = safeReferenceText(value?.text);
+    const identity = `${key}\u0000${text}`;
+    if (!key || !text || seen.has(identity)) continue;
+    seen.add(identity);
+    result.push({ key, text });
+  }
+  return result;
+}
+
+export function createEcommerceDraftId(cryptoApi = globalThis.crypto) {
+  if (typeof cryptoApi?.randomUUID === 'function') {
+    return `ec-draft-${cryptoApi.randomUUID()}`;
+  }
+  const timestamp = Date.now().toString(36);
+  const entropy = Math.random().toString(36).slice(2, 12) || 'fallback';
+  return `ec-draft-${timestamp}-${entropy}`;
+}
+
+export function buildEcommercePendingAction({
+  platform = 'smart',
+  direction = {},
+  sizing = {},
+  skus = [],
+  customColors = [],
+  originalProductAssets = [],
+  supplementalProductAssets = [],
+  originalReferenceAssets = [],
+  supplementalReferenceAssets = [],
+  promptText = '',
+  promptReferences = [],
+} = {}) {
+  const resolution = normalizeResolution(sizing?.resolution);
+  const directionBrief = safeReferenceText(
+    direction?.brief
+      ?? direction?.editableBrief
+      ?? direction?.description
+      ?? direction?.short_desc
+      ?? direction?.one_liner,
+  );
+  return {
+    type: 'ecommerce_generate',
+    direction: {
+      id: safeReferenceText(direction?.id) || 'smart',
+      brief: directionBrief,
+    },
+    sizing: {
+      platform: safeReferenceText(platform) || 'smart',
+      smart: sizing?.smart !== false,
+      resolution,
+      images: resolveSizingImages(platform, { ...sizing, resolution })
+        .map(({ key, count, ratio }) => ({ key, count, ratio })),
+    },
+    skus: pendingSkus(skus),
+    customColors: (Array.isArray(customColors) ? customColors : [])
+      .map(safeReferenceText)
+      .filter(color => /^#[0-9a-f]{3,8}$/i.test(color)),
+    assetIds: {
+      product: {
+        original: uniqueAssetIds(originalProductAssets),
+        supplemental: uniqueAssetIds(supplementalProductAssets),
+      },
+      reference: {
+        original: uniqueAssetIds(originalReferenceAssets),
+        supplemental: uniqueAssetIds(supplementalReferenceAssets),
+      },
+    },
+    prompt: {
+      text: safeReferenceText(promptText),
+      references: pendingPromptReferences(promptReferences),
+    },
+  };
+}

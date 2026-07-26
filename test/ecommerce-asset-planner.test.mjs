@@ -223,7 +223,9 @@ test('honors configured counts including transparent assets and expands determin
   assert.equal(new Set(targetIds).size, targetIds.length);
   assert.ok(first
     .filter(item => item.role === 'transparent')
-    .every(item => item.exportTargets.length > 0 && item.exportTargets.every(target => target.format === 'png')));
+    .every(item => item.exportTargets.length > 0
+      && item.exportTargets.every(target => target.format === 'png')
+      && item.styleReferenceIds.length === 0));
   assert.equal(first.find(item => item.role === 'main_3x4').generationSize, '2160x3840');
   assert.deepEqual(first, second);
 });

@@ -67,6 +67,12 @@ export {
 export {
   compileAssetRequest,
 } from './promptCompiler.mjs';
+export {
+  createEcommerceBilling, ecommerceFeatureForItem,
+} from './ecommerceBilling.mjs';
+export {
+  normalizeTransparentBackground, repairEcommerceAsset,
+} from './deterministicRepair.mjs';
 
 // 后处理
 export {

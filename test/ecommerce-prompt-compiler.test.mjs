@@ -434,6 +434,57 @@ test('compiles campaign, role, platform, quality, risk, and anti-substitution se
   assert.doesNotMatch(result.prompt, /1536x2048|800x800|750x1000|5_?000_?000/);
 });
 
+test('compiles transparent deliverables as alpha-only product cutouts that ignore campaign backgrounds and style assets', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem({
+      id: 'transparent',
+      role: 'transparent',
+      purpose: 'Transparent product cutout.',
+      ratio: '1:1',
+      generationSize: '2048x2048',
+      exportTargets: [{
+        platform: 'taobao',
+        categoryScope: 'beauty',
+        role: 'transparent',
+        ratio: '1:1',
+        width: 800,
+        height: 800,
+        format: 'png',
+        maxFileBytes: 5_000_000,
+        fit: 'inside',
+      }],
+      styleReferenceIds: ['style-editorial', 'style-lighting'],
+    }),
+    productTruth: productTruth(),
+    campaignBible: campaignBible({
+      lighting: 'dramatic campaign spotlight that must not leak',
+      composition: 'campaign scene with props that must not leak',
+      backgroundLanguage: 'warm marble campaign background that must not leak',
+    }),
+    assets: {
+      product: [asset('product-front'), asset('product-side')],
+      reference: [asset('style-editorial'), asset('style-lighting')],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+
+  assert.deepEqual(result.inputAssets.map(({ assetId, kind }) => ({ assetId, kind })), [
+    { assetId: 'product-front', kind: 'product' },
+    { assetId: 'product-side', kind: 'product' },
+  ]);
+  assert.equal(schema.sections.platformRecommendation.role, 'transparent');
+  assert.match(schema.sections.platformRecommendation.backgroundPolicy, /transparent.*alpha/i);
+  assert.match(schema.sections.generationInstructions.background, /transparent.*alpha/i);
+  assert.match(schema.sections.generationInstructions.subject, /isolated product/i);
+  assert.match(schema.sections.generationInstructions.copyPolicy, /no added text|do not add.*text/i);
+  assert.equal(schema.sections.campaignBible.lighting, '');
+  assert.equal(schema.sections.campaignBible.composition, '');
+  assert.equal(schema.sections.campaignBible.backgroundLanguage, '');
+  assert.deepEqual(schema.sections.deterministicOverlays.items, []);
+  assert.match(schema.sections.referenceSafety, /transparency.*cannot|cannot.*transparency/i);
+  assert.doesNotMatch(result.prompt, /dramatic campaign spotlight|campaign scene with props|warm marble campaign background/);
+});
+
 test('keeps proof and protection responsibilities separate from product views', () => {
   const result = compileAssetRequest({
     assetPlanItem: assetPlanItem({

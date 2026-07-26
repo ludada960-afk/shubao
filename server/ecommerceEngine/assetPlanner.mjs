@@ -163,7 +163,7 @@ function resolveRatio(item, sizing, defaultRatio) {
 
 function policyRole(role) {
   if (role === 'main' || role === 'main_text' || role === 'main_3x4') return 'main';
-  if (role === 'transparent') return 'main';
+  if (role === 'transparent') return 'transparent';
   if (role === 'white_background') return 'white_background';
   if (role === 'sku') return 'sku';
   return 'detail';
@@ -204,7 +204,7 @@ function buildItem({ id: requestedId, role, purpose, defaultRatio = '3:4', requi
       : exportTargets,
     generationMode,
     productAssetIds: [...productAssetIds],
-    styleReferenceIds: [...styleReferenceIds],
+    styleReferenceIds: role === 'transparent' ? [] : [...styleReferenceIds],
     proofAssetIds: [...proofAssetIds],
     requiredFacts: requiredFacts.map((fact) => ({ ...fact })),
     riskLevel: riskLevel(role),

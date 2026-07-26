@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { handleGenerationAccessError } from '../src/utils/generationAccess.js';
 import { loadPendingPaidAction } from '../src/utils/pendingPaidAction.js';
+import { buildEcommercePendingAction } from '../src/pages/Home/ec/ecommercePlanModel.js';
 
 test('maps insufficient credits to a resumable ecommerce paywall with authoritative quote values', () => {
   const actions = [];
@@ -51,6 +52,70 @@ test('maps insufficient credits to a resumable ecommerce paywall with authoritat
     loadPendingPaidAction('creator@example.com', { storage, now: () => 1001 }),
     persistedAction,
   );
+});
+
+test('persists a sufficient sanitized ecommerce reference snapshot after a 402 interruption', () => {
+  const values = new Map();
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+  const rawFile = new File(['raw'], 'product.png', { type: 'image/png' });
+  const pendingReference = buildEcommercePendingAction({
+    platform: '京东',
+    direction: { id: 'direction-2', description: '突出精工质感' },
+    sizing: {
+      smart: false,
+      resolution: '2K',
+      images: [{ key: 'main_text', count: 2, ratio: '1:1' }],
+    },
+    skus: [{ color: '银色', size: '标准版', count: 1 }],
+    customColors: ['#C0C0C0'],
+    originalProductAssets: [{ assetId: 'product-1', file: rawFile, url: 'blob:product' }],
+    supplementalProductAssets: [{ assetId: 'product-2', dataUrl: 'data:image/png;base64,AAAA' }],
+    originalReferenceAssets: [{ assetId: 'reference-1', buffer: new Uint8Array([1]) }],
+    supplementalReferenceAssets: [{ assetId: 'reference-2', image: rawFile }],
+    promptText: '保留商品结构，强化金属质感',
+    promptReferences: [
+      { key: 'product_name', text: 'Nova Hub', file: rawFile },
+      { key: 'selling_points', text: '多接口扩展' },
+    ],
+  });
+  const actions = [];
+
+  handleGenerationAccessError({
+    status: 402,
+    code: 'BILLING_INSUFFICIENT_CREDITS',
+    payload: { required: 2000, available: 1000 },
+  }, action => actions.push(action), {
+    ownerEmail: 'owner@example.com',
+    source: 'ecommerce-direction',
+    route: '/home',
+    draftId: 'ec-draft-42',
+    quoteId: 'bq1.accepted.quote',
+    action: pendingReference,
+    storage,
+    now: () => 1000,
+  });
+
+  const persisted = loadPendingPaidAction('owner@example.com', { storage, now: () => 1001 });
+  assert.equal(persisted.draftId, 'ec-draft-42');
+  assert.equal(persisted.quoteId, 'bq1.accepted.quote');
+  assert.deepEqual(persisted.action, {
+    ...pendingReference,
+    currency: 'ec_points',
+  });
+  assert.deepEqual(persisted.action.assetIds, {
+    product: { original: ['product-1'], supplemental: ['product-2'] },
+    reference: { original: ['reference-1'], supplemental: ['reference-2'] },
+  });
+  assert.equal(persisted.action.direction.brief, '突出精工质感');
+  assert.equal(persisted.action.sizing.resolution, '2K');
+  assert.equal(persisted.action.prompt.text, '保留商品结构，强化金属质感');
+  const serialized = JSON.stringify(persisted);
+  assert.doesNotMatch(serialized, /data:image|blob:|base64|product\.png|File|Blob|Uint8Array|buffer|dataUrl|previewUrl/);
+  assert.deepEqual(actions[0].pendingAction.action.assetIds, persisted.action.assetIds);
 });
 
 test('default 402 handling derives a signed owner, current route, stable draft, and minimal action', () => {

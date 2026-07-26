@@ -290,6 +290,10 @@ test('startup recovery stop cancels the pending unref timer', async () => {
 
 test('production wiring uses the durable orchestrator, signed ownership, startup resume, and no ecommerce Contact Sheet route', async () => {
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const ecommerceBilling = await fs.readFile(
+    new URL('../server/ecommerceEngine/ecommerceBilling.mjs', import.meta.url),
+    'utf8',
+  );
   const generateRouteCount = (server.match(/app\.post\('\/api\/generate-ecommerce'/g) || []).length;
   assert.equal(generateRouteCount, 1);
   assert.match(server, /createEcommerceOrchestrator\(/);
@@ -305,7 +309,7 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   const unavailableStart = server.indexOf("const ecommerceProviderAdapter = IMG_BASE && IMG_KEY");
   const unavailableEnd = server.indexOf('const orchestrator = createEcommerceOrchestrator', unavailableStart);
   assert.match(server.slice(unavailableStart, unavailableEnd), /error\.retryable\s*=\s*true/);
-  assert.match(server, /idempotencyKey:\s*`ec-release-remainder:\$\{job\.id\}:setup`/);
+  assert.match(ecommerceBilling, /idempotencyKey:\s*`ec-release-remainder:\$\{job\.id\}:setup`/);
   const legacyRouteStart = server.indexOf("app.post('/api/generate-ecommerce'");
   const jobRouteStart = server.indexOf("app.get('/api/ecommerce/jobs/:id'");
   const routeSlice = server.slice(legacyRouteStart, jobRouteStart);
@@ -490,6 +494,66 @@ test('frontend preserves structured billing metadata from a failed async job', a
       && error?.resumeable === true
       && error?.required === 5000
       && error?.available === 1200,
+  );
+});
+
+test('frontend preserves actionable re-quote metadata from a failed async ecommerce job', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: () => JSON.stringify({
+      email: 'paid@example.com',
+      token: 'signed-session-token',
+    }),
+    setItem: () => {},
+  };
+  globalThis.fetch = async url => {
+    if (String(url).endsWith('/api/generate-ecommerce')) {
+      return new Response(JSON.stringify({ taskId: 'job-requote', status: 'queued' }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({
+      ok: true,
+      task: {
+        id: 'job-requote',
+        status: 'failed',
+        output: {
+          images: {},
+          errors: [{
+            error: '当前生成方案与费用确认不一致，请重新获取费用',
+            code: 'BILLING_QUOTE_MISMATCH',
+            status: 409,
+            retryable: false,
+            reQuoteRequired: true,
+          }],
+        },
+      },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  const api = await import(`../src/services/api.js?async-requote=${Date.now()}`);
+
+  await assert.rejects(
+    api.generateEcommerce({
+      productName: '测试商品',
+      category: '数码3C',
+      realShots: [],
+      refImgs: [],
+      billingQuoteId: 'bq1.expired.quote',
+      pollIntervalMs: 0,
+    }),
+    error => error?.status === 409
+      && error?.code === 'BILLING_QUOTE_MISMATCH'
+      && error?.retryable === false
+      && error?.reQuoteRequired === true,
   );
 });
 

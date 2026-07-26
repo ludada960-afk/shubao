@@ -19,7 +19,7 @@ import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import { uploadEcommerceAssets } from '../../services/api.js';
-import { resolveSizingImages } from './ec/ecommercePlanModel.js';
+import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 
 /* ═══════ 智能方案状态常量 ═══════
  * 智能方案逻辑：
@@ -67,6 +67,7 @@ const GLASS_PANEL = {
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
 export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const { state } = useApp();
+  const [draftId] = useState(() => createEcommerceDraftId());
 
   /* — 图片 — */
   const [productImages, setProductImages] = useState([]);
@@ -165,6 +166,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         uploadEcommerceAssets(refImages, 'reference'),
       ]);
       onStepChange?.({
+        draftId,
         productName: description.trim() || '商品',
         description: description.trim(),
         category: effectiveParams.category || '其他',

@@ -68,6 +68,8 @@ function publicQuote(quote) {
     units: quote.units,
     totalUnits: quote.totalUnits,
     currency: quote.currency,
+    quoteId: quote.quoteId,
+    expiresAt: quote.expiresAt,
   };
 }
 
@@ -123,6 +125,17 @@ export function billingHttpError(error) {
       body: { error: '额度不足，请购买套餐后继续', code: error.code, retryable: false },
     };
   }
+  if (String(error?.code || '').startsWith('BILLING_QUOTE_')) {
+    return {
+      status: Number.isInteger(error?.status) ? error.status : 409,
+      body: {
+        error: error?.message || '费用确认已失效，请重新获取费用',
+        code: error.code,
+        retryable: false,
+        reQuoteRequired: true,
+      },
+    };
+  }
   if (error?.code === 'BILLING_ORDER_NOT_FOUND') {
     return { status: 404, body: { error: '订单不存在', code: error.code } };
   }
@@ -154,12 +167,15 @@ function handler(fn) {
   };
 }
 
-export function createBillingRouteHandlers({ walletService, paymentService, authenticateOwner } = {}) {
+export function createBillingRouteHandlers({ walletService, paymentService, quoteService, authenticateOwner } = {}) {
   if (!walletService || typeof walletService.getBalance !== 'function' || typeof walletService.listLedger !== 'function') {
     throw new TypeError('walletService with getBalance and listLedger is required');
   }
   if (!paymentService || typeof paymentService.createOrder !== 'function' || typeof paymentService.getOrder !== 'function') {
     throw new TypeError('paymentService with createOrder and getOrder is required');
+  }
+  if (!quoteService || typeof quoteService.issue !== 'function') {
+    throw new TypeError('quoteService.issue is required');
   }
   if (typeof authenticateOwner !== 'function') throw new TypeError('authenticateOwner is required');
 
@@ -201,10 +217,12 @@ export function createBillingRouteHandlers({ walletService, paymentService, auth
     }),
 
     quote: handler((req, res) => {
-      ownerFor(req);
+      const ownerEmail = ownerFor(req);
       const sku = identifier(req.body?.sku, 'sku');
       const quantity = pageNumber(req.body?.quantity, 1, 'quantity');
-      return res.json({ quote: publicQuote(quoteFeature(sku, quantity)) });
+      const quote = quoteFeature(sku, quantity);
+      const reference = quoteService.issue({ ownerEmail, quote });
+      return res.json({ quote: publicQuote({ ...quote, ...reference }) });
     }),
 
     createOrder: handler((req, res) => {

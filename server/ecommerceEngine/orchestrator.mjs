@@ -428,7 +428,9 @@ export function createEcommerceOrchestrator(deps = {}) {
           }
           const quality = await evaluateAsset({
             buffer: stable.buffer,
-            expectedFormat: stable.contentType?.split('/')[1],
+            expectedFormat: item.role === 'transparent'
+              ? 'png'
+              : stable.contentType?.split('/')[1],
             generationSize: item.generationSize,
             role: item.role,
             productTruth,
@@ -847,6 +849,9 @@ export function createEcommerceOrchestrator(deps = {}) {
         const assets = store.listAssets(id);
         const detail = { error: errorMessage(error) };
         if (cleanString(error?.code)) detail.code = cleanString(error.code);
+        if (Number.isInteger(error?.status)) detail.status = error.status;
+        if (typeof error?.retryable === 'boolean') detail.retryable = error.retryable;
+        if (error?.reQuoteRequired === true) detail.reQuoteRequired = true;
         if (error?.resumeable === true) detail.resumeable = true;
         if (Number.isSafeInteger(error?.required) && error.required >= 0) detail.required = error.required;
         if (Number.isSafeInteger(error?.available) && error.available >= 0) detail.available = error.available;

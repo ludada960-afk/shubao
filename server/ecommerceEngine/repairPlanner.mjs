@@ -9,6 +9,7 @@ const TECHNICAL_OPERATIONS = Object.freeze({
   dimension_mismatch: 'resize',
   format_mismatch: 'convert_format',
   illegal_generation_dimensions: 'resize',
+  transparent_background_missing: 'normalize_transparent_background',
   white_background_insufficient: 'normalize_white_background',
 });
 const COPY_REPAIR_CODES = new Set([

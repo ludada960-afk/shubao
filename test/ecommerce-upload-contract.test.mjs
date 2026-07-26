@@ -83,7 +83,7 @@ test('authenticated ecommerce asset upload returns original and preview records 
   });
 });
 
-test('formal generation preserves owner-scoped asset IDs and merges 4K into planner sizing', async (t) => {
+test('formal generation preserves owner-scoped asset IDs, quote reference, and merges 4K into planner sizing', async (t) => {
   installSignedSession();
   const originalFetch = globalThis.fetch;
   const requests = [];
@@ -125,6 +125,7 @@ test('formal generation preserves owner-scoped asset IDs and merges 4K into plan
       images: [{ key: 'main_text', count: 2, ratio: '1:1' }],
     },
     generationSettings: { resolution: '4K', negativePrompt: '错误品牌元素' },
+    billingQuoteId: 'bq1.accepted.quote',
   });
 
   assert.equal(requests.length, 1);
@@ -145,6 +146,7 @@ test('formal generation preserves owner-scoped asset IDs and merges 4K into plan
     resolution: '4K',
     images: [{ key: 'main_text', count: 2, ratio: '1:1' }],
   });
+  assert.equal(requests[0].body.billing_quote_id, 'bq1.accepted.quote');
   assert.equal(Object.hasOwn(requests[0].body, 'real_shots'), false);
   assert.equal(Object.hasOwn(requests[0].body, 'reference_images'), false);
 });

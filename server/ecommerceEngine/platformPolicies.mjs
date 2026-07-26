@@ -37,6 +37,16 @@ const ROLE_POLICIES = Object.freeze({
     textPolicy: 'Do not add generated labels, claims, or watermarks.',
     requiredFacts: ['product identity'],
   }),
+  transparent: Object.freeze({
+    recommendedCount: 1,
+    allowedRatios: ['1:1'],
+    exportSizes: [{ width: 800, height: 800 }],
+    maxFileBytes: 5_000_000,
+    formats: ['png'],
+    backgroundPolicy: 'Use a real transparent alpha background with the isolated product only; do not create a scene, surface, backdrop, or opaque fill.',
+    textPolicy: 'Do not add generated text, promotional copy, labels, watermarks, borders, props, or campaign graphics.',
+    requiredFacts: ['product identity'],
+  }),
   detail: Object.freeze({
     recommendedCount: 5,
     allowedRatios: ['3:4', '1:1'],

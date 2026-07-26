@@ -40,6 +40,7 @@ async function createHarness(t, {
   settle,
   release,
   releaseRemainder,
+  stableContentType = 'image/png',
   orchestratorOptions = {},
   jobsOptions = {},
 } = {}) {
@@ -156,12 +157,12 @@ async function createHarness(t, {
         calls.sequence.push(`persist:${label}`);
         stableIndex += 1;
         const url = stableIndex % 2 === 1 ? PNG_A : PNG_B;
-        return { id: url.split('/').pop(), url, contentType: 'image/png', label };
+        return { id: url.split('/').pop(), url, contentType: stableContentType, label };
       },
       async read(assetId) {
         calls.read.push(assetId);
         calls.sequence.push(`read:${assetId}`);
-        return { buffer: IMAGE_BUFFER, contentType: 'image/png' };
+        return { buffer: IMAGE_BUFFER, contentType: stableContentType };
       },
     },
     evaluateAsset: async input => {
@@ -258,6 +259,19 @@ test('runs the required sequence, persists stable bytes, and settles one success
     state: asset.state,
     stableUrl: asset.stableUrl,
   })), [{ state: 'completed', stableUrl: PNG_A }]);
+});
+
+test('always requires PNG quality output for transparent plan items', async t => {
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('transparent', 'transparent')],
+    stableContentType: 'image/jpeg',
+  });
+  const created = orchestrator.createJob(jobInput('job-transparent-format'));
+
+  await orchestrator.runJob(created.id);
+
+  assert.equal(calls.quality.length, 1);
+  assert.equal(calls.quality[0].expectedFormat, 'png');
 });
 
 test('createJob only persists queued work and does not start a second background runner', async t => {
@@ -762,10 +776,38 @@ test('persists a non-retryable billing failure so polling does not leave the job
   assert.deepEqual(failed.output.errors, [{
     error: 'AI 积分不足，请购买套餐后继续',
     code: 'BILLING_INSUFFICIENT_CREDITS',
+    status: 402,
     resumeable: true,
     required: 5000,
     available: 1000,
   }]);
+});
+
+test('persists actionable quote failures without starting provider generation', async t => {
+  const quoteError = Object.assign(new Error('当前生成方案与费用确认不一致，请重新获取费用'), {
+    status: 409,
+    code: 'BILLING_QUOTE_MISMATCH',
+    reQuoteRequired: true,
+    retryable: false,
+  });
+  const { orchestrator, calls } = await createHarness(t, {
+    hold: () => {
+      throw quoteError;
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-quote-mismatch'));
+
+  const failed = await orchestrator.runJob(created.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.deepEqual(failed.output.errors, [{
+    error: '当前生成方案与费用确认不一致，请重新获取费用',
+    code: 'BILLING_QUOTE_MISMATCH',
+    status: 409,
+    retryable: false,
+    reQuoteRequired: true,
+  }]);
+  assert.equal(calls.submit.length, 0);
 });
 
 test('renews the fenced asset lease while a provider poll exceeds the original lease', async t => {

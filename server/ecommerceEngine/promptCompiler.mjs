@@ -164,8 +164,11 @@ function responsibilityFor(kind, position) {
 
 function selectInputAssets(assetPlanItem, productTruth, assets) {
   const source = isRecord(assets) ? assets : {};
+  const role = cleanString(ownValue(assetPlanItem, 'role'));
   const productIds = uniqueIdentifiers(ownValue(assetPlanItem, 'productAssetIds'));
-  const styleIds = uniqueIdentifiers(ownValue(assetPlanItem, 'styleReferenceIds'));
+  const styleIds = role === 'transparent'
+    ? []
+    : uniqueIdentifiers(ownValue(assetPlanItem, 'styleReferenceIds'));
   const proofIds = uniqueIdentifiers(ownValue(assetPlanItem, 'proofAssetIds'));
   const protectionIds = uniqueIdentifiers(ownValue(assetPlanItem, 'protectionAssetIds'));
   const proofSources = [
@@ -424,7 +427,25 @@ function safeForbiddenMutations(productTruth) {
   return result;
 }
 
-function campaignSection(campaignBible) {
+function campaignSection(campaignBible, transparent = false) {
+  if (transparent) {
+    return {
+      directionId: cleanString(ownValue(campaignBible, 'directionId')),
+      title: '',
+      brief: '',
+      commercialObjective: '',
+      audience: '',
+      visualKeywords: [],
+      palette: [],
+      lighting: '',
+      composition: '',
+      backgroundLanguage: '',
+      typographyIntent: '',
+      copyTone: '',
+      consistencyLocks: [],
+      prohibitedStyles: [],
+    };
+  }
   return {
     directionId: cleanString(ownValue(campaignBible, 'directionId')),
     title: cleanString(ownValue(campaignBible, 'title')),
@@ -445,6 +466,7 @@ function campaignSection(campaignBible) {
 
 function rolePolicyName(role) {
   if (['main', 'main_text', 'main_3x4'].includes(role)) return 'main';
+  if (role === 'transparent') return 'transparent';
   if (role === 'white_background') return 'white_background';
   if (role === 'sku') return 'sku';
   return 'detail';
@@ -513,16 +535,20 @@ export function compileAssetRequest({
   const truth = isRecord(productTruth) ? productTruth : {};
   const bible = isRecord(campaignBible) ? campaignBible : {};
   const inputAssets = selectInputAssets(item, truth, assets);
+  const role = cleanString(ownValue(item, 'role'));
+  const transparent = role === 'transparent';
   const ratio = cleanString(ownValue(item, 'ratio'));
-  const { visualFacts, overlays } = splitFactsForRendering(item, truth);
-  const campaign = campaignSection(bible);
+  const splitFacts = splitFactsForRendering(item, truth);
+  const visualFacts = splitFacts.visualFacts;
+  const overlays = transparent ? [] : splitFacts.overlays;
+  const campaign = campaignSection(bible, transparent);
   const modelRoute = compileModelRoute(item);
   const productName = cleanString(ownValue(truth, 'productName'));
   const category = cleanString(ownValue(truth, 'category'));
   const materials = normalizeStrings(ownValue(truth, 'materials'));
   const sections = {
     roleObjective: {
-      role: cleanString(ownValue(item, 'role')),
+      role,
       purpose: cleanString(ownValue(item, 'purpose')),
       generationMode: cleanString(ownValue(item, 'generationMode')) || 'edit',
     },
@@ -542,15 +568,25 @@ export function compileAssetRequest({
     imageIndexDuties: inputAssets.map(({ index, assetId, kind, responsibility }) => ({
       index, assetId, kind, responsibility,
     })),
-    generationInstructions: {
-      subject: 'Preserve the user product from indexed product views; create only the requested role composition.',
-      materials: materials.join(', '),
-      lighting: campaign.lighting,
-      composition: campaign.composition,
-      background: campaign.backgroundLanguage,
-      palette: campaign.palette,
-      copyPolicy: 'Keep copy space restrained. Do not synthesize exact labels or factual text.',
-    },
+    generationInstructions: transparent
+      ? {
+          subject: 'Create one isolated product cutout while preserving the user product exactly from indexed product views.',
+          materials: materials.join(', '),
+          lighting: 'Use neutral, even, edge-safe product lighting without a cast background or campaign atmosphere.',
+          composition: 'Center the complete product inside the canvas with clean contours, no props, no surface, and no crop.',
+          background: 'Render on an actual transparent alpha canvas. Every background pixel must remain transparent; do not create a scene, gradient, wall, floor, shadow backdrop, or opaque fill.',
+          palette: [],
+          copyPolicy: 'No added text, promotional copy, labels, watermarks, borders, badges, or graphics.',
+        }
+      : {
+          subject: 'Preserve the user product from indexed product views; create only the requested role composition.',
+          materials: materials.join(', '),
+          lighting: campaign.lighting,
+          composition: campaign.composition,
+          background: campaign.backgroundLanguage,
+          palette: campaign.palette,
+          copyPolicy: 'Keep copy space restrained. Do not synthesize exact labels or factual text.',
+        },
     platformRecommendation: platformSection(item, truth),
     deterministicOverlays: {
       instruction: 'Exact Chinese, prices, promotions, parameter tables, SKU labels, dimensions, certificates or reports, and comparison claims are post-processing only; the image model must not render them.',
@@ -564,7 +600,9 @@ export function compileAssetRequest({
       riskLevel: cleanString(ownValue(item, 'riskLevel')) || 'low',
       qualityChecks: normalizeStrings(ownValue(item, 'qualityChecks')),
     },
-    referenceSafety: 'Style references may contribute style only. They must never replace, copy, or substitute for the user\'s real product. Proof assets are evidence only and are never product views.',
+    referenceSafety: transparent
+      ? 'Style references are excluded from this transparent deliverable. Campaign style, background, or scene instructions cannot override real alpha transparency. Product views remain the only identity authority.'
+      : 'Style references may contribute style only. They must never replace, copy, or substitute for the user\'s real product. Proof assets are evidence only and are never product views.',
   };
 
   return {

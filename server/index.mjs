@@ -26,6 +26,7 @@ import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './access
 import { createWalletService } from './billing/walletService.mjs';
 import { createPaymentService } from './billing/paymentService.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
+import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createContentEntitlements } from './billing/contentEntitlements.mjs';
 import {
   authenticateContentRequest,
@@ -61,6 +62,7 @@ import {
   compileAssetRequest,
   compileCampaignBible,
   createEcommerceOrchestrator,
+  createEcommerceBilling,
   createEcommerceRouteHandlers,
   createEcommerceStartupRecovery,
   createProviderAdapter,
@@ -68,8 +70,8 @@ import {
   mergeProductFacts,
   normalizeProductTruth,
   planRepair,
+  repairEcommerceAsset,
 } from './ecommerceEngine/index.mjs';
-import { quoteFeature } from './billing/catalog.mjs';
 import {
   BETA_GUARDED_POST_ROUTES,
   RATE_LIMITED_POST_ROUTES,
@@ -104,6 +106,7 @@ if (!authSessionSecret) {
   console.warn('[auth] AUTH_SESSION_SECRET 未配置，使用本进程随机密钥；服务重启后需重新登录');
 }
 const contentSessionTokens = createSessionTokenService({ secret: authSessionSecret });
+const billingQuoteService = createBillingQuoteService({ secret: authSessionSecret });
 const contentBilling = createContentBilling({ db, contentEntitlements, walletService });
 const {
   beginContentGeneration,
@@ -279,6 +282,7 @@ function betaAccessMiddleware(req, res, next, guardedPath = normalizeGuardedPath
 mountBillingRoutes(app, {
   walletService,
   paymentService,
+  quoteService: billingQuoteService,
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,
@@ -3030,99 +3034,10 @@ function qualityAdapter(section, fallbackCode) {
   };
 }
 
-async function repairEcommerceAsset({ buffer, action, item }) {
-  const match = /^(\d+)x(\d+)$/.exec(String(item?.generationSize || ''));
-  if (!match) throw new Error('修复目标尺寸无效');
-  let pipeline = sharp(buffer).rotate().resize({
-    width: Number(match[1]),
-    height: Number(match[2]),
-    fit: 'fill',
-  });
-  if (action?.operations?.includes('normalize_white_background')) {
-    pipeline = pipeline.flatten({ background: '#ffffff' });
-  }
-  return {
-    buffer: await pipeline.png().toBuffer(),
-    contentType: 'image/png',
-  };
-}
-
-function ecommerceFeatureForItem(item) {
-  const is4K = Object.values({
-    '1:1': '2880x2880',
-    '3:4': '2448x3264',
-    '4:3': '3264x2448',
-    '9:16': '2160x3840',
-  }).includes(item.generationSize);
-  return quoteFeature(is4K ? 'ec_image_4k' : 'ec_image_2k', 1);
-}
-
-const ecommerceBilling = {
-  async hold({ job, assetPlan }) {
-    const items = assetPlan.map(item => {
-      const quote = ecommerceFeatureForItem(item);
-      return { key: item.id, sku: quote.sku, units: quote.units };
-    });
-    try {
-      return walletService.createHold({
-        ownerEmail: job.ownerEmail,
-        currency: 'ec_points',
-        quoteId: `ec-quote:${job.id}`,
-        idempotencyKey: `ec-hold:${job.id}`,
-        items,
-        metadata: { taskId: job.id, source: 'ecommerce_generate' },
-      });
-    } catch (error) {
-      if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
-        const balance = walletService.getBalance(job.ownerEmail, 'ec_points');
-        const billingError = new Error('AI 积分不足，请购买套餐后继续');
-        billingError.status = 402;
-        billingError.code = error.code;
-        billingError.resumeable = true;
-        billingError.required = items.reduce((total, item) => total + item.units, 0);
-        billingError.available = balance.unlimited ? billingError.required : balance.availableUnits;
-        throw billingError;
-      }
-      throw error;
-    }
-  },
-  async settle({ holdId, job, item, stableAsset, quality }) {
-    const quote = ecommerceFeatureForItem(item);
-    return walletService.settleItem(holdId, item.id, {
-      referenceType: 'ecommerce_asset',
-      referenceId: stableAsset.id,
-      providerCostCny: quote.providerCostCny,
-      idempotencyKey: `ec-settle:${job.id}:${item.id}`,
-      metadata: {
-        taskId: job.id,
-        role: item.role,
-        generationSize: item.generationSize,
-        qualityConfidence: quality?.confidence || '',
-      },
-    });
-  },
-  async release({ holdId, job, item, reason, quality }) {
-    return walletService.releaseItem(holdId, item.id, {
-      reason,
-      idempotencyKey: `ec-release:${job.id}:${item.id}`,
-      metadata: {
-        taskId: job.id,
-        role: item.role,
-        qualityConfidence: quality?.confidence || '',
-      },
-    });
-  },
-  async releaseRemainder({ holdId, job, reason }) {
-    return walletService.releaseRemainder(holdId, {
-      reason,
-      idempotencyKey: `ec-release-remainder:${job.id}:setup`,
-      metadata: {
-        taskId: job.id,
-        source: 'ecommerce_parent_setup',
-      },
-    });
-  },
-};
+const ecommerceBilling = createEcommerceBilling({
+  walletService,
+  quoteService: billingQuoteService,
+});
 
 const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderAdapter({
   baseUrl: IMG_BASE,

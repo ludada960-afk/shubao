@@ -11,6 +11,7 @@ import { createWalletService } from '../server/billing/walletService.mjs';
 import { createPaymentService } from '../server/billing/paymentService.mjs';
 import { createSessionTokenService, authenticateContentRequest } from '../server/billing/contentBilling.mjs';
 import { mountBillingRoutes } from '../server/billing/routes.mjs';
+import { createBillingQuoteService } from '../server/billing/quoteService.mjs';
 
 const SESSION_SECRET = 'billing-route-test-secret-billing-route-test-secret';
 
@@ -59,10 +60,12 @@ function createHarness({ isUnlimited = () => false, providers = {}, walletOverri
   const walletService = walletOverride ?? createWalletService(db, { isUnlimited });
   const paymentService = createPaymentService(db, walletService, providers);
   const sessionTokens = createSessionTokenService({ secret: SESSION_SECRET });
+  const quoteService = createBillingQuoteService({ secret: SESSION_SECRET });
   const app = createFakeApp();
   mountBillingRoutes(app, {
     walletService,
     paymentService,
+    quoteService,
     authenticateOwner(req) {
       return authenticateContentRequest(req, {
         sessionTokens,
@@ -70,7 +73,7 @@ function createHarness({ isUnlimited = () => false, providers = {}, walletOverri
       });
     },
   });
-  return { app, db, walletService, paymentService, sessionTokens };
+  return { app, db, walletService, paymentService, quoteService, sessionTokens };
 }
 
 function signedHeaders(sessionTokens, email) {
@@ -128,9 +131,13 @@ test('quotes ignore client supplied units and price', async t => {
     body: { sku: 'ec_image_2k', quantity: 2, units: 1, price: 0, amount: 0, credits: 999999 },
   });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body.quote, {
-    sku: 'ec_image_2k', quantity: 2, units: 1000, totalUnits: 2000, currency: 'ec_points',
-  });
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(res.body.quote).filter(([key]) => !['quoteId', 'expiresAt'].includes(key))),
+    { sku: 'ec_image_2k', quantity: 2, units: 1000, totalUnits: 2000, currency: 'ec_points' },
+  );
+  assert.match(res.body.quote.quoteId, /^bq1\./);
+  assert.ok(Date.parse(res.body.quote.expiresAt) > Date.now());
+  assert.equal(JSON.stringify(res.body.quote).includes('providerCostCny'), false);
 });
 
 test('owner account reports unlimited while retaining honest numeric balances', async t => {

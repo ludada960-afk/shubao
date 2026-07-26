@@ -36,7 +36,15 @@ function ecommerceTaskError(task) {
       ? '部分图片未通过质量检查，请调整后重试'
       : '生成任务失败，请重试'),
   );
-  for (const key of ['code', 'resumeable', 'required', 'available']) {
+  for (const key of [
+    'code',
+    'status',
+    'retryable',
+    'reQuoteRequired',
+    'resumeable',
+    'required',
+    'available',
+  ]) {
     if (detail[key] !== undefined) error[key] = detail[key];
   }
   return error;
@@ -313,7 +321,7 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, email, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600 }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, billingQuoteId, email, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600 }) {
   const productInputs = splitEcommerceInputs(realShots);
   const referenceInputs = splitEcommerceInputs(refImgs);
   const body = {
@@ -360,6 +368,9 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
       ...(sizing || {}),
       resolution: generationSettings?.resolution || sizing?.resolution || '2K',
     };
+  }
+  if (typeof billingQuoteId === 'string' && billingQuoteId.trim()) {
+    body.billing_quote_id = billingQuoteId.trim();
   }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分钟超时（电商生图更慢）

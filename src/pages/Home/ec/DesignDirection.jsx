@@ -11,7 +11,11 @@ import { quoteBillingAction } from '../../../services/billing.js';
 import { useApp } from '../../../store/AppContext';
 import { handleGenerationAccessError } from '../../../utils/generationAccess.js';
 import EcommerceWorkbench from './EcommerceWorkbench';
-import { formatEcommerceQuote, resolveEcommercePlan } from './ecommercePlanModel.js';
+import {
+  buildEcommercePendingAction,
+  formatEcommerceQuote,
+  resolveEcommercePlan,
+} from './ecommercePlanModel.js';
 import { buildSupplementDeck } from './workbenchState';
 import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
@@ -173,10 +177,36 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setBlockedByCredits(false);
     setGenProgress('正在生成…');
     setGenStage(0);
+    let pendingAction = null;
     try {
       const uploadedSupplement = await uploadSupplementAssets();
       const dir = directions[selected];
       const directionBrief = [dir?.title, dir?.one_liner, dir?.description].filter(Boolean).join('。');
+      pendingAction = buildEcommercePendingAction({
+        platform: params?.platform || '淘宝',
+        direction: {
+          id: dir?.id,
+          brief: dir?.description || dir?.short_desc || dir?.one_liner || '',
+        },
+        sizing: {
+          ...(params?.sizing || {}),
+          resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
+        },
+        skus: params?.skus || [],
+        customColors: params?.customColors || [],
+        originalProductAssets: params?.realShots || [],
+        supplementalProductAssets: uploadedSupplement.product,
+        originalReferenceAssets: params?.refShots || [],
+        supplementalReferenceAssets: uploadedSupplement.reference,
+        promptText: extraDesc,
+        promptReferences: [
+          { key: 'product_name', text: params?.productName || '' },
+          { key: 'category', text: params?.category || '' },
+          { key: 'description', text: params?.description || '' },
+          { key: 'selling_points', text: params?.copywriting?.sellingPoints || '' },
+          { key: 'direction_brief', text: directionBrief },
+        ],
+      });
       const result = await generateEcommerce({
         productName: params?.productName || params?.description?.slice(0, 20) || '商品',
         category: params?.category || '其他',
@@ -202,6 +232,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           ...dir,
           editableBrief: dir?.description || dir?.short_desc || '',
         },
+        billingQuoteId: billingQuote.quoteId,
         onProgress: (d) => {
           // C4: SSE 实时进度
           if (d.step) setGenProgress(d.step);
@@ -246,7 +277,31 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     } catch (e) {
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'ecommerce-direction',
-        message: '你选择的设计方向、修改后的方案说明、补充图片和提示词都已保留。',
+        ownerEmail: state.phone,
+        route: globalThis.location?.pathname || '/',
+        draftId: params?.draftId || '',
+        quoteId: billingQuote.quoteId,
+        action: pendingAction || buildEcommercePendingAction({
+          platform: params?.platform || '淘宝',
+          direction: directions[selected] || {},
+          sizing: {
+            ...(params?.sizing || {}),
+            resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
+          },
+          skus: params?.skus || [],
+          customColors: params?.customColors || [],
+          originalProductAssets: params?.realShots || [],
+          supplementalProductAssets: extraProductImages,
+          originalReferenceAssets: params?.refShots || [],
+          supplementalReferenceAssets: extraReferenceImages,
+          promptText: extraDesc,
+          promptReferences: [
+            { key: 'product_name', text: params?.productName || '' },
+            { key: 'category', text: params?.category || '' },
+            { key: 'description', text: params?.description || '' },
+            { key: 'selling_points', text: params?.copywriting?.sellingPoints || '' },
+          ],
+        }),
       });
       if (accessResult === 'credits') {
         setBlockedByCredits(true);

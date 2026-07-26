@@ -13,6 +13,14 @@ export const WHITE_BACKGROUND_REQUIREMENTS = Object.freeze({
   minEdgeWhiteCoverage: 0.9,
   edgeThickness: 2,
 });
+export const TRANSPARENT_BACKGROUND_REQUIREMENTS = Object.freeze({
+  transparentAlphaMax: 16,
+  opaqueAlphaMin: 239,
+  minTransparentCoverage: 0.05,
+  minOpaqueCoverage: 0.05,
+  minEdgeTransparentCoverage: 0.8,
+  edgeThickness: 2,
+});
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -165,6 +173,39 @@ export function isWhiteBackgroundCompliant(metrics) {
     && metrics?.edgeWhiteCoverage >= WHITE_BACKGROUND_REQUIREMENTS.minEdgeWhiteCoverage;
 }
 
+export function measureAlphaCoverage(data, info) {
+  const channels = info.channels;
+  const count = info.width * info.height;
+  let transparent = 0;
+  let opaque = 0;
+  let edgeTransparent = 0;
+  let edgePixels = 0;
+  for (let index = 0; index < count; index += 1) {
+    const alpha = channels >= 4 ? data[index * channels + 3] : 255;
+    if (alpha <= TRANSPARENT_BACKGROUND_REQUIREMENTS.transparentAlphaMax) transparent += 1;
+    if (alpha >= TRANSPARENT_BACKGROUND_REQUIREMENTS.opaqueAlphaMin) opaque += 1;
+    const x = index % info.width;
+    const y = Math.floor(index / info.width);
+    const edge = TRANSPARENT_BACKGROUND_REQUIREMENTS.edgeThickness;
+    const onEdge = x < edge || y < edge || x >= info.width - edge || y >= info.height - edge;
+    if (onEdge) {
+      edgePixels += 1;
+      if (alpha <= TRANSPARENT_BACKGROUND_REQUIREMENTS.transparentAlphaMax) edgeTransparent += 1;
+    }
+  }
+  return {
+    transparentCoverage: Number((transparent / count).toFixed(4)),
+    opaqueCoverage: Number((opaque / count).toFixed(4)),
+    edgeTransparentCoverage: Number((edgePixels ? edgeTransparent / edgePixels : 0).toFixed(4)),
+  };
+}
+
+export function isTransparentBackgroundCompliant(metrics) {
+  return metrics?.transparentCoverage >= TRANSPARENT_BACKGROUND_REQUIREMENTS.minTransparentCoverage
+    && metrics?.opaqueCoverage >= TRANSPARENT_BACKGROUND_REQUIREMENTS.minOpaqueCoverage
+    && metrics?.edgeTransparentCoverage >= TRANSPARENT_BACKGROUND_REQUIREMENTS.minEdgeTransparentCoverage;
+}
+
 function pixelMetrics(data, info) {
   const channels = info.channels;
   const count = info.width * info.height;
@@ -172,6 +213,7 @@ function pixelMetrics(data, info) {
   let sum = 0;
   let sumSquares = 0;
   const whiteBackground = measureWhiteBackgroundCoverage(data, info);
+  const alpha = measureAlphaCoverage(data, info);
 
   for (let index = 0; index < count; index += 1) {
     const offset = index * channels;
@@ -202,8 +244,11 @@ function pixelMetrics(data, info) {
   return {
     edgeStrength: Number(edgeStrength.toFixed(3)),
     edgeWhiteCoverage: whiteBackground.edgeWhiteCoverage,
+    edgeTransparentCoverage: alpha.edgeTransparentCoverage,
     luminanceStdDev: Number(Math.sqrt(variance).toFixed(3)),
     nearWhiteCoverage: whiteBackground.nearWhiteCoverage,
+    opaqueCoverage: alpha.opaqueCoverage,
+    transparentCoverage: alpha.transparentCoverage,
   };
 }
 
@@ -239,13 +284,14 @@ export async function evaluateAsset(input = {}, adapters = {}) {
   const safeInput = isRecord(input) ? input : {};
   const buffer = own(safeInput, 'buffer') ?? own(safeInput, 'imageBuffer');
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) return missingBufferResult(safeInput);
+  const role = normalizeRole(own(safeInput, 'role') ?? own(safeInput, 'roleKey'));
 
   let metadata;
   let raw;
   try {
     const image = sharp(buffer, { failOn: 'error' });
     metadata = await image.metadata();
-    raw = await image.clone().toColourspace('srgb').removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    raw = await image.clone().toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   } catch (error) {
     const checks = {
       technical: statusCheck('fail', ['invalid_image'], {}, {
@@ -292,11 +338,13 @@ export async function evaluateAsset(input = {}, adapters = {}) {
     },
   );
 
-  const role = normalizeRole(own(safeInput, 'role') ?? own(safeInput, 'roleKey'));
   const platformIssues = [];
   if (WHITE_BACKGROUND_ROLES.has(role)
     && !isWhiteBackgroundCompliant(metrics)) {
     platformIssues.push('white_background_insufficient');
+  }
+  if (role === 'transparent' && !isTransparentBackgroundCompliant(metrics)) {
+    platformIssues.push('transparent_background_missing');
   }
   const platformCompliance = statusCheck(
     platformIssues.length ? 'fail' : 'pass',
@@ -309,6 +357,18 @@ export async function evaluateAsset(input = {}, adapters = {}) {
         : null,
       requiredEdgeWhiteCoverage: WHITE_BACKGROUND_ROLES.has(role)
         ? WHITE_BACKGROUND_REQUIREMENTS.minEdgeWhiteCoverage
+        : null,
+      transparentCoverage: metrics.transparentCoverage,
+      opaqueCoverage: metrics.opaqueCoverage,
+      edgeTransparentCoverage: metrics.edgeTransparentCoverage,
+      requiredTransparentCoverage: role === 'transparent'
+        ? TRANSPARENT_BACKGROUND_REQUIREMENTS.minTransparentCoverage
+        : null,
+      requiredOpaqueCoverage: role === 'transparent'
+        ? TRANSPARENT_BACKGROUND_REQUIREMENTS.minOpaqueCoverage
+        : null,
+      requiredEdgeTransparentCoverage: role === 'transparent'
+        ? TRANSPARENT_BACKGROUND_REQUIREMENTS.minEdgeTransparentCoverage
         : null,
     },
   );
