@@ -37,7 +37,8 @@
 - Paid Workflow Task 2: complete (`d0485c6..a0d216c`, signed billing client, separate ecommerce/content entitlements, legacy credits compatibility, and session-epoch guards preventing stale balance/catalog/ledger responses across logout or account switches independently reviewed and approved; focused 7/7 and Vite build passed).
 - Paid Workflow Task 3: complete (`e4f93ae`, `9f31c23`, `50f52c6`; owner-bound 24-hour pending references, signed-session restore without auto-generation, logout/explicit-completion clearing, fallback owner/route/draft/action derivation, key-aware raw-payload rejection, content-vs-ecommerce currency correctness, and non-numeric `无限内测` presentation independently reviewed and approved; focused 22/22, API contract 12/12, Vite build, collaboration policy, and diff-check passed).
 - Paid pricing safety stopgap: complete (`c9c152f`, `7bda1c8`; reachable legacy `/api/create-payment`, unverified `paid=1` success, active Alipay/WeChat controls, and false Stripe-provider claims removed; independent review approved; API contract 12/12 and Vite build passed).
-- Next implementation task: Paid Workflow Task 4.
+- Paid Workflow Task 4: complete (`7af1805`, `c564b98`; authoritative server catalog drives prices, grants, validity and enabled state; safe `{id, enabled}` provider visibility; exact three-field order requests; permanent ecommerce AI-point presentation; content-set validity; disabled-payment truth; and interrupted-plan browsing without clearing pending work independently reviewed and approved; focused 36/36, Vite build, collaboration policy, and diff-check passed).
+- Next implementation task: Paid Workflow Task 5.
 
 ## Ownership
 
