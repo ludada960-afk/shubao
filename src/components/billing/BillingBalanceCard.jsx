@@ -8,7 +8,13 @@ function BalanceValue({ units, currency, unlimited }) {
   return formatBillingUnits(billingUnits, currency);
 }
 
-export default function BillingBalanceCard({ ecommercePoints = 0, contentSets = 0, unlimited = false }) {
+export default function BillingBalanceCard({
+  ecommercePoints = 0,
+  contentSets = 0,
+  unlimited = false,
+  insufficient = false,
+  insufficientText = '当前余额不足，请补充额度后继续',
+}) {
   return (
     <section className={styles.balanceCard} aria-label="账户余额">
       <div className={styles.balanceHeader}>
@@ -32,6 +38,11 @@ export default function BillingBalanceCard({ ecommercePoints = 0, contentSets = 
           </strong>
         </div>
       </div>
+      {insufficient && !unlimited && (
+        <p className={styles.insufficientHint} role="status">
+          {insufficientText}
+        </p>
+      )}
     </section>
   );
 }

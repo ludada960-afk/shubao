@@ -144,6 +144,7 @@
 .toneneutral { color: var(--text-muted, #6B6560); }
 
 .insufficientHint {
+  margin: var(--space-4, 16px) 0 0;
   padding: 10px 12px;
   border: 1px solid #E9C46A;
   border-radius: var(--radius-sm, 8px);
