@@ -60,6 +60,7 @@ async function createHarness(t, {
     submit: [],
     poll: [],
     persist: [],
+    persistBuffer: [],
     read: [],
     quality: [],
     repair: [],
@@ -163,6 +164,13 @@ async function createHarness(t, {
         calls.read.push(assetId);
         calls.sequence.push(`read:${assetId}`);
         return { buffer: IMAGE_BUFFER, contentType: stableContentType };
+      },
+      async persistBuffer({ buffer, contentType, taskId, label }) {
+        calls.persistBuffer.push({ buffer, contentType, taskId, label });
+        calls.sequence.push(`persist-buffer:${label}`);
+        stableIndex += 1;
+        const url = stableIndex % 2 === 1 ? PNG_A : PNG_B;
+        return { id: url.split('/').pop(), url, contentType, label };
       },
     },
     evaluateAsset: async input => {
@@ -339,6 +347,78 @@ test('caps system repairs at two and releases a needs-review item without settle
   assert.equal(calls.quality.length, 3);
   assert.equal(calls.settle.length, 0);
   assert.deepEqual(calls.release.map(call => call.itemId), ['main-one']);
+});
+
+test('reruns product-fidelity quality after deterministic repair and never settles a failed repair', async t => {
+  let qualityAttempt = 0;
+  const productTruth = {
+    productName: '银色测试商品',
+    category: '数码3C',
+    sourceAssetIds: ['product-front'],
+    primaryColors: ['银色'],
+    materials: ['铝合金'],
+    fingerprint: 'truth-silver',
+    confirmedFacts: {},
+    forbiddenMutations: [],
+  };
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('transparent-one', 'transparent')],
+    analyze: () => productTruth,
+    quality: () => {
+      qualityAttempt += 1;
+      if (qualityAttempt === 1) {
+        return {
+          passed: false,
+          checks: {
+            platformCompliance: {
+              status: 'fail',
+              issueCodes: ['transparent_background_missing'],
+            },
+          },
+          repairAction: {
+            type: 'sharp_repair',
+            focusIssueCodes: ['transparent_background_missing'],
+            operations: ['normalize_transparent_background'],
+            userCharge: false,
+          },
+          confidence: 'low',
+        };
+      }
+      return {
+        passed: false,
+        checks: {
+          productFidelity: {
+            status: 'fail',
+            issueCodes: ['product_identity_mismatch'],
+          },
+        },
+        repairAction: {
+          type: 'regenerate_from_product_truth',
+          focusIssueCodes: ['product_identity_mismatch'],
+          userCharge: false,
+        },
+        confidence: 'low',
+      };
+    },
+    orchestratorOptions: {
+      repairAsset: async input => {
+        calls.repair.push(input);
+        return { buffer: IMAGE_BUFFER, contentType: 'image/png' };
+      },
+      canRetry: attempt => attempt === 0,
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-transparent-fidelity-review'));
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'needs_review');
+  assert.equal(calls.repair.length, 1);
+  assert.deepEqual(calls.repair[0].productTruth, productTruth);
+  assert.equal(calls.quality.length, 2);
+  assert.equal(calls.quality[1].productTruth.fingerprint, 'truth-silver');
+  assert.equal(calls.settle.length, 0);
+  assert.deepEqual(calls.release.map(call => call.itemId), ['transparent-one']);
 });
 
 test('settles only successful assets in a partial batch and releases the failed item', async t => {

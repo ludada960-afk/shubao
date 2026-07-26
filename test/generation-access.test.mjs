@@ -6,6 +6,11 @@ import { handleGenerationAccessError } from '../src/utils/generationAccess.js';
 import { loadPendingPaidAction } from '../src/utils/pendingPaidAction.js';
 import { buildEcommercePendingAction } from '../src/pages/Home/ec/ecommercePlanModel.js';
 
+const PRODUCT_ONE_ID = `${'1'.repeat(64)}.png`;
+const PRODUCT_TWO_ID = `${'2'.repeat(64)}.jpg`;
+const REFERENCE_ONE_ID = `${'3'.repeat(64)}.webp`;
+const REFERENCE_TWO_ID = `${'4'.repeat(64)}.png`;
+
 test('maps insufficient credits to a resumable ecommerce paywall with authoritative quote values', () => {
   const actions = [];
   const values = new Map();
@@ -72,10 +77,10 @@ test('persists a sufficient sanitized ecommerce reference snapshot after a 402 i
     },
     skus: [{ color: '银色', size: '标准版', count: 1 }],
     customColors: ['#C0C0C0'],
-    originalProductAssets: [{ assetId: 'product-1', file: rawFile, url: 'blob:product' }],
-    supplementalProductAssets: [{ assetId: 'product-2', dataUrl: 'data:image/png;base64,AAAA' }],
-    originalReferenceAssets: [{ assetId: 'reference-1', buffer: new Uint8Array([1]) }],
-    supplementalReferenceAssets: [{ assetId: 'reference-2', image: rawFile }],
+    originalProductAssets: [{ assetId: PRODUCT_ONE_ID, file: rawFile, url: 'blob:product' }],
+    supplementalProductAssets: [{ assetId: PRODUCT_TWO_ID, dataUrl: 'data:image/png;base64,AAAA' }],
+    originalReferenceAssets: [{ assetId: REFERENCE_ONE_ID, buffer: new Uint8Array([1]) }],
+    supplementalReferenceAssets: [{ assetId: REFERENCE_TWO_ID, image: rawFile }],
     promptText: '保留商品结构，强化金属质感',
     promptReferences: [
       { key: 'product_name', text: 'Nova Hub', file: rawFile },
@@ -107,8 +112,8 @@ test('persists a sufficient sanitized ecommerce reference snapshot after a 402 i
     currency: 'ec_points',
   });
   assert.deepEqual(persisted.action.assetIds, {
-    product: { original: ['product-1'], supplemental: ['product-2'] },
-    reference: { original: ['reference-1'], supplemental: ['reference-2'] },
+    product: { original: [PRODUCT_ONE_ID], supplemental: [PRODUCT_TWO_ID] },
+    reference: { original: [REFERENCE_ONE_ID], supplemental: [REFERENCE_TWO_ID] },
   });
   assert.equal(persisted.action.direction.brief, '突出精工质感');
   assert.equal(persisted.action.sizing.resolution, '2K');

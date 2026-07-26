@@ -533,6 +533,7 @@ export function createEcommerceOrchestrator(deps = {}) {
               action: repairAction,
               item,
               job,
+              productTruth,
               attempt: nextAttempt,
             });
             if (!Buffer.isBuffer(repaired?.buffer) || !cleanString(repaired?.contentType)) {

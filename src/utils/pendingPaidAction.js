@@ -31,7 +31,11 @@ function binaryField(key) {
 
 function imagePayload(value) {
   const normalized = value.trim();
-  return /^data:/i.test(normalized) || /^blob:/i.test(normalized);
+  if (/^data:/i.test(normalized) || /^blob:/i.test(normalized)) return true;
+  const compact = normalized.replace(/\s+/g, '');
+  if (compact.length < 64) return false;
+  return /^[a-z0-9+/]+={0,2}$/i.test(compact)
+    || /^[a-z0-9_-]+={0,2}$/i.test(compact);
 }
 
 function unsafeObject(value) {

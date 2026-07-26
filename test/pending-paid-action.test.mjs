@@ -54,8 +54,11 @@ test('persists only serializable action references and excludes image payloads',
 
 test('keeps long normal text while stripping binary fields without a length threshold', () => {
   const longPrompt = 'Keep the product shape and typography accurate while using a warm studio scene. '.repeat(4);
-  const standardBase64 = 'A'.repeat(96);
-  const urlSafeBase64 = '-_'.repeat(48);
+  const longChinese = '保留商品真实结构、材质、中文包装和品牌标识，不要虚构参数。'.repeat(80);
+  const standardBase64 = `iVBORw0KGgoAAAANSUhEUgAA${'A'.repeat(96)}`;
+  const jpegBase64 = `/9j/4AAQSkZJRgABAQAAAQABAAD${'B'.repeat(96)}`;
+  const urlSafeBase64 = `eyJpbWFnZSI6${'-_'.repeat(48)}`;
+  const stableAssetId = `${'a'.repeat(64)}.png`;
   const action = createPendingPaidAction({
     ownerEmail: 'creator@example.com',
     source: 'ecommerce',
@@ -65,9 +68,12 @@ test('keeps long normal text while stripping binary fields without a length thre
       type: 'ecommerce_generate',
       prompt: longPrompt,
       notes: longPrompt,
+      chineseCopy: longChinese,
       label: standardBase64,
       sku: urlSafeBase64,
-      imageId: standardBase64,
+      imageId: stableAssetId,
+      harmlessKey: jpegBase64,
+      urlSafeValue: urlSafeBase64,
       imageData: standardBase64,
       raw_bytes: urlSafeBase64,
       buffer: standardBase64,
@@ -86,9 +92,8 @@ test('keeps long normal text while stripping binary fields without a length thre
     type: 'ecommerce_generate',
     prompt: longPrompt,
     notes: longPrompt,
-    label: standardBase64,
-    sku: urlSafeBase64,
-    imageId: standardBase64,
+    chineseCopy: longChinese,
+    imageId: stableAssetId,
     nested: { text: longPrompt },
   });
 });

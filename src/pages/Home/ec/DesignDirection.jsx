@@ -13,7 +13,9 @@ import { handleGenerationAccessError } from '../../../utils/generationAccess.js'
 import EcommerceWorkbench from './EcommerceWorkbench';
 import {
   buildEcommercePendingAction,
+  ecommerceQuoteRequestKey,
   formatEcommerceQuote,
+  invalidateEcommerceQuote,
   resolveEcommercePlan,
 } from './ecommercePlanModel.js';
 import { buildSupplementDeck } from './workbenchState';
@@ -50,6 +52,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [billingQuote, setBillingQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState('');
+  const [quoteNotice, setQuoteNotice] = useState('');
+  const [quoteRefreshVersion, setQuoteRefreshVersion] = useState(0);
 
   const ecommercePlan = useMemo(() => resolveEcommercePlan({
     platform: params?.platform || 'smart',
@@ -62,6 +66,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     quote: billingQuote,
     unlimited: state.unlimited,
   });
+  const quoteRequestKey = ecommerceQuoteRequestKey(
+    ecommercePlan.quoteRequest,
+    quoteRefreshVersion,
+  );
 
   useEffect(() => {
     loadDirections();
@@ -71,20 +79,29 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     let cancelled = false;
     setBillingQuote(null);
     setQuoteError('');
-    if (!ecommercePlan.quoteRequest) return () => { cancelled = true; };
+    if (!ecommercePlan.quoteRequest) {
+      setQuoteNotice('');
+      return () => { cancelled = true; };
+    }
     setQuoteLoading(true);
     quoteBillingAction(ecommercePlan.quoteRequest)
       .then(response => {
-        if (!cancelled) setBillingQuote(response?.quote || null);
+        if (!cancelled) {
+          setBillingQuote(response?.quote || null);
+          setQuoteNotice('');
+        }
       })
       .catch(error => {
-        if (!cancelled) setQuoteError(error?.message || '费用计算失败，请稍后重试');
+        if (!cancelled) {
+          setQuoteNotice('');
+          setQuoteError(error?.message || '费用计算失败，请稍后重试');
+        }
       })
       .finally(() => {
         if (!cancelled) setQuoteLoading(false);
       });
     return () => { cancelled = true; };
-  }, [ecommercePlan.quoteRequest?.quantity, ecommercePlan.quoteRequest?.sku]);
+  }, [quoteRequestKey]);
 
   const loadDirections = async () => {
     setLoading(true);
@@ -275,12 +292,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         setError('生成失败，请重试');
       }
     } catch (e) {
+      const failedQuoteId = billingQuote?.quoteId || '';
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'ecommerce-direction',
         ownerEmail: state.phone,
         route: globalThis.location?.pathname || '/',
         draftId: params?.draftId || '',
-        quoteId: billingQuote.quoteId,
+        quoteId: failedQuoteId,
         action: pendingAction || buildEcommercePendingAction({
           platform: params?.platform || '淘宝',
           direction: directions[selected] || {},
@@ -303,7 +321,18 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           ],
         }),
       });
-      if (accessResult === 'credits') {
+      if (e?.reQuoteRequired === true) {
+        const invalidated = invalidateEcommerceQuote({
+          quote: billingQuote,
+          refreshVersion: quoteRefreshVersion,
+        });
+        setBillingQuote(null);
+        setQuoteLoading(true);
+        setQuoteError('');
+        setQuoteNotice(invalidated.message);
+        setQuoteRefreshVersion(invalidated.refreshVersion);
+        setError('');
+      } else if (accessResult === 'credits') {
         setBlockedByCredits(true);
         setError('');
       } else if (accessResult === 'login') {
@@ -486,7 +515,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               </button>
             </div>
             <div style={{ textAlign: 'center', marginTop: 9, fontSize: 12, fontWeight: 700, color: quoteError ? '#b91c1c' : '#6b625a' }}>
-              {quoteError || quoteText}
+              {quoteError || quoteNotice || quoteText}
             </div>
 
             {/* ── 生成进度面板（可折叠）── */}

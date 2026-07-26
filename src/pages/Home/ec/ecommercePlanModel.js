@@ -200,16 +200,39 @@ export function formatEcommerceQuote({ quantity = 0, quote = null, unlimited = f
   return `生成 ${quantity} 张 · ${readablePoints(quote.totalUnits)} AI 积分`;
 }
 
-function safeReferenceText(value) {
+const SERVER_ORIGINAL_ASSET_ID = /^[a-f0-9]{64}\.(?:jpg|png|webp)$/;
+const PENDING_TEXT_LIMITS = Object.freeze({
+  platform: 40,
+  directionId: 96,
+  directionBrief: 1200,
+  skuLabel: 120,
+  promptKey: 80,
+  promptText: 6000,
+  promptReference: 3000,
+});
+const RAW_BINARY_MIN_LENGTH = 64;
+
+function looksLikeRawBinary(value) {
+  const compact = value.replace(/\s+/g, '');
+  if (compact.length < RAW_BINARY_MIN_LENGTH) return false;
+  return /^[a-z0-9+/]+={0,2}$/i.test(compact)
+    || /^[a-z0-9_-]+={0,2}$/i.test(compact);
+}
+
+function safeReferenceText(value, maxLength) {
   const text = typeof value === 'string' ? value.trim() : '';
-  return /^(?:data|blob):/i.test(text) ? '' : text;
+  if (!text || /^(?:data|blob):/i.test(text) || looksLikeRawBinary(text)) return '';
+  return Number.isSafeInteger(maxLength) && maxLength > 0
+    ? text.slice(0, maxLength)
+    : text;
 }
 
 function uniqueAssetIds(values) {
   const result = [];
   const seen = new Set();
   for (const value of Array.isArray(values) ? values : []) {
-    const assetId = safeReferenceText(value?.assetId);
+    const assetId = typeof value?.assetId === 'string' ? value.assetId.trim() : '';
+    if (!SERVER_ORIGINAL_ASSET_ID.test(assetId)) continue;
     if (!assetId || seen.has(assetId)) continue;
     seen.add(assetId);
     result.push(assetId);
@@ -220,10 +243,10 @@ function uniqueAssetIds(values) {
 function pendingSkus(values) {
   return (Array.isArray(values) ? values : []).flatMap((sku) => {
     const normalized = {
-      color: safeReferenceText(sku?.color),
-      size: safeReferenceText(sku?.size),
-      capacity: safeReferenceText(sku?.capacity),
-      dimLabel: safeReferenceText(sku?.dimLabel),
+      color: safeReferenceText(sku?.color, PENDING_TEXT_LIMITS.skuLabel),
+      size: safeReferenceText(sku?.size, PENDING_TEXT_LIMITS.skuLabel),
+      capacity: safeReferenceText(sku?.capacity, PENDING_TEXT_LIMITS.skuLabel),
+      dimLabel: safeReferenceText(sku?.dimLabel, PENDING_TEXT_LIMITS.skuLabel),
       count: Number.isSafeInteger(Number(sku?.count)) && Number(sku.count) > 0
         ? Number(sku.count)
         : 1,
@@ -238,8 +261,8 @@ function pendingPromptReferences(values) {
   const result = [];
   const seen = new Set();
   for (const value of Array.isArray(values) ? values : []) {
-    const key = safeReferenceText(value?.key);
-    const text = safeReferenceText(value?.text);
+    const key = safeReferenceText(value?.key, PENDING_TEXT_LIMITS.promptKey);
+    const text = safeReferenceText(value?.text, PENDING_TEXT_LIMITS.promptReference);
     const identity = `${key}\u0000${text}`;
     if (!key || !text || seen.has(identity)) continue;
     seen.add(identity);
@@ -257,6 +280,28 @@ export function createEcommerceDraftId(cryptoApi = globalThis.crypto) {
   return `ec-draft-${timestamp}-${entropy}`;
 }
 
+export function ecommerceQuoteRequestKey(quoteRequest, refreshVersion = 0) {
+  const sku = typeof quoteRequest?.sku === 'string' ? quoteRequest.sku.trim() : '';
+  const quantity = Number.isSafeInteger(quoteRequest?.quantity) && quoteRequest.quantity > 0
+    ? quoteRequest.quantity
+    : 0;
+  const version = Number.isSafeInteger(refreshVersion) && refreshVersion >= 0
+    ? refreshVersion
+    : 0;
+  return `${sku}:${quantity}:${version}`;
+}
+
+export function invalidateEcommerceQuote({ refreshVersion = 0 } = {}) {
+  const version = Number.isSafeInteger(refreshVersion) && refreshVersion >= 0
+    ? refreshVersion
+    : 0;
+  return {
+    quote: null,
+    refreshVersion: version + 1,
+    message: '当前方案费用已更新，正在重新确认…',
+  };
+}
+
 export function buildEcommercePendingAction({
   platform = 'smart',
   direction = {},
@@ -271,29 +316,31 @@ export function buildEcommercePendingAction({
   promptReferences = [],
 } = {}) {
   const resolution = normalizeResolution(sizing?.resolution);
+  const safePlatform = safeReferenceText(platform, PENDING_TEXT_LIMITS.platform) || 'smart';
   const directionBrief = safeReferenceText(
     direction?.brief
       ?? direction?.editableBrief
       ?? direction?.description
       ?? direction?.short_desc
       ?? direction?.one_liner,
+    PENDING_TEXT_LIMITS.directionBrief,
   );
   return {
     type: 'ecommerce_generate',
     direction: {
-      id: safeReferenceText(direction?.id) || 'smart',
+      id: safeReferenceText(direction?.id, PENDING_TEXT_LIMITS.directionId) || 'smart',
       brief: directionBrief,
     },
     sizing: {
-      platform: safeReferenceText(platform) || 'smart',
+      platform: safePlatform,
       smart: sizing?.smart !== false,
       resolution,
-      images: resolveSizingImages(platform, { ...sizing, resolution })
+      images: resolveSizingImages(safePlatform, { ...sizing, resolution })
         .map(({ key, count, ratio }) => ({ key, count, ratio })),
     },
     skus: pendingSkus(skus),
     customColors: (Array.isArray(customColors) ? customColors : [])
-      .map(safeReferenceText)
+      .map(color => safeReferenceText(color, 16))
       .filter(color => /^#[0-9a-f]{3,8}$/i.test(color)),
     assetIds: {
       product: {
@@ -306,7 +353,7 @@ export function buildEcommercePendingAction({
       },
     },
     prompt: {
-      text: safeReferenceText(promptText),
+      text: safeReferenceText(promptText, PENDING_TEXT_LIMITS.promptText),
       references: pendingPromptReferences(promptReferences),
     },
   };

@@ -8,6 +8,11 @@ async function planModel() {
   return import(`../src/pages/Home/ec/ecommercePlanModel.js?billing-ui=${Date.now()}-${Math.random()}`);
 }
 
+const PRODUCT_ORIGINAL_ID = `${'a'.repeat(64)}.png`;
+const PRODUCT_SUPPLEMENT_ID = `${'b'.repeat(64)}.jpg`;
+const REFERENCE_ORIGINAL_ID = `${'c'.repeat(64)}.webp`;
+const REFERENCE_SUPPLEMENT_ID = `${'d'.repeat(64)}.png`;
+
 function productTruth() {
   return {
     category: '数码3C',
@@ -169,16 +174,20 @@ test('creates a stable draft id and a complete reference-only ecommerce pending 
     ],
     customColors: ['#112233', '#F4E9D8', 'data:image/png;base64,COLOR'],
     originalProductAssets: [
-      { assetId: 'product-original-1', url: '/api/generated-assets/product-original-1.png', file: rawFile },
+      { assetId: PRODUCT_ORIGINAL_ID, url: `/api/generated-assets/${PRODUCT_ORIGINAL_ID}`, file: rawFile },
+      { assetId: 'product-original-1', url: '/api/generated-assets/product-original-1.png' },
     ],
     supplementalProductAssets: [
-      { assetId: 'product-supplement-1', previewUrl: 'blob:supplement' },
+      { assetId: PRODUCT_SUPPLEMENT_ID, previewUrl: 'blob:supplement' },
+      { assetId: `iVBORw0KGgo${'A'.repeat(128)}` },
     ],
     originalReferenceAssets: [
-      { assetId: 'reference-original-1', url: 'data:image/png;base64,REFERENCE' },
+      { assetId: REFERENCE_ORIGINAL_ID, url: 'data:image/png;base64,REFERENCE' },
+      { assetId: `${'e'.repeat(63)}.png` },
     ],
     supplementalReferenceAssets: [
-      { assetId: 'reference-supplement-1', bytes: new Uint8Array([1, 2, 3]) },
+      { assetId: REFERENCE_SUPPLEMENT_ID, bytes: new Uint8Array([1, 2, 3]) },
+      { assetId: `${'f'.repeat(64)}.gif` },
     ],
     promptText: '让主图更突出材质与尺寸感',
     promptReferences: [
@@ -207,12 +216,12 @@ test('creates a stable draft id and a complete reference-only ecommerce pending 
     customColors: ['#112233', '#F4E9D8'],
     assetIds: {
       product: {
-        original: ['product-original-1'],
-        supplemental: ['product-supplement-1'],
+        original: [PRODUCT_ORIGINAL_ID],
+        supplemental: [PRODUCT_SUPPLEMENT_ID],
       },
       reference: {
-        original: ['reference-original-1'],
-        supplemental: ['reference-supplement-1'],
+        original: [REFERENCE_ORIGINAL_ID],
+        supplemental: [REFERENCE_SUPPLEMENT_ID],
       },
     },
     prompt: {
@@ -225,6 +234,97 @@ test('creates a stable draft id and a complete reference-only ecommerce pending 
   });
 });
 
+test('ecommerce pending action rejects raw binary strings and bounds field-specific human text', async () => {
+  const { buildEcommercePendingAction } = await planModel();
+  const rawPngBase64 = `iVBORw0KGgoAAAANSUhEUgAA${'A'.repeat(180)}`;
+  const rawJpegBase64 = `/9j/4AAQSkZJRgABAQAAAQABAAD${'B'.repeat(180)}`;
+  const rawBase64Url = `eyJpbWFnZSI6${'-_'.repeat(100)}`;
+  const preservedChinese = '保留商品真实结构、中文包装信息和材质细节，避免虚构参数。'.repeat(60);
+
+  const sanitized = buildEcommercePendingAction({
+    platform: '淘宝',
+    direction: {
+      id: '方向'.repeat(70),
+      brief: '方'.repeat(1400),
+    },
+    sizing: { resolution: '2K' },
+    skus: [
+      { color: '银'.repeat(180), size: '标准版' },
+      { color: rawJpegBase64 },
+    ],
+    originalProductAssets: [
+      { assetId: PRODUCT_ORIGINAL_ID },
+      { assetId: rawPngBase64 },
+      { assetId: 'not-a-server-asset.png' },
+    ],
+    originalReferenceAssets: [
+      { assetId: REFERENCE_ORIGINAL_ID },
+      { assetId: rawBase64Url },
+    ],
+    promptText: '中'.repeat(7000),
+    promptReferences: [
+      { key: '键'.repeat(120), text: preservedChinese },
+      { key: 'binary_png', text: rawPngBase64 },
+      { key: rawBase64Url, text: '普通说明' },
+    ],
+  });
+
+  assert.equal(sanitized.direction.id.length, 96);
+  assert.equal(sanitized.direction.brief.length, 1200);
+  assert.equal(sanitized.skus.length, 1);
+  assert.equal(sanitized.skus[0].color.length, 120);
+  assert.deepEqual(sanitized.assetIds.product.original, [PRODUCT_ORIGINAL_ID]);
+  assert.deepEqual(sanitized.assetIds.reference.original, [REFERENCE_ORIGINAL_ID]);
+  assert.equal(sanitized.prompt.text.length, 6000);
+  assert.deepEqual(sanitized.prompt.references, [{
+    key: '键'.repeat(80),
+    text: preservedChinese,
+  }]);
+
+  const binaryPrompt = buildEcommercePendingAction({
+    direction: { id: rawBase64Url, brief: rawJpegBase64 },
+    skus: [{ color: rawPngBase64 }],
+    promptText: rawPngBase64,
+  });
+  assert.deepEqual(binaryPrompt.direction, { id: 'smart', brief: '' });
+  assert.deepEqual(binaryPrompt.skus, []);
+  assert.equal(binaryPrompt.prompt.text, '');
+});
+
+test('re-quote invalidation changes the request dependency without changing the plan', async () => {
+  const {
+    ecommerceQuoteRequestKey,
+    invalidateEcommerceQuote,
+  } = await planModel();
+  assert.equal(typeof ecommerceQuoteRequestKey, 'function');
+  assert.equal(typeof invalidateEcommerceQuote, 'function');
+  const quoteRequest = { sku: 'ec_image_2k', quantity: 10 };
+  const staleQuote = { quoteId: 'bq1.stale.quote', totalUnits: 10_000 };
+  const beforeKey = ecommerceQuoteRequestKey(quoteRequest, 0);
+
+  const invalidated = invalidateEcommerceQuote({
+    quote: staleQuote,
+    refreshVersion: 0,
+  });
+
+  assert.equal(invalidated.quote, null);
+  assert.equal(invalidated.refreshVersion, 1);
+  assert.equal(invalidated.message, '当前方案费用已更新，正在重新确认…');
+  assert.notEqual(ecommerceQuoteRequestKey(quoteRequest, invalidated.refreshVersion), beforeKey);
+
+  const source = await fs.readFile(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
+  assert.match(source, /ecommerceQuoteRequestKey/);
+  assert.match(source, /invalidateEcommerceQuote/);
+  assert.match(source, /if\s*\(e\?\.reQuoteRequired\s*===\s*true\)/);
+  assert.match(source, /setBillingQuote\(null\)/);
+  assert.match(source, /setQuoteRefreshVersion/);
+  assert.match(source, /disabled=\{generating \|\| quoteLoading \|\| !billingQuote/);
+  assert.doesNotMatch(
+    source.match(/if\s*\(e\?\.reQuoteRequired\s*===\s*true\)[\s\S]{0,500}/)?.[0] || '',
+    /handleConfirm\s*\(/,
+  );
+});
+
 test('direction confirmation requests an authoritative quote instead of embedding prices', async () => {
   const source = await fs.readFile(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
 
@@ -234,7 +334,7 @@ test('direction confirmation requests an authoritative quote instead of embeddin
   assert.match(source, /buildEcommercePendingAction/);
   assert.match(source, /ownerEmail:\s*state\.(?:email|phone)/);
   assert.match(source, /draftId:\s*params\?\.draftId/);
-  assert.match(source, /quoteId:\s*billingQuote\.quoteId/);
+  assert.match(source, /quoteId:\s*failedQuoteId/);
   assert.doesNotMatch(source, /providerCost|milli|gpt-image|中转站/);
 });
 
