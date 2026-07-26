@@ -82,3 +82,52 @@ Additional verification:
 
 - Online payment remains intentionally unavailable because production has no enabled provider.
 - This task does not add a payment adapter or complete an external payment redirect flow.
+
+## Review follow-up: interrupted pricing flow
+
+### RED evidence
+
+Command:
+
+```text
+node --test --test-concurrency=1 test/pricing-catalog.test.mjs test/api-contract.test.mjs test/billing-routes.test.mjs test/billing-client.test.mjs
+```
+
+Result: exit 1, 29 tests observed, 27 passed and 2 failed.
+
+Expected failures demonstrated:
+
+- the pure interrupted-pricing view state and transition functions did not exist;
+- pricing surfaces still exposed implementation-oriented copy;
+- the insufficient-balance dialog had no `查看可用套餐` path;
+- the shared modal had only three icon colors.
+
+### GREEN evidence
+
+The same focused command completed with exit 0:
+
+- 36 tests passed;
+- 0 failed;
+- 0 skipped;
+- 0 cancelled.
+
+Additional verification:
+
+- `npm run build`: exit 0; production build completed.
+- `git diff --check`: exit 0.
+- `npm run collab:check`: exit 0; collaboration policy ready with no conflicts.
+
+### Follow-up implementation
+
+- Added pure modal view-state creation and transition logic.
+- Added an interrupted-flow `查看可用套餐` action and a return-to-balance action.
+- Pending action and price reason remain unchanged through both local transitions.
+- Closing continues to use `SHOW_PRICE` only and never clears pending work.
+- The full authoritative plan browser exposes all four relevant packages and content validity.
+- Replaced implementation-facing text with product-facing purchase and continuation guidance.
+- Added the fourth shared-modal icon color.
+- Preserved disabled-payment behavior and the exact secure order contract.
+
+### Follow-up concerns
+
+- Online purchase remains intentionally unavailable until a real provider is enabled.

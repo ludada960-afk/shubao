@@ -11,10 +11,12 @@ import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
 import BillingBalanceCard from '../billing/BillingBalanceCard.jsx';
 import {
   buildPricingPlans,
+  createPricingModalViewState,
   createOrderRequest,
   enabledPaymentProviders,
   formatCatalogGrant,
   formatCatalogPrice,
+  transitionPricingModalView,
 } from '../billing/pricingCatalogModel.js';
 import { createBillingOrder } from '../../services/billing.js';
 
@@ -145,6 +147,11 @@ export function PricingModal() {
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('');
+  const [modalView, setModalView] = useState(() => createPricingModalViewState({
+    interrupted: state.priceReason === 'INSUFFICIENT_CREDITS',
+    pendingAction: state.pendingPaidAction,
+    priceReason: state.priceReason,
+  }));
   const metadata = tab === 'content' ? PRICING_XHS : PRICING_EC;
   const currency = tab === 'content' ? 'content_sets' : 'ec_points';
   const plans = useMemo(
@@ -159,14 +166,25 @@ export function PricingModal() {
   useEffect(() => {
     if (!state.showPrice) return;
     setTab(state.priceTab || 'content');
+    setModalView(createPricingModalViewState({
+      interrupted: state.priceReason === 'INSUFFICIENT_CREDITS',
+      pendingAction: state.pendingPaidAction,
+      priceReason: state.priceReason,
+    }));
     refreshBillingCatalog().catch(() => {});
-  }, [refreshBillingCatalog, state.showPrice, state.priceTab]);
+  }, [
+    refreshBillingCatalog,
+    state.pendingPaidAction,
+    state.priceReason,
+    state.showPrice,
+    state.priceTab,
+  ]);
 
   if (!state.showPrice) return null;
   const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
   const interrupted = state.priceReason === 'INSUFFICIENT_CREDITS';
-  if (interrupted) {
-    const pendingAction = state.pendingPaidAction;
+  if (interrupted && modalView.mode === 'insufficient') {
+    const pendingAction = modalView.pendingAction;
     const currency = resolvePendingActionCurrency({
       action: pendingAction?.action,
       source: pendingAction?.source,
@@ -181,6 +199,7 @@ export function PricingModal() {
       onClose={close}
       onRefreshBalance={refreshBillingBalance}
       onResume={close}
+      onViewPlans={() => setModalView(current => transitionPricingModalView(current, 'VIEW_PLANS'))}
     />;
   }
   const buy = (p) => {
@@ -199,7 +218,7 @@ export function PricingModal() {
         productSku: payModal.sku,
         provider: provider.id,
       }));
-      setPaymentStatus('订单已安全创建，请按支付通道指引完成后刷新余额。');
+      setPaymentStatus('订单已创建，请按页面提示完成购买后刷新余额。');
     } catch (error) {
       setPaymentStatus(error?.message || '订单创建失败，请稍后重试。');
     } finally {
@@ -248,6 +267,15 @@ export function PricingModal() {
 
         {/* Header */}
         <div style={{ marginBottom: 20 }}>
+          {interrupted && (
+            <button
+              type="button"
+              onClick={() => setModalView(current => transitionPricingModalView(current, 'RETURN_TO_INSUFFICIENT'))}
+              style={{ marginBottom: 12, padding: 0, border: 0, background: 'transparent', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              ← 返回额度提示
+            </button>
+          )}
           <h3 style={{
             fontSize: 22, fontWeight: 900,
             color: 'var(--accent)',
@@ -300,7 +328,7 @@ export function PricingModal() {
         {providers.length === 0 && (
           <div role="status" style={{ marginBottom: 14, padding: 12, borderRadius: 12, border: '1px solid #E9C46A', background: '#FFF7D6', color: '#7A5600', fontSize: 13, lineHeight: 1.6 }}>
             <strong>支付服务接入中</strong>
-            <div>当前没有已启用的在线支付通道，套餐仅供查看，不会打开付款窗口或创建订单。</div>
+            <div>在线购买暂未开放，当前可先查看套餐内容与额度。</div>
           </div>
         )}
 
@@ -308,7 +336,7 @@ export function PricingModal() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {plans.length === 0 && (
             <div role="status" style={{ padding: 18, textAlign: 'center', color: 'var(--text-muted)' }}>
-              正在加载权威套餐信息…
+              正在加载套餐信息…
             </div>
           )}
           {plans.map((p, i) => {
@@ -316,6 +344,7 @@ export function PricingModal() {
               'linear-gradient(135deg, #f59e0b, #f97316)',
               'linear-gradient(135deg, #6366f1, #8b5cf6)',
               'linear-gradient(135deg, #ec4899, #f43f5e)',
+              'linear-gradient(135deg, #0f766e, #14b8a6)',
             ];
             return (
               <div key={i}
@@ -421,7 +450,7 @@ export function PricingModal() {
             <div style={{
               fontSize: 11, color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
             }}>
-              订单只提交套餐 SKU、支付通道和幂等标识；当前页面和草稿保持不变。
+              完成购买后可刷新额度并继续刚才的创作，当前内容不会丢失。
             </div>
 
             {paymentStatus && <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10 }}>{paymentStatus}</div>}

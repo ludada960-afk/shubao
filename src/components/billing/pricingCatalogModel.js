@@ -35,6 +35,32 @@ export function buildPricingPlans(catalog, metadata, currency) {
   });
 }
 
+export function createPricingModalViewState({
+  interrupted = false,
+  pendingAction = null,
+  priceReason = null,
+} = {}) {
+  return {
+    mode: interrupted ? 'insufficient' : 'plans',
+    interrupted: Boolean(interrupted),
+    pendingAction,
+    priceReason,
+  };
+}
+
+export function transitionPricingModalView(state, event) {
+  if (!state || typeof state !== 'object') {
+    return createPricingModalViewState();
+  }
+  if (event === 'VIEW_PLANS') {
+    return { ...state, mode: 'plans' };
+  }
+  if (event === 'RETURN_TO_INSUFFICIENT' && state.interrupted) {
+    return { ...state, mode: 'insufficient' };
+  }
+  return state;
+}
+
 export function enabledPaymentProviders(catalog) {
   const providers = Array.isArray(catalog?.paymentProviders) ? catalog.paymentProviders : [];
   return providers

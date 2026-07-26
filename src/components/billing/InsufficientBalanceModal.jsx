@@ -22,6 +22,7 @@ export default function InsufficientBalanceModal({
   onClose,
   onRefreshBalance,
   onResume,
+  onViewPlans,
 }) {
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState('');
@@ -71,12 +72,15 @@ export default function InsufficientBalanceModal({
         <h3 style={{ margin: '22px 0 10px', fontSize: 15 }}>推荐套餐</h3>
         {packages.length ? <ul style={{ display: 'grid', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>{packages.map(product => <li key={product.sku} style={{ padding: 12, border: '1px solid #E7E5E4', borderRadius: 12 }}><strong>{formatBillingUnits(product.grantUnits, currency)}</strong><span style={{ float: 'right', color: '#6B6560' }}>¥{(Number(product.priceFen || 0) / 100).toFixed(2)}</span></li>)}</ul> : <p style={{ margin: 0, color: '#6B6560', fontSize: 13 }}>套餐信息加载中，请稍后刷新。</p>}
 
-        {providers.length === 0 ? <p role="status" style={{ margin: '16px 0 0', padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>支付通道暂未开放，暂不提供支付宝或微信支付。</p> : <p style={{ margin: '16px 0 0', color: '#6B6560', fontSize: 13 }}>请通过已启用的支付通道补充额度后刷新。</p>}
+        {providers.length === 0 ? <p role="status" style={{ margin: '16px 0 0', padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>在线购买暂未开放，当前工作会继续保留。</p> : <p style={{ margin: '16px 0 0', color: '#6B6560', fontSize: 13 }}>选择合适的套餐补充额度后，即可继续当前创作。</p>}
         {notice && <p role="status" style={{ margin: '12px 0 0', color: '#7A5600', fontSize: 13 }}>{notice}</p>}
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button onClick={refresh} disabled={refreshing} style={{ flex: 1, minHeight: 42, border: '1px solid #1A1614', borderRadius: 12, background: '#fff', cursor: refreshing ? 'wait' : 'pointer' }}>{refreshing ? '正在刷新…' : '刷新余额'}</button>
-          {sufficient && <button onClick={() => onResume?.(pendingAction)} style={{ flex: 1, minHeight: 42, border: 0, borderRadius: 12, background: '#1A1614', color: '#fff', cursor: 'pointer' }}>返回继续创作</button>}
+        <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
+          <button onClick={onViewPlans} style={{ minHeight: 42, border: '1px solid #1A1614', borderRadius: 12, background: '#fff', cursor: 'pointer', fontWeight: 700 }}>查看可用套餐</button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={refresh} disabled={refreshing} style={{ flex: 1, minHeight: 42, border: '1px solid #1A1614', borderRadius: 12, background: '#fff', cursor: refreshing ? 'wait' : 'pointer' }}>{refreshing ? '正在刷新…' : '刷新余额'}</button>
+            {sufficient && <button onClick={() => onResume?.(pendingAction)} style={{ flex: 1, minHeight: 42, border: 0, borderRadius: 12, background: '#1A1614', color: '#fff', cursor: 'pointer' }}>返回继续创作</button>}
+          </div>
         </div>
       </section>
     </div>

@@ -20,7 +20,7 @@ const FAQ_CONTENT = {
     { q: '生成内容可以商用吗？', a: '可以。请在发布前检查平台规范、品牌素材授权和生成内容准确性。' },
   ],
   ecommerce: [
-    { q: 'AI 积分如何使用？', a: '不同电商生图与画布能力按服务端实时报价扣除积分，确认生成前会展示本次所需积分。' },
+    { q: 'AI 积分如何使用？', a: '不同电商生图与画布能力会消耗相应积分，确认生成前会展示本次所需积分。' },
     { q: 'AI 积分会过期吗？', a: '电商 AI 积分永久有效，不按月清零。' },
     { q: '支持哪些电商场景？', a: '可用于主图、白底图、详情图、SKU 图和画布二创等场景，具体以产品内已开放功能为准。' },
   ],
@@ -82,7 +82,7 @@ export default function PricingPage() {
         provider: provider.id,
       });
       await createBillingOrder(payload);
-      setOrderStatus('订单已安全创建，请按支付通道指引完成后刷新余额。');
+      setOrderStatus('订单已创建，请按页面提示完成购买后刷新余额。');
     } catch (error) {
       setOrderStatus(error?.message || '订单创建失败，请稍后重试。');
     } finally {
@@ -159,7 +159,7 @@ export default function PricingPage() {
             lineHeight: 1.6,
           }}>
             <strong>支付服务接入中</strong>
-            <div>当前没有已启用的在线支付通道，套餐仅供查看，不会打开付款窗口或创建订单。</div>
+            <div>在线购买暂未开放，当前可先查看套餐内容与额度。</div>
           </div>
         )}
 
@@ -172,7 +172,7 @@ export default function PricingPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {plans.length === 0 && !catalogError && (
             <div role="status" style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>
-              正在加载权威套餐信息…
+              正在加载套餐信息…
             </div>
           )}
           {plans.map((plan, index) => {
@@ -272,7 +272,7 @@ export default function PricingPage() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="选择支付通道"
+          aria-label="购买套餐"
           style={{
             position: 'fixed',
             inset: 0,

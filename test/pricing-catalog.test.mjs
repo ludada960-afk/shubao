@@ -5,8 +5,10 @@ import fs from 'node:fs/promises';
 import { PRODUCTS } from '../server/billing/catalog.mjs';
 import {
   buildPricingPlans,
+  createPricingModalViewState,
   createOrderRequest,
   enabledPaymentProviders,
+  transitionPricingModalView,
 } from '../src/components/billing/pricingCatalogModel.js';
 
 const PUBLIC_PRODUCTS = Object.values(PRODUCTS).map(({
@@ -18,6 +20,12 @@ const PRICING_EC = [
   { sku: 'ec_starter_29', name: '入门包' },
   { sku: 'ec_growth_79', name: '成长包' },
   { sku: 'ec_studio_199', name: '工作室包' },
+];
+const PRICING_XHS = [
+  { sku: 'xhs_entry_19', name: '入门' },
+  { sku: 'xhs_growth_49', name: '进阶' },
+  { sku: 'xhs_creator_99', name: '创作者' },
+  { sku: 'xhs_studio_199', name: '工作室' },
 ];
 
 test('authoritative server catalog contains the exact ecommerce permanent point packs', () => {
@@ -82,6 +90,56 @@ test('pricing view model takes price, grants, validity, and enabled state from s
       { sku: 'ec_starter_29', priceFen: 2900, grantUnits: 105000, validityDays: null, enabled: true },
       { sku: 'ec_growth_79', priceFen: 7900, grantUnits: 295000, validityDays: null, enabled: false },
       { sku: 'ec_studio_199', priceFen: 19900, grantUnits: 760000, validityDays: null, enabled: true },
+    ],
+  );
+});
+
+test('interrupted pricing flow opens full plans and returns without clearing pending work', () => {
+  const pendingAction = { id: 'pending-1', source: 'ecommerce' };
+  const initial = createPricingModalViewState({
+    interrupted: true,
+    pendingAction,
+    priceReason: 'INSUFFICIENT_CREDITS',
+  });
+  assert.deepEqual(initial, {
+    mode: 'insufficient',
+    interrupted: true,
+    pendingAction,
+    priceReason: 'INSUFFICIENT_CREDITS',
+  });
+
+  const plans = transitionPricingModalView(initial, 'VIEW_PLANS');
+  assert.equal(plans.mode, 'plans');
+  assert.equal(plans.pendingAction, pendingAction);
+  assert.equal(plans.priceReason, 'INSUFFICIENT_CREDITS');
+
+  const returned = transitionPricingModalView(plans, 'RETURN_TO_INSUFFICIENT');
+  assert.equal(returned.mode, 'insufficient');
+  assert.equal(returned.pendingAction, pendingAction);
+  assert.equal(returned.priceReason, 'INSUFFICIENT_CREDITS');
+});
+
+test('interrupted plan browser exposes all four authoritative content packages and validity', () => {
+  const modal = transitionPricingModalView(createPricingModalViewState({
+    interrupted: true,
+    pendingAction: { id: 'pending-content' },
+    priceReason: 'INSUFFICIENT_CREDITS',
+  }), 'VIEW_PLANS');
+  assert.equal(modal.mode, 'plans');
+
+  assert.deepEqual(
+    buildPricingPlans({ products: PUBLIC_PRODUCTS }, PRICING_XHS, 'content_sets')
+      .map(plan => ({
+        sku: plan.sku,
+        priceFen: plan.priceFen,
+        grantUnits: plan.grantUnits,
+        validityDays: plan.validityDays,
+      })),
+    [
+      { sku: 'xhs_entry_19', priceFen: 1900, grantUnits: 3, validityDays: 30 },
+      { sku: 'xhs_growth_49', priceFen: 4900, grantUnits: 10, validityDays: 30 },
+      { sku: 'xhs_creator_99', priceFen: 9900, grantUnits: 25, validityDays: 30 },
+      { sku: 'xhs_studio_199', priceFen: 19900, grantUnits: 60, validityDays: 30 },
     ],
   );
 });
