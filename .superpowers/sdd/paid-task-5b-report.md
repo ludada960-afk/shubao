@@ -152,3 +152,71 @@ peer ownership conflicts: 0
 ### Review-fix commit
 
 `92c5831 fix: close task 5b durable entrypoint gaps`
+
+---
+
+## Final review root-cause closure (2026-07-26)
+
+### Findings closed
+
+- Added `ecommerceTaskProgressModel.js` as the shared pure model for owner+surface active draft persistence. References use lowercase owners, a version, `createdAt`, a 24-hour expiry, and reject malformed, foreign-owner, expired, and future-dated records.
+- `EcMode`, `EcStudio`, `EcAuto`, `EcLegacyForm`, and `XhsContentMode` now restore the same persisted draft after refresh. Explicit new-product/continue-new-work actions rotate the draft atomically, clear only the matching old task reference, and clear the old preview/result state. `EcMode` and the app-level `_workVersion` path share the stable home-wizard draft with `DesignDirection`.
+- All reachable ecommerce generation surfaces now pass a stable draft and `onProgress`/`onImage`; no production ecommerce call remains on a mount-random or unreferenced duplicate-POST path.
+- `EcAuto`, `EcLegacyForm`, `EcStudio`, and `XhsContentMode` keep stable early images in `inProgressPreview`. Final `results`/`result` state and “generation complete” UI are committed only for `completed` or `needs_review` with usable stable images.
+- Unknown provider statuses now use semantic tokens with pending-state priority: `completion_pending` and `complete_pending` remain “正在生成”, while unknown final/error markers such as `provider_completed` map to “失败”.
+- The SSE completion branch now preserves the normalized completed status needed by the final-result gate.
+
+### TDD evidence
+
+RED was observed before each implementation slice:
+
+1. The retry SSE behavior returned no final status (`undefined !== completed`).
+2. `provider_completed` incorrectly mapped to “正在生成”.
+3. Draft persistence/rotation and preview-gating model exports were absent.
+4. Entrypoint contract tests found mount-random drafts, missing lifecycle wiring, and no independent preview state.
+5. The explicit `_workVersion` rotation contract initially failed on the remaining surfaces.
+
+GREEN was then observed with real model/API behavior tests and entrypoint integration contracts. No implementation was accepted from source-pattern checks alone.
+
+### Verification
+
+```text
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-task-progress.test.mjs
+tests 44
+pass 44
+fail 0
+
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-asset-upload.test.mjs test/billing-routes.test.mjs test/billing-client.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-repair-planner.test.mjs test/ecommerce-prompt-compiler.test.mjs
+tests 98
+pass 98
+fail 0
+
+node --test --test-concurrency=1 test/billing-quote-token.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-deterministic-repair.test.mjs test/generation-access.test.mjs test/pending-paid-action.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs test/ecommerce-export.test.mjs
+tests 73
+pass 73
+fail 0
+
+npm run build
+exit 0; export verification passed; Vite transformed 6406 modules.
+
+git diff --check
+exit 0; only expected LF/CRLF normalization warnings.
+
+npm run collab:check
+[collaboration] READY
+tracked runtime paths: 0
+peer ownership conflicts: 0
+```
+
+### Scope and self-review
+
+- Implementation and tests are limited to the allowed frontend/test files plus this report. No server, database, `dist`, uploads, cache, deployment, Task 6, or Task 7 files were changed.
+- `sb-last-ecommerce-task` is not used. Task references remain owner+draft isolated; timeout/network/retryable/needs-review references remain resumable, while terminal success/cancel/failure and explicit rotation clear only the matching task.
+- The five surface keys prevent cross-owner and cross-surface draft reuse. A `needs_review` task is preserved until explicit continuation/new-product rotation, after which the next task is written under the new draft and cannot reuse the old preview/result.
+- No paid provider call was made during verification. The intentional remaining product concern is the 24-hour local reference expiry; the collab check also reports the environment’s pre-existing inability to read the user Git ignore file while returning READY.
+
+### Final commits
+
+Implementation: `a9c59c9 fix: persist task 5b drafts across ecommerce surfaces`
+
+Report: `PENDING`
