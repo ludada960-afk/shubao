@@ -79,6 +79,72 @@ function createProductionPathNormalizer(source) {
   return new Function(`${declaration}; return normalizeGuardedPath;`)();
 }
 
+function createUnsignedCanvasGuardHarness(source) {
+  const normalizeGuardedPath = createProductionPathNormalizer(source);
+  const signedRoutes = extractSignedGenerationRoutes(source);
+  const betaDeclaration = extractFunctionDeclaration(source, 'betaAccessMiddleware');
+  const createBetaMiddleware = new Function(
+    'CONTENT_PREVIEW_ROUTES',
+    'SIGNED_GENERATION_ROUTES',
+    'authenticateContentRequest',
+    'contentSessionTokens',
+    'requireBetaEmail',
+    'contentBillingHttpError',
+    'normalizeGuardedPath',
+    `${betaDeclaration}; return betaAccessMiddleware;`,
+  );
+  let signedAuthCalls = 0;
+  let bodyAuthCalls = 0;
+  const betaMiddleware = createBetaMiddleware(
+    new Set(),
+    signedRoutes,
+    () => {
+      signedAuthCalls += 1;
+      throw Object.assign(new Error('signed session required'), {
+        code: 'AUTH_SESSION_REQUIRED',
+      });
+    },
+    {},
+    email => {
+      bodyAuthCalls += 1;
+      return { ok: true, email };
+    },
+    error => ({
+      status: 401,
+      body: { error: error.message, code: error.code },
+    }),
+    normalizeGuardedPath,
+  );
+  const guardSource = extractPostGuardMiddleware(source);
+  const createGuard = new Function(
+    'BETA_GUARDED_POST_ROUTES',
+    'RATE_LIMITED_POST_ROUTES',
+    'rateLimiter',
+    'betaAccessMiddleware',
+    'normalizeGuardedPath',
+    `return ${guardSource};`,
+  );
+  let rateLimitCalls = 0;
+  const guard = createGuard(
+    BETA_GUARDED_POST_ROUTES,
+    RATE_LIMITED_POST_ROUTES,
+    (_req, _res, next) => {
+      rateLimitCalls += 1;
+      next();
+    },
+    betaMiddleware,
+    normalizeGuardedPath,
+  );
+
+  return {
+    guard,
+    normalizeGuardedPath,
+    counts() {
+      return { signedAuthCalls, bodyAuthCalls, rateLimitCalls };
+    },
+  };
+}
+
 test('every expensive generation route requires beta access and rate limiting', () => {
   for (const route of EXPENSIVE_POST_ROUTES) {
     assert.equal(BETA_GUARDED_POST_ROUTES.has(route), true, `${route} must require beta access`);
@@ -258,6 +324,56 @@ test('unsigned Canvas trailing-slash variants cannot bypass signed auth or reach
   assert.equal(signedAuthCalls, variants.length);
   assert.equal(bodyAuthCalls, 0);
   assert.equal(rateLimitCalls, 0);
+});
+
+test('unsigned mixed-case Canvas routes cannot bypass signed auth or reach rate limiting and handlers', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const harness = createUnsignedCanvasGuardHarness(source);
+  const variants = [
+    '/API/CANVAS/TRANSFORM',
+    '/api/canvas/Analyze-Layers',
+    '/Api/Canvas/Regenerate///',
+  ];
+
+  for (const path of variants) {
+    let downstreamCalls = 0;
+    const response = {
+      statusCode: 200,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(body) {
+        this.body = body;
+        return this;
+      },
+    };
+
+    harness.guard({
+      method: 'POST',
+      path,
+      body: { email: 'body-owner@example.com' },
+      query: { email: 'query-owner@example.com' },
+      headers: {},
+    }, response, () => {
+      downstreamCalls += 1;
+    });
+
+    assert.equal(response.statusCode, 401, path);
+    assert.equal(response.body.code, 'AUTH_SESSION_REQUIRED', path);
+    assert.equal(downstreamCalls, 0, `${path} must not reach route handlers`);
+  }
+
+  assert.deepEqual(harness.counts(), {
+    signedAuthCalls: variants.length,
+    bodyAuthCalls: 0,
+    rateLimitCalls: 0,
+  });
+  assert.equal(
+    harness.normalizeGuardedPath('/API//Canvas/TRANSFORM///'),
+    '/api//canvas/transform',
+  );
 });
 
 test('content preview trailing slashes use the normalized path for preview and rate-limit membership', async () => {

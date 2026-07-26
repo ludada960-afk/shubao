@@ -215,7 +215,7 @@ function getClientIp(req) {
 function normalizeGuardedPath(path) {
   const value = typeof path === 'string' && path ? path : '/';
   if (value === '/') return value;
-  return value.replace(/\/+$/, '') || '/';
+  return (value.replace(/\/+$/, '') || '/').toLowerCase();
 }
 function rateLimiter(req, res, next) {
   const ip = getClientIp(req);
