@@ -551,10 +551,9 @@ export async function saveWork(work, phone) {
 }
 
 export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio }) {
-  const email = getSessionEmail();
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, image_url: imageUrl, reference_images: referenceImages, ratio, email }),
+    method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ prompt, image_url: imageUrl, reference_images: referenceImages, ratio }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
@@ -573,7 +572,7 @@ export async function transformCanvasImage({
 }) {
   const res = await fetch(`${API_BASE}/api/canvas/transform`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       action,
       image_url: imageUrl,
@@ -582,7 +581,6 @@ export async function transformCanvasImage({
       target_language: targetLanguage,
       resolution,
       annotation,
-      email: getSessionEmail(),
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -593,8 +591,8 @@ export async function transformCanvasImage({
 export async function analyzeCanvasLayers(imageUrl) {
   const res = await fetch(`${API_BASE}/api/canvas/analyze-layers`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image_url: imageUrl, email: getSessionEmail() }),
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ image_url: imageUrl }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '图层分析失败');

@@ -212,6 +212,11 @@ const SIGNED_GENERATION_ROUTES = new Set([
 function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
+function normalizeGuardedPath(path) {
+  const value = typeof path === 'string' && path ? path : '/';
+  if (value === '/') return value;
+  return value.replace(/\/+$/, '') || '/';
+}
 function rateLimiter(req, res, next) {
   const ip = getClientIp(req);
   const identity = req._userEmail || ip;
@@ -238,21 +243,22 @@ function rateLimiter(req, res, next) {
 // 权限先于限流执行，避免匿名请求占用受邀用户的限流桶。
 app.use((req, res, next) => {
   if (req.method !== 'POST') return next();
+  const guardedPath = normalizeGuardedPath(req.path);
   const continueWithRateLimit = () => (
-    RATE_LIMITED_POST_ROUTES.has(req.path) ? rateLimiter(req, res, next) : next()
+    RATE_LIMITED_POST_ROUTES.has(guardedPath) ? rateLimiter(req, res, next) : next()
   );
-  if (BETA_GUARDED_POST_ROUTES.has(req.path)) {
-    return betaAccessMiddleware(req, res, continueWithRateLimit);
+  if (BETA_GUARDED_POST_ROUTES.has(guardedPath)) {
+    return betaAccessMiddleware(req, res, continueWithRateLimit, guardedPath);
   }
   return continueWithRateLimit();
 });
 
-function betaAccessMiddleware(req, res, next) {
-  if (CONTENT_PREVIEW_ROUTES.has(req.path) && req.body?.preview === true) {
+function betaAccessMiddleware(req, res, next, guardedPath = normalizeGuardedPath(req.path)) {
+  if (CONTENT_PREVIEW_ROUTES.has(guardedPath) && req.body?.preview === true) {
     req._contentPreview = true;
     return next();
   }
-  if (SIGNED_GENERATION_ROUTES.has(req.path)) {
+  if (SIGNED_GENERATION_ROUTES.has(guardedPath)) {
     try {
       req._userEmail = authenticateContentRequest(req, {
         sessionTokens: contentSessionTokens,

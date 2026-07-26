@@ -113,6 +113,107 @@ test('canvas regeneration forwards supplementary visual references', async t => 
   assert.equal(requestBody.ratio, '3:4');
 });
 
+test('Canvas API helpers send the signed session token and omit body email authority', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const requests = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: () => JSON.stringify({
+      email: 'stale-owner@example.com',
+      token: 'signed-canvas-session',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+    }),
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({
+      url: String(url),
+      headers: options.headers || {},
+      body: JSON.parse(options.body || '{}'),
+    });
+    return new Response(JSON.stringify({
+      url: '/api/generated-assets/canvas.png',
+      layers: [],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const api = await import(`../src/services/api.js?canvas-auth=${Date.now()}`);
+  await api.regenerateCanvasImage({
+    prompt: '保留商品结构',
+    imageUrl: '/api/generated-assets/source.png',
+    ratio: '1:1',
+  });
+  await api.transformCanvasImage({
+    action: 'upscale',
+    imageUrl: '/api/generated-assets/source.png',
+  });
+  await api.analyzeCanvasLayers('/api/generated-assets/source.png');
+
+  assert.deepEqual(requests.map(request => request.url), [
+    '/api/canvas/regenerate',
+    '/api/canvas/transform',
+    '/api/canvas/analyze-layers',
+  ]);
+  for (const request of requests) {
+    assert.equal(request.headers.Authorization, 'Bearer signed-canvas-session', request.url);
+    assert.equal(Object.hasOwn(request.body, 'email'), false, request.url);
+  }
+});
+
+test('Canvas API helpers preserve structured non-2xx errors', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: () => JSON.stringify({
+      token: 'expired-canvas-session',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+    }),
+  };
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: '登录状态无效或已过期',
+    code: 'AUTH_SESSION_REQUIRED',
+    resumeable: false,
+    detail: 'signed Canvas request rejected',
+  }), {
+    status: 401,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  const api = await import(`../src/services/api.js?canvas-errors=${Date.now()}`);
+  const calls = [
+    () => api.regenerateCanvasImage({
+      prompt: '保留商品结构',
+      imageUrl: '/api/generated-assets/source.png',
+      ratio: '1:1',
+    }),
+    () => api.transformCanvasImage({
+      action: 'upscale',
+      imageUrl: '/api/generated-assets/source.png',
+    }),
+    () => api.analyzeCanvasLayers('/api/generated-assets/source.png'),
+  ];
+
+  for (const call of calls) {
+    await assert.rejects(
+      call(),
+      error => error.name === 'ApiError'
+        && error.status === 401
+        && error.code === 'AUTH_SESSION_REQUIRED'
+        && error.payload?.detail === 'signed Canvas request rejected',
+    );
+  }
+});
+
 test('all service-layer expensive requests carry the authenticated session email', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
