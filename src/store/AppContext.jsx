@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import { getSession } from '../services/auth';
+import { fetchBillingBalance, fetchBillingCatalog, fetchBillingLedger } from '../services/billing';
 import { normalizeEntitlement } from './entitlementState';
 
 const AppContext = createContext(null);
@@ -14,8 +15,12 @@ const initialState = {
   // 用户
   logged: false,
   phone: '',
+  ecPoints: 0,
+  contentSets: 0,
   credits: 0,
   unlimited: false,
+  billingCatalog: null,
+  billingLedger: [],
   // UI
   showLogin: false,
   loginIntent: null,
@@ -59,12 +64,41 @@ function reducer(state, action) {
         ...state,
         logged: Boolean(action.logged),
         phone: Object.prototype.hasOwnProperty.call(action, 'phone') ? action.phone : state.phone,
-        ...(action.logged ? {} : { credits: 0, unlimited: false }),
+        ...(action.logged ? {} : {
+          ecPoints: 0,
+          contentSets: 0,
+          credits: 0,
+          unlimited: false,
+          billingCatalog: null,
+          billingLedger: [],
+          pendingPaidAction: null,
+        }),
+      };
+    case 'SET_ENTITLEMENT':
+      return {
+        ...state,
+        ecPoints: action.ecPoints,
+        contentSets: action.contentSets,
+        credits: action.contentSets,
+        unlimited: Boolean(action.unlimited),
       };
     case 'SET_CREDITS':
-      return { ...state, credits: action.credits, unlimited: Boolean(action.unlimited) };
+      return {
+        ...state,
+        contentSets: action.unlimited ? null : action.credits,
+        credits: action.unlimited ? null : action.credits,
+        unlimited: Boolean(action.unlimited),
+      };
     case 'ADD_CREDITS':
-      return state.unlimited ? state : { ...state, credits: (state.credits || 0) + action.amount };
+      return state.unlimited ? state : {
+        ...state,
+        contentSets: (state.contentSets || 0) + action.amount,
+        credits: (state.contentSets || 0) + action.amount,
+      };
+    case 'SET_BILLING_CATALOG':
+      return { ...state, billingCatalog: action.catalog };
+    case 'SET_BILLING_LEDGER':
+      return { ...state, billingLedger: action.ledger };
     case 'SHOW_LOGIN':
       return { ...state, showLogin: action.show };
     case 'SET_LOGIN_INTENT':
@@ -89,31 +123,56 @@ function reducer(state, action) {
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const fetchCredits = useCallback(async (email) => {
-    if (!email) return;
+  const refreshBillingBalance = useCallback(async () => {
+    const entitlement = normalizeEntitlement(await fetchBillingBalance());
+    dispatch({ type: 'SET_ENTITLEMENT', ...entitlement });
+    return entitlement;
+  }, []);
+
+  const refreshBillingCatalog = useCallback(async () => {
+    const catalog = await fetchBillingCatalog();
+    dispatch({ type: 'SET_BILLING_CATALOG', catalog });
+    return catalog;
+  }, []);
+
+  const refreshBillingLedger = useCallback(async (input) => {
+    const result = await fetchBillingLedger(input);
+    const ledger = Array.isArray(result?.entries) ? result.entries : [];
+    dispatch({ type: 'SET_BILLING_LEDGER', ledger });
+    return ledger;
+  }, []);
+
+  // Compatibility for pages that still consume the legacy content-set selector.
+  const fetchCredits = useCallback(async () => {
     try {
-      const r = await fetch(`/api/user/credits?email=${encodeURIComponent(email)}`);
-      const d = await r.json();
-      const entitlement = normalizeEntitlement(d);
-      dispatch({ type: 'SET_CREDITS', ...entitlement });
-      return entitlement;
-    } catch(e) {}
-  }, [dispatch]);
+      return await refreshBillingBalance();
+    } catch (error) {
+      return undefined;
+    }
+  }, [refreshBillingBalance]);
 
   // 页面加载时从 localStorage 恢复登录状态
   useEffect(() => {
     const restore = async () => {
       const session = await getSession();
-      if (session?.email) {
-        dispatch({ type: 'SET_LOGGED', logged: true, phone: session.email });
-        fetchCredits(session.email);
+      if (session?.token) {
+        dispatch({ type: 'SET_LOGGED', logged: true, phone: session.email || '' });
+        refreshBillingBalance().catch(() => {});
+        refreshBillingCatalog().catch(() => {});
       }
     };
     restore();
-  }, [fetchCredits]);
+  }, [refreshBillingBalance, refreshBillingCatalog]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, fetchCredits }}>
+    <AppContext.Provider value={{
+      state,
+      dispatch,
+      fetchCredits,
+      refreshBillingBalance,
+      refreshBillingCatalog,
+      refreshBillingLedger,
+    }}>
       {children}
     </AppContext.Provider>
   );
