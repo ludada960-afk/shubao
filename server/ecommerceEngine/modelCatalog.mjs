@@ -71,13 +71,19 @@ export function selectGenerationModel(input = {}) {
   return eligibleBatch ? 'gpt-image-2-n' : 'gpt-image-2';
 }
 
-export function buildModelRoute(input = {}) {
+export function resolveGenerationSize(input = {}) {
   const resolution = RESOLUTIONS.has(input.resolution) ? input.resolution : '2K';
   const requestedRatio = input.ratio ?? input.aspectRatio;
   const ratio = Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio) ? requestedRatio : '1:1';
   const size = LEGAL_IMAGE_SIZES[resolution][ratio];
 
   validateGenerationSize(size);
+
+  return { resolution, ratio, size };
+}
+
+export function buildModelRoute(input = {}) {
+  const { resolution, size } = resolveGenerationSize(input);
 
   return {
     model: selectGenerationModel({ ...input, resolution }),

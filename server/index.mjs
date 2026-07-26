@@ -37,10 +37,10 @@ import {
   createSessionTokenService,
 } from './billing/contentBilling.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
-import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
 import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets.mjs';
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
+import { resolveGenerationSize } from './ecommerceEngine/modelCatalog.mjs';
 import {
   createEcommerceAssetRouteHandlers,
   createEcommerceAssetUploadService,
@@ -3526,18 +3526,35 @@ app.post('/api/canvas/regenerate', async (req, res) => {
     const resolvedInputs = [];
     for (const input of visualInputs) {
       try {
-        resolvedInputs.push(imageBufferToDataUrl(await imageInputReader.read(input)));
+        resolvedInputs.push(await imageInputReader.read(input));
       } catch (error) {
         if (input === image_url) throw error;
       }
     }
-    const reference = await buildReferenceContactSheet(resolvedInputs) || resolvedInputs[0];
-    if (!reference) throw new Error('读取原图失败');
-    const size = ratio === '3:4' ? '1024x1366' : ratio === '4:3' ? '1366x1024' : '1024x1024';
+    if (resolvedInputs.length === 0) throw new Error('读取原图失败');
+    const selectedSize = resolveGenerationSize({ resolution: '1K', ratio });
     const referenceNote = resolvedInputs.length > 1
-      ? ` Use the supplied contact sheet as visual guidance; keep the product identity from the first view and borrow only compatible composition or style cues from the additional references.`
+      ? ` Image 0 is the authoritative product view. Images 1 through ${resolvedInputs.length - 1} are indexed visual references; borrow only compatible composition or style cues from them without changing the product identity.`
       : '';
-    const generated = await callImageAPI(`Create a polished ecommerce product visual. Preserve the supplied product identity and structure.${referenceNote} ${prompt.trim()}`, size, reference, {}, '1024x1024');
+    const submitted = await ecommerceProviderAdapter.submitEdit({
+      idempotencyKey: `canvas-regenerate-${crypto.randomUUID()}`,
+      prompt: `Create a polished ecommerce product visual. Preserve the supplied product identity and structure.${referenceNote} ${prompt.trim()}`,
+      modelRoute: {
+        model: IMG_MODEL,
+        size: selectedSize.size,
+        async: true,
+        mode: 'edit',
+      },
+      inputAssets: resolvedInputs.map((image, index) => ({
+        ...image,
+        fileName: `canvas-reference-${index + 1}.${image.contentType === 'image/jpeg' ? 'jpg' : image.contentType === 'image/webp' ? 'webp' : 'png'}`,
+      })),
+    });
+    const completed = await ecommerceProviderAdapter.pollUntilReady(submitted.jobId);
+    if (completed.status !== 'completed' || !completed.outputUrl) {
+      throw new Error(completed.error || '图片生成未完成');
+    }
+    const generated = completed.outputUrl;
     const asset = await generatedAssetStore.persist({ sourceUrl: generated, taskId: `canvas_${Date.now()}`, label: 'canvas_regenerated' });
     res.json({ url: asset.url });
   } catch (error) {
@@ -3547,15 +3564,6 @@ app.post('/api/canvas/regenerate', async (req, res) => {
 
 async function readCanvasImage(imageUrl) {
   return (await imageInputReader.read(imageUrl)).buffer;
-}
-
-function canvasSizeForRatio(ratio, resolution = '2K') {
-  const sizes = {
-    '1K': { '1:1': '1024x1024', '3:4': '1024x1366', '4:3': '1366x1024', '9:16': '1024x1536' },
-    '2K': { '1:1': '2048x2048', '3:4': '2048x2730', '4:3': '2730x2048', '9:16': '2048x3640' },
-    '4K': { '1:1': '4096x4096', '3:4': '4096x5460', '4:3': '5460x4096', '9:16': '4096x7280' },
-  };
-  return sizes[resolution]?.[ratio] || sizes['2K']['1:1'];
 }
 
 function escapeXml(value) {
@@ -3635,21 +3643,21 @@ app.post('/api/canvas/transform', async (req, res) => {
     }
 
     const reference = `data:image/png;base64,${(await sharp(sourceBuffer).png().toBuffer()).toString('base64')}`;
-    const requestedRatio = ['1:1', '3:4', '4:3', '9:16'].includes(ratio) ? ratio : '1:1';
-    const requestedResolution = ['1K', '2K', '4K'].includes(resolution) ? resolution : '2K';
+    const selectedSize = resolveGenerationSize({ resolution, ratio });
+    const fallbackSize = resolveGenerationSize({ resolution: '1K', ratio: selectedSize.ratio });
     const generated = await callImageAPI(
       buildCanvasTransformPrompt({ action, prompt, targetLanguage }),
-      canvasSizeForRatio(requestedRatio, requestedResolution),
+      selectedSize.size,
       reference,
-      { resolution: requestedResolution, aspectRatio: requestedRatio },
-      canvasSizeForRatio(requestedRatio, '1K'),
+      { resolution: selectedSize.resolution, aspectRatio: selectedSize.ratio },
+      fallbackSize.size,
     );
     const asset = await generatedAssetStore.persist({
       sourceUrl: generated,
       taskId,
       label: `canvas_${action}`,
     });
-    return res.json({ url: asset.url, action, ratio: requestedRatio, resolution: requestedResolution });
+    return res.json({ url: asset.url, action, ratio: selectedSize.ratio, resolution: selectedSize.resolution });
   } catch (error) {
     console.error(`[canvas/${action}] 失败:`, error.message);
     return res.status(500).json({ error: `画布${action}失败：${error.message}` });
