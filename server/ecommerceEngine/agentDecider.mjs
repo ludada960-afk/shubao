@@ -192,3 +192,9 @@ async function smartDecide(text, realShotUrls = []) {
   // 当前 fallback 到关键词匹配
   return decide(text, realShotUrls, []);
 }
+
+export {
+  classifyInput,
+  decide,
+  smartDecide,
+};

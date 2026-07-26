@@ -43,6 +43,12 @@ export {
 export {
   checkQuality, batchCheck, formatQualityReport, QC_CONFIG,
 } from './qualityCheck.mjs';
+export {
+  evaluateAsset,
+} from './qualityGate.mjs';
+export {
+  planRepair, canRetry,
+} from './repairPlanner.mjs';
 
 // 后处理
 export {
