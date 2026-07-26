@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import crypto from 'node:crypto';
+import { createEcommerceJobStore } from './ecommerceEngine/jobStore.mjs';
 
 const STATES = new Set(['queued', 'analyzing', 'generating', 'completed', 'failed', 'cancelled']);
 const TRANSITIONS = {
@@ -32,8 +33,10 @@ export function createGenerationJobs(dbPath = ':memory:') {
     );
     CREATE INDEX IF NOT EXISTS idx_ecommerce_jobs_status ON ecommerce_jobs(status, created_at);
   `);
+  const assets = createEcommerceJobStore(db);
 
   const api = {
+    assets,
     create({ id = crypto.randomUUID(), ownerEmail, payload = {} }) {
       if (!ownerEmail) throw new Error('ownerEmail is required');
       db.prepare('INSERT INTO ecommerce_jobs (id, owner_email, payload) VALUES (?, ?, ?)').run(id, ownerEmail, JSON.stringify(payload));
@@ -73,9 +76,21 @@ export function createGenerationJobs(dbPath = ':memory:') {
       return tx();
     },
     recoverInterrupted() {
-      return db.prepare("UPDATE ecommerce_jobs SET status = 'queued', updated_at = datetime('now') WHERE status IN ('analyzing', 'generating')").run().changes;
+      const recoverableAssets = assets.recoverInterrupted();
+      const legacyChanges = db.prepare(`
+        UPDATE ecommerce_jobs
+        SET status = 'queued', updated_at = datetime('now')
+        WHERE status IN ('analyzing', 'generating')
+          AND NOT EXISTS (
+            SELECT 1 FROM ecommerce_job_assets AS asset
+            WHERE asset.job_id = ecommerce_jobs.id
+              AND asset.state IN ('submitted', 'polling', 'downloading', 'quality_check', 'repairing')
+          )
+      `).run().changes;
+      return legacyChanges + recoverableAssets.length;
     },
     close() { db.close(); },
   };
+  api.recoveredOnStartup = api.recoverInterrupted();
   return api;
 }
