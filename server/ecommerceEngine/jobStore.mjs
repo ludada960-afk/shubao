@@ -14,8 +14,8 @@ export const ASSET_STATES = Object.freeze([
 ]);
 
 const STATE_SET = new Set(ASSET_STATES);
-const RECOVERABLE_STATES = new Set(['submitted', 'polling', 'downloading', 'quality_check', 'repairing']);
-const TERMINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
+const FINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
+const LEASE_RELEASE_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const TRANSITIONS = Object.freeze({
   queued: new Set(['submitted', 'failed', 'cancelled']),
   submitted: new Set(['polling', 'downloading', 'failed', 'cancelled']),
@@ -228,6 +228,7 @@ export function createEcommerceJobStore(db, {
           attempt_count = ?, output_url = ?, stable_url = ?, error = ?,
           lease_token = ?, lease_expires_at = ?, updated_at = ?
       WHERE job_id = ? AND asset_id = ? AND lease_token = ?
+        AND state = ?
     `),
   };
 
@@ -249,7 +250,7 @@ export function createEcommerceJobStore(db, {
   const claimTx = db.transaction((jobId, assetId, leaseMs) => {
     const current = getAsset(jobId, assetId);
     if (!current) throw new Error('asset job not found');
-    if (TERMINAL_STATES.has(current.state)) return null;
+    if (FINAL_STATES.has(current.state)) return null;
     const nowMs = finiteNow(now);
     const leaseToken = cleanString(randomUUID());
     if (!leaseToken) throw new TypeError('randomUUID returned an invalid lease token');
@@ -302,7 +303,11 @@ export function createEcommerceJobStore(db, {
     if (nextState === 'submitted' && !providerJobId) {
       throw new Error('submitted asset requires a provider job id');
     }
-    if (current.providerJobId && providerJobId && current.providerJobId !== providerJobId) {
+    const replacesProviderForRepair = current.state === 'repairing' && nextState === 'submitted';
+    if (current.providerJobId
+      && providerJobId
+      && current.providerJobId !== providerJobId
+      && !replacesProviderForRepair) {
       throw new Error('asset was already submitted with a different provider job id');
     }
     const requestSnapshot = own(patch, 'requestSnapshot') === undefined
@@ -316,7 +321,7 @@ export function createEcommerceJobStore(db, {
       ? current.stableUrl
       : normalizeStableUrl(own(patch, 'stableUrl'));
     const error = own(patch, 'error') === undefined ? current.error : cleanString(own(patch, 'error'));
-    const terminal = TERMINAL_STATES.has(nextState);
+    const releasesLease = LEASE_RELEASE_STATES.has(nextState);
     const changed = statements.update.run(
       nextState,
       JSON.stringify(requestSnapshot),
@@ -325,14 +330,15 @@ export function createEcommerceJobStore(db, {
       outputUrl,
       stableUrl,
       error,
-      terminal ? null : current.leaseToken,
-      terminal ? null : current.leaseExpiresAt,
+      releasesLease ? null : current.leaseToken,
+      releasesLease ? null : current.leaseExpiresAt,
       new Date(finiteNow(now)).toISOString(),
       jobId,
       assetId,
       leaseToken,
+      current.state,
     ).changes;
-    if (changed !== 1) throw new Error('asset lease changed during transition');
+    if (changed !== 1) throw new Error('asset state or lease changed during transition');
     return getAsset(jobId, assetId);
   }
 
@@ -344,6 +350,16 @@ export function createEcommerceJobStore(db, {
     validateLease(current, own(patch, 'leaseToken'));
     const providerJobId = validateId(own(patch, 'providerJobId'), 'providerJobId');
     if (current.providerJobId) {
+      if (current.state === 'repairing') {
+        if (current.providerJobId === providerJobId) {
+          throw new Error('repair submission requires a new provider job id');
+        }
+        return transitionAsset(jobId, assetId, 'submitted', {
+          ...patch,
+          providerJobId,
+          attemptCount: own(patch, 'attemptCount') ?? current.attemptCount + 1,
+        });
+      }
       if (current.providerJobId !== providerJobId) {
         throw new Error('asset was already submitted with a different provider job id');
       }

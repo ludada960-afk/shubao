@@ -166,3 +166,85 @@ test('ignores inherited identifiers and rejects unsafe state transitions', t => 
     leaseToken: lease.leaseToken,
   }), /invalid transition/i);
 });
+
+test('fences a transition when the persisted state changes after it was read', t => {
+  const { db, store } = createHarness(t);
+  store.createAsset({ jobId: 'job-six', assetId: 'main' });
+  const lease = store.claimAsset('job-six', 'main');
+  const patch = {
+    leaseToken: lease.leaseToken,
+    get providerJobId() {
+      db.prepare(`
+        UPDATE ecommerce_job_assets
+        SET state = 'failed'
+        WHERE job_id = 'job-six' AND asset_id = 'main'
+      `).run();
+      return 'provider-six';
+    },
+  };
+
+  assert.throws(() => store.transitionAsset('job-six', 'main', 'submitted', patch), /state|lease changed/i);
+  assert.equal(store.getAsset('job-six', 'main').state, 'failed');
+});
+
+test('allows a needs-review asset to be reclaimed for an explicit repair', t => {
+  const { store } = createHarness(t);
+  store.createAsset({ jobId: 'job-seven', assetId: 'main' });
+  const first = store.claimAsset('job-seven', 'main');
+  store.transitionAsset('job-seven', 'main', 'submitted', {
+    providerJobId: 'provider-seven',
+    leaseToken: first.leaseToken,
+  });
+  store.transitionAsset('job-seven', 'main', 'polling', { leaseToken: first.leaseToken });
+  store.transitionAsset('job-seven', 'main', 'downloading', {
+    outputUrl: 'https://provider.example.test/seven.png',
+    leaseToken: first.leaseToken,
+  });
+  store.transitionAsset('job-seven', 'main', 'quality_check', {
+    stableUrl: '/api/generated-assets/7777777777777777777777777777777777777777777777777777777777777777.png',
+    leaseToken: first.leaseToken,
+  });
+  const needsReview = store.transitionAsset('job-seven', 'main', 'needs_review', {
+    leaseToken: first.leaseToken,
+  });
+  assert.equal(needsReview.leaseToken, null);
+
+  const second = store.claimAsset('job-seven', 'main');
+  assert.ok(second?.leaseToken);
+  assert.equal(store.transitionAsset('job-seven', 'main', 'repairing', {
+    leaseToken: second.leaseToken,
+  }).state, 'repairing');
+});
+
+test('allows a repairing asset to persist a new provider job without duplicate resubmission', t => {
+  const { store } = createHarness(t);
+  store.createAsset({ jobId: 'job-eight', assetId: 'main' });
+  const lease = store.claimAsset('job-eight', 'main');
+  store.markSubmitted('job-eight', 'main', {
+    providerJobId: 'provider-eight-first',
+    leaseToken: lease.leaseToken,
+  });
+  store.transitionAsset('job-eight', 'main', 'polling', { leaseToken: lease.leaseToken });
+  store.transitionAsset('job-eight', 'main', 'downloading', {
+    outputUrl: 'https://provider.example.test/eight-first.png',
+    leaseToken: lease.leaseToken,
+  });
+  store.transitionAsset('job-eight', 'main', 'quality_check', {
+    stableUrl: '/api/generated-assets/8888888888888888888888888888888888888888888888888888888888888888.png',
+    leaseToken: lease.leaseToken,
+  });
+  store.transitionAsset('job-eight', 'main', 'repairing', { leaseToken: lease.leaseToken });
+
+  const repaired = store.markSubmitted('job-eight', 'main', {
+    providerJobId: 'provider-eight-second',
+    requestSnapshot: { prompt: 'targeted repair' },
+    leaseToken: lease.leaseToken,
+  });
+  assert.equal(repaired.providerJobId, 'provider-eight-second');
+  assert.equal(repaired.attemptCount, 1);
+  assert.deepEqual(repaired.requestSnapshot, { prompt: 'targeted repair' });
+  assert.throws(() => store.markSubmitted('job-eight', 'main', {
+    providerJobId: 'provider-eight-third',
+    leaseToken: lease.leaseToken,
+  }), /already submitted|provider job/i);
+});
