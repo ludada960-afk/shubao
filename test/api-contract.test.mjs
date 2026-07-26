@@ -275,3 +275,13 @@ test('direct generation screens cannot bypass the authenticated API payload help
   assert.match(xhs, /if \(!res\.ok\) throw await createApiError\(res,/);
   assert.match(remake, /if \(!res\.ok\) throw await createApiError\(res,/);
 });
+
+test('pricing page exposes no legacy or clickable payment-provider path while providers are unavailable', async () => {
+  const pricing = await fs.readFile(new URL('../src/pages/Pricing/index.jsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(pricing, /\/api\/create-payment/);
+  assert.doesNotMatch(pricing, /createOrder\s*=/);
+  assert.doesNotMatch(pricing, /支付宝支付|微信支付/);
+  assert.doesNotMatch(pricing, /Stripe[\s\S]{0,80}(支付宝|微信)/);
+  assert.match(pricing, /支付通道接入中/);
+});

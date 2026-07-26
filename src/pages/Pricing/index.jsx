@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MdAutoAwesome, MdClose } from 'react-icons/md';
+import React, { useState } from 'react';
+import { MdAutoAwesome } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import Footer from '../../components/layout/Footer';
@@ -21,47 +21,16 @@ const FAQ_CONTENT = {
  * 套餐页 — 灵图风格弹窗式
  */
 export default function PricingPage() {
-  const { state, dispatch, fetchCredits } = useApp();
+  const { state, dispatch } = useApp();
   const [tab, setTab] = useState('content');
   const plans = tab === 'content' ? PRICING_XHS : PRICING_EC;
   const faqs = FAQ_CONTENT[tab];
 
   const [payModal, setPayModal] = useState(null);
-  const [payLoading, setPayLoading] = useState(false);
-  const [paidSuccess, setPaidSuccess] = useState(false);
-
-  useEffect(() => {
-    if (window.location.search.includes('paid=1')) {
-      setPaidSuccess(true);
-      if (state.logged && state.phone) fetchCredits(state.phone);
-      window.history.replaceState({}, '', '/pricing');
-      setTimeout(() => setPaidSuccess(false), 5000);
-    }
-  }, []);
 
   const buy = (p) => {
     if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
     setPayModal(p);
-  };
-
-  const createOrder = async (type) => {
-    if (!payModal) return;
-    setPayLoading(true);
-    try {
-      const r = await fetch('/api/create-payment', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: (tab === 'content' ? '📝小红书图文-' : '🛍️电商图-') + payModal.name,
-          type, email: state.phone,
-          sets: payModal.sets, amount: payModal.price,
-        }),
-      });
-      const d = await r.json();
-      if (d.code === 1 && d.url) {
-        window.location.href = d.url;
-      } else alert(d.error || '下单失败');
-    } catch(e) { alert(e.message); }
-    setPayLoading(false);
   };
 
   return (
@@ -76,12 +45,6 @@ export default function PricingPage() {
             选择适合你的月度套餐
           </p>
         </div>
-
-        {paidSuccess && (
-          <div style={{ textAlign:'center', padding:'12px 20px', background:'#F0FFF4', border:'1px solid #68D391', borderRadius:12, marginBottom:20, fontSize:14, fontWeight:600, color:'#276749' }}>
-            ✅ 支付成功！额度已到账，立即开始使用
-          </div>
-        )}
 
         {/* Tab pills */}
         <div style={{
@@ -211,32 +174,11 @@ export default function PricingPage() {
               <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
                 ¥{payModal.price} · {payModal.sets}套
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 14 }}>
-                选择支付方式
+              <div role="status" style={{ padding: 14, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 14, fontWeight: 700 }}>
+                支付通道接入中
               </div>
-              <button onClick={() => createOrder('alipay')} disabled={payLoading}
-                style={{
-                  width: '100%', padding: '14px 0', borderRadius: 12,
-                  border: '1px solid #1677FF', background: '#E6F4FF',
-                  color: '#1677FF', fontSize: 15, fontWeight: 700,
-                  cursor: payLoading ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit', marginBottom: 10,
-                }}>
-                {payLoading ? '跳转支付中...' : '💰 支付宝支付'}
-              </button>
-              <button onClick={() => createOrder('wxpay')} disabled={payLoading}
-                style={{
-                  width: '100%', padding: '14px 0', borderRadius: 12,
-                  border: '1px solid #07C160', background: '#F0FFF5',
-                  color: '#07C160', fontSize: 15, fontWeight: 700,
-                  cursor: payLoading ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit',
-                }}>
-                💚 微信支付
-              </button>
-              <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5 }}>
-                支付后将自动跳转回本站，额度实时到账<br />
-                🔒 由 Stripe 安全支付，支持支付宝/微信
+              <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 14, lineHeight: 1.6 }}>
+                当前暂不提供在线支付。套餐信息仅供查看，支付能力开放后会在此处显示。
               </div>
             </div>
           </div>
