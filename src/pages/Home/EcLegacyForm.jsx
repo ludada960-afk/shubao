@@ -8,6 +8,8 @@ import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
+  createEcommerceGenerationToken,
+  isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
   mergeEcommerceInProgressPreview,
   rotateEcommerceDraft,
@@ -59,12 +61,29 @@ export default function EcLegacyForm() {
   const [error, setError] = useState('');
   const [genProgress, setGenProgress] = useState('');
   const fileRef = useRef(null);
+  const generationTokenRef = useRef(null);
+  const generationAbortRef = useRef(null);
+  const generationIdentityRef = useRef({ ownerEmail, draftId });
+  generationIdentityRef.current = { ownerEmail, draftId };
+  const beginGeneration = () => {
+    const token = createEcommerceGenerationToken({ ownerEmail, draftId });
+    generationTokenRef.current = token;
+    return token;
+  };
+  const isGenerationCurrent = (token) => isEcommerceGenerationTokenCurrent(token, {
+    currentToken: generationTokenRef.current,
+    ownerEmail: generationIdentityRef.current.ownerEmail,
+    draftId: generationIdentityRef.current.draftId,
+  });
 
   const [sizeEnabled, setSizeEnabled] = useState(false);
   const [sizeW, setSizeW] = useState('');
   const [sizeH, setSizeH] = useState('');
 
   useEffect(() => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_LEGACY,
@@ -73,11 +92,17 @@ export default function EcLegacyForm() {
     setDraftId(active?.draftId || '');
     setResult(null);
     setInProgressPreview({});
+    setLoading(false);
+    setGenProgress('');
+    setError('');
   }, [ownerEmail]);
 
   useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_LEGACY,
@@ -88,7 +113,15 @@ export default function EcLegacyForm() {
     setDraftId(rotated.draftId);
     setResult(null);
     setInProgressPreview({});
+    setLoading(false);
+    setGenProgress('');
+    setError('');
   }, [draftId, ownerEmail, workVersion]);
+
+  useEffect(() => () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+  }, []);
 
   const addImage = (files) => {
     Array.from(files).slice(0, 5 - refImgs.length).forEach(f => {
@@ -100,6 +133,9 @@ export default function EcLegacyForm() {
 
   const doGen = async () => {
     if (!name.trim()) return;
+    const generationToken = beginGeneration();
+    const generationController = new AbortController();
+    generationAbortRef.current = generationController;
     setError('');
     setLoading(true);
     setResult(null);
@@ -111,29 +147,43 @@ export default function EcLegacyForm() {
         beautyReport: beauty, stylePack: stylePack || null, material, targetAudience, restrictions,
         imageSize: sizeEnabled && sizeW && sizeH ? { width: +sizeW, height: +sizeH } : null,
         draftId,
+        signal: generationController.signal,
+        isCurrent: () => isGenerationCurrent(generationToken),
         onProgress: (task) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
           if (progress) setGenProgress(progress);
         },
         onImage: (image) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
           setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setGenProgress(`已生成: ${image.label || image.role || image.id}`);
         },
       });
+      if (!isGenerationCurrent(generationToken)) return;
       const finalResult = acceptEcommerceFinalResult(data);
       if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
       setResult(finalResult);
       setInProgressPreview({});
     } catch (e) {
+      if (!isGenerationCurrent(generationToken)) return;
       setError(e.message || '生成失败');
+    } finally {
+      if (isGenerationCurrent(generationToken)) {
+        setGenProgress('');
+        setLoading(false);
+        generationTokenRef.current = null;
+        generationAbortRef.current = null;
+      }
     }
-    setGenProgress('');
-    setLoading(false);
   };
 
   const startNewProduct = () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_LEGACY,

@@ -341,6 +341,62 @@ test('in-progress stable previews stay separate until a completed or needs-revie
   });
 });
 
+test('late generation A image and completion cannot write after owner-draft rotation to generation B', async () => {
+  let currentToken = taskProgressModel.createEcommerceGenerationToken({
+    ownerEmail: 'Owner@Example.COM',
+    draftId: 'draft-a',
+  });
+  const tokenA = currentToken;
+  const effects = {
+    preview: [],
+    result: null,
+    stage: 0,
+    saved: 0,
+    navigated: 0,
+  };
+  let releaseA;
+  const requestA = new Promise(resolve => {
+    releaseA = () => {
+      if (!taskProgressModel.isEcommerceGenerationTokenCurrent(tokenA, {
+        currentToken,
+        ownerEmail: 'owner@example.com',
+        draftId: 'draft-a',
+      })) return resolve();
+      effects.preview.push('A-image');
+      effects.result = 'A-result';
+      effects.stage = 3;
+      effects.saved += 1;
+      effects.navigated += 1;
+      resolve();
+    };
+  });
+
+  currentToken = taskProgressModel.createEcommerceGenerationToken({
+    ownerEmail: 'owner@example.com',
+    draftId: 'draft-b',
+  });
+  releaseA();
+  await requestA;
+
+  assert.deepEqual(effects, {
+    preview: [],
+    result: null,
+    stage: 0,
+    saved: 0,
+    navigated: 0,
+  });
+  assert.equal(taskProgressModel.isEcommerceGenerationTokenCurrent(tokenA, {
+    currentToken,
+    ownerEmail: 'owner@example.com',
+    draftId: 'draft-b',
+  }), false);
+  assert.equal(taskProgressModel.isEcommerceGenerationTokenCurrent(currentToken, {
+    currentToken,
+    ownerEmail: 'owner@example.com',
+    draftId: 'draft-b',
+  }), true);
+});
+
 test('task reference helpers reject malformed owner, draft, task, and record data', () => {
   const storage = memoryStorage();
   assert.equal(taskKey({ ownerEmail: '', draftId: 'ec-draft-1' }), '');

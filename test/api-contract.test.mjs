@@ -206,6 +206,66 @@ test('a saved failed task requires an explicit retry before a replacement POST i
   ]);
 });
 
+test('SSE needs-review keeps its task reference and refresh resumes it with GET only', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = ecommerceStorage();
+  const calls = [];
+  globalThis.localStorage = storage;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET' });
+    if (options.method === 'POST') {
+      return new Response(
+        'data: {"type":"job","taskId":"task-sse-review"}\n\n' +
+        'data: {"type":"complete","status":"needs_review","images":{"main":"/api/generated-assets/sse-review.png"},"errors":[]}\n\n',
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      );
+    }
+    return ecommerceTaskResponse({
+      id: 'task-sse-review',
+      status: 'needs_review',
+      assets: [{ assetId: 'main', status: 'needs_review', stableUrl: '/api/generated-assets/sse-review.png' }],
+    });
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { generateEcommerce } = await import(`../src/services/api.js?sse-needs-review=${Date.now()}`);
+  const first = await generateEcommerce({
+    productName: '测试商品',
+    category: '其他',
+    platform: '淘宝',
+    draftId: 'ec-draft-sse-review',
+  });
+  assert.equal(first.status, 'needs_review');
+  assert.equal(loadEcommerceTaskReference({
+    ownerEmail: 'owner@example.com',
+    draftId: 'ec-draft-sse-review',
+    storage,
+  })?.taskId, 'task-sse-review');
+
+  const refreshed = await generateEcommerce({
+    productName: '测试商品',
+    category: '其他',
+    platform: '淘宝',
+    draftId: 'ec-draft-sse-review',
+    pollIntervalMs: 0,
+    maxPollAttempts: 1,
+  });
+  assert.equal(refreshed.status, 'needs_review');
+  assert.deepEqual(calls, [
+    { url: '/api/generate-ecommerce', method: 'POST' },
+    { url: '/api/ecommerce/jobs/task-sse-review', method: 'GET' },
+  ]);
+  assert.equal(loadEcommerceTaskReference({
+    ownerEmail: 'owner@example.com',
+    draftId: 'ec-draft-sse-review',
+    storage,
+  })?.taskId, 'task-sse-review');
+});
+
 test('frontend generation entrypoints only target implemented generation routes', async () => {
   const api = await fs.readFile(new URL('../src/services/api.js', import.meta.url), 'utf8');
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');

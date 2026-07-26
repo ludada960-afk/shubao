@@ -15,6 +15,8 @@ import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
+  createEcommerceGenerationToken,
+  isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
   mergeEcommerceInProgressPreview,
   rotateEcommerceDraft,
@@ -101,8 +103,25 @@ export default function EcStudioPage() {
   const [recognizing, setRecognizing] = useState(false);
   const [lb, setLb] = useState(null);
   const [stitching, setStitching] = useState(false);
+  const generationTokenRef = useRef(null);
+  const generationAbortRef = useRef(null);
+  const generationIdentityRef = useRef({ ownerEmail, draftId });
+  generationIdentityRef.current = { ownerEmail, draftId };
+  const beginGeneration = () => {
+    const token = createEcommerceGenerationToken({ ownerEmail, draftId });
+    generationTokenRef.current = token;
+    return token;
+  };
+  const isGenerationCurrent = (token) => isEcommerceGenerationTokenCurrent(token, {
+    currentToken: generationTokenRef.current,
+    ownerEmail: generationIdentityRef.current.ownerEmail,
+    draftId: generationIdentityRef.current.draftId,
+  });
 
   useEffect(() => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_STUDIO,
@@ -111,11 +130,16 @@ export default function EcStudioPage() {
     setDraftId(active?.draftId || '');
     setRes(null);
     setInProgressPreview({});
+    setGenerating(false);
+    setGenProgress('');
   }, [ownerEmail]);
 
   useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_STUDIO,
@@ -127,7 +151,14 @@ export default function EcStudioPage() {
     setRes(null);
     setInProgressPreview({});
     setPhase('config');
+    setGenerating(false);
+    setGenProgress('');
   }, [draftId, ownerEmail, workVersion]);
+
+  useEffect(() => () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+  }, []);
   const [stitchUrl, setStitchUrl] = useState(null);
   const [regKey, setRegKey] = useState('');
   const [regEdit, setRegEdit] = useState({ l: null, p: '', v: false });
@@ -242,6 +273,9 @@ export default function EcStudioPage() {
   // ── 生成 ──
   const goGen = async () => {
     if (!name.trim() || generating) return;
+    const generationToken = beginGeneration();
+    const generationController = new AbortController();
+    generationAbortRef.current = generationController;
     setGenerating(true);
     setErr('');
     setRes(null);
@@ -263,27 +297,34 @@ export default function EcStudioPage() {
         skus,
         detailPlan,
         maintenance,
+        signal: generationController.signal,
+        isCurrent: () => isGenerationCurrent(generationToken),
         material: product.material,
         restrictions: '',
         imageSelections: buildSelections(),
         draftId,
         onProgress: (task) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
           if (progress) setGenProgress(progress);
         },
         onImage: (image) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
           setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setGenProgress(`已生成: ${image.label || image.role || image.id}`);
         },
       });
+      if (!isGenerationCurrent(generationToken)) return;
       const finalResult = acceptEcommerceFinalResult(d);
       if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
       dispatch({ type: 'SET_STAGE', stage: 2 });
       await new Promise((r) => setTimeout(r, 800));
+      if (!isGenerationCurrent(generationToken)) return;
       dispatch({ type: 'SET_STAGE', stage: 3 });
       await new Promise((r) => setTimeout(r, 600));
+      if (!isGenerationCurrent(generationToken)) return;
       dispatch({ type: 'CLOSE_RESULT' });
       setPhase('result');
       setRes(finalResult);
@@ -299,9 +340,11 @@ export default function EcStudioPage() {
         platform,
         at: new Date().toLocaleDateString('zh-CN'),
         images: d.images || {},
-      }, state.phone);
+      }, state.phone, { signal: generationController.signal });
+      if (!isGenerationCurrent(generationToken)) return;
       fetchCredits(state.phone);
     } catch (e) {
+      if (!isGenerationCurrent(generationToken)) return;
       const msg = e.message || '';
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'ecommerce-studio',
@@ -311,11 +354,19 @@ export default function EcStudioPage() {
       setPhase('config');
       setGenProgress('');
       dispatch({ type: 'CLOSE_RESULT' });
+    } finally {
+      if (isGenerationCurrent(generationToken)) {
+        setGenerating(false);
+        generationTokenRef.current = null;
+        generationAbortRef.current = null;
+      }
     }
-    setGenerating(false);
   };
 
   const startNewProduct = () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_STUDIO,

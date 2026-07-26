@@ -121,15 +121,20 @@ async function pollEcommerceTask(taskId, {
   maxPollAttempts,
   ownerEmail,
   draftId,
+  signal,
+  isCurrent,
 }) {
   const emitted = new Set();
   const pollLimit = Number.isSafeInteger(maxPollAttempts) && maxPollAttempts > 0 ? maxPollAttempts : 600;
   let task = initialTask;
   for (let pollAttempt = 0; pollAttempt < pollLimit; pollAttempt += 1) {
+    if (typeof isCurrent === 'function' && !isCurrent()) return null;
     if (!task) {
       await waitFor(Number.isFinite(pollIntervalMs) ? Math.max(0, pollIntervalMs) : 1500);
-      task = await getEcommerceTask(taskId);
+      if (typeof isCurrent === 'function' && !isCurrent()) return null;
+      task = await getEcommerceTask(taskId, { signal });
     }
+    if (typeof isCurrent === 'function' && !isCurrent()) return null;
     emitStableTaskImages(task, emitted, onImage);
     onProgress?.(taskWithNormalizedAssets(task));
     const status = taskStatus(task);
@@ -304,7 +309,9 @@ export async function generateEcommerceSuite({
   resumeTaskId,
   retry,
   onProgress,
-  onImage
+  onImage,
+  signal,
+  isCurrent
 }) {
   return generateEcommerce({
     productName: sceneStyle || '商品',
@@ -319,6 +326,8 @@ export async function generateEcommerceSuite({
     retry,
     onProgress,
     onImage,
+    signal,
+    isCurrent,
   });
 }
 
@@ -427,22 +436,26 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600 }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
   const ownerEmail = getSessionEmail() || String(email || '').trim().toLowerCase();
   const savedReference = loadEcommerceTaskReference({ ownerEmail, draftId });
   if (savedReference && (!resumeTaskId || resumeTaskId === savedReference.taskId)) {
     let savedTask;
     try {
-      savedTask = await getEcommerceTask(savedReference.taskId);
+      if (typeof isCurrent === 'function' && !isCurrent()) return null;
+      savedTask = await getEcommerceTask(savedReference.taskId, { signal });
     } catch (error) {
+      if (typeof isCurrent === 'function' && !isCurrent()) return null;
       if (error?.status === 403 || error?.status === 404) {
         clearEcommerceTaskReference({ ownerEmail, draftId, taskId: savedReference.taskId });
         throw ecommerceTaskExpiredError(error.status);
       }
       throw error;
     }
+    if (typeof isCurrent === 'function' && !isCurrent()) return null;
     const savedStatus = taskStatus(savedTask);
     if (savedStatus === 'failed' || savedStatus === 'cancelled') {
+      if (typeof isCurrent === 'function' && !isCurrent()) return null;
       clearEcommerceTaskReference({ ownerEmail, draftId, taskId: savedReference.taskId });
       if (!retry) throw ecommerceRetryRequiredError(savedTask);
     } else {
@@ -454,6 +467,8 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
         maxPollAttempts,
         ownerEmail,
         draftId,
+        signal,
+        isCurrent,
       });
     }
   }
@@ -480,10 +495,13 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   }
   if (productInputs.legacy.length) {
     body.real_shots = await prepareImageInputs(productInputs.legacy);
+    if (typeof isCurrent === 'function' && !isCurrent()) return null;
   }
   if (referenceInputs.legacy.length) {
     body.reference_images = await prepareImageInputs(referenceInputs.legacy);
+    if (typeof isCurrent === 'function' && !isCurrent()) return null;
   }
+  if (typeof isCurrent === 'function' && !isCurrent()) return null;
   // 电商生图属于封闭内测能力；请求携带本地会话邮箱，服务端仍会二次校验。
   if (email || ownerEmail) body.email = email || ownerEmail;
   if (imageSize?.width && imageSize?.height) {
@@ -507,16 +525,25 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分钟超时（电商生图更慢）
+  const abortFromCaller = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener('abort', abortFromCaller, { once: true });
+  }
+  const clearController = () => {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener?.('abort', abortFromCaller);
+  };
 
   const res = await fetch(`${API_BASE}/api/generate-ecommerce`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     signal: controller.signal,
-  }).catch(e => { clearTimeout(timeoutId); throw new Error('网络请求失败: ' + e.message); });
+  }).catch(e => { clearController(); throw new Error('网络请求失败: ' + e.message); });
 
   if (!res.ok) {
-    clearTimeout(timeoutId);
+    clearController();
     throw await createApiError(res, '生成失败');
   }
 
@@ -525,6 +552,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
       const queued = await res.json();
       const taskId = queued.taskId || queued.task?.id;
       if (!taskId) throw new Error('生成任务创建失败，请重试');
+      if (typeof isCurrent === 'function' && !isCurrent()) return null;
       saveEcommerceTaskReference({ ownerEmail, draftId, taskId });
       return pollEcommerceTask(taskId, {
         onImage,
@@ -533,9 +561,11 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
         maxPollAttempts,
         ownerEmail,
         draftId,
+        signal: controller.signal,
+        isCurrent,
       });
     } finally {
-      clearTimeout(timeoutId);
+      clearController();
     }
   }
 
@@ -545,6 +575,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
 
   try {
     await consumeSseJson(res.body.getReader(), d => {
+      if (typeof isCurrent === 'function' && !isCurrent()) return;
       if (d.type === 'progress') {
         if (onProgress) onProgress(d);
       } else if (d.type === 'job') {
@@ -566,22 +597,30 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
       }
     });
   } finally {
-    clearTimeout(timeoutId);
+    clearController();
   }
+  if (typeof isCurrent === 'function' && !isCurrent()) return null;
   if (!gotComplete) throw new Error('生成未完成，请重试');
   const imageCount = Object.keys(result.images || {}).length;
+  if (result.status === 'failed' || result.status === 'cancelled') {
+    if (result.taskId) clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
+    throw ecommerceTaskError(result);
+  }
   if (imageCount === 0) {
     const firstError = Array.isArray(result.errors) ? result.errors.find(item => item?.error)?.error : '';
     throw new Error(firstError || '生成完成但没有返回图片，请重试');
   }
-  if (result.taskId) clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
+  if (result.taskId && result.status === 'completed') {
+    clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
+  }
   return result;
 }
 
-export async function getEcommerceTask(taskId) {
+export async function getEcommerceTask(taskId, { signal } = {}) {
   if (!taskId) throw new Error('缺少任务编号');
   const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`, {
     headers: signedSessionHeaders(),
+    signal,
   });
   if (!res.ok) throw await createApiError(res, '读取任务失败');
   const data = await res.json();
@@ -703,7 +742,8 @@ export async function regenerateText(text, category) {
   return res.json();
 }
 
-export async function saveWork(work, phone) {
+export async function saveWork(work, phone, { signal } = {}) {
+  if (signal?.aborted) return null;
   // 本地先存
   try {
     const local = JSON.parse(localStorage.getItem('sb-works') || '[]');
@@ -720,10 +760,12 @@ export async function saveWork(work, phone) {
 
   // 服务器存
   try {
+    if (signal?.aborted) return null;
     const response = await fetch(`${API_BASE}/api/save-work`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ work, phone: phone || '' }),
+      signal,
     });
     if (response.ok) {
       const saved = await response.json().catch(() => ({}));
@@ -900,7 +942,7 @@ export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags
 }
 
 /* ── 一键出图 ── */
-export async function autoGenerate({ platform, input, refImages, email, draftId, resumeTaskId, retry, onProgress, onImage }) {
+export async function autoGenerate({ platform, input, refImages, email, draftId, resumeTaskId, retry, onProgress, onImage, signal, isCurrent }) {
   const prompt = String(input || '').trim();
   return generateEcommerce({
     productName: prompt.slice(0, 80) || '商品',
@@ -915,6 +957,8 @@ export async function autoGenerate({ platform, input, refImages, email, draftId,
     retry,
     onProgress,
     onImage,
+    signal,
+    isCurrent,
   });
 }
 

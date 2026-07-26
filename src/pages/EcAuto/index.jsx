@@ -14,6 +14,8 @@ import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
+  createEcommerceGenerationToken,
+  isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
   mergeEcommerceInProgressPreview,
   rotateEcommerceDraft,
@@ -55,8 +57,25 @@ export default function EcAutoPage() {
   })?.draftId || '');
   const [inProgressPreview, setInProgressPreview] = useState({});
   const [genProgress, setGenProgress] = useState('');
+  const generationTokenRef = useRef(null);
+  const generationAbortRef = useRef(null);
+  const generationIdentityRef = useRef({ ownerEmail, draftId });
+  generationIdentityRef.current = { ownerEmail, draftId };
+  const beginGeneration = () => {
+    const token = createEcommerceGenerationToken({ ownerEmail, draftId });
+    generationTokenRef.current = token;
+    return token;
+  };
+  const isGenerationCurrent = (token) => isEcommerceGenerationTokenCurrent(token, {
+    currentToken: generationTokenRef.current,
+    ownerEmail: generationIdentityRef.current.ownerEmail,
+    draftId: generationIdentityRef.current.draftId,
+  });
 
   useEffect(() => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
@@ -65,6 +84,9 @@ export default function EcAutoPage() {
     setDraftId(active?.draftId || '');
     setResults(null);
     setInProgressPreview({});
+    setGenProgress('');
+    setError('');
+    setGenState('idle');
   }, [ownerEmail]);
 
   useEffect(() => {
@@ -81,7 +103,14 @@ export default function EcAutoPage() {
     setResults(null);
     setInProgressPreview({});
     setGenState('idle');
+    setGenProgress('');
+    setError('');
   }, [draftId, ownerEmail, workVersion]);
+
+  useEffect(() => () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+  }, []);
 
   // 生成计时器
   useEffect(() => {
@@ -104,6 +133,9 @@ export default function EcAutoPage() {
 
   const handleGenerate = async () => {
     if (!input.trim() || genState === 'generating') return;
+    const generationToken = beginGeneration();
+    const generationController = new AbortController();
+    generationAbortRef.current = generationController;
     setGenState('generating');
     setError('');
     setResults(null);
@@ -116,17 +148,22 @@ export default function EcAutoPage() {
         input: input.trim(),
         email: state.phone,
         draftId,
+        signal: generationController.signal,
+        isCurrent: () => isGenerationCurrent(generationToken),
         onProgress: (task) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
           if (progress) setGenProgress(progress);
         },
         onImage: (image) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
           setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setGenProgress(`已生成: ${image.label || image.role || image.id}`);
         },
       });
+      if (!isGenerationCurrent(generationToken)) return;
       const finalResult = acceptEcommerceFinalResult(data);
       if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
       setResults(finalResult);
@@ -135,6 +172,7 @@ export default function EcAutoPage() {
       setGenState('done');
       dispatch({ type: 'CLOSE_RESULT' });
     } catch (e) {
+      if (!isGenerationCurrent(generationToken)) return;
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'ecommerce-auto',
         message: '当前平台、商品描述和参考图片都已保留，充值后可以继续生成。',
@@ -142,10 +180,18 @@ export default function EcAutoPage() {
       setError(accessResult ? '' : (e.message || '生成失败，请重试'));
       setGenState('idle');
       dispatch({ type: 'CLOSE_RESULT' });
+    } finally {
+      if (isGenerationCurrent(generationToken)) {
+        generationTokenRef.current = null;
+        generationAbortRef.current = null;
+      }
     }
   };
 
   const startNewProduct = () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,

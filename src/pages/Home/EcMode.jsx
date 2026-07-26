@@ -22,6 +22,8 @@ import { uploadEcommerceAssets } from '../../services/api.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
+  createEcommerceGenerationToken,
+  isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
   rotateEcommerceDraft,
 } from './ec/ecommerceTaskProgressModel.js';
@@ -81,27 +83,52 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
     createDraftId: createEcommerceDraftId,
   })?.draftId || '');
+  const generationTokenRef = useRef(null);
+  const generationIdentityRef = useRef({ ownerEmail, draftId });
+  generationIdentityRef.current = { ownerEmail, draftId };
+  const beginGeneration = () => {
+    const token = createEcommerceGenerationToken({ ownerEmail, draftId });
+    generationTokenRef.current = token;
+    return token;
+  };
+  const isGenerationCurrent = (token) => isEcommerceGenerationTokenCurrent(token, {
+    currentToken: generationTokenRef.current,
+    ownerEmail: generationIdentityRef.current.ownerEmail,
+    draftId: generationIdentityRef.current.draftId,
+  });
 
   useEffect(() => {
+    generationTokenRef.current = null;
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
       createDraftId: createEcommerceDraftId,
     });
     setDraftId(active?.draftId || '');
+    setUploadingAssets(false);
+    setAssetUploadError('');
   }, [ownerEmail]);
 
   useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
+    generationTokenRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
       currentDraftId: draftId,
       createDraftId: createEcommerceDraftId,
     });
-    if (rotated?.draftId) setDraftId(rotated.draftId);
+    if (rotated?.draftId) {
+      setDraftId(rotated.draftId);
+      setUploadingAssets(false);
+      setAssetUploadError('');
+    }
   }, [draftId, ownerEmail, workVersion]);
+
+  useEffect(() => () => {
+    generationTokenRef.current = null;
+  }, []);
 
   /* — 图片 — */
   const [productImages, setProductImages] = useState([]);
@@ -182,6 +209,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   /* ── 下一步 ── */
   const handleNext = async () => {
     if (!canGen || uploadingAssets) return;
+    const generationToken = beginGeneration();
     setUploadingAssets(true);
     setAssetUploadError('');
     const baseSizing = (smartMode && !smartOverrides.sizing) ? { smart: true, images: [] } : sizing;
@@ -199,6 +227,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
         uploadEcommerceAssets(productImages, 'product'),
         uploadEcommerceAssets(refImages, 'reference'),
       ]);
+      if (!isGenerationCurrent(generationToken)) return;
       onStepChange?.({
         draftId,
         productName: description.trim() || '商品',
@@ -218,9 +247,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       });
       setEcStep?.(2);
     } catch (error) {
+      if (!isGenerationCurrent(generationToken)) return;
       setAssetUploadError(error?.message || '原图上传失败，请重试');
     } finally {
-      setUploadingAssets(false);
+      if (isGenerationCurrent(generationToken)) {
+        setUploadingAssets(false);
+        generationTokenRef.current = null;
+      }
     }
   };
 

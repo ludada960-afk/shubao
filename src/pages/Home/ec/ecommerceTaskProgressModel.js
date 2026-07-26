@@ -63,6 +63,36 @@ function normalizedSurface(surface) {
   return cleanText(surface).toLowerCase();
 }
 
+let generationEpochSequence = 0;
+
+export function createEcommerceGenerationToken({ ownerEmail, draftId } = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const draft = cleanText(draftId);
+  if (!owner || !draft) return null;
+  generationEpochSequence += 1;
+  return Object.freeze({
+    epoch: generationEpochSequence,
+    ownerEmail: owner,
+    draftId: draft,
+  });
+}
+
+export function isEcommerceGenerationTokenCurrent(token, {
+  currentToken,
+  ownerEmail,
+  draftId,
+} = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const draft = cleanText(draftId);
+  return Boolean(
+    token
+    && currentToken === token
+    && token.epoch
+    && token.ownerEmail === owner
+    && token.draftId === draft,
+  );
+}
+
 function storageFor(storage) {
   return storage || globalThis.localStorage;
 }

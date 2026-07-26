@@ -436,6 +436,25 @@ test('every ecommerce surface restores owner-scoped drafts and keeps stable prev
   assert.match(ecMode, /rotateEcommerceDraft\(/);
 });
 
+test('every running ecommerce entry binds callbacks and completion to its owner-draft generation token', async () => {
+  const entries = [
+    ['EcMode', '../src/pages/Home/EcMode.jsx'],
+    ['DesignDirection', '../src/pages/Home/ec/DesignDirection.jsx'],
+    ['EcStudio', '../src/pages/EcStudio/index.jsx'],
+    ['EcAuto', '../src/pages/EcAuto/index.jsx'],
+    ['EcLegacyForm', '../src/pages/Home/EcLegacyForm.jsx'],
+    ['XhsContentMode', '../src/pages/Home/XhsContentMode.jsx'],
+  ];
+
+  for (const [name, relativePath] of entries) {
+    const source = await fs.readFile(new URL(relativePath, import.meta.url), 'utf8');
+    assert.match(source, /createEcommerceGenerationToken/, `${name} creates a generation token`);
+    assert.match(source, /isEcommerceGenerationTokenCurrent/, `${name} guards callbacks`);
+    assert.match(source, /generationTokenRef\.current\s*=\s*null/, `${name} invalidates stale requests`);
+    assert.match(source, /useEffect\(\(\)\s*=>\s*(?:\(\)\s*=>\s*\{|[\s\S]{0,80}return\s*\(\)\s*=>\s*\{)[\s\S]{0,500}generationTokenRef\.current\s*=\s*null/, `${name} invalidates on unmount`);
+  }
+});
+
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {
   const source = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
 

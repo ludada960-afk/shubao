@@ -30,6 +30,8 @@ import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
+  createEcommerceGenerationToken,
+  isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
   mergeEcommerceInProgressPreview,
   rotateEcommerceDraft,
@@ -110,8 +112,25 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
     createDraftId: createEcommerceDraftId,
   })?.draftId || '');
+  const generationTokenRef = useRef(null);
+  const generationAbortRef = useRef(null);
+  const generationIdentityRef = useRef({ ownerEmail, draftId: ecDraftId });
+  generationIdentityRef.current = { ownerEmail, draftId: ecDraftId };
+  const beginGeneration = () => {
+    const token = createEcommerceGenerationToken({ ownerEmail, draftId: ecDraftId });
+    generationTokenRef.current = token;
+    return token;
+  };
+  const isGenerationCurrent = (token) => isEcommerceGenerationTokenCurrent(token, {
+    currentToken: generationTokenRef.current,
+    ownerEmail: generationIdentityRef.current.ownerEmail,
+    draftId: generationIdentityRef.current.draftId,
+  });
 
   useEffect(() => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
@@ -120,11 +139,16 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     setEcDraftId(active?.draftId || '');
     setEcResults(null);
     setInProgressPreview({});
+    setGenECLoading(false);
+    setEcLoadingMsg('');
   }, [ownerEmail]);
 
   useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
@@ -137,7 +161,14 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     setInProgressPreview({});
     setEcName('');
     setGenPhase('config');
+    setGenECLoading(false);
+    setEcLoadingMsg('');
   }, [ecDraftId, ownerEmail, workVersion]);
+
+  useEffect(() => () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+  }, []);
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
@@ -395,6 +426,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   };
 
   const startNewProduct = () => {
+    generationTokenRef.current = null;
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
@@ -412,6 +446,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   const doGenEC = async () => {
     if (!ecName.trim()) return;
+    const generationToken = beginGeneration();
+    const generationController = new AbortController();
+    generationAbortRef.current = generationController;
     setErr('');
     setEcResults(null);
     setInProgressPreview({});
@@ -437,25 +474,31 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         imageSelections: isRaw ? [{ key: 'main_3x4', count: 5 }] : ecSelections,
         imageSize: null,
         draftId: ecDraftId,
+        signal: generationController.signal,
+        isCurrent: () => isGenerationCurrent(generationToken),
         onProgress: (task) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
           if (progress) setEcLoadingMsg(progress);
         },
         onImage: (image) => {
+          if (!isGenerationCurrent(generationToken)) return;
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
           setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setEcLoadingMsg(`已生成: ${image.label || image.role || image.id}`);
         },
       });
+      if (!isGenerationCurrent(generationToken)) return;
       const finalResult = acceptEcommerceFinalResult(data);
       if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
       setEcResults({ ...finalResult, product_name: ecName.trim().slice(0, 80), raw_mode: isRaw });
       setInProgressPreview({});
       // 自动保存。保存失败不影响当前结果展示，但不吞掉生成任务错误。
       try {
-        await saveWork({ ...finalResult, _ecResult: true, _saveKey: 'ec-' + Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: finalResult.images || {} }, state.phone);
+        await saveWork({ ...finalResult, _ecResult: true, _saveKey: 'ec-' + Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: finalResult.images || {} }, state.phone, { signal: generationController.signal });
       } catch (saveError) { console.warn('[home ecommerce] 保存作品失败:', saveError.message); }
+      if (!isGenerationCurrent(generationToken)) return;
       fetchCredits(state.phone);
       dispatch({ type: 'SET_STAGE', stage: 2 });
       await new Promise(r => setTimeout(r, 800));
@@ -463,6 +506,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       dispatch({ type: 'CLOSE_RESULT' });
       setGenPhase('result');
     } catch (e) {
+      if (!isGenerationCurrent(generationToken)) return;
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'home-ecommerce',
         message: '当前商品图片、套图配置和提示词都已保留，充值后可以继续生成。',
@@ -470,6 +514,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       setErr(accessResult ? '' : '生成失败: ' + (e.message || '未知错误'));
       setGenECLoading(false);
       dispatch({ type: 'CLOSE_RESULT' });
+    } finally {
+      if (isGenerationCurrent(generationToken)) {
+        setGenECLoading(false);
+        generationTokenRef.current = null;
+        generationAbortRef.current = null;
+      }
     }
   };
 
