@@ -300,6 +300,9 @@ export async function generateEcommerceSuite({
   platform,
   batchPlan,
   email,
+  draftId,
+  resumeTaskId,
+  retry,
   onProgress,
   onImage
 }) {
@@ -311,6 +314,9 @@ export async function generateEcommerceSuite({
     platform: platform || '淘宝',
     imageSelections: planToSelections(batchPlan),
     email,
+    draftId,
+    resumeTaskId,
+    retry,
     onProgress,
     onImage,
   });
@@ -893,7 +899,7 @@ export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags
 }
 
 /* ── 一键出图 ── */
-export async function autoGenerate({ platform, input, refImages, email }) {
+export async function autoGenerate({ platform, input, refImages, email, draftId, resumeTaskId, retry, onProgress, onImage }) {
   const prompt = String(input || '').trim();
   return generateEcommerce({
     productName: prompt.slice(0, 80) || '商品',
@@ -903,6 +909,11 @@ export async function autoGenerate({ platform, input, refImages, email }) {
     realShots: [],
     platform: platform || '淘宝',
     email,
+    draftId,
+    resumeTaskId,
+    retry,
+    onProgress,
+    onImage,
   });
 }
 

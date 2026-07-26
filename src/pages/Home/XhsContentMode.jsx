@@ -26,6 +26,7 @@ const EC_STYLE_PACKS = [
 import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, withSessionEmail } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { createApiError } from '../../services/apiError.js';
+import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import './Home.css';
@@ -93,6 +94,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [ecRegenEdit, setEcRegenEdit] = useState({ label: null, prompt: '', visible: false }); // 重生成prompt编辑器
   const [ecLightbox, setEcLightbox] = useState(null); // 图片放大查看
   const [ecPreviewLightbox, setEcPreviewLightbox] = useState(null); // 参考图放大查看
+  const [ecDraftId] = useState(() => createEcommerceDraftId());
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
@@ -373,6 +375,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         restrictions: ecRestrictions,
         imageSelections: isRaw ? [{ key: 'main_3x4', count: 5 }] : ecSelections,
         imageSize: null,
+        draftId: ecDraftId,
+        onProgress: (task) => {
+          const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
+          if (progress) setEcLoadingMsg(progress);
+        },
+        onImage: (image) => {
+          const url = image?.stableUrl || image?.url;
+          if (!image?.id || !url) return;
+          setEcResults(previous => ({
+            ...(previous || {}),
+            images: { ...(previous?.images || {}), [image.id]: url },
+          }));
+          setEcLoadingMsg(`已生成: ${image.label || image.role || image.id}`);
+        },
       });
       setEcResults({ ...data, product_name: ecName.trim().slice(0, 80), raw_mode: isRaw });
       // 自动保存。保存失败不影响当前结果展示，但不吞掉生成任务错误。

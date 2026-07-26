@@ -11,6 +11,7 @@ import { EC_CATS, EC_PLATFORM_DIMS, EC_DETAIL_SLICES, EC_SKU_FIELDS } from '../.
 import { IMAGES } from '../../constants/images';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
+import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
 
 // ── 平台尺寸 helper ──
 const DIMS = Object.fromEntries(
@@ -60,6 +61,7 @@ const SLICE_KEY_BY_PLAN = {
 
 export default function EcStudioPage() {
   const { state, dispatch, fetchCredits } = useApp();
+  const [draftId] = useState(() => createEcommerceDraftId());
   const [smartBrief, setSmartBrief] = useState('');
   const [realShots, setRealShots] = useState([]);
   const [refShots, setRefShots] = useState([]);
@@ -77,6 +79,8 @@ export default function EcStudioPage() {
   const [ol, setOl] = useState([]);
   const [olLoad, setOlLoad] = useState(false);
   const [res, setRes] = useState(null);
+  const [genProgress, setGenProgress] = useState('');
+  const [generating, setGenerating] = useState(false);
   const [err, setErr] = useState('');
   const [recognizing, setRecognizing] = useState(false);
   const [lb, setLb] = useState(null);
@@ -194,7 +198,8 @@ export default function EcStudioPage() {
 
   // ── 生成 ──
   const goGen = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || generating) return;
+    setGenerating(true);
     setErr('');
     dispatch({ type: 'START_GEN' });
     await new Promise((r) => setTimeout(r, 100));
@@ -215,6 +220,20 @@ export default function EcStudioPage() {
         material: product.material,
         restrictions: '',
         imageSelections: buildSelections(),
+        draftId,
+        onProgress: (task) => {
+          const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
+          if (progress) setGenProgress(progress);
+        },
+        onImage: (image) => {
+          const url = image?.stableUrl || image?.url;
+          if (!image?.id || !url) return;
+          setRes(previous => ({
+            ...(previous || {}),
+            images: { ...(previous?.images || {}), [image.id]: url },
+          }));
+          setGenProgress(`已生成: ${image.label || image.role || image.id}`);
+        },
       });
       dispatch({ type: 'SET_STAGE', stage: 2 });
       await new Promise((r) => setTimeout(r, 800));
@@ -223,6 +242,7 @@ export default function EcStudioPage() {
       dispatch({ type: 'CLOSE_RESULT' });
       setPhase('result');
       setRes(d);
+      setGenProgress('');
       setStitchUrl(null);
       saveWork({
         ...d,
@@ -243,8 +263,10 @@ export default function EcStudioPage() {
       });
       setErr(accessResult ? '' : '生成失败: ' + (msg.includes('Image API error') ? '图片API暂时不可用，请稍后重试' : msg.slice(0, 100)));
       setPhase('config');
+      setGenProgress('');
       dispatch({ type: 'CLOSE_RESULT' });
     }
+    setGenerating(false);
   };
 
   // ── 单图重生成 ──
@@ -957,9 +979,10 @@ export default function EcStudioPage() {
               </button>
               <button
                 onClick={goGen}
+                disabled={generating}
                 style={{
                   flex: 2, padding: '13px 0', borderRadius: 8, border: 'none',
-                  background: '#059669', color: '#fff', cursor: 'pointer', fontSize: 14,
+                  background: generating ? '#9CA3AF' : '#059669', color: '#fff', cursor: generating ? 'wait' : 'pointer', fontSize: 14,
                   fontWeight: 600, fontFamily: 'inherit',
                   boxShadow: '0 2px 8px rgba(5,150,105,.2)',
                 }}
@@ -967,6 +990,16 @@ export default function EcStudioPage() {
                 ✅ 确认生成 {ol.length} 张
               </button>
             </div>
+            {genProgress && (
+              <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, color: '#4338CA' }}>{genProgress}</div>
+            )}
+            {Object.keys(res?.images || {}).length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                {Object.entries(res?.images || {}).map(([label, url]) => (
+                  <img key={label} src={proxyImg(url)} alt={label} style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #D1FAE5' }} />
+                ))}
+              </div>
+            )}
           </div>
         )}
 

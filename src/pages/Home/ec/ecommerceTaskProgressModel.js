@@ -28,7 +28,7 @@ function storageFor(storage) {
 }
 
 function isErrorState(state) {
-  return /(?:failed|cancelled|error|rejected|final|complete|finished|done|success)/i.test(state);
+  return /(?:^|[_-])(?:failed|cancelled|error|rejected|final|finished|done|success)(?:$|[_-])/i.test(state);
 }
 
 export function normalizeEcommerceAsset(asset = {}) {
@@ -93,7 +93,7 @@ export function loadEcommerceTaskReference({ ownerEmail, draftId, now = Date.now
       && record.draftId === draft
       && cleanText(record.taskId)
       && Number.isFinite(record.createdAt)
-      && record.createdAt <= now + ECOMMERCE_TASK_REFERENCE_TTL_MS
+      && record.createdAt <= now
       && now - record.createdAt <= ECOMMERCE_TASK_REFERENCE_TTL_MS;
     if (!valid) {
       if (stored) storageFor(storage)?.removeItem(key);

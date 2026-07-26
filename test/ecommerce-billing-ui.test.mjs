@@ -374,6 +374,39 @@ test('direction generation keeps normalized per-asset progress and stable previe
   assert.doesNotMatch(source, /setExtraProductImages\(\[\]\)|setExtraReferenceImages\(\[\]\)|setDirections\(\[\]\)/);
 });
 
+test('every reachable ecommerce generation UI entry uses the durable draft and image-progress contract', async () => {
+  const entrypoints = [
+    '../src/pages/EcStudio/index.jsx',
+    '../src/pages/EcAuto/index.jsx',
+    '../src/pages/Home/EcLegacyForm.jsx',
+    '../src/pages/Home/XhsContentMode.jsx',
+    '../src/pages/Home/ec/DesignDirection.jsx',
+  ];
+
+  for (const entrypoint of entrypoints) {
+    const source = await fs.readFile(new URL(entrypoint, import.meta.url), 'utf8');
+    assert.match(source, /(?:generateEcommerce|autoGenerate)\(/, entrypoint);
+    assert.match(source, /draftId/, entrypoint);
+    assert.match(source, /onProgress\s*:/, entrypoint);
+    assert.match(source, /onImage\s*:/, entrypoint);
+    assert.doesNotMatch(source, /sb-last-ecommerce-task/, entrypoint);
+  }
+
+  const apiSource = await fs.readFile(new URL('../src/services/api.js', import.meta.url), 'utf8');
+  for (const wrapper of ['generateEcommerceSuite', 'autoGenerate']) {
+    const start = apiSource.indexOf(`export async function ${wrapper}`);
+    const end = apiSource.indexOf('\n}', start);
+    const body = apiSource.slice(start, end);
+    assert.match(body, /draftId/, wrapper);
+    assert.match(body, /onProgress/, wrapper);
+    assert.match(body, /onImage/, wrapper);
+  }
+
+  const studioSource = await fs.readFile(new URL('../src/pages/EcStudio/index.jsx', import.meta.url), 'utf8');
+  assert.match(studioSource, /if \(!name\.trim\(\) \|\| generating\) return/);
+  assert.match(studioSource, /Object\.entries\(res\?\.images \|\| \{\}\)/);
+});
+
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {
   const source = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
 

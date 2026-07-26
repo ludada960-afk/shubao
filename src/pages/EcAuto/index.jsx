@@ -10,6 +10,7 @@ import { proxyImg, autoGenerate } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
+import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
 
 const Sparkles = Sparkle;
 const Zap = Lightning;
@@ -36,6 +37,8 @@ export default function EcAutoPage() {
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef(null);
+  const [draftId] = useState(() => createEcommerceDraftId());
+  const [genProgress, setGenProgress] = useState('');
 
   // 生成计时器
   useEffect(() => {
@@ -62,7 +65,25 @@ export default function EcAutoPage() {
     setError('');
     dispatch({ type: 'START_GEN' });
     try {
-      const data = await autoGenerate({ platform, input: input.trim(), email: state.phone });
+      const data = await autoGenerate({
+        platform,
+        input: input.trim(),
+        email: state.phone,
+        draftId,
+        onProgress: (task) => {
+          const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
+          if (progress) setGenProgress(progress);
+        },
+        onImage: (image) => {
+          const url = image?.stableUrl || image?.url;
+          if (!image?.id || !url) return;
+          setResults(previous => ({
+            ...(previous || {}),
+            images: { ...(previous?.images || {}), [image.id]: url },
+          }));
+          setGenProgress(`已生成: ${image.label || image.role || image.id}`);
+        },
+      });
       setResults(data);
       fetchCredits(state.phone);
       setGenState('done');
@@ -216,6 +237,7 @@ export default function EcAutoPage() {
                 : `${selectedPlatform?.label || platform}标准套餐 · 每张约需25秒`}
               {elapsed >= 10 && ` · 已等待 ${elapsed} 秒`}
             </div>
+            {genProgress && <div style={{ marginTop: 8, fontSize: 12, color: '#4338CA' }}>{genProgress}</div>}
             {elapsed >= 30 && (
               <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 8, background: '#FFFBEB', padding: '6px 12px', borderRadius: 8, display: 'inline-block' }}>
                 多张图片正在并行生成，请稍候...

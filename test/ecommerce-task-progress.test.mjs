@@ -38,6 +38,8 @@ test('normalizes every server asset state into a user-safe Chinese state', () =>
     assert.equal(normalizeEcommerceAsset({ assetId: `asset-${state}`, status: state }).userState, userState, state);
   }
   assert.equal(normalizeEcommerceAsset({ assetId: 'active', status: 'provider_waiting' }).userState, '正在生成');
+  assert.equal(normalizeEcommerceAsset({ assetId: 'active-completion', status: 'completion_pending' }).userState, '正在生成');
+  assert.equal(normalizeEcommerceAsset({ assetId: 'active-complete', status: 'complete_pending' }).userState, '正在生成');
   assert.equal(normalizeEcommerceAsset({ assetId: 'final', status: 'provider_finished', error: 'bad output' }).userState, '失败');
   assert.equal(normalizeEcommerceAsset({ assetId: 'unknown-final', status: 'provider_finished' }).userState, '失败');
 });
@@ -100,6 +102,19 @@ test('task references are owner and draft isolated, versioned, and expire safely
   assert.equal(clearEcommerceTaskReference({ ownerEmail, draftId, taskId: 'wrong-task', storage }), false);
   assert.equal(clearEcommerceTaskReference({ ownerEmail, draftId, taskId: 'task-3', storage }), true);
   assert.equal(loadEcommerceTaskReference({ ownerEmail, draftId, now, storage }), null);
+});
+
+test('task references reject timestamps from the future instead of extending their lifetime', () => {
+  const storage = memoryStorage();
+  const now = 1_700_000_000_000;
+  assert.equal(saveEcommerceTaskReference({
+    ownerEmail: 'owner@example.com',
+    draftId: 'ec-draft-future',
+    taskId: 'task-future',
+    createdAt: now + 1,
+    storage,
+  }), true);
+  assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-future', now, storage }), null);
 });
 
 test('task reference helpers reject malformed owner, draft, task, and record data', () => {

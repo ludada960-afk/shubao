@@ -4,6 +4,7 @@ import { MdClose, MdAutorenew } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { generateEcommerce, extractProductLink, proxyImg } from '../../services/api';
 import { EC_CATS, EC_PLATFORMS } from '../../constants/data';
+import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
 
 const LABEL = { fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 6, display: 'block' };
 const INPUT = {
@@ -23,6 +24,7 @@ const SECTION = {
 
 export default function EcLegacyForm() {
   const { state, dispatch } = useApp();
+  const [draftId] = useState(() => createEcommerceDraftId());
   const [name, setName] = useState('');
   const [cat, setCat] = useState('美妆护肤');
   const [tier, setTier] = useState('basic');
@@ -39,6 +41,7 @@ export default function EcLegacyForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [genProgress, setGenProgress] = useState('');
   const fileRef = useRef(null);
 
   const [sizeEnabled, setSizeEnabled] = useState(false);
@@ -62,11 +65,26 @@ export default function EcLegacyForm() {
         productName: name, category: cat, refImgs, tier, platform, points,
         beautyReport: beauty, stylePack: stylePack || null, material, targetAudience, restrictions,
         imageSize: sizeEnabled && sizeW && sizeH ? { width: +sizeW, height: +sizeH } : null,
+        draftId,
+        onProgress: (task) => {
+          const progress = task?.message || task?.step || task?.assets?.find(asset => asset.userState)?.userState;
+          if (progress) setGenProgress(progress);
+        },
+        onImage: (image) => {
+          const url = image?.stableUrl || image?.url;
+          if (!image?.id || !url) return;
+          setResult(previous => ({
+            ...(previous || {}),
+            images: { ...(previous?.images || {}), [image.id]: url },
+          }));
+          setGenProgress(`已生成: ${image.label || image.role || image.id}`);
+        },
       });
       setResult(data);
     } catch (e) {
       setError(e.message || '生成失败');
     }
+    setGenProgress('');
     setLoading(false);
   };
 
@@ -311,6 +329,7 @@ export default function EcLegacyForm() {
         {loading ? <MdAutorenew size={16} className="animate-spin" /> : null}
         {loading ? '生成中...' : '🚀 生成商品图'}
       </button>
+      {genProgress && <div style={{ marginTop: 8, textAlign: 'center', fontSize: 12, color: '#6366F1' }}>{genProgress}</div>}
     </div>
   );
 }
