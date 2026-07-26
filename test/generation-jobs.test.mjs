@@ -57,3 +57,33 @@ test('runs interrupted-job recovery when the durable store opens at startup', t 
   assert.equal(restarted.get(job.id).status, 'queued');
   restarted.close();
 });
+
+test('claimNext reclaims an expired non-terminal parent lease without stealing it while valid', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-generation-jobs-expired-lease-'));
+  const dbPath = join(directory, 'jobs.db');
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  let nowMs = Date.parse('2026-07-26T00:00:00.000Z');
+  let tokenIndex = 0;
+  const options = {
+    now: () => nowMs,
+    randomUUID: () => `recovery-token-${++tokenIndex}`,
+    defaultLeaseMs: 100,
+  };
+
+  const firstProcess = createGenerationJobs(dbPath, options);
+  const job = firstProcess.create({ ownerEmail: '867550189@qq.com', payload: {} });
+  const originalLease = firstProcess.claimNext();
+  firstProcess.close();
+
+  const restarted = createGenerationJobs(dbPath, options);
+  assert.equal(restarted.get(job.id).status, 'analyzing');
+  assert.equal(restarted.claimNext(), null);
+
+  nowMs += 101;
+  const reclaimed = restarted.claimNext();
+
+  assert.equal(reclaimed.id, job.id);
+  assert.equal(reclaimed.status, 'analyzing');
+  assert.notEqual(reclaimed.leaseToken, originalLease.leaseToken);
+  restarted.close();
+});

@@ -959,6 +959,10 @@ export function createEcommerceStartupRecovery({
   orchestrator,
   maxAttempts = 3,
   retryDelayMs = 250,
+  maxFollowUpScans = 3,
+  followUpDelayMs = 30_000,
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
   onAttemptError = () => {},
 } = {}) {
   if (!orchestrator || typeof orchestrator.resumeJobs !== 'function') {
@@ -970,13 +974,27 @@ export function createEcommerceStartupRecovery({
   if (!Number.isSafeInteger(retryDelayMs) || retryDelayMs < 0) {
     throw new TypeError('retryDelayMs must be a non-negative safe integer');
   }
+  if (!Number.isSafeInteger(maxFollowUpScans) || maxFollowUpScans < 0) {
+    throw new TypeError('maxFollowUpScans must be a non-negative safe integer');
+  }
+  if (!Number.isSafeInteger(followUpDelayMs) || followUpDelayMs < 0) {
+    throw new TypeError('followUpDelayMs must be a non-negative safe integer');
+  }
+  if (typeof setTimeoutFn !== 'function' || typeof clearTimeoutFn !== 'function') {
+    throw new TypeError('setTimeoutFn and clearTimeoutFn must be functions');
+  }
   if (typeof onAttemptError !== 'function') {
     throw new TypeError('onAttemptError must be a function');
   }
   let recoveryPromise = null;
-  return function recoverEcommerceStartup() {
-    if (recoveryPromise) return recoveryPromise;
-    recoveryPromise = (async () => {
+  let activeScanPromise = null;
+  let followUpTimer = null;
+  let followUpScans = 0;
+  let stopped = false;
+
+  function scan() {
+    if (activeScanPromise) return activeScanPromise;
+    activeScanPromise = (async () => {
       let lastError;
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         try {
@@ -985,12 +1003,48 @@ export function createEcommerceStartupRecovery({
           lastError = error;
           onAttemptError(error, attempt);
           if (attempt < maxAttempts && retryDelayMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+            await new Promise(resolve => setTimeoutFn(resolve, retryDelayMs));
           }
         }
       }
       throw lastError;
-    })();
+    })().finally(() => {
+      activeScanPromise = null;
+    });
+    return activeScanPromise;
+  }
+
+  function scheduleFollowUp() {
+    if (stopped || followUpTimer || followUpScans >= maxFollowUpScans) return;
+    followUpTimer = setTimeoutFn(async () => {
+      followUpTimer = null;
+      if (stopped) return;
+      followUpScans += 1;
+      try {
+        await scan();
+      } catch {}
+      scheduleFollowUp();
+    }, followUpDelayMs);
+    followUpTimer?.unref?.();
+  }
+
+  function recoverEcommerceStartup() {
+    if (recoveryPromise) return recoveryPromise;
+    recoveryPromise = scan()
+      .catch(() => [])
+      .then(results => {
+        scheduleFollowUp();
+        return results;
+      });
     return recoveryPromise;
+  }
+
+  recoverEcommerceStartup.stop = () => {
+    stopped = true;
+    if (followUpTimer) {
+      clearTimeoutFn(followUpTimer);
+      followUpTimer = null;
+    }
   };
+  return recoverEcommerceStartup;
 }

@@ -106,3 +106,56 @@ No billing catalog, billing schema, database runtime file, product page, upload/
 ## Concerns
 
 None within the Task 8 scope.
+
+## Follow-up review fix
+
+- Follow-up baseline: `c03e6fc`
+- Commit message: `fix: retry expired ecommerce recovery leases`
+- Scope: only the remaining Critical covering expired parent leases and bounded startup/background recovery retries.
+
+### Follow-up TDD evidence
+
+1. Expired parent lease reclamation
+   - RED: after restarting while the old `analyzing` lease was still valid, `claimNext()` correctly returned `null`, but it continued returning `null` after the persisted lease expired.
+   - GREEN: `claimNext()` atomically selects `queued`, `analyzing`, or `generating` jobs only when their parent lease is absent or expired; a valid lease is never stolen and an expired non-terminal lease receives a new fencing token without another process restart.
+
+2. Bounded follow-up recovery
+   - RED: the startup recovery helper cached only the initial Promise, scheduled no later scan for per-job rejected results, and rejected permanently after an exhausted top-level scan.
+   - GREEN: the initial scan remains coalesced, then one unref timer at a time schedules exactly the configured number of follow-up scans; rejected per-job results and transient top-level failures are retried within that fixed budget.
+
+3. Graceful shutdown
+   - RED: the recovery helper exposed no stop operation and production shutdown did not cancel a pending recovery timer.
+   - GREEN: the helper exposes `stop()`, pending follow-up timers are cleared, every follow-up timer is unref'd, and production shutdown stops recovery before closing HTTP/HTTPS listeners.
+
+### Follow-up verification
+
+- Focused brief suite:
+  - `node --test --test-concurrency=1 test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs test/api-contract.test.mjs test/generated-assets.test.mjs`
+  - PASS: 47/47
+- Adjacent recovery/store regressions:
+  - `node --test --test-concurrency=1 test/ecommerce-job-store.test.mjs test/generation-jobs.test.mjs`
+  - PASS: 13/13
+- Full repository tests:
+  - `npm test`
+  - PASS: 379/379
+- Syntax:
+  - `node --check server/index.mjs`
+  - PASS
+- Production build:
+  - `npm run build`
+  - PASS
+- Diff hygiene:
+  - `git diff --check`
+  - PASS
+
+### Follow-up self-review
+
+- Recovery remains fenced: a valid parent lease cannot be replaced, and stale owners still cannot checkpoint or transition.
+- Startup still awaits the initial bounded scan before `app.listen`.
+- Follow-up work is bounded to three production scans at 30-second intervals, coalesced to one active scan and one timer.
+- Missing provider credentials and other per-job retryable failures remain recoverable without duplicate runners.
+- No runtime database, generated asset, upload, cache, or `dist/` file is included.
+
+### Follow-up concerns
+
+None within the requested Critical scope.

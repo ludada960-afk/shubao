@@ -3884,6 +3884,8 @@ const recoverEcommerceStartup = createEcommerceStartupRecovery({
   orchestrator,
   maxAttempts: 3,
   retryDelayMs: 250,
+  maxFollowUpScans: 3,
+  followUpDelayMs: 30_000,
   onAttemptError(error, attempt) {
     console.error(`[ecommerce] 启动恢复扫描失败 (${attempt}/3):`, error.message);
   },
@@ -3946,6 +3948,7 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[shutdown] 收到 ${signal}，停止接收新请求`);
+  recoverEcommerceStartup.stop();
   const force = setTimeout(() => process.exit(1), 10000);
   force.unref();
   await Promise.all([closeServer(httpServer), closeServer(httpsServer)]);

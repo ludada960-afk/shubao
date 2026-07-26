@@ -232,22 +232,31 @@ export function createGenerationJobs(dbPath = ':memory:', {
         const timestampMs = nowMs();
         const timestamp = new Date(timestampMs).toISOString();
         const row = db.prepare(`
-          SELECT id FROM ecommerce_jobs
-          WHERE status = 'queued'
+          SELECT id, status FROM ecommerce_jobs
+          WHERE status IN ('queued', 'analyzing', 'generating')
             AND (lease_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= ?)
-          ORDER BY created_at ASC
+          ORDER BY CASE WHEN status = 'queued' THEN 0 ELSE 1 END, created_at ASC
           LIMIT 1
         `).get(timestamp);
         if (!row) return null;
         const leaseToken = cleanString(randomUUID());
         if (!leaseToken) throw new TypeError('randomUUID returned an invalid lease token');
         const leaseExpiresAt = new Date(timestampMs + leaseMs).toISOString();
+        const nextStatus = row.status === 'queued' ? 'analyzing' : row.status;
         const changed = db.prepare(`
           UPDATE ecommerce_jobs
-          SET status = 'analyzing', lease_token = ?, lease_expires_at = ?, updated_at = ?
-          WHERE id = ? AND status = 'queued'
+          SET status = ?, lease_token = ?, lease_expires_at = ?, updated_at = ?
+          WHERE id = ? AND status = ?
             AND (lease_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= ?)
-        `).run(leaseToken, leaseExpiresAt, timestamp, row.id, timestamp).changes;
+        `).run(
+          nextStatus,
+          leaseToken,
+          leaseExpiresAt,
+          timestamp,
+          row.id,
+          row.status,
+          timestamp,
+        ).changes;
         return changed === 1 ? api.get(row.id) : null;
       });
       return tx.immediate();

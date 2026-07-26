@@ -21,6 +21,38 @@ function responseHarness() {
   };
 }
 
+function timerHarness() {
+  const pending = [];
+  const cleared = [];
+  return {
+    pending,
+    cleared,
+    setTimeoutFn(callback, delay) {
+      const handle = {
+        callback,
+        delay,
+        unrefCalls: 0,
+        unref() {
+          this.unrefCalls += 1;
+        },
+      };
+      pending.push(handle);
+      return handle;
+    },
+    clearTimeoutFn(handle) {
+      const index = pending.indexOf(handle);
+      if (index >= 0) pending.splice(index, 1);
+      cleared.push(handle);
+    },
+    async runNext() {
+      const handle = pending.shift();
+      assert.ok(handle, 'expected a scheduled recovery scan');
+      await handle.callback();
+      return handle;
+    },
+  };
+}
+
 test('generation handler returns HTTP 202 queued without waiting for provider completion', async () => {
   let runCalled = false;
   const handlers = createEcommerceRouteHandlers({
@@ -150,57 +182,110 @@ test('billing failures preserve the authoritative required and available point a
   });
 });
 
-test('startup recovery is bounded, coalesces duplicate callers, and treats provider-unavailable jobs as recoverable results', async () => {
+test('startup recovery coalesces callers and retries rejected per-job results within a bounded scan budget', async () => {
   assert.equal(typeof orchestratorModule.createEcommerceStartupRecovery, 'function');
   let attempts = 0;
-  const attemptErrors = [];
+  const timers = timerHarness();
   const recover = orchestratorModule.createEcommerceStartupRecovery({
     orchestrator: {
       async resumeJobs() {
         attempts += 1;
-        if (attempts < 3) throw new Error(`scan failed ${attempts}`);
-        return [{
-          status: 'rejected',
-          reason: Object.assign(new Error('provider unavailable'), {
-            code: 'IMAGE_PROVIDER_UNAVAILABLE',
-          }),
-        }];
+        return attempts < 3
+          ? [{
+            status: 'rejected',
+            reason: Object.assign(new Error('provider unavailable'), {
+              code: 'IMAGE_PROVIDER_UNAVAILABLE',
+            }),
+          }]
+          : [{ status: 'fulfilled', value: { id: 'job-recovered' } }];
       },
     },
-    maxAttempts: 3,
+    maxAttempts: 1,
     retryDelayMs: 0,
-    onAttemptError: (error, attempt) => attemptErrors.push({ message: error.message, attempt }),
+    maxFollowUpScans: 2,
+    followUpDelayMs: 25,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+    onAttemptError: () => {},
   });
 
   const [first, second] = await Promise.all([recover(), recover()]);
 
-  assert.equal(attempts, 3);
-  assert.deepEqual(attemptErrors, [
-    { message: 'scan failed 1', attempt: 1 },
-    { message: 'scan failed 2', attempt: 2 },
-  ]);
+  assert.equal(attempts, 1);
   assert.equal(first, second);
   assert.equal(first[0].status, 'rejected');
   assert.equal(first[0].reason.code, 'IMAGE_PROVIDER_UNAVAILABLE');
+  assert.equal(timers.pending.length, 1);
+  assert.equal(timers.pending[0].delay, 25);
+  assert.equal(timers.pending[0].unrefCalls, 1);
+
+  await timers.runNext();
+  assert.equal(attempts, 2);
+  assert.equal(timers.pending.length, 1);
+  assert.equal(timers.pending[0].unrefCalls, 1);
+
+  await timers.runNext();
+  assert.equal(attempts, 3);
+  assert.equal(timers.pending.length, 0);
 });
 
-test('startup recovery rejects after its bounded top-level retry budget', async () => {
+test('startup recovery retries transient top-level scan failures in bounded follow-up scans', async () => {
   assert.equal(typeof orchestratorModule.createEcommerceStartupRecovery, 'function');
   let attempts = 0;
+  const attemptErrors = [];
+  const timers = timerHarness();
   const recover = orchestratorModule.createEcommerceStartupRecovery({
     orchestrator: {
       async resumeJobs() {
         attempts += 1;
-        throw new Error('database unavailable');
+        if (attempts < 3) throw new Error(`database unavailable ${attempts}`);
+        return [];
       },
     },
-    maxAttempts: 2,
+    maxAttempts: 1,
     retryDelayMs: 0,
-    onAttemptError: () => {},
+    maxFollowUpScans: 2,
+    followUpDelayMs: 50,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+    onAttemptError: (error, attempt) => attemptErrors.push({ message: error.message, attempt }),
   });
 
-  await assert.rejects(recover(), /database unavailable/);
-  assert.equal(attempts, 2);
+  assert.deepEqual(await recover(), []);
+  assert.equal(attempts, 1);
+  assert.equal(timers.pending.length, 1);
+
+  await timers.runNext();
+  await timers.runNext();
+
+  assert.equal(attempts, 3);
+  assert.deepEqual(attemptErrors, [
+    { message: 'database unavailable 1', attempt: 1 },
+    { message: 'database unavailable 2', attempt: 1 },
+  ]);
+  assert.equal(timers.pending.length, 0);
+});
+
+test('startup recovery stop cancels the pending unref timer', async () => {
+  const timers = timerHarness();
+  const recover = orchestratorModule.createEcommerceStartupRecovery({
+    orchestrator: { resumeJobs: async () => [] },
+    maxAttempts: 1,
+    retryDelayMs: 0,
+    maxFollowUpScans: 1,
+    followUpDelayMs: 100,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+
+  await recover();
+  assert.equal(timers.pending.length, 1);
+  assert.equal(timers.pending[0].unrefCalls, 1);
+
+  recover.stop();
+
+  assert.equal(timers.pending.length, 0);
+  assert.equal(timers.cleared.length, 1);
 });
 
 test('production wiring uses the durable orchestrator, signed ownership, startup resume, and no ecommerce Contact Sheet route', async () => {
@@ -215,6 +300,7 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.match(server, /createEcommerceStartupRecovery\(/);
   assert.match(server, /await recoverEcommerceStartup\(\)/);
   assert.ok(server.indexOf('await recoverEcommerceStartup()') < server.indexOf('app.listen(PORT'));
+  assert.match(server, /recoverEcommerceStartup\.stop\(\)/);
   assert.doesNotMatch(server, /orchestrator\.resumeJobs\(\)\.then\(/);
   const unavailableStart = server.indexOf("const ecommerceProviderAdapter = IMG_BASE && IMG_KEY");
   const unavailableEnd = server.indexOf('const orchestrator = createEcommerceOrchestrator', unavailableStart);
