@@ -62,7 +62,11 @@ git diff --check
 exit 0
 
 npm run collab:check
-pending final post-stage check
+[collaboration] READY
+branch: codex/ecommerce-stability
+linked worktree: yes
+tracked runtime paths: 0
+peer ownership conflicts: 0
 ```
 
 ## Independent self-review
@@ -80,4 +84,4 @@ pending final post-stage check
 
 ## Commits
 
-Implementation and report commit hashes are recorded after explicit staging and final verification.
+`4fcaf1e feat: resume durable ecommerce generation tasks` — implementation, focused tests, and regression tests.
