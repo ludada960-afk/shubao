@@ -288,3 +288,62 @@ peer ownership conflicts: 0
 Implementation: `b3ef6dd fix: guard stale ecommerce generation callbacks`
 
 Report: documentation commit for this closure
+
+---
+
+## Final review analysis/precondition/abort closure (2026-07-27)
+
+### Findings closed
+
+- Split `DesignDirection` supplementary uploads into token-free direction analysis and token-guarded formal generation. Initial `loadDirections` analysis now always receives its uploaded product/reference arrays, while a stale formal-generation upload still returns no result and cannot continue into generation.
+- Every reachable ecommerce UI entry (`EcMode`, `DesignDirection`, `EcStudio`, `EcAuto`, `EcLegacyForm`, and `XhsContentMode`) now rejects a missing owner/draft generation context before any API request. The explicit `ECOMMERCE_GENERATION_CONTEXT_REQUIRED` error resets the local loading state instead of silently returning with a spinner active.
+- `EcAuto` observes an incoming work-version increment during render and immediately invalidates the old token and aborts its controller, before the effect-driven React state rotation. The later effect remains responsible for persistent draft rotation and UI reset; the early invalidation makes a late A callback unable to reach B.
+- `EcMode` now owns an upload AbortController and forwards its signal through both product/reference asset uploads. Owner changes, work rotation, and unmount invalidate the token and abort the in-flight upload; the token guard remains the authority for already-arrived callbacks.
+
+### TDD evidence
+
+RED was observed first with four focused failures: asset upload did not forward a signal; `loadDirections` still used the stale-generation supplementary upload path; the token-free analysis helper was absent; and the explicit missing-context error was absent. The behavioral model test then verified that token-free analysis returns both asset groups, while an explicitly stale formal-generation token is rejected. A second real model test verifies immediate A invalidation/abort before a B callback can be considered current; the existing A→B late image/completion behavior test remains in the focused set.
+
+GREEN followed the minimal model/API/UI wiring:
+
+```text
+focused:
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-task-progress.test.mjs
+tests 51
+pass 51
+fail 0
+
+Task5A required current exact collection
+tests 102
+pass 102
+fail 0
+
+adjacent collection
+tests 73
+pass 73
+fail 0
+
+npm run build
+exit 0; export verification passed; Vite transformed 6406 modules.
+
+git diff --check
+exit 0
+
+npm run collab:check
+[collaboration] READY
+tracked runtime paths: 0
+peer ownership conflicts: 0
+```
+
+### Scope and self-review
+
+- Changed only Task5B-allowed frontend/model/test files plus this report. No server, database, `dist`, uploads, cache, deployment, Task 6, or Task 7 paths were changed.
+- API asset upload cancellation is additive: existing callers retain the old two-argument API; callers that own a request can pass the standard signal as the optional third argument.
+- The precondition is enforced at every production UI entrypoint, so the durable API is not invoked from a tokenless user interaction. No paid provider call was made during verification.
+- The only environment note remains the pre-existing unreadable `C:\\Users\\SHEJI/.config/git/ignore`; the collaboration policy still reports READY.
+
+### Final commits
+
+Implementation: `7fa03cf fix: harden ecommerce generation preconditions`
+
+Report: documentation commit for this closure.
