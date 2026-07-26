@@ -1,4 +1,5 @@
 import { isInsufficientCreditsError } from '../services/apiError.js';
+import { createPendingPaidAction, savePendingPaidAction } from './pendingPaidAction.js';
 
 /**
  * Keep generation access failures consistent across all ecommerce entrypoints.
@@ -6,14 +7,32 @@ import { isInsufficientCreditsError } from '../services/apiError.js';
  */
 export function handleGenerationAccessError(error, dispatch, {
   source = 'ecommerce',
-  message = '当前商品图配置、图片和提示词都已保留，充值后可以继续生成。',
+  ownerEmail,
+  route = '',
+  draftId = '',
+  action = {},
+  quoteId,
+  storage,
+  now,
 } = {}) {
   if (isInsufficientCreditsError(error)) {
+    const storedPendingAction = createPendingPaidAction({
+      ownerEmail, source, route, draftId, action, quoteId,
+    }, { now });
+    if (storedPendingAction) savePendingPaidAction(storedPendingAction, { storage, now });
+    const payload = error?.payload || error || {};
+    const pendingAction = storedPendingAction && {
+      ...storedPendingAction,
+      billing: {
+        required: payload.required ?? error?.required,
+        available: payload.available ?? error?.available,
+      },
+    };
     dispatch({
       type: 'OPEN_PAYWALL',
       tab: 'ecommerce',
       reason: 'INSUFFICIENT_CREDITS',
-      pendingAction: { source, message },
+      pendingAction,
     });
     return 'credits';
   }

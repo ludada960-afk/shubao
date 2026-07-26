@@ -6,6 +6,7 @@ import { IMAGES } from '../../constants/images';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
 import { sendOTP, verifyOTP, isClosedBetaEmail } from '../../services/auth';
+import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
 
 /* ═══════ Login Modal ═══════ */
 export function LoginModal() {
@@ -129,7 +130,7 @@ export function LoginModal() {
 
 /* ═══════ Pricing Modal (灵图风格) ═══════ */
 export function PricingModal() {
-  const { state, dispatch, fetchCredits } = useApp();
+  const { state, dispatch, refreshBillingBalance } = useApp();
   const [tab, setTab] = useState(state.priceTab || 'content');
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
@@ -140,8 +141,26 @@ export function PricingModal() {
   }, [state.showPrice, state.priceTab]);
 
   if (!state.showPrice) return null;
-  const close = () => dispatch({ type: 'CLEAR_PAYWALL' });
+  const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
   const interrupted = state.priceReason === 'INSUFFICIENT_CREDITS';
+  if (interrupted) {
+    const pendingAction = state.pendingPaidAction;
+    const currency = pendingAction?.action?.currency || 'ec_points';
+    return <InsufficientBalanceModal
+      pendingAction={pendingAction}
+      required={pendingAction?.billing?.required}
+      available={pendingAction?.billing?.available}
+      currency={currency}
+      entitlement={{ ecPoints: state.ecPoints, contentSets: state.contentSets, unlimited: state.unlimited }}
+      catalog={state.billingCatalog}
+      onClose={close}
+      onRefreshBalance={refreshBillingBalance}
+      onResume={(action) => {
+        dispatch({ type: 'RESUME_PENDING_PAID_ACTION', pendingAction: action });
+        close();
+      }}
+    />;
+  }
   const plans = tab === 'content' ? PRICING_XHS : PRICING_EC;
 
   const buy = (p) => {
@@ -149,33 +168,11 @@ export function PricingModal() {
     setPayModal(p);
   };
 
-  const createOrder = async (type) => {
-    if (!payModal) return;
-    setPayLoading(true);
-    try {
-      const r = await fetch('/api/create-payment', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: (tab === 'content' ? '📝小红书图文-' : '🛍️电商图-') + payModal.name,
-          type, email: state.phone,
-          sets: payModal.sets, amount: payModal.price,
-        }),
-      });
-      const d = await r.json();
-      if (d.code === 1 && d.url) {
-        const paymentWindow = window.open(d.url, '_blank', 'noopener,noreferrer');
-        if (!paymentWindow) window.location.href = d.url;
-        else setPaymentStatus('支付页面已在新窗口打开。完成支付后回到这里确认，当前创作内容不会丢失。');
-      } else alert(d.error || '下单失败');
-    } catch(e) { alert(e.message); }
-    setPayLoading(false);
-  };
-
   const confirmPayment = async () => {
     setPayLoading(true);
-    const entitlement = await fetchCredits(state.phone);
+    const entitlement = await refreshBillingBalance().catch(() => undefined);
     setPayLoading(false);
-    if (entitlement?.unlimited || (entitlement?.credits || 0) > 0) {
+    if (entitlement?.unlimited || (entitlement?.[tab === 'content' ? 'contentSets' : 'ecPoints'] || 0) > 0) {
       setPayModal(null);
       setPaymentStatus('');
       dispatch({ type: 'CLEAR_PAYWALL' });
@@ -400,33 +397,14 @@ export function PricingModal() {
               选择支付方式
             </div>
 
-            <button onClick={() => createOrder('alipay')} disabled={payLoading}
-              style={{
-                width: '100%', padding: '14px 0', borderRadius: 12,
-                border: '1px solid #1677FF', background: '#E6F4FF',
-                color: '#1677FF', fontSize: 15, fontWeight: 700,
-                cursor: payLoading ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit', marginBottom: 10,
-                transition: 'all 0.12s',
-              }}>
-              {payLoading ? '跳转支付中...' : '💰 支付宝支付'}
-            </button>
-            <button onClick={() => createOrder('wxpay')} disabled={payLoading}
-              style={{
-                width: '100%', padding: '14px 0', borderRadius: 12,
-                border: '1px solid #07C160', background: '#F0FFF5',
-                color: '#07C160', fontSize: 15, fontWeight: 700,
-                cursor: payLoading ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit',
-              }}>
-              💚 微信支付
-            </button>
+            <div role="status" style={{ padding: 12, borderRadius: 12, background: '#FFF7D6', color: '#7A5600', fontSize: 13 }}>
+              支付通道暂未开放，暂不提供支付宝或微信支付。
+            </div>
 
             <div style={{
               fontSize: 11, color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
             }}>
-              支付页面会在新窗口打开，当前页面和草稿保持不变<br />
-              🔒 由 Stripe 安全支付，支持支付宝/微信
+              当前页面和草稿保持不变；支付通道开放后会在这里显示。
             </div>
 
             {paymentStatus && <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10 }}>{paymentStatus}</div>}
