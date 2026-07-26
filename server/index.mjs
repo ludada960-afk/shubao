@@ -38,7 +38,7 @@ import {
 } from './billing/contentBilling.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { buildReferenceContactSheet } from './referenceContactSheet.mjs';
-import { createGeneratedAssetStore } from './generatedAssets.mjs';
+import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets.mjs';
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import {
@@ -49,6 +49,7 @@ import {
   compileCampaignBible,
   createEcommerceOrchestrator,
   createEcommerceRouteHandlers,
+  createEcommerceStartupRecovery,
   createProviderAdapter,
   evaluateAsset,
   mergeProductFacts,
@@ -2945,9 +2946,10 @@ async function prepareEcommerceProviderRequest(request) {
 }
 
 const ecommerceQualityCache = new Map();
-async function analyzeEcommerceOutputQuality({ buffer, productTruth }) {
+async function analyzeStableEcommerceAsset({ buffer, contentType, productTruth }) {
   const key = crypto.createHash('sha256')
     .update(buffer)
+    .update(String(contentType || ''))
     .update(String(productTruth?.fingerprint || ''))
     .digest('hex');
   if (!ecommerceQualityCache.has(key)) {
@@ -2958,7 +2960,7 @@ async function analyzeEcommerceOutputQuality({ buffer, productTruth }) {
   "visualQuality":{"passed":true,"confidence":0.0,"issueCodes":[]}
 }
 根据 Product Truth 检查商品主体是否漂移、结构/颜色/包装/Logo 是否被篡改，检查是否存在乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。没有足够证据时降低 confidence，不要臆造问题。`;
-    const image = imageBufferToDataUrl({ buffer, contentType: 'image/png' });
+    const image = stableAssetDataUrl({ buffer, contentType: contentType || 'image/png' });
     const userPrompt = `Product Truth：${JSON.stringify(productTruth || {})}`;
     const promise = (MINI_KEY && MINI_BASE
       ? callMiniLLM(systemPrompt, [image], userPrompt)
@@ -2979,7 +2981,15 @@ async function analyzeEcommerceOutputQuality({ buffer, productTruth }) {
 
 function qualityAdapter(section, fallbackCode) {
   return async payload => {
-    const report = await analyzeEcommerceOutputQuality(payload);
+    const contentType = {
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+    }[String(payload?.metadata?.format || '').toLowerCase()];
+    const report = await analyzeStableEcommerceAsset({
+      ...payload,
+      contentType: contentType || 'image/png',
+    });
     const value = report?.[section];
     if (!value || typeof value.passed !== 'boolean') {
       throw new Error(`质检结果缺少 ${section}`);
@@ -3076,6 +3086,16 @@ const ecommerceBilling = {
       },
     });
   },
+  async releaseRemainder({ holdId, job, reason }) {
+    return walletService.releaseRemainder(holdId, {
+      reason,
+      idempotencyKey: `ec-release-remainder:${job.id}:setup`,
+      metadata: {
+        taskId: job.id,
+        source: 'ecommerce_parent_setup',
+      },
+    });
+  },
 };
 
 const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderAdapter({
@@ -3089,12 +3109,14 @@ const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderAdapter({
     const error = new Error('图片生成服务暂未配置');
     error.status = 503;
     error.code = 'IMAGE_PROVIDER_UNAVAILABLE';
+    error.retryable = true;
     throw error;
   },
   async pollUntilReady() {
     const error = new Error('图片生成服务暂未配置');
     error.status = 503;
     error.code = 'IMAGE_PROVIDER_UNAVAILABLE';
+    error.retryable = true;
     throw error;
   },
 };
@@ -3858,13 +3880,23 @@ const closeServer = (server) => new Promise(resolve => {
   server.close(() => resolve());
 });
 
-orchestrator.resumeJobs().then(results => {
-  const resumed = results.filter(result => result.status === 'fulfilled').length;
-  const failed = results.length - resumed;
-  if (results.length) console.log(`[ecommerce] 启动恢复完成: ${resumed} 个任务恢复, ${failed} 个失败`);
-}).catch(error => {
-  console.error('[ecommerce] 启动恢复失败:', error.message);
+const recoverEcommerceStartup = createEcommerceStartupRecovery({
+  orchestrator,
+  maxAttempts: 3,
+  retryDelayMs: 250,
+  onAttemptError(error, attempt) {
+    console.error(`[ecommerce] 启动恢复扫描失败 (${attempt}/3):`, error.message);
+  },
 });
+const startupRecoveryResults = await recoverEcommerceStartup();
+const resumed = startupRecoveryResults.filter(result => result.status === 'fulfilled').length;
+const failedRecoveries = startupRecoveryResults.filter(result => result.status === 'rejected');
+if (startupRecoveryResults.length) {
+  console.log(`[ecommerce] 启动恢复完成: ${resumed} 个任务恢复, ${failedRecoveries.length} 个等待后续恢复`);
+}
+for (const result of failedRecoveries) {
+  console.error('[ecommerce] 任务启动恢复暂未完成:', result.reason?.message || result.reason);
+}
 
 httpServer = app.listen(PORT, () => {
   console.log(`\n🧩 薯包AI 后端服务运行中`);

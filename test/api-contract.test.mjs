@@ -14,6 +14,15 @@ test('frontend generation entrypoints only target implemented generation routes'
   assert.doesNotMatch(server, /quality:\s*['"]high['"]/);
 });
 
+test('stable ecommerce quality analysis uses the detected JPEG, PNG, or WebP MIME', async () => {
+  const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  assert.match(server, /async function analyzeStableEcommerceAsset\(/);
+  assert.match(server, /stableAssetDataUrl\(\{\s*buffer,\s*contentType:/);
+  const start = server.indexOf('async function analyzeStableEcommerceAsset(');
+  const end = server.indexOf('\nfunction qualityAdapter', start);
+  assert.doesNotMatch(server.slice(start, end), /contentType:\s*['"]image\/png['"]/);
+});
+
 test('generation rejects a stream that never reaches complete', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;

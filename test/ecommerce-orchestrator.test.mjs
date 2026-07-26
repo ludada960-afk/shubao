@@ -31,14 +31,20 @@ function planItem(id, role = 'main') {
 
 async function createHarness(t, {
   items = [planItem('main-one')],
+  analyze,
+  campaign,
+  buildPlan,
   quality,
   poll,
   hold,
   settle,
+  release,
+  releaseRemainder,
   orchestratorOptions = {},
+  jobsOptions = {},
 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'shubao-orchestrator-'));
-  const jobs = createGenerationJobs(join(directory, 'jobs.db'));
+  const jobs = createGenerationJobs(join(directory, 'jobs.db'), jobsOptions);
   t.after(async () => {
     jobs.close();
     await rm(directory, { recursive: true, force: true });
@@ -59,6 +65,7 @@ async function createHarness(t, {
     hold: [],
     settle: [],
     release: [],
+    releaseRemainder: [],
     sequence: [],
     scheduled: 0,
   };
@@ -74,6 +81,7 @@ async function createHarness(t, {
       calls.analyze += 1;
       calls.analyzePayloads.push(payload);
       calls.sequence.push('analyze');
+      if (analyze) return analyze({ payload, calls });
       return {
         productName: payload.product_name,
         category: payload.category,
@@ -86,6 +94,7 @@ async function createHarness(t, {
     compileCampaignBible: (direction, overrides) => {
       calls.campaign += 1;
       calls.sequence.push('campaign');
+      if (campaign) return campaign({ direction, overrides, calls });
       return {
         directionId: direction.id,
         title: direction.title,
@@ -93,9 +102,10 @@ async function createHarness(t, {
         confirmed: true,
       };
     },
-    buildAssetPlan: () => {
+    buildAssetPlan: input => {
       calls.plan += 1;
       calls.sequence.push('plan');
+      if (buildPlan) return buildPlan({ input, calls });
       return items;
     },
     compileAssetRequest: ({ assetPlanItem, assets }) => {
@@ -183,7 +193,14 @@ async function createHarness(t, {
       async release({ holdId, item, reason }) {
         calls.release.push({ holdId, itemId: item.id, reason });
         calls.sequence.push(`release:${item.id}`);
+        if (release) return release({ holdId, item, reason, calls });
         return { status: 'released', itemKey: item.id };
+      },
+      async releaseRemainder({ holdId, job, reason }) {
+        calls.releaseRemainder.push({ holdId, jobId: job.id, reason });
+        calls.sequence.push(`release-remainder:${job.id}`);
+        if (releaseRemainder) return releaseRemainder({ holdId, job, reason, calls });
+        return { status: 'released', holdId };
       },
     },
   };
@@ -341,6 +358,70 @@ test('settles only successful assets in a partial batch and releases the failed 
   assert.deepEqual(Object.keys(completed.output.images), ['main-pass']);
 });
 
+test('validates the complete asset plan before creating a billing hold', async t => {
+  const invalid = planItem('invalid id with spaces');
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('valid-first'), invalid],
+  });
+  const created = orchestrator.createJob(jobInput('job-invalid-plan'));
+
+  const failed = await orchestrator.runJob(created.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+});
+
+test('releases every planned hold item before terminalizing a parent setup failure', async t => {
+  const items = [planItem('main-one'), planItem('detail-two', 'detail')];
+  const { orchestrator, jobs, calls } = await createHarness(t, { items });
+  const createAsset = jobs.assets.createAsset;
+  let setupWrites = 0;
+  jobs.assets.createAsset = input => {
+    if (setupWrites++ === 0) throw new Error('asset row setup failed');
+    return createAsset(input);
+  };
+  const created = orchestrator.createJob(jobInput('job-setup-release'));
+
+  const failed = await orchestrator.runJob(created.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.releaseRemainder.length, 1);
+  assert.equal(calls.release.length, 0);
+  assert.equal(calls.submit.length, 0);
+});
+
+test('keeps parent hold compensation recoverable until every setup release succeeds', async t => {
+  let releaseAttempts = 0;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    releaseRemainder: ({ holdId }) => {
+      releaseAttempts += 1;
+      if (releaseAttempts <= 2) throw new Error('temporary parent release lock');
+      return { status: 'released', holdId };
+    },
+  });
+  jobs.assets.createAsset = () => {
+    throw new Error('asset row setup failed');
+  };
+  const created = orchestrator.createJob(jobInput('job-setup-release-retry'));
+
+  await assert.rejects(orchestrator.runJob(created.id), /temporary parent release lock/);
+  assert.equal(jobs.get(created.id).status, 'analyzing');
+  assert.ok(jobs.get(created.id).progress.setupRelease);
+
+  await assert.rejects(orchestrator.runJob(created.id), /temporary parent release lock/);
+  assert.equal(releaseAttempts, 2);
+  assert.equal(jobs.get(created.id).status, 'analyzing');
+
+  const failed = await orchestrator.runJob(created.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.equal(releaseAttempts, 3);
+  assert.equal(calls.releaseRemainder.length, 3);
+  assert.equal(calls.release.length, 0);
+});
+
 test('resumes a persisted provider job without duplicate submission', async t => {
   const { orchestrator, jobs, calls } = await createHarness(t);
   jobs.create(jobInput('job-resume'));
@@ -367,6 +448,163 @@ test('resumes a persisted provider job without duplicate submission', async t =>
   assert.equal(calls.submit.length, 0);
   assert.deepEqual(calls.poll, ['provider-existing']);
   assert.equal(calls.settle.length, 1);
+});
+
+test('persists a sanitized orchestration snapshot before hold and reuses its original plan on resume', async t => {
+  let pollAttempts = 0;
+  const firstPlan = planItem('main-original');
+  firstPlan.privatePath = 'C:\\secret\\asset.png';
+  const changedPlan = planItem('main-changed');
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    analyze: ({ payload }) => ({
+      productName: payload.product_name,
+      category: payload.category,
+      fingerprint: 'truth-first',
+      confirmedFacts: {},
+      forbiddenMutations: [],
+      authorization: 'Bearer must-not-persist',
+    }),
+    campaign: () => ({
+      directionId: 'direction-one',
+      title: '专业棚拍',
+      editableBrief: 'first campaign',
+      dataUrl: 'data:image/png;base64,secret',
+    }),
+    buildPlan: ({ calls: currentCalls }) => currentCalls.plan === 1 ? [firstPlan] : [changedPlan],
+    poll: async ({ providerJobId }) => {
+      pollAttempts += 1;
+      if (pollAttempts === 1) {
+        throw Object.assign(new Error('temporary provider timeout'), { retryable: true });
+      }
+      return {
+        jobId: providerJobId,
+        status: 'completed',
+        outputUrl: `https://provider.example/${providerJobId}.png`,
+      };
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-snapshot-resume'));
+
+  await assert.rejects(orchestrator.runJob(created.id), /temporary provider timeout/);
+  const afterFirstRun = jobs.get(created.id);
+  assert.deepEqual(afterFirstRun.progress.orchestrationSnapshot, {
+    productTruth: {
+      productName: '测试商品',
+      category: '数码3C',
+      fingerprint: 'truth-first',
+      confirmedFacts: {},
+      forbiddenMutations: [],
+    },
+    campaignBible: {
+      directionId: 'direction-one',
+      title: '专业棚拍',
+      editableBrief: 'first campaign',
+    },
+    assetPlan: [{
+      id: 'main-original',
+      role: 'main',
+      purpose: 'main purpose',
+      generationSize: '2048x2048',
+      ratio: '1:1',
+      generationMode: 'edit',
+      productAssetIds: ['product-front'],
+      styleReferenceIds: [],
+      requiredFacts: [],
+      riskLevel: 'low',
+      qualityChecks: ['technical_dimensions'],
+      exportTargets: [],
+    }],
+    deterministicInputs: {
+      assets: {
+        product: [{ assetId: 'product-front', url: '/api/ecommerce/assets/front' }],
+        reference: [],
+        proof: [],
+        protection: [],
+      },
+      platform: '淘宝',
+      sizing: {},
+      skus: [],
+    },
+    holdId: 'hold-job-snapshot-resume',
+  });
+  assert.equal(afterFirstRun.progress.holdId, 'hold-job-snapshot-resume');
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.analyze, 1);
+  assert.equal(calls.campaign, 1);
+  assert.equal(calls.plan, 1);
+  assert.equal(calls.hold.length, 1);
+  assert.deepEqual(jobs.assets.listAssets(created.id).map(asset => asset.assetId), ['main-original']);
+});
+
+test('resumeJobs preserves and renews the fenced parent lease returned by claimNext', async t => {
+  const { orchestrator, jobs } = await createHarness(t, {
+    orchestratorOptions: {
+      parentLeaseMs: 80,
+      parentLeaseHeartbeatMs: 20,
+    },
+    poll: async ({ providerJobId }) => {
+      await new Promise(resolve => setTimeout(resolve, 220));
+      return {
+        jobId: providerJobId,
+        status: 'completed',
+        outputUrl: `https://provider.example/${providerJobId}.png`,
+      };
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-parent-resume-lease'));
+  const originalClaimNext = jobs.claimNext;
+  const originalRenewLease = jobs.renewLease;
+  let claimedToken = '';
+  let renewals = 0;
+  jobs.claimNext = (...args) => {
+    const claimed = originalClaimNext(...args);
+    if (claimed) claimedToken = claimed.leaseToken;
+    return claimed;
+  };
+  jobs.renewLease = (...args) => {
+    renewals += 1;
+    return originalRenewLease(...args);
+  };
+
+  const results = await orchestrator.resumeJobs();
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].status, 'fulfilled');
+  assert.ok(claimedToken);
+  assert.ok(renewals >= 3);
+  assert.equal(jobs.get(created.id).status, 'completed');
+  assert.equal(jobs.get(created.id).leaseToken, null);
+});
+
+test('a stale parent lease owner cannot transition after another worker acquires the job', () => {
+  let nowMs = Date.parse('2026-07-26T00:00:00.000Z');
+  let tokenIndex = 0;
+  const jobs = createGenerationJobs(':memory:', {
+    now: () => nowMs,
+    randomUUID: () => `parent-token-${++tokenIndex}`,
+    defaultLeaseMs: 50,
+  });
+  try {
+    jobs.create(jobInput('job-parent-stale'));
+    const first = jobs.claimNext();
+    nowMs += 60;
+    const second = jobs.claim('job-parent-stale');
+
+    assert.notEqual(first.leaseToken, second.leaseToken);
+    assert.throws(
+      () => jobs.transition('job-parent-stale', 'generating', { leaseToken: first.leaseToken }),
+      /lease/i,
+    );
+    assert.equal(
+      jobs.transition('job-parent-stale', 'generating', { leaseToken: second.leaseToken }).status,
+      'generating',
+    );
+  } finally {
+    jobs.close();
+  }
 });
 
 test('a concurrent runner leaves actively leased assets generating instead of failing the parent', async t => {
@@ -407,7 +645,7 @@ test('a transient settlement failure preserves quality-checked work for idempote
   const created = orchestrator.createJob(jobInput('job-settlement-resume'));
 
   await assert.rejects(orchestrator.runJob(created.id), /temporary ledger lock/);
-  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'quality_check');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'settling');
   assert.equal(calls.submit.length, 1);
   assert.equal(calls.release.length, 0);
 
@@ -415,6 +653,92 @@ test('a transient settlement failure preserves quality-checked work for idempote
   assert.equal(completed.status, 'completed');
   assert.equal(calls.submit.length, 1);
   assert.equal(calls.settle.length, 2);
+});
+
+test('replays a confirmed settlement after the local completion transition fails without releasing the item', async t => {
+  const { orchestrator, jobs, calls } = await createHarness(t);
+  const transitionAsset = jobs.assets.transitionAsset;
+  let completionWrites = 0;
+  jobs.assets.transitionAsset = (...args) => {
+    if (args[2] === 'completed' && completionWrites++ === 0) {
+      throw new Error('local completion write failed');
+    }
+    return transitionAsset(...args);
+  };
+  const created = orchestrator.createJob(jobInput('job-settled-local-failure'));
+
+  await assert.rejects(orchestrator.runJob(created.id), /local completion write failed/);
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'settling');
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'completed');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.settle.length, 2);
+  assert.equal(calls.release.length, 0);
+});
+
+test('keeps a quality release recoverable and retries the same item on resume', async t => {
+  let releaseAttempts = 0;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    quality: () => ({
+      passed: false,
+      checks: { visualQuality: { status: 'fail', issueCodes: ['local_artifact'] } },
+      repairAction: {
+        type: 'image_edit',
+        focusIssueCodes: ['local_artifact'],
+        userCharge: false,
+      },
+      confidence: 'low',
+    }),
+    release: ({ item }) => {
+      releaseAttempts += 1;
+      if (releaseAttempts === 1) throw new Error('temporary release lock');
+      return { status: 'released', itemKey: item.id };
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-quality-release-resume'));
+
+  await assert.rejects(orchestrator.runJob(created.id), /temporary release lock/);
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'releasing');
+  assert.equal(calls.settle.length, 0);
+
+  const resumed = await orchestrator.runJob(created.id);
+
+  assert.equal(resumed.status, 'needs_review');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'needs_review');
+  assert.equal(calls.submit.length, 3);
+  assert.deepEqual(calls.release.map(call => call.itemId), ['main-one', 'main-one']);
+});
+
+test('does not swallow a failed release or terminalize a provider failure until release succeeds', async t => {
+  let releaseAttempts = 0;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    poll: ({ providerJobId }) => ({
+      jobId: providerJobId,
+      status: 'failed',
+      error: 'provider rejected image',
+    }),
+    release: ({ item }) => {
+      releaseAttempts += 1;
+      if (releaseAttempts === 1) throw new Error('temporary release lock');
+      return { status: 'released', itemKey: item.id };
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-provider-release-resume'));
+
+  await assert.rejects(orchestrator.runJob(created.id), /temporary release lock/);
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'releasing');
+
+  const resumed = await orchestrator.runJob(created.id);
+
+  assert.equal(resumed.status, 'failed');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'failed');
+  assert.equal(calls.submit.length, 1);
+  assert.deepEqual(calls.release.map(call => call.itemId), ['main-one', 'main-one']);
 });
 
 test('persists a non-retryable billing failure so polling does not leave the job analyzing forever', async t => {

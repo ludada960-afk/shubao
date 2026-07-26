@@ -7,6 +7,8 @@ export const ASSET_STATES = Object.freeze([
   'downloading',
   'quality_check',
   'repairing',
+  'settling',
+  'releasing',
   'completed',
   'needs_review',
   'failed',
@@ -17,12 +19,17 @@ const STATE_SET = new Set(ASSET_STATES);
 const FINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
 const LEASE_RELEASE_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const TRANSITIONS = Object.freeze({
-  queued: new Set(['submitted', 'failed', 'cancelled']),
-  submitted: new Set(['polling', 'downloading', 'failed', 'cancelled']),
-  polling: new Set(['downloading', 'failed', 'cancelled']),
-  downloading: new Set(['quality_check', 'failed', 'cancelled']),
-  quality_check: new Set(['repairing', 'completed', 'needs_review', 'failed', 'cancelled']),
-  repairing: new Set(['submitted', 'polling', 'downloading', 'quality_check', 'needs_review', 'failed', 'cancelled']),
+  queued: new Set(['submitted', 'releasing', 'failed', 'cancelled']),
+  submitted: new Set(['polling', 'downloading', 'releasing', 'failed', 'cancelled']),
+  polling: new Set(['downloading', 'releasing', 'failed', 'cancelled']),
+  downloading: new Set(['quality_check', 'releasing', 'failed', 'cancelled']),
+  quality_check: new Set(['repairing', 'settling', 'releasing', 'completed', 'needs_review', 'failed', 'cancelled']),
+  repairing: new Set([
+    'submitted', 'polling', 'downloading', 'quality_check',
+    'releasing', 'needs_review', 'failed', 'cancelled',
+  ]),
+  settling: new Set(['completed']),
+  releasing: new Set(['needs_review', 'failed', 'cancelled']),
   completed: new Set(),
   needs_review: new Set(['repairing', 'cancelled']),
   failed: new Set(),
@@ -198,7 +205,10 @@ export function createEcommerceJobStore(db, {
     list: db.prepare('SELECT * FROM ecommerce_job_assets WHERE job_id = ? ORDER BY asset_id'),
     recoverable: db.prepare(`
       SELECT * FROM ecommerce_job_assets
-      WHERE state IN ('submitted', 'polling', 'downloading', 'quality_check', 'repairing')
+      WHERE state IN (
+        'submitted', 'polling', 'downloading', 'quality_check',
+        'repairing', 'settling', 'releasing'
+      )
       ORDER BY updated_at, job_id, asset_id
     `),
     claim: db.prepare(`

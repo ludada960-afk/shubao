@@ -169,10 +169,38 @@ function normalizedProviderResult(result, providerJobId) {
   return { outputUrl };
 }
 
+function validateAssetPlan(assetPlan) {
+  if (!Array.isArray(assetPlan) || assetPlan.length === 0) {
+    throw new Error('asset plan is empty');
+  }
+  const ids = new Set();
+  for (const item of assetPlan) {
+    const id = validateId(own(item, 'id'), 'asset plan item id');
+    if (ids.has(id)) throw new Error(`duplicate asset plan item id: ${id}`);
+    ids.add(id);
+  }
+  return assetPlan;
+}
+
+function orchestrationSnapshotFromProgress(progress) {
+  const snapshot = own(progress, 'orchestrationSnapshot');
+  if (!isRecord(snapshot)
+    || !isRecord(own(snapshot, 'productTruth'))
+    || !isRecord(own(snapshot, 'campaignBible'))
+    || !Array.isArray(own(snapshot, 'assetPlan'))
+    || !isRecord(own(snapshot, 'deterministicInputs'))) {
+    return null;
+  }
+  validateAssetPlan(snapshot.assetPlan);
+  return snapshot;
+}
+
 export function createEcommerceOrchestrator(deps = {}) {
   const jobs = own(deps, 'jobs');
   if (!jobs || typeof jobs.create !== 'function' || typeof jobs.get !== 'function'
-    || typeof jobs.transition !== 'function' || !jobs.assets) {
+    || typeof jobs.transition !== 'function' || typeof jobs.checkpoint !== 'function'
+    || typeof jobs.claim !== 'function' || typeof jobs.renewLease !== 'function'
+    || typeof jobs.releaseLease !== 'function' || !jobs.assets) {
     throw new TypeError('durable generation jobs with an asset store are required');
   }
   const store = jobs.assets;
@@ -196,8 +224,9 @@ export function createEcommerceOrchestrator(deps = {}) {
   const billing = own(deps, 'billing');
   if (!billing || typeof billing.hold !== 'function'
     || typeof billing.settle !== 'function'
-    || typeof billing.release !== 'function') {
-    throw new TypeError('billing hold, settle, and release are required');
+    || typeof billing.release !== 'function'
+    || typeof billing.releaseRemainder !== 'function') {
+    throw new TypeError('billing hold, settle, release, and releaseRemainder are required');
   }
   const prepareProviderRequest = typeof own(deps, 'prepareProviderRequest') === 'function'
     ? own(deps, 'prepareProviderRequest')
@@ -218,6 +247,14 @@ export function createEcommerceOrchestrator(deps = {}) {
     && own(deps, 'leaseHeartbeatMs') < assetLeaseMs
     ? own(deps, 'leaseHeartbeatMs')
     : Math.max(10, Math.floor(assetLeaseMs / 3));
+  const parentLeaseMs = Number.isSafeInteger(own(deps, 'parentLeaseMs')) && own(deps, 'parentLeaseMs') > 0
+    ? own(deps, 'parentLeaseMs')
+    : 30_000;
+  const parentLeaseHeartbeatMs = Number.isSafeInteger(own(deps, 'parentLeaseHeartbeatMs'))
+    && own(deps, 'parentLeaseHeartbeatMs') > 0
+    && own(deps, 'parentLeaseHeartbeatMs') < parentLeaseMs
+    ? own(deps, 'parentLeaseHeartbeatMs')
+    : Math.max(10, Math.floor(parentLeaseMs / 3));
 
   function getJob(idInput, { ownerEmail } = {}) {
     const id = validateId(idInput, 'job id');
@@ -282,6 +319,10 @@ export function createEcommerceOrchestrator(deps = {}) {
 
   async function releaseItem({ holdId, job, item, reason, quality = null }) {
     return billing.release({ holdId, job, item, reason, quality });
+  }
+
+  async function releaseHoldRemainder({ holdId, job, reason }) {
+    return billing.releaseRemainder({ holdId, job, reason });
   }
 
   async function runAsset({ job, item, productTruth, campaignBible, holdId }) {
@@ -395,34 +436,31 @@ export function createEcommerceOrchestrator(deps = {}) {
             stableUrl: current.stableUrl,
           }, qualityAdapters);
           if (quality.passed) {
-            try {
-              await settleItem({ holdId, job, item, stableAsset: stable.asset, quality });
-            } catch (error) {
-              if (error && typeof error === 'object') error.retryable = true;
-              throw error;
-            }
-            current = store.transitionAsset(job.id, item.id, 'completed', { leaseToken });
+            current = store.transitionAsset(job.id, item.id, 'settling', {
+              requestSnapshot: {
+                ...current.requestSnapshot,
+                quality,
+                settlement: {
+                  stableAsset: stable.asset,
+                },
+              },
+              leaseToken,
+            });
             continue;
           }
           const repairAction = planRepair(quality);
           if (!canRetry(current.attemptCount)) {
-            try {
-              await releaseItem({
-                holdId,
-                job,
-                item,
-                reason: `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`,
-                quality,
-              });
-            } catch (error) {
-              if (error && typeof error === 'object') error.retryable = true;
-              throw error;
-            }
-            current = store.transitionAsset(job.id, item.id, 'needs_review', {
+            const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
+            current = store.transitionAsset(job.id, item.id, 'releasing', {
               requestSnapshot: {
                 ...current.requestSnapshot,
                 quality,
                 repairAction,
+                release: {
+                  targetState: 'needs_review',
+                  reason,
+                  error: `quality gate failed: ${repairAction.type}`,
+                },
               },
               error: `quality gate failed: ${repairAction.type}`,
               leaseToken,
@@ -438,6 +476,47 @@ export function createEcommerceOrchestrator(deps = {}) {
             error: `quality repair required: ${repairAction.type}`,
             leaseToken,
           });
+          continue;
+        }
+
+        if (current.state === 'releasing') {
+          const release = own(current.requestSnapshot, 'release');
+          const targetState = cleanString(own(release, 'targetState'));
+          if (!['failed', 'needs_review', 'cancelled'].includes(targetState)) {
+            throw new Error('release target state is invalid');
+          }
+          const reason = cleanString(own(release, 'reason')) || `asset_release:${targetState}`;
+          const quality = own(current.requestSnapshot, 'quality') ?? null;
+          try {
+            await releaseItem({ holdId, job, item, reason, quality });
+            current = store.transitionAsset(job.id, item.id, targetState, {
+              error: cleanString(own(release, 'error')) || current.error,
+              leaseToken,
+            });
+          } catch (error) {
+            if (error && typeof error === 'object') error.retryable = true;
+            throw error;
+          }
+          continue;
+        }
+
+        if (current.state === 'settling') {
+          const quality = own(current.requestSnapshot, 'quality') ?? {};
+          const storedAsset = own(own(current.requestSnapshot, 'settlement'), 'stableAsset');
+          const stableAsset = isRecord(storedAsset)
+            ? storedAsset
+            : {
+              id: stableAssetId(current.stableUrl),
+              url: current.stableUrl,
+              contentType: (await stableBytes(current.stableUrl)).contentType,
+            };
+          try {
+            await settleItem({ holdId, job, item, stableAsset, quality });
+            current = store.transitionAsset(job.id, item.id, 'completed', { leaseToken });
+          } catch (error) {
+            if (error && typeof error === 'object') error.retryable = true;
+            throw error;
+          }
           continue;
         }
 
@@ -512,21 +591,43 @@ export function createEcommerceOrchestrator(deps = {}) {
         try { store.releaseLease(job.id, item.id, leaseToken); } catch {}
         throw error;
       }
+      if (current?.state === 'settling') {
+        if (error && typeof error === 'object') error.retryable = true;
+        try { store.releaseLease(job.id, item.id, leaseToken); } catch {}
+        throw error;
+      }
       if (current && !ASSET_FINAL_STATES.has(current.state)) {
+        if (current.state !== 'releasing') {
+          current = store.transitionAsset(job.id, item.id, 'releasing', {
+            requestSnapshot: {
+              ...current.requestSnapshot,
+              release: {
+                targetState: 'failed',
+                reason: `generation_failed:${errorMessage(error)}`,
+                error: errorMessage(error),
+              },
+            },
+            error: errorMessage(error),
+            leaseToken,
+          });
+        }
+        const release = own(current.requestSnapshot, 'release');
         try {
           await releaseItem({
             holdId,
             job,
             item,
-            reason: `generation_failed:${errorMessage(error)}`,
+            reason: cleanString(own(release, 'reason')) || `generation_failed:${errorMessage(error)}`,
           });
-        } catch {}
-        try {
           current = store.transitionAsset(job.id, item.id, 'failed', {
-            error: errorMessage(error),
+            error: cleanString(own(release, 'error')) || errorMessage(error),
             leaseToken,
           });
-        } catch {}
+        } catch (releaseError) {
+          if (releaseError && typeof releaseError === 'object') releaseError.retryable = true;
+          try { store.releaseLease(job.id, item.id, leaseToken); } catch {}
+          throw releaseError;
+        }
       }
       return current ?? store.getAsset(job.id, item.id);
     } finally {
@@ -534,34 +635,132 @@ export function createEcommerceOrchestrator(deps = {}) {
     }
   }
 
-  async function runJob(idInput) {
+  async function runJob(idInput, { leaseToken: suppliedLeaseToken = '' } = {}) {
     const id = validateId(idInput, 'job id');
     let job = jobs.get(id);
     if (!job) throw httpError('任务不存在', 404, 'ECOMMERCE_JOB_NOT_FOUND');
     if (PARENT_FINAL_STATES.has(job.status)) return getJob(id, { ownerEmail: job.ownerEmail });
-    if (job.status === 'queued') job = jobs.transition(id, 'analyzing');
+    let parentLeaseToken = cleanString(suppliedLeaseToken);
+    if (parentLeaseToken) {
+      if (job.leaseToken !== parentLeaseToken) {
+        throw Object.assign(new Error('parent lease is no longer owned by this worker'), {
+          code: 'PARENT_LEASE_LOST',
+          retryable: true,
+        });
+      }
+    } else {
+      const claimed = jobs.claim(id, { leaseMs: parentLeaseMs });
+      if (!claimed) return getJob(id, { ownerEmail: job.ownerEmail });
+      job = claimed;
+      parentLeaseToken = claimed.leaseToken;
+    }
+
+    let parentHeartbeatError = null;
+    const parentHeartbeat = setInterval(() => {
+      try {
+        jobs.renewLease(id, parentLeaseToken, { leaseMs: parentLeaseMs });
+      } catch (error) {
+        parentHeartbeatError = error instanceof Error ? error : new Error('parent lease heartbeat failed');
+        clearInterval(parentHeartbeat);
+      }
+    }, parentLeaseHeartbeatMs);
+    parentHeartbeat.unref?.();
+    let parentFinalized = false;
+    let setupHoldId = '';
+    let setupAssetPlan = [];
+    let processingStarted = false;
 
     try {
-      const inputAssets = assetsFromPayload(job.payload);
-      const payload = { ...job.payload, assets: inputAssets };
-      const productTruth = await analyzeProductTruth(payload);
-      const direction = directionFromPayload(payload);
-      const campaignBible = compileCampaignBible(direction, campaignOverrides(payload, direction, inputAssets));
-      const assetPlan = buildAssetPlan({
-        productTruth,
-        campaignBible,
-        platform: own(payload, 'platform') || '淘宝',
-        sizing: own(payload, 'sizing') || {},
-        skus: own(payload, 'skus') || [],
-        uploadedProofs: inputAssets.proof,
-      });
-      if (!Array.isArray(assetPlan) || assetPlan.length === 0) {
-        throw new Error('asset plan is empty');
+      let snapshot = orchestrationSnapshotFromProgress(job.progress);
+      if (!snapshot) {
+        const inputAssets = assetsFromPayload(job.payload);
+        const payload = { ...job.payload, assets: inputAssets };
+        const productTruth = await analyzeProductTruth(payload);
+        const direction = directionFromPayload(payload);
+        const campaignBible = compileCampaignBible(direction, campaignOverrides(payload, direction, inputAssets));
+        const assetPlan = validateAssetPlan(buildAssetPlan({
+          productTruth,
+          campaignBible,
+          platform: own(payload, 'platform') || '淘宝',
+          sizing: own(payload, 'sizing') || {},
+          skus: own(payload, 'skus') || [],
+          uploadedProofs: inputAssets.proof,
+        }));
+        snapshot = sanitizeSnapshot({
+          productTruth,
+          campaignBible,
+          assetPlan,
+          deterministicInputs: {
+            assets: inputAssets,
+            platform: own(payload, 'platform') || '淘宝',
+            sizing: own(payload, 'sizing') || {},
+            skus: own(payload, 'skus') || [],
+          },
+        });
+        validateAssetPlan(snapshot.assetPlan);
+        job = jobs.checkpoint(id, {
+          progress: {
+            ...job.progress,
+            orchestrationSnapshot: snapshot,
+          },
+          leaseToken: parentLeaseToken,
+        });
       }
-      const hold = await billing.hold({ job, assetPlan, productTruth, campaignBible });
-      const holdId = validateId(own(hold, 'id'), 'billing hold id');
+
+      const productTruth = snapshot.productTruth;
+      const campaignBible = snapshot.campaignBible;
+      const assetPlan = validateAssetPlan(snapshot.assetPlan);
+      setupAssetPlan = assetPlan;
+      const deterministicInputs = snapshot.deterministicInputs;
+      const payload = {
+        ...job.payload,
+        assets: deterministicInputs.assets,
+      };
+      let holdId = cleanString(own(snapshot, 'holdId')) || cleanString(own(job.progress, 'holdId'));
+      if (!holdId) {
+        const hold = await billing.hold({ job, assetPlan, productTruth, campaignBible });
+        holdId = validateId(own(hold, 'id'), 'billing hold id');
+        snapshot = sanitizeSnapshot({ ...snapshot, holdId });
+        job = jobs.checkpoint(id, {
+          progress: {
+            ...job.progress,
+            orchestrationSnapshot: snapshot,
+            holdId,
+          },
+          leaseToken: parentLeaseToken,
+        });
+      } else {
+        holdId = validateId(holdId, 'billing hold id');
+        if (cleanString(own(snapshot, 'holdId')) !== holdId) {
+          snapshot = sanitizeSnapshot({ ...snapshot, holdId });
+          job = jobs.checkpoint(id, {
+            progress: {
+              ...job.progress,
+              orchestrationSnapshot: snapshot,
+              holdId,
+            },
+            leaseToken: parentLeaseToken,
+          });
+        }
+      }
+      setupHoldId = holdId;
+
+      const pendingSetupRelease = own(job.progress, 'setupRelease');
+      if (isRecord(pendingSetupRelease)) {
+        const reason = cleanString(own(pendingSetupRelease, 'reason')) || 'parent_setup_failed';
+        try {
+          await releaseHoldRemainder({ holdId, job, reason });
+        } catch (releaseError) {
+          if (releaseError && typeof releaseError === 'object') releaseError.retryable = true;
+          throw releaseError;
+        }
+        throw Object.assign(
+          new Error(cleanString(own(pendingSetupRelease, 'error')) || 'parent setup failed'),
+          { setupReleaseCompleted: true },
+        );
+      }
+
       for (const item of assetPlan) {
-        validateId(own(item, 'id'), 'asset plan item id');
         store.createAsset({
           jobId: id,
           assetId: item.id,
@@ -571,14 +770,19 @@ export function createEcommerceOrchestrator(deps = {}) {
       job = jobs.get(id);
       if (job.status === 'analyzing') {
         job = jobs.transition(id, 'generating', {
-          progress: { holdId, current: 0, total: assetPlan.length },
+          progress: { ...job.progress, holdId, current: 0, total: assetPlan.length },
+          leaseToken: parentLeaseToken,
         });
       }
+      processingStarted = true;
 
       for (const item of assetPlan) {
+        if (parentHeartbeatError) throw parentHeartbeatError;
+        const persistedAsset = store.getAsset(id, item.id);
+        const persistedItem = own(persistedAsset?.requestSnapshot, 'assetPlanItem');
         await runAsset({
           job: { ...job, payload },
-          item,
+          item: isRecord(persistedItem) ? persistedItem : item,
           productTruth,
           campaignBible,
           holdId,
@@ -602,14 +806,43 @@ export function createEcommerceOrchestrator(deps = {}) {
         jobs.transition(id, status, {
           output,
           error: status === 'failed' ? '未生成可交付图片' : '',
-          progress: { holdId, current: summary.completed, total: summary.total, ...summary },
+          progress: { ...job.progress, holdId, current: summary.completed, total: summary.total, ...summary },
+          leaseToken: parentLeaseToken,
         });
+        parentFinalized = true;
       }
       return getJob(id, { ownerEmail: job.ownerEmail });
     } catch (error) {
       if (error?.retryable === true) throw error;
       job = jobs.get(id);
       if (!job) throw error;
+      if (!processingStarted
+        && setupHoldId
+        && setupAssetPlan.length > 0
+        && error?.setupReleaseCompleted !== true
+        && error?.code !== 'PARENT_LEASE_LOST') {
+        const reason = `parent_setup_failed:${errorMessage(error)}`;
+        job = jobs.checkpoint(id, {
+          progress: {
+            ...job.progress,
+            setupRelease: {
+              reason,
+              error: errorMessage(error),
+            },
+          },
+          leaseToken: parentLeaseToken,
+        });
+        try {
+          await releaseHoldRemainder({
+            holdId: setupHoldId,
+            job,
+            reason,
+          });
+        } catch (releaseError) {
+          if (releaseError && typeof releaseError === 'object') releaseError.retryable = true;
+          throw releaseError;
+        }
+      }
       if (!PARENT_FINAL_STATES.has(job.status)) {
         const assets = store.listAssets(id);
         const detail = { error: errorMessage(error) };
@@ -628,22 +861,42 @@ export function createEcommerceOrchestrator(deps = {}) {
           },
           error: detail.error,
           progress: { ...job.progress, current: summary.completed, total: summary.total, ...summary },
+          leaseToken: parentLeaseToken,
         });
+        parentFinalized = true;
       }
       return getJob(id, { ownerEmail: job.ownerEmail });
+    } finally {
+      clearInterval(parentHeartbeat);
+      if (!parentFinalized) {
+        try { jobs.releaseLease(id, parentLeaseToken); } catch {}
+      }
     }
   }
 
   async function resumeJobs() {
-    const ids = new Set(store.recoverInterrupted().map(asset => asset.jobId));
-    if (typeof jobs.claimNext === 'function') {
-      for (let count = 0; count < 1_000; count += 1) {
-        const claimed = jobs.claimNext();
-        if (!claimed) break;
-        ids.add(claimed.id);
+    const claims = [];
+    const claimedIds = new Set();
+    for (const id of new Set(store.recoverInterrupted().map(asset => asset.jobId))) {
+      const claimed = jobs.claim(id, { leaseMs: parentLeaseMs });
+      if (claimed) {
+        claims.push(claimed);
+        claimedIds.add(claimed.id);
       }
     }
-    return Promise.allSettled([...ids].map(id => runJob(id)));
+    if (typeof jobs.claimNext === 'function') {
+      for (let count = 0; count < 1_000; count += 1) {
+        const claimed = jobs.claimNext({ leaseMs: parentLeaseMs });
+        if (!claimed) break;
+        if (!claimedIds.has(claimed.id)) {
+          claims.push(claimed);
+          claimedIds.add(claimed.id);
+        }
+      }
+    }
+    return Promise.allSettled(claims.map(claimed => runJob(claimed.id, {
+      leaseToken: claimed.leaseToken,
+    })));
   }
 
   return {
@@ -699,5 +952,45 @@ export function createEcommerceRouteHandlers({
         return responseError(res, error);
       }
     },
+  };
+}
+
+export function createEcommerceStartupRecovery({
+  orchestrator,
+  maxAttempts = 3,
+  retryDelayMs = 250,
+  onAttemptError = () => {},
+} = {}) {
+  if (!orchestrator || typeof orchestrator.resumeJobs !== 'function') {
+    throw new TypeError('orchestrator resumeJobs is required');
+  }
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0) {
+    throw new TypeError('maxAttempts must be a positive safe integer');
+  }
+  if (!Number.isSafeInteger(retryDelayMs) || retryDelayMs < 0) {
+    throw new TypeError('retryDelayMs must be a non-negative safe integer');
+  }
+  if (typeof onAttemptError !== 'function') {
+    throw new TypeError('onAttemptError must be a function');
+  }
+  let recoveryPromise = null;
+  return function recoverEcommerceStartup() {
+    if (recoveryPromise) return recoveryPromise;
+    recoveryPromise = (async () => {
+      let lastError;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          return await orchestrator.resumeJobs();
+        } catch (error) {
+          lastError = error;
+          onAttemptError(error, attempt);
+          if (attempt < maxAttempts && retryDelayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          }
+        }
+      }
+      throw lastError;
+    })();
+    return recoveryPromise;
   };
 }

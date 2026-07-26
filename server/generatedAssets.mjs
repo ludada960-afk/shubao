@@ -22,6 +22,13 @@ function assetNameFor(buffer, extension) {
   return `${crypto.createHash('sha256').update(buffer).digest('hex')}.${extension}`;
 }
 
+export function stableAssetDataUrl({ buffer, contentType } = {}) {
+  if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error('生成图片内容为空');
+  const mimeType = String(contentType || '').trim().toLowerCase();
+  if (!MIME_EXTENSIONS[mimeType]) throw new Error('生成图片类型不受支持');
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
+}
+
 export function createGeneratedAssetStore({
   directory,
   publicPath = '/api/generated-assets',

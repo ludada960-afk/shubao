@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import test from 'node:test';
 
-import { createEcommerceRouteHandlers } from '../server/ecommerceEngine/orchestrator.mjs';
+import * as orchestratorModule from '../server/ecommerceEngine/orchestrator.mjs';
+
+const { createEcommerceRouteHandlers } = orchestratorModule;
 
 function responseHarness() {
   return {
@@ -148,6 +150,59 @@ test('billing failures preserve the authoritative required and available point a
   });
 });
 
+test('startup recovery is bounded, coalesces duplicate callers, and treats provider-unavailable jobs as recoverable results', async () => {
+  assert.equal(typeof orchestratorModule.createEcommerceStartupRecovery, 'function');
+  let attempts = 0;
+  const attemptErrors = [];
+  const recover = orchestratorModule.createEcommerceStartupRecovery({
+    orchestrator: {
+      async resumeJobs() {
+        attempts += 1;
+        if (attempts < 3) throw new Error(`scan failed ${attempts}`);
+        return [{
+          status: 'rejected',
+          reason: Object.assign(new Error('provider unavailable'), {
+            code: 'IMAGE_PROVIDER_UNAVAILABLE',
+          }),
+        }];
+      },
+    },
+    maxAttempts: 3,
+    retryDelayMs: 0,
+    onAttemptError: (error, attempt) => attemptErrors.push({ message: error.message, attempt }),
+  });
+
+  const [first, second] = await Promise.all([recover(), recover()]);
+
+  assert.equal(attempts, 3);
+  assert.deepEqual(attemptErrors, [
+    { message: 'scan failed 1', attempt: 1 },
+    { message: 'scan failed 2', attempt: 2 },
+  ]);
+  assert.equal(first, second);
+  assert.equal(first[0].status, 'rejected');
+  assert.equal(first[0].reason.code, 'IMAGE_PROVIDER_UNAVAILABLE');
+});
+
+test('startup recovery rejects after its bounded top-level retry budget', async () => {
+  assert.equal(typeof orchestratorModule.createEcommerceStartupRecovery, 'function');
+  let attempts = 0;
+  const recover = orchestratorModule.createEcommerceStartupRecovery({
+    orchestrator: {
+      async resumeJobs() {
+        attempts += 1;
+        throw new Error('database unavailable');
+      },
+    },
+    maxAttempts: 2,
+    retryDelayMs: 0,
+    onAttemptError: () => {},
+  });
+
+  await assert.rejects(recover(), /database unavailable/);
+  assert.equal(attempts, 2);
+});
+
 test('production wiring uses the durable orchestrator, signed ownership, startup resume, and no ecommerce Contact Sheet route', async () => {
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const generateRouteCount = (server.match(/app\.post\('\/api\/generate-ecommerce'/g) || []).length;
@@ -157,8 +212,14 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.match(server, /IMG_BASE\s*&&\s*IMG_KEY\s*\?\s*createProviderAdapter\(/);
   assert.match(server, /app\.post\('\/api\/generate-ecommerce',\s*ecommerceRouteHandlers\.generate\)/);
   assert.match(server, /authenticateContentRequest\(req,\s*\{[\s\S]{0,200}sessionTokens:\s*contentSessionTokens/);
-  assert.match(server, /orchestrator\.resumeJobs\(\)/);
-  assert.ok(server.indexOf('orchestrator.resumeJobs()') < server.indexOf('app.listen(PORT'));
+  assert.match(server, /createEcommerceStartupRecovery\(/);
+  assert.match(server, /await recoverEcommerceStartup\(\)/);
+  assert.ok(server.indexOf('await recoverEcommerceStartup()') < server.indexOf('app.listen(PORT'));
+  assert.doesNotMatch(server, /orchestrator\.resumeJobs\(\)\.then\(/);
+  const unavailableStart = server.indexOf("const ecommerceProviderAdapter = IMG_BASE && IMG_KEY");
+  const unavailableEnd = server.indexOf('const orchestrator = createEcommerceOrchestrator', unavailableStart);
+  assert.match(server.slice(unavailableStart, unavailableEnd), /error\.retryable\s*=\s*true/);
+  assert.match(server, /idempotencyKey:\s*`ec-release-remainder:\$\{job\.id\}:setup`/);
   const legacyRouteStart = server.indexOf("app.post('/api/generate-ecommerce'");
   const jobRouteStart = server.indexOf("app.get('/api/ecommerce/jobs/:id'");
   const routeSlice = server.slice(legacyRouteStart, jobRouteStart);

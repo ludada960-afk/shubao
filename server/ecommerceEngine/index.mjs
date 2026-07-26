@@ -50,7 +50,7 @@ export {
   planRepair, canRetry,
 } from './repairPlanner.mjs';
 export {
-  createEcommerceOrchestrator, createEcommerceRouteHandlers,
+  createEcommerceOrchestrator, createEcommerceRouteHandlers, createEcommerceStartupRecovery,
 } from './orchestrator.mjs';
 export {
   createProviderAdapter,

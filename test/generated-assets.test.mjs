@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createGeneratedAssetStore } from '../server/generatedAssets.mjs';
+import * as generatedAssets from '../server/generatedAssets.mjs';
+
+const { createGeneratedAssetStore } = generatedAssets;
 
 test('persists a generated image and returns a stable in-app URL', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-test-'));
@@ -54,4 +56,24 @@ test('persists and reads the exact stable bytes in one quality-gate operation', 
   assert.match(stable.asset.url, /^\/api\/generated-assets\/[a-f0-9]{64}\.png$/);
   assert.deepEqual(stable.buffer, expected);
   assert.equal(stable.contentType, 'image/png');
+});
+
+test('preserves a non-PNG stable image MIME when building the quality-analysis data URL', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-test-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const expected = Buffer.from([255, 216, 255, 224, 0, 16, 74, 70, 73, 70]);
+  const store = createGeneratedAssetStore({
+    directory: dir,
+    fetchImpl: async () => new Response(expected, {
+      headers: { 'content-type': 'image/jpeg' },
+    }),
+  });
+  const stable = await store.persistAndRead({
+    sourceUrl: 'https://provider.example/generated-quality.jpg',
+    taskId: 'ec_test_quality_jpeg',
+    label: 'main_quality_jpeg',
+  });
+
+  assert.equal(typeof generatedAssets.stableAssetDataUrl, 'function');
+  assert.match(generatedAssets.stableAssetDataUrl(stable), /^data:image\/jpeg;base64,/);
 });
