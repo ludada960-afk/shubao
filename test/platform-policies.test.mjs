@@ -108,6 +108,36 @@ test('layers a category policy over the selected role policy', () => {
   assert.deepEqual(categoryPolicy.requiredFacts, ['product identity', 'user-confirmed shade or variant']);
 });
 
+test('requires own generation inputs and ignores inherited role, category, and ratio', () => {
+  const prototypeOnlyGeneration = Object.create({
+    generationSize: '2048x2048',
+    size: '2048x2048',
+    ratio: '1:1',
+    role: 'detail',
+    category: 'beauty',
+  });
+  const inheritedSizeOnly = Object.create({ size: '2048x2048' });
+
+  assert.throws(
+    () => planExportTargets('taobao', prototypeOnlyGeneration),
+    /generationSize must be a legal WIDTHxHEIGHT string/,
+  );
+  assert.throws(
+    () => planExportTargets('taobao', inheritedSizeOnly),
+    /generationSize must be a legal WIDTHxHEIGHT string/,
+  );
+
+  const generation = Object.create({ ratio: '9:16', role: 'detail', category: 'beauty' });
+  generation.generationSize = '2048x2048';
+
+  const targets = planExportTargets('taobao', generation);
+  assert.ok(targets.every((target) => (
+    target.role === 'main'
+    && target.categoryScope === 'all'
+    && target.ratio === '1:1'
+  )));
+});
+
 test('plans deterministic post-process exports from a legal generation source without model target sizes', () => {
   const policy = getPlatformPolicy('douyin', 'main', 'all');
   const source = { ratio: '1:1', generationSize: '2048x2048' };

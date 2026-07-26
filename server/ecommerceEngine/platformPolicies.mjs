@@ -234,7 +234,7 @@ function resolveExportInputs(policyOrOptions, generation = {}) {
   }
   if (typeof policyOrOptions === 'string') {
     return {
-      policy: getPlatformPolicy(policyOrOptions, generation.role, generation.category),
+      policy: getPlatformPolicy(policyOrOptions, ownValue(generation, 'role'), ownValue(generation, 'category')),
       generation,
     };
   }
@@ -249,9 +249,9 @@ function resolveExportInputs(policyOrOptions, generation = {}) {
 export function planExportTargets(policyOrOptions, generation = {}) {
   const resolved = resolveExportInputs(policyOrOptions, generation);
   const source = resolved.generation && typeof resolved.generation === 'object' ? resolved.generation : {};
-  const sourceDimensions = parseGenerationSize(source.generationSize ?? source.size);
+  const sourceDimensions = parseGenerationSize(ownValue(source, 'generationSize') ?? ownValue(source, 'size'));
   const sourceRatio = ratioForDimensions(sourceDimensions.width, sourceDimensions.height);
-  const requestedRatio = normalizeRatio(source.ratio);
+  const requestedRatio = normalizeRatio(ownValue(source, 'ratio'));
 
   if (requestedRatio && requestedRatio !== sourceRatio) {
     throw new RangeError('generation ratio must match generationSize');
