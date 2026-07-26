@@ -21,3 +21,25 @@ export function normalizeEntitlement(payload = {}) {
     unlimited: false,
   };
 }
+
+export function createSessionRequestGate() {
+  let epoch = 0;
+  return {
+    capture() {
+      return epoch;
+    },
+    invalidate() {
+      epoch += 1;
+    },
+    isCurrent(requestEpoch) {
+      return requestEpoch === epoch;
+    },
+  };
+}
+
+export function withCreditsCompatibility(entitlement) {
+  return {
+    ...entitlement,
+    credits: entitlement?.contentSets ?? null,
+  };
+}

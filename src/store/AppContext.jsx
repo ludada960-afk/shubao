@@ -1,7 +1,11 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { getSession } from '../services/auth';
 import { fetchBillingBalance, fetchBillingCatalog, fetchBillingLedger } from '../services/billing';
-import { normalizeEntitlement } from './entitlementState';
+import {
+  createSessionRequestGate,
+  normalizeEntitlement,
+  withCreditsCompatibility,
+} from './entitlementState';
 
 const AppContext = createContext(null);
 
@@ -121,31 +125,47 @@ function reducer(state, action) {
 }
 
 export function AppProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, reducerDispatch] = useReducer(reducer, initialState);
+  const sessionRequestGateRef = useRef(null);
+  if (!sessionRequestGateRef.current) {
+    sessionRequestGateRef.current = createSessionRequestGate();
+  }
+  const sessionRequestGate = sessionRequestGateRef.current;
+  const dispatch = useCallback((action) => {
+    if (action?.type === 'SET_LOGGED') sessionRequestGate.invalidate();
+    reducerDispatch(action);
+  }, [sessionRequestGate]);
 
   const refreshBillingBalance = useCallback(async () => {
+    const requestEpoch = sessionRequestGate.capture();
     const entitlement = normalizeEntitlement(await fetchBillingBalance());
+    if (!sessionRequestGate.isCurrent(requestEpoch)) return undefined;
     dispatch({ type: 'SET_ENTITLEMENT', ...entitlement });
     return entitlement;
-  }, []);
+  }, [dispatch, sessionRequestGate]);
 
   const refreshBillingCatalog = useCallback(async () => {
+    const requestEpoch = sessionRequestGate.capture();
     const catalog = await fetchBillingCatalog();
+    if (!sessionRequestGate.isCurrent(requestEpoch)) return undefined;
     dispatch({ type: 'SET_BILLING_CATALOG', catalog });
     return catalog;
-  }, []);
+  }, [dispatch, sessionRequestGate]);
 
   const refreshBillingLedger = useCallback(async (input) => {
+    const requestEpoch = sessionRequestGate.capture();
     const result = await fetchBillingLedger(input);
+    if (!sessionRequestGate.isCurrent(requestEpoch)) return undefined;
     const ledger = Array.isArray(result?.entries) ? result.entries : [];
     dispatch({ type: 'SET_BILLING_LEDGER', ledger });
     return ledger;
-  }, []);
+  }, [dispatch, sessionRequestGate]);
 
   // Compatibility for pages that still consume the legacy content-set selector.
   const fetchCredits = useCallback(async () => {
     try {
-      return await refreshBillingBalance();
+      const entitlement = await refreshBillingBalance();
+      return entitlement ? withCreditsCompatibility(entitlement) : undefined;
     } catch (error) {
       return undefined;
     }
