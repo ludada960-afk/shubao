@@ -48,3 +48,28 @@ DONE
 ## Concerns
 
 - Online payment remains intentionally unavailable until Task 4 implements authoritative catalog rendering and secure server-side order creation.
+
+## Review-gap follow-up
+
+### Commit
+
+- Subject: `test: guard disabled pricing success paths`
+- Scope: standalone Pricing regression assertions and this report update only.
+
+### RED evidence
+
+- Added guards forbidding `paid=1`, `paidSuccess`, and `fetchCredits(...)` in the standalone Pricing page.
+- Injected a temporary, uncommitted mutation probe containing all three legacy markers after the test was written.
+- `node --test --test-concurrency=1 test/api-contract.test.mjs`
+  - Expected RED: 11/12 passed, 1 failed.
+  - Failure was the new `/paid=1/` assertion in the pricing safety contract.
+- Removed the mutation probe before GREEN verification; no Pricing production change remains in this follow-up.
+
+### GREEN evidence
+
+- `node --test --test-concurrency=1 test/api-contract.test.mjs`
+  - PASS: 12/12.
+
+### Follow-up concerns
+
+- None; the change only strengthens regression protection and does not enable any payment or success-refresh path.

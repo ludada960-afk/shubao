@@ -283,5 +283,8 @@ test('pricing page exposes no legacy or clickable payment-provider path while pr
   assert.doesNotMatch(pricing, /createOrder\s*=/);
   assert.doesNotMatch(pricing, /支付宝支付|微信支付/);
   assert.doesNotMatch(pricing, /Stripe[\s\S]{0,80}(支付宝|微信)/);
+  assert.doesNotMatch(pricing, /paid=1/);
+  assert.doesNotMatch(pricing, /\bpaidSuccess\b/);
+  assert.doesNotMatch(pricing, /\bfetchCredits\s*\(/);
   assert.match(pricing, /支付通道接入中/);
 });
