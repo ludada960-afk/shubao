@@ -347,3 +347,61 @@ peer ownership conflicts: 0
 Implementation: `7fa03cf fix: harden ecommerce generation preconditions`
 
 Report: documentation commit for this closure.
+
+---
+
+## Final review lifecycle/precondition closure (2026-07-27)
+
+### Findings closed
+
+- `DesignDirection` now runs the owner/draft lifecycle precondition before evaluating quote availability. A missing identity or draft produces `ECOMMERCE_GENERATION_CONTEXT_REQUIRED`, clears `generating`, and displays the actionable error even if no quote is available. A valid context with no quote is separately reported as a quote-ready error and does not start an API request.
+- Added a small entry-independent `createEcommerceGenerationLifecycleController`. It owns the live owner/draft context, generation token, and AbortController binding; rotation/context change invalidates and aborts immediately, completion release is token-scoped, and unmount uses the same abort path.
+- `DesignDirection` and `EcAuto` now use the controller. EcAuto's render-time work-version invalidation remains immediate rather than waiting for the rotation effect, while DesignDirection uses the same preflight before quote gating.
+- Added executable behavior tests rather than relying on source matching: a deferred Promise represents late request A callbacks after rotating to B, with a fake AbortController proving A aborts immediately, B remains writable, and unmount aborts B. A separate real controller/preflight test proves missing context wins over missing quote and restores loading/error state.
+
+### TDD evidence
+
+RED was observed with the new controller APIs absent: both lifecycle tests failed with `TypeError: createEcommerceGenerationLifecycleController is not a function`. The failures covered the A→B/late-callback path and the missing-context-before-quote path. GREEN followed after the minimal controller and entrypoint wiring.
+
+### Verification
+
+```text
+focused:
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-task-progress.test.mjs
+tests 53
+pass 53
+fail 0
+
+Task5A required current exact collection
+tests 102
+pass 102
+fail 0
+
+adjacent collection
+tests 73
+pass 73
+fail 0
+
+npm run build
+exit 0; export verification passed; Vite transformed 6406 modules.
+
+git diff --check
+exit 0
+
+npm run collab:check
+[collaboration] READY
+tracked runtime paths: 0
+peer ownership conflicts: 0
+```
+
+### Scope and self-review
+
+- Only the allowed frontend pure model, two affected frontend entrypoints, their focused tests, and this report changed. No server, database, `dist`, uploads, cache, deployment, Task 6, or Task 7 path changed.
+- The model test executes a deferred Promise and fake AbortController, not a source regex; the retained source contracts only ensure every production entry continues to wire its durable token callback guard.
+- No provider call was made. The environment still warns that `C:\\Users\\SHEJI/.config/git/ignore` is unreadable, but collaboration status is READY.
+
+### Final commits
+
+Implementation: `178709e fix: enforce ecommerce lifecycle preconditions`
+
+Report: documentation commit for this closure.
