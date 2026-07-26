@@ -380,7 +380,6 @@ test('every reachable ecommerce generation UI entry uses the durable draft and i
     '../src/pages/EcAuto/index.jsx',
     '../src/pages/Home/EcLegacyForm.jsx',
     '../src/pages/Home/XhsContentMode.jsx',
-    '../src/pages/Home/ec/DesignDirection.jsx',
   ];
 
   for (const entrypoint of entrypoints) {
@@ -407,11 +406,40 @@ test('every reachable ecommerce generation UI entry uses the durable draft and i
   assert.match(studioSource, /Object\.entries\(res\?\.images \|\| \{\}\)/);
 });
 
+test('every ecommerce surface restores owner-scoped drafts and keeps stable previews out of final results', async () => {
+  const entrypoints = [
+    '../src/pages/EcStudio/index.jsx',
+    '../src/pages/EcAuto/index.jsx',
+    '../src/pages/Home/EcLegacyForm.jsx',
+    '../src/pages/Home/XhsContentMode.jsx',
+  ];
+
+  for (const entrypoint of entrypoints) {
+    const source = await fs.readFile(new URL(entrypoint, import.meta.url), 'utf8');
+    assert.match(source, /loadOrCreateEcommerceDraft/, entrypoint);
+    assert.match(source, /rotateEcommerceDraft/, entrypoint);
+    assert.match(source, /inProgressPreview/, entrypoint);
+    assert.match(source, /mergeEcommerceInProgressPreview/, entrypoint);
+    assert.match(source, /acceptEcommerceFinalResult/, entrypoint);
+    assert.doesNotMatch(source, /useState\(\(\)\s*=>\s*createEcommerceDraftId\(\)\)/, entrypoint);
+    assert.match(source, /state\._workVersion/, `${entrypoint} explicit new work`);
+
+    const imageCallback = source.match(/onImage:\s*\(image\)\s*=>\s*\{[\s\S]{0,700}?\n\s*\},/i)?.[0] || '';
+    assert.match(imageCallback, /setInProgressPreview/, `${entrypoint} onImage`);
+    assert.doesNotMatch(imageCallback, /set(?:Result|Results|Res|EcResults)\s*\(/, `${entrypoint} onImage`);
+  }
+
+  const ecMode = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
+  assert.match(ecMode, /loadOrCreateEcommerceDraft/);
+  assert.match(ecMode, /rotateEcommerceDraft/);
+  assert.match(ecMode, /state\._workVersion/);
+  assert.match(ecMode, /rotateEcommerceDraft\(/);
+});
+
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {
   const source = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
 
-  assert.match(source, /createEcommerceDraftId/);
-  assert.match(source, /useState\(\(\)\s*=>\s*createEcommerceDraftId\(\)\)/);
+  assert.match(source, /loadOrCreateEcommerceDraft/);
   assert.match(source, /draftId/);
   assert.match(source, /onStepChange\?\.\(\{[\s\S]*draftId/s);
 });

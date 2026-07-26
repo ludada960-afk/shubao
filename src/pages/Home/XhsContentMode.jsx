@@ -27,16 +27,26 @@ import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview,
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { createApiError } from '../../services/apiError.js';
 import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
+import {
+  ECOMMERCE_DRAFT_SURFACES,
+  acceptEcommerceFinalResult,
+  loadOrCreateEcommerceDraft,
+  mergeEcommerceInProgressPreview,
+  rotateEcommerceDraft,
+} from './ec/ecommerceTaskProgressModel.js';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import './Home.css';
 
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
 let _extractSessionToken = null;
+let observedEcommerceWorkVersion = 0;
 
 export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp }) {
   const { state, dispatch, fetchCredits } = useApp();
   const { inputText, logged, credits, unlimited, mode } = state;
+  const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
+  const workVersion = Number(state._workVersion || 0);
   const [err, setErr] = useState('');
   const [refImages, setRefImages] = useState([]);
   const fileRef = useRef(null);
@@ -90,11 +100,44 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [ecOutline, setEcOutline] = useState([]);       // 大纲列表（含用户编辑后的 prompt）
   const [ecOutlineLoading, setEcOutlineLoading] = useState(false);
   const [ecResults, setEcResults] = useState(null);      // 生成结果
+  const [inProgressPreview, setInProgressPreview] = useState({});
   const [ecRegeneratingKey, setEcRegeneratingKey] = useState('');
   const [ecRegenEdit, setEcRegenEdit] = useState({ label: null, prompt: '', visible: false }); // 重生成prompt编辑器
   const [ecLightbox, setEcLightbox] = useState(null); // 图片放大查看
   const [ecPreviewLightbox, setEcPreviewLightbox] = useState(null); // 参考图放大查看
-  const [ecDraftId] = useState(() => createEcommerceDraftId());
+  const [ecDraftId, setEcDraftId] = useState(() => loadOrCreateEcommerceDraft({
+    ownerEmail,
+    surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
+    createDraftId: createEcommerceDraftId,
+  })?.draftId || '');
+
+  useEffect(() => {
+    const active = loadOrCreateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
+      createDraftId: createEcommerceDraftId,
+    });
+    setEcDraftId(active?.draftId || '');
+    setEcResults(null);
+    setInProgressPreview({});
+  }, [ownerEmail]);
+
+  useEffect(() => {
+    if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
+    observedEcommerceWorkVersion = workVersion;
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
+      currentDraftId: ecDraftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setEcDraftId(rotated.draftId);
+    setEcResults(null);
+    setInProgressPreview({});
+    setEcName('');
+    setGenPhase('config');
+  }, [ecDraftId, ownerEmail, workVersion]);
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
@@ -351,9 +394,27 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     setEcOutline(prev => prev.map((item, i) => i === idx ? { ...item, userPrompt: text } : item));
   };
 
+  const startNewProduct = () => {
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.XHS_ECOMMERCE,
+      currentDraftId: ecDraftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setEcDraftId(rotated.draftId);
+    setEcResults(null);
+    setInProgressPreview({});
+    setEcLoadingMsg('');
+    setEcName('');
+    setGenPhase('config');
+  };
+
   const doGenEC = async () => {
     if (!ecName.trim()) return;
     setErr('');
+    setEcResults(null);
+    setInProgressPreview({});
     dispatch({ type: 'START_GEN' });
     dispatch({ type: 'SET_STAGE', stage: 1 });
     setGenECLoading(true);
@@ -383,17 +444,17 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         onImage: (image) => {
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
-          setEcResults(previous => ({
-            ...(previous || {}),
-            images: { ...(previous?.images || {}), [image.id]: url },
-          }));
+          setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setEcLoadingMsg(`已生成: ${image.label || image.role || image.id}`);
         },
       });
-      setEcResults({ ...data, product_name: ecName.trim().slice(0, 80), raw_mode: isRaw });
+      const finalResult = acceptEcommerceFinalResult(data);
+      if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
+      setEcResults({ ...finalResult, product_name: ecName.trim().slice(0, 80), raw_mode: isRaw });
+      setInProgressPreview({});
       // 自动保存。保存失败不影响当前结果展示，但不吞掉生成任务错误。
       try {
-        await saveWork({ ...data, _ecResult: true, _saveKey: 'ec-' + Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: data.images || {} }, state.phone);
+        await saveWork({ ...finalResult, _ecResult: true, _saveKey: 'ec-' + Date.now(), product_name: ecName, category: ecCat, platform: ecPlatform, at: new Date().toLocaleDateString('zh-CN'), images: finalResult.images || {} }, state.phone);
       } catch (saveError) { console.warn('[home ecommerce] 保存作品失败:', saveError.message); }
       fetchCredits(state.phone);
       dispatch({ type: 'SET_STAGE', stage: 2 });
@@ -1182,6 +1243,25 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   <div style={{ margin:'12px 16px', padding:'14px 16px', background:'#F5F3FF', borderRadius:10, textAlign:'center' }}>
                     <div style={{ width:32, height:32, border:'2px solid #E0E7FF', borderTopColor:'#4338CA', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 10px' }} />
                     <div style={{ fontSize:13, color:'#4338CA', fontWeight:500 }}>{ecLoadingMsg}</div>
+                    {Object.keys(inProgressPreview).length > 0 && (
+                      <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'center', marginTop:12 }}>
+                        {Object.values(inProgressPreview).map(image => (
+                          <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                            style={{ width:74, height:74, objectFit:'cover', borderRadius:8 }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!genECLoading && Object.keys(inProgressPreview).length > 0 && (
+                  <div style={{ margin:'12px 16px', padding:'12px 14px', background:'#F8FAFF', borderRadius:10, border:'1px solid #C7D2FE' }}>
+                    <div style={{ fontSize:12, color:'#4338CA', fontWeight:600, marginBottom:8 }}>生成中预览 · 任务仍可继续</div>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                      {Object.values(inProgressPreview).map(image => (
+                        <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                          style={{ width:82, height:82, objectFit:'cover', borderRadius:8 }} />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1191,7 +1271,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
                   <div style={{ fontSize:15, fontWeight:600, color:'#059669' }}>✅ 生成完成</div>
                   <div style={{ display:'flex', gap:8 }}>
-                    <button onClick={() => { setGenPhase('config'); setEcResults(null); }}
+                    <button onClick={startNewProduct}
                       style={{ padding:'6px 14px', borderRadius:6, border:'1px solid #e0e0e0', background:'#fff', cursor:'pointer', fontSize:12, fontFamily:'inherit', color:'#666' }}>
                       继续生成
                     </button>

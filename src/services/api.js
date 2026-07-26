@@ -556,6 +556,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
       } else if (d.type === 'complete') {
         gotComplete = true;
         Object.assign(result, d);
+        result.status = d.status || 'completed';
         result.images = result.images || {};
       } else if (d.type === 'error') {
         const error = new Error(d.error || '生成失败');

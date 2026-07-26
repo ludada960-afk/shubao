@@ -11,6 +11,13 @@ import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
 import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
+import {
+  ECOMMERCE_DRAFT_SURFACES,
+  acceptEcommerceFinalResult,
+  loadOrCreateEcommerceDraft,
+  mergeEcommerceInProgressPreview,
+  rotateEcommerceDraft,
+} from '../Home/ec/ecommerceTaskProgressModel.js';
 
 const Sparkles = Sparkle;
 const Zap = Lightning;
@@ -26,8 +33,12 @@ const PLATFORMS = [
   { key: '小红书', label: '小红书种草', emoji: '📕', desc: '1080×1440场景种草图3张' },
 ];
 
+let observedEcommerceWorkVersion = 0;
+
 export default function EcAutoPage() {
   const { state, dispatch, fetchCredits } = useApp();
+  const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
+  const workVersion = Number(state._workVersion || 0);
   const [platform, setPlatform] = useState('淘宝');
   const [input, setInput] = useState('');
   const [genState, setGenState] = useState('idle'); // idle | generating | done
@@ -37,8 +48,40 @@ export default function EcAutoPage() {
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef(null);
-  const [draftId] = useState(() => createEcommerceDraftId());
+  const [draftId, setDraftId] = useState(() => loadOrCreateEcommerceDraft({
+    ownerEmail,
+    surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
+    createDraftId: createEcommerceDraftId,
+  })?.draftId || '');
+  const [inProgressPreview, setInProgressPreview] = useState({});
   const [genProgress, setGenProgress] = useState('');
+
+  useEffect(() => {
+    const active = loadOrCreateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
+      createDraftId: createEcommerceDraftId,
+    });
+    setDraftId(active?.draftId || '');
+    setResults(null);
+    setInProgressPreview({});
+  }, [ownerEmail]);
+
+  useEffect(() => {
+    if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
+    observedEcommerceWorkVersion = workVersion;
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
+      currentDraftId: draftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setDraftId(rotated.draftId);
+    setResults(null);
+    setInProgressPreview({});
+    setGenState('idle');
+  }, [draftId, ownerEmail, workVersion]);
 
   // 生成计时器
   useEffect(() => {
@@ -60,9 +103,12 @@ export default function EcAutoPage() {
   }, [input]);
 
   const handleGenerate = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || genState === 'generating') return;
     setGenState('generating');
     setError('');
+    setResults(null);
+    setInProgressPreview({});
+    setGenProgress('');
     dispatch({ type: 'START_GEN' });
     try {
       const data = await autoGenerate({
@@ -77,14 +123,14 @@ export default function EcAutoPage() {
         onImage: (image) => {
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
-          setResults(previous => ({
-            ...(previous || {}),
-            images: { ...(previous?.images || {}), [image.id]: url },
-          }));
+          setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setGenProgress(`已生成: ${image.label || image.role || image.id}`);
         },
       });
-      setResults(data);
+      const finalResult = acceptEcommerceFinalResult(data);
+      if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
+      setResults(finalResult);
+      setInProgressPreview({});
       fetchCredits(state.phone);
       setGenState('done');
       dispatch({ type: 'CLOSE_RESULT' });
@@ -97,6 +143,23 @@ export default function EcAutoPage() {
       setGenState('idle');
       dispatch({ type: 'CLOSE_RESULT' });
     }
+  };
+
+  const startNewProduct = () => {
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
+      currentDraftId: draftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setDraftId(rotated.draftId);
+    setResults(null);
+    setInProgressPreview({});
+    setGenProgress('');
+    setError('');
+    setInput('');
+    setGenState('idle');
   };
 
   // 下载单张
@@ -238,11 +301,31 @@ export default function EcAutoPage() {
               {elapsed >= 10 && ` · 已等待 ${elapsed} 秒`}
             </div>
             {genProgress && <div style={{ marginTop: 8, fontSize: 12, color: '#4338CA' }}>{genProgress}</div>}
+            {Object.keys(inProgressPreview).length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 14 }}>
+                {Object.values(inProgressPreview).map(image => (
+                  <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                    style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #C7D2FE' }} />
+                ))}
+              </div>
+            )}
             {elapsed >= 30 && (
               <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 8, background: '#FFFBEB', padding: '6px 12px', borderRadius: 8, display: 'inline-block' }}>
                 多张图片正在并行生成，请稍候...
               </div>
             )}
+          </div>
+        )}
+
+        {genState !== 'generating' && Object.keys(inProgressPreview).length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 16, border: '1px solid #C7D2FE' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#4338CA', marginBottom: 10 }}>生成中预览 · 任务仍可继续</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {Object.values(inProgressPreview).map(image => (
+                <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                  style={{ width: 92, height: 92, objectFit: 'cover', borderRadius: 8 }} />
+              ))}
+            </div>
           </div>
         )}
 
@@ -278,7 +361,7 @@ export default function EcAutoPage() {
                   }}>
                   <Download size={13} /> 全部下载
                 </button>
-                <button onClick={() => { setResults(null); setInput(''); }}
+                <button onClick={startNewProduct}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '8px 14px', borderRadius: 8,

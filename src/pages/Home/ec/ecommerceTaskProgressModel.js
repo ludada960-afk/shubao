@@ -1,5 +1,14 @@
 export const ECOMMERCE_TASK_REFERENCE_VERSION = 1;
 export const ECOMMERCE_TASK_REFERENCE_TTL_MS = 24 * 60 * 60 * 1000;
+export const ECOMMERCE_DRAFT_REFERENCE_VERSION = 1;
+export const ECOMMERCE_DRAFT_REFERENCE_TTL_MS = 24 * 60 * 60 * 1000;
+export const ECOMMERCE_DRAFT_SURFACES = Object.freeze({
+  HOME_WIZARD: 'home-wizard',
+  EC_STUDIO: 'ec-studio',
+  EC_AUTO: 'ec-auto',
+  EC_LEGACY: 'ec-legacy',
+  XHS_ECOMMERCE: 'xhs-ecommerce',
+});
 
 const USER_STATES = {
   queued: '等待生成',
@@ -15,6 +24,33 @@ const USER_STATES = {
   cancelled: '失败',
 };
 
+const PENDING_STATE_TOKENS = new Set([
+  'active',
+  'waiting',
+  'pending',
+  'processing',
+  'running',
+  'generating',
+  'queued',
+  'draft',
+  'submitted',
+  'polling',
+  'downloading',
+]);
+
+const FINAL_ERROR_STATE_TOKENS = new Set([
+  'failed',
+  'cancelled',
+  'error',
+  'rejected',
+  'final',
+  'completed',
+  'complete',
+  'finished',
+  'done',
+  'success',
+]);
+
 function cleanText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -23,12 +59,25 @@ function normalizedOwner(ownerEmail) {
   return cleanText(ownerEmail).toLowerCase();
 }
 
+function normalizedSurface(surface) {
+  return cleanText(surface).toLowerCase();
+}
+
 function storageFor(storage) {
   return storage || globalThis.localStorage;
 }
 
+function stateTokens(state) {
+  return cleanText(state).toLowerCase().split(/[_-]+/).filter(Boolean);
+}
+
+function isPendingState(state) {
+  return stateTokens(state).some(token => PENDING_STATE_TOKENS.has(token));
+}
+
 function isErrorState(state) {
-  return /(?:^|[_-])(?:failed|cancelled|error|rejected|final|finished|done|success)(?:$|[_-])/i.test(state);
+  if (isPendingState(state)) return false;
+  return stateTokens(state).some(token => FINAL_ERROR_STATE_TOKENS.has(token));
 }
 
 export function normalizeEcommerceAsset(asset = {}) {
@@ -124,4 +173,165 @@ export function clearEcommerceTaskReference({ ownerEmail, draftId, taskId, stora
   } catch {
     return false;
   }
+}
+
+export function ecommerceDraftKey({ ownerEmail, surface } = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const activeSurface = normalizedSurface(surface);
+  if (!owner || !activeSurface) return '';
+  return `sb-ecommerce-draft:v${ECOMMERCE_DRAFT_REFERENCE_VERSION}:${encodeURIComponent(owner)}:${encodeURIComponent(activeSurface)}`;
+}
+
+export function saveEcommerceDraftReference({
+  ownerEmail,
+  surface,
+  draftId,
+  createdAt = Date.now(),
+  storage,
+} = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const activeSurface = normalizedSurface(surface);
+  const draft = cleanText(draftId);
+  const key = ecommerceDraftKey({ ownerEmail: owner, surface: activeSurface });
+  if (!key || !draft || !Number.isFinite(createdAt)) return false;
+  try {
+    storageFor(storage)?.setItem(key, JSON.stringify({
+      version: ECOMMERCE_DRAFT_REFERENCE_VERSION,
+      ownerEmail: owner,
+      surface: activeSurface,
+      draftId: draft,
+      createdAt,
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadEcommerceDraftReference({
+  ownerEmail,
+  surface,
+  now = Date.now(),
+  storage,
+} = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const activeSurface = normalizedSurface(surface);
+  const key = ecommerceDraftKey({ ownerEmail: owner, surface: activeSurface });
+  if (!key || !Number.isFinite(now)) return null;
+  try {
+    const stored = storageFor(storage)?.getItem(key);
+    const record = stored ? JSON.parse(stored) : null;
+    const valid = record
+      && record.version === ECOMMERCE_DRAFT_REFERENCE_VERSION
+      && record.ownerEmail === owner
+      && record.surface === activeSurface
+      && cleanText(record.draftId)
+      && Number.isFinite(record.createdAt)
+      && record.createdAt <= now
+      && now - record.createdAt <= ECOMMERCE_DRAFT_REFERENCE_TTL_MS;
+    if (!valid) {
+      if (stored) storageFor(storage)?.removeItem(key);
+      return null;
+    }
+    return { draftId: record.draftId, createdAt: record.createdAt };
+  } catch {
+    return null;
+  }
+}
+
+function defaultDraftId() {
+  const randomUuid = globalThis.crypto?.randomUUID;
+  if (typeof randomUuid === 'function') return `ec-draft-${randomUuid.call(globalThis.crypto)}`;
+  return `ec-draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+export function loadOrCreateEcommerceDraft({
+  ownerEmail,
+  surface,
+  now = Date.now(),
+  storage,
+  createDraftId = defaultDraftId,
+} = {}) {
+  const existing = loadEcommerceDraftReference({ ownerEmail, surface, now, storage });
+  if (existing) return existing;
+  const owner = normalizedOwner(ownerEmail);
+  const activeSurface = normalizedSurface(surface);
+  const draftId = cleanText(typeof createDraftId === 'function' ? createDraftId() : '');
+  if (!owner || !activeSurface || !draftId) return null;
+  if (!saveEcommerceDraftReference({
+    ownerEmail: owner,
+    surface: activeSurface,
+    draftId,
+    createdAt: now,
+    storage,
+  })) return null;
+  return { draftId, createdAt: now };
+}
+
+export function rotateEcommerceDraft({
+  ownerEmail,
+  surface,
+  currentDraftId,
+  now = Date.now(),
+  storage,
+  createDraftId = defaultDraftId,
+} = {}) {
+  const current = cleanText(currentDraftId);
+  const active = loadEcommerceDraftReference({ ownerEmail, surface, now, storage });
+  if (!current || !active || active.draftId !== current) return null;
+
+  const nextDraftId = cleanText(typeof createDraftId === 'function' ? createDraftId() : '');
+  if (!nextDraftId || nextDraftId === current) return null;
+  if (!saveEcommerceDraftReference({
+    ownerEmail,
+    surface,
+    draftId: nextDraftId,
+    createdAt: now,
+    storage,
+  })) return null;
+
+  const previousTask = loadEcommerceTaskReference({
+    ownerEmail,
+    draftId: current,
+    now,
+    storage,
+  });
+  if (previousTask) {
+    clearEcommerceTaskReference({
+      ownerEmail,
+      draftId: current,
+      taskId: previousTask.taskId,
+      storage,
+    });
+  }
+  return { draftId: nextDraftId, createdAt: now };
+}
+
+export function mergeEcommerceInProgressPreview(previousPreview, image = {}) {
+  const id = cleanText(image.id || image.assetId || image.key);
+  const url = cleanText(image.stableUrl || image.url);
+  if (!id || !url) return previousPreview && typeof previousPreview === 'object' ? previousPreview : {};
+  return {
+    ...(previousPreview && typeof previousPreview === 'object' ? previousPreview : {}),
+    [id]: {
+      id,
+      url,
+      stableUrl: url,
+      role: cleanText(image.role),
+      label: cleanText(image.label),
+      state: cleanText(image.state),
+    },
+  };
+}
+
+export function acceptEcommerceFinalResult(result) {
+  const status = cleanText(result?.status).toLowerCase();
+  if (status !== 'completed' && status !== 'needs_review') return null;
+  const images = Object.fromEntries(
+    Object.entries(result?.images && typeof result.images === 'object' ? result.images : {})
+      .map(([id, url]) => [cleanText(id), cleanText(url)])
+      .filter(([id, url]) => id && url),
+  );
+  if (Object.keys(images).length === 0) return null;
+  return { ...result, status, images };
 }

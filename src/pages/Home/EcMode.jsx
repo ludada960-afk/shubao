@@ -20,6 +20,11 @@ import GenSettingsPanel from './ec/GenSettingsPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import { uploadEcommerceAssets } from '../../services/api.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
+import {
+  ECOMMERCE_DRAFT_SURFACES,
+  loadOrCreateEcommerceDraft,
+  rotateEcommerceDraft,
+} from './ec/ecommerceTaskProgressModel.js';
 
 /* ═══════ 智能方案状态常量 ═══════
  * 智能方案逻辑：
@@ -41,6 +46,8 @@ const PRODUCT_SHOT_PLAN = [
   { title: '背面 / 俯视', short: '背面图', hint: '补足背部、顶部或底部信息' },
   { title: '使用尺度', short: '场景图', hint: '有人手持或真实场景，便于判断大小' },
 ];
+
+let observedEcommerceWorkVersion = 0;
 
 /* ═══════ 统一按钮样式（升级：胶囊形状+渐变）═══════ */
 const BTN_BASE = {
@@ -67,7 +74,34 @@ const GLASS_PANEL = {
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
 export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const { state } = useApp();
-  const [draftId] = useState(() => createEcommerceDraftId());
+  const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
+  const workVersion = Number(state._workVersion || 0);
+  const [draftId, setDraftId] = useState(() => loadOrCreateEcommerceDraft({
+    ownerEmail,
+    surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
+    createDraftId: createEcommerceDraftId,
+  })?.draftId || '');
+
+  useEffect(() => {
+    const active = loadOrCreateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
+      createDraftId: createEcommerceDraftId,
+    });
+    setDraftId(active?.draftId || '');
+  }, [ownerEmail]);
+
+  useEffect(() => {
+    if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
+    observedEcommerceWorkVersion = workVersion;
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
+      currentDraftId: draftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (rotated?.draftId) setDraftId(rotated.draftId);
+  }, [draftId, ownerEmail, workVersion]);
 
   /* — 图片 — */
   const [productImages, setProductImages] = useState([]);

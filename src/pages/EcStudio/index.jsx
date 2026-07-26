@@ -2,7 +2,7 @@
  * 薯包AI · 精修工坊 — 重构版
  * 智能一键框 + 5 步精细配置
  */
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Sparkle, Package, Gear, Download, MagicWand } from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
 import { proxyImg, generateEcommerce, generateEcommercePreview, autoRecognizeEcommerce, stitchLongImage, saveWork, regenerateImage } from '../../services/api';
@@ -12,6 +12,13 @@ import { IMAGES } from '../../constants/images';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
 import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
+import {
+  ECOMMERCE_DRAFT_SURFACES,
+  acceptEcommerceFinalResult,
+  loadOrCreateEcommerceDraft,
+  mergeEcommerceInProgressPreview,
+  rotateEcommerceDraft,
+} from '../Home/ec/ecommerceTaskProgressModel.js';
 
 // ── 平台尺寸 helper ──
 const DIMS = Object.fromEntries(
@@ -59,9 +66,17 @@ const SLICE_KEY_BY_PLAN = {
   feature: 'detail_slice_feature',
 };
 
+let observedEcommerceWorkVersion = 0;
+
 export default function EcStudioPage() {
   const { state, dispatch, fetchCredits } = useApp();
-  const [draftId] = useState(() => createEcommerceDraftId());
+  const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
+  const workVersion = Number(state._workVersion || 0);
+  const [draftId, setDraftId] = useState(() => loadOrCreateEcommerceDraft({
+    ownerEmail,
+    surface: ECOMMERCE_DRAFT_SURFACES.EC_STUDIO,
+    createDraftId: createEcommerceDraftId,
+  })?.draftId || '');
   const [smartBrief, setSmartBrief] = useState('');
   const [realShots, setRealShots] = useState([]);
   const [refShots, setRefShots] = useState([]);
@@ -79,12 +94,40 @@ export default function EcStudioPage() {
   const [ol, setOl] = useState([]);
   const [olLoad, setOlLoad] = useState(false);
   const [res, setRes] = useState(null);
+  const [inProgressPreview, setInProgressPreview] = useState({});
   const [genProgress, setGenProgress] = useState('');
   const [generating, setGenerating] = useState(false);
   const [err, setErr] = useState('');
   const [recognizing, setRecognizing] = useState(false);
   const [lb, setLb] = useState(null);
   const [stitching, setStitching] = useState(false);
+
+  useEffect(() => {
+    const active = loadOrCreateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_STUDIO,
+      createDraftId: createEcommerceDraftId,
+    });
+    setDraftId(active?.draftId || '');
+    setRes(null);
+    setInProgressPreview({});
+  }, [ownerEmail]);
+
+  useEffect(() => {
+    if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
+    observedEcommerceWorkVersion = workVersion;
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_STUDIO,
+      currentDraftId: draftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setDraftId(rotated.draftId);
+    setRes(null);
+    setInProgressPreview({});
+    setPhase('config');
+  }, [draftId, ownerEmail, workVersion]);
   const [stitchUrl, setStitchUrl] = useState(null);
   const [regKey, setRegKey] = useState('');
   const [regEdit, setRegEdit] = useState({ l: null, p: '', v: false });
@@ -201,6 +244,9 @@ export default function EcStudioPage() {
     if (!name.trim() || generating) return;
     setGenerating(true);
     setErr('');
+    setRes(null);
+    setInProgressPreview({});
+    setGenProgress('');
     dispatch({ type: 'START_GEN' });
     await new Promise((r) => setTimeout(r, 100));
     dispatch({ type: 'SET_STAGE', stage: 1 });
@@ -228,24 +274,24 @@ export default function EcStudioPage() {
         onImage: (image) => {
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
-          setRes(previous => ({
-            ...(previous || {}),
-            images: { ...(previous?.images || {}), [image.id]: url },
-          }));
+          setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setGenProgress(`已生成: ${image.label || image.role || image.id}`);
         },
       });
+      const finalResult = acceptEcommerceFinalResult(d);
+      if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
       dispatch({ type: 'SET_STAGE', stage: 2 });
       await new Promise((r) => setTimeout(r, 800));
       dispatch({ type: 'SET_STAGE', stage: 3 });
       await new Promise((r) => setTimeout(r, 600));
       dispatch({ type: 'CLOSE_RESULT' });
       setPhase('result');
-      setRes(d);
+      setRes(finalResult);
+      setInProgressPreview({});
       setGenProgress('');
       setStitchUrl(null);
       saveWork({
-        ...d,
+        ...finalResult,
         _ecResult: true,
         _saveKey: 'ec-' + Date.now(),
         product_name: name,
@@ -267,6 +313,22 @@ export default function EcStudioPage() {
       dispatch({ type: 'CLOSE_RESULT' });
     }
     setGenerating(false);
+  };
+
+  const startNewProduct = () => {
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_STUDIO,
+      currentDraftId: draftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setDraftId(rotated.draftId);
+    setRes(null);
+    setInProgressPreview({});
+    setGenProgress('');
+    setPhase('config');
+    setStitchUrl(null);
   };
 
   // ── 单图重生成 ──
@@ -993,10 +1055,10 @@ export default function EcStudioPage() {
             {genProgress && (
               <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, color: '#4338CA' }}>{genProgress}</div>
             )}
-            {Object.keys(res?.images || {}).length > 0 && (
+            {Object.keys(inProgressPreview).length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-                {Object.entries(res?.images || {}).map(([label, url]) => (
-                  <img key={label} src={proxyImg(url)} alt={label} style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #D1FAE5' }} />
+                {Object.values(inProgressPreview).map(image => (
+                  <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id} style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '1px solid #D1FAE5' }} />
                 ))}
               </div>
             )}
@@ -1019,11 +1081,7 @@ export default function EcStudioPage() {
                 </span>
               </div>
               <button
-                onClick={() => {
-                  setPhase('config');
-                  setRes(null);
-                  setStitchUrl(null);
-                }}
+                onClick={startNewProduct}
                 style={{
                   padding: '8px 16px', borderRadius: 8, border: '1px solid #DDDDE3',
                   background: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',

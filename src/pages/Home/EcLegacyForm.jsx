@@ -1,10 +1,17 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload } from 'lucide-react';
 import { MdClose, MdAutorenew } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { generateEcommerce, extractProductLink, proxyImg } from '../../services/api';
 import { EC_CATS, EC_PLATFORMS } from '../../constants/data';
 import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
+import {
+  ECOMMERCE_DRAFT_SURFACES,
+  acceptEcommerceFinalResult,
+  loadOrCreateEcommerceDraft,
+  mergeEcommerceInProgressPreview,
+  rotateEcommerceDraft,
+} from './ec/ecommerceTaskProgressModel.js';
 
 const LABEL = { fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 6, display: 'block' };
 const INPUT = {
@@ -22,9 +29,17 @@ const SECTION = {
   boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
 };
 
+let observedEcommerceWorkVersion = 0;
+
 export default function EcLegacyForm() {
   const { state, dispatch } = useApp();
-  const [draftId] = useState(() => createEcommerceDraftId());
+  const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
+  const workVersion = Number(state._workVersion || 0);
+  const [draftId, setDraftId] = useState(() => loadOrCreateEcommerceDraft({
+    ownerEmail,
+    surface: ECOMMERCE_DRAFT_SURFACES.EC_LEGACY,
+    createDraftId: createEcommerceDraftId,
+  })?.draftId || '');
   const [name, setName] = useState('');
   const [cat, setCat] = useState('美妆护肤');
   const [tier, setTier] = useState('basic');
@@ -40,6 +55,7 @@ export default function EcLegacyForm() {
   const [restrictions, setRestrictions] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [inProgressPreview, setInProgressPreview] = useState({});
   const [error, setError] = useState('');
   const [genProgress, setGenProgress] = useState('');
   const fileRef = useRef(null);
@@ -47,6 +63,32 @@ export default function EcLegacyForm() {
   const [sizeEnabled, setSizeEnabled] = useState(false);
   const [sizeW, setSizeW] = useState('');
   const [sizeH, setSizeH] = useState('');
+
+  useEffect(() => {
+    const active = loadOrCreateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_LEGACY,
+      createDraftId: createEcommerceDraftId,
+    });
+    setDraftId(active?.draftId || '');
+    setResult(null);
+    setInProgressPreview({});
+  }, [ownerEmail]);
+
+  useEffect(() => {
+    if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
+    observedEcommerceWorkVersion = workVersion;
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_LEGACY,
+      currentDraftId: draftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setDraftId(rotated.draftId);
+    setResult(null);
+    setInProgressPreview({});
+  }, [draftId, ownerEmail, workVersion]);
 
   const addImage = (files) => {
     Array.from(files).slice(0, 5 - refImgs.length).forEach(f => {
@@ -60,6 +102,9 @@ export default function EcLegacyForm() {
     if (!name.trim()) return;
     setError('');
     setLoading(true);
+    setResult(null);
+    setInProgressPreview({});
+    setGenProgress('');
     try {
       const data = await generateEcommerce({
         productName: name, category: cat, refImgs, tier, platform, points,
@@ -73,19 +118,35 @@ export default function EcLegacyForm() {
         onImage: (image) => {
           const url = image?.stableUrl || image?.url;
           if (!image?.id || !url) return;
-          setResult(previous => ({
-            ...(previous || {}),
-            images: { ...(previous?.images || {}), [image.id]: url },
-          }));
+          setInProgressPreview(previous => mergeEcommerceInProgressPreview(previous, { ...image, url }));
           setGenProgress(`已生成: ${image.label || image.role || image.id}`);
         },
       });
-      setResult(data);
+      const finalResult = acceptEcommerceFinalResult(data);
+      if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
+      setResult(finalResult);
+      setInProgressPreview({});
     } catch (e) {
       setError(e.message || '生成失败');
     }
     setGenProgress('');
     setLoading(false);
+  };
+
+  const startNewProduct = () => {
+    const rotated = rotateEcommerceDraft({
+      ownerEmail,
+      surface: ECOMMERCE_DRAFT_SURFACES.EC_LEGACY,
+      currentDraftId: draftId,
+      createDraftId: createEcommerceDraftId,
+    });
+    if (!rotated?.draftId) return;
+    setDraftId(rotated.draftId);
+    setResult(null);
+    setInProgressPreview({});
+    setGenProgress('');
+    setError('');
+    setName('');
   };
 
   const downloadImg = (url, label) => {
@@ -107,7 +168,7 @@ export default function EcLegacyForm() {
             <span style={{ fontWeight: 600 }}>{result.product_name}</span>
             <span style={{ fontSize: 12, color: '#999', marginLeft: 8 }}>{result.platform} · {result.category} · 共 {images.length} 张</span>
           </div>
-          <button onClick={() => setResult(null)} style={{ ...BTN, width: 'auto', padding: '8px 20px', fontSize: 13 }}>继续生成</button>
+          <button onClick={startNewProduct} style={{ ...BTN, width: 'auto', padding: '8px 20px', fontSize: 13 }}>继续生成</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           {images.map(([label, url]) => (
@@ -330,6 +391,17 @@ export default function EcLegacyForm() {
         {loading ? '生成中...' : '🚀 生成商品图'}
       </button>
       {genProgress && <div style={{ marginTop: 8, textAlign: 'center', fontSize: 12, color: '#6366F1' }}>{genProgress}</div>}
+      {Object.keys(inProgressPreview).length > 0 && (
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: '1px solid #C7D2FE', background: '#F8FAFF' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#6366F1', marginBottom: 8 }}>生成中预览 · 任务仍可继续</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {Object.values(inProgressPreview).map(image => (
+              <img key={image.id} src={proxyImg(image.url)} alt={image.label || image.role || image.id}
+                style={{ width: 82, height: 82, objectFit: 'cover', borderRadius: 8 }} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

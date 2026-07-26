@@ -192,7 +192,14 @@ test('a saved failed task requires an explicit retry before a replacement POST i
   assert.deepEqual(calls, [{ url: '/api/ecommerce/jobs/task-failed-resume', method: 'GET' }]);
 
   saveEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-failed-resume', taskId: 'task-failed-resume', storage });
-  await generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-failed-resume', retry: true });
+  const retryResult = await generateEcommerce({
+    productName: '测试商品',
+    category: '其他',
+    platform: '淘宝',
+    draftId: 'ec-draft-failed-resume',
+    retry: true,
+  });
+  assert.equal(retryResult.status, 'completed');
   assert.deepEqual(calls.slice(1), [
     { url: '/api/ecommerce/jobs/task-failed-resume', method: 'GET' },
     { url: '/api/generate-ecommerce', method: 'POST' },
