@@ -323,6 +323,7 @@ test('evidence-gates package text and does not promote arbitrary forbidden mutat
         'package text: Strong Source Text',
         'package text: Forged Mutation Text',
         'label: Missing Source Text',
+        'logo: Secret Wordmark',
       ],
     }),
     campaignBible: campaignBible(),
@@ -333,12 +334,19 @@ test('evidence-gates package text and does not promote arbitrary forbidden mutat
   });
   const { schema } = parseStructuredPrompt(result.prompt);
   const overlayValues = schema.sections.deterministicOverlays.items.map(({ value }) => value);
+  const nonOverlaySections = { ...schema.sections };
+  delete nonOverlaySections.deterministicOverlays;
 
   assert.deepEqual(overlayValues, ['Strong Source Text', 'Confirmed Label Text']);
-  assert.doesNotMatch(JSON.stringify(schema.sections.deterministicOverlays), /Forged Mutation Text|Missing Source Text|Low Confidence Text/);
-  assert.doesNotMatch(result.prompt, /Low Confidence Text/);
-  assert.ok(schema.sections.forbiddenMutations.items.includes('package text: Forged Mutation Text'));
-  assert.ok(schema.sections.forbiddenMutations.items.includes('label: Missing Source Text'));
+  assert.doesNotMatch(
+    JSON.stringify(nonOverlaySections),
+    /Strong Source Text|Confirmed Label Text|Forged Mutation Text|Missing Source Text|Low Confidence Text|Secret Wordmark/,
+  );
+  assert.doesNotMatch(result.prompt, /Forged Mutation Text|Missing Source Text|Low Confidence Text|Secret Wordmark/);
+  assert.equal(schema.sections.forbiddenMutations.items.filter((mutation) => (
+    /preserve packaging, labels, and logos exactly as shown/i.test(mutation)
+  )).length, 1);
+  assert.match(schema.sections.forbiddenMutations.items.join(' '), /invent no text/i);
 });
 
 test('compiles campaign, role, platform, quality, risk, and anti-substitution sections without leaking route or export pixels', () => {

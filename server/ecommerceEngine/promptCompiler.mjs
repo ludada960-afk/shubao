@@ -377,9 +377,26 @@ function splitFactsForRendering(assetPlanItem, productTruth) {
 }
 
 function safeForbiddenMutations(productTruth) {
-  return ownArray(productTruth, 'forbiddenMutations')
-    .map(cleanString)
-    .filter(Boolean);
+  const result = [];
+  const seen = new Set();
+  let requiresTextualIdentityProtection = false;
+
+  for (const rawMutation of ownArray(productTruth, 'forbiddenMutations')) {
+    const mutation = cleanString(rawMutation);
+    if (!mutation) continue;
+    if (/^(?:package\s*text|label|logo|包装文字|标签|标志|商标)\s*:/i.test(mutation)) {
+      requiresTextualIdentityProtection = true;
+      continue;
+    }
+    if (seen.has(mutation)) continue;
+    seen.add(mutation);
+    result.push(mutation);
+  }
+
+  if (requiresTextualIdentityProtection) {
+    result.push('Preserve packaging, labels, and logos exactly as shown in authoritative product views; invent no text.');
+  }
+  return result;
 }
 
 function campaignSection(campaignBible) {
