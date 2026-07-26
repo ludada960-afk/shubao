@@ -383,16 +383,25 @@ export function galleryImg(id, file) {
   return `${API_BASE}/api/gallery-image?id=${id}&file=${encodeURIComponent(file)}&t=${Date.now()}`;
 }
 
-export async function generateContent(text, images, { onImage, onProgress, preview = false, signal } = {}) {
+function contentStreamError(event) {
+  const error = new Error(event?.error || '生成失败');
+  for (const key of ['code', 'resumeable', 'generationId', 'workId', 'billing']) {
+    if (event?.[key] !== undefined) error[key] = event[key];
+  }
+  error.payload = event && typeof event === 'object' ? event : {};
+  return error;
+}
+
+async function generateContentStream(path, payload, { onImage, onProgress, signal } = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 180000); // 3分钟超时
   // 合并外部 signal
   if (signal) signal.addEventListener('abort', () => controller.abort());
 
-  const res = await fetch(`${API_BASE}/api/generate`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ text, images: images || [], preview })),
+    body: JSON.stringify(withSessionEmail(payload)),
     signal: controller.signal,
   }).catch(e => { clearTimeout(timeoutId); throw new Error('网络请求失败: ' + e.message); });
 
@@ -429,10 +438,7 @@ export async function generateContent(text, images, { onImage, onProgress, previ
             Object.assign(result, d);
             result.image_count = d.image_urls?.length || 0;
           } else if (d.type === 'error') {
-            const error = new Error(d.error || '生成失败');
-            error.code = d.code;
-            error.resumeable = d.resumeable;
-            throw error;
+            throw contentStreamError(d);
           }
         } catch (e) {
           if (e.message && !e.message.includes('JSON')) throw e;
@@ -445,6 +451,45 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   }
   if (!gotComplete) throw new Error('生成未完成，请重试');
   return result;
+}
+
+export function generateContent(text, images, {
+  preview = false,
+  generationId,
+  referenceAssetIds,
+  ...options
+} = {}) {
+  return generateContentStream('/api/generate', {
+    text,
+    images: images || [],
+    preview,
+    ...(generationId ? { generationId } : {}),
+    ...(Array.isArray(referenceAssetIds) && referenceAssetIds.length ? { referenceAssetIds } : {}),
+  }, options);
+}
+
+export function generatePlogContent({
+  text,
+  refImage,
+  style,
+  layout,
+  coverVariant,
+  skipEnrich,
+  preview = false,
+  generationId,
+  referenceAssetIds,
+} = {}, options = {}) {
+  return generateContentStream('/api/plog-generate', {
+    text,
+    style,
+    layout,
+    coverVariant,
+    preview,
+    ...(refImage ? { refImage } : {}),
+    ...(skipEnrich ? { skipEnrich: true } : {}),
+    ...(generationId ? { generationId } : {}),
+    ...(Array.isArray(referenceAssetIds) && referenceAssetIds.length ? { referenceAssetIds } : {}),
+  }, options);
 }
 
 export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {

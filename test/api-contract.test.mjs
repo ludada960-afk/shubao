@@ -27,6 +27,39 @@ function ecommerceTaskResponse(task, status = 200) {
   });
 }
 
+function completedContentStream() {
+  return new Response(
+    'data: {"type":"complete","cover_url":"/api/generated-assets/cover.png","image_urls":["/api/generated-assets/page.png"],"billing":{"currency":"content_sets","status":"settled","balance":2}}\n\n',
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  );
+}
+
+test('paid content APIs send owned reference asset IDs rather than raw resumable image data', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = ecommerceStorage();
+  const bodies = [];
+  globalThis.localStorage = storage;
+  globalThis.fetch = async (_url, options = {}) => {
+    bodies.push(JSON.parse(options.body));
+    return completedContentStream();
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { generateContent, generatePlogContent } = await import(`../src/services/api.js?content-assets=${Date.now()}`);
+  await generateContent('夏日通勤', [], { referenceAssetIds: ['a'.repeat(64) + '.jpg'] });
+  await generatePlogContent({ text: '下班后的咖啡', referenceAssetIds: ['b'.repeat(64) + '.png'] });
+
+  assert.deepEqual(bodies[0].images, []);
+  assert.deepEqual(bodies[0].referenceAssetIds, ['a'.repeat(64) + '.jpg']);
+  assert.equal(bodies[0].images.includes?.('data:image/png;base64,unsafe') || false, false);
+  assert.equal(bodies[1].refImage, undefined);
+  assert.deepEqual(bodies[1].referenceAssetIds, ['b'.repeat(64) + '.png']);
+});
+
 test('active owner and draft task resumes with GET polling, emits a quality-check stable image once, and never posts a duplicate', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
@@ -550,16 +583,18 @@ test('direct generation screens cannot bypass the authenticated API payload help
   const plog = await fs.readFile(new URL('../src/pages/Plog/index.jsx', import.meta.url), 'utf8');
   const xhs = await fs.readFile(new URL('../src/pages/Home/XhsContentMode.jsx', import.meta.url), 'utf8');
   const remake = await fs.readFile(new URL('../src/pages/Remake/index.jsx', import.meta.url), 'utf8');
+  const api = await fs.readFile(new URL('../src/services/api.js', import.meta.url), 'utf8');
 
   assert.doesNotMatch(canvas, /fetch\([^\n]*\/api\/remove-bg/);
   assert.match(canvas, /removeBg\(\{ image_url:/);
-  assert.match(plog, /JSON\.stringify\(withSessionEmail\(body\)\)/);
-  assert.match(xhs, /JSON\.stringify\(withSessionEmail\(body\)\)/);
+  assert.match(plog, /generatePlogContent\(/);
+  assert.match(xhs, /generatePlogContent\(/);
+  assert.match(api, /JSON\.stringify\(withSessionEmail\(payload\)\)/);
   assert.match(remake, /JSON\.stringify\(withSessionEmail\(\{ taskId \}\)\)/);
   assert.match(remake, /JSON\.stringify\(withSessionEmail\(\{[\s\S]{0,300}productName:/);
-  assert.match(plog, /if \(!res\.ok\) throw await createApiError\(res,/);
+  assert.match(api, /if \(!res\.ok\) \{[\s\S]{0,100}throw await createApiError\(res,/);
   assert.match(plog, /handleGenerationAccessError\(e, dispatch,/);
-  assert.match(xhs, /if \(!res\.ok\) throw await createApiError\(res,/);
+  assert.match(api, /if \(!res\.ok\) \{[\s\S]{0,100}throw await createApiError\(res,/);
   assert.match(remake, /if \(!res\.ok\) throw await createApiError\(res,/);
 });
 

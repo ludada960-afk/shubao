@@ -3,9 +3,14 @@ import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
-import { withSessionEmail } from '../../services/api';
-import { createApiError } from '../../services/apiError.js';
+import { generatePlogContent, saveWork, uploadEcommerceAssets } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import { loadContentDraft, saveContentDraft } from '../../utils/contentDraftStore.js';
+import {
+  acceptAuthoritativeContentCompletion,
+  buildContentPendingAction,
+  createContentDraftId,
+} from '../contentGenerationModel.js';
 
 // ── 风格包 ──
 const PLOG_STYLES = {
@@ -57,7 +62,8 @@ const CINEMATIC_SUBTITLES = [
 const JOURNAL_STICKERS = ['🌸', '⭐', '✿', '♡', '✧', '☕', '📎', '🧷', '✂️', '📌', '💫', '🕊️'];
 
 export default function PlogPage() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, refreshBillingBalance } = useApp();
+  const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
   const [text, setText] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('ins-minimal');
   const [selectedLayout, setSelectedLayout] = useState('casual');
@@ -74,6 +80,34 @@ export default function PlogPage() {
   const [progress, setProgress] = useState({ current: 0, total: 9 });
   const timerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [plogDraftId, setPlogDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'plog' }));
+  const [referenceAssetIds, setReferenceAssetIds] = useState([]);
+
+  useEffect(() => {
+    setPlogDraftId(createContentDraftId({ ownerEmail, source: 'plog' }));
+    const draft = loadContentDraft({ ownerEmail, source: 'plog' });
+    if (draft?.text) setText(draft.text);
+    if (draft?.style) setSelectedStyle(draft.style);
+    if (draft?.layout) setSelectedLayout(draft.layout);
+    if (draft?.coverVariant) setSelectedCover(draft.coverVariant);
+    setReferenceAssetIds(draft?.referenceAssetIds || []);
+  }, [ownerEmail]);
+
+  useEffect(() => {
+    if (!text.trim()) return;
+    saveContentDraft({
+      ownerEmail,
+      source: 'plog',
+      draftId: plogDraftId,
+      draft: {
+        text,
+        style: selectedStyle,
+        layout: selectedLayout,
+        coverVariant: selectedCover,
+        referenceAssetIds,
+      },
+    });
+  }, [ownerEmail, plogDraftId, referenceAssetIds, selectedCover, selectedLayout, selectedStyle, text]);
 
   useEffect(() => {
     if (genState === 'loading') {
@@ -88,6 +122,7 @@ export default function PlogPage() {
     if (!file || !file.type.startsWith('image/')) return;
     if (file.size > 5 * 1024 * 1024) { setErr('图片太大，请选择5MB以内的图片'); return; }
     setErr('');
+    setReferenceAssetIds([]);
     setRefImage(file);
     setRefPreview(URL.createObjectURL(file));
   }, []);
@@ -104,6 +139,7 @@ export default function PlogPage() {
     if (refPreview) URL.revokeObjectURL(refPreview);
     setRefImage(null);
     setRefPreview('');
+    setReferenceAssetIds([]);
   }, [refPreview]);
 
   const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
@@ -116,56 +152,83 @@ export default function PlogPage() {
   // ── 生成 ──
   const handleGenerate = async () => {
     if (!text.trim()) return;
+    const usePreview = !state.logged;
+    let ownedReferenceAssetIds = referenceAssetIds;
+    saveContentDraft({
+      ownerEmail,
+      source: 'plog',
+      draftId: plogDraftId,
+      draft: {
+        text,
+        style: selectedStyle,
+        layout: selectedLayout,
+        coverVariant: selectedCover,
+        referenceAssetIds: ownedReferenceAssetIds,
+      },
+    });
     setErr('');
     setGenState('loading');
     setResults(null);
     setProgress({ current: 0, total: 9 });
     dispatch({ type: 'START_GEN' });
     try {
-      const body = { text: text.trim(), style: selectedStyle, layout: selectedLayout, coverVariant: selectedCover };
-      if (refImage) body.refImage = await readFileAsBase64(refImage);
-      const res = await fetch('/api/plog-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(withSessionEmail(body)),
-      });
-      if (!res.ok) throw await createApiError(res, '生成失败');
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '', result = { cover_url: '', image_urls: [], copyLines: [], caption: '', scene: '', style: '', layout: '' };
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const d = JSON.parse(line.slice(6));
-            if (d.type === 'progress') {
-              const stageMap = { scene: 1, lens: 1, tone: 1, generating: 2 };
-              dispatch({ type: 'SET_STAGE', stage: stageMap[d.step] || 1 });
-              if (d.current !== undefined) setProgress({ current: d.current, total: d.total || 9 });
-            } else if (d.type === 'image') {
-              if (d.id === 'cover') result.cover_url = d.url;
-              else result.image_urls.push(d.url);
-            } else if (d.type === 'complete') {
-              Object.assign(result, d);
-              result.image_count = d.image_urls?.length || 0;
-            } else if (d.type === 'error') {
-              throw new Error(d.error || '生成失败');
-            }
-          } catch(e) { if (e.message && !e.message.includes('JSON')) throw e; }
-        }
+      if (!usePreview && refImage) {
+        const uploaded = await uploadEcommerceAssets([refImage], 'reference');
+        ownedReferenceAssetIds = uploaded.map(asset => asset.assetId);
+        setReferenceAssetIds(ownedReferenceAssetIds);
+        saveContentDraft({
+          ownerEmail,
+          source: 'plog',
+          draftId: plogDraftId,
+          draft: {
+            text,
+            style: selectedStyle,
+            layout: selectedLayout,
+            coverVariant: selectedCover,
+            referenceAssetIds: ownedReferenceAssetIds,
+          },
+        });
       }
-      setResults(result);
+      const result = await generatePlogContent({
+        text: text.trim(),
+        style: selectedStyle,
+        layout: selectedLayout,
+        coverVariant: selectedCover,
+        refImage: usePreview && refImage ? await readFileAsBase64(refImage) : undefined,
+        referenceAssetIds: ownedReferenceAssetIds,
+        preview: usePreview,
+      }, {
+        onProgress: d => {
+          const stageMap = { scene: 1, lens: 1, tone: 1, generating: 2 };
+          dispatch({ type: 'SET_STAGE', stage: stageMap[d.step] || 1 });
+          if (d.current !== undefined) setProgress({ current: d.current, total: d.total || 9 });
+        },
+      });
+      const accepted = acceptAuthoritativeContentCompletion(result);
+      if (!accepted) throw new Error('服务端尚未完成稳定作品交付，请稍后重试');
+      setResults(accepted.result);
       setGenState('done');
       dispatch({ type: 'CLOSE_RESULT' });
+      if (state.logged) {
+        await saveWork({
+          ...accepted.result,
+          _plogResult: true,
+          _saveKey: `plog-${Date.now()}`,
+          images: { cover: accepted.result.cover_url },
+        }, state.phone).catch(() => null);
+        await refreshBillingBalance().catch(() => undefined);
+        dispatch({ type: 'CLEAR_PAYWALL' });
+      }
     } catch (e) {
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'plog',
-        message: '当前生活场景、参考图和排版选择都已保留，登录或充值后可以继续生成。',
+        currency: 'content_sets',
+        draftId: plogDraftId,
+        action: buildContentPendingAction({
+          type: 'plog',
+          draftId: plogDraftId,
+          referenceAssetIds: ownedReferenceAssetIds,
+        }),
       });
       setErr(accessResult ? '' : (e.message || '生成失败'));
       setGenState('idle');

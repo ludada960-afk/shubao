@@ -71,6 +71,24 @@ function stableDraftReference(storage, ownerEmail, source) {
   }
 }
 
+function contentReferenceAction(action, fallbackType) {
+  const type = typeof action?.type === 'string' && action.type.trim()
+    ? action.type.trim()
+    : fallbackType;
+  const references = Array.isArray(action?.referenceAssetIds)
+    ? [...new Set(action.referenceAssetIds.filter(value => (
+      typeof value === 'string'
+      && value.trim() !== ''
+      && !/^(?:data:|blob:)/i.test(value.trim())
+    )).map(value => value.trim()))]
+    : [];
+  return {
+    type,
+    currency: 'content_sets',
+    ...(references.length ? { referenceAssetIds: references } : {}),
+  };
+}
+
 /**
  * Keep generation access failures consistent across all ecommerce entrypoints.
  * The caller owns its form state; this helper only opens the appropriate modal.
@@ -105,11 +123,13 @@ export function handleGenerationAccessError(error, dispatch, {
       action,
       source: resolvedSource,
     });
-    const resolvedAction = {
-      ...(action && typeof action === 'object' && !Array.isArray(action) ? action : {}),
-      type: typeof action?.type === 'string' && action.type.trim() ? action.type.trim() : resolvedSource,
-      currency: resolvedCurrency,
-    };
+    const resolvedAction = resolvedCurrency === 'content_sets'
+      ? contentReferenceAction(action, resolvedSource)
+      : {
+        ...(action && typeof action === 'object' && !Array.isArray(action) ? action : {}),
+        type: typeof action?.type === 'string' && action.type.trim() ? action.type.trim() : resolvedSource,
+        currency: resolvedCurrency,
+      };
     const billing = {
       required: payload.required ?? error?.required,
       available: payload.available ?? error?.available,

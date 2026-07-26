@@ -39,6 +39,7 @@ import {
 } from './billing/contentBilling.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets.mjs';
+import { resolveContentReferenceImages } from './contentReferenceAssets.mjs';
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
@@ -1876,15 +1877,27 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
 }
 
 app.post('/api/generate', async (req, res) => {
-  const { text, images } = req.body || {};
+  const { text, images, referenceAssetIds } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
   if (req._contentPreview === true) return runXhsPreview(req, res);
+  let resolvedImages;
+  try {
+    resolvedImages = await resolveContentReferenceImages({
+      ownerEmail: req._userEmail,
+      referenceAssetIds,
+      legacyImages: images,
+      assetUploadService: ecommerceAssetUploadService,
+      generatedAssetStore,
+    });
+  } catch (error) {
+    return res.status(error?.status || 422).json({ error: error?.message || '参考素材不可用' });
+  }
   return runBilledContentSse({
     res,
     ownerEmail: req._userEmail,
     generationId: req.body?.generationId,
     mode: 'xhs',
-    generate: context => generateXhsContentSet({ ...context, text: text.trim(), images }),
+    generate: context => generateXhsContentSet({ ...context, text: text.trim(), images: resolvedImages }),
   });
 });
 
@@ -3767,9 +3780,22 @@ async function generatePlogContentSet({
 
 // ── Plog 生活氛围感（V2：独立引擎，与种草完全隔离）──
 app.post('/api/plog-generate', async (req, res) => {
-  const { text, refImage, style, layout, coverVariant, skipEnrich } = req.body || {};
+  const { text, refImage, referenceAssetIds, style, layout, coverVariant, skipEnrich } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
   if (req._contentPreview === true) return runPlogPreview(req, res);
+  let resolvedRefImage;
+  try {
+    [resolvedRefImage] = await resolveContentReferenceImages({
+      ownerEmail: req._userEmail,
+      referenceAssetIds,
+      legacyImages: refImage ? [refImage] : [],
+      limit: 1,
+      assetUploadService: ecommerceAssetUploadService,
+      generatedAssetStore,
+    });
+  } catch (error) {
+    return res.status(error?.status || 422).json({ error: error?.message || '参考素材不可用' });
+  }
   return runBilledContentSse({
     res,
     ownerEmail: req._userEmail,
@@ -3778,7 +3804,7 @@ app.post('/api/plog-generate', async (req, res) => {
     generate: context => generatePlogContentSet({
       ...context,
       text: text.trim(),
-      refImage,
+      refImage: resolvedRefImage,
       style,
       layout,
       coverVariant,

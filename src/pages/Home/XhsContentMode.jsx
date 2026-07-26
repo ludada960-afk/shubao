@@ -23,9 +23,14 @@ const EC_STYLE_PACKS = [
   { key:'promo_sale',    label:'促销热卖', subtitle:'促销感',desc:'价格/优惠/抢购角标',        img:'', ar:'1/1' },
   { key:'',              label:'无风格（默认）', subtitle:'自动',desc:'AI 自由发挥',         img:'', ar:'1/1' },
 ];
-import { proxyImg, generateContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, withSessionEmail } from '../../services/api';
+import { proxyImg, generateContent, generatePlogContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, uploadEcommerceAssets } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createApiError } from '../../services/apiError.js';
+import { loadContentDraft, saveContentDraft } from '../../utils/contentDraftStore.js';
+import {
+  acceptAuthoritativeContentCompletion,
+  buildContentPendingAction,
+  createContentDraftId,
+} from '../contentGenerationModel.js';
 import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
@@ -46,14 +51,15 @@ let _extractSessionToken = null;
 let observedEcommerceWorkVersion = 0;
 
 export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp }) {
-  const { state, dispatch, fetchCredits } = useApp();
-  const { inputText, logged, credits, unlimited, mode } = state;
+  const { state, dispatch, fetchCredits, refreshBillingBalance } = useApp();
+  const { inputText, logged, contentSets, unlimited, mode } = state;
   const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
   const workVersion = Number(state._workVersion || 0);
   const [err, setErr] = useState('');
   const [refImages, setRefImages] = useState([]);
   const fileRef = useRef(null);
-  const [trialRemaining, setTrialRemaining] = useState(0);
+  const [xhsContentDraftId, setXhsContentDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'xhs-content' }));
+  const [xhsReferenceAssetIds, setXhsReferenceAssetIds] = useState([]);
   // 小红书子模式：content(种草) / plog(生活碎片) — 支持外部传入或内部管理
   const [xhsSubModeInternal, setXhsSubModeInternal] = useState('content');
   const xhsSubMode = xhsSubModeProp !== undefined ? xhsSubModeProp : xhsSubModeInternal;
@@ -66,6 +72,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [plogRefImg, setPlogRefImg] = useState(null);
   const [plogRefPreview, setPlogRefPreview] = useState('');
   const plogFileRef = useRef(null);
+  const [homePlogDraftId, setHomePlogDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'xhs-plog' }));
+  const [homePlogReferenceAssetIds, setHomePlogReferenceAssetIds] = useState([]);
 
   const [ecName, setEcName] = useState('');
   const [ecCat, setEcCat] = useState('美妆护肤');
@@ -170,6 +178,45 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     generationTokenRef.current = null;
     generationAbortRef.current?.abort();
   }, []);
+
+  useEffect(() => {
+    setXhsContentDraftId(createContentDraftId({ ownerEmail, source: 'xhs-content' }));
+    setHomePlogDraftId(createContentDraftId({ ownerEmail, source: 'xhs-plog' }));
+    const xhsDraft = loadContentDraft({ ownerEmail, source: 'xhs-content' });
+    if (xhsDraft?.text) dispatch({ type: 'SET_INPUT', text: xhsDraft.text });
+    setXhsReferenceAssetIds(xhsDraft?.referenceAssetIds || []);
+    const plogDraft = loadContentDraft({ ownerEmail, source: 'xhs-plog' });
+    if (plogDraft?.text) setPlogText(plogDraft.text);
+    if (plogDraft?.style) setPlogStyle(plogDraft.style);
+    if (plogDraft?.layout) setPlogLayout(plogDraft.layout);
+    setHomePlogReferenceAssetIds(plogDraft?.referenceAssetIds || []);
+  }, [ownerEmail]);
+
+  useEffect(() => {
+    if (!inputText.trim()) return;
+    saveContentDraft({
+      ownerEmail,
+      source: 'xhs-content',
+      draftId: xhsContentDraftId,
+      draft: { text: inputText, referenceAssetIds: xhsReferenceAssetIds },
+    });
+  }, [inputText, ownerEmail, xhsContentDraftId, xhsReferenceAssetIds]);
+
+  useEffect(() => {
+    if (!plogText.trim()) return;
+    saveContentDraft({
+      ownerEmail,
+      source: 'xhs-plog',
+      draftId: homePlogDraftId,
+      draft: {
+        text: plogText,
+        style: plogStyle,
+        layout: plogLayout,
+        coverVariant: 'collage',
+        referenceAssetIds: homePlogReferenceAssetIds,
+      },
+    });
+  }, [homePlogDraftId, homePlogReferenceAssetIds, ownerEmail, plogLayout, plogStyle, plogText]);
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
@@ -555,26 +602,34 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   const doGenXHS = async () => {
     if (!inputText.trim()) return;
-    if (!unlimited && logged && credits === 0 && trialRemaining === 0) {
-      dispatch({
-        type: 'OPEN_PAYWALL',
-        tab: 'content',
-        reason: 'INSUFFICIENT_CREDITS',
-        pendingAction: { source: 'xhs-content', message: '当前文案、参考图和编辑内容都已保留，充值后可以继续生成。' },
-      });
-      return;
-    }
-    const isPaid = logged && (unlimited || credits > 0);
-    const isTrial = !unlimited && logged && credits === 0 && trialRemaining > 0;
     const usePreview = !logged;
+    let referenceAssetIds = xhsReferenceAssetIds;
+    saveContentDraft({
+      ownerEmail,
+      source: 'xhs-content',
+      draftId: xhsContentDraftId,
+      draft: { text: inputText, referenceAssetIds },
+    });
     setErr('');
     dispatch({ type: 'START_GEN' });
     // 创建 AbortController 以便组件卸载时中断
     genAbortRef.current = new AbortController();
     try {
+      if (!usePreview && refImages.length) {
+        const uploaded = await uploadEcommerceAssets(refImages, 'reference', { signal: genAbortRef.current.signal });
+        referenceAssetIds = uploaded.map(asset => asset.assetId);
+        setXhsReferenceAssetIds(referenceAssetIds);
+        saveContentDraft({
+          ownerEmail,
+          source: 'xhs-content',
+          draftId: xhsContentDraftId,
+          draft: { text: inputText, referenceAssetIds },
+        });
+      }
       // SSE 流式回调：用后端真实进度替换假定时器
-      const result = await generateContent(inputText, [], {
+      const result = await generateContent(inputText, usePreview ? refImages : [], {
         preview: usePreview,
+        referenceAssetIds,
         signal: genAbortRef.current.signal,
         onProgress: (d) => {
           if (d.step === 'content_analysis' || d.step === 'visual_planning')
@@ -585,15 +640,27 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             dispatch({ type: 'SET_STAGE', stage: 3 });
         },
       });
+      const accepted = acceptAuthoritativeContentCompletion(result);
+      if (!accepted) throw new Error('服务端尚未完成稳定作品交付，请稍后重试');
       dispatch({ type: 'SET_STAGE', stage: 4 });
       await new Promise(r => setTimeout(r, 800));
-      const work = { ...result, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, _trialLocked: isTrial, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
+      const work = { ...accepted.result, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
       dispatch({ type: 'SET_RESULT', result: work });
-      if (isPaid) { saveWork(work, state.phone); if (!unlimited) dispatch({ type: 'SET_CREDITS', credits: credits - 1, unlimited: false }); }
+      if (!usePreview) {
+        await saveWork(work, state.phone).catch(() => null);
+        await refreshBillingBalance().catch(() => undefined);
+        dispatch({ type: 'CLEAR_PAYWALL' });
+      }
     } catch (e) {
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'xhs-content',
-        message: '当前文案、参考图和编辑内容都已保留，充值后可以继续生成。',
+        currency: 'content_sets',
+        draftId: xhsContentDraftId,
+        action: buildContentPendingAction({
+          type: 'xhs-content',
+          draftId: xhsContentDraftId,
+          referenceAssetIds,
+        }),
       });
       setErr(accessResult ? '' : (e.message || '生成失败'));
       dispatch({ type: 'CLOSE_RESULT' });
@@ -609,46 +676,74 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   const doGenPlog = async () => {
     if (!plogText.trim()) return;
+    const usePreview = !logged;
+    let referenceAssetIds = homePlogReferenceAssetIds;
+    saveContentDraft({
+      ownerEmail,
+      source: 'xhs-plog',
+      draftId: homePlogDraftId,
+      draft: {
+        text: plogText,
+        style: plogStyle,
+        layout: plogLayout,
+        coverVariant: 'collage',
+        referenceAssetIds,
+      },
+    });
     setErr('');
     dispatch({ type: 'START_GEN' });
     try {
-      const body = { text: plogText.trim(), style: plogStyle, layout: plogLayout, coverVariant: 'collage' };
-      if (plogRefImg) body.refImage = await readFileAsBase64(plogRefImg);
-      const res = await fetch('/api/plog-generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withSessionEmail(body)),
-      });
-      if (!res.ok) throw await createApiError(res, 'Plog 生成失败');
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '', result = { cover_url: '', image_urls: [], copyLines: [], caption: '' };
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n'); buf = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const d = JSON.parse(line.slice(6));
-            if (d.type === 'progress') {
-              const stageMap = { scene: 1, lens: 1, tone: 1, generating: 2 };
-              dispatch({ type: 'SET_STAGE', stage: stageMap[d.step] || 1 });
-            } else if (d.type === 'image') {
-              if (d.id === 'cover') result.cover_url = d.url;
-              else result.image_urls.push(d.url);
-              dispatch({ type: 'SET_STAGE', stage: 2 });
-            } else if (d.type === 'complete') {
-              Object.assign(result, d);
-            } else if (d.type === 'error') throw new Error(d.error || '生成失败');
-          } catch(e) { if (e.message && !e.message.includes('JSON')) throw e; }
-        }
+      if (!usePreview && plogRefImg) {
+        const uploaded = await uploadEcommerceAssets([plogRefImg], 'reference');
+        referenceAssetIds = uploaded.map(asset => asset.assetId);
+        setHomePlogReferenceAssetIds(referenceAssetIds);
+        saveContentDraft({
+          ownerEmail,
+          source: 'xhs-plog',
+          draftId: homePlogDraftId,
+          draft: {
+            text: plogText,
+            style: plogStyle,
+            layout: plogLayout,
+            coverVariant: 'collage',
+            referenceAssetIds,
+          },
+        });
       }
-      const work = { ...result, _plogResult: true, _saveKey: 'plog-' + Date.now(), images: { cover: result.cover_url } };
+      const result = await generatePlogContent({
+        text: plogText.trim(),
+        style: plogStyle,
+        layout: plogLayout,
+        coverVariant: 'collage',
+        refImage: usePreview && plogRefImg ? await readFileAsBase64(plogRefImg) : undefined,
+        referenceAssetIds,
+        preview: usePreview,
+      }, {
+        onProgress: d => {
+          const stageMap = { scene: 1, lens: 1, tone: 1, generating: 2 };
+          dispatch({ type: 'SET_STAGE', stage: stageMap[d.step] || 1 });
+        },
+        onImage: () => dispatch({ type: 'SET_STAGE', stage: 2 }),
+      });
+      const accepted = acceptAuthoritativeContentCompletion(result);
+      if (!accepted) throw new Error('服务端尚未完成稳定作品交付，请稍后重试');
+      const work = { ...accepted.result, _plogResult: true, _preview: usePreview, _saveKey: 'plog-' + Date.now(), images: { cover: accepted.result.cover_url } };
       dispatch({ type: 'SET_RESULT', result: work });
+      if (logged) {
+        await saveWork(work, state.phone).catch(() => null);
+        await refreshBillingBalance().catch(() => undefined);
+        dispatch({ type: 'CLEAR_PAYWALL' });
+      }
     } catch (e) {
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'xhs-plog',
-        message: '当前 Plog 文案、参考图和风格选择都已保留，登录或充值后可以继续生成。',
+        currency: 'content_sets',
+        draftId: homePlogDraftId,
+        action: buildContentPendingAction({
+          type: 'xhs-plog',
+          draftId: homePlogDraftId,
+          referenceAssetIds,
+        }),
       });
       setErr(accessResult ? '' : (e.message || '生成失败'));
       dispatch({ type: 'CLOSE_RESULT' });
@@ -758,7 +853,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
                     <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 3 张</span>
                   </button>
-                  <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value=''; }} />
+                  <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { setXhsReferenceAssetIds([]); addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value=''; }} />
                 </div>
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!inputText && (
@@ -784,7 +879,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   {refImages.map((src, i) => (
                     <div key={i} style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)', flexShrink:0 }}>
                       <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                      <div onClick={() => setRefImages(p => p.filter((_,j) => j!==i))}
+                      <div onClick={() => { setXhsReferenceAssetIds([]); setRefImages(p => p.filter((_,j) => j!==i)); }}
                         style={{ position:'absolute', top:1, right:1, width:16, height:16, borderRadius:'50%', background:'rgba(0,0,0,0.6)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:8 }}>✕</div>
                     </div>
                   ))}
@@ -816,7 +911,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
                     <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 1 张</span>
                   </button>
-                  <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => { const f=e.target.files?.[0]; if(f){setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));} e.target.value=''; }} />
+                  <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => { const f=e.target.files?.[0]; if(f){setHomePlogReferenceAssetIds([]);setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));} e.target.value=''; }} />
                 </div>
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!plogText && (
@@ -841,7 +936,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8 }}>
                   <div style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)' }}>
                     <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    <div onClick={() => { setPlogRefImg(null); setPlogRefPreview(''); }}
+                    <div onClick={() => { setHomePlogReferenceAssetIds([]); setPlogRefImg(null); setPlogRefPreview(''); }}
                       style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700 }}>×</div>
                   </div>
                   <span style={{ fontSize:12, color:'var(--text-muted)' }}>参考图</span>
@@ -1095,10 +1190,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     </div>
                     <div className="ref-images-row">
                       {refImages.map((src, i) => (
-                        <div key={i} className="ref-thumb"><img src={src} alt="" /><div className="ref-remove" onClick={() => setRefImages(p => p.filter((_, j) => j !== i))}>×</div></div>
+                        <div key={i} className="ref-thumb"><img src={src} alt="" /><div className="ref-remove" onClick={() => { setXhsReferenceAssetIds([]); setRefImages(p => p.filter((_, j) => j !== i)); }}>×</div></div>
                       ))}
                       {refImages.length < 3 && <div className="ref-add" onClick={() => fileRef.current?.click()}><Upload size={14} /></div>}
-                      <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value = ''; }} />
+                      <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { setXhsReferenceAssetIds([]); addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value = ''; }} />
                       <span className="ref-hint">参考图（可选，最多3张）</span>
                     </div>
                     <div className="tags-cloud-wrap">
@@ -1106,14 +1201,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <div className="tags-cloud">{QUICK_HINTS.map((h, i) => (<button key={i} className="hint-tag" onClick={() => setText(h)}>{h}</button>))}</div>
                     </div>
                     {err && <div className="error-bar">{err}</div>}
-                    {!unlimited && logged && credits === 0 && trialRemaining === 0 ? (
-                      <button className="gen-btn xhs" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}><MdAutoAwesome size={14} /> 购买套餐继续使用</button>
-                    ) : (
-                      <button className="gen-btn xhs" onClick={doGenXHS} disabled={!inputText.trim()}>
-                        <MdAutoAwesome size={14} /> {!logged ? '免费预览（文案+封面）' : unlimited ? '无限内测生成' : credits > 0 ? '一键生成爆款图文' : '🎁 免费试玩生成'}
-                      </button>
-                    )}
-                    <div className="gen-hint">{!logged ? '🎁 免费预览：AI 生成完整文案 + 1 张封面图 — 登录后解锁全部 9 张配图' : unlimited ? '内测账号不限次数，可持续验证完整生成流程' : credits > 0 ? `剩余 ${credits} 套 · 1套 = 完整文案 + 9张配图` : trialRemaining > 0 ? '🎁 免费试玩：完整生成 9 张配图（仅展示封面）— 充值解锁全部' : '已用完免费次数 · 购买套餐继续使用'}</div>
+                    <button className="gen-btn xhs" onClick={doGenXHS} disabled={!inputText.trim()}>
+                      <MdAutoAwesome size={14} /> {!logged ? '免费预览（文案+封面）' : unlimited ? '无限内测生成' : '一键生成爆款图文'}
+                    </button>
+                    <div className="gen-hint">{!logged ? '🎁 免费预览：仅生成文案和 1 张封面，不消耗创作套数' : unlimited ? '内测账号不限次数，可持续验证完整生成流程' : `剩余 ${contentSets ?? 0} 创作套数 · 完整图文 = 1 创作套数`}</div>
                   </div>
                 )}
                 {xhsSubMode === 'plog' && (
@@ -1131,7 +1222,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       {plogRefPreview ? (
                         <div style={{ position:'relative', width:60, height:60, borderRadius:8, overflow:'hidden', border:'2px solid #ddd', flex:'0 0 auto' }}>
                           <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                          <div onClick={() => { setPlogRefImg(null); setPlogRefPreview(''); }}
+                          <div onClick={() => { setHomePlogReferenceAssetIds([]); setPlogRefImg(null); setPlogRefPreview(''); }}
                             style={{ position:'absolute', top:-5, right:-5, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700, lineHeight:1 }}>×</div>
                         </div>
                       ) : (
@@ -1142,7 +1233,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       )}
                       <span style={{ fontSize:13, color:'#999' }}>参考图（可选，AI自动统一整组色调）</span>
                       <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => {
-                        const f=e.target.files?.[0]; if(f){setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));}
+                        const f=e.target.files?.[0]; if(f){setHomePlogReferenceAssetIds([]);setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));}
                         e.target.value='';
                       }} />
                     </div>

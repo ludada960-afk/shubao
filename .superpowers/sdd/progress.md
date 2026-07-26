@@ -40,7 +40,11 @@
 - Paid Workflow Task 4: complete (`7af1805`, `c564b98`; authoritative server catalog drives prices, grants, validity and enabled state; safe `{id, enabled}` provider visibility; exact three-field order requests; permanent ecommerce AI-point presentation; content-set validity; disabled-payment truth; and interrupted-plan browsing without clearing pending work independently reviewed and approved; focused 36/36, Vite build, collaboration policy, and diff-check passed).
 - Paid Workflow Task 5A: complete (`48311a8..6ac4c91`, three review/fix rounds independently reviewed and approved; original JPEG/PNG preservation, exact planner/quote/hold parity, 4K routing, reference-only pending actions, re-quote invalidation, transparent-background safety, focused 90/90, adjacent 73/73, build, diff-check, and collaboration policy passed).
 - Paid Workflow Task 5B: complete (`4fcaf1e..d0e2192`, durable owner/draft task resume across every reachable ecommerce surface, immediate stable-image previews, 402 reference safety, expiry and re-quote behavior, generation-epoch stale callback protection, abortable upload/poll/SSE paths, and lifecycle-controller behavior tests independently reviewed and approved; focused 53/53, required 102/102, adjacent 73/73, build, diff-check, and collaboration policy passed).
-- Next implementation task: Paid Workflow Task 6.
+- Paid Workflow Task 6: complete (authoritative XHS/Plog content-set balances,
+  reference-only resumable drafts and payment actions, owner-scoped original
+  reference resolution, stable complete-event gating; focused 74/74, Vite
+  build, diff-check, and collaboration policy passed).
+- Next implementation task: Paid Workflow Task 7.
 
 ## Ownership
 

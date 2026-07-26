@@ -1197,13 +1197,13 @@ test('server initializes durable billing, signed sessions, trusted proxy IPs, an
   assert.doesNotMatch(getClientIp, /x-forwarded-for/i);
 
   const middleware = extractNamedFunction(server, 'betaAccessMiddleware');
-  assert.match(middleware, /CONTENT_PREVIEW_ROUTES\.has\(req\.path\)/);
+  assert.match(middleware, /CONTENT_PREVIEW_ROUTES\.has\((?:req\.path|guardedPath)\)/);
   assert.match(middleware, /req\.body\?\.preview === true/);
   assert.match(middleware, /req\._contentPreview = true/);
   assert.match(middleware, /authenticateContentRequest\(req/);
   assertBefore(middleware, 'req._contentPreview = true', 'authenticateContentRequest', 'preview is separated before session auth');
   assertBefore(middleware, 'authenticateContentRequest', 'requireBetaEmail(req.body?.email)', 'paid content auth precedes legacy body auth');
-  assert.match(server, /betaAccessMiddleware\(req, res, continueWithRateLimit\)/);
+  assert.match(server, /betaAccessMiddleware\(req, res, continueWithRateLimit(?:, guardedPath)?\)/);
 
   const verifyRoute = extractRouteHandler(server, '/api/auth/verify-code');
   assert.match(verifyRoute, /contentSessionTokens\.issue\(access\.email\)/);

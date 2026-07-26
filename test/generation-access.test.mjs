@@ -272,6 +272,44 @@ test('insufficient-balance currency follows safe caller, action, and source prec
   assert.equal(invalidOverride.pendingAction.action.currency, 'content_sets');
 });
 
+test('content-set 402 actions retain only reference identifiers and reject raw draft data', () => {
+  const actions = [];
+  const values = new Map([['sb-auth', JSON.stringify({
+    email: 'creator@example.com', token: 'signed', expiresAt: '2099-01-01T00:00:00.000Z',
+  })]]);
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+
+  handleGenerationAccessError({
+    status: 402,
+    code: 'INSUFFICIENT_CREDITS',
+    payload: { required: 1, available: 0, generationId: 'server-generation', billingStatus: 'held' },
+  }, action => actions.push(action), {
+    source: 'plog',
+    draftId: 'content-plog-42',
+    storage,
+    action: {
+      type: 'plog',
+      currency: 'content_sets',
+      referenceAssetIds: ['asset-42', 'data:image/png;base64,unsafe', 'blob:unsafe'],
+      text: 'must not persist',
+      refImage: new File(['raw'], 'reference.png', { type: 'image/png' }),
+    },
+  });
+
+  const pending = actions[0].pendingAction;
+  assert.deepEqual(pending.action, {
+    type: 'plog',
+    currency: 'content_sets',
+    referenceAssetIds: ['asset-42'],
+  });
+  assert.deepEqual(pending.billing, { required: 1, available: 0 });
+  assert.doesNotMatch(JSON.stringify(pending), /data:|blob:|base64|reference\.png|must not persist/);
+});
+
 test('maps beta access failures to the login modal without changing form state', () => {
   const actions = [];
   const result = handleGenerationAccessError({ status: 403 }, action => actions.push(action));
