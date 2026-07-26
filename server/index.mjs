@@ -40,6 +40,11 @@ import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets.mjs';
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
+import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
+import {
+  createCanvasGenerationService,
+  createCanvasRegenerateHandler,
+} from './canvasGenerationService.mjs';
 import { resolveGenerationSize } from './ecommerceEngine/modelCatalog.mjs';
 import {
   createEcommerceAssetRouteHandlers,
@@ -115,6 +120,7 @@ const runBilledContentSse = createBilledSseRunner({
 });
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
+const canvasGenerationStore = createCanvasGenerationStore(db);
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
   try {
@@ -3128,6 +3134,17 @@ const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderAdapter({
     throw error;
   },
 };
+const canvasGenerationService = createCanvasGenerationService({
+  store: canvasGenerationStore,
+  imageInputReader,
+  providerAdapter: ecommerceProviderAdapter,
+  imageGenerationPool,
+  generatedAssetStore,
+  model: IMG_MODEL,
+});
+const canvasRegenerateHandler = createCanvasRegenerateHandler({
+  service: canvasGenerationService,
+});
 const orchestrator = createEcommerceOrchestrator({
   jobs: ecommerceJobs,
   analyzeProductTruth: analyzeEcommerceProductTruth,
@@ -3515,52 +3532,8 @@ app.post('/api/ecommerce/assets', authenticateEcommerceRequest, ecommerceAssetRo
 app.post('/api/ecommerce/exports', authenticateEcommerceRequest, ecommerceExportRouteHandlers.create);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
-// 画布内的二次生成：沿用现有图生图通道，保证提示词编辑不是只复制到剪贴板。
-app.post('/api/canvas/regenerate', async (req, res) => {
-  const { prompt, image_url, reference_images: referenceImages = [], ratio } = req.body || {};
-  if (!prompt?.trim() || !image_url) return res.status(400).json({ error: '缺少图片或生成说明' });
-  try {
-    const visualInputs = [image_url, ...(Array.isArray(referenceImages) ? referenceImages : [])]
-      .filter(value => typeof value === 'string' && value.trim())
-      .slice(0, 9);
-    const resolvedInputs = [];
-    for (const input of visualInputs) {
-      try {
-        resolvedInputs.push(await imageInputReader.read(input));
-      } catch (error) {
-        if (input === image_url) throw error;
-      }
-    }
-    if (resolvedInputs.length === 0) throw new Error('读取原图失败');
-    const selectedSize = resolveGenerationSize({ resolution: '1K', ratio });
-    const referenceNote = resolvedInputs.length > 1
-      ? ` Image 0 is the authoritative product view. Images 1 through ${resolvedInputs.length - 1} are indexed visual references; borrow only compatible composition or style cues from them without changing the product identity.`
-      : '';
-    const submitted = await ecommerceProviderAdapter.submitEdit({
-      idempotencyKey: `canvas-regenerate-${crypto.randomUUID()}`,
-      prompt: `Create a polished ecommerce product visual. Preserve the supplied product identity and structure.${referenceNote} ${prompt.trim()}`,
-      modelRoute: {
-        model: IMG_MODEL,
-        size: selectedSize.size,
-        async: true,
-        mode: 'edit',
-      },
-      inputAssets: resolvedInputs.map((image, index) => ({
-        ...image,
-        fileName: `canvas-reference-${index + 1}.${image.contentType === 'image/jpeg' ? 'jpg' : image.contentType === 'image/webp' ? 'webp' : 'png'}`,
-      })),
-    });
-    const completed = await ecommerceProviderAdapter.pollUntilReady(submitted.jobId);
-    if (completed.status !== 'completed' || !completed.outputUrl) {
-      throw new Error(completed.error || '图片生成未完成');
-    }
-    const generated = completed.outputUrl;
-    const asset = await generatedAssetStore.persist({ sourceUrl: generated, taskId: `canvas_${Date.now()}`, label: 'canvas_regenerated' });
-    res.json({ url: asset.url });
-  } catch (error) {
-    res.status(500).json({ error: '重新生成失败：' + error.message });
-  }
-});
+// 画布二次生成由独立持久化服务负责；路由只转交已认证 owner 与请求体。
+app.post('/api/canvas/regenerate', canvasRegenerateHandler);
 
 async function readCanvasImage(imageUrl) {
   return (await imageInputReader.read(imageUrl)).buffer;

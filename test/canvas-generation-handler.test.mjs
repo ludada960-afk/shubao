@@ -1,0 +1,120 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createCanvasRegenerateHandler } from '../server/canvasGenerationService.mjs';
+
+function createResponse() {
+  return {
+    statusCode: 200,
+    headers: {},
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    setHeader(name, value) {
+      this.headers[String(name).toLowerCase()] = String(value);
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    },
+  };
+}
+
+test('Canvas handler preserves structured retryable and validation provider errors', async () => {
+  const cases = [
+    {
+      error: Object.assign(new Error('rate limited'), {
+        status: 429,
+        code: 'PROVIDER_RATE_LIMITED',
+        retryable: true,
+        retryAfter: 7,
+        taskId: 'canvas_rate_limited',
+      }),
+      expectedStatus: 429,
+      retryAfter: '7',
+    },
+    {
+      error: Object.assign(new Error('provider unavailable'), {
+        status: 503,
+        code: 'PROVIDER_UNAVAILABLE',
+        retryable: true,
+        taskId: 'canvas_unavailable',
+      }),
+      expectedStatus: 503,
+    },
+    {
+      error: Object.assign(new Error('provider still processing'), {
+        status: 504,
+        code: 'PROVIDER_POLL_TIMEOUT',
+        retryable: true,
+        taskId: 'canvas_timeout',
+        jobId: 'provider-timeout',
+      }),
+      expectedStatus: 504,
+    },
+    {
+      error: Object.assign(new Error('invalid provider request'), {
+        status: 422,
+        code: 'PROVIDER_VALIDATION_FAILED',
+        retryable: false,
+        taskId: 'canvas_invalid',
+      }),
+      expectedStatus: 422,
+    },
+  ];
+
+  for (const item of cases) {
+    const handler = createCanvasRegenerateHandler({
+      service: {
+        async regenerate() {
+          throw item.error;
+        },
+      },
+    });
+    const res = createResponse();
+    await handler({
+      _userEmail: 'signed-owner@example.com',
+      body: { prompt: 'test', image_url: 'primary.png' },
+    }, res);
+
+    assert.equal(res.statusCode, item.expectedStatus);
+    assert.equal(res.body.error, item.error.message);
+    assert.equal(res.body.code, item.error.code);
+    assert.equal(res.body.retryable, item.error.retryable);
+    assert.equal(res.body.resumeable, item.error.retryable);
+    assert.equal(res.body.taskId, item.error.taskId);
+    if (item.retryAfter) {
+      assert.equal(res.headers['retry-after'], item.retryAfter);
+      assert.equal(res.body.retryAfter, Number(item.retryAfter));
+    }
+  }
+});
+
+test('Canvas handler keeps the successful url response contract and may include the durable task id', async () => {
+  const handler = createCanvasRegenerateHandler({
+    service: {
+      async regenerate(input) {
+        assert.equal(input.ownerEmail, 'signed-owner@example.com');
+        return {
+          url: '/api/generated-assets/canvas.png',
+          taskId: 'canvas_success',
+          replay: false,
+        };
+      },
+    },
+  });
+  const res = createResponse();
+
+  await handler({
+    _userEmail: 'signed-owner@example.com',
+    body: { prompt: 'test', image_url: 'primary.png' },
+  }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, {
+    url: '/api/generated-assets/canvas.png',
+    taskId: 'canvas_success',
+  });
+});

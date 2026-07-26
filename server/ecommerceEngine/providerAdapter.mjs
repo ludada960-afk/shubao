@@ -16,13 +16,29 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function providerError(message, { status = 0, retryable = false, jobId = '', code = 'PROVIDER_ERROR' } = {}) {
+function providerError(message, {
+  status = 0,
+  retryable = false,
+  jobId = '',
+  code = 'PROVIDER_ERROR',
+  retryAfter = null,
+} = {}) {
   const error = new Error(message);
   error.status = status;
   error.retryable = retryable;
   error.jobId = jobId;
   error.code = code;
+  if (Number.isFinite(retryAfter) && retryAfter >= 0) error.retryAfter = retryAfter;
   return error;
+}
+
+function parseRetryAfter(response) {
+  const value = cleanString(response?.headers?.get?.('retry-after'));
+  if (!value) return null;
+  if (/^\d+(?:\.\d+)?$/.test(value)) return Math.ceil(Number(value));
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
 }
 
 function validateBaseUrl(value) {
@@ -234,6 +250,7 @@ export function createProviderAdapter(config = {}) {
         const body = await readBody(response);
         const jobId = extractJobId(body);
         const status = extractStatus(body);
+        const retryAfter = parseRetryAfter(response);
         if (response.ok) {
           if (!jobId) throw providerError('provider did not return an async job id', {
             status: response.status,
@@ -242,12 +259,17 @@ export function createProviderAdapter(config = {}) {
           return { jobId: validateJobId(jobId), status };
         }
         if (response.status === 504 && jobId) {
-          return { jobId: validateJobId(jobId), status, recoverable: true };
+          return {
+            jobId: validateJobId(jobId),
+            status,
+            recoverable: true,
+            ...(retryAfter !== null ? { retryAfter } : {}),
+          };
         }
         const retryable = RETRYABLE_STATUS.has(response.status);
         lastError = providerError(
           extractError(body) || `provider edit request failed with HTTP ${response.status}`,
-          { status: response.status, retryable, jobId },
+          { status: response.status, retryable, jobId, retryAfter },
         );
         if (!retryable || attempt === maxSubmitAttempts) throw lastError;
       } catch (error) {
@@ -277,6 +299,7 @@ export function createProviderAdapter(config = {}) {
     const body = await readBody(response);
     const responseJobId = extractJobId(body) || jobId;
     const status = extractStatus(body);
+    const retryAfter = parseRetryAfter(response);
     if (!response.ok && !(response.status === 504 && responseJobId)) {
       throw providerError(
         extractError(body) || `provider polling failed with HTTP ${response.status}`,
@@ -284,6 +307,7 @@ export function createProviderAdapter(config = {}) {
           status: response.status,
           retryable: RETRYABLE_STATUS.has(response.status),
           jobId: responseJobId,
+          retryAfter,
         },
       );
     }

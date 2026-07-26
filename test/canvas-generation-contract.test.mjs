@@ -18,15 +18,15 @@ test('server Canvas generation has no Contact Sheet production dependency', asyn
   assert.doesNotMatch(source, /referenceContactSheet|buildReferenceContactSheet/);
 });
 
-test('Canvas regeneration sends individual visual inputs through indexed provider multipart', async () => {
+test('server Canvas regeneration is a thin route over the executable durable service', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/regenerate', 'async function readCanvasImage');
 
-  assert.match(route, /resolvedInputs\.push\(await imageInputReader\.read\(input\)\)/);
-  assert.match(route, /ecommerceProviderAdapter\.submitEdit\(/);
-  assert.match(route, /inputAssets:\s*resolvedInputs\.map\(/);
-  assert.match(route, /ecommerceProviderAdapter\.pollUntilReady\(/);
-  assert.doesNotMatch(route, /imageBufferToDataUrl|contact\s*sheet/i);
+  assert.match(source, /createCanvasGenerationStore\(db\)/);
+  assert.match(source, /createCanvasGenerationService\(\{[\s\S]*?imageGenerationPool,[\s\S]*?providerAdapter:\s*ecommerceProviderAdapter/);
+  assert.match(source, /createCanvasRegenerateHandler\(\{\s*service:\s*canvasGenerationService,?\s*\}\)/);
+  assert.match(route, /app\.post\('\/api\/canvas\/regenerate',\s*canvasRegenerateHandler\)/);
+  assert.doesNotMatch(route, /submitEdit|pollUntilReady|imageInputReader|generatedAssetStore/);
 });
 
 test('shared catalog resolves every Canvas size to an exact legal entry', () => {

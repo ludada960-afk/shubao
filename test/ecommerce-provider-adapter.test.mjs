@@ -3,10 +3,18 @@ import assert from 'node:assert/strict';
 
 import { createProviderAdapter } from '../server/ecommerceEngine/providerAdapter.mjs';
 
-function jsonResponse(status, body) {
+function jsonResponse(status, body, headers = {}) {
+  const normalizedHeaders = Object.fromEntries(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), String(value)]),
+  );
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: {
+      get(name) {
+        return normalizedHeaders[String(name).toLowerCase()] ?? null;
+      },
+    },
     async json() { return body; },
     async text() { return JSON.stringify(body); },
   };
@@ -157,6 +165,27 @@ test('treats a 504 response carrying a provider job id as recoverable', async ()
     status: 'running',
     recoverable: true,
   });
+});
+
+test('preserves provider Retry-After semantics on structured retryable errors', async () => {
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://images.example.test',
+    bearerToken: 'one',
+    maxSubmitAttempts: 1,
+    fetchImpl: async () => jsonResponse(
+      429,
+      { error: { message: 'slow down' } },
+      { 'Retry-After': '9' },
+    ),
+  });
+
+  await assert.rejects(
+    adapter.submitEdit(editRequest()),
+    error => error.status === 429
+      && error.code === 'PROVIDER_ERROR'
+      && error.retryable === true
+      && error.retryAfter === 9,
+  );
 });
 
 test('pollUntilReady stops at completion and never resubmits the edit', async () => {
