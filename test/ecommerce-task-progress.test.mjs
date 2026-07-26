@@ -397,6 +397,48 @@ test('late generation A image and completion cannot write after owner-draft rota
   }), true);
 });
 
+test('analysis supplement uploads do not need a generation token while stale formal generation is rejected', () => {
+  const analysisUpload = taskProgressModel.resolveEcommerceSupplementUpload({
+    product: [{ assetId: 'product-1' }],
+    reference: [{ assetId: 'reference-1' }],
+  });
+  assert.deepEqual(analysisUpload, {
+    product: [{ assetId: 'product-1' }],
+    reference: [{ assetId: 'reference-1' }],
+  });
+
+  const token = taskProgressModel.createEcommerceGenerationToken({
+    ownerEmail: 'owner@example.com',
+    draftId: 'draft-a',
+  });
+  assert.equal(taskProgressModel.resolveEcommerceSupplementUpload({
+    product: [{ assetId: 'product-1' }],
+    reference: [],
+    generationToken: token,
+    isGenerationCurrent: () => false,
+  }), null);
+});
+
+test('missing generation context is explicit and an immediate work rotation aborts request A before B callbacks', () => {
+  const contextError = taskProgressModel.createEcommerceGenerationPreconditionError();
+  assert.equal(contextError.code, 'ECOMMERCE_GENERATION_CONTEXT_REQUIRED');
+  assert.match(contextError.message, /登录|草稿/);
+
+  const tokenRef = {
+    current: taskProgressModel.createEcommerceGenerationToken({
+      ownerEmail: 'owner@example.com',
+      draftId: 'draft-a',
+    }),
+  };
+  let aborted = 0;
+  const abortRef = { current: { abort: () => { aborted += 1; } } };
+  taskProgressModel.invalidateEcommerceGenerationRequest({ tokenRef, abortRef });
+
+  assert.equal(tokenRef.current, null);
+  assert.equal(abortRef.current, null);
+  assert.equal(aborted, 1);
+});
+
 test('task reference helpers reject malformed owner, draft, task, and record data', () => {
   const storage = memoryStorage();
   assert.equal(taskKey({ ownerEmail: '', draftId: 'ec-draft-1' }), '');

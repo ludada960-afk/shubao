@@ -287,6 +287,29 @@ test('stable ecommerce quality analysis uses the detected JPEG, PNG, or WebP MIM
   assert.doesNotMatch(server.slice(start, end), /contentType:\s*['"]image\/png['"]/);
 });
 
+test('ecommerce asset upload forwards a caller AbortController signal', async t => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let requestSignal;
+  globalThis.fetch = async (_url, options = {}) => {
+    requestSignal = options.signal;
+    return new Response(JSON.stringify({
+      original: { assetId: 'asset-upload-signal', url: '/api/assets/original.png', role: 'product' },
+      preview: { url: '/api/assets/preview.png' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const { uploadEcommerceAsset } = await import(`../src/services/api.js?asset-signal=${Date.now()}`);
+  const asset = await uploadEcommerceAsset({
+    data: 'data:image/png;base64,AA==',
+    role: 'product',
+    signal: controller.signal,
+  });
+  assert.equal(requestSignal, controller.signal);
+  assert.equal(asset.assetId, 'asset-upload-signal');
+});
+
 test('generation rejects a stream that never reaches complete', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;

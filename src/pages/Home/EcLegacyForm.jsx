@@ -8,6 +8,7 @@ import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
+  createEcommerceGenerationPreconditionError,
   createEcommerceGenerationToken,
   isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
@@ -134,6 +135,12 @@ export default function EcLegacyForm() {
   const doGen = async () => {
     if (!name.trim()) return;
     const generationToken = beginGeneration();
+    if (!generationToken) {
+      const contextError = createEcommerceGenerationPreconditionError();
+      setError(contextError.message);
+      setLoading(false);
+      return;
+    }
     const generationController = new AbortController();
     generationAbortRef.current = generationController;
     setError('');

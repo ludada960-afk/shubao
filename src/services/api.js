@@ -235,8 +235,16 @@ function splitEcommerceInputs(images) {
   return { owned, legacy };
 }
 
-export async function uploadEcommerceAsset({ data, file, role = 'product' } = {}) {
+function ecommerceUploadAbortError() {
+  const error = new Error('原图上传已取消');
+  error.name = 'AbortError';
+  return error;
+}
+
+export async function uploadEcommerceAsset({ data, file, role = 'product', signal } = {}) {
+  if (signal?.aborted) throw ecommerceUploadAbortError();
   const sourceData = data || await imageToDataUrl(file);
+  if (signal?.aborted) throw ecommerceUploadAbortError();
   if (typeof sourceData !== 'string' || !sourceData.startsWith('data:image/')) {
     throw new Error('请选择 JPEG 或 PNG 原图后重试');
   }
@@ -244,6 +252,7 @@ export async function uploadEcommerceAsset({ data, file, role = 'product' } = {}
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ data: sourceData, role }),
+    signal,
   });
   if (!res.ok) throw await createApiError(res, '原图上传失败');
   const response = await res.json();
@@ -258,7 +267,8 @@ export async function uploadEcommerceAsset({ data, file, role = 'product' } = {}
   };
 }
 
-export async function uploadEcommerceAssets(images, role = 'product') {
+export async function uploadEcommerceAssets(images, role = 'product', { signal } = {}) {
+  if (signal?.aborted) throw ecommerceUploadAbortError();
   return Promise.all((Array.isArray(images) ? images : []).map(async image => {
     const existing = ownedAssetReference(image);
     if (existing) {
@@ -272,6 +282,7 @@ export async function uploadEcommerceAssets(images, role = 'product') {
       data: typeof image === 'string' && image.startsWith('data:image/') ? image : undefined,
       file: image?.file || image,
       role,
+      signal,
     });
   }));
 }

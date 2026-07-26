@@ -93,6 +93,36 @@ export function isEcommerceGenerationTokenCurrent(token, {
   );
 }
 
+export function createEcommerceGenerationPreconditionError() {
+  const error = new Error('请先登录并创建商品草稿后再生成');
+  error.code = 'ECOMMERCE_GENERATION_CONTEXT_REQUIRED';
+  error.resumeable = false;
+  return error;
+}
+
+export function invalidateEcommerceGenerationRequest({ tokenRef, abortRef } = {}) {
+  const controller = abortRef?.current;
+  tokenRef && (tokenRef.current = null);
+  if (typeof controller?.abort === 'function') controller.abort();
+  if (abortRef) abortRef.current = null;
+  return Boolean(controller);
+}
+
+export function resolveEcommerceSupplementUpload({
+  product,
+  reference,
+  generationToken,
+  isGenerationCurrent,
+} = {}) {
+  if (generationToken && typeof isGenerationCurrent === 'function' && !isGenerationCurrent(generationToken)) {
+    return null;
+  }
+  return {
+    product: Array.isArray(product) ? product : [],
+    reference: Array.isArray(reference) ? reference : [],
+  };
+}
+
 function storageFor(storage) {
   return storage || globalThis.localStorage;
 }

@@ -23,7 +23,9 @@ import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import {
   createEcommerceGenerationToken,
+  createEcommerceGenerationPreconditionError,
   isEcommerceGenerationTokenCurrent,
+  resolveEcommerceSupplementUpload,
 } from './ecommerceTaskProgressModel.js';
 
 function normalizeDirectionImages(images = []) {
@@ -149,7 +151,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       const timer1 = setTimeout(() => setLoadStage(1), 2000);
       const timer2 = setTimeout(() => setLoadStage(2), 4000);
 
-      const uploadedSupplement = await uploadSupplementAssets();
+      const uploadedSupplement = await uploadSupplementAssetsForAnalysis();
 
       const res = await getDesignDirections({
         product_name: params?.productName || params?.description?.slice(0, 20) || '商品',
@@ -215,21 +217,35 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     });
   };
 
-  const uploadSupplementAssets = async (generationToken) => {
+  const uploadSupplementAssets = async ({ generationToken, signal } = {}) => {
     const [product, reference] = await Promise.all([
-      uploadEcommerceAssets(extraProductImages, 'product'),
-      uploadEcommerceAssets(extraReferenceImages, 'reference'),
+      uploadEcommerceAssets(extraProductImages, 'product', { signal }),
+      uploadEcommerceAssets(extraReferenceImages, 'reference', { signal }),
     ]);
-    if (!isGenerationCurrent(generationToken)) return null;
-    setExtraProductImages(product);
-    setExtraReferenceImages(reference);
-    return { product, reference };
+    const uploaded = resolveEcommerceSupplementUpload({
+      product,
+      reference,
+      generationToken,
+      isGenerationCurrent,
+    });
+    if (!uploaded) return null;
+    setExtraProductImages(uploaded.product);
+    setExtraReferenceImages(uploaded.reference);
+    return uploaded;
   };
+  const uploadSupplementAssetsForAnalysis = () => uploadSupplementAssets();
+  const uploadSupplementAssetsForGeneration = (generationToken, signal) => uploadSupplementAssets({ generationToken, signal });
 
   /* ── 确认方向 → 生成 ── */
   const handleConfirm = async () => {
     if (generating || !billingQuote || !ecommercePlan.quoteRequest) return;
     const generationToken = beginGeneration();
+    if (!generationToken) {
+      const contextError = createEcommerceGenerationPreconditionError();
+      setError(contextError.message);
+      setGenerating(false);
+      return;
+    }
     const generationController = new AbortController();
     generationAbortRef.current = generationController;
     setGenerating(true);
@@ -238,7 +254,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setGenStage(0);
     let pendingAction = null;
     try {
-      const uploadedSupplement = await uploadSupplementAssets(generationToken);
+      const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationController.signal);
       if (!isGenerationCurrent(generationToken) || !uploadedSupplement) return;
       const dir = directions[selected];
       const directionBrief = [dir?.title, dir?.one_liner, dir?.description].filter(Boolean).join('。');

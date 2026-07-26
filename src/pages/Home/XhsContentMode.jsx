@@ -30,6 +30,7 @@ import { createEcommerceDraftId } from './ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
+  createEcommerceGenerationPreconditionError,
   createEcommerceGenerationToken,
   isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
@@ -447,6 +448,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const doGenEC = async () => {
     if (!ecName.trim()) return;
     const generationToken = beginGeneration();
+    if (!generationToken) {
+      const contextError = createEcommerceGenerationPreconditionError();
+      setErr(contextError.message);
+      setGenECLoading(false);
+      return;
+    }
     const generationController = new AbortController();
     generationAbortRef.current = generationController;
     setErr('');

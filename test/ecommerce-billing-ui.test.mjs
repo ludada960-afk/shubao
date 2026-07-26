@@ -451,8 +451,39 @@ test('every running ecommerce entry binds callbacks and completion to its owner-
     assert.match(source, /createEcommerceGenerationToken/, `${name} creates a generation token`);
     assert.match(source, /isEcommerceGenerationTokenCurrent/, `${name} guards callbacks`);
     assert.match(source, /generationTokenRef\.current\s*=\s*null/, `${name} invalidates stale requests`);
-    assert.match(source, /useEffect\(\(\)\s*=>\s*(?:\(\)\s*=>\s*\{|[\s\S]{0,80}return\s*\(\)\s*=>\s*\{)[\s\S]{0,500}generationTokenRef\.current\s*=\s*null/, `${name} invalidates on unmount`);
+    assert.match(source, /useEffect\(\(\)\s*=>\s*(?:\(\)\s*=>\s*\{|[\s\S]{0,80}return\s*\(\)\s*=>\s*\{)[\s\S]{0,500}(?:generationTokenRef\.current\s*=\s*null|invalidateEcommerceGenerationRequest)/, `${name} invalidates on unmount`);
   }
+});
+
+test('direction analysis is token-free while all entrypoints reject missing context and EcAuto rotates immediately', async () => {
+  const direction = await fs.readFile(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
+  const analysisSlice = direction.slice(direction.indexOf('const loadDirections'), direction.indexOf('const updateDirection'));
+  assert.match(analysisSlice, /uploadSupplementAssetsForAnalysis\(\)/);
+  assert.match(direction, /uploadSupplementAssetsForGeneration\(generationToken/);
+  assert.match(analysisSlice, /uploadedSupplement\.product/);
+
+  const entries = [
+    '../src/pages/Home/EcMode.jsx',
+    '../src/pages/Home/ec/DesignDirection.jsx',
+    '../src/pages/EcStudio/index.jsx',
+    '../src/pages/EcAuto/index.jsx',
+    '../src/pages/Home/EcLegacyForm.jsx',
+    '../src/pages/Home/XhsContentMode.jsx',
+  ];
+  for (const entrypoint of entries) {
+    const source = await fs.readFile(new URL(entrypoint, import.meta.url), 'utf8');
+    assert.match(source, /createEcommerceGenerationPreconditionError/, `${entrypoint} handles missing owner/draft`);
+    assert.match(source, /if \(!generationToken\)/, `${entrypoint} avoids a tokenless API call`);
+  }
+
+  const ecAuto = await fs.readFile(new URL('../src/pages/EcAuto/index.jsx', import.meta.url), 'utf8');
+  assert.match(ecAuto, /invalidateEcommerceGenerationRequest/);
+  assert.match(ecAuto, /if \(workVersion > observedWorkVersionRef\.current\)/);
+
+  const ecMode = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
+  assert.match(ecMode, /generationAbortRef/);
+  assert.match(ecMode, /uploadEcommerceAssets\(productImages, 'product', \{ signal: generationController\.signal \}\)/);
+  assert.match(ecMode, /uploadEcommerceAssets\(refImages, 'reference', \{ signal: generationController\.signal \}\)/);
 });
 
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {

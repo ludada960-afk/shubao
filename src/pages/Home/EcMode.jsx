@@ -22,7 +22,9 @@ import { uploadEcommerceAssets } from '../../services/api.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
+  createEcommerceGenerationPreconditionError,
   createEcommerceGenerationToken,
+  invalidateEcommerceGenerationRequest,
   isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
   rotateEcommerceDraft,
@@ -84,6 +86,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     createDraftId: createEcommerceDraftId,
   })?.draftId || '');
   const generationTokenRef = useRef(null);
+  const generationAbortRef = useRef(null);
   const generationIdentityRef = useRef({ ownerEmail, draftId });
   generationIdentityRef.current = { ownerEmail, draftId };
   const beginGeneration = () => {
@@ -98,7 +101,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   });
 
   useEffect(() => {
-    generationTokenRef.current = null;
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
@@ -112,7 +115,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
-    generationTokenRef.current = null;
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
@@ -127,7 +130,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   }, [draftId, ownerEmail, workVersion]);
 
   useEffect(() => () => {
-    generationTokenRef.current = null;
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
   }, []);
 
   /* — 图片 — */
@@ -210,6 +213,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const handleNext = async () => {
     if (!canGen || uploadingAssets) return;
     const generationToken = beginGeneration();
+    if (!generationToken) {
+      const contextError = createEcommerceGenerationPreconditionError();
+      setAssetUploadError(contextError.message);
+      setUploadingAssets(false);
+      return;
+    }
+    const generationController = new AbortController();
+    generationAbortRef.current = generationController;
     setUploadingAssets(true);
     setAssetUploadError('');
     const baseSizing = (smartMode && !smartOverrides.sizing) ? { smart: true, images: [] } : sizing;
@@ -224,8 +235,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
     try {
       const [realShots, refShots] = await Promise.all([
-        uploadEcommerceAssets(productImages, 'product'),
-        uploadEcommerceAssets(refImages, 'reference'),
+        uploadEcommerceAssets(productImages, 'product', { signal: generationController.signal }),
+        uploadEcommerceAssets(refImages, 'reference', { signal: generationController.signal }),
       ]);
       if (!isGenerationCurrent(generationToken)) return;
       onStepChange?.({
@@ -253,6 +264,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
       if (isGenerationCurrent(generationToken)) {
         setUploadingAssets(false);
         generationTokenRef.current = null;
+        generationAbortRef.current = null;
       }
     }
   };

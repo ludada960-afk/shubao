@@ -14,7 +14,9 @@ import { createEcommerceDraftId } from '../Home/ec/ecommercePlanModel.js';
 import {
   ECOMMERCE_DRAFT_SURFACES,
   acceptEcommerceFinalResult,
+  createEcommerceGenerationPreconditionError,
   createEcommerceGenerationToken,
+  invalidateEcommerceGenerationRequest,
   isEcommerceGenerationTokenCurrent,
   loadOrCreateEcommerceDraft,
   mergeEcommerceInProgressPreview,
@@ -59,8 +61,13 @@ export default function EcAutoPage() {
   const [genProgress, setGenProgress] = useState('');
   const generationTokenRef = useRef(null);
   const generationAbortRef = useRef(null);
+  const observedWorkVersionRef = useRef(workVersion);
   const generationIdentityRef = useRef({ ownerEmail, draftId });
   generationIdentityRef.current = { ownerEmail, draftId };
+  if (workVersion > observedWorkVersionRef.current) {
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
+    observedWorkVersionRef.current = workVersion;
+  }
   const beginGeneration = () => {
     const token = createEcommerceGenerationToken({ ownerEmail, draftId });
     generationTokenRef.current = token;
@@ -73,9 +80,7 @@ export default function EcAutoPage() {
   });
 
   useEffect(() => {
-    generationTokenRef.current = null;
-    generationAbortRef.current?.abort();
-    generationAbortRef.current = null;
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
     const active = loadOrCreateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
@@ -92,6 +97,7 @@ export default function EcAutoPage() {
   useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
@@ -108,8 +114,7 @@ export default function EcAutoPage() {
   }, [draftId, ownerEmail, workVersion]);
 
   useEffect(() => () => {
-    generationTokenRef.current = null;
-    generationAbortRef.current?.abort();
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
   }, []);
 
   // 生成计时器
@@ -134,6 +139,12 @@ export default function EcAutoPage() {
   const handleGenerate = async () => {
     if (!input.trim() || genState === 'generating') return;
     const generationToken = beginGeneration();
+    if (!generationToken) {
+      const contextError = createEcommerceGenerationPreconditionError();
+      setError(contextError.message);
+      setGenState('idle');
+      return;
+    }
     const generationController = new AbortController();
     generationAbortRef.current = generationController;
     setGenState('generating');
@@ -189,9 +200,7 @@ export default function EcAutoPage() {
   };
 
   const startNewProduct = () => {
-    generationTokenRef.current = null;
-    generationAbortRef.current?.abort();
-    generationAbortRef.current = null;
+    invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
     const rotated = rotateEcommerceDraft({
       ownerEmail,
       surface: ECOMMERCE_DRAFT_SURFACES.EC_AUTO,
