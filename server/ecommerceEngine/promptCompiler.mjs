@@ -88,6 +88,28 @@ function shallowSafeAsset(asset) {
   return output;
 }
 
+function stableSerialize(value, ancestors = new Set()) {
+  if (value === null || typeof value !== 'object') {
+    const serialized = JSON.stringify(value);
+    return serialized === undefined ? JSON.stringify(String(value)) : serialized;
+  }
+  if (ancestors.has(value)) return '"[Circular]"';
+  if (ArrayBuffer.isView(value)) {
+    return `[${Array.from(new Uint8Array(value.buffer, value.byteOffset, value.byteLength)).join(',')}]`;
+  }
+
+  const nextAncestors = new Set(ancestors);
+  nextAncestors.add(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item, nextAncestors)).join(',')}]`;
+  }
+  return `{${Object.keys(value)
+    .filter((key) => !UNSAFE_KEYS.has(key.trim().toLowerCase()))
+    .sort(compareStrings)
+    .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key], nextAncestors)}`)
+    .join(',')}}`;
+}
+
 function normalizeAssetCandidates(values, requestedIds) {
   const requestedRanks = new Map(requestedIds.map((assetId, index) => [assetId, index]));
   const candidates = [];
@@ -102,6 +124,7 @@ function normalizeAssetCandidates(values, requestedIds) {
       requestedRank: requestedRanks.has(assetId) ? requestedRanks.get(assetId) : Number.MAX_SAFE_INTEGER,
       priority: numericRank(asset, 'priority'),
       quality: assetQuality(asset),
+      canonicalKey: stableSerialize(asset),
     });
   }
 
@@ -111,6 +134,7 @@ function normalizeAssetCandidates(values, requestedIds) {
     || right.quality - left.quality
     || compareStrings(left.assetId, right.assetId)
     || compareStrings(cleanString(ownValue(left.asset, 'url', 'path')), cleanString(ownValue(right.asset, 'url', 'path')))
+    || compareStrings(left.canonicalKey, right.canonicalKey)
   ));
 
   const result = [];
@@ -121,16 +145,6 @@ function normalizeAssetCandidates(values, requestedIds) {
     result.push(candidate);
   }
   return result;
-}
-
-function needsProtectionAssets(assetPlanItem, productTruth) {
-  const explicitIds = uniqueIdentifiers(ownValue(assetPlanItem, 'protectionAssetIds'));
-  const forbiddenMutations = ownArray(productTruth, 'forbiddenMutations');
-  const qualityChecks = ownArray(assetPlanItem, 'qualityChecks').map(cleanString);
-  return explicitIds.length > 0
-    || forbiddenMutations.length > 0
-    || ['medium', 'high'].includes(cleanString(ownValue(assetPlanItem, 'riskLevel')).toLowerCase())
-    || qualityChecks.includes('product_fidelity');
 }
 
 function responsibilityFor(kind, position) {
@@ -166,7 +180,7 @@ function selectInputAssets(assetPlanItem, productTruth, assets) {
       ? normalizeAssetCandidates(ownArray(source, 'reference', 'references', 'style'), styleIds)
       : []],
     ['proof', proofIds.length ? normalizeAssetCandidates(proofSources, proofIds) : []],
-    ['protection', needsProtectionAssets(assetPlanItem, productTruth)
+    ['protection', protectionIds.length
       ? normalizeAssetCandidates(ownArray(source, 'protection'), protectionIds)
       : []],
   ];
@@ -238,15 +252,31 @@ function confirmedFactMap(productTruth) {
   return result;
 }
 
-function uncertainFactNames(productTruth) {
-  return new Set(ownArray(productTruth, 'uncertainFacts')
-    .map((fact) => safeIdentifier(ownValue(fact, 'name')))
-    .filter(Boolean));
+function skuFactMap(productTruth) {
+  const facts = ownValue(productTruth, 'skuFacts');
+  const result = new Map();
+  if (!isRecord(facts)) return result;
+
+  for (const rawName of Object.keys(facts).sort(compareStrings)) {
+    const name = safeIdentifier(rawName);
+    const fact = facts[rawName];
+    const value = cleanString(isRecord(fact) ? ownValue(fact, 'value') : fact);
+    const source = cleanString(isRecord(fact) ? ownValue(fact, 'source') : '');
+    if (name && value && ['user', 'ocr'].includes(source)) {
+      result.set(name, { name, value, source });
+    }
+  }
+  return result;
+}
+
+function allowedConfirmedSource(name, source) {
+  return ['user', 'ocr'].includes(source)
+    || (source === 'vision' && classifyFactRisk(name) === 'visual_ok');
 }
 
 function requiredConfirmedFacts(assetPlanItem, productTruth) {
   const confirmed = confirmedFactMap(productTruth);
-  const uncertainNames = uncertainFactNames(productTruth);
+  const skuFacts = skuFactMap(productTruth);
   const productName = cleanString(ownValue(productTruth, 'productName'));
   const proofIds = new Set(uniqueIdentifiers(ownValue(assetPlanItem, 'proofAssetIds')));
   const role = cleanString(ownValue(assetPlanItem, 'role'));
@@ -262,23 +292,63 @@ function requiredConfirmedFacts(assetPlanItem, productTruth) {
       if (proofIds.has(required.value)) facts.push({ ...required, source: 'proof_asset' });
       continue;
     }
-    if (confirmedFact) {
-      if (confirmedFact.value === required.value) facts.push({ ...required, source: confirmedFact.source || 'product_truth' });
+    if (confirmedFact
+      && confirmedFact.value === required.value
+      && allowedConfirmedSource(required.name, confirmedFact.source)) {
+      facts.push({ ...required, source: confirmedFact.source });
       continue;
     }
-    if (!uncertainNames.has(required.name) && (
-      ['user', 'ocr'].includes(required.source)
-      || role === 'sku'
-    )) {
-      facts.push({ ...required, source: required.source || 'asset_plan_confirmed' });
+    const skuFact = role === 'sku' ? skuFacts.get(required.name) : undefined;
+    if (skuFact && skuFact.value === required.value) {
+      facts.push({ ...required, source: skuFact.source });
     }
   }
   return facts;
 }
 
-function exactTextFromForbiddenMutation(mutation) {
-  const match = /^\s*(package text|label)\s*:\s*(.+)$/i.exec(cleanString(mutation));
-  return match ? { name: match[1].toLowerCase().replace(' ', ''), value: match[2].trim(), source: 'product_truth' } : null;
+function isLabelLikeFactName(name) {
+  const normalized = cleanString(name).toLowerCase().replace(/[\s_-]+/g, '');
+  return /label|packagetext|packagecopy|skulabel|variantname|modelname/.test(normalized)
+    || /包装文字|标签|品名|型号|色号|款号|货号/.test(normalized);
+}
+
+function corroboratedLabelValues(productTruth) {
+  const values = new Set();
+  for (const facts of [confirmedFactMap(productTruth), skuFactMap(productTruth)]) {
+    for (const fact of facts.values()) {
+      if (['user', 'ocr'].includes(fact.source) && isLabelLikeFactName(fact.name)) {
+        values.add(fact.value);
+      }
+    }
+  }
+  return values;
+}
+
+function evidenceGatedPackageText(productTruth) {
+  const corroborated = corroboratedLabelValues(productTruth);
+  const approved = [];
+  const seen = new Set();
+
+  for (const entry of ownArray(productTruth, 'packageText')) {
+    if (!isRecord(entry)) continue;
+    const value = cleanString(ownValue(entry, 'text', 'value'));
+    const confidence = ownValue(entry, 'confidence');
+    const sourceAssetId = safeIdentifier(ownValue(entry, 'sourceAssetId', 'source_asset_id'));
+    const strongSourceEvidence = typeof confidence === 'number'
+      && Number.isFinite(confidence)
+      && confidence >= 0.8
+      && Boolean(sourceAssetId);
+    if (!value || seen.has(value) || (!strongSourceEvidence && !corroborated.has(value))) continue;
+    seen.add(value);
+    approved.push({ name: 'packageText', value, source: strongSourceEvidence ? 'product_truth' : 'confirmed_fact' });
+  }
+
+  for (const value of [...corroborated].sort(compareStrings)) {
+    if (seen.has(value)) continue;
+    seen.add(value);
+    approved.push({ name: 'packageText', value, source: 'confirmed_fact' });
+  }
+  return approved;
 }
 
 function splitFactsForRendering(assetPlanItem, productTruth) {
@@ -301,14 +371,7 @@ function splitFactsForRendering(assetPlanItem, productTruth) {
     }
   }
 
-  for (const entry of ownArray(productTruth, 'packageText')) {
-    const value = cleanString(ownValue(entry, 'text', 'value'));
-    if (value) addOverlay({ name: 'packageText', value, source: 'product_truth' });
-  }
-  for (const mutation of ownArray(productTruth, 'forbiddenMutations')) {
-    const exactText = exactTextFromForbiddenMutation(mutation);
-    if (exactText) addOverlay(exactText);
-  }
+  for (const fact of evidenceGatedPackageText(productTruth)) addOverlay(fact);
 
   return { visualFacts, overlays };
 }
@@ -316,7 +379,7 @@ function splitFactsForRendering(assetPlanItem, productTruth) {
 function safeForbiddenMutations(productTruth) {
   return ownArray(productTruth, 'forbiddenMutations')
     .map(cleanString)
-    .filter((mutation) => mutation && !exactTextFromForbiddenMutation(mutation));
+    .filter(Boolean);
 }
 
 function campaignSection(campaignBible) {
