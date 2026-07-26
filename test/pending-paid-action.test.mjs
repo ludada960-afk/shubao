@@ -93,6 +93,26 @@ test('keeps long normal text while stripping binary fields without a length thre
   });
 });
 
+test('rejects data and blob URLs even when surrounded by whitespace', () => {
+  const action = createPendingPaidAction({
+    ownerEmail: 'creator@example.com',
+    source: 'ecommerce',
+    route: '/ecommerce',
+    draftId: 'draft-whitespace-urls',
+    action: {
+      type: 'ecommerce_generate',
+      preview: ` \n\tdata:image/png;base64,${'a'.repeat(64)} \r\n`,
+      reference: '  blob:https://shuimg.cn/temporary-preview  ',
+      prompt: '  keep meaningful prompt whitespace  ',
+    },
+  }, { now: () => 1000 });
+
+  assert.deepEqual(action.action, {
+    type: 'ecommerce_generate',
+    prompt: '  keep meaningful prompt whitespace  ',
+  });
+});
+
 test('fails closed and clears records that are expired, malformed, version-mismatched, or owned by another user', () => {
   const storage = createStorage();
   const storageKey = 'shubao.pendingPaidAction.v1';

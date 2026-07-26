@@ -38,6 +38,10 @@ export function formatBillingUnits(units, currency) {
   return `${readableNumber(numericUnits(units) / meta.divisor)} ${meta.label}`;
 }
 
+export function formatBalanceDisplay(units, currency, unlimited = false) {
+  return unlimited ? '无限内测' : formatBillingUnits(units, currency);
+}
+
 export function getBillingTone(eventType) {
   if (POSITIVE_EVENTS.has(eventType)) return 'positive';
   if (WARNING_EVENTS.has(eventType)) return 'warning';

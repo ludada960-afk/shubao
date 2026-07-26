@@ -30,7 +30,8 @@ function binaryField(key) {
 }
 
 function imagePayload(value) {
-  return /^data:/i.test(value) || /^blob:/i.test(value);
+  const normalized = value.trim();
+  return /^data:/i.test(normalized) || /^blob:/i.test(normalized);
 }
 
 function unsafeObject(value) {

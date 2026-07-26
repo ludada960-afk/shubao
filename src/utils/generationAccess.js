@@ -2,6 +2,23 @@ import { isInsufficientCreditsError } from '../services/apiError.js';
 import { createPendingPaidAction, savePendingPaidAction } from './pendingPaidAction.js';
 
 const DRAFT_REFERENCES_STORAGE_KEY = 'shubao.pendingPaidDrafts.v1';
+const BILLING_CURRENCIES = new Set(['ec_points', 'content_sets']);
+const CONTENT_SET_SOURCES = new Set(['plog', 'xhs-content', 'xhs-plog']);
+
+function supportedCurrency(value) {
+  return typeof value === 'string' && BILLING_CURRENCIES.has(value.trim())
+    ? value.trim()
+    : '';
+}
+
+export function resolvePendingActionCurrency({ currency, action, source } = {}) {
+  const callerCurrency = supportedCurrency(currency);
+  if (callerCurrency) return callerCurrency;
+  const actionCurrency = supportedCurrency(action?.currency);
+  if (actionCurrency) return actionCurrency;
+  const normalizedSource = typeof source === 'string' ? source.trim().toLowerCase() : '';
+  return CONTENT_SET_SOURCES.has(normalizedSource) ? 'content_sets' : 'ec_points';
+}
 
 function activeSessionOwner(storage, now) {
   try {
@@ -68,6 +85,7 @@ export function handleGenerationAccessError(error, dispatch, {
   storage,
   now,
   location,
+  currency,
 } = {}) {
   if (isInsufficientCreditsError(error)) {
     const requestedNow = typeof now === 'function' ? now() : Date.now();
@@ -82,9 +100,15 @@ export function handleGenerationAccessError(error, dispatch, {
       ? draftId.trim()
       : stableDraftReference(backingStorage, resolvedOwner, resolvedSource);
     const payload = error?.payload || error || {};
+    const resolvedCurrency = resolvePendingActionCurrency({
+      currency,
+      action,
+      source: resolvedSource,
+    });
     const resolvedAction = {
       ...(action && typeof action === 'object' && !Array.isArray(action) ? action : {}),
       type: typeof action?.type === 'string' && action.type.trim() ? action.type.trim() : resolvedSource,
+      currency: resolvedCurrency,
     };
     const billing = {
       required: payload.required ?? error?.required,
@@ -112,7 +136,7 @@ export function handleGenerationAccessError(error, dispatch, {
     const pendingAction = { ...pendingReference, billing };
     dispatch({
       type: 'OPEN_PAYWALL',
-      tab: 'ecommerce',
+      tab: resolvedCurrency === 'content_sets' ? 'content' : 'ecommerce',
       reason: 'INSUFFICIENT_CREDITS',
       pendingAction,
     });

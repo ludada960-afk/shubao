@@ -7,6 +7,7 @@ import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
 import { sendOTP, verifyOTP, isClosedBetaEmail } from '../../services/auth';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
+import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
 
 /* ═══════ Login Modal ═══════ */
 export function LoginModal() {
@@ -145,7 +146,10 @@ export function PricingModal() {
   const interrupted = state.priceReason === 'INSUFFICIENT_CREDITS';
   if (interrupted) {
     const pendingAction = state.pendingPaidAction;
-    const currency = pendingAction?.action?.currency || 'ec_points';
+    const currency = resolvePendingActionCurrency({
+      action: pendingAction?.action,
+      source: pendingAction?.source,
+    });
     return <InsufficientBalanceModal
       pendingAction={pendingAction}
       required={pendingAction?.billing?.required}

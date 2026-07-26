@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { formatBillingUnits } from './billingUiModel.js';
+import { formatBalanceDisplay, formatBillingUnits } from './billingUiModel.js';
 
 function unitBalance(entitlement, currency) {
   if (entitlement?.unlimited) return Infinity;
@@ -63,8 +63,8 @@ export default function InsufficientBalanceModal({
         <dl style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: 0 }}>
           {[
             ['本次操作', hasAuthoritativeQuote ? formatBillingUnits(requiredUnits, currency) : '待确认'],
-            ['当前余额', hasAuthoritativeQuote ? formatBillingUnits(displayedAvailable, currency) : '待确认'],
-            ['还差', hasAuthoritativeQuote ? formatBillingUnits(shortfall, currency) : '待确认'],
+            ['当前余额', hasAuthoritativeQuote ? formatBalanceDisplay(displayedAvailable, currency, entitlement?.unlimited) : '待确认'],
+            ['还差', entitlement?.unlimited ? '无需补充' : hasAuthoritativeQuote ? formatBillingUnits(shortfall, currency) : '待确认'],
           ].map(([label, value]) => <div key={label} style={{ padding: 12, borderRadius: 12, background: '#F5EFE4' }}><dt style={{ color: '#6B6560', fontSize: 12 }}>{label}</dt><dd style={{ margin: '5px 0 0', fontWeight: 700 }}>{value}</dd></div>)}
         </dl>
 

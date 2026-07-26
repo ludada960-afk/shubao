@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import {
+import * as billingUiModel from '../src/components/billing/billingUiModel.js';
+
+const {
+  formatBalanceDisplay,
   formatBillingUnits,
   formatLedgerEntry,
   getBillingTone,
-} from '../src/components/billing/billingUiModel.js';
+} = billingUiModel;
 
 const componentSource = (name) => readFileSync(
   new URL(`../src/components/billing/${name}`, import.meta.url),
@@ -17,6 +20,7 @@ const priceBadgeSource = componentSource('BillingPriceBadge.jsx');
 const balanceCardSource = componentSource('BillingBalanceCard.jsx');
 const quoteBreakdownSource = componentSource('BillingQuoteBreakdown.jsx');
 const historyListSource = componentSource('BillingHistoryList.jsx');
+const insufficientBalanceSource = componentSource('InsufficientBalanceModal.jsx');
 const billingStylesSource = componentSource('Billing.module.css');
 const allComponentSources = [
   priceBadgeSource,
@@ -28,6 +32,17 @@ const allComponentSources = [
 test('formats billing units with the user-facing currency names', () => {
   assert.equal(formatBillingUnits(2500, 'ec_points'), '2.5 AI 积分');
   assert.equal(formatBillingUnits(2, 'content_sets'), '2 创作套数');
+});
+
+test('unlimited balance display is visibly non-numeric', () => {
+  assert.equal(typeof formatBalanceDisplay, 'function');
+  assert.equal(formatBalanceDisplay(0, 'ec_points', true), '无限内测');
+  assert.equal(formatBalanceDisplay(999_000, 'ec_points', true), '无限内测');
+  assert.equal(formatBalanceDisplay(3, 'content_sets', false), '3 创作套数');
+  assert.match(
+    insufficientBalanceSource,
+    /formatBalanceDisplay\(displayedAvailable,\s*currency,\s*entitlement\?\.unlimited\)/,
+  );
 });
 
 test('formats ledger entries with a localized label, signed amount, and tone', () => {

@@ -56,3 +56,45 @@ DONE
 
 - No Task 3 blocker remains.
 - Task 4 catalog rendering and secure order creation are intentionally excluded.
+
+## Review-gap follow-up
+
+### Commit
+
+- Subject: `fix: close pending paid-action review gaps`
+- Scope: whitespace-safe payload rejection, content/ecommerce currency resolution, unlimited-owner balance presentation, focused tests, and this report update.
+
+### RED evidence
+
+- `node --test --test-concurrency=1 test/pending-paid-action.test.mjs`
+  - Expected RED: 3/4 passed, 1 failed.
+  - Failure proved ordinary reference fields preserved whitespace-prefixed `data:` and `blob:` URLs.
+- `node --test --test-concurrency=1 test/pending-paid-action.test.mjs test/generation-access.test.mjs test/billing-ui-model.test.mjs`
+  - Expected RED: 14/17 passed, 3 failed.
+  - Failures proved `plog` opened the ecommerce paywall, Modals had no source-aware currency fallback, and no unlimited non-numeric balance formatter existed.
+
+### GREEN implementation
+
+- `imagePayload` trims only for scheme detection, preserving ordinary prompt whitespace while rejecting whitespace-wrapped `data:`/`blob:` URLs.
+- `resolvePendingActionCurrency` accepts only `ec_points` or `content_sets`, with precedence caller → action → known source → ecommerce default.
+- New Xiaohongshu/Plog records persist `content_sets` and open the content tab; ecommerce persists `ec_points`.
+- Modals resolves legacy records without a stored currency from their source.
+- `formatBalanceDisplay` renders unlimited owners as `无限内测`; the modal also renders `无需补充` instead of a numeric shortfall.
+
+### GREEN evidence
+
+- Focused RED set rerun:
+  - PASS: 17/17.
+- Required Task 3 regression command:
+  - `node --test --test-concurrency=1 test/pending-paid-action.test.mjs test/generation-access.test.mjs test/entitlement-state.test.mjs test/billing-ui-model.test.mjs`
+  - PASS: 22/22.
+- `npm run build`
+  - PASS: export verification and Vite production build; 6400 modules transformed.
+- `git diff --check`
+  - PASS: no whitespace errors; line-ending warnings only.
+- `npm run collab:check`
+  - PASS: READY; no runtime-path or ownership conflicts.
+
+### Follow-up concerns
+
+- None within Task 3 scope; no auto-generation or payment action was introduced.

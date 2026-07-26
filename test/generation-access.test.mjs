@@ -39,7 +39,7 @@ test('maps insufficient credits to a resumable ecommerce paywall with authoritat
       source: 'test-flow',
       route: '/ecommerce',
       draftId: 'draft-42',
-      action: { type: 'ecommerce_generate', assetIds: ['asset-1'] },
+      action: { type: 'ecommerce_generate', assetIds: ['asset-1'], currency: 'ec_points' },
       quoteId: 'quote-7',
       createdAt: 1000,
       billing: { required: 3000, available: 1000 },
@@ -96,7 +96,7 @@ test('default 402 handling derives a signed owner, current route, stable draft, 
   assert.equal(pendingAction.route, '/plog');
   assert.match(pendingAction.draftId, /^pending-/);
   assert.equal(pendingAction.draftId, secondActions[0].pendingAction.draftId);
-  assert.deepEqual(pendingAction.action, { type: 'plog' });
+  assert.deepEqual(pendingAction.action, { type: 'plog', currency: 'content_sets' });
   assert.deepEqual(pendingAction.billing, { required: 1, available: 0 });
   const { billing: secondBilling, ...secondPersistedAction } = secondActions[0].pendingAction;
   assert.deepEqual(secondBilling, { required: 1, available: 0 });
@@ -137,9 +137,69 @@ test('fallback 402 state preserves authoritative billing without persisting an u
   assert.equal(actions[0].pendingAction.route, '/ec-auto');
   assert.match(actions[0].pendingAction.draftId, /^pending-/);
   assert.equal(actions[0].pendingAction.createdAt, 1000);
-  assert.deepEqual(actions[0].pendingAction.action, { type: 'ec-auto' });
+  assert.deepEqual(actions[0].pendingAction.action, { type: 'ec-auto', currency: 'ec_points' });
   assert.deepEqual(actions[0].pendingAction.billing, { required: 4500, available: 500 });
   assert.equal(values.has('shubao.pendingPaidAction.v1'), false);
+});
+
+test('insufficient-balance currency follows safe caller, action, and source precedence', () => {
+  const values = new Map([
+    ['sb-auth', JSON.stringify({
+      email: 'owner@example.com',
+      token: 'signed-session-token',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    })],
+  ]);
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+  const open = (source, options = {}) => {
+    const actions = [];
+    handleGenerationAccessError({
+      status: 402,
+      code: 'INSUFFICIENT_CREDITS',
+      payload: { required: 2, available: 0 },
+    }, action => actions.push(action), {
+      source,
+      storage,
+      location: { pathname: `/${source}` },
+      now: () => 1000,
+      ...options,
+    });
+    return actions[0];
+  };
+
+  for (const source of ['plog', 'xhs-content', 'xhs-plog']) {
+    const paywall = open(source);
+    assert.equal(paywall.tab, 'content', source);
+    assert.equal(paywall.pendingAction.action.currency, 'content_sets', source);
+  }
+
+  const ecommerce = open('ecommerce-direction');
+  assert.equal(ecommerce.tab, 'ecommerce');
+  assert.equal(ecommerce.pendingAction.action.currency, 'ec_points');
+
+  const actionOverride = open('ecommerce-direction', {
+    action: { type: 'content-regenerate', currency: 'content_sets' },
+  });
+  assert.equal(actionOverride.tab, 'content');
+  assert.equal(actionOverride.pendingAction.action.currency, 'content_sets');
+
+  const callerOverride = open('plog', {
+    currency: 'ec_points',
+    action: { type: 'plog', currency: 'content_sets' },
+  });
+  assert.equal(callerOverride.tab, 'ecommerce');
+  assert.equal(callerOverride.pendingAction.action.currency, 'ec_points');
+
+  const invalidOverride = open('xhs-content', {
+    currency: 'attacker_currency',
+    action: { type: 'xhs-content', currency: 'also_invalid' },
+  });
+  assert.equal(invalidOverride.tab, 'content');
+  assert.equal(invalidOverride.pendingAction.action.currency, 'content_sets');
 });
 
 test('maps beta access failures to the login modal without changing form state', () => {
@@ -176,6 +236,10 @@ test('production restores owner-bound pending state and the sufficient-balance a
   );
   assert.match(modals, /required=\{pendingAction\?\.billing\?\.required\}/);
   assert.match(modals, /available=\{pendingAction\?\.billing\?\.available\}/);
+  assert.match(
+    modals,
+    /resolvePendingActionCurrency\(\{[\s\S]{0,120}action:\s*pendingAction\?\.action,[\s\S]{0,120}source:\s*pendingAction\?\.source/,
+  );
   assert.match(modals, /onResume=\{close\}/);
   assert.match(insufficientModal, />返回继续创作</);
   assert.doesNotMatch(insufficientModal, /继续刚才的操作/);
