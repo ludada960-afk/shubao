@@ -127,8 +127,9 @@ function selectionKeys(item) {
 }
 
 function resolveRatio(item, sizing, defaultRatio) {
-  const keys = new Set(selectionKeys(item));
-  const selection = sizing.images.find((entry) => keys.has(entry.key));
+  const exactSelection = sizing.images.find((entry) => entry.key === item.role);
+  const aliasKeys = new Set(selectionKeys(item).filter((key) => key !== item.role));
+  const selection = exactSelection || sizing.images.find((entry) => aliasKeys.has(entry.key));
   const candidate = selection?.ratio || defaultRatio;
   return Object.hasOwn(LEGAL_IMAGE_SIZES[sizing.resolution], candidate) ? candidate : defaultRatio;
 }
@@ -154,7 +155,7 @@ function riskLevel(role) {
   return 'low';
 }
 
-function buildItem({ role, purpose, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, category, platform, sizing }) {
+function buildItem({ role, purpose, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], category, platform, sizing }) {
   const ratio = resolveRatio({ role }, sizing, defaultRatio);
   const generationSize = LEGAL_IMAGE_SIZES[sizing.resolution][ratio];
   const policy = getPlatformPolicy(platform, policyRole(role), category);
@@ -169,6 +170,7 @@ function buildItem({ role, purpose, defaultRatio = '3:4', requiredFacts, generat
     generationMode,
     productAssetIds: [...productAssetIds],
     styleReferenceIds: [...styleReferenceIds],
+    proofAssetIds: [...proofAssetIds],
     requiredFacts: requiredFacts.map((fact) => ({ ...fact })),
     riskLevel: riskLevel(role),
     qualityChecks: qualityChecks(role, generationMode),
@@ -239,8 +241,9 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       purpose: 'Quality or certification information backed only by uploaded proof assets.',
       requiredFacts: proofAssetIds.map((assetId) => ({ name: 'proofAssetId', value: assetId })),
       generationMode: 'deterministic_overlay',
-      productAssetIds: [...productAssetIds, ...proofAssetIds],
+      productAssetIds,
       styleReferenceIds,
+      proofAssetIds,
       category,
       platform: normalizedPlatform,
       sizing: normalizedSizing,

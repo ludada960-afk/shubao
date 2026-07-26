@@ -101,7 +101,9 @@ test('adds QC slice only with a real proof asset and assigns that asset to the s
   assert.equal(withoutProof.some((item) => item.role === 'detail_slice_qc'), false);
   const qc = withProof.find((item) => item.role === 'detail_slice_qc');
   assert.ok(qc);
-  assert.deepEqual(qc.productAssetIds, ['product-front', 'product-side', 'food-lab-report']);
+  assert.deepEqual(qc.productAssetIds, ['product-front', 'product-side']);
+  assert.deepEqual(qc.proofAssetIds, ['food-lab-report']);
+  assert.ok(withProof.filter((item) => item !== qc).every((item) => item.proofAssetIds.length === 0));
   assert.deepEqual(factValues(qc), ['proofAssetId:food-lab-report']);
 });
 
@@ -132,6 +134,27 @@ test('applies sizing overrides per matching role with legal generation dimension
     assert.ok(item.exportTargets.length > 0);
     assert.equal(item.exportTargets.some((target) => `${target.width}x${target.height}` === item.generationSize), false);
   }
+});
+
+test('prefers exact sizing roles over generic aliases regardless of input order', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth({ category: '食品饮料' }),
+    campaignBible,
+    platform: 'taobao',
+    sizing: {
+      smart: false,
+      images: [
+        { key: 'detail', ratio: '4:3' },
+        { role: 'detail_slice_package', ratio: '1:1' },
+        { key: 'main_text', ratio: '3:4' },
+        { role: 'main', ratio: '1:1' },
+      ],
+    },
+  });
+
+  assert.equal(plan.find((item) => item.role === 'detail_slice_package').ratio, '1:1');
+  assert.equal(plan.find((item) => item.role === 'detail_slice_flavor').ratio, '4:3');
+  assert.equal(plan.find((item) => item.role === 'main').ratio, '1:1');
 });
 
 test('normalizes prototype-sensitive inputs and returns deterministic stable item IDs', () => {
