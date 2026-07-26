@@ -68,6 +68,46 @@ test('returns isolated policy data with deduplicated validated values', () => {
   assert.ok(second.exportSizes.every(({ width, height }) => Number.isInteger(width) && width > 0 && Number.isInteger(height) && height > 0));
 });
 
+test('ignores inherited policy fields while planning export targets', () => {
+  const policy = Object.create({
+    platform: 'inherited-platform',
+    categoryScope: 'inherited-category',
+    role: 'inherited-role',
+    allowedRatios: ['9:16'],
+    exportSizes: [{ width: 900, height: 1600 }],
+    formats: ['webp'],
+    maxFileBytes: 1,
+    sourceUrl: 'https://inherited.example/',
+    confidence: 'high',
+    enforcement: 'hard',
+  });
+
+  assert.deepEqual(planExportTargets(policy, { generationSize: '2048x2048' }), [{
+    platform: 'unknown',
+    categoryScope: 'all',
+    role: 'all',
+    ratio: '1:1',
+    width: 800,
+    height: 800,
+    format: 'jpg',
+    maxFileBytes: 5_000_000,
+    fit: 'inside',
+  }]);
+});
+
+test('layers a category policy over the selected role policy', () => {
+  const rolePolicy = getPlatformPolicy('taobao', 'main', 'all');
+  const categoryPolicy = getPlatformPolicy('taobao', 'main', 'beauty');
+
+  assert.deepEqual(categoryPolicy.allowedRatios, rolePolicy.allowedRatios);
+  assert.deepEqual(categoryPolicy.exportSizes, rolePolicy.exportSizes);
+  assert.deepEqual(categoryPolicy.formats, rolePolicy.formats);
+  assert.equal(categoryPolicy.maxFileBytes, rolePolicy.maxFileBytes);
+  assert.equal(categoryPolicy.textPolicy, rolePolicy.textPolicy);
+  assert.match(categoryPolicy.backgroundPolicy, /beauty-category/);
+  assert.deepEqual(categoryPolicy.requiredFacts, ['product identity', 'user-confirmed shade or variant']);
+});
+
 test('plans deterministic post-process exports from a legal generation source without model target sizes', () => {
   const policy = getPlatformPolicy('douyin', 'main', 'all');
   const source = { ratio: '1:1', generationSize: '2048x2048' };

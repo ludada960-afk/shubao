@@ -48,6 +48,30 @@ test('uses custom colors as an immutable palette and adds an explicit palette co
   assert.deepEqual(colors, [' #1155cc ', '#ffffff', '#1155cc']);
 });
 
+test('replaces every existing palette or color consistency lock for custom colors', () => {
+  const bible = compileCampaignBible({
+    consistencyLocks: [
+      'lighting: cool studio',
+      'palette: #000000',
+      'colors: muted neutrals',
+      'color consistency: avoid warm tones',
+    ],
+  }, { customColors: ['#1155cc', '#ffffff'] });
+
+  assert.deepEqual(bible.consistencyLocks, [
+    'lighting: cool studio',
+    'palette: #1155cc, #ffffff',
+  ]);
+});
+
+test('honors an empty own editable brief override and otherwise falls back to the direction', () => {
+  const direction = { brief: 'Keep the product centered.' };
+
+  assert.equal(compileCampaignBible(direction, { editableBrief: '' }).editableBrief, '');
+  assert.equal(compileCampaignBible(direction, { editable_brief: '' }).editableBrief, '');
+  assert.equal(compileCampaignBible(direction, {}).editableBrief, 'Keep the product centered.');
+});
+
 test('returns defensive normalized data without inherited or prototype-polluting fields', () => {
   const direction = JSON.parse(`{
     "id":" editorial ",

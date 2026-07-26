@@ -88,6 +88,14 @@ function normalizeKey(value) {
   return normalized && !UNSAFE_KEYS.has(normalized) ? normalized : '';
 }
 
+function hasOwn(record, key) {
+  return Boolean(record) && typeof record === 'object' && !Array.isArray(record) && Object.hasOwn(record, key);
+}
+
+function ownValue(record, key) {
+  return hasOwn(record, key) ? record[key] : undefined;
+}
+
 function normalizeString(value, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
@@ -132,30 +140,30 @@ function normalizeRequiredFacts(values) {
   return uniqueStrings(values);
 }
 
-function policyFrom(entry, { platform, role, categoryScope, sourceUrl, confidence = 'medium', enforcement = 'recommendation' }) {
-  const fallback = ROLE_POLICIES.all;
-  const allowedRatios = uniqueStrings(entry?.allowedRatios ?? fallback.allowedRatios, normalizeRatio);
-  const exportSizes = normalizeExportSizes(entry?.exportSizes ?? fallback.exportSizes);
-  const formats = uniqueStrings(entry?.formats ?? fallback.formats, (value) => {
+function policyFrom(entry, { platform, role, categoryScope, sourceUrl, confidence = 'medium', enforcement = 'recommendation' }, fallback = ROLE_POLICIES.all) {
+  const allowedRatios = uniqueStrings(ownValue(entry, 'allowedRatios') ?? fallback.allowedRatios, normalizeRatio);
+  const exportSizes = normalizeExportSizes(ownValue(entry, 'exportSizes') ?? fallback.exportSizes);
+  const formats = uniqueStrings(ownValue(entry, 'formats') ?? fallback.formats, (value) => {
     const normalized = normalizeKey(value).replace(/^_+/, '');
     return ['jpg', 'jpeg', 'png', 'webp'].includes(normalized) ? normalized : '';
   });
-  const maxFileBytes = Number(entry?.maxFileBytes ?? fallback.maxFileBytes);
+  const maxFileBytes = Number(ownValue(entry, 'maxFileBytes') ?? fallback.maxFileBytes);
+  const recommendedCount = ownValue(entry, 'recommendedCount');
 
   return {
     platform,
     categoryScope,
     role,
-    recommendedCount: Number.isInteger(entry?.recommendedCount) && entry.recommendedCount > 0
-      ? entry.recommendedCount
+    recommendedCount: Number.isInteger(recommendedCount) && recommendedCount > 0
+      ? recommendedCount
       : fallback.recommendedCount,
     allowedRatios: allowedRatios.length ? allowedRatios : [...fallback.allowedRatios],
     exportSizes: exportSizes.length ? exportSizes : normalizeExportSizes(fallback.exportSizes),
     maxFileBytes: Number.isInteger(maxFileBytes) && maxFileBytes > 0 ? maxFileBytes : fallback.maxFileBytes,
     formats: formats.length ? formats : [...fallback.formats],
-    backgroundPolicy: normalizeString(entry?.backgroundPolicy, fallback.backgroundPolicy),
-    textPolicy: normalizeString(entry?.textPolicy, fallback.textPolicy),
-    requiredFacts: normalizeRequiredFacts(entry?.requiredFacts ?? fallback.requiredFacts),
+    backgroundPolicy: normalizeString(ownValue(entry, 'backgroundPolicy'), fallback.backgroundPolicy),
+    textPolicy: normalizeString(ownValue(entry, 'textPolicy'), fallback.textPolicy),
+    requiredFacts: normalizeRequiredFacts(ownValue(entry, 'requiredFacts') ?? fallback.requiredFacts),
     sourceUrl: normalizeString(sourceUrl, UNKNOWN_SOURCE_URL),
     verifiedAt: VERIFIED_AT,
     confidence: CONFIDENCE_LEVELS.has(confidence) ? confidence : 'low',
@@ -204,7 +212,7 @@ export function getPlatformPolicy(platform, role = 'main', category = 'all') {
     sourceUrl: platformRegistry.sourceUrl,
     confidence: 'medium',
     enforcement: 'recommendation',
-  });
+  }, categoryEntry ? roleEntry ?? platformRegistry.roles.all : ROLE_POLICIES.all);
 }
 
 function parseGenerationSize(value) {
@@ -250,12 +258,12 @@ export function planExportTargets(policyOrOptions, generation = {}) {
   }
 
   const policy = policyFrom(resolved.policy, {
-    platform: normalizeKey(resolved.policy?.platform) || 'unknown',
-    role: normalizeKey(resolved.policy?.role) || 'all',
-    categoryScope: normalizeKey(resolved.policy?.categoryScope) || 'all',
-    sourceUrl: resolved.policy?.sourceUrl,
-    confidence: resolved.policy?.confidence,
-    enforcement: resolved.policy?.enforcement,
+    platform: normalizeKey(ownValue(resolved.policy, 'platform')) || 'unknown',
+    role: normalizeKey(ownValue(resolved.policy, 'role')) || 'all',
+    categoryScope: normalizeKey(ownValue(resolved.policy, 'categoryScope')) || 'all',
+    sourceUrl: ownValue(resolved.policy, 'sourceUrl'),
+    confidence: ownValue(resolved.policy, 'confidence'),
+    enforcement: ownValue(resolved.policy, 'enforcement'),
   });
   const targetRatio = policy.allowedRatios.includes(sourceRatio) ? sourceRatio : policy.allowedRatios[0];
   const matchingSizes = policy.exportSizes.filter(({ width, height }) => ratioForDimensions(width, height) === targetRatio);

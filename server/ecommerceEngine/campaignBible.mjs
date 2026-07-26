@@ -38,10 +38,9 @@ function firstNonEmpty(...values) {
   return '';
 }
 
-function isEquivalentPaletteLock(lock, colors) {
+function isPaletteOrColorLock(lock) {
   const normalizedLock = lock.toLowerCase();
-  if (!/\bpalette\b|\bcolors?\b/.test(normalizedLock)) return false;
-  return colors.every((color) => normalizedLock.includes(color.toLowerCase()));
+  return /\bpalette\b|\bcolors?\b/.test(normalizedLock);
 }
 
 /**
@@ -55,20 +54,20 @@ export function compileCampaignBible(direction = {}, overrides = {}) {
     ? customColors
     : normalizeStrings(ownValue(direction, 'palette', 'colors', 'preview_colors'));
   const consistencyLocks = normalizeStrings(ownValue(direction, 'consistencyLocks', 'consistency_locks'));
+  const hasEditableBriefOverride = hasOwn(overrides, 'editableBrief') || hasOwn(overrides, 'editable_brief');
 
   if (customColors.length > 0) {
     const canonicalPaletteLock = `palette: ${customColors.join(', ')}`;
-    const nonPaletteLocks = consistencyLocks.filter((lock) => !isEquivalentPaletteLock(lock, customColors));
+    const nonPaletteLocks = consistencyLocks.filter((lock) => !isPaletteOrColorLock(lock));
     consistencyLocks.splice(0, consistencyLocks.length, ...nonPaletteLocks, canonicalPaletteLock);
   }
 
   return {
     directionId: firstNonEmpty(ownValue(direction, 'id', 'directionId', 'direction_id')),
     title: normalizeString(ownValue(direction, 'title')),
-    editableBrief: firstNonEmpty(
-      ownValue(overrides, 'editableBrief', 'editable_brief'),
-      ownValue(direction, 'editableBrief', 'editable_brief', 'brief', 'description'),
-    ),
+    editableBrief: hasEditableBriefOverride
+      ? normalizeString(ownValue(overrides, 'editableBrief', 'editable_brief'))
+      : firstNonEmpty(ownValue(direction, 'editableBrief', 'editable_brief', 'brief', 'description')),
     commercialObjective: firstNonEmpty(
       ownValue(direction, 'commercialObjective', 'commercial_objective', 'objective'),
       'conversion',
