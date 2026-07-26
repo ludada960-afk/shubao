@@ -40,6 +40,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState(''); // C4: SSE 进度文本
   const [genStage, setGenStage] = useState(0); // C4: 生成阶段
+  const [assetProgress, setAssetProgress] = useState([]);
+  const [stableImages, setStableImages] = useState([]);
+  const [retryTaskRequested, setRetryTaskRequested] = useState(false);
   const [polishing, setPolishing] = useState(false);
 
   // 补充输入
@@ -250,18 +253,28 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           editableBrief: dir?.description || dir?.short_desc || '',
         },
         billingQuoteId: billingQuote.quoteId,
-        onProgress: (d) => {
+        draftId: params?.draftId || '',
+        retry: retryTaskRequested,
+        onProgress: (task) => {
           // C4: SSE 实时进度
-          if (d.step) setGenProgress(d.step);
-          if (d.stage) setGenStage(d.stage);
-          if (d.message) setGenProgress(d.message);
+          if (Array.isArray(task.assets)) setAssetProgress(task.assets);
+          if (task.step) setGenProgress(task.step);
+          if (task.stage) setGenStage(task.stage);
+          if (task.message) setGenProgress(task.message);
         },
-        onImage: (d) => {
+        onImage: (image) => {
           // C4: 每张图片生成时更新进度
-          if (d.id) setGenProgress(`已生成: ${d.id}`);
+          if (image.id) setGenProgress(`已生成: ${image.label || image.role || image.id}`);
+          if (image.id && image.stableUrl) {
+            setStableImages(previous => previous.some(item => item.id === image.id && item.stableUrl === image.stableUrl)
+              ? previous
+              : [...previous, image]);
+          }
         },
       });
-      if (result && (result.images || result.product_name)) {
+      const hasStableResult = Object.keys(result?.images || {}).length > 0;
+      const hasFinalStatus = result?.status === 'completed' || result?.status === 'needs_review';
+      if (result && hasFinalStatus && hasStableResult) {
         const finalResult = { ...result, product_name: params?.productName || '商品', _ecResult: true, _direction: dir, category: params?.category || '其他', platform: params?.platform || '淘宝' };
 
         // ★ 立即保存到服务器作品集
@@ -287,9 +300,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         dispatch({ type: 'SET_RESULT', result: finalResult });
         dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
         dispatch({ type: 'CLEAR_PAYWALL' });
+        setRetryTaskRequested(false);
         onGenerated?.();
       } else {
-        setError('生成失败，请重试');
+        setError('任务尚未完成或没有稳定图片，请稍后继续生成');
       }
     } catch (e) {
       const failedQuoteId = billingQuote?.quoteId || '';
@@ -337,6 +351,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         setError('');
       } else if (accessResult === 'login') {
         setError('');
+      } else if (e?.code === 'ECOMMERCE_TASK_RETRY_REQUIRED') {
+        setRetryTaskRequested(true);
+        setError('上次任务未完成。请确认后再次点击“继续生成”以创建新任务。');
       } else {
         setError(e.message || '生成失败');
       }
@@ -519,7 +536,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             </div>
 
             {/* ── 生成进度面板（可折叠）── */}
-            {generating && (
+            {(generating || assetProgress.length > 0 || stableImages.length > 0) && (
               <div style={{
                 background: '#fff', borderRadius: 16, padding: '16px 20px',
                 boxShadow: '0 4px 20px rgba(124,58,237,0.15)',
@@ -549,6 +566,23 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                     transition: 'width 0.5s ease',
                   }} />
                 </div>
+                {assetProgress.length > 0 && (
+                  <div style={{ display: 'grid', gap: 6, marginTop: 14 }}>
+                    {assetProgress.map(asset => (
+                      <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
+                        <span style={{ color: '#4B4453' }}>{asset.role || '图片'} · {asset.label || '待处理图片'}</span>
+                        <span style={{ color: '#7C3AED', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {stableImages.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                    {stableImages.map(image => (
+                      <img key={`${image.id}-${image.stableUrl}`} src={image.stableUrl} alt={image.label || image.role || '稳定生成图'} style={{ width: 74, height: 74, objectFit: 'cover', borderRadius: 8, border: '1px solid #E9DDF8' }} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>

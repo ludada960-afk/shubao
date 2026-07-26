@@ -2,6 +2,203 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 
+import {
+  loadEcommerceTaskReference,
+  saveEcommerceTaskReference,
+} from '../src/pages/Home/ec/ecommerceTaskProgressModel.js';
+
+function ecommerceStorage(owner = 'owner@example.com') {
+  const values = new Map([['sb-auth', JSON.stringify({
+    email: owner,
+    token: 'signed-ecommerce-session',
+    expiresAt: '2999-01-01T00:00:00.000Z',
+  })]]);
+  return {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+}
+
+function ecommerceTaskResponse(task, status = 200) {
+  return new Response(JSON.stringify({ task }), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+test('active owner and draft task resumes with GET polling, emits a quality-check stable image once, and never posts a duplicate', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = ecommerceStorage();
+  const calls = [];
+  const emitted = [];
+  globalThis.localStorage = storage;
+  saveEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-resume', taskId: 'task-resume', storage });
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET' });
+    if (calls.length === 1) {
+      return ecommerceTaskResponse({
+        id: 'task-resume',
+        status: 'quality_check',
+        assets: [{ assetId: 'main-1', role: 'main_text', label: '主图文案', status: 'quality_check', stableUrl: '/api/generated-assets/main-1.png' }],
+      });
+    }
+    return ecommerceTaskResponse({
+      id: 'task-resume',
+      status: 'completed',
+      assets: [{ assetId: 'main-1', role: 'main_text', label: '主图文案', status: 'completed', stableUrl: '/api/generated-assets/main-1.png' }],
+    });
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { generateEcommerce } = await import(`../src/services/api.js?resume=${Date.now()}`);
+  const result = await generateEcommerce({
+    productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-resume',
+    pollIntervalMs: 0, maxPollAttempts: 3, onImage: image => emitted.push(image),
+  });
+
+  assert.equal(result.taskId, 'task-resume');
+  assert.deepEqual(calls, [
+    { url: '/api/ecommerce/jobs/task-resume', method: 'GET' },
+    { url: '/api/ecommerce/jobs/task-resume', method: 'GET' },
+  ]);
+  assert.deepEqual(emitted, [{
+    id: 'main-1', url: '/api/generated-assets/main-1.png', stableUrl: '/api/generated-assets/main-1.png',
+    role: 'main_text', label: '主图文案', state: 'quality_check',
+  }]);
+  assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-resume', storage }), null);
+});
+
+test('a timeout preserves the newly saved owner and draft task reference', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = ecommerceStorage();
+  globalThis.localStorage = storage;
+  globalThis.fetch = async (_url, options = {}) => {
+    if (options.method === 'POST') {
+      return new Response(JSON.stringify({ taskId: 'task-timeout' }), { status: 202, headers: { 'content-type': 'application/json' } });
+    }
+    return ecommerceTaskResponse({ id: 'task-timeout', status: 'polling', assets: [] });
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { generateEcommerce } = await import(`../src/services/api.js?timeout=${Date.now()}`);
+  await assert.rejects(
+    generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-timeout', pollIntervalMs: 0, maxPollAttempts: 1 }),
+    error => error.code === 'ECOMMERCE_POLL_TIMEOUT' && error.resumeable === true,
+  );
+  const reference = loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-timeout', storage });
+  assert.equal(reference?.taskId, 'task-timeout');
+  assert.equal(typeof reference?.createdAt, 'number');
+});
+
+test('a forbidden saved task is cleared as expired without posting or leaking another owner reference', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = ecommerceStorage();
+  globalThis.localStorage = storage;
+  saveEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-expired', taskId: 'task-forbidden', storage });
+  saveEcommerceTaskReference({ ownerEmail: 'other@example.com', draftId: 'ec-draft-expired', taskId: 'task-other', storage });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET' });
+    return new Response(JSON.stringify({ error: '无权读取此任务' }), { status: 403, headers: { 'content-type': 'application/json' } });
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { generateEcommerce } = await import(`../src/services/api.js?expired=${Date.now()}`);
+  await assert.rejects(
+    generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-expired' }),
+    error => error.code === 'ECOMMERCE_TASK_EXPIRED' && error.status === 403,
+  );
+  assert.deepEqual(calls, [{ url: '/api/ecommerce/jobs/task-forbidden', method: 'GET' }]);
+  assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-expired', storage }), null);
+  assert.equal(loadEcommerceTaskReference({ ownerEmail: 'other@example.com', draftId: 'ec-draft-expired', storage })?.taskId, 'task-other');
+});
+
+test('terminal failed and cancelled polls clear only their matching task reference while needs review remains resumable', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  for (const status of ['failed', 'cancelled']) {
+    const storage = ecommerceStorage();
+    globalThis.localStorage = storage;
+    globalThis.fetch = async (_url, options = {}) => options.method === 'POST'
+      ? new Response(JSON.stringify({ taskId: `task-${status}` }), { status: 202, headers: { 'content-type': 'application/json' } })
+      : ecommerceTaskResponse({ id: `task-${status}`, status, assets: [], error: '任务停止' });
+    const { generateEcommerce } = await import(`../src/services/api.js?terminal-${status}=${Date.now()}`);
+    await assert.rejects(
+      generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: `ec-draft-${status}`, pollIntervalMs: 0, maxPollAttempts: 1 }),
+      /任务停止/,
+    );
+    assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: `ec-draft-${status}`, storage }), null, status);
+  }
+
+  const storage = ecommerceStorage();
+  globalThis.localStorage = storage;
+  saveEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-review', taskId: 'task-review', storage });
+  globalThis.fetch = async () => ecommerceTaskResponse({
+    id: 'task-review',
+    status: 'needs_review',
+    assets: [{ assetId: 'review-1', status: 'needs_review', stableUrl: '/api/generated-assets/review-1.png' }],
+  });
+  const { generateEcommerce } = await import(`../src/services/api.js?needs-review=${Date.now()}`);
+  const result = await generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-review', pollIntervalMs: 0, maxPollAttempts: 1 });
+  assert.equal(result.status, 'needs_review');
+  assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-review', storage })?.taskId, 'task-review');
+});
+
+test('a saved failed task requires an explicit retry before a replacement POST is allowed', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = ecommerceStorage();
+  const calls = [];
+  globalThis.localStorage = storage;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET' });
+    if (options.method === 'POST') {
+      return new Response('data: {"type":"complete","images":{"main":"/api/generated-assets/retry.png"},"errors":[]}\n\n', {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      });
+    }
+    return ecommerceTaskResponse({ id: 'task-failed-resume', status: 'failed', assets: [], error: '上次任务失败' });
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  saveEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-failed-resume', taskId: 'task-failed-resume', storage });
+  const { generateEcommerce } = await import(`../src/services/api.js?retry-required=${Date.now()}`);
+  await assert.rejects(
+    generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-failed-resume' }),
+    error => error.code === 'ECOMMERCE_TASK_RETRY_REQUIRED',
+  );
+  assert.deepEqual(calls, [{ url: '/api/ecommerce/jobs/task-failed-resume', method: 'GET' }]);
+
+  saveEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-failed-resume', taskId: 'task-failed-resume', storage });
+  await generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-failed-resume', retry: true });
+  assert.deepEqual(calls.slice(1), [
+    { url: '/api/ecommerce/jobs/task-failed-resume', method: 'GET' },
+    { url: '/api/generate-ecommerce', method: 'POST' },
+  ]);
+});
+
 test('frontend generation entrypoints only target implemented generation routes', async () => {
   const api = await fs.readFile(new URL('../src/services/api.js', import.meta.url), 'utf8');
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');

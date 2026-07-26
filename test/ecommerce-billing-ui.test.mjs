@@ -357,6 +357,23 @@ test('direction confirmation requests an authoritative quote instead of embeddin
   assert.doesNotMatch(source, /providerCost|milli|gpt-image|中转站/);
 });
 
+test('direction generation keeps normalized per-asset progress and stable previews until a final usable task result', async () => {
+  const source = await fs.readFile(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
+
+  assert.match(source, /const \[assetProgress, setAssetProgress\] = useState\(\[\]\)/);
+  assert.match(source, /const \[stableImages, setStableImages\] = useState\(\[\]\)/);
+  assert.match(source, /onProgress: \(task\) => \{[\s\S]{0,280}Array\.isArray\(task\.assets\)[\s\S]{0,180}setAssetProgress/s);
+  assert.match(source, /onImage: \(image\) => \{[\s\S]{0,360}setStableImages/);
+  assert.match(source, /asset\.role/);
+  assert.match(source, /asset\.label/);
+  assert.match(source, /asset\.userState/);
+  assert.match(source, /stableImages\.map/);
+  assert.match(source, /retry:\s*retryTaskRequested/);
+  assert.match(source, /result\?\.status === 'completed' \|\| result\?\.status === 'needs_review'/);
+  assert.match(source, /Object\.keys\(result\?\.images \|\| \{\}\)\.length > 0/);
+  assert.doesNotMatch(source, /setExtraProductImages\(\[\]\)|setExtraReferenceImages\(\[\]\)|setDirections\(\[\]\)/);
+});
+
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {
   const source = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
 

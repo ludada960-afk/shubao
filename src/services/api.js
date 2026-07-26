@@ -5,6 +5,12 @@
 import { createApiError } from './apiError.js';
 import { consumeSseJson } from './sse.js';
 import { getSessionToken } from './auth.js';
+import {
+  clearEcommerceTaskReference,
+  loadEcommerceTaskReference,
+  normalizeEcommerceAssets,
+  saveEcommerceTaskReference,
+} from '../pages/Home/ec/ecommerceTaskProgressModel.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 
@@ -51,12 +57,106 @@ function ecommerceTaskError(task) {
 }
 
 function stableTaskImages(task) {
-  const outputImages = task?.output?.images;
-  if (outputImages && Object.keys(outputImages).length > 0) return outputImages;
-  return (task?.assets || []).reduce((images, asset) => {
-    if (asset?.assetId && asset.stableUrl) images[asset.assetId] = asset.stableUrl;
-    return images;
-  }, {});
+  const images = { ...(task?.output?.images || {}) };
+  normalizeEcommerceAssets(task?.assets).forEach(asset => {
+    if (asset.id && asset.stableUrl) images[asset.id] = asset.stableUrl;
+  });
+  return images;
+}
+
+function emitStableTaskImages(task, emitted, onImage) {
+  normalizeEcommerceAssets(task?.assets).forEach(asset => {
+    if (!asset.id || !asset.stableUrl) return;
+    const emissionKey = `${asset.id}\u0000${asset.stableUrl}`;
+    if (emitted.has(emissionKey)) return;
+    emitted.add(emissionKey);
+    onImage?.({
+      id: asset.id,
+      url: asset.stableUrl,
+      stableUrl: asset.stableUrl,
+      role: asset.role,
+      label: asset.label,
+      state: asset.state,
+    });
+  });
+  Object.entries(task?.output?.images || {}).forEach(([id, url]) => {
+    if (!id || !url) return;
+    const emissionKey = `${id}\u0000${url}`;
+    if (emitted.has(emissionKey)) return;
+    emitted.add(emissionKey);
+    onImage?.({ id, url, stableUrl: url, role: '', label: '', state: '' });
+  });
+}
+
+function taskWithNormalizedAssets(task) {
+  return task && typeof task === 'object'
+    ? { ...task, assets: normalizeEcommerceAssets(task.assets) }
+    : task;
+}
+
+function taskStatus(task) {
+  return String(task?.status || task?.state || '').trim().toLowerCase();
+}
+
+function ecommerceTaskExpiredError(status) {
+  const error = new Error('保存的生成任务已过期或不可用，请重新开始');
+  error.code = 'ECOMMERCE_TASK_EXPIRED';
+  error.status = status;
+  error.resumeable = false;
+  return error;
+}
+
+function ecommerceRetryRequiredError(task) {
+  const error = ecommerceTaskError(task);
+  error.code = 'ECOMMERCE_TASK_RETRY_REQUIRED';
+  error.retryable = true;
+  return error;
+}
+
+async function pollEcommerceTask(taskId, {
+  initialTask,
+  onImage,
+  onProgress,
+  pollIntervalMs,
+  maxPollAttempts,
+  ownerEmail,
+  draftId,
+}) {
+  const emitted = new Set();
+  const pollLimit = Number.isSafeInteger(maxPollAttempts) && maxPollAttempts > 0 ? maxPollAttempts : 600;
+  let task = initialTask;
+  for (let pollAttempt = 0; pollAttempt < pollLimit; pollAttempt += 1) {
+    if (!task) {
+      await waitFor(Number.isFinite(pollIntervalMs) ? Math.max(0, pollIntervalMs) : 1500);
+      task = await getEcommerceTask(taskId);
+    }
+    emitStableTaskImages(task, emitted, onImage);
+    onProgress?.(taskWithNormalizedAssets(task));
+    const status = taskStatus(task);
+    const images = stableTaskImages(task);
+    if (status === 'completed' || status === 'needs_review') {
+      if (Object.keys(images).length === 0) {
+        if (status === 'needs_review') throw ecommerceTaskError(task);
+        const errors = task?.output?.errors || [];
+        const message = errors.find(item => item?.error)?.error;
+        throw new Error(message || '生成完成但没有可用图片，请重试');
+      }
+      if (status === 'completed') {
+        clearEcommerceTaskReference({ ownerEmail, draftId, taskId });
+      }
+      return { taskId, status, images, errors: task?.output?.errors || [], task };
+    }
+    if (status === 'failed' || status === 'cancelled') {
+      clearEcommerceTaskReference({ ownerEmail, draftId, taskId });
+      throw ecommerceTaskError(task);
+    }
+    task = null;
+  }
+  const error = new Error('生成任务仍在后台处理中，请稍后从作品页继续查看');
+  error.code = 'ECOMMERCE_POLL_TIMEOUT';
+  error.taskId = taskId;
+  error.resumeable = true;
+  throw error;
 }
 
 function waitFor(ms) {
@@ -321,7 +421,37 @@ export async function generateContent(text, images, { onImage, onProgress, previ
   return result;
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, billingQuoteId, email, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600 }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600 }) {
+  const ownerEmail = getSessionEmail() || String(email || '').trim().toLowerCase();
+  const savedReference = loadEcommerceTaskReference({ ownerEmail, draftId });
+  if (savedReference && (!resumeTaskId || resumeTaskId === savedReference.taskId)) {
+    let savedTask;
+    try {
+      savedTask = await getEcommerceTask(savedReference.taskId);
+    } catch (error) {
+      if (error?.status === 403 || error?.status === 404) {
+        clearEcommerceTaskReference({ ownerEmail, draftId, taskId: savedReference.taskId });
+        throw ecommerceTaskExpiredError(error.status);
+      }
+      throw error;
+    }
+    const savedStatus = taskStatus(savedTask);
+    if (savedStatus === 'failed' || savedStatus === 'cancelled') {
+      clearEcommerceTaskReference({ ownerEmail, draftId, taskId: savedReference.taskId });
+      if (!retry) throw ecommerceRetryRequiredError(savedTask);
+    } else {
+      return pollEcommerceTask(savedReference.taskId, {
+        initialTask: savedTask,
+        onImage,
+        onProgress,
+        pollIntervalMs,
+        maxPollAttempts,
+        ownerEmail,
+        draftId,
+      });
+    }
+  }
+
   const productInputs = splitEcommerceInputs(realShots);
   const referenceInputs = splitEcommerceInputs(refImgs);
   const body = {
@@ -349,10 +479,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     body.reference_images = await prepareImageInputs(referenceInputs.legacy);
   }
   // 电商生图属于封闭内测能力；请求携带本地会话邮箱，服务端仍会二次校验。
-  try {
-    const session = JSON.parse(localStorage.getItem('sb-auth') || 'null');
-    if (email || session?.email) body.email = email || session.email;
-  } catch {}
+  if (email || ownerEmail) body.email = email || ownerEmail;
   if (imageSize?.width && imageSize?.height) {
     body.image_size = imageSize;
   }
@@ -392,44 +519,15 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
       const queued = await res.json();
       const taskId = queued.taskId || queued.task?.id;
       if (!taskId) throw new Error('生成任务创建失败，请重试');
-      try { localStorage.setItem('sb-last-ecommerce-task', taskId); } catch {}
-
-      const pollLimit = Number.isSafeInteger(maxPollAttempts) && maxPollAttempts > 0
-        ? maxPollAttempts
-        : 600;
-      for (let pollAttempt = 0; pollAttempt < pollLimit; pollAttempt += 1) {
-        await waitFor(Number.isFinite(pollIntervalMs) ? Math.max(0, pollIntervalMs) : 1500);
-        const task = await getEcommerceTask(taskId);
-        if (onProgress) onProgress(task);
-        if (task?.status === 'completed') {
-          const images = stableTaskImages(task);
-          if (Object.keys(images).length === 0) {
-            const errors = task?.output?.errors || [];
-            const message = errors.find(item => item?.error)?.error;
-            throw new Error(message || '生成完成但没有可用图片，请重试');
-          }
-          Object.entries(images).forEach(([id, url]) => onImage?.({ id, url, stableUrl: url }));
-          return { taskId, images, errors: task?.output?.errors || [], task };
-        }
-        if (task?.status === 'needs_review') {
-          const images = stableTaskImages(task);
-          if (Object.keys(images).length === 0) throw ecommerceTaskError(task);
-          Object.entries(images).forEach(([id, url]) => onImage?.({ id, url, stableUrl: url }));
-          return {
-            taskId,
-            status: 'needs_review',
-            images,
-            errors: task?.output?.errors || [],
-            task,
-          };
-        }
-        if (task?.status === 'failed') throw ecommerceTaskError(task);
-      }
-      const error = new Error('生成任务仍在后台处理中，请稍后从作品页继续查看');
-      error.code = 'ECOMMERCE_POLL_TIMEOUT';
-      error.taskId = taskId;
-      error.resumeable = true;
-      throw error;
+      saveEcommerceTaskReference({ ownerEmail, draftId, taskId });
+      return pollEcommerceTask(taskId, {
+        onImage,
+        onProgress,
+        pollIntervalMs,
+        maxPollAttempts,
+        ownerEmail,
+        draftId,
+      });
     } finally {
       clearTimeout(timeoutId);
     }
@@ -445,7 +543,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
         if (onProgress) onProgress(d);
       } else if (d.type === 'job') {
         result.taskId = d.taskId;
-        try { localStorage.setItem('sb-last-ecommerce-task', d.taskId); } catch {}
+        saveEcommerceTaskReference({ ownerEmail, draftId, taskId: d.taskId });
       } else if (d.type === 'image') {
         if (d.id && d.url) result.images[d.id] = d.url;
         if (onImage) onImage(d);
@@ -469,6 +567,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     const firstError = Array.isArray(result.errors) ? result.errors.find(item => item?.error)?.error : '';
     throw new Error(firstError || '生成完成但没有返回图片，请重试');
   }
+  if (result.taskId) clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
   return result;
 }
 
@@ -477,8 +576,8 @@ export async function getEcommerceTask(taskId) {
   const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`, {
     headers: signedSessionHeaders(),
   });
+  if (!res.ok) throw await createApiError(res, '读取任务失败');
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || '读取任务失败');
   return data.task || data;
 }
 
