@@ -187,3 +187,219 @@ peer ownership conflicts: 0
 
 - Task 5B remains intentionally deferred. Existing polling behavior was not extended with per-asset immediate emission or draft-scoped resume in this task.
 - The build emits only the repository's existing Git global-ignore permission warning during collaboration checks; it does not affect the READY result.
+
+---
+
+## Review-fix closure
+
+Implementation commit:
+
+```text
+910c76c fix: bind ecommerce quotes and transparent delivery
+```
+
+### Critical: accepted quote is bound to the recomputed plan
+
+- Added `server/billing/quoteService.mjs`, using a versioned HMAC-SHA256 base64url token and `timingSafeEqual`.
+- The token binds normalized owner email, SKU, quantity, units, total units, currency, issue time, and expiry.
+- `/api/billing/quote` now returns only the product-facing quote plus `quoteId` and `expiresAt`.
+- Formal generation submits `billing_quote_id`.
+- The server recomputes the actual Asset Plan, rejects mixed effective SKUs, verifies exact owner/count/units/currency/expiry, and only then creates the hold.
+- Missing, expired, tampered, cross-owner, or mismatched quotes fail closed without a hold or provider submission.
+- The verified quote ID and expiry are persisted on the hold; existing hold/settlement/release idempotency and unlimited-owner shadow billing remain intact.
+
+RED:
+
+```text
+node --test --test-concurrency=1 test/billing-quote-token.test.mjs test/ecommerce-billing-contract.test.mjs test/billing-routes.test.mjs test/ecommerce-upload-contract.test.mjs
+tests 6
+pass 2
+fail 4
+```
+
+GREEN:
+
+```text
+node --test --test-concurrency=1 test/billing-quote-token.test.mjs test/ecommerce-billing-contract.test.mjs test/billing-routes.test.mjs test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs
+tests 28
+pass 28
+fail 0
+```
+
+### Critical: 402 pending action keeps actionable references only
+
+- Step one now creates one stable ecommerce `draftId` and passes it into step two.
+- A 402 stores the signed owner, route, draft ID, quote ID, immutable direction ID, editable brief, sizing, resolution, SKUs, custom colors, original/supplement product and reference asset IDs, prompt text, and textual prompt references.
+- The pending action strips raw image objects, `File`, `Blob`, Base64, `data:` URLs, `blob:` URLs, and preview payloads.
+- React files, selected direction, sizing, SKUs, colors, and prompt state are not cleared by the access handler.
+
+RED:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-billing-ui.test.mjs test/generation-access.test.mjs
+tests 10
+pass 6
+fail 4
+```
+
+GREEN:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-billing-ui.test.mjs test/generation-access.test.mjs test/pending-paid-action.test.mjs
+tests 20
+pass 20
+fail 0
+```
+
+### Important: transparent output is alpha-specific and repaired deterministically
+
+- Added a transparent role policy requiring an actual alpha canvas, an isolated product, no scene/background, and no added text.
+- Transparent plan and prompt compilation discard style references so campaign styling cannot override transparency.
+- Transparent quality checks require PNG plus meaningful transparent background, opaque product coverage, and transparent canvas edges.
+- `transparent_background_missing` maps to `normalize_transparent_background`.
+- Deterministic Sharp repair removes only connected near-white/neutral border backgrounds, applies a soft alpha ramp, and unblends product edge colors.
+- Non-neutral scenes are not erased; if meaningful alpha remains absent, quality remains failed or needs review.
+- The orchestrator always evaluates transparent items with `expectedFormat: 'png'`.
+
+RED:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-asset-planner.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-repair-planner.test.mjs test/ecommerce-deterministic-repair.test.mjs test/ecommerce-orchestrator.test.mjs
+tests 63
+pass 56
+fail 7
+```
+
+GREEN:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-asset-planner.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-repair-planner.test.mjs test/ecommerce-deterministic-repair.test.mjs test/ecommerce-orchestrator.test.mjs
+tests 64
+pass 64
+fail 0
+```
+
+### Durable error metadata RED/GREEN
+
+The review fix also required actionable quote failures to survive the existing asynchronous job boundary.
+
+RED:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs
+tests 37
+pass 34
+fail 3
+```
+
+The failures proved that persisted job errors dropped `status`, `retryable`, and `reQuoteRequired`, the frontend dropped the same metadata, and one structural assertion still inspected the pre-extraction billing location.
+
+GREEN:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs
+tests 37
+pass 37
+fail 0
+```
+
+### Final verification
+
+Required review command:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-asset-upload.test.mjs test/billing-routes.test.mjs test/billing-client.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-repair-planner.test.mjs test/ecommerce-prompt-compiler.test.mjs
+tests 88
+pass 88
+fail 0
+```
+
+New and adjacent review tests:
+
+```text
+node --test --test-concurrency=1 test/billing-quote-token.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-deterministic-repair.test.mjs test/generation-access.test.mjs test/pending-paid-action.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs test/ecommerce-export.test.mjs
+tests 67
+pass 67
+fail 0
+```
+
+Build and repository checks:
+
+```text
+npm run build
+exit 0; export verification passed; Vite transformed 6404 modules.
+
+git diff --check
+exit 0; no whitespace errors.
+
+npm run collab:check
+[collaboration] READY
+tracked runtime paths: 0
+ignored runtime changes: 0
+peer ownership conflicts: 0
+```
+
+Additional full-suite audit:
+
+```text
+npm test
+tests 486
+pass 484
+fail 2
+```
+
+Both failures are pre-existing structural assertions outside Task 5A scope:
+
+- `test/content-billing.test.mjs` expects the old `CONTENT_PREVIEW_ROUTES.has(req.path)` expression, while production already uses normalized `guardedPath`.
+- `test/payment-orders.test.mjs` expects the old payment-service method list without the existing `listProviders` method.
+
+This review fix did not modify either test or the corresponding behavior, and the requested focused/regression suites are green.
+
+### Exact review-fix files
+
+- `server/billing/quoteService.mjs`
+- `server/billing/routes.mjs`
+- `server/ecommerceEngine/assetPlanner.mjs`
+- `server/ecommerceEngine/deterministicRepair.mjs`
+- `server/ecommerceEngine/ecommerceBilling.mjs`
+- `server/ecommerceEngine/index.mjs`
+- `server/ecommerceEngine/orchestrator.mjs`
+- `server/ecommerceEngine/platformPolicies.mjs`
+- `server/ecommerceEngine/promptCompiler.mjs`
+- `server/ecommerceEngine/qualityGate.mjs`
+- `server/ecommerceEngine/repairPlanner.mjs`
+- `server/index.mjs`
+- `src/pages/Home/EcMode.jsx`
+- `src/pages/Home/ec/DesignDirection.jsx`
+- `src/pages/Home/ec/ecommercePlanModel.js`
+- `src/services/api.js`
+- `test/billing-quote-token.test.mjs`
+- `test/billing-routes.test.mjs`
+- `test/ecommerce-asset-planner.test.mjs`
+- `test/ecommerce-billing-contract.test.mjs`
+- `test/ecommerce-billing-ui.test.mjs`
+- `test/ecommerce-deterministic-repair.test.mjs`
+- `test/ecommerce-orchestrator.test.mjs`
+- `test/ecommerce-prompt-compiler.test.mjs`
+- `test/ecommerce-quality-gate.test.mjs`
+- `test/ecommerce-repair-planner.test.mjs`
+- `test/ecommerce-route-integration.test.mjs`
+- `test/ecommerce-upload-contract.test.mjs`
+- `test/generation-access.test.mjs`
+- `.superpowers/sdd/paid-task-5a-report.md`
+
+### Review-fix self-review
+
+- Quote verification happens before hold creation and before provider submission; no synthetic `ec-quote:<job>` authority remains.
+- The billing service derives one effective SKU and exact quantity from the recomputed plan instead of trusting the client quote payload.
+- Structured re-quote metadata persists through the durable job and reaches the frontend error object.
+- Pending 402 data is owner/draft scoped and contains enough stable IDs and text to reconstruct the interrupted form without persisting binary content.
+- Transparent generation, prompt compilation, quality evaluation, repair planning, deterministic repair, and retry evaluation agree on PNG/alpha semantics.
+- Non-neutral generated scenes are deliberately not background-erased, preventing destructive false-positive cutouts.
+- No Task 5B persistent polling, incremental `onImage`, or resume behavior was introduced.
+- No XHS, Plog, Canvas, deployment, runtime database, upload, cache, generated asset, or `dist` files were changed or staged.
+
+### Review-fix concerns
+
+- The repository-wide suite still has the two unrelated stale structural assertions documented above; focused Task 5A and adjacent ecommerce/billing regressions are fully green.
+- Task 5B remains intentionally unstarted.
