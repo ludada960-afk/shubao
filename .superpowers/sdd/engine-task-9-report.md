@@ -164,3 +164,89 @@ Result: all syntax checks passed, export verification passed, Vite production bu
 - The target registry is deliberately Task 9-specific rather than a generic workflow system.
 - White-background compliance is a deterministic pixel-contract check aligned with the existing quality gate; it does not attempt semantic foreground segmentation.
 - Follow-up recovery confirmed that `RTK.md` is present and was read in full; the earlier absence note above reflects only the first implementation session.
+
+## Final review follow-up: duplicate-content plan items
+
+### Implementation
+
+- Replaced the single-row `job_id + stable_url` lookup with enumeration of every matching logical ecommerce job asset.
+- Restricted target resolution to plan items whose immutable item IDs are present among those matching job asset rows.
+- Selected the requested `targetId` only when exactly one matching plan item/target contains it.
+- Rejected targets belonging to a different plan item for the same job/source with `EXPORT_TARGET_INVALID`.
+- Rejected duplicate-content plan items sharing the same `targetId` with `EXPORT_TARGET_AMBIGUOUS` before export persistence.
+- Removed the remaining `LIMIT 1` lookup from the export service; owner-existence checks now use an aggregate count.
+- Preserved owner/job/source/target idempotency and made no frontend changes.
+
+### RED evidence
+
+The duplicate-content regressions were added before the production fix:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-export.test.mjs
+```
+
+Result: expected RED with 10 passed and 2 failed.
+
+- The second valid target for the same content-addressed stable URL failed with `EXPORT_TARGET_INVALID` because the first row was selected arbitrarily.
+- The shared `targetId` ambiguity test failed with `Missing expected rejection` because one plan item was silently selected and persisted.
+
+### GREEN and regression evidence
+
+Focused export GREEN:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-export.test.mjs
+```
+
+Result: 12 passed, 0 failed.
+
+Expanded focused GREEN:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-export.test.mjs test/ecommerce-asset-planner.test.mjs test/platform-policies.test.mjs test/ecommerce-quality-gate.test.mjs
+```
+
+Result: 42 passed, 0 failed.
+
+Task 9 brief verification:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-asset-upload.test.mjs test/ecommerce-export.test.mjs test/image-input.test.mjs
+```
+
+Result: 23 passed, 0 failed.
+
+Adjacent regression:
+
+```powershell
+node --test --test-concurrency=1 test/platform-policies.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-route-integration.test.mjs test/ecommerce-orchestrator.test.mjs test/generated-assets.test.mjs
+```
+
+Result: 68 passed, 0 failed.
+
+Full regression:
+
+```powershell
+npm test
+```
+
+Result: 399 passed, 0 failed.
+
+Completion checks:
+
+```powershell
+node --check server/ecommerceEngine/exportService.mjs
+node --check server/ecommerceEngine/platformPolicies.mjs
+node --check server/ecommerceEngine/qualityGate.mjs
+node --check server/index.mjs
+npm run build
+git diff --check
+rg -n "LIMIT 1|persistedJobAsset\(" server/ecommerceEngine/exportService.mjs
+```
+
+Result: all syntax checks passed, export verification passed, Vite production build passed, no whitespace errors were reported, and the obsolete arbitrary single-row lookup patterns were absent.
+
+### Final follow-up concerns
+
+- Ambiguity is intentionally fail-closed with HTTP 409 rather than choosing between byte-identical plan items.
+- The fix remains confined to Task 9 export resolution and tests; no generic workflow or paid frontend scope was added.

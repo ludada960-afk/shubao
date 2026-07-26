@@ -244,10 +244,9 @@ export function createEcommerceExportService({
       SELECT target_json FROM ecommerce_export_targets
       WHERE owner_email = ? AND source_asset_id = ? AND job_id = '' AND target_id = ?
     `),
-    anyTargetOwner: db.prepare(`
-      SELECT owner_email FROM ecommerce_export_targets
+    targetOwnerCount: db.prepare(`
+      SELECT COUNT(*) AS owner_count FROM ecommerce_export_targets
       WHERE source_asset_id = ? AND target_id = ?
-      LIMIT 1
     `),
   };
 
@@ -279,15 +278,14 @@ export function createEcommerceExportService({
     }
   }
 
-  function persistedJobAsset(jobId, assetId) {
+  function persistedJobAssets(jobId, assetId) {
     try {
       return db.prepare(`
         SELECT asset_id FROM ecommerce_job_assets
         WHERE job_id = ? AND stable_url = ?
-        LIMIT 1
-      `).get(jobId, `/api/generated-assets/${assetId}`) || null;
+      `).all(jobId, `/api/generated-assets/${assetId}`);
     } catch (error) {
-      if (/no such table/i.test(error?.message || '')) return null;
+      if (/no such table/i.test(error?.message || '')) return [];
       throw error;
     }
   }
@@ -298,26 +296,31 @@ export function createEcommerceExportService({
     if (String(job.owner_email || '').trim().toLowerCase() !== owner) {
       throw httpError('无权访问该素材', 403, 'ASSET_OWNER_MISMATCH');
     }
-    const asset = persistedJobAsset(jobId, assetId);
-    if (!asset) throw httpError('导出源不属于该电商任务', 400, 'EXPORT_SOURCE_INVALID');
+    const assets = persistedJobAssets(jobId, assetId);
+    if (!assets.length) throw httpError('导出源不属于该电商任务', 400, 'EXPORT_SOURCE_INVALID');
     const progress = parseStoredResponse(job.progress);
     const assetPlan = progress?.orchestrationSnapshot?.assetPlan;
     if (!Array.isArray(assetPlan)) {
       throw httpError('电商任务缺少可导出 Asset Plan', 409, 'EXPORT_PLAN_UNAVAILABLE');
     }
-    const item = assetPlan.find(candidate => (
-      isRecord(candidate) && candidate.id === asset.asset_id
-    ));
-    const target = Array.isArray(item?.exportTargets)
-      ? item.exportTargets.find(candidate => candidate?.targetId === targetId)
-      : null;
-    return validateResolvedTarget(target, targetId);
+    const assetIds = new Set(assets.map(asset => asset?.asset_id).filter(Boolean));
+    const matchingTargets = assetPlan.flatMap((item) => {
+      if (!isRecord(item) || !assetIds.has(item.id) || !Array.isArray(item.exportTargets)) return [];
+      return item.exportTargets.filter(target => target?.targetId === targetId);
+    });
+    if (!matchingTargets.length) {
+      throw httpError('平台导出目标已失效或被篡改', 400, 'EXPORT_TARGET_INVALID');
+    }
+    if (matchingTargets.length !== 1) {
+      throw httpError('平台导出目标与重复内容素材存在歧义', 409, 'EXPORT_TARGET_AMBIGUOUS');
+    }
+    return validateResolvedTarget(matchingTargets[0], targetId);
   }
 
   function resolveRegisteredTarget({ owner, assetId, targetId }) {
     const row = statements.ownedTarget.get(owner, assetId, targetId);
     if (!row) {
-      if (statements.anyTargetOwner.get(assetId, targetId)) {
+      if (Number(statements.targetOwnerCount.get(assetId, targetId)?.owner_count) > 0) {
         throw httpError('无权访问该导出目标', 403, 'ASSET_OWNER_MISMATCH');
       }
       throw httpError('平台导出目标已失效或被篡改', 400, 'EXPORT_TARGET_INVALID');

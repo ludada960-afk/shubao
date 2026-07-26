@@ -528,6 +528,133 @@ test('route exports a real persisted Asset Plan targetId and rejects tampering a
   assert.equal(crossOwner.body.code, 'ASSET_OWNER_MISMATCH');
 });
 
+test('resolves duplicate-content job assets by the unique targetId instead of stable URL row order', async (t) => {
+  const {
+    db,
+    exportService,
+    generatedAssetStore,
+  } = await harness(t, { generatedSource: true });
+  const stable = await generatedAssetStore.persistBuffer({
+    buffer: await whiteProductFixture(),
+    contentType: 'image/png',
+    taskId: 'duplicate-content-job',
+    label: 'shared',
+  });
+  const plan = realAssetPlan('taobao');
+  const mainItem = plan.find(item => item.role === 'main');
+  const whiteItem = plan.find(item => item.role === 'white_background');
+  const unrelatedItem = plan.find(item => item.role === 'detail_slice_feature');
+  const mainTarget = mainItem.exportTargets.find(target => target.format === 'png');
+  const whiteTarget = whiteItem.exportTargets.find(target => target.format === 'png');
+  const unrelatedTarget = unrelatedItem.exportTargets.find(target => target.format === 'png');
+  assert.notEqual(mainTarget.targetId, whiteTarget.targetId);
+
+  db.prepare('INSERT INTO ecommerce_jobs (id, owner_email, progress) VALUES (?, ?, ?)').run(
+    'duplicate-content-job',
+    'owner@example.com',
+    JSON.stringify({ orchestrationSnapshot: { assetPlan: plan } }),
+  );
+  const insertAsset = db.prepare(
+    'INSERT INTO ecommerce_job_assets (job_id, asset_id, stable_url) VALUES (?, ?, ?)',
+  );
+  insertAsset.run('duplicate-content-job', mainItem.id, stable.url);
+  insertAsset.run('duplicate-content-job', whiteItem.id, stable.url);
+
+  const mainExport = await exportService.createExport({
+    ownerEmail: 'owner@example.com',
+    body: {
+      jobId: 'duplicate-content-job',
+      sourceAssetId: stable.id,
+      targetId: mainTarget.targetId,
+    },
+  });
+  const whiteExport = await exportService.createExport({
+    ownerEmail: 'owner@example.com',
+    body: {
+      jobId: 'duplicate-content-job',
+      sourceAssetId: stable.id,
+      targetId: whiteTarget.targetId,
+    },
+  });
+
+  assert.equal(mainExport.targetId, mainTarget.targetId);
+  assert.equal(mainExport.role, 'main');
+  assert.equal(whiteExport.targetId, whiteTarget.targetId);
+  assert.equal(whiteExport.role, 'white_background');
+  assert.notEqual(mainExport.transformFingerprint, whiteExport.transformFingerprint);
+  assert.deepEqual(
+    await exportService.createExport({
+      ownerEmail: 'owner@example.com',
+      body: {
+        jobId: 'duplicate-content-job',
+        sourceAssetId: stable.id,
+        targetId: whiteTarget.targetId,
+      },
+    }),
+    whiteExport,
+  );
+
+  await assert.rejects(
+    exportService.createExport({
+      ownerEmail: 'owner@example.com',
+      body: {
+        jobId: 'duplicate-content-job',
+        sourceAssetId: stable.id,
+        targetId: unrelatedTarget.targetId,
+      },
+    }),
+    error => error?.status === 400 && error?.code === 'EXPORT_TARGET_INVALID',
+  );
+});
+
+test('rejects an ambiguous targetId shared by duplicate-content plan items before persistence', async (t) => {
+  const {
+    db,
+    exportService,
+    generatedAssetStore,
+    getPersistBufferCalls,
+  } = await harness(t, { generatedSource: true });
+  const stable = await generatedAssetStore.persistBuffer({
+    buffer: await whiteProductFixture(),
+    contentType: 'image/png',
+    taskId: 'ambiguous-content-job',
+    label: 'shared',
+  });
+  const plan = realAssetPlan('taobao');
+  const firstItem = plan.find(item => item.role === 'detail_slice_feature');
+  const secondItem = plan.find(item => item.role === 'detail_slice_usage');
+  const sharedTarget = firstItem.exportTargets.find(target => target.format === 'png');
+  assert.equal(
+    secondItem.exportTargets.some(target => target.targetId === sharedTarget.targetId),
+    true,
+  );
+
+  db.prepare('INSERT INTO ecommerce_jobs (id, owner_email, progress) VALUES (?, ?, ?)').run(
+    'ambiguous-content-job',
+    'owner@example.com',
+    JSON.stringify({ orchestrationSnapshot: { assetPlan: plan } }),
+  );
+  const insertAsset = db.prepare(
+    'INSERT INTO ecommerce_job_assets (job_id, asset_id, stable_url) VALUES (?, ?, ?)',
+  );
+  insertAsset.run('ambiguous-content-job', firstItem.id, stable.url);
+  insertAsset.run('ambiguous-content-job', secondItem.id, stable.url);
+  const before = getPersistBufferCalls();
+
+  await assert.rejects(
+    exportService.createExport({
+      ownerEmail: 'owner@example.com',
+      body: {
+        jobId: 'ambiguous-content-job',
+        sourceAssetId: stable.id,
+        targetId: sharedTarget.targetId,
+      },
+    }),
+    error => error?.status === 409 && error?.code === 'EXPORT_TARGET_AMBIGUOUS',
+  );
+  assert.equal(getPersistBufferCalls(), before);
+});
+
 test('rejects an opaque colored image for white_background without persisting an export', async (t) => {
   const {
     assetUploadService,
