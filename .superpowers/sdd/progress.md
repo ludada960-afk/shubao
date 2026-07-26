@@ -25,7 +25,8 @@
 - Billing Ledger Task 8: complete (full 254/254 tests passed, export verification passed, Vite production build passed, collaboration policy READY, no tracked runtime files or ownership conflicts).
 - Structured Ecommerce Engine Task 1: complete (`44449b0..5818ae5`, exact legal size catalog, safe numeric validation, default 2K `gpt-image-2`, explicitly safe confirmed batch routing to `gpt-image-2-n`, no unsupported fallback; independently reviewed and approved; focused 7/7 passed).
 - Structured Ecommerce Engine Task 2: complete (`28a6b25..c5ba564`, fail-closed Product Truth, user/OCR/vision precedence, localized high-risk gating, SKU/source traceability, prototype-safe normalization, deterministic fingerprint, localized forbidden mutations, and dedicated JSON-only VLM prompt independently reviewed and approved; focused/regression 17/17 passed).
-- Next implementation task: Structured Ecommerce Generation Engine plan, Task 3.
+- Structured Ecommerce Engine Task 3: complete (`bc9d75c..946a828`, immutable direction title with clearable editable brief, canonical custom palette locking, provenance-bearing recommendation policies, category-over-role policy layering, prototype-safe policy and generation inputs, and deterministic post-processing export targets independently reviewed and approved; focused 13/13 passed).
+- Next implementation task: Structured Ecommerce Generation Engine plan, Task 4.
 
 ## Ownership
 
