@@ -9,6 +9,7 @@ import Database from 'better-sqlite3';
 import sharp from 'sharp';
 
 import { createGeneratedAssetStore } from '../server/generatedAssets.mjs';
+import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
 import { createEcommerceAssetUploadService } from '../server/ecommerceEngine/assetUpload.mjs';
 import {
   EXPORT_TRANSFORM_VERSION,
@@ -68,7 +69,8 @@ async function harness(t, { platformPolicyResolver, generatedSource = false } = 
     db.exec(`
       CREATE TABLE IF NOT EXISTS ecommerce_jobs (
         id TEXT PRIMARY KEY,
-        owner_email TEXT NOT NULL
+        owner_email TEXT NOT NULL,
+        progress TEXT NOT NULL DEFAULT '{}'
       );
       CREATE TABLE IF NOT EXISTS ecommerce_job_assets (
         job_id TEXT NOT NULL,
@@ -99,6 +101,49 @@ async function uploadSource(assetUploadService, bytes, ownerEmail = 'owner@examp
       role: 'product',
       data: bytes.toString('base64'),
     },
+  });
+}
+
+async function whiteProductFixture({
+  width = 120,
+  height = 120,
+  background = '#ffffff',
+  product = '#dc1414',
+} = {}) {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background,
+    },
+  }).composite([{
+    input: Buffer.from(`
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="${Math.round(width * 0.25)}" y="${Math.round(height * 0.2)}"
+          width="${Math.round(width * 0.5)}" height="${Math.round(height * 0.6)}"
+          rx="8" fill="${product}"/>
+      </svg>
+    `),
+  }]).png({ compressionLevel: 9 }).toBuffer();
+}
+
+function realAssetPlan(platform = 'taobao') {
+  return buildAssetPlan({
+    productTruth: {
+      category: '数码3C',
+      productName: 'Plan-bound product',
+      sourceAssetIds: [],
+      confirmedFacts: {},
+    },
+    campaignBible: {
+      directionId: 'plan-bound',
+      title: 'Plan bound',
+      confirmed: true,
+      referenceAssetIds: [],
+    },
+    platform,
+    sizing: { resolution: '1K' },
   });
 }
 
@@ -134,6 +179,7 @@ test('selects a versioned platform target and deterministically crops, resizes, 
   const target = targets.find(item => item.format === 'jpg');
 
   assert.ok(target);
+  assert.match(target.targetId, /^et_[a-f0-9]{64}$/);
   assert.match(target.policyVersion, /^\d{4}\.\d{2}(?:\.\d{2})?$/);
   assert.match(target.fingerprint, /^[a-f0-9]{64}$/);
   assert.equal(target.fit, 'cover');
@@ -141,11 +187,12 @@ test('selects a versioned platform target and deterministically crops, resizes, 
     ownerEmail: 'owner@example.com',
     body: {
       sourceAssetId: source.original.assetId,
-      target,
+      targetId: target.targetId,
     },
   });
 
   assert.equal(exported.sourceAssetId, source.original.assetId);
+  assert.equal(exported.targetId, target.targetId);
   assert.equal(exported.targetFingerprint, target.fingerprint);
   assert.equal(exported.transformVersion, EXPORT_TRANSFORM_VERSION);
   assert.equal(exported.width, 800);
@@ -171,7 +218,7 @@ test('uses deterministic contain and role processing for white-background platfo
   const { assetUploadService, exportService, generatedAssetStore } = await harness(t);
   const source = await uploadSource(
     assetUploadService,
-    await fixture({ width: 80, height: 120, alpha: true }),
+    await whiteProductFixture({ width: 80, height: 120 }),
   );
   const targets = await exportService.listTargets({
     ownerEmail: 'owner@example.com',
@@ -183,7 +230,7 @@ test('uses deterministic contain and role processing for white-background platfo
   const target = targets.find(item => item.format === 'png');
   const exported = await exportService.createExport({
     ownerEmail: 'owner@example.com',
-    body: { sourceAssetId: source.original.assetId, target },
+    body: { sourceAssetId: source.original.assetId, targetId: target.targetId },
   });
   const stored = await generatedAssetStore.read(exported.assetId);
   const metadata = await sharp(stored.buffer).metadata();
@@ -214,11 +261,11 @@ test('replays the same owner/source/target transform without writing another out
 
   const first = await exportService.createExport({
     ownerEmail: 'owner@example.com',
-    body: { sourceAssetId: source.original.assetId, target },
+    body: { sourceAssetId: source.original.assetId, targetId: target.targetId },
   });
   const second = await exportService.createExport({
     ownerEmail: 'owner@example.com',
-    body: { sourceAssetId: source.original.assetId, target },
+    body: { sourceAssetId: source.original.assetId, targetId: target.targetId },
   });
 
   assert.deepEqual(second, first);
@@ -239,14 +286,14 @@ test('rejects owner mismatches, preview sources, traversal IDs, tampered targets
   await assert.rejects(
     exportService.createExport({
       ownerEmail: 'second@example.com',
-      body: { sourceAssetId: source.original.assetId, target },
+      body: { sourceAssetId: source.original.assetId, targetId: target.targetId },
     }),
     error => error?.status === 403 && error?.code === 'ASSET_OWNER_MISMATCH',
   );
   await assert.rejects(
     exportService.createExport({
       ownerEmail: 'first@example.com',
-      body: { sourceAssetId: source.preview.assetId, target },
+      body: { sourceAssetId: source.preview.assetId, targetId: target.targetId },
     }),
     error => error?.status === 400 && error?.code === 'EXPORT_SOURCE_INVALID',
   );
@@ -254,7 +301,7 @@ test('rejects owner mismatches, preview sources, traversal IDs, tampered targets
     await assert.rejects(
       exportService.createExport({
         ownerEmail: 'first@example.com',
-        body: { sourceAssetId, target },
+        body: { sourceAssetId, targetId: target.targetId },
       }),
       error => error?.status === 400 && error?.code === 'ASSET_ID_INVALID',
     );
@@ -264,16 +311,16 @@ test('rejects owner mismatches, preview sources, traversal IDs, tampered targets
       ownerEmail: 'first@example.com',
       body: {
         sourceAssetId: source.original.assetId,
-        target: { ...target, width: target.width + 1 },
+        targetId: `${target.targetId.slice(0, -1)}${target.targetId.endsWith('0') ? '1' : '0'}`,
       },
     }),
     error => error?.status === 400 && error?.code === 'EXPORT_TARGET_INVALID',
   );
   for (const body of [
-    { sourceAssetId: source.original.assetId, target, price: 0.01 },
-    { sourceAssetId: source.original.assetId, target, path: 'C:\\secret' },
-    { sourceAssetId: source.original.assetId, target, quality: 1 },
-    { sourceAssetId: source.original.assetId, target: { ...target, sharp: { kernel: 'nearest' } } },
+    { sourceAssetId: source.original.assetId, targetId: target.targetId, price: 0.01 },
+    { sourceAssetId: source.original.assetId, targetId: target.targetId, path: 'C:\\secret' },
+    { sourceAssetId: source.original.assetId, targetId: target.targetId, quality: 1 },
+    { sourceAssetId: source.original.assetId, target },
   ]) {
     await assert.rejects(
       exportService.createExport({ ownerEmail: 'first@example.com', body }),
@@ -309,7 +356,7 @@ test('rejects an output that exceeds the server-owned platform byte limit', asyn
   await assert.rejects(
     exportService.createExport({
       ownerEmail: 'owner@example.com',
-      body: { sourceAssetId: source.original.assetId, target },
+      body: { sourceAssetId: source.original.assetId, targetId: target.targetId },
     }),
     error => error?.status === 422 && error?.code === 'EXPORT_FILE_TOO_LARGE',
   );
@@ -344,7 +391,7 @@ test('exports stable generated job assets while preserving owner scope', async (
   });
   const result = await exportService.createExport({
     ownerEmail: 'owner@example.com',
-    body: { sourceAssetId: stable.id, target },
+    body: { sourceAssetId: stable.id, targetId: target.targetId },
   });
   assert.equal(result.sourceKind, 'generated');
 
@@ -395,10 +442,119 @@ test('allows a generated owner when the same content hash was uploaded by anothe
   });
   const result = await exportService.createExport({
     ownerEmail: 'generator@example.com',
-    body: { sourceAssetId: stable.id, target },
+    body: { sourceAssetId: stable.id, targetId: target.targetId },
   });
 
   assert.equal(result.sourceKind, 'generated');
+});
+
+test('route exports a real persisted Asset Plan targetId and rejects tampering and cross-owner jobs', async (t) => {
+  const {
+    db,
+    exportService,
+    generatedAssetStore,
+  } = await harness(t, { generatedSource: true });
+  const stable = await generatedAssetStore.persistBuffer({
+    buffer: await whiteProductFixture(),
+    contentType: 'image/png',
+    taskId: 'plan-job-owner',
+    label: 'main',
+  });
+  const ownerPlan = realAssetPlan('taobao');
+  const ownerItem = ownerPlan.find(item => item.role === 'main');
+  const ownerTarget = ownerItem.exportTargets.find(target => target.format === 'png');
+  assert.match(ownerTarget.targetId, /^et_[a-f0-9]{64}$/);
+  db.prepare('INSERT INTO ecommerce_jobs (id, owner_email, progress) VALUES (?, ?, ?)').run(
+    'plan-job-owner',
+    'owner@example.com',
+    JSON.stringify({ orchestrationSnapshot: { assetPlan: ownerPlan } }),
+  );
+  db.prepare('INSERT INTO ecommerce_job_assets (job_id, asset_id, stable_url) VALUES (?, ?, ?)').run(
+    'plan-job-owner',
+    ownerItem.id,
+    stable.url,
+  );
+
+  const otherPlan = realAssetPlan('jd');
+  const otherItem = otherPlan.find(item => item.role === 'main');
+  const otherTarget = otherItem.exportTargets.find(target => target.format === 'png');
+  db.prepare('INSERT INTO ecommerce_jobs (id, owner_email, progress) VALUES (?, ?, ?)').run(
+    'plan-job-other',
+    'other@example.com',
+    JSON.stringify({ orchestrationSnapshot: { assetPlan: otherPlan } }),
+  );
+  db.prepare('INSERT INTO ecommerce_job_assets (job_id, asset_id, stable_url) VALUES (?, ?, ?)').run(
+    'plan-job-other',
+    otherItem.id,
+    stable.url,
+  );
+
+  const handlers = createEcommerceExportRouteHandlers({ exportService });
+  const ok = responseHarness();
+  await handlers.create({
+    _userEmail: 'owner@example.com',
+    body: {
+      jobId: 'plan-job-owner',
+      sourceAssetId: stable.id,
+      targetId: ownerTarget.targetId,
+    },
+  }, ok);
+  assert.equal(ok.statusCode, 201);
+  assert.equal(ok.body.targetId, ownerTarget.targetId);
+  assert.equal(ok.body.platform, 'taobao');
+
+  const tampered = responseHarness();
+  await handlers.create({
+    _userEmail: 'owner@example.com',
+    body: {
+      jobId: 'plan-job-owner',
+      sourceAssetId: stable.id,
+      targetId: `${ownerTarget.targetId.slice(0, -1)}${ownerTarget.targetId.endsWith('0') ? '1' : '0'}`,
+    },
+  }, tampered);
+  assert.equal(tampered.statusCode, 400);
+  assert.equal(tampered.body.code, 'EXPORT_TARGET_INVALID');
+
+  const crossOwner = responseHarness();
+  await handlers.create({
+    _userEmail: 'owner@example.com',
+    body: {
+      jobId: 'plan-job-other',
+      sourceAssetId: stable.id,
+      targetId: otherTarget.targetId,
+    },
+  }, crossOwner);
+  assert.equal(crossOwner.statusCode, 403);
+  assert.equal(crossOwner.body.code, 'ASSET_OWNER_MISMATCH');
+});
+
+test('rejects an opaque colored image for white_background without persisting an export', async (t) => {
+  const {
+    assetUploadService,
+    exportService,
+    getPersistBufferCalls,
+  } = await harness(t);
+  const source = await uploadSource(
+    assetUploadService,
+    await whiteProductFixture({ background: '#3f6f9f' }),
+  );
+  const target = (await exportService.listTargets({
+    ownerEmail: 'owner@example.com',
+    sourceAssetId: source.original.assetId,
+    platform: 'jd',
+    role: 'white_background',
+    category: 'all',
+  })).find(item => item.format === 'png');
+  const before = getPersistBufferCalls();
+
+  await assert.rejects(
+    exportService.createExport({
+      ownerEmail: 'owner@example.com',
+      body: { sourceAssetId: source.original.assetId, targetId: target.targetId },
+    }),
+    error => error?.status === 422 && error?.code === 'EXPORT_WHITE_BACKGROUND_INVALID',
+  );
+  assert.equal(getPersistBufferCalls(), before);
 });
 
 test('thin export handler passes signed owner identity and production authenticates the endpoint', async () => {
@@ -414,7 +570,7 @@ test('thin export handler passes signed owner identity and production authentica
   const res = responseHarness();
   await handlers.create({
     _userEmail: 'signed@example.com',
-    body: { sourceAssetId: `${'a'.repeat(64)}.png`, target: {} },
+    body: { sourceAssetId: `${'a'.repeat(64)}.png`, targetId: `et_${'b'.repeat(64)}` },
   }, res);
   assert.equal(res.statusCode, 201);
   assert.equal(calls[0].ownerEmail, 'signed@example.com');

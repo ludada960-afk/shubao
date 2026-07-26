@@ -80,3 +80,87 @@ Result: syntax checks passed, export verification passed, Vite production build 
 - Upload transport remains the requested JSON data URL/raw Base64 path. The existing 30 MB Express JSON limit and the service's 15 MB decoded-image limit intentionally leave Base64 overhead headroom.
 - White-background role enforcement deterministically flattens transparency onto white and verifies the output contract; semantic subject segmentation remains the responsibility of the existing generation/quality pipeline.
 - `RTK.md`, referenced by the supplied `AGENTS.md` instructions, was not present in the repository or hidden file index during this task.
+
+## Review follow-up fixes
+
+### Implementation
+
+- Added deterministic, versioned `targetId`, `targetVersion`, `policyVersion`, and fingerprint metadata to every server Asset Plan export target.
+- Changed export execution to accept only `sourceAssetId`, `targetId`, and optional `jobId`; complete client-supplied platform target objects and arbitrary transform fields are rejected.
+- Added the minimal Task 9-specific `ecommerce_export_targets` SQLite registry keyed by owner, source asset, optional job, and target ID.
+- Resolved job-bound targets from the persisted owner-scoped ecommerce job orchestration snapshot and verified that the stable source belongs to the matching Asset Plan item.
+- Preserved idempotency over owner, source asset, target ID/fingerprint, and transform version.
+- Decoded the final encoded export and reused aligned quality-gate thresholds to verify whole-image near-white coverage and edge whiteness before persistence.
+- Rejected opaque colored backgrounds for `white_background` with `EXPORT_WHITE_BACKGROUND_INVALID`; compliant representative white-background images continue to pass.
+- No paid frontend files or generalized workflow abstractions were changed.
+
+### RED evidence
+
+Target binding and white-background regressions were written before the production fixes:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-export.test.mjs test/ecommerce-asset-planner.test.mjs
+```
+
+Result: expected RED with 10 failures because Asset Plan targets had no `targetId` and exports still trusted complete client target objects.
+
+After the target binding implementation, the focused policy/planner/export run isolated the second review gap:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-export.test.mjs test/ecommerce-asset-planner.test.mjs test/platform-policies.test.mjs
+```
+
+Result: 25 passed, 1 failed. The remaining intended RED was `rejects an opaque colored image for white_background without persisting an export`, failing with `Missing expected rejection`.
+
+### GREEN and regression evidence
+
+Focused GREEN:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-export.test.mjs test/ecommerce-asset-planner.test.mjs test/platform-policies.test.mjs test/ecommerce-quality-gate.test.mjs
+```
+
+Result: 40 passed, 0 failed.
+
+Task 9 brief verification:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-asset-upload.test.mjs test/ecommerce-export.test.mjs test/image-input.test.mjs
+```
+
+Result: 21 passed, 0 failed.
+
+Adjacent regression:
+
+```powershell
+node --test --test-concurrency=1 test/platform-policies.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-route-integration.test.mjs test/ecommerce-orchestrator.test.mjs test/generated-assets.test.mjs
+```
+
+Result: 68 passed, 0 failed.
+
+Full regression:
+
+```powershell
+npm test
+```
+
+Result: 397 passed, 0 failed.
+
+Completion checks:
+
+```powershell
+node --check server/ecommerceEngine/platformPolicies.mjs
+node --check server/ecommerceEngine/exportService.mjs
+node --check server/ecommerceEngine/qualityGate.mjs
+node --check server/index.mjs
+npm run build
+git diff --check
+```
+
+Result: all syntax checks passed, export verification passed, Vite production build passed, and no whitespace errors were reported.
+
+### Follow-up concerns
+
+- The target registry is deliberately Task 9-specific rather than a generic workflow system.
+- White-background compliance is a deterministic pixel-contract check aligned with the existing quality gate; it does not attempt semantic foreground segmentation.
+- Follow-up recovery confirmed that `RTK.md` is present and was read in full; the earlier absence note above reflects only the first implementation session.

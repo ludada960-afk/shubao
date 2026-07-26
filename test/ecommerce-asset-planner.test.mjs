@@ -132,6 +132,9 @@ test('applies sizing overrides per matching role with legal generation dimension
     assert.ok(LEGAL_SIZES.has(item.generationSize));
     assert.equal(validateGenerationSize(item.generationSize), true);
     assert.ok(item.exportTargets.length > 0);
+    assert.ok(item.exportTargets.every(target => /^et_[a-f0-9]{64}$/.test(target.targetId)));
+    assert.ok(item.exportTargets.every(target => /^\d{4}\.\d{2}(?:\.\d{2})?$/.test(target.policyVersion)));
+    assert.ok(item.exportTargets.every(target => /^[a-f0-9]{64}$/.test(target.fingerprint)));
     assert.equal(item.exportTargets.some((target) => `${target.width}x${target.height}` === item.generationSize), false);
   }
 });

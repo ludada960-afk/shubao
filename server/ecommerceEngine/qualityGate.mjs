@@ -7,9 +7,12 @@ const WHITE_BACKGROUND_ROLES = new Set(['white_background', 'white_bg', 'transpa
 const SUPPORTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 const BLANK_STDDEV_THRESHOLD = 3;
 const BLUR_EDGE_THRESHOLD = 18;
-const NEAR_WHITE_THRESHOLD = 245;
-const MIN_WHITE_COVERAGE = 0.25;
-const MIN_WHITE_EDGE_COVERAGE = 0.9;
+export const WHITE_BACKGROUND_REQUIREMENTS = Object.freeze({
+  nearWhiteThreshold: 245,
+  minNearWhiteCoverage: 0.25,
+  minEdgeWhiteCoverage: 0.9,
+  edgeThickness: 2,
+});
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -127,15 +130,48 @@ async function runAdapter(adapter, payload, {
   }
 }
 
+export function measureWhiteBackgroundCoverage(data, info) {
+  const channels = info.channels;
+  const count = info.width * info.height;
+  let nearWhite = 0;
+  let edgeNearWhite = 0;
+  let edgePixels = 0;
+  for (let index = 0; index < count; index += 1) {
+    const offset = index * channels;
+    const red = data[offset];
+    const green = channels > 1 ? data[offset + 1] : red;
+    const blue = channels > 2 ? data[offset + 2] : red;
+    const white = red >= WHITE_BACKGROUND_REQUIREMENTS.nearWhiteThreshold
+      && green >= WHITE_BACKGROUND_REQUIREMENTS.nearWhiteThreshold
+      && blue >= WHITE_BACKGROUND_REQUIREMENTS.nearWhiteThreshold;
+    if (white) nearWhite += 1;
+    const x = index % info.width;
+    const y = Math.floor(index / info.width);
+    const edge = WHITE_BACKGROUND_REQUIREMENTS.edgeThickness;
+    const onEdge = x < edge || y < edge || x >= info.width - edge || y >= info.height - edge;
+    if (onEdge) {
+      edgePixels += 1;
+      if (white) edgeNearWhite += 1;
+    }
+  }
+  return {
+    edgeWhiteCoverage: Number((edgePixels ? edgeNearWhite / edgePixels : 0).toFixed(4)),
+    nearWhiteCoverage: Number((nearWhite / count).toFixed(4)),
+  };
+}
+
+export function isWhiteBackgroundCompliant(metrics) {
+  return metrics?.nearWhiteCoverage >= WHITE_BACKGROUND_REQUIREMENTS.minNearWhiteCoverage
+    && metrics?.edgeWhiteCoverage >= WHITE_BACKGROUND_REQUIREMENTS.minEdgeWhiteCoverage;
+}
+
 function pixelMetrics(data, info) {
   const channels = info.channels;
   const count = info.width * info.height;
   const luminance = new Float64Array(count);
   let sum = 0;
   let sumSquares = 0;
-  let nearWhite = 0;
-  let edgeNearWhite = 0;
-  let edgePixels = 0;
+  const whiteBackground = measureWhiteBackgroundCoverage(data, info);
 
   for (let index = 0; index < count; index += 1) {
     const offset = index * channels;
@@ -146,17 +182,6 @@ function pixelMetrics(data, info) {
     luminance[index] = value;
     sum += value;
     sumSquares += value * value;
-    const white = red >= NEAR_WHITE_THRESHOLD
-      && green >= NEAR_WHITE_THRESHOLD
-      && blue >= NEAR_WHITE_THRESHOLD;
-    if (white) nearWhite += 1;
-    const x = index % info.width;
-    const y = Math.floor(index / info.width);
-    const onEdge = x < 2 || y < 2 || x >= info.width - 2 || y >= info.height - 2;
-    if (onEdge) {
-      edgePixels += 1;
-      if (white) edgeNearWhite += 1;
-    }
   }
 
   const gradients = [];
@@ -176,9 +201,9 @@ function pixelMetrics(data, info) {
 
   return {
     edgeStrength: Number(edgeStrength.toFixed(3)),
-    edgeWhiteCoverage: Number((edgePixels ? edgeNearWhite / edgePixels : 0).toFixed(4)),
+    edgeWhiteCoverage: whiteBackground.edgeWhiteCoverage,
     luminanceStdDev: Number(Math.sqrt(variance).toFixed(3)),
-    nearWhiteCoverage: Number((nearWhite / count).toFixed(4)),
+    nearWhiteCoverage: whiteBackground.nearWhiteCoverage,
   };
 }
 
@@ -270,8 +295,7 @@ export async function evaluateAsset(input = {}, adapters = {}) {
   const role = normalizeRole(own(safeInput, 'role') ?? own(safeInput, 'roleKey'));
   const platformIssues = [];
   if (WHITE_BACKGROUND_ROLES.has(role)
-    && (metrics.nearWhiteCoverage < MIN_WHITE_COVERAGE
-      || metrics.edgeWhiteCoverage < MIN_WHITE_EDGE_COVERAGE)) {
+    && !isWhiteBackgroundCompliant(metrics)) {
     platformIssues.push('white_background_insufficient');
   }
   const platformCompliance = statusCheck(
@@ -280,8 +304,12 @@ export async function evaluateAsset(input = {}, adapters = {}) {
     {
       nearWhiteCoverage: metrics.nearWhiteCoverage,
       edgeWhiteCoverage: metrics.edgeWhiteCoverage,
-      requiredNearWhiteCoverage: WHITE_BACKGROUND_ROLES.has(role) ? MIN_WHITE_COVERAGE : null,
-      requiredEdgeWhiteCoverage: WHITE_BACKGROUND_ROLES.has(role) ? MIN_WHITE_EDGE_COVERAGE : null,
+      requiredNearWhiteCoverage: WHITE_BACKGROUND_ROLES.has(role)
+        ? WHITE_BACKGROUND_REQUIREMENTS.minNearWhiteCoverage
+        : null,
+      requiredEdgeWhiteCoverage: WHITE_BACKGROUND_ROLES.has(role)
+        ? WHITE_BACKGROUND_REQUIREMENTS.minEdgeWhiteCoverage
+        : null,
     },
   );
 

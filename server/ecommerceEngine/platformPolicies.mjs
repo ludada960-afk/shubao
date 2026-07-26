@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
+
 import { validateGenerationSize } from './modelCatalog.mjs';
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const CONFIDENCE_LEVELS = new Set(['high', 'medium', 'low']);
 const VERIFIED_AT = '2026-07-25';
 export const PLATFORM_POLICY_REGISTRY_VERSION = VERIFIED_AT.replaceAll('-', '.');
+export const EXPORT_TARGET_VERSION = 'asset-plan-target-v1';
 const UNKNOWN_SOURCE_URL = 'https://www.gov.cn/';
 
 const PLATFORM_SOURCES = Object.freeze({
@@ -228,6 +231,57 @@ function ratioForDimensions(width, height) {
   return `${width / divisor}:${height / divisor}`;
 }
 
+function exportPolicyVersion(value) {
+  const verifiedAt = typeof value === 'string' ? value.trim() : '';
+  return /^\d{4}-\d{2}(?:-\d{2})?$/.test(verifiedAt)
+    ? verifiedAt.replaceAll('-', '.')
+    : /^\d{4}\.\d{2}(?:\.\d{2})?$/.test(verifiedAt)
+      ? verifiedAt
+      : PLATFORM_POLICY_REGISTRY_VERSION;
+}
+
+function canonicalExportTarget(target, policyVersion) {
+  return {
+    platform: target.platform,
+    categoryScope: target.categoryScope,
+    role: target.role,
+    ratio: target.ratio,
+    width: target.width,
+    height: target.height,
+    format: target.format,
+    maxFileBytes: target.maxFileBytes,
+    fit: target.fit,
+    policyVersion,
+    targetVersion: EXPORT_TARGET_VERSION,
+  };
+}
+
+export function versionExportTarget(target, { policyVersion } = {}) {
+  const canonical = canonicalExportTarget(
+    target,
+    exportPolicyVersion(policyVersion ?? target?.policyVersion),
+  );
+  const fingerprint = createHash('sha256')
+    .update(`${EXPORT_TARGET_VERSION}\0${JSON.stringify(canonical)}`)
+    .digest('hex');
+  const targetId = `et_${createHash('sha256')
+    .update(`target-id\0${fingerprint}`)
+    .digest('hex')}`;
+  return {
+    ...canonical,
+    fingerprint,
+    targetId,
+  };
+}
+
+export function verifyVersionedExportTarget(target) {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) return false;
+  const expected = versionExportTarget(target, { policyVersion: target.policyVersion });
+  return target.targetVersion === expected.targetVersion
+    && target.fingerprint === expected.fingerprint
+    && target.targetId === expected.targetId;
+}
+
 function resolveExportInputs(policyOrOptions, generation = {}) {
   if (policyOrOptions && typeof policyOrOptions === 'object' && Object.hasOwn(policyOrOptions, 'policy')) {
     return { policy: policyOrOptions.policy, generation: policyOrOptions };
@@ -269,7 +323,7 @@ export function planExportTargets(policyOrOptions, generation = {}) {
   const matchingSizes = policy.exportSizes.filter(({ width, height }) => ratioForDimensions(width, height) === targetRatio);
   const sizes = matchingSizes.length ? matchingSizes : policy.exportSizes;
 
-  return sizes.flatMap(({ width, height }) => policy.formats.map((format) => ({
+  return sizes.flatMap(({ width, height }) => policy.formats.map((format) => versionExportTarget({
     platform: policy.platform,
     categoryScope: policy.categoryScope,
     role: policy.role,
@@ -279,5 +333,5 @@ export function planExportTargets(policyOrOptions, generation = {}) {
     format,
     maxFileBytes: policy.maxFileBytes,
     fit: sourceRatio === targetRatio ? 'inside' : 'cover',
-  })));
+  }, { policyVersion: policy.verifiedAt })));
 }

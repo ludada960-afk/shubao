@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  EXPORT_TARGET_VERSION,
   PLATFORM_POLICY_REGISTRY_VERSION,
   getPlatformPolicy,
   planExportTargets,
+  verifyVersionedExportTarget,
 } from '../server/ecommerceEngine/platformPolicies.mjs';
 
 const POLICY_FIELDS = [
@@ -82,7 +84,18 @@ test('ignores inherited policy fields while planning export targets', () => {
     enforcement: 'hard',
   });
 
-  assert.deepEqual(planExportTargets(policy, { generationSize: '2048x2048' }), [{
+  const [target] = planExportTargets(policy, { generationSize: '2048x2048' });
+  assert.deepEqual({
+    platform: target.platform,
+    categoryScope: target.categoryScope,
+    role: target.role,
+    ratio: target.ratio,
+    width: target.width,
+    height: target.height,
+    format: target.format,
+    maxFileBytes: target.maxFileBytes,
+    fit: target.fit,
+  }, {
     platform: 'unknown',
     categoryScope: 'all',
     role: 'all',
@@ -92,7 +105,9 @@ test('ignores inherited policy fields while planning export targets', () => {
     format: 'jpg',
     maxFileBytes: 5_000_000,
     fit: 'inside',
-  }]);
+  });
+  assert.equal(target.targetVersion, EXPORT_TARGET_VERSION);
+  assert.equal(verifyVersionedExportTarget(target), true);
 });
 
 test('layers a category policy over the selected role policy', () => {
@@ -149,6 +164,8 @@ test('plans deterministic post-process exports from a legal generation source wi
   assert.ok(first.every((target) => (
     target.platform === 'douyin'
     && target.ratio === '1:1'
+    && /^et_[a-f0-9]{64}$/.test(target.targetId)
+    && verifyVersionedExportTarget(target)
     && Number.isInteger(target.width)
     && Number.isInteger(target.height)
     && !Object.hasOwn(target, 'generationSize')
