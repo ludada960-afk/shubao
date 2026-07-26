@@ -30,7 +30,8 @@
 - Structured Ecommerce Engine Task 5: complete (`58ddffa..b350899`, deterministic indexed multipart selection, exact per-index duties, Product Truth/proof-correlated fact gating, evidence-only deterministic overlays, multilingual exact-text redaction, reference anti-substitution, catalog-owned model routing, adversarial JSON safety, and no Contact Sheet dependency independently reviewed and approved; focused 13/13 and Task 1–5 regression 56/56 passed).
 - Structured Ecommerce Engine Task 6: complete (`4e0e958..ab005f5`, async indexed multipart provider jobs, bounded idempotent retries, durable sanitized request/provider/output state, startup recovery, fenced leases and persistent-state transitions, and explicit targeted repair resubmission; focused 19/19 and Task 1–6 regression 75/75 passed).
 - Structured Ecommerce Engine Task 7: complete (`fd7b77d`, deterministic Sharp dimension/format/legal-size/white-background/blank/blur gates, injected OCR/product/visual checks with honest unavailable states, failure-specific repair planning, two-attempt cap, and removal of random mock passes; focused 14/14 and Task 1–7 regression 89/89 passed).
-- Next implementation task: Structured Ecommerce Generation Engine plan, Task 8.
+- Structured Ecommerce Engine Task 8: complete (`d6417e3..b5e219f`, durable Product Truth/Campaign/Asset Plan snapshots, provider-ID-before-polling recovery, stable-asset quality gates, fenced parent and asset leases, recoverable `settling`/`releasing` billing states, hold remainder compensation, actual MIME quality analysis, and bounded expired-lease startup recovery independently reviewed and approved; focused 47/47, adjacent 13/13, full 379/379, syntax/build/diff-check passed).
+- Next implementation task: Structured Ecommerce Generation Engine plan, Task 9.
 
 ## Ownership
 
