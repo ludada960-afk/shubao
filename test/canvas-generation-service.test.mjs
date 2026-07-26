@@ -14,25 +14,85 @@ function createHarness({
       return { url: `/api/generated-assets/${taskId}.png` };
     },
   },
+  storeOptions = {},
+  serviceOptions = {},
 } = {}) {
   const db = new Database(':memory:');
   const store = createCanvasGenerationStore(db, {
     randomUUID: () => 'canvas-lease-token',
+    ...storeOptions,
   });
-  const service = createCanvasGenerationService({
+  const serviceDependencies = {
     store,
     imageInputReader,
     providerAdapter,
     imageGenerationPool,
     generatedAssetStore,
     model: 'gpt-image-2',
+  };
+  const createService = (overrides = {}) => createCanvasGenerationService({
+    ...serviceDependencies,
+    ...serviceOptions,
+    ...overrides,
   });
+  const service = createService();
   return {
     db,
     store,
     service,
+    createService,
     close() {
       db.close();
+    },
+  };
+}
+
+function createManualPool() {
+  const queued = [];
+  return {
+    run(task) {
+      return new Promise((resolve, reject) => {
+        queued.push({ task, resolve, reject });
+      });
+    },
+    async runNext() {
+      const entry = queued.shift();
+      assert.ok(entry, 'manual pool must contain a queued task');
+      try {
+        entry.resolve(await entry.task());
+      } catch (error) {
+        entry.reject(error);
+      }
+    },
+    get queuedCount() {
+      return queued.length;
+    },
+  };
+}
+
+function createManualIntervalScheduler() {
+  const handles = new Set();
+  return {
+    setInterval(fn, intervalMs) {
+      const handle = {
+        fn,
+        intervalMs,
+        unrefCalled: false,
+        unref() {
+          this.unrefCalled = true;
+        },
+      };
+      handles.add(handle);
+      return handle;
+    },
+    clearInterval(handle) {
+      handles.delete(handle);
+    },
+    async tick() {
+      for (const handle of [...handles]) await handle.fn();
+    },
+    get activeCount() {
+      return handles.size;
     },
   };
 }
@@ -138,6 +198,144 @@ test('Canvas provider submit and poll both execute inside the shared image gener
   });
 
   assert.deepEqual(sequence, ['pool:start', 'submit', 'poll', 'pool:end']);
+});
+
+test('queued identical Canvas requests claim authority inside the pool and submit only once after the original lease window', async t => {
+  let clock = 0;
+  let leaseSequence = 0;
+  let submitCalls = 0;
+  const pool = createManualPool();
+  const body = {
+    prompt: '保留商品结构，替换为夏日背景',
+    image_url: 'primary.png',
+    ratio: '1:1',
+  };
+  const harness = createHarness({
+    storeOptions: {
+      now: () => clock,
+      leaseMs: 100,
+      randomUUID: () => `canvas-lease-${++leaseSequence}`,
+    },
+    imageGenerationPool: pool,
+    imageInputReader: {
+      async read(source) {
+        return { buffer: Buffer.from(source), contentType: 'image/png' };
+      },
+    },
+    providerAdapter: {
+      async submitEdit() {
+        submitCalls += 1;
+        return { jobId: `provider-queued-${submitCalls}`, status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        return {
+          jobId,
+          status: 'completed',
+          outputUrl: 'https://provider.example/queued-result.png',
+          error: '',
+        };
+      },
+    },
+  });
+  t.after(() => harness.close());
+
+  const first = harness.service.regenerate({ ownerEmail: 'owner@example.com', body });
+  assert.equal(pool.queuedCount, 1);
+  clock += 101;
+  const second = harness.service.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: { ...body },
+  });
+  assert.equal(pool.queuedCount, 2);
+
+  await pool.runNext();
+  await pool.runNext();
+  const [firstOutcome, secondOutcome] = await Promise.allSettled([first, second]);
+
+  assert.equal(firstOutcome.status, 'fulfilled');
+  assert.equal(secondOutcome.status, 'fulfilled');
+  assert.equal(submitCalls, 1);
+  assert.equal(firstOutcome.value.url, secondOutcome.value.url);
+  assert.equal(secondOutcome.value.replay, true);
+});
+
+test('active Canvas submit renews its fenced lease so a concurrent identical request cannot resubmit', async t => {
+  let clock = 0;
+  let leaseSequence = 0;
+  let submitCalls = 0;
+  let markSubmitStarted;
+  let releaseFirstSubmit;
+  const submitStarted = new Promise(resolve => {
+    markSubmitStarted = resolve;
+  });
+  const firstSubmitGate = new Promise(resolve => {
+    releaseFirstSubmit = resolve;
+  });
+  const scheduler = createManualIntervalScheduler();
+  const body = {
+    prompt: '保留包装，只调整背景光线',
+    image_url: 'primary.png',
+    ratio: '4:3',
+  };
+  const harness = createHarness({
+    storeOptions: {
+      now: () => clock,
+      leaseMs: 100,
+      randomUUID: () => `canvas-lease-${++leaseSequence}`,
+    },
+    serviceOptions: {
+      now: () => clock,
+      leaseHeartbeatMs: 50,
+      setIntervalFn: scheduler.setInterval,
+      clearIntervalFn: scheduler.clearInterval,
+    },
+    imageInputReader: {
+      async read(source) {
+        return { buffer: Buffer.from(source), contentType: 'image/png' };
+      },
+    },
+    providerAdapter: {
+      async submitEdit() {
+        submitCalls += 1;
+        if (submitCalls === 1) {
+          markSubmitStarted();
+          await firstSubmitGate;
+        }
+        return { jobId: `provider-heartbeat-${submitCalls}`, status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        return {
+          jobId,
+          status: 'completed',
+          outputUrl: 'https://provider.example/heartbeat-result.png',
+          error: '',
+        };
+      },
+    },
+  });
+  t.after(() => harness.close());
+  const concurrentService = harness.createService({
+    imageGenerationPool: { run: task => task() },
+  });
+
+  const first = harness.service.regenerate({ ownerEmail: 'owner@example.com', body });
+  await submitStarted;
+  clock += 60;
+  await scheduler.tick();
+  clock += 50;
+  const second = concurrentService.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: { ...body },
+  });
+  const [secondOutcome] = await Promise.allSettled([second]);
+  releaseFirstSubmit();
+  const [firstOutcome] = await Promise.allSettled([first]);
+
+  assert.equal(firstOutcome.status, 'fulfilled');
+  assert.equal(secondOutcome.status, 'rejected');
+  assert.equal(secondOutcome.reason.code, 'CANVAS_REQUEST_IN_PROGRESS');
+  assert.equal(submitCalls, 1);
+  assert.equal(scheduler.activeCount, 0);
 });
 
 test('an identical owner request resumes the persisted provider job without submitting twice', async t => {

@@ -188,6 +188,131 @@ test('preserves provider Retry-After semantics on structured retryable errors', 
   );
 });
 
+test('submit retries wait for a delta-seconds Retry-After before the next provider attempt', async () => {
+  let attempts = 0;
+  const sleeps = [];
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://images.example.test',
+    bearerToken: 'one',
+    maxSubmitAttempts: 2,
+    sleep: async delayMs => {
+      sleeps.push(delayMs);
+    },
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1
+        ? jsonResponse(429, { error: { message: 'slow down' } }, { 'Retry-After': '9' })
+        : jsonResponse(202, { id: 'provider-job-after-delay', status: 'queued' });
+    },
+  });
+
+  const submitted = await adapter.submitEdit(editRequest());
+
+  assert.equal(submitted.jobId, 'provider-job-after-delay');
+  assert.equal(attempts, 2);
+  assert.deepEqual(sleeps, [9_000]);
+});
+
+test('submit retries parse and use HTTP-date Retry-After values', async () => {
+  const nowMs = Date.UTC(2030, 0, 2, 3, 4, 5);
+  const retryAt = new Date(nowMs + 6_000).toUTCString();
+  let attempts = 0;
+  const sleeps = [];
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://images.example.test',
+    bearerToken: 'one',
+    maxSubmitAttempts: 2,
+    now: () => nowMs,
+    sleep: async delayMs => {
+      sleeps.push(delayMs);
+    },
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1
+        ? jsonResponse(503, { error: { message: 'try later' } }, { 'Retry-After': retryAt })
+        : jsonResponse(202, { id: 'provider-job-after-date', status: 'queued' });
+    },
+  });
+
+  const submitted = await adapter.submitEdit(editRequest());
+
+  assert.equal(submitted.jobId, 'provider-job-after-date');
+  assert.equal(attempts, 2);
+  assert.deepEqual(sleeps, [6_000]);
+});
+
+test('provider Retry-After sleeps are bounded to a safe maximum', async () => {
+  let attempts = 0;
+  const sleeps = [];
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://images.example.test',
+    bearerToken: 'one',
+    maxSubmitAttempts: 2,
+    sleep: async delayMs => {
+      sleeps.push(delayMs);
+    },
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1
+        ? jsonResponse(429, { error: { message: 'malicious delay' } }, { 'Retry-After': '999999' })
+        : jsonResponse(202, { id: 'provider-job-after-bounded-delay', status: 'queued' });
+    },
+  });
+
+  await adapter.submitEdit(editRequest());
+
+  assert.deepEqual(sleeps, [30_000]);
+});
+
+test('recoverable 504 polls retain the provider status and Retry-After metadata', async () => {
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://images.example.test',
+    bearerToken: 'one',
+    fetchImpl: async () => jsonResponse(
+      504,
+      { id: 'provider-poll-retry', status: 'processing' },
+      { 'Retry-After': '4' },
+    ),
+  });
+
+  assert.deepEqual(await adapter.poll('provider-poll-retry'), {
+    jobId: 'provider-poll-retry',
+    status: 'running',
+    outputUrl: '',
+    error: '',
+    retryAfter: 4,
+    recoverable: true,
+    httpStatus: 504,
+  });
+});
+
+test('repeated recoverable 504 polls preserve provider status and Retry-After at timeout', async () => {
+  const sleeps = [];
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://images.example.test',
+    bearerToken: 'one',
+    pollIntervalMs: 10,
+    sleep: async delayMs => {
+      sleeps.push(delayMs);
+    },
+    fetchImpl: async () => jsonResponse(
+      504,
+      { id: 'provider-poll-timeout', status: 'processing' },
+      { 'Retry-After': '4' },
+    ),
+  });
+
+  await assert.rejects(
+    adapter.pollUntilReady('provider-poll-timeout', { maxPolls: 3 }),
+    error => error.status === 504
+      && error.code === 'PROVIDER_POLL_TIMEOUT'
+      && error.retryable === true
+      && error.retryAfter === 4
+      && error.jobId === 'provider-poll-timeout',
+  );
+  assert.deepEqual(sleeps, [4_000, 4_000]);
+});
+
 test('pollUntilReady stops at completion and never resubmits the edit', async () => {
   let submitCalls = 0;
   let pollCalls = 0;

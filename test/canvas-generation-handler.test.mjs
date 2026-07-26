@@ -118,3 +118,42 @@ test('Canvas handler keeps the successful url response contract and may include 
     taskId: 'canvas_success',
   });
 });
+
+test('Canvas handler accepts only the signed owner and never a body email fallback', async () => {
+  let calls = 0;
+  const handler = createCanvasRegenerateHandler({
+    service: {
+      async regenerate(input) {
+        calls += 1;
+        assert.equal(input.ownerEmail, 'signed-owner@example.com');
+        return { url: '/api/generated-assets/canvas.png' };
+      },
+    },
+  });
+
+  const signedResponse = createResponse();
+  await handler({
+    _userEmail: 'signed-owner@example.com',
+    body: {
+      email: 'forged-owner@example.com',
+      prompt: 'test',
+      image_url: 'primary.png',
+    },
+  }, signedResponse);
+
+  assert.equal(signedResponse.statusCode, 200);
+  assert.equal(calls, 1);
+
+  const unsignedResponse = createResponse();
+  await handler({
+    body: {
+      email: 'forged-owner@example.com',
+      prompt: 'test',
+      image_url: 'primary.png',
+    },
+  }, unsignedResponse);
+
+  assert.equal(unsignedResponse.statusCode, 401);
+  assert.equal(unsignedResponse.body.code, 'AUTH_SESSION_REQUIRED');
+  assert.equal(calls, 1);
+});

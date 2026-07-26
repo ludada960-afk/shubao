@@ -2,6 +2,7 @@ const MAX_INPUT_IMAGES = 10;
 const SAFE_JOB_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,255}$/i;
 const SAFE_IDEMPOTENCY_KEY_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRY_DELAY_MS = 30_000;
 
 function own(record, key) {
   return record !== null
@@ -32,13 +33,32 @@ function providerError(message, {
   return error;
 }
 
-function parseRetryAfter(response) {
+function parseRetryAfter(response, nowMs) {
   const value = cleanString(response?.headers?.get?.('retry-after'));
   if (!value) return null;
-  if (/^\d+(?:\.\d+)?$/.test(value)) return Math.ceil(Number(value));
+  if (/^\d+(?:\.\d+)?$/.test(value)) {
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds)) return null;
+    return Math.min(Math.ceil(seconds), MAX_RETRY_DELAY_MS / 1_000);
+  }
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return null;
-  return Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+  return Math.min(
+    Math.max(0, Math.ceil((timestamp - nowMs) / 1_000)),
+    MAX_RETRY_DELAY_MS / 1_000,
+  );
+}
+
+function retryDelayMs(fallbackMs, retryAfter) {
+  const boundedFallback = Math.min(
+    Math.max(0, Number.isFinite(fallbackMs) ? fallbackMs : 0),
+    MAX_RETRY_DELAY_MS,
+  );
+  if (!Number.isFinite(retryAfter) || retryAfter < 0) return boundedFallback;
+  return Math.max(
+    boundedFallback,
+    Math.min(Math.ceil(retryAfter * 1_000), MAX_RETRY_DELAY_MS),
+  );
 }
 
 function validateBaseUrl(value) {
@@ -217,6 +237,7 @@ export function createProviderAdapter(config = {}) {
   const auth = normalizeAuth(config);
   const fetchImpl = config.fetchImpl ?? fetch;
   const sleep = config.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
+  const now = config.now ?? Date.now;
   const pollIntervalMs = Number.isFinite(config.pollIntervalMs) && config.pollIntervalMs >= 0
     ? config.pollIntervalMs
     : 1_500;
@@ -229,6 +250,14 @@ export function createProviderAdapter(config = {}) {
     : defaultPollPath;
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
   if (typeof sleep !== 'function') throw new TypeError('sleep must be a function');
+  if (typeof now !== 'function') throw new TypeError('now must be a function');
+
+  function currentTimeMs() {
+    const value = now();
+    const timestamp = value instanceof Date ? value.getTime() : value;
+    if (!Number.isFinite(timestamp)) throw new TypeError('now must return a finite timestamp');
+    return timestamp;
+  }
 
   function headers(extra = {}) {
     return { ...auth.headers, ...extra };
@@ -250,7 +279,7 @@ export function createProviderAdapter(config = {}) {
         const body = await readBody(response);
         const jobId = extractJobId(body);
         const status = extractStatus(body);
-        const retryAfter = parseRetryAfter(response);
+        const retryAfter = parseRetryAfter(response, currentTimeMs());
         if (response.ok) {
           if (!jobId) throw providerError('provider did not return an async job id', {
             status: response.status,
@@ -282,7 +311,8 @@ export function createProviderAdapter(config = {}) {
             });
         if (attempt === maxSubmitAttempts) throw lastError;
       }
-      await sleep(Math.min(250 * (2 ** (attempt - 1)), 2_000));
+      const backoffMs = Math.min(250 * (2 ** (attempt - 1)), 2_000);
+      await sleep(retryDelayMs(backoffMs, lastError?.retryAfter));
     }
     throw lastError || providerError('provider edit request failed');
   }
@@ -297,10 +327,12 @@ export function createProviderAdapter(config = {}) {
       headers: headers(),
     });
     const body = await readBody(response);
-    const responseJobId = extractJobId(body) || jobId;
+    const providerJobId = extractJobId(body);
+    const responseJobId = providerJobId || jobId;
     const status = extractStatus(body);
-    const retryAfter = parseRetryAfter(response);
-    if (!response.ok && !(response.status === 504 && responseJobId)) {
+    const retryAfter = parseRetryAfter(response, currentTimeMs());
+    const recoverableGatewayTimeout = response.status === 504 && providerJobId;
+    if (!response.ok && !recoverableGatewayTimeout) {
       throw providerError(
         extractError(body) || `provider polling failed with HTTP ${response.status}`,
         {
@@ -316,6 +348,11 @@ export function createProviderAdapter(config = {}) {
       status,
       outputUrl: extractOutputUrl(body),
       error: extractError(body),
+      ...(retryAfter !== null ? { retryAfter } : {}),
+      ...(!response.ok ? {
+        recoverable: true,
+        httpStatus: response.status,
+      } : {}),
     };
   }
 
@@ -323,16 +360,49 @@ export function createProviderAdapter(config = {}) {
     if (!Number.isSafeInteger(maxPolls) || maxPolls <= 0) {
       throw new TypeError('maxPolls must be a positive safe integer');
     }
+    let lastFailure = null;
+    let lastRetryAfter = null;
     for (let count = 0; count < maxPolls; count += 1) {
       if (signal?.aborted) throw signal.reason || providerError('provider polling was aborted');
-      const result = await poll(jobId);
+      let result;
+      try {
+        result = await poll(jobId);
+      } catch (error) {
+        if (error?.retryable !== true) throw error;
+        lastFailure = error;
+        if (Number.isFinite(error.retryAfter) && error.retryAfter >= 0) {
+          lastRetryAfter = error.retryAfter;
+        }
+        if (count + 1 < maxPolls) {
+          await sleep(retryDelayMs(pollIntervalMs, error.retryAfter));
+        }
+        continue;
+      }
       if (result.status === 'completed' || result.status === 'failed') return result;
-      if (count + 1 < maxPolls) await sleep(pollIntervalMs);
+      if (Number.isFinite(result.retryAfter) && result.retryAfter >= 0) {
+        lastRetryAfter = result.retryAfter;
+      }
+      if (result.recoverable && Number.isInteger(result.httpStatus)) {
+        lastFailure = providerError(
+          result.error || `provider polling failed with HTTP ${result.httpStatus}`,
+          {
+            status: result.httpStatus,
+            retryable: true,
+            jobId: result.jobId,
+            retryAfter: result.retryAfter,
+          },
+        );
+      }
+      if (count + 1 < maxPolls) {
+        await sleep(retryDelayMs(pollIntervalMs, result.retryAfter));
+      }
     }
-    throw providerError('provider job is still running', {
+    throw providerError(lastFailure?.message || 'provider job is still running', {
+      status: Number.isInteger(lastFailure?.status) ? lastFailure.status : 0,
       retryable: true,
       jobId: validateJobId(jobId),
       code: 'PROVIDER_POLL_TIMEOUT',
+      retryAfter: lastRetryAfter,
     });
   }
 

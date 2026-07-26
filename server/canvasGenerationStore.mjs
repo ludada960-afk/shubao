@@ -111,6 +111,27 @@ export function createCanvasGenerationStore(db, {
     return changed === 1 ? get(requestId) : null;
   }
 
+  function renewLease(requestId, { leaseToken }) {
+    const timestampMs = nowMs();
+    const timestamp = new Date(timestampMs).toISOString();
+    const leaseExpiresAt = new Date(timestampMs + leaseMs).toISOString();
+    const changed = db.prepare(`
+      UPDATE ${TABLE}
+      SET lease_expires_at = ?, updated_at = ?
+      WHERE request_id = ?
+        AND lease_token = ?
+        AND status NOT IN ('completed', 'failed')
+        AND lease_expires_at > ?
+    `).run(leaseExpiresAt, timestamp, requestId, leaseToken, timestamp).changes;
+    if (changed !== 1) {
+      throw Object.assign(new Error('Canvas generation lease is no longer owned'), {
+        code: 'CANVAS_LEASE_LOST',
+        retryable: true,
+      });
+    }
+    return get(requestId);
+  }
+
   function updateOwned(requestId, leaseToken, fields) {
     const current = get(requestId);
     if (!current || current.leaseToken !== leaseToken) {
@@ -151,6 +172,7 @@ export function createCanvasGenerationStore(db, {
     get,
     getOrCreate,
     claim,
+    renewLease,
     markSubmitted(requestId, { providerJobId, leaseToken }) {
       return updateOwned(requestId, leaseToken, {
         status: 'submitted',

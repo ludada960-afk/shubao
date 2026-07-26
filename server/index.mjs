@@ -202,7 +202,13 @@ app.get('/api/generated-assets/:id', async (req, res) => {
 // 对消耗 LLM 额度的生图路由限 10 次/分钟/IP
 const rateLimitStore = new Map();         // key: `${email-or-ip}:${minuteBucket}` -> count
 const CONTENT_PREVIEW_ROUTES = new Set(['/api/generate', '/api/plog-generate']);
-const SIGNED_GENERATION_ROUTES = new Set([...CONTENT_PREVIEW_ROUTES, '/api/generate-ecommerce']);
+const SIGNED_GENERATION_ROUTES = new Set([
+  ...CONTENT_PREVIEW_ROUTES,
+  '/api/generate-ecommerce',
+  '/api/canvas/regenerate',
+  '/api/canvas/transform',
+  '/api/canvas/analyze-layers',
+]);
 function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
