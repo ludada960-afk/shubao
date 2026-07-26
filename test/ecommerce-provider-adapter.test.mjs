@@ -14,6 +14,7 @@ function jsonResponse(status, body) {
 
 function editRequest() {
   return {
+    idempotencyKey: 'job-main-attempt-0',
     prompt: '{"role":"main","objective":"sell the real product"}',
     modelRoute: { model: 'gpt-image-2', size: '2048x2048', async: true, mode: 'edit' },
     inputAssets: [
@@ -42,6 +43,7 @@ test('submits indexed multipart edits with async mode and bearer auth only', asy
   assert.equal(captured.init.method, 'POST');
   assert.equal(captured.init.headers.Authorization, 'Bearer bearer-secret');
   assert.equal(captured.init.headers['X-Async-Mode'], 'true');
+  assert.equal(captured.init.headers['Idempotency-Key'], 'job-main-attempt-0');
   assert.equal(Object.hasOwn(captured.init.headers, 'x-api-key'), false);
   assert.equal(Object.keys(captured.init.headers).some(key => key.toLowerCase() === 'content-type'), false);
   assert.equal(captured.init.body instanceof FormData, true);
@@ -92,6 +94,25 @@ test('rejects ambiguous auth and more than ten image inputs before fetch', () =>
     fileName: `${index}.png`,
   }));
   assert.rejects(adapter.submitEdit(request), /10 images/i);
+});
+
+test('rejects missing, unsafe, or inherited idempotency keys before submission', async () => {
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://images.example.test',
+    bearerToken: 'one',
+    fetchImpl: async () => { throw new Error('fetch must not run'); },
+  });
+  const missing = editRequest();
+  delete missing.idempotencyKey;
+  await assert.rejects(adapter.submitEdit(missing), /idempotency/i);
+  await assert.rejects(adapter.submitEdit({
+    ...editRequest(),
+    idempotencyKey: '../unsafe',
+  }), /idempotency/i);
+  const inherited = Object.create({ idempotencyKey: 'inherited-key' });
+  Object.assign(inherited, editRequest());
+  delete inherited.idempotencyKey;
+  await assert.rejects(adapter.submitEdit(inherited), /idempotency/i);
 });
 
 test('normalizes queued running completed and failed polling results', async () => {

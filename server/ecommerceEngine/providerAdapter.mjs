@@ -1,5 +1,6 @@
 const MAX_INPUT_IMAGES = 10;
 const SAFE_JOB_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,255}$/i;
+const SAFE_IDEMPOTENCY_KEY_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 function own(record, key) {
@@ -168,10 +169,14 @@ function buildEditForm(request) {
     throw new TypeError('provider edit request is required');
   }
   const prompt = cleanString(own(request, 'prompt'));
+  const idempotencyKey = cleanString(own(request, 'idempotencyKey'));
   const route = own(request, 'modelRoute');
   const model = cleanString(own(route, 'model'));
   const size = cleanString(own(route, 'size'));
   const assets = own(request, 'inputAssets');
+  if (!SAFE_IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
+    throw new TypeError('provider edit idempotency key is invalid');
+  }
   if (!prompt || !model || !size) throw new TypeError('provider edit prompt, model, and size are required');
   if (!Array.isArray(assets) || assets.length === 0) throw new TypeError('provider edit requires image inputs');
   if (assets.length > MAX_INPUT_IMAGES) throw new RangeError('provider edit accepts at most 10 images');
@@ -184,7 +189,7 @@ function buildEditForm(request) {
     const normalized = normalizeAsset(asset, index);
     form.append(`image[${index}]`, normalized.blob, normalized.fileName);
   });
-  return form;
+  return { form, idempotencyKey };
 }
 
 function defaultPollPath(jobId) {
@@ -214,13 +219,16 @@ export function createProviderAdapter(config = {}) {
   }
 
   async function submitEdit(request) {
-    const form = buildEditForm(request);
+    const { form, idempotencyKey } = buildEditForm(request);
     let lastError;
     for (let attempt = 1; attempt <= maxSubmitAttempts; attempt += 1) {
       try {
         const response = await fetchImpl(`${baseUrl}${editPath}`, {
           method: 'POST',
-          headers: headers({ 'X-Async-Mode': 'true' }),
+          headers: headers({
+            'X-Async-Mode': 'true',
+            'Idempotency-Key': idempotencyKey,
+          }),
           body: form,
         });
         const body = await readBody(response);
