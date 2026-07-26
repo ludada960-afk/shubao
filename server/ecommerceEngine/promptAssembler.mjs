@@ -11,10 +11,23 @@
  * 最终 = 基础 + 视觉 + 风格 + 细节 + 约束 + 融合描述
  */
 
-import { buildCampaignLockText } from '../ecommercePromptEngine.mjs';
 import { getCampaignLock, buildSkillDescription, getRoleOverride } from './styleSkills.mjs';
 import { getCategoryInfo } from './categoryKnowledge.mjs';
 import { fuseDualAnalysis } from './imageFusion.mjs';
+
+function buildCampaignLockText(lock = {}) {
+  if (!lock || !lock.visualDirection) return '';
+  const parts = [
+    `Campaign Style Lock: ${lock.visualDirection}`,
+    lock.palette?.length ? `Fixed palette: ${lock.palette.join(', ')}` : '',
+    lock.colorTemp ? `Color temperature: ${lock.colorTemp}` : '',
+    lock.backgroundSystem ? `Background: ${lock.backgroundSystem}` : '',
+    lock.lightingSystem ? `Lighting: ${lock.lightingSystem}` : '',
+    lock.layoutSystem ? `Layout: ${lock.layoutSystem}` : '',
+    lock.productPresentation ? `Product: ${lock.productPresentation}` : '',
+  ].filter(Boolean);
+  return `${parts.join('. ')}. No color palette changes, no mixed styles, no inconsistent lighting.`;
+}
 
 // ============================================================
 // 平台视觉规范
@@ -273,4 +286,57 @@ function buildFallbackPrompt(productName, category, roleKey) {
     `Role: ${roleKey}.`,
     `Professional photography, studio lighting, 8K detail.`,
   ].join(' ');
+}
+
+const STRUCTURED_SECTION_ORDER = Object.freeze([
+  'roleObjective',
+  'productTruth',
+  'campaignBible',
+  'imageIndexDuties',
+  'generationInstructions',
+  'platformRecommendation',
+  'deterministicOverlays',
+  'forbiddenMutations',
+  'qualityAndRisk',
+  'referenceSafety',
+]);
+
+function isStructuredRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneStructuredValue(value) {
+  if (Array.isArray(value)) return value.map(cloneStructuredValue);
+  if (!isStructuredRecord(value)) return value;
+
+  const clone = Object.create(null);
+  for (const key of Object.keys(value)) {
+    if (['__proto__', 'constructor', 'prototype'].includes(key.trim().toLowerCase())) continue;
+    clone[key] = cloneStructuredValue(value[key]);
+  }
+  return clone;
+}
+
+/**
+ * Assemble the Task 5 atomic prompt schema. Ratio stays on the first line so
+ * model-facing geometry is unambiguous, while every remaining concern is kept
+ * in a named JSON section rather than blended into prose.
+ */
+export function assembleStructuredPrompt({ ratio, sections = {} } = {}) {
+  const normalizedRatio = typeof ratio === 'string' && /^\d+\s*:\s*\d+$/.test(ratio.trim())
+    ? ratio.trim().replace(/\s+/g, '')
+    : '1:1';
+  const sourceSections = isStructuredRecord(sections) ? sections : {};
+  const orderedSections = Object.create(null);
+
+  for (const name of STRUCTURED_SECTION_ORDER) {
+    if (Object.hasOwn(sourceSections, name)) {
+      orderedSections[name] = cloneStructuredValue(sourceSections[name]);
+    }
+  }
+
+  return `ASPECT RATIO LOCK: ${normalizedRatio}.\n${JSON.stringify({
+    schemaVersion: 'ecommerce-indexed-multipart-v1',
+    sections: orderedSections,
+  }, null, 2)}`;
 }
