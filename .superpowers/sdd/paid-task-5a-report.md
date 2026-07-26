@@ -403,3 +403,123 @@ This review fix did not modify either test or the corresponding behavior, and th
 
 - The repository-wide suite still has the two unrelated stale structural assertions documented above; focused Task 5A and adjacent ecommerce/billing regressions are fully green.
 - Task 5B remains intentionally unstarted.
+
+---
+
+## Second re-review closure
+
+Implementation commit:
+
+```text
+3db9432 fix: close ecommerce task 5a review gaps
+```
+
+### Critical: pending-action binary and field-boundary hardening
+
+- Ecommerce pending actions accept original asset references only when they match the server-issued schema `^[a-f0-9]{64}\.(jpg|png|webp)$`.
+- Direction IDs and briefs, SKU labels, prompt keys, prompt text, and prompt-reference text now have field-specific bounds.
+- `data:`/`blob:` values and long standard Base64 or Base64url-looking binary strings are rejected before pending storage, including under otherwise safe generic keys.
+- Long ordinary Chinese and English copy remains intact within the product-specific limits.
+- Stable server asset IDs remain usable because their extension prevents them from being mistaken for raw binary.
+
+### Important: expired formal quote refresh
+
+- A durable formal-generation error marked `reQuoteRequired` immediately clears the stale quote and disables submission.
+- A refresh-version dependency forces an authoritative quote request even when the recomputed SKU and quantity are unchanged.
+- The UI displays `当前方案费用已更新，正在重新确认…` while refreshing.
+- Selected direction, sizing, SKUs, colors, product/reference uploads, and prompt state are not reset.
+- Quote refresh never calls the generation handler; the user must explicitly submit again after a fresh quote arrives.
+
+### Important: conservative transparent-background repair
+
+- Border removal now requires a bright neutral median, at least 94% border-color consistency, tighter chroma/color-distance thresholds, and a dominant but bounded connected removable region.
+- Refused repairs return an opaque PNG so the alpha quality gate routes the result to retry or needs review.
+- Product Truth is passed into deterministic repair. White, ivory, cream, light-gray, silver, and equivalent Chinese primary-color/material facts veto automatic neutral-background removal.
+- The orchestrator returns a repaired asset to `quality_check`; all adapters, including product fidelity, run again before settlement.
+- A repaired output that fails product fidelity is released as `needs_review` and is never settled.
+
+### Second re-review TDD evidence
+
+RED command:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-billing-ui.test.mjs test/pending-paid-action.test.mjs test/ecommerce-deterministic-repair.test.mjs test/ecommerce-orchestrator.test.mjs
+tests 45
+pass 37
+fail 8
+```
+
+The expected failures proved that invalid asset IDs and raw Base64 were retained, fields were unbounded, unchanged plans could not force a quote refresh, broad alpha removal accepted inconsistent/non-dominant backgrounds and light products, Product Truth was absent from repair, and generic pending storage retained raw binary under safe keys.
+
+Focused GREEN:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-billing-ui.test.mjs test/pending-paid-action.test.mjs test/generation-access.test.mjs test/ecommerce-deterministic-repair.test.mjs test/ecommerce-orchestrator.test.mjs
+tests 52
+pass 52
+fail 0
+```
+
+Required regression command:
+
+```text
+node --test --test-concurrency=1 test/ecommerce-upload-contract.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-asset-upload.test.mjs test/billing-routes.test.mjs test/billing-client.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-repair-planner.test.mjs test/ecommerce-prompt-compiler.test.mjs
+tests 90
+pass 90
+fail 0
+```
+
+Adjacent review command:
+
+```text
+node --test --test-concurrency=1 test/billing-quote-token.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-deterministic-repair.test.mjs test/generation-access.test.mjs test/pending-paid-action.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-route-integration.test.mjs test/ecommerce-export.test.mjs
+tests 72
+pass 72
+fail 0
+```
+
+Build and repository checks:
+
+```text
+npm run build
+exit 0; export verification passed; Vite transformed 6404 modules.
+
+git diff --check
+exit 0; no whitespace errors.
+
+npm run collab:check
+[collaboration] READY
+tracked runtime paths: 0
+ignored runtime changes: 0
+peer ownership conflicts: 0
+```
+
+### Exact second re-review files
+
+- `server/ecommerceEngine/deterministicRepair.mjs`
+- `server/ecommerceEngine/orchestrator.mjs`
+- `src/pages/Home/ec/DesignDirection.jsx`
+- `src/pages/Home/ec/ecommercePlanModel.js`
+- `src/utils/pendingPaidAction.js`
+- `test/ecommerce-billing-ui.test.mjs`
+- `test/ecommerce-deterministic-repair.test.mjs`
+- `test/ecommerce-orchestrator.test.mjs`
+- `test/generation-access.test.mjs`
+- `test/pending-paid-action.test.mjs`
+- `.superpowers/sdd/paid-task-5a-report.md`
+
+### Second re-review self-review
+
+- The server-issued asset-ID allowlist is exact, lowercase, extension-bound, and independent of caller-provided URL or preview fields.
+- Generic pending storage rejects binary-looking strings by value, not only by suspicious property name, while existing long-human-text coverage remains green.
+- A stale quote cannot be submitted after `reQuoteRequired`: it is cleared synchronously in the error path and the button remains disabled through refresh.
+- Quote refresh changes only quote state/version and does not invoke generation or clear any form data.
+- Conservative alpha repair refuses ambiguous borders, non-dominant backgrounds, over-large removable areas, and light-neutral products identified by Product Truth.
+- Deterministic repair remains uncharged, but settlement still requires the complete post-repair quality gate, including product fidelity.
+- No Task 5B polling, `onImage`, or resume behavior was added.
+- No XHS, Plog, Canvas, deployment, runtime database, uploads, cache, generated assets, or `dist` files were staged.
+
+### Second re-review concerns
+
+- Task 5B remains intentionally unstarted.
+- The two unrelated pre-existing full-suite structural assertions remain as documented in the preceding review section; all requested Task 5A and adjacent suites pass.
