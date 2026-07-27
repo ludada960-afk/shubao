@@ -21,15 +21,11 @@ import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import { uploadEcommerceAssets } from '../../services/api.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import {
-  ECOMMERCE_DRAFT_SURFACES,
   createEcommerceGenerationPreconditionError,
   createEcommerceGenerationToken,
   invalidateEcommerceGenerationRequest,
   isEcommerceGenerationTokenCurrent,
-  loadOrCreateEcommerceDraft,
-  rotateEcommerceDraft,
 } from './ec/ecommerceTaskProgressModel.js';
-import { draftSnapshotKey, filesToPreviewItems, loadDraftFiles, loadDraftSnapshot, saveDraftFiles, saveDraftSnapshot } from './ec/ecommerceDraftStore.js';
 
 /* ═══════ 智能方案状态常量 ═══════
  * 智能方案逻辑：
@@ -80,14 +76,8 @@ const GLASS_PANEL = {
 export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const { state } = useApp();
   const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
-  const draftIdentity = { ownerEmail, surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD };
-  const initialSnapshotRef = useRef(loadDraftSnapshot(draftIdentity));
   const workVersion = Number(state._workVersion || 0);
-  const [draftId, setDraftId] = useState(() => loadOrCreateEcommerceDraft({
-    ownerEmail,
-    surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
-    createDraftId: createEcommerceDraftId,
-  })?.draftId || '');
+  const [draftId, setDraftId] = useState(createEcommerceDraftId);
   const generationTokenRef = useRef(null);
   const generationAbortRef = useRef(null);
   const generationIdentityRef = useRef({ ownerEmail, draftId });
@@ -105,12 +95,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
 
   useEffect(() => {
     invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
-    const active = loadOrCreateEcommerceDraft({
-      ownerEmail,
-      surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
-      createDraftId: createEcommerceDraftId,
-    });
-    setDraftId(active?.draftId || '');
+    setDraftId(createEcommerceDraftId());
     setUploadingAssets(false);
     setAssetUploadError('');
   }, [ownerEmail]);
@@ -119,17 +104,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
     invalidateEcommerceGenerationRequest({ tokenRef: generationTokenRef, abortRef: generationAbortRef });
-    const rotated = rotateEcommerceDraft({
-      ownerEmail,
-      surface: ECOMMERCE_DRAFT_SURFACES.HOME_WIZARD,
-      currentDraftId: draftId,
-      createDraftId: createEcommerceDraftId,
-    });
-    if (rotated?.draftId) {
-      setDraftId(rotated.draftId);
-      setUploadingAssets(false);
-      setAssetUploadError('');
-    }
+    setDraftId(createEcommerceDraftId());
+    setUploadingAssets(false);
+    setAssetUploadError('');
   }, [draftId, ownerEmail, workVersion]);
 
   useEffect(() => () => {
@@ -148,52 +125,28 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   const btnRefs = useRef({});
 
   /* — 文字 — */
-  const [description, setDescription] = useState(initialSnapshotRef.current?.description || '');
+  const [description, setDescription] = useState('');
 
   /* — 智能方案 — */
-  const [smartMode, setSmartMode] = useState(initialSnapshotRef.current?.smartMode ?? true);
+  const [smartMode, setSmartMode] = useState(true);
   const [smartOverrides, setSmartOverrides] = useState({
     sizing: false, style: false, params: false, copy: false, settings: false,
   });
 
   /* — 配置 — */
-  const [platform, setPlatform] = useState(initialSnapshotRef.current?.platform || 'smart');
-  const [sizing, setSizing] = useState(initialSnapshotRef.current?.sizing || { smart: true, images: [] });
-  const [styleSkill, setStyleSkill] = useState(initialSnapshotRef.current?.styleSkill || 'smart');
-  const [customColors, setCustomColors] = useState(initialSnapshotRef.current?.customColors || null);
-  const [productParams, setProductParams] = useState(initialSnapshotRef.current?.productParams || { category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' });
-  const [skus, setSkus] = useState(initialSnapshotRef.current?.skus || [{ id: `sku_${Date.now()}`, color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
-  const [copywriting, setCopywriting] = useState(initialSnapshotRef.current?.copywriting || { plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
+  const [platform, setPlatform] = useState('smart');
+  const [sizing, setSizing] = useState({ smart: true, images: [] });
+  const [styleSkill, setStyleSkill] = useState('smart');
+  const [customColors, setCustomColors] = useState(null);
+  const [productParams, setProductParams] = useState({ category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' });
+  const [skus, setSkus] = useState([{ id: `sku_${Date.now()}`, color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
+  const [copywriting, setCopywriting] = useState({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
 
   /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
-  const [genSettings, setGenSettings] = useState(initialSnapshotRef.current?.genSettings || {
+  const [genSettings, setGenSettings] = useState({
     resolution: '2K',
     negativePrompt: '',
   });
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([
-      loadDraftFiles(`${draftSnapshotKey(draftIdentity)}:product`),
-      loadDraftFiles(`${draftSnapshotKey(draftIdentity)}:reference`),
-    ]).then(([products, references]) => {
-      if (!active) return;
-      if (products.length) setProductImages(filesToPreviewItems(products));
-      if (references.length) setRefImages(filesToPreviewItems(references));
-    }).catch(() => {});
-    return () => { active = false; };
-  }, [ownerEmail]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => saveDraftSnapshot(draftIdentity, {
-      description, smartMode, smartOverrides, platform, sizing, styleSkill,
-      customColors, productParams, skus, copywriting, genSettings,
-    }), 150);
-    return () => clearTimeout(timer);
-  }, [ownerEmail, description, smartMode, smartOverrides, platform, sizing, styleSkill, customColors, productParams, skus, copywriting, genSettings]);
-
-  useEffect(() => { saveDraftFiles(`${draftSnapshotKey(draftIdentity)}:product`, productImages).catch(() => {}); }, [ownerEmail, productImages]);
-  useEffect(() => { saveDraftFiles(`${draftSnapshotKey(draftIdentity)}:reference`, refImages).catch(() => {}); }, [ownerEmail, refImages]);
 
   /* — 面板（Portal 定位用视口坐标）—— */
   const [activePanel, setActivePanel] = useState(null);

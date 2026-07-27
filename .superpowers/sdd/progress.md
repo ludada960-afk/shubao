@@ -48,6 +48,11 @@
   state before opening login. TDD red: local token was accepted without server
   validation; focused/auth/API regression 28/28 passed. Recovery-checkpoint
   client work is intentionally paired with Task 4's blank-by-default editor.
+- Server Project Version System Task 4 is in progress. The ecommerce homepage
+  now starts blank and no longer auto-loads or auto-saves account-level form
+  snapshots or IndexedDB images. Existing durable generation task references
+  remain untouched pending the explicit recovery shelf. TDD red confirmed the
+  old calls in `EcMode`; lifecycle/task regression 18/18 and Vite build passed.
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).
