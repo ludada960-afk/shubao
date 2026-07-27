@@ -31,6 +31,12 @@
   It defines ten TDD tasks from durable stores through production deployment.
   The user selected inline execution by directing Codex to proceed; Task 1 is
   the next execution boundary and no files are delegated to GLM.
+- Server Project Version System Task 1: implementation complete. Added
+  idempotent project schema plus owner-scoped immutable project versions,
+  explicit recovery checkpoints, optimistic Canvas sessions, generation-run
+  links and immutable composition revisions. TDD red was confirmed by missing
+  modules; focused 7/7 and database/billing regression 36/36 passed;
+  collaboration policy reported READY. Commit is pending at this ledger update.
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).

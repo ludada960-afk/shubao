@@ -7,6 +7,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { ensureBillingSchema } from './billing/schema.mjs';
 import { createWalletService } from './billing/walletService.mjs';
+import { ensureProjectSchema } from './projects/schema.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = resolve(__dirname, 'works.db');
@@ -105,6 +106,7 @@ export function initDB(dbPath = DB_PATH) {
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
   ensureBillingSchema(db);
+  ensureProjectSchema(db);
   migrateLegacyUserCredits(db);
 
   console.log('  → SQLite 数据库就绪:', dbPath);

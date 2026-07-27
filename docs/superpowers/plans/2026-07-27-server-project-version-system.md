@@ -38,7 +38,7 @@
 - Project store methods: `createProject`, `createVersion`, `getProject`, `listProjects`, `createCheckpoint`, `listCheckpoints`, `consumeCheckpoint`, `dismissCheckpoint`, `createCanvasSession`, `saveCanvasSession`, `getCanvasSession`, `discardCanvasSession`, `linkGenerationRun`, `completeProject`.
 - Composition store methods: `createDocument`, `getDocument`, `saveRevision`, `listRevisions`, `linkRenderedAsset`.
 
-- [ ] **Step 1: Write failing schema and store tests**
+- [x] **Step 1: Write failing schema and store tests**
 
 ```js
 test('creates immutable owner-scoped project versions and explicit recovery checkpoints', () => {
@@ -59,13 +59,13 @@ test('composition revisions are immutable and reject stale optimistic revisions'
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm missing modules fail**
+- [x] **Step 2: Run tests and confirm missing modules fail**
 
 Run: `node --test --test-concurrency=1 test/project-version-store.test.mjs test/composition-store.test.mjs`
 
 Expected: FAIL with module-not-found errors.
 
-- [ ] **Step 3: Implement idempotent schema and transactional stores**
+- [x] **Step 3: Implement idempotent schema and transactional stores**
 
 ```js
 export function ensureProjectSchema(db) {
@@ -126,13 +126,13 @@ export function ensureProjectSchema(db) {
 
 Store JSON as canonical serialized snapshots, validate enums before SQL, use database transactions for head-version updates, and return `null` for cross-owner reads so routes can respond with 404.
 
-- [ ] **Step 4: Run focused and database regression tests**
+- [x] **Step 4: Run focused and database regression tests**
 
 Run: `node --test --test-concurrency=1 test/project-version-store.test.mjs test/composition-store.test.mjs test/task-persistence.test.mjs test/billing-wallet.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```powershell
 git add server/projects/schema.mjs server/projects/projectStore.mjs server/projects/compositionStore.mjs server/db.mjs test/project-version-store.test.mjs test/composition-store.test.mjs
