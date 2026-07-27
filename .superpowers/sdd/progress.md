@@ -19,8 +19,13 @@
   `docs/superpowers/specs/2026-07-27-server-project-version-system.md`.
   Scope covers server-owned projects and immutable versions, explicit recovery,
   authoritative sessions, ecommerce shot direction, one Canvas action registry,
-  retention, compatibility migration and production acceptance. Implementation
-  has not started; written-spec review and a TDD implementation plan are next.
+  editable composition documents, tone-aware licensed typography, real pixel
+  layering, retention, compatibility migration and production acceptance.
+  Implementation has not started; the revised written-spec review and a TDD
+  implementation plan are next. External CDP/static research was attempted but
+  blocked by browser authorization and the environment network approval service;
+  current conclusions are grounded in the supplied references, repository code
+  and the local 500+ case GPT-Image-2 ecommerce skill.
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).
