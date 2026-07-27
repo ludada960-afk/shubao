@@ -24,7 +24,7 @@ test('server Canvas regeneration is a thin route over the executable durable ser
 
   assert.match(source, /createCanvasGenerationStore\(db\)/);
   assert.match(source, /createCanvasGenerationService\(\{[\s\S]*?imageGenerationPool,[\s\S]*?providerAdapter:\s*ecommerceProviderAdapter/);
-  assert.match(source, /createCanvasRegenerateHandler\(\{\s*service:\s*canvasGenerationService,?\s*\}\)/);
+  assert.match(source, /createCanvasRegenerateHandler\(\{\s*service:\s*canvasGenerationService,\s*billing:\s*canvasOneShotBilling,?\s*\}\)/);
   assert.match(route, /app\.post\('\/api\/canvas\/regenerate',\s*canvasRegenerateHandler\)/);
   assert.doesNotMatch(route, /submitEdit|pollUntilReady|imageInputReader|generatedAssetStore/);
 });

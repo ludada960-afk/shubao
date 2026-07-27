@@ -44,7 +44,12 @@
   reference-only resumable drafts and payment actions, owner-scoped original
   reference resolution, stable complete-event gating; focused 74/74, Vite
   build, diff-check, and collaboration policy passed).
-- Next implementation task: Paid Workflow Task 7.
+- Paid Workflow Task 7: complete (server-authoritative Canvas quotes and one-shot
+  holds, durable delivered/settled action replay, stable background-removal assets,
+  structured resumable 402 metadata, shared honest action prices, and Canvas
+  paywall preservation; full 540/540 tests, Vite build, diff-check, and
+  collaboration policy passed).
+- Next implementation task: Paid Workflow Task 8.
 
 ## Ownership
 

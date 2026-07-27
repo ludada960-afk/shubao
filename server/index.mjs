@@ -27,6 +27,8 @@ import { createWalletService } from './billing/walletService.mjs';
 import { createPaymentService } from './billing/paymentService.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
+import { createOneShotBilling } from './billing/oneShotBilling.mjs';
+import { createCanvasBilledActionStore } from './billing/canvasBilledActionStore.mjs';
 import { createContentEntitlements } from './billing/contentEntitlements.mjs';
 import {
   authenticateContentRequest,
@@ -212,6 +214,8 @@ const SIGNED_GENERATION_ROUTES = new Set([
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/reverse-prompt',
+  '/api/remove-bg',
 ]);
 function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || 'unknown';
@@ -3051,6 +3055,11 @@ const ecommerceBilling = createEcommerceBilling({
   walletService,
   quoteService: billingQuoteService,
 });
+const canvasOneShotBilling = createOneShotBilling({
+  walletService,
+  quoteService: billingQuoteService,
+  actionStore: createCanvasBilledActionStore(db),
+});
 
 const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderAdapter({
   baseUrl: IMG_BASE,
@@ -3084,6 +3093,7 @@ const canvasGenerationService = createCanvasGenerationService({
 });
 const canvasRegenerateHandler = createCanvasRegenerateHandler({
   service: canvasGenerationService,
+  billing: canvasOneShotBilling,
 });
 const orchestrator = createEcommerceOrchestrator({
   jobs: ecommerceJobs,
@@ -3345,18 +3355,31 @@ app.post('/api/polish-ec-text', async (req, res) => {
 // 反推提示词（VLM 看图输出完整生图 prompt）
 // ============================================================
 app.post('/api/reverse-prompt', async (req, res) => {
-  const { image_url, product_name } = req.body || {};
+  const { image_url, product_name, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
   if (!image_url) return res.status(400).json({ error: '缺少图片' });
 
   try {
-    const base64 = imageBufferToDataUrl(await imageInputReader.read(image_url));
-    const sys = `你是专业的AI生图提示词工程师。分析这张电商产品图，还原生成这张图所用的完整提示词，包含：产品描述、背景场景、光影风格、构图方式、色调、平台规格说明等。输出格式：直接给出英文关键词组合（逗号分隔），附上中文说明，总字数不超过200字。`;
-    const userMsg = `产品：${product_name || '商品'}。请反推这张图的生图提示词。`;
-
-    const aiRes = await callLLMWithVision(sys, [base64], userMsg);
-    res.json({ prompt: (aiRes || '').trim() });
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_reverse_prompt',
+      referenceType: 'canvas_reverse_prompt',
+      providerCostCny: 0.01,
+      metadata: { action: 'reverse_prompt' },
+      work: async () => {
+        const base64 = imageBufferToDataUrl(await imageInputReader.read(image_url));
+        const sys = `你是专业的AI生图提示词工程师。分析这张电商产品图，还原生成这张图所用的完整提示词，包含：产品描述、背景场景、光影风格、构图方式、色调、平台规格说明等。输出格式：直接给出英文关键词组合（逗号分隔），附上中文说明，总字数不超过200字。`;
+        const userMsg = `产品：${product_name || '商品'}。请反推这张图的生图提示词。`;
+        const aiRes = await callLLMWithVision(sys, [base64], userMsg);
+        const prompt = (aiRes || '').trim();
+        if (!prompt) throw new Error('未识别到可编辑的画面描述');
+        return { prompt, url: `reverse-prompt:${crypto.createHash('sha256').update(prompt).digest('hex')}` };
+      },
+    });
+    res.json({ ...billed.result, billing: billed.billing });
   } catch (e) {
-    res.status(500).json({ error: '反推失败：' + e.message });
+    res.status(e?.status || 500).json({ error: e?.message || '反推失败', code: e?.code, required: e?.required, available: e?.available, billing: e?.billing });
   }
 });
 
@@ -3364,7 +3387,7 @@ app.post('/api/reverse-prompt', async (req, res) => {
 // 去除背景（调用 remove.bg 或本地 rembg）
 // ============================================================
 app.post('/api/remove-bg', async (req, res) => {
-  const { image_url } = req.body || {};
+  const { image_url, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
   if (!image_url) return res.status(400).json({ error: '缺少图片' });
 
   const REMOVE_BG_KEY = process.env.REMOVE_BG_KEY || '';
@@ -3372,27 +3395,37 @@ app.post('/api/remove-bg', async (req, res) => {
   try {
     // 方案A：使用 remove.bg API（需配置 REMOVE_BG_KEY）
     if (REMOVE_BG_KEY) {
-      const { buffer: imgBuf } = await imageInputReader.read(image_url);
-
-      const form = new FormData();
-      form.append('image_file', new Blob([imgBuf]), 'image.png');
-      form.append('size', 'auto');
-
-      const resp = await fetch('https://api.remove.bg/v1.0/removebg', {
-        method: 'POST',
-        headers: { 'X-Api-Key': REMOVE_BG_KEY },
-        body: form,
+      const billed = await canvasOneShotBilling.execute({
+        ownerEmail: req._userEmail,
+        quoteId,
+        actionId,
+        sku: 'ec_remove_bg',
+        referenceType: 'canvas_remove_bg',
+        providerCostCny: 0.03,
+        metadata: { action: 'remove_bg' },
+        work: async () => {
+          const { buffer: imgBuf } = await imageInputReader.read(image_url);
+          const form = new FormData();
+          form.append('image_file', new Blob([imgBuf]), 'image.png');
+          form.append('size', 'auto');
+          const resp = await fetch('https://api.remove.bg/v1.0/removebg', {
+            method: 'POST', headers: { 'X-Api-Key': REMOVE_BG_KEY }, body: form,
+          });
+          if (!resp.ok) throw new Error(`remove.bg HTTP ${resp.status}`);
+          const outBuf = Buffer.from(await resp.arrayBuffer());
+          const asset = await generatedAssetStore.persistBuffer({
+            buffer: outBuf, contentType: 'image/png', taskId: `canvas_remove_bg_${Date.now()}`, label: 'canvas_remove_bg',
+          });
+          return { result_url: asset.url, url: asset.url };
+        },
       });
-      if (!resp.ok) throw new Error(`remove.bg HTTP ${resp.status}`);
-      const outBuf = Buffer.from(await resp.arrayBuffer());
-      const b64 = `data:image/png;base64,${outBuf.toString('base64')}`;
-      return res.json({ result_url: b64 });
+      return res.json({ ...billed.result, billing: billed.billing });
     }
 
     // 方案B：返回提示（未配置 API key）
     res.status(400).json({ error: '去除背景功能需配置 REMOVE_BG_KEY 环境变量，请在服务器设置后使用' });
   } catch (e) {
-    res.status(500).json({ error: '去除背景失败：' + e.message });
+    res.status(e?.status || 500).json({ error: e?.message || '去除背景失败', code: e?.code, required: e?.required, available: e?.available, billing: e?.billing });
   }
 });
 
@@ -3498,6 +3531,8 @@ app.post('/api/canvas/transform', async (req, res) => {
     target_language: targetLanguage = '中文',
     resolution = '2K',
     annotation = '',
+    billing_quote_id: quoteId,
+    billing_action_id: actionId,
   } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
   const pixelActions = new Set(['crop', 'grid-split', 'annotation']);
@@ -3555,25 +3590,39 @@ app.post('/api/canvas/transform', async (req, res) => {
       return res.json({ url: asset.url, annotation: text });
     }
 
-    const reference = `data:image/png;base64,${(await sharp(sourceBuffer).png().toBuffer()).toString('base64')}`;
-    const selectedSize = resolveGenerationSize({ resolution, ratio });
-    const fallbackSize = resolveGenerationSize({ resolution: '1K', ratio: selectedSize.ratio });
-    const generated = await callImageAPI(
-      buildCanvasTransformPrompt({ action, prompt, targetLanguage }),
-      selectedSize.size,
-      reference,
-      { resolution: selectedSize.resolution, aspectRatio: selectedSize.ratio },
-      fallbackSize.size,
-    );
-    const asset = await generatedAssetStore.persist({
-      sourceUrl: generated,
-      taskId,
-      label: `canvas_${action}`,
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_image_2k',
+      referenceType: 'canvas_transform',
+      providerCostCny: 0.0694,
+      metadata: { action },
+      work: async () => {
+        const reference = `data:image/png;base64,${(await sharp(sourceBuffer).png().toBuffer()).toString('base64')}`;
+        const selectedSize = resolveGenerationSize({ resolution, ratio });
+        const fallbackSize = resolveGenerationSize({ resolution: '1K', ratio: selectedSize.ratio });
+        const generated = await callImageAPI(
+          buildCanvasTransformPrompt({ action, prompt, targetLanguage }),
+          selectedSize.size,
+          reference,
+          { resolution: selectedSize.resolution, aspectRatio: selectedSize.ratio },
+          fallbackSize.size,
+        );
+        const asset = await generatedAssetStore.persist({ sourceUrl: generated, taskId, label: `canvas_${action}` });
+        return { url: asset.url, action, ratio: selectedSize.ratio, resolution: selectedSize.resolution };
+      },
     });
-    return res.json({ url: asset.url, action, ratio: selectedSize.ratio, resolution: selectedSize.resolution });
+    return res.json({ ...billed.result, billing: billed.billing });
   } catch (error) {
     console.error(`[canvas/${action}] 失败:`, error.message);
-    return res.status(500).json({ error: `画布${action}失败：${error.message}` });
+    return res.status(error?.status || 500).json({
+      error: error?.status ? error.message : `画布${action}失败：${error.message}`,
+      code: error?.code,
+      required: error?.required,
+      available: error?.available,
+      billing: error?.billing,
+    });
   }
 });
 

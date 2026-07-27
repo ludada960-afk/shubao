@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { createApiError } from './apiError.js';
+import { quoteBillingAction } from './billing.js';
 import { consumeSseJson } from './sse.js';
 import { getSessionToken } from './auth.js';
 import {
@@ -346,6 +347,18 @@ export async function generateEcommerceSuite({
 // 基础工具接口 (保留原有逻辑)
 // ─────────────────────────────────────────────────────────────
 
+function canvasBillingActionId() {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid ? `canvas-${uuid}` : `canvas-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function quoteCanvasAction(sku) {
+  const response = await quoteBillingAction({ sku, quantity: 1 });
+  const quote = response?.quote;
+  if (!quote?.quoteId) throw new Error('暂时无法确认本次处理费用，请重试');
+  return { quoteId: quote.quoteId, actionId: canvasBillingActionId() };
+}
+
 export async function uploadECTempImages(base64Images) {
   const res = await fetch(`${API_BASE}/api/ec-temp-upload`, {
     method: 'POST',
@@ -357,24 +370,25 @@ export async function uploadECTempImages(base64Images) {
 }
 
 export async function reversePrompt({ image_url, product_name }) {
+  const billing = await quoteCanvasAction('ec_reverse_prompt');
   const res = await fetch(`${API_BASE}/api/reverse-prompt`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ image_url, product_name })),
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({ image_url, product_name, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
   });
   if (!res.ok) throw await createApiError(res, '反推失败');
   return res.json();
 }
 
 export async function removeBg({ image_url }) {
+  const billing = await quoteCanvasAction('ec_remove_bg');
   const res = await fetch(`${API_BASE}/api/remove-bg`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ image_url })),
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({ image_url, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || '去除背景失败');
+    throw await createApiError(res, '去除背景失败');
   }
   return res.json();
 }
@@ -842,9 +856,10 @@ export async function saveWork(work, phone, { signal } = {}) {
 }
 
 export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio }) {
+  const billing = await quoteCanvasAction('ec_image_2k');
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: imageUrl, reference_images: referenceImages, ratio }),
+    body: JSON.stringify({ prompt, image_url: imageUrl, reference_images: referenceImages, ratio, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
@@ -861,6 +876,8 @@ export async function transformCanvasImage({
   resolution = '2K',
   annotation = '',
 }) {
+  const paid = new Set(['retouch', 'extend', 'translate', 'upscale', 'inpaint']);
+  const billing = paid.has(action) ? await quoteCanvasAction('ec_image_2k') : null;
   const res = await fetch(`${API_BASE}/api/canvas/transform`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
@@ -872,6 +889,7 @@ export async function transformCanvasImage({
       target_language: targetLanguage,
       resolution,
       annotation,
+      ...(billing ? { billing_quote_id: billing.quoteId, billing_action_id: billing.actionId } : {}),
     }),
   });
   const data = await res.json().catch(() => ({}));

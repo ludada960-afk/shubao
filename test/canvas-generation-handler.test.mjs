@@ -22,6 +22,17 @@ function createResponse() {
   };
 }
 
+function passthroughBilling() {
+  return {
+    async execute({ work }) {
+      return {
+        result: await work(),
+        billing: { currency: 'ec_points', status: 'settled', balance: null, unlimited: true },
+      };
+    },
+  };
+}
+
 test('Canvas handler preserves structured retryable and validation provider errors', async () => {
   const cases = [
     {
@@ -72,6 +83,7 @@ test('Canvas handler preserves structured retryable and validation provider erro
           throw item.error;
         },
       },
+      billing: passthroughBilling(),
     });
     const res = createResponse();
     await handler({
@@ -104,6 +116,7 @@ test('Canvas handler keeps the successful url response contract and may include 
         };
       },
     },
+    billing: passthroughBilling(),
   });
   const res = createResponse();
 
@@ -116,6 +129,7 @@ test('Canvas handler keeps the successful url response contract and may include 
   assert.deepEqual(res.body, {
     url: '/api/generated-assets/canvas.png',
     taskId: 'canvas_success',
+    billing: { currency: 'ec_points', status: 'settled', balance: null, unlimited: true },
   });
 });
 
@@ -129,6 +143,7 @@ test('Canvas handler accepts only the signed owner and never a body email fallba
         return { url: '/api/generated-assets/canvas.png' };
       },
     },
+    billing: passthroughBilling(),
   });
 
   const signedResponse = createResponse();
@@ -156,4 +171,33 @@ test('Canvas handler accepts only the signed owner and never a body email fallba
   assert.equal(unsignedResponse.statusCode, 401);
   assert.equal(unsignedResponse.body.code, 'AUTH_SESSION_REQUIRED');
   assert.equal(calls, 1);
+});
+
+test('Canvas handler preserves authoritative billing fields for a resumable paywall', async () => {
+  const handler = createCanvasRegenerateHandler({
+    service: { async regenerate() { throw new Error('should not run'); } },
+    billing: {
+      async execute() {
+        throw Object.assign(new Error('AI 积分不足，请购买套餐后继续'), {
+          status: 402,
+          code: 'BILLING_INSUFFICIENT_CREDITS',
+          resumeable: true,
+          required: 1000,
+          available: 200,
+          billing: { currency: 'ec_points', status: 'insufficient' },
+          reQuoteRequired: true,
+        });
+      },
+    },
+  });
+  const res = createResponse();
+
+  await handler({ _userEmail: 'signed-owner@example.com', body: {} }, res);
+
+  assert.equal(res.statusCode, 402);
+  assert.equal(res.body.required, 1000);
+  assert.equal(res.body.available, 200);
+  assert.deepEqual(res.body.billing, { currency: 'ec_points', status: 'insufficient' });
+  assert.equal(res.body.reQuoteRequired, true);
+  assert.equal(res.body.resumeable, true);
 });

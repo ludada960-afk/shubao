@@ -409,14 +409,18 @@ test('homepage ecommerce long-description mode uses the unified ecommerce route'
 test('canvas regeneration forwards supplementary visual references', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
-  let requestBody;
+  const requests = [];
   t.after(() => {
     globalThis.fetch = originalFetch;
     globalThis.localStorage = originalStorage;
   });
   globalThis.localStorage = { getItem: () => JSON.stringify({ email: '867550189@qq.com' }) };
-  globalThis.fetch = async (_url, options) => {
-    requestBody = JSON.parse(options.body);
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    requests.push({ url: String(url), body });
+    if (String(url).endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: 'canvas-quote' } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
     return new Response(JSON.stringify({ url: '/api/generated-assets/test.png' }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -429,8 +433,10 @@ test('canvas regeneration forwards supplementary visual references', async t => 
     referenceImages: ['/api/ec-temp-img/reference.png'],
     ratio: '3:4',
   });
+  const requestBody = requests.find(request => request.url.endsWith('/api/canvas/regenerate')).body;
   assert.deepEqual(requestBody.reference_images, ['/api/ec-temp-img/reference.png']);
   assert.equal(requestBody.ratio, '3:4');
+  assert.equal(requestBody.billing_quote_id, 'canvas-quote');
 });
 
 test('Canvas API helpers send the signed session token and omit body email authority', async t => {
@@ -454,6 +460,9 @@ test('Canvas API helpers send the signed session token and omit body email autho
       headers: options.headers || {},
       body: JSON.parse(options.body || '{}'),
     });
+    if (String(url).endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: `quote-${requests.length}` } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
     return new Response(JSON.stringify({
       url: '/api/generated-assets/canvas.png',
       layers: [],
@@ -476,7 +485,9 @@ test('Canvas API helpers send the signed session token and omit body email autho
   await api.analyzeCanvasLayers('/api/generated-assets/source.png');
 
   assert.deepEqual(requests.map(request => request.url), [
+    '/api/billing/quote',
     '/api/canvas/regenerate',
+    '/api/billing/quote',
     '/api/canvas/transform',
     '/api/canvas/analyze-layers',
   ]);
@@ -546,6 +557,9 @@ test('all service-layer expensive requests carry the authenticated session email
   globalThis.fetch = async (url, options = {}) => {
     const body = options.body ? JSON.parse(options.body) : {};
     requests.push({ url: String(url), body });
+    if (String(url).endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: `quote-${requests.length}` } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
     if (String(url).endsWith('/api/generate')) {
       return new Response('data: {"type":"complete","image_urls":[],"cover_url":""}\n\n', {
         status: 200,
@@ -572,8 +586,9 @@ test('all service-layer expensive requests carry the authenticated session email
   await api.regenerateImage('测试提示词', '其他');
   await api.regenerateText('测试文案', '其他');
 
-  assert.equal(requests.length, 9);
-  for (const request of requests) {
+  const generationRequests = requests.filter(request => !request.url.endsWith('/api/billing/quote'));
+  assert.equal(generationRequests.length, 9);
+  for (const request of generationRequests) {
     assert.equal(request.body.email, '867550189@qq.com', `${request.url} must carry session email`);
   }
 });

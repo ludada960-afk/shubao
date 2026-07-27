@@ -107,6 +107,7 @@ export function CanvasNodeActionPicker({ actions = [], onSelect, onClose, positi
               return <button type="button" className="workflow-picker-item" key={action.id} onClick={() => onSelect?.(action)}>
                 <span className="workflow-picker-item-icon"><Icon size={17} /></span>
                 <span><strong>{action.label}</strong><small>{action.description}</small></span>
+                <em className="workflow-picker-price">{action.priceLabel}</em>
                 <MdChevronRight size={16} />
               </button>;
             })}

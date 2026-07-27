@@ -1,3 +1,5 @@
+import { formatCanvasActionPrice, getCanvasActionBilling } from './canvasBillingModel.js';
+
 const ACTION_SIZES = {
   'smart-remix': { w: 380, h: 560 },
   'layer-workbench': { w: 380, h: 420 },
@@ -8,7 +10,7 @@ const ACTION_SIZES = {
   upscale: { w: 320, h: 220 },
 };
 
-export const CANVAS_NODE_ACTIONS = [
+const NODE_ACTIONS = [
   { id: 'smart-remix', label: '智能二创', description: '解析原图描述，补充图片与文字后继续创作', nodeKind: 'smart-remix', group: '创作与修改' },
   { id: 'layer-edit', label: '图层编辑', description: '拆分商品、人物、背景和文字并逐层调整', nodeKind: 'layer-workbench', group: '创作与修改' },
   { id: 'inpaint', label: '局部改图', description: '框选区域，只修改需要调整的部分', nodeKind: 'inpaint', group: '创作与修改' },
@@ -17,6 +19,12 @@ export const CANVAS_NODE_ACTIONS = [
   { id: 'translate', label: '图文翻译', description: '替换画面语言并尽量保持排版', nodeKind: 'translate', group: '电商处理' },
   { id: 'upscale', label: '高清修复', description: '提升清晰度、纹理和商品细节', nodeKind: 'upscale', group: '电商处理' },
 ];
+
+export const CANVAS_NODE_ACTIONS = NODE_ACTIONS.map(action => ({
+  ...action,
+  billing: getCanvasActionBilling(action.id),
+  priceLabel: formatCanvasActionPrice(action.id),
+}));
 
 const ACTION_BY_ID = new Map(CANVAS_NODE_ACTIONS.map(action => [action.id, action]));
 const DIRECT_ACTIONS_REPLACED_BY_NODES = new Set([

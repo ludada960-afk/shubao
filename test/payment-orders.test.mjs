@@ -69,7 +69,7 @@ test('creates only server-owned normalized product snapshots and returns defensi
     clientGrantUnits: 999999,
   });
 
-  assert.deepEqual(Object.keys(service).sort(), ['applyProviderEvent', 'createOrder', 'getOrder']);
+  assert.deepEqual(Object.keys(service).sort(), ['applyProviderEvent', 'createOrder', 'getOrder', 'listProviders']);
   assert.equal(order.ownerEmail, 'buyer@example.com');
   assert.equal(order.provider, 'stripe');
   assert.equal(order.idempotencyKey, 'order-key');

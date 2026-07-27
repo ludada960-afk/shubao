@@ -28,6 +28,8 @@ import {
 } from './nodeWorkflow';
 import { CanvasNodeActionPicker, CanvasWorkflowNode } from './components/workflowNodes';
 import { normalizeWorkImages } from '../../utils/workImages.js';
+import { formatCanvasActionPrice } from './canvasBillingModel.js';
+import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 
 function parseImages(images, platform) {
   const entries = normalizeWorkImages(images).map(image => ({ ...image, sourceKey: image.key || image.label || '' }));
@@ -216,11 +218,12 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
       icon: <MdAutoFixHigh size={14} />,
       label: action.label,
       hint: action.description,
+      priceLabel: action.priceLabel,
       action: `create:${action.id}`,
     })),
     ...ECOMMERCE_ACTIONS.filter(action => shouldShowQuickCanvasAction(action.id)).map(action => {
       const Icon = action.icon;
-      return { icon: <Icon size={14} />, label: action.label, action: action.id };
+      return { icon: <Icon size={14} />, label: action.label, action: action.id, priceLabel: formatCanvasActionPrice(action.id) };
     }),
     { icon: <MdDownload size={14} />, label: '下载单图', action: 'download' },
     { icon: <MdMergeType size={14} />, label: '再次编辑方案', action: 'edit-direction' },
@@ -240,6 +243,7 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
           {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
+          {item.priceLabel && <span style={{ color: '#111827', fontSize: 9, fontWeight: 800, whiteSpace: 'nowrap' }}>{item.priceLabel}</span>}
           {item.hint && <span title={item.hint} style={{ color: '#a0a8b6', fontSize: 9 }}>i</span>}
         </div>
       ))}
@@ -655,6 +659,19 @@ export default function EcCanvas() {
     });
   }, []);
 
+  const handleCanvasActionError = useCallback((error, action = {}) => {
+    const accessResult = handleGenerationAccessError(error, dispatch, {
+      source: 'canvas',
+      ownerEmail: state.phone,
+      route: globalThis.location?.pathname || '/',
+      draftId: canvasSaveKeyRef.current || `canvas-${result.product_name || 'workspace'}`,
+      action: { type: action.type || 'canvas-action', nodeId: action.nodeId || '', currency: 'ec_points' },
+    });
+    if (accessResult) return true;
+    showToast(error?.message || '处理失败，请重试', 'error');
+    return false;
+  }, [dispatch, result.product_name, showToast, state.phone]);
+
   useEffect(() => bindNonPassiveWheel(containerRef.current, handleWheel), [handleWheel, tab]);
 
   // 节点点击：Ctrl/Cmd 切换多选，拖动已选节点会批量移动
@@ -801,11 +818,11 @@ export default function EcCanvas() {
       showToast(`已生成 ${outputs.length} 张新的电商图`, 'success');
     } catch (error) {
       updateWorkflowNode(node.id, { status: 'error', error: error.message || '生成失败，请重试' });
-      showToast(error.message || '生成失败，请重试', 'error');
+      handleCanvasActionError(error, { type: 'smart-remix', nodeId: node.id });
     } finally {
       setPromptLoading(false);
     }
-  }, [nodes, promptLoading, showToast, updateWorkflowNode]);
+  }, [nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
 
   const handleWorkflowRetry = useCallback((node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
@@ -934,11 +951,11 @@ export default function EcCanvas() {
       showToast(`${node.title || '电商处理'}已完成`, 'success');
     } catch (error) {
       updateWorkflowNode(node.id, { status: 'error', error: error.message || '处理失败，请重试' });
-      showToast(error.message || '处理失败，请重试', 'error');
+      handleCanvasActionError(error, { type: node.actionId, nodeId: node.id });
     } finally {
       setPromptLoading(false);
     }
-  }, [nodes, promptLoading, showToast, updateWorkflowNode]);
+  }, [nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
 
   const updateWorkflowLayers = useCallback((nodeId, updater) => {
     setNodes(prev => prev.map(node => {
@@ -1047,7 +1064,7 @@ export default function EcCanvas() {
             showToast(data.error || '抠图返回为空', 'error');
           }
         } catch (e) {
-          showToast(e.message || '抠图请求失败', 'error');
+          handleCanvasActionError(e, { type: 'remove-bg', nodeId: node.id });
         }
         break;
       case 'reverse-prompt':
@@ -1061,7 +1078,7 @@ export default function EcCanvas() {
            setPromptReferences([]);
            showToast('已生成可编辑提示词', 'success');
         } catch (e) {
-          showToast('请求失败: ' + e.message, 'error');
+          handleCanvasActionError(e, { type: 'reverse-prompt', nodeId: node.id });
         } finally {
           setPromptLoading(false);
         }

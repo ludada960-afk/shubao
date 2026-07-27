@@ -327,7 +327,11 @@ export function mapCanvasGenerationError(error) {
       error: error?.message || '重新生成失败',
       code: cleanString(error?.code) || 'CANVAS_GENERATION_FAILED',
       retryable,
-      resumeable: retryable,
+      resumeable: error?.resumeable === true || retryable,
+      ...(Number.isFinite(error?.required) ? { required: error.required } : {}),
+      ...(Number.isFinite(error?.available) ? { available: error.available } : {}),
+      ...(error?.billing && typeof error.billing === 'object' ? { billing: error.billing } : {}),
+      ...(error?.reQuoteRequired === true ? { reQuoteRequired: true } : {}),
       ...(cleanString(error?.taskId) ? { taskId: cleanString(error.taskId) } : {}),
       ...(cleanString(error?.jobId) ? { providerJobId: cleanString(error.jobId) } : {}),
       ...(retryAfter !== null ? { retryAfter } : {}),
@@ -335,9 +339,12 @@ export function mapCanvasGenerationError(error) {
   };
 }
 
-export function createCanvasRegenerateHandler({ service } = {}) {
+export function createCanvasRegenerateHandler({ service, billing } = {}) {
   if (!service || typeof service.regenerate !== 'function') {
     throw new TypeError('Canvas generation service is required');
+  }
+  if (!billing || typeof billing.execute !== 'function') {
+    throw new TypeError('Canvas billing execute is required');
   }
   return async function canvasRegenerateHandler(req, res) {
     try {
@@ -349,13 +356,22 @@ export function createCanvasRegenerateHandler({ service } = {}) {
           retryable: false,
         });
       }
-      const result = await service.regenerate({
+      const body = req?.body || {};
+      const billed = await billing.execute({
         ownerEmail,
-        body: req?.body || {},
+        quoteId: body.billing_quote_id,
+        actionId: body.billing_action_id,
+        sku: 'ec_image_2k',
+        referenceType: 'canvas_regenerate',
+        providerCostCny: 0.0694,
+        metadata: { action: 'regenerate' },
+        work: () => service.regenerate({ ownerEmail, body }),
       });
+      const result = billed.result;
       return res.json({
         url: result.url,
         ...(result.taskId ? { taskId: result.taskId } : {}),
+        billing: billed.billing,
       });
     } catch (error) {
       const mapped = mapCanvasGenerationError(error);
