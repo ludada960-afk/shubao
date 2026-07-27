@@ -1652,7 +1652,7 @@
   .homepage-mode-switch button { flex: 1; justify-content: center; min-width: 0; padding: 10px 12px !important; font-size: 13px !important; }
   .surface-card { margin-top: 12px !important; }
   .surface-card-inner { padding: 0 !important; }
-  .ec-main-card { margin: 0 !important; padding: 14px 10px 12px !important; border-radius: 16px !important; }
+  .ec-main-card { margin: 0 !important; padding: 14px 10px 12px !important; padding-bottom: max(84px, calc(72px + env(safe-area-inset-bottom))) !important; border-radius: 16px !important; }
   .ec-workbench-heading { padding-inline: 2px; }
   .ec-workbench-heading strong { font-size: 16px; }
   .ec-xhs-composer { padding: 7px 4px 8px; }
