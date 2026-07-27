@@ -31,6 +31,7 @@ test('runtime database backup helper resolves the deployed driver and closes the
 });
 
 test('production verifier checks public health, billing catalog, and owner entitlement', () => {
+  assert.doesNotMatch(verify, /\$home\s*=/i);
   assert.match(verify, /https:\/\/shuimg\.cn/);
   assert.match(verify, /\/health/);
   assert.match(verify, /\/api\/billing\/catalog/);

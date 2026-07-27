@@ -14,8 +14,8 @@ function Post-Json([string]$Path, [object]$Body, [hashtable]$Headers = @{}) {
     -ContentType "application/json" -Body ($Body | ConvertTo-Json -Depth 8 -Compress) -TimeoutSec 20
 }
 
-$home = Invoke-WebRequest -UseBasicParsing -Uri $BaseUrl -TimeoutSec 20
-if ($home.StatusCode -ne 200) { throw "Homepage returned $($home.StatusCode)" }
+$homeResponse = Invoke-WebRequest -UseBasicParsing -Uri $BaseUrl -TimeoutSec 20
+if ($homeResponse.StatusCode -ne 200) { throw "Homepage returned $($homeResponse.StatusCode)" }
 
 $health = Get-Json "/health"
 if ($health.ok -ne $true -and $health.status -notin @("ok", "healthy")) { throw "Health endpoint is not ready" }
