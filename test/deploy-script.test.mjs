@@ -7,11 +7,14 @@ const verify = readFileSync(new URL('../scripts/verify-production-billing.ps1', 
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /git[^\n]*diff --check/i);
-  assert.match(deploy, /sqlite3[^\n]*\.backup/i);
+  assert.match(deploy, /better-sqlite3[^\n]*\.backup/i);
+  assert.doesNotMatch(deploy, /(?:^|[;&\s])sqlite3\s/m);
   assert.match(deploy, /--exclude='server\/works\.db'/);
   assert.match(deploy, /deploy-backups/);
   assert.match(deploy, /catch\s*\{/);
   assert.match(deploy, /rollback/i);
+  assert.match(deploy, /\$releaseStarted\s*=\s*\$false/);
+  assert.match(deploy, /if\s*\(\$releaseStarted\)/);
   assert.equal((deploy.match(/pm2 restart shubao/g) || []).length, 1);
   assert.match(deploy, /verify-production-billing\.ps1/);
   assert.match(deploy, /pm2 jlist/);

@@ -19,6 +19,7 @@ $ssh = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=acc
 $remoteLock = "/tmp/.shubao-deploy.lock"
 $lockAcquired = $false
 $remoteBackup = ""
+$releaseStarted = $false
 
 function Get-RemotePm2RestartCount {
   $json = (& ssh @ssh $target "pm2 jlist") -join "`n"
@@ -67,12 +68,14 @@ $lockAcquired = $true
 try {
   $remoteStamp = "$stamp-$commit"
   $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"
-  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; cp -a $RemoteDir/server $remoteBackup/server; if [ -f $RemoteDir/server/works.db ]; then sqlite3 $RemoteDir/server/works.db `".backup '$remoteBackup/works.db'`"; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
+  $backupDatabase = "const Database=require('better-sqlite3');const db=new Database('$RemoteDir/server/works.db',{readonly:true});db.backup('$remoteBackup/works.db').then(()=>db.close())"
+  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; cp -a $RemoteDir/server $remoteBackup/server; if [ -f $RemoteDir/server/works.db ]; then cd $RemoteDir; node -e `"$backupDatabase`"; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
   if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
 
   & scp @ssh $archive "$target`:$RemoteDir/deploy.tgz"
   if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
 
+  $releaseStarted = $true
   & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf deploy.tgz; rm -f deploy.tgz; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env; sleep 3; curl -fsS http://127.0.0.1:3001/health"
   if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
 
@@ -91,7 +94,7 @@ try {
 
   Write-Host "Deployed $commit to https://shuimg.cn/"
 } catch {
-  if ($remoteBackup) {
+  if ($releaseStarted) {
     Write-Warning "Deployment failed; starting rollback from $remoteBackup"
     & ssh @ssh $target "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' $remoteBackup/server/ server/; rm -rf dist; cp -a $remoteBackup/dist dist; sudo rm -rf $WebRoot/*; sudo cp -a $remoteBackup/webroot/. $WebRoot/; pm2 reload shubao --update-env"
   }
