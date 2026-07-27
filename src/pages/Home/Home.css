@@ -1643,6 +1643,38 @@
   .section-title { font-size: var(--text-xl); }
 }
 
+@media (max-width: 639px) {
+  .homepage-shell { padding: 12px 10px 76px !important; }
+  .homepage-h1 { max-width: 340px; margin: 12px auto 0 !important; font-size: 30px !important; line-height: 1.12 !important; }
+  .homepage-subtitle { max-width: 330px !important; margin-top: 8px !important; font-size: 13px !important; line-height: 20px !important; }
+  .homepage-mode-switch { margin-top: 18px !important; }
+  .homepage-mode-switch > div { width: 100%; }
+  .homepage-mode-switch button { flex: 1; justify-content: center; min-width: 0; padding: 10px 12px !important; font-size: 13px !important; }
+  .surface-card { margin-top: 12px !important; }
+  .surface-card-inner { padding: 0 !important; }
+  .ec-main-card { margin: 0 !important; padding: 14px 10px 12px !important; border-radius: 16px !important; }
+  .ec-workbench-heading { padding-inline: 2px; }
+  .ec-workbench-heading strong { font-size: 16px; }
+  .ec-xhs-composer { padding: 7px 4px 8px; }
+  .ec-xhs-media-column { padding-inline: 0; }
+  .ec-xhs-media-strip { gap: 9px; padding-inline: 7px; }
+  .ec-xhs-upload-card { width: 78px; height: 100px; flex-basis: 78px; }
+  #ec-floating-panel { left: 10px !important; right: 10px !important; bottom: 72px !important; width: auto !important; max-height: calc(100dvh - 96px) !important; }
+  .app-side-nav {
+    left: 50% !important;
+    top: auto !important;
+    bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    transform: translateX(-50%) !important;
+    flex-direction: row !important;
+    margin-left: 0 !important;
+    padding: 6px !important;
+    gap: 5px !important;
+    border-radius: 16px !important;
+  }
+  .app-side-nav > div { width: 42px !important; height: 42px !important; }
+  .task-sidebar { bottom: 72px !important; }
+}
+
 /* 提取引导弹窗 */
 .ec-guide-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;

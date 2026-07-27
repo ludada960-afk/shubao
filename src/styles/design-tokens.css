@@ -342,3 +342,12 @@ input, textarea { font-family: inherit; }
   .surface-card { padding: 0; border-radius: 24px; }
   .surface-card-inner { padding: 0; }
 }
+
+@media (max-width: 700px) {
+  .note-modal { width: calc(100vw - 16px) !important; height: calc(100dvh - 16px) !important; border-radius: 12px !important; }
+  .note-modal-main { display: block !important; overflow-y: auto !important; }
+  .note-modal-images { width: 100% !important; min-height: 52dvh; box-sizing: border-box; }
+  .note-modal-text { width: 100% !important; min-height: 58dvh; box-sizing: border-box; }
+  .note-modal-actions { position: sticky; bottom: 0; flex-wrap: wrap; gap: 6px !important; padding-bottom: max(12px, env(safe-area-inset-bottom)) !important; }
+  .note-modal-actions button { flex: 1 1 auto; justify-content: center; min-height: 38px; }
+}

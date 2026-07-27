@@ -388,6 +388,7 @@ export default function EcCanvas() {
   const [composerAction, setComposerAction] = useState('');
   const containerRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
+  const touchPointsRef = useRef(new Map());
 
   const imageList = parseImages(result.images || {}, result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
@@ -569,6 +570,23 @@ export default function EcCanvas() {
   }, [viewport.x, viewport.y, viewport.scale]);
 
   const handlePointerDown = useCallback((e) => {
+    if (e.pointerType === 'touch') {
+      touchPointsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touchPointsRef.current.size === 2) {
+        const [a, b] = [...touchPointsRef.current.values()];
+        const rect = containerRef.current?.getBoundingClientRect();
+        const center = { x: (a.x + b.x) / 2 - (rect?.left || 0), y: (a.y + b.y) / 2 - (rect?.top || 0) };
+        setPointerMode({
+          kind: 'pinch',
+          distance: Math.hypot(b.x - a.x, b.y - a.y),
+          center,
+          world: { x: (center.x - viewport.x) / viewport.scale, y: (center.y - viewport.y) / viewport.scale },
+          scale: viewport.scale,
+        });
+        try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
+        return;
+      }
+    }
     const interactiveTarget = e.target?.closest?.('button,input,textarea,select,a,[contenteditable="true"],[data-canvas-control="true"]');
     const intent = getCanvasPointerIntent({
       button: e.button,
@@ -595,6 +613,20 @@ export default function EcCanvas() {
 
   const handlePointerMove = useCallback((e) => {
     if (!pointerMode) return;
+    if (e.pointerType === 'touch' && touchPointsRef.current.has(e.pointerId)) {
+      touchPointsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pointerMode.kind === 'pinch' && touchPointsRef.current.size >= 2) {
+      const [a, b] = [...touchPointsRef.current.values()];
+      const distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+      const nextScale = Math.max(0.15, Math.min(4, pointerMode.scale * distance / Math.max(1, pointerMode.distance)));
+      setViewport({
+        scale: nextScale,
+        x: pointerMode.center.x - pointerMode.world.x * nextScale,
+        y: pointerMode.center.y - pointerMode.world.y * nextScale,
+      });
+      return;
+    }
     if (pointerMode.kind === 'connect') {
       const point = toWorldPoint(e);
       setConnectionDraft(prev => prev ? { ...prev, pointer: point } : prev);
@@ -619,6 +651,7 @@ export default function EcCanvas() {
   }, [pointerMode, toWorldPoint]);
 
   const handlePointerUp = useCallback((e) => {
+    if (e?.pointerType === 'touch') touchPointsRef.current.delete(e.pointerId);
     if (pointerMode?.kind === 'connect' && connectionDraft) {
       if (e?.type === 'pointercancel') {
         setConnectionDraft(null);
@@ -1501,21 +1534,21 @@ export default function EcCanvas() {
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#F0EEE9', display: 'flex', flexDirection: 'column' }}>
       {/* ── 顶部工具栏 ── */}
-      <div style={{ height: 58, flexShrink: 0, background: 'rgba(255,255,255,0.94)', borderBottom: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, zIndex: 100 }}>
+      <div className="canvas-toolbar" style={{ height: 58, flexShrink: 0, background: 'rgba(255,255,255,0.94)', borderBottom: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, zIndex: 100 }}>
         <div onClick={handleBack} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><MdArrowBack size={16} color="#666" /></div>
         <div style={{ flexShrink: 0, marginLeft: 4 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{tab === 'canvas' ? (result.product_name || '画布') : tab === 'trash' ? '回收站' : '我的作品集'}</div>
           <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} 张资产${multiSelected.size > 0 ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : pastWorks.length} 个作品`}</div>
         </div>
-        <div style={{ display: 'flex', gap: 3, padding: 3, borderRadius: 10, background: 'rgba(0,0,0,0.05)', marginLeft: 12, flexShrink: 0 }}>
+        <div className="canvas-tabs" style={{ display: 'flex', gap: 3, padding: 3, borderRadius: 10, background: 'rgba(0,0,0,0.05)', marginLeft: 12, flexShrink: 0 }}>
           {[['canvas','当前画布'],['works','作品集'],['trash','回收站']].map(([id,label]) => (
             <div key={id} onClick={() => setTab(id)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: tab===id ? '#fff' : 'transparent', color: tab===id ? '#1a1a1a' : '#999', boxShadow: tab===id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>{label}</div>
           ))}
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className="canvas-toolbar-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
           {tab === 'canvas' && (
             <>
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginRight: 6 }}>
+              <div className="canvas-filters" style={{ display: 'flex', gap: 4, alignItems: 'center', marginRight: 6 }}>
                 {['全部', ...ASSET_GROUPS].map(group => (
                   <button key={group} type="button" onClick={() => setActiveFilter(group)} style={{ border: 0, borderRadius: 999, padding: '6px 9px', background: activeFilter === group ? '#1f2937' : 'rgba(0,0,0,.05)', color: activeFilter === group ? '#fff' : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>
                 ))}
@@ -1567,7 +1600,7 @@ export default function EcCanvas() {
           onPointerCancel={handlePointerUp}
         >
           {!hasCurrent && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="canvas-empty-state" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.15 }}>🎨</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#999', marginBottom: 8 }}>画布是空的</div>
               <div style={{ fontSize: 13, color: '#bbb', marginBottom: 24 }}>去首页生成一套电商图，图片会自动出现在这里</div>

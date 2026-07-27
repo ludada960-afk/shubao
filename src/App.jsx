@@ -23,6 +23,7 @@ import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
 import { signOut } from './services/auth';
 import { shouldShowNoteModal } from './routing/resultRouting';
+import { buildContentCanvasResult } from './utils/contentCanvasHandoff.js';
 
 /* ═══════ 左侧导航栏（3按钮精简版）═══════ */
 function SideNav() {
@@ -61,7 +62,7 @@ function SideNav() {
   ];
 
   return (
-    <div style={{
+    <div className="app-side-nav" style={{
       position: 'fixed', left: 0, top: '50%', transform: 'translateY(-50%)',
       zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8,
       padding: '10px', marginLeft: 16,
@@ -285,6 +286,11 @@ function AppRouter() {
         onDownload={handleDownload}
         onUnlock={() => dispatch({ type: 'SHOW_PRICE', show: true })}
         onGallery={() => { dispatch({ type: 'CLOSE_RESULT' }); dispatch({ type: 'NAVIGATE', page: 'home' }); }}
+        onSendToCanvas={(contentItem) => {
+          const canvasResult = buildContentCanvasResult(contentItem);
+          dispatch({ type: 'SET_RESULT', result: canvasResult });
+          dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+        }}
         onItemUpdate={(i, url) => {
           dispatch({ type: 'UPDATE_RESULT', updater: (prev) => {
             if (!prev) return prev;

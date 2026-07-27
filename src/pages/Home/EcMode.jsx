@@ -553,7 +553,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
   return (
     <div>
       {/* ═══ 暖黄色背景卡片（与小红书图文一致）═══ */}
-      <div ref={cardRef} style={{ borderRadius: 20, margin: '0 16px', background: '#fff', padding: '16px 20px 20px', position: 'relative' }}>
+      <div ref={cardRef} className="ec-main-card" style={{ borderRadius: 20, margin: '0 16px', background: '#fff', padding: '16px 20px 20px', position: 'relative' }}>
         <EcommerceWorkbench
           productImages={productImages}
           refImages={refImages}

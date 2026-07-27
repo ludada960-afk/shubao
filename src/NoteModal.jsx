@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MdContentCopy, MdCheck, MdRefresh, MdDownload, MdClose, MdAutorenew, MdArrowBack, MdArrowForward, MdFullscreen } from 'react-icons/md';
+import { MdContentCopy, MdCheck, MdRefresh, MdDownload, MdClose, MdAutorenew, MdArrowBack, MdArrowForward, MdFullscreen, MdGridOn } from 'react-icons/md';
 import { proxyImg, regenerateImage, downloadZip } from './services/api';
 import { IMAGES } from './constants/images';
 import { EC_PLATFORM_SPECS } from './constants/data';
 
-export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery }) {
+export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery, onSendToCanvas }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [zoom, setZoom] = useState(false);
   const [rgIdx, setRgIdx] = useState(null);
@@ -478,11 +478,11 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
         )}
 
         {/* ── 主弹窗 ── */}
-        <div style={S.modal} onClick={e => e.stopPropagation()} className="animate-scale-in">
-          <div style={S.main}>
+        <div style={S.modal} onClick={e => e.stopPropagation()} className="animate-scale-in note-modal">
+          <div style={S.main} className="note-modal-main">
 
             {/* LEFT: 图片区 */}
-            <div style={S.imagePanel}>
+            <div style={S.imagePanel} className="note-modal-images">
               <div style={S.imageView} onWheel={handleWheel}
                 onMouseEnter={e => e.currentTarget.querySelectorAll('.nhb').forEach(b => b.style.opacity = '1')}
                 onMouseLeave={e => e.currentTarget.querySelectorAll('.nhb').forEach(b => b.style.opacity = '0')}
@@ -625,7 +625,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
             </div>
 
             {/* RIGHT: 文字区 */}
-            <div style={S.textPanel}>
+            <div style={S.textPanel} className="note-modal-text">
               <div style={S.textScroll}>
                 {/* 头部 */}
                 <div style={S.header}>
@@ -724,7 +724,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
               </div>
 
               {/* 底部操作栏 */}
-              <div style={S.actionBar}>
+              <div style={S.actionBar} className="note-modal-actions">
                 {/* 编辑/保存 */}
                 {!item._galleryItem && (
                   <button style={{ ...S.actionBtn, background: editing ? '#e3f2fd' : '#f5f5f5', color: editing ? '#1565c0' : '#333' }}
@@ -755,6 +755,11 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 <button style={{ ...S.actionBtn, background: copied ? '#e8f5e9' : '#f5f5f5', color: copied ? '#2e7d32' : '#333' }} onClick={copyAll}>
                   {copied ? <><MdCheck size={13} /> 已复制</> : <><MdContentCopy size={13} /> 复制全文</>}
                 </button>
+                {!editing && !isPreview && !isTrialLocked && !item._galleryItem && onSendToCanvas && (
+                  <button style={{ ...S.actionBtn, background: '#111827', color: '#fff' }} onClick={() => onSendToCanvas(item)}>
+                    <MdGridOn size={13} /> 送入画板二创
+                  </button>
+                )}
                 {textRegen && !editing && (
                   <button style={S.actionBtn} onClick={() => {
                     if (item._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }

@@ -49,7 +49,12 @@
   structured resumable 402 metadata, shared honest action prices, and Canvas
   paywall preservation; full 540/540 tests, Vite build, diff-check, and
   collaboration policy passed).
-- Next implementation task: Paid Workflow Task 8.
+- Paid Workflow Task 8: complete (content-set stable assets can be copied into
+  Canvas with provenance and no duplicate set charge; mobile homepage navigation,
+  workbench, result modal, Canvas toolbar and picker adapt to narrow viewports;
+  browser-verified one-finger pan and two-finger zoom at 390px; focused tests and
+  Vite build passed).
+- Next implementation task: Paid Workflow Task 9.
 
 ## Ownership
 

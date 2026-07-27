@@ -45,6 +45,7 @@ export default function TaskSidebar({ onOpenTask }) {
 
   return (
     <div
+      className="task-sidebar"
       ref={sidebarRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
