@@ -26,6 +26,11 @@
   blocked by browser authorization and the environment network approval service;
   current conclusions are grounded in the supplied references, repository code
   and the local 500+ case GPT-Image-2 ecommerce skill.
+- Server Project Version System implementation plan: complete at
+  `docs/superpowers/plans/2026-07-27-server-project-version-system.md`.
+  It defines ten TDD tasks from durable stores through production deployment.
+  The user selected inline execution by directing Codex to proceed; Task 1 is
+  the next execution boundary and no files are delegated to GLM.
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).
