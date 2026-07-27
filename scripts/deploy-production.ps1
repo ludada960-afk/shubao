@@ -4,7 +4,9 @@ param(
   [string]$KeyPath = "$env:USERPROFILE\.ssh\shubao_deploy_ed25519",
   [string]$RemoteDir = "/home/ubuntu/shubao",
   [string]$WebRoot = "/var/www/shubao/assets",
-  [string]$RepoPath = (Join-Path $PSScriptRoot "..")
+  [string]$RepoPath = (Join-Path $PSScriptRoot ".."),
+  [ValidateRange(0, 3600)]
+  [int]$CanarySeconds = 600
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,12 +18,22 @@ $target = "$User@$HostName"
 $ssh = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
 $remoteLock = "/tmp/.shubao-deploy.lock"
 $lockAcquired = $false
+$remoteBackup = ""
+
+function Get-RemotePm2RestartCount {
+  $json = (& ssh @ssh $target "pm2 jlist") -join "`n"
+  if ($LASTEXITCODE -ne 0) { throw "Could not read PM2 process state" }
+  $process = @($json | ConvertFrom-Json | Where-Object { $_.name -eq "shubao" })
+  if ($process.Count -ne 1) { throw "Expected exactly one shubao PM2 process" }
+  return [int]$process[0].pm2_env.restart_time
+}
 
 Write-Host "Building $commit..."
 Push-Location $repo
 try {
   npm run test
   npm run build
+  git diff --check
 } finally {
   Pop-Location
 }
@@ -54,7 +66,8 @@ $lockAcquired = $true
 
 try {
   $remoteStamp = "$stamp-$commit"
-  & ssh @ssh $target "set -e; mkdir -p $RemoteDir/deploy-backups/$remoteStamp; cp -a $RemoteDir/dist $RemoteDir/deploy-backups/$remoteStamp/dist; cp -a $RemoteDir/server $RemoteDir/deploy-backups/$remoteStamp/server; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $RemoteDir/deploy-backups/$remoteStamp/webroot"
+  $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"
+  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; cp -a $RemoteDir/server $remoteBackup/server; if [ -f $RemoteDir/server/works.db ]; then sqlite3 $RemoteDir/server/works.db `".backup '$remoteBackup/works.db'`"; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
   if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
 
   & scp @ssh $archive "$target`:$RemoteDir/deploy.tgz"
@@ -63,7 +76,26 @@ try {
   & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf deploy.tgz; rm -f deploy.tgz; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env; sleep 3; curl -fsS http://127.0.0.1:3001/health"
   if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
 
+  & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
+  if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
+
+  $restartCount = Get-RemotePm2RestartCount
+  Write-Host "Canary started for $CanarySeconds seconds (PM2 restart count: $restartCount)"
+  Start-Sleep -Seconds $CanarySeconds
+  & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
+  if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
+  $canaryRestartCount = Get-RemotePm2RestartCount
+  if ($canaryRestartCount -ne $restartCount) {
+    throw "PM2 restart count increased during canary: $restartCount -> $canaryRestartCount"
+  }
+
   Write-Host "Deployed $commit to https://shuimg.cn/"
+} catch {
+  if ($remoteBackup) {
+    Write-Warning "Deployment failed; starting rollback from $remoteBackup"
+    & ssh @ssh $target "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' $remoteBackup/server/ server/; rm -rf dist; cp -a $remoteBackup/dist dist; sudo rm -rf $WebRoot/*; sudo cp -a $remoteBackup/webroot/. $WebRoot/; pm2 reload shubao --update-env"
+  }
+  throw
 } finally {
   if ($lockAcquired) {
     & ssh @ssh $target "rm -rf -- '$remoteLock'"

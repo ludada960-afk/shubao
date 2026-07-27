@@ -54,7 +54,11 @@
   workbench, result modal, Canvas toolbar and picker adapt to narrow viewports;
   browser-verified one-finger pan and two-finger zoom at 390px; focused tests and
   Vite build passed).
-- Next implementation task: Paid Workflow Task 9.
+- Paid Workflow Task 9: complete (deployment preflight includes full tests, build,
+  and diff check; remote lock, SQLite online backup, runtime exclusions, one PM2
+  restart, public health/catalog verification, and code/WebRoot rollback that
+  preserves runtime databases; deployment script tests passed).
+- Next implementation task: Paid Workflow Task 10.
 
 ## Ownership
 
