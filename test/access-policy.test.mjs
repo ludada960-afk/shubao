@@ -17,6 +17,6 @@ test('grants unlimited generation entitlement only to the owner account', () => 
 
 test('rejects other closed-beta emails and missing privileged identity', () => {
   assert.equal(isAllowedBetaEmail('other@example.com'), false);
-  assert.deepEqual(requireBetaEmail(''), { ok: false, status: 401, error: '请先登录后再使用内测功能' });
-  assert.deepEqual(requireBetaEmail('other@example.com'), { ok: false, status: 403, error: '薯包AI 正在内测，仅受邀账号可以登录' });
+  assert.deepEqual(requireBetaEmail(''), { ok: false, status: 401, error: '请先登录后再继续操作' });
+  assert.deepEqual(requireBetaEmail('other@example.com'), { ok: false, status: 403, error: '当前账号暂时无法使用此功能' });
 });

@@ -64,6 +64,27 @@
   dialogs/tooltips, public copy and pricing information architecture. Spec:
   `docs/superpowers/specs/2026-07-27-creation-continuity-canvas-ux.md`. Full
   regression: 549/549; production build and collaboration policy passed.
+- Paid Workflow Task 11: implementation complete, pending commit and production
+  deployment. Completed scope is market-facing login and
+  OTP lifecycle, restart-stable signed sessions, signed ecommerce assistant
+  routes, one-point idempotent design-direction refresh billing, honest market
+  quote presentation, role-specific non-collage ecommerce assets, bounded
+  per-task concurrency, mainland-primary/US-overflow provider affinity, completed
+  work persistence, keyboard-accessible progress lightbox, and market-facing
+  access errors without internal rollout terminology. Direction-refresh action
+  IDs survive response loss and navigation. One-shot billing now uses durable
+  SQLite claims, fenced lease renewal, and separates non-resumable synchronous
+  recovery from resumable provider-job work. Canvas AI transforms use the durable
+  provider job service, recover without resubmission, and keep 2K/4K quotes and
+  model routes aligned; default regeneration now delivers the billed 2K output.
+  Review fixes included waiting for in-flight ecommerce workers before releasing
+  the parent lease and preserving historical provider affinity. Independent
+  reviewer attempts were unavailable because one agent disappeared and a second
+  failed with external model-account HTTP 403; local adversarial review found and
+  fixed duplicate-upstream recovery, over-conservative durable recovery, exposed
+  rollout copy, and the 1K-vs-2K billing mismatch. Final full regression: 575/575;
+  production build transformed 6413 modules; diff-check and collaboration policy
+  passed. Deployment archive excludes the runtime auth-session secret.
 
 ## Ownership
 

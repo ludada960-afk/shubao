@@ -15,8 +15,8 @@ export function isUnlimitedBetaEmail(value) {
 
 export function requireBetaEmail(value) {
   const email = normalizeEmail(value);
-  if (!email) return { ok: false, status: 401, error: '请先登录后再使用内测功能' };
-  if (!isAllowedBetaEmail(email)) return { ok: false, status: 403, error: '薯包AI 正在内测，仅受邀账号可以登录' };
+  if (!email) return { ok: false, status: 401, error: '请先登录后再继续操作' };
+  if (!isAllowedBetaEmail(email)) return { ok: false, status: 403, error: '当前账号暂时无法使用此功能' };
   return { ok: true, email };
 }
 

@@ -298,7 +298,12 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.equal(generateRouteCount, 1);
   assert.match(server, /createEcommerceOrchestrator\(/);
   assert.match(server, /createEcommerceRouteHandlers\(/);
-  assert.match(server, /IMG_BASE\s*&&\s*IMG_KEY\s*\?\s*createProviderAdapter\(/);
+  assert.match(server, /IMG_BASE\s*&&\s*IMG_OVERFLOW_BASE\s*&&\s*IMG_KEY\s*\?\s*createProviderRouter\(\{/);
+  assert.match(server, /IMAGE_PRIMARY_BASE_URL/);
+  assert.match(server, /IMAGE_OVERFLOW_BASE_URL/);
+  assert.match(server, /https:\/\/img-cn\.65535\.space/);
+  assert.match(server, /https:\/\/sub-proxy-us-1\.65535\.space/);
+  assert.doesNotMatch(server, /IMAGE_PRIMARY_BASE_URL\s*\|\|\s*process\.env\.IMAGE_BASE_URL/);
   assert.match(server, /app\.post\('\/api\/generate-ecommerce',\s*ecommerceRouteHandlers\.generate\)/);
   assert.match(server, /authenticateContentRequest\(req,\s*\{[\s\S]{0,200}sessionTokens:\s*contentSessionTokens/);
   assert.match(server, /createEcommerceStartupRecovery\(/);
@@ -306,7 +311,7 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.ok(server.indexOf('await recoverEcommerceStartup()') < server.indexOf('app.listen(PORT'));
   assert.match(server, /recoverEcommerceStartup\.stop\(\)/);
   assert.doesNotMatch(server, /orchestrator\.resumeJobs\(\)\.then\(/);
-  const unavailableStart = server.indexOf("const ecommerceProviderAdapter = IMG_BASE && IMG_KEY");
+  const unavailableStart = server.indexOf("const ecommerceProviderAdapter = IMG_BASE && IMG_OVERFLOW_BASE && IMG_KEY");
   const unavailableEnd = server.indexOf('const orchestrator = createEcommerceOrchestrator', unavailableStart);
   assert.match(server.slice(unavailableStart, unavailableEnd), /error\.retryable\s*=\s*true/);
   assert.match(ecommerceBilling, /idempotencyKey:\s*`ec-release-remainder:\$\{job\.id\}:setup`/);

@@ -51,7 +51,7 @@ export async function sendVerificationCode(email) {
   const transport = getTransporter();
   if (!transport) {
     if (process.env.NODE_ENV === 'production') {
-      const error = new Error('内测登录邮件尚未配置，请联系管理员');
+      const error = new Error('验证码服务暂时不可用，请稍后再试');
       error.statusCode = 503;
       throw error;
     }

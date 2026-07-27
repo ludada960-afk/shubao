@@ -33,6 +33,17 @@ test('quotes ecommerce outputs from server feature weights', () => {
   assert.equal(quoteFeature('ec_image_4k', 2).totalUnits, 4000);
 });
 
+test('quotes an explicit design-direction refresh as one AI point', () => {
+  assert.deepEqual(quoteFeature('ec_direction_refresh', 1), {
+    sku: 'ec_direction_refresh',
+    quantity: 1,
+    units: 1000,
+    totalUnits: 1000,
+    currency: 'ec_points',
+    providerCostCny: 0.05,
+  });
+});
+
 test('disabled features remain quote-ineligible', () => {
   assert.throws(() => quoteFeature('ec_layer_psd', 1), /enabled/i);
 });

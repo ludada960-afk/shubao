@@ -53,7 +53,7 @@ function normalizeRequest(ownerEmailInput, body = {}) {
     primaryImage,
     ...(Array.isArray(body?.reference_images) ? body.reference_images : []),
   ].map(cleanString).filter(Boolean).slice(0, 9);
-  const selectedSize = resolveGenerationSize({ resolution: '1K', ratio: body?.ratio });
+  const selectedSize = resolveGenerationSize({ resolution: body?.resolution || '2K', ratio: body?.ratio });
   const canonical = JSON.stringify({
     ownerEmail,
     prompt,
@@ -186,7 +186,13 @@ export function createCanvasGenerationService({
       },
     });
     if (job.status === 'completed' && job.stableUrl) {
-      return { taskId: job.requestId, url: job.stableUrl, replay: true };
+      return {
+        taskId: job.requestId,
+        url: job.stableUrl,
+        replay: true,
+        ratio: request.selectedSize.ratio,
+        resolution: request.selectedSize.resolution,
+      };
     }
     if (job.status === 'failed') throw storedError(job);
     let ownedLeaseToken = '';
@@ -195,14 +201,26 @@ export function createCanvasGenerationService({
       return await imageGenerationPool.run(async () => {
         job = store.get(job.requestId);
         if (job?.status === 'completed' && job.stableUrl) {
-          return { taskId: job.requestId, url: job.stableUrl, replay: true };
+          return {
+            taskId: job.requestId,
+            url: job.stableUrl,
+            replay: true,
+            ratio: request.selectedSize.ratio,
+            resolution: request.selectedSize.resolution,
+          };
         }
         if (job?.status === 'failed') throw storedError(job);
         const claimed = store.claim(request.requestId);
         if (!claimed) {
           job = store.get(request.requestId);
           if (job?.status === 'completed' && job.stableUrl) {
-            return { taskId: job.requestId, url: job.stableUrl, replay: true };
+            return {
+              taskId: job.requestId,
+              url: job.stableUrl,
+              replay: true,
+              ratio: request.selectedSize.ratio,
+              resolution: request.selectedSize.resolution,
+            };
           }
           if (job?.status === 'failed') throw storedError(job);
           throw inProgressError(request.requestId);
@@ -277,7 +295,13 @@ export function createCanvasGenerationService({
             stableUrl: asset.url,
             leaseToken: job.leaseToken,
           });
-          return { taskId: job.requestId, url: job.stableUrl, replay: false };
+          return {
+            taskId: job.requestId,
+            url: job.stableUrl,
+            replay: false,
+            ratio: request.selectedSize.ratio,
+            resolution: request.selectedSize.resolution,
+          };
         } finally {
           heartbeat.stop();
         }
@@ -365,6 +389,7 @@ export function createCanvasRegenerateHandler({ service, billing } = {}) {
         referenceType: 'canvas_regenerate',
         providerCostCny: 0.0694,
         metadata: { action: 'regenerate' },
+        resumableWork: true,
         work: () => service.regenerate({ ownerEmail, body }),
       });
       const result = billed.result;

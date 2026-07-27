@@ -127,7 +127,7 @@ test('quote request uses the formal resolution SKU and exact planned quantity', 
   });
 });
 
-test('quote copy is product-facing and keeps unlimited owner non-numeric', async () => {
+test('quote copy always shows the market price, including internal unlimited accounts', async () => {
   const { formatEcommerceQuote } = await planModel();
 
   assert.equal(formatEcommerceQuote({
@@ -138,7 +138,7 @@ test('quote copy is product-facing and keeps unlimited owner non-numeric', async
     quantity: 9,
     quote: { totalUnits: 9000, currency: 'ec_points' },
     unlimited: true,
-  }), '生成 9 张 · 不限额度');
+  }), '生成 9 张 · 9 AI 积分');
 });
 
 test('creates a stable draft id and a complete reference-only ecommerce pending action', async () => {
@@ -369,8 +369,15 @@ test('direction generation keeps normalized per-asset progress and stable previe
   assert.match(source, /asset\.userState/);
   assert.match(source, /stableImages\.map/);
   assert.match(source, /retry:\s*retryTaskRequested/);
-  assert.match(source, /result\?\.status === 'completed' \|\| result\?\.status === 'needs_review'/);
+  assert.match(source, /result\?\.status === 'completed'/);
+  assert.doesNotMatch(source, /hasFinalStatus[\s\S]{0,160}needs_review/);
+  assert.match(source, /_saveKey:\s*`ec-task-\$\{result\.taskId\}`/);
+  assert.match(source, /taskId:\s*result\.taskId/);
   assert.match(source, /Object\.keys\(result\?\.images \|\| \{\}\)\.length > 0/);
+  assert.match(source, /setPreviewImageIndex\(index\)/);
+  assert.match(source, /event\.key === 'ArrowLeft'/);
+  assert.match(source, /event\.key === 'ArrowRight'/);
+  assert.match(source, /event\.key === 'Escape'/);
   assert.doesNotMatch(source, /setExtraProductImages\(\[\]\)|setExtraReferenceImages\(\[\]\)|setDirections\(\[\]\)/);
 });
 
@@ -456,12 +463,25 @@ test('every running ecommerce entry binds callbacks and completion to its owner-
   }
 });
 
-test('direction analysis is token-free while all entrypoints reject missing context and EcAuto rotates immediately', async () => {
+test('initial direction analysis is included while explicit refresh is authoritatively billed', async () => {
   const direction = await fs.readFile(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
   const analysisSlice = direction.slice(direction.indexOf('const loadDirections'), direction.indexOf('const updateDirection'));
   assert.match(analysisSlice, /uploadSupplementAssetsForAnalysis\(\)/);
   assert.match(direction, /uploadSupplementAssetsForGeneration\(generationToken/);
   assert.match(analysisSlice, /uploadedSupplement\.product/);
+  assert.match(direction, /quoteBillingAction\(\{\s*sku:\s*['"]ec_direction_refresh['"],\s*quantity:\s*1\s*\}\)/);
+  assert.match(direction, /quoteId:\s*quote\.quoteId/);
+  assert.match(direction, /billingQuoteId:\s*refreshBilling\?\.quoteId/);
+  assert.match(direction, /billingActionId:\s*refreshBilling\?\.actionId/);
+  assert.match(direction, /directionRefreshActionRef\s*=\s*useRef\(null\)/);
+  assert.match(direction, /loadEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId\s*\}\)/);
+  assert.match(direction, /directionRefreshActionRef\.current\s*\|\|/);
+  assert.match(direction, /directionRefreshActionRef\.current\s*=\s*actionId/);
+  assert.match(direction, /saveEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId,\s*actionId\s*\}\)/);
+  assert.match(direction, /clearEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId,\s*actionId\s*\}\)/);
+  assert.match(direction, /await loadDirections\([\s\S]{0,240}directionRefreshActionRef\.current\s*=\s*null/);
+  assert.match(analysisSlice, /if\s*\(refreshBilling\)\s*throw e/);
+  assert.match(direction, /重新分析四个方向\s*·\s*1 AI 积分/);
 
   const entries = [
     '../src/pages/Home/EcMode.jsx',
@@ -485,6 +505,18 @@ test('direction analysis is token-free while all entrypoints reject missing cont
   assert.match(ecMode, /generationAbortRef/);
   assert.match(ecMode, /uploadEcommerceAssets\(productImages, 'product', \{ signal: generationController\.signal \}\)/);
   assert.match(ecMode, /uploadEcommerceAssets\(refImages, 'reference', \{ signal: generationController\.signal \}\)/);
+});
+
+test('design-direction refresh is settled server-side against the signed owner', async () => {
+  const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const routeStart = server.indexOf("app.post('/api/ecommerce/design-directions'");
+  assert.notEqual(routeStart, -1);
+  const routeSource = server.slice(routeStart, server.indexOf('// AI 润色电商文案', routeStart));
+  assert.match(routeSource, /canvasOneShotBilling\.execute\(\{/);
+  assert.match(routeSource, /ownerEmail:\s*req\._userEmail/);
+  assert.match(routeSource, /sku:\s*['"]ec_direction_refresh['"]/);
+  assert.match(routeSource, /billing_quote_id/);
+  assert.match(routeSource, /billing_action_id/);
 });
 
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {

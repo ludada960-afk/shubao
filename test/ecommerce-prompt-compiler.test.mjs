@@ -631,5 +631,20 @@ test('has no Contact Sheet production dependency', async () => {
     'utf8',
   );
 
-  assert.doesNotMatch(source, /referenceContactSheet|buildReferenceContactSheet|contact\s*sheet/i);
+  assert.doesNotMatch(source, /referenceContactSheet|buildReferenceContactSheet/i);
+});
+
+test('forces every deliverable to be one independent role-specific image instead of a collage', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem({ role: 'main_text', purpose: 'Show one primary benefit.' }),
+    productTruth: productTruth(),
+    campaignBible: campaignBible({ composition: 'Use the reference layout language.' }),
+    assets: { product: [asset('product-front')], reference: [asset('style-a')] },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+  const instructions = schema.sections.generationInstructions;
+
+  assert.match(instructions.outputContract, /one complete independent image/i);
+  assert.match(instructions.outputContract, /no collage|contact sheet/i);
+  assert.match(instructions.composition, /single[- ]scene|single[- ]frame/i);
 });

@@ -12,6 +12,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /scp[^\n]*remoteDatabaseBackupHelper/i);
   assert.doesNotMatch(deploy, /(?:^|[;&\s])sqlite3\s/m);
   assert.match(deploy, /--exclude='server\/works\.db'/);
+  assert.match(deploy, /--exclude='server\/\.auth-session-secret'/);
   assert.match(deploy, /deploy-backups/);
   assert.match(deploy, /catch\s*\{/);
   assert.match(deploy, /rollback/i);

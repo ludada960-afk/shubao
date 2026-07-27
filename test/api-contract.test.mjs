@@ -482,6 +482,11 @@ test('Canvas API helpers send the signed session token and omit body email autho
     action: 'upscale',
     imageUrl: '/api/generated-assets/source.png',
   });
+  await api.transformCanvasImage({
+    action: 'upscale',
+    imageUrl: '/api/generated-assets/source.png',
+    resolution: '4K',
+  });
   await api.analyzeCanvasLayers('/api/generated-assets/source.png');
 
   assert.deepEqual(requests.map(request => request.url), [
@@ -489,8 +494,14 @@ test('Canvas API helpers send the signed session token and omit body email autho
     '/api/canvas/regenerate',
     '/api/billing/quote',
     '/api/canvas/transform',
+    '/api/billing/quote',
+    '/api/canvas/transform',
     '/api/canvas/analyze-layers',
   ]);
+  assert.deepEqual(
+    requests.filter(request => request.url.endsWith('/api/billing/quote')).map(request => request.body.sku),
+    ['ec_image_2k', 'ec_image_2k', 'ec_image_4k'],
+  );
   for (const request of requests) {
     assert.equal(request.headers.Authorization, 'Bearer signed-canvas-session', request.url);
     assert.equal(Object.hasOwn(request.body, 'email'), false, request.url);

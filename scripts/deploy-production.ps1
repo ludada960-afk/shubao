@@ -59,6 +59,7 @@ tar -czf $archive -C $repo `
   --exclude='server/temp_uploads' `
   --exclude='server/node_modules' `
   --exclude='server/.env' `
+  --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
   dist server package.json package-lock.json ecosystem.config.cjs
 

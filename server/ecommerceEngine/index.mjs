@@ -56,6 +56,9 @@ export {
   createProviderAdapter,
 } from './providerAdapter.mjs';
 export {
+  createProviderRouter,
+} from './providerRouter.mjs';
+export {
   normalizeProductTruth, mergeProductFacts, buildProductTruthPrompt,
 } from './productTruth.mjs';
 export {

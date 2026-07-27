@@ -119,6 +119,51 @@ test('task references reject timestamps from the future instead of extending the
   assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-future', now, storage }), null);
 });
 
+test('direction refresh action survives page reload for the same owner draft and clears exactly once', () => {
+  const {
+    clearEcommerceDirectionRefreshAction,
+    loadEcommerceDirectionRefreshAction,
+    saveEcommerceDirectionRefreshAction,
+  } = taskProgressModel;
+  assert.equal(typeof clearEcommerceDirectionRefreshAction, 'function');
+  assert.equal(typeof loadEcommerceDirectionRefreshAction, 'function');
+  assert.equal(typeof saveEcommerceDirectionRefreshAction, 'function');
+  const storage = memoryStorage();
+  const now = 1_700_000_000_000;
+  const identity = {
+    ownerEmail: 'Owner@Example.COM',
+    draftId: 'ec-draft-direction-refresh',
+    actionId: 'ec-direction-refresh-action-1',
+    createdAt: now,
+    storage,
+  };
+
+  assert.equal(saveEcommerceDirectionRefreshAction(identity), true);
+  assert.deepEqual(loadEcommerceDirectionRefreshAction({
+    ownerEmail: 'owner@example.com',
+    draftId: identity.draftId,
+    now: now + 1,
+    storage,
+  }), {
+    actionId: identity.actionId,
+    createdAt: now,
+  });
+  assert.equal(loadEcommerceDirectionRefreshAction({
+    ownerEmail: 'other@example.com',
+    draftId: identity.draftId,
+    now: now + 1,
+    storage,
+  }), null);
+  assert.equal(clearEcommerceDirectionRefreshAction({
+    ownerEmail: identity.ownerEmail,
+    draftId: identity.draftId,
+    actionId: 'different-action',
+    storage,
+  }), false);
+  assert.equal(clearEcommerceDirectionRefreshAction(identity), true);
+  assert.equal(loadEcommerceDirectionRefreshAction({ ...identity, now: now + 1 }), null);
+});
+
 test('active drafts survive refresh for the same owner and surface but never cross either boundary', () => {
   assert.equal(typeof taskProgressModel.loadOrCreateEcommerceDraft, 'function');
   assert.equal(typeof taskProgressModel.ecommerceDraftKey, 'function');

@@ -2,6 +2,8 @@ export const ECOMMERCE_TASK_REFERENCE_VERSION = 1;
 export const ECOMMERCE_TASK_REFERENCE_TTL_MS = 24 * 60 * 60 * 1000;
 export const ECOMMERCE_DRAFT_REFERENCE_VERSION = 1;
 export const ECOMMERCE_DRAFT_REFERENCE_TTL_MS = 24 * 60 * 60 * 1000;
+export const ECOMMERCE_DIRECTION_REFRESH_ACTION_VERSION = 1;
+export const ECOMMERCE_DIRECTION_REFRESH_ACTION_TTL_MS = 24 * 60 * 60 * 1000;
 export const ECOMMERCE_DRAFT_SURFACES = Object.freeze({
   HOME_WIZARD: 'home-wizard',
   EC_STUDIO: 'ec-studio',
@@ -309,6 +311,86 @@ export function clearEcommerceTaskReference({ ownerEmail, draftId, taskId, stora
       || record?.ownerEmail !== owner
       || record?.draftId !== draft
       || record?.taskId !== expectedTaskId
+    ) return false;
+    storageFor(storage)?.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function directionRefreshActionKey({ ownerEmail, draftId } = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const draft = cleanText(draftId);
+  if (!owner || !draft) return '';
+  return `sb-ecommerce-direction-refresh:v${ECOMMERCE_DIRECTION_REFRESH_ACTION_VERSION}:${encodeURIComponent(owner)}:${encodeURIComponent(draft)}`;
+}
+
+export function saveEcommerceDirectionRefreshAction({
+  ownerEmail,
+  draftId,
+  actionId,
+  createdAt = Date.now(),
+  storage,
+} = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const draft = cleanText(draftId);
+  const action = cleanText(actionId);
+  const key = directionRefreshActionKey({ ownerEmail: owner, draftId: draft });
+  if (!key || !action || !Number.isFinite(createdAt)) return false;
+  try {
+    storageFor(storage)?.setItem(key, JSON.stringify({
+      version: ECOMMERCE_DIRECTION_REFRESH_ACTION_VERSION,
+      ownerEmail: owner,
+      draftId: draft,
+      actionId: action,
+      createdAt,
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadEcommerceDirectionRefreshAction({ ownerEmail, draftId, now = Date.now(), storage } = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const draft = cleanText(draftId);
+  const key = directionRefreshActionKey({ ownerEmail: owner, draftId: draft });
+  if (!key || !Number.isFinite(now)) return null;
+  try {
+    const stored = storageFor(storage)?.getItem(key);
+    const record = stored ? JSON.parse(stored) : null;
+    const valid = record
+      && record.version === ECOMMERCE_DIRECTION_REFRESH_ACTION_VERSION
+      && record.ownerEmail === owner
+      && record.draftId === draft
+      && cleanText(record.actionId)
+      && Number.isFinite(record.createdAt)
+      && record.createdAt <= now
+      && now - record.createdAt <= ECOMMERCE_DIRECTION_REFRESH_ACTION_TTL_MS;
+    if (!valid) {
+      if (stored) storageFor(storage)?.removeItem(key);
+      return null;
+    }
+    return { actionId: record.actionId, createdAt: record.createdAt };
+  } catch {
+    return null;
+  }
+}
+
+export function clearEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId, storage } = {}) {
+  const owner = normalizedOwner(ownerEmail);
+  const draft = cleanText(draftId);
+  const action = cleanText(actionId);
+  const key = directionRefreshActionKey({ ownerEmail: owner, draftId: draft });
+  if (!key || !action) return false;
+  try {
+    const record = JSON.parse(storageFor(storage)?.getItem(key) || 'null');
+    if (
+      record?.version !== ECOMMERCE_DIRECTION_REFRESH_ACTION_VERSION
+      || record?.ownerEmail !== owner
+      || record?.draftId !== draft
+      || record?.actionId !== action
     ) return false;
     storageFor(storage)?.removeItem(key);
     return true;

@@ -14,6 +14,7 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 import { mountOnApp as mountExtRoutes } from './extensionRoutes.mjs';
 import { sendVerificationCode, verifyCode } from './mailService.mjs';
+import { resolveAuthSessionSecret } from './authSessionSecret.mjs';
 import { buildOutline, IMAGE_TYPE_INFO } from './ecommercePromptEngine.mjs';
 import {
   PLOG_STYLES, PLOG_CATEGORIES, SCENE_LENSES, LAYOUT_TEMPLATES, COVER_VARIANTS,
@@ -69,6 +70,7 @@ import {
   createEcommerceRouteHandlers,
   createEcommerceStartupRecovery,
   createProviderAdapter,
+  createProviderRouter,
   evaluateAsset,
   mergeProductFacts,
   normalizeProductTruth,
@@ -103,11 +105,10 @@ const db = initDB();
 const walletService = createWalletService(db, { isUnlimited: isUnlimitedBetaEmail });
 const paymentService = createPaymentService(db, walletService);
 const contentEntitlements = createContentEntitlements(db, walletService);
-let authSessionSecret = process.env.AUTH_SESSION_SECRET;
-if (!authSessionSecret) {
-  authSessionSecret = crypto.randomBytes(32);
-  console.warn('[auth] AUTH_SESSION_SECRET 未配置，使用本进程随机密钥；服务重启后需重新登录');
-}
+const authSessionSecret = resolveAuthSessionSecret({
+  envSecret: process.env.AUTH_SESSION_SECRET,
+  filePath: process.env.AUTH_SESSION_SECRET_FILE || resolve(__dirname, '.auth-session-secret'),
+});
 const contentSessionTokens = createSessionTokenService({ secret: authSessionSecret });
 const billingQuoteService = createBillingQuoteService({ secret: authSessionSecret });
 const contentBilling = createContentBilling({ db, contentEntitlements, walletService });
@@ -211,6 +212,9 @@ const CONTENT_PREVIEW_ROUTES = new Set(['/api/generate', '/api/plog-generate']);
 const SIGNED_GENERATION_ROUTES = new Set([
   ...CONTENT_PREVIEW_ROUTES,
   '/api/generate-ecommerce',
+  '/api/ecommerce/auto-recognize',
+  '/api/ecommerce/design-directions',
+  '/api/polish-ec-text',
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
@@ -358,7 +362,9 @@ const LLM_KEY = process.env.LLM_API_KEY || '';
 const LLM_BASE = (process.env.LLM_BASE_URL || '').replace(/\/+$/, '');
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
 const IMG_KEY = process.env.IMAGE_API_KEY || '';
-const IMG_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
+const IMG_BASE = (process.env.IMAGE_PRIMARY_BASE_URL || 'https://img-cn.65535.space').replace(/\/+$/, '');
+const IMG_OVERFLOW_BASE = (process.env.IMAGE_OVERFLOW_BASE_URL || 'https://sub-proxy-us-1.65535.space').replace(/\/+$/, '');
+const IMG_LEGACY_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
 const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
 
 // Mini API — 廉价 Vision 分析
@@ -3061,12 +3067,17 @@ const canvasOneShotBilling = createOneShotBilling({
   actionStore: createCanvasBilledActionStore(db),
 });
 
-const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderAdapter({
-  baseUrl: IMG_BASE,
+const createConfiguredImageAdapter = baseUrl => createProviderAdapter({
+  baseUrl,
   apiKey: IMG_KEY,
   authStrategy: 'x-api-key',
   editPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
   pollPath: process.env.IMAGE_TASK_PATH || '/v1/images/tasks/{id}',
+});
+const ecommerceProviderAdapter = IMG_BASE && IMG_OVERFLOW_BASE && IMG_KEY ? createProviderRouter({
+  primary: createConfiguredImageAdapter(IMG_BASE),
+  overflow: createConfiguredImageAdapter(IMG_OVERFLOW_BASE),
+  legacy: IMG_LEGACY_BASE ? createConfiguredImageAdapter(IMG_LEGACY_BASE) : undefined,
 }) : {
   async submitEdit() {
     const error = new Error('图片生成服务暂未配置');
@@ -3177,10 +3188,10 @@ setInterval(() => {
 // ============================================================
 // 设计方向：VLM 分析产品+参考图 → 输出 3-4 组差异化设计方向
 // ============================================================
-app.post('/api/ecommerce/design-directions', async (req, res) => {
-  const { product_name, description, category, real_shots, ref_shots, platform, style_skill, product_params, skus, copywriting } = req.body || {};
+async function generateDesignDirections(input = {}) {
+  const { product_name, description, category, real_shots, ref_shots, platform, style_skill, product_params, skus, copywriting } = input;
   if (!product_name && !description && !real_shots?.length) {
-    return res.status(400).json({ error: '请至少填写产品名称或上传产品图' });
+    throw Object.assign(new Error('请至少填写产品名称或上传产品图'), { status: 400 });
   }
 
   // 将相对路径 URL 转为 base64（临时上传的图片），不设数量上限
@@ -3196,8 +3207,7 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
     return resolved;
   };
 
-  try {
-    const resolvedReal = await resolveImages(real_shots);
+  const resolvedReal = await resolveImages(real_shots);
     const resolvedRef = await resolveImages(ref_shots);
 
     // 1) VLM 分析产品实拍图（全量，analyzeReferenceImages 内部自动分批）
@@ -3320,16 +3330,45 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
       );
     }
 
-    res.json({
+    return {
       directions,
       analysis: {
         product_vision: productVision,
         ref_vision: refVision,
       },
-    });
+    };
+}
+
+app.post('/api/ecommerce/design-directions', async (req, res) => {
+  const { refresh, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
+  try {
+    if (refresh === true) {
+      const billed = await canvasOneShotBilling.execute({
+        ownerEmail: req._userEmail,
+        quoteId,
+        actionId,
+        sku: 'ec_direction_refresh',
+        referenceType: 'ecommerce_direction_refresh',
+        providerCostCny: 0.05,
+        metadata: { action: 'direction_refresh' },
+        work: async () => {
+          const result = await generateDesignDirections(req.body);
+          const fingerprint = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex');
+          return { ...result, url: `direction-refresh:${fingerprint}` };
+        },
+      });
+      return res.json({ ...billed.result, billing: billed.billing });
+    }
+    return res.json(await generateDesignDirections(req.body));
   } catch (e) {
     console.warn('[design-directions] 失败:', e.message);
-    res.status(500).json({ error: '设计方向生成失败：' + (e.message || '') });
+    return res.status(e?.status || 500).json({
+      error: e?.message || '设计方向生成失败',
+      code: e?.code,
+      required: e?.required,
+      available: e?.available,
+      billing: e?.billing,
+    });
   }
 });
 
@@ -3541,10 +3580,10 @@ app.post('/api/canvas/transform', async (req, res) => {
     return res.status(400).json({ error: '不支持的画布操作' });
   }
   try {
-    const sourceBuffer = await readCanvasImage(imageUrl);
     const taskId = `canvas_${action}_${Date.now()}`;
 
     if (action === 'crop') {
+      const sourceBuffer = await readCanvasImage(imageUrl);
       const metadata = await sharp(sourceBuffer).metadata();
       const rect = cropRectForRatio(metadata.width || 1, metadata.height || 1, ratio);
       const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
@@ -3553,6 +3592,7 @@ app.post('/api/canvas/transform', async (req, res) => {
     }
 
     if (action === 'grid-split') {
+      const sourceBuffer = await readCanvasImage(imageUrl);
       const metadata = await sharp(sourceBuffer).metadata();
       const width = metadata.width || 1;
       const height = metadata.height || 1;
@@ -3573,6 +3613,7 @@ app.post('/api/canvas/transform', async (req, res) => {
     }
 
     if (action === 'annotation') {
+      const sourceBuffer = await readCanvasImage(imageUrl);
       const metadata = await sharp(sourceBuffer).metadata();
       const width = metadata.width || 1024;
       const height = metadata.height || 1024;
@@ -3590,30 +3631,27 @@ app.post('/api/canvas/transform', async (req, res) => {
       return res.json({ url: asset.url, annotation: text });
     }
 
+    const selectedSize = resolveGenerationSize({ resolution, ratio });
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
       actionId,
-      sku: 'ec_image_2k',
+      sku: selectedSize.resolution === '4K' ? 'ec_image_4k' : 'ec_image_2k',
       referenceType: 'canvas_transform',
       providerCostCny: 0.0694,
       metadata: { action },
-      work: async () => {
-        const reference = `data:image/png;base64,${(await sharp(sourceBuffer).png().toBuffer()).toString('base64')}`;
-        const selectedSize = resolveGenerationSize({ resolution, ratio });
-        const fallbackSize = resolveGenerationSize({ resolution: '1K', ratio: selectedSize.ratio });
-        const generated = await callImageAPI(
-          buildCanvasTransformPrompt({ action, prompt, targetLanguage }),
-          selectedSize.size,
-          reference,
-          { resolution: selectedSize.resolution, aspectRatio: selectedSize.ratio },
-          fallbackSize.size,
-        );
-        const asset = await generatedAssetStore.persist({ sourceUrl: generated, taskId, label: `canvas_${action}` });
-        return { url: asset.url, action, ratio: selectedSize.ratio, resolution: selectedSize.resolution };
-      },
+      resumableWork: true,
+      work: () => canvasGenerationService.regenerate({
+        ownerEmail: req._userEmail,
+        body: {
+          prompt: buildCanvasTransformPrompt({ action, prompt, targetLanguage }),
+          image_url: imageUrl,
+          ratio: selectedSize.ratio,
+          resolution: selectedSize.resolution,
+        },
+      }),
     });
-    return res.json({ ...billed.result, billing: billed.billing });
+    return res.json({ ...billed.result, action, billing: billed.billing });
   } catch (error) {
     console.error(`[canvas/${action}] 失败:`, error.message);
     return res.status(error?.status || 500).json({

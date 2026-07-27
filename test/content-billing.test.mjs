@@ -1186,9 +1186,9 @@ test('server initializes durable billing, signed sessions, trusted proxy IPs, an
   assert.match(server, /createBilledSseRunner\(/);
   assert.match(server, /createPreviewSseRunner\(/);
   assert.match(server, /process\.env\.AUTH_SESSION_SECRET/);
-  assert.match(server, /crypto\.randomBytes\(32\)/);
+  assert.match(server, /resolveAuthSessionSecret\(/);
+  assert.match(server, /AUTH_SESSION_SECRET_FILE/);
   assert.match(server, /createSessionTokenService\(/);
-  assert.match(server, /console\.warn\([^)]*AUTH_SESSION_SECRET/);
   assert.match(server, /app\.set\(['"]trust proxy['"],\s*['"]loopback['"]\)/);
 
   assert.match(server, /CONTENT_PREVIEW_ROUTES\s*=\s*new Set\(\[\s*['"]\/api\/generate['"],\s*['"]\/api\/plog-generate['"]\s*\]\)/);

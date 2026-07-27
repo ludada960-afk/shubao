@@ -34,6 +34,12 @@ const CANVAS_AI_ROUTES = [
   '/api/canvas/analyze-layers',
 ];
 
+const SIGNED_ECOMMERCE_ASSISTANT_ROUTES = [
+  '/api/ecommerce/auto-recognize',
+  '/api/ecommerce/design-directions',
+  '/api/polish-ec-text',
+];
+
 function extractSignedGenerationRoutes(source) {
   const start = source.indexOf('const SIGNED_GENERATION_ROUTES');
   assert.notEqual(start, -1, 'SIGNED_GENERATION_ROUTES must exist');
@@ -157,6 +163,15 @@ test('every Canvas AI route belongs to the signed generation route set', async (
   const signedRoutes = extractSignedGenerationRoutes(source);
 
   for (const route of CANVAS_AI_ROUTES) {
+    assert.equal(signedRoutes.has(route), true, `${route} must require a signed owner`);
+  }
+});
+
+test('every ecommerce AI assistant route requires a signed owner session', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const signedRoutes = extractSignedGenerationRoutes(source);
+
+  for (const route of SIGNED_ECOMMERCE_ASSISTANT_ROUTES) {
     assert.equal(signedRoutes.has(route), true, `${route} must require a signed owner`);
   }
 });

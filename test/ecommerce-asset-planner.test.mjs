@@ -230,6 +230,27 @@ test('honors configured counts including transparent assets and expands determin
   assert.deepEqual(first, second);
 });
 
+test('assigns repeated hero images distinct commercial shot duties', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible,
+    platform: 'taobao',
+    sizing: {
+      images: [
+        { key: 'main_text', count: 3, ratio: '1:1' },
+        { key: 'detail', count: 0, ratio: '3:4' },
+      ],
+    },
+  });
+  const heroes = plan.filter(item => item.role === 'main_text');
+
+  assert.equal(heroes.length, 3);
+  assert.equal(new Set(heroes.map(item => item.purpose)).size, 3);
+  assert.match(heroes[0].purpose, /identity|recognition/i);
+  assert.match(heroes[1].purpose, /benefit|feature/i);
+  assert.match(heroes[2].purpose, /usage|scene|scale/i);
+});
+
 test('normalizes prototype-sensitive inputs and returns deterministic stable item IDs', () => {
   const inherited = { sourceAssetIds: ['inherited-product'], referenceAssetIds: ['inherited-style'] };
   const unsafeTruth = Object.assign(Object.create(inherited), productTruth({ sourceAssetIds: ['product-front'] }));

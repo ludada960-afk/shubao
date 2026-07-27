@@ -78,7 +78,12 @@ export async function verifyOTP(email, code) {
 }
 
 export async function getSession() {
-  return getStored();
+  const session = getStored();
+  if (!session?.token || !getSessionToken()) {
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+  return session;
 }
 
 export async function signOut() {

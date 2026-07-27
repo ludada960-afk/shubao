@@ -282,6 +282,50 @@ test('always requires PNG quality output for transparent plan items', async t =>
   assert.equal(calls.quality[0].expectedFormat, 'png');
 });
 
+test('runs independent assets with bounded per-task concurrency', async t => {
+  let active = 0;
+  let maxActive = 0;
+  const { orchestrator } = await createHarness(t, {
+    items: [planItem('a'), planItem('b'), planItem('c'), planItem('d')],
+    orchestratorOptions: { assetConcurrency: 3 },
+    poll: async ({ providerJobId }) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise(resolve => setTimeout(resolve, 15));
+      active -= 1;
+      return { jobId: providerJobId, status: 'completed', outputUrl: `https://provider.example/${providerJobId}.png` };
+    },
+  });
+
+  const created = orchestrator.createJob(jobInput('job-bounded-concurrency'));
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(maxActive, 3);
+});
+
+test('waits for in-flight asset workers to settle before releasing a failed parent runner', async t => {
+  let slowWorkerCompleted = false;
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('a'), planItem('b'), planItem('c')],
+    orchestratorOptions: { assetConcurrency: 2 },
+    poll: async ({ providerJobId }) => {
+      if (providerJobId === 'provider-1') {
+        throw Object.assign(new Error('temporary provider failure'), { retryable: true });
+      }
+      await new Promise(resolve => setTimeout(resolve, 25));
+      slowWorkerCompleted = true;
+      return { jobId: providerJobId, status: 'completed', outputUrl: `https://provider.example/${providerJobId}.png` };
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-worker-convergence'));
+
+  await assert.rejects(() => orchestrator.runJob(created.id), /temporary provider failure/);
+
+  assert.equal(slowWorkerCompleted, true);
+  assert.equal(calls.submit.length, 2);
+});
+
 test('createJob only persists queued work and does not start a second background runner', async t => {
   const { orchestrator, calls } = await createHarness(t);
 

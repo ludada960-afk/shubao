@@ -29,6 +29,14 @@ test('server Canvas regeneration is a thin route over the executable durable ser
   assert.doesNotMatch(route, /submitEdit|pollUntilReady|imageInputReader|generatedAssetStore/);
 });
 
+test('Canvas AI transforms reuse the durable provider-job service instead of direct image submission', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/canvas/transform', '// 画布图文分层');
+
+  assert.match(route, /canvasGenerationService\.regenerate\(\{[\s\S]*?ownerEmail:[\s\S]*?body:/);
+  assert.doesNotMatch(route, /callImageAPI\(/);
+});
+
 test('shared catalog resolves every Canvas size to an exact legal entry', () => {
   assert.equal(typeof modelCatalog.resolveGenerationSize, 'function');
 

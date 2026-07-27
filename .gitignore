@@ -15,6 +15,7 @@ server/works.json
 server/users.json
 server/bookmarklet_store.json
 server/works.db*
+server/.auth-session-secret
 server/uploads/
 server/cache_img/
 server/cache_overlay/

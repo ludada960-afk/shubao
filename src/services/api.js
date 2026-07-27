@@ -572,7 +572,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
   }
   if (typeof isCurrent === 'function' && !isCurrent()) return null;
-  // 电商生图属于封闭内测能力；请求携带本地会话邮箱，服务端仍会二次校验。
+  // 电商生图是受控能力；请求携带会话信息，服务端仍会二次校验。
   if (email || ownerEmail) body.email = email || ownerEmail;
   if (imageSize?.width && imageSize?.height) {
     body.image_size = imageSize;
@@ -701,7 +701,7 @@ export async function getEcommerceTask(taskId, { signal } = {}) {
 export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
   const res = await fetch(`${API_BASE}/api/ecommerce/auto-recognize`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(withSessionEmail({ smartBrief: smartBrief || '', refShots: refShots || [] })),
   });
   if (!res.ok) throw await createApiError(res, '智能识别失败');
@@ -720,8 +720,14 @@ export async function getDesignDirections(params) {
 
   const res = await fetch(`${API_BASE}/api/ecommerce/design-directions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ ...params, real_shots, ref_shots })),
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({
+      ...params,
+      real_shots,
+      ref_shots,
+      billing_quote_id: params.billingQuoteId,
+      billing_action_id: params.billingActionId,
+    })),
   });
   if (!res.ok) throw await createApiError(res, '设计方向生成失败');
   return res.json();
@@ -731,7 +737,7 @@ export async function getDesignDirections(params) {
 export async function polishECText({ text, product_name, category }) {
   const res = await fetch(`${API_BASE}/api/polish-ec-text`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(withSessionEmail({ text, product_name, category })),
   });
   if (!res.ok) throw await createApiError(res, '润色失败');
@@ -877,7 +883,8 @@ export async function transformCanvasImage({
   annotation = '',
 }) {
   const paid = new Set(['retouch', 'extend', 'translate', 'upscale', 'inpaint']);
-  const billing = paid.has(action) ? await quoteCanvasAction('ec_image_2k') : null;
+  const billingSku = String(resolution).toUpperCase() === '4K' ? 'ec_image_4k' : 'ec_image_2k';
+  const billing = paid.has(action) ? await quoteCanvasAction(billingSku) : null;
   const res = await fetch(`${API_BASE}/api/canvas/transform`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),

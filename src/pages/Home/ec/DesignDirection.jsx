@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MdAutoAwesome, MdArrowBack, MdRefresh } from 'react-icons/md';
+import { MdAutoAwesome, MdArrowBack, MdChevronLeft, MdChevronRight, MdClose, MdRefresh } from 'react-icons/md';
 import {
   getDesignDirections,
   generateEcommerce,
@@ -22,8 +22,11 @@ import { buildSupplementDeck } from './workbenchState';
 import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import {
+  clearEcommerceDirectionRefreshAction,
   createEcommerceGenerationLifecycleController,
+  loadEcommerceDirectionRefreshAction,
   resolveEcommerceSupplementUpload,
+  saveEcommerceDirectionRefreshAction,
   startEcommerceGenerationLifecycle,
 } from './ecommerceTaskProgressModel.js';
 
@@ -47,6 +50,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [genStage, setGenStage] = useState(0); // C4: 生成阶段
   const [assetProgress, setAssetProgress] = useState([]);
   const [stableImages, setStableImages] = useState([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState(-1);
   const [retryTaskRequested, setRetryTaskRequested] = useState(false);
   const [polishing, setPolishing] = useState(false);
 
@@ -67,6 +71,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const generationTokenRef = useRef(null);
   const generationAbortRef = useRef(null);
   const generationLifecycleRef = useRef(null);
+  const directionRefreshActionRef = useRef(null);
   if (!generationLifecycleRef.current) {
     generationLifecycleRef.current = createEcommerceGenerationLifecycleController({
       ownerEmail,
@@ -85,11 +90,27 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setStableImages([]);
     setAssetProgress([]);
     setGenProgress('');
+    directionRefreshActionRef.current = loadEcommerceDirectionRefreshAction({ ownerEmail, draftId })?.actionId || null;
   }, [ownerEmail, draftId]);
 
   useEffect(() => () => {
     generationLifecycle.unmount();
   }, []);
+
+  useEffect(() => {
+    if (previewImageIndex < 0) return undefined;
+    const handlePreviewKey = (event) => {
+      if (event.key === 'Escape') setPreviewImageIndex(-1);
+      if (event.key === 'ArrowLeft') {
+        setPreviewImageIndex(index => (index - 1 + stableImages.length) % stableImages.length);
+      }
+      if (event.key === 'ArrowRight') {
+        setPreviewImageIndex(index => (index + 1) % stableImages.length);
+      }
+    };
+    globalThis.addEventListener?.('keydown', handlePreviewKey);
+    return () => globalThis.removeEventListener?.('keydown', handlePreviewKey);
+  }, [previewImageIndex, stableImages.length]);
 
   const ecommercePlan = useMemo(() => resolveEcommercePlan({
     platform: params?.platform || 'smart',
@@ -139,13 +160,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     return () => { cancelled = true; };
   }, [quoteRequestKey]);
 
-  const loadDirections = async () => {
+  const loadDirections = async ({ refreshBilling = null } = {}) => {
     setLoading(true);
     setError('');
     setLoadStage(0);
+    let timer1;
+    let timer2;
     try {
-      const timer1 = setTimeout(() => setLoadStage(1), 2000);
-      const timer2 = setTimeout(() => setLoadStage(2), 4000);
+      timer1 = setTimeout(() => setLoadStage(1), 2000);
+      timer2 = setTimeout(() => setLoadStage(2), 4000);
 
       const uploadedSupplement = await uploadSupplementAssetsForAnalysis();
 
@@ -160,19 +183,58 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         product_params: params?.productParams || {},
         skus: params?.skus || [],
         copywriting: params?.copywriting || {},
+        refresh: Boolean(refreshBilling),
+        billingQuoteId: refreshBilling?.quoteId,
+        billingActionId: refreshBilling?.actionId,
       });
 
-      clearTimeout(timer1);
-      clearTimeout(timer2);
       setLoadStage(3);
 
       setDirections(res.directions || []);
       setAnalysis(res.analysis || null);
       if (res.directions?.length) setSelected(0);
     } catch (e) {
+      if (refreshBilling) throw e;
       setError(e.message || '加载失败');
+    } finally {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleRefreshDirections = async () => {
+    if (loading) return;
+    try {
+      const { quote } = await quoteBillingAction({ sku: 'ec_direction_refresh', quantity: 1 });
+      const actionId = directionRefreshActionRef.current
+        || `ec-direction-refresh-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+      directionRefreshActionRef.current = actionId;
+      saveEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
+      await loadDirections({
+        refreshBilling: {
+          quoteId: quote.quoteId,
+          actionId,
+        },
+      });
+      clearEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
+      directionRefreshActionRef.current = null;
+      fetchCredits(state.phone || '');
+    } catch (e) {
+      if (e?.code === 'CANVAS_BILLING_ACTION_RELEASED') {
+        const actionId = directionRefreshActionRef.current;
+        clearEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
+        directionRefreshActionRef.current = null;
+      }
+      const accessResult = handleGenerationAccessError(e, dispatch, {
+        source: 'ecommerce-direction-refresh',
+        ownerEmail,
+        route: globalThis.location?.pathname || '/',
+        draftId,
+        currency: 'ec_points',
+      });
+      if (!accessResult) setError(e?.message || '重新分析失败，请稍后重试');
+    }
   };
 
   const updateDirection = (index, key, value) => {
@@ -331,7 +393,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       });
       if (!isGenerationCurrent(generationToken)) return;
       const hasStableResult = Object.keys(result?.images || {}).length > 0;
-      const hasFinalStatus = result?.status === 'completed' || result?.status === 'needs_review';
+      const hasFinalStatus = result?.status === 'completed';
       if (result && hasFinalStatus && hasStableResult) {
         if (!isGenerationCurrent(generationToken)) return;
         const finalResult = { ...result, product_name: params?.productName || '商品', _ecResult: true, _direction: dir, category: params?.category || '其他', platform: params?.platform || '淘宝' };
@@ -340,6 +402,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         const phone = state.phone || '';
         const imageEntries = Object.entries(finalResult.images || {});
         const serverWork = {
+          taskId: result.taskId,
+          _saveKey: `ec-task-${result.taskId}`,
           product_name: finalResult.product_name,
           category: finalResult.category,
           platform: finalResult.platform,
@@ -362,6 +426,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         dispatch({ type: 'CLEAR_PAYWALL' });
         setRetryTaskRequested(false);
         onGenerated?.();
+      } else if (result?.status === 'needs_review') {
+        setRetryTaskRequested(true);
+        setError('部分图片未通过质量检查，任务和已完成图片已保留。请点击“继续生成”修复未通过的图片。');
       } else {
         setError('任务尚未完成或没有稳定图片，请稍后继续生成');
       }
@@ -567,8 +634,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   <button type="button" onClick={handlePolish} disabled={!extraDesc.trim() || polishing} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: '1px solid #DED7CC', background: '#fff', color: '#5F574F', fontSize: 12, fontWeight: 700, cursor: !extraDesc.trim() || polishing ? 'not-allowed' : 'pointer', opacity: !extraDesc.trim() ? .45 : 1 }}>
                     <MdAutoAwesome size={13} />{polishing ? '润色中…' : 'AI 润色补充说明'}
                   </button>
-                  <button type="button" onClick={loadDirections} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: 0, background: '#1F2937', color: '#fff', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}>
-                    <MdRefresh size={14} />重新分析四个方向
+                  <button type="button" onClick={handleRefreshDirections} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: 0, background: '#1F2937', color: '#fff', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}>
+                    <MdRefresh size={14} />重新分析四个方向 · 1 AI 积分
                   </button>
                 </div>
               </div>
@@ -643,14 +710,24 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 )}
                 {stableImages.length > 0 && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-                    {stableImages.map(image => (
-                      <img key={`${image.id}-${image.stableUrl}`} src={image.stableUrl} alt={image.label || image.role || '稳定生成图'} style={{ width: 74, height: 74, objectFit: 'cover', borderRadius: 8, border: '1px solid #E9DDF8' }} />
+                    {stableImages.map((image, index) => (
+                      <button key={`${image.id}-${image.stableUrl}`} type="button" onClick={() => setPreviewImageIndex(index)} aria-label={`放大查看${image.label || image.role || '生成图'}`} style={{ width: 74, height: 74, padding: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #E9DDF8', background: '#fff', cursor: 'zoom-in' }}>
+                        <img src={image.stableUrl} alt={image.label || image.role || '稳定生成图'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </button>
                     ))}
                   </div>
                 )}
               </div>
             )}
           </>
+        )}
+        {previewImageIndex >= 0 && stableImages[previewImageIndex] && (
+          <div role="dialog" aria-modal="true" aria-label="生成图片预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', background: 'rgba(18,16,20,.86)', padding: 24 }}>
+            <button type="button" title="关闭预览" aria-label="关闭预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'absolute', top: 18, right: 18, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdClose size={24} /></button>
+            {stableImages.length > 1 && <button type="button" title="上一张" aria-label="上一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index - 1 + stableImages.length) % stableImages.length); }} style={{ position: 'absolute', left: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronLeft size={30} /></button>}
+            <img onClick={event => event.stopPropagation()} src={stableImages[previewImageIndex].stableUrl} alt={stableImages[previewImageIndex].label || stableImages[previewImageIndex].role || '生成图片预览'} style={{ maxWidth: 'min(92vw, 1200px)', maxHeight: '86vh', objectFit: 'contain' }} />
+            {stableImages.length > 1 && <button type="button" title="下一张" aria-label="下一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index + 1) % stableImages.length); }} style={{ position: 'absolute', right: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronRight size={30} /></button>}
+          </div>
         )}
 
         {/* ── 无方向数据 ── */}

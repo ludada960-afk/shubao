@@ -247,6 +247,9 @@ export function createEcommerceOrchestrator(deps = {}) {
     && own(deps, 'leaseHeartbeatMs') < assetLeaseMs
     ? own(deps, 'leaseHeartbeatMs')
     : Math.max(10, Math.floor(assetLeaseMs / 3));
+  const assetConcurrency = Number.isSafeInteger(own(deps, 'assetConcurrency'))
+    ? Math.max(1, Math.min(4, own(deps, 'assetConcurrency')))
+    : 3;
   const parentLeaseMs = Number.isSafeInteger(own(deps, 'parentLeaseMs')) && own(deps, 'parentLeaseMs') > 0
     ? own(deps, 'parentLeaseMs')
     : 30_000;
@@ -779,18 +782,36 @@ export function createEcommerceOrchestrator(deps = {}) {
       }
       processingStarted = true;
 
-      for (const item of assetPlan) {
-        if (parentHeartbeatError) throw parentHeartbeatError;
-        const persistedAsset = store.getAsset(id, item.id);
-        const persistedItem = own(persistedAsset?.requestSnapshot, 'assetPlanItem');
-        await runAsset({
-          job: { ...job, payload },
-          item: isRecord(persistedItem) ? persistedItem : item,
-          productTruth,
-          campaignBible,
-          holdId,
-        });
+      let assetCursor = 0;
+      let workerError = null;
+      async function assetWorker() {
+        while (!workerError && assetCursor < assetPlan.length) {
+          if (parentHeartbeatError) {
+            workerError = parentHeartbeatError;
+            return;
+          }
+          const item = assetPlan[assetCursor];
+          assetCursor += 1;
+          const persistedAsset = store.getAsset(id, item.id);
+          const persistedItem = own(persistedAsset?.requestSnapshot, 'assetPlanItem');
+          try {
+            await runAsset({
+              job: { ...job, payload },
+              item: isRecord(persistedItem) ? persistedItem : item,
+              productTruth,
+              campaignBible,
+              holdId,
+            });
+          } catch (error) {
+            if (!workerError) workerError = error;
+          }
+        }
       }
+      await Promise.all(Array.from(
+        { length: Math.min(assetConcurrency, assetPlan.length) },
+        () => assetWorker(),
+      ));
+      if (workerError) throw workerError;
 
       const assets = store.listAssets(id);
       const status = terminalParentState(assets);

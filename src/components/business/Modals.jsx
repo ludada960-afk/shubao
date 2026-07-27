@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useReducer, useState, useEffect, useMemo } from 'react';
 import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose } from 'react-icons/md';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
@@ -19,29 +19,43 @@ import {
   transitionPricingModalView,
 } from '../billing/pricingCatalogModel.js';
 import { createBillingOrder } from '../../services/billing.js';
+import { createLoginOtpState, loginOtpReducer, remainingResendSeconds } from './loginOtpState.js';
 
 /* ═══════ Login Modal ═══════ */
 export function LoginModal() {
   const { state, dispatch, fetchCredits } = useApp();
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [step, setStep] = useState('email'); // email | code
+  const [otp, updateOtp] = useReducer(loginOtpReducer, undefined, createLoginOtpState);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [mockMode, setMockMode] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const { email, code, step } = otp;
+  const resendSeconds = remainingResendSeconds(otp.resendAt, now);
+
+  useEffect(() => {
+    if (!state.showLogin || resendSeconds <= 0) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [state.showLogin, resendSeconds]);
 
   if (!state.showLogin) return null;
 
-  const close = () => { dispatch({ type: 'SHOW_LOGIN', show: false }); setStep('email'); setErr(''); };
+  const close = () => {
+    dispatch({ type: 'SHOW_LOGIN', show: false });
+    updateOtp({ type: 'RESET' });
+    setMockMode(false);
+    setLoading(false);
+    setErr('');
+  };
 
   const handleSendCode = async () => {
     if (!email.trim() || !email.includes('@')) { setErr('请输入正确的邮箱地址'); return; }
-    if (!isClosedBetaEmail(email)) { setErr('该邮箱暂未开通访问权限'); return; }
+    if (!isClosedBetaEmail(email)) { setErr('暂时无法使用该邮箱登录，请稍后再试'); return; }
     setLoading(true); setErr('');
     try {
       const result = await sendOTP(email.trim());
       setMockMode(!!result.mock);
-      setStep('code');
+      updateOtp({ type: 'CODE_SENT', now: Date.now(), cooldownMs: 60_000 });
     } catch (e) { setErr(e.message); }
     setLoading(false);
   };
@@ -70,7 +84,7 @@ export function LoginModal() {
           登录薯包AI
         </div>
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', marginTop: 4 }}>
-          使用已开通访问权限的邮箱登录
+          验证邮箱后即可继续创作
         </div>
       </div>
 
@@ -82,7 +96,7 @@ export function LoginModal() {
       <input
         placeholder="邮箱地址"
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={e => updateOtp({ type: 'SET_EMAIL', email: e.target.value })}
         disabled={step === 'code'}
         style={{
           width: '100%', padding: '12px 16px',
@@ -97,7 +111,7 @@ export function LoginModal() {
         <input
           placeholder="验证码"
           value={code}
-          onChange={e => setCode(e.target.value)}
+          onChange={e => updateOtp({ type: 'SET_CODE', code: e.target.value.replace(/\D/g, '') })}
           maxLength={6}
           autoFocus
           style={{
@@ -116,6 +130,13 @@ export function LoginModal() {
         {step === 'email' ? ' 发送验证码' : ' 登录'}
       </Button>
 
+      {step === 'code' && (
+        <button type="button" onClick={resendSeconds > 0 ? undefined : handleSendCode} disabled={loading || resendSeconds > 0}
+          style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: resendSeconds > 0 ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+          {resendSeconds > 0 ? `${resendSeconds} 秒后可重新发送` : '重新发送验证码'}
+        </button>
+      )}
+
       {mockMode && step === 'code' && import.meta.env.DEV && (
         <div style={{ textAlign: 'center', marginTop: 10 }}>
           <span style={{ fontSize: 'var(--text-xs)', color: '#999', background: '#f5f5f5', padding: '3px 10px', borderRadius: 4 }}>
@@ -127,10 +148,17 @@ export function LoginModal() {
       {step === 'code' && (
         <div style={{ textAlign: 'center', marginTop: 10 }}>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-ghost)', cursor: 'pointer' }}
-            onClick={() => setStep('email')}>
+            onClick={() => updateOtp({ type: 'EDIT_EMAIL' })}>
             ← 更换邮箱
           </span>
         </div>
+      )}
+
+      {step === 'email' && otp.hasActiveCode && (
+        <button type="button" onClick={() => updateOtp({ type: 'RETURN_TO_CODE' })}
+          style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+          返回填写已发送的验证码
+        </button>
       )}
 
       <div style={{ textAlign: 'center', marginTop: 12, fontSize: 'var(--text-xs)', color: 'var(--text-invisible)' }}>

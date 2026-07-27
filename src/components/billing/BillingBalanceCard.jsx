@@ -3,7 +3,6 @@ import styles from './Billing.module.css';
 import { formatBillingUnits } from './billingUiModel.js';
 
 function BalanceValue({ units, currency, unlimited }) {
-  if (unlimited) return '不限额度';
   const billingUnits = currency === 'ec_points' ? Number(units || 0) * 1000 : units;
   return formatBillingUnits(billingUnits, currency);
 }
@@ -20,9 +19,8 @@ export default function BillingBalanceCard({
       <div className={styles.balanceHeader}>
         <div>
           <p className={styles.eyebrow}>账户额度</p>
-          <h2 className={styles.balanceTitle}>{unlimited ? '不限额度' : '可用额度'}</h2>
+          <h2 className={styles.balanceTitle}>可用额度</h2>
         </div>
-        {unlimited && <span className={styles.unlimitedBadge}>专属权益</span>}
       </div>
       <div className={styles.balanceGrid}>
         <div className={styles.balanceItem}>

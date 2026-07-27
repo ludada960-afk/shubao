@@ -582,10 +582,11 @@ export function compileAssetRequest({
           subject: 'Preserve the user product from indexed product views; create only the requested role composition.',
           materials: materials.join(', '),
           lighting: campaign.lighting,
-          composition: campaign.composition,
+          composition: `Create a single-frame, single-scene composition for this role only. ${campaign.composition}`.trim(),
           background: campaign.backgroundLanguage,
           palette: campaign.palette,
           copyPolicy: 'Keep copy space restrained. Do not synthesize exact labels or factual text.',
+          outputContract: 'Generate one complete independent image with one commercial purpose. No collage, contact sheet, montage, multi-panel grid, storyboard, picture-in-picture, thumbnail collection, or multiple candidate layouts.',
         },
     platformRecommendation: platformSection(item, truth),
     deterministicOverlays: {

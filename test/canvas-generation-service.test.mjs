@@ -151,6 +151,68 @@ test('Canvas service preserves primary and supplementary input order for indexed
   assert.equal(result.url, `/api/generated-assets/${result.taskId}.png`);
 });
 
+test('Canvas durable request preserves the selected resolution in its fingerprint and provider route', async t => {
+  const submitted = [];
+  const harness = createHarness({
+    imageInputReader: {
+      async read(source) {
+        return { buffer: Buffer.from(source), contentType: 'image/png' };
+      },
+    },
+    providerAdapter: {
+      async submitEdit(request) {
+        submitted.push(request);
+        return { jobId: `provider-resolution-${submitted.length}`, status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        return { jobId, status: 'completed', outputUrl: `https://provider.example/${jobId}.png`, error: '' };
+      },
+    },
+  });
+  t.after(() => harness.close());
+
+  const first = await harness.service.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: { prompt: '保持主体', image_url: 'primary.png', ratio: '3:4', resolution: '2K' },
+  });
+  const second = await harness.service.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: { prompt: '保持主体', image_url: 'primary.png', ratio: '3:4', resolution: '4K' },
+  });
+
+  assert.notEqual(first.taskId, second.taskId);
+  assert.deepEqual(submitted.map(request => request.modelRoute.size), ['1536x2048', '2448x3264']);
+});
+
+test('Canvas regeneration defaults to the billed 2K provider route', async t => {
+  let submittedRequest;
+  const harness = createHarness({
+    imageInputReader: {
+      async read(source) {
+        return { buffer: Buffer.from(source), contentType: 'image/png' };
+      },
+    },
+    providerAdapter: {
+      async submitEdit(request) {
+        submittedRequest = request;
+        return { jobId: 'provider-default-2k', status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        return { jobId, status: 'completed', outputUrl: 'https://provider.example/default-2k.png', error: '' };
+      },
+    },
+  });
+  t.after(() => harness.close());
+
+  const result = await harness.service.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: { prompt: '保持主体', image_url: 'primary.png', ratio: '1:1' },
+  });
+
+  assert.equal(submittedRequest.modelRoute.size, '2048x2048');
+  assert.equal(result.resolution, '2K');
+});
+
 test('Canvas provider submit and poll both execute inside the shared image generation pool', async t => {
   let insidePool = false;
   const sequence = [];

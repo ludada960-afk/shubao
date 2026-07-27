@@ -223,6 +223,17 @@ function appendRepeatedItems(items, count, createItem) {
   }
 }
 
+function heroPurpose(index, total) {
+  const duties = [
+    'Product identity and recognition hero: show one unmistakable complete product with the strongest click-through angle.',
+    'Primary feature or benefit hero: visualize one core buying reason while keeping the product dominant.',
+    'Usage, scene, or scale hero: show one credible context that helps the buyer understand use and proportion.',
+    'Secondary structural angle hero: reveal one different side, opening state, or component relationship.',
+    'Material and craftsmanship hero: focus on one premium visible finish without becoming a multi-panel detail sheet.',
+  ];
+  return total > 1 ? duties[index % duties.length] : duties[0];
+}
+
 function explicitDetailSpecs(strategy, proofAssetIds) {
   const specs = strategy.detailRoles.map((roleName, index) => ({
     roleName,
@@ -269,7 +280,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       appendRepeatedItems(items, count, (index, total) => buildItem({
         id: indexedItemId(role, index, total),
         role,
-        purpose: 'Representative product image that establishes the shared campaign direction.',
+        purpose: heroPurpose(index, total),
         defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
         requiredFacts: identity,
         productAssetIds,
