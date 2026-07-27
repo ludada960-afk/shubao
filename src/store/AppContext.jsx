@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
-import { getSession } from '../services/auth';
+import { getSession, onSessionInvalid } from '../services/auth';
 import { fetchBillingBalance, fetchBillingCatalog, fetchBillingLedger } from '../services/billing';
 import { clearPendingPaidAction, loadPendingPaidAction } from '../utils/pendingPaidAction.js';
 import {
@@ -190,6 +190,11 @@ export function AppProvider({ children }) {
     };
     restore();
   }, [refreshBillingBalance, refreshBillingCatalog]);
+
+  useEffect(() => onSessionInvalid(() => {
+    dispatch({ type: 'SET_LOGGED', logged: false, phone: '' });
+    dispatch({ type: 'SHOW_LOGIN', show: true });
+  }), [dispatch]);
 
   return (
     <AppContext.Provider value={{

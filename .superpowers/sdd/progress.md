@@ -42,6 +42,12 @@
   idempotency. TDD red was confirmed by the missing route module; focused 11/11
   and auth/API/route/billing regression 49/49 passed. Commit is pending at this
   ledger update.
+- Server Project Version System Task 3 is in progress. Completed its
+  authoritative-session portion: startup session restore calls `/api/session`,
+  API 401 clears local session safely, and AppContext clears private billing
+  state before opening login. TDD red: local token was accepted without server
+  validation; focused/auth/API regression 28/28 passed. Recovery-checkpoint
+  client work is intentionally paired with Task 4's blank-by-default editor.
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).

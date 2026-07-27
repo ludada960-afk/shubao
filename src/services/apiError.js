@@ -10,6 +10,7 @@ export class ApiError extends Error {
 }
 
 export async function createApiError(response, fallbackMessage = '请求失败') {
+  handleSessionResponse(response);
   const raw = await response.text().catch(() => '');
   let payload = null;
   try { payload = raw ? JSON.parse(raw) : null; } catch {}
@@ -25,3 +26,4 @@ export async function createApiError(response, fallbackMessage = '请求失败')
 export function isInsufficientCreditsError(error) {
   return error?.status === 402 || error?.code === 'INSUFFICIENT_CREDITS';
 }
+import { handleSessionResponse } from './auth.js';

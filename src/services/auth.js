@@ -9,6 +9,7 @@
 const STORAGE_KEY = 'sb-auth';
 const API_BASE = '';
 export const CLOSED_BETA_EMAIL = '867550189@qq.com';
+const invalidSessionListeners = new Set();
 
 function getStored() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
@@ -19,6 +20,24 @@ export function getSessionToken() {
   if (!session || typeof session.token !== 'string' || !session.token.trim()) return '';
   if (session.expiresAt && Number.isFinite(Date.parse(session.expiresAt)) && Date.parse(session.expiresAt) <= Date.now()) return '';
   return session.token.trim();
+}
+
+export function clearSession() {
+  try { globalThis.localStorage?.removeItem?.(STORAGE_KEY); } catch {}
+  invalidSessionListeners.forEach(listener => {
+    try { listener(); } catch { /* a subscriber must not block session cleanup */ }
+  });
+}
+
+export function onSessionInvalid(callback) {
+  if (typeof callback !== 'function') return () => {};
+  invalidSessionListeners.add(callback);
+  return () => invalidSessionListeners.delete(callback);
+}
+
+export function handleSessionResponse(response) {
+  if (response?.status === 401) clearSession();
+  return response;
 }
 
 export function isClosedBetaEmail(email) {
@@ -80,14 +99,33 @@ export async function verifyOTP(email, code) {
 export async function getSession() {
   const session = getStored();
   if (!session?.token || !getSessionToken()) {
-    localStorage.removeItem(STORAGE_KEY);
+    clearSession();
     return null;
   }
-  return session;
+  try {
+    const response = await fetch(`${API_BASE}/api/session`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    if (!response.ok) {
+      handleSessionResponse(response);
+      return null;
+    }
+    const verified = await response.json();
+    const email = String(verified?.email || '').trim().toLowerCase();
+    if (!verified?.ok || !email) {
+      clearSession();
+      return null;
+    }
+    const next = { ...session, email, id: session.id || email, nickname: session.nickname || email.split('@')[0] };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    return next;
+  } catch {
+    return null;
+  }
 }
 
 export async function signOut() {
-  localStorage.removeItem(STORAGE_KEY);
+  clearSession();
 }
 
 export function onAuthChange(callback) {
