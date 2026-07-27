@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs';
 
 const deploy = readFileSync(new URL('../scripts/deploy-production.ps1', import.meta.url), 'utf8');
 const verify = readFileSync(new URL('../scripts/verify-production-billing.ps1', import.meta.url), 'utf8');
+const backupHelper = readFileSync(new URL('../scripts/backup-runtime-db.cjs', import.meta.url), 'utf8');
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /git[^\n]*diff --check/i);
-  assert.match(deploy, /better-sqlite3[^\n]*\.backup/i);
+  assert.match(deploy, /backup-runtime-db\.cjs/i);
+  assert.match(deploy, /scp[^\n]*remoteDatabaseBackupHelper/i);
   assert.doesNotMatch(deploy, /(?:^|[;&\s])sqlite3\s/m);
   assert.match(deploy, /--exclude='server\/works\.db'/);
   assert.match(deploy, /deploy-backups/);
@@ -20,6 +22,12 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /pm2 jlist/);
   assert.match(deploy, /Start-Sleep -Seconds \$CanarySeconds/);
   assert.match(deploy, /restart count increased/i);
+});
+
+test('runtime database backup helper resolves the deployed driver and closes the source', () => {
+  assert.match(backupHelper, /require\.resolve\('better-sqlite3'/);
+  assert.match(backupHelper, /db\.backup\(path\.resolve\(destination\)\)/);
+  assert.match(backupHelper, /db\.close\(\)/);
 });
 
 test('production verifier checks public health, billing catalog, and owner entitlement', () => {

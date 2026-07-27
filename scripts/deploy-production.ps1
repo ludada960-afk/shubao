@@ -17,6 +17,8 @@ $archive = Join-Path $env:TEMP "shubao-deploy-$commit-$stamp.tgz"
 $target = "$User@$HostName"
 $ssh = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
 $remoteLock = "/tmp/.shubao-deploy.lock"
+$databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
+$remoteDatabaseBackupHelper = "/tmp/shubao-backup-db-$stamp.cjs"
 $lockAcquired = $false
 $remoteBackup = ""
 $releaseStarted = $false
@@ -66,10 +68,12 @@ if ($LASTEXITCODE -ne 0) { throw "Could not acquire remote deployment lock" }
 $lockAcquired = $true
 
 try {
+  & scp @ssh $databaseBackupHelper "$target`:$remoteDatabaseBackupHelper"
+  if ($LASTEXITCODE -ne 0) { throw "Database backup helper upload failed" }
+
   $remoteStamp = "$stamp-$commit"
   $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"
-  $backupDatabase = "const Database=require('better-sqlite3');const db=new Database('$RemoteDir/server/works.db',{readonly:true});db.backup('$remoteBackup/works.db').then(()=>db.close())"
-  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; cp -a $RemoteDir/server $remoteBackup/server; if [ -f $RemoteDir/server/works.db ]; then cd $RemoteDir; node -e `"$backupDatabase`"; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
+  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; cp -a $RemoteDir/server $remoteBackup/server; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
   if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
 
   & scp @ssh $archive "$target`:$RemoteDir/deploy.tgz"
@@ -101,7 +105,7 @@ try {
   throw
 } finally {
   if ($lockAcquired) {
-    & ssh @ssh $target "rm -rf -- '$remoteLock'"
+    & ssh @ssh $target "rm -f -- '$remoteDatabaseBackupHelper'; rm -rf -- '$remoteLock'"
     Write-Host "Release remote deployment lock"
   }
   Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
