@@ -23,12 +23,12 @@ $lockAcquired = $false
 $remoteBackup = ""
 $releaseStarted = $false
 
-function Get-RemotePm2RestartCount {
-  $json = (& ssh @ssh $target "pm2 jlist") -join "`n"
-  if ($LASTEXITCODE -ne 0) { throw "Could not read PM2 process state" }
-  $process = @($json | ConvertFrom-Json | Where-Object { $_.name -eq "shubao" })
-  if ($process.Count -ne 1) { throw "Expected exactly one shubao PM2 process" }
-  return [int]$process[0].pm2_env.restart_time
+function Get-RemotePm2ProcessId {
+  $remotePid = ((& ssh @ssh $target "pm2 pid shubao") -join "").Trim()
+  if ($LASTEXITCODE -ne 0 -or $remotePid -notmatch '^\d+$' -or [int64]$remotePid -le 0) {
+    throw "Could not read the shubao PM2 process id"
+  }
+  return [int64]$remotePid
 }
 
 Write-Host "Building $commit..."
@@ -86,14 +86,14 @@ try {
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
 
-  $restartCount = Get-RemotePm2RestartCount
-  Write-Host "Canary started for $CanarySeconds seconds (PM2 restart count: $restartCount)"
+  $canaryPid = Get-RemotePm2ProcessId
+  Write-Host "Canary started for $CanarySeconds seconds (PM2 pid: $canaryPid)"
   Start-Sleep -Seconds $CanarySeconds
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
-  $canaryRestartCount = Get-RemotePm2RestartCount
-  if ($canaryRestartCount -ne $restartCount) {
-    throw "PM2 restart count increased during canary: $restartCount -> $canaryRestartCount"
+  $canaryEndPid = Get-RemotePm2ProcessId
+  if ($canaryEndPid -ne $canaryPid) {
+    throw "PM2 process restarted during canary: $canaryPid -> $canaryEndPid"
   }
 
   Write-Host "Deployed $commit to https://shuimg.cn/"

@@ -19,9 +19,10 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /if\s*\(\$releaseStarted\)/);
   assert.equal((deploy.match(/pm2 restart shubao/g) || []).length, 1);
   assert.match(deploy, /verify-production-billing\.ps1/);
-  assert.match(deploy, /pm2 jlist/);
+  assert.match(deploy, /pm2 pid shubao/);
+  assert.doesNotMatch(deploy, /pm2 jlist/);
   assert.match(deploy, /Start-Sleep -Seconds \$CanarySeconds/);
-  assert.match(deploy, /restart count increased/i);
+  assert.match(deploy, /process restarted during canary/i);
 });
 
 test('runtime database backup helper resolves the deployed driver and closes the source', () => {
