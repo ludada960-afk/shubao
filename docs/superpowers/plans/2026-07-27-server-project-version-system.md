@@ -153,7 +153,7 @@ git commit -m "feat: add durable project version stores"
 - Consumes: Task 1 stores and existing `contentSessionTokens.verify`.
 - Produces: `mountProjectRoutes(app, dependencies)` and `GET /api/session`.
 
-- [ ] **Step 1: Write failing owner-scope, session and idempotency tests**
+- [x] **Step 1: Write failing owner-scope, session and idempotency tests**
 
 ```js
 test('GET /api/session rejects an expired token and returns the signed owner for a valid token', async () => {
@@ -168,13 +168,13 @@ test('project routes never trust owner_email from the request body', async () =>
 });
 ```
 
-- [ ] **Step 2: Run tests and verify route failures**
+- [x] **Step 2: Run tests and verify route failures**
 
 Run: `node --test --test-concurrency=1 test/project-routes.test.mjs test/auth-session-api.test.mjs`
 
 Expected: FAIL because routes do not exist.
 
-- [ ] **Step 3: Implement authenticated REST handlers**
+- [x] **Step 3: Implement authenticated REST handlers**
 
 ```js
 function owner(req, sessionTokens) {
@@ -189,13 +189,13 @@ app.get('/api/session', (req, res) => {
 
 Mount create/list/get/version/checkpoint/Canvas-session routes. Require `Idempotency-Key` for POST task boundaries, use `If-Match` or `expectedRevision` for mutable Canvas sessions, and map cross-owner records to 404.
 
-- [ ] **Step 4: Run focused security and route guard regression**
+- [x] **Step 4: Run focused security and route guard regression**
 
 Run: `node --test --test-concurrency=1 test/project-routes.test.mjs test/auth-session-api.test.mjs test/generation-route-guard.test.mjs test/api-contract.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
 
 ```powershell
 git add server/projects/projectRoutes.mjs server/index.mjs server/generationRouteGuard.mjs test/project-routes.test.mjs test/auth-session-api.test.mjs test/generation-route-guard.test.mjs

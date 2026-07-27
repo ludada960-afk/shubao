@@ -46,6 +46,8 @@ import { resolveContentReferenceImages } from './contentReferenceAssets.mjs';
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
+import { createProjectStore } from './projects/projectStore.mjs';
+import { mountProjectRoutes } from './projects/projectRoutes.mjs';
 import {
   createCanvasGenerationService,
   createCanvasRegenerateHandler,
@@ -128,6 +130,7 @@ const runBilledContentSse = createBilledSseRunner({
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
+const projectStore = createProjectStore(db);
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
   try {
@@ -292,6 +295,16 @@ mountBillingRoutes(app, {
   walletService,
   paymentService,
   quoteService: billingQuoteService,
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: requireBetaEmail,
+    });
+  },
+});
+
+mountProjectRoutes(app, {
+  projectStore,
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,

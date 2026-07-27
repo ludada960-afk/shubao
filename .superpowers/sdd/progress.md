@@ -37,6 +37,11 @@
   links and immutable composition revisions. TDD red was confirmed by missing
   modules; focused 7/7 and database/billing regression 36/36 passed;
   collaboration policy reported READY. Commit is pending at this ledger update.
+- Server Project Version System Task 2: implementation complete. Added signed
+  owner-scoped project/session/recovery/Canvas routes and durable project-create
+  idempotency. TDD red was confirmed by the missing route module; focused 11/11
+  and auth/API/route/billing regression 49/49 passed. Commit is pending at this
+  ledger update.
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).

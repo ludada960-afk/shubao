@@ -120,17 +120,35 @@ export function createProjectStore(db, {
     if (!version) throw codedError('VERSION_NOT_FOUND', 'project version not found');
     return version;
   };
+  const insertProject = ({ ownerEmail, kind, title = '' }) => {
+    const owner = normalizeOwner(ownerEmail);
+    if (!owner) throw new TypeError('ownerEmail is required');
+    if (!PROJECT_KINDS.has(kind)) throw new TypeError('unknown project kind');
+    const id = randomUUID();
+    const createdAt = timestamp().toISOString();
+    db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'editing', ?, ?)`).run(id, owner, kind, String(title || '').trim(), createdAt, createdAt);
+    return projectFromRow(db.prepare('SELECT * FROM projects WHERE id = ?').get(id));
+  };
 
   const api = {
     createProject({ ownerEmail, kind, title = '' }) {
+      return insertProject({ ownerEmail, kind, title });
+    },
+
+    createProjectIdempotent({ ownerEmail, idempotencyKey, kind, title = '' }) {
       const owner = normalizeOwner(ownerEmail);
-      if (!owner) throw new TypeError('ownerEmail is required');
-      if (!PROJECT_KINDS.has(kind)) throw new TypeError('unknown project kind');
-      const id = randomUUID();
-      const createdAt = timestamp().toISOString();
-      db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'editing', ?, ?)`).run(id, owner, kind, String(title || '').trim(), createdAt, createdAt);
-      return api.getProject({ ownerEmail: owner, projectId: id });
+      const key = String(idempotencyKey || '').trim();
+      if (!key) throw codedError('IDEMPOTENCY_KEY_REQUIRED', 'idempotency key is required');
+      return db.transaction(() => {
+        const previous = db.prepare(`SELECT response FROM project_idempotency_keys
+          WHERE owner_email = ? AND route = 'POST /api/projects' AND idempotency_key = ?`).get(owner, key);
+        if (previous) return { project: parse(previous.response, {}), replayed: true };
+        const project = insertProject({ ownerEmail: owner, kind, title });
+        db.prepare(`INSERT INTO project_idempotency_keys (owner_email, route, idempotency_key, response, created_at)
+          VALUES (?, 'POST /api/projects', ?, ?, ?)`).run(owner, key, JSON.stringify(project), timestamp().toISOString());
+        return { project, replayed: false };
+      })();
     },
 
     getProject({ ownerEmail, projectId }) {

@@ -16,6 +16,15 @@ export function ensureProjectSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_projects_owner_updated
       ON projects(owner_email, updated_at DESC);
 
+    CREATE TABLE IF NOT EXISTS project_idempotency_keys (
+      owner_email TEXT NOT NULL,
+      route TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      response TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(owner_email, route, idempotency_key)
+    );
+
     CREATE TABLE IF NOT EXISTS project_versions (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
