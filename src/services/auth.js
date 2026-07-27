@@ -32,7 +32,7 @@ export async function sendOTP(email) {
     throw new Error('请输入邮箱地址，如 user@example.com');
   }
   if (!isClosedBetaEmail(normalizedEmail)) {
-    throw new Error('薯包AI 正在内测，此邮箱暂未获邀');
+    throw new Error('该邮箱暂未开通访问权限');
   }
 
   const res = await fetch(`${API_BASE}/api/auth/send-code`, {

@@ -22,6 +22,8 @@ import {
   CANVAS_NODE_ACTIONS,
   createChildConnection,
   createDerivedNode,
+  canDeriveFromNode,
+  getConnectionLabel,
   normalizeCanvasConnection,
   normalizeCanvasNode,
   shouldShowQuickCanvasAction,
@@ -30,6 +32,7 @@ import { CanvasNodeActionPicker, CanvasWorkflowNode } from './components/workflo
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { formatCanvasActionPrice } from './canvasBillingModel.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import { useDialog } from '../../components/ui/DialogProvider.jsx';
 
 function parseImages(images, platform) {
   const entries = normalizeWorkImages(images).map(image => ({ ...image, sourceKey: image.key || image.label || '' }));
@@ -259,7 +262,7 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
     reference: { stroke: '#7c3aed', dash: undefined, label: '引用素材' },
     variant: { stroke: '#2563eb', dash: '6 4', label: '生成变体' },
     merge: { stroke: '#374151', dash: undefined, label: '合并产物' },
-    derived: { stroke: '#6558e8', dash: undefined, label: '电商任务' },
+    derived: { stroke: '#6558e8', dash: undefined, label: '派生处理' },
   };
   return (
     <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'auto', overflow: 'visible' }}>
@@ -273,11 +276,12 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
         const y2 = (to.y + to.h / 2) * viewport.scale + viewport.y;
         const mx = (x1 + x2) / 2;
         const style = styles[conn.relation || conn.type] || styles.reference;
+        const label = getConnectionLabel(conn) || style.label;
         return (
           <g key={i}>
             <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={2.4} fill="none" strokeDasharray={style.dash} opacity={0.75} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={0.8} />
-            <text x={mx} y={(y1 + y2) / 2 - 6} textAnchor="middle" fontSize="10" fill={style.stroke} style={{ pointerEvents: 'none' }}>{style.label}</text>
+            <text x={mx} y={(y1 + y2) / 2 - 6} textAnchor="middle" fontSize="10" fill={style.stroke} style={{ pointerEvents: 'none' }}>{label}</text>
           </g>
         );
       })}
@@ -341,6 +345,7 @@ function ReferenceComposer({ references, promptText, setPromptText, onRemoveRefe
 
 export default function EcCanvas() {
   const { state, dispatch } = useApp();
+  const dialog = useDialog();
   const result = state.result || {};
   const phone = state.phone || '';
   const [viewport, setViewport] = useState({ x: 80, y: 40, scale: 1 });
@@ -658,12 +663,10 @@ export default function EcCanvas() {
         setPointerMode(null);
         return;
       }
-      const rect = containerRef.current?.getBoundingClientRect();
       const point = toWorldPoint(e);
       setConnectionPicker({
         sourceNodeId: connectionDraft.sourceNodeId || connectionDraft.from,
         world: point,
-        screen: { x: (e.clientX - (rect?.left || 0)) + 14, y: (e.clientY - (rect?.top || 0)) + 14 },
       });
       setConnectionDraft(null);
       setPointerMode(null);
@@ -737,12 +740,17 @@ export default function EcCanvas() {
 
   const handlePortPointerDown = useCallback((e, nodeId, side) => {
     if (side !== 'out') return;
+    const source = nodes.find(node => node.id === nodeId);
+    if (!canDeriveFromNode(source)) {
+      showToast('完成当前处理后，可从生成结果继续派生', 'info');
+      return;
+    }
     // 输出端口不能捕获指针，否则空白处松手时 pointerup 仍会落在端口上，
     // 画布就无法打开“从素材派生”的任务选择器。
     setConnectionPicker(null);
     setConnectionDraft({ from: nodeId, sourceNodeId: nodeId, type: 'reference', pointer: toWorldPoint(e) });
     setPointerMode({ kind: 'connect', from: nodeId });
-  }, [toWorldPoint]);
+  }, [nodes, showToast, toWorldPoint]);
 
   const handlePortPointerUp = useCallback((e, nodeId, side) => {
     const sourceNodeId = connectionDraft?.sourceNodeId || connectionDraft?.from;
@@ -1043,6 +1051,10 @@ export default function EcCanvas() {
       const actionId = action.slice('create:'.length);
       const sourceIndex = Math.max(0, nodes.findIndex(item => item.id === node?.id));
       const source = nodes[sourceIndex] || node;
+      if (!canDeriveFromNode(source)) {
+        showToast('完成当前处理后，可从生成结果继续派生', 'info');
+        return;
+      }
       const child = createDerivedNode({
         sourceNodeIds: [source.id],
         actionId,
@@ -1062,7 +1074,7 @@ export default function EcCanvas() {
         handleDownload(node.id);
         break;
       case 'rename': {
-        const next = window.prompt('为这张电商图命名', node.name || node.displayLabel || '');
+        const next = await dialog.text({ title: '修改图片名称', message: '按投放位置或画面用途命名，后续查找和交付会更清楚。', defaultValue: node.name || node.displayLabel || '', placeholder: '例如：详情页核心卖点图' });
         if (next?.trim()) {
           setNodes(ns => ns.map(n => n.id === node.id ? { ...n, name: next.trim(), displayLabel: next.trim() } : n));
           showToast('已更新图片名称', 'success');
@@ -1070,7 +1082,7 @@ export default function EcCanvas() {
         break;
       }
       case 'classify': {
-        const next = window.prompt(`修改分类：${ASSET_GROUPS.join(' / ')}`, node.group);
+        const next = await dialog.text({ title: '修改图片用途', message: `可选用途：${ASSET_GROUPS.join('、')}`, defaultValue: node.group, placeholder: ASSET_GROUPS.join(' / ') });
         if (ASSET_GROUPS.includes(next)) {
           setNodes(ns => ns.map(n => n.id === node.id ? { ...n, group: next } : n));
           showToast(`已归入${next}`, 'success');
@@ -1656,6 +1668,7 @@ export default function EcCanvas() {
                   onRetry={() => handleWorkflowRetry(node)}
                   onPortPointerDown={workflowPortDown}
                   onPortPointerUp={workflowPortUp}
+                  canDerive={canDeriveFromNode(node)}
                   smartRemixProps={node.kind === 'smart-remix' ? {
                     prompt: node.inputs?.prompt || '',
                     productImages,
@@ -1700,6 +1713,12 @@ export default function EcCanvas() {
               </div>;
             })}
             {selectedNode?.kind === 'image' && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
+            {connectionPicker && <CanvasNodeActionPicker
+              actions={CANVAS_NODE_ACTIONS}
+              position={{ x: connectionPicker.world.x + 14, y: connectionPicker.world.y + 14 }}
+              onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
+              onSelect={action => handleCreateDerivedNode(connectionPicker.sourceNodeId, action, connectionPicker.world)}
+            />}
           </div>
 
           {marquee && (
@@ -1711,13 +1730,6 @@ export default function EcCanvas() {
               <span>正在连接素材</span><span style={{ opacity: .65 }}>拖到目标节点完成连接，松开空白处创建电商任务</span>
             </div>
           )}
-
-          {connectionPicker && <CanvasNodeActionPicker
-            actions={CANVAS_NODE_ACTIONS}
-            position={connectionPicker.screen}
-            onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
-            onSelect={action => handleCreateDerivedNode(connectionPicker.sourceNodeId, action, connectionPicker.world)}
-          />}
 
           {/* 操作提示 */}
           <div style={{ position: 'absolute', bottom: 16, right: 16, fontSize: 11, color: 'rgba(0,0,0,0.28)', pointerEvents: 'none', textAlign: 'right', lineHeight: 1.6 }}>

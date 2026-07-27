@@ -25,9 +25,10 @@ async function fixture(format = 'png', { width = 96, height = 64, alpha = false 
         : { r: 210, g: 40, b: 30 },
     },
   });
-  return format === 'jpeg'
-    ? image.jpeg({ quality: 91, chromaSubsampling: '4:4:4' }).toBuffer()
-    : image.png({ compressionLevel: 9 }).toBuffer();
+  if (format === 'jpeg') return image.jpeg({ quality: 91, chromaSubsampling: '4:4:4' }).toBuffer();
+  if (format === 'webp') return image.webp({ quality: 91 }).toBuffer();
+  if (format === 'avif') return image.avif({ quality: 91 }).toBuffer();
+  return image.png({ compressionLevel: 9 }).toBuffer();
 }
 
 async function harness(t, options = {}) {
@@ -123,6 +124,23 @@ test('detects actual PNG MIME for raw base64 and ignores a false client declarat
   assert.equal(result.original.format, 'png');
   assert.match(result.original.assetId, /\.png$/);
   assert.deepEqual((await generatedAssetStore.read(result.original.assetId)).buffer, png);
+});
+
+test('normalizes decoded WebP and AVIF uploads to lossless PNG originals', async (t) => {
+  const { generatedAssetStore, service } = await harness(t);
+  for (const format of ['webp', 'avif']) {
+    const source = await fixture(format, { width: 80, height: 60, alpha: true });
+    const result = await service.upload({
+      ownerEmail: 'owner@example.com',
+      body: { role: 'reference', data: `data:image/jpeg;base64,${source.toString('base64')}` },
+    });
+    assert.equal(result.original.mimeType, 'image/png');
+    assert.equal(result.original.format, 'png');
+    assert.equal(result.original.sourceFormat, format);
+    assert.equal(result.original.normalized, true);
+    const stored = await generatedAssetStore.read(result.original.assetId);
+    assert.equal((await sharp(stored.buffer).metadata()).format, 'png');
+  }
 });
 
 test('rejects traversal, encoded traversal, inherited request data, and unknown request fields', async (t) => {

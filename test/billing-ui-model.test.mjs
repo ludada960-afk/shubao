@@ -36,8 +36,8 @@ test('formats billing units with the user-facing currency names', () => {
 
 test('unlimited balance display is visibly non-numeric', () => {
   assert.equal(typeof formatBalanceDisplay, 'function');
-  assert.equal(formatBalanceDisplay(0, 'ec_points', true), '无限内测');
-  assert.equal(formatBalanceDisplay(999_000, 'ec_points', true), '无限内测');
+  assert.equal(formatBalanceDisplay(0, 'ec_points', true), '不限额度');
+  assert.equal(formatBalanceDisplay(999_000, 'ec_points', true), '不限额度');
   assert.equal(formatBalanceDisplay(3, 'content_sets', false), '3 创作套数');
   assert.match(
     insufficientBalanceSource,
@@ -90,7 +90,7 @@ test('billing components retain their key presentation paths', () => {
 
   assert.match(balanceCardSource, /currency="ec_points"/);
   assert.match(balanceCardSource, /currency="content_sets"/);
-  assert.match(balanceCardSource, /unlimited\s*\?\s*['"]无限内测['"]/);
+  assert.match(balanceCardSource, /unlimited\s*\?\s*['"]不限额度['"]/);
 
   assert.match(quoteBreakdownSource, /formatBillingUnits\(totalUnits,\s*currency\)/);
   assert.match(quoteBreakdownSource, /items\.map\(/);

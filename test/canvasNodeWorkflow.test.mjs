@@ -8,6 +8,8 @@ import {
   createChildConnection,
   isDerivedAction,
   shouldShowQuickCanvasAction,
+  canDeriveFromNode,
+  getConnectionLabel,
 } from '../src/pages/EcCanvas/nodeWorkflow.js';
 
 test('legacy image assets normalize as image nodes', () => {
@@ -61,4 +63,24 @@ test('right-click quick actions do not duplicate node-based workflows', () => {
   for (const actionId of ['rename', 'classify', 'crop', 'grid-split', 'annotation', 'reference']) {
     assert.equal(shouldShowQuickCanvasAction(actionId), true, actionId);
   }
+});
+
+test('only source and completed output images can create workflow children', () => {
+  assert.equal(canDeriveFromNode({ kind: 'image', status: 'ready' }), true);
+  assert.equal(canDeriveFromNode({ kind: 'image', status: 'success', url: '/output.png' }), true);
+  for (const status of ['draft', 'analyzing', 'running', 'error']) {
+    assert.equal(canDeriveFromNode({ kind: 'smart-remix', status }), false, status);
+  }
+  assert.equal(canDeriveFromNode({ kind: 'smart-remix', status: 'success', output: { url: '/x.png' } }), false);
+});
+
+test('successful process cards remain provenance steps rather than derivation sources', () => {
+  assert.equal(canDeriveFromNode({ kind: 'remove-bg', status: 'success', output: { url: '/result.png' } }), false);
+  assert.equal(canDeriveFromNode({ kind: 'image', status: 'ready', sourceNodeIds: ['process-1'], url: '/result.png' }), true);
+});
+
+test('derived connections expose their semantic action label', () => {
+  const edge = createChildConnection('source', 'child', 'smart-remix');
+  assert.equal(getConnectionLabel(edge), '智能二创');
+  assert.equal(getConnectionLabel({ relation: 'reference' }), '引用素材');
 });

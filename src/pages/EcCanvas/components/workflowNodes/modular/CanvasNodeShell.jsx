@@ -46,8 +46,8 @@ export default function CanvasNodeShell({
         </div>
         <div className={styles.nodeHeaderActions}>
           <span className={`${styles.status} ${styles[`status${statusMeta.tone[0].toUpperCase()}${statusMeta.tone.slice(1)}`]}`}>{statusMeta.label}</span>
-          {status === 'error' && <button type="button" className={styles.iconButton} aria-label="重试" onClick={onRetry}><MdRefresh size={16} /></button>}
-          {onClose && <button type="button" className={styles.iconButton} aria-label="关闭节点" onClick={onClose}><MdClose size={16} /></button>}
+          {status === 'error' && <button type="button" className={styles.iconButton} aria-label="重试" title="重新执行当前处理" onClick={onRetry}><MdRefresh size={16} /></button>}
+          {onClose && <button type="button" className={styles.iconButton} aria-label="关闭节点" title="关闭节点" onClick={onClose}><MdClose size={16} /></button>}
         </div>
       </header>
       {children}

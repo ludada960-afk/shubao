@@ -138,7 +138,7 @@ test('quote copy is product-facing and keeps unlimited owner non-numeric', async
     quantity: 9,
     quote: { totalUnits: 9000, currency: 'ec_points' },
     unlimited: true,
-  }), '生成 9 张 · 无限内测');
+  }), '生成 9 张 · 不限额度');
 });
 
 test('creates a stable draft id and a complete reference-only ecommerce pending action', async () => {

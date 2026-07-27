@@ -588,7 +588,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         setEcResults(prev => prev ? { ...prev, images: { ...prev.images, [label]: url } } : prev);
       }
     } catch (e) {
-      alert('重生成失败: ' + (e.message || '请重试'));
+      setToast({ message: e.message || '重生成失败，请重试', type: 'error' });
     }
     setEcRegeneratingKey('');
     setEcRegenEdit({ label: null, prompt: '', visible: false });
@@ -1202,9 +1202,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     </div>
                     {err && <div className="error-bar">{err}</div>}
                     <button className="gen-btn xhs" onClick={doGenXHS} disabled={!inputText.trim()}>
-                      <MdAutoAwesome size={14} /> {!logged ? '免费预览（文案+封面）' : unlimited ? '无限内测生成' : '一键生成爆款图文'}
+                      <MdAutoAwesome size={14} /> {!logged ? '免费预览（文案+封面）' : unlimited ? '一键生成爆款图文' : '一键生成爆款图文'}
                     </button>
-                    <div className="gen-hint">{!logged ? '🎁 免费预览：仅生成文案和 1 张封面，不消耗创作套数' : unlimited ? '内测账号不限次数，可持续验证完整生成流程' : `剩余 ${contentSets ?? 0} 创作套数 · 完整图文 = 1 创作套数`}</div>
+                    <div className="gen-hint">{!logged ? '免费预览：生成文案和 1 张封面，不消耗创作套数' : unlimited ? '完整图文包含文章与整套配图' : `剩余 ${contentSets ?? 0} 创作套数 · 完整图文 = 1 创作套数`}</div>
                   </div>
                 )}
                 {xhsSubMode === 'plog' && (

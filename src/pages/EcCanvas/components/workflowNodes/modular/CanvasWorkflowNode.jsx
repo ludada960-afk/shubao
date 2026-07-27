@@ -17,6 +17,7 @@ export default function CanvasWorkflowNode({
   onContextMenu,
   onPortPointerDown,
   onPortPointerUp,
+  canDerive = false,
 }) {
   if (node?.kind === 'smart-remix') {
     return (
@@ -31,6 +32,7 @@ export default function CanvasWorkflowNode({
         onContextMenu={onContextMenu}
         onPortPointerDown={onPortPointerDown}
         onPortPointerUp={onPortPointerUp}
+        showOutput={canDerive}
       />
     );
   }
@@ -47,6 +49,7 @@ export default function CanvasWorkflowNode({
         onContextMenu={onContextMenu}
         onPortPointerDown={onPortPointerDown}
         onPortPointerUp={onPortPointerUp}
+        showOutput={canDerive}
       />
     );
   }
@@ -64,6 +67,7 @@ export default function CanvasWorkflowNode({
       onContextMenu={onContextMenu}
       onPortPointerDown={onPortPointerDown}
       onPortPointerUp={onPortPointerUp}
+      showOutput={canDerive}
     />
   );
 }

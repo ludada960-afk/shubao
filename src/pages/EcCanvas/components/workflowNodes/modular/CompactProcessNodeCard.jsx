@@ -18,9 +18,10 @@ export default function CompactProcessNodeCard({
   onContextMenu,
   onPortPointerDown,
   onPortPointerUp,
+  showOutput = false,
 }) {
   const preview = resultImage || sourceImage;
-  return <CanvasNodeShell title={title} subtitle={description} icon={MdAutoFixHigh} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
+  return <CanvasNodeShell title={title} subtitle={description} icon={MdAutoFixHigh} status={status} selected={selected} showOutput={showOutput} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
     <div className={`${styles.nodeBody} ${styles.compactBody}`}>
       <div className={styles.compactPreview}>{preview ? <img src={preview} alt={title} /> : <MdAutoFixHigh size={26} />}</div>
       {status === 'running' && <div className={styles.progress}><span style={{ width: `${Math.max(5, Math.min(100, progress))}%` }} /></div>}

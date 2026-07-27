@@ -197,7 +197,7 @@ function readablePoints(totalUnits) {
 }
 
 export function formatEcommerceQuote({ quantity = 0, quote = null, unlimited = false } = {}) {
-  if (unlimited) return `生成 ${quantity} 张 · 无限内测`;
+  if (unlimited) return `生成 ${quantity} 张 · 不限额度`;
   if (!quote) return `生成 ${quantity} 张 · 费用计算中`;
   return `生成 ${quantity} 张 · ${readablePoints(quote.totalUnits)} AI 积分`;
 }

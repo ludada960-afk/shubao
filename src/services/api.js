@@ -981,7 +981,7 @@ export async function loadWorks(phone) {
 
 /* ── ZIP 下载 ── */
 export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags) {
-  if (!coverUrl && !imageUrls?.length) { alert('暂无图片可下载'); return; }
+  if (!coverUrl && !imageUrls?.length) throw new Error('暂无图片可下载');
   try {
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
@@ -1004,7 +1004,7 @@ export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags
     );
 
     results.forEach(r => { if (r) { zip.file(`${r.name}.png`, r.blob); ok++; } });
-    if (!ok) { alert('下载失败，图片可能已过期'); return; }
+    if (!ok) throw new Error('图片暂时无法下载，可能已过期');
 
     const content = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
@@ -1012,7 +1012,7 @@ export async function downloadZip(coverUrl, imageUrls, title, bodyText, hashtags
     link.download = `${(title || '薯包AI').slice(0, 20).replace(/[\\/:*?"<>|]/g, '')}.zip`;
     link.click();
     URL.revokeObjectURL(link.href);
-  } catch { alert('下载失败，请重试'); }
+  } catch (error) { throw new Error(error?.message || '下载失败，请重试'); }
 }
 
 /* ── 一键出图 ── */

@@ -43,8 +43,9 @@ export default function SmartRemixNodeCard({
   onContextMenu,
   onPortPointerDown,
   onPortPointerUp,
+  showOutput = false,
 }) {
-  return <CanvasNodeShell title="智能二创" subtitle="反推描述、补充素材后继续创作" icon={MdImageSearch} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
+  return <CanvasNodeShell title="智能二创" subtitle="反推描述、补充素材后继续创作" icon={MdImageSearch} status={status} selected={selected} showOutput={showOutput} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
     <div className={styles.nodeBody}>
       {sourceImage && <div className={styles.sourcePreview}><img src={sourceImage.url || sourceImage.previewUrl} alt={sourceImage.name || '源图'} /><span>源图</span></div>}
       <label className={styles.fieldLabel} htmlFor={`remix-prompt-${node?.id || 'draft'}`}>画面描述 <em>可编辑</em></label>

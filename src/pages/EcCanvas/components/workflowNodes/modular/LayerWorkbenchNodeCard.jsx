@@ -22,11 +22,12 @@ export default function LayerWorkbenchNodeCard({
   onContextMenu,
   onPortPointerDown,
   onPortPointerUp,
+  showOutput = false,
 }) {
   const normalizedLayers = normalizeLayers(layers);
   const selectedLayer = normalizedLayers.find(layer => layer.id === selectedLayerId) || normalizedLayers[0];
   const layerCapabilities = getLayerCapabilities(capabilities);
-  return <CanvasNodeShell title="图文分层" subtitle="识别商品、背景与文案结构" icon={MdLayers} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
+  return <CanvasNodeShell title="图文分层" subtitle="识别商品、背景与文案结构" icon={MdLayers} status={status} selected={selected} showOutput={showOutput} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
     <div className={styles.nodeBody}>
       {status === 'analyzing' ? <div className={styles.layerSkeleton}><span /><span /><span /></div> : <>
         <div className={styles.layerList} role="listbox" aria-label="图层列表">

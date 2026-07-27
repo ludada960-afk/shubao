@@ -36,7 +36,7 @@ export function LoginModal() {
 
   const handleSendCode = async () => {
     if (!email.trim() || !email.includes('@')) { setErr('请输入正确的邮箱地址'); return; }
-    if (!isClosedBetaEmail(email)) { setErr('薯包AI 正在内测，此邮箱暂未获邀'); return; }
+    if (!isClosedBetaEmail(email)) { setErr('该邮箱暂未开通访问权限'); return; }
     setLoading(true); setErr('');
     try {
       const result = await sendOTP(email.trim());
@@ -53,8 +53,8 @@ export function LoginModal() {
       const user = await verifyOTP(email.trim(), code.trim());
       dispatch({ type: 'SET_LOGGED', logged: true, phone: user.email });
       setTimeout(() => { fetchCredits(user.email); }, 100);
-      if (state.loginIntent) {
-        dispatch({ type: 'NAVIGATE', page: state.loginIntent });
+      if (state.loginIntent?.destination) {
+        dispatch({ type: 'NAVIGATE', page: state.loginIntent.destination });
         dispatch({ type: 'SET_LOGIN_INTENT', intent: null });
       }
       close();
@@ -70,7 +70,7 @@ export function LoginModal() {
           登录薯包AI
         </div>
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-hint)', marginTop: 4 }}>
-          薯包AI 正在内测，仅受邀邮箱可以进入
+          使用已开通访问权限的邮箱登录
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export function LoginModal() {
 
       <Button primary full onClick={step === 'email' ? handleSendCode : handleVerify} disabled={loading}>
         {loading ? <MdAutorenew size={15} className="animate-spin" /> : <MdLogin size={15} />}
-        {step === 'email' ? ' 发送内测验证码' : ' 登录内测'}
+        {step === 'email' ? ' 发送验证码' : ' 登录'}
       </Button>
 
       {mockMode && step === 'code' && import.meta.env.DEV && (
@@ -306,8 +306,8 @@ export function PricingModal() {
           marginBottom: 20,
         }}>
           {[
-            { key: 'content', label: '创作套数' },
-            { key: 'ecommerce', label: '永久 AI 积分包' },
+            { key: 'content', label: '小红书 / Plog 创作套数' },
+            { key: 'ecommerce', label: '电商图片 / 画布 AI 积分' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               style={{

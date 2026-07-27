@@ -58,7 +58,12 @@
   and diff check; remote lock, SQLite online backup, runtime exclusions, one PM2
   restart, public health/catalog verification, and code/WebRoot rollback that
   preserves runtime databases; deployment script tests passed).
-- Next implementation task: Paid Workflow Task 10.
+- Paid Workflow Task 10: implementation complete, pending production deployment.
+  Completed scope is creation continuity,
+  real-world upload normalization, canvas workflow lifecycle/geometry, product
+  dialogs/tooltips, public copy and pricing information architecture. Spec:
+  `docs/superpowers/specs/2026-07-27-creation-continuity-canvas-ux.md`. Full
+  regression: 549/549; production build and collaboration policy passed.
 
 ## Ownership
 

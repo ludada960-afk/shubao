@@ -39,7 +39,7 @@ export function formatBillingUnits(units, currency) {
 }
 
 export function formatBalanceDisplay(units, currency, unlimited = false) {
-  return unlimited ? '无限内测' : formatBillingUnits(units, currency);
+  return unlimited ? '不限额度' : formatBillingUnits(units, currency);
 }
 
 export function getBillingTone(eventType) {

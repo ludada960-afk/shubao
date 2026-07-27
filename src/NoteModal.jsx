@@ -3,8 +3,10 @@ import { MdContentCopy, MdCheck, MdRefresh, MdDownload, MdClose, MdAutorenew, Md
 import { proxyImg, regenerateImage, downloadZip } from './services/api';
 import { IMAGES } from './constants/images';
 import { EC_PLATFORM_SPECS } from './constants/data';
+import { useDialog } from './components/ui/DialogProvider.jsx';
 
 export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery, onSendToCanvas }) {
+  const dialog = useDialog();
   const [imgIdx, setImgIdx] = useState(0);
   const [zoom, setZoom] = useState(false);
   const [rgIdx, setRgIdx] = useState(null);
@@ -62,8 +64,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   // 单图重生成
   const regenSingle = async (i) => {
-    if (item?._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }
-    if (!confirm('重新生成这张图片将消耗1次额度，确定？')) return;
+    if (item?._galleryItem) { await dialog.notice({ title: '请先生成自己的作品', message: '案例用于查看效果，生成自己的作品后即可单独重刷图片。' }); return; }
+    if (!await dialog.confirm({ title: '重新生成这张图片？', message: '本次操作会按页面显示的重刷规则扣除额度，其他图片和文案不会改变。', confirmLabel: '确认重刷' })) return;
     setRgIdx(i);
     if (typeof onRegenStart === 'function') onRegenStart(i);
     try {
@@ -76,7 +78,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
       if (!prompt) throw new Error('未找到该页的图片描述');
       const url = await regenerateImage(prompt, item?.category || '');
       if (typeof onItemUpdate === 'function') onItemUpdate(i, url, item?._inputText || '');
-    } catch (e) { alert('图片生成失败：' + e.message); }
+    } catch (e) { await dialog.notice({ title: '图片生成失败', message: e.message || '请稍后重试。' }); }
     setRgIdx(null);
   };
 
@@ -91,7 +93,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   // 导出
   const handleExport = async () => {
-    if (item?._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }
+    if (item?._galleryItem) { await dialog.notice({ title: '请先生成自己的作品', message: '案例用于查看效果，生成自己的作品后即可下载。' }); return; }
     setExporting(true);
     try {
       if (typeof onDownload === 'function') await onDownload(item.cover_url, item.image_urls, item.title, item.body_text, item.hashtags);
@@ -761,9 +763,9 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   </button>
                 )}
                 {textRegen && !editing && (
-                  <button style={S.actionBtn} onClick={() => {
-                    if (item._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }
-                    textRegen();
+                  <button style={S.actionBtn} onClick={async () => {
+                    if (item._galleryItem) { await dialog.notice({ title: '请先生成自己的作品', message: '案例用于查看效果，生成自己的作品后即可重新编辑文案。' }); return; }
+                    await textRegen();
                   }}>
                     <MdRefresh size={13} /> 重新生成
                   </button>

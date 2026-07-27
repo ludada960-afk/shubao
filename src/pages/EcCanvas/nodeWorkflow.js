@@ -51,6 +51,19 @@ export function isDerivedAction(actionId) {
   return ACTION_BY_ID.has(actionId);
 }
 
+export function canDeriveFromNode(input = {}) {
+  const node = normalizeCanvasNode(input);
+  return node.kind === 'image' && ['ready', 'success'].includes(node.status);
+}
+
+export function getConnectionLabel(input = {}) {
+  if (input.relation === 'derived' || input.type === 'derived') {
+    return getActionById(input.actionId)?.label || '派生处理';
+  }
+  if (input.relation === 'reference' || input.type === 'reference') return '引用素材';
+  return input.label || '素材关系';
+}
+
 export function shouldShowQuickCanvasAction(actionId) {
   return actionId !== 'download' && !DIRECT_ACTIONS_REPLACED_BY_NODES.has(actionId);
 }

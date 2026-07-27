@@ -10,6 +10,7 @@ import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
 import GenModal from './components/task/GenModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import { DialogProvider, useDialog } from './components/ui/DialogProvider.jsx';
 const HomePage = React.lazy(() => import('./pages/Home/index'));
 const PricingPage = React.lazy(() => import('./pages/Pricing/index'));
 const WorksPage = React.lazy(() => import('./pages/Works/index'));
@@ -46,7 +47,7 @@ function SideNav() {
       onClick: () => {
         // 画布是个人工作台：先完成受邀账号登录，再允许进入。
         if (!state.logged) {
-          dispatch({ type: 'SET_LOGIN_INTENT', intent: 'ec-canvas' });
+          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } });
           dispatch({ type: 'SHOW_LOGIN', show: true });
           return;
         }
@@ -210,6 +211,7 @@ function AppRouter() {
   const { page, genState, result } = state;
   const [activeTaskId, setActiveTaskId] = useState(null);
   const [genModalOpen, setGenModalOpen] = useState(false);
+  const dialog = useDialog();
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -233,14 +235,14 @@ function AppRouter() {
   }, []);
 
   const textRegen = async () => {
-    if (!result || result._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }
+    if (!result || result._galleryItem) { await dialog.notice({ title: '请先生成自己的作品', message: '案例用于查看效果，生成自己的作品后即可重新编辑文案。' }); return; }
     try {
       const d = await regenerateText(result._inputText || result.title, result.category);
       dispatch({
         type: 'UPDATE_RESULT',
         updater: (prev) => ({ ...prev, title: d.title || prev.title, body_text: d.body_text || prev.body_text, hashtags: d.hashtags || prev.hashtags, pages: d.pages || prev.pages }),
       });
-    } catch (e) { alert('文案重生成失败：' + e.message); }
+    } catch (e) { await dialog.notice({ title: '文案生成失败', message: e.message || '请稍后重试。' }); }
   };
 
   const handleDownload = () => {
@@ -256,7 +258,7 @@ function AppRouter() {
       });
       return;
     }
-    if (result?._galleryItem) { alert('这是薯包出品的展示内容，请先自己生成作品后再使用此功能'); return; }
+    if (result?._galleryItem) { dialog.notice({ title: '请先生成自己的作品', message: '案例用于查看效果，生成自己的作品后即可下载。' }); return; }
     downloadZip(result.cover_url, result.image_urls, result.title, result.body_text, result.hashtags);
   };
 
@@ -278,7 +280,10 @@ function AppRouter() {
     {page !== 'ec-canvas' && <SideNav />}
     <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
     {page !== 'ec-canvas' && <TopBar />}
-    {genState === 'result' && shouldShowNoteModal({ page, result }) ? (
+    <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>
+      <PageComponent key={state._workVersion || 0} />
+    </React.Suspense>
+    {genState === 'result' && shouldShowNoteModal({ page, result }) && (
       <NoteModal
         item={result}
         onClose={() => { dispatch({ type: 'CLOSE_RESULT' }); if (state.scrollPos) setTimeout(() => window.scrollTo(0, state.scrollPos), 50); }}
@@ -306,10 +311,6 @@ function AppRouter() {
           }
         }}
       />
-    ) : (
-      <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>
-        <PageComponent key={state._workVersion || 0} />
-      </React.Suspense>
     )}
     {genState === 'loading' && (
       <div style={{ position:'fixed', inset:0, zIndex:9999, background:'var(--bg)' }}>
@@ -330,5 +331,5 @@ function AppRouter() {
 }
 
 export default function App() {
-  return (<AppProvider><TaskProvider><ErrorBoundary><AppRouter /></ErrorBoundary></TaskProvider></AppProvider>);
+  return (<AppProvider><TaskProvider><DialogProvider><ErrorBoundary><AppRouter /></ErrorBoundary></DialogProvider></TaskProvider></AppProvider>);
 }

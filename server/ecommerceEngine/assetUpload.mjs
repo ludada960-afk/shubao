@@ -12,6 +12,8 @@ const ROLES = new Set(['product', 'reference', 'style', 'proof']);
 const FORMAT_DETAILS = Object.freeze({
   jpeg: { extension: 'jpg', mimeType: 'image/jpeg' },
   png: { extension: 'png', mimeType: 'image/png' },
+  webp: { extension: 'png', mimeType: 'image/png', normalize: true },
+  heif: { extension: 'png', mimeType: 'image/png', normalize: true },
 });
 
 function httpError(message, status, code) {
@@ -259,7 +261,7 @@ export function createEcommerceAssetUploadService({
       throw httpError('图片内容无法解码', 422, 'ASSET_IMAGE_INVALID');
     }
     const details = FORMAT_DETAILS[metadata.format];
-    if (!details) throw httpError('仅支持 JPEG 和 PNG 原图', 415, 'ASSET_FORMAT_UNSUPPORTED');
+    if (!details) throw httpError('暂不支持这种图片格式，请转换为 JPEG、PNG、WebP 或 AVIF 后重试', 415, 'ASSET_FORMAT_UNSUPPORTED');
     const width = Number(metadata.width);
     const height = Number(metadata.height);
     if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
@@ -269,11 +271,26 @@ export function createEcommerceAssetUploadService({
       throw httpError('图片尺寸不安全', 413, 'ASSET_DIMENSIONS_UNSAFE');
     }
     return {
-      format: metadata.format,
+      format: details.normalize ? 'png' : metadata.format,
       mimeType: details.mimeType,
       width,
       height,
+      sourceFormat: metadata.format === 'heif' && metadata.compression === 'av1' ? 'avif' : metadata.format,
+      normalize: Boolean(details.normalize),
     };
+  }
+
+  async function normalizeOriginal(buffer, metadata) {
+    if (!metadata.normalize) return buffer;
+    try {
+      return await sharpImpl(buffer, {
+        failOn: 'error',
+        limitInputPixels: maxInputPixels,
+        unlimited: false,
+      }).rotate().png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
+    } catch {
+      throw httpError('图片转换失败，请换一张图片后重试', 422, 'ASSET_NORMALIZATION_FAILED');
+    }
   }
 
   async function createPreview(buffer) {
@@ -307,20 +324,21 @@ export function createEcommerceAssetUploadService({
     const request = validateRequestBody(body);
     const buffer = decodeBase64(request.data, maxOriginalBytes);
     const metadata = await inspectOriginal(buffer);
+    const originalBuffer = await normalizeOriginal(buffer, metadata);
     const idempotencyKey = sha256(Buffer.concat([
       Buffer.from('ecommerce-upload-v1\0'),
       Buffer.from(owner),
       Buffer.from('\0'),
       Buffer.from(request.role),
       Buffer.from('\0'),
-      buffer,
+      originalBuffer,
     ]));
     const replay = parseStoredResponse(statements.replay.get(idempotencyKey)?.response_json);
     if (replay) return replay;
 
     const previewOutput = await createPreview(buffer);
     const originalStored = await generatedAssetStore.persistBuffer({
-      buffer,
+      buffer: originalBuffer,
       contentType: metadata.mimeType,
       taskId: idempotencyKey,
       label: 'ecommerce-original',
@@ -336,11 +354,12 @@ export function createEcommerceAssetUploadService({
       url: originalStored.url,
       kind: 'original',
       mimeType: metadata.mimeType,
-      format: metadata.format,
+      format: metadata.normalize ? 'png' : metadata.format,
       width: metadata.width,
       height: metadata.height,
-      byteSize: buffer.length,
+      byteSize: originalBuffer.length,
       role: request.role,
+      ...(metadata.normalize ? { sourceFormat: metadata.sourceFormat, normalized: true } : {}),
     };
     const preview = {
       assetId: previewStored.id,

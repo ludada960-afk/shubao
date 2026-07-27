@@ -401,7 +401,7 @@ export default function EcStudioPage() {
         );
       }
     } catch (e) {
-      alert('重生成失败: ' + (e.message || ''));
+      setErr(e.message || '重生成失败，请重试');
     }
     setRegKey('');
     setRegEdit({ l: null, p: '', v: false });
