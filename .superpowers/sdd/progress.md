@@ -188,8 +188,8 @@
   659/659 tests and the build, restarted PM2 once, passed public verification
   before and after the full 600-second canary with stable PID `548594`, deployed
   `00d0796` to `https://shuimg.cn/`, and released the remote lock.
-- Post-deployment responsive browser QA: implementation complete,
-  independently approved, pending commit and production redeployment. A real
+- Post-deployment responsive browser QA: complete, independently approved and
+  deployed as `a07a2c9` (`fix: keep mobile creation controls accessible`). A real
   390x844 production screenshot exposed two issues missed by the earlier static
   test: the 203px wrapping ecommerce action row overlapped the fixed mobile dock
   by 90px, and the top-bar brand wrapped to three lines. Root cause was the
@@ -207,7 +207,22 @@
   no horizontal overflow, preserved input, visible dialog and focused email.
   Final regression passed 664/664, Vite transformed 6417 modules, collaboration
   policy was READY, diff-check passed, and independent review reported no
-  remaining Critical or Important findings.
+  remaining Critical or Important findings. The repository deployment script
+  repeated 664/664 tests and the production build, restarted PM2 once, passed
+  public verification before and after the full 600-second canary with stable
+  PID `559656`, deployed `a07a2c9` to `https://shuimg.cn/`, and released the
+  remote deployment lock. Final production browser QA loaded the matching local
+  build bundle `index-B_zBS9_N.js` plus homepage stylesheet
+  `index-Sa-Ri6RB.css`. At 390x844 the sticky creation action surface ended at
+  726.7px while the fixed mobile dock began at 778.4px (0px overlap), the brand
+  remained one line, and document horizontal overflow was 0px. At 1440x900 the
+  creation surface and desktop dock had no intersection, horizontal overflow
+  remained 0px, and visual inspection found no clipped or displaced creation
+  controls. `SHUBAO_CANARY_SESSION_TOKEN` was not configured, so the automated
+  production checks did not exercise owner-protected project APIs, real
+  billing/whitelist generation, provider output quality, editable composition
+  rendering, or PSD structural download; these remain explicit authenticated
+  acceptance boundaries rather than claimed coverage.
 
 ## Ownership
 
