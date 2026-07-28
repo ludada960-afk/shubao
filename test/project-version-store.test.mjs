@@ -122,6 +122,113 @@ test('links a generation run and completes a project with an accepted result ver
   assert.deepEqual(store.listProjects({ ownerEmail: 'other@example.com' }), []);
 });
 
+test('atomically ensures and completes an ecommerce generation lifecycle idempotently', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = {
+    ownerEmail: 'owner@example.com',
+    generationRunId: 'ecommerce-task-1',
+    title: '水杯套图',
+    inputSnapshot: { description: '保温杯' },
+    planSnapshot: { fingerprint: 'plan-fingerprint', items: [{ id: 'main-1' }] },
+    quoteId: 'quote-1',
+    holdId: 'hold-1',
+  };
+
+  const first = store.ensureEcommerceGeneration(input);
+  const replay = store.ensureEcommerceGeneration(input);
+  const completed = store.completeEcommerceGeneration({
+    ownerEmail: input.ownerEmail,
+    generationRunId: input.generationRunId,
+    resultInputSnapshot: { images: { 'main-1': '/api/generated-assets/main.png' } },
+    resultPlanSnapshot: { fingerprint: 'plan-fingerprint' },
+  });
+  const completedReplay = store.completeEcommerceGeneration({
+    ownerEmail: input.ownerEmail,
+    generationRunId: input.generationRunId,
+    resultInputSnapshot: { ignored: true },
+  });
+
+  assert.equal(replay.project.id, first.project.id);
+  assert.equal(replay.sourceVersion.id, first.sourceVersion.id);
+  assert.equal(replay.run.id, first.run.id);
+  assert.equal(first.run.quoteId, 'quote-1');
+  assert.equal(first.run.holdId, 'hold-1');
+  assert.equal(completed.project.status, 'completed');
+  assert.equal(completed.resultVersion.parentVersionId, first.sourceVersion.id);
+  assert.equal(completed.resultVersion.planSnapshot.fingerprint, 'plan-fingerprint');
+  assert.equal(completedReplay.resultVersion.id, completed.resultVersion.id);
+});
+
+test('records a partial ecommerce result version without claiming the project is completed', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = {
+    ownerEmail: 'owner@example.com',
+    generationRunId: 'ecommerce-task-partial',
+    title: '部分可交付套图',
+    inputSnapshot: { description: '保温杯' },
+    planSnapshot: { fingerprint: 'partial-plan', items: [{ id: 'main-1' }, { id: 'detail-1' }] },
+    quoteId: 'quote-partial',
+    holdId: 'hold-partial',
+  };
+  const linked = store.ensureEcommerceGeneration(input);
+
+  const reviewed = store.completeEcommerceGeneration({
+    ownerEmail: input.ownerEmail,
+    generationRunId: input.generationRunId,
+    terminalStatus: 'needs_review',
+    resultInputSnapshot: { images: { 'main-1': '/api/generated-assets/main.png' } },
+    resultPlanSnapshot: { fingerprint: 'partial-plan' },
+  });
+
+  assert.equal(reviewed.project.status, 'needs_review');
+  assert.equal(reviewed.project.acceptedVersionId, null);
+  assert.equal(reviewed.project.headVersionId, reviewed.resultVersion.id);
+  assert.equal(reviewed.resultVersion.reason, 'manual_save');
+  assert.equal(reviewed.resultVersion.parentVersionId, linked.sourceVersion.id);
+  assert.equal(reviewed.run.status, 'needs_review');
+});
+
+test('terminalizes zero-delivery ecommerce runs without creating an empty result version', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+
+  for (const [suffix, terminalStatus, projectStatus] of [
+    ['review', 'needs_review', 'needs_review'],
+    ['failed', 'failed', 'abandoned'],
+  ]) {
+    const ownerEmail = `${suffix}@example.com`;
+    const generationRunId = `ecommerce-task-${suffix}`;
+    const linked = store.ensureEcommerceGeneration({
+      ownerEmail,
+      generationRunId,
+      title: '无可交付图片',
+      inputSnapshot: { description: '测试商品' },
+      planSnapshot: { fingerprint: `plan-${suffix}`, items: [{ id: 'main-1' }] },
+    });
+
+    const terminated = store.terminateEcommerceGeneration({
+      ownerEmail,
+      generationRunId,
+      terminalStatus,
+    });
+    const replay = store.terminateEcommerceGeneration({
+      ownerEmail,
+      generationRunId,
+      terminalStatus,
+    });
+
+    assert.equal(terminated.project.status, projectStatus);
+    assert.equal(terminated.project.acceptedVersionId, null);
+    assert.equal(terminated.project.headVersionId, linked.sourceVersion.id);
+    assert.equal(terminated.run.status, terminalStatus);
+    assert.equal(terminated.run.resultVersionId, null);
+    assert.equal(replay.run.status, terminalStatus);
+    assert.equal(db.prepare('SELECT COUNT(*) AS value FROM project_versions WHERE project_id = ?').get(linked.project.id).value, 1);
+  }
+});
+
 test('dismisses an available checkpoint and excludes expired checkpoints', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

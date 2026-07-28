@@ -23,6 +23,7 @@ import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanM
 import {
   createEcommerceGenerationPreconditionError,
   createEcommerceGenerationToken,
+  ecommerceLoginPreflight,
   invalidateEcommerceGenerationRequest,
   isEcommerceGenerationTokenCurrent,
 } from './ec/ecommerceTaskProgressModel.js';
@@ -75,7 +76,7 @@ const GLASS_PANEL = {
 
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
 export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckpoint = null }) {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
   const workVersion = Number(state._workVersion || 0);
   const [draftId, setDraftId] = useState(createEcommerceDraftId);
@@ -207,6 +208,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* ── 下一步 ── */
   const handleNext = async () => {
     if (!canGen || uploadingAssets) return;
+    const loginPreflight = ecommerceLoginPreflight({ logged: state.logged });
+    if (!loginPreflight.allowed) {
+      dispatch(loginPreflight.action);
+      setAssetUploadError('');
+      return;
+    }
     const generationToken = beginGeneration();
     if (!generationToken) {
       const contextError = createEcommerceGenerationPreconditionError();

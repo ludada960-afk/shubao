@@ -571,11 +571,14 @@ test('keeps adversarial JSON strings as data without creating schema fields', ()
     'forbiddenMutations',
     'generationInstructions',
     'imageIndexDuties',
+    'layoutContract',
     'platformRecommendation',
     'productTruth',
     'qualityAndRisk',
     'referenceSafety',
     'roleObjective',
+    'shotIntent',
+    'textLayerPlan',
   ]);
   assert.equal(Object.hasOwn(schema, 'evil'), false);
   assert.equal(Object.hasOwn(schema.sections, 'evil'), false);

@@ -59,6 +59,31 @@ function resultImages(assets) {
     .map(asset => [asset.assetId, asset.stableUrl]));
 }
 
+function publicAssetError(asset) {
+  const state = cleanString(own(asset, 'state'));
+  if (state === 'needs_review') return '图片未通过质量检查，本张未计费';
+  if (state === 'failed' || state === 'cancelled') return '图片生成未完成，本张未计费';
+  return '';
+}
+
+function publicAsset(asset) {
+  const plan = isRecord(own(asset?.requestSnapshot, 'assetPlanItem'))
+    ? own(asset.requestSnapshot, 'assetPlanItem')
+    : {};
+  const state = cleanString(own(asset, 'state'));
+  const result = {
+    assetId: cleanString(own(asset, 'assetId')),
+    state,
+    role: cleanString(own(plan, 'role')),
+    label: cleanString(own(plan, 'label') ?? own(plan, 'purpose')),
+    error: publicAssetError(asset),
+  };
+  if (state === 'completed' && cleanString(own(asset, 'stableUrl'))) {
+    result.stableUrl = cleanString(own(asset, 'stableUrl'));
+  }
+  return result;
+}
+
 function assetSource(value) {
   if (typeof value === 'string') return cleanString(value);
   return cleanString(
@@ -139,6 +164,9 @@ function campaignOverrides(payload, direction, assets) {
     referenceAssetIds: Array.isArray(own(payload, 'reference_asset_ids'))
       ? own(payload, 'reference_asset_ids')
       : assets.reference.map(asset => asset.assetId),
+    category: cleanString(own(payload, 'category')),
+    priceBand: cleanString(own(payload, 'price_band')),
+    language: cleanString(own(payload, 'language')) || 'zh-CN',
   };
 }
 
@@ -239,6 +267,19 @@ export function createEcommerceOrchestrator(deps = {}) {
     });
   const repairAsset = typeof own(deps, 'repairAsset') === 'function' ? own(deps, 'repairAsset') : null;
   const qualityAdapters = isRecord(own(deps, 'qualityAdapters')) ? own(deps, 'qualityAdapters') : {};
+  const persistWorkSnapshot = typeof own(deps, 'persistWorkSnapshot') === 'function'
+    ? own(deps, 'persistWorkSnapshot')
+    : null;
+  const evaluateSuiteDiversity = typeof own(deps, 'evaluateSuiteDiversity') === 'function'
+    ? own(deps, 'evaluateSuiteDiversity')
+    : async () => ({ passed: true, issueCodes: [], details: {} });
+  const projectLifecycle = own(deps, 'projectLifecycle') ?? null;
+  if (projectLifecycle && (typeof projectLifecycle.begin !== 'function'
+    || typeof projectLifecycle.complete !== 'function'
+    || typeof projectLifecycle.terminate !== 'function')) {
+    throw new TypeError('projectLifecycle begin, complete, and terminate are required');
+  }
+  const suiteDiversityQueues = new Map();
   const assetLeaseMs = Number.isSafeInteger(own(deps, 'assetLeaseMs')) && own(deps, 'assetLeaseMs') > 0
     ? own(deps, 'assetLeaseMs')
     : 30_000;
@@ -270,7 +311,7 @@ export function createEcommerceOrchestrator(deps = {}) {
     const assets = store.listAssets(id);
     return {
       ...job,
-      assets,
+      assets: assets.map(publicAsset),
       progress: {
         ...job.progress,
         ...summarizeAssets(assets),
@@ -326,6 +367,89 @@ export function createEcommerceOrchestrator(deps = {}) {
 
   async function releaseHoldRemainder({ holdId, job, reason }) {
     return billing.releaseRemainder({ holdId, job, reason });
+  }
+
+  async function persistCurrentWork(jobId, status) {
+    if (!persistWorkSnapshot) return null;
+    const currentJob = jobs.get(jobId);
+    if (!currentJob) return null;
+    try {
+      return await persistWorkSnapshot({
+        job: currentJob,
+        assets: store.listAssets(jobId),
+        status,
+      });
+    } catch (error) {
+      // A completed image must not be charged and then disappear because the
+      // work snapshot write had a transient failure. Leave the task resumable.
+      if (error && typeof error === 'object') error.retryable = true;
+      throw error;
+    }
+  }
+
+  async function withSuiteDiversityLock(jobId, operation) {
+    const previous = suiteDiversityQueues.get(jobId) || Promise.resolve();
+    const next = previous.catch(() => {}).then(operation);
+    suiteDiversityQueues.set(jobId, next);
+    try {
+      return await next;
+    } finally {
+      if (suiteDiversityQueues.get(jobId) === next) suiteDiversityQueues.delete(jobId);
+    }
+  }
+
+  async function suiteComparisonAssets(jobId, currentAssetId) {
+    const candidates = store.listAssets(jobId).filter(asset => (
+      asset.assetId !== currentAssetId
+      && ['settling', 'completed'].includes(asset.state)
+      && cleanString(asset.stableUrl)
+    ));
+    return Promise.all(candidates.map(async asset => {
+      const stored = await stableBytes(asset.stableUrl);
+      const plan = isRecord(own(asset.requestSnapshot, 'assetPlanItem'))
+        ? own(asset.requestSnapshot, 'assetPlanItem')
+        : {};
+      return {
+        assetId: asset.assetId,
+        role: cleanString(own(plan, 'role')),
+        buffer: stored.buffer,
+      };
+    }));
+  }
+
+  function withSuiteDiversityFailure(quality, verdict) {
+    const issueCodes = Array.isArray(verdict?.issueCodes) && verdict.issueCodes.length
+      ? [...new Set(verdict.issueCodes.map(cleanString).filter(Boolean))]
+      : ['suite_near_duplicate'];
+    const existingProductCheck = isRecord(own(quality?.checks, 'productFidelity'))
+      ? own(quality.checks, 'productFidelity')
+      : {};
+    return {
+      ...quality,
+      passed: false,
+      confidence: 'low',
+      checks: {
+        ...quality.checks,
+        productFidelity: {
+          ...existingProductCheck,
+          status: 'fail',
+          passed: false,
+          issueCodes: [...new Set([...(existingProductCheck.issueCodes || []), ...issueCodes])],
+        },
+        suiteDiversity: {
+          status: 'fail',
+          passed: false,
+          issueCodes,
+          details: isRecord(verdict?.details) ? { ...verdict.details } : {},
+        },
+      },
+      repairAction: {
+        type: 'regenerate_from_product_truth',
+        focusIssueCodes: issueCodes,
+        preserveUserFacts: true,
+        userCharge: false,
+      },
+    };
   }
 
   async function runAsset({ job, item, productTruth, campaignBible, holdId }) {
@@ -429,7 +553,7 @@ export function createEcommerceOrchestrator(deps = {}) {
               ...stored,
             };
           }
-          const quality = await evaluateAsset({
+          let quality = await evaluateAsset({
             buffer: stable.buffer,
             expectedFormat: item.role === 'transparent'
               ? 'png'
@@ -441,20 +565,40 @@ export function createEcommerceOrchestrator(deps = {}) {
             stableUrl: current.stableUrl,
           }, qualityAdapters);
           if (quality.passed) {
-            current = store.transitionAsset(job.id, item.id, 'settling', {
-              requestSnapshot: {
-                ...current.requestSnapshot,
-                quality,
-                settlement: {
-                  stableAsset: stable.asset,
+            const diversity = await withSuiteDiversityLock(job.id, async () => {
+              const existing = await suiteComparisonAssets(job.id, item.id);
+              const verdict = await evaluateSuiteDiversity({
+                candidate: {
+                  assetId: item.id,
+                  role: item.role,
+                  buffer: stable.buffer,
                 },
-              },
-              leaseToken,
+                existing,
+                productTruth,
+                assetPlanItem: item,
+              });
+              if (!isRecord(verdict) || typeof verdict.passed !== 'boolean') {
+                throw new Error('suite diversity evaluator returned an invalid verdict');
+              }
+              if (!verdict.passed) return { passed: false, verdict };
+              current = store.transitionAsset(job.id, item.id, 'settling', {
+                requestSnapshot: {
+                  ...current.requestSnapshot,
+                  quality,
+                  suiteDiversity: verdict,
+                  settlement: {
+                    stableAsset: stable.asset,
+                  },
+                },
+                leaseToken,
+              });
+              return { passed: true, verdict };
             });
-            continue;
+            if (diversity.passed) continue;
+            quality = withSuiteDiversityFailure(quality, diversity.verdict);
           }
           const repairAction = planRepair(quality);
-          if (!canRetry(current.attemptCount)) {
+          if (!canRetry(current.attemptCount, repairAction)) {
             const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
             current = store.transitionAsset(job.id, item.id, 'releasing', {
               requestSnapshot: {
@@ -518,6 +662,7 @@ export function createEcommerceOrchestrator(deps = {}) {
           try {
             await settleItem({ holdId, job, item, stableAsset, quality });
             current = store.transitionAsset(job.id, item.id, 'completed', { leaseToken });
+            await persistCurrentWork(job.id, 'generating');
           } catch (error) {
             if (error && typeof error === 'object') error.retryable = true;
             throw error;
@@ -751,6 +896,26 @@ export function createEcommerceOrchestrator(deps = {}) {
       }
       setupHoldId = holdId;
 
+      if (projectLifecycle) {
+        const hasProjectLink = ['projectId', 'sourceVersionId', 'generationRunId', 'assetPlanFingerprint']
+          .every(key => cleanString(own(job.progress, key)));
+        if (!hasProjectLink) {
+          const linked = await projectLifecycle.begin({ job, assetPlan, holdId });
+          const fingerprint = cleanString(own(linked, 'assetPlanFingerprint'));
+          if (!fingerprint) throw new Error('asset plan fingerprint is required');
+          job = jobs.checkpoint(id, {
+            progress: {
+              ...job.progress,
+              projectId: validateId(own(linked, 'projectId'), 'project id'),
+              sourceVersionId: validateId(own(linked, 'sourceVersionId'), 'source version id'),
+              generationRunId: validateId(own(linked, 'generationRunId'), 'generation run id'),
+              assetPlanFingerprint: fingerprint,
+            },
+            leaseToken: parentLeaseToken,
+          });
+        }
+      }
+
       const pendingSetupRelease = own(job.progress, 'setupRelease');
       if (isRecord(pendingSetupRelease)) {
         const reason = cleanString(own(pendingSetupRelease, 'reason')) || 'parent_setup_failed';
@@ -822,11 +987,34 @@ export function createEcommerceOrchestrator(deps = {}) {
         images: resultImages(assets),
         errors: assets
           .filter(asset => asset.state === 'failed' || asset.state === 'needs_review')
-          .map(asset => ({ style: asset.assetId, error: asset.error, state: asset.state })),
+          .map(asset => ({ style: asset.assetId, error: publicAssetError(asset), state: asset.state })),
       };
       const summary = summarizeAssets(assets);
       job = jobs.get(id);
       if (status && !PARENT_FINAL_STATES.has(job.status)) {
+        const deliverableCount = Object.keys(output.images).length;
+        const shouldVersionResult = status === 'completed'
+          || (status === 'needs_review' && deliverableCount > 0);
+        if (projectLifecycle && !cleanString(own(job.progress, 'resultVersionId'))) {
+          const lifecycleResult = shouldVersionResult
+            ? await projectLifecycle.complete({ job, output, assets, status })
+            : await projectLifecycle.terminate({ job, status });
+          const nextProgress = {
+            ...job.progress,
+            projectId: cleanString(own(lifecycleResult, 'projectId')) || job.progress.projectId,
+            sourceVersionId: cleanString(own(lifecycleResult, 'sourceVersionId')) || job.progress.sourceVersionId,
+            generationRunId: cleanString(own(lifecycleResult, 'generationRunId')) || job.progress.generationRunId,
+            assetPlanFingerprint: cleanString(own(lifecycleResult, 'assetPlanFingerprint')) || job.progress.assetPlanFingerprint,
+          };
+          if (shouldVersionResult) {
+            nextProgress.resultVersionId = validateId(own(lifecycleResult, 'resultVersionId'), 'result version id');
+          }
+          job = jobs.checkpoint(id, {
+            progress: nextProgress,
+            leaseToken: parentLeaseToken,
+          });
+        }
+        await persistCurrentWork(id, status);
         jobs.transition(id, status, {
           output,
           error: status === 'failed' ? '未生成可交付图片' : '',
@@ -878,6 +1066,21 @@ export function createEcommerceOrchestrator(deps = {}) {
         if (Number.isSafeInteger(error?.required) && error.required >= 0) detail.required = error.required;
         if (Number.isSafeInteger(error?.available) && error.available >= 0) detail.available = error.available;
         const summary = summarizeAssets(assets);
+        if (projectLifecycle
+          && cleanString(own(job.progress, 'generationRunId'))
+          && !cleanString(own(job.progress, 'resultVersionId'))) {
+          const terminated = await projectLifecycle.terminate({ job, status: 'failed' });
+          job = jobs.checkpoint(id, {
+            progress: {
+              ...job.progress,
+              projectId: cleanString(own(terminated, 'projectId')) || job.progress.projectId,
+              sourceVersionId: cleanString(own(terminated, 'sourceVersionId')) || job.progress.sourceVersionId,
+              generationRunId: cleanString(own(terminated, 'generationRunId')) || job.progress.generationRunId,
+              assetPlanFingerprint: cleanString(own(terminated, 'assetPlanFingerprint')) || job.progress.assetPlanFingerprint,
+            },
+            leaseToken: parentLeaseToken,
+          });
+        }
         jobs.transition(id, 'failed', {
           output: {
             product_name: own(job.payload, 'product_name'),

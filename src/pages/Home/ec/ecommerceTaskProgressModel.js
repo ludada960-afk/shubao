@@ -102,6 +102,12 @@ export function createEcommerceGenerationPreconditionError() {
   return error;
 }
 
+export function ecommerceLoginPreflight({ logged } = {}) {
+  return logged
+    ? { allowed: true, action: null }
+    : { allowed: false, action: { type: 'SHOW_LOGIN', show: true } };
+}
+
 export function invalidateEcommerceGenerationRequest({ tokenRef, abortRef } = {}) {
   const controller = abortRef?.current;
   tokenRef && (tokenRef.current = null);
@@ -243,6 +249,24 @@ export function normalizeEcommerceAsset(asset = {}) {
 
 export function normalizeEcommerceAssets(assets) {
   return (Array.isArray(assets) ? assets : []).map(normalizeEcommerceAsset);
+}
+
+export function isEcommerceAssetDeliverable(asset = {}) {
+  const normalized = normalizeEcommerceAsset(asset);
+  return Boolean(
+    normalized.id
+    && normalized.stableUrl
+    && normalized.state === 'completed',
+  );
+}
+
+export function mergeEcommerceStableImageList(previous, image = {}) {
+  const current = Array.isArray(previous) ? previous : [];
+  const merged = mergeEcommerceInProgressPreview(
+    Object.fromEntries(current.map(item => [cleanText(item?.id), item]).filter(([id]) => id)),
+    image,
+  );
+  return Object.values(merged);
 }
 
 export function taskKey({ ownerEmail, draftId } = {}) {

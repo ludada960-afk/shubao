@@ -1,3 +1,5 @@
+import { compileTypographySystem } from './typographyPolicy.mjs';
+
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function hasOwn(record, key) {
@@ -55,6 +57,11 @@ export function compileCampaignBible(direction = {}, overrides = {}) {
     : normalizeStrings(ownValue(direction, 'palette', 'colors', 'preview_colors'));
   const consistencyLocks = normalizeStrings(ownValue(direction, 'consistencyLocks', 'consistency_locks'));
   const hasEditableBriefOverride = hasOwn(overrides, 'editableBrief') || hasOwn(overrides, 'editable_brief');
+  const typographySystem = compileTypographySystem({
+    category: normalizeString(ownValue(overrides, 'category')) || '其他',
+    priceBand: normalizeString(ownValue(overrides, 'priceBand', 'price_band')),
+    language: normalizeString(ownValue(overrides, 'language')) || 'zh-CN',
+  });
 
   if (customColors.length > 0) {
     const canonicalPaletteLock = `palette: ${customColors.join(', ')}`;
@@ -79,6 +86,7 @@ export function compileCampaignBible(direction = {}, overrides = {}) {
     composition: normalizeString(ownValue(direction, 'composition')),
     backgroundLanguage: normalizeString(ownValue(direction, 'backgroundLanguage', 'background_language')),
     typographyIntent: normalizeString(ownValue(direction, 'typographyIntent', 'typography_intent')),
+    typographySystem,
     copyTone: normalizeString(ownValue(direction, 'copyTone', 'copy_tone')),
     consistencyLocks,
     prohibitedStyles: normalizeStrings(ownValue(direction, 'prohibitedStyles', 'prohibited_styles')),

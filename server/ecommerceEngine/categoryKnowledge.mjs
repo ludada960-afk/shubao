@@ -234,9 +234,32 @@ export const CATEGORY_KNOWLEDGE = {
   },
 };
 
+const CATEGORY_ALIASES = Object.freeze({
+  '3c': '数码3C',
+  '3c数码': '数码3C',
+  '数码': '数码3C',
+  '数码家电': '数码3C',
+  '美妆个护': '美妆护肤',
+  '食品': '食品饮料',
+  food: '食品饮料',
+  '服饰鞋包': '服饰穿搭',
+  '服饰': '服饰穿搭',
+  '家居日用': '家居生活',
+  '家居': '家居生活',
+  '母婴': '母婴用品',
+  '宠物': '宠物用品',
+});
+
+export function normalizeEcommerceCategory(category) {
+  const value = typeof category === 'string' ? category.trim() : '';
+  if (!value) return '其他';
+  if (Object.hasOwn(CATEGORY_KNOWLEDGE, value)) return value;
+  return CATEGORY_ALIASES[value.toLowerCase()] || '其他';
+}
+
 /** 获取某品类的视觉信息 */
 export function getCategoryInfo(category) {
-  return CATEGORY_KNOWLEDGE[category] || CATEGORY_KNOWLEDGE['其他'];
+  return CATEGORY_KNOWLEDGE[normalizeEcommerceCategory(category)];
 }
 
 /** 获取所有品类名 */
@@ -246,7 +269,7 @@ export function getCategoryList() {
 
 /** 获取推荐出图策略 */
 export function getGenStrategy(category) {
-  return (CATEGORY_KNOWLEDGE[category] || CATEGORY_KNOWLEDGE['其他']).genStrategy;
+  return CATEGORY_KNOWLEDGE[normalizeEcommerceCategory(category)].genStrategy;
 }
 
 /** 获取动态资产规划策略（保留旧版 genStrategy 导出不变） */
@@ -256,7 +279,7 @@ export function getAssetPlanStrategy(category) {
 
 /** 构建品类视觉描述文字 (与旧版兼容) */
 export function buildCategoryDescription(category) {
-  const cat = CATEGORY_KNOWLEDGE[category] || CATEGORY_KNOWLEDGE['其他'];
+  const cat = CATEGORY_KNOWLEDGE[normalizeEcommerceCategory(category)];
   return [
     `PRODUCT TYPE: ${cat.name} — ${cat.description}.`,
     `MATERIALS: ${cat.materials}.`,

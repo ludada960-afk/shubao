@@ -396,6 +396,43 @@ test('in-progress stable previews stay separate until a completed or needs-revie
   });
 });
 
+test('one plan item keeps one preview slot when a repaired stable URL replaces the first attempt', () => {
+  const first = taskProgressModel.mergeEcommerceInProgressPreview({}, {
+    id: 'main-1',
+    stableUrl: '/api/generated-assets/first.png',
+    role: 'main_text',
+    label: '商品识别主图',
+  });
+  const repaired = taskProgressModel.mergeEcommerceInProgressPreview(first, {
+    id: 'main-1',
+    stableUrl: '/api/generated-assets/repaired.png',
+    role: 'main_text',
+    label: '商品识别主图',
+  });
+
+  assert.deepEqual(Object.keys(repaired), ['main-1']);
+  assert.equal(repaired['main-1'].stableUrl, '/api/generated-assets/repaired.png');
+});
+
+test('only quality-approved completed assets are exposed as deliverable previews', () => {
+  const base = { id: 'main-1', stableUrl: '/api/generated-assets/main-1.png' };
+  assert.equal(taskProgressModel.isEcommerceAssetDeliverable({ ...base, state: 'completed' }), true);
+  assert.equal(taskProgressModel.isEcommerceAssetDeliverable({ ...base, state: 'needs_review' }), false);
+  assert.equal(taskProgressModel.isEcommerceAssetDeliverable({ ...base, state: 'quality_check' }), false);
+  assert.equal(taskProgressModel.isEcommerceAssetDeliverable(base), false);
+});
+
+test('logged-out generation preflight requests an in-place login without creating a task', () => {
+  assert.deepEqual(taskProgressModel.ecommerceLoginPreflight({ logged: false }), {
+    allowed: false,
+    action: { type: 'SHOW_LOGIN', show: true },
+  });
+  assert.deepEqual(taskProgressModel.ecommerceLoginPreflight({ logged: true }), {
+    allowed: true,
+    action: null,
+  });
+});
+
 test('late generation A image and completion cannot write after owner-draft rotation to generation B', async () => {
   let currentToken = taskProgressModel.createEcommerceGenerationToken({
     ownerEmail: 'Owner@Example.COM',

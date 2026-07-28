@@ -3,6 +3,8 @@ const PRODUCT_REGEN_CODES = new Set([
   'product_drift',
   'product_fidelity_failed',
   'product_identity_mismatch',
+  'suite_collage_layout',
+  'suite_near_duplicate',
   'wrong_product',
 ]);
 const TECHNICAL_OPERATIONS = Object.freeze({
@@ -127,6 +129,10 @@ export function planRepair(qualityResult) {
   };
 }
 
-export function canRetry(attempt) {
-  return Number.isInteger(attempt) && attempt >= 0 && attempt < 2;
+export function canRetry(attempt, repairAction = {}) {
+  if (!Number.isInteger(attempt) || attempt < 0) return false;
+  // Sharp repairs run locally and do not spend another image-generation call.
+  // Every provider-backed repair gets one bounded retry after the initial render.
+  const maxRepairs = repairAction?.type === 'sharp_repair' ? 2 : 1;
+  return attempt < maxRepairs;
 }

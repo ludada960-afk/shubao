@@ -261,6 +261,167 @@ export function createProjectStore(db, {
       return changed === 1 ? api.getCanvasSession({ ownerEmail, sessionId }) : null;
     },
 
+    ensureEcommerceGeneration({
+      ownerEmail,
+      generationRunId,
+      title = '',
+      inputSnapshot = {},
+      planSnapshot = {},
+      quoteId = null,
+      holdId = null,
+    }) {
+      const owner = normalizeOwner(ownerEmail);
+      const runId = String(generationRunId || '').trim();
+      if (!owner) throw new TypeError('ownerEmail is required');
+      if (!runId) throw new TypeError('generationRunId is required');
+      return db.transaction(() => {
+        const existingRun = db.prepare('SELECT * FROM project_generation_runs WHERE id = ? AND owner_email = ?').get(runId, owner);
+        if (existingRun) {
+          const run = runFromRow(existingRun);
+          return {
+            project: requireProject(owner, run.projectId),
+            sourceVersion: requireVersion(run.projectId, run.sourceVersionId),
+            run,
+          };
+        }
+        const project = insertProject({ ownerEmail: owner, kind: 'ecommerce', title });
+        const sourceVersionId = randomUUID();
+        const createdAt = timestamp().toISOString();
+        db.prepare(`INSERT INTO project_versions
+          (id, project_id, parent_version_id, reason, sequence, input_snapshot, plan_snapshot, canvas_snapshot_id, created_at)
+          VALUES (?, ?, NULL, 'generation', 1, ?, ?, NULL, ?)`).run(
+          sourceVersionId,
+          project.id,
+          JSON.stringify(inputSnapshot || {}),
+          JSON.stringify(planSnapshot || {}),
+          createdAt,
+        );
+        db.prepare("UPDATE projects SET status = 'running', head_version_id = ?, updated_at = ? WHERE id = ?")
+          .run(sourceVersionId, createdAt, project.id);
+        db.prepare(`INSERT INTO project_generation_runs
+          (id, project_id, source_version_id, owner_email, kind, status, quote_id, hold_id, progress, created_at)
+          VALUES (?, ?, ?, ?, 'ecommerce', 'queued', ?, ?, '{}', ?)`).run(
+          runId, project.id, sourceVersionId, owner, quoteId, holdId, createdAt,
+        );
+        return {
+          project: requireProject(owner, project.id),
+          sourceVersion: requireVersion(project.id, sourceVersionId),
+          run: runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ?').get(runId)),
+        };
+      }).immediate();
+    },
+
+    completeEcommerceGeneration({
+      ownerEmail,
+      generationRunId,
+      terminalStatus = 'completed',
+      resultInputSnapshot = {},
+      resultPlanSnapshot = {},
+    }) {
+      const owner = normalizeOwner(ownerEmail);
+      const runId = String(generationRunId || '').trim();
+      const resultStatus = String(terminalStatus || '').trim().toLowerCase();
+      if (!['completed', 'needs_review'].includes(resultStatus)) {
+        throw new TypeError('terminalStatus must be completed or needs_review');
+      }
+      return db.transaction(() => {
+        const runRow = db.prepare('SELECT * FROM project_generation_runs WHERE id = ? AND owner_email = ?').get(runId, owner);
+        if (!runRow) throw codedError('GENERATION_RUN_NOT_FOUND', 'generation run not found');
+        const run = runFromRow(runRow);
+        const project = requireProject(owner, run.projectId);
+        const sourceVersion = requireVersion(project.id, run.sourceVersionId);
+        if (run.resultVersionId) {
+          return {
+            project,
+            sourceVersion,
+            resultVersion: requireVersion(project.id, run.resultVersionId),
+            run,
+          };
+        }
+        const resultVersionId = randomUUID();
+        const completedAt = timestamp().toISOString();
+        const versionReason = resultStatus === 'completed' ? 'accepted_result' : 'manual_save';
+        const sequence = db.prepare('SELECT COALESCE(MAX(sequence), 0) + 1 AS value FROM project_versions WHERE project_id = ?').get(project.id).value;
+        db.prepare(`INSERT INTO project_versions
+          (id, project_id, parent_version_id, reason, sequence, input_snapshot, plan_snapshot, canvas_snapshot_id, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`).run(
+          resultVersionId,
+          project.id,
+          sourceVersion.id,
+          versionReason,
+          sequence,
+          JSON.stringify(resultInputSnapshot || {}),
+          JSON.stringify(resultPlanSnapshot || {}),
+          completedAt,
+        );
+        if (resultStatus === 'completed') {
+          db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?
+            WHERE id = ? AND owner_email = ?`).run(
+            resultVersionId, resultVersionId, completedAt, completedAt, project.id, owner,
+          );
+        } else {
+          db.prepare(`UPDATE projects SET status = 'needs_review', accepted_version_id = NULL, head_version_id = ?, completed_at = NULL, updated_at = ?
+            WHERE id = ? AND owner_email = ?`).run(
+            resultVersionId, completedAt, project.id, owner,
+          );
+        }
+        db.prepare(`UPDATE project_generation_runs SET status = ?, result_version_id = ?, completed_at = ?
+          WHERE id = ? AND project_id = ? AND owner_email = ?`).run(
+          resultStatus, resultVersionId, completedAt, runId, project.id, owner,
+        );
+        db.prepare("UPDATE recovery_checkpoints SET status = 'consumed' WHERE project_id = ? AND owner_email = ? AND status = 'available'")
+          .run(project.id, owner);
+        return {
+          project: requireProject(owner, project.id),
+          sourceVersion,
+          resultVersion: requireVersion(project.id, resultVersionId),
+          run: runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ?').get(runId)),
+        };
+      }).immediate();
+    },
+
+    terminateEcommerceGeneration({ ownerEmail, generationRunId, terminalStatus }) {
+      const owner = normalizeOwner(ownerEmail);
+      const runId = String(generationRunId || '').trim();
+      const runStatus = String(terminalStatus || '').trim().toLowerCase();
+      if (!owner) throw new TypeError('ownerEmail is required');
+      if (!runId) throw new TypeError('generationRunId is required');
+      if (!['needs_review', 'failed', 'cancelled'].includes(runStatus)) {
+        throw new TypeError('terminalStatus must be needs_review, failed, or cancelled');
+      }
+      return db.transaction(() => {
+        const runRow = db.prepare('SELECT * FROM project_generation_runs WHERE id = ? AND owner_email = ?').get(runId, owner);
+        if (!runRow) throw codedError('GENERATION_RUN_NOT_FOUND', 'generation run not found');
+        const run = runFromRow(runRow);
+        const project = requireProject(owner, run.projectId);
+        const sourceVersion = requireVersion(project.id, run.sourceVersionId);
+        if (run.resultVersionId) {
+          return {
+            project,
+            sourceVersion,
+            resultVersion: requireVersion(project.id, run.resultVersionId),
+            run,
+          };
+        }
+        const terminalAt = timestamp().toISOString();
+        const projectStatus = runStatus === 'needs_review' ? 'needs_review' : 'abandoned';
+        db.prepare(`UPDATE projects SET status = ?, accepted_version_id = NULL, completed_at = NULL, updated_at = ?
+          WHERE id = ? AND owner_email = ?`).run(projectStatus, terminalAt, project.id, owner);
+        db.prepare(`UPDATE project_generation_runs SET status = ?, result_version_id = NULL, completed_at = ?
+          WHERE id = ? AND project_id = ? AND owner_email = ?`).run(
+          runStatus, terminalAt, runId, project.id, owner,
+        );
+        db.prepare("UPDATE recovery_checkpoints SET status = 'consumed' WHERE project_id = ? AND owner_email = ? AND status = 'available'")
+          .run(project.id, owner);
+        return {
+          project: requireProject(owner, project.id),
+          sourceVersion,
+          resultVersion: null,
+          run: runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ?').get(runId)),
+        };
+      }).immediate();
+    },
+
     linkGenerationRun({ ownerEmail, projectId, sourceVersionId, generationRunId = randomUUID(), kind, quoteId = null, holdId = null, progress = {} }) {
       const project = requireProject(ownerEmail, projectId);
       requireVersion(project.id, sourceVersionId);

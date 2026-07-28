@@ -552,6 +552,9 @@ export function compileAssetRequest({
       purpose: cleanString(ownValue(item, 'purpose')),
       generationMode: cleanString(ownValue(item, 'generationMode')) || 'edit',
     },
+    shotIntent: isRecord(ownValue(item, 'shotIntent')) ? ownValue(item, 'shotIntent') : {},
+    layoutContract: isRecord(ownValue(item, 'layoutContract')) ? ownValue(item, 'layoutContract') : {},
+    textLayerPlan: isRecord(ownValue(item, 'textLayerPlan')) ? ownValue(item, 'textLayerPlan') : {},
     productTruth: {
       identity: {
         productName,

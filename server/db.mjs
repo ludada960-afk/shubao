@@ -50,6 +50,7 @@ export function initDB(dbPath = DB_PATH) {
     CREATE TABLE IF NOT EXISTS works (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       _saveKey TEXT UNIQUE,
+      owner_email TEXT DEFAULT '',
       title TEXT DEFAULT '',
       body_text TEXT DEFAULT '',
       hashtags TEXT DEFAULT '[]',
@@ -104,7 +105,20 @@ export function initDB(dbPath = DB_PATH) {
   if (!workColumns.includes('deleted_at')) {
     db.exec("ALTER TABLE works ADD COLUMN deleted_at TEXT DEFAULT ''");
   }
+  if (!workColumns.includes('owner_email')) {
+    db.exec("ALTER TABLE works ADD COLUMN owner_email TEXT DEFAULT ''");
+  }
+  const unownedWorks = db.prepare("SELECT id, payload FROM works WHERE COALESCE(owner_email, '') = ''").all();
+  const backfillWorkOwner = db.prepare('UPDATE works SET owner_email = ? WHERE id = ?');
+  for (const row of unownedWorks) {
+    try {
+      const payload = JSON.parse(row.payload || '{}');
+      const owner = normalizeWorkOwner(payload?._phone);
+      if (owner) backfillWorkOwner.run(owner, row.id);
+    } catch { /* leave malformed legacy rows unowned and inaccessible */ }
+  }
   db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_works_owner ON works(owner_email, created_at DESC)');
   ensureBillingSchema(db);
   ensureProjectSchema(db);
   migrateLegacyUserCredits(db);
@@ -120,36 +134,53 @@ export function getDatabase() {
 
 // =========== 作品 CRUD ===========
 
+function normalizeWorkOwner(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 /** 获取全部作品，按创建时间倒序 */
-export function getAllWorks({ includeDeleted = false } = {}) {
+export function getAllWorks({ includeDeleted = false, ownerEmail = null } = {}) {
   if (!db) initDB();
-  const rows = db.prepare(`SELECT * FROM works ${includeDeleted ? '' : "WHERE COALESCE(deleted_at, '') = ''"} ORDER BY id DESC LIMIT 100`).all();
+  const owner = ownerEmail === null ? null : normalizeWorkOwner(ownerEmail);
+  const predicates = [];
+  const params = [];
+  if (!includeDeleted) predicates.push("COALESCE(deleted_at, '') = ''");
+  if (owner !== null) { predicates.push('owner_email = ?'); params.push(owner); }
+  const where = predicates.length ? `WHERE ${predicates.join(' AND ')}` : '';
+  const rows = db.prepare(`SELECT * FROM works ${where} ORDER BY id DESC LIMIT 100`).all(...params);
   return rows.map(rowToWork);
 }
 
-export function getDeletedWorks() {
+export function getDeletedWorks({ ownerEmail = null } = {}) {
   if (!db) initDB();
-  return db.prepare("SELECT * FROM works WHERE COALESCE(deleted_at, '') <> '' ORDER BY updated_at DESC LIMIT 100").all().map(rowToWork);
+  const owner = ownerEmail === null ? null : normalizeWorkOwner(ownerEmail);
+  const sql = `SELECT * FROM works WHERE COALESCE(deleted_at, '') <> ''${owner === null ? '' : ' AND owner_email = ?'} ORDER BY updated_at DESC LIMIT 100`;
+  return db.prepare(sql).all(...(owner === null ? [] : [owner])).map(rowToWork);
 }
 
 /** 按 _saveKey 查单个作品 */
-export function getWorkBySaveKey(saveKey) {
+export function getWorkBySaveKey(saveKey, { ownerEmail = null } = {}) {
   if (!db) initDB();
-  const row = db.prepare('SELECT * FROM works WHERE _saveKey = ?').get(saveKey);
+  const owner = ownerEmail === null ? null : normalizeWorkOwner(ownerEmail);
+  const row = db.prepare(`SELECT * FROM works WHERE _saveKey = ?${owner === null ? '' : ' AND owner_email = ?'}`)
+    .get(...(owner === null ? [saveKey] : [saveKey, owner]));
   return row ? rowToWork(row) : null;
 }
 
 /** 插入或更新作品（按 _saveKey） */
-export function upsertWork(work) {
+export function upsertWork(work, { ownerEmail = null } = {}) {
   if (!db) initDB();
-  const saveKey = work._saveKey || String(Date.now() + Math.random());
+  const owner = normalizeWorkOwner(ownerEmail ?? work?._phone);
+  const record = owner ? { ...work, _phone: owner } : work;
+  const saveKey = record._saveKey || String(Date.now() + Math.random());
   const stmt = db.prepare(`
-    INSERT INTO works (_saveKey, title, body_text, hashtags, category, pages,
+    INSERT INTO works (_saveKey, owner_email, title, body_text, hashtags, category, pages,
       cover_url, image_urls, image_count, _inputText, visual_system,
       cover_prompt, image_prompts, tags, error, payload, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       datetime('now', 'localtime'))
     ON CONFLICT(_saveKey) DO UPDATE SET
+      owner_email = CASE WHEN excluded.owner_email = '' THEN works.owner_email ELSE excluded.owner_email END,
       title = excluded.title,
       body_text = excluded.body_text,
       hashtags = excluded.hashtags,
@@ -166,38 +197,49 @@ export function upsertWork(work) {
       error = excluded.error,
       payload = excluded.payload,
       updated_at = datetime('now', 'localtime')
+    WHERE excluded.owner_email = '' OR works.owner_email = excluded.owner_email
   `);
 
-  stmt.run(
+  const result = stmt.run(
     saveKey,
-    work.title || '',
-    work.body_text || '',
-    JSON.stringify(work.hashtags || []),
-    work.category || '',
-    JSON.stringify(work.pages || []),
-    work.cover_url || '',
-    JSON.stringify(work.image_urls || []),
-    work.image_count || 0,
-    work._inputText || '',
-    work.visual_system || '',
-    work.cover_prompt || '',
-    JSON.stringify(work.image_prompts || []),
-    JSON.stringify(work.tags || []),
-    work.error || '',
-    JSON.stringify(work)
+    owner,
+    record.title || '',
+    record.body_text || '',
+    JSON.stringify(record.hashtags || []),
+    record.category || '',
+    JSON.stringify(record.pages || []),
+    record.cover_url || '',
+    JSON.stringify(record.image_urls || []),
+    record.image_count || 0,
+    record._inputText || '',
+    record.visual_system || '',
+    record.cover_prompt || '',
+    JSON.stringify(record.image_prompts || []),
+    JSON.stringify(record.tags || []),
+    record.error || '',
+    JSON.stringify(record)
   );
+  if (owner && result.changes === 0) {
+    throw Object.assign(new Error('work not found'), { code: 'WORK_NOT_FOUND', status: 404 });
+  }
   return saveKey;
 }
 
 /** 删除作品 */
-export function softDeleteWork(saveKey) {
+export function softDeleteWork(saveKey, { ownerEmail = null } = {}) {
   if (!db) initDB();
-  db.prepare("UPDATE works SET deleted_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE _saveKey = ?").run(saveKey);
+  const owner = ownerEmail === null ? null : normalizeWorkOwner(ownerEmail);
+  const result = db.prepare(`UPDATE works SET deleted_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime') WHERE _saveKey = ?${owner === null ? '' : ' AND owner_email = ?'}`)
+    .run(...(owner === null ? [saveKey] : [saveKey, owner]));
+  return result.changes > 0;
 }
 
-export function restoreWork(saveKey) {
+export function restoreWork(saveKey, { ownerEmail = null } = {}) {
   if (!db) initDB();
-  db.prepare("UPDATE works SET deleted_at = '', updated_at = datetime('now', 'localtime') WHERE _saveKey = ?").run(saveKey);
+  const owner = ownerEmail === null ? null : normalizeWorkOwner(ownerEmail);
+  const result = db.prepare(`UPDATE works SET deleted_at = '', updated_at = datetime('now', 'localtime') WHERE _saveKey = ?${owner === null ? '' : ' AND owner_email = ?'}`)
+    .run(...(owner === null ? [saveKey] : [saveKey, owner]));
+  return result.changes > 0;
 }
 
 /** 获取作品总数 */

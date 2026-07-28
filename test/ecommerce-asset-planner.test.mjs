@@ -251,6 +251,31 @@ test('assigns repeated hero images distinct commercial shot duties', () => {
   assert.match(heroes[2].purpose, /usage|scene|scale/i);
 });
 
+test('frontend category aliases use the same asset strategy as canonical categories', () => {
+  const aliases = [
+    ['3C数码', '数码3C'],
+    ['家居日用', '家居生活'],
+    ['服饰鞋包', '服饰穿搭'],
+  ];
+
+  for (const [alias, canonical] of aliases) {
+    const aliased = buildAssetPlan({
+      productTruth: productTruth({ category: alias }),
+      campaignBible,
+      platform: 'taobao',
+    });
+    const expected = buildAssetPlan({
+      productTruth: productTruth({ category: canonical }),
+      campaignBible,
+      platform: 'taobao',
+    });
+    assert.deepEqual(
+      aliased.map(item => [item.role, item.shotIntent.type]),
+      expected.map(item => [item.role, item.shotIntent.type]),
+    );
+  }
+});
+
 test('normalizes prototype-sensitive inputs and returns deterministic stable item IDs', () => {
   const inherited = { sourceAssetIds: ['inherited-product'], referenceAssetIds: ['inherited-style'] };
   const unsafeTruth = Object.assign(Object.create(inherited), productTruth({ sourceAssetIds: ['product-front'] }));

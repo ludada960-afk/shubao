@@ -290,6 +290,9 @@ function buildFallbackPrompt(productName, category, roleKey) {
 
 const STRUCTURED_SECTION_ORDER = Object.freeze([
   'roleObjective',
+  'shotIntent',
+  'layoutContract',
+  'textLayerPlan',
   'productTruth',
   'campaignBible',
   'imageIndexDuties',

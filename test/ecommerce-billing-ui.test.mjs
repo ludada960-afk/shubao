@@ -60,6 +60,32 @@ test('smart and custom sizing resolve to explicit legal production images', asyn
   ]);
 });
 
+test('smart package disclosure, quote quantity, and server plan all describe the same ten deliverables', async () => {
+  const { PLATFORM_PRESETS, resolveEcommercePlan, resolveSizingImages } = await planModel();
+  const images = resolveSizingImages('smart', { smart: true, images: [], resolution: '2K' });
+  const uiPlan = resolveEcommercePlan({
+    platform: 'smart',
+    resolution: '2K',
+    sizing: { smart: true, images },
+  });
+  const serverPlan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible: { confirmed: true, referenceAssetIds: [] },
+    platform: 'smart',
+    sizing: { resolution: '2K', smart: true, images },
+  });
+
+  assert.equal(images.reduce((sum, image) => sum + image.count, 0), 10);
+  assert.equal(uiPlan.quantity, 10);
+  assert.equal(uiPlan.quoteRequest.quantity, 10);
+  assert.equal(serverPlan.length, 10);
+  assert.match(PLATFORM_PRESETS.smart.desc, /1.*白底.*3.*主图.*1.*透明.*5.*详情.*10/);
+
+  const sizingSource = await fs.readFile(new URL('../src/pages/Home/ec/SizingPanel.jsx', import.meta.url), 'utf8');
+  assert.match(sizingSource, /planSummary/);
+  assert.match(sizingSource, /总计.*totalImages|totalImages.*张/);
+});
+
 test('UI plan quantity matches the production asset plan and all IDs are deterministic and unique', async () => {
   const { resolveEcommercePlan } = await planModel();
   const input = {
@@ -369,11 +395,14 @@ test('direction generation keeps normalized per-asset progress and stable previe
   assert.match(source, /asset\.userState/);
   assert.match(source, /stableImages\.map/);
   assert.match(source, /retry:\s*retryTaskRequested/);
-  assert.match(source, /result\?\.status === 'completed'/);
-  assert.doesNotMatch(source, /hasFinalStatus[\s\S]{0,160}needs_review/);
-  assert.match(source, /_saveKey:\s*`ec-task-\$\{result\.taskId\}`/);
-  assert.match(source, /taskId:\s*result\.taskId/);
-  assert.match(source, /Object\.keys\(result\?\.images \|\| \{\}\)\.length > 0/);
+  assert.match(source, /acceptEcommerceFinalResult\(result\)/);
+  assert.match(source, /_partialDelivery:\s*finalDelivery\.status === 'needs_review'/);
+  assert.doesNotMatch(source, /继续生成[”"]?修复未通过/);
+  assert.doesNotMatch(source, /saveWork\(/);
+  const serverSource = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  assert.match(serverSource, /createEcommerceTaskWorkPersistence/);
+  assert.match(serverSource, /persistWorkSnapshot/);
+  assert.match(source, /if \(finalDelivery\)/);
   assert.match(source, /setPreviewImageIndex\(index\)/);
   assert.match(source, /event\.key === 'ArrowLeft'/);
   assert.match(source, /event\.key === 'ArrowRight'/);

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { MdAutoAwesome, MdLogin, MdRefresh, MdShoppingCart, MdEdit } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { loadWorks, proxyImg, saveWork } from '../../services/api';
+import { loadWorks, proxyImg } from '../../services/api';
 import { EC_PLATFORM_SPECS } from '../../constants/data';
 import { normalizeWorkImages } from '../../utils/workImages.js';
+import { stableWorkKey } from '../../utils/workRecords.js';
 import { Card, CharImg, EmptyState } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import Footer from '../../components/layout/Footer';
@@ -16,24 +17,10 @@ const TABS = [
 
 const EC_STYLE_ICONS = { '白底主图': '⬜', '场景图': '🌄', '详情图': '📋', '组合图': '🖼️' };
 const getEcImages = work => normalizeWorkImages(work?.images);
-
-/* ═══════ 从 localStorage 加载 EC 作品（旧格式兼容）═══ */
-const loadLocalECWorks = () => {
-  try {
-    const raw = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
-    return raw.map(w => ({
-      product_name: w.name || '未命名产品',
-      category: '其他',
-      platform: '淘宝',
-      _ecResult: true,
-      at: w.createdAt ? new Date(w.createdAt).toLocaleDateString('zh-CN') : '',
-      images: normalizeWorkImages(w.images).map(img => ({
-        ...img,
-        style: img.label || img.key || '商品图',
-      })),
-      _phone: '',
-    }));
-  } catch { return []; }
+const EC_GENERATION_STATUS = {
+  generating: { label: '正在生成', background: '#EEF2FF', color: '#4338CA' },
+  needs_review: { label: '需要确认', background: '#FFF7E8', color: '#A15C00' },
+  completed: { label: '已完成', background: '#EAF8F0', color: '#177B48' },
 };
 
 export default function WorksPage() {
@@ -45,19 +32,7 @@ export default function WorksPage() {
     const serverWorks = (await loadWorks(phone)).map(work => work._ecResult
       ? { ...work, images: normalizeWorkImages(work.images) }
       : work);
-    // 合并 localStorage 中的 EC 作品（旧格式兼容）
-    const localEC = loadLocalECWorks();
-    // 去重：用产品名+图片数去重
-    const allNames = new Set(serverWorks.map(w => w.product_name + (w._ecResult ? normalizeWorkImages(w.images).length : (w.images?.length || 0))));
-    const merged = [...serverWorks];
-    for (const lw of localEC) {
-      const key = lw.product_name + normalizeWorkImages(lw.images).length;
-      if (!allNames.has(key)) {
-        merged.unshift(lw);
-        allNames.add(key);
-      }
-    }
-    dispatch({ type: 'SET_WORKS', works: merged });
+    dispatch({ type: 'SET_WORKS', works: serverWorks });
   };
 
   useEffect(() => { if (logged) refresh(); }, [logged, phone]);
@@ -67,6 +42,7 @@ export default function WorksPage() {
   const currentWorks = tab === 'xhs' ? xhsWorks : ecWorks;
 
   const viewWork = (w) => {
+    if (!getEcImages(w).length) return;
     // 规范化图片格式后跳转到画布
     const images = Object.fromEntries(getEcImages(w).map((image, index) => [
       image.key || image.label || `image_${index + 1}`,
@@ -174,9 +150,13 @@ export default function WorksPage() {
             }
           />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            {currentWorks.map((w, i) => (
-              <Card key={w.id || i} hover onClick={() => viewWork(w)} style={{
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: 14 }}>
+            {currentWorks.map((w, i) => {
+              const ecImages = w._ecResult ? getEcImages(w) : [];
+              const canOpen = !w._ecResult || ecImages.length > 0;
+              const status = EC_GENERATION_STATUS[w.generationStatus] || EC_GENERATION_STATUS.completed;
+              return (
+              <Card key={stableWorkKey(w, `work-${i}`)} hover={canOpen} onClick={canOpen ? () => viewWork(w) : undefined} style={{
                 padding: 16, display: 'flex', gap: 14, alignItems: 'center',
               }}>
                 {/* ═══ XHS 作品卡片 ═══ */}
@@ -208,8 +188,8 @@ export default function WorksPage() {
                 ) : (
                   /* ═══ EC 作品卡片 ═══ */
                   <>
-                    {getEcImages(w)[0]?.url ? (
-                      <img src={proxyImg(getEcImages(w)[0].url)} alt=""
+                    {ecImages[0]?.url ? (
+                      <img src={proxyImg(ecImages[0].url)} alt=""
                         style={{ width: 56, height: 56, borderRadius: 'var(--radius-md)', objectFit: 'cover', flex: '0 0 auto' }} />
                     ) : (
                       <div style={{
@@ -234,11 +214,15 @@ export default function WorksPage() {
                         }}>
                           {(EC_PLATFORM_SPECS[w.platform] || {}).name || w.platform}
                         </span>
+                        <span style={{
+                          fontSize: 10, background: status.background, color: status.color,
+                          padding: '1px 7px', borderRadius: 4, fontWeight: 700,
+                        }}>{status.label}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-ghost)' }}>
                         <span>
-                          {getEcImages(w).length}张 ·{' '}
-                          {getEcImages(w).map(i => i.style || i.label || i.key).map(s => styleIcon(s)).join(' ')}
+                          {ecImages.length}张 ·{' '}
+                          {ecImages.map(i => i.style || i.label || i.key).map(s => styleIcon(s)).join(' ')}
                         </span>
                         <span>{w.at}</span>
                       </div>
@@ -246,7 +230,8 @@ export default function WorksPage() {
                   </>
                 )}
               </Card>
-            ))}
+              );
+            })}
           </div>
             )}
           </>

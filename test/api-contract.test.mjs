@@ -60,7 +60,7 @@ test('paid content APIs send owned reference asset IDs rather than raw resumable
   assert.deepEqual(bodies[1].referenceAssetIds, ['b'.repeat(64) + '.png']);
 });
 
-test('active owner and draft task resumes with GET polling, emits a quality-check stable image once, and never posts a duplicate', async t => {
+test('active owner and draft task resumes with GET polling, emits only a delivered stable image once, and never posts a duplicate', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   const storage = ecommerceStorage();
@@ -101,7 +101,7 @@ test('active owner and draft task resumes with GET polling, emits a quality-chec
   ]);
   assert.deepEqual(emitted, [{
     id: 'main-1', url: '/api/generated-assets/main-1.png', stableUrl: '/api/generated-assets/main-1.png',
-    role: 'main_text', label: '主图文案', state: 'quality_check',
+    role: 'main_text', label: '主图文案', state: 'completed', taskId: 'task-resume',
   }]);
   assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-resume', storage }), null);
 });
@@ -159,7 +159,7 @@ test('a forbidden saved task is cleared as expired without posting or leaking an
   assert.equal(loadEcommerceTaskReference({ ownerEmail: 'other@example.com', draftId: 'ec-draft-expired', storage })?.taskId, 'task-other');
 });
 
-test('terminal failed and cancelled polls clear only their matching task reference while needs review remains resumable', async t => {
+test('terminal failed and cancelled polls clear their task reference while a partial reviewed result closes the cycle', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   t.after(() => {
@@ -187,12 +187,17 @@ test('terminal failed and cancelled polls clear only their matching task referen
   globalThis.fetch = async () => ecommerceTaskResponse({
     id: 'task-review',
     status: 'needs_review',
-    assets: [{ assetId: 'review-1', status: 'needs_review', stableUrl: '/api/generated-assets/review-1.png' }],
+    output: { images: { delivered: '/api/generated-assets/delivered.png' } },
+    assets: [
+      { assetId: 'delivered', status: 'completed', stableUrl: '/api/generated-assets/delivered.png' },
+      { assetId: 'review-1', status: 'needs_review', stableUrl: '/api/generated-assets/review-1.png' },
+    ],
   });
   const { generateEcommerce } = await import(`../src/services/api.js?needs-review=${Date.now()}`);
   const result = await generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-review', pollIntervalMs: 0, maxPollAttempts: 1 });
   assert.equal(result.status, 'needs_review');
-  assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-review', storage })?.taskId, 'task-review');
+  assert.deepEqual(result.images, { delivered: '/api/generated-assets/delivered.png' });
+  assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-review', storage }), null);
 });
 
 test('a saved failed task requires an explicit retry before a replacement POST is allowed', async t => {
@@ -239,7 +244,7 @@ test('a saved failed task requires an explicit retry before a replacement POST i
   ]);
 });
 
-test('SSE needs-review keeps its task reference and refresh resumes it with GET only', async t => {
+test('SSE partial review closes its task reference and never exposes rejected assets on refresh', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   const storage = ecommerceStorage();
@@ -277,26 +282,39 @@ test('SSE needs-review keeps its task reference and refresh resumes it with GET 
     ownerEmail: 'owner@example.com',
     draftId: 'ec-draft-sse-review',
     storage,
-  })?.taskId, 'task-sse-review');
+  }), null);
+  assert.deepEqual(first.images, { main: '/api/generated-assets/sse-review.png' });
+  assert.deepEqual(calls, [{ url: '/api/generate-ecommerce', method: 'POST' }]);
+});
 
-  const refreshed = await generateEcommerce({
-    productName: '测试商品',
-    category: '其他',
-    platform: '淘宝',
-    draftId: 'ec-draft-sse-review',
-    pollIntervalMs: 0,
-    maxPollAttempts: 1,
+test('legacy ecommerce SSE never previews a quality-check intermediate as a delivered image', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const emitted = [];
+  globalThis.localStorage = ecommerceStorage();
+  globalThis.fetch = async () => new Response(
+    'data: {"type":"job","taskId":"task-sse-delivery"}\n\n'
+      + 'data: {"type":"image","id":"main-1","url":"/api/generated-assets/intermediate.png","state":"quality_check"}\n\n'
+      + 'data: {"type":"image","id":"main-1","url":"/api/generated-assets/review.png","state":"needs_review"}\n\n'
+      + 'data: {"type":"image","id":"main-1","url":"/api/generated-assets/unknown.png"}\n\n'
+      + 'data: {"type":"image","id":"main-1","url":"/api/generated-assets/final.png","state":"completed"}\n\n'
+      + 'data: {"type":"complete","status":"completed","images":{"main-1":"/api/generated-assets/final.png"},"errors":[]}\n\n',
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  );
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
   });
-  assert.equal(refreshed.status, 'needs_review');
-  assert.deepEqual(calls, [
-    { url: '/api/generate-ecommerce', method: 'POST' },
-    { url: '/api/ecommerce/jobs/task-sse-review', method: 'GET' },
+
+  const { generateEcommerce } = await import(`../src/services/api.js?sse-delivery=${Date.now()}`);
+  const result = await generateEcommerce({
+    productName: '测试商品', category: '其他', platform: '淘宝', onImage: image => emitted.push(image),
+  });
+
+  assert.deepEqual(result.images, { 'main-1': '/api/generated-assets/final.png' });
+  assert.deepEqual(emitted.map(image => [image.stableUrl, image.state]), [
+    ['/api/generated-assets/final.png', 'completed'],
   ]);
-  assert.equal(loadEcommerceTaskReference({
-    ownerEmail: 'owner@example.com',
-    draftId: 'ec-draft-sse-review',
-    storage,
-  })?.taskId, 'task-sse-review');
 });
 
 test('frontend generation entrypoints only target implemented generation routes', async () => {

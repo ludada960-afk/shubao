@@ -1,16 +1,13 @@
-import { getAssetPlanStrategy } from './categoryKnowledge.mjs';
+import { getAssetPlanStrategy, normalizeEcommerceCategory } from './categoryKnowledge.mjs';
+import { layoutContractFor, textLayerPlanFor } from './layoutContracts.mjs';
 import { LEGAL_IMAGE_SIZES } from './modelCatalog.mjs';
 import { getPlatformPolicy, planExportTargets } from './platformPolicies.mjs';
+import { directShot } from './shotDirector.mjs';
+import { compileTypographySystem } from './typographyPolicy.mjs';
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const FACT_FIELDS = ['color', 'size', 'capacity', 'dimLabel', 'count'];
 const COUNTED_SIZING_KEYS = new Set(['white_bg', 'white_background', 'main_text', 'main_3x4', 'transparent', 'detail']);
-const CATEGORY_ALIASES = Object.freeze({
-  '3c': '数码3C',
-  '数码': '数码3C',
-  '食品': '食品饮料',
-  food: '食品饮料',
-});
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -57,9 +54,7 @@ function ownEntries(value) {
 }
 
 function normalizeCategory(value) {
-  const category = cleanString(value);
-  const alias = CATEGORY_ALIASES[category.toLowerCase()];
-  return alias || category || '其他';
+  return normalizeEcommerceCategory(cleanString(value));
 }
 
 function normalizeProofIds(value) {
@@ -417,5 +412,32 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     }));
   });
 
-  return items.sort((left, right) => left.id.localeCompare(right.id));
+  const roleOccurrences = new Map();
+  const typographySystem = isRecord(ownValue(bible, 'typographySystem'))
+    ? ownValue(bible, 'typographySystem')
+    : compileTypographySystem({ category, language: 'zh-CN' });
+  const directedItems = items.map((item, itemIndex) => {
+    const roleIndex = roleOccurrences.get(item.role) || 0;
+    roleOccurrences.set(item.role, roleIndex + 1);
+    const shotIntent = directShot(item, {
+      productTruth: truth,
+      campaignBible: bible,
+      category,
+      platform: normalizedPlatform,
+      itemIndex,
+      roleIndex,
+    });
+    const directedItem = { ...item, label: shotIntent.label, shotIntent };
+    const layoutContract = layoutContractFor(directedItem, {
+      category,
+      platform: normalizedPlatform,
+    });
+    return {
+      ...directedItem,
+      layoutContract,
+      textLayerPlan: textLayerPlanFor(directedItem, { layoutContract, typographySystem }),
+    };
+  });
+
+  return directedItems.sort((left, right) => left.id.localeCompare(right.id));
 }

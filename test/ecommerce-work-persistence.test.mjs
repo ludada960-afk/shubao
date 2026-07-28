@@ -58,3 +58,18 @@ test('moves works to a recoverable trash state instead of deleting data', async 
   assert.equal(getAllWorks()[0]._saveKey, 'trash-work-1');
   assert.equal(getDeletedWorks().length, 0);
 });
+
+test('owner-scoped work reads and mutations cannot cross account boundaries', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-ec-owner-work-test-'));
+  t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });
+  initDB(join(dir, 'works.db'));
+  upsertWork({ _saveKey: 'owner-a-work', _phone: 'owner-a@example.com', title: 'A' });
+  upsertWork({ _saveKey: 'owner-b-work', _phone: 'owner-b@example.com', title: 'B' });
+
+  assert.deepEqual(getAllWorks({ ownerEmail: 'OWNER-A@example.com' }).map(work => work.title), ['A']);
+  assert.equal(softDeleteWork('owner-a-work', { ownerEmail: 'owner-b@example.com' }), false);
+  assert.equal(softDeleteWork('owner-a-work', { ownerEmail: 'owner-a@example.com' }), true);
+  assert.equal(getDeletedWorks({ ownerEmail: 'owner-a@example.com' }).length, 1);
+  assert.equal(restoreWork('owner-a-work', { ownerEmail: 'owner-b@example.com' }), false);
+  assert.equal(restoreWork('owner-a-work', { ownerEmail: 'owner-a@example.com' }), true);
+});

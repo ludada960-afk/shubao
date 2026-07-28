@@ -152,6 +152,24 @@
   rollout copy, and the 1K-vs-2K billing mismatch. Final full regression: 575/575;
   production build transformed 6413 modules; diff-check and collaboration policy
   passed. Deployment archive excludes the runtime auth-session secret.
+- Server Project Version System Tasks 4-5 integration: implementation complete,
+  independently re-reviewed and approved, pending commit and production deployment. The ecommerce
+  flow now uses owner-scoped authenticated Works records, persists each completed
+  asset incrementally, exposes only quality-approved stable images, creates an
+  immutable accepted or partial result version before terminal Works persistence,
+  and suppresses empty Works records when every image is rejected. Partial
+  delivery closes the current task and sends only completed images to Canvas;
+  rejected assets expose no stable/provider/request internals and use market-facing
+  no-charge errors. Account switching preserves every owner's unsynced local
+  Works, and zero-delivery/setup-failed runs terminate their linked project/run
+  without creating empty result versions. Shot direction, role-specific layout, typography planning,
+  one bounded provider repair, suite duplicate/collage rejection and smart-package
+  ten-image disclosure remain covered. Review red was reproduced at 62/67 and the
+  focused fix set passed 71/71; final full regression passed 652/652, Vite transformed
+  6417 modules, collaboration policy reported READY, Node syntax checks and
+  `git diff --check` passed. Independent re-review reported no remaining Critical
+  or Important findings. A real paid/unlimited production image-generation
+  canary is still required after deployment to validate provider output quality.
 
 ## Ownership
 

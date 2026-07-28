@@ -67,6 +67,27 @@ export {
 export {
   buildAssetPlan,
 } from './assetPlanner.mjs';
+export { directShot } from './shotDirector.mjs';
+export { compileTypographySystem } from './typographyPolicy.mjs';
+export {
+  layoutContractFor,
+  layoutRegionsOverlap,
+  textLayerPlanFor,
+  validateLayoutContract,
+} from './layoutContracts.mjs';
+export {
+  buildEcommerceTaskWork,
+  createEcommerceTaskWorkPersistence,
+} from './workPersistence.mjs';
+export {
+  evaluateSuiteDiversity,
+  measureSuiteImage,
+  visualFingerprintDistance,
+} from './suiteDiversity.mjs';
+export {
+  assetPlanFingerprint,
+  createEcommerceProjectLifecycle,
+} from './projectLifecycle.mjs';
 export {
   compileAssetRequest,
 } from './promptCompiler.mjs';

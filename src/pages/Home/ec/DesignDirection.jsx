@@ -3,7 +3,6 @@ import { MdAutoAwesome, MdArrowBack, MdChevronLeft, MdChevronRight, MdClose, MdR
 import {
   getDesignDirections,
   generateEcommerce,
-  saveWork,
   polishECText,
   uploadEcommerceAssets,
 } from '../../../services/api';
@@ -23,8 +22,11 @@ import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import {
   clearEcommerceDirectionRefreshAction,
+  acceptEcommerceFinalResult,
   createEcommerceGenerationLifecycleController,
+  ecommerceLoginPreflight,
   loadEcommerceDirectionRefreshAction,
+  mergeEcommerceStableImageList,
   resolveEcommerceSupplementUpload,
   saveEcommerceDirectionRefreshAction,
   startEcommerceGenerationLifecycle,
@@ -297,6 +299,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   /* ── 确认方向 → 生成 ── */
   const handleConfirm = async () => {
     if (generating) return;
+    const loginPreflight = ecommerceLoginPreflight({ logged: state.logged });
+    if (!loginPreflight.allowed) {
+      dispatch(loginPreflight.action);
+      setError('');
+      return;
+    }
     const generation = startEcommerceGenerationLifecycle({
       lifecycle: generationLifecycle,
       quoteReady: Boolean(billingQuote && ecommercePlan.quoteRequest),
@@ -385,38 +393,25 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           // C4: 每张图片生成时更新进度
           if (image.id) setGenProgress(`已生成: ${image.label || image.role || image.id}`);
           if (image.id && image.stableUrl) {
-            setStableImages(previous => previous.some(item => item.id === image.id && item.stableUrl === image.stableUrl)
-              ? previous
-              : [...previous, image]);
+            setStableImages(previous => mergeEcommerceStableImageList(previous, image));
           }
         },
       });
       if (!isGenerationCurrent(generationToken)) return;
-      const hasStableResult = Object.keys(result?.images || {}).length > 0;
-      const hasFinalStatus = result?.status === 'completed';
-      if (result && hasFinalStatus && hasStableResult) {
+      const finalDelivery = acceptEcommerceFinalResult(result);
+      if (finalDelivery) {
         if (!isGenerationCurrent(generationToken)) return;
-        const finalResult = { ...result, product_name: params?.productName || '商品', _ecResult: true, _direction: dir, category: params?.category || '其他', platform: params?.platform || '淘宝' };
-
-        // ★ 立即保存到服务器作品集
-        const phone = state.phone || '';
-        const imageEntries = Object.entries(finalResult.images || {});
-        const serverWork = {
-          taskId: result.taskId,
-          _saveKey: `ec-task-${result.taskId}`,
-          product_name: finalResult.product_name,
-          category: finalResult.category,
-          platform: finalResult.platform,
+        const finalResult = {
+          ...finalDelivery,
+          product_name: params?.productName || '商品',
           _ecResult: true,
-          at: new Date().toLocaleDateString('zh-CN'),
-          images: imageEntries.map(([key, url]) => ({ url, key, label: key, style: key })),
+          _direction: dir,
+          _partialDelivery: finalDelivery.status === 'needs_review',
+          category: params?.category || '其他',
+          platform: params?.platform || '淘宝',
         };
-        try {
-          await saveWork(serverWork, phone, { signal: generationSignal });
-          console.log('[EC] ★ 作品已保存到服务器:', finalResult.product_name);
-        } catch (e) {
-          console.warn('[EC] 服务器保存失败:', e.message);
-        }
+
+        const phone = state.phone || '';
         if (!isGenerationCurrent(generationToken)) return;
         fetchCredits(phone);
 
@@ -426,9 +421,6 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         dispatch({ type: 'CLEAR_PAYWALL' });
         setRetryTaskRequested(false);
         onGenerated?.();
-      } else if (result?.status === 'needs_review') {
-        setRetryTaskRequested(true);
-        setError('部分图片未通过质量检查，任务和已完成图片已保留。请点击“继续生成”修复未通过的图片。');
       } else {
         setError('任务尚未完成或没有稳定图片，请稍后继续生成');
       }
@@ -685,7 +677,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>AI 正在生成图片</div>
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>生成过程中请勿关闭页面，图片将自动保存到您的账户</div>
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>可继续浏览其他页面；每张完成图片都会自动保存到“我的作品”</div>
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>{genProgress || '准备中…'}</div>
                 </div>
@@ -711,7 +703,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 {stableImages.length > 0 && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
                     {stableImages.map((image, index) => (
-                      <button key={`${image.id}-${image.stableUrl}`} type="button" onClick={() => setPreviewImageIndex(index)} aria-label={`放大查看${image.label || image.role || '生成图'}`} style={{ width: 74, height: 74, padding: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #E9DDF8', background: '#fff', cursor: 'zoom-in' }}>
+                      <button key={image.id} type="button" onClick={() => setPreviewImageIndex(index)} aria-label={`放大查看${image.label || image.role || '生成图'}`} style={{ width: 74, height: 74, padding: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #E9DDF8', background: '#fff', cursor: 'zoom-in' }}>
                         <img src={image.stableUrl} alt={image.label || image.role || '稳定生成图'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       </button>
                     ))}

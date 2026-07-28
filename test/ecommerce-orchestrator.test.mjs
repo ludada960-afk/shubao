@@ -185,7 +185,9 @@ async function createHarness(t, {
       };
     },
     planRepair: result => result.repairAction,
-    canRetry: attempt => Number.isInteger(attempt) && attempt >= 0 && attempt < 2,
+    canRetry: (attempt, repairAction = {}) => Number.isInteger(attempt)
+      && attempt >= 0
+      && attempt < (repairAction.type === 'sharp_repair' ? 2 : 1),
     billing: {
       async hold({ job, assetPlan }) {
         calls.hold.push({ jobId: job.id, itemIds: assetPlan.map(item => item.id) });
@@ -366,7 +368,7 @@ test('normalizes legacy product and reference URLs into stable asset identities 
   assert.deepEqual(calls.compileAssets[0], calls.analyzePayloads[0].assets);
 });
 
-test('caps system repairs at two and releases a needs-review item without settlement', async t => {
+test('caps provider-backed system repair at one and releases a needs-review item without settlement', async t => {
   const { orchestrator, jobs, calls } = await createHarness(t, {
     quality: () => ({
       passed: false,
@@ -386,11 +388,172 @@ test('caps system repairs at two and releases a needs-review item without settle
 
   assert.equal(completed.status, 'needs_review');
   assert.equal(asset.state, 'needs_review');
-  assert.equal(asset.attemptCount, 2);
-  assert.equal(calls.submit.length, 3, 'initial provider task plus two system repairs');
-  assert.equal(calls.quality.length, 3);
+  assert.equal(asset.attemptCount, 1);
+  assert.equal(calls.submit.length, 2, 'initial provider task plus one bounded system repair');
+  assert.equal(calls.quality.length, 2);
   assert.equal(calls.settle.length, 0);
   assert.deepEqual(calls.release.map(call => call.itemId), ['main-one']);
+});
+
+test('terminalizes a zero-delivery project before closing the task without an empty work', async t => {
+  const lifecycle = [];
+  const { orchestrator } = await createHarness(t, {
+    quality: () => ({
+      passed: false,
+      checks: { productFidelity: { status: 'fail', issueCodes: ['product_identity_mismatch'] } },
+      repairAction: {
+        type: 'regenerate_from_product_truth',
+        focusIssueCodes: ['product_identity_mismatch'],
+        userCharge: false,
+      },
+      confidence: 'low',
+    }),
+    orchestratorOptions: {
+      canRetry: () => false,
+      projectLifecycle: {
+        async begin({ job }) {
+          return { projectId: 'project-empty', sourceVersionId: 'source-empty', generationRunId: job.id, assetPlanFingerprint: 'empty-fingerprint' };
+        },
+        async complete() {
+          throw new Error('zero-delivery task must not create a result version');
+        },
+        async terminate({ job, status }) {
+          lifecycle.push(['terminate', status]);
+          return { projectId: 'project-empty', sourceVersionId: 'source-empty', generationRunId: job.id };
+        },
+      },
+      persistWorkSnapshot: async ({ status }) => {
+        lifecycle.push(['persist', status]);
+        return null;
+      },
+    },
+  });
+
+  const completed = await orchestrator.runJob(orchestrator.createJob(jobInput('job-empty-review')).id);
+
+  assert.equal(completed.status, 'needs_review');
+  assert.deepEqual(completed.output.images, {});
+  assert.deepEqual(lifecycle, [
+    ['terminate', 'needs_review'],
+    ['persist', 'needs_review'],
+  ]);
+});
+
+test('suite diversity retries only the duplicate item before settlement and keeps the retry cap', async t => {
+  const checks = new Map();
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('main-one', 'main_text'), planItem('main-two', 'main_text')],
+    orchestratorOptions: {
+      assetConcurrency: 1,
+      evaluateSuiteDiversity: async ({ candidate, existing }) => {
+        const count = (checks.get(candidate.assetId) || 0) + 1;
+        checks.set(candidate.assetId, count);
+        if (candidate.assetId === 'main-two' && count === 1) {
+          assert.equal(existing.length, 1);
+          return {
+            passed: false,
+            issueCodes: ['suite_near_duplicate'],
+            details: { duplicateOf: existing[0].assetId },
+          };
+        }
+        return { passed: true, issueCodes: [], details: {} };
+      },
+    },
+  });
+
+  const created = orchestrator.createJob(jobInput('job-suite-diversity'));
+  const result = await orchestrator.runJob(created.id);
+
+  assert.equal(result.status, 'completed');
+  assert.equal(calls.submit.length, 3, 'two initial renders plus one targeted duplicate repair');
+  assert.equal(calls.settle.length, 2);
+  assert.equal(calls.release.length, 0);
+  assert.equal(checks.get('main-one'), 1);
+  assert.equal(checks.get('main-two'), 2);
+});
+
+test('completes the immutable project result version before terminal task persistence', async t => {
+  const lifecycle = [];
+  const { orchestrator } = await createHarness(t, {
+    orchestratorOptions: {
+      projectLifecycle: {
+        async begin({ job, assetPlan, holdId }) {
+          lifecycle.push(['begin', job.id, assetPlan.length, holdId]);
+          return {
+            projectId: 'project-1',
+            sourceVersionId: 'source-version-1',
+            generationRunId: job.id,
+            assetPlanFingerprint: 'plan-fingerprint',
+          };
+        },
+        async complete({ job, output }) {
+          lifecycle.push(['complete', job.id, Object.keys(output.images).length]);
+          return { resultVersionId: 'result-version-1' };
+        },
+        async terminate() {
+          throw new Error('completed task must not use no-result termination');
+        },
+      },
+      persistWorkSnapshot: async ({ job, status }) => {
+        lifecycle.push(['persist', status, job.progress.resultVersionId || '']);
+      },
+    },
+  });
+
+  const created = orchestrator.createJob(jobInput('job-project-lifecycle'));
+  const result = await orchestrator.runJob(created.id);
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.progress.projectId, 'project-1');
+  assert.equal(result.progress.resultVersionId, 'result-version-1');
+  assert.deepEqual(lifecycle.at(-2), ['complete', created.id, 1]);
+  assert.deepEqual(lifecycle.at(-1), ['persist', 'completed', 'result-version-1']);
+});
+
+test('persists each delivered asset incrementally and finalizes one task work', async t => {
+  const snapshots = [];
+  const { orchestrator } = await createHarness(t, {
+    items: [planItem('main-one'), planItem('detail-one', 'detail_slice_material')],
+    orchestratorOptions: {
+      assetConcurrency: 1,
+      persistWorkSnapshot: async snapshot => {
+        snapshots.push({
+          status: snapshot.status,
+          completed: snapshot.assets.filter(asset => asset.state === 'completed').map(asset => asset.assetId),
+        });
+      },
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-incremental-work'));
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.deepEqual(snapshots, [
+    { status: 'generating', completed: ['main-one'] },
+    { status: 'generating', completed: ['detail-one', 'main-one'] },
+    { status: 'completed', completed: ['detail-one', 'main-one'] },
+  ]);
+});
+
+test('keeps a completed asset and parent task resumable when incremental work persistence fails', async t => {
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    orchestratorOptions: {
+      persistWorkSnapshot: async () => {
+        throw new Error('works database temporarily unavailable');
+      },
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-work-persistence-retry'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.retryable === true && /works database/.test(error.message),
+  );
+
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'completed');
+  assert.equal(calls.settle.length, 1);
 });
 
 test('reruns product-fidelity quality after deterministic repair and never settles a failed repair', async t => {
@@ -466,6 +629,7 @@ test('reruns product-fidelity quality after deterministic repair and never settl
 });
 
 test('settles only successful assets in a partial batch and releases the failed item', async t => {
+  const lifecycle = [];
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-pass'), planItem('detail-fail', 'detail')],
     quality: ({ input }) => input.assetPlanItem.id === 'main-pass'
@@ -485,6 +649,23 @@ test('settles only successful assets in a partial batch and releases the failed 
         },
         confidence: 'low',
       },
+    orchestratorOptions: {
+      projectLifecycle: {
+        async begin({ job }) {
+          return { projectId: 'project-partial', sourceVersionId: 'source-partial', generationRunId: job.id, assetPlanFingerprint: 'partial-fingerprint' };
+        },
+        async complete({ job, output, status }) {
+          lifecycle.push(['complete', status, Object.keys(output.images)]);
+          return { resultVersionId: 'result-partial', generationRunId: job.id };
+        },
+        async terminate() {
+          throw new Error('partial delivery must create a result version');
+        },
+      },
+      persistWorkSnapshot: async ({ job, status }) => {
+        lifecycle.push(['persist', status, job.progress.resultVersionId || '']);
+      },
+    },
   });
   const created = orchestrator.createJob(jobInput('job-partial'));
 
@@ -494,6 +675,20 @@ test('settles only successful assets in a partial batch and releases the failed 
   assert.deepEqual(calls.settle.map(call => call.itemId), ['main-pass']);
   assert.deepEqual(calls.release.map(call => call.itemId), ['detail-fail']);
   assert.deepEqual(Object.keys(completed.output.images), ['main-pass']);
+  assert.equal(completed.progress.resultVersionId, 'result-partial');
+  assert.equal(completed.assets.find(asset => asset.assetId === 'main-pass').stableUrl, PNG_A);
+  const rejected = completed.assets.find(asset => asset.assetId === 'detail-fail');
+  assert.equal(rejected.stableUrl, undefined);
+  assert.equal(rejected.outputUrl, undefined);
+  assert.equal(rejected.providerJobId, undefined);
+  assert.equal(rejected.requestSnapshot, undefined);
+  assert.equal(rejected.error, '图片未通过质量检查，本张未计费');
+  assert.equal(completed.output.errors[0].error, '图片未通过质量检查，本张未计费');
+  assert.deepEqual(lifecycle, [
+    ['persist', 'generating', ''],
+    ['complete', 'needs_review', ['main-pass']],
+    ['persist', 'needs_review', 'result-partial'],
+  ]);
 });
 
 test('validates the complete asset plan before creating a billing hold', async t => {
@@ -512,7 +707,25 @@ test('validates the complete asset plan before creating a billing hold', async t
 
 test('releases every planned hold item before terminalizing a parent setup failure', async t => {
   const items = [planItem('main-one'), planItem('detail-two', 'detail')];
-  const { orchestrator, jobs, calls } = await createHarness(t, { items });
+  const lifecycle = [];
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    items,
+    orchestratorOptions: {
+      projectLifecycle: {
+        async begin({ job }) {
+          lifecycle.push(['begin', job.id]);
+          return { projectId: 'project-setup', sourceVersionId: 'source-setup', generationRunId: job.id, assetPlanFingerprint: 'setup-fingerprint' };
+        },
+        async complete() {
+          throw new Error('setup failure must not create a result version');
+        },
+        async terminate({ job, status }) {
+          lifecycle.push(['terminate', status]);
+          return { projectId: 'project-setup', sourceVersionId: 'source-setup', generationRunId: job.id };
+        },
+      },
+    },
+  });
   const createAsset = jobs.assets.createAsset;
   let setupWrites = 0;
   jobs.assets.createAsset = input => {
@@ -528,6 +741,10 @@ test('releases every planned hold item before terminalizing a parent setup failu
   assert.equal(calls.releaseRemainder.length, 1);
   assert.equal(calls.release.length, 0);
   assert.equal(calls.submit.length, 0);
+  assert.deepEqual(lifecycle, [
+    ['begin', created.id],
+    ['terminate', 'failed'],
+  ]);
 });
 
 test('keeps parent hold compensation recoverable until every setup release succeeds', async t => {
@@ -848,7 +1065,7 @@ test('keeps a quality release recoverable and retries the same item on resume', 
 
   assert.equal(resumed.status, 'needs_review');
   assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'needs_review');
-  assert.equal(calls.submit.length, 3);
+  assert.equal(calls.submit.length, 2);
   assert.deepEqual(calls.release.map(call => call.itemId), ['main-one', 'main-one']);
 });
 

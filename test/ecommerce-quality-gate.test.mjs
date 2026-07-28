@@ -342,12 +342,21 @@ test('maps text defects and local visual defects to focused repair plans', () =>
   assert.deepEqual(visualRepair.focusIssueCodes, ['local_artifact']);
 });
 
-test('allows only two zero-based system repair attempts', () => {
-  assert.equal(canRetry(0), true);
-  assert.equal(canRetry(1), true);
+test('allows only two zero-based deterministic Sharp repair attempts', () => {
+  assert.equal(canRetry(0, { type: 'sharp_repair' }), true);
+  assert.equal(canRetry(1, { type: 'sharp_repair' }), true);
   for (const attempt of [2, 3, -1, 1.5, '1', null, undefined]) {
-    assert.equal(canRetry(attempt), false);
+    assert.equal(canRetry(attempt, { type: 'sharp_repair' }), false);
   }
+});
+
+test('limits provider-backed quality repair to one automatic resubmission', () => {
+  assert.equal(canRetry(0, { type: 'image_edit' }), true);
+  assert.equal(canRetry(1, { type: 'image_edit' }), false);
+  assert.equal(canRetry(0, { type: 'regenerate_from_product_truth' }), true);
+  assert.equal(canRetry(1, { type: 'regenerate_from_product_truth' }), false);
+  assert.equal(canRetry(1, { type: 'sharp_repair' }), true);
+  assert.equal(canRetry(2, { type: 'sharp_repair' }), false);
 });
 
 test('compatibility quality checks fail honestly without stable image bytes', async () => {

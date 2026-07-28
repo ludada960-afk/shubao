@@ -76,7 +76,7 @@ function preset(name, icon, desc, images) {
 }
 
 export const PLATFORM_PRESETS = Object.freeze({
-  smart: preset('智能推荐', '🤖', 'AI 根据产品自动选择最佳平台和套餐', [
+  smart: preset('智能推荐', '🤖', '1白底首图+3商品主图+1透明PNG+5详情=10张', [
     { key: 'white_bg', count: 1, ratio: '1:1' },
     { key: 'main_text', count: 3, ratio: '1:1' },
     { key: 'transparent', count: 1, ratio: '1:1' },

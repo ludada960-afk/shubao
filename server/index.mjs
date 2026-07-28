@@ -48,6 +48,7 @@ import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
+import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
   createCanvasGenerationService,
   createCanvasRegenerateHandler,
@@ -68,12 +69,15 @@ import {
   compileAssetRequest,
   compileCampaignBible,
   createEcommerceOrchestrator,
+  createEcommerceProjectLifecycle,
   createEcommerceBilling,
   createEcommerceRouteHandlers,
   createEcommerceStartupRecovery,
+  createEcommerceTaskWorkPersistence,
   createProviderAdapter,
   createProviderRouter,
   evaluateAsset,
+  evaluateSuiteDiversity,
   mergeProductFacts,
   normalizeProductTruth,
   planRepair,
@@ -2048,49 +2052,19 @@ function saveWorks(works) {
     return false;
   }
 }
-// 迁移旧作品到指定手机号
-app.post('/api/migrate-works', (req, res) => {
-  const { phone } = req.body;
-  if (!phone) return res.status(400).json({ error: '需要手机号' });
-  var works = loadWorks();
-  let count = 0;
-  works = works.map(w => {
-    if (!w._phone) { w._phone = phone; count++; }
-    return w;
-  });
-  saveWorks(works);
-  res.json({ ok: true, migrated: count, total: works.length });
-});
-app.post('/api/save-work', (req, res) => {
-  const { work, phone } = req.body;
-  if (!work) return res.status(400).json({ error: 'no work' });
-  const saveKey = work._saveKey || `work_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-  upsertWork({ ...work, _saveKey: saveKey, _phone: phone || work._phone || '' });
-  res.json({ ok: true, _saveKey: saveKey, count: getWorkCount() });
-});
-app.get('/api/works', (req, res) => {
-  const { phone } = req.query;
-  let works = getAllWorks();
-  if (phone) works = works.filter(w => w._phone === phone);
-  res.json(works);
-});
-app.get('/api/trash', (req, res) => {
-  const { phone } = req.query;
-  let works = getDeletedWorks();
-  if (phone) works = works.filter(w => w._phone === phone);
-  res.json(works);
-});
-app.post('/api/delete-work', (req, res) => {
-  const saveKey = req.body?._saveKey;
-  if (!saveKey) return res.status(400).json({ error: 'missing _saveKey' });
-  softDeleteWork(saveKey);
-  res.json({ ok: true, _saveKey: saveKey });
-});
-app.post('/api/restore-work', (req, res) => {
-  const saveKey = req.body?._saveKey;
-  if (!saveKey) return res.status(400).json({ error: 'missing _saveKey' });
-  restoreWork(saveKey);
-  res.json({ ok: true, _saveKey: saveKey });
+mountWorkRoutes(app, {
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: requireBetaEmail,
+    });
+  },
+  mapError: contentBillingHttpError,
+  listWorks: ownerEmail => getAllWorks({ ownerEmail }),
+  listTrash: ownerEmail => getDeletedWorks({ ownerEmail }),
+  saveOwnedWork: (work, ownerEmail) => upsertWork(work, { ownerEmail }),
+  deleteOwnedWork: (saveKey, ownerEmail) => softDeleteWork(saveKey, { ownerEmail }),
+  restoreOwnedWork: (saveKey, ownerEmail) => restoreWork(saveKey, { ownerEmail }),
 });
 
 // 图片代理：后端下载图片并缓存（内存+磁盘双缓存，持久化避免重启丢失）
@@ -3119,6 +3093,8 @@ const canvasRegenerateHandler = createCanvasRegenerateHandler({
   service: canvasGenerationService,
   billing: canvasOneShotBilling,
 });
+const ecommerceTaskWorkPersistence = createEcommerceTaskWorkPersistence({ upsertWork });
+const ecommerceProjectLifecycle = createEcommerceProjectLifecycle({ projectStore });
 const orchestrator = createEcommerceOrchestrator({
   jobs: ecommerceJobs,
   analyzeProductTruth: analyzeEcommerceProductTruth,
@@ -3128,11 +3104,14 @@ const orchestrator = createEcommerceOrchestrator({
   providerAdapter: ecommerceProviderAdapter,
   generatedAssetStore,
   evaluateAsset,
+  evaluateSuiteDiversity,
   planRepair,
   canRetry,
   billing: ecommerceBilling,
   prepareProviderRequest: prepareEcommerceProviderRequest,
   repairAsset: repairEcommerceAsset,
+  projectLifecycle: ecommerceProjectLifecycle,
+  persistWorkSnapshot: snapshot => ecommerceTaskWorkPersistence.persist(snapshot),
   qualityAdapters: {
     productFidelity: qualityAdapter('productFidelity', 'product_fidelity_failed'),
     ocr: qualityAdapter('copyAndLogo', 'copy_or_logo_failed'),

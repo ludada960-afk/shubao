@@ -62,7 +62,7 @@ export async function checkQuality(params = {}) {
   }, adapters);
   const shouldRetry = !verdict.passed
     && QC_CONFIG.autoRegen
-    && canRetry(retryCount);
+    && canRetry(retryCount, verdict.repairAction);
 
   return {
     passed: verdict.passed,

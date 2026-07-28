@@ -8,10 +8,16 @@ import { consumeSseJson } from './sse.js';
 import { getSessionToken } from './auth.js';
 import {
   clearEcommerceTaskReference,
+  isEcommerceAssetDeliverable,
   loadEcommerceTaskReference,
   normalizeEcommerceAssets,
   saveEcommerceTaskReference,
 } from '../pages/Home/ec/ecommerceTaskProgressModel.js';
+import {
+  filterWorksForOwner,
+  mergeWorkCollections,
+  replaceCachedWorksForOwner,
+} from '../utils/workRecords.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 
@@ -58,34 +64,36 @@ function ecommerceTaskError(task) {
 }
 
 function stableTaskImages(task) {
-  const images = { ...(task?.output?.images || {}) };
-  normalizeEcommerceAssets(task?.assets).forEach(asset => {
-    if (asset.id && asset.stableUrl) images[asset.id] = asset.stableUrl;
+  const assets = normalizeEcommerceAssets(task?.assets);
+  const assetsById = new Map(assets.map(asset => [asset.id, asset]).filter(([id]) => id));
+  const images = {};
+  Object.entries(task?.output?.images || {}).forEach(([id, url]) => {
+    const asset = assetsById.get(id);
+    if (id && url && (!asset || isEcommerceAssetDeliverable(asset))) images[id] = url;
+  });
+  assets.forEach(asset => {
+    if (isEcommerceAssetDeliverable(asset)) images[asset.id] = asset.stableUrl;
   });
   return images;
 }
 
-function emitStableTaskImages(task, emitted, onImage) {
-  normalizeEcommerceAssets(task?.assets).forEach(asset => {
-    if (!asset.id || !asset.stableUrl) return;
-    const emissionKey = `${asset.id}\u0000${asset.stableUrl}`;
-    if (emitted.has(emissionKey)) return;
-    emitted.add(emissionKey);
-    onImage?.({
-      id: asset.id,
-      url: asset.stableUrl,
-      stableUrl: asset.stableUrl,
-      role: asset.role,
-      label: asset.label,
-      state: asset.state,
-    });
-  });
-  Object.entries(task?.output?.images || {}).forEach(([id, url]) => {
-    if (!id || !url) return;
+function emitStableTaskImages(task, emitted, onImage, taskId = '') {
+  const assets = normalizeEcommerceAssets(task?.assets);
+  const assetsById = new Map(assets.map(asset => [asset.id, asset]).filter(([id]) => id));
+  Object.entries(stableTaskImages(task)).forEach(([id, url]) => {
+    const asset = assetsById.get(id);
     const emissionKey = `${id}\u0000${url}`;
     if (emitted.has(emissionKey)) return;
     emitted.add(emissionKey);
-    onImage?.({ id, url, stableUrl: url, role: '', label: '', state: '' });
+    onImage?.({
+      id,
+      url,
+      stableUrl: url,
+      role: asset?.role || '',
+      label: asset?.label || '',
+      state: 'completed',
+      taskId,
+    });
   });
 }
 
@@ -136,19 +144,17 @@ async function pollEcommerceTask(taskId, {
       task = await getEcommerceTask(taskId, { signal });
     }
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
-    emitStableTaskImages(task, emitted, onImage);
+    emitStableTaskImages(task, emitted, onImage, taskId);
     onProgress?.(taskWithNormalizedAssets(task));
     const status = taskStatus(task);
     const images = stableTaskImages(task);
     if (status === 'completed' || status === 'needs_review') {
+      clearEcommerceTaskReference({ ownerEmail, draftId, taskId });
       if (Object.keys(images).length === 0) {
         if (status === 'needs_review') throw ecommerceTaskError(task);
         const errors = task?.output?.errors || [];
         const message = errors.find(item => item?.error)?.error;
         throw new Error(message || '生成完成但没有可用图片，请重试');
-      }
-      if (status === 'completed') {
-        clearEcommerceTaskReference({ ownerEmail, draftId, taskId });
       }
       return { taskId, status, images, errors: task?.output?.errors || [], task };
     }
@@ -652,8 +658,16 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
         result.taskId = d.taskId;
         saveEcommerceTaskReference({ ownerEmail, draftId, taskId: d.taskId });
       } else if (d.type === 'image') {
-        if (d.id && d.url) result.images[d.id] = d.url;
-        if (onImage) onImage(d);
+        const image = {
+          ...d,
+          stableUrl: d.stableUrl || d.url,
+          state: d.state || d.status || '',
+          taskId: d.taskId || result.taskId || '',
+        };
+        if (isEcommerceAssetDeliverable(image)) {
+          result.images[image.id] = image.stableUrl;
+          onImage?.(image);
+        }
       } else if (d.type === 'complete') {
         gotComplete = true;
         Object.assign(result, d);
@@ -680,7 +694,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     const firstError = Array.isArray(result.errors) ? result.errors.find(item => item?.error)?.error : '';
     throw new Error(firstError || '生成完成但没有返回图片，请重试');
   }
-  if (result.taskId && result.status === 'completed') {
+  if (result.taskId && (result.status === 'completed' || result.status === 'needs_review')) {
     clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
   }
   return result;
@@ -820,18 +834,25 @@ export async function regenerateText(text, category) {
 
 export async function saveWork(work, phone, { signal } = {}) {
   if (signal?.aborted) return null;
+  const ownerEmail = String(phone || getSessionEmail() || '').trim().toLowerCase();
+  const localWork = ownerEmail ? { ...work, _phone: ownerEmail } : work;
   // 本地先存
   try {
-    const local = JSON.parse(localStorage.getItem('sb-works') || '[]');
-    const saveKey = work._saveKey;
-    if (saveKey != null) {
-      const idx = local.findIndex(x => String(x._saveKey) === String(saveKey));
-      if (idx >= 0) local[idx] = { ...local[idx], ...work };
-      else local.unshift({ ...work, id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
-    } else {
-      local.unshift({ ...work, id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
+    if (ownerEmail) {
+      const local = JSON.parse(localStorage.getItem('sb-works') || '[]');
+      const ownerWorks = filterWorksForOwner(local, ownerEmail);
+      const saveKey = localWork._saveKey;
+      if (saveKey != null) {
+        const idx = ownerWorks.findIndex(x => String(x._saveKey) === String(saveKey));
+        if (idx >= 0) ownerWorks[idx] = { ...ownerWorks[idx], ...localWork };
+        else ownerWorks.unshift({ ...localWork, id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
+      } else {
+        ownerWorks.unshift({ ...localWork, id: Date.now(), at: new Date().toLocaleDateString('zh-CN') });
+      }
+      localStorage.setItem('sb-works', JSON.stringify(
+        replaceCachedWorksForOwner(local, ownerEmail, ownerWorks),
+      ));
     }
-    localStorage.setItem('sb-works', JSON.stringify(local.slice(0, 50)));
   } catch (e) { /* ignore */ }
 
   // 服务器存
@@ -839,8 +860,8 @@ export async function saveWork(work, phone, { signal } = {}) {
     if (signal?.aborted) return null;
     const response = await fetch(`${API_BASE}/api/save-work`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ work, phone: phone || '' }),
+      headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ work: localWork }),
       signal,
     });
     if (response.ok) {
@@ -848,7 +869,9 @@ export async function saveWork(work, phone, { signal } = {}) {
       if (saved._saveKey && !work._saveKey) {
         try {
           const next = JSON.parse(localStorage.getItem('sb-works') || '[]');
-          const item = next.find(x => x.title === work.title && !x._saveKey);
+          const item = next.find(x => x.title === localWork.title
+            && String(x._phone || '').trim().toLowerCase() === ownerEmail
+            && !x._saveKey);
           if (item) item._saveKey = saved._saveKey;
           localStorage.setItem('sb-works', JSON.stringify(next));
         } catch { /* ignore local cache repair */ }
@@ -920,7 +943,7 @@ export async function deleteWork(saveKey) {
   try {
     const res = await fetch(`${API_BASE}/api/delete-work`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ _saveKey: saveKey }),
     });
     if (res.ok) return true;
@@ -935,7 +958,7 @@ export async function restoreWork(saveKey) {
   try {
     const res = await fetch(`${API_BASE}/api/restore-work`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ _saveKey: saveKey }),
     });
     return res.ok;
@@ -945,10 +968,9 @@ export async function restoreWork(saveKey) {
   }
 }
 
-export async function loadTrash(phone) {
+export async function loadTrash() {
   try {
-    const url = phone ? `${API_BASE}/api/trash?phone=${encodeURIComponent(phone)}` : `${API_BASE}/api/trash`;
-    const res = await fetch(url);
+    const res = await fetch(`${API_BASE}/api/trash`, { headers: signedSessionHeaders() });
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -958,32 +980,36 @@ export async function loadTrash(phone) {
   }
 }
 
-export async function loadWorks(phone) {
+export async function loadWorks(ownerEmail = getSessionEmail()) {
+  const owner = String(ownerEmail || '').trim().toLowerCase();
   try {
-    const url = phone ? `${API_BASE}/api/works?phone=${encodeURIComponent(phone)}` : `${API_BASE}/api/works`;
-    const res = await fetch(url);
+    const res = await fetch(`${API_BASE}/api/works`, { headers: signedSessionHeaders() });
     if (res.ok) {
-      let data = await res.json();
+      const serverWorks = await res.json();
+      let cached = [];
+      let local = [];
       try {
-        const local = JSON.parse(localStorage.getItem('sb-works') || '[]');
-        const localMap = new Map();
-        local.forEach(x => { if (x._saveKey != null) localMap.set(String(x._saveKey), x); });
-        // 服务端是稳定来源；本地只补充尚未同步的字段，避免旧缓存覆盖最新的稳定图片 URL。
-        data = data.map(sv => ({ ...(localMap.get(String(sv._saveKey)) || {}), ...sv }));
-        const seenKeys = new Set(data.map(x => String(x._saveKey)));
-        const missing = local.filter(x =>
-          x._saveKey != null && !seenKeys.has(String(x._saveKey)) && (x.title || x.product_name) && !(x.title || '').includes('�')
-        );
-        if (missing.length > 0) data = [...missing, ...data].slice(0, 50);
+        cached = JSON.parse(localStorage.getItem('sb-works') || '[]');
+        local = filterWorksForOwner(cached, owner);
       } catch (e) { /* ignore */ }
-      localStorage.setItem('sb-works', JSON.stringify(data));
+      // Do not resurrect stale browser snapshots over a durable task record.
+      // Local data only fills a genuinely unsynced work or supports offline use.
+      const data = mergeWorkCollections(serverWorks, local).slice(0, 50);
+      localStorage.setItem('sb-works', JSON.stringify(
+        replaceCachedWorksForOwner(cached, owner, data),
+      ));
       data.sort((a, b) => (b.id || 0) - (a.id || 0));
       return data;
     }
   } catch (e) {
     console.warn('loadWorks:', e.message);
   }
-  try { return JSON.parse(localStorage.getItem('sb-works') || '[]'); } catch { return []; }
+  try {
+    return mergeWorkCollections([], filterWorksForOwner(
+      JSON.parse(localStorage.getItem('sb-works') || '[]'),
+      owner,
+    ));
+  } catch { return []; }
 }
 
 /* ── ZIP 下载 ── */
