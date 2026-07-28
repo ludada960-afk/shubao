@@ -1,6 +1,13 @@
 const VERSION = 1;
 const DB_NAME = 'shubao-creation-drafts';
 const STORE_NAME = 'ecommerce-assets';
+const LIFECYCLE_MIGRATION_KEY = 'sb-creation-lifecycle:v3:migrated';
+const LEGACY_STORAGE_PREFIXES = [
+  'sb-ec-workbench:',
+  'sb-ecommerce-draft:',
+  'sb-ecommerce-task:',
+  'sb-ecommerce-direction-refresh:',
+];
 
 export function draftSnapshotKey({ ownerEmail = '', surface = 'home' } = {}) {
   return `sb-ec-workbench:v${VERSION}:${encodeURIComponent(ownerEmail.trim().toLowerCase() || 'anonymous')}:${surface}`;
@@ -18,6 +25,13 @@ export function loadDraftSnapshot(identity, storage = globalThis.localStorage) {
     const value = JSON.parse(storage?.getItem(draftSnapshotKey(identity)) || 'null');
     return value?.version === VERSION ? value : null;
   } catch { return null; }
+}
+
+export function clearDraftSnapshot(identity, storage = globalThis.localStorage) {
+  try {
+    storage?.removeItem?.(draftSnapshotKey(identity));
+    return true;
+  } catch { return false; }
 }
 
 function openDb() {
@@ -53,4 +67,37 @@ export async function loadDraftFiles(key) {
 
 export function filesToPreviewItems(files = []) {
   return files.map(file => ({ file, url: URL.createObjectURL(file) }));
+}
+
+function deleteLegacyDraftDatabase(indexedDB) {
+  if (!indexedDB?.deleteDatabase) return Promise.resolve(true);
+  return new Promise(resolve => {
+    try {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => resolve(false);
+      request.onblocked = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+export async function clearLegacyEcommerceDraftState({
+  storage = globalThis.localStorage,
+  indexedDB = globalThis.indexedDB,
+} = {}) {
+  try {
+    if (storage?.getItem?.(LIFECYCLE_MIGRATION_KEY) === '1') return false;
+    const keys = Array.from({ length: Number(storage?.length || 0) }, (_, index) => storage?.key?.(index))
+      .filter(key => typeof key === 'string');
+    keys.filter(key => LEGACY_STORAGE_PREFIXES.some(prefix => key.startsWith(prefix)))
+      .forEach(key => storage?.removeItem?.(key));
+    const databaseCleared = await deleteLegacyDraftDatabase(indexedDB);
+    if (!databaseCleared) return false;
+    storage?.setItem?.(LIFECYCLE_MIGRATION_KEY, '1');
+    return true;
+  } catch {
+    return false;
+  }
 }

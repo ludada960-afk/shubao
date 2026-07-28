@@ -164,7 +164,7 @@ test('direction refresh action survives page reload for the same owner draft and
   assert.equal(loadEcommerceDirectionRefreshAction({ ...identity, now: now + 1 }), null);
 });
 
-test('active drafts survive refresh for the same owner and surface but never cross either boundary', () => {
+test('fresh visits create a new draft even for the same owner and surface', () => {
   assert.equal(typeof taskProgressModel.loadOrCreateEcommerceDraft, 'function');
   assert.equal(typeof taskProgressModel.ecommerceDraftKey, 'function');
 
@@ -175,6 +175,15 @@ test('active drafts survive refresh for the same owner and surface but never cro
     createCalls += 1;
     return `draft-${createCalls}`;
   };
+
+  taskProgressModel.saveEcommerceDraftReference({
+    ownerEmail: 'owner@example.com',
+    surface: 'EcStudio',
+    draftId: 'legacy-draft',
+    now,
+    createdAt: now,
+    storage,
+  });
 
   const first = taskProgressModel.loadOrCreateEcommerceDraft({
     ownerEmail: 'Owner@Example.COM',
@@ -206,10 +215,11 @@ test('active drafts survive refresh for the same owner and surface but never cro
   });
 
   assert.deepEqual(first, { draftId: 'draft-1', createdAt: now });
-  assert.deepEqual(refreshed, { draftId: 'draft-1', createdAt: now });
+  assert.deepEqual(refreshed, { draftId: 'draft-2', createdAt: now + 1 });
+  assert.notEqual(first.draftId, 'legacy-draft');
   assert.notEqual(otherOwner.draftId, first.draftId);
   assert.notEqual(otherSurface.draftId, first.draftId);
-  assert.equal(createCalls, 3);
+  assert.equal(createCalls, 4);
   assert.match(taskProgressModel.ecommerceDraftKey({ ownerEmail: 'owner@example.com', surface: 'EcStudio' }), /ecstudio/);
 });
 

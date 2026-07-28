@@ -27,6 +27,15 @@ test('content pending actions retain only an owned draft and reference asset IDs
   assert.doesNotMatch(JSON.stringify(action), /File|Blob|base64|data:|blob:|周末咖啡|ins-minimal/);
 });
 
+test('each new content cycle gets a distinct draft id instead of reconnecting an earlier task', () => {
+  const first = createContentDraftId({ ownerEmail: 'Creator@example.com', source: 'plog' });
+  const second = createContentDraftId({ ownerEmail: 'Creator@example.com', source: 'plog' });
+
+  assert.match(first, /^content-plog-/);
+  assert.match(second, /^content-plog-/);
+  assert.notEqual(first, second);
+});
+
 test('only an explicit complete event with stable assets can produce a paid content result', () => {
   const stable = '/api/generated-assets/a'.padEnd(88, '1');
   const event = {

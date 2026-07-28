@@ -2,15 +2,6 @@ const CONTENT_SETS = 'content_sets';
 const FINAL_BILLING_STATUSES = new Set(['settled', 'needs_review', 'preview']);
 const STABLE_ASSET = /^\/api\/generated-assets\/[A-Za-z0-9._-]+$/;
 
-function hash(value) {
-  let result = 2166136261;
-  for (const character of value) {
-    result ^= character.charCodeAt(0);
-    result = Math.imul(result, 16777619);
-  }
-  return (result >>> 0).toString(36);
-}
-
 function referenceIds(values) {
   if (!Array.isArray(values)) return [];
   return [...new Set(values.filter(value => (
@@ -27,9 +18,12 @@ function stableAssets(event) {
 }
 
 export function createContentDraftId({ ownerEmail = '', source = 'content' } = {}) {
-  const owner = String(ownerEmail || 'anonymous').trim().toLowerCase() || 'anonymous';
   const surface = String(source || 'content').trim().toLowerCase() || 'content';
-  return `content-${surface}-${hash(`${owner}\n${surface}`)}`;
+  const random = globalThis.crypto?.randomUUID?.();
+  const suffix = typeof random === 'string' && random
+    ? random
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `content-${surface}-${suffix}`;
 }
 
 export function buildContentPendingAction({

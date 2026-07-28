@@ -110,3 +110,41 @@ test('project and version routes return 404 for a different signed owner', async
   assert.equal(version.statusCode, 404);
   assert.equal(version.body.code, 'PROJECT_NOT_FOUND');
 });
+
+test('signed owners can create an explicit recovery checkpoint and complete their project', async t => {
+  const { app, db, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const headers = signedHeaders(sessionTokens, 'owner@example.com', 'project-lifecycle');
+  const projectResponse = await invoke(app, 'POST', '/api/projects', {
+    headers,
+    body: { kind: 'ecommerce', title: '待恢复的水杯套图' },
+  });
+  const versionResponse = await invoke(app, 'POST', '/api/projects/:projectId/versions', {
+    headers,
+    params: { projectId: projectResponse.body.project.id },
+    body: { reason: 'generation', inputSnapshot: { description: '水杯' } },
+  });
+  const checkpoint = await invoke(app, 'POST', '/api/projects/:projectId/checkpoints', {
+    headers,
+    params: { projectId: projectResponse.body.project.id },
+    body: { versionId: versionResponse.body.version.id, reason: 'payment_required' },
+  });
+
+  assert.equal(checkpoint.statusCode, 201);
+  assert.equal(checkpoint.body.checkpoint.project.id, projectResponse.body.project.id);
+  assert.deepEqual(checkpoint.body.checkpoint.version.inputSnapshot, { description: '水杯' });
+
+  const resultVersion = await invoke(app, 'POST', '/api/projects/:projectId/versions', {
+    headers,
+    params: { projectId: projectResponse.body.project.id },
+    body: { reason: 'accepted_result', inputSnapshot: { description: '水杯' } },
+  });
+  const completed = await invoke(app, 'POST', '/api/projects/:projectId/complete', {
+    headers,
+    params: { projectId: projectResponse.body.project.id },
+    body: { acceptedVersionId: resultVersion.body.version.id },
+  });
+
+  assert.equal(completed.statusCode, 200);
+  assert.equal(completed.body.project.status, 'completed');
+});

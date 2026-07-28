@@ -25,7 +25,6 @@ const EC_STYLE_PACKS = [
 ];
 import { proxyImg, generateContent, generatePlogContent, generateEcommerce, generateEcommercePreview, regenerateImage, saveWork, uploadEcommerceAssets } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { loadContentDraft, saveContentDraft } from '../../utils/contentDraftStore.js';
 import {
   acceptAuthoritativeContentCompletion,
   buildContentPendingAction,
@@ -50,7 +49,7 @@ import './Home.css';
 let _extractSessionToken = null;
 let observedEcommerceWorkVersion = 0;
 
-export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp }) {
+export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp, recoveryCheckpoint = null }) {
   const { state, dispatch, fetchCredits, refreshBillingBalance } = useApp();
   const { inputText, logged, contentSets, unlimited, mode } = state;
   const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
@@ -153,6 +152,22 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   }, [ownerEmail]);
 
   useEffect(() => {
+    const kind = recoveryCheckpoint?.project?.kind;
+    const snapshot = recoveryCheckpoint?.version?.inputSnapshot;
+    if (!snapshot || typeof snapshot !== 'object') return;
+    if (kind === 'xiaohongshu') {
+      dispatch({ type: 'SET_INPUT', text: typeof snapshot.text === 'string' ? snapshot.text : '' });
+      if (Array.isArray(snapshot.referenceAssetIds)) setXhsReferenceAssetIds(snapshot.referenceAssetIds);
+    }
+    if (kind === 'plog') {
+      setPlogText(typeof snapshot.text === 'string' ? snapshot.text : '');
+      if (typeof snapshot.style === 'string') setPlogStyle(snapshot.style);
+      if (typeof snapshot.layout === 'string') setPlogLayout(snapshot.layout);
+      if (Array.isArray(snapshot.referenceAssetIds)) setHomePlogReferenceAssetIds(snapshot.referenceAssetIds);
+    }
+  }, [recoveryCheckpoint]);
+
+  useEffect(() => {
     if (!workVersion || workVersion <= observedEcommerceWorkVersion) return;
     observedEcommerceWorkVersion = workVersion;
     generationTokenRef.current = null;
@@ -182,41 +197,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   useEffect(() => {
     setXhsContentDraftId(createContentDraftId({ ownerEmail, source: 'xhs-content' }));
     setHomePlogDraftId(createContentDraftId({ ownerEmail, source: 'xhs-plog' }));
-    const xhsDraft = loadContentDraft({ ownerEmail, source: 'xhs-content' });
-    if (xhsDraft?.text) dispatch({ type: 'SET_INPUT', text: xhsDraft.text });
-    setXhsReferenceAssetIds(xhsDraft?.referenceAssetIds || []);
-    const plogDraft = loadContentDraft({ ownerEmail, source: 'xhs-plog' });
-    if (plogDraft?.text) setPlogText(plogDraft.text);
-    if (plogDraft?.style) setPlogStyle(plogDraft.style);
-    if (plogDraft?.layout) setPlogLayout(plogDraft.layout);
-    setHomePlogReferenceAssetIds(plogDraft?.referenceAssetIds || []);
+    dispatch({ type: 'SET_INPUT', text: '' });
+    setXhsReferenceAssetIds([]);
+    setPlogText('');
+    setPlogStyle('ins-minimal');
+    setPlogLayout('casual');
+    setHomePlogReferenceAssetIds([]);
   }, [ownerEmail]);
-
-  useEffect(() => {
-    if (!inputText.trim()) return;
-    saveContentDraft({
-      ownerEmail,
-      source: 'xhs-content',
-      draftId: xhsContentDraftId,
-      draft: { text: inputText, referenceAssetIds: xhsReferenceAssetIds },
-    });
-  }, [inputText, ownerEmail, xhsContentDraftId, xhsReferenceAssetIds]);
-
-  useEffect(() => {
-    if (!plogText.trim()) return;
-    saveContentDraft({
-      ownerEmail,
-      source: 'xhs-plog',
-      draftId: homePlogDraftId,
-      draft: {
-        text: plogText,
-        style: plogStyle,
-        layout: plogLayout,
-        coverVariant: 'collage',
-        referenceAssetIds: homePlogReferenceAssetIds,
-      },
-    });
-  }, [homePlogDraftId, homePlogReferenceAssetIds, ownerEmail, plogLayout, plogStyle, plogText]);
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
@@ -604,12 +591,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     if (!inputText.trim()) return;
     const usePreview = !logged;
     let referenceAssetIds = xhsReferenceAssetIds;
-    saveContentDraft({
-      ownerEmail,
-      source: 'xhs-content',
-      draftId: xhsContentDraftId,
-      draft: { text: inputText, referenceAssetIds },
-    });
     setErr('');
     dispatch({ type: 'START_GEN' });
     // 创建 AbortController 以便组件卸载时中断
@@ -619,12 +600,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         const uploaded = await uploadEcommerceAssets(refImages, 'reference', { signal: genAbortRef.current.signal });
         referenceAssetIds = uploaded.map(asset => asset.assetId);
         setXhsReferenceAssetIds(referenceAssetIds);
-        saveContentDraft({
-          ownerEmail,
-          source: 'xhs-content',
-          draftId: xhsContentDraftId,
-          draft: { text: inputText, referenceAssetIds },
-        });
       }
       // SSE 流式回调：用后端真实进度替换假定时器
       const result = await generateContent(inputText, usePreview ? refImages : [], {
@@ -678,18 +653,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     if (!plogText.trim()) return;
     const usePreview = !logged;
     let referenceAssetIds = homePlogReferenceAssetIds;
-    saveContentDraft({
-      ownerEmail,
-      source: 'xhs-plog',
-      draftId: homePlogDraftId,
-      draft: {
-        text: plogText,
-        style: plogStyle,
-        layout: plogLayout,
-        coverVariant: 'collage',
-        referenceAssetIds,
-      },
-    });
     setErr('');
     dispatch({ type: 'START_GEN' });
     try {
@@ -697,18 +660,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         const uploaded = await uploadEcommerceAssets([plogRefImg], 'reference');
         referenceAssetIds = uploaded.map(asset => asset.assetId);
         setHomePlogReferenceAssetIds(referenceAssetIds);
-        saveContentDraft({
-          ownerEmail,
-          source: 'xhs-plog',
-          draftId: homePlogDraftId,
-          draft: {
-            text: plogText,
-            style: plogStyle,
-            layout: plogLayout,
-            coverVariant: 'collage',
-            referenceAssetIds,
-          },
-        });
       }
       const result = await generatePlogContent({
         text: plogText.trim(),

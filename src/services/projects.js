@@ -6,12 +6,20 @@ function signedHeaders(headers = {}) {
   return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
 }
 
-function checkpointPathSegment(checkpointId) {
-  const value = typeof checkpointId === 'string' ? checkpointId.trim() : '';
-  if (!value || value.length > 200 || /[\u0000-\u001F\u007F]/.test(value)) {
-    throw new Error('请选择有效的未完成任务');
+function pathSegment(value, message) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized || normalized.length > 200 || /[\u0000-\u001F\u007F]/.test(normalized)) {
+    throw new Error(message);
   }
-  return encodeURIComponent(value);
+  return encodeURIComponent(normalized);
+}
+
+function checkpointPathSegment(checkpointId) {
+  return pathSegment(checkpointId, '请选择有效的未完成任务');
+}
+
+function projectPathSegment(projectId) {
+  return pathSegment(projectId, '请选择有效的项目');
 }
 
 async function requestJson(path, options = {}, fallbackMessage) {
@@ -52,4 +60,46 @@ export async function dismissRecoveryCheckpoint(checkpointId) {
     '暂时无法关闭未完成任务',
   );
   return checkpointFromResponse(checkpoint);
+}
+
+function jsonBody(value) {
+  return { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value || {}) };
+}
+
+export async function createProject({ kind, title, idempotencyKey } = {}) {
+  const key = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : '';
+  if (!key) throw new Error('创建任务标识缺失，请重试');
+  const response = await requestJson('/api/projects', {
+    method: 'POST',
+    headers: { ...jsonBody().headers, 'Idempotency-Key': key },
+    body: JSON.stringify({ kind, title }),
+  }, '暂时无法创建任务');
+  if (!response?.project?.id) throw new Error('任务信息暂时不可用，请稍后重试');
+  return response.project;
+}
+
+export async function createProjectVersion(projectId, payload = {}) {
+  const response = await requestJson(`/api/projects/${projectPathSegment(projectId)}/versions`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法保存任务内容');
+  if (!response?.version?.id) throw new Error('任务版本暂时不可用，请稍后重试');
+  return response.version;
+}
+
+export async function createRecoveryCheckpoint(projectId, payload = {}) {
+  const response = await requestJson(`/api/projects/${projectPathSegment(projectId)}/checkpoints`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法保留未完成任务');
+  return checkpointFromResponse(response);
+}
+
+export async function completeProject(projectId, payload = {}) {
+  const response = await requestJson(`/api/projects/${projectPathSegment(projectId)}/complete`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法完成任务');
+  if (!response?.project?.id) throw new Error('任务完成信息暂时不可用，请稍后重试');
+  return response.project;
 }

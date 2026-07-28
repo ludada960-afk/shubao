@@ -26,6 +26,7 @@ import {
   invalidateEcommerceGenerationRequest,
   isEcommerceGenerationTokenCurrent,
 } from './ec/ecommerceTaskProgressModel.js';
+import { restoreCheckpointIntoEditor } from './ec/projectLifecycleModel.js';
 
 /* ═══════ 智能方案状态常量 ═══════
  * 智能方案逻辑：
@@ -73,7 +74,7 @@ const GLASS_PANEL = {
 };
 
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
-export default function EcMode({ ecStep, setEcStep, onStepChange }) {
+export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckpoint = null }) {
   const { state } = useApp();
   const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
   const workVersion = Number(state._workVersion || 0);
@@ -147,6 +148,20 @@ export default function EcMode({ ecStep, setEcStep, onStepChange }) {
     resolution: '2K',
     negativePrompt: '',
   });
+
+  useEffect(() => {
+    if (!recoveryCheckpoint || recoveryCheckpoint.project?.kind !== 'ecommerce') return;
+    const restored = restoreCheckpointIntoEditor(recoveryCheckpoint);
+    setDescription(restored.description);
+    setPlatform(restored.platform);
+    setSizing(restored.sizing);
+    setStyleSkill(restored.styleSkill);
+    setCustomColors(restored.customColors);
+    setProductParams(restored.productParams);
+    setSkus(restored.skus.length ? restored.skus : [{ id: `sku_${Date.now()}`, color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
+    setCopywriting(restored.copywriting);
+    setGenSettings(restored.genSettings);
+  }, [recoveryCheckpoint]);
 
   /* — 面板（Portal 定位用视口坐标）—— */
   const [activePanel, setActivePanel] = useState(null);

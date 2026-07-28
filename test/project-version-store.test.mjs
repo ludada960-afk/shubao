@@ -44,11 +44,16 @@ test('creates immutable owner-scoped project versions', t => {
   assert.deepEqual(version.inputSnapshot, { prompt: '清爽夏季水杯' });
 });
 
-test('lists recovery checkpoints without injecting another owner records', t => {
+test('lists recovery checkpoints with their immutable source version and without another owner records', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
   const project = store.createProject({ ownerEmail: 'owner@example.com', kind: 'ecommerce' });
-  const version = store.createVersion({ ownerEmail: 'owner@example.com', projectId: project.id, reason: 'generation' });
+  const version = store.createVersion({
+    ownerEmail: 'owner@example.com',
+    projectId: project.id,
+    reason: 'generation',
+    inputSnapshot: { description: '待恢复的水杯套图' },
+  });
   const checkpoint = store.createCheckpoint({
     ownerEmail: 'owner@example.com',
     projectId: project.id,
@@ -56,7 +61,10 @@ test('lists recovery checkpoints without injecting another owner records', t => 
     reason: 'payment_required',
   });
 
-  assert.equal(store.listCheckpoints({ ownerEmail: 'owner@example.com' })[0].id, checkpoint.id);
+  const listed = store.listCheckpoints({ ownerEmail: 'owner@example.com' })[0];
+  assert.equal(listed.id, checkpoint.id);
+  assert.equal(listed.project.kind, 'ecommerce');
+  assert.deepEqual(listed.version.inputSnapshot, { description: '待恢复的水杯套图' });
   assert.deepEqual(store.listCheckpoints({ ownerEmail: 'other@example.com' }), []);
   assert.equal(store.consumeCheckpoint({ ownerEmail: 'other@example.com', checkpointId: checkpoint.id }), null);
   assert.equal(store.consumeCheckpoint({ ownerEmail: 'owner@example.com', checkpointId: checkpoint.id }).status, 'consumed');

@@ -120,6 +120,13 @@ export function createProjectStore(db, {
     if (!version) throw codedError('VERSION_NOT_FOUND', 'project version not found');
     return version;
   };
+  const hydrateCheckpoint = row => {
+    const checkpoint = checkpointFromRow(row);
+    if (!checkpoint) return null;
+    const project = requireProject(checkpoint.ownerEmail, checkpoint.projectId);
+    const version = requireVersion(project.id, checkpoint.versionId);
+    return { ...checkpoint, project, version };
+  };
   const insertProject = ({ ownerEmail, kind, title = '' }) => {
     const owner = normalizeOwner(ownerEmail);
     if (!owner) throw new TypeError('ownerEmail is required');
@@ -195,21 +202,21 @@ export function createProjectStore(db, {
         VALUES (?, ?, ?, ?, ?, ?, 'available', ?, ?)`).run(
         id, project.ownerEmail, project.id, versionId, generationRunId, reason, expiry.toISOString(), created.toISOString(),
       );
-      return checkpointFromRow(db.prepare('SELECT * FROM recovery_checkpoints WHERE id = ?').get(id));
+      return hydrateCheckpoint(db.prepare('SELECT * FROM recovery_checkpoints WHERE id = ?').get(id));
     },
 
     listCheckpoints({ ownerEmail }) {
       const current = timestamp().toISOString();
       return db.prepare(`SELECT * FROM recovery_checkpoints
         WHERE owner_email = ? AND status = 'available' AND expires_at > ? ORDER BY created_at DESC`)
-        .all(normalizeOwner(ownerEmail), current).map(checkpointFromRow);
+        .all(normalizeOwner(ownerEmail), current).map(hydrateCheckpoint);
     },
 
     consumeCheckpoint({ ownerEmail, checkpointId }) {
       const changed = db.prepare(`UPDATE recovery_checkpoints SET status = 'consumed'
         WHERE id = ? AND owner_email = ? AND status = 'available' AND expires_at > ?`)
         .run(checkpointId, normalizeOwner(ownerEmail), timestamp().toISOString()).changes;
-      return changed === 1 ? checkpointFromRow(db.prepare('SELECT * FROM recovery_checkpoints WHERE id = ?').get(checkpointId)) : null;
+      return changed === 1 ? hydrateCheckpoint(db.prepare('SELECT * FROM recovery_checkpoints WHERE id = ?').get(checkpointId)) : null;
     },
 
     dismissCheckpoint({ ownerEmail, checkpointId }) {

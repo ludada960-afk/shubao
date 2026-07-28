@@ -5,7 +5,6 @@ import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
 import { generatePlogContent, saveWork, uploadEcommerceAssets } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { loadContentDraft, saveContentDraft } from '../../utils/contentDraftStore.js';
 import {
   acceptAuthoritativeContentCompletion,
   buildContentPendingAction,
@@ -85,29 +84,12 @@ export default function PlogPage() {
 
   useEffect(() => {
     setPlogDraftId(createContentDraftId({ ownerEmail, source: 'plog' }));
-    const draft = loadContentDraft({ ownerEmail, source: 'plog' });
-    if (draft?.text) setText(draft.text);
-    if (draft?.style) setSelectedStyle(draft.style);
-    if (draft?.layout) setSelectedLayout(draft.layout);
-    if (draft?.coverVariant) setSelectedCover(draft.coverVariant);
-    setReferenceAssetIds(draft?.referenceAssetIds || []);
+    setText('');
+    setSelectedStyle('ins-minimal');
+    setSelectedLayout('casual');
+    setSelectedCover('collage');
+    setReferenceAssetIds([]);
   }, [ownerEmail]);
-
-  useEffect(() => {
-    if (!text.trim()) return;
-    saveContentDraft({
-      ownerEmail,
-      source: 'plog',
-      draftId: plogDraftId,
-      draft: {
-        text,
-        style: selectedStyle,
-        layout: selectedLayout,
-        coverVariant: selectedCover,
-        referenceAssetIds,
-      },
-    });
-  }, [ownerEmail, plogDraftId, referenceAssetIds, selectedCover, selectedLayout, selectedStyle, text]);
 
   useEffect(() => {
     if (genState === 'loading') {
@@ -154,18 +136,6 @@ export default function PlogPage() {
     if (!text.trim()) return;
     const usePreview = !state.logged;
     let ownedReferenceAssetIds = referenceAssetIds;
-    saveContentDraft({
-      ownerEmail,
-      source: 'plog',
-      draftId: plogDraftId,
-      draft: {
-        text,
-        style: selectedStyle,
-        layout: selectedLayout,
-        coverVariant: selectedCover,
-        referenceAssetIds: ownedReferenceAssetIds,
-      },
-    });
     setErr('');
     setGenState('loading');
     setResults(null);
@@ -176,18 +146,6 @@ export default function PlogPage() {
         const uploaded = await uploadEcommerceAssets([refImage], 'reference');
         ownedReferenceAssetIds = uploaded.map(asset => asset.assetId);
         setReferenceAssetIds(ownedReferenceAssetIds);
-        saveContentDraft({
-          ownerEmail,
-          source: 'plog',
-          draftId: plogDraftId,
-          draft: {
-            text,
-            style: selectedStyle,
-            layout: selectedLayout,
-            coverVariant: selectedCover,
-            referenceAssetIds: ownedReferenceAssetIds,
-          },
-        });
       }
       const result = await generatePlogContent({
         text: text.trim(),

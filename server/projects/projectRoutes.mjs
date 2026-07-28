@@ -79,6 +79,29 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
       return res.status(201).json({ version });
     } catch (error) { return routeError(error, res); }
   });
+  app.post('/api/projects/:projectId/checkpoints', (req, res) => {
+    try {
+      const checkpoint = projectStore.createCheckpoint({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        projectId: req.params.projectId,
+        versionId: req.body?.versionId,
+        generationRunId: req.body?.generationRunId || null,
+        reason: req.body?.reason,
+      });
+      return res.status(201).json({ checkpoint });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/projects/:projectId/complete', (req, res) => {
+    try {
+      const project = projectStore.completeProject({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        projectId: req.params.projectId,
+        acceptedVersionId: req.body?.acceptedVersionId,
+        generationRunId: req.body?.generationRunId || null,
+      });
+      return res.json({ project });
+    } catch (error) { return routeError(error, res); }
+  });
   app.get('/api/recovery-checkpoints', (req, res) => {
     try { return res.json({ checkpoints: projectStore.listCheckpoints({ ownerEmail: ownerFor(req, authenticateOwner) }) }); }
     catch (error) { return routeError(error, res); }

@@ -476,8 +476,6 @@ export function loadOrCreateEcommerceDraft({
   storage,
   createDraftId = defaultDraftId,
 } = {}) {
-  const existing = loadEcommerceDraftReference({ ownerEmail, surface, now, storage });
-  if (existing) return existing;
   const owner = normalizedOwner(ownerEmail);
   const activeSurface = normalizedSurface(surface);
   const draftId = cleanText(typeof createDraftId === 'function' ? createDraftId() : '');

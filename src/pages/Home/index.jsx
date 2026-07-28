@@ -6,6 +6,8 @@ import EcMode from './EcMode';
 import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
+import RecoveryShelf from './ec/RecoveryShelf';
+import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
 
 /**
  * 薯包AI 首页 — 灵图结构精确复刻
@@ -17,7 +19,12 @@ export default function HomePage() {
   const isXHS = mode === 'content';
   const [xhsSubMode, setXhsSubMode] = useState('content');
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
+  const [recoveryCheckpoint, setRecoveryCheckpoint] = useState(null);
   const ecParamsRef = useRef({});  // 第一步收集的参数
+
+  useEffect(() => {
+    clearLegacyEcommerceDraftState();
+  }, []);
 
   // 当结果被清除（新建作品）时，重置步骤
   useEffect(() => {
@@ -25,6 +32,18 @@ export default function HomePage() {
       setEcStep(1);
     }
   }, [state.genState]);
+
+  const restoreCheckpoint = checkpoint => {
+    const kind = checkpoint?.project?.kind;
+    setRecoveryCheckpoint(checkpoint);
+    setEcStep(1);
+    if (kind === 'xiaohongshu' || kind === 'plog') {
+      dispatch({ type: 'SET_MODE', mode: 'content' });
+      setXhsSubMode(kind === 'plog' ? 'plog' : 'content');
+    } else {
+      dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
+    }
+  };
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', overflow: 'hidden', paddingBottom: 80 }}>
@@ -49,6 +68,8 @@ export default function HomePage() {
             </p>
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>
+
+          <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />
 
           {/* ═══ 主模式切换 — 大号胶囊 ═══ */}
           <div className="homepage-mode-switch" style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
@@ -90,30 +111,27 @@ export default function HomePage() {
 
 
           {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}
-          {ecStep === 2 ? (
+          {!isXHS && ecStep === 2 && (
             <DesignDirection
               params={ecParamsRef.current}
               onBack={() => setEcStep(1)}
               onGenerated={() => setEcStep(3)}
             />
-          ) : (
-            <div className="surface-card" style={{
-              marginTop: 20,
-              background: isXHS ? '#fff' : 'transparent',
-              boxShadow: isXHS ? undefined : 'none',
-            }}>
-              <div className="surface-card-inner">
-                {isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} /> : (
-                  <EcMode ecStep={ecStep} setEcStep={(step) => {
-                    if (step === 2) {
-                      // EcMode 会在 setEcStep(2) 时通过 onStepChange 传参
-                    }
-                    setEcStep(step);
-                  }} onStepChange={(params) => { ecParamsRef.current = params; }} />
-                )}
-              </div>
-            </div>
           )}
+          <div className="surface-card" style={{
+            display: ecStep === 2 ? 'none' : undefined,
+            marginTop: 20,
+            background: isXHS ? '#fff' : 'transparent',
+            boxShadow: isXHS ? undefined : 'none',
+          }}>
+            <div className="surface-card-inner">
+              {isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : (
+                <EcMode ecStep={ecStep} setEcStep={setEcStep}
+                  onStepChange={(params) => { ecParamsRef.current = params; }}
+                  recoveryCheckpoint={recoveryCheckpoint} />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* 案例发现区 */}

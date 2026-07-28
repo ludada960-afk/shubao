@@ -413,12 +413,11 @@ test('every reachable ecommerce generation UI entry uses the durable draft and i
   assert.match(studioSource, /Object\.entries\(res\?\.images \|\| \{\}\)/);
 });
 
-test('every ecommerce surface restores owner-scoped drafts and keeps stable previews out of final results', async () => {
+test('legacy ecommerce surfaces isolate resumable tasks while the homepage always starts a fresh editor', async () => {
   const entrypoints = [
     '../src/pages/EcStudio/index.jsx',
     '../src/pages/EcAuto/index.jsx',
     '../src/pages/Home/EcLegacyForm.jsx',
-    '../src/pages/Home/XhsContentMode.jsx',
   ];
 
   for (const entrypoint of entrypoints) {
@@ -437,10 +436,10 @@ test('every ecommerce surface restores owner-scoped drafts and keeps stable prev
   }
 
   const ecMode = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
-  assert.match(ecMode, /loadOrCreateEcommerceDraft/);
-  assert.match(ecMode, /rotateEcommerceDraft/);
+  assert.doesNotMatch(ecMode, /loadOrCreateEcommerceDraft/);
+  assert.doesNotMatch(ecMode, /loadDraftSnapshot|loadDraftFiles|saveDraftSnapshot|saveDraftFiles/);
+  assert.match(ecMode, /useState\(createEcommerceDraftId\)/);
   assert.match(ecMode, /state\._workVersion/);
-  assert.match(ecMode, /rotateEcommerceDraft\(/);
 });
 
 test('every running ecommerce entry binds callbacks and completion to its owner-draft generation token', async () => {
@@ -522,7 +521,8 @@ test('design-direction refresh is settled server-side against the signed owner',
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {
   const source = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
 
-  assert.match(source, /loadOrCreateEcommerceDraft/);
+  assert.match(source, /useState\(createEcommerceDraftId\)/);
+  assert.doesNotMatch(source, /loadOrCreateEcommerceDraft/);
   assert.match(source, /draftId/);
   assert.match(source, /onStepChange\?\.\(\{[\s\S]*draftId/s);
 });

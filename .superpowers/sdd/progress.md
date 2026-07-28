@@ -53,6 +53,33 @@
   snapshots or IndexedDB images. Existing durable generation task references
   remain untouched pending the explicit recovery shelf. TDD red confirmed the
   old calls in `EcMode`; lifecycle/task regression 18/18 and Vite build passed.
+- Server Project Version System Task 3 recovery-client slice: complete in
+  `cd13926` (`feat: add authenticated recovery client`). It adds signed,
+  401-safe explicit list/consume/dismiss APIs. Fresh task review reported
+  `Spec APPROVED; Quality APPROVED`; focused client/auth/billing regression
+  passed 9/9.
+- Server Project Version System Task 4 remains in progress. Added the pure
+  blank-editor lifecycle model, explicit collapsed RecoveryShelf, owner-scoped
+  checkpoint hydration (including immutable version input snapshots), and
+  owner-scoped project checkpoint/complete routes. Homepage XHS/Plog and
+  standalone Plog no longer auto-load or continuously save local form drafts;
+  a server checkpoint is restored only after explicit consume. Focused
+  lifecycle/store/route/client regression passed; Vite build transformed 6415
+  modules. Remaining before Task 4 can close: wire `DesignDirection` and the
+  content generation entry points to create durable project/version records,
+  create a checkpoint on resumable payment/generation interruption, complete
+  the project on authoritative delivery, then clear legacy local task/file
+  references and exercise the full creation flow.
+- Fresh-visit lifecycle correction: completed locally, pending deployment.
+  The homepage migration key was advanced to clear legacy persisted ecommerce
+  state even for browsers that had recorded the earlier migration; the active
+  first-step editor remains mounted while the user inspects design directions,
+  so Back preserves only the current in-memory cycle. Ecommerce draft creation
+  and XHS/Plog content draft creation now allocate a fresh ID per new cycle,
+  preventing a fresh visit or "Next" from reconnecting to an earlier task.
+  Explicit checkpoint recovery remains the sole restoration path. Regression:
+  full 613/613, production build (6416 modules), collaboration policy READY,
+  and diff check passed.
 
 - Long-term collaboration protocol and runtime-boundary cleanup: complete in the commit named `chore: establish durable AI collaboration protocol`.
 - Billing Ledger Task 1: complete (`b6b9881..defeda7`, spec compliant, quality approved, focused 4/4 and full 135/135 tests passed).

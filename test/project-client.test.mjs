@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  completeProject,
+  createProject,
+  createProjectVersion,
+  createRecoveryCheckpoint,
   consumeRecoveryCheckpoint,
   dismissRecoveryCheckpoint,
   listRecoveryCheckpoints,
@@ -109,4 +113,24 @@ test('a recovery client 401 uses the shared session invalidation path', async t 
 
   assert.equal(storage.get('sb-auth'), undefined);
   assert.equal(invalidations, 1);
+});
+
+test('project lifecycle client creates versions, checkpoints, and completion through signed routes', async t => {
+  installSession('signed-token');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    if (path === '/api/projects') return jsonResponse({ project: { id: 'project-1' } });
+    if (path.includes('/versions')) return jsonResponse({ version: { id: 'version-1' } });
+    if (path.includes('/checkpoints')) return jsonResponse({ checkpoint: { id: 'checkpoint-1' } });
+    return jsonResponse({ project: { id: 'project-1', status: 'completed' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  assert.equal((await createProject({ kind: 'ecommerce', title: '水杯', idempotencyKey: 'draft-1' })).id, 'project-1');
+  assert.equal((await createProjectVersion('project-1', { reason: 'generation', inputSnapshot: { description: '水杯' } })).id, 'version-1');
+  assert.equal((await createRecoveryCheckpoint('project-1', { versionId: 'version-1', reason: 'payment_required' })).id, 'checkpoint-1');
+  assert.equal((await completeProject('project-1', { acceptedVersionId: 'version-1' })).status, 'completed');
+  assert.equal(requests.every(request => request.options.headers.Authorization === 'Bearer signed-token'), true);
 });

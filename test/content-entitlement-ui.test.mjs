@@ -14,7 +14,7 @@ test('reachable XHS and Plog flows do not trust client credits or local trial co
   assert.doesNotMatch(plog, /credits\s*-\s*1|trialRemaining|SET_CREDITS/);
 });
 
-test('XHS and both reachable Plog entrypoints make reference-only content-set paywall actions', async () => {
+test('XHS and both reachable Plog entrypoints make reference-only content-set paywall actions without auto-saving prior forms', async () => {
   const xhs = await source('../src/pages/Home/XhsContentMode.jsx');
   const plog = await source('../src/pages/Plog/index.jsx');
 
@@ -26,7 +26,7 @@ test('XHS and both reachable Plog entrypoints make reference-only content-set pa
     assert.match(page, /currency:\s*'content_sets'/, `${name} must select content sets`);
     assert.match(page, /draftId:\s*\w+DraftId/, `${name} must persist a stable draft reference`);
     assert.match(page, /buildContentPendingAction\(/, `${name} must not place raw form data in pending storage`);
-    assert.match(page, /saveContentDraft\(/, `${name} must preserve the editable draft outside pending storage`);
+    assert.doesNotMatch(page, /loadContentDraft\(|saveContentDraft\(/, `${name} must not auto-restore or persist a completed form`);
   }
   assert.doesNotMatch(xhs, /handleGenerationAccessError\(e,\s*dispatch,\s*\{\s*source:\s*'xhs-content',\s*message:/s);
   assert.doesNotMatch(xhs, /handleGenerationAccessError\(e,\s*dispatch,\s*\{\s*source:\s*'xhs-plog',\s*message:/s);

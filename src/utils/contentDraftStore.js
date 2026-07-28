@@ -56,3 +56,18 @@ export function saveContentDraft({ ownerEmail, source, draftId, draft } = {}, { 
   }
   return value;
 }
+
+export function clearContentDraft({ ownerEmail, source } = {}, { storage } = {}) {
+  const target = getStorage(storage);
+  const key = keyFor(ownerEmail, source);
+  try {
+    const entries = JSON.parse(target?.getItem?.(STORAGE_KEY) || '{}');
+    if (!entries || typeof entries !== 'object' || Array.isArray(entries) || !(key in entries)) return false;
+    delete entries[key];
+    if (Object.keys(entries).length === 0) target?.removeItem?.(STORAGE_KEY);
+    else target?.setItem?.(STORAGE_KEY, JSON.stringify(entries));
+    return true;
+  } catch {
+    return false;
+  }
+}
