@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog']);
 const VERSION_REASONS = new Set(['generation', 'manual_save', 'canvas_save', 'accepted_result', 'migration']);
 const CHECKPOINT_REASONS = new Set(['payment_required', 'generation_interrupted', 'session_interrupted']);
+const ECOMMERCE_TERMINAL_RUN_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function normalizeOwner(value) {
@@ -14,6 +15,13 @@ function parse(value, fallback) {
 
 function codedError(code, message) {
   return Object.assign(new Error(message), { code });
+}
+
+function terminalConflict(currentStatus, requestedStatus) {
+  return codedError(
+    'GENERATION_RUN_TERMINAL_CONFLICT',
+    `generation run is already ${currentStatus}; cannot transition to ${requestedStatus}`,
+  );
 }
 
 function projectFromRow(row) {
@@ -330,11 +338,12 @@ export function createProjectStore(db, {
         const run = runFromRow(runRow);
         const project = requireProject(owner, run.projectId);
         const sourceVersion = requireVersion(project.id, run.sourceVersionId);
-        if (run.resultVersionId) {
+        if (ECOMMERCE_TERMINAL_RUN_STATUSES.has(run.status)) {
+          if (run.status !== resultStatus) throw terminalConflict(run.status, resultStatus);
           return {
             project,
             sourceVersion,
-            resultVersion: requireVersion(project.id, run.resultVersionId),
+            resultVersion: run.resultVersionId ? requireVersion(project.id, run.resultVersionId) : null,
             run,
           };
         }
@@ -365,10 +374,12 @@ export function createProjectStore(db, {
             resultVersionId, completedAt, project.id, owner,
           );
         }
-        db.prepare(`UPDATE project_generation_runs SET status = ?, result_version_id = ?, completed_at = ?
-          WHERE id = ? AND project_id = ? AND owner_email = ?`).run(
+        const runUpdate = db.prepare(`UPDATE project_generation_runs SET status = ?, result_version_id = ?, completed_at = ?
+          WHERE id = ? AND project_id = ? AND owner_email = ?
+            AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled')`).run(
           resultStatus, resultVersionId, completedAt, runId, project.id, owner,
         );
+        if (runUpdate.changes !== 1) throw terminalConflict(run.status, resultStatus);
         db.prepare("UPDATE recovery_checkpoints SET status = 'consumed' WHERE project_id = ? AND owner_email = ? AND status = 'available'")
           .run(project.id, owner);
         return {
@@ -395,11 +406,12 @@ export function createProjectStore(db, {
         const run = runFromRow(runRow);
         const project = requireProject(owner, run.projectId);
         const sourceVersion = requireVersion(project.id, run.sourceVersionId);
-        if (run.resultVersionId) {
+        if (ECOMMERCE_TERMINAL_RUN_STATUSES.has(run.status)) {
+          if (run.status !== runStatus) throw terminalConflict(run.status, runStatus);
           return {
             project,
             sourceVersion,
-            resultVersion: requireVersion(project.id, run.resultVersionId),
+            resultVersion: run.resultVersionId ? requireVersion(project.id, run.resultVersionId) : null,
             run,
           };
         }
@@ -407,10 +419,12 @@ export function createProjectStore(db, {
         const projectStatus = runStatus === 'needs_review' ? 'needs_review' : 'abandoned';
         db.prepare(`UPDATE projects SET status = ?, accepted_version_id = NULL, completed_at = NULL, updated_at = ?
           WHERE id = ? AND owner_email = ?`).run(projectStatus, terminalAt, project.id, owner);
-        db.prepare(`UPDATE project_generation_runs SET status = ?, result_version_id = NULL, completed_at = ?
-          WHERE id = ? AND project_id = ? AND owner_email = ?`).run(
+        const runUpdate = db.prepare(`UPDATE project_generation_runs SET status = ?, result_version_id = NULL, completed_at = ?
+          WHERE id = ? AND project_id = ? AND owner_email = ?
+            AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled')`).run(
           runStatus, terminalAt, runId, project.id, owner,
         );
+        if (runUpdate.changes !== 1) throw terminalConflict(run.status, runStatus);
         db.prepare("UPDATE recovery_checkpoints SET status = 'consumed' WHERE project_id = ? AND owner_email = ? AND status = 'available'")
           .run(project.id, owner);
         return {
@@ -441,17 +455,40 @@ export function createProjectStore(db, {
     completeProject({ ownerEmail, projectId, acceptedVersionId, generationRunId = null }) {
       const project = requireProject(ownerEmail, projectId);
       requireVersion(project.id, acceptedVersionId);
+      const runId = generationRunId == null ? '' : String(generationRunId).trim();
+      if (generationRunId != null && !runId) throw new TypeError('generationRunId is invalid');
       const completedAt = timestamp().toISOString();
       db.transaction(() => {
+        const runRow = runId
+          ? db.prepare(`SELECT * FROM project_generation_runs
+              WHERE id = ? AND project_id = ? AND owner_email = ?`).get(runId, project.id, project.ownerEmail)
+          : db.prepare(`SELECT * FROM project_generation_runs
+              WHERE project_id = ? AND owner_email = ?
+              ORDER BY CASE WHEN result_version_id = ? THEN 0 ELSE 1 END, created_at DESC, id DESC
+              LIMIT 1`).get(project.id, project.ownerEmail, acceptedVersionId);
+        if (runId && !runRow) throw codedError('GENERATION_RUN_NOT_FOUND', 'generation run not found');
+        if (runRow) {
+          const run = runFromRow(runRow);
+          if (ECOMMERCE_TERMINAL_RUN_STATUSES.has(run.status)) {
+            if (run.status === 'completed' && run.resultVersionId === acceptedVersionId) return;
+            if (run.status !== 'needs_review' || run.resultVersionId !== acceptedVersionId) {
+              throw terminalConflict(run.status, 'completed');
+            }
+          } else {
+            const runUpdate = db.prepare(`UPDATE project_generation_runs
+              SET status = 'completed', result_version_id = ?, completed_at = ?
+              WHERE id = ? AND project_id = ? AND owner_email = ?
+                AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled')`).run(
+              acceptedVersionId, completedAt, run.id, project.id, project.ownerEmail,
+            );
+            if (runUpdate.changes !== 1) throw terminalConflict(run.status, 'completed');
+          }
+        }
         db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?
           WHERE id = ? AND owner_email = ?`).run(acceptedVersionId, acceptedVersionId, completedAt, completedAt, project.id, project.ownerEmail);
-        if (generationRunId) {
-          db.prepare(`UPDATE project_generation_runs SET status = 'completed', result_version_id = ?, completed_at = ?
-            WHERE id = ? AND project_id = ? AND owner_email = ?`).run(acceptedVersionId, completedAt, generationRunId, project.id, project.ownerEmail);
-        }
         db.prepare("UPDATE recovery_checkpoints SET status = 'consumed' WHERE project_id = ? AND owner_email = ? AND status = 'available'")
           .run(project.id, project.ownerEmail);
-      })();
+      }).immediate();
       return api.getProject({ ownerEmail: project.ownerEmail, projectId: project.id });
     },
   };

@@ -271,6 +271,53 @@ test('runs the required sequence, persists stable bytes, and settles one success
   })), [{ state: 'completed', stableUrl: PNG_A }]);
 });
 
+test('passes protected product text and logos into quality review before settlement', async t => {
+  const item = {
+    ...planItem('main-with-label'),
+    requiredFacts: [{ name: 'modelName', value: 'S-100' }],
+  };
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [item],
+    analyze: ({ payload }) => ({
+      productName: payload.product_name,
+      category: payload.category,
+      sourceAssetIds: ['product-front'],
+      packageText: [{ text: 'S-100', confidence: 0.99, sourceAssetId: 'product-front' }],
+      logos: [{ description: 'SHUBAO', confidence: 0.99, sourceAssetId: 'product-front' }],
+      confirmedFacts: { modelName: { value: 'S-100', source: 'ocr' } },
+      fingerprint: 'truth-with-protected-copy',
+    }),
+    quality: ({ input }) => {
+      const protectedCopyReachedGate = input.requiredText?.includes('S-100')
+        && input.requiredLogos?.includes('SHUBAO');
+      return protectedCopyReachedGate
+        ? {
+            passed: false,
+            retryable: true,
+            checks: { copyAndLogo: { status: 'unavailable', issueCodes: ['adapter_unavailable'] } },
+            repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+            confidence: 'medium',
+          }
+        : {
+            passed: true,
+            checks: {},
+            repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+            confidence: 'high',
+          };
+    },
+    orchestratorOptions: { canRetry: () => false },
+  });
+  const created = orchestrator.createJob(jobInput('job-protected-copy-quality'));
+
+  const result = await orchestrator.runJob(created.id);
+
+  assert.equal(result.status, 'needs_review');
+  assert.deepEqual(calls.quality[0].requiredText, ['S-100']);
+  assert.deepEqual(calls.quality[0].requiredLogos, ['SHUBAO']);
+  assert.equal(calls.settle.length, 0);
+  assert.equal(calls.release.length, 1);
+});
+
 test('always requires PNG quality output for transparent plan items', async t => {
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('transparent', 'transparent')],

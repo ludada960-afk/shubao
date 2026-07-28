@@ -18,6 +18,34 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function protectedCopyRequirements(item, productTruth) {
+  const requiredText = [];
+  const requiredLogos = [];
+  const textSeen = new Set();
+  const logoSeen = new Set();
+  const add = (target, seen, value) => {
+    const normalized = cleanString(value);
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    target.push(normalized);
+  };
+
+  for (const entry of Array.isArray(own(productTruth, 'packageText')) ? own(productTruth, 'packageText') : []) {
+    add(requiredText, textSeen, isRecord(entry) ? own(entry, 'text') ?? own(entry, 'value') : entry);
+  }
+  for (const logo of Array.isArray(own(productTruth, 'logos')) ? own(productTruth, 'logos') : []) {
+    add(requiredLogos, logoSeen, isRecord(logo) ? own(logo, 'description') ?? own(logo, 'name') : logo);
+  }
+  for (const fact of Array.isArray(own(item, 'requiredFacts')) ? own(item, 'requiredFacts') : []) {
+    if (!isRecord(fact)) continue;
+    const name = cleanString(own(fact, 'name')).toLowerCase().replace(/[\s_-]+/g, '');
+    if (!/label|packagetext|packagecopy|skulabel|variantname|modelname/.test(name)
+      && !/包装文字|标签|品名|型号|色号|款号|货号/.test(name)) continue;
+    add(requiredText, textSeen, own(fact, 'value'));
+  }
+  return { requiredLogos, requiredText };
+}
+
 function validateId(value, label) {
   const id = cleanString(value);
   if (!SAFE_ID_RE.test(id)) throw new TypeError(`${label} is invalid`);
@@ -553,6 +581,7 @@ export function createEcommerceOrchestrator(deps = {}) {
               ...stored,
             };
           }
+          const copyRequirements = protectedCopyRequirements(item, productTruth);
           let quality = await evaluateAsset({
             buffer: stable.buffer,
             expectedFormat: item.role === 'transparent'
@@ -563,6 +592,7 @@ export function createEcommerceOrchestrator(deps = {}) {
             productTruth,
             assetPlanItem: item,
             stableUrl: current.stableUrl,
+            ...copyRequirements,
           }, qualityAdapters);
           if (quality.passed) {
             const diversity = await withSuiteDiversityLock(job.id, async () => {

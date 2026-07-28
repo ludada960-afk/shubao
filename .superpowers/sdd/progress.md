@@ -170,6 +170,21 @@
   `git diff --check` passed. Independent re-review reported no remaining Critical
   or Important findings. A real paid/unlimited production image-generation
   canary is still required after deployment to validate provider output quality.
+- Ecommerce delivery final fail-closed review: implementation complete and
+  independently approved, pending commit and production deployment. Semantic
+  quality checks now require explicit product-fidelity and visual-quality passes;
+  protected packaging text, logos, labels and model numbers also require an
+  explicit OCR pass. Unavailable adapters cannot settle a result, and repair
+  plans with no actionable image operation do not spend another provider call.
+  Generation-run terminal states are immutable, guarded in SQL and at the
+  completion route even when a caller omits `generationRunId`; conflicting
+  replays return `GENERATION_RUN_TERMINAL_CONFLICT` as HTTP 409. A legitimate
+  partial-result acceptance must reference its actual immutable result version
+  and leaves the generation run in `needs_review`. Each defect was first
+  reproduced as a failing test. Final verification passed 659/659 tests, Vite
+  production build (6417 modules), collaboration policy, changed-module syntax
+  checks and `git diff --check`. Independent final review reported no remaining
+  Critical or Important findings.
 
 ## Ownership
 

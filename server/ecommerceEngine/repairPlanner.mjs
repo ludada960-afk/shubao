@@ -131,6 +131,8 @@ export function planRepair(qualityResult) {
 
 export function canRetry(attempt, repairAction = {}) {
   if (!Number.isInteger(attempt) || attempt < 0) return false;
+  if (!['sharp_repair', 'image_edit', 'regenerate_from_product_truth', 'cleanup_and_overlay']
+    .includes(repairAction?.type)) return false;
   // Sharp repairs run locally and do not spend another image-generation call.
   // Every provider-backed repair gets one bounded retry after the initial render.
   const maxRepairs = repairAction?.type === 'sharp_repair' ? 2 : 1;

@@ -51,7 +51,7 @@ function createHarness() {
       return authenticateContentRequest(req, { sessionTokens, authorizeEmail: email => ({ ok: true, email }) });
     },
   });
-  return { app, db, sessionTokens };
+  return { app, db, projectStore, sessionTokens };
 }
 
 function signedHeaders(sessionTokens, email, idempotencyKey = '') {
@@ -147,4 +147,86 @@ test('signed owners can create an explicit recovery checkpoint and complete thei
 
   assert.equal(completed.statusCode, 200);
   assert.equal(completed.body.project.status, 'completed');
+});
+
+test('project completion route cannot rewrite any ecommerce generation terminal state', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+
+  for (const [status, expectedProjectStatus] of [
+    ['completed', 'completed'],
+    ['needs_review', 'needs_review'],
+    ['failed', 'abandoned'],
+    ['cancelled', 'abandoned'],
+  ]) {
+    const ownerEmail = `${status}@example.com`;
+    const generationRunId = `route-terminal-${status}`;
+    const linked = projectStore.ensureEcommerceGeneration({
+      ownerEmail,
+      generationRunId,
+      title: `terminal ${status}`,
+      inputSnapshot: { description: '测试商品' },
+      planSnapshot: { fingerprint: `terminal-${status}`, items: [{ id: 'main-1' }] },
+    });
+    if (status === 'completed') {
+      projectStore.completeEcommerceGeneration({
+        ownerEmail,
+        generationRunId,
+        resultInputSnapshot: { images: { 'main-1': '/api/generated-assets/final.png' } },
+      });
+    } else {
+      projectStore.terminateEcommerceGeneration({ ownerEmail, generationRunId, terminalStatus: status });
+    }
+
+    const response = await invoke(app, 'POST', '/api/projects/:projectId/complete', {
+      headers: signedHeaders(sessionTokens, ownerEmail),
+      params: { projectId: linked.project.id },
+      body: { acceptedVersionId: linked.sourceVersion.id, generationRunId },
+    });
+
+    assert.equal(response.statusCode, 409, status);
+    assert.equal(response.body.code, 'GENERATION_RUN_TERMINAL_CONFLICT', status);
+
+    const omittedRunId = await invoke(app, 'POST', '/api/projects/:projectId/complete', {
+      headers: signedHeaders(sessionTokens, ownerEmail),
+      params: { projectId: linked.project.id },
+      body: { acceptedVersionId: linked.sourceVersion.id },
+    });
+    assert.equal(omittedRunId.statusCode, 409, `${status} without generationRunId`);
+    assert.equal(omittedRunId.body.code, 'GENERATION_RUN_TERMINAL_CONFLICT', `${status} without generationRunId`);
+
+    assert.equal(projectStore.getProject({ ownerEmail, projectId: linked.project.id }).status, expectedProjectStatus, status);
+    assert.equal(db.prepare('SELECT status FROM project_generation_runs WHERE id = ?').get(generationRunId).status, status);
+  }
+});
+
+test('accepting a partial result completes the project without rewriting its reviewed run', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'partial-accept@example.com';
+  const generationRunId = 'route-partial-accept';
+  projectStore.ensureEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    title: '可接受的部分结果',
+    inputSnapshot: { description: '测试商品' },
+    planSnapshot: { fingerprint: 'partial-accept', items: [{ id: 'main-1' }, { id: 'detail-1' }] },
+  });
+  const reviewed = projectStore.completeEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'needs_review',
+    resultInputSnapshot: { images: { 'main-1': '/api/generated-assets/partial.png' } },
+  });
+
+  const response = await invoke(app, 'POST', '/api/projects/:projectId/complete', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: reviewed.project.id },
+    body: { acceptedVersionId: reviewed.resultVersion.id },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.project.status, 'completed');
+  assert.equal(response.body.project.acceptedVersionId, reviewed.resultVersion.id);
+  assert.equal(db.prepare('SELECT status FROM project_generation_runs WHERE id = ?').get(generationRunId).status, 'needs_review');
 });

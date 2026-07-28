@@ -12,6 +12,9 @@ function routeError(error, res) {
   if (code === 'VERSION_CONFLICT') {
     return res.status(409).json({ code, error: '内容已在其他位置更新，请刷新后重试' });
   }
+  if (code === 'GENERATION_RUN_TERMINAL_CONFLICT') {
+    return res.status(409).json({ code, error: '该生成任务已结束，不能改写之前的结果' });
+  }
   if (code === 'IDEMPOTENCY_KEY_REQUIRED') {
     return res.status(400).json({ code, error: '请求标识缺失，请重试' });
   }

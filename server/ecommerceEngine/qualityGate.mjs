@@ -439,12 +439,17 @@ export async function evaluateAsset(input = {}, adapters = {}) {
     platformCompliance,
     visualQuality,
   };
-  const passed = Object.values(checks).every((check) => check.status !== 'fail');
+  const requiredChecks = [technical, productFidelity, platformCompliance, visualQuality];
+  if (requiredText.length || requiredLogos.length) requiredChecks.push(copyAndLogo);
+  const hasFailure = requiredChecks.some((check) => check.status === 'fail');
+  const hasUnavailable = requiredChecks.some((check) => check.status === 'unavailable');
+  const passed = requiredChecks.every((check) => check.status === 'pass');
   const confidence = passed
-    ? Object.values(checks).some((check) => check.status === 'unavailable') ? 'medium' : 'high'
-    : 'low';
+    ? 'high'
+    : !hasFailure && hasUnavailable ? 'medium' : 'low';
   const result = {
     passed,
+    retryable: !hasFailure && hasUnavailable,
     checks,
     repairAction: null,
     confidence,

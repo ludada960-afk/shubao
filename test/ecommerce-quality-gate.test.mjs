@@ -85,7 +85,7 @@ async function transparentProductFixture() {
   }]).png().toBuffer();
 }
 
-test('passes a valid stable product image while reporting optional adapters unavailable', async () => {
+test('blocks delivery when required semantic quality adapters are unavailable', async () => {
   const result = await evaluateAsset({
     buffer: await productFixture(),
     role: 'main',
@@ -93,7 +93,8 @@ test('passes a valid stable product image while reporting optional adapters unav
     expectedFormat: 'png',
   });
 
-  assert.equal(result.passed, true);
+  assert.equal(result.passed, false);
+  assert.equal(result.retryable, true);
   assert.equal(result.checks.technical.status, 'pass');
   assert.equal(result.checks.visualQuality.status, 'unavailable');
   assert.equal(result.checks.visualQuality.details.deterministicStatus, 'pass');
@@ -101,6 +102,25 @@ test('passes a valid stable product image while reporting optional adapters unav
   assert.equal(result.checks.copyAndLogo.status, 'skipped');
   assert.equal(result.repairAction.type, 'none');
   assert.equal(result.confidence, 'medium');
+});
+
+test('requires OCR approval when the asset plan contains text or logos', async () => {
+  const result = await evaluateAsset({
+    buffer: await productFixture(),
+    role: 'main_text',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+    requiredText: ['S-100'],
+  }, {
+    productFidelity: async () => ({ passed: true, confidence: 0.99 }),
+    visualQuality: async () => ({ passed: true, confidence: 0.99 }),
+  });
+
+  assert.equal(result.passed, false);
+  assert.equal(result.retryable, true);
+  assert.equal(result.checks.productFidelity.status, 'pass');
+  assert.equal(result.checks.visualQuality.status, 'pass');
+  assert.equal(result.checks.copyAndLogo.status, 'unavailable');
 });
 
 test('rejects exact dimension or format mismatches with deterministic repair instructions', async () => {
@@ -357,6 +377,11 @@ test('limits provider-backed quality repair to one automatic resubmission', () =
   assert.equal(canRetry(1, { type: 'regenerate_from_product_truth' }), false);
   assert.equal(canRetry(1, { type: 'sharp_repair' }), true);
   assert.equal(canRetry(2, { type: 'sharp_repair' }), false);
+});
+
+test('does not spend another image call when quality has no actionable repair', () => {
+  assert.equal(canRetry(0, { type: 'none' }), false);
+  assert.equal(canRetry(0, { type: 'manual_review' }), false);
 });
 
 test('compatibility quality checks fail honestly without stable image bytes', async () => {

@@ -229,6 +229,84 @@ test('terminalizes zero-delivery ecommerce runs without creating an empty result
   }
 });
 
+test('keeps ecommerce generation terminal states immutable across conflicting replays', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'terminal-conflict@example.com';
+  const generationRunId = 'ecommerce-task-terminal-conflict';
+  const linked = store.ensureEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    title: '终态冲突',
+    inputSnapshot: { description: '测试商品' },
+    planSnapshot: { fingerprint: 'terminal-plan', items: [{ id: 'main-1' }] },
+  });
+
+  const failed = store.terminateEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'failed',
+  });
+
+  assert.throws(() => store.completeEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'completed',
+    resultInputSnapshot: { images: { 'main-1': '/api/generated-assets/late.png' } },
+  }), error => error?.code === 'GENERATION_RUN_TERMINAL_CONFLICT');
+  assert.throws(() => store.terminateEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'cancelled',
+  }), error => error?.code === 'GENERATION_RUN_TERMINAL_CONFLICT');
+
+  const replay = store.terminateEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'failed',
+  });
+  assert.equal(replay.run.status, 'failed');
+  assert.equal(replay.run.completedAt, failed.run.completedAt);
+  assert.equal(replay.resultVersion, null);
+  assert.equal(store.getProject({ ownerEmail, projectId: linked.project.id }).status, 'abandoned');
+  assert.equal(db.prepare('SELECT COUNT(*) AS value FROM project_versions WHERE project_id = ?').get(linked.project.id).value, 1);
+});
+
+test('rejects a conflicting terminal replay even when the first result has a version', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'versioned-terminal@example.com';
+  const generationRunId = 'ecommerce-task-versioned-terminal';
+  store.ensureEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    title: '已交付终态',
+    inputSnapshot: { description: '测试商品' },
+    planSnapshot: { fingerprint: 'versioned-terminal-plan', items: [{ id: 'main-1' }] },
+  });
+  const completed = store.completeEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'completed',
+    resultInputSnapshot: { images: { 'main-1': '/api/generated-assets/final.png' } },
+  });
+
+  assert.throws(() => store.completeEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'needs_review',
+  }), error => error?.code === 'GENERATION_RUN_TERMINAL_CONFLICT');
+  assert.throws(() => store.terminateEcommerceGeneration({
+    ownerEmail,
+    generationRunId,
+    terminalStatus: 'failed',
+  }), error => error?.code === 'GENERATION_RUN_TERMINAL_CONFLICT');
+
+  const replay = store.completeEcommerceGeneration({ ownerEmail, generationRunId });
+  assert.equal(replay.run.status, 'completed');
+  assert.equal(replay.resultVersion.id, completed.resultVersion.id);
+});
+
 test('dismisses an available checkpoint and excludes expired checkpoints', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
