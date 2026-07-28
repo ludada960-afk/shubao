@@ -42,6 +42,8 @@ export function Modal({ children, onClose, width = 420 }) {
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         onClick={e => e.stopPropagation()}
         className="animate-scale-in"
         style={{

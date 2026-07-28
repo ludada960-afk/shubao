@@ -759,17 +759,18 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         </div>
 
         {/* ═══ 配置按钮行（相对定位容器，面板在此内部绝对定位）═══ */}
-        <div ref={btnRowRef} style={{
+        <div ref={btnRowRef} className="ec-workbench-actions" style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '12px 2px 14px', flexWrap: 'wrap',
           position: 'relative', zIndex: 10,
           borderTop: '1px solid rgba(28,25,23,0.08)',
           background: '#fff',
         }}>
-          {/* ═══ 面板渲染（内联，相对于按钮行定位）═══ */}
-          {renderPanel()}
-          {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}
-          {BUTTONS.map(btn => {
+          <div className="ec-workbench-tools">
+            {/* ═══ 面板渲染（Portal 到 body）═══ */}
+            {renderPanel()}
+            {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}
+            {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;
             const isOverridden = smartMode && smartOverrides[btn.key];
             // 计算配置摘要（始终显示，类似椒图AI）
@@ -885,14 +886,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                 }} />
               </div>
             );
-          })}
-          {hasOverrides && (
-            <button type="button" onClick={restoreSmartPlan} style={{
-              ...BTN_BASE, height: 34, padding: '0 12px', borderColor: 'rgba(124,58,237,0.22)',
-              background: 'rgba(124,58,237,0.06)', color: '#6d28d9', fontSize: 12,
-              marginLeft: 'auto', flexShrink: 0,
-            }}>恢复智能方案</button>
-          )}
+            })}
+            {hasOverrides && (
+              <button type="button" onClick={restoreSmartPlan} style={{
+                ...BTN_BASE, height: 34, padding: '0 12px', borderColor: 'rgba(124,58,237,0.22)',
+                background: 'rgba(124,58,237,0.06)', color: '#6d28d9', fontSize: 12,
+                marginLeft: 'auto', flexShrink: 0,
+              }}>恢复智能方案</button>
+            )}
+          </div>
 
           {/* ── 下一步按钮 ── */}
           {assetUploadError && (
@@ -900,7 +902,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
               {assetUploadError}
             </div>
           )}
-          <button disabled={!canGen || uploadingAssets} onClick={handleNext}
+          <button className="ec-workbench-next" disabled={!canGen || uploadingAssets} onClick={handleNext}
             style={{
               marginLeft: 'auto', height: 38, padding: '0 22px', borderRadius: 12,
               border: 'none', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',

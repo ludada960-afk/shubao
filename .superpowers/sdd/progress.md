@@ -171,7 +171,7 @@
   or Important findings. A real paid/unlimited production image-generation
   canary is still required after deployment to validate provider output quality.
 - Ecommerce delivery final fail-closed review: implementation complete and
-  independently approved, pending commit and production deployment. Semantic
+  independently approved and deployed as `00d0796`. Semantic
   quality checks now require explicit product-fidelity and visual-quality passes;
   protected packaging text, logos, labels and model numbers also require an
   explicit OCR pass. Unavailable adapters cannot settle a result, and repair
@@ -184,7 +184,30 @@
   reproduced as a failing test. Final verification passed 659/659 tests, Vite
   production build (6417 modules), collaboration policy, changed-module syntax
   checks and `git diff --check`. Independent final review reported no remaining
-  Critical or Important findings.
+  Critical or Important findings. The repository deployment script repeated
+  659/659 tests and the build, restarted PM2 once, passed public verification
+  before and after the full 600-second canary with stable PID `548594`, deployed
+  `00d0796` to `https://shuimg.cn/`, and released the remote lock.
+- Post-deployment responsive browser QA: implementation complete,
+  independently approved, pending commit and production redeployment. A real
+  390x844 production screenshot exposed two issues missed by the earlier static
+  test: the 203px wrapping ecommerce action row overlapped the fixed mobile dock
+  by 90px, and the top-bar brand wrapped to three lines. Root cause was the
+  wrapping action layout plus whole-page vertical `overflow: hidden`, while the
+  existing bottom padding sat after the controls and could not prevent overlap.
+  The action controls are now a single horizontally scrollable rail with the
+  primary Next command always visible, the action surface sticks above the dock,
+  and the page clips horizontal decoration without disabling vertical sticky
+  behavior. The mobile top bar now uses compact stable dimensions and a one-line
+  brand. Login continuation QA also found and fixed missing initial focus: the
+  email field now receives focus, shared in-app modals expose dialog semantics,
+  and the existing ecommerce description remains intact when Next opens login.
+  TDD red was confirmed for all missing behaviors; focused tests passed 9/9.
+  Browser re-verification measured dock overlap `90px -> 0`, one-line brand,
+  no horizontal overflow, preserved input, visible dialog and focused email.
+  Final regression passed 664/664, Vite transformed 6417 modules, collaboration
+  policy was READY, diff-check passed, and independent review reported no
+  remaining Critical or Important findings.
 
 ## Ownership
 

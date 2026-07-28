@@ -127,20 +127,20 @@ function TopBar() {
   const { page, logged, credits } = state;
 
   return (
-    <div style={{
+    <div className="app-topbar" style={{
       position: 'sticky', top: 0, zIndex: 100,
       paddingTop: 28, userSelect: 'none',
     }}>
       {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
-      <div style={{
+      <div className="topbar-row" style={{
         maxWidth: 1680, margin: '0 auto',
         paddingLeft: 36, paddingRight: 36,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
-        <div onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
+        <div className="topbar-brand" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
           style={{ display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', height: 50 }}>
-          <span style={{
+          <span className="topbar-brand-mark" style={{
             display: 'flex', width: 42, height: 42, borderRadius: 12, overflow: 'hidden', flexShrink: 0,
             boxShadow: '3px 6px 18px rgba(160,130,220,0.35), 1px 2px 6px rgba(0,0,0,0.10)',
           }}>
@@ -154,7 +154,7 @@ function TopBar() {
         </div>
 
         {/* Right: 按钮组 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* 套餐 */}
           <button onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}
             style={{

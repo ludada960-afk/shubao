@@ -95,6 +95,7 @@ export function LoginModal() {
 
       <input
         placeholder="邮箱地址"
+        autoFocus
         value={email}
         onChange={e => updateOtp({ type: 'SET_EMAIL', email: e.target.value })}
         disabled={step === 'code'}
