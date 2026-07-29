@@ -23,6 +23,7 @@ function planItem(id, role = 'main') {
     id,
     role,
     purpose: `${role} purpose`,
+    communicationGoal: `${role} commercial duty for ${id}`,
     generationSize: '2048x2048',
     ratio: '1:1',
     generationMode: 'edit',
@@ -32,6 +33,14 @@ function planItem(id, role = 'main') {
     riskLevel: 'low',
     qualityChecks: ['technical_dimensions'],
     exportTargets: [],
+    shotIntent: {
+      type: 'identity',
+      camera: { azimuth: 12 },
+      crop: 'complete product crop',
+      interactionState: 'stationary',
+      sceneFamily: 'studio_identity',
+      evidenceTier: 'safe',
+    },
   };
 }
 
@@ -854,6 +863,30 @@ test('runs independent assets with bounded per-task concurrency', async t => {
   assert.equal(maxActive, 3);
 });
 
+test('three quoted plan items create exactly three visible assets and three provider submissions', async t => {
+  const plan = [planItem('main-1'), planItem('main-2'), planItem('main-3')];
+  const { orchestrator, calls } = await createHarness(t, {
+    items: plan,
+    orchestratorOptions: { assetConcurrency: 1 },
+  });
+
+  const result = await orchestrator.runJob(orchestrator.createJob(jobInput('job-exact-count')).id);
+
+  assert.equal(result.assetPlan.length, 3);
+  assert.equal(result.assets.length, 3);
+  assert.equal(calls.submit.length, 3);
+  assert.equal(result.quote.units, 3);
+  assert.deepEqual(result.progress.executionCount, {
+    planItems: 3,
+    quoteUnits: 3,
+    visibleAssetRows: 3,
+    initialProviderSubmissions: 3,
+    providerSubmissions: 3,
+    providerRepairs: 0,
+    submissionsByAsset: { 'main-1': 1, 'main-2': 1, 'main-3': 1 },
+  });
+});
+
 test('waits for in-flight asset workers to settle before releasing a failed parent runner', async t => {
   let slowWorkerCompleted = false;
   const { orchestrator, calls } = await createHarness(t, {
@@ -1023,6 +1056,27 @@ test('suite diversity retries only the duplicate item before settlement and keep
   assert.equal(calls.release.length, 0);
   assert.equal(checks.get('main-one'), 1);
   assert.equal(checks.get('main-two'), 2);
+  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-one')).length, 1);
+  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-two')).length, 2);
+  assert.equal(result.assets.length, 2);
+  assert.deepEqual(result.progress.executionCount.submissionsByAsset, {
+    'main-one': 1,
+    'main-two': 2,
+  });
+});
+
+test('rejects duplicate suite intent before billing or provider submission', async t => {
+  const hero = planItem('hero');
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [hero, { ...hero, id: 'hero-2' }],
+  });
+
+  const failed = await orchestrator.runJob(orchestrator.createJob(jobInput('job-duplicate-intent')).id);
+
+  assert.equal(failed.status, 'failed');
+  assert.match(failed.output.errors[0].error, /duplicate suite intent/i);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
 });
 
 test('completes the immutable project result version before terminal task persistence', async t => {
@@ -1396,7 +1450,7 @@ test('persists a sanitized orchestration snapshot before hold and reuses its ori
   await assert.rejects(orchestrator.runJob(created.id), /temporary provider timeout/);
   const afterFirstRun = jobs.get(created.id);
   assert.deepEqual(afterFirstRun.progress.orchestrationSnapshot, {
-    schemaVersion: 2,
+    schemaVersion: 3,
     productTruth: {
       productName: '测试商品',
       category: '数码3C',
@@ -1425,6 +1479,7 @@ test('persists a sanitized orchestration snapshot before hold and reuses its ori
       id: 'main-original',
       role: 'main',
       purpose: 'main purpose',
+      communicationGoal: 'main commercial duty for main-original',
       generationSize: '2048x2048',
       ratio: '1:1',
       generationMode: 'edit',
@@ -1434,6 +1489,14 @@ test('persists a sanitized orchestration snapshot before hold and reuses its ori
       riskLevel: 'low',
       qualityChecks: ['technical_dimensions'],
       exportTargets: [],
+      shotIntent: {
+        type: 'identity',
+        camera: { azimuth: 12 },
+        crop: 'complete product crop',
+        interactionState: 'stationary',
+        sceneFamily: 'studio_identity',
+        evidenceTier: 'safe',
+      },
     }],
     deterministicInputs: {
       assets: {

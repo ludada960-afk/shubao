@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import { LEGAL_IMAGE_SIZES, validateGenerationSize } from '../server/ecommerceEngine/modelCatalog.mjs';
 import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
+import { validatePlanContract } from '../server/ecommerceEngine/planContract.mjs';
+import { suiteSemanticKey } from '../server/ecommerceEngine/suiteDiversity.mjs';
 
 const LEGAL_SIZES = new Set(Object.values(LEGAL_IMAGE_SIZES).flatMap(Object.values));
 
@@ -227,6 +229,10 @@ test('honors configured counts including transparent assets and expands determin
       && item.exportTargets.every(target => target.format === 'png')
       && item.styleReferenceIds.length === 0));
   assert.equal(first.find(item => item.role === 'main_3x4').generationSize, '2160x3840');
+  assert.ok(first.every(item => item.communicationGoal));
+  assert.equal(new Set(first.map(item => item.communicationGoal.toLowerCase())).size, first.length);
+  assert.equal(new Set(first.map(suiteSemanticKey)).size, first.length);
+  assert.equal(validatePlanContract(first), first);
   assert.deepEqual(first, second);
 });
 

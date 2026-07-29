@@ -1,13 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { sanitizeSnapshot } from './jobStore.mjs';
+import { assertExecutionCount, validatePlanContract } from './planContract.mjs';
 
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
 const VISUAL_INPUT_SNAPSHOT_VERSION = 1;
 const LEGACY_ORCHESTRATION_SNAPSHOT_VERSION = 1;
-const CURRENT_ORCHESTRATION_SNAPSHOT_VERSION = 2;
+const TASK_1_ORCHESTRATION_SNAPSHOT_VERSION = 2;
+const CURRENT_ORCHESTRATION_SNAPSHOT_VERSION = 3;
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -78,6 +80,21 @@ function idempotencyKey(jobId, assetId, attempt) {
     .update(`${jobId}\u0000${assetId}\u0000${attempt}`)
     .digest('hex');
   return `ecommerce:${digest}`;
+}
+
+function providerSubmissionCount(asset) {
+  const count = own(own(asset?.requestSnapshot, 'executionCount'), 'providerSubmissions');
+  if (Number.isSafeInteger(count) && count >= 0) return count;
+  return cleanString(own(asset, 'providerJobId'))
+    ? Math.max(1, Number.isSafeInteger(asset.attemptCount) ? asset.attemptCount + 1 : 1)
+    : 0;
+}
+
+function providerSubmissionEntries(assets) {
+  return assets.flatMap(asset => {
+    const count = providerSubmissionCount(asset);
+    return count > 0 ? [{ assetId: asset.assetId, count }] : [];
+  });
 }
 
 function errorMessage(error) {
@@ -347,10 +364,81 @@ function validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis }) {
   }
   try {
     validateAssetPlan(snapshot.assetPlan);
+    if (own(snapshot, 'schemaVersion') === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION) {
+      validatePlanContract(snapshot.assetPlan);
+    }
   } catch (error) {
     throw Object.assign(invalidOrchestrationSnapshot(), { cause: error });
   }
   return snapshot;
+}
+
+function legacySceneFamily(type) {
+  return {
+    identity: 'studio_identity',
+    feature: 'feature_demonstration',
+    usage_scale: 'lifestyle_context',
+    alternate_angle: 'exterior_angle_study',
+    open_state: 'confirmed_interaction_state',
+    material_macro: 'material_evidence',
+    component_relationship: 'component_evidence',
+    exploded_view: 'confirmed_structure_evidence',
+    packaging: 'packaging_context',
+  }[cleanString(type).toLowerCase()] || 'evidence_safe_product_scene';
+}
+
+function upgradePlanItems(assetPlan) {
+  const duties = new Set();
+  const roleOccurrences = new Map();
+  return assetPlan.map(item => {
+    const role = cleanString(own(item, 'role')).toLowerCase();
+    const occurrence = (roleOccurrences.get(role) || 0) + 1;
+    roleOccurrences.set(role, occurrence);
+    const baseDuty = cleanString(own(item, 'communicationGoal'))
+      || cleanString(own(item, 'purpose'))
+      || `Commercial duty for ${role}`;
+    let communicationGoal = baseDuty;
+    let dutyKey = communicationGoal.toLowerCase();
+    if (duties.has(dutyKey)) {
+      communicationGoal = `${baseDuty} Dedicated ${role} duty ${occurrence} with its own buyer decision and composition.`;
+      dutyKey = communicationGoal.toLowerCase();
+    }
+    duties.add(dutyKey);
+    const shotIntent = isRecord(own(item, 'shotIntent')) ? own(item, 'shotIntent') : {};
+    const type = cleanString(own(shotIntent, 'type'));
+    const evidenceTier = cleanString(own(shotIntent, 'evidenceTier'))
+      || (type === 'exploded_view' ? 'confirmed_only'
+        : ['component_relationship', 'open_state'].includes(type) ? 'conditional' : 'safe');
+    return {
+      ...item,
+      communicationGoal,
+      shotIntent: {
+        ...shotIntent,
+        sceneFamily: cleanString(own(shotIntent, 'sceneFamily')) || legacySceneFamily(type),
+        evidenceTier,
+      },
+    };
+  });
+}
+
+function upgradeTask1Snapshot(snapshot) {
+  const migrated = sanitizeSnapshot({
+    ...snapshot,
+    schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
+    assetPlan: upgradePlanItems(snapshot.assetPlan),
+  });
+  return validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: true });
+}
+
+function upgradeLegacySnapshot(snapshot) {
+  const migrated = sanitizeSnapshot({
+    ...snapshot,
+    schemaVersion: LEGACY_ORCHESTRATION_SNAPSHOT_VERSION,
+    assetPlan: upgradePlanItems(snapshot.assetPlan),
+  });
+  validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: false });
+  validatePlanContract(migrated.assetPlan);
+  return migrated;
 }
 
 function orchestrationSnapshotFromProgress(progress) {
@@ -364,24 +452,23 @@ function orchestrationSnapshotFromProgress(progress) {
     const hasVisualCache = Object.hasOwn(snapshot, 'visualAnalysisCache');
     if (hasStyleProfile !== hasVisualCache) throw invalidOrchestrationSnapshot();
     const migratedVersion = hasStyleProfile
-      ? CURRENT_ORCHESTRATION_SNAPSHOT_VERSION
+      ? TASK_1_ORCHESTRATION_SNAPSHOT_VERSION
       : LEGACY_ORCHESTRATION_SNAPSHOT_VERSION;
     validateOrchestrationSnapshot(snapshot, {
       requireVisualAnalysis: migratedVersion === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
     });
     const migratedSnapshot = sanitizeSnapshot({ ...snapshot, schemaVersion: migratedVersion });
-    return {
-      migrated: true,
-      snapshot: validateOrchestrationSnapshot(migratedSnapshot, {
-        requireVisualAnalysis: migratedVersion === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
-      }),
-    };
+    if (migratedVersion === TASK_1_ORCHESTRATION_SNAPSHOT_VERSION) {
+      return { migrated: true, snapshot: upgradeTask1Snapshot(migratedSnapshot) };
+    }
+    return { migrated: true, snapshot: upgradeLegacySnapshot(migratedSnapshot) };
   }
   if (version === LEGACY_ORCHESTRATION_SNAPSHOT_VERSION) {
-    return {
-      migrated: false,
-      snapshot: validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis: false }),
-    };
+    return { migrated: true, snapshot: upgradeLegacySnapshot(snapshot) };
+  }
+  if (version === TASK_1_ORCHESTRATION_SNAPSHOT_VERSION) {
+    validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis: true });
+    return { migrated: true, snapshot: upgradeTask1Snapshot(snapshot) };
   }
   if (version === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION) {
     return {
@@ -482,10 +569,14 @@ export function createEcommerceOrchestrator(deps = {}) {
       throw httpError('无权查看该任务', 403, 'ECOMMERCE_JOB_FORBIDDEN');
     }
     const assets = store.listAssets(id);
+    const snapshot = own(job.progress, 'orchestrationSnapshot');
+    const assetPlan = Array.isArray(own(snapshot, 'assetPlan')) ? own(snapshot, 'assetPlan') : [];
     const publicJob = { ...job };
     delete publicJob.visualInputSchemaVersion;
     return {
       ...publicJob,
+      assetPlan,
+      quote: { units: assetPlan.length },
       assets: assets.map(publicAsset),
       progress: {
         ...job.progress,
@@ -587,6 +678,7 @@ export function createEcommerceOrchestrator(deps = {}) {
       return {
         assetId: asset.assetId,
         role: cleanString(own(plan, 'role')),
+        assetPlanItem: plan,
         buffer: stored.buffer,
       };
     }));
@@ -684,6 +776,7 @@ export function createEcommerceOrchestrator(deps = {}) {
                 modelRoute: request.modelRoute,
                 inputAssets: request.inputAssets,
               },
+              executionCount: { providerSubmissions: 1 },
             },
             leaseToken,
           });
@@ -749,6 +842,7 @@ export function createEcommerceOrchestrator(deps = {}) {
                   assetId: item.id,
                   role: item.role,
                   buffer: stable.buffer,
+                  assetPlanItem: item,
                 },
                 existing,
                 productTruth,
@@ -775,7 +869,9 @@ export function createEcommerceOrchestrator(deps = {}) {
             quality = withSuiteDiversityFailure(quality, diversity.verdict);
           }
           const repairAction = planRepair(quality);
-          if (!canRetry(current.attemptCount, repairAction)) {
+          const usesDeterministicRepair = Boolean(repairAsset && repairAction.type === 'sharp_repair');
+          const providerRepairAvailable = usesDeterministicRepair || providerSubmissionCount(current) < 2;
+          if (!canRetry(current.attemptCount, repairAction) || !providerRepairAvailable) {
             const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
             current = store.transitionAsset(job.id, item.id, 'releasing', {
               requestSnapshot: {
@@ -892,6 +988,8 @@ export function createEcommerceOrchestrator(deps = {}) {
             ...repairRequest,
             idempotencyKey: idempotencyKey(job.id, item.id, nextAttempt),
           }, { job, item, attempt: nextAttempt, repairAction });
+          const submissionCount = providerSubmissionCount(current) + 1;
+          if (submissionCount > 2) throw new Error(`more than one provider repair for asset: ${item.id}`);
           const submitted = await providerAdapter.submitEdit(providerRequest);
           stable = null;
           current = store.markSubmitted(job.id, item.id, {
@@ -904,6 +1002,7 @@ export function createEcommerceOrchestrator(deps = {}) {
                 inputAssets: repairRequest.inputAssets,
               },
               repairAction,
+              executionCount: { providerSubmissions: submissionCount },
             },
             leaseToken,
           });
@@ -1044,7 +1143,7 @@ export function createEcommerceOrchestrator(deps = {}) {
           campaignOverrides(payload, direction, inputAssets),
           styleReferenceProfile,
         );
-        const assetPlan = validateAssetPlan(buildAssetPlan({
+        const assetPlan = validatePlanContract(buildAssetPlan({
           productTruth,
           campaignBible,
           platform: own(payload, 'platform') || '淘宝',
@@ -1078,7 +1177,7 @@ export function createEcommerceOrchestrator(deps = {}) {
 
       const productTruth = snapshot.productTruth;
       const campaignBible = snapshot.campaignBible;
-      const assetPlan = validateAssetPlan(snapshot.assetPlan);
+      const assetPlan = validatePlanContract(snapshot.assetPlan);
       setupAssetPlan = assetPlan;
       const deterministicInputs = snapshot.deterministicInputs;
       const payload = {
@@ -1197,6 +1296,16 @@ export function createEcommerceOrchestrator(deps = {}) {
       if (workerError) throw workerError;
 
       const assets = store.listAssets(id);
+      const executionCount = assertExecutionCount({
+        plan: assetPlan,
+        assetRows: assets,
+        providerSubmissions: providerSubmissionEntries(assets),
+        quoteUnits: assetPlan.length,
+      });
+      job = jobs.checkpoint(id, {
+        progress: { ...jobs.get(id).progress, executionCount },
+        leaseToken: parentLeaseToken,
+      });
       const status = terminalParentState(assets);
       const output = {
         product_name: own(job.payload, 'product_name'),

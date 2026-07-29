@@ -218,6 +218,12 @@ function appendRepeatedItems(items, count, createItem) {
   }
 }
 
+function communicationGoalFor(item, roleIndex) {
+  const purpose = cleanString(item.purpose) || `Commercial duty for ${item.role}`;
+  const placement = item.role.replaceAll('_', ' ');
+  return `${purpose} Dedicated ${placement} duty ${roleIndex + 1} with its own buyer decision and composition.`;
+}
+
 function heroPurpose(index, total) {
   const duties = [
     'Product identity and recognition hero: show one unmistakable complete product with the strongest click-through angle.',
@@ -419,7 +425,9 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const directedItems = items.map((item, itemIndex) => {
     const roleIndex = roleOccurrences.get(item.role) || 0;
     roleOccurrences.set(item.role, roleIndex + 1);
-    const shotIntent = directShot(item, {
+    const communicationGoal = communicationGoalFor(item, roleIndex);
+    const planningItem = { ...item, communicationGoal };
+    const shotIntent = directShot(planningItem, {
       productTruth: truth,
       campaignBible: bible,
       category,
@@ -427,7 +435,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       itemIndex,
       roleIndex,
     });
-    const directedItem = { ...item, label: shotIntent.label, shotIntent };
+    const directedItem = { ...planningItem, label: shotIntent.label, shotIntent };
     const layoutContract = layoutContractFor(directedItem, {
       category,
       platform: normalizedPlatform,

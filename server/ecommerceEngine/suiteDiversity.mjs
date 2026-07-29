@@ -7,6 +7,31 @@ function cleanRole(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+function semanticPart(value) {
+  if (typeof value === 'string') return value.trim().toLowerCase();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+}
+
+export function suiteSemanticKey(item = {}) {
+  const shot = item?.shotIntent && typeof item.shotIntent === 'object' && !Array.isArray(item.shotIntent)
+    ? item.shotIntent
+    : {};
+  return [
+    item?.communicationGoal,
+    shot.type,
+    shot.camera?.azimuth,
+    shot.crop,
+    shot.interactionState,
+    shot.sceneFamily,
+  ].map(semanticPart).join('|');
+}
+
+function completeSemanticKey(item) {
+  const key = suiteSemanticKey(item);
+  return key.split('|').every(Boolean) ? key : '';
+}
+
 function diversityFamily(role) {
   const normalized = cleanRole(role);
   if (['white_background', 'white_bg', 'transparent'].includes(normalized)) return `isolated:${normalized}`;
@@ -72,6 +97,20 @@ export function visualFingerprintDistance(left, right) {
 }
 
 export async function evaluateSuiteDiversity({ candidate = {}, existing = [] } = {}) {
+  const candidateSemanticKey = completeSemanticKey(candidate.assetPlanItem);
+  if (candidateSemanticKey) {
+    for (const asset of Array.isArray(existing) ? existing : []) {
+      if (completeSemanticKey(asset?.assetPlanItem) !== candidateSemanticKey) continue;
+      return {
+        passed: false,
+        issueCodes: ['suite_semantic_duplicate'],
+        details: {
+          duplicateOf: String(asset.assetId || ''),
+          semanticKey: candidateSemanticKey,
+        },
+      };
+    }
+  }
   const measured = await measureSuiteImage(candidate.buffer);
   if (measured.likelyCollage) {
     return {

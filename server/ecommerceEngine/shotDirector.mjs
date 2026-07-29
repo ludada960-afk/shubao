@@ -107,6 +107,23 @@ function interactionFor(type) {
   return 'stationary';
 }
 
+function sceneFamilyFor(type, role) {
+  if (role === 'white_background') return 'white_background_catalog';
+  if (role === 'transparent') return 'transparent_design_asset';
+  if (role === 'sku') return 'sku_variant_catalog';
+  return {
+    identity: 'studio_identity',
+    feature: 'feature_demonstration',
+    usage_scale: 'lifestyle_context',
+    alternate_angle: 'exterior_angle_study',
+    open_state: 'confirmed_interaction_state',
+    material_macro: 'material_evidence',
+    component_relationship: 'component_evidence',
+    exploded_view: 'confirmed_structure_evidence',
+    packaging: 'packaging_context',
+  }[type] || 'evidence_safe_product_scene';
+}
+
 export function directShot(item = {}, context = {}) {
   const productTruth = isRecord(context.productTruth) ? context.productTruth : {};
   const itemIndex = Number.isSafeInteger(context.itemIndex) ? context.itemIndex : 0;
@@ -140,6 +157,7 @@ export function directShot(item = {}, context = {}) {
     ...uniqueStrings(productTruth.materials),
   ]).slice(0, 8);
   const truthMutations = uniqueStrings(productTruth.forbiddenMutations);
+  const role = cleanString(item?.role).toLowerCase();
 
   return {
     type,
@@ -150,6 +168,7 @@ export function directShot(item = {}, context = {}) {
       ? 'show a different evidence-supported exterior side'
       : 'preserve the authoritative product orientation and geometry',
     interactionState: interactionFor(type),
+    sceneFamily: sceneFamilyFor(type, role),
     crop: cropFor(type),
     scaleInFrame: type === 'usage_scale' ? '45-65%' : type === 'material_macro' ? '70-90%' : '65-82%',
     requiredVisibleFeatures: visibleIdentity,

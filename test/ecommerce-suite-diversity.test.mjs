@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import {
   evaluateSuiteDiversity,
   measureSuiteImage,
+  suiteSemanticKey,
   visualFingerprintDistance,
 } from '../server/ecommerceEngine/suiteDiversity.mjs';
 
@@ -54,4 +55,27 @@ test('suite check rejects a visible multi-panel collage before delivery', async 
   assert.equal(measured.likelyCollage, true);
   assert.equal(verdict.passed, false);
   assert.deepEqual(verdict.issueCodes, ['suite_collage_layout']);
+});
+
+test('suite check rejects matching commercial and shot semantics before pixel comparison', async () => {
+  const buffer = await scene({ accent: '#222222' });
+  const assetPlanItem = {
+    communicationGoal: 'Product recognition',
+    shotIntent: {
+      type: 'identity',
+      camera: { azimuth: 12 },
+      crop: 'complete product crop',
+      interactionState: 'stationary',
+      sceneFamily: 'studio_identity',
+    },
+  };
+  const verdict = await evaluateSuiteDiversity({
+    candidate: { assetId: 'hero-2', role: 'main_text', buffer, assetPlanItem },
+    existing: [{ assetId: 'hero-1', role: 'main_text', buffer, assetPlanItem }],
+  });
+
+  assert.ok(suiteSemanticKey(assetPlanItem));
+  assert.equal(verdict.passed, false);
+  assert.deepEqual(verdict.issueCodes, ['suite_semantic_duplicate']);
+  assert.equal(verdict.details.duplicateOf, 'hero-1');
 });
