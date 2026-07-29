@@ -342,6 +342,111 @@ test('invalid visual result stops before billing and never submits provider work
   assert.equal(calls.submit.length, 0);
 });
 
+test('rejects malformed formal product and reference payloads before billing', async t => {
+  const malformedCases = [
+    {
+      label: 'reference group is not an array',
+      mutate: payload => { payload.assets.reference = { assetId: 'style-one', url: '/style-one.png' }; },
+    },
+    {
+      label: 'reference entry has no URL',
+      mutate: payload => { payload.assets.reference = [{ assetId: 'style-no-url' }]; },
+    },
+    {
+      label: 'reference entry has no ID',
+      mutate: payload => { payload.assets.reference = [{ url: '/style-no-id.png' }]; },
+    },
+    {
+      label: 'reference entry has an invalid ID',
+      mutate: payload => {
+        payload.assets.reference = [{ assetId: 'invalid style id', url: '/style-invalid-id.png' }];
+      },
+    },
+    {
+      label: 'product entry has no URL',
+      mutate: payload => { payload.assets.product = [{ assetId: 'product-no-url' }]; },
+    },
+    {
+      label: 'legacy reference URL has no durable ID',
+      mutate: payload => {
+        delete payload.assets.reference;
+        payload.reference_images = ['/api/ec-temp-img/style.png'];
+      },
+    },
+  ];
+
+  for (const [index, current] of malformedCases.entries()) {
+    await t.test(current.label, async t => {
+      const analysisDb = new Database(':memory:');
+      t.after(() => analysisDb.close());
+      const service = createVisualAnalysisService({
+        store: createVisualAnalysisStore(analysisDb),
+        model: 'gpt-5.6-terra',
+        promptVersion: 'orchestrator-payload-validation-test',
+        readAsset: async () => ({ buffer: IMAGE_BUFFER, contentType: 'image/png' }),
+        callVision: async ({ type }) => type === 'product'
+          ? { productName: 'Vision Product', confidence: 0.9 }
+          : { palette: ['#ffffff'], confidence: 0.9 },
+      });
+      const { orchestrator, calls } = await createHarness(t, {
+        orchestratorOptions: {
+          analyzeVisualInputs: payload => service.analyze({
+            productAssets: payload.assets.product,
+            styleAssets: payload.assets.reference,
+            userFacts: { productName: payload.product_name },
+          }),
+        },
+      });
+      const input = jobInput(`job-malformed-visual-assets-${index + 1}`);
+      current.mutate(input.payload);
+      const created = orchestrator.createJob(input);
+
+      const failed = await orchestrator.runJob(created.id);
+
+      assert.equal(failed.status, 'failed');
+      assert.equal(failed.output.errors[0].code, 'VISUAL_ANALYSIS_INVALID_INPUT');
+      assert.equal(failed.output.errors[0].status, 400);
+      assert.equal(failed.output.errors[0].retryable, false);
+      assert.equal(calls.hold.length, 0);
+      assert.equal(calls.submit.length, 0);
+    });
+  }
+});
+
+test('allows product-only visual analysis when the optional reference group is absent', async t => {
+  const analysisDb = new Database(':memory:');
+  t.after(() => analysisDb.close());
+  const visionTypes = [];
+  const service = createVisualAnalysisService({
+    store: createVisualAnalysisStore(analysisDb),
+    model: 'gpt-5.6-terra',
+    promptVersion: 'orchestrator-product-only-test',
+    readAsset: async () => ({ buffer: IMAGE_BUFFER, contentType: 'image/png' }),
+    callVision: async ({ type }) => {
+      visionTypes.push(type);
+      return { productName: 'Vision Product', confidence: 0.9 };
+    },
+  });
+  const { orchestrator, calls } = await createHarness(t, {
+    orchestratorOptions: {
+      analyzeVisualInputs: payload => service.analyze({
+        productAssets: payload.assets.product,
+        styleAssets: payload.assets.reference,
+        userFacts: { productName: payload.product_name },
+      }),
+    },
+  });
+  const input = jobInput('job-product-only-analysis');
+  delete input.payload.assets.reference;
+
+  const completed = await orchestrator.runJob(orchestrator.createJob(input).id);
+
+  assert.equal(completed.status, 'completed');
+  assert.deepEqual(visionTypes, ['product']);
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+});
+
 test('passes protected product text and logos into quality review before settlement', async t => {
   const item = {
     ...planItem('main-with-label'),
@@ -456,7 +561,7 @@ test('createJob only persists queued work and does not start a second background
   assert.equal(calls.submit.length, 0);
 });
 
-test('normalizes legacy product and reference URLs into stable asset identities before analysis and compilation', async t => {
+test('preserves explicit legacy alias asset identities before analysis and compilation', async t => {
   const { orchestrator, calls } = await createHarness(t);
   const created = orchestrator.createJob({
     id: 'job-legacy-assets',
@@ -465,8 +570,13 @@ test('normalizes legacy product and reference URLs into stable asset identities 
       product_name: '测试商品',
       category: '数码3C',
       platform: '淘宝',
-      real_shots: ['/api/ec-temp-img/front.png', '/api/ec-temp-img/side.png'],
-      reference_images: ['/api/ec-temp-img/style.png'],
+      real_shots: [
+        { assetId: 'legacy-product-front', url: '/api/ec-temp-img/front.png' },
+        { assetId: 'legacy-product-side', url: '/api/ec-temp-img/side.png' },
+      ],
+      reference_images: [
+        { assetId: 'legacy-style', url: '/api/ec-temp-img/style.png' },
+      ],
     },
   });
 
@@ -474,11 +584,11 @@ test('normalizes legacy product and reference URLs into stable asset identities 
 
   assert.deepEqual(calls.analyzePayloads[0].assets, {
     product: [
-      { assetId: 'product-1', url: '/api/ec-temp-img/front.png' },
-      { assetId: 'product-2', url: '/api/ec-temp-img/side.png' },
+      { assetId: 'legacy-product-front', url: '/api/ec-temp-img/front.png' },
+      { assetId: 'legacy-product-side', url: '/api/ec-temp-img/side.png' },
     ],
     reference: [
-      { assetId: 'reference-1', url: '/api/ec-temp-img/style.png' },
+      { assetId: 'legacy-style', url: '/api/ec-temp-img/style.png' },
     ],
     proof: [],
     protection: [],

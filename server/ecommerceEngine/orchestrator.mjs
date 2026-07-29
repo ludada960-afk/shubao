@@ -123,7 +123,7 @@ function assetSource(value) {
   );
 }
 
-function normalizeAssetGroup(values, prefix) {
+function normalizeAuxiliaryAssetGroup(values, prefix) {
   const source = Array.isArray(values) ? values : [];
   return source.flatMap((value, index) => {
     const url = assetSource(value);
@@ -138,21 +138,67 @@ function normalizeAssetGroup(values, prefix) {
   });
 }
 
+function invalidVisualAssetInput(message) {
+  return Object.assign(httpError(message, 400, 'VISUAL_ANALYSIS_INVALID_INPUT'), {
+    retryable: false,
+  });
+}
+
+function suppliedAssetGroups(explicit, payload, explicitKeys, legacyKey) {
+  const groups = [];
+  for (const key of explicitKeys) {
+    if (Object.hasOwn(explicit, key)) groups.push(explicit[key]);
+  }
+  if (Object.hasOwn(payload, legacyKey)) groups.push(payload[legacyKey]);
+  return groups;
+}
+
+function normalizeFormalAssetGroups(groups, label) {
+  let selected = null;
+  for (const values of groups) {
+    if (!Array.isArray(values)) {
+      throw invalidVisualAssetInput(`${label} assets must be an array`);
+    }
+    const normalized = values.map((value) => {
+      if (!isRecord(value)) {
+        throw invalidVisualAssetInput(`${label} asset must include an ID and URL`);
+      }
+      const url = assetSource(value);
+      if (!url) throw invalidVisualAssetInput(`${label} asset URL is required`);
+      const assetId = cleanString(
+        own(value, 'assetId')
+        ?? own(value, 'asset_id')
+        ?? own(value, 'id'),
+      );
+      if (!SAFE_ID_RE.test(assetId)) {
+        throw invalidVisualAssetInput(`${label} asset ID is invalid`);
+      }
+      return { assetId, url };
+    });
+    if (selected === null) selected = normalized;
+  }
+  return selected ?? [];
+}
+
 function assetsFromPayload(payload) {
-  const explicit = isRecord(own(payload, 'assets')) ? own(payload, 'assets') : {};
-  const product = normalizeAssetGroup(
-    own(explicit, 'product') ?? own(explicit, 'products') ?? own(payload, 'real_shots'),
+  const explicitValue = own(payload, 'assets');
+  if (explicitValue !== undefined && !isRecord(explicitValue)) {
+    throw invalidVisualAssetInput('visual assets must be an object');
+  }
+  const explicit = isRecord(explicitValue) ? explicitValue : {};
+  const product = normalizeFormalAssetGroups(
+    suppliedAssetGroups(explicit, payload, ['product', 'products'], 'real_shots'),
     'product',
   );
-  const reference = normalizeAssetGroup(
-    own(explicit, 'reference') ?? own(explicit, 'references') ?? own(payload, 'reference_images'),
+  const reference = normalizeFormalAssetGroups(
+    suppliedAssetGroups(explicit, payload, ['reference', 'references'], 'reference_images'),
     'reference',
   );
-  const proof = normalizeAssetGroup(
+  const proof = normalizeAuxiliaryAssetGroup(
     own(explicit, 'proof') ?? own(explicit, 'proofs') ?? own(payload, 'uploaded_proofs'),
     'proof',
   );
-  const protection = normalizeAssetGroup(own(explicit, 'protection'), 'protection');
+  const protection = normalizeAuxiliaryAssetGroup(own(explicit, 'protection'), 'protection');
   return { product, reference, proof, protection };
 }
 
