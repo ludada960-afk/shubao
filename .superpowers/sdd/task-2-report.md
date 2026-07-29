@@ -447,3 +447,103 @@ No known contract failures. Production model-output behavior was not exercised b
 ## Commit
 
 Planned subject: `fix: close final ecommerce suite review gaps`
+
+---
+
+# Task 2 Canonical Duty And Quality Prompt Review Fix
+
+## Status
+
+DONE. The remaining canonical-duty, controlled legacy ordinal, and formal quality-prompt findings were reproduced with RED tests, fixed, self-reviewed, and verified without deployment.
+
+## Scope Implemented
+
+- Replaced planner duty IDs derived from full purpose text with explicit canonical duty keys. The role and buyer-facing duty key are assigned before shot direction; camera, view, crop, scene, and composition metadata cannot affect `commercialDutyId`.
+- Defined finite buyer-facing duty catalogs for hero, white-background, and transparent roles. Counts beyond a catalog reuse the canonical duty and fail the pre-billing plan contract instead of manufacturing uniqueness from shot wording or hashes.
+- Kept SKU duties tied to normalized user-provided SKU facts rather than camera or generated purpose text.
+- Replaced broad English suffix matching with a controlled presentation-ordinal parser. It recognizes valid numeric, Chinese, and English ordinals only after known presentation markers, plus the explicitly supported terminal `Product recognition <ordinal>` compatibility phrase.
+- Added Chinese `廿`/`卅`/`卌` presentation-number support while preserving model, SKU, version, duration, dimension, size, and capacity facts.
+- Moved the formal quality-model prompt into `buildFormalEcommerceQualityPrompt()` and made the production adapter call that helper. Its schema example is valid JSON with the concrete `single_product` verdict, numeric confidence, and non-empty evidence.
+
+## RED Evidence
+
+Focused RED command, run before production edits:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 1; 155 tests discovered, 148 passed, 7 failed, 0 skipped, 0 cancelled. The seven expected failures covered:
+
+- repeated planner roles exceeding their canonical duty catalogs, including the first/sixth hero sharing a duty despite different shot intent;
+- bare English `sixth`/`seventh` and Chinese `第廿一张`/`第廿二张` compatibility normalization while preserving `image width` versus `image depth`;
+- the production quality adapter lacking a shared prompt with a concrete, parseable semantic-layout JSON example.
+
+No production code was changed before this RED run.
+
+## GREEN Evidence
+
+Final focused command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 155 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Final adjacent Task 2 command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-shot-director.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-job-store.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 186 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Full repository regression, run exactly once on the final production code:
+
+```powershell
+npm test
+```
+
+Result: exit 0; 764 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Static and collaboration verification:
+
+- `node --check` passed for all nine changed JavaScript modules and tests.
+- `git diff --check` exited 0; Git emitted only LF-to-CRLF working-copy notices.
+- `npm run collab:check` reported `READY`, linked worktree `yes`, tracked runtime paths `0`, ignored runtime changes `0`, and peer ownership conflicts `0`.
+- Tests used no production secrets, external network access, database, or provider Mock path.
+- No deployment was performed.
+
+## Changed Files
+
+- `server/ecommerceEngine/assetPlanner.mjs`
+- `server/ecommerceEngine/index.mjs`
+- `server/ecommerceEngine/planContract.mjs`
+- `server/ecommerceEngine/qualityGate.mjs`
+- `server/index.mjs`
+- `test/api-contract.test.mjs`
+- `test/ecommerce-asset-planner.test.mjs`
+- `test/ecommerce-plan-contract.test.mjs`
+- `test/ecommerce-quality-gate.test.mjs`
+- `.superpowers/sdd/task-2-report.md`
+
+## Self-Review
+
+- Confirmed `commercialDutyId` is constructed before `directShot` and receives only the normalized role plus an explicit canonical duty key. Shot/camera/view/composition wording is not read by the ID builder.
+- Confirmed hero slot 1 and slot 6 share `maintext:productrecognition`, share the same communication goal, retain distinct shot intents, and are rejected by `validatePlanContract` as a duplicate duty.
+- Confirmed white-background and transparent catalogs also fail closed when requested counts exceed their supported commercial duties. The planner still creates exactly the requested rows; validation rejects the unsupported suite before billing.
+- Confirmed legacy text normalization recognizes `sixth`, `seventh`, `twenty-first`, `twenty-second`, and Chinese formal ordinals only in controlled presentation contexts. It contains no generic rule that strips arbitrary words ending in `st`, `nd`, `rd`, or `th`.
+- Confirmed `image width` and `image depth`, attached and spaced model identifiers, SKU/version identifiers, ordinary numbers, durations, sizes, and capacities remain semantically distinct.
+- Confirmed structured `commercialDutyId` remains the first duplicate check; legacy text normalization remains compatibility-only and cannot be bypassed with different shot metadata.
+- Confirmed the production quality adapter calls the exported prompt builder. The embedded example parses as JSON and uses an accepted verdict, a real finite numeric confidence, and non-empty string evidence.
+- Confirmed Task 1 visual snapshot isolation and analysis-before-hold ordering, Task 2 exact count/submission parity, durable leases/intents, bounded repair, semantic collage fail-closed behavior, stable-output retryability, and successful-sibling non-rerun behavior remain covered by focused, adjacent, and full regression.
+- Confirmed no runtime database, generated output, cache, log, environment file, secret, `dist` artifact, upload, or deployment change is included.
+
+## Concerns
+
+No known contract failures. Production model output was not exercised because tests prohibit network and secrets; malformed or unavailable semantic layout output continues to fail closed by design.
+
+## Commit
+
+Planned subject: `fix: make ecommerce duties canonical`

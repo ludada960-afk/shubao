@@ -204,7 +204,7 @@ test('honors configured counts including transparent assets and expands determin
         { key: 'main_text', count: 2, ratio: '1:1' },
         { key: 'main_3x4', count: 1, ratio: '9:16' },
         { key: 'transparent', count: 2, ratio: '1:1' },
-        { key: 'detail', count: 6, ratio: '3:4' },
+        { key: 'detail', count: 5, ratio: '3:4' },
         { key: 'poster', count: 9, ratio: '3:4' },
       ],
     },
@@ -217,8 +217,8 @@ test('honors configured counts including transparent assets and expands determin
   assert.equal(roleCount('main_text'), 2);
   assert.equal(roleCount('main_3x4'), 1);
   assert.equal(roleCount('transparent'), 2);
-  assert.equal(first.filter(item => item.role.startsWith('detail_slice_')).length, 6);
-  assert.equal(first.length, 13);
+  assert.equal(first.filter(item => item.role.startsWith('detail_slice_')).length, 5);
+  assert.equal(first.length, 12);
   assert.equal(first.some(item => item.role === 'poster'), false);
   assert.equal(new Set(first.map(item => item.id)).size, first.length);
   const targetIds = first.flatMap(item => item.exportTargets.map(target => target.targetId));
@@ -263,7 +263,27 @@ test('assigns repeated hero images distinct commercial shot duties', () => {
   assert.match(heroes[2].purpose, /usage|scene|scale/i);
 });
 
-test('assigns every supported repeated role slot a non-ordinal commercial purpose', () => {
+test('sixth repeated hero reuses the first canonical duty and is rejected despite a different shot', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible,
+    platform: 'taobao',
+    sizing: {
+      images: [
+        { key: 'main_text', count: 6, ratio: '1:1' },
+        { key: 'detail', count: 0, ratio: '3:4' },
+      ],
+    },
+  });
+
+  assert.equal(plan[0].commercialDutyId, 'maintext:productrecognition');
+  assert.equal(plan[5].commercialDutyId, plan[0].commercialDutyId);
+  assert.equal(plan[5].communicationGoal, plan[0].communicationGoal);
+  assert.notDeepEqual(plan[5].shotIntent, plan[0].shotIntent);
+  assert.throws(() => validatePlanContract(plan), /duplicate commercial duty id/i);
+});
+
+test('rejects repeated role counts beyond their canonical commercial duty catalogs', () => {
   for (const key of ['main_text', 'white_bg', 'transparent']) {
     const plan = buildAssetPlan({
       productTruth: productTruth(),
@@ -278,10 +298,8 @@ test('assigns every supported repeated role slot a non-ordinal commercial purpos
     });
 
     assert.equal(plan.length, 20, key);
-    assert.equal(new Set(plan.map(item => item.commercialDutyId)).size, 20, key);
-    assert.equal(new Set(plan.map(item => item.purpose.toLowerCase())).size, 20, key);
-    assert.ok(plan.every(item => !/\b(?:duty|treatment)\s+\d+\b/i.test(item.communicationGoal)), key);
-    assert.equal(validatePlanContract(plan), plan, key);
+    assert.ok(new Set(plan.map(item => item.commercialDutyId)).size < plan.length, key);
+    assert.throws(() => validatePlanContract(plan), /duplicate commercial duty id/i, key);
   }
 });
 

@@ -20,6 +20,23 @@ function visualPass(overrides = {}) {
     ...overrides,
   };
 }
+
+test('formal ecommerce quality prompt embeds a valid concrete semantic layout example', () => {
+  assert.equal(typeof ecommerceEngine.buildFormalEcommerceQualityPrompt, 'function');
+  const prompt = ecommerceEngine.buildFormalEcommerceQualityPrompt();
+  const exampleMatch = /QUALITY_JSON_EXAMPLE_START\s*([\s\S]*?)\s*QUALITY_JSON_EXAMPLE_END/.exec(prompt);
+
+  assert.ok(exampleMatch, 'prompt must delimit its concrete JSON example');
+  const example = JSON.parse(exampleMatch[1]);
+  const layout = example.visualQuality.layout;
+  assert.equal(layout.verdict, 'single_product');
+  assert.equal(typeof layout.confidence, 'number');
+  assert.ok(Number.isFinite(layout.confidence) && layout.confidence >= 0.7 && layout.confidence <= 1);
+  assert.ok(Array.isArray(layout.evidence) && layout.evidence.length > 0);
+  assert.ok(layout.evidence.every(value => typeof value === 'string' && value.trim()));
+  assert.doesNotMatch(exampleMatch[1], /single_product\|collage\|uncertain/);
+});
+
 import {
   canRetry,
   planRepair,

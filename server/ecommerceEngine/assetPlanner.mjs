@@ -180,20 +180,32 @@ function riskLevel(role) {
   return 'low';
 }
 
-function commercialDutyIdFor(role, purpose) {
+function canonicalDutySegment(value) {
+  return cleanString(value)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function commercialDutyIdFor(role, dutyKey) {
   const roleKey = cleanString(role)
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ':')
-    .replace(/^:+|:+$/g, '') || 'asset';
-  const purposeFingerprint = createHash('sha256')
-    .update(cleanString(purpose).normalize('NFKC').toLowerCase())
-    .digest('hex')
-    .slice(0, 16);
-  return `${roleKey}:duty:${purposeFingerprint}`;
+    .replace(/[^a-z0-9]+/g, '') || 'asset';
+  const normalizedDutyKey = canonicalDutySegment(dutyKey);
+  if (!normalizedDutyKey) throw new TypeError(`commercial duty key is required for ${roleKey}`);
+  return `${roleKey}:${normalizedDutyKey}`;
 }
 
-function buildItem({ id: requestedId, role, purpose, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], category, platform, sizing }) {
+function skuDutyKey(skuFacts) {
+  const factFingerprint = createHash('sha256')
+    .update(skuFacts.map(fact => `${fact.name}\u0000${fact.value}`).join('\u0001'))
+    .digest('hex')
+    .slice(0, 16);
+  return `variant${factFingerprint}`;
+}
+
+function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], category, platform, sizing }) {
   const ratio = resolveRatio({ role }, sizing, defaultRatio);
   const generationSize = LEGAL_IMAGE_SIZES[sizing.resolution][ratio];
   const policy = getPlatformPolicy(platform, policyRole(role), category);
@@ -207,7 +219,8 @@ function buildItem({ id: requestedId, role, purpose, defaultRatio = '3:4', requi
     id,
     role,
     purpose,
-    commercialDutyId: commercialDutyIdFor(role, purpose),
+    commercialDutyId: commercialDutyIdFor(role, commercialDutyKey),
+    communicationGoal,
     ratio,
     generationSize,
     exportTargets: role === 'transparent'
@@ -234,23 +247,24 @@ function appendRepeatedItems(items, count, createItem) {
   }
 }
 
-function communicationGoalFor(item) {
-  return cleanString(item.purpose) || `Commercial purpose for ${item.role.replaceAll('_', ' ')}.`;
-}
+const HERO_DUTIES = Object.freeze([
+  Object.freeze({ key: 'productrecognition', goal: 'Establish immediate complete-product recognition.', purpose: 'Product identity and recognition hero: show one unmistakable complete product.' }),
+  Object.freeze({ key: 'primarybenefit', goal: 'Communicate one primary buyer benefit.', purpose: 'Primary feature or benefit hero: visualize one core buying reason while keeping the product dominant.' }),
+  Object.freeze({ key: 'usagecontext', goal: 'Clarify credible use context and product scale.', purpose: 'Usage, scene, or scale hero: show one credible context that helps the buyer understand use and proportion.' }),
+  Object.freeze({ key: 'structureunderstanding', goal: 'Explain evidence-supported exterior structure.', purpose: 'Structural hero: explain a visible exterior relationship without inventing hidden components.' }),
+  Object.freeze({ key: 'materialcraft', goal: 'Demonstrate visible material and craftsmanship quality.', purpose: 'Material and craftsmanship hero: focus on one premium visible finish without becoming a multi-panel detail sheet.' }),
+]);
 
-function heroPurpose(role, index, total) {
-  const duties = [
-    'Product identity and recognition hero: show one unmistakable complete product with the strongest click-through angle.',
-    'Primary feature or benefit hero: visualize one core buying reason while keeping the product dominant.',
-    'Usage, scene, or scale hero: show one credible context that helps the buyer understand use and proportion.',
-    'Secondary structural angle hero: reveal one different side, opening state, or component relationship.',
-    'Material and craftsmanship hero: focus on one premium visible finish without becoming a multi-panel detail sheet.',
-  ];
+function heroDuty(role, index) {
   const placement = role === 'main_3x4'
     ? 'Vertical marketplace placement.'
     : role === 'main_text' ? 'Text-ready square marketplace placement.' : 'Primary marketplace placement.';
-  const duty = total > 1 ? duties[index % duties.length] : duties[0];
-  return `${placement} ${duty} Compose as a ${viewDirection(index)}.`;
+  const duty = HERO_DUTIES[index % HERO_DUTIES.length];
+  return {
+    key: duty.key,
+    communicationGoal: `${placement} ${duty.goal}`,
+    purpose: `${placement} ${duty.purpose}`,
+  };
 }
 
 const VIEW_DIRECTIONS = [
@@ -280,24 +294,22 @@ function viewDirection(index) {
   return VIEW_DIRECTIONS[index % VIEW_DIRECTIONS.length];
 }
 
-function whiteBackgroundPurpose(index) {
-  if (index === 0) {
-    return 'Marketplace-compliant hero isolation: center the complete product on pure white for primary catalog recognition.';
-  }
-  if (index === 1) {
-    return 'Evidence-safe alternate-angle isolation: show a materially different exterior side on pure white for shape verification.';
-  }
-  return `White-background catalog isolation using a ${viewDirection(index)} to answer a distinct exterior-form question.`;
-}
+const WHITE_BACKGROUND_DUTIES = Object.freeze([
+  Object.freeze({ key: 'catalogrecognition', communicationGoal: 'Provide marketplace-ready complete-product catalog recognition on white.', purpose: 'Marketplace-compliant hero isolation: center the complete product on pure white for primary catalog recognition.' }),
+  Object.freeze({ key: 'shapeverification', communicationGoal: 'Verify the complete exterior shape and silhouette on white.', purpose: 'Evidence-safe alternate-angle isolation: show the complete exterior on pure white for shape verification.' }),
+  Object.freeze({ key: 'featureinspection', communicationGoal: 'Make visible exterior controls and features easy to inspect on white.', purpose: 'White-background feature inspection: keep one complete product isolated while making visible exterior features legible.' }),
+  Object.freeze({ key: 'finishinspection', communicationGoal: 'Support inspection of visible material and finish on white.', purpose: 'White-background finish inspection: isolate one complete product and preserve visible material evidence.' }),
+]);
 
-function transparentPurpose(index) {
-  if (index === 0) {
-    return 'Primary transparent cutout: isolate the complete recognition view for reusable PNG placement.';
-  }
-  if (index === 1) {
-    return 'Alternate-angle transparent cutout: isolate a different evidence-supported exterior side for layout flexibility.';
-  }
-  return `Transparent PNG cutout using a ${viewDirection(index)} for a distinct evidence-safe design placement.`;
+const TRANSPARENT_DUTIES = Object.freeze([
+  Object.freeze({ key: 'reusableidentity', communicationGoal: 'Provide a reusable transparent complete-product identity asset.', purpose: 'Primary transparent cutout: isolate the complete recognition view for reusable PNG placement.' }),
+  Object.freeze({ key: 'layoutflexibility', communicationGoal: 'Provide a transparent complete-product asset for flexible campaign placement.', purpose: 'Alternate-angle transparent cutout: isolate a complete evidence-supported exterior for layout flexibility.' }),
+  Object.freeze({ key: 'featurecallout', communicationGoal: 'Support isolated exterior-feature communication in downstream layouts.', purpose: 'Transparent feature cutout: preserve one complete product while supporting an exterior-feature callout.' }),
+  Object.freeze({ key: 'channelreuse', communicationGoal: 'Provide a transparent complete-product asset for cross-channel reuse.', purpose: 'Transparent channel cutout: isolate one complete product for safe reuse across approved placements.' }),
+]);
+
+function repeatedDuty(catalog, index) {
+  return catalog[index % catalog.length];
 }
 
 function detailPurpose(basePurpose, occurrence) {
@@ -313,18 +325,21 @@ function skuPurpose(skuFacts) {
 function explicitDetailSpecs(strategy, proofAssetIds) {
   const specs = strategy.detailRoles.map((roleName, index) => ({
     roleName,
+    commercialDutyKey: 'buyeranswer',
     purpose: strategy.buyingQuestions[index] || 'Answer one category-specific buying question.',
     proofAssetIds: [],
   }));
   if (strategy.proofRole && proofAssetIds.length && !specs.some(spec => spec.roleName === strategy.proofRole)) {
     specs.push({
       roleName: strategy.proofRole,
+      commercialDutyKey: 'proofanswer',
       purpose: 'Quality or certification information backed only by uploaded proof assets.',
       proofAssetIds,
     });
   }
   return specs.length ? specs : [{
     roleName: 'feature',
+    commercialDutyKey: 'buyeranswer',
     purpose: 'Answer one category-specific buying question.',
     proofAssetIds: [],
   }];
@@ -353,47 +368,62 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   if (normalizedSizing.hasExplicitCounts) {
     for (const role of ['main_text', 'main_3x4']) {
       const count = configuredCount(normalizedSizing, role);
-      appendRepeatedItems(items, count, (index, total) => buildItem({
-        id: indexedItemId(role, index, total),
-        role,
-        purpose: heroPurpose(role, index, total),
-        defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
+      appendRepeatedItems(items, count, (index, total) => {
+        const duty = heroDuty(role, index);
+        return buildItem({
+          id: indexedItemId(role, index, total),
+          role,
+          purpose: duty.purpose,
+          commercialDutyKey: duty.key,
+          communicationGoal: duty.communicationGoal,
+          defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
+          requiredFacts: identity,
+          productAssetIds,
+          styleReferenceIds,
+          category,
+          platform: normalizedPlatform,
+          sizing: normalizedSizing,
+        });
+      });
+    }
+
+    const whiteCount = configuredCount(normalizedSizing, 'white_background', 'white_bg');
+    appendRepeatedItems(items, whiteCount, (index, total) => {
+      const duty = repeatedDuty(WHITE_BACKGROUND_DUTIES, index);
+      return buildItem({
+        id: indexedItemId('white_background', index, total),
+        role: 'white_background',
+        purpose: duty.purpose,
+        commercialDutyKey: duty.key,
+        communicationGoal: duty.communicationGoal,
+        defaultRatio: '1:1',
         requiredFacts: identity,
         productAssetIds,
         styleReferenceIds,
         category,
         platform: normalizedPlatform,
         sizing: normalizedSizing,
-      }));
-    }
-
-    const whiteCount = configuredCount(normalizedSizing, 'white_background', 'white_bg');
-    appendRepeatedItems(items, whiteCount, (index, total) => buildItem({
-      id: indexedItemId('white_background', index, total),
-      role: 'white_background',
-      purpose: whiteBackgroundPurpose(index),
-      defaultRatio: '1:1',
-      requiredFacts: identity,
-      productAssetIds,
-      styleReferenceIds,
-      category,
-      platform: normalizedPlatform,
-      sizing: normalizedSizing,
-    }));
+      });
+    });
 
     const transparentCount = configuredCount(normalizedSizing, 'transparent');
-    appendRepeatedItems(items, transparentCount, (index, total) => buildItem({
-      id: indexedItemId('transparent', index, total),
-      role: 'transparent',
-      purpose: transparentPurpose(index),
-      defaultRatio: '1:1',
-      requiredFacts: identity,
-      productAssetIds,
-      styleReferenceIds,
-      category,
-      platform: normalizedPlatform,
-      sizing: normalizedSizing,
-    }));
+    appendRepeatedItems(items, transparentCount, (index, total) => {
+      const duty = repeatedDuty(TRANSPARENT_DUTIES, index);
+      return buildItem({
+        id: indexedItemId('transparent', index, total),
+        role: 'transparent',
+        purpose: duty.purpose,
+        commercialDutyKey: duty.key,
+        communicationGoal: duty.communicationGoal,
+        defaultRatio: '1:1',
+        requiredFacts: identity,
+        productAssetIds,
+        styleReferenceIds,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      });
+    });
 
     const detailCount = configuredCount(normalizedSizing, 'detail');
     const detailSpecs = explicitDetailSpecs(strategy, proofAssetIds);
@@ -407,6 +437,8 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
         id: occurrence === 1 ? role.replaceAll('_', '-') : `${role.replaceAll('_', '-')}-${occurrence}`,
         role,
         purpose: detailPurpose(spec.purpose, occurrence - 1),
+        commercialDutyKey: spec.commercialDutyKey,
+        communicationGoal: spec.purpose,
         requiredFacts: isProofSlice
           ? spec.proofAssetIds.map(assetId => ({ name: 'proofAssetId', value: assetId }))
           : isParameterSlice ? userFacts : identity,
@@ -421,28 +453,38 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     }
   } else {
     items.push(
-      ...(mainRoles.length ? mainRoles : ['main']).map((role) => buildItem({
-        role,
-        purpose: heroPurpose(role, 0, 1),
-        defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
-        requiredFacts: identity,
-        productAssetIds,
-        styleReferenceIds,
-        category,
-        platform: normalizedPlatform,
-        sizing: normalizedSizing,
-      })),
-      buildItem({
-        role: 'white_background',
-        purpose: whiteBackgroundPurpose(0),
-        defaultRatio: '1:1',
-        requiredFacts: identity,
-        productAssetIds,
-        styleReferenceIds,
-        category,
-        platform: normalizedPlatform,
-        sizing: normalizedSizing,
+      ...(mainRoles.length ? mainRoles : ['main']).map((role) => {
+        const duty = heroDuty(role, 0);
+        return buildItem({
+          role,
+          purpose: duty.purpose,
+          commercialDutyKey: duty.key,
+          communicationGoal: duty.communicationGoal,
+          defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
+          requiredFacts: identity,
+          productAssetIds,
+          styleReferenceIds,
+          category,
+          platform: normalizedPlatform,
+          sizing: normalizedSizing,
+        });
       }),
+      (() => {
+        const duty = WHITE_BACKGROUND_DUTIES[0];
+        return buildItem({
+          role: 'white_background',
+          purpose: duty.purpose,
+          commercialDutyKey: duty.key,
+          communicationGoal: duty.communicationGoal,
+          defaultRatio: '1:1',
+          requiredFacts: identity,
+          productAssetIds,
+          styleReferenceIds,
+          category,
+          platform: normalizedPlatform,
+          sizing: normalizedSizing,
+        });
+      })(),
     );
 
     for (const roleName of strategy.detailRoles) {
@@ -451,6 +493,8 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       items.push(buildItem({
         role,
         purpose: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
+        commercialDutyKey: 'buyeranswer',
+        communicationGoal: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
         requiredFacts: isParameterSlice ? userFacts : identity,
         generationMode: isParameterSlice ? 'deterministic_overlay' : 'edit',
         productAssetIds,
@@ -465,6 +509,8 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       items.push(buildItem({
         role: `detail_slice_${strategy.proofRole}`,
         purpose: 'Quality or certification information backed only by uploaded proof assets.',
+        commercialDutyKey: 'proofanswer',
+        communicationGoal: 'Quality or certification information backed only by uploaded proof assets.',
         requiredFacts: proofAssetIds.map((assetId) => ({ name: 'proofAssetId', value: assetId })),
         generationMode: 'deterministic_overlay',
         productAssetIds,
@@ -482,6 +528,8 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       id: `sku-${index + 1}`,
       role: 'sku',
       purpose: skuPurpose(skuFacts),
+      commercialDutyKey: skuDutyKey(skuFacts),
+      communicationGoal: skuPurpose(skuFacts),
       defaultRatio: '1:1',
       requiredFacts: skuFacts,
       generationMode: 'deterministic_overlay',
@@ -500,8 +548,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const directedItems = items.map((item, itemIndex) => {
     const roleIndex = roleOccurrences.get(item.role) || 0;
     roleOccurrences.set(item.role, roleIndex + 1);
-    const communicationGoal = communicationGoalFor(item);
-    const planningItem = { ...item, communicationGoal };
+    const planningItem = { ...item };
     const shotIntent = directShot(planningItem, {
       productTruth: truth,
       campaignBible: bible,

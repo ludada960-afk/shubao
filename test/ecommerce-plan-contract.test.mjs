@@ -100,10 +100,12 @@ const PRESENTATION_ORDINAL_DUTY_PAIRS = [
   ['recognition variant ordinal', 'Product recognition variant 1', 'Product recognition variant 2'],
   ['hash ordinal', 'Product recognition #1', 'Product recognition #2'],
   ['parenthesized ordinal', 'Product recognition (1)', 'Product recognition (2)'],
+  ['bare English ordinal word', 'Product recognition sixth', 'Product recognition seventh'],
   ['arbitrary English ordinal word', 'Product recognition image sixth', 'Product recognition image seventh'],
   ['hyphenated English ordinal word', 'Product recognition duty twenty-first', 'Product recognition duty twenty-second'],
   ['Chinese word ordinal', '商品识别第一张', '商品识别第二张'],
   ['Chinese Arabic ordinal', '商品识别第1张', '商品识别第2张'],
+  ['Chinese formal ordinal', '商品识别第廿一张', '商品识别第廿二张'],
   ['Chinese plan marker', '商品识别方案六', '商品识别方案七'],
   ['Chinese image marker', '商品识别图6', '商品识别图7'],
 ];
@@ -137,6 +139,7 @@ test('commercial duty normalization preserves numeric product facts', () => {
   };
   const factualPairs = [
     ['Product recognition 1', 'Product recognition 2'],
+    ['Explain image width', 'Explain image depth'],
     ['Show confirmed 24-hour runtime', 'Show confirmed 48-hour runtime'],
     ['Show confirmed 24 hours', 'Show confirmed 48 hours'],
     ['Show confirmed 500 ml', 'Show confirmed 750 ml'],

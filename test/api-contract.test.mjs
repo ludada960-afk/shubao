@@ -344,10 +344,8 @@ test('formal ecommerce visual quality schema requires an explicit semantic layou
   const end = server.indexOf('\nconst ecommerceBilling', start);
   const qualitySource = server.slice(start, end);
 
-  assert.match(qualitySource, /"layout"\s*:\s*\{/);
-  assert.match(qualitySource, /single_product\|collage\|uncertain/);
-  assert.match(qualitySource, /montage|multi-candidate/i);
-  assert.match(qualitySource, /evidence/);
+  assert.match(qualitySource, /buildFormalEcommerceQualityPrompt\(\)/);
+  assert.doesNotMatch(qualitySource, /single_product\|collage\|uncertain/);
   assert.match(qualitySource, /details:[\s\S]*layout/);
 });
 

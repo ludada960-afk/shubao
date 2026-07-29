@@ -8,6 +8,30 @@ const WHITE_BACKGROUND_ROLES = new Set(['white_background', 'white_bg', 'transpa
 const SUPPORTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 const BLANK_STDDEV_THRESHOLD = 3;
 const BLUR_EDGE_THRESHOLD = 18;
+
+export function buildFormalEcommerceQualityPrompt() {
+  const example = {
+    productFidelity: { passed: true, confidence: 0.98, issueCodes: [] },
+    copyAndLogo: { passed: true, confidence: 0.98, issueCodes: [] },
+    visualQuality: {
+      passed: true,
+      confidence: 0.98,
+      issueCodes: [],
+      layout: {
+        verdict: 'single_product',
+        confidence: 0.98,
+        evidence: ['one coherent product view in one continuous scene'],
+      },
+    },
+  };
+  return `你是电商商品图质检系统。只返回 JSON。
+layout.verdict 只能是 single_product、collage 或 uncertain。必须提供数值 confidence 和具体 evidence。
+collage 包括 collage、montage、contact sheet 和 multi-candidate layout；单视角的多面板家电仍属于 single_product。
+QUALITY_JSON_EXAMPLE_START
+${JSON.stringify(example, null, 2)}
+QUALITY_JSON_EXAMPLE_END
+根据 Product Truth 检查商品主体是否漂移、结构、颜色、包装、Logo 是否被篡改，并检查乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。没有足够证据时返回 uncertain，不要臆造问题。`;
+}
 export const WHITE_BACKGROUND_REQUIREMENTS = Object.freeze({
   nearWhiteThreshold: 245,
   minNearWhiteCoverage: 0.25,

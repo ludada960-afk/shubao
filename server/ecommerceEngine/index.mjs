@@ -44,7 +44,7 @@ export {
   checkQuality, batchCheck, formatQualityReport, QC_CONFIG,
 } from './qualityCheck.mjs';
 export {
-  evaluateAsset,
+  buildFormalEcommerceQualityPrompt, evaluateAsset,
 } from './qualityGate.mjs';
 export {
   planRepair, canRetry,

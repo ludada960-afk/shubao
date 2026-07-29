@@ -5,13 +5,26 @@ const COMMERCIAL_DUTY_ID_RE = /^[a-z0-9]+(?::[a-z0-9][a-z0-9-]*)+$/;
 const SAFE_EVIDENCE_TIERS = new Set(['safe', 'conditional', 'confirmed_only']);
 const COLLAGE_INTENT_RE = /\b(?:collage|contact\s*sheet|montage|candidate\s*grid)\b|拼贴|联系表|联络表|蒙太奇|候选(?:图)?网格|多候选|[五九]宫格/i;
 const MULTI_PANEL_LAYOUT_RE = /\bmulti[ -]?panel\s+(?:layout|output|composition|sheet|grid)\b|多面板(?:布局|输出|拼图|网格)/i;
-const ENGLISH_PRESENTATION_ORDINAL = '(?:\\d+(?:st|nd|rd|th)?|[a-z]+(?:[ -][a-z]+)*(?:st|nd|rd|th))';
-const CONTROLLED_ENGLISH_PRESENTATION_SUFFIX_RE = new RegExp(
-  `\\b(?:recognition\\s+variant|duty|treatment|image|photo|picture|shot|asset|frame)\\s*(?:(?:number|no)\\.?\\s*)?${ENGLISH_PRESENTATION_ORDINAL}\\s*[.!?。！？]*$`,
-  'iu',
-);
-const EXPLICIT_PRESENTATION_SUFFIX_RE = /(?:#\s*\d+|\(\s*\d+\s*\)|第(?:\d+|[〇零一二两三四五六七八九十百千万]+)张)\s*[.!?。！？]*$/iu;
-const CONTROLLED_CHINESE_PRESENTATION_SUFFIX_RE = /(?:方案|图)(?:\d+|[〇零一二两三四五六七八九十百千万]+)\s*[.!?。！？]*$/iu;
+const CHINESE_PRESENTATION_NUMBER = '[〇零一二两三四五六七八九十百千万廿卅卌\\d]+';
+const EXPLICIT_PRESENTATION_SUFFIX_RE = new RegExp(`(?:#\\s*\\d+|\\(\\s*\\d+\\s*\\)|第${CHINESE_PRESENTATION_NUMBER}张)$`, 'iu');
+const CONTROLLED_CHINESE_PRESENTATION_SUFFIX_RE = new RegExp(`(?:方案|图)${CHINESE_PRESENTATION_NUMBER}$`, 'iu');
+const CONTROLLED_ENGLISH_PRESENTATION_RE = /(?:^|\s)(?:recognition\s+variant|duty|treatment|image|photo|picture|shot|asset|frame)\s*(?:(?:number|no)\.?\s*)?([a-z0-9]+(?:[ -][a-z0-9]+)*)$/iu;
+const BARE_RECOGNITION_ORDINAL_RE = /^(.*\bproduct\s+recognition)\s+([a-z]+(?:[ -][a-z]+)*)$/iu;
+const ENGLISH_CARDINAL_WORDS = new Set([
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+  'seventeen', 'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty',
+  'sixty', 'seventy', 'eighty', 'ninety', 'hundred', 'thousand', 'million', 'billion',
+]);
+const IRREGULAR_ENGLISH_ORDINALS = new Map([
+  ['first', 'one'],
+  ['second', 'two'],
+  ['third', 'three'],
+  ['fifth', 'five'],
+  ['eighth', 'eight'],
+  ['ninth', 'nine'],
+  ['twelfth', 'twelve'],
+]);
 const DUTY_SYNONYMS = new Map([
   ['display', 'show'],
   ['present', 'show'],
@@ -41,11 +54,46 @@ function normalized(value) {
   return cleanString(value).toLowerCase();
 }
 
+function ordinalCardinal(word) {
+  if (IRREGULAR_ENGLISH_ORDINALS.has(word)) return IRREGULAR_ENGLISH_ORDINALS.get(word);
+  if (word.endsWith('ieth')) {
+    const cardinal = `${word.slice(0, -4)}y`;
+    return ENGLISH_CARDINAL_WORDS.has(cardinal) ? cardinal : '';
+  }
+  if (word.endsWith('th')) {
+    const cardinal = word.slice(0, -2);
+    return ENGLISH_CARDINAL_WORDS.has(cardinal) ? cardinal : '';
+  }
+  return '';
+}
+
+function isEnglishPresentationNumber(value, { allowCardinal = false } = {}) {
+  const normalizedValue = cleanString(value).toLowerCase();
+  if (/^\d+$/.test(normalizedValue)) return allowCardinal;
+  if (/^\d+(?:st|nd|rd|th)$/.test(normalizedValue)) return true;
+  const words = normalizedValue.split(/[ -]+/).filter(Boolean);
+  if (!words.length) return false;
+  const prefix = words.slice(0, -1);
+  const finalCardinal = ordinalCardinal(words.at(-1));
+  if (finalCardinal) {
+    return prefix.every(word => word === 'and' || ENGLISH_CARDINAL_WORDS.has(word));
+  }
+  return allowCardinal && words.every(word => word === 'and' || ENGLISH_CARDINAL_WORDS.has(word));
+}
+
 function withoutPresentationOrdinal(value) {
   let result = cleanString(value).normalize('NFKC').toLowerCase();
-  result = result.replace(CONTROLLED_ENGLISH_PRESENTATION_SUFFIX_RE, ' ');
+  result = result.replace(/[.!?。！？]+$/u, '').trimEnd();
   result = result.replace(EXPLICIT_PRESENTATION_SUFFIX_RE, ' ');
   result = result.replace(CONTROLLED_CHINESE_PRESENTATION_SUFFIX_RE, ' ');
+  const controlledEnglish = CONTROLLED_ENGLISH_PRESENTATION_RE.exec(result);
+  if (controlledEnglish && isEnglishPresentationNumber(controlledEnglish[1], { allowCardinal: true })) {
+    result = result.slice(0, controlledEnglish.index).trimEnd();
+  }
+  const bareRecognition = BARE_RECOGNITION_ORDINAL_RE.exec(result);
+  if (bareRecognition && isEnglishPresentationNumber(bareRecognition[2])) {
+    result = bareRecognition[1];
+  }
   return result;
 }
 
