@@ -31,6 +31,11 @@ function unavailable(cause) {
   });
 }
 
+function readFailure(error) {
+  const code = cleanString(error?.code).toUpperCase();
+  return code && code !== 'ENOENT' ? unavailable(error) : invalidInput(error);
+}
+
 export function createLegacyVisualAssetMigration({
   imageInputReader,
   generatedAssetStore,
@@ -97,7 +102,7 @@ export function createLegacyVisualAssetMigration({
     try {
       image = await imageInputReader.read(readSource);
     } catch (error) {
-      throw invalidInput(error);
+      throw readFailure(error);
     }
     const buffer = image?.buffer;
     const contentType = cleanString(image?.contentType).toLowerCase();

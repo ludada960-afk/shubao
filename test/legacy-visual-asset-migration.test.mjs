@@ -210,3 +210,63 @@ test('maps stable persistence failures to retryable visual analysis unavailabili
       && error?.cause === storageError,
   );
 });
+
+test('maps a temp source EIO read to retryable visual analysis unavailability', async t => {
+  const harness = await createHarness(t);
+  const source = '/api/ec-temp-img/read-eio.png';
+  const job = preUpgradeJob({ id: 'job-temp-read-eio', source });
+  const readError = Object.assign(new Error('temp storage read failed'), { code: 'EIO' });
+  let persistCalls = 0;
+  const migrate = createLegacyVisualAssetMigration({
+    imageInputReader: { async read() { throw readError; } },
+    generatedAssetStore: {
+      async persistBuffer() {
+        persistCalls += 1;
+        throw new Error('must not persist after read failure');
+      },
+    },
+    getJob: id => id === job.id ? job : null,
+    getOwnedAsset: async () => { throw new Error('temp migration must not use owner lookup'); },
+  });
+
+  await assert.rejects(
+    () => migrate({ source, type: 'product', index: 0, jobId: job.id }),
+    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE'
+      && error?.status === 503
+      && error?.retryable === true
+      && error?.cause === readError,
+  );
+  assert.equal(persistCalls, 0);
+});
+
+test('maps an owner-validated generated source EIO read to retryable unavailability', async t => {
+  const harness = await createHarness(t);
+  const assetId = `${'b'.repeat(64)}.png`;
+  const source = `/api/generated-assets/${assetId}`;
+  const job = preUpgradeJob({ id: 'job-generated-read-eio', source });
+  const readError = Object.assign(new Error('generated storage read failed'), { code: 'EIO' });
+  const generatedAssetStore = createGeneratedAssetStore({
+    directory: harness.generatedDirectory,
+    readFileImpl: async () => { throw readError; },
+  });
+  const imageInputReader = createImageInputReader({
+    generatedAssetStore,
+    tempUploadDir: harness.tempDirectory,
+    fetchImpl: async () => { throw new Error('network must not be used'); },
+  });
+  const migrate = createLegacyVisualAssetMigration({
+    imageInputReader,
+    generatedAssetStore,
+    getJob: id => id === job.id ? job : null,
+    getOwnedAsset: async input => ({ ...input, url: source }),
+  });
+
+  await assert.rejects(
+    () => migrate({ source, type: 'product', index: 0, jobId: job.id }),
+    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE'
+      && error?.status === 503
+      && error?.retryable === true
+      && error?.cause === readError,
+  );
+  assert.deepEqual(await readdir(harness.generatedDirectory).catch(() => []), []);
+});

@@ -114,3 +114,24 @@ test('persistBuffer rejects a corrupt pre-existing content-addressed file withou
 
   assert.deepEqual(await readFile(join(dir, fileName)), corrupt);
 });
+
+test('read returns null only for ENOENT and rethrows every non-missing I/O error', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-read-errors-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const assetId = `${'a'.repeat(64)}.png`;
+  const missingStore = createGeneratedAssetStore({
+    directory: dir,
+    readFileImpl: async () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); },
+  });
+
+  assert.equal(await missingStore.read(assetId), null);
+
+  for (const code of ['EIO', 'EMFILE', 'ENFILE', 'EBUSY', 'EACCES', 'EPERM', 'EUNKNOWN']) {
+    const ioError = Object.assign(new Error(`read failed: ${code}`), { code });
+    const store = createGeneratedAssetStore({
+      directory: dir,
+      readFileImpl: async () => { throw ioError; },
+    });
+    await assert.rejects(() => store.read(assetId), error => error === ioError);
+  }
+});

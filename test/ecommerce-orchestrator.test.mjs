@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ import test from 'node:test';
 import Database from 'better-sqlite3';
 
 import { createEcommerceOrchestrator } from '../server/ecommerceEngine/orchestrator.mjs';
+import { createLegacyVisualAssetMigration } from '../server/ecommerceEngine/legacyVisualAssetMigration.mjs';
 import { createVisualAnalysisService } from '../server/ecommerceEngine/visualAnalysisService.mjs';
 import { createVisualAnalysisStore } from '../server/ecommerceEngine/visualAnalysisStore.mjs';
 import { createGenerationJobs } from '../server/generationJobs.mjs';
@@ -700,6 +702,74 @@ test('keeps a pre-upgrade job resumable when stable migration storage is transie
   assert.equal(calls.analyze, 1);
   assert.equal(calls.hold.length, 1);
   assert.equal(calls.submit.length, 1);
+});
+
+test('resumes after a transient legacy input read without duplicate pre-billing work', async t => {
+  const source = '/api/ec-temp-img/transient-read.png';
+  const input = {
+    id: 'job-legacy-read-resume',
+    ownerEmail: OWNER,
+    payload: {
+      product_name: '测试商品',
+      category: '数码3C',
+      real_shots: [source],
+    },
+  };
+  let migrate;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    preUpgradeJobs: [input],
+    migrateLegacyVisualAsset: request => migrate(request),
+  });
+  const readError = Object.assign(new Error('temporary input read failure'), { code: 'EIO' });
+  let readCalls = 0;
+  let persistCalls = 0;
+  const digest = createHash('sha256').update(IMAGE_BUFFER).digest('hex');
+  const assetId = `${digest}.png`;
+  const stableUrl = `/api/generated-assets/${assetId}`;
+  migrate = createLegacyVisualAssetMigration({
+    imageInputReader: {
+      async read() {
+        readCalls += 1;
+        if (readCalls === 1) throw readError;
+        return { buffer: IMAGE_BUFFER, contentType: 'image/png' };
+      },
+    },
+    generatedAssetStore: {
+      async persistBuffer() {
+        persistCalls += 1;
+        return { id: assetId, url: stableUrl, contentType: 'image/png' };
+      },
+    },
+    getJob: id => jobs.get(id),
+    getOwnedAsset: async () => { throw new Error('temp migration must not use owner lookup'); },
+  });
+
+  await assert.rejects(
+    () => orchestrator.runJob(input.id),
+    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE'
+      && error?.retryable === true
+      && error?.cause === readError,
+  );
+  assert.equal(jobs.get(input.id).status, 'analyzing');
+  assert.equal(jobs.get(input.id).progress.visualInputSnapshot, undefined);
+  assert.equal(persistCalls, 0);
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(readCalls, 2);
+  assert.equal(persistCalls, 1);
+  assert.equal(calls.migrate.length, 2);
+  assert.equal(calls.analyze, 1);
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+  assert.deepEqual(jobs.get(input.id).progress.visualInputSnapshot.assets.product, [{
+    assetId,
+    url: stableUrl,
+  }]);
 });
 
 test('passes protected product text and logos into quality review before settlement', async t => {

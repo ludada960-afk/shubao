@@ -41,8 +41,10 @@ export function createGeneratedAssetStore({
   publicPath = '/api/generated-assets',
   fetchImpl = fetch,
   maxBytes = MAX_IMAGE_BYTES,
+  readFileImpl = readFile,
 } = {}) {
   if (!directory) throw new Error('generated asset directory is required');
+  if (typeof readFileImpl !== 'function') throw new TypeError('readFileImpl must be a function');
   const root = resolve(directory);
 
   async function persist({ sourceUrl, taskId = '', label = '' } = {}) {
@@ -88,7 +90,7 @@ export function createGeneratedAssetStore({
         if (error?.code !== 'EEXIST') throw error;
         let existing;
         try {
-          existing = await readFile(filePath);
+          existing = await readFileImpl(filePath);
         } catch (readError) {
           throw integrityError(readError);
         }
@@ -116,10 +118,13 @@ export function createGeneratedAssetStore({
     if (!/^[a-f0-9]{64}\.(jpg|png|webp)$/.test(safeName)) return null;
     const filePath = resolve(root, safeName);
     try {
-      const buffer = await readFile(filePath);
+      const buffer = await readFileImpl(filePath);
       const extension = safeName.split('.').pop();
       return { buffer, contentType: extension === 'jpg' ? 'image/jpeg' : `image/${extension}` };
-    } catch { return null; }
+    } catch (error) {
+      if (error?.code === 'ENOENT') return null;
+      throw error;
+    }
   }
 
   async function persistAndRead(input = {}) {
