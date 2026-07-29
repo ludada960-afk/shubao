@@ -14,6 +14,14 @@
 
 ## Current execution
 
+- Market-ready ecommerce creation closure design: written and self-reviewed at
+  `docs/superpowers/specs/2026-07-29-market-ready-ecommerce-creation-closure.md`.
+  It consolidates the approved remaining work into seven ordered milestones:
+  product/style visual analysis, exact-count differentiated generation, global
+  task continuity, result/canvas action unification, honest composition/PSD and
+  retention, market-facing UI/copy, and authenticated production acceptance.
+  Placeholder, ambiguity and retention-consistency review passed. Written-spec
+  user review is the current gate before creating the TDD implementation plan.
 - Server Project Version System design: approved architecture and lifecycle have
   been written to
   `docs/superpowers/specs/2026-07-27-server-project-version-system.md`.
