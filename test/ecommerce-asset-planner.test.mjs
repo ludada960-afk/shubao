@@ -70,9 +70,7 @@ test('plans 3C parameter content from confirmed user facts only', () => {
   assert.ok(parameters);
   assert.equal(parameters.generationMode, 'deterministic_overlay');
   assert.deepEqual(factValues(parameters), [
-    'model:NH-42',
     'ports:USB-C × 2',
-    'width:120 mm',
   ]);
   assert.deepEqual(parameters.productAssetIds, ['product-front', 'product-side']);
   assert.deepEqual(parameters.styleReferenceIds, ['style-board']);
@@ -327,7 +325,7 @@ test('detail duties consume only matching confirmed user fact types', () => {
 
   assert.ok(parameters);
   assert.ok(compatibility);
-  assert.deepEqual(factValues(parameters), ['model:NH-42', 'ports:USB-C x 2']);
+  assert.deepEqual(factValues(parameters), ['ports:USB-C x 2']);
   assert.deepEqual(factValues(compatibility), ['compatibility:Windows 11 and macOS 15']);
   assert.equal(factValues(parameters).some(value => /compatibility|careInstructions|marketingClaim/.test(value)), false);
   assert.equal(factValues(compatibility).some(value => /model|ports|careInstructions|marketingClaim/.test(value)), false);
@@ -439,4 +437,79 @@ test('normalizes prototype-sensitive inputs and returns deterministic stable ite
   assert.equal(first.some((item) => item.styleReferenceIds.includes('inherited-style')), false);
   assert.equal(first.some((item) => item.productAssetIds.includes('constructor')), false);
   assert.deepEqual(first.map((item) => item.id), [...first.map((item) => item.id)].sort());
+});
+
+test('requires a trusted product source before formal asset planning', () => {
+  assert.throws(() => buildAssetPlan({
+    productTruth: productTruth({ sourceAssetIds: [] }),
+    campaignBible,
+    sizing: { images: [{ key: 'detail', count: 1, ratio: '3:4' }] },
+  }), /trusted product source asset/i);
+});
+
+test('keeps materially different fact claims mutually exclusive', () => {
+  const cases = [
+    ['食品饮料', 'capacity', '500mL', 'detail_slice_quantity', 'detail_slice_parameters'],
+    ['美妆护肤', 'size', 'M', '', 'detail_slice_fit'],
+    ['数码3C', 'modelName', 'NH-42', 'detail_slice_identifier', 'detail_slice_parameters'],
+  ];
+  for (const [category, name, value, expectedRole, forbiddenRole] of cases) {
+    const plan = buildAssetPlan({
+      productTruth: productTruth({ category, confirmedFacts: { [name]: { value, source: 'user' } } }),
+      campaignBible,
+      sizing: { images: [{ key: 'detail', count: 10, ratio: '3:4' }] },
+    });
+    if (expectedRole) assert.ok(plan.some(item => item.role === expectedRole), `${name} unlocks ${expectedRole}`);
+    else assert.equal(plan.some(item => item.role === 'detail_slice_scale'), false, `${name} does not imply scale`);
+    assert.equal(plan.some(item => item.role === forbiddenRole), false, `${name} does not unlock ${forbiddenRole}`);
+  }
+});
+
+test('uses only explicit role-appropriate aliases for factual detail duties', () => {
+  const cases = [
+    ['数码3C', 'technicalSpecification', 'USB-C PD 65W', 'detail_slice_parameters'],
+    ['食品饮料', 'packageCount', '12', 'detail_slice_quantity'],
+    ['服饰穿搭', 'fitType', 'Regular fit', 'detail_slice_fit'],
+    ['数码3C', 'modelNumber', 'NH-42', 'detail_slice_identifier'],
+  ];
+  for (const [category, name, value, expectedRole] of cases) {
+    const plan = buildAssetPlan({
+      productTruth: productTruth({ category, confirmedFacts: { [name]: { value, source: 'user' } } }),
+      campaignBible,
+      sizing: { images: [{ key: 'detail', count: 10, ratio: '3:4' }] },
+    });
+    const item = plan.find(candidate => candidate.role === expectedRole);
+    assert.ok(item, `${name} unlocks ${expectedRole}`);
+    assert.deepEqual(factValues(item), [`${name}:${value}`]);
+  }
+});
+
+test('empty-fact safe fallback duties make no unsupported component or package promise', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth({ confirmedFacts: {} }),
+    campaignBible,
+    sizing: { images: [{ key: 'detail', count: 10, ratio: '3:4' }] },
+  });
+  const details = plan.filter(item => item.role.startsWith('detail_slice_'));
+  assert.equal(details.length, 10);
+  assert.ok(details.every(item => !/control|closure|access point|connection|protected.*label|package|storage|portability|parameter|compatib/i.test(`${item.purpose} ${item.communicationGoal}`)));
+  assert.equal(validatePlanContract(plan), plan);
+});
+
+test('SKU variants use an explicit buyer duty and canonical non-hash identities', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible,
+    skus: [
+      { color: 'black', capacity: '256GB' },
+      { color: '白色', capacity: '512GB' },
+    ],
+  });
+  const items = plan.filter(item => item.role === 'sku');
+  assert.deepEqual(items.map(item => item.commercialDutyId), ['sku:variant', 'sku:variant']);
+  assert.deepEqual(items.map(item => item.variantIdentity), [
+    { facts: [{ name: 'capacity', value: '256GB' }, { name: 'color', value: 'black' }] },
+    { facts: [{ name: 'capacity', value: '512GB' }, { name: 'color', value: '白色' }] },
+  ]);
+  assert.equal(validatePlanContract(plan), plan);
 });

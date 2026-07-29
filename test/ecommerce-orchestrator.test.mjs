@@ -2123,6 +2123,47 @@ test('schema-3 migration preserves a proof-backed QC commercial duty', async t =
   assert.deepEqual(migrated.proofAssetIds, ['food-proof-report']);
 });
 
+test('schema-3 migration does not trust a child-declared missing proof asset', async t => {
+  const qc = planItem('food-untrusted-qc', 'detail_slice_qc');
+  qc.generationMode = 'deterministic_overlay';
+  qc.proofAssetIds = ['invented-proof'];
+  qc.requiredFacts = [{ name: 'proofAssetId', value: 'invented-proof' }];
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [qc] });
+  const input = jobInput('job-schema-three-untrusted-proof');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  const snapshot = orchestrationSnapshot([qc], 'hold-schema-three-untrusted-proof', 3);
+  snapshot.productTruth.category = '食品饮料';
+  snapshot.deterministicInputs.assets.proof = [];
+  jobs.transition(input.id, 'generating', { progress: { holdId: 'hold-schema-three-untrusted-proof', orchestrationSnapshot: snapshot } });
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 0);
+  assert.equal(completed.assetPlan.some(item => item.role === 'detail_slice_qc'), false);
+  assert.equal(calls.compilePlanItems.some(item => item.requiredFacts.some(fact => fact.value === 'invented-proof')), false);
+});
+
+test('schema-3 migration replaces repeated structured detail semantic families', async t => {
+  const first = planItem('legacy-parameters-1', 'detail_slice_parameters');
+  const second = planItem('legacy-parameters-2', 'detail_slice_parameters');
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [first, second] });
+  const input = jobInput('job-schema-three-repeated-detail');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  const snapshot = orchestrationSnapshot([first, second], 'hold-schema-three-repeated-detail', 3);
+  snapshot.productTruth.confirmedFacts = { ports: { value: 'USB-C', source: 'user' } };
+  jobs.transition(input.id, 'generating', { progress: { holdId: 'hold-schema-three-repeated-detail', orchestrationSnapshot: snapshot } });
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(new Set(completed.assetPlan.map(item => item.commercialDutyId)).size, 2);
+  assert.equal(completed.assetPlan.filter(item => item.role === 'detail_slice_parameters').length, 1);
+  assert.equal(calls.hold.length, 0);
+});
+
 test('schema-3 ordinary detail overflow fails closed before any new call', async t => {
   const overflow = Array.from({ length: 11 }, (_, index) => (
     planItem(`legacy-detail-${index + 1}`, `detail_slice_legacy_${index + 1}`)

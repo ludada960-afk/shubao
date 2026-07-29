@@ -271,3 +271,24 @@ test('execution count allows at most one provider-backed repair for the failed a
     ],
   }), /more than one provider repair/i);
 });
+
+test('only distinct structured SKU identities may share the sku variant commercial duty', () => {
+  const sku = (id, variantIdentity) => planItem(id, {
+    role: 'sku',
+    commercialDutyId: 'sku:variant',
+    communicationGoal: 'Help the buyer choose the confirmed SKU variant.',
+    variantIdentity,
+    shotIntent: {
+      ...planItem(id).shotIntent,
+      type: id === 'sku-2' ? 'alternate_angle' : 'identity',
+      camera: { azimuth: id === 'sku-2' ? 48 : 12 },
+      crop: id === 'sku-2' ? 'complete exterior crop' : 'complete product crop',
+      sceneFamily: id === 'sku-2' ? 'exterior_angle_study' : 'studio_identity',
+    },
+  });
+  const first = { facts: [{ name: 'sku', value: 'NH-42-A' }] };
+  const second = { facts: [{ name: 'sku', value: '型号-乙' }] };
+  assert.equal(validatePlanContract([sku('sku-1', first), sku('sku-2', second)]).length, 2);
+  assert.throws(() => validatePlanContract([sku('sku-1', first), sku('sku-2', first)]), /duplicate SKU variant identity/i);
+  assert.throws(() => validatePlanContract([sku('sku-1', null)]), /variant identity is required/i);
+});

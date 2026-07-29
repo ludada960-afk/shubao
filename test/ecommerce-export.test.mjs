@@ -133,7 +133,7 @@ function realAssetPlan(platform = 'taobao') {
     productTruth: {
       category: '数码3C',
       productName: 'Plan-bound product',
-      sourceAssetIds: [],
+      sourceAssetIds: ['trusted-product-fixture'],
       confirmedFacts: {},
     },
     campaignBible: {
@@ -543,7 +543,7 @@ test('resolves duplicate-content job assets by the unique targetId instead of st
   const plan = realAssetPlan('taobao');
   const mainItem = plan.find(item => item.role === 'main');
   const whiteItem = plan.find(item => item.role === 'white_background');
-  const unrelatedItem = plan.find(item => item.role === 'detail_slice_feature');
+  const unrelatedItem = plan.find(item => item.role === 'detail_slice_visual_form');
   const mainTarget = mainItem.exportTargets.find(target => target.format === 'png');
   const whiteTarget = whiteItem.exportTargets.find(target => target.format === 'png');
   const unrelatedTarget = unrelatedItem.exportTargets.find(target => target.format === 'png');
@@ -623,7 +623,7 @@ test('exports repeated plan items with item-scoped target IDs when generated con
     productTruth: {
       category: '数码3C',
       productName: 'Repeated plan product',
-      sourceAssetIds: [],
+      sourceAssetIds: ['trusted-product-fixture'],
       confirmedFacts: {},
     },
     campaignBible: {
@@ -693,8 +693,8 @@ test('rejects an ambiguous targetId shared by duplicate-content plan items befor
     label: 'shared',
   });
   const plan = realAssetPlan('taobao');
-  const firstItem = plan.find(item => item.role === 'detail_slice_feature');
-  const secondItem = plan.find(item => item.role === 'detail_slice_usage');
+  const firstItem = plan.find(item => item.role === 'detail_slice_visual_form');
+  const secondItem = plan.find(item => item.role === 'detail_slice_visible_material');
   const sharedTarget = firstItem.exportTargets.find(target => target.format === 'png');
   secondItem.exportTargets = [sharedTarget];
   assert.equal(

@@ -540,22 +540,32 @@ function roleCatalogDuty(role, occurrence) {
   return null;
 }
 
-function detailMigrationDuty(item, sourceRole, productTruth, usedSemanticFamilies) {
+function trustedProofAssetIds(deterministicInputs = {}) {
+  const assets = own(deterministicInputs, 'assets');
+  return new Set(['proof', 'protection'].flatMap(group => Array.isArray(own(assets, group)) ? own(assets, group) : [])
+    .map(asset => cleanString(own(asset, 'assetId')))
+    .filter(Boolean));
+}
+
+function detailMigrationDuty(item, sourceRole, productTruth, usedSemanticFamilies, trustedProofIds) {
   const strategy = getAssetPlanStrategy(cleanString(own(productTruth, 'category')));
   const proofRole = cleanString(strategy?.proofRole);
   const proofAssetIds = Array.isArray(own(item, 'proofAssetIds')) ? own(item, 'proofAssetIds') : [];
   const requiredFacts = Array.isArray(own(item, 'requiredFacts')) ? own(item, 'requiredFacts') : [];
-  const hasProofEvidence = proofAssetIds.some(value => cleanString(value))
-    || requiredFacts.some(fact => cleanString(own(fact, 'name')) === 'proofAssetId'
-      && cleanString(own(fact, 'value')));
+  const declaredProofIds = [...proofAssetIds, ...requiredFacts
+    .filter(fact => cleanString(own(fact, 'name')) === 'proofAssetId')
+    .map(fact => cleanString(own(fact, 'value')))].filter(Boolean);
+  const retainedProofIds = [...new Set(declaredProofIds)];
+  const hasProofEvidence = retainedProofIds.length > 0 && retainedProofIds.every(id => trustedProofIds.has(id));
   if (proofRole && sourceRole === `detail_slice_${proofRole}` && hasProofEvidence) {
     return {
       role: sourceRole,
       key: 'proofanswer',
       goal: 'Communicate quality or certification information backed only by uploaded proof assets.',
       purpose: 'Quality or certification information backed only by uploaded proof assets.',
-      requiredFacts,
+      requiredFacts: retainedProofIds.map(value => ({ name: 'proofAssetId', value })),
       generationMode: 'deterministic_overlay',
+      proofAssetIds: retainedProofIds,
       proofDuty: true,
     };
   }
@@ -579,7 +589,7 @@ function detailMigrationDuty(item, sourceRole, productTruth, usedSemanticFamilie
   };
 }
 
-function upgradePlanItems(assetPlan, productTruth = {}) {
+function upgradePlanItems(assetPlan, productTruth = {}, deterministicInputs = {}) {
   const roleOccurrences = new Map();
   const usedDetailFamilies = new Set();
   let ordinaryDetailCount = 0;
@@ -588,7 +598,7 @@ function upgradePlanItems(assetPlan, productTruth = {}) {
     const occurrence = roleOccurrences.get(sourceRole) || 0;
     roleOccurrences.set(sourceRole, occurrence + 1);
     const detailDuty = sourceRole.startsWith('detail_slice_')
-      ? detailMigrationDuty(item, sourceRole, productTruth, usedDetailFamilies)
+      ? detailMigrationDuty(item, sourceRole, productTruth, usedDetailFamilies, trustedProofAssetIds(deterministicInputs))
       : null;
     if (detailDuty && !detailDuty.proofDuty) {
       ordinaryDetailCount += 1;
@@ -623,6 +633,7 @@ function upgradePlanItems(assetPlan, productTruth = {}) {
       ...(detailDuty ? {
         requiredFacts: detailDuty.requiredFacts,
         generationMode: detailDuty.generationMode,
+        proofAssetIds: detailDuty.proofAssetIds || [],
       } : {}),
       shotIntent: {
         ...shotIntent,
@@ -637,7 +648,7 @@ function upgradeTask1Snapshot(snapshot) {
   const migrated = sanitizeSnapshot({
     ...snapshot,
     schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
-    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth),
+    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth, snapshot.deterministicInputs),
   });
   return validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: true });
 }
@@ -646,7 +657,7 @@ function upgradeTask2Snapshot(snapshot) {
   const migrated = sanitizeSnapshot({
     ...snapshot,
     schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
-    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth),
+    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth, snapshot.deterministicInputs),
   });
   return validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: true });
 }
@@ -655,7 +666,7 @@ function upgradeLegacySnapshot(snapshot) {
   const migrated = sanitizeSnapshot({
     ...snapshot,
     schemaVersion: LEGACY_ORCHESTRATION_SNAPSHOT_VERSION,
-    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth),
+    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth, snapshot.deterministicInputs),
   });
   validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: false });
   validatePlanContract(migrated.assetPlan);

@@ -783,3 +783,38 @@ No known contract failures. Production provider/model output was not exercised b
 ## Commit
 
 Planned subject: `fix: make ecommerce detail duties evidence aware`
+
+---
+
+## Task 2 Review Fix Wave 4
+
+### RED/GREEN evidence
+
+- RED focused command: `node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-ui.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/api-contract.test.mjs` exited 1: 203 tests, 197 pass, 6 intended failures (trusted source, typed aliases, safe fallback, SKU identity/contract).
+- Additional migration/repair RED: `node --test --test-concurrency=1 test/ecommerce-orchestrator.test.mjs test/ecommerce-quality-gate.test.mjs` exited 1: 96 tests, 92 pass, 4 intended failures (untrusted proof, repeated detail family, two Sharp retry assertions).
+- GREEN focused: same required focused command exited 0: 205 passed.
+- Adjacent Task 2 suite exited 0: 221 passed.
+- Final full repository `npm test` (after fixing formal export fixtures to supply trusted Product Truth source IDs) exited 0: 781 passed, 0 failed, 0 skipped, 0 cancelled.
+- `node --check`, `git diff --check`, and `npm run collab:check` passed on the final tree.
+
+### Changes and self-review
+
+- Trusted product source assets are mandatory before formal planning; empty-fact ten-detail plans use only generic exterior/material/finish/detail/context duties.
+- Fact aliases are exclusive by commercial claim; generic size is not silently promoted to fit or scale, while explicit typed names unlock only their matching role.
+- Schema-3 QC migration intersects declared proof IDs with durable deterministic proof/protection inputs; untrusted proof is replaced by a safe ordinary duty.
+- Repeated legacy detail semantic families select an unused replacement; local Sharp and provider repairs share the one-repair cap.
+- SKU rows use `sku:variant` plus normalized structured `variantIdentity`; contract permits only distinct identities and no hash-derived duty identifier.
+- Updated export fixtures to provide the newly required trusted product source.
+
+### Changed files
+
+- `server/ecommerceEngine/assetPlanner.mjs`
+- `server/ecommerceEngine/detailDutyPolicy.mjs`
+- `server/ecommerceEngine/orchestrator.mjs`
+- `server/ecommerceEngine/planContract.mjs`
+- `server/ecommerceEngine/repairPlanner.mjs`
+- `test/ecommerce-asset-planner.test.mjs`
+- `test/ecommerce-export.test.mjs`
+- `test/ecommerce-orchestrator.test.mjs`
+- `test/ecommerce-plan-contract.test.mjs`
+- `test/ecommerce-quality-gate.test.mjs`

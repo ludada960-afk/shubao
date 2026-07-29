@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { getAssetPlanStrategy, normalizeEcommerceCategory } from './categoryKnowledge.mjs';
 import {
   commercialDutyIdFor,
@@ -164,15 +162,14 @@ function riskLevel(role) {
   return 'low';
 }
 
-function skuDutyKey(skuFacts) {
-  const factFingerprint = createHash('sha256')
-    .update(skuFacts.map(fact => `${fact.name}\u0000${fact.value}`).join('\u0001'))
-    .digest('hex')
-    .slice(0, 16);
-  return `variant${factFingerprint}`;
+function skuVariantIdentity(skuFacts) {
+  return {
+    facts: skuFacts.map(({ name, value }) => ({ name, value }))
+      .sort((left, right) => `${left.name}\u0000${left.value}`.localeCompare(`${right.name}\u0000${right.value}`)),
+  };
 }
 
-function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], category, platform, sizing }) {
+function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, category, platform, sizing }) {
   const ratio = resolveRatio({ role }, sizing, defaultRatio);
   const generationSize = LEGAL_IMAGE_SIZES[sizing.resolution][ratio];
   const policy = getPlatformPolicy(platform, policyRole(role), category);
@@ -187,6 +184,7 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
     role,
     purpose,
     commercialDutyId: commercialDutyIdFor(role, commercialDutyKey),
+    ...(variantIdentity ? { variantIdentity } : {}),
     communicationGoal,
     ratio,
     generationSize,
@@ -308,6 +306,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const strategy = getAssetPlanStrategy(category);
   const normalizedSizing = normalizeSizing(sizing);
   const productAssetIds = uniqueStrings(ownValue(truth, 'sourceAssetIds'));
+  if (!productAssetIds.length) throw new TypeError('trusted product source asset is required for formal asset planning');
   const styleReferenceIds = uniqueStrings(ownValue(bible, 'referenceAssetIds'));
   const proofAssetIds = normalizeProofIds(uploadedProofs);
   const identity = productIdentity(truth);
@@ -482,13 +481,14 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       id: `sku-${index + 1}`,
       role: 'sku',
       purpose: skuPurpose(skuFacts),
-      commercialDutyKey: skuDutyKey(skuFacts),
-      communicationGoal: skuPurpose(skuFacts),
+      commercialDutyKey: 'variant',
+      communicationGoal: 'Help the buyer choose the confirmed SKU variant.',
       defaultRatio: '1:1',
       requiredFacts: skuFacts,
       generationMode: 'deterministic_overlay',
       productAssetIds,
       styleReferenceIds,
+      variantIdentity: skuVariantIdentity(skuFacts),
       category,
       platform: normalizedPlatform,
       sizing: normalizedSizing,

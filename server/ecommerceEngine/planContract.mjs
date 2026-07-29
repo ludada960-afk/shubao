@@ -111,6 +111,19 @@ function planId(item) {
   return cleanString(isRecord(item) ? item.id : '');
 }
 
+function variantIdentityKey(value) {
+  if (!isRecord(value) || !Array.isArray(value.facts) || value.facts.length === 0) return '';
+  const facts = value.facts.map(fact => ({
+    name: cleanString(isRecord(fact) ? fact.name : ''),
+    value: cleanString(isRecord(fact) ? fact.value : ''),
+  }));
+  if (facts.some(fact => !fact.name || !fact.value)) return '';
+  return facts
+    .map(fact => `${fact.name.normalize('NFKC').toLowerCase()}\u0000${fact.value.normalize('NFKC').toLowerCase()}`)
+    .sort()
+    .join('\u0001');
+}
+
 function submissionEntry(value) {
   if (typeof value === 'string') return { assetId: cleanString(value), count: 1 };
   if (!isRecord(value)) return { assetId: '', count: 0 };
@@ -144,6 +157,7 @@ export function validatePlanContract(items) {
   const ids = new Set();
   const duties = new Map();
   const commercialDutyIds = new Map();
+  const skuVariantIdentities = new Set();
   const intents = new Map();
   for (const item of items) {
     if (!isRecord(item)) throw new TypeError('asset plan item must be an object');
@@ -160,10 +174,17 @@ export function validatePlanContract(items) {
     if (commercialDutyId && !COMMERCIAL_DUTY_ID_RE.test(commercialDutyId)) {
       throw new TypeError(`commercial duty id is invalid: ${id}`);
     }
-    if (commercialDutyId && commercialDutyIds.has(commercialDutyId)) {
+    const isSkuVariant = role === 'sku' && commercialDutyId === 'sku:variant';
+    const variantKey = isSkuVariant ? variantIdentityKey(item.variantIdentity) : '';
+    if (isSkuVariant && !variantKey) throw new TypeError(`SKU variant identity is required: ${id}`);
+    if (isSkuVariant && skuVariantIdentities.has(variantKey)) {
+      throw new TypeError(`duplicate SKU variant identity: ${id}`);
+    }
+    if (commercialDutyId && commercialDutyIds.has(commercialDutyId) && !isSkuVariant) {
       throw new TypeError(`duplicate commercial duty id: ${commercialDutyIds.get(commercialDutyId)} and ${id}`);
     }
     if (commercialDutyId) commercialDutyIds.set(commercialDutyId, id);
+    if (isSkuVariant) skuVariantIdentities.add(variantKey);
     if (plannedCollage(item)) throw new TypeError(`collage or contact sheet intent is forbidden: ${id}`);
 
     const shot = isRecord(item.shotIntent) ? item.shotIntent : {};
@@ -181,7 +202,7 @@ export function validatePlanContract(items) {
     intents.set(semanticKey, id);
 
     const dutyKey = normalizedCommercialDuty(duty);
-    if (duties.has(dutyKey)) {
+    if (duties.has(dutyKey) && !isSkuVariant) {
       throw new TypeError(`duplicate commercial duty: ${duties.get(dutyKey)} and ${id}`);
     }
     duties.set(dutyKey, id);

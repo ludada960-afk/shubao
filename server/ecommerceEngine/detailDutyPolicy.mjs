@@ -28,9 +28,8 @@ function aliasSet(values) {
 
 const FACT_TYPE_ALIASES = Object.freeze({
   parameters: aliasSet([
-    'model', 'modelName', 'ports', 'portCount', 'dimensions', 'dimension',
-    'width', 'height', 'depth', 'capacity', 'voltage', 'power', 'wattage',
-    'weight', 'memory', 'storageCapacity', 'specification', 'specifications',
+    'ports', 'portCount', 'technicalSpecification', 'technicalSpecifications',
+    'voltage', 'power', 'wattage', 'memory', 'storageCapacity', 'specification', 'specifications',
   ]),
   compatibility: aliasSet([
     'compatibility', 'compatibleDevice', 'compatibleDevices', 'supportedDevice',
@@ -42,7 +41,7 @@ const FACT_TYPE_ALIASES = Object.freeze({
     'variant', 'variantName', 'colorVariant',
   ]),
   fit: aliasSet([
-    'fit', 'fitType', 'size', 'sizeRange', 'ageRange', 'petSize',
+    'fit', 'fitType', 'sizeRange', 'ageRange', 'petSize',
     'bodySize', 'wearingSize',
   ]),
   quantity: aliasSet([
@@ -51,7 +50,7 @@ const FACT_TYPE_ALIASES = Object.freeze({
   ]),
   scale: aliasSet([
     'dimensions', 'dimension', 'width', 'height', 'depth', 'diameter',
-    'length', 'size', 'footprint', 'clearance',
+    'length', 'footprint', 'clearance',
   ]),
   care: aliasSet([
     'care', 'careInstructions', 'cleaning', 'cleaningInstructions',
@@ -121,16 +120,12 @@ const SAFE_FALLBACK_DUTIES = Object.freeze([
   Object.freeze({ roleName: 'exterior_structure', semanticFamily: 'exterior_structure', goal: 'How are the visible exterior sections arranged using only the shown exterior?' }),
   Object.freeze({ roleName: 'visible_feature', semanticFamily: 'visible_feature', goal: 'Which plainly visible exterior feature answers a buyer question?' }),
   Object.freeze({ roleName: 'construction_detail', semanticFamily: 'construction_detail', goal: 'Which visible construction detail helps the buyer inspect build quality?' }),
-  Object.freeze({ roleName: 'visible_controls', semanticFamily: 'visible_controls', goal: 'Which visible control or handling point helps the buyer understand use?' }),
-  Object.freeze({ roleName: 'handling_grip', semanticFamily: 'handling_grip', goal: 'Which visible grip or handling area helps the buyer judge handling?' }),
-  Object.freeze({ roleName: 'closure_access', semanticFamily: 'closure_access', goal: 'Which visible closure or access point helps the buyer understand opening?' }),
-  Object.freeze({ roleName: 'connection_points', semanticFamily: 'connection_points', goal: 'Which visible connection or attachment point can the buyer inspect?' }),
-  Object.freeze({ roleName: 'protected_label', semanticFamily: 'protected_label', goal: 'Where is the existing protected product or package label located?' }),
-  Object.freeze({ roleName: 'usage_context', semanticFamily: 'usage_context', goal: 'Which credible visible use context helps the buyer understand placement?' }),
-  Object.freeze({ roleName: 'package_form', semanticFamily: 'package_form', goal: 'What visible package or container form should the buyer recognize?' }),
-  Object.freeze({ roleName: 'visible_storage', semanticFamily: 'visible_storage', goal: 'Which visible storage or organization area can the buyer inspect?' }),
-  Object.freeze({ roleName: 'portability', semanticFamily: 'portability', goal: 'Which visible carrying or portability feature can the buyer inspect?' }),
   Object.freeze({ roleName: 'edge_geometry', semanticFamily: 'edge_geometry', goal: 'Which visible edge profile or exterior geometry helps comparison?' }),
+  Object.freeze({ roleName: 'visible_outline', semanticFamily: 'visible_outline', goal: 'Which complete exterior outline helps the buyer compare the product?' }),
+  Object.freeze({ roleName: 'material_transition', semanticFamily: 'material_transition', goal: 'Which visible material transition can the buyer inspect on the exterior?' }),
+  Object.freeze({ roleName: 'finish_reflection', semanticFamily: 'finish_reflection', goal: 'How does the visible exterior finish respond under neutral light?' }),
+  Object.freeze({ roleName: 'context_placement', semanticFamily: 'context_placement', goal: 'Which neutral visible context helps the buyer understand the complete product scale?' }),
+  Object.freeze({ roleName: 'exterior_proportion', semanticFamily: 'exterior_proportion', goal: 'Which visible exterior proportions help the buyer compare the complete product?' }),
 ]);
 
 function confirmedUserFacts(productTruth) {
@@ -205,7 +200,10 @@ export function resolveDetailDuties({ strategy, productTruth = {}, count } = {})
   const selected = [];
   const usedFamilies = new Set();
   const usedRoles = new Set();
-  for (const duty of [...preferredDuties(strategy, productTruth), ...fallbackDuties()]) {
+  const preferred = confirmedUserFacts(productTruth).length
+    ? preferredDuties(strategy, productTruth)
+    : [];
+  for (const duty of [...preferred, ...fallbackDuties()]) {
     if (selected.length >= count) break;
     if (usedFamilies.has(duty.semanticFamily) || usedRoles.has(duty.roleName)) continue;
     selected.push(duty);
@@ -227,7 +225,7 @@ export function resolveLegacyDetailDuty({
   const sourceName = cleanString(sourceRole).toLowerCase().replace(/^detail_slice_/, '');
   const preferred = preferredDuties(strategy, productTruth);
   const exact = preferred.find(duty => duty.roleName === sourceName);
-  if (exact) {
+  if (exact && !usedSemanticFamilies.has(exact.semanticFamily)) {
     usedSemanticFamilies.add(exact.semanticFamily);
     return exact;
   }
