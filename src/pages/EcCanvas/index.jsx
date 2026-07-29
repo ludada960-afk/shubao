@@ -22,10 +22,12 @@ import {
   createChildConnection,
   createDerivedNode,
   canDeriveFromNode,
+  clampCanvasPickerPosition,
   getCanvasPortCenter,
   getConnectionLabel,
   normalizeCanvasConnection,
   normalizeCanvasNode,
+  validateWorkflowActionInputs,
 } from './nodeWorkflow';
 import { CanvasNodeActionPicker, CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
 import { normalizeWorkImages } from '../../utils/workImages.js';
@@ -459,7 +461,7 @@ export default function EcCanvas() {
       const next = fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
       if (next) setViewport(next);
     });
-  }, [result.id, result._saveKey, result.taskId, result.product_name, imageList.length]);
+  }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, imageList.length]);
 
   useEffect(() => {
     const load = async () => {
@@ -958,8 +960,17 @@ export default function EcCanvas() {
 
   const handleWorkflowProcess = useCallback(async (node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
-    if (!source?.url || promptLoading) {
+    const sourceUrl = node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
+    if (!sourceUrl || promptLoading) {
       showToast('源图片暂不可用，请稍后重试', 'info');
+      return;
+    }
+    const validation = validateWorkflowActionInputs(node.actionId, node.inputs);
+    if (!validation.ok) {
+      const labels = validation.missing.map(key => ({ ratio: '目标比例', prompt: '处理要求' }[key] || key));
+      const message = `请先填写${labels.join('和')}`;
+      updateWorkflowNode(node.id, { status: 'draft', error: message });
+      showToast(message, 'info');
       return;
     }
     updateWorkflowNode(node.id, { status: 'running', error: null });
@@ -969,12 +980,12 @@ export default function EcCanvas() {
       const prompt = [node.inputs?.prompt, node.inputs?.instruction].filter(Boolean).join('\n').trim();
       let url = '';
       if (actionId === 'remove-bg') {
-        const data = await removeBg({ image_url: source.url });
+        const data = await removeBg({ image_url: sourceUrl });
         url = data.result_url || data.url || '';
       } else if (actionId === 'inpaint') {
-        url = await regenerateCanvasImage({ prompt: prompt || '保留商品主体，只优化指定区域的电商视觉表现', imageUrl: source.url, ratio: node.inputs?.ratio || source.ratio });
+        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio });
       } else {
-        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: source.url, ratio: node.inputs?.ratio || source.ratio });
+        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio });
         url = data.url || data.result_url || '';
       }
       if (!url) throw new Error('处理结果为空');
@@ -1179,6 +1190,47 @@ export default function EcCanvas() {
       setDirectionComposition(node.direction?.composition || '');
       setDirectionCopy(node.direction?.copy || '');
       setDirectionRatio(node.ratio || '3:4');
+      return;
+    }
+    if (handler === 'adjust-requirements') {
+      setPromptPanel(node);
+      setPromptText([
+        node.direction?.purpose,
+        node.direction?.composition,
+        node.direction?.copy,
+      ].filter(Boolean).join('\n') || '保留商品主体与品牌信息，调整画面表达：');
+      setPromptReferences([]);
+      return;
+    }
+    if (handler === 'regenerate') {
+      if (promptLoading) return;
+      setPromptLoading(true);
+      try {
+        const prompt = [node.direction?.purpose, node.direction?.composition, node.direction?.copy]
+          .filter(Boolean).join('\n') || '保持商品、品牌和文字准确，重新生成同一商业用途的电商图片。';
+        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio });
+        const output = normalizeCanvasNode({
+          ...node,
+          id: `node_regenerated_${Date.now()}`,
+          kind: 'image',
+          status: 'ready',
+          url,
+          x: node.x + node.w + GAP * 2,
+          y: node.y,
+          name: `${node.name || node.displayLabel || '电商图'}-重新生成`,
+          displayLabel: `${node.name || node.displayLabel || '电商图'}-重新生成`,
+          sourceNodeIds: [node.id],
+        });
+        setNodes(prev => [...prev, output]);
+        setConnections(prev => [...prev, createChildConnection(node.id, output.id, actionId)]);
+        setSelected(output.id);
+        setMultiSelected(new Set([output.id]));
+        showToast('新图片已生成并加入画布', 'success');
+      } catch (error) {
+        handleCanvasActionError(error, { type: actionId, nodeId: node.id });
+      } finally {
+        setPromptLoading(false);
+      }
       return;
     }
     if (handler === 'crop') {
@@ -1395,7 +1447,7 @@ export default function EcCanvas() {
       image.key || image.label || `image_${index + 1}`,
       image.url,
     ]));
-    dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝', _saveKey: work._saveKey } });
+    dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝', _saveKey: work._saveKey, canvasImportId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}` } });
     setTab('canvas');
   };
   const deleteWork = async (id) => {
@@ -1706,7 +1758,18 @@ export default function EcCanvas() {
               const workflowPortDown = (event, side) => handlePortPointerDown(event, node.id, side);
               const workflowPortUp = (event, side) => handlePortPointerUp(event, node.id, side);
               const workflowContext = event => setContextMenu({ x: event.clientX, y: event.clientY, node });
-              if (node.kind === 'image') {
+              if (node.kind === 'source_group') {
+                return <SourceGroupNode
+                  key={node.id}
+                  node={node}
+                  selected={selectedNodeState}
+                  onPointerDown={handleNodeDown}
+                  onPortPointerDown={handlePortPointerDown}
+                  onPortPointerUp={handlePortPointerUp}
+                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                />;
+              }
+              if (node.kind === 'image' || node.kind === 'output') {
                 return <ImageNode
                   key={node.id}
                   node={node}
@@ -1722,6 +1785,7 @@ export default function EcCanvas() {
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
               const referenceImages = (node.inputs?.referenceImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
+              const workflowAction = getCanvasAction(node.actionId);
               return <div key={node.id} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h }}>
                 <CanvasWorkflowNode
                   node={node}
@@ -1772,6 +1836,11 @@ export default function EcCanvas() {
                     sourceImage: sourcePreview?.url,
                     resultImage: node.output?.url ? proxyImg(node.output.url) : '',
                     error: node.error,
+                    prompt: node.inputs?.prompt || '',
+                    ratio: node.inputs?.ratio || '',
+                    requirements: workflowAction?.execute?.requires || {},
+                    onPromptChange: value => updateWorkflowInputs(node.id, { prompt: value }),
+                    onRatioChange: value => updateWorkflowInputs(node.id, { ratio: value }),
                     onRun: () => handleWorkflowProcess(node),
                   } : undefined}
                 />
@@ -1780,7 +1849,11 @@ export default function EcCanvas() {
             {selectedNode && actionsForSurface({ surface: 'selection', node: selectedNode }).length > 0 && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
             {connectionPicker && <CanvasNodeActionPicker
               actions={actionsForSurface({ surface: 'port', node: nodes.find(item => item.id === connectionPicker.sourceNodeId) })}
-              position={{ x: connectionPicker.world.x + 14, y: connectionPicker.world.y + 14 }}
+              position={clampCanvasPickerPosition({
+                world: { x: connectionPicker.world.x + 14, y: connectionPicker.world.y + 14 },
+                viewport,
+                bounds: containerRef.current?.getBoundingClientRect(),
+              })}
               onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
               onSelect={action => handleCreateDerivedNode(connectionPicker.sourceNodeId, action, connectionPicker.world)}
             />}

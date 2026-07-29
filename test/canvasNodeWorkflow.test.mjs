@@ -9,6 +9,8 @@ import {
   shouldShowQuickCanvasAction,
   canDeriveFromNode,
   getConnectionLabel,
+  validateWorkflowActionInputs,
+  clampCanvasPickerPosition,
 } from '../src/pages/EcCanvas/nodeWorkflow.js';
 import { CANVAS_ACTIONS } from '../src/pages/EcCanvas/canvasActionRegistry.js';
 
@@ -82,4 +84,26 @@ test('derived connections expose their semantic action label', () => {
   const edge = createChildConnection('source', 'child', 'smart-remix');
   assert.equal(getConnectionLabel(edge), '商品图改造');
   assert.equal(getConnectionLabel({ relation: 'reference' }), '引用素材');
+});
+
+test('outpaint cannot run until ratio and prompt are configured', () => {
+  assert.deepEqual(validateWorkflowActionInputs('outpaint', {}), {
+    ok: false,
+    missing: ['ratio', 'prompt'],
+  });
+  assert.deepEqual(validateWorkflowActionInputs('outpaint', { ratio: '3:4', prompt: '向上扩展留白' }), {
+    ok: true,
+    missing: [],
+  });
+});
+
+test('action picker stays within the visible Canvas world rectangle', () => {
+  assert.deepEqual(
+    clampCanvasPickerPosition({
+      world: { x: 1000, y: 800 },
+      viewport: { x: -200, y: -100, scale: 2 },
+      bounds: { width: 390, height: 844 },
+    }),
+    { x: 105, y: 55, width: 185, maxHeight: 412 },
+  );
 });

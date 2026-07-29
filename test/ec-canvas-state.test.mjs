@@ -127,3 +127,21 @@ test('Canvas uses product dialogs and omits internal direction copy', () => {
   assert.doesNotMatch(canvasSource, /方案名称由 AI/);
   assert.doesNotMatch(canvasSource, /window\.(?:alert|confirm|prompt)\s*\(/);
 });
+
+test('fresh Canvas renders source groups and completed outputs as visual assets', () => {
+  assert.match(canvasSource, /node\.kind === 'source_group'/);
+  assert.match(canvasSource, /node\.kind === 'image' \|\| node\.kind === 'output'/);
+  assert.match(canvasSource, /<SourceGroupNode/);
+  assert.match(canvasSource, /<ImageNode/);
+});
+
+test('primary hover actions have executable handlers', () => {
+  assert.match(canvasSource, /handler === 'adjust-requirements'/);
+  assert.match(canvasSource, /handler === 'regenerate'/);
+  assert.match(canvasSource, /regenerateCanvasImage/);
+});
+
+test('every Works import carries a fresh Canvas session token', () => {
+  assert.match(worksSource, /canvasImportId:/);
+  assert.match(canvasSource, /result\.canvasImportId/);
+});

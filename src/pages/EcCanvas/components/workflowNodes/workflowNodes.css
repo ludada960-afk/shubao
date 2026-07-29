@@ -81,13 +81,5 @@
   .canvas-toolbar-actions { margin-left: 0 !important; flex: 0 0 auto; }
   .canvas-filters { margin-right: 0 !important; }
   .canvas-empty-state { padding: 24px; text-align: center; }
-  .workflow-action-picker {
-    position: fixed !important;
-    left: 10px !important;
-    right: 10px !important;
-    top: auto !important;
-    bottom: max(10px, env(safe-area-inset-bottom)) !important;
-    width: auto !important;
-    max-height: min(70dvh, 620px);
-  }
+  .workflow-action-picker { max-width: calc(100vw - 20px); }
 }

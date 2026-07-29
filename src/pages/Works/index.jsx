@@ -51,6 +51,7 @@ export default function WorksPage() {
     const normalized = {
       ...w,
       images,
+      canvasImportId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,
       product_name: w.product_name || w.name || '历史作品',
       _ecResult: true,
       platform: w.platform || '淘宝',

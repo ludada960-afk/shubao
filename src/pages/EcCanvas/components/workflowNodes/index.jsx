@@ -92,7 +92,7 @@ export function CanvasNodeActionPicker({ actions = [], onSelect, onClose, positi
     }, {});
   }, [actions, query]);
   return (
-    <div className="workflow-action-picker" style={position ? { left: position.x, top: position.y } : undefined} role="dialog" aria-label="选择电商任务">
+    <div className="workflow-action-picker" style={position ? { left: position.x, top: position.y, width: position.width, maxHeight: position.maxHeight } : undefined} role="dialog" aria-label="选择电商任务">
       <div className="workflow-picker-header">
         <div><strong>从素材派生</strong><span>选择一个电商处理任务</span></div>
         <button type="button" className="workflow-node-icon-button" aria-label="关闭" onClick={onClose}><MdClose size={16} /></button>

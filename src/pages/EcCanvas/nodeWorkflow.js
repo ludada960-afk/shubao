@@ -40,6 +40,40 @@ export function shouldShowQuickCanvasAction(actionId) {
   return false;
 }
 
+export function validateWorkflowActionInputs(actionId, inputs = {}) {
+  const action = getCanvasAction(actionId);
+  const requirements = action?.execute?.requires || {};
+  const missing = Object.entries(requirements)
+    .filter(([, required]) => required)
+    .map(([key]) => key)
+    .filter(key => {
+      const value = inputs?.[key];
+      return typeof value === 'string' ? !value.trim() : value == null;
+    });
+  return { ok: missing.length === 0, missing };
+}
+
+export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = {}, preferredWidth = 360, preferredHeight = 460 } = {}) {
+  const scale = Number.isFinite(viewport.scale) && viewport.scale > 0 ? viewport.scale : 1;
+  const viewportX = Number.isFinite(viewport.x) ? viewport.x : 0;
+  const viewportY = Number.isFinite(viewport.y) ? viewport.y : 0;
+  const boundsWidth = Number.isFinite(bounds.width) && bounds.width > 0 ? bounds.width : preferredWidth * scale;
+  const boundsHeight = Number.isFinite(bounds.height) && bounds.height > 0 ? bounds.height : preferredHeight * scale;
+  const gutter = 10 / scale;
+  const width = Math.min(preferredWidth, Math.max(180, boundsWidth / scale - gutter * 2));
+  const height = Math.min(preferredHeight, Math.max(240, boundsHeight / scale - gutter * 2));
+  const minX = (0 - viewportX) / scale + gutter;
+  const minY = (0 - viewportY) / scale + gutter;
+  const maxX = Math.max(minX, (boundsWidth - viewportX) / scale - width - gutter);
+  const maxY = Math.max(minY, (boundsHeight - viewportY) / scale - height - gutter);
+  return {
+    x: Math.min(maxX, Math.max(minX, Number.isFinite(world.x) ? world.x : minX)),
+    y: Math.min(maxY, Math.max(minY, Number.isFinite(world.y) ? world.y : minY)),
+    width,
+    maxHeight: height,
+  };
+}
+
 export function getCanvasPortCenter(node = {}, port = 'output') {
   const normalized = normalizeCanvasNode(node);
   return {

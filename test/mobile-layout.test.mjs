@@ -48,3 +48,10 @@ test('global task dock uses a stable accessible button instead of an eight pixel
   assert.match(source, /onClick=\{\(\) => setOpen/);
   assert.doesNotMatch(source, /SIDEBAR_WIDTH_COLLAPSED\s*=\s*8/);
 });
+
+test('mobile Canvas action picker remains in transformed world coordinates', () => {
+  const workflowCss = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/workflowNodes.css', import.meta.url), 'utf8');
+  const mobileBlock = workflowCss.match(/@media \(max-width: 700px\) \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.doesNotMatch(mobileBlock, /\.workflow-action-picker\s*\{[\s\S]*?position:\s*fixed/);
+  assert.match(workflowCss, /\.workflow-picker-list\s*\{[^}]*overflow-y:\s*auto/);
+});
