@@ -4,6 +4,37 @@ import { buildProductTruthPrompt, mergeProductFacts, normalizeProductTruth } fro
 import { buildStyleReferencePrompt, normalizeStyleReferenceProfile } from './styleReferenceProfile.mjs';
 
 const MIN_CONFIDENCE = 0.5;
+const PRODUCT_STRING_FIELDS = Object.freeze([
+  ['category'],
+  ['productName', 'product_name'],
+  ['silhouette'],
+]);
+const PRODUCT_STRING_LIST_FIELDS = Object.freeze([
+  ['primaryColors', 'primary_colors'],
+  ['materials'],
+  ['components'],
+  ['forbiddenMutations', 'forbidden_mutations'],
+  ['sourceAssetIds', 'source_asset_ids'],
+]);
+const PRODUCT_RECORD_FIELDS = Object.freeze([
+  ['skuFacts', 'sku_facts'],
+  ['confirmedFacts', 'confirmed_facts'],
+  ['facts'],
+]);
+const STYLE_STRING_FIELDS = Object.freeze([
+  ['lighting'],
+  ['composition'],
+  ['cameraLanguage', 'camera_language'],
+  ['typographyIntent', 'typography_intent'],
+  ['informationDensity', 'information_density'],
+  ['backgroundLanguage', 'background_language'],
+  ['mood'],
+]);
+const STYLE_STRING_LIST_FIELDS = Object.freeze([
+  ['palette', 'colors', 'color_palette'],
+  ['prohibitedTransfers', 'prohibited_transfers'],
+  ['sourceAssetIds', 'source_asset_ids'],
+]);
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -22,10 +53,20 @@ function codedError(code, message, { status = 503, retryable = true, cause } = {
 }
 
 function normalizeAssets(value, label) {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    throw codedError('VISUAL_ANALYSIS_INVALID_INPUT', `${label} assets must be an array`, {
+      status: 400,
+      retryable: false,
+    });
+  }
   const seen = new Set();
   return value.flatMap((asset) => {
-    if (!isRecord(asset)) return [];
+    if (!isRecord(asset)) {
+      throw codedError('VISUAL_ANALYSIS_INVALID_INPUT', `${label} asset is invalid`, {
+        status: 400,
+        retryable: false,
+      });
+    }
     const assetId = cleanString(asset.assetId ?? asset.asset_id ?? asset.id);
     if (!assetId) {
       throw codedError('VISUAL_ANALYSIS_INVALID_INPUT', `${label} asset ID is required`, {
@@ -48,15 +89,135 @@ function cacheKey({ assetIds, model, promptVersion, type }) {
   })).digest('hex');
 }
 
-function confidenceOf(result) {
-  return typeof result?.confidence === 'number' && Number.isFinite(result.confidence)
-    ? Math.max(0, Math.min(1, result.confidence))
-    : null;
+function invalidResponse(type, detail) {
+  return codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', `${type} visual analysis ${detail}`, {
+    status: 502,
+    retryable: true,
+  });
+}
+
+function valuesForAliases(result, aliases) {
+  return aliases.flatMap(key => Object.hasOwn(result, key) ? [result[key]] : []);
+}
+
+function assertStringFields(result, fieldGroups, type) {
+  for (const aliases of fieldGroups) {
+    for (const value of valuesForAliases(result, aliases)) {
+      if (typeof value !== 'string') throw invalidResponse(type, `field ${aliases[0]} has an invalid type`);
+    }
+  }
+}
+
+function assertStringListFields(result, fieldGroups, type) {
+  for (const aliases of fieldGroups) {
+    for (const value of valuesForAliases(result, aliases)) {
+      if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
+        throw invalidResponse(type, `field ${aliases[0]} has an invalid type`);
+      }
+    }
+  }
+}
+
+function assertRecordFields(result, fieldGroups, type) {
+  for (const aliases of fieldGroups) {
+    for (const value of valuesForAliases(result, aliases)) {
+      if (!isRecord(value)) throw invalidResponse(type, `field ${aliases[0]} has an invalid type`);
+    }
+  }
+}
+
+function assertBoundedOptionalConfidence(record, type, label) {
+  if (!Object.hasOwn(record, 'confidence')) return;
+  const confidence = record.confidence;
+  if (typeof confidence !== 'number' || !Number.isFinite(confidence)
+    || confidence < 0 || confidence > 1) {
+    throw invalidResponse(type, `${label} confidence is invalid`);
+  }
+}
+
+function assertProductEntryFields(result, type) {
+  for (const value of valuesForAliases(result, ['packageText', 'package_text'])) {
+    if (!Array.isArray(value)) throw invalidResponse(type, 'field packageText has an invalid type');
+    for (const entry of value) {
+      if (!isRecord(entry) || !cleanString(entry.text ?? entry.value)) {
+        throw invalidResponse(type, 'field packageText contains an invalid entry');
+      }
+      if (Object.hasOwn(entry, 'sourceAssetId') && typeof entry.sourceAssetId !== 'string') {
+        throw invalidResponse(type, 'field packageText contains an invalid sourceAssetId');
+      }
+      if (Object.hasOwn(entry, 'source_asset_id') && typeof entry.source_asset_id !== 'string') {
+        throw invalidResponse(type, 'field packageText contains an invalid sourceAssetId');
+      }
+      assertBoundedOptionalConfidence(entry, type, 'packageText entry');
+    }
+  }
+  for (const value of valuesForAliases(result, ['logos'])) {
+    if (!Array.isArray(value)) throw invalidResponse(type, 'field logos has an invalid type');
+    for (const entry of value) {
+      if (!isRecord(entry) || !cleanString(entry.description ?? entry.text ?? entry.value)) {
+        throw invalidResponse(type, 'field logos contains an invalid entry');
+      }
+      if (Object.hasOwn(entry, 'sourceAssetId') && typeof entry.sourceAssetId !== 'string') {
+        throw invalidResponse(type, 'field logos contains an invalid sourceAssetId');
+      }
+      if (Object.hasOwn(entry, 'source_asset_id') && typeof entry.source_asset_id !== 'string') {
+        throw invalidResponse(type, 'field logos contains an invalid sourceAssetId');
+      }
+      assertBoundedOptionalConfidence(entry, type, 'logo entry');
+    }
+  }
+  for (const value of valuesForAliases(result, ['uncertainFacts', 'uncertain_facts'])) {
+    if (!Array.isArray(value) || value.some(entry => !isRecord(entry))) {
+      throw invalidResponse(type, 'field uncertainFacts has an invalid type');
+    }
+  }
+}
+
+function hasMeaningfulString(result, fieldGroups) {
+  return fieldGroups.some(aliases => valuesForAliases(result, aliases).some(value => cleanString(value)));
+}
+
+function hasMeaningfulStringList(result, fieldGroups) {
+  return fieldGroups.some(aliases => valuesForAliases(result, aliases)
+    .some(value => value.some(item => cleanString(item))));
+}
+
+function hasMeaningfulProductEntry(result, aliases) {
+  return valuesForAliases(result, aliases).some(value => value.length > 0);
+}
+
+function assertResultShape(result, type) {
+  if (!isRecord(result)) throw invalidResponse(type, 'returned invalid JSON');
+  if (type === 'product') {
+    assertStringFields(result, PRODUCT_STRING_FIELDS, type);
+    assertStringListFields(result, PRODUCT_STRING_LIST_FIELDS, type);
+    assertRecordFields(result, PRODUCT_RECORD_FIELDS, type);
+    assertProductEntryFields(result, type);
+    const hasProductData = hasMeaningfulString(result, PRODUCT_STRING_FIELDS)
+      || hasMeaningfulStringList(result, PRODUCT_STRING_LIST_FIELDS.slice(0, 3))
+      || hasMeaningfulProductEntry(result, ['packageText', 'package_text'])
+      || hasMeaningfulProductEntry(result, ['logos']);
+    if (!hasProductData) throw invalidResponse(type, 'did not include required product fields');
+    return;
+  }
+  if (type === 'style') {
+    assertStringFields(result, STYLE_STRING_FIELDS, type);
+    assertStringListFields(result, STYLE_STRING_LIST_FIELDS, type);
+    const hasStyleData = hasMeaningfulString(result, STYLE_STRING_FIELDS)
+      || hasMeaningfulStringList(result, [STYLE_STRING_LIST_FIELDS[0]]);
+    if (!hasStyleData) throw invalidResponse(type, 'did not include required style fields');
+    return;
+  }
+  throw invalidResponse(type, 'type is unsupported');
 }
 
 function assertConfidence(result, type) {
-  const confidence = confidenceOf(result);
-  if (confidence !== null && confidence < MIN_CONFIDENCE) {
+  const confidence = result.confidence;
+  if (typeof confidence !== 'number' || !Number.isFinite(confidence)
+    || confidence < 0 || confidence > 1) {
+    throw invalidResponse(type, 'confidence must be a finite number from 0 to 1');
+  }
+  if (confidence < MIN_CONFIDENCE) {
     throw codedError('VISUAL_ANALYSIS_LOW_CONFIDENCE', `${type} visual analysis confidence is too low`, {
       status: 422,
       retryable: false,
@@ -75,12 +236,7 @@ function imageDataUrl(image) {
 }
 
 function validateCachedResult(result, type) {
-  if (!isRecord(result)) {
-    throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', `${type} visual analysis returned invalid JSON`, {
-      status: 502,
-      retryable: true,
-    });
-  }
+  assertResultShape(result, type);
   assertConfidence(result, type);
   return result;
 }
@@ -124,15 +280,10 @@ export function createVisualAnalysisService({
         assets: resolvedAssets,
         images,
       });
-      if (!isRecord(raw)) {
-        throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', `${type} visual analysis returned invalid JSON`, {
-          status: 502,
-          retryable: true,
-        });
-      }
+      assertResultShape(raw, type);
       const confidence = assertConfidence(raw, type);
       const result = normalize({ ...raw, sourceAssetIds: assetIds });
-      if (confidence !== null) result.confidence = confidence;
+      result.confidence = confidence;
       store.put({ key, type, model: modelName, promptVersion: version, result });
       return { key, result };
     } catch (error) {

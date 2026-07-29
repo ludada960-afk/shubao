@@ -5,6 +5,8 @@ import { sanitizeSnapshot } from './jobStore.mjs';
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
+const LEGACY_ORCHESTRATION_SNAPSHOT_VERSION = 1;
+const CURRENT_ORCHESTRATION_SNAPSHOT_VERSION = 2;
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -238,19 +240,68 @@ function validateAssetPlan(assetPlan) {
   return assetPlan;
 }
 
-function orchestrationSnapshotFromProgress(progress) {
-  const snapshot = own(progress, 'orchestrationSnapshot');
+function invalidOrchestrationSnapshot() {
+  return Object.assign(
+    httpError('任务恢复数据无效', 500, 'ORCHESTRATION_SNAPSHOT_INVALID'),
+    { retryable: false },
+  );
+}
+
+function validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis }) {
   if (!isRecord(snapshot)
     || !isRecord(own(snapshot, 'productTruth'))
-    || !isRecord(own(snapshot, 'styleReferenceProfile'))
-    || !isRecord(own(snapshot, 'visualAnalysisCache'))
     || !isRecord(own(snapshot, 'campaignBible'))
     || !Array.isArray(own(snapshot, 'assetPlan'))
-    || !isRecord(own(snapshot, 'deterministicInputs'))) {
-    return null;
+    || !isRecord(own(snapshot, 'deterministicInputs'))
+    || (requireVisualAnalysis && !isRecord(own(snapshot, 'styleReferenceProfile')))
+    || (requireVisualAnalysis && !isRecord(own(snapshot, 'visualAnalysisCache')))) {
+    throw invalidOrchestrationSnapshot();
   }
-  validateAssetPlan(snapshot.assetPlan);
+  try {
+    validateAssetPlan(snapshot.assetPlan);
+  } catch (error) {
+    throw Object.assign(invalidOrchestrationSnapshot(), { cause: error });
+  }
   return snapshot;
+}
+
+function orchestrationSnapshotFromProgress(progress) {
+  const snapshot = own(progress, 'orchestrationSnapshot');
+  if (snapshot === undefined) return { migrated: false, snapshot: null };
+  if (!isRecord(snapshot)) throw invalidOrchestrationSnapshot();
+
+  const version = own(snapshot, 'schemaVersion');
+  if (version === undefined) {
+    const hasStyleProfile = Object.hasOwn(snapshot, 'styleReferenceProfile');
+    const hasVisualCache = Object.hasOwn(snapshot, 'visualAnalysisCache');
+    if (hasStyleProfile !== hasVisualCache) throw invalidOrchestrationSnapshot();
+    const migratedVersion = hasStyleProfile
+      ? CURRENT_ORCHESTRATION_SNAPSHOT_VERSION
+      : LEGACY_ORCHESTRATION_SNAPSHOT_VERSION;
+    validateOrchestrationSnapshot(snapshot, {
+      requireVisualAnalysis: migratedVersion === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
+    });
+    const migratedSnapshot = sanitizeSnapshot({ ...snapshot, schemaVersion: migratedVersion });
+    return {
+      migrated: true,
+      snapshot: validateOrchestrationSnapshot(migratedSnapshot, {
+        requireVisualAnalysis: migratedVersion === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
+      }),
+    };
+  }
+  if (version === LEGACY_ORCHESTRATION_SNAPSHOT_VERSION) {
+    return {
+      migrated: false,
+      snapshot: validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis: false }),
+    };
+  }
+  if (version === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION) {
+    return {
+      migrated: false,
+      snapshot: validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis: true }),
+    };
+  }
+  throw invalidOrchestrationSnapshot();
 }
 
 export function createEcommerceOrchestrator(deps = {}) {
@@ -854,7 +905,17 @@ export function createEcommerceOrchestrator(deps = {}) {
     let processingStarted = false;
 
     try {
-      let snapshot = orchestrationSnapshotFromProgress(job.progress);
+      const restoredSnapshot = orchestrationSnapshotFromProgress(job.progress);
+      let snapshot = restoredSnapshot.snapshot;
+      if (restoredSnapshot.migrated) {
+        job = jobs.checkpoint(id, {
+          progress: {
+            ...job.progress,
+            orchestrationSnapshot: snapshot,
+          },
+          leaseToken: parentLeaseToken,
+        });
+      }
       if (!snapshot) {
         const inputAssets = assetsFromPayload(job.payload);
         const payload = { ...job.payload, assets: inputAssets };
@@ -880,6 +941,7 @@ export function createEcommerceOrchestrator(deps = {}) {
           uploadedProofs: inputAssets.proof,
         }));
         snapshot = sanitizeSnapshot({
+          schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
           productTruth,
           styleReferenceProfile,
           visualAnalysisCache,
@@ -892,7 +954,7 @@ export function createEcommerceOrchestrator(deps = {}) {
             skus: own(payload, 'skus') || [],
           },
         });
-        validateAssetPlan(snapshot.assetPlan);
+        validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis: true });
         job = jobs.checkpoint(id, {
           progress: {
             ...job.progress,

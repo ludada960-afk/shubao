@@ -12,6 +12,18 @@ import { createVlmClient } from '../server/ecommerceEngine/vlmClient.mjs';
 
 const PRODUCT_ASSETS = [{ assetId: 'sha256-product-front', url: '/product-front.png' }];
 const STYLE_ASSETS = [{ assetId: 'sha256-style-front', url: '/style-front.png' }];
+const VALID_PRODUCT_RESULT = {
+  productName: 'Vision Bottle',
+  primaryColors: ['#ffffff'],
+  materials: ['glass'],
+  confidence: 0.94,
+};
+const VALID_STYLE_RESULT = {
+  palette: ['#fff4e8'],
+  lighting: 'soft side light',
+  composition: 'centered hero',
+  confidence: 0.89,
+};
 
 function createHarness({ db = new Database(':memory:'), promptVersion = 'visual-v1', callVision } = {}) {
   let visionCalls = 0;
@@ -30,21 +42,15 @@ function createHarness({ db = new Database(':memory:'), promptVersion = 'visual-
       if (callVision) return callVision(request);
       if (request.type === 'product') {
         return {
-          productName: 'Vision Bottle',
-          primaryColors: ['#ffffff'],
-          materials: ['glass'],
+          ...VALID_PRODUCT_RESULT,
           sourceAssetIds: ['model-must-not-control-provenance'],
-          confidence: 0.94,
         };
       }
       return {
-        palette: ['#fff4e8'],
-        lighting: 'soft side light',
-        composition: 'centered hero',
+        ...VALID_STYLE_RESULT,
         productName: 'Competitor Bottle',
         logos: ['Other Brand'],
         visibleText: ['500ml'],
-        confidence: 0.89,
       };
     },
   });
@@ -151,6 +157,104 @@ test('provider and low-confidence failures use structured fail-closed errors', a
   );
 });
 
+test('rejects missing, non-finite, non-numeric, and out-of-range confidence before caching', async t => {
+  const invalidConfidenceValues = [undefined, '0.9', Number.NaN, -0.01, 1.01];
+
+  for (const [index, confidence] of invalidConfidenceValues.entries()) {
+    const harness = createHarness({
+      callVision: () => ({
+        ...VALID_PRODUCT_RESULT,
+        ...(confidence === undefined ? { confidence: undefined } : { confidence }),
+      }),
+    });
+    t.after(() => harness.db.close());
+
+    await assert.rejects(
+      () => harness.service.analyze({ productAssets: PRODUCT_ASSETS, styleAssets: [], userFacts: {} }),
+      error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE' && error?.status === 502,
+      `invalid confidence case ${index}`,
+    );
+  }
+});
+
+test('rejects empty, wrong-analysis-type, and field-type-invalid VLM results', async t => {
+  const cases = [
+    {
+      label: 'empty product',
+      callVision: () => ({ confidence: 0.9 }),
+      styleAssets: [],
+    },
+    {
+      label: 'style-only product response',
+      callVision: () => ({ ...VALID_STYLE_RESULT }),
+      styleAssets: [],
+    },
+    {
+      label: 'type-invalid product field',
+      callVision: () => ({ ...VALID_PRODUCT_RESULT, productName: [] }),
+      styleAssets: [],
+    },
+    {
+      label: 'empty style',
+      callVision: ({ type }) => type === 'product' ? VALID_PRODUCT_RESULT : { confidence: 0.9 },
+      styleAssets: STYLE_ASSETS,
+    },
+    {
+      label: 'product-only style response',
+      callVision: ({ type }) => type === 'product' ? VALID_PRODUCT_RESULT : VALID_PRODUCT_RESULT,
+      styleAssets: STYLE_ASSETS,
+    },
+    {
+      label: 'type-invalid style field',
+      callVision: ({ type }) => type === 'product'
+        ? VALID_PRODUCT_RESULT
+        : { ...VALID_STYLE_RESULT, palette: '#ffffff' },
+      styleAssets: STYLE_ASSETS,
+    },
+  ];
+
+  for (const current of cases) {
+    const harness = createHarness({ callVision: current.callVision });
+    t.after(() => harness.db.close());
+    await assert.rejects(
+      () => harness.service.analyze({
+        productAssets: PRODUCT_ASSETS,
+        styleAssets: current.styleAssets,
+        userFacts: {},
+      }),
+      error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE' && error?.status === 502,
+      current.label,
+    );
+  }
+});
+
+test('rejects every explicitly supplied malformed product or style asset', async t => {
+  const cases = [
+    { label: 'non-array product', productAssets: 'product', styleAssets: [] },
+    { label: 'null product entry', productAssets: [null], styleAssets: [] },
+    { label: 'mixed malformed product entry', productAssets: [...PRODUCT_ASSETS, null], styleAssets: [] },
+    { label: 'product entry without ID', productAssets: [{ url: '/missing-id.png' }], styleAssets: [] },
+    { label: 'non-array style', productAssets: PRODUCT_ASSETS, styleAssets: 'style' },
+    { label: 'null style entry', productAssets: PRODUCT_ASSETS, styleAssets: [null] },
+    { label: 'mixed malformed style entry', productAssets: PRODUCT_ASSETS, styleAssets: [...STYLE_ASSETS, {}] },
+  ];
+
+  for (const current of cases) {
+    const harness = createHarness();
+    t.after(() => harness.db.close());
+    await assert.rejects(
+      () => harness.service.analyze({
+        productAssets: current.productAssets,
+        styleAssets: current.styleAssets,
+        userFacts: {},
+      }),
+      error => error?.code === 'VISUAL_ANALYSIS_INVALID_INPUT' && error?.status === 400,
+      current.label,
+    );
+    assert.equal(harness.visionCallCount(), 0, current.label);
+  }
+});
+
 test('VLM client is injectable, requires explicit configuration and sends original detail', async () => {
   assert.throws(
     () => createVlmClient({ apiKey: '', baseUrl: '' }),
@@ -200,4 +304,44 @@ test('VLM client rejects non-JSON model output instead of fabricating facts', as
     () => client.analyzeJson({ systemPrompt: 'JSON', userPrompt: 'Analyze', images: ['data:image/png;base64,AA=='] }),
     error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE' && error?.status === 502,
   );
+});
+
+test('VLM client aborts a bounded request and clears its timeout', async () => {
+  const timerToken = { id: 'visual-timeout' };
+  let scheduledMs = 0;
+  let clearedToken;
+  let observedSignal;
+  const client = createVlmClient({
+    apiKey: 'test-only-key',
+    baseUrl: 'https://vision.example',
+    timeoutMs: 25,
+    setTimeoutImpl(callback, milliseconds) {
+      scheduledMs = milliseconds;
+      queueMicrotask(callback);
+      return timerToken;
+    },
+    clearTimeoutImpl(token) {
+      clearedToken = token;
+    },
+    fetchImpl: async (_url, options) => {
+      observedSignal = options.signal;
+      if (!observedSignal) throw new Error('missing AbortSignal');
+      return new Promise((_resolve, reject) => {
+        observedSignal.addEventListener('abort', () => reject(observedSignal.reason), { once: true });
+      });
+    },
+  });
+
+  await assert.rejects(
+    () => client.analyzeJson({
+      systemPrompt: 'Return JSON only.',
+      userPrompt: 'Analyze style.',
+      images: ['data:image/png;base64,AA=='],
+    }),
+    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE' && error?.status === 503,
+  );
+
+  assert.equal(scheduledMs, 25);
+  assert.equal(observedSignal.aborted, true);
+  assert.equal(clearedToken, timerToken);
 });

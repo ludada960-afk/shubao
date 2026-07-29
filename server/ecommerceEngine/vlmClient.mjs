@@ -45,12 +45,19 @@ export function createVlmClient({
   apiKey,
   baseUrl,
   model = 'gpt-5.6-terra',
+  timeoutMs = 30_000,
+  setTimeoutImpl = setTimeout,
+  clearTimeoutImpl = clearTimeout,
 } = {}) {
   const key = cleanString(apiKey);
   const endpoint = cleanString(baseUrl).replace(/\/+$/, '');
   const modelName = cleanString(model);
   if (!key || !endpoint || !modelName || typeof fetchImpl !== 'function') {
     throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
+  }
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0
+    || typeof setTimeoutImpl !== 'function' || typeof clearTimeoutImpl !== 'function') {
+    throw new TypeError('VLM timeout configuration is invalid');
   }
 
   return {
@@ -65,51 +72,69 @@ export function createVlmClient({
         });
       }
 
-      let response;
+      const abortController = new AbortController();
+      let timedOut = false;
+      const timeout = setTimeoutImpl(() => {
+        timedOut = true;
+        abortController.abort(new Error('visual analysis request timed out'));
+      }, timeoutMs);
       try {
-        response = await fetchImpl(`${endpoint}/v1/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages: [
-              { role: 'system', content: system },
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: user },
-                  ...imageUrls.map(url => ({
-                    type: 'image_url',
-                    image_url: { url, detail: 'original' },
-                  })),
-                ],
-              },
-            ],
-            max_tokens: 2048,
-            temperature: 0.1,
-          }),
-        });
-      } catch (error) {
-        throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', { cause: error });
-      }
+        let response;
+        try {
+          response = await fetchImpl(`${endpoint}/v1/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${key}`,
+            },
+            body: JSON.stringify({
+              model: modelName,
+              messages: [
+                { role: 'system', content: system },
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: user },
+                    ...imageUrls.map(url => ({
+                      type: 'image_url',
+                      image_url: { url, detail: 'original' },
+                    })),
+                  ],
+                },
+              ],
+              max_tokens: 2048,
+              temperature: 0.1,
+            }),
+            signal: abortController.signal,
+          });
+        } catch (error) {
+          throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
+            cause: error,
+          });
+        }
 
-      if (!response?.ok) {
-        throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
+        if (!response?.ok) {
+          throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
+        }
+        let data;
+        try {
+          data = await response.json();
+        } catch (error) {
+          if (timedOut || abortController.signal.aborted) {
+            throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
+              cause: error,
+            });
+          }
+          throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了无效响应', {
+            status: 502,
+            retryable: true,
+            cause: error,
+          });
+        }
+        return parseJsonContent(data?.choices?.[0]?.message?.content);
+      } finally {
+        clearTimeoutImpl(timeout);
       }
-      let data;
-      try {
-        data = await response.json();
-      } catch (error) {
-        throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了无效响应', {
-          status: 502,
-          retryable: true,
-          cause: error,
-        });
-      }
-      return parseJsonContent(data?.choices?.[0]?.message?.content);
     },
   };
 }

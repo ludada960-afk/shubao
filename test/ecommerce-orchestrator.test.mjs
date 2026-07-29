@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import Database from 'better-sqlite3';
+
 import { createEcommerceOrchestrator } from '../server/ecommerceEngine/orchestrator.mjs';
+import { createVisualAnalysisService } from '../server/ecommerceEngine/visualAnalysisService.mjs';
+import { createVisualAnalysisStore } from '../server/ecommerceEngine/visualAnalysisStore.mjs';
 import { createGenerationJobs } from '../server/generationJobs.mjs';
 
 const OWNER = '867550189@qq.com';
@@ -306,6 +310,36 @@ test('visual failure stops before billing and never submits provider work', asyn
   assert.equal(calls.submit.length, 0);
   assert.equal(jobs.get(created.id).status, 'analyzing');
   assert.equal(jobs.get(created.id).progress.orchestrationSnapshot, undefined);
+});
+
+test('invalid visual result stops before billing and never submits provider work', async t => {
+  const analysisDb = new Database(':memory:');
+  t.after(() => analysisDb.close());
+  const service = createVisualAnalysisService({
+    store: createVisualAnalysisStore(analysisDb),
+    model: 'gpt-5.6-terra',
+    promptVersion: 'invalid-result-test',
+    readAsset: async () => ({ buffer: IMAGE_BUFFER, contentType: 'image/png' }),
+    callVision: async () => ({ productName: 'Untrusted Product', confidence: 'high' }),
+  });
+  const { orchestrator, calls } = await createHarness(t, {
+    orchestratorOptions: {
+      analyzeVisualInputs: payload => service.analyze({
+        productAssets: payload.assets.product,
+        styleAssets: payload.assets.reference,
+        userFacts: { productName: payload.product_name },
+      }),
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-invalid-visual-result'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE',
+  );
+
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
 });
 
 test('passes protected product text and logos into quality review before settlement', async t => {
@@ -927,6 +961,7 @@ test('persists a sanitized orchestration snapshot before hold and reuses its ori
   await assert.rejects(orchestrator.runJob(created.id), /temporary provider timeout/);
   const afterFirstRun = jobs.get(created.id);
   assert.deepEqual(afterFirstRun.progress.orchestrationSnapshot, {
+    schemaVersion: 2,
     productTruth: {
       productName: '测试商品',
       category: '数码3C',
@@ -988,6 +1023,104 @@ test('persists a sanitized orchestration snapshot before hold and reuses its ori
   assert.equal(calls.plan, 1);
   assert.equal(calls.hold.length, 1);
   assert.deepEqual(jobs.assets.listAssets(created.id).map(asset => asset.assetId), ['main-original']);
+});
+
+test('migrates an unversioned pre-Task-1 snapshot without repeating analysis, planning, or billing', async t => {
+  const originalPlan = planItem('main-legacy');
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    items: [planItem('main-new')],
+  });
+  const created = jobs.create(jobInput('job-legacy-snapshot'));
+  jobs.transition(created.id, 'analyzing');
+  jobs.transition(created.id, 'generating', {
+    progress: {
+      orchestrationSnapshot: {
+        productTruth: {
+          productName: '测试商品',
+          category: '数码3C',
+          fingerprint: 'legacy-truth',
+          confirmedFacts: {},
+          forbiddenMutations: [],
+        },
+        campaignBible: {
+          directionId: 'direction-one',
+          title: '专业棚拍',
+          editableBrief: 'legacy campaign',
+        },
+        assetPlan: [originalPlan],
+        deterministicInputs: {
+          assets: {
+            product: [{ assetId: 'product-front', url: '/api/ecommerce/assets/front' }],
+            reference: [],
+            proof: [],
+            protection: [],
+          },
+          platform: '淘宝',
+          sizing: {},
+          skus: [],
+        },
+        holdId: 'hold-job-legacy-snapshot',
+      },
+      holdId: 'hold-job-legacy-snapshot',
+    },
+  });
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.campaign, 0);
+  assert.equal(calls.plan, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.deepEqual(calls.compile, ['main-legacy']);
+  assert.equal(jobs.get(created.id).progress.orchestrationSnapshot.schemaVersion, 1);
+});
+
+test('fails closed for a current snapshot missing required visual analysis fields', async t => {
+  const { orchestrator, jobs, calls } = await createHarness(t);
+  const created = jobs.create(jobInput('job-invalid-current-snapshot'));
+  jobs.transition(created.id, 'analyzing');
+  jobs.transition(created.id, 'generating', {
+    progress: {
+      orchestrationSnapshot: {
+        schemaVersion: 2,
+        productTruth: {
+          productName: '测试商品',
+          category: '数码3C',
+          fingerprint: 'current-truth',
+        },
+        campaignBible: {
+          directionId: 'direction-one',
+          title: '专业棚拍',
+          editableBrief: 'current campaign',
+        },
+        assetPlan: [planItem('main-current')],
+        deterministicInputs: {
+          assets: {
+            product: [{ assetId: 'product-front', url: '/api/ecommerce/assets/front' }],
+            reference: [],
+            proof: [],
+            protection: [],
+          },
+          platform: '淘宝',
+          sizing: {},
+          skus: [],
+        },
+        holdId: 'hold-job-invalid-current-snapshot',
+      },
+      holdId: 'hold-job-invalid-current-snapshot',
+    },
+  });
+
+  const failed = await orchestrator.runJob(created.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.output.errors[0].code, 'ORCHESTRATION_SNAPSHOT_INVALID');
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.campaign, 0);
+  assert.equal(calls.plan, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
 });
 
 test('resumeJobs preserves and renews the fenced parent lease returned by claimNext', async t => {
