@@ -2123,6 +2123,86 @@ test('schema-3 migration preserves a proof-backed QC commercial duty', async t =
   assert.deepEqual(migrated.proofAssetIds, ['food-proof-report']);
 });
 
+test('schema-3 migration restores distinct structured SKU variants before any new provider submission', async t => {
+  const black = planItem('legacy-sku-black', 'sku');
+  black.requiredFacts = [
+    { name: 'color', value: 'black' },
+    { name: 'capacity', value: '256GB' },
+  ];
+  const white = planItem('legacy-sku-white', 'sku');
+  white.requiredFacts = [
+    { name: 'color', value: 'white' },
+    { name: 'capacity', value: '512GB' },
+  ];
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [black, white] });
+  const input = jobInput('job-schema-three-sku-migration');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-schema-three-sku-migration',
+      orchestrationSnapshot: orchestrationSnapshot(
+        [black, white],
+        'hold-schema-three-sku-migration',
+        3,
+      ),
+    },
+  });
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 2);
+  assert.deepEqual(completed.assetPlan.map(item => ({
+    id: item.id,
+    commercialDutyId: item.commercialDutyId,
+    variantIdentity: item.variantIdentity,
+  })), [
+    {
+      id: 'legacy-sku-black',
+      commercialDutyId: 'sku:variant',
+      variantIdentity: { facts: [{ name: 'capacity', value: '256GB' }, { name: 'color', value: 'black' }] },
+    },
+    {
+      id: 'legacy-sku-white',
+      commercialDutyId: 'sku:variant',
+      variantIdentity: { facts: [{ name: 'capacity', value: '512GB' }, { name: 'color', value: 'white' }] },
+    },
+  ]);
+});
+
+test('schema-3 migration rejects missing or duplicate SKU facts before provider work', async t => {
+  const missing = planItem('legacy-sku-missing', 'sku');
+  missing.requiredFacts = [];
+  const duplicate = planItem('legacy-sku-duplicate', 'sku');
+  duplicate.requiredFacts = [
+    { name: 'color', value: 'black' },
+    { name: 'color', value: 'white' },
+  ];
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [missing, duplicate] });
+  const input = jobInput('job-schema-three-invalid-sku-migration');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-schema-three-invalid-sku-migration',
+      orchestrationSnapshot: orchestrationSnapshot(
+        [missing, duplicate],
+        'hold-schema-three-invalid-sku-migration',
+        3,
+      ),
+    },
+  });
+
+  const failed = await orchestrator.runJob(input.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+  assert.equal(jobs.assets.listAssets(input.id).length, 0);
+});
+
 test('schema-3 migration does not trust a child-declared missing proof asset', async t => {
   const qc = planItem('food-untrusted-qc', 'detail_slice_qc');
   qc.generationMode = 'deterministic_overlay';
@@ -2331,6 +2411,11 @@ test('schema-3 mixed detail and QC resume uses the migrated parent plan without 
     type: 'image_edit',
     focusIssueCodes: ['legacy_artifact'],
   });
+  assert.deepEqual(
+    jobs.assets.getAsset(input.id, qc.id).requestSnapshot.assetPlanItem,
+    qc,
+    'a submitted historical child keeps the exact plan snapshot sent to its provider job',
+  );
   assert.equal(completed.progress.executionCount.providerSubmissions, 5);
   assert.equal(completed.progress.executionCount.providerRepairs, 1);
 });

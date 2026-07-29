@@ -547,6 +547,32 @@ function trustedProofAssetIds(deterministicInputs = {}) {
     .filter(Boolean));
 }
 
+const LEGACY_SKU_FACT_NAMES = new Set(['color', 'size', 'capacity', 'dimlabel', 'count']);
+
+function legacySkuVariantIdentity(item) {
+  const seen = new Set();
+  const facts = [];
+  for (const fact of Array.isArray(own(item, 'requiredFacts')) ? own(item, 'requiredFacts') : []) {
+    const name = cleanString(own(fact, 'name'));
+    const value = cleanString(own(fact, 'value'));
+    const normalizedName = name.toLowerCase();
+    if (!LEGACY_SKU_FACT_NAMES.has(normalizedName) || !value || seen.has(normalizedName)) {
+      throw new TypeError('legacy SKU variant facts are missing or duplicated');
+    }
+    seen.add(normalizedName);
+    facts.push({ name, value });
+  }
+  if (!facts.length) throw new TypeError('legacy SKU variant facts are required');
+  return {
+    facts: facts.sort((left, right) => `${left.name}\u0000${left.value}`.localeCompare(`${right.name}\u0000${right.value}`)),
+  };
+}
+
+function legacySkuGoal(variantIdentity) {
+  const facts = variantIdentity.facts.map(fact => `${fact.name}: ${fact.value}`).join(', ');
+  return `Help the buyer choose the confirmed SKU variant: ${facts}.`;
+}
+
 function detailMigrationDuty(item, sourceRole, productTruth, usedSemanticFamilies, trustedProofIds) {
   const strategy = getAssetPlanStrategy(cleanString(own(productTruth, 'category')));
   const proofRole = cleanString(strategy?.proofRole);
@@ -600,6 +626,7 @@ function upgradePlanItems(assetPlan, productTruth = {}, deterministicInputs = {}
     const detailDuty = sourceRole.startsWith('detail_slice_')
       ? detailMigrationDuty(item, sourceRole, productTruth, usedDetailFamilies, trustedProofAssetIds(deterministicInputs))
       : null;
+    const variantIdentity = sourceRole === 'sku' ? legacySkuVariantIdentity(item) : null;
     if (detailDuty && !detailDuty.proofDuty) {
       ordinaryDetailCount += 1;
       if (ordinaryDetailCount > MAX_DETAIL_DUTY_COUNT) {
@@ -608,16 +635,20 @@ function upgradePlanItems(assetPlan, productTruth = {}, deterministicInputs = {}
     }
     const catalogDuty = detailDuty || roleCatalogDuty(sourceRole, occurrence);
     const role = catalogDuty?.role || sourceRole;
-    const communicationGoal = catalogDuty?.goal
+    const communicationGoal = variantIdentity
+      ? legacySkuGoal(variantIdentity)
+      : catalogDuty?.goal
       || cleanString(own(item, 'communicationGoal'))
       || cleanString(own(item, 'purpose'))
       || `Commercial duty for ${role}`;
-    const purpose = catalogDuty?.purpose
+    const purpose = variantIdentity
+      ? `SKU variant decision asset for ${variantIdentity.facts.map(fact => `${fact.name}: ${fact.value}`).join(', ')}, using only the user-provided values.`
+      : catalogDuty?.purpose
       || cleanString(own(item, 'purpose'))
       || communicationGoal;
     const commercialDutyId = commercialDutyIdFor(
       role,
-      catalogDuty?.key || 'legacybuyeranswer',
+      variantIdentity ? 'variant' : catalogDuty?.key || 'legacybuyeranswer',
     );
     const shotIntent = isRecord(own(item, 'shotIntent')) ? own(item, 'shotIntent') : {};
     const type = cleanString(own(shotIntent, 'type'));
@@ -630,6 +661,7 @@ function upgradePlanItems(assetPlan, productTruth = {}, deterministicInputs = {}
       purpose,
       commercialDutyId,
       communicationGoal,
+      ...(variantIdentity ? { variantIdentity } : {}),
       ...(detailDuty ? {
         requiredFacts: detailDuty.requiredFacts,
         generationMode: detailDuty.generationMode,
@@ -1002,17 +1034,19 @@ export function createEcommerceOrchestrator(deps = {}) {
     };
 
     try {
-      try {
-        current = store.checkpointAsset(job.id, item.id, {
-          requestSnapshot: {
-            ...current.requestSnapshot,
-            assetPlanItem: item,
-          },
-          leaseToken,
-        });
-      } catch (error) {
-        if (error && typeof error === 'object') error.retryable = true;
-        throw error;
+      if (current.state === 'queued') {
+        try {
+          current = store.checkpointAsset(job.id, item.id, {
+            requestSnapshot: {
+              ...current.requestSnapshot,
+              assetPlanItem: item,
+            },
+            leaseToken,
+          });
+        } catch (error) {
+          if (error && typeof error === 'object') error.retryable = true;
+          throw error;
+        }
       }
       while (!ASSET_FINAL_STATES.has(current.state)) {
         if (leaseHeartbeatError) throw leaseHeartbeatError;
