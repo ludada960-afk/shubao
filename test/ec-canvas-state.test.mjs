@@ -13,6 +13,10 @@ import {
   selectNodesInRect,
   zoomAroundCursor,
 } from '../src/pages/EcCanvas/canvasState.js';
+import { readFileSync } from 'node:fs';
+
+const canvasSource = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+const worksSource = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
 
 
 test('plain left drag pans the canvas while Shift drag starts marquee selection', () => {
@@ -102,4 +106,24 @@ test('connections are deduplicated and removed with deleted nodes', () => {
   const edge = addConnection([], 'a', 'b', 'reference');
   assert.deepEqual(addConnection(edge, 'a', 'b', 'reference'), edge);
   assert.deepEqual(removeConnectionsForNodes(edge, new Set(['a'])), []);
+});
+
+test('Canvas imports a fresh session instead of automatically restoring local node state', () => {
+  assert.match(canvasSource, /createFreshCanvasSession/);
+  assert.doesNotMatch(canvasSource, /shubao_ec_canvas_state/);
+  assert.doesNotMatch(canvasSource, /localStorage\.setItem\([^\n]*canvas_state/);
+  assert.doesNotMatch(canvasSource, /ECOMMERCE_ACTIONS/);
+  assert.doesNotMatch(canvasSource, /CANVAS_NODE_ACTIONS/);
+  assert.match(canvasSource, /actionsForSurface/);
+});
+
+test('fresh Canvas generation returns to ecommerce home and imports Works as a new session', () => {
+  assert.match(canvasSource, /dispatch\(\{ type: 'SET_MODE', mode: 'ecommerce' \}\);\s*dispatch\(\{ type: 'NAVIGATE', page: 'home' \}\);/);
+  assert.match(canvasSource, /createFreshCanvasSession\(\{\s*work: result,/);
+  assert.match(worksSource, /dispatch\(\{ type: 'SET_RESULT', result: normalized \}\);/);
+});
+
+test('Canvas uses product dialogs and omits internal direction copy', () => {
+  assert.doesNotMatch(canvasSource, /方案名称由 AI/);
+  assert.doesNotMatch(canvasSource, /window\.(?:alert|confirm|prompt)\s*\(/);
 });

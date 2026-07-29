@@ -1,4 +1,4 @@
-import { formatCanvasActionPrice, getCanvasActionBilling } from './canvasBillingModel.js';
+import { getCanvasAction, canCreateWorkflowFromNode } from './canvasActionRegistry.js';
 
 const ACTION_SIZES = {
   'smart-remix': { w: 380, h: 560 },
@@ -10,33 +10,6 @@ const ACTION_SIZES = {
   upscale: { w: 320, h: 220 },
 };
 
-const NODE_ACTIONS = [
-  { id: 'smart-remix', label: '智能二创', description: '解析原图描述，补充图片与文字后继续创作', nodeKind: 'smart-remix', group: '创作与修改' },
-  { id: 'layer-edit', label: '图层编辑', description: '拆分商品、人物、背景和文字并逐层调整', nodeKind: 'layer-workbench', group: '创作与修改' },
-  { id: 'inpaint', label: '局部改图', description: '框选区域，只修改需要调整的部分', nodeKind: 'inpaint', group: '创作与修改' },
-  { id: 'remove-bg', label: '商品抠图', description: '提取透明背景的商品素材', nodeKind: 'remove-bg', group: '电商处理' },
-  { id: 'extend', label: '智能扩图', description: '扩展画面并适配新的投放比例', nodeKind: 'extend', group: '电商处理' },
-  { id: 'translate', label: '图文翻译', description: '替换画面语言并尽量保持排版', nodeKind: 'translate', group: '电商处理' },
-  { id: 'upscale', label: '高清修复', description: '提升清晰度、纹理和商品细节', nodeKind: 'upscale', group: '电商处理' },
-];
-
-export const CANVAS_NODE_ACTIONS = NODE_ACTIONS.map(action => ({
-  ...action,
-  billing: getCanvasActionBilling(action.id),
-  priceLabel: formatCanvasActionPrice(action.id),
-}));
-
-const ACTION_BY_ID = new Map(CANVAS_NODE_ACTIONS.map(action => [action.id, action]));
-const DIRECT_ACTIONS_REPLACED_BY_NODES = new Set([
-  'remove-bg',
-  'reverse-prompt',
-  'retouch',
-  'extend',
-  'translate',
-  'upscale',
-  'layers',
-]);
-
 function makeId(prefix) {
   const uuid = globalThis.crypto?.randomUUID?.();
   if (uuid) return `${prefix}_${uuid}`;
@@ -44,16 +17,15 @@ function makeId(prefix) {
 }
 
 export function getActionById(actionId) {
-  return ACTION_BY_ID.get(actionId) || null;
+  return getCanvasAction(actionId);
 }
 
 export function isDerivedAction(actionId) {
-  return ACTION_BY_ID.has(actionId);
+  return Boolean(getCanvasAction(actionId)?.execute?.nodeKind);
 }
 
 export function canDeriveFromNode(input = {}) {
-  const node = normalizeCanvasNode(input);
-  return node.kind === 'image' && ['ready', 'success'].includes(node.status);
+  return canCreateWorkflowFromNode(normalizeCanvasNode(input));
 }
 
 export function getConnectionLabel(input = {}) {
@@ -65,7 +37,15 @@ export function getConnectionLabel(input = {}) {
 }
 
 export function shouldShowQuickCanvasAction(actionId) {
-  return actionId !== 'download' && !DIRECT_ACTIONS_REPLACED_BY_NODES.has(actionId);
+  return false;
+}
+
+export function getCanvasPortCenter(node = {}, port = 'output') {
+  const normalized = normalizeCanvasNode(node);
+  return {
+    x: normalized.x + (port === 'input' ? 0 : normalized.w),
+    y: normalized.y + normalized.h / 2,
+  };
 }
 
 export function normalizeCanvasNode(input = {}) {
@@ -112,12 +92,12 @@ export function normalizeCanvasConnection(input = {}) {
 export function createDerivedNode({ sourceNodeIds = [], actionId, x = 0, y = 0, inputs = {}, id } = {}) {
   const action = getActionById(actionId);
   if (!action) throw new Error(`Unknown canvas action: ${actionId}`);
-  const size = ACTION_SIZES[action.nodeKind] || ACTION_SIZES['remove-bg'];
+  const size = ACTION_SIZES[action.execute.nodeKind] || ACTION_SIZES['remove-bg'];
   return normalizeCanvasNode({
     id: id || makeId('node'),
-    kind: action.nodeKind,
+    kind: action.execute.nodeKind,
     status: 'draft',
-    actionId: action.id,
+    actionId: action.execute?.nodeActionId || action.id,
     sourceNodeIds: [...sourceNodeIds],
     inputs: { ...inputs },
     output: null,

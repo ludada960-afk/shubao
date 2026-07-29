@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { saveWork, loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages } from '../../services/api';
+import { loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -19,20 +19,21 @@ import {
   zoomAroundCursor,
 } from './canvasState';
 import {
-  CANVAS_NODE_ACTIONS,
   createChildConnection,
   createDerivedNode,
   canDeriveFromNode,
+  getCanvasPortCenter,
   getConnectionLabel,
   normalizeCanvasConnection,
   normalizeCanvasNode,
-  shouldShowQuickCanvasAction,
 } from './nodeWorkflow';
-import { CanvasNodeActionPicker, CanvasWorkflowNode } from './components/workflowNodes';
+import { CanvasNodeActionPicker, CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
 import { normalizeWorkImages } from '../../utils/workImages.js';
-import { formatCanvasActionPrice } from './canvasBillingModel.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
+import ContextMenu from './ContextMenu.jsx';
+import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
+import { createFreshCanvasSession } from './canvasSessionModel.js';
 
 function parseImages(images, platform) {
   const entries = normalizeWorkImages(images).map(image => ({ ...image, sourceKey: image.key || image.label || '' }));
@@ -43,6 +44,15 @@ function parseImages(images, platform) {
     const info = getAssetMeta(asset.sourceKey);
     return { ...asset, title: info.name, platform };
   });
+}
+
+function productAssetsForCanvas(result = {}) {
+  const sources = result.productAssets || result.product_assets || result.productImages || result.source_images || result.sourceImages || [];
+  return normalizeWorkImages(sources).map((asset, index) => ({
+    ...asset,
+    assetId: asset.assetId || asset.id || asset.key || `product-${index + 1}`,
+    name: asset.name || asset.label || `产品素材 ${index + 1}`,
+  }));
 }
 
 const NODE_W = 200;
@@ -60,22 +70,24 @@ function normalizeLayerItems(layers, nodeId) {
   }));
 }
 
-const ECOMMERCE_ACTIONS = [
-  { id: 'rename', label: '改图名', hint: '按投放位置给图片命名', icon: MdEdit },
-  { id: 'classify', label: '改用途', hint: '归入主图、详情图、SKU或素材', icon: MdCategory },
-  { id: 'crop', label: '裁切画幅', hint: '按平台比例重新构图', icon: MdCrop },
-  { id: 'grid-split', label: '宫格切图', hint: '拆成多张可单独使用的切片', icon: MdGridOn },
-  { id: 'annotation', label: '卖点标注', hint: '添加卖点、尺寸或规格说明', icon: MdTextFields },
-  { id: 'remove-bg', label: '商品抠图', hint: '去背景得到透明商品素材', icon: MdAutoFixHigh },
-  { id: 'reverse-prompt', label: '反推画面描述', hint: '生成可二次修改的画面说明', icon: MdImageSearch },
-  { id: 'retouch', label: '局部重绘', hint: '保留商品主体，修改局部内容', icon: MdTune },
-  { id: 'extend', label: '智能扩图', hint: '扩展画面并适配新画幅', icon: MdAspectRatio },
-  { id: 'translate', label: '图文翻译', hint: '翻译画面文案并保留版式', icon: MdTranslate },
-  { id: 'upscale', label: '高清放大', hint: '生成更高清的电商交付图', icon: MdHighQuality },
-  { id: 'layers', label: '图文分层', hint: '拆分商品、背景与文案结构', icon: MdLayers },
-  { id: 'reference', label: '引用生成', hint: '把当前图作为参考继续生成', icon: MdAddPhotoAlternate },
-  { id: 'download', label: '下载单图', hint: '下载当前图片', icon: MdDownload },
-];
+const ACTION_ICONS = {
+  'adjust-requirements': MdEdit,
+  regenerate: MdAutoFixHigh,
+  download: MdDownload,
+  'image-info': MdCategory,
+  'add-reference': MdAddPhotoAlternate,
+  delete: MdDelete,
+  'product-remix': MdImageSearch,
+  outpaint: MdAspectRatio,
+  inpaint: MdTune,
+  'remove-background': MdAutoFixHigh,
+  'layer-edit': MdLayers,
+  translate: MdTranslate,
+  upscale: MdHighQuality,
+  crop: MdCrop,
+  'grid-split': MdGridOn,
+  annotation: MdTextFields,
+};
 
 const PLATFORM_PRESETS = {
   淘宝: ['1:1 主图', '3:4 主图', '详情长图'],
@@ -142,16 +154,19 @@ function SkeletonCard({ w, h }) {
 }
 
 /* A8: 图片加载骨架屏 + 错误重试 + C3: proxyImg 代理显示 */
-function ImageNode({ node, selected, multiSelected, onPointerDown, onContextMenu, onToggleSelect, onPortPointerDown, onPortPointerUp }) {
+function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction, onPointerDown, onContextMenu, onToggleSelect, onPortPointerDown, onPortPointerUp }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [hovered, setHovered] = useState(false);
   const displayUrl = proxyImg(node.url);
 
   return (
     <div
       onPointerDown={e => onPointerDown(e, node.id)}
       onContextMenu={e => { e.preventDefault(); onContextMenu?.(e, node); }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         position: 'absolute', left: node.x, top: node.y, width: node.w,
         cursor: 'grab', userSelect: 'none', borderRadius: 12,
@@ -167,6 +182,12 @@ function ImageNode({ node, selected, multiSelected, onPointerDown, onContextMenu
       >
         {selected ? <MdCheckBox size={17} /> : <MdCheckBoxOutlineBlank size={17} />}
       </button>
+      {hovered && hoverActions.length > 0 && <div style={{ position: 'absolute', zIndex: 4, top: 8, right: 8, display: 'flex', gap: 5 }}>
+        {hoverActions.map(action => {
+          const Icon = ACTION_ICONS[action.id] || MdAutoFixHigh;
+          return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 7, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
+        })}
+      </div>}
       {selected && <div style={{ position: 'absolute', zIndex: 2, left: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />}
       {selected && <div style={{ position: 'absolute', zIndex: 2, right: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'out'); }} />}
       <div style={{ position: 'relative', width: '100%', borderRadius: '12px 12px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
@@ -205,53 +226,16 @@ function ImageNode({ node, selected, multiSelected, onPointerDown, onContextMenu
   );
 }
 
-/* A6: 右键上下文菜单 */
-function ContextMenu({ x, y, node, onClose, onAction }) {
-  const menuRef = useRef(null);
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
-    };
-    document.addEventListener('pointerdown', handleClick);
-    return () => document.removeEventListener('pointerdown', handleClick);
-  }, [onClose]);
-
-  const items = [
-    ...CANVAS_NODE_ACTIONS.map(action => ({
-      icon: <MdAutoFixHigh size={14} />,
-      label: action.label,
-      hint: action.description,
-      priceLabel: action.priceLabel,
-      action: `create:${action.id}`,
-    })),
-    ...ECOMMERCE_ACTIONS.filter(action => shouldShowQuickCanvasAction(action.id)).map(action => {
-      const Icon = action.icon;
-      return { icon: <Icon size={14} />, label: action.label, action: action.id, priceLabel: formatCanvasActionPrice(action.id) };
-    }),
-    { icon: <MdDownload size={14} />, label: '下载单图', action: 'download' },
-    { icon: <MdMergeType size={14} />, label: '再次编辑方案', action: 'edit-direction' },
-    { icon: <MdLink size={14} />, label: '复制图片链接', action: 'copy-url' },
-    { icon: <MdDelete size={14} />, label: '删除节点', action: 'delete', danger: true },
-  ];
-
-  return (
-      <div ref={menuRef} style={{ position: 'fixed', left: x, top: y, zIndex: 10002, background: '#fff', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.16)', border: '1px solid rgba(0,0,0,0.06)', padding: 4, minWidth: 210, maxHeight: 'min(620px, calc(100vh - 24px))', overflowY: 'auto' }}>
-      <div style={{ padding: '6px 10px', fontSize: 10, color: '#999', borderBottom: '1px solid rgba(0,0,0,0.06)', marginBottom: 4 }}>{node?.name || node?.displayLabel || '节点'}</div>
-      {items.map(item => (
-        <div
-          key={item.action}
-          onClick={() => { onAction(item.action, node); onClose(); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 500, color: item.danger ? '#ef4444' : '#333', transition: 'background 0.1s', ':hover': { background: 'rgba(0,0,0,0.04)' } }}
-          onMouseEnter={e => e.currentTarget.style.background = item.danger ? 'rgba(239,68,68,0.06)' : 'rgba(124,58,237,0.06)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-        >
-          {item.icon} <span style={{ flex: 1 }}>{item.label}</span>
-          {item.priceLabel && <span style={{ color: '#111827', fontSize: 9, fontWeight: 800, whiteSpace: 'nowrap' }}>{item.priceLabel}</span>}
-          {item.hint && <span title={item.hint} style={{ color: '#a0a8b6', fontSize: 9 }}>i</span>}
-        </div>
-      ))}
+function SourceGroupNode({ node, selected, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
+  return <section onPointerDown={event => onPointerDown(event, node.id)} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 15, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none' }}>
+    <CanvasPortHandle side="right" role="output" visible={selected} disabled={!canDeriveFromNode(node)} label="从产品素材派生工作流" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} onPointerUp={event => onPortPointerUp?.(event, node.id, 'out')} />
+    <div style={{ fontSize: 10, fontWeight: 800, color: '#6558e8', letterSpacing: '.05em' }}>产品素材组</div>
+    <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || '产品母图'}</div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7, marginTop: 11 }}>
+      {(node.assets || []).slice(0, 4).map((asset, index) => <img key={asset.assetId || asset.id || index} src={proxyImg(asset.url)} alt={asset.name || '产品素材'} draggable={false} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, background: '#e8eaf2' }} />)}
+      {!node.assets?.length && <div style={{ gridColumn: '1 / -1', padding: '15px 8px', borderRadius: 8, color: '#8a93a4', background: '#f0f2f8', fontSize: 11, textAlign: 'center' }}>未找到产品原图</div>}
     </div>
-  );
+  </section>;
 }
 
 /* A6: 连线 SVG 层 */
@@ -270,10 +254,12 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
         const from = nodeMap.get(conn.fromNodeId || conn.from);
         const to = nodeMap.get(conn.toNodeId || conn.to);
         if (!from || !to) return null;
-        const x1 = (from.x + from.w) * viewport.scale + viewport.x;
-        const y1 = (from.y + from.h / 2) * viewport.scale + viewport.y;
-        const x2 = to.x * viewport.scale + viewport.x;
-        const y2 = (to.y + to.h / 2) * viewport.scale + viewport.y;
+        const fromPort = getCanvasPortCenter(from, conn.fromPort || 'output');
+        const toPort = getCanvasPortCenter(to, conn.toPort || 'input');
+        const x1 = fromPort.x * viewport.scale + viewport.x;
+        const y1 = fromPort.y * viewport.scale + viewport.y;
+        const x2 = toPort.x * viewport.scale + viewport.x;
+        const y2 = toPort.y * viewport.scale + viewport.y;
         const mx = (x1 + x2) / 2;
         const style = styles[conn.relation || conn.type] || styles.reference;
         const label = getConnectionLabel(conn) || style.label;
@@ -293,8 +279,9 @@ function ConnectionDraftLine({ draft, nodes, viewport }) {
   if (!draft?.sourceNodeId || !draft.pointer) return null;
   const source = nodes.find(node => node.id === draft.sourceNodeId);
   if (!source) return null;
-  const x1 = (source.x + source.w) * viewport.scale + viewport.x;
-  const y1 = (source.y + source.h / 2) * viewport.scale + viewport.y;
+  const sourcePort = getCanvasPortCenter(source, 'output');
+  const x1 = sourcePort.x * viewport.scale + viewport.x;
+  const y1 = sourcePort.y * viewport.scale + viewport.y;
   const x2 = draft.pointer.x * viewport.scale + viewport.x;
   const y2 = draft.pointer.y * viewport.scale + viewport.y;
   const mx = (x1 + x2) / 2;
@@ -306,13 +293,13 @@ function ConnectionDraftLine({ draft, nodes, viewport }) {
   );
 }
 
-function SelectionActionBar({ node, onAction, onClose }) {
+function SelectionActionBar({ node, actions, onAction, onClose }) {
   if (!node) return null;
   return (
     <div style={{ position: 'absolute', zIndex: 70, left: node.x, top: Math.max(0, node.y - 52), display: 'flex', alignItems: 'center', gap: 3, padding: 5, borderRadius: 11, background: '#fff', border: '1px solid rgba(15,23,42,.08)', boxShadow: '0 10px 30px rgba(15,23,42,.16)', whiteSpace: 'nowrap' }}>
-      {ECOMMERCE_ACTIONS.filter(action => action.id !== 'reverse-prompt').slice(0, 8).map(action => {
-        const Icon = action.icon;
-        return <button key={action.id} type="button" title={action.hint} onClick={() => onAction(action.id, node)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 0, borderRadius: 7, padding: '7px 8px', background: 'transparent', color: '#374151', fontSize: 10, fontWeight: 700, cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.08)'; e.currentTarget.style.color = '#7c3aed'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; }}><Icon size={14} />{action.label}</button>;
+      {actions.map(action => {
+        const Icon = ACTION_ICONS[action.id] || MdAutoFixHigh;
+        return <button key={action.id} type="button" title={action.description || action.label} aria-label={action.label} onClick={() => onAction(action.id, node)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 0, borderRadius: 7, padding: '7px 8px', background: 'transparent', color: '#374151', fontSize: 10, fontWeight: 700, cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.08)'; e.currentTarget.style.color = '#7c3aed'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; }}><Icon size={14} />{action.label}</button>;
       })}
       <button type="button" title="关闭工具条" onClick={onClose} style={{ border: 0, background: 'rgba(0,0,0,.05)', borderRadius: 7, width: 25, height: 25, cursor: 'pointer', color: '#999' }}>×</button>
     </div>
@@ -391,6 +378,11 @@ export default function EcCanvas() {
   const [promptReferences, setPromptReferences] = useState([]);
   const [promptLoading, setPromptLoading] = useState(false);
   const [composerAction, setComposerAction] = useState('');
+  const [imageInfoNode, setImageInfoNode] = useState(null);
+  const [imageInfoName, setImageInfoName] = useState('');
+  const [imageInfoGroup, setImageInfoGroup] = useState('其他');
+  const [imageInfoUsage, setImageInfoUsage] = useState('');
+  const [outpaintDraft, setOutpaintDraft] = useState(null);
   const containerRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
@@ -407,15 +399,19 @@ export default function EcCanvas() {
   }, []);
 
   useEffect(() => {
-    if (!hasCurrent) return;
-    let restored = result.canvas_state || null;
-    try {
-      const saved = JSON.parse(localStorage.getItem('shubao_ec_canvas_state') || 'null');
-      if (!restored && saved?.productName === result.product_name && Array.isArray(saved.nodes) && saved.nodes.length) restored = saved;
-    } catch {}
-    const newNodes = (restored?.nodes || autoLayout(imageList)).map(normalizeCanvasNode);
+    if (!hasCurrent) {
+      setNodes([]);
+      setConnections([]);
+      return;
+    }
+    const session = createFreshCanvasSession({
+      work: result,
+      productAssets: productAssetsForCanvas(result),
+      outputs: imageList,
+    });
+    const newNodes = session.nodes.map(normalizeCanvasNode);
     setNodes(newNodes);
-    setConnections(Array.isArray(restored?.connections) ? restored.connections.map(normalizeCanvasConnection) : []);
+    setConnections(session.connections.map(normalizeCanvasConnection));
     setSelected(null);
     setMultiSelected(new Set());
     setConnectionDraft(null);
@@ -424,40 +420,7 @@ export default function EcCanvas() {
       const next = fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
       if (next) setViewport(next);
     });
-  }, [result.product_name, imageList.length]);
-
-  useEffect(() => {
-    if (!hasCurrent || !result.product_name || !nodes.length) return;
-    const saveKey = canvasSaveKeyRef.current || result._saveKey || `canvas-${result.taskId || result.product_name}`;
-    canvasSaveKeyRef.current = saveKey;
-    const timer = setTimeout(() => {
-      saveWork({
-        _saveKey: saveKey,
-        _ecResult: true,
-        product_name: result.product_name,
-        title: result.product_name,
-        platform: result.platform || '淘宝',
-        images: nodes.filter(node => node.kind === 'image' && node.url).map(node => ({
-          url: node.url,
-          key: node.sourceKey,
-          label: node.name || node.displayLabel,
-          name: node.name,
-          group: node.group,
-          role: node.role,
-        })),
-        canvas_state: { productName: result.product_name, nodes, connections, savedAt: Date.now() },
-      }, phone);
-    }, 700);
-    try {
-      localStorage.setItem('shubao_ec_canvas_state', JSON.stringify({
-        productName: result.product_name,
-        nodes,
-        connections,
-        savedAt: Date.now(),
-      }));
-    } catch {}
-    return () => clearTimeout(timer);
-  }, [hasCurrent, result.product_name, result.platform, result._saveKey, result.taskId, nodes, connections, phone]);
+  }, [result.id, result._saveKey, result.taskId, result.product_name, imageList.length]);
 
   useEffect(() => {
     const load = async () => {
@@ -475,10 +438,9 @@ export default function EcCanvas() {
               local.push({
                id: w.id || Date.now(),
                name: w.product_name,
-              images: normalizeWorkImages(w.images),
+               images: normalizeWorkImages(w.images),
                createdAt: w.at || '',
                _saveKey: w._saveKey || '',
-               canvas_state: w.canvas_state || null,
              });
           } 
         } 
@@ -762,47 +724,51 @@ export default function EcCanvas() {
     showToast('已建立素材关系', 'success');
   }, [connectionDraft, showToast]);
 
-  const handleCreateDerivedNode = useCallback((sourceNodeId, action, world) => {
+  const handleCreateDerivedNode = useCallback((sourceNodeId, action, world, initialInputs = {}) => {
     const source = nodes.find(node => node.id === sourceNodeId);
-    if (!source || !action?.id) return;
+    const actionSpec = getCanvasAction(action?.id || action);
+    if (!source || !actionSpec?.execute?.nodeKind || !canDeriveFromNode(source)) return;
+    const sourceUrl = source.url || source.assets?.find(asset => asset?.url)?.url || null;
+    const nodeActionId = actionSpec.execute.nodeActionId;
     const promptSeed = source.direction
       ? [source.direction.purpose, source.direction.composition, source.direction.copy].filter(Boolean).join('\n')
       : '';
     const child = createDerivedNode({
       sourceNodeIds: [source.id],
-      actionId: action.id,
+      actionId: actionSpec.id,
       x: Math.max(16, world?.x ?? source.x + source.w + GAP * 2),
       y: Math.max(16, world?.y ?? source.y),
       inputs: {
         sourceNodeId: source.id,
-        sourceUrl: source.url || null,
+        sourceUrl,
         prompt: promptSeed,
-        productImages: [],
+        productImages: source.kind === 'source_group' ? (source.assets || []) : [],
         referenceImages: [],
         instruction: '',
         outputCount: 1,
         layers: [],
         selectedLayerId: null,
+        ...initialInputs,
       },
     });
-    child.group = source.group;
+    child.group = source.group || '其他';
     setNodes(prev => [...prev, child]);
-    setConnections(prev => [...prev, createChildConnection(source.id, child.id, action.id)]);
+    setConnections(prev => [...prev, createChildConnection(source.id, child.id, actionSpec.id)]);
     setSelected(child.id);
     setMultiSelected(new Set([child.id]));
     setConnectionDraft(null);
     setConnectionPicker(null);
-    showToast(`已创建${action.label}节点`, 'success');
+    showToast(`已创建${actionSpec.label}节点`, 'success');
 
-    if (action.id === 'smart-remix' && source.url) {
+    if (nodeActionId === 'smart-remix' && sourceUrl) {
       setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'analyzing' } : node));
-      reversePrompt({ image_url: source.url, product_name: source.name || source.displayLabel || '电商图片' })
+      reversePrompt({ image_url: sourceUrl, product_name: source.name || source.displayLabel || '电商图片' })
         .then(data => setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'ready', inputs: { ...(node.inputs || {}), prompt: data.prompt || promptSeed } } : node)))
         .catch(error => setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'error', error: error.message || '画面描述生成失败' } : node)));
     }
-    if (action.id === 'layer-edit' && source.url) {
+    if (nodeActionId === 'layer-edit' && sourceUrl) {
       setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'analyzing' } : node));
-      analyzeCanvasLayers(source.url)
+      analyzeCanvasLayers(sourceUrl)
         .then(data => {
           const layers = normalizeLayerItems(data.layers, child.id);
           setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null } } : node));
@@ -1145,40 +1111,51 @@ export default function EcCanvas() {
 
   const handleToolAction = async (action, node) => {
     if (!node) return;
+    const actionSpec = getCanvasAction(action?.id || action);
+    const actionId = actionSpec?.id || String(action || '');
+    const handler = actionSpec?.execute?.handler || actionId;
     setToolNodeId(node.id);
-    if (action?.startsWith('create:')) {
-      const actionSpec = CANVAS_NODE_ACTIONS.find(item => item.id === action.slice('create:'.length));
+    if (handler.startsWith('create:')) {
       if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
       return;
     }
-    if (action === 'copy-url') {
+    if (handler === 'copy-url') {
       navigator.clipboard?.writeText(node.url);
       showToast('图片链接已复制', 'success');
       return;
     }
-    if (action === 'delete') {
+    if (handler === 'delete') {
       await handleContextAction('delete', node);
       setSelected(null);
       return;
     }
-    if (['rename', 'classify', 'remove-bg', 'reverse-prompt', 'edit-direction', 'download'].includes(action)) {
-      await handleContextAction(action, node);
+    if (handler === 'download') {
+      await handleContextAction('download', node);
       return;
     }
-    if (action === 'crop') {
+    if (handler === 'image-info') {
+      setDirectionDraft(node);
+      setDirectionTitle(node.direction?.title || node.name || node.displayLabel || '');
+      setDirectionPurpose(node.direction?.purpose || node.usage || '');
+      setDirectionComposition(node.direction?.composition || '');
+      setDirectionCopy(node.direction?.copy || '');
+      setDirectionRatio(node.ratio || '3:4');
+      return;
+    }
+    if (handler === 'crop') {
       setCropNode(node);
       setCropRatio(node.ratio === '1:1' ? '1:1' : '3:4');
       return;
     }
-    if (action === 'annotation') {
+    if (handler === 'annotation') {
       setAnnotationNode(node);
       setAnnotationText(node.annotations?.[0]?.text || '');
       return;
     }
-    if (action === 'grid-split') {
+    if (handler === 'grid-split') {
       setPromptLoading(true);
       try {
-        const data = await transformCanvasImage({ action, imageUrl: node.url });
+        const data = await transformCanvasImage({ action: actionId, imageUrl: node.url });
         const parts = (data.urls || []).map(({ url }, index) => ({
           ...node,
           id: `${node.id}_grid_${index + 1}_${Date.now()}`,
@@ -1205,7 +1182,7 @@ export default function EcCanvas() {
       }
       return;
     }
-    if (action === 'layers') {
+    if (handler === 'layer-edit') {
       setPromptLoading(true);
       try {
         const data = await analyzeCanvasLayers(node.url);
@@ -1218,7 +1195,7 @@ export default function EcCanvas() {
       }
       return;
     }
-    if (action === 'reference') {
+    if (handler === 'add-reference') {
       setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
       setComposerText('');
       setComposerAction('');
@@ -1226,16 +1203,14 @@ export default function EcCanvas() {
       return;
     }
     const prompts = {
-      retouch: '只修改局部细节，保留商品主体、材质、logo和整体构图：',
-      extend: '智能扩展画布，保持商品比例和光影一致，补全边缘空间：',
       translate: '把画面中的文案翻译成目标语言，保持字体层级、版式和商品主体不变：',
       upscale: '输出一张高清电商交付图，提升细节和清晰度，不改变商品外观：',
     };
-    if (prompts[action]) {
+    if (prompts[actionId]) {
       setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
-      setComposerText(prompts[action]);
-      setComposerAction(action);
-      showToast(`已进入${ECOMMERCE_ACTIONS.find(item => item.id === action)?.label || '图片编辑'}流程`, 'info');
+      setComposerText(prompts[actionId]);
+      setComposerAction(actionId);
+      showToast(`已进入${actionSpec?.label || '图片编辑'}流程`, 'info');
     }
   };
 
@@ -1371,14 +1346,17 @@ export default function EcCanvas() {
     }
   };
 
-  const handleNew = () => dispatch({ type: 'NEW_WORK' });
+  const handleNew = () => {
+    dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
+    dispatch({ type: 'NAVIGATE', page: 'home' });
+  };
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
     const images = Object.fromEntries(normalizeWorkImages(work.images).map((image, index) => [
       image.key || image.label || `image_${index + 1}`,
       image.url,
     ]));
-    dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝', _saveKey: work._saveKey, canvas_state: work.canvas_state || null } });
+    dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝', _saveKey: work._saveKey } });
     setTab('canvas');
   };
   const deleteWork = async (id) => {
@@ -1648,6 +1626,7 @@ export default function EcCanvas() {
                   node={node}
                   selected={selectedNodeState}
                   multiSelected={multiSelected.has(node.id)}
+                  hoverActions={actionsForSurface({ surface: 'hover', node })}
                   onPointerDown={handleNodeDown}
                   onToggleSelect={handleToggleSelect}
                   onPortPointerDown={handlePortPointerDown}
@@ -1661,7 +1640,7 @@ export default function EcCanvas() {
                 <CanvasWorkflowNode
                   node={node}
                   sourceNode={sourcePreview}
-                  actions={CANVAS_NODE_ACTIONS}
+                  actions={actionsForSurface({ surface: 'port', node })}
                   selected={selectedNodeState}
                   onPointerDown={event => handleNodeDown(event, node.id)}
                   onContextMenu={workflowContext}
@@ -1712,9 +1691,9 @@ export default function EcCanvas() {
                 />
               </div>;
             })}
-            {selectedNode?.kind === 'image' && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
+            {selectedNode && actionsForSurface({ surface: 'selection', node: selectedNode }).length > 0 && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
             {connectionPicker && <CanvasNodeActionPicker
-              actions={CANVAS_NODE_ACTIONS}
+              actions={actionsForSurface({ surface: 'port', node: nodes.find(item => item.id === connectionPicker.sourceNodeId) })}
               position={{ x: connectionPicker.world.x + 14, y: connectionPicker.world.y + 14 }}
               onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
               onSelect={action => handleCreateDerivedNode(connectionPicker.sourceNodeId, action, connectionPicker.world)}
@@ -1780,6 +1759,7 @@ export default function EcCanvas() {
           x={contextMenu.x}
           y={contextMenu.y}
           node={contextMenu.node}
+          actions={actionsForSurface({ surface: 'context', node: contextMenu.node })}
           onClose={() => setContextMenu(null)}
           onAction={handleToolAction}
         />
@@ -1805,7 +1785,7 @@ export default function EcCanvas() {
               </div>
               <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, background: 'rgba(0,0,0,.05)', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button>
             </div>
-            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>方案名称<input value={directionTitle} readOnly aria-readonly="true" title="方案名称由 AI 生成，编辑下面的执行说明即可" style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, background: '#f7f7f8', color: '#6b7280', cursor: 'default' }} /></label>
+            <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>方案名称<input value={directionTitle} readOnly aria-readonly="true" style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, background: '#f7f7f8', color: '#6b7280', cursor: 'default' }} /></label>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>电商用途<textarea value={directionPurpose} onChange={e => setDirectionPurpose(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>构图与视觉<textarea value={directionComposition} onChange={e => setDirectionComposition(e.target.value)} rows={3} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
             <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 10 }}>文案要求<textarea value={directionCopy} onChange={e => setDirectionCopy(e.target.value)} rows={2} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 5, border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 10px', fontSize: 12, resize: 'vertical' }} /></label>
