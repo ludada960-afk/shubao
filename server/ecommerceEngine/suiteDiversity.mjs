@@ -57,6 +57,69 @@ function lineScores(pixels, width, height, axis) {
   return scores;
 }
 
+function lineTransitionProfiles(pixels, width, height, axis) {
+  const profiles = [];
+  const limit = axis === 'vertical' ? width : height;
+  const cross = axis === 'vertical' ? height : width;
+  for (let position = 1; position < limit; position += 1) {
+    let total = 0;
+    let strong = 0;
+    for (let index = 0; index < cross; index += 1) {
+      const current = axis === 'vertical' ? index * width + position : position * width + index;
+      const previous = axis === 'vertical' ? current - 1 : current - width;
+      const difference = Math.abs(pixels[current] - pixels[previous]);
+      total += difference;
+      if (difference >= 24) strong += 1;
+    }
+    profiles.push({ mean: total / cross, coverage: strong / cross });
+  }
+  return profiles;
+}
+
+function fullSpanBoundaryCount(profiles) {
+  const peaks = [];
+  for (let index = 1; index < profiles.length - 1; index += 1) {
+    const profile = profiles[index];
+    if (profile.mean < 28 || profile.coverage < 0.85) continue;
+    if (profile.mean < profiles[index - 1].mean || profile.mean < profiles[index + 1].mean) continue;
+    if (!peaks.length || index - peaks.at(-1) >= 4) peaks.push(index);
+    else if (profile.mean > profiles[peaks.at(-1)].mean) peaks[peaks.length - 1] = index;
+  }
+  return peaks.length;
+}
+
+function fullSpanGutterCount(pixels, width, height, axis) {
+  const limit = axis === 'vertical' ? width : height;
+  const cross = axis === 'vertical' ? height : width;
+  const uniform = [];
+  for (let position = 0; position < limit; position += 1) {
+    let min = 255;
+    let max = 0;
+    for (let index = 0; index < cross; index += 1) {
+      const offset = axis === 'vertical' ? index * width + position : position * width + index;
+      min = Math.min(min, pixels[offset]);
+      max = Math.max(max, pixels[offset]);
+    }
+    uniform.push(max - min <= 14);
+  }
+
+  const maxGutterWidth = Math.max(2, Math.floor(limit * 0.08));
+  let count = 0;
+  for (let start = 0; start < limit;) {
+    if (!uniform[start]) {
+      start += 1;
+      continue;
+    }
+    let end = start;
+    while (end + 1 < limit && uniform[end + 1]) end += 1;
+    const widthOfRun = end - start + 1;
+    const internal = start > 1 && end < limit - 2;
+    if (internal && widthOfRun <= maxGutterWidth) count += 1;
+    start = end + 1;
+  }
+  return count;
+}
+
 function seamCount(scores) {
   if (!scores.length) return 0;
   const mean = scores.reduce((sum, value) => sum + value, 0) / scores.length;
@@ -82,11 +145,31 @@ export async function measureSuiteImage(buffer) {
   const fingerprint = Array.from(data, value => value / 255);
   const verticalSeams = seamCount(lineScores(data, info.width, info.height, 'vertical'));
   const horizontalSeams = seamCount(lineScores(data, info.width, info.height, 'horizontal'));
+  const verticalBoundaries = fullSpanBoundaryCount(
+    lineTransitionProfiles(data, info.width, info.height, 'vertical'),
+  );
+  const horizontalBoundaries = fullSpanBoundaryCount(
+    lineTransitionProfiles(data, info.width, info.height, 'horizontal'),
+  );
+  const verticalGutters = fullSpanGutterCount(data, info.width, info.height, 'vertical');
+  const horizontalGutters = fullSpanGutterCount(data, info.width, info.height, 'horizontal');
+  // Product-confined seams are valid product structure. Collage evidence must
+  // span the image as repeated strip boundaries or as intersecting gutters.
+  const likelyCollage = verticalBoundaries >= 2
+    || horizontalBoundaries >= 2
+    || verticalGutters >= 2
+    || horizontalGutters >= 2
+    || (verticalBoundaries >= 1 && horizontalBoundaries >= 1)
+    || (verticalGutters >= 1 && horizontalGutters >= 1);
   return {
     fingerprint,
     verticalSeams,
     horizontalSeams,
-    likelyCollage: verticalSeams >= 2 || horizontalSeams >= 2 || (verticalSeams >= 1 && horizontalSeams >= 1),
+    verticalBoundaries,
+    horizontalBoundaries,
+    verticalGutters,
+    horizontalGutters,
+    likelyCollage,
   };
 }
 

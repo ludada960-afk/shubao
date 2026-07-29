@@ -4,7 +4,14 @@ const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
 const SAFE_EVIDENCE_TIERS = new Set(['safe', 'conditional', 'confirmed_only']);
 const COLLAGE_INTENT_RE = /\b(?:collage|contact\s*sheet|montage|candidate\s*grid)\b|拼贴|联系表|联络表|蒙太奇|候选(?:图)?网格|多候选|[五九]宫格/i;
 const MULTI_PANEL_LAYOUT_RE = /\bmulti[ -]?panel\s+(?:layout|output|composition|sheet|grid)\b|多面板(?:布局|输出|拼图|网格)/i;
-const ORDINAL_DUTY_RE = /\b(?:duty|treatment)\s*(?:(?:number|no)\.?\s*)?(?:\d+|one|two|three|four|five|first|second|third|fourth|fifth)\b/gi;
+const ORDINAL_WORD = '(?:\\d+|one|two|three|four|five|first|second|third|fourth|fifth)';
+const PRESENTATION_TOKEN_ORDINAL_RE = new RegExp(
+  `\\b(?:duty|treatment|image|photo|picture|shot|asset|frame)\\s*(?:(?:number|no)\\.?\\s*)?${ORDINAL_WORD}\\b`,
+  'gi',
+);
+const EXPLICIT_PRESENTATION_SUFFIX_RE = /(?:#\s*\d+|\(\s*\d+\s*\)|第(?:\d+|[一二三四五六七八九十百]+)张)\s*[.!?。！？]*$/iu;
+const BARE_PRESENTATION_SUFFIX_RE = new RegExp(`\\s+${ORDINAL_WORD}\\s*[.!?。！？]*$`, 'i');
+const FACT_LABEL_SUFFIX_RE = /(?:\b(?:size|model|capacity|volume|dimension|sku|series)|尺寸|型号|容量|容积|规格|款式)\s*$/iu;
 const DUTY_SYNONYMS = new Map([
   ['display', 'show'],
   ['present', 'show'],
@@ -34,11 +41,24 @@ function normalized(value) {
   return cleanString(value).toLowerCase();
 }
 
+function withoutPresentationOrdinal(value) {
+  let result = cleanString(value).normalize('NFKC').toLowerCase();
+  result = result.replace(PRESENTATION_TOKEN_ORDINAL_RE, ' ');
+  const explicit = EXPLICIT_PRESENTATION_SUFFIX_RE.exec(result);
+  if (explicit) {
+    const prefix = result.slice(0, explicit.index).trimEnd();
+    if (!FACT_LABEL_SUFFIX_RE.test(prefix)) result = prefix;
+  }
+  const bare = BARE_PRESENTATION_SUFFIX_RE.exec(result);
+  if (bare) {
+    const prefix = result.slice(0, bare.index).trimEnd();
+    if (!FACT_LABEL_SUFFIX_RE.test(prefix)) result = prefix;
+  }
+  return result;
+}
+
 function normalizedCommercialDuty(value) {
-  const words = cleanString(value)
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(ORDINAL_DUTY_RE, ' ')
+  const words = withoutPresentationOrdinal(value)
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()
     .split(/\s+/)

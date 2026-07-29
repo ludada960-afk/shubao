@@ -130,24 +130,63 @@ function acknowledgeSubmissionIntents(asset, intent, providerJobId) {
   ));
 }
 
-function providerSubmissionCount(asset) {
-  const intents = durableSubmissionIntents(asset);
-  if (intents.length > 0) return intents.length;
-  const count = own(own(asset?.requestSnapshot, 'executionCount'), 'providerSubmissions');
-  if (Number.isSafeInteger(count) && count >= 0) return count;
-  if (!cleanString(own(asset, 'providerJobId'))) return 0;
-  const repairAction = own(asset?.requestSnapshot, 'repairAction');
-  const repairType = cleanString(own(repairAction, 'type'));
+function hasProviderRepairRequest(asset) {
   const request = own(asset?.requestSnapshot, 'request');
   const requestKind = cleanString(own(request, 'kind') ?? own(request, 'submissionKind')).toLowerCase();
   const requestPrompt = cleanString(own(request, 'prompt'));
-  const hasRepairRequestEvidence = requestKind === 'repair'
+  return requestKind === 'repair'
     || /targeted\s+system\s+repair|(?:^|[;\n])\s*repair\s+[^;\n]+[;\n][\s\S]*?\battempt\s+\d+/i.test(requestPrompt);
-  const providerRepairEvidence = repairType
-    && repairType !== 'none'
-    && repairType !== 'sharp_repair'
-    && hasRepairRequestEvidence;
-  return providerRepairEvidence ? 2 : 1;
+}
+
+function providerSubmissionCount(asset) {
+  const evidence = new Map();
+  const identities = new Map();
+  const addEvidence = ({ ordinal, kind, idempotencyKey: key = '', providerJobId = '' }) => {
+    const logicalKey = `${ordinal}\u0000${kind}`;
+    const stableIdentities = [
+      cleanString(key) && `key:${cleanString(key)}`,
+      cleanString(providerJobId) && `job:${cleanString(providerJobId)}`,
+    ].filter(Boolean);
+    const existingKey = stableIdentities.map(identity => identities.get(identity)).find(Boolean);
+    const targetKey = evidence.has(logicalKey) ? logicalKey : existingKey || logicalKey;
+    if (!evidence.has(targetKey)) evidence.set(targetKey, { ordinal, kind });
+    for (const identity of stableIdentities) identities.set(identity, targetKey);
+  };
+
+  for (const intent of durableSubmissionIntents(asset)) addEvidence(intent);
+
+  const repairRequest = hasProviderRepairRequest(asset);
+  const providerJobId = cleanString(own(asset, 'providerJobId'));
+  if (providerJobId) {
+    addEvidence({
+      ordinal: repairRequest ? 1 : 0,
+      kind: repairRequest ? 'repair' : 'initial',
+      providerJobId,
+    });
+  }
+  if (repairRequest) addEvidence({ ordinal: 1, kind: 'repair' });
+  if ([...evidence.values()].some(entry => entry.kind === 'repair')) {
+    addEvidence({ ordinal: 0, kind: 'initial' });
+  }
+
+  const durableCount = own(own(asset?.requestSnapshot, 'executionCount'), 'providerSubmissions');
+  if (Number.isSafeInteger(durableCount) && durableCount >= 0) {
+    for (let index = evidence.size; index < durableCount; index += 1) {
+      evidence.set(`legacy-count\u0000${index}`, { ordinal: index, kind: 'legacy' });
+    }
+  }
+  return evidence.size;
+}
+
+function withProviderSubmissionCount(asset, requestSnapshot, providerJobId = own(asset, 'providerJobId')) {
+  const nextAsset = { ...asset, providerJobId, requestSnapshot };
+  return {
+    ...requestSnapshot,
+    executionCount: {
+      ...own(requestSnapshot, 'executionCount'),
+      providerSubmissions: providerSubmissionCount(nextAsset),
+    },
+  };
 }
 
 function providerSubmissionEntries(assets) {
@@ -159,6 +198,30 @@ function providerSubmissionEntries(assets) {
 
 function errorMessage(error) {
   return error instanceof Error && error.message ? error.message : 'unknown ecommerce orchestration error';
+}
+
+const RETRYABLE_GENERATED_ASSET_STORAGE_CODES = new Set([
+  'EIO',
+  'ENOSPC',
+  'EBUSY',
+  'EAGAIN',
+  'EMFILE',
+  'ENFILE',
+  'ETIMEDOUT',
+]);
+
+function mapGeneratedAssetStorageError(error) {
+  if (!RETRYABLE_GENERATED_ASSET_STORAGE_CODES.has(cleanString(error?.code).toUpperCase())) {
+    return error;
+  }
+  const mapped = httpError(
+    '生成图片暂时无法保存，请稍后重试',
+    503,
+    'GENERATED_ASSET_STORAGE_UNAVAILABLE',
+  );
+  mapped.retryable = true;
+  mapped.cause = error;
+  return mapped;
 }
 
 function resultImages(assets) {
@@ -741,21 +804,25 @@ export function createEcommerceOrchestrator(deps = {}) {
   }
 
   async function persistProviderOutput(job, item, outputUrl) {
-    if (typeof generatedAssetStore.persistAndRead === 'function') {
-      return generatedAssetStore.persistAndRead({
+    try {
+      if (typeof generatedAssetStore.persistAndRead === 'function') {
+        return await generatedAssetStore.persistAndRead({
+          sourceUrl: outputUrl,
+          taskId: job.id,
+          label: item.id,
+        });
+      }
+      const asset = await generatedAssetStore.persist({
         sourceUrl: outputUrl,
         taskId: job.id,
         label: item.id,
       });
+      const stored = await generatedAssetStore.read(asset.id);
+      if (!stored) throw new Error('stable generated asset could not be read');
+      return { asset, ...stored };
+    } catch (error) {
+      throw mapGeneratedAssetStorageError(error);
     }
-    const asset = await generatedAssetStore.persist({
-      sourceUrl: outputUrl,
-      taskId: job.id,
-      label: item.id,
-    });
-    const stored = await generatedAssetStore.read(asset.id);
-    if (!stored) throw new Error('stable generated asset could not be read');
-    return { asset, ...stored };
   }
 
   async function stableBytes(stableUrl) {
@@ -911,17 +978,18 @@ export function createEcommerceOrchestrator(deps = {}) {
             key: logicalKey,
           });
           try {
-            current = store.checkpointAsset(job.id, item.id, {
-              requestSnapshot: {
-                ...current.requestSnapshot,
-                assetPlanItem: item,
-                request: {
-                  prompt: request.prompt,
-                  modelRoute: request.modelRoute,
-                  inputAssets: request.inputAssets,
-                },
-                submissionIntents: intents,
+            const requestSnapshot = withProviderSubmissionCount(current, {
+              ...current.requestSnapshot,
+              assetPlanItem: item,
+              request: {
+                prompt: request.prompt,
+                modelRoute: request.modelRoute,
+                inputAssets: request.inputAssets,
               },
+              submissionIntents: intents,
+            });
+            current = store.checkpointAsset(job.id, item.id, {
+              requestSnapshot,
               leaseToken,
             });
           } catch (error) {
@@ -934,13 +1002,13 @@ export function createEcommerceOrchestrator(deps = {}) {
           }, { job, item, attempt: 0 });
           const submitted = await providerAdapter.submitEdit(providerRequest);
           try {
+            const requestSnapshot = withProviderSubmissionCount(current, {
+              ...current.requestSnapshot,
+              submissionIntents: acknowledgeSubmissionIntents(current, intent, submitted.jobId),
+            }, submitted.jobId);
             current = store.markSubmitted(job.id, item.id, {
               providerJobId: submitted.jobId,
-              requestSnapshot: {
-                ...current.requestSnapshot,
-                submissionIntents: acknowledgeSubmissionIntents(current, intent, submitted.jobId),
-                executionCount: { providerSubmissions: intents.length },
-              },
+              requestSnapshot,
               leaseToken,
             });
           } catch (error) {
@@ -1127,12 +1195,17 @@ export function createEcommerceOrchestrator(deps = {}) {
             if (!Buffer.isBuffer(repaired?.buffer) || !cleanString(repaired?.contentType)) {
               throw new Error('deterministic repair returned invalid image bytes');
             }
-            const asset = await generatedAssetStore.persistBuffer({
-              buffer: repaired.buffer,
-              contentType: repaired.contentType,
-              taskId: job.id,
-              label: item.id,
-            });
+            let asset;
+            try {
+              asset = await generatedAssetStore.persistBuffer({
+                buffer: repaired.buffer,
+                contentType: repaired.contentType,
+                taskId: job.id,
+                label: item.id,
+              });
+            } catch (error) {
+              throw mapGeneratedAssetStorageError(error);
+            }
             stable = { asset, buffer: repaired.buffer, contentType: repaired.contentType };
             current = store.transitionAsset(job.id, item.id, 'quality_check', {
               stableUrl: asset.url,
@@ -1158,19 +1231,22 @@ export function createEcommerceOrchestrator(deps = {}) {
             kind: 'repair',
             key: logicalKey,
           });
-          if (intents.length > 2) throw new Error(`more than one provider repair for asset: ${item.id}`);
+          const requestSnapshot = withProviderSubmissionCount(current, {
+            ...current.requestSnapshot,
+            request: {
+              prompt: repairRequest.prompt,
+              modelRoute: repairRequest.modelRoute,
+              inputAssets: repairRequest.inputAssets,
+            },
+            repairAction,
+            submissionIntents: intents,
+          });
+          if (providerSubmissionCount({ ...current, requestSnapshot }) > 2) {
+            throw new Error(`more than one provider repair for asset: ${item.id}`);
+          }
           try {
             current = store.checkpointAsset(job.id, item.id, {
-              requestSnapshot: {
-                ...current.requestSnapshot,
-                request: {
-                  prompt: repairRequest.prompt,
-                  modelRoute: repairRequest.modelRoute,
-                  inputAssets: repairRequest.inputAssets,
-                },
-                repairAction,
-                submissionIntents: intents,
-              },
+              requestSnapshot,
               leaseToken,
             });
           } catch (error) {
@@ -1184,13 +1260,13 @@ export function createEcommerceOrchestrator(deps = {}) {
           const submitted = await providerAdapter.submitEdit(providerRequest);
           stable = null;
           try {
+            const requestSnapshot = withProviderSubmissionCount(current, {
+              ...current.requestSnapshot,
+              submissionIntents: acknowledgeSubmissionIntents(current, intent, submitted.jobId),
+            }, submitted.jobId);
             current = store.markSubmitted(job.id, item.id, {
               providerJobId: submitted.jobId,
-              requestSnapshot: {
-                ...current.requestSnapshot,
-                submissionIntents: acknowledgeSubmissionIntents(current, intent, submitted.jobId),
-                executionCount: { providerSubmissions: intents.length },
-              },
+              requestSnapshot,
               leaseToken,
             });
           } catch (error) {

@@ -24,6 +24,32 @@ async function scene({ accent = '#111111', panel = false } = {}) {
   return base.composite(composites).png().toBuffer();
 }
 
+async function multiPanelAppliance() {
+  const panels = ['#d8dde2', '#aeb7c0', '#e6eaed', '#b9c1c9'].map(async (color, index) => ({
+    input: await sharp({
+      create: { width: 54, height: 224, channels: 3, background: color },
+    }).png().toBuffer(),
+    left: 52 + (index * 54),
+    top: 48,
+  }));
+  return sharp({
+    create: { width: 320, height: 320, channels: 3, background: '#f5f5f3' },
+  }).composite(await Promise.all(panels)).png().toBuffer();
+}
+
+async function horizontalContactStrip() {
+  const cells = ['#20252a', '#d7dce0', '#5c6670'].map(async (color, index) => ({
+    input: await sharp({
+      create: { width: 96, height: 160, channels: 3, background: color },
+    }).png().toBuffer(),
+    left: index * 108,
+    top: 0,
+  }));
+  return sharp({
+    create: { width: 312, height: 160, channels: 3, background: '#ffffff' },
+  }).composite(await Promise.all(cells)).png().toBuffer();
+}
+
 test('perceptual suite check rejects near duplicates but keeps a materially different scene', async () => {
   const original = await scene({ accent: '#222222' });
   const nearDuplicate = await scene({ accent: '#252525' });
@@ -49,6 +75,32 @@ test('suite check rejects a visible multi-panel collage before delivery', async 
   const measured = await measureSuiteImage(collage);
   const verdict = await evaluateSuiteDiversity({
     candidate: { assetId: 'detail-1', role: 'detail_slice_usage', buffer: collage },
+    existing: [],
+  });
+
+  assert.equal(measured.likelyCollage, true);
+  assert.equal(verdict.passed, false);
+  assert.deepEqual(verdict.issueCodes, ['suite_collage_layout']);
+});
+
+test('product-confined vertical panel seams are not collage evidence', async () => {
+  const appliance = await multiPanelAppliance();
+  const measured = await measureSuiteImage(appliance);
+  const verdict = await evaluateSuiteDiversity({
+    candidate: { assetId: 'appliance-hero', role: 'main_text', buffer: appliance },
+    existing: [],
+  });
+
+  assert.ok(measured.verticalSeams >= 2);
+  assert.equal(measured.likelyCollage, false);
+  assert.equal(verdict.passed, true);
+});
+
+test('full-height gutters still reject an obvious one-axis contact strip', async () => {
+  const contactStrip = await horizontalContactStrip();
+  const measured = await measureSuiteImage(contactStrip);
+  const verdict = await evaluateSuiteDiversity({
+    candidate: { assetId: 'contact-strip', role: 'detail_slice_usage', buffer: contactStrip },
     existing: [],
   });
 

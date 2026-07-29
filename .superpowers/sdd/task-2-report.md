@@ -213,3 +213,111 @@ No known behavior concerns. Verification note: the single 732-test full run prec
 ## Fix Commit
 
 Subject: `fix: harden ecommerce exact-count recovery`
+
+---
+
+# Task 2 Remaining Important Findings Fix Wave
+
+## Status
+
+DONE. All four remaining Important findings were reproduced with tests, fixed, self-reviewed, and verified without deployment.
+
+## Scope Implemented
+
+- Canonicalized bare trailing Arabic ordinals, hash ordinals, parenthesized ordinals, and Chinese `第N张`/`第二张` presentation suffixes so they cannot make equivalent duties appear distinct.
+- Kept factual numbers intact when attached to durations, units/capacity, sizes, model identifiers, and Chinese duration facts. Known image/shot/duty presentation tokens remain removable without globally deleting numbers.
+- Reconstructed provider submission diagnostics as a monotonic union of logical intents, idempotency keys, provider job identities, repair request evidence, and prior durable execution counts. Repair evidence implies the initial submission, and later Sharp snapshots cannot erase provider history.
+- Persisted the monotonic provider count with initial and repair intent checkpoints and acknowledgements. Existing one-provider-repair enforcement remains before external submission and corrupt over-cap history is a permanent failure.
+- Replaced raw seam-count collage classification with full-span boundary and narrow full-span gutter evidence. Product-confined appliance panel seams are allowed, while 2x2 grids and one-axis contact strips remain rejected.
+- Mapped transient provider-output and Sharp-output write failures to `GENERATED_ASSET_STORAGE_UNAVAILABLE` (`503`, `retryable: true`, original `cause`). Assets stay in `downloading` or `repairing`; resume reuses the durable provider output/job and does not repeat holds, provider submissions, completed siblings, or releases.
+
+## RED Evidence
+
+Combined RED command after splitting every ordinal form into an independently visible test:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-orchestrator.test.mjs
+```
+
+Result: exit 1; 85 tests discovered, 75 passed, 10 failed for the intended gaps:
+
+- Five ordinal bypass tests failed: bare `1/2`, `#1/#2`, `(1)/(2)`, `第一张/第二张`, and `第1张/第2张`.
+- The realistic single-view appliance was falsely classified as a collage from product-confined vertical seams.
+- A legacy initial provider job followed by a new repair intent was counted as one submission instead of two.
+- A legacy provider repair followed by an overwritten Sharp repair snapshot was counted as one submission instead of two.
+- Provider-output `EIO` did not reject as retryable and permanently released the child.
+- Sharp-output `EIO` did not reject as retryable and permanently released the child.
+
+Self-review RED command:
+
+```powershell
+node --test --test-concurrency=1 --test-name-pattern="provider repair cap violations" test/ecommerce-orchestrator.test.mjs
+```
+
+Result: exit 1; 0 passed, 1 failed. The over-cap assertion had inherited `retryable: true` from the checkpoint wrapper. It made zero provider calls but left corrupt history resumable instead of releasing it permanently.
+
+## GREEN Evidence
+
+Focused GREEN after the four requested fixes:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-orchestrator.test.mjs
+```
+
+The first implementation run passed 84/85 and correctly exposed a regression in the existing 2x2 collage fixture. Measured evidence separated it from the appliance: the grid had one full-span boundary on each axis, while the appliance had zero full-span boundaries. After adding the two-axis full-span rule, the command passed 85/85.
+
+Self-review repair-cap GREEN: exit 0; 1 passed, 0 failed.
+
+Final focused and adjacent Task 2 command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-shot-director.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-job-store.test.mjs
+```
+
+Result: exit 0; 148 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Full repository regression, run exactly once on the final code:
+
+```powershell
+npm test
+```
+
+Result: exit 0; 747 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Static and collaboration verification:
+
+- `node --check` passed for all six changed JavaScript modules/tests.
+- `git diff --check` exited 0; Git emitted only LF-to-CRLF working-copy notices.
+- `npm run collab:check` reported `READY`, linked worktree `yes`, tracked runtime paths `0`, ignored runtime changes `0`, and peer ownership conflicts `0`.
+- No test used production secrets, real network access, or a formal Mock visual/provider path.
+- No deployment was performed.
+
+## Changed Files
+
+- `server/ecommerceEngine/orchestrator.mjs`
+- `server/ecommerceEngine/planContract.mjs`
+- `server/ecommerceEngine/suiteDiversity.mjs`
+- `test/ecommerce-orchestrator.test.mjs`
+- `test/ecommerce-plan-contract.test.mjs`
+- `test/ecommerce-suite-diversity.test.mjs`
+- `.superpowers/sdd/task-2-report.md`
+
+## Self-Review
+
+- Confirmed presentation normalization operates only on known presentation tokens or terminal suffixes and keeps tested factual numeric distinctions.
+- Confirmed provider evidence is unioned rather than selected by field precedence; adding intents or overwriting `repairAction` cannot lower the durable count.
+- Confirmed a repair intent is checkpointed before submission, acknowledgement uses the same fixed key, and diagnostics expose only aggregate counts by asset ID.
+- Confirmed the provider repair cap is evaluated before `submitEdit`; over-cap durable history submits zero work and is not mislabeled retryable.
+- Confirmed a local Sharp repair contributes no provider submission, while a historical provider repair remains counted after a Sharp snapshot.
+- Confirmed product-confined seams do not trigger collage rejection; repeated full-span strip boundaries, narrow gutters, and intersecting grid evidence do.
+- Confirmed transient storage errors preserve the exact child state and parent resumability. Recovery repeats only the failed storage operation/local deterministic transform and never reruns a successful sibling or creates another hold/provider submission.
+- Confirmed invalid deterministic repair bytes still use the existing nonretryable failure path because only recognized transient OS storage codes are mapped.
+- Confirmed Task 1 visual snapshots, analysis-before-hold ordering, strict snapshot migration, durable asset rows, fenced leases, exact visible count, and stable-only settlement are unchanged.
+
+## Concerns
+
+No known contract failures. Residual risk: pixel collage detection is intentionally deterministic and conservative; irregular borderless montages without full-span grid evidence continue to rely on explicit plan-intent rejection and the surrounding semantic/quality gates.
+
+## Commit
+
+Planned subject: `fix: close ecommerce exact-count review gaps`

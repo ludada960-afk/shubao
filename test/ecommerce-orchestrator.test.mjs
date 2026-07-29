@@ -84,6 +84,8 @@ async function createHarness(t, {
   settle,
   release,
   releaseRemainder,
+  persist,
+  persistBuffer,
   migrateLegacyVisualAsset,
   stableContentType = 'image/png',
   orchestratorOptions = {},
@@ -229,6 +231,10 @@ async function createHarness(t, {
         calls.persist.push({ sourceUrl, taskId, label });
         calls.sequence.push(`persist:${label}`);
         stableIndex += 1;
+        if (persist) {
+          const result = await persist({ sourceUrl, taskId, label, calls });
+          if (result) return result;
+        }
         const url = stableIndex % 2 === 1 ? PNG_A : PNG_B;
         return { id: url.split('/').pop(), url, contentType: stableContentType, label };
       },
@@ -241,6 +247,10 @@ async function createHarness(t, {
         calls.persistBuffer.push({ buffer, contentType, taskId, label });
         calls.sequence.push(`persist-buffer:${label}`);
         stableIndex += 1;
+        if (persistBuffer) {
+          const result = await persistBuffer({ buffer, contentType, taskId, label, calls });
+          if (result) return result;
+        }
         const url = stableIndex % 2 === 1 ? PNG_A : PNG_B;
         return { id: url.split('/').pop(), url, contentType, label };
       },
@@ -1559,6 +1569,300 @@ test('legacy repair eligibility without a submitted repair remains one provider 
   assert.deepEqual(completed.progress.executionCount.submissionsByAsset, {
     'legacy-unsubmitted-repair': 1,
   });
+});
+
+test('legacy initial provider history remains when a new repair intent is added', async t => {
+  const item = planItem('legacy-provider-repair');
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [item] });
+  const input = jobInput('job-legacy-provider-repair-intent');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-legacy-provider-repair-intent',
+      orchestrationSnapshot: orchestrationSnapshot(
+        [item],
+        'hold-legacy-provider-repair-intent',
+      ),
+    },
+  });
+  jobs.assets.createAsset({
+    jobId: input.id,
+    assetId: item.id,
+    requestSnapshot: { assetPlanItem: item },
+  });
+  const lease = jobs.assets.claimAsset(input.id, item.id);
+  jobs.assets.markSubmitted(input.id, item.id, {
+    providerJobId: 'provider-legacy-initial',
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: { prompt: 'legacy initial request', kind: 'initial' },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'polling', { leaseToken: lease.leaseToken });
+  jobs.assets.transitionAsset(input.id, item.id, 'downloading', {
+    outputUrl: 'https://provider.example/provider-legacy-initial.png',
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'quality_check', {
+    stableUrl: PNG_A,
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'repairing', {
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: { prompt: 'legacy initial request', kind: 'initial' },
+      repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'] },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.releaseLease(input.id, item.id, lease.leaseToken);
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 2);
+  assert.equal(completed.progress.executionCount.providerRepairs, 1);
+  assert.deepEqual(completed.progress.executionCount.submissionsByAsset, {
+    'legacy-provider-repair': 2,
+  });
+});
+
+test('legacy provider repair evidence survives a later Sharp repair snapshot', async t => {
+  const item = planItem('legacy-provider-then-sharp');
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [item] });
+  const input = jobInput('job-legacy-provider-then-sharp');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-legacy-provider-then-sharp',
+      orchestrationSnapshot: orchestrationSnapshot([item], 'hold-legacy-provider-then-sharp'),
+    },
+  });
+  jobs.assets.createAsset({
+    jobId: input.id,
+    assetId: item.id,
+    requestSnapshot: { assetPlanItem: item },
+  });
+  const lease = jobs.assets.claimAsset(input.id, item.id);
+  jobs.assets.markSubmitted(input.id, item.id, {
+    providerJobId: 'provider-legacy-repair',
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: {
+        kind: 'repair',
+        prompt: 'generate item; repair image_edit; attempt 1',
+      },
+      repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'] },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'polling', { leaseToken: lease.leaseToken });
+  jobs.assets.transitionAsset(input.id, item.id, 'downloading', {
+    outputUrl: 'https://provider.example/provider-legacy-repair.png',
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'quality_check', {
+    stableUrl: PNG_A,
+    attemptCount: 2,
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: {
+        kind: 'repair',
+        prompt: 'generate item; repair image_edit; attempt 1',
+      },
+      repairAction: {
+        type: 'sharp_repair',
+        operations: ['normalize_transparent_background'],
+      },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.releaseLease(input.id, item.id, lease.leaseToken);
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.submit.length, 0);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 2);
+  assert.equal(completed.progress.executionCount.providerRepairs, 1);
+  assert.deepEqual(completed.progress.executionCount.submissionsByAsset, {
+    'legacy-provider-then-sharp': 2,
+  });
+});
+
+test('provider repair cap violations are permanent and never submit another provider job', async t => {
+  const item = planItem('legacy-over-cap');
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [item] });
+  const input = jobInput('job-legacy-provider-over-cap');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-legacy-provider-over-cap',
+      orchestrationSnapshot: orchestrationSnapshot([item], 'hold-legacy-provider-over-cap'),
+    },
+  });
+  jobs.assets.createAsset({
+    jobId: input.id,
+    assetId: item.id,
+    requestSnapshot: { assetPlanItem: item },
+  });
+  const lease = jobs.assets.claimAsset(input.id, item.id);
+  jobs.assets.markSubmitted(input.id, item.id, {
+    providerJobId: 'provider-legacy-over-cap',
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: { kind: 'repair', prompt: 'repair image_edit; attempt 2' },
+      executionCount: { providerSubmissions: 3 },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'polling', { leaseToken: lease.leaseToken });
+  jobs.assets.transitionAsset(input.id, item.id, 'downloading', {
+    outputUrl: 'https://provider.example/provider-legacy-over-cap.png',
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'quality_check', {
+    stableUrl: PNG_A,
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'repairing', {
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: { kind: 'repair', prompt: 'repair image_edit; attempt 2' },
+      repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'] },
+      executionCount: { providerSubmissions: 3 },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.releaseLease(input.id, item.id, lease.leaseToken);
+
+  const failed = await orchestrator.runJob(input.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.equal(calls.submit.length, 0);
+  assert.deepEqual(calls.release.map(call => call.itemId), ['legacy-over-cap']);
+  assert.equal(jobs.assets.getAsset(input.id, item.id).state, 'failed');
+});
+
+test('provider output storage EIO keeps downloading state and resumes without provider replay', async t => {
+  const items = [planItem('main-ready'), planItem('detail-storage', 'detail')];
+  const storageError = Object.assign(new Error('generated asset disk unavailable'), { code: 'EIO' });
+  let failStorage = true;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    items,
+    orchestratorOptions: { assetConcurrency: 1 },
+    persist: ({ label }) => {
+      if (label === 'detail-storage' && failStorage) {
+        failStorage = false;
+        throw storageError;
+      }
+      return null;
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-provider-storage-resume'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.code === 'GENERATED_ASSET_STORAGE_UNAVAILABLE'
+      && error?.status === 503
+      && error?.retryable === true
+      && error?.cause === storageError,
+  );
+
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-ready').state, 'completed');
+  assert.equal(jobs.assets.getAsset(created.id, 'detail-storage').state, 'downloading');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 2);
+  assert.equal(calls.poll.length, 2);
+  assert.equal(calls.release.length, 0);
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 2);
+  assert.equal(calls.poll.length, 2);
+  assert.equal(calls.persist.filter(call => call.label === 'main-ready').length, 1);
+  assert.equal(calls.persist.filter(call => call.label === 'detail-storage').length, 2);
+  assert.deepEqual(calls.settle.map(call => call.itemId).sort(), ['detail-storage', 'main-ready']);
+  assert.equal(calls.release.length, 0);
+});
+
+test('Sharp output storage EIO keeps repairing state and resumes without provider replay', async t => {
+  const storageError = Object.assign(new Error('Sharp output disk unavailable'), { code: 'EIO' });
+  let qualityAttempt = 0;
+  let failStorage = true;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    quality: () => {
+      qualityAttempt += 1;
+      if (qualityAttempt === 1) {
+        return {
+          passed: false,
+          checks: { platformCompliance: { status: 'fail', issueCodes: ['background'] } },
+          repairAction: {
+            type: 'sharp_repair',
+            focusIssueCodes: ['background'],
+            operations: ['normalize_background'],
+            userCharge: false,
+          },
+          confidence: 'low',
+        };
+      }
+      return {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      };
+    },
+    persistBuffer: () => {
+      if (failStorage) {
+        failStorage = false;
+        throw storageError;
+      }
+      return null;
+    },
+    orchestratorOptions: {
+      repairAsset: async input => {
+        calls.repair.push(input);
+        return { buffer: IMAGE_BUFFER, contentType: 'image/png' };
+      },
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-sharp-storage-resume'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.code === 'GENERATED_ASSET_STORAGE_UNAVAILABLE'
+      && error?.status === 503
+      && error?.retryable === true
+      && error?.cause === storageError,
+  );
+
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'repairing');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.poll.length, 1);
+  assert.equal(calls.release.length, 0);
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.poll.length, 1);
+  assert.equal(calls.repair.length, 2);
+  assert.equal(calls.persistBuffer.length, 2);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 1);
 });
 
 test('migrates schema-3 ordinal duties into distinct commercial purposes before resume', async t => {

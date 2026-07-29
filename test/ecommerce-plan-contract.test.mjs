@@ -96,6 +96,61 @@ test('commercial duty normalization rejects ordinal suffixes and equivalent word
   ]), /duplicate commercial duty/i);
 });
 
+const PRESENTATION_ORDINAL_DUTY_PAIRS = [
+  ['bare Arabic ordinal', 'Product recognition 1', 'Product recognition 2'],
+  ['hash ordinal', 'Product recognition #1', 'Product recognition #2'],
+  ['parenthesized ordinal', 'Product recognition (1)', 'Product recognition (2)'],
+  ['Chinese word ordinal', '商品识别第一张', '商品识别第二张'],
+  ['Chinese Arabic ordinal', '商品识别第1张', '商品识别第2张'],
+];
+
+for (const [label, firstDuty, secondDuty] of PRESENTATION_ORDINAL_DUTY_PAIRS) {
+  test(`commercial duty normalization rejects ${label}`, () => {
+    const alternateShot = {
+      ...planItem('alternate').shotIntent,
+      type: 'alternate_angle',
+      camera: { azimuth: 48 },
+      crop: 'complete exterior crop',
+      sceneFamily: 'exterior_angle_study',
+    };
+    assert.throws(() => validatePlanContract([
+      planItem('presentation-1', { communicationGoal: firstDuty }),
+      planItem('presentation-2', {
+        communicationGoal: secondDuty,
+        shotIntent: alternateShot,
+      }),
+    ]), /duplicate commercial duty/i, `${firstDuty} and ${secondDuty}`);
+  });
+}
+
+test('commercial duty normalization preserves numeric product facts', () => {
+  const alternateShot = {
+    ...planItem('alternate').shotIntent,
+    type: 'alternate_angle',
+    camera: { azimuth: 48 },
+    crop: 'complete exterior crop',
+    sceneFamily: 'exterior_angle_study',
+  };
+  const factualPairs = [
+    ['Show confirmed 24-hour runtime', 'Show confirmed 48-hour runtime'],
+    ['Show confirmed 2L capacity', 'Show confirmed 3L capacity'],
+    ['Show confirmed Size 2 fit', 'Show confirmed Size 3 fit'],
+    ['Identify confirmed model X2', 'Identify confirmed model X3'],
+    ['展示确认的24小时续航', '展示确认的48小时续航'],
+  ];
+
+  for (const [firstDuty, secondDuty] of factualPairs) {
+    const plan = [
+      planItem('fact-1', { communicationGoal: firstDuty }),
+      planItem('fact-2', {
+        communicationGoal: secondDuty,
+        shotIntent: alternateShot,
+      }),
+    ];
+    assert.equal(validatePlanContract(plan), plan, `${firstDuty} and ${secondDuty}`);
+  }
+});
+
 test('plan contract rejects collage intent and unsafe evidence tiers', () => {
   assert.throws(
     () => validatePlanContract([planItem('collage', { purpose: 'Four-panel contact sheet comparison' })]),
