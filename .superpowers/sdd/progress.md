@@ -223,6 +223,14 @@
   billing/whitelist generation, provider output quality, editable composition
   rendering, or PSD structural download; these remain explicit authenticated
   acceptance boundaries rather than claimed coverage.
+- Vision model routing update: complete and deployed from the working tree.
+  Both ecommerce visual-analysis call paths and the environment example now
+  default to `gpt-5.6-terra`; `gpt-image-2` generation routing is unchanged.
+  TDD red confirmed the prior `gpt-5.4-mini`/`gpt-4o-mini` defaults. Full
+  regression passed 665/665, production build transformed 6417 modules,
+  collaboration policy reported READY, public verification passed before and
+  after a 60-second canary with stable PM2 PID `792579`, and the production PM2
+  environment has no `MINI_MODEL` override, so the Terra default is active.
 
 ## Ownership
 

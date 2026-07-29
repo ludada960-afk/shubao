@@ -384,10 +384,10 @@ const IMG_OVERFLOW_BASE = (process.env.IMAGE_OVERFLOW_BASE_URL || 'https://sub-p
 const IMG_LEGACY_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
 const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
 
-// Mini API — 廉价 Vision 分析
+// Vision API — 商品图和参考图分析
 const MINI_KEY = process.env.MINI_API_KEY || '';
 const MINI_BASE = (process.env.MINI_BASE_URL || '').replace(/\/+$/, '');
-const MINI_MODEL = process.env.MINI_MODEL || 'gpt-4o-mini';
+const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.6-terra';
 
 // ============================================================
 // LLM 调用（兼容 OpenAI 格式，自动重试 + 双通道降级）
@@ -480,7 +480,7 @@ async function callLLMWithVision(systemPrompt, images, userPrompt) {
 }
 
 // ============================================================
-// Mini LLM 调用 — 廉价 Vision 分析（GPT-4o mini）
+// Vision 调用 — 商品图和参考图分析
 // ============================================================
 async function callMiniLLM(systemPrompt, imageUrl, userPrompt) {
   if (!MINI_KEY || !MINI_BASE) throw new Error('Mini API 未配置');

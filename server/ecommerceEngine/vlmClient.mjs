@@ -1,11 +1,11 @@
 /**
  * 薯包AI v4 VLM API 客户端
  *
- * 使用 MINI_* 环境变量配置的 Vision 模型 (gpt-5.4-mini / api.65535.space)
+ * 使用 MINI_* 环境变量配置的 Vision 模型 (gpt-5.6-terra / api.65535.space)
  * 在 server/.env 中设置：
  *   MINI_API_KEY=xxx
  *   MINI_BASE_URL=https://api.65535.space
- *   MINI_MODEL=gpt-5.4-mini
+ *   MINI_MODEL=gpt-5.6-terra
  *
  * 无 API 时自动降级为 Mock 数据输出，不影响业务流程。
  */
@@ -18,7 +18,7 @@ import { buildVlmPrompt, parseRealShot, parseStyleRef, aggregateAnalyses } from 
 const VLM_CONFIG = {
   apiKey: process.env.MINI_API_KEY || '',
   baseUrl: (process.env.MINI_BASE_URL || '').replace(/\/+$/, ''),
-  model: process.env.MINI_MODEL || 'gpt-5.4-mini',
+  model: process.env.MINI_MODEL || 'gpt-5.6-terra',
   enabled: !!(process.env.MINI_API_KEY && process.env.MINI_BASE_URL),
 };
 // ============================================================
