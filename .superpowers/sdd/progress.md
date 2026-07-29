@@ -243,6 +243,11 @@
   requirements or unresolved placeholders found. Execution started from Task 1
   using test-first implementation and independent task review. Plan:
   `docs/superpowers/plans/2026-07-29-market-ready-ecommerce-creation-closure.md`.
+- Market-ready closure Task 1: complete (`837fa1d..fa93df7`, six-commit
+  implementation/review loop clean). Product and style visual analysis are
+  separate, Terra is fail-closed, inputs and analysis checkpoint before billing,
+  legacy jobs migrate owner/job-bound stable assets, transient storage failures
+  remain resumable, and full regression passed 714/714.
 
 ## Ownership
 
