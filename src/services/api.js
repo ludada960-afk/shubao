@@ -984,6 +984,39 @@ export async function analyzeCanvasLayers(imageUrl) {
   return data;
 }
 
+async function requestTextComposition(path, { method = 'GET', body } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: signedSessionHeaders(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '文字合成失败');
+  return data;
+}
+
+export function createTextComposition({ projectId, versionId, width, height, colorSpace = 'srgb', backgroundAssetId = null, layers }) {
+  return requestTextComposition('/api/compositions', {
+    method: 'POST',
+    body: { projectId, versionId, width, height, colorSpace, backgroundAssetId, layers },
+  });
+}
+
+export function loadTextComposition(documentId) {
+  return requestTextComposition(`/api/compositions/${encodeURIComponent(documentId)}`);
+}
+
+export function saveTextCompositionRevision({ documentId, expectedRevision, layers, backgroundAssetId }) {
+  return requestTextComposition(`/api/compositions/${encodeURIComponent(documentId)}/revisions`, {
+    method: 'POST',
+    body: {
+      expectedRevision,
+      layers,
+      ...(backgroundAssetId === undefined ? {} : { backgroundAssetId }),
+    },
+  });
+}
+
 export async function deleteWork(saveKey) {
   if (!saveKey) return false;
   try {

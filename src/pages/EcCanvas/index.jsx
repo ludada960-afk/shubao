@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages } from '../../services/api';
+import { loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, saveTextCompositionRevision } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -34,6 +34,41 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createFreshCanvasSession } from './canvasSessionModel.js';
+import TextLayerInspector from './components/TextLayerInspector.jsx';
+
+function generatedAssetIdFromUrl(url = '') {
+  return String(url).match(/\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))(?:[?#]|$)/i)?.[1] || '';
+}
+
+function compositionSizeForNode(node = {}) {
+  if (node.compositionDocument?.width && node.compositionDocument?.height) {
+    return { width: node.compositionDocument.width, height: node.compositionDocument.height };
+  }
+  if (node.ratio === '3:4') return { width: 1200, height: 1600 };
+  if (node.ratio === '9:16') return { width: 1080, height: 1920 };
+  if (node.ratio === '长图') return { width: 1200, height: 2400 };
+  return { width: 1200, height: 1200 };
+}
+
+function defaultTextLayerForNode(node = {}) {
+  const existing = node.compositionDocument?.layers?.find(layer => layer.kind === 'text');
+  if (existing) return existing;
+  const { width } = compositionSizeForNode(node);
+  const inset = Math.round(width * 0.08);
+  return {
+    id: 'title',
+    kind: 'text',
+    text: '',
+    fontId: 'fallback-sans',
+    fontSize: Math.max(32, Math.round(width * 0.055)),
+    color: '#111111',
+    width: width - inset * 2,
+    align: 'center',
+    lineHeight: 1.2,
+    x: inset,
+    y: inset,
+  };
+}
 
 function parseImages(images, platform) {
   const entries = normalizeWorkImages(images).map(image => ({ ...image, sourceKey: image.key || image.label || '' }));
@@ -383,6 +418,9 @@ export default function EcCanvas() {
   const [imageInfoGroup, setImageInfoGroup] = useState('其他');
   const [imageInfoUsage, setImageInfoUsage] = useState('');
   const [outpaintDraft, setOutpaintDraft] = useState(null);
+  const [textInspectorNodeId, setTextInspectorNodeId] = useState(null);
+  const [textCompositionSaving, setTextCompositionSaving] = useState(false);
+  const [textCompositionError, setTextCompositionError] = useState('');
   const containerRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
@@ -391,6 +429,7 @@ export default function EcCanvas() {
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+  const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
 
   // toast helper
   const showToast = useCallback((msg, type = 'info') => {
@@ -1514,6 +1553,48 @@ export default function EcCanvas() {
     setMultiSelected(new Set());
   }, [selected, multiSelected]);
 
+  const handleSaveTextLayer = useCallback(async (layer) => {
+    const node = nodes.find(item => item.id === textInspectorNodeId);
+    if (!node || textCompositionSaving) return;
+    const projectId = result.projectId;
+    const versionId = result.resultVersionId || result.sourceVersionId;
+    const backgroundAssetId = node.compositionBackgroundAssetId || generatedAssetIdFromUrl(node.url);
+    if (!projectId || !versionId || !backgroundAssetId) {
+      setTextCompositionError('当前素材缺少可编辑项目版本或稳定素材地址');
+      return;
+    }
+    setTextCompositionSaving(true);
+    setTextCompositionError('');
+    try {
+      const current = node.compositionDocument;
+      const response = current
+        ? await saveTextCompositionRevision({
+          documentId: current.id,
+          expectedRevision: current.revision,
+          layers: [layer],
+        })
+        : await createTextComposition({
+          projectId,
+          versionId,
+          ...compositionSizeForNode(node),
+          backgroundAssetId,
+          layers: [layer],
+        });
+      setNodes(previous => previous.map(item => item.id === node.id ? {
+        ...item,
+        url: response.asset.url,
+        loaded: false,
+        compositionBackgroundAssetId: backgroundAssetId,
+        compositionDocument: response.document,
+      } : item));
+      showToast(`文字版本 ${response.document.revision} 已保存`, 'success');
+    } catch (error) {
+      setTextCompositionError(error?.message || '文字保存失败');
+    } finally {
+      setTextCompositionSaving(false);
+    }
+  }, [nodes, result.projectId, result.resultVersionId, result.sourceVersionId, showToast, textCompositionSaving, textInspectorNodeId]);
+
   // 更新 ref（在函数定义之后）
   useEffect(() => { handleDeleteRef.current = handleDelete; }, [handleDelete]);
   useEffect(() => { fitViewRef.current = fitView; }, [fitView]);
@@ -1563,6 +1644,11 @@ export default function EcCanvas() {
                 <div onClick={() => setInspectorOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 8, background: 'rgba(37,99,235,.08)', color: '#2563eb', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                   <MdCategory size={14} /> 批量分类
                 </div>
+              )}
+              {selectedNode?.kind === 'image' && (
+                <button type="button" onClick={() => { setTextInspectorNodeId(selectedNode.id); setTextCompositionError(''); }} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 11px', border: 0, borderRadius: 8, background: 'rgba(15,118,110,.10)', color: '#0f766e', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <MdTextFields size={15} /> 文字图层
+                </button>
               )}
               <div onClick={() => setExportOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 8, background: 'rgba(16,185,129,.10)', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                 <MdFileDownload size={14} /> 交付导出
@@ -1762,6 +1848,16 @@ export default function EcCanvas() {
           actions={actionsForSurface({ surface: 'context', node: contextMenu.node })}
           onClose={() => setContextMenu(null)}
           onAction={handleToolAction}
+        />
+      )}
+
+      {textInspectorNode && (
+        <TextLayerInspector
+          layer={defaultTextLayerForNode(textInspectorNode)}
+          saving={textCompositionSaving}
+          error={textCompositionError}
+          onSave={handleSaveTextLayer}
+          onClose={() => { setTextInspectorNodeId(null); setTextCompositionError(''); }}
         />
       )}
 

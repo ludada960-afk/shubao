@@ -47,6 +47,8 @@ import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
+import { createCompositionStore } from './projects/compositionStore.mjs';
+import { createCompositionService } from './composition/compositionService.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
@@ -137,6 +139,8 @@ const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration }
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
 const projectStore = createProjectStore(db);
+const compositionStore = createCompositionStore(db);
+const compositionService = createCompositionService({ compositionStore, generatedAssetStore });
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
   try {
@@ -3535,6 +3539,64 @@ app.get('/api/ecommerce/jobs', authenticateEcommerceRequest, ecommerceRouteHandl
 app.post('/api/ecommerce/jobs/:id/retry-plan', authenticateEcommerceRequest, ecommerceRouteHandlers.retryPlan);
 app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, ecommerceRouteHandlers.retryFailed);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
+
+function sendCompositionError(error, res) {
+  const code = error?.code || 'COMPOSITION_REQUEST_FAILED';
+  if (code === 'DOCUMENT_NOT_FOUND' || code === 'ASSET_NOT_FOUND') {
+    return res.status(404).json({ code, error: '未找到可编辑的合成内容' });
+  }
+  if (code === 'VERSION_CONFLICT') {
+    return res.status(409).json({ code, error: '文字内容已在其他位置更新，请刷新后重试' });
+  }
+  if (error instanceof TypeError || code === 'PROJECT_NOT_FOUND' || code === 'VERSION_NOT_FOUND') {
+    return res.status(400).json({ code, error: error.message || '合成参数无效' });
+  }
+  console.error('[composition] 失败:', error?.message || error);
+  return res.status(500).json({ code, error: '文字合成失败，请重试' });
+}
+
+app.post('/api/compositions', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const result = await compositionService.createDocument({
+      ownerEmail: req._userEmail,
+      projectId: req.body?.projectId,
+      versionId: req.body?.versionId,
+      width: req.body?.width,
+      height: req.body?.height,
+      colorSpace: req.body?.colorSpace || 'srgb',
+      backgroundAssetId: req.body?.backgroundAssetId || null,
+      layers: req.body?.layers,
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    return sendCompositionError(error, res);
+  }
+});
+
+app.get('/api/compositions/:documentId', authenticateEcommerceRequest, (req, res) => {
+  try {
+    const document = compositionService.getDocument({ ownerEmail: req._userEmail, documentId: req.params.documentId });
+    if (!document) return res.status(404).json({ code: 'DOCUMENT_NOT_FOUND', error: '未找到可编辑的合成内容' });
+    return res.json({ document });
+  } catch (error) {
+    return sendCompositionError(error, res);
+  }
+});
+
+app.post('/api/compositions/:documentId/revisions', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const result = await compositionService.saveRevision({
+      ownerEmail: req._userEmail,
+      documentId: req.params.documentId,
+      expectedRevision: req.body?.expectedRevision,
+      layers: req.body?.layers,
+      backgroundAssetId: req.body?.backgroundAssetId,
+    });
+    return res.json(result);
+  } catch (error) {
+    return sendCompositionError(error, res);
+  }
+});
 
 // 画布二次生成由独立持久化服务负责；路由只转交已认证 owner 与请求体。
 app.post('/api/canvas/regenerate', canvasRegenerateHandler);

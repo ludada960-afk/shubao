@@ -1,4 +1,5 @@
 import { normalizeEcommerceCategory } from './categoryKnowledge.mjs';
+import { resolveFont } from '../composition/fontRegistry.mjs';
 
 const FONT_REGISTRY_PLAN = Object.freeze({
   'source-han-sans-sc': Object.freeze({ commercialUse: true, license: 'OFL-1.1', coverage: 'zh-CN,latin,numeric', deployed: false, sha256: null }),
@@ -22,6 +23,7 @@ export function compileTypographySystem({ category = '其他', priceBand = '', l
   const normalizedCategory = normalizeEcommerceCategory(category);
   const normalizedPriceBand = cleanString(priceBand).toLowerCase();
   const policy = policyFor(normalizedCategory, normalizedPriceBand);
+  const resolvedFont = resolveFont({ category: normalizedCategory, priceBand: normalizedPriceBand, language });
   const bodyFontId = 'source-han-sans-sc';
   const numericFontId = 'source-han-sans-sc';
   const fallbackFontIds = policy.displayFontId === bodyFontId ? [numericFontId] : [bodyFontId, numericFontId];
@@ -46,6 +48,8 @@ export function compileTypographySystem({ category = '其他', priceBand = '', l
     maxLines: 4,
     contrastPolicy: 'WCAG AA for body copy; never place text over product identity features.',
     fallbackFontIds,
+    resolvedFontId: resolvedFont.fontId,
+    resolvedFont: { ...resolvedFont },
     fontAssetStatus: 'planned',
     fontRegistryPlan: fontIds.map(fontId => ({ fontId, ...FONT_REGISTRY_PLAN[fontId] })),
   };
