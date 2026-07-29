@@ -139,6 +139,13 @@ test('primary hover actions have executable handlers', () => {
   assert.match(canvasSource, /handler === 'adjust-requirements'/);
   assert.match(canvasSource, /handler === 'regenerate'/);
   assert.match(canvasSource, /regenerateCanvasImage/);
+  assert.match(canvasSource, /<ImageNode[\s\S]{0,900}?onAction=\{handleToolAction\}/);
+});
+
+test('image information opens an editable product dialog and saves node metadata', () => {
+  assert.match(canvasSource, /handler === 'image-info'[\s\S]*?setImageInfoNode\(node\)/);
+  assert.match(canvasSource, /imageInfoNode &&[\s\S]*?value=\{imageInfoName\}[\s\S]*?value=\{imageInfoUsage\}/);
+  assert.match(canvasSource, /handleImageInfoSave[\s\S]*?const name = imageInfoName\.trim\(\)[\s\S]*?const usage = imageInfoUsage\.trim\(\)[\s\S]*?name,[\s\S]*?usage,/);
 });
 
 test('every Works import carries a fresh Canvas session token', () => {

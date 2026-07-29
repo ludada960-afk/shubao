@@ -1184,12 +1184,10 @@ export default function EcCanvas() {
       return;
     }
     if (handler === 'image-info') {
-      setDirectionDraft(node);
-      setDirectionTitle(node.direction?.title || node.name || node.displayLabel || '');
-      setDirectionPurpose(node.direction?.purpose || node.usage || '');
-      setDirectionComposition(node.direction?.composition || '');
-      setDirectionCopy(node.direction?.copy || '');
-      setDirectionRatio(node.ratio || '3:4');
+      setImageInfoNode(node);
+      setImageInfoName(node.name || node.displayLabel || '');
+      setImageInfoGroup(node.group || '其他');
+      setImageInfoUsage(node.usage || node.direction?.purpose || '');
       return;
     }
     if (handler === 'adjust-requirements') {
@@ -1647,6 +1645,26 @@ export default function EcCanvas() {
     }
   }, [nodes, result.projectId, result.resultVersionId, result.sourceVersionId, showToast, textCompositionSaving, textInspectorNodeId]);
 
+  const handleImageInfoSave = useCallback(() => {
+    if (!imageInfoNode || !imageInfoName.trim()) return;
+    const name = imageInfoName.trim();
+    const usage = imageInfoUsage.trim();
+    setNodes(previous => previous.map(node => node.id === imageInfoNode.id ? {
+      ...node,
+      name,
+      displayLabel: name,
+      group: imageInfoGroup,
+      usage,
+      direction: {
+        ...(node.direction || {}),
+        title: name,
+        purpose: usage,
+      },
+    } : node));
+    setImageInfoNode(null);
+    showToast('图片信息已更新', 'success');
+  }, [imageInfoGroup, imageInfoName, imageInfoNode, imageInfoUsage, showToast]);
+
   // 更新 ref（在函数定义之后）
   useEffect(() => { handleDeleteRef.current = handleDelete; }, [handleDelete]);
   useEffect(() => { fitViewRef.current = fitView; }, [fitView]);
@@ -1776,6 +1794,7 @@ export default function EcCanvas() {
                   selected={selectedNodeState}
                   multiSelected={multiSelected.has(node.id)}
                   hoverActions={actionsForSurface({ surface: 'hover', node })}
+                  onAction={handleToolAction}
                   onPointerDown={handleNodeDown}
                   onToggleSelect={handleToggleSelect}
                   onPortPointerDown={handlePortPointerDown}
@@ -1922,6 +1941,38 @@ export default function EcCanvas() {
           onClose={() => setContextMenu(null)}
           onAction={handleToolAction}
         />
+      )}
+
+      {imageInfoNode && (
+        <div role="dialog" aria-modal="true" aria-labelledby="canvas-image-info-title" style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.38)', display: 'grid', placeItems: 'center', padding: 20 }}>
+          <div style={{ width: 'min(430px, 100%)', boxSizing: 'border-box', background: '#fff', borderRadius: 8, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div id="canvas-image-info-title" style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>图片信息</div>
+                <div style={{ marginTop: 3, fontSize: 11, color: '#6b7280' }}>名称与用途会显示在画布和交付信息中</div>
+              </div>
+              <button type="button" aria-label="关闭图片信息" onClick={() => setImageInfoNode(null)} style={{ width: 30, height: 30, border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><MdClose size={17} /></button>
+            </div>
+            <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
+              图片名称
+              <input autoFocus value={imageInfoName} maxLength={80} onChange={event => setImageInfoName(event.target.value)} style={{ display: 'block', width: '100%', height: 38, boxSizing: 'border-box', marginTop: 6, padding: '0 10px', border: '1px solid #d1d5db', borderRadius: 7, font: '12px inherit' }} />
+            </label>
+            <label style={{ display: 'block', marginBottom: 12, fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
+              图片类型
+              <select value={imageInfoGroup} onChange={event => setImageInfoGroup(event.target.value)} style={{ display: 'block', width: '100%', height: 38, boxSizing: 'border-box', marginTop: 6, padding: '0 10px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', font: '12px inherit' }}>
+                {ASSET_GROUPS.map(group => <option key={group} value={group}>{group}</option>)}
+              </select>
+            </label>
+            <label style={{ display: 'block', marginBottom: 16, fontSize: 11, fontWeight: 700, color: '#4b5563' }}>
+              展示用途
+              <textarea value={imageInfoUsage} maxLength={240} rows={3} onChange={event => setImageInfoUsage(event.target.value)} style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 7, resize: 'vertical', font: '12px/1.55 inherit' }} />
+            </label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" onClick={() => setImageInfoNode(null)} style={{ border: 0, borderRadius: 7, padding: '9px 14px', background: '#f3f4f6', color: '#4b5563', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>取消</button>
+              <button type="button" disabled={!imageInfoName.trim()} onClick={handleImageInfoSave} style={{ border: 0, borderRadius: 7, padding: '9px 16px', background: imageInfoName.trim() ? '#2563eb' : '#9ca3af', color: '#fff', fontSize: 12, fontWeight: 700, cursor: imageInfoName.trim() ? 'pointer' : 'not-allowed' }}>保存</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {textInspectorNode && (
