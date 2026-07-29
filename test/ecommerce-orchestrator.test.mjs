@@ -1964,11 +1964,13 @@ test('migrates schema-3 ordinal duties into distinct commercial purposes before 
   const first = planItem('white-background-1', 'white_background');
   first.purpose = legacyPurpose;
   first.communicationGoal = `${legacyPurpose} Dedicated white background duty 1 with its own buyer decision and composition.`;
+  first.shotIntent.composition = 'centered front view';
   first.shotIntent.sceneFamily = 'white_background_catalog';
   const second = planItem('white-background-2', 'white_background');
   second.purpose = legacyPurpose;
   second.communicationGoal = `${legacyPurpose} Dedicated white background duty 2 with its own buyer decision and composition.`;
   second.shotIntent.camera = { azimuth: 48 };
+  second.shotIntent.composition = 'offset side view';
   second.shotIntent.sceneFamily = 'white_background_catalog';
   const { orchestrator, jobs, calls } = await createHarness(t, { items: [first, second] });
   const input = jobInput('job-schema-three-duty-migration');
@@ -1993,18 +1995,25 @@ test('migrates schema-3 ordinal duties into distinct commercial purposes before 
   assert.equal(calls.hold.length, 0);
   assert.equal(calls.submit.length, 2);
   assert.equal(jobs.get(input.id).progress.orchestrationSnapshot.schemaVersion, 4);
-  assert.equal(new Set(completed.assetPlan.map(item => item.purpose)).size, 2);
+  assert.deepEqual(completed.assetPlan.map(item => item.commercialDutyId), [
+    'whitebackground:catalogrecognition',
+    'whitebackground:shapeverification',
+  ]);
+  assert.deepEqual(completed.assetPlan.map(item => item.communicationGoal), [
+    'Provide marketplace-ready complete-product catalog recognition on white.',
+    'Verify the complete exterior shape and silhouette on white.',
+  ]);
   assert.ok(completed.assetPlan.every(item => !/\bduty\s+\d+\b/i.test(item.communicationGoal)));
+  assert.ok(completed.assetPlan.every(item => !/camera|composition|angle|\bview\b/i.test(item.communicationGoal)));
 });
 
 test('migrates every schema-3 repeated hero beyond the legacy five-duty cycle', async t => {
   const legacyHeroes = Array.from({ length: 6 }, (_, index) => {
     const item = planItem(`legacy-hero-${index + 1}`, 'main_text');
-    item.purpose = index % 5 === 0
-      ? 'Product identity and recognition hero.'
-      : `Legacy hero purpose ${index + 1}.`;
+    item.purpose = 'Product identity and recognition hero.';
     item.communicationGoal = `${item.purpose} Dedicated main text duty ${index + 1} with its own buyer decision and composition.`;
     item.shotIntent.camera = { azimuth: index * 12 };
+    item.shotIntent.composition = index % 2 === 0 ? 'front view' : 'side view';
     return item;
   });
   const { orchestrator, jobs, calls } = await createHarness(t, { items: legacyHeroes });
@@ -2028,8 +2037,60 @@ test('migrates every schema-3 repeated hero beyond the legacy five-duty cycle', 
   assert.equal(calls.analyze, 0);
   assert.equal(calls.hold.length, 0);
   assert.equal(calls.submit.length, 6);
-  assert.equal(new Set(completed.assetPlan.map(item => item.communicationGoal)).size, 6);
+  assert.deepEqual(completed.assetPlan.map(item => item.commercialDutyId), [
+    'maintext:productrecognition',
+    'maintext:primarybenefit',
+    'maintext:usagecontext',
+    'maintext:structureunderstanding',
+    'maintext:materialcraft',
+    'maintext:visibleoperation',
+  ]);
+  assert.deepEqual(completed.assetPlan.map(item => item.communicationGoal), [
+    'Establish immediate complete-product recognition.',
+    'Communicate one primary buyer benefit supported by Product Truth.',
+    'Clarify credible use context without inventing product facts.',
+    'Explain evidence-supported visible exterior structure.',
+    'Demonstrate visible material and craftsmanship quality.',
+    'Make visible controls and handling points easy to understand.',
+  ]);
+  assert.ok(completed.assetPlan.every(item => !/camera|composition|angle|\bview\b/i.test(item.communicationGoal)));
   assert.equal(jobs.get(input.id).progress.orchestrationSnapshot.schemaVersion, 4);
+});
+
+test('schema-3 migration preserves a proof-backed QC commercial duty', async t => {
+  const qc = planItem('food-proof-qc', 'detail_slice_qc');
+  qc.purpose = 'Quality evidence backed by an uploaded report.';
+  qc.communicationGoal = 'Quality evidence duty 6 with a different composition.';
+  qc.generationMode = 'deterministic_overlay';
+  qc.proofAssetIds = ['food-proof-report'];
+  qc.requiredFacts = [{ name: 'proofAssetId', value: 'food-proof-report' }];
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [qc] });
+  const input = jobInput('job-schema-three-proof-duty');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  const snapshot = orchestrationSnapshot([qc], 'hold-schema-three-proof-duty', 3);
+  snapshot.productTruth.category = '\u98df\u54c1\u996e\u6599';
+  snapshot.deterministicInputs.assets.proof = [{
+    assetId: 'food-proof-report',
+    url: '/api/ecommerce/assets/food-proof-report',
+  }];
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-schema-three-proof-duty',
+      orchestrationSnapshot: snapshot,
+    },
+  });
+
+  const completed = await orchestrator.runJob(input.id);
+  const [migrated] = completed.assetPlan;
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 0);
+  assert.equal(migrated.role, 'detail_slice_qc');
+  assert.equal(migrated.commercialDutyId, 'detailsliceqc:proofanswer');
+  assert.equal(migrated.communicationGoal, 'Communicate quality or certification information backed only by uploaded proof assets.');
+  assert.deepEqual(migrated.requiredFacts, [{ name: 'proofAssetId', value: 'food-proof-report' }]);
+  assert.deepEqual(migrated.proofAssetIds, ['food-proof-report']);
 });
 
 test('keeps the parent resumable while a planned child lease is temporarily held', async t => {

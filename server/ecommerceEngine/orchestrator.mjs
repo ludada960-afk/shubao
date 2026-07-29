@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+import { getAssetPlanStrategy } from './categoryKnowledge.mjs';
+import {
+  commercialDutyIdFor,
+  LEGACY_HERO_DUTIES,
+  TRANSPARENT_DUTIES,
+  WHITE_BACKGROUND_DUTIES,
+} from './commercialDutyCatalog.mjs';
 import { sanitizeSnapshot } from './jobStore.mjs';
 import { assertExecutionCount, validatePlanContract } from './planContract.mjs';
 
@@ -510,91 +517,80 @@ function legacySceneFamily(type) {
   }[cleanString(type).toLowerCase()] || 'evidence_safe_product_scene';
 }
 
-const LEGACY_ORDINAL_DUTY_RE = /\b(?:duty|treatment)\s+(?:\d+|one|two|three|four|five)\b/i;
-const MIGRATION_VIEW_DIRECTIONS = [
-  'front three-quarter view',
-  'opposing three-quarter view',
-  'straight-on front view',
-  'evidence-supported side profile',
-  'slightly elevated exterior view',
-  'rear three-quarter exterior view',
-  'low eye-level exterior view',
-  'wide product-dominant view',
-  'close product-dominant view',
-  'balanced centered exterior view',
-  'front profile with generous edge clearance',
-  'opposing profile with generous edge clearance',
-  'high three-quarter exterior view',
-  'low three-quarter exterior view',
-  'centered long-lens exterior view',
-  'centered natural-lens exterior view',
-  'diagonal exterior view with complete silhouette',
-  'reverse diagonal exterior view with complete silhouette',
-  'elevated centered view with complete geometry',
-  'eye-level centered view with complete geometry',
-];
-
-function migratedPurpose(item, role, occurrence) {
-  const base = cleanString(own(item, 'purpose')) || `Commercial purpose for ${role.replaceAll('_', ' ')}`;
+function roleCatalogDuty(role, occurrence) {
+  if (['main', 'main_text', 'main_3x4'].includes(role)) {
+    if (!LEGACY_HERO_DUTIES[occurrence]) {
+      throw new TypeError(`legacy ${role} count exceeds the canonical commercial duty catalog`);
+    }
+    return LEGACY_HERO_DUTIES[occurrence];
+  }
   if (role === 'white_background') {
-    return occurrence === 0
-      ? 'Marketplace-compliant hero isolation: center the complete product on pure white for primary catalog recognition.'
-      : occurrence === 1
-        ? 'Evidence-safe alternate-angle isolation: show a materially different exterior side on pure white for shape verification.'
-        : `White-background catalog isolation using a ${MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length]} for a distinct exterior-form question.`;
+    if (!WHITE_BACKGROUND_DUTIES[occurrence]) {
+      throw new TypeError('legacy white-background count exceeds the canonical commercial duty catalog');
+    }
+    return WHITE_BACKGROUND_DUTIES[occurrence];
   }
   if (role === 'transparent') {
-    return occurrence === 0
-      ? 'Primary transparent cutout: isolate the complete recognition view for reusable PNG placement.'
-      : occurrence === 1
-        ? 'Alternate-angle transparent cutout: isolate a different evidence-supported exterior side for layout flexibility.'
-        : `Transparent PNG cutout using a ${MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length]} for a distinct design placement.`;
+    if (!TRANSPARENT_DUTIES[occurrence]) {
+      throw new TypeError('legacy transparent count exceeds the canonical commercial duty catalog');
+    }
+    return TRANSPARENT_DUTIES[occurrence];
   }
-  if (['main', 'main_text', 'main_3x4'].includes(role)) {
-    const duties = [
-      'Product identity and recognition hero for click-through clarity.',
-      'Primary feature or benefit hero for one core buying reason.',
-      'Usage, scene, or scale hero for credible context.',
-      'Secondary structural angle hero for exterior-form understanding.',
-      'Material and craftsmanship hero for visible finish evidence.',
-    ];
-    const placement = role === 'main_3x4' ? 'Vertical marketplace placement.'
-      : role === 'main_text' ? 'Text-ready square marketplace placement.' : 'Primary marketplace placement.';
-    const composition = MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length];
-    return `${placement} ${duties[occurrence % duties.length]} Compose as a ${composition}.`;
-  }
-  if (role === 'sku') {
-    const facts = Array.isArray(own(item, 'requiredFacts')) ? own(item, 'requiredFacts') : [];
-    const variant = facts.map(fact => `${cleanString(own(fact, 'name'))}: ${cleanString(own(fact, 'value'))}`)
-      .filter(value => value !== ': ')
-      .join(', ');
-    if (variant) return `SKU variant decision asset for ${variant}, using only user-provided values.`;
-  }
-  return occurrence === 0
-    ? base
-    : `${base} Use a ${MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length]} as a separate evidence-safe buyer answer.`;
+  return null;
 }
 
-function upgradePlanItems(assetPlan) {
-  const duties = new Set();
+function detailMigrationDuty(item, sourceRole, productTruth, detailOccurrence) {
+  const strategy = getAssetPlanStrategy(cleanString(own(productTruth, 'category')));
+  const proofRole = cleanString(strategy?.proofRole);
+  const proofAssetIds = Array.isArray(own(item, 'proofAssetIds')) ? own(item, 'proofAssetIds') : [];
+  const requiredFacts = Array.isArray(own(item, 'requiredFacts')) ? own(item, 'requiredFacts') : [];
+  const hasProofEvidence = proofAssetIds.some(value => cleanString(value))
+    || requiredFacts.some(fact => cleanString(own(fact, 'name')) === 'proofAssetId'
+      && cleanString(own(fact, 'value')));
+  if (proofRole && sourceRole === `detail_slice_${proofRole}` && hasProofEvidence) {
+    return {
+      role: sourceRole,
+      key: 'proofanswer',
+      goal: 'Communicate quality or certification information backed only by uploaded proof assets.',
+      purpose: 'Quality or certification information backed only by uploaded proof assets.',
+    };
+  }
+  const roleName = cleanString(strategy?.detailRoles?.[detailOccurrence]);
+  const goal = cleanString(strategy?.buyingQuestions?.[detailOccurrence]);
+  if (!roleName || !goal) {
+    throw new TypeError('legacy detail count exceeds the canonical commercial duty catalog');
+  }
+  return {
+    role: `detail_slice_${roleName}`,
+    key: roleName,
+    goal,
+    purpose: goal,
+  };
+}
+
+function upgradePlanItems(assetPlan, productTruth = {}) {
   const roleOccurrences = new Map();
+  let detailOccurrence = 0;
   return assetPlan.map(item => {
-    const role = cleanString(own(item, 'role')).toLowerCase();
-    const occurrence = roleOccurrences.get(role) || 0;
-    roleOccurrences.set(role, occurrence + 1);
-    const baseDuty = cleanString(own(item, 'communicationGoal'))
+    const sourceRole = cleanString(own(item, 'role')).toLowerCase();
+    const occurrence = roleOccurrences.get(sourceRole) || 0;
+    roleOccurrences.set(sourceRole, occurrence + 1);
+    const detailDuty = sourceRole.startsWith('detail_slice_')
+      ? detailMigrationDuty(item, sourceRole, productTruth, detailOccurrence++)
+      : null;
+    const catalogDuty = detailDuty || roleCatalogDuty(sourceRole, occurrence);
+    const role = catalogDuty?.role || sourceRole;
+    const communicationGoal = catalogDuty?.goal
+      || cleanString(own(item, 'communicationGoal'))
       || cleanString(own(item, 'purpose'))
       || `Commercial duty for ${role}`;
-    const needsSemanticMigration = LEGACY_ORDINAL_DUTY_RE.test(baseDuty)
-      || duties.has(baseDuty.toLowerCase());
-    const purpose = needsSemanticMigration ? migratedPurpose(item, role, occurrence) : cleanString(own(item, 'purpose'));
-    let communicationGoal = needsSemanticMigration ? purpose : baseDuty;
-    let dutyKey = communicationGoal.toLowerCase();
-    if (duties.has(dutyKey)) {
-      communicationGoal = migratedPurpose({ ...item, purpose }, role, occurrence);
-      dutyKey = communicationGoal.toLowerCase();
-    }
-    duties.add(dutyKey);
+    const purpose = catalogDuty?.purpose
+      || cleanString(own(item, 'purpose'))
+      || communicationGoal;
+    const commercialDutyId = commercialDutyIdFor(
+      role,
+      catalogDuty?.key || 'legacybuyeranswer',
+    );
     const shotIntent = isRecord(own(item, 'shotIntent')) ? own(item, 'shotIntent') : {};
     const type = cleanString(own(shotIntent, 'type'));
     const evidenceTier = cleanString(own(shotIntent, 'evidenceTier'))
@@ -602,7 +598,9 @@ function upgradePlanItems(assetPlan) {
         : ['component_relationship', 'open_state'].includes(type) ? 'conditional' : 'safe');
     return {
       ...item,
-      purpose: purpose || cleanString(own(item, 'purpose')) || communicationGoal,
+      role,
+      purpose,
+      commercialDutyId,
       communicationGoal,
       shotIntent: {
         ...shotIntent,
@@ -617,7 +615,7 @@ function upgradeTask1Snapshot(snapshot) {
   const migrated = sanitizeSnapshot({
     ...snapshot,
     schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
-    assetPlan: upgradePlanItems(snapshot.assetPlan),
+    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth),
   });
   return validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: true });
 }
@@ -626,7 +624,7 @@ function upgradeTask2Snapshot(snapshot) {
   const migrated = sanitizeSnapshot({
     ...snapshot,
     schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
-    assetPlan: upgradePlanItems(snapshot.assetPlan),
+    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth),
   });
   return validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: true });
 }
@@ -635,7 +633,7 @@ function upgradeLegacySnapshot(snapshot) {
   const migrated = sanitizeSnapshot({
     ...snapshot,
     schemaVersion: LEGACY_ORCHESTRATION_SNAPSHOT_VERSION,
-    assetPlan: upgradePlanItems(snapshot.assetPlan),
+    assetPlan: upgradePlanItems(snapshot.assetPlan, snapshot.productTruth),
   });
   validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: false });
   validatePlanContract(migrated.assetPlan);

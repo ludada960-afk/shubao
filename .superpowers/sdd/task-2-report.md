@@ -547,3 +547,119 @@ No known contract failures. Production model output was not exercised because te
 ## Commit
 
 Planned subject: `fix: make ecommerce duties canonical`
+
+---
+
+# Task 2 Second Review: Detail Capacity And Schema-3 Duties
+
+## Status
+
+DONE. Both remaining Important findings were reproduced with RED tests, fixed, self-reviewed, and verified without deployment or network access.
+
+## Scope Implemented
+
+- Preserved the frontend `detail` contract at `0..10`; no UI count or test count was lowered.
+- Restored the planner regression fixture from detail `5` to detail `6`.
+- Expanded every canonical ecommerce category policy from five to ten genuinely different detail roles and buyer questions.
+- Kept uncertain Product Truth out of required facts. Parameter, compatibility, fit, quantity, care, and similar duties explicitly require user-confirmed evidence; visible duties are limited to exterior/product evidence.
+- Added a shared canonical commercial-duty catalog used by both the current planner and schema-3 migration. Canonical IDs are derived only from role plus an explicit duty key.
+- Retained the legacy no-explicit-count planner default at five details while allowing explicit UI-supported detail counts through ten.
+- Replaced schema-3 composition/view-based duty rewriting with fixed buyer-duty catalogs. Six repeated legacy main items now receive six real duties, including visible controls/handling as the sixth duty.
+- Added canonical IDs to upgraded schema-3 items. Known roles recover through their catalogs; counts beyond a known catalog fail closed before provider work instead of manufacturing uniqueness.
+- Preserved proof-backed legacy QC items as `detail_slice_qc` with `proofanswer`, required proof facts, and no repeated hold.
+
+## RED Evidence
+
+Primary focused RED command, run after test-only edits and before production edits:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-ui.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 1; 175 tests discovered, 169 passed, 6 failed, 0 skipped, 0 cancelled. All six failures were expected:
+
+- the restored detail=6 planner fixture produced only 12 unique commercial-duty IDs for 13 plan items;
+- the all-category detail=6/10 test found only five unique detail roles for the first category;
+- the existing UI detail=6 quote/plan parity test failed plan validation on a repeated detail duty;
+- the explicit UI detail=6/10 test failed the same pre-billing contract;
+- schema-3 white-background migration returned two undefined canonical IDs;
+- schema-3 six-main migration returned six undefined canonical IDs and still depended on composition/view text.
+
+Self-review proof migration RED:
+
+```powershell
+node --test --test-concurrency=1 --test-name-pattern="schema-3 migration preserves a proof-backed QC commercial duty" test/ecommerce-orchestrator.test.mjs
+```
+
+Result: exit 1; 1 test discovered, 0 passed, 1 failed. The migrated role was `detail_slice_package` instead of proof-backed `detail_slice_qc`.
+
+No production code was changed before either corresponding RED run.
+
+## GREEN Evidence
+
+Targeted proof migration GREEN: 1 passed, 0 failed.
+
+Final focused command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-ui.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 176 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Final complete Task 2 adjacent command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-shot-director.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-job-store.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 207 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Full repository regression, run exactly once on the final code:
+
+```powershell
+npm test
+```
+
+Result: exit 0; 767 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Static and collaboration verification:
+
+- `node --check` passed for all seven changed JavaScript modules and tests.
+- `git diff --check` exited 0; Git emitted only LF-to-CRLF working-copy notices.
+- `npm run collab:check` reported `READY`, linked worktree `yes`, tracked runtime paths `0`, ignored runtime changes `0`, and peer ownership conflicts `0`.
+- No production secret, provider Mock, external network, runtime database, upload, cache, log, environment file, or deployment was used.
+
+## Changed Files
+
+- `server/ecommerceEngine/commercialDutyCatalog.mjs` (new)
+- `server/ecommerceEngine/assetPlanner.mjs`
+- `server/ecommerceEngine/categoryKnowledge.mjs`
+- `server/ecommerceEngine/orchestrator.mjs`
+- `test/ecommerce-asset-planner.test.mjs`
+- `test/ecommerce-billing-ui.test.mjs`
+- `test/ecommerce-orchestrator.test.mjs`
+- `.superpowers/sdd/task-2-report.md`
+
+## Self-Review
+
+- Confirmed all eight canonical categories produce exactly six and ten requested detail rows with unique roles, canonical IDs, buyer goals, semantic suite keys, and a valid plan contract.
+- Confirmed frontend quantity, quote request quantity, server plan length, and plan validation agree exactly for detail `6` and `10`; `IMAGE_TYPES.detail.maxCount` remains `10`.
+- Confirmed no detail duty uses an ordinal, hash, camera, view, or composition as commercial differentiation.
+- Confirmed category duties do not request hidden/internal structure, efficacy, medical claims, certification without proof, or uncertain parameter values.
+- Confirmed the old no-explicit-count planner path remains five details, avoiding an unrequested default price increase.
+- Confirmed current hero slot six remains rejected by the five-duty current planner catalog; only schema-3 recovery has a sixth evidence-safe buyer duty so already-held legacy work can finish.
+- Confirmed schema-3 output IDs and buyer goals are fixed by role and catalog position before shot metadata is read. Changing camera, view, or composition cannot change the IDs or goals.
+- Confirmed schema-3 six-item recovery performs zero analysis, planning, or new hold calls and submits exactly the six existing rows once.
+- Confirmed proof-backed QC migration preserves role, proof IDs, required facts, deterministic generation mode, and the existing hold. A QC label without durable proof evidence does not receive the proof duty.
+- Confirmed catalog overflow is a deterministic pre-execution error; migration no longer falls back to composition text to make an unsupported count pass.
+- Confirmed ordinal width/depth compatibility normalization and the valid concrete semantic-quality prompt remain covered by focused, adjacent, and full regression.
+- Confirmed Task 1 Product Truth/Style Reference Profile isolation, visual snapshot versions, analysis-before-hold ordering, durable leases/intents, exact visible count, one bounded repair, successful-sibling non-rerun, and stable-only settlement remain unchanged.
+
+## Concerns
+
+No known contract failures. Legacy schema-3 counts beyond a defined canonical role catalog now fail closed rather than fabricate buyer duties; this is intentional and occurs before any new provider submission or hold.
+
+## Commit
+
+Planned subject: `fix: align ecommerce detail and legacy duties`

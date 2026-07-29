@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 
 import { getAssetPlanStrategy, normalizeEcommerceCategory } from './categoryKnowledge.mjs';
+import {
+  commercialDutyIdFor,
+  HERO_DUTIES,
+  TRANSPARENT_DUTIES,
+  WHITE_BACKGROUND_DUTIES,
+} from './commercialDutyCatalog.mjs';
 import { layoutContractFor, textLayerPlanFor } from './layoutContracts.mjs';
 import { LEGAL_IMAGE_SIZES } from './modelCatalog.mjs';
 import { getPlatformPolicy, planExportTargets } from './platformPolicies.mjs';
@@ -10,6 +16,7 @@ import { compileTypographySystem } from './typographyPolicy.mjs';
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const FACT_FIELDS = ['color', 'size', 'capacity', 'dimLabel', 'count'];
 const COUNTED_SIZING_KEYS = new Set(['white_bg', 'white_background', 'main_text', 'main_3x4', 'transparent', 'detail']);
+const DEFAULT_DETAIL_DUTY_COUNT = 5;
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -180,23 +187,6 @@ function riskLevel(role) {
   return 'low';
 }
 
-function canonicalDutySegment(value) {
-  return cleanString(value)
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '');
-}
-
-function commercialDutyIdFor(role, dutyKey) {
-  const roleKey = cleanString(role)
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '') || 'asset';
-  const normalizedDutyKey = canonicalDutySegment(dutyKey);
-  if (!normalizedDutyKey) throw new TypeError(`commercial duty key is required for ${roleKey}`);
-  return `${roleKey}:${normalizedDutyKey}`;
-}
-
 function skuDutyKey(skuFacts) {
   const factFingerprint = createHash('sha256')
     .update(skuFacts.map(fact => `${fact.name}\u0000${fact.value}`).join('\u0001'))
@@ -247,14 +237,6 @@ function appendRepeatedItems(items, count, createItem) {
   }
 }
 
-const HERO_DUTIES = Object.freeze([
-  Object.freeze({ key: 'productrecognition', goal: 'Establish immediate complete-product recognition.', purpose: 'Product identity and recognition hero: show one unmistakable complete product.' }),
-  Object.freeze({ key: 'primarybenefit', goal: 'Communicate one primary buyer benefit.', purpose: 'Primary feature or benefit hero: visualize one core buying reason while keeping the product dominant.' }),
-  Object.freeze({ key: 'usagecontext', goal: 'Clarify credible use context and product scale.', purpose: 'Usage, scene, or scale hero: show one credible context that helps the buyer understand use and proportion.' }),
-  Object.freeze({ key: 'structureunderstanding', goal: 'Explain evidence-supported exterior structure.', purpose: 'Structural hero: explain a visible exterior relationship without inventing hidden components.' }),
-  Object.freeze({ key: 'materialcraft', goal: 'Demonstrate visible material and craftsmanship quality.', purpose: 'Material and craftsmanship hero: focus on one premium visible finish without becoming a multi-panel detail sheet.' }),
-]);
-
 function heroDuty(role, index) {
   const placement = role === 'main_3x4'
     ? 'Vertical marketplace placement.'
@@ -294,20 +276,6 @@ function viewDirection(index) {
   return VIEW_DIRECTIONS[index % VIEW_DIRECTIONS.length];
 }
 
-const WHITE_BACKGROUND_DUTIES = Object.freeze([
-  Object.freeze({ key: 'catalogrecognition', communicationGoal: 'Provide marketplace-ready complete-product catalog recognition on white.', purpose: 'Marketplace-compliant hero isolation: center the complete product on pure white for primary catalog recognition.' }),
-  Object.freeze({ key: 'shapeverification', communicationGoal: 'Verify the complete exterior shape and silhouette on white.', purpose: 'Evidence-safe alternate-angle isolation: show the complete exterior on pure white for shape verification.' }),
-  Object.freeze({ key: 'featureinspection', communicationGoal: 'Make visible exterior controls and features easy to inspect on white.', purpose: 'White-background feature inspection: keep one complete product isolated while making visible exterior features legible.' }),
-  Object.freeze({ key: 'finishinspection', communicationGoal: 'Support inspection of visible material and finish on white.', purpose: 'White-background finish inspection: isolate one complete product and preserve visible material evidence.' }),
-]);
-
-const TRANSPARENT_DUTIES = Object.freeze([
-  Object.freeze({ key: 'reusableidentity', communicationGoal: 'Provide a reusable transparent complete-product identity asset.', purpose: 'Primary transparent cutout: isolate the complete recognition view for reusable PNG placement.' }),
-  Object.freeze({ key: 'layoutflexibility', communicationGoal: 'Provide a transparent complete-product asset for flexible campaign placement.', purpose: 'Alternate-angle transparent cutout: isolate a complete evidence-supported exterior for layout flexibility.' }),
-  Object.freeze({ key: 'featurecallout', communicationGoal: 'Support isolated exterior-feature communication in downstream layouts.', purpose: 'Transparent feature cutout: preserve one complete product while supporting an exterior-feature callout.' }),
-  Object.freeze({ key: 'channelreuse', communicationGoal: 'Provide a transparent complete-product asset for cross-channel reuse.', purpose: 'Transparent channel cutout: isolate one complete product for safe reuse across approved placements.' }),
-]);
-
 function repeatedDuty(catalog, index) {
   return catalog[index % catalog.length];
 }
@@ -325,7 +293,7 @@ function skuPurpose(skuFacts) {
 function explicitDetailSpecs(strategy, proofAssetIds) {
   const specs = strategy.detailRoles.map((roleName, index) => ({
     roleName,
-    commercialDutyKey: 'buyeranswer',
+    commercialDutyKey: roleName,
     purpose: strategy.buyingQuestions[index] || 'Answer one category-specific buying question.',
     proofAssetIds: [],
   }));
@@ -395,7 +363,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
         role: 'white_background',
         purpose: duty.purpose,
         commercialDutyKey: duty.key,
-        communicationGoal: duty.communicationGoal,
+        communicationGoal: duty.goal,
         defaultRatio: '1:1',
         requiredFacts: identity,
         productAssetIds,
@@ -414,7 +382,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
         role: 'transparent',
         purpose: duty.purpose,
         commercialDutyKey: duty.key,
-        communicationGoal: duty.communicationGoal,
+        communicationGoal: duty.goal,
         defaultRatio: '1:1',
         requiredFacts: identity,
         productAssetIds,
@@ -459,7 +427,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
           role,
           purpose: duty.purpose,
           commercialDutyKey: duty.key,
-          communicationGoal: duty.communicationGoal,
+          communicationGoal: duty.goal,
           defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
           requiredFacts: identity,
           productAssetIds,
@@ -475,7 +443,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
           role: 'white_background',
           purpose: duty.purpose,
           commercialDutyKey: duty.key,
-          communicationGoal: duty.communicationGoal,
+          communicationGoal: duty.goal,
           defaultRatio: '1:1',
           requiredFacts: identity,
           productAssetIds,
@@ -487,13 +455,13 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       })(),
     );
 
-    for (const roleName of strategy.detailRoles) {
+    for (const roleName of strategy.detailRoles.slice(0, DEFAULT_DETAIL_DUTY_COUNT)) {
       const role = `detail_slice_${roleName}`;
       const isParameterSlice = roleName === 'parameters';
       items.push(buildItem({
         role,
         purpose: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
-        commercialDutyKey: 'buyeranswer',
+        commercialDutyKey: roleName,
         communicationGoal: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
         requiredFacts: isParameterSlice ? userFacts : identity,
         generationMode: isParameterSlice ? 'deterministic_overlay' : 'edit',

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import test from 'node:test';
 
 import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
+import { validatePlanContract } from '../server/ecommerceEngine/planContract.mjs';
 
 async function planModel() {
   return import(`../src/pages/Home/ec/ecommercePlanModel.js?billing-ui=${Date.now()}-${Math.random()}`);
@@ -118,6 +119,7 @@ test('UI plan quantity matches the production asset plan and all IDs are determi
 
   assert.equal(uiPlan.quantity, 15);
   assert.equal(uiPlan.quantity, serverPlan.length);
+  assert.equal(validatePlanContract(serverPlan), serverPlan);
   assert.equal(new Set(serverPlan.map(item => item.id)).size, serverPlan.length);
   assert.deepEqual(serverPlan, buildAssetPlan({
     productTruth: productTruth(),
@@ -126,6 +128,35 @@ test('UI plan quantity matches the production asset plan and all IDs are determi
     sizing: { ...input.sizing, resolution: input.resolution },
     skus: input.skus,
   }));
+});
+
+test('UI-supported detail counts six and ten quote and validate exactly', async () => {
+  const { IMAGE_TYPES, resolveEcommercePlan } = await planModel();
+  const detailType = IMAGE_TYPES.find(type => type.key === 'detail');
+
+  assert.equal(detailType.maxCount, 10);
+  for (const count of [6, 10]) {
+    const input = {
+      platform: '\u6dd8\u5b9d',
+      resolution: '2K',
+      sizing: {
+        smart: false,
+        images: [{ key: 'detail', count, ratio: '3:4' }],
+      },
+    };
+    const uiPlan = resolveEcommercePlan(input);
+    const serverPlan = buildAssetPlan({
+      productTruth: productTruth(),
+      campaignBible: { confirmed: true, referenceAssetIds: [] },
+      platform: input.platform,
+      sizing: { ...input.sizing, resolution: input.resolution },
+    });
+
+    assert.equal(uiPlan.quantity, count);
+    assert.equal(uiPlan.quoteRequest.quantity, count);
+    assert.equal(serverPlan.length, count);
+    assert.equal(validatePlanContract(serverPlan), serverPlan);
+  }
 });
 
 test('quote request uses the formal resolution SKU and exact planned quantity', async () => {

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { LEGAL_IMAGE_SIZES, validateGenerationSize } from '../server/ecommerceEngine/modelCatalog.mjs';
 import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
+import { getCategoryList } from '../server/ecommerceEngine/categoryKnowledge.mjs';
 import { validatePlanContract } from '../server/ecommerceEngine/planContract.mjs';
 import { suiteSemanticKey } from '../server/ecommerceEngine/suiteDiversity.mjs';
 
@@ -204,7 +205,7 @@ test('honors configured counts including transparent assets and expands determin
         { key: 'main_text', count: 2, ratio: '1:1' },
         { key: 'main_3x4', count: 1, ratio: '9:16' },
         { key: 'transparent', count: 2, ratio: '1:1' },
-        { key: 'detail', count: 5, ratio: '3:4' },
+        { key: 'detail', count: 6, ratio: '3:4' },
         { key: 'poster', count: 9, ratio: '3:4' },
       ],
     },
@@ -217,8 +218,8 @@ test('honors configured counts including transparent assets and expands determin
   assert.equal(roleCount('main_text'), 2);
   assert.equal(roleCount('main_3x4'), 1);
   assert.equal(roleCount('transparent'), 2);
-  assert.equal(first.filter(item => item.role.startsWith('detail_slice_')).length, 5);
-  assert.equal(first.length, 12);
+  assert.equal(first.filter(item => item.role.startsWith('detail_slice_')).length, 6);
+  assert.equal(first.length, 13);
   assert.equal(first.some(item => item.role === 'poster'), false);
   assert.equal(new Set(first.map(item => item.id)).size, first.length);
   const targetIds = first.flatMap(item => item.exportTargets.map(target => target.targetId));
@@ -240,6 +241,39 @@ test('honors configured counts including transparent assets and expands determin
   assert.equal(new Set(first.map(suiteSemanticKey)).size, first.length);
   assert.equal(validatePlanContract(first), first);
   assert.deepEqual(first, second);
+});
+
+test('every supported category plans six and ten distinct evidence-safe detail duties', () => {
+  const forbiddenUnsupportedDuty = /hidden|internal|efficacy|treatment|certification|certified|medical|\u7597\u6548|\u8ba4\u8bc1|\u9690\u85cf|\u5185\u90e8/i;
+
+  for (const category of getCategoryList()) {
+    for (const count of [6, 10]) {
+      const plan = buildAssetPlan({
+        productTruth: productTruth({
+          category,
+          confirmedFacts: {},
+          uncertainFacts: [{ name: 'unconfirmed_parameter', value: 'must not be planned' }],
+        }),
+        campaignBible,
+        platform: 'taobao',
+        sizing: {
+          images: [
+            { key: 'detail', count, ratio: '3:4' },
+          ],
+        },
+      });
+      const details = plan.filter(item => item.role.startsWith('detail_slice_'));
+
+      assert.equal(plan.length, count, `${category} detail=${count} plan count`);
+      assert.equal(details.length, count, `${category} detail=${count} role count`);
+      assert.equal(new Set(details.map(item => item.role)).size, count, `${category} roles`);
+      assert.equal(new Set(details.map(item => item.commercialDutyId)).size, count, `${category} duty ids`);
+      assert.equal(new Set(details.map(item => item.communicationGoal)).size, count, `${category} buyer goals`);
+      assert.ok(details.every(item => !forbiddenUnsupportedDuty.test(`${item.purpose} ${item.communicationGoal}`)), category);
+      assert.ok(details.every(item => item.requiredFacts.every(fact => fact.name !== 'unconfirmed_parameter')), category);
+      assert.equal(validatePlanContract(plan), plan, `${category} detail=${count} contract`);
+    }
+  }
 });
 
 test('assigns repeated hero images distinct commercial shot duties', () => {
