@@ -44,6 +44,7 @@ async function createHarness(t, {
   settle,
   release,
   releaseRemainder,
+  migrateLegacyVisualAsset,
   stableContentType = 'image/png',
   orchestratorOptions = {},
   jobsOptions = {},
@@ -72,6 +73,7 @@ async function createHarness(t, {
     settle: [],
     release: [],
     releaseRemainder: [],
+    migrate: [],
     sequence: [],
     scheduled: 0,
   };
@@ -82,6 +84,15 @@ async function createHarness(t, {
     jobs,
     schedule: () => {
       calls.scheduled += 1;
+    },
+    migrateLegacyVisualAsset: async input => {
+      calls.migrate.push(input);
+      if (migrateLegacyVisualAsset) return migrateLegacyVisualAsset(input);
+      throw Object.assign(new Error('历史图片无法读取，请重新上传'), {
+        code: 'VISUAL_ANALYSIS_INVALID_INPUT',
+        status: 400,
+        retryable: false,
+      });
     },
     analyzeVisualInputs: async payload => {
       calls.analyze += 1;
@@ -363,14 +374,24 @@ test('rejects malformed formal product and reference payloads before billing', a
       },
     },
     {
+      label: 'reference entry uses a non-contract ID alias',
+      mutate: payload => { payload.assets.reference = [{ id: 'style-alias', url: '/style-alias.png' }]; },
+    },
+    {
+      label: 'reference entry uses a non-contract URL alias',
+      mutate: payload => {
+        payload.assets.reference = [{ assetId: 'style-url-alias', sourceUrl: '/style-alias.png' }];
+      },
+    },
+    {
       label: 'product entry has no URL',
       mutate: payload => { payload.assets.product = [{ assetId: 'product-no-url' }]; },
     },
     {
-      label: 'legacy reference URL has no durable ID',
+      label: 'arbitrary remote legacy reference is untrusted',
       mutate: payload => {
         delete payload.assets.reference;
-        payload.reference_images = ['/api/ec-temp-img/style.png'];
+        payload.reference_images = ['https://untrusted.example/style.png'];
       },
     },
   ];
@@ -443,6 +464,130 @@ test('allows product-only visual analysis when the optional reference group is a
 
   assert.equal(completed.status, 'completed');
   assert.deepEqual(visionTypes, ['product']);
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+});
+
+test('resumes queued and analyzing pre-upgrade jobs through trusted legacy asset migration', async t => {
+  const migratedProduct = {
+    assetId: `${'c'.repeat(64)}.png`,
+    url: `/api/generated-assets/${'c'.repeat(64)}.png`,
+  };
+  const migratedReference = {
+    assetId: `${'d'.repeat(64)}.png`,
+    url: `/api/generated-assets/${'d'.repeat(64)}.png`,
+  };
+
+  for (const initialStatus of ['queued', 'analyzing']) {
+    await t.test(initialStatus, async t => {
+      const { orchestrator, jobs, calls } = await createHarness(t, {
+        migrateLegacyVisualAsset: async ({ source }) => source.includes('product')
+          ? migratedProduct
+          : migratedReference,
+      });
+      const input = {
+        id: `job-legacy-${initialStatus}`,
+        ownerEmail: OWNER,
+        payload: {
+          product_name: '测试商品',
+          category: '数码3C',
+          platform: '淘宝',
+          real_shots: ['/api/ec-temp-img/product.png'],
+          reference_images: ['/api/ec-temp-img/reference.png'],
+        },
+      };
+      const created = jobs.create(input);
+      if (initialStatus === 'analyzing') jobs.transition(created.id, 'analyzing');
+
+      const completed = await orchestrator.runJob(created.id);
+
+      assert.equal(completed.status, 'completed');
+      assert.deepEqual(calls.migrate.map(({ source, type, index, job }) => ({
+        source,
+        type,
+        index,
+        jobId: job.id,
+        ownerEmail: job.ownerEmail,
+      })), [
+        {
+          source: '/api/ec-temp-img/product.png',
+          type: 'product',
+          index: 0,
+          jobId: created.id,
+          ownerEmail: OWNER,
+        },
+        {
+          source: '/api/ec-temp-img/reference.png',
+          type: 'reference',
+          index: 0,
+          jobId: created.id,
+          ownerEmail: OWNER,
+        },
+      ]);
+      const expectedAssets = {
+        product: [migratedProduct],
+        reference: [migratedReference],
+        proof: [],
+        protection: [],
+      };
+      assert.deepEqual(calls.analyzePayloads[0].assets, expectedAssets);
+      assert.deepEqual(jobs.get(created.id).progress.visualInputSnapshot, {
+        schemaVersion: 1,
+        assets: expectedAssets,
+      });
+      assert.equal(calls.hold.length, 1);
+      assert.equal(calls.submit.length, 1);
+    });
+  }
+});
+
+test('reuses checkpointed legacy inputs after a pre-analysis crash without duplicate work or hold', async t => {
+  const migratedProduct = {
+    assetId: `${'e'.repeat(64)}.png`,
+    url: `/api/generated-assets/${'e'.repeat(64)}.png`,
+  };
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    migrateLegacyVisualAsset: async () => migratedProduct,
+  });
+  const created = jobs.create({
+    id: 'job-legacy-checkpoint-crash',
+    ownerEmail: OWNER,
+    payload: {
+      product_name: '测试商品',
+      category: '数码3C',
+      platform: '淘宝',
+      real_shots: ['/api/ec-temp-img/product.png'],
+    },
+  });
+  const checkpoint = jobs.checkpoint;
+  let injectedCrash = false;
+  jobs.checkpoint = (...args) => {
+    const result = checkpoint(...args);
+    const progress = args[1]?.progress;
+    if (!injectedCrash && progress?.visualInputSnapshot && !progress?.orchestrationSnapshot) {
+      injectedCrash = true;
+      throw Object.assign(new Error('simulated crash after visual input checkpoint'), {
+        retryable: true,
+      });
+    }
+    return result;
+  };
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    /simulated crash after visual input checkpoint/,
+  );
+  assert.equal(calls.migrate.length, 1);
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.deepEqual(jobs.get(created.id).progress.visualInputSnapshot.assets.product, [migratedProduct]);
+
+  jobs.checkpoint = checkpoint;
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.migrate.length, 1);
+  assert.equal(calls.analyze, 1);
   assert.equal(calls.hold.length, 1);
   assert.equal(calls.submit.length, 1);
 });

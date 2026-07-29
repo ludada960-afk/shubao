@@ -83,6 +83,7 @@ import {
 import { createVisualAnalysisService } from './ecommerceEngine/visualAnalysisService.mjs';
 import { createVisualAnalysisStore } from './ecommerceEngine/visualAnalysisStore.mjs';
 import { createVlmClient } from './ecommerceEngine/vlmClient.mjs';
+import { createLegacyVisualAssetMigration } from './ecommerceEngine/legacyVisualAssetMigration.mjs';
 import {
   BETA_GUARDED_POST_ROUTES,
   RATE_LIMITED_POST_ROUTES,
@@ -2901,6 +2902,10 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
 const TEMP_UPLOAD_DIR = resolve(__dirname, 'temp_uploads');
 if (!fs.existsSync(TEMP_UPLOAD_DIR)) fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
 const imageInputReader = createImageInputReader({ generatedAssetStore, tempUploadDir: TEMP_UPLOAD_DIR });
+const migrateLegacyVisualAsset = createLegacyVisualAssetMigration({
+  imageInputReader,
+  generatedAssetStore,
+});
 const visualAnalysisService = createVisualAnalysisService({
   store: createVisualAnalysisStore(db),
   model: MINI_MODEL,
@@ -3090,6 +3095,7 @@ const ecommerceTaskWorkPersistence = createEcommerceTaskWorkPersistence({ upsert
 const ecommerceProjectLifecycle = createEcommerceProjectLifecycle({ projectStore });
 const orchestrator = createEcommerceOrchestrator({
   jobs: ecommerceJobs,
+  migrateLegacyVisualAsset,
   analyzeVisualInputs: analyzeEcommerceVisualInputs,
   compileCampaignBible,
   buildAssetPlan,

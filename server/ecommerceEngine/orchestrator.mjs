@@ -5,6 +5,7 @@ import { sanitizeSnapshot } from './jobStore.mjs';
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
+const VISUAL_INPUT_SNAPSHOT_VERSION = 1;
 const LEGACY_ORCHESTRATION_SNAPSHOT_VERSION = 1;
 const CURRENT_ORCHESTRATION_SNAPSHOT_VERSION = 2;
 
@@ -147,52 +148,65 @@ function invalidVisualAssetInput(message) {
 function suppliedAssetGroups(explicit, payload, explicitKeys, legacyKey) {
   const groups = [];
   for (const key of explicitKeys) {
-    if (Object.hasOwn(explicit, key)) groups.push(explicit[key]);
+    if (Object.hasOwn(explicit, key)) groups.push({ values: explicit[key], legacy: false });
   }
-  if (Object.hasOwn(payload, legacyKey)) groups.push(payload[legacyKey]);
+  if (Object.hasOwn(payload, legacyKey)) groups.push({ values: payload[legacyKey], legacy: true });
   return groups;
 }
 
-function normalizeFormalAssetGroups(groups, label) {
+function normalizeFormalAsset(value, label) {
+  if (!isRecord(value)) {
+    throw invalidVisualAssetInput(`${label} asset must include an ID and URL`);
+  }
+  const url = cleanString(own(value, 'url'));
+  if (!url) throw invalidVisualAssetInput(`${label} asset URL is required`);
+  const assetId = cleanString(own(value, 'assetId'));
+  if (!SAFE_ID_RE.test(assetId)) {
+    throw invalidVisualAssetInput(`${label} asset ID is invalid`);
+  }
+  return { assetId, url };
+}
+
+async function normalizeFormalAssetGroups(groups, label, { job, migrateLegacyVisualAsset }) {
   let selected = null;
-  for (const values of groups) {
+  for (const { values, legacy } of groups) {
     if (!Array.isArray(values)) {
       throw invalidVisualAssetInput(`${label} assets must be an array`);
     }
-    const normalized = values.map((value) => {
-      if (!isRecord(value)) {
-        throw invalidVisualAssetInput(`${label} asset must include an ID and URL`);
+    const normalized = [];
+    for (const [index, value] of values.entries()) {
+      if (typeof value === 'string' && legacy) {
+        const migrated = await migrateLegacyVisualAsset({
+          source: value,
+          type: label,
+          index,
+          job: { id: job.id, ownerEmail: job.ownerEmail },
+        });
+        normalized.push(normalizeFormalAsset(migrated, label));
+        continue;
       }
-      const url = assetSource(value);
-      if (!url) throw invalidVisualAssetInput(`${label} asset URL is required`);
-      const assetId = cleanString(
-        own(value, 'assetId')
-        ?? own(value, 'asset_id')
-        ?? own(value, 'id'),
-      );
-      if (!SAFE_ID_RE.test(assetId)) {
-        throw invalidVisualAssetInput(`${label} asset ID is invalid`);
-      }
-      return { assetId, url };
-    });
+      normalized.push(normalizeFormalAsset(value, label));
+    }
     if (selected === null) selected = normalized;
   }
   return selected ?? [];
 }
 
-function assetsFromPayload(payload) {
+async function assetsFromPayload(payload, { job, migrateLegacyVisualAsset }) {
   const explicitValue = own(payload, 'assets');
   if (explicitValue !== undefined && !isRecord(explicitValue)) {
     throw invalidVisualAssetInput('visual assets must be an object');
   }
   const explicit = isRecord(explicitValue) ? explicitValue : {};
-  const product = normalizeFormalAssetGroups(
+  const product = await normalizeFormalAssetGroups(
     suppliedAssetGroups(explicit, payload, ['product', 'products'], 'real_shots'),
     'product',
+    { job, migrateLegacyVisualAsset },
   );
-  const reference = normalizeFormalAssetGroups(
+  const reference = await normalizeFormalAssetGroups(
     suppliedAssetGroups(explicit, payload, ['reference', 'references'], 'reference_images'),
     'reference',
+    { job, migrateLegacyVisualAsset },
   );
   const proof = normalizeAuxiliaryAssetGroup(
     own(explicit, 'proof') ?? own(explicit, 'proofs') ?? own(payload, 'uploaded_proofs'),
@@ -293,6 +307,31 @@ function invalidOrchestrationSnapshot() {
   );
 }
 
+function visualInputSnapshotFromProgress(progress) {
+  const snapshot = own(progress, 'visualInputSnapshot');
+  if (snapshot === undefined) return null;
+  if (!isRecord(snapshot)
+    || own(snapshot, 'schemaVersion') !== VISUAL_INPUT_SNAPSHOT_VERSION
+    || !isRecord(own(snapshot, 'assets'))) {
+    throw invalidOrchestrationSnapshot();
+  }
+  const assets = snapshot.assets;
+  const normalized = {};
+  try {
+    for (const label of ['product', 'reference', 'proof', 'protection']) {
+      const group = own(assets, label);
+      if (!Array.isArray(group)) throw new TypeError(`${label} assets must be an array`);
+      normalized[label] = group.map(asset => normalizeFormalAsset(asset, label));
+    }
+  } catch (error) {
+    throw Object.assign(invalidOrchestrationSnapshot(), { cause: error });
+  }
+  return sanitizeSnapshot({
+    schemaVersion: VISUAL_INPUT_SNAPSHOT_VERSION,
+    assets: normalized,
+  });
+}
+
 function validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis }) {
   if (!isRecord(snapshot)
     || !isRecord(own(snapshot, 'productTruth'))
@@ -359,6 +398,10 @@ export function createEcommerceOrchestrator(deps = {}) {
     throw new TypeError('durable generation jobs with an asset store are required');
   }
   const store = jobs.assets;
+  const migrateLegacyVisualAsset = requireFunction(
+    own(deps, 'migrateLegacyVisualAsset'),
+    'migrateLegacyVisualAsset',
+  );
   const analyzeVisualInputs = requireFunction(own(deps, 'analyzeVisualInputs'), 'analyzeVisualInputs');
   const compileCampaignBible = requireFunction(own(deps, 'compileCampaignBible'), 'compileCampaignBible');
   const buildAssetPlan = requireFunction(own(deps, 'buildAssetPlan'), 'buildAssetPlan');
@@ -963,7 +1006,25 @@ export function createEcommerceOrchestrator(deps = {}) {
         });
       }
       if (!snapshot) {
-        const inputAssets = assetsFromPayload(job.payload);
+        let visualInputSnapshot = visualInputSnapshotFromProgress(job.progress);
+        if (!visualInputSnapshot) {
+          const inputAssets = await assetsFromPayload(job.payload, {
+            job,
+            migrateLegacyVisualAsset,
+          });
+          visualInputSnapshot = sanitizeSnapshot({
+            schemaVersion: VISUAL_INPUT_SNAPSHOT_VERSION,
+            assets: inputAssets,
+          });
+          job = jobs.checkpoint(id, {
+            progress: {
+              ...job.progress,
+              visualInputSnapshot,
+            },
+            leaseToken: parentLeaseToken,
+          });
+        }
+        const inputAssets = visualInputSnapshot.assets;
         const payload = { ...job.payload, assets: inputAssets };
         const visualAnalysis = await analyzeVisualInputs(payload);
         const productTruth = own(visualAnalysis, 'productTruth');
