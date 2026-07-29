@@ -9,6 +9,8 @@ import {
   MdSchedule,
 } from 'react-icons/md';
 import { useTasks } from '../../store/taskStore';
+import { quoteFailedEcommerceTask, retryFailedEcommerceTask } from '../../services/api.js';
+import { useDialog } from '../ui/DialogProvider.jsx';
 
 const STATUS_META = {
   queued: { icon: MdSchedule, color: '#7c746d', label: '排队中' },
@@ -34,7 +36,10 @@ function progressText(task) {
 
 export default function TaskSidebar({ onOpenTask }) {
   const { tasks, activeCount, errorCount, loadError, refreshTasks } = useTasks();
+  const { confirm } = useDialog();
   const [open, setOpen] = useState(false);
+  const [retryingTaskId, setRetryingTaskId] = useState('');
+  const [retryErrors, setRetryErrors] = useState({});
   const dockRef = useRef(null);
 
   useEffect(() => {
@@ -54,6 +59,30 @@ export default function TaskSidebar({ onOpenTask }) {
   }, [open]);
 
   const noticeCount = errorCount || activeCount;
+
+  const retryFailedAssets = async task => {
+    if (!task?.id || retryingTaskId) return;
+    setRetryingTaskId(task.id);
+    setRetryErrors(current => ({ ...current, [task.id]: '' }));
+    try {
+      const retryQuote = await quoteFailedEcommerceTask(task.id);
+      const confirmed = await confirm({
+        title: '确认重新生成失败图片',
+        message: `本次仅重新生成 ${retryQuote.quantity} 张失败图片，将消耗 ${retryQuote.quote.totalUnits} 电商图片 / 画布 AI 积分。`,
+        confirmLabel: '确认重新生成',
+      });
+      if (!confirmed) return;
+      await retryFailedEcommerceTask(task.id, { billingQuoteId: retryQuote.quote.quoteId });
+      await refreshTasks();
+    } catch (error) {
+      setRetryErrors(current => ({
+        ...current,
+        [task.id]: error?.message || '重新生成失败图片失败，请稍后重试',
+      }));
+    } finally {
+      setRetryingTaskId('');
+    }
+  };
 
   return (
     <div
@@ -188,6 +217,8 @@ export default function TaskSidebar({ onOpenTask }) {
               const active = ACTIVE_STATES.has(task.status);
               const percent = task.total > 0 ? Math.min(100, Math.round((task.done / task.total) * 100)) : 0;
               const assetErrors = (task.assets || []).filter(asset => asset.error);
+              const retryError = retryErrors[task.id];
+              const retrying = retryingTaskId === task.id;
               return (
                 <article
                   key={task.id}
@@ -247,14 +278,26 @@ export default function TaskSidebar({ onOpenTask }) {
 
                   {(task.error || assetErrors.length > 0) && (
                     <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>
-                      {task.error || assetErrors[0]?.error}
+                      {task.error && <div>{task.error}</div>}
+                      {assetErrors.map(asset => (
+                        <div key={asset.id} style={{ marginTop: task.error ? 5 : 0 }}>
+                          <strong>{asset.label}</strong>：{asset.error}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {retryError && (
+                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>
+                      {retryError}
                     </div>
                   )}
 
                   {task.actions?.includes('retry_failed') && (
                     <button
                       type="button"
-                      onClick={() => onOpenTask?.(task.id)}
+                      onClick={() => retryFailedAssets(task)}
+                      disabled={retrying || Boolean(retryingTaskId)}
                       style={{
                         marginTop: 9,
                         width: '100%',
@@ -265,10 +308,11 @@ export default function TaskSidebar({ onOpenTask }) {
                         color: '#9a591f',
                         fontSize: 12,
                         fontWeight: 700,
-                        cursor: 'pointer',
+                        cursor: retrying || retryingTaskId ? 'wait' : 'pointer',
+                        opacity: retrying || retryingTaskId ? 0.65 : 1,
                       }}
                     >
-                      查看失败图片并重新报价
+                      {retrying ? '正在确认费用…' : '重新生成失败图片'}
                     </button>
                   )}
                 </article>

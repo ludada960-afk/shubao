@@ -721,6 +721,42 @@ export async function listEcommerceTasks({ signal } = {}) {
   return Array.isArray(data.tasks) ? data.tasks : [];
 }
 
+export async function quoteFailedEcommerceTask(taskId, { signal } = {}) {
+  if (!taskId) throw new Error('缺少任务编号');
+  const planResponse = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}/retry-plan`, {
+    method: 'POST',
+    headers: signedSessionHeaders(),
+    signal,
+  });
+  if (!planResponse.ok) throw await createApiError(planResponse, '读取失败图片费用失败');
+  const planBody = await planResponse.json();
+  const plan = planBody?.plan || planBody;
+  const sku = typeof plan?.sku === 'string' ? plan.sku.trim() : '';
+  const quantity = Number(plan?.quantity);
+  if (!sku || !Number.isSafeInteger(quantity) || quantity <= 0) {
+    throw new Error('失败图片的费用信息无效，请刷新后重试');
+  }
+  const billing = await quoteBillingAction({ sku, quantity });
+  const quote = billing?.quote;
+  if (!quote?.quoteId || !Number.isSafeInteger(quote.totalUnits) || quote.totalUnits < 0) {
+    throw new Error('暂时无法确认本次重新生成费用，请重试');
+  }
+  return { ...plan, quote };
+}
+
+export async function retryFailedEcommerceTask(taskId, { billingQuoteId, signal } = {}) {
+  if (!taskId) throw new Error('缺少任务编号');
+  if (!billingQuoteId) throw new Error('缺少重新生成费用确认');
+  const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}/retry-failed`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ billingQuoteId }),
+    signal,
+  });
+  if (!res.ok) throw await createApiError(res, '重新生成失败图片失败');
+  return res.json();
+}
+
 /* ── 电商智能识别（Vision 回填 5 步字段） ── */
 export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
   const res = await fetch(`${API_BASE}/api/ecommerce/auto-recognize`, {

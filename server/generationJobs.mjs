@@ -24,6 +24,29 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function safeLabel(value, fallback = '') {
+  return cleanString(value).slice(0, 160) || fallback;
+}
+
+function safeProgress(value) {
+  const progress = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const count = key => Number.isSafeInteger(progress[key]) && progress[key] >= 0 ? progress[key] : 0;
+  return {
+    current: count('current'),
+    total: count('total'),
+    completed: count('completed'),
+    needsReview: count('needsReview'),
+    failed: count('failed'),
+  };
+}
+
+function publicTaskError(status) {
+  if (status === 'needs_review') return '部分图片未通过检查，可仅重新生成失败图片';
+  if (status === 'failed') return '任务未完成，请查看失败图片后重试';
+  if (status === 'cancelled') return '任务已停止';
+  return '';
+}
+
 export function createGenerationJobs(dbPath = ':memory:', {
   now = Date.now,
   randomUUID = crypto.randomUUID,
@@ -121,8 +144,13 @@ export function createGenerationJobs(dbPath = ':memory:', {
       `).all(ownerEmail, safeLimit).map(row => {
         const payload = parse(row.payload, {});
         const assetRows = assets.listAssets(row.id).map(asset => ({
-          assetId: asset.assetId,
           state: asset.state,
+          label: safeLabel(
+            asset.requestSnapshot?.assetPlanItem?.label
+            ?? asset.requestSnapshot?.assetPlanItem?.purpose
+            ?? asset.requestSnapshot?.assetPlanItem?.role,
+            '图片',
+          ),
           error: asset.state === 'needs_review'
             ? '图片未通过质量检查，本张未计费'
             : ['failed', 'cancelled'].includes(asset.state)
@@ -131,10 +159,10 @@ export function createGenerationJobs(dbPath = ':memory:', {
         }));
         return {
           id: row.id,
-          title: `${cleanString(payload.product_name) || '电商'}套图`,
+          title: `${safeLabel(payload.product_name, '电商')}套图`,
           status: row.status,
-          error: row.error,
-          progress: parse(row.progress, {}),
+          error: publicTaskError(row.status),
+          progress: safeProgress(parse(row.progress, {})),
           updatedAt: row.updated_at,
           assets: assetRows,
         };

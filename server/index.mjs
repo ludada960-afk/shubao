@@ -3532,6 +3532,8 @@ function authenticateEcommerceRequest(req, res, next) {
 app.post('/api/ecommerce/assets', authenticateEcommerceRequest, ecommerceAssetRouteHandlers.upload);
 app.post('/api/ecommerce/exports', authenticateEcommerceRequest, ecommerceExportRouteHandlers.create);
 app.get('/api/ecommerce/jobs', authenticateEcommerceRequest, ecommerceRouteHandlers.listJobs);
+app.post('/api/ecommerce/jobs/:id/retry-plan', authenticateEcommerceRequest, ecommerceRouteHandlers.retryPlan);
+app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, ecommerceRouteHandlers.retryFailed);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
 // 画布二次生成由独立持久化服务负责；路由只转交已认证 owner 与请求体。

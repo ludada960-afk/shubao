@@ -990,6 +990,49 @@ test('three quoted plan items create exactly three visible assets and three prov
   });
 });
 
+test('failed-item retry creates a newly quoted job containing only failed siblings', async t => {
+  let rejectSecondOnce = true;
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('main-one'), planItem('main-two')],
+    quality: async ({ input }) => {
+      if (input.assetPlanItem.id === 'main-two' && rejectSecondOnce) {
+        rejectSecondOnce = false;
+        return {
+          passed: false,
+          checks: {},
+          repairAction: { type: 'none', focusIssueCodes: ['product_fidelity'], userCharge: false },
+          confidence: 'high',
+        };
+      }
+      return {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      };
+    },
+  });
+  orchestrator.createJob(jobInput('job-retry-source'));
+  const original = await orchestrator.runJob('job-retry-source');
+  assert.equal(original.status, 'needs_review');
+  assert.deepEqual(calls.compile, ['main-one', 'main-two']);
+
+  const retryPlan = orchestrator.getFailedRetryPlan({ id: original.id, ownerEmail: OWNER });
+  assert.deepEqual(retryPlan.itemIds, ['main-two']);
+  assert.equal(retryPlan.quantity, 1);
+
+  const retryJob = orchestrator.createFailedRetryJob({
+    id: original.id,
+    ownerEmail: OWNER,
+    billingQuoteId: 'quote-for-one-failed-item',
+  });
+  const completed = await orchestrator.runJob(retryJob.id);
+  assert.equal(completed.status, 'completed');
+  assert.deepEqual(calls.compile, ['main-one', 'main-two', 'main-two']);
+  assert.deepEqual(calls.hold.at(-1).itemIds, ['main-two']);
+  assert.equal(calls.submit.length, 3);
+});
+
 test('waits for in-flight asset workers to settle before releasing a failed parent runner', async t => {
   let slowWorkerCompleted = false;
   const { orchestrator, calls } = await createHarness(t, {

@@ -54,6 +54,14 @@ test('image generation errors render inside the progress surface beside the affe
   assert.match(source, /role="alert"/);
 });
 
+test('global task dock lists every failed image with its own label and error', () => {
+  const source = readFileSync(new URL('../src/components/task/TaskSidebar.jsx', import.meta.url), 'utf8');
+  assert.match(source, /assetErrors\.map/);
+  assert.match(source, /asset\.label/);
+  assert.match(source, /asset\.error/);
+  assert.doesNotMatch(source, /assetErrors\[0\]/);
+});
+
 test('normalizes an asset with Asset Plan role and never exposes a provider state as its label', () => {
   const asset = normalizeEcommerceAsset({
     assetId: 'detail-1',

@@ -7,8 +7,8 @@ function text(value, fallback = '') {
 }
 
 export function normalizeDurableTask(job = {}) {
-  const assets = Array.isArray(job.assets) ? job.assets.map(asset => ({
-    id: text(asset?.assetId ?? asset?.id),
+  const assets = Array.isArray(job.assets) ? job.assets.map((asset, index) => ({
+    id: text(asset?.assetId ?? asset?.id, `asset-${index + 1}`),
     state: text(asset?.state ?? asset?.status, 'queued'),
     label: text(asset?.label ?? asset?.role, '图片'),
     error: text(asset?.error),

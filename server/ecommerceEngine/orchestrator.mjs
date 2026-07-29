@@ -10,6 +10,7 @@ import {
 import { MAX_DETAIL_DUTY_COUNT, resolveLegacyDetailDuty } from './detailDutyPolicy.mjs';
 import { sanitizeSnapshot } from './jobStore.mjs';
 import { assertExecutionCount, validatePlanContract } from './planContract.mjs';
+import { ecommerceFeatureForItem } from './ecommerceBilling.mjs';
 
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
@@ -746,6 +747,16 @@ function orchestrationSnapshotFromProgress(progress) {
   throw invalidOrchestrationSnapshot();
 }
 
+function retryAssetPlanFromProgress(progress) {
+  const retryAssetPlan = own(progress, 'retryAssetPlan');
+  if (retryAssetPlan === undefined) return null;
+  try {
+    return validatePlanContract(retryAssetPlan);
+  } catch (error) {
+    throw Object.assign(invalidOrchestrationSnapshot(), { cause: error });
+  }
+}
+
 export function createEcommerceOrchestrator(deps = {}) {
   const jobs = own(deps, 'jobs');
   if (!jobs || typeof jobs.create !== 'function' || typeof jobs.get !== 'function'
@@ -837,7 +848,10 @@ export function createEcommerceOrchestrator(deps = {}) {
     }
     const assets = store.listAssets(id);
     const snapshot = own(job.progress, 'orchestrationSnapshot');
-    const assetPlan = Array.isArray(own(snapshot, 'assetPlan')) ? own(snapshot, 'assetPlan') : [];
+    const retryAssetPlan = own(job.progress, 'retryAssetPlan');
+    const assetPlan = Array.isArray(retryAssetPlan)
+      ? retryAssetPlan
+      : Array.isArray(own(snapshot, 'assetPlan')) ? own(snapshot, 'assetPlan') : [];
     const publicJob = { ...job };
     delete publicJob.visualInputSchemaVersion;
     return {
@@ -872,6 +886,80 @@ export function createEcommerceOrchestrator(deps = {}) {
       throw httpError('登录信息无效', 401, 'AUTH_REQUIRED');
     }
     return jobs.listOwner(normalizedOwner, { limit });
+  }
+
+  function failedRetryPlanForJob(source) {
+    if (!['needs_review', 'failed'].includes(source.status)) {
+      throw httpError('当前任务没有可重新生成的失败图片', 409, 'ECOMMERCE_RETRY_UNAVAILABLE');
+    }
+    const restored = orchestrationSnapshotFromProgress(source.progress);
+    if (!restored.snapshot) throw invalidOrchestrationSnapshot();
+    const sourcePlan = validatePlanContract(restored.snapshot.assetPlan);
+    const retryIds = new Set(store.listAssets(source.id)
+      .filter(asset => ['failed', 'needs_review'].includes(asset.state))
+      .map(asset => asset.assetId));
+    const assetPlan = sourcePlan.filter(item => retryIds.has(item.id));
+    if (!assetPlan.length || assetPlan.length !== retryIds.size) {
+      throw httpError('没有可重新生成的失败图片', 409, 'ECOMMERCE_RETRY_PLAN_EMPTY');
+    }
+    const validatedAssetPlan = validatePlanContract(assetPlan);
+    const features = validatedAssetPlan.map(ecommerceFeatureForItem);
+    const skus = new Set(features.map(feature => feature.sku));
+    if (skus.size !== 1) {
+      throw httpError('失败图片包含不同清晰度，请分别重新获取费用', 409, 'ECOMMERCE_RETRY_PLAN_MIXED');
+    }
+    return {
+      snapshot: restored.snapshot,
+      assetPlan: validatedAssetPlan,
+      itemIds: validatedAssetPlan.map(item => item.id),
+      sku: features[0].sku,
+      quantity: validatedAssetPlan.length,
+    };
+  }
+
+  function getFailedRetryPlan({ id, ownerEmail } = {}) {
+    const source = jobs.get(validateId(id, 'job id'));
+    if (!source) throw httpError('任务不存在', 404, 'ECOMMERCE_JOB_NOT_FOUND');
+    const normalizedOwner = cleanString(ownerEmail).toLowerCase();
+    if (!normalizedOwner || source.ownerEmail.toLowerCase() !== normalizedOwner) {
+      throw httpError('无权查看该任务', 403, 'ECOMMERCE_JOB_FORBIDDEN');
+    }
+    const retryPlan = failedRetryPlanForJob(source);
+    return {
+      itemIds: retryPlan.itemIds,
+      sku: retryPlan.sku,
+      quantity: retryPlan.quantity,
+    };
+  }
+
+  function createFailedRetryJob({ id, ownerEmail, billingQuoteId } = {}) {
+    const source = jobs.get(validateId(id, 'job id'));
+    if (!source) throw httpError('任务不存在', 404, 'ECOMMERCE_JOB_NOT_FOUND');
+    const normalizedOwner = cleanString(ownerEmail).toLowerCase();
+    if (!normalizedOwner || source.ownerEmail.toLowerCase() !== normalizedOwner) {
+      throw httpError('无权查看该任务', 403, 'ECOMMERCE_JOB_FORBIDDEN');
+    }
+    const quoteId = cleanString(billingQuoteId);
+    if (!quoteId) throw httpError('缺少重新生成费用确认', 400, 'BILLING_QUOTE_REQUIRED');
+    const retryPlan = failedRetryPlanForJob(source);
+    const { holdId: _sourceHoldId, ...snapshotWithoutHold } = retryPlan.snapshot;
+    const retryId = validateId(`ec_retry_${randomUUID()}`, 'job id');
+    const retryJob = jobs.create({
+      id: retryId,
+      ownerEmail: source.ownerEmail,
+      payload: sanitizeSnapshot({
+        ...source.payload,
+        billing_quote_id: quoteId,
+      }),
+    });
+    jobs.checkpoint(retryJob.id, {
+      progress: {
+        retryOf: source.id,
+        retryAssetPlan: retryPlan.assetPlan,
+        orchestrationSnapshot: sanitizeSnapshot(snapshotWithoutHold),
+      },
+    });
+    return getJob(retryJob.id, { ownerEmail: source.ownerEmail });
   }
 
   async function persistProviderOutput(job, item, outputUrl) {
@@ -1196,8 +1284,12 @@ export function createEcommerceOrchestrator(deps = {}) {
           }
           const repairAction = planRepair(quality);
           const usesDeterministicRepair = Boolean(repairAsset && repairAction.type === 'sharp_repair');
-          const providerRepairAvailable = usesDeterministicRepair || providerSubmissionCount(current) < 2;
-          if (!canRetry(current.attemptCount, repairAction) || !providerRepairAvailable) {
+          const hasActionableProviderRepair = !['', 'none', 'manual_review'].includes(
+            cleanString(own(repairAction, 'type')).toLowerCase(),
+          );
+          const providerRepairAvailable = usesDeterministicRepair
+            || (hasActionableProviderRepair && providerSubmissionCount(current) < 2);
+          if (!providerRepairAvailable || !canRetry(current.attemptCount, repairAction)) {
             const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
             current = store.transitionAsset(job.id, item.id, 'releasing', {
               requestSnapshot: {
@@ -1535,14 +1627,17 @@ export function createEcommerceOrchestrator(deps = {}) {
 
       const productTruth = snapshot.productTruth;
       const campaignBible = snapshot.campaignBible;
-      const assetPlan = validatePlanContract(snapshot.assetPlan);
+      const retryAssetPlan = retryAssetPlanFromProgress(job.progress);
+      const assetPlan = validatePlanContract(retryAssetPlan || snapshot.assetPlan);
       setupAssetPlan = assetPlan;
       const deterministicInputs = snapshot.deterministicInputs;
       const payload = {
         ...job.payload,
         assets: deterministicInputs.assets,
       };
-      let holdId = cleanString(own(snapshot, 'holdId')) || cleanString(own(job.progress, 'holdId'));
+      let holdId = retryAssetPlan
+        ? cleanString(own(job.progress, 'holdId'))
+        : cleanString(own(snapshot, 'holdId')) || cleanString(own(job.progress, 'holdId'));
       if (!holdId) {
         const hold = await billing.hold({ job, assetPlan, productTruth, campaignBible });
         holdId = validateId(own(hold, 'id'), 'billing hold id');
@@ -1817,6 +1912,8 @@ export function createEcommerceOrchestrator(deps = {}) {
 
   return {
     createJob,
+    createFailedRetryJob,
+    getFailedRetryPlan,
     getJob,
     listJobs,
     resumeJobs,
@@ -1841,8 +1938,10 @@ export function createEcommerceRouteHandlers({
   onBackgroundError = error => console.error('[ecommerce] background job failed:', errorMessage(error)),
 } = {}) {
   if (!orchestrator || typeof orchestrator.createJob !== 'function'
-    || typeof orchestrator.getJob !== 'function') {
-    throw new TypeError('orchestrator createJob and getJob are required');
+    || typeof orchestrator.getJob !== 'function'
+    || typeof orchestrator.getFailedRetryPlan !== 'function'
+    || typeof orchestrator.createFailedRetryJob !== 'function') {
+    throw new TypeError('orchestrator generation and failed-item retry methods are required');
   }
   return {
     async generate(req, res) {
@@ -1875,6 +1974,34 @@ export function createEcommerceRouteHandlers({
           ok: true,
           tasks: orchestrator.listJobs({ ownerEmail: req?._userEmail }),
         });
+      } catch (error) {
+        return responseError(res, error);
+      }
+    },
+    retryPlan(req, res) {
+      try {
+        return res.json({
+          ok: true,
+          plan: orchestrator.getFailedRetryPlan({
+            id: req?.params?.id,
+            ownerEmail: req?._userEmail,
+          }),
+        });
+      } catch (error) {
+        return responseError(res, error);
+      }
+    },
+    async retryFailed(req, res) {
+      try {
+        const job = orchestrator.createFailedRetryJob({
+          id: req?.params?.id,
+          ownerEmail: req?._userEmail,
+          billingQuoteId: req?.body?.billingQuoteId,
+        });
+        Promise.resolve()
+          .then(() => orchestrator.runJob(job.id))
+          .catch(onBackgroundError);
+        return res.status(202).json({ taskId: job.id, status: 'queued' });
       } catch (error) {
         return responseError(res, error);
       }

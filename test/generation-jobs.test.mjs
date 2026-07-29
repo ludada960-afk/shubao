@@ -114,3 +114,32 @@ test('owner task list never returns another owner job or request payload', () =>
   assert.equal(Object.hasOwn(rows[0].assets[0], 'requestSnapshot'), false);
   jobs.close();
 });
+
+test('owner task list exposes only numeric progress counters and never orchestration snapshots', () => {
+  const jobs = createGenerationJobs(':memory:');
+  try {
+    const created = jobs.create({
+      id: 'job-safe-progress',
+      ownerEmail: 'owner@example.com',
+      payload: { product_name: '测试商品', secret: 'hidden-payload' },
+    });
+    jobs.checkpoint(created.id, {
+      progress: {
+        current: 1,
+        total: 2,
+        completed: 1,
+        failed: 1,
+        orchestrationSnapshot: { assetPlan: [{ request: { prompt: 'hidden-provider-prompt' } }] },
+        visualInputSnapshot: { assets: { product: [{ assetId: 'private-input' }] } },
+      },
+    });
+
+    const [summary] = jobs.listOwner('owner@example.com');
+    assert.deepEqual(summary.progress, { current: 1, total: 2, completed: 1, needsReview: 0, failed: 1 });
+    assert.equal(JSON.stringify(summary).includes('hidden-provider-prompt'), false);
+    assert.equal(JSON.stringify(summary).includes('private-input'), false);
+    assert.equal(JSON.stringify(summary).includes('hidden-payload'), false);
+  } finally {
+    jobs.close();
+  }
+});

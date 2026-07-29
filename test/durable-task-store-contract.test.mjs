@@ -22,3 +22,10 @@ test('local reducer updates cannot overwrite server-authoritative task state', (
   assert.match(source, /t\.source === 'server'/);
   assert.match(source, /return t;/);
 });
+
+test('failed task actions use a quoted server retry instead of resetting local reducer state', () => {
+  const sidebar = readFileSync(new URL('../src/components/task/TaskSidebar.jsx', import.meta.url), 'utf8');
+  assert.match(sidebar, /quoteFailedEcommerceTask/);
+  assert.match(sidebar, /retryFailedEcommerceTask/);
+  assert.doesNotMatch(sidebar, /retryTask\(task\.id\)/);
+});
