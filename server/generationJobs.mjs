@@ -108,6 +108,38 @@ export function createGenerationJobs(dbPath = ':memory:', {
         updatedAt: row.updated_at,
       };
     },
+    listOwner(ownerEmailInput, { limit = 20 } = {}) {
+      const ownerEmail = cleanString(ownerEmailInput).toLowerCase();
+      if (!ownerEmail || !ownerEmail.includes('@')) throw new TypeError('ownerEmail is required');
+      const safeLimit = Number.isSafeInteger(limit) ? Math.max(1, Math.min(100, limit)) : 20;
+      return db.prepare(`
+        SELECT id, status, error, payload, progress, updated_at
+        FROM ecommerce_jobs
+        WHERE lower(owner_email) = ?
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT ?
+      `).all(ownerEmail, safeLimit).map(row => {
+        const payload = parse(row.payload, {});
+        const assetRows = assets.listAssets(row.id).map(asset => ({
+          assetId: asset.assetId,
+          state: asset.state,
+          error: asset.state === 'needs_review'
+            ? '图片未通过质量检查，本张未计费'
+            : ['failed', 'cancelled'].includes(asset.state)
+              ? '图片生成未完成，本张未计费'
+              : '',
+        }));
+        return {
+          id: row.id,
+          title: `${cleanString(payload.product_name) || '电商'}套图`,
+          status: row.status,
+          error: row.error,
+          progress: parse(row.progress, {}),
+          updatedAt: row.updated_at,
+          assets: assetRows,
+        };
+      });
+    },
     transition(id, status, patch = {}) {
       if (!STATES.has(status)) throw new Error(`unknown status: ${status}`);
       const current = api.get(id);

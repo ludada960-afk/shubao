@@ -1,234 +1,281 @@
-/**
- * 薯包AI 左侧常驻任务栏
- *
- * 对标椒图 AI 任务栏交互：
- * - 默认窄栏折叠，hover 展开完整面板
- * - 任务状态可视：排队、读图、解析、生成、成功、失败、重试
- * - 小红点 + 进度数值提醒
- * - 点击任务打开弹窗，永不阻塞主页面
- */
-
-import React, { useState, useRef } from 'react';
-import { Image as ImageIcon } from 'lucide-react';
-import { MdAutoAwesome, MdClose, MdRotateLeft, MdChevronRight, MdAutorenew, MdCheckCircle, MdError, MdSchedule } from 'react-icons/md';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  MdAutoAwesome,
+  MdCheckCircle,
+  MdClose,
+  MdError,
+  MdHourglassTop,
+  MdOutlineFactCheck,
+  MdSchedule,
+} from 'react-icons/md';
 import { useTasks } from '../../store/taskStore';
 
 const STATUS_META = {
-  queued:     { icon: MdSchedule,    color: '#8B8580', label: '排队中' },
-  reading:    { icon: MdAutorenew,   color: '#5275CC', label: '读图中' },
-  parsing:    { icon: MdAutorenew,   color: '#6366F1', label: '解析中' },
-  generating: { icon: MdAutoAwesome, color: '#F59E0B', label: '生成中' },
-  done:       { icon: MdCheckCircle, color: '#5CA86C', label: '已完成' },
-  error:      { icon: MdError,       color: '#E8544B', label: '失败' },
+  queued: { icon: MdSchedule, color: '#7c746d', label: '排队中' },
+  analyzing: { icon: MdOutlineFactCheck, color: '#4778c7', label: '正在分析商品' },
+  reading: { icon: MdOutlineFactCheck, color: '#4778c7', label: '正在分析商品' },
+  parsing: { icon: MdOutlineFactCheck, color: '#6b5fc7', label: '正在准备方案' },
+  generating: { icon: MdAutoAwesome, color: '#c97728', label: '正在生成' },
+  completed: { icon: MdCheckCircle, color: '#3f8a5d', label: '已完成' },
+  done: { icon: MdCheckCircle, color: '#3f8a5d', label: '已完成' },
+  needs_review: { icon: MdError, color: '#bd7026', label: '部分图片需处理' },
+  failed: { icon: MdError, color: '#c34f49', label: '生成未完成' },
+  error: { icon: MdError, color: '#c34f49', label: '生成未完成' },
+  cancelled: { icon: MdClose, color: '#8b8580', label: '已取消' },
 };
 
-const SIDEBAR_WIDTH_COLLAPSED = 8;   // narrow
-const SIDEBAR_WIDTH_EXPANDED = 260;  // expanded
+const ACTIVE_STATES = new Set(['queued', 'analyzing', 'reading', 'parsing', 'generating']);
+
+function progressText(task) {
+  if (!task.total) return STATUS_META[task.status]?.label || '等待更新';
+  if (task.failed > 0) return `${task.done}/${task.total} 张完成，${task.failed} 张需处理`;
+  return `${task.done}/${task.total} 张完成`;
+}
 
 export default function TaskSidebar({ onOpenTask }) {
-  const { tasks, activeCount, errorCount, removeTask, retryTask, clearDone } = useTasks();
-  const [hovered, setHovered] = useState(false);
-  const sidebarRef = useRef(null);
-  const timerRef = useRef(null);
+  const { tasks, activeCount, errorCount, loadError, refreshTasks } = useTasks();
+  const [open, setOpen] = useState(false);
+  const dockRef = useRef(null);
 
-  const handleMouseEnter = () => {
-    clearTimeout(timerRef.current);
-    setHovered(true);
-  };
-  const handleMouseLeave = () => {
-    // 稍微延迟关闭，避免"抖动"
-    timerRef.current = setTimeout(() => setHovered(false), 200);
-  };
+  useEffect(() => {
+    if (!open) return undefined;
+    const handlePointerDown = event => {
+      if (!dockRef.current?.contains(event.target)) setOpen(false);
+    };
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
 
-  const hasTasks = tasks.length > 0;
-  const width = hovered && hasTasks ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED;
+  const noticeCount = errorCount || activeCount;
 
   return (
     <div
       className="task-sidebar"
-      ref={sidebarRef}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      ref={dockRef}
       style={{
-        position: 'fixed', left: 0, bottom: 80, top: 'auto', transform: 'none',
+        position: 'fixed',
+        left: 16,
+        bottom: 86,
         zIndex: 999,
-        width, height: hovered && hasTasks ? 'auto' : 'auto',
-        maxHeight: hovered && hasTasks ? '70vh' : 'auto',
-        background: hovered && hasTasks ? 'rgba(255,255,255,0.96)' : 'transparent',
-        backdropFilter: hovered && hasTasks ? 'blur(16px)' : 'none',
-        borderRadius: '0 16px 16px 0',
-        boxShadow: hovered && hasTasks ? '4px 4px 24px rgba(0,0,0,0.08)' : 'none',
-        borderRight: hovered && hasTasks ? '1px solid rgba(0,0,0,0.04)' : 'none',
-        transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
-        overflow: 'hidden',
-        padding: hovered && hasTasks ? '10px 0' : '12px 0',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        cursor: hasTasks ? 'pointer' : 'default',
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: 10,
       }}
     >
-      {/* 窄栏按钮区 */}
-      {!hovered && (
-        <div
-          onClick={() => hasTasks && setHovered(true)}
+      <button
+        type="button"
+        aria-label="打开任务列表"
+        aria-expanded={open}
+        aria-controls="global-task-dock-panel"
+        onClick={() => setOpen(value => !value)}
+        style={{
+          position: 'relative',
+          width: 46,
+          height: 46,
+          border: '1px solid rgba(70, 52, 38, 0.1)',
+          borderRadius: 15,
+          background: activeCount > 0 ? '#1f8a83' : '#fffaf4',
+          color: activeCount > 0 ? '#fff' : '#554a42',
+          boxShadow: '0 12px 30px rgba(84, 55, 35, 0.16)',
+          cursor: 'pointer',
+          display: 'grid',
+          placeItems: 'center',
+        }}
+      >
+        {activeCount > 0
+          ? <MdHourglassTop size={20} className="animate-spin" />
+          : errorCount > 0 ? <MdError size={20} /> : <MdAutoAwesome size={20} />}
+        {noticeCount > 0 && (
+          <span style={{
+            position: 'absolute',
+            top: -7,
+            right: -7,
+            minWidth: 20,
+            height: 20,
+            padding: '0 5px',
+            borderRadius: 10,
+            background: errorCount > 0 ? '#c34f49' : '#db7c2d',
+            color: '#fff',
+            border: '2px solid #fffaf4',
+            fontSize: 11,
+            fontWeight: 800,
+            lineHeight: '16px',
+          }}>
+            {noticeCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <section
+          id="global-task-dock-panel"
+          aria-label="最近的生成任务"
           style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-            padding: '6px 0', position: 'relative',
+            width: 'min(350px, calc(100vw - 84px))',
+            maxHeight: 'min(620px, calc(100vh - 150px))',
+            overflow: 'hidden',
+            border: '1px solid rgba(70, 52, 38, 0.1)',
+            borderRadius: 20,
+            background: 'rgba(255, 252, 247, 0.98)',
+            backdropFilter: 'blur(18px)',
+            boxShadow: '0 22px 60px rgba(70, 44, 28, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: activeCount > 0 ? 'var(--accent)' : errorCount > 0 ? 'var(--red)' : 'rgba(0,0,0,0.04)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: activeCount > 0 || errorCount > 0 ? '#fff' : 'var(--text-muted)',
-            transition: 'all 0.2s',
+          <header style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '15px 16px 12px',
+            borderBottom: '1px solid rgba(70, 52, 38, 0.08)',
           }}>
-            {activeCount > 0 ? <MdAutorenew size={16} className="animate-spin" /> :
-             errorCount > 0 ? <MdError size={16} /> :
-             <ImageIcon size={16} />}
-          </div>
-          {(activeCount > 0 || errorCount > 0) && (
-            <div style={{
-              position: 'absolute', top: -2, right: -2,
-              minWidth: 18, height: 18, borderRadius: 9,
-              background: errorCount > 0 ? 'var(--red)' : 'var(--accent)',
-              color: '#fff', fontSize: 10, fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 4px', boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-            }}>
-              {activeCount > 0 || errorCount}
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#342b25' }}>生成任务</div>
+              <div style={{ marginTop: 2, fontSize: 11, color: '#867970' }}>离开当前页面也会继续更新</div>
             </div>
-          )}
-          {activeCount > 0 && (
-            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 800 }}>进行中</span>
-          )}
-        </div>
-      )}
+            <button
+              type="button"
+              aria-label="关闭任务列表"
+              onClick={() => setOpen(false)}
+              style={{
+                width: 32,
+                height: 32,
+                border: 0,
+                borderRadius: 10,
+                background: 'rgba(70, 52, 38, 0.06)',
+                color: '#6c6058',
+                cursor: 'pointer',
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              <MdClose size={17} />
+            </button>
+          </header>
 
-      {/* 展开面板 */}
-      {hovered && hasTasks && (
-        <div style={{ width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* 标题栏 */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '0 14px 8px', borderBottom: '1px solid var(--border-light)',
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-              任务列表
-              <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 6, fontWeight: 500 }}>
-                ({tasks.length})
-              </span>
-            </span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button onClick={(e) => { e.stopPropagation(); clearDone(); }}
-                style={{ fontSize: 10, color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, fontFamily: 'inherit', }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                清理完成
-              </button>
-            </div>
-          </div>
+          <div style={{ overflowY: 'auto', padding: 10 }}>
+            {loadError && (
+              <div role="alert" style={{
+                margin: '2px 2px 10px',
+                padding: '10px 12px',
+                borderRadius: 12,
+                background: '#fff0ed',
+                color: '#a8403a',
+                fontSize: 12,
+              }}>
+                {loadError}
+                <button type="button" onClick={refreshTasks} style={{ marginLeft: 8 }}>重新加载</button>
+              </div>
+            )}
 
-          {/* 任务列表 */}
-          <div style={{
-            flex: 1, overflow: 'auto', maxHeight: 'calc(70vh - 44px)',
-            scrollbarWidth: 'thin',
-          }}>
-            {tasks.map(task => {
+            {tasks.length === 0 ? (
+              <div style={{ padding: '34px 20px', textAlign: 'center' }}>
+                <MdAutoAwesome size={28} color="#b6a89d" />
+                <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: '#5f534b' }}>还没有生成任务</div>
+                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.6, color: '#93867d' }}>开始生成后，可在这里随时查看进度和失败原因。</div>
+              </div>
+            ) : tasks.map(task => {
               const meta = STATUS_META[task.status] || STATUS_META.queued;
               const Icon = meta.icon;
-              const isActive = ['reading', 'parsing', 'generating'].includes(task.status);
+              const active = ACTIVE_STATES.has(task.status);
+              const percent = task.total > 0 ? Math.min(100, Math.round((task.done / task.total) * 100)) : 0;
+              const assetErrors = (task.assets || []).filter(asset => asset.error);
               return (
-                <div key={task.id}
-                  onClick={() => onOpenTask && onOpenTask(task.id)}
+                <article
+                  key={task.id}
                   style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 8,
-                    padding: '8px 14px', cursor: 'pointer', transition: 'all 0.1s',
-                    borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
-                    background: isActive ? 'rgba(0,0,0,0.02)' : 'transparent',
+                    marginBottom: 8,
+                    padding: 12,
+                    border: '1px solid rgba(70, 52, 38, 0.08)',
+                    borderRadius: 15,
+                    background: '#fff',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
-                  onMouseLeave={e => e.currentTarget.style.background = isActive ? 'rgba(0,0,0,0.02)' : 'transparent'}>
-                  {/* 状态图标 */}
-                  <div style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: task.status === 'done' ? 'rgba(92,168,108,0.12)' :
-                                task.status === 'error' ? 'rgba(232,84,75,0.12)' :
-                                isActive ? 'rgba(245,158,11,0.12)' : 'rgba(0,0,0,0.04)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Icon size={14} color={meta.color}
-                      className={isActive ? 'animate-spin' : ''}
-                    />
-                  </div>
-
-                  {/* 任务信息 */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: 12, fontWeight: 700, color: 'var(--text-primary)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {task.type === 'ec' ? '🛒 ' + (task.params?.product_name || '电商生图') : '📝 小红书图文'}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onOpenTask?.(task.id)}
+                    style={{
+                      width: '100%',
+                      padding: 0,
+                      border: 0,
+                      background: 'transparent',
+                      color: 'inherit',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <span style={{
+                        width: 32,
+                        height: 32,
+                        flex: '0 0 32px',
+                        borderRadius: 11,
+                        background: `${meta.color}18`,
+                        color: meta.color,
+                        display: 'grid',
+                        placeItems: 'center',
+                      }}>
+                        <Icon size={17} className={active ? 'animate-spin' : ''} />
+                      </span>
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#3a302a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {task.title || task.params?.product_name || '电商套图'}
+                        </span>
+                        <span style={{ display: 'block', marginTop: 2, fontSize: 11, color: meta.color, fontWeight: 700 }}>
+                          {meta.label}
+                        </span>
+                      </span>
                     </div>
-                    <div style={{ fontSize: 11, color: meta.color, fontWeight: 600, marginTop: 1 }}>
-                      {task.stage || meta.label}
-                    </div>
-                    {task.progress && (
-                      <div style={{ marginTop: 4 }}>
-                        <div style={{
-                          height: 3, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden',
-                        }}>
-                          <div style={{
-                            height: '100%', borderRadius: 2,
-                            background: task.status === 'error' ? 'var(--red)' : 'var(--accent)',
-                            width: `${Math.round((task.progress.done / task.progress.total) * 100)}%`,
-                            transition: 'width 0.3s',
-                          }} />
-                        </div>
-                        <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 1 }}>
-                          {task.progress.done}/{task.progress.total} 张
-                        </div>
-                      </div>
-                    )}
-                    {task.status === 'error' && task.error && (
-                      <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 1, lineHeight: 1.3 }}>
-                        {task.error}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* 操作按钮 */}
-                  <div style={{ display: 'flex', gap: 2, flexShrink: 0, alignItems: 'center' }}>
-                    {task.status === 'error' && (
-                      <button onClick={(e) => { e.stopPropagation(); retryTask(task.id); }}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, borderRadius: 4, color: 'var(--text-muted)' }}>
-                        <MdRotateLeft size={13} />
-                      </button>
+                    {task.total > 0 && (
+                      <span style={{ display: 'block', marginTop: 10 }}>
+                        <span style={{ display: 'block', height: 5, overflow: 'hidden', borderRadius: 3, background: '#eee8e2' }}>
+                          <span style={{ display: 'block', width: `${percent}%`, height: '100%', borderRadius: 3, background: task.failed > 0 ? '#bd7026' : '#1f8a83' }} />
+                        </span>
+                        <span style={{ display: 'block', marginTop: 5, fontSize: 11, color: '#7d7169' }}>{progressText(task)}</span>
+                      </span>
                     )}
-                    {task.status === 'done' && (
-                      <button onClick={(e) => { e.stopPropagation(); removeTask(task.id); }}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, borderRadius: 4, color: 'var(--text-muted)' }}>
-                        <MdClose size={13} />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  </button>
+
+                  {(task.error || assetErrors.length > 0) && (
+                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>
+                      {task.error || assetErrors[0]?.error}
+                    </div>
+                  )}
+
+                  {task.actions?.includes('retry_failed') && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenTask?.(task.id)}
+                      style={{
+                        marginTop: 9,
+                        width: '100%',
+                        minHeight: 34,
+                        border: '1px solid rgba(189, 112, 38, 0.25)',
+                        borderRadius: 10,
+                        background: '#fff8ef',
+                        color: '#9a591f',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      查看失败图片并重新报价
+                    </button>
+                  )}
+                </article>
               );
             })}
           </div>
-        </div>
-      )}
-
-      {/* 无任务时提示 */}
-      {hovered && !hasTasks && (
-        <div style={{
-          width: SIDEBAR_WIDTH_EXPANDED, textAlign: 'center',
-          padding: '24px 16px', cursor: 'default',
-        }}>
-          <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.3 }}>📋</div>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 500 }}>暂无任务</div>
-          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>开始生图后自动出现在这里</div>
-        </div>
+        </section>
       )}
     </div>
   );

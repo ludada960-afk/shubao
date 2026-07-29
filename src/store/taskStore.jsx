@@ -1,52 +1,74 @@
-/**
- * 薯包AI 任务状态管理
- *
- * 独立于 AppContext，与页面路由完全解耦。
- * 任务后台常驻，切换页面、折叠弹窗不影响运行。
- *
- * 任务生命周期：
- *   queued → reading → parsing → generating [→ done | error]
- *           └──────── batch: { total, done } ────────┘
- *   error → 自动重试3次 → 标记 error
- */
-
-import { createContext, useContext, useReducer, useCallback, useRef } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useReducer,
+  useRef,
+} from 'react';
+import { listEcommerceTasks } from '../services/api.js';
+import { getSessionToken } from '../services/auth.js';
+import { useApp } from './AppContext.jsx';
+import { hasActiveDurableTasks, normalizeDurableTask } from './durableTaskModel.js';
 
 const TaskContext = createContext(null);
 
-// ── 任务状态机 ──
-const STATUS_ORDER = ['queued', 'reading', 'parsing', 'generating', 'done', 'error'];
+const LOCAL_STATUS_ORDER = ['queued', 'reading', 'parsing', 'generating', 'done', 'error'];
+const ACTIVE_SERVER_STATES = new Set(['queued', 'analyzing', 'generating']);
+const FAILED_SERVER_STATES = new Set(['needs_review', 'failed']);
 
-/**
- * 判断从 from 到 to 的状态转换是否合法
- */
-function isValidTransition(from, to) {
-  const fi = STATUS_ORDER.indexOf(from);
-  const ti = STATUS_ORDER.indexOf(to);
-  if (from === 'error') return to === 'queued';  // 重试 → 重新入队
+function isValidLocalTransition(from, to) {
+  const fromIndex = LOCAL_STATUS_ORDER.indexOf(from);
+  const toIndex = LOCAL_STATUS_ORDER.indexOf(to);
+  if (from === 'error') return to === 'queued';
   if (from === 'generating' && to === 'error') return true;
-  if (from === 'queued' && to === 'generating') return true; // 跳过读图直出
-  if (from === 'queued' && to === 'error') return true;
-  // 正常递进
-  return ti > fi && ti - fi <= 2;  // 最多跳1中间态
+  if (from === 'queued' && ['generating', 'error'].includes(to)) return true;
+  return toIndex > fromIndex && toIndex - fromIndex <= 2;
 }
 
-// ── Reducer ──
+function serverTaskView(job) {
+  const task = normalizeDurableTask(job);
+  return {
+    ...task,
+    source: 'server',
+    type: 'ec',
+    stage: task.status,
+    progress: { done: task.done, total: task.total },
+    params: { product_name: task.title },
+  };
+}
+
 function taskReducer(state, action) {
   switch (action.type) {
+    case 'HYDRATE_DURABLE_TASKS': {
+      const localTasks = state.tasks.filter(task => task.source !== 'server');
+      return { ...state, tasks: [...action.tasks, ...localTasks], loadError: '' };
+    }
+
+    case 'CLEAR_DURABLE_TASKS':
+      return {
+        ...state,
+        tasks: state.tasks.filter(task => task.source !== 'server'),
+        loadError: '',
+      };
+
+    case 'DURABLE_TASKS_ERROR':
+      return { ...state, loadError: action.error || '任务列表暂时无法刷新' };
+
     case 'ADD_TASK': {
       const task = {
-        id: 'task_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        type: action.taskType,     // 'xhs' | 'ec'
+        id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        source: 'local',
+        type: action.taskType,
         status: 'queued',
-        stage: '',                 // 当前阶段描述
-        progress: null,            // { total, done }
+        stage: '',
+        progress: null,
         error: null,
         result: null,
         retryCount: 0,
         maxRetries: 3,
         createdAt: Date.now(),
-        params: action.params || {},  // 生图参数
+        params: action.params || {},
       };
       return { ...state, tasks: [...state.tasks, task] };
     }
@@ -55,31 +77,29 @@ function taskReducer(state, action) {
       const { id, ...updates } = action;
       const tasks = state.tasks.map(t => {
         if (t.id !== id) return t;
+        if (t.source === 'server') return t;
         const newStatus = updates.status || t.status;
-        if (updates.status && !isValidTransition(t.status, newStatus)) {
-          console.warn(`[Task] 非法状态转换: ${t.status} → ${newStatus} (task=${id})`);
-          return t;
-        }
+        if (updates.status && !isValidLocalTransition(t.status, newStatus)) return t;
         return { ...t, ...updates };
       });
       return { ...state, tasks };
     }
 
     case 'REMOVE_TASK':
-      return { ...state, tasks: state.tasks.filter(t => t.id !== action.id) };
+      return { ...state, tasks: state.tasks.filter(task => task.id !== action.id || task.source === 'server') };
 
     case 'CLEAR_DONE':
-      return { ...state, tasks: state.tasks.filter(t => t.status !== 'done') };
+      return { ...state, tasks: state.tasks.filter(task => task.source === 'server' || task.status !== 'done') };
 
     case 'RETRY_TASK': {
-      const tasks = state.tasks.map(t => {
-        if (t.id !== action.id) return t;
+      const tasks = state.tasks.map(task => {
+        if (task.id !== action.id || task.source === 'server') return task;
         return {
-          ...t,
+          ...task,
           status: 'queued',
           stage: '重试中…',
           error: null,
-          retryCount: t.retryCount + 1,
+          retryCount: task.retryCount + 1,
         };
       });
       return { ...state, tasks };
@@ -90,48 +110,92 @@ function taskReducer(state, action) {
   }
 }
 
-const initialTaskState = { tasks: [] };
+const initialTaskState = { tasks: [], loadError: '' };
 
-// ── Provider ──
 export function TaskProvider({ children }) {
+  const { state: appState } = useApp();
   const [state, dispatch] = useReducer(taskReducer, initialTaskState);
-  // 保存 dispatch 引用以便在组件外使用
-  const dispatchRef = useRef(dispatch);
-  dispatchRef.current = dispatch;
+  const requestRef = useRef(null);
+
+  const refreshTasks = useCallback(async () => {
+    if (!getSessionToken()) {
+      dispatch({ type: 'CLEAR_DURABLE_TASKS' });
+      return;
+    }
+
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    try {
+      const jobs = await listEcommerceTasks({ signal: controller.signal });
+      if (controller.signal.aborted) return;
+      dispatch({
+        type: 'HYDRATE_DURABLE_TASKS',
+        tasks: jobs.map(serverTaskView).filter(task => task.id),
+      });
+    } catch (error) {
+      if (controller.signal.aborted || error?.name === 'AbortError') return;
+      if (error?.status === 401) {
+        dispatch({ type: 'CLEAR_DURABLE_TASKS' });
+        return;
+      }
+      dispatch({ type: 'DURABLE_TASKS_ERROR', error: error?.message });
+    } finally {
+      if (requestRef.current === controller) requestRef.current = null;
+    }
+  }, []);
+
+  const durableTasks = state.tasks.filter(task => task.source === 'server');
+  const hasActiveTasks = hasActiveDurableTasks(durableTasks);
+
+  useEffect(() => {
+    if (!appState.logged || !getSessionToken()) {
+      requestRef.current?.abort();
+      dispatch({ type: 'CLEAR_DURABLE_TASKS' });
+      return undefined;
+    }
+
+    refreshTasks();
+    const interval = globalThis.setInterval(refreshTasks, hasActiveTasks ? 3000 : 15000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshTasks();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      globalThis.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      requestRef.current?.abort();
+    };
+  }, [appState.logged, appState.phone, hasActiveTasks, refreshTasks]);
 
   const addTask = useCallback((taskType, params) => {
     dispatch({ type: 'ADD_TASK', taskType, params });
   }, []);
-
   const updateTask = useCallback((id, updates) => {
     dispatch({ type: 'UPDATE_TASK', id, ...updates });
   }, []);
+  const removeTask = useCallback(id => dispatch({ type: 'REMOVE_TASK', id }), []);
+  const retryTask = useCallback(id => dispatch({ type: 'RETRY_TASK', id }), []);
+  const clearDone = useCallback(() => dispatch({ type: 'CLEAR_DONE' }), []);
 
-  const removeTask = useCallback((id) => {
-    dispatch({ type: 'REMOVE_TASK', id });
-  }, []);
-
-  const retryTask = useCallback((id) => {
-    dispatch({ type: 'RETRY_TASK', id });
-  }, []);
-
-  const clearDone = useCallback(() => {
-    dispatch({ type: 'CLEAR_DONE' });
-  }, []);
-
-  // 获取活跃任务数（排队/进行中）
-  const activeCount = state.tasks.filter(t =>
-    ['queued', 'reading', 'parsing', 'generating'].includes(t.status)
-  ).length;
-
-  // 获取可展示的失败数
-  const errorCount = state.tasks.filter(t => t.status === 'error').length;
+  const activeCount = state.tasks.filter(task => (
+    task.source === 'server'
+      ? ACTIVE_SERVER_STATES.has(task.status)
+      : ['queued', 'reading', 'parsing', 'generating'].includes(task.status)
+  )).length;
+  const errorCount = state.tasks.filter(task => (
+    task.source === 'server'
+      ? FAILED_SERVER_STATES.has(task.status) || task.failed > 0
+      : task.status === 'error'
+  )).length;
 
   return (
     <TaskContext.Provider value={{
       tasks: state.tasks,
       activeCount,
       errorCount,
+      loadError: state.loadError,
+      refreshTasks,
       addTask,
       updateTask,
       removeTask,
@@ -145,9 +209,9 @@ export function TaskProvider({ children }) {
 }
 
 export function useTasks() {
-  const ctx = useContext(TaskContext);
-  if (!ctx) throw new Error('useTasks must be inside TaskProvider');
-  return ctx;
+  const context = useContext(TaskContext);
+  if (!context) throw new Error('useTasks must be inside TaskProvider');
+  return context;
 }
 
 export { initialTaskState, taskReducer };

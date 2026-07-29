@@ -866,6 +866,14 @@ export function createEcommerceOrchestrator(deps = {}) {
     return getJob(job.id, { ownerEmail });
   }
 
+  function listJobs({ ownerEmail, limit = 20 } = {}) {
+    const normalizedOwner = cleanString(ownerEmail).toLowerCase();
+    if (!normalizedOwner || !normalizedOwner.includes('@')) {
+      throw httpError('登录信息无效', 401, 'AUTH_REQUIRED');
+    }
+    return jobs.listOwner(normalizedOwner, { limit });
+  }
+
   async function persistProviderOutput(job, item, outputUrl) {
     try {
       if (typeof generatedAssetStore.persistAndRead === 'function') {
@@ -1810,6 +1818,7 @@ export function createEcommerceOrchestrator(deps = {}) {
   return {
     createJob,
     getJob,
+    listJobs,
     resumeJobs,
     runJob,
   };
@@ -1855,6 +1864,16 @@ export function createEcommerceRouteHandlers({
         return res.json({
           ok: true,
           task: orchestrator.getJob(req?.params?.id, { ownerEmail: req?._userEmail }),
+        });
+      } catch (error) {
+        return responseError(res, error);
+      }
+    },
+    listJobs(req, res) {
+      try {
+        return res.json({
+          ok: true,
+          tasks: orchestrator.listJobs({ ownerEmail: req?._userEmail }),
         });
       } catch (error) {
         return responseError(res, error);

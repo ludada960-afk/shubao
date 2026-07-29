@@ -40,3 +40,11 @@ test('mobile top bar keeps the product brand on one line without crowding accoun
   assert.match(mobileRules, /\.topbar-row \{[^}]*padding-inline:\s*14px/);
   assert.match(mobileRules, /\.topbar-actions button \{[^}]*padding-inline:\s*12px/);
 });
+
+test('global task dock uses a stable accessible button instead of an eight pixel hover strip', () => {
+  const source = readFileSync(new URL('../src/components/task/TaskSidebar.jsx', import.meta.url), 'utf8');
+  assert.match(source, /aria-label="打开任务列表"/);
+  assert.match(source, /aria-expanded=\{open\}/);
+  assert.match(source, /onClick=\{\(\) => setOpen/);
+  assert.doesNotMatch(source, /SIDEBAR_WIDTH_COLLAPSED\s*=\s*8/);
+});

@@ -10,6 +10,7 @@ import {
   taskKey,
 } from '../src/pages/Home/ec/ecommerceTaskProgressModel.js';
 import * as taskProgressModel from '../src/pages/Home/ec/ecommerceTaskProgressModel.js';
+import { readFileSync } from 'node:fs';
 
 function memoryStorage() {
   const values = new Map();
@@ -44,6 +45,13 @@ test('normalizes every server asset state into a user-safe Chinese state', () =>
   assert.equal(normalizeEcommerceAsset({ assetId: 'unknown-completed', status: 'provider_completed' }).userState, '失败');
   assert.equal(normalizeEcommerceAsset({ assetId: 'final', status: 'provider_finished', error: 'bad output' }).userState, '失败');
   assert.equal(normalizeEcommerceAsset({ assetId: 'unknown-final', status: 'provider_finished' }).userState, '失败');
+});
+
+test('image generation errors render inside the progress surface beside the affected image', () => {
+  const source = readFileSync(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
+  assert.match(source, /className="ec-generation-progress"/);
+  assert.match(source, /asset\.error/);
+  assert.match(source, /role="alert"/);
 });
 
 test('normalizes an asset with Asset Plan role and never exposes a provider state as its label', () => {

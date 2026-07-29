@@ -661,7 +661,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
             {/* ── 生成进度面板（可折叠）── */}
             {(generating || assetProgress.length > 0 || stableImages.length > 0) && (
-              <div style={{
+              <div className="ec-generation-progress" style={{
                 background: '#fff', borderRadius: 16, padding: '16px 20px',
                 boxShadow: '0 4px 20px rgba(124,58,237,0.15)',
                 border: '2px solid rgba(124,58,237,0.2)',
@@ -693,9 +693,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 {assetProgress.length > 0 && (
                   <div style={{ display: 'grid', gap: 6, marginTop: 14 }}>
                     {assetProgress.map(asset => (
-                      <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
+                      <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
                         <span style={{ color: '#4B4453' }}>{asset.role || '图片'} · {asset.label || '待处理图片'}</span>
-                        <span style={{ color: '#7C3AED', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
+                        <span style={{ color: asset.error ? '#B91C1C' : '#7C3AED', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
+                        {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: '#B91C1C', lineHeight: 1.45 }}>{asset.error}</span>}
                       </div>
                     ))}
                   </div>

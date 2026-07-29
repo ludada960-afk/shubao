@@ -711,6 +711,16 @@ export async function getEcommerceTask(taskId, { signal } = {}) {
   return data.task || data;
 }
 
+export async function listEcommerceTasks({ signal } = {}) {
+  const res = await fetch(`${API_BASE}/api/ecommerce/jobs`, {
+    headers: signedSessionHeaders(),
+    signal,
+  });
+  if (!res.ok) throw await createApiError(res, '读取任务列表失败');
+  const data = await res.json();
+  return Array.isArray(data.tasks) ? data.tasks : [];
+}
+
 /* ── 电商智能识别（Vision 回填 5 步字段） ── */
 export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
   const res = await fetch(`${API_BASE}/api/ecommerce/auto-recognize`, {

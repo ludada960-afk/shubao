@@ -95,3 +95,22 @@ test('claimNext reclaims an expired non-terminal parent lease without stealing i
   assert.notEqual(reclaimed.leaseToken, originalLease.leaseToken);
   restarted.close();
 });
+
+test('owner task list never returns another owner job or request payload', () => {
+  const jobs = createGenerationJobs();
+  const first = jobs.create({
+    id: 'job-a',
+    ownerEmail: 'a@example.com',
+    payload: { product_name: '保温杯', secretPrompt: 'must not leak' },
+  });
+  jobs.create({ id: 'job-b', ownerEmail: 'b@example.com', payload: { product_name: '鞋子' } });
+  jobs.assets.createAsset({ jobId: first.id, assetId: 'main-1', requestSnapshot: { prompt: 'provider secret' } });
+
+  const rows = jobs.listOwner('A@example.com');
+
+  assert.deepEqual(rows.map(row => row.id), ['job-a']);
+  assert.equal(rows[0].title, '保温杯套图');
+  assert.equal(Object.hasOwn(rows[0], 'payload'), false);
+  assert.equal(Object.hasOwn(rows[0].assets[0], 'requestSnapshot'), false);
+  jobs.close();
+});
