@@ -35,6 +35,34 @@ function factValues(item) {
   return item.requiredFacts.map((fact) => `${fact.name}:${fact.value}`);
 }
 
+const FACT_GATED_DETAIL_ROLES = new Set([
+  'detail_slice_parameters',
+  'detail_slice_compatibility',
+  'detail_slice_shade',
+  'detail_slice_fit',
+  'detail_slice_quantity',
+  'detail_slice_scale',
+  'detail_slice_care',
+  'detail_slice_color_variant',
+  'detail_slice_footprint',
+  'detail_slice_length',
+  'detail_slice_identifier',
+  'detail_slice_flavor',
+]);
+
+test('default planner builds a contract-valid exact fallback suite', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth({ confirmedFacts: {} }),
+    campaignBible,
+  });
+
+  assert.equal(plan.length, 7);
+  assert.equal(plan.filter(item => item.role.startsWith('detail_slice_')).length, 5);
+  assert.ok(plan.every(item => item.communicationGoal));
+  assert.equal(new Set(plan.map(item => item.commercialDutyId)).size, plan.length);
+  assert.equal(validatePlanContract(plan), plan);
+});
+
 test('plans 3C parameter content from confirmed user facts only', () => {
   const plan = buildAssetPlan({ productTruth: productTruth(), campaignBible, platform: 'taobao' });
   const parameters = plan.find((item) => item.role === 'detail_slice_parameters');
@@ -146,7 +174,10 @@ test('applies sizing overrides per matching role with legal generation dimension
 
 test('prefers exact sizing roles over generic aliases regardless of input order', () => {
   const plan = buildAssetPlan({
-    productTruth: productTruth({ category: '食品饮料' }),
+    productTruth: productTruth({
+      category: '食品饮料',
+      confirmedFacts: { flavor: { value: '海盐焦糖', source: 'user' } },
+    }),
     campaignBible,
     platform: 'taobao',
     sizing: {
@@ -270,10 +301,37 @@ test('every supported category plans six and ten distinct evidence-safe detail d
       assert.equal(new Set(details.map(item => item.commercialDutyId)).size, count, `${category} duty ids`);
       assert.equal(new Set(details.map(item => item.communicationGoal)).size, count, `${category} buyer goals`);
       assert.ok(details.every(item => !forbiddenUnsupportedDuty.test(`${item.purpose} ${item.communicationGoal}`)), category);
+      assert.ok(details.every(item => !FACT_GATED_DETAIL_ROLES.has(item.role)), `${category} fact-gated role`);
       assert.ok(details.every(item => item.requiredFacts.every(fact => fact.name !== 'unconfirmed_parameter')), category);
       assert.equal(validatePlanContract(plan), plan, `${category} detail=${count} contract`);
     }
   }
+});
+
+test('detail duties consume only matching confirmed user fact types', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth({
+      confirmedFacts: {
+        model: { value: 'NH-42', source: 'user' },
+        ports: { value: 'USB-C x 2', source: 'user' },
+        compatibility: { value: 'Windows 11 and macOS 15', source: 'user' },
+        careInstructions: { value: 'Wipe with a dry cloth', source: 'user' },
+        marketingClaim: { value: 'Best in class', source: 'user' },
+      },
+    }),
+    campaignBible,
+    sizing: { images: [{ key: 'detail', count: 10, ratio: '3:4' }] },
+  });
+  const parameters = plan.find(item => item.role === 'detail_slice_parameters');
+  const compatibility = plan.find(item => item.role === 'detail_slice_compatibility');
+
+  assert.ok(parameters);
+  assert.ok(compatibility);
+  assert.deepEqual(factValues(parameters), ['model:NH-42', 'ports:USB-C x 2']);
+  assert.deepEqual(factValues(compatibility), ['compatibility:Windows 11 and macOS 15']);
+  assert.equal(factValues(parameters).some(value => /compatibility|careInstructions|marketingClaim/.test(value)), false);
+  assert.equal(factValues(compatibility).some(value => /model|ports|careInstructions|marketingClaim/.test(value)), false);
+  assert.equal(validatePlanContract(plan), plan);
 });
 
 test('assigns repeated hero images distinct commercial shot duties', () => {

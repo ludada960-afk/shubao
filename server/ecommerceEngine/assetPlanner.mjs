@@ -7,6 +7,7 @@ import {
   TRANSPARENT_DUTIES,
   WHITE_BACKGROUND_DUTIES,
 } from './commercialDutyCatalog.mjs';
+import { isFactGatedDetailRole, resolveDetailDuties } from './detailDutyPolicy.mjs';
 import { layoutContractFor, textLayerPlanFor } from './layoutContracts.mjs';
 import { LEGAL_IMAGE_SIZES } from './modelCatalog.mjs';
 import { getPlatformPolicy, planExportTargets } from './platformPolicies.mjs';
@@ -54,14 +55,6 @@ function uniqueStrings(value) {
   return result;
 }
 
-function ownEntries(value) {
-  if (!isRecord(value)) return [];
-  return Object.keys(value).flatMap((key) => {
-    const normalized = safeKey(key);
-    return normalized ? [[normalized, value[key]]] : [];
-  });
-}
-
 function normalizeCategory(value) {
   return normalizeEcommerceCategory(cleanString(value));
 }
@@ -71,22 +64,6 @@ function normalizeProofIds(value) {
   return uniqueStrings(values.map((proof) => isRecord(proof)
     ? ownValue(proof, 'assetId') ?? ownValue(proof, 'id')
     : proof));
-}
-
-function normalizeFact(name, value) {
-  const normalizedName = safeKey(name);
-  const source = isRecord(value) ? cleanString(ownValue(value, 'source')) : '';
-  const factValue = cleanString(isRecord(value) ? ownValue(value, 'value') : value);
-  return normalizedName && factValue && source === 'user'
-    ? { name: normalizedName, value: factValue }
-    : null;
-}
-
-function confirmedUserFacts(productTruth) {
-  return ownEntries(ownValue(productTruth, 'confirmedFacts'))
-    .map(([name, value]) => normalizeFact(name, value))
-    .filter(Boolean)
-    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function productIdentity(productTruth) {
@@ -182,7 +159,7 @@ function qualityChecks(role, generationMode) {
 }
 
 function riskLevel(role) {
-  if (role === 'detail_slice_parameters' || role === 'detail_slice_qc' || role === 'sku') return 'high';
+  if (isFactGatedDetailRole(role) || role === 'detail_slice_qc' || role === 'sku') return 'high';
   if (role === 'white_background') return 'medium';
   return 'low';
 }
@@ -290,11 +267,13 @@ function skuPurpose(skuFacts) {
   return `SKU variant decision asset for ${variant}, using only the user-provided values.`;
 }
 
-function explicitDetailSpecs(strategy, proofAssetIds) {
-  const specs = strategy.detailRoles.map((roleName, index) => ({
-    roleName,
-    commercialDutyKey: roleName,
-    purpose: strategy.buyingQuestions[index] || 'Answer one category-specific buying question.',
+function explicitDetailSpecs(strategy, productTruth, count, proofAssetIds) {
+  const specs = resolveDetailDuties({ strategy, productTruth, count }).map(duty => ({
+    roleName: duty.roleName,
+    commercialDutyKey: duty.dutyKey,
+    purpose: duty.purpose,
+    requiredFacts: duty.requiredFacts,
+    evidenceType: duty.evidenceType,
     proofAssetIds: [],
   }));
   if (strategy.proofRole && proofAssetIds.length && !specs.some(spec => spec.roleName === strategy.proofRole)) {
@@ -302,6 +281,8 @@ function explicitDetailSpecs(strategy, proofAssetIds) {
       roleName: strategy.proofRole,
       commercialDutyKey: 'proofanswer',
       purpose: 'Quality or certification information backed only by uploaded proof assets.',
+      requiredFacts: [],
+      evidenceType: '',
       proofAssetIds,
     });
   }
@@ -309,6 +290,8 @@ function explicitDetailSpecs(strategy, proofAssetIds) {
     roleName: 'feature',
     commercialDutyKey: 'buyeranswer',
     purpose: 'Answer one category-specific buying question.',
+    requiredFacts: [],
+    evidenceType: '',
     proofAssetIds: [],
   }];
 }
@@ -328,7 +311,6 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const styleReferenceIds = uniqueStrings(ownValue(bible, 'referenceAssetIds'));
   const proofAssetIds = normalizeProofIds(uploadedProofs);
   const identity = productIdentity(truth);
-  const userFacts = confirmedUserFacts(truth);
   const normalizedPlatform = cleanString(platform) || 'taobao';
   const mainRoles = explicitMainRoles(normalizedSizing);
   const items = [];
@@ -394,12 +376,12 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     });
 
     const detailCount = configuredCount(normalizedSizing, 'detail');
-    const detailSpecs = explicitDetailSpecs(strategy, proofAssetIds);
+    const detailSpecs = explicitDetailSpecs(strategy, truth, detailCount, proofAssetIds);
     for (let index = 0; index < detailCount; index += 1) {
       const spec = detailSpecs[index % detailSpecs.length];
       const occurrence = Math.floor(index / detailSpecs.length) + 1;
       const role = `detail_slice_${spec.roleName}`;
-      const isParameterSlice = spec.roleName === 'parameters';
+      const isFactSlice = Boolean(spec.evidenceType);
       const isProofSlice = spec.proofAssetIds.length > 0;
       items.push(buildItem({
         id: occurrence === 1 ? role.replaceAll('_', '-') : `${role.replaceAll('_', '-')}-${occurrence}`,
@@ -409,8 +391,8 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
         communicationGoal: spec.purpose,
         requiredFacts: isProofSlice
           ? spec.proofAssetIds.map(assetId => ({ name: 'proofAssetId', value: assetId }))
-          : isParameterSlice ? userFacts : identity,
-        generationMode: isParameterSlice || isProofSlice ? 'deterministic_overlay' : 'edit',
+          : isFactSlice ? spec.requiredFacts : identity,
+        generationMode: isFactSlice || isProofSlice ? 'deterministic_overlay' : 'edit',
         productAssetIds,
         styleReferenceIds,
         proofAssetIds: spec.proofAssetIds,
@@ -427,7 +409,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
           role,
           purpose: duty.purpose,
           commercialDutyKey: duty.key,
-          communicationGoal: duty.goal,
+          communicationGoal: duty.communicationGoal,
           defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
           requiredFacts: identity,
           productAssetIds,
@@ -455,16 +437,20 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       })(),
     );
 
-    for (const roleName of strategy.detailRoles.slice(0, DEFAULT_DETAIL_DUTY_COUNT)) {
-      const role = `detail_slice_${roleName}`;
-      const isParameterSlice = roleName === 'parameters';
+    for (const duty of resolveDetailDuties({
+      strategy,
+      productTruth: truth,
+      count: DEFAULT_DETAIL_DUTY_COUNT,
+    })) {
+      const role = `detail_slice_${duty.roleName}`;
+      const isFactSlice = Boolean(duty.evidenceType);
       items.push(buildItem({
         role,
-        purpose: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
-        commercialDutyKey: roleName,
-        communicationGoal: strategy.buyingQuestions[strategy.detailRoles.indexOf(roleName)] || 'Answer one category-specific buying question.',
-        requiredFacts: isParameterSlice ? userFacts : identity,
-        generationMode: isParameterSlice ? 'deterministic_overlay' : 'edit',
+        purpose: duty.purpose,
+        commercialDutyKey: duty.dutyKey,
+        communicationGoal: duty.goal,
+        requiredFacts: isFactSlice ? duty.requiredFacts : identity,
+        generationMode: isFactSlice ? 'deterministic_overlay' : 'edit',
         productAssetIds,
         styleReferenceIds,
         category,

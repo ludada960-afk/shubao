@@ -7,6 +7,7 @@ import test from 'node:test';
 
 import Database from 'better-sqlite3';
 
+import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
 import { createEcommerceOrchestrator } from '../server/ecommerceEngine/orchestrator.mjs';
 import { createLegacyVisualAssetMigration } from '../server/ecommerceEngine/legacyVisualAssetMigration.mjs';
 import { createVisualAnalysisService } from '../server/ecommerceEngine/visualAnalysisService.mjs';
@@ -130,6 +131,7 @@ async function createHarness(t, {
     campaign: 0,
     plan: 0,
     compile: [],
+    compilePlanItems: [],
     compileAssets: [],
     analyzePayloads: [],
     submit: [],
@@ -210,6 +212,7 @@ async function createHarness(t, {
     },
     compileAssetRequest: ({ assetPlanItem, assets }) => {
       calls.compile.push(assetPlanItem.id);
+      calls.compilePlanItems.push(assetPlanItem);
       calls.compileAssets.push(assets);
       calls.sequence.push(`compile:${assetPlanItem.id}`);
       return {
@@ -412,6 +415,33 @@ test('runs the required sequence, persists stable bytes, and settles one success
     state: asset.state,
     stableUrl: asset.stableUrl,
   })), [{ state: 'completed', stableUrl: PNG_A }]);
+});
+
+test('production planner default fallback validates before hold with exact execution counts', async t => {
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    buildPlan: ({ input }) => buildAssetPlan(input),
+  });
+  const created = orchestrator.createJob(jobInput('job-production-default-plan'));
+
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.assetPlan.length, 7);
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.hold[0].itemIds.length, 7);
+  assert.equal(jobs.assets.listAssets(created.id).length, 7);
+  assert.equal(calls.submit.length, 7);
+  assert.deepEqual(completed.progress.executionCount, {
+    planItems: 7,
+    quoteUnits: 7,
+    visibleAssetRows: 7,
+    initialProviderSubmissions: 7,
+    providerSubmissions: 7,
+    providerRepairs: 0,
+    submissionsByAsset: Object.fromEntries(completed.assetPlan
+      .map(item => [item.id, 1])
+      .sort(([left], [right]) => left.localeCompare(right))),
+  });
 });
 
 test('visual failure stops before billing and never submits provider work', async t => {
@@ -2091,6 +2121,177 @@ test('schema-3 migration preserves a proof-backed QC commercial duty', async t =
   assert.equal(migrated.communicationGoal, 'Communicate quality or certification information backed only by uploaded proof assets.');
   assert.deepEqual(migrated.requiredFacts, [{ name: 'proofAssetId', value: 'food-proof-report' }]);
   assert.deepEqual(migrated.proofAssetIds, ['food-proof-report']);
+});
+
+test('schema-3 ordinary detail overflow fails closed before any new call', async t => {
+  const overflow = Array.from({ length: 11 }, (_, index) => (
+    planItem(`legacy-detail-${index + 1}`, `detail_slice_legacy_${index + 1}`)
+  ));
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: overflow });
+  const input = jobInput('job-schema-three-detail-overflow');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  const snapshot = orchestrationSnapshot(overflow, 'hold-schema-three-detail-overflow', 3);
+  snapshot.productTruth.category = '食品饮料';
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-schema-three-detail-overflow',
+      orchestrationSnapshot: snapshot,
+    },
+  });
+
+  const failed = await orchestrator.runJob(input.id);
+
+  assert.equal(failed.status, 'failed');
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.plan, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+  assert.equal(jobs.assets.listAssets(input.id).length, 0);
+});
+
+test('schema-3 mixed detail and QC resume uses the migrated parent plan without losing child history', async t => {
+  const texture = planItem('food-a-texture', 'detail_slice_texture');
+  const qc = planItem('food-b-qc', 'detail_slice_qc');
+  qc.generationMode = 'deterministic_overlay';
+  qc.proofAssetIds = ['food-proof-report'];
+  qc.requiredFacts = [{ name: 'proofAssetId', value: 'food-proof-report' }];
+  const packageItem = planItem('food-c-package', 'detail_slice_package');
+  const flavor = planItem('food-d-flavor', 'detail_slice_flavor');
+  flavor.requiredFacts = [{ name: 'flavor', value: 'Sea salt caramel' }];
+  const legacyItems = [texture, qc, packageItem, flavor];
+  const suiteChecks = [];
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    items: legacyItems,
+    orchestratorOptions: {
+      assetConcurrency: 1,
+      evaluateSuiteDiversity: async inputValue => {
+        suiteChecks.push(inputValue);
+        return { passed: true, issueCodes: [], details: {} };
+      },
+    },
+  });
+  const input = jobInput('job-schema-three-mixed-detail-qc');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  const snapshot = orchestrationSnapshot(legacyItems, 'hold-schema-three-mixed-detail-qc', 3);
+  snapshot.productTruth.category = '食品饮料';
+  snapshot.productTruth.confirmedFacts = {
+    flavor: { value: 'Sea salt caramel', source: 'user' },
+  };
+  snapshot.deterministicInputs.assets.proof = [{
+    assetId: 'food-proof-report',
+    url: '/api/ecommerce/assets/food-proof-report',
+  }];
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-schema-three-mixed-detail-qc',
+      orchestrationSnapshot: snapshot,
+    },
+  });
+
+  const seedSubmitted = (item, providerJobId, { state = 'polling', stableUrl = '', repair = false } = {}) => {
+    const initialIntent = {
+      assetId: item.id,
+      ordinal: 0,
+      kind: 'initial',
+      idempotencyKey: `legacy:${item.id}:initial`,
+      status: 'acknowledged',
+      providerJobId: repair ? `${providerJobId}-initial` : providerJobId,
+    };
+    const submissionIntents = repair
+      ? [initialIntent, {
+          assetId: item.id,
+          ordinal: 1,
+          kind: 'repair',
+          idempotencyKey: `legacy:${item.id}:repair`,
+          status: 'acknowledged',
+          providerJobId,
+        }]
+      : [initialIntent];
+    const requestSnapshot = {
+      assetPlanItem: item,
+      request: { prompt: `legacy ${item.id}`, kind: repair ? 'repair' : 'initial' },
+      submissionIntents,
+      ...(repair ? { repairAction: { type: 'image_edit', focusIssueCodes: ['legacy_artifact'] } } : {}),
+    };
+    jobs.assets.createAsset({ jobId: input.id, assetId: item.id, requestSnapshot });
+    const lease = jobs.assets.claimAsset(input.id, item.id);
+    jobs.assets.markSubmitted(input.id, item.id, {
+      providerJobId,
+      requestSnapshot,
+      leaseToken: lease.leaseToken,
+    });
+    jobs.assets.transitionAsset(input.id, item.id, 'polling', { leaseToken: lease.leaseToken });
+    if (state === 'completed') {
+      jobs.assets.transitionAsset(input.id, item.id, 'downloading', {
+        outputUrl: `https://provider.example/${providerJobId}.png`,
+        leaseToken: lease.leaseToken,
+      });
+      jobs.assets.transitionAsset(input.id, item.id, 'quality_check', {
+        stableUrl,
+        attemptCount: repair ? 1 : 0,
+        leaseToken: lease.leaseToken,
+      });
+      jobs.assets.transitionAsset(input.id, item.id, 'settling', { leaseToken: lease.leaseToken });
+      jobs.assets.transitionAsset(input.id, item.id, 'completed', { leaseToken: lease.leaseToken });
+    } else {
+      jobs.assets.releaseLease(input.id, item.id, lease.leaseToken);
+    }
+  };
+
+  seedSubmitted(texture, 'provider-food-texture', { state: 'completed', stableUrl: PNG_A });
+  seedSubmitted(qc, 'provider-food-qc');
+  jobs.assets.createAsset({
+    jobId: input.id,
+    assetId: packageItem.id,
+    requestSnapshot: { assetPlanItem: packageItem },
+  });
+  seedSubmitted(flavor, 'provider-food-flavor-repair', {
+    state: 'completed',
+    stableUrl: PNG_B,
+    repair: true,
+  });
+
+  const completed = await orchestrator.runJob(input.id);
+  const planById = new Map(completed.assetPlan.map(item => [item.id, item]));
+  const executedItems = [
+    ...calls.compilePlanItems,
+    ...calls.quality.map(inputValue => inputValue.assetPlanItem),
+    ...suiteChecks.flatMap(inputValue => [
+      inputValue.candidate.assetPlanItem,
+      ...inputValue.existing.map(existing => existing.assetPlanItem),
+    ]),
+  ];
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.plan, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 1);
+  assert.deepEqual(calls.poll.sort(), ['provider-1', 'provider-food-qc']);
+  assert.deepEqual(calls.compile, ['food-c-package']);
+  assert.deepEqual(completed.assetPlan.map(item => [item.id, item.role, item.commercialDutyId]), [
+    ['food-a-texture', 'detail_slice_texture', 'detailslicetexture:texture'],
+    ['food-b-qc', 'detail_slice_qc', 'detailsliceqc:proofanswer'],
+    ['food-c-package', 'detail_slice_package', 'detailslicepackage:package'],
+    ['food-d-flavor', 'detail_slice_flavor', 'detailsliceflavor:flavor'],
+  ]);
+  assert.ok(executedItems.length >= 3);
+  for (const executed of executedItems) {
+    const canonical = planById.get(executed.id);
+    assert.equal(executed.role, canonical.role, `${executed.id} role`);
+    assert.equal(executed.commercialDutyId, canonical.commercialDutyId, `${executed.id} duty id`);
+    assert.equal(executed.communicationGoal, canonical.communicationGoal, `${executed.id} buyer goal`);
+  }
+  const preservedFlavor = jobs.assets.getAsset(input.id, flavor.id).requestSnapshot;
+  assert.equal(preservedFlavor.submissionIntents.length, 2);
+  assert.deepEqual(preservedFlavor.repairAction, {
+    type: 'image_edit',
+    focusIssueCodes: ['legacy_artifact'],
+  });
+  assert.equal(completed.progress.executionCount.providerSubmissions, 5);
+  assert.equal(completed.progress.executionCount.providerRepairs, 1);
 });
 
 test('keeps the parent resumable while a planned child lease is temporarily held', async t => {

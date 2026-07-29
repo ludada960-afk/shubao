@@ -663,3 +663,123 @@ No known contract failures. Legacy schema-3 counts beyond a defined canonical ro
 ## Commit
 
 Planned subject: `fix: align ecommerce detail and legacy duties`
+
+---
+
+# Task 2 Third Review: Evidence-Aware Duties And Mixed Migration
+
+## Status
+
+DONE. The default planner, evidence-aware detail-duty selection, and mixed schema-3 detail/QC recovery findings were reproduced with behavior-level RED tests, fixed, self-reviewed, and verified without deployment or network access.
+
+## Scope Implemented
+
+- Fixed the no-explicit-count planner to use the `communicationGoal` returned by `heroDuty()` and routed both default and explicit detail planning through one canonical duty resolver.
+- Added a centralized detail-duty policy with exact normalized fact-name aliases, role-specific evidence types, semantic families, and a finite evidence-safe visible-duty fallback catalog.
+- Kept factual duties such as parameters, compatibility, shade, fit, quantity, scale, care, flavor, and identifiers only when matching user-confirmed facts exist. Each factual item receives only its matching fact subset and uses deterministic overlay mode.
+- Preserved the UI-supported detail count through ten. Missing evidence replaces the unavailable duty with an unused, semantically distinct exterior or use-context duty rather than changing quote units or manufacturing uniqueness with camera, view, ordinals, or hashes.
+- Migrated schema-3 ordinary details by structured `sourceRole` before compatibility fallback. Proof-backed QC keeps its proof duty and does not consume an ordinary detail slot.
+- Limited migrated ordinary detail duties to ten and fail closed before asset rows or provider work when an old plan exceeds that catalog.
+- Made the migrated parent `assetPlan` authoritative for compile, quality, repair, settlement, and suite-comparison semantics. Non-final child snapshots are updated with the canonical plan item while preserving their submission intents, provider jobs, requests, quality, and repair history; final siblings remain untouched and are never rerun.
+
+## RED Evidence
+
+Primary focused RED command, run after test-only edits and before production edits:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-ui.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 1; 196 tests discovered, 190 passed, 6 failed, 0 skipped, 0 cancelled. The six expected failures covered:
+
+- the default planner returning an empty hero communication goal;
+- empty-fact category plans retaining factual duties;
+- parameter duties consuming compatibility, care, and unrelated facts while compatibility received only product identity;
+- the production-planner orchestrator fallback failing before hold instead of completing exact-count execution;
+- schema-3 mixed food detail/QC migration assigning duties by global occurrence rather than structured source role;
+- an empty-fact provider request retaining an unsupported compatibility duty.
+
+No production file had changed before this RED run.
+
+Additional overflow RED, added during self-review before the overflow implementation:
+
+```powershell
+node --test --test-concurrency=1 --test-name-pattern="schema-3 ordinary detail overflow fails closed" test/ecommerce-orchestrator.test.mjs
+```
+
+Result: exit 1; 1 test discovered, 0 passed, 1 failed. The eleven-item legacy detail plan incorrectly completed instead of failing before rows, holds, or provider submissions. After adding the ordinary-detail cap while excluding proof QC, the same command passed 1/1.
+
+Additional canonical suite-authority RED, added before changing suite comparison:
+
+```powershell
+node --test --test-concurrency=1 --test-name-pattern="schema-3 mixed detail and QC resume" test/ecommerce-orchestrator.test.mjs
+```
+
+Result: exit 1; 1 test discovered, 0 passed, 1 failed. A completed sibling reached suite comparison with an undefined canonical duty ID from its old child snapshot. After parent-plan lookup by asset ID, the same command passed 1/1.
+
+## GREEN Evidence
+
+The directly affected asset-planner suite passed 16/16 after the evidence resolver and default-path fix.
+
+Final focused command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-ui.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 197 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Final complete Task 2 adjacent command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-shot-director.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-job-store.test.mjs test/ecommerce-billing-ui.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 213 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Full repository regression, run exactly once on the final production code:
+
+```powershell
+npm test
+```
+
+Result: exit 0; 773 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Static and collaboration verification:
+
+- `node --check` passed for all six changed JavaScript modules and tests.
+- `git diff --check` exited 0; Git emitted only LF-to-CRLF working-copy notices.
+- `npm run collab:check` reported `READY`, linked worktree `yes`, tracked runtime paths `0`, ignored runtime changes `0`, and peer ownership conflicts `0`.
+- No production secret, provider Mock, external network, runtime database, upload, cache, log, environment file, or deployment was used.
+
+## Changed Files
+
+- `server/ecommerceEngine/detailDutyPolicy.mjs` (new)
+- `server/ecommerceEngine/assetPlanner.mjs`
+- `server/ecommerceEngine/orchestrator.mjs`
+- `test/ecommerce-asset-planner.test.mjs`
+- `test/ecommerce-orchestrator.test.mjs`
+- `test/ecommerce-prompt-compiler.test.mjs`
+- `.superpowers/sdd/task-2-report.md`
+
+## Self-Review
+
+- Confirmed `heroDuty()` consumers use its returned `communicationGoal`; default no-count planning produces seven valid, exact items and the formal orchestrator validates before one seven-item hold.
+- Confirmed the frontend and quote detail maximum remains ten. Every supported category produces ten contract-valid duties with empty confirmed facts, distinct roles, canonical IDs, buyer goals, and suite semantics.
+- Confirmed fact matching is exact and centralized. An unrelated fact cannot unlock a factual role; parameter and compatibility duties receive separate matching subsets, and non-user facts cannot unlock them.
+- Confirmed unavailable factual duties are omitted before planning. Safe replacements describe only visible form, material, finish, exterior detail, or credible context and do not request hidden structure, efficacy, certification, or unconfirmed parameters.
+- Confirmed factual duties use deterministic overlays and high risk; safe duties retain only product identity as required facts. Provider-visible role objectives contain no unsupported factual commitment.
+- Confirmed schema-3 ordinary detail mapping honors a known source role regardless of plan order. A proof-backed QC item retains proof IDs/facts and does not shift later ordinary roles.
+- Confirmed eleven ordinary legacy details fail before new analysis, planning, hold, asset-row creation, or provider submission; a proof-backed QC item is not counted against the ten ordinary duties.
+- Confirmed the canonical parent plan controls every live semantic consumer, including suite comparison against already completed siblings. Durable child submission intents, acknowledged provider jobs, repair actions, and completed states remain intact.
+- Confirmed the mixed resume performs zero repeated analysis, planning, or hold calls; completed siblings submit and settle zero times, the polling child reuses its provider job, and only the queued child submits once.
+- Confirmed Task 1 Product Truth/Style Reference Profile isolation, strict snapshot versions, analysis-before-hold ordering, Task 2 exact row/quote/submission parity, bounded repair, semantic collage behavior, retryable storage, leases, and stable-only settlement remain covered by focused, adjacent, and full regression.
+- Confirmed no frontend count, billing price, model route, runtime file, generated output, cache, log, secret, `dist` artifact, upload, or deployment code changed.
+
+## Concerns
+
+No known contract failures. Production provider/model output was not exercised because this task prohibits network and secrets; malformed or unavailable semantic quality output continues to fail closed under the existing contract.
+
+## Commit
+
+Planned subject: `fix: make ecommerce detail duties evidence aware`

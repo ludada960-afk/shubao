@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
 import { compileAssetRequest } from '../server/ecommerceEngine/promptCompiler.mjs';
 
 function productTruth(overrides = {}) {
@@ -103,6 +104,45 @@ function parseStructuredPrompt(prompt) {
     schema: JSON.parse(prompt.slice(newline + 1)),
   };
 }
+
+test('does not send unsupported factual detail duties to the provider', () => {
+  const truth = productTruth({
+    category: '数码3C',
+    productName: 'Nova Hub',
+    packageText: [],
+    confirmedFacts: {},
+    uncertainFacts: [],
+    sourceAssetIds: ['product-front'],
+  });
+  const bible = campaignBible({ referenceAssetIds: [] });
+  const plan = buildAssetPlan({
+    productTruth: truth,
+    campaignBible: bible,
+    sizing: { images: [{ key: 'detail', count: 10, ratio: '3:4' }] },
+  });
+
+  assert.equal(plan.length, 10);
+  for (const item of plan) {
+    const result = compileAssetRequest({
+      assetPlanItem: item,
+      productTruth: truth,
+      campaignBible: bible,
+      assets: { product: [asset('product-front')], reference: [], proof: [], protection: [] },
+    });
+    const { schema } = parseStructuredPrompt(result.prompt);
+    const providerDuty = JSON.stringify({
+      roleObjective: schema.sections.roleObjective,
+      requiredVisualFacts: schema.sections.productTruth.requiredVisualFacts,
+    });
+
+    assert.doesNotMatch(
+      providerDuty,
+      /\b(?:confirmed|compatibility|parameters?|fit|care)\b/i,
+      item.role,
+    );
+    assert.deepEqual(item.requiredFacts, [{ name: 'productName', value: 'Nova Hub' }], item.role);
+  }
+});
 
 test('ranks indexed multipart assets deterministically with product before style before proof and a ten-image cap', () => {
   const item = assetPlanItem({

@@ -7,6 +7,7 @@ import {
   TRANSPARENT_DUTIES,
   WHITE_BACKGROUND_DUTIES,
 } from './commercialDutyCatalog.mjs';
+import { MAX_DETAIL_DUTY_COUNT, resolveLegacyDetailDuty } from './detailDutyPolicy.mjs';
 import { sanitizeSnapshot } from './jobStore.mjs';
 import { assertExecutionCount, validatePlanContract } from './planContract.mjs';
 
@@ -539,7 +540,7 @@ function roleCatalogDuty(role, occurrence) {
   return null;
 }
 
-function detailMigrationDuty(item, sourceRole, productTruth, detailOccurrence) {
+function detailMigrationDuty(item, sourceRole, productTruth, usedSemanticFamilies) {
   const strategy = getAssetPlanStrategy(cleanString(own(productTruth, 'category')));
   const proofRole = cleanString(strategy?.proofRole);
   const proofAssetIds = Array.isArray(own(item, 'proofAssetIds')) ? own(item, 'proofAssetIds') : [];
@@ -553,31 +554,48 @@ function detailMigrationDuty(item, sourceRole, productTruth, detailOccurrence) {
       key: 'proofanswer',
       goal: 'Communicate quality or certification information backed only by uploaded proof assets.',
       purpose: 'Quality or certification information backed only by uploaded proof assets.',
+      requiredFacts,
+      generationMode: 'deterministic_overlay',
+      proofDuty: true,
     };
   }
-  const roleName = cleanString(strategy?.detailRoles?.[detailOccurrence]);
-  const goal = cleanString(strategy?.buyingQuestions?.[detailOccurrence]);
-  if (!roleName || !goal) {
-    throw new TypeError('legacy detail count exceeds the canonical commercial duty catalog');
-  }
+  const duty = resolveLegacyDetailDuty({
+    strategy,
+    productTruth,
+    sourceRole,
+    usedSemanticFamilies,
+  });
+  const productName = cleanString(own(productTruth, 'productName'));
   return {
-    role: `detail_slice_${roleName}`,
-    key: roleName,
-    goal,
-    purpose: goal,
+    role: `detail_slice_${duty.roleName}`,
+    key: duty.dutyKey,
+    goal: duty.goal,
+    purpose: duty.purpose,
+    requiredFacts: duty.evidenceType
+      ? duty.requiredFacts
+      : productName ? [{ name: 'productName', value: productName }] : [],
+    generationMode: duty.evidenceType ? 'deterministic_overlay' : 'edit',
+    proofDuty: false,
   };
 }
 
 function upgradePlanItems(assetPlan, productTruth = {}) {
   const roleOccurrences = new Map();
-  let detailOccurrence = 0;
+  const usedDetailFamilies = new Set();
+  let ordinaryDetailCount = 0;
   return assetPlan.map(item => {
     const sourceRole = cleanString(own(item, 'role')).toLowerCase();
     const occurrence = roleOccurrences.get(sourceRole) || 0;
     roleOccurrences.set(sourceRole, occurrence + 1);
     const detailDuty = sourceRole.startsWith('detail_slice_')
-      ? detailMigrationDuty(item, sourceRole, productTruth, detailOccurrence++)
+      ? detailMigrationDuty(item, sourceRole, productTruth, usedDetailFamilies)
       : null;
+    if (detailDuty && !detailDuty.proofDuty) {
+      ordinaryDetailCount += 1;
+      if (ordinaryDetailCount > MAX_DETAIL_DUTY_COUNT) {
+        throw new TypeError('legacy detail count exceeds the evidence-safe commercial duty catalog');
+      }
+    }
     const catalogDuty = detailDuty || roleCatalogDuty(sourceRole, occurrence);
     const role = catalogDuty?.role || sourceRole;
     const communicationGoal = catalogDuty?.goal
@@ -602,6 +620,10 @@ function upgradePlanItems(assetPlan, productTruth = {}) {
       purpose,
       commercialDutyId,
       communicationGoal,
+      ...(detailDuty ? {
+        requiredFacts: detailDuty.requiredFacts,
+        generationMode: detailDuty.generationMode,
+      } : {}),
       shotIntent: {
         ...shotIntent,
         sceneFamily: cleanString(own(shotIntent, 'sceneFamily')) || legacySceneFamily(type),
@@ -870,7 +892,7 @@ export function createEcommerceOrchestrator(deps = {}) {
     }
   }
 
-  async function suiteComparisonAssets(jobId, currentAssetId) {
+  async function suiteComparisonAssets(jobId, currentAssetId, canonicalPlanById) {
     const candidates = store.listAssets(jobId).filter(asset => (
       asset.assetId !== currentAssetId
       && ['settling', 'completed'].includes(asset.state)
@@ -878,9 +900,14 @@ export function createEcommerceOrchestrator(deps = {}) {
     ));
     return Promise.all(candidates.map(async asset => {
       const stored = await stableBytes(asset.stableUrl);
-      const plan = isRecord(own(asset.requestSnapshot, 'assetPlanItem'))
-        ? own(asset.requestSnapshot, 'assetPlanItem')
-        : {};
+      const canonicalPlan = canonicalPlanById instanceof Map
+        ? canonicalPlanById.get(asset.assetId)
+        : null;
+      const plan = isRecord(canonicalPlan)
+        ? canonicalPlan
+        : isRecord(own(asset.requestSnapshot, 'assetPlanItem'))
+          ? own(asset.requestSnapshot, 'assetPlanItem')
+          : {};
       return {
         assetId: asset.assetId,
         role: cleanString(own(plan, 'role')),
@@ -925,7 +952,7 @@ export function createEcommerceOrchestrator(deps = {}) {
     };
   }
 
-  async function runAsset({ job, item, productTruth, campaignBible, holdId }) {
+  async function runAsset({ job, item, productTruth, campaignBible, holdId, canonicalPlanById }) {
     store.createAsset({
       jobId: job.id,
       assetId: item.id,
@@ -964,6 +991,18 @@ export function createEcommerceOrchestrator(deps = {}) {
     };
 
     try {
+      try {
+        current = store.checkpointAsset(job.id, item.id, {
+          requestSnapshot: {
+            ...current.requestSnapshot,
+            assetPlanItem: item,
+          },
+          leaseToken,
+        });
+      } catch (error) {
+        if (error && typeof error === 'object') error.retryable = true;
+        throw error;
+      }
       while (!ASSET_FINAL_STATES.has(current.state)) {
         if (leaseHeartbeatError) throw leaseHeartbeatError;
         if (current.state === 'queued') {
@@ -1069,7 +1108,7 @@ export function createEcommerceOrchestrator(deps = {}) {
           }, qualityAdapters);
           if (quality.passed) {
             const diversity = await withSuiteDiversityLock(job.id, async () => {
-              const existing = await suiteComparisonAssets(job.id, item.id);
+              const existing = await suiteComparisonAssets(job.id, item.id, canonicalPlanById);
               const verdict = await evaluateSuiteDiversity({
                 candidate: {
                   assetId: item.id,
@@ -1532,6 +1571,7 @@ export function createEcommerceOrchestrator(deps = {}) {
 
       let assetCursor = 0;
       let workerError = null;
+      const canonicalPlanById = new Map(assetPlan.map(item => [item.id, item]));
       async function assetWorker() {
         while (!workerError && assetCursor < assetPlan.length) {
           if (parentHeartbeatError) {
@@ -1540,15 +1580,14 @@ export function createEcommerceOrchestrator(deps = {}) {
           }
           const item = assetPlan[assetCursor];
           assetCursor += 1;
-          const persistedAsset = store.getAsset(id, item.id);
-          const persistedItem = own(persistedAsset?.requestSnapshot, 'assetPlanItem');
           try {
             await runAsset({
               job: { ...job, payload },
-              item: isRecord(persistedItem) ? persistedItem : item,
+              item,
               productTruth,
               campaignBible,
               holdId,
+              canonicalPlanById,
             });
           } catch (error) {
             if (!workerError) workerError = error;
