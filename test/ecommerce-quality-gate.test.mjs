@@ -5,6 +5,21 @@ import sharp from 'sharp';
 import {
   evaluateAsset,
 } from '../server/ecommerceEngine/qualityGate.mjs';
+
+const SINGLE_PRODUCT_LAYOUT = Object.freeze({
+  verdict: 'single_product',
+  confidence: 0.98,
+  evidence: ['one coherent product view in one continuous scene'],
+});
+
+function visualPass(overrides = {}) {
+  return {
+    passed: true,
+    confidence: 0.98,
+    layout: SINGLE_PRODUCT_LAYOUT,
+    ...overrides,
+  };
+}
 import {
   canRetry,
   planRepair,
@@ -113,7 +128,7 @@ test('requires OCR approval when the asset plan contains text or logos', async (
     requiredText: ['S-100'],
   }, {
     productFidelity: async () => ({ passed: true, confidence: 0.99 }),
-    visualQuality: async () => ({ passed: true, confidence: 0.99 }),
+    visualQuality: async () => visualPass({ confidence: 0.99 }),
   });
 
   assert.equal(result.passed, false);
@@ -233,7 +248,7 @@ test('uses a deterministic edge metric to reject blurred output', async () => {
     generationSize: '128x128',
     expectedFormat: 'png',
   }, {
-    visualQuality: async () => ({ passed: true, confidence: 0.9 }),
+    visualQuality: async () => visualPass({ confidence: 0.9 }),
   });
   const blurredResult = await evaluateAsset({
     buffer: await checkerFixture({ blurred: true }),
@@ -241,7 +256,7 @@ test('uses a deterministic edge metric to reject blurred output', async () => {
     generationSize: '128x128',
     expectedFormat: 'png',
   }, {
-    visualQuality: async () => ({ passed: true, confidence: 0.9 }),
+    visualQuality: async () => visualPass({ confidence: 0.9 }),
   });
 
   assert.equal(sharpResult.checks.visualQuality.status, 'pass');
@@ -280,6 +295,7 @@ test('uses an injected visual adapter for semantic local defects', async () => {
       passed: false,
       confidence: 0.92,
       issueCodes: ['local_artifact'],
+      layout: SINGLE_PRODUCT_LAYOUT,
       details: { region: 'lower-right' },
     }),
   });
@@ -328,12 +344,65 @@ test('normalizes adapter failures without issue codes into actionable repairs', 
     expectedFormat: 'png',
   }, {
     productFidelity: async () => ({ passed: false, confidence: 0.8 }),
-    visualQuality: async () => ({ passed: true, confidence: 0.9 }),
+    visualQuality: async () => visualPass({ confidence: 0.9 }),
   });
 
   assert.equal(result.passed, false);
   assert.deepEqual(result.checks.productFidelity.issueCodes, ['product_fidelity_failed']);
   assert.equal(result.repairAction.type, 'regenerate_from_product_truth');
+});
+
+test('semantic collage verdict fails visual quality and plans one targeted regeneration', async () => {
+  const result = await evaluateAsset({
+    buffer: await productFixture(),
+    role: 'main',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+  }, {
+    productFidelity: async () => ({ passed: true, confidence: 0.99 }),
+    visualQuality: async () => ({
+      passed: false,
+      confidence: 0.97,
+      issueCodes: [],
+      layout: {
+        verdict: 'collage',
+        confidence: 0.97,
+        evidence: ['three independent candidate scenes in one output'],
+      },
+    }),
+  });
+
+  assert.equal(result.passed, false);
+  assert.equal(result.checks.visualQuality.status, 'fail');
+  assert.ok(result.checks.visualQuality.issueCodes.includes('suite_collage_layout'));
+  assert.equal(result.checks.visualQuality.details.layout.verdict, 'collage');
+  assert.equal(result.repairAction.type, 'regenerate_from_product_truth');
+  assert.deepEqual(result.repairAction.focusIssueCodes, ['suite_collage_layout']);
+});
+
+test('semantic single-product verdict is required and preserved by visual quality', async () => {
+  const input = {
+    buffer: await productFixture(),
+    role: 'main',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+  };
+  const productFidelity = async () => ({ passed: true, confidence: 0.99 });
+  const passed = await evaluateAsset(input, {
+    productFidelity,
+    visualQuality: async () => visualPass(),
+  });
+  const invalid = await evaluateAsset(input, {
+    productFidelity,
+    visualQuality: async () => ({ passed: true, confidence: 0.98 }),
+  });
+
+  assert.equal(passed.passed, true);
+  assert.deepEqual(passed.checks.visualQuality.details.layout, SINGLE_PRODUCT_LAYOUT);
+  assert.equal(invalid.passed, false);
+  assert.equal(invalid.retryable, true);
+  assert.equal(invalid.checks.visualQuality.status, 'unavailable');
+  assert.ok(invalid.checks.visualQuality.issueCodes.includes('invalid_adapter_result'));
 });
 
 test('maps text defects and local visual defects to focused repair plans', () => {

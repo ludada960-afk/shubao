@@ -230,6 +230,8 @@ test('honors configured counts including transparent assets and expands determin
       && item.styleReferenceIds.length === 0));
   assert.equal(first.find(item => item.role === 'main_3x4').generationSize, '2160x3840');
   assert.ok(first.every(item => item.communicationGoal));
+  assert.ok(first.every(item => /^[a-z0-9]+(?::[a-z0-9]+)+$/.test(item.commercialDutyId)));
+  assert.equal(new Set(first.map(item => item.commercialDutyId)).size, first.length);
   assert.equal(new Set(first.map(item => item.purpose.toLowerCase())).size, first.length);
   assert.equal(new Set(first.map(item => item.communicationGoal.toLowerCase())).size, first.length);
   assert.ok(first.every(item => !/\b(?:duty|treatment)\s+\d+\b/i.test(item.communicationGoal)));
@@ -276,6 +278,7 @@ test('assigns every supported repeated role slot a non-ordinal commercial purpos
     });
 
     assert.equal(plan.length, 20, key);
+    assert.equal(new Set(plan.map(item => item.commercialDutyId)).size, 20, key);
     assert.equal(new Set(plan.map(item => item.purpose.toLowerCase())).size, 20, key);
     assert.ok(plan.every(item => !/\b(?:duty|treatment)\s+\d+\b/i.test(item.communicationGoal)), key);
     assert.equal(validatePlanContract(plan), plan, key);

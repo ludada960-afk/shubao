@@ -2,6 +2,7 @@ import sharp from 'sharp';
 
 import { validateGenerationSize } from './modelCatalog.mjs';
 import { planRepair } from './repairPlanner.mjs';
+import { normalizeSemanticLayout } from './suiteDiversity.mjs';
 
 const WHITE_BACKGROUND_ROLES = new Set(['white_background', 'white_bg', 'transparent_white']);
 const SUPPORTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
@@ -90,17 +91,27 @@ function finiteConfidence(value) {
   return Number.isFinite(value) && value >= 0 && value <= 1 ? value : null;
 }
 
-function normalizeAdapterResult(value) {
+function normalizeAdapterResult(value, { requireSemanticLayout = false } = {}) {
   if (!isRecord(value) || !Object.hasOwn(value, 'passed') || typeof value.passed !== 'boolean') {
     return null;
   }
   const confidence = Object.hasOwn(value, 'confidence') ? finiteConfidence(value.confidence) : null;
   if (Object.hasOwn(value, 'confidence') && confidence === null) return null;
+  const details = isRecord(own(value, 'details')) ? { ...own(value, 'details') } : {};
+  const layout = requireSemanticLayout
+    ? normalizeSemanticLayout(own(value, 'layout') ?? own(details, 'layout'))
+    : null;
+  if (requireSemanticLayout && !layout) return null;
+  if (layout) details.layout = layout;
+  const layoutFailed = layout?.verdict === 'collage';
   return {
-    passed: value.passed,
+    passed: value.passed && !layoutFailed,
     confidence,
-    issueCodes: normalizeStrings(own(value, 'issueCodes')),
-    details: isRecord(own(value, 'details')) ? { ...own(value, 'details') } : {},
+    issueCodes: [...new Set([
+      ...normalizeStrings(own(value, 'issueCodes')),
+      ...(layoutFailed ? ['suite_collage_layout'] : []),
+    ])],
+    details,
     observedFingerprint: typeof own(value, 'observedFingerprint') === 'string'
       ? own(value, 'observedFingerprint').trim()
       : '',
@@ -111,12 +122,13 @@ function normalizeAdapterResult(value) {
 async function runAdapter(adapter, payload, {
   unavailableStatus = 'unavailable',
   failureCode = 'adapter_check_failed',
+  requireSemanticLayout = false,
 } = {}) {
   if (typeof adapter !== 'function') {
     return statusCheck(unavailableStatus, ['adapter_unavailable']);
   }
   try {
-    const normalized = normalizeAdapterResult(await adapter(payload));
+    const normalized = normalizeAdapterResult(await adapter(payload), { requireSemanticLayout });
     if (!normalized) return statusCheck('unavailable', ['invalid_adapter_result']);
     const normalizedIssues = normalized.passed || normalized.issueCodes.length
       ? normalized.issueCodes
@@ -392,6 +404,7 @@ export async function evaluateAsset(input = {}, adapters = {}) {
   });
   const visualAdapter = await runAdapter(own(adapters, 'visualQuality'), adapterPayload, {
     failureCode: 'visual_quality_failed',
+    requireSemanticLayout: true,
   });
   const visualStatus = deterministicVisualIssues.length || visualAdapter.status === 'fail'
     ? 'fail'

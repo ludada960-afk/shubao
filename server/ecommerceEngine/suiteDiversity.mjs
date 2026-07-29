@@ -2,6 +2,7 @@ import sharp from 'sharp';
 
 const SAMPLE_SIZE = 32;
 const NEAR_DUPLICATE_THRESHOLD = 0.04;
+const SEMANTIC_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
 
 function cleanRole(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -11,6 +12,23 @@ function semanticPart(value) {
   if (typeof value === 'string') return value.trim().toLowerCase();
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return '';
+}
+
+export function normalizeSemanticLayout(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const verdict = semanticPart(value.verdict);
+  const confidence = value.confidence;
+  const evidence = Array.isArray(value.evidence)
+    ? [...new Set(value.evidence.map(item => typeof item === 'string' ? item.trim() : '').filter(Boolean))]
+    : [];
+  if (!['single_product', 'collage'].includes(verdict)
+    || !Number.isFinite(confidence)
+    || confidence < SEMANTIC_LAYOUT_CONFIDENCE_THRESHOLD
+    || confidence > 1
+    || evidence.length === 0) {
+    return null;
+  }
+  return { verdict, confidence, evidence };
 }
 
 export function suiteSemanticKey(item = {}) {
@@ -179,7 +197,7 @@ export function visualFingerprintDistance(left, right) {
   return total / left.length;
 }
 
-export async function evaluateSuiteDiversity({ candidate = {}, existing = [] } = {}) {
+export async function evaluateSuiteDiversity({ candidate = {}, existing = [], semanticLayout } = {}) {
   const candidateSemanticKey = completeSemanticKey(candidate.assetPlanItem);
   if (candidateSemanticKey) {
     for (const asset of Array.isArray(existing) ? existing : []) {
@@ -200,6 +218,29 @@ export async function evaluateSuiteDiversity({ candidate = {}, existing = [] } =
       passed: false,
       issueCodes: ['suite_collage_layout'],
       details: {
+        verticalSeams: measured.verticalSeams,
+        horizontalSeams: measured.horizontalSeams,
+      },
+    };
+  }
+
+  const normalizedLayout = normalizeSemanticLayout(semanticLayout);
+  if (!normalizedLayout) {
+    return {
+      passed: false,
+      issueCodes: ['suite_collage_semantic_unavailable'],
+      details: {
+        verticalSeams: measured.verticalSeams,
+        horizontalSeams: measured.horizontalSeams,
+      },
+    };
+  }
+  if (normalizedLayout.verdict === 'collage') {
+    return {
+      passed: false,
+      issueCodes: ['suite_collage_layout'],
+      details: {
+        semanticLayout: normalizedLayout,
         verticalSeams: measured.verticalSeams,
         horizontalSeams: measured.horizontalSeams,
       },
@@ -229,6 +270,7 @@ export async function evaluateSuiteDiversity({ candidate = {}, existing = [] } =
     issueCodes: [],
     details: {
       family,
+      semanticLayout: normalizedLayout,
       verticalSeams: measured.verticalSeams,
       horizontalSeams: measured.horizontalSeams,
     },

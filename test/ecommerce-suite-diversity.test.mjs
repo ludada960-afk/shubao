@@ -9,6 +9,12 @@ import {
   visualFingerprintDistance,
 } from '../server/ecommerceEngine/suiteDiversity.mjs';
 
+const SEMANTIC_SINGLE_PRODUCT = Object.freeze({
+  verdict: 'single_product',
+  confidence: 0.98,
+  evidence: ['one coherent product view with one continuous scene'],
+});
+
 async function scene({ accent = '#111111', panel = false } = {}) {
   const base = sharp({
     create: { width: 128, height: 128, channels: 3, background: '#f4f4f4' },
@@ -50,6 +56,25 @@ async function horizontalContactStrip() {
   }).composite(await Promise.all(cells)).png().toBuffer();
 }
 
+async function irregularTPanelMontage() {
+  const panel = color => sharp({
+    create: { width: 160, height: 160, channels: 3, background: color },
+  }).png().toBuffer();
+  return sharp({
+    create: { width: 320, height: 320, channels: 3, background: '#d8dde2' },
+  }).composite([
+    { input: await panel('#22282e'), left: 0, top: 0 },
+    { input: await panel('#e1e5e8'), left: 160, top: 0 },
+    {
+      input: await sharp({
+        create: { width: 320, height: 160, channels: 3, background: '#727d87' },
+      }).png().toBuffer(),
+      left: 0,
+      top: 160,
+    },
+  ]).png().toBuffer();
+}
+
 test('perceptual suite check rejects near duplicates but keeps a materially different scene', async () => {
   const original = await scene({ accent: '#222222' });
   const nearDuplicate = await scene({ accent: '#252525' });
@@ -63,10 +88,12 @@ test('perceptual suite check rejects near duplicates but keeps a materially diff
   assert.equal((await evaluateSuiteDiversity({
     candidate: { assetId: 'main-2', role: 'main_text', buffer: nearDuplicate },
     existing: [{ assetId: 'main-1', role: 'main_text', buffer: original }],
+    semanticLayout: SEMANTIC_SINGLE_PRODUCT,
   })).passed, false);
   assert.equal((await evaluateSuiteDiversity({
     candidate: { assetId: 'main-3', role: 'main_text', buffer: different },
     existing: [{ assetId: 'main-1', role: 'main_text', buffer: original }],
+    semanticLayout: SEMANTIC_SINGLE_PRODUCT,
   })).passed, true);
 });
 
@@ -89,11 +116,75 @@ test('product-confined vertical panel seams are not collage evidence', async () 
   const verdict = await evaluateSuiteDiversity({
     candidate: { assetId: 'appliance-hero', role: 'main_text', buffer: appliance },
     existing: [],
+    semanticLayout: SEMANTIC_SINGLE_PRODUCT,
   });
 
   assert.ok(measured.verticalSeams >= 2);
   assert.equal(measured.likelyCollage, false);
   assert.equal(verdict.passed, true);
+});
+
+test('semantic layout rejects an irregular borderless T-shaped montage missed by seams', async () => {
+  const montage = await irregularTPanelMontage();
+  const measured = await measureSuiteImage(montage);
+  const verdict = await evaluateSuiteDiversity({
+    candidate: { assetId: 'irregular-montage', role: 'detail_slice_usage', buffer: montage },
+    existing: [],
+    semanticLayout: {
+      verdict: 'collage',
+      confidence: 0.97,
+      evidence: ['three independent candidate scenes arranged as a T-shaped montage'],
+    },
+  });
+
+  assert.equal(measured.likelyCollage, false);
+  assert.equal(verdict.passed, false);
+  assert.deepEqual(verdict.issueCodes, ['suite_collage_layout']);
+  assert.equal(verdict.details.semanticLayout.verdict, 'collage');
+});
+
+test('semantic layout explicitly allows a confirmed single-view multi-panel product', async () => {
+  const verdict = await evaluateSuiteDiversity({
+    candidate: { assetId: 'multi-panel-product', role: 'main_text', buffer: await multiPanelAppliance() },
+    existing: [],
+    semanticLayout: SEMANTIC_SINGLE_PRODUCT,
+  });
+
+  assert.equal(verdict.passed, true);
+  assert.equal(verdict.details.semanticLayout.verdict, 'single_product');
+});
+
+test('inconclusive deterministic layout fails closed without a valid semantic verdict', async () => {
+  const buffer = await scene({ accent: '#333333' });
+  for (const semanticLayout of [undefined, { verdict: 'uncertain', confidence: 0.4, evidence: [] }]) {
+    const verdict = await evaluateSuiteDiversity({
+      candidate: { assetId: 'semantic-unavailable', role: 'main_text', buffer },
+      existing: [],
+      semanticLayout,
+    });
+
+    assert.equal(verdict.passed, false);
+    assert.deepEqual(verdict.issueCodes, ['suite_collage_semantic_unavailable']);
+  }
+});
+
+test('semantic layout confidence rejects numeric strings instead of coercing them', async () => {
+  const verdict = await evaluateSuiteDiversity({
+    candidate: {
+      assetId: 'string-confidence',
+      role: 'main_text',
+      buffer: await scene({ accent: '#333333' }),
+    },
+    existing: [],
+    semanticLayout: {
+      verdict: 'single_product',
+      confidence: '0.98',
+      evidence: ['one coherent product view'],
+    },
+  });
+
+  assert.equal(verdict.passed, false);
+  assert.deepEqual(verdict.issueCodes, ['suite_collage_semantic_unavailable']);
 });
 
 test('full-height gutters still reject an obvious one-axis contact strip', async () => {

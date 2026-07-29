@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { getAssetPlanStrategy, normalizeEcommerceCategory } from './categoryKnowledge.mjs';
 import { layoutContractFor, textLayerPlanFor } from './layoutContracts.mjs';
 import { LEGAL_IMAGE_SIZES } from './modelCatalog.mjs';
@@ -178,6 +180,19 @@ function riskLevel(role) {
   return 'low';
 }
 
+function commercialDutyIdFor(role, purpose) {
+  const roleKey = cleanString(role)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ':')
+    .replace(/^:+|:+$/g, '') || 'asset';
+  const purposeFingerprint = createHash('sha256')
+    .update(cleanString(purpose).normalize('NFKC').toLowerCase())
+    .digest('hex')
+    .slice(0, 16);
+  return `${roleKey}:duty:${purposeFingerprint}`;
+}
+
 function buildItem({ id: requestedId, role, purpose, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], category, platform, sizing }) {
   const ratio = resolveRatio({ role }, sizing, defaultRatio);
   const generationSize = LEGAL_IMAGE_SIZES[sizing.resolution][ratio];
@@ -192,6 +207,7 @@ function buildItem({ id: requestedId, role, purpose, defaultRatio = '3:4', requi
     id,
     role,
     purpose,
+    commercialDutyId: commercialDutyIdFor(role, purpose),
     ratio,
     generationSize,
     exportTargets: role === 'transparent'

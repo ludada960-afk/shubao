@@ -17,6 +17,31 @@ const OWNER = '867550189@qq.com';
 const PNG_A = `/api/generated-assets/${'a'.repeat(64)}.png`;
 const PNG_B = `/api/generated-assets/${'b'.repeat(64)}.png`;
 const IMAGE_BUFFER = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const SEMANTIC_SINGLE_PRODUCT = Object.freeze({
+  verdict: 'single_product',
+  confidence: 0.98,
+  evidence: ['one coherent product view'],
+});
+
+function withSemanticSingleProduct(result) {
+  if (!result?.passed) return result;
+  const visualQuality = result.checks?.visualQuality;
+  if (visualQuality?.details?.layout) return result;
+  return {
+    ...result,
+    checks: {
+      ...(result.checks || {}),
+      visualQuality: {
+        status: 'pass',
+        passed: true,
+        issueCodes: [],
+        metrics: {},
+        details: { layout: SEMANTIC_SINGLE_PRODUCT },
+        ...(visualQuality || {}),
+      },
+    },
+  };
+}
 
 function planItem(id, role = 'main') {
   return {
@@ -258,13 +283,13 @@ async function createHarness(t, {
     evaluateAsset: async input => {
       calls.quality.push(input);
       calls.sequence.push(`quality:${input.assetPlanItem.id}`);
-      if (quality) return quality({ input, calls });
-      return {
+      const result = quality ? await quality({ input, calls }) : {
         passed: true,
         checks: {},
         repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
         confidence: 'high',
       };
+      return withSemanticSingleProduct(result);
     },
     planRepair: result => result.repairAction,
     canRetry: (attempt, repairAction = {}) => Number.isInteger(attempt)
@@ -1107,6 +1132,75 @@ test('suite diversity retries only the duplicate item before settlement and keep
   assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-one')).length, 1);
   assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-two')).length, 2);
   assert.equal(result.assets.length, 2);
+  assert.deepEqual(result.progress.executionCount.submissionsByAsset, {
+    'main-one': 1,
+    'main-two': 2,
+  });
+});
+
+test('semantic collage repairs only the failed asset once and passes its verdict to delivery', async t => {
+  const qualityAttempts = new Map();
+  const suiteChecks = new Map();
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('main-one', 'main_text'), planItem('main-two', 'main_text')],
+    quality: ({ input }) => {
+      const assetId = input.assetPlanItem.id;
+      const attempt = (qualityAttempts.get(assetId) || 0) + 1;
+      qualityAttempts.set(assetId, attempt);
+      if (assetId === 'main-two' && attempt === 1) {
+        return {
+          passed: false,
+          checks: {
+            visualQuality: {
+              status: 'fail',
+              issueCodes: ['suite_collage_layout'],
+              details: {
+                layout: {
+                  verdict: 'collage',
+                  confidence: 0.97,
+                  evidence: ['three independent candidate scenes'],
+                },
+              },
+            },
+          },
+          repairAction: {
+            type: 'regenerate_from_product_truth',
+            focusIssueCodes: ['suite_collage_layout'],
+            userCharge: false,
+          },
+          confidence: 'low',
+        };
+      }
+      return {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      };
+    },
+    orchestratorOptions: {
+      assetConcurrency: 1,
+      evaluateSuiteDiversity: async ({ candidate, semanticLayout }) => {
+        suiteChecks.set(candidate.assetId, semanticLayout);
+        assert.deepEqual(semanticLayout, SEMANTIC_SINGLE_PRODUCT);
+        return { passed: true, issueCodes: [], details: { semanticLayout } };
+      },
+    },
+  });
+
+  const result = await orchestrator.runJob(
+    orchestrator.createJob(jobInput('job-semantic-collage-repair')).id,
+  );
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.assets.length, 2);
+  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-one')).length, 1);
+  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-two')).length, 2);
+  assert.equal(calls.settle.length, 2);
+  assert.equal(calls.release.length, 0);
+  assert.equal(qualityAttempts.get('main-one'), 1);
+  assert.equal(qualityAttempts.get('main-two'), 2);
+  assert.equal(suiteChecks.size, 2);
   assert.deepEqual(result.progress.executionCount.submissionsByAsset, {
     'main-one': 1,
     'main-two': 2,

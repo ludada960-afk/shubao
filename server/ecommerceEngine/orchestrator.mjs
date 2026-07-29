@@ -1082,6 +1082,7 @@ export function createEcommerceOrchestrator(deps = {}) {
                 existing,
                 productTruth,
                 assetPlanItem: item,
+                semanticLayout: quality?.checks?.visualQuality?.details?.layout,
               });
               if (!isRecord(verdict) || typeof verdict.passed !== 'boolean') {
                 throw new Error('suite diversity evaluator returned an invalid verdict');

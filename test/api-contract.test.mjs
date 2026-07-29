@@ -338,6 +338,19 @@ test('stable ecommerce quality analysis uses the detected JPEG, PNG, or WebP MIM
   assert.doesNotMatch(server.slice(start, end), /contentType:\s*['"]image\/png['"]/);
 });
 
+test('formal ecommerce visual quality schema requires an explicit semantic layout verdict', async () => {
+  const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const start = server.indexOf('async function analyzeStableEcommerceAsset(');
+  const end = server.indexOf('\nconst ecommerceBilling', start);
+  const qualitySource = server.slice(start, end);
+
+  assert.match(qualitySource, /"layout"\s*:\s*\{/);
+  assert.match(qualitySource, /single_product\|collage\|uncertain/);
+  assert.match(qualitySource, /montage|multi-candidate/i);
+  assert.match(qualitySource, /evidence/);
+  assert.match(qualitySource, /details:[\s\S]*layout/);
+});
+
 test('ecommerce asset upload forwards a caller AbortController signal', async t => {
   const originalFetch = globalThis.fetch;
   const controller = new AbortController();

@@ -3001,9 +3001,9 @@ async function analyzeStableEcommerceAsset({ buffer, contentType, productTruth }
 {
   "productFidelity":{"passed":true,"confidence":0.0,"issueCodes":[]},
   "copyAndLogo":{"passed":true,"confidence":0.0,"issueCodes":[]},
-  "visualQuality":{"passed":true,"confidence":0.0,"issueCodes":[]}
+  "visualQuality":{"passed":true,"confidence":0.0,"issueCodes":[],"layout":{"verdict":"single_product|collage|uncertain","confidence":0.0,"evidence":[]}}
 }
-根据 Product Truth 检查商品主体是否漂移、结构/颜色/包装/Logo 是否被篡改，检查是否存在乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。没有足够证据时降低 confidence，不要臆造问题。`;
+根据 Product Truth 检查商品主体是否漂移、结构/颜色/包装/Logo 是否被篡改，检查是否存在乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。layout 必须判断正式输出是一个连贯的单商品视图，还是 collage、montage、contact sheet 或 multi-candidate layout；单视角的多面板家电仍属于 single_product。为 layout 提供具体 evidence 和 confidence，没有足够证据时返回 uncertain，不要臆造问题。`;
     const image = stableAssetDataUrl({ buffer, contentType: contentType || 'image/png' });
     const userPrompt = `Product Truth：${JSON.stringify(productTruth || {})}`;
     const promise = (MINI_KEY && MINI_BASE
@@ -3044,6 +3044,7 @@ function qualityAdapter(section, fallbackCode) {
       issueCodes: Array.isArray(value.issueCodes) && value.issueCodes.length
         ? value.issueCodes.map(code => String(code).trim()).filter(Boolean)
         : value.passed ? [] : [fallbackCode],
+      details: section === 'visualQuality' ? { layout: value.layout } : {},
     };
   };
 }

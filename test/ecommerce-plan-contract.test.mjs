@@ -97,11 +97,15 @@ test('commercial duty normalization rejects ordinal suffixes and equivalent word
 });
 
 const PRESENTATION_ORDINAL_DUTY_PAIRS = [
-  ['bare Arabic ordinal', 'Product recognition 1', 'Product recognition 2'],
+  ['recognition variant ordinal', 'Product recognition variant 1', 'Product recognition variant 2'],
   ['hash ordinal', 'Product recognition #1', 'Product recognition #2'],
   ['parenthesized ordinal', 'Product recognition (1)', 'Product recognition (2)'],
+  ['arbitrary English ordinal word', 'Product recognition image sixth', 'Product recognition image seventh'],
+  ['hyphenated English ordinal word', 'Product recognition duty twenty-first', 'Product recognition duty twenty-second'],
   ['Chinese word ordinal', '商品识别第一张', '商品识别第二张'],
   ['Chinese Arabic ordinal', '商品识别第1张', '商品识别第2张'],
+  ['Chinese plan marker', '商品识别方案六', '商品识别方案七'],
+  ['Chinese image marker', '商品识别图6', '商品识别图7'],
 ];
 
 for (const [label, firstDuty, secondDuty] of PRESENTATION_ORDINAL_DUTY_PAIRS) {
@@ -132,10 +136,16 @@ test('commercial duty normalization preserves numeric product facts', () => {
     sceneFamily: 'exterior_angle_study',
   };
   const factualPairs = [
+    ['Product recognition 1', 'Product recognition 2'],
     ['Show confirmed 24-hour runtime', 'Show confirmed 48-hour runtime'],
+    ['Show confirmed 24 hours', 'Show confirmed 48 hours'],
+    ['Show confirmed 500 ml', 'Show confirmed 750 ml'],
     ['Show confirmed 2L capacity', 'Show confirmed 3L capacity'],
     ['Show confirmed Size 2 fit', 'Show confirmed Size 3 fit'],
     ['Identify confirmed model X2', 'Identify confirmed model X3'],
+    ['Identify confirmed model X 2', 'Identify confirmed model X 3'],
+    ['Identify confirmed SKU 2', 'Identify confirmed SKU 3'],
+    ['Identify confirmed version 2', 'Identify confirmed version 3'],
     ['展示确认的24小时续航', '展示确认的48小时续航'],
   ];
 
@@ -149,6 +159,31 @@ test('commercial duty normalization preserves numeric product facts', () => {
     ];
     assert.equal(validatePlanContract(plan), plan, `${firstDuty} and ${secondDuty}`);
   }
+});
+
+test('canonical commercial duty IDs reject duplicate duties regardless of shot metadata', () => {
+  assert.throws(() => validatePlanContract([
+    planItem('canonical-1', {
+      commercialDutyId: 'main:product-recognition',
+      communicationGoal: 'Establish immediate product recognition',
+    }),
+    planItem('canonical-2', {
+      commercialDutyId: 'main:product-recognition',
+      communicationGoal: 'Use a different composition and camera angle',
+      shotIntent: {
+        ...planItem('canonical-2').shotIntent,
+        type: 'alternate_angle',
+        camera: { azimuth: 64 },
+        crop: 'environmental medium crop',
+        interactionState: 'credible in-use context',
+        sceneFamily: 'lifestyle_context',
+      },
+    }),
+  ]), /duplicate commercial duty id/i);
+
+  assert.throws(() => validatePlanContract([
+    planItem('invalid-duty-id', { commercialDutyId: 'Main Duty #1' }),
+  ]), /commercial duty id is invalid/i);
 });
 
 test('plan contract rejects collage intent and unsafe evidence tiers', () => {

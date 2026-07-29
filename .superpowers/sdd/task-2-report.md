@@ -321,3 +321,129 @@ No known contract failures. Residual risk: pixel collage detection is intentiona
 ## Commit
 
 Planned subject: `fix: close ecommerce exact-count review gaps`
+
+---
+
+# Task 2 Final Important Findings Fix Wave
+
+## Status
+
+DONE. The final duty-normalization and irregular-montage findings were reproduced with RED tests, fixed, self-reviewed, and verified without deployment.
+
+## Scope Implemented
+
+- Replaced finite ordinal-word handling and generic terminal-number removal with controlled presentation-marker normalization.
+- Stripped numeric, Chinese, and structurally recognized English ordinal tokens only after known presentation markers such as image, asset, shot, duty, treatment, recognition variant, `方案`, `图N`, and `第N张`, plus the existing explicit `#N` and `(N)` forms.
+- Preserved unmarked product facts and identifiers including `model X 2`, `SKU 2`, `version 2`, durations, sizes, and capacities.
+- Added deterministic planner-generated `commercialDutyId` values derived from role and commercial purpose, independent of shot metadata. Current plans require unique IDs; legacy plans remain compatible through conservative text normalization.
+- Extended the existing formal visual-quality response with one explicit semantic layout verdict: `single_product`, `collage`, or `uncertain`, with numeric confidence and concrete evidence.
+- Required a valid high-confidence semantic non-collage verdict whenever deterministic geometry is inconclusive. Missing, invalid, uncertain, low-confidence, and numeric-string confidence values fail closed.
+- Preserved deterministic rejection for obvious contact sheets and strip layouts while allowing an explicitly confirmed single-view multi-panel product.
+- Routed semantic collage failures through the existing `regenerate_from_product_truth` path for only the failed durable asset row. No second visual-model call, hidden provider submission, new visible row, sibling rerun, or additional hold was added.
+
+## RED Evidence
+
+Combined final-findings RED command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 1; 150 tests discovered, 135 passed, 15 failed for the intended missing behavior:
+
+- 1 production API schema failure: no semantic layout verdict/schema or details propagation.
+- 2 planner failures: no canonical duty IDs and repeated-role plans had no unique canonical duty identity.
+- 1 orchestration failure: semantic layout was not passed to delivery and the targeted collage repair did not complete.
+- 6 plan-contract failures: sixth/seventh, twenty-first/twenty-second, Chinese plan/image markers, factual-number preservation, and canonical-ID duplicate enforcement.
+- 2 quality-gate failures: collage was not converted to `suite_collage_layout`, and explicit single-product layout was not required/preserved.
+- 3 suite-gate failures: semantic collage reject, semantic single-product pass, and unavailable/uncertain fail-closed behavior.
+
+Self-review strict-schema RED command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-suite-diversity.test.mjs
+```
+
+Result: exit 1; 9 tests discovered, 8 passed, 1 failed. A numeric-string confidence value (`'0.98'`) was coerced and incorrectly accepted instead of failing closed.
+
+## GREEN Evidence
+
+Initial implementation focused GREEN: 150 passed, 0 failed.
+
+Initial adjacent Task 2 GREEN: 181 passed, 0 failed.
+
+Strict confidence targeted GREEN:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-suite-diversity.test.mjs
+```
+
+Result: exit 0; 9 passed, 0 failed.
+
+Final focused command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 151 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Final adjacent Task 2 command:
+
+```powershell
+node --test --test-concurrency=1 test/ecommerce-plan-contract.test.mjs test/ecommerce-asset-planner.test.mjs test/ecommerce-shot-director.test.mjs test/ecommerce-prompt-compiler.test.mjs test/ecommerce-suite-diversity.test.mjs test/ecommerce-quality-gate.test.mjs test/ecommerce-orchestrator.test.mjs test/ecommerce-billing-contract.test.mjs test/ecommerce-job-store.test.mjs test/api-contract.test.mjs
+```
+
+Result: exit 0; 182 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Full repository regression, run exactly once on the final code:
+
+```powershell
+npm test
+```
+
+Result: exit 0; 760 passed, 0 failed, 0 skipped, 0 cancelled.
+
+Static and collaboration verification:
+
+- `node --check` passed for all twelve changed JavaScript modules/tests.
+- `git diff --check` exited 0; Git emitted only LF-to-CRLF working-copy notices.
+- `npm run collab:check` reported `READY`, linked worktree `yes`, tracked runtime paths `0`, ignored runtime changes `0`, and peer ownership conflicts `0`.
+- No test used production secrets, real network access, or a formal Mock provider.
+- No deployment was performed.
+
+## Changed Files
+
+- `server/ecommerceEngine/assetPlanner.mjs`
+- `server/ecommerceEngine/orchestrator.mjs`
+- `server/ecommerceEngine/planContract.mjs`
+- `server/ecommerceEngine/qualityGate.mjs`
+- `server/ecommerceEngine/suiteDiversity.mjs`
+- `server/index.mjs`
+- `test/api-contract.test.mjs`
+- `test/ecommerce-asset-planner.test.mjs`
+- `test/ecommerce-orchestrator.test.mjs`
+- `test/ecommerce-plan-contract.test.mjs`
+- `test/ecommerce-quality-gate.test.mjs`
+- `test/ecommerce-suite-diversity.test.mjs`
+- `.superpowers/sdd/task-2-report.md`
+
+## Self-Review
+
+- Confirmed ordinal removal is terminal and marker-controlled; generic trailing numbers are no longer stripped. Tested factual identifiers and measurements remain distinct.
+- Confirmed canonical duty IDs are deterministic, lowercase, structured, unique for every current planner item, and derived before shot direction. Different camera, crop, scene, or interaction metadata cannot legitimize a shared duty ID.
+- Confirmed legacy snapshots may omit the optional canonical ID and continue through the existing strict snapshot migration and plan-text compatibility path.
+- Confirmed the existing quality-model call is the only semantic visual call. The adapter now propagates its layout result; orchestration reuses that durable quality result at suite delivery.
+- Confirmed semantic layout requires an exact supported verdict, a real finite numeric confidence of at least `0.7`, and non-empty evidence. Invalid or unavailable adapters remain retryable quality unavailability and cannot settle.
+- Confirmed deterministic obvious-contact-sheet checks run first. Inconclusive geometry requires semantic `single_product`; semantic `collage` rejects only that asset.
+- Confirmed collage repair uses the existing one-provider-repair cap, submission intent/idempotency key, durable asset row, and per-item reservation. The sibling remains at one submission and the failed asset at no more than two.
+- Confirmed exact plan/quote/row/submission parity, Task 1 Product Truth and Style Reference Profile isolation, analysis-before-hold ordering, durable leases, storage recovery, and stable-only settlement remain covered by focused, adjacent, and full regression.
+- Confirmed no unrelated source, runtime data, model route, billing price, frontend behavior, deployment code, or snapshot version changed.
+
+## Concerns
+
+No known contract failures. Production model-output behavior was not exercised because this task prohibits network, secrets, and deployment; invalid or unavailable semantic output fails closed by design.
+
+## Commit
+
+Planned subject: `fix: close final ecommerce suite review gaps`

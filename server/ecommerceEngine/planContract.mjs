@@ -1,17 +1,17 @@
 import { suiteSemanticKey } from './suiteDiversity.mjs';
 
 const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
+const COMMERCIAL_DUTY_ID_RE = /^[a-z0-9]+(?::[a-z0-9][a-z0-9-]*)+$/;
 const SAFE_EVIDENCE_TIERS = new Set(['safe', 'conditional', 'confirmed_only']);
 const COLLAGE_INTENT_RE = /\b(?:collage|contact\s*sheet|montage|candidate\s*grid)\b|拼贴|联系表|联络表|蒙太奇|候选(?:图)?网格|多候选|[五九]宫格/i;
 const MULTI_PANEL_LAYOUT_RE = /\bmulti[ -]?panel\s+(?:layout|output|composition|sheet|grid)\b|多面板(?:布局|输出|拼图|网格)/i;
-const ORDINAL_WORD = '(?:\\d+|one|two|three|four|five|first|second|third|fourth|fifth)';
-const PRESENTATION_TOKEN_ORDINAL_RE = new RegExp(
-  `\\b(?:duty|treatment|image|photo|picture|shot|asset|frame)\\s*(?:(?:number|no)\\.?\\s*)?${ORDINAL_WORD}\\b`,
-  'gi',
+const ENGLISH_PRESENTATION_ORDINAL = '(?:\\d+(?:st|nd|rd|th)?|[a-z]+(?:[ -][a-z]+)*(?:st|nd|rd|th))';
+const CONTROLLED_ENGLISH_PRESENTATION_SUFFIX_RE = new RegExp(
+  `\\b(?:recognition\\s+variant|duty|treatment|image|photo|picture|shot|asset|frame)\\s*(?:(?:number|no)\\.?\\s*)?${ENGLISH_PRESENTATION_ORDINAL}\\s*[.!?。！？]*$`,
+  'iu',
 );
-const EXPLICIT_PRESENTATION_SUFFIX_RE = /(?:#\s*\d+|\(\s*\d+\s*\)|第(?:\d+|[一二三四五六七八九十百]+)张)\s*[.!?。！？]*$/iu;
-const BARE_PRESENTATION_SUFFIX_RE = new RegExp(`\\s+${ORDINAL_WORD}\\s*[.!?。！？]*$`, 'i');
-const FACT_LABEL_SUFFIX_RE = /(?:\b(?:size|model|capacity|volume|dimension|sku|series)|尺寸|型号|容量|容积|规格|款式)\s*$/iu;
+const EXPLICIT_PRESENTATION_SUFFIX_RE = /(?:#\s*\d+|\(\s*\d+\s*\)|第(?:\d+|[〇零一二两三四五六七八九十百千万]+)张)\s*[.!?。！？]*$/iu;
+const CONTROLLED_CHINESE_PRESENTATION_SUFFIX_RE = /(?:方案|图)(?:\d+|[〇零一二两三四五六七八九十百千万]+)\s*[.!?。！？]*$/iu;
 const DUTY_SYNONYMS = new Map([
   ['display', 'show'],
   ['present', 'show'],
@@ -43,17 +43,9 @@ function normalized(value) {
 
 function withoutPresentationOrdinal(value) {
   let result = cleanString(value).normalize('NFKC').toLowerCase();
-  result = result.replace(PRESENTATION_TOKEN_ORDINAL_RE, ' ');
-  const explicit = EXPLICIT_PRESENTATION_SUFFIX_RE.exec(result);
-  if (explicit) {
-    const prefix = result.slice(0, explicit.index).trimEnd();
-    if (!FACT_LABEL_SUFFIX_RE.test(prefix)) result = prefix;
-  }
-  const bare = BARE_PRESENTATION_SUFFIX_RE.exec(result);
-  if (bare) {
-    const prefix = result.slice(0, bare.index).trimEnd();
-    if (!FACT_LABEL_SUFFIX_RE.test(prefix)) result = prefix;
-  }
+  result = result.replace(CONTROLLED_ENGLISH_PRESENTATION_SUFFIX_RE, ' ');
+  result = result.replace(EXPLICIT_PRESENTATION_SUFFIX_RE, ' ');
+  result = result.replace(CONTROLLED_CHINESE_PRESENTATION_SUFFIX_RE, ' ');
   return result;
 }
 
@@ -103,6 +95,7 @@ export function validatePlanContract(items) {
 
   const ids = new Set();
   const duties = new Map();
+  const commercialDutyIds = new Map();
   const intents = new Map();
   for (const item of items) {
     if (!isRecord(item)) throw new TypeError('asset plan item must be an object');
@@ -115,6 +108,14 @@ export function validatePlanContract(items) {
     if (!role) throw new TypeError(`asset plan item role is required: ${id}`);
     const duty = normalized(item.communicationGoal);
     if (!duty) throw new TypeError(`asset plan communication goal is required: ${id}`);
+    const commercialDutyId = cleanString(item.commercialDutyId);
+    if (commercialDutyId && !COMMERCIAL_DUTY_ID_RE.test(commercialDutyId)) {
+      throw new TypeError(`commercial duty id is invalid: ${id}`);
+    }
+    if (commercialDutyId && commercialDutyIds.has(commercialDutyId)) {
+      throw new TypeError(`duplicate commercial duty id: ${commercialDutyIds.get(commercialDutyId)} and ${id}`);
+    }
+    if (commercialDutyId) commercialDutyIds.set(commercialDutyId, id);
     if (plannedCollage(item)) throw new TypeError(`collage or contact sheet intent is forbidden: ${id}`);
 
     const shot = isRecord(item.shotIntent) ? item.shotIntent : {};
