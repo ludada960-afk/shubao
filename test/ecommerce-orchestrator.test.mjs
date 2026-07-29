@@ -79,28 +79,41 @@ async function createHarness(t, {
     schedule: () => {
       calls.scheduled += 1;
     },
-    analyzeProductTruth: async payload => {
+    analyzeVisualInputs: async payload => {
       calls.analyze += 1;
       calls.analyzePayloads.push(payload);
       calls.sequence.push('analyze');
-      if (analyze) return analyze({ payload, calls });
+      const productTruth = analyze ? await analyze({ payload, calls }) : {
+          productName: payload.product_name,
+          category: payload.category,
+          sourceAssetIds: (payload.assets?.product || []).map(asset => asset.assetId),
+          fingerprint: 'truth-fingerprint',
+          confirmedFacts: {},
+          forbiddenMutations: [],
+        };
       return {
-        productName: payload.product_name,
-        category: payload.category,
-        sourceAssetIds: (payload.assets?.product || []).map(asset => asset.assetId),
-        fingerprint: 'truth-fingerprint',
-        confirmedFacts: {},
-        forbiddenMutations: [],
+        productTruth,
+        styleReferenceProfile: {
+          palette: ['#f5f0eb'],
+          lighting: 'soft studio',
+          composition: 'centered hero',
+          sourceAssetIds: (payload.assets?.reference || []).map(asset => asset.assetId),
+          prohibitedTransfers: ['reference products', 'brands', 'logos', 'source copy'],
+          confidence: 0.9,
+        },
+        cache: { product: 'product-cache-key', style: 'style-cache-key' },
       };
     },
-    compileCampaignBible: (direction, overrides) => {
+    compileCampaignBible: (direction, overrides, styleReferenceProfile) => {
       calls.campaign += 1;
       calls.sequence.push('campaign');
-      if (campaign) return campaign({ direction, overrides, calls });
+      if (campaign) return campaign({ direction, overrides, styleReferenceProfile, calls });
       return {
         directionId: direction.id,
         title: direction.title,
         editableBrief: overrides.editableBrief,
+        palette: styleReferenceProfile.palette,
+        referenceAssetIds: styleReferenceProfile.sourceAssetIds,
         confirmed: true,
       };
     },
@@ -269,6 +282,30 @@ test('runs the required sequence, persists stable bytes, and settles one success
     state: asset.state,
     stableUrl: asset.stableUrl,
   })), [{ state: 'completed', stableUrl: PNG_A }]);
+});
+
+test('visual failure stops before billing and never submits provider work', async t => {
+  const failure = Object.assign(new Error('图片分析服务暂时不可用'), {
+    code: 'VISUAL_ANALYSIS_UNAVAILABLE',
+    status: 503,
+    retryable: true,
+  });
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    orchestratorOptions: {
+      analyzeVisualInputs: async () => { throw failure; },
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-visual-failure'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE',
+  );
+
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+  assert.equal(jobs.get(created.id).status, 'analyzing');
+  assert.equal(jobs.get(created.id).progress.orchestrationSnapshot, undefined);
 });
 
 test('passes protected product text and logos into quality review before settlement', async t => {
@@ -896,6 +933,18 @@ test('persists a sanitized orchestration snapshot before hold and reuses its ori
       fingerprint: 'truth-first',
       confirmedFacts: {},
       forbiddenMutations: [],
+    },
+    styleReferenceProfile: {
+      palette: ['#f5f0eb'],
+      lighting: 'soft studio',
+      composition: 'centered hero',
+      sourceAssetIds: [],
+      prohibitedTransfers: ['reference products', 'brands', 'logos', 'source copy'],
+      confidence: 0.9,
+    },
+    visualAnalysisCache: {
+      product: 'product-cache-key',
+      style: 'style-cache-key',
     },
     campaignBible: {
       directionId: 'direction-one',

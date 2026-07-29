@@ -242,6 +242,8 @@ function orchestrationSnapshotFromProgress(progress) {
   const snapshot = own(progress, 'orchestrationSnapshot');
   if (!isRecord(snapshot)
     || !isRecord(own(snapshot, 'productTruth'))
+    || !isRecord(own(snapshot, 'styleReferenceProfile'))
+    || !isRecord(own(snapshot, 'visualAnalysisCache'))
     || !isRecord(own(snapshot, 'campaignBible'))
     || !Array.isArray(own(snapshot, 'assetPlan'))
     || !isRecord(own(snapshot, 'deterministicInputs'))) {
@@ -260,7 +262,7 @@ export function createEcommerceOrchestrator(deps = {}) {
     throw new TypeError('durable generation jobs with an asset store are required');
   }
   const store = jobs.assets;
-  const analyzeProductTruth = requireFunction(own(deps, 'analyzeProductTruth'), 'analyzeProductTruth');
+  const analyzeVisualInputs = requireFunction(own(deps, 'analyzeVisualInputs'), 'analyzeVisualInputs');
   const compileCampaignBible = requireFunction(own(deps, 'compileCampaignBible'), 'compileCampaignBible');
   const buildAssetPlan = requireFunction(own(deps, 'buildAssetPlan'), 'buildAssetPlan');
   const compileAssetRequest = requireFunction(own(deps, 'compileAssetRequest'), 'compileAssetRequest');
@@ -856,9 +858,19 @@ export function createEcommerceOrchestrator(deps = {}) {
       if (!snapshot) {
         const inputAssets = assetsFromPayload(job.payload);
         const payload = { ...job.payload, assets: inputAssets };
-        const productTruth = await analyzeProductTruth(payload);
+        const visualAnalysis = await analyzeVisualInputs(payload);
+        const productTruth = own(visualAnalysis, 'productTruth');
+        const styleReferenceProfile = own(visualAnalysis, 'styleReferenceProfile');
+        const visualAnalysisCache = own(visualAnalysis, 'cache');
+        if (!isRecord(productTruth) || !isRecord(styleReferenceProfile) || !isRecord(visualAnalysisCache)) {
+          throw httpError('图片分析结果无效', 502, 'VISUAL_ANALYSIS_INVALID_RESPONSE');
+        }
         const direction = directionFromPayload(payload);
-        const campaignBible = compileCampaignBible(direction, campaignOverrides(payload, direction, inputAssets));
+        const campaignBible = compileCampaignBible(
+          direction,
+          campaignOverrides(payload, direction, inputAssets),
+          styleReferenceProfile,
+        );
         const assetPlan = validateAssetPlan(buildAssetPlan({
           productTruth,
           campaignBible,
@@ -869,6 +881,8 @@ export function createEcommerceOrchestrator(deps = {}) {
         }));
         snapshot = sanitizeSnapshot({
           productTruth,
+          styleReferenceProfile,
+          visualAnalysisCache,
           campaignBible,
           assetPlan,
           deterministicInputs: {

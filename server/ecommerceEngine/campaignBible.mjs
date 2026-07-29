@@ -50,11 +50,14 @@ function isPaletteOrColorLock(lock) {
  * every asset role. The direction title deliberately comes only from the
  * selected direction, while the second-step brief remains user-editable.
  */
-export function compileCampaignBible(direction = {}, overrides = {}) {
+export function compileCampaignBible(direction = {}, overrides = {}, styleReferenceProfile = {}) {
   const customColors = normalizeStrings(ownValue(overrides, 'customColors', 'custom_colors'));
+  const directionPalette = normalizeStrings(ownValue(direction, 'palette', 'colors', 'preview_colors'));
   const palette = customColors.length > 0
     ? customColors
-    : normalizeStrings(ownValue(direction, 'palette', 'colors', 'preview_colors'));
+    : directionPalette.length > 0
+      ? directionPalette
+      : normalizeStrings(ownValue(styleReferenceProfile, 'palette'));
   const consistencyLocks = normalizeStrings(ownValue(direction, 'consistencyLocks', 'consistency_locks'));
   const hasEditableBriefOverride = hasOwn(overrides, 'editableBrief') || hasOwn(overrides, 'editable_brief');
   const typographySystem = compileTypographySystem({
@@ -82,16 +85,44 @@ export function compileCampaignBible(direction = {}, overrides = {}) {
     audience: normalizeString(ownValue(direction, 'audience')),
     visualKeywords: normalizeStrings(ownValue(direction, 'visualKeywords', 'visual_keywords', 'keywords')),
     palette,
-    lighting: normalizeString(ownValue(direction, 'lighting')),
-    composition: normalizeString(ownValue(direction, 'composition')),
-    backgroundLanguage: normalizeString(ownValue(direction, 'backgroundLanguage', 'background_language')),
-    typographyIntent: normalizeString(ownValue(direction, 'typographyIntent', 'typography_intent')),
+    lighting: firstNonEmpty(
+      ownValue(direction, 'lighting'),
+      ownValue(styleReferenceProfile, 'lighting'),
+    ),
+    composition: firstNonEmpty(
+      ownValue(direction, 'composition'),
+      ownValue(styleReferenceProfile, 'composition'),
+    ),
+    cameraLanguage: firstNonEmpty(
+      ownValue(direction, 'cameraLanguage', 'camera_language'),
+      ownValue(styleReferenceProfile, 'cameraLanguage', 'camera_language'),
+    ),
+    backgroundLanguage: firstNonEmpty(
+      ownValue(direction, 'backgroundLanguage', 'background_language'),
+      ownValue(styleReferenceProfile, 'backgroundLanguage', 'background_language'),
+    ),
+    typographyIntent: firstNonEmpty(
+      ownValue(direction, 'typographyIntent', 'typography_intent'),
+      ownValue(styleReferenceProfile, 'typographyIntent', 'typography_intent'),
+    ),
+    informationDensity: firstNonEmpty(
+      ownValue(direction, 'informationDensity', 'information_density'),
+      ownValue(styleReferenceProfile, 'informationDensity', 'information_density'),
+    ),
+    mood: firstNonEmpty(
+      ownValue(direction, 'mood'),
+      ownValue(styleReferenceProfile, 'mood'),
+    ),
     typographySystem,
     copyTone: normalizeString(ownValue(direction, 'copyTone', 'copy_tone')),
     consistencyLocks,
     prohibitedStyles: normalizeStrings(ownValue(direction, 'prohibitedStyles', 'prohibited_styles')),
+    prohibitedTransfers: normalizeStrings(
+      ownValue(styleReferenceProfile, 'prohibitedTransfers', 'prohibited_transfers'),
+    ),
     referenceAssetIds: normalizeStrings(
       ownValue(overrides, 'referenceAssetIds', 'reference_asset_ids')
+        ?? ownValue(styleReferenceProfile, 'sourceAssetIds', 'source_asset_ids')
         ?? ownValue(direction, 'referenceAssetIds', 'reference_asset_ids'),
     ),
   };

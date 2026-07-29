@@ -64,7 +64,6 @@ import {
 } from './ecommerceEngine/exportService.mjs';
 import {
   buildAssetPlan,
-  buildProductTruthPrompt,
   canRetry,
   compileAssetRequest,
   compileCampaignBible,
@@ -78,11 +77,12 @@ import {
   createProviderRouter,
   evaluateAsset,
   evaluateSuiteDiversity,
-  mergeProductFacts,
-  normalizeProductTruth,
   planRepair,
   repairEcommerceAsset,
 } from './ecommerceEngine/index.mjs';
+import { createVisualAnalysisService } from './ecommerceEngine/visualAnalysisService.mjs';
+import { createVisualAnalysisStore } from './ecommerceEngine/visualAnalysisStore.mjs';
+import { createVlmClient } from './ecommerceEngine/vlmClient.mjs';
 import {
   BETA_GUARDED_POST_ROUTES,
   RATE_LIMITED_POST_ROUTES,
@@ -2901,6 +2901,17 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
 const TEMP_UPLOAD_DIR = resolve(__dirname, 'temp_uploads');
 if (!fs.existsSync(TEMP_UPLOAD_DIR)) fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
 const imageInputReader = createImageInputReader({ generatedAssetStore, tempUploadDir: TEMP_UPLOAD_DIR });
+const visualAnalysisService = createVisualAnalysisService({
+  store: createVisualAnalysisStore(db),
+  model: MINI_MODEL,
+  promptVersion: process.env.VISUAL_ANALYSIS_PROMPT_VERSION || 'visual-analysis-v1',
+  readAsset: asset => imageInputReader.read(asset?.url),
+  callVision: request => createVlmClient({
+    apiKey: MINI_KEY,
+    baseUrl: MINI_BASE,
+    model: MINI_MODEL,
+  }).analyzeJson(request),
+});
 
 function parseJsonObject(value) {
   const text = String(value || '').replace(/```(?:json)?/gi, '').trim();
@@ -2932,29 +2943,11 @@ function ecommerceUserFacts(payload) {
   };
 }
 
-async function analyzeEcommerceProductTruth(payload) {
-  const productAssets = Array.isArray(payload.assets?.product) ? payload.assets.product : [];
-  const sourceAssetIds = productAssets.map(asset => asset.assetId).filter(Boolean);
-  const imageUrls = [];
-  for (const asset of productAssets.slice(0, 5)) {
-    const source = asset?.url;
-    if (!source) continue;
-    const image = await imageInputReader.read(source);
-    imageUrls.push(imageBufferToDataUrl(image));
-  }
-
-  let vision = {};
-  if (imageUrls.length > 0) {
-    const prompt = buildProductTruthPrompt({ sourceAssetIds });
-    const raw = MINI_KEY && MINI_BASE
-      ? await callMiniLLM(prompt.systemPrompt, imageUrls, prompt.userPrompt)
-      : await callLLMWithVision(prompt.systemPrompt, imageUrls, prompt.userPrompt);
-    vision = parseJsonObject(raw);
-  }
-
-  return mergeProductFacts({
-    vision: normalizeProductTruth({ ...vision, sourceAssetIds }),
-    user: ecommerceUserFacts(payload),
+async function analyzeEcommerceVisualInputs(payload) {
+  return visualAnalysisService.analyze({
+    productAssets: Array.isArray(payload.assets?.product) ? payload.assets.product : [],
+    styleAssets: Array.isArray(payload.assets?.reference) ? payload.assets.reference : [],
+    userFacts: ecommerceUserFacts(payload),
   });
 }
 
@@ -3097,7 +3090,7 @@ const ecommerceTaskWorkPersistence = createEcommerceTaskWorkPersistence({ upsert
 const ecommerceProjectLifecycle = createEcommerceProjectLifecycle({ projectStore });
 const orchestrator = createEcommerceOrchestrator({
   jobs: ecommerceJobs,
-  analyzeProductTruth: analyzeEcommerceProductTruth,
+  analyzeVisualInputs: analyzeEcommerceVisualInputs,
   compileCampaignBible,
   buildAssetPlan,
   compileAssetRequest,
