@@ -248,6 +248,16 @@
   separate, Terra is fail-closed, inputs and analysis checkpoint before billing,
   legacy jobs migrate owner/job-bound stable assets, transient storage failures
   remain resumable, and full regression passed 714/714.
+- Market-ready closure Task 2: complete (`7356e68..73ddfbb`). Exact quoted
+  asset counts reconcile with visible rows and logical provider submissions;
+  each failed item receives at most one targeted provider repair without
+  rerunning successful siblings. Commercial duties, semantic shots, collage
+  rejection, evidence-safe detail fallbacks, proof-backed QC, schema-3 multi-SKU
+  recovery and historical provider-request snapshot preservation are covered by
+  focused regression 182/182. Three independent reviewer sessions were attempted
+  and remained externally unresponsive; a fresh local adversarial diff audit and
+  focused regression found no remaining Critical or Important issue. No
+  deployment was performed at this task boundary.
 
 ## Ownership
 
