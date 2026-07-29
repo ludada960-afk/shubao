@@ -60,6 +60,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
   }
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000');
   db.exec(`
     CREATE TABLE IF NOT EXISTS ecommerce_jobs (
       id TEXT PRIMARY KEY,
@@ -76,6 +77,13 @@ export function createGenerationJobs(dbPath = ':memory:', {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_ecommerce_jobs_status ON ecommerce_jobs(status, created_at);
+    CREATE TABLE IF NOT EXISTS ecommerce_job_retries (
+      source_job_id TEXT NOT NULL,
+      billing_quote_id TEXT NOT NULL,
+      retry_job_id TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (source_job_id, billing_quote_id)
+    );
   `);
   const columns = new Set(db.prepare('PRAGMA table_info(ecommerce_jobs)').all().map(column => column.name));
   if (!columns.has('lease_token')) db.exec('ALTER TABLE ecommerce_jobs ADD COLUMN lease_token TEXT');
@@ -112,6 +120,43 @@ export function createGenerationJobs(dbPath = ':memory:', {
         VALUES (?, ?, ?, ?)
       `).run(id, ownerEmail, JSON.stringify(payload), CURRENT_VISUAL_INPUT_SCHEMA_VERSION);
       return api.get(id);
+    },
+    createRetry({ sourceJobId, billingQuoteId, id, ownerEmail, payload = {}, progress = {} } = {}) {
+      const sourceId = cleanString(sourceJobId);
+      const quoteId = cleanString(billingQuoteId);
+      const retryId = cleanString(id);
+      if (!sourceId || !quoteId || !retryId || !ownerEmail) {
+        throw new TypeError('sourceJobId, billingQuoteId, id, and ownerEmail are required');
+      }
+      const createOrGetRetry = db.transaction(() => {
+        const existing = db.prepare(`
+          SELECT retry_job_id
+          FROM ecommerce_job_retries
+          WHERE source_job_id = ? AND billing_quote_id = ?
+        `).get(sourceId, quoteId);
+        if (existing) {
+          const job = api.get(existing.retry_job_id);
+          if (!job) throw new Error('retry job mapping is corrupt');
+          return { job, created: false };
+        }
+        db.prepare(`
+          INSERT INTO ecommerce_jobs (
+            id, owner_email, payload, progress, visual_input_schema_version
+          ) VALUES (?, ?, ?, ?, ?)
+        `).run(
+          retryId,
+          ownerEmail,
+          JSON.stringify(payload),
+          JSON.stringify(progress),
+          CURRENT_VISUAL_INPUT_SCHEMA_VERSION,
+        );
+        db.prepare(`
+          INSERT INTO ecommerce_job_retries (source_job_id, billing_quote_id, retry_job_id)
+          VALUES (?, ?, ?)
+        `).run(sourceId, quoteId, retryId);
+        return { job: api.get(retryId), created: true };
+      });
+      return createOrGetRetry.immediate();
     },
     get(id) {
       const row = db.prepare('SELECT * FROM ecommerce_jobs WHERE id = ?').get(id);

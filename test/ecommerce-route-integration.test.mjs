@@ -84,6 +84,26 @@ test('generation handler returns HTTP 202 queued without waiting for provider co
   assert.deepEqual(res.body, { taskId: 'job-http', status: 'queued' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(runCalled, true);
+
+  const planRes = responseHarness();
+  handlers.retryPlan({ _userEmail: '867550189@qq.com', params: { id: 'job-http' } }, planRes);
+  assert.equal(planRes.statusCode, 503);
+  assert.deepEqual(planRes.body, {
+    error: '失败图片重试服务暂不可用，请稍后重试',
+    code: 'ECOMMERCE_RETRY_UNAVAILABLE',
+  });
+
+  const retryRes = responseHarness();
+  await handlers.retryFailed({
+    _userEmail: '867550189@qq.com',
+    params: { id: 'job-http' },
+    body: { billingQuoteId: 'quote-1' },
+  }, retryRes);
+  assert.equal(retryRes.statusCode, 503);
+  assert.deepEqual(retryRes.body, {
+    error: '失败图片重试服务暂不可用，请稍后重试',
+    code: 'ECOMMERCE_RETRY_UNAVAILABLE',
+  });
 });
 
 test('job handler delegates signed owner scope and returns durable asset progress', () => {

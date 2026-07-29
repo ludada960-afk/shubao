@@ -944,22 +944,22 @@ export function createEcommerceOrchestrator(deps = {}) {
     const retryPlan = failedRetryPlanForJob(source);
     const { holdId: _sourceHoldId, ...snapshotWithoutHold } = retryPlan.snapshot;
     const retryId = validateId(`ec_retry_${randomUUID()}`, 'job id');
-    const retryJob = jobs.create({
+    const retry = jobs.createRetry({
+      sourceJobId: source.id,
+      billingQuoteId: quoteId,
       id: retryId,
       ownerEmail: source.ownerEmail,
       payload: sanitizeSnapshot({
         ...source.payload,
         billing_quote_id: quoteId,
       }),
-    });
-    jobs.checkpoint(retryJob.id, {
       progress: {
         retryOf: source.id,
         retryAssetPlan: retryPlan.assetPlan,
         orchestrationSnapshot: sanitizeSnapshot(snapshotWithoutHold),
       },
     });
-    return getJob(retryJob.id, { ownerEmail: source.ownerEmail });
+    return getJob(retry.job.id, { ownerEmail: source.ownerEmail });
   }
 
   async function persistProviderOutput(job, item, outputUrl) {
@@ -1938,10 +1938,13 @@ export function createEcommerceRouteHandlers({
   onBackgroundError = error => console.error('[ecommerce] background job failed:', errorMessage(error)),
 } = {}) {
   if (!orchestrator || typeof orchestrator.createJob !== 'function'
-    || typeof orchestrator.getJob !== 'function'
-    || typeof orchestrator.getFailedRetryPlan !== 'function'
-    || typeof orchestrator.createFailedRetryJob !== 'function') {
-    throw new TypeError('orchestrator generation and failed-item retry methods are required');
+    || typeof orchestrator.getJob !== 'function') {
+    throw new TypeError('orchestrator generation methods are required');
+  }
+  function requireRetryMethod(name) {
+    if (typeof orchestrator[name] !== 'function') {
+      throw httpError('失败图片重试服务暂不可用，请稍后重试', 503, 'ECOMMERCE_RETRY_UNAVAILABLE');
+    }
   }
   return {
     async generate(req, res) {
@@ -1980,6 +1983,7 @@ export function createEcommerceRouteHandlers({
     },
     retryPlan(req, res) {
       try {
+        requireRetryMethod('getFailedRetryPlan');
         return res.json({
           ok: true,
           plan: orchestrator.getFailedRetryPlan({
@@ -1993,6 +1997,7 @@ export function createEcommerceRouteHandlers({
     },
     async retryFailed(req, res) {
       try {
+        requireRetryMethod('createFailedRetryJob');
         const job = orchestrator.createFailedRetryJob({
           id: req?.params?.id,
           ownerEmail: req?._userEmail,

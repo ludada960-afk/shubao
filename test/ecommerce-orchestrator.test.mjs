@@ -1033,6 +1033,63 @@ test('failed-item retry creates a newly quoted job containing only failed siblin
   assert.equal(calls.submit.length, 3);
 });
 
+test('failed-item retry claim is idempotent for concurrent duplicate quote submissions', async t => {
+  let rejectSecondOnce = true;
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('main-one'), planItem('main-two')],
+    quality: async ({ input }) => {
+      if (input.assetPlanItem.id === 'main-two' && rejectSecondOnce) {
+        rejectSecondOnce = false;
+        return {
+          passed: false,
+          checks: {},
+          repairAction: { type: 'none', focusIssueCodes: ['product_fidelity'], userCharge: false },
+          confidence: 'high',
+        };
+      }
+      return {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      };
+    },
+  });
+  const source = orchestrator.createJob(jobInput('job-idempotent-retry-source'));
+  assert.equal((await orchestrator.runJob(source.id)).status, 'needs_review');
+  const beforeRetry = {
+    compile: calls.compile.length,
+    hold: calls.hold.length,
+    settle: calls.settle.length,
+    submit: calls.submit.length,
+  };
+
+  const [firstRetry, duplicateRetry] = await Promise.all([
+    Promise.resolve().then(() => orchestrator.createFailedRetryJob({
+      id: source.id,
+      ownerEmail: OWNER,
+      billingQuoteId: 'quote-idempotent-retry',
+    })),
+    Promise.resolve().then(() => orchestrator.createFailedRetryJob({
+      id: source.id,
+      ownerEmail: OWNER,
+      billingQuoteId: 'quote-idempotent-retry',
+    })),
+  ]);
+
+  assert.equal(firstRetry.id, duplicateRetry.id);
+  await Promise.all([
+    orchestrator.runJob(firstRetry.id),
+    orchestrator.runJob(duplicateRetry.id),
+  ]);
+
+  assert.equal(orchestrator.getJob(firstRetry.id, { ownerEmail: OWNER }).status, 'completed');
+  assert.deepEqual(calls.compile.slice(beforeRetry.compile), ['main-two']);
+  assert.deepEqual(calls.hold.slice(beforeRetry.hold).map(call => call.itemIds), [['main-two']]);
+  assert.equal(calls.submit.length, beforeRetry.submit + 1);
+  assert.equal(calls.settle.length, beforeRetry.settle + 1);
+});
+
 test('waits for in-flight asset workers to settle before releasing a failed parent runner', async t => {
   let slowWorkerCompleted = false;
   const { orchestrator, calls } = await createHarness(t, {
