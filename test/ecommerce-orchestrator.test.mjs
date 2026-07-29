@@ -33,6 +33,34 @@ function planItem(id, role = 'main') {
   };
 }
 
+function seedPreUpgradeJobs(dbPath, entries) {
+  if (!entries.length) return;
+  const db = new Database(dbPath);
+  db.exec(`
+    CREATE TABLE ecommerce_jobs (
+      id TEXT PRIMARY KEY,
+      owner_email TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      payload TEXT NOT NULL DEFAULT '{}',
+      output TEXT NOT NULL DEFAULT '{}',
+      error TEXT NOT NULL DEFAULT '',
+      progress TEXT NOT NULL DEFAULT '{}',
+      lease_token TEXT,
+      lease_expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  const insert = db.prepare(`
+    INSERT INTO ecommerce_jobs (id, owner_email, status, payload)
+    VALUES (?, ?, ?, ?)
+  `);
+  for (const entry of entries) {
+    insert.run(entry.id, entry.ownerEmail, entry.status || 'queued', JSON.stringify(entry.payload));
+  }
+  db.close();
+}
+
 async function createHarness(t, {
   items = [planItem('main-one')],
   analyze,
@@ -48,9 +76,12 @@ async function createHarness(t, {
   stableContentType = 'image/png',
   orchestratorOptions = {},
   jobsOptions = {},
+  preUpgradeJobs = [],
 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'shubao-orchestrator-'));
-  const jobs = createGenerationJobs(join(directory, 'jobs.db'), jobsOptions);
+  const dbPath = join(directory, 'jobs.db');
+  seedPreUpgradeJobs(dbPath, preUpgradeJobs);
+  const jobs = createGenerationJobs(dbPath, jobsOptions);
   t.after(async () => {
     jobs.close();
     await rm(directory, { recursive: true, force: true });
@@ -468,6 +499,36 @@ test('allows product-only visual analysis when the optional reference group is a
   assert.equal(calls.submit.length, 1);
 });
 
+test('rejects legacy string aliases on current jobs before migration or paid work', async t => {
+  const migratedProduct = {
+    assetId: `${'c'.repeat(64)}.png`,
+    url: `/api/generated-assets/${'c'.repeat(64)}.png`,
+  };
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    migrateLegacyVisualAsset: async () => migratedProduct,
+  });
+  const created = orchestrator.createJob({
+    id: 'job-current-legacy-string',
+    ownerEmail: OWNER,
+    payload: {
+      product_name: '测试商品',
+      category: '数码3C',
+      real_shots: ['/api/ec-temp-img/current-product.png'],
+    },
+  });
+
+  const failed = await orchestrator.runJob(created.id);
+
+  assert.equal(jobs.get(created.id).visualInputSchemaVersion, 1);
+  assert.equal(failed.status, 'failed');
+  assert.equal(failed.output.errors[0].code, 'VISUAL_ANALYSIS_INVALID_INPUT');
+  assert.equal(calls.migrate.length, 0);
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.persistBuffer.length, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+});
+
 test('resumes queued and analyzing pre-upgrade jobs through trusted legacy asset migration', async t => {
   const migratedProduct = {
     assetId: `${'c'.repeat(64)}.png`,
@@ -480,11 +541,6 @@ test('resumes queued and analyzing pre-upgrade jobs through trusted legacy asset
 
   for (const initialStatus of ['queued', 'analyzing']) {
     await t.test(initialStatus, async t => {
-      const { orchestrator, jobs, calls } = await createHarness(t, {
-        migrateLegacyVisualAsset: async ({ source }) => source.includes('product')
-          ? migratedProduct
-          : migratedReference,
-      });
       const input = {
         id: `job-legacy-${initialStatus}`,
         ownerEmail: OWNER,
@@ -496,32 +552,37 @@ test('resumes queued and analyzing pre-upgrade jobs through trusted legacy asset
           reference_images: ['/api/ec-temp-img/reference.png'],
         },
       };
-      const created = jobs.create(input);
-      if (initialStatus === 'analyzing') jobs.transition(created.id, 'analyzing');
+      const { orchestrator, jobs, calls } = await createHarness(t, {
+        preUpgradeJobs: [{ ...input, status: initialStatus }],
+        migrateLegacyVisualAsset: async ({ source }) => source.includes('product')
+          ? migratedProduct
+          : migratedReference,
+      });
+      const created = jobs.get(input.id);
 
       const completed = await orchestrator.runJob(created.id);
 
       assert.equal(completed.status, 'completed');
-      assert.deepEqual(calls.migrate.map(({ source, type, index, job }) => ({
+      assert.deepEqual(calls.migrate.map(({ source, type, index, jobId, job, ownerEmail }) => ({
         source,
         type,
         index,
-        jobId: job.id,
-        ownerEmail: job.ownerEmail,
+        jobId,
+        hasCallerOwner: Boolean(job || ownerEmail),
       })), [
         {
           source: '/api/ec-temp-img/product.png',
           type: 'product',
           index: 0,
           jobId: created.id,
-          ownerEmail: OWNER,
+          hasCallerOwner: false,
         },
         {
           source: '/api/ec-temp-img/reference.png',
           type: 'reference',
           index: 0,
           jobId: created.id,
-          ownerEmail: OWNER,
+          hasCallerOwner: false,
         },
       ]);
       const expectedAssets = {
@@ -546,10 +607,7 @@ test('reuses checkpointed legacy inputs after a pre-analysis crash without dupli
     assetId: `${'e'.repeat(64)}.png`,
     url: `/api/generated-assets/${'e'.repeat(64)}.png`,
   };
-  const { orchestrator, jobs, calls } = await createHarness(t, {
-    migrateLegacyVisualAsset: async () => migratedProduct,
-  });
-  const created = jobs.create({
+  const input = {
     id: 'job-legacy-checkpoint-crash',
     ownerEmail: OWNER,
     payload: {
@@ -558,7 +616,12 @@ test('reuses checkpointed legacy inputs after a pre-analysis crash without dupli
       platform: '淘宝',
       real_shots: ['/api/ec-temp-img/product.png'],
     },
+  };
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    preUpgradeJobs: [input],
+    migrateLegacyVisualAsset: async () => migratedProduct,
   });
+  const created = jobs.get(input.id);
   const checkpoint = jobs.checkpoint;
   let injectedCrash = false;
   jobs.checkpoint = (...args) => {
@@ -587,6 +650,53 @@ test('reuses checkpointed legacy inputs after a pre-analysis crash without dupli
 
   assert.equal(completed.status, 'completed');
   assert.equal(calls.migrate.length, 1);
+  assert.equal(calls.analyze, 1);
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+});
+
+test('keeps a pre-upgrade job resumable when stable migration storage is transiently unavailable', async t => {
+  const migratedProduct = {
+    assetId: `${'f'.repeat(64)}.png`,
+    url: `/api/generated-assets/${'f'.repeat(64)}.png`,
+  };
+  const input = {
+    id: 'job-legacy-storage-resume',
+    ownerEmail: OWNER,
+    payload: {
+      product_name: '测试商品',
+      category: '数码3C',
+      real_shots: ['/api/ec-temp-img/product.png'],
+    },
+  };
+  let attempts = 0;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    preUpgradeJobs: [input],
+    migrateLegacyVisualAsset: async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw Object.assign(new Error('stable storage unavailable'), {
+          code: 'VISUAL_ANALYSIS_UNAVAILABLE',
+          status: 503,
+          retryable: true,
+        });
+      }
+      return migratedProduct;
+    },
+  });
+
+  await assert.rejects(
+    () => orchestrator.runJob(input.id),
+    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE' && error?.retryable === true,
+  );
+  assert.equal(jobs.get(input.id).status, 'analyzing');
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.migrate.length, 2);
   assert.equal(calls.analyze, 1);
   assert.equal(calls.hold.length, 1);
   assert.equal(calls.submit.length, 1);

@@ -6,6 +6,14 @@ import { join } from 'node:path';
 
 import { createGenerationJobs } from '../server/generationJobs.mjs';
 
+test('new jobs persist the current immutable visual input schema version', () => {
+  const jobs = createGenerationJobs();
+  const job = jobs.create({ ownerEmail: '867550189@qq.com', payload: { productName: '杯子' } });
+
+  assert.equal(job.visualInputSchemaVersion, 1);
+  jobs.close();
+});
+
 test('job transition cannot skip from queued to complete', () => {
   const jobs = createGenerationJobs();
   const job = jobs.create({ ownerEmail: '867550189@qq.com', payload: { productName: '杯子' } });

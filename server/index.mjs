@@ -2902,9 +2902,15 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
 const TEMP_UPLOAD_DIR = resolve(__dirname, 'temp_uploads');
 if (!fs.existsSync(TEMP_UPLOAD_DIR)) fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
 const imageInputReader = createImageInputReader({ generatedAssetStore, tempUploadDir: TEMP_UPLOAD_DIR });
+const ecommerceAssetUploadService = createEcommerceAssetUploadService({
+  db,
+  generatedAssetStore,
+});
 const migrateLegacyVisualAsset = createLegacyVisualAssetMigration({
   imageInputReader,
   generatedAssetStore,
+  getJob: jobId => ecommerceJobs.get(jobId),
+  getOwnedAsset: input => ecommerceAssetUploadService.getOwnedAsset(input),
 });
 const visualAnalysisService = createVisualAnalysisService({
   store: createVisualAnalysisStore(db),
@@ -3118,10 +3124,6 @@ const orchestrator = createEcommerceOrchestrator({
   },
 });
 const ecommerceRouteHandlers = createEcommerceRouteHandlers({ orchestrator });
-const ecommerceAssetUploadService = createEcommerceAssetUploadService({
-  db,
-  generatedAssetStore,
-});
 const ecommerceAssetRouteHandlers = createEcommerceAssetRouteHandlers({
   assetUploadService: ecommerceAssetUploadService,
 });

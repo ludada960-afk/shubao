@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as generatedAssets from '../server/generatedAssets.mjs';
@@ -76,4 +77,40 @@ test('preserves a non-PNG stable image MIME when building the quality-analysis d
 
   assert.equal(typeof generatedAssets.stableAssetDataUrl, 'function');
   assert.match(generatedAssets.stableAssetDataUrl(stable), /^data:image\/jpeg;base64,/);
+});
+
+test('concurrent same-byte persistBuffer calls converge on one complete stable asset', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-race-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const expected = Buffer.alloc(1024 * 1024, 37);
+  const store = createGeneratedAssetStore({ directory: dir });
+
+  const assets = await Promise.all(Array.from({ length: 8 }, (_, index) => store.persistBuffer({
+    buffer: expected,
+    contentType: 'image/png',
+    taskId: `race-${index}`,
+    label: `race-${index}`,
+  })));
+
+  assert.equal(new Set(assets.map(asset => asset.id)).size, 1);
+  assert.deepEqual(await readdir(dir), [assets[0].id]);
+  assert.deepEqual(await readFile(join(dir, assets[0].id)), expected);
+});
+
+test('persistBuffer rejects a corrupt pre-existing content-addressed file without overwriting it', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-corrupt-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const expected = Buffer.from('expected stable bytes');
+  const corrupt = Buffer.from('different existing bytes');
+  const fileName = `${createHash('sha256').update(expected).digest('hex')}.png`;
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, fileName), corrupt, { flag: 'wx' });
+  const store = createGeneratedAssetStore({ directory: dir });
+
+  await assert.rejects(
+    () => store.persistBuffer({ buffer: expected, contentType: 'image/png' }),
+    error => error?.code === 'GENERATED_ASSET_INTEGRITY_ERROR',
+  );
+
+  assert.deepEqual(await readFile(join(dir, fileName)), corrupt);
 });

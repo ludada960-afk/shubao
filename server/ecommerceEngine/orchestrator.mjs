@@ -176,11 +176,14 @@ async function normalizeFormalAssetGroups(groups, label, { job, migrateLegacyVis
     const normalized = [];
     for (const [index, value] of values.entries()) {
       if (typeof value === 'string' && legacy) {
+        if (job.visualInputSchemaVersion !== null) {
+          throw invalidVisualAssetInput(`${label} asset must include an ID and URL`);
+        }
         const migrated = await migrateLegacyVisualAsset({
           source: value,
           type: label,
           index,
-          job: { id: job.id, ownerEmail: job.ownerEmail },
+          jobId: job.id,
         });
         normalized.push(normalizeFormalAsset(migrated, label));
         continue;
@@ -479,8 +482,10 @@ export function createEcommerceOrchestrator(deps = {}) {
       throw httpError('无权查看该任务', 403, 'ECOMMERCE_JOB_FORBIDDEN');
     }
     const assets = store.listAssets(id);
+    const publicJob = { ...job };
+    delete publicJob.visualInputSchemaVersion;
     return {
-      ...job,
+      ...publicJob,
       assets: assets.map(publicAsset),
       progress: {
         ...job.progress,

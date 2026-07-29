@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { resolve, basename } from 'node:path';
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -20,6 +20,13 @@ function getSafeHttpUrl(sourceUrl) {
 
 function assetNameFor(buffer, extension) {
   return `${crypto.createHash('sha256').update(buffer).digest('hex')}.${extension}`;
+}
+
+function integrityError(cause) {
+  return Object.assign(new Error('生成图片稳定存储校验失败'), {
+    code: 'GENERATED_ASSET_INTEGRITY_ERROR',
+    ...(cause ? { cause } : {}),
+  });
 }
 
 export function stableAssetDataUrl({ buffer, contentType } = {}) {
@@ -72,7 +79,28 @@ export function createGeneratedAssetStore({
     const fileName = assetNameFor(buffer, extension);
     await mkdir(root, { recursive: true });
     const filePath = resolve(root, fileName);
-    try { await stat(filePath); } catch { await writeFile(filePath, buffer, { flag: 'wx' }); }
+    const tempPath = resolve(root, `.${fileName}.${crypto.randomUUID()}.tmp`);
+    await writeFile(tempPath, buffer, { flag: 'wx' });
+    try {
+      try {
+        await link(tempPath, filePath);
+      } catch (error) {
+        if (error?.code !== 'EEXIST') throw error;
+        let existing;
+        try {
+          existing = await readFile(filePath);
+        } catch (readError) {
+          throw integrityError(readError);
+        }
+        if (assetNameFor(existing, extension) !== fileName) throw integrityError();
+      }
+    } finally {
+      try {
+        await unlink(tempPath);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }
     return {
       id: fileName,
       fileName,

@@ -14,6 +14,7 @@ const TRANSITIONS = {
 };
 const FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const LEASE_RELEASE_STATES = new Set(['queued', ...FINAL_STATES]);
+const CURRENT_VISUAL_INPUT_SCHEMA_VERSION = 1;
 
 function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
@@ -45,6 +46,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
       output TEXT NOT NULL DEFAULT '{}',
       error TEXT NOT NULL DEFAULT '',
       progress TEXT NOT NULL DEFAULT '{}',
+      visual_input_schema_version INTEGER,
       lease_token TEXT,
       lease_expires_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -55,6 +57,9 @@ export function createGenerationJobs(dbPath = ':memory:', {
   const columns = new Set(db.prepare('PRAGMA table_info(ecommerce_jobs)').all().map(column => column.name));
   if (!columns.has('lease_token')) db.exec('ALTER TABLE ecommerce_jobs ADD COLUMN lease_token TEXT');
   if (!columns.has('lease_expires_at')) db.exec('ALTER TABLE ecommerce_jobs ADD COLUMN lease_expires_at TEXT');
+  if (!columns.has('visual_input_schema_version')) {
+    db.exec('ALTER TABLE ecommerce_jobs ADD COLUMN visual_input_schema_version INTEGER');
+  }
   const assets = createEcommerceJobStore(db);
 
   function nowMs() {
@@ -79,7 +84,10 @@ export function createGenerationJobs(dbPath = ':memory:', {
     assets,
     create({ id = crypto.randomUUID(), ownerEmail, payload = {} }) {
       if (!ownerEmail) throw new Error('ownerEmail is required');
-      db.prepare('INSERT INTO ecommerce_jobs (id, owner_email, payload) VALUES (?, ?, ?)').run(id, ownerEmail, JSON.stringify(payload));
+      db.prepare(`
+        INSERT INTO ecommerce_jobs (id, owner_email, payload, visual_input_schema_version)
+        VALUES (?, ?, ?, ?)
+      `).run(id, ownerEmail, JSON.stringify(payload), CURRENT_VISUAL_INPUT_SCHEMA_VERSION);
       return api.get(id);
     },
     get(id) {
@@ -93,6 +101,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
         output: parse(row.output, {}),
         error: row.error,
         progress: parse(row.progress, {}),
+        visualInputSchemaVersion: row.visual_input_schema_version,
         leaseToken: row.lease_token,
         leaseExpiresAt: row.lease_expires_at,
         createdAt: row.created_at,
