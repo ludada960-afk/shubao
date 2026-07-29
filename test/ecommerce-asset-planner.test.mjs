@@ -230,7 +230,11 @@ test('honors configured counts including transparent assets and expands determin
       && item.styleReferenceIds.length === 0));
   assert.equal(first.find(item => item.role === 'main_3x4').generationSize, '2160x3840');
   assert.ok(first.every(item => item.communicationGoal));
+  assert.equal(new Set(first.map(item => item.purpose.toLowerCase())).size, first.length);
   assert.equal(new Set(first.map(item => item.communicationGoal.toLowerCase())).size, first.length);
+  assert.ok(first.every(item => !/\b(?:duty|treatment)\s+\d+\b/i.test(item.communicationGoal)));
+  assert.match(first.find(item => item.id === 'white-background-1').purpose, /compliant hero isolation/i);
+  assert.match(first.find(item => item.id === 'white-background-2').purpose, /alternate-angle isolation/i);
   assert.equal(new Set(first.map(suiteSemanticKey)).size, first.length);
   assert.equal(validatePlanContract(first), first);
   assert.deepEqual(first, second);
@@ -255,6 +259,27 @@ test('assigns repeated hero images distinct commercial shot duties', () => {
   assert.match(heroes[0].purpose, /identity|recognition/i);
   assert.match(heroes[1].purpose, /benefit|feature/i);
   assert.match(heroes[2].purpose, /usage|scene|scale/i);
+});
+
+test('assigns every supported repeated role slot a non-ordinal commercial purpose', () => {
+  for (const key of ['main_text', 'white_bg', 'transparent']) {
+    const plan = buildAssetPlan({
+      productTruth: productTruth(),
+      campaignBible,
+      platform: 'taobao',
+      sizing: {
+        images: [
+          { key, count: 20, ratio: '1:1' },
+          { key: 'detail', count: 0, ratio: '3:4' },
+        ],
+      },
+    });
+
+    assert.equal(plan.length, 20, key);
+    assert.equal(new Set(plan.map(item => item.purpose.toLowerCase())).size, 20, key);
+    assert.ok(plan.every(item => !/\b(?:duty|treatment)\s+\d+\b/i.test(item.communicationGoal)), key);
+    assert.equal(validatePlanContract(plan), plan, key);
+  }
 });
 
 test('frontend category aliases use the same asset strategy as canonical categories', () => {

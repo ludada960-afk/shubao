@@ -78,6 +78,7 @@ async function createHarness(t, {
   campaign,
   buildPlan,
   quality,
+  submit,
   poll,
   hold,
   settle,
@@ -209,6 +210,7 @@ async function createHarness(t, {
         calls.submit.push(request);
         calls.sequence.push(`submit:${request.idempotencyKey}`);
         providerIndex += 1;
+        if (submit) return submit({ request, calls, providerIndex });
         return { jobId: `provider-${providerIndex}`, status: 'queued' };
       },
       async pollUntilReady(providerJobId) {
@@ -310,6 +312,42 @@ function jobInput(id) {
         reference: [],
       },
     },
+  };
+}
+
+function orchestrationSnapshot(items, holdId, schemaVersion = 3) {
+  return {
+    schemaVersion,
+    productTruth: {
+      productName: '测试商品',
+      category: '数码3C',
+      sourceAssetIds: ['product-front'],
+      fingerprint: 'truth-fingerprint',
+      confirmedFacts: {},
+      forbiddenMutations: [],
+    },
+    styleReferenceProfile: {
+      palette: ['#f5f0eb'],
+      lighting: 'soft studio',
+      composition: 'centered hero',
+      sourceAssetIds: [],
+      prohibitedTransfers: ['reference products', 'brands', 'logos', 'source copy'],
+      confidence: 0.9,
+    },
+    visualAnalysisCache: { product: 'product-cache-key', style: 'style-cache-key' },
+    campaignBible: {
+      directionId: 'direction-one',
+      title: '专业棚拍',
+      editableBrief: '克制、清晰、突出商品结构',
+    },
+    assetPlan: items,
+    deterministicInputs: {
+      assets: { product: [{ assetId: 'product-front', url: '/api/ecommerce/assets/front' }], reference: [], proof: [], protection: [] },
+      platform: '淘宝',
+      sizing: {},
+      skus: [],
+    },
+    holdId,
   };
 }
 
@@ -1412,6 +1450,385 @@ test('resumes a persisted provider job without duplicate submission', async t =>
   assert.equal(calls.settle.length, 1);
 });
 
+test('legacy local Sharp repair attempts do not become provider submission counts', async t => {
+  const item = planItem('legacy-sharp');
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [item] });
+  const input = jobInput('job-legacy-sharp-count');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-legacy-sharp-count',
+      orchestrationSnapshot: orchestrationSnapshot([item], 'hold-legacy-sharp-count'),
+    },
+  });
+  jobs.assets.createAsset({
+    jobId: input.id,
+    assetId: item.id,
+    requestSnapshot: { assetPlanItem: item },
+  });
+  const lease = jobs.assets.claimAsset(input.id, item.id);
+  jobs.assets.markSubmitted(input.id, item.id, {
+    providerJobId: 'provider-legacy-initial',
+    requestSnapshot: { assetPlanItem: item, request: { prompt: 'legacy initial' } },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'polling', { leaseToken: lease.leaseToken });
+  jobs.assets.transitionAsset(input.id, item.id, 'downloading', {
+    outputUrl: 'https://provider.example/provider-legacy-initial.png',
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'quality_check', {
+    stableUrl: PNG_A,
+    attemptCount: 1,
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: { prompt: 'legacy initial' },
+      repairAction: { type: 'sharp_repair', operations: ['normalize_transparent_background'] },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.releaseLease(input.id, item.id, lease.leaseToken);
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.submit.length, 0);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 1);
+  assert.deepEqual(completed.progress.executionCount.submissionsByAsset, { 'legacy-sharp': 1 });
+});
+
+test('legacy repair eligibility without a submitted repair remains one provider submission', async t => {
+  const item = planItem('legacy-unsubmitted-repair');
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [item] });
+  const input = jobInput('job-legacy-unsubmitted-repair');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-legacy-unsubmitted-repair',
+      orchestrationSnapshot: orchestrationSnapshot([item], 'hold-legacy-unsubmitted-repair'),
+    },
+  });
+  jobs.assets.createAsset({
+    jobId: input.id,
+    assetId: item.id,
+    requestSnapshot: { assetPlanItem: item },
+  });
+  const lease = jobs.assets.claimAsset(input.id, item.id);
+  jobs.assets.markSubmitted(input.id, item.id, {
+    providerJobId: 'provider-legacy-initial-only',
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: { prompt: 'legacy initial request' },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'polling', { leaseToken: lease.leaseToken });
+  jobs.assets.transitionAsset(input.id, item.id, 'downloading', {
+    outputUrl: 'https://provider.example/provider-legacy-initial-only.png',
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'quality_check', {
+    stableUrl: PNG_A,
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'releasing', {
+    requestSnapshot: {
+      assetPlanItem: item,
+      request: { prompt: 'legacy initial request' },
+      repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'] },
+      release: {
+        targetState: 'needs_review',
+        reason: 'quality_review:local_artifact',
+        error: 'quality gate failed: image_edit',
+      },
+    },
+    leaseToken: lease.leaseToken,
+  });
+  jobs.assets.transitionAsset(input.id, item.id, 'needs_review', {
+    error: 'quality gate failed: image_edit',
+    leaseToken: lease.leaseToken,
+  });
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'needs_review');
+  assert.equal(calls.submit.length, 0);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 1);
+  assert.deepEqual(completed.progress.executionCount.submissionsByAsset, {
+    'legacy-unsubmitted-repair': 1,
+  });
+});
+
+test('migrates schema-3 ordinal duties into distinct commercial purposes before resume', async t => {
+  const legacyPurpose = 'Product-first white background deliverable for marketplace use.';
+  const first = planItem('white-background-1', 'white_background');
+  first.purpose = legacyPurpose;
+  first.communicationGoal = `${legacyPurpose} Dedicated white background duty 1 with its own buyer decision and composition.`;
+  first.shotIntent.sceneFamily = 'white_background_catalog';
+  const second = planItem('white-background-2', 'white_background');
+  second.purpose = legacyPurpose;
+  second.communicationGoal = `${legacyPurpose} Dedicated white background duty 2 with its own buyer decision and composition.`;
+  second.shotIntent.camera = { azimuth: 48 };
+  second.shotIntent.sceneFamily = 'white_background_catalog';
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: [first, second] });
+  const input = jobInput('job-schema-three-duty-migration');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-schema-three-duty-migration',
+      orchestrationSnapshot: orchestrationSnapshot(
+        [first, second],
+        'hold-schema-three-duty-migration',
+        3,
+      ),
+    },
+  });
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.plan, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 2);
+  assert.equal(jobs.get(input.id).progress.orchestrationSnapshot.schemaVersion, 4);
+  assert.equal(new Set(completed.assetPlan.map(item => item.purpose)).size, 2);
+  assert.ok(completed.assetPlan.every(item => !/\bduty\s+\d+\b/i.test(item.communicationGoal)));
+});
+
+test('migrates every schema-3 repeated hero beyond the legacy five-duty cycle', async t => {
+  const legacyHeroes = Array.from({ length: 6 }, (_, index) => {
+    const item = planItem(`legacy-hero-${index + 1}`, 'main_text');
+    item.purpose = index % 5 === 0
+      ? 'Product identity and recognition hero.'
+      : `Legacy hero purpose ${index + 1}.`;
+    item.communicationGoal = `${item.purpose} Dedicated main text duty ${index + 1} with its own buyer decision and composition.`;
+    item.shotIntent.camera = { azimuth: index * 12 };
+    return item;
+  });
+  const { orchestrator, jobs, calls } = await createHarness(t, { items: legacyHeroes });
+  const input = jobInput('job-schema-three-hero-cycle');
+  jobs.create(input);
+  jobs.transition(input.id, 'analyzing');
+  jobs.transition(input.id, 'generating', {
+    progress: {
+      holdId: 'hold-schema-three-hero-cycle',
+      orchestrationSnapshot: orchestrationSnapshot(
+        legacyHeroes,
+        'hold-schema-three-hero-cycle',
+        3,
+      ),
+    },
+  });
+
+  const completed = await orchestrator.runJob(input.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.analyze, 0);
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 6);
+  assert.equal(new Set(completed.assetPlan.map(item => item.communicationGoal)).size, 6);
+  assert.equal(jobs.get(input.id).progress.orchestrationSnapshot.schemaVersion, 4);
+});
+
+test('keeps the parent resumable while a planned child lease is temporarily held', async t => {
+  const items = [planItem('main-ready'), planItem('detail-held', 'detail')];
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    items,
+    orchestratorOptions: { assetConcurrency: 1 },
+  });
+  const originalCreateAsset = jobs.assets.createAsset;
+  let heldLease = null;
+  jobs.assets.createAsset = input => {
+    const asset = originalCreateAsset(input);
+    if (input.assetId === 'detail-held' && !heldLease) {
+      heldLease = jobs.assets.claimAsset(input.jobId, input.assetId);
+    }
+    return asset;
+  };
+  const created = orchestrator.createJob(jobInput('job-child-lease-overlap'));
+
+  const inProgress = await orchestrator.runJob(created.id);
+
+  assert.equal(inProgress.status, 'generating');
+  assert.equal(inProgress.assets.find(asset => asset.assetId === 'main-ready').state, 'completed');
+  assert.equal(inProgress.assets.find(asset => asset.assetId === 'detail-held').state, 'queued');
+  assert.equal(inProgress.progress.executionCount, undefined);
+  assert.equal(calls.hold.length, 1);
+  assert.deepEqual(calls.submit.map(request => request.prompt), ['generate main-ready']);
+  assert.ok(heldLease?.leaseToken);
+
+  jobs.assets.releaseLease(created.id, 'detail-held', heldLease.leaseToken);
+  const completed = await orchestrator.runJob(created.id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 1);
+  assert.deepEqual(calls.submit.map(request => request.prompt), [
+    'generate main-ready',
+    'generate detail-held',
+  ]);
+  assert.deepEqual(calls.settle.map(call => call.itemId).sort(), ['detail-held', 'main-ready']);
+  assert.deepEqual(completed.progress.executionCount.submissionsByAsset, {
+    'detail-held': 1,
+    'main-ready': 1,
+  });
+});
+
+test('reuses a durable initial submission intent after acknowledgement persistence fails', async t => {
+  const providerJobs = new Map();
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    submit: ({ request }) => {
+      if (!providerJobs.has(request.idempotencyKey)) {
+        providerJobs.set(request.idempotencyKey, `provider-logical-${providerJobs.size + 1}`);
+      }
+      return {
+        jobId: providerJobs.get(request.idempotencyKey),
+        status: 'queued',
+        apiKey: 'provider-secret-must-not-persist',
+      };
+    },
+  });
+  const originalMarkSubmitted = jobs.assets.markSubmitted;
+  let failedOnce = false;
+  jobs.assets.markSubmitted = (jobId, assetId, patch) => {
+    const asset = jobs.assets.getAsset(jobId, assetId);
+    if (!failedOnce && asset.state === 'queued') {
+      failedOnce = true;
+      throw new Error('local initial acknowledgement write failed');
+    }
+    return originalMarkSubmitted(jobId, assetId, patch);
+  };
+  const created = orchestrator.createJob(jobInput('job-initial-ack-retry'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.retryable === true && /initial acknowledgement write failed/.test(error.message),
+  );
+
+  const intentOnly = jobs.assets.getAsset(created.id, 'main-one');
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(intentOnly.state, 'queued');
+  assert.equal(calls.release.length, 0);
+  assert.equal(calls.submit.length, 1);
+  assert.deepEqual(intentOnly.requestSnapshot.submissionIntents, [{
+    assetId: 'main-one',
+    ordinal: 0,
+    kind: 'initial',
+    idempotencyKey: calls.submit[0].idempotencyKey,
+    status: 'intent',
+  }]);
+
+  const completed = await orchestrator.runJob(created.id);
+  const acknowledged = jobs.assets.getAsset(created.id, 'main-one');
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(providerJobs.size, 1);
+  assert.equal(calls.submit.length, 2);
+  assert.equal(calls.submit[1].idempotencyKey, calls.submit[0].idempotencyKey);
+  assert.equal(calls.release.length, 0);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 1);
+  assert.deepEqual(acknowledged.requestSnapshot.submissionIntents, [{
+    assetId: 'main-one',
+    ordinal: 0,
+    kind: 'initial',
+    idempotencyKey: calls.submit[0].idempotencyKey,
+    status: 'acknowledged',
+    providerJobId: 'provider-logical-1',
+  }]);
+  assert.doesNotMatch(JSON.stringify(acknowledged.requestSnapshot), /provider-secret-must-not-persist/);
+  assert.doesNotMatch(JSON.stringify(completed.progress.executionCount), /provider-secret-must-not-persist/);
+});
+
+test('reuses a durable repair submission intent after acknowledgement persistence fails', async t => {
+  const providerJobs = new Map();
+  let qualityAttempt = 0;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    submit: ({ request }) => {
+      if (!providerJobs.has(request.idempotencyKey)) {
+        providerJobs.set(request.idempotencyKey, `provider-logical-${providerJobs.size + 1}`);
+      }
+      return {
+        jobId: providerJobs.get(request.idempotencyKey),
+        status: 'queued',
+        authorization: 'Bearer provider-secret-must-not-persist',
+      };
+    },
+    quality: () => {
+      qualityAttempt += 1;
+      if (qualityAttempt === 1) {
+        return {
+          passed: false,
+          checks: { visualQuality: { status: 'fail', issueCodes: ['local_artifact'] } },
+          repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'], userCharge: false },
+          confidence: 'low',
+        };
+      }
+      return {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      };
+    },
+  });
+  const originalMarkSubmitted = jobs.assets.markSubmitted;
+  let failedRepairAck = false;
+  jobs.assets.markSubmitted = (jobId, assetId, patch) => {
+    const asset = jobs.assets.getAsset(jobId, assetId);
+    if (!failedRepairAck && asset.state === 'repairing') {
+      failedRepairAck = true;
+      throw new Error('local repair acknowledgement write failed');
+    }
+    return originalMarkSubmitted(jobId, assetId, patch);
+  };
+  const created = orchestrator.createJob(jobInput('job-repair-ack-retry'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.retryable === true && /repair acknowledgement write failed/.test(error.message),
+  );
+
+  const repairIntent = jobs.assets.getAsset(created.id, 'main-one');
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(repairIntent.state, 'repairing');
+  assert.equal(calls.release.length, 0);
+  assert.equal(calls.submit.length, 2);
+  assert.deepEqual(repairIntent.requestSnapshot.submissionIntents.map(intent => ({
+    ordinal: intent.ordinal,
+    kind: intent.kind,
+    status: intent.status,
+  })), [
+    { ordinal: 0, kind: 'initial', status: 'acknowledged' },
+    { ordinal: 1, kind: 'repair', status: 'intent' },
+  ]);
+
+  const repairKey = calls.submit[1].idempotencyKey;
+  const completed = await orchestrator.runJob(created.id);
+  const acknowledged = jobs.assets.getAsset(created.id, 'main-one');
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(providerJobs.size, 2);
+  assert.equal(calls.submit.length, 3);
+  assert.equal(calls.submit[2].idempotencyKey, repairKey);
+  assert.equal(calls.release.length, 0);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 2);
+  assert.equal(completed.progress.executionCount.providerRepairs, 1);
+  assert.deepEqual(acknowledged.requestSnapshot.submissionIntents.map(intent => ({
+    ordinal: intent.ordinal,
+    kind: intent.kind,
+    status: intent.status,
+    providerJobId: intent.providerJobId,
+  })), [
+    { ordinal: 0, kind: 'initial', status: 'acknowledged', providerJobId: 'provider-logical-1' },
+    { ordinal: 1, kind: 'repair', status: 'acknowledged', providerJobId: 'provider-logical-2' },
+  ]);
+  assert.doesNotMatch(JSON.stringify(acknowledged.requestSnapshot), /provider-secret-must-not-persist/);
+  assert.doesNotMatch(JSON.stringify(completed.progress.executionCount), /provider-secret-must-not-persist/);
+});
+
 test('persists a sanitized orchestration snapshot before hold and reuses its original plan on resume', async t => {
   let pollAttempts = 0;
   const firstPlan = planItem('main-original');
@@ -1450,7 +1867,7 @@ test('persists a sanitized orchestration snapshot before hold and reuses its ori
   await assert.rejects(orchestrator.runJob(created.id), /temporary provider timeout/);
   const afterFirstRun = jobs.get(created.id);
   assert.deepEqual(afterFirstRun.progress.orchestrationSnapshot, {
-    schemaVersion: 3,
+    schemaVersion: 4,
     productTruth: {
       productName: '测试商品',
       category: '数码3C',

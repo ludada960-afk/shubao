@@ -72,6 +72,30 @@ test('plan contract rejects duplicate IDs and roles without unique commercial du
   );
 });
 
+test('commercial duty normalization rejects ordinal suffixes and equivalent wording', () => {
+  const alternateShot = {
+    ...planItem('alternate').shotIntent,
+    type: 'alternate_angle',
+    camera: { azimuth: 48 },
+    crop: 'complete exterior crop',
+    sceneFamily: 'exterior_angle_study',
+  };
+  assert.throws(() => validatePlanContract([
+    planItem('ordinal-1', { communicationGoal: 'Product recognition duty 1' }),
+    planItem('ordinal-2', {
+      communicationGoal: 'Product recognition duty 2',
+      shotIntent: alternateShot,
+    }),
+  ]), /duplicate commercial duty/i);
+  assert.throws(() => validatePlanContract([
+    planItem('wording-1', { communicationGoal: 'Show the complete product for buyer identification' }),
+    planItem('wording-2', {
+      communicationGoal: 'Display the full item for customer recognition',
+      shotIntent: alternateShot,
+    }),
+  ]), /duplicate commercial duty/i);
+});
+
 test('plan contract rejects collage intent and unsafe evidence tiers', () => {
   assert.throws(
     () => validatePlanContract([planItem('collage', { purpose: 'Four-panel contact sheet comparison' })]),
@@ -83,6 +107,24 @@ test('plan contract rejects collage intent and unsafe evidence tiers', () => {
     })]),
     /unsafe evidence tier/i,
   );
+  assert.throws(
+    () => validatePlanContract([planItem('candidate-grid', { communicationGoal: 'Render a candidate grid output' })]),
+    /collage|contact sheet/i,
+  );
+  assert.throws(
+    () => validatePlanContract([planItem('montage', { purpose: 'Deliver a product montage' })]),
+    /collage|contact sheet/i,
+  );
+});
+
+test('multi-panel product descriptions are not mistaken for collage output intent', () => {
+  const appliance = planItem('appliance', {
+    purpose: 'Single-view multi-panel appliance product hero',
+    communicationGoal: 'Show the complete multi-panel appliance in one compliant hero view',
+  });
+  const plan = [appliance];
+
+  assert.equal(validatePlanContract(plan), plan);
 });
 
 test('execution count requires one durable visible row and initial submission per plan item', () => {

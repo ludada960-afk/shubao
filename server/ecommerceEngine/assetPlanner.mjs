@@ -218,13 +218,11 @@ function appendRepeatedItems(items, count, createItem) {
   }
 }
 
-function communicationGoalFor(item, roleIndex) {
-  const purpose = cleanString(item.purpose) || `Commercial duty for ${item.role}`;
-  const placement = item.role.replaceAll('_', ' ');
-  return `${purpose} Dedicated ${placement} duty ${roleIndex + 1} with its own buyer decision and composition.`;
+function communicationGoalFor(item) {
+  return cleanString(item.purpose) || `Commercial purpose for ${item.role.replaceAll('_', ' ')}.`;
 }
 
-function heroPurpose(index, total) {
+function heroPurpose(role, index, total) {
   const duties = [
     'Product identity and recognition hero: show one unmistakable complete product with the strongest click-through angle.',
     'Primary feature or benefit hero: visualize one core buying reason while keeping the product dominant.',
@@ -232,7 +230,68 @@ function heroPurpose(index, total) {
     'Secondary structural angle hero: reveal one different side, opening state, or component relationship.',
     'Material and craftsmanship hero: focus on one premium visible finish without becoming a multi-panel detail sheet.',
   ];
-  return total > 1 ? duties[index % duties.length] : duties[0];
+  const placement = role === 'main_3x4'
+    ? 'Vertical marketplace placement.'
+    : role === 'main_text' ? 'Text-ready square marketplace placement.' : 'Primary marketplace placement.';
+  const duty = total > 1 ? duties[index % duties.length] : duties[0];
+  return `${placement} ${duty} Compose as a ${viewDirection(index)}.`;
+}
+
+const VIEW_DIRECTIONS = [
+  'front three-quarter view',
+  'opposing three-quarter view',
+  'straight-on front view',
+  'evidence-supported side profile',
+  'slightly elevated exterior view',
+  'low eye-level exterior view',
+  'rear three-quarter exterior view',
+  'wide product-dominant view',
+  'close product-dominant view',
+  'balanced centered exterior view',
+  'front profile with generous edge clearance',
+  'opposing profile with generous edge clearance',
+  'high three-quarter exterior view',
+  'low three-quarter exterior view',
+  'centered long-lens exterior view',
+  'centered natural-lens exterior view',
+  'diagonal exterior view with complete silhouette',
+  'reverse diagonal exterior view with complete silhouette',
+  'elevated centered view with complete geometry',
+  'eye-level centered view with complete geometry',
+];
+
+function viewDirection(index) {
+  return VIEW_DIRECTIONS[index % VIEW_DIRECTIONS.length];
+}
+
+function whiteBackgroundPurpose(index) {
+  if (index === 0) {
+    return 'Marketplace-compliant hero isolation: center the complete product on pure white for primary catalog recognition.';
+  }
+  if (index === 1) {
+    return 'Evidence-safe alternate-angle isolation: show a materially different exterior side on pure white for shape verification.';
+  }
+  return `White-background catalog isolation using a ${viewDirection(index)} to answer a distinct exterior-form question.`;
+}
+
+function transparentPurpose(index) {
+  if (index === 0) {
+    return 'Primary transparent cutout: isolate the complete recognition view for reusable PNG placement.';
+  }
+  if (index === 1) {
+    return 'Alternate-angle transparent cutout: isolate a different evidence-supported exterior side for layout flexibility.';
+  }
+  return `Transparent PNG cutout using a ${viewDirection(index)} for a distinct evidence-safe design placement.`;
+}
+
+function detailPurpose(basePurpose, occurrence) {
+  if (occurrence === 0) return basePurpose;
+  return `${basePurpose} Use a ${viewDirection(occurrence)} as a separate evidence-safe buyer answer.`;
+}
+
+function skuPurpose(skuFacts) {
+  const variant = skuFacts.map(fact => `${fact.name}: ${fact.value}`).join(', ');
+  return `SKU variant decision asset for ${variant}, using only the user-provided values.`;
 }
 
 function explicitDetailSpecs(strategy, proofAssetIds) {
@@ -281,7 +340,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       appendRepeatedItems(items, count, (index, total) => buildItem({
         id: indexedItemId(role, index, total),
         role,
-        purpose: heroPurpose(index, total),
+        purpose: heroPurpose(role, index, total),
         defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
         requiredFacts: identity,
         productAssetIds,
@@ -296,7 +355,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     appendRepeatedItems(items, whiteCount, (index, total) => buildItem({
       id: indexedItemId('white_background', index, total),
       role: 'white_background',
-      purpose: 'Product-first white background deliverable for marketplace use.',
+      purpose: whiteBackgroundPurpose(index),
       defaultRatio: '1:1',
       requiredFacts: identity,
       productAssetIds,
@@ -310,7 +369,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     appendRepeatedItems(items, transparentCount, (index, total) => buildItem({
       id: indexedItemId('transparent', index, total),
       role: 'transparent',
-      purpose: 'Isolated product cutout on a fully transparent background for PNG design reuse.',
+      purpose: transparentPurpose(index),
       defaultRatio: '1:1',
       requiredFacts: identity,
       productAssetIds,
@@ -331,7 +390,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       items.push(buildItem({
         id: occurrence === 1 ? role.replaceAll('_', '-') : `${role.replaceAll('_', '-')}-${occurrence}`,
         role,
-        purpose: spec.purpose,
+        purpose: detailPurpose(spec.purpose, occurrence - 1),
         requiredFacts: isProofSlice
           ? spec.proofAssetIds.map(assetId => ({ name: 'proofAssetId', value: assetId }))
           : isParameterSlice ? userFacts : identity,
@@ -348,7 +407,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     items.push(
       ...(mainRoles.length ? mainRoles : ['main']).map((role) => buildItem({
         role,
-        purpose: 'Representative product image that establishes the shared campaign direction.',
+        purpose: heroPurpose(role, 0, 1),
         defaultRatio: role === 'main_3x4' ? '3:4' : '1:1',
         requiredFacts: identity,
         productAssetIds,
@@ -359,7 +418,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       })),
       buildItem({
         role: 'white_background',
-        purpose: 'Product-first white background deliverable for marketplace use.',
+        purpose: whiteBackgroundPurpose(0),
         defaultRatio: '1:1',
         requiredFacts: identity,
         productAssetIds,
@@ -406,7 +465,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     items.push(buildItem({
       id: `sku-${index + 1}`,
       role: 'sku',
-      purpose: 'One user-provided SKU variant with deterministic values.',
+      purpose: skuPurpose(skuFacts),
       defaultRatio: '1:1',
       requiredFacts: skuFacts,
       generationMode: 'deterministic_overlay',
@@ -425,7 +484,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const directedItems = items.map((item, itemIndex) => {
     const roleIndex = roleOccurrences.get(item.role) || 0;
     roleOccurrences.set(item.role, roleIndex + 1);
-    const communicationGoal = communicationGoalFor(item, roleIndex);
+    const communicationGoal = communicationGoalFor(item);
     const planningItem = { ...item, communicationGoal };
     const shotIntent = directShot(planningItem, {
       productTruth: truth,

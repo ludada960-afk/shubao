@@ -2,7 +2,23 @@ import { suiteSemanticKey } from './suiteDiversity.mjs';
 
 const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
 const SAFE_EVIDENCE_TIERS = new Set(['safe', 'conditional', 'confirmed_only']);
-const COLLAGE_INTENT_RE = /\b(?:collage|contact\s*sheet|multi[ -]?panel|candidate\s*grid)\b|拼贴|联系表|联络表|多(?:候选|宫格)|[五九]宫格/i;
+const COLLAGE_INTENT_RE = /\b(?:collage|contact\s*sheet|montage|candidate\s*grid)\b|拼贴|联系表|联络表|蒙太奇|候选(?:图)?网格|多候选|[五九]宫格/i;
+const MULTI_PANEL_LAYOUT_RE = /\bmulti[ -]?panel\s+(?:layout|output|composition|sheet|grid)\b|多面板(?:布局|输出|拼图|网格)/i;
+const ORDINAL_DUTY_RE = /\b(?:duty|treatment)\s*(?:(?:number|no)\.?\s*)?(?:\d+|one|two|three|four|five|first|second|third|fourth|fifth)\b/gi;
+const DUTY_SYNONYMS = new Map([
+  ['display', 'show'],
+  ['present', 'show'],
+  ['depict', 'show'],
+  ['full', 'complete'],
+  ['entire', 'complete'],
+  ['item', 'product'],
+  ['customer', 'buyer'],
+  ['shopper', 'buyer'],
+  ['identification', 'recognition'],
+  ['identify', 'recognition'],
+  ['recognize', 'recognition'],
+]);
+const DUTY_STOP_WORDS = new Set(['a', 'an', 'the', 'for', 'of', 'to']);
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -16,6 +32,19 @@ function cleanString(value) {
 
 function normalized(value) {
   return cleanString(value).toLowerCase();
+}
+
+function normalizedCommercialDuty(value) {
+  const words = cleanString(value)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(ORDINAL_DUTY_RE, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(word => word && !DUTY_STOP_WORDS.has(word))
+    .map(word => DUTY_SYNONYMS.get(word) || word);
+  return words.join(' ');
 }
 
 function planId(item) {
@@ -41,7 +70,10 @@ function plannedCollage(item) {
     shot.label,
     shot.sceneFamily,
     shot.composition,
-  ].some(value => COLLAGE_INTENT_RE.test(cleanString(value)));
+  ].some(value => {
+    const intent = cleanString(value);
+    return COLLAGE_INTENT_RE.test(intent) || MULTI_PANEL_LAYOUT_RE.test(intent);
+  });
 }
 
 export function validatePlanContract(items) {
@@ -79,7 +111,7 @@ export function validatePlanContract(items) {
     }
     intents.set(semanticKey, id);
 
-    const dutyKey = duty;
+    const dutyKey = normalizedCommercialDuty(duty);
     if (duties.has(dutyKey)) {
       throw new TypeError(`duplicate commercial duty: ${duties.get(dutyKey)} and ${id}`);
     }

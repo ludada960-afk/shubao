@@ -98,6 +98,37 @@ test('keeps submitted provider ids idempotent and rejects accidental resubmissio
   }), /already submitted|provider job/i);
 });
 
+test('checkpoints a sanitized submission intent without changing state or losing its fenced lease', t => {
+  const { store } = createHarness(t);
+  store.createAsset({ jobId: 'job-intent', assetId: 'main', requestSnapshot: { assetPlanItem: { id: 'main' } } });
+  const lease = store.claimAsset('job-intent', 'main');
+
+  const checkpointed = store.checkpointAsset('job-intent', 'main', {
+    requestSnapshot: {
+      assetPlanItem: { id: 'main' },
+      submissionIntents: [{
+        assetId: 'main',
+        ordinal: 0,
+        kind: 'initial',
+        idempotencyKey: 'ecommerce:fixed-intent',
+        status: 'intent',
+        apiKey: 'must-not-persist',
+      }],
+    },
+    leaseToken: lease.leaseToken,
+  });
+
+  assert.equal(checkpointed.state, 'queued');
+  assert.equal(checkpointed.leaseToken, lease.leaseToken);
+  assert.deepEqual(checkpointed.requestSnapshot.submissionIntents, [{
+    assetId: 'main',
+    ordinal: 0,
+    kind: 'initial',
+    idempotencyKey: 'ecommerce:fixed-intent',
+    status: 'intent',
+  }]);
+});
+
 test('uses fenced leases so an expired worker cannot mutate a reclaimed asset', t => {
   let now = Date.parse('2026-07-26T00:00:00.000Z');
   let uuid = 0;

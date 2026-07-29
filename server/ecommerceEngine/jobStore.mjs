@@ -232,6 +232,12 @@ export function createEcommerceJobStore(db, {
       SET lease_token = NULL, lease_expires_at = NULL, updated_at = ?
       WHERE job_id = ? AND asset_id = ? AND lease_token = ?
     `),
+    checkpoint: db.prepare(`
+      UPDATE ecommerce_job_assets
+      SET request_snapshot = ?, updated_at = ?
+      WHERE job_id = ? AND asset_id = ? AND lease_token = ?
+        AND state = ?
+    `),
     update: db.prepare(`
       UPDATE ecommerce_job_assets
       SET state = ?, request_snapshot = ?, provider_job_id = ?,
@@ -352,6 +358,27 @@ export function createEcommerceJobStore(db, {
     return getAsset(jobId, assetId);
   }
 
+  function checkpointAsset(jobIdInput, assetIdInput, patch = {}) {
+    const jobId = validateId(jobIdInput, 'jobId');
+    const assetId = validateId(assetIdInput, 'assetId');
+    const current = getAsset(jobId, assetId);
+    if (!current) throw new Error('asset job not found');
+    const leaseToken = validateLease(current, own(patch, 'leaseToken'));
+    const requestSnapshot = own(patch, 'requestSnapshot') === undefined
+      ? current.requestSnapshot
+      : sanitizeSnapshot(own(patch, 'requestSnapshot'));
+    const changed = statements.checkpoint.run(
+      JSON.stringify(requestSnapshot),
+      new Date(finiteNow(now)).toISOString(),
+      jobId,
+      assetId,
+      leaseToken,
+      current.state,
+    ).changes;
+    if (changed !== 1) throw new Error('asset state or lease changed during checkpoint');
+    return getAsset(jobId, assetId);
+  }
+
   function markSubmitted(jobIdInput, assetIdInput, patch = {}) {
     const jobId = validateId(jobIdInput, 'jobId');
     const assetId = validateId(assetIdInput, 'assetId');
@@ -429,6 +456,7 @@ export function createEcommerceJobStore(db, {
     claimAsset,
     renewLease,
     releaseLease,
+    checkpointAsset,
     transitionAsset,
     markSubmitted,
     recoverInterrupted,

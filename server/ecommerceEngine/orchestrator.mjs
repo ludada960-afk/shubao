@@ -9,7 +9,8 @@ const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
 const VISUAL_INPUT_SNAPSHOT_VERSION = 1;
 const LEGACY_ORCHESTRATION_SNAPSHOT_VERSION = 1;
 const TASK_1_ORCHESTRATION_SNAPSHOT_VERSION = 2;
-const CURRENT_ORCHESTRATION_SNAPSHOT_VERSION = 3;
+const TASK_2_ORCHESTRATION_SNAPSHOT_VERSION = 3;
+const CURRENT_ORCHESTRATION_SNAPSHOT_VERSION = 4;
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -82,12 +83,71 @@ function idempotencyKey(jobId, assetId, attempt) {
   return `ecommerce:${digest}`;
 }
 
+function durableSubmissionIntents(asset) {
+  const intents = own(asset?.requestSnapshot, 'submissionIntents');
+  if (!Array.isArray(intents)) return [];
+  const result = [];
+  const seen = new Set();
+  for (const intent of intents) {
+    if (!isRecord(intent)) continue;
+    const assetId = cleanString(own(intent, 'assetId'));
+    const ordinal = own(intent, 'ordinal');
+    const kind = cleanString(own(intent, 'kind'));
+    const key = cleanString(own(intent, 'idempotencyKey'));
+    const status = cleanString(own(intent, 'status'));
+    if (!assetId || !Number.isSafeInteger(ordinal) || ordinal < 0
+      || !['initial', 'repair'].includes(kind) || !key
+      || !['intent', 'acknowledged'].includes(status)) continue;
+    const logicalKey = `${assetId}\u0000${ordinal}\u0000${kind}`;
+    if (seen.has(logicalKey)) continue;
+    seen.add(logicalKey);
+    const normalized = { assetId, ordinal, kind, idempotencyKey: key, status };
+    const providerJobId = cleanString(own(intent, 'providerJobId'));
+    if (status === 'acknowledged' && providerJobId) normalized.providerJobId = providerJobId;
+    result.push(normalized);
+  }
+  return result.sort((left, right) => left.ordinal - right.ordinal);
+}
+
+function submissionIntent(asset, { assetId, ordinal, kind, key }) {
+  const intents = durableSubmissionIntents(asset);
+  const existing = intents.find(intent => intent.ordinal === ordinal && intent.kind === kind);
+  if (existing) {
+    if (existing.assetId !== assetId || existing.idempotencyKey !== key) {
+      throw new Error(`provider submission intent changed for asset: ${assetId}`);
+    }
+    return { intent: existing, intents };
+  }
+  const intent = { assetId, ordinal, kind, idempotencyKey: key, status: 'intent' };
+  return { intent, intents: [...intents, intent].sort((left, right) => left.ordinal - right.ordinal) };
+}
+
+function acknowledgeSubmissionIntents(asset, intent, providerJobId) {
+  return durableSubmissionIntents(asset).map(candidate => (
+    candidate.ordinal === intent.ordinal && candidate.kind === intent.kind
+      ? { ...candidate, status: 'acknowledged', providerJobId }
+      : candidate
+  ));
+}
+
 function providerSubmissionCount(asset) {
+  const intents = durableSubmissionIntents(asset);
+  if (intents.length > 0) return intents.length;
   const count = own(own(asset?.requestSnapshot, 'executionCount'), 'providerSubmissions');
   if (Number.isSafeInteger(count) && count >= 0) return count;
-  return cleanString(own(asset, 'providerJobId'))
-    ? Math.max(1, Number.isSafeInteger(asset.attemptCount) ? asset.attemptCount + 1 : 1)
-    : 0;
+  if (!cleanString(own(asset, 'providerJobId'))) return 0;
+  const repairAction = own(asset?.requestSnapshot, 'repairAction');
+  const repairType = cleanString(own(repairAction, 'type'));
+  const request = own(asset?.requestSnapshot, 'request');
+  const requestKind = cleanString(own(request, 'kind') ?? own(request, 'submissionKind')).toLowerCase();
+  const requestPrompt = cleanString(own(request, 'prompt'));
+  const hasRepairRequestEvidence = requestKind === 'repair'
+    || /targeted\s+system\s+repair|(?:^|[;\n])\s*repair\s+[^;\n]+[;\n][\s\S]*?\battempt\s+\d+/i.test(requestPrompt);
+  const providerRepairEvidence = repairType
+    && repairType !== 'none'
+    && repairType !== 'sharp_repair'
+    && hasRepairRequestEvidence;
+  return providerRepairEvidence ? 2 : 1;
 }
 
 function providerSubmissionEntries(assets) {
@@ -387,20 +447,88 @@ function legacySceneFamily(type) {
   }[cleanString(type).toLowerCase()] || 'evidence_safe_product_scene';
 }
 
+const LEGACY_ORDINAL_DUTY_RE = /\b(?:duty|treatment)\s+(?:\d+|one|two|three|four|five)\b/i;
+const MIGRATION_VIEW_DIRECTIONS = [
+  'front three-quarter view',
+  'opposing three-quarter view',
+  'straight-on front view',
+  'evidence-supported side profile',
+  'slightly elevated exterior view',
+  'rear three-quarter exterior view',
+  'low eye-level exterior view',
+  'wide product-dominant view',
+  'close product-dominant view',
+  'balanced centered exterior view',
+  'front profile with generous edge clearance',
+  'opposing profile with generous edge clearance',
+  'high three-quarter exterior view',
+  'low three-quarter exterior view',
+  'centered long-lens exterior view',
+  'centered natural-lens exterior view',
+  'diagonal exterior view with complete silhouette',
+  'reverse diagonal exterior view with complete silhouette',
+  'elevated centered view with complete geometry',
+  'eye-level centered view with complete geometry',
+];
+
+function migratedPurpose(item, role, occurrence) {
+  const base = cleanString(own(item, 'purpose')) || `Commercial purpose for ${role.replaceAll('_', ' ')}`;
+  if (role === 'white_background') {
+    return occurrence === 0
+      ? 'Marketplace-compliant hero isolation: center the complete product on pure white for primary catalog recognition.'
+      : occurrence === 1
+        ? 'Evidence-safe alternate-angle isolation: show a materially different exterior side on pure white for shape verification.'
+        : `White-background catalog isolation using a ${MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length]} for a distinct exterior-form question.`;
+  }
+  if (role === 'transparent') {
+    return occurrence === 0
+      ? 'Primary transparent cutout: isolate the complete recognition view for reusable PNG placement.'
+      : occurrence === 1
+        ? 'Alternate-angle transparent cutout: isolate a different evidence-supported exterior side for layout flexibility.'
+        : `Transparent PNG cutout using a ${MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length]} for a distinct design placement.`;
+  }
+  if (['main', 'main_text', 'main_3x4'].includes(role)) {
+    const duties = [
+      'Product identity and recognition hero for click-through clarity.',
+      'Primary feature or benefit hero for one core buying reason.',
+      'Usage, scene, or scale hero for credible context.',
+      'Secondary structural angle hero for exterior-form understanding.',
+      'Material and craftsmanship hero for visible finish evidence.',
+    ];
+    const placement = role === 'main_3x4' ? 'Vertical marketplace placement.'
+      : role === 'main_text' ? 'Text-ready square marketplace placement.' : 'Primary marketplace placement.';
+    const composition = MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length];
+    return `${placement} ${duties[occurrence % duties.length]} Compose as a ${composition}.`;
+  }
+  if (role === 'sku') {
+    const facts = Array.isArray(own(item, 'requiredFacts')) ? own(item, 'requiredFacts') : [];
+    const variant = facts.map(fact => `${cleanString(own(fact, 'name'))}: ${cleanString(own(fact, 'value'))}`)
+      .filter(value => value !== ': ')
+      .join(', ');
+    if (variant) return `SKU variant decision asset for ${variant}, using only user-provided values.`;
+  }
+  return occurrence === 0
+    ? base
+    : `${base} Use a ${MIGRATION_VIEW_DIRECTIONS[occurrence % MIGRATION_VIEW_DIRECTIONS.length]} as a separate evidence-safe buyer answer.`;
+}
+
 function upgradePlanItems(assetPlan) {
   const duties = new Set();
   const roleOccurrences = new Map();
   return assetPlan.map(item => {
     const role = cleanString(own(item, 'role')).toLowerCase();
-    const occurrence = (roleOccurrences.get(role) || 0) + 1;
-    roleOccurrences.set(role, occurrence);
+    const occurrence = roleOccurrences.get(role) || 0;
+    roleOccurrences.set(role, occurrence + 1);
     const baseDuty = cleanString(own(item, 'communicationGoal'))
       || cleanString(own(item, 'purpose'))
       || `Commercial duty for ${role}`;
-    let communicationGoal = baseDuty;
+    const needsSemanticMigration = LEGACY_ORDINAL_DUTY_RE.test(baseDuty)
+      || duties.has(baseDuty.toLowerCase());
+    const purpose = needsSemanticMigration ? migratedPurpose(item, role, occurrence) : cleanString(own(item, 'purpose'));
+    let communicationGoal = needsSemanticMigration ? purpose : baseDuty;
     let dutyKey = communicationGoal.toLowerCase();
     if (duties.has(dutyKey)) {
-      communicationGoal = `${baseDuty} Dedicated ${role} duty ${occurrence} with its own buyer decision and composition.`;
+      communicationGoal = migratedPurpose({ ...item, purpose }, role, occurrence);
       dutyKey = communicationGoal.toLowerCase();
     }
     duties.add(dutyKey);
@@ -411,6 +539,7 @@ function upgradePlanItems(assetPlan) {
         : ['component_relationship', 'open_state'].includes(type) ? 'conditional' : 'safe');
     return {
       ...item,
+      purpose: purpose || cleanString(own(item, 'purpose')) || communicationGoal,
       communicationGoal,
       shotIntent: {
         ...shotIntent,
@@ -422,6 +551,15 @@ function upgradePlanItems(assetPlan) {
 }
 
 function upgradeTask1Snapshot(snapshot) {
+  const migrated = sanitizeSnapshot({
+    ...snapshot,
+    schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
+    assetPlan: upgradePlanItems(snapshot.assetPlan),
+  });
+  return validateOrchestrationSnapshot(migrated, { requireVisualAnalysis: true });
+}
+
+function upgradeTask2Snapshot(snapshot) {
   const migrated = sanitizeSnapshot({
     ...snapshot,
     schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,
@@ -469,6 +607,9 @@ function orchestrationSnapshotFromProgress(progress) {
   if (version === TASK_1_ORCHESTRATION_SNAPSHOT_VERSION) {
     validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis: true });
     return { migrated: true, snapshot: upgradeTask1Snapshot(snapshot) };
+  }
+  if (version === TASK_2_ORCHESTRATION_SNAPSHOT_VERSION) {
+    return { migrated: true, snapshot: upgradeTask2Snapshot(snapshot) };
   }
   if (version === CURRENT_ORCHESTRATION_SNAPSHOT_VERSION) {
     return {
@@ -762,24 +903,50 @@ export function createEcommerceOrchestrator(deps = {}) {
         if (leaseHeartbeatError) throw leaseHeartbeatError;
         if (current.state === 'queued') {
           const request = await requestForItem();
+          const logicalKey = idempotencyKey(job.id, item.id, 0);
+          const { intent, intents } = submissionIntent(current, {
+            assetId: item.id,
+            ordinal: 0,
+            kind: 'initial',
+            key: logicalKey,
+          });
+          try {
+            current = store.checkpointAsset(job.id, item.id, {
+              requestSnapshot: {
+                ...current.requestSnapshot,
+                assetPlanItem: item,
+                request: {
+                  prompt: request.prompt,
+                  modelRoute: request.modelRoute,
+                  inputAssets: request.inputAssets,
+                },
+                submissionIntents: intents,
+              },
+              leaseToken,
+            });
+          } catch (error) {
+            if (error && typeof error === 'object') error.retryable = true;
+            throw error;
+          }
           const providerRequest = await prepareProviderRequest({
             ...request,
-            idempotencyKey: idempotencyKey(job.id, item.id, 0),
+            idempotencyKey: intent.idempotencyKey,
           }, { job, item, attempt: 0 });
           const submitted = await providerAdapter.submitEdit(providerRequest);
-          current = store.markSubmitted(job.id, item.id, {
-            providerJobId: submitted.jobId,
-            requestSnapshot: {
-              assetPlanItem: item,
-              request: {
-                prompt: request.prompt,
-                modelRoute: request.modelRoute,
-                inputAssets: request.inputAssets,
+          try {
+            current = store.markSubmitted(job.id, item.id, {
+              providerJobId: submitted.jobId,
+              requestSnapshot: {
+                ...current.requestSnapshot,
+                submissionIntents: acknowledgeSubmissionIntents(current, intent, submitted.jobId),
+                executionCount: { providerSubmissions: intents.length },
               },
-              executionCount: { providerSubmissions: 1 },
-            },
-            leaseToken,
-          });
+              leaseToken,
+            });
+          } catch (error) {
+            if (error && typeof error === 'object') error.retryable = true;
+            throw error;
+          }
           continue;
         }
 
@@ -984,28 +1151,52 @@ export function createEcommerceOrchestrator(deps = {}) {
             productTruth,
             campaignBible,
           });
+          const logicalKey = idempotencyKey(job.id, item.id, 1);
+          const { intent, intents } = submissionIntent(current, {
+            assetId: item.id,
+            ordinal: 1,
+            kind: 'repair',
+            key: logicalKey,
+          });
+          if (intents.length > 2) throw new Error(`more than one provider repair for asset: ${item.id}`);
+          try {
+            current = store.checkpointAsset(job.id, item.id, {
+              requestSnapshot: {
+                ...current.requestSnapshot,
+                request: {
+                  prompt: repairRequest.prompt,
+                  modelRoute: repairRequest.modelRoute,
+                  inputAssets: repairRequest.inputAssets,
+                },
+                repairAction,
+                submissionIntents: intents,
+              },
+              leaseToken,
+            });
+          } catch (error) {
+            if (error && typeof error === 'object') error.retryable = true;
+            throw error;
+          }
           const providerRequest = await prepareProviderRequest({
             ...repairRequest,
-            idempotencyKey: idempotencyKey(job.id, item.id, nextAttempt),
+            idempotencyKey: intent.idempotencyKey,
           }, { job, item, attempt: nextAttempt, repairAction });
-          const submissionCount = providerSubmissionCount(current) + 1;
-          if (submissionCount > 2) throw new Error(`more than one provider repair for asset: ${item.id}`);
           const submitted = await providerAdapter.submitEdit(providerRequest);
           stable = null;
-          current = store.markSubmitted(job.id, item.id, {
-            providerJobId: submitted.jobId,
-            requestSnapshot: {
-              ...current.requestSnapshot,
-              request: {
-                prompt: repairRequest.prompt,
-                modelRoute: repairRequest.modelRoute,
-                inputAssets: repairRequest.inputAssets,
+          try {
+            current = store.markSubmitted(job.id, item.id, {
+              providerJobId: submitted.jobId,
+              requestSnapshot: {
+                ...current.requestSnapshot,
+                submissionIntents: acknowledgeSubmissionIntents(current, intent, submitted.jobId),
+                executionCount: { providerSubmissions: intents.length },
               },
-              repairAction,
-              executionCount: { providerSubmissions: submissionCount },
-            },
-            leaseToken,
-          });
+              leaseToken,
+            });
+          } catch (error) {
+            if (error && typeof error === 'object') error.retryable = true;
+            throw error;
+          }
           continue;
         }
 
@@ -1296,6 +1487,8 @@ export function createEcommerceOrchestrator(deps = {}) {
       if (workerError) throw workerError;
 
       const assets = store.listAssets(id);
+      const status = terminalParentState(assets);
+      if (!status) return getJob(id, { ownerEmail: job.ownerEmail });
       const executionCount = assertExecutionCount({
         plan: assetPlan,
         assetRows: assets,
@@ -1306,7 +1499,6 @@ export function createEcommerceOrchestrator(deps = {}) {
         progress: { ...jobs.get(id).progress, executionCount },
         leaseToken: parentLeaseToken,
       });
-      const status = terminalParentState(assets);
       const output = {
         product_name: own(job.payload, 'product_name'),
         category: own(job.payload, 'category') || '',
