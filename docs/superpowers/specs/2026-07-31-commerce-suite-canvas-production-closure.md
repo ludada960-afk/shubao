@@ -99,7 +99,7 @@ Generated local assets never traverse the external proxy. Derivative requests ar
 
 ## Gateway Policy
 
-Runtime credentials stay in environment configuration and are never committed. The image provider uses the supplied mainland endpoint as primary and the supplied US endpoint as overflow. The selected image model must first pass a model-list or no-charge compatibility probe, then a real edit/generation verification. Vision uses the supplied endpoint and model and must pass an image-input schema probe before production rollout.
+Runtime credentials stay in environment configuration and are never committed. The image provider uses the supplied mainland endpoint with its documented native asynchronous contract: submit JSON to `POST /v1/tasks`, carry product/reference images as URL or data-URI input, poll `GET /v1/tasks/{id}`, and consume final `result_urls`. The supplied US distribution endpoint does not expose this task contract and is therefore not used as automatic overflow; mixing protocols would turn a valid provider outage into an unrecoverable polling failure. The selected image model must first pass a model-list or no-charge compatibility probe, then a real bounded task verification. Vision uses the supplied endpoint and model and must pass an image-input schema probe before production rollout.
 
 ## Acceptance Criteria
 

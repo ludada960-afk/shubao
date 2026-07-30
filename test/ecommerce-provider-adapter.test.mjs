@@ -32,11 +32,62 @@ function editRequest() {
   };
 }
 
+test('native task protocol submits JSON data URIs and polls the documented task route', async () => {
+  const requests = [];
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://task-api.example.test',
+    bearerToken: 'bearer-secret',
+    protocol: 'native-tasks',
+    fetchImpl: async (url, init) => {
+      requests.push({ url, init });
+      return requests.length === 1
+        ? jsonResponse(202, { id: 'native-job-1', kind: 'image', status: 'pending' })
+        : jsonResponse(200, {
+          id: 'native-job-1',
+          status: 'done',
+          result_urls: ['https://cdn.example.test/native.png'],
+          error_code: '',
+          error_message: '',
+        });
+    },
+  });
+
+  assert.deepEqual(await adapter.submitEdit(editRequest()), {
+    jobId: 'native-job-1',
+    status: 'queued',
+  });
+  assert.equal(requests[0].url, 'https://task-api.example.test/v1/tasks');
+  assert.equal(requests[0].init.headers.Authorization, 'Bearer bearer-secret');
+  assert.equal(requests[0].init.headers['Content-Type'], 'application/json');
+  assert.equal(requests[0].init.headers['Idempotency-Key'], 'job-main-attempt-0');
+  assert.equal(Object.hasOwn(requests[0].init.headers, 'X-Async-Mode'), false);
+  const payload = JSON.parse(requests[0].init.body);
+  assert.equal(payload.kind, 'image');
+  assert.equal(payload.model, 'gpt-image-2');
+  assert.equal(payload.input.prompt, editRequest().prompt);
+  assert.equal(payload.input.size, '1:1');
+  assert.equal(payload.input.resolution, '2k');
+  assert.equal(payload.input.n, 1);
+  assert.deepEqual(payload.input.image, [
+    `data:image/png;base64,${Buffer.from('first-image').toString('base64')}`,
+    `data:image/jpeg;base64,${Buffer.from('second-image').toString('base64')}`,
+  ]);
+
+  assert.deepEqual(await adapter.poll('native-job-1'), {
+    jobId: 'native-job-1',
+    status: 'completed',
+    outputUrl: 'https://cdn.example.test/native.png',
+    error: '',
+  });
+  assert.equal(requests[1].url, 'https://task-api.example.test/v1/tasks/native-job-1');
+});
+
 test('submits indexed multipart edits with async mode and bearer auth only', async () => {
   let captured;
   const adapter = createProviderAdapter({
     baseUrl: 'https://images.example.test/',
     bearerToken: 'bearer-secret',
+    protocol: 'legacy-edits',
     fetchImpl: async (url, init) => {
       captured = { url, init };
       return jsonResponse(202, { id: 'provider-job-1', status: 'queued' });
@@ -69,6 +120,7 @@ test('supports x-api-key auth without also sending bearer auth', async () => {
     baseUrl: 'https://images.example.test',
     apiKey: 'header-secret',
     authStrategy: 'x-api-key',
+    protocol: 'legacy-edits',
     fetchImpl: async (_url, init) => {
       headers = init.headers;
       return jsonResponse(202, { job_id: 'provider-job-2', status: 'pending' });

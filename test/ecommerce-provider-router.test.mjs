@@ -22,6 +22,26 @@ test('uses overflow only when primary fails before acknowledgement with a networ
   assert.deepEqual(calls, ['primary', 'overflow']);
 });
 
+test('supports a primary-only provider when no protocol-compatible overflow exists', async () => {
+  const calls = [];
+  const router = createProviderRouter({
+    primary: adapter({
+      submit: async () => {
+        calls.push('primary');
+        return { jobId: 'job-primary', status: 'queued' };
+      },
+      poll: async id => ({ jobId: id, status: 'completed' }),
+    }),
+  });
+
+  assert.deepEqual(await router.submitEdit({}), { jobId: 'primary:job-primary', status: 'queued' });
+  assert.deepEqual(await router.poll('primary:job-primary'), {
+    jobId: 'primary:job-primary',
+    status: 'completed',
+  });
+  assert.deepEqual(calls, ['primary']);
+});
+
 test('does not evade provider rate limits or accepted jobs through overflow', async () => {
   let overflowCalls = 0;
   for (const error of [

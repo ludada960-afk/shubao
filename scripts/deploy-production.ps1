@@ -22,6 +22,8 @@ $ssh = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=acc
 $remoteLock = "/tmp/.shubao-deploy.lock"
 $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
 $remoteDatabaseBackupHelper = "/tmp/shubao-backup-db-$stamp.cjs"
+$runtimeConfigHelper = Join-Path $PSScriptRoot "verify-runtime-config.cjs"
+$remoteRuntimeConfigHelper = "/tmp/shubao-verify-runtime-config-$stamp.cjs"
 $lockAcquired = $false
 $remoteBackup = ""
 $releaseStarted = $false
@@ -72,6 +74,11 @@ if ($LASTEXITCODE -ne 0) { throw "Could not acquire remote deployment lock" }
 $lockAcquired = $true
 
 try {
+  & scp @ssh $runtimeConfigHelper "$target`:$remoteRuntimeConfigHelper"
+  if ($LASTEXITCODE -ne 0) { throw "Runtime configuration verifier upload failed" }
+  & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
+  if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration is not ready" }
+
   & scp @ssh $databaseBackupHelper "$target`:$remoteDatabaseBackupHelper"
   if ($LASTEXITCODE -ne 0) { throw "Database backup helper upload failed" }
 
@@ -119,7 +126,7 @@ try {
   throw
 } finally {
   if ($lockAcquired) {
-    & ssh @ssh $target "rm -f -- '$remoteDatabaseBackupHelper'; rm -rf -- '$remoteLock'"
+    & ssh @ssh $target "rm -f -- '$remoteDatabaseBackupHelper' '$remoteRuntimeConfigHelper'; rm -rf -- '$remoteLock'"
     Write-Host "Release remote deployment lock"
   }
   Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue

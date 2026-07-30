@@ -29,24 +29,26 @@ function canOverflow(error) {
 export function createProviderRouter({ primary, overflow, legacy } = {}) {
   const adapters = {
     primary: assertAdapter(primary, 'primary'),
-    overflow: assertAdapter(overflow, 'overflow'),
   };
+  if (overflow) adapters.overflow = assertAdapter(overflow, 'overflow');
   if (legacy) adapters.legacy = assertAdapter(legacy, 'legacy');
   return {
     async submitEdit(request) {
       try {
         return withRoute('primary', await adapters.primary.submitEdit(request));
       } catch (error) {
-        if (!canOverflow(error)) throw error;
+        if (!adapters.overflow || !canOverflow(error)) throw error;
         return withRoute('overflow', await adapters.overflow.submitEdit(request));
       }
     },
     async poll(jobId) {
       const resolved = resolveJob(jobId, Boolean(adapters.legacy));
+      if (!adapters[resolved.route]) throw new Error(`${resolved.route} provider adapter is unavailable`);
       return withRoute(resolved.route, await adapters[resolved.route].poll(resolved.jobId));
     },
     async pollUntilReady(jobId, options) {
       const resolved = resolveJob(jobId, Boolean(adapters.legacy));
+      if (!adapters[resolved.route]) throw new Error(`${resolved.route} provider adapter is unavailable`);
       return withRoute(resolved.route, await adapters[resolved.route].pollUntilReady(resolved.jobId, options));
     },
   };

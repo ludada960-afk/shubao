@@ -41,9 +41,11 @@
 
 - Update non-secret example configuration with the new endpoint/model names.
 - Update local runtime secrets outside Git.
-- Run no-charge model/schema probes, then a bounded real image edit/generation.
+- Use the mainland image gateway's native `POST /v1/tasks` and `GET /v1/tasks/{id}` contract; do not mix it with legacy edit or distribution protocols.
+- Run no-charge model/schema probes, then a bounded real image task with product/reference input.
 - Validate the supplied vision endpoint with the required image-input model.
-- Keep primary/overflow failover observable in server logs but private from clients.
+- Leave overflow disabled until another endpoint proves the same durable task contract.
+- Fail deployment before release when runtime gateway fields, secrets, file permissions, or root/server environment parity are invalid.
 
 ## Task 7: Verify and ship
 

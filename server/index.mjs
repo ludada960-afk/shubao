@@ -426,10 +426,11 @@ const LLM_BASE = (process.env.LLM_BASE_URL || '').replace(/\/+$/, '');
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
 const IMG_KEY = process.env.IMAGE_API_KEY || '';
 const IMG_BASE = (process.env.IMAGE_PRIMARY_BASE_URL || 'https://task-api-1-cn.65535.space').replace(/\/+$/, '');
-const IMG_OVERFLOW_BASE = (process.env.IMAGE_OVERFLOW_BASE_URL || 'https://sub-proxy-us.65535.space').replace(/\/+$/, '');
+const IMG_OVERFLOW_BASE = (process.env.IMAGE_OVERFLOW_BASE_URL || '').replace(/\/+$/, '');
 const IMG_LEGACY_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
 const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
-const IMG_AUTH_STRATEGY = String(process.env.IMAGE_AUTH_STRATEGY || 'x-api-key').trim().toLowerCase();
+const IMG_AUTH_STRATEGY = String(process.env.IMAGE_AUTH_STRATEGY || 'bearer').trim().toLowerCase();
+const IMG_PROVIDER_PROTOCOL = String(process.env.IMAGE_PROVIDER_PROTOCOL || 'native-tasks').trim().toLowerCase();
 
 // Vision API — 商品图和参考图分析
 const MINI_KEY = process.env.MINI_API_KEY || '';
@@ -3076,16 +3077,26 @@ function imageProviderCredential() {
     : { apiKey: IMG_KEY, authStrategy: 'x-api-key' };
 }
 
-const createConfiguredImageAdapter = baseUrl => createProviderAdapter({
+const createConfiguredImageAdapter = (baseUrl, {
+  protocol = IMG_PROVIDER_PROTOCOL,
+  submitPath = process.env.IMAGE_TASK_SUBMIT_PATH || '/v1/tasks',
+  pollPath = process.env.IMAGE_TASK_PATH || '/v1/tasks/{id}',
+} = {}) => createProviderAdapter({
   baseUrl,
   ...imageProviderCredential(),
+  protocol,
+  submitPath,
   editPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
-  pollPath: process.env.IMAGE_TASK_PATH || '/v1/images/tasks/{id}',
+  pollPath,
 });
-const ecommerceProviderAdapter = IMG_BASE && IMG_OVERFLOW_BASE && IMG_KEY ? createProviderRouter({
+const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
   primary: createConfiguredImageAdapter(IMG_BASE),
-  overflow: createConfiguredImageAdapter(IMG_OVERFLOW_BASE),
-  legacy: IMG_LEGACY_BASE ? createConfiguredImageAdapter(IMG_LEGACY_BASE) : undefined,
+  ...(IMG_OVERFLOW_BASE ? { overflow: createConfiguredImageAdapter(IMG_OVERFLOW_BASE) } : {}),
+  legacy: IMG_LEGACY_BASE ? createConfiguredImageAdapter(IMG_LEGACY_BASE, {
+    protocol: 'legacy-edits',
+    submitPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
+    pollPath: process.env.IMAGE_LEGACY_TASK_PATH || '/v1/images/tasks/{id}',
+  }) : undefined,
 }) : {
   async submitEdit() {
     const error = new Error('图片生成服务暂未配置');

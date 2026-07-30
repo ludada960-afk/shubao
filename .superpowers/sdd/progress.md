@@ -376,3 +376,20 @@
   inspection found legacy gateway settings still active; new key fingerprint
   verification, runtime environment update, provider probe, deployment and the
   authenticated canary remain the release boundary.
+- Official 65535 documentation and route probes established the production
+  image contract as native asynchronous tasks: JSON submission to `/v1/tasks`,
+  product/reference images as URL or data-URI input, polling at `/v1/tasks/{id}`
+  and final `result_urls`. The mainland endpoint exposes both task routes; the
+  supplied US distribution endpoint returns 404 for them, so automatic overflow
+  is disabled rather than mixing incompatible protocols.
+- The provider adapter now supports the native task protocol while retaining the
+  old multipart protocol only as an explicit compatibility mode. Catalog pixel
+  dimensions are translated to the native task's ratio `size` and lowercase
+  `resolution` fields while old persisted requests remain compatible. The router
+  can run primary-only, and production defaults use the mainland task endpoint
+  plus `puppyrouter.com` with `gpt-5.6-luna` for visual analysis.
+- Deployment now uploads a fail-closed runtime verifier before creating a
+  release. It rejects missing or placeholder secrets, stale endpoint/protocol
+  fields, permissive Unix environment-file modes, and disagreement between the
+  root and server runtime files without printing secret values. Focused gateway
+  and deployment tests passed 42/42; full regression passed 927/927.

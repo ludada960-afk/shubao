@@ -1,3 +1,5 @@
+import { LEGAL_IMAGE_SIZES } from './modelCatalog.mjs';
+
 const MAX_INPUT_IMAGES = 10;
 const SAFE_JOB_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,255}$/i;
 const SAFE_IDEMPOTENCY_KEY_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
@@ -138,7 +140,9 @@ function extractOutputUrl(body) {
   const firstData = Array.isArray(data) ? data[0] : data;
   const firstOutput = Array.isArray(output) ? output[0] : output;
   const firstResult = Array.isArray(result) ? result[0] : result;
+  const resultUrls = own(body, 'result_urls');
   const candidates = [
+    Array.isArray(resultUrls) ? resultUrls[0] : undefined,
     own(body, 'output_url'),
     own(body, 'outputUrl'),
     own(body, 'url'),
@@ -157,7 +161,10 @@ function extractError(body) {
   return cleanString(
     typeof error === 'string'
       ? error
-      : own(error, 'message') ?? own(body, 'message') ?? own(body, 'detail'),
+      : own(error, 'message')
+        ?? own(body, 'error_message')
+        ?? own(body, 'message')
+        ?? own(body, 'detail'),
   );
 }
 
@@ -228,8 +235,61 @@ function buildEditForm(request) {
   return { form, idempotencyKey };
 }
 
+function resolveNativeTaskSizing(pixelSize) {
+  for (const [resolution, ratios] of Object.entries(LEGAL_IMAGE_SIZES)) {
+    for (const [ratio, candidateSize] of Object.entries(ratios)) {
+      if (candidateSize === pixelSize) {
+        return { size: ratio, resolution: resolution.toLowerCase() };
+      }
+    }
+  }
+  throw new RangeError('native task size must be a catalog-owned legal image size');
+}
+
+async function buildNativeTask(request) {
+  if (request === null || typeof request !== 'object' || Array.isArray(request)) {
+    throw new TypeError('provider edit request is required');
+  }
+  const prompt = cleanString(own(request, 'prompt'));
+  const idempotencyKey = cleanString(own(request, 'idempotencyKey'));
+  const route = own(request, 'modelRoute');
+  const model = cleanString(own(route, 'model'));
+  const size = cleanString(own(route, 'size'));
+  const assets = own(request, 'inputAssets');
+  if (!SAFE_IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
+    throw new TypeError('provider edit idempotency key is invalid');
+  }
+  if (!prompt || !model || !size) throw new TypeError('provider edit prompt, model, and size are required');
+  if (!Array.isArray(assets) || assets.length === 0) throw new TypeError('provider edit requires image inputs');
+  if (assets.length > MAX_INPUT_IMAGES) throw new RangeError('provider edit accepts at most 10 images');
+  const nativeSizing = resolveNativeTaskSizing(size);
+
+  const images = await Promise.all(assets.map(async (asset, index) => {
+    const { blob } = normalizeAsset(asset, index);
+    const bytes = Buffer.from(await blob.arrayBuffer());
+    return `data:${blob.type};base64,${bytes.toString('base64')}`;
+  }));
+  return {
+    body: JSON.stringify({
+      kind: 'image',
+      model,
+      input: {
+        prompt,
+        ...nativeSizing,
+        n: 1,
+        image: images.length === 1 ? images[0] : images,
+      },
+    }),
+    idempotencyKey,
+  };
+}
+
 function defaultPollPath(jobId) {
   return `/v1/images/tasks/${encodeURIComponent(jobId)}`;
+}
+
+function nativePollPath(jobId) {
+  return `/v1/tasks/${encodeURIComponent(jobId)}`;
 }
 
 export function createProviderAdapter(config = {}) {
@@ -244,10 +304,15 @@ export function createProviderAdapter(config = {}) {
   const maxSubmitAttempts = Number.isSafeInteger(config.maxSubmitAttempts) && config.maxSubmitAttempts > 0
     ? config.maxSubmitAttempts
     : 3;
+  const protocol = cleanString(config.protocol).toLowerCase() || 'legacy-edits';
+  if (!['legacy-edits', 'native-tasks'].includes(protocol)) {
+    throw new TypeError("provider protocol must be 'legacy-edits' or 'native-tasks'");
+  }
   const editPath = cleanString(config.editPath) || '/v1/images/edits';
+  const submitPath = cleanString(config.submitPath) || (protocol === 'native-tasks' ? '/v1/tasks' : editPath);
   const pollPath = typeof config.pollPath === 'function' || typeof config.pollPath === 'string'
     ? config.pollPath
-    : defaultPollPath;
+    : protocol === 'native-tasks' ? nativePollPath : defaultPollPath;
   if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function');
   if (typeof sleep !== 'function') throw new TypeError('sleep must be a function');
   if (typeof now !== 'function') throw new TypeError('now must be a function');
@@ -264,21 +329,28 @@ export function createProviderAdapter(config = {}) {
   }
 
   async function submitEdit(request) {
-    const { form, idempotencyKey } = buildEditForm(request);
+    const { form, body, idempotencyKey } = protocol === 'native-tasks'
+      ? await buildNativeTask(request)
+      : buildEditForm(request);
     let lastError;
     for (let attempt = 1; attempt <= maxSubmitAttempts; attempt += 1) {
       try {
-        const response = await fetchImpl(`${baseUrl}${editPath}`, {
+        const response = await fetchImpl(`${baseUrl}${submitPath}`, {
           method: 'POST',
-          headers: headers({
-            'X-Async-Mode': 'true',
-            'Idempotency-Key': idempotencyKey,
-          }),
-          body: form,
+          headers: headers(protocol === 'native-tasks'
+            ? {
+              'Content-Type': 'application/json',
+              'Idempotency-Key': idempotencyKey,
+            }
+            : {
+              'X-Async-Mode': 'true',
+              'Idempotency-Key': idempotencyKey,
+            }),
+          body: protocol === 'native-tasks' ? body : form,
         });
-        const body = await readBody(response);
-        const jobId = extractJobId(body);
-        const status = extractStatus(body);
+        const responseBody = await readBody(response);
+        const jobId = extractJobId(responseBody);
+        const status = extractStatus(responseBody);
         const retryAfter = parseRetryAfter(response, currentTimeMs());
         if (response.ok) {
           if (!jobId) throw providerError('provider did not return an async job id', {
@@ -297,7 +369,7 @@ export function createProviderAdapter(config = {}) {
         }
         const retryable = RETRYABLE_STATUS.has(response.status);
         lastError = providerError(
-          extractError(body) || `provider edit request failed with HTTP ${response.status}`,
+          extractError(responseBody) || `provider edit request failed with HTTP ${response.status}`,
           { status: response.status, retryable, jobId, retryAfter },
         );
         if (!retryable || attempt === maxSubmitAttempts) throw lastError;
