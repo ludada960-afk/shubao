@@ -45,7 +45,7 @@ function canaryPayload({ product, reference, quoteId }) {
       resolution: '2K',
       images: [
         { id: 'main_text', ratio: '1:1', count: 1 },
-        { id: 'detail_slice_feature', ratio: '3:4', count: 1 },
+        { id: 'detail', ratio: '3:4', count: 1 },
         { id: 'white_background', ratio: '1:1', count: 1 },
       ],
     },

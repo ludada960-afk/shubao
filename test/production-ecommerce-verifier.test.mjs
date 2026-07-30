@@ -73,7 +73,7 @@ test('ecommerce production verifier checks real analysis, exact counts and Works
   assert.equal(body.billing_quote_id, 'bq1.canary.signature');
   assert.deepEqual(body.sizing.images.map(image => image.count), [1, 1, 1]);
   assert.deepEqual(body.sizing.images.map(image => image.id), [
-    'main_text', 'detail_slice_feature', 'white_background',
+    'main_text', 'detail', 'white_background',
   ]);
   assert.equal(body.assets.product[0].assetId, PRODUCT.assetId);
   assert.equal(body.assets.reference[0].assetId, REFERENCE.assetId);
