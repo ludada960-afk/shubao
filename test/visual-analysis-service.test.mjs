@@ -222,7 +222,7 @@ test('rejects empty, wrong-analysis-type, and field-type-invalid VLM results', a
       label: 'type-invalid style field',
       callVision: ({ type }) => type === 'product'
         ? VALID_PRODUCT_RESULT
-        : { ...VALID_STYLE_RESULT, palette: '#ffffff' },
+        : { palette: '#ffffff', confidence: 0.9 },
       styleAssets: STYLE_ASSETS,
     },
   ];
@@ -262,6 +262,29 @@ test('drops a malformed optional uncertain-facts field without discarding valid 
     result.productTruth.uncertainFacts.some(fact => fact.value === 'the model returned a prose note instead of an array'),
     false,
   );
+});
+
+test('drops malformed optional style metadata while retaining valid transferable analysis', async t => {
+  const harness = createHarness({
+    callVision: ({ type }) => type === 'product'
+      ? VALID_PRODUCT_RESULT
+      : {
+          ...VALID_STYLE_RESULT,
+          lighting: { unsuitable: 'object value' },
+          prohibitedTransfers: 'not an array',
+        },
+  });
+  t.after(() => harness.db.close());
+
+  const result = await harness.service.analyze({
+    productAssets: PRODUCT_ASSETS,
+    styleAssets: STYLE_ASSETS,
+    userFacts: {},
+  });
+
+  assert.equal(result.styleReferenceProfile.lighting, '');
+  assert.deepEqual(result.styleReferenceProfile.palette, ['#fff4e8']);
+  assert.equal(result.styleReferenceProfile.prohibitedTransfers.includes('reference products'), true);
 });
 
 test('rejects every explicitly supplied malformed product or style asset', async t => {

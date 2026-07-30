@@ -186,6 +186,26 @@ function sanitizeOptionalProductFields(result) {
   return normalized;
 }
 
+function sanitizeOptionalStyleFields(result) {
+  const normalized = { ...result };
+  for (const aliases of STYLE_STRING_FIELDS) {
+    for (const key of aliases) {
+      if (Object.hasOwn(normalized, key) && typeof normalized[key] !== 'string') delete normalized[key];
+    }
+  }
+  for (const aliases of STYLE_STRING_LIST_FIELDS) {
+    for (const key of aliases) {
+      if (!Object.hasOwn(normalized, key)) continue;
+      if (!Array.isArray(normalized[key])) {
+        delete normalized[key];
+        continue;
+      }
+      normalized[key] = normalized[key].filter(item => typeof item === 'string');
+    }
+  }
+  return normalized;
+}
+
 function hasMeaningfulString(result, fieldGroups) {
   return fieldGroups.some(aliases => valuesForAliases(result, aliases).some(value => cleanString(value)));
 }
@@ -293,7 +313,9 @@ export function createVisualAnalysisService({
         assets: resolvedAssets,
         images,
       });
-      const normalizedRaw = type === 'product' ? sanitizeOptionalProductFields(raw) : raw;
+      const normalizedRaw = type === 'product'
+        ? sanitizeOptionalProductFields(raw)
+        : sanitizeOptionalStyleFields(raw);
       assertResultShape(normalizedRaw, type);
       const confidence = assertConfidence(normalizedRaw, type);
       const result = normalize({ ...normalizedRaw, sourceAssetIds: assetIds });
