@@ -38,6 +38,7 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot } from './canvasSessionModel.js';
+import { buildCanvasImportResult, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -548,34 +549,22 @@ export default function EcCanvas() {
 
   useEffect(() => {
     const load = async () => {
-      const local = [];
+      let localWorks = [];
+      let serverWorks = [];
       try {
-        const localWorks = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
-        local.push(...(Array.isArray(localWorks) ? localWorks.map(work => ({ ...work, images: normalizeWorkImages(work.images) })) : []));
+        const parsed = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
+        localWorks = Array.isArray(parsed) ? parsed : [];
       } catch {}
       try { 
-        const server = await loadWorks(phone);
-        const ec = server.filter(w => w._ecResult); 
-        const names = new Set(local.map(w => w.name)); 
-        for (const w of ec) { 
-          if (!names.has(w.product_name)) { 
-              local.push({
-               id: w.id || Date.now(),
-               name: w.product_name,
-               images: normalizeWorkImages(w.images),
-               createdAt: w.at || '',
-               _saveKey: w._saveKey || '',
-             });
-          } 
-        } 
+        serverWorks = await loadWorks(phone);
       } catch {}
       const localTrash = (() => {
         try { return JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]'); } catch { return []; }
       })();
       const serverTrash = await loadTrash(phone);
       const trashKeys = new Set(serverTrash.map(item => String(item._saveKey || item.id)));
-      setPastWorks(local);
-      setTrashWorks([...localTrash.filter(item => !trashKeys.has(String(item._saveKey || item.id))), ...serverTrash]);
+      setPastWorks(normalizeCanvasWorkPanel({ localWorks, serverWorks, ownerEmail: phone }));
+      setTrashWorks([...normalizeCanvasWorkPanel({ localWorks: localTrash, serverWorks: [], ownerEmail: phone }).filter(item => !trashKeys.has(String(item._saveKey || item.id))), ...serverTrash]);
     };
     load();
   }, [phone]);
@@ -1526,11 +1515,7 @@ export default function EcCanvas() {
   };
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
-    const images = Object.fromEntries(normalizeWorkImages(work.images).map((image, index) => [
-      image.key || image.label || `image_${index + 1}`,
-      image.url,
-    ]));
-    dispatch({ type: 'SET_RESULT', result: { images, product_name: work.name || '历史作品', _ecResult: true, platform: '淘宝', _saveKey: work._saveKey, canvasImportId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}` } });
+    dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     setTab('canvas');
   };
   const deleteWork = async (id) => {

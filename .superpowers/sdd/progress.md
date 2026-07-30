@@ -287,6 +287,20 @@
   at 6422 transformed modules, `npm ls --depth=0`, collaboration policy READY,
   and `git diff --check`. A fresh independent review is still required before
   closing the Task 4/5 review gate.
+- Market-ready closure Task 4 recovered review follow-up: complete locally after
+  independent review of `a85e3ab..af1f21f` found two Important issues. The
+  Canvas internal Works panel now uses owner-scoped local/server work
+  normalization instead of the legacy unfiltered cache path, and `openWork`
+  preserves project/version/product/session metadata for manual Canvas restore
+  and derivation. The `canvas` dependency has been restored as `3.2.3` in
+  `package.json`, `package-lock.json`, and the local dependency tree because
+  committed scripts still import it. TDD red was confirmed by the missing
+  `canvasWorkModel` module and then by the absent `canvas` declaration. Fresh
+  verification passed the new Canvas work model tests at 3/3, the focused
+  Canvas/project/Works set at 69/69, full `npm test` at 846/846, production
+  build at 6423 transformed modules, `npm ls --depth=0`, `npm ls canvas --depth=0`,
+  collaboration policy READY, and `git diff --check`. Fresh
+  independent re-review is still required before entering Task 6.
 - Market-ready closure Task 6 recovery boundary: no Task 6 implementation or RED
   test has been completed. The failed task ran
   `npm install ag-psd@31.0.2 --save-exact`, leaving `package.json` and
