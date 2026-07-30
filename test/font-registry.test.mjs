@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { FONT_REGISTRY, resolveFont } from '../server/composition/fontRegistry.mjs';
@@ -16,12 +18,14 @@ test('font resolver never returns an undeployed planned font', () => {
     language: 'zh-CN',
   });
 
-  assert.match(policy.displayFontId, /source-han/i);
-  assert.equal(policy.fontAssetStatus, 'planned');
+  assert.equal(policy.displayFontId, font.fontId);
+  assert.equal(policy.bodyFontId, font.fontId);
+  assert.equal(policy.numericFontId, font.fontId);
+  assert.match(policy.plannedTypography.displayFontId, /source-han/i);
+  assert.equal(policy.fontAssetStatus, 'deployed');
   assert.equal(font.fontId, 'fallback-sans');
   assert.equal(font.deployed, true);
   assert.match(font.sha256, /^[a-f0-9]{64}$/);
-  assert.notEqual(font.fontId, policy.displayFontId);
 });
 
 test('registry exposes only checksum-valid deployed fonts or the fixed safe fallback', () => {
@@ -42,4 +46,13 @@ test('registry exposes only checksum-valid deployed fonts or the fixed safe fall
     'fallback-sans': FONT_REGISTRY['fallback-sans'],
   });
   assert.equal(font.fontId, 'fallback-sans');
+});
+
+test('deployed fallback checksum is derived from committed licensed font bytes', () => {
+  const font = FONT_REGISTRY['fallback-sans'];
+  assert.equal(font.license, 'OFL-1.1');
+  assert.equal(typeof font.filePath, 'string');
+  const bytes = readFileSync(font.filePath);
+  assert.ok(bytes.length > 1_000_000);
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), font.sha256);
 });

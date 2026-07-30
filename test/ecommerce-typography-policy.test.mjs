@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { SHA256_RE } from '../server/composition/fontRegistry.mjs';
 import { compileTypographySystem } from '../server/ecommerceEngine/typographyPolicy.mjs';
 import {
   layoutContractFor,
@@ -9,7 +10,7 @@ import {
   validateLayoutContract,
 } from '../server/ecommerceEngine/layoutContracts.mjs';
 
-test('premium skincare plans restrained licensed typography without claiming font assets are deployed', () => {
+test('premium skincare keeps restrained serif tone intent while resolving a verified deployed font', () => {
   const system = compileTypographySystem({
     category: '美妆护肤',
     priceBand: 'premium',
@@ -17,12 +18,19 @@ test('premium skincare plans restrained licensed typography without claiming fon
   });
 
   assert.equal(system.tone, 'premium');
-  assert.match(system.displayFontId, /serif/i);
-  assert.match(system.bodyFontId, /sans/i);
+  // Tone intent stays under plannedTypography and never claims undeployed font assets.
+  assert.match(system.plannedTypography.displayFontId, /serif/i);
+  assert.match(system.plannedTypography.bodyFontId, /sans/i);
+  assert.ok(system.plannedTypography.fontRegistryPlan.every(record => record.commercialUse === true));
+  assert.ok(system.plannedTypography.fontRegistryPlan.every(record => record.deployed === false && record.sha256 === null));
+  // Selectable fonts are verified deployable assets, never undeployed plan ids.
+  assert.ok(![system.displayFontId, system.bodyFontId, system.numericFontId].some(id => /^source-han-/.test(id)));
   assert.ok(system.fallbackFontIds.length > 0);
-  assert.equal(system.fontAssetStatus, 'planned');
-  assert.ok(system.fontRegistryPlan.every(record => record.commercialUse === true));
-  assert.ok(system.fontRegistryPlan.every(record => record.deployed === false && record.sha256 === null));
+  assert.equal(system.fontAssetStatus, 'deployed');
+  assert.ok(system.fontRegistryPlan.length > 0);
+  assert.ok(system.fontRegistryPlan.every(record => record.fontId === system.resolvedFontId));
+  assert.ok(system.fontRegistryPlan.every(record => record.deployed === true && record.verified === true
+    && record.commercialUse === true && SHA256_RE.test(record.sha256)));
   assert.ok(system.hierarchy.title.maxLines <= 2);
 });
 
@@ -32,11 +40,16 @@ test('technical products keep numeric hierarchy clear while fashion and baby pro
   const baby = compileTypographySystem({ category: '母婴用品', language: 'zh-CN' });
 
   assert.equal(technology.tone, 'technology');
-  assert.notEqual(technology.displayFontId, fashion.displayFontId);
+  assert.notEqual(technology.plannedTypography.displayFontId, fashion.plannedTypography.displayFontId);
   assert.notEqual(fashion.tone, baby.tone);
   assert.equal(technology.tracking, 0);
   assert.equal(fashion.tracking, 0);
   assert.equal(baby.tracking, 0);
+  for (const system of [technology, fashion, baby]) {
+    assert.equal(system.resolvedFont.deployed, true);
+    assert.equal(system.resolvedFont.verified, true);
+    assert.equal(system.resolvedFont.commercialUse, true);
+  }
 });
 
 test('frontend category labels resolve to the same typography policy as canonical ecommerce categories', () => {
@@ -51,6 +64,7 @@ test('frontend category labels resolve to the same typography policy as canonica
     const expected = compileTypographySystem({ category: canonical, language: 'zh-CN' });
     assert.equal(aliased.tone, expected.tone);
     assert.equal(aliased.displayFontId, expected.displayFontId);
+    assert.equal(aliased.plannedTypography.displayFontId, expected.plannedTypography.displayFontId);
   }
 });
 

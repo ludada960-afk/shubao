@@ -56,7 +56,7 @@ export function createCompositionStore(db, {
   };
 
   const api = {
-    createDocument({ ownerEmail, projectId, versionId, width, height, colorSpace = 'srgb', backgroundAssetId = null, layers = [] }) {
+    createDocument({ ownerEmail, projectId, versionId, width, height, colorSpace = 'srgb', backgroundAssetId = null, renderedAssetId = null, layers = [] }) {
       const owner = normalizeOwner(ownerEmail);
       if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
         throw new TypeError('width and height must be positive integers');
@@ -71,8 +71,8 @@ export function createCompositionStore(db, {
           (id, owner_email, project_id, version_id, width, height, color_space, revision, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`).run(id, owner, projectId, versionId, width, height, colorSpace, createdAt, createdAt);
         db.prepare(`INSERT INTO composition_revisions
-          (document_id, revision, layers, background_asset_id, created_at) VALUES (?, 1, ?, ?, ?)`)
-          .run(id, JSON.stringify(layers || []), backgroundAssetId, createdAt);
+          (document_id, revision, layers, background_asset_id, rendered_asset_id, created_at) VALUES (?, 1, ?, ?, ?, ?)`)
+          .run(id, JSON.stringify(layers || []), backgroundAssetId, renderedAssetId, createdAt);
       })();
       return api.getDocument({ ownerEmail: owner, documentId: id });
     },
@@ -81,7 +81,7 @@ export function createCompositionStore(db, {
       return mapDocument(documentRow(ownerEmail, documentId));
     },
 
-    saveRevision({ ownerEmail, documentId, expectedRevision, layers, backgroundAssetId = undefined }) {
+    saveRevision({ ownerEmail, documentId, expectedRevision, layers, backgroundAssetId = undefined, renderedAssetId = null }) {
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new TypeError('expectedRevision must be a positive integer');
       return db.transaction(() => {
         const row = documentRow(ownerEmail, documentId);
@@ -91,8 +91,8 @@ export function createCompositionStore(db, {
         const nextRevision = expectedRevision + 1;
         const createdAt = timestamp();
         db.prepare(`INSERT INTO composition_revisions
-          (document_id, revision, layers, background_asset_id, created_at) VALUES (?, ?, ?, ?, ?)`)
-          .run(documentId, nextRevision, JSON.stringify(layers || []), backgroundAssetId === undefined ? current?.backgroundAssetId : backgroundAssetId, createdAt);
+          (document_id, revision, layers, background_asset_id, rendered_asset_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
+          .run(documentId, nextRevision, JSON.stringify(layers || []), backgroundAssetId === undefined ? current?.backgroundAssetId : backgroundAssetId, renderedAssetId, createdAt);
         const changed = db.prepare(`UPDATE composition_documents SET revision = ?, updated_at = ?
           WHERE id = ? AND owner_email = ? AND revision = ?`).run(nextRevision, createdAt, documentId, normalizeOwner(ownerEmail), expectedRevision).changes;
         if (changed !== 1) throw codedError('VERSION_CONFLICT', 'composition revision changed');
@@ -103,6 +103,13 @@ export function createCompositionStore(db, {
     listRevisions({ ownerEmail, documentId }) {
       if (!documentRow(ownerEmail, documentId)) return [];
       return db.prepare('SELECT * FROM composition_revisions WHERE document_id = ? ORDER BY revision ASC').all(documentId).map(revisionFromRow);
+    },
+
+    listDocuments({ ownerEmail, projectId, versionId }) {
+      const rows = db.prepare(`SELECT * FROM composition_documents
+        WHERE owner_email = ? AND project_id = ? AND version_id = ?
+        ORDER BY updated_at DESC, id ASC`).all(normalizeOwner(ownerEmail), projectId, versionId);
+      return rows.map(mapDocument);
     },
 
     linkRenderedAsset({ ownerEmail, documentId, revision, renderedAssetId }) {

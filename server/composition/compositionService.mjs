@@ -23,6 +23,65 @@ function coordinate(value, name, maximum) {
   return value;
 }
 
+function normalizeOwner(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function cleanAssetId(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function referenceMatchesAsset(value, assetId) {
+  if (typeof value !== 'string') return false;
+  if (value.trim() === assetId) return true;
+  try {
+    const parsed = new URL(value, 'https://shubao.invalid');
+    return decodeURIComponent(parsed.pathname.split('/').filter(Boolean).at(-1) || '') === assetId;
+  } catch {
+    return false;
+  }
+}
+
+function jsonReferencesAsset(value, assetId) {
+  if (referenceMatchesAsset(value, assetId)) return true;
+  if (Array.isArray(value)) return value.some(item => jsonReferencesAsset(item, assetId));
+  if (!value || typeof value !== 'object') return false;
+  return Object.values(value).some(item => jsonReferencesAsset(item, assetId));
+}
+
+function parseJson(value) {
+  try { return value ? JSON.parse(value) : {}; } catch { return {}; }
+}
+
+export function createCompositionAssetAuthorizer({ db } = {}) {
+  if (!db || typeof db.prepare !== 'function') throw new TypeError('db is required');
+  return ({ ownerEmail, projectId, versionId, assetId }) => {
+    const owner = normalizeOwner(ownerEmail);
+    const normalizedAssetId = cleanAssetId(assetId);
+    if (!owner || !projectId || !versionId || !normalizedAssetId) return false;
+    const version = db.prepare(`SELECT pv.input_snapshot, pv.plan_snapshot
+      FROM project_versions pv
+      JOIN projects p ON p.id = pv.project_id
+      WHERE pv.id = ? AND pv.project_id = ? AND p.owner_email = ? AND p.deleted_at IS NULL`)
+      .get(versionId, projectId, owner);
+    if (!version) return false;
+    if (jsonReferencesAsset(parseJson(version.input_snapshot), normalizedAssetId)
+      || jsonReferencesAsset(parseJson(version.plan_snapshot), normalizedAssetId)) return true;
+    const projectAssets = db.prepare(`SELECT id, stable_url FROM project_assets
+      WHERE owner_email = ? AND project_id = ? AND deleted_at IS NULL
+        AND (version_id IS NULL OR version_id = ?)`)
+      .all(owner, projectId, versionId);
+    if (projectAssets.some(row => row.id === normalizedAssetId || referenceMatchesAsset(row.stable_url, normalizedAssetId))) return true;
+    const compositionAssets = db.prepare(`SELECT cr.rendered_asset_id
+      FROM composition_documents cd
+      JOIN composition_revisions cr ON cr.document_id = cd.id
+      WHERE cd.owner_email = ? AND cd.project_id = ? AND cd.version_id = ?
+        AND cr.rendered_asset_id IS NOT NULL`)
+      .all(owner, projectId, versionId);
+    return compositionAssets.some(row => row.rendered_asset_id === normalizedAssetId);
+  };
+}
+
 async function validateLayers(layers, width, height) {
   if (!Array.isArray(layers)) throw new TypeError('layers must be an array');
   if (layers.length > MAX_LAYERS) throw new TypeError(`layers must not exceed ${MAX_LAYERS} entries`);
@@ -48,18 +107,25 @@ async function validateLayers(layers, width, height) {
   }));
 }
 
-export function createCompositionService({ compositionStore, generatedAssetStore } = {}) {
+export function createCompositionService({ compositionStore, generatedAssetStore, assetAuthorizer } = {}) {
   if (!compositionStore
     || typeof compositionStore.createDocument !== 'function'
     || typeof compositionStore.saveRevision !== 'function'
     || typeof compositionStore.getDocument !== 'function'
-    || typeof compositionStore.linkRenderedAsset !== 'function') {
+    || typeof compositionStore.listDocuments !== 'function') {
     throw new TypeError('compositionStore is required');
   }
   if (!generatedAssetStore
     || typeof generatedAssetStore.persistBuffer !== 'function'
     || typeof generatedAssetStore.read !== 'function') {
     throw new TypeError('generatedAssetStore persistBuffer and read are required');
+  }
+  if (typeof assetAuthorizer !== 'function') throw new TypeError('assetAuthorizer is required');
+
+  async function assertAssetAuthorized({ ownerEmail, projectId, versionId, assetId, label }) {
+    if (!await assetAuthorizer({ ownerEmail, projectId, versionId, assetId })) {
+      throw codedError('ASSET_NOT_FOUND', `${label} asset not found`);
+    }
   }
 
   async function readAsset(assetId, label) {
@@ -76,6 +142,19 @@ export function createCompositionService({ compositionStore, generatedAssetStore
     if (backgroundAssetId !== null && backgroundAssetId !== undefined
       && (typeof backgroundAssetId !== 'string' || !backgroundAssetId.trim())) {
       throw new TypeError('backgroundAssetId must be a non-empty string or null');
+    }
+    const authorization = {
+      ownerEmail: document.ownerEmail,
+      projectId: document.projectId,
+      versionId: document.versionId,
+    };
+    if (backgroundAssetId) {
+      await assertAssetAuthorized({ ...authorization, assetId: backgroundAssetId.trim(), label: 'background' });
+    }
+    for (const layer of layers) {
+      if (layer.kind === 'image') {
+        await assertAssetAuthorized({ ...authorization, assetId: layer.assetId, label: 'image layer' });
+      }
     }
     let base;
     if (backgroundAssetId) {
@@ -111,7 +190,7 @@ export function createCompositionService({ compositionStore, generatedAssetStore
       .toBuffer();
   }
 
-  async function renderAndLink(document, buffer) {
+  async function persistRenderedAsset(document, buffer) {
     const asset = await generatedAssetStore.persistBuffer({
       buffer,
       contentType: 'image/png',
@@ -122,16 +201,7 @@ export function createCompositionService({ compositionStore, generatedAssetStore
     if (!stored?.buffer || !stored.buffer.equals(buffer)) {
       throw codedError('GENERATED_ASSET_INTEGRITY_ERROR', 'rendered composition integrity check failed');
     }
-    compositionStore.linkRenderedAsset({
-      ownerEmail: document.ownerEmail,
-      documentId: document.id,
-      revision: document.revision,
-      renderedAssetId: asset.id,
-    });
-    return {
-      document: compositionStore.getDocument({ ownerEmail: document.ownerEmail, documentId: document.id }),
-      asset,
-    };
+    return asset;
   }
 
   const api = {
@@ -139,14 +209,20 @@ export function createCompositionService({ compositionStore, generatedAssetStore
       return compositionStore.getDocument(input);
     },
 
+    listDocuments(input) {
+      return compositionStore.listDocuments(input);
+    },
+
     async createDocument(input = {}) {
       const width = positiveInteger(input.width, 'width');
       const height = positiveInteger(input.height, 'height');
       const layers = await validateLayers(input.layers || [], width, height);
       const backgroundAssetId = input.backgroundAssetId ?? null;
-      const buffer = await renderDocument({ width, height, backgroundAssetId, layers });
-      const document = compositionStore.createDocument({ ...input, width, height, backgroundAssetId, layers });
-      return renderAndLink(document, buffer);
+      const draft = { ...input, width, height, backgroundAssetId, layers, id: 'pending', revision: 1 };
+      const buffer = await renderDocument(draft);
+      const asset = await persistRenderedAsset(draft, buffer);
+      const document = compositionStore.createDocument({ ...input, width, height, backgroundAssetId, renderedAssetId: asset.id, layers });
+      return { document, asset };
     },
 
     async saveRevision(input = {}) {
@@ -154,9 +230,11 @@ export function createCompositionService({ compositionStore, generatedAssetStore
       if (!current) throw codedError('DOCUMENT_NOT_FOUND', 'composition document not found');
       const layers = await validateLayers(input.layers, current.width, current.height);
       const backgroundAssetId = input.backgroundAssetId === undefined ? current.backgroundAssetId : input.backgroundAssetId;
-      const buffer = await renderDocument({ ...current, layers, backgroundAssetId });
-      const document = compositionStore.saveRevision({ ...input, layers });
-      return renderAndLink(document, buffer);
+      const draft = { ...current, revision: input.expectedRevision + 1, layers, backgroundAssetId };
+      const buffer = await renderDocument(draft);
+      const asset = await persistRenderedAsset(draft, buffer);
+      const document = compositionStore.saveRevision({ ...input, layers, backgroundAssetId, renderedAssetId: asset.id });
+      return { document, asset };
     },
 
     renderDocument,

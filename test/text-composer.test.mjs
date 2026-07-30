@@ -16,9 +16,12 @@ const VALID_LAYER = {
 test('text rendering preserves the exact confirmed Chinese copy', async () => {
   const layer = await renderTextLayer(VALID_LAYER);
   const svg = layer.svg.toString('utf8');
+  const inspectableSvg = svg.replace(/base64,[A-Za-z0-9+/=]+/, 'base64,<embedded-font>');
 
   assert.match(svg, /轻盈保湿/);
-  assert.doesNotMatch(svg, /undefined|NaN/);
+  assert.match(svg, /@font-face/);
+  assert.match(svg, /data:font\/(?:otf|ttf);base64,/);
+  assert.doesNotMatch(inspectableSvg, /undefined|NaN/);
   assert.equal(layer.metrics.lineCount, 1);
   assert.ok(Number.isFinite(layer.metrics.height));
   assert.ok(Buffer.isBuffer(layer.svg));

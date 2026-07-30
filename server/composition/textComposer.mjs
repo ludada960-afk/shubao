@@ -1,4 +1,4 @@
-import { resolveFont } from './fontRegistry.mjs';
+import { fontDataUrl, resolveFont } from './fontRegistry.mjs';
 
 const ALIGNMENTS = new Set(['left', 'center', 'right']);
 const COLOR_RE = /^#(?:[a-f0-9]{3}|[a-f0-9]{4}|[a-f0-9]{6}|[a-f0-9]{8})$/i;
@@ -45,6 +45,7 @@ export async function renderTextLayer({
   if (!ALIGNMENTS.has(align)) throw new TypeError('align must be left, center or right');
 
   const font = resolveFont({ fontId });
+  const embeddedFont = fontDataUrl(font.fontId);
   const lines = text.split(/\r\n|\r|\n/);
   const lineAdvance = safeFontSize * safeLineHeight;
   const height = Math.max(1, Math.ceil(lineAdvance * lines.length));
@@ -55,6 +56,7 @@ export async function renderTextLayer({
   )).join('');
   const svg = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${height}" viewBox="0 0 ${safeWidth} ${height}">`
+      + `<style type="text/css">@font-face{font-family:"${escapeXml(font.family)}";src:url("${embeddedFont}") format("opentype");font-style:normal;font-weight:100 900;}</style>`
       + `<text x="${x}" y="${safeFontSize}" xml:space="preserve" fill="${color}" font-family="${escapeXml(font.family)}" font-size="${safeFontSize}" text-anchor="${anchor}">${tspans}</text>`
       + '</svg>',
     'utf8',

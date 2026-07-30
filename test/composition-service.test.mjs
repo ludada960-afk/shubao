@@ -4,7 +4,10 @@ import test from 'node:test';
 import Database from 'better-sqlite3';
 import sharp from 'sharp';
 
-import { createCompositionService } from '../server/composition/compositionService.mjs';
+import {
+  createCompositionAssetAuthorizer,
+  createCompositionService,
+} from '../server/composition/compositionService.mjs';
 import { createCompositionStore } from '../server/projects/compositionStore.mjs';
 import { createProjectStore } from '../server/projects/projectStore.mjs';
 import { ensureProjectSchema } from '../server/projects/schema.mjs';
@@ -12,9 +15,14 @@ import { ensureProjectSchema } from '../server/projects/schema.mjs';
 function createMemoryAssetStore(seed = {}) {
   const assets = new Map(Object.entries(seed));
   const persisted = [];
-  return {
+  const store = {
     persisted,
+    failPersist: false,
+    seed(assetId, buffer, contentType = 'image/png') {
+      assets.set(assetId, { buffer: Buffer.from(buffer), contentType });
+    },
     async persistBuffer({ buffer, contentType, taskId, label }) {
+      if (store.failPersist) throw new Error('storage failed');
       assert.ok(Buffer.isBuffer(buffer));
       const id = `${crypto.createHash('sha256').update(buffer).digest('hex')}.png`;
       assets.set(id, { buffer: Buffer.from(buffer), contentType });
@@ -26,6 +34,7 @@ function createMemoryAssetStore(seed = {}) {
       return asset ? { buffer: Buffer.from(asset.buffer), contentType: asset.contentType } : null;
     },
   };
+  return store;
 }
 
 async function setup(t) {
@@ -58,6 +67,12 @@ async function setup(t) {
   const service = createCompositionService({
     compositionStore,
     generatedAssetStore,
+    assetAuthorizer: ({ ownerEmail: requestedOwner, projectId, versionId, assetId }) => (
+      requestedOwner === ownerEmail
+      && projectId === project.id
+      && versionId === version.id
+      && ['background.png', 'product.png'].includes(assetId)
+    ),
     billing: { charge: () => { billingCalls += 1; } },
   });
   return {
@@ -207,4 +222,102 @@ test('composition service enforces owner scope and validates document and layer 
     ownerEmail: context.ownerEmail,
     documentId: created.document.id,
   }).length, 1);
+});
+
+test('composition service rejects a global asset that is not owned by the project version', async t => {
+  const context = await setup(t);
+  const foreign = await sharp({
+    create: { width: 800, height: 600, channels: 4, background: '#111111' },
+  }).png().toBuffer();
+  context.generatedAssetStore.seed('foreign.png', foreign);
+
+  await assert.rejects(
+    () => context.service.createDocument({
+      ownerEmail: context.ownerEmail,
+      projectId: context.project.id,
+      versionId: context.version.id,
+      width: 800,
+      height: 600,
+      backgroundAssetId: 'foreign.png',
+      layers: [],
+    }),
+    error => error.code === 'ASSET_NOT_FOUND',
+  );
+});
+
+test('a rendered-asset storage failure never advances the immutable revision', async t => {
+  const context = await setup(t);
+  const created = await context.service.createDocument({
+    ownerEmail: context.ownerEmail,
+    projectId: context.project.id,
+    versionId: context.version.id,
+    width: 800,
+    height: 600,
+    backgroundAssetId: 'background.png',
+    layers: layers('初稿'),
+  });
+  context.generatedAssetStore.failPersist = true;
+
+  await assert.rejects(
+    () => context.service.saveRevision({
+      ownerEmail: context.ownerEmail,
+      documentId: created.document.id,
+      expectedRevision: 1,
+      layers: layers('不应落库'),
+    }),
+    /storage failed/,
+  );
+  assert.equal(context.compositionStore.getDocument({
+    ownerEmail: context.ownerEmail,
+    documentId: created.document.id,
+  }).revision, 1);
+  assert.equal(context.compositionStore.listRevisions({
+    ownerEmail: context.ownerEmail,
+    documentId: created.document.id,
+  }).length, 1);
+});
+
+test('production asset authorization accepts only owner project version evidence', t => {
+  const db = new Database(':memory:');
+  t.after(() => db.close());
+  ensureProjectSchema(db);
+  let sequence = 0;
+  const randomUUID = () => `auth-id-${++sequence}`;
+  const projectStore = createProjectStore(db, { randomUUID });
+  const compositionStore = createCompositionStore(db, { randomUUID });
+  const ownerEmail = 'owner@example.com';
+  const project = projectStore.createProject({ ownerEmail, kind: 'ecommerce' });
+  const version = projectStore.createVersion({
+    ownerEmail,
+    projectId: project.id,
+    reason: 'generation',
+    inputSnapshot: { productAssets: [{ assetId: 'snapshot-input.png' }] },
+    planSnapshot: { result: { stableUrl: '/api/generated-assets/snapshot-output.png' } },
+  });
+  db.prepare(`INSERT INTO project_assets (
+    id, owner_email, project_id, version_id, role, content_hash, stable_url,
+    mime_type, retention_class, created_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    'project-asset-row', ownerEmail, project.id, version.id, 'generated', 'hash',
+    '/api/generated-assets/project-output.png', 'image/png', 'completed', new Date().toISOString(),
+  );
+  compositionStore.createDocument({
+    ownerEmail,
+    projectId: project.id,
+    versionId: version.id,
+    width: 100,
+    height: 100,
+    renderedAssetId: 'composition-output.png',
+    layers: [],
+  });
+  const authorize = createCompositionAssetAuthorizer({ db });
+  const context = { ownerEmail, projectId: project.id, versionId: version.id };
+
+  assert.equal(authorize({ ...context, assetId: 'snapshot-input.png' }), true);
+  assert.equal(authorize({ ...context, assetId: 'snapshot-output.png' }), true);
+  assert.equal(authorize({ ...context, assetId: 'project-output.png' }), true);
+  assert.equal(authorize({ ...context, assetId: 'composition-output.png' }), true);
+  assert.equal(authorize({ ...context, ownerEmail: 'other@example.com', assetId: 'snapshot-input.png' }), false);
+  assert.equal(authorize({ ...context, versionId: 'other-version', assetId: 'snapshot-input.png' }), false);
+  assert.equal(authorize({ ...context, assetId: 'global-only.png' }), false);
 });

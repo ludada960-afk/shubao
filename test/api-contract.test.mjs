@@ -34,6 +34,31 @@ function completedContentStream() {
   );
 }
 
+test('composition lookup is authenticated and scoped to one project version', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  globalThis.localStorage = ecommerceStorage();
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), authorization: options.headers?.Authorization });
+    return new Response(JSON.stringify({ documents: [{ id: 'composition-1' }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { listTextCompositions } = await import(`../src/services/api.js?composition-list=${Date.now()}`);
+  const documents = await listTextCompositions({ projectId: 'project-1', versionId: 'version-1' });
+
+  assert.deepEqual(documents, [{ id: 'composition-1' }]);
+  assert.equal(calls[0].url, '/api/compositions?projectId=project-1&versionId=version-1');
+  assert.equal(calls[0].authorization, 'Bearer signed-ecommerce-session');
+});
+
 test('paid content APIs send owned reference asset IDs rather than raw resumable image data', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;

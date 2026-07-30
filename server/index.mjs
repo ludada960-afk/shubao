@@ -48,7 +48,7 @@ import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
-import { createCompositionService } from './composition/compositionService.mjs';
+import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
@@ -140,7 +140,11 @@ const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
 const projectStore = createProjectStore(db);
 const compositionStore = createCompositionStore(db);
-const compositionService = createCompositionService({ compositionStore, generatedAssetStore });
+const compositionService = createCompositionService({
+  compositionStore,
+  generatedAssetStore,
+  assetAuthorizer: createCompositionAssetAuthorizer({ db }),
+});
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
   try {
@@ -3568,6 +3572,19 @@ app.post('/api/compositions', authenticateEcommerceRequest, async (req, res) => 
       layers: req.body?.layers,
     });
     return res.status(201).json(result);
+  } catch (error) {
+    return sendCompositionError(error, res);
+  }
+});
+
+app.get('/api/compositions', authenticateEcommerceRequest, (req, res) => {
+  try {
+    const documents = compositionService.listDocuments({
+      ownerEmail: req._userEmail,
+      projectId: req.query?.projectId,
+      versionId: req.query?.versionId,
+    });
+    return res.json({ documents });
   } catch (error) {
     return sendCompositionError(error, res);
   }

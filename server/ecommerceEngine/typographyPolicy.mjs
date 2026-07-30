@@ -24,17 +24,16 @@ export function compileTypographySystem({ category = '其他', priceBand = '', l
   const normalizedPriceBand = cleanString(priceBand).toLowerCase();
   const policy = policyFor(normalizedCategory, normalizedPriceBand);
   const resolvedFont = resolveFont({ category: normalizedCategory, priceBand: normalizedPriceBand, language });
-  const bodyFontId = 'source-han-sans-sc';
-  const numericFontId = 'source-han-sans-sc';
-  const fallbackFontIds = policy.displayFontId === bodyFontId ? [numericFontId] : [bodyFontId, numericFontId];
-  const fontIds = [...new Set([policy.displayFontId, bodyFontId, numericFontId, ...fallbackFontIds])];
+  const plannedBodyFontId = 'source-han-sans-sc';
+  const plannedNumericFontId = 'source-han-sans-sc';
+  const plannedFontIds = [...new Set([policy.displayFontId, plannedBodyFontId, plannedNumericFontId])];
 
   return {
     tone: policy.tone,
     language: cleanString(language) || 'zh-CN',
-    displayFontId: policy.displayFontId,
-    bodyFontId,
-    numericFontId,
+    displayFontId: resolvedFont.fontId,
+    bodyFontId: resolvedFont.fontId,
+    numericFontId: resolvedFont.fontId,
     weights: [...policy.weights],
     hierarchy: {
       title: { minSize: 42, maxSize: 88, maxLines: 2, weight: policy.weights.at(-1) },
@@ -47,11 +46,17 @@ export function compileTypographySystem({ category = '其他', priceBand = '', l
     tracking: 0,
     maxLines: 4,
     contrastPolicy: 'WCAG AA for body copy; never place text over product identity features.',
-    fallbackFontIds,
+    fallbackFontIds: [resolvedFont.fontId],
     resolvedFontId: resolvedFont.fontId,
     resolvedFont: { ...resolvedFont },
-    fontAssetStatus: 'planned',
-    fontRegistryPlan: fontIds.map(fontId => ({ fontId, ...FONT_REGISTRY_PLAN[fontId] })),
+    fontAssetStatus: 'deployed',
+    fontRegistryPlan: [{ ...resolvedFont }],
+    plannedTypography: {
+      displayFontId: policy.displayFontId,
+      bodyFontId: plannedBodyFontId,
+      numericFontId: plannedNumericFontId,
+      fontRegistryPlan: plannedFontIds.map(fontId => ({ fontId, ...FONT_REGISTRY_PLAN[fontId] })),
+    },
   };
 }
 
