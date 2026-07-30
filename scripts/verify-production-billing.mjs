@@ -42,6 +42,7 @@ export async function requestJson(url, options = {}) {
 }
 
 export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToken = '' } = {}) {
+  if (!String(sessionToken || '').trim()) throw new Error('SHUBAO_CANARY_SESSION_TOKEN is required');
   const root = baseUrl.replace(/\/+$/, '');
   const homepage = await requestJson(`${root}/health`);
   if (homepage.ok !== true && !['ok', 'healthy'].includes(homepage.status)) {
@@ -57,24 +58,20 @@ export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToke
     throw new Error('Production catalog exposes an enabled payment provider');
   }
 
-  if (sessionToken) {
-    const headers = { authorization: `Bearer ${sessionToken}` };
-    const balanceBefore = await requestJson(`${root}/api/billing/balance`, { headers });
-    if (balanceBefore.unlimited !== true) throw new Error('Canary owner is not unlimited');
-    const quoteResponse = await requestJson(`${root}/api/billing/quote`, {
-      method: 'POST',
-      headers: { ...headers, 'content-type': 'application/json' },
-      body: JSON.stringify({ sku: 'ec_reverse_prompt', quantity: 1 }),
-    });
-    if (!quoteResponse.quote?.quoteId || quoteResponse.quote.totalUnits !== 200) {
-      throw new Error('Billing quote response is invalid');
-    }
-    const balanceAfter = await requestJson(`${root}/api/billing/balance`, { headers });
-    if (JSON.stringify(balanceBefore) !== JSON.stringify(balanceAfter)) {
-      throw new Error('Balance changed after quote-only request');
-    }
-  } else {
-    console.warn('SessionToken not supplied; owner unlimited check skipped');
+  const headers = { authorization: `Bearer ${sessionToken}` };
+  const balanceBefore = await requestJson(`${root}/api/billing/balance`, { headers });
+  if (balanceBefore.unlimited !== true) throw new Error('Canary owner is not unlimited');
+  const quoteResponse = await requestJson(`${root}/api/billing/quote`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ sku: 'ec_reverse_prompt', quantity: 1 }),
+  });
+  if (!quoteResponse.quote?.quoteId || quoteResponse.quote.totalUnits !== 200) {
+    throw new Error('Billing quote response is invalid');
+  }
+  const balanceAfter = await requestJson(`${root}/api/billing/balance`, { headers });
+  if (JSON.stringify(balanceBefore) !== JSON.stringify(balanceAfter)) {
+    throw new Error('Balance changed after quote-only request');
   }
 
   console.log(`Production verification passed for ${root}`);

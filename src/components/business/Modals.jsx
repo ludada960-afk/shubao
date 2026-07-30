@@ -141,7 +141,7 @@ export function LoginModal() {
       )}
 
       {step === 'code' && (
-        <button type="button" onClick={() => updateOtp({ type: 'EDIT_EMAIL' })}
+        <button type="button" onClick={() => updateOtp({ type: 'BEGIN_LOGIN', email })}
           style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--command)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
           修改邮箱
         </button>

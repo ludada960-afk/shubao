@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { requestJson } from '../scripts/verify-production-billing.mjs';
+import { requestJson, verifyProduction } from '../scripts/verify-production-billing.mjs';
 
 test('public verifier retries transient transport failures before returning JSON', async () => {
   let attempts = 0;
@@ -44,4 +44,8 @@ test('public verifier fails after the bounded retry limit', async () => {
     /TLS handshake failed/,
   );
   assert.equal(attempts, 3);
+});
+
+test('production verifier fails closed without the signed canary token', async () => {
+  await assert.rejects(verifyProduction({ baseUrl: 'https://shuimg.cn' }), /SHUBAO_CANARY_SESSION_TOKEN is required/);
 });
