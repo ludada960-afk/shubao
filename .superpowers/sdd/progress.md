@@ -267,6 +267,23 @@
   points in-product and lists every failed image in context. Fresh controller
   verification passed 157/157 focused tests, Vite transformed 6419 modules,
   and `git diff --check` passed. No deployment was performed at this task boundary.
+- Codex desktop recovery snapshot (2026-07-30): source task
+  `019f8930-7569-7852-8c51-5136318105ae` is in `systemError`. Its final
+  trustworthy completed work recorded Task 4 fixes in `bca5cc5` and Task 5 in
+  `54e5800`; current Git `HEAD` matches `54e5800`. The source task recorded a
+  full 833/833 regression pass, a production build pass and clean diff check
+  before those commits, but the two independent Task 4/5 review sessions were
+  started without their final verdicts being captured. Their approval is
+  therefore unknown and must be re-established before treating Tasks 4/5 as
+  independently reviewed.
+- Market-ready closure Task 6 recovery boundary: no Task 6 implementation or RED
+  test has been completed. The failed task ran
+  `npm install ag-psd@31.0.2 --save-exact`, leaving `package.json` and
+  `package-lock.json` modified. The diff pins `ag-psd` but also removes numerous
+  existing dependencies, so it is an unverified recovery artifact and must not
+  be committed as-is. The next execution must first reconstruct the minimal,
+  intended dependency diff against `54e5800`, verify required existing packages
+  remain declared, then begin Task 6 with its planned failing tests.
 
 ## Ownership
 

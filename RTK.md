@@ -64,3 +64,12 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 - Codex：核心架构、数据库、账务、模型路由、任务恢复、质量门、生产集成和部署。
 - GLM：独立且无副作用的展示组件、静态样式和纯函数；不得修改服务端、路由、AppContext、数据库或部署脚本。
+
+## 9. Codex 桌面对话故障恢复
+
+- `Upstream provider request failed`、任务状态 `systemError`、或连续两次发送消息却只留下用户消息而没有助手输出，优先视为 Codex 客户端/上游对话故障，不得归因于项目代码，也不得继续反复点击“继续”。
+- 新对话必须回到本文件规定的 Codex worktree 和分支，依次读取 `AGENTS.md`、本文件、当前规格、实施计划与 `.superpowers/sdd/progress.md`，再运行 `npm run collab:check` 和固定 Git 前缀的 `status` / `log`。
+- Codex 桌面任务记录可读时，只读取故障对话最后一个完整完成的回合来辅助恢复；聊天内容不是事实源。恢复结论必须由 Git 提交、工作区 diff、测试输出和进度账本交叉验证。
+- `AGENTS.md` 和本文件只保存跨任务稳定的规则；具体提交、测试、脏文件、未知项和下一步统一写入 `.superpowers/sdd/progress.md`，避免超长聊天成为唯一记忆。
+- 恢复快照必须明确记录：故障任务、最后可信提交、已验证测试、当前未提交文件、尚未拿到的评审结论，以及唯一下一执行边界。任何未捕获的旧对话结果都按“未知/待重验”处理。
+- 在新对话确认恢复快照与 Git 一致前，不归档或删除故障任务；确认后也不再向故障任务发送工作指令。
