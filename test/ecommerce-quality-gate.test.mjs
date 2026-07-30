@@ -277,6 +277,7 @@ test('uses a deterministic edge metric to reject blurred output', async () => {
   });
 
   assert.equal(sharpResult.checks.visualQuality.status, 'pass');
+  assert.ok(sharpResult.checks.visualQuality.metrics.edgeStrength >= 8);
   assert.equal(blurredResult.passed, false);
   assert.equal(blurredResult.checks.visualQuality.status, 'fail');
   assert.ok(blurredResult.checks.visualQuality.issueCodes.includes('too_blurry'));

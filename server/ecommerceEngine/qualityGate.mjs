@@ -7,7 +7,8 @@ import { normalizeSemanticLayout } from './suiteDiversity.mjs';
 const WHITE_BACKGROUND_ROLES = new Set(['white_background', 'white_bg', 'transparent_white']);
 const SUPPORTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 const BLANK_STDDEV_THRESHOLD = 3;
-const BLUR_EDGE_THRESHOLD = 18;
+// Calibrated against accepted 2K product generations; lower values still reject defocused outputs.
+const BLUR_EDGE_THRESHOLD = 8;
 
 export function buildFormalEcommerceQualityPrompt() {
   const example = {
