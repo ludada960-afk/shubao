@@ -258,13 +258,14 @@ test('rejects blank or near-uniform generated output deterministically', async (
   assert.equal(result.repairAction.type, 'regenerate_from_product_truth');
 });
 
-test('uses a deterministic edge metric to reject blurred output', async () => {
+test('uses semantic visual review to avoid false blur rejections while retaining the fallback metric', async () => {
   const sharpResult = await evaluateAsset({
     buffer: await checkerFixture(),
     role: 'detail',
     generationSize: '128x128',
     expectedFormat: 'png',
   }, {
+    productFidelity: async () => ({ passed: true, confidence: 0.9 }),
     visualQuality: async () => visualPass({ confidence: 0.9 }),
   });
   const blurredResult = await evaluateAsset({
@@ -273,19 +274,28 @@ test('uses a deterministic edge metric to reject blurred output', async () => {
     generationSize: '128x128',
     expectedFormat: 'png',
   }, {
+    productFidelity: async () => ({ passed: true, confidence: 0.9 }),
     visualQuality: async () => visualPass({ confidence: 0.9 }),
   });
 
   assert.equal(sharpResult.checks.visualQuality.status, 'pass');
   assert.ok(sharpResult.checks.visualQuality.metrics.edgeStrength >= 8);
-  assert.equal(blurredResult.passed, false);
-  assert.equal(blurredResult.checks.visualQuality.status, 'fail');
-  assert.ok(blurredResult.checks.visualQuality.issueCodes.includes('too_blurry'));
+  assert.equal(blurredResult.passed, true);
+  assert.equal(blurredResult.checks.visualQuality.status, 'pass');
   assert.ok(
     blurredResult.checks.visualQuality.metrics.edgeStrength
       < sharpResult.checks.visualQuality.metrics.edgeStrength,
   );
-  assert.equal(blurredResult.repairAction.type, 'image_edit');
+  assert.equal(blurredResult.repairAction.type, 'none');
+
+  const fallbackResult = await evaluateAsset({
+    buffer: await checkerFixture({ blurred: true }),
+    role: 'detail',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+  });
+  assert.equal(fallbackResult.passed, false);
+  assert.ok(fallbackResult.checks.visualQuality.issueCodes.includes('too_blurry'));
 });
 
 test('rejects provider output that violates legal generation dimensions', async () => {

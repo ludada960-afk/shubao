@@ -410,10 +410,6 @@ export async function evaluateAsset(input = {}, adapters = {}) {
     },
   );
 
-  const deterministicVisualIssues = [];
-  if (metrics.luminanceStdDev < BLANK_STDDEV_THRESHOLD) deterministicVisualIssues.push('blank_or_uniform');
-  else if (metrics.edgeStrength < BLUR_EDGE_THRESHOLD) deterministicVisualIssues.push('too_blurry');
-
   const adapterPayload = {
     buffer,
     metadata: {
@@ -431,6 +427,14 @@ export async function evaluateAsset(input = {}, adapters = {}) {
     failureCode: 'visual_quality_failed',
     requireSemanticLayout: true,
   });
+  const deterministicVisualIssues = [];
+  if (metrics.luminanceStdDev < BLANK_STDDEV_THRESHOLD) {
+    deterministicVisualIssues.push('blank_or_uniform');
+  } else if (metrics.edgeStrength < BLUR_EDGE_THRESHOLD && visualAdapter.status !== 'pass') {
+    // A fixed pixel-gradient threshold is not resolution invariant. Preserve it as a fallback
+    // signal, but do not override a successful semantic quality review of a real product image.
+    deterministicVisualIssues.push('too_blurry');
+  }
   const visualStatus = deterministicVisualIssues.length || visualAdapter.status === 'fail'
     ? 'fail'
     : visualAdapter.status === 'pass'
