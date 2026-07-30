@@ -10,6 +10,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if ([string]::IsNullOrWhiteSpace($env:SHUBAO_CANARY_SESSION_TOKEN)) {
+  throw "SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment"
+}
 $repo = (Resolve-Path $RepoPath).Path
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $commit = (git -C $repo rev-parse --short HEAD).Trim()

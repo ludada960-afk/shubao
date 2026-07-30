@@ -8,6 +8,7 @@ const nodeVerify = readFileSync(new URL('../scripts/verify-production-billing.mj
 const backupHelper = readFileSync(new URL('../scripts/backup-runtime-db.cjs', import.meta.url), 'utf8');
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
+  assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
   assert.match(deploy, /git[^\n]*diff --check/i);
   assert.match(deploy, /backup-runtime-db\.cjs/i);
   assert.match(deploy, /scp[^\n]*remoteDatabaseBackupHelper/i);
