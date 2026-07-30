@@ -187,6 +187,8 @@ test('visual-analysis prompts require a numeric top-level confidence field', () 
 
   assert.match(productPrompt.systemPrompt, /"confidence": 0/);
   assert.match(productPrompt.systemPrompt, /top-level confidence field as a JSON number from 0 to 1/i);
+  assert.match(stylePrompt.systemPrompt, /"palette": \[\]/);
+  assert.match(stylePrompt.systemPrompt, /"lighting": ""/);
   assert.match(stylePrompt.systemPrompt, /top-level sourceAssetIds and confidence/i);
   assert.match(stylePrompt.systemPrompt, /confidence must be a JSON number from 0 to 1/i);
 });

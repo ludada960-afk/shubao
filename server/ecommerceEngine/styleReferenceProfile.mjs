@@ -72,7 +72,24 @@ export function normalizeStyleReferenceProfile(input = {}) {
 export function buildStyleReferencePrompt({ sourceAssetIds = [] } = {}) {
   const assets = cleanStrings(sourceAssetIds);
   return {
-    systemPrompt: `Return JSON only. Extract transferable palette, lighting, composition, camera language, typography intent, information density, background language and mood. Always include top-level sourceAssetIds and confidence; confidence must be a JSON number from 0 to 1, never a string. Never transfer products, people identities, brands, logos, prices, claims, parameters, certifications or source copy.`,
+    systemPrompt: `You are an e-commerce style-reference extraction system. Return JSON only: no markdown, prose, or comments. Extract transferable palette, lighting, composition, camera language, typography intent, information density, background language, and mood only; never copy the reference product or its commercial facts.
+
+Return this JSON object:
+{
+  "palette": [],
+  "lighting": "",
+  "composition": "",
+  "cameraLanguage": "",
+  "typographyIntent": "",
+  "informationDensity": "",
+  "backgroundLanguage": "",
+  "mood": "",
+  "prohibitedTransfers": [],
+  "sourceAssetIds": [],
+  "confidence": 0
+}
+
+Always include top-level sourceAssetIds and confidence; confidence must be a JSON number from 0 to 1, never a string. Never transfer products, people identities, brands, logos, prices, claims, parameters, certifications or source copy.`,
     userPrompt: `Analyze style references ${assets.join(', ')}. Return JSON only.`,
   };
 }
