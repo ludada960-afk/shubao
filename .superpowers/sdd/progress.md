@@ -16,6 +16,8 @@
 
 - Market-ready ecommerce creation closure Task 6: complete (`d4decf9..431f662`, final review clean). Layered PSD export now requires server-generated pixel provenance, readable document-sized masks, allowlisted asset references and held/settled pixel-layer billing; focused 70/70 and full 860/860 tests passed.
 - Market-ready ecommerce creation closure Task 7: complete (`431f662..c462448`, final review clean). Retention is mark-isolate-recheck-delete with a fresh isolation grace period, protects running, Works, Canvas/composition, billing-dispute and shared content-addressed references, surfaces expiry on Works, and migrates only unlinked legacy ecommerce Works idempotently. Focused regression 23/23 passed.
+- Market-ready ecommerce creation closure Task 8: complete (`ab1ffec..05cc059`, final review clean). OTP state resets on every email-change path, market copy exposes only the two public currencies, and Canvas command/focus states consume independently loaded semantic tokens. Focused review regression 47/47 passed.
+- Market-ready ecommerce creation closure Task 9: local quality gate complete (full `npm test` 878/878, build and collaboration policy READY). Production deployment is intentionally fail-closed until `SHUBAO_CANARY_SESSION_TOKEN` is configured; the verifier now rejects a missing token before deployment-side validation can be claimed.
 
 - Market-ready ecommerce creation closure design: written and self-reviewed at
   `docs/superpowers/specs/2026-07-29-market-ready-ecommerce-creation-closure.md`.
