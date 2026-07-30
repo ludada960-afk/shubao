@@ -2,6 +2,7 @@ import sharp from 'sharp';
 
 const SAMPLE_SIZE = 32;
 const NEAR_DUPLICATE_THRESHOLD = 0.04;
+const CROSS_ASPECT_NEAR_DUPLICATE_THRESHOLD = 0.035;
 const SEMANTIC_LAYOUT_CONFIDENCE_THRESHOLD = 0.7;
 
 function cleanRole(value) {
@@ -57,6 +58,27 @@ function diversityFamily(role) {
   if (normalized.startsWith('detail_slice_') || normalized === 'detail') return 'detail';
   if (normalized === 'sku' || normalized.startsWith('sku_')) return 'sku';
   return normalized || 'other';
+}
+
+function aspectRatio(item) {
+  const raw = typeof item?.ratio === 'string' ? item.ratio.trim() : '';
+  const match = /^(\d+)\s*:\s*(\d+)$/.exec(raw);
+  if (!match) return 0;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  return width > 0 && height > 0 ? width / height : 0;
+}
+
+function duplicateThreshold(candidate, existing) {
+  const candidateRole = cleanRole(candidate?.role);
+  const existingRole = cleanRole(existing?.role);
+  const candidateRatio = aspectRatio(candidate?.assetPlanItem);
+  const existingRatio = aspectRatio(existing?.assetPlanItem);
+  if (candidateRole && existingRole && candidateRole !== existingRole
+    && candidateRatio && existingRatio && Math.abs(candidateRatio - existingRatio) >= 0.1) {
+    return CROSS_ASPECT_NEAR_DUPLICATE_THRESHOLD;
+  }
+  return NEAR_DUPLICATE_THRESHOLD;
 }
 
 function lineScores(pixels, width, height, axis) {
@@ -252,7 +274,8 @@ export async function evaluateSuiteDiversity({ candidate = {}, existing = [], se
     if (diversityFamily(asset?.role) !== family || !Buffer.isBuffer(asset?.buffer)) continue;
     const other = await measureSuiteImage(asset.buffer);
     const distance = visualFingerprintDistance(measured.fingerprint, other.fingerprint);
-    if (distance <= NEAR_DUPLICATE_THRESHOLD) {
+    const threshold = duplicateThreshold(candidate, asset);
+    if (distance <= threshold) {
       return {
         passed: false,
         issueCodes: ['suite_near_duplicate'],
@@ -260,7 +283,7 @@ export async function evaluateSuiteDiversity({ candidate = {}, existing = [], se
           duplicateOf: String(asset.assetId || ''),
           family,
           distance: Number(distance.toFixed(4)),
-          threshold: NEAR_DUPLICATE_THRESHOLD,
+          threshold,
         },
       };
     }

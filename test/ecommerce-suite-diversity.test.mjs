@@ -97,6 +97,28 @@ test('perceptual suite check rejects near duplicates but keeps a materially diff
   })).passed, true);
 });
 
+test('permits a borderline-similar main image when its planned role and aspect ratio differ', async () => {
+  const original = await scene({ accent: '#222222' });
+  const nearDuplicate = await scene({ accent: '#464646' });
+  const verdict = await evaluateSuiteDiversity({
+    candidate: {
+      assetId: 'main-square',
+      role: 'main_text',
+      buffer: nearDuplicate,
+      assetPlanItem: { ratio: '1:1' },
+    },
+    existing: [{
+      assetId: 'main-portrait',
+      role: 'main_3x4',
+      buffer: original,
+      assetPlanItem: { ratio: '3:4' },
+    }],
+    semanticLayout: SEMANTIC_SINGLE_PRODUCT,
+  });
+
+  assert.equal(verdict.passed, true);
+});
+
 test('suite check rejects a visible multi-panel collage before delivery', async () => {
   const collage = await scene({ panel: true });
   const measured = await measureSuiteImage(collage);
