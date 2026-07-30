@@ -9,6 +9,7 @@ import { stableWorkKey } from '../../utils/workRecords.js';
 import { Card, CharImg, EmptyState } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import Footer from '../../components/layout/Footer';
+import { formatRetentionStatus } from './retentionModel.js';
 
 const TABS = [
   { key: 'xhs', label: '小红书图文' },
@@ -154,8 +155,9 @@ export default function WorksPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: 14 }}>
             {currentWorks.map((w, i) => {
               const ecImages = w._ecResult ? getEcImages(w) : [];
-              const canOpen = !w._ecResult || ecImages.length > 0;
               const status = EC_GENERATION_STATUS[w.generationStatus] || EC_GENERATION_STATUS.completed;
+              const retention = formatRetentionStatus(w.retention);
+              const canOpen = (!w._ecResult || ecImages.length > 0) && retention.available;
               return (
               <Card key={stableWorkKey(w, `work-${i}`)} hover={canOpen} onClick={canOpen ? () => viewWork(w) : undefined} style={{
                 padding: 16, display: 'flex', gap: 14, alignItems: 'center',
@@ -219,6 +221,10 @@ export default function WorksPage() {
                           fontSize: 10, background: status.background, color: status.color,
                           padding: '1px 7px', borderRadius: 4, fontWeight: 700,
                         }}>{status.label}</span>
+                        <span style={{
+                          fontSize: 10, background: retention.available ? '#EEF7F1' : '#FFF3E8',
+                          color: retention.available ? '#177B48' : '#A15C00', padding: '1px 7px', borderRadius: 4,
+                        }}>{retention.label}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-ghost)' }}>
                         <span>

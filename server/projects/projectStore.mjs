@@ -17,6 +17,11 @@ function codedError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
+function stableAssetIdFromUrl(value) {
+  const match = String(value || '').match(/\/api\/generated-assets\/([^/?#]+)$/i);
+  return match ? match[1] : '';
+}
+
 function terminalConflict(currentStatus, requestedStatus) {
   return codedError(
     'GENERATION_RUN_TERMINAL_CONFLICT',
@@ -363,6 +368,17 @@ export function createProjectStore(db, {
           JSON.stringify(resultPlanSnapshot || {}),
           completedAt,
         );
+        for (const resultAsset of Array.isArray(resultInputSnapshot?.assets) ? resultInputSnapshot.assets : []) {
+          if (String(resultAsset?.state || '') !== 'completed') continue;
+          const stableUrl = String(resultAsset?.stableUrl || '').trim();
+          const assetId = stableAssetIdFromUrl(stableUrl);
+          if (!assetId) continue;
+          db.prepare(`INSERT OR IGNORE INTO project_assets
+            (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'generated', ?, ?, 'image/png', ?, ?)`)
+            .run(`${project.id}:${assetId}`, assetId, owner, project.id, resultVersionId, runId, assetId, stableUrl,
+              resultStatus === 'completed' ? 'completed' : 'unfinished', completedAt);
+        }
         if (resultStatus === 'completed') {
           db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?
             WHERE id = ? AND owner_email = ?`).run(
@@ -490,6 +506,42 @@ export function createProjectStore(db, {
           .run(project.id, project.ownerEmail);
       }).immediate();
       return api.getProject({ ownerEmail: project.ownerEmail, projectId: project.id });
+    },
+
+    migrateLegacyWork({ ownerEmail, legacyWorkKey, title = '历史作品', assets = [] }) {
+      const owner = normalizeOwner(ownerEmail);
+      const key = String(legacyWorkKey || '').trim();
+      if (!owner) throw new TypeError('ownerEmail is required');
+      if (!key) throw new TypeError('legacyWorkKey is required');
+      return db.transaction(() => {
+        const existing = projectFromRow(db.prepare(`SELECT * FROM projects
+          WHERE owner_email = ? AND legacy_work_key = ? AND deleted_at IS NULL`).get(owner, key));
+        if (existing) {
+          const version = versionFromRow(db.prepare('SELECT * FROM project_versions WHERE project_id = ? ORDER BY sequence DESC LIMIT 1').get(existing.id));
+          return { project: existing, version, migrated: false };
+        }
+        const project = insertProject({ ownerEmail: owner, kind: 'ecommerce', title });
+        db.prepare('UPDATE projects SET legacy_work_key = ? WHERE id = ?').run(key, project.id);
+        const version = api.createVersion({
+          ownerEmail: owner,
+          projectId: project.id,
+          reason: 'migration',
+          inputSnapshot: { legacyWorkKey: key },
+          planSnapshot: { source: 'legacy-work' },
+        });
+        const createdAt = timestamp().toISOString();
+        for (const asset of Array.isArray(assets) ? assets : []) {
+          const assetId = String(asset?.assetId || '').trim();
+          const stableUrl = String(asset?.stableUrl || '').trim();
+          if (!assetId || !stableUrl) continue;
+          db.prepare(`INSERT OR IGNORE INTO project_assets
+            (id, asset_id, owner_email, project_id, version_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
+            VALUES (?, ?, ?, ?, ?, 'generated', ?, ?, 'image/png', 'completed', ?)`)
+            .run(`${project.id}:${assetId}`, assetId, owner, project.id, version.id, assetId, stableUrl, createdAt);
+        }
+        const completed = api.completeProject({ ownerEmail: owner, projectId: project.id, acceptedVersionId: version.id });
+        return { project: completed, version, migrated: true };
+      })();
     },
   };
 

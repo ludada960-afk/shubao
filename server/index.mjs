@@ -47,6 +47,8 @@ import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
+import { createRetentionService } from './projects/retentionService.mjs';
+import { migrateLegacyWorkOnRead } from './projects/legacyMigration.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
 import { createPixelLayers } from './composition/layerService.mjs';
@@ -142,6 +144,21 @@ const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration }
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
 const projectStore = createProjectStore(db);
+const retentionService = createRetentionService({
+  db,
+  assetStore: {
+    remove(assetId) {
+      if (!/^[a-f0-9]{64}\.(?:jpg|png|webp)$/i.test(String(assetId || ''))) return;
+      const filePath = resolve(__dirname, 'generated-assets', assetId);
+      try { fs.unlinkSync(filePath); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+    },
+  },
+});
+try { retentionService.sweep(); } catch (error) { console.warn('[retention] startup sweep failed:', error.message); }
+const retentionSweep = setInterval(() => {
+  try { retentionService.sweep(); } catch (error) { console.warn('[retention] sweep failed:', error.message); }
+}, 24 * 60 * 60 * 1000);
+retentionSweep.unref();
 const compositionStore = createCompositionStore(db);
 const compositionAssetAuthorizer = createCompositionAssetAuthorizer({ db });
 const compositionService = createCompositionService({
@@ -2076,7 +2093,10 @@ mountWorkRoutes(app, {
     });
   },
   mapError: contentBillingHttpError,
-  listWorks: ownerEmail => getAllWorks({ ownerEmail }),
+  listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => {
+    migrateLegacyWorkOnRead({ ownerEmail, work, projectStore });
+    return { ...work, retention: retentionService.describeWork({ ownerEmail, work }) };
+  }),
   listTrash: ownerEmail => getDeletedWorks({ ownerEmail }),
   saveOwnedWork: (work, ownerEmail) => upsertWork(work, { ownerEmail }),
   deleteOwnedWork: (saveKey, ownerEmail) => softDeleteWork(saveKey, { ownerEmail }),

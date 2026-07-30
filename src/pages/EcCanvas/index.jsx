@@ -39,6 +39,7 @@ import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { buildCanvasImportResult, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
+import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -546,6 +547,10 @@ export default function EcCanvas() {
       observer?.disconnect();
     };
   }, [nodeIdsKey, tab, viewport.x, viewport.y, viewport.scale]);
+
+  useEffect(() => {
+    cleanupLegacyCanvasStorage(localStorage);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
