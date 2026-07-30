@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { proxyImg } from '../services/api.js';
+import React, { useEffect, useMemo, useState } from 'react';
+import { responsiveImageCandidates } from './responsiveImageModel.js';
 
 function normalizedRatio(value) {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return String(value);
@@ -22,7 +22,14 @@ export default function ResponsiveImage({
   onError,
 }) {
   const [failed, setFailed] = useState(false);
-  const imageSrc = proxyImg(src, variant);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const candidates = useMemo(() => responsiveImageCandidates(src, variant), [src, variant]);
+  const imageSrc = candidates[candidateIndex] || '';
+
+  useEffect(() => {
+    setFailed(false);
+    setCandidateIndex(0);
+  }, [src, variant]);
   return (
     <div
       className={className}
@@ -38,11 +45,16 @@ export default function ResponsiveImage({
         <img
           src={imageSrc}
           alt={alt}
+          draggable="false"
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
           fetchPriority={priority ? 'high' : 'auto'}
           onLoad={onLoad}
           onError={event => {
+            if (candidateIndex + 1 < candidates.length) {
+              setCandidateIndex(index => index + 1);
+              return;
+            }
             setFailed(true);
             onError?.(event);
           }}

@@ -8,7 +8,7 @@ import cors from 'cors';
 import https from 'https';
 import 'dotenv/config';
 import { fileURLToPath } from 'url';
-import { dirname, resolve, join, extname } from 'path';
+import { basename, dirname, resolve, join, extname } from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import sharp from 'sharp';
@@ -139,10 +139,13 @@ const {
   failContentGeneration,
   previewContentGeneration,
 } = contentBilling;
-const generatedAssetStore = createGeneratedAssetStore({ directory: resolve(__dirname, 'generated-assets') });
 const imageDelivery = createImageDelivery({
   assetRoot: resolve(__dirname, 'generated-assets'),
   proxyCacheRoot: resolve(__dirname, 'cache_img'),
+});
+const generatedAssetStore = createGeneratedAssetStore({
+  directory: resolve(__dirname, 'generated-assets'),
+  onPersist: asset => imageDelivery.prewarmGeneratedVariants(asset.id),
 });
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
@@ -422,15 +425,16 @@ const LLM_KEY = process.env.LLM_API_KEY || '';
 const LLM_BASE = (process.env.LLM_BASE_URL || '').replace(/\/+$/, '');
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-4-6';
 const IMG_KEY = process.env.IMAGE_API_KEY || '';
-const IMG_BASE = (process.env.IMAGE_PRIMARY_BASE_URL || 'https://img-cn.65535.space').replace(/\/+$/, '');
-const IMG_OVERFLOW_BASE = (process.env.IMAGE_OVERFLOW_BASE_URL || 'https://sub-proxy-us-1.65535.space').replace(/\/+$/, '');
+const IMG_BASE = (process.env.IMAGE_PRIMARY_BASE_URL || 'https://task-api-1-cn.65535.space').replace(/\/+$/, '');
+const IMG_OVERFLOW_BASE = (process.env.IMAGE_OVERFLOW_BASE_URL || 'https://sub-proxy-us.65535.space').replace(/\/+$/, '');
 const IMG_LEGACY_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
 const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
+const IMG_AUTH_STRATEGY = String(process.env.IMAGE_AUTH_STRATEGY || 'x-api-key').trim().toLowerCase();
 
 // Vision API — 商品图和参考图分析
 const MINI_KEY = process.env.MINI_API_KEY || '';
 const MINI_BASE = (process.env.MINI_BASE_URL || '').replace(/\/+$/, '');
-const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.6-terra';
+const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.6-luna';
 
 // ============================================================
 // LLM 调用（兼容 OpenAI 格式，自动重试 + 双通道降级）
@@ -708,7 +712,7 @@ async function callImageAPI(fullPrompt, customSize, refImageBase64, generationSe
     try {
       res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': IMG_KEY },
+        headers: { 'Content-Type': 'application/json', ...imageProviderAuthHeaders() },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -718,7 +722,7 @@ async function callImageAPI(fullPrompt, customSize, refImageBase64, generationSe
       const retryBody = { ...body, size: fallbackSize };
       const retry = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': IMG_KEY },
+        headers: { 'Content-Type': 'application/json', ...imageProviderAuthHeaders() },
         body: JSON.stringify(retryBody),
         signal: controller.signal,
       });
@@ -2151,18 +2155,31 @@ const GALLERY_FILE_MAP = {
   'english': '考研英语85分不是梦🔥学姐3个月提分秘',
   'selfmedia': '裸辞做自媒体🔥3个月收入破万，我做了什么'
 };
-app.get('/api/gallery-image', (req, res) => {
+app.get('/api/gallery-image', async (req, res) => {
   const { id, file } = req.query;
   if (!id || !file) return res.status(400).end('missing params');
   const folder = GALLERY_FILE_MAP[id];
   if (!folder) return res.status(404).end('unknown id');
-  const filePath = join(GALLERY_DIR, folder, file);
-  if (!fs.existsSync(filePath)) return res.status(404).end('file not found');
-  const ext = extname(file).toLowerCase();
-  const CT_MAP = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
-  res.set('Content-Type', CT_MAP[ext] || 'image/png');
-  res.set('Cache-Control', 'max-age=86400');
-  res.sendFile(filePath);
+  const requestedFile = String(file);
+  if (basename(requestedFile) !== requestedFile) return res.status(400).end('invalid file');
+  const extension = extname(requestedFile).toLowerCase();
+  if (!['.png', '.jpg', '.jpeg', '.webp'].includes(extension)) return res.status(400).end('invalid file');
+  const filePath = resolve(GALLERY_DIR, folder, requestedFile);
+  const variant = String(req.query.variant || 'full');
+  try {
+    const image = await imageDelivery.readLocalVariant(filePath, variant);
+    if (!image) return res.status(404).end('file not found');
+    res.set('Content-Type', image.contentType);
+    res.set('Cache-Control', variant === 'full'
+      ? 'public, max-age=86400'
+      : 'public, max-age=31536000, immutable');
+    res.send(image.buffer);
+  } catch (error) {
+    if (String(error?.message || '').includes('unsupported image variant')) {
+      return res.status(400).end('invalid image variant');
+    }
+    res.status(500).end('gallery image unavailable');
+  }
 });
 
 // ============================================================
@@ -3047,10 +3064,21 @@ const canvasOneShotBilling = createOneShotBilling({
   actionStore: createCanvasBilledActionStore(db),
 });
 
+function imageProviderAuthHeaders() {
+  return IMG_AUTH_STRATEGY === 'bearer'
+    ? { Authorization: `Bearer ${IMG_KEY}` }
+    : { 'x-api-key': IMG_KEY };
+}
+
+function imageProviderCredential() {
+  return IMG_AUTH_STRATEGY === 'bearer'
+    ? { bearerToken: IMG_KEY, authStrategy: 'bearer' }
+    : { apiKey: IMG_KEY, authStrategy: 'x-api-key' };
+}
+
 const createConfiguredImageAdapter = baseUrl => createProviderAdapter({
   baseUrl,
-  apiKey: IMG_KEY,
-  authStrategy: 'x-api-key',
+  ...imageProviderCredential(),
   editPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
   pollPath: process.env.IMAGE_TASK_PATH || '/v1/images/tasks/{id}',
 });

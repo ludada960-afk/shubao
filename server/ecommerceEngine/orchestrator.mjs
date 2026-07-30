@@ -14,6 +14,7 @@ import { ecommerceFeatureForItem } from './ecommerceBilling.mjs';
 
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
+const ASSET_WORKER_STOP_STATES = new Set([...ASSET_FINAL_STATES, 'verified']);
 const SAFE_ID_RE = /^[a-z0-9][a-z0-9_.:-]{0,127}$/i;
 const VISUAL_INPUT_SNAPSHOT_VERSION = 1;
 const LEGACY_ORCHESTRATION_SNAPSHOT_VERSION = 1;
@@ -241,7 +242,7 @@ function resultImages(assets) {
 
 function publicAssetError(asset) {
   const state = cleanString(own(asset, 'state'));
-  if (state === 'needs_review') return '生成预览需要修订，尚未进入交付，本张不计费';
+  if (state === 'needs_review') return '本轮未形成完整套图，未交付且本张不计费';
   if (state === 'failed' || state === 'cancelled') return '图片生成未完成，本张未计费';
   return '';
 }
@@ -893,7 +894,7 @@ export function createEcommerceOrchestrator(deps = {}) {
 
   function failedRetryPlanForJob(source) {
     if (!['needs_review', 'failed'].includes(source.status)) {
-      throw httpError('当前任务没有可重新生成的失败图片', 409, 'ECOMMERCE_RETRY_UNAVAILABLE');
+      throw httpError('当前任务没有可重新生成的未交付套图', 409, 'ECOMMERCE_RETRY_UNAVAILABLE');
     }
     const restored = orchestrationSnapshotFromProgress(source.progress);
     if (!restored.snapshot) throw invalidOrchestrationSnapshot();
@@ -903,13 +904,13 @@ export function createEcommerceOrchestrator(deps = {}) {
       .map(asset => asset.assetId));
     const assetPlan = sourcePlan.filter(item => retryIds.has(item.id));
     if (!assetPlan.length || assetPlan.length !== retryIds.size) {
-      throw httpError('没有可重新生成的失败图片', 409, 'ECOMMERCE_RETRY_PLAN_EMPTY');
+      throw httpError('没有可重新生成的未交付套图', 409, 'ECOMMERCE_RETRY_PLAN_EMPTY');
     }
     const validatedAssetPlan = validatePlanContract(assetPlan);
     const features = validatedAssetPlan.map(ecommerceFeatureForItem);
     const skus = new Set(features.map(feature => feature.sku));
     if (skus.size !== 1) {
-      throw httpError('失败图片包含不同清晰度，请分别重新获取费用', 409, 'ECOMMERCE_RETRY_PLAN_MIXED');
+      throw httpError('未交付套图包含不同清晰度，请分别重新获取费用', 409, 'ECOMMERCE_RETRY_PLAN_MIXED');
     }
     return {
       snapshot: restored.snapshot,
@@ -1037,7 +1038,7 @@ export function createEcommerceOrchestrator(deps = {}) {
   async function suiteComparisonAssets(jobId, currentAssetId, canonicalPlanById) {
     const candidates = store.listAssets(jobId).filter(asset => (
       asset.assetId !== currentAssetId
-      && ['settling', 'completed'].includes(asset.state)
+      && ['verified', 'settling', 'completed'].includes(asset.state)
       && cleanString(asset.stableUrl)
     ));
     return Promise.all(candidates.map(async asset => {
@@ -1101,7 +1102,7 @@ export function createEcommerceOrchestrator(deps = {}) {
       requestSnapshot: { assetPlanItem: item },
     });
     let current = store.getAsset(job.id, item.id);
-    if (ASSET_FINAL_STATES.has(current.state)) return current;
+    if (ASSET_WORKER_STOP_STATES.has(current.state)) return current;
     const claimed = store.claimAsset(job.id, item.id, { leaseMs: assetLeaseMs });
     if (!claimed) return store.getAsset(job.id, item.id);
     current = claimed;
@@ -1147,7 +1148,7 @@ export function createEcommerceOrchestrator(deps = {}) {
           throw error;
         }
       }
-      while (!ASSET_FINAL_STATES.has(current.state)) {
+      while (!ASSET_WORKER_STOP_STATES.has(current.state)) {
         if (leaseHeartbeatError) throw leaseHeartbeatError;
         if (current.state === 'queued') {
           const request = await requestForItem();
@@ -1269,7 +1270,7 @@ export function createEcommerceOrchestrator(deps = {}) {
                 throw new Error('suite diversity evaluator returned an invalid verdict');
               }
               if (!verdict.passed) return { passed: false, verdict };
-              current = store.transitionAsset(job.id, item.id, 'settling', {
+              current = store.transitionAsset(job.id, item.id, 'verified', {
                 requestSnapshot: {
                   ...current.requestSnapshot,
                   quality,
@@ -1291,7 +1292,7 @@ export function createEcommerceOrchestrator(deps = {}) {
             cleanString(own(repairAction, 'type')).toLowerCase(),
           );
           const providerRepairAvailable = usesDeterministicRepair
-            || (hasActionableProviderRepair && providerSubmissionCount(current) < 2);
+            || (hasActionableProviderRepair && providerSubmissionCount(current) < 3);
           if (!providerRepairAvailable || !canRetry(current.attemptCount, repairAction)) {
             const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
             current = store.transitionAsset(job.id, item.id, 'releasing', {
@@ -1356,7 +1357,6 @@ export function createEcommerceOrchestrator(deps = {}) {
           try {
             await settleItem({ holdId, job, item, stableAsset, quality });
             current = store.transitionAsset(job.id, item.id, 'completed', { leaseToken });
-            await persistCurrentWork(job.id, 'generating');
           } catch (error) {
             if (error && typeof error === 'object') error.retryable = true;
             throw error;
@@ -1410,10 +1410,10 @@ export function createEcommerceOrchestrator(deps = {}) {
             productTruth,
             campaignBible,
           });
-          const logicalKey = idempotencyKey(job.id, item.id, 1);
+          const logicalKey = idempotencyKey(job.id, item.id, nextAttempt);
           const { intent, intents } = submissionIntent(current, {
             assetId: item.id,
-            ordinal: 1,
+            ordinal: nextAttempt,
             kind: 'repair',
             key: logicalKey,
           });
@@ -1427,8 +1427,8 @@ export function createEcommerceOrchestrator(deps = {}) {
             repairAction,
             submissionIntents: intents,
           });
-          if (providerSubmissionCount({ ...current, requestSnapshot }) > 2) {
-            throw new Error(`more than one provider repair for asset: ${item.id}`);
+          if (providerSubmissionCount({ ...current, requestSnapshot }) > 3) {
+            throw new Error(`more than two provider repairs for asset: ${item.id}`);
           }
           try {
             current = store.checkpointAsset(job.id, item.id, {
@@ -1513,6 +1513,87 @@ export function createEcommerceOrchestrator(deps = {}) {
     } finally {
       clearInterval(heartbeat);
     }
+  }
+
+  async function releaseVerifiedSuiteAssets({ job, assetPlan, holdId }) {
+    const planById = new Map(assetPlan.map(item => [item.id, item]));
+    for (const asset of store.listAssets(job.id).filter(candidate => candidate.state === 'verified')) {
+      const item = planById.get(asset.assetId);
+      if (!item) throw new Error(`verified asset is missing from plan: ${asset.assetId}`);
+      const claimed = store.claimAsset(job.id, asset.assetId, { leaseMs: assetLeaseMs });
+      if (!claimed) return false;
+      const quality = own(claimed.requestSnapshot, 'quality') ?? null;
+      const reason = 'suite_incomplete:withhold_partial_delivery';
+      let current = store.transitionAsset(job.id, asset.assetId, 'releasing', {
+        requestSnapshot: {
+          ...claimed.requestSnapshot,
+          release: {
+            targetState: 'needs_review',
+            reason,
+            error: 'complete suite required',
+          },
+        },
+        error: 'complete suite required',
+        leaseToken: claimed.leaseToken,
+      });
+      try {
+        await releaseItem({ holdId, job, item, reason, quality });
+        store.transitionAsset(job.id, asset.assetId, 'needs_review', {
+          error: 'complete suite required',
+          leaseToken: current.leaseToken,
+        });
+      } catch (error) {
+        if (error && typeof error === 'object') error.retryable = true;
+        try { store.releaseLease(job.id, asset.assetId, current.leaseToken); } catch {}
+        throw error;
+      }
+    }
+    return true;
+  }
+
+  async function settleVerifiedSuiteAssets({ job, assetPlan, holdId }) {
+    const planById = new Map(assetPlan.map(item => [item.id, item]));
+    for (const asset of store.listAssets(job.id).filter(candidate => candidate.state === 'verified')) {
+      const item = planById.get(asset.assetId);
+      if (!item) throw new Error(`verified asset is missing from plan: ${asset.assetId}`);
+      const claimed = store.claimAsset(job.id, asset.assetId, { leaseMs: assetLeaseMs });
+      if (!claimed) return false;
+      const quality = own(claimed.requestSnapshot, 'quality') ?? {};
+      const storedAsset = own(own(claimed.requestSnapshot, 'settlement'), 'stableAsset');
+      const stableAsset = isRecord(storedAsset)
+        ? storedAsset
+        : {
+          id: stableAssetId(claimed.stableUrl),
+          url: claimed.stableUrl,
+          contentType: (await stableBytes(claimed.stableUrl)).contentType,
+        };
+      let current = store.transitionAsset(job.id, asset.assetId, 'settling', {
+        leaseToken: claimed.leaseToken,
+      });
+      try {
+        await settleItem({ holdId, job, item, stableAsset, quality });
+        store.transitionAsset(job.id, asset.assetId, 'completed', {
+          leaseToken: current.leaseToken,
+        });
+      } catch (error) {
+        if (error && typeof error === 'object') error.retryable = true;
+        try { store.releaseLease(job.id, asset.assetId, current.leaseToken); } catch {}
+        throw error;
+      }
+    }
+    return true;
+  }
+
+  async function finalizeVerifiedSuite({ job, assetPlan, holdId }) {
+    const assets = store.listAssets(job.id);
+    const readyStates = new Set(['verified', ...ASSET_FINAL_STATES]);
+    if (assets.length !== assetPlan.length || assets.some(asset => !readyStates.has(asset.state))) {
+      return false;
+    }
+    const incomplete = assets.some(asset => ['needs_review', 'failed', 'cancelled'].includes(asset.state));
+    return incomplete
+      ? releaseVerifiedSuiteAssets({ job, assetPlan, holdId })
+      : settleVerifiedSuiteAssets({ job, assetPlan, holdId });
   }
 
   async function runJob(idInput, { leaseToken: suppliedLeaseToken = '' } = {}) {
@@ -1751,6 +1832,7 @@ export function createEcommerceOrchestrator(deps = {}) {
       ));
       if (workerError) throw workerError;
 
+      await finalizeVerifiedSuite({ job: jobs.get(id), assetPlan, holdId });
       const assets = store.listAssets(id);
       const status = terminalParentState(assets);
       if (!status) return getJob(id, { ownerEmail: job.ownerEmail });
@@ -1776,9 +1858,7 @@ export function createEcommerceOrchestrator(deps = {}) {
       const summary = summarizeAssets(assets);
       job = jobs.get(id);
       if (status && !PARENT_FINAL_STATES.has(job.status)) {
-        const deliverableCount = Object.keys(output.images).length;
-        const shouldVersionResult = status === 'completed'
-          || (status === 'needs_review' && deliverableCount > 0);
+        const shouldVersionResult = status === 'completed';
         if (projectLifecycle && !cleanString(own(job.progress, 'resultVersionId'))) {
           const lifecycleResult = shouldVersionResult
             ? await projectLifecycle.complete({ job, output, assets, status })
@@ -1798,7 +1878,7 @@ export function createEcommerceOrchestrator(deps = {}) {
             leaseToken: parentLeaseToken,
           });
         }
-        await persistCurrentWork(id, status);
+        if (status === 'completed') await persistCurrentWork(id, status);
         jobs.transition(id, status, {
           output,
           error: status === 'failed' ? '未生成可交付图片' : '',
@@ -1946,7 +2026,7 @@ export function createEcommerceRouteHandlers({
   }
   function requireRetryMethod(name) {
     if (typeof orchestrator[name] !== 'function') {
-      throw httpError('失败图片重试服务暂不可用，请稍后重试', 503, 'ECOMMERCE_RETRY_UNAVAILABLE');
+      throw httpError('整套重试服务暂不可用，请稍后重试', 503, 'ECOMMERCE_RETRY_UNAVAILABLE');
     }
   }
   return {

@@ -14,12 +14,14 @@ test('asset lanes retain ratio geometry and place same-category outputs horizont
   const nodes = layoutAssetLanes({
     sourceNode: { x: 30, w: 248 },
     assets: [
+      { id: 'white-a', group: '白底图', ratio: '1:1' },
       { id: 'main-a', group: '主图', ratio: '1:1' },
       { id: 'main-b', group: '主图', ratio: '3:4' },
       { id: 'detail-a', group: '详情图', ratio: '3:4' },
     ],
   });
   const main = nodes.filter(node => node.group === '主图');
+  assert.ok(nodes.find(node => node.id === 'white-a').y < main[0].y);
   assert.equal(main[0].y, main[1].y);
   assert.ok(main[1].x > main[0].x);
   assert.equal(main[1].h, mediaHeightForRatio('3:4', main[1].w));

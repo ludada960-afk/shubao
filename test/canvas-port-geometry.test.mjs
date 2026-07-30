@@ -14,4 +14,8 @@ test('Canvas derives port geometry from node rectangles without viewport-bound D
   assert.doesNotMatch(canvasSource, /new ResizeObserver\(measure\)/);
   assert.match(canvasSource, /requestAnimationFrame\(flushDragFrame\)/);
   assert.match(canvasSource, /cancelAnimationFrame\(dragFrameRef\.current\)/);
+  assert.match(canvasSource, /transform: `translate\(\$\{viewport\.x\}px,\$\{viewport\.y\}px\) scale\(\$\{viewport\.scale\}\)`[\s\S]*?<ConnectionLines connections=\{connections\}/);
+  assert.doesNotMatch(canvasSource, /function ConnectionLines\(\{[^}]*viewport/);
+  assert.match(canvasSource, /<ImageNode[\s\S]*?onInspect=\{node => setZoomImg/);
+  assert.match(canvasSource, /function SourceGroupNode\([^)]*onInspect/);
 });

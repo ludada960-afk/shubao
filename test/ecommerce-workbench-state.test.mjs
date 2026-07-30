@@ -4,10 +4,14 @@ import {
   PRODUCT_SLOT_PLAN,
   buildSupplementDeck,
   buildUploadDeck,
+  createSmartConfiguration,
+  createSmartOverrides,
   createWorkbenchState,
   nextProductSlot,
   reconcilePackage,
+  summarizeCommerceConfiguration,
   summarizePackage,
+  withEcommerceCanvasSources,
 } from '../src/pages/Home/ec/workbenchState.js';
 
 test('guides each added product photo to a complementary angle', () => {
@@ -41,6 +45,44 @@ test('new workbench state starts with a smart package and independent SKU data',
   assert.equal(summarizePackage({ platform: 'smart', images: [] }), '智能套图方案');
 });
 
+test('smart configuration restores every editable panel including SKU and product facts', () => {
+  assert.deepEqual(createSmartOverrides(), {
+    sizing: false,
+    style: false,
+    params: false,
+    sku: false,
+    copy: false,
+    settings: false,
+  });
+  assert.deepEqual(createSmartConfiguration(), {
+    platform: 'smart',
+    sizing: { smart: true, images: [] },
+    styleSkill: 'smart',
+    customColors: null,
+    productParams: { category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' },
+    skus: [],
+    copywriting: { plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' },
+    genSettings: { resolution: '2K', negativePrompt: '' },
+  });
+});
+
+test('configuration summaries stay compact while exposing the meaningful selections', () => {
+  assert.equal(summarizeCommerceConfiguration('sizing', {
+    images: [
+      { key: 'white_bg', count: 1 },
+      { key: 'main_text', count: 3 },
+      { key: 'transparent', count: 1 },
+      { key: 'detail', count: 5 },
+    ],
+  }), '1白底丨3主图丨1素材丨5详情');
+  assert.equal(summarizeCommerceConfiguration('sku', {
+    skus: [{ color: '月岩白', count: 2 }],
+  }), '1变体丨2张');
+  assert.equal(summarizeCommerceConfiguration('params', {
+    productParams: { material: '不锈钢', size: '20cm', craft: '拉丝' },
+  }), '材质丨尺寸丨工艺');
+});
+
 test('upload deck keeps two starter cards while later uploads enter scrollable rails', () => {
   assert.deepEqual(buildUploadDeck({ productImages: [], refImages: [] }), {
     productSlot: 'front',
@@ -69,4 +111,17 @@ test('supplement deck keeps inherited and newly added product/reference images i
     ['/reference-old.png', true, '已带入'],
     ['/reference-new.png', false, '本轮新增'],
   ]);
+});
+
+test('completed delivery keeps original product and reference assets for the canvas', () => {
+  const result = withEcommerceCanvasSources(
+    { status: 'completed', images: { main: '/main.png' } },
+    {
+      productAssets: [{ assetId: 'product-1', url: '/product.png' }, { url: '' }],
+      referenceAssets: [{ assetId: 'reference-1', url: '/reference.png' }],
+    },
+  );
+  assert.deepEqual(result.productAssets, [{ assetId: 'product-1', url: '/product.png' }]);
+  assert.deepEqual(result.referenceAssets, [{ assetId: 'reference-1', url: '/reference.png' }]);
+  assert.equal(result.images.main, '/main.png');
 });

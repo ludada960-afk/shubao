@@ -27,10 +27,10 @@ export function zoomAroundCursor(viewport, point, factor) {
   return { scale, x: point.x - worldX * scale, y: point.y - worldY * scale };
 }
 
-export const ASSET_GROUPS = ['主图', '详情图', 'SKU', '素材'];
+export const ASSET_GROUPS = ['白底图', '主图', '详情图', 'SKU', '素材'];
 
 const ASSET_META = {
-  white_bg: { name: '白底首图', group: '主图', role: '白底首图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
+  white_bg: { name: '白底首图', group: '白底图', role: '白底首图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
   main_text: { name: '场景主图', group: '主图', role: '场景主图', ratio: '1:1', usage: '搜索展示主力图，场景+卖点文案，吸引买家点击' },
   main_3x4: { name: '竖版主图', group: '主图', role: '竖版主图', ratio: '3:4', usage: '抖音/小红书竖版流量，竖版构图更沉浸，利于转化' },
   transparent: { name: '透明PNG素材', group: '素材', role: '透明PNG素材', ratio: '1:1', usage: '二次合成素材，可自由叠加任意背景，设计师必备' },

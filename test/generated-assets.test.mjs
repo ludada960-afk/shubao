@@ -28,6 +28,30 @@ test('persists a generated image and returns a stable in-app URL', async (t) => 
   assert.equal(await readFile(join(dir, asset.fileName)).then(buffer => buffer.length), 4);
 });
 
+test('notifies a post-persist derivative warmer without risking the stable asset', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-test-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const warmed = [];
+  const store = createGeneratedAssetStore({
+    directory: dir,
+    onPersist: async asset => { warmed.push(asset.id); },
+  });
+  const asset = await store.persistBuffer({
+    buffer: Buffer.from([137, 80, 78, 71]),
+    contentType: 'image/png',
+  });
+  assert.deepEqual(warmed, [asset.id]);
+
+  const resilient = createGeneratedAssetStore({
+    directory: dir,
+    onPersist: async () => { throw new Error('derivative cache unavailable'); },
+  });
+  await assert.doesNotReject(() => resilient.persistBuffer({
+    buffer: Buffer.from([137, 80, 78, 71, 1]),
+    contentType: 'image/png',
+  }));
+});
+
 test('rejects a non-http generated image source without creating an asset', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-test-'));
   t.after(() => rm(dir, { recursive: true, force: true }));

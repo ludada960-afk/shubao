@@ -236,7 +236,7 @@ test('a forbidden saved task is cleared as expired without posting or leaking an
   assert.equal(loadEcommerceTaskReference({ ownerEmail: 'other@example.com', draftId: 'ec-draft-expired', storage })?.taskId, 'task-other');
 });
 
-test('terminal failed and cancelled polls clear their task reference while a partial reviewed result closes the cycle', async t => {
+test('terminal failed and cancelled polls clear their task reference without delivering partial results', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   t.after(() => {
@@ -258,22 +258,89 @@ test('terminal failed and cancelled polls clear their task reference while a par
     assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: `ec-draft-${status}`, storage }), null, status);
   }
 
+});
+
+test('an incomplete suite is repaired automatically and only the complete retry is delivered', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
   const storage = ecommerceStorage();
+  const calls = [];
+  const emitted = [];
   globalThis.localStorage = storage;
   saveEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-review', taskId: 'task-review', storage });
-  globalThis.fetch = async () => ecommerceTaskResponse({
-    id: 'task-review',
-    status: 'needs_review',
-    output: { images: { delivered: '/api/generated-assets/delivered.png' } },
-    assets: [
-      { assetId: 'delivered', status: 'completed', stableUrl: '/api/generated-assets/delivered.png' },
-      { assetId: 'review-1', status: 'needs_review', stableUrl: '/api/generated-assets/review-1.png' },
-    ],
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url);
+    const method = options.method || 'GET';
+    calls.push({ path, method, body: options.body ? JSON.parse(options.body) : null });
+    if (path === '/api/ecommerce/jobs/task-review') {
+      return ecommerceTaskResponse({
+        id: 'task-review',
+        status: 'needs_review',
+        output: { images: {} },
+        assets: [
+          { assetId: 'main-1', status: 'needs_review', previewUrl: '/api/generated-assets/review-1.png' },
+          { assetId: 'detail-1', status: 'needs_review', previewUrl: '/api/generated-assets/review-2.png' },
+        ],
+      });
+    }
+    if (path === '/api/ecommerce/jobs/task-review/retry-plan') {
+      return new Response(JSON.stringify({ plan: { sku: 'ec_image_2k', quantity: 2 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/billing/quote') {
+      return new Response(JSON.stringify({ quote: { quoteId: 'retry-quote', totalUnits: 2 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/ecommerce/jobs/task-review/retry-failed') {
+      return new Response(JSON.stringify({ taskId: 'task-review-retry', status: 'queued' }), { status: 202, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/ecommerce/jobs/task-review-retry') {
+      return ecommerceTaskResponse({
+        id: 'task-review-retry',
+        status: 'completed',
+        output: {
+          images: {
+            'main-1': '/api/generated-assets/final-main.png',
+            'detail-1': '/api/generated-assets/final-detail.png',
+          },
+          errors: [],
+        },
+        assets: [
+          { assetId: 'main-1', status: 'completed', stableUrl: '/api/generated-assets/final-main.png' },
+          { assetId: 'detail-1', status: 'completed', stableUrl: '/api/generated-assets/final-detail.png' },
+        ],
+      });
+    }
+    throw new Error(`unexpected fetch: ${method} ${path}`);
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
   });
-  const { generateEcommerce } = await import(`../src/services/api.js?needs-review=${Date.now()}`);
-  const result = await generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: 'ec-draft-review', pollIntervalMs: 0, maxPollAttempts: 1 });
-  assert.equal(result.status, 'needs_review');
-  assert.deepEqual(result.images, { delivered: '/api/generated-assets/delivered.png' });
+
+  const { generateEcommerce } = await import(`../src/services/api.js?auto-suite-repair=${Date.now()}`);
+  const result = await generateEcommerce({
+    productName: '测试商品',
+    category: '其他',
+    platform: '淘宝',
+    draftId: 'ec-draft-review',
+    pollIntervalMs: 0,
+    maxPollAttempts: 2,
+    onImage: image => emitted.push(image),
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.taskId, 'task-review-retry');
+  assert.deepEqual(emitted.map(image => image.stableUrl).sort(), [
+    '/api/generated-assets/final-detail.png',
+    '/api/generated-assets/final-main.png',
+  ]);
+  assert.equal(emitted.some(image => image.stableUrl.includes('review-')), false);
+  assert.deepEqual(calls.map(call => [call.method, call.path]), [
+    ['GET', '/api/ecommerce/jobs/task-review'],
+    ['POST', '/api/ecommerce/jobs/task-review/retry-plan'],
+    ['POST', '/api/billing/quote'],
+    ['POST', '/api/ecommerce/jobs/task-review/retry-failed'],
+    ['GET', '/api/ecommerce/jobs/task-review-retry'],
+  ]);
   assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-review', storage }), null);
 });
 
@@ -321,25 +388,38 @@ test('a saved failed task requires an explicit retry before a replacement POST i
   ]);
 });
 
-test('SSE partial review closes its task reference and never exposes rejected assets on refresh', async t => {
+test('SSE incomplete suite stops after bounded automatic repairs and never returns partial images', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   const storage = ecommerceStorage();
   const calls = [];
+  let retryNumber = 0;
   globalThis.localStorage = storage;
   globalThis.fetch = async (url, options = {}) => {
-    calls.push({ url: String(url), method: options.method || 'GET' });
-    if (options.method === 'POST') {
+    const path = String(url);
+    const method = options.method || 'GET';
+    calls.push({ url: path, method });
+    if (path === '/api/generate-ecommerce') {
       return new Response(
         'data: {"type":"job","taskId":"task-sse-review"}\n\n' +
         'data: {"type":"complete","status":"needs_review","images":{"main":"/api/generated-assets/sse-review.png"},"errors":[]}\n\n',
         { status: 200, headers: { 'content-type': 'text/event-stream' } },
       );
     }
+    if (path.endsWith('/retry-plan')) {
+      return new Response(JSON.stringify({ plan: { sku: 'ec_image_2k', quantity: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/billing/quote') {
+      return new Response(JSON.stringify({ quote: { quoteId: `repair-quote-${retryNumber + 1}`, totalUnits: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (path.endsWith('/retry-failed')) {
+      retryNumber += 1;
+      return new Response(JSON.stringify({ taskId: `task-sse-retry-${retryNumber}`, status: 'queued' }), { status: 202, headers: { 'content-type': 'application/json' } });
+    }
     return ecommerceTaskResponse({
-      id: 'task-sse-review',
+      id: path.split('/').pop(),
       status: 'needs_review',
-      assets: [{ assetId: 'main', status: 'needs_review', stableUrl: '/api/generated-assets/sse-review.png' }],
+      assets: [{ assetId: 'main', status: 'needs_review', previewUrl: '/api/generated-assets/sse-review.png' }],
     });
   };
   t.after(() => {
@@ -348,20 +428,23 @@ test('SSE partial review closes its task reference and never exposes rejected as
   });
 
   const { generateEcommerce } = await import(`../src/services/api.js?sse-needs-review=${Date.now()}`);
-  const first = await generateEcommerce({
-    productName: '测试商品',
-    category: '其他',
-    platform: '淘宝',
-    draftId: 'ec-draft-sse-review',
-  });
-  assert.equal(first.status, 'needs_review');
+  await assert.rejects(
+    generateEcommerce({
+      productName: '测试商品',
+      category: '其他',
+      platform: '淘宝',
+      draftId: 'ec-draft-sse-review',
+    }),
+    error => error.code === 'ECOMMERCE_TASK_RETRY_REQUIRED' && error.retryable === true,
+  );
   assert.equal(loadEcommerceTaskReference({
     ownerEmail: 'owner@example.com',
     draftId: 'ec-draft-sse-review',
     storage,
   }), null);
-  assert.deepEqual(first.images, { main: '/api/generated-assets/sse-review.png' });
-  assert.deepEqual(calls, [{ url: '/api/generate-ecommerce', method: 'POST' }]);
+  assert.equal(retryNumber, 2);
+  assert.equal(calls.filter(call => call.url.endsWith('/retry-failed')).length, 2);
+  assert.equal(calls.filter(call => call.url === '/api/billing/quote').length, 2);
 });
 
 test('legacy ecommerce SSE never previews a quality-check intermediate as a delivered image', async t => {

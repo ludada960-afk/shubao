@@ -5,8 +5,13 @@ import test from 'node:test';
 const root = new URL('..', import.meta.url);
 
 test('shared responsive image component uses delivery variants and browser decode scheduling', async () => {
-  const source = await readFile(new URL('./src/components/ResponsiveImage.jsx', root), 'utf8');
-  assert.match(source, /proxyImg\(src, variant\)/);
+  const [source, model] = await Promise.all([
+    readFile(new URL('./src/components/ResponsiveImage.jsx', root), 'utf8'),
+    readFile(new URL('./src/components/responsiveImageModel.js', root), 'utf8'),
+  ]);
+  assert.match(source, /responsiveImageCandidates\(src, variant\)/);
+  assert.match(model, /proxyImg\(raw, variant\)/);
+  assert.match(model, /proxyImg\(raw, 'full'\)/);
   assert.match(source, /loading=\{priority \? 'eager' : 'lazy'\}/);
   assert.match(source, /decoding="async"/);
   assert.match(source, /fetchPriority=\{priority \? 'high' : 'auto'\}/);

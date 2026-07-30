@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ASSET_GROUPS,
   addConnection,
   bindNonPassiveWheel,
   canStitch,
@@ -83,6 +84,13 @@ test('normalizes ecommerce asset names and groups', () => {
   assert.equal(node.group, '详情图');
   assert.equal(node.role, '尺寸标注图');
   assert.equal(node.editable, true);
+});
+
+test('white-background deliverables keep a dedicated Canvas lane', () => {
+  assert.deepEqual(ASSET_GROUPS, ['白底图', '主图', '详情图', 'SKU', '素材']);
+  const node = normalizeAsset({ key: 'white_bg', url: '/white.png' }, 0);
+  assert.equal(node.name, '白底首图-01');
+  assert.equal(node.group, '白底图');
 });
 
 test('marquee selection includes intersecting nodes only', () => {

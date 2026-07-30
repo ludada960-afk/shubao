@@ -244,7 +244,7 @@ test('execution count requires one durable visible row and initial submission pe
   }), /visible asset row count mismatch/i);
 });
 
-test('execution count allows at most one provider-backed repair for the failed asset', () => {
+test('execution count allows at most two provider-backed repairs for the failed asset', () => {
   const plan = [planItem('main-1'), planItem('main-2')];
   const assetRows = plan.map(item => ({ assetId: item.id }));
   const repaired = assertExecutionCount({
@@ -260,6 +260,15 @@ test('execution count allows at most one provider-backed repair for the failed a
   assert.equal(repaired.providerSubmissions, plan.length + 1);
   assert.equal(repaired.providerRepairs, 1);
   assert.deepEqual(repaired.submissionsByAsset, { 'main-1': 1, 'main-2': 2 });
+  const repairedTwice = assertExecutionCount({
+    plan,
+    assetRows,
+    providerSubmissions: [
+      { assetId: 'main-1' },
+      { assetId: 'main-2', count: 3 },
+    ],
+  });
+  assert.equal(repairedTwice.providerRepairs, 2);
   assert.throws(() => assertExecutionCount({
     plan,
     assetRows,
@@ -268,8 +277,9 @@ test('execution count allows at most one provider-backed repair for the failed a
       { assetId: 'main-2' },
       { assetId: 'main-2' },
       { assetId: 'main-2' },
+      { assetId: 'main-2' },
     ],
-  }), /more than one provider repair/i);
+  }), /more than two provider repairs/i);
 });
 
 test('only distinct structured SKU identities may share the sku variant commercial duty', () => {

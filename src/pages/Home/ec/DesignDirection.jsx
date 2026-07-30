@@ -17,7 +17,7 @@ import {
   invalidateEcommerceQuote,
   resolveEcommercePlan,
 } from './ecommercePlanModel.js';
-import { buildSupplementDeck } from './workbenchState';
+import { buildSupplementDeck, withEcommerceCanvasSources } from './workbenchState';
 import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
@@ -54,7 +54,6 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [assetProgress, setAssetProgress] = useState([]);
   const [stableImages, setStableImages] = useState([]);
   const [previewImageIndex, setPreviewImageIndex] = useState(-1);
-  const [retryTaskRequested, setRetryTaskRequested] = useState(false);
   const [polishing, setPolishing] = useState(false);
 
   // 补充输入
@@ -320,6 +319,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setBlockedByCredits(false);
     setGenProgress('正在生成…');
     setGenStage(0);
+    setAssetProgress([]);
+    setStableImages([]);
+    setPreviewImageIndex(-1);
     let pendingAction = null;
     try {
       const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationSignal);
@@ -378,7 +380,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         },
         billingQuoteId: billingQuote.quoteId,
         draftId: params?.draftId || '',
-        retry: retryTaskRequested,
+        retry: false,
         signal: generationSignal,
         isCurrent: () => isGenerationCurrent(generationToken),
         onProgress: (task) => {
@@ -402,15 +404,17 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       const finalDelivery = acceptEcommerceFinalResult(result);
       if (finalDelivery) {
         if (!isGenerationCurrent(generationToken)) return;
-        const finalResult = {
+        const finalResult = withEcommerceCanvasSources({
           ...finalDelivery,
           product_name: params?.productName || '商品',
           _ecResult: true,
           _direction: dir,
-          _partialDelivery: finalDelivery.status === 'needs_review',
           category: params?.category || '其他',
           platform: params?.platform || '淘宝',
-        };
+        }, {
+          productAssets: [...(params?.realShots || []), ...uploadedSupplement.product],
+          referenceAssets: [...(params?.refShots || []), ...uploadedSupplement.reference],
+        });
 
         const phone = state.phone || '';
         if (!isGenerationCurrent(generationToken)) return;
@@ -420,7 +424,6 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         dispatch({ type: 'SET_RESULT', result: finalResult });
         dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
         dispatch({ type: 'CLEAR_PAYWALL' });
-        setRetryTaskRequested(false);
         onGenerated?.();
       } else {
         setError('任务尚未完成或没有稳定图片，请稍后继续生成');
@@ -473,8 +476,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       } else if (accessResult === 'login') {
         setError('');
       } else if (e?.code === 'ECOMMERCE_TASK_RETRY_REQUIRED') {
-        setRetryTaskRequested(true);
-        setError('上次任务未完成。请确认后再次点击“继续生成”以创建新任务。');
+        setAssetProgress([]);
+        setStableImages([]);
+        setPreviewImageIndex(-1);
+        setError(e.message || '本次未能形成完整套图，系统没有交付半成品。请稍后重新生成整套。');
       } else {
         setError(e.message || '生成失败');
       }
@@ -583,6 +588,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         {/* ── 方向卡片 ── */}
         {!loading && directions.length > 0 && (
           <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1f2937' }}>视觉方向</div>
+                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>选择最贴近商品定位的一套方向，执行说明仍可修改。</div>
+              </div>
+              <button type="button" onClick={handleRefreshDirections} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 8, border: '1px solid #d7dce5', background: '#fff', color: '#1f2937', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer', boxShadow: '0 3px 12px rgba(15,23,42,.07)' }}>
+                <MdRefresh size={14} />重新分析四个方向 · 1 AI 积分
+              </button>
+            </div>
             {/* 2×2 对称布局 */}
             <div role="radiogroup" aria-label="选择一个设计方向" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 24 }}>
               {directions.map((dir, i) => (
@@ -622,13 +636,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 11, color: '#8A8177', lineHeight: 1.5 }}>已带入素材不可在这里删除；“本轮新增”素材可随时移除，不影响第一步内容。</div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
                   <button type="button" onClick={handlePolish} disabled={!extraDesc.trim() || polishing} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: '1px solid #DED7CC', background: '#fff', color: '#5F574F', fontSize: 12, fontWeight: 700, cursor: !extraDesc.trim() || polishing ? 'not-allowed' : 'pointer', opacity: !extraDesc.trim() ? .45 : 1 }}>
                     <MdAutoAwesome size={13} />{polishing ? '润色中…' : 'AI 润色补充说明'}
-                  </button>
-                  <button type="button" onClick={handleRefreshDirections} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: 0, background: '#1F2937', color: '#fff', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}>
-                    <MdRefresh size={14} />重新分析四个方向 · 1 AI 积分
                   </button>
                 </div>
               </div>
@@ -694,8 +704,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 {assetProgress.length > 0 && (
                   <div style={{ display: 'grid', gap: 6, marginTop: 14 }}>
                     {assetProgress.map(asset => (
-                      <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: asset.previewUrl ? '42px minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', padding: '7px 9px', borderRadius: 8, background: asset.previewUrl ? '#FFF8EE' : '#FAF8FC', fontSize: 12 }}>
-                        {asset.previewUrl && <ResponsiveImage src={asset.previewUrl} variant="thumb" ratio="1:1" alt={`${asset.label || asset.role || '图片'}修订预览`} style={{ width: 42, height: 42, borderRadius: 6, overflow: 'hidden', border: '1px solid #F4D88A' }} imgStyle={{ objectFit: 'cover' }} />}
+                      <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
                         <span style={{ color: '#4B4453' }}>{asset.role || '图片'} · {asset.label || '待处理图片'}</span>
                         <span style={{ color: asset.error ? '#B91C1C' : '#7C3AED', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
                         {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: '#B91C1C', lineHeight: 1.45 }}>{asset.error}</span>}
@@ -707,7 +716,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
                     {stableImages.map((image, index) => (
                       <button key={image.id} type="button" onClick={() => setPreviewImageIndex(index)} aria-label={`放大查看${image.label || image.role || '生成图'}`} style={{ width: 74, height: 74, padding: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #E9DDF8', background: '#fff', cursor: 'zoom-in' }}>
-                        <img src={image.stableUrl} alt={image.label || image.role || '稳定生成图'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <ResponsiveImage src={image.stableUrl} variant="thumb" ratio="1:1" alt={image.label || image.role || '稳定生成图'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
                     ))}
                   </div>
@@ -720,7 +729,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <div role="dialog" aria-modal="true" aria-label="生成图片预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', background: 'rgba(18,16,20,.86)', padding: 24 }}>
             <button type="button" title="关闭预览" aria-label="关闭预览" onClick={() => setPreviewImageIndex(-1)} style={{ position: 'absolute', top: 18, right: 18, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdClose size={24} /></button>
             {stableImages.length > 1 && <button type="button" title="上一张" aria-label="上一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index - 1 + stableImages.length) % stableImages.length); }} style={{ position: 'absolute', left: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronLeft size={30} /></button>}
-            <img onClick={event => event.stopPropagation()} src={stableImages[previewImageIndex].stableUrl} alt={stableImages[previewImageIndex].label || stableImages[previewImageIndex].role || '生成图片预览'} style={{ maxWidth: 'min(92vw, 1200px)', maxHeight: '86vh', objectFit: 'contain' }} />
+            <img onClick={event => event.stopPropagation()} src={stableImages[previewImageIndex].stableUrl} alt={stableImages[previewImageIndex].label || stableImages[previewImageIndex].role || '生成图片预览'} draggable="false" decoding="async" style={{ maxWidth: 'min(92vw, 1200px)', maxHeight: '86vh', objectFit: 'contain' }} />
             {stableImages.length > 1 && <button type="button" title="下一张" aria-label="下一张" onClick={(event) => { event.stopPropagation(); setPreviewImageIndex(index => (index + 1) % stableImages.length); }} style={{ position: 'absolute', right: 18, width: 44, height: 52, border: 0, borderRadius: 8, background: 'rgba(255,255,255,.14)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}><MdChevronRight size={30} /></button>}
           </div>
         )}

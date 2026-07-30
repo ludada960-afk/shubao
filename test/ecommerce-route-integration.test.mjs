@@ -89,7 +89,7 @@ test('generation handler returns HTTP 202 queued without waiting for provider co
   handlers.retryPlan({ _userEmail: '867550189@qq.com', params: { id: 'job-http' } }, planRes);
   assert.equal(planRes.statusCode, 503);
   assert.deepEqual(planRes.body, {
-    error: '失败图片重试服务暂不可用，请稍后重试',
+    error: '整套重试服务暂不可用，请稍后重试',
     code: 'ECOMMERCE_RETRY_UNAVAILABLE',
   });
 
@@ -101,7 +101,7 @@ test('generation handler returns HTTP 202 queued without waiting for provider co
   }, retryRes);
   assert.equal(retryRes.statusCode, 503);
   assert.deepEqual(retryRes.body, {
-    error: '失败图片重试服务暂不可用，请稍后重试',
+    error: '整套重试服务暂不可用，请稍后重试',
     code: 'ECOMMERCE_RETRY_UNAVAILABLE',
   });
 });
@@ -321,8 +321,8 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.match(server, /IMG_BASE\s*&&\s*IMG_OVERFLOW_BASE\s*&&\s*IMG_KEY\s*\?\s*createProviderRouter\(\{/);
   assert.match(server, /IMAGE_PRIMARY_BASE_URL/);
   assert.match(server, /IMAGE_OVERFLOW_BASE_URL/);
-  assert.match(server, /https:\/\/img-cn\.65535\.space/);
-  assert.match(server, /https:\/\/sub-proxy-us-1\.65535\.space/);
+  assert.match(server, /https:\/\/task-api-1-cn\.65535\.space/);
+  assert.match(server, /https:\/\/sub-proxy-us\.65535\.space/);
   assert.doesNotMatch(server, /IMAGE_PRIMARY_BASE_URL\s*\|\|\s*process\.env\.IMAGE_BASE_URL/);
   assert.match(server, /app\.post\('\/api\/generate-ecommerce',\s*ecommerceRouteHandlers\.generate\)/);
   assert.match(server, /authenticateContentRequest\(req,\s*\{[\s\S]{0,200}sessionTokens:\s*contentSessionTokens/);
@@ -412,7 +412,7 @@ test('frontend stores the signed session and follows a 202 ecommerce job to stab
   }
 });
 
-test('frontend returns completed assets from a needs-review partial job', async t => {
+test('frontend automatically replaces a needs-review job with one complete-suite retry', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   t.after(() => {
@@ -426,27 +426,42 @@ test('frontend returns completed assets from a needs-review partial job', async 
     }),
     setItem: () => {},
   };
-  globalThis.fetch = async url => {
-    if (String(url).endsWith('/api/generate-ecommerce')) {
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url);
+    calls.push([options.method || 'GET', path]);
+    if (path.endsWith('/api/generate-ecommerce')) {
       return new Response(JSON.stringify({ taskId: 'job-partial', status: 'queued' }), {
         status: 202,
         headers: { 'content-type': 'application/json' },
       });
     }
-    return new Response(JSON.stringify({
-      ok: true,
-      task: {
+    if (path === '/api/ecommerce/jobs/job-partial') {
+      return new Response(JSON.stringify({ ok: true, task: {
         id: 'job-partial',
         status: 'needs_review',
-        output: {
-          images: { main: '/api/generated-assets/partial.png' },
-          errors: [{ style: 'detail', state: 'needs_review', error: '细节图需要复核' }],
-        },
-      },
-    }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+        output: { images: {}, errors: [] },
+        assets: [{ assetId: 'main', status: 'needs_review' }],
+      } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/ecommerce/jobs/job-partial/retry-plan') {
+      return new Response(JSON.stringify({ plan: { sku: 'ec_image_2k', quantity: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/billing/quote') {
+      return new Response(JSON.stringify({ quote: { quoteId: 'retry-quote', totalUnits: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/ecommerce/jobs/job-partial/retry-failed') {
+      return new Response(JSON.stringify({ taskId: 'job-complete', status: 'queued' }), { status: 202, headers: { 'content-type': 'application/json' } });
+    }
+    if (path === '/api/ecommerce/jobs/job-complete') {
+      return new Response(JSON.stringify({ ok: true, task: {
+        id: 'job-complete',
+        status: 'completed',
+        output: { images: { main: '/api/generated-assets/final.png' }, errors: [] },
+        assets: [{ assetId: 'main', status: 'completed', stableUrl: '/api/generated-assets/final.png' }],
+      } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error(`unexpected request: ${path}`);
   };
   const api = await import(`../src/services/api.js?async-partial=${Date.now()}`);
 
@@ -458,9 +473,17 @@ test('frontend returns completed assets from a needs-review partial job', async 
     pollIntervalMs: 0,
   });
 
-  assert.equal(result.status, 'needs_review');
-  assert.deepEqual(result.images, { main: '/api/generated-assets/partial.png' });
-  assert.equal(result.errors.length, 1);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.taskId, 'job-complete');
+  assert.deepEqual(result.images, { main: '/api/generated-assets/final.png' });
+  assert.deepEqual(calls, [
+    ['POST', '/api/generate-ecommerce'],
+    ['GET', '/api/ecommerce/jobs/job-partial'],
+    ['POST', '/api/ecommerce/jobs/job-partial/retry-plan'],
+    ['POST', '/api/billing/quote'],
+    ['POST', '/api/ecommerce/jobs/job-partial/retry-failed'],
+    ['GET', '/api/ecommerce/jobs/job-complete'],
+  ]);
 });
 
 test('frontend preserves structured billing metadata from a failed async job', async t => {

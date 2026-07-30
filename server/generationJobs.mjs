@@ -41,8 +41,8 @@ function safeProgress(value) {
 }
 
 function publicTaskError(status) {
-  if (status === 'needs_review') return '部分图片需要修订，可查看预览后仅重新生成这些图片';
-  if (status === 'failed') return '任务未完成，请查看失败图片后重试';
+  if (status === 'needs_review') return '本轮没有形成完整套图，未作为作品交付';
+  if (status === 'failed') return '本轮生成未完成，请稍后重新生成整套';
   if (status === 'cancelled') return '任务已停止';
   return '';
 }
@@ -197,11 +197,11 @@ export function createGenerationJobs(dbPath = ':memory:', {
             '图片',
           ),
           error: asset.state === 'needs_review'
-            ? '生成预览需要修订，尚未进入交付，本张不计费'
+            ? '本轮未形成完整套图，未交付且本张不计费'
             : ['failed', 'cancelled'].includes(asset.state)
               ? '图片生成未完成，本张未计费'
               : '',
-          previewUrl: asset.state === 'needs_review' ? asset.stableUrl : '',
+          previewUrl: '',
         }));
         return {
           id: row.id,

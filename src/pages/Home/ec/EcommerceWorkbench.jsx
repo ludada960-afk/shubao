@@ -1,11 +1,12 @@
 import React, { useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
+import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 
 function ImageCard({ role, image, label, index, onRemove }) {
   return (
     <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
-      <img src={image.url} alt={label} />
+      <ResponsiveImage src={image.url} variant="thumb" ratio="4:5" alt={label} style={{ width: '100%', height: '100%', background: '#fff' }} imgStyle={{ objectFit: 'cover' }} />
       <span className="ec-xhs-card-caption">{label}</span>
       {image.status && <span style={{ position: 'absolute', left: 6, top: 6, padding: '2px 6px', borderRadius: 999, background: image.locked ? 'rgba(17,24,39,.76)' : 'rgba(180,83,9,.86)', color: '#fff', fontSize: 8, fontWeight: 800 }}>{image.status}</span>}
       {!image.locked && (

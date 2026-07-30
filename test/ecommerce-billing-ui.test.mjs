@@ -425,9 +425,9 @@ test('direction generation keeps normalized per-asset progress and stable previe
   assert.match(source, /asset\.label/);
   assert.match(source, /asset\.userState/);
   assert.match(source, /stableImages\.map/);
-  assert.match(source, /retry:\s*retryTaskRequested/);
+  assert.match(source, /retry:\s*false/);
   assert.match(source, /acceptEcommerceFinalResult\(result\)/);
-  assert.match(source, /_partialDelivery:\s*finalDelivery\.status === 'needs_review'/);
+  assert.doesNotMatch(source, /_partialDelivery/);
   assert.doesNotMatch(source, /继续生成[”"]?修复未通过/);
   assert.doesNotMatch(source, /saveWork\(/);
   const serverSource = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
@@ -597,4 +597,16 @@ test('production billing hold creates exactly one item per planned asset', async
   assert.match(billing, /key:\s*item\.id/);
   assert.match(billing, /quoteService\.verify/);
   assert.match(billing, /billing_quote_id/);
+});
+
+test('commerce configuration and navigation controls keep native button semantics', async () => {
+  const ecMode = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
+  const skuPanel = await fs.readFile(new URL('../src/pages/Home/ec/SkuPanel.jsx', import.meta.url), 'utf8');
+  const app = await fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
+
+  assert.match(ecMode, /<button type="button" key=\{btn\.key\}/);
+  assert.match(ecMode, /aria-expanded=\{isOpen\}/);
+  assert.match(skuPanel, /<button type="button" aria-label=\{`删除变体 \$\{idx \+ 1\}`\}/);
+  assert.doesNotMatch(skuPanel, /<div onClick=\{\(\) => rm\(sku\.id\)\}/);
+  assert.match(app, /<button key=\{i\} type="button"[\s\S]{0,160}aria-current=/);
 });

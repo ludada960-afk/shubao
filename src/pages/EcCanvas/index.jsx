@@ -88,7 +88,13 @@ function parseImages(images, platform) {
 }
 
 function productAssetsForCanvas(result = {}) {
-  const sources = result.productAssets || result.product_assets || result.productImages || result.source_images || result.sourceImages || [];
+  const sources = result.productAssets
+    || result.product_assets
+    || result.productImages
+    || result.source_images
+    || result.sourceImages
+    || result.inputSnapshot?.productAssets
+    || [];
   return normalizeWorkImages(sources).map((asset, index) => ({
     ...asset,
     assetId: asset.assetId || asset.id || asset.key || `product-${index + 1}`,
@@ -236,7 +242,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       onMouseLeave={() => { setHovered(false); onHoverChange?.(null); }}
       style={{
         position: 'absolute', left: node.x, top: node.y, width: node.w,
-        cursor: 'grab', userSelect: 'none', borderRadius: 12,
+        cursor: 'grab', userSelect: 'none', borderRadius: 8,
         boxShadow: selected ? '0 0 0 2.5px #7c3aed, 0 8px 32px rgba(124,58,237,0.25)' : '0 4px 16px rgba(0,0,0,0.10)',
         background: '#fff', opacity: dimmed ? 0.34 : 1, transition: 'box-shadow 0.15s, opacity 0.16s', touchAction: 'none',
       }}
@@ -255,9 +261,9 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
           return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 7, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
         })}
       </div>}
-      <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
-      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'out'); }} />
-      <div style={{ position: 'relative', width: '100%', borderRadius: '12px 12px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
+      <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
+      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'out'); }} />
+      <div style={{ position: 'relative', width: '100%', borderRadius: '8px 8px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
         {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
           <div style={{ width: '100%', height: node.h, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fef2f2' }}>
@@ -275,7 +281,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
           ratio={node.ratio}
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
-          style={{ width: '100%', height: node.h, borderRadius: '12px 12px 0 0', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}
+          style={{ width: '100%', height: node.h, borderRadius: '8px 8px 0 0', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}
           imgStyle={{ objectFit: 'contain', objectPosition: node.crop?.grid ? `${(node.crop.index % 2) * 100}% ${Math.floor(node.crop.index / 2) * 100}%` : 'center' }}
         />
         {node.crop?.grid === 2 && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(90deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%)' }} />}
@@ -294,8 +300,9 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
   );
 }
 
-function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp, onHoverChange }) {
-  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} onMouseEnter={() => onHoverChange?.(node.id)} onMouseLeave={() => onHoverChange?.(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 15, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none', opacity: dimmed ? 0.34 : 1, transition: 'opacity 0.16s, box-shadow 0.15s' }}>
+function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp, onInspect, onHoverChange }) {
+  const previewAsset = node.assets?.find(asset => asset?.url);
+  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onDoubleClick={event => { event.stopPropagation(); if (previewAsset) onInspect?.({ ...node, url: previewAsset.url, label: previewAsset.name || node.name }); }} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} onMouseEnter={() => onHoverChange?.(node.id)} onMouseLeave={() => onHoverChange?.(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 8, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none', opacity: dimmed ? 0.34 : 1, transition: 'opacity 0.16s, box-shadow 0.15s' }}>
     <CanvasPortHandle side="right" role="output" visible={selected} disabled={!canDeriveFromNode(node)} label="从产品素材派生工作流" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} onPointerUp={event => onPortPointerUp?.(event, node.id, 'out')} />
     <div style={{ fontSize: 10, fontWeight: 800, color: '#6558e8', letterSpacing: '.05em' }}>产品素材组</div>
     <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || '产品母图'}</div>
@@ -307,7 +314,7 @@ function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu,
 }
 
 /* A6: 连线 SVG 层 */
-function ConnectionLines({ connections, nodes, viewport, onRemove, focusNodeIds }) {
+function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
   if (!connections?.length) return null;
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const styles = {
@@ -317,23 +324,23 @@ function ConnectionLines({ connections, nodes, viewport, onRemove, focusNodeIds 
     derived: { stroke: '#6558e8', dash: undefined },
   };
   return (
-    <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'auto', overflow: 'visible' }}>
+    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
       {connections.map((conn, i) => {
         const from = nodeMap.get(conn.fromNodeId || conn.from);
         const to = nodeMap.get(conn.toNodeId || conn.to);
         if (!from || !to) return null;
         const fromPort = getCanvasPortCenter(from, conn.fromPort || 'output');
         const toPort = getCanvasPortCenter(to, conn.toPort || 'input');
-        const x1 = fromPort.x * viewport.scale + viewport.x;
-        const y1 = fromPort.y * viewport.scale + viewport.y;
-        const x2 = toPort.x * viewport.scale + viewport.x;
-        const y2 = toPort.y * viewport.scale + viewport.y;
+        const x1 = fromPort.x;
+        const y1 = fromPort.y;
+        const x2 = toPort.x;
+        const y2 = toPort.y;
         const mx = (x1 + x2) / 2;
         const style = styles[conn.relation || conn.type] || styles.reference;
         const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
         return (
           <g key={i}>
-            <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
+            <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={isFocused ? 0.9 : 0.14} />
           </g>
         );
@@ -342,15 +349,15 @@ function ConnectionLines({ connections, nodes, viewport, onRemove, focusNodeIds 
   );
 }
 
-function ConnectionDraftLine({ draft, nodes, viewport }) {
+function ConnectionDraftLine({ draft, nodes }) {
   if (!draft?.sourceNodeId || !draft.pointer) return null;
   const source = nodes.find(node => node.id === draft.sourceNodeId);
   if (!source) return null;
   const sourcePort = getCanvasPortCenter(source, 'output');
-  const x1 = sourcePort.x * viewport.scale + viewport.x;
-  const y1 = sourcePort.y * viewport.scale + viewport.y;
-  const x2 = draft.pointer.x * viewport.scale + viewport.x;
-  const y2 = draft.pointer.y * viewport.scale + viewport.y;
+  const x1 = sourcePort.x;
+  const y1 = sourcePort.y;
+  const x2 = draft.pointer.x;
+  const y2 = draft.pointer.y;
   const mx = (x1 + x2) / 2;
   return (
     <svg aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 12 }}>
@@ -376,13 +383,13 @@ function SelectionActionBar({ node, actions, onAction, onClose }) {
 function ReferenceComposer({ references, promptText, setPromptText, onRemoveReference, onAddReferenceFiles, onGenerate, loading }) {
   const inputRef = useRef(null);
   return (
-    <div style={{ position: 'fixed', zIndex: 10004, right: 20, bottom: 20, width: 'min(520px, calc(100vw - 40px))', background: '#fff', border: '1px solid rgba(15,23,42,.10)', boxShadow: '0 18px 55px rgba(15,23,42,.20)', borderRadius: 16, padding: 14 }}>
+    <div style={{ position: 'fixed', zIndex: 10004, right: 20, bottom: 20, width: 'min(520px, calc(100vw - 40px))', background: '#fff', border: '1px solid rgba(15,23,42,.10)', boxShadow: '0 18px 55px rgba(15,23,42,.20)', borderRadius: 8, padding: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <div><div style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>引用素材生成</div><div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>保留商品主体，按新的电商用途重新生成</div></div>
         <span style={{ fontSize: 10, color: '#7c3aed', background: 'rgba(124,58,237,.08)', padding: '4px 7px', borderRadius: 999 }}>{references.length} 张参考图</span>
       </div>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 8 }}>
-        {references.map(node => <div key={node.id} style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}><img src={proxyImg(node.url)} alt={node.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} /><button type="button" onClick={() => onRemoveReference(node.id)} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 11, cursor: 'pointer' }}>×</button></div>)}
+        {references.map(node => <div key={node.id} style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}><ResponsiveImage src={node.url} variant="thumb" ratio="1:1" alt={node.name} style={{ width: '100%', height: '100%', borderRadius: 8 }} imgStyle={{ objectFit: 'cover' }} /><button type="button" onClick={() => onRemoveReference(node.id)} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 11, cursor: 'pointer' }}>×</button></div>)}
         <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAddReferenceFiles?.([...event.target.files]); event.target.value = ''; }} />
         <button type="button" onClick={() => inputRef.current?.click()} style={{ width: 48, height: 48, flexShrink: 0, border: '1px dashed #c4b5fd', borderRadius: 8, background: '#faf5ff', color: '#7c3aed', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>+ 添加</button>
       </div>
@@ -2084,10 +2091,9 @@ export default function EcCanvas() {
             </div>
           )}
 
-          <ConnectionLines connections={connections} nodes={connectionNodes} viewport={viewport} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
-          <ConnectionDraftLine draft={connectionDraft} nodes={connectionNodes} viewport={viewport} />
-
-          <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
+            <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
+            <ConnectionDraftLine draft={connectionDraft} nodes={connectionNodes} />
             {(() => {
               const groups = {};
               visibleNodes.forEach(n => {
@@ -2138,6 +2144,7 @@ export default function EcCanvas() {
                   onPortPointerUp={handlePortPointerUp}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                  onInspect={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
                 />;
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
@@ -2260,7 +2267,9 @@ export default function EcCanvas() {
                   </div>
                   <div style={{ display: 'flex', gap: 6, padding: '0 14px 12px', overflowX: 'auto' }}>
                     {(work.images || []).slice(0, 6).map((img, i) => (
-                      <img key={i} src={proxyImg(img)} alt="" onClick={() => setZoomImg({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'pointer' }} />
+                      <button key={i} type="button" onClick={() => setZoomImg({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
+                        <ResponsiveImage src={img} variant="thumb" ratio="1:1" alt={img.label || `作品图片 ${i + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -2366,7 +2375,7 @@ export default function EcCanvas() {
           <div style={{ fontSize: 11, color: '#777', marginBottom: 8 }}>以当前图片为参考，保留商品本体，按你的修改生成新图。</div>
           <textarea value={promptText} onChange={e => setPromptText(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minHeight: 140, resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid rgba(0,0,0,.15)', font: '12px/1.6 inherit' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, overflowX: 'auto' }}>
-            {promptReferences.map(reference => <div key={reference.id} style={{ position: 'relative', width: 42, height: 42, flexShrink: 0 }}><img src={proxyImg(reference.url)} alt={reference.name || '补充参考图'} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }} /><button type="button" aria-label="移除补充参考图" onClick={() => setPromptReferences(prev => prev.filter(item => item.id !== reference.id))} style={{ position: 'absolute', top: -5, right: -5, width: 15, height: 15, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 10, cursor: 'pointer' }}>×</button></div>)}
+            {promptReferences.map(reference => <div key={reference.id} style={{ position: 'relative', width: 42, height: 42, flexShrink: 0 }}><ResponsiveImage src={reference.url} variant="thumb" ratio="1:1" alt={reference.name || '补充参考图'} style={{ width: '100%', height: '100%', borderRadius: 7 }} imgStyle={{ objectFit: 'cover' }} /><button type="button" aria-label="移除补充参考图" onClick={() => setPromptReferences(prev => prev.filter(item => item.id !== reference.id))} style={{ position: 'absolute', top: -5, right: -5, width: 15, height: 15, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 10, cursor: 'pointer' }}>×</button></div>)}
             <button type="button" onClick={() => document.getElementById('canvas-prompt-reference-input')?.click()} style={{ height: 42, padding: '0 10px', border: '1px dashed #c4b5fd', borderRadius: 7, background: '#faf5ff', color: '#7c3aed', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ 补充参考图</button>
             <input id="canvas-prompt-reference-input" type="file" accept="image/*" multiple hidden onChange={async event => { await handlePromptAddImages(event.target.files ? [...event.target.files] : []); event.target.value = ''; }} />
           </div>
@@ -2427,7 +2436,7 @@ export default function EcCanvas() {
       {/* 图片放大预览 */}
       {zoomImg && (
         <div onClick={() => setZoomImg(null)} style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <img src={proxyImg(zoomImg.url)} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} onClick={e => e.stopPropagation()} />
+          <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} onClick={e => e.stopPropagation()} />
           <div onClick={() => setZoomImg(null)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</div>
         </div>
       )}

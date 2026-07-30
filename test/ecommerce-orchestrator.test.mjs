@@ -991,7 +991,7 @@ test('three quoted plan items create exactly three visible assets and three prov
   });
 });
 
-test('failed-item retry creates a newly quoted job containing only failed siblings', async t => {
+test('incomplete-suite retry creates a newly quoted job for the whole uncharged suite', async t => {
   let rejectSecondOnce = true;
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-one'), planItem('main-two')],
@@ -1019,8 +1019,8 @@ test('failed-item retry creates a newly quoted job containing only failed siblin
   assert.deepEqual(calls.compile, ['main-one', 'main-two']);
 
   const retryPlan = orchestrator.getFailedRetryPlan({ id: original.id, ownerEmail: OWNER });
-  assert.deepEqual(retryPlan.itemIds, ['main-two']);
-  assert.equal(retryPlan.quantity, 1);
+  assert.deepEqual(retryPlan.itemIds, ['main-one', 'main-two']);
+  assert.equal(retryPlan.quantity, 2);
 
   const retryJob = orchestrator.createFailedRetryJob({
     id: original.id,
@@ -1029,9 +1029,9 @@ test('failed-item retry creates a newly quoted job containing only failed siblin
   });
   const completed = await orchestrator.runJob(retryJob.id);
   assert.equal(completed.status, 'completed');
-  assert.deepEqual(calls.compile, ['main-one', 'main-two', 'main-two']);
-  assert.deepEqual(calls.hold.at(-1).itemIds, ['main-two']);
-  assert.equal(calls.submit.length, 3);
+  assert.deepEqual(calls.compile, ['main-one', 'main-two', 'main-one', 'main-two']);
+  assert.deepEqual(calls.hold.at(-1).itemIds, ['main-one', 'main-two']);
+  assert.equal(calls.submit.length, 4);
 });
 
 test('failed-item retry claim is idempotent for concurrent duplicate quote submissions', async t => {
@@ -1085,10 +1085,10 @@ test('failed-item retry claim is idempotent for concurrent duplicate quote submi
   ]);
 
   assert.equal(orchestrator.getJob(firstRetry.id, { ownerEmail: OWNER }).status, 'completed');
-  assert.deepEqual(calls.compile.slice(beforeRetry.compile), ['main-two']);
-  assert.deepEqual(calls.hold.slice(beforeRetry.hold).map(call => call.itemIds), [['main-two']]);
-  assert.equal(calls.submit.length, beforeRetry.submit + 1);
-  assert.equal(calls.settle.length, beforeRetry.settle + 1);
+  assert.deepEqual(calls.compile.slice(beforeRetry.compile), ['main-one', 'main-two']);
+  assert.deepEqual(calls.hold.slice(beforeRetry.hold).map(call => call.itemIds), [['main-one', 'main-two']]);
+  assert.equal(calls.submit.length, beforeRetry.submit + 2);
+  assert.equal(calls.settle.length, beforeRetry.settle + 2);
 });
 
 test('waits for in-flight asset workers to settle before releasing a failed parent runner', async t => {
@@ -1223,10 +1223,7 @@ test('terminalizes a zero-delivery project before closing the task without an em
 
   assert.equal(completed.status, 'needs_review');
   assert.deepEqual(completed.output.images, {});
-  assert.deepEqual(lifecycle, [
-    ['terminate', 'needs_review'],
-    ['persist', 'needs_review'],
-  ]);
+  assert.deepEqual(lifecycle, [['terminate', 'needs_review']]);
 });
 
 test('suite diversity retries only the duplicate item before settlement and keeps the retry cap', async t => {
@@ -1390,7 +1387,7 @@ test('completes the immutable project result version before terminal task persis
   assert.deepEqual(lifecycle.at(-1), ['persist', 'completed', 'result-version-1']);
 });
 
-test('persists each delivered asset incrementally and finalizes one task work', async t => {
+test('publishes one task work only after every planned deliverable completes', async t => {
   const snapshots = [];
   const { orchestrator } = await createHarness(t, {
     items: [planItem('main-one'), planItem('detail-one', 'detail_slice_material')],
@@ -1410,8 +1407,6 @@ test('persists each delivered asset incrementally and finalizes one task work', 
 
   assert.equal(completed.status, 'completed');
   assert.deepEqual(snapshots, [
-    { status: 'generating', completed: ['main-one'] },
-    { status: 'generating', completed: ['detail-one', 'main-one'] },
     { status: 'completed', completed: ['detail-one', 'main-one'] },
   ]);
 });
@@ -1508,7 +1503,7 @@ test('reruns product-fidelity quality after deterministic repair and never settl
   assert.deepEqual(calls.release.map(call => call.itemId), ['transparent-one']);
 });
 
-test('settles only successful assets in a partial batch and releases the failed item', async t => {
+test('releases the whole suite without settlement when any planned image is not deliverable', async t => {
   const lifecycle = [];
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-pass'), planItem('detail-fail', 'detail')],
@@ -1534,12 +1529,12 @@ test('settles only successful assets in a partial batch and releases the failed 
         async begin({ job }) {
           return { projectId: 'project-partial', sourceVersionId: 'source-partial', generationRunId: job.id, assetPlanFingerprint: 'partial-fingerprint' };
         },
-        async complete({ job, output, status }) {
-          lifecycle.push(['complete', status, Object.keys(output.images)]);
-          return { resultVersionId: 'result-partial', generationRunId: job.id };
+        async complete() {
+          throw new Error('partial delivery must not create a result version');
         },
-        async terminate() {
-          throw new Error('partial delivery must create a result version');
+        async terminate({ job, status }) {
+          lifecycle.push(['terminate', status]);
+          return { projectId: 'project-partial', sourceVersionId: 'source-partial', generationRunId: job.id };
         },
       },
       persistWorkSnapshot: async ({ job, status }) => {
@@ -1552,24 +1547,59 @@ test('settles only successful assets in a partial batch and releases the failed 
   const completed = await orchestrator.runJob(created.id);
 
   assert.equal(completed.status, 'needs_review');
-  assert.deepEqual(calls.settle.map(call => call.itemId), ['main-pass']);
-  assert.deepEqual(calls.release.map(call => call.itemId), ['detail-fail']);
-  assert.deepEqual(Object.keys(completed.output.images), ['main-pass']);
-  assert.equal(completed.progress.resultVersionId, 'result-partial');
-  assert.equal(completed.assets.find(asset => asset.assetId === 'main-pass').stableUrl, PNG_A);
+  assert.deepEqual(calls.settle.map(call => call.itemId), []);
+  assert.deepEqual(calls.release.map(call => call.itemId).sort(), ['detail-fail', 'main-pass']);
+  assert.deepEqual(Object.keys(completed.output.images), []);
+  assert.equal(completed.progress.resultVersionId, undefined);
+  const withheld = completed.assets.find(asset => asset.assetId === 'main-pass');
+  assert.equal(withheld.stableUrl, undefined);
+  assert.equal(withheld.previewUrl, PNG_A);
+  assert.equal(withheld.error, '本轮未形成完整套图，未交付且本张不计费');
   const rejected = completed.assets.find(asset => asset.assetId === 'detail-fail');
   assert.equal(rejected.stableUrl, undefined);
   assert.equal(rejected.previewUrl, PNG_A);
   assert.equal(rejected.outputUrl, undefined);
   assert.equal(rejected.providerJobId, undefined);
   assert.equal(rejected.requestSnapshot, undefined);
-  assert.equal(rejected.error, '生成预览需要修订，尚未进入交付，本张不计费');
-  assert.equal(completed.output.errors[0].error, '生成预览需要修订，尚未进入交付，本张不计费');
-  assert.deepEqual(lifecycle, [
-    ['persist', 'generating', ''],
-    ['complete', 'needs_review', ['main-pass']],
-    ['persist', 'needs_review', 'result-partial'],
-  ]);
+  assert.equal(rejected.error, '本轮未形成完整套图，未交付且本张不计费');
+  assert.equal(completed.output.errors[0].error, '本轮未形成完整套图，未交付且本张不计费');
+  assert.deepEqual(lifecycle, [['terminate', 'needs_review']]);
+});
+
+test('repairs a quality-rejected deliverable twice internally before completing the suite', async t => {
+  let checks = 0;
+  const { orchestrator, calls } = await createHarness(t, {
+    quality: () => {
+      checks += 1;
+      if (checks >= 3) {
+        return {
+          passed: true,
+          checks: {},
+          repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+          confidence: 'high',
+        };
+      }
+      return {
+        passed: false,
+        checks: { productFidelity: { status: 'fail', issueCodes: ['product_identity_mismatch'] } },
+        repairAction: {
+          type: 'regenerate_from_product_truth',
+          focusIssueCodes: ['product_identity_mismatch'],
+          userCharge: false,
+        },
+        confidence: 'low',
+      };
+    },
+    orchestratorOptions: { canRetry: attempt => attempt < 2 },
+  });
+
+  const result = await orchestrator.runJob(orchestrator.createJob(jobInput('job-two-repairs')).id);
+
+  assert.equal(result.status, 'completed');
+  assert.equal(calls.quality.length, 3);
+  assert.equal(calls.submit.length, 3);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
 });
 
 test('validates the complete asset plan before creating a billing hold', async t => {
@@ -1920,7 +1950,7 @@ test('legacy provider repair evidence survives a later Sharp repair snapshot', a
   });
 });
 
-test('provider repair cap violations are permanent and never submit another provider job', async t => {
+test('provider repair cap violations beyond two repairs are permanent and never submit another provider job', async t => {
   const item = planItem('legacy-over-cap');
   const { orchestrator, jobs, calls } = await createHarness(t, { items: [item] });
   const input = jobInput('job-legacy-provider-over-cap');
@@ -1943,7 +1973,7 @@ test('provider repair cap violations are permanent and never submit another prov
     requestSnapshot: {
       assetPlanItem: item,
       request: { kind: 'repair', prompt: 'repair image_edit; attempt 2' },
-      executionCount: { providerSubmissions: 3 },
+      executionCount: { providerSubmissions: 4 },
     },
     leaseToken: lease.leaseToken,
   });
@@ -1961,7 +1991,7 @@ test('provider repair cap violations are permanent and never submit another prov
       assetPlanItem: item,
       request: { kind: 'repair', prompt: 'repair image_edit; attempt 2' },
       repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'] },
-      executionCount: { providerSubmissions: 3 },
+      executionCount: { providerSubmissions: 4 },
     },
     leaseToken: lease.leaseToken,
   });
@@ -2001,7 +2031,7 @@ test('provider output storage EIO keeps downloading state and resumes without pr
   );
 
   assert.equal(jobs.get(created.id).status, 'generating');
-  assert.equal(jobs.assets.getAsset(created.id, 'main-ready').state, 'completed');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-ready').state, 'verified');
   assert.equal(jobs.assets.getAsset(created.id, 'detail-storage').state, 'downloading');
   assert.equal(calls.hold.length, 1);
   assert.equal(calls.submit.length, 2);
@@ -2542,7 +2572,7 @@ test('keeps the parent resumable while a planned child lease is temporarily held
   const inProgress = await orchestrator.runJob(created.id);
 
   assert.equal(inProgress.status, 'generating');
-  assert.equal(inProgress.assets.find(asset => asset.assetId === 'main-ready').state, 'completed');
+  assert.equal(inProgress.assets.find(asset => asset.assetId === 'main-ready').state, 'verified');
   assert.equal(inProgress.assets.find(asset => asset.assetId === 'detail-held').state, 'queued');
   assert.equal(inProgress.progress.executionCount, undefined);
   assert.equal(calls.hold.length, 1);

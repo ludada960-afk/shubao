@@ -20,7 +20,7 @@ const STATUS_META = {
   generating: { icon: MdAutoAwesome, color: '#c97728', label: '正在生成' },
   completed: { icon: MdCheckCircle, color: '#3f8a5d', label: '已完成' },
   done: { icon: MdCheckCircle, color: '#3f8a5d', label: '已完成' },
-  needs_review: { icon: MdError, color: '#bd7026', label: '部分图片需处理' },
+  needs_review: { icon: MdError, color: '#bd7026', label: '整套未完成' },
   failed: { icon: MdError, color: '#c34f49', label: '生成未完成' },
   error: { icon: MdError, color: '#c34f49', label: '生成未完成' },
   cancelled: { icon: MdClose, color: '#8b8580', label: '已取消' },
@@ -30,7 +30,7 @@ const ACTIVE_STATES = new Set(['queued', 'analyzing', 'reading', 'parsing', 'gen
 
 function progressText(task) {
   if (!task.total) return STATUS_META[task.status]?.label || '等待更新';
-  if (task.failed > 0) return `${task.done}/${task.total} 张完成，${task.failed} 张需处理`;
+  if (task.failed > 0) return `本轮 ${task.total} 张未形成完整交付`;
   return `${task.done}/${task.total} 张完成`;
 }
 
@@ -67,9 +67,9 @@ export default function TaskSidebar({ onOpenTask }) {
     try {
       const retryQuote = await quoteFailedEcommerceTask(task.id);
       const confirmed = await confirm({
-        title: '确认重新生成失败图片',
-        message: `本次仅重新生成 ${retryQuote.quantity} 张失败图片，将消耗 ${retryQuote.quote.totalUnits} 电商图片 / 画布 AI 积分。`,
-        confirmLabel: '确认重新生成',
+        title: '确认重新生成整套',
+        message: `本轮未交付的 ${retryQuote.quantity} 张将重新完整生成，成功后消耗 ${retryQuote.quote.totalUnits} 电商图片 / 画布 AI 积分。`,
+        confirmLabel: '重新生成整套',
       });
       if (!confirmed) return;
       await retryFailedEcommerceTask(task.id, { billingQuoteId: retryQuote.quote.quoteId });
@@ -77,7 +77,7 @@ export default function TaskSidebar({ onOpenTask }) {
     } catch (error) {
       setRetryErrors(current => ({
         ...current,
-        [task.id]: error?.message || '重新生成失败图片失败，请稍后重试',
+        [task.id]: error?.message || '重新生成整套失败，请稍后重试',
       }));
     } finally {
       setRetryingTaskId('');
@@ -312,7 +312,7 @@ export default function TaskSidebar({ onOpenTask }) {
                         opacity: retrying || retryingTaskId ? 0.65 : 1,
                       }}
                     >
-                      {retrying ? '正在确认费用…' : '重新生成失败图片'}
+                      {retrying ? '正在确认费用…' : '重新生成整套'}
                     </button>
                   )}
                 </article>

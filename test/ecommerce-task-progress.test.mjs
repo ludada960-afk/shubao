@@ -389,7 +389,7 @@ test('a needs-review task is removed from the old draft and a subsequent task is
   assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'draft-next', now: now + 1, storage })?.taskId, 'task-next');
 });
 
-test('in-progress stable previews stay separate until a completed or needs-review result is accepted', () => {
+test('in-progress stable previews stay separate until a complete suite is accepted', () => {
   assert.equal(typeof taskProgressModel.mergeEcommerceInProgressPreview, 'function');
   assert.equal(typeof taskProgressModel.acceptEcommerceFinalResult, 'function');
 
@@ -415,13 +415,10 @@ test('in-progress stable previews stay separate until a completed or needs-revie
     status: 'completed',
     images: { 'asset-1': '/api/generated-assets/asset-1.png' },
   });
-  assert.deepEqual(taskProgressModel.acceptEcommerceFinalResult({
+  assert.equal(taskProgressModel.acceptEcommerceFinalResult({
     status: 'needs_review',
     images: { 'asset-1': '/api/generated-assets/asset-1.png' },
-  }), {
-    status: 'needs_review',
-    images: { 'asset-1': '/api/generated-assets/asset-1.png' },
-  });
+  }), null);
 });
 
 test('one plan item keeps one preview slot when a repaired stable URL replaces the first attempt', () => {

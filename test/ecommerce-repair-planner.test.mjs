@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { planRepair } from '../server/ecommerceEngine/repairPlanner.mjs';
+import { canRetry, planRepair } from '../server/ecommerceEngine/repairPlanner.mjs';
 
 test('maps a missing transparent background to deterministic alpha normalization', () => {
   const repair = planRepair({
@@ -23,4 +23,11 @@ test('maps a missing transparent background to deterministic alpha normalization
     focusIssueCodes: ['transparent_background_missing'],
     userCharge: false,
   });
+});
+
+test('formal deliverables receive two bounded internal quality repairs', () => {
+  const action = { type: 'regenerate_from_product_truth' };
+  assert.equal(canRetry(0, action), true);
+  assert.equal(canRetry(1, action), true);
+  assert.equal(canRetry(2, action), false);
 });

@@ -1,4 +1,4 @@
-const LANE_ORDER = ['主图', '详情图', 'SKU', '素材'];
+const LANE_ORDER = ['白底图', '主图', '详情图', 'SKU', '素材'];
 const LANE_METRICS = {
   startX: 410,
   startY: 70,

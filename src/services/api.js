@@ -21,6 +21,9 @@ import {
 import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
+const ECOMMERCE_SUITE_REPAIR_VERSION = 1;
+const ECOMMERCE_SUITE_REPAIR_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_AUTOMATIC_SUITE_REPAIRS = 2;
 
 export const API = API_BASE;
 
@@ -111,9 +114,116 @@ function ecommerceTaskExpiredError(status) {
 
 function ecommerceRetryRequiredError(task) {
   const error = ecommerceTaskError(task);
+  error.message = '本次未能形成完整套图，系统没有交付半成品。请重新完成整套生成';
   error.code = 'ECOMMERCE_TASK_RETRY_REQUIRED';
   error.retryable = true;
   return error;
+}
+
+function suiteRepairStorageKey({ ownerEmail, draftId }) {
+  const owner = String(ownerEmail || '').trim().toLowerCase();
+  const draft = String(draftId || '').trim();
+  return owner && draft
+    ? `sb-ecommerce-suite-repair:v${ECOMMERCE_SUITE_REPAIR_VERSION}:${encodeURIComponent(owner)}:${encodeURIComponent(draft)}`
+    : '';
+}
+
+function loadSuiteRepairCheckpoint(context) {
+  const key = suiteRepairStorageKey(context);
+  if (!key || typeof localStorage === 'undefined') return null;
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!value || value.version !== ECOMMERCE_SUITE_REPAIR_VERSION) return null;
+    if (!Number.isFinite(value.updatedAt)
+      || Date.now() - value.updatedAt > ECOMMERCE_SUITE_REPAIR_TTL_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return value;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+}
+
+function saveSuiteRepairCheckpoint(context, checkpoint) {
+  const key = suiteRepairStorageKey(context);
+  if (!key || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      version: ECOMMERCE_SUITE_REPAIR_VERSION,
+      ...checkpoint,
+      updatedAt: Date.now(),
+    }));
+  } catch {}
+}
+
+function clearSuiteRepairCheckpoint(context) {
+  const key = suiteRepairStorageKey(context);
+  if (!key || typeof localStorage === 'undefined') return;
+  try { localStorage.removeItem(key); } catch {}
+}
+
+async function repairIncompleteSuite(task, options) {
+  const sourceTaskId = String(task?.id || task?.taskId || options.taskId || '').trim();
+  if (!sourceTaskId) throw ecommerceRetryRequiredError(task);
+  const repairAttempt = Number.isSafeInteger(options.repairAttempt) ? options.repairAttempt : 0;
+  if (repairAttempt >= MAX_AUTOMATIC_SUITE_REPAIRS) {
+    clearEcommerceTaskReference({
+      ownerEmail: options.ownerEmail,
+      draftId: options.draftId,
+      taskId: sourceTaskId,
+    });
+    clearSuiteRepairCheckpoint(options);
+    const error = ecommerceRetryRequiredError(task);
+    error.message = '系统已自动补全两轮，但仍未形成完整套图。本轮未交付，也未扣除未交付图片额度，请稍后重试';
+    throw error;
+  }
+
+  options.onProgress?.({
+    ...taskWithNormalizedAssets(task),
+    status: 'repairing',
+    automaticSuiteRepair: repairAttempt + 1,
+  });
+  const saved = loadSuiteRepairCheckpoint(options);
+  let quoteId = saved?.sourceTaskId === sourceTaskId ? saved.quoteId : '';
+  let retryTaskId = saved?.sourceTaskId === sourceTaskId ? saved.retryTaskId : '';
+
+  if (!retryTaskId) {
+    if (!quoteId) {
+      const retryQuote = await quoteFailedEcommerceTask(sourceTaskId, { signal: options.signal });
+      quoteId = retryQuote.quote.quoteId;
+      saveSuiteRepairCheckpoint(options, {
+        sourceTaskId,
+        quoteId,
+        retryTaskId: '',
+        repairAttempt,
+      });
+    }
+    const queued = await retryFailedEcommerceTask(sourceTaskId, {
+      billingQuoteId: quoteId,
+      signal: options.signal,
+    });
+    retryTaskId = String(queued?.taskId || queued?.task?.id || '').trim();
+    if (!retryTaskId) throw new Error('整套自动补全任务创建失败，请稍后重试');
+    saveSuiteRepairCheckpoint(options, {
+      sourceTaskId,
+      quoteId,
+      retryTaskId,
+      repairAttempt,
+    });
+  }
+
+  saveEcommerceTaskReference({
+    ownerEmail: options.ownerEmail,
+    draftId: options.draftId,
+    taskId: retryTaskId,
+  });
+  return pollEcommerceTask(retryTaskId, {
+    ...options,
+    initialTask: undefined,
+    repairAttempt: repairAttempt + 1,
+  });
 }
 
 async function pollEcommerceTask(taskId, {
@@ -126,6 +236,7 @@ async function pollEcommerceTask(taskId, {
   draftId,
   signal,
   isCurrent,
+  repairAttempt = 0,
 }) {
   const emitted = new Set();
   const pollLimit = Number.isSafeInteger(maxPollAttempts) && maxPollAttempts > 0 ? maxPollAttempts : 600;
@@ -138,14 +249,28 @@ async function pollEcommerceTask(taskId, {
       task = await getEcommerceTask(taskId, { signal });
     }
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
-    emitStableTaskImages(task, emitted, onImage, taskId);
     onProgress?.(taskWithNormalizedAssets(task));
     const status = taskStatus(task);
     const images = stableTaskImages(task);
-    if (status === 'completed' || status === 'needs_review') {
+    if (status === 'needs_review') {
+      return repairIncompleteSuite(task, {
+        taskId,
+        onImage,
+        onProgress,
+        pollIntervalMs,
+        maxPollAttempts,
+        ownerEmail,
+        draftId,
+        signal,
+        isCurrent,
+        repairAttempt,
+      });
+    }
+    if (status === 'completed') {
+      emitStableTaskImages(task, emitted, onImage, taskId);
       clearEcommerceTaskReference({ ownerEmail, draftId, taskId });
+      clearSuiteRepairCheckpoint({ ownerEmail, draftId });
       if (Object.keys(images).length === 0) {
-        if (status === 'needs_review') throw ecommerceTaskError(task);
         const errors = task?.output?.errors || [];
         const message = errors.find(item => item?.error)?.error;
         throw new Error(message || '生成完成但没有可用图片，请重试');
@@ -192,7 +317,9 @@ export function proxyImg(url, variant = 'full') {
 export function imageVariantUrl(url, variant = 'full') {
   const value = String(url || '');
   if (!value || variant === 'full' || value.startsWith('data:') || value.startsWith('blob:')) return value;
-  if (!value.startsWith('/api/generated-assets/') && !value.startsWith('/api/proxy-image')) return value;
+  if (!value.startsWith('/api/generated-assets/')
+    && !value.startsWith('/api/proxy-image')
+    && !value.startsWith('/api/gallery-image')) return value;
   return `${value}${value.includes('?') ? '&' : '?'}variant=${encodeURIComponent(variant)}`;
 }
 
@@ -401,7 +528,7 @@ export async function removeBg({ image_url }) {
 }
 
 export function galleryImg(id, file) {
-  return `${API_BASE}/api/gallery-image?id=${id}&file=${encodeURIComponent(file)}&t=${Date.now()}`;
+  return `${API_BASE}/api/gallery-image?id=${encodeURIComponent(id)}&file=${encodeURIComponent(file)}`;
 }
 
 function contentStreamError(event) {
@@ -601,7 +728,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     body.billing_quote_id = billingQuoteId.trim();
   }
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分钟超时（电商生图更慢）
+  const timeoutId = setTimeout(() => controller.abort(), 1200000);
   const abortFromCaller = () => controller.abort();
   if (signal) {
     if (signal.aborted) controller.abort();
@@ -667,7 +794,6 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
         };
         if (isEcommerceAssetDeliverable(image)) {
           result.images[image.id] = image.stableUrl;
-          onImage?.(image);
         }
       } else if (d.type === 'complete') {
         gotComplete = true;
@@ -687,6 +813,20 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   if (typeof isCurrent === 'function' && !isCurrent()) return null;
   if (!gotComplete) throw new Error('生成未完成，请重试');
   const imageCount = Object.keys(result.images || {}).length;
+  if (result.status === 'needs_review') {
+    return repairIncompleteSuite(result, {
+      taskId: result.taskId,
+      onImage,
+      onProgress,
+      pollIntervalMs,
+      maxPollAttempts,
+      ownerEmail,
+      draftId,
+      signal,
+      isCurrent,
+      repairAttempt: 0,
+    });
+  }
   if (result.status === 'failed' || result.status === 'cancelled') {
     if (result.taskId) clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
     throw ecommerceTaskError(result);
@@ -695,9 +835,12 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     const firstError = Array.isArray(result.errors) ? result.errors.find(item => item?.error)?.error : '';
     throw new Error(firstError || '生成完成但没有返回图片，请重试');
   }
-  if (result.taskId && (result.status === 'completed' || result.status === 'needs_review')) {
+  if (result.taskId && result.status === 'completed') {
     clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
   }
+  clearSuiteRepairCheckpoint({ ownerEmail, draftId });
+  const delivered = new Set();
+  emitStableTaskImages({ output: { images: result.images }, assets: result.assets || [] }, delivered, onImage, result.taskId || '');
   return result;
 }
 
@@ -729,13 +872,13 @@ export async function quoteFailedEcommerceTask(taskId, { signal } = {}) {
     headers: signedSessionHeaders(),
     signal,
   });
-  if (!planResponse.ok) throw await createApiError(planResponse, '读取失败图片费用失败');
+  if (!planResponse.ok) throw await createApiError(planResponse, '读取整套重试费用失败');
   const planBody = await planResponse.json();
   const plan = planBody?.plan || planBody;
   const sku = typeof plan?.sku === 'string' ? plan.sku.trim() : '';
   const quantity = Number(plan?.quantity);
   if (!sku || !Number.isSafeInteger(quantity) || quantity <= 0) {
-    throw new Error('失败图片的费用信息无效，请刷新后重试');
+    throw new Error('整套重试的费用信息无效，请刷新后重试');
   }
   const billing = await quoteBillingAction({ sku, quantity });
   const quote = billing?.quote;
@@ -754,7 +897,7 @@ export async function retryFailedEcommerceTask(taskId, { billingQuoteId, signal 
     body: JSON.stringify({ billingQuoteId }),
     signal,
   });
-  if (!res.ok) throw await createApiError(res, '重新生成失败图片失败');
+  if (!res.ok) throw await createApiError(res, '重新生成整套失败');
   return res.json();
 }
 

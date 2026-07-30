@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -10,6 +10,7 @@ import { createImageDelivery, imageVariantUrl } from '../server/imageDelivery.mj
 test('imageVariantUrl requests a derivative without corrupting existing query parameters', () => {
   assert.equal(imageVariantUrl('/api/generated-assets/a.png', 'thumb'), '/api/generated-assets/a.png?variant=thumb');
   assert.equal(imageVariantUrl('/api/generated-assets/a.png?download=1', 'canvas'), '/api/generated-assets/a.png?download=1&variant=canvas');
+  assert.equal(imageVariantUrl('/api/gallery-image?id=xm&file=cover.png', 'thumb'), '/api/gallery-image?id=xm&file=cover.png&variant=thumb');
   assert.equal(imageVariantUrl('/api/generated-assets/a.png', 'full'), '/api/generated-assets/a.png');
 });
 
@@ -57,6 +58,41 @@ test('delivery coalesces concurrent remote source fetches', async () => {
     assert.equal(left.contentType, 'image/webp');
     assert.deepEqual(left.buffer, right.buffer);
     assert.equal((await sharp(left.buffer).metadata()).format, 'webp');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('delivery creates cached variants for a trusted local gallery image', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'shubao-image-delivery-'));
+  try {
+    const filePath = join(root, 'gallery-cover.png');
+    await writeFile(filePath, await sharp({
+      create: { width: 1600, height: 2200, channels: 3, background: '#f4a261' },
+    }).png().toBuffer());
+    const delivery = createImageDelivery({ assetRoot: root, proxyCacheRoot: join(root, 'cache') });
+    const first = await delivery.readLocalVariant(filePath, 'thumb');
+    const second = await delivery.readLocalVariant(filePath, 'thumb');
+    const metadata = await sharp(first.buffer).metadata();
+    assert.equal(first.contentType, 'image/webp');
+    assert.ok(metadata.width <= 360);
+    assert.deepEqual(second.buffer, first.buffer);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('delivery can prewarm generated thumbnails before the first UI request', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'shubao-image-delivery-'));
+  try {
+    const id = 'b'.repeat(64) + '.png';
+    await writeFile(join(root, id), await sharp({
+      create: { width: 1400, height: 1000, channels: 3, background: '#264653' },
+    }).png().toBuffer());
+    const delivery = createImageDelivery({ assetRoot: root, proxyCacheRoot: join(root, 'proxy') });
+    await delivery.prewarmGeneratedVariants(id);
+    await access(join(root, '.derivatives', `${id}.thumb.webp`));
+    await access(join(root, '.derivatives', `${id}.canvas.webp`));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

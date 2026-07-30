@@ -133,6 +133,6 @@ export function canRetry(attempt, repairAction = {}) {
   if (!Number.isInteger(attempt) || attempt < 0) return false;
   if (!['sharp_repair', 'image_edit', 'regenerate_from_product_truth', 'cleanup_and_overlay']
     .includes(repairAction?.type)) return false;
-  // A formal deliverable receives one quality repair total, local or provider-backed.
-  return attempt < 1;
+  // Keep repair bounded, but absorb a second identity-safe pass before surfacing a failed suite.
+  return attempt < 2;
 }

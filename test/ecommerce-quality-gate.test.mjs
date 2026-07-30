@@ -459,20 +459,22 @@ test('maps text defects and local visual defects to focused repair plans', () =>
   assert.deepEqual(visualRepair.focusIssueCodes, ['local_artifact']);
 });
 
-test('allows only one deterministic Sharp repair attempt per asset', () => {
+test('allows at most two deterministic Sharp repair attempts per asset', () => {
   assert.equal(canRetry(0, { type: 'sharp_repair' }), true);
-  assert.equal(canRetry(1, { type: 'sharp_repair' }), false);
+  assert.equal(canRetry(1, { type: 'sharp_repair' }), true);
   for (const attempt of [2, 3, -1, 1.5, '1', null, undefined]) {
     assert.equal(canRetry(attempt, { type: 'sharp_repair' }), false);
   }
 });
 
-test('limits provider-backed quality repair to one automatic resubmission', () => {
+test('limits provider-backed quality repair to two automatic resubmissions', () => {
   assert.equal(canRetry(0, { type: 'image_edit' }), true);
-  assert.equal(canRetry(1, { type: 'image_edit' }), false);
+  assert.equal(canRetry(1, { type: 'image_edit' }), true);
+  assert.equal(canRetry(2, { type: 'image_edit' }), false);
   assert.equal(canRetry(0, { type: 'regenerate_from_product_truth' }), true);
-  assert.equal(canRetry(1, { type: 'regenerate_from_product_truth' }), false);
-  assert.equal(canRetry(1, { type: 'sharp_repair' }), false);
+  assert.equal(canRetry(1, { type: 'regenerate_from_product_truth' }), true);
+  assert.equal(canRetry(2, { type: 'regenerate_from_product_truth' }), false);
+  assert.equal(canRetry(1, { type: 'sharp_repair' }), true);
   assert.equal(canRetry(2, { type: 'sharp_repair' }), false);
 });
 

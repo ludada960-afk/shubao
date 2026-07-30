@@ -44,13 +44,13 @@ function job(overrides = {}) {
   };
 }
 
-function asset(assetId, state, stableUrl, role, purpose) {
+function asset(assetId, state, stableUrl, role, purpose, extra = {}) {
   return {
     assetId,
     state,
     stableUrl,
     requestSnapshot: {
-      assetPlanItem: { id: assetId, role, purpose },
+      assetPlanItem: { id: assetId, role, purpose, ...extra },
     },
   };
 }
@@ -60,7 +60,7 @@ test('work snapshots include only final stable deliverables and keep one save ke
     job: job(),
     status: 'generating',
     assets: [
-      asset('main-1', 'completed', URL_A, 'main_text', '商品识别主图'),
+      asset('main-1', 'completed', URL_A, 'main_text', '商品识别主图', { ratio: '1:1', size: '2048x2048' }),
       asset('detail-1', 'quality_check', URL_B, 'detail_slice_material', '材质细节'),
       asset('detail-2', 'failed', '', 'detail_slice_usage', '使用场景'),
     ],
@@ -89,6 +89,10 @@ test('work snapshots include only final stable deliverables and keep one save ke
     label: '商品识别主图',
     role: 'main_text',
     style: '商品识别主图',
+    name: '商品识别主图',
+    group: '主图',
+    ratio: '1:1',
+    size: '2048x2048',
     url: URL_A,
   }]);
 });

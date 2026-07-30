@@ -18,6 +18,11 @@ import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
+import {
+  createSmartConfiguration,
+  createSmartOverrides,
+  summarizeCommerceConfiguration,
+} from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import {
@@ -131,9 +136,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
 
   /* — 智能方案 — */
   const [smartMode, setSmartMode] = useState(true);
-  const [smartOverrides, setSmartOverrides] = useState({
-    sizing: false, style: false, params: false, copy: false, settings: false,
-  });
+  const [smartOverrides, setSmartOverrides] = useState(createSmartOverrides);
 
   /* — 配置 — */
   const [platform, setPlatform] = useState('smart');
@@ -141,7 +144,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   const [styleSkill, setStyleSkill] = useState('smart');
   const [customColors, setCustomColors] = useState(null);
   const [productParams, setProductParams] = useState({ category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' });
-  const [skus, setSkus] = useState([{ id: `sku_${Date.now()}`, color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
+  const [skus, setSkus] = useState([]);
   const [copywriting, setCopywriting] = useState({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
 
   /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
@@ -159,7 +162,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     setStyleSkill(restored.styleSkill);
     setCustomColors(restored.customColors);
     setProductParams(restored.productParams);
-    setSkus(restored.skus.length ? restored.skus : [{ id: `sku_${Date.now()}`, color: '', size: '', capacity: '', dimLabel: '', count: 1 }]);
+    setSkus(restored.skus);
     setCopywriting(restored.copywriting);
     setGenSettings(restored.genSettings);
   }, [recoveryCheckpoint]);
@@ -323,12 +326,23 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── 智能方案切换 ── */
+  const applySmartConfiguration = () => {
+    const smart = createSmartConfiguration();
+    setPlatform(smart.platform);
+    setSizing(smart.sizing);
+    setStyleSkill(smart.styleSkill);
+    setCustomColors(smart.customColors);
+    setProductParams(smart.productParams);
+    setSkus(smart.skus);
+    setCopywriting(smart.copywriting);
+    setGenSettings(smart.genSettings);
+    setSmartOverrides(createSmartOverrides());
+  };
+
   const toggleSmart = () => {
     const next = !smartMode;
     setSmartMode(next);
-    if (next) {
-      setSmartOverrides({ sizing: false, style: false, params: false, copy: false, settings: false });
-    }
+    if (next) applySmartConfiguration();
   };
 
   /* ── 6 个功能按钮（AI 感图标升级）── */
@@ -441,14 +455,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
             smartMode={smartMode} onOverride={() => handleOverride('params')} />
         )}
         {activePanel === 'sku' && (
-          <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />
+          <SkuPanel skus={skus} onChange={value => { setSkus(value); handleOverride('sku'); }} sizing={sizing} onSizingChange={setSizing} />
         )}
         {activePanel === 'copy' && (
           <CopyPanel copywriting={copywriting} onChange={setCopywriting}
             smartMode={smartMode} onOverride={() => handleOverride('copy')} />
         )}
         {activePanel === 'settings' && (
-          <GenSettingsPanel value={genSettings} onChange={setGenSettings} />
+          <GenSettingsPanel value={genSettings} onChange={value => { setGenSettings(value); handleOverride('settings'); }} />
         )}
       </div>,
       document.body,
@@ -456,14 +470,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   };
 
   const restoreSmartPlan = () => {
-    setPlatform('smart');
-    setSizing({ smart: true, images: [] });
-    setStyleSkill('smart');
-    setCustomColors(null);
-    setCopywriting({ plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' });
-    setGenSettings({ resolution: '2K', negativePrompt: '' });
+    applySmartConfiguration();
     setSmartMode(true);
-    setSmartOverrides({ sizing: false, style: false, params: false, copy: false, settings: false });
     setActivePanel(null);
   };
 
@@ -567,7 +575,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           onRemoveReference={removeRefImg}
         />
         {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
-        <div style={{ display: 'none' }}>
+        {false && (<div style={{ display: 'none' }}>
 
           {/* ── 上方：双列上传区（产品图 × 参考图，小红书同款样式）── */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
@@ -756,7 +764,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
               <div className="ph-sub">例如：白色陶瓷马克杯，简约北欧风，容量350ml，带木质把手，适合办公家用</div>
             </div>
           </div>
-        </div>
+        </div>)}
 
         {/* ═══ 配置按钮行（相对定位容器，面板在此内部绝对定位）═══ */}
         <div ref={btnRowRef} className="ec-workbench-actions" style={{
@@ -777,19 +785,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
             const getConfigSummary = () => {
               switch (btn.key) {
                 case 'sizing': {
-                  // 始终显示具体配置摘要（类似椒图AI）
                   const images = resolveSizingImages(platform, { ...sizing, resolution: genSettings.resolution });
-                  const total = images.reduce((s, img) => s + (img.count || 0), 0);
-                  if (total === 0) return { text: '套图配置', isSmart: false };
-                  const typeLabels = [];
-                  images.forEach(img => {
-                    if (img.count > 0) {
-                      const shortLabel = img.label?.replace('商品', '').replace('图片', '').replace('白底', '白底') || img.key;
-                      typeLabels.push(`${img.count}${shortLabel}`);
-                    }
-                  });
-                  const text = typeLabels.slice(0, 2).join('·');
-                  return { text: typeLabels.length > 2 ? `${text}…` : text, isSmart: false };
+                  return { text: summarizeCommerceConfiguration('sizing', { images }), isSmart: false };
                 }
                 case 'style': {
                   const styleMap = {
@@ -805,16 +802,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                   return { text: hasColor ? `${base}+品牌色` : base, isSmart: false };
                 }
                 case 'params': {
-                  const filled = Object.entries(productParams).filter(([k, v]) => v && v.trim?.()).length;
-                  return filled > 0
-                    ? { text: `${filled}项参数`, isSmart: false }
-                    : { text: '产品参数', isSmart: false };
+                  return { text: summarizeCommerceConfiguration('params', { productParams }), isSmart: false };
                 }
                 case 'sku': {
-                  const validSkus = skus?.filter(s => s.color || s.size || s.capacity) || [];
-                  const totalSkuImages = validSkus.reduce((a, s) => a + (s.count || 1), 0);
-                  if (validSkus.length === 0) return { text: 'SKU变体', isSmart: false };
-                  return { text: `${validSkus.length}变体·${totalSkuImages}张`, isSmart: false };
+                  return { text: summarizeCommerceConfiguration('sku', { skus }), isSmart: false };
                 }
                 case 'copy': {
                   const fields = ['plan', 'sellingPoints', 'qc', 'details', 'maintenance'];
@@ -832,11 +823,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
             };
             const summary = getConfigSummary();
             return (
-              <div key={btn.key} ref={el => { if (el) btnRefs.current[btn.key] = el; }}
+              <button type="button" key={btn.key} ref={el => { if (el) btnRefs.current[btn.key] = el; }}
                 onClick={() => openPanel(btn.key)}
+                aria-label={`${btn.label}：${summary.text || btn.label}`}
+                aria-expanded={isOpen}
                 className={isOverridden ? 'ec-btn-overridden' : ''}
                 style={{
                   ...BTN_BASE,
+                  appearance: 'none',
                     border: `1.5px solid ${activePanel === btn.key ? '#1f2937' : 'rgba(28,25,23,.28)'}`,
                   borderColor: isOpen ? '#8b5cf6' : isOverridden ? 'rgba(139,92,246,0.55)' : 'rgba(28,25,23,0.10)',
                   background: isOpen ? '#f1e9ff' : isOverridden ? '#fbf8ff' : '#fff',
@@ -884,7 +878,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                   transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                   transition: 'transform 0.22s ease, opacity 0.2s',
                 }} />
-              </div>
+              </button>
             );
             })}
             {hasOverrides && (

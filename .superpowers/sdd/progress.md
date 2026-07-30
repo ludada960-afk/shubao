@@ -341,3 +341,38 @@
 - The release script retains only the three newest remote rollback backups after a successful canary. Existing stale backups were pruned before release, restoring production disk headroom.
 - Visual analysis uses the configured production model contract (`gpt-5.6-terra` by default). Layered PSD structure and Canvas billing paths remain covered by the passing local integration suite.
 - Residual external risk: image-provider availability and output quality remain third-party runtime dependencies; production tasks fail closed and the release script rolls back on verification failure.
+
+## Commerce Suite and Canvas Closure (2026-07-31)
+
+- Product and implementation contracts are recorded in
+  `docs/superpowers/specs/2026-07-31-commerce-suite-canvas-production-closure.md`
+  and `docs/superpowers/plans/2026-07-31-commerce-suite-canvas-production-closure.md`.
+- The ecommerce entry now restores a complete smart configuration, exposes
+  compact full summaries for package/SKU/product settings, preserves original
+  product and reference assets through Canvas handoff, and uses native button
+  semantics for all primary creation and navigation controls.
+- Ecommerce delivery is complete-suite only. Every planned asset must pass
+  identity, visual-quality and suite-diversity review before any item settles;
+  incomplete runs release all verified siblings, persist no partial Work, show
+  no rejected preview, and receive at most two bounded automatic whole-suite
+  repairs across reloads before returning an honest retryable failure.
+- Canvas draft schema 2 keeps the source product, groups outputs into horizontal
+  white-background, main, detail, SKU and material lanes, respects per-image
+  aspect ratios, supports direct image-body drag and double-click inspection,
+  and renders edges inside the same transformed world layer so line endpoints
+  follow pointer movement in the same frame.
+- Image delivery now serves cached WebP `thumb` and `canvas` variants for local,
+  generated and remote assets, prewarms generated variants on persistence, uses
+  stable gallery URLs and browser decode/lazy-loading fallbacks. Local evidence
+  on the Xiamen cover reduced 2,728,066-byte full PNG delivery to a 36,050-byte
+  thumbnail (98.7% smaller); warm responses measured 2.8-6.2 ms with a one-year
+  immutable cache policy.
+- Final local verification passed `920/920` tests, Vite production build with
+  6,430 transformed modules, post-build asset checks, collaboration policy and
+  `git diff --check`. Browser QA covered desktop and 390x844 mobile entry layout,
+  configuration override/reset, stable thumbnail rendering, no horizontal
+  overflow, mobile sticky-header isolation and accessible control semantics.
+- Production secrets remain runtime-only and uncommitted. Read-only production
+  inspection found legacy gateway settings still active; new key fingerprint
+  verification, runtime environment update, provider probe, deployment and the
+  authenticated canary remain the release boundary.

@@ -92,12 +92,14 @@ function SideNav() {
           : '0 2px 6px rgba(0,0,0,0.04)';
 
         return (
-          <div key={i} onClick={item.onClick} title={item.label}
+          <button key={i} type="button" onClick={item.onClick} title={item.label} aria-label={item.label}
+            aria-current={item.active ? 'page' : undefined}
             style={{
               width: 44, height: 44, borderRadius: 14,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
               background: bg, color, border, boxShadow: shadow,
+              padding: 0, font: 'inherit',
             }}
             onMouseEnter={e => {
               if (!item.active) {
@@ -114,7 +116,7 @@ function SideNav() {
               e.currentTarget.style.boxShadow = shadow;
             }}>
             {item.icon}
-          </div>
+          </button>
         );
       })}
     </div>

@@ -186,6 +186,36 @@ test('preserves polling downloading and quality-check states as restart recovery
   );
 });
 
+test('keeps a quality-approved asset verified and recoverable until the full suite is settled', t => {
+  const { store } = createHarness(t);
+  store.createAsset({ jobId: 'job-verified', assetId: 'main' });
+  const lease = store.claimAsset('job-verified', 'main');
+  store.transitionAsset('job-verified', 'main', 'submitted', {
+    providerJobId: 'provider-verified',
+    leaseToken: lease.leaseToken,
+  });
+  store.transitionAsset('job-verified', 'main', 'polling', { leaseToken: lease.leaseToken });
+  store.transitionAsset('job-verified', 'main', 'downloading', {
+    outputUrl: 'https://provider.example.test/verified.png',
+    leaseToken: lease.leaseToken,
+  });
+  store.transitionAsset('job-verified', 'main', 'quality_check', {
+    stableUrl: '/api/generated-assets/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png',
+    leaseToken: lease.leaseToken,
+  });
+  const verified = store.transitionAsset('job-verified', 'main', 'verified', {
+    leaseToken: lease.leaseToken,
+  });
+
+  assert.equal(verified.state, 'verified');
+  assert.equal(verified.leaseToken, null);
+  assert.deepEqual(store.recoverInterrupted().map(item => item.state), ['verified']);
+  const settlementLease = store.claimAsset('job-verified', 'main');
+  assert.equal(store.transitionAsset('job-verified', 'main', 'settling', {
+    leaseToken: settlementLease.leaseToken,
+  }).state, 'settling');
+});
+
 test('ignores inherited identifiers and rejects unsafe state transitions', t => {
   const { store } = createHarness(t);
   const inherited = Object.create({ jobId: 'prototype-job', assetId: 'prototype-asset' });

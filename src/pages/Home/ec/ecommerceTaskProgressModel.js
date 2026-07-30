@@ -20,6 +20,7 @@ const USER_STATES = {
   downloading: '正在生成',
   quality_check: '质量检查',
   repairing: '正在修复',
+  verified: '等待整套确认',
   completed: '已完成',
   needs_review: '需要修订',
   failed: '失败',
@@ -573,7 +574,7 @@ export function mergeEcommerceInProgressPreview(previousPreview, image = {}) {
 
 export function acceptEcommerceFinalResult(result) {
   const status = cleanText(result?.status).toLowerCase();
-  if (status !== 'completed' && status !== 'needs_review') return null;
+  if (status !== 'completed') return null;
   const images = Object.fromEntries(
     Object.entries(result?.images && typeof result.images === 'object' ? result.images : {})
       .map(([id, url]) => [cleanText(id), cleanText(url)])

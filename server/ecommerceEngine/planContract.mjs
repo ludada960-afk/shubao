@@ -249,7 +249,7 @@ export function assertExecutionCount({
 
   for (const [assetId, count] of submissionCounts) {
     if (count === 0) throw new Error(`provider submission count mismatch for asset: ${assetId}`);
-    if (count > 2) throw new Error(`more than one provider repair for asset: ${assetId}`);
+    if (count > 3) throw new Error(`more than two provider repairs for asset: ${assetId}`);
   }
   const submissionsByAsset = Object.fromEntries([...submissionCounts].sort(([left], [right]) => left.localeCompare(right)));
   const totalSubmissions = Object.values(submissionsByAsset).reduce((sum, count) => sum + count, 0);

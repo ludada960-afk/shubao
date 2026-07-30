@@ -3,7 +3,7 @@ import { aggregateAnalyses, buildVlmPrompt } from './vlmSchema.mjs';
 const VLM_CONFIG = {
   apiKey: process.env.MINI_API_KEY || '',
   baseUrl: (process.env.MINI_BASE_URL || '').replace(/\/+$/, ''),
-  model: process.env.MINI_MODEL || 'gpt-5.6-terra',
+  model: process.env.MINI_MODEL || 'gpt-5.6-luna',
   enabled: Boolean(process.env.MINI_API_KEY && process.env.MINI_BASE_URL),
 };
 
@@ -44,7 +44,7 @@ export function createVlmClient({
   fetchImpl = fetch,
   apiKey,
   baseUrl,
-  model = 'gpt-5.6-terra',
+  model = 'gpt-5.6-luna',
   timeoutMs = 30_000,
   setTimeoutImpl = setTimeout,
   clearTimeoutImpl = clearTimeout,

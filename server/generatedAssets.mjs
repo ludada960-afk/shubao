@@ -42,10 +42,16 @@ export function createGeneratedAssetStore({
   fetchImpl = fetch,
   maxBytes = MAX_IMAGE_BYTES,
   readFileImpl = readFile,
+  onPersist = null,
 } = {}) {
   if (!directory) throw new Error('generated asset directory is required');
   if (typeof readFileImpl !== 'function') throw new TypeError('readFileImpl must be a function');
   const root = resolve(directory);
+
+  async function notifyPersist(asset) {
+    if (typeof onPersist !== 'function') return;
+    try { await onPersist(asset); } catch {}
+  }
 
   async function persist({ sourceUrl, taskId = '', label = '' } = {}) {
     getSafeHttpUrl(sourceUrl);
@@ -63,7 +69,7 @@ export function createGeneratedAssetStore({
     await mkdir(root, { recursive: true });
     const filePath = resolve(root, fileName);
     try { await stat(filePath); } catch { await writeFile(filePath, buffer, { flag: 'wx' }); }
-    return {
+    const asset = {
       id: fileName,
       fileName,
       taskId,
@@ -71,6 +77,8 @@ export function createGeneratedAssetStore({
       contentType: mimeType,
       url: `${publicPath}/${fileName}`,
     };
+    await notifyPersist(asset);
+    return asset;
   }
 
   async function persistBuffer({ buffer, contentType = 'image/png', taskId = '', label = '' } = {}) {
@@ -103,7 +111,7 @@ export function createGeneratedAssetStore({
         if (error?.code !== 'ENOENT') throw error;
       }
     }
-    return {
+    const asset = {
       id: fileName,
       fileName,
       taskId,
@@ -111,6 +119,8 @@ export function createGeneratedAssetStore({
       contentType,
       url: `${publicPath}/${fileName}`,
     };
+    await notifyPersist(asset);
+    return asset;
   }
 
   async function read(assetId) {

@@ -7,6 +7,7 @@ export const ASSET_STATES = Object.freeze([
   'downloading',
   'quality_check',
   'repairing',
+  'verified',
   'settling',
   'releasing',
   'completed',
@@ -17,17 +18,18 @@ export const ASSET_STATES = Object.freeze([
 
 const STATE_SET = new Set(ASSET_STATES);
 const FINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
-const LEASE_RELEASE_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
+const LEASE_RELEASE_STATES = new Set(['verified', 'completed', 'needs_review', 'failed', 'cancelled']);
 const TRANSITIONS = Object.freeze({
   queued: new Set(['submitted', 'releasing', 'failed', 'cancelled']),
   submitted: new Set(['polling', 'downloading', 'releasing', 'failed', 'cancelled']),
   polling: new Set(['downloading', 'releasing', 'failed', 'cancelled']),
   downloading: new Set(['quality_check', 'releasing', 'failed', 'cancelled']),
-  quality_check: new Set(['repairing', 'settling', 'releasing', 'completed', 'needs_review', 'failed', 'cancelled']),
+  quality_check: new Set(['repairing', 'verified', 'settling', 'releasing', 'completed', 'needs_review', 'failed', 'cancelled']),
   repairing: new Set([
     'submitted', 'polling', 'downloading', 'quality_check',
     'releasing', 'needs_review', 'failed', 'cancelled',
   ]),
+  verified: new Set(['settling', 'releasing', 'cancelled']),
   settling: new Set(['completed']),
   releasing: new Set(['needs_review', 'failed', 'cancelled']),
   completed: new Set(),
@@ -207,7 +209,7 @@ export function createEcommerceJobStore(db, {
       SELECT * FROM ecommerce_job_assets
       WHERE state IN (
         'submitted', 'polling', 'downloading', 'quality_check',
-        'repairing', 'settling', 'releasing'
+        'repairing', 'verified', 'settling', 'releasing'
       )
       ORDER BY updated_at, job_id, asset_id
     `),

@@ -50,15 +50,15 @@ export default function SkuPanel({ skus, onChange, sizing, onSizingChange }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>变体 #{idx + 1}</span>
-              {idx > 0 && <div onClick={() => rm(sku.id)}
+              <button type="button" aria-label={`删除变体 ${idx + 1}`} onClick={() => rm(sku.id)}
                 style={{
                   fontSize: 11, fontWeight: 600, color: '#e74c3c', cursor: 'pointer',
                   padding: '2px 8px', borderRadius: 6,
-                  transition: 'all 0.15s',
+                  transition: 'all 0.15s', border: 0, background: 'transparent', fontFamily: 'inherit',
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(231,76,60,0.1)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >删除</div>}
+              >删除</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
               <div>

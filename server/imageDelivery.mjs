@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { basename, extname, join, resolve } from 'node:path';
 import sharp from 'sharp';
 
 const MAX_PROXY_BYTES = 20 * 1024 * 1024;
@@ -55,7 +55,7 @@ async function writeOnce(filePath, buffer) {
 export function imageVariantUrl(url, variant = 'full') {
   const value = typeof url === 'object' ? (url?.url || url?.src || url?.image_url || '') : String(url || '');
   if (!value || variant === 'full' || value.startsWith('data:') || value.startsWith('blob:')) return value;
-  if (value.startsWith('/api/generated-assets/')) {
+  if (value.startsWith('/api/generated-assets/') || value.startsWith('/api/gallery-image')) {
     return `${value}${value.includes('?') ? '&' : '?'}variant=${encodeURIComponent(variant)}`;
   }
   if (/^https?:\/\//i.test(value)) {
@@ -75,6 +75,18 @@ export function createImageDelivery({
   const generatedRoot = resolve(assetRoot);
   const proxyRoot = resolve(proxyCacheRoot);
   const pending = new Map();
+
+  async function fileMetadata(filePath) {
+    try { return await stat(filePath); } catch (error) {
+      if (error?.code === 'ENOENT') return null;
+      throw error;
+    }
+  }
+
+  function contentTypeForPath(filePath) {
+    const extension = extname(filePath).slice(1).toLowerCase();
+    return extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : `image/${extension || 'png'}`;
+  }
 
   async function coalesce(key, work) {
     if (pending.has(key)) return pending.get(key);
@@ -98,11 +110,10 @@ export function createImageDelivery({
   async function readGeneratedVariant(assetId, variant = 'full') {
     const id = safeAssetId(assetId);
     if (!id) return null;
-    const original = await readIfPresent(join(generatedRoot, id));
-    if (!original) return null;
+    const originalPath = join(generatedRoot, id);
+    if (!await fileMetadata(originalPath)) return null;
     if (variant === 'full') {
-      const ext = id.split('.').pop().toLowerCase();
-      return { buffer: original, contentType: ext === 'jpg' ? 'image/jpeg' : `image/${ext}` };
+      return { buffer: await readFile(originalPath), contentType: contentTypeForPath(originalPath) };
     }
     if (!VARIANTS[variant]) return null;
     const derivativeRoot = join(generatedRoot, '.derivatives');
@@ -112,7 +123,36 @@ export function createImageDelivery({
     return coalesce(`generated:${id}:${variant}`, async () => {
       const existing = await readIfPresent(derivativePath);
       if (existing) return { buffer: existing, contentType: 'image/webp' };
+      const original = await readFile(originalPath);
       const rendered = await renderVariant(original, variant);
+      await mkdir(derivativeRoot, { recursive: true });
+      await writeOnce(derivativePath, rendered.buffer);
+      return rendered;
+    });
+  }
+
+  async function prewarmGeneratedVariants(assetId, variants = Object.keys(VARIANTS)) {
+    const requested = [...new Set(variants)].filter(variant => VARIANTS[variant]);
+    await Promise.all(requested.map(variant => readGeneratedVariant(assetId, variant)));
+  }
+
+  async function readLocalVariant(filePath, variant = 'full') {
+    const localPath = resolve(filePath);
+    const metadata = await fileMetadata(localPath);
+    if (!metadata) return null;
+    if (variant === 'full') {
+      return { buffer: await readFile(localPath), contentType: contentTypeForPath(localPath) };
+    }
+    if (!VARIANTS[variant]) return null;
+    const key = hash(`${localPath}\0${metadata.size}\0${metadata.mtimeMs}`);
+    const derivativeRoot = join(proxyRoot, 'local');
+    const derivativePath = cachePath(derivativeRoot, `${key}.${variant}`, 'webp');
+    const cached = await readIfPresent(derivativePath);
+    if (cached) return { buffer: cached, contentType: 'image/webp' };
+    return coalesce(`local:${key}:${variant}`, async () => {
+      const existing = await readIfPresent(derivativePath);
+      if (existing) return { buffer: existing, contentType: 'image/webp' };
+      const rendered = await renderVariant(await readFile(localPath), variant);
       await mkdir(derivativeRoot, { recursive: true });
       await writeOnce(derivativePath, rendered.buffer);
       return rendered;
@@ -179,5 +219,5 @@ export function createImageDelivery({
     });
   }
 
-  return { readGeneratedVariant, readProxyVariant };
+  return { readGeneratedVariant, prewarmGeneratedVariants, readLocalVariant, readProxyVariant };
 }

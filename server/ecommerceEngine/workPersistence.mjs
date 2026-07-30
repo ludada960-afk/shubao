@@ -15,6 +15,14 @@ function planFor(asset) {
   return isRecord(snapshot.assetPlanItem) ? snapshot.assetPlanItem : {};
 }
 
+function groupForRole(role) {
+  if (role === 'white_bg') return '白底图';
+  if (role === 'sku') return 'SKU';
+  if (role === 'transparent') return '素材';
+  if (role.startsWith('detail')) return '详情图';
+  return '主图';
+}
+
 function deliveredImages(assets) {
   return (Array.isArray(assets) ? assets : []).flatMap(asset => {
     const stableUrl = cleanString(asset?.stableUrl);
@@ -24,7 +32,19 @@ function deliveredImages(assets) {
     if (!key) return [];
     const role = cleanString(plan.role) || 'generated';
     const label = cleanString(plan.label || plan.purpose) || role;
-    return [{ key, label, role, style: label, url: stableUrl }];
+    const ratio = cleanString(plan.ratio || plan.aspectRatio) || '1:1';
+    const size = cleanString(plan.size || plan.outputSize || plan.dimensions);
+    return [{
+      key,
+      label,
+      name: label,
+      role,
+      group: cleanString(plan.group) || groupForRole(role),
+      ratio,
+      size,
+      style: label,
+      url: stableUrl,
+    }];
   }).sort((left, right) => left.key.localeCompare(right.key));
 }
 
