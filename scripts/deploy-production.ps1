@@ -104,6 +104,12 @@ try {
     throw "PM2 process restarted during canary: $canaryPid -> $canaryEndPid"
   }
 
+  $backupRetentionCommand = "set -e; find $RemoteDir/deploy-backups -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +4 | cut -d' ' -f2- | xargs -r sudo rm -rf --"
+  & ssh @ssh $target $backupRetentionCommand
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warning "Deployment succeeded but old backup retention cleanup failed"
+  }
+
   Write-Host "Deployed $commit to https://shuimg.cn/"
 } catch {
   if ($releaseStarted) {
