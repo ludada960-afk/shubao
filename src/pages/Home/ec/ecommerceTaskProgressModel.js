@@ -236,11 +236,36 @@ export function normalizeEcommerceAsset(asset = {}) {
   const error = cleanText(asset.error || asset.message);
   const userState = USER_STATES[state] || (error || isErrorState(state) ? '失败' : '正在生成');
   const plan = asset.plan && typeof asset.plan === 'object' ? asset.plan : {};
+  const label = cleanText(plan.label || plan.title || asset.label || asset.title || plan.role || plan.purpose || asset.role || asset.purpose || asset.type);
+  const displayName = cleanText(asset.displayName || asset.name || plan.displayName || plan.name || label);
+  const size = cleanText(
+    asset.size
+    || asset.generationSize
+    || plan.generationSize
+    || plan.size
+    || plan.outputSize
+    || plan.dimensions,
+  );
+  const sizeMatch = size.match(/^(\d+)\s*[xX×]\s*(\d+)$/);
+  const explicitWidth = Number(asset.width || plan.width);
+  const explicitHeight = Number(asset.height || plan.height);
+  const width = Number.isFinite(explicitWidth) && explicitWidth > 0
+    ? explicitWidth
+    : sizeMatch ? Number(sizeMatch[1]) : undefined;
+  const height = Number.isFinite(explicitHeight) && explicitHeight > 0
+    ? explicitHeight
+    : sizeMatch ? Number(sizeMatch[2]) : undefined;
 
   return {
     id: cleanText(asset.id || asset.assetId || asset.key),
     role: cleanText(plan.role || plan.purpose || asset.role || asset.purpose || asset.type),
-    label: cleanText(plan.label || plan.title || asset.label || asset.title || plan.role || plan.purpose || asset.role || asset.purpose || asset.type),
+    label,
+    displayName,
+    group: cleanText(asset.group || plan.group),
+    ratio: cleanText(asset.ratio || asset.aspectRatio || plan.ratio || plan.aspectRatio),
+    size: sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : size,
+    width,
+    height,
     state,
     userState,
     stableUrl: cleanText(asset.stableUrl || asset.stable_url),
@@ -251,6 +276,29 @@ export function normalizeEcommerceAsset(asset = {}) {
 
 export function normalizeEcommerceAssets(assets) {
   return (Array.isArray(assets) ? assets : []).map(normalizeEcommerceAsset);
+}
+
+export function normalizeEcommerceDeliveryRecord(asset = {}) {
+  const normalized = normalizeEcommerceAsset(asset);
+  if (!normalized.id || !normalized.stableUrl || normalized.state !== 'completed') return null;
+  const displayName = normalized.displayName || normalized.label || normalized.id;
+  return {
+    id: normalized.id,
+    key: normalized.id,
+    assetId: normalized.id,
+    url: normalized.stableUrl,
+    stableUrl: normalized.stableUrl,
+    displayName,
+    name: displayName,
+    label: normalized.label || displayName,
+    role: normalized.role,
+    group: normalized.group,
+    ratio: normalized.ratio,
+    size: normalized.size,
+    width: normalized.width,
+    height: normalized.height,
+    state: 'completed',
+  };
 }
 
 export function isEcommerceAssetDeliverable(asset = {}) {
@@ -581,5 +629,19 @@ export function acceptEcommerceFinalResult(result) {
       .filter(([id, url]) => id && url),
   );
   if (Object.keys(images).length === 0) return null;
-  return { ...result, status, images };
+  const candidates = [
+    ...(Array.isArray(result?.imageRecords) ? result.imageRecords : []),
+    ...(Array.isArray(result?.task?.assets) ? result.task.assets : []),
+  ];
+  const byId = new Map(candidates
+    .map(asset => [cleanText(asset?.id || asset?.assetId || asset?.key), asset])
+    .filter(([id]) => id));
+  const imageRecords = Object.entries(images).map(([id, stableUrl]) => normalizeEcommerceDeliveryRecord({
+    ...(byId.get(id) || {}),
+    id,
+    label: byId.get(id)?.label || id,
+    stableUrl,
+    state: 'completed',
+  })).filter(Boolean);
+  return { ...result, status, images, imageRecords };
 }

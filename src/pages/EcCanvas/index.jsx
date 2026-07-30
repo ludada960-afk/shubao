@@ -36,7 +36,7 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot } from './canvasSessionModel.js';
-import { buildCanvasImportResult, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
+import { buildCanvasImportResult, canvasOutputImages, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
@@ -476,7 +476,7 @@ export default function EcCanvas() {
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
 
-  const imageList = parseImages(result.images || {}, result.platform || '淘宝');
+  const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;

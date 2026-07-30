@@ -11,6 +11,7 @@ import { MAX_DETAIL_DUTY_COUNT, resolveLegacyDetailDuty } from './detailDutyPoli
 import { sanitizeSnapshot } from './jobStore.mjs';
 import { assertExecutionCount, validatePlanContract } from './planContract.mjs';
 import { ecommerceFeatureForItem } from './ecommerceBilling.mjs';
+import { ecommerceDeliveryMetadataForPlan } from './deliveryMetadata.mjs';
 
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
@@ -255,8 +256,7 @@ function publicAsset(asset) {
   const result = {
     assetId: cleanString(own(asset, 'assetId')),
     state,
-    role: cleanString(own(plan, 'role')),
-    label: cleanString(own(plan, 'label') ?? own(plan, 'purpose')),
+    ...ecommerceDeliveryMetadataForPlan(plan),
     error: publicAssetError(asset),
   };
   if (state === 'completed' && cleanString(own(asset, 'stableUrl'))) {

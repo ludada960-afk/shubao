@@ -1,4 +1,5 @@
 import { sanitizeSnapshot } from './jobStore.mjs';
+import { ecommerceDeliveryMetadataForPlan } from './deliveryMetadata.mjs';
 
 const STABLE_GENERATED_URL = /^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|png|webp)$/i;
 
@@ -15,21 +16,6 @@ function planFor(asset) {
   return isRecord(snapshot.assetPlanItem) ? snapshot.assetPlanItem : {};
 }
 
-function groupForRole(role) {
-  if (role === 'white_bg' || role === 'white_background') return '白底图';
-  if (role === 'sku') return 'SKU';
-  if (role === 'transparent') return '素材';
-  if (role.startsWith('detail')) return '详情图';
-  return '主图';
-}
-
-function dimensionsForPlan(plan) {
-  const size = cleanString(plan.generationSize || plan.size || plan.outputSize || plan.dimensions);
-  const match = size.match(/^(\d+)\s*[xX×]\s*(\d+)$/);
-  if (!match) return { size };
-  return { size: `${match[1]}x${match[2]}`, width: Number(match[1]), height: Number(match[2]) };
-}
-
 function deliveredImages(assets) {
   return (Array.isArray(assets) ? assets : []).flatMap(asset => {
     const stableUrl = cleanString(asset?.stableUrl);
@@ -37,20 +23,11 @@ function deliveredImages(assets) {
     const plan = planFor(asset);
     const key = cleanString(asset?.assetId || plan.id);
     if (!key) return [];
-    const role = cleanString(plan.role) || 'generated';
-    const label = cleanString(plan.label || plan.purpose) || role;
-    const ratio = cleanString(plan.ratio || plan.aspectRatio) || '1:1';
-    const dimensions = dimensionsForPlan(plan);
+    const metadata = ecommerceDeliveryMetadataForPlan(plan);
     return [{
       key,
-      label,
-      displayName: label,
-      name: label,
-      role,
-      group: cleanString(plan.group) || groupForRole(role),
-      ratio,
-      ...dimensions,
-      style: label,
+      ...metadata,
+      style: metadata.label,
       url: stableUrl,
     }];
   }).sort((left, right) => left.key.localeCompare(right.key));

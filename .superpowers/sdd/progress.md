@@ -419,3 +419,14 @@
   runtime environment files are still mode `644`; the atomic gateway updater is
   expected to rewrite them as `600` before release and the fail-closed verifier
   will reject deployment if that transition does not occur.
+- Closed the final immediate-handoff metadata gap between generation tasks,
+  Works and Canvas. A shared server delivery contract now exposes the planned
+  buyer-facing title, role, lane, aspect ratio and decoded output dimensions;
+  polling and legacy SSE results retain those records alongside the compatible
+  URL map; Works imports preserve the records; and Canvas consumes the
+  structured records before any legacy ID-based fallback. Hyphenated planner
+  IDs such as `white-background`, `main-text` and `detail-feature` therefore no
+  longer collapse into the generic material lane. Focused regression passed
+  135/135 and the complete gate passed 936/936 tests, the 6,430-module Vite
+  production build, post-build asset checks, collaboration policy, syntax
+  checks and `git diff --check`.

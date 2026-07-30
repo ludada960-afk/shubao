@@ -157,7 +157,19 @@ test('active owner and draft task resumes with GET polling, emits only a deliver
     return ecommerceTaskResponse({
       id: 'task-resume',
       status: 'completed',
-      assets: [{ assetId: 'main-1', role: 'main_text', label: '主图文案', status: 'completed', stableUrl: '/api/generated-assets/main-1.png' }],
+      assets: [{
+        assetId: 'main-1',
+        role: 'main_text',
+        label: '主图文案',
+        displayName: '主图文案',
+        group: '主图',
+        ratio: '1:1',
+        size: '2048x2048',
+        width: 2048,
+        height: 2048,
+        status: 'completed',
+        stableUrl: '/api/generated-assets/main-1.png',
+      }],
     });
   };
   t.after(() => {
@@ -172,13 +184,31 @@ test('active owner and draft task resumes with GET polling, emits only a deliver
   });
 
   assert.equal(result.taskId, 'task-resume');
+  assert.deepEqual(result.imageRecords, [{
+    id: 'main-1',
+    key: 'main-1',
+    assetId: 'main-1',
+    url: '/api/generated-assets/main-1.png',
+    stableUrl: '/api/generated-assets/main-1.png',
+    displayName: '主图文案',
+    name: '主图文案',
+    label: '主图文案',
+    role: 'main_text',
+    group: '主图',
+    ratio: '1:1',
+    size: '2048x2048',
+    width: 2048,
+    height: 2048,
+    state: 'completed',
+  }]);
   assert.deepEqual(calls, [
     { url: '/api/ecommerce/jobs/task-resume', method: 'GET' },
     { url: '/api/ecommerce/jobs/task-resume', method: 'GET' },
   ]);
   assert.deepEqual(emitted, [{
     id: 'main-1', url: '/api/generated-assets/main-1.png', stableUrl: '/api/generated-assets/main-1.png',
-    role: 'main_text', label: '主图文案', state: 'completed', taskId: 'task-resume',
+    role: 'main_text', label: '主图文案', displayName: '主图文案', group: '主图', ratio: '1:1',
+    size: '2048x2048', width: 2048, height: 2048, state: 'completed', taskId: 'task-resume',
   }]);
   assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: 'ec-draft-resume', storage }), null);
 });

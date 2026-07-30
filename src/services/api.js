@@ -10,6 +10,7 @@ import {
   clearEcommerceTaskReference,
   isEcommerceAssetDeliverable,
   loadEcommerceTaskReference,
+  normalizeEcommerceDeliveryRecord,
   normalizeEcommerceAssets,
   saveEcommerceTaskReference,
 } from '../pages/Home/ec/ecommerceTaskProgressModel.js';
@@ -74,11 +75,21 @@ function stableTaskImages(task) {
   return images;
 }
 
-function emitStableTaskImages(task, emitted, onImage, taskId = '') {
+function stableTaskImageRecords(task) {
   const assets = normalizeEcommerceAssets(task?.assets);
   const assetsById = new Map(assets.map(asset => [asset.id, asset]).filter(([id]) => id));
-  Object.entries(stableTaskImages(task)).forEach(([id, url]) => {
-    const asset = assetsById.get(id);
+  return Object.entries(stableTaskImages(task)).map(([id, stableUrl]) => normalizeEcommerceDeliveryRecord({
+    ...(assetsById.get(id) || {}),
+    id,
+    label: assetsById.get(id)?.label || id,
+    stableUrl,
+    state: 'completed',
+  })).filter(Boolean);
+}
+
+function emitStableTaskImages(task, emitted, onImage, taskId = '') {
+  stableTaskImageRecords(task).forEach(record => {
+    const { id, url } = record;
     const emissionKey = `${id}\u0000${url}`;
     if (emitted.has(emissionKey)) return;
     emitted.add(emissionKey);
@@ -86,8 +97,14 @@ function emitStableTaskImages(task, emitted, onImage, taskId = '') {
       id,
       url,
       stableUrl: url,
-      role: asset?.role || '',
-      label: asset?.label || '',
+      role: record.role,
+      label: record.label,
+      displayName: record.displayName,
+      group: record.group,
+      ratio: record.ratio,
+      size: record.size,
+      width: record.width,
+      height: record.height,
       state: 'completed',
       taskId,
     });
@@ -275,7 +292,14 @@ async function pollEcommerceTask(taskId, {
         const message = errors.find(item => item?.error)?.error;
         throw new Error(message || '生成完成但没有可用图片，请重试');
       }
-      return { taskId, status, images, errors: task?.output?.errors || [], task };
+      return {
+        taskId,
+        status,
+        images,
+        imageRecords: stableTaskImageRecords(task),
+        errors: task?.output?.errors || [],
+        task,
+      };
     }
     if (status === 'failed' || status === 'cancelled') {
       clearEcommerceTaskReference({ ownerEmail, draftId, taskId });
@@ -774,7 +798,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   }
 
   // SSE 流式解析（与 generateContent 一致）
-  const result = { images: {}, errors: [] };
+  const result = { images: {}, imageRecords: [], errors: [], assets: [] };
   let gotComplete = false;
 
   try {
@@ -794,6 +818,10 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
         };
         if (isEcommerceAssetDeliverable(image)) {
           result.images[image.id] = image.stableUrl;
+          result.assets = [
+            ...result.assets.filter(asset => (asset.id || asset.assetId) !== image.id),
+            image,
+          ];
         }
       } else if (d.type === 'complete') {
         gotComplete = true;
@@ -839,6 +867,10 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     clearEcommerceTaskReference({ ownerEmail, draftId, taskId: result.taskId });
   }
   clearSuiteRepairCheckpoint({ ownerEmail, draftId });
+  result.imageRecords = stableTaskImageRecords({
+    output: { images: result.images },
+    assets: result.assets || [],
+  });
   const delivered = new Set();
   emitStableTaskImages({ output: { images: result.images }, assets: result.assets || [] }, delivered, onImage, result.taskId || '');
   return result;

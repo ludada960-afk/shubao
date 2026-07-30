@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { buildCanvasImportResult, normalizeCanvasWorkPanel } from '../src/pages/EcCanvas/canvasWorkModel.js';
+import {
+  buildCanvasImportResult,
+  canvasOutputImages,
+  normalizeCanvasWorkPanel,
+} from '../src/pages/EcCanvas/canvasWorkModel.js';
 
 test('Canvas work panel keeps only the signed owner local works and preserves server metadata', () => {
   const localWorks = [
@@ -79,6 +83,32 @@ test('Canvas open-work result preserves project, product and session metadata', 
   assert.equal(result.canvasSessionRevision, 4);
   assert.deepEqual(result.productAssets, [{ assetId: 'server-product', url: '/api/generated-assets/' + 'e'.repeat(64) + '.png', key: 'image_1', label: 'image_1' }]);
   assert.deepEqual(result.images, { 'server-main': '/api/generated-assets/' + 'f'.repeat(64) + '.png' });
+  assert.deepEqual(result.imageRecords, [{
+    key: 'server-main',
+    url: '/api/generated-assets/' + 'f'.repeat(64) + '.png',
+    label: 'server-main',
+  }]);
+});
+
+test('immediate Canvas handoff prefers structured delivery records over the legacy URL map', () => {
+  const structured = [{
+    id: 'white-background',
+    key: 'white-background',
+    url: '/api/generated-assets/' + 'a'.repeat(64) + '.webp',
+    displayName: '白底首图',
+    label: '白底首图',
+    role: 'white_background',
+    group: '白底图',
+    ratio: '1:1',
+    size: '2048x2048',
+    width: 2048,
+    height: 2048,
+  }];
+
+  assert.deepEqual(canvasOutputImages({
+    images: { 'white-background': '/api/generated-assets/legacy.png' },
+    imageRecords: structured,
+  }), structured);
 });
 
 test('canvas-backed scripts have a declared package dependency', async () => {

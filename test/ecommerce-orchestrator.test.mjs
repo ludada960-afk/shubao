@@ -417,6 +417,60 @@ test('runs the required sequence, persists stable bytes, and settles one success
   })), [{ state: 'completed', stableUrl: PNG_A }]);
 });
 
+test('public completed assets expose the same buyer-facing delivery metadata as Works', async t => {
+  const items = [
+    { ...planItem('white-background', 'white_background'), label: '白底首图' },
+    { ...planItem('main-text', 'main_text'), label: '核心卖点主图' },
+    {
+      ...planItem('detail-feature', 'detail_slice_feature'),
+      label: '细节功能图',
+      ratio: '3:4',
+      generationSize: '1536x2048',
+    },
+  ];
+  const { orchestrator } = await createHarness(t, { items });
+
+  const completed = await orchestrator.runJob(orchestrator.createJob(jobInput('job-public-delivery-metadata')).id);
+
+  assert.deepEqual(completed.assets.map(asset => ({
+    assetId: asset.assetId,
+    displayName: asset.displayName,
+    role: asset.role,
+    group: asset.group,
+    ratio: asset.ratio,
+    size: asset.size,
+    width: asset.width,
+    height: asset.height,
+  })), [{
+    assetId: 'detail-feature',
+    displayName: '细节功能图',
+    role: 'detail_slice_feature',
+    group: '详情图',
+    ratio: '3:4',
+    size: '1536x2048',
+    width: 1536,
+    height: 2048,
+  }, {
+    assetId: 'main-text',
+    displayName: '核心卖点主图',
+    role: 'main_text',
+    group: '主图',
+    ratio: '1:1',
+    size: '2048x2048',
+    width: 2048,
+    height: 2048,
+  }, {
+    assetId: 'white-background',
+    displayName: '白底首图',
+    role: 'white_background',
+    group: '白底图',
+    ratio: '1:1',
+    size: '2048x2048',
+    width: 2048,
+    height: 2048,
+  }]);
+});
+
 test('production planner default fallback validates before hold with exact execution counts', async t => {
   const { orchestrator, jobs, calls } = await createHarness(t, {
     buildPlan: ({ input }) => buildAssetPlan(input),

@@ -40,13 +40,15 @@ export function normalizeCanvasWorkPanel({ localWorks = [], serverWorks = [], ow
 }
 
 export function buildCanvasImportResult(work = {}, { importId } = {}) {
-  const images = Object.fromEntries(normalizeWorkImages(work.images).map((image, index) => [
+  const imageRecords = normalizeWorkImages(work.images);
+  const images = Object.fromEntries(imageRecords.map((image, index) => [
     image.key || image.label || `image_${index + 1}`,
     image.url,
   ]));
   return {
     ...work,
     images,
+    imageRecords,
     productAssets: normalizeWorkImages(work.productAssets || work.product_assets || work.productImages || work.source_images || work.sourceImages),
     product_name: displayName(work),
     _ecResult: true,
@@ -54,4 +56,9 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
     _saveKey: work._saveKey || '',
     canvasImportId: importId || globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,
   };
+}
+
+export function canvasOutputImages(result = {}) {
+  const imageRecords = normalizeWorkImages(result.imageRecords);
+  return imageRecords.length ? imageRecords : normalizeWorkImages(result.images);
 }
