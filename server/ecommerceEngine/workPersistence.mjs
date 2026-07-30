@@ -16,11 +16,18 @@ function planFor(asset) {
 }
 
 function groupForRole(role) {
-  if (role === 'white_bg') return '白底图';
+  if (role === 'white_bg' || role === 'white_background') return '白底图';
   if (role === 'sku') return 'SKU';
   if (role === 'transparent') return '素材';
   if (role.startsWith('detail')) return '详情图';
   return '主图';
+}
+
+function dimensionsForPlan(plan) {
+  const size = cleanString(plan.generationSize || plan.size || plan.outputSize || plan.dimensions);
+  const match = size.match(/^(\d+)\s*[xX×]\s*(\d+)$/);
+  if (!match) return { size };
+  return { size: `${match[1]}x${match[2]}`, width: Number(match[1]), height: Number(match[2]) };
 }
 
 function deliveredImages(assets) {
@@ -33,15 +40,16 @@ function deliveredImages(assets) {
     const role = cleanString(plan.role) || 'generated';
     const label = cleanString(plan.label || plan.purpose) || role;
     const ratio = cleanString(plan.ratio || plan.aspectRatio) || '1:1';
-    const size = cleanString(plan.size || plan.outputSize || plan.dimensions);
+    const dimensions = dimensionsForPlan(plan);
     return [{
       key,
       label,
+      displayName: label,
       name: label,
       role,
       group: cleanString(plan.group) || groupForRole(role),
       ratio,
-      size,
+      ...dimensions,
       style: label,
       url: stableUrl,
     }];
@@ -51,6 +59,7 @@ function deliveredImages(assets) {
 function workInputSnapshot(payload) {
   const snapshot = sanitizeSnapshot({
     productAssets: Array.isArray(payload.assets?.product) ? payload.assets.product : [],
+    referenceAssets: Array.isArray(payload.assets?.reference) ? payload.assets.reference : [],
     selling_points: payload.selling_points,
     material: payload.material,
     restrictions: payload.restrictions,
@@ -61,6 +70,7 @@ function workInputSnapshot(payload) {
   });
   return {
     productAssets: Array.isArray(snapshot.productAssets) ? snapshot.productAssets : [],
+    referenceAssets: Array.isArray(snapshot.referenceAssets) ? snapshot.referenceAssets : [],
     selling_points: cleanString(snapshot.selling_points),
     material: cleanString(snapshot.material),
     restrictions: cleanString(snapshot.restrictions),

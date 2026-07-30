@@ -55,12 +55,13 @@ function asset(assetId, state, stableUrl, role, purpose, extra = {}) {
   };
 }
 
-test('work snapshots include only final stable deliverables and keep one save key per task', () => {
+test('work snapshots preserve source roles and complete buyer-facing delivery metadata', () => {
   const work = buildEcommerceTaskWork({
     job: job(),
     status: 'generating',
     assets: [
-      asset('main-1', 'completed', URL_A, 'main_text', '商品识别主图', { ratio: '1:1', size: '2048x2048' }),
+      asset('main-1', 'completed', URL_A, 'main_text', '商品识别主图', { ratio: '1:1', generationSize: '2048x2048' }),
+      asset('white-1', 'completed', URL_B, 'white_background', '白底首图', { ratio: '1:1', generationSize: '2048x2048' }),
       asset('detail-1', 'quality_check', URL_B, 'detail_slice_material', '材质细节'),
       asset('detail-2', 'failed', '', 'detail_slice_usage', '使用场景'),
     ],
@@ -77,6 +78,9 @@ test('work snapshots include only final stable deliverables and keep one save ke
     { assetId: 'product-front', url: '/api/ecommerce-assets/product-front', role: 'product', name: '产品正面' },
     { assetId: 'product-side', url: '/api/ecommerce-assets/product-side', role: 'product', name: '产品侧面' },
   ]);
+  assert.deepEqual(work.referenceAssets, [
+    { assetId: 'style-1', url: '/api/ecommerce-assets/style-1', role: 'reference' },
+  ]);
   assert.equal(work.selling_points, '双接口快充，铝合金机身');
   assert.equal(work.material, '阳极氧化铝');
   assert.equal(work.restrictions, '不得改变接口数量');
@@ -87,13 +91,29 @@ test('work snapshots include only final stable deliverables and keep one save ke
   assert.deepEqual(work.images, [{
     key: 'main-1',
     label: '商品识别主图',
+    displayName: '商品识别主图',
     role: 'main_text',
     style: '商品识别主图',
     name: '商品识别主图',
     group: '主图',
     ratio: '1:1',
     size: '2048x2048',
+    width: 2048,
+    height: 2048,
     url: URL_A,
+  }, {
+    key: 'white-1',
+    label: '白底首图',
+    displayName: '白底首图',
+    role: 'white_background',
+    style: '白底首图',
+    name: '白底首图',
+    group: '白底图',
+    ratio: '1:1',
+    size: '2048x2048',
+    width: 2048,
+    height: 2048,
+    url: URL_B,
   }]);
 });
 
