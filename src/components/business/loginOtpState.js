@@ -8,6 +8,10 @@ export function createLoginOtpState() {
   };
 }
 
+export function beginLoginAttempt({ email = '' } = {}) {
+  return { ...createLoginOtpState(), email: String(email || '').trim() };
+}
+
 export function remainingResendSeconds(resendAt, now = Date.now()) {
   return Math.max(0, Math.ceil((Number(resendAt || 0) - Number(now || 0)) / 1000));
 }

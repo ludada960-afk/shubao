@@ -1,0 +1,12 @@
+:root {
+  --command: #2563eb;
+  --command-hover: #1d4ed8;
+  --success: #27864b;
+  --warning: #b76a00;
+  --danger: #c43d35;
+  --neutral-surface: #f5f6f8;
+  --focus-ring: #2563eb;
+  --image-loading: #e8edf3;
+  --image-error: #c43d35;
+  --image-selected: #2563eb;
+}

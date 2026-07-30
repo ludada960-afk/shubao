@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import {
   createLoginOtpState,
+  beginLoginAttempt,
   loginOtpReducer,
   remainingResendSeconds,
 } from '../src/components/business/loginOtpState.js';
@@ -32,6 +33,13 @@ test('a new successful send always invalidates the previous code input', () => {
   assert.equal(sent.code, '');
   assert.equal(sent.step, 'code');
   assert.equal(sent.resendAt, 61_000);
+});
+
+test('starting a new login attempt never restores an old OTP', () => {
+  const next = beginLoginAttempt({ email: 'a@example.com', code: '123456', step: 'code' });
+  assert.equal(next.email, 'a@example.com');
+  assert.equal(next.code, '');
+  assert.equal(next.step, 'email');
 });
 
 test('opening the email step focuses the address field immediately', () => {

@@ -122,7 +122,7 @@ export default function PricingPage() {
         }}>
           {[
             { key: 'content', label: '小红书 / Plog · 创作套数' },
-            { key: 'ecommerce', label: '电商 · 永久 AI 积分包' },
+            { key: 'ecommerce', label: '电商图片 / 画布 AI 积分' },
           ].map(item => (
             <button
               key={item.key}

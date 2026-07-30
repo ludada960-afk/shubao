@@ -27,7 +27,6 @@ export function LoginModal() {
   const [otp, updateOtp] = useReducer(loginOtpReducer, undefined, createLoginOtpState);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-  const [mockMode, setMockMode] = useState(false);
   const [now, setNow] = useState(Date.now());
   const { email, code, step } = otp;
   const resendSeconds = remainingResendSeconds(otp.resendAt, now);
@@ -43,7 +42,6 @@ export function LoginModal() {
   const close = () => {
     dispatch({ type: 'SHOW_LOGIN', show: false });
     updateOtp({ type: 'RESET' });
-    setMockMode(false);
     setLoading(false);
     setErr('');
   };
@@ -53,8 +51,7 @@ export function LoginModal() {
     if (!isClosedBetaEmail(email)) { setErr('暂时无法使用该邮箱登录，请稍后再试'); return; }
     setLoading(true); setErr('');
     try {
-      const result = await sendOTP(email.trim());
-      setMockMode(!!result.mock);
+      await sendOTP(email.trim());
       updateOtp({ type: 'CODE_SENT', now: Date.now(), cooldownMs: 60_000 });
     } catch (e) { setErr(e.message); }
     setLoading(false);
@@ -98,13 +95,12 @@ export function LoginModal() {
         autoFocus
         value={email}
         onChange={e => updateOtp({ type: 'SET_EMAIL', email: e.target.value })}
-        disabled={step === 'code'}
         style={{
           width: '100%', padding: '12px 16px',
           border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',
           fontSize: 'var(--text-base)', marginBottom: 10,
           boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
-          opacity: step === 'code' ? 0.6 : 1,
+          opacity: 1,
         }}
       />
 
@@ -138,21 +134,11 @@ export function LoginModal() {
         </button>
       )}
 
-      {mockMode && step === 'code' && import.meta.env.DEV && (
-        <div style={{ textAlign: 'center', marginTop: 10 }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: '#999', background: '#f5f5f5', padding: '3px 10px', borderRadius: 4 }}>
-            ⚡ 本地开发模式：请从服务端日志读取测试验证码
-          </span>
-        </div>
-      )}
-
       {step === 'code' && (
-        <div style={{ textAlign: 'center', marginTop: 10 }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-ghost)', cursor: 'pointer' }}
-            onClick={() => updateOtp({ type: 'EDIT_EMAIL' })}>
-            ← 更换邮箱
-          </span>
-        </div>
+        <button type="button" onClick={() => updateOtp({ type: 'EDIT_EMAIL' })}
+          style={{ width: '100%', marginTop: 10, border: 0, background: 'transparent', color: 'var(--command)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+          修改邮箱
+        </button>
       )}
 
       {step === 'email' && otp.hasActiveCode && (

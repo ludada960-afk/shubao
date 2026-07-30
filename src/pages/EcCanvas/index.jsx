@@ -1936,7 +1936,7 @@ export default function EcCanvas() {
               )}
             </>
           )}
-          <div onClick={handleNew} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'linear-gradient(135deg,#7c3aed,#a78bfa)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 3px 12px rgba(124,58,237,0.30)' }}>
+          <div onClick={handleNew} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'var(--command)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--focus-ring)', boxShadow: '0 3px 12px rgba(37,99,235,0.30)' }}>
             <MdAdd size={14} /> 新建生图
           </div>
         </div>

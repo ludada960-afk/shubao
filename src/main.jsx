@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/design-tokens.css';
+import './styles/semanticTokens.css';
 
 // Google Fonts
 const link = document.createElement('link');
