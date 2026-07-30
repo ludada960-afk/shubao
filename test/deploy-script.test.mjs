@@ -25,6 +25,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /\$releaseStarted\s*=\s*\$false/);
   assert.match(deploy, /if\s*\(\$releaseStarted\)/);
   assert.equal((deploy.match(/pm2 restart shubao/g) || []).length, 1);
+  assert.match(deploy, /pm2 restart shubao --update-env --max-memory-restart 1G/);
   assert.match(deploy, /verify-production-billing\.ps1/);
   assert.match(deploy, /verify-production-ecommerce\.ps1/);
   assert.match(verify, /verify-production-billing\.mjs/);
