@@ -7,16 +7,6 @@ export const NODE_STATUSES = {
   error: { label: '需要重试', tone: 'danger' },
 };
 
-export const DEFAULT_ACTIONS = [
-  { id: 'smart-remix', label: '智能二创', description: '反推画面描述，补充素材后继续创作', group: '创作与修改' },
-  { id: 'layer-edit', label: '图文分层', description: '拆分商品、人物、背景和文字结构', group: '创作与修改' },
-  { id: 'inpaint', label: '局部改图', description: '只修改画面中需要调整的区域', group: '创作与修改' },
-  { id: 'remove-bg', label: '商品抠图', description: '提取透明背景的商品素材', group: '电商处理' },
-  { id: 'extend', label: '智能扩图', description: '扩展画面并适配新的投放比例', group: '电商处理' },
-  { id: 'translate', label: '图文翻译', description: '替换画面语言并尽量保持排版', group: '电商处理' },
-  { id: 'upscale', label: '高清修复', description: '提升清晰度、纹理和商品细节', group: '电商处理' },
-];
-
 export function normalizeStatus(status) {
   return NODE_STATUSES[status] ? status : 'draft';
 }
@@ -26,7 +16,7 @@ export function getStatusMeta(status) {
   return { id: normalized, ...NODE_STATUSES[normalized] };
 }
 
-export function normalizeActions(actions = DEFAULT_ACTIONS) {
+export function normalizeActions(actions = []) {
   return actions
     .filter(action => action && action.id !== 'video' && action.id !== 'storyboard')
     .map(action => ({
@@ -38,7 +28,7 @@ export function normalizeActions(actions = DEFAULT_ACTIONS) {
     }));
 }
 
-export function groupActions(actions = DEFAULT_ACTIONS, query = '') {
+export function groupActions(actions = [], query = '') {
   const needle = String(query).trim().toLowerCase();
   return normalizeActions(actions).reduce((groups, action) => {
     if (needle && !`${action.label} ${action.description}`.toLowerCase().includes(needle)) return groups;

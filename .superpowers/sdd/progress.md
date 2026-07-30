@@ -258,6 +258,15 @@
   and remained externally unresponsive; a fresh local adversarial diff audit and
   focused regression found no remaining Critical or Important issue. No
   deployment was performed at this task boundary.
+- Market-ready closure Task 3: complete (`63bcb44..611ac1d`, three-stage
+  implementation/review/fix loop independently approved). Owner task summaries
+  expose only safe numeric counters and market-facing per-image labels/errors;
+  failed-image retry is server-quoted, owner-scoped, mixed-SKU fail-closed,
+  successful-sibling preserving, and atomically idempotent for duplicate or
+  concurrent source-job/quote submissions. The global task dock confirms exact
+  points in-product and lists every failed image in context. Fresh controller
+  verification passed 157/157 focused tests, Vite transformed 6419 modules,
+  and `git diff --check` passed. No deployment was performed at this task boundary.
 
 ## Ownership
 

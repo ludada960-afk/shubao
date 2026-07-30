@@ -76,9 +76,11 @@ export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = 
 
 export function getCanvasPortCenter(node = {}, port = 'output') {
   const normalized = normalizeCanvasNode(node);
+  const width = Number.isFinite(node.renderedWidth) && node.renderedWidth > 0 ? node.renderedWidth : normalized.w;
+  const height = Number.isFinite(node.renderedHeight) && node.renderedHeight > 0 ? node.renderedHeight : normalized.h;
   return {
-    x: normalized.x + (port === 'input' ? 0 : normalized.w),
-    y: normalized.y + normalized.h / 2,
+    x: normalized.x + (port === 'input' ? 0 : width),
+    y: normalized.y + height / 2,
   };
 }
 

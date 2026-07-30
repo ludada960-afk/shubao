@@ -2,7 +2,7 @@ import React from 'react';
 import CompactProcessNodeCard from './CompactProcessNodeCard';
 import LayerWorkbenchNodeCard from './LayerWorkbenchNodeCard';
 import SmartRemixNodeCard from './SmartRemixNodeCard';
-import { normalizeActions } from './workflowNodeViewModel';
+import { getCanvasAction } from '../../../canvasActionRegistry.js';
 
 export default function CanvasWorkflowNode({
   node,
@@ -54,7 +54,7 @@ export default function CanvasWorkflowNode({
     );
   }
 
-  const action = normalizeActions(actions).find(item => item.id === node?.actionId);
+  const action = getCanvasAction(node?.actionId);
   return (
     <CompactProcessNodeCard
       title={action?.label || node?.title || '电商处理'}

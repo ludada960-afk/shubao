@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, saveTextCompositionRevision } from '../../services/api';
+import { loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -183,9 +183,7 @@ function autoLayout(imageList) {
 
 function SkeletonCard({ w, h }) {
   return (
-    <div style={{ width: w, height: h + 60, borderRadius: 12, background: 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-      <div style={{ width: '100%', height: h, background: 'linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'skeletonShimmer 1.4s infinite' }} />
-      <div style={{ padding: '8px 10px' }}><div style={{ height: 10, width: '60%', borderRadius: 5, background: '#e8e8e8', marginBottom: 6 }} /><div style={{ height: 8, width: '80%', borderRadius: 4, background: '#f0f0f0' }} /></div>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 1, width: w, height: h, borderRadius: '12px 12px 0 0', background: 'linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'skeletonShimmer 1.4s infinite' }}>
     </div>
   );
 }
@@ -200,6 +198,7 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
 
   return (
     <div
+      data-canvas-node-id={node.id}
       onPointerDown={e => onPointerDown(e, node.id)}
       onContextMenu={e => { e.preventDefault(); onContextMenu?.(e, node); }}
       onMouseEnter={() => setHovered(true)}
@@ -264,7 +263,7 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
 }
 
 function SourceGroupNode({ node, selected, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
-  return <section onPointerDown={event => onPointerDown(event, node.id)} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 15, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none' }}>
+  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 15, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none' }}>
     <CanvasPortHandle side="right" role="output" visible={selected} disabled={!canDeriveFromNode(node)} label="从产品素材派生工作流" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} onPointerUp={event => onPortPointerUp?.(event, node.id, 'out')} />
     <div style={{ fontSize: 10, fontWeight: 800, color: '#6558e8', letterSpacing: '.05em' }}>产品素材组</div>
     <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || '产品母图'}</div>
@@ -423,6 +422,7 @@ export default function EcCanvas() {
   const [textInspectorNodeId, setTextInspectorNodeId] = useState(null);
   const [textCompositionSaving, setTextCompositionSaving] = useState(false);
   const [textCompositionError, setTextCompositionError] = useState('');
+  const [renderedNodeBounds, setRenderedNodeBounds] = useState({});
   const containerRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
@@ -432,6 +432,12 @@ export default function EcCanvas() {
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
+  const nodeIdsKey = nodes.map(node => node.id).join('|');
+  const connectionNodes = nodes.map(node => ({
+    ...node,
+    renderedWidth: renderedNodeBounds[node.id]?.width,
+    renderedHeight: renderedNodeBounds[node.id]?.height,
+  }));
 
   // toast helper
   const showToast = useCallback((msg, type = 'info') => {
@@ -440,10 +446,11 @@ export default function EcCanvas() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     if (!hasCurrent) {
       setNodes([]);
       setConnections([]);
-      return;
+      return () => { cancelled = true; };
     }
     const session = createFreshCanvasSession({
       work: result,
@@ -457,11 +464,63 @@ export default function EcCanvas() {
     setMultiSelected(new Set());
     setConnectionDraft(null);
     setConnectionPicker(null);
+    if (result.projectId && (result.resultVersionId || result.sourceVersionId)) {
+      void listTextCompositions({
+        projectId: result.projectId,
+        versionId: result.resultVersionId || result.sourceVersionId,
+      }).then(documents => {
+        if (cancelled || !Array.isArray(documents) || !documents.length) return;
+        const byBackground = new Map(documents.map(document => [document.backgroundAssetId, document]));
+        setNodes(previous => previous.map(node => {
+          const compositionBackgroundAssetId = generatedAssetIdFromUrl(node.url);
+          const compositionDocument = byBackground.get(compositionBackgroundAssetId);
+          if (!compositionDocument) return node;
+          return {
+            ...node,
+            compositionBackgroundAssetId,
+            compositionDocument,
+            url: compositionDocument.renderedAssetId
+              ? `/api/generated-assets/${compositionDocument.renderedAssetId}`
+              : node.url,
+            loaded: false,
+          };
+        }));
+      }).catch(() => {});
+    }
     requestAnimationFrame(() => {
       const next = fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
       if (next) setViewport(next);
     });
+    return () => { cancelled = true; };
   }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, imageList.length]);
+
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root || tab !== 'canvas') return undefined;
+    const elements = [...root.querySelectorAll('[data-canvas-node-id]')];
+    const measure = () => {
+      const next = {};
+      for (const element of elements) {
+        const id = element.dataset.canvasNodeId;
+        if (!id) continue;
+        next[id] = { width: element.offsetWidth, height: element.offsetHeight };
+      }
+      setRenderedNodeBounds(previous => {
+        const previousKeys = Object.keys(previous);
+        const nextKeys = Object.keys(next);
+        if (previousKeys.length === nextKeys.length
+          && nextKeys.every(id => previous[id]?.width === next[id].width && previous[id]?.height === next[id].height)) return previous;
+        return next;
+      });
+    };
+    const frame = requestAnimationFrame(measure);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    elements.forEach(element => observer?.observe(element));
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [nodeIdsKey, tab]);
 
   useEffect(() => {
     const load = async () => {
@@ -828,8 +887,9 @@ export default function EcCanvas() {
 
   const handleWorkflowGenerate = useCallback(async (node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
+    const sourceUrl = node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
     const prompt = [node.inputs?.prompt, node.inputs?.instruction].filter(Boolean).join('\n').trim();
-    if (!source?.url || !prompt || promptLoading) {
+    if (!sourceUrl || !prompt || promptLoading) {
       showToast('请先补充可编辑的画面描述', 'info');
       return;
     }
@@ -843,7 +903,7 @@ export default function EcCanvas() {
       ].map(image => image?.url || image?.src || image?.image_url).filter(Boolean);
       const urls = await Promise.all(Array.from({ length: count }, () => regenerateCanvasImage({
         prompt,
-        imageUrl: source.url,
+        imageUrl: sourceUrl,
         referenceImages,
         ratio: node.inputs?.ratio || source.ratio,
       })));
@@ -874,16 +934,17 @@ export default function EcCanvas() {
 
   const handleWorkflowRetry = useCallback((node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
+    const sourceUrl = node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
     updateWorkflowNode(node.id, { status: 'draft', error: null });
-    if (!source?.url) return;
+    if (!sourceUrl) return;
     if (node.actionId === 'smart-remix') {
       updateWorkflowNode(node.id, { status: 'analyzing' });
-      reversePrompt({ image_url: source.url, product_name: source.name || source.displayLabel || '电商图片' })
+      reversePrompt({ image_url: sourceUrl, product_name: source.name || source.displayLabel || '电商图片' })
         .then(data => updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), prompt: data.prompt || '' } }))
         .catch(error => updateWorkflowNode(node.id, { status: 'error', error: error.message || '画面描述生成失败' }));
     } else if (node.actionId === 'layer-edit') {
       updateWorkflowNode(node.id, { status: 'analyzing' });
-      analyzeCanvasLayers(source.url)
+      analyzeCanvasLayers(sourceUrl)
         .then(data => {
           const layers = normalizeLayerItems(data.layers, node.id);
           updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null } });
@@ -1756,8 +1817,8 @@ export default function EcCanvas() {
             </div>
           )}
 
-          <ConnectionLines connections={connections} nodes={nodes} viewport={viewport} onRemove={handleRemoveConnection} />
-          <ConnectionDraftLine draft={connectionDraft} nodes={nodes} viewport={viewport} />
+          <ConnectionLines connections={connections} nodes={connectionNodes} viewport={viewport} onRemove={handleRemoveConnection} />
+          <ConnectionDraftLine draft={connectionDraft} nodes={connectionNodes} viewport={viewport} />
 
           <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             {(() => {
@@ -1772,7 +1833,8 @@ export default function EcCanvas() {
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
               const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);
-              const sourcePreview = nodeSource?.url ? { ...nodeSource, url: proxyImg(nodeSource.url) } : null;
+              const sourcePreviewUrl = nodeSource?.url || nodeSource?.assets?.find(asset => asset?.url)?.url || '';
+              const sourcePreview = sourcePreviewUrl ? { ...nodeSource, url: proxyImg(sourcePreviewUrl) } : null;
               const workflowPortDown = (event, side) => handlePortPointerDown(event, node.id, side);
               const workflowPortUp = (event, side) => handlePortPointerUp(event, node.id, side);
               const workflowContext = event => setContextMenu({ x: event.clientX, y: event.clientY, node });
@@ -1805,7 +1867,7 @@ export default function EcCanvas() {
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
               const referenceImages = (node.inputs?.referenceImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
               const workflowAction = getCanvasAction(node.actionId);
-              return <div key={node.id} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h }}>
+              return <div key={node.id} data-canvas-node-id={node.id} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h }}>
                 <CanvasWorkflowNode
                   node={node}
                   sourceNode={sourcePreview}

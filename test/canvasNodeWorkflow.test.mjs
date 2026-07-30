@@ -11,6 +11,7 @@ import {
   getConnectionLabel,
   validateWorkflowActionInputs,
   clampCanvasPickerPosition,
+  getCanvasPortCenter,
 } from '../src/pages/EcCanvas/nodeWorkflow.js';
 import { CANVAS_ACTIONS } from '../src/pages/EcCanvas/canvasActionRegistry.js';
 
@@ -105,5 +106,16 @@ test('action picker stays within the visible Canvas world rectangle', () => {
       bounds: { width: 390, height: 844 },
     }),
     { x: 105, y: 55, width: 185, maxHeight: 412 },
+  );
+});
+
+test('connection endpoints use measured rendered node bounds', () => {
+  assert.deepEqual(
+    getCanvasPortCenter({ x: 10, y: 20, w: 200, h: 220, renderedWidth: 240, renderedHeight: 300 }, 'output'),
+    { x: 250, y: 170 },
+  );
+  assert.deepEqual(
+    getCanvasPortCenter({ x: 10, y: 20, w: 200, h: 220, renderedWidth: 240, renderedHeight: 300 }, 'input'),
+    { x: 10, y: 170 },
   );
 });

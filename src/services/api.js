@@ -1002,6 +1002,12 @@ export function createTextComposition({ projectId, versionId, width, height, col
   });
 }
 
+export async function listTextCompositions({ projectId, versionId }) {
+  const query = new URLSearchParams({ projectId, versionId });
+  const data = await requestTextComposition(`/api/compositions?${query.toString()}`);
+  return Array.isArray(data.documents) ? data.documents : [];
+}
+
 export function loadTextComposition(documentId) {
   return requestTextComposition(`/api/compositions/${encodeURIComponent(documentId)}`);
 }

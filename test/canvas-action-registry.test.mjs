@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -52,4 +53,11 @@ test('only ready source images and completed outputs expose deep workflow action
 
 test('outpaint records its required ratio and prompt before a quote can run', () => {
   assert.deepEqual(getCanvasAction('outpaint').execute.requires, { ratio: true, prompt: true });
+});
+
+test('workflow view models contain no fallback command registry', () => {
+  const viewModel = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/workflowNodeViewModel.js', import.meta.url), 'utf8');
+  const workflowNode = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/CanvasWorkflowNode.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(viewModel, /DEFAULT_ACTIONS/);
+  assert.match(workflowNode, /getCanvasAction\(node\?\.actionId\)/);
 });

@@ -152,3 +152,22 @@ test('every Works import carries a fresh Canvas session token', () => {
   assert.match(worksSource, /canvasImportId:/);
   assert.match(canvasSource, /result\.canvasImportId/);
 });
+
+test('fresh Canvas imports hydrate durable text compositions from the project version', () => {
+  assert.match(canvasSource, /listTextCompositions/);
+  assert.match(canvasSource, /projectId: result\.projectId/);
+  assert.match(canvasSource, /versionId: result\.resultVersionId \|\| result\.sourceVersionId/);
+  assert.match(canvasSource, /compositionBackgroundAssetId/);
+});
+
+test('source-group workflow generation uses the first owned product asset', () => {
+  const generateBlock = canvasSource.match(/const handleWorkflowGenerate[\s\S]*?const handleWorkflowRetry/)?.[0] || '';
+  assert.match(generateBlock, /const sourceUrl = node\.inputs\?\.sourceUrl \|\| source\?\.url \|\| source\?\.assets\?\.find\(asset => asset\?\.url\)\?\.url/);
+  assert.match(generateBlock, /regenerateCanvasImage\(\{[\s\S]*?imageUrl: sourceUrl/);
+});
+
+test('connection geometry observes rendered canvas node bounds', () => {
+  assert.match(canvasSource, /ResizeObserver/);
+  assert.match(canvasSource, /data-canvas-node-id/);
+  assert.match(canvasSource, /renderedHeight/);
+});
