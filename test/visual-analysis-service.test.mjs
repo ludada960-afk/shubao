@@ -228,6 +228,28 @@ test('rejects empty, wrong-analysis-type, and field-type-invalid VLM results', a
   }
 });
 
+test('drops a malformed optional uncertain-facts field without discarding valid product truth', async t => {
+  const harness = createHarness({
+    callVision: () => ({
+      ...VALID_PRODUCT_RESULT,
+      uncertainFacts: 'the model returned a prose note instead of an array',
+    }),
+  });
+  t.after(() => harness.db.close());
+
+  const result = await harness.service.analyze({
+    productAssets: PRODUCT_ASSETS,
+    styleAssets: [],
+    userFacts: {},
+  });
+
+  assert.equal(result.productTruth.productName, 'Vision Bottle');
+  assert.equal(
+    result.productTruth.uncertainFacts.some(fact => fact.value === 'the model returned a prose note instead of an array'),
+    false,
+  );
+});
+
 test('rejects every explicitly supplied malformed product or style asset', async t => {
   const cases = [
     { label: 'non-array product', productAssets: 'product', styleAssets: [] },

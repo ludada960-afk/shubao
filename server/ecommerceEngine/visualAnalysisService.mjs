@@ -173,6 +173,19 @@ function assertProductEntryFields(result, type) {
   }
 }
 
+function sanitizeOptionalProductFields(result) {
+  const normalized = { ...result };
+  for (const key of ['uncertainFacts', 'uncertain_facts']) {
+    if (!Object.hasOwn(normalized, key)) continue;
+    if (!Array.isArray(normalized[key])) {
+      delete normalized[key];
+      continue;
+    }
+    normalized[key] = normalized[key].filter(isRecord);
+  }
+  return normalized;
+}
+
 function hasMeaningfulString(result, fieldGroups) {
   return fieldGroups.some(aliases => valuesForAliases(result, aliases).some(value => cleanString(value)));
 }
@@ -280,9 +293,10 @@ export function createVisualAnalysisService({
         assets: resolvedAssets,
         images,
       });
-      assertResultShape(raw, type);
-      const confidence = assertConfidence(raw, type);
-      const result = normalize({ ...raw, sourceAssetIds: assetIds });
+      const normalizedRaw = type === 'product' ? sanitizeOptionalProductFields(raw) : raw;
+      assertResultShape(normalizedRaw, type);
+      const confidence = assertConfidence(normalizedRaw, type);
+      const result = normalize({ ...normalizedRaw, sourceAssetIds: assetIds });
       result.confidence = confidence;
       store.put({ key, type, model: modelName, promptVersion: version, result });
       return { key, result };
