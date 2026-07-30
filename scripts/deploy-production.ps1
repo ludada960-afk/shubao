@@ -23,10 +23,17 @@ $remoteLock = "/tmp/.shubao-deploy.lock"
 $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
 $remoteDatabaseBackupHelper = "/tmp/shubao-backup-db-$stamp.cjs"
 $runtimeConfigHelper = Join-Path $PSScriptRoot "verify-runtime-config.cjs"
-$remoteRuntimeConfigHelper = "/tmp/shubao-verify-runtime-config-$stamp.cjs"
+$runtimeConfigUpdater = Join-Path $PSScriptRoot "configure-runtime-gateways.cjs"
+$remoteRuntimeHelperDir = "/tmp/shubao-runtime-tools-$stamp"
+$remoteRuntimeConfigHelper = "$remoteRuntimeHelperDir/verify-runtime-config.cjs"
+$remoteRuntimeConfigUpdater = "$remoteRuntimeHelperDir/configure-runtime-gateways.cjs"
+$remoteRuntimeConfigBackup = "/tmp/shubao-runtime-config-backup-$stamp"
 $lockAcquired = $false
 $remoteBackup = ""
 $releaseStarted = $false
+$runtimeConfigTouched = $false
+$runtimeConfigBackupCreated = $false
+$deploymentSucceeded = $false
 
 function Get-RemotePm2ProcessId {
   $remotePid = ((& ssh @ssh $target "pm2 pid shubao") -join "").Trim()
@@ -74,10 +81,31 @@ if ($LASTEXITCODE -ne 0) { throw "Could not acquire remote deployment lock" }
 $lockAcquired = $true
 
 try {
+  & ssh @ssh $target "set -e; umask 077; mkdir -m 700 '$remoteRuntimeHelperDir'"
+  if ($LASTEXITCODE -ne 0) { throw "Runtime configuration helper directory creation failed" }
   & scp @ssh $runtimeConfigHelper "$target`:$remoteRuntimeConfigHelper"
   if ($LASTEXITCODE -ne 0) { throw "Runtime configuration verifier upload failed" }
+  & scp @ssh $runtimeConfigUpdater "$target`:$remoteRuntimeConfigUpdater"
+  if ($LASTEXITCODE -ne 0) { throw "Runtime configuration updater upload failed" }
   & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
-  if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration is not ready" }
+  if ($LASTEXITCODE -ne 0) {
+    if ([string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY) -or [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)) {
+      throw "Production runtime gateway configuration is not ready; SHUBAO_IMAGE_API_KEY and SHUBAO_VISION_API_KEY are required"
+    }
+    & ssh @ssh $target "set -e; umask 077; test ! -e '$remoteRuntimeConfigBackup'; mkdir -m 700 '$remoteRuntimeConfigBackup'; cp '$RemoteDir/.env' '$remoteRuntimeConfigBackup/root.env'; cp '$RemoteDir/server/.env' '$remoteRuntimeConfigBackup/server.env'; chmod 600 '$remoteRuntimeConfigBackup/root.env' '$remoteRuntimeConfigBackup/server.env'"
+    if ($LASTEXITCODE -ne 0) { throw "Runtime configuration backup failed" }
+    $runtimeConfigBackupCreated = $true
+    $runtimeConfigTouched = $true
+    $runtimePayload = @{
+      IMAGE_API_KEY = $env:SHUBAO_IMAGE_API_KEY
+      MINI_API_KEY = $env:SHUBAO_VISION_API_KEY
+    } | ConvertTo-Json -Compress
+    $runtimePayload | & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env"
+    Remove-Variable runtimePayload -ErrorAction SilentlyContinue
+    if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration update failed" }
+    & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
+    if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration verification failed after update" }
+  }
 
   & scp @ssh $databaseBackupHelper "$target`:$remoteDatabaseBackupHelper"
   if ($LASTEXITCODE -ne 0) { throw "Database backup helper upload failed" }
@@ -117,16 +145,27 @@ try {
     Write-Warning "Deployment succeeded but old backup retention cleanup failed"
   }
 
+  $deploymentSucceeded = $true
   Write-Host "Deployed $commit to https://shuimg.cn/"
 } catch {
   if ($releaseStarted) {
     Write-Warning "Deployment failed; starting rollback from $remoteBackup"
-    & ssh @ssh $target "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' $remoteBackup/server/ server/; rm -rf dist; cp -a $remoteBackup/dist dist; sudo rm -rf $WebRoot/*; sudo cp -a $remoteBackup/webroot/. $WebRoot/; pm2 reload shubao --update-env"
+    $runtimeRestore = if ($runtimeConfigBackupCreated) { "cp '$remoteRuntimeConfigBackup/root.env' '$RemoteDir/.env'; cp '$remoteRuntimeConfigBackup/server.env' '$RemoteDir/server/.env'; chmod 600 '$RemoteDir/.env' '$RemoteDir/server/.env';" } else { "" }
+    & ssh @ssh $target "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' $remoteBackup/server/ server/; rm -rf dist; cp -a $remoteBackup/dist dist; sudo rm -rf $WebRoot/*; sudo cp -a $remoteBackup/webroot/. $WebRoot/; $runtimeRestore pm2 reload shubao --update-env"
+    if ($LASTEXITCODE -eq 0 -and $runtimeConfigBackupCreated) { $runtimeConfigTouched = $false }
+  } elseif ($runtimeConfigTouched -and $runtimeConfigBackupCreated) {
+    Write-Warning "Deployment failed before release; restoring the previous runtime gateway configuration"
+    & ssh @ssh $target "set -e; cp '$remoteRuntimeConfigBackup/root.env' '$RemoteDir/.env'; cp '$remoteRuntimeConfigBackup/server.env' '$RemoteDir/server/.env'; chmod 600 '$RemoteDir/.env' '$RemoteDir/server/.env'"
+    if ($LASTEXITCODE -eq 0) { $runtimeConfigTouched = $false }
   }
   throw
 } finally {
   if ($lockAcquired) {
-    & ssh @ssh $target "rm -f -- '$remoteDatabaseBackupHelper' '$remoteRuntimeConfigHelper'; rm -rf -- '$remoteLock'"
+    $runtimeBackupCleanup = if ($runtimeConfigBackupCreated -and ($deploymentSucceeded -or -not $runtimeConfigTouched)) { "rm -rf -- '$remoteRuntimeConfigBackup';" } else { "" }
+    & ssh @ssh $target "rm -f -- '$remoteDatabaseBackupHelper'; rm -rf -- '$remoteRuntimeHelperDir'; $runtimeBackupCleanup rm -rf -- '$remoteLock'"
+    if ($runtimeConfigTouched -and $runtimeConfigBackupCreated -and -not $deploymentSucceeded) {
+      Write-Warning "Runtime rollback could not be confirmed; recovery copy retained at $remoteRuntimeConfigBackup"
+    }
     Write-Host "Release remote deployment lock"
   }
   Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue

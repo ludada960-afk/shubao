@@ -8,12 +8,22 @@ const nodeVerify = readFileSync(new URL('../scripts/verify-production-billing.mj
 const ecommerceVerify = readFileSync(new URL('../scripts/verify-production-ecommerce.ps1', import.meta.url), 'utf8');
 const backupHelper = readFileSync(new URL('../scripts/backup-runtime-db.cjs', import.meta.url), 'utf8');
 const runtimeConfigVerifier = readFileSync(new URL('../scripts/verify-runtime-config.cjs', import.meta.url), 'utf8');
+const runtimeConfigUpdater = readFileSync(new URL('../scripts/configure-runtime-gateways.cjs', import.meta.url), 'utf8');
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
   assert.match(deploy, /git[^\n]*diff --check/i);
   assert.match(deploy, /backup-runtime-db\.cjs/i);
   assert.match(deploy, /verify-runtime-config\.cjs/i);
+  assert.match(deploy, /configure-runtime-gateways\.cjs/i);
+  assert.match(deploy, /shubao-runtime-tools/i);
+  assert.match(deploy, /remoteRuntimeHelperDir\/verify-runtime-config\.cjs/i);
+  assert.match(deploy, /remoteRuntimeHelperDir\/configure-runtime-gateways\.cjs/i);
+  assert.match(deploy, /SHUBAO_IMAGE_API_KEY/);
+  assert.match(deploy, /SHUBAO_VISION_API_KEY/);
+  assert.match(deploy, /runtimePayload\s*\|\s*&\s*ssh/i);
+  assert.match(deploy, /root\.env/);
+  assert.match(deploy, /server\.env/);
   assert.match(deploy, /server\/\.env/i);
   assert.match(deploy, /--peer/i);
   assert.match(deploy, /scp[^\n]*remoteDatabaseBackupHelper/i);
@@ -40,6 +50,15 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.doesNotMatch(deploy, /pm2 jlist/);
   assert.match(deploy, /Start-Sleep -Seconds \$CanarySeconds/);
   assert.match(deploy, /process restarted during canary/i);
+});
+
+test('runtime gateway updater accepts secrets only through stdin and rolls files back atomically', () => {
+  assert.match(runtimeConfigUpdater, /process\.stdin/);
+  assert.match(runtimeConfigUpdater, /JSON\.parse/);
+  assert.match(runtimeConfigUpdater, /0o600/);
+  assert.match(runtimeConfigUpdater, /renameSync/);
+  assert.match(runtimeConfigUpdater, /configureRuntimeFiles/);
+  assert.doesNotMatch(runtimeConfigUpdater, /console\.(?:log|error)\([^\n]*(?:IMAGE_API_KEY|MINI_API_KEY)/);
 });
 
 test('production runtime verifier fails closed without exposing secret values', () => {

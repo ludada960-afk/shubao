@@ -391,5 +391,9 @@
 - Deployment now uploads a fail-closed runtime verifier before creating a
   release. It rejects missing or placeholder secrets, stale endpoint/protocol
   fields, permissive Unix environment-file modes, and disagreement between the
-  root and server runtime files without printing secret values. Focused gateway
-  and deployment tests passed 42/42; full regression passed 927/927.
+  root and server runtime files without printing secret values. When an update
+  is required, a separate helper accepts the two keys only through standard
+  input, rewrites both files atomically with private modes, and keeps a protected
+  pre-update copy until deployment and canary success. Release rollback restores
+  both code and runtime configuration together. Focused gateway and deployment
+  tests passed 46/46; full regression passed 931/931.
