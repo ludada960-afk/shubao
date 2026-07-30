@@ -57,6 +57,12 @@ export function LoginModal() {
     setLoading(false);
   };
 
+  const handleEmailChange = (nextEmail) => {
+    updateOtp(step === 'code'
+      ? { type: 'BEGIN_LOGIN', email: nextEmail }
+      : { type: 'SET_EMAIL', email: nextEmail });
+  };
+
   const handleVerify = async () => {
     if (!code.trim()) { setErr('请输入验证码'); return; }
     setLoading(true); setErr('');
@@ -94,7 +100,7 @@ export function LoginModal() {
         placeholder="邮箱地址"
         autoFocus
         value={email}
-        onChange={e => updateOtp({ type: 'SET_EMAIL', email: e.target.value })}
+        onChange={e => handleEmailChange(e.target.value)}
         style={{
           width: '100%', padding: '12px 16px',
           border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)',

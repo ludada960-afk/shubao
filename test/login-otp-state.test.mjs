@@ -42,6 +42,11 @@ test('starting a new login attempt never restores an old OTP', () => {
   assert.equal(next.step, 'email');
 });
 
+test('editing email during code entry starts a fresh login attempt', () => {
+  const active = { ...createLoginOtpState(), email: 'old@example.com', code: '123456', step: 'code', hasActiveCode: true };
+  assert.deepEqual(loginOtpReducer(active, { type: 'BEGIN_LOGIN', email: 'new@example.com' }), beginLoginAttempt({ email: 'new@example.com' }));
+});
+
 test('opening the email step focuses the address field immediately', () => {
   const emailInput = loginModalSource.match(/<input\s+placeholder="邮箱地址"[\s\S]*?\/>/)?.[0] || '';
   assert.match(emailInput, /autoFocus/);

@@ -19,6 +19,8 @@ export function remainingResendSeconds(resendAt, now = Date.now()) {
 export function loginOtpReducer(state, action) {
   const current = state || createLoginOtpState();
   switch (action?.type) {
+    case 'BEGIN_LOGIN':
+      return beginLoginAttempt({ email: action.email });
     case 'SET_EMAIL':
       return { ...current, email: action.email || '' };
     case 'SET_CODE':
