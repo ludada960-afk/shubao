@@ -60,6 +60,16 @@ test('Canvas pixel layering and PSD export are signed composition routes', async
   assert.match(psdRoute, /image\/vnd\.adobe\.photoshop/);
 });
 
+test('Canvas pixel-layer billing errors preserve an actionable payment response', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf('function sendCompositionError');
+  const end = source.indexOf("app.post('/api/compositions'", start);
+  const handler = source.slice(start, end);
+  assert.match(handler, /error\?\.status\s*===\s*402/);
+  assert.match(handler, /required:\s*error\.required/);
+  assert.match(handler, /available:\s*error\.available/);
+});
+
 test('shared catalog resolves every Canvas size to an exact legal entry', () => {
   assert.equal(typeof modelCatalog.resolveGenerationSize, 'function');
 

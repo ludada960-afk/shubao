@@ -3552,6 +3552,16 @@ app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteH
 
 function sendCompositionError(error, res) {
   const code = error?.code || 'COMPOSITION_REQUEST_FAILED';
+  if (error?.status === 402) {
+    return res.status(402).json({
+      code,
+      error: error.message || 'AI 积分不足，请购买套餐后继续',
+      required: error.required,
+      available: error.available,
+      billing: error.billing,
+      resumeable: error.resumeable,
+    });
+  }
   if (code === 'DOCUMENT_NOT_FOUND' || code === 'ASSET_NOT_FOUND') {
     return res.status(404).json({ code, error: '未找到可编辑的合成内容' });
   }
