@@ -41,6 +41,7 @@ import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot }
 import { buildCanvasImportResult, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
+import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 
 function generatedAssetIdFromUrl(url = '') {
   return String(url).match(/\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))(?:[?#]|$)/i)?.[1] || '';
@@ -198,7 +199,6 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [hovered, setHovered] = useState(false);
-  const displayUrl = proxyImg(node.url);
 
   return (
     <div
@@ -240,15 +240,16 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
             <div onClick={() => { setError(false); setLoaded(false); setRetryKey(k => k + 1); }} style={{ fontSize: 11, color: '#7c3aed', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, background: 'rgba(124,58,237,0.08)' }}>点击重试</div>
           </div>
         )}
-        <img
+        <ResponsiveImage
           key={retryKey}
-          src={displayUrl}
+          src={node.url}
           alt={node.label}
-          draggable={false}
-          crossOrigin="anonymous"
+          variant="canvas"
+          ratio={node.ratio}
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
-          style={{ width: '100%', height: node.h, objectFit: 'cover', objectPosition: node.crop?.grid ? `${(node.crop.index % 2) * 100}% ${Math.floor(node.crop.index / 2) * 100}%` : 'center', display: 'block', borderRadius: '12px 12px 0 0', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}
+          style={{ width: '100%', height: node.h, borderRadius: '12px 12px 0 0', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }}
+          imgStyle={{ objectFit: 'contain', objectPosition: node.crop?.grid ? `${(node.crop.index % 2) * 100}% ${Math.floor(node.crop.index / 2) * 100}%` : 'center' }}
         />
         {node.crop?.grid === 2 && <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(90deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%), linear-gradient(0deg, transparent 49.5%, rgba(255,255,255,.9) 49.5%, rgba(255,255,255,.9) 50.5%, transparent 50.5%)' }} />}
         {node.annotations?.length > 0 && <div style={{ position: 'absolute', right: 8, bottom: 8, maxWidth: '82%', padding: '4px 6px', borderRadius: 6, background: 'rgba(17,24,39,.78)', color: '#fff', fontSize: 9, lineHeight: 1.4 }}>{node.annotations[0].text}</div>}
@@ -272,7 +273,7 @@ function SourceGroupNode({ node, selected, onPointerDown, onContextMenu, onPortP
     <div style={{ fontSize: 10, fontWeight: 800, color: '#6558e8', letterSpacing: '.05em' }}>产品素材组</div>
     <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || '产品母图'}</div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7, marginTop: 11 }}>
-      {(node.assets || []).slice(0, 4).map((asset, index) => <img key={asset.assetId || asset.id || index} src={proxyImg(asset.url)} alt={asset.name || '产品素材'} draggable={false} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, background: '#e8eaf2' }} />)}
+      {(node.assets || []).slice(0, 4).map((asset, index) => <ResponsiveImage key={asset.assetId || asset.id || index} src={asset.url} alt={asset.name || '产品素材'} variant="thumb" ratio="1:1" style={{ width: '100%', borderRadius: 8, background: '#e8eaf2' }} imgStyle={{ objectFit: 'contain' }} />)}
       {!node.assets?.length && <div style={{ gridColumn: '1 / -1', padding: '15px 8px', borderRadius: 8, color: '#8a93a4', background: '#f0f2f8', fontSize: 11, textAlign: 'center' }}>未找到产品原图</div>}
     </div>
   </section>;

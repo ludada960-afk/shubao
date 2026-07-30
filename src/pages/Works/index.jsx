@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { MdAutoAwesome, MdLogin, MdRefresh, MdShoppingCart, MdEdit } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { loadWorks, proxyImg } from '../../services/api';
+import { loadWorks } from '../../services/api';
 import { EC_PLATFORM_SPECS } from '../../constants/data';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stableWorkKey } from '../../utils/workRecords.js';
 import { Card, CharImg, EmptyState } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import Footer from '../../components/layout/Footer';
+import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { formatRetentionStatus } from './retentionModel.js';
 
 const TABS = [
@@ -166,8 +167,9 @@ export default function WorksPage() {
                 {!w._ecResult ? (
                   <>
                     {w.cover_url ? (
-                      <img src={proxyImg(w.cover_url)} alt=""
-                        style={{ width: 56, height: 75, borderRadius: 'var(--radius-md)', objectFit: 'cover', flex: '0 0 auto' }} />
+                      <ResponsiveImage src={w.cover_url} alt="" variant="thumb" priority={i < 4} ratio="3:4"
+                        style={{ width: 56, height: 75, borderRadius: 'var(--radius-md)', flex: '0 0 auto' }}
+                        imgStyle={{ objectFit: 'cover' }} />
                     ) : (
                       <div style={{
                         width: 56, height: 75, borderRadius: 'var(--radius-md)', background: 'var(--border-light)',
@@ -192,8 +194,9 @@ export default function WorksPage() {
                   /* ═══ EC 作品卡片 ═══ */
                   <>
                     {ecImages[0]?.url ? (
-                      <img src={proxyImg(ecImages[0].url)} alt=""
-                        style={{ width: 56, height: 56, borderRadius: 'var(--radius-md)', objectFit: 'cover', flex: '0 0 auto' }} />
+                      <ResponsiveImage src={ecImages[0].url} alt="" variant="thumb" priority={i < 4} ratio="1:1"
+                        style={{ width: 56, height: 56, borderRadius: 'var(--radius-md)', flex: '0 0 auto' }}
+                        imgStyle={{ objectFit: 'cover' }} />
                     ) : (
                       <div style={{
                         width: 56, height: 56, borderRadius: 'var(--radius-md)',

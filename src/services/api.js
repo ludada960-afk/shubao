@@ -176,23 +176,30 @@ function waitFor(ms) {
 }
 
 // 图片代理（解决跨域）
-export function proxyImg(url) {
+export function proxyImg(url, variant = 'full') {
   if (!url) return '';
   if (typeof url === 'object') {
-    return proxyImg(url.url || url.src || url.image_url || url.cover_url || '');
+    return proxyImg(url.url || url.src || url.image_url || url.cover_url || '', variant);
   }
   const sameOrigin = url.match(/^https?:\/\/(?:www\.)?shuimg\.cn(\/.*)$/i);
-  if (sameOrigin) return sameOrigin[1];
+  if (sameOrigin) return imageVariantUrl(sameOrigin[1], variant);
   // 已经是代理地址或 data URI 则直接返回
-  if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return imageVariantUrl(url, variant);
   // 本地相对路径也直接返回
   if (url.startsWith('/')) return url;
   // 处理 http/https 图片 URL
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    return `${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}`;
+    return imageVariantUrl(`${API_BASE}/api/proxy-image?url=${encodeURIComponent(url)}`, variant);
   }
   // 其他情况直接返回原 URL
   return url;
+}
+
+export function imageVariantUrl(url, variant = 'full') {
+  const value = String(url || '');
+  if (!value || variant === 'full' || value.startsWith('data:') || value.startsWith('blob:')) return value;
+  if (!value.startsWith('/api/generated-assets/') && !value.startsWith('/api/proxy-image')) return value;
+  return `${value}${value.includes('?') ? '&' : '?'}variant=${encodeURIComponent(variant)}`;
 }
 
 function imageValue(image) {

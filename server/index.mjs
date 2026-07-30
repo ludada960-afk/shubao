@@ -42,6 +42,7 @@ import {
 } from './billing/contentBilling.mjs';
 import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets.mjs';
+import { createImageDelivery } from './imageDelivery.mjs';
 import { resolveContentReferenceImages } from './contentReferenceAssets.mjs';
 import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
@@ -134,6 +135,10 @@ const {
   previewContentGeneration,
 } = contentBilling;
 const generatedAssetStore = createGeneratedAssetStore({ directory: resolve(__dirname, 'generated-assets') });
+const imageDelivery = createImageDelivery({
+  assetRoot: resolve(__dirname, 'generated-assets'),
+  proxyCacheRoot: resolve(__dirname, 'cache_img'),
+});
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
   beginContentGeneration,
@@ -236,7 +241,7 @@ app.use(cors());
 app.use(express.json({ limit: '30mb' }));
 
 app.get('/api/generated-assets/:id', async (req, res) => {
-  const asset = await generatedAssetStore.read(req.params.id);
+  const asset = await imageDelivery.readGeneratedVariant(req.params.id, req.query.variant || 'full');
   if (!asset) return res.status(404).end('generated asset not found');
   res.setHeader('Content-Type', asset.contentType);
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
@@ -2103,74 +2108,23 @@ mountWorkRoutes(app, {
   restoreOwnedWork: (saveKey, ownerEmail) => restoreWork(saveKey, { ownerEmail }),
 });
 
-// 图片代理：后端下载图片并缓存（内存+磁盘双缓存，持久化避免重启丢失）
-const imgCache2 = new Map();
-const IMG_CACHE_DIR = resolve(__dirname, 'cache_img');
-if (!fs.existsSync(IMG_CACHE_DIR)) fs.mkdirSync(IMG_CACHE_DIR, { recursive: true });
+// 图片代理：远端图片只下载一次，并为列表与画布提供 WebP 派生尺寸。
 app.get('/api/proxy-image', async (req, res) => {
-  const url = req.query.url;
+  const url = String(req.query.url || '');
+  const variant = String(req.query.variant || 'full');
   if (!url) return res.status(400).end('missing url');
-  // 代理只接受 http(s) 外链或本站相对路径，并限制响应体，避免被当作任意下载器/SSRF 放大器。
-  let parsedUrl;
   try {
-    parsedUrl = new URL(url, `http://localhost:${PORT}`);
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) return res.status(400).end('unsupported protocol');
-    if (parsedUrl.hostname === 'localhost' && !url.startsWith('/')) return res.status(400).end('invalid host');
-  } catch {
-    return res.status(400).end('invalid url');
-  }
-  const hash = crypto.createHash('md5').update(url).digest('hex');
-  const diskPath = join(IMG_CACHE_DIR, hash);
-
-  // 1. 内存缓存
-  const mem = imgCache2.get(url);
-  if (mem && Date.now() - mem.t < 1800000) {
-    res.set('Content-Type', mem.ct); res.set('Cache-Control','max-age=1800');
-    return res.send(mem.d);
-  }
-
-  // 2. 磁盘缓存（持久化，重启不丢）
-  if (fs.existsSync(diskPath)) {
-    try {
-      const disk = fs.readFileSync(diskPath);
-      const meta = JSON.parse(fs.readFileSync(diskPath + '.meta', 'utf8'));
-      imgCache2.set(url, { d: disk, ct: meta.ct, t: Date.now() });
-      res.set('Content-Type', meta.ct); res.set('Cache-Control', 'max-age=3600');
-      return res.send(disk);
-    } catch(e) {}
-  }
-
-  // 3. 远程获取 (B7: 增强错误处理 + Content-Type 修正 + 降级缓存)
-  try {
-    const targetUrl = parsedUrl.href;
-	    const resp = await fetch(targetUrl, { signal: AbortSignal.timeout(60000), redirect: 'follow' });
-    if (!resp.ok) return res.status(502).end(`upstream ${resp.status}`);
-    const contentLength = Number(resp.headers.get('content-length') || 0);
-    if (contentLength > 20 * 1024 * 1024) return res.status(413).end('image too large');
-    const buf = Buffer.from(await resp.arrayBuffer());
-    if (buf.length > 20 * 1024 * 1024) return res.status(413).end('image too large');
-    let ct = resp.headers.get('content-type') || 'image/png';
-    if (!ct.startsWith('image/') && !ct.startsWith('application/octet-stream')) return res.status(415).end('not an image');
-    // 写入内存缓存
-    imgCache2.set(url, { d: buf, ct, t: Date.now() });
-    if (imgCache2.size > 200) { const k = imgCache2.keys().next().value; imgCache2.delete(k); }
-    // 写入磁盘缓存（永不删除）
-    fs.writeFile(diskPath, buf, () => {});
-    fs.writeFile(diskPath + '.meta', JSON.stringify({ ct }), () => {});
-    res.set('Content-Type', ct); res.set('Cache-Control', 'max-age=3600');
+    const image = await imageDelivery.readProxyVariant(url, variant);
+    res.set('Content-Type', image.contentType);
+    res.set('Cache-Control', variant === 'full' ? 'public, max-age=3600' : 'public, max-age=86400');
     res.set('Access-Control-Allow-Origin', '*');
-    res.send(buf);
-  } catch (e) { 
-    // B7: 如果磁盘有旧缓存，降级返回
-    if (fs.existsSync(diskPath)) {
-      try {
-        const disk = fs.readFileSync(diskPath);
-        const meta = JSON.parse(fs.readFileSync(diskPath + '.meta', 'utf8'));
-        res.set('Content-Type', meta.ct); res.set('Cache-Control', 'max-age=3600');
-        return res.send(disk);
-      } catch {}
-    }
-    res.status(502).end('proxy error: ' + (e.message || '').slice(0, 100)); 
+    res.send(image.buffer);
+  } catch (error) {
+    const message = String(error?.message || '');
+    if (message.includes('invalid remote') || message.includes('unsupported image variant')) return res.status(400).end('invalid image request');
+    if (message.includes('not an image')) return res.status(415).end('not an image');
+    if (message.includes('size limit')) return res.status(413).end('image too large');
+    res.status(502).end('image temporarily unavailable');
   }
 });
 
