@@ -143,14 +143,14 @@ export function ensureProjectSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_project_assets_owner
       ON project_assets(owner_email, project_id, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_project_assets_retention
-      ON project_assets(retention_state, marked_at);
   `);
   const assetColumns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
   if (!assetColumns.includes('asset_id')) db.exec("ALTER TABLE project_assets ADD COLUMN asset_id TEXT NOT NULL DEFAULT ''");
   if (!assetColumns.includes('retention_state')) db.exec("ALTER TABLE project_assets ADD COLUMN retention_state TEXT NOT NULL DEFAULT 'active'");
   if (!assetColumns.includes('marked_at')) db.exec('ALTER TABLE project_assets ADD COLUMN marked_at TEXT');
   if (!assetColumns.includes('isolated_at')) db.exec('ALTER TABLE project_assets ADD COLUMN isolated_at TEXT');
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_project_assets_retention
+    ON project_assets(retention_state, marked_at)`);
   const projectColumns = db.prepare('PRAGMA table_info(projects)').all().map(column => column.name);
   if (!projectColumns.includes('legacy_work_key')) db.exec('ALTER TABLE projects ADD COLUMN legacy_work_key TEXT');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_legacy_work ON projects(owner_email, legacy_work_key) WHERE legacy_work_key IS NOT NULL');

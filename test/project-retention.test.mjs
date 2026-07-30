@@ -6,6 +6,32 @@ import { ensureBillingSchema } from '../server/billing/schema.mjs';
 import { ensureProjectSchema } from '../server/projects/schema.mjs';
 import { createRetentionService } from '../server/projects/retentionService.mjs';
 
+test('schema migrates legacy project assets before creating the retention index', () => {
+  const db = new Database(':memory:');
+  db.exec(`CREATE TABLE project_assets (
+    id TEXT PRIMARY KEY,
+    owner_email TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    stable_url TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    retention_class TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    deleted_at TEXT
+  )`);
+
+  ensureProjectSchema(db);
+
+  const columns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
+  assert.ok(columns.includes('retention_state'));
+  assert.ok(columns.includes('marked_at'));
+  assert.ok(columns.includes('isolated_at'));
+  const indexes = db.prepare('PRAGMA index_list(project_assets)').all().map(index => index.name);
+  assert.ok(indexes.includes('idx_project_assets_retention'));
+  db.close();
+});
+
 function createHarness() {
   const db = new Database(':memory:');
   ensureBillingSchema(db);
