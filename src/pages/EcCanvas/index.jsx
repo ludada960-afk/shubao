@@ -23,9 +23,7 @@ import {
   createDerivedNode,
   canDeriveFromNode,
   clampCanvasPickerPosition,
-  getCanvasDomPortCenter,
   getCanvasPortCenter,
-  getConnectionLabel,
   normalizeCanvasConnection,
   normalizeCanvasNode,
   validateWorkflowActionInputs,
@@ -42,6 +40,7 @@ import { buildCanvasImportResult, normalizeCanvasWorkPanel } from './canvasWorkM
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
+import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 
 function generatedAssetIdFromUrl(url = '') {
   return String(url).match(/\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))(?:[?#]|$)/i)?.[1] || '';
@@ -194,7 +193,7 @@ function SkeletonCard({ w, h }) {
 }
 
 /* A8: 图片加载骨架屏 + 错误重试 + C3: proxyImg 代理显示 */
-function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction, onPointerDown, onContextMenu, onToggleSelect, onPortPointerDown, onPortPointerUp }) {
+function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction, onPointerDown, onContextMenu, onToggleSelect, onPortPointerDown, onPortPointerUp, onInspect }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -204,6 +203,7 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
     <div
       data-canvas-node-id={node.id}
       onPointerDown={e => onPointerDown(e, node.id)}
+      onDoubleClick={e => { e.stopPropagation(); onInspect?.(node); }}
       onContextMenu={e => { e.preventDefault(); onContextMenu?.(e, node); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -284,10 +284,10 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
   if (!connections?.length) return null;
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const styles = {
-    reference: { stroke: '#7c3aed', dash: undefined, label: '引用素材' },
-    variant: { stroke: '#2563eb', dash: '6 4', label: '生成变体' },
-    merge: { stroke: '#374151', dash: undefined, label: '合并产物' },
-    derived: { stroke: '#6558e8', dash: undefined, label: '派生处理' },
+    reference: { stroke: '#7c3aed', dash: undefined },
+    variant: { stroke: '#2563eb', dash: '6 4' },
+    merge: { stroke: '#374151', dash: undefined },
+    derived: { stroke: '#6558e8', dash: undefined },
   };
   return (
     <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'auto', overflow: 'visible' }}>
@@ -303,12 +303,10 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
         const y2 = toPort.y * viewport.scale + viewport.y;
         const mx = (x1 + x2) / 2;
         const style = styles[conn.relation || conn.type] || styles.reference;
-        const label = getConnectionLabel(conn) || style.label;
         return (
           <g key={i}>
             <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={2.4} fill="none" strokeDasharray={style.dash} opacity={0.75} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={0.8} />
-            <text x={mx} y={(y1 + y2) / 2 - 6} textAnchor="middle" fontSize="10" fill={style.stroke} style={{ pointerEvents: 'none' }}>{label}</text>
           </g>
         );
       })}
@@ -427,26 +425,21 @@ export default function EcCanvas() {
   const [textInspectorNodeId, setTextInspectorNodeId] = useState(null);
   const [textCompositionSaving, setTextCompositionSaving] = useState(false);
   const [textCompositionError, setTextCompositionError] = useState('');
-  const [renderedNodeBounds, setRenderedNodeBounds] = useState({});
-  const [renderedPortCenters, setRenderedPortCenters] = useState({});
   const [canvasSession, setCanvasSession] = useState(null);
   const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
+  const dragFrameRef = useRef(null);
+  const pendingDragRef = useRef(null);
+  const draftReadyRef = useRef(false);
 
   const imageList = parseImages(result.images || {}, result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
-  const nodeIdsKey = nodes.map(node => node.id).join('|');
-  const connectionNodes = nodes.map(node => ({
-    ...node,
-    renderedWidth: renderedNodeBounds[node.id]?.width,
-    renderedHeight: renderedNodeBounds[node.id]?.height,
-    portCenters: renderedPortCenters[node.id],
-  }));
+  const connectionNodes = nodes;
 
   // toast helper
   const showToast = useCallback((msg, type = 'info') => {
@@ -461,14 +454,19 @@ export default function EcCanvas() {
       setConnections([]);
       return () => { cancelled = true; };
     }
+    draftReadyRef.current = false;
     const session = createFreshCanvasSession({
       work: result,
       productAssets: productAssetsForCanvas(result),
       outputs: imageList,
     });
-    const newNodes = session.nodes.map(normalizeCanvasNode);
+    const draftKey = canvasDraftKey(result);
+    canvasSaveKeyRef.current = draftKey;
+    const draft = loadCanvasDraft(draftKey);
+    const initialSnapshot = draft ? restoreCanvasSnapshot(draft) : null;
+    const newNodes = (initialSnapshot?.nodes?.length ? initialSnapshot.nodes : session.nodes).map(normalizeCanvasNode);
     setNodes(newNodes);
-    setConnections(session.connections.map(normalizeCanvasConnection));
+    setConnections((initialSnapshot?.connections?.length ? initialSnapshot.connections : session.connections).map(normalizeCanvasConnection));
     setSelected(null);
     setMultiSelected(new Set());
     setConnectionDraft(null);
@@ -476,6 +474,18 @@ export default function EcCanvas() {
     setCanvasSession(result.canvasSession?.id
       ? result.canvasSession
       : result.canvasSessionId ? { id: result.canvasSessionId, revision: result.canvasSessionRevision || 1 } : null);
+    const persistedSessionId = result.canvasSession?.id || result.canvasSessionId;
+    if (!draft && persistedSessionId) {
+      void loadCanvasSession(persistedSessionId).then(remoteSession => {
+        if (cancelled) return;
+        const snapshot = restoreCanvasSnapshot(remoteSession.snapshot);
+        if (!snapshot.nodes.length) return;
+        setNodes(snapshot.nodes.map(normalizeCanvasNode));
+        setConnections(snapshot.connections.map(normalizeCanvasConnection));
+        setViewport(snapshot.viewport);
+        setCanvasSession(remoteSession);
+      }).catch(() => {});
+    }
     if (result.projectId && (result.resultVersionId || result.sourceVersionId)) {
       void listTextCompositions({
         projectId: result.projectId,
@@ -500,54 +510,19 @@ export default function EcCanvas() {
       }).catch(() => {});
     }
     requestAnimationFrame(() => {
-      const next = fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
+      const next = initialSnapshot?.viewport || fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
       if (next) setViewport(next);
+      draftReadyRef.current = true;
     });
     return () => { cancelled = true; };
   }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, imageList.length]);
 
   useEffect(() => {
-    const root = containerRef.current;
-    if (!root || tab !== 'canvas') return undefined;
-    const measure = () => {
-      const elements = [...root.querySelectorAll('[data-canvas-node-id]')];
-      const next = {};
-      for (const element of elements) {
-        const id = element.dataset.canvasNodeId;
-        if (!id) continue;
-        next[id] = { width: element.offsetWidth, height: element.offsetHeight };
-      }
-      setRenderedNodeBounds(previous => {
-        const previousKeys = Object.keys(previous);
-        const nextKeys = Object.keys(next);
-        if (previousKeys.length === nextKeys.length
-          && nextKeys.every(id => previous[id]?.width === next[id].width && previous[id]?.height === next[id].height)) return previous;
-        return next;
-      });
-      const rootRect = root.getBoundingClientRect();
-      const nextPorts = {};
-      for (const portElement of root.querySelectorAll('[data-canvas-port-role]')) {
-        const nodeElement = portElement.closest?.('[data-canvas-node-id]');
-        const id = nodeElement?.dataset?.canvasNodeId;
-        const role = portElement.dataset.canvasPortRole;
-        if (!id || !role) continue;
-        const portRect = portElement.getBoundingClientRect();
-        (nextPorts[id] ||= {})[role] = getCanvasDomPortCenter({ portRect, canvasRect: rootRect, viewport });
-      }
-      setRenderedPortCenters(previous => {
-        const previousJson = JSON.stringify(previous);
-        const nextJson = JSON.stringify(nextPorts);
-        return previousJson === nextJson ? previous : nextPorts;
-      });
-    };
-    const frame = requestAnimationFrame(measure);
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
-    root.querySelectorAll('[data-canvas-node-id]').forEach(element => observer?.observe(element));
-    return () => {
-      cancelAnimationFrame(frame);
-      observer?.disconnect();
-    };
-  }, [nodeIdsKey, tab, viewport.x, viewport.y, viewport.scale]);
+    if (!draftReadyRef.current || !hasCurrent || !canvasSaveKeyRef.current || !nodes.length) return undefined;
+    const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
+    const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
+    return () => clearTimeout(timer);
+  }, [connections, hasCurrent, nodes, viewport]);
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
@@ -655,6 +630,22 @@ export default function EcCanvas() {
     };
   }, [viewport.x, viewport.y, viewport.scale]);
 
+  const flushDragFrame = useCallback(() => {
+    dragFrameRef.current = null;
+    const pending = pendingDragRef.current;
+    pendingDragRef.current = null;
+    if (!pending) return;
+    const dx = pending.point.x - pending.start.x;
+    const dy = pending.point.y - pending.start.y;
+    if (!dx && !dy) return;
+    setNodes(previous => moveSelectedNodes(previous, pending.ids, dx, dy));
+    setPointerMode(previous => previous?.kind === 'drag' ? { ...previous, start: pending.point } : previous);
+  }, []);
+
+  useEffect(() => () => {
+    if (dragFrameRef.current) cancelAnimationFrame(dragFrameRef.current);
+  }, []);
+
   const handlePointerDown = useCallback((e) => {
     if (e.pointerType === 'touch') {
       touchPointsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -729,14 +720,16 @@ export default function EcCanvas() {
     }
     if (pointerMode.kind === 'drag') {
       const point = toWorldPoint(e);
-      const dx = point.x - pointerMode.start.x;
-      const dy = point.y - pointerMode.start.y;
-      setNodes(ns => moveSelectedNodes(ns, pointerMode.ids, dx, dy));
-      setPointerMode(prev => ({ ...prev, start: point }));
+      pendingDragRef.current = { ids: pointerMode.ids, start: pointerMode.start, point };
+      if (!dragFrameRef.current) dragFrameRef.current = requestAnimationFrame(flushDragFrame);
     }
-  }, [pointerMode, toWorldPoint]);
+  }, [flushDragFrame, pointerMode, toWorldPoint]);
 
   const handlePointerUp = useCallback((e) => {
+    if (dragFrameRef.current) {
+      cancelAnimationFrame(dragFrameRef.current);
+      flushDragFrame();
+    }
     if (e?.pointerType === 'touch') touchPointsRef.current.delete(e.pointerId);
     if (pointerMode?.kind === 'connect' && connectionDraft) {
       if (e?.type === 'pointercancel') {
@@ -760,7 +753,7 @@ export default function EcCanvas() {
     }
     setPointerMode(null);
     setMarquee(null);
-  }, [pointerMode, connectionDraft, marquee, nodes, multiSelected, toWorldPoint]);
+  }, [connectionDraft, flushDragFrame, marquee, multiSelected, nodes, pointerMode, toWorldPoint]);
 
   // B3: 使用 requestAnimationFrame 节流 wheel 事件
   const wheelRafRef = useRef(null);
@@ -1993,6 +1986,7 @@ export default function EcCanvas() {
                   onPortPointerDown={handlePortPointerDown}
                   onPortPointerUp={handlePortPointerUp}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                  onInspect={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
                 />;
               }
               if (node.kind === 'image' || node.kind === 'output') {

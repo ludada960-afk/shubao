@@ -18,6 +18,7 @@ import {
   mergeWorkCollections,
   replaceCachedWorksForOwner,
 } from '../utils/workRecords.js';
+import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 
@@ -41,14 +42,7 @@ function ecommerceTaskError(task) {
   const detail = Array.isArray(errors)
     ? errors.find(item => item?.error || item?.message) || {}
     : {};
-  const error = new Error(
-    detail.error
-    || detail.message
-    || task?.error
-    || (task?.status === 'needs_review'
-      ? '部分图片未通过质量检查，请调整后重试'
-      : '生成任务失败，请重试'),
-  );
+  const error = new Error(toGenerationStatus({ ...task, error: detail.error || detail.message || task?.error }).detail);
   for (const key of [
     'code',
     'status',

@@ -1,4 +1,5 @@
 import { getCanvasAction, canCreateWorkflowFromNode } from './canvasActionRegistry.js';
+import { getNodePortCenter } from './canvasGeometry.js';
 
 const ACTION_SIZES = {
   'smart-remix': { w: 380, h: 560 },
@@ -76,17 +77,7 @@ export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = 
 
 export function getCanvasPortCenter(node = {}, port = 'output') {
   const normalized = normalizeCanvasNode(node);
-  const role = port === 'input' || port === 'in' ? 'input' : 'output';
-  const measured = node.portCenters?.[role];
-  if (Number.isFinite(measured?.x) && Number.isFinite(measured?.y)) {
-    return { x: measured.x, y: measured.y };
-  }
-  const width = Number.isFinite(node.renderedWidth) && node.renderedWidth > 0 ? node.renderedWidth : normalized.w;
-  const height = Number.isFinite(node.renderedHeight) && node.renderedHeight > 0 ? node.renderedHeight : normalized.h;
-  return {
-    x: normalized.x + (role === 'input' ? 0 : width),
-    y: normalized.y + height / 2,
-  };
+  return getNodePortCenter(normalized, port);
 }
 
 export function getCanvasDomPortCenter({ portRect = {}, canvasRect = {}, viewport = {} } = {}) {

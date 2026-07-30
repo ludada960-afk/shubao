@@ -106,6 +106,11 @@ import {
 } from './canvasTools.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+function safeCanvasClientError(error, fallback = '画布服务暂时不可用，请稍后重试') {
+  const message = String(error?.message || '');
+  if (/api|key|token|authorization|authentication|vision|provider|\b401\b|\b403\b|\{\s*"?error/i.test(message)) return fallback;
+  return error?.status && error.status < 500 ? message : fallback;
+}
 const envPath = resolve(__dirname, '.env');
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, 'utf8');
@@ -3716,7 +3721,7 @@ app.post('/api/canvas/transform', async (req, res) => {
   } catch (error) {
     console.error(`[canvas/${action}] 失败:`, error.message);
     return res.status(error?.status || 500).json({
-      error: error?.status ? error.message : `画布${action}失败：${error.message}`,
+      error: safeCanvasClientError(error),
       code: error?.code,
       required: error?.required,
       available: error?.available,
@@ -3743,7 +3748,7 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
     res.json({ layers, status: '已识别', capabilities });
   } catch (error) {
     console.error('[canvas/analyze-layers] 失败:', error.message);
-    res.status(500).json({ error: `图层分析失败：${error.message}` });
+    res.status(500).json({ error: safeCanvasClientError(error, '图层分析暂时不可用，请稍后重试') });
   }
 });
 

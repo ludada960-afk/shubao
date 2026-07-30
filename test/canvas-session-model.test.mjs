@@ -53,6 +53,23 @@ test('a source group is the only parent of imported result nodes', () => {
   }
 });
 
+test('fresh imports arrange outputs by horizontal commercial role lanes without default labels', () => {
+  const session = createFreshCanvasSession({
+    ...workInput,
+    outputs: [
+      { assetId: 'main-a', url: '/main-a.png', name: '主图 A', group: '主图', ratio: '1:1' },
+      { assetId: 'main-b', url: '/main-b.png', name: '主图 B', group: '主图', ratio: '3:4' },
+      { assetId: 'detail-a', url: '/detail-a.png', name: '详情 A', group: '详情图', ratio: '3:4' },
+    ],
+  });
+  const main = session.nodes.filter(node => node.group === '主图');
+  const detail = session.nodes.find(node => node.group === '详情图');
+  assert.equal(main[0].y, main[1].y);
+  assert.ok(main[1].x > main[0].x);
+  assert.ok(detail.y > main[0].y);
+  assert.ok(session.connections.every(edge => !edge.label));
+});
+
 test('explicit Canvas snapshots preserve nodes, connections, and a valid viewport without sharing mutable state', () => {
   const source = {
     nodes: [{ id: 'source-1', x: 12 }],
