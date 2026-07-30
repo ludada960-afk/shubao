@@ -7,6 +7,9 @@ test('empty commerce canvas guides a seller to upload product originals or impor
   assert.match(source, /双击画布导入商品素材/);
   assert.match(source, /上传商品原图/);
   assert.match(source, /从我的作品导入/);
-  assert.match(source, /sourceRole: 'product_original'/);
-  assert.match(source, /onDoubleClick=\{[\s\S]*?sourceUploadRef/);
+  assert.match(source, /id: 'product_original'/);
+  assert.match(source, /CanvasSourceImportSheet/);
+  assert.match(source, /style_reference/);
+  assert.match(source, /general_material/);
+  assert.match(source, /onDoubleClick=\{[\s\S]*?setSourceImportOpen\(true\)/);
 });

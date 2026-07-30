@@ -241,7 +241,7 @@ function resultImages(assets) {
 
 function publicAssetError(asset) {
   const state = cleanString(own(asset, 'state'));
-  if (state === 'needs_review') return '图片未通过质量检查，本张未计费';
+  if (state === 'needs_review') return '生成预览需要修订，尚未进入交付，本张不计费';
   if (state === 'failed' || state === 'cancelled') return '图片生成未完成，本张未计费';
   return '';
 }
@@ -260,6 +260,9 @@ function publicAsset(asset) {
   };
   if (state === 'completed' && cleanString(own(asset, 'stableUrl'))) {
     result.stableUrl = cleanString(own(asset, 'stableUrl'));
+  }
+  if (state === 'needs_review' && cleanString(own(asset, 'stableUrl'))) {
+    result.previewUrl = cleanString(own(asset, 'stableUrl'));
   }
   return result;
 }

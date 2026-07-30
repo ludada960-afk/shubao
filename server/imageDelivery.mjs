@@ -136,7 +136,19 @@ export function createImageDelivery({
         const metadata = await readIfPresent(metaPath);
         return { key, buffer: current, contentType: metadata ? JSON.parse(metadata.toString('utf8')).contentType : 'application/octet-stream' };
       }
-      const response = await fetchImpl(url, { signal: AbortSignal.timeout(20_000), redirect: 'follow' });
+      let nextUrl = url;
+      let response;
+      for (let redirects = 0; redirects <= 3; redirects += 1) {
+        if (!isSafeRemoteImageUrl(nextUrl)) throw new Error('invalid remote image URL');
+        response = await fetchImpl(nextUrl, { signal: AbortSignal.timeout(20_000), redirect: 'manual' });
+        const status = Number(response?.status || 0);
+        if (status < 300 || status >= 400) break;
+        const location = response.headers?.get?.('location');
+        if (!location) throw new Error('remote image redirect is invalid');
+        nextUrl = new URL(location, nextUrl).toString();
+        response = null;
+      }
+      if (!response) throw new Error('remote image redirect limit exceeded');
       if (!response?.ok) throw new Error(`image source returned ${response?.status || 'network error'}`);
       const contentType = response.headers?.get?.('content-type') || '';
       if (!contentTypeIsImage(contentType)) throw new Error('remote response is not an image');

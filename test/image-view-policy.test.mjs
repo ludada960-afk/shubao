@@ -13,11 +13,13 @@ test('shared responsive image component uses delivery variants and browser decod
   assert.match(source, /objectFit: 'contain'/);
 });
 
-test('work and canvas surfaces use distinct delivery variants', async () => {
-  const [works, canvas] = await Promise.all([
+test('work, case, and canvas surfaces use purpose-sized delivery variants', async () => {
+  const [works, canvas, gallery] = await Promise.all([
     readFile(new URL('./src/pages/Works/index.jsx', root), 'utf8'),
     readFile(new URL('./src/pages/EcCanvas/index.jsx', root), 'utf8'),
+    readFile(new URL('./src/pages/Home/GallerySection.jsx', root), 'utf8'),
   ]);
   assert.match(works, /ResponsiveImage[\s\S]*variant="thumb"/);
   assert.match(canvas, /ResponsiveImage[\s\S]*variant="canvas"/);
+  assert.match(gallery, /ResponsiveImage[\s\S]*variant="thumb"/);
 });

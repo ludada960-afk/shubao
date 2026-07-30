@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { MdAutoAwesome, MdVisibility } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { GALLERY } from '../../constants/data';
-import { proxyImg } from '../../services/api';
 import Footer from '../../components/layout/Footer';
+import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 
 export default function GalleryPage() {
   const { dispatch } = useApp();
@@ -70,9 +70,9 @@ function GCard({ item, onClick, onSameStyle }) {
       }}
     >
       {item.cover_url && !imgErr && (
-        <img src={proxyImg(item.cover_url)} alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={() => setImgErr(true)} />
+        <ResponsiveImage src={item.cover_url} alt="" variant="thumb" ratio="3:4"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+          imgStyle={{ objectFit: 'cover' }} onError={() => setImgErr(true)} />
       )}
 
       {/* Gradient overlay */}

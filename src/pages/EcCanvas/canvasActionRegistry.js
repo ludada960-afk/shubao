@@ -6,7 +6,12 @@ function isReadyImage(node = {}) {
 }
 
 export function canCreateWorkflowFromNode(node = {}) {
-  if (node.kind === 'source_group') return node.status === 'ready' && Array.isArray(node.assets) && node.assets.some(asset => asset?.url);
+  if (node.kind === 'source_group') {
+    return node.status === 'ready'
+      && (node.sourceRole || 'product_original') === 'product_original'
+      && Array.isArray(node.assets)
+      && node.assets.some(asset => asset?.url);
+  }
   return isReadyImage(node);
 }
 

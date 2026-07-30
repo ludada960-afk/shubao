@@ -139,6 +139,33 @@ const PLATFORM_PRESETS = {
   亚马逊: ['1:1 白底主图', '1:1 A+配图'],
 };
 
+const SOURCE_ROLES = Object.freeze([
+  { id: 'product_original', label: '商品原图', description: '用于生成主图、详情图、SKU 和商品素材' },
+  { id: 'style_reference', label: '风格参考', description: '只影响视觉风格，不会被识别为商品主体' },
+  { id: 'general_material', label: '通用素材', description: '可用于局部编辑和排版，不作为商品生成依据' },
+]);
+
+function CanvasSourceImportSheet({ role, onRoleChange, onUpload, onImportWorks, onClose }) {
+  return <div role="dialog" aria-modal="true" aria-label="导入画布素材" style={{ position: 'absolute', zIndex: 100, inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,.18)' }} onPointerDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
+    <section style={{ width: 'min(480px, calc(100vw - 32px))', padding: 20, borderRadius: 12, background: '#fff', boxShadow: '0 22px 70px rgba(15,23,42,.24)' }}>
+      <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 18 }}>
+        <div><h2 style={{ margin: 0, fontSize: 18, color: '#111827' }}>添加画布素材</h2><p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: 12, lineHeight: 1.6 }}>先说明图片扮演的角色，后续操作才会保持商品真实。</p></div>
+        <button type="button" aria-label="关闭导入素材" onClick={onClose} style={{ width: 28, height: 28, border: 0, borderRadius: 7, background: '#f3f4f6', color: '#6b7280', cursor: 'pointer' }}>×</button>
+      </div>
+      <div style={{ display: 'grid', gap: 8, marginTop: 17 }}>
+        {SOURCE_ROLES.map(item => <button key={item.id} type="button" onClick={() => onRoleChange?.(item.id)} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, textAlign: 'left', padding: '12px 13px', borderRadius: 8, border: role === item.id ? '2px solid #2563eb' : '1px solid #e5e7eb', background: role === item.id ? '#eff6ff' : '#fff', cursor: 'pointer' }}>
+          <span><strong style={{ display: 'block', color: '#111827', fontSize: 13 }}>{item.label}</strong><span style={{ display: 'block', marginTop: 3, color: '#6b7280', fontSize: 11, lineHeight: 1.45 }}>{item.description}</span></span>
+          <span aria-hidden="true" style={{ width: 18, height: 18, marginTop: 2, borderRadius: '50%', border: role === item.id ? '5px solid #2563eb' : '1px solid #cbd5e1', background: role === item.id ? '#fff' : 'transparent' }} />
+        </button>)}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'end', gap: 8, marginTop: 18 }}>
+        <button type="button" onClick={onImportWorks} style={{ height: 36, padding: '0 12px', border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', color: '#374151', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>从我的作品导入</button>
+        <button type="button" onClick={onUpload} style={{ height: 36, padding: '0 13px', border: 0, borderRadius: 8, background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>选择设备图片</button>
+      </div>
+    </section>
+  </div>;
+}
+
 /* A7: 按 category 分组的智能排版 */
 function autoLayout(imageList) {
   // 按 group 分组
@@ -381,6 +408,8 @@ export default function EcCanvas() {
   const [multiSelected, setMultiSelected] = useState(new Set());
   const [connections, setConnections] = useState([]);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
+  const [sourceImportOpen, setSourceImportOpen] = useState(false);
+  const [sourceRole, setSourceRole] = useState('product_original');
   const [pointerMode, setPointerMode] = useState(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [shiftPressed, setShiftPressed] = useState(false);
@@ -1630,7 +1659,7 @@ export default function EcCanvas() {
         assetId: `upload-${Date.now()}-${index}`,
         name: file.name || `商品原图 ${index + 1}`,
         url: String(reader.result || ''),
-        sourceRole: 'product_original',
+        sourceRole,
       });
       reader.onerror = () => reject(new Error('图片读取失败'));
       reader.readAsDataURL(file);
@@ -1639,8 +1668,8 @@ export default function EcCanvas() {
       id: `source-upload-${Date.now()}`,
       kind: 'source_group',
       status: 'ready',
-      name: '商品原图',
-      title: '商品原图',
+      name: SOURCE_ROLES.find(item => item.id === sourceRole)?.label || '商品原图',
+      title: SOURCE_ROLES.find(item => item.id === sourceRole)?.label || '商品原图',
       platform: result.platform || '淘宝',
       assets,
       x: 80,
@@ -1648,14 +1677,14 @@ export default function EcCanvas() {
       w: 248,
       h: Math.max(200, 116 + Math.ceil(assets.length / 2) * 86),
       editable: true,
-      sourceRole: 'product_original',
+      sourceRole,
     };
     draftReadyRef.current = true;
     canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${Date.now()}` });
     setNodes(previous => [...previous, sourceNode]);
     setSelected(sourceNode.id);
     setMultiSelected(new Set([sourceNode.id]));
-    showToast('商品原图已加入画布，可从右侧端口创建电商处理', 'success');
+    showToast(sourceRole === 'product_original' ? '商品原图已加入画布，可从右侧端口创建电商处理' : '素材已加入画布，已按所选角色保留使用范围', 'success');
   };
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
@@ -2039,16 +2068,17 @@ export default function EcCanvas() {
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onDoubleClick={event => {
-            if (!nodes.length && !event.target?.closest?.('button,input,textarea,select,a')) sourceUploadRef.current?.click();
+            if (!nodes.length && !event.target?.closest?.('button,input,textarea,select,a')) setSourceImportOpen(true);
           }}
         >
           <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
+          {sourceImportOpen && <CanvasSourceImportSheet role={sourceRole} onRoleChange={setSourceRole} onClose={() => setSourceImportOpen(false)} onUpload={() => { setSourceImportOpen(false); sourceUploadRef.current?.click(); }} onImportWorks={() => { setSourceImportOpen(false); setTab('works'); }} />}
           {!nodes.length && (
             <div className="canvas-empty-state" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#374151', marginBottom: 7 }}>双击画布导入商品素材</div>
               <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 18 }}>从商品原图开始，再生成主图、详情图和 SKU 素材</div>
               <div style={{ display: 'flex', gap: 9 }}>
-                <button type="button" onClick={() => sourceUploadRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 8, border: 0, background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}><MdAddPhotoAlternate size={16} /> 上传商品原图</button>
+                <button type="button" onClick={() => setSourceImportOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 8, border: 0, background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}><MdAddPhotoAlternate size={16} /> 上传商品原图</button>
                 <button type="button" onClick={() => setTab('works')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}><MdCollections size={16} /> 从我的作品导入</button>
               </div>
             </div>
@@ -2060,7 +2090,11 @@ export default function EcCanvas() {
           <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             {(() => {
               const groups = {};
-              visibleNodes.forEach(n => { if (!groups[n.group]) groups[n.group] = n.y; });
+              visibleNodes.forEach(n => {
+                const group = String(n.group || '').trim();
+                if (!group || group === 'undefined' || group === 'null') return;
+                if (!groups[group]) groups[group] = n.y;
+              });
               return Object.entries(groups).map(([group, y]) => (
                 <div key={group} style={{ position: 'absolute', left: 0, top: y - 28, fontSize: 14, fontWeight: 800, color: 'rgba(0,0,0,0.35)', pointerEvents: 'none', userSelect: 'none' }}>
                   {group}

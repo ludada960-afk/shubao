@@ -160,7 +160,7 @@ test('fresh Canvas imports hydrate durable text compositions from the project ve
   assert.match(canvasSource, /compositionBackgroundAssetId/);
 });
 
-test('Canvas persistence is wired only to explicit save and restore commands', () => {
+test('Canvas persistence keeps explicit recovery commands while synchronizing drafts automatically', () => {
   assert.match(canvasSource, /createCanvasSession/);
   assert.match(canvasSource, /saveCanvasSession/);
   assert.match(canvasSource, /loadCanvasSession/);
@@ -168,8 +168,9 @@ test('Canvas persistence is wired only to explicit save and restore commands', (
   assert.match(canvasSource, /const handleCanvasSessionRestore[\s\S]*?restoreCanvasSnapshot/);
   assert.match(canvasSource, /<MdSave[^>]*\/>\s*保存画布/);
   assert.match(canvasSource, /<MdRestore[^>]*\/>\s*恢复画布/);
-  const effects = [...canvasSource.matchAll(/useEffect\(\(\) => \{([\s\S]*?)\n  \}, \[/g)].map(match => match[1]).join('\n');
-  assert.doesNotMatch(effects, /createCanvasSession\(|saveCanvasSession\(|loadCanvasSession\(/);
+  assert.match(canvasSource, /saveCanvasDraft\(/);
+  assert.match(canvasSource, /remoteSaveTimerRef/);
+  assert.match(canvasSource, /canvasSessionRef/);
 });
 
 test('an explicit Canvas save records the session handle on its owner-scoped Work for later manual restore', () => {
@@ -184,8 +185,9 @@ test('source-group workflow generation uses the first owned product asset', () =
   assert.match(generateBlock, /regenerateCanvasImage\(\{[\s\S]*?imageUrl: sourceUrl/);
 });
 
-test('connection geometry observes rendered canvas node bounds', () => {
-  assert.match(canvasSource, /ResizeObserver/);
+test('connection geometry derives endpoints from the synchronous node model', () => {
+  assert.match(canvasSource, /getCanvasPortCenter/);
   assert.match(canvasSource, /data-canvas-node-id/);
-  assert.match(canvasSource, /renderedHeight/);
+  assert.doesNotMatch(canvasSource, /ResizeObserver/);
+  assert.doesNotMatch(canvasSource, /renderedPortCenters/);
 });

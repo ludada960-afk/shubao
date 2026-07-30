@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../../store/AppContext';
 import { GALLERY } from '../../constants/data';
-import { proxyImg } from '../../services/api';
+import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 
 /**
  * 灵感发现案例区 — 灵图风格精确对齐 V2
@@ -54,8 +54,9 @@ export default function GallerySection({ maxItems = 24, showHeader = true }) {
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}>
             {g.cover_url ? (
               <div style={{ position: 'relative', lineHeight: 0 }}>
-                <img src={proxyImg(g.cover_url)} alt={g.title} loading="lazy" decoding="async"
-                  style={{ width: '100%', height: 'auto', display: 'block', transition: 'transform 0.3s' }}
+                <ResponsiveImage src={g.cover_url} alt={g.title} variant="thumb" ratio="3:4"
+                  style={{ width: '100%', transition: 'transform 0.3s' }}
+                  imgStyle={{ height: 'auto', objectFit: 'cover' }}
                   className="gallery-img-scale" />
                 {/* Gradient overlay */}
                 <div style={{ position: 'absolute', insetInline: 0, bottom: 0, height: 96, background: 'linear-gradient(to top, rgba(0,0,0,0.72), transparent)', pointerEvents: 'none' }} />

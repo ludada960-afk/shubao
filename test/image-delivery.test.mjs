@@ -61,3 +61,20 @@ test('delivery coalesces concurrent remote source fetches', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('delivery rejects a remote redirect into a private network', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'shubao-image-delivery-'));
+  try {
+    const delivery = createImageDelivery({
+      assetRoot: root,
+      proxyCacheRoot: join(root, 'proxy'),
+      fetchImpl: async () => new Response(null, { status: 302, headers: { location: 'http://127.0.0.1/internal.png' } }),
+    });
+    await assert.rejects(
+      () => delivery.readProxyVariant('https://cdn.example.com/product.jpg', 'thumb'),
+      /invalid remote image URL/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

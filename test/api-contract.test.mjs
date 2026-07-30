@@ -253,7 +253,7 @@ test('terminal failed and cancelled polls clear their task reference while a par
     const { generateEcommerce } = await import(`../src/services/api.js?terminal-${status}=${Date.now()}`);
     await assert.rejects(
       generateEcommerce({ productName: '测试商品', category: '其他', platform: '淘宝', draftId: `ec-draft-${status}`, pollIntervalMs: 0, maxPollAttempts: 1 }),
-      /任务停止/,
+      status === 'cancelled' ? /生成已停止/ : /视觉服务暂时不可用/,
     );
     assert.equal(loadEcommerceTaskReference({ ownerEmail: 'owner@example.com', draftId: `ec-draft-${status}`, storage }), null, status);
   }

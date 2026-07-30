@@ -31,7 +31,7 @@ test('normalizes every server asset state into a user-safe Chinese state', () =>
     quality_check: '质量检查',
     repairing: '正在修复',
     completed: '已完成',
-    needs_review: '需要确认',
+    needs_review: '需要修订',
     failed: '失败',
     cancelled: '失败',
   };
@@ -77,9 +77,21 @@ test('normalizes an asset with Asset Plan role and never exposes a provider stat
     state: 'quality_check',
     userState: '质量检查',
     stableUrl: '/api/generated-assets/detail-1.png',
+    previewUrl: '',
     error: '',
   });
   assert.doesNotMatch(asset.userState, /quality_check|provider/i);
+});
+
+test('keeps a review image as a non-deliverable preview', () => {
+  const asset = normalizeEcommerceAsset({
+    assetId: 'review-1',
+    state: 'needs_review',
+    previewUrl: '/api/generated-assets/review-1.png',
+  });
+  assert.equal(asset.userState, '需要修订');
+  assert.equal(asset.previewUrl, '/api/generated-assets/review-1.png');
+  assert.equal(asset.stableUrl, '');
 });
 
 test('task references are owner and draft isolated, versioned, and expire safely', () => {

@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { MdClose, MdImageSearch, MdUpload } from 'react-icons/md';
+import { proxyImg } from '../../../../../services/api.js';
 import CanvasNodeShell from './CanvasNodeShell';
 import { clampOutputCount } from './workflowNodeViewModel';
 import styles from './CanvasWorkflowNodes.module.css';
@@ -10,7 +11,7 @@ function ImageRail({ label, hint, images = [], onAdd, onRemove }) {
     <div className={styles.sectionLabel}><strong>{label}</strong><span>{hint}</span></div>
     <div className={styles.imageRailScroll}>
       {images.map((image, index) => <div className={styles.railImage} key={image.id || image.url || index}>
-        <img src={image.url || image.previewUrl} alt={image.name || label} />
+        <img src={proxyImg(image.url || image.previewUrl, 'thumb')} loading="lazy" decoding="async" alt={image.name || label} />
         <button type="button" aria-label={`移除${label}`} onClick={() => onRemove?.(image, index)}><MdClose size={12} /></button>
       </div>)}
       <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAdd?.([...event.target.files]); event.target.value = ''; }} />
@@ -48,7 +49,7 @@ export default function SmartRemixNodeCard({
 }) {
   return <CanvasNodeShell title={action?.label} subtitle={action?.description} icon={MdImageSearch} status={status} selected={selected} showOutput={showOutput} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
     <div className={styles.nodeBody}>
-      {sourceImage && <div className={styles.sourcePreview}><img src={sourceImage.url || sourceImage.previewUrl} alt={sourceImage.name || '源图'} /><span>源图</span></div>}
+      {sourceImage && <div className={styles.sourcePreview}><img src={proxyImg(sourceImage.url || sourceImage.previewUrl, 'thumb')} loading="lazy" decoding="async" alt={sourceImage.name || '源图'} /><span>源图</span></div>}
       <label className={styles.fieldLabel} htmlFor={`remix-prompt-${node?.id || 'draft'}`}>画面描述 <em>可编辑</em></label>
       <textarea id={`remix-prompt-${node?.id || 'draft'}`} className={styles.promptEditor} value={prompt} onChange={event => onPromptChange?.(event.target.value)} placeholder="系统会根据源图生成画面描述，你可以直接修改" rows={5} />
       <ImageRail label="产品图" hint="补充不同角度，帮助保持商品一致" images={productImages} onAdd={onAddProductImages} onRemove={onRemoveProductImage} />

@@ -7,12 +7,16 @@ function text(value, fallback = '') {
 }
 
 export function normalizeDurableTask(job = {}) {
-  const assets = Array.isArray(job.assets) ? job.assets.map((asset, index) => ({
-    id: text(asset?.assetId ?? asset?.id, `asset-${index + 1}`),
-    state: text(asset?.state ?? asset?.status, 'queued'),
-    label: text(asset?.label ?? asset?.role, '图片'),
-    error: text(asset?.error),
-  })).filter(asset => asset.id) : [];
+  const assets = Array.isArray(job.assets) ? job.assets.map((asset, index) => {
+    const previewUrl = text(asset?.previewUrl ?? asset?.preview_url);
+    return {
+      id: text(asset?.assetId ?? asset?.id, `asset-${index + 1}`),
+      state: text(asset?.state ?? asset?.status, 'queued'),
+      label: text(asset?.label ?? asset?.role, '图片'),
+      error: text(asset?.error),
+      ...(previewUrl ? { previewUrl } : {}),
+    };
+  }).filter(asset => asset.id) : [];
   const status = text(job.status ?? job.state, 'queued');
   const failed = assets.filter(asset => FAILED_ASSET_STATES.has(asset.state)).length;
   const done = assets.filter(asset => asset.state === 'completed').length;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { MdAutoFixHigh } from 'react-icons/md';
+import { proxyImg } from '../../../../../services/api.js';
 import CanvasNodeShell from './CanvasNodeShell';
 import styles from './CanvasWorkflowNodes.module.css';
 
@@ -28,7 +29,7 @@ export default function CompactProcessNodeCard({
   const preview = resultImage || sourceImage;
   return <CanvasNodeShell title={title} subtitle={description} icon={MdAutoFixHigh} status={status} selected={selected} showOutput={showOutput} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp}>
     <div className={`${styles.nodeBody} ${styles.compactBody}`}>
-      <div className={styles.compactPreview}>{preview ? <img src={preview} alt={title} /> : <MdAutoFixHigh size={26} />}</div>
+      <div className={styles.compactPreview}>{preview ? <img src={proxyImg(preview, 'thumb')} loading="lazy" decoding="async" alt={title} /> : <MdAutoFixHigh size={26} />}</div>
       {requirements.ratio && <>
         <label className={styles.fieldLabel} htmlFor={`process-ratio-${title}`}>目标比例</label>
         <select id={`process-ratio-${title}`} className={styles.textarea} value={ratio} onChange={event => onRatioChange?.(event.target.value)}>

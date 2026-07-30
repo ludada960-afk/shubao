@@ -21,7 +21,7 @@ const USER_STATES = {
   quality_check: '质量检查',
   repairing: '正在修复',
   completed: '已完成',
-  needs_review: '需要确认',
+  needs_review: '需要修订',
   failed: '失败',
   cancelled: '失败',
 };
@@ -243,6 +243,7 @@ export function normalizeEcommerceAsset(asset = {}) {
     state,
     userState,
     stableUrl: cleanText(asset.stableUrl || asset.stable_url),
+    previewUrl: cleanText(asset.previewUrl || asset.preview_url),
     error,
   };
 }

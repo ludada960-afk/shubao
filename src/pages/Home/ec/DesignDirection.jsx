@@ -20,6 +20,7 @@ import {
 import { buildSupplementDeck } from './workbenchState';
 import DirectionOptionCard from './components/DirectionOptionCard';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
+import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import {
   clearEcommerceDirectionRefreshAction,
   acceptEcommerceFinalResult,
@@ -693,7 +694,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 {assetProgress.length > 0 && (
                   <div style={{ display: 'grid', gap: 6, marginTop: 14 }}>
                     {assetProgress.map(asset => (
-                      <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, padding: '7px 9px', borderRadius: 8, background: '#FAF8FC', fontSize: 12 }}>
+                      <div key={asset.id || `${asset.role}-${asset.label}`} style={{ display: 'grid', gridTemplateColumns: asset.previewUrl ? '42px minmax(0, 1fr) auto' : 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', padding: '7px 9px', borderRadius: 8, background: asset.previewUrl ? '#FFF8EE' : '#FAF8FC', fontSize: 12 }}>
+                        {asset.previewUrl && <ResponsiveImage src={asset.previewUrl} variant="thumb" ratio="1:1" alt={`${asset.label || asset.role || '图片'}修订预览`} style={{ width: 42, height: 42, borderRadius: 6, overflow: 'hidden', border: '1px solid #F4D88A' }} imgStyle={{ objectFit: 'cover' }} />}
                         <span style={{ color: '#4B4453' }}>{asset.role || '图片'} · {asset.label || '待处理图片'}</span>
                         <span style={{ color: asset.error ? '#B91C1C' : '#7C3AED', fontWeight: 700 }}>{asset.userState || '正在生成'}</span>
                         {asset.error && <span role="alert" style={{ gridColumn: '1 / -1', color: '#B91C1C', lineHeight: 1.45 }}>{asset.error}</span>}

@@ -1559,11 +1559,12 @@ test('settles only successful assets in a partial batch and releases the failed 
   assert.equal(completed.assets.find(asset => asset.assetId === 'main-pass').stableUrl, PNG_A);
   const rejected = completed.assets.find(asset => asset.assetId === 'detail-fail');
   assert.equal(rejected.stableUrl, undefined);
+  assert.equal(rejected.previewUrl, PNG_A);
   assert.equal(rejected.outputUrl, undefined);
   assert.equal(rejected.providerJobId, undefined);
   assert.equal(rejected.requestSnapshot, undefined);
-  assert.equal(rejected.error, '图片未通过质量检查，本张未计费');
-  assert.equal(completed.output.errors[0].error, '图片未通过质量检查，本张未计费');
+  assert.equal(rejected.error, '生成预览需要修订，尚未进入交付，本张不计费');
+  assert.equal(completed.output.errors[0].error, '生成预览需要修订，尚未进入交付，本张不计费');
   assert.deepEqual(lifecycle, [
     ['persist', 'generating', ''],
     ['complete', 'needs_review', ['main-pass']],
