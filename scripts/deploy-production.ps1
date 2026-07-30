@@ -84,7 +84,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
 
   $releaseStarted = $true
-  & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf deploy.tgz; rm -f deploy.tgz; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env; sleep 3; curl -fsS http://127.0.0.1:3001/health"
+  & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf deploy.tgz; rm -f deploy.tgz; npm ci --omit=dev; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env; for attempt in `$(seq 1 30); do if curl -fsS http://127.0.0.1:3001/health; then exit 0; fi; sleep 2; done; exit 1"
   if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
 
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"

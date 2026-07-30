@@ -17,6 +17,9 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /--exclude='server\/works\.db'/);
   assert.match(deploy, /--exclude='server\/\.auth-session-secret'/);
   assert.match(deploy, /deploy-backups/);
+  assert.match(deploy, /npm ci --omit=dev/);
+  assert.match(deploy, /seq 1 30/);
+  assert.match(deploy, /curl -fsS http:\/\/127\.0\.0\.1:3001\/health/);
   assert.match(deploy, /catch\s*\{/);
   assert.match(deploy, /rollback/i);
   assert.match(deploy, /\$releaseStarted\s*=\s*\$false/);
