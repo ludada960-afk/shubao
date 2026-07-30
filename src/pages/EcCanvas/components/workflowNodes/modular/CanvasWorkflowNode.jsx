@@ -19,10 +19,12 @@ export default function CanvasWorkflowNode({
   onPortPointerUp,
   canDerive = false,
 }) {
+  const action = getCanvasAction(node?.actionId);
   if (node?.kind === 'smart-remix') {
     return (
       <SmartRemixNodeCard
         node={node}
+        action={action}
         sourceImage={sourceNode}
         {...smartRemixProps}
         selected={selected}
@@ -54,7 +56,6 @@ export default function CanvasWorkflowNode({
     );
   }
 
-  const action = getCanvasAction(node?.actionId);
   return (
     <CompactProcessNodeCard
       title={action?.label || node?.title || '电商处理'}

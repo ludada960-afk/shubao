@@ -132,6 +132,24 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
       return res.status(201).json({ session });
     } catch (error) { return routeError(error, res); }
   });
+  app.get('/api/canvas-sessions/:sessionId', (req, res) => {
+    try {
+      const session = projectStore.getCanvasSession({
+        ownerEmail: ownerFor(req, authenticateOwner), sessionId: req.params.sessionId,
+      });
+      if (!session) return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该画布会话' });
+      return res.json({ session });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/canvas-sessions/:sessionId/save', (req, res) => {
+    try {
+      const session = projectStore.saveCanvasSession({
+        ownerEmail: ownerFor(req, authenticateOwner), sessionId: req.params.sessionId,
+        expectedRevision: req.body?.expectedRevision, snapshot: req.body?.snapshot || {},
+      });
+      return res.json({ session });
+    } catch (error) { return routeError(error, res); }
+  });
   app.patch('/api/canvas-sessions/:sessionId', (req, res) => {
     try {
       const session = projectStore.saveCanvasSession({

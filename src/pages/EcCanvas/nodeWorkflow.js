@@ -76,11 +76,28 @@ export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = 
 
 export function getCanvasPortCenter(node = {}, port = 'output') {
   const normalized = normalizeCanvasNode(node);
+  const role = port === 'input' || port === 'in' ? 'input' : 'output';
+  const measured = node.portCenters?.[role];
+  if (Number.isFinite(measured?.x) && Number.isFinite(measured?.y)) {
+    return { x: measured.x, y: measured.y };
+  }
   const width = Number.isFinite(node.renderedWidth) && node.renderedWidth > 0 ? node.renderedWidth : normalized.w;
   const height = Number.isFinite(node.renderedHeight) && node.renderedHeight > 0 ? node.renderedHeight : normalized.h;
   return {
-    x: normalized.x + (port === 'input' ? 0 : width),
+    x: normalized.x + (role === 'input' ? 0 : width),
     y: normalized.y + height / 2,
+  };
+}
+
+export function getCanvasDomPortCenter({ portRect = {}, canvasRect = {}, viewport = {} } = {}) {
+  const scale = Number.isFinite(viewport.scale) && viewport.scale > 0 ? viewport.scale : 1;
+  const viewportX = Number.isFinite(viewport.x) ? viewport.x : 0;
+  const viewportY = Number.isFinite(viewport.y) ? viewport.y : 0;
+  const screenX = (Number(portRect.left) || 0) + (Number(portRect.width) || 0) / 2 - (Number(canvasRect.left) || 0);
+  const screenY = (Number(portRect.top) || 0) + (Number(portRect.height) || 0) / 2 - (Number(canvasRect.top) || 0);
+  return {
+    x: (screenX - viewportX) / scale,
+    y: (screenY - viewportY) / scale,
   };
 }
 

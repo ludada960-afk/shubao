@@ -3,12 +3,15 @@ import test from 'node:test';
 
 import {
   completeProject,
+  createCanvasSession,
   createProject,
   createProjectVersion,
   createRecoveryCheckpoint,
   consumeRecoveryCheckpoint,
   dismissRecoveryCheckpoint,
+  loadCanvasSession,
   listRecoveryCheckpoints,
+  saveCanvasSession,
 } from '../src/services/projects.js';
 import { onSessionInvalid } from '../src/services/auth.js';
 
@@ -133,4 +136,30 @@ test('project lifecycle client creates versions, checkpoints, and completion thr
   assert.equal((await createRecoveryCheckpoint('project-1', { versionId: 'version-1', reason: 'payment_required' })).id, 'checkpoint-1');
   assert.equal((await completeProject('project-1', { acceptedVersionId: 'version-1' })).status, 'completed');
   assert.equal(requests.every(request => request.options.headers.Authorization === 'Bearer signed-token'), true);
+});
+
+test('Canvas session client creates, saves, and restores an encoded owner session', async t => {
+  installSession('signed-canvas-project-token');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    const revision = String(path).endsWith('/save') ? 2 : 1;
+    return jsonResponse({ session: { id: 'canvas / 1', revision, snapshot: { nodes: [] } } }, String(path).startsWith('/api/canvas-sessions/') ? 200 : 201);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await createCanvasSession({ projectId: 'project-1', baseVersionId: 'version-1', snapshot: { nodes: [] } });
+  await saveCanvasSession('canvas / 1', { expectedRevision: 1, snapshot: { nodes: [{ id: 'source-1' }] } });
+  await loadCanvasSession('canvas / 1');
+
+  assert.deepEqual(requests.map(request => ({
+    path: request.path,
+    method: request.options.method,
+    authorization: request.options.headers.Authorization,
+  })), [
+    { path: '/api/canvas-sessions', method: 'POST', authorization: 'Bearer signed-canvas-project-token' },
+    { path: '/api/canvas-sessions/canvas%20%2F%201/save', method: 'POST', authorization: 'Bearer signed-canvas-project-token' },
+    { path: '/api/canvas-sessions/canvas%20%2F%201', method: undefined, authorization: 'Bearer signed-canvas-project-token' },
+  ]);
 });

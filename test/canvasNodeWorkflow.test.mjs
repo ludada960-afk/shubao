@@ -12,6 +12,7 @@ import {
   validateWorkflowActionInputs,
   clampCanvasPickerPosition,
   getCanvasPortCenter,
+  getCanvasDomPortCenter,
 } from '../src/pages/EcCanvas/nodeWorkflow.js';
 import { CANVAS_ACTIONS } from '../src/pages/EcCanvas/canvasActionRegistry.js';
 
@@ -117,5 +118,26 @@ test('connection endpoints use measured rendered node bounds', () => {
   assert.deepEqual(
     getCanvasPortCenter({ x: 10, y: 20, w: 200, h: 220, renderedWidth: 240, renderedHeight: 300 }, 'input'),
     { x: 10, y: 170 },
+  );
+});
+
+test('connection endpoints prefer measured DOM port centers over node boundary estimates', () => {
+  assert.deepEqual(
+    getCanvasDomPortCenter({
+      portRect: { left: 348, top: 258, width: 20, height: 20 },
+      canvasRect: { left: 100, top: 50 },
+      viewport: { x: 40, y: 20, scale: 2 },
+    }),
+    { x: 109, y: 99 },
+  );
+  assert.deepEqual(
+    getCanvasPortCenter({
+      x: 10,
+      y: 20,
+      w: 200,
+      h: 220,
+      portCenters: { input: { x: 7, y: 101 }, output: { x: 237, y: 103 } },
+    }, 'output'),
+    { x: 237, y: 103 },
   );
 });

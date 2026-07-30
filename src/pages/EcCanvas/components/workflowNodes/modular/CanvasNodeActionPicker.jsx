@@ -10,7 +10,7 @@ export default function CanvasNodeActionPicker({ actions, position, onSelect, on
   useEffect(() => inputRef.current?.focus(), []);
 
   return (
-    <div className={styles.actionPicker} style={position ? { left: position.x, top: position.y } : undefined} role="dialog" aria-label="选择电商任务">
+    <div className={styles.actionPicker} style={position ? { left: position.x, top: position.y, width: position.width, maxHeight: position.maxHeight } : undefined} role="dialog" aria-label="选择电商任务">
       <div className={styles.pickerHeader}>
         <div><strong>从素材派生</strong><span>选择一个电商处理任务</span></div>
         <button type="button" className={styles.iconButton} aria-label="关闭" onClick={onClose}><MdClose size={16} /></button>

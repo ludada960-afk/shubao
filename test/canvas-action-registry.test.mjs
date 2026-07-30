@@ -61,3 +61,13 @@ test('workflow view models contain no fallback command registry', () => {
   assert.doesNotMatch(viewModel, /DEFAULT_ACTIONS/);
   assert.match(workflowNode, /getCanvasAction\(node\?\.actionId\)/);
 });
+
+test('the product remix visible name is sourced only from CANVAS_ACTIONS', () => {
+  const legacyNodes = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/index.jsx', import.meta.url), 'utf8');
+  const modularNode = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/SmartRemixNodeCard.jsx', import.meta.url), 'utf8');
+  const workflowNode = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/CanvasWorkflowNode.jsx', import.meta.url), 'utf8');
+  assert.equal(getCanvasAction('smart-remix').label, '商品图改造');
+  assert.doesNotMatch(`${legacyNodes}\n${modularNode}`, /智能二创/);
+  assert.match(workflowNode, /getCanvasAction\(node\?\.actionId\)/);
+  assert.match(modularNode, /title=\{action\?\.label\}/);
+});

@@ -1,3 +1,5 @@
+import { sanitizeSnapshot } from './jobStore.mjs';
+
 const STABLE_GENERATED_URL = /^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|png|webp)$/i;
 
 function isRecord(value) {
@@ -26,12 +28,36 @@ function deliveredImages(assets) {
   }).sort((left, right) => left.key.localeCompare(right.key));
 }
 
+function workInputSnapshot(payload) {
+  const snapshot = sanitizeSnapshot({
+    productAssets: Array.isArray(payload.assets?.product) ? payload.assets.product : [],
+    selling_points: payload.selling_points,
+    material: payload.material,
+    restrictions: payload.restrictions,
+    skus: payload.skus,
+    detail_plan: payload.detail_plan,
+    maintenance: payload.maintenance,
+    direction: payload.direction,
+  });
+  return {
+    productAssets: Array.isArray(snapshot.productAssets) ? snapshot.productAssets : [],
+    selling_points: cleanString(snapshot.selling_points),
+    material: cleanString(snapshot.material),
+    restrictions: cleanString(snapshot.restrictions),
+    skus: Array.isArray(snapshot.skus) ? snapshot.skus : [],
+    detail_plan: isRecord(snapshot.detail_plan) ? snapshot.detail_plan : null,
+    maintenance: cleanString(snapshot.maintenance),
+    direction: isRecord(snapshot.direction) ? snapshot.direction : null,
+  };
+}
+
 export function buildEcommerceTaskWork({ job = {}, assets = [], status } = {}) {
   const taskId = cleanString(job.id);
   if (!taskId) throw new TypeError('ecommerce task id is required');
   const payload = isRecord(job.payload) ? job.payload : {};
   const progress = isRecord(job.progress) ? job.progress : {};
   const generationStatus = cleanString(status || job.status) || 'generating';
+  const inputSnapshot = workInputSnapshot(payload);
   return {
     taskId,
     _saveKey: `ec-task-${taskId}`,
@@ -47,6 +73,7 @@ export function buildEcommerceTaskWork({ job = {}, assets = [], status } = {}) {
     assetPlanFingerprint: cleanString(progress.assetPlanFingerprint),
     resultVersionId: cleanString(progress.resultVersionId),
     at: new Date().toLocaleDateString('zh-CN'),
+    ...inputSnapshot,
     images: deliveredImages(assets),
   };
 }

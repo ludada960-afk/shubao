@@ -25,6 +25,20 @@ function job(overrides = {}) {
       product_name: 'Nova Hub',
       category: '数码3C',
       platform: '淘宝',
+      selling_points: '双接口快充，铝合金机身',
+      material: '阳极氧化铝',
+      restrictions: '不得改变接口数量',
+      skus: [{ color: '深空灰', capacity: '8 合 1' }],
+      detail_plan: { material: true, feature: true },
+      maintenance: '避免液体进入接口',
+      direction: { id: 'direction-premium', title: '科技轻奢' },
+      assets: {
+        product: [
+          { assetId: 'product-front', url: '/api/ecommerce-assets/product-front', role: 'product', name: '产品正面' },
+          { assetId: 'product-side', url: '/api/ecommerce-assets/product-side', role: 'product', name: '产品侧面' },
+        ],
+        reference: [{ assetId: 'style-1', url: '/api/ecommerce-assets/style-1', role: 'reference' }],
+      },
     },
     ...overrides,
   };
@@ -59,6 +73,17 @@ test('work snapshots include only final stable deliverables and keep one save ke
   assert.equal(work.sourceVersionId, 'source-version-1');
   assert.equal(work.generationRunId, 'task-123');
   assert.equal(work.assetPlanFingerprint, 'plan-fingerprint');
+  assert.deepEqual(work.productAssets, [
+    { assetId: 'product-front', url: '/api/ecommerce-assets/product-front', role: 'product', name: '产品正面' },
+    { assetId: 'product-side', url: '/api/ecommerce-assets/product-side', role: 'product', name: '产品侧面' },
+  ]);
+  assert.equal(work.selling_points, '双接口快充，铝合金机身');
+  assert.equal(work.material, '阳极氧化铝');
+  assert.equal(work.restrictions, '不得改变接口数量');
+  assert.deepEqual(work.skus, [{ color: '深空灰', capacity: '8 合 1' }]);
+  assert.deepEqual(work.detail_plan, { material: true, feature: true });
+  assert.equal(work.maintenance, '避免液体进入接口');
+  assert.deepEqual(work.direction, { id: 'direction-premium', title: '科技轻奢' });
   assert.deepEqual(work.images, [{
     key: 'main-1',
     label: '商品识别主图',

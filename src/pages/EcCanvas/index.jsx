@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
-import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong } from 'react-icons/md';
+import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision } from '../../services/api';
+import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -23,6 +23,7 @@ import {
   createDerivedNode,
   canDeriveFromNode,
   clampCanvasPickerPosition,
+  getCanvasDomPortCenter,
   getCanvasPortCenter,
   getConnectionLabel,
   normalizeCanvasConnection,
@@ -32,10 +33,11 @@ import {
 import { CanvasNodeActionPicker, CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import { createCanvasSession, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
-import { createFreshCanvasSession } from './canvasSessionModel.js';
+import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -224,8 +226,8 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
           return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 7, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
         })}
       </div>}
-      {selected && <div style={{ position: 'absolute', zIndex: 2, left: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />}
-      {selected && <div style={{ position: 'absolute', zIndex: 2, right: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'out'); }} />}
+      <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid #7c3aed', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
+      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'out'); }} />
       <div style={{ position: 'relative', width: '100%', borderRadius: '12px 12px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
         {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
@@ -423,6 +425,9 @@ export default function EcCanvas() {
   const [textCompositionSaving, setTextCompositionSaving] = useState(false);
   const [textCompositionError, setTextCompositionError] = useState('');
   const [renderedNodeBounds, setRenderedNodeBounds] = useState({});
+  const [renderedPortCenters, setRenderedPortCenters] = useState({});
+  const [canvasSession, setCanvasSession] = useState(null);
+  const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
@@ -437,6 +442,7 @@ export default function EcCanvas() {
     ...node,
     renderedWidth: renderedNodeBounds[node.id]?.width,
     renderedHeight: renderedNodeBounds[node.id]?.height,
+    portCenters: renderedPortCenters[node.id],
   }));
 
   // toast helper
@@ -464,6 +470,9 @@ export default function EcCanvas() {
     setMultiSelected(new Set());
     setConnectionDraft(null);
     setConnectionPicker(null);
+    setCanvasSession(result.canvasSession?.id
+      ? result.canvasSession
+      : result.canvasSessionId ? { id: result.canvasSessionId, revision: result.canvasSessionRevision || 1 } : null);
     if (result.projectId && (result.resultVersionId || result.sourceVersionId)) {
       void listTextCompositions({
         projectId: result.projectId,
@@ -497,8 +506,8 @@ export default function EcCanvas() {
   useEffect(() => {
     const root = containerRef.current;
     if (!root || tab !== 'canvas') return undefined;
-    const elements = [...root.querySelectorAll('[data-canvas-node-id]')];
     const measure = () => {
+      const elements = [...root.querySelectorAll('[data-canvas-node-id]')];
       const next = {};
       for (const element of elements) {
         const id = element.dataset.canvasNodeId;
@@ -512,15 +521,30 @@ export default function EcCanvas() {
           && nextKeys.every(id => previous[id]?.width === next[id].width && previous[id]?.height === next[id].height)) return previous;
         return next;
       });
+      const rootRect = root.getBoundingClientRect();
+      const nextPorts = {};
+      for (const portElement of root.querySelectorAll('[data-canvas-port-role]')) {
+        const nodeElement = portElement.closest?.('[data-canvas-node-id]');
+        const id = nodeElement?.dataset?.canvasNodeId;
+        const role = portElement.dataset.canvasPortRole;
+        if (!id || !role) continue;
+        const portRect = portElement.getBoundingClientRect();
+        (nextPorts[id] ||= {})[role] = getCanvasDomPortCenter({ portRect, canvasRect: rootRect, viewport });
+      }
+      setRenderedPortCenters(previous => {
+        const previousJson = JSON.stringify(previous);
+        const nextJson = JSON.stringify(nextPorts);
+        return previousJson === nextJson ? previous : nextPorts;
+      });
     };
     const frame = requestAnimationFrame(measure);
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
-    elements.forEach(element => observer?.observe(element));
+    root.querySelectorAll('[data-canvas-node-id]').forEach(element => observer?.observe(element));
     return () => {
       cancelAnimationFrame(frame);
       observer?.disconnect();
     };
-  }, [nodeIdsKey, tab]);
+  }, [nodeIdsKey, tab, viewport.x, viewport.y, viewport.scale]);
 
   useEffect(() => {
     const load = async () => {
@@ -1726,6 +1750,65 @@ export default function EcCanvas() {
     showToast('图片信息已更新', 'success');
   }, [imageInfoGroup, imageInfoName, imageInfoNode, imageInfoUsage, showToast]);
 
+  const handleCanvasSessionSave = useCallback(async () => {
+    const projectId = result.projectId;
+    const baseVersionId = result.resultVersionId || result.sourceVersionId;
+    if (!projectId || !baseVersionId) {
+      showToast('当前作品缺少可保存的项目版本', 'error');
+      return;
+    }
+    setCanvasSessionBusy(true);
+    try {
+      const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
+      const session = canvasSession?.id
+        ? await saveCanvasSession(canvasSession.id, { expectedRevision: canvasSession.revision, snapshot })
+        : await createCanvasSession({ projectId, baseVersionId, snapshot });
+      setCanvasSession(session);
+      if (result._saveKey) {
+        const workResult = { ...result };
+        delete workResult.canvasSession;
+        await saveWork({
+          ...workResult,
+          canvasSessionId: session.id,
+          canvasSessionRevision: session.revision,
+        }, phone);
+      }
+      dispatch({
+        type: 'SET_RESULT',
+        result: { ...result, canvasSession: session, canvasSessionId: session.id, canvasSessionRevision: session.revision },
+      });
+      showToast('画布已保存', 'success');
+    } catch (error) {
+      showToast(error?.message || '画布保存失败', 'error');
+    } finally {
+      setCanvasSessionBusy(false);
+    }
+  }, [canvasSession, connections, dispatch, nodes, phone, result, showToast, viewport]);
+
+  const handleCanvasSessionRestore = useCallback(async () => {
+    const sessionId = canvasSession?.id || result.canvasSessionId;
+    if (!sessionId) {
+      showToast('请先保存画布，再使用恢复命令', 'info');
+      return;
+    }
+    setCanvasSessionBusy(true);
+    try {
+      const session = await loadCanvasSession(sessionId);
+      const snapshot = restoreCanvasSnapshot(session.snapshot);
+      setNodes(snapshot.nodes.map(normalizeCanvasNode));
+      setConnections(snapshot.connections.map(normalizeCanvasConnection));
+      setViewport(snapshot.viewport);
+      setSelected(null);
+      setMultiSelected(new Set());
+      setCanvasSession(session);
+      showToast('已恢复保存的画布', 'success');
+    } catch (error) {
+      showToast(error?.message || '画布恢复失败', 'error');
+    } finally {
+      setCanvasSessionBusy(false);
+    }
+  }, [canvasSession?.id, result.canvasSessionId, showToast]);
+
   // 更新 ref（在函数定义之后）
   useEffect(() => { handleDeleteRef.current = handleDelete; }, [handleDelete]);
   useEffect(() => { fitViewRef.current = fitView; }, [fitView]);
@@ -1784,6 +1867,12 @@ export default function EcCanvas() {
               <div onClick={() => setExportOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 8, background: 'rgba(16,185,129,.10)', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                 <MdFileDownload size={14} /> 交付导出
               </div>
+              <button type="button" onClick={handleCanvasSessionSave} disabled={canvasSessionBusy} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 11px', border: 0, borderRadius: 8, background: 'rgba(37,99,235,.08)', color: '#2563eb', fontSize: 12, fontWeight: 700, cursor: canvasSessionBusy ? 'wait' : 'pointer' }}>
+                <MdSave size={15} /> 保存画布
+              </button>
+              <button type="button" onClick={handleCanvasSessionRestore} disabled={canvasSessionBusy || !(canvasSession?.id || result.canvasSessionId)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 11px', border: 0, borderRadius: 8, background: 'rgba(107,114,128,.09)', color: '#4b5563', fontSize: 12, fontWeight: 700, cursor: canvasSessionBusy ? 'wait' : 'pointer' }}>
+                <MdRestore size={15} /> 恢复画布
+              </button>
               {(selected || multiSelected.size > 0) && (
                 <div onClick={handleDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   <MdDelete size={14} /> 删除

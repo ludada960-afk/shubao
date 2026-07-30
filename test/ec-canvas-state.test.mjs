@@ -160,6 +160,24 @@ test('fresh Canvas imports hydrate durable text compositions from the project ve
   assert.match(canvasSource, /compositionBackgroundAssetId/);
 });
 
+test('Canvas persistence is wired only to explicit save and restore commands', () => {
+  assert.match(canvasSource, /createCanvasSession/);
+  assert.match(canvasSource, /saveCanvasSession/);
+  assert.match(canvasSource, /loadCanvasSession/);
+  assert.match(canvasSource, /const handleCanvasSessionSave[\s\S]*?createCanvasSnapshot/);
+  assert.match(canvasSource, /const handleCanvasSessionRestore[\s\S]*?restoreCanvasSnapshot/);
+  assert.match(canvasSource, /<MdSave[^>]*\/>\s*保存画布/);
+  assert.match(canvasSource, /<MdRestore[^>]*\/>\s*恢复画布/);
+  const effects = [...canvasSource.matchAll(/useEffect\(\(\) => \{([\s\S]*?)\n  \}, \[/g)].map(match => match[1]).join('\n');
+  assert.doesNotMatch(effects, /createCanvasSession\(|saveCanvasSession\(|loadCanvasSession\(/);
+});
+
+test('an explicit Canvas save records the session handle on its owner-scoped Work for later manual restore', () => {
+  const saveBlock = canvasSource.match(/const handleCanvasSessionSave[\s\S]*?const handleCanvasSessionRestore/)?.[0] || '';
+  assert.match(saveBlock, /await saveWork\(\{[\s\S]*?canvasSessionId: session\.id[\s\S]*?canvasSessionRevision: session\.revision/);
+  assert.match(saveBlock, /phone/);
+});
+
 test('source-group workflow generation uses the first owned product asset', () => {
   const generateBlock = canvasSource.match(/const handleWorkflowGenerate[\s\S]*?const handleWorkflowRetry/)?.[0] || '';
   assert.match(generateBlock, /const sourceUrl = node\.inputs\?\.sourceUrl \|\| source\?\.url \|\| source\?\.assets\?\.find\(asset => asset\?\.url\)\?\.url/);

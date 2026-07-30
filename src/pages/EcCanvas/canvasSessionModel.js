@@ -15,6 +15,30 @@ function outputHeight(ratio) {
   return 220;
 }
 
+function clone(value, fallback) {
+  try { return JSON.parse(JSON.stringify(value)); } catch { return fallback; }
+}
+
+function normalizedViewport(viewport = {}) {
+  return {
+    x: Number.isFinite(viewport.x) ? viewport.x : 80,
+    y: Number.isFinite(viewport.y) ? viewport.y : 40,
+    scale: Number.isFinite(viewport.scale) && viewport.scale > 0 ? viewport.scale : 1,
+  };
+}
+
+export function createCanvasSnapshot({ nodes = [], connections = [], viewport = {} } = {}) {
+  return {
+    nodes: clone(Array.isArray(nodes) ? nodes : [], []),
+    connections: clone(Array.isArray(connections) ? connections : [], []),
+    viewport: normalizedViewport(viewport),
+  };
+}
+
+export function restoreCanvasSnapshot(snapshot = {}) {
+  return createCanvasSnapshot(snapshot);
+}
+
 export function createFreshCanvasSession({ work = {}, productAssets = [], outputs = [] } = {}) {
   const workId = safeId(work.id || work._saveKey || work.taskId, 'work');
   const sourceId = `source-group-${workId}`;

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createFreshCanvasSession } from '../src/pages/EcCanvas/canvasSessionModel.js';
+import {
+  createCanvasSnapshot,
+  createFreshCanvasSession,
+  restoreCanvasSnapshot,
+} from '../src/pages/EcCanvas/canvasSessionModel.js';
 
 const workInput = {
   work: { id: 'work-1', product_name: '保温杯', platform: '天猫' },
@@ -47,4 +51,22 @@ test('a source group is the only parent of imported result nodes', () => {
     assert.deepEqual(output.sourceNodeIds, [source.id]);
     assert.equal(session.connections.filter(edge => edge.to === output.id).length, 1);
   }
+});
+
+test('explicit Canvas snapshots preserve nodes, connections, and a valid viewport without sharing mutable state', () => {
+  const source = {
+    nodes: [{ id: 'source-1', x: 12 }],
+    connections: [{ id: 'edge-1', from: 'source-1', to: 'output-1' }],
+    viewport: { x: 20, y: 30, scale: 0.8 },
+  };
+  const snapshot = createCanvasSnapshot(source);
+  source.nodes[0].x = 999;
+  const restored = restoreCanvasSnapshot(snapshot);
+
+  assert.deepEqual(restored, {
+    nodes: [{ id: 'source-1', x: 12 }],
+    connections: [{ id: 'edge-1', from: 'source-1', to: 'output-1' }],
+    viewport: { x: 20, y: 30, scale: 0.8 },
+  });
+  assert.notEqual(restored.nodes, snapshot.nodes);
 });

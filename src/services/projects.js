@@ -22,6 +22,10 @@ function projectPathSegment(projectId) {
   return pathSegment(projectId, '请选择有效的项目');
 }
 
+function canvasSessionPathSegment(sessionId) {
+  return pathSegment(sessionId, '请选择有效的画布会话');
+}
+
 async function requestJson(path, options = {}, fallbackMessage) {
   const response = await fetch(path, {
     ...options,
@@ -102,4 +106,33 @@ export async function completeProject(projectId, payload = {}) {
   }, '暂时无法完成任务');
   if (!response?.project?.id) throw new Error('任务完成信息暂时不可用，请稍后重试');
   return response.project;
+}
+
+function canvasSessionFromResponse(response) {
+  const session = response?.session;
+  if (!session?.id) throw new Error('画布会话暂时不可用，请稍后重试');
+  return session;
+}
+
+export async function createCanvasSession({ projectId, baseVersionId, snapshot } = {}) {
+  return canvasSessionFromResponse(await requestJson('/api/canvas-sessions', {
+    method: 'POST',
+    ...jsonBody({ projectId, baseVersionId, snapshot }),
+  }, '暂时无法保存画布'));
+}
+
+export async function saveCanvasSession(sessionId, { expectedRevision, snapshot } = {}) {
+  return canvasSessionFromResponse(await requestJson(
+    `/api/canvas-sessions/${canvasSessionPathSegment(sessionId)}/save`,
+    { method: 'POST', ...jsonBody({ expectedRevision, snapshot }) },
+    '暂时无法保存画布',
+  ));
+}
+
+export async function loadCanvasSession(sessionId) {
+  return canvasSessionFromResponse(await requestJson(
+    `/api/canvas-sessions/${canvasSessionPathSegment(sessionId)}`,
+    {},
+    '暂时无法恢复画布',
+  ));
 }

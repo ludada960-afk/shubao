@@ -20,6 +20,7 @@ import {
 } from 'react-icons/md';
 import './workflowNodes.css';
 import ModularCanvasWorkflowNode from './modular/CanvasWorkflowNode';
+import { getCanvasAction } from '../../canvasActionRegistry.js';
 
 const ICONS = {
   'smart-remix': MdImageSearch,
@@ -40,6 +41,7 @@ export function CanvasPortHandle({ side = 'right', role = 'output', visible = tr
       title={title}
       disabled={disabled}
       data-canvas-control="true"
+      data-canvas-port-role={role}
       className={`workflow-node-port workflow-node-port-${side} ${visible ? 'is-visible' : ''} ${active ? 'is-active' : ''} ${connected ? 'is-connected' : ''}`}
       onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event); }}
       onPointerUp={event => { event.stopPropagation(); onPointerUp?.(event); }}
@@ -137,8 +139,9 @@ function ImageRail({ label, hint, images = [], onAdd, onRemove }) {
 }
 
 export function SmartRemixNodeCard({ node, sourceImage, prompt = '', productImages = [], referenceImages = [], instruction = '', outputCount = 1, status = 'draft', selected = false, error, onPromptChange, onAddProductImages, onRemoveProductImage, onAddReferenceImages, onRemoveReferenceImage, onInstructionChange, onOutputCountChange, onGenerate, onRetry, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
+  const action = getCanvasAction(node?.actionId || 'smart-remix');
   return (
-    <CanvasNodeShell title="智能二创" subtitle="解析原图描述，补充素材后继续创作" icon={MdImageSearch} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} className="workflow-node-smart-remix">
+    <CanvasNodeShell title={action?.label} subtitle={action?.description} icon={MdImageSearch} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} className="workflow-node-smart-remix">
       <div className="workflow-node-body">
         {sourceImage && <div className="workflow-source-preview"><img src={sourceImage.url} alt={sourceImage.name || '源图'} /><span>源图</span></div>}
         <label className="workflow-field-label" htmlFor={`remix-prompt-${node?.id || 'draft'}`}>画面描述 <em>可编辑</em></label>

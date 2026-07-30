@@ -149,6 +149,52 @@ test('signed owners can create an explicit recovery checkpoint and complete thei
   assert.equal(completed.body.project.status, 'completed');
 });
 
+test('Canvas sessions are created, explicitly saved, and restored only by their signed owner', async t => {
+  const { app, db, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const ownerHeaders = signedHeaders(sessionTokens, 'canvas-owner@example.com', 'canvas-project');
+  const project = await invoke(app, 'POST', '/api/projects', {
+    headers: ownerHeaders,
+    body: { kind: 'ecommerce', title: '水杯画布' },
+  });
+  const version = await invoke(app, 'POST', '/api/projects/:projectId/versions', {
+    headers: ownerHeaders,
+    params: { projectId: project.body.project.id },
+    body: { reason: 'accepted_result' },
+  });
+  const created = await invoke(app, 'POST', '/api/canvas-sessions', {
+    headers: ownerHeaders,
+    body: {
+      projectId: project.body.project.id,
+      baseVersionId: version.body.version.id,
+      snapshot: { nodes: [{ id: 'source-1' }], connections: [], viewport: { x: 80, y: 40, scale: 1 } },
+    },
+  });
+
+  const denied = await invoke(app, 'GET', '/api/canvas-sessions/:sessionId', {
+    headers: signedHeaders(sessionTokens, 'other@example.com'),
+    params: { sessionId: created.body.session.id },
+  });
+  const saved = await invoke(app, 'POST', '/api/canvas-sessions/:sessionId/save', {
+    headers: ownerHeaders,
+    params: { sessionId: created.body.session.id },
+    body: {
+      expectedRevision: 1,
+      snapshot: { nodes: [{ id: 'source-1' }, { id: 'output-1' }], connections: [{ from: 'source-1', to: 'output-1' }], viewport: { x: 12, y: 24, scale: 0.8 } },
+    },
+  });
+  const restored = await invoke(app, 'GET', '/api/canvas-sessions/:sessionId', {
+    headers: ownerHeaders,
+    params: { sessionId: created.body.session.id },
+  });
+
+  assert.equal(denied.statusCode, 404);
+  assert.equal(saved.body.session.revision, 2);
+  assert.equal(restored.body.session.id, created.body.session.id);
+  assert.deepEqual(restored.body.session.snapshot.viewport, { x: 12, y: 24, scale: 0.8 });
+  assert.deepEqual(restored.body.session.snapshot.connections, [{ from: 'source-1', to: 'output-1' }]);
+});
+
 test('project completion route cannot rewrite any ecommerce generation terminal state', async t => {
   const { app, db, projectStore, sessionTokens } = createHarness();
   t.after(() => db.close());

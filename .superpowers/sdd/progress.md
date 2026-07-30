@@ -276,14 +276,26 @@
   started without their final verdicts being captured. Their approval is
   therefore unknown and must be re-established before treating Tasks 4/5 as
   independently reviewed.
+- Market-ready closure Task 4 review-blocker recovery fixes: complete in the
+  recovered working tree. Real owner-scoped ecommerce Works now restore product
+  inputs into a derivable Canvas source group, explicit owner-scoped Canvas
+  sessions can be created/saved/restored without local auto-rehydration, source
+  fan-out keeps result nodes parallel, process/draft nodes cannot derive,
+  action pickers stay scrollable in small viewports, and Canvas edge geometry can
+  use measured DOM port centers. Fresh recovery verification passed the focused
+  Canvas/project/Works set at 66/66, full `npm test` at 843/843, production build
+  at 6422 transformed modules, `npm ls --depth=0`, collaboration policy READY,
+  and `git diff --check`. A fresh independent review is still required before
+  closing the Task 4/5 review gate.
 - Market-ready closure Task 6 recovery boundary: no Task 6 implementation or RED
   test has been completed. The failed task ran
   `npm install ag-psd@31.0.2 --save-exact`, leaving `package.json` and
-  `package-lock.json` modified. The diff pins `ag-psd` but also removes numerous
-  existing dependencies, so it is an unverified recovery artifact and must not
-  be committed as-is. The next execution must first reconstruct the minimal,
-  intended dependency diff against `54e5800`, verify required existing packages
-  remain declared, then begin Task 6 with its planned failing tests.
+  `package-lock.json` modified. Recovery verification confirmed that
+  `package.json` adds only the exact `ag-psd` pin; npm pruned stale undeclared
+  lock entries, `npm ls --depth=0` is clean, and the production build transforms
+  6422 modules successfully. The dependency state is therefore the intended
+  Task 6 starting point. The next execution boundary is the planned Task 6 RED
+  layer-service and PSD-structure tests.
 
 ## Ownership
 

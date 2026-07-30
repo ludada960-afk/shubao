@@ -22,6 +22,7 @@ export default function CanvasPortHandle({
       title={label || defaultLabel}
       disabled={disabled}
       data-canvas-control="true"
+      data-canvas-port-role={role}
       onPointerDown={event => {
         event.stopPropagation();
         onPointerDown?.(event);
