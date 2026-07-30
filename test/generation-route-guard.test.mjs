@@ -23,6 +23,8 @@ const EXPENSIVE_POST_ROUTES = [
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/canvas/pixel-layers',
+  '/api/canvas/psd-export',
   '/api/plog-generate',
   '/api/extension/analyze',
   '/api/extension/regenerate',
@@ -32,6 +34,8 @@ const CANVAS_AI_ROUTES = [
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/canvas/pixel-layers',
+  '/api/canvas/psd-export',
 ];
 
 const SIGNED_ECOMMERCE_ASSISTANT_ROUTES = [
@@ -347,6 +351,8 @@ test('unsigned mixed-case Canvas routes cannot bypass signed auth or reach rate 
   const variants = [
     '/API/CANVAS/TRANSFORM',
     '/api/canvas/Analyze-Layers',
+    '/api/canvas/Pixel-Layers',
+    '/api/canvas/PSD-Export',
     '/Api/Canvas/Regenerate///',
   ];
 

@@ -13,6 +13,8 @@ const EXPENSIVE_POST_ROUTE_LIST = [
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/canvas/pixel-layers',
+  '/api/canvas/psd-export',
   '/api/plog-generate',
   '/api/extension/analyze',
   '/api/extension/regenerate',

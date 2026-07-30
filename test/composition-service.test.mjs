@@ -301,7 +301,7 @@ test('production asset authorization accepts only owner project version evidence
     'project-asset-row', ownerEmail, project.id, version.id, 'generated', 'hash',
     '/api/generated-assets/project-output.png', 'image/png', 'completed', new Date().toISOString(),
   );
-  compositionStore.createDocument({
+  const composition = compositionStore.createDocument({
     ownerEmail,
     projectId: project.id,
     versionId: version.id,
@@ -310,6 +310,13 @@ test('production asset authorization accepts only owner project version evidence
     renderedAssetId: 'composition-output.png',
     layers: [],
   });
+  compositionStore.saveRevision({
+    ownerEmail,
+    documentId: composition.id,
+    expectedRevision: composition.revision,
+    renderedAssetId: 'composition-pixel-render.png',
+    layers: [{ kind: 'image', assetId: 'composition-pixel-layer.png', maskAssetId: 'composition-pixel-mask.png' }],
+  });
   const authorize = createCompositionAssetAuthorizer({ db });
   const context = { ownerEmail, projectId: project.id, versionId: version.id };
 
@@ -317,6 +324,8 @@ test('production asset authorization accepts only owner project version evidence
   assert.equal(authorize({ ...context, assetId: 'snapshot-output.png' }), true);
   assert.equal(authorize({ ...context, assetId: 'project-output.png' }), true);
   assert.equal(authorize({ ...context, assetId: 'composition-output.png' }), true);
+  assert.equal(authorize({ ...context, assetId: 'composition-pixel-layer.png' }), true);
+  assert.equal(authorize({ ...context, assetId: 'composition-pixel-mask.png' }), true);
   assert.equal(authorize({ ...context, ownerEmail: 'other@example.com', assetId: 'snapshot-input.png' }), false);
   assert.equal(authorize({ ...context, versionId: 'other-version', assetId: 'snapshot-input.png' }), false);
   assert.equal(authorize({ ...context, assetId: 'global-only.png' }), false);

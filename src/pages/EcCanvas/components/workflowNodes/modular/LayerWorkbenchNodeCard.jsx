@@ -17,6 +17,7 @@ export default function LayerWorkbenchNodeCard({
   onToggleLock,
   onMoveLayer,
   onExportPng,
+  onCreatePixelLayers,
   onExportPsd,
   onPointerDown,
   onContextMenu,
@@ -48,6 +49,7 @@ export default function LayerWorkbenchNodeCard({
         </div>}
         <div className={styles.footerRow}>
           <button type="button" className={styles.secondaryButton} onClick={() => onExportPng?.(selectedLayer)} disabled={!selectedLayer}><MdDownload size={15} /> 导出当前层</button>
+          {!layerCapabilities.pixelLayers && <button type="button" className={styles.secondaryButton} onClick={onCreatePixelLayers} disabled={!onCreatePixelLayers} title={onCreatePixelLayers ? '从真实合成图层生成透明位图和掩码' : '先在文字编辑中保存真实图层'}><MdLayers size={15} /> 生成像素分层</button>}
           <button type="button" className={styles.primaryButton} onClick={onExportPsd} disabled={!layerCapabilities.psdExport} title={layerCapabilities.psdExport ? '下载多图层 PSD' : '完成像素分层后可导出 PSD'}><MdDownload size={15} /> 下载 PSD</button>
         </div>
         {error && <div className={styles.errorBox}><span>{error}</span></div>}

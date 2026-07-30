@@ -37,6 +37,29 @@ test('Canvas AI transforms reuse the durable provider-job service instead of dir
   assert.doesNotMatch(route, /callImageAPI\(/);
 });
 
+test('Canvas layer analysis stays semantic and does not claim PSD capability', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/canvas/analyze-layers', '// 画布像素分层');
+
+  assert.match(route, /analyzeSceneCapabilities\(\{\s*layers\s*\}\)/);
+  assert.match(route, /res\.json\(\{\s*layers,\s*status:[\s\S]*?capabilities/);
+  assert.doesNotMatch(route, /psdExport:\s*true|pixelLayers:\s*true/);
+});
+
+test('Canvas pixel layering and PSD export are signed composition routes', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const pixelRoute = extractCanvasRoute(source, '/api/canvas/pixel-layers', '// 画布 PSD 导出');
+  const psdRoute = extractCanvasRoute(source, '/api/canvas/psd-export', '// ── 邮箱验证码');
+
+  assert.match(pixelRoute, /authenticateEcommerceRequest/);
+  assert.match(pixelRoute, /createPixelLayers\(\{[\s\S]*?generatedAssetStore/);
+  assert.match(pixelRoute, /compositionStore\.saveRevision/);
+  assert.match(psdRoute, /authenticateEcommerceRequest/);
+  assert.match(psdRoute, /exportPsd\(\{[\s\S]*?generatedAssetStore/);
+  assert.match(psdRoute, /validatePsdStructure\(buffer\)/);
+  assert.match(psdRoute, /image\/vnd\.adobe\.photoshop/);
+});
+
 test('shared catalog resolves every Canvas size to an exact legal entry', () => {
   assert.equal(typeof modelCatalog.resolveGenerationSize, 'function');
 

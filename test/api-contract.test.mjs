@@ -59,6 +59,53 @@ test('composition lookup is authenticated and scoped to one project version', as
   assert.equal(calls[0].authorization, 'Bearer signed-ecommerce-session');
 });
 
+test('Canvas pixel-layer and PSD export helpers use signed owner requests only', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  globalThis.localStorage = ecommerceStorage();
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url);
+    calls.push({
+      url: path,
+      authorization: options.headers?.Authorization,
+      body: options.body ? JSON.parse(options.body) : null,
+    });
+    if (path.endsWith('/api/canvas/pixel-layers')) {
+      return new Response(JSON.stringify({
+        document: { id: 'composition-1', capabilities: { semanticAnalysis: true, pixelLayers: true, psdExport: true } },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(new Uint8Array([1, 2, 3]), {
+      status: 200,
+      headers: {
+        'content-type': 'image/vnd.adobe.photoshop',
+        'content-disposition': 'attachment; filename="composition-1.psd"',
+      },
+    });
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+
+  const { createCanvasPixelLayers, exportCanvasPsd } = await import(`../src/services/api.js?canvas-psd=${Date.now()}`);
+  const layered = await createCanvasPixelLayers({ documentId: 'composition-1', expectedRevision: 2 });
+  const psd = await exportCanvasPsd({ documentId: 'composition-1' });
+
+  assert.equal(layered.document.capabilities.psdExport, true);
+  assert.deepEqual(Array.from(new Uint8Array(psd.buffer)), [1, 2, 3]);
+  assert.equal(psd.filename, 'composition-1.psd');
+  assert.deepEqual(calls.map(call => call.url), ['/api/canvas/pixel-layers', '/api/canvas/psd-export']);
+  for (const call of calls) {
+    assert.equal(call.authorization, 'Bearer signed-ecommerce-session');
+    assert.equal(Object.hasOwn(call.body, 'email'), false);
+  }
+});
+
 test('paid content APIs send owned reference asset IDs rather than raw resumable image data', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;

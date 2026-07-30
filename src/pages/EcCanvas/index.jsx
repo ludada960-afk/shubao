@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision } from '../../services/api';
+import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -861,6 +861,7 @@ export default function EcCanvas() {
         outputCount: 1,
         layers: [],
         selectedLayerId: null,
+        compositionDocument: nodeActionId === 'layer-edit' ? source.compositionDocument || null : null,
         ...initialInputs,
       },
     });
@@ -884,7 +885,7 @@ export default function EcCanvas() {
       analyzeCanvasLayers(sourceUrl)
         .then(data => {
           const layers = normalizeLayerItems(data.layers, child.id);
-          setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null } } : node));
+          setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null, capabilities: data.capabilities } } : node));
         })
         .catch(error => setNodes(prev => prev.map(node => node.id === child.id ? { ...node, status: 'error', error: error.message || '图层分析失败' } : node)));
     }
@@ -960,7 +961,7 @@ export default function EcCanvas() {
       analyzeCanvasLayers(sourceUrl)
         .then(data => {
           const layers = normalizeLayerItems(data.layers, node.id);
-          updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null } });
+          updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null, capabilities: data.capabilities } });
         })
         .catch(error => updateWorkflowNode(node.id, { status: 'error', error: error.message || '图层分析失败' }));
     }
@@ -1106,6 +1107,56 @@ export default function EcCanvas() {
     link.download = `${layer.name || '图层'}.png`;
     link.click();
   }, [showToast]);
+
+  const handleWorkflowPixelLayers = useCallback(async (node) => {
+    const compositionDocument = node.inputs?.compositionDocument;
+    if (!compositionDocument?.id) {
+      showToast('先在文字编辑中保存真实图层，才能生成像素分层', 'info');
+      return;
+    }
+    updateWorkflowNode(node.id, { status: 'running', error: null });
+    try {
+      const response = await createCanvasPixelLayers({
+        documentId: compositionDocument.id,
+        expectedRevision: compositionDocument.revision,
+      });
+      const nextDocument = response.document;
+      const layers = normalizeLayerItems(nextDocument.layers, node.id);
+      updateWorkflowNode(node.id, {
+        status: 'ready',
+        inputs: {
+          ...(node.inputs || {}),
+          compositionDocument: nextDocument,
+          layers,
+          selectedLayerId: layers[0]?.id || null,
+          capabilities: nextDocument.capabilities,
+        },
+      });
+      showToast('真实像素分层已生成，可以下载 PSD', 'success');
+    } catch (error) {
+      updateWorkflowNode(node.id, { status: 'error', error: error.message || '像素分层生成失败' });
+    }
+  }, [showToast, updateWorkflowNode]);
+
+  const handleWorkflowPsdExport = useCallback(async (node) => {
+    const compositionDocument = node.inputs?.compositionDocument;
+    if (!compositionDocument?.id || !node.inputs?.capabilities?.psdExport) {
+      showToast('完成真实像素分层后才可导出 PSD', 'info');
+      return;
+    }
+    try {
+      const result = await exportCanvasPsd({ documentId: compositionDocument.id });
+      const url = URL.createObjectURL(new Blob([result.buffer], { type: result.contentType }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('多图层 PSD 已开始下载', 'success');
+    } catch (error) {
+      updateWorkflowNode(node.id, { status: 'error', error: error.message || 'PSD 导出失败' });
+    }
+  }, [showToast, updateWorkflowNode]);
 
   const zoomTo = useCallback((s) => { setViewport(v => ({ ...v, scale: Math.max(0.15, Math.min(4, s)) })); }, []);
 
@@ -1679,6 +1730,7 @@ export default function EcCanvas() {
     const projectId = result.projectId;
     const versionId = result.resultVersionId || result.sourceVersionId;
     const backgroundAssetId = node.compositionBackgroundAssetId || generatedAssetIdFromUrl(node.url);
+    const { width, height } = compositionSizeForNode(node);
     if (!projectId || !versionId || !backgroundAssetId) {
       setTextCompositionError('当前素材缺少可编辑项目版本或稳定素材地址');
       return;
@@ -1687,18 +1739,32 @@ export default function EcCanvas() {
     setTextCompositionError('');
     try {
       const current = node.compositionDocument;
+      const sourceImageLayer = {
+        id: 'source-image',
+        kind: 'image',
+        assetId: backgroundAssetId,
+        name: '原始画面',
+        x: 0,
+        y: 0,
+        width,
+        height,
+      };
+      const layers = current
+        ? [...current.layers.filter(item => item.kind === 'image'), layer]
+        : [sourceImageLayer, layer];
       const response = current
         ? await saveTextCompositionRevision({
           documentId: current.id,
           expectedRevision: current.revision,
-          layers: [layer],
+          layers,
         })
         : await createTextComposition({
           projectId,
           versionId,
-          ...compositionSizeForNode(node),
+          width,
+          height,
           backgroundAssetId,
-          layers: [layer],
+          layers,
         });
       setNodes(previous => previous.map(item => item.id === node.id ? {
         ...item,
@@ -1972,7 +2038,7 @@ export default function EcCanvas() {
                   layerProps={node.kind === 'layer-workbench' ? {
                     layers: node.inputs?.layers || [],
                     selectedLayerId: node.inputs?.selectedLayerId,
-                    capabilities: { psdExport: false },
+                    capabilities: node.inputs?.capabilities || {},
                     onSelectLayer: layerId => updateWorkflowInputs(node.id, { selectedLayerId: layerId }),
                     onToggleVisibility: layer => updateWorkflowLayers(node.id, layers => layers.map(item => item.id === layer.id ? { ...item, visible: item.visible === false } : item)),
                     onToggleLock: layer => updateWorkflowLayers(node.id, layers => layers.map(item => item.id === layer.id ? { ...item, locked: !item.locked } : item)),
@@ -1985,7 +2051,8 @@ export default function EcCanvas() {
                       return next;
                     }),
                     onExportPng: handleWorkflowLayerExport,
-                    onExportPsd: () => showToast('像素分层能力完成后才可导出 PSD', 'info'),
+                    onCreatePixelLayers: node.inputs?.compositionDocument ? () => handleWorkflowPixelLayers(node) : undefined,
+                    onExportPsd: () => handleWorkflowPsdExport(node),
                   } : undefined}
                   compactProps={node.kind !== 'smart-remix' && node.kind !== 'layer-workbench' ? {
                     sourceImage: sourcePreview?.url,

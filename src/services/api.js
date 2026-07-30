@@ -1023,6 +1023,44 @@ export function saveTextCompositionRevision({ documentId, expectedRevision, laye
   });
 }
 
+export function createCanvasPixelLayers({ documentId, expectedRevision, document }) {
+  return requestTextComposition('/api/canvas/pixel-layers', {
+    method: 'POST',
+    body: {
+      documentId,
+      expectedRevision,
+      ...(document === undefined ? {} : { document }),
+    },
+  });
+}
+
+function filenameFromContentDisposition(value = '', fallback = 'canvas-layers.psd') {
+  const match = String(value).match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+  if (!match) return fallback;
+  try {
+    return decodeURIComponent(match[1].replace(/^"|"$/g, '')) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function exportCanvasPsd({ documentId }) {
+  const res = await fetch(`${API_BASE}/api/canvas/psd-export`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ documentId }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), 'PSD 导出失败');
+  }
+  return {
+    buffer: await res.arrayBuffer(),
+    contentType: res.headers.get('content-type') || 'image/vnd.adobe.photoshop',
+    filename: filenameFromContentDisposition(res.headers.get('content-disposition') || ''),
+  };
+}
+
 export async function deleteWork(saveKey) {
   if (!saveKey) return false;
   try {

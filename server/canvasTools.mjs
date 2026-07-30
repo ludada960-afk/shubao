@@ -37,6 +37,14 @@ export function parseVisionLayers(raw = '') {
     .filter(layer => layer.name);
 }
 
+export function analyzeSceneCapabilities({ layers = [] } = {}) {
+  return {
+    semanticAnalysis: Array.isArray(layers),
+    pixelLayers: false,
+    psdExport: false,
+  };
+}
+
 export function cropRectForRatio(width, height, ratio) {
   const target = {
     '1:1': 1,
@@ -67,4 +75,3 @@ export function gridRects(width, height, columns = 2, rows = 2) {
   }
   return rects;
 }
-

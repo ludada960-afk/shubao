@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCanvasTransformPrompt, cropRectForRatio, gridRects, parseVisionLayers } from '../server/canvasTools.mjs';
+import { analyzeSceneCapabilities, buildCanvasTransformPrompt, cropRectForRatio, gridRects, parseVisionLayers } from '../server/canvasTools.mjs';
 
 test('builds action-specific canvas prompts without losing product identity rules', () => {
   const prompt = buildCanvasTransformPrompt({ action: 'translate', targetLanguage: '英文', prompt: '保留原有价格层级' });
@@ -28,4 +28,12 @@ test('parses valid vision layer JSON and rejects invented wrapper text', () => {
     { name: '背景', description: '白底' },
   ]);
   assert.deepEqual(parseVisionLayers('不是 JSON'), []);
+});
+
+test('semantic layer analysis reports no pixel or PSD capability', () => {
+  assert.deepEqual(analyzeSceneCapabilities({ layers: [{ name: '商品主体' }] }), {
+    semanticAnalysis: true,
+    pixelLayers: false,
+    psdExport: false,
+  });
 });

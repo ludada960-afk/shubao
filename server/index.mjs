@@ -49,6 +49,8 @@ import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
+import { createPixelLayers } from './composition/layerService.mjs';
+import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
@@ -93,6 +95,7 @@ import {
   getGenerationRateLimit,
 } from './generationRouteGuard.mjs';
 import {
+  analyzeSceneCapabilities,
   buildCanvasTransformPrompt,
   cropRectForRatio,
   gridRects,
@@ -140,10 +143,11 @@ const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
 const projectStore = createProjectStore(db);
 const compositionStore = createCompositionStore(db);
+const compositionAssetAuthorizer = createCompositionAssetAuthorizer({ db });
 const compositionService = createCompositionService({
   compositionStore,
   generatedAssetStore,
-  assetAuthorizer: createCompositionAssetAuthorizer({ db }),
+  assetAuthorizer: compositionAssetAuthorizer,
 });
 const legacyWorksPath = resolve(__dirname, 'works.json');
 if (getWorkCount() === 0 && fs.existsSync(legacyWorksPath)) {
@@ -235,6 +239,8 @@ const SIGNED_GENERATION_ROUTES = new Set([
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/canvas/pixel-layers',
+  '/api/canvas/psd-export',
   '/api/reverse-prompt',
   '/api/remove-bg',
 ]);
@@ -3749,10 +3755,60 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
     );
     const layers = parseVisionLayers(raw);
     if (!layers.length) return res.status(502).json({ error: '未识别到可编辑图层' });
-    res.json({ layers, status: '已识别' });
+    const capabilities = analyzeSceneCapabilities({ layers });
+    res.json({ layers, status: '已识别', capabilities });
   } catch (error) {
     console.error('[canvas/analyze-layers] 失败:', error.message);
     res.status(500).json({ error: `图层分析失败：${error.message}` });
+  }
+});
+
+// 画布像素分层：将已经过 owner 校验的源图层固化为透明位图和掩码。
+app.post('/api/canvas/pixel-layers', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const documentId = String(req.body?.documentId || '').trim();
+    if (!documentId) throw new TypeError('documentId is required');
+    const document = compositionService.getDocument({ ownerEmail: req._userEmail, documentId });
+    if (!document) throw Object.assign(new Error('composition document not found'), { code: 'DOCUMENT_NOT_FOUND' });
+    for (const layer of document.layers) {
+      if (layer?.kind !== 'image') continue;
+      const allowed = await compositionAssetAuthorizer({
+        ownerEmail: req._userEmail,
+        projectId: document.projectId,
+        versionId: document.versionId,
+        assetId: layer.assetId,
+      });
+      if (!allowed) throw Object.assign(new Error('image layer asset not found'), { code: 'ASSET_NOT_FOUND' });
+    }
+    const layered = await createPixelLayers({ document, generatedAssetStore });
+    const saved = compositionStore.saveRevision({
+      ownerEmail: req._userEmail,
+      documentId,
+      expectedRevision: req.body?.expectedRevision ?? document.revision,
+      layers: layered.layers,
+      backgroundAssetId: document.backgroundAssetId,
+      renderedAssetId: document.renderedAssetId,
+    });
+    return res.json({ document: { ...saved, capabilities: layered.capabilities } });
+  } catch (error) {
+    return sendCompositionError(error, res);
+  }
+});
+
+// 画布 PSD 导出：只发布经结构校验的多图层二进制文件。
+app.post('/api/canvas/psd-export', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const documentId = String(req.body?.documentId || '').trim();
+    if (!documentId) throw new TypeError('documentId is required');
+    const document = compositionService.getDocument({ ownerEmail: req._userEmail, documentId });
+    if (!document) throw Object.assign(new Error('composition document not found'), { code: 'DOCUMENT_NOT_FOUND' });
+    const buffer = await exportPsd({ document, generatedAssetStore });
+    validatePsdStructure(buffer);
+    res.setHeader('Content-Type', 'image/vnd.adobe.photoshop');
+    res.setHeader('Content-Disposition', `attachment; filename="${document.id}.psd"`);
+    return res.send(buffer);
+  } catch (error) {
+    return sendCompositionError(error, res);
   }
 });
 

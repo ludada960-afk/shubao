@@ -78,7 +78,13 @@ export function createCompositionAssetAuthorizer({ db } = {}) {
       WHERE cd.owner_email = ? AND cd.project_id = ? AND cd.version_id = ?
         AND cr.rendered_asset_id IS NOT NULL`)
       .all(owner, projectId, versionId);
-    return compositionAssets.some(row => row.rendered_asset_id === normalizedAssetId);
+    if (compositionAssets.some(row => row.rendered_asset_id === normalizedAssetId)) return true;
+    const compositionLayers = db.prepare(`SELECT cr.layers
+      FROM composition_documents cd
+      JOIN composition_revisions cr ON cr.document_id = cd.id
+      WHERE cd.owner_email = ? AND cd.project_id = ? AND cd.version_id = ?`)
+      .all(owner, projectId, versionId);
+    return compositionLayers.some(row => jsonReferencesAsset(parseJson(row.layers), normalizedAssetId));
   };
 }
 
