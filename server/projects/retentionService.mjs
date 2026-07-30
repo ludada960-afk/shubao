@@ -160,6 +160,9 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
       const current = clock();
       const assets = rows.map(assetFromRow);
       if (assets.some(asset => asset.expired)) return { expired: true, preserved: false };
+      if (assets.some(asset => protectedByReference(asset, current))) {
+        return { expiresAt: null, preserved: true, expired: false };
+      }
       const expiresAt = rows.map(row => asDate(row.expires_at)
         || new Date(asDate(row.created_at).getTime() + (RETENTION_MS[row.retention_class] || RETENTION_MS.completed)))
         .sort((left, right) => left - right)[0];

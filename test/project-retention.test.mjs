@@ -122,3 +122,16 @@ test('work retention reflects the earliest durable asset expiry and rejects an i
   assert.deepEqual(noGrace.deleteIsolated().deletedAssetIds, []);
   db.close();
 });
+
+test('a non-deleted Work keeps its referenced binary available beyond the nominal expiry', () => {
+  const { db, retention } = createHarness();
+  insertAsset(db, { id: 'preserved-work', retentionState: 'active', markedAt: null, isolatedAt: null });
+  db.exec(`CREATE TABLE works (deleted_at TEXT, payload TEXT)`);
+  db.prepare("INSERT INTO works (deleted_at, payload) VALUES ('', ?)").run(JSON.stringify({ images: [{ url: '/api/generated-assets/preserved-work.png' }] }));
+
+  assert.deepEqual(retention.describeWork({
+    ownerEmail: 'owner@example.com',
+    work: { images: [{ url: '/api/generated-assets/preserved-work.png' }] },
+  }), { expiresAt: null, preserved: true, expired: false });
+  db.close();
+});
