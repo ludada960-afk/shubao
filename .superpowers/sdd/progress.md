@@ -14,6 +14,9 @@
 
 ## Current execution
 
+- Market-ready ecommerce creation closure Task 6: complete (`d4decf9..431f662`, final review clean). Layered PSD export now requires server-generated pixel provenance, readable document-sized masks, allowlisted asset references and held/settled pixel-layer billing; focused 70/70 and full 860/860 tests passed.
+- Market-ready ecommerce creation closure Task 7: complete (`431f662..c462448`, final review clean). Retention is mark-isolate-recheck-delete with a fresh isolation grace period, protects running, Works, Canvas/composition, billing-dispute and shared content-addressed references, surfaces expiry on Works, and migrates only unlinked legacy ecommerce Works idempotently. Focused regression 23/23 passed.
+
 - Market-ready ecommerce creation closure design: written and self-reviewed at
   `docs/superpowers/specs/2026-07-29-market-ready-ecommerce-creation-closure.md`.
   It consolidates the approved remaining work into seven ordered milestones:
