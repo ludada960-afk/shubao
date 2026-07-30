@@ -330,3 +330,14 @@
 - Billing Task 4: resolved in Task 7 by mapping SQLite busy/locked failures to structured retryable HTTP responses.
 - Billing Task 6: resolved during Task 7 final review by replacing next-route source markers with balanced structural handler extraction and removing the production marker comment.
 - Ecommerce Engine Task 2: non-blocking documentation follow-up — `buildVlmPrompt` JSDoc type union should include `product_truth` when `vlmSchema.mjs` is next touched.
+
+## Production Rollout Evidence (2026-07-30)
+
+- Deployed commit: `2dfdbea` (`codex/ecommerce-stability`) through `scripts/deploy-production.ps1`.
+- Local release gate: `npm test` passed 889 tests; `npm run build` passed; deploy-script contract tests passed.
+- Public production health and billing verification passed before and after the canary window.
+- Authenticated ecommerce verification completed three independent 2K assets per task with separate product/style analysis cache entries, exact three-unit quote reconciliation, durable Works persistence, and stable asset delivery. Verified task IDs: `ec_11cefdd4-84aa-4b9a-8932-640883295efe`, `ec_72629cfb-9979-461a-9e2f-fafb41956894`, and post-observation `ec_c78f9bf6-4117-47c2-b08f-da00d640c411`.
+- PM2 stayed on PID `1256816` throughout the 600-second observation and final production verification; restart count remained 260 and `max_memory_restart` is 1073741824 bytes (1 GB).
+- The release script retains only the three newest remote rollback backups after a successful canary. Existing stale backups were pruned before release, restoring production disk headroom.
+- Visual analysis uses the configured production model contract (`gpt-5.6-terra` by default). Layered PSD structure and Canvas billing paths remain covered by the passing local integration suite.
+- Residual external risk: image-provider availability and output quality remain third-party runtime dependencies; production tasks fail closed and the release script rolls back on verification failure.
