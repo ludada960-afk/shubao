@@ -16,6 +16,9 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /backup-runtime-db\.cjs/i);
   assert.match(deploy, /verify-runtime-config\.cjs/i);
   assert.match(deploy, /configure-runtime-gateways\.cjs/i);
+  assert.match(deploy, /probe-production-gateways\.mjs/i);
+  assert.match(deploy, /SHUBAO_IMAGE_API_KEY and SHUBAO_VISION_API_KEY must be provided together/i);
+  assert.match(deploy, /Authenticated production gateway probe failed/i);
   assert.match(deploy, /shubao-runtime-tools/i);
   assert.match(deploy, /remoteRuntimeHelperDir\/verify-runtime-config\.cjs/i);
   assert.match(deploy, /remoteRuntimeHelperDir\/configure-runtime-gateways\.cjs/i);

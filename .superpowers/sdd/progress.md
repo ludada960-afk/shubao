@@ -397,3 +397,17 @@
   pre-update copy until deployment and canary success. Release rollback restores
   both code and runtime configuration together. Focused gateway and deployment
   tests passed 46/46; full regression passed 931/931.
+- `scripts/probe-production-gateways.mjs` now provides the remaining authenticated
+  preflight as one repeatable command: it verifies both model catalogs, sends a
+  real image-input request to `gpt-5.6-luna`, submits and polls one native 1K
+  `gpt-image-2` task, downloads the result and validates its decoded metadata.
+  Credentials are accepted only from process environment and neither responses
+  nor credentials are printed on failure. Probe contract tests passed 3/3 and
+  full regression passed 934/934. The real authenticated invocation remains
+  intentionally unexecuted until the product owner authorizes transmission of
+  the supplied keys to the two named third-party gateways.
+- The deployment entrypoint runs this authenticated probe automatically after
+  local test/build success whenever both gateway keys are supplied, rejects a
+  one-key partial configuration, and touches no production state when the probe
+  fails. Future releases with an already verified runtime can omit local gateway
+  keys and avoid repeating the paid probe.

@@ -24,6 +24,7 @@ $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
 $remoteDatabaseBackupHelper = "/tmp/shubao-backup-db-$stamp.cjs"
 $runtimeConfigHelper = Join-Path $PSScriptRoot "verify-runtime-config.cjs"
 $runtimeConfigUpdater = Join-Path $PSScriptRoot "configure-runtime-gateways.cjs"
+$gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
 $remoteRuntimeHelperDir = "/tmp/shubao-runtime-tools-$stamp"
 $remoteRuntimeConfigHelper = "$remoteRuntimeHelperDir/verify-runtime-config.cjs"
 $remoteRuntimeConfigUpdater = "$remoteRuntimeHelperDir/configure-runtime-gateways.cjs"
@@ -51,6 +52,16 @@ try {
   git diff --check
 } finally {
   Pop-Location
+}
+
+$hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
+$hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
+if ($hasImageGatewayKey -xor $hasVisionGatewayKey) {
+  throw "SHUBAO_IMAGE_API_KEY and SHUBAO_VISION_API_KEY must be provided together"
+}
+if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
+  & node $gatewayProbe
+  if ($LASTEXITCODE -ne 0) { throw "Authenticated production gateway probe failed" }
 }
 
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
