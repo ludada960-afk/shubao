@@ -2950,7 +2950,7 @@ const migrateLegacyVisualAsset = createLegacyVisualAssetMigration({
 const visualAnalysisService = createVisualAnalysisService({
   store: createVisualAnalysisStore(db),
   model: MINI_MODEL,
-  promptVersion: process.env.VISUAL_ANALYSIS_PROMPT_VERSION || 'visual-analysis-v1',
+  promptVersion: process.env.VISUAL_ANALYSIS_PROMPT_VERSION || 'visual-analysis-v2',
   readAsset: asset => imageInputReader.read(asset?.url),
   callVision: request => createVlmClient({
     apiKey: MINI_KEY,

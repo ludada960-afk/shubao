@@ -478,7 +478,7 @@ test('invalid visual result stops before billing and never submits provider work
     readAsset: async () => ({ buffer: IMAGE_BUFFER, contentType: 'image/png' }),
     callVision: async () => ({ productName: 'Untrusted Product', confidence: 'high' }),
   });
-  const { orchestrator, calls } = await createHarness(t, {
+  const { orchestrator, jobs, calls } = await createHarness(t, {
     orchestratorOptions: {
       analyzeVisualInputs: payload => service.analyze({
         productAssets: payload.assets.product,
@@ -489,13 +489,14 @@ test('invalid visual result stops before billing and never submits provider work
   });
   const created = orchestrator.createJob(jobInput('job-invalid-visual-result'));
 
-  await assert.rejects(
-    () => orchestrator.runJob(created.id),
-    error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE',
-  );
+  await orchestrator.runJob(created.id);
 
   assert.equal(calls.hold.length, 0);
   assert.equal(calls.submit.length, 0);
+  assert.equal(jobs.get(created.id).status, 'failed');
+  assert.match(jobs.get(created.id).error, /confidence must be a finite number from 0 to 1/);
+  assert.equal(jobs.get(created.id).output.errors[0].code, 'VISUAL_ANALYSIS_INVALID_RESPONSE');
+  assert.equal(jobs.get(created.id).output.errors[0].retryable, false);
 });
 
 test('rejects malformed formal product and reference payloads before billing', async t => {

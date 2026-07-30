@@ -92,7 +92,7 @@ function cacheKey({ assetIds, model, promptVersion, type }) {
 function invalidResponse(type, detail) {
   return codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', `${type} visual analysis ${detail}`, {
     status: 502,
-    retryable: true,
+    retryable: false,
   });
 }
 

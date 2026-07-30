@@ -464,10 +464,11 @@ Return this JSON object:
   "confirmedFacts": {},
   "uncertainFacts": [],
   "forbiddenMutations": [],
-  "sourceAssetIds": []
+  "sourceAssetIds": [],
+  "confidence": 0
 }
 
-Never infer or invent dimensions, certification, efficacy, quantity, ingredients, SKU values, test reports, price/promotion, or comparison claims. Put anything not explicitly visible into uncertainFacts and never state it as confirmed. Do not analyze lighting, palette, composition, mood, background, or any other style information.`,
+Always include the top-level confidence field as a JSON number from 0 to 1, never a string. Never infer or invent dimensions, certification, efficacy, quantity, ingredients, SKU values, test reports, price/promotion, or comparison claims. Put anything not explicitly visible into uncertainFacts and never state it as confirmed. Do not analyze lighting, palette, composition, mood, background, or any other style information.`,
     userPrompt: `Extract Product Truth from ${assets.length} product asset${assets.length === 1 ? '' : 's'}${assets.length ? ` (${assets.join(', ')})` : ''}. Return JSON only.`,
   };
 }

@@ -24,7 +24,7 @@ function parseJsonContent(content) {
   if (!text) {
     throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了空结果', {
       status: 502,
-      retryable: true,
+      retryable: false,
     });
   }
   try {
@@ -34,7 +34,7 @@ function parseJsonContent(content) {
   } catch (error) {
     throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了无效 JSON', {
       status: 502,
-      retryable: true,
+      retryable: false,
       cause: error,
     });
   }
@@ -127,7 +127,7 @@ export function createVlmClient({
           }
           throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了无效响应', {
             status: 502,
-            retryable: true,
+            retryable: false,
             cause: error,
           });
         }

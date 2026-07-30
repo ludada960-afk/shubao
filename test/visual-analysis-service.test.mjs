@@ -9,6 +9,8 @@ import Database from 'better-sqlite3';
 import { createVisualAnalysisService } from '../server/ecommerceEngine/visualAnalysisService.mjs';
 import { createVisualAnalysisStore } from '../server/ecommerceEngine/visualAnalysisStore.mjs';
 import { createVlmClient } from '../server/ecommerceEngine/vlmClient.mjs';
+import { buildProductTruthPrompt } from '../server/ecommerceEngine/productTruth.mjs';
+import { buildStyleReferencePrompt } from '../server/ecommerceEngine/styleReferenceProfile.mjs';
 
 const PRODUCT_ASSETS = [{ assetId: 'sha256-product-front', url: '/product-front.png' }];
 const STYLE_ASSETS = [{ assetId: 'sha256-style-front', url: '/style-front.png' }];
@@ -171,10 +173,22 @@ test('rejects missing, non-finite, non-numeric, and out-of-range confidence befo
 
     await assert.rejects(
       () => harness.service.analyze({ productAssets: PRODUCT_ASSETS, styleAssets: [], userFacts: {} }),
-      error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE' && error?.status === 502,
+      error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE'
+        && error?.status === 502
+        && error?.retryable === false,
       `invalid confidence case ${index}`,
     );
   }
+});
+
+test('visual-analysis prompts require a numeric top-level confidence field', () => {
+  const productPrompt = buildProductTruthPrompt({ sourceAssetIds: ['product-asset'] });
+  const stylePrompt = buildStyleReferencePrompt({ sourceAssetIds: ['style-asset'] });
+
+  assert.match(productPrompt.systemPrompt, /"confidence": 0/);
+  assert.match(productPrompt.systemPrompt, /top-level confidence field as a JSON number from 0 to 1/i);
+  assert.match(stylePrompt.systemPrompt, /top-level sourceAssetIds and confidence/i);
+  assert.match(stylePrompt.systemPrompt, /confidence must be a JSON number from 0 to 1/i);
 });
 
 test('rejects empty, wrong-analysis-type, and field-type-invalid VLM results', async t => {
@@ -324,7 +338,9 @@ test('VLM client rejects non-JSON model output instead of fabricating facts', as
 
   await assert.rejects(
     () => client.analyzeJson({ systemPrompt: 'JSON', userPrompt: 'Analyze', images: ['data:image/png;base64,AA=='] }),
-    error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE' && error?.status === 502,
+    error => error?.code === 'VISUAL_ANALYSIS_INVALID_RESPONSE'
+      && error?.status === 502
+      && error?.retryable === false,
   );
 });
 
