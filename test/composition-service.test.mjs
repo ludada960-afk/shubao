@@ -330,3 +330,8 @@ test('production asset authorization accepts only owner project version evidence
   assert.equal(authorize({ ...context, versionId: 'other-version', assetId: 'snapshot-input.png' }), false);
   assert.equal(authorize({ ...context, assetId: 'global-only.png' }), false);
 });
+
+test('composition revisions reject client supplied pixel-layer provenance', async t => {
+  const { service, ownerEmail, project, version } = await setup(t);
+  await assert.rejects(() => service.createDocument({ ownerEmail, projectId: project.id, versionId: version.id, width: 100, height: 100, layers: [{ kind: 'image', assetId: 'asset.png', pixelLayer: true, x: 0, y: 0, width: 100, height: 100 }] }), /pixelLayer is server-managed/);
+});

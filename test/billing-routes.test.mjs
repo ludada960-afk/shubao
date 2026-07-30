@@ -112,13 +112,13 @@ test('a signed session owner overrides a spoofed client email', async t => {
   assert.equal(res.body.balances.content_sets.availableUnits, 4);
 });
 
-test('catalog hides disabled SKUs and provider costs', async t => {
+test('catalog exposes enabled pixel-layer pricing without provider costs', async t => {
   const { app, db } = createHarness();
   t.after(() => db.close());
 
   const { res } = await invoke(app, 'GET', '/api/billing/catalog');
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.features.some(item => item.sku === 'ec_layer_psd'), false);
+  assert.deepEqual(res.body.features.find(item => item.sku === 'ec_layer_psd'), { sku: 'ec_layer_psd', units: 3000, currency: 'ec_points' });
   assert.equal(JSON.stringify(res.body).includes('providerCostCny'), false);
 });
 

@@ -49,6 +49,15 @@ function jsonReferencesAsset(value, assetId) {
   return Object.values(value).some(item => jsonReferencesAsset(item, assetId));
 }
 
+function compositionLayersReferenceAsset(layers, assetId) {
+  if (!Array.isArray(layers)) return false;
+  return layers.some(layer => layer?.kind === 'image' && [
+    layer.assetId,
+    layer.maskAssetId,
+    layer.sourceAssetId,
+  ].some(value => referenceMatchesAsset(value, assetId)));
+}
+
 function parseJson(value) {
   try { return value ? JSON.parse(value) : {}; } catch { return {}; }
 }
@@ -84,7 +93,7 @@ export function createCompositionAssetAuthorizer({ db } = {}) {
       JOIN composition_revisions cr ON cr.document_id = cd.id
       WHERE cd.owner_email = ? AND cd.project_id = ? AND cd.version_id = ?`)
       .all(owner, projectId, versionId);
-    return compositionLayers.some(row => jsonReferencesAsset(parseJson(row.layers), normalizedAssetId));
+    return compositionLayers.some(row => compositionLayersReferenceAsset(parseJson(row.layers), normalizedAssetId));
   };
 }
 
@@ -93,6 +102,7 @@ async function validateLayers(layers, width, height) {
   if (layers.length > MAX_LAYERS) throw new TypeError(`layers must not exceed ${MAX_LAYERS} entries`);
   return Promise.all(layers.map(async (layer, index) => {
     if (!layer || typeof layer !== 'object' || Array.isArray(layer)) throw new TypeError(`layers[${index}] must be an object`);
+    if (layer.pixelLayer === true) throw new TypeError('pixelLayer is server-managed');
     const kind = layer.kind;
     if (kind !== 'text' && kind !== 'image') throw new TypeError(`layers[${index}].kind must be text or image`);
     const x = coordinate(layer.x ?? 0, `layers[${index}].x`, width);

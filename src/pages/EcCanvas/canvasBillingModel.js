@@ -9,7 +9,8 @@ const ACTIONS = Object.freeze({
   translate: { paid: true, units: 1, currency: 'ec_points', sku: 'ec_image_2k' },
   upscale: { paid: true, units: 1, currency: 'ec_points', sku: 'ec_image_2k' },
   'upscale-4k': { paid: true, units: 2, currency: 'ec_points', sku: 'ec_image_4k' },
-  'psd-export': { ...FREE, enabled: false, reason: '完成真实像素分层后开放' },
+  'pixel-layers': { paid: true, units: 3, currency: 'ec_points', sku: 'ec_layer_psd' },
+  'psd-export': FREE,
 });
 
 export function getCanvasActionBilling(actionId) {

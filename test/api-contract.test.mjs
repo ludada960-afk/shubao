@@ -66,6 +66,9 @@ test('Canvas pixel-layer and PSD export helpers use signed owner requests only',
   const calls = [];
   globalThis.fetch = async (url, options = {}) => {
     const path = String(url);
+    if (path.endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: 'layer-quote' } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
     calls.push({
       url: path,
       authorization: options.headers?.Authorization,
@@ -100,6 +103,8 @@ test('Canvas pixel-layer and PSD export helpers use signed owner requests only',
   assert.deepEqual(Array.from(new Uint8Array(psd.buffer)), [1, 2, 3]);
   assert.equal(psd.filename, 'composition-1.psd');
   assert.deepEqual(calls.map(call => call.url), ['/api/canvas/pixel-layers', '/api/canvas/psd-export']);
+  assert.equal(calls[0].body.billing_quote_id, 'layer-quote');
+  assert.ok(calls[0].body.billing_action_id);
   for (const call of calls) {
     assert.equal(call.authorization, 'Bearer signed-ecommerce-session');
     assert.equal(Object.hasOwn(call.body, 'email'), false);

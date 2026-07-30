@@ -16,13 +16,17 @@ test('canvas action prices distinguish deterministic tools from AI work', () => 
   assert.equal(formatCanvasActionPrice('upscale-4k'), '2 积分');
 });
 
-test('PSD export remains disabled until a real layered asset exists', () => {
+test('pixel-layer preparation is billed while PSD export is free after a real layered asset exists', () => {
+  assert.deepEqual(getCanvasActionBilling('pixel-layers'), {
+    paid: true,
+    units: 3,
+    currency: 'ec_points',
+    sku: 'ec_layer_psd',
+  });
   assert.deepEqual(getCanvasActionBilling('psd-export'), {
     paid: false,
     units: 0,
     currency: 'ec_points',
     sku: null,
-    enabled: false,
-    reason: '完成真实像素分层后开放',
   });
 });

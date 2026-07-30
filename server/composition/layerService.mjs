@@ -38,7 +38,10 @@ function normalizeSemanticLayer(layer = {}, index = 0) {
 function imageLayersHavePixels(layers = []) {
   return layers.every(layer => (
     layer?.kind === 'text'
-    || (cleanString(layer?.assetId) && cleanString(layer?.maskAssetId))
+    || (layer?.pixelLayer === true
+      && cleanString(layer?.assetId)
+      && cleanString(layer?.maskAssetId)
+      && cleanString(layer?.sourceAssetId))
   ));
 }
 

@@ -3780,16 +3780,21 @@ app.post('/api/canvas/pixel-layers', authenticateEcommerceRequest, async (req, r
       });
       if (!allowed) throw Object.assign(new Error('image layer asset not found'), { code: 'ASSET_NOT_FOUND' });
     }
-    const layered = await createPixelLayers({ document, generatedAssetStore });
-    const saved = compositionStore.saveRevision({
+    const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
-      documentId,
-      expectedRevision: req.body?.expectedRevision ?? document.revision,
-      layers: layered.layers,
-      backgroundAssetId: document.backgroundAssetId,
-      renderedAssetId: document.renderedAssetId,
+      quoteId: req.body?.billing_quote_id,
+      actionId: req.body?.billing_action_id,
+      sku: 'ec_layer_psd',
+      referenceType: 'canvas_pixel_layers',
+      providerCostCny: 0.20,
+      metadata: { action: 'pixel_layers', documentId },
+      work: async () => {
+        const layered = await createPixelLayers({ document, generatedAssetStore });
+        const saved = compositionStore.saveRevision({ ownerEmail: req._userEmail, documentId, expectedRevision: req.body?.expectedRevision ?? document.revision, layers: layered.layers, backgroundAssetId: document.backgroundAssetId, renderedAssetId: document.renderedAssetId });
+        return { url: `composition:${documentId}:r${saved.revision}`, document: { ...saved, capabilities: layered.capabilities } };
+      },
     });
-    return res.json({ document: { ...saved, capabilities: layered.capabilities } });
+    return res.json({ document: billed.result.document, billing: billed.billing });
   } catch (error) {
     return sendCompositionError(error, res);
   }

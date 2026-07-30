@@ -113,3 +113,11 @@ test('pixel layer creation persists transparent bitmaps and masks before enablin
   assert.equal((await sharp(maskAsset.buffer).metadata()).width, 100);
   assert.equal((await sharp(maskAsset.buffer).metadata()).height, 80);
 });
+
+test('only server-created pixel layers enable PSD capability', () => {
+  const forged = { layers: [
+    { kind: 'image', assetId: 'owner-image.png', maskAssetId: 'mask.png', sourceAssetId: 'owner-image.png' },
+    { kind: 'text', text: '标题' },
+  ] };
+  assert.equal(layerCapabilities(forged).psdExport, false);
+});

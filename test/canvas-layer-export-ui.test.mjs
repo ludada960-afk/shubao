@@ -16,6 +16,7 @@ test('Canvas workbench offers real pixel layering before verified PSD download',
   assert.doesNotMatch(canvas, /onExportPsd:\s*\(\)\s*=>\s*showToast\('像素分层能力完成后才可导出 PSD'/);
   assert.match(card, /onCreatePixelLayers/);
   assert.match(card, /生成像素分层/);
+  assert.match(card, /layerCapabilities\.pixelLayers\s*&&\s*selectedLayer/);
 });
 
 test('text composition retains a real source image layer for pixel-layer export', async () => {

@@ -50,8 +50,8 @@ test('PSD export contains separate bitmap and text layers', async () => {
     width: 120,
     height: 90,
     layers: [
-      { id: 'background', name: '背景', kind: 'image', assetId: 'background-layer.png', maskAssetId: 'background-mask.png' },
-      { id: 'product', name: '商品', kind: 'image', assetId: 'product-layer.png', maskAssetId: 'product-mask.png' },
+      { id: 'background', name: '背景', kind: 'image', assetId: 'background-layer.png', maskAssetId: 'background-mask.png', sourceAssetId: 'source-background.png', pixelLayer: true },
+      { id: 'product', name: '商品', kind: 'image', assetId: 'product-layer.png', maskAssetId: 'product-mask.png', sourceAssetId: 'source-product.png', pixelLayer: true },
       {
         id: 'title',
         name: '标题',
@@ -93,11 +93,26 @@ test('PSD validation rejects flattened or single-layer output', async () => {
         width: 32,
         height: 32,
         layers: [
-          { id: 'background', name: '背景', kind: 'image', assetId: 'background-layer.png', maskAssetId: 'background-mask.png' },
+          { id: 'background', name: '背景', kind: 'image', assetId: 'background-layer.png', maskAssetId: 'background-mask.png', sourceAssetId: 'source-background.png', pixelLayer: true },
         ],
       },
       generatedAssetStore,
     }),
     /PSD export requires verified pixel layers/,
   );
+});
+
+test('PSD export verifies every pixel layer mask is a document-sized PNG', async () => {
+  const layer = await sharp({ create: { width: 32, height: 32, channels: 4, background: '#ffffff' } }).png().toBuffer();
+  const store = createMemoryAssetStore({
+    'layer.png': { buffer: layer, contentType: 'image/png' },
+    'bad-mask.png': { buffer: await sharp({ create: { width: 4, height: 4, channels: 4, background: '#ffffff' } }).png().toBuffer(), contentType: 'image/png' },
+  });
+  await assert.rejects(() => exportPsd({ document: {
+    width: 32, height: 32,
+    layers: [
+      { kind: 'image', name: '商品', assetId: 'layer.png', maskAssetId: 'bad-mask.png', sourceAssetId: 'source.png', pixelLayer: true },
+      { kind: 'text', name: '标题', text: '标题', fontSize: 12, color: '#111111', width: 20, x: 1, y: 1 },
+    ],
+  }, generatedAssetStore: store }), /pixel layer mask must be a document-sized PNG/);
 });

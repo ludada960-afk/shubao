@@ -1023,12 +1023,15 @@ export function saveTextCompositionRevision({ documentId, expectedRevision, laye
   });
 }
 
-export function createCanvasPixelLayers({ documentId, expectedRevision, document }) {
+export async function createCanvasPixelLayers({ documentId, expectedRevision, document }) {
+  const billing = await quoteCanvasAction('ec_layer_psd');
   return requestTextComposition('/api/canvas/pixel-layers', {
     method: 'POST',
     body: {
       documentId,
       expectedRevision,
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
       ...(document === undefined ? {} : { document }),
     },
   });

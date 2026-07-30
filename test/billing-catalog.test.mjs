@@ -44,8 +44,11 @@ test('quotes an explicit design-direction refresh as one AI point', () => {
   });
 });
 
-test('disabled features remain quote-ineligible', () => {
-  assert.throws(() => quoteFeature('ec_layer_psd', 1), /enabled/i);
+test('pixel-layer preparation has a server-authoritative quote', () => {
+  assert.deepEqual(quoteFeature('ec_layer_psd', 1), {
+    sku: 'ec_layer_psd', quantity: 1, units: 3000, totalUnits: 3000,
+    currency: 'ec_points', providerCostCny: 0.20,
+  });
 });
 
 test('quote quantity must be a positive integer', () => {

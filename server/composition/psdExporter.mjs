@@ -52,9 +52,20 @@ async function pngCanvas(buffer, width, height) {
   return canvas;
 }
 
+async function assertDocumentSizedPng(generatedAssetStore, assetId, width, height, label) {
+  const asset = await generatedAssetStore.read(cleanString(assetId));
+  if (!asset?.buffer || asset.contentType !== 'image/png') throw new Error(`${label} must be a document-sized PNG`);
+  const metadata = await sharp(asset.buffer).metadata();
+  if (metadata.format !== 'png' || metadata.width !== width || metadata.height !== height) {
+    throw new Error(`${label} must be a document-sized PNG`);
+  }
+}
+
 async function layerToPsdChild(layer, index, { document, generatedAssetStore }) {
   const name = cleanString(layer.name, `图层 ${index + 1}`);
   if (layer.kind === 'image') {
+    await assertDocumentSizedPng(generatedAssetStore, layer.assetId, document.width, document.height, 'pixel layer');
+    await assertDocumentSizedPng(generatedAssetStore, layer.maskAssetId, document.width, document.height, 'pixel layer mask');
     const buffer = await readAssetBuffer(generatedAssetStore, layer.assetId, name);
     return {
       name,
