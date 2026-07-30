@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const deploy = readFileSync(new URL('../scripts/deploy-production.ps1', import.meta.url), 'utf8');
 const verify = readFileSync(new URL('../scripts/verify-production-billing.ps1', import.meta.url), 'utf8');
 const nodeVerify = readFileSync(new URL('../scripts/verify-production-billing.mjs', import.meta.url), 'utf8');
+const ecommerceVerify = readFileSync(new URL('../scripts/verify-production-ecommerce.ps1', import.meta.url), 'utf8');
 const backupHelper = readFileSync(new URL('../scripts/backup-runtime-db.cjs', import.meta.url), 'utf8');
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
@@ -22,7 +23,9 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /if\s*\(\$releaseStarted\)/);
   assert.equal((deploy.match(/pm2 restart shubao/g) || []).length, 1);
   assert.match(deploy, /verify-production-billing\.ps1/);
+  assert.match(deploy, /verify-production-ecommerce\.ps1/);
   assert.match(verify, /verify-production-billing\.mjs/);
+  assert.match(ecommerceVerify, /verify-production-ecommerce\.mjs/);
   assert.match(deploy, /pm2 pid shubao/);
   assert.doesNotMatch(deploy, /pm2 jlist/);
   assert.match(deploy, /Start-Sleep -Seconds \$CanarySeconds/);
