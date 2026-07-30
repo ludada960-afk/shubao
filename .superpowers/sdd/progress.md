@@ -299,8 +299,11 @@
   verification passed the new Canvas work model tests at 3/3, the focused
   Canvas/project/Works set at 69/69, full `npm test` at 846/846, production
   build at 6423 transformed modules, `npm ls --depth=0`, `npm ls canvas --depth=0`,
-  collaboration policy READY, and `git diff --check`. Fresh
-  independent re-review is still required before entering Task 6.
+  collaboration policy READY, and `git diff --check`. Fresh independent
+  re-review of `af1f21f..1d61a93` reported no remaining Critical/Important or
+  Minor findings, and additionally ran the Canvas work model plus Works route
+  auth tests at 5/5. Residual risk: a separate clean-directory `npm ci` and
+  browser UI session-restore pass have not been run at this boundary.
 - Market-ready closure Task 6 recovery boundary: no Task 6 implementation or RED
   test has been completed. The failed task ran
   `npm install ag-psd@31.0.2 --save-exact`, leaving `package.json` and
