@@ -411,3 +411,9 @@
   one-key partial configuration, and touches no production state when the probe
   fails. Future releases with an already verified runtime can omit local gateway
   keys and avoid repeating the paid probe.
+- Read-only production preflight after commit `01cf262` found PM2 PID `1313390`
+  healthy with an idle 3-worker image queue, no active deployment lock, exactly
+  three rollback backups and 10,637,564 KiB free on the production volume. Both
+  runtime environment files are still mode `644`; the atomic gateway updater is
+  expected to rewrite them as `600` before release and the fail-closed verifier
+  will reject deployment if that transition does not occur.
