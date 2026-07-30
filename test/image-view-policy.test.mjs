@@ -14,7 +14,8 @@ test('shared responsive image component uses delivery variants and browser decod
   assert.match(model, /proxyImg\(raw, 'full'\)/);
   assert.match(source, /loading=\{priority \? 'eager' : 'lazy'\}/);
   assert.match(source, /decoding="async"/);
-  assert.match(source, /fetchPriority=\{priority \? 'high' : 'auto'\}/);
+  assert.match(source, /fetchpriority=\{priority \? 'high' : 'auto'\}/);
+  assert.doesNotMatch(source, /fetchPriority=/);
   assert.match(source, /objectFit: 'contain'/);
 });
 

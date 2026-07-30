@@ -430,3 +430,17 @@
   135/135 and the complete gate passed 936/936 tests, the 6,430-module Vite
   production build, post-build asset checks, collaboration policy, syntax
   checks and `git diff --check`.
+- Browser handoff QA imported one source product plus five structured delivery
+  records through the real Works-to-Canvas UI. It verified all five lane labels,
+  buyer-facing names, `3:4 · 1536x2048` detail metadata, hover focus, regenerate
+  and local-edit context actions, double-click preview, direct image-body drag,
+  and connection-path updates while the pointer was still held. The dragged
+  node moved 135 by 75 CSS pixels without a post-release jump. A 390x844 pass
+  retained all six nodes with a 390-pixel document width. Browser console and
+  request-failure collections were both empty.
+- That browser pass exposed a React 18 DOM warning from the shared image
+  component's camel-case `fetchPriority` prop. The component now emits the
+  standards-compatible lowercase `fetchpriority` attribute; the image policy
+  regression explicitly rejects the warning-producing spelling. Desktop and
+  narrow-viewport evidence is stored in the task visualization directory as
+  `canvas-handoff-desktop.png` and `canvas-handoff-mobile.png`.

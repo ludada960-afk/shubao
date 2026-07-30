@@ -48,7 +48,7 @@ export default function ResponsiveImage({
           draggable="false"
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
-          fetchPriority={priority ? 'high' : 'auto'}
+          fetchpriority={priority ? 'high' : 'auto'}
           onLoad={onLoad}
           onError={event => {
             if (candidateIndex + 1 < candidates.length) {
