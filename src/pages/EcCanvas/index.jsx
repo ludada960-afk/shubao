@@ -193,7 +193,7 @@ function SkeletonCard({ w, h }) {
 }
 
 /* A8: 图片加载骨架屏 + 错误重试 + C3: proxyImg 代理显示 */
-function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction, onPointerDown, onContextMenu, onToggleSelect, onPortPointerDown, onPortPointerUp, onInspect }) {
+function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], onAction, onPointerDown, onContextMenu, onToggleSelect, onPortPointerDown, onPortPointerUp, onInspect, onHoverChange }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -205,13 +205,13 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
       onPointerDown={e => onPointerDown(e, node.id)}
       onDoubleClick={e => { e.stopPropagation(); onInspect?.(node); }}
       onContextMenu={e => { e.preventDefault(); onContextMenu?.(e, node); }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); onHoverChange?.(node.id); }}
+      onMouseLeave={() => { setHovered(false); onHoverChange?.(null); }}
       style={{
         position: 'absolute', left: node.x, top: node.y, width: node.w,
         cursor: 'grab', userSelect: 'none', borderRadius: 12,
         boxShadow: selected ? '0 0 0 2.5px #7c3aed, 0 8px 32px rgba(124,58,237,0.25)' : '0 4px 16px rgba(0,0,0,0.10)',
-        background: '#fff', transition: 'box-shadow 0.15s', touchAction: 'none',
+        background: '#fff', opacity: dimmed ? 0.34 : 1, transition: 'box-shadow 0.15s, opacity 0.16s', touchAction: 'none',
       }}
     >
       <button
@@ -267,8 +267,8 @@ function ImageNode({ node, selected, multiSelected, hoverActions = [], onAction,
   );
 }
 
-function SourceGroupNode({ node, selected, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
-  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 15, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none' }}>
+function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp, onHoverChange }) {
+  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} onMouseEnter={() => onHoverChange?.(node.id)} onMouseLeave={() => onHoverChange?.(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 15, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none', opacity: dimmed ? 0.34 : 1, transition: 'opacity 0.16s, box-shadow 0.15s' }}>
     <CanvasPortHandle side="right" role="output" visible={selected} disabled={!canDeriveFromNode(node)} label="从产品素材派生工作流" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} onPointerUp={event => onPortPointerUp?.(event, node.id, 'out')} />
     <div style={{ fontSize: 10, fontWeight: 800, color: '#6558e8', letterSpacing: '.05em' }}>产品素材组</div>
     <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || '产品母图'}</div>
@@ -280,7 +280,7 @@ function SourceGroupNode({ node, selected, onPointerDown, onContextMenu, onPortP
 }
 
 /* A6: 连线 SVG 层 */
-function ConnectionLines({ connections, nodes, viewport, onRemove }) {
+function ConnectionLines({ connections, nodes, viewport, onRemove, focusNodeIds }) {
   if (!connections?.length) return null;
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const styles = {
@@ -303,10 +303,11 @@ function ConnectionLines({ connections, nodes, viewport, onRemove }) {
         const y2 = toPort.y * viewport.scale + viewport.y;
         const mx = (x1 + x2) / 2;
         const style = styles[conn.relation || conn.type] || styles.reference;
+        const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
         return (
           <g key={i}>
-            <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={2.4} fill="none" strokeDasharray={style.dash} opacity={0.75} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer' }} />
-            <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={0.8} />
+            <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
+            <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={isFocused ? 0.9 : 0.14} />
           </g>
         );
       })}
@@ -379,6 +380,7 @@ export default function EcCanvas() {
   const [selected, setSelected] = useState(null);
   const [multiSelected, setMultiSelected] = useState(new Set());
   const [connections, setConnections] = useState([]);
+  const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [pointerMode, setPointerMode] = useState(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [shiftPressed, setShiftPressed] = useState(false);
@@ -433,6 +435,10 @@ export default function EcCanvas() {
   const dragFrameRef = useRef(null);
   const pendingDragRef = useRef(null);
   const draftReadyRef = useRef(false);
+  const sourceUploadRef = useRef(null);
+  const canvasSessionRef = useRef(null);
+  const remoteSaveTimerRef = useRef(null);
+  const remoteSnapshotRef = useRef('');
 
   const imageList = parseImages(result.images || {}, result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
@@ -440,6 +446,16 @@ export default function EcCanvas() {
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
+  const focusedNodeIds = hoveredNodeId ? (() => {
+    const related = new Set([hoveredNodeId]);
+    connections.forEach(connection => {
+      const fromId = connection.fromNodeId || connection.from;
+      const toId = connection.toNodeId || connection.to;
+      if (fromId === hoveredNodeId) related.add(toId);
+      if (toId === hoveredNodeId) related.add(fromId);
+    });
+    return related;
+  })() : null;
 
   // toast helper
   const showToast = useCallback((msg, type = 'info') => {
@@ -518,11 +534,52 @@ export default function EcCanvas() {
   }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, imageList.length]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !hasCurrent || !canvasSaveKeyRef.current || !nodes.length) return undefined;
+    if (!draftReadyRef.current || !canvasSaveKeyRef.current || !nodes.length) return undefined;
     const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
     const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
     return () => clearTimeout(timer);
-  }, [connections, hasCurrent, nodes, viewport]);
+  }, [connections, nodes, viewport]);
+
+  useEffect(() => {
+    canvasSessionRef.current = canvasSession;
+  }, [canvasSession]);
+
+  useEffect(() => {
+    if (!draftReadyRef.current || !nodes.length || canvasSessionBusy) return undefined;
+    const projectId = result.projectId;
+    const baseVersionId = result.resultVersionId || result.sourceVersionId;
+    if (!projectId || !baseVersionId) return undefined;
+    const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
+    const fingerprint = JSON.stringify(snapshot);
+    if (fingerprint === remoteSnapshotRef.current) return undefined;
+
+    remoteSaveTimerRef.current = setTimeout(async () => {
+      setCanvasSessionBusy(true);
+      try {
+        const currentSession = canvasSessionRef.current;
+        const session = currentSession?.id
+          ? await saveCanvasSession(currentSession.id, { expectedRevision: currentSession.revision, snapshot })
+          : await createCanvasSession({ projectId, baseVersionId, snapshot });
+        remoteSnapshotRef.current = fingerprint;
+        canvasSessionRef.current = session;
+        setCanvasSession(session);
+        if (result._saveKey) {
+          const workResult = { ...result };
+          delete workResult.canvasSession;
+          await saveWork({ ...workResult, canvasSessionId: session.id, canvasSessionRevision: session.revision }, phone);
+        }
+        dispatch({
+          type: 'SET_RESULT',
+          result: { ...result, canvasSession: session, canvasSessionId: session.id, canvasSessionRevision: session.revision },
+        });
+      } catch {
+        // The local draft is already durable; retry on the next canvas change.
+      } finally {
+        setCanvasSessionBusy(false);
+      }
+    }, 1200);
+    return () => clearTimeout(remoteSaveTimerRef.current);
+  }, [canvasSessionBusy, connections, dispatch, nodes, phone, result, viewport]);
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
@@ -1563,6 +1620,43 @@ export default function EcCanvas() {
     dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
     dispatch({ type: 'NAVIGATE', page: 'home' });
   };
+  const handleCanvasSourceUpload = async event => {
+    const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('image/')).slice(0, 8);
+    event.target.value = '';
+    if (!files.length) return;
+    const assets = await Promise.all(files.map((file, index) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({
+        assetId: `upload-${Date.now()}-${index}`,
+        name: file.name || `商品原图 ${index + 1}`,
+        url: String(reader.result || ''),
+        sourceRole: 'product_original',
+      });
+      reader.onerror = () => reject(new Error('图片读取失败'));
+      reader.readAsDataURL(file);
+    })));
+    const sourceNode = {
+      id: `source-upload-${Date.now()}`,
+      kind: 'source_group',
+      status: 'ready',
+      name: '商品原图',
+      title: '商品原图',
+      platform: result.platform || '淘宝',
+      assets,
+      x: 80,
+      y: 100,
+      w: 248,
+      h: Math.max(200, 116 + Math.ceil(assets.length / 2) * 86),
+      editable: true,
+      sourceRole: 'product_original',
+    };
+    draftReadyRef.current = true;
+    canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${Date.now()}` });
+    setNodes(previous => [...previous, sourceNode]);
+    setSelected(sourceNode.id);
+    setMultiSelected(new Set([sourceNode.id]));
+    showToast('商品原图已加入画布，可从右侧端口创建电商处理', 'success');
+  };
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
@@ -1944,19 +2038,23 @@ export default function EcCanvas() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onDoubleClick={event => {
+            if (!nodes.length && !event.target?.closest?.('button,input,textarea,select,a')) sourceUploadRef.current?.click();
+          }}
         >
-          {!hasCurrent && (
+          <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
+          {!nodes.length && (
             <div className="canvas-empty-state" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.15 }}>🎨</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#999', marginBottom: 8 }}>画布是空的</div>
-              <div style={{ fontSize: 13, color: '#bbb', marginBottom: 24 }}>去首页生成一套电商图，图片会自动出现在这里</div>
-              <div onClick={handleNew} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 24px', borderRadius: 12, background: 'linear-gradient(135deg,#7c3aed,#a78bfa)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                <MdAdd size={16} /> 去生成
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#374151', marginBottom: 7 }}>双击画布导入商品素材</div>
+              <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 18 }}>从商品原图开始，再生成主图、详情图和 SKU 素材</div>
+              <div style={{ display: 'flex', gap: 9 }}>
+                <button type="button" onClick={() => sourceUploadRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 8, border: 0, background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}><MdAddPhotoAlternate size={16} /> 上传商品原图</button>
+                <button type="button" onClick={() => setTab('works')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}><MdCollections size={16} /> 从我的作品导入</button>
               </div>
             </div>
           )}
 
-          <ConnectionLines connections={connections} nodes={connectionNodes} viewport={viewport} onRemove={handleRemoveConnection} />
+          <ConnectionLines connections={connections} nodes={connectionNodes} viewport={viewport} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
           <ConnectionDraftLine draft={connectionDraft} nodes={connectionNodes} viewport={viewport} />
 
           <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
@@ -1982,9 +2080,11 @@ export default function EcCanvas() {
                   key={node.id}
                   node={node}
                   selected={selectedNodeState}
+                  dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
                   onPortPointerDown={handlePortPointerDown}
                   onPortPointerUp={handlePortPointerUp}
+                  onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onInspect={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
                 />;
@@ -1995,19 +2095,21 @@ export default function EcCanvas() {
                   node={node}
                   selected={selectedNodeState}
                   multiSelected={multiSelected.has(node.id)}
+                  dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   hoverActions={actionsForSurface({ surface: 'hover', node })}
                   onAction={handleToolAction}
                   onPointerDown={handleNodeDown}
                   onToggleSelect={handleToggleSelect}
                   onPortPointerDown={handlePortPointerDown}
                   onPortPointerUp={handlePortPointerUp}
+                  onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
               const referenceImages = (node.inputs?.referenceImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
               const workflowAction = getCanvasAction(node.actionId);
-              return <div key={node.id} data-canvas-node-id={node.id} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h }}>
+              return <div key={node.id} data-canvas-node-id={node.id} onMouseEnter={() => setHoveredNodeId(node.id)} onMouseLeave={() => setHoveredNodeId(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, opacity: focusedNodeIds && !focusedNodeIds.has(node.id) ? 0.34 : 1, transition: 'opacity 0.16s' }}>
                 <CanvasWorkflowNode
                   node={node}
                   sourceNode={sourcePreview}
