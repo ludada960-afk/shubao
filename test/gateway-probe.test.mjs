@@ -5,7 +5,7 @@ import { probeGateways, validateProbeSecrets } from '../scripts/probe-production
 
 const SECRETS = Object.freeze({
   imageApiKey: 'sk-image-test-key-that-is-long-enough',
-  visionApiKey: 'vision-test-key-that-is-long-enough',
+  visionApiKey: 'sk-vision-test-key-that-is-long-enough',
 });
 
 function jsonResponse(status, body) {
@@ -89,6 +89,10 @@ test('gateway probe validates the image model, real vision input, native task ou
 test('gateway probe rejects missing, short, or line-breaking credentials before network access', () => {
   assert.throws(() => validateProbeSecrets({ ...SECRETS, imageApiKey: '' }), /image gateway credential/i);
   assert.throws(() => validateProbeSecrets({ ...SECRETS, visionApiKey: 'short' }), /vision gateway credential/i);
+  assert.throws(
+    () => validateProbeSecrets({ ...SECRETS, visionApiKey: 'vision-test-key-that-is-long-enough' }),
+    /vision gateway credential/i,
+  );
   assert.throws(
     () => validateProbeSecrets({ ...SECRETS, imageApiKey: `${SECRETS.imageApiKey}\nINJECTED=yes` }),
     /image gateway credential/i,

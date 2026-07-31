@@ -44,6 +44,16 @@ function Get-RemotePm2ProcessId {
   return [int64]$remotePid
 }
 
+$hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
+$hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
+if ($hasImageGatewayKey -xor $hasVisionGatewayKey) {
+  throw "SHUBAO_IMAGE_API_KEY and SHUBAO_VISION_API_KEY must be provided together"
+}
+if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
+  & node $gatewayProbe --validate-only
+  if ($LASTEXITCODE -ne 0) { throw "Production gateway credential format validation failed" }
+}
+
 Write-Host "Building $commit..."
 Push-Location $repo
 try {
@@ -54,11 +64,6 @@ try {
   Pop-Location
 }
 
-$hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
-$hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
-if ($hasImageGatewayKey -xor $hasVisionGatewayKey) {
-  throw "SHUBAO_IMAGE_API_KEY and SHUBAO_VISION_API_KEY must be provided together"
-}
 if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
   & node $gatewayProbe
   if ($LASTEXITCODE -ne 0) { throw "Authenticated production gateway probe failed" }

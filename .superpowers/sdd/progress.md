@@ -453,3 +453,18 @@
   catalog accepted its credential; no paid image task was submitted. The probe
   no longer requires a vision model-list endpoint because the approved contract
   requires the real image-input call itself as the authoritative vision check.
+- PuppyRouter's public production bundle confirms that seller API credentials
+  are managed at `/console/token`: creating a token instructs the user to copy
+  it from the list, the list obtains the protected key separately, and the UI
+  renders that value as `sk-<key>`. The supplied 32-character vision value was
+  rejected both raw and with a synthetic prefix, so it cannot be repaired by
+  guessing a header or prefix; a complete enabled token must be copied from the
+  token list. The release tooling now enforces that provider-specific `sk-`
+  shape in the local probe, atomic runtime updater and remote verifier. A new
+  no-network `--validate-only` gate runs before the 936-test/build gate, while
+  the paid authenticated probe remains after those quality checks. TDD red was
+  confirmed across all four boundaries; focused regression passed 16/16, full
+  regression passed 936/936, Vite transformed 6,430 modules, build checks and
+  collaboration policy passed, and `git diff --check` reported no errors. The
+  release remains blocked only on a valid complete PuppyRouter API token; no
+  production state was changed.

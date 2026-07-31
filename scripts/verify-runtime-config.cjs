@@ -43,7 +43,8 @@ function validateRuntimeConfig(config) {
   }
   for (const key of REQUIRED_KEYS) {
     const candidate = String(config[key] || '').trim();
-    if (candidate.length < 24 || PLACEHOLDER_RE.test(candidate)) {
+    const wrongProviderFormat = key === 'MINI_API_KEY' && !candidate.startsWith('sk-');
+    if (candidate.length < 24 || PLACEHOLDER_RE.test(candidate) || wrongProviderFormat) {
       throw new Error(`${key} is missing or looks like a placeholder`);
     }
   }

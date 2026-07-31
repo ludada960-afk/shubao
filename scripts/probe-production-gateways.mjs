@@ -19,7 +19,9 @@ function validSecret(value) {
 
 export function validateProbeSecrets({ imageApiKey, visionApiKey } = {}) {
   if (!validSecret(imageApiKey)) throw new Error('image gateway credential is invalid');
-  if (!validSecret(visionApiKey)) throw new Error('vision gateway credential is invalid');
+  if (!validSecret(visionApiKey) || !visionApiKey.trim().startsWith('sk-')) {
+    throw new Error('vision gateway credential is invalid');
+  }
   return {
     imageApiKey: imageApiKey.trim(),
     visionApiKey: visionApiKey.trim(),
@@ -204,10 +206,20 @@ export async function probeGateways({
   };
 }
 
-async function run() {
-  const result = await probeGateways({
+async function run(argv = process.argv.slice(2)) {
+  if (argv.length > 1 || (argv.length === 1 && argv[0] !== '--validate-only')) {
+    throw new Error('usage: node probe-production-gateways.mjs [--validate-only]');
+  }
+  const secrets = validateProbeSecrets({
     imageApiKey: process.env.SHUBAO_IMAGE_API_KEY,
     visionApiKey: process.env.SHUBAO_VISION_API_KEY,
+  });
+  if (argv[0] === '--validate-only') {
+    console.log('Gateway credential format passed');
+    return;
+  }
+  const result = await probeGateways({
+    ...secrets,
   });
   console.log(JSON.stringify(result));
 }
