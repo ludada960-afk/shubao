@@ -400,7 +400,7 @@
   both code and runtime configuration together. Focused gateway and deployment
   tests passed 46/46; full regression passed 931/931.
 - `scripts/probe-production-gateways.mjs` now provides the remaining authenticated
-  preflight as one repeatable command: it verifies both model catalogs, sends a
+  preflight as one repeatable command: it verifies the image model catalog, sends a
   real image-input request to `gpt-5.6-luna`, submits and polls one native 1K
   `gpt-image-2` task, downloads the result and validates its decoded metadata.
   Credentials are accepted only from process environment and neither responses
@@ -444,3 +444,12 @@
   regression explicitly rejects the warning-producing spelling. Desktop and
   narrow-viewport evidence is stored in the task visualization directory as
   `canvas-handoff-desktop.png` and `canvas-handoff-mobile.png`.
+- The first authorized release attempt at commit `6303ea2` passed all 936 tests
+  and the 6,430-module build, then stopped before the production lock or any
+  runtime update because PuppyRouter rejected both model discovery and a direct
+  image-input completion with HTTP 401 `Invalid token`. Common bearer-prefix and
+  API-key header variants were rejected identically, proving the supplied vision
+  credential is not currently accepted by the named gateway. The image gateway
+  catalog accepted its credential; no paid image task was submitted. The probe
+  no longer requires a vision model-list endpoint because the approved contract
+  requires the real image-input call itself as the authoritative vision check.

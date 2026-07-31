@@ -16,7 +16,7 @@ function jsonResponse(status, body) {
   };
 }
 
-test('gateway probe validates models, real image input, native task output, and returns no credentials', async () => {
+test('gateway probe validates the image model, real vision input, native task output, and returns no credentials', async () => {
   const fetchCalls = [];
   let submittedRequest;
   let visionRequest;
@@ -26,9 +26,6 @@ test('gateway probe validates models, real image input, native task output, and 
       fetchCalls.push({ url, init });
       if (url === 'https://task-api-1-cn.65535.space/v1/models') {
         return jsonResponse(200, { data: [{ id: 'gpt-image-2' }] });
-      }
-      if (url === 'https://puppyrouter.com/v1/models') {
-        return jsonResponse(200, { data: [{ id: 'gpt-5.6-luna' }] });
       }
       if (url === 'https://cdn.example.test/probe.png') {
         return {
@@ -85,7 +82,8 @@ test('gateway probe validates models, real image input, native task output, and 
   });
   assert.equal(JSON.stringify(result).includes(SECRETS.imageApiKey), false);
   assert.equal(JSON.stringify(result).includes(SECRETS.visionApiKey), false);
-  assert.equal(fetchCalls.length, 3);
+  assert.equal(fetchCalls.length, 2);
+  assert.equal(fetchCalls.some(call => call.url === 'https://puppyrouter.com/v1/models'), false);
 });
 
 test('gateway probe rejects missing, short, or line-breaking credentials before network access', () => {

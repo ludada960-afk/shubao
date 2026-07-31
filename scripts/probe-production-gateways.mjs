@@ -142,10 +142,6 @@ export async function probeGateways({
     fetchJson(fetchImpl, `${normalizedImageBase}/v1/models`, secrets.imageApiKey)
   ));
   await stage('image model validation', async () => requireModel(imageModels, imageModel));
-  const visionModels = await stage('vision model discovery', () => (
-    fetchJson(fetchImpl, `${normalizedVisionBase}/v1/models`, secrets.visionApiKey)
-  ));
-  await stage('vision model validation', async () => requireModel(visionModels, visionModel));
 
   const sourceBuffer = await stage('probe image preparation', () => createProbeImageImpl());
   if (!Buffer.isBuffer(sourceBuffer) || !sourceBuffer.length) {
