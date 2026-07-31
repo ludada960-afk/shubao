@@ -487,3 +487,16 @@
   the complete suite passed 936/936, Vite transformed 6,430 modules, post-build
   checks and collaboration policy passed. Production remains unchanged pending
   the authenticated probe and deployment with only the two owner-supplied keys.
+- Authenticated migration diagnostics separated credential validity from provider
+  availability without exposing either key. The owner-supplied short vision value
+  is not accepted by PuppyRouter's inference API, while the already authorized
+  full `shubao识图GPT` token authenticates successfully: `/v1/models` returns 200,
+  lists `gpt-5.6-luna`, and declares its endpoint type as OpenAI. Both a minimal
+  text completion and an image-input completion then returned the same provider
+  `503 upstream_error`, proving the remaining failure is the upstream Luna channel,
+  not image encoding, model discovery or an extra-key requirement. Both release
+  attempts stopped before the deployment lock, runtime rewrite or paid image task,
+  so production remains unchanged. The shared VLM client now retries only transient
+  `429/5xx` responses with two bounded delays; authentication and other permanent
+  errors still fail immediately. TDD confirmed the transient sequence failed before
+  implementation and focused VLM regression passed 4/4.

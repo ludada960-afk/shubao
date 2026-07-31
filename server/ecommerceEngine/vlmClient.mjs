@@ -40,6 +40,14 @@ function parseJsonContent(content) {
   }
 }
 
+function sleep(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+function isRetryableStatus(status) {
+  return status === 429 || (Number.isInteger(status) && status >= 500);
+}
+
 export function createVlmClient({
   fetchImpl = fetch,
   apiKey,
@@ -48,6 +56,8 @@ export function createVlmClient({
   timeoutMs = 30_000,
   setTimeoutImpl = setTimeout,
   clearTimeoutImpl = clearTimeout,
+  retryDelaysMs = [750, 2_250],
+  sleepImpl = sleep,
 } = {}) {
   const key = cleanString(apiKey);
   const endpoint = cleanString(baseUrl).replace(/\/+$/, '');
@@ -56,7 +66,10 @@ export function createVlmClient({
     throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
   }
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0
-    || typeof setTimeoutImpl !== 'function' || typeof clearTimeoutImpl !== 'function') {
+    || typeof setTimeoutImpl !== 'function' || typeof clearTimeoutImpl !== 'function'
+    || !Array.isArray(retryDelaysMs) || retryDelaysMs.length > 5
+    || retryDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)
+    || typeof sleepImpl !== 'function') {
     throw new TypeError('VLM timeout configuration is invalid');
   }
 
@@ -72,16 +85,17 @@ export function createVlmClient({
         });
       }
 
-      const abortController = new AbortController();
-      let timedOut = false;
-      const timeout = setTimeoutImpl(() => {
-        timedOut = true;
-        abortController.abort(new Error('visual analysis request timed out'));
-      }, timeoutMs);
-      try {
-        let response;
+      for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+        const abortController = new AbortController();
+        let timedOut = false;
+        const timeout = setTimeoutImpl(() => {
+          timedOut = true;
+          abortController.abort(new Error('visual analysis request timed out'));
+        }, timeoutMs);
         try {
-          response = await fetchImpl(`${endpoint}/v1/chat/completions`, {
+          let response;
+          try {
+            response = await fetchImpl(`${endpoint}/v1/chat/completions`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -106,35 +120,45 @@ export function createVlmClient({
               temperature: 0.1,
             }),
             signal: abortController.signal,
-          });
-        } catch (error) {
-          throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
-            cause: error,
-          });
-        }
-
-        if (!response?.ok) {
-          throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
-        }
-        let data;
-        try {
-          data = await response.json();
-        } catch (error) {
-          if (timedOut || abortController.signal.aborted) {
+            });
+          } catch (error) {
+            if (!timedOut && !abortController.signal.aborted && attempt < retryDelaysMs.length) {
+              await sleepImpl(retryDelaysMs[attempt]);
+              continue;
+            }
             throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
               cause: error,
             });
           }
-          throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了无效响应', {
-            status: 502,
-            retryable: false,
-            cause: error,
-          });
+
+          if (!response?.ok) {
+            if (isRetryableStatus(response?.status) && attempt < retryDelaysMs.length) {
+              await sleepImpl(retryDelaysMs[attempt]);
+              continue;
+            }
+            throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
+          }
+          let data;
+          try {
+            data = await response.json();
+          } catch (error) {
+            if (timedOut || abortController.signal.aborted) {
+              throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
+                cause: error,
+              });
+            }
+            throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了无效响应', {
+              status: 502,
+              retryable: false,
+              cause: error,
+            });
+          }
+          return parseJsonContent(data?.choices?.[0]?.message?.content);
+        } finally {
+          clearTimeoutImpl(timeout);
         }
-        return parseJsonContent(data?.choices?.[0]?.message?.content);
-      } finally {
-        clearTimeoutImpl(timeout);
       }
+      throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
     },
   };
 }

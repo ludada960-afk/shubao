@@ -349,6 +349,38 @@ test('VLM client is injectable, requires explicit configuration and sends origin
   assert.equal(request.options.headers.Authorization, 'Bearer test-only-key');
 });
 
+test('VLM client retries transient upstream responses before returning valid JSON', async () => {
+  const statuses = [503, 429, 200];
+  const observedDelays = [];
+  let callCount = 0;
+  const client = createVlmClient({
+    apiKey: 'test-only-key',
+    baseUrl: 'https://vision.example',
+    retryDelaysMs: [10, 20],
+    sleepImpl: async milliseconds => observedDelays.push(milliseconds),
+    fetchImpl: async () => {
+      const status = statuses[callCount++];
+      return {
+        ok: status === 200,
+        status,
+        async json() {
+          return { choices: [{ message: { content: '{"probe":"ok"}' } }] };
+        },
+      };
+    },
+  });
+
+  const result = await client.analyzeJson({
+    systemPrompt: 'Return JSON only.',
+    userPrompt: 'Analyze style.',
+    images: ['data:image/png;base64,AA=='],
+  });
+
+  assert.deepEqual(result, { probe: 'ok' });
+  assert.equal(callCount, 3);
+  assert.deepEqual(observedDelays, [10, 20]);
+});
+
 test('VLM client rejects non-JSON model output instead of fabricating facts', async () => {
   const client = createVlmClient({
     apiKey: 'test-only-key',
