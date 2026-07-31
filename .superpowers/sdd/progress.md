@@ -595,3 +595,9 @@
   React-compatible `fetchpriority` correction. Focused image regression passed
   13/13, server syntax checks passed, the Vite build transformed 6,428 modules,
   and `git diff --check` passed.
+- Added root `PRODUCT.md` and `DESIGN.md` contracts for the commercial canvas
+  rebuild. They define the product register, three target creator groups,
+  business-first interaction principles, WCAG 2.1 AA floor, neutral tool
+  palette, fixed-density geometry, contextual node feedback and horizontal
+  ecommerce asset lanes. Competitor interaction patterns remain references;
+  Shubao keeps its own brand, copy and production capabilities.
