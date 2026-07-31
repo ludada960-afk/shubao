@@ -601,3 +601,16 @@
   palette, fixed-density geometry, contextual node feedback and horizontal
   ecommerce asset lanes. Competitor interaction patterns remain references;
   Shubao keeps its own brand, copy and production capabilities.
+- The Liuying-inspired Canvas interaction rebuild is complete locally. The new
+  shell uses a compact project header, add rail, bottom tool strip and separate
+  zoom controls; image nodes support direct body drag, same-frame edge geometry,
+  hover focus, contextual top actions, right-click commands, double-click large
+  preview and a clamped node-relative generation composer. Text nodes and the
+  three Shubao derivation choices replace unsupported video/workflow commands.
+  Source material remains on the left and outputs occupy horizontal white, main,
+  detail, SKU and material lanes with truthful aspect ratios and no edge labels.
+  Browser QA at desktop and 390x844 verified clean fixture restoration, tool-state
+  dismissal, non-overlapping mobile controls and zero local console errors;
+  evidence is saved as `ec-canvas-desktop.png` and `ec-canvas-mobile.png` in the
+  task visualization directory. Canvas regression passed 106/106 and the Vite
+  production build transformed 6,432 modules.

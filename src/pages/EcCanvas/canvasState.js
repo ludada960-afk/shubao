@@ -98,6 +98,20 @@ export function fitViewport(nodes, rect, padding = 56) {
   return { scale, x: (rect.width - (maxX - minX) * scale) / 2 - minX * scale, y: (rect.height - (maxY - minY) * scale) / 2 - minY * scale };
 }
 
+export function readableInitialViewport(nodes, rect, { padding = 72, minScale = 0.68 } = {}) {
+  const fitted = fitViewport(nodes, rect, padding);
+  if (!fitted || fitted.scale >= minScale) return fitted;
+  const minX = Math.min(...nodes.map(node => node.x));
+  const minY = Math.min(...nodes.map(node => node.y));
+  const maxX = Math.max(...nodes.map(node => node.x + node.w));
+  const scale = minScale;
+  return {
+    scale,
+    x: (rect.width - (maxX - minX) * scale) / 2 - minX * scale,
+    y: padding - minY * scale,
+  };
+}
+
 export function canStitch(nodes, selectedIds) {
   return [...selectedIds].filter(id => nodes.find(n => n.id === id)?.group === '详情图').length >= 2;
 }

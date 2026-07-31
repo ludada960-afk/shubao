@@ -7,6 +7,7 @@ import {
   normalizeEntitlement,
   withCreditsCompatibility,
 } from './entitlementState';
+import { createCanvasBrowserQaState } from '../pages/EcCanvas/canvasBrowserQaState.js';
 
 const AppContext = createContext(null);
 
@@ -43,6 +44,14 @@ const initialState = {
   inputText: '',
   scrollPos: 0,
 };
+
+function createInitialState() {
+  const browserQaState = createCanvasBrowserQaState({
+    enabled: import.meta.env.DEV,
+    search: globalThis.location?.search || '',
+  });
+  return browserQaState ? { ...initialState, ...browserQaState } : initialState;
+}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -128,7 +137,7 @@ function reducer(state, action) {
 }
 
 export function AppProvider({ children }) {
-  const [state, reducerDispatch] = useReducer(reducer, initialState);
+  const [state, reducerDispatch] = useReducer(reducer, undefined, createInitialState);
   const sessionRequestGateRef = useRef(null);
   if (!sessionRequestGateRef.current) {
     sessionRequestGateRef.current = createSessionRequestGate();

@@ -14,6 +14,7 @@ import {
   getAssetMeta,
   moveSelectedNodes,
   normalizeAsset,
+  readableInitialViewport,
   removeConnectionsForNodes,
   selectNodesInRect,
   zoomAroundCursor,
@@ -29,6 +30,7 @@ import {
   validateWorkflowActionInputs,
 } from './nodeWorkflow';
 import { CanvasNodeActionPicker, CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
+import { CanvasBottomToolbar, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { createCanvasSession, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
@@ -41,6 +43,8 @@ import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
+import { CANVAS_CREATION_OPTIONS, getCanvasFocusIds, getContextPanelPosition } from './canvasInteractionModel.js';
+import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
   return String(url).match(/\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))(?:[?#]|$)/i)?.[1] || '';
@@ -303,7 +307,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
 
 function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp, onInspect, onHoverChange }) {
   const previewAsset = node.assets?.find(asset => asset?.url);
-  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onDoubleClick={event => { event.stopPropagation(); if (previewAsset) onInspect?.({ ...node, url: previewAsset.url, label: previewAsset.name || node.name }); }} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} onMouseEnter={() => onHoverChange?.(node.id)} onMouseLeave={() => onHoverChange?.(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #6558e8' : '1px solid rgba(101,88,232,.28)', borderRadius: 8, color: '#1f2937', background: '#fafaff', boxShadow: selected ? '0 0 0 3px rgba(101,88,232,.14), 0 12px 30px rgba(15,23,42,.10)' : '0 8px 22px rgba(15,23,42,.08)', cursor: 'grab', userSelect: 'none', opacity: dimmed ? 0.34 : 1, transition: 'opacity 0.16s, box-shadow 0.15s' }}>
+  return <section data-canvas-node-id={node.id} onPointerDown={event => onPointerDown(event, node.id)} onDoubleClick={event => { event.stopPropagation(); if (previewAsset) onInspect?.({ ...node, url: previewAsset.url, label: previewAsset.name || node.name }); }} onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }} onMouseEnter={() => onHoverChange?.(node.id)} onMouseLeave={() => onHoverChange?.(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, boxSizing: 'border-box', padding: 13, border: selected ? '2px solid #2563eb' : '1px solid #d8dde5', borderRadius: 8, color: '#1f2937', background: '#fff', boxShadow: selected ? '0 0 0 2px rgba(37,99,235,.12), 0 4px 8px rgba(15,23,42,.12)' : '0 3px 8px rgba(15,23,42,.09)', cursor: 'grab', userSelect: 'none', opacity: dimmed ? 0.34 : 1, transition: 'opacity 0.16s, box-shadow 0.15s' }}>
     <CanvasPortHandle side="right" role="output" visible={selected} disabled={!canDeriveFromNode(node)} label="从产品素材派生工作流" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} onPointerUp={event => onPortPointerUp?.(event, node.id, 'out')} />
     <div style={{ fontSize: 10, fontWeight: 800, color: '#6558e8', letterSpacing: '.05em' }}>产品素材组</div>
     <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || '产品母图'}</div>
@@ -311,6 +315,31 @@ function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu,
       {(node.assets || []).slice(0, 4).map((asset, index) => <ResponsiveImage key={asset.assetId || asset.id || index} src={asset.url} alt={asset.name || '产品素材'} variant="thumb" ratio="1:1" sizes="120px" style={{ width: '100%', borderRadius: 8, background: '#e8eaf2' }} imgStyle={{ objectFit: 'contain' }} />)}
       {!node.assets?.length && <div style={{ gridColumn: '1 / -1', padding: '15px 8px', borderRadius: 8, color: '#8a93a4', background: '#f0f2f8', fontSize: 11, textAlign: 'center' }}>未找到产品原图</div>}
     </div>
+  </section>;
+}
+
+function CanvasTextNode({ node, selected, dimmed, onPointerDown, onChange, onContextMenu, onHoverChange, onPortPointerDown, onPortPointerUp }) {
+  return <section
+    data-canvas-node-id={node.id}
+    onPointerDown={event => {
+      if (event.target?.closest?.('textarea,input,button')) return;
+      onPointerDown(event, node.id);
+    }}
+    onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
+    onMouseEnter={() => onHoverChange?.(node.id)}
+    onMouseLeave={() => onHoverChange?.(null)}
+    className={`ec-canvas-text-node ${selected ? 'is-selected' : ''}`}
+    style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h, opacity: dimmed ? 0.34 : 1 }}
+  >
+    <CanvasPortHandle side="left" role="input" visible={selected} label="连接输入" onPointerUp={event => onPortPointerUp?.(event, node.id, 'in')} />
+    <CanvasPortHandle side="right" role="output" visible={selected} label="从文本派生" onPointerDown={event => onPortPointerDown?.(event, node.id, 'out')} />
+    <header>文本</header>
+    <textarea
+      data-canvas-control="true"
+      value={node.text || ''}
+      placeholder="输入标题、卖点或生成要求"
+      onChange={event => onChange(node.id, event.target.value)}
+    />
   </section>;
 }
 
@@ -341,7 +370,7 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
         const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
         return (
           <g key={i}>
-            <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
+            <path data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={isFocused ? 0.9 : 0.14} />
           </g>
         );
@@ -371,7 +400,7 @@ function ConnectionDraftLine({ draft, nodes }) {
 function SelectionActionBar({ node, actions, onAction, onClose }) {
   if (!node) return null;
   return (
-    <div style={{ position: 'absolute', zIndex: 70, left: node.x, top: Math.max(0, node.y - 52), display: 'flex', alignItems: 'center', gap: 3, padding: 5, borderRadius: 11, background: '#fff', border: '1px solid rgba(15,23,42,.08)', boxShadow: '0 10px 30px rgba(15,23,42,.16)', whiteSpace: 'nowrap' }}>
+    <div className="ec-canvas-selection-bar" style={{ left: node.x, top: Math.max(0, node.y - 44) }}>
       {actions.map(action => {
         const Icon = ACTION_ICONS[action.id] || MdAutoFixHigh;
         return <button key={action.id} type="button" title={action.description || action.label} aria-label={action.label} onClick={() => onAction(action.id, node)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 0, borderRadius: 7, padding: '7px 8px', background: 'transparent', color: '#374151', fontSize: 10, fontWeight: 700, cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.08)'; e.currentTarget.style.color = '#7c3aed'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; }}><Icon size={14} />{action.label}</button>;
@@ -381,13 +410,16 @@ function SelectionActionBar({ node, actions, onAction, onClose }) {
   );
 }
 
-function ReferenceComposer({ references, promptText, setPromptText, onRemoveReference, onAddReferenceFiles, onGenerate, loading }) {
+function ReferenceComposer({ references, promptText, setPromptText, onRemoveReference, onAddReferenceFiles, onGenerate, onClose, loading, position }) {
   const inputRef = useRef(null);
   return (
-    <div style={{ position: 'fixed', zIndex: 10004, right: 20, bottom: 20, width: 'min(520px, calc(100vw - 40px))', background: '#fff', border: '1px solid rgba(15,23,42,.10)', boxShadow: '0 18px 55px rgba(15,23,42,.20)', borderRadius: 8, padding: 14 }}>
+    <div data-canvas-control="true" className="ec-canvas-composer" onPointerDown={event => event.stopPropagation()} style={{ left: position?.x || 0, top: position?.y || 0, width: position?.width || 520 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <div><div style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>引用素材生成</div><div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>保留商品主体，按新的电商用途重新生成</div></div>
-        <span style={{ fontSize: 10, color: '#7c3aed', background: 'rgba(124,58,237,.08)', padding: '4px 7px', borderRadius: 999 }}>{references.length} 张参考图</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 10, color: '#7c3aed', background: 'rgba(124,58,237,.08)', padding: '4px 7px', borderRadius: 999 }}>{references.length} 张参考图</span>
+          <button type="button" aria-label="关闭生成编辑器" onClick={onClose} style={{ width: 24, height: 24, border: 0, borderRadius: 6, background: '#f3f4f6', color: '#6b7280', cursor: 'pointer', fontSize: 14 }}>×</button>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 8 }}>
         {references.map(node => <div key={node.id} style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}><ResponsiveImage src={node.url} variant="thumb" ratio="1:1" alt={node.name} style={{ width: '100%', height: '100%', borderRadius: 8 }} imgStyle={{ objectFit: 'cover' }} /><button type="button" onClick={() => onRemoveReference(node.id)} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 11, cursor: 'pointer' }}>×</button></div>)}
@@ -419,6 +451,7 @@ export default function EcCanvas() {
   const [sourceImportOpen, setSourceImportOpen] = useState(false);
   const [sourceRole, setSourceRole] = useState('product_original');
   const [pointerMode, setPointerMode] = useState(null);
+  const [activeTool, setActiveTool] = useState('select');
   const [spacePressed, setSpacePressed] = useState(false);
   const [shiftPressed, setShiftPressed] = useState(false);
   const [marquee, setMarquee] = useState(null);
@@ -451,9 +484,6 @@ export default function EcCanvas() {
   const [trashWorks, setTrashWorks] = useState([]);
   const [zoomImg, setZoomImg] = useState(null);
   const [toast, setToast] = useState(null);
-  const [promptPanel, setPromptPanel] = useState(null);
-  const [promptText, setPromptText] = useState('');
-  const [promptReferences, setPromptReferences] = useState([]);
   const [promptLoading, setPromptLoading] = useState(false);
   const [composerAction, setComposerAction] = useState('');
   const [imageInfoNode, setImageInfoNode] = useState(null);
@@ -476,6 +506,11 @@ export default function EcCanvas() {
   const canvasSessionRef = useRef(null);
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
+  const closeComposer = useCallback(() => {
+    setComposerNodes([]);
+    setComposerText('');
+    setComposerAction('');
+  }, []);
 
   const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
@@ -483,16 +518,7 @@ export default function EcCanvas() {
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
-  const focusedNodeIds = hoveredNodeId ? (() => {
-    const related = new Set([hoveredNodeId]);
-    connections.forEach(connection => {
-      const fromId = connection.fromNodeId || connection.from;
-      const toId = connection.toNodeId || connection.to;
-      if (fromId === hoveredNodeId) related.add(toId);
-      if (toId === hoveredNodeId) related.add(fromId);
-    });
-    return related;
-  })() : null;
+  const focusedNodeIds = hoveredNodeId ? getCanvasFocusIds(hoveredNodeId, connections) : null;
 
   // toast helper
   const showToast = useCallback((msg, type = 'info') => {
@@ -514,8 +540,8 @@ export default function EcCanvas() {
       outputs: imageList,
     });
     const draftKey = canvasDraftKey(result);
-    canvasSaveKeyRef.current = draftKey;
-    const draft = loadCanvasDraft(draftKey);
+    canvasSaveKeyRef.current = result.browserQa ? null : draftKey;
+    const draft = result.browserQa ? null : loadCanvasDraft(draftKey);
     const initialSnapshot = draft ? restoreCanvasSnapshot(draft) : null;
     const newNodes = (initialSnapshot?.nodes?.length ? initialSnapshot.nodes : session.nodes).map(normalizeCanvasNode);
     setNodes(newNodes);
@@ -563,26 +589,26 @@ export default function EcCanvas() {
       }).catch(() => {});
     }
     requestAnimationFrame(() => {
-      const next = initialSnapshot?.viewport || fitViewport(newNodes, containerRef.current?.getBoundingClientRect());
+      const next = initialSnapshot?.viewport || readableInitialViewport(newNodes, containerRef.current?.getBoundingClientRect());
       if (next) setViewport(next);
       draftReadyRef.current = true;
     });
     return () => { cancelled = true; };
-  }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, imageList.length]);
+  }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, result.browserQa, imageList.length]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !canvasSaveKeyRef.current || !nodes.length) return undefined;
+    if (!draftReadyRef.current || !canvasSaveKeyRef.current || !nodes.length || pointerMode?.kind === 'drag') return undefined;
     const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
     const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
     return () => clearTimeout(timer);
-  }, [connections, nodes, viewport]);
+  }, [connections, nodes, pointerMode?.kind, viewport]);
 
   useEffect(() => {
     canvasSessionRef.current = canvasSession;
   }, [canvasSession]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !nodes.length || canvasSessionBusy) return undefined;
+    if (!draftReadyRef.current || !nodes.length || canvasSessionBusy || pointerMode?.kind === 'drag') return undefined;
     const projectId = result.projectId;
     const baseVersionId = result.resultVersionId || result.sourceVersionId;
     if (!projectId || !baseVersionId) return undefined;
@@ -616,7 +642,7 @@ export default function EcCanvas() {
       }
     }, 1200);
     return () => clearTimeout(remoteSaveTimerRef.current);
-  }, [canvasSessionBusy, connections, dispatch, nodes, phone, result, viewport]);
+  }, [canvasSessionBusy, connections, dispatch, nodes, phone, pointerMode?.kind, result, viewport]);
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
@@ -763,7 +789,7 @@ export default function EcCanvas() {
       button: e.button,
       shiftKey: e.shiftKey,
       altKey: e.altKey,
-      spaceKey: spacePressed,
+      spaceKey: spacePressed || activeTool === 'hand',
       isInteractive: Boolean(interactiveTarget),
     });
     if (intent === 'ignore') return;
@@ -780,7 +806,7 @@ export default function EcCanvas() {
       setContextMenu(null);
     }
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [spacePressed, toWorldPoint, viewport.x, viewport.y]);
+  }, [activeTool, spacePressed, toWorldPoint, viewport.x, viewport.y]);
 
   const handlePointerMove = useCallback((e) => {
     if (!pointerMode) return;
@@ -882,6 +908,10 @@ export default function EcCanvas() {
   const handleNodeDown = useCallback((e, id) => {
     e.stopPropagation();
     if (e.button !== 0) return;
+    if (activeTool === 'hand') {
+      setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.shiftKey) {
       setMultiSelected(prev => {
         const next = new Set(prev);
@@ -897,7 +927,7 @@ export default function EcCanvas() {
     setToolNodeId(id);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [multiSelected, toWorldPoint]);
+  }, [activeTool, multiSelected, toWorldPoint, viewport.x, viewport.y]);
 
   const handleToggleSelect = useCallback((e, id) => {
     const next = new Set(multiSelected);
@@ -1020,8 +1050,8 @@ export default function EcCanvas() {
         kind: 'image',
         status: 'ready',
         url,
-        x: node.x + node.w + GAP * 2,
-        y: node.y + index * (source.h + 76),
+        x: node.x + node.w + GAP * 2 + index * (source.w + GAP),
+        y: node.y,
         name: `${source.name || source.displayLabel || '电商图'}-二创结果${count > 1 ? `-${index + 1}` : ''}`,
         displayLabel: `${source.name || source.displayLabel || '电商图'}-二创结果${count > 1 ? `-${index + 1}` : ''}`,
         sourceNodeIds: [node.id],
@@ -1095,30 +1125,6 @@ export default function EcCanvas() {
       const images = urls.map((url, index) => ({ id: `composer_ref_${Date.now()}_${index}`, url, name: files[index]?.name || '补充参考图' }));
       setComposerNodes(prev => [...prev, ...images]);
       showToast(`已添加 ${images.length} 张参考图`, 'success');
-    } catch (error) {
-      showToast(error.message || '参考图上传失败', 'error');
-    } finally {
-      setPromptLoading(false);
-    }
-  }, [promptLoading, showToast]);
-
-  const handlePromptAddImages = useCallback(async (files = []) => {
-    if (!files.length || promptLoading) return;
-    setPromptLoading(true);
-    try {
-      const dataUrls = await Promise.all(files.slice(0, 15).map(file => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('读取图片失败'));
-        reader.readAsDataURL(file);
-      })));
-      const urls = await uploadECTempImages(dataUrls);
-      setPromptReferences(prev => [...prev, ...urls.map((url, index) => ({
-        id: `prompt_ref_${Date.now()}_${index}`,
-        url,
-        name: files[index]?.name || '补充参考图',
-      }))]);
-      showToast(`已添加 ${urls.length} 张参考图`, 'success');
     } catch (error) {
       showToast(error.message || '参考图上传失败', 'error');
     } finally {
@@ -1352,9 +1358,9 @@ export default function EcCanvas() {
           setPromptLoading(true);
           const data = await reversePrompt({ image_url: node.url, product_name: node.name || node.displayLabel || node.label });
           if (!data.prompt) throw new Error('未得到可编辑的提示词');
-           setPromptPanel(node);
-           setPromptText(data.prompt);
-           setPromptReferences([]);
+           setComposerNodes([node]);
+           setComposerText(data.prompt);
+           setComposerAction('');
            showToast('已生成可编辑提示词', 'success');
         } catch (e) {
           handleCanvasActionError(e, { type: 'reverse-prompt', nodeId: node.id });
@@ -1409,13 +1415,13 @@ export default function EcCanvas() {
       return;
     }
     if (handler === 'adjust-requirements') {
-      setPromptPanel(node);
-      setPromptText([
+      setComposerNodes([node]);
+      setComposerText([
         node.direction?.purpose,
         node.direction?.composition,
         node.direction?.copy,
       ].filter(Boolean).join('\n') || '保留商品主体与品牌信息，调整画面表达：');
-      setPromptReferences([]);
+      setComposerAction('');
       return;
     }
     if (handler === 'regenerate') {
@@ -1657,6 +1663,40 @@ export default function EcCanvas() {
     dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
     dispatch({ type: 'NAVIGATE', page: 'home' });
   };
+
+  const handleAddTextNode = useCallback((placement = {}) => {
+    closeComposer();
+    const bounds = containerRef.current?.getBoundingClientRect();
+    const width = 300;
+    const height = 170;
+    const hasExplicitPosition = Number.isFinite(placement?.x) && Number.isFinite(placement?.y);
+    const x = hasExplicitPosition ? placement.x : ((bounds?.width || 960) / 2 - viewport.x) / viewport.scale - width / 2;
+    const y = hasExplicitPosition ? placement.y : ((bounds?.height || 640) / 2 - viewport.y) / viewport.scale - height / 2;
+    const textNode = {
+      id: `node_text_${Date.now()}`,
+      kind: 'text',
+      status: 'ready',
+      name: '文本',
+      text: '',
+      x,
+      y,
+      w: width,
+      h: height,
+      editable: true,
+    };
+    setNodes(previous => [...previous, textNode]);
+    setSelected(textNode.id);
+    setMultiSelected(new Set([textNode.id]));
+    setToolNodeId(textNode.id);
+    if (placement?.sourceNodeId) {
+      setConnections(previous => addConnection(previous, placement.sourceNodeId, textNode.id, 'derived'));
+    }
+    setActiveTool('select');
+  }, [closeComposer, viewport.scale, viewport.x, viewport.y]);
+
+  const handleTextNodeChange = useCallback((nodeId, text) => {
+    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text, name: text.trim().split(/\r?\n/)[0]?.slice(0, 32) || '文本' } : node));
+  }, []);
   const handleCanvasSourceUpload = async event => {
     const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('image/')).slice(0, 8);
     event.target.value = '';
@@ -1777,47 +1817,6 @@ export default function EcCanvas() {
     } catch (error) { showToast(error.message || '合成长图失败', 'error'); }
   };
 
-  const handlePromptRegenerate = async () => {
-    if (!promptPanel || !promptText.trim() || promptLoading) return;
-    setPromptLoading(true);
-    try {
-      const direction = directionDraft ? {
-        id: directionDraft.direction?.id || `direction_${Date.now()}`,
-        title: directionTitle || directionDraft.name,
-        purpose: directionPurpose,
-        composition: directionComposition,
-        copy: directionCopy,
-        ratio: directionRatio,
-      } : null;
-      const url = await regenerateCanvasImage({
-        prompt: promptText,
-        imageUrl: promptPanel.url,
-        referenceImages: promptReferences.map(node => node.url).filter(Boolean),
-        ratio: promptPanel.ratio,
-        sourceDirectionId: direction?.id,
-      });
-      const newNode = {
-        ...promptPanel,
-        id: `node_regenerated_${Date.now()}`,
-        assetId: `asset_regenerated_${Date.now()}`,
-        url,
-        x: promptPanel.x + promptPanel.w + 48,
-        y: promptPanel.y,
-        name: `${promptPanel.name || promptPanel.displayLabel || '电商图'}-二次生成`,
-        displayLabel: `${promptPanel.name || promptPanel.displayLabel || '电商图'}-二次生成`,
-        sourceDirectionId: direction?.id,
-        direction,
-      };
-      setNodes(prev => [...prev, newNode]);
-      setConnections(prev => addConnection(prev, promptPanel.id, newNode.id, 'variant'));
-      setPromptPanel(null);
-      setPromptReferences([]);
-      setDirectionDraft(null);
-      showToast('新图已加入画布', 'success');
-    } catch (error) { showToast(error.message, 'error'); }
-    finally { setPromptLoading(false); }
-  };
-
   const handleDirectionSave = () => {
     if (!directionDraft) return;
     const direction = {
@@ -1829,10 +1828,12 @@ export default function EcCanvas() {
       ratio: directionRatio,
       platform: result.platform || '淘宝',
     };
-    setNodes(prev => prev.map(node => node.id === directionDraft.id ? { ...node, direction, ratio: direction.ratio } : node));
+    const updatedNode = { ...directionDraft, direction, ratio: direction.ratio };
+    setNodes(prev => prev.map(node => node.id === directionDraft.id ? updatedNode : node));
     setDirectionDraft(null);
-    setPromptPanel({ ...directionDraft, direction });
-    setPromptText([direction.purpose, direction.composition, direction.copy].filter(Boolean).join('\n'));
+    setComposerNodes([updatedNode]);
+    setComposerText([direction.purpose, direction.composition, direction.copy].filter(Boolean).join('\n'));
+    setComposerAction('');
     showToast('设计方案已更新，可继续生成变体', 'success');
   };
 
@@ -1996,81 +1997,40 @@ export default function EcCanvas() {
 
   // 选中状态（单选 or 多选）
   const isNodeSelected = (id) => selected === id || multiSelected.has(id);
+  const portCreationActions = CANVAS_CREATION_OPTIONS.map(option => {
+    const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
+    return {
+      ...(imageAction || {}),
+      ...option,
+      group: '继续创作',
+      priceLabel: imageAction?.priceLabel || '免费',
+    };
+  });
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#F0EEE9', display: 'flex', flexDirection: 'column' }}>
-      {/* ── 顶部工具栏 ── */}
-      <div className="canvas-toolbar" style={{ height: 58, flexShrink: 0, background: 'rgba(255,255,255,0.94)', borderBottom: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10, zIndex: 100 }}>
-        <div onClick={handleBack} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><MdArrowBack size={16} color="#666" /></div>
-        <div style={{ flexShrink: 0, marginLeft: 4 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{tab === 'canvas' ? (result.product_name || '画布') : tab === 'trash' ? '回收站' : '我的作品集'}</div>
-          <div style={{ fontSize: 11, color: '#999' }}>{tab === 'canvas' ? `${nodes.length} 张资产${multiSelected.size > 0 ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : pastWorks.length} 个作品`}</div>
-        </div>
-        <div className="canvas-tabs" style={{ display: 'flex', gap: 3, padding: 3, borderRadius: 10, background: 'rgba(0,0,0,0.05)', marginLeft: 12, flexShrink: 0 }}>
-          {[['canvas','当前画布'],['works','作品集'],['trash','回收站']].map(([id,label]) => (
-            <div key={id} onClick={() => setTab(id)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: tab===id ? '#fff' : 'transparent', color: tab===id ? '#1a1a1a' : '#999', boxShadow: tab===id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>{label}</div>
-          ))}
-        </div>
-        <div className="canvas-toolbar-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {tab === 'canvas' && (
-            <>
-              <div className="canvas-filters" style={{ display: 'flex', gap: 4, alignItems: 'center', marginRight: 6 }}>
-                {['全部', ...ASSET_GROUPS].map(group => (
-                  <button key={group} type="button" onClick={() => setActiveFilter(group)} style={{ border: 0, borderRadius: 999, padding: '6px 9px', background: activeFilter === group ? '#1f2937' : 'rgba(0,0,0,.05)', color: activeFilter === group ? '#fff' : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{group}</button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: 3, borderRadius: 8, background: 'rgba(0,0,0,0.05)' }}>
-                <div onClick={() => zoomTo(viewport.scale * 0.8)} style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#666' }}><MdZoomOut size={16} /></div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#666', minWidth: 38, textAlign: 'center' }}>{Math.round(viewport.scale * 100)}%</div>
-                <div onClick={() => zoomTo(viewport.scale * 1.25)} style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#666' }}><MdZoomIn size={16} /></div>
-                <div onClick={fitView} style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#666' }} title="适配视口"><MdFitScreen size={16} /></div>
-              </div>
-              {multiSelected.size > 0 && (
-                <div onClick={handleMultiDownload} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'rgba(124,58,237,0.08)', color: '#7c3aed', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  <MdDownload size={14} /> 批量下载({multiSelected.size})
-                </div>
-              )}
-              {canStitch(nodes, multiSelected) && (
-                <div onClick={handleStitch} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: '#1f2937', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                  <MdCollections size={14} /> 合并详情图
-                </div>
-              )}
-              {multiSelected.size > 0 && (
-                <div onClick={() => setInspectorOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 8, background: 'rgba(37,99,235,.08)', color: '#2563eb', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                  <MdCategory size={14} /> 批量分类
-                </div>
-              )}
-              {selectedNode?.kind === 'image' && (
-                <button type="button" onClick={() => { setTextInspectorNodeId(selectedNode.id); setTextCompositionError(''); }} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 11px', border: 0, borderRadius: 8, background: 'rgba(15,118,110,.10)', color: '#0f766e', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                  <MdTextFields size={15} /> 文字图层
-                </button>
-              )}
-              <div onClick={() => setExportOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 8, background: 'rgba(16,185,129,.10)', color: '#047857', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                <MdFileDownload size={14} /> 交付导出
-              </div>
-              <button type="button" onClick={handleCanvasSessionSave} disabled={canvasSessionBusy} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 11px', border: 0, borderRadius: 8, background: 'rgba(37,99,235,.08)', color: '#2563eb', fontSize: 12, fontWeight: 700, cursor: canvasSessionBusy ? 'wait' : 'pointer' }}>
-                <MdSave size={15} /> 保存画布
-              </button>
-              <button type="button" onClick={handleCanvasSessionRestore} disabled={canvasSessionBusy || !(canvasSession?.id || result.canvasSessionId)} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 11px', border: 0, borderRadius: 8, background: 'rgba(107,114,128,.09)', color: '#4b5563', fontSize: 12, fontWeight: 700, cursor: canvasSessionBusy ? 'wait' : 'pointer' }}>
-                <MdRestore size={15} /> 恢复画布
-              </button>
-              {(selected || multiSelected.size > 0) && (
-                <div onClick={handleDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  <MdDelete size={14} /> 删除
-                </div>
-              )}
-            </>
-          )}
-          <div onClick={handleNew} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 8, background: 'var(--command)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--focus-ring)', boxShadow: '0 3px 12px rgba(37,99,235,0.30)' }}>
-            <MdAdd size={14} /> 新建生图
-          </div>
-        </div>
-      </div>
+    <div className="ec-canvas-page">
+      <CanvasTopBar
+        title={tab === 'canvas' ? (result.product_name || '电商画布') : tab === 'trash' ? '回收站' : '我的作品集'}
+        meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : pastWorks.length} 个作品`}
+        tab={tab}
+        onTabChange={setTab}
+        activeFilter={activeFilter}
+        filters={['全部', ...ASSET_GROUPS]}
+        onFilterChange={setActiveFilter}
+        onBack={handleBack}
+        onExport={() => setExportOpen(true)}
+        onSave={handleCanvasSessionSave}
+        onRestore={handleCanvasSessionRestore}
+        onNew={handleNew}
+        saving={canvasSessionBusy}
+        canRestore={Boolean(canvasSession?.id || result.canvasSessionId)}
+      />
 
       {tab === 'canvas' ? (
         <div
           ref={containerRef}
-          style={{ flex: 1, position: 'relative', overflow: 'hidden', backgroundColor: '#f6f5f2', backgroundImage: 'radial-gradient(rgba(58, 50, 39, .16) 1px, transparent 1px)', backgroundSize: '18px 18px', cursor: canvasCursorForState({ pointerKind: pointerMode?.kind, shiftKey: shiftPressed }), userSelect: 'none', touchAction: 'none' }}
+          className="ec-canvas-stage"
+          style={{ cursor: pointerMode?.kind === 'pan' ? 'grabbing' : activeTool === 'hand' ? 'grab' : canvasCursorForState({ pointerKind: pointerMode?.kind, shiftKey: shiftPressed }) }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -2080,14 +2040,35 @@ export default function EcCanvas() {
           }}
         >
           <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
+          <CanvasLeftRail
+            onUpload={() => setSourceImportOpen(true)}
+            onWorks={() => setTab('works')}
+            onEcommerce={handleNew}
+            onText={() => handleAddTextNode()}
+          />
+          <CanvasBottomToolbar
+            activeTool={activeTool}
+            onToolChange={setActiveTool}
+            onImage={() => { setSourceImportOpen(true); setActiveTool('select'); }}
+            onText={handleAddTextNode}
+          />
+          <CanvasZoomControls
+            scale={viewport.scale}
+            onZoomOut={() => zoomTo(viewport.scale * 0.8)}
+            onZoomIn={() => zoomTo(viewport.scale * 1.25)}
+            onFit={fitView}
+          />
           {sourceImportOpen && <CanvasSourceImportSheet role={sourceRole} onRoleChange={setSourceRole} onClose={() => setSourceImportOpen(false)} onUpload={() => { setSourceImportOpen(false); sourceUploadRef.current?.click(); }} onImportWorks={() => { setSourceImportOpen(false); setTab('works'); }} />}
           {!nodes.length && (
-            <div className="canvas-empty-state" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#374151', marginBottom: 7 }}>双击画布导入商品素材</div>
-              <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 18 }}>从商品原图开始，再生成主图、详情图和 SKU 素材</div>
-              <div style={{ display: 'flex', gap: 9 }}>
-                <button type="button" onClick={() => setSourceImportOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 8, border: 0, background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}><MdAddPhotoAlternate size={16} /> 上传商品原图</button>
-                <button type="button" onClick={() => setTab('works')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}><MdCollections size={16} /> 从我的作品导入</button>
+            <div className="ec-canvas-empty-state">
+              <div>
+                <strong>双击画布导入商品素材</strong>
+                <p>从商品原图开始，继续生成主图、详情图、SKU 和透明素材</p>
+                <div className="ec-canvas-empty-actions">
+                  <button type="button" className="is-primary" onClick={() => setSourceImportOpen(true)}><MdAddPhotoAlternate size={15} />上传商品原图</button>
+                  <button type="button" onClick={() => setTab('works')}><MdCollections size={15} />从我的作品导入</button>
+                  <button type="button" onClick={handleNew}><MdAutoFixHigh size={15} />生成电商套图</button>
+                </div>
               </div>
             </div>
           )}
@@ -2099,11 +2080,11 @@ export default function EcCanvas() {
               const groups = {};
               visibleNodes.forEach(n => {
                 const group = String(n.group || '').trim();
-                if (!group || group === 'undefined' || group === 'null') return;
+                if (!ASSET_GROUPS.includes(group)) return;
                 if (!groups[group]) groups[group] = n.y;
               });
               return Object.entries(groups).map(([group, y]) => (
-                <div key={group} style={{ position: 'absolute', left: 0, top: y - 28, fontSize: 14, fontWeight: 800, color: 'rgba(0,0,0,0.35)', pointerEvents: 'none', userSelect: 'none' }}>
+                <div key={group} className="ec-canvas-lane-label" style={{ left: 350, top: y }}>
                   {group}
                 </div>
               ));
@@ -2146,6 +2127,20 @@ export default function EcCanvas() {
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onInspect={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
+                />;
+              }
+              if (node.kind === 'text') {
+                return <CanvasTextNode
+                  key={node.id}
+                  node={node}
+                  selected={selectedNodeState}
+                  dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
+                  onPointerDown={handleNodeDown}
+                  onChange={handleTextNodeChange}
+                  onPortPointerDown={handlePortPointerDown}
+                  onPortPointerUp={handlePortPointerUp}
+                  onHoverChange={setHoveredNodeId}
+                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
@@ -2213,15 +2208,45 @@ export default function EcCanvas() {
               </div>;
             })}
             {selectedNode && actionsForSurface({ surface: 'selection', node: selectedNode }).length > 0 && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
+            {composerNodes.length > 0 && (() => {
+              const anchorNode = nodes.find(node => node.id === composerNodes[0]?.id) || selectedNode || composerNodes[0];
+              const position = getContextPanelPosition({
+                node: anchorNode,
+                viewport,
+                bounds: containerRef.current?.getBoundingClientRect(),
+                panel: { width: 520, height: 238 },
+              });
+              return <ReferenceComposer
+                references={composerNodes}
+                promptText={composerText}
+                setPromptText={setComposerText}
+                onRemoveReference={id => setComposerNodes(previous => previous.filter(node => node.id !== id))}
+                onAddReferenceFiles={handleComposerAddImages}
+                onGenerate={handleComposerGenerate}
+                onClose={closeComposer}
+                loading={promptLoading}
+                position={position}
+              />;
+            })()}
             {connectionPicker && <CanvasNodeActionPicker
-              actions={actionsForSurface({ surface: 'port', node: nodes.find(item => item.id === connectionPicker.sourceNodeId) })}
+              actions={portCreationActions}
               position={clampCanvasPickerPosition({
                 world: { x: connectionPicker.world.x + 14, y: connectionPicker.world.y + 14 },
                 viewport,
                 bounds: containerRef.current?.getBoundingClientRect(),
               })}
               onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
-              onSelect={action => handleCreateDerivedNode(connectionPicker.sourceNodeId, action, connectionPicker.world)}
+              onSelect={action => {
+                if (action.id === 'text-generation') {
+                  handleAddTextNode({ ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
+                } else if (action.id === 'ecommerce-suite') {
+                  handleNew();
+                } else {
+                  handleCreateDerivedNode(connectionPicker.sourceNodeId, getCanvasAction('product-remix'), connectionPicker.world);
+                }
+                setConnectionPicker(null);
+                setConnectionDraft(null);
+              }}
             />}
           </div>
 
@@ -2235,11 +2260,6 @@ export default function EcCanvas() {
             </div>
           )}
 
-          {/* 操作提示 */}
-          <div style={{ position: 'absolute', bottom: 16, right: 16, fontSize: 11, color: 'rgba(0,0,0,0.28)', pointerEvents: 'none', textAlign: 'right', lineHeight: 1.6 }}>
-            空白拖拽平移 · Shift 拖拽框选 · Space/Alt/中键平移 · 滚轮缩放<br/>
-            Ctrl/Shift 多选 · 端口连线
-          </div>
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 20px 72px' }}>
@@ -2368,32 +2388,6 @@ export default function EcCanvas() {
             </div>
           </div>
         </div>
-      )}
-
-      {promptPanel && (
-        <div style={{ position: 'fixed', zIndex: 10004, right: 22, bottom: 22, width: 'min(440px, calc(100vw - 44px))', background: '#fff', border: '1px solid rgba(0,0,0,.1)', boxShadow: '0 18px 50px rgba(0,0,0,.18)', borderRadius: 12, padding: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}><strong style={{ fontSize: 14 }}>反推提示词并重新生成</strong><button type="button" onClick={() => { setPromptPanel(null); setPromptReferences([]); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 18 }}>×</button></div>
-          <div style={{ fontSize: 11, color: '#777', marginBottom: 8 }}>以当前图片为参考，保留商品本体，按你的修改生成新图。</div>
-          <textarea value={promptText} onChange={e => setPromptText(e.target.value)} style={{ width: '100%', boxSizing: 'border-box', minHeight: 140, resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid rgba(0,0,0,.15)', font: '12px/1.6 inherit' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, overflowX: 'auto' }}>
-            {promptReferences.map(reference => <div key={reference.id} style={{ position: 'relative', width: 42, height: 42, flexShrink: 0 }}><ResponsiveImage src={reference.url} variant="thumb" ratio="1:1" alt={reference.name || '补充参考图'} style={{ width: '100%', height: '100%', borderRadius: 7 }} imgStyle={{ objectFit: 'cover' }} /><button type="button" aria-label="移除补充参考图" onClick={() => setPromptReferences(prev => prev.filter(item => item.id !== reference.id))} style={{ position: 'absolute', top: -5, right: -5, width: 15, height: 15, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 10, cursor: 'pointer' }}>×</button></div>)}
-            <button type="button" onClick={() => document.getElementById('canvas-prompt-reference-input')?.click()} style={{ height: 42, padding: '0 10px', border: '1px dashed #c4b5fd', borderRadius: 7, background: '#faf5ff', color: '#7c3aed', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ 补充参考图</button>
-            <input id="canvas-prompt-reference-input" type="file" accept="image/*" multiple hidden onChange={async event => { await handlePromptAddImages(event.target.files ? [...event.target.files] : []); event.target.value = ''; }} />
-          </div>
-          <button type="button" onClick={handlePromptRegenerate} disabled={promptLoading} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 8, padding: '10px 14px', background: '#1f2937', color: '#fff', fontWeight: 700, cursor: promptLoading ? 'wait' : 'pointer' }}>{promptLoading ? '正在生成…' : '按此方案生成'}</button>
-        </div>
-      )}
-
-      {composerNodes.length > 0 && (
-        <ReferenceComposer
-          references={composerNodes}
-          promptText={composerText}
-          setPromptText={setComposerText}
-          onRemoveReference={id => setComposerNodes(prev => prev.filter(node => node.id !== id))}
-          onAddReferenceFiles={handleComposerAddImages}
-          onGenerate={handleComposerGenerate}
-          loading={promptLoading}
-        />
       )}
 
       {cropNode && (

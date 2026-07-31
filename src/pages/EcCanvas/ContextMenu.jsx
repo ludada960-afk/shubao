@@ -1,7 +1,16 @@
 import React, { useEffect, useRef } from 'react';
+import { getContextMenuPosition } from './canvasInteractionModel.js';
 
 export default function ContextMenu({ x, y, node, actions = [], onClose, onAction }) {
   const ref = useRef(null);
+  const position = getContextMenuPosition({
+    x,
+    y,
+    viewportWidth: globalThis.innerWidth,
+    viewportHeight: globalThis.innerHeight,
+    width: 240,
+    height: Math.min(420, 48 + actions.length * 42),
+  });
 
   useEffect(() => {
     const handler = event => {
@@ -13,10 +22,10 @@ export default function ContextMenu({ x, y, node, actions = [], onClose, onActio
 
   return (
     <div ref={ref} role="menu" aria-label={`${node?.name || node?.displayLabel || '图片'}操作`} style={{
-      position: 'fixed', left: Math.max(8, x), top: Math.max(8, y), zIndex: 10000,
-      width: 'min(280px, calc(100vw - 16px))', maxHeight: 'min(620px, calc(100vh - 16px))', overflowY: 'auto',
-      background: '#fff', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08)',
-      border: '1px solid rgba(0,0,0,0.06)', padding: '6px 0',
+      position: 'fixed', left: position.x, top: position.y, zIndex: 10000,
+      width: 'min(240px, calc(100vw - 24px))', maxHeight: 'min(420px, calc(100vh - 24px))', overflowY: 'auto',
+      background: '#fff', borderRadius: 8, boxShadow: '0 4px 8px rgba(21,23,26,.16)',
+      padding: '5px 0',
     }}>
       <div style={{ padding: '7px 13px', color: '#778092', fontSize: 11, borderBottom: '1px solid rgba(15,23,42,.07)' }}>{node?.name || node?.displayLabel || '图片'}</div>
       {actions.map(action => (

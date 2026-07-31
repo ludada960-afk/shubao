@@ -6,6 +6,7 @@ import {
   bindNonPassiveWheel,
   canStitch,
   fitViewport,
+  readableInitialViewport,
   getCanvasPointerIntent,
   canvasCursorForState,
   moveSelectedNodes,
@@ -17,6 +18,7 @@ import {
 import { readFileSync } from 'node:fs';
 
 const canvasSource = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+const canvasChromeSource = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasChrome.jsx', import.meta.url), 'utf8');
 const worksSource = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
 
 
@@ -70,6 +72,19 @@ test('zoom keeps the canvas point under the cursor fixed', () => {
 test('fitViewport centres a node group', () => {
   const view = fitViewport([{ x: 0, y: 0, w: 200, h: 200 }], { width: 800, height: 600 });
   assert.ok(view.x > 100 && view.y > 100);
+});
+
+test('initial canvas framing keeps commerce cards readable instead of shrinking every lane', () => {
+  const nodes = Array.from({ length: 5 }, (_, index) => ({
+    x: index === 0 ? 0 : 340,
+    y: index * 360,
+    w: 200,
+    h: 260,
+  }));
+  const view = readableInitialViewport(nodes, { width: 1600, height: 900 });
+
+  assert.equal(view.scale, 0.68);
+  assert.ok(view.y >= 64);
 });
 
 test('only two detail nodes enable long image stitching', () => {
@@ -174,8 +189,9 @@ test('Canvas persistence keeps explicit recovery commands while synchronizing dr
   assert.match(canvasSource, /loadCanvasSession/);
   assert.match(canvasSource, /const handleCanvasSessionSave[\s\S]*?createCanvasSnapshot/);
   assert.match(canvasSource, /const handleCanvasSessionRestore[\s\S]*?restoreCanvasSnapshot/);
-  assert.match(canvasSource, /<MdSave[^>]*\/>\s*保存画布/);
-  assert.match(canvasSource, /<MdRestore[^>]*\/>\s*恢复画布/);
+  assert.match(canvasSource, /<CanvasTopBar[\s\S]*?onSave=\{handleCanvasSessionSave\}[\s\S]*?onRestore=\{handleCanvasSessionRestore\}/);
+  assert.match(canvasChromeSource, /<Save[^>]*\/>\{saving \? '保存中' : '保存'\}/);
+  assert.match(canvasChromeSource, /label="恢复已保存画布"[\s\S]*?<RotateCcw/);
   assert.match(canvasSource, /saveCanvasDraft\(/);
   assert.match(canvasSource, /remoteSaveTimerRef/);
   assert.match(canvasSource, /canvasSessionRef/);
