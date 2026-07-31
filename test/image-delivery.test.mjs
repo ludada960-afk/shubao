@@ -8,9 +8,10 @@ import sharp from 'sharp';
 import { createImageDelivery, imageVariantUrl } from '../server/imageDelivery.mjs';
 
 test('imageVariantUrl requests a derivative without corrupting existing query parameters', () => {
-  assert.equal(imageVariantUrl('/api/generated-assets/a.png', 'thumb'), '/api/generated-assets/a.png?variant=thumb');
-  assert.equal(imageVariantUrl('/api/generated-assets/a.png?download=1', 'canvas'), '/api/generated-assets/a.png?download=1&variant=canvas');
-  assert.equal(imageVariantUrl('/api/gallery-image?id=xm&file=cover.png', 'thumb'), '/api/gallery-image?id=xm&file=cover.png&variant=thumb');
+  assert.equal(imageVariantUrl('/api/generated-assets/a.png', 'thumb'), '/api/generated-assets/a.png?variant=thumb&v=3');
+  assert.equal(imageVariantUrl('/api/generated-assets/a.png?download=1', 'canvas'), '/api/generated-assets/a.png?download=1&variant=canvas&v=3');
+  assert.equal(imageVariantUrl('/api/gallery-image?id=xm&file=cover.png', 'thumb'), '/api/gallery-image?id=xm&file=cover.png&variant=thumb&v=3');
+  assert.equal(imageVariantUrl('/api/generated-assets/a.png', 'w960', 'avif'), '/api/generated-assets/a.png?variant=w960&format=avif&v=3');
   assert.equal(imageVariantUrl('/api/generated-assets/a.png', 'full'), '/api/generated-assets/a.png');
 });
 
@@ -27,7 +28,7 @@ test('delivery creates a cached webp derivative for a generated asset', async ()
     const metadata = await sharp(first.buffer).metadata();
     assert.equal(first.contentType, 'image/webp');
     assert.equal(metadata.format, 'webp');
-    assert.ok(metadata.width <= 360);
+    assert.ok(metadata.width <= 640);
     assert.deepEqual(second.buffer, first.buffer);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -75,7 +76,7 @@ test('delivery creates cached variants for a trusted local gallery image', async
     const second = await delivery.readLocalVariant(filePath, 'thumb');
     const metadata = await sharp(first.buffer).metadata();
     assert.equal(first.contentType, 'image/webp');
-    assert.ok(metadata.width <= 360);
+    assert.ok(metadata.width <= 640);
     assert.deepEqual(second.buffer, first.buffer);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -91,8 +92,30 @@ test('delivery can prewarm generated thumbnails before the first UI request', as
     }).png().toBuffer());
     const delivery = createImageDelivery({ assetRoot: root, proxyCacheRoot: join(root, 'proxy') });
     await delivery.prewarmGeneratedVariants(id);
-    await access(join(root, '.derivatives', `${id}.thumb.webp`));
-    await access(join(root, '.derivatives', `${id}.canvas.webp`));
+    await access(join(root, '.derivatives', `${id}.v3.w640.webp`));
+    await access(join(root, '.derivatives', `${id}.v3.w640.avif`));
+    await access(join(root, '.derivatives', `${id}.v3.w960.webp`));
+    await access(join(root, '.derivatives', `${id}.v3.w960.avif`));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('delivery exposes sharp display candidates without replacing the original', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'shubao-image-delivery-'));
+  try {
+    const id = 'c'.repeat(64) + '.png';
+    const original = await sharp({
+      create: { width: 2200, height: 1600, channels: 3, background: '#f6f4ef' },
+    }).png().toBuffer();
+    await writeFile(join(root, id), original);
+    const delivery = createImageDelivery({ assetRoot: root, proxyCacheRoot: join(root, 'proxy') });
+    const avif = await delivery.readGeneratedVariant(id, 'w1600', 'avif');
+    const full = await delivery.readGeneratedVariant(id, 'full');
+    const metadata = await sharp(avif.buffer).metadata();
+    assert.equal(avif.contentType, 'image/avif');
+    assert.equal(metadata.width, 1600);
+    assert.deepEqual(full.buffer, original);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -4,10 +4,15 @@ import { basename, extname, join, resolve } from 'node:path';
 import sharp from 'sharp';
 
 const MAX_PROXY_BYTES = 20 * 1024 * 1024;
+const DELIVERY_VERSION = 'v3';
 const VARIANTS = Object.freeze({
-  thumb: Object.freeze({ width: 360, quality: 74 }),
-  canvas: Object.freeze({ width: 960, quality: 82 }),
+  w320: Object.freeze({ width: 320, webpQuality: 90, avifQuality: 78 }),
+  w640: Object.freeze({ width: 640, webpQuality: 90, avifQuality: 78 }),
+  w960: Object.freeze({ width: 960, webpQuality: 91, avifQuality: 79 }),
+  w1600: Object.freeze({ width: 1600, webpQuality: 92, avifQuality: 80 }),
 });
+const VARIANT_ALIASES = Object.freeze({ thumb: 'w640', canvas: 'w960', display: 'w1600' });
+const OUTPUT_FORMATS = new Set(['webp', 'avif']);
 
 function safeAssetId(assetId = '') {
   const id = basename(String(assetId));
@@ -52,14 +57,33 @@ async function writeOnce(filePath, buffer) {
   }
 }
 
-export function imageVariantUrl(url, variant = 'full') {
+function canonicalVariant(variant = 'full') {
+  const value = String(variant || 'full');
+  return VARIANT_ALIASES[value] || value;
+}
+
+function normalizedFormat(format = 'webp') {
+  const value = String(format || 'webp').toLowerCase();
+  return OUTPUT_FORMATS.has(value) ? value : '';
+}
+
+function appendVariantParams(value, variant, format) {
+  const params = [`variant=${encodeURIComponent(variant)}`];
+  if (format && format !== 'webp') params.push(`format=${encodeURIComponent(format)}`);
+  params.push('v=3');
+  return `${value}${value.includes('?') ? '&' : '?'}${params.join('&')}`;
+}
+
+export function imageVariantUrl(url, variant = 'full', format = 'webp') {
   const value = typeof url === 'object' ? (url?.url || url?.src || url?.image_url || '') : String(url || '');
   if (!value || variant === 'full' || value.startsWith('data:') || value.startsWith('blob:')) return value;
+  const outputFormat = normalizedFormat(format);
+  if (!outputFormat) return value;
   if (value.startsWith('/api/generated-assets/') || value.startsWith('/api/gallery-image')) {
-    return `${value}${value.includes('?') ? '&' : '?'}variant=${encodeURIComponent(variant)}`;
+    return appendVariantParams(value, variant, outputFormat);
   }
   if (/^https?:\/\//i.test(value)) {
-    return `/api/proxy-image?url=${encodeURIComponent(value)}&variant=${encodeURIComponent(variant)}`;
+    return appendVariantParams(`/api/proxy-image?url=${encodeURIComponent(value)}`, variant, outputFormat);
   }
   return value;
 }
@@ -95,19 +119,23 @@ export function createImageDelivery({
     return promise;
   }
 
-  async function renderVariant(buffer, variant) {
+  async function renderVariant(buffer, variant, format = 'webp') {
     if (variant === 'full') return { buffer, contentType: 'application/octet-stream' };
-    const config = VARIANTS[variant];
+    const canonical = canonicalVariant(variant);
+    const config = VARIANTS[canonical];
     if (!config) throw new Error('unsupported image variant');
-    const output = await sharp(buffer, { failOn: 'none' })
+    const outputFormat = normalizedFormat(format);
+    if (!outputFormat) throw new Error('unsupported image format');
+    let pipeline = sharp(buffer, { failOn: 'none' })
       .rotate()
-      .resize({ width: config.width, withoutEnlargement: true })
-      .webp({ quality: config.quality, effort: 4 })
-      .toBuffer();
-    return { buffer: output, contentType: 'image/webp' };
+      .resize({ width: config.width, withoutEnlargement: true });
+    pipeline = outputFormat === 'avif'
+      ? pipeline.avif({ quality: config.avifQuality, effort: 2 })
+      : pipeline.webp({ quality: config.webpQuality, effort: 4, smartSubsample: true });
+    return { buffer: await pipeline.toBuffer(), contentType: `image/${outputFormat}` };
   }
 
-  async function readGeneratedVariant(assetId, variant = 'full') {
+  async function readGeneratedVariant(assetId, variant = 'full', format = 'webp') {
     const id = safeAssetId(assetId);
     if (!id) return null;
     const originalPath = join(generatedRoot, id);
@@ -115,48 +143,79 @@ export function createImageDelivery({
     if (variant === 'full') {
       return { buffer: await readFile(originalPath), contentType: contentTypeForPath(originalPath) };
     }
-    if (!VARIANTS[variant]) return null;
+    const canonical = canonicalVariant(variant);
+    const outputFormat = normalizedFormat(format);
+    if (!VARIANTS[canonical] || !outputFormat) return null;
     const derivativeRoot = join(generatedRoot, '.derivatives');
-    const derivativePath = cachePath(derivativeRoot, `${id}.${variant}`, 'webp');
+    const derivativePath = cachePath(derivativeRoot, `${id}.${DELIVERY_VERSION}.${canonical}`, outputFormat);
     const cached = await readIfPresent(derivativePath);
-    if (cached) return { buffer: cached, contentType: 'image/webp' };
-    return coalesce(`generated:${id}:${variant}`, async () => {
+    if (cached) return { buffer: cached, contentType: `image/${outputFormat}` };
+    return coalesce(`generated:${id}:${canonical}:${outputFormat}`, async () => {
       const existing = await readIfPresent(derivativePath);
-      if (existing) return { buffer: existing, contentType: 'image/webp' };
+      if (existing) return { buffer: existing, contentType: `image/${outputFormat}` };
       const original = await readFile(originalPath);
-      const rendered = await renderVariant(original, variant);
+      const rendered = await renderVariant(original, canonical, outputFormat);
       await mkdir(derivativeRoot, { recursive: true });
       await writeOnce(derivativePath, rendered.buffer);
       return rendered;
     });
   }
 
-  async function prewarmGeneratedVariants(assetId, variants = Object.keys(VARIANTS)) {
-    const requested = [...new Set(variants)].filter(variant => VARIANTS[variant]);
-    await Promise.all(requested.map(variant => readGeneratedVariant(assetId, variant)));
+  async function prewarmGeneratedVariants(assetId, variants = ['thumb', 'canvas'], formats = ['webp', 'avif']) {
+    const requested = [...new Set(variants)].filter(variant => VARIANTS[canonicalVariant(variant)]);
+    const requestedFormats = [...new Set(formats)].filter(format => normalizedFormat(format));
+    await Promise.all(requested.flatMap(variant => requestedFormats.map(format => readGeneratedVariant(assetId, variant, format))));
   }
 
-  async function readLocalVariant(filePath, variant = 'full') {
+  async function readLocalVariant(filePath, variant = 'full', format = 'webp') {
     const localPath = resolve(filePath);
     const metadata = await fileMetadata(localPath);
     if (!metadata) return null;
     if (variant === 'full') {
       return { buffer: await readFile(localPath), contentType: contentTypeForPath(localPath) };
     }
-    if (!VARIANTS[variant]) return null;
+    const canonical = canonicalVariant(variant);
+    const outputFormat = normalizedFormat(format);
+    if (!VARIANTS[canonical] || !outputFormat) return null;
     const key = hash(`${localPath}\0${metadata.size}\0${metadata.mtimeMs}`);
     const derivativeRoot = join(proxyRoot, 'local');
-    const derivativePath = cachePath(derivativeRoot, `${key}.${variant}`, 'webp');
+    const derivativePath = cachePath(derivativeRoot, `${key}.${DELIVERY_VERSION}.${canonical}`, outputFormat);
     const cached = await readIfPresent(derivativePath);
-    if (cached) return { buffer: cached, contentType: 'image/webp' };
-    return coalesce(`local:${key}:${variant}`, async () => {
+    if (cached) return { buffer: cached, contentType: `image/${outputFormat}` };
+    return coalesce(`local:${key}:${canonical}:${outputFormat}`, async () => {
       const existing = await readIfPresent(derivativePath);
-      if (existing) return { buffer: existing, contentType: 'image/webp' };
-      const rendered = await renderVariant(await readFile(localPath), variant);
+      if (existing) return { buffer: existing, contentType: `image/${outputFormat}` };
+      const rendered = await renderVariant(await readFile(localPath), canonical, outputFormat);
       await mkdir(derivativeRoot, { recursive: true });
       await writeOnce(derivativePath, rendered.buffer);
       return rendered;
     });
+  }
+
+  async function prewarmLocalVariants(requests = [], { concurrency = 2 } = {}) {
+    const jobs = [];
+    for (const request of requests) {
+      const filePath = request?.filePath;
+      if (!filePath) continue;
+      const variants = request.variants || ['thumb'];
+      const formats = request.formats || ['avif'];
+      for (const variant of variants) {
+        for (const format of formats) jobs.push({ filePath, variant, format });
+      }
+    }
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < jobs.length) {
+        const job = jobs[cursor];
+        cursor += 1;
+        try {
+          await readLocalVariant(job.filePath, job.variant, job.format);
+        } catch {
+          // A corrupt source must not prevent the remaining gallery images from warming.
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, Math.min(Number(concurrency) || 1, jobs.length || 1)) }, worker));
   }
 
   async function readProxySource(url) {
@@ -203,21 +262,24 @@ export function createImageDelivery({
     });
   }
 
-  async function readProxyVariant(url, variant = 'full') {
+  async function readProxyVariant(url, variant = 'full', format = 'webp') {
     const source = await readProxySource(url);
     if (variant === 'full') return { buffer: source.buffer, contentType: source.contentType };
-    if (!VARIANTS[variant]) throw new Error('unsupported image variant');
-    const derivativePath = cachePath(proxyRoot, `${source.key}.${variant}`, 'webp');
+    const canonical = canonicalVariant(variant);
+    const outputFormat = normalizedFormat(format);
+    if (!VARIANTS[canonical]) throw new Error('unsupported image variant');
+    if (!outputFormat) throw new Error('unsupported image format');
+    const derivativePath = cachePath(proxyRoot, `${source.key}.${DELIVERY_VERSION}.${canonical}`, outputFormat);
     const cached = await readIfPresent(derivativePath);
-    if (cached) return { buffer: cached, contentType: 'image/webp' };
-    return coalesce(`proxy:${source.key}:${variant}`, async () => {
+    if (cached) return { buffer: cached, contentType: `image/${outputFormat}` };
+    return coalesce(`proxy:${source.key}:${canonical}:${outputFormat}`, async () => {
       const existing = await readIfPresent(derivativePath);
-      if (existing) return { buffer: existing, contentType: 'image/webp' };
-      const rendered = await renderVariant(source.buffer, variant);
+      if (existing) return { buffer: existing, contentType: `image/${outputFormat}` };
+      const rendered = await renderVariant(source.buffer, canonical, outputFormat);
       await writeOnce(derivativePath, rendered.buffer);
       return rendered;
     });
   }
 
-  return { readGeneratedVariant, prewarmGeneratedVariants, readLocalVariant, readProxyVariant };
+  return { readGeneratedVariant, prewarmGeneratedVariants, readLocalVariant, prewarmLocalVariants, readProxyVariant };
 }

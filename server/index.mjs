@@ -145,7 +145,9 @@ const imageDelivery = createImageDelivery({
 });
 const generatedAssetStore = createGeneratedAssetStore({
   directory: resolve(__dirname, 'generated-assets'),
-  onPersist: asset => imageDelivery.prewarmGeneratedVariants(asset.id),
+  onPersist: asset => {
+    void imageDelivery.prewarmGeneratedVariants(asset.id).catch(() => {});
+  },
 });
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
@@ -249,7 +251,11 @@ app.use(cors());
 app.use(express.json({ limit: '30mb' }));
 
 app.get('/api/generated-assets/:id', async (req, res) => {
-  const asset = await imageDelivery.readGeneratedVariant(req.params.id, req.query.variant || 'full');
+  const asset = await imageDelivery.readGeneratedVariant(
+    req.params.id,
+    req.query.variant || 'full',
+    req.query.format || 'webp',
+  );
   if (!asset) return res.status(404).end('generated asset not found');
   res.setHeader('Content-Type', asset.contentType);
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
@@ -2111,16 +2117,17 @@ mountWorkRoutes(app, {
 app.get('/api/proxy-image', async (req, res) => {
   const url = String(req.query.url || '');
   const variant = String(req.query.variant || 'full');
+  const format = String(req.query.format || 'webp');
   if (!url) return res.status(400).end('missing url');
   try {
-    const image = await imageDelivery.readProxyVariant(url, variant);
+    const image = await imageDelivery.readProxyVariant(url, variant, format);
     res.set('Content-Type', image.contentType);
     res.set('Cache-Control', variant === 'full' ? 'public, max-age=3600' : 'public, max-age=86400');
     res.set('Access-Control-Allow-Origin', '*');
     res.send(image.buffer);
   } catch (error) {
     const message = String(error?.message || '');
-    if (message.includes('invalid remote') || message.includes('unsupported image variant')) return res.status(400).end('invalid image request');
+    if (message.includes('invalid remote') || message.includes('unsupported image variant') || message.includes('unsupported image format')) return res.status(400).end('invalid image request');
     if (message.includes('not an image')) return res.status(415).end('not an image');
     if (message.includes('size limit')) return res.status(413).end('image too large');
     res.status(502).end('image temporarily unavailable');
@@ -2156,8 +2163,9 @@ app.get('/api/gallery-image', async (req, res) => {
   if (!['.png', '.jpg', '.jpeg', '.webp'].includes(extension)) return res.status(400).end('invalid file');
   const filePath = resolve(GALLERY_DIR, folder, requestedFile);
   const variant = String(req.query.variant || 'full');
+  const format = String(req.query.format || 'webp');
   try {
-    const image = await imageDelivery.readLocalVariant(filePath, variant);
+    const image = await imageDelivery.readLocalVariant(filePath, variant, format);
     if (!image) return res.status(404).end('file not found');
     res.set('Content-Type', image.contentType);
     res.set('Cache-Control', variant === 'full'
@@ -2165,12 +2173,49 @@ app.get('/api/gallery-image', async (req, res) => {
       : 'public, max-age=31536000, immutable');
     res.send(image.buffer);
   } catch (error) {
-    if (String(error?.message || '').includes('unsupported image variant')) {
+    if (/unsupported image (?:variant|format)/.test(String(error?.message || ''))) {
       return res.status(400).end('invalid image variant');
     }
     res.status(500).end('gallery image unavailable');
   }
 });
+
+function scheduleGalleryImageWarmup() {
+  const covers = [];
+  const thumbnails = [];
+  for (const folder of Object.values(GALLERY_FILE_MAP)) {
+    const directory = resolve(GALLERY_DIR, folder);
+    let files = [];
+    try {
+      files = fs.readdirSync(directory)
+        .filter(file => ['.png', '.jpg', '.jpeg', '.webp'].includes(extname(file).toLowerCase()))
+        .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+    } catch {
+      continue;
+    }
+    const cover = files.find(file => /^01(?:\D|$)/.test(file)) || files[0];
+    if (cover) covers.push({
+      filePath: resolve(directory, cover),
+      variants: ['thumb', 'display'],
+      formats: ['avif', 'webp'],
+    });
+    for (const file of files) {
+      if (file === cover) continue;
+      thumbnails.push({
+        filePath: resolve(directory, file),
+        variants: ['thumb'],
+        formats: ['avif', 'webp'],
+      });
+    }
+  }
+  const timer = setTimeout(() => {
+    void imageDelivery.prewarmLocalVariants([...covers, ...thumbnails], { concurrency: 2 })
+      .catch(error => console.warn('[image-delivery] gallery warmup skipped:', error.message));
+  }, 1_500);
+  timer.unref?.();
+}
+
+scheduleGalleryImageWarmup();
 
 // ============================================================
 // 图片文字叠加（用 Sharp 把文字画到图片上，带内存缓存）

@@ -584,3 +584,14 @@
   expose visible hover, focus, pressed, disabled and busy states. Focused lifecycle
   and gateway regressions passed 28/28, API/UI regressions passed 45/45, both
   changed server modules passed syntax checks, and Vite transformed 6,428 modules.
+- Image delivery stage is complete locally. Gallery, Works, Canvas and result
+  views now use versioned WebP/AVIF DPR candidates at 320/640/960/1600 widths,
+  decode-before-reveal placeholders, purpose-sized `sizes`, hover predecode and
+  asynchronous bounded warmup. Original files remain the source of truth;
+  thumbnails are no longer enlarged beyond their intended density. Browser
+  evidence on the local production-shaped server selected a 55 KB `w640` AVIF
+  for a gallery card and a 127 KB `w1600` AVIF for a detail view, versus a
+  1.74 MB original, with no failed images or console warnings after the
+  React-compatible `fetchpriority` correction. Focused image regression passed
+  13/13, server syntax checks passed, the Vite build transformed 6,428 modules,
+  and `git diff --check` passed.

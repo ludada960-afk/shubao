@@ -4,6 +4,8 @@ import { proxyImg, regenerateImage, downloadZip } from './services/api';
 import { IMAGES } from './constants/images';
 import { EC_PLATFORM_SPECS } from './constants/data';
 import { useDialog } from './components/ui/DialogProvider.jsx';
+import ResponsiveImage from './components/ResponsiveImage.jsx';
+import { predecodeResponsiveImage } from './components/responsiveImageModel.js';
 
 export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery, onSendToCanvas }) {
   const dialog = useDialog();
@@ -21,8 +23,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   const imgs = useMemo(() => {
     const a = [];
-    if (item?.cover_url) a.push(proxyImg(item.cover_url));
-    if (item?.image_urls?.length) item.image_urls.forEach(u => { if (u) a.push(proxyImg(u)); });
+    if (item?.cover_url) a.push(item.cover_url);
+    if (item?.image_urls?.length) item.image_urls.forEach(u => { if (u) a.push(u); });
     return a;
   }, [item]);
 
@@ -31,13 +33,22 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
   // 预览模式：只有封面，其余8张用占位
   // 试用模式：全量生成，只展示封面，其余图片模糊水印
   const maxSlots = 9;
-  const displayImgs = isPreview
-    ? [...imgs, ...Array(Math.max(0, maxSlots - imgs.length)).fill(null)]
-    : imgs;
+  const displayImgs = useMemo(() => (
+    isPreview
+      ? [...imgs, ...Array(Math.max(0, maxSlots - imgs.length)).fill(null)]
+      : imgs
+  ), [imgs, isPreview]);
 
   const bodyText = item?.body_text || '';
   const tagStr = (item?.hashtags || []).join(' ');
   const maxI = displayImgs.length || 1;
+
+  useEffect(() => {
+    if (item?._ecResult || !displayImgs[imgIdx]) return;
+    void predecodeResponsiveImage(displayImgs[imgIdx], 'display');
+    const next = displayImgs[imgIdx + 1];
+    if (next) void predecodeResponsiveImage(next, 'display');
+  }, [displayImgs, imgIdx, item?._ecResult]);
 
   // 键盘导航
   useEffect(() => {
@@ -163,7 +174,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 <MdArrowBack size={18} />
               </button>
             )}
-            <img src={proxyImg(getUrl(images[ecIdx]))} alt="" style={S.zoomImg} onClick={e => e.stopPropagation()} />
+            <ResponsiveImage src={getUrl(images[ecIdx])} alt={getLabel(images[ecIdx])} variant="display" ratio="1:1" priority sizes="90vw"
+              style={{ width: '90vw', height: '90vh', background: 'transparent' }} imgStyle={S.zoomImg} />
             {images.length > 1 && ecIdx < images.length - 1 && (
               <button style={{ ...S.zoomNav, right: 12, color: '#fff', background: 'rgba(255,255,255,0.15)' }}
                 onClick={(e) => { e.stopPropagation(); setEcIdx(i => i + 1); }}>
@@ -298,16 +310,12 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       background: '#f8f8f8', overflow: 'hidden',
                       cursor: isLocked ? 'default' : 'pointer',
                     }} onClick={() => { if (!isLocked) { setEcIdx(i); setEcZoom(true); } }}>
-                      <img src={proxyImg(url)} alt={style}
-                        style={{
-                          width: '100%', height: '100%', objectFit: 'contain',
-                          display: 'block', background: '#fff',
-                          transition: 'transform 0.3s',
-                          filter: isLocked ? 'blur(12px)' : 'none',
-                          opacity: isLocked ? 0.5 : 1,
-                        }}
-                        loading="lazy"
-                      />
+                      <ResponsiveImage src={url} alt={style} variant="thumb" ratio="1:1" sizes="220px"
+                        style={{ width: '100%', height: '100%', background: '#fff' }}
+                        imgStyle={{
+                          objectFit: 'contain', background: '#fff', transition: 'transform 0.3s',
+                          filter: isLocked ? 'blur(12px)' : 'none', opacity: isLocked ? 0.5 : 1,
+                        }} />
                       {isLocked ? (
                         <div style={{
                           position: 'absolute', inset: 0,
@@ -469,7 +477,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 <MdArrowBack size={18} />
               </button>
             )}
-            <img src={imgs[imgIdx]} alt="" style={S.zoomImg} onClick={e => e.stopPropagation()} />
+            <ResponsiveImage src={imgs[imgIdx]} alt="" variant="display" ratio="3:4" priority sizes="90vw"
+              style={{ width: '90vw', height: '90vh', background: 'transparent' }} imgStyle={S.zoomImg} />
             {imgIdx < maxI - 1 && (
               <button style={{ ...S.zoomNav, right: 12 }} onClick={(e) => { e.stopPropagation(); setImgIdx(i => Math.min(maxI - 1, i + 1)); }}>
                 <MdArrowForward size={18} />
@@ -496,8 +505,9 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       position: 'relative', overflow: 'hidden',
                     }}>
-                      <img src={displayImgs[imgIdx]} alt=""
-                        style={{ maxWidth: '100%', maxHeight: 'calc(90vh - 90px)', objectFit: 'contain', display: 'block', filter: 'blur(16px)', opacity: 0.5, transform: 'scale(1.1)' }} />
+                      <ResponsiveImage src={displayImgs[imgIdx]} alt="" variant="display" ratio="3:4" priority sizes="min(58vw, 920px)"
+                        style={{ width: '100%', height: '100%', background: 'transparent' }}
+                        imgStyle={{ maxWidth: '100%', maxHeight: 'calc(90vh - 90px)', objectFit: 'contain', filter: 'blur(16px)', opacity: 0.5, transform: 'scale(1.1)' }} />
                       {/* 遮罩层 */}
                       <div style={{
                         position: 'absolute', inset: 0,
@@ -532,7 +542,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       </div>
                     </div>
                   ) : (
-                    <img src={displayImgs[imgIdx]} alt="" style={S.mainImg} onClick={() => setZoom(true)} />
+                    <ResponsiveImage src={displayImgs[imgIdx]} alt="" variant="display" ratio="3:4" priority sizes="min(58vw, 920px)"
+                      style={{ width: '100%', height: '100%', background: 'transparent', cursor: 'zoom-in' }} imgStyle={S.mainImg} onClick={() => setZoom(true)} />
                   )
                 ) : isPreview ? (
                   /* 锁定占位 */
@@ -601,11 +612,13 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       overflow: 'hidden',
                     }}>
                       {url ? (
-                        <img src={url} alt="" style={{
-                          ...S.thumbImg,
-                          filter: isTrialLocked && i > 0 ? 'blur(4px)' : 'none',
-                          opacity: isTrialLocked && i > 0 ? 0.5 : 1,
-                        }} loading="lazy" />
+                        <ResponsiveImage src={url} alt="" variant="thumb" ratio="3:4" sizes="56px"
+                          style={{ width: '100%', height: '100%', background: 'transparent' }}
+                          imgStyle={{
+                            ...S.thumbImg,
+                            filter: isTrialLocked && i > 0 ? 'blur(4px)' : 'none',
+                            opacity: isTrialLocked && i > 0 ? 0.5 : 1,
+                          }} />
                       ) : (
                         <div style={{
                           width: '100%', height: '100%',

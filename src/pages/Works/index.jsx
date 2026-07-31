@@ -167,7 +167,7 @@ export default function WorksPage() {
                 {!w._ecResult ? (
                   <>
                     {w.cover_url ? (
-                      <ResponsiveImage src={w.cover_url} alt="" variant="thumb" priority={i < 4} ratio="3:4"
+                      <ResponsiveImage src={w.cover_url} alt="" variant="thumb" priority={i < 4} ratio="3:4" sizes="56px"
                         style={{ width: 56, height: 75, borderRadius: 'var(--radius-md)', flex: '0 0 auto' }}
                         imgStyle={{ objectFit: 'cover' }} />
                     ) : (
@@ -194,7 +194,7 @@ export default function WorksPage() {
                   /* ═══ EC 作品卡片 ═══ */
                   <>
                     {ecImages[0]?.url ? (
-                      <ResponsiveImage src={ecImages[0].url} alt="" variant="thumb" priority={i < 4} ratio="1:1"
+                      <ResponsiveImage src={ecImages[0].url} alt="" variant="thumb" priority={i < 4} ratio="1:1" sizes="56px"
                         style={{ width: 56, height: 56, borderRadius: 'var(--radius-md)', flex: '0 0 auto' }}
                         imgStyle={{ objectFit: 'cover' }} />
                     ) : (
