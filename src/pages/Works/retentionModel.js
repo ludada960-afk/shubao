@@ -1,4 +1,5 @@
-export function formatRetentionStatus({ expiresAt, preserved, expired } = {}, now = new Date()) {
+export function formatRetentionStatus(retention, now = new Date()) {
+  const { expiresAt, preserved, expired } = retention || {};
   if (expired) return { label: '原图已到期', action: '重新生成', available: false };
   if (preserved) return { label: '已长期保留', action: null, available: true };
   const date = expiresAt ? new Date(expiresAt) : null;

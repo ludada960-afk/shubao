@@ -10,6 +10,9 @@ test('formats retention state with a market-facing label and available action', 
   assert.deepEqual(formatRetentionStatus({ expired: true }, new Date('2026-07-30T00:00:00.000Z')), {
     label: '原图已到期', action: '重新生成', available: false,
   });
+  assert.deepEqual(formatRetentionStatus(null, new Date('2026-07-30T00:00:00.000Z')), {
+    label: '已保存到作品集', action: null, available: true,
+  });
 });
 
 test('cleans obsolete canvas draft state exactly once without removing durable work caches', () => {
