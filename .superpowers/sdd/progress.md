@@ -14,7 +14,8 @@
 
 ## Current execution
 
-- Liuying-style ecommerce Canvas and image-performance rebuild: in progress.
+- Liuying-style ecommerce Canvas and image-performance rebuild: complete in
+  production at `ae56085`.
   Approved specification and TDD plan are recorded in
   `docs/superpowers/specs/2026-07-31-liuying-canvas-image-performance-rebuild.md`
   and
@@ -645,3 +646,20 @@
   963/963, the Vite production build transformed 6,432 modules, and a local
   three-image 2K stress probe peaked at about 203 MiB RSS. No PM2 limit was
   raised and the unrelated extension-task deletions remain untouched.
+- Production release `ae56085` passed the complete 963/963 test suite, the
+  6,432-module Vite build, collaboration and whitespace gates, authenticated
+  GPT-Image-2 and GPT-5.6 Luna image-input probes, health/billing checks and
+  two three-asset ecommerce canaries on opposite sides of the 600-second
+  observation window. PM2 retained PID `1665738` throughout deployment and for
+  more than 47 minutes afterward; the later read-only check reported about
+  624 MiB RSS with an idle 3-worker image queue.
+- Independent production browser QA completed the commercial acceptance matrix.
+  The homepage had no first-viewport broken images; Works decoded all 75 visible
+  thumbnails in about 1.8 seconds, with its single undecoded image confirmed as
+  an off-screen lazy candidate whose original and AVIF variant both returned
+  HTTP 200. A real four-asset work loaded into Canvas with 4/4 images decoded.
+  Direct image drag kept the edge attached in the same frame; single-click
+  focus, double-click preview, right-click commands and port-drag derivation all
+  passed. The 390x844 viewport had no page-level horizontal overflow or
+  incoherent control overlap. The saved Canvas was restored after testing and
+  the page error/warning log was empty.
