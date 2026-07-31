@@ -521,3 +521,34 @@
   valid product-fidelity result. Focused regressions passed 62/62; the full suite
   passed 938/938, Vite transformed 6,430 modules, post-build checks passed and the
   collaboration policy reported READY.
+- Production release `3ca3c53` completed the two authorized gateway migrations:
+  `gpt-image-2` uses the mainland native-task endpoint and `gpt-5.6-luna` uses the
+  existing PuppyRouter token in its owner-selected GPT Pro pool. Both authenticated
+  provider probes passed. The release verifier tightened both runtime environment
+  files to mode `600`, kept the release lock clear and retained three rollback
+  backups. Ecommerce canaries before and after the 600-second observation window
+  (`ec_f0d06cf7-7cb5-451a-9c4e-dc51cbc06154` and
+  `ec_d389a779-7d3b-4d70-93c3-de244a86848e`) each delivered three stable assets
+  while PM2 PID `1502871` remained healthy and the 3-worker queue stayed idle.
+- Production UI QA then reproduced a legacy Works crash: older records can store
+  `retention: null`, while the formatter's default parameter covered only an
+  omitted value. Commit `d94d4a2` normalizes nullish retention records and adds a
+  regression assertion. The complete gate again passed 938/938 tests, the
+  6,430-module Vite build, post-build checks and collaboration policy. Deployment
+  completed with PM2 PID `1511294`; ecommerce canaries
+  `ec_18e6b5e2-b064-40fd-ba3c-1feadad831ab` and
+  `ec_4308fda9-9283-43eb-a710-ffe9ee6520a0` each delivered three stable assets on
+  opposite sides of the 600-second observation window.
+- Final authenticated browser QA opened Works without an error boundary, rendered
+  all 23 thumbnails with zero failed images, and imported the newest completed
+  work into Canvas. Canvas rendered the product original plus all three delivered
+  outputs with no failed images, `undefined` labels or script errors. Direct
+  image-body drag moved the selected node 90 by 70 CSS pixels with the purple edge
+  still attached in the resulting frame; hover focus, contextual actions and
+  double-click large preview were all exercised. At 390x844 the document remained
+  exactly 390 pixels wide, all four images loaded, and the 1,485-pixel toolbar
+  scrolled independently to expose its zoom, batch, export and save commands.
+  Evidence is stored as `production-home-desktop.png`,
+  `production-works-desktop.png`, `production-canvas-desktop.png`,
+  `production-canvas-drag-desktop.png`, `production-canvas-mobile.png` and
+  `production-canvas-mobile-toolbar.png` in the task visualization directory.
