@@ -156,10 +156,15 @@ try {
 
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
+  $initialVerificationPid = Get-RemotePm2ProcessId
   & (Join-Path $PSScriptRoot "verify-production-ecommerce.ps1") -BaseUrl "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Authenticated ecommerce production verification failed" }
+  $initialVerificationEndPid = Get-RemotePm2ProcessId
+  if ($initialVerificationEndPid -ne $initialVerificationPid) {
+    throw "PM2 process restarted during initial ecommerce verification: $initialVerificationPid -> $initialVerificationEndPid"
+  }
 
-  $canaryPid = Get-RemotePm2ProcessId
+  $canaryPid = $initialVerificationEndPid
   Write-Host "Canary started for $CanarySeconds seconds (PM2 pid: $canaryPid)"
   Start-Sleep -Seconds $CanarySeconds
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"

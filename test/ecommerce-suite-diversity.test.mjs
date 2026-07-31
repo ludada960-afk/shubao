@@ -97,6 +97,35 @@ test('perceptual suite check rejects near duplicates but keeps a materially diff
   })).passed, true);
 });
 
+test('loads prior suite bytes lazily and accepts a cached measurement', async () => {
+  const original = await scene({ accent: '#222222' });
+  const nearDuplicate = await scene({ accent: '#252525' });
+  const cached = await measureSuiteImage(original);
+  let lazyReads = 0;
+
+  const cachedVerdict = await evaluateSuiteDiversity({
+    candidate: { assetId: 'main-cached', role: 'main_text', buffer: nearDuplicate },
+    existing: [{ assetId: 'main-original', role: 'main_text', measurement: cached }],
+    semanticLayout: SEMANTIC_SINGLE_PRODUCT,
+  });
+  const lazyVerdict = await evaluateSuiteDiversity({
+    candidate: { assetId: 'main-lazy', role: 'main_text', buffer: nearDuplicate },
+    existing: [{
+      assetId: 'main-original',
+      role: 'main_text',
+      loadBuffer: async () => {
+        lazyReads += 1;
+        return original;
+      },
+    }],
+    semanticLayout: SEMANTIC_SINGLE_PRODUCT,
+  });
+
+  assert.equal(cachedVerdict.passed, false);
+  assert.equal(lazyVerdict.passed, false);
+  assert.equal(lazyReads, 1);
+});
+
 test('permits a borderline-similar main image when its planned role and aspect ratio differ', async () => {
   const original = await scene({ accent: '#222222' });
   const nearDuplicate = await scene({ accent: '#464646' });

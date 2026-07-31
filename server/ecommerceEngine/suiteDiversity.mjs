@@ -219,6 +219,23 @@ export function visualFingerprintDistance(left, right) {
   return total / left.length;
 }
 
+function validMeasurement(value) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Array.isArray(value.fingerprint)
+    && value.fingerprint.length === SAMPLE_SIZE * SAMPLE_SIZE
+    && value.fingerprint.every(item => Number.isFinite(item));
+}
+
+async function resolveMeasurement(asset) {
+  if (validMeasurement(asset?.measurement)) return asset.measurement;
+  if (Buffer.isBuffer(asset?.buffer)) return measureSuiteImage(asset.buffer);
+  if (typeof asset?.loadBuffer === 'function') {
+    const buffer = await asset.loadBuffer();
+    return measureSuiteImage(buffer);
+  }
+  return null;
+}
+
 export async function evaluateSuiteDiversity({ candidate = {}, existing = [], semanticLayout } = {}) {
   const candidateSemanticKey = completeSemanticKey(candidate.assetPlanItem);
   if (candidateSemanticKey) {
@@ -234,7 +251,8 @@ export async function evaluateSuiteDiversity({ candidate = {}, existing = [], se
       };
     }
   }
-  const measured = await measureSuiteImage(candidate.buffer);
+  const measured = await resolveMeasurement(candidate);
+  if (!measured) throw new TypeError('suite candidate image is required');
   if (measured.likelyCollage) {
     return {
       passed: false,
@@ -271,8 +289,9 @@ export async function evaluateSuiteDiversity({ candidate = {}, existing = [], se
 
   const family = diversityFamily(candidate.role);
   for (const asset of Array.isArray(existing) ? existing : []) {
-    if (diversityFamily(asset?.role) !== family || !Buffer.isBuffer(asset?.buffer)) continue;
-    const other = await measureSuiteImage(asset.buffer);
+    if (diversityFamily(asset?.role) !== family) continue;
+    const other = await resolveMeasurement(asset);
+    if (!other) continue;
     const distance = visualFingerprintDistance(measured.fingerprint, other.fingerprint);
     const threshold = duplicateThreshold(candidate, asset);
     if (distance <= threshold) {
@@ -296,6 +315,7 @@ export async function evaluateSuiteDiversity({ candidate = {}, existing = [], se
       semanticLayout: normalizedLayout,
       verticalSeams: measured.verticalSeams,
       horizontalSeams: measured.horizontalSeams,
+      measurement: measured,
     },
   };
 }

@@ -833,6 +833,24 @@ export function createEcommerceOrchestrator(deps = {}) {
   const assetConcurrency = Number.isSafeInteger(own(deps, 'assetConcurrency'))
     ? Math.max(1, Math.min(4, own(deps, 'assetConcurrency')))
     : 3;
+  const qualityConcurrency = Number.isSafeInteger(own(deps, 'qualityConcurrency'))
+    ? Math.max(1, Math.min(2, own(deps, 'qualityConcurrency')))
+    : 1;
+  let activeQualityReviews = 0;
+  const qualityWaiters = [];
+  async function acquireQualitySlot() {
+    if (activeQualityReviews >= qualityConcurrency) {
+      await new Promise(resolve => qualityWaiters.push(resolve));
+    }
+    activeQualityReviews += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      activeQualityReviews -= 1;
+      qualityWaiters.shift()?.();
+    };
+  }
   const parentLeaseMs = Number.isSafeInteger(own(deps, 'parentLeaseMs')) && own(deps, 'parentLeaseMs') > 0
     ? own(deps, 'parentLeaseMs')
     : 30_000;
@@ -1041,8 +1059,7 @@ export function createEcommerceOrchestrator(deps = {}) {
       && ['verified', 'settling', 'completed'].includes(asset.state)
       && cleanString(asset.stableUrl)
     ));
-    return Promise.all(candidates.map(async asset => {
-      const stored = await stableBytes(asset.stableUrl);
+    return candidates.map(asset => {
       const canonicalPlan = canonicalPlanById instanceof Map
         ? canonicalPlanById.get(asset.assetId)
         : null;
@@ -1051,13 +1068,15 @@ export function createEcommerceOrchestrator(deps = {}) {
         : isRecord(own(asset.requestSnapshot, 'assetPlanItem'))
           ? own(asset.requestSnapshot, 'assetPlanItem')
           : {};
+      const measurement = own(own(own(asset.requestSnapshot, 'suiteDiversity'), 'details'), 'measurement');
       return {
         assetId: asset.assetId,
         role: cleanString(own(plan, 'role')),
         assetPlanItem: plan,
-        buffer: stored.buffer,
+        ...(isRecord(measurement) ? { measurement } : {}),
+        loadBuffer: async () => (await stableBytes(asset.stableUrl)).buffer,
       };
-    }));
+    });
   }
 
   function withSuiteDiversityFailure(quality, verdict) {
@@ -1227,100 +1246,105 @@ export function createEcommerceOrchestrator(deps = {}) {
         }
 
         if (current.state === 'quality_check') {
-          if (!stable || stable.asset.url !== current.stableUrl) {
-            const stored = await stableBytes(current.stableUrl);
-            stable = {
-              asset: {
-                id: stableAssetId(current.stableUrl),
-                url: current.stableUrl,
-                contentType: stored.contentType,
-              },
-              ...stored,
-            };
-          }
-          const copyRequirements = protectedCopyRequirements(item, productTruth);
-          let quality = await evaluateAsset({
-            buffer: stable.buffer,
-            expectedFormat: item.role === 'transparent'
-              ? 'png'
-              : stable.contentType?.split('/')[1],
-            generationSize: item.generationSize,
-            role: item.role,
-            productTruth,
-            assetPlanItem: item,
-            stableUrl: current.stableUrl,
-            ...copyRequirements,
-          }, qualityAdapters);
-          if (quality.passed) {
-            const diversity = await withSuiteDiversityLock(job.id, async () => {
-              const existing = await suiteComparisonAssets(job.id, item.id, canonicalPlanById);
-              const verdict = await evaluateSuiteDiversity({
-                candidate: {
-                  assetId: item.id,
-                  role: item.role,
-                  buffer: stable.buffer,
-                  assetPlanItem: item,
+          const releaseQualitySlot = await acquireQualitySlot();
+          try {
+            if (!stable || stable.asset.url !== current.stableUrl) {
+              const stored = await stableBytes(current.stableUrl);
+              stable = {
+                asset: {
+                  id: stableAssetId(current.stableUrl),
+                  url: current.stableUrl,
+                  contentType: stored.contentType,
                 },
-                existing,
-                productTruth,
-                assetPlanItem: item,
-                semanticLayout: quality?.checks?.visualQuality?.details?.layout,
+                ...stored,
+              };
+            }
+            const copyRequirements = protectedCopyRequirements(item, productTruth);
+            let quality = await evaluateAsset({
+              buffer: stable.buffer,
+              expectedFormat: item.role === 'transparent'
+                ? 'png'
+                : stable.contentType?.split('/')[1],
+              generationSize: item.generationSize,
+              role: item.role,
+              productTruth,
+              assetPlanItem: item,
+              stableUrl: current.stableUrl,
+              ...copyRequirements,
+            }, qualityAdapters);
+            if (quality.passed) {
+              const diversity = await withSuiteDiversityLock(job.id, async () => {
+                const existing = await suiteComparisonAssets(job.id, item.id, canonicalPlanById);
+                const verdict = await evaluateSuiteDiversity({
+                  candidate: {
+                    assetId: item.id,
+                    role: item.role,
+                    buffer: stable.buffer,
+                    assetPlanItem: item,
+                  },
+                  existing,
+                  productTruth,
+                  assetPlanItem: item,
+                  semanticLayout: quality?.checks?.visualQuality?.details?.layout,
+                });
+                if (!isRecord(verdict) || typeof verdict.passed !== 'boolean') {
+                  throw new Error('suite diversity evaluator returned an invalid verdict');
+                }
+                if (!verdict.passed) return { passed: false, verdict };
+                current = store.transitionAsset(job.id, item.id, 'verified', {
+                  requestSnapshot: {
+                    ...current.requestSnapshot,
+                    quality,
+                    suiteDiversity: verdict,
+                    settlement: {
+                      stableAsset: stable.asset,
+                    },
+                  },
+                  leaseToken,
+                });
+                return { passed: true, verdict };
               });
-              if (!isRecord(verdict) || typeof verdict.passed !== 'boolean') {
-                throw new Error('suite diversity evaluator returned an invalid verdict');
-              }
-              if (!verdict.passed) return { passed: false, verdict };
-              current = store.transitionAsset(job.id, item.id, 'verified', {
+              if (diversity.passed) continue;
+              quality = withSuiteDiversityFailure(quality, diversity.verdict);
+            }
+            const repairAction = planRepair(quality);
+            const usesDeterministicRepair = Boolean(repairAsset && repairAction.type === 'sharp_repair');
+            const hasActionableProviderRepair = !['', 'none', 'manual_review'].includes(
+              cleanString(own(repairAction, 'type')).toLowerCase(),
+            );
+            const providerRepairAvailable = usesDeterministicRepair
+              || (hasActionableProviderRepair && providerSubmissionCount(current) < 3);
+            if (!providerRepairAvailable || !canRetry(current.attemptCount, repairAction)) {
+              const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
+              current = store.transitionAsset(job.id, item.id, 'releasing', {
                 requestSnapshot: {
                   ...current.requestSnapshot,
                   quality,
-                  suiteDiversity: verdict,
-                  settlement: {
-                    stableAsset: stable.asset,
+                  repairAction,
+                  release: {
+                    targetState: 'needs_review',
+                    reason,
+                    error: `quality gate failed: ${repairAction.type}`,
                   },
                 },
+                error: `quality gate failed: ${repairAction.type}`,
                 leaseToken,
               });
-              return { passed: true, verdict };
-            });
-            if (diversity.passed) continue;
-            quality = withSuiteDiversityFailure(quality, diversity.verdict);
-          }
-          const repairAction = planRepair(quality);
-          const usesDeterministicRepair = Boolean(repairAsset && repairAction.type === 'sharp_repair');
-          const hasActionableProviderRepair = !['', 'none', 'manual_review'].includes(
-            cleanString(own(repairAction, 'type')).toLowerCase(),
-          );
-          const providerRepairAvailable = usesDeterministicRepair
-            || (hasActionableProviderRepair && providerSubmissionCount(current) < 3);
-          if (!providerRepairAvailable || !canRetry(current.attemptCount, repairAction)) {
-            const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
-            current = store.transitionAsset(job.id, item.id, 'releasing', {
+              continue;
+            }
+            current = store.transitionAsset(job.id, item.id, 'repairing', {
               requestSnapshot: {
                 ...current.requestSnapshot,
                 quality,
                 repairAction,
-                release: {
-                  targetState: 'needs_review',
-                  reason,
-                  error: `quality gate failed: ${repairAction.type}`,
-                },
               },
-              error: `quality gate failed: ${repairAction.type}`,
+              error: `quality repair required: ${repairAction.type}`,
               leaseToken,
             });
             continue;
+          } finally {
+            releaseQualitySlot();
           }
-          current = store.transitionAsset(job.id, item.id, 'repairing', {
-            requestSnapshot: {
-              ...current.requestSnapshot,
-              quality,
-              repairAction,
-            },
-            error: `quality repair required: ${repairAction.type}`,
-            leaseToken,
-          });
-          continue;
         }
 
         if (current.state === 'releasing') {

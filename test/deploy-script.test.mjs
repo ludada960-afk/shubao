@@ -61,6 +61,12 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(ecommerceVerify, /verify-production-ecommerce\.mjs/);
   assert.match(deploy, /pm2 pid shubao/);
   assert.doesNotMatch(deploy, /pm2 jlist/);
+  assert.ok(
+    deploy.indexOf('$initialVerificationPid = Get-RemotePm2ProcessId')
+      < deploy.indexOf('Authenticated ecommerce production verification failed'),
+    'the deploy must capture PM2 identity before the first real ecommerce task',
+  );
+  assert.match(deploy, /PM2 process restarted during initial ecommerce verification/i);
   assert.match(deploy, /Start-Sleep -Seconds \$CanarySeconds/);
   assert.match(deploy, /process restarted during canary/i);
 });

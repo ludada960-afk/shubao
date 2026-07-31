@@ -9,6 +9,7 @@ const SUPPORTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 const BLANK_STDDEV_THRESHOLD = 3;
 // Calibrated against accepted 2K product generations; lower values still reject defocused outputs.
 const BLUR_EDGE_THRESHOLD = 8;
+const PIXEL_SAMPLE_MAX_DIMENSION = 768;
 
 export function buildFormalEcommerceQualityPrompt() {
   const example = {
@@ -252,7 +253,7 @@ export function isTransparentBackgroundCompliant(metrics) {
 function pixelMetrics(data, info) {
   const channels = info.channels;
   const count = info.width * info.height;
-  const luminance = new Float64Array(count);
+  const luminance = new Float32Array(count);
   let sum = 0;
   let sumSquares = 0;
   const whiteBackground = measureWhiteBackgroundCoverage(data, info);
@@ -269,18 +270,29 @@ function pixelMetrics(data, info) {
     sumSquares += value * value;
   }
 
-  const gradients = [];
+  const gradientHistogram = new Uint32Array(766);
+  let gradientCount = 0;
+  const recordGradient = (left, right) => {
+    const bucket = Math.min(765, Math.max(0, Math.round(Math.abs(left - right) * 3)));
+    gradientHistogram[bucket] += 1;
+    gradientCount += 1;
+  };
   for (let y = 0; y < info.height; y += 1) {
     for (let x = 0; x < info.width; x += 1) {
       const index = y * info.width + x;
-      if (x + 1 < info.width) gradients.push(Math.abs(luminance[index] - luminance[index + 1]));
-      if (y + 1 < info.height) gradients.push(Math.abs(luminance[index] - luminance[index + info.width]));
+      if (x + 1 < info.width) recordGradient(luminance[index], luminance[index + 1]);
+      if (y + 1 < info.height) recordGradient(luminance[index], luminance[index + info.width]);
     }
   }
-  gradients.sort((left, right) => right - left);
-  const topCount = Math.max(1, Math.ceil(gradients.length * 0.05));
-  const edgeStrength = gradients.slice(0, topCount)
-    .reduce((total, value) => total + value, 0) / topCount;
+  const topCount = Math.max(1, Math.ceil(gradientCount * 0.05));
+  let remaining = topCount;
+  let gradientTotal = 0;
+  for (let bucket = gradientHistogram.length - 1; bucket >= 0 && remaining > 0; bucket -= 1) {
+    const selected = Math.min(remaining, gradientHistogram[bucket]);
+    gradientTotal += selected * (bucket / 3);
+    remaining -= selected;
+  }
+  const edgeStrength = gradientTotal / topCount;
   const mean = sum / count;
   const variance = Math.max(0, (sumSquares / count) - (mean * mean));
 
@@ -334,7 +346,17 @@ export async function evaluateAsset(input = {}, adapters = {}) {
   try {
     const image = sharp(buffer, { failOn: 'error' });
     metadata = await image.metadata();
-    raw = await image.clone().toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    raw = await image.clone()
+      .resize({
+        width: PIXEL_SAMPLE_MAX_DIMENSION,
+        height: PIXEL_SAMPLE_MAX_DIMENSION,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .toColourspace('srgb')
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
   } catch (error) {
     const checks = {
       technical: statusCheck('fail', ['invalid_image'], {}, {
@@ -467,6 +489,8 @@ export async function evaluateAsset(input = {}, adapters = {}) {
       edgeStrength: metrics.edgeStrength,
       blankThreshold: BLANK_STDDEV_THRESHOLD,
       blurThreshold: BLUR_EDGE_THRESHOLD,
+      pixelSampleWidth: raw.info.width,
+      pixelSampleHeight: raw.info.height,
       ...(visualAdapter.metrics || {}),
     },
     {

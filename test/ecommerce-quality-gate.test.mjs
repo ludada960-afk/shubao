@@ -236,6 +236,20 @@ test('accepts a large centered product when the surrounding white background and
   assert.ok(result.checks.platformCompliance.metrics.nearWhiteCoverage < 0.7);
 });
 
+test('bounds deterministic pixel decoding for production-size images', async () => {
+  const result = await evaluateAsset({
+    buffer: await productFixture({ width: 2048, height: 2048 }),
+    role: 'main',
+    generationSize: '2048x2048',
+    expectedFormat: 'png',
+  });
+
+  assert.equal(result.checks.technical.metrics.actualWidth, 2048);
+  assert.equal(result.checks.technical.metrics.actualHeight, 2048);
+  assert.ok(result.checks.visualQuality.metrics.pixelSampleWidth <= 768);
+  assert.ok(result.checks.visualQuality.metrics.pixelSampleHeight <= 768);
+});
+
 test('rejects an opaque PNG for a transparent role and plans deterministic alpha normalization', async () => {
   const result = await evaluateAsset({
     buffer: await productFixture(),

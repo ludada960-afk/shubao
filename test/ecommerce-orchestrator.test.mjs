@@ -1021,6 +1021,42 @@ test('runs independent assets with bounded per-task concurrency', async t => {
   assert.equal(maxActive, 3);
 });
 
+test('serializes memory-heavy quality review while provider tasks remain concurrent', async t => {
+  let providerActive = 0;
+  let maxProviderActive = 0;
+  let qualityActive = 0;
+  let maxQualityActive = 0;
+  const { orchestrator } = await createHarness(t, {
+    items: [planItem('a'), planItem('b'), planItem('c')],
+    orchestratorOptions: { assetConcurrency: 3 },
+    poll: async ({ providerJobId }) => {
+      providerActive += 1;
+      maxProviderActive = Math.max(maxProviderActive, providerActive);
+      await new Promise(resolve => setTimeout(resolve, 10));
+      providerActive -= 1;
+      return { jobId: providerJobId, status: 'completed', outputUrl: `https://provider.example/${providerJobId}.png` };
+    },
+    quality: async () => {
+      qualityActive += 1;
+      maxQualityActive = Math.max(maxQualityActive, qualityActive);
+      await new Promise(resolve => setTimeout(resolve, 10));
+      qualityActive -= 1;
+      return {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      };
+    },
+  });
+
+  const completed = await orchestrator.runJob(orchestrator.createJob(jobInput('job-quality-memory')).id);
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(maxProviderActive, 3);
+  assert.equal(maxQualityActive, 1);
+});
+
 test('three quoted plan items create exactly three visible assets and three provider submissions', async t => {
   const plan = [planItem('main-1'), planItem('main-2'), planItem('main-3')];
   const { orchestrator, calls } = await createHarness(t, {

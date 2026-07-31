@@ -83,6 +83,32 @@ test('persists and reads the exact stable bytes in one quality-gate operation', 
   assert.equal(stable.contentType, 'image/png');
 });
 
+test('reuses downloaded bytes for quality review instead of reading the whole file again', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-test-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const expected = Buffer.alloc(2 * 1024 * 1024, 42);
+  let readCount = 0;
+  const store = createGeneratedAssetStore({
+    directory: dir,
+    fetchImpl: async () => new Response(expected, {
+      headers: { 'content-type': 'image/png' },
+    }),
+    readFileImpl: async (...args) => {
+      readCount += 1;
+      return readFile(...args);
+    },
+  });
+
+  const stable = await store.persistAndRead({
+    sourceUrl: 'https://provider.example/generated-memory.png',
+    taskId: 'ec_test_memory',
+    label: 'main_memory',
+  });
+
+  assert.deepEqual(stable.buffer, expected);
+  assert.equal(readCount, 0);
+});
+
 test('preserves a non-PNG stable image MIME when building the quality-analysis data URL', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-test-'));
   t.after(() => rm(dir, { recursive: true, force: true }));

@@ -53,7 +53,7 @@ export function createGeneratedAssetStore({
     try { await onPersist(asset); } catch {}
   }
 
-  async function persist({ sourceUrl, taskId = '', label = '' } = {}) {
+  async function downloadAndPersist({ sourceUrl, taskId = '', label = '' } = {}) {
     getSafeHttpUrl(sourceUrl);
     const response = await fetchImpl(sourceUrl, { signal: AbortSignal.timeout(20000) });
     if (!response?.ok) throw new Error(`下载生成图片失败: ${response?.status || 'network error'}`);
@@ -78,6 +78,11 @@ export function createGeneratedAssetStore({
       url: `${publicPath}/${fileName}`,
     };
     await notifyPersist(asset);
+    return { asset, buffer, contentType: mimeType };
+  }
+
+  async function persist(input = {}) {
+    const { asset } = await downloadAndPersist(input);
     return asset;
   }
 
@@ -138,10 +143,7 @@ export function createGeneratedAssetStore({
   }
 
   async function persistAndRead(input = {}) {
-    const asset = await persist(input);
-    const stored = await read(asset.id);
-    if (!stored) throw new Error('生成图片稳定落盘后读取失败');
-    return { asset, ...stored };
+    return downloadAndPersist(input);
   }
 
   return { persist, persistBuffer, persistAndRead, read };

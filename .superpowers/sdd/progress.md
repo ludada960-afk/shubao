@@ -630,3 +630,18 @@
   the complete suite passed 959/959, Vite transformed 6,432 modules, and
   `git diff --check` passed. The unrelated extension-task deletions remain
   untouched.
+- The second release attempt passed both replacement gateway probes, health,
+  billing and initial ecommerce startup, but PM2 restarted the Node process
+  during the authenticated suite because RSS reached about 1.16 GiB above the
+  enforced 1 GiB ceiling; three consecutive polls then received 502 and the
+  release rolled back healthy. Root-cause remediation keeps three remote image
+  jobs concurrent while serializing memory-heavy local quality review, samples
+  deterministic pixel checks at no more than 768 pixels, replaces the
+  multi-million-element gradient sort with a fixed histogram, reuses downloaded
+  bytes after stable persistence, and caches or lazily loads suite fingerprints.
+  The release gate now also detects a PM2 identity change during the first real
+  ecommerce verifier, before the observation timer begins. TDD red reproduced
+  all four defects; focused regression passed 131/131, full regression passed
+  963/963, the Vite production build transformed 6,432 modules, and a local
+  three-image 2K stress probe peaked at about 203 MiB RSS. No PM2 limit was
+  raised and the unrelated extension-task deletions remain untouched.
