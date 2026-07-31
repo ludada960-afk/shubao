@@ -14,6 +14,19 @@
 
 ## Current execution
 
+- Liuying-style ecommerce Canvas and image-performance rebuild: in progress.
+  Approved specification and TDD plan are recorded in
+  `docs/superpowers/specs/2026-07-31-liuying-canvas-image-performance-rebuild.md`
+  and
+  `docs/superpowers/plans/2026-07-31-liuying-canvas-image-performance-rebuild.md`.
+  Scope covers effective SKU override state, exact ecommerce-step restoration,
+  bounded visual-analysis lifecycle, a single task-progress surface, high-DPR
+  responsive image delivery, a Liuying-inspired ecommerce Canvas shell and
+  interaction model, two-credential gateway migration, full browser QA and
+  production deployment. No files are delegated; Codex owns the complete
+  implementation boundary. The 12 unrelated deleted `server/extension_tasks`
+  files remain user-owned and must not be staged or restored.
+
 - Commerce suite production acceptance hardening: complete locally. Ecommerce Works now preserve product and reference sources separately, map `white_background` into the dedicated white-background lane, and expose Chinese display names plus canonical `size`, `width`, and `height` from the planner-owned generation size. The authenticated production verifier now fails closed unless the three-role canary has exact role/duty/dimension metadata, both source types survive into Works, `thumb` and `canvas` WebP variants decode with immutable caching, and an owner-scoped Canvas session creates, saves, and restores exactly. TDD red reproduced the dropped reference source before implementation; focused 13/13 and 8/8 regressions passed, then full `npm test` passed 934/934, production build transformed 6430 modules, `npm run check` passed, and `git diff --check` passed. Commit is pending at this ledger update.
 
 - Market-ready ecommerce creation closure Task 6: complete (`d4decf9..431f662`, final review clean). Layered PSD export now requires server-generated pixel provenance, readable document-sized masks, allowlisted asset references and held/settled pixel-layer billing; focused 70/70 and full 860/860 tests passed.
@@ -552,3 +565,12 @@
   `production-works-desktop.png`, `production-canvas-desktop.png`,
   `production-canvas-drag-desktop.png`, `production-canvas-mobile.png` and
   `production-canvas-mobile-toolbar.png` in the task visualization directory.
+- Liuying/BigBong research is now captured in the 2026-07-31 rebuild spec and
+  implementation plan with a concrete interaction and release acceptance matrix.
+  The first TDD slice derives smart-panel emphasis from current form values, so
+  deleting the final SKU clears its emphasis immediately; gallery previews now
+  use independent overlay state and preserve the active ecommerce workbench step;
+  the redundant bottom-right generation modal has been removed in favor of the
+  global task dock; and restore-smart controls occupy a dedicated secondary row.
+  Focused regression passed 11/11 and the production Vite build transformed 6,427
+  modules successfully.
