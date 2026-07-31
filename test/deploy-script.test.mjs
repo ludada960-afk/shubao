@@ -13,6 +13,11 @@ const runtimeConfigUpdater = readFileSync(new URL('../scripts/configure-runtime-
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
   assert.match(deploy, /git[^\n]*diff --check/i);
+  assert.match(deploy, /function\s+Invoke-CheckedNative/i);
+  assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run test/i);
+  assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run build/i);
+  assert.match(deploy, /Invoke-CheckedNative[^\n]*git diff --check/i);
+  assert.match(deploy, /if\s*\(\$LASTEXITCODE\s*-ne\s*0\)\s*\{\s*throw/i);
   assert.match(deploy, /backup-runtime-db\.cjs/i);
   assert.match(deploy, /verify-runtime-config\.cjs/i);
   assert.match(deploy, /configure-runtime-gateways\.cjs/i);

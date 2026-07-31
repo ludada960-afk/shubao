@@ -163,7 +163,7 @@ async function readImageVariant({ root, stableUrl, variant, maxWidth, fetchImpl,
   const buffer = Buffer.from(await response.arrayBuffer());
   const metadata = await sharp(buffer, { failOn: 'error' }).metadata();
   if (metadata.format !== 'webp' || !metadata.width || !metadata.height || metadata.width > maxWidth) {
-    throw new Error(`Ecommerce production canary ${variant} image variant has invalid dimensions`);
+    throw new Error(`Ecommerce production canary ${variant} image variant has invalid dimensions (${metadata.format || 'unknown'} ${metadata.width || 0}x${metadata.height || 0}, max width ${maxWidth})`);
   }
   return { width: metadata.width, height: metadata.height };
 }
@@ -317,7 +317,7 @@ export async function verifyProductionEcommerce({
   const work = Array.isArray(works) ? works.find(candidate => candidate?.taskId === taskId) : null;
   assertWorkContract({ work, task, stableUrls, product, reference });
   const [thumb, canvas] = await Promise.all([
-    readImageVariant({ root, stableUrl: stableUrls[0], variant: 'thumb', maxWidth: 512, fetchImpl, sleep }),
+    readImageVariant({ root, stableUrl: stableUrls[0], variant: 'thumb', maxWidth: 640, fetchImpl, sleep }),
     readImageVariant({ root, stableUrl: stableUrls[0], variant: 'canvas', maxWidth: 1280, fetchImpl, sleep }),
   ]);
   if (thumb.width > canvas.width || thumb.height > canvas.height) {

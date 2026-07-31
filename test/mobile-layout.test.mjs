@@ -20,7 +20,9 @@ test('mobile ecommerce actions stay compact and sticky above the fixed navigatio
   assert.match(ecommerceModeSource, /className="ec-workbench-tools"/);
   assert.match(ecommerceModeSource, /className="ec-workbench-next"/);
   assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*position:\s*sticky[^}]*bottom:\s*max\(74px, calc\(64px \+ env\(safe-area-inset-bottom\)\)\)/);
-  assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);
+  assert.match(mobileRules, /\.ec-workbench-actions \{[^}]*flex-direction:\s*column/);
+  assert.match(mobileRules, /\.ec-workbench-primary-row \{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);
+  assert.match(mobileRules, /\.ec-workbench-secondary-row \{[^}]*justify-content:\s*flex-end/);
   assert.match(mobileRules, /\.ec-workbench-tools \{[^}]*overflow-x:\s*auto[^}]*flex-wrap:\s*nowrap/);
 });
 

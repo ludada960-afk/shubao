@@ -614,3 +614,19 @@
   evidence is saved as `ec-canvas-desktop.png` and `ec-canvas-mobile.png` in the
   task visualization directory. Canvas regression passed 106/106 and the Vite
   production build transformed 6,432 modules.
+- The first release attempt for the rebuilt Canvas reached authenticated
+  ecommerce verification, then rolled back automatically with production
+  healthy because two release contracts had drifted. The refactored Canvas
+  toolbar moved into `CanvasChrome.jsx` while its legacy test still inspected
+  only the page entry, and the image delivery stage intentionally defines the
+  high-fidelity `thumb` alias as `w640` while the canary retained a 512-pixel
+  ceiling. Both contracts now verify their actual owners: Canvas consumes the
+  shared command and focus tokens through its stylesheet, and production accepts
+  the tested 640-pixel WebP thumbnail while retaining the 1280-pixel Canvas
+  ceiling and ordered-size check. Image failures now include only safe format
+  and dimension diagnostics. The deployment script also wraps local test, build
+  and whitespace commands in a native exit-code gate, so a failed test can no
+  longer proceed to an archive or remote lock. Focused regression passed 18/18,
+  the complete suite passed 959/959, Vite transformed 6,432 modules, and
+  `git diff --check` passed. The unrelated extension-task deletions remain
+  untouched.

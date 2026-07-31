@@ -10,12 +10,27 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Invoke-CheckedNative {
+  param(
+    [Parameter(Mandatory = $true)]
+    [scriptblock]$Command,
+    [Parameter(Mandatory = $true)]
+    [string]$FailureMessage
+  )
+  & $Command
+  if ($LASTEXITCODE -ne 0) { throw "$FailureMessage (exit code $LASTEXITCODE)" }
+}
+
 if ([string]::IsNullOrWhiteSpace($env:SHUBAO_CANARY_SESSION_TOKEN)) {
   throw "SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment"
 }
 $repo = (Resolve-Path $RepoPath).Path
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$commit = (git -C $repo rev-parse --short HEAD).Trim()
+$commit = ((& git -C $repo rev-parse --short HEAD) -join "").Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commit)) {
+  throw "Could not resolve the release commit"
+}
 $archive = Join-Path $env:TEMP "shubao-deploy-$commit-$stamp.tgz"
 $target = "$User@$HostName"
 $ssh = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
@@ -57,9 +72,9 @@ if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
 Write-Host "Building $commit..."
 Push-Location $repo
 try {
-  npm run test
-  npm run build
-  git diff --check
+  Invoke-CheckedNative -FailureMessage "Test suite failed" -Command { npm run test }
+  Invoke-CheckedNative -FailureMessage "Production build failed" -Command { npm run build }
+  Invoke-CheckedNative -FailureMessage "Git whitespace validation failed" -Command { git diff --check }
 } finally {
   Pop-Location
 }
@@ -90,6 +105,7 @@ tar -czf $archive -C $repo `
   --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
   dist server package.json package-lock.json ecosystem.config.cjs
+if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
 
 $lockCommand = "set -e; lock='$remoteLock'; if ! mkdir `$lock 2>/dev/null; then if find `$lock -maxdepth 0 -mmin +30 | grep -q .; then rm -rf -- `$lock; mkdir `$lock; else echo 'Another deployment is active:'; cat `$lock/owner 2>/dev/null || true; exit 73; fi; fi; printf '%s\n' '$User@$env:COMPUTERNAME $commit $stamp' > `$lock/owner"
 & ssh @ssh $target $lockCommand

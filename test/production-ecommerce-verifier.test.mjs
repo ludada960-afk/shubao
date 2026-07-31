@@ -95,7 +95,7 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
   const fixturePath = join(directory, 'fixture.png');
   await writeFile(fixturePath, Buffer.from('fixture'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const thumb = await sharp({ create: { width: 512, height: 512, channels: 3, background: '#ef4444' } }).webp().toBuffer();
+  const thumb = await sharp({ create: { width: 640, height: 640, channels: 3, background: '#ef4444' } }).webp().toBuffer();
   const canvas = await sharp({ create: { width: 1280, height: 1280, channels: 3, background: '#ef4444' } }).webp().toBuffer();
   const requests = [];
   let canvasSession = null;

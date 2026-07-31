@@ -4,7 +4,9 @@
   --canvas-ink: #15171a;
   --canvas-muted: #626871;
   --canvas-hairline: #e3e6ea;
-  --canvas-command: #2563eb;
+  --canvas-command: var(--command);
+  --canvas-command-hover: var(--command-hover);
+  --canvas-focus: var(--focus-ring);
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -70,13 +72,13 @@
 .ec-canvas-icon-button:focus-visible,
 .ec-canvas-command:focus-visible,
 .ec-canvas-tabs button:focus-visible,
-.ec-canvas-filter select:focus-visible { outline: 2px solid var(--canvas-command); outline-offset: 2px; }
+.ec-canvas-filter select:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 2px; }
 
 .ec-canvas-command { height: 32px; justify-content: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 7px; background: #eef1f4; color: #34393f; font-size: 11px; font-weight: 700; transition: background 160ms ease-out, color 160ms ease-out, transform 160ms ease-out; }
 .ec-canvas-command:hover:not(:disabled) { background: #e3e7eb; }
 .ec-canvas-command:active:not(:disabled) { transform: translateY(1px); }
 .ec-canvas-command.is-primary { background: var(--canvas-command); color: #fff; }
-.ec-canvas-command.is-primary:hover:not(:disabled) { background: #1d4ed8; }
+.ec-canvas-command.is-primary:hover:not(:disabled) { background: var(--canvas-command-hover); }
 .ec-canvas-command.is-dark { background: #15171a; color: #fff; }
 .ec-canvas-command.is-dark:hover { background: #2b2e33; }
 .ec-canvas-command:disabled { opacity: .46; cursor: not-allowed; }
