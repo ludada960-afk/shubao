@@ -34,7 +34,7 @@ function progressText(task) {
   return `${task.done}/${task.total} 张完成`;
 }
 
-export default function TaskSidebar({ onOpenTask }) {
+export default function TaskSidebar() {
   const { tasks, activeCount, errorCount, loadError, refreshTasks } = useTasks();
   const { confirm } = useDialog();
   const [open, setOpen] = useState(false);
@@ -230,17 +230,13 @@ export default function TaskSidebar({ onOpenTask }) {
                     background: '#fff',
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => onOpenTask?.(task.id)}
+                  <div
                     style={{
                       width: '100%',
                       padding: 0,
-                      border: 0,
                       background: 'transparent',
                       color: 'inherit',
                       textAlign: 'left',
-                      cursor: 'pointer',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -274,7 +270,7 @@ export default function TaskSidebar({ onOpenTask }) {
                         <span style={{ display: 'block', marginTop: 5, fontSize: 11, color: '#7d7169' }}>{progressText(task)}</span>
                       </span>
                     )}
-                  </button>
+                  </div>
 
                   {(task.error || assetErrors.length > 0) && (
                     <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>

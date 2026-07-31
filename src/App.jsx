@@ -1,14 +1,13 @@
 /**
  * 薯包AI · App 路由（V3 灵图风格视觉统一）
  */
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
-import { TaskProvider, useTasks } from './store/taskStore';
+import { TaskProvider } from './store/taskStore';
 import { MdAutoAwesome, MdCheck, MdDashboard, MdFolder, MdGridOn } from 'react-icons/md';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
-import GenModal from './components/task/GenModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import { DialogProvider, useDialog } from './components/ui/DialogProvider.jsx';
 const HomePage = React.lazy(() => import('./pages/Home/index'));
@@ -209,10 +208,7 @@ function TopBar() {
 
 function AppRouter() {
   const { state, dispatch } = useApp();
-  const { tasks, addTask, updateTask } = useTasks();
-  const { page, genState, result } = state;
-  const [activeTaskId, setActiveTaskId] = useState(null);
-  const [genModalOpen, setGenModalOpen] = useState(false);
+  const { page, genState, result, galleryItem } = state;
   const dialog = useDialog();
 
   useEffect(() => {
@@ -277,20 +273,29 @@ function AppRouter() {
     'ec-auto': EcAutoPage,
   };
   const PageComponent = pageMap[page] || HomePage;
+  const previewItem = galleryItem || result;
+  const galleryNotice = () => dialog.notice({
+    title: '请先生成自己的作品',
+    message: '案例用于查看效果，生成自己的作品后即可继续编辑或下载。',
+  });
 
   return (<>
     {page !== 'ec-canvas' && <SideNav />}
-    <TaskSidebar onOpenTask={(id) => { setActiveTaskId(id); setGenModalOpen(true); }} />
+    <TaskSidebar />
     {page !== 'ec-canvas' && <TopBar />}
     <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>
       <PageComponent key={state._workVersion || 0} />
     </React.Suspense>
-    {genState === 'result' && shouldShowNoteModal({ page, result }) && (
+    {(galleryItem || (genState === 'result' && shouldShowNoteModal({ page, result }))) && (
       <NoteModal
-        item={result}
-        onClose={() => { dispatch({ type: 'CLOSE_RESULT' }); if (state.scrollPos) setTimeout(() => window.scrollTo(0, state.scrollPos), 50); }}
-        textRegen={textRegen}
-        onDownload={handleDownload}
+        item={previewItem}
+        onClose={() => {
+          if (galleryItem) dispatch({ type: 'VIEW_GALLERY_ITEM', item: null });
+          else dispatch({ type: 'CLOSE_RESULT' });
+          if (state.scrollPos) setTimeout(() => window.scrollTo(0, state.scrollPos), 50);
+        }}
+        textRegen={galleryItem ? galleryNotice : textRegen}
+        onDownload={galleryItem ? galleryNotice : handleDownload}
         onUnlock={() => dispatch({ type: 'SHOW_PRICE', show: true })}
         onGallery={() => { dispatch({ type: 'CLOSE_RESULT' }); dispatch({ type: 'NAVIGATE', page: 'home' }); }}
         onSendToCanvas={(contentItem) => {
@@ -298,7 +303,7 @@ function AppRouter() {
           dispatch({ type: 'SET_RESULT', result: canvasResult });
           dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
         }}
-        onItemUpdate={(i, url) => {
+        onItemUpdate={galleryItem ? undefined : (i, url) => {
           dispatch({ type: 'UPDATE_RESULT', updater: (prev) => {
             if (!prev) return prev;
             if (i === 0) return { ...prev, cover_url: url };
@@ -318,14 +323,6 @@ function AppRouter() {
       <div style={{ position:'fixed', inset:0, zIndex:9999, background:'var(--bg)' }}>
         <LoadingView />
       </div>
-    )}
-    {/* 生图弹窗 */}
-    {genModalOpen && activeTaskId && (
-      <GenModal
-        activeTaskId={activeTaskId}
-        onClose={() => setGenModalOpen(false)}
-        onMinimize={() => setGenModalOpen(false)}
-      />
     )}
     <LoginModal />
     <PricingModal />

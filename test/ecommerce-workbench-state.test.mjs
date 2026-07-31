@@ -7,6 +7,7 @@ import {
   createSmartConfiguration,
   createSmartOverrides,
   createWorkbenchState,
+  deriveEffectiveSmartOverrides,
   nextProductSlot,
   reconcilePackage,
   summarizeCommerceConfiguration,
@@ -64,6 +65,33 @@ test('smart configuration restores every editable panel including SKU and produc
     copywriting: { plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' },
     genSettings: { resolution: '2K', negativePrompt: '' },
   });
+});
+
+test('effective smart overrides clear immediately when the last SKU is deleted', () => {
+  const configured = deriveEffectiveSmartOverrides({
+    platform: 'smart',
+    sizing: { smart: true, images: [] },
+    styleSkill: 'smart',
+    customColors: null,
+    productParams: {},
+    skus: [{ color: '月岩白', count: 1 }],
+    copywriting: {},
+    genSettings: { resolution: '2K', negativePrompt: '' },
+  });
+  assert.equal(configured.sku, true);
+
+  const cleared = deriveEffectiveSmartOverrides({
+    platform: 'smart',
+    sizing: { smart: true, images: [] },
+    styleSkill: 'smart',
+    customColors: null,
+    productParams: {},
+    skus: [],
+    copywriting: {},
+    genSettings: { resolution: '2K', negativePrompt: '' },
+  });
+  assert.equal(cleared.sku, false);
+  assert.equal(Object.values(cleared).some(Boolean), false);
 });
 
 test('configuration summaries stay compact while exposing the meaningful selections', () => {

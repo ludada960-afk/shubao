@@ -9,7 +9,7 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
  * - 案例完整展示图文
  */
 export default function GallerySection({ maxItems = 24, showHeader = true }) {
-  const { state, dispatch } = useApp();
+  const { dispatch } = useApp();
 
   return (
     <section style={{ marginTop: 60, maxWidth: 'var(--max-width-gallery)', margin: '60px auto 0', paddingInline: 20 }}>
@@ -46,8 +46,8 @@ export default function GallerySection({ maxItems = 24, showHeader = true }) {
         {GALLERY.slice(0, maxItems).map((g) => (
           <div key={g.id} className="gallery-card"
             onClick={() => dispatch({
-              type: 'SET_RESULT',
-              result: { ...g, body_text: g.body, hashtags: g.tags, category: g.cat, _inputText: g.hint, _galleryItem: true }
+              type: 'VIEW_GALLERY_ITEM',
+              item: { ...g, body_text: g.body, hashtags: g.tags, category: g.cat, _inputText: g.hint, _galleryItem: true }
             })}
             style={{ borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.3s' }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}

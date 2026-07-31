@@ -44,6 +44,32 @@ export function createSmartConfiguration() {
   };
 }
 
+function hasText(value) {
+  return String(value ?? '').trim().length > 0;
+}
+
+export function deriveEffectiveSmartOverrides(configuration = {}) {
+  const sizing = configuration.sizing || {};
+  const customColors = Array.isArray(configuration.customColors)
+    ? configuration.customColors.filter(hasText)
+    : [];
+  const productParams = configuration.productParams || {};
+  const copywriting = configuration.copywriting || {};
+  const genSettings = configuration.genSettings || {};
+
+  return {
+    sizing: configuration.platform !== 'smart'
+      || sizing.smart === false
+      || (Array.isArray(sizing.images) && sizing.images.length > 0 && sizing.smart !== true),
+    style: configuration.styleSkill !== 'smart' || customColors.length > 0,
+    params: Object.values(productParams).some(hasText),
+    sku: (Array.isArray(configuration.skus) ? configuration.skus : [])
+      .some(sku => ['color', 'size', 'capacity', 'dimLabel'].some(field => hasText(sku?.[field]))),
+    copy: Object.values(copywriting).some(hasText),
+    settings: (genSettings.resolution || '2K') !== '2K' || hasText(genSettings.negativePrompt),
+  };
+}
+
 const IMAGE_SUMMARY_LABELS = Object.freeze({
   white_bg: '白底',
   main_text: '主图',

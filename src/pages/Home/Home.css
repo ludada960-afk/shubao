@@ -279,7 +279,31 @@
 
 /* ── 电商工作台：直接复用当前小红书图文的渐变输入区与倾斜上传卡 ── */
 .ec-workbench { display: flex; flex-direction: column; gap: 12px; }
-.ec-workbench-tools { display: contents; }
+.ec-workbench-actions { display: flex; flex-direction: column; gap: 8px; }
+.ec-workbench-primary-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ec-workbench-tools { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
+.ec-workbench-secondary-row { display: flex; justify-content: flex-end; min-height: 34px; }
+.ec-restore-smart {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid rgba(124, 58, 237, .24);
+  border-radius: 10px;
+  background: rgba(124, 58, 237, .055);
+  color: #6d28d9;
+  font: 700 12px/1 inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, .07);
+  transition: transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.ec-restore-smart:hover,
+.ec-restore-smart:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(124, 58, 237, .45);
+  background: rgba(124, 58, 237, .1);
+  box-shadow: 0 5px 14px rgba(124, 58, 237, .13);
+  outline: none;
+}
+.ec-restore-smart:active { transform: translateY(0); }
 .ec-workbench-heading { display: flex; flex-direction: column; gap: 3px; padding: 2px 4px; }
 .ec-workbench-heading strong { font-size: 18px; color: var(--text-primary); letter-spacing: -0.3px; }
 .ec-workbench-heading span { font-size: 12px; color: var(--text-muted); }
@@ -1670,15 +1694,21 @@
   .ec-workbench-actions {
     position: sticky !important;
     bottom: max(74px, calc(64px + env(safe-area-inset-bottom))) !important;
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
     gap: 8px !important;
     padding: 8px 2px 10px !important;
     flex-wrap: nowrap !important;
     z-index: 30 !important;
     border-radius: 14px;
     box-shadow: 0 10px 24px rgba(57,45,26,.1);
+  }
+  .ec-workbench-primary-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
   }
   .ec-workbench-tools {
     display: flex;
@@ -1693,6 +1723,7 @@
   .ec-workbench-tools > div,
   .ec-workbench-tools > button { flex: 0 0 auto; }
   .ec-workbench-next { margin-left: 0 !important; height: 40px !important; padding-inline: 16px !important; }
+  .ec-workbench-secondary-row { justify-content: flex-end; padding-inline: 2px; }
   .ec-workbench-heading { padding-inline: 2px; }
   .ec-workbench-heading strong { font-size: 16px; }
   .ec-xhs-composer { padding: 7px 4px 8px; }

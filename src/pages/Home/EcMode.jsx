@@ -21,6 +21,7 @@ import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import {
   createSmartConfiguration,
   createSmartOverrides,
+  deriveEffectiveSmartOverrides,
   summarizeCommerceConfiguration,
 } from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
@@ -201,10 +202,20 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   }, []);
 
   /* — 智能方案标签 —— */
+  const effectiveSmartOverrides = deriveEffectiveSmartOverrides({
+    platform,
+    sizing,
+    styleSkill,
+    customColors,
+    productParams,
+    skus,
+    copywriting,
+    genSettings,
+  });
   const smartLabel = smartMode
-    ? (Object.values(smartOverrides).some(Boolean) ? SMART_LABELS.tuned : SMART_LABELS.on)
+    ? (Object.values(effectiveSmartOverrides).some(Boolean) ? SMART_LABELS.tuned : SMART_LABELS.on)
     : SMART_LABELS.off;
-  const hasOverrides = Object.values(smartOverrides).some(Boolean);
+  const hasOverrides = smartMode && Object.values(effectiveSmartOverrides).some(Boolean);
 
   const canGen = productImages.length > 0 || description.trim().length > 0;
 
@@ -228,15 +239,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     generationAbortRef.current = generationController;
     setUploadingAssets(true);
     setAssetUploadError('');
-    const baseSizing = (smartMode && !smartOverrides.sizing) ? { smart: true, images: [] } : sizing;
+    const baseSizing = (smartMode && !effectiveSmartOverrides.sizing) ? { smart: true, images: [] } : sizing;
     const effectiveSizing = {
       smart: baseSizing.smart !== false,
       resolution: genSettings.resolution,
       images: resolveSizingImages(platform, { ...baseSizing, resolution: genSettings.resolution }),
     };
-    const effectiveStyle = (smartMode && !smartOverrides.style) ? 'smart' : styleSkill;
-    const effectiveParams = (smartMode && !smartOverrides.params) ? productParams : productParams;
-    const effectiveCopy = (smartMode && !smartOverrides.copy) ? copywriting : copywriting;
+    const effectiveStyle = (smartMode && !effectiveSmartOverrides.style) ? 'smart' : styleSkill;
+    const effectiveParams = productParams;
+    const effectiveCopy = copywriting;
 
     try {
       const [realShots, refShots] = await Promise.all([
@@ -768,19 +779,19 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
 
         {/* ═══ 配置按钮行（相对定位容器，面板在此内部绝对定位）═══ */}
         <div ref={btnRowRef} className="ec-workbench-actions" style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '12px 2px 14px', flexWrap: 'wrap',
+          padding: '12px 2px 14px',
           position: 'relative', zIndex: 10,
           borderTop: '1px solid rgba(28,25,23,0.08)',
           background: '#fff',
         }}>
-          <div className="ec-workbench-tools">
+          <div className="ec-workbench-primary-row">
+            <div className="ec-workbench-tools">
             {/* ═══ 面板渲染（Portal 到 body）═══ */}
             {renderPanel()}
             {/* ── 6 个功能按钮（带配置回显 - 类似椒图AI）── */}
             {BUTTONS.map(btn => {
             const isOpen = activePanel === btn.key;
-            const isOverridden = smartMode && smartOverrides[btn.key];
+            const isOverridden = smartMode && effectiveSmartOverrides[btn.key];
             // 计算配置摘要（始终显示，类似椒图AI）
             const getConfigSummary = () => {
               switch (btn.key) {
@@ -881,22 +892,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
               </button>
             );
             })}
-            {hasOverrides && (
-              <button type="button" onClick={restoreSmartPlan} style={{
-                ...BTN_BASE, height: 34, padding: '0 12px', borderColor: 'rgba(124,58,237,0.22)',
-                background: 'rgba(124,58,237,0.06)', color: '#6d28d9', fontSize: 12,
-                marginLeft: 'auto', flexShrink: 0,
-              }}>恢复智能方案</button>
-            )}
-          </div>
-
-          {/* ── 下一步按钮 ── */}
-          {assetUploadError && (
-            <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginRight: 8 }}>
-              {assetUploadError}
             </div>
-          )}
-          <button className="ec-workbench-next" disabled={!canGen || uploadingAssets} onClick={handleNext}
+
+            {/* ── 下一步按钮 ── */}
+            {assetUploadError && (
+              <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginRight: 8 }}>
+                {assetUploadError}
+              </div>
+            )}
+            <button className="ec-workbench-next" disabled={!canGen || uploadingAssets} onClick={handleNext}
             style={{
               marginLeft: 'auto', height: 38, padding: '0 22px', borderRadius: 12,
               border: 'none', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
@@ -911,7 +915,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
             onMouseEnter={e => { if (canGen && !uploadingAssets) { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(124,58,237,0.4)'; } }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = canGen && !uploadingAssets ? '0 4px 16px rgba(124,58,237,0.3)' : 'none'; }}>
             {uploadingAssets ? '正在上传原图…' : '下一步'} <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
-          </button>
+            </button>
+          </div>
+          {hasOverrides && (
+            <div className="ec-workbench-secondary-row">
+              <button type="button" className="ec-restore-smart" onClick={restoreSmartPlan}>
+                恢复智能方案
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
