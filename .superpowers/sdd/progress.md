@@ -468,3 +468,11 @@
   collaboration policy passed, and `git diff --check` reported no errors. The
   release remains blocked only on a valid complete PuppyRouter API token; no
   production state was changed.
+- Refreshed read-only production preflight after `8242ac5`: PM2 PID `1313390`
+  is healthy, image queue usage is `0 active / 0 queued` with concurrency 3,
+  the deployment lock is clear, exactly three rollback backups remain, and the
+  production volume has 10,603,300 KiB free. Non-secret runtime inspection
+  confirms production still uses the legacy image and vision gateways and both
+  runtime files remain mode `644`; the authorized release must therefore take
+  the atomic runtime-backup/update path and tighten both files to `600`. No
+  credential values were read or printed and no production state was changed.
