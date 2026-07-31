@@ -2924,16 +2924,20 @@ const migrateLegacyVisualAsset = createLegacyVisualAssetMigration({
   getJob: jobId => ecommerceJobs.get(jobId),
   getOwnedAsset: input => ecommerceAssetUploadService.getOwnedAsset(input),
 });
+function createEcommerceVlmClient() {
+  const useMini = Boolean(MINI_KEY && MINI_BASE);
+  return createVlmClient({
+    apiKey: useMini ? MINI_KEY : LLM_KEY,
+    baseUrl: useMini ? MINI_BASE : LLM_BASE,
+    model: useMini ? MINI_MODEL : LLM_MODEL,
+  });
+}
 const visualAnalysisService = createVisualAnalysisService({
   store: createVisualAnalysisStore(db),
   model: MINI_MODEL,
   promptVersion: process.env.VISUAL_ANALYSIS_PROMPT_VERSION || 'visual-analysis-v3',
   readAsset: asset => imageInputReader.read(asset?.url),
-  callVision: request => createVlmClient({
-    apiKey: MINI_KEY,
-    baseUrl: MINI_BASE,
-    model: MINI_MODEL,
-  }).analyzeJson(request),
+  callVision: request => createEcommerceVlmClient().analyzeJson(request),
 });
 
 function parseJsonObject(value) {
@@ -3012,10 +3016,11 @@ async function analyzeStableEcommerceAsset({ buffer, contentType, productTruth }
     const systemPrompt = buildFormalEcommerceQualityPrompt();
     const image = stableAssetDataUrl({ buffer, contentType: contentType || 'image/png' });
     const userPrompt = `Product Truth：${JSON.stringify(productTruth || {})}`;
-    const promise = (MINI_KEY && MINI_BASE
-      ? callMiniLLM(systemPrompt, [image], userPrompt)
-      : callLLMWithVision(systemPrompt, [image], userPrompt))
-      .then(parseJsonObject)
+    const promise = createEcommerceVlmClient().analyzeJson({
+      systemPrompt,
+      userPrompt,
+      images: [image],
+    })
       .catch(error => {
         ecommerceQualityCache.delete(key);
         throw error;

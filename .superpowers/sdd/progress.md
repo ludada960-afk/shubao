@@ -500,3 +500,24 @@
   `429/5xx` responses with two bounded delays; authentication and other permanent
   errors still fail immediately. TDD confirmed the transient sequence failed before
   implementation and focused VLM regression passed 4/4.
+- The owner moved the existing `shubao识图GPT` token from `gpt-plus-team` to the
+  GPT-only `gpt-pro` pool. The release gate then completed both paid provider
+  probes without exposing credentials: `gpt-image-2` returned a valid 1024x1024
+  PNG and `gpt-5.6-luna` completed the image-input analysis. Commit `c9b157a`
+  reached production and passed health and billing verification, but the complete
+  ecommerce canary correctly rolled back after one generated main image ended as
+  `needs_review`. Read-only database inspection found that all three images had
+  been generated and persisted; the main image passed technical, platform and
+  semantic layout checks, while product-fidelity analysis alone received a
+  transient Cloudflare 524. The old quality path converted that unavailable
+  adapter into `repairAction: none`, causing the valid suite to be withheld.
+  Production recovered healthy after rollback with PID `1495709` and an idle
+  3-worker image queue.
+- Fixed that root cause without weakening quality gates or spending another image
+  generation call. Semantic quality adapters now receive one bounded retry when
+  their result is unavailable, and stable ecommerce quality analysis uses the same
+  timeout- and retry-aware VLM client as product/reference analysis instead of the
+  legacy direct Mini request. TDD reproduced a first-call timeout followed by a
+  valid product-fidelity result. Focused regressions passed 62/62; the full suite
+  passed 938/938, Vite transformed 6,430 modules, post-build checks passed and the
+  collaboration policy reported READY.

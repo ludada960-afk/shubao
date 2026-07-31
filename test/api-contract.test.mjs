@@ -525,7 +525,10 @@ test('stable ecommerce quality analysis uses the detected JPEG, PNG, or WebP MIM
   assert.match(server, /stableAssetDataUrl\(\{\s*buffer,\s*contentType:/);
   const start = server.indexOf('async function analyzeStableEcommerceAsset(');
   const end = server.indexOf('\nfunction qualityAdapter', start);
-  assert.doesNotMatch(server.slice(start, end), /contentType:\s*['"]image\/png['"]/);
+  const qualitySource = server.slice(start, end);
+  assert.doesNotMatch(qualitySource, /contentType:\s*['"]image\/png['"]/);
+  assert.match(qualitySource, /createEcommerceVlmClient\(\)\.analyzeJson\(/);
+  assert.doesNotMatch(qualitySource, /callMiniLLM\(/);
 });
 
 test('formal ecommerce visual quality schema requires an explicit semantic layout verdict', async () => {

@@ -175,6 +175,12 @@ async function runAdapter(adapter, payload, {
   }
 }
 
+async function runAdapterWithTransientRetry(adapter, payload, options) {
+  const first = await runAdapter(adapter, payload, options);
+  if (typeof adapter !== 'function' || first.status !== 'unavailable') return first;
+  return runAdapter(adapter, payload, options);
+}
+
 export function measureWhiteBackgroundCoverage(data, info) {
   const channels = info.channels;
   const count = info.width * info.height;
@@ -420,13 +426,21 @@ export async function evaluateAsset(input = {}, adapters = {}) {
     role,
     productTruth: isRecord(own(safeInput, 'productTruth')) ? { ...own(safeInput, 'productTruth') } : {},
   };
-  const productFidelity = await runAdapter(own(adapters, 'productFidelity'), adapterPayload, {
-    failureCode: 'product_fidelity_failed',
-  });
-  const visualAdapter = await runAdapter(own(adapters, 'visualQuality'), adapterPayload, {
-    failureCode: 'visual_quality_failed',
-    requireSemanticLayout: true,
-  });
+  const productFidelity = await runAdapterWithTransientRetry(
+    own(adapters, 'productFidelity'),
+    adapterPayload,
+    {
+      failureCode: 'product_fidelity_failed',
+    },
+  );
+  const visualAdapter = await runAdapterWithTransientRetry(
+    own(adapters, 'visualQuality'),
+    adapterPayload,
+    {
+      failureCode: 'visual_quality_failed',
+      requireSemanticLayout: true,
+    },
+  );
   const deterministicVisualIssues = [];
   if (metrics.luminanceStdDev < BLANK_STDDEV_THRESHOLD) {
     deterministicVisualIssues.push('blank_or_uniform');
@@ -465,7 +479,7 @@ export async function evaluateAsset(input = {}, adapters = {}) {
   const requiredText = normalizeStrings(own(safeInput, 'requiredText'));
   const requiredLogos = normalizeStrings(own(safeInput, 'requiredLogos'));
   const copyAndLogo = requiredText.length || requiredLogos.length
-    ? await runAdapter(own(adapters, 'ocr'), {
+    ? await runAdapterWithTransientRetry(own(adapters, 'ocr'), {
       ...adapterPayload,
       requiredText,
       requiredLogos,

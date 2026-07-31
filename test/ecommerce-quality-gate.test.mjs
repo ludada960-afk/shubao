@@ -136,6 +136,37 @@ test('blocks delivery when required semantic quality adapters are unavailable', 
   assert.equal(result.confidence, 'medium');
 });
 
+test('retries one transient semantic adapter failure before withholding a valid asset', async () => {
+  let productFidelityCalls = 0;
+  const result = await evaluateAsset({
+    buffer: await productFixture(),
+    role: 'main',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+  }, {
+    productFidelity: async () => {
+      productFidelityCalls += 1;
+      if (productFidelityCalls === 1) throw new Error('temporary upstream timeout');
+      return { passed: true, confidence: 0.99, issueCodes: [] };
+    },
+    visualQuality: async () => ({
+      passed: true,
+      confidence: 0.99,
+      issueCodes: [],
+      layout: {
+        verdict: 'single_product',
+        confidence: 0.99,
+        evidence: ['one coherent product in a continuous scene'],
+      },
+    }),
+  });
+
+  assert.equal(productFidelityCalls, 2);
+  assert.equal(result.passed, true);
+  assert.equal(result.checks.productFidelity.status, 'pass');
+  assert.equal(result.checks.visualQuality.status, 'pass');
+});
+
 test('requires OCR approval when the asset plan contains text or logos', async () => {
   const result = await evaluateAsset({
     buffer: await productFixture(),
