@@ -8,7 +8,7 @@ import Database from 'better-sqlite3';
 
 import { createVisualAnalysisService } from '../server/ecommerceEngine/visualAnalysisService.mjs';
 import { createVisualAnalysisStore } from '../server/ecommerceEngine/visualAnalysisStore.mjs';
-import { createVlmClient } from '../server/ecommerceEngine/vlmClient.mjs';
+import { createVlmClient, createVlmDeadline } from '../server/ecommerceEngine/vlmClient.mjs';
 import { buildProductTruthPrompt } from '../server/ecommerceEngine/productTruth.mjs';
 import { buildStyleReferencePrompt } from '../server/ecommerceEngine/styleReferenceProfile.mjs';
 
@@ -438,5 +438,95 @@ test('VLM client aborts a bounded request and clears its timeout', async () => {
 
   assert.equal(scheduledMs, 25);
   assert.equal(observedSignal.aborted, true);
+  assert.equal(clearedToken, timerToken);
+});
+
+test('VLM client completes bounded text requests without requiring an image', async () => {
+  let request;
+  const client = createVlmClient({
+    apiKey: 'test-only-key',
+    baseUrl: 'https://vision.example',
+    fetchImpl: async (url, options) => {
+      request = { url, options, body: JSON.parse(options.body) };
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: '润色后的商品描述' } }] };
+        },
+      };
+    },
+  });
+
+  const result = await client.completeText({
+    systemPrompt: 'Rewrite the product brief.',
+    userPrompt: 'Original product brief.',
+  });
+
+  assert.equal(result, '润色后的商品描述');
+  assert.equal(request.url, 'https://vision.example/v1/chat/completions');
+  assert.equal(request.body.messages[1].content[0].type, 'text');
+  assert.equal(request.body.messages[1].content.length, 1);
+  assert.ok(request.options.signal instanceof AbortSignal);
+});
+
+test('VLM client forwards an external abort without retrying the cancelled request', async () => {
+  const externalController = new AbortController();
+  let callCount = 0;
+  let observedSignal;
+  const client = createVlmClient({
+    apiKey: 'test-only-key',
+    baseUrl: 'https://vision.example',
+    retryDelaysMs: [1, 1],
+    sleepImpl: async () => {},
+    fetchImpl: async (_url, options) => {
+      callCount += 1;
+      observedSignal = options.signal;
+      return new Promise((_resolve, reject) => {
+        observedSignal.addEventListener('abort', () => reject(observedSignal.reason), { once: true });
+      });
+    },
+  });
+
+  const completion = client.completeText({
+    systemPrompt: 'Analyze.',
+    userPrompt: 'Product.',
+    images: ['data:image/png;base64,AA=='],
+    signal: externalController.signal,
+  });
+  externalController.abort(new Error('route deadline reached'));
+
+  await assert.rejects(
+    completion,
+    error => error?.code === 'VISUAL_ANALYSIS_ABORTED'
+      && error?.status === 499
+      && error?.retryable === false,
+  );
+  assert.equal(callCount, 1);
+  assert.equal(observedSignal.aborted, true);
+});
+
+test('VLM route deadline aborts the whole analysis with a gateway-timeout error', () => {
+  const timerToken = { id: 'route-deadline' };
+  let deadlineCallback;
+  let clearedToken;
+  const deadline = createVlmDeadline({
+    timeoutMs: 75_000,
+    setTimeoutImpl(callback, milliseconds) {
+      assert.equal(milliseconds, 75_000);
+      deadlineCallback = callback;
+      return timerToken;
+    },
+    clearTimeoutImpl(token) {
+      clearedToken = token;
+    },
+  });
+
+  deadlineCallback();
+
+  assert.equal(deadline.signal.aborted, true);
+  assert.equal(deadline.signal.reason?.code, 'VISUAL_ANALYSIS_TIMEOUT');
+  assert.equal(deadline.signal.reason?.status, 504);
+  assert.equal(deadline.signal.reason?.retryable, true);
+  deadline.cleanup();
   assert.equal(clearedToken, timerToken);
 });

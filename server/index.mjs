@@ -90,7 +90,7 @@ import {
 } from './ecommerceEngine/index.mjs';
 import { createVisualAnalysisService } from './ecommerceEngine/visualAnalysisService.mjs';
 import { createVisualAnalysisStore } from './ecommerceEngine/visualAnalysisStore.mjs';
-import { createVlmClient } from './ecommerceEngine/vlmClient.mjs';
+import { createVlmClient, createVlmDeadline } from './ecommerceEngine/vlmClient.mjs';
 import { createLegacyVisualAssetMigration } from './ecommerceEngine/legacyVisualAssetMigration.mjs';
 import {
   BETA_GUARDED_POST_ROUTES,
@@ -436,6 +436,7 @@ const IMG_PROVIDER_PROTOCOL = String(process.env.IMAGE_PROVIDER_PROTOCOL || 'nat
 const MINI_KEY = process.env.MINI_API_KEY || '';
 const MINI_BASE = (process.env.MINI_BASE_URL || '').replace(/\/+$/, '');
 const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.6-luna';
+const DESIGN_DIRECTION_SERVER_TIMEOUT_MS = 75_000;
 
 // ============================================================
 // LLM 调用（兼容 OpenAI 格式，自动重试 + 双通道降级）
@@ -530,35 +531,18 @@ async function callLLMWithVision(systemPrompt, images, userPrompt) {
 // ============================================================
 // Vision 调用 — 商品图和参考图分析
 // ============================================================
-async function callMiniLLM(systemPrompt, imageUrl, userPrompt) {
-  if (!MINI_KEY || !MINI_BASE) throw new Error('Mini API 未配置');
-  const url = `${MINI_BASE}/v1/chat/completions`;
-  const messages = [{ role: 'system', content: systemPrompt }];
-  if (imageUrl) {
-    // 支持单张图或多张图（数组）
-    const images = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
-    messages.push({
-      role: 'user',
-      content: [
-        { type: 'text', text: userPrompt || '分析这些图片' },
-        ...images.map(u => ({ type: 'image_url', image_url: { url: u } })),
-      ],
-    });
-  } else {
-    messages.push({ role: 'user', content: userPrompt || '' });
-  }
-  const body = { model: MINI_MODEL, messages, max_tokens: 1500, temperature: 0.3 };
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MINI_KEY}` },
-    body: JSON.stringify(body),
+async function callMiniLLM(systemPrompt, imageUrl, userPrompt, { signal } = {}) {
+  const images = imageUrl
+    ? (Array.isArray(imageUrl) ? imageUrl : [imageUrl]).filter(Boolean)
+    : [];
+  return createEcommerceVlmClient().completeText({
+    systemPrompt,
+    userPrompt: userPrompt || (images.length ? '分析这些图片' : '请处理这段内容'),
+    images,
+    signal,
+    maxTokens: 1500,
+    temperature: 0.3,
   });
-  if (!res.ok) {
-    const err = await res.text().catch(() => res.statusText);
-    throw new Error(`Mini API error ${res.status}: ${err.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
 }
 
 /**
@@ -567,7 +551,7 @@ async function callMiniLLM(systemPrompt, imageUrl, userPrompt) {
  * @param {string[]} imageUrls - 参考图 URL 或 data URL
  * @returns {Promise<Object>} 分析结果
  */
-async function analyzeReferenceImages(imageUrls) {
+async function analyzeReferenceImages(imageUrls, { signal } = {}) {
   if (!imageUrls?.length) return null;
   const systemPrompt = `你是一个电商产品图片分析专家。分析这些参考图，提取以下信息，用 JSON 格式返回（只返回 JSON，不要其他文字）：
 {
@@ -593,7 +577,8 @@ async function analyzeReferenceImages(imageUrls) {
     if (batches.length === 1) {
       // 单批：直接分析
       const result = await callMiniLLM(systemPrompt, batches[0],
-        `综合这些商品图片的视觉特征，输出统一的视觉报告 JSON。共 ${batches[0].length} 张。`);
+        `综合这些商品图片的视觉特征，输出统一的视觉报告 JSON。共 ${batches[0].length} 张。`,
+        { signal });
       const match = result.match(/\{[^]*\}/);
       if (match) return JSON.parse(match[0]);
       return null;
@@ -604,10 +589,13 @@ async function analyzeReferenceImages(imageUrls) {
     for (let i = 0; i < batches.length; i++) {
       try {
         const r = await callMiniLLM(systemPrompt, batches[i],
-          `分析第 ${i+1}/${batches.length} 批图片（共 ${batches[i].length} 张），输出视觉报告 JSON。`);
+          `分析第 ${i+1}/${batches.length} 批图片（共 ${batches[i].length} 张），输出视觉报告 JSON。`,
+          { signal });
         const m = r.match(/\{[^]*\}/);
         if (m) batchResults.push(JSON.parse(m[0]));
-      } catch (e) { /* 单批失败不中断 */ }
+      } catch (e) {
+        if (signal?.aborted) throw signal.reason || e;
+      }
     }
     if (!batchResults.length) return null;
     if (batchResults.length === 1) return batchResults[0];
@@ -624,6 +612,7 @@ async function analyzeReferenceImages(imageUrls) {
     merged.key_visual_elements = [...allElements].slice(0, 8);
     return merged;
   } catch (e) {
+    if (signal?.aborted) throw signal.reason || e;
     console.warn('[Vision] 分析失败:', e.message);
     return null;
   }
@@ -3214,7 +3203,7 @@ setInterval(() => {
 // ============================================================
 // 设计方向：VLM 分析产品+参考图 → 输出 3-4 组差异化设计方向
 // ============================================================
-async function generateDesignDirections(input = {}) {
+async function generateDesignDirections(input = {}, { signal } = {}) {
   const { product_name, description, category, real_shots, ref_shots, platform, style_skill, product_params, skus, copywriting } = input;
   if (!product_name && !description && !real_shots?.length) {
     throw Object.assign(new Error('请至少填写产品名称或上传产品图'), { status: 400 });
@@ -3224,6 +3213,7 @@ async function generateDesignDirections(input = {}) {
   const resolveImages = async (imgs) => {
     const resolved = [];
     for (const u of (imgs || [])) {
+      if (signal?.aborted) throw signal.reason;
       if (!u || typeof u !== 'string') continue;
       try {
         const image = await imageInputReader.read(u);
@@ -3240,14 +3230,14 @@ async function generateDesignDirections(input = {}) {
     let productVision = null;
     if (resolvedReal.length) {
       console.log(`[design-dir] VLM 分析产品图 ${resolvedReal.length} 张...`);
-      productVision = await analyzeReferenceImages(resolvedReal);
+      productVision = await analyzeReferenceImages(resolvedReal, { signal });
     }
 
     // 2) VLM 分析参考图（全量）
     let refVision = null;
     if (resolvedRef.length) {
       console.log(`[design-dir] VLM 分析参考图 ${resolvedRef.length} 张...`);
-      refVision = await analyzeReferenceImages(resolvedRef);
+      refVision = await analyzeReferenceImages(resolvedRef, { signal });
     }
 
     // 3) 构建 LLM prompt 生成设计方向
@@ -3316,7 +3306,12 @@ async function generateDesignDirections(input = {}) {
 
     const userMsg = `${productInfo}\n\n${visionContext ? visionContext + '\n\n' : ''}请输出 3-4 组差异化设计方向。`;
 
-    const llmRes = await callMiniLLM(sys, [...resolvedReal.slice(0, 3), ...resolvedRef.slice(0, 2)], userMsg);
+    const llmRes = await callMiniLLM(
+      sys,
+      [...resolvedReal.slice(0, 3), ...resolvedRef.slice(0, 2)],
+      userMsg,
+      { signal },
+    );
     // 健壮 JSON 解析：修复 LLM 常见格式问题
     let parsed = null;
     try {
@@ -3367,6 +3362,7 @@ async function generateDesignDirections(input = {}) {
 
 app.post('/api/ecommerce/design-directions', async (req, res) => {
   const { refresh, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
+  const deadline = createVlmDeadline({ timeoutMs: DESIGN_DIRECTION_SERVER_TIMEOUT_MS });
   try {
     if (refresh === true) {
       const billed = await canvasOneShotBilling.execute({
@@ -3378,14 +3374,14 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
         providerCostCny: 0.05,
         metadata: { action: 'direction_refresh' },
         work: async () => {
-          const result = await generateDesignDirections(req.body);
+          const result = await generateDesignDirections(req.body, { signal: deadline.signal });
           const fingerprint = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex');
           return { ...result, url: `direction-refresh:${fingerprint}` };
         },
       });
       return res.json({ ...billed.result, billing: billed.billing });
     }
-    return res.json(await generateDesignDirections(req.body));
+    return res.json(await generateDesignDirections(req.body, { signal: deadline.signal }));
   } catch (e) {
     console.warn('[design-directions] 失败:', e.message);
     return res.status(e?.status || 500).json({
@@ -3395,6 +3391,8 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
       available: e?.available,
       billing: e?.billing,
     });
+  } finally {
+    deadline.cleanup();
   }
 });
 

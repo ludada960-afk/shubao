@@ -19,6 +19,34 @@ function codedError(code, message, { status = 503, retryable = true, cause } = {
   });
 }
 
+export function createVlmDeadline({
+  timeoutMs = 75_000,
+  setTimeoutImpl = setTimeout,
+  clearTimeoutImpl = clearTimeout,
+  AbortControllerImpl = AbortController,
+} = {}) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError('VLM deadline must be a positive integer');
+  }
+  const controller = new AbortControllerImpl();
+  let cleaned = false;
+  const timeout = setTimeoutImpl(() => {
+    controller.abort(codedError(
+      'VISUAL_ANALYSIS_TIMEOUT',
+      '图片分析超时，请检查网络后重试',
+      { status: 504, retryable: true },
+    ));
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    cleanup() {
+      if (cleaned) return;
+      cleaned = true;
+      clearTimeoutImpl(timeout);
+    },
+  };
+}
+
 function parseJsonContent(content) {
   const text = cleanString(content);
   if (!text) {
@@ -48,6 +76,14 @@ function isRetryableStatus(status) {
   return status === 429 || (Number.isInteger(status) && status >= 500);
 }
 
+function externalAbortError(signal) {
+  return codedError('VISUAL_ANALYSIS_ABORTED', '图片分析请求已取消', {
+    status: 499,
+    retryable: false,
+    cause: signal?.reason instanceof Error ? signal.reason : undefined,
+  });
+}
+
 export function createVlmClient({
   fetchImpl = fetch,
   apiKey,
@@ -73,21 +109,30 @@ export function createVlmClient({
     throw new TypeError('VLM timeout configuration is invalid');
   }
 
-  return {
-    async analyzeJson({ systemPrompt, userPrompt, images = [] } = {}) {
+  async function completeText({
+    systemPrompt,
+    userPrompt,
+    images = [],
+    signal,
+    maxTokens = 2048,
+    temperature = 0.1,
+  } = {}) {
       const system = cleanString(systemPrompt);
       const user = cleanString(userPrompt);
       const imageUrls = Array.isArray(images) ? images.map(cleanString).filter(Boolean) : [];
-      if (!system || !user || imageUrls.length === 0) {
+      if (!system || !user) {
         throw codedError('VISUAL_ANALYSIS_INVALID_INPUT', '图片分析请求不完整', {
           status: 400,
           retryable: false,
         });
       }
+      if (signal?.aborted) throw externalAbortError(signal);
 
       for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
         const abortController = new AbortController();
         let timedOut = false;
+        const forwardExternalAbort = () => abortController.abort(signal?.reason);
+        signal?.addEventListener?.('abort', forwardExternalAbort, { once: true });
         const timeout = setTimeoutImpl(() => {
           timedOut = true;
           abortController.abort(new Error('visual analysis request timed out'));
@@ -116,12 +161,13 @@ export function createVlmClient({
                   ],
                 },
               ],
-              max_tokens: 2048,
-              temperature: 0.1,
+              max_tokens: maxTokens,
+              temperature,
             }),
             signal: abortController.signal,
             });
           } catch (error) {
+            if (signal?.aborted) throw externalAbortError(signal);
             if (!timedOut && !abortController.signal.aborted && attempt < retryDelaysMs.length) {
               await sleepImpl(retryDelaysMs[attempt]);
               continue;
@@ -142,6 +188,7 @@ export function createVlmClient({
           try {
             data = await response.json();
           } catch (error) {
+            if (signal?.aborted) throw externalAbortError(signal);
             if (timedOut || abortController.signal.aborted) {
               throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
                 cause: error,
@@ -153,12 +200,35 @@ export function createVlmClient({
               cause: error,
             });
           }
-          return parseJsonContent(data?.choices?.[0]?.message?.content);
+          const content = cleanString(data?.choices?.[0]?.message?.content);
+          if (!content) {
+            throw codedError('VISUAL_ANALYSIS_INVALID_RESPONSE', '图片分析服务返回了空结果', {
+              status: 502,
+              retryable: false,
+            });
+          }
+          return content;
         } finally {
           clearTimeoutImpl(timeout);
+          signal?.removeEventListener?.('abort', forwardExternalAbort);
         }
       }
       throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
+  }
+
+  return {
+    completeText,
+    async analyzeJson(request = {}) {
+      const imageUrls = Array.isArray(request.images)
+        ? request.images.map(cleanString).filter(Boolean)
+        : [];
+      if (imageUrls.length === 0) {
+        throw codedError('VISUAL_ANALYSIS_INVALID_INPUT', '图片分析请求不完整', {
+          status: 400,
+          retryable: false,
+        });
+      }
+      return parseJsonContent(await completeText({ ...request, images: imageUrls }));
     },
   };
 }

@@ -61,6 +61,7 @@ test('gateway probe validates the image model, real vision input, native task ou
     },
     vlmFactory: config => {
       assert.equal(config.apiKey, SECRETS.visionApiKey);
+      assert.equal(config.baseUrl, 'https://hgapi.dieqiyun.top');
       assert.equal(config.model, 'gpt-5.6-luna');
       return {
         async analyzeJson(request) {
@@ -83,7 +84,7 @@ test('gateway probe validates the image model, real vision input, native task ou
   assert.equal(JSON.stringify(result).includes(SECRETS.imageApiKey), false);
   assert.equal(JSON.stringify(result).includes(SECRETS.visionApiKey), false);
   assert.equal(fetchCalls.length, 2);
-  assert.equal(fetchCalls.some(call => call.url === 'https://puppyrouter.com/v1/models'), false);
+  assert.equal(fetchCalls.some(call => call.url === 'https://hgapi.dieqiyun.top/v1/models'), false);
 });
 
 test('gateway probe rejects missing, short, or line-breaking credentials before network access', () => {

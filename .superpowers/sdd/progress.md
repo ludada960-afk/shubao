@@ -574,3 +574,13 @@
   global task dock; and restore-smart controls occupy a dedicated secondary row.
   Focused regression passed 11/11 and the production Vite build transformed 6,427
   modules successfully.
+- Visual analysis now has one abortable 75-second lifecycle from browser upload
+  preparation through the server VLM call, with stale responses ignored after a
+  retry or route change and timeout failures presented as retryable user actions.
+  The server shares the bounded ecommerce VLM client instead of an unbounded
+  legacy completion path, and the runtime/probe contract now targets the
+  owner-supplied `hgapi.dieqiyun.top` vision gateway while preserving the separate
+  65535 image-generation gateway. Direction refresh and AI polish controls now
+  expose visible hover, focus, pressed, disabled and busy states. Focused lifecycle
+  and gateway regressions passed 28/28, API/UI regressions passed 45/45, both
+  changed server modules passed syntax checks, and Vite transformed 6,428 modules.

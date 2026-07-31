@@ -7,6 +7,10 @@ import {
   uploadEcommerceAssets,
 } from '../../../services/api';
 import { quoteBillingAction } from '../../../services/billing.js';
+import {
+  createBoundedRequestLifecycle,
+  requestFailureMessage,
+} from '../../../services/requestLifecycle.js';
 import { useApp } from '../../../store/AppContext';
 import { handleGenerationAccessError } from '../../../utils/generationAccess.js';
 import EcommerceWorkbench from './EcommerceWorkbench';
@@ -74,6 +78,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const generationAbortRef = useRef(null);
   const generationLifecycleRef = useRef(null);
   const directionRefreshActionRef = useRef(null);
+  const analysisRequestRef = useRef(null);
   if (!generationLifecycleRef.current) {
     generationLifecycleRef.current = createEcommerceGenerationLifecycleController({
       ownerEmail,
@@ -87,6 +92,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const isGenerationCurrent = (token) => generationLifecycle.isCurrent(token);
 
   useEffect(() => {
+    analysisRequestRef.current?.cancel();
+    analysisRequestRef.current?.cleanup();
+    analysisRequestRef.current = null;
     generationLifecycle.invalidate();
     setGenerating(false);
     setStableImages([]);
@@ -96,6 +104,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   }, [ownerEmail, draftId]);
 
   useEffect(() => () => {
+    analysisRequestRef.current?.cancel();
+    analysisRequestRef.current?.cleanup();
     generationLifecycle.unmount();
   }, []);
 
@@ -163,16 +173,24 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   }, [quoteRequestKey]);
 
   const loadDirections = async ({ refreshBilling = null } = {}) => {
+    analysisRequestRef.current?.cancel();
+    analysisRequestRef.current?.cleanup();
+    const analysisRequest = createBoundedRequestLifecycle();
+    analysisRequestRef.current = analysisRequest;
     setLoading(true);
     setError('');
     setLoadStage(0);
     let timer1;
     let timer2;
     try {
-      timer1 = setTimeout(() => setLoadStage(1), 2000);
-      timer2 = setTimeout(() => setLoadStage(2), 4000);
+      timer1 = setTimeout(() => {
+        if (analysisRequestRef.current === analysisRequest) setLoadStage(1);
+      }, 2000);
+      timer2 = setTimeout(() => {
+        if (analysisRequestRef.current === analysisRequest) setLoadStage(2);
+      }, 4000);
 
-      const uploadedSupplement = await uploadSupplementAssetsForAnalysis();
+      const uploadedSupplement = await uploadSupplementAssetsForAnalysis(analysisRequest.signal);
 
       const res = await getDesignDirections({
         product_name: params?.productName || params?.description?.slice(0, 20) || '商品',
@@ -188,7 +206,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         refresh: Boolean(refreshBilling),
         billingQuoteId: refreshBilling?.quoteId,
         billingActionId: refreshBilling?.actionId,
-      });
+      }, { signal: analysisRequest.signal });
+
+      if (analysisRequestRef.current !== analysisRequest) return;
 
       setLoadStage(3);
 
@@ -196,12 +216,25 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       setAnalysis(res.analysis || null);
       if (res.directions?.length) setSelected(0);
     } catch (e) {
-      if (refreshBilling) throw e;
-      setError(e.message || '加载失败');
+      if (analysisRequestRef.current !== analysisRequest) return;
+      const message = requestFailureMessage(e, analysisRequest);
+      if (refreshBilling) {
+        if (!message) return;
+        throw Object.assign(new Error(message), {
+          code: e?.code,
+          status: e?.status,
+          billing: e?.billing,
+        });
+      }
+      if (message) setError(message);
     } finally {
       clearTimeout(timer1);
       clearTimeout(timer2);
-      setLoading(false);
+      analysisRequest.cleanup();
+      if (analysisRequestRef.current === analysisRequest) {
+        analysisRequestRef.current = null;
+        setLoading(false);
+      }
     }
   };
 
@@ -293,7 +326,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setExtraReferenceImages(uploaded.reference);
     return uploaded;
   };
-  const uploadSupplementAssetsForAnalysis = () => uploadSupplementAssets();
+  const uploadSupplementAssetsForAnalysis = (signal) => uploadSupplementAssets({ signal });
   const uploadSupplementAssetsForGeneration = (generationToken, signal) => uploadSupplementAssets({ generationToken, signal });
 
   /* ── 确认方向 → 生成 ── */
@@ -593,7 +626,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#1f2937' }}>视觉方向</div>
                 <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>选择最贴近商品定位的一套方向，执行说明仍可修改。</div>
               </div>
-              <button type="button" onClick={handleRefreshDirections} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 8, border: '1px solid #d7dce5', background: '#fff', color: '#1f2937', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer', boxShadow: '0 3px 12px rgba(15,23,42,.07)' }}>
+              <button
+                type="button"
+                className="ec-direction-action ec-direction-action--refresh"
+                onClick={handleRefreshDirections}
+                disabled={loading}
+              >
                 <MdRefresh size={14} />重新分析四个方向 · 1 AI 积分
               </button>
             </div>
@@ -637,7 +675,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                  <button type="button" onClick={handlePolish} disabled={!extraDesc.trim() || polishing} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 14px', borderRadius: 10, border: '1px solid #DED7CC', background: '#fff', color: '#5F574F', fontSize: 12, fontWeight: 700, cursor: !extraDesc.trim() || polishing ? 'not-allowed' : 'pointer', opacity: !extraDesc.trim() ? .45 : 1 }}>
+                  <button
+                    type="button"
+                    className="ec-direction-action ec-direction-action--polish"
+                    onClick={handlePolish}
+                    disabled={!extraDesc.trim() || polishing}
+                  >
                     <MdAutoAwesome size={13} />{polishing ? '润色中…' : 'AI 润色补充说明'}
                   </button>
                 </div>

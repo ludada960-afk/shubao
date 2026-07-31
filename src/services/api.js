@@ -367,13 +367,15 @@ async function imageToDataUrl(image) {
   return imageValue(image);
 }
 
-async function prepareImageInputs(images) {
+async function prepareImageInputs(images, { signal } = {}) {
+  if (signal?.aborted) throw ecommerceUploadAbortError();
   if (!images?.length) return [];
   const values = (await Promise.all(images.map(imageToDataUrl))).filter(Boolean);
+  if (signal?.aborted) throw ecommerceUploadAbortError();
   const urls = values.filter(value => /^(?:https?:\/\/|\/api\/)/i.test(value));
   const base64s = values.filter(value => value.startsWith('data:image/'));
   if (!base64s.length) return urls;
-  return [...urls, ...(await uploadECTempImages(base64s))];
+  return [...urls, ...(await uploadECTempImages(base64s, { signal }))];
 }
 
 function ownedAssetReference(image) {
@@ -517,11 +519,12 @@ async function quoteCanvasAction(sku) {
   return { quoteId: quote.quoteId, actionId: canvasBillingActionId() };
 }
 
-export async function uploadECTempImages(base64Images) {
+export async function uploadECTempImages(base64Images, { signal } = {}) {
   const res = await fetch(`${API_BASE}/api/ec-temp-upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ images: base64Images.map((data, i) => ({ name: `img_${i}`, data })) }),
+    signal,
   });
   if (!res.ok) throw new Error('图片上传失败');
   return (await res.json()).urls || [];
@@ -944,11 +947,11 @@ export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
   return res.json();
 }
 
-export async function getDesignDirections(params) {
+export async function getDesignDirections(params, { signal } = {}) {
   // 先上传图片到服务器，再用 URL 请求
   const uploadAndReplace = async (imgs) => {
     if (!imgs?.length) return [];
-    return prepareImageInputs(imgs);
+    return prepareImageInputs(imgs, { signal });
   };
 
   const real_shots = await uploadAndReplace(params.real_shots);
@@ -964,6 +967,7 @@ export async function getDesignDirections(params) {
       billing_quote_id: params.billingQuoteId,
       billing_action_id: params.billingActionId,
     })),
+    signal,
   });
   if (!res.ok) throw await createApiError(res, '设计方向生成失败');
   return res.json();

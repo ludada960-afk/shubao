@@ -525,7 +525,12 @@ test('every running ecommerce entry binds callbacks and completion to its owner-
 test('initial direction analysis is included while explicit refresh is authoritatively billed', async () => {
   const direction = await fs.readFile(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
   const analysisSlice = direction.slice(direction.indexOf('const loadDirections'), direction.indexOf('const updateDirection'));
-  assert.match(analysisSlice, /uploadSupplementAssetsForAnalysis\(\)/);
+  assert.match(direction, /createBoundedRequestLifecycle/);
+  assert.match(direction, /analysisRequestRef\s*=\s*useRef\(null\)/);
+  assert.match(analysisSlice, /uploadSupplementAssetsForAnalysis\(analysisRequest\.signal\)/);
+  assert.match(analysisSlice, /getDesignDirections\([\s\S]{0,900}\{\s*signal:\s*analysisRequest\.signal\s*\}\)/);
+  assert.match(direction, /analysisRequestRef\.current\?\.cancel\(\)/);
+  assert.match(direction, /analysisRequestRef\.current\?\.cleanup\(\)/);
   assert.match(direction, /uploadSupplementAssetsForGeneration\(generationToken/);
   assert.match(analysisSlice, /uploadedSupplement\.product/);
   assert.match(direction, /quoteBillingAction\(\{\s*sku:\s*['"]ec_direction_refresh['"],\s*quantity:\s*1\s*\}\)/);
@@ -539,8 +544,16 @@ test('initial direction analysis is included while explicit refresh is authorita
   assert.match(direction, /saveEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId,\s*actionId\s*\}\)/);
   assert.match(direction, /clearEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId,\s*actionId\s*\}\)/);
   assert.match(direction, /await loadDirections\([\s\S]{0,240}directionRefreshActionRef\.current\s*=\s*null/);
-  assert.match(analysisSlice, /if\s*\(refreshBilling\)\s*throw e/);
+  assert.match(analysisSlice, /if\s*\(refreshBilling\)\s*\{[\s\S]{0,180}throw Object\.assign\(new Error\(message\)/);
   assert.match(direction, /重新分析四个方向\s*·\s*1 AI 积分/);
+
+  const homeStyles = await fs.readFile(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
+  assert.match(direction, /className="ec-direction-action ec-direction-action--refresh"/);
+  assert.match(direction, /className="ec-direction-action ec-direction-action--polish"/);
+  assert.match(homeStyles, /\.ec-direction-action:hover:not\(:disabled\)/);
+  assert.match(homeStyles, /\.ec-direction-action:focus-visible/);
+  assert.match(homeStyles, /\.ec-direction-action:active:not\(:disabled\)/);
+  assert.match(homeStyles, /\.ec-direction-action:disabled/);
 
   const entries = [
     '../src/pages/Home/EcMode.jsx',
@@ -576,6 +589,9 @@ test('design-direction refresh is settled server-side against the signed owner',
   assert.match(routeSource, /sku:\s*['"]ec_direction_refresh['"]/);
   assert.match(routeSource, /billing_quote_id/);
   assert.match(routeSource, /billing_action_id/);
+  assert.match(routeSource, /createVlmDeadline\(\{\s*timeoutMs:\s*DESIGN_DIRECTION_SERVER_TIMEOUT_MS/);
+  assert.match(routeSource, /generateDesignDirections\(req\.body,\s*\{\s*signal:\s*deadline\.signal\s*\}\)/);
+  assert.match(routeSource, /deadline\.cleanup\(\)/);
 });
 
 test('first step creates one stable ecommerce draft id and passes it into direction confirmation', async () => {

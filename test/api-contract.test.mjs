@@ -789,7 +789,7 @@ test('all service-layer expensive requests carry the authenticated session email
   globalThis.localStorage = { getItem: () => JSON.stringify({ email: '867550189@qq.com' }) };
   globalThis.fetch = async (url, options = {}) => {
     const body = options.body ? JSON.parse(options.body) : {};
-    requests.push({ url: String(url), body });
+    requests.push({ url: String(url), body, signal: options.signal });
     if (String(url).endsWith('/api/billing/quote')) {
       return new Response(JSON.stringify({ quote: { quoteId: `quote-${requests.length}` } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
@@ -813,7 +813,11 @@ test('all service-layer expensive requests carry the authenticated session email
   await api.removeBg({ image_url: '/api/generated-assets/source.png' });
   await api.generateContent('测试内容', []);
   await api.autoRecognizeEcommerce({ smartBrief: '测试商品', refShots: [] });
-  await api.getDesignDirections({ product_name: '测试商品', real_shots: [], ref_shots: [] });
+  const designDirectionController = new AbortController();
+  await api.getDesignDirections(
+    { product_name: '测试商品', real_shots: [], ref_shots: [] },
+    { signal: designDirectionController.signal },
+  );
   await api.polishECText({ text: '测试文案', product_name: '商品', category: '其他' });
   await api.extractProductLink('https://example.com/product');
   await api.regenerateImage('测试提示词', '其他');
@@ -824,6 +828,8 @@ test('all service-layer expensive requests carry the authenticated session email
   for (const request of generationRequests) {
     assert.equal(request.body.email, '867550189@qq.com', `${request.url} must carry session email`);
   }
+  const designDirectionRequest = generationRequests.find(request => request.url.endsWith('/api/ecommerce/design-directions'));
+  assert.equal(designDirectionRequest.signal, designDirectionController.signal);
 });
 
 test('direct generation screens cannot bypass the authenticated API payload helpers', async () => {
