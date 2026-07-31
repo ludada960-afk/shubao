@@ -19,7 +19,7 @@ const {
 
 const SECRETS = Object.freeze({
   IMAGE_API_KEY: 'sk-image-test-key-that-is-long-enough',
-  MINI_API_KEY: 'sk-vision-test-key-that-is-long-enough',
+  MINI_API_KEY: 'opaque-vision-key-that-is-long-enough',
 });
 
 test('runtime updater preserves unrelated values and writes the exact gateway contract', () => {
@@ -39,9 +39,8 @@ test('runtime updater preserves unrelated values and writes the exact gateway co
 
 test('runtime updater rejects malformed or line-breaking secrets', () => {
   assert.throws(() => validateSecretPayload({ ...SECRETS, IMAGE_API_KEY: 'short' }), /IMAGE_API_KEY/i);
-  assert.throws(
+  assert.doesNotThrow(
     () => validateSecretPayload({ ...SECRETS, MINI_API_KEY: 'vision-test-key-that-is-long-enough' }),
-    /MINI_API_KEY/i,
   );
   assert.throws(
     () => validateSecretPayload({ ...SECRETS, MINI_API_KEY: `${SECRETS.MINI_API_KEY}\nINJECTED=yes` }),

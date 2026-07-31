@@ -19,9 +19,7 @@ function validSecret(value) {
 
 export function validateProbeSecrets({ imageApiKey, visionApiKey } = {}) {
   if (!validSecret(imageApiKey)) throw new Error('image gateway credential is invalid');
-  if (!validSecret(visionApiKey) || !visionApiKey.trim().startsWith('sk-')) {
-    throw new Error('vision gateway credential is invalid');
-  }
+  if (!validSecret(visionApiKey)) throw new Error('vision gateway credential is invalid');
   return {
     imageApiKey: imageApiKey.trim(),
     visionApiKey: visionApiKey.trim(),

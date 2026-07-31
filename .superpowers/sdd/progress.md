@@ -476,3 +476,14 @@
   runtime files remain mode `644`; the authorized release must therefore take
   the atomic runtime-backup/update path and tighten both files to `600`. No
   credential values were read or printed and no production state was changed.
+- Corrected the migration contract after product-owner clarification: production
+  uses exactly two replacement credentials, one opaque PuppyRouter key for
+  product/reference analysis and design-direction planning, and one 65535 key
+  for GPT-Image-2 generation. The earlier `sk-` prefix requirement for the
+  vision key was an unsupported provider-format assumption and has been removed
+  from local probing, atomic runtime updates and remote verification. Validation
+  still rejects short, placeholder and line-breaking values without exposing
+  secrets. TDD reproduced the rejection first; focused regression passed 10/10,
+  the complete suite passed 936/936, Vite transformed 6,430 modules, post-build
+  checks and collaboration policy passed. Production remains unchanged pending
+  the authenticated probe and deployment with only the two owner-supplied keys.
