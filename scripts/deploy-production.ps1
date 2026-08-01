@@ -33,7 +33,15 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commit)) {
 }
 $archive = Join-Path $env:TEMP "shubao-deploy-$commit-$stamp.tgz"
 $target = "$User@$HostName"
-$ssh = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new")
+$ssh = @(
+  "-i", $KeyPath,
+  "-o", "BatchMode=yes",
+  "-o", "StrictHostKeyChecking=accept-new",
+  "-o", "ConnectTimeout=15",
+  "-o", "ConnectionAttempts=5",
+  "-o", "ServerAliveInterval=15",
+  "-o", "ServerAliveCountMax=3"
+)
 $remoteLock = "/tmp/.shubao-deploy.lock"
 $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
 $remoteDatabaseBackupHelper = "/tmp/shubao-backup-db-$stamp.cjs"

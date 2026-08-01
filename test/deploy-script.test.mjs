@@ -71,6 +71,13 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /process restarted during canary/i);
 });
 
+test('production deploy tolerates transient SSH handshake failures', () => {
+  assert.match(deploy, /ConnectTimeout=15/);
+  assert.match(deploy, /ConnectionAttempts=5/);
+  assert.match(deploy, /ServerAliveInterval=15/);
+  assert.match(deploy, /ServerAliveCountMax=3/);
+});
+
 test('runtime gateway updater accepts secrets only through stdin and rolls files back atomically', () => {
   assert.match(runtimeConfigUpdater, /process\.stdin/);
   assert.match(runtimeConfigUpdater, /JSON\.parse/);
