@@ -663,3 +663,17 @@
   passed. The 390x844 viewport had no page-level horizontal overflow or
   incoherent control overlap. The saved Canvas was restored after testing and
   the page error/warning log was empty.
+- The final canvas replacement release is live at production commit `b81dc90`.
+  The empty-canvas import actions now own an explicit stacking level, fixing the
+  transparent stage layer that made the visible "从我的作品导入" control inert.
+  Regression coverage, all 974 tests and the 6,434-module production build
+  passed. Ecommerce canaries `ec_82f1cfc8-95ab-4916-8a75-804d48a77664` and
+  `ec_ccb9d6fc-3880-4e22-b906-c1535a35d1d6` each delivered three stable assets
+  across the 600-second observation window without rollback.
+- Final authenticated production QA confirmed the empty-canvas Works entry,
+  80/80 decoded Works thumbnails, the compact add/selection/context/derivation
+  surfaces, and a four-asset Canvas with 4/4 decoded images. At 390x844 every
+  node remained visible after fit-to-canvas, document width stayed exactly 390
+  pixels and the page error/warning log was empty. Legacy task
+  `ec_b51b6e4e-4eda-45aa-89af-e513d3804be8` remains durably `failed` with the
+  no-charge analysis-timeout message instead of returning to an analyzing state.
