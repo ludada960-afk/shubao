@@ -39,7 +39,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /server\.env/);
   assert.match(deploy, /server\/\.env/i);
   assert.match(deploy, /--peer/i);
-  assert.match(deploy, /scp[^\n]*remoteDatabaseBackupHelper/i);
+  assert.match(deploy, /& scp @ssh @uploadSources/i);
   assert.doesNotMatch(deploy, /(?:^|[;&\s])sqlite3\s/m);
   assert.match(deploy, /--exclude='server\/works\.db'/);
   assert.match(deploy, /--exclude='server\/\.auth-session-secret'/);
@@ -76,6 +76,16 @@ test('production deploy tolerates transient SSH handshake failures', () => {
   assert.match(deploy, /ConnectionAttempts=5/);
   assert.match(deploy, /ServerAliveInterval=15/);
   assert.match(deploy, /ServerAliveCountMax=3/);
+});
+
+test('production deploy uploads release helpers and archive in one SCP session', () => {
+  assert.equal((deploy.match(/& scp @ssh/g) || []).length, 1);
+  assert.match(deploy, /\$uploadSources\s*=\s*@\(/);
+  assert.match(deploy, /\$runtimeConfigHelper/);
+  assert.match(deploy, /\$runtimeConfigUpdater/);
+  assert.match(deploy, /\$databaseBackupHelper/);
+  assert.match(deploy, /\$archive/);
+  assert.match(deploy, /& scp @ssh @uploadSources/);
 });
 
 test('runtime gateway updater accepts secrets only through stdin and rolls files back atomically', () => {

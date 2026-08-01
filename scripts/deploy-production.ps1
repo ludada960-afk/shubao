@@ -44,13 +44,14 @@ $ssh = @(
 )
 $remoteLock = "/tmp/.shubao-deploy.lock"
 $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
-$remoteDatabaseBackupHelper = "/tmp/shubao-backup-db-$stamp.cjs"
 $runtimeConfigHelper = Join-Path $PSScriptRoot "verify-runtime-config.cjs"
 $runtimeConfigUpdater = Join-Path $PSScriptRoot "configure-runtime-gateways.cjs"
 $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
 $remoteRuntimeHelperDir = "/tmp/shubao-runtime-tools-$stamp"
+$remoteDatabaseBackupHelper = "$remoteRuntimeHelperDir/backup-runtime-db.cjs"
 $remoteRuntimeConfigHelper = "$remoteRuntimeHelperDir/verify-runtime-config.cjs"
 $remoteRuntimeConfigUpdater = "$remoteRuntimeHelperDir/configure-runtime-gateways.cjs"
+$remoteReleaseArchive = "$remoteRuntimeHelperDir/$(Split-Path $archive -Leaf)"
 $remoteRuntimeConfigBackup = "/tmp/shubao-runtime-config-backup-$stamp"
 $lockAcquired = $false
 $remoteBackup = ""
@@ -115,18 +116,20 @@ tar -czf $archive -C $repo `
   dist server package.json package-lock.json ecosystem.config.cjs
 if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
 
-$lockCommand = "set -e; lock='$remoteLock'; if ! mkdir `$lock 2>/dev/null; then if find `$lock -maxdepth 0 -mmin +30 | grep -q .; then rm -rf -- `$lock; mkdir `$lock; else echo 'Another deployment is active:'; cat `$lock/owner 2>/dev/null || true; exit 73; fi; fi; printf '%s\n' '$User@$env:COMPUTERNAME $commit $stamp' > `$lock/owner"
+$lockCommand = "set -e; lock='$remoteLock'; if ! mkdir `$lock 2>/dev/null; then if find `$lock -maxdepth 0 -mmin +30 | grep -q .; then rm -rf -- `$lock; mkdir `$lock; else echo 'Another deployment is active:'; cat `$lock/owner 2>/dev/null || true; exit 73; fi; fi; printf '%s\n' '$User@$env:COMPUTERNAME $commit $stamp' > `$lock/owner; umask 077; mkdir -m 700 '$remoteRuntimeHelperDir'"
 & ssh @ssh $target $lockCommand
 if ($LASTEXITCODE -ne 0) { throw "Could not acquire remote deployment lock" }
 $lockAcquired = $true
 
 try {
-  & ssh @ssh $target "set -e; umask 077; mkdir -m 700 '$remoteRuntimeHelperDir'"
-  if ($LASTEXITCODE -ne 0) { throw "Runtime configuration helper directory creation failed" }
-  & scp @ssh $runtimeConfigHelper "$target`:$remoteRuntimeConfigHelper"
-  if ($LASTEXITCODE -ne 0) { throw "Runtime configuration verifier upload failed" }
-  & scp @ssh $runtimeConfigUpdater "$target`:$remoteRuntimeConfigUpdater"
-  if ($LASTEXITCODE -ne 0) { throw "Runtime configuration updater upload failed" }
+  $uploadSources = @(
+    $runtimeConfigHelper,
+    $runtimeConfigUpdater,
+    $databaseBackupHelper,
+    $archive
+  )
+  & scp @ssh @uploadSources "$target`:$remoteRuntimeHelperDir/"
+  if ($LASTEXITCODE -ne 0) { throw "Release payload upload failed" }
   & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
   if ($LASTEXITCODE -ne 0) {
     if ([string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY) -or [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)) {
@@ -146,20 +149,12 @@ try {
     & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
     if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration verification failed after update" }
   }
-
-  & scp @ssh $databaseBackupHelper "$target`:$remoteDatabaseBackupHelper"
-  if ($LASTEXITCODE -ne 0) { throw "Database backup helper upload failed" }
-
   $remoteStamp = "$stamp-$commit"
   $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"
   & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; cp -a $RemoteDir/server $remoteBackup/server; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
   if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
-
-  & scp @ssh $archive "$target`:$RemoteDir/deploy.tgz"
-  if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
-
   $releaseStarted = $true
-  & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf deploy.tgz; rm -f deploy.tgz; npm ci --omit=dev; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env --max-memory-restart 1G; for attempt in `$(seq 1 30); do if curl -fsS http://127.0.0.1:3001/health; then exit 0; fi; sleep 2; done; exit 1"
+  & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env --max-memory-restart 1G; for attempt in `$(seq 1 30); do if curl -fsS http://127.0.0.1:3001/health; then exit 0; fi; sleep 2; done; exit 1"
   if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
 
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
