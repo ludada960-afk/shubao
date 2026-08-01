@@ -1307,6 +1307,23 @@ export function createEcommerceOrchestrator(deps = {}) {
               if (diversity.passed) continue;
               quality = withSuiteDiversityFailure(quality, diversity.verdict);
             }
+            if (quality.retryable === true) {
+              const error = '图片分析服务暂时不可用，请稍后重试';
+              current = store.transitionAsset(job.id, item.id, 'releasing', {
+                requestSnapshot: {
+                  ...current.requestSnapshot,
+                  quality,
+                  release: {
+                    targetState: 'failed',
+                    reason: 'quality_service_unavailable',
+                    error,
+                  },
+                },
+                error,
+                leaseToken,
+              });
+              continue;
+            }
             const repairAction = planRepair(quality);
             const usesDeterministicRepair = Boolean(repairAsset && repairAction.type === 'sharp_repair');
             const hasActionableProviderRepair = !['', 'none', 'manual_review'].includes(
@@ -1539,7 +1556,10 @@ export function createEcommerceOrchestrator(deps = {}) {
     }
   }
 
-  async function releaseVerifiedSuiteAssets({ job, assetPlan, holdId }) {
+  async function releaseVerifiedSuiteAssets({ job, assetPlan, holdId, targetState }) {
+    if (!['failed', 'needs_review', 'cancelled'].includes(targetState)) {
+      throw new Error('suite release target state is invalid');
+    }
     const planById = new Map(assetPlan.map(item => [item.id, item]));
     for (const asset of store.listAssets(job.id).filter(candidate => candidate.state === 'verified')) {
       const item = planById.get(asset.assetId);
@@ -1547,23 +1567,28 @@ export function createEcommerceOrchestrator(deps = {}) {
       const claimed = store.claimAsset(job.id, asset.assetId, { leaseMs: assetLeaseMs });
       if (!claimed) return false;
       const quality = own(claimed.requestSnapshot, 'quality') ?? null;
-      const reason = 'suite_incomplete:withhold_partial_delivery';
+      const reason = `suite_incomplete:${targetState}`;
+      const error = targetState === 'failed'
+        ? 'complete suite failed'
+        : targetState === 'cancelled'
+          ? 'complete suite cancelled'
+          : 'complete suite required';
       let current = store.transitionAsset(job.id, asset.assetId, 'releasing', {
         requestSnapshot: {
           ...claimed.requestSnapshot,
           release: {
-            targetState: 'needs_review',
+            targetState,
             reason,
-            error: 'complete suite required',
+            error,
           },
         },
-        error: 'complete suite required',
+        error,
         leaseToken: claimed.leaseToken,
       });
       try {
         await releaseItem({ holdId, job, item, reason, quality });
-        store.transitionAsset(job.id, asset.assetId, 'needs_review', {
-          error: 'complete suite required',
+        store.transitionAsset(job.id, asset.assetId, targetState, {
+          error,
           leaseToken: current.leaseToken,
         });
       } catch (error) {
@@ -1614,9 +1639,15 @@ export function createEcommerceOrchestrator(deps = {}) {
     if (assets.length !== assetPlan.length || assets.some(asset => !readyStates.has(asset.state))) {
       return false;
     }
-    const incomplete = assets.some(asset => ['needs_review', 'failed', 'cancelled'].includes(asset.state));
-    return incomplete
-      ? releaseVerifiedSuiteAssets({ job, assetPlan, holdId })
+    const releaseTarget = assets.some(asset => asset.state === 'failed')
+      ? 'failed'
+      : assets.some(asset => asset.state === 'cancelled')
+        ? 'cancelled'
+        : assets.some(asset => asset.state === 'needs_review')
+          ? 'needs_review'
+          : '';
+    return releaseTarget
+      ? releaseVerifiedSuiteAssets({ job, assetPlan, holdId, targetState: releaseTarget })
       : settleVerifiedSuiteAssets({ job, assetPlan, holdId });
   }
 

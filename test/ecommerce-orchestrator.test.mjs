@@ -939,7 +939,7 @@ test('resumes after a transient legacy input read without duplicate pre-billing 
   }]);
 });
 
-test('passes protected product text and logos into quality review before settlement', async t => {
+test('fails without charging when protected-copy review service is unavailable', async t => {
   const item = {
     ...planItem('main-with-label'),
     requiredFacts: [{ name: 'modelName', value: 'S-100' }],
@@ -979,11 +979,12 @@ test('passes protected product text and logos into quality review before settlem
 
   const result = await orchestrator.runJob(created.id);
 
-  assert.equal(result.status, 'needs_review');
+  assert.equal(result.status, 'failed');
   assert.deepEqual(calls.quality[0].requiredText, ['S-100']);
   assert.deepEqual(calls.quality[0].requiredLogos, ['SHUBAO']);
   assert.equal(calls.settle.length, 0);
   assert.equal(calls.release.length, 1);
+  assert.equal(calls.release[0].reason, 'quality_service_unavailable');
 });
 
 test('always requires PNG quality output for transparent plan items', async t => {
@@ -1654,6 +1655,50 @@ test('releases the whole suite without settlement when any planned image is not 
   assert.equal(rejected.error, '本轮未形成完整套图，未交付且本张不计费');
   assert.equal(completed.output.errors[0].error, '本轮未形成完整套图，未交付且本张不计费');
   assert.deepEqual(lifecycle, [['terminate', 'needs_review']]);
+});
+
+test('fails and releases the whole suite when semantic review service is unavailable', async t => {
+  const { orchestrator, calls } = await createHarness(t, {
+    items: [planItem('main-pass'), planItem('detail-service-unavailable', 'detail')],
+    quality: ({ input }) => input.assetPlanItem.id === 'main-pass'
+      ? {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      }
+      : {
+        passed: false,
+        retryable: true,
+        checks: {
+          productFidelity: { status: 'unavailable', issueCodes: ['adapter_error'] },
+          visualQuality: { status: 'unavailable', issueCodes: ['adapter_error'] },
+        },
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'medium',
+      },
+  });
+
+  const result = await orchestrator.runJob(
+    orchestrator.createJob(jobInput('job-quality-service-unavailable')).id,
+  );
+
+  assert.equal(result.status, 'failed');
+  assert.equal(calls.settle.length, 0);
+  assert.deepEqual(calls.release.map(call => call.itemId).sort(), [
+    'detail-service-unavailable',
+    'main-pass',
+  ]);
+  assert.equal(
+    calls.release.find(call => call.itemId === 'detail-service-unavailable').reason,
+    'quality_service_unavailable',
+  );
+  assert.equal(
+    calls.release.find(call => call.itemId === 'main-pass').reason,
+    'suite_incomplete:failed',
+  );
+  assert.ok(result.assets.every(asset => asset.state === 'failed'));
+  assert.deepEqual(Object.keys(result.output.images), []);
 });
 
 test('repairs a quality-rejected deliverable twice internally before completing the suite', async t => {

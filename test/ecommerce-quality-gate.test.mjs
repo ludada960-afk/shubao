@@ -167,6 +167,38 @@ test('retries one transient semantic adapter failure before withholding a valid 
   assert.equal(result.checks.visualQuality.status, 'pass');
 });
 
+test('uses a bounded semantic review image while preserving original technical dimensions', async () => {
+  const buffer = await productFixture({ width: 2048, height: 2048 });
+  const adapterPayloads = [];
+  const result = await evaluateAsset({
+    buffer,
+    role: 'main',
+    generationSize: '2048x2048',
+    expectedFormat: 'png',
+  }, {
+    productFidelity: async payload => {
+      adapterPayloads.push(payload);
+      return { passed: true, confidence: 0.99 };
+    },
+    visualQuality: async payload => {
+      adapterPayloads.push(payload);
+      return visualPass({ confidence: 0.99 });
+    },
+  });
+
+  assert.equal(result.passed, true);
+  assert.equal(result.checks.technical.metrics.actualWidth, 2048);
+  assert.equal(result.checks.technical.metrics.actualHeight, 2048);
+  assert.equal(result.checks.technical.metrics.actualFormat, 'png');
+  assert.equal(adapterPayloads.length, 2);
+  for (const payload of adapterPayloads) {
+    assert.ok(payload.metadata.width <= 1280);
+    assert.ok(payload.metadata.height <= 1280);
+    assert.equal(payload.metadata.format, 'jpeg');
+    assert.ok(payload.buffer.length < buffer.length);
+  }
+});
+
 test('requires OCR approval when the asset plan contains text or logos', async () => {
   const result = await evaluateAsset({
     buffer: await productFixture(),

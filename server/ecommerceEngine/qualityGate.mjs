@@ -10,6 +10,8 @@ const BLANK_STDDEV_THRESHOLD = 3;
 // Calibrated against accepted 2K product generations; lower values still reject defocused outputs.
 const BLUR_EDGE_THRESHOLD = 8;
 const PIXEL_SAMPLE_MAX_DIMENSION = 768;
+const SEMANTIC_REVIEW_MAX_DIMENSION = 1280;
+const SEMANTIC_REVIEW_MAX_BYTES = 1_000_000;
 
 export function buildFormalEcommerceQualityPrompt() {
   const example = {
@@ -81,6 +83,40 @@ function normalizeStrings(values) {
     result.push(normalized);
   }
   return result;
+}
+
+async function semanticReviewAsset(buffer, metadata, actualFormat) {
+  const width = Number(metadata.width) || 0;
+  const height = Number(metadata.height) || 0;
+  if (width <= SEMANTIC_REVIEW_MAX_DIMENSION
+    && height <= SEMANTIC_REVIEW_MAX_DIMENSION
+    && buffer.length <= SEMANTIC_REVIEW_MAX_BYTES) {
+    return {
+      buffer,
+      metadata: { width, height, format: actualFormat },
+    };
+  }
+
+  const review = await sharp(buffer, { failOn: 'error' })
+    .rotate()
+    .resize({
+      width: SEMANTIC_REVIEW_MAX_DIMENSION,
+      height: SEMANTIC_REVIEW_MAX_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .flatten({ background: '#ffffff' })
+    .jpeg({ quality: 88, chromaSubsampling: '4:4:4' })
+    .toBuffer({ resolveWithObject: true });
+
+  return {
+    buffer: review.data,
+    metadata: {
+      width: review.info.width,
+      height: review.info.height,
+      format: 'jpeg',
+    },
+  };
 }
 
 function parseExpectedDimensions(input) {
@@ -438,13 +474,9 @@ export async function evaluateAsset(input = {}, adapters = {}) {
     },
   );
 
+  const reviewAsset = await semanticReviewAsset(buffer, metadata, actualFormat);
   const adapterPayload = {
-    buffer,
-    metadata: {
-      width: metadata.width,
-      height: metadata.height,
-      format: actualFormat,
-    },
+    ...reviewAsset,
     role,
     productTruth: isRecord(own(safeInput, 'productTruth')) ? { ...own(safeInput, 'productTruth') } : {},
   };
