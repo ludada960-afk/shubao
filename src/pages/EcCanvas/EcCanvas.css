@@ -4,9 +4,9 @@
   --canvas-ink: #15171a;
   --canvas-muted: #626871;
   --canvas-hairline: #e3e6ea;
-  --canvas-command: #1677ff;
-  --canvas-command-hover: #095fd1;
-  --canvas-focus: rgba(22, 119, 255, .34);
+  --canvas-command: var(--command);
+  --canvas-command-hover: var(--command-hover);
+  --canvas-focus: var(--focus-ring);
   width: 100vw;
   height: 100vh;
   overflow: hidden;

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 
 import { createGenerationJobs } from '../server/generationJobs.mjs';
 
@@ -187,6 +188,35 @@ test('startup fails a stale pre-billing analysis before interrupted-job recovery
     assert.equal(reopened.recoveredOnStartup, 0);
     assert.equal(reopened.get(job.id).status, 'failed');
     assert.equal(reopened.get(job.id).error, '图片分析超时，本轮未扣费，请重新生成');
+    reopened.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('startup treats a recent SQLite UTC timestamp as recent in every local timezone', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'shubao-recent-analysis-'));
+  const dbPath = join(dir, 'jobs.sqlite');
+  const nowMs = Date.parse('2026-08-01T02:00:01.000Z');
+  try {
+    const first = createGenerationJobs(dbPath, { now: () => nowMs });
+    const job = first.create({
+      id: 'job-recent-on-restart',
+      ownerEmail: 'owner@example.com',
+      payload: { product_name: '酱料盒' },
+    });
+    first.transition(job.id, 'analyzing');
+    first.close();
+
+    const db = new Database(dbPath);
+    db.prepare('UPDATE ecommerce_jobs SET updated_at = ? WHERE id = ?')
+      .run('2026-08-01 02:00:00', job.id);
+    db.close();
+
+    const reopened = createGenerationJobs(dbPath, { now: () => nowMs });
+    assert.equal(reopened.staleVisualAnalysesFailedOnStartup, 0);
+    assert.equal(reopened.recoveredOnStartup, 1);
+    assert.equal(reopened.get(job.id).status, 'queued');
     reopened.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });

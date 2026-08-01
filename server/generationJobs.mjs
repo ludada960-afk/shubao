@@ -24,6 +24,14 @@ function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
+function parseDatabaseTimestamp(value) {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(raw)) {
+    return Date.parse(`${raw.replace(' ', 'T')}Z`);
+  }
+  return Date.parse(raw);
+}
+
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -135,7 +143,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
     `);
     let changes = 0;
     for (const row of staleCandidates) {
-      const updatedAt = Date.parse(row.updated_at);
+      const updatedAt = parseDatabaseTimestamp(row.updated_at);
       if (!Number.isFinite(updatedAt) || timestampMs - updatedAt < STALE_VISUAL_ANALYSIS_MAX_AGE_MS) continue;
       const progress = parse(row.progress, {});
       if (cleanString(progress.holdId)) continue;
