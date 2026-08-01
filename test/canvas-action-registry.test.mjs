@@ -10,11 +10,8 @@ import {
 
 const completedOutput = { id: 'output-1', kind: 'output', status: 'completed', url: '/result.png' };
 
-test('hover exposes only adjust requirements and regenerate', () => {
-  assert.deepEqual(
-    actionsForSurface({ surface: 'hover', node: completedOutput }).map(action => action.id),
-    ['adjust-requirements', 'regenerate'],
-  );
+test('hover is visual only and never duplicates commands inside a node', () => {
+  assert.deepEqual(actionsForSurface({ surface: 'hover', node: completedOutput }), []);
 });
 
 test('every Canvas command is declared once with execution and billing metadata', () => {
@@ -32,9 +29,15 @@ test('every Canvas command is declared once with execution and billing metadata'
 test('selection and context surfaces are intentionally different', () => {
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
-    ['download', 'image-info', 'add-reference', 'delete'],
+    ['image-info', 'download', 'add-reference', 'crop', 'annotation'],
   );
-  assert.ok(actionsForSurface({ surface: 'context', node: completedOutput }).some(action => action.id === 'product-remix'));
+  assert.deepEqual(
+    actionsForSurface({ surface: 'context', node: completedOutput }).map(action => action.id),
+    ['duplicate', 'delete'],
+  );
+  const selection = new Set(actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id));
+  const context = actionsForSurface({ surface: 'context', node: completedOutput }).map(action => action.id);
+  assert.equal(context.some(id => selection.has(id)), false);
   assert.equal(getCanvasAction('rename'), null);
   assert.equal(getCanvasAction('classify'), null);
 });
@@ -44,11 +47,11 @@ test('only ready source images and completed outputs expose deep workflow action
   const runningOutput = { id: 'output-2', kind: 'output', status: 'generating', url: '/still-running.png' };
 
   assert.deepEqual(
-    actionsForSurface({ surface: 'port', node: sourceGroup }).map(action => action.id),
+    actionsForSurface({ surface: 'image-editor', node: sourceGroup }).map(action => action.id),
     ['product-remix', 'outpaint', 'inpaint', 'remove-background', 'layer-edit', 'translate', 'upscale'],
   );
-  assert.deepEqual(actionsForSurface({ surface: 'port', node: runningOutput }), []);
-  assert.equal(actionsForSurface({ surface: 'port', node: { kind: 'process', status: 'ready', url: '/derived.png' } }).length, 0);
+  assert.deepEqual(actionsForSurface({ surface: 'image-editor', node: runningOutput }), []);
+  assert.equal(actionsForSurface({ surface: 'image-editor', node: { kind: 'process', status: 'ready', url: '/derived.png' } }).length, 0);
 });
 
 test('outpaint records its required ratio and prompt before a quote can run', () => {
