@@ -15,6 +15,10 @@ const TRANSITIONS = {
 const FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const LEASE_RELEASE_STATES = new Set(['queued', ...FINAL_STATES]);
 const CURRENT_VISUAL_INPUT_SCHEMA_VERSION = 1;
+const STALE_VISUAL_ANALYSIS_MAX_AGE_MS = 3 * 60 * 1000;
+const ACTIVE_ASSET_STATES = new Set([
+  'submitted', 'polling', 'downloading', 'quality_check', 'repairing', 'settling', 'releasing',
+]);
 
 function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
@@ -111,6 +115,42 @@ export function createGenerationJobs(dbPath = ':memory:', {
     return leaseMs;
   }
 
+  function failStaleVisualAnalysis() {
+    const timestampMs = nowMs();
+    const timestamp = new Date(timestampMs).toISOString();
+    const staleCandidates = db.prepare(`
+      SELECT id, progress, lease_token, lease_expires_at, updated_at
+      FROM ecommerce_jobs
+      WHERE status = 'analyzing'
+        AND (lease_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= ?)
+    `).all(timestamp);
+    if (!staleCandidates.length) return 0;
+
+    const fail = db.prepare(`
+      UPDATE ecommerce_jobs
+      SET status = 'failed', error = ?, lease_token = NULL,
+          lease_expires_at = NULL, updated_at = ?
+      WHERE id = ? AND status = 'analyzing'
+        AND (lease_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= ?)
+    `);
+    let changes = 0;
+    for (const row of staleCandidates) {
+      const updatedAt = Date.parse(row.updated_at);
+      if (!Number.isFinite(updatedAt) || timestampMs - updatedAt < STALE_VISUAL_ANALYSIS_MAX_AGE_MS) continue;
+      const progress = parse(row.progress, {});
+      if (cleanString(progress.holdId)) continue;
+      const assetsForJob = assets.listAssets(row.id);
+      if (assetsForJob.some(asset => ACTIVE_ASSET_STATES.has(asset.state))) continue;
+      changes += fail.run(
+        '图片分析超时，本轮未扣费，请重新生成',
+        timestamp,
+        row.id,
+        timestamp,
+      ).changes;
+    }
+    return changes;
+  }
+
   const api = {
     assets,
     create({ id = crypto.randomUUID(), ownerEmail, payload = {} }) {
@@ -177,6 +217,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
       };
     },
     listOwner(ownerEmailInput, { limit = 20 } = {}) {
+      failStaleVisualAnalysis();
       const ownerEmail = cleanString(ownerEmailInput).toLowerCase();
       if (!ownerEmail || !ownerEmail.includes('@')) throw new TypeError('ownerEmail is required');
       const safeLimit = Number.isSafeInteger(limit) ? Math.max(1, Math.min(100, limit)) : 20;
@@ -425,6 +466,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
     },
     close() { db.close(); },
   };
+  api.staleVisualAnalysesFailedOnStartup = failStaleVisualAnalysis();
   api.recoveredOnStartup = api.recoverInterrupted();
   return api;
 }

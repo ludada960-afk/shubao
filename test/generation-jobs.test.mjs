@@ -143,3 +143,52 @@ test('owner task list exposes only numeric progress counters and never orchestra
     jobs.close();
   }
 });
+
+test('owner task list closes a stale pre-billing visual analysis instead of showing it forever', () => {
+  let nowMs = Date.parse('2026-07-31T16:23:12.783Z');
+  const jobs = createGenerationJobs(':memory:', { now: () => nowMs });
+  try {
+    const job = jobs.create({
+      id: 'job-stale-visual-analysis',
+      ownerEmail: 'owner@example.com',
+      payload: { product_name: '酱料盒' },
+    });
+    jobs.transition(job.id, 'analyzing');
+    jobs.checkpoint(job.id, { progress: { visualInputSnapshot: { assets: [] } } });
+
+    nowMs += 3 * 60 * 1000 + 1;
+    const [summary] = jobs.listOwner('owner@example.com');
+
+    assert.equal(summary.status, 'failed');
+    assert.equal(summary.error, '本轮生成未完成，请稍后重新生成整套');
+    assert.equal(jobs.get(job.id).error, '图片分析超时，本轮未扣费，请重新生成');
+  } finally {
+    jobs.close();
+  }
+});
+
+test('startup fails a stale pre-billing analysis before interrupted-job recovery can requeue it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'shubao-stale-analysis-'));
+  const dbPath = join(dir, 'jobs.sqlite');
+  let nowMs = Date.parse('2026-07-31T16:23:12.783Z');
+  try {
+    const first = createGenerationJobs(dbPath, { now: () => nowMs });
+    const job = first.create({
+      id: 'job-stale-on-restart',
+      ownerEmail: 'owner@example.com',
+      payload: { product_name: '酱料盒' },
+    });
+    first.transition(job.id, 'analyzing');
+    first.close();
+
+    nowMs += 3 * 60 * 1000 + 1;
+    const reopened = createGenerationJobs(dbPath, { now: () => nowMs });
+    assert.equal(reopened.staleVisualAnalysesFailedOnStartup, 1);
+    assert.equal(reopened.recoveredOnStartup, 0);
+    assert.equal(reopened.get(job.id).status, 'failed');
+    assert.equal(reopened.get(job.id).error, '图片分析超时，本轮未扣费，请重新生成');
+    reopened.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
