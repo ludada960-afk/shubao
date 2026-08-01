@@ -78,7 +78,7 @@ export function CanvasTopBar({
   </header>;
 }
 
-export function CanvasLeftRail({ onUpload, onWorks, onEcommerce, onText }) {
+export function CanvasLeftRail({ addMenuOpen = false, onAddMenuToggle, onUpload, onWorks, onEcommerce, onText }) {
   const actions = [
     { id: 'upload', label: '添加图片', icon: ImagePlus, onClick: onUpload },
     { id: 'works', label: '从作品导入', icon: FolderOpen, onClick: onWorks },
@@ -86,7 +86,7 @@ export function CanvasLeftRail({ onUpload, onWorks, onEcommerce, onText }) {
     { id: 'text', label: '添加文本', icon: FileText, onClick: onText },
   ];
   return <aside className="ec-canvas-left-rail" aria-label="添加内容">
-    <span className="ec-canvas-rail-mark"><Plus size={18} /></span>
+    <IconButton label={addMenuOpen ? '关闭添加菜单' : '添加节点'} active={addMenuOpen} onClick={onAddMenuToggle} className="ec-canvas-rail-add"><Plus size={19} /></IconButton>
     {actions.map(action => <IconButton key={action.id} label={action.label} onClick={action.onClick}><action.icon size={18} /></IconButton>)}
   </aside>;
 }

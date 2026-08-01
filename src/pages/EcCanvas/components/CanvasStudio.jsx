@@ -1,5 +1,10 @@
 import React from 'react';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ArrowLeft,
+  Bold,
   Copy,
   Crop,
   Download,
@@ -63,9 +68,12 @@ export function CanvasObjectToolbar({ node, actions = [], onAction }) {
   </div>;
 }
 
-export function CanvasDeriveMenu({ actions = [], position = {}, onClose, onSelect }) {
+export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用当前素材生成', onBack, onClose, onSelect }) {
   return <div className="ec-canvas-derive-menu" style={position} role="menu" aria-label="从当前素材继续创作">
-    <div className="ec-canvas-menu-heading"><span>引用当前素材生成</span><button type="button" aria-label="关闭派生菜单" onClick={onClose}><X size={15} /></button></div>
+    <div className="ec-canvas-menu-heading">
+      <span>{onBack && <button type="button" aria-label="返回创作类型" onClick={onBack}><ArrowLeft size={14} /></button>}{title}</span>
+      <button type="button" aria-label="关闭派生菜单" onClick={onClose}><X size={15} /></button>
+    </div>
     {actions.map(action => {
       const Icon = action.id === 'text-generation' ? MessageSquareText : action.id === 'ecommerce-suite' ? Sparkles : ImagePlus;
       return <button key={action.id} type="button" role="menuitem" onClick={() => onSelect?.(action)}>
@@ -73,6 +81,22 @@ export function CanvasDeriveMenu({ actions = [], position = {}, onClose, onSelec
         <span><strong>{action.label}</strong><small>{action.description}</small></span>
       </button>;
     })}
+  </div>;
+}
+
+export function CanvasTextToolbar({ node, onStyleChange, onDelete }) {
+  if (!node) return null;
+  const style = node.textStyle || {};
+  const controls = [
+    { id: 'bold', label: '加粗', icon: Bold, active: style.fontWeight === 700, change: { fontWeight: style.fontWeight === 700 ? 400 : 700 } },
+    { id: 'left', label: '左对齐', icon: AlignLeft, active: (style.textAlign || 'left') === 'left', change: { textAlign: 'left' } },
+    { id: 'center', label: '居中', icon: AlignCenter, active: style.textAlign === 'center', change: { textAlign: 'center' } },
+    { id: 'right', label: '右对齐', icon: AlignRight, active: style.textAlign === 'right', change: { textAlign: 'right' } },
+  ];
+  return <div className="ec-canvas-text-toolbar" role="toolbar" aria-label="文本样式" style={{ left: node.x + node.w / 2, top: node.y - 14 }}>
+    {controls.map(control => <button key={control.id} type="button" className={control.active ? 'is-active' : ''} title={control.label} aria-label={control.label} aria-pressed={control.active} onPointerDown={event => event.stopPropagation()} onClick={() => onStyleChange?.(control.change)}><control.icon size={16} /></button>)}
+    <i />
+    <button type="button" className="is-danger" title="删除文本" aria-label="删除文本" onPointerDown={event => event.stopPropagation()} onClick={onDelete}><Trash2 size={16} /></button>
   </div>;
 }
 
@@ -88,7 +112,7 @@ function DerivePort({ visible, disabled, onPointerDown, onPointerUp }) {
     tabIndex={visible ? 0 : -1}
     style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
     onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event); }}
-    onPointerUp={event => { event.stopPropagation(); onPointerUp?.(event); }}
+    onPointerUp={event => { onPointerUp?.(event); }}
   ><Plus size={16} /></button>;
 }
 
@@ -149,7 +173,46 @@ export function CanvasImageNode({
   </article>;
 }
 
-export function CanvasTextNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onChange, onPortPointerDown }) {
+export function CanvasSourceNode({
+  node,
+  selected = false,
+  dimmed = false,
+  onPointerDown,
+  onContextMenu,
+  onDoubleClick,
+  onHoverChange,
+  onPortPointerDown,
+}) {
+  const assets = (node.assets || []).filter(asset => asset?.url);
+  return <article
+    data-canvas-node-id={node.id}
+    className={`ec-canvas-source-node ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
+    style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h }}
+    onPointerDown={event => onPointerDown?.(event, node.id)}
+    onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
+    onDoubleClick={event => { event.stopPropagation(); if (assets[0]) onDoubleClick?.({ ...node, url: assets[0].url }); }}
+    onMouseEnter={() => onHoverChange?.(node.id)}
+    onMouseLeave={() => onHoverChange?.(null)}
+  >
+    <div className="ec-canvas-source-heading"><span>商品素材</span><strong>{node.name || '产品母图'}</strong></div>
+    <div className="ec-canvas-source-grid">
+      {assets.slice(0, 4).map((asset, index) => <ResponsiveImage
+        key={asset.assetId || asset.id || index}
+        src={asset.url}
+        alt={asset.name || `商品素材 ${index + 1}`}
+        variant="thumb"
+        ratio="1:1"
+        sizes="112px"
+        style={{ width: '100%', height: '100%' }}
+        imgStyle={{ objectFit: 'contain' }}
+      />)}
+      {!assets.length && <div className="ec-canvas-source-empty">商品原图暂不可用</div>}
+    </div>
+    <DerivePort visible={selected} disabled={!assets.length} onPointerDown={onPortPointerDown} />
+  </article>;
+}
+
+export function CanvasTextNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect }) {
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-copy-node ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
@@ -166,8 +229,9 @@ export function CanvasTextNode({ node, selected = false, dimmed = false, onPoint
       role="textbox"
       aria-multiline="true"
       data-placeholder={node.placeholder || '输入标题、卖点或生成要求'}
+      style={node.textStyle || undefined}
+      onFocus={() => onSelect?.(node.id)}
       onInput={event => onChange?.(node.id, event.currentTarget.textContent || '')}
     >{node.text || ''}</div>
-    <DerivePort visible={selected} onPointerDown={onPortPointerDown} />
   </article>;
 }

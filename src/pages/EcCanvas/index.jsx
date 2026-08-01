@@ -29,8 +29,17 @@ import {
   normalizeCanvasNode,
   validateWorkflowActionInputs,
 } from './nodeWorkflow';
-import { CanvasNodeActionPicker, CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
+import { CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
 import { CanvasBottomToolbar, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
+import {
+  CanvasAddMenu,
+  CanvasDeriveMenu,
+  CanvasImageNode as StudioImageNode,
+  CanvasObjectToolbar,
+  CanvasSourceNode as StudioSourceNode,
+  CanvasTextNode as StudioTextNode,
+  CanvasTextToolbar,
+} from './components/CanvasStudio.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { createCanvasSession, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
@@ -44,6 +53,7 @@ import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { CANVAS_CREATION_OPTIONS, getCanvasFocusIds, getContextPanelPosition } from './canvasInteractionModel.js';
+import { createCanvasTextNode, resizeCanvasNode } from './canvasStudioModel.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -348,10 +358,10 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
   if (!connections?.length) return null;
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const styles = {
-    reference: { stroke: '#7c3aed', dash: undefined },
-    variant: { stroke: '#2563eb', dash: '6 4' },
-    merge: { stroke: '#374151', dash: undefined },
-    derived: { stroke: '#6558e8', dash: undefined },
+    reference: { stroke: '#8b939e', dash: undefined },
+    variant: { stroke: '#76808d', dash: '6 4' },
+    merge: { stroke: '#59616c', dash: undefined },
+    derived: { stroke: '#7f8792', dash: undefined },
   };
   return (
     <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
@@ -391,8 +401,8 @@ function ConnectionDraftLine({ draft, nodes }) {
   const mx = (x1 + x2) / 2;
   return (
     <svg aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 12 }}>
-      <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke="#6558e8" strokeWidth="2.5" strokeDasharray="7 5" fill="none" />
-      <circle cx={x2} cy={y2} r="5" fill="#6558e8" />
+      <path d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke="#7f8792" strokeWidth="2.5" strokeDasharray="7 5" fill="none" />
+      <circle cx={x2} cy={y2} r="5" fill="#7f8792" />
     </svg>
   );
 }
@@ -452,6 +462,7 @@ export default function EcCanvas() {
   const [sourceRole, setSourceRole] = useState('product_original');
   const [pointerMode, setPointerMode] = useState(null);
   const [activeTool, setActiveTool] = useState('select');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const [shiftPressed, setShiftPressed] = useState(false);
   const [marquee, setMarquee] = useState(null);
@@ -466,7 +477,6 @@ export default function EcCanvas() {
   const [directionRatio, setDirectionRatio] = useState('3:4');
   const [nodeNameDraft, setNodeNameDraft] = useState('');
   const [groupDraft, setGroupDraft] = useState('详情图');
-  const [toolNodeId, setToolNodeId] = useState(null);
   const [composerNodes, setComposerNodes] = useState([]);
   const [composerText, setComposerText] = useState('');
   const [cropNode, setCropNode] = useState(null);
@@ -802,8 +812,8 @@ export default function EcCanvas() {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
       setSelected(null);
       setMultiSelected(new Set());
-      setToolNodeId(null);
       setContextMenu(null);
+      setAddMenuOpen(false);
     }
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
   }, [activeTool, spacePressed, toWorldPoint, viewport.x, viewport.y]);
@@ -838,12 +848,23 @@ export default function EcCanvas() {
       setMarquee({ x: pointerMode.start.x, y: pointerMode.start.y, w: point.x - pointerMode.start.x, h: point.y - pointerMode.start.y });
       return;
     }
+    if (pointerMode.kind === 'resize') {
+      const dx = (e.clientX - pointerMode.startX) / Math.max(0.01, viewport.scale);
+      const width = pointerMode.corner.includes('w')
+        ? pointerMode.original.w - dx
+        : pointerMode.original.w + dx;
+      const resized = resizeCanvasNode(pointerMode.original, { width });
+      if (pointerMode.corner.includes('w')) resized.x = pointerMode.original.x + pointerMode.original.w - resized.w;
+      if (pointerMode.corner.includes('n')) resized.y = pointerMode.original.y + pointerMode.original.h - resized.h;
+      setNodes(previous => previous.map(node => node.id === pointerMode.nodeId ? resized : node));
+      return;
+    }
     if (pointerMode.kind === 'drag') {
       const point = toWorldPoint(e);
       pendingDragRef.current = { ids: pointerMode.ids, start: pointerMode.start, point };
       if (!dragFrameRef.current) dragFrameRef.current = requestAnimationFrame(flushDragFrame);
     }
-  }, [flushDragFrame, pointerMode, toWorldPoint]);
+  }, [flushDragFrame, pointerMode, toWorldPoint, viewport.scale]);
 
   const handlePointerUp = useCallback((e) => {
     if (dragFrameRef.current) {
@@ -908,6 +929,9 @@ export default function EcCanvas() {
   const handleNodeDown = useCallback((e, id) => {
     e.stopPropagation();
     if (e.button !== 0) return;
+    setContextMenu(null);
+    setConnectionPicker(null);
+    setAddMenuOpen(false);
     if (activeTool === 'hand') {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
       return;
@@ -924,10 +948,24 @@ export default function EcCanvas() {
     const ids = multiSelected.has(id) ? multiSelected : new Set([id]);
     setSelected(ids.size === 1 ? id : null);
     setMultiSelected(ids);
-    setToolNodeId(id);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
   }, [activeTool, multiSelected, toWorldPoint, viewport.x, viewport.y]);
+
+  const handleNodeResizeStart = useCallback((event, nodeId, corner) => {
+    const node = nodes.find(candidate => candidate.id === nodeId);
+    if (!node || event.button !== 0) return;
+    setSelected(nodeId);
+    setMultiSelected(new Set([nodeId]));
+    setPointerMode({
+      kind: 'resize',
+      nodeId,
+      corner,
+      startX: event.clientX,
+      original: { ...node },
+    });
+    try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch {}
+  }, [nodes]);
 
   const handleToggleSelect = useCallback((e, id) => {
     const next = new Set(multiSelected);
@@ -1388,7 +1426,6 @@ export default function EcCanvas() {
     const actionSpec = getCanvasAction(action?.id || action);
     const actionId = actionSpec?.id || String(action || '');
     const handler = actionSpec?.execute?.handler || actionId;
-    setToolNodeId(node.id);
     if (handler.startsWith('create:')) {
       if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
       return;
@@ -1396,6 +1433,23 @@ export default function EcCanvas() {
     if (handler === 'copy-url') {
       navigator.clipboard?.writeText(node.url);
       showToast('图片链接已复制', 'success');
+      return;
+    }
+    if (handler === 'duplicate') {
+      const duplicateId = `${node.kind || 'node'}_${Date.now()}`;
+      const duplicate = normalizeCanvasNode({
+        ...node,
+        id: duplicateId,
+        assetId: node.assetId ? `asset_${duplicateId}` : node.assetId,
+        name: node.name ? `${node.name} 副本` : node.name,
+        displayLabel: node.displayLabel ? `${node.displayLabel} 副本` : node.displayLabel,
+        x: node.x + 36,
+        y: node.y + 36,
+      });
+      setNodes(previous => [...previous, duplicate]);
+      setSelected(duplicate.id);
+      setMultiSelected(new Set([duplicate.id]));
+      showToast('已复制到画布', 'success');
       return;
     }
     if (handler === 'delete') {
@@ -1667,27 +1721,19 @@ export default function EcCanvas() {
   const handleAddTextNode = useCallback((placement = {}) => {
     closeComposer();
     const bounds = containerRef.current?.getBoundingClientRect();
-    const width = 300;
-    const height = 170;
+    const width = 420;
+    const height = 180;
     const hasExplicitPosition = Number.isFinite(placement?.x) && Number.isFinite(placement?.y);
     const x = hasExplicitPosition ? placement.x : ((bounds?.width || 960) / 2 - viewport.x) / viewport.scale - width / 2;
     const y = hasExplicitPosition ? placement.y : ((bounds?.height || 640) / 2 - viewport.y) / viewport.scale - height / 2;
-    const textNode = {
-      id: `node_text_${Date.now()}`,
-      kind: 'text',
-      status: 'ready',
-      name: '文本',
-      text: '',
+    const textNode = createCanvasTextNode({
       x,
       y,
-      w: width,
-      h: height,
-      editable: true,
-    };
+      sourceNodeId: placement?.sourceNodeId,
+    });
     setNodes(previous => [...previous, textNode]);
     setSelected(textNode.id);
     setMultiSelected(new Set([textNode.id]));
-    setToolNodeId(textNode.id);
     if (placement?.sourceNodeId) {
       setConnections(previous => addConnection(previous, placement.sourceNodeId, textNode.id, 'derived'));
     }
@@ -2041,10 +2087,24 @@ export default function EcCanvas() {
         >
           <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
           <CanvasLeftRail
+            addMenuOpen={addMenuOpen}
+            onAddMenuToggle={() => setAddMenuOpen(open => !open)}
             onUpload={() => setSourceImportOpen(true)}
             onWorks={() => setTab('works')}
             onEcommerce={handleNew}
             onText={() => handleAddTextNode()}
+          />
+          <CanvasAddMenu
+            open={addMenuOpen}
+            position={{ position: 'fixed', left: 68, top: '50%', transform: 'translateY(-50%)' }}
+            onClose={() => setAddMenuOpen(false)}
+            onSelect={actionId => {
+              setAddMenuOpen(false);
+              if (actionId === 'upload') setSourceImportOpen(true);
+              else if (actionId === 'works') setTab('works');
+              else if (actionId === 'text') handleAddTextNode();
+              else handleNew();
+            }}
           />
           <CanvasBottomToolbar
             activeTool={activeTool}
@@ -2098,48 +2158,44 @@ export default function EcCanvas() {
               const workflowPortUp = (event, side) => handlePortPointerUp(event, node.id, side);
               const workflowContext = event => setContextMenu({ x: event.clientX, y: event.clientY, node });
               if (node.kind === 'source_group') {
-                return <SourceGroupNode
+                return <StudioSourceNode
                   key={node.id}
                   node={node}
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
-                  onPortPointerDown={handlePortPointerDown}
-                  onPortPointerUp={handlePortPointerUp}
+                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onInspect={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
+                  onDoubleClick={preview => setZoomImg({ url: preview.url, label: node.name || '商品素材' })}
                 />;
               }
               if (node.kind === 'image' || node.kind === 'output') {
-                return <ImageNode
+                return <StudioImageNode
                   key={node.id}
                   node={node}
                   selected={selectedNodeState}
-                  multiSelected={multiSelected.has(node.id)}
-                  dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
-                  hoverActions={actionsForSurface({ surface: 'hover', node })}
-                  onAction={handleToolAction}
+                  hovered={hoveredNodeId === node.id}
+                  focusActive={Boolean(focusedNodeIds)}
+                  related={Boolean(focusedNodeIds?.has(node.id))}
                   onPointerDown={handleNodeDown}
-                  onToggleSelect={handleToggleSelect}
-                  onPortPointerDown={handlePortPointerDown}
-                  onPortPointerUp={handlePortPointerUp}
+                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
+                  onPortPointerUp={event => handlePortPointerUp(event, node.id, 'out')}
+                  onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onInspect={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
+                  onDoubleClick={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
                 />;
               }
               if (node.kind === 'text') {
-                return <CanvasTextNode
+                return <StudioTextNode
                   key={node.id}
                   node={node}
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
                   onChange={handleTextNodeChange}
-                  onPortPointerDown={handlePortPointerDown}
-                  onPortPointerUp={handlePortPointerUp}
-                  onHoverChange={setHoveredNodeId}
+                  onSelect={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); }}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
@@ -2150,7 +2206,7 @@ export default function EcCanvas() {
                 <CanvasWorkflowNode
                   node={node}
                   sourceNode={sourcePreview}
-                  actions={actionsForSurface({ surface: 'port', node })}
+                  actions={actionsForSurface({ surface: 'image-editor', node })}
                   selected={selectedNodeState}
                   onPointerDown={event => handleNodeDown(event, node.id)}
                   onContextMenu={workflowContext}
@@ -2207,7 +2263,12 @@ export default function EcCanvas() {
                 />
               </div>;
             })}
-            {selectedNode && actionsForSurface({ surface: 'selection', node: selectedNode }).length > 0 && toolNodeId === selectedNode.id && <SelectionActionBar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} onClose={() => setToolNodeId(null)} />}
+            {selectedNode && selectedNode.kind !== 'text' && <CanvasObjectToolbar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {selectedNode?.kind === 'text' && <CanvasTextToolbar
+              node={selectedNode}
+              onStyleChange={change => setNodes(previous => previous.map(node => node.id === selectedNode.id ? { ...node, textStyle: { ...(node.textStyle || {}), ...change } } : node))}
+              onDelete={() => handleToolAction(getCanvasAction('delete'), selectedNode)}
+            />}
             {composerNodes.length > 0 && (() => {
               const anchorNode = nodes.find(node => node.id === composerNodes[0]?.id) || selectedNode || composerNodes[0];
               const position = getContextPanelPosition({
@@ -2228,21 +2289,28 @@ export default function EcCanvas() {
                 position={position}
               />;
             })()}
-            {connectionPicker && <CanvasNodeActionPicker
-              actions={portCreationActions}
+            {connectionPicker && <CanvasDeriveMenu
+              actions={connectionPicker.mode === 'image-editor'
+                ? actionsForSurface({ surface: 'image-editor', node: nodes.find(node => node.id === connectionPicker.sourceNodeId) })
+                : portCreationActions}
               position={clampCanvasPickerPosition({
                 world: { x: connectionPicker.world.x + 14, y: connectionPicker.world.y + 14 },
                 viewport,
                 bounds: containerRef.current?.getBoundingClientRect(),
               })}
+              title={connectionPicker.mode === 'image-editor' ? '图片生成与编辑' : '引用当前素材生成'}
+              onBack={connectionPicker.mode === 'image-editor' ? () => setConnectionPicker(previous => ({ ...previous, mode: '' })) : undefined}
               onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
               onSelect={action => {
                 if (action.id === 'text-generation') {
                   handleAddTextNode({ ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (action.id === 'ecommerce-suite') {
                   handleNew();
+                } else if (action.id === 'image-edit' && connectionPicker.mode !== 'image-editor') {
+                  setConnectionPicker(previous => ({ ...previous, mode: 'image-editor' }));
+                  return;
                 } else {
-                  handleCreateDerivedNode(connectionPicker.sourceNodeId, getCanvasAction('product-remix'), connectionPicker.world);
+                  handleCreateDerivedNode(connectionPicker.sourceNodeId, getCanvasAction(action.id) || action, connectionPicker.world);
                 }
                 setConnectionPicker(null);
                 setConnectionDraft(null);
@@ -2252,12 +2320,6 @@ export default function EcCanvas() {
 
           {marquee && (
             <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: Math.abs(marquee.w) * viewport.scale, height: Math.abs(marquee.h) * viewport.scale, transform: `translate(${marquee.w < 0 ? marquee.w * viewport.scale : 0}px,${marquee.h < 0 ? marquee.h * viewport.scale : 0})`, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
-          )}
-
-          {connectionDraft && (
-            <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 8, background: '#1f2937', color: '#fff', padding: '7px 12px', borderRadius: 9, fontSize: 11, zIndex: 40 }}>
-              <span>正在连接素材</span><span style={{ opacity: .65 }}>拖到目标节点完成连接，松开空白处创建电商任务</span>
-            </div>
           )}
 
         </div>
@@ -2430,9 +2492,9 @@ export default function EcCanvas() {
 
       {/* 图片放大预览 */}
       {zoomImg && (
-        <div onClick={() => setZoomImg(null)} style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <div role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={() => setZoomImg(null)} style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} onClick={e => e.stopPropagation()} />
-          <div onClick={() => setZoomImg(null)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</div>
+          <button type="button" aria-label="关闭大图预览" onClick={() => setZoomImg(null)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
       )}
 

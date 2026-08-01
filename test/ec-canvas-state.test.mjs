@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 
 const canvasSource = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
 const canvasChromeSource = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasChrome.jsx', import.meta.url), 'utf8');
+const canvasStudioSource = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
 const worksSource = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
 
 
@@ -154,15 +155,28 @@ test('Canvas uses product dialogs and omits internal direction copy', () => {
 test('fresh Canvas renders source groups and completed outputs as visual assets', () => {
   assert.match(canvasSource, /node\.kind === 'source_group'/);
   assert.match(canvasSource, /node\.kind === 'image' \|\| node\.kind === 'output'/);
-  assert.match(canvasSource, /<SourceGroupNode/);
-  assert.match(canvasSource, /<ImageNode/);
+  assert.match(canvasSource, /<StudioSourceNode/);
+  assert.match(canvasSource, /<StudioImageNode/);
 });
 
-test('primary hover actions have executable handlers', () => {
+test('image generation handlers remain executable from the non-hover creation surfaces', () => {
   assert.match(canvasSource, /handler === 'adjust-requirements'/);
   assert.match(canvasSource, /handler === 'regenerate'/);
   assert.match(canvasSource, /regenerateCanvasImage/);
-  assert.match(canvasSource, /<ImageNode[\s\S]{0,900}?onAction=\{handleToolAction\}/);
+  assert.match(canvasSource, /<CanvasObjectToolbar[\s\S]{0,300}?onAction=\{handleToolAction\}/);
+  assert.doesNotMatch(canvasSource, /hoverActions=\{/);
+});
+
+test('canvas interaction surfaces dismiss each other and text has one toolbar', () => {
+  assert.match(canvasSource, /setContextMenu\(null\);\s*setConnectionPicker\(null\);\s*setAddMenuOpen\(false\);/);
+  assert.match(canvasSource, /selectedNode && selectedNode\.kind !== 'text' && <CanvasObjectToolbar/);
+  assert.match(canvasSource, /selectedNode\?\.kind === 'text' && <CanvasTextToolbar/);
+  assert.doesNotMatch(canvasStudioSource, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp/);
+});
+
+test('double-click image preview is a keyboard-accessible dialog', () => {
+  assert.match(canvasSource, /role="dialog" aria-modal="true" aria-label=\{`\$\{zoomImg\.label \|\| '图片'\}大图预览`\}/);
+  assert.match(canvasSource, /button type="button" aria-label="关闭大图预览"/);
 });
 
 test('image information opens an editable product dialog and saves node metadata', () => {
