@@ -4,6 +4,7 @@ import test from 'node:test';
 
 test('empty commerce canvas guides a seller to upload product originals or import works', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   assert.match(source, /双击画布导入商品素材/);
   assert.match(source, /上传商品原图/);
   assert.match(source, /从我的作品导入/);
@@ -13,6 +14,8 @@ test('empty commerce canvas guides a seller to upload product originals or impor
   assert.match(source, /style_reference/);
   assert.match(source, /general_material/);
   assert.match(source, /onDoubleClick=\{[\s\S]*?setSourceImportOpen\(true\)/);
+  assert.match(css, /\.ec-canvas-empty-state \{[^}]*z-index: 10;[^}]*pointer-events: none;/);
+  assert.match(css, /\.ec-canvas-empty-state > div \{[^}]*pointer-events: auto;/);
 });
 
 test('commerce canvas uses a quiet professional shell and contextual world panels', async () => {
