@@ -31,3 +31,25 @@ test('formal deliverables receive two bounded internal quality repairs', () => {
   assert.equal(canRetry(1, action), true);
   assert.equal(canRetry(2, action), false);
 });
+
+test('regenerates a shot that clearly misses its confirmed commercial responsibility', () => {
+  const repair = planRepair({
+    checks: {
+      technical: { status: 'pass', issueCodes: [] },
+      platformCompliance: { status: 'pass', issueCodes: [] },
+      productFidelity: { status: 'pass', issueCodes: [] },
+      copyAndLogo: { status: 'skipped', issueCodes: [] },
+      visualQuality: {
+        status: 'fail',
+        issueCodes: ['planned_shot_not_fulfilled'],
+      },
+    },
+  });
+
+  assert.deepEqual(repair, {
+    type: 'regenerate_from_product_truth',
+    focusIssueCodes: ['planned_shot_not_fulfilled'],
+    preserveUserFacts: true,
+    userCharge: false,
+  });
+});

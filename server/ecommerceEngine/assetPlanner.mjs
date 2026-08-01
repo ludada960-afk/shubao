@@ -123,6 +123,42 @@ function selectionKeys(item) {
   return [item.role];
 }
 
+function directionRoleKeys(itemRole) {
+  const role = cleanString(itemRole).toLowerCase();
+  if (role.startsWith('detail_slice_')) return ['detail', role];
+  if (role === 'white_background') return ['white_background', 'white_bg'];
+  if (['main', 'main_text', 'main_3x4'].includes(role)) return [role, 'main'];
+  return [role];
+}
+
+function directionDeliverableFor(campaignBible, itemRole) {
+  const groups = Array.isArray(ownValue(campaignBible, 'deliverables'))
+    ? ownValue(campaignBible, 'deliverables')
+    : [];
+  for (const key of directionRoleKeys(itemRole)) {
+    const group = groups.find(candidate => isRecord(candidate) && safeKey(ownValue(candidate, 'role')).toLowerCase() === key);
+    if (group) return group;
+  }
+  return null;
+}
+
+function directionShotFor(campaignBible, itemRole, roleIndex) {
+  const group = directionDeliverableFor(campaignBible, itemRole);
+  const shots = Array.isArray(ownValue(group, 'shots')) ? ownValue(group, 'shots') : [];
+  const shot = shots[roleIndex];
+  if (!isRecord(shot)) return null;
+  const label = cleanString(ownValue(shot, 'label'));
+  if (!label) return null;
+  return {
+    label,
+    purpose: cleanString(ownValue(shot, 'purpose')),
+    visualExecution: cleanString(ownValue(shot, 'visualExecution')),
+    variationKey: safeKey(ownValue(shot, 'variationKey')),
+    dependsOn: uniqueStrings(ownValue(shot, 'dependsOn')),
+    groupStrategy: cleanString(ownValue(group, 'groupStrategy')),
+  };
+}
+
 function explicitMainRoles(sizing) {
   return ['main_text', 'main_3x4'].filter((role) => sizing.images.some((entry) => entry.key === role));
 }
@@ -496,13 +532,28 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   });
 
   const roleOccurrences = new Map();
+  const directionRoleOccurrences = new Map();
   const typographySystem = isRecord(ownValue(bible, 'typographySystem'))
     ? ownValue(bible, 'typographySystem')
     : compileTypographySystem({ category, language: 'zh-CN' });
   const directedItems = items.map((item, itemIndex) => {
     const roleIndex = roleOccurrences.get(item.role) || 0;
     roleOccurrences.set(item.role, roleIndex + 1);
-    const planningItem = { ...item };
+    const planRole = directionRoleKeys(item.role)[0];
+    const planRoleIndex = directionRoleOccurrences.get(planRole) || 0;
+    directionRoleOccurrences.set(planRole, planRoleIndex + 1);
+    const plannedShot = directionShotFor(bible, item.role, planRoleIndex);
+    const planningItem = {
+      ...item,
+      ...(plannedShot?.purpose ? {
+        purpose: plannedShot.purpose,
+        communicationGoal: plannedShot.purpose,
+      } : {}),
+      ...(plannedShot?.visualExecution ? { creativeExecution: plannedShot.visualExecution } : {}),
+      ...(plannedShot?.variationKey ? { variationKey: plannedShot.variationKey } : {}),
+      ...(plannedShot?.dependsOn?.length ? { dependsOn: [...plannedShot.dependsOn] } : {}),
+      ...(plannedShot?.groupStrategy ? { groupStrategy: plannedShot.groupStrategy } : {}),
+    };
     const shotIntent = directShot(planningItem, {
       productTruth: truth,
       campaignBible: bible,
@@ -511,7 +562,24 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       itemIndex,
       roleIndex,
     });
-    const directedItem = { ...planningItem, label: shotIntent.label, shotIntent };
+    const label = plannedShot?.label || shotIntent.label;
+    const directedItem = {
+      ...planningItem,
+      label,
+      shotIntent: {
+        ...shotIntent,
+        planLabel: label,
+        plannedPurpose: plannedShot?.purpose || '',
+        creativeExecution: plannedShot?.visualExecution || '',
+        variationKey: plannedShot?.variationKey || '',
+        dependsOn: plannedShot?.dependsOn ? [...plannedShot.dependsOn] : [],
+        groupStrategy: plannedShot?.groupStrategy || '',
+        productStrategy: isRecord(ownValue(bible, 'productStrategy'))
+          ? { ...ownValue(bible, 'productStrategy') }
+          : {},
+        riskGuards: uniqueStrings(ownValue(bible, 'riskGuards')),
+      },
+    };
     const layoutContract = layoutContractFor(directedItem, {
       category,
       platform: normalizedPlatform,

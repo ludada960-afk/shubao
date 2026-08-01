@@ -7,6 +7,34 @@ export const CANVAS_CREATION_OPTIONS = Object.freeze([
   Object.freeze({ id: 'ecommerce-suite', label: '电商套图', description: '用当前商品继续生成完整套图' }),
 ]);
 
+export const MULTI_SELECTION_ACTIONS = Object.freeze([
+  Object.freeze({ id: 'align-left', label: '左对齐' }),
+  Object.freeze({ id: 'align-center', label: '垂直居中' }),
+  Object.freeze({ id: 'align-right', label: '右对齐' }),
+  Object.freeze({ id: 'auto-layout', label: '自动排版' }),
+  Object.freeze({ id: 'bind-elements', label: '绑定元素' }),
+  Object.freeze({ id: 'group-elements', label: '打组' }),
+  Object.freeze({ id: 'export-selection', label: '导出' }),
+  Object.freeze({ id: 'merge-layers', label: '合并图层' }),
+  Object.freeze({ id: 'delete-selection', label: '删除' }),
+]);
+
+function isExportableCanvasImage(node = {}) {
+  if (!node.url) return false;
+  if (node.kind === 'output') return node.status === 'completed';
+  return node.kind === 'image' && ['ready', 'success', 'completed'].includes(node.status);
+}
+
+export function multiSelectionActionsForNodes(nodes = [], selectedIds = new Set()) {
+  const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
+  const selected = nodes.filter(node => ids.has(node.id));
+  const imageOnly = selected.length >= 2 && selected.every(isExportableCanvasImage);
+  return MULTI_SELECTION_ACTIONS.filter(action => {
+    if (action.id === 'export-selection' || action.id === 'merge-layers') return imageOnly;
+    return true;
+  });
+}
+
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
 }
@@ -26,6 +54,14 @@ export function getCanvasFocusIds(hoveredNodeId, connections = []) {
     if (toId === hovered && fromId) focused.add(fromId);
   });
   return focused;
+}
+
+export function isCanvasConnectionVisible(connection = {}, nodes = []) {
+  const fromId = connection.fromNodeId || connection.from;
+  const toId = connection.toNodeId || connection.to;
+  const from = nodes.find(node => node.id === fromId);
+  const to = nodes.find(node => node.id === toId);
+  return Boolean(from && to && !from.hidden && !to.hidden);
 }
 
 export function getContextMenuPosition({
@@ -76,6 +112,52 @@ export function moveCanvasNodes(nodes = [], selectedIds = new Set(), delta = {})
   return nodes.map(node => ids.has(node.id)
     ? { ...node, x: finite(node.x) + dx, y: finite(node.y) + dy }
     : node);
+}
+
+export function expandCanvasDragSelection(nodes = [], activeNodeId, selectedIds = new Set()) {
+  const ids = selectedIds instanceof Set ? new Set(selectedIds) : new Set(selectedIds || []);
+  const activeNode = nodes.find(node => node.id === activeNodeId);
+  if (!activeNode?.groupId || ids.size > 1) return ids;
+  nodes.forEach(node => {
+    if (node.groupId === activeNode.groupId) ids.add(node.id);
+  });
+  return ids;
+}
+
+export function selectedCanvasBounds(nodes = [], selectedIds = new Set()) {
+  const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
+  const selected = nodes.filter(node => ids.has(node.id));
+  if (!selected.length) return null;
+  const left = Math.min(...selected.map(node => finite(node.x)));
+  const top = Math.min(...selected.map(node => finite(node.y)));
+  const right = Math.max(...selected.map(node => finite(node.x) + Math.max(1, finite(node.w, 1))));
+  const bottom = Math.max(...selected.map(node => finite(node.y) + Math.max(1, finite(node.h, 1))));
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+export function applyMultiSelectionAction(nodes = [], selectedIds = new Set(), actionId, options = {}) {
+  const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
+  const selected = nodes.filter(node => ids.has(node.id));
+  if (selected.length < 2) return nodes;
+  const bounds = selectedCanvasBounds(nodes, ids);
+  if (actionId === 'auto-layout') {
+    const gap = Math.max(0, finite(options.gap, 24));
+    let cursor = bounds.x;
+    const top = bounds.y;
+    return nodes.map(node => {
+      if (!ids.has(node.id)) return node;
+      const next = { ...node, x: cursor, y: top };
+      cursor += Math.max(1, finite(node.w, 1)) + gap;
+      return next;
+    });
+  }
+  return nodes.map(node => {
+    if (!ids.has(node.id)) return node;
+    if (actionId === 'align-left') return { ...node, x: bounds.x };
+    if (actionId === 'align-center') return { ...node, x: bounds.x + (bounds.w - finite(node.w, 1)) / 2 };
+    if (actionId === 'align-right') return { ...node, x: bounds.x + bounds.w - finite(node.w, 1) };
+    return node;
+  });
 }
 
 export function shouldPersistCanvasMutation(kind) {

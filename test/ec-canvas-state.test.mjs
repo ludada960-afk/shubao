@@ -126,6 +126,16 @@ test('moving a selection preserves unrelated node positions', () => {
   assert.equal(moved[1].y, 300);
 });
 
+test('locked nodes stay in place when a mixed selection is dragged', () => {
+  const nodes = [
+    { id: 'locked', x: 10, y: 10, locked: true },
+    { id: 'free', x: 40, y: 50 },
+  ];
+  const moved = moveSelectedNodes(nodes, new Set(['locked', 'free']), 20, 30);
+  assert.deepEqual(moved[0], nodes[0]);
+  assert.deepEqual(moved[1], { id: 'free', x: 60, y: 80 });
+});
+
 test('connections are deduplicated and removed with deleted nodes', () => {
   const edge = addConnection([], 'a', 'b', 'reference');
   assert.deepEqual(addConnection(edge, 'a', 'b', 'reference'), edge);
@@ -169,9 +179,35 @@ test('image generation handlers remain executable from the non-hover creation su
 
 test('canvas interaction surfaces dismiss each other and text has one toolbar', () => {
   assert.match(canvasSource, /setContextMenu\(null\);\s*setConnectionPicker\(null\);\s*setAddMenuOpen\(false\);/);
-  assert.match(canvasSource, /selectedNode && selectedNode\.kind !== 'text' && <CanvasObjectToolbar/);
+  assert.match(canvasSource, /multiSelected\.size <= 1[\s\S]{0,260}<CanvasObjectToolbar/);
   assert.match(canvasSource, /selectedNode\?\.kind === 'text' && <CanvasTextToolbar/);
   assert.doesNotMatch(canvasStudioSource, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp/);
+});
+
+test('locked nodes cannot enter the resize interaction and empty paste is a no-op', () => {
+  assert.match(canvasSource, /if \(!node \|\| node\.locked \|\| event\.button !== 0\) return;/);
+  assert.match(canvasSource, /if \(handler === 'paste' && !objectClipboardRef\.current\) \{[\s\S]{0,180}?return;/);
+});
+
+test('node dragging expands an established group before movement starts', () => {
+  assert.match(canvasSource, /expandCanvasDragSelection\(nodes, id, baseIds\)/);
+});
+
+test('hidden and locked objects remain recoverable from a dedicated layers panel', () => {
+  assert.match(canvasSource, /<CanvasLayersPanel/);
+  assert.match(canvasSource, /onToggleVisibility=\{handleLayerVisibilityToggle\}/);
+  assert.match(canvasSource, /onToggleLock=\{handleLayerLockToggle\}/);
+  assert.match(canvasSource, /isCanvasConnectionVisible\(conn, nodes\)/);
+  assert.match(canvasSource, /visibility: node\.hidden \? 'hidden' : 'visible'/);
+});
+
+test('canvas uploads are persisted before node creation and an empty canvas remains saveable', () => {
+  assert.match(canvasSource, /persistCanvasUploadAssets/);
+  assert.match(canvasSource, /handleCanvasSourceUpload[\s\S]*?persistCanvasUploadAssets\(assets\)[\s\S]*?createUploadedImageNodes/);
+  assert.match(canvasSource, /handleComposerSourceUpload[\s\S]*?persistCanvasUploadAssets\(assets\)[\s\S]*?createUploadedImageNodes/);
+  assert.doesNotMatch(canvasSource, /canvasSaveKeyRef\.current \|\| !nodes\.length/);
+  assert.doesNotMatch(canvasSource, /draftReadyRef\.current \|\| !nodes\.length/);
+  assert.doesNotMatch(canvasSource, /if \(!snapshot\.nodes\.length\) return;/);
 });
 
 test('double-click image preview is a keyboard-accessible dialog', () => {

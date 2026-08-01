@@ -2,10 +2,13 @@ import React from 'react';
 import {
   ArrowLeft,
   Download,
-  FileText,
-  FolderOpen,
+  Eye,
+  EyeOff,
   Hand,
   ImagePlus,
+  Layers3,
+  Lock,
+  LockOpen,
   Maximize2,
   Minus,
   MousePointer2,
@@ -14,6 +17,7 @@ import {
   Save,
   Sparkles,
   Type,
+  X,
 } from 'lucide-react';
 
 function IconButton({ label, children, active = false, disabled = false, onClick, className = '' }) {
@@ -78,37 +82,84 @@ export function CanvasTopBar({
   </header>;
 }
 
-export function CanvasLeftRail({ addMenuOpen = false, onAddMenuToggle, onUpload, onWorks, onEcommerce, onText }) {
-  const actions = [
-    { id: 'upload', label: '添加图片', icon: ImagePlus, onClick: onUpload },
-    { id: 'works', label: '从作品导入', icon: FolderOpen, onClick: onWorks },
-    { id: 'ecommerce', label: '生成电商套图', icon: Sparkles, onClick: onEcommerce },
-    { id: 'text', label: '添加文本', icon: FileText, onClick: onText },
-  ];
+export function CanvasLeftRail({ addMenuOpen = false, onAddMenuToggle }) {
   return <aside className="ec-canvas-left-rail" aria-label="添加内容">
-    <IconButton label={addMenuOpen ? '关闭添加菜单' : '添加节点'} active={addMenuOpen} onClick={onAddMenuToggle} className="ec-canvas-rail-add"><Plus size={19} /></IconButton>
-    {actions.map(action => <IconButton key={action.id} label={action.label} onClick={action.onClick}><action.icon size={18} /></IconButton>)}
+    <IconButton label={addMenuOpen ? '关闭添加菜单' : '添加节点'} active={addMenuOpen} onClick={onAddMenuToggle} className="ec-canvas-rail-add"><Plus size={22} /></IconButton>
   </aside>;
 }
 
-export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText }) {
+export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText, layersOpen = false, onLayers }) {
   const tools = [
     { id: 'select', label: '选择', icon: MousePointer2 },
     { id: 'hand', label: '抓手', icon: Hand },
     { id: 'image', label: '添加图片', icon: ImagePlus, onClick: onImage },
     { id: 'text', label: '添加文本', icon: Type, onClick: onText },
+    { id: 'layers', label: '图层', icon: Layers3, onClick: onLayers },
   ];
   return <div className="ec-canvas-bottom-toolbar" role="toolbar" aria-label="画布工具">
     {tools.map(tool => <IconButton
       key={tool.id}
       label={tool.label}
-      active={activeTool === tool.id}
+      active={tool.id === 'layers' ? layersOpen : activeTool === tool.id}
       onClick={() => {
-        onToolChange?.(tool.id);
+        if (tool.id !== 'layers') onToolChange?.(tool.id);
         tool.onClick?.();
       }}
     ><tool.icon size={18} /></IconButton>)}
   </div>;
+}
+
+const LAYER_KIND_LABELS = Object.freeze({
+  source_group: '商品素材',
+  image: '图片',
+  output: '生成图片',
+  text: '文本',
+  'layer-workbench': '智能分层',
+  'remove-bg': '去除背景',
+  'smart-remix': '商品图改造',
+  extend: '智能扩图',
+  inpaint: '局部改图',
+  translate: '图片翻译',
+  upscale: '高清修复',
+});
+
+function canvasLayerName(node = {}) {
+  return node.name || node.displayLabel || node.title || LAYER_KIND_LABELS[node.kind] || '画布对象';
+}
+
+export function CanvasLayersPanel({
+  open = false,
+  nodes = [],
+  selectedIds = new Set(),
+  onSelect,
+  onToggleVisibility,
+  onToggleLock,
+  onClose,
+}) {
+  if (!open) return null;
+  const selected = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
+  const layers = nodes.filter(node => !['image-composer', 'suite-composer'].includes(node.kind)).slice().reverse();
+  return <aside className="ec-canvas-layers-panel" data-canvas-control="true" aria-label="图层">
+    <header>
+      <span><Layers3 size={16} /><strong>图层</strong></span>
+      <button type="button" aria-label="关闭图层面板" title="关闭" onClick={onClose}><X size={16} /></button>
+    </header>
+    <div className="ec-canvas-layer-list">
+      {!layers.length && <p>画布中还没有对象</p>}
+      {layers.map(node => <div key={node.id} className={`ec-canvas-layer-row ${selected.has(node.id) ? 'is-selected' : ''}`}>
+        <button type="button" className="ec-canvas-layer-main" onClick={() => onSelect?.(node.id)}>
+          <span className="ec-canvas-layer-mark"><Layers3 size={15} /></span>
+          <span><strong>{canvasLayerName(node)}</strong><small>{LAYER_KIND_LABELS[node.kind] || '画布对象'}</small></span>
+        </button>
+        <button type="button" aria-label={node.hidden ? `显示${canvasLayerName(node)}` : `隐藏${canvasLayerName(node)}`} title={node.hidden ? '显示' : '隐藏'} onClick={() => onToggleVisibility?.(node.id)}>
+          {node.hidden ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+        <button type="button" aria-label={node.locked ? `解锁${canvasLayerName(node)}` : `锁定${canvasLayerName(node)}`} title={node.locked ? '解锁' : '锁定'} onClick={() => onToggleLock?.(node.id)}>
+          {node.locked ? <Lock size={15} /> : <LockOpen size={15} />}
+        </button>
+      </div>)}
+    </div>
+  </aside>;
 }
 
 export function CanvasZoomControls({ scale, onZoomOut, onZoomIn, onFit }) {

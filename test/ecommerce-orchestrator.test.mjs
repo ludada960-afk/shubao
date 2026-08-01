@@ -8,6 +8,7 @@ import test from 'node:test';
 import Database from 'better-sqlite3';
 
 import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
+import { compileCampaignBible } from '../server/ecommerceEngine/campaignBible.mjs';
 import { createEcommerceOrchestrator } from '../server/ecommerceEngine/orchestrator.mjs';
 import { createLegacyVisualAssetMigration } from '../server/ecommerceEngine/legacyVisualAssetMigration.mjs';
 import { createVisualAnalysisService } from '../server/ecommerceEngine/visualAnalysisService.mjs';
@@ -415,6 +416,63 @@ test('runs the required sequence, persists stable bytes, and settles one success
     state: asset.state,
     stableUrl: asset.stableUrl,
   })), [{ state: 'completed', stableUrl: PNG_A }]);
+});
+
+test('preserves the confirmed direction plan through orchestration and asset execution', async t => {
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    campaign: ({ direction, overrides, styleReferenceProfile }) => compileCampaignBible(
+      direction,
+      overrides,
+      styleReferenceProfile,
+    ),
+    buildPlan: ({ input }) => buildAssetPlan(input),
+  });
+  const input = jobInput('job-confirmed-creative-plan');
+  input.payload.direction = {
+    id: 'breakfast-benefit',
+    title: '早餐场景转化方案',
+    execution_guide: '以清晰识别为起点，用早餐台尺度关系解释容量收益。',
+    commercial_objective: '提升用户对容量和日常使用价值的理解',
+    audience: '重视早餐效率的家庭用户',
+    product_strategy: {
+      hero_focus: '主体结构与容量收益',
+      angle_plan: '正面识别后使用安全轻侧角度',
+      interaction_plan: '只展示已确认的开合状态',
+      scenario_plan: '早餐台真实使用环境',
+    },
+    deliverables: [{
+      role: 'main',
+      label: '商品主图',
+      count: 1,
+      ratio: '1:1',
+      group_strategy: '首图只承担商品识别与核心收益说明',
+      shots: [{
+        index: 0,
+        label: '早餐容量利益主图',
+        purpose: '用真实尺度说明容量优势',
+        visual_execution: '商品置于早餐台，以餐具建立尺度关系并保留文案区',
+        variation_key: 'breakfast-scale-benefit',
+        depends_on: ['product_truth', 'campaign_bible'],
+      }],
+    }],
+    risk_guards: ['不得虚构商品容量数值'],
+  };
+
+  const completed = await orchestrator.runJob(orchestrator.createJob(input).id);
+  const snapshot = jobs.get(input.id).progress.orchestrationSnapshot;
+  const main = completed.assetPlan.find(item => item.role === 'main');
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(snapshot.schemaVersion, 4);
+  assert.equal(snapshot.campaignBible.productStrategy.heroFocus, '主体结构与容量收益');
+  assert.equal(snapshot.campaignBible.deliverables[0].shots[0].label, '早餐容量利益主图');
+  assert.deepEqual(snapshot.campaignBible.riskGuards, ['不得虚构商品容量数值']);
+  assert.equal(main.label, '早餐容量利益主图');
+  assert.equal(main.purpose, '用真实尺度说明容量优势');
+  assert.equal(main.shotIntent.creativeExecution, '商品置于早餐台，以餐具建立尺度关系并保留文案区');
+  assert.equal(main.shotIntent.variationKey, 'breakfast-scale-benefit');
+  assert.equal(calls.compilePlanItems.find(item => item.id === main.id).shotIntent.creativeExecution,
+    '商品置于早餐台，以餐具建立尺度关系并保留文案区');
 });
 
 test('public completed assets expose the same buyer-facing delivery metadata as Works', async t => {

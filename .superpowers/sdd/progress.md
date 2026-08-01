@@ -14,6 +14,25 @@
 
 ## Current execution
 
+- Integrated commercial Canvas and ecommerce creative-workflow closure is in
+  progress in the Codex worktree; no files are delegated. The Canvas parity
+  audit and interaction implementation are complete locally, including live
+  edge geometry, direct image/text drag, single and multi-selection surfaces,
+  crop/split/annotation/move-scale actions, layer visibility/locking, stable
+  upload persistence, empty-session restoration and context-safe commands.
+  Focused Canvas regression currently passes 51/51. The 12 unrelated deleted
+  `server/extension_tasks` files remain user-owned and must not be staged or
+  restored.
+- Xiaohongshu video frames, the referenced Feishu workflow, current OpenAI
+  image guidance and public GPT-Image-2 prompt libraries have been analyzed.
+  The validated workflow is Product Truth -> commercial brief -> four concrete
+  editable directions -> dependency-aware shot manifest -> per-shot prompt ->
+  objective QA -> targeted repair -> complete-suite delivery. Existing Product
+  Truth, Campaign Bible, Asset Plan, prompt, QA, repair and billing modules are
+  retained; the missing direction-plan contract and propagation layer are the
+  active implementation boundary. Research media under `.tmp/` is runtime-only
+  and must not be committed.
+
 - Liuying-style ecommerce Canvas and image-performance rebuild: complete in
   production at `ae56085`.
   Approved specification and TDD plan are recorded in
@@ -677,3 +696,24 @@
   pixels and the page error/warning log was empty. Legacy task
   `ec_b51b6e4e-4eda-45aa-89af-e513d3804be8` remains durably `failed` with the
   no-charge analysis-timeout message instead of returning to an analyzing state.
+- The final commerce Canvas parity pass is complete locally. It adds the missing
+  object toolbar, text-object editing surface, multi-selection alignment and
+  grouping, a single non-duplicated add rail, layers visibility and lock recovery,
+  source-relative generation composers, direct uploads, aspect-ratio-preserving
+  image nodes and live geometry-backed edges. Group drag, hidden connections,
+  empty-save restoration, output-only imports and legacy drafts are covered by
+  focused interaction and persistence tests.
+- The ecommerce creative workflow is now rebuilt around one bounded multimodal
+  analysis pass and exactly four concrete, editable commercial directions. Each
+  direction carries product strategy, audience, sales objective, visual system,
+  risk guards and a configuration-authoritative shot manifest. The confirmed
+  plan is preserved through the campaign bible, asset dependency graph, per-shot
+  prompt compiler, semantic quality review and targeted repair planner. Legacy
+  assets without a confirmed responsibility remain compatible and are not given
+  invented commercial intent.
+- Release-gate verification passed 1,019/1,019 repository tests, the 6,434-module
+  production Vite build, export validation, build-asset verification,
+  collaboration policy and whitespace checks. Local browser access to the new
+  development port was blocked by the browser security policy, so final visual
+  and interaction acceptance will run directly against the deployed production
+  release instead of bypassing that restriction.

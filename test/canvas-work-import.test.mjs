@@ -11,7 +11,7 @@ import { createFreshCanvasSession } from '../src/pages/EcCanvas/canvasSessionMod
 
 const STABLE_URL = `/api/generated-assets/${'c'.repeat(64)}.png`;
 
-test('a real owner-scoped ecommerce work restores product inputs into a derivable Canvas source group', async t => {
+test('a real owner-scoped ecommerce work restores product inputs as a clean derivable image', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-canvas-work-import-'));
   t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });
   initDB(join(dir, 'works.db'));
@@ -54,10 +54,10 @@ test('a real owner-scoped ecommerce work restores product inputs into a derivabl
     productAssets: persisted.productAssets,
     outputs: persisted.images,
   });
-  const source = session.nodes.find(node => node.kind === 'source_group');
+  const source = session.nodes.find(node => node.isProductSource);
 
-  assert.equal(source.assets.length, 1);
-  assert.equal(source.assets[0].assetId, 'owned-product-1');
+  assert.equal(source.assetId, 'owned-product-1');
+  assert.equal(source.showMeta, false);
   assert.equal(canCreateWorkflowFromNode(source), true);
   assert.equal(session.connections[0].from, source.id);
 });

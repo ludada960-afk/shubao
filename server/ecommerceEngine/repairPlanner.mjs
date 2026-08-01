@@ -3,6 +3,7 @@ const PRODUCT_REGEN_CODES = new Set([
   'product_drift',
   'product_fidelity_failed',
   'product_identity_mismatch',
+  'planned_shot_not_fulfilled',
   'suite_collage_layout',
   'suite_near_duplicate',
   'wrong_product',

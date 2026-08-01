@@ -6,7 +6,12 @@ import {
   getCanvasFocusIds,
   getContextMenuPosition,
   getContextPanelPosition,
+  expandCanvasDragSelection,
+  isCanvasConnectionVisible,
+  multiSelectionActionsForNodes,
   moveCanvasNodes,
+  MULTI_SELECTION_ACTIONS,
+  applyMultiSelectionAction,
   shouldPersistCanvasMutation,
 } from '../src/pages/EcCanvas/canvasInteractionModel.js';
 
@@ -63,4 +68,66 @@ test('drag frames update geometry without persistence and drag end persists once
   ]);
   assert.equal(shouldPersistCanvasMutation('drag-frame'), false);
   assert.equal(shouldPersistCanvasMutation('drag-end'), true);
+});
+
+test('multi selection matches the observed commerce editing surface', () => {
+  assert.deepEqual(MULTI_SELECTION_ACTIONS.map(action => action.id), [
+    'align-left',
+    'align-center',
+    'align-right',
+    'auto-layout',
+    'bind-elements',
+    'group-elements',
+    'export-selection',
+    'merge-layers',
+    'delete-selection',
+  ]);
+});
+
+test('multi selection only advertises pixel export and merge for image-only selections', () => {
+  const images = [
+    { id: 'a', kind: 'image', status: 'ready', url: '/a.png' },
+    { id: 'b', kind: 'output', status: 'completed', url: '/b.png' },
+  ];
+  const imageActions = multiSelectionActionsForNodes(images, new Set(['a', 'b'])).map(action => action.id);
+  assert.equal(imageActions.includes('export-selection'), true);
+  assert.equal(imageActions.includes('merge-layers'), true);
+
+  const mixed = [...images, { id: 'text', kind: 'text', text: '卖点' }];
+  const mixedActions = multiSelectionActionsForNodes(mixed, new Set(['a', 'text'])).map(action => action.id);
+  assert.equal(mixedActions.includes('export-selection'), false);
+  assert.equal(mixedActions.includes('merge-layers'), false);
+});
+
+test('multi selection geometry is deterministic and keeps non-selected nodes untouched', () => {
+  const nodes = [
+    { id: 'a', x: 100, y: 90, w: 100, h: 100 },
+    { id: 'b', x: 280, y: 160, w: 160, h: 80 },
+    { id: 'outside', x: 900, y: 900, w: 20, h: 20 },
+  ];
+  const ids = new Set(['a', 'b']);
+  const aligned = applyMultiSelectionAction(nodes, ids, 'align-center');
+  assert.equal(aligned[0].x + aligned[0].w / 2, aligned[1].x + aligned[1].w / 2);
+  assert.deepEqual(aligned[2], nodes[2]);
+  const laidOut = applyMultiSelectionAction(nodes, ids, 'auto-layout', { gap: 24 });
+  assert.equal(laidOut[0].y, laidOut[1].y);
+  assert.equal(laidOut[1].x, laidOut[0].x + laidOut[0].w + 24);
+});
+
+test('dragging one grouped object expands the drag selection to the complete group', () => {
+  const nodes = [
+    { id: 'a', groupId: 'group-1' },
+    { id: 'b', groupId: 'group-1' },
+    { id: 'c', groupId: 'group-2' },
+  ];
+  assert.deepEqual([...expandCanvasDragSelection(nodes, 'a', new Set(['a']))].sort(), ['a', 'b']);
+  assert.deepEqual([...expandCanvasDragSelection(nodes, 'c', new Set(['a', 'c']))].sort(), ['a', 'c']);
+});
+
+test('connections disappear when either endpoint is hidden', () => {
+  const edge = { fromNodeId: 'a', toNodeId: 'b' };
+  assert.equal(isCanvasConnectionVisible(edge, [{ id: 'a' }, { id: 'b' }]), true);
+  assert.equal(isCanvasConnectionVisible(edge, [{ id: 'a', hidden: true }, { id: 'b' }]), false);
+  assert.equal(isCanvasConnectionVisible(edge, [{ id: 'a' }, { id: 'b', hidden: true }]), false);
+  assert.equal(isCanvasConnectionVisible(edge, [{ id: 'a' }]), false);
 });

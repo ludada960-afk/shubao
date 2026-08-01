@@ -14,6 +14,10 @@ import {
   isValidDirection,
   getDirectionEditState,
   shouldActivateDirection,
+  getDirectionPlanSummary,
+  getDirectionDeliverableGroups,
+  getDirectionShotRows,
+  summarizeDirectionDeliverables,
 } from '../src/pages/Home/ec/components/directionUiModel.js';
 
 test('normalizeDirectionColor - 应该返回有效的十六进制颜色', () => {
@@ -249,4 +253,108 @@ test('getDirectionEditState - 应该检测超限状态', () => {
 
   assert.equal(state.isOverLimit, true);
   assert.equal(state.canSave, false);
+});
+
+const concreteDirection = {
+  commercial_objective: '提升首屏识别和核心卖点转化',
+  audience: '正在比较同类商品的高意向用户',
+  product_strategy: {
+    hero_focus: '主体轮廓与可见材质',
+    angle_plan: '主视角、轻侧视与局部细节交替',
+    interaction_plan: '只展示来源图片可证明的使用关系',
+    scenario_plan: '厨房台面与收纳场景',
+  },
+  deliverables: [
+    {
+      role: 'white_background',
+      label: '白底首图',
+      count: 1,
+      ratio: '1:1',
+      group_strategy: '先建立商品识别',
+      shots: [{
+        label: '标准识别白底图',
+        purpose: '完整展示商品轮廓',
+        visual_execution: '纯白背景，商品完整不裁切',
+      }],
+    },
+    {
+      role: 'main_text',
+      label: '商品主图',
+      count: 3,
+      ratio: '1:1',
+      group_strategy: '三张分别承担身份、利益和场景职责',
+      shots: [
+        { label: '商品识别主图', purpose: '建立身份', visual_execution: '清晰主视觉' },
+        { label: '核心利益主图', purpose: '解释收益', visual_execution: '功能证据' },
+        { label: '使用场景主图', purpose: '降低想象成本', visual_execution: '真实场景' },
+      ],
+    },
+  ],
+};
+
+test('direction plan UI - 应把商业目标和商品执行策略整理为可读摘要', () => {
+  assert.deepEqual(getDirectionPlanSummary(concreteDirection), {
+    commercialObjective: '提升首屏识别和核心卖点转化',
+    audience: '正在比较同类商品的高意向用户',
+    strategyItems: [
+      { key: 'hero_focus', label: '核心主张', value: '主体轮廓与可见材质' },
+      { key: 'angle_plan', label: '视角计划', value: '主视角、轻侧视与局部细节交替' },
+      { key: 'interaction_plan', label: '使用关系', value: '只展示来源图片可证明的使用关系' },
+      { key: 'scenario_plan', label: '场景计划', value: '厨房台面与收纳场景' },
+    ],
+  });
+});
+
+test('direction plan UI - 应展示用户配置的完整套图摘要和组级职责', () => {
+  assert.equal(summarizeDirectionDeliverables(concreteDirection), '1白底首图 / 3商品主图');
+  assert.deepEqual(getDirectionDeliverableGroups(concreteDirection), [
+    {
+      role: 'white_background',
+      label: '白底首图',
+      count: 1,
+      ratio: '1:1',
+      strategy: '先建立商品识别',
+    },
+    {
+      role: 'main_text',
+      label: '商品主图',
+      count: 3,
+      ratio: '1:1',
+      strategy: '三张分别承担身份、利益和场景职责',
+    },
+  ]);
+});
+
+test('direction plan UI - 应展开每张图的标题、职责、比例和执行要求', () => {
+  const rows = getDirectionShotRows(concreteDirection);
+  assert.equal(rows.length, 4);
+  assert.deepEqual(rows[0], {
+    id: 'white_background-0',
+    role: 'white_background',
+    groupLabel: '白底首图',
+    ratio: '1:1',
+    index: 0,
+    label: '标准识别白底图',
+    purpose: '完整展示商品轮廓',
+    visualExecution: '纯白背景，商品完整不裁切',
+  });
+  assert.equal(rows[3].label, '使用场景主图');
+});
+
+test('direction plan UI - 对畸形模型数据应安全降级且不显示虚假数量', () => {
+  const malformed = {
+    commercial_objective: 42,
+    product_strategy: { hero_focus: '__proto__', scenario_plan: '  ' },
+    deliverables: [
+      { role: '__proto__', label: '<script>', count: 99, shots: [] },
+      { role: 'detail', label: '详情图', count: 2, ratio: '3:4', shots: [{ label: '卖点页' }] },
+    ],
+  };
+  assert.deepEqual(getDirectionPlanSummary(malformed), {
+    commercialObjective: '',
+    audience: '',
+    strategyItems: [],
+  });
+  assert.equal(summarizeDirectionDeliverables(malformed), '2详情图');
+  assert.equal(getDirectionShotRows(malformed).length, 1);
 });

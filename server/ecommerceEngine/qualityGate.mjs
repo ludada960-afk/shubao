@@ -21,6 +21,10 @@ export function buildFormalEcommerceQualityPrompt() {
       passed: true,
       confidence: 0.98,
       issueCodes: [],
+      intentFulfillment: {
+        passed: true,
+        evidence: ['the image visibly fulfills the confirmed shot responsibility'],
+      },
       layout: {
         verdict: 'single_product',
         confidence: 0.98,
@@ -34,7 +38,8 @@ collage 包括 collage、montage、contact sheet 和 multi-candidate layout；�
 QUALITY_JSON_EXAMPLE_START
 ${JSON.stringify(example, null, 2)}
 QUALITY_JSON_EXAMPLE_END
-根据 Product Truth 检查商品主体是否漂移、结构、颜色、包装、Logo 是否被篡改，并检查乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。没有足够证据时返回 uncertain，不要臆造问题。`;
+根据 Product Truth 检查商品主体是否漂移、结构、颜色、包装、Logo 是否被篡改，并检查乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。
+如果请求中包含 Asset Responsibility，还要检查画面是否明显完成该图已经确认的 purpose、creativeExecution 和 variationKey。只判断画面中可观察的任务，不因主观风格偏好判失败；明确没有完成时令 visualQuality.passed=false，并加入 issueCodes: ["planned_shot_not_fulfilled"]，同时在 intentFulfillment.evidence 说明可见依据。没有足够证据时不要臆造问题。`;
 }
 export const WHITE_BACKGROUND_REQUIREMENTS = Object.freeze({
   nearWhiteThreshold: 245,
@@ -83,6 +88,45 @@ function normalizeStrings(values) {
     result.push(normalized);
   }
   return result;
+}
+
+function commercialIntentFromPlanItem(value, role) {
+  const item = isRecord(value) ? value : {};
+  const shotIntent = isRecord(own(item, 'shotIntent')) ? own(item, 'shotIntent') : {};
+  const result = {
+    assetId: typeof own(item, 'id') === 'string' ? own(item, 'id').trim() : '',
+    role,
+    label: typeof own(item, 'label') === 'string' ? own(item, 'label').trim() : '',
+    purpose: typeof own(item, 'purpose') === 'string' ? own(item, 'purpose').trim() : '',
+    communicationGoal: typeof own(item, 'communicationGoal') === 'string'
+      ? own(item, 'communicationGoal').trim()
+      : '',
+    plannedPurpose: typeof own(shotIntent, 'plannedPurpose') === 'string'
+      ? own(shotIntent, 'plannedPurpose').trim()
+      : '',
+    creativeExecution: typeof own(shotIntent, 'creativeExecution') === 'string'
+      ? own(shotIntent, 'creativeExecution').trim()
+      : '',
+    variationKey: typeof own(shotIntent, 'variationKey') === 'string'
+      ? own(shotIntent, 'variationKey').trim()
+      : '',
+    groupStrategy: typeof own(shotIntent, 'groupStrategy') === 'string'
+      ? own(shotIntent, 'groupStrategy').trim()
+      : '',
+    dependsOn: normalizeStrings(own(shotIntent, 'dependsOn')),
+  };
+  const hasConfirmedResponsibility = [
+    result.assetId,
+    result.label,
+    result.purpose,
+    result.communicationGoal,
+    result.plannedPurpose,
+    result.creativeExecution,
+    result.variationKey,
+    result.groupStrategy,
+    result.dependsOn,
+  ].some(value => Array.isArray(value) ? value.length > 0 : Boolean(value));
+  return hasConfirmedResponsibility ? result : null;
 }
 
 async function semanticReviewAsset(buffer, metadata, actualFormat) {
@@ -475,10 +519,12 @@ export async function evaluateAsset(input = {}, adapters = {}) {
   );
 
   const reviewAsset = await semanticReviewAsset(buffer, metadata, actualFormat);
+  const commercialIntent = commercialIntentFromPlanItem(own(safeInput, 'assetPlanItem'), role);
   const adapterPayload = {
     ...reviewAsset,
     role,
     productTruth: isRecord(own(safeInput, 'productTruth')) ? { ...own(safeInput, 'productTruth') } : {},
+    ...(commercialIntent ? { commercialIntent } : {}),
   };
   const productFidelity = await runAdapterWithTransientRetry(
     own(adapters, 'productFidelity'),

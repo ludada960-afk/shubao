@@ -513,3 +513,102 @@ test('SKU variants use an explicit buyer duty and canonical non-hash identities'
   ]);
   assert.equal(validatePlanContract(plan), plan);
 });
+
+test('binds each configured asset to the selected second-step shot responsibility', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible: {
+      ...campaignBible,
+      productStrategy: {
+        heroFocus: '商品身份和可见接口',
+        anglePlan: '主视角、轻侧视和使用尺度交替',
+        interactionPlan: '只展示已确认接口',
+        scenarioPlan: '桌面设备连接场景',
+      },
+      deliverables: [{
+        role: 'main_text',
+        label: '商品主图',
+        count: 3,
+        ratio: '1:1',
+        groupStrategy: '三张分别承担身份、利益和场景职责',
+        shots: [
+          {
+            index: 0,
+            label: '型号识别主图',
+            purpose: '准确建立 Nova Hub 商品身份',
+            visualExecution: '正面三分之四视角，接口清晰，保留标题安全区',
+            variationKey: 'identity',
+            dependsOn: ['product_truth', 'campaign_bible'],
+          },
+          {
+            index: 1,
+            label: '连接效率主图',
+            purpose: '解释双 USB-C 接口带来的连接收益',
+            visualExecution: '使用来源可证明的接口近景，和首图采用不同景别',
+            variationKey: 'benefit',
+            dependsOn: ['product_truth'],
+          },
+          {
+            index: 2,
+            label: '桌面使用主图',
+            purpose: '降低目标用户对桌面使用方式的想象成本',
+            visualExecution: '真实桌面尺度关系，商品仍为第一视觉主体',
+            variationKey: 'scenario',
+            dependsOn: ['product_truth', 'hero_visual_standard'],
+          },
+        ],
+      }],
+    },
+    sizing: { images: [{ key: 'main_text', count: 3, ratio: '1:1' }] },
+  });
+
+  assert.equal(plan.length, 3);
+  assert.deepEqual(plan.map(item => item.label), ['型号识别主图', '连接效率主图', '桌面使用主图']);
+  assert.deepEqual(plan.map(item => item.purpose), [
+    '准确建立 Nova Hub 商品身份',
+    '解释双 USB-C 接口带来的连接收益',
+    '降低目标用户对桌面使用方式的想象成本',
+  ]);
+  assert.deepEqual(plan.map(item => item.creativeExecution), [
+    '正面三分之四视角，接口清晰，保留标题安全区',
+    '使用来源可证明的接口近景，和首图采用不同景别',
+    '真实桌面尺度关系，商品仍为第一视觉主体',
+  ]);
+  assert.deepEqual(plan.map(item => item.variationKey), ['identity', 'benefit', 'scenario']);
+  assert.ok(plan.every(item => item.ratio === '1:1'));
+  assert.ok(plan.every(item => item.shotIntent.planLabel === item.label));
+  assert.equal(validatePlanContract(plan), plan);
+});
+
+test('a creative shot plan cannot bypass evidence gates or change authoritative counts and ratios', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth({
+      sourceAssetIds: ['product-front'],
+      components: [],
+      confirmedFacts: {},
+    }),
+    campaignBible: {
+      ...campaignBible,
+      deliverables: [{
+        role: 'main_text',
+        count: 9,
+        ratio: '9:16',
+        shots: [{
+          label: '结构证明主图',
+          purpose: 'Exploded internal view of every hidden component',
+          visualExecution: 'Disassemble the product and invent its internal engineering',
+          variationKey: 'unsafe-internals',
+          dependsOn: ['product_truth'],
+        }],
+      }],
+    },
+    sizing: { images: [{ key: 'main_text', count: 1, ratio: '4:3' }] },
+  });
+
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0].ratio, '4:3');
+  assert.equal(plan[0].shotIntent.requestedType, 'exploded_view');
+  assert.equal(plan[0].shotIntent.type, 'alternate_angle');
+  assert.ok(plan[0].shotIntent.fallbackIntent);
+  assert.match(plan[0].shotIntent.forbiddenMutations.join(' '), /Do not invent internal structures/i);
+});

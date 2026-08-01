@@ -240,3 +240,119 @@ export function getDirectionEditState({ description, originalDescription }) {
     isOverLimit: charCount > 500,
   };
 }
+
+const SAFE_DIRECTION_ROLES = new Set([
+  'white_background',
+  'white_bg',
+  'main',
+  'main_text',
+  'main_3x4',
+  'transparent',
+  'sku',
+  'detail',
+]);
+
+function safeDirectionText(value, maxLength = 600) {
+  if (typeof value !== 'string') return '';
+  const text = value.trim();
+  if (!text || ['__proto__', 'constructor', 'prototype'].includes(text.toLowerCase())) return '';
+  return text.slice(0, maxLength);
+}
+
+function safeDirectionRecord(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function safeDirectionCount(value) {
+  const count = Number(value);
+  return Number.isFinite(count) ? Math.max(0, Math.min(20, Math.trunc(count))) : 0;
+}
+
+/**
+ * Returns the decision-level information a merchant needs before selecting a
+ * direction. The visual details stay separate from the editable execution
+ * guide so a text edit cannot silently change the requested image package.
+ */
+export function getDirectionPlanSummary(direction = {}) {
+  const source = safeDirectionRecord(direction);
+  const strategy = safeDirectionRecord(source.product_strategy || source.productStrategy);
+  const strategyFields = [
+    ['hero_focus', 'heroFocus', '核心主张'],
+    ['angle_plan', 'anglePlan', '视角计划'],
+    ['interaction_plan', 'interactionPlan', '使用关系'],
+    ['scenario_plan', 'scenarioPlan', '场景计划'],
+  ];
+  const strategyItems = strategyFields.flatMap(([snakeKey, camelKey, label]) => {
+    const value = safeDirectionText(strategy[snakeKey] ?? strategy[camelKey]);
+    return value ? [{ key: snakeKey, label, value }] : [];
+  });
+  return {
+    commercialObjective: safeDirectionText(
+      source.commercial_objective ?? source.commercialObjective ?? source.objective,
+    ),
+    audience: safeDirectionText(source.audience ?? source.target_audience),
+    strategyItems,
+  };
+}
+
+/** Normalizes the configured output groups without inventing missing assets. */
+export function getDirectionDeliverableGroups(direction = {}) {
+  const source = safeDirectionRecord(direction);
+  const groups = Array.isArray(source.deliverables) ? source.deliverables : [];
+  return groups.flatMap((value) => {
+    const group = safeDirectionRecord(value);
+    const role = safeDirectionText(group.role ?? group.key, 48).toLowerCase();
+    const count = safeDirectionCount(group.count);
+    if (!SAFE_DIRECTION_ROLES.has(role) || count <= 0) return [];
+    const label = safeDirectionText(group.label ?? group.name, 60) || '商品图片';
+    return [{
+      role,
+      label,
+      count,
+      ratio: safeDirectionText(group.ratio, 24),
+      strategy: safeDirectionText(group.group_strategy ?? group.groupStrategy ?? group.strategy),
+    }];
+  });
+}
+
+/** Provides a compact but complete disclosure of the exact requested suite. */
+export function summarizeDirectionDeliverables(direction = {}) {
+  return getDirectionDeliverableGroups(direction)
+    .map(group => `${group.count}${group.label}`)
+    .join(' / ');
+}
+
+/** Flattens the model's shot manifest for the expandable second-step preview. */
+export function getDirectionShotRows(direction = {}) {
+  const source = safeDirectionRecord(direction);
+  const rawGroups = Array.isArray(source.deliverables) ? source.deliverables : [];
+  const normalizedGroups = getDirectionDeliverableGroups(source);
+  const groupByRole = new Map(normalizedGroups.map(group => [group.role, group]));
+  const rows = [];
+  for (const rawValue of rawGroups) {
+    const rawGroup = safeDirectionRecord(rawValue);
+    const role = safeDirectionText(rawGroup.role ?? rawGroup.key, 48).toLowerCase();
+    const group = groupByRole.get(role);
+    if (!group) continue;
+    const shots = Array.isArray(rawGroup.shots) ? rawGroup.shots : [];
+    shots.slice(0, group.count).forEach((rawShot, index) => {
+      const shot = safeDirectionRecord(rawShot);
+      const label = safeDirectionText(shot.label ?? shot.title ?? shot.name, 100);
+      if (!label) return;
+      rows.push({
+        id: `${role}-${index}`,
+        role,
+        groupLabel: group.label,
+        ratio: group.ratio,
+        index,
+        label,
+        purpose: safeDirectionText(shot.purpose ?? shot.objective, 300),
+        visualExecution: safeDirectionText(
+          shot.visual_execution ?? shot.visualExecution ?? shot.execution,
+          600,
+        ),
+      });
+    });
+  }
+  return rows;
+}

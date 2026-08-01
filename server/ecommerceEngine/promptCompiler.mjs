@@ -442,10 +442,20 @@ function campaignSection(campaignBible, transparent = false) {
       backgroundLanguage: '',
       typographyIntent: '',
       copyTone: '',
+      productStrategy: {
+        heroFocus: '',
+        anglePlan: '',
+        interactionPlan: '',
+        scenarioPlan: '',
+      },
+      riskGuards: [],
       consistencyLocks: [],
       prohibitedStyles: [],
     };
   }
+  const productStrategy = isRecord(ownValue(campaignBible, 'productStrategy'))
+    ? ownValue(campaignBible, 'productStrategy')
+    : {};
   return {
     directionId: cleanString(ownValue(campaignBible, 'directionId')),
     title: cleanString(ownValue(campaignBible, 'title')),
@@ -459,6 +469,13 @@ function campaignSection(campaignBible, transparent = false) {
     backgroundLanguage: cleanString(ownValue(campaignBible, 'backgroundLanguage')),
     typographyIntent: cleanString(ownValue(campaignBible, 'typographyIntent')),
     copyTone: cleanString(ownValue(campaignBible, 'copyTone')),
+    productStrategy: {
+      heroFocus: cleanString(ownValue(productStrategy, 'heroFocus')),
+      anglePlan: cleanString(ownValue(productStrategy, 'anglePlan')),
+      interactionPlan: cleanString(ownValue(productStrategy, 'interactionPlan')),
+      scenarioPlan: cleanString(ownValue(productStrategy, 'scenarioPlan')),
+    },
+    riskGuards: normalizeStrings(ownValue(campaignBible, 'riskGuards')),
     consistencyLocks: normalizeStrings(ownValue(campaignBible, 'consistencyLocks')),
     prohibitedStyles: normalizeStrings(ownValue(campaignBible, 'prohibitedStyles')),
   };
@@ -549,7 +566,13 @@ export function compileAssetRequest({
   const sections = {
     roleObjective: {
       role,
+      label: cleanString(ownValue(item, 'label')),
       purpose: cleanString(ownValue(item, 'purpose')),
+      communicationGoal: cleanString(ownValue(item, 'communicationGoal')),
+      creativeExecution: cleanString(ownValue(item, 'creativeExecution')),
+      variationKey: cleanString(ownValue(item, 'variationKey')),
+      groupStrategy: cleanString(ownValue(item, 'groupStrategy')),
+      dependsOn: normalizeStrings(ownValue(item, 'dependsOn')),
       generationMode: cleanString(ownValue(item, 'generationMode')) || 'edit',
     },
     shotIntent: isRecord(ownValue(item, 'shotIntent')) ? ownValue(item, 'shotIntent') : {},
@@ -585,7 +608,7 @@ export function compileAssetRequest({
           subject: 'Preserve the user product from indexed product views; create only the requested role composition.',
           materials: materials.join(', '),
           lighting: campaign.lighting,
-          composition: `Create a single-frame, single-scene composition for this role only. ${campaign.composition}`.trim(),
+          composition: `Create a single-frame, single-scene composition for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim(),
           background: campaign.backgroundLanguage,
           palette: campaign.palette,
           copyPolicy: 'Keep copy space restrained. Do not synthesize exact labels or factual text.',

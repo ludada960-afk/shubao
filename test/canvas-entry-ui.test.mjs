@@ -6,14 +6,11 @@ test('empty commerce canvas guides a seller to upload product originals or impor
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   assert.match(source, /双击画布导入商品素材/);
-  assert.match(source, /上传商品原图/);
+  assert.match(source, /上传图片/);
   assert.match(source, /从我的作品导入/);
   assert.match(source, /生成电商套图/);
-  assert.match(source, /id: 'product_original'/);
-  assert.match(source, /CanvasSourceImportSheet/);
-  assert.match(source, /style_reference/);
-  assert.match(source, /general_material/);
-  assert.match(source, /onDoubleClick=\{[\s\S]*?setSourceImportOpen\(true\)/);
+  assert.match(source, /onDoubleClick=\{[\s\S]*?sourceUploadRef\.current\?\.click\(\)/);
+  assert.doesNotMatch(source, /CanvasSourceImportSheet|sourceImportOpen|product_original|style_reference|general_material/);
   assert.match(css, /\.ec-canvas-empty-state \{[^}]*z-index: 10;[^}]*pointer-events: none;/);
   assert.match(css, /\.ec-canvas-empty-state > div \{[^}]*pointer-events: auto;/);
 });
@@ -29,12 +26,15 @@ test('commerce canvas uses a quiet professional shell and contextual world panel
   assert.doesNotMatch(source, /fixed[^\n]+right: 20[^\n]+bottom: 20/);
 });
 
-test('switching canvas tools dismisses the previous node composer', async () => {
+test('canvas creation uses movable nodes and omits the legacy centered composer', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
-  assert.match(source, /function ReferenceComposer\([\s\S]*?onClose/);
-  assert.match(source, /const closeComposer = useCallback/);
-  assert.match(source, /const handleAddTextNode = useCallback\([\s\S]*?closeComposer\(\)/);
-  assert.match(source, /<ReferenceComposer[\s\S]*?onClose=\{closeComposer\}/);
+  assert.match(source, /createCanvasImageComposerNode/);
+  assert.match(source, /createCanvasSuiteComposerNode/);
+  assert.match(source, /createCanvasTextNode/);
+  assert.match(source, /handleComposerSourceUpload/);
+  assert.match(source, /node\.kind === 'image-composer'/);
+  assert.match(source, /node\.kind === 'suite-composer'/);
+  assert.doesNotMatch(source, /ReferenceComposer|composerNodes|composerAction|closeComposer/);
 });
 
 test('mobile canvas stacks the header and keeps bottom controls separate', async () => {

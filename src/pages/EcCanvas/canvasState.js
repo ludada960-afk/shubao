@@ -130,7 +130,9 @@ export function selectNodesInRect(nodes, rect) {
 
 export function moveSelectedNodes(nodes, selectedIds, dx, dy) {
   const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
-  return nodes.map(node => ids.has(node.id) ? { ...node, x: (node.x || 0) + dx, y: (node.y || 0) + dy } : node);
+  return nodes.map(node => ids.has(node.id) && !node.locked
+    ? { ...node, x: (node.x || 0) + dx, y: (node.y || 0) + dy }
+    : node);
 }
 
 export function addConnection(connections, from, to, type = 'reference') {

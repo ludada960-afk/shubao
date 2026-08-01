@@ -26,20 +26,64 @@ test('every Canvas command is declared once with execution and billing metadata'
   }
 });
 
-test('selection and context surfaces are intentionally different', () => {
+test('selection exposes the complete commerce image toolbar in observed order', () => {
   assert.deepEqual(
     actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id),
-    ['image-info', 'download', 'add-reference', 'crop', 'annotation'],
+    [
+      'edit-text',
+      'grid-split',
+      'layer-edit',
+      'remove-background',
+      'move-scale',
+      'reverse-prompt',
+      'annotation',
+      'crop',
+      'split-image',
+      'download',
+      'delete',
+    ],
   );
+});
+
+test('context menu exposes complete object operations without duplicating selection tools', () => {
   assert.deepEqual(
     actionsForSurface({ surface: 'context', node: completedOutput }).map(action => action.id),
-    ['duplicate', 'delete'],
+    [
+      'copy',
+      'paste',
+      'duplicate',
+      'bring-forward',
+      'send-backward',
+      'bring-front',
+      'send-back',
+      'toggle-visibility',
+      'toggle-lock',
+      'flip-horizontal',
+      'flip-vertical',
+      'export-object',
+      'delete',
+    ],
   );
   const selection = new Set(actionsForSurface({ surface: 'selection', node: completedOutput }).map(action => action.id));
   const context = actionsForSurface({ surface: 'context', node: completedOutput }).map(action => action.id);
-  assert.equal(context.some(id => selection.has(id)), false);
+  assert.deepEqual(context.filter(id => selection.has(id)), ['delete']);
   assert.equal(getCanvasAction('rename'), null);
   assert.equal(getCanvasAction('classify'), null);
+});
+
+test('context commands never advertise image-only operations on text or source groups', () => {
+  const text = { id: 'text-1', kind: 'text', status: 'ready' };
+  const sourceGroup = { id: 'source-1', kind: 'source_group', status: 'ready', assets: [{ url: '/product.png' }] };
+  const textActions = actionsForSurface({ surface: 'context', node: text }).map(action => action.id);
+  const sourceActions = actionsForSurface({ surface: 'context', node: sourceGroup }).map(action => action.id);
+
+  for (const actions of [textActions, sourceActions]) {
+    assert.equal(actions.includes('flip-horizontal'), false);
+    assert.equal(actions.includes('flip-vertical'), false);
+    assert.equal(actions.includes('export-object'), false);
+    assert.equal(actions.includes('toggle-visibility'), true);
+    assert.equal(actions.includes('toggle-lock'), true);
+  }
 });
 
 test('only ready source images and completed outputs expose deep workflow actions', () => {
@@ -48,7 +92,7 @@ test('only ready source images and completed outputs expose deep workflow action
 
   assert.deepEqual(
     actionsForSurface({ surface: 'image-editor', node: sourceGroup }).map(action => action.id),
-    ['product-remix', 'outpaint', 'inpaint', 'remove-background', 'layer-edit', 'translate', 'upscale'],
+    ['product-remix', 'outpaint', 'inpaint', 'translate', 'upscale'],
   );
   assert.deepEqual(actionsForSurface({ surface: 'image-editor', node: runningOutput }), []);
   assert.equal(actionsForSurface({ surface: 'image-editor', node: { kind: 'process', status: 'ready', url: '/derived.png' } }).length, 0);

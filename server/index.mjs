@@ -75,6 +75,7 @@ import {
   canRetry,
   compileAssetRequest,
   compileCampaignBible,
+  createDesignDirectionService,
   createEcommerceOrchestrator,
   createEcommerceProjectLifecycle,
   createEcommerceBilling,
@@ -3040,16 +3041,21 @@ async function prepareEcommerceProviderRequest(request) {
 }
 
 const ecommerceQualityCache = new Map();
-async function analyzeStableEcommerceAsset({ buffer, contentType, productTruth }) {
+async function analyzeStableEcommerceAsset({ buffer, contentType, productTruth, commercialIntent, role }) {
   const key = crypto.createHash('sha256')
     .update(buffer)
     .update(String(contentType || ''))
     .update(String(productTruth?.fingerprint || ''))
+    .update(String(role || ''))
+    .update(JSON.stringify(commercialIntent || {}))
     .digest('hex');
   if (!ecommerceQualityCache.has(key)) {
     const systemPrompt = buildFormalEcommerceQualityPrompt();
     const image = stableAssetDataUrl({ buffer, contentType: contentType || 'image/png' });
-    const userPrompt = `Product Truth：${JSON.stringify(productTruth || {})}`;
+    const userPrompt = [
+      `Product Truth：${JSON.stringify(productTruth || {})}`,
+      `Asset Responsibility：${JSON.stringify(commercialIntent || {})}`,
+    ].join('\n');
     const promise = createEcommerceVlmClient().analyzeJson({
       systemPrompt,
       userPrompt,
@@ -3089,7 +3095,10 @@ function qualityAdapter(section, fallbackCode) {
       issueCodes: Array.isArray(value.issueCodes) && value.issueCodes.length
         ? value.issueCodes.map(code => String(code).trim()).filter(Boolean)
         : value.passed ? [] : [fallbackCode],
-      details: section === 'visualQuality' ? { layout: value.layout } : {},
+      details: section === 'visualQuality' ? {
+        layout: value.layout,
+        ...(value.intentFulfillment ? { intentFulfillment: value.intentFulfillment } : {}),
+      } : {},
     };
   };
 }
@@ -3245,164 +3254,17 @@ setInterval(() => {
   } catch {}
 }, 600000);
 
-// ============================================================
-// 设计方向：VLM 分析产品+参考图 → 输出 3-4 组差异化设计方向
-// ============================================================
+// 第二步在一次有界多模态请求中完成商品观察、参考风格提取和四套方案规划。
+const ecommerceDesignDirectionService = createDesignDirectionService({
+  readImageAsDataUrl: async (url, { signal } = {}) => {
+    const image = await imageInputReader.read(url, { signal });
+    return imageBufferToDataUrl(image);
+  },
+  completeText: request => createEcommerceVlmClient().completeText(request),
+});
+
 async function generateDesignDirections(input = {}, { signal } = {}) {
-  const { product_name, description, category, real_shots, ref_shots, platform, style_skill, product_params, skus, copywriting } = input;
-  if (!product_name && !description && !real_shots?.length) {
-    throw Object.assign(new Error('请至少填写产品名称或上传产品图'), { status: 400 });
-  }
-
-  // 将相对路径 URL 转为 base64（临时上传的图片），不设数量上限
-  const resolveImages = async (imgs) => {
-    const resolved = [];
-    for (const u of (imgs || [])) {
-      if (signal?.aborted) throw signal.reason;
-      if (!u || typeof u !== 'string') continue;
-      try {
-        const image = await imageInputReader.read(u);
-        resolved.push(imageBufferToDataUrl(image));
-      } catch {}
-    }
-    return resolved;
-  };
-
-  const resolvedReal = await resolveImages(real_shots);
-    const resolvedRef = await resolveImages(ref_shots);
-
-    // 1) VLM 分析产品实拍图（全量，analyzeReferenceImages 内部自动分批）
-    let productVision = null;
-    if (resolvedReal.length) {
-      console.log(`[design-dir] VLM 分析产品图 ${resolvedReal.length} 张...`);
-      productVision = await analyzeReferenceImages(resolvedReal, { signal });
-    }
-
-    // 2) VLM 分析参考图（全量）
-    let refVision = null;
-    if (resolvedRef.length) {
-      console.log(`[design-dir] VLM 分析参考图 ${resolvedRef.length} 张...`);
-      refVision = await analyzeReferenceImages(resolvedRef, { signal });
-    }
-
-    // 3) 构建 LLM prompt 生成设计方向
-    const platformDesc = {
-      smart: '智能推荐（AI自动选择最佳平台规范）',
-      '淘宝': '淘宝/天猫，主图1440×1440，品质优先',
-      '京东': '京东，品质优先，高端感',
-      '拼多多': '拼多多，性价比风格，可含促销',
-      '抖音': '抖音小店，竖版3:4为主，动态感',
-      '小红书': '小红书商城，3:4竖版，生活方式调性',
-      '亚马逊': 'Amazon，首图纯白底必选，不可含文字',
-    }[platform] || '通用电商';
-
-    const sys = `你是资深电商视觉总监。根据产品信息和视觉分析，设计 3-4 组差异化完整的电商套图设计方向。
-
-每组方向必须是完整的视觉方案，包含：
-- 标题（4-8字，概括视觉方向）
-- 详细描述（100-200字，说明光影、布景、色调、氛围、产品呈现方式）
-- 视觉调性（2-4个关键词）
-- 该方向下每张图的具体描述（白底图怎么拍、主图什么风格、3:4场景图什么环境、详情切片怎么排版）
-- 色调预览（3个hex色值，代表主色调）
-
-返回严格 JSON（只返回 JSON）：
-{
-  "directions": [
-    {
-      "id": "dir_1",
-      "title": "方向标题",
-      "description": "100-200字详细视觉描述",
-      "visual_tone": "关键词1·关键词2·关键词3",
-      "image_plan": {
-        "white_bg": "白底图具体描述",
-        "main_text": "主图1:1具体描述",
-        "main_3x4": "3:4主图具体描述",
-        "transparent": "透明图描述",
-        "detail_slices": "详情切片描述"
-      },
-      "preview_colors": ["#hex1", "#hex2", "#hex3"]
-    }
-  ]
-}
-
-设计方向要求：
-1. 3-4组方向必须有明显差异化（如：极简白底 vs 生活场景 vs 暗调质感 vs 杂志排版）
-2. 每组方向基于实际产品特征，不要脱离产品本身
-3. 风格要匹配目标平台的调性
-4. 考虑用户提供的参考图氛围（如有）`;
-
-    const productInfo = [
-      `产品名称：${product_name || '未指定'}`,
-      `品类：${category || '其他'}`,
-      `描述：${description || '未填写'}`,
-      `目标平台：${platformDesc}`,
-      product_params?.material ? `材质：${product_params.material}` : '',
-      product_params?.craft ? `工艺：${product_params.craft}` : '',
-      product_params?.size ? `尺寸：${product_params.size}` : '',
-      skus?.length ? `SKU变体：${skus.map(s => [s.color, s.size, s.capacity].filter(Boolean).join('/')).join('、')}` : '',
-      copywriting?.sellingPoints ? `卖点：${copywriting.sellingPoints}` : '',
-      copywriting?.plan ? `策划思路：${copywriting.plan}` : '',
-    ].filter(Boolean).join('\n');
-
-    const visionContext = [
-      productVision ? `产品视觉分析：形状=${productVision.product_shape || '未知'}, 颜色=${productVision.dominant_colors?.join(',') || '未知'}, 材质=${productVision.material_texture || '未知'}, 光影=${productVision.lighting || '未知'}, 背景=${productVision.background || '未知'}` : '',
-      refVision ? `参考图视觉分析：风格=${refVision.style_vibe || '未知'}, 色温=${refVision.color_temperature || '未知'}, 构图=${refVision.composition || '未知'}, 光影=${refVision.lighting || '未知'}` : '',
-    ].filter(Boolean).join('\n');
-
-    const userMsg = `${productInfo}\n\n${visionContext ? visionContext + '\n\n' : ''}请输出 3-4 组差异化设计方向。`;
-
-    const llmRes = await callMiniLLM(
-      sys,
-      [...resolvedReal.slice(0, 3), ...resolvedRef.slice(0, 2)],
-      userMsg,
-      { signal },
-    );
-    // 健壮 JSON 解析：修复 LLM 常见格式问题
-    let parsed = null;
-    try {
-      const match = (llmRes || '').match(/\{[\s\S]*\}/);
-      if (match) parsed = JSON.parse(match[0]);
-    } catch (e) {
-      // 尝试修复常见问题：尾逗号、单引号、注释
-      try {
-        const raw = (llmRes || '').match(/\{[\s\S]*\}/)?.[0] || '';
-        const fixed = raw
-          .replace(/,\s*([}\]])/g, '$1')       // 尾逗号
-          .replace(/'/g, '"')                    // 单引号→双引号
-          .replace(/\/\/.*$/gm, '')              // 行注释
-          .replace(/\/\*[\s\S]*?\*\//g, '');     // 块注释
-        parsed = JSON.parse(fixed);
-      } catch (e2) {
-        console.warn('[design-directions] JSON 修复失败，使用兜底方向');
-      }
-    }
-
-    // 兜底：确保方向数据完整
-    const directions = (parsed?.directions || []).slice(0, 4).map((d, i) => ({
-      id: d.id || `dir_${i + 1}`,
-      title: d.title || `设计方向 ${i + 1}`,
-      description: d.description || '',
-      visual_tone: d.visual_tone || '',
-      image_plan: d.image_plan || {},
-      preview_colors: Array.isArray(d.preview_colors) ? d.preview_colors.slice(0, 3) : ['#f5f5f5', '#333333', '#999999'],
-    }));
-
-    if (directions.length === 0) {
-      // 兜底方向
-      directions.push(
-        { id: 'dir_1', title: '产品主视觉展示', description: '以产品为核心，高级极简光影，纯白背景突出产品细节，适合所有电商平台首图。', visual_tone: '极简·高级·白底', image_plan: {}, preview_colors: ['#ffffff', '#333333', '#c4a882'] },
-        { id: 'dir_2', title: '生活场景应用', description: '将产品融入真实使用场景，自然光影，让消费者想象拥有后的使用画面。', visual_tone: '自然·温暖·生活', image_plan: {}, preview_colors: ['#fde68a', '#bbf7d0', '#f5f0eb'] },
-        { id: 'dir_3', title: '质感细节特写', description: '微距特写产品材质与工艺细节，用光影展现产品的精工品质。', visual_tone: '质感·微距·高级', image_plan: {}, preview_colors: ['#1a1a2e', '#d4a574', '#666666'] },
-      );
-    }
-
-    return {
-      directions,
-      analysis: {
-        product_vision: productVision,
-        ref_vision: refVision,
-      },
-    };
+  return ecommerceDesignDirectionService.generate(input, { signal });
 }
 
 app.post('/api/ecommerce/design-directions', async (req, res) => {
@@ -3723,11 +3585,13 @@ app.post('/api/canvas/transform', async (req, res) => {
     target_language: targetLanguage = '中文',
     resolution = '2K',
     annotation = '',
+    grid = 2,
+    direction = 'vertical',
     billing_quote_id: quoteId,
     billing_action_id: actionId,
   } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
-  const pixelActions = new Set(['crop', 'grid-split', 'annotation']);
+  const pixelActions = new Set(['crop', 'grid-split', 'split-image', 'annotation']);
   const aiActions = new Set(['retouch', 'extend', 'translate', 'upscale']);
   if (!pixelActions.has(action) && !aiActions.has(action)) {
     return res.status(400).json({ error: '不支持的画布操作' });
@@ -3749,11 +3613,12 @@ app.post('/api/canvas/transform', async (req, res) => {
       const metadata = await sharp(sourceBuffer).metadata();
       const width = metadata.width || 1;
       const height = metadata.height || 1;
-      if (width < 2 || height < 2) {
-        return res.status(400).json({ error: '图片尺寸过小，无法拆分为 4 张独立切片' });
+      const gridSize = Math.max(2, Math.min(5, Math.round(Number(grid) || 2)));
+      if (width < gridSize || height < gridSize) {
+        return res.status(400).json({ error: `图片尺寸过小，无法拆分为 ${gridSize * gridSize} 张独立切片` });
       }
       const urls = [];
-      for (const [index, rect] of gridRects(width, height).entries()) {
+      for (const [index, rect] of gridRects(width, height, gridSize, gridSize).entries()) {
         const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
         const asset = await generatedAssetStore.persistBuffer({
           buffer: output,
@@ -3762,7 +3627,26 @@ app.post('/api/canvas/transform', async (req, res) => {
         });
         urls.push({ url: asset.url, index });
       }
-      return res.json({ urls, count: urls.length, columns: 2, rows: 2 });
+      return res.json({ urls, count: urls.length, columns: gridSize, rows: gridSize });
+    }
+
+    if (action === 'split-image') {
+      const sourceBuffer = await readCanvasImage(imageUrl);
+      const metadata = await sharp(sourceBuffer).metadata();
+      const width = metadata.width || 1;
+      const height = metadata.height || 1;
+      const rects = gridRects(width, height, direction === 'vertical' ? 2 : 1, direction === 'horizontal' ? 2 : 1);
+      const urls = [];
+      for (const [index, rect] of rects.entries()) {
+        const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
+        const asset = await generatedAssetStore.persistBuffer({
+          buffer: output,
+          taskId,
+          label: `canvas_split_${index + 1}`,
+        });
+        urls.push({ url: asset.url, index });
+      }
+      return res.json({ urls, count: urls.length, direction });
     }
 
     if (action === 'annotation') {

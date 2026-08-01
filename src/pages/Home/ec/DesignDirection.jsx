@@ -203,6 +203,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         product_params: params?.productParams || {},
         skus: params?.skus || [],
         copywriting: params?.copywriting || {},
+        requested_images: ecommercePlan.images,
         refresh: Boolean(refreshBilling),
         billingQuoteId: refreshBilling?.quoteId,
         billingActionId: refreshBilling?.actionId,
@@ -360,12 +361,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationSignal);
       if (!isGenerationCurrent(generationToken) || !uploadedSupplement) return;
       const dir = directions[selected];
-      const directionBrief = [dir?.title, dir?.one_liner, dir?.description].filter(Boolean).join('。');
+      const editableBrief = dir?.execution_guide || dir?.description || dir?.short_desc || '';
+      const directionBrief = [dir?.title, dir?.one_liner, editableBrief].filter(Boolean).join('。');
       pendingAction = buildEcommercePendingAction({
         platform: params?.platform || '淘宝',
         direction: {
           id: dir?.id,
-          brief: dir?.description || dir?.short_desc || dir?.one_liner || '',
+          brief: editableBrief || dir?.one_liner || '',
         },
         sizing: {
           ...(params?.sizing || {}),
@@ -409,7 +411,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         sizing: params?.sizing || null,
         direction: {
           ...dir,
-          editableBrief: dir?.description || dir?.short_desc || '',
+          editableBrief,
         },
         billingQuoteId: billingQuote.quoteId,
         draftId: params?.draftId || '',
@@ -527,9 +529,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   };
 
   const LOAD_STAGES = [
-    { label: 'VLM 解析产品图', desc: '锁定外形、材质、配色...' },
-    { label: 'VLM 解析参考图', desc: '提取光影氛围、布景调性...' },
-    { label: '生成设计方案', desc: 'AI 设计师构思差异化方向...' },
+    { label: '整理商品事实', desc: '核对主体、材质、结构与不确定信息' },
+    { label: '提炼商业与视觉策略', desc: '结合用户要求、参考图和目标平台' },
+    { label: '编排四套完整方案', desc: '为本轮每张图片分配职责、比例与执行要求' },
   ];
 
   const inheritedProductImages = normalizeDirectionImages([...(params?.realShots || []), ...(params?.productImages || [])]);
@@ -644,8 +646,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   index={i}
                   selected={selected === i}
                   onSelect={index => { setSelected(index); setBlockedByCredits(false); }}
-                  editableDescription={dir.description || dir.short_desc || ''}
-                  onDescriptionChange={value => { updateDirection(i, 'description', value); setBlockedByCredits(false); }}
+                  editableDescription={dir.execution_guide || dir.description || dir.short_desc || ''}
+                  onDescriptionChange={value => { updateDirection(i, 'execution_guide', value); setBlockedByCredits(false); }}
                 />
               ))}
             </div>

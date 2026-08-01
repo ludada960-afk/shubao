@@ -21,6 +21,20 @@ test('returns non-overlapping four grid rectangles', () => {
   assert.deepEqual(rects[3], { left: 500, top: 500, width: 501, height: 500 });
 });
 
+test('supports configurable grids and directional image splits', () => {
+  const nine = gridRects(1001, 1000, 3, 3);
+  assert.equal(nine.length, 9);
+  assert.equal(nine.reduce((sum, rect) => sum + rect.width * rect.height, 0), 1001 * 1000);
+  assert.deepEqual(gridRects(1000, 600, 2, 1), [
+    { left: 0, top: 0, width: 500, height: 600 },
+    { left: 500, top: 0, width: 500, height: 600 },
+  ]);
+  assert.deepEqual(gridRects(1000, 600, 1, 2), [
+    { left: 0, top: 0, width: 1000, height: 300 },
+    { left: 0, top: 300, width: 1000, height: 300 },
+  ]);
+});
+
 test('parses valid vision layer JSON and rejects invented wrapper text', () => {
   const layers = parseVisionLayers('分析完成：{"layers":[{"name":"商品主体","description":"瓶身"},{"name":"背景","description":"白底"}]}');
   assert.deepEqual(layers, [

@@ -199,6 +199,82 @@ test('uses a bounded semantic review image while preserving original technical d
   }
 });
 
+test('passes the confirmed commercial shot responsibility into semantic quality review', async () => {
+  const adapterPayloads = [];
+  const result = await evaluateAsset({
+    buffer: await productFixture(),
+    role: 'main_text',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+    assetPlanItem: {
+      id: 'main-text-1',
+      role: 'main_text',
+      label: '核心利益主图',
+      purpose: '让用户理解容量优势带来的使用收益',
+      communicationGoal: '建立首屏购买理由',
+      shotIntent: {
+        plannedPurpose: '用真实使用尺度说明容量优势',
+        creativeExecution: '商品置于早餐台，使用餐具建立尺度关系',
+        variationKey: 'breakfast-scale-benefit',
+        groupStrategy: '三张主图分别承担识别、利益和场景职责',
+        dependsOn: ['product_truth', 'campaign_bible'],
+      },
+    },
+  }, {
+    productFidelity: async payload => {
+      adapterPayloads.push(payload);
+      return { passed: true, confidence: 0.99 };
+    },
+    visualQuality: async payload => {
+      adapterPayloads.push(payload);
+      return visualPass({ confidence: 0.99 });
+    },
+  });
+
+  assert.equal(result.passed, true);
+  assert.equal(adapterPayloads.length, 2);
+  for (const payload of adapterPayloads) {
+    assert.deepEqual(payload.commercialIntent, {
+      assetId: 'main-text-1',
+      role: 'main_text',
+      label: '核心利益主图',
+      purpose: '让用户理解容量优势带来的使用收益',
+      communicationGoal: '建立首屏购买理由',
+      plannedPurpose: '用真实使用尺度说明容量优势',
+      creativeExecution: '商品置于早餐台，使用餐具建立尺度关系',
+      variationKey: 'breakfast-scale-benefit',
+      groupStrategy: '三张主图分别承担识别、利益和场景职责',
+      dependsOn: ['product_truth', 'campaign_bible'],
+    });
+  }
+});
+
+test('does not invent commercial intent for legacy assets that only carry a role', async () => {
+  const adapterPayloads = [];
+  const result = await evaluateAsset({
+    buffer: await productFixture(),
+    role: 'main_text',
+    generationSize: '128x128',
+    expectedFormat: 'png',
+    assetPlanItem: { role: 'main_text' },
+  }, {
+    productFidelity: async payload => {
+      adapterPayloads.push(payload);
+      return { passed: true, confidence: 0.99 };
+    },
+    visualQuality: async payload => {
+      adapterPayloads.push(payload);
+      return visualPass({ confidence: 0.99 });
+    },
+  });
+
+  assert.equal(result.passed, true);
+  assert.equal(adapterPayloads.length, 2);
+  for (const payload of adapterPayloads) {
+    assert.equal('commercialIntent' in payload, false);
+  }
+});
+
 test('requires OCR approval when the asset plan contains text or logos', async () => {
   const result = await evaluateAsset({
     buffer: await productFixture(),

@@ -1,4 +1,5 @@
 import { layoutAssetLanes } from './canvasGeometry.js';
+import { createUploadedImageNodes } from './canvasStudioModel.js';
 
 function safeId(value, fallback) {
   const normalized = String(value || '').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -41,26 +42,35 @@ export function restoreCanvasSnapshot(snapshot = {}) {
 
 export function createFreshCanvasSession({ work = {}, productAssets = [], outputs = [] } = {}) {
   const workId = safeId(work.id || work._saveKey || work.taskId, 'work');
-  const sourceId = `source-group-${workId}`;
   const normalizedProducts = productAssets.filter(asset => asset?.url).map((asset, index) => ({
     ...asset,
     assetId: safeId(asset.assetId || asset.id, `product-${index + 1}`),
     name: visibleName(asset.name || asset.label, `产品图 ${index + 1}`),
   }));
-  const sourceNode = {
-    id: sourceId,
-    kind: 'source_group',
+  const sourceNodes = createUploadedImageNodes({ assets: normalizedProducts, x: 32, y: 72 })
+    .map((node, index) => ({
+      ...node,
+      id: `source-${workId}-${node.assetId || index + 1}`,
+      isProductSource: true,
+      sourceNodeIds: [],
+    }));
+  const sourceNode = sourceNodes[0] || {
+    id: `source-${workId}-anchor`,
+    kind: 'image',
     status: 'ready',
     name: visibleName(work.product_name || work.name, '产品母图'),
-    title: '产品母图',
-    platform: work.platform || '淘宝',
-    assets: normalizedProducts,
+    displayLabel: visibleName(work.product_name || work.name, '产品母图'),
     x: 32,
     y: 72,
-    w: 248,
-    h: Math.max(190, 116 + Math.ceil(Math.max(1, normalizedProducts.length) / 2) * 86),
-    editable: false,
+    w: 240,
+    h: 240,
+    url: '',
+    showMeta: false,
+    isProductSource: true,
+    sourceNodeIds: [],
   };
+  const hasSource = sourceNodes.length > 0;
+  const sourceId = sourceNode.id;
   const outputSeeds = outputs.filter(asset => asset?.url).map((asset, index) => {
     const assetId = safeId(asset.assetId || asset.id || asset.key, `asset-${index + 1}`);
     return {
@@ -74,12 +84,12 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
       group: asset.group || '其他',
       role: asset.role || asset.name || '电商图',
       ratio: asset.ratio || '1:1',
-      sourceNodeIds: [sourceId],
+      sourceNodeIds: hasSource ? [sourceId] : [],
       editable: true,
     };
   });
   const outputNodes = layoutAssetLanes({ sourceNode, assets: outputSeeds });
-  const connections = outputNodes.map((node, index) => ({
+  const connections = hasSource ? outputNodes.map(node => ({
     id: `edge-${sourceId}-${node.id}`,
     fromNodeId: sourceId,
     fromPort: 'output',
@@ -90,12 +100,12 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
     to: node.id,
     type: 'source-output',
     label: '',
-  }));
+  })) : [];
   return {
     id: freshSessionId(),
     workId,
     createdAt: Date.now(),
-    nodes: [sourceNode, ...outputNodes],
+    nodes: [...sourceNodes, ...outputNodes],
     connections,
   };
 }

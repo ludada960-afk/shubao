@@ -65,6 +65,13 @@ export {
   compileCampaignBible,
 } from './campaignBible.mjs';
 export {
+  DEFAULT_REQUESTED_IMAGES,
+  normalizeCreativeDirectionPlans,
+} from './creativeDirectionPlan.mjs';
+export {
+  createDesignDirectionService,
+} from './designDirectionService.mjs';
+export {
   buildAssetPlan,
 } from './assetPlanner.mjs';
 export { directShot } from './shotDirector.mjs';

@@ -19,12 +19,13 @@ const workInput = {
   ],
 };
 
-test('work import creates one product source group and parallel output edges', () => {
+test('work import creates clean product image nodes and parallel output edges', () => {
   const session = createFreshCanvasSession(workInput);
-  const sourceGroups = session.nodes.filter(node => node.kind === 'source_group');
-  assert.equal(sourceGroups.length, 1);
+  const sourceImages = session.nodes.filter(node => node.kind === 'image' && node.isProductSource);
+  assert.equal(sourceImages.length, 2);
+  assert.ok(sourceImages.every(node => node.showMeta === false));
   assert.equal(session.nodes.filter(node => node.kind === 'output').length, 2);
-  assert.ok(session.connections.every(edge => edge.from === sourceGroups[0].id));
+  assert.ok(session.connections.every(edge => edge.from === sourceImages[0].id));
   assert.equal(session.connections.some(edge => edge.from.startsWith('output-')), false);
 });
 
@@ -37,16 +38,17 @@ test('fresh imports never reuse prior Canvas nodes or connections', () => {
   assert.equal(second.connections.some(edge => edge.id === 'stale-edge'), false);
 });
 
-test('source group retains all product references while outputs keep individual commercial names', () => {
+test('product references stay individually draggable while outputs keep commercial names', () => {
   const session = createFreshCanvasSession(workInput);
-  const source = session.nodes.find(node => node.kind === 'source_group');
-  assert.deepEqual(source.assets.map(asset => asset.assetId), ['product-front', 'product-side']);
+  const sources = session.nodes.filter(node => node.isProductSource);
+  assert.deepEqual(sources.map(node => node.assetId), ['product-front', 'product-side']);
+  assert.deepEqual(sources.map(node => [node.x, node.y]), [[32, 72], [310, 72]]);
   assert.deepEqual(session.nodes.filter(node => node.kind === 'output').map(node => node.name), ['首屏主图', '材质详情']);
 });
 
-test('a source group is the only parent of imported result nodes', () => {
+test('the primary product image is the only parent of imported result nodes', () => {
   const session = createFreshCanvasSession(workInput);
-  const [source] = session.nodes.filter(node => node.kind === 'source_group');
+  const [source] = session.nodes.filter(node => node.isProductSource);
   for (const output of session.nodes.filter(node => node.kind === 'output')) {
     assert.deepEqual(output.sourceNodeIds, [source.id]);
     assert.equal(session.connections.filter(edge => edge.to === output.id).length, 1);
@@ -68,6 +70,18 @@ test('fresh imports arrange outputs by horizontal commercial role lanes without 
   assert.ok(main[1].x > main[0].x);
   assert.ok(detail.y > main[0].y);
   assert.ok(session.connections.every(edge => !edge.label));
+});
+
+test('output-only legacy works never create connections to a missing product source', () => {
+  const session = createFreshCanvasSession({
+    work: { id: 'legacy-output-only', product_name: '缺失原图的旧作品' },
+    productAssets: [],
+    outputs: [{ assetId: 'main-only', url: '/main-only.png', name: '商品主图', group: '主图' }],
+  });
+
+  assert.equal(session.nodes.some(node => node.isProductSource), false);
+  assert.deepEqual(session.connections, []);
+  assert.deepEqual(session.nodes.find(node => node.assetId === 'main-only')?.sourceNodeIds, []);
 });
 
 test('explicit Canvas snapshots preserve nodes, connections, and a valid viewport without sharing mutable state', () => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, regenerateText, generateEcommerceSuite, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -30,13 +30,18 @@ import {
   validateWorkflowActionInputs,
 } from './nodeWorkflow';
 import { CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
-import { CanvasBottomToolbar, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
+import { CanvasBottomToolbar, CanvasLayersPanel, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
 import {
   CanvasAddMenu,
   CanvasDeriveMenu,
+  CanvasEcommerceComposer,
+  CanvasFocusedEditor,
+  CanvasImageComposer,
   CanvasImageNode as StudioImageNode,
+  CanvasMultiSelectionToolbar,
   CanvasObjectToolbar,
   CanvasSourceNode as StudioSourceNode,
+  CanvasTextComposer,
   CanvasTextNode as StudioTextNode,
   CanvasTextToolbar,
 } from './components/CanvasStudio.jsx';
@@ -52,8 +57,8 @@ import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
-import { CANVAS_CREATION_OPTIONS, getCanvasFocusIds, getContextPanelPosition } from './canvasInteractionModel.js';
-import { createCanvasTextNode, resizeCanvasNode } from './canvasStudioModel.js';
+import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, getContextPanelPosition, isCanvasConnectionVisible, selectedCanvasBounds } from './canvasInteractionModel.js';
+import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextNode, createUploadedImageNodes, resizeCanvasNode } from './canvasStudioModel.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -159,32 +164,12 @@ const PLATFORM_PRESETS = {
   亚马逊: ['1:1 白底主图', '1:1 A+配图'],
 };
 
-const SOURCE_ROLES = Object.freeze([
-  { id: 'product_original', label: '商品原图', description: '用于生成主图、详情图、SKU 和商品素材' },
-  { id: 'style_reference', label: '风格参考', description: '只影响视觉风格，不会被识别为商品主体' },
-  { id: 'general_material', label: '通用素材', description: '可用于局部编辑和排版，不作为商品生成依据' },
-]);
-
-function CanvasSourceImportSheet({ role, onRoleChange, onUpload, onImportWorks, onClose }) {
-  return <div role="dialog" aria-modal="true" aria-label="导入画布素材" style={{ position: 'absolute', zIndex: 100, inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,.18)' }} onPointerDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
-    <section style={{ width: 'min(480px, calc(100vw - 32px))', padding: 20, borderRadius: 12, background: '#fff', boxShadow: '0 22px 70px rgba(15,23,42,.24)' }}>
-      <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 18 }}>
-        <div><h2 style={{ margin: 0, fontSize: 18, color: '#111827' }}>添加画布素材</h2><p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: 12, lineHeight: 1.6 }}>先说明图片扮演的角色，后续操作才会保持商品真实。</p></div>
-        <button type="button" aria-label="关闭导入素材" onClick={onClose} style={{ width: 28, height: 28, border: 0, borderRadius: 7, background: '#f3f4f6', color: '#6b7280', cursor: 'pointer' }}>×</button>
-      </div>
-      <div style={{ display: 'grid', gap: 8, marginTop: 17 }}>
-        {SOURCE_ROLES.map(item => <button key={item.id} type="button" onClick={() => onRoleChange?.(item.id)} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, textAlign: 'left', padding: '12px 13px', borderRadius: 8, border: role === item.id ? '2px solid #2563eb' : '1px solid #e5e7eb', background: role === item.id ? '#eff6ff' : '#fff', cursor: 'pointer' }}>
-          <span><strong style={{ display: 'block', color: '#111827', fontSize: 13 }}>{item.label}</strong><span style={{ display: 'block', marginTop: 3, color: '#6b7280', fontSize: 11, lineHeight: 1.45 }}>{item.description}</span></span>
-          <span aria-hidden="true" style={{ width: 18, height: 18, marginTop: 2, borderRadius: '50%', border: role === item.id ? '5px solid #2563eb' : '1px solid #cbd5e1', background: role === item.id ? '#fff' : 'transparent' }} />
-        </button>)}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'end', gap: 8, marginTop: 18 }}>
-        <button type="button" onClick={onImportWorks} style={{ height: 36, padding: '0 12px', border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', color: '#374151', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>从我的作品导入</button>
-        <button type="button" onClick={onUpload} style={{ height: 36, padding: '0 13px', border: 0, borderRadius: 8, background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>选择设备图片</button>
-      </div>
-    </section>
-  </div>;
-}
+const FOCUSED_OUTPUT_LABELS = Object.freeze({
+  crop: '裁剪结果',
+  'grid-split': '宫格切片',
+  'split-image': '分割结果',
+  annotation: '标注稿',
+});
 
 /* A7: 按 category 分组的智能排版 */
 function autoLayout(imageList) {
@@ -366,6 +351,7 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
   return (
     <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
       {connections.map((conn, i) => {
+        if (!isCanvasConnectionVisible(conn, nodes)) return null;
         const from = nodeMap.get(conn.fromNodeId || conn.from);
         const to = nodeMap.get(conn.toNodeId || conn.to);
         if (!from || !to) return null;
@@ -407,44 +393,75 @@ function ConnectionDraftLine({ draft, nodes }) {
   );
 }
 
-function SelectionActionBar({ node, actions, onAction, onClose }) {
-  if (!node) return null;
-  return (
-    <div className="ec-canvas-selection-bar" style={{ left: node.x, top: Math.max(0, node.y - 44) }}>
-      {actions.map(action => {
-        const Icon = ACTION_ICONS[action.id] || MdAutoFixHigh;
-        return <button key={action.id} type="button" title={action.description || action.label} aria-label={action.label} onClick={() => onAction(action.id, node)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 0, borderRadius: 7, padding: '7px 8px', background: 'transparent', color: '#374151', fontSize: 10, fontWeight: 700, cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,.08)'; e.currentTarget.style.color = '#7c3aed'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#374151'; }}><Icon size={14} />{action.label}</button>;
-      })}
-      <button type="button" title="关闭工具条" onClick={onClose} style={{ border: 0, background: 'rgba(0,0,0,.05)', borderRadius: 7, width: 25, height: 25, cursor: 'pointer', color: '#999' }}>×</button>
-    </div>
-  );
+function readCanvasImageFiles(files = [], startedAt = Date.now()) {
+  return Promise.all(files.map((file, index) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result || '');
+      const image = new Image();
+      const asset = {
+        assetId: `upload-${startedAt}-${index}`,
+        name: file.name || `图片 ${index + 1}`,
+        url,
+      };
+      image.onload = () => resolve({ ...asset, width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = () => resolve(asset);
+      image.src = url;
+    };
+    reader.onerror = () => reject(new Error('图片读取失败'));
+    reader.readAsDataURL(file);
+  })));
 }
 
-function ReferenceComposer({ references, promptText, setPromptText, onRemoveReference, onAddReferenceFiles, onGenerate, onClose, loading, position }) {
-  const inputRef = useRef(null);
-  return (
-    <div data-canvas-control="true" className="ec-canvas-composer" onPointerDown={event => event.stopPropagation()} style={{ left: position?.x || 0, top: position?.y || 0, width: position?.width || 520 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div><div style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>引用素材生成</div><div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>保留商品主体，按新的电商用途重新生成</div></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 10, color: '#7c3aed', background: 'rgba(124,58,237,.08)', padding: '4px 7px', borderRadius: 999 }}>{references.length} 张参考图</span>
-          <button type="button" aria-label="关闭生成编辑器" onClick={onClose} style={{ width: 24, height: 24, border: 0, borderRadius: 6, background: '#f3f4f6', color: '#6b7280', cursor: 'pointer', fontSize: 14 }}>×</button>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 8 }}>
-        {references.map(node => <div key={node.id} style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}><ResponsiveImage src={node.url} variant="thumb" ratio="1:1" alt={node.name} style={{ width: '100%', height: '100%', borderRadius: 8 }} imgStyle={{ objectFit: 'cover' }} /><button type="button" onClick={() => onRemoveReference(node.id)} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, border: 0, borderRadius: '50%', background: '#111827', color: '#fff', fontSize: 11, cursor: 'pointer' }}>×</button></div>)}
-        <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAddReferenceFiles?.([...event.target.files]); event.target.value = ''; }} />
-        <button type="button" onClick={() => inputRef.current?.click()} style={{ width: 48, height: 48, flexShrink: 0, border: '1px dashed #c4b5fd', borderRadius: 8, background: '#faf5ff', color: '#7c3aed', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>+ 添加</button>
-      </div>
-      <textarea value={promptText} onChange={e => setPromptText(e.target.value)} placeholder="例如：保留产品外观，制作一张 3:4 的核心卖点场景图，突出防水和便携" rows={3} style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', border: '1px solid #e5e7eb', borderRadius: 10, padding: '9px 10px', fontSize: 12, lineHeight: 1.6 }} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 9 }}>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {['淘宝', '抖音', '小红书', '亚马逊'].map(platform => <span key={platform} style={{ fontSize: 10, color: '#6b7280', background: '#f3f4f6', padding: '4px 7px', borderRadius: 999 }}>{platform}</span>)}
-        </div>
-        <button type="button" onClick={onGenerate} disabled={loading || !promptText.trim()} style={{ border: 0, borderRadius: 9, padding: '9px 14px', background: loading ? '#c4b5fd' : '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 800, cursor: loading ? 'wait' : 'pointer' }}>{loading ? '生成中…' : '生成电商图'}</button>
-      </div>
-    </div>
-  );
+async function persistCanvasUploadAssets(assets = []) {
+  const urls = await uploadECTempImages(assets.map(asset => asset.url));
+  if (urls.length !== assets.length || urls.some(url => !url)) {
+    throw new Error('图片上传失败，请重试');
+  }
+  return assets.map((asset, index) => ({
+    ...asset,
+    url: urls[index],
+    previewUrl: urls[index],
+  }));
+}
+
+function loadMergeImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('合并图层时有图片加载失败'));
+    image.src = proxyImg(url);
+  });
+}
+
+async function renderMergedCanvasImage(selectedNodes = []) {
+  const ids = new Set(selectedNodes.map(node => node.id));
+  const bounds = selectedCanvasBounds(selectedNodes, ids);
+  if (!bounds || selectedNodes.length < 2) throw new Error('请至少选择两张图片');
+  const outputScale = Math.min(1, 2048 / Math.max(1, bounds.w), 2048 / Math.max(1, bounds.h));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bounds.w * outputScale));
+  canvas.height = Math.max(1, Math.round(bounds.h * outputScale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('当前浏览器无法合并图层');
+  context.scale(outputScale, outputScale);
+  for (const node of selectedNodes) {
+    const image = await loadMergeImage(node.url);
+    const frameWidth = Math.max(1, Number(node.w) || image.naturalWidth);
+    const frameHeight = Math.max(1, Number(node.h) || image.naturalHeight);
+    const fit = Math.min(frameWidth / image.naturalWidth, frameHeight / image.naturalHeight);
+    const drawWidth = image.naturalWidth * fit;
+    const drawHeight = image.naturalHeight * fit;
+    const drawX = Number(node.x) - bounds.x + (frameWidth - drawWidth) / 2;
+    const drawY = Number(node.y) - bounds.y + (frameHeight - drawHeight) / 2;
+    context.save();
+    context.translate(drawX + drawWidth / 2, drawY + drawHeight / 2);
+    context.scale(node.flipX ? -1 : 1, node.flipY ? -1 : 1);
+    context.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    context.restore();
+  }
+  return { dataUrl: canvas.toDataURL('image/png'), bounds };
 }
 
 export default function EcCanvas() {
@@ -458,11 +475,10 @@ export default function EcCanvas() {
   const [multiSelected, setMultiSelected] = useState(new Set());
   const [connections, setConnections] = useState([]);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
-  const [sourceImportOpen, setSourceImportOpen] = useState(false);
-  const [sourceRole, setSourceRole] = useState('product_original');
   const [pointerMode, setPointerMode] = useState(null);
   const [activeTool, setActiveTool] = useState('select');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [layersPanelOpen, setLayersPanelOpen] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const [shiftPressed, setShiftPressed] = useState(false);
   const [marquee, setMarquee] = useState(null);
@@ -477,12 +493,6 @@ export default function EcCanvas() {
   const [directionRatio, setDirectionRatio] = useState('3:4');
   const [nodeNameDraft, setNodeNameDraft] = useState('');
   const [groupDraft, setGroupDraft] = useState('详情图');
-  const [composerNodes, setComposerNodes] = useState([]);
-  const [composerText, setComposerText] = useState('');
-  const [cropNode, setCropNode] = useState(null);
-  const [cropRatio, setCropRatio] = useState('3:4');
-  const [annotationNode, setAnnotationNode] = useState(null);
-  const [annotationText, setAnnotationText] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState('PNG');
   const [exportMode, setExportMode] = useState('逐张导出');
@@ -495,7 +505,9 @@ export default function EcCanvas() {
   const [zoomImg, setZoomImg] = useState(null);
   const [toast, setToast] = useState(null);
   const [promptLoading, setPromptLoading] = useState(false);
-  const [composerAction, setComposerAction] = useState('');
+  const [textComposerNodeId, setTextComposerNodeId] = useState(null);
+  const [textComposerValue, setTextComposerValue] = useState('');
+  const [focusedEditor, setFocusedEditor] = useState(null);
   const [imageInfoNode, setImageInfoNode] = useState(null);
   const [imageInfoName, setImageInfoName] = useState('');
   const [imageInfoGroup, setImageInfoGroup] = useState('其他');
@@ -513,19 +525,16 @@ export default function EcCanvas() {
   const pendingDragRef = useRef(null);
   const draftReadyRef = useRef(false);
   const sourceUploadRef = useRef(null);
+  const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
-  const closeComposer = useCallback(() => {
-    setComposerNodes([]);
-    setComposerText('');
-    setComposerAction('');
-  }, []);
-
   const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+  const focusedEditorNode = focusedEditor ? nodes.find(node => node.id === focusedEditor.nodeId) : null;
+  const textComposerNode = textComposerNodeId ? nodes.find(node => node.id === textComposerNodeId) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
   const focusedNodeIds = hoveredNodeId ? getCanvasFocusIds(hoveredNodeId, connections) : null;
@@ -568,7 +577,6 @@ export default function EcCanvas() {
       void loadCanvasSession(persistedSessionId).then(remoteSession => {
         if (cancelled) return;
         const snapshot = restoreCanvasSnapshot(remoteSession.snapshot);
-        if (!snapshot.nodes.length) return;
         setNodes(snapshot.nodes.map(normalizeCanvasNode));
         setConnections(snapshot.connections.map(normalizeCanvasConnection));
         setViewport(snapshot.viewport);
@@ -607,7 +615,7 @@ export default function EcCanvas() {
   }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, result.browserQa, imageList.length]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !canvasSaveKeyRef.current || !nodes.length || pointerMode?.kind === 'drag') return undefined;
+    if (!draftReadyRef.current || !canvasSaveKeyRef.current || pointerMode?.kind === 'drag') return undefined;
     const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
     const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
     return () => clearTimeout(timer);
@@ -618,7 +626,7 @@ export default function EcCanvas() {
   }, [canvasSession]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !nodes.length || canvasSessionBusy || pointerMode?.kind === 'drag') return undefined;
+    if (!draftReadyRef.current || canvasSessionBusy || pointerMode?.kind === 'drag') return undefined;
     const projectId = result.projectId;
     const baseVersionId = result.resultVersionId || result.sourceVersionId;
     if (!projectId || !baseVersionId) return undefined;
@@ -656,6 +664,29 @@ export default function EcCanvas() {
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
+  }, []);
+
+  const handleLayerSelect = useCallback(nodeId => {
+    setNodes(previous => previous.map(node => node.id === nodeId && node.hidden
+      ? { ...node, hidden: false }
+      : node));
+    setSelected(nodeId);
+    setMultiSelected(new Set([nodeId]));
+  }, []);
+
+  const handleLayerVisibilityToggle = useCallback(nodeId => {
+    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, hidden: !node.hidden } : node));
+    setSelected(current => current === nodeId ? null : current);
+    setMultiSelected(previous => {
+      if (!previous.has(nodeId)) return previous;
+      const next = new Set(previous);
+      next.delete(nodeId);
+      return next;
+    });
+  }, []);
+
+  const handleLayerLockToggle = useCallback(nodeId => {
+    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, locked: !node.locked } : node));
   }, []);
 
   useEffect(() => {
@@ -945,16 +976,17 @@ export default function EcCanvas() {
       setSelected(null);
       return;
     }
-    const ids = multiSelected.has(id) ? multiSelected : new Set([id]);
+    const baseIds = multiSelected.has(id) ? multiSelected : new Set([id]);
+    const ids = expandCanvasDragSelection(nodes, id, baseIds);
     setSelected(ids.size === 1 ? id : null);
     setMultiSelected(ids);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [activeTool, multiSelected, toWorldPoint, viewport.x, viewport.y]);
+  }, [activeTool, multiSelected, nodes, toWorldPoint, viewport.x, viewport.y]);
 
   const handleNodeResizeStart = useCallback((event, nodeId, corner) => {
     const node = nodes.find(candidate => candidate.id === nodeId);
-    if (!node || event.button !== 0) return;
+    if (!node || node.locked || event.button !== 0) return;
     setSelected(nodeId);
     setMultiSelected(new Set([nodeId]));
     setPointerMode({
@@ -1148,27 +1180,6 @@ export default function EcCanvas() {
       setPromptLoading(false);
     }
   }, [showToast]);
-
-  const handleComposerAddImages = useCallback(async (files = []) => {
-    if (!files.length || promptLoading) return;
-    setPromptLoading(true);
-    try {
-      const dataUrls = await Promise.all(files.slice(0, 15).map(file => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('读取图片失败'));
-        reader.readAsDataURL(file);
-      })));
-      const urls = await uploadECTempImages(dataUrls);
-      const images = urls.map((url, index) => ({ id: `composer_ref_${Date.now()}_${index}`, url, name: files[index]?.name || '补充参考图' }));
-      setComposerNodes(prev => [...prev, ...images]);
-      showToast(`已添加 ${images.length} 张参考图`, 'success');
-    } catch (error) {
-      showToast(error.message || '参考图上传失败', 'error');
-    } finally {
-      setPromptLoading(false);
-    }
-  }, [promptLoading, showToast]);
 
   const handleWorkflowProcess = useCallback(async (node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
@@ -1391,20 +1402,7 @@ export default function EcCanvas() {
         }
         break;
       case 'reverse-prompt':
-        showToast('AI 反向提示词分析中…', 'info');
-        try {
-          setPromptLoading(true);
-          const data = await reversePrompt({ image_url: node.url, product_name: node.name || node.displayLabel || node.label });
-          if (!data.prompt) throw new Error('未得到可编辑的提示词');
-           setComposerNodes([node]);
-           setComposerText(data.prompt);
-           setComposerAction('');
-           showToast('已生成可编辑提示词', 'success');
-        } catch (e) {
-          handleCanvasActionError(e, { type: 'reverse-prompt', nodeId: node.id });
-        } finally {
-          setPromptLoading(false);
-        }
+        await handleToolAction('reverse-prompt', node);
         break;
       case 'copy-url':
         navigator.clipboard?.writeText(node.url);
@@ -1426,6 +1424,23 @@ export default function EcCanvas() {
     const actionSpec = getCanvasAction(action?.id || action);
     const actionId = actionSpec?.id || String(action || '');
     const handler = actionSpec?.execute?.handler || actionId;
+    if (handler === 'edit-text') {
+      setTextInspectorNodeId(node.id);
+      setTextCompositionError('');
+      return;
+    }
+    if (['crop', 'annotation', 'grid-split', 'split-image', 'move-scale'].includes(handler)) {
+      setFocusedEditor({
+        mode: handler,
+        nodeId: node.id,
+        options: handler === 'crop'
+          ? { ratio: node.ratio || '原比例' }
+          : handler === 'grid-split' ? { grid: 3 }
+            : handler === 'split-image' ? { direction: 'vertical' }
+              : {},
+      });
+      return;
+    }
     if (handler.startsWith('create:')) {
       if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
       return;
@@ -1435,14 +1450,24 @@ export default function EcCanvas() {
       showToast('图片链接已复制', 'success');
       return;
     }
-    if (handler === 'duplicate') {
+    if (handler === 'copy') {
+      objectClipboardRef.current = { ...node };
+      showToast('对象已复制', 'success');
+      return;
+    }
+    if (handler === 'paste' && !objectClipboardRef.current) {
+      showToast('剪贴板中还没有画布对象', 'info');
+      return;
+    }
+    if (handler === 'paste' || handler === 'duplicate') {
+      const source = handler === 'paste' && objectClipboardRef.current ? objectClipboardRef.current : node;
       const duplicateId = `${node.kind || 'node'}_${Date.now()}`;
       const duplicate = normalizeCanvasNode({
-        ...node,
+        ...source,
         id: duplicateId,
-        assetId: node.assetId ? `asset_${duplicateId}` : node.assetId,
-        name: node.name ? `${node.name} 副本` : node.name,
-        displayLabel: node.displayLabel ? `${node.displayLabel} 副本` : node.displayLabel,
+        assetId: source.assetId ? `asset_${duplicateId}` : source.assetId,
+        name: source.name ? `${source.name} 副本` : source.name,
+        displayLabel: source.displayLabel ? `${source.displayLabel} 副本` : source.displayLabel,
         x: node.x + 36,
         y: node.y + 36,
       });
@@ -1450,6 +1475,40 @@ export default function EcCanvas() {
       setSelected(duplicate.id);
       setMultiSelected(new Set([duplicate.id]));
       showToast('已复制到画布', 'success');
+      return;
+    }
+    if (['bring-forward', 'send-backward', 'bring-front', 'send-back'].includes(handler)) {
+      setNodes(previous => {
+        const index = previous.findIndex(item => item.id === node.id);
+        if (index < 0) return previous;
+        const next = [...previous];
+        const [item] = next.splice(index, 1);
+        const target = handler === 'bring-front' ? next.length
+          : handler === 'send-back' ? 0
+            : handler === 'bring-forward' ? Math.min(next.length, index + 1)
+              : Math.max(0, index - 1);
+        next.splice(target, 0, item);
+        return next;
+      });
+      return;
+    }
+    if (handler === 'toggle-visibility' || handler === 'toggle-lock' || handler === 'flip-horizontal' || handler === 'flip-vertical') {
+      setNodes(previous => previous.map(item => item.id === node.id ? {
+        ...item,
+        ...(handler === 'toggle-visibility' ? { hidden: !item.hidden } : {}),
+        ...(handler === 'toggle-lock' ? { locked: !item.locked } : {}),
+        ...(handler === 'flip-horizontal' ? { flipX: !item.flipX } : {}),
+        ...(handler === 'flip-vertical' ? { flipY: !item.flipY } : {}),
+      } : item));
+      if (handler === 'toggle-visibility' && !node.hidden) {
+        setSelected(current => current === node.id ? null : current);
+        setMultiSelected(previous => {
+          if (!previous.has(node.id)) return previous;
+          const next = new Set(previous);
+          next.delete(node.id);
+          return next;
+        });
+      }
       return;
     }
     if (handler === 'delete') {
@@ -1469,13 +1528,11 @@ export default function EcCanvas() {
       return;
     }
     if (handler === 'adjust-requirements') {
-      setComposerNodes([node]);
-      setComposerText([
-        node.direction?.purpose,
-        node.direction?.composition,
-        node.direction?.copy,
-      ].filter(Boolean).join('\n') || '保留商品主体与品牌信息，调整画面表达：');
-      setComposerAction('');
+      addCanvasComposer('image', {
+        sourceNodeId: node.id,
+        prompt: [node.direction?.purpose, node.direction?.composition, node.direction?.copy]
+          .filter(Boolean).join('\n') || '保留商品主体与品牌信息，调整画面表达：',
+      });
       return;
     }
     if (handler === 'regenerate') {
@@ -1509,14 +1566,22 @@ export default function EcCanvas() {
       }
       return;
     }
-    if (handler === 'crop') {
-      setCropNode(node);
-      setCropRatio(node.ratio === '1:1' ? '1:1' : '3:4');
-      return;
-    }
-    if (handler === 'annotation') {
-      setAnnotationNode(node);
-      setAnnotationText(node.annotations?.[0]?.text || '');
+    if (handler === 'reverse-prompt') {
+      const textNode = createCanvasTextNode({ x: node.x + node.w + 56, y: node.y, sourceNodeId: node.id });
+      textNode.status = 'processing';
+      textNode.text = '正在分析画面内容...';
+      setNodes(previous => [...previous, textNode]);
+      setConnections(previous => addConnection(previous, node.id, textNode.id, 'derived'));
+      setSelected(textNode.id);
+      setMultiSelected(new Set([textNode.id]));
+      try {
+        const data = await reversePrompt({ image_url: node.url, product_name: node.name || node.displayLabel || node.label });
+        if (!data.prompt) throw new Error('未得到可编辑的提示词');
+        setNodes(previous => previous.map(item => item.id === textNode.id ? { ...item, status: 'ready', text: data.prompt, name: '画面提示词' } : item));
+      } catch (error) {
+        setNodes(previous => previous.map(item => item.id === textNode.id ? { ...item, status: 'error', text: error.message || '分析失败，请重试' } : item));
+        handleCanvasActionError(error, { type: 'reverse-prompt', nodeId: node.id });
+      }
       return;
     }
     if (handler === 'grid-split') {
@@ -1563,10 +1628,8 @@ export default function EcCanvas() {
       return;
     }
     if (handler === 'add-reference') {
-      setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
-      setComposerText('');
-      setComposerAction('');
-      showToast('已加入引用素材，可继续补充生成要求', 'success');
+      addCanvasComposer('image', { sourceNodeId: node.id });
+      showToast('已创建图片生成节点，可继续添加参考图', 'success');
       return;
     }
     const prompts = {
@@ -1574,46 +1637,131 @@ export default function EcCanvas() {
       upscale: '输出一张高清电商交付图，提升细节和清晰度，不改变商品外观：',
     };
     if (prompts[actionId]) {
-      setComposerNodes(prev => prev.some(item => item.id === node.id) ? prev : [...prev, node]);
-      setComposerText(prompts[actionId]);
-      setComposerAction(actionId);
+      addCanvasComposer('image', { sourceNodeId: node.id, prompt: prompts[actionId], actionId });
       showToast(`已进入${actionSpec?.label || '图片编辑'}流程`, 'info');
     }
   };
 
-  const handleSaveCrop = async () => {
-    if (!cropNode) return;
+  const handleFocusedEditorConfirm = async () => {
+    if (!focusedEditor) return;
+    const source = nodes.find(node => node.id === focusedEditor.nodeId);
+    if (!source) {
+      setFocusedEditor(null);
+      return;
+    }
+    if (focusedEditor.mode === 'move-scale') {
+      const options = focusedEditor.options || {};
+      setNodes(previous => previous.map(node => node.id === source.id
+        ? applyCanvasMoveScale(node, options)
+        : node));
+      setFocusedEditor(null);
+      showToast('位置与尺寸已更新', 'success');
+      return;
+    }
     setPromptLoading(true);
     try {
-      const data = await transformCanvasImage({ action: 'crop', imageUrl: cropNode.url, ratio: cropRatio });
-      setNodes(prev => prev.map(node => node.id === cropNode.id ? { ...node, url: data.url, ratio: cropRatio, crop: null, loaded: false } : node));
-      setCropNode(null);
-      showToast(`已生成 ${cropRatio} 稳定裁切图`, 'success');
+      const options = focusedEditor.options || {};
+      const action = focusedEditor.mode === 'split-image' ? 'split-image' : focusedEditor.mode;
+      const response = await transformCanvasImage({
+        action,
+        imageUrl: source.url,
+        ratio: options.ratio === '原比例' ? source.ratio : options.ratio,
+        grid: options.grid,
+        direction: options.direction,
+        annotation: options.annotation,
+      });
+      const urls = [response?.url, ...(response?.urls || []).map(item => typeof item === 'string' ? item : item?.url)].filter(Boolean);
+      if (!urls.length) throw new Error('图片处理没有返回结果');
+      const createdAt = Date.now();
+      const children = urls.map((url, index) => normalizeCanvasNode({
+        ...source,
+        id: `node_${action}_${createdAt}_${index + 1}`,
+        assetId: `asset_${action}_${createdAt}_${index + 1}`,
+        kind: 'image',
+        status: 'ready',
+        url,
+        x: source.x + source.w + 56 + index * (source.w + 28),
+        y: source.y,
+        ratio: options.ratio && options.ratio !== '原比例' ? options.ratio : source.ratio,
+        name: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
+        displayLabel: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
+        sourceNodeIds: [source.id],
+        showMeta: true,
+      }));
+      setNodes(previous => [...previous, ...children]);
+      setConnections(previous => children.reduce((current, child) => addConnection(current, source.id, child.id, action), previous));
+      setSelected(children[0].id);
+      setMultiSelected(new Set(children.map(child => child.id)));
+      setFocusedEditor(null);
+      showToast(`已生成 ${children.length} 个可独立编辑的结果`, 'success');
     } catch (error) {
-      showToast(error.message || '裁切失败', 'error');
+      handleCanvasActionError(error, { type: focusedEditor.mode, nodeId: source.id });
     } finally {
       setPromptLoading(false);
     }
   };
 
-  const handleSaveAnnotation = async () => {
-    if (!annotationNode) return;
-    const text = annotationText.trim();
-    if (!text) {
-      setNodes(prev => prev.map(node => node.id === annotationNode.id ? { ...node, annotations: [] } : node));
-      setAnnotationNode(null);
+  const handleMultiSelectionAction = async actionId => {
+    if (['align-left', 'align-center', 'align-right', 'auto-layout'].includes(actionId)) {
+      setNodes(previous => applyMultiSelectionAction(previous, multiSelected, actionId));
+      showToast('已更新所选对象排版', 'success');
       return;
     }
-    setPromptLoading(true);
-    try {
-      const data = await transformCanvasImage({ action: 'annotation', imageUrl: annotationNode.url, annotation: text });
-      setNodes(prev => prev.map(node => node.id === annotationNode.id ? { ...node, url: data.url, annotations: [{ id: `annotation_${Date.now()}`, text, kind: '卖点标注' }], loaded: false } : node));
-      setAnnotationNode(null);
-      showToast('标注已写入图片', 'success');
-    } catch (error) {
-      showToast(error.message || '标注失败', 'error');
-    } finally {
-      setPromptLoading(false);
+    if (actionId === 'delete-selection') {
+      setNodes(previous => previous.filter(node => !multiSelected.has(node.id)));
+      setConnections(previous => removeConnectionsForNodes(previous, multiSelected));
+      setMultiSelected(new Set());
+      setSelected(null);
+      return;
+    }
+    if (actionId === 'export-selection') {
+      setExportOpen(true);
+      return;
+    }
+    if (actionId === 'merge-layers') {
+      const selectedNodes = nodes.filter(node => multiSelected.has(node.id) && node.url && ['image', 'output'].includes(node.kind));
+      if (selectedNodes.length !== multiSelected.size || selectedNodes.length < 2) {
+        showToast('合并图层仅支持两张或以上图片', 'info');
+        return;
+      }
+      setPromptLoading(true);
+      try {
+        const { dataUrl, bounds } = await renderMergedCanvasImage(selectedNodes);
+        const [url] = await uploadECTempImages([dataUrl]);
+        if (!url) throw new Error('合并图层上传失败');
+        const createdAt = Date.now();
+        const merged = normalizeCanvasNode({
+          id: `node_merged_${createdAt}`,
+          kind: 'image',
+          status: 'ready',
+          url,
+          x: bounds.x,
+          y: bounds.y,
+          w: bounds.w,
+          h: bounds.h,
+          ratio: bounds.w === bounds.h ? '1:1' : `${Math.round(bounds.w)}:${Math.round(bounds.h)}`,
+          name: '合并图层',
+          displayLabel: '合并图层',
+          group: selectedNodes[0].group || '素材',
+          sourceNodeIds: selectedNodes.map(node => node.id),
+          showMeta: true,
+        });
+        setNodes(previous => [...previous, merged]);
+        setConnections(previous => selectedNodes.reduce((current, source) => addConnection(current, source.id, merged.id, 'merge'), previous));
+        setSelected(merged.id);
+        setMultiSelected(new Set([merged.id]));
+        showToast('已生成合并图层，原对象仍然保留', 'success');
+      } catch (error) {
+        showToast(error.message || '合并图层失败', 'error');
+      } finally {
+        setPromptLoading(false);
+      }
+      return;
+    }
+    if (actionId === 'bind-elements' || actionId === 'group-elements') {
+      const groupId = `group_${Date.now()}`;
+      setNodes(previous => previous.map(node => multiSelected.has(node.id) ? { ...node, groupId, bound: actionId === 'bind-elements' } : node));
+      showToast(actionId === 'bind-elements' ? '所选对象已绑定' : '所选对象已打组', 'success');
     }
   };
 
@@ -1635,7 +1783,7 @@ export default function EcCanvas() {
   };
 
   const handleExport = async () => {
-    const exportNodes = nodes.filter(node => multiSelected.size ? multiSelected.has(node.id) : true);
+    const exportNodes = nodes.filter(node => node.url && (multiSelected.size ? multiSelected.has(node.id) : true));
     if (!exportNodes.length) return;
     try {
       if (exportMode === '合并为详情长图') {
@@ -1680,46 +1828,192 @@ export default function EcCanvas() {
     }
   };
 
-  const handleComposerGenerate = async () => {
-    if (!composerNodes.length || !composerText.trim() || promptLoading) return;
-    setPromptLoading(true);
-    try {
-      const source = composerNodes[0];
-      const data = composerAction
-        ? await transformCanvasImage({ action: composerAction, prompt: composerText, imageUrl: source.url, ratio: source.ratio })
-        : { url: await regenerateCanvasImage({ prompt: composerText, imageUrl: source.url, referenceImages: composerNodes.slice(1).map(node => node.url).filter(Boolean), ratio: source.ratio }) };
-      const url = data.url;
-      const newNode = {
-        ...source,
-        id: `node_edit_${Date.now()}`,
-        assetId: `asset_edit_${Date.now()}`,
-        url,
-        name: `${source.name || '电商图'}-编辑稿`,
-        displayLabel: `${source.name || '电商图'}-编辑稿`,
-        sourceDirectionId: source.sourceDirectionId,
-        x: source.x + source.w + 56,
-        y: source.y,
-      };
-      setNodes(prev => [...prev, newNode]);
-      setConnections(prev => addConnection(prev, source.id, newNode.id, 'variant'));
-      setComposerNodes([]);
-      setComposerText('');
-      setComposerAction('');
-      showToast('编辑稿已生成并加入画布', 'success');
-    } catch (error) {
-      showToast(error.message || '图片编辑失败', 'error');
-    } finally {
-      setPromptLoading(false);
-    }
-  };
-
   const handleNew = () => {
     dispatch({ type: 'SET_MODE', mode: 'ecommerce' });
     dispatch({ type: 'NAVIGATE', page: 'home' });
   };
 
+  const createComposerPlacement = useCallback((width, height, placement = {}) => {
+    if (Number.isFinite(placement.x) && Number.isFinite(placement.y)) return { x: placement.x, y: placement.y };
+    const source = placement.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : selectedNode;
+    if (source) return { x: source.x + source.w + 64, y: source.y };
+    const bounds = containerRef.current?.getBoundingClientRect();
+    return {
+      x: ((bounds?.width || 960) / 2 - viewport.x) / viewport.scale - width / 2,
+      y: ((bounds?.height || 640) / 2 - viewport.y) / viewport.scale - height / 2,
+    };
+  }, [nodes, selectedNode, viewport.scale, viewport.x, viewport.y]);
+
+  const addCanvasComposer = useCallback((kind, placement = {}) => {
+    const sourceNodeId = placement.sourceNodeId || selectedNode?.id || '';
+    const sourceNodeIds = [...new Set([...(placement.sourceNodeIds || []), sourceNodeId].filter(Boolean))];
+    const size = kind === 'suite' ? { w: 560, h: 356 } : { w: 520, h: 278 };
+    const position = createComposerPlacement(size.w, size.h, { ...placement, sourceNodeId });
+    const baseComposer = kind === 'suite'
+      ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: result.platform || '淘宝' })
+      : createCanvasImageComposerNode({ ...position, sourceNodeId });
+    const composer = {
+      ...baseComposer,
+      sourceNodeIds,
+      ...(placement.prompt ? { prompt: placement.prompt } : {}),
+      ...(placement.actionId ? { actionId: placement.actionId } : {}),
+    };
+    setNodes(previous => [...previous, composer]);
+    if (sourceNodeIds.length) {
+      setConnections(previous => sourceNodeIds.reduce((edges, id) => addConnection(edges, id, composer.id, 'derived'), previous));
+    }
+    setSelected(composer.id);
+    setMultiSelected(new Set([composer.id]));
+    setActiveTool('select');
+    return composer;
+  }, [createComposerPlacement, result.platform, selectedNode?.id]);
+
+  const updateComposerNode = useCallback((nodeId, change) => {
+    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, ...change } : node));
+  }, []);
+
+  const removeCanvasNode = useCallback(nodeId => {
+    const ids = new Set([nodeId]);
+    setNodes(previous => previous.filter(node => node.id !== nodeId));
+    setConnections(previous => removeConnectionsForNodes(previous, ids));
+    setSelected(previous => previous === nodeId ? null : previous);
+    setMultiSelected(previous => {
+      const next = new Set(previous);
+      next.delete(nodeId);
+      return next;
+    });
+  }, []);
+
+  const handleImageComposerGenerate = useCallback(async composer => {
+    if (!composer?.prompt?.trim() || composer.status === 'processing') return;
+    const sourceNodes = (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    updateComposerNode(composer.id, { status: 'processing', error: '' });
+    try {
+      const count = Math.max(1, Math.min(4, Number(composer.count) || 1));
+      const urls = await Promise.all(Array.from({ length: count }, async () => {
+        if (composer.actionId && sourceNodes.length) {
+          const response = await transformCanvasImage({
+            action: composer.actionId,
+            prompt: composer.prompt.trim(),
+            imageUrl: sourceNodes[0].url,
+            ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
+          });
+          const url = response?.url || response?.result_url;
+          if (!url) throw new Error('图片处理没有返回结果');
+          return url;
+        }
+        return sourceNodes.length
+          ? regenerateCanvasImage({
+            prompt: composer.prompt.trim(),
+            imageUrl: sourceNodes[0].url,
+            referenceImages: sourceNodes.slice(1).map(node => node.url),
+            ratio: composer.ratio || '1:1',
+          })
+          : regenerateImage(composer.prompt.trim(), result.category || '电商图片');
+      }));
+      const createdAt = Date.now();
+      const ratio = composer.ratio || '1:1';
+      const ratioNumber = ratio === '3:4' ? 3 / 4 : ratio === '4:3' ? 4 / 3 : ratio === '9:16' ? 9 / 16 : 1;
+      const outputs = urls.map((url, index) => normalizeCanvasNode({
+        id: `image_generated_${createdAt}_${index + 1}`,
+        assetId: `asset_generated_${createdAt}_${index + 1}`,
+        kind: 'image',
+        status: 'ready',
+        url,
+        name: `图片生成结果${count > 1 ? ` ${index + 1}` : ''}`,
+        displayLabel: `图片生成结果${count > 1 ? ` ${index + 1}` : ''}`,
+        group: '素材',
+        role: '创作图片',
+        ratio,
+        sourceNodeIds: [composer.id],
+        x: composer.x + composer.w + 56 + index * 268,
+        y: composer.y,
+        w: 230,
+        h: Math.round(230 / ratioNumber),
+        showMeta: true,
+      }));
+      setNodes(previous => previous.map(node => node.id === composer.id ? { ...node, status: 'success', outputNodeIds: outputs.map(output => output.id) } : node).concat(outputs));
+      setConnections(previous => outputs.reduce((edges, output) => addConnection(edges, composer.id, output.id, 'generated'), previous));
+      setSelected(outputs[0]?.id || composer.id);
+      setMultiSelected(new Set(outputs.map(output => output.id)));
+      showToast(`已生成 ${outputs.length} 张图片`, 'success');
+    } catch (error) {
+      updateComposerNode(composer.id, { status: 'error', error: error.message || '图片生成失败' });
+      handleCanvasActionError(error, { type: 'image-generation', nodeId: composer.id });
+    }
+  }, [handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
+
+  const handleSuiteComposerGenerate = useCallback(async composer => {
+    if (!composer || composer.status === 'processing') return;
+    const sourceNodes = (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    if (!sourceNodes.length) {
+      showToast('请先连接或选中一张清晰商品图', 'info');
+      return;
+    }
+    updateComposerNode(composer.id, { status: 'processing', error: '', generatedCount: 0 });
+    const desiredCount = Math.max(3, Math.min(12, Number(composer.count) || 6));
+    const mainCount = Math.min(3, Math.max(1, Math.floor((desiredCount - 1) / 2)));
+    const detailCount = Math.max(1, desiredCount - 1 - mainCount);
+    const rowCounters = new Map();
+    const receivedUrls = new Set();
+    const roleRows = { 白底图: 0, 主图: 1, 详情图: 2, SKU: 3, 素材: 4 };
+    try {
+      await generateEcommerceSuite({
+        productImages: sourceNodes.map(node => ({ assetId: node.assetId, url: node.url, previewUrl: node.url, role: 'product' })),
+        referenceImages: [],
+        sceneStyle: composer.prompt?.trim() || result.product_name || '专业电商视觉',
+        platform: composer.platform || result.platform || '淘宝',
+        batchPlan: { imageSelections: [
+          { key: 'white_bg', count: 1 },
+          { key: 'main_text', count: mainCount },
+          { key: 'detail_slice_feature', count: detailCount },
+        ] },
+        email: phone,
+        onProgress: progress => updateComposerNode(composer.id, { progress: progress?.progress || progress?.percent || 0, progressLabel: progress?.message || progress?.label || '正在生成套图' }),
+        onImage: image => {
+          const url = image?.stableUrl || image?.url;
+          if (!url || receivedUrls.has(url)) return;
+          receivedUrls.add(url);
+          const role = image.role || image.id || image.key || 'main_text';
+          const meta = getAssetMeta(role);
+          const group = image.group || meta.group || '素材';
+          const column = rowCounters.get(group) || 0;
+          rowCounters.set(group, column + 1);
+          const ratio = image.ratio || meta.ratio || composer.ratio || '1:1';
+          const ratioNumber = ratio === '3:4' ? 3 / 4 : ratio === '4:3' ? 4 / 3 : ratio === '9:16' ? 9 / 16 : 1;
+          const output = normalizeCanvasNode({
+            id: `suite_output_${composer.id}_${Date.now()}_${column}`,
+            assetId: image.assetId || image.id || `suite_asset_${Date.now()}_${column}`,
+            kind: 'output',
+            status: 'ready',
+            url,
+            name: image.displayName || image.label || meta.name || '电商图',
+            displayLabel: image.displayName || image.label || meta.name || '电商图',
+            group,
+            role,
+            ratio,
+            size: image.size || '',
+            sourceNodeIds: [composer.id],
+            x: composer.x + composer.w + 80 + column * 268,
+            y: composer.y + (roleRows[group] ?? 4) * 390,
+            w: 230,
+            h: Math.round(230 / ratioNumber),
+            showMeta: true,
+          });
+          setNodes(previous => previous.some(node => node.url === url) ? previous : [...previous, output]);
+          setConnections(previous => addConnection(previous, composer.id, output.id, 'suite-output'));
+          updateComposerNode(composer.id, { generatedCount: receivedUrls.size });
+        },
+      });
+      updateComposerNode(composer.id, { status: 'success', progress: 100, progressLabel: `已完成 ${receivedUrls.size} 张` });
+      showToast(`电商套图已完成 ${receivedUrls.size} 张`, 'success');
+    } catch (error) {
+      updateComposerNode(composer.id, { status: 'error', error: error.message || '套图生成失败' });
+      handleCanvasActionError(error, { type: 'ecommerce-suite', nodeId: composer.id });
+    }
+  }, [handleCanvasActionError, nodes, phone, result.platform, result.product_name, showToast, updateComposerNode]);
+
   const handleAddTextNode = useCallback((placement = {}) => {
-    closeComposer();
     const bounds = containerRef.current?.getBoundingClientRect();
     const width = 420;
     const height = 180;
@@ -1734,52 +2028,96 @@ export default function EcCanvas() {
     setNodes(previous => [...previous, textNode]);
     setSelected(textNode.id);
     setMultiSelected(new Set([textNode.id]));
+    setTextComposerNodeId(textNode.id);
+    setTextComposerValue('');
     if (placement?.sourceNodeId) {
       setConnections(previous => addConnection(previous, placement.sourceNodeId, textNode.id, 'derived'));
     }
     setActiveTool('select');
-  }, [closeComposer, viewport.scale, viewport.x, viewport.y]);
+    return textNode;
+  }, [viewport.scale, viewport.x, viewport.y]);
 
   const handleTextNodeChange = useCallback((nodeId, text) => {
     setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text, name: text.trim().split(/\r?\n/)[0]?.slice(0, 32) || '文本' } : node));
   }, []);
+  const handleTextComposerSubmit = useCallback(async () => {
+    if (!textComposerNodeId || !textComposerValue.trim() || promptLoading) return;
+    setPromptLoading(true);
+    try {
+      const response = await regenerateText(textComposerValue.trim(), result.category || result.product_name || '电商文案');
+      const text = String(response?.text || response?.content || response?.result || textComposerValue).trim();
+      handleTextNodeChange(textComposerNodeId, text);
+      setTextComposerValue('');
+      showToast('文案已生成，可直接编辑和拖动', 'success');
+    } catch (error) {
+      handleCanvasActionError(error, { type: 'text-generation', nodeId: textComposerNodeId });
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [handleTextNodeChange, promptLoading, result.category, result.product_name, showToast, textComposerNodeId, textComposerValue]);
   const handleCanvasSourceUpload = async event => {
     const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('image/')).slice(0, 8);
     event.target.value = '';
     if (!files.length) return;
-    const assets = await Promise.all(files.map((file, index) => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve({
-        assetId: `upload-${Date.now()}-${index}`,
-        name: file.name || `商品原图 ${index + 1}`,
-        url: String(reader.result || ''),
-        sourceRole,
-      });
-      reader.onerror = () => reject(new Error('图片读取失败'));
-      reader.readAsDataURL(file);
-    })));
-    const sourceNode = {
-      id: `source-upload-${Date.now()}`,
-      kind: 'source_group',
-      status: 'ready',
-      name: SOURCE_ROLES.find(item => item.id === sourceRole)?.label || '商品原图',
-      title: SOURCE_ROLES.find(item => item.id === sourceRole)?.label || '商品原图',
-      platform: result.platform || '淘宝',
-      assets,
-      x: 80,
-      y: 100,
-      w: 248,
-      h: Math.max(200, 116 + Math.ceil(assets.length / 2) * 86),
-      editable: true,
-      sourceRole,
-    };
-    draftReadyRef.current = true;
-    canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${Date.now()}` });
-    setNodes(previous => [...previous, sourceNode]);
-    setSelected(sourceNode.id);
-    setMultiSelected(new Set([sourceNode.id]));
-    showToast(sourceRole === 'product_original' ? '商品原图已加入画布，可从右侧端口创建电商处理' : '素材已加入画布，已按所选角色保留使用范围', 'success');
+    const uploadStartedAt = Date.now();
+    setPromptLoading(true);
+    try {
+      const assets = await readCanvasImageFiles(files, uploadStartedAt);
+      const persistedAssets = await persistCanvasUploadAssets(assets);
+      const bounds = containerRef.current?.getBoundingClientRect();
+      const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
+      const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
+      const uploadedNodes = createUploadedImageNodes({ assets: persistedAssets, x: worldX, y: worldY, now: uploadStartedAt });
+      draftReadyRef.current = true;
+      canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${uploadStartedAt}` });
+      setNodes(previous => [...previous, ...uploadedNodes]);
+      setSelected(uploadedNodes[0]?.id || null);
+      setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
+      showToast(`已加入 ${uploadedNodes.length} 张图片，可直接拖动、编辑或继续生成`, 'success');
+    } catch (error) {
+      showToast(error.message || '图片上传失败，请重试', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
   };
+
+  const handleComposerSourceUpload = useCallback(async (composerId, files = []) => {
+    const accepted = files.filter(file => file?.type?.startsWith('image/')).slice(0, 6);
+    const composer = nodes.find(node => node.id === composerId && ['image-composer', 'suite-composer'].includes(node.kind));
+    if (!accepted.length || !composer) return;
+    const uploadStartedAt = Date.now();
+    try {
+      const assets = await readCanvasImageFiles(accepted, uploadStartedAt);
+      const persistedAssets = await persistCanvasUploadAssets(assets);
+      const uploadedNodes = createUploadedImageNodes({
+        assets: persistedAssets,
+        x: composer.x - persistedAssets.length * 278 - 36,
+        y: composer.y,
+        now: uploadStartedAt,
+      });
+      const uploadedIds = uploadedNodes.map(node => node.id);
+      draftReadyRef.current = true;
+      canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${uploadStartedAt}` });
+      setNodes(previous => previous
+        .map(node => node.id === composerId
+          ? { ...node, sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), ...uploadedIds])] }
+          : node)
+        .concat(uploadedNodes));
+      setConnections(previous => uploadedIds.reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
+      setSelected(composerId);
+      setMultiSelected(new Set([composerId]));
+      showToast(`已连接 ${uploadedNodes.length} 张参考图`, 'success');
+    } catch (error) {
+      showToast(error.message || '参考图读取失败', 'error');
+    }
+  }, [nodes, result, showToast]);
+
+  const removeComposerSource = useCallback((composerId, sourceId) => {
+    setNodes(previous => previous.map(node => node.id === composerId
+      ? { ...node, sourceNodeIds: (node.sourceNodeIds || []).filter(id => id !== sourceId) }
+      : node));
+    setConnections(previous => previous.filter(edge => !(edge.from === sourceId && edge.to === composerId)));
+  }, []);
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
@@ -1877,9 +2215,10 @@ export default function EcCanvas() {
     const updatedNode = { ...directionDraft, direction, ratio: direction.ratio };
     setNodes(prev => prev.map(node => node.id === directionDraft.id ? updatedNode : node));
     setDirectionDraft(null);
-    setComposerNodes([updatedNode]);
-    setComposerText([direction.purpose, direction.composition, direction.copy].filter(Boolean).join('\n'));
-    setComposerAction('');
+    addCanvasComposer('image', {
+      sourceNodeId: updatedNode.id,
+      prompt: [direction.purpose, direction.composition, direction.copy].filter(Boolean).join('\n'),
+    });
     showToast('设计方案已更新，可继续生成变体', 'success');
   };
 
@@ -2082,17 +2421,13 @@ export default function EcCanvas() {
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onDoubleClick={event => {
-            if (!nodes.length && !event.target?.closest?.('button,input,textarea,select,a')) setSourceImportOpen(true);
+            if (!event.target?.closest?.('[data-canvas-node-id],button,input,textarea,select,a')) sourceUploadRef.current?.click();
           }}
         >
           <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
             onAddMenuToggle={() => setAddMenuOpen(open => !open)}
-            onUpload={() => setSourceImportOpen(true)}
-            onWorks={() => setTab('works')}
-            onEcommerce={handleNew}
-            onText={() => handleAddTextNode()}
           />
           <CanvasAddMenu
             open={addMenuOpen}
@@ -2100,17 +2435,29 @@ export default function EcCanvas() {
             onClose={() => setAddMenuOpen(false)}
             onSelect={actionId => {
               setAddMenuOpen(false);
-              if (actionId === 'upload') setSourceImportOpen(true);
+              if (actionId === 'upload') sourceUploadRef.current?.click();
               else if (actionId === 'works') setTab('works');
               else if (actionId === 'text') handleAddTextNode();
-              else handleNew();
+              else if (actionId === 'image') addCanvasComposer('image');
+              else if (actionId === 'ecommerce') addCanvasComposer('suite');
             }}
           />
           <CanvasBottomToolbar
             activeTool={activeTool}
             onToolChange={setActiveTool}
-            onImage={() => { setSourceImportOpen(true); setActiveTool('select'); }}
+            onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
             onText={handleAddTextNode}
+            layersOpen={layersPanelOpen}
+            onLayers={() => setLayersPanelOpen(open => !open)}
+          />
+          <CanvasLayersPanel
+            open={layersPanelOpen}
+            nodes={nodes}
+            selectedIds={multiSelected}
+            onSelect={handleLayerSelect}
+            onToggleVisibility={handleLayerVisibilityToggle}
+            onToggleLock={handleLayerLockToggle}
+            onClose={() => setLayersPanelOpen(false)}
           />
           <CanvasZoomControls
             scale={viewport.scale}
@@ -2118,16 +2465,15 @@ export default function EcCanvas() {
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
           />
-          {sourceImportOpen && <CanvasSourceImportSheet role={sourceRole} onRoleChange={setSourceRole} onClose={() => setSourceImportOpen(false)} onUpload={() => { setSourceImportOpen(false); sourceUploadRef.current?.click(); }} onImportWorks={() => { setSourceImportOpen(false); setTab('works'); }} />}
           {!nodes.length && (
             <div className="ec-canvas-empty-state">
               <div>
                 <strong>双击画布导入商品素材</strong>
                 <p>从商品原图开始，继续生成主图、详情图、SKU 和透明素材</p>
                 <div className="ec-canvas-empty-actions">
-                  <button type="button" className="is-primary" onClick={() => setSourceImportOpen(true)}><MdAddPhotoAlternate size={15} />上传商品原图</button>
+                  <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><MdAddPhotoAlternate size={15} />上传图片</button>
                   <button type="button" onClick={() => setTab('works')}><MdCollections size={15} />从我的作品导入</button>
-                  <button type="button" onClick={handleNew}><MdAutoFixHigh size={15} />生成电商套图</button>
+                  <button type="button" onClick={() => addCanvasComposer('suite')}><MdAutoFixHigh size={15} />生成电商套图</button>
                 </div>
               </div>
             </div>
@@ -2136,19 +2482,6 @@ export default function EcCanvas() {
           <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
             <ConnectionDraftLine draft={connectionDraft} nodes={connectionNodes} />
-            {(() => {
-              const groups = {};
-              visibleNodes.forEach(n => {
-                const group = String(n.group || '').trim();
-                if (!ASSET_GROUPS.includes(group)) return;
-                if (!groups[group]) groups[group] = n.y;
-              });
-              return Object.entries(groups).map(([group, y]) => (
-                <div key={group} className="ec-canvas-lane-label" style={{ left: 350, top: y }}>
-                  {group}
-                </div>
-              ));
-            })()}
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
               const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);
@@ -2199,10 +2532,40 @@ export default function EcCanvas() {
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
+              if (node.kind === 'image-composer') {
+                const sources = (node.sourceNodeIds || []).map(id => nodes.find(item => item.id === id)).filter(item => item?.url);
+                return <CanvasImageComposer
+                  key={node.id}
+                  node={node}
+                  sources={sources}
+                  loading={node.status === 'processing'}
+                  onPointerDown={handleNodeDown}
+                  onChange={change => updateComposerNode(node.id, change)}
+                  onAddSources={files => handleComposerSourceUpload(node.id, files)}
+                  onRemoveSource={sourceId => removeComposerSource(node.id, sourceId)}
+                  onGenerate={() => handleImageComposerGenerate(node)}
+                  onClose={() => removeCanvasNode(node.id)}
+                />;
+              }
+              if (node.kind === 'suite-composer') {
+                const sources = (node.sourceNodeIds || []).map(id => nodes.find(item => item.id === id)).filter(item => item?.url);
+                return <CanvasEcommerceComposer
+                  key={node.id}
+                  node={node}
+                  sources={sources}
+                  loading={node.status === 'processing'}
+                  onPointerDown={handleNodeDown}
+                  onChange={change => updateComposerNode(node.id, change)}
+                  onAddSources={files => handleComposerSourceUpload(node.id, files)}
+                  onRemoveSource={sourceId => removeComposerSource(node.id, sourceId)}
+                  onGenerate={() => handleSuiteComposerGenerate(node)}
+                  onClose={() => removeCanvasNode(node.id)}
+                />;
+              }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
               const referenceImages = (node.inputs?.referenceImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
               const workflowAction = getCanvasAction(node.actionId);
-              return <div key={node.id} data-canvas-node-id={node.id} onMouseEnter={() => setHoveredNodeId(node.id)} onMouseLeave={() => setHoveredNodeId(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, opacity: focusedNodeIds && !focusedNodeIds.has(node.id) ? 0.34 : 1, transition: 'opacity 0.16s' }}>
+              return <div key={node.id} data-canvas-node-id={node.id} onMouseEnter={() => setHoveredNodeId(node.id)} onMouseLeave={() => setHoveredNodeId(null)} style={{ position: 'absolute', left: node.x, top: node.y, width: node.w, minHeight: node.h, opacity: focusedNodeIds && !focusedNodeIds.has(node.id) ? 0.34 : 1, visibility: node.hidden ? 'hidden' : 'visible', transition: 'opacity 0.16s' }}>
                 <CanvasWorkflowNode
                   node={node}
                   sourceNode={sourcePreview}
@@ -2263,30 +2626,30 @@ export default function EcCanvas() {
                 />
               </div>;
             })}
-            {selectedNode && selectedNode.kind !== 'text' && <CanvasObjectToolbar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
-            {selectedNode?.kind === 'text' && <CanvasTextToolbar
+            <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} onAction={handleMultiSelectionAction} />
+            {multiSelected.size <= 1 && selectedNode && !['text', 'image-composer', 'suite-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {multiSelected.size <= 1 && selectedNode?.kind === 'text' && <CanvasTextToolbar
               node={selectedNode}
               onStyleChange={change => setNodes(previous => previous.map(node => node.id === selectedNode.id ? { ...node, textStyle: { ...(node.textStyle || {}), ...change } } : node))}
+              onDuplicate={() => handleToolAction(getCanvasAction('duplicate'), selectedNode)}
+              onFullscreen={() => setTextInspectorNodeId(selectedNode.id)}
               onDelete={() => handleToolAction(getCanvasAction('delete'), selectedNode)}
             />}
-            {composerNodes.length > 0 && (() => {
-              const anchorNode = nodes.find(node => node.id === composerNodes[0]?.id) || selectedNode || composerNodes[0];
+            {textComposerNode && (() => {
               const position = getContextPanelPosition({
-                node: anchorNode,
+                node: textComposerNode,
                 viewport,
                 bounds: containerRef.current?.getBoundingClientRect(),
-                panel: { width: 520, height: 238 },
+                panel: { width: 520, height: 218 },
               });
-              return <ReferenceComposer
-                references={composerNodes}
-                promptText={composerText}
-                setPromptText={setComposerText}
-                onRemoveReference={id => setComposerNodes(previous => previous.filter(node => node.id !== id))}
-                onAddReferenceFiles={handleComposerAddImages}
-                onGenerate={handleComposerGenerate}
-                onClose={closeComposer}
-                loading={promptLoading}
+              return <CanvasTextComposer
+                node={textComposerNode}
                 position={position}
+                value={textComposerValue}
+                loading={promptLoading}
+                onChange={setTextComposerValue}
+                onSubmit={handleTextComposerSubmit}
+                onClose={() => { setTextComposerNodeId(null); setTextComposerValue(''); }}
               />;
             })()}
             {connectionPicker && <CanvasDeriveMenu
@@ -2305,10 +2668,12 @@ export default function EcCanvas() {
                 if (action.id === 'text-generation') {
                   handleAddTextNode({ ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (action.id === 'ecommerce-suite') {
-                  handleNew();
+                  addCanvasComposer('suite', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (action.id === 'image-edit' && connectionPicker.mode !== 'image-editor') {
                   setConnectionPicker(previous => ({ ...previous, mode: 'image-editor' }));
                   return;
+                } else if (action.id === 'image-edit') {
+                  addCanvasComposer('image', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else {
                   handleCreateDerivedNode(connectionPicker.sourceNodeId, getCanvasAction(action.id) || action, connectionPicker.world);
                 }
@@ -2317,6 +2682,15 @@ export default function EcCanvas() {
               }}
             />}
           </div>
+
+          <CanvasFocusedEditor
+            mode={focusedEditor?.mode}
+            node={focusedEditorNode}
+            options={focusedEditor?.options}
+            onOptionChange={options => setFocusedEditor(previous => previous ? { ...previous, options } : previous)}
+            onCancel={() => setFocusedEditor(null)}
+            onConfirm={handleFocusedEditorConfirm}
+          />
 
           {marquee && (
             <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: Math.abs(marquee.w) * viewport.scale, height: Math.abs(marquee.h) * viewport.scale, transform: `translate(${marquee.w < 0 ? marquee.w * viewport.scale : 0}px,${marquee.h < 0 ? marquee.h * viewport.scale : 0})`, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
@@ -2448,30 +2822,6 @@ export default function EcCanvas() {
               <button type="button" onClick={() => setDirectionDraft(null)} style={{ border: 0, borderRadius: 8, padding: '9px 14px', background: 'rgba(0,0,0,.05)', color: '#555', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>取消</button>
               <button type="button" onClick={handleDirectionSave} style={{ border: 0, borderRadius: 8, padding: '9px 16px', background: '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>保存方案并继续编辑</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {cropNode && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: 360, background: '#fff', borderRadius: 15, padding: 18, boxShadow: '0 24px 70px rgba(15,23,42,.22)' }}>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>裁切画幅</div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 14 }}>用于适配平台主图、商品卡或详情模块</div>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
-              {[['1:1', '方形主图'], ['3:4', '竖版详情'], ['9:16', '短视频封面'], ['长图', '详情长图']].map(([ratio, label]) => <button key={ratio} type="button" onClick={() => setCropRatio(ratio)} style={{ border: 0, borderRadius: 9, padding: '9px 10px', background: cropRatio === ratio ? '#1f2937' : '#f3f4f6', color: cropRatio === ratio ? '#fff' : '#4b5563', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{label}<span style={{ display: 'block', fontSize: 9, opacity: .7, marginTop: 2 }}>{ratio}</span></button>)}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setCropNode(null)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" onClick={handleSaveCrop} style={{ border: 0, borderRadius: 8, padding: '9px 15px', background: '#7c3aed', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>应用画幅</button></div>
-          </div>
-        </div>
-      )}
-
-      {annotationNode && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.40)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: 420, background: '#fff', borderRadius: 15, padding: 18, boxShadow: '0 24px 70px rgba(15,23,42,.22)' }}>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>卖点 / 尺寸标注</div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 12 }}>适合添加“食品级材质”“容量 500ml”“防泼水”等购买决策信息</div>
-            <textarea value={annotationText} onChange={e => setAnnotationText(e.target.value)} rows={4} placeholder="请输入一条简短标注，例如：食品级 304 不锈钢" style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, fontSize: 12, resize: 'vertical' }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 13 }}><button type="button" onClick={() => setAnnotationNode(null)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" onClick={handleSaveAnnotation} style={{ border: 0, borderRadius: 8, padding: '9px 15px', background: '#7c3aed', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>保存标注</button></div>
           </div>
         </div>
       )}

@@ -39,19 +39,73 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('regenerate', '重新生成', [], 'smart-remix', false, {
     type: 'route', handler: 'regenerate', route: '/api/canvas/regenerate',
   }, { description: '沿用当前商品与画幅生成新图', group: '优先操作' }),
-  action('image-info', '图片信息', ['selection'], null, false, {
-    type: 'dialog', handler: 'image-info',
-  }, { description: '修改图片名称、用途和使用说明' }),
-  action('download', '下载', ['selection'], null, false, {
+  action('edit-text', '编辑文字', ['selection'], null, false, {
+    type: 'inspector', handler: 'edit-text',
+  }, { description: '识别并编辑画面中的文字' }),
+  action('grid-split', '宫格切分', ['selection'], 'grid-split', false, {
+    type: 'focused-editor', handler: 'grid-split',
+  }),
+  action('layer-edit', '智能分层', ['selection'], 'layers', false, {
+    type: 'node', handler: 'create:layer-edit', nodeActionId: 'layer-edit', nodeKind: 'layer-workbench', route: '/api/canvas/analyze-layers',
+  }, { description: '分析画面区域并进入图层工作台', group: '电商处理', canRun: canCreateWorkflowFromNode }),
+  action('remove-background', '去除背景', ['selection'], 'remove-bg', false, {
+    type: 'node', handler: 'create:remove-bg', nodeActionId: 'remove-bg', nodeKind: 'remove-bg', route: '/api/canvas/transform',
+  }, { description: '生成透明背景商品素材', group: '电商处理', canRun: canCreateWorkflowFromNode }),
+  action('move-scale', '移动缩放', ['selection'], null, false, {
+    type: 'focused-editor', handler: 'move-scale',
+  }, { description: '框选商品并调整在画面中的位置与大小' }),
+  action('reverse-prompt', '反推提示词', ['selection'], 'reverse-prompt', false, {
+    type: 'node', handler: 'reverse-prompt', route: '/api/reverse-prompt',
+  }, { description: '创建可继续编辑和派生的画面描述' }),
+  action('annotation', '图片标注', ['selection'], 'annotation', false, {
+    type: 'focused-editor', handler: 'annotation', route: '/api/canvas/transform',
+  }),
+  action('crop', '裁剪', ['selection'], 'crop', false, {
+    type: 'focused-editor', handler: 'crop',
+  }),
+  action('split-image', '分割图片', ['selection'], null, false, {
+    type: 'focused-editor', handler: 'split-image',
+  }),
+  action('download', '导出图片', ['selection'], null, false, {
     type: 'local', handler: 'download',
   }),
-  action('add-reference', '加入引用', ['selection'], null, false, {
-    type: 'composer', handler: 'add-reference',
-  }, { description: '把当前图片加入下一次生成的参考素材' }),
-  action('duplicate', '复制', ['context'], null, false, {
+  action('copy', '复制', ['context'], null, false, {
+    type: 'local', handler: 'copy',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('paste', '粘贴', ['context'], null, false, {
+    type: 'local', handler: 'paste',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('duplicate', '创建副本', ['context'], null, false, {
     type: 'local', handler: 'duplicate',
   }, { canRun: node => Boolean(node?.id) }),
-  action('delete', '删除', ['context'], null, false, {
+  action('bring-forward', '上移一层', ['context'], null, false, {
+    type: 'local', handler: 'bring-forward',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('send-backward', '下移一层', ['context'], null, false, {
+    type: 'local', handler: 'send-backward',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('bring-front', '移动至顶层', ['context'], null, false, {
+    type: 'local', handler: 'bring-front',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('send-back', '移动至底层', ['context'], null, false, {
+    type: 'local', handler: 'send-back',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('toggle-visibility', '显示 / 隐藏', ['context'], null, false, {
+    type: 'local', handler: 'toggle-visibility',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('toggle-lock', '锁定 / 解锁', ['context'], null, false, {
+    type: 'local', handler: 'toggle-lock',
+  }, { canRun: node => Boolean(node?.id) }),
+  action('flip-horizontal', '水平翻转', ['context'], null, false, {
+    type: 'local', handler: 'flip-horizontal',
+  }, { canRun: isReadyImage }),
+  action('flip-vertical', '垂直翻转', ['context'], null, false, {
+    type: 'local', handler: 'flip-vertical',
+  }, { canRun: isReadyImage }),
+  action('export-object', '导出', ['context'], null, false, {
+    type: 'local', handler: 'download',
+  }, { canRun: isReadyImage }),
+  action('delete', '删除', ['selection', 'context'], null, false, {
     type: 'local', handler: 'delete',
   }, { canRun: node => Boolean(node?.id) }),
   action('product-remix', '商品图改造', ['image-editor'], 'smart-remix', true, {
@@ -63,27 +117,12 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('inpaint', '局部改图', ['image-editor'], 'inpaint', true, {
     type: 'node', handler: 'create:inpaint', nodeActionId: 'inpaint', nodeKind: 'inpaint', route: '/api/canvas/regenerate', requires: { prompt: true },
   }, { description: '只修改需要调整的区域', group: '创作与修改', canRun: canCreateWorkflowFromNode }),
-  action('remove-background', '商品抠图', ['image-editor'], 'remove-bg', false, {
-    type: 'node', handler: 'create:remove-bg', nodeActionId: 'remove-bg', nodeKind: 'remove-bg', route: '/api/canvas/transform',
-  }, { description: '生成透明背景商品素材', group: '电商处理', canRun: canCreateWorkflowFromNode }),
-  action('layer-edit', '图文分层', ['image-editor'], 'layers', false, {
-    type: 'node', handler: 'create:layer-edit', nodeActionId: 'layer-edit', nodeKind: 'layer-workbench', route: '/api/canvas/analyze-layers',
-  }, { description: '分析画面区域并进入图层工作台', group: '电商处理', canRun: canCreateWorkflowFromNode }),
   action('translate', '图片翻译', ['image-editor'], 'translate', true, {
     type: 'node', handler: 'create:translate', nodeActionId: 'translate', nodeKind: 'translate', route: '/api/canvas/transform', requires: { prompt: true },
   }, { description: '替换画面语言并保持商品主体', group: '电商处理', canRun: canCreateWorkflowFromNode }),
   action('upscale', '高清修复', ['image-editor'], 'upscale', false, {
     type: 'node', handler: 'create:upscale', nodeActionId: 'upscale', nodeKind: 'upscale', route: '/api/canvas/transform',
   }, { description: '提升清晰度与商品细节', group: '电商处理', canRun: canCreateWorkflowFromNode }),
-  action('crop', '裁切画幅', ['selection'], 'crop', false, {
-    type: 'dialog', handler: 'crop',
-  }),
-  action('grid-split', '宫格切图', ['image-editor'], 'grid-split', false, {
-    type: 'local', handler: 'grid-split',
-  }),
-  action('annotation', '卖点标注', ['selection'], 'annotation', true, {
-    type: 'dialog', handler: 'annotation', route: '/api/canvas/transform', requires: { prompt: true },
-  }),
 ]);
 
 const ACTION_BY_ID = new Map(CANVAS_ACTIONS.map(item => [item.id, item]));

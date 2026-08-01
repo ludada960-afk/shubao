@@ -37,6 +37,16 @@ test('Canvas AI transforms reuse the durable provider-job service instead of dir
   assert.doesNotMatch(route, /callImageAPI\(/);
 });
 
+test('Canvas pixel transforms honor requested grid size and split direction', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/canvas/transform', '// 画布图文分层');
+  assert.match(route, /grid\s*=\s*2/);
+  assert.match(route, /direction\s*=\s*['"]vertical['"]/);
+  assert.match(route, /pixelActions\s*=\s*new Set\(\[['"]crop['"],\s*['"]grid-split['"],\s*['"]split-image['"],\s*['"]annotation['"]\]\)/);
+  assert.match(route, /gridRects\(width, height, gridSize, gridSize\)/);
+  assert.match(route, /gridRects\(width, height, direction === ['"]vertical['"] \? 2 : 1, direction === ['"]horizontal['"] \? 2 : 1\)/);
+});
+
 test('Canvas layer analysis stays semantic and does not claim PSD capability', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/analyze-layers', '// 画布像素分层');

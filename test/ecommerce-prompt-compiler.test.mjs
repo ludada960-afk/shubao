@@ -474,6 +474,67 @@ test('compiles campaign, role, platform, quality, risk, and anti-substitution se
   assert.doesNotMatch(result.prompt, /1536x2048|800x800|750x1000|5_?000_?000/);
 });
 
+test('compiles the selected direction strategy and exact per-image execution into the provider request', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem({
+      label: '材质证明主图',
+      purpose: '用可见瓶身材质与泵头做工建立品质信任',
+      communicationGoal: '让用户理解材质与做工价值',
+      creativeExecution: '整体商品结合一处可验证材质微距，并保留标题安全区',
+      variationKey: 'material-proof',
+      dependsOn: ['product_truth', 'campaign_bible'],
+      groupStrategy: '先建立商品身份，再提供品质证据',
+      shotIntent: {
+        type: 'material_macro',
+        planLabel: '材质证明主图',
+        camera: { elevation: 16, azimuth: 24, distance: 'macro' },
+        creativeExecution: '整体商品结合一处可验证材质微距，并保留标题安全区',
+        variationKey: 'material-proof',
+        dependsOn: ['product_truth', 'campaign_bible'],
+        riskGuards: ['不得虚构内部结构'],
+      },
+    }),
+    productTruth: productTruth(),
+    campaignBible: campaignBible({
+      productStrategy: {
+        heroFocus: '可见瓶身材质与真实泵头结构',
+        anglePlan: '整体识别与材质细节交替',
+        interactionPlan: '只呈现来源图可证明的泵头关系',
+        scenarioPlan: '高品质梳妆台场景',
+      },
+      riskGuards: ['不得虚构内部结构', '不得改变瓶身颜色和比例'],
+    }),
+    assets: {
+      product: [asset('product-front'), asset('product-side')],
+      reference: [asset('style-editorial'), asset('style-lighting')],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+
+  assert.deepEqual(schema.sections.roleObjective, {
+    role: 'main_3x4',
+    label: '材质证明主图',
+    purpose: '用可见瓶身材质与泵头做工建立品质信任',
+    communicationGoal: '让用户理解材质与做工价值',
+    creativeExecution: '整体商品结合一处可验证材质微距，并保留标题安全区',
+    variationKey: 'material-proof',
+    groupStrategy: '先建立商品身份，再提供品质证据',
+    dependsOn: ['product_truth', 'campaign_bible'],
+    generationMode: 'edit',
+  });
+  assert.deepEqual(schema.sections.campaignBible.productStrategy, {
+    heroFocus: '可见瓶身材质与真实泵头结构',
+    anglePlan: '整体识别与材质细节交替',
+    interactionPlan: '只呈现来源图可证明的泵头关系',
+    scenarioPlan: '高品质梳妆台场景',
+  });
+  assert.deepEqual(schema.sections.campaignBible.riskGuards, [
+    '不得虚构内部结构',
+    '不得改变瓶身颜色和比例',
+  ]);
+  assert.match(schema.sections.generationInstructions.composition, /整体商品结合一处可验证材质微距/);
+});
+
 test('compiles transparent deliverables as alpha-only product cutouts that ignore campaign backgrounds and style assets', () => {
   const result = compileAssetRequest({
     assetPlanItem: assetPlanItem({

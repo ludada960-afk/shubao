@@ -661,5 +661,6 @@ test('selected design direction reaches the durable job as structured campaign i
   const direction = await fs.readFile(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
 
   assert.match(api, /direction:\s*direction\s*\|\|\s*null/);
-  assert.match(direction, /direction:\s*\{\s*\.\.\.dir,\s*editableBrief:\s*dir\?\.description/);
+  assert.match(direction, /const editableBrief = dir\?\.execution_guide \|\| dir\?\.description \|\| dir\?\.short_desc \|\| ''/);
+  assert.match(direction, /direction:\s*\{\s*\.\.\.dir,\s*editableBrief,\s*\}/);
 });
