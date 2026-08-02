@@ -756,3 +756,12 @@
   each asset snapshot. Focused regression passed 136/136 and the release gate
   passed 1,025/1,025 tests, the 6,434-module production build, build-asset
   verification, PowerShell parsing, collaboration policy and whitespace checks.
+- Authenticated production Canvas acceptance then found a separate geometry
+  contract defect in the text composer: the positioning helper returned `x/y`,
+  which React emitted as inert CSS properties on an absolutely positioned HTML
+  section. The composer therefore rendered at the world-layer origin even though
+  its calculated anchor was correct. The shared positioning contract now returns
+  `left/top`, keeping the editor beside its text node through pan and drag. A
+  red-first regression reproduced the browser result; all 54 focused Canvas
+  tests, the complete 1,025-test suite, the 6,434-module production build and
+  build-asset validation pass with the fix.

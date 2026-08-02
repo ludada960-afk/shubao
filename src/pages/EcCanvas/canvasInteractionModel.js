@@ -98,8 +98,8 @@ export function getContextPanelPosition({ node = {}, viewport = {}, bounds = {},
   const targetY = canFitBelow ? belowY : finite(node.y) - panelHeight - PANEL_GAP;
   const y = Math.min(worldBottom - panelHeight - gutter, Math.max(worldTop + gutter, targetY));
   return {
-    x: roundCoordinate(x),
-    y: roundCoordinate(y),
+    left: roundCoordinate(x),
+    top: roundCoordinate(y),
     width: panelWidth,
     placement,
   };

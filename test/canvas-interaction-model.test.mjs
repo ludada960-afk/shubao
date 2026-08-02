@@ -33,7 +33,7 @@ test('contextual composer anchors below the selected node and stays in visible w
       bounds: { width: 1280, height: 800 },
       panel: { width: 520, height: 238 },
     }),
-    { x: 555, y: 420, width: 520, placement: 'below' },
+    { left: 555, top: 420, width: 520, placement: 'below' },
   );
 });
 
