@@ -85,7 +85,7 @@
 
 .ec-canvas-filter select { height: 32px; min-width: 86px; padding: 0 28px 0 10px; border: 0; border-radius: 7px; background: #f1f3f5; color: #3d434b; font-size: 11px; font-weight: 650; }
 
-.ec-canvas-stage { flex: 1; position: relative; overflow: hidden; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
+.ec-canvas-stage { flex: 1; position: relative; overflow: clip; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
 
 .ec-canvas-left-rail,
 .ec-canvas-bottom-toolbar,

@@ -17,6 +17,7 @@ test('empty commerce canvas guides a seller to upload product originals or impor
 
 test('commerce canvas uses a quiet professional shell and contextual world panels', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   assert.match(source, /CanvasTopBar/);
   assert.match(source, /CanvasLeftRail/);
   assert.match(source, /CanvasBottomToolbar/);
@@ -24,6 +25,8 @@ test('commerce canvas uses a quiet professional shell and contextual world panel
   assert.match(source, /getContextPanelPosition/);
   assert.doesNotMatch(source, /空白拖拽平移/);
   assert.doesNotMatch(source, /fixed[^\n]+right: 20[^\n]+bottom: 20/);
+  assert.match(css, /\.ec-canvas-stage \{[^}]*overflow: clip;/);
+  assert.doesNotMatch(css, /\.ec-canvas-stage \{[^}]*overflow: hidden;/);
 });
 
 test('canvas creation uses movable nodes and omits the legacy centered composer', async () => {

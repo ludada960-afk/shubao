@@ -765,3 +765,16 @@
   red-first regression reproduced the browser result; all 54 focused Canvas
   tests, the complete 1,025-test suite, the 6,434-module production build and
   build-asset validation pass with the fix.
+- Post-deploy authenticated acceptance exposed one browser-level continuation of
+  the text insertion defect. The Canvas stage had `scrollTop=452` after the new
+  text editor received focus even though application viewport state had not
+  changed. `overflow:hidden` clips the stage but still creates a programmatically
+  scrollable container, so focus scrolling displaced the complete transformed
+  world while node, edge and contextual-panel math remained internally correct.
+  The stage now uses `overflow:clip`, which preserves visual clipping without a
+  scroll container. The regression was written red-first and now passes; the
+  focused Canvas contracts pass 26/26, the complete repository passes 1,025/1,025,
+  the explicit ecommerce direction-to-orchestration chain passes 169/169, and the
+  6,434-module production build, export, asset, collaboration and whitespace
+  gates pass. This fix is ready for the sole production deployment script and a
+  final authenticated browser acceptance pass.
