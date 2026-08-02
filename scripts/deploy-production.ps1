@@ -190,7 +190,7 @@ try {
   }
   $remoteStamp = "$stamp-$commit"
   $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"
-  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; cp -a $RemoteDir/server $remoteBackup/server; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
+  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; mkdir -p $remoteBackup/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $RemoteDir/server/ $remoteBackup/server/; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
   if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
   $releaseStarted = $true
   & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env --max-memory-restart 1G; for attempt in `$(seq 1 30); do if curl -fsS http://127.0.0.1:3001/health; then exit 0; fi; sleep 2; done; exit 1"
