@@ -314,7 +314,7 @@ export async function verifyProductionEcommerce({
   const request = (url, options = {}) => requestJson(url, {
     ...options,
     fetchImpl,
-    maxAttempts: 3,
+    maxAttempts: options.maxAttempts ?? 3,
   });
 
   const session = await request(`${root}/api/session`, { headers });
@@ -330,6 +330,10 @@ export async function verifyProductionEcommerce({
     method: 'POST',
     headers: { ...headers, 'content-type': 'application/json' },
     body: JSON.stringify(designDirectionPayload({ product, reference })),
+    // This endpoint performs two bounded multimodal passes. Never replay it: a
+    // retry would repeat paid analysis and can outlive the release timeout.
+    maxAttempts: 1,
+    timeoutMs: 90_000,
   });
   const direction = assertDirectionContract(directionResponse);
   const quote = await request(`${root}/api/billing/quote`, {
