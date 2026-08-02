@@ -139,6 +139,9 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.match(source, /CanvasImageComposer/);
   assert.match(source, /CanvasEcommerceComposer/);
   assert.match(source, /CanvasFocusedEditor/);
+  assert.match(source, /className="ec-canvas-text-drag-handle"/);
+  assert.match(source, /aria-label="拖动文本"/);
+  assert.match(source, /onPointerDown\?\.\(event, node\.id\)/);
   assert.doesNotMatch(source, /<header>\s*文本\s*<\/header>/);
 });
 

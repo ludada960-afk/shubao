@@ -13,6 +13,7 @@ import {
   FileText,
   FolderOpen,
   Grid2X2,
+  GripHorizontal,
   ImagePlus,
   Info,
   Italic,
@@ -458,6 +459,16 @@ export function CanvasTextNode({ node, selected = false, dimmed = false, onPoint
     }}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
   >
+    <button
+      type="button"
+      className="ec-canvas-text-drag-handle"
+      aria-label="拖动文本"
+      title="拖动文本"
+      onPointerDown={event => {
+        event.preventDefault();
+        onPointerDown?.(event, node.id);
+      }}
+    ><GripHorizontal size={16} /></button>
     <div
       contentEditable
       suppressContentEditableWarning

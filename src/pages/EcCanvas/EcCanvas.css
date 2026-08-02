@@ -205,6 +205,11 @@
 .ec-canvas-copy-node.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command), 0 10px 30px rgba(15, 23, 42, .14); }
 .ec-canvas-copy-node [contenteditable="true"] { width: 100%; min-height: 180px; box-sizing: border-box; padding: 22px 24px; outline: 0; color: #20242a; cursor: text; font-size: 18px; line-height: 1.55; white-space: pre-wrap; }
 .ec-canvas-copy-node [contenteditable="true"]:empty::before { color: #a2a8b0; content: attr(data-placeholder); pointer-events: none; }
+.ec-canvas-text-drag-handle { position: absolute; z-index: 2; top: 7px; left: 50%; width: 30px; height: 22px; display: grid; place-items: center; padding: 0; transform: translateX(-50%); border: 0; border-radius: 6px; background: rgba(255, 255, 255, .92); color: #8a919b; cursor: grab; opacity: 0; transition: color 140ms ease-out, background 140ms ease-out, opacity 140ms ease-out; }
+.ec-canvas-copy-node:hover .ec-canvas-text-drag-handle,
+.ec-canvas-copy-node.is-selected .ec-canvas-text-drag-handle { opacity: 1; }
+.ec-canvas-text-drag-handle:hover { color: #20242a; background: #eef2f6; }
+.ec-canvas-text-drag-handle:active { cursor: grabbing; }
 
 .ec-canvas-object-toolbar { position: absolute; z-index: 80; display: flex; align-items: center; gap: 2px; max-width: min(820px, 80vw); overflow-x: auto; padding: 5px; transform: translate(-50%, -100%); border: 1px solid rgba(15, 23, 42, .07); border-radius: 8px; background: rgba(255, 255, 255, .98); box-shadow: 0 10px 30px rgba(15, 23, 42, .15); white-space: nowrap; }
 .ec-canvas-object-toolbar button { height: 32px; display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #4f5762; font-size: 10px; font-weight: 650; }

@@ -717,3 +717,12 @@
   development port was blocked by the browser security policy, so final visual
   and interaction acceptance will run directly against the deployed production
   release instead of bypassing that restriction.
+- Production browser acceptance found one remaining text-object defect: the
+  editable surface occupied the whole node and intentionally excluded itself
+  from drag initiation, leaving no usable drag target. A compact selected/hover
+  drag handle now enters the same live geometry path as image nodes, so text,
+  its contextual surfaces and connected edges move together while editing stays
+  direct. The focused Canvas contract passed 12/12; the complete suite passed
+  1,021/1,021, the 6,434-module production build, build-asset verification,
+  collaboration policy and whitespace checks all passed. Only the three code/
+  test files and this ledger entry belong to the pending fix commit.
