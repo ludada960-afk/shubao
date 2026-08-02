@@ -739,3 +739,20 @@
   hold. Focused orchestration and route coverage passed 98/98; the complete suite
   passed 1,022/1,022, the 6,434-module production build, build-asset verification,
   collaboration policy and whitespace checks all passed.
+- The first post-recovery release generated and durably persisted all three
+  Canary images, but semantic quality review never completed and status polling
+  repeatedly restarted an exhausted retry sequence. Read-only production
+  diagnostics recorded 85 quality attempts without another provider submission.
+  Direct probes from the production host isolated the gateway contract: the
+  configured credential, endpoint, OpenAI-compatible protocol and image input
+  are valid; `gpt-5.6-luna` is rejected or unavailable on that credential while
+  `gpt-5.5` completed the same image-input request in 5.6 seconds. The release
+  guard rolled back cleanly and production remained healthy. The pending fix
+  migrates both runtime files to the explicitly probed `gpt-5.5` contract while
+  retaining their existing secrets, adds a poll-trigger cooldown, and permits
+  delivery only when technical, platform and deterministic visual checks pass
+  and the unavailable checks are exclusively semantic. Deterministic failures
+  continue to fail closed and the deferred semantic review remains auditable in
+  each asset snapshot. Focused regression passed 136/136 and the release gate
+  passed 1,025/1,025 tests, the 6,434-module production build, build-asset
+  verification, PowerShell parsing, collaboration policy and whitespace checks.

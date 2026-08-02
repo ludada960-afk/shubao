@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
   configureRuntimeFiles,
+  configureRuntimeFilesFromExisting,
   renderRuntimeConfig,
   validateSecretPayload,
 } = require('../scripts/configure-runtime-gateways.cjs');
@@ -66,6 +67,51 @@ test('runtime updater writes both files privately and leaves them verifier-ready
       assert.equal(statSync(primary).mode & 0o077, 0);
       assert.equal(statSync(peer).mode & 0o077, 0);
     }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('runtime updater migrates the gateway contract while retaining existing production secrets', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-migrate-'));
+  const primary = join(directory, '.env');
+  const peer = join(directory, 'server.env');
+  const legacy = [
+    'PORT=3001',
+    'MINI_MODEL=gpt-5.6-luna',
+    `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}`,
+    `MINI_API_KEY=${SECRETS.MINI_API_KEY}`,
+    '',
+  ].join('\n');
+  try {
+    writeFileSync(primary, legacy, { mode: 0o600 });
+    writeFileSync(peer, legacy, { mode: 0o600 });
+
+    configureRuntimeFilesFromExisting([primary, peer]);
+
+    const migrated = parseEnv(readFileSync(primary, 'utf8'));
+    assert.doesNotThrow(() => verifyRuntimeConfigFiles(primary, peer));
+    assert.equal(migrated.MINI_MODEL, 'gpt-5.5');
+    assert.equal(migrated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
+    assert.equal(migrated.MINI_API_KEY, SECRETS.MINI_API_KEY);
+    assert.equal(migrated.PORT, '3001');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('runtime updater refuses to retain divergent peer secrets', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-divergent-'));
+  const primary = join(directory, '.env');
+  const peer = join(directory, 'server.env');
+  try {
+    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\n`, { mode: 0o600 });
+    writeFileSync(peer, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=another-vision-key-that-is-long-enough\n`, { mode: 0o600 });
+
+    assert.throws(
+      () => configureRuntimeFilesFromExisting([primary, peer]),
+      /MINI_API_KEY differs between runtime config files/i,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

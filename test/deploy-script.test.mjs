@@ -35,6 +35,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /SHUBAO_IMAGE_API_KEY/);
   assert.match(deploy, /SHUBAO_VISION_API_KEY/);
   assert.match(deploy, /runtimePayload\s*\|\s*&\s*ssh/i);
+  assert.match(deploy, /--retain-secrets/i);
   assert.match(deploy, /root\.env/);
   assert.match(deploy, /server\.env/);
   assert.match(deploy, /server\/\.env/i);
@@ -108,7 +109,7 @@ test('production runtime verifier fails closed without exposing secret values', 
   assert.match(runtimeConfigVerifier, /IMAGE_TASK_SUBMIT_PATH[\s\S]*\/v1\/tasks/);
   assert.match(runtimeConfigVerifier, /MINI_BASE_URL/);
   assert.match(runtimeConfigVerifier, /https:\/\/hgapi\.dieqiyun\.top/);
-  assert.match(runtimeConfigVerifier, /MINI_MODEL[\s\S]*gpt-5\.6-luna/);
+  assert.match(runtimeConfigVerifier, /MINI_MODEL[\s\S]*gpt-5\.5/);
   assert.match(runtimeConfigVerifier, /IMAGE_API_KEY/);
   assert.match(runtimeConfigVerifier, /MINI_API_KEY/);
   assert.match(runtimeConfigVerifier, /0o077/);

@@ -151,6 +151,43 @@ test('generation handler retries recoverable background failures and coalesces p
   assert.deepEqual(retryDelays, [25, 75]);
 });
 
+test('polling cannot restart an exhausted background run before its recovery cooldown', async () => {
+  let attempts = 0;
+  let nowMs = 1_000;
+  const task = { id: 'job-cooldown', status: 'generating', assets: [] };
+  const handlers = createEcommerceRouteHandlers({
+    orchestrator: {
+      createJob() { return { id: task.id, status: 'queued' }; },
+      async runJob() {
+        attempts += 1;
+        throw Object.assign(new Error('quality service unavailable'), {
+          code: 'QUALITY_SERVICE_UNAVAILABLE',
+          retryable: true,
+        });
+      },
+      getJob() { return task; },
+    },
+    backgroundRetryDelaysMs: [],
+    backgroundRetryCooldownMs: 100,
+    now: () => nowMs,
+    onBackgroundError: () => {},
+  });
+
+  await handlers.generate({ _userEmail: 'owner@example.com', body: {} }, responseHarness());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(attempts, 1);
+
+  handlers.getJob({ _userEmail: 'owner@example.com', params: { id: task.id } }, responseHarness());
+  handlers.getJob({ _userEmail: 'owner@example.com', params: { id: task.id } }, responseHarness());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(attempts, 1);
+
+  nowMs += 100;
+  handlers.getJob({ _userEmail: 'owner@example.com', params: { id: task.id } }, responseHarness());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(attempts, 2);
+});
+
 test('job handler delegates signed owner scope and returns durable asset progress', () => {
   const handlers = createEcommerceRouteHandlers({
     orchestrator: {

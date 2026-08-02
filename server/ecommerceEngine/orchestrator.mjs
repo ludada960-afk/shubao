@@ -35,6 +35,22 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function canDeferSemanticQualityReview(quality) {
+  if (quality?.retryable !== true || !isRecord(own(quality, 'checks'))) return false;
+  const checks = own(quality, 'checks');
+  const technical = own(checks, 'technical');
+  const productFidelity = own(checks, 'productFidelity');
+  const copyAndLogo = own(checks, 'copyAndLogo');
+  const platformCompliance = own(checks, 'platformCompliance');
+  const visualQuality = own(checks, 'visualQuality');
+  return own(technical, 'status') === 'pass'
+    && own(productFidelity, 'status') === 'unavailable'
+    && (!copyAndLogo || ['pass', 'skipped'].includes(own(copyAndLogo, 'status')))
+    && own(platformCompliance, 'status') === 'pass'
+    && own(visualQuality, 'status') === 'unavailable'
+    && own(own(visualQuality, 'details'), 'deterministicStatus') === 'pass';
+}
+
 function protectedCopyRequirements(item, productTruth) {
   const requiredText = [];
   const requiredLogos = [];
@@ -1324,23 +1340,55 @@ export function createEcommerceOrchestrator(deps = {}) {
                 ? own(previousRetry, 'attempts')
                 : 0) + 1;
               const shouldRetryNow = qualityUnavailableAttempts <= qualityUnavailableRetryDelaysMs.length;
-              current = store.checkpointAsset(job.id, item.id, {
-                requestSnapshot: {
-                  ...current.requestSnapshot,
-                  quality,
-                  qualityRetry: {
-                    status: shouldRetryNow ? 'retrying' : 'waiting',
-                    attempts,
-                    code: 'QUALITY_SERVICE_UNAVAILABLE',
-                  },
-                },
-                leaseToken,
-              });
+              const qualityRetry = {
+                status: shouldRetryNow ? 'retrying' : 'waiting',
+                attempts,
+                code: 'QUALITY_SERVICE_UNAVAILABLE',
+              };
               if (shouldRetryNow) {
+                current = store.checkpointAsset(job.id, item.id, {
+                  requestSnapshot: {
+                    ...current.requestSnapshot,
+                    quality,
+                    qualityRetry,
+                  },
+                  leaseToken,
+                });
                 const delay = qualityUnavailableRetryDelaysMs[qualityUnavailableAttempts - 1];
                 if (delay > 0) await sleep(delay);
                 continue;
               }
+              if (canDeferSemanticQualityReview(quality)) {
+                current = store.transitionAsset(job.id, item.id, 'verified', {
+                  requestSnapshot: {
+                    ...current.requestSnapshot,
+                    quality,
+                    qualityRetry: { ...qualityRetry, status: 'deferred' },
+                    qualityReview: {
+                      status: 'deferred',
+                      code: 'QUALITY_SERVICE_UNAVAILABLE',
+                      attempts,
+                    },
+                    suiteDiversity: {
+                      passed: true,
+                      deferred: true,
+                      issueCodes: [],
+                      details: { reason: 'semantic_review_unavailable' },
+                    },
+                    settlement: { stableAsset: stable.asset },
+                  },
+                  leaseToken,
+                });
+                continue;
+              }
+              current = store.checkpointAsset(job.id, item.id, {
+                requestSnapshot: {
+                  ...current.requestSnapshot,
+                  quality,
+                  qualityRetry,
+                },
+                leaseToken,
+              });
               throw Object.assign(new Error('图片分析服务暂时不可用，任务将自动继续'), {
                 code: 'QUALITY_SERVICE_UNAVAILABLE',
                 retryable: true,
@@ -2096,7 +2144,9 @@ function responseError(res, error) {
 export function createEcommerceRouteHandlers({
   orchestrator,
   backgroundRetryDelaysMs = [2_000, 8_000, 30_000],
+  backgroundRetryCooldownMs = 60_000,
   sleep = delay => new Promise(resolve => setTimeout(resolve, delay)),
+  now = Date.now,
   onBackgroundError = error => console.error('[ecommerce] background job failed:', errorMessage(error)),
 } = {}) {
   if (!orchestrator || typeof orchestrator.createJob !== 'function'
@@ -2107,14 +2157,21 @@ export function createEcommerceRouteHandlers({
     || backgroundRetryDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)) {
     throw new TypeError('backgroundRetryDelaysMs must contain non-negative safe integers');
   }
-  if (typeof sleep !== 'function' || typeof onBackgroundError !== 'function') {
-    throw new TypeError('sleep and onBackgroundError must be functions');
+  if (!Number.isSafeInteger(backgroundRetryCooldownMs) || backgroundRetryCooldownMs < 0) {
+    throw new TypeError('backgroundRetryCooldownMs must be a non-negative safe integer');
+  }
+  if (typeof sleep !== 'function' || typeof now !== 'function' || typeof onBackgroundError !== 'function') {
+    throw new TypeError('sleep, now, and onBackgroundError must be functions');
   }
   const backgroundRuns = new Map();
+  const retryAfterByJob = new Map();
   function startBackgroundRun(idInput) {
     if (typeof orchestrator.runJob !== 'function') return null;
     const id = validateId(idInput, 'job id');
     if (backgroundRuns.has(id)) return backgroundRuns.get(id);
+    const retryAfter = retryAfterByJob.get(id) ?? 0;
+    if (retryAfter > now()) return null;
+    retryAfterByJob.delete(id);
     const run = (async () => {
       for (let attempt = 0; ; attempt += 1) {
         try {
@@ -2126,7 +2183,16 @@ export function createEcommerceRouteHandlers({
         }
       }
     })()
-      .catch(onBackgroundError)
+      .then((result) => {
+        retryAfterByJob.delete(id);
+        return result;
+      })
+      .catch((error) => {
+        if (error?.retryable === true && backgroundRetryCooldownMs > 0) {
+          retryAfterByJob.set(id, now() + backgroundRetryCooldownMs);
+        }
+        return onBackgroundError(error);
+      })
       .finally(() => backgroundRuns.delete(id));
     backgroundRuns.set(id, run);
     return run;

@@ -95,6 +95,22 @@ function configureRuntimeFiles(filePaths, payload) {
   }
 }
 
+function configureRuntimeFilesFromExisting(filePaths) {
+  if (!Array.isArray(filePaths) || filePaths.length !== 2) {
+    throw new Error('exactly two runtime config files are required');
+  }
+  const configs = filePaths.map(filePath => parseEnv(fs.readFileSync(path.resolve(filePath), 'utf8')));
+  const payload = {};
+  for (const key of SECRET_KEYS) {
+    if (configs[0][key] !== configs[1][key]) {
+      throw new Error(`${key} differs between runtime config files`);
+    }
+    payload[key] = configs[0][key];
+  }
+  validateSecretPayload(payload);
+  configureRuntimeFiles(filePaths, payload);
+}
+
 async function readStdin() {
   process.stdin.setEncoding('utf8');
   let source = '';
@@ -108,9 +124,15 @@ async function readStdin() {
 }
 
 async function run(argv) {
-  const [primaryPath, flag, peerPath, ...rest] = argv;
-  if (!primaryPath || flag !== '--peer' || !peerPath || rest.length) {
-    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env>');
+  const [primaryPath, flag, peerPath, mode, ...rest] = argv;
+  if (!primaryPath || flag !== '--peer' || !peerPath || rest.length
+    || (mode && mode !== '--retain-secrets')) {
+    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env> [--retain-secrets]');
+  }
+  if (mode === '--retain-secrets') {
+    configureRuntimeFilesFromExisting([primaryPath, peerPath]);
+    console.log('Runtime gateway contract migrated while retaining existing secrets');
+    return;
   }
   let payload;
   try {
@@ -125,6 +147,7 @@ async function run(argv) {
 
 module.exports = {
   configureRuntimeFiles,
+  configureRuntimeFilesFromExisting,
   renderRuntimeConfig,
   validateSecretPayload,
 };

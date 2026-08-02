@@ -8,7 +8,7 @@ import { createVlmClient } from '../server/ecommerceEngine/vlmClient.mjs';
 const IMAGE_BASE_URL = 'https://task-api-1-cn.65535.space';
 const VISION_BASE_URL = 'https://hgapi.dieqiyun.top';
 const IMAGE_MODEL = 'gpt-image-2';
-const VISION_MODEL = 'gpt-5.6-luna';
+const VISION_MODEL = 'gpt-5.5';
 const MAX_RESULT_BYTES = 25 * 1024 * 1024;
 
 function validSecret(value) {

@@ -344,7 +344,7 @@ test('VLM client is injectable, requires explicit configuration and sends origin
 
   assert.deepEqual(result, { palette: ['#ffffff'], confidence: 0.9 });
   assert.equal(request.url, 'https://vision.example/v1/chat/completions');
-  assert.equal(request.body.model, 'gpt-5.6-luna');
+  assert.equal(request.body.model, 'gpt-5.5');
   assert.equal(request.body.messages[1].content[1].image_url.detail, 'original');
   assert.equal(request.options.headers.Authorization, 'Bearer test-only-key');
 });

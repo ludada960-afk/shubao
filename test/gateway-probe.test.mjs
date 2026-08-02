@@ -62,7 +62,7 @@ test('gateway probe validates the image model, real vision input, native task ou
     vlmFactory: config => {
       assert.equal(config.apiKey, SECRETS.visionApiKey);
       assert.equal(config.baseUrl, 'https://hgapi.dieqiyun.top');
-      assert.equal(config.model, 'gpt-5.6-luna');
+      assert.equal(config.model, 'gpt-5.5');
       return {
         async analyzeJson(request) {
           visionRequest = request;
@@ -79,7 +79,7 @@ test('gateway probe validates the image model, real vision input, native task ou
   assert.match(visionRequest.images[0], /^data:image\/png;base64,/);
   assert.deepEqual(result, {
     image: { model: 'gpt-image-2', status: 'completed', format: 'png', width: 1024, height: 1024, bytes: 4 },
-    vision: { model: 'gpt-5.6-luna', status: 'completed' },
+    vision: { model: 'gpt-5.5', status: 'completed' },
   });
   assert.equal(JSON.stringify(result).includes(SECRETS.imageApiKey), false);
   assert.equal(JSON.stringify(result).includes(SECRETS.visionApiKey), false);

@@ -442,7 +442,7 @@ const IMG_PROVIDER_PROTOCOL = String(process.env.IMAGE_PROVIDER_PROTOCOL || 'nat
 // Vision API — 商品图和参考图分析
 const MINI_KEY = process.env.MINI_API_KEY || '';
 const MINI_BASE = (process.env.MINI_BASE_URL || '').replace(/\/+$/, '');
-const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.6-luna';
+const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.5';
 const DESIGN_DIRECTION_SERVER_TIMEOUT_MS = 75_000;
 
 // ============================================================
