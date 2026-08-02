@@ -106,6 +106,51 @@ test('generation handler returns HTTP 202 queued without waiting for provider co
   });
 });
 
+test('generation handler retries recoverable background failures and coalesces polling wakeups', async () => {
+  let attempts = 0;
+  const retryDelays = [];
+  let finish;
+  const completed = new Promise(resolve => { finish = resolve; });
+  const task = { id: 'job-recoverable', status: 'generating', assets: [] };
+  const handlers = createEcommerceRouteHandlers({
+    orchestrator: {
+      createJob() {
+        return { id: task.id, status: 'queued' };
+      },
+      async runJob(id) {
+        assert.equal(id, task.id);
+        attempts += 1;
+        if (attempts < 3) {
+          throw Object.assign(new Error('quality service unavailable'), {
+            code: 'QUALITY_SERVICE_UNAVAILABLE',
+            retryable: true,
+          });
+        }
+        task.status = 'completed';
+        finish();
+        return task;
+      },
+      getJob() {
+        return task;
+      },
+    },
+    backgroundRetryDelaysMs: [25, 75],
+    sleep: async delay => { retryDelays.push(delay); },
+    onBackgroundError: error => assert.fail(error),
+  });
+
+  const generationRes = responseHarness();
+  await handlers.generate({ _userEmail: 'owner@example.com', body: {} }, generationRes);
+  const pollingRes = responseHarness();
+  handlers.getJob({ _userEmail: 'owner@example.com', params: { id: task.id } }, pollingRes);
+  await completed;
+
+  assert.equal(generationRes.statusCode, 202);
+  assert.equal(pollingRes.statusCode, 200);
+  assert.equal(attempts, 3);
+  assert.deepEqual(retryDelays, [25, 75]);
+});
+
 test('job handler delegates signed owner scope and returns durable asset progress', () => {
   const handlers = createEcommerceRouteHandlers({
     orchestrator: {

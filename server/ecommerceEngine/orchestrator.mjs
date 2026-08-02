@@ -836,6 +836,14 @@ export function createEcommerceOrchestrator(deps = {}) {
   const qualityConcurrency = Number.isSafeInteger(own(deps, 'qualityConcurrency'))
     ? Math.max(1, Math.min(2, own(deps, 'qualityConcurrency')))
     : 1;
+  const qualityUnavailableRetryDelaysMs = own(deps, 'qualityUnavailableRetryDelaysMs') ?? [1_000, 3_000];
+  if (!Array.isArray(qualityUnavailableRetryDelaysMs)
+    || qualityUnavailableRetryDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)) {
+    throw new TypeError('qualityUnavailableRetryDelaysMs must contain non-negative safe integers');
+  }
+  const sleep = typeof own(deps, 'sleep') === 'function'
+    ? own(deps, 'sleep')
+    : delay => new Promise(resolve => setTimeout(resolve, delay));
   let activeQualityReviews = 0;
   const qualityWaiters = [];
   async function acquireQualitySlot() {
@@ -1139,6 +1147,7 @@ export function createEcommerceOrchestrator(deps = {}) {
     heartbeat.unref?.();
     let compiledRequest = null;
     let stable = null;
+    let qualityUnavailableAttempts = 0;
 
     const requestForItem = async () => {
       if (!compiledRequest) {
@@ -1308,21 +1317,34 @@ export function createEcommerceOrchestrator(deps = {}) {
               quality = withSuiteDiversityFailure(quality, diversity.verdict);
             }
             if (quality.retryable === true) {
-              const error = '图片分析服务暂时不可用，请稍后重试';
-              current = store.transitionAsset(job.id, item.id, 'releasing', {
+              releaseQualitySlot();
+              qualityUnavailableAttempts += 1;
+              const previousRetry = own(current.requestSnapshot, 'qualityRetry');
+              const attempts = (Number.isSafeInteger(own(previousRetry, 'attempts'))
+                ? own(previousRetry, 'attempts')
+                : 0) + 1;
+              const shouldRetryNow = qualityUnavailableAttempts <= qualityUnavailableRetryDelaysMs.length;
+              current = store.checkpointAsset(job.id, item.id, {
                 requestSnapshot: {
                   ...current.requestSnapshot,
                   quality,
-                  release: {
-                    targetState: 'failed',
-                    reason: 'quality_service_unavailable',
-                    error,
+                  qualityRetry: {
+                    status: shouldRetryNow ? 'retrying' : 'waiting',
+                    attempts,
+                    code: 'QUALITY_SERVICE_UNAVAILABLE',
                   },
                 },
-                error,
                 leaseToken,
               });
-              continue;
+              if (shouldRetryNow) {
+                const delay = qualityUnavailableRetryDelaysMs[qualityUnavailableAttempts - 1];
+                if (delay > 0) await sleep(delay);
+                continue;
+              }
+              throw Object.assign(new Error('图片分析服务暂时不可用，任务将自动继续'), {
+                code: 'QUALITY_SERVICE_UNAVAILABLE',
+                retryable: true,
+              });
             }
             const repairAction = planRepair(quality);
             const usesDeterministicRepair = Boolean(repairAsset && repairAction.type === 'sharp_repair');
@@ -2073,11 +2095,41 @@ function responseError(res, error) {
 
 export function createEcommerceRouteHandlers({
   orchestrator,
+  backgroundRetryDelaysMs = [2_000, 8_000, 30_000],
+  sleep = delay => new Promise(resolve => setTimeout(resolve, delay)),
   onBackgroundError = error => console.error('[ecommerce] background job failed:', errorMessage(error)),
 } = {}) {
   if (!orchestrator || typeof orchestrator.createJob !== 'function'
     || typeof orchestrator.getJob !== 'function') {
     throw new TypeError('orchestrator generation methods are required');
+  }
+  if (!Array.isArray(backgroundRetryDelaysMs)
+    || backgroundRetryDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)) {
+    throw new TypeError('backgroundRetryDelaysMs must contain non-negative safe integers');
+  }
+  if (typeof sleep !== 'function' || typeof onBackgroundError !== 'function') {
+    throw new TypeError('sleep and onBackgroundError must be functions');
+  }
+  const backgroundRuns = new Map();
+  function startBackgroundRun(idInput) {
+    if (typeof orchestrator.runJob !== 'function') return null;
+    const id = validateId(idInput, 'job id');
+    if (backgroundRuns.has(id)) return backgroundRuns.get(id);
+    const run = (async () => {
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          return await orchestrator.runJob(id);
+        } catch (error) {
+          if (error?.retryable !== true || attempt >= backgroundRetryDelaysMs.length) throw error;
+          const delay = backgroundRetryDelaysMs[attempt];
+          if (delay > 0) await sleep(delay);
+        }
+      }
+    })()
+      .catch(onBackgroundError)
+      .finally(() => backgroundRuns.delete(id));
+    backgroundRuns.set(id, run);
+    return run;
   }
   function requireRetryMethod(name) {
     if (typeof orchestrator[name] !== 'function') {
@@ -2091,9 +2143,7 @@ export function createEcommerceRouteHandlers({
           ownerEmail: req?._userEmail,
           payload: req?.body ?? {},
         });
-        Promise.resolve()
-          .then(() => orchestrator.runJob(job.id))
-          .catch(onBackgroundError);
+        startBackgroundRun(job.id);
         return res.status(202).json({ taskId: job.id, status: 'queued' });
       } catch (error) {
         return responseError(res, error);
@@ -2101,9 +2151,13 @@ export function createEcommerceRouteHandlers({
     },
     getJob(req, res) {
       try {
+        const task = orchestrator.getJob(req?.params?.id, { ownerEmail: req?._userEmail });
+        if (['queued', 'analyzing', 'generating'].includes(task.status)) {
+          startBackgroundRun(task.id);
+        }
         return res.json({
           ok: true,
-          task: orchestrator.getJob(req?.params?.id, { ownerEmail: req?._userEmail }),
+          task,
         });
       } catch (error) {
         return responseError(res, error);
@@ -2141,9 +2195,7 @@ export function createEcommerceRouteHandlers({
           ownerEmail: req?._userEmail,
           billingQuoteId: req?.body?.billingQuoteId,
         });
-        Promise.resolve()
-          .then(() => orchestrator.runJob(job.id))
-          .catch(onBackgroundError);
+        startBackgroundRun(job.id);
         return res.status(202).json({ taskId: job.id, status: 'queued' });
       } catch (error) {
         return responseError(res, error);

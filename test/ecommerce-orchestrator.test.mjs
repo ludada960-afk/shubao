@@ -997,11 +997,12 @@ test('resumes after a transient legacy input read without duplicate pre-billing 
   }]);
 });
 
-test('fails without charging when protected-copy review service is unavailable', async t => {
+test('retries protected-copy review in place and settles the original stable asset after recovery', async t => {
   const item = {
     ...planItem('main-with-label'),
     requiredFacts: [{ name: 'modelName', value: 'S-100' }],
   };
+  let qualityChecks = 0;
   const { orchestrator, calls } = await createHarness(t, {
     items: [item],
     analyze: ({ payload }) => ({
@@ -1016,7 +1017,8 @@ test('fails without charging when protected-copy review service is unavailable',
     quality: ({ input }) => {
       const protectedCopyReachedGate = input.requiredText?.includes('S-100')
         && input.requiredLogos?.includes('SHUBAO');
-      return protectedCopyReachedGate
+      qualityChecks += 1;
+      return protectedCopyReachedGate && qualityChecks < 3
         ? {
             passed: false,
             retryable: true,
@@ -1031,18 +1033,23 @@ test('fails without charging when protected-copy review service is unavailable',
             confidence: 'high',
           };
     },
-    orchestratorOptions: { canRetry: () => false },
+    orchestratorOptions: {
+      canRetry: () => false,
+      qualityUnavailableRetryDelaysMs: [0, 0],
+    },
   });
   const created = orchestrator.createJob(jobInput('job-protected-copy-quality'));
 
   const result = await orchestrator.runJob(created.id);
 
-  assert.equal(result.status, 'failed');
+  assert.equal(result.status, 'completed');
+  assert.equal(calls.quality.length, 3);
   assert.deepEqual(calls.quality[0].requiredText, ['S-100']);
   assert.deepEqual(calls.quality[0].requiredLogos, ['SHUBAO']);
-  assert.equal(calls.settle.length, 0);
-  assert.equal(calls.release.length, 1);
-  assert.equal(calls.release[0].reason, 'quality_service_unavailable');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.persist.length, 1);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
 });
 
 test('always requires PNG quality output for transparent plan items', async t => {
@@ -1715,8 +1722,8 @@ test('releases the whole suite without settlement when any planned image is not 
   assert.deepEqual(lifecycle, [['terminate', 'needs_review']]);
 });
 
-test('fails and releases the whole suite when semantic review service is unavailable', async t => {
-  const { orchestrator, calls } = await createHarness(t, {
+test('preserves the whole suite for recovery when semantic review remains unavailable', async t => {
+  const { orchestrator, calls, jobs } = await createHarness(t, {
     items: [planItem('main-pass'), planItem('detail-service-unavailable', 'detail')],
     quality: ({ input }) => input.assetPlanItem.id === 'main-pass'
       ? {
@@ -1735,28 +1742,29 @@ test('fails and releases the whole suite when semantic review service is unavail
         repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
         confidence: 'medium',
       },
+    orchestratorOptions: { qualityUnavailableRetryDelaysMs: [0, 0] },
   });
 
-  const result = await orchestrator.runJob(
-    orchestrator.createJob(jobInput('job-quality-service-unavailable')).id,
+  const created = orchestrator.createJob(jobInput('job-quality-service-unavailable'));
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.code === 'QUALITY_SERVICE_UNAVAILABLE' && error?.retryable === true,
   );
 
-  assert.equal(result.status, 'failed');
+  const result = orchestrator.getJob(created.id, { ownerEmail: OWNER });
+  assert.equal(result.status, 'generating');
   assert.equal(calls.settle.length, 0);
-  assert.deepEqual(calls.release.map(call => call.itemId).sort(), [
-    'detail-service-unavailable',
-    'main-pass',
-  ]);
-  assert.equal(
-    calls.release.find(call => call.itemId === 'detail-service-unavailable').reason,
-    'quality_service_unavailable',
-  );
-  assert.equal(
-    calls.release.find(call => call.itemId === 'main-pass').reason,
-    'suite_incomplete:failed',
-  );
-  assert.ok(result.assets.every(asset => asset.state === 'failed'));
-  assert.deepEqual(Object.keys(result.output.images), []);
+  assert.equal(calls.release.length, 0);
+  assert.equal(calls.submit.length, 2);
+  assert.equal(calls.persist.length, 2);
+  assert.equal(result.assets.find(asset => asset.assetId === 'main-pass').state, 'verified');
+  const unavailable = result.assets.find(asset => asset.assetId === 'detail-service-unavailable');
+  const durableUnavailable = jobs.assets.getAsset(created.id, 'detail-service-unavailable');
+  assert.equal(unavailable.state, 'quality_check');
+  assert.match(durableUnavailable.stableUrl, /^\/api\/generated-assets\/[ab]{64}\.png$/);
+  assert.equal(durableUnavailable.requestSnapshot.qualityRetry.status, 'waiting');
+  assert.equal(durableUnavailable.requestSnapshot.qualityRetry.attempts, 3);
+  assert.deepEqual(result.output, {});
 });
 
 test('repairs a quality-rejected deliverable twice internally before completing the suite', async t => {

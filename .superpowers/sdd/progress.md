@@ -726,3 +726,16 @@
   1,021/1,021, the 6,434-module production build, build-asset verification,
   collaboration policy and whitespace checks all passed. Only the three code/
   test files and this ledger entry belong to the pending fix commit.
+- The text-drag release passed its first production Canary, but the second
+  Canary exposed a transient vision-quality outage after all three source images
+  had already been generated and persisted. The release guard rolled production
+  back cleanly. Quality-service unavailability now keeps each persisted image in
+  `quality_check`, releases the scarce quality slot while waiting, retries the
+  same image without another provider submission, and records resumable retry
+  state. Route runners coalesce concurrent polls, retry recoverable failures and
+  wake interrupted jobs from normal status polling, including after a process
+  restart. Permanent upstream outages therefore remain visible and recoverable
+  instead of converting a complete suite into `failed` or releasing its billing
+  hold. Focused orchestration and route coverage passed 98/98; the complete suite
+  passed 1,022/1,022, the 6,434-module production build, build-asset verification,
+  collaboration policy and whitespace checks all passed.
