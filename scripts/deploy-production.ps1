@@ -6,7 +6,9 @@ param(
   [string]$WebRoot = "/var/www/shubao/assets",
   [string]$RepoPath = (Join-Path $PSScriptRoot ".."),
   [ValidateRange(0, 3600)]
-  [int]$CanarySeconds = 600
+  [int]$CanarySeconds = 600,
+  [ValidateRange(0, 600)]
+  [int]$PublicWarmupSeconds = 180
 )
 
 $ErrorActionPreference = "Stop"
@@ -66,6 +68,25 @@ function Get-RemotePm2ProcessId {
     throw "Could not read the shubao PM2 process id"
   }
   return [int64]$remotePid
+}
+
+function Wait-PublicProductionReady {
+  param(
+    [Parameter(Mandatory = $true)]
+    [int]$TimeoutSeconds
+  )
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    & node -e "fetch('https://shuimg.cn/health', { signal: AbortSignal.timeout(10000) }).then(response => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1));"
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "Public production health is ready"
+      return
+    }
+    if ((Get-Date) -lt $deadline) { Start-Sleep -Seconds 5 }
+  } while ((Get-Date) -lt $deadline)
+
+  throw "Public production health did not become ready within $TimeoutSeconds seconds"
 }
 
 $hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
@@ -175,6 +196,7 @@ try {
   & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env --max-memory-restart 1G; for attempt in `$(seq 1 30); do if curl -fsS http://127.0.0.1:3001/health; then exit 0; fi; sleep 2; done; exit 1"
   if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
 
+  Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   $initialVerificationPid = Get-RemotePm2ProcessId
