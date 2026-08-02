@@ -82,6 +82,7 @@ test('separates bounded visual analysis from text-only direction planning', asyn
   assert.doesNotMatch(vision.request.systemPrompt, /deliverables/);
   assert.equal(planner.context.stage, 'planner');
   assert.deepEqual(planner.request.images, []);
+  assert.equal(planner.request.maxTokens, 1800);
   assert.match(planner.request.userPrompt, /圆柱结构/);
   assert.match(planner.request.userPrompt, /white_bg（白底图）×1/);
   assert.equal(reads.every(read => read.signal === controller.signal), true);
@@ -131,6 +132,23 @@ test('invalid planner output falls back to four deterministic complete direction
   assert.ok(result.directions.every(direction => direction.deliverables.length === 3));
   assert.equal(result.analysis.status, 'complete');
   assert.equal(result.degraded, true);
+});
+
+test('planner timeout uses the completed visual pass and local directions without degrading', async () => {
+  const { service } = serviceHarness({
+    planner: Object.assign(new Error('planner timed out'), {
+      code: 'VISUAL_ANALYSIS_TIMEOUT',
+      status: 504,
+    }),
+  });
+  const result = await service.generate(generationInput());
+
+  assert.equal(result.directions.length, 4);
+  assert.equal(result.analysis.status, 'complete');
+  assert.equal(result.planner_fallback, true);
+  assert.equal(result.degraded, false);
+  assert.deepEqual(result.degradedReasons, []);
+  assert.ok(result.directions.every(direction => direction.deliverables.length === 3));
 });
 
 test('four empty planner entries are degraded instead of being treated as a billable refresh', async () => {

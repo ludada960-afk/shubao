@@ -235,6 +235,17 @@ function plannerHasFourUsableDirections(value) {
       && cleanString(ownValue(direction, 'audience')));
 }
 
+function fallbackDirectionsAreComplete(value) {
+  return Array.isArray(value)
+    && value.length === 4
+    && value.every(direction => direction
+      && cleanString(direction.title)
+      && cleanString(direction.one_liner)
+      && Array.isArray(direction.deliverables)
+      && direction.deliverables.length > 0
+      && direction.deliverables.every(group => Array.isArray(group.shots) && group.shots.length === group.count));
+}
+
 export function createDesignDirectionService({ readImageAsDataUrl, completeText } = {}) {
   if (typeof readImageAsDataUrl !== 'function') throw new TypeError('readImageAsDataUrl is required');
   if (typeof completeText !== 'function') throw new TypeError('completeText is required');
@@ -294,7 +305,10 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
           userPrompt: buildPlannerUserPrompt(input, analysis),
           images: [],
           signal,
-          maxTokens: 2800,
+          // The planner only returns a direction skeleton; deliverables are
+          // deterministically expanded below. Keeping this compact avoids
+          // spending the entire request deadline on verbose JSON.
+          maxTokens: 1800,
           temperature: 0.25,
         }, { stage: 'planner' });
         parsedPlan = parseModelJson(response);
@@ -315,14 +329,24 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         userPrompt: description,
       });
       const plannerComplete = plannerHasFourUsableDirections(parsedPlan?.directions);
+      // A completed visual pass plus the local four-archetype plan is a usable
+      // product result even when the optional text planner times out. Do not
+      // expose a paid-looking failure for a request that already has a safe,
+      // complete set of directions; invalid model JSON remains degraded.
+      const plannerFallback = !plannerComplete
+        && plannerFailureReason === 'PLANNER_TIMEOUT'
+        && visualComplete
+        && fallbackDirectionsAreComplete(directions);
+      const effectivePlannerComplete = plannerComplete || plannerFallback;
 
       return {
         directions,
         analysis,
-        degraded: (images.length > 0 && !visualComplete) || !plannerComplete,
+        planner_fallback: plannerFallback,
+        degraded: (images.length > 0 && !visualComplete) || !effectivePlannerComplete,
         degradedReasons: [
           ...(visualComplete || images.length === 0 ? [] : [visualFailureReason]),
-          ...(plannerComplete ? [] : [plannerFailureReason || 'PLANNER_INVALID_RESPONSE']),
+          ...(effectivePlannerComplete ? [] : [plannerFailureReason || 'PLANNER_INVALID_RESPONSE']),
         ],
       };
     },

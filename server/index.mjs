@@ -3305,6 +3305,12 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
       return res.json({ ...billed.result, billing: billed.billing });
     }
     const result = await generateDesignDirections(req.body, { signal: deadline.signal });
+    if (result.planner_fallback) {
+      console.warn('[design-directions] planner fallback:', {
+        reason: 'PLANNER_TIMEOUT',
+        analysisStatus: result.analysis?.status,
+      });
+    }
     if (result.degraded) {
       console.warn('[design-directions] 降级:', {
         reasons: result.degradedReasons,

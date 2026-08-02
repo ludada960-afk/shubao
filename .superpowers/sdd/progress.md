@@ -794,3 +794,13 @@
   nodes and displacement were restored afterward; a full reload and reopen
   proved four original assets, zero temporary text objects, non-overlapping
   horizontal output geometry, four decoded images and an unscrolled stage.
+- The next production canary reached the gateway, health and billing checks but
+  rolled back because the completed visual pass was followed by a `PLANNER_TIMEOUT`
+  in the optional text-only direction planner. The direction service now treats
+  that specific case as complete when its existing deterministic four-archetype
+  fallback produces a full deliverable manifest, records a non-secret
+  `planner_fallback` flag, and reduces the planner response budget from 2,800 to
+  1,800 tokens. Invalid planner JSON and incomplete visual analysis remain
+  fail-closed. Focused direction tests pass 9/9; the full suite passes 1,036/1,036,
+  the 6,435-module production build and collaboration check pass. The change is
+  ready for one final production deployment and authenticated ecommerce canary.
