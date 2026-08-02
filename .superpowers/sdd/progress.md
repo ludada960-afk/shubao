@@ -778,3 +778,19 @@
   6,434-module production build, export, asset, collaboration and whitespace
   gates pass. This fix is ready for the sole production deployment script and a
   final authenticated browser acceptance pass.
+- The sole production deployment completed for `cb2faf2` after exchanging a new
+  owner verification code for the short-lived Canary session. Its release gate
+  passed 1,025/1,025 tests and the 6,434-module production build; the deployed
+  process passed health, authenticated billing, public asset and two complete
+  ecommerce production verifiers, including the 600-second Canary window. In
+  the authenticated production browser at 150% zoom, creating and focusing a
+  text object kept the stage at `scrollTop=0` with computed `overflow:clip`;
+  its node and contextual composer stayed visible and moved together during a
+  real pointer drag. Image selection exposed the complete commerce toolbar,
+  right-click exposed the non-duplicated object menu, double-click opened the
+  large preview, the node port exposed only copy/image/ecommerce derivations,
+  and Shift selection exposed the complete multi-object toolbar. A real image
+  drag moved geometry and its SVG connection path in the same frame. The test
+  nodes and displacement were restored afterward; a full reload and reopen
+  proved four original assets, zero temporary text objects, non-overlapping
+  horizontal output geometry, four decoded images and an unscrolled stage.
