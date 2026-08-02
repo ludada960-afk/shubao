@@ -45,6 +45,9 @@ test('Canvas pixel transforms honor requested grid size and split direction', as
   assert.match(route, /pixelActions\s*=\s*new Set\(\[['"]crop['"],\s*['"]grid-split['"],\s*['"]split-image['"],\s*['"]annotation['"]\]\)/);
   assert.match(route, /gridRects\(width, height, gridSize, gridSize\)/);
   assert.match(route, /gridRects\(width, height, direction === ['"]vertical['"] \? 2 : 1, direction === ['"]horizontal['"] \? 2 : 1\)/);
+  assert.match(route, /crop_rect:\s*cropRect/);
+  assert.match(route, /split_position:\s*splitPosition/);
+  assert.match(route, /annotations\s*=\s*\[\]/);
 });
 
 test('Canvas layer analysis stays semantic and does not claim PSD capability', async () => {

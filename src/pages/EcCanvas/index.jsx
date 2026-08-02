@@ -59,6 +59,7 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, getContextPanelPosition, isCanvasConnectionVisible, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextNode, createUploadedImageNodes, resizeCanvasNode } from './canvasStudioModel.js';
+import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -507,6 +508,7 @@ export default function EcCanvas() {
   const [promptLoading, setPromptLoading] = useState(false);
   const [textComposerNodeId, setTextComposerNodeId] = useState(null);
   const [textComposerValue, setTextComposerValue] = useState('');
+  const [editingTextNodeId, setEditingTextNodeId] = useState(null);
   const [focusedEditor, setFocusedEditor] = useState(null);
   const [imageInfoNode, setImageInfoNode] = useState(null);
   const [imageInfoName, setImageInfoName] = useState('');
@@ -533,6 +535,7 @@ export default function EcCanvas() {
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+  const multiSelectionBounds = selectedCanvasBounds(nodes, multiSelected);
   const focusedEditorNode = focusedEditor ? nodes.find(node => node.id === focusedEditor.nodeId) : null;
   const textComposerNode = textComposerNodeId ? nodes.find(node => node.id === textComposerNodeId) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
@@ -665,6 +668,16 @@ export default function EcCanvas() {
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
   }, []);
+
+  useEffect(() => {
+    if (!editingTextNodeId) return undefined;
+    const frame = requestAnimationFrame(() => {
+      containerRef.current
+        ?.querySelector(`[data-canvas-node-id="${editingTextNodeId}"] [contenteditable="true"]`)
+        ?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editingTextNodeId]);
 
   const handleLayerSelect = useCallback(nodeId => {
     setNodes(previous => previous.map(node => node.id === nodeId && node.hidden
@@ -826,6 +839,7 @@ export default function EcCanvas() {
       }
     }
     const interactiveTarget = e.target?.closest?.('button,input,textarea,select,a,[contenteditable="true"],[data-canvas-control="true"]');
+    if (!interactiveTarget && editingTextNodeId) setEditingTextNodeId(null);
     const intent = getCanvasPointerIntent({
       button: e.button,
       shiftKey: e.shiftKey,
@@ -847,7 +861,7 @@ export default function EcCanvas() {
       setAddMenuOpen(false);
     }
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [activeTool, spacePressed, toWorldPoint, viewport.x, viewport.y]);
+  }, [activeTool, editingTextNodeId, spacePressed, toWorldPoint, viewport.x, viewport.y]);
 
   const handlePointerMove = useCallback((e) => {
     if (!pointerMode) return;
@@ -950,7 +964,9 @@ export default function EcCanvas() {
       action: { type: action.type || 'canvas-action', nodeId: action.nodeId || '', currency: 'ec_points' },
     });
     if (accessResult) return true;
-    showToast(error?.message || '处理失败，请重试', 'error');
+    const rawMessage = String(error?.message || '');
+    const isUpstreamCredentialError = /(?:401|403|authentication|api\s*key|invalid[_\s-]*(?:key|token)|credential)/i.test(rawMessage);
+    showToast(isUpstreamCredentialError ? 'AI 服务暂时不可用，请稍后重试' : (rawMessage || '处理失败，请重试'), 'error');
     return false;
   }, [dispatch, result.product_name, showToast, state.phone]);
 
@@ -1434,9 +1450,18 @@ export default function EcCanvas() {
         mode: handler,
         nodeId: node.id,
         options: handler === 'crop'
-          ? { ratio: node.ratio || '原比例' }
+          ? { ratio: '原比例', cropRect: { x: 0, y: 0, w: 1, h: 1 } }
           : handler === 'grid-split' ? { grid: 3 }
-            : handler === 'split-image' ? { direction: 'vertical' }
+            : handler === 'split-image' ? { direction: 'vertical', splitPosition: 0.5 }
+              : handler === 'annotation' ? {
+                annotationTool: 'pen',
+                annotationColor: '#ef4444',
+                annotationWidth: 3,
+                annotation: '',
+                annotations: [],
+                annotationHistory: [],
+                annotationFuture: [],
+              }
               : {},
       });
       return;
@@ -1579,7 +1604,7 @@ export default function EcCanvas() {
         if (!data.prompt) throw new Error('未得到可编辑的提示词');
         setNodes(previous => previous.map(item => item.id === textNode.id ? { ...item, status: 'ready', text: data.prompt, name: '画面提示词' } : item));
       } catch (error) {
-        setNodes(previous => previous.map(item => item.id === textNode.id ? { ...item, status: 'error', text: error.message || '分析失败，请重试' } : item));
+        setNodes(previous => previous.map(item => item.id === textNode.id ? { ...item, status: 'error', text: '画面分析暂时不可用，请稍后重试' } : item));
         handleCanvasActionError(error, { type: 'reverse-prompt', nodeId: node.id });
       }
       return;
@@ -1621,7 +1646,7 @@ export default function EcCanvas() {
         setNodes(prev => prev.map(n => n.id === node.id ? { ...n, layers: data.layers || [], layerStatus: data.status || '已识别' } : n));
         showToast(`已识别 ${data.layers?.length || 0} 个图层`, 'success');
       } catch (error) {
-        showToast(error.message || '图层分析失败', 'error');
+        showToast('图层分析暂时不可用，请稍后重试', 'error');
       } finally {
         setPromptLoading(false);
       }
@@ -1669,25 +1694,42 @@ export default function EcCanvas() {
         grid: options.grid,
         direction: options.direction,
         annotation: options.annotation,
+        annotations: options.annotations,
+        cropRect: options.cropRect,
+        splitPosition: options.splitPosition,
       });
       const urls = [response?.url, ...(response?.urls || []).map(item => typeof item === 'string' ? item : item?.url)].filter(Boolean);
       if (!urls.length) throw new Error('图片处理没有返回结果');
       const createdAt = Date.now();
-      const children = urls.map((url, index) => normalizeCanvasNode({
-        ...source,
-        id: `node_${action}_${createdAt}_${index + 1}`,
-        assetId: `asset_${action}_${createdAt}_${index + 1}`,
-        kind: 'image',
-        status: 'ready',
-        url,
-        x: source.x + source.w + 56 + index * (source.w + 28),
-        y: source.y,
-        ratio: options.ratio && options.ratio !== '原比例' ? options.ratio : source.ratio,
-        name: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
-        displayLabel: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
-        sourceNodeIds: [source.id],
-        showMeta: true,
-      }));
+      const occupied = [...nodes];
+      const bounds = containerRef.current?.getBoundingClientRect();
+      const children = urls.map((url, index) => {
+        const position = findCanvasBlankPlacement({
+          width: source.w,
+          height: source.h,
+          viewport,
+          bounds,
+          nodes: occupied,
+          sourceNode: index === 0 ? source : occupied.at(-1),
+          gap: 28,
+        });
+        const child = normalizeCanvasNode({
+          ...source,
+          id: `node_${action}_${createdAt}_${index + 1}`,
+          assetId: `asset_${action}_${createdAt}_${index + 1}`,
+          kind: 'image',
+          status: 'ready',
+          url,
+          ...position,
+          ratio: options.ratio && options.ratio !== '原比例' ? options.ratio : source.ratio,
+          name: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
+          displayLabel: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
+          sourceNodeIds: [source.id],
+          showMeta: true,
+        });
+        occupied.push(child);
+        return child;
+      });
       setNodes(previous => [...previous, ...children]);
       setConnections(previous => children.reduce((current, child) => addConnection(current, source.id, child.id, action), previous));
       setSelected(children[0].id);
@@ -1834,15 +1876,21 @@ export default function EcCanvas() {
   };
 
   const createComposerPlacement = useCallback((width, height, placement = {}) => {
-    if (Number.isFinite(placement.x) && Number.isFinite(placement.y)) return { x: placement.x, y: placement.y };
     const source = placement.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : selectedNode;
-    if (source) return { x: source.x + source.w + 64, y: source.y };
     const bounds = containerRef.current?.getBoundingClientRect();
-    return {
-      x: ((bounds?.width || 960) / 2 - viewport.x) / viewport.scale - width / 2,
-      y: ((bounds?.height || 640) / 2 - viewport.y) / viewport.scale - height / 2,
-    };
-  }, [nodes, selectedNode, viewport.scale, viewport.x, viewport.y]);
+    return findCanvasBlankPlacement({
+      width,
+      height,
+      viewport,
+      bounds,
+      nodes,
+      sourceNode: source,
+      preferred: Number.isFinite(placement.x) && Number.isFinite(placement.y)
+        ? { x: placement.x, y: placement.y }
+        : undefined,
+      gap: 32,
+    });
+  }, [nodes, selectedNode, viewport]);
 
   const addCanvasComposer = useCallback((kind, placement = {}) => {
     const sourceNodeId = placement.sourceNodeId || selectedNode?.id || '';
@@ -2017,25 +2065,38 @@ export default function EcCanvas() {
     const bounds = containerRef.current?.getBoundingClientRect();
     const width = 420;
     const height = 180;
-    const hasExplicitPosition = Number.isFinite(placement?.x) && Number.isFinite(placement?.y);
-    const x = hasExplicitPosition ? placement.x : ((bounds?.width || 960) / 2 - viewport.x) / viewport.scale - width / 2;
-    const y = hasExplicitPosition ? placement.y : ((bounds?.height || 640) / 2 - viewport.y) / viewport.scale - height / 2;
+    const source = placement?.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : undefined;
+    const position = findCanvasBlankPlacement({
+      width,
+      height,
+      viewport,
+      bounds,
+      nodes,
+      sourceNode: source,
+      preferred: Number.isFinite(placement?.x) && Number.isFinite(placement?.y)
+        ? { x: placement.x, y: placement.y }
+        : undefined,
+      gap: 32,
+    });
     const textNode = createCanvasTextNode({
-      x,
-      y,
+      ...position,
       sourceNodeId: placement?.sourceNodeId,
     });
     setNodes(previous => [...previous, textNode]);
     setSelected(textNode.id);
     setMultiSelected(new Set([textNode.id]));
-    setTextComposerNodeId(textNode.id);
-    setTextComposerValue('');
+    if (placement?.openComposer) {
+      setTextComposerNodeId(textNode.id);
+      setTextComposerValue('');
+    } else {
+      setEditingTextNodeId(textNode.id);
+    }
     if (placement?.sourceNodeId) {
       setConnections(previous => addConnection(previous, placement.sourceNodeId, textNode.id, 'derived'));
     }
     setActiveTool('select');
     return textNode;
-  }, [viewport.scale, viewport.x, viewport.y]);
+  }, [nodes, viewport]);
 
   const handleTextNodeChange = useCallback((nodeId, text) => {
     setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text, name: text.trim().split(/\r?\n/)[0]?.slice(0, 32) || '文本' } : node));
@@ -2479,7 +2540,7 @@ export default function EcCanvas() {
             </div>
           )}
 
-          <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
+          <div style={{ '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale), position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
             <ConnectionDraftLine draft={connectionDraft} nodes={connectionNodes} />
             {visibleNodes.map(node => {
@@ -2525,10 +2586,13 @@ export default function EcCanvas() {
                   key={node.id}
                   node={node}
                   selected={selectedNodeState}
+                  editing={editingTextNodeId === node.id}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
                   onChange={handleTextNodeChange}
                   onSelect={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); }}
+                  onDoubleClick={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); setEditingTextNodeId(nodeId); }}
+                  onBlur={nodeId => setEditingTextNodeId(current => current === nodeId ? null : current)}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
@@ -2626,10 +2690,17 @@ export default function EcCanvas() {
                 />
               </div>;
             })}
-            <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} onAction={handleMultiSelectionAction} />
-            {multiSelected.size <= 1 && selectedNode && !['text', 'image-composer', 'suite-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
-            {multiSelected.size <= 1 && selectedNode?.kind === 'text' && <CanvasTextToolbar
+            {!focusedEditor && multiSelected.size > 1 && multiSelectionBounds && <div
+              className="ec-canvas-multi-selection-box"
+              aria-hidden="true"
+              style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
+            />}
+            {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
+            {!focusedEditor && multiSelected.size <= 1 && selectedNode && !['text', 'image-composer', 'suite-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {!focusedEditor && multiSelected.size <= 1 && selectedNode?.kind === 'text' && <CanvasTextToolbar
               node={selectedNode}
+              viewport={viewport}
+              bounds={containerRef.current?.getBoundingClientRect()}
               onStyleChange={change => setNodes(previous => previous.map(node => node.id === selectedNode.id ? { ...node, textStyle: { ...(node.textStyle || {}), ...change } } : node))}
               onDuplicate={() => handleToolAction(getCanvasAction('duplicate'), selectedNode)}
               onFullscreen={() => setTextInspectorNodeId(selectedNode.id)}
@@ -2666,7 +2737,7 @@ export default function EcCanvas() {
               onClose={() => { setConnectionPicker(null); setConnectionDraft(null); }}
               onSelect={action => {
                 if (action.id === 'text-generation') {
-                  handleAddTextNode({ ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
+                  handleAddTextNode({ ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId, openComposer: true });
                 } else if (action.id === 'ecommerce-suite') {
                   addCanvasComposer('suite', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (action.id === 'image-edit' && connectionPicker.mode !== 'image-editor') {
@@ -2681,16 +2752,15 @@ export default function EcCanvas() {
                 setConnectionDraft(null);
               }}
             />}
+            <CanvasFocusedEditor
+              mode={focusedEditor?.mode}
+              node={focusedEditorNode}
+              options={focusedEditor?.options}
+              onOptionChange={options => setFocusedEditor(previous => previous ? { ...previous, options } : previous)}
+              onCancel={() => setFocusedEditor(null)}
+              onConfirm={handleFocusedEditorConfirm}
+            />
           </div>
-
-          <CanvasFocusedEditor
-            mode={focusedEditor?.mode}
-            node={focusedEditorNode}
-            options={focusedEditor?.options}
-            onOptionChange={options => setFocusedEditor(previous => previous ? { ...previous, options } : previous)}
-            onCancel={() => setFocusedEditor(null)}
-            onConfirm={handleFocusedEditorConfirm}
-          />
 
           {marquee && (
             <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: Math.abs(marquee.w) * viewport.scale, height: Math.abs(marquee.h) * viewport.scale, transform: `translate(${marquee.w < 0 ? marquee.w * viewport.scale : 0}px,${marquee.h < 0 ? marquee.h * viewport.scale : 0})`, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />

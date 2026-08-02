@@ -70,8 +70,8 @@ function Get-RemotePm2ProcessId {
 
 $hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
 $hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
-if ($hasImageGatewayKey -xor $hasVisionGatewayKey) {
-  throw "SHUBAO_IMAGE_API_KEY and SHUBAO_VISION_API_KEY must be provided together"
+if ($hasImageGatewayKey -and -not $hasVisionGatewayKey) {
+  throw "SHUBAO_IMAGE_API_KEY requires SHUBAO_VISION_API_KEY"
 }
 if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
   & node $gatewayProbe --validate-only
@@ -91,6 +91,9 @@ try {
 if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
   & node $gatewayProbe
   if ($LASTEXITCODE -ne 0) { throw "Authenticated production gateway probe failed" }
+} elseif ($hasVisionGatewayKey) {
+  & node $gatewayProbe --vision-only
+  if ($LASTEXITCODE -ne 0) { throw "Authenticated production vision gateway probe failed" }
 }
 
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
@@ -130,29 +133,39 @@ try {
   )
   & scp @ssh @uploadSources "$target`:$remoteRuntimeHelperDir/"
   if ($LASTEXITCODE -ne 0) { throw "Release payload upload failed" }
-  & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
-  if ($LASTEXITCODE -ne 0) {
+  if ($hasVisionGatewayKey) {
     & ssh @ssh $target "set -e; umask 077; test ! -e '$remoteRuntimeConfigBackup'; mkdir -m 700 '$remoteRuntimeConfigBackup'; cp '$RemoteDir/.env' '$remoteRuntimeConfigBackup/root.env'; cp '$RemoteDir/server/.env' '$remoteRuntimeConfigBackup/server.env'; chmod 600 '$remoteRuntimeConfigBackup/root.env' '$remoteRuntimeConfigBackup/server.env'"
     if ($LASTEXITCODE -ne 0) { throw "Runtime configuration backup failed" }
     $runtimeConfigBackupCreated = $true
     $runtimeConfigTouched = $true
-    & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --retain-secrets"
-    if ($LASTEXITCODE -ne 0) {
-      & ssh @ssh $target "set -e; cp '$remoteRuntimeConfigBackup/root.env' '$RemoteDir/.env'; cp '$remoteRuntimeConfigBackup/server.env' '$RemoteDir/server/.env'; chmod 600 '$RemoteDir/.env' '$RemoteDir/server/.env'"
-      if ($LASTEXITCODE -ne 0) { throw "Runtime configuration restore failed after retained-secret migration" }
-      if ([string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY) -or [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)) {
-        throw "Production runtime gateway configuration is not ready and existing secrets could not be retained"
-      }
+    if ($hasImageGatewayKey) {
       $runtimePayload = @{
         IMAGE_API_KEY = $env:SHUBAO_IMAGE_API_KEY
         MINI_API_KEY = $env:SHUBAO_VISION_API_KEY
       } | ConvertTo-Json -Compress
       $runtimePayload | & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env"
-      Remove-Variable runtimePayload -ErrorAction SilentlyContinue
-      if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration update failed" }
+    } else {
+      $runtimePayload = @{
+        MINI_API_KEY = $env:SHUBAO_VISION_API_KEY
+      } | ConvertTo-Json -Compress
+      $runtimePayload | & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --replace-vision-key"
     }
+    Remove-Variable runtimePayload -ErrorAction SilentlyContinue
+    if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration update failed" }
     & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
     if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration verification failed after update" }
+  } else {
+    & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
+    if ($LASTEXITCODE -ne 0) {
+      & ssh @ssh $target "set -e; umask 077; test ! -e '$remoteRuntimeConfigBackup'; mkdir -m 700 '$remoteRuntimeConfigBackup'; cp '$RemoteDir/.env' '$remoteRuntimeConfigBackup/root.env'; cp '$RemoteDir/server/.env' '$remoteRuntimeConfigBackup/server.env'; chmod 600 '$remoteRuntimeConfigBackup/root.env' '$remoteRuntimeConfigBackup/server.env'"
+      if ($LASTEXITCODE -ne 0) { throw "Runtime configuration backup failed" }
+      $runtimeConfigBackupCreated = $true
+      $runtimeConfigTouched = $true
+      & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --retain-secrets"
+      if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway retained-secret migration failed" }
+      & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
+      if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration verification failed after migration" }
+    }
   }
   $remoteStamp = "$stamp-$commit"
   $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"

@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const {
   configureRuntimeFiles,
   configureRuntimeFilesFromExisting,
+  replaceVisionSecret,
   renderRuntimeConfig,
   validateSecretPayload,
 } = require('../scripts/configure-runtime-gateways.cjs');
@@ -78,7 +79,7 @@ test('runtime updater migrates the gateway contract while retaining existing pro
   const peer = join(directory, 'server.env');
   const legacy = [
     'PORT=3001',
-    'MINI_MODEL=gpt-5.6-luna',
+    'MINI_MODEL=gpt-5.5',
     `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}`,
     `MINI_API_KEY=${SECRETS.MINI_API_KEY}`,
     '',
@@ -91,7 +92,7 @@ test('runtime updater migrates the gateway contract while retaining existing pro
 
     const migrated = parseEnv(readFileSync(primary, 'utf8'));
     assert.doesNotThrow(() => verifyRuntimeConfigFiles(primary, peer));
-    assert.equal(migrated.MINI_MODEL, 'gpt-5.5');
+    assert.equal(migrated.MINI_MODEL, 'gpt-5.6-luna');
     assert.equal(migrated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
     assert.equal(migrated.MINI_API_KEY, SECRETS.MINI_API_KEY);
     assert.equal(migrated.PORT, '3001');
@@ -111,6 +112,56 @@ test('runtime updater refuses to retain divergent peer secrets', () => {
     assert.throws(
       () => configureRuntimeFilesFromExisting([primary, peer]),
       /MINI_API_KEY differs between runtime config files/i,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('runtime updater replaces only the vision secret while retaining the image secret', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-vision-'));
+  const primary = join(directory, '.env');
+  const peer = join(directory, 'server.env');
+  const legacy = [
+    'PORT=3001',
+    'MINI_BASE_URL=https://old-vision.example',
+    'MINI_MODEL=gpt-5.5',
+    `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}`,
+    `MINI_API_KEY=${SECRETS.MINI_API_KEY}`,
+    '',
+  ].join('\n');
+  try {
+    writeFileSync(primary, legacy, { mode: 0o600 });
+    writeFileSync(peer, legacy, { mode: 0o600 });
+
+    replaceVisionSecret([primary, peer], { MINI_API_KEY: 'production-vision-key-that-is-long-enough' });
+
+    const updated = parseEnv(readFileSync(primary, 'utf8'));
+    assert.doesNotThrow(() => verifyRuntimeConfigFiles(primary, peer));
+    assert.equal(updated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
+    assert.equal(updated.MINI_API_KEY, 'production-vision-key-that-is-long-enough');
+    assert.equal(updated.MINI_BASE_URL, 'https://api2.65535.space');
+    assert.equal(updated.MINI_MODEL, 'gpt-5.6-luna');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('vision-only replacement rejects unexpected fields and divergent image secrets', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-vision-divergent-'));
+  const primary = join(directory, '.env');
+  const peer = join(directory, 'server.env');
+  try {
+    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\n`, { mode: 0o600 });
+    writeFileSync(peer, 'IMAGE_API_KEY=another-image-key-that-is-long-enough\nMINI_API_KEY=another-vision-key-that-is-long-enough\n', { mode: 0o600 });
+
+    assert.throws(
+      () => replaceVisionSecret([primary, peer], { MINI_API_KEY: 'production-vision-key-that-is-long-enough' }),
+      /IMAGE_API_KEY differs between runtime config files/i,
+    );
+    assert.throws(
+      () => replaceVisionSecret([primary, primary], { MINI_API_KEY: SECRETS.MINI_API_KEY, EXTRA: 'nope' }),
+      /unexpected fields/i,
     );
   } finally {
     rmSync(directory, { recursive: true, force: true });

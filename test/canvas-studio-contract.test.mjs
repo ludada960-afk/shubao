@@ -11,6 +11,12 @@ import {
   getCanvasNodePresentation,
   resizeCanvasNode,
 } from '../src/pages/EcCanvas/canvasStudioModel.js';
+import {
+  createCanvasAnnotation,
+  findCanvasBlankPlacement,
+  normalizeCanvasCropRect,
+  updateCanvasAnnotation,
+} from '../src/pages/EcCanvas/canvasInlineEditorModel.js';
 
 test('node presentation makes hover, selection and relation focus explicit', () => {
   assert.deepEqual(getCanvasNodePresentation({ selected: false, hovered: false, focusActive: false }), {
@@ -133,14 +139,13 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.match(source, /ec-canvas-add-menu/);
   assert.match(source, /ec-canvas-object-toolbar/);
   assert.match(source, /ec-canvas-derive-menu/);
-  assert.match(source, /contentEditable/);
+  assert.match(source, /contentEditable=\{editing\}/);
   assert.match(source, /CanvasMultiSelectionToolbar/);
   assert.match(source, /CanvasTextComposer/);
   assert.match(source, /CanvasImageComposer/);
   assert.match(source, /CanvasEcommerceComposer/);
   assert.match(source, /CanvasFocusedEditor/);
-  assert.match(source, /className="ec-canvas-text-drag-handle"/);
-  assert.match(source, /aria-label="拖动文本"/);
+  assert.match(source, /onDoubleClick/);
   assert.match(source, /onPointerDown\?\.\(event, node\.id\)/);
   assert.doesNotMatch(source, /<header>\s*文本\s*<\/header>/);
 });
@@ -184,12 +189,41 @@ test('focused editing exposes complete functional annotation and geometry contro
   assert.match(source, /aria-label="垂直偏移"/);
   assert.match(page, /applyCanvasMoveScale/);
   assert.match(page, /focusedEditor\.mode === 'move-scale'[\s\S]*?setNodes/);
+  assert.match(source, /onPointerMove/);
+  assert.match(source, /annotations\.map/);
+  assert.doesNotMatch(source, /aria-modal="true"/);
+});
+
+test('inline annotation geometry supports pen, rectangle, arrow, and text', () => {
+  const base = { color: '#ef4444', width: 4 };
+  const pen = createCanvasAnnotation('pen', { x: 0.1, y: 0.2 }, base);
+  assert.deepEqual(updateCanvasAnnotation(pen, { x: 0.4, y: 0.6 }).points.at(-1), { x: 0.4, y: 0.6 });
+  const rectangle = updateCanvasAnnotation(createCanvasAnnotation('rectangle', { x: 0.8, y: 0.7 }, base), { x: 0.2, y: 0.3 });
+  assert.deepEqual({ x: rectangle.x, y: rectangle.y, w: rectangle.w, h: rectangle.h }, { x: 0.2, y: 0.3, w: 0.6, h: 0.4 });
+  const arrow = updateCanvasAnnotation(createCanvasAnnotation('arrow', { x: 0.2, y: 0.3 }, base), { x: 0.9, y: 0.8 });
+  assert.deepEqual({ x1: arrow.x1, y1: arrow.y1, x2: arrow.x2, y2: arrow.y2 }, { x1: 0.2, y1: 0.3, x2: 0.9, y2: 0.8 });
+  assert.equal(createCanvasAnnotation('text', { x: 0.5, y: 0.5 }, { ...base, text: '材质细节' }).text, '材质细节');
+});
+
+test('inline crop and blank placement stay normalized and avoid occupied canvas objects', () => {
+  assert.deepEqual(normalizeCanvasCropRect({ x: -1, y: 0.9, w: 2, h: 0.5 }), { x: 0, y: 0.9, w: 1, h: 0.1 });
+  const placement = findCanvasBlankPlacement({
+    width: 260,
+    height: 180,
+    viewport: { x: 0, y: 0, scale: 1 },
+    bounds: { width: 1200, height: 800 },
+    nodes: [{ id: 'source', x: 420, y: 260, w: 260, h: 260 }],
+    sourceNode: { id: 'source', x: 420, y: 260, w: 260, h: 260 },
+  });
+  assert.ok(placement.x >= 24 && placement.y >= 24);
+  assert.equal(placement.x < 680 && placement.x + 260 > 420 && placement.y < 520 && placement.y + 180 > 260, false);
 });
 
 test('new canvas surfaces have a complete responsive visual contract', () => {
   const css = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   for (const className of [
-    'ec-canvas-multi-toolbar',
+  'ec-canvas-multi-toolbar',
+    'ec-canvas-multi-selection-box',
     'ec-canvas-node-composer',
     'ec-canvas-image-composer',
     'ec-canvas-suite-composer',
@@ -201,6 +235,7 @@ test('new canvas surfaces have a complete responsive visual contract', () => {
   }
   assert.doesNotMatch(css, /\.ec-canvas-lane-label\s*\{/);
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-node-composer/);
+  assert.doesNotMatch(css, /\.ec-canvas-focused-editor\s*\{[^}]*inset:\s*0/);
 });
 
 test('the primary add rail has a generous Liuying-style hit target', () => {

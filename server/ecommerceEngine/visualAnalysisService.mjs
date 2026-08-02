@@ -278,7 +278,7 @@ export function createVisualAnalysisService({
   store,
   readAsset,
   callVision,
-  model = 'gpt-5.5',
+  model = 'gpt-5.6-luna',
   promptVersion = 'visual-analysis-v1',
 } = {}) {
   if (!store || typeof store.get !== 'function' || typeof store.put !== 'function') {

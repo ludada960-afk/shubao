@@ -105,6 +105,31 @@ export function getContextPanelPosition({ node = {}, viewport = {}, bounds = {},
   };
 }
 
+export function getCanvasToolbarPosition({ node = {}, viewport = {}, bounds = {}, width = 520, height = 50 } = {}) {
+  const scale = Math.max(0.01, finite(viewport.scale, 1));
+  const viewportWidth = finite(bounds.width, 1440);
+  const viewportHeight = finite(bounds.height, 900);
+  const gutter = 12 / scale;
+  const toolbarWidth = Math.min(Math.max(180, finite(width, 520)), Math.max(180, viewportWidth / scale - gutter * 2));
+  const toolbarHeight = Math.max(36, finite(height, 50));
+  const visibleLeft = -finite(viewport.x) / scale + gutter;
+  const visibleTop = -finite(viewport.y) / scale + gutter;
+  const visibleRight = (viewportWidth - finite(viewport.x)) / scale - gutter;
+  const visibleBottom = (viewportHeight - finite(viewport.y)) / scale - gutter;
+  const anchorX = finite(node.x) + Math.max(1, finite(node.w, 1)) / 2;
+  const centeredX = Math.min(visibleRight - toolbarWidth / 2, Math.max(visibleLeft + toolbarWidth / 2, anchorX));
+  const aboveBottom = finite(node.y) - 14;
+  const belowBottom = finite(node.y) + Math.max(1, finite(node.h, 1)) + 14 + toolbarHeight / scale;
+  const aboveTop = aboveBottom - toolbarHeight / scale;
+  const preferredBottom = aboveTop >= visibleTop ? aboveBottom : belowBottom;
+  const minBottom = visibleTop + toolbarHeight / scale;
+  const maxBottom = visibleBottom + toolbarHeight / scale;
+  return {
+    left: roundCoordinate(centeredX),
+    top: roundCoordinate(Math.min(maxBottom, Math.max(minBottom, preferredBottom))),
+  };
+}
+
 export function moveCanvasNodes(nodes = [], selectedIds = new Set(), delta = {}) {
   const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
   const dx = finite(delta.x);

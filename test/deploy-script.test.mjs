@@ -27,7 +27,9 @@ test('production deploy protects runtime state and has a reversible release gate
     deploy.indexOf('& node $gatewayProbe --validate-only') < deploy.indexOf('Write-Host "Building $commit..."'),
     'gateway credential format validation must run before the full build gate',
   );
-  assert.match(deploy, /SHUBAO_IMAGE_API_KEY and SHUBAO_VISION_API_KEY must be provided together/i);
+  assert.match(deploy, /SHUBAO_IMAGE_API_KEY requires SHUBAO_VISION_API_KEY/i);
+  assert.match(deploy, /--vision-only/i);
+  assert.match(deploy, /--replace-vision-key/i);
   assert.match(deploy, /Authenticated production gateway probe failed/i);
   assert.match(deploy, /shubao-runtime-tools/i);
   assert.match(deploy, /remoteRuntimeHelperDir\/verify-runtime-config\.cjs/i);
@@ -108,8 +110,8 @@ test('production runtime verifier fails closed without exposing secret values', 
   assert.match(runtimeConfigVerifier, /IMAGE_PROVIDER_PROTOCOL[\s\S]*native-tasks/);
   assert.match(runtimeConfigVerifier, /IMAGE_TASK_SUBMIT_PATH[\s\S]*\/v1\/tasks/);
   assert.match(runtimeConfigVerifier, /MINI_BASE_URL/);
-  assert.match(runtimeConfigVerifier, /https:\/\/hgapi\.dieqiyun\.top/);
-  assert.match(runtimeConfigVerifier, /MINI_MODEL[\s\S]*gpt-5\.5/);
+  assert.match(runtimeConfigVerifier, /https:\/\/api2\.65535\.space/);
+  assert.match(runtimeConfigVerifier, /MINI_MODEL[\s\S]*gpt-5\.6-luna/);
   assert.match(runtimeConfigVerifier, /IMAGE_API_KEY/);
   assert.match(runtimeConfigVerifier, /MINI_API_KEY/);
   assert.match(runtimeConfigVerifier, /0o077/);

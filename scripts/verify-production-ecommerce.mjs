@@ -28,16 +28,55 @@ function safeAsset(asset, label) {
   return { assetId, url };
 }
 
-function canaryPayload({ product, reference, quoteId }) {
+function designDirectionPayload({ product, reference }) {
+  return {
+    product_name: '生产验收红苹果',
+    category: '食品饮料',
+    platform: '淘宝',
+    description: '真实展示红苹果的颜色、果形和新鲜质感，三张图片承担不同电商职责。',
+    real_shots: [product.url],
+    ref_shots: [reference.url],
+    requested_images: [
+      { key: 'main_text', label: '商品主图', count: 1, ratio: '1:1' },
+      { key: 'detail', label: '详情图', count: 1, ratio: '3:4' },
+      { key: 'white_background', label: '白底图', count: 1, ratio: '1:1' },
+    ],
+  };
+}
+
+function assertDirectionContract(response) {
+  if (response?.degraded !== false || response?.analysis?.status !== 'complete') {
+    throw new Error('Ecommerce production canary direction analysis was degraded');
+  }
+  if (!Array.isArray(response.directions) || response.directions.length !== 4) {
+    throw new Error('Ecommerce production canary did not receive exactly four directions');
+  }
+  const expected = new Map([['main_text', 1], ['detail', 1], ['white_background', 1]]);
+  for (const direction of response.directions) {
+    if (!String(direction?.id || '').trim() || !String(direction?.title || '').trim()) {
+      throw new Error('Ecommerce production canary received an invalid direction identity');
+    }
+    const deliverables = Array.isArray(direction.deliverables) ? direction.deliverables : [];
+    for (const [role, count] of expected) {
+      const group = deliverables.find(item => item?.role === role);
+      if (group?.count !== count || !Array.isArray(group.shots) || group.shots.length !== count
+        || group.shots.some(shot => !String(shot?.label || '').trim())) {
+        throw new Error(`Ecommerce production canary direction is missing ${role}`);
+      }
+    }
+  }
+  return response.directions[0];
+}
+
+function canaryPayload({ product, reference, quoteId, direction }) {
   return {
     product_name: '生产验收红苹果',
     category: '食品饮料',
     platform: '淘宝',
     selling_points: '红色苹果，新鲜果实，部署验收专用素材。',
     direction: {
-      id: 'production-canary',
-      title: '真实商品展示',
-      editableBrief: '展示红苹果的真实外观，三个独立电商用途，不使用拼贴。',
+      ...direction,
+      editableBrief: direction.execution_guide || '展示红苹果的真实外观，三个独立电商用途，不使用拼贴。',
     },
     assets: {
       product: [product],
@@ -287,6 +326,12 @@ export async function verifyProductionEcommerce({
     uploadCanaryAsset({ root, headers, role: 'product', fixturePath, request }),
     uploadCanaryAsset({ root, headers, role: 'reference', fixturePath, request }),
   ]);
+  const directionResponse = await request(`${root}/api/ecommerce/design-directions`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify(designDirectionPayload({ product, reference })),
+  });
+  const direction = assertDirectionContract(directionResponse);
   const quote = await request(`${root}/api/billing/quote`, {
     method: 'POST',
     headers: { ...headers, 'content-type': 'application/json' },
@@ -298,7 +343,7 @@ export async function verifyProductionEcommerce({
   const started = await request(`${root}/api/generate-ecommerce`, {
     method: 'POST',
     headers: { ...headers, 'content-type': 'application/json' },
-    body: JSON.stringify(canaryPayload({ product, reference, quoteId: quote.quote.quoteId })),
+    body: JSON.stringify(canaryPayload({ product, reference, quoteId: quote.quote.quoteId, direction })),
   });
   const taskId = requiredString(started?.taskId, 'Ecommerce production canary task ID');
 

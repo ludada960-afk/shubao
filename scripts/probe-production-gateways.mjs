@@ -6,9 +6,9 @@ import { createProviderAdapter } from '../server/ecommerceEngine/providerAdapter
 import { createVlmClient } from '../server/ecommerceEngine/vlmClient.mjs';
 
 const IMAGE_BASE_URL = 'https://task-api-1-cn.65535.space';
-const VISION_BASE_URL = 'https://hgapi.dieqiyun.top';
+const VISION_BASE_URL = 'https://api2.65535.space';
 const IMAGE_MODEL = 'gpt-image-2';
-const VISION_MODEL = 'gpt-5.5';
+const VISION_MODEL = 'gpt-5.6-luna';
 const MAX_RESULT_BYTES = 25 * 1024 * 1024;
 
 function validSecret(value) {
@@ -17,12 +17,16 @@ function validSecret(value) {
     && !/[\r\n\0]/.test(value);
 }
 
+function validateVisionSecret(visionApiKey) {
+  if (!validSecret(visionApiKey)) throw new Error('vision gateway credential is invalid');
+  return visionApiKey.trim();
+}
+
 export function validateProbeSecrets({ imageApiKey, visionApiKey } = {}) {
   if (!validSecret(imageApiKey)) throw new Error('image gateway credential is invalid');
-  if (!validSecret(visionApiKey)) throw new Error('vision gateway credential is invalid');
   return {
     imageApiKey: imageApiKey.trim(),
-    visionApiKey: visionApiKey.trim(),
+    visionApiKey: validateVisionSecret(visionApiKey),
   };
 }
 
@@ -96,6 +100,36 @@ export async function inspectGeneratedImage(buffer, sharpImpl = sharp) {
   return { format, width, height };
 }
 
+export async function probeVisionGateway({
+  visionApiKey,
+  visionBaseUrl = VISION_BASE_URL,
+  visionModel = VISION_MODEL,
+  fetchImpl = fetch,
+  vlmFactory = createVlmClient,
+  createProbeImageImpl = createProbeImage,
+} = {}) {
+  const secret = validateVisionSecret(visionApiKey);
+  const sourceBuffer = await stage('probe image preparation', () => createProbeImageImpl());
+  if (!Buffer.isBuffer(sourceBuffer) || !sourceBuffer.length) {
+    throw new Error('probe image preparation failed');
+  }
+  const sourceDataUri = `data:image/png;base64,${sourceBuffer.toString('base64')}`;
+  const visionClient = vlmFactory({
+    fetchImpl,
+    apiKey: secret,
+    baseUrl: String(visionBaseUrl || '').replace(/\/+$/, ''),
+    model: visionModel,
+    timeoutMs: 90_000,
+  });
+  const visionResult = await stage('vision image-input probe', () => visionClient.analyzeJson({
+    systemPrompt: 'Return only one JSON object. Do not use Markdown.',
+    userPrompt: 'Inspect the image. Return exactly {"probe":"ok","visibleColor":"red"} when a red square is visible.',
+    images: [sourceDataUri],
+  }));
+  if (visionResult?.probe !== 'ok') throw new Error('vision image-input validation failed');
+  return { model: visionModel, status: 'completed' };
+}
+
 function validateResultUrl(value) {
   let url;
   try { url = new URL(value); } catch { throw new Error('generated result URL is invalid'); }
@@ -136,7 +170,6 @@ export async function probeGateways({
 } = {}) {
   const secrets = validateProbeSecrets({ imageApiKey, visionApiKey });
   const normalizedImageBase = String(imageBaseUrl || '').replace(/\/+$/, '');
-  const normalizedVisionBase = String(visionBaseUrl || '').replace(/\/+$/, '');
 
   const imageModels = await stage('image model discovery', () => (
     fetchJson(fetchImpl, `${normalizedImageBase}/v1/models`, secrets.imageApiKey)
@@ -147,21 +180,14 @@ export async function probeGateways({
   if (!Buffer.isBuffer(sourceBuffer) || !sourceBuffer.length) {
     throw new Error('probe image preparation failed');
   }
-  const sourceDataUri = `data:image/png;base64,${sourceBuffer.toString('base64')}`;
-
-  const visionClient = vlmFactory({
+  const vision = await probeVisionGateway({
+    visionApiKey: secrets.visionApiKey,
+    visionBaseUrl,
+    visionModel,
     fetchImpl,
-    apiKey: secrets.visionApiKey,
-    baseUrl: normalizedVisionBase,
-    model: visionModel,
-    timeoutMs: 90_000,
+    vlmFactory,
+    createProbeImageImpl: async () => sourceBuffer,
   });
-  const visionResult = await stage('vision image-input probe', () => visionClient.analyzeJson({
-    systemPrompt: 'Return only one JSON object. Do not use Markdown.',
-    userPrompt: 'Inspect the image. Return exactly {"probe":"ok","visibleColor":"red"} when a red square is visible.',
-    images: [sourceDataUri],
-  }));
-  if (visionResult?.probe !== 'ok') throw new Error('vision image-input validation failed');
 
   const adapter = adapterFactory({
     baseUrl: normalizedImageBase,
@@ -200,13 +226,18 @@ export async function probeGateways({
       ...metadata,
       bytes: resultBuffer.length,
     },
-    vision: { model: visionModel, status: 'completed' },
+    vision,
   };
 }
 
 async function run(argv = process.argv.slice(2)) {
-  if (argv.length > 1 || (argv.length === 1 && argv[0] !== '--validate-only')) {
-    throw new Error('usage: node probe-production-gateways.mjs [--validate-only]');
+  if (argv.length > 1 || (argv.length === 1 && !['--validate-only', '--vision-only'].includes(argv[0]))) {
+    throw new Error('usage: node probe-production-gateways.mjs [--validate-only|--vision-only]');
+  }
+  if (argv[0] === '--vision-only') {
+    const result = await probeVisionGateway({ visionApiKey: process.env.SHUBAO_VISION_API_KEY });
+    console.log(JSON.stringify({ vision: result }));
+    return;
   }
   const secrets = validateProbeSecrets({
     imageApiKey: process.env.SHUBAO_IMAGE_API_KEY,

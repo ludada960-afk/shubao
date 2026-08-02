@@ -316,7 +316,7 @@ test('rejects every explicitly supplied malformed product or style asset', async
   }
 });
 
-test('VLM client is injectable, requires explicit configuration and sends original detail', async () => {
+test('VLM client is injectable, requires explicit configuration and preserves role-aware image detail', async () => {
   assert.throws(
     () => createVlmClient({ apiKey: '', baseUrl: '' }),
     error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE' && error?.status === 503,
@@ -339,13 +339,19 @@ test('VLM client is injectable, requires explicit configuration and sends origin
   const result = await client.analyzeJson({
     systemPrompt: 'Return JSON only.',
     userPrompt: 'Analyze style.',
-    images: ['data:image/png;base64,AA=='],
+    images: [
+      { url: 'data:image/png;base64,AA==', detail: 'high' },
+      { url: 'data:image/png;base64,BB==', detail: 'low' },
+      'data:image/png;base64,CC==',
+    ],
   });
 
   assert.deepEqual(result, { palette: ['#ffffff'], confidence: 0.9 });
   assert.equal(request.url, 'https://vision.example/v1/chat/completions');
-  assert.equal(request.body.model, 'gpt-5.5');
-  assert.equal(request.body.messages[1].content[1].image_url.detail, 'original');
+  assert.equal(request.body.model, 'gpt-5.6-luna');
+  assert.equal(request.body.messages[1].content[1].image_url.detail, 'high');
+  assert.equal(request.body.messages[1].content[2].image_url.detail, 'low');
+  assert.equal(request.body.messages[1].content[3].image_url.detail, 'auto');
   assert.equal(request.options.headers.Authorization, 'Bearer test-only-key');
 });
 
@@ -433,7 +439,7 @@ test('VLM client aborts a bounded request and clears its timeout', async () => {
       userPrompt: 'Analyze style.',
       images: ['data:image/png;base64,AA=='],
     }),
-    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE' && error?.status === 503,
+    error => error?.code === 'VISUAL_ANALYSIS_TIMEOUT' && error?.status === 504,
   );
 
   assert.equal(scheduledMs, 25);

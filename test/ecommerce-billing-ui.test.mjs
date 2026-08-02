@@ -591,6 +591,7 @@ test('design-direction refresh is settled server-side against the signed owner',
   assert.match(routeSource, /billing_action_id/);
   assert.match(routeSource, /createVlmDeadline\(\{\s*timeoutMs:\s*DESIGN_DIRECTION_SERVER_TIMEOUT_MS/);
   assert.match(routeSource, /generateDesignDirections\(req\.body,\s*\{\s*signal:\s*deadline\.signal\s*\}\)/);
+  assert.match(routeSource, /if \(result\.degraded\)[\s\S]*DIRECTION_REFRESH_DEGRADED/);
   assert.match(routeSource, /deadline\.cleanup\(\)/);
 });
 

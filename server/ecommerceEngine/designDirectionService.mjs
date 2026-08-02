@@ -1,6 +1,6 @@
 import { normalizeCreativeDirectionPlans } from './creativeDirectionPlan.mjs';
 
-const MAX_IMAGES_PER_ROLE = 8;
+const MAX_IMAGES_PER_ROLE = 4;
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function isRecord(value) {
@@ -68,6 +68,11 @@ function sanitizeAnalysis(value, status = 'complete') {
   };
 }
 
+function analysisHasContent(analysis) {
+  return ['product_observations', 'product_uncertainties', 'reference_style', 'commercial_opportunities']
+    .some(key => Array.isArray(analysis?.[key]) && analysis[key].length > 0);
+}
+
 function normalizeImageUrls(value) {
   const values = Array.isArray(value) ? value : [];
   const seen = new Set();
@@ -79,13 +84,13 @@ function normalizeImageUrls(value) {
   }).slice(0, MAX_IMAGES_PER_ROLE);
 }
 
-async function resolveRoleImages(urls, readImageAsDataUrl, signal) {
+async function resolveRoleImages(urls, readImageAsDataUrl, signal, detail) {
   const results = [];
   for (const url of urls) {
     if (signal?.aborted) throw signal.reason || Object.assign(new Error('设计方向分析已取消'), { name: 'AbortError' });
     try {
       const dataUrl = await readImageAsDataUrl(url, { signal });
-      if (dataUrl) results.push(dataUrl);
+      if (dataUrl) results.push({ url: dataUrl, detail });
     } catch (error) {
       if (signal?.aborted || error?.name === 'AbortError') throw signal?.reason || error;
     }
@@ -104,87 +109,13 @@ function requestedSuiteSummary(value) {
   }).filter(Boolean).join('；') || '使用系统智能套图配置';
 }
 
-function buildSystemPrompt() {
-  return `你是一名兼具电商策略、视觉设计、商品摄影和转化经验的创意总监。你要在一次分析中完成商品观察、参考风格提取，并输出恰好四套针对当前商品的可执行设计方案。
-
-图片角色规则：
-1. “商品事实图”决定商品身份、颜色、比例、结构、可见组件和可验证状态。
-2. “视觉参考图”只用于提取构图、光线、色彩、场景和信息层级，不能把参考图里的竞品、Logo、包装或结构替换到当前商品。
-3. 看不清或无法确认的尺寸、成分、认证、性能和内部结构必须写入 product_uncertainties，不能当作事实。
-
-四套方向必须分别从商业策略上形成显著差异，而不只是换色。每套都要具体说明卖给谁、解决什么购买问题、怎样呈现商品，以及当前套图配置里的每一张图要做什么。不得修改图片类型、数量和比例，不得增加视频、工作流或未请求的交付物。
-
-每张图必须有独立职责、画面执行方式和变化点；详情图一屏只讲一个主题，不能要求一次生成整张长详情页。所有方案都要保留商品真实性，并明确一致性锁、禁止风格和风险约束。
-
-只返回 JSON，不要 Markdown，不要解释。结构如下：
-{
-  "analysis": {
-    "product_observations": ["只写可见或用户确认的信息"],
-    "product_uncertainties": ["无法确认的信息"],
-    "reference_style": ["可借鉴的视觉特征"],
-    "commercial_opportunities": ["可表达的购买机会"]
-  },
-  "directions": [{
-    "schema_version": 1,
-    "id": "stable-id",
-    "title": "4-10字方案名",
-    "one_liner": "一句话说明整套方案如何卖货",
-    "commercial_objective": "明确商业目标",
-    "audience": "明确目标受众",
-    "visual_tone": ["关键词1", "关键词2", "关键词3"],
-    "visual_system": {
-      "palette": ["#RRGGBB", "#RRGGBB", "#RRGGBB"],
-      "lighting": "光线策略",
-      "composition": "整套构图系统",
-      "camera_language": "镜头语言",
-      "background_language": "背景语言",
-      "typography_intent": "文字和版式意图",
-      "information_density": "信息密度",
-      "mood": "氛围",
-      "copy_tone": "文案语气"
-    },
-    "product_strategy": {
-      "hero_focus": "主视觉聚焦什么",
-      "angle_plan": "如何安全变化角度",
-      "interaction_plan": "如何展示可确认的使用或组件状态",
-      "scenario_plan": "选择什么真实场景",
-      "reference_adaptation": "如何借鉴参考图但不复制竞品"
-    },
-    "deliverables": [{
-      "role": "必须使用用户配置里的 role",
-      "group_strategy": "该组图片的整体策略",
-      "shots": [{
-        "index": 0,
-        "label": "准确中文标题",
-        "purpose": "这张图解决的购买问题",
-        "visual_execution": "具体画面、构图、光线、场景和文字安排",
-        "variation_key": "与同组其他图片不同的变化点",
-        "depends_on": ["product_truth", "campaign_bible"]
-      }]
-    }],
-    "consistency_locks": ["整套必须保持的规则"],
-    "prohibited_styles": ["不允许的表达"],
-    "risk_guards": ["事实和参考图边界"],
-    "execution_guide": "用户可编辑的整套执行说明",
-    "preview_colors": ["#RRGGBB", "#RRGGBB", "#RRGGBB"]
-  }]
-}`;
-}
-
-function buildUserPrompt(input, productCount, referenceCount) {
-  const productStart = productCount > 0 ? 1 : 0;
-  const productEnd = productCount;
-  const referenceStart = referenceCount > 0 ? productCount + 1 : 0;
-  const referenceEnd = productCount + referenceCount;
+function productFacts(input) {
   const productParams = isRecord(ownValue(input, 'product_params', 'productParams'))
     ? ownValue(input, 'product_params', 'productParams')
     : {};
   const copywriting = isRecord(ownValue(input, 'copywriting')) ? ownValue(input, 'copywriting') : {};
   const skus = Array.isArray(ownValue(input, 'skus')) ? ownValue(input, 'skus') : [];
-
   return [
-    productCount > 0 ? `图片 ${productStart}-${productEnd}：商品事实图，只用于识别当前商品。` : '没有商品事实图，只能依据用户明确文字，不得猜测商品外观。',
-    referenceCount > 0 ? `图片 ${referenceStart}-${referenceEnd}：视觉参考图，只借鉴视觉语言。` : '没有视觉参考图，请根据品类和用户需求建立原创视觉方向。',
     `商品名称：${cleanString(ownValue(input, 'product_name', 'productName')) || '未指定'}`,
     `品类：${cleanString(ownValue(input, 'category')) || '其他'}`,
     `目标平台：${cleanString(ownValue(input, 'platform')) || '智能推荐'}`,
@@ -194,10 +125,114 @@ function buildUserPrompt(input, productCount, referenceCount) {
     `尺寸：${cleanString(ownValue(productParams, 'size')) || '未确认'}`,
     `用户卖点：${cleanString(ownValue(copywriting, 'sellingPoints', 'selling_points')) || '未填写'}`,
     `用户策划补充：${cleanString(ownValue(copywriting, 'plan')) || '未填写'}`,
-    `SKU：${skus.map(sku => isRecord(sku) ? [ownValue(sku, 'color'), ownValue(sku, 'size'), ownValue(sku, 'capacity')].map(cleanString).filter(Boolean).join('/') : '').filter(Boolean).join('、') || '未配置'}`,
-    `权威套图配置：${requestedSuiteSummary(ownValue(input, 'requested_images', 'requestedImages'))}`,
-    '请按上述配置输出恰好四套完整方案。每个 deliverable 的 shots 数量必须等于该组配置数量。',
+    `SKU：${skus.map(sku => (isRecord(sku)
+      ? [ownValue(sku, 'color'), ownValue(sku, 'size'), ownValue(sku, 'capacity')]
+        .map(value => cleanString(value)).filter(Boolean).join('/')
+      : '')).filter(Boolean).join('、') || '未配置'}`,
   ].join('\n');
+}
+
+function buildVisionSystemPrompt() {
+  return `你是电商商品事实与视觉参考分析师。只完成图片观察，不生成设计方案，不规划逐张交付物。
+
+商品事实图用于确认当前商品的颜色、结构、比例、可见组件和可见状态；视觉参考图只提取构图、光线、色彩、场景和信息层级，不能把竞品、Logo、包装或结构当成当前商品事实。无法确认的尺寸、成分、认证、性能和内部结构必须列为不确定项。
+
+只返回 JSON，不要 Markdown：
+{
+  "product_observations": ["可见或用户明确确认的事实，最多8条"],
+  "product_uncertainties": ["不能从图片确认的内容，最多6条"],
+  "reference_style": ["可迁移的视觉语言，最多8条"],
+  "commercial_opportunities": ["基于可见事实可表达的购买机会，最多6条"]
+}`;
+}
+
+function buildVisionUserPrompt(input, productCount, referenceCount) {
+  const productEnd = productCount;
+  const referenceStart = productCount + 1;
+  const referenceEnd = productCount + referenceCount;
+  return [
+    productCount > 0
+      ? `图片 1-${productEnd}：商品事实图，只用于识别当前商品。`
+      : '没有商品事实图，只能依据用户明确文字，不得猜测商品外观。',
+    referenceCount > 0
+      ? `图片 ${referenceStart}-${referenceEnd}：视觉参考图，只借鉴视觉语言。`
+      : '没有视觉参考图，请不要虚构参考风格。',
+    productFacts(input),
+  ].join('\n');
+}
+
+function buildPlannerSystemPrompt() {
+  return `你是兼具电商策略、视觉设计、商品摄影和转化经验的创意总监。根据已整理的商品事实、视觉参考和用户需求，输出恰好四套商业策略显著不同的设计方向。这里只规划方向骨架，不生成逐张图片清单；系统会依据权威套图配置补全每张图的职责。
+
+所有方向都必须保留商品真实性，不得捏造性能、认证、材质或不可见结构。四套方向不能只是换颜色，要在受众、购买问题、场景、镜头语言或信息策略上真正不同。
+
+只返回 JSON，不要 Markdown：
+{
+  "directions": [{
+    "id": "stable-id",
+    "title": "4-10字方案名",
+    "one_liner": "一句话说明如何卖货",
+    "commercial_objective": "商业目标",
+    "audience": "目标受众",
+    "visual_tone": ["关键词1", "关键词2", "关键词3"],
+    "visual_system": {
+      "palette": ["#RRGGBB", "#RRGGBB", "#RRGGBB"],
+      "lighting": "光线策略",
+      "composition": "构图系统",
+      "camera_language": "镜头语言",
+      "background_language": "背景语言",
+      "typography_intent": "版式意图",
+      "information_density": "信息密度",
+      "mood": "氛围",
+      "copy_tone": "文案语气"
+    },
+    "product_strategy": {
+      "hero_focus": "主视觉重点",
+      "angle_plan": "安全变化角度的方法",
+      "interaction_plan": "可确认的使用或组件状态",
+      "scenario_plan": "真实场景",
+      "reference_adaptation": "借鉴参考但不复制竞品的方法"
+    },
+    "consistency_locks": ["整套必须保持的规则"],
+    "prohibited_styles": ["不允许的表达"],
+    "risk_guards": ["事实与参考图边界"],
+    "execution_guide": "可编辑的整套执行说明",
+    "preview_colors": ["#RRGGBB", "#RRGGBB", "#RRGGBB"]
+  }]
+}`;
+}
+
+function buildPlannerUserPrompt(input, analysis) {
+  const analysisSummary = analysis.status === 'complete'
+    ? JSON.stringify({
+      product_observations: analysis.product_observations,
+      product_uncertainties: analysis.product_uncertainties,
+      reference_style: analysis.reference_style,
+      commercial_opportunities: analysis.commercial_opportunities,
+    })
+    : '视觉分析暂不可用。仅依据以下用户明确文字规划，不得猜测商品外观或性能。';
+  return [
+    productFacts(input),
+    `视觉分析：${analysisSummary}`,
+    `权威套图配置：${requestedSuiteSummary(ownValue(input, 'requested_images', 'requestedImages'))}`,
+    '请输出恰好四套方向。不要输出 deliverables 或逐张图片清单。',
+  ].join('\n');
+}
+
+function isCancelled(error, signal) {
+  return Boolean(signal?.aborted || error?.name === 'AbortError' || error?.code === 'VISUAL_ANALYSIS_ABORTED');
+}
+
+function plannerHasFourUsableDirections(value) {
+  return Array.isArray(value)
+    && value.length === 4
+    && value.every(direction => direction
+      && typeof direction === 'object'
+      && !Array.isArray(direction)
+      && cleanString(ownValue(direction, 'title'))
+      && cleanString(ownValue(direction, 'one_liner'))
+      && cleanString(ownValue(direction, 'commercial_objective'))
+      && cleanString(ownValue(direction, 'audience')));
 }
 
 export function createDesignDirectionService({ readImageAsDataUrl, completeText } = {}) {
@@ -215,31 +250,62 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
       }
 
       const [productImages, referenceImages] = await Promise.all([
-        resolveRoleImages(productUrls, readImageAsDataUrl, signal),
-        resolveRoleImages(referenceUrls, readImageAsDataUrl, signal),
+        resolveRoleImages(productUrls, readImageAsDataUrl, signal, 'high'),
+        resolveRoleImages(referenceUrls, readImageAsDataUrl, signal, 'low'),
       ]);
       const images = [...productImages, ...referenceImages];
-      const response = await completeText({
-        systemPrompt: buildSystemPrompt(),
-        userPrompt: buildUserPrompt(input, productImages.length, referenceImages.length),
-        images,
-        signal,
-        maxTokens: 8000,
-        temperature: 0.25,
-      });
-      const parsed = parseModelJson(response);
+      let analysis = sanitizeAnalysis(null, 'fallback');
+      let visualComplete = images.length === 0;
+      if (images.length > 0) {
+        try {
+          const response = await completeText({
+            systemPrompt: buildVisionSystemPrompt(),
+            userPrompt: buildVisionUserPrompt(input, productImages.length, referenceImages.length),
+            images,
+            signal,
+            maxTokens: 900,
+            temperature: 0.1,
+          }, { stage: 'vision' });
+          const parsed = parseModelJson(response);
+          const candidate = sanitizeAnalysis(parsed, 'complete');
+          if (parsed && analysisHasContent(candidate)) {
+            analysis = candidate;
+            visualComplete = true;
+          }
+        } catch (error) {
+          if (isCancelled(error, signal)) throw error;
+        }
+      }
+
+      let parsedPlan = null;
+      try {
+        const response = await completeText({
+          systemPrompt: buildPlannerSystemPrompt(),
+          userPrompt: buildPlannerUserPrompt(input, analysis),
+          images: [],
+          signal,
+          maxTokens: 2800,
+          temperature: 0.25,
+        }, { stage: 'planner' });
+        parsedPlan = parseModelJson(response);
+      } catch (error) {
+        if (isCancelled(error, signal)) throw error;
+      }
+
       const requestedImages = ownValue(input, 'requested_images', 'requestedImages');
-      const directions = normalizeCreativeDirectionPlans(parsed?.directions, {
+      const directions = normalizeCreativeDirectionPlans(parsedPlan?.directions, {
         requestedImages,
         productName,
         category: cleanString(ownValue(input, 'category')),
         platform: cleanString(ownValue(input, 'platform')),
         userPrompt: description,
       });
+      const plannerComplete = plannerHasFourUsableDirections(parsedPlan?.directions);
 
       return {
         directions,
-        analysis: sanitizeAnalysis(parsed?.analysis, parsed ? 'complete' : 'fallback'),
+        analysis,
+        degraded: (images.length > 0 && !visualComplete) || !plannerComplete,
       };
     },
   };

@@ -11,8 +11,8 @@ const EXPECTED_RUNTIME_CONFIG = Object.freeze({
   IMAGE_EDIT_PATH: '/v1/images/edits',
   IMAGE_TASK_PATH: '/v1/tasks/{id}',
   IMAGE_MODEL: 'gpt-image-2',
-  MINI_BASE_URL: 'https://hgapi.dieqiyun.top',
-  MINI_MODEL: 'gpt-5.5',
+  MINI_BASE_URL: 'https://api2.65535.space',
+  MINI_MODEL: 'gpt-5.6-luna',
 });
 
 const REQUIRED_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY']);

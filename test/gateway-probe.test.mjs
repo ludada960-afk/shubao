@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { probeGateways, validateProbeSecrets } from '../scripts/probe-production-gateways.mjs';
+import { probeGateways, probeVisionGateway, validateProbeSecrets } from '../scripts/probe-production-gateways.mjs';
 
 const SECRETS = Object.freeze({
   imageApiKey: 'sk-image-test-key-that-is-long-enough',
@@ -61,8 +61,8 @@ test('gateway probe validates the image model, real vision input, native task ou
     },
     vlmFactory: config => {
       assert.equal(config.apiKey, SECRETS.visionApiKey);
-      assert.equal(config.baseUrl, 'https://hgapi.dieqiyun.top');
-      assert.equal(config.model, 'gpt-5.5');
+      assert.equal(config.baseUrl, 'https://api2.65535.space');
+      assert.equal(config.model, 'gpt-5.6-luna');
       return {
         async analyzeJson(request) {
           visionRequest = request;
@@ -79,12 +79,12 @@ test('gateway probe validates the image model, real vision input, native task ou
   assert.match(visionRequest.images[0], /^data:image\/png;base64,/);
   assert.deepEqual(result, {
     image: { model: 'gpt-image-2', status: 'completed', format: 'png', width: 1024, height: 1024, bytes: 4 },
-    vision: { model: 'gpt-5.5', status: 'completed' },
+    vision: { model: 'gpt-5.6-luna', status: 'completed' },
   });
   assert.equal(JSON.stringify(result).includes(SECRETS.imageApiKey), false);
   assert.equal(JSON.stringify(result).includes(SECRETS.visionApiKey), false);
   assert.equal(fetchCalls.length, 2);
-  assert.equal(fetchCalls.some(call => call.url === 'https://hgapi.dieqiyun.top/v1/models'), false);
+  assert.equal(fetchCalls.some(call => call.url === 'https://api2.65535.space/v1/models'), false);
 });
 
 test('gateway probe rejects missing, short, or line-breaking credentials before network access', () => {
@@ -97,6 +97,22 @@ test('gateway probe rejects missing, short, or line-breaking credentials before 
     () => validateProbeSecrets({ ...SECRETS, imageApiKey: `${SECRETS.imageApiKey}\nINJECTED=yes` }),
     /image gateway credential/i,
   );
+});
+
+test('vision-only probe validates the replacement credential without requiring the image credential', async () => {
+  const result = await probeVisionGateway({
+    visionApiKey: SECRETS.visionApiKey,
+    createProbeImageImpl: async () => Buffer.from('probe-image'),
+    vlmFactory: config => {
+      assert.equal(config.baseUrl, 'https://api2.65535.space');
+      assert.equal(config.model, 'gpt-5.6-luna');
+      assert.equal(config.apiKey, SECRETS.visionApiKey);
+      return { async analyzeJson() { return { probe: 'ok', visibleColor: 'red' }; } };
+    },
+  });
+
+  assert.deepEqual(result, { model: 'gpt-5.6-luna', status: 'completed' });
+  assert.equal(JSON.stringify(result).includes(SECRETS.visionApiKey), false);
 });
 
 test('gateway probe masks provider response details at each external stage', async () => {

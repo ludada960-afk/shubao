@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   AlignCenter,
   AlignLeft,
@@ -13,7 +13,6 @@ import {
   FileText,
   FolderOpen,
   Grid2X2,
-  GripHorizontal,
   ImagePlus,
   Info,
   Italic,
@@ -40,7 +39,8 @@ import {
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import { getCanvasNodePresentation } from '../canvasStudioModel.js';
-import { multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
+import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
+import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
 
 const ACTION_ICONS = {
   'edit-text': FileText,
@@ -63,7 +63,7 @@ const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImagePlus },
   { id: 'works', label: '从作品导入', description: '使用已生成的作品继续创作', icon: FolderOpen },
   { id: 'image', label: '生成图片', description: '用提示词或引用素材创建新图片', icon: WandSparkles },
-  { id: 'text', label: '生成文案', description: '添加卖点、标题或生成要求', icon: FileText },
+  { id: 'text', label: '添加文字', description: '在画布中添加可编辑文字', icon: FileText },
   { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: Sparkles },
 ];
 
@@ -78,18 +78,20 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
   </div>;
 }
 
-export function CanvasObjectToolbar({ node, actions = [], onAction }) {
+export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction }) {
   if (!node || !actions.length) return null;
+  const estimatedWidth = actions.reduce((total, action) => total + (['crop', 'split-image', 'download', 'delete'].includes(action.id) ? 48 : Math.max(88, String(action.label || '').length * 13 + 46)), 10);
   return <div
     className="ec-canvas-object-toolbar"
     role="toolbar"
     aria-label={`${node.name || node.displayLabel || '对象'}工具`}
-    style={{ left: node.x + node.w / 2, top: node.y - 14 }}
+    style={getCanvasToolbarPosition({ node, viewport, bounds, width: estimatedWidth, height: 48 })}
   >
     {actions.map(action => {
       const Icon = ACTION_ICONS[action.id] || WandSparkles;
-      return <button key={action.id} type="button" title={action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action, node)}>
-        <Icon size={15} /><span>{action.label}</span>
+      const compact = ['crop', 'split-image', 'download', 'delete'].includes(action.id);
+      return <button key={action.id} type="button" className={compact ? 'is-compact' : ''} aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action, node)}>
+        <Icon size={16} />{!compact && <span>{action.label}</span>}
       </button>;
     })}
   </div>;
@@ -111,7 +113,7 @@ export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用�
   </div>;
 }
 
-export function CanvasTextToolbar({ node, onStyleChange, onDuplicate, onFullscreen, onDelete }) {
+export function CanvasTextToolbar({ node, viewport, bounds, onStyleChange, onDuplicate, onFullscreen, onDelete }) {
   if (!node) return null;
   const style = node.textStyle || {};
   const controls = [
@@ -120,7 +122,7 @@ export function CanvasTextToolbar({ node, onStyleChange, onDuplicate, onFullscre
     { id: 'center', label: '居中', icon: AlignCenter, active: style.textAlign === 'center', change: { textAlign: 'center' } },
     { id: 'right', label: '右对齐', icon: AlignRight, active: style.textAlign === 'right', change: { textAlign: 'right' } },
   ];
-  return <div className="ec-canvas-text-toolbar" role="toolbar" aria-label="文本样式" style={{ left: node.x + node.w / 2, top: node.y - 14 }}>
+  return <div className="ec-canvas-text-toolbar" role="toolbar" aria-label="文本样式" style={getCanvasToolbarPosition({ node, viewport, bounds, width: 600, height: 48 })}>
     <label className="ec-canvas-text-color" title="文字颜色"><input type="color" aria-label="文字颜色" value={style.color || '#20242a'} onChange={event => onStyleChange?.({ color: event.target.value })} /></label>
     {['H1', 'H2', 'H3', '正文'].map((label, index) => {
       const block = ['h1', 'h2', 'h3', 'body'][index];
@@ -150,11 +152,11 @@ const MULTI_ICONS = {
   'delete-selection': Trash2,
 };
 
-export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(), onAction }) {
+export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(), viewport, bounds: containerBounds, onAction }) {
   const bounds = selectedCanvasBounds(nodes, selectedIds);
   const count = selectedIds instanceof Set ? selectedIds.size : (selectedIds || []).length;
   if (!bounds || count < 2) return null;
-  return <div className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={{ left: bounds.x + bounds.w / 2, top: bounds.y - 16 }}>
+  return <div className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: 680, height: 46 })}>
     <strong>{count} 个已选中</strong>
     {multiSelectionActionsForNodes(nodes, selectedIds).map(action => {
       const Icon = MULTI_ICONS[action.id] || WandSparkles;
@@ -269,45 +271,125 @@ const FOCUSED_EDITOR_LABELS = {
 };
 
 export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, onCancel, onConfirm }) {
+  const gestureRef = useRef(null);
   if (!mode || !node?.url) return null;
   const isGrid = mode === 'grid-split';
   const isSplit = mode === 'split-image';
   const isAnnotation = mode === 'annotation';
   const isMoveScale = mode === 'move-scale';
   const ratios = mode === 'crop' ? ['原比例', '自由', '1:1', '3:4', '4:3', '9:16'] : [];
-  const updateAnnotation = value => onOptionChange?.({
+  const annotations = options.annotations || [];
+  const cropRect = normalizeCanvasCropRect(options.cropRect || { x: 0.08, y: 0.08, w: 0.84, h: 0.84 });
+  const pointFromEvent = event => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return normalizeCanvasPoint({
+      x: (event.clientX - bounds.left) / Math.max(1, bounds.width),
+      y: (event.clientY - bounds.top) / Math.max(1, bounds.height),
+    });
+  };
+  const commitAnnotations = next => onOptionChange?.({
     ...options,
-    annotation: value,
-    annotationHistory: [...(options.annotationHistory || []), options.annotation || ''].slice(-20),
+    annotations: next,
+    annotationHistory: [...(options.annotationHistory || []), annotations].slice(-20),
     annotationFuture: [],
   });
   const undoAnnotation = () => {
     const history = [...(options.annotationHistory || [])];
     if (!history.length) return;
-    const annotation = history.pop();
-    onOptionChange?.({ ...options, annotation, annotationHistory: history, annotationFuture: [options.annotation || '', ...(options.annotationFuture || [])].slice(0, 20) });
+    const previous = history.pop();
+    onOptionChange?.({ ...options, annotations: previous, annotationHistory: history, annotationFuture: [annotations, ...(options.annotationFuture || [])].slice(0, 20) });
   };
   const redoAnnotation = () => {
     const future = [...(options.annotationFuture || [])];
     if (!future.length) return;
-    const annotation = future.shift();
-    onOptionChange?.({ ...options, annotation, annotationHistory: [...(options.annotationHistory || []), options.annotation || ''].slice(-20), annotationFuture: future });
+    const next = future.shift();
+    onOptionChange?.({ ...options, annotations: next, annotationHistory: [...(options.annotationHistory || []), annotations].slice(-20), annotationFuture: future });
+  };
+  const setCropRatio = ratio => {
+    if (ratio === '原比例' || ratio === '自由') {
+      onOptionChange?.({ ...options, ratio, cropRect: ratio === '原比例' ? { x: 0, y: 0, w: 1, h: 1 } : cropRect });
+      return;
+    }
+    const [rw, rh] = ratio.split(':').map(Number);
+    const target = rw / rh;
+    const source = Math.max(0.01, Number(node.w) / Math.max(1, Number(node.h)));
+    const rect = target >= source
+      ? { x: 0, y: (1 - source / target) / 2, w: 1, h: source / target }
+      : { x: (1 - target / source) / 2, y: 0, w: target / source, h: 1 };
+    onOptionChange?.({ ...options, ratio, cropRect: normalizeCanvasCropRect(rect) });
+  };
+  const onStagePointerDown = event => {
+    event.stopPropagation();
+    const point = pointFromEvent(event);
+    if (isAnnotation) {
+      const shape = createCanvasAnnotation(options.annotationTool || 'pen', point, {
+        color: options.annotationColor,
+        width: options.annotationWidth,
+        text: options.annotation,
+      });
+      commitAnnotations([...annotations, shape]);
+      if (shape.tool !== 'text') gestureRef.current = { kind: 'annotation', id: shape.id };
+    } else if (isSplit) {
+      const splitPosition = (options.direction || 'vertical') === 'vertical' ? point.x : point.y;
+      onOptionChange?.({ ...options, splitPosition });
+      gestureRef.current = { kind: 'split' };
+    } else if (mode === 'crop') {
+      onOptionChange?.({ ...options, ratio: '自由', cropRect: { x: point.x, y: point.y, w: 0, h: 0 } });
+      gestureRef.current = { kind: 'crop', start: point };
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const onStagePointerMove = event => {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+    event.stopPropagation();
+    const point = pointFromEvent(event);
+    if (gesture.kind === 'annotation') {
+      const current = options.annotations || [];
+      onOptionChange?.({ ...options, annotations: current.map(shape => shape.id === gesture.id ? updateCanvasAnnotation(shape, point) : shape) });
+    } else if (gesture.kind === 'split') {
+      onOptionChange?.({ ...options, splitPosition: (options.direction || 'vertical') === 'vertical' ? point.x : point.y });
+    } else if (gesture.kind === 'crop') {
+      onOptionChange?.({
+        ...options,
+        ratio: '自由',
+        cropRect: normalizeCanvasCropRect({
+          x: Math.min(gesture.start.x, point.x),
+          y: Math.min(gesture.start.y, point.y),
+          w: Math.abs(point.x - gesture.start.x),
+          h: Math.abs(point.y - gesture.start.y),
+        }),
+      });
+    }
+  };
+  const finishGesture = event => {
+    event.stopPropagation();
+    gestureRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
   const previewTransform = isMoveScale
     ? `translate(${Number(options.offsetX) || 0}px, ${Number(options.offsetY) || 0}px) scale(${Number(options.scale) || 1})`
     : undefined;
-  return <div className={`ec-canvas-focused-editor is-${mode}`} role="dialog" aria-modal="true" aria-label={FOCUSED_EDITOR_LABELS[mode] || '图片编辑'}>
-    <div className="ec-canvas-focused-stage">
-      <ResponsiveImage src={node.url} alt={node.name || '待编辑图片'} variant="canvas" sizes="80vw" style={{ width: '100%', height: '100%', transform: previewTransform }} imgStyle={{ objectFit: 'contain' }} />
-      {isSplit && <span className={`ec-canvas-split-guide is-${options.direction || 'vertical'}`} />}
+  return <div className={`ec-canvas-focused-editor is-${mode}`} aria-label={FOCUSED_EDITOR_LABELS[mode] || '图片编辑'} style={{ left: node.x, top: node.y, width: node.w, height: node.h }} onPointerDown={event => event.stopPropagation()}>
+    <div className="ec-canvas-focused-stage" onPointerDown={onStagePointerDown} onPointerMove={onStagePointerMove} onPointerUp={finishGesture} onPointerCancel={finishGesture}>
+      <ResponsiveImage src={node.url} alt={node.name || '待编辑图片'} variant="canvas" sizes={`${Math.ceil(node.w)}px`} style={{ width: '100%', height: '100%', transform: previewTransform }} imgStyle={{ objectFit: 'contain' }} />
+      {mode === 'crop' && <div className="ec-canvas-crop-frame" style={{ left: `${cropRect.x * 100}%`, top: `${cropRect.y * 100}%`, width: `${cropRect.w * 100}%`, height: `${cropRect.h * 100}%` }}><i /><i /><i /><i /></div>}
+      {isSplit && <span className={`ec-canvas-split-guide is-${options.direction || 'vertical'}`} style={(options.direction || 'vertical') === 'vertical' ? { left: `${(options.splitPosition ?? 0.5) * 100}%` } : { top: `${(options.splitPosition ?? 0.5) * 100}%` }} />}
       {isGrid && <span className={`ec-canvas-grid-guide is-grid-${options.grid || 3}`} />}
-      {isAnnotation && <div className={`ec-canvas-annotation-layer is-${options.annotationTool || 'pen'}`} aria-label="标注区域">
-        {options.annotation && <span style={{ color: options.annotationColor || '#ef4444', borderColor: options.annotationColor || '#ef4444', borderWidth: Number(options.annotationWidth) || 3 }}>{options.annotation}</span>}
-      </div>}
+      {isAnnotation && <svg className={`ec-canvas-annotation-layer is-${options.annotationTool || 'pen'}`} aria-label="标注区域" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+        <defs><marker id="ec-canvas-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="context-stroke" /></marker></defs>
+        {annotations.map(shape => {
+          const strokeWidth = Math.max(2, Number(shape.width || 3) * 2);
+          if (shape.tool === 'pen') return <polyline key={shape.id} points={(shape.points || []).map(point => `${point.x * 1000},${point.y * 1000}`).join(' ')} fill="none" stroke={shape.color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />;
+          if (shape.tool === 'rectangle') return <rect key={shape.id} x={shape.x * 1000} y={shape.y * 1000} width={shape.w * 1000} height={shape.h * 1000} fill="none" stroke={shape.color} strokeWidth={strokeWidth} />;
+          if (shape.tool === 'arrow') return <line key={shape.id} x1={shape.x1 * 1000} y1={shape.y1 * 1000} x2={shape.x2 * 1000} y2={shape.y2 * 1000} stroke={shape.color} strokeWidth={strokeWidth} strokeLinecap="round" markerEnd="url(#ec-canvas-arrow)" />;
+          return <text key={shape.id} x={shape.x * 1000} y={shape.y * 1000} fill={shape.color} fontSize={Math.max(32, strokeWidth * 8)} fontWeight="700">{shape.text}</text>;
+        })}
+      </svg>}
     </div>
     <div className="ec-canvas-focused-toolbar" role="toolbar" aria-label={FOCUSED_EDITOR_LABELS[mode]}>
       <strong>{FOCUSED_EDITOR_LABELS[mode]}</strong>
-      {ratios.map(ratio => <button key={ratio} type="button" className={(options.ratio || '原比例') === ratio ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, ratio })}>{ratio}</button>)}
+      {ratios.map(ratio => <button key={ratio} type="button" className={(options.ratio || '原比例') === ratio ? 'is-active' : ''} onClick={() => setCropRatio(ratio)}>{ratio}</button>)}
       {isGrid && [2, 3, 4, 5].map(grid => <button key={grid} type="button" className={(options.grid || 3) === grid ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, grid })}>{grid} x {grid}</button>)}
       {isSplit && ['vertical', 'horizontal'].map(direction => <button key={direction} type="button" className={(options.direction || 'vertical') === direction ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, direction })}>{direction === 'vertical' ? '垂直分割' : '水平分割'}</button>)}
       {isAnnotation && <>
@@ -319,10 +401,10 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
         ].map(([tool, label, Icon]) => <button key={tool} type="button" className={(options.annotationTool || 'pen') === tool ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, annotationTool: tool })}><Icon size={15} />{label}</button>)}
         <label className="ec-canvas-focused-field"><span>颜色</span><input type="color" aria-label="标注颜色" value={options.annotationColor || '#ef4444'} onChange={event => onOptionChange?.({ ...options, annotationColor: event.target.value })} /></label>
         <label className="ec-canvas-focused-field"><span>粗细</span><input type="range" aria-label="标注粗细" min="1" max="12" value={options.annotationWidth || 3} onChange={event => onOptionChange?.({ ...options, annotationWidth: Number(event.target.value) })} /></label>
-        <input className="ec-canvas-focused-text" type="text" aria-label="标注说明" placeholder="输入标注文字或说明" value={options.annotation || ''} onChange={event => updateAnnotation(event.target.value)} />
+        <input className="ec-canvas-focused-text" type="text" aria-label="标注说明" placeholder="输入标注文字或说明" value={options.annotation || ''} onChange={event => onOptionChange?.({ ...options, annotation: event.target.value })} />
         <button type="button" disabled={!options.annotationHistory?.length} onClick={undoAnnotation}><Undo2 size={15} />撤销</button>
         <button type="button" disabled={!options.annotationFuture?.length} onClick={redoAnnotation}><Redo2 size={15} />重做</button>
-        <button type="button" onClick={() => updateAnnotation('')}><Eraser size={15} />清除标注</button>
+        <button type="button" onClick={() => commitAnnotations([])}><Eraser size={15} />清除标注</button>
       </>}
       {isMoveScale && <>
         <label className="ec-canvas-focused-field is-wide"><span>缩放</span><input type="range" aria-label="缩放比例" min="0.5" max="2" step="0.05" value={options.scale || 1} onChange={event => onOptionChange?.({ ...options, scale: Number(event.target.value) })} /><output>{Math.round((options.scale || 1) * 100)}%</output></label>
@@ -448,29 +530,17 @@ export function CanvasSourceNode({
   </article>;
 }
 
-export function CanvasTextNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect }) {
+export function CanvasTextNode({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur }) {
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-copy-node ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
     style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h }}
-    onPointerDown={event => {
-      if (event.target?.closest?.('[contenteditable="true"],button')) return;
-      onPointerDown?.(event, node.id);
-    }}
+    onPointerDown={event => { if (!editing) onPointerDown?.(event, node.id); }}
+    onDoubleClick={event => { event.stopPropagation(); onDoubleClick?.(node.id); }}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
   >
-    <button
-      type="button"
-      className="ec-canvas-text-drag-handle"
-      aria-label="拖动文本"
-      title="拖动文本"
-      onPointerDown={event => {
-        event.preventDefault();
-        onPointerDown?.(event, node.id);
-      }}
-    ><GripHorizontal size={16} /></button>
     <div
-      contentEditable
+      contentEditable={editing}
       suppressContentEditableWarning
       role="textbox"
       aria-multiline="true"
@@ -478,6 +548,7 @@ export function CanvasTextNode({ node, selected = false, dimmed = false, onPoint
       style={node.textStyle || undefined}
       onFocus={() => onSelect?.(node.id)}
       onInput={event => onChange?.(node.id, event.currentTarget.textContent || '')}
+      onBlur={() => onBlur?.(node.id)}
     >{node.text || ''}</div>
   </article>;
 }

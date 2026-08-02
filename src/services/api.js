@@ -1134,8 +1134,11 @@ export async function transformCanvasImage({
   targetLanguage = '中文',
   resolution = '2K',
   annotation = '',
+  annotations = [],
   grid = 2,
   direction = 'vertical',
+  cropRect,
+  splitPosition,
 }) {
   const paid = new Set(['retouch', 'extend', 'translate', 'upscale', 'inpaint']);
   const billingSku = String(resolution).toUpperCase() === '4K' ? 'ec_image_4k' : 'ec_image_2k';
@@ -1151,8 +1154,11 @@ export async function transformCanvasImage({
       target_language: targetLanguage,
       resolution,
       annotation,
+      annotations,
       grid,
       direction,
+      crop_rect: cropRect,
+      split_position: splitPosition,
       ...(billing ? { billing_quote_id: billing.quoteId, billing_action_id: billing.actionId } : {}),
     }),
   });

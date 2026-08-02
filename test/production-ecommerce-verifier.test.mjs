@@ -15,6 +15,32 @@ const STABLE_URLS = [
   '/api/generated-assets/' + 'e'.repeat(64) + '.png',
 ];
 
+function completedDirections() {
+  return {
+    analysis: {
+      status: 'complete',
+      product_observations: ['红色苹果'],
+      product_uncertainties: [],
+      reference_style: ['干净电商摄影'],
+      commercial_opportunities: ['突出新鲜质感'],
+    },
+    degraded: false,
+    directions: Array.from({ length: 4 }, (_, index) => ({
+      id: `canary-direction-${index + 1}`,
+      title: `生产验收方向${index + 1}`,
+      one_liner: '真实展示商品外观',
+      commercial_objective: '建立商品识别',
+      audience: '电商消费者',
+      execution_guide: '保持商品真实并区分每张图职责',
+      deliverables: [
+        { role: 'main_text', count: 1, shots: [{ index: 0, label: '商品识别主图' }] },
+        { role: 'detail', count: 1, shots: [{ index: 0, label: '核心卖点详情图' }] },
+        { role: 'white_background', count: 1, shots: [{ index: 0, label: '白底首图' }] },
+      ],
+    })),
+  };
+}
+
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
@@ -109,6 +135,7 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
       const body = JSON.parse(options.body);
       return json(body.role === 'product' ? { original: PRODUCT } : { original: REFERENCE }, 201);
     }
+    if (path === '/api/ecommerce/design-directions') return json(completedDirections());
     if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
     if (path === '/api/generate-ecommerce') return json({ taskId: 'task-canary', status: 'queued' }, 202);
     if (path === '/api/ecommerce/jobs/task-canary') return json({ ok: true, task: completedTask() });
@@ -145,6 +172,12 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
     '/api/canvas-sessions/canvas-canary/save',
     '/api/canvas-sessions/canvas-canary',
   ]);
+  const directionRequest = requests.find(request => request.path === '/api/ecommerce/design-directions');
+  assert.equal(directionRequest.options.headers.authorization, 'Bearer signed-canary-token');
+  const directionBody = JSON.parse(directionRequest.options.body);
+  assert.equal(directionBody.real_shots[0], PRODUCT.url);
+  assert.equal(directionBody.ref_shots[0], REFERENCE.url);
+  assert.deepEqual(directionBody.requested_images.map(image => image.count), [1, 1, 1]);
   const generation = requests.find(request => request.path === '/api/generate-ecommerce');
   assert.equal(generation.options.headers.authorization, 'Bearer signed-canary-token');
   const body = JSON.parse(generation.options.body);
@@ -155,6 +188,7 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
   ]);
   assert.equal(body.assets.product[0].assetId, PRODUCT.assetId);
   assert.equal(body.assets.reference[0].assetId, REFERENCE.assetId);
+  assert.equal(body.direction.id, 'canary-direction-1');
 });
 
 test('ecommerce production verifier rejects partial delivery and never treats it as an acceptance pass', async t => {
@@ -166,6 +200,7 @@ test('ecommerce production verifier rejects partial delivery and never treats it
     const path = new URL(url).pathname;
     if (path === '/api/session') return json({ ok: true, email: 'canary@example.com' });
     if (path === '/api/ecommerce/assets') return json({ original: PRODUCT }, 201);
+    if (path === '/api/ecommerce/design-directions') return json(completedDirections());
     if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
     if (path === '/api/generate-ecommerce') return json({ taskId: 'task-canary', status: 'queued' }, 202);
     if (path === '/api/ecommerce/jobs/task-canary') return json({ ok: true, task: { ...completedTask(), status: 'needs_review' } });

@@ -30,6 +30,21 @@ function validateSecretPayload(payload) {
   return values;
 }
 
+function validateVisionSecretPayload(payload) {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('runtime secret payload must be an object');
+  }
+  const keys = Object.keys(payload);
+  if (keys.length !== 1 || keys[0] !== 'MINI_API_KEY') {
+    throw new Error('runtime secret payload has unexpected fields');
+  }
+  const value = payload.MINI_API_KEY;
+  if (typeof value !== 'string' || /[\r\n\0]/.test(value)) {
+    throw new Error('MINI_API_KEY is invalid');
+  }
+  return value;
+}
+
 function renderRuntimeConfig(source, values) {
   parseEnv(source);
   const pending = new Map(Object.entries(values));
@@ -111,6 +126,21 @@ function configureRuntimeFilesFromExisting(filePaths) {
   configureRuntimeFiles(filePaths, payload);
 }
 
+function replaceVisionSecret(filePaths, payload) {
+  if (!Array.isArray(filePaths) || filePaths.length !== 2) {
+    throw new Error('exactly two runtime config files are required');
+  }
+  const visionApiKey = validateVisionSecretPayload(payload);
+  const configs = filePaths.map(filePath => parseEnv(fs.readFileSync(path.resolve(filePath), 'utf8')));
+  if (configs[0].IMAGE_API_KEY !== configs[1].IMAGE_API_KEY) {
+    throw new Error('IMAGE_API_KEY differs between runtime config files');
+  }
+  configureRuntimeFiles(filePaths, {
+    IMAGE_API_KEY: configs[0].IMAGE_API_KEY,
+    MINI_API_KEY: visionApiKey,
+  });
+}
+
 async function readStdin() {
   process.stdin.setEncoding('utf8');
   let source = '';
@@ -126,8 +156,8 @@ async function readStdin() {
 async function run(argv) {
   const [primaryPath, flag, peerPath, mode, ...rest] = argv;
   if (!primaryPath || flag !== '--peer' || !peerPath || rest.length
-    || (mode && mode !== '--retain-secrets')) {
-    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env> [--retain-secrets]');
+    || (mode && !['--retain-secrets', '--replace-vision-key'].includes(mode))) {
+    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env> [--retain-secrets|--replace-vision-key]');
   }
   if (mode === '--retain-secrets') {
     configureRuntimeFilesFromExisting([primaryPath, peerPath]);
@@ -141,6 +171,11 @@ async function run(argv) {
     if (error?.message === 'runtime secret payload is too large') throw error;
     throw new Error('runtime secret payload is not valid JSON');
   }
+  if (mode === '--replace-vision-key') {
+    replaceVisionSecret([primaryPath, peerPath], payload);
+    console.log('Runtime vision gateway configuration updated for both environment files');
+    return;
+  }
   configureRuntimeFiles([primaryPath, peerPath], payload);
   console.log('Runtime gateway configuration updated for both environment files');
 }
@@ -148,6 +183,7 @@ async function run(argv) {
 module.exports = {
   configureRuntimeFiles,
   configureRuntimeFilesFromExisting,
+  replaceVisionSecret,
   renderRuntimeConfig,
   validateSecretPayload,
 };

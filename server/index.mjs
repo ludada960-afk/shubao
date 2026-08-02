@@ -442,7 +442,7 @@ const IMG_PROVIDER_PROTOCOL = String(process.env.IMAGE_PROVIDER_PROTOCOL || 'nat
 // Vision API — 商品图和参考图分析
 const MINI_KEY = process.env.MINI_API_KEY || '';
 const MINI_BASE = (process.env.MINI_BASE_URL || '').replace(/\/+$/, '');
-const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.5';
+const MINI_MODEL = process.env.MINI_MODEL || 'gpt-5.6-luna';
 const DESIGN_DIRECTION_SERVER_TIMEOUT_MS = 75_000;
 
 // ============================================================
@@ -2959,12 +2959,14 @@ const migrateLegacyVisualAsset = createLegacyVisualAssetMigration({
   getJob: jobId => ecommerceJobs.get(jobId),
   getOwnedAsset: input => ecommerceAssetUploadService.getOwnedAsset(input),
 });
-function createEcommerceVlmClient() {
+function createEcommerceVlmClient({ timeoutMs, retryDelaysMs, model } = {}) {
   const useMini = Boolean(MINI_KEY && MINI_BASE);
   return createVlmClient({
     apiKey: useMini ? MINI_KEY : LLM_KEY,
     baseUrl: useMini ? MINI_BASE : LLM_BASE,
-    model: useMini ? MINI_MODEL : LLM_MODEL,
+    model: model || (useMini ? MINI_MODEL : LLM_MODEL),
+    ...(Number.isFinite(timeoutMs) ? { timeoutMs } : {}),
+    ...(Array.isArray(retryDelaysMs) ? { retryDelaysMs } : {}),
   });
 }
 const visualAnalysisService = createVisualAnalysisService({
@@ -3254,13 +3256,16 @@ setInterval(() => {
   } catch {}
 }, 600000);
 
-// 第二步在一次有界多模态请求中完成商品观察、参考风格提取和四套方案规划。
+// 第二步先做有界视觉观察，再用文本规划四套方案，避免大体积多模态请求阻塞整条链路。
 const ecommerceDesignDirectionService = createDesignDirectionService({
   readImageAsDataUrl: async (url, { signal } = {}) => {
     const image = await imageInputReader.read(url, { signal });
     return imageBufferToDataUrl(image);
   },
-  completeText: request => createEcommerceVlmClient().completeText(request),
+  completeText: (request, { stage } = {}) => createEcommerceVlmClient({
+    timeoutMs: stage === 'vision' ? 20_000 : 40_000,
+    retryDelaysMs: [750],
+  }).completeText(request),
 });
 
 async function generateDesignDirections(input = {}, { signal } = {}) {
@@ -3282,6 +3287,13 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
         metadata: { action: 'direction_refresh' },
         work: async () => {
           const result = await generateDesignDirections(req.body, { signal: deadline.signal });
+          if (result.degraded) {
+            const error = new Error('图片分析服务暂时不可用，请稍后重试');
+            error.code = 'DIRECTION_REFRESH_DEGRADED';
+            error.status = 503;
+            error.retryable = true;
+            throw error;
+          }
           const fingerprint = crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex');
           return { ...result, url: `direction-refresh:${fingerprint}` };
         },
@@ -3290,7 +3302,12 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
     }
     return res.json(await generateDesignDirections(req.body, { signal: deadline.signal }));
   } catch (e) {
-    console.warn('[design-directions] 失败:', e.message);
+    console.warn('[design-directions] 失败:', {
+      message: e?.message,
+      code: e?.code,
+      status: e?.status,
+      providerStatus: e?.providerStatus,
+    });
     return res.status(e?.status || 500).json({
       error: e?.message || '设计方向生成失败',
       code: e?.code,
@@ -3349,7 +3366,7 @@ app.post('/api/reverse-prompt', async (req, res) => {
     });
     res.json({ ...billed.result, billing: billed.billing });
   } catch (e) {
-    res.status(e?.status || 500).json({ error: e?.message || '反推失败', code: e?.code, required: e?.required, available: e?.available, billing: e?.billing });
+    res.status(e?.status || 500).json({ error: safeCanvasClientError(e), code: e?.code, required: e?.required, available: e?.available, billing: e?.billing });
   }
 });
 
@@ -3575,6 +3592,77 @@ function escapeXml(value) {
     .replace(/'/g, '&apos;');
 }
 
+function clampCanvasUnit(value, fallback = 0) {
+  const parsed = Number(value);
+  return Math.min(1, Math.max(0, Number.isFinite(parsed) ? parsed : fallback));
+}
+
+function canvasCropRect(width, height, cropRect, ratio) {
+  if (!cropRect || typeof cropRect !== 'object') return cropRectForRatio(width, height, ratio);
+  const x = clampCanvasUnit(cropRect.x);
+  const y = clampCanvasUnit(cropRect.y);
+  const w = Math.min(1 - x, clampCanvasUnit(cropRect.w, 1 - x));
+  const h = Math.min(1 - y, clampCanvasUnit(cropRect.h, 1 - y));
+  if (w < 0.01 || h < 0.01) return cropRectForRatio(width, height, ratio);
+  const left = Math.min(width - 1, Math.max(0, Math.floor(width * x)));
+  const top = Math.min(height - 1, Math.max(0, Math.floor(height * y)));
+  return {
+    left,
+    top,
+    width: Math.max(1, Math.min(width - left, Math.round(width * w))),
+    height: Math.max(1, Math.min(height - top, Math.round(height * h))),
+  };
+}
+
+function canvasSplitRects(width, height, direction, splitPosition) {
+  const position = Math.min(0.9, Math.max(0.1, Number(splitPosition) || 0.5));
+  if (direction === 'horizontal') {
+    const split = Math.max(1, Math.min(height - 1, Math.round(height * position)));
+    return [
+      { left: 0, top: 0, width, height: split },
+      { left: 0, top: split, width, height: height - split },
+    ];
+  }
+  const split = Math.max(1, Math.min(width - 1, Math.round(width * position)));
+  return [
+    { left: 0, top: 0, width: split, height },
+    { left: split, top: 0, width: width - split, height },
+  ];
+}
+
+function canvasAnnotationSvg(width, height, annotations, legacyText) {
+  const safeColor = value => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : '#ef4444';
+  const safeNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+  const list = Array.isArray(annotations) ? annotations.slice(0, 80) : [];
+  if (!list.length && String(legacyText || '').trim()) {
+    list.push({ tool: 'text', x: 0.06, y: 0.9, text: String(legacyText).trim().slice(0, 120), color: '#ef4444', width: 3 });
+  }
+  if (!list.length) throw new TypeError('请先在图片上完成标注');
+  const definitions = [];
+  const elements = list.map((shape, index) => {
+    const color = safeColor(shape.color);
+    const stroke = Math.max(1, Math.min(24, safeNumber(shape.width, 3) * Math.max(1, width / 1000)));
+    const x = clampCanvasUnit(shape.x) * width;
+    const y = clampCanvasUnit(shape.y) * height;
+    if (shape.tool === 'pen') {
+      const points = (shape.points || []).slice(0, 500).map(point => `${clampCanvasUnit(point.x) * width},${clampCanvasUnit(point.y) * height}`).join(' ');
+      return points ? `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/>` : '';
+    }
+    if (shape.tool === 'rectangle') {
+      return `<rect x="${x}" y="${y}" width="${clampCanvasUnit(shape.w) * width}" height="${clampCanvasUnit(shape.h) * height}" fill="none" stroke="${color}" stroke-width="${stroke}"/>`;
+    }
+    if (shape.tool === 'arrow') {
+      const markerId = `arrow-${index}`;
+      definitions.push(`<marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="${color}"/></marker>`);
+      return `<line x1="${clampCanvasUnit(shape.x1) * width}" y1="${clampCanvasUnit(shape.y1) * height}" x2="${clampCanvasUnit(shape.x2) * width}" y2="${clampCanvasUnit(shape.y2) * height}" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" marker-end="url(#${markerId})"/>`;
+    }
+    const text = escapeXml(String(shape.text || legacyText || '标注').trim().slice(0, 120));
+    const fontSize = Math.max(18, Math.min(96, stroke * 8));
+    return `<text x="${x}" y="${y}" fill="${color}" font-size="${fontSize}" font-family="sans-serif" font-weight="700">${text}</text>`;
+  }).join('');
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><defs>${definitions.join('')}</defs>${elements}</svg>`;
+}
+
 // 画布二次处理：像素级工具与 AI 工具统一返回稳定素材地址。
 app.post('/api/canvas/transform', async (req, res) => {
   const {
@@ -3585,8 +3673,11 @@ app.post('/api/canvas/transform', async (req, res) => {
     target_language: targetLanguage = '中文',
     resolution = '2K',
     annotation = '',
+    annotations = [],
     grid = 2,
     direction = 'vertical',
+    crop_rect: cropRect,
+    split_position: splitPosition,
     billing_quote_id: quoteId,
     billing_action_id: actionId,
   } = req.body || {};
@@ -3602,7 +3693,7 @@ app.post('/api/canvas/transform', async (req, res) => {
     if (action === 'crop') {
       const sourceBuffer = await readCanvasImage(imageUrl);
       const metadata = await sharp(sourceBuffer).metadata();
-      const rect = cropRectForRatio(metadata.width || 1, metadata.height || 1, ratio);
+      const rect = canvasCropRect(metadata.width || 1, metadata.height || 1, cropRect, ratio);
       const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
       const asset = await generatedAssetStore.persistBuffer({ buffer: output, taskId, label: 'canvas_crop' });
       return res.json({ url: asset.url, ratio, width: rect.width, height: rect.height });
@@ -3635,7 +3726,8 @@ app.post('/api/canvas/transform', async (req, res) => {
       const metadata = await sharp(sourceBuffer).metadata();
       const width = metadata.width || 1;
       const height = metadata.height || 1;
-      const rects = gridRects(width, height, direction === 'vertical' ? 2 : 1, direction === 'horizontal' ? 2 : 1);
+      const defaultRects = gridRects(width, height, direction === 'vertical' ? 2 : 1, direction === 'horizontal' ? 2 : 1);
+      const rects = splitPosition == null ? defaultRects : canvasSplitRects(width, height, direction, splitPosition);
       const urls = [];
       for (const [index, rect] of rects.entries()) {
         const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
@@ -3655,17 +3747,10 @@ app.post('/api/canvas/transform', async (req, res) => {
       const width = metadata.width || 1024;
       const height = metadata.height || 1024;
       const text = String(annotation || prompt).trim().slice(0, 120);
-      if (!text) return res.status(400).json({ error: '请输入标注内容' });
-      const fontSize = Math.max(20, Math.round(width * 0.035));
-      const padding = Math.round(width * 0.04);
-      const boxHeight = fontSize * 2.1;
-      const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <rect x="${padding / 2}" y="${height - boxHeight - padding / 2}" width="${width - padding}" height="${boxHeight}" rx="${fontSize / 2}" fill="#111827" fill-opacity=".82"/>
-        <text x="${padding}" y="${height - padding}" fill="#fff" font-size="${fontSize}" font-family="sans-serif" font-weight="700">${escapeXml(text)}</text>
-      </svg>`;
+      const svg = canvasAnnotationSvg(width, height, annotations, text);
       const output = await sharp(sourceBuffer).composite([{ input: Buffer.from(svg), top: 0, left: 0 }]).png().toBuffer();
       const asset = await generatedAssetStore.persistBuffer({ buffer: output, taskId, label: 'canvas_annotation' });
-      return res.json({ url: asset.url, annotation: text });
+      return res.json({ url: asset.url, annotation: text, annotationCount: annotations.length || (text ? 1 : 0) });
     }
 
     const selectedSize = resolveGenerationSize({ resolution, ratio });

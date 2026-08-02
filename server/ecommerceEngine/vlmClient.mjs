@@ -3,7 +3,7 @@ import { aggregateAnalyses, buildVlmPrompt } from './vlmSchema.mjs';
 const VLM_CONFIG = {
   apiKey: process.env.MINI_API_KEY || '',
   baseUrl: (process.env.MINI_BASE_URL || '').replace(/\/+$/, ''),
-  model: process.env.MINI_MODEL || 'gpt-5.5',
+  model: process.env.MINI_MODEL || 'gpt-5.6-luna',
   enabled: Boolean(process.env.MINI_API_KEY && process.env.MINI_BASE_URL),
 };
 
@@ -11,12 +11,48 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function codedError(code, message, { status = 503, retryable = true, cause } = {}) {
+function codedError(code, message, {
+  status = 503,
+  retryable = true,
+  cause,
+  providerStatus,
+  providerMessage,
+} = {}) {
   return Object.assign(new Error(message, cause ? { cause } : undefined), {
     code,
     status,
     retryable,
+    ...(Number.isInteger(providerStatus) ? { providerStatus } : {}),
+    ...(providerMessage ? { providerMessage } : {}),
   });
+}
+
+const IMAGE_DETAILS = new Set(['auto', 'low', 'high', 'original']);
+
+function normalizeImageInput(entry) {
+  if (typeof entry === 'string') {
+    const url = cleanString(entry);
+    return url ? { url, detail: 'auto' } : null;
+  }
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+  const nested = entry.image_url && typeof entry.image_url === 'object' ? entry.image_url : null;
+  const url = cleanString(entry.url || entry.src || (typeof entry.image_url === 'string' ? entry.image_url : nested?.url));
+  if (!url) return null;
+  const requestedDetail = cleanString(entry.detail || nested?.detail).toLowerCase();
+  return { url, detail: IMAGE_DETAILS.has(requestedDetail) ? requestedDetail : 'auto' };
+}
+
+function normalizeImageInputs(images) {
+  return Array.isArray(images) ? images.map(normalizeImageInput).filter(Boolean) : [];
+}
+
+async function readProviderMessage(response) {
+  try {
+    const body = await response.json();
+    return cleanString(body?.error?.message || body?.message).replace(/sk-[A-Za-z0-9_-]+/g, '[REDACTED]').slice(0, 300);
+  } catch {
+    return '';
+  }
 }
 
 export function createVlmDeadline({
@@ -88,7 +124,7 @@ export function createVlmClient({
   fetchImpl = fetch,
   apiKey,
   baseUrl,
-  model = 'gpt-5.5',
+  model = 'gpt-5.6-luna',
   timeoutMs = 30_000,
   setTimeoutImpl = setTimeout,
   clearTimeoutImpl = clearTimeout,
@@ -119,7 +155,7 @@ export function createVlmClient({
   } = {}) {
       const system = cleanString(systemPrompt);
       const user = cleanString(userPrompt);
-      const imageUrls = Array.isArray(images) ? images.map(cleanString).filter(Boolean) : [];
+      const imageInputs = normalizeImageInputs(images);
       if (!system || !user) {
         throw codedError('VISUAL_ANALYSIS_INVALID_INPUT', '图片分析请求不完整', {
           status: 400,
@@ -154,9 +190,9 @@ export function createVlmClient({
                   role: 'user',
                   content: [
                     { type: 'text', text: user },
-                    ...imageUrls.map(url => ({
+                    ...imageInputs.map(image => ({
                       type: 'image_url',
-                      image_url: { url, detail: 'original' },
+                      image_url: image,
                     })),
                   ],
                 },
@@ -168,6 +204,13 @@ export function createVlmClient({
             });
           } catch (error) {
             if (signal?.aborted) throw externalAbortError(signal);
+            if (timedOut) {
+              throw codedError('VISUAL_ANALYSIS_TIMEOUT', '图片分析超时，请稍后重试', {
+                status: 504,
+                retryable: true,
+                cause: error,
+              });
+            }
             if (!timedOut && !abortController.signal.aborted && attempt < retryDelaysMs.length) {
               await sleepImpl(retryDelaysMs[attempt]);
               continue;
@@ -182,7 +225,10 @@ export function createVlmClient({
               await sleepImpl(retryDelaysMs[attempt]);
               continue;
             }
-            throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用');
+            throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
+              providerStatus: response?.status,
+              providerMessage: await readProviderMessage(response),
+            });
           }
           let data;
           try {
@@ -190,7 +236,8 @@ export function createVlmClient({
           } catch (error) {
             if (signal?.aborted) throw externalAbortError(signal);
             if (timedOut || abortController.signal.aborted) {
-              throw codedError('VISUAL_ANALYSIS_UNAVAILABLE', '图片分析服务暂时不可用', {
+              throw codedError('VISUAL_ANALYSIS_TIMEOUT', '图片分析超时，请稍后重试', {
+                status: 504,
                 cause: error,
               });
             }
@@ -219,16 +266,14 @@ export function createVlmClient({
   return {
     completeText,
     async analyzeJson(request = {}) {
-      const imageUrls = Array.isArray(request.images)
-        ? request.images.map(cleanString).filter(Boolean)
-        : [];
-      if (imageUrls.length === 0) {
+      const imageInputs = normalizeImageInputs(request.images);
+      if (imageInputs.length === 0) {
         throw codedError('VISUAL_ANALYSIS_INVALID_INPUT', '图片分析请求不完整', {
           status: 400,
           retryable: false,
         });
       }
-      return parseJsonContent(await completeText({ ...request, images: imageUrls }));
+      return parseJsonContent(await completeText({ ...request, images: imageInputs }));
     },
   };
 }

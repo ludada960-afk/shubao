@@ -35,7 +35,7 @@ test('runtime config parser supports comments and quoted values but rejects dupl
 test('runtime config validator accepts only the target gateway contract', () => {
   assert.doesNotThrow(() => validateRuntimeConfig(parseEnv(envText())));
   assert.throws(
-    () => validateRuntimeConfig(parseEnv(envText({ MINI_MODEL: 'gpt-5.6-luna' }))),
+    () => validateRuntimeConfig(parseEnv(envText({ MINI_MODEL: 'gpt-5.5' }))),
     /MINI_MODEL must match the production contract/i,
   );
   assert.throws(
