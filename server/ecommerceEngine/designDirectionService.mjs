@@ -250,12 +250,13 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
       }
 
       const [productImages, referenceImages] = await Promise.all([
-        resolveRoleImages(productUrls, readImageAsDataUrl, signal, 'high'),
-        resolveRoleImages(referenceUrls, readImageAsDataUrl, signal, 'low'),
+        resolveRoleImages(productUrls, readImageAsDataUrl, signal, 'auto'),
+        resolveRoleImages(referenceUrls, readImageAsDataUrl, signal, 'auto'),
       ]);
       const images = [...productImages, ...referenceImages];
       let analysis = sanitizeAnalysis(null, 'fallback');
       let visualComplete = images.length === 0;
+      let visualFailureReason = images.length > 0 ? 'VISUAL_ANALYSIS_UNAVAILABLE' : '';
       if (images.length > 0) {
         try {
           const response = await completeText({
@@ -271,13 +272,22 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
           if (parsed && analysisHasContent(candidate)) {
             analysis = candidate;
             visualComplete = true;
+            visualFailureReason = '';
+          } else {
+            visualFailureReason = 'VISUAL_ANALYSIS_INVALID_RESPONSE';
           }
         } catch (error) {
           if (isCancelled(error, signal)) throw error;
+          visualFailureReason = error?.code === 'VISUAL_ANALYSIS_TIMEOUT'
+            ? 'VISUAL_ANALYSIS_TIMEOUT'
+            : error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE'
+              ? 'VISUAL_ANALYSIS_UNAVAILABLE'
+              : 'VISUAL_ANALYSIS_FAILED';
         }
       }
 
       let parsedPlan = null;
+      let plannerFailureReason = '';
       try {
         const response = await completeText({
           systemPrompt: buildPlannerSystemPrompt(),
@@ -288,8 +298,12 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
           temperature: 0.25,
         }, { stage: 'planner' });
         parsedPlan = parseModelJson(response);
+        if (!parsedPlan) plannerFailureReason = 'PLANNER_INVALID_RESPONSE';
       } catch (error) {
         if (isCancelled(error, signal)) throw error;
+        plannerFailureReason = error?.code === 'VISUAL_ANALYSIS_TIMEOUT'
+          ? 'PLANNER_TIMEOUT'
+          : 'PLANNER_FAILED';
       }
 
       const requestedImages = ownValue(input, 'requested_images', 'requestedImages');
@@ -306,6 +320,10 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         directions,
         analysis,
         degraded: (images.length > 0 && !visualComplete) || !plannerComplete,
+        degradedReasons: [
+          ...(visualComplete || images.length === 0 ? [] : [visualFailureReason]),
+          ...(plannerComplete ? [] : [plannerFailureReason || 'PLANNER_INVALID_RESPONSE']),
+        ],
       };
     },
   };

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import sharp from 'sharp';
 
 const DEFAULT_MAX_BYTES = 20 * 1024 * 1024;
 const GENERATED_ASSET_RE = /^\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|jpeg|png|webp))$/i;
@@ -98,6 +99,33 @@ export function createImageInputReader({ generatedAssetStore, tempUploadDir, fet
 
 export function imageBufferToDataUrl({ buffer, contentType = 'image/png' }) {
   return `data:${contentType};base64,${Buffer.from(buffer).toString('base64')}`;
+}
+
+// Vision providers only need a faithful observation copy. Keep the original
+// asset untouched while bounding multimodal request size and normalizing
+// rotation/alpha differences between browser uploads.
+export async function imageBufferToVisionDataUrl({ buffer }, {
+  maxDimension = 1024,
+  quality = 84,
+} = {}) {
+  if (!Number.isInteger(maxDimension) || maxDimension < 256) {
+    throw new RangeError('maxDimension must be an integer of at least 256');
+  }
+  if (!Number.isInteger(quality) || quality < 40 || quality > 95) {
+    throw new RangeError('quality must be an integer between 40 and 95');
+  }
+  const normalized = await sharp(Buffer.from(buffer), { failOn: 'error' })
+    .rotate()
+    .resize({
+      width: maxDimension,
+      height: maxDimension,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .flatten({ background: '#ffffff' })
+    .jpeg({ quality, mozjpeg: true })
+    .toBuffer();
+  return imageBufferToDataUrl({ buffer: normalized, contentType: 'image/jpeg' });
 }
 
 export { DEFAULT_MAX_BYTES };

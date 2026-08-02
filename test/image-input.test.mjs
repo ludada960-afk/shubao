@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createImageInputReader, imageBufferToDataUrl } from '../server/imageInput.mjs';
+import {
+  createImageInputReader,
+  imageBufferToDataUrl,
+  imageBufferToVisionDataUrl,
+} from '../server/imageInput.mjs';
 
 const png = Buffer.from('89504e470d0a1a0a', 'hex');
+const validPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
 
 test('reads data URLs and preserves their media type', async () => {
   const reader = createImageInputReader({
@@ -35,4 +43,10 @@ test('rejects traversal attempts for temporary uploads', async () => {
     reader.read('/api/ec-temp-img/..%2Fsecret.png'),
     /图片地址无效|临时图片不存在|不支持的图片地址/
   );
+});
+
+test('creates a bounded, provider-compatible vision copy without changing the source helper', async () => {
+  const result = await imageBufferToVisionDataUrl({ buffer: validPng, contentType: 'image/png' });
+  assert.match(result, /^data:image\/jpeg;base64,/);
+  assert.notEqual(result, imageBufferToDataUrl({ buffer: validPng, contentType: 'image/png' }));
 });

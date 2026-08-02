@@ -44,7 +44,11 @@ import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets.mjs';
 import { createImageDelivery } from './imageDelivery.mjs';
 import { resolveContentReferenceImages } from './contentReferenceAssets.mjs';
-import { createImageInputReader, imageBufferToDataUrl } from './imageInput.mjs';
+import {
+  createImageInputReader,
+  imageBufferToDataUrl,
+  imageBufferToVisionDataUrl,
+} from './imageInput.mjs';
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
@@ -3260,7 +3264,7 @@ setInterval(() => {
 const ecommerceDesignDirectionService = createDesignDirectionService({
   readImageAsDataUrl: async (url, { signal } = {}) => {
     const image = await imageInputReader.read(url, { signal });
-    return imageBufferToDataUrl(image);
+    return imageBufferToVisionDataUrl(image);
   },
   completeText: (request, { stage } = {}) => createEcommerceVlmClient({
     timeoutMs: stage === 'vision' ? 20_000 : 40_000,
@@ -3300,7 +3304,14 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
       });
       return res.json({ ...billed.result, billing: billed.billing });
     }
-    return res.json(await generateDesignDirections(req.body, { signal: deadline.signal }));
+    const result = await generateDesignDirections(req.body, { signal: deadline.signal });
+    if (result.degraded) {
+      console.warn('[design-directions] 降级:', {
+        reasons: result.degradedReasons,
+        analysisStatus: result.analysis?.status,
+      });
+    }
+    return res.json(result);
   } catch (e) {
     console.warn('[design-directions] 失败:', {
       message: e?.message,

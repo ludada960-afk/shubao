@@ -71,10 +71,10 @@ test('separates bounded visual analysis from text-only direction planning', asyn
   const [vision, planner] = calls;
   assert.equal(vision.context.stage, 'vision');
   assert.deepEqual(vision.request.images, [
-    { url: 'data:image/mock;base64,/product-front.png', detail: 'high' },
-    { url: 'data:image/mock;base64,/product-side.png', detail: 'high' },
-    { url: 'data:image/mock;base64,/reference-1.png', detail: 'low' },
-    { url: 'data:image/mock;base64,/reference-2.png', detail: 'low' },
+    { url: 'data:image/mock;base64,/product-front.png', detail: 'auto' },
+    { url: 'data:image/mock;base64,/product-side.png', detail: 'auto' },
+    { url: 'data:image/mock;base64,/reference-1.png', detail: 'auto' },
+    { url: 'data:image/mock;base64,/reference-2.png', detail: 'auto' },
   ]);
   assert.equal(vision.request.signal, controller.signal);
   assert.match(vision.request.userPrompt, /图片 1-2：商品事实图/);
