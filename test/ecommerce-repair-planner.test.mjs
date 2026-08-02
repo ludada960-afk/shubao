@@ -53,3 +53,25 @@ test('regenerates a shot that clearly misses its confirmed commercial responsibi
     userCharge: false,
   });
 });
+
+test('regenerates a shot when the product-fidelity review finds invented text', () => {
+  const repair = planRepair({
+    checks: {
+      technical: { status: 'pass', issueCodes: [] },
+      platformCompliance: { status: 'pass', issueCodes: [] },
+      productFidelity: {
+        status: 'fail',
+        issueCodes: ['forbidden_text_added'],
+      },
+      copyAndLogo: { status: 'skipped', issueCodes: [] },
+      visualQuality: { status: 'pass', issueCodes: [] },
+    },
+  });
+
+  assert.deepEqual(repair, {
+    type: 'regenerate_from_product_truth',
+    focusIssueCodes: ['forbidden_text_added'],
+    preserveUserFacts: true,
+    userCharge: false,
+  });
+});
