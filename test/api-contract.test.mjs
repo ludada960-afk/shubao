@@ -7,6 +7,21 @@ import {
   saveEcommerceTaskReference,
 } from '../src/pages/Home/ec/ecommerceTaskProgressModel.js';
 
+test('Canvas image inputs resolve app-relative assets before server processing', async t => {
+  const originalLocation = globalThis.location;
+  globalThis.location = { origin: 'https://canvas.example' };
+  t.after(() => {
+    if (originalLocation === undefined) delete globalThis.location;
+    else globalThis.location = originalLocation;
+  });
+
+  const { normalizeCanvasImageUrl } = await import(`../src/services/api.js?canvas-image-url=${Date.now()}`);
+  assert.equal(normalizeCanvasImageUrl('/images/curator.png'), 'https://canvas.example/images/curator.png');
+  assert.equal(normalizeCanvasImageUrl('https://cdn.example/product.png'), 'https://cdn.example/product.png');
+  assert.equal(normalizeCanvasImageUrl('data:image/png;base64,abc'), 'data:image/png;base64,abc');
+  assert.equal(normalizeCanvasImageUrl('blob:https://canvas.example/id'), 'blob:https://canvas.example/id');
+});
+
 function ecommerceStorage(owner = 'owner@example.com') {
   const values = new Map([['sb-auth', JSON.stringify({
     email: owner,

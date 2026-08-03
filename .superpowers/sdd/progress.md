@@ -837,3 +837,15 @@
   tooltips. Focused contracts passed 33/33, build, export checks, syntax,
   collaboration and whitespace checks passed. Production deployment was not
   attempted in this pass.
+- Browser QA then isolated the remaining Canvas image-processing defect: QA and
+  newly imported canvas nodes can carry app-relative URLs such as
+  `/images/curator.png`. The browser can render those URLs, but the server image
+  reader intentionally rejects relative paths, so OCR and the other image
+  actions failed after the click. The shared API layer now resolves same-app
+  relative canvas image inputs against the current origin for OCR, text
+  replacement, background removal, reverse prompt, layer analysis, transforms
+  and regeneration, while leaving external, data and blob URLs unchanged. The
+  regression contract passed 26/26; the 6,435-module production build,
+  build-asset check, Node syntax, whitespace and collaboration checks passed.
+  Production deployment remains pending the owner-provided
+  `SHUBAO_CANARY_SESSION_TOKEN`.

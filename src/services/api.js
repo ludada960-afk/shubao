@@ -41,6 +41,21 @@ function signedSessionHeaders(headers = {}) {
   return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
 }
 
+// Canvas nodes can point at the app's own public assets. The browser renders
+// `/images/...`, but the server-side image reader needs an absolute URL when
+// it receives the action request.
+export function normalizeCanvasImageUrl(imageUrl) {
+  if (typeof imageUrl !== 'string') return imageUrl;
+  const value = imageUrl.trim();
+  if (!value || value.startsWith('data:') || value.startsWith('blob:') || /^https?:\/\//i.test(value)) return imageUrl;
+  if (!value.startsWith('/') || !globalThis.location?.origin) return imageUrl;
+  try {
+    return new URL(value, globalThis.location.origin).href;
+  } catch {
+    return imageUrl;
+  }
+}
+
 function ecommerceTaskError(task) {
   const errors = task?.output?.errors || task?.errors || [];
   const detail = Array.isArray(errors)
@@ -542,7 +557,7 @@ export async function reversePrompt({ image_url, product_name }) {
   const res = await fetch(`${API_BASE}/api/reverse-prompt`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ image_url, product_name, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
+    body: JSON.stringify(withSessionEmail({ image_url: normalizeCanvasImageUrl(image_url), product_name, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
   });
   if (!res.ok) throw await createApiError(res, '反推失败');
   return res.json();
@@ -553,7 +568,7 @@ export async function removeBg({ image_url }) {
   const res = await fetch(`${API_BASE}/api/remove-bg`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ image_url, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
+    body: JSON.stringify(withSessionEmail({ image_url: normalizeCanvasImageUrl(image_url), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
   });
   if (!res.ok) {
     throw await createApiError(res, '去除背景失败');
@@ -569,7 +584,7 @@ export async function recognizeCanvasText({ image_url }) {
   const res = await fetch(`${API_BASE}/api/canvas/ocr`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ image_url })),
+    body: JSON.stringify(withSessionEmail({ image_url: normalizeCanvasImageUrl(image_url) })),
   });
   if (!res.ok) throw await createApiError(res, '图片文字识别失败');
   return res.json();
@@ -579,7 +594,7 @@ export async function replaceCanvasText({ image_url, blocks }) {
   const res = await fetch(`${API_BASE}/api/canvas/replace-text`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ image_url, blocks })),
+    body: JSON.stringify(withSessionEmail({ image_url: normalizeCanvasImageUrl(image_url), blocks })),
   });
   if (!res.ok) throw await createApiError(res, '图片文字替换失败');
   return res.json();
@@ -1141,7 +1156,7 @@ export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages 
   const billing = await quoteCanvasAction('ec_image_2k');
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: imageUrl, reference_images: referenceImages, ratio, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
+    body: JSON.stringify({ prompt, image_url: normalizeCanvasImageUrl(imageUrl), reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
@@ -1171,7 +1186,7 @@ export async function transformCanvasImage({
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       action,
-      image_url: imageUrl,
+      image_url: normalizeCanvasImageUrl(imageUrl),
       prompt,
       ratio,
       target_language: targetLanguage,
@@ -1194,7 +1209,7 @@ export async function analyzeCanvasLayers(imageUrl) {
   const res = await fetch(`${API_BASE}/api/canvas/analyze-layers`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ image_url: imageUrl }),
+    body: JSON.stringify({ image_url: normalizeCanvasImageUrl(imageUrl) }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '图层分析失败');
