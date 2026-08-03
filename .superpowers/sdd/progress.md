@@ -959,3 +959,10 @@
   6,435-module production build passed. Production deployment and authenticated
   browser acceptance still await the owner-provided
   `SHUBAO_CANARY_SESSION_TOKEN`.
+- Final code-level regression after the compatibility fix passed the complete
+  repository suite: 1,055/1,055 tests, with no failures, skips, or cancellations.
+  The suite includes Canvas state, workflow recovery, OCR, layer capability,
+  direction-card copy, billing, deployment-script and production-verifier
+  contracts. The remaining evidence gap is external: authenticated production
+  canary and public deployment still require the owner-provided
+  `SHUBAO_CANARY_SESSION_TOKEN`.
