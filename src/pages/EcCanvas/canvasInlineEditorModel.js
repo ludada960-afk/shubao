@@ -83,7 +83,15 @@ export function findCanvasBlankPlacement({
     .map(node => ({ x: Number(node.x) || 0, y: Number(node.y) || 0, w: Number(node.w) || 1, h: Number(node.h) || 1 }));
   const available = candidate => !occupied.some(rect => rectsOverlap({ ...candidate, w, h }, rect, gap));
   const candidates = [];
-  if (preferred && Number.isFinite(preferred.x) && Number.isFinite(preferred.y)) candidates.push(preferred);
+  if (preferred && Number.isFinite(preferred.x) && Number.isFinite(preferred.y)) {
+    candidates.push(
+      preferred,
+      { x: preferred.x + w + gap, y: preferred.y },
+      { x: preferred.x - w - gap, y: preferred.y },
+      { x: preferred.x, y: preferred.y + h + gap },
+      { x: preferred.x, y: preferred.y - h - gap },
+    );
+  }
   if (sourceNode) {
     candidates.push(
       { x: sourceNode.x + sourceNode.w + gap, y: sourceNode.y },

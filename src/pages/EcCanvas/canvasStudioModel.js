@@ -83,6 +83,22 @@ export function createCanvasImageComposerNode({ x = 0, y = 0, sourceNodeId = '',
   };
 }
 
+export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', now = Date.now() } = {}) {
+  return {
+    id: `text_composer_${now}`,
+    kind: 'text-composer',
+    status: 'ready',
+    x: finite(x),
+    y: finite(y),
+    w: 560,
+    h: 326,
+    prompt: '',
+    model: 'Lume Flow LM',
+    count: 1,
+    sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
+  };
+}
+
 export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = '淘宝', now = Date.now() } = {}) {
   return {
     id: `suite_composer_${now}`,
@@ -97,6 +113,29 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     ratio: '1:1',
     count: 6,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
+  };
+}
+
+function unit(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(1, Math.max(0, number)) : fallback;
+}
+
+export function normalizeCanvasSelection(selection) {
+  if (!selection || typeof selection !== 'object') return { mode: 'whole' };
+  const mode = selection.mode === 'subject' ? 'subject' : selection.mode === 'rectangle' ? 'rectangle' : 'whole';
+  if (mode !== 'rectangle') return { mode };
+  const rect = selection.rect || {};
+  const x = unit(rect.x);
+  const y = unit(rect.y);
+  return {
+    mode,
+    rect: {
+      x,
+      y,
+      w: Math.min(1 - x, Math.max(0, Number.isFinite(Number(rect.w)) ? Number(rect.w) : 0)),
+      h: Math.min(1 - y, Math.max(0, Number.isFinite(Number(rect.h)) ? Number(rect.h) : 0)),
+    },
   };
 }
 

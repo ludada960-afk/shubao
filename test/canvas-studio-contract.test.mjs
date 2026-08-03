@@ -6,9 +6,11 @@ import {
   applyCanvasMoveScale,
   createCanvasImageComposerNode,
   createCanvasSuiteComposerNode,
+  createCanvasTextComposerNode,
   createCanvasTextNode,
   createUploadedImageNodes,
   getCanvasNodePresentation,
+  normalizeCanvasSelection,
   resizeCanvasNode,
 } from '../src/pages/EcCanvas/canvasStudioModel.js';
 import {
@@ -134,6 +136,31 @@ test('image and ecommerce generation start as movable canvas nodes beside their 
   });
 });
 
+test('text generation is a standalone composer and keeps source references separate from editable text', () => {
+  assert.deepEqual(createCanvasTextComposerNode({ x: 600, y: 320, sourceNodeId: 'image-1', now: 789 }), {
+    id: 'text_composer_789',
+    kind: 'text-composer',
+    status: 'ready',
+    x: 600,
+    y: 320,
+    w: 560,
+    h: 326,
+    prompt: '',
+    model: 'Lume Flow LM',
+    count: 1,
+    sourceNodeIds: ['image-1'],
+  });
+});
+
+test('local edit selections are normalized before they become generation input', () => {
+  assert.deepEqual(normalizeCanvasSelection({ mode: 'rectangle', rect: { x: -0.2, y: 0.1, w: 1.4, h: 0.5 } }), {
+    mode: 'rectangle',
+    rect: { x: 0, y: 0.1, w: 1, h: 0.5 },
+  });
+  assert.deepEqual(normalizeCanvasSelection({ mode: 'subject' }), { mode: 'subject' });
+  assert.deepEqual(normalizeCanvasSelection(null), { mode: 'whole' });
+});
+
 test('studio surface owns distinct add, selection and derivation controls', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(source, /ec-canvas-add-menu/);
@@ -142,6 +169,7 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.match(source, /contentEditable=\{editing\}/);
   assert.match(source, /CanvasMultiSelectionToolbar/);
   assert.match(source, /CanvasTextComposer/);
+  assert.match(source, /CanvasTextGenerationComposer/);
   assert.match(source, /CanvasImageComposer/);
   assert.match(source, /CanvasEcommerceComposer/);
   assert.match(source, /CanvasFocusedEditor/);
@@ -167,8 +195,11 @@ test('canvas page removes independent lane labels, role-gated uploads, and dupli
   assert.match(page, /generateEcommerceSuite/);
   assert.match(page, /createCanvasImageComposerNode/);
   assert.match(page, /createCanvasSuiteComposerNode/);
+  assert.match(page, /createCanvasTextComposerNode/);
   assert.match(page, /<CanvasImageComposer/);
   assert.match(page, /<CanvasEcommerceComposer/);
+  assert.match(page, /<CanvasTextGenerationComposer/);
+  assert.match(page, /getDesignDirections/);
   assert.doesNotMatch(page, /ReferenceComposer|composerNodes|composerAction/);
   assert.match(page, /handleComposerSourceUpload/);
   assert.doesNotMatch(chrome, /const actions = \[/);
@@ -180,6 +211,23 @@ test('image composer owns reference uploads instead of reopening a legacy floati
   assert.match(source, /onAddSources/);
   assert.match(source, /aria-label="添加参考图片"/);
   assert.doesNotMatch(source, /ReferenceComposer/);
+});
+
+test('generation composer controls stop canvas gestures and close their owning node', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(source, /onPointerDown=\{event => event\.stopPropagation\(\)\}/);
+  assert.match(source, /onClick=\{event => \{ event\.stopPropagation\(\); onClose\?\.\(\); \}\}/);
+  assert.match(source, /aria-label="关闭图片生成器"/);
+  assert.match(source, /aria-label="关闭文案生成器"/);
+  assert.match(source, /aria-label="关闭电商套图生成器"/);
+});
+
+test('image generation composer uses a complete preview and optional local edit target', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(source, /objectFit: 'contain'/);
+  assert.match(source, /局部目标/);
+  assert.match(source, /selection/);
+  assert.match(source, /主体/);
 });
 
 test('image remix workflow keeps one editable generation request field', () => {

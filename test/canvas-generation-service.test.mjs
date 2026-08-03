@@ -151,6 +151,36 @@ test('Canvas service preserves primary and supplementary input order for indexed
   assert.equal(result.url, `/api/generated-assets/${result.taskId}.png`);
 });
 
+test('Canvas service carries a normalized local-edit target into the durable provider request', async t => {
+  let submittedRequest;
+  const harness = createHarness({
+    imageInputReader: { async read() { return { buffer: Buffer.from('primary'), contentType: 'image/png' }; } },
+    providerAdapter: {
+      async submitEdit(request) {
+        submittedRequest = request;
+        return { jobId: 'provider-canvas-selection', status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        return { jobId, status: 'completed', outputUrl: `https://provider.example/${jobId}.png`, error: '' };
+      },
+    },
+  });
+  t.after(() => harness.close());
+
+  await harness.service.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: {
+      prompt: '把包装颜色改成绿色',
+      image_url: 'primary.png',
+      selection: { mode: 'rectangle', rect: { x: -0.2, y: 0.1, w: 1.4, h: 0.5 } },
+    },
+  });
+
+  assert.match(submittedRequest.prompt, /仅修改归一化区域/);
+  assert.match(submittedRequest.prompt, /x=0\.000/);
+  assert.match(submittedRequest.prompt, /w=1\.000/);
+});
+
 test('Canvas durable request preserves the selected resolution in its fingerprint and provider route', async t => {
   const submitted = [];
   const harness = createHarness({

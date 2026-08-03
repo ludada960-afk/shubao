@@ -20,6 +20,36 @@ function invalidRequest(message) {
   });
 }
 
+function clampUnit(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : fallback;
+}
+
+function normalizeSelection(selection) {
+  if (!selection || typeof selection !== 'object') return { mode: 'whole' };
+  const mode = selection.mode === 'subject' ? 'subject' : selection.mode === 'rectangle' ? 'rectangle' : 'whole';
+  if (mode !== 'rectangle') return { mode };
+  const rect = selection.rect || {};
+  const x = clampUnit(rect.x);
+  const y = clampUnit(rect.y);
+  return {
+    mode,
+    rect: {
+      x,
+      y,
+      w: Math.min(1 - x, Math.max(0, Number.isFinite(Number(rect.w)) ? Number(rect.w) : 0)),
+      h: Math.min(1 - y, Math.max(0, Number.isFinite(Number(rect.h)) ? Number(rect.h) : 0)),
+    },
+  };
+}
+
+function selectionInstruction(selection) {
+  if (selection.mode === 'subject') return '仅修改被识别的商品主体区域，背景、版式和其他内容保持不变。';
+  if (selection.mode !== 'rectangle') return '';
+  const { x, y, w, h } = selection.rect;
+  return `仅修改归一化区域 x=${x.toFixed(3)}, y=${y.toFixed(3)}, w=${w.toFixed(3)}, h=${h.toFixed(3)}，区域外内容保持不变。`;
+}
+
 function serializedError(error) {
   return {
     message: error?.message || 'Canvas generation failed',
@@ -45,7 +75,8 @@ function storedError(job) {
 
 function normalizeRequest(ownerEmailInput, body = {}) {
   const ownerEmail = cleanString(ownerEmailInput).toLowerCase();
-  const prompt = cleanString(body?.prompt);
+  const selection = normalizeSelection(body?.selection);
+  const prompt = [cleanString(body?.prompt), selectionInstruction(selection)].filter(Boolean).join('\n');
   const primaryImage = cleanString(body?.image_url);
   const requestKey = cleanString(body?.request_key).slice(0, 160);
   if (!ownerEmail) throw invalidRequest('Canvas generation owner is required');
@@ -60,6 +91,7 @@ function normalizeRequest(ownerEmailInput, body = {}) {
     prompt,
     requestKey,
     visualInputs,
+    selection,
     resolution: selectedSize.resolution,
     ratio: selectedSize.ratio,
     size: selectedSize.size,
@@ -181,10 +213,11 @@ export function createCanvasGenerationService({
       requestId: request.requestId,
       ownerEmail: request.ownerEmail,
       requestFingerprint: request.requestFingerprint,
-      requestSnapshot: {
-        prompt: request.prompt,
-        requestKey: request.requestKey,
-        inputCount: request.visualInputs.length,
+        requestSnapshot: {
+          prompt: request.prompt,
+          requestKey: request.requestKey,
+          inputCount: request.visualInputs.length,
+          selection: request.selection,
         ratio: request.selectedSize.ratio,
         size: request.selectedSize.size,
       },

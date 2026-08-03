@@ -992,3 +992,16 @@
   `manual_review` or `sharp_repair`; billing and health passed each time, and
   the public service remains healthy on the prior release. The 12 user-owned
   extension-task deletions and `.tmp/` remain untouched.
+- Infinite-canvas generation UX correction on 2026-08-03: the left add rail now
+  creates independent anchored image, copy, and ecommerce-suite composers; the
+  image right-port reuses the same composer with an `@图片N` source relationship.
+  Image generation has a contained preview and compact controls, ecommerce-suite
+  generation enters a selectable design-directions step before rendering, copy
+  generation produces an editable text result, and plain text/T-key editing stays
+  separate. Close controls stop canvas gestures and remove their node. Local edit
+  supports whole-image, subject, and drag-selected rectangle targets; selection is
+  normalized and included in the server request fingerprint. Focused Canvas and
+  generation tests, the full repository suite, production build, and desktop/mobile
+  browser smoke are required before release. Production deployment remains a
+  separate authenticated release step; user-owned extension-task deletions and
+  `.tmp/` remain untouched.

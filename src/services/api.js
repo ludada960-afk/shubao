@@ -1162,14 +1162,17 @@ export async function saveWork(work, phone, { signal } = {}) {
   return null;
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio, requestKey = '' }) {
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio, requestKey = '', selection }) {
   const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
-  const logicalRequestKey = String(requestKey || [prompt, normalizedImageUrl, ratio || '', ...referenceImages].join('\u0000')).slice(0, 120000);
+  const logicalRequestKey = String([
+    requestKey || [prompt, normalizedImageUrl, ratio || '', ...referenceImages].join('\u0000'),
+    JSON.stringify(selection || {}),
+  ].join('\u0000')).slice(0, 120000);
   const stableRequestKey = stableCanvasActionId(logicalRequestKey);
   const billing = await quoteCanvasAction('ec_image_2k', stableRequestKey);
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, request_key: stableRequestKey, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
+    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, request_key: stableRequestKey, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
