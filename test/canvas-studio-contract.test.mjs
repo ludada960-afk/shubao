@@ -198,6 +198,17 @@ test('canvas workflow retry resubmits an existing generation request and reruns 
   assert.match(retry, /void workflowProcessRef\.current\?\.\(\{ \.\.\.node/);
 });
 
+test('canvas remix variants use one stable run id for retries and distinct request keys per output', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const start = page.indexOf('const handleWorkflowGenerate = useCallback');
+  const end = page.indexOf('\n\n  const handleWorkflowRetry', start);
+  assert.ok(start >= 0 && end > start);
+  const generate = page.slice(start, end);
+  assert.match(generate, /generationRunId/);
+  assert.match(generate, /requestKey:\s*`\$\{generationRunId\}:\$\{index \+ 1\}`/);
+  assert.match(generate, /generationRunId:\s*null/);
+});
+
 test('context create actions reuse the executable workflow-node creation path', () => {
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const start = page.indexOf('const handleContextAction = async');

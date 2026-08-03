@@ -184,6 +184,31 @@ test('Canvas durable request preserves the selected resolution in its fingerprin
   assert.deepEqual(submitted.map(request => request.modelRoute.size), ['1536x2048', '2448x3264']);
 });
 
+test('Canvas request keys separate deliberate variants while retries with one key replay', async t => {
+  let submitCalls = 0;
+  const harness = createHarness({
+    imageInputReader: { async read() { return { buffer: Buffer.from('primary'), contentType: 'image/png' }; } },
+    providerAdapter: {
+      async submitEdit() {
+        submitCalls += 1;
+        return { jobId: `provider-variant-${submitCalls}`, status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        return { jobId, status: 'completed', outputUrl: `https://provider.example/${jobId}.png`, error: '' };
+      },
+    },
+  });
+  t.after(() => harness.close());
+  const base = { prompt: '保持商品结构', image_url: 'primary.png', ratio: '1:1' };
+  const first = await harness.service.regenerate({ ownerEmail: 'owner@example.com', body: { ...base, request_key: 'run-1:1' } });
+  const replay = await harness.service.regenerate({ ownerEmail: 'owner@example.com', body: { ...base, request_key: 'run-1:1' } });
+  const secondVariant = await harness.service.regenerate({ ownerEmail: 'owner@example.com', body: { ...base, request_key: 'run-1:2' } });
+  assert.equal(submitCalls, 2);
+  assert.equal(replay.replay, true);
+  assert.equal(first.url, replay.url);
+  assert.notEqual(first.url, secondVariant.url);
+});
+
 test('Canvas regeneration defaults to the billed 2K provider route', async t => {
   let submittedRequest;
   const harness = createHarness({

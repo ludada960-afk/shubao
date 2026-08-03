@@ -47,6 +47,7 @@ function normalizeRequest(ownerEmailInput, body = {}) {
   const ownerEmail = cleanString(ownerEmailInput).toLowerCase();
   const prompt = cleanString(body?.prompt);
   const primaryImage = cleanString(body?.image_url);
+  const requestKey = cleanString(body?.request_key).slice(0, 160);
   if (!ownerEmail) throw invalidRequest('Canvas generation owner is required');
   if (!prompt || !primaryImage) throw invalidRequest('缺少图片或生成说明');
   const visualInputs = [
@@ -57,6 +58,7 @@ function normalizeRequest(ownerEmailInput, body = {}) {
   const canonical = JSON.stringify({
     ownerEmail,
     prompt,
+    requestKey,
     visualInputs,
     resolution: selectedSize.resolution,
     ratio: selectedSize.ratio,
@@ -66,6 +68,7 @@ function normalizeRequest(ownerEmailInput, body = {}) {
   return {
     ownerEmail,
     prompt,
+    requestKey,
     visualInputs,
     selectedSize,
     requestFingerprint: fingerprint,
@@ -180,6 +183,7 @@ export function createCanvasGenerationService({
       requestFingerprint: request.requestFingerprint,
       requestSnapshot: {
         prompt: request.prompt,
+        requestKey: request.requestKey,
         inputCount: request.visualInputs.length,
         ratio: request.selectedSize.ratio,
         size: request.selectedSize.size,

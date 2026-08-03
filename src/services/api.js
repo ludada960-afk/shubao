@@ -534,11 +534,21 @@ function canvasBillingActionId() {
   return uuid ? `canvas-${uuid}` : `canvas-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function quoteCanvasAction(sku) {
+function stableCanvasActionId(value) {
+  const input = String(value || '');
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `canvas-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+async function quoteCanvasAction(sku, actionId = '') {
   const response = await quoteBillingAction({ sku, quantity: 1 });
   const quote = response?.quote;
   if (!quote?.quoteId) throw new Error('暂时无法确认本次处理费用，请重试');
-  return { quoteId: quote.quoteId, actionId: canvasBillingActionId() };
+  return { quoteId: quote.quoteId, actionId: actionId || canvasBillingActionId() };
 }
 
 export async function uploadECTempImages(base64Images, { signal } = {}) {
@@ -1152,11 +1162,14 @@ export async function saveWork(work, phone, { signal } = {}) {
   return null;
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio }) {
-  const billing = await quoteCanvasAction('ec_image_2k');
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio, requestKey = '' }) {
+  const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
+  const logicalRequestKey = String(requestKey || [prompt, normalizedImageUrl, ratio || '', ...referenceImages].join('\u0000')).slice(0, 120000);
+  const stableRequestKey = stableCanvasActionId(logicalRequestKey);
+  const billing = await quoteCanvasAction('ec_image_2k', stableRequestKey);
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: normalizeCanvasImageUrl(imageUrl), reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
+    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, request_key: stableRequestKey, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');

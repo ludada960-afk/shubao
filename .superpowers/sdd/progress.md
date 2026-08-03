@@ -904,3 +904,13 @@
   analysis and layer analysis. The focused Canvas contract remains covered;
   production deployment and authenticated browser acceptance still await the
   owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.
+- Canvas remix generation now carries a stable logical request key. Retries of
+  the same node/run reuse the same durable Canvas job and billed action, which
+  prevents a lost browser response from charging a second time; deliberate
+  multi-output runs use distinct per-output keys so 2/4 outputs do not collapse
+  into one idempotent result. Structured Canvas API errors now preserve retry,
+  task, provider-job and re-quote metadata for the UI. Focused API, service and
+  Canvas contracts passed 58/58, followed by the 6,435-module production build,
+  build-asset check, syntax and whitespace validation. Production deployment
+  and authenticated browser acceptance still await the owner-provided
+  `SHUBAO_CANARY_SESSION_TOKEN`.

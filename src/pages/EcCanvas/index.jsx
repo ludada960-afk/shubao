@@ -125,6 +125,11 @@ function productAssetsForCanvas(result = {}) {
 const NODE_W = 200;
 const GAP = 28;
 
+function createCanvasGenerationRunId() {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function normalizeLayerItems(layers, nodeId) {
   return (layers || []).map((layer, index) => ({
     id: layer.id || `layer_${nodeId}_${index + 1}`,
@@ -1124,7 +1129,12 @@ export default function EcCanvas() {
       showToast('请先补充可编辑的画面描述', 'info');
       return;
     }
-    updateWorkflowNode(node.id, { status: 'running', error: null });
+    const generationRunId = String(node.inputs?.generationRunId || createCanvasGenerationRunId());
+    updateWorkflowNode(node.id, {
+      status: 'running',
+      error: null,
+      inputs: { ...(node.inputs || {}), generationRunId },
+    });
     setPromptLoading(true);
     try {
       const count = Math.max(1, Math.min(4, Number(node.inputs?.outputCount) || 1));
@@ -1132,11 +1142,12 @@ export default function EcCanvas() {
         ...(node.inputs?.productImages || []),
         ...(node.inputs?.referenceImages || []),
       ].map(image => image?.url || image?.src || image?.image_url).filter(Boolean);
-      const urls = await Promise.all(Array.from({ length: count }, () => regenerateCanvasImage({
+      const urls = await Promise.all(Array.from({ length: count }, (_, index) => regenerateCanvasImage({
         prompt,
         imageUrl: sourceUrl,
         referenceImages,
         ratio: node.inputs?.ratio || source.ratio,
+        requestKey: `${generationRunId}:${index + 1}`,
       })));
       const outputs = urls.map((url, index) => normalizeCanvasNode({
         ...source,
@@ -1150,7 +1161,12 @@ export default function EcCanvas() {
         displayLabel: `${source.name || source.displayLabel || '电商图'}-二创结果${count > 1 ? `-${index + 1}` : ''}`,
         sourceNodeIds: [node.id],
       }));
-      setNodes(prev => prev.map(item => item.id === node.id ? { ...item, status: 'success', output: { nodeIds: outputs.map(output => output.id), urls } } : item).concat(outputs));
+      setNodes(prev => prev.map(item => item.id === node.id ? {
+        ...item,
+        status: 'success',
+        inputs: { ...(item.inputs || {}), generationRunId: null },
+        output: { nodeIds: outputs.map(output => output.id), urls },
+      } : item).concat(outputs));
       setConnections(prev => outputs.reduce((edges, output) => [...edges, createChildConnection(node.id, output.id, 'smart-remix-output')], prev));
       setSelected(outputs[0].id);
       setMultiSelected(new Set(outputs.map(output => output.id)));

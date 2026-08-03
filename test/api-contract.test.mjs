@@ -674,6 +674,40 @@ test('canvas regeneration forwards supplementary visual references', async t => 
   assert.deepEqual(requestBody.reference_images, ['/api/ec-temp-img/reference.png']);
   assert.equal(requestBody.ratio, '3:4');
   assert.equal(requestBody.billing_quote_id, 'canvas-quote');
+  assert.match(requestBody.request_key, /^canvas-[0-9a-f]{8}$/);
+  assert.equal(requestBody.billing_action_id, requestBody.request_key);
+});
+
+test('canvas regeneration keeps a stable billing action for retries and separates explicit variants', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const requests = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = { getItem: () => JSON.stringify({ email: '867550189@qq.com' }) };
+  globalThis.fetch = async (url, options = {}) => {
+    const body = JSON.parse(options.body || '{}');
+    requests.push({ url: String(url), body });
+    if (String(url).endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: `quote-${requests.length}` } }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ url: '/api/generated-assets/canvas.png' }), { status: 200 });
+  };
+
+  const api = await import(`../src/services/api.js?stable-canvas-action=${Date.now()}`);
+  const base = { prompt: '保留商品结构', imageUrl: '/api/generated-assets/source.png', ratio: '1:1' };
+  await api.regenerateCanvasImage({ ...base, requestKey: 'run-1:1' });
+  await api.regenerateCanvasImage({ ...base, requestKey: 'run-1:1' });
+  await api.regenerateCanvasImage({ ...base, requestKey: 'run-1:2' });
+
+  const generationRequests = requests.filter(request => request.url.endsWith('/api/canvas/regenerate'));
+  assert.equal(generationRequests.length, 3);
+  assert.equal(generationRequests[0].body.billing_action_id, generationRequests[1].body.billing_action_id);
+  assert.notEqual(generationRequests[0].body.billing_action_id, generationRequests[2].body.billing_action_id);
+  assert.equal(generationRequests[0].body.request_key, generationRequests[1].body.request_key);
+  assert.notEqual(generationRequests[0].body.request_key, generationRequests[2].body.request_key);
 });
 
 test('Canvas API helpers send the signed session token and omit body email authority', async t => {

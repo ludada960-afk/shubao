@@ -1,11 +1,16 @@
 export class ApiError extends Error {
-  constructor(message, { status = 0, code = 'API_ERROR', payload = null, resumeable = false } = {}) {
+  constructor(message, { status = 0, code = 'API_ERROR', payload = null, resumeable = false, retryable = false, retryAfter = null, taskId = '', providerJobId = '', reQuoteRequired = false } = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.payload = payload;
     this.resumeable = Boolean(resumeable);
+    this.retryable = Boolean(retryable);
+    this.retryAfter = Number.isFinite(retryAfter) ? retryAfter : null;
+    this.taskId = typeof taskId === 'string' ? taskId : '';
+    this.providerJobId = typeof providerJobId === 'string' ? providerJobId : '';
+    this.reQuoteRequired = Boolean(reQuoteRequired);
   }
 }
 
@@ -20,6 +25,11 @@ export async function createApiError(response, fallbackMessage = '请求失败')
     code: payload?.code || 'API_ERROR',
     payload,
     resumeable: payload?.resumeable,
+    retryable: payload?.retryable,
+    retryAfter: Number.isFinite(payload?.retryAfter) ? payload.retryAfter : null,
+    taskId: payload?.taskId,
+    providerJobId: payload?.providerJobId,
+    reQuoteRequired: payload?.reQuoteRequired,
   });
 }
 
