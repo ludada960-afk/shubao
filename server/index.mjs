@@ -282,6 +282,8 @@ const SIGNED_GENERATION_ROUTES = new Set([
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/canvas/ocr',
+  '/api/canvas/replace-text',
   '/api/canvas/pixel-layers',
   '/api/canvas/psd-export',
   '/api/reverse-prompt',

@@ -944,3 +944,10 @@
   the 6,435-module production build passed. Production deployment and
   authenticated browser acceptance still await the owner-provided
   `SHUBAO_CANARY_SESSION_TOKEN`.
+- Completion audit found OCR and replacement-text were protected at their route
+  handlers but were missing from the shared POST beta-access and rate-limit
+  boundary. Both routes are now in the common expensive-route and signed-owner
+  sets, with the guard regression covering unsigned, trailing-slash and
+  mixed-case variants. The focused Canvas/generation guard suite passed 49/49;
+  production deployment and authenticated browser acceptance still await the
+  owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.

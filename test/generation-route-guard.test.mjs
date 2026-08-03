@@ -23,6 +23,8 @@ const EXPENSIVE_POST_ROUTES = [
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/canvas/ocr',
+  '/api/canvas/replace-text',
   '/api/canvas/pixel-layers',
   '/api/canvas/psd-export',
   '/api/plog-generate',
@@ -34,6 +36,8 @@ const CANVAS_AI_ROUTES = [
   '/api/canvas/regenerate',
   '/api/canvas/transform',
   '/api/canvas/analyze-layers',
+  '/api/canvas/ocr',
+  '/api/canvas/replace-text',
   '/api/canvas/pixel-layers',
   '/api/canvas/psd-export',
 ];
