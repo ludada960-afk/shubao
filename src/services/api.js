@@ -579,12 +579,35 @@ export async function reversePrompt({ image_url, product_name }) {
   return res.json();
 }
 
-export async function removeBg({ image_url }) {
+export async function createCanvasSegmentationPlan(imageUrl, { signal } = {}) {
+  const res = await fetch(`${API_BASE}/api/canvas/segmentation-plan`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ image_url: normalizeCanvasImageUrl(imageUrl) }),
+    signal,
+  });
+  if (!res.ok) throw await createApiError(res, '商品识别失败');
+  return res.json();
+}
+
+export async function removeBg({
+  image_url,
+  segmentation_plan_token,
+  segmentation_masks,
+  signal,
+}) {
   const billing = await quoteCanvasAction('ec_remove_bg');
   const res = await fetch(`${API_BASE}/api/remove-bg`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ image_url: normalizeCanvasImageUrl(image_url), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
+    body: JSON.stringify(withSessionEmail({
+      image_url: normalizeCanvasImageUrl(image_url),
+      ...(segmentation_plan_token ? { segmentation_plan_token } : {}),
+      ...(Array.isArray(segmentation_masks) ? { segmentation_masks } : {}),
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    })),
+    signal,
   });
   if (!res.ok) {
     throw await createApiError(res, '去除背景失败');
@@ -1244,16 +1267,19 @@ export async function transformCanvasImage({
   return data;
 }
 
-export async function analyzeCanvasLayers(imageUrl) {
+export async function analyzeCanvasLayers(imageUrl, { planToken, masks, signal } = {}) {
   const billing = await quoteCanvasAction('ec_smart_layer');
   const res = await fetch(`${API_BASE}/api/canvas/analyze-layers`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       image_url: normalizeCanvasImageUrl(imageUrl),
+      ...(planToken ? { segmentation_plan_token: planToken } : {}),
+      ...(Array.isArray(masks) ? { segmentation_masks: masks } : {}),
       billing_quote_id: billing.quoteId,
       billing_action_id: billing.actionId,
     }),
+    signal,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '图层分析失败');

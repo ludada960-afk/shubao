@@ -1,0 +1,21 @@
+U2NetP ONNX model
+=================
+
+File: u2netp-v1.onnx
+SHA-256: 309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8
+Upstream project: U-2-Net (https://github.com/xuebinqin/U-2-Net)
+License: Apache License 2.0
+
+The model is distributed for browser-side salient-object segmentation. The
+upstream copyright and license remain with their respective authors. The
+license text is included in APACHE-2.0.txt.
+
+ONNX Runtime Web
+================
+
+Package: onnxruntime-web 1.27.0
+Upstream project: https://github.com/microsoft/onnxruntime
+License: MIT
+
+The runtime is bundled from the pinned npm dependency during the Vite build.
+The license text is included in ONNXRUNTIME-MIT.txt.

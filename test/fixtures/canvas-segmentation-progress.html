@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canvas Segmentation Progress QA</title>
+  <style>
+    html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+    body { overflow: hidden; background: #f5f7f9; font-family: system-ui, sans-serif; }
+    .qa-stage { position: relative; width: 100vw; height: 100vh; --canvas-command: #2764e7; }
+    .qa-source { position: absolute; left: 80px; top: 150px; width: 220px; height: 242px; object-fit: contain; border: 1px solid #dce2e8; background: #fff; }
+    @media (max-width: 600px) {
+      .qa-source { left: 76px; top: 40px; width: 236px; height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'react';
+    import { createRoot } from 'react-dom/client';
+    import CanvasSegmentationProgress from '/src/pages/EcCanvas/components/CanvasSegmentationProgress.jsx';
+    import '/src/pages/EcCanvas/EcCanvas.css';
+
+    const compact = window.innerWidth <= 600;
+    const job = {
+      id: 'qa-segmentation',
+      action: 'smart-layer',
+      sourceUrl: '/test/fixtures/three-containers.webp',
+      x: compact ? 51 : 330,
+      y: compact ? 340 : 205,
+      progress: {
+        stage: 'segmenting',
+        label: '提取商品 2/3',
+        detail: '正在本地处理图片',
+        percent: 62,
+        coldStart: false,
+      },
+    };
+
+    createRoot(document.querySelector('#root')).render(React.createElement(
+      'main',
+      { className: 'qa-stage' },
+      React.createElement('img', {
+        className: 'qa-source',
+        src: '/test/fixtures/three-containers.webp',
+        alt: '三色盒子商品图',
+      }),
+      React.createElement(CanvasSegmentationProgress, {
+        job,
+        onCancel() {},
+        onRetry() {},
+        onClose() {},
+      }),
+    ));
+  </script>
+</body>
+</html>

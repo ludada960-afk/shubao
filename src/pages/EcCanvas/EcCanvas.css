@@ -229,6 +229,31 @@
 .ec-canvas-generation-placeholder span { max-width: 390px; color: #9aa2ad; font-size: 11px; line-height: 1.55; }
 .ec-canvas-generation-placeholder small { color: #717b87; font-size: 10px; }
 .ec-canvas-generation-placeholder small.is-error { color: #c43f38; }
+
+.ec-canvas-segmentation-progress { position: absolute; z-index: 34; width: 286px; min-height: 116px; box-sizing: border-box; padding: 12px; border: 1px solid #dce2e8; border-radius: 8px; background: #fff; box-shadow: 0 10px 28px rgba(15, 23, 42, .14); color: #20242a; user-select: none; }
+.ec-canvas-segmentation-progress::before { position: absolute; left: -30px; top: 56px; width: 30px; height: 2px; background: #aab2bd; content: ''; }
+.ec-canvas-segmentation-progress > header { display: flex; align-items: center; gap: 9px; min-height: 32px; }
+.ec-canvas-segmentation-progress-icon { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 7px; background: #edf3ff; color: var(--canvas-command); }
+.ec-canvas-segmentation-progress > header > div { min-width: 0; flex: 1; }
+.ec-canvas-segmentation-progress > header strong,
+.ec-canvas-segmentation-progress > header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0; }
+.ec-canvas-segmentation-progress > header strong { font-size: 12px; }
+.ec-canvas-segmentation-progress > header small { margin-top: 2px; color: #7a828d; font-size: 9px; }
+.ec-canvas-segmentation-progress button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 0; border-radius: 6px; background: transparent; color: #626b76; font: 10px inherit; }
+.ec-canvas-segmentation-progress > header button { width: 28px; height: 28px; flex: 0 0 28px; padding: 0; }
+.ec-canvas-segmentation-progress button:hover { background: #eef1f4; color: #20242a; }
+.ec-canvas-segmentation-progress-body { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.ec-canvas-segmentation-progress-thumb { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; overflow: hidden; border: 1px solid #e5e8ec; border-radius: 6px; background: #f4f5f7; color: #8c949e; }
+.ec-canvas-segmentation-progress-copy { min-width: 0; flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ec-canvas-segmentation-progress-copy span { min-width: 0; display: flex; align-items: center; gap: 5px; overflow: hidden; color: #6b7480; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-segmentation-progress-copy b { color: #47515e; font-size: 10px; }
+.ec-canvas-segmentation-progress-copy button { height: 27px; padding: 0 8px; background: #eef3ff; color: var(--canvas-command); font-weight: 700; }
+.ec-canvas-segmentation-progress-copy .is-error { color: #b63d38; white-space: normal; line-height: 1.35; }
+.ec-canvas-segmentation-progress-track { height: 4px; overflow: hidden; margin-top: 10px; border-radius: 2px; background: #e7ebef; }
+.ec-canvas-segmentation-progress-track i { display: block; height: 100%; border-radius: inherit; background: var(--canvas-command); transition: width 160ms ease-out; }
+.ec-canvas-segmentation-progress.is-error { border-color: #edc7c5; }
+.ec-canvas-segmentation-progress .is-spinning { animation: ecCanvasSpin .9s linear infinite; }
+@keyframes ecCanvasSpin { to { transform: rotate(360deg); } }
 .ec-canvas-text-drag-handle:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-text-drag-handle:active { cursor: grabbing; }
 

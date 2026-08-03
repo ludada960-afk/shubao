@@ -82,6 +82,19 @@ function json(payload, status = 200) {
   });
 }
 
+function segmentationPlanFixture({ width = 80, height = 80 } = {}) {
+  return {
+    source: { width, height },
+    prompts: [
+      { id: 'gray', name: '灰色盒子', box: [12, 8, 36, 36] },
+      { id: 'blue', name: '蓝色盒子', box: [6, 28, 36, 60] },
+      { id: 'orange', name: '橙色盒子', box: [44, 28, 74, 60] },
+    ],
+    plan_token: 'signed-segmentation-plan',
+    expires_at: '2099-01-01T00:00:00.000Z',
+  };
+}
+
 test('rejects external provider URLs instead of treating them as stable owned assets', () => {
   assert.throws(
     () => assertOwnedGeneratedAssetUrl('https://fal.media/temporary-mask.png', 'https://shuimg.cn'),
@@ -159,6 +172,7 @@ test('verifies three product instances, transparency, stable assets and Canvas s
     const method = String(options.method || 'GET').toUpperCase();
     if (options.body) requestBodies.push({ path: url.pathname, body: JSON.parse(options.body) });
     if (url.pathname === '/api/session') return json({ ok: true, email: 'owner@example.com' });
+    if (url.pathname === '/api/canvas/segmentation-plan') return json(segmentationPlanFixture());
     if (url.pathname === '/api/billing/quote') {
       quote += 1;
       return json({ quote: { quoteId: `quote-${quote}`, totalUnits: quote === 1 ? 1000 : 3000 } });
@@ -167,7 +181,7 @@ test('verifies three product instances, transparency, stable assets and Canvas s
       return json({
         url: '/api/generated-assets/remove-result',
         result_url: '/api/generated-assets/remove-result',
-        method: 'sam3',
+        method: 'u2netp-browser',
         subjectCount: 3,
         bounds: { x: 0.1, y: 0.1, width: 0.8, height: 0.6 },
         pixelWidth: 64,
@@ -227,6 +241,13 @@ test('verifies three product instances, transparency, stable assets and Canvas s
     ['ec_remove_bg', 'ec_smart_layer'],
   );
   assert.match(requestBodies.find(item => item.path === '/api/remove-bg').body.image_url, /^data:image\/png;base64,/);
+  const removeBody = requestBodies.find(item => item.path === '/api/remove-bg').body;
+  const layersBody = requestBodies.find(item => item.path === '/api/canvas/analyze-layers').body;
+  assert.equal(removeBody.segmentation_plan_token, 'signed-segmentation-plan');
+  assert.equal(layersBody.segmentation_plan_token, 'signed-segmentation-plan');
+  assert.equal(removeBody.segmentation_masks.length, 3);
+  assert.ok(removeBody.segmentation_masks.every(mask => /^data:image\/png;base64,/.test(mask.data)));
+  assert.deepEqual(removeBody.segmentation_masks, layersBody.segmentation_masks);
   assert.doesNotMatch(JSON.stringify(result), /signed-session-token/);
   const createdSnapshot = requestBodies.find(item => item.path === '/api/canvas-sessions')?.body?.snapshot;
   assert.ok(createdSnapshot.nodes.some(node => node.id === 'verified-source'));
@@ -242,9 +263,10 @@ test('fails closed when removal returns an opaque copied image or too few produc
   const fetchImpl = async (input) => {
     const url = new URL(String(input));
     if (url.pathname === '/api/session') return json({ ok: true });
+    if (url.pathname === '/api/canvas/segmentation-plan') return json(segmentationPlanFixture({ width: 64, height: 64 }));
     if (url.pathname === '/api/billing/quote') return json({ quote: { quoteId: `quote-${++quote}`, totalUnits: 1000 } });
     if (url.pathname === '/api/remove-bg') {
-      return json({ url: '/api/generated-assets/opaque-copy', method: 'sam3', subjectCount: 1 });
+      return json({ url: '/api/generated-assets/opaque-copy', method: 'u2netp-browser', subjectCount: 1 });
     }
     if (url.pathname.startsWith('/api/generated-assets/')) {
       return new Response(await opaqueBackgroundFixture(), { headers: { 'content-type': 'image/png' } });
@@ -275,9 +297,10 @@ test('rejects a near-opaque result with only one transparent pixel', async () =>
   const fetchImpl = async (input) => {
     const url = new URL(String(input));
     if (url.pathname === '/api/session') return json({ ok: true });
+    if (url.pathname === '/api/canvas/segmentation-plan') return json(segmentationPlanFixture({ width: 64, height: 64 }));
     if (url.pathname === '/api/billing/quote') return json({ quote: { quoteId: `quote-${++quote}`, totalUnits: 1000 } });
     if (url.pathname === '/api/remove-bg') {
-      return json({ url: '/api/generated-assets/near-opaque', method: 'sam3', subjectCount: 3 });
+      return json({ url: '/api/generated-assets/near-opaque', method: 'u2netp-browser', subjectCount: 3 });
     }
     if (url.pathname.startsWith('/api/generated-assets/')) {
       return new Response(nearOpaque, { headers: { 'content-type': 'image/png' } });

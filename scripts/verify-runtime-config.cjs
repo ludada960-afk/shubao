@@ -15,7 +15,7 @@ const EXPECTED_RUNTIME_CONFIG = Object.freeze({
   MINI_MODEL: 'gpt-5.6-luna',
 });
 
-const REQUIRED_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'FAL_KEY']);
+const REQUIRED_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY']);
 const PLACEHOLDER_RE = /(?:your[-_ ]?key|example|placeholder|change[-_ ]?me|replace[-_ ]?me|x{3,})/i;
 
 function parseEnv(source) {

@@ -229,13 +229,66 @@ async function createQuote({ root, headers, sku, fetchImpl, timeoutMs }) {
   return requiredString(data?.quote?.quoteId, `${sku} quote ID`);
 }
 
-async function runBilledCanvasAction({ root, headers, sku, path, imageUrl, fetchImpl, timeoutMs }) {
+export async function createVerifierSegmentationMasks(prompts = []) {
+  if (!Array.isArray(prompts) || !prompts.length || prompts.length > 8) {
+    throw new Error('Canvas segmentation plan has an invalid prompt count');
+  }
+  const size = 320;
+  const inset = 8;
+  const pixels = Buffer.alloc(size * size, 0);
+  for (let y = inset; y < size - inset; y += 1) {
+    pixels.fill(255, y * size + inset, y * size + size - inset);
+  }
+  const png = await sharp(pixels, { raw: { width: size, height: size, channels: 1 } }).png().toBuffer();
+  const data = `data:image/png;base64,${png.toString('base64')}`;
+  return prompts.map((prompt, index) => {
+    const promptId = requiredString(prompt?.id, `segmentation prompt ${index + 1} ID`);
+    const box = Array.isArray(prompt?.box) ? prompt.box.map(Number) : [];
+    if (box.length !== 4 || !box.every(Number.isSafeInteger)
+      || box[0] < 0 || box[1] < 0 || box[2] <= box[0] || box[3] <= box[1]) {
+      throw new Error(`Canvas segmentation prompt ${promptId} has invalid bounds`);
+    }
+    return { prompt_id: promptId, data };
+  });
+}
+
+async function createSegmentationPlan({ root, headers, imageUrl, requiredInstances, fetchImpl, timeoutMs }) {
+  const plan = await requestJson(`${root}/api/canvas/segmentation-plan`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ image_url: imageUrl }),
+    fetchImpl,
+    timeoutMs,
+  });
+  const prompts = Array.isArray(plan?.prompts) ? plan.prompts : [];
+  if (prompts.length < requiredInstances) {
+    throw new Error(`Canvas segmentation plan did not detect the expected product instances (${prompts.length}/${requiredInstances})`);
+  }
+  return {
+    token: requiredString(plan?.plan_token, 'Canvas segmentation plan token'),
+    masks: await createVerifierSegmentationMasks(prompts),
+  };
+}
+
+async function runBilledCanvasAction({
+  root,
+  headers,
+  sku,
+  path,
+  imageUrl,
+  segmentationPlanToken,
+  segmentationMasks,
+  fetchImpl,
+  timeoutMs,
+}) {
   const quoteId = await createQuote({ root, headers, sku, fetchImpl, timeoutMs });
   return requestJson(`${root}${path}`, {
     method: 'POST',
     headers: { ...headers, 'content-type': 'application/json' },
     body: JSON.stringify({
       image_url: imageUrl,
+      segmentation_plan_token: segmentationPlanToken,
+      segmentation_masks: segmentationMasks,
       billing_quote_id: quoteId,
       billing_action_id: `canvas-verifier-${sku}-${crypto.randomUUID()}`,
     }),
@@ -358,6 +411,14 @@ export async function verifyCanvasSegmentation({
   const headers = { authorization: `Bearer ${token}` };
   const session = await requestJson(`${root}/api/session`, { headers, fetchImpl, timeoutMs });
   if (session?.ok !== true) throw new Error('Canvas verification session is invalid');
+  const segmentation = await createSegmentationPlan({
+    root,
+    headers,
+    imageUrl: sourceDataUrl,
+    requiredInstances,
+    fetchImpl,
+    timeoutMs,
+  });
 
   const removeResult = await runBilledCanvasAction({
     root,
@@ -365,6 +426,8 @@ export async function verifyCanvasSegmentation({
     sku: 'ec_remove_bg',
     path: '/api/remove-bg',
     imageUrl: sourceDataUrl,
+    segmentationPlanToken: segmentation.token,
+    segmentationMasks: segmentation.masks,
     fetchImpl,
     timeoutMs,
   });
@@ -387,6 +450,8 @@ export async function verifyCanvasSegmentation({
     sku: 'ec_smart_layer',
     path: '/api/canvas/analyze-layers',
     imageUrl: sourceDataUrl,
+    segmentationPlanToken: segmentation.token,
+    segmentationMasks: segmentation.masks,
     fetchImpl,
     timeoutMs,
   });

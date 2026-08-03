@@ -816,6 +816,63 @@ test('Canvas API helpers send the signed session token and omit body email autho
   }
 });
 
+test('Canvas browser segmentation sends a signed plan before billed mask materialization', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const requests = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: () => JSON.stringify({
+      token: 'signed-canvas-session',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+    }),
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    const body = JSON.parse(options.body || '{}');
+    requests.push({ url: String(url), headers: options.headers || {}, body });
+    if (String(url).endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: `quote-${requests.length}` } }), { status: 200 });
+    }
+    if (String(url).endsWith('/api/canvas/segmentation-plan')) {
+      return new Response(JSON.stringify({
+        source: { width: 100, height: 80 },
+        prompts: [{ id: 'product-1', box: [10, 10, 50, 50] }],
+        plan_token: 'signed-plan',
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ url: '/api/generated-assets/result.png', layers: [] }), { status: 200 });
+  };
+
+  const api = await import(`../src/services/api.js?browser-segmentation=${Date.now()}`);
+  const masks = [{ prompt_id: 'product-1', data: 'data:image/png;base64,iVBORw0KGgo=' }];
+  await api.createCanvasSegmentationPlan('/api/generated-assets/source.png');
+  await api.removeBg({
+    image_url: '/api/generated-assets/source.png',
+    segmentation_plan_token: 'signed-plan',
+    segmentation_masks: masks,
+  });
+  await api.analyzeCanvasLayers('/api/generated-assets/source.png', {
+    planToken: 'signed-plan',
+    masks,
+  });
+
+  assert.deepEqual(requests.map(request => request.url), [
+    '/api/canvas/segmentation-plan',
+    '/api/billing/quote',
+    '/api/remove-bg',
+    '/api/billing/quote',
+    '/api/canvas/analyze-layers',
+  ]);
+  for (const request of requests) assert.equal(request.headers.Authorization, 'Bearer signed-canvas-session');
+  for (const request of requests.filter(item => !item.url.endsWith('/api/billing/quote') && !item.url.endsWith('/api/canvas/segmentation-plan'))) {
+    assert.equal(request.body.segmentation_plan_token, 'signed-plan');
+    assert.deepEqual(request.body.segmentation_masks, masks);
+  }
+});
+
 test('Canvas API helpers preserve structured non-2xx errors', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
@@ -926,7 +983,7 @@ test('direct generation screens cannot bypass the authenticated API payload help
   const api = await fs.readFile(new URL('../src/services/api.js', import.meta.url), 'utf8');
 
   assert.doesNotMatch(canvas, /fetch\([^\n]*\/api\/remove-bg/);
-  assert.match(canvas, /removeBg\(\{ image_url:/);
+  assert.match(canvas, /removeBg\(\{[\s\S]{0,160}image_url:/);
   assert.match(plog, /generatePlogContent\(/);
   assert.match(xhs, /generatePlogContent\(/);
   assert.match(api, /JSON\.stringify\(withSessionEmail\(payload\)\)/);

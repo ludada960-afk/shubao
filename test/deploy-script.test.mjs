@@ -36,10 +36,9 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /remoteRuntimeHelperDir\/configure-runtime-gateways\.cjs/i);
   assert.match(deploy, /SHUBAO_IMAGE_API_KEY/);
   assert.match(deploy, /SHUBAO_VISION_API_KEY/);
-  assert.match(deploy, /SHUBAO_FAL_KEY/);
-  assert.match(deploy, /SHUBAO_FAL_KEY is required for real Canvas segmentation/i);
+  assert.doesNotMatch(deploy, /SHUBAO_FAL_KEY|FAL_KEY/);
   assert.match(deploy, /runtimePayload\s*\|\s*&\s*ssh/i);
-  assert.match(deploy, /--replace-segmentation-key/i);
+  assert.doesNotMatch(deploy, /--replace-segmentation-key/i);
   assert.match(deploy, /root\.env/);
   assert.match(deploy, /server\.env/);
   assert.match(deploy, /server\/\.env/i);
@@ -99,7 +98,8 @@ test('runtime gateway updater accepts secrets only through stdin and rolls files
   assert.match(runtimeConfigUpdater, /0o600/);
   assert.match(runtimeConfigUpdater, /renameSync/);
   assert.match(runtimeConfigUpdater, /configureRuntimeFiles/);
-  assert.doesNotMatch(runtimeConfigUpdater, /console\.(?:log|error)\([^\n]*(?:IMAGE_API_KEY|MINI_API_KEY|FAL_KEY)/);
+  assert.doesNotMatch(runtimeConfigUpdater, /FAL_KEY|replaceSegmentationSecret|replace-segmentation-key/);
+  assert.doesNotMatch(runtimeConfigUpdater, /console\.(?:log|error)\([^\n]*(?:IMAGE_API_KEY|MINI_API_KEY)/);
 });
 
 test('production runtime verifier fails closed without exposing secret values', () => {
@@ -116,7 +116,7 @@ test('production runtime verifier fails closed without exposing secret values', 
   assert.match(runtimeConfigVerifier, /MINI_MODEL[\s\S]*gpt-5\.6-luna/);
   assert.match(runtimeConfigVerifier, /IMAGE_API_KEY/);
   assert.match(runtimeConfigVerifier, /MINI_API_KEY/);
-  assert.match(runtimeConfigVerifier, /FAL_KEY/);
+  assert.doesNotMatch(runtimeConfigVerifier, /FAL_KEY/);
   assert.match(runtimeConfigVerifier, /0o077/);
   assert.doesNotMatch(runtimeConfigVerifier, /console\.(?:log|error)\([^\n]*(?:secret|value)/i);
 });

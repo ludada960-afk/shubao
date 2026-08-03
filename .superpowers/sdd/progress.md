@@ -1047,3 +1047,21 @@
   it will never enter persisted Canvas state. Implementation and verification
   are in progress. User-owned extension-task deletions and `.tmp/` remain
   untouched.
+- Browser-distributed Canvas segmentation implementation completed locally on
+  2026-08-03. A pinned Apache-2.0 U2NetP ONNX model now runs through
+  ONNX Runtime Web WASM in a dedicated Worker, prewarms once, verifies the
+  model SHA-256 before caching, shares cold-start progress with later callers,
+  and supports cancel/retry.
+  The server signs owner/source-bound crop prompts, validates bounded PNG masks,
+  expands them to source pixels and materializes the existing owned transparent
+  product and smart-layer assets. Production configuration no longer requires
+  or forwards FAL credentials. The supplied three-container browser fixture
+  produced three nonempty, non-opaque masks with 38.45%, 19.39% and 19.94%
+  coverage in about 3.4 seconds from the cached session. Full regression passed
+  1,121/1,121, the 6,442-module production build and asset checks passed, both
+  model copies matched SHA-256
+  `309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8`,
+  and desktop/mobile Canvas plus progress-card QA had no overflow, broken images
+  or console errors. Production deployment remains a separate authenticated
+  release step. The 12 user-owned extension-task deletions and `.tmp/` remain
+  untouched.

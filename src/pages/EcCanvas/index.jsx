@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -56,12 +56,15 @@ import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot }
 import { buildCanvasImportResult, canvasOutputImages, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
+import CanvasSegmentationProgress from './components/CanvasSegmentationProgress.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createUploadedImageNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNode } from './canvasStudioModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
+import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
+import { canvasSegmentationRuntime, segmentationMasksToApi } from './canvasSegmentationRuntime.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -515,6 +518,7 @@ export default function EcCanvas() {
   const [zoomImg, setZoomImg] = useState(null);
   const [toast, setToast] = useState(null);
   const [promptLoading, setPromptLoading] = useState(false);
+  const [segmentationJobs, setSegmentationJobs] = useState([]);
   const [editingTextNodeId, setEditingTextNodeId] = useState(null);
   const [focusedEditor, setFocusedEditor] = useState(null);
   const [imageInfoNode, setImageInfoNode] = useState(null);
@@ -536,6 +540,7 @@ export default function EcCanvas() {
   const pendingDragRef = useRef(null);
   const draftReadyRef = useRef(false);
   const workflowProcessRef = useRef(null);
+  const segmentationAbortRef = useRef(new Map());
   const sourceUploadRef = useRef(null);
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
@@ -685,6 +690,27 @@ export default function EcCanvas() {
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
+  }, []);
+
+  useEffect(() => {
+    if (result.browserQa || globalThis.navigator?.connection?.saveData) return undefined;
+    const controller = new AbortController();
+    const prewarm = () => {
+      void canvasSegmentationRuntime.prewarm({ signal: controller.signal }).catch(() => {});
+    };
+    const idleId = typeof globalThis.requestIdleCallback === 'function'
+      ? globalThis.requestIdleCallback(prewarm, { timeout: 1800 })
+      : globalThis.setTimeout(prewarm, 900);
+    return () => {
+      controller.abort();
+      if (typeof globalThis.cancelIdleCallback === 'function') globalThis.cancelIdleCallback(idleId);
+      else globalThis.clearTimeout(idleId);
+    };
+  }, [result.id, result.browserQa]);
+
+  useEffect(() => () => {
+    for (const controller of segmentationAbortRef.current.values()) controller.abort();
+    segmentationAbortRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -1087,6 +1113,77 @@ export default function EcCanvas() {
     showToast('已建立素材关系', 'success');
   }, [connectionDraft, showToast]);
 
+  const executeBrowserSegmentation = useCallback(async ({
+    source,
+    action,
+    placement = {},
+    replaceNodeId = '',
+    workflowNodeId = '',
+  }) => {
+    const sourceUrl = source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
+    if (!source?.id || !sourceUrl) throw new Error('源图片暂不可用');
+    const jobId = `canvas-segmentation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const controller = new AbortController();
+    segmentationAbortRef.current.set(jobId, controller);
+    const job = {
+      id: jobId,
+      action,
+      sourceId: source.id,
+      sourceUrl: proxyImg(sourceUrl),
+      x: Number.isFinite(placement.x) ? placement.x : source.x + source.w + GAP * 2,
+      y: Number.isFinite(placement.y) ? placement.y : source.y,
+      replaceNodeId,
+      workflowNodeId,
+      progress: reduceSegmentationProgress(null, { stage: 'preparing' }),
+    };
+    setSegmentationJobs(previous => previous.filter(item => item.sourceId !== source.id || item.action !== action).concat(job));
+    const updateProgress = event => setSegmentationJobs(previous => previous.map(item => item.id === jobId
+      ? { ...item, progress: reduceSegmentationProgress(item.progress, event), error: '' }
+      : item));
+    let completed = false;
+    try {
+      if (canvasSegmentationRuntime.isWarm()) updateProgress({ stage: 'detecting' });
+      const planRequest = createCanvasSegmentationPlan(sourceUrl, { signal: controller.signal });
+      const warmRequest = canvasSegmentationRuntime.prewarm({
+        signal: controller.signal,
+        onProgress: updateProgress,
+      });
+      const [plan] = await Promise.all([planRequest, warmRequest]);
+      updateProgress({ stage: 'detecting' });
+      const workerMasks = await canvasSegmentationRuntime.segment({
+        imageUrl: proxyImg(sourceUrl),
+        prompts: plan.prompts,
+        signal: controller.signal,
+        onProgress: updateProgress,
+      });
+      updateProgress({ stage: 'materializing' });
+      const masks = await segmentationMasksToApi(workerMasks);
+      const data = action === 'smart-layer'
+        ? await analyzeCanvasLayers(sourceUrl, { planToken: plan.plan_token, masks, signal: controller.signal })
+        : await removeBg({
+          image_url: sourceUrl,
+          segmentation_plan_token: plan.plan_token,
+          segmentation_masks: masks,
+          signal: controller.signal,
+        });
+      completed = true;
+      updateProgress({ stage: 'complete' });
+      return data;
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        setSegmentationJobs(previous => previous.map(item => item.id === jobId
+          ? { ...item, error: error?.message || '处理失败，请重试' }
+          : item));
+      }
+      throw error;
+    } finally {
+      segmentationAbortRef.current.delete(jobId);
+      if (completed || controller.signal.aborted) {
+        setSegmentationJobs(previous => previous.filter(item => item.id !== jobId));
+      }
+    }
+  }, []);
+
   const handleSmartLayerMaterialization = useCallback(async (source, anchor = {}, { replaceNodeId = '' } = {}) => {
     const sourceUrl = source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
     if (!source?.id || !sourceUrl || promptLoading) return;
@@ -1094,9 +1191,13 @@ export default function EcCanvas() {
     setConnectionPicker(null);
     setPointerMode(null);
     setPromptLoading(true);
-    showToast('正在识别商品、背景和文字图层', 'info');
     try {
-      const data = await analyzeCanvasLayers(sourceUrl);
+      const data = await executeBrowserSegmentation({
+        source,
+        action: 'smart-layer',
+        placement: anchor,
+        replaceNodeId,
+      });
       const result = materializeCanvasLayers({
         sourceNode: source,
         layers: data.layers,
@@ -1124,11 +1225,44 @@ export default function EcCanvas() {
         : '';
       showToast(`已生成 ${result.nodes.length} 个可独立拖动图层${warning}`, data.status === 'partial' ? 'info' : 'success');
     } catch (error) {
-      handleCanvasActionError(error, { type: 'layer-edit', nodeId: source.id });
+      if (error?.name !== 'AbortError') handleCanvasActionError(error, { type: 'layer-edit', nodeId: source.id });
     } finally {
       setPromptLoading(false);
     }
-  }, [handleCanvasActionError, promptLoading, showToast]);
+  }, [executeBrowserSegmentation, handleCanvasActionError, promptLoading, showToast]);
+
+  const handleDirectRemoveBackground = useCallback(async (source, placement = {}) => {
+    if (!source?.url || promptLoading) return;
+    setPromptLoading(true);
+    try {
+      const data = await executeBrowserSegmentation({ source, action: 'remove-bg', placement });
+      const resultUrl = data.result_url || data.url;
+      if (!resultUrl) throw new Error(data.error || '去背结果为空');
+      const output = normalizeCanvasNode({
+        ...source,
+        id: `node_remove_bg_${Date.now()}`,
+        kind: 'image',
+        status: 'ready',
+        url: resultUrl,
+        ...canvasImageResultGeometry(data, source),
+        x: Number.isFinite(placement.x) ? placement.x : source.x + source.w + GAP * 2,
+        y: Number.isFinite(placement.y) ? placement.y : source.y,
+        name: `${source.name || source.displayLabel || '电商图'}-透明底`,
+        displayLabel: `${source.name || source.displayLabel || '电商图'}-透明底`,
+        sourceNodeIds: [source.id],
+        showMeta: true,
+      });
+      setNodes(previous => [...previous, output]);
+      setConnections(previous => [...previous, createChildConnection(source.id, output.id, 'remove-bg-output')]);
+      setSelected(output.id);
+      setMultiSelected(new Set([output.id]));
+      showToast('去背完成，已生成可继续编辑的透明底图片', 'success');
+    } catch (error) {
+      if (error?.name !== 'AbortError') handleCanvasActionError(error, { type: 'remove-bg', nodeId: source.id });
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [executeBrowserSegmentation, handleCanvasActionError, promptLoading, showToast]);
 
   const handleCreateDerivedNode = useCallback((sourceNodeId, action, world, initialInputs = {}) => {
     const source = nodes.find(node => node.id === sourceNodeId);
@@ -1336,7 +1470,12 @@ export default function EcCanvas() {
       let url = '';
       let resultGeometry = {};
       if (actionId === 'remove-bg') {
-        const data = await removeBg({ image_url: sourceUrl });
+        const data = await executeBrowserSegmentation({
+          source: { ...source, url: sourceUrl },
+          action: 'remove-bg',
+          placement: { x: node.x + node.w + GAP * 2, y: node.y },
+          workflowNodeId: node.id,
+        });
         url = data.result_url || data.url || '';
         resultGeometry = canvasImageResultGeometry(data, source);
       } else if (actionId === 'inpaint') {
@@ -1370,11 +1509,37 @@ export default function EcCanvas() {
     } finally {
       setPromptLoading(false);
     }
-  }, [nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
+  }, [executeBrowserSegmentation, nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
 
   useEffect(() => {
     workflowProcessRef.current = handleWorkflowProcess;
   }, [handleWorkflowProcess]);
+
+  const handleSegmentationJobCancel = useCallback(job => {
+    segmentationAbortRef.current.get(job.id)?.abort();
+    setSegmentationJobs(previous => previous.filter(item => item.id !== job.id));
+  }, []);
+
+  const handleSegmentationJobClose = useCallback(job => {
+    setSegmentationJobs(previous => previous.filter(item => item.id !== job.id));
+  }, []);
+
+  const handleSegmentationJobRetry = useCallback(job => {
+    setSegmentationJobs(previous => previous.filter(item => item.id !== job.id));
+    if (job.workflowNodeId) {
+      const workflowNode = nodes.find(node => node.id === job.workflowNodeId);
+      if (workflowNode) void workflowProcessRef.current?.(workflowNode);
+      return;
+    }
+    const source = nodes.find(node => node.id === job.sourceId);
+    if (!source) return;
+    const placement = { x: job.x, y: job.y };
+    if (job.action === 'smart-layer') {
+      void handleSmartLayerMaterialization(source, placement, { replaceNodeId: job.replaceNodeId || '' });
+    } else {
+      void handleDirectRemoveBackground(source, placement);
+    }
+  }, [handleDirectRemoveBackground, handleSmartLayerMaterialization, nodes]);
 
   const updateWorkflowLayers = useCallback((nodeId, updater) => {
     setNodes(prev => prev.map(node => {
@@ -1586,39 +1751,6 @@ export default function EcCanvas() {
       setTextOcrLoading(false);
     }
   }, [textOcrLoading]);
-
-  const handleDirectRemoveBackground = useCallback(async (source, placement = {}) => {
-    if (!source?.url || promptLoading) return;
-    setPromptLoading(true);
-    try {
-      const data = await removeBg({ image_url: source.url });
-      const resultUrl = data.result_url || data.url;
-      if (!resultUrl) throw new Error(data.error || '去背结果为空');
-      const output = normalizeCanvasNode({
-        ...source,
-        id: `node_remove_bg_${Date.now()}`,
-        kind: 'image',
-        status: 'ready',
-        url: resultUrl,
-        ...canvasImageResultGeometry(data, source),
-        x: Number.isFinite(placement.x) ? placement.x : source.x + source.w + GAP * 2,
-        y: Number.isFinite(placement.y) ? placement.y : source.y,
-        name: `${source.name || source.displayLabel || '电商图'}-透明底`,
-        displayLabel: `${source.name || source.displayLabel || '电商图'}-透明底`,
-        sourceNodeIds: [source.id],
-        showMeta: true,
-      });
-      setNodes(previous => [...previous, output]);
-      setConnections(previous => [...previous, createChildConnection(source.id, output.id, 'remove-bg-output')]);
-      setSelected(output.id);
-      setMultiSelected(new Set([output.id]));
-      showToast('去背完成，已生成可继续编辑的透明底图片', 'success');
-    } catch (error) {
-      handleCanvasActionError(error, { type: 'remove-bg', nodeId: source.id });
-    } finally {
-      setPromptLoading(false);
-    }
-  }, [handleCanvasActionError, promptLoading, showToast]);
 
   const handleToolAction = async (action, node) => {
     if (!node) return;
@@ -2883,6 +3015,13 @@ export default function EcCanvas() {
           <div style={{ '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale), position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
             <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
+            {segmentationJobs.map(job => <CanvasSegmentationProgress
+              key={job.id}
+              job={job}
+              onCancel={handleSegmentationJobCancel}
+              onRetry={handleSegmentationJobRetry}
+              onClose={handleSegmentationJobClose}
+            />)}
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
               const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);

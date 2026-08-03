@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canvas Segmentation Runtime QA</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #f7f8fa; color: #20242a; font: 14px/1.5 system-ui, sans-serif; }
+    main { max-width: 620px; margin: 0 auto; padding: 20px; border: 1px solid #dde2e8; border-radius: 8px; background: #fff; }
+    progress { width: 100%; }
+    output { display: block; margin-top: 12px; white-space: pre-wrap; }
+    #masks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+    figure { margin: 0; }
+    figure img { display: block; width: 100%; aspect-ratio: 1; border: 1px solid #dde2e8; background: #eef1f4; object-fit: contain; }
+    figcaption { margin-top: 4px; color: #58606b; text-align: center; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Canvas Segmentation Runtime QA</h1>
+    <progress id="progress" max="100" value="0"></progress>
+    <output id="status" data-status="running">starting</output>
+    <div id="masks" aria-label="分割蒙版"></div>
+  </main>
+  <script type="module">
+    import { canvasSegmentationRuntime } from '/src/pages/EcCanvas/canvasSegmentationRuntime.js';
+    import { reduceSegmentationProgress } from '/src/pages/EcCanvas/canvasSegmentationModel.js';
+
+    const output = document.querySelector('#status');
+    const bar = document.querySelector('#progress');
+    const maskGrid = document.querySelector('#masks');
+    let state = null;
+    const update = event => {
+      state = reduceSegmentationProgress(state, event);
+      bar.value = state.percent;
+      output.textContent = `${state.label} ${state.percent}%`;
+    };
+    const startedAt = performance.now();
+    try {
+      await canvasSegmentationRuntime.prewarm({ onProgress: update });
+      const masks = await canvasSegmentationRuntime.segment({
+        imageUrl: '/test/fixtures/three-containers.webp',
+        prompts: [
+          { id: 'gray', box: [190, 95, 540, 420] },
+          { id: 'blue', box: [35, 235, 415, 650] },
+          { id: 'orange', box: [330, 225, 705, 635] },
+        ],
+        onProgress: update,
+      });
+      const bytes = await Promise.all(masks.map(mask => mask.blob.size));
+      const coverages = await Promise.all(masks.map(async mask => {
+        const bitmap = await createImageBitmap(mask.blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.drawImage(bitmap, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let activePixels = 0;
+        for (let index = 0; index < pixels.length; index += 4) {
+          if (pixels[index] > 32) activePixels += 1;
+        }
+        bitmap.close();
+        const coverage = activePixels / (canvas.width * canvas.height);
+        const figure = document.createElement('figure');
+        const image = document.createElement('img');
+        image.src = URL.createObjectURL(mask.blob);
+        image.alt = `${mask.promptId} 蒙版`;
+        const caption = document.createElement('figcaption');
+        caption.textContent = `${mask.promptId} ${Math.round(coverage * 100)}%`;
+        figure.append(image, caption);
+        maskGrid.append(figure);
+        return coverage;
+      }));
+      const validCoverage = coverages.every(value => value > 0.01 && value < 0.95);
+      output.dataset.status = masks.length === 3 && bytes.every(size => size > 500) && validCoverage ? 'passed' : 'failed';
+      output.textContent = JSON.stringify({
+        status: output.dataset.status,
+        masks: masks.length,
+        bytes,
+        coverages: coverages.map(value => Number(value.toFixed(4))),
+        elapsedMs: Math.round(performance.now() - startedAt),
+      });
+      bar.value = 100;
+    } catch (error) {
+      output.dataset.status = 'failed';
+      output.textContent = JSON.stringify({ status: 'failed', message: error.message, code: error.code });
+    }
+  </script>
+</body>
+</html>

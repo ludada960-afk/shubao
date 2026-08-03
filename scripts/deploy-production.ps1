@@ -91,10 +91,6 @@ function Wait-PublicProductionReady {
 
 $hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
 $hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
-$hasFalKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_FAL_KEY)
-if (-not $hasFalKey) {
-  throw "SHUBAO_FAL_KEY is required for real Canvas segmentation"
-}
 if ($hasImageGatewayKey -and -not $hasVisionGatewayKey) {
   throw "SHUBAO_IMAGE_API_KEY requires SHUBAO_VISION_API_KEY"
 }
@@ -167,13 +163,11 @@ try {
       $runtimePayload = @{
         IMAGE_API_KEY = $env:SHUBAO_IMAGE_API_KEY
         MINI_API_KEY = $env:SHUBAO_VISION_API_KEY
-        FAL_KEY = $env:SHUBAO_FAL_KEY
       } | ConvertTo-Json -Compress
       $runtimePayload | & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env"
     } else {
       $runtimePayload = @{
         MINI_API_KEY = $env:SHUBAO_VISION_API_KEY
-        FAL_KEY = $env:SHUBAO_FAL_KEY
       } | ConvertTo-Json -Compress
       $runtimePayload | & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --replace-vision-key"
     }
@@ -182,16 +176,8 @@ try {
     & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
     if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration verification failed after update" }
   } else {
-    & ssh @ssh $target "set -e; umask 077; test ! -e '$remoteRuntimeConfigBackup'; mkdir -m 700 '$remoteRuntimeConfigBackup'; cp '$RemoteDir/.env' '$remoteRuntimeConfigBackup/root.env'; cp '$RemoteDir/server/.env' '$remoteRuntimeConfigBackup/server.env'; chmod 600 '$remoteRuntimeConfigBackup/root.env' '$remoteRuntimeConfigBackup/server.env'"
-    if ($LASTEXITCODE -ne 0) { throw "Runtime configuration backup failed" }
-    $runtimeConfigBackupCreated = $true
-    $runtimeConfigTouched = $true
-    $runtimePayload = @{ FAL_KEY = $env:SHUBAO_FAL_KEY } | ConvertTo-Json -Compress
-    $runtimePayload | & ssh @ssh $target "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --replace-segmentation-key"
-    Remove-Variable runtimePayload -ErrorAction SilentlyContinue
-    if ($LASTEXITCODE -ne 0) { throw "Production runtime segmentation gateway update failed" }
     & ssh @ssh $target "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env"
-    if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration verification failed after segmentation update" }
+    if ($LASTEXITCODE -ne 0) { throw "Production runtime gateway configuration verification failed" }
   }
   $remoteStamp = "$stamp-$commit"
   $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"
