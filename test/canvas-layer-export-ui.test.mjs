@@ -20,6 +20,9 @@ test('Canvas workbench offers real pixel layering before verified PSD download',
   assert.match(card, /layerCapabilities\.pixelLayers\s*&&\s*selectedLayer/);
   assert.doesNotMatch(card, /可调色/);
   assert.doesNotMatch(legacyCard, /可调色/);
+  assert.match(legacyCard, /hasPixelLayers\s*=\s*capabilities\.pixelLayers\s*===\s*true/);
+  assert.match(legacyCard, /hasPixelLayers\s*&&\s*selectedLayer/);
+  assert.match(legacyCard, /生成像素分层/);
 });
 
 test('text composition retains a real source image layer for pixel-layer export', async () => {

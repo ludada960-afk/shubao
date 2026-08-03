@@ -157,8 +157,9 @@ export function SmartRemixNodeCard({ node, sourceImage, prompt = '', productImag
   );
 }
 
-export function LayerWorkbenchNodeCard({ layers = [], selectedLayerId, status = 'draft', selected = false, capabilities = {}, error, onRetry, onSelectLayer, onToggleVisibility, onToggleLock, onMoveLayer, onExportPng, onAddToCanvas, onExportPsd, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
+export function LayerWorkbenchNodeCard({ layers = [], selectedLayerId, status = 'draft', selected = false, capabilities = {}, error, onRetry, onSelectLayer, onToggleVisibility, onToggleLock, onMoveLayer, onExportPng, onAddToCanvas, onCreatePixelLayers, onExportPsd, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
   const selectedLayer = layers.find(layer => layer.id === selectedLayerId) || layers[0];
+  const hasPixelLayers = capabilities.pixelLayers === true;
   return (
     <CanvasNodeShell title="图层编辑" subtitle="拆分元素后逐层调整" icon={MdLayers} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} className="workflow-node-layer-workbench">
       <div className="workflow-node-body">
@@ -167,20 +168,22 @@ export function LayerWorkbenchNodeCard({ layers = [], selectedLayerId, status = 
             {layers.map(layer => <div role="option" aria-selected={layer.id === selectedLayer?.id} tabIndex={0} className={`workflow-layer-row ${layer.id === selectedLayer?.id ? 'is-selected' : ''}`} key={layer.id} onClick={() => onSelectLayer?.(layer.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') onSelectLayer?.(layer.id); }}>
               {layer.preview_url ? <img src={layer.preview_url} alt="" /> : <span className="workflow-layer-thumb"><MdLayers size={15} /></span>}
               <span className="workflow-layer-name"><strong>{layer.name}</strong><small>{layer.kind || '元素'}</small></span>
-              <span className="workflow-layer-actions">
+              {hasPixelLayers && <span className="workflow-layer-actions">
                 <button type="button" aria-label={layer.visible === false ? '显示图层' : '隐藏图层'} onClick={event => { event.stopPropagation(); onToggleVisibility?.(layer); }}>{layer.visible === false ? <MdVisibilityOff size={15} /> : <MdOutlineVisibility size={15} />}</button>
                 <button type="button" aria-label={layer.locked ? '解锁图层' : '锁定图层'} onClick={event => { event.stopPropagation(); onToggleLock?.(layer); }}>{layer.locked ? <MdLock size={15} /> : <MdLockOpen size={15} />}</button>
-              </span>
+              </span>}
             </div>)}
             {!layers.length && <div className="workflow-empty-state">分析完成后会显示商品、人物、背景和文字图层</div>}
           </div>
-          {selectedLayer && <div className="workflow-layer-inspector">
+          {hasPixelLayers && selectedLayer && <div className="workflow-layer-inspector">
             <div className="workflow-section-label"><strong>{selectedLayer.name}</strong><span>当前图层</span></div>
             <div className="workflow-layer-quick-actions"><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'up')}>上移</button><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'down')}>下移</button><button type="button" onClick={() => onAddToCanvas?.(selectedLayer)} disabled={!selectedLayer.url && !selectedLayer.preview_url}>放到画布</button></div>
             <div className="workflow-layer-capabilities"><span><MdOpenWith size={14} /> 可移动</span>{selectedLayer.kind === 'text' && <span><MdEdit size={14} /> 可编辑文字</span>}</div>
           </div>}
           <div className="workflow-node-footer-row">
-            <button type="button" className="workflow-secondary-button" onClick={() => onExportPng?.(selectedLayer)} disabled={!selectedLayer}><MdDownload size={15} /> 导出当前层</button>
+            {hasPixelLayers
+              ? <button type="button" className="workflow-secondary-button" onClick={() => onExportPng?.(selectedLayer)} disabled={!selectedLayer}><MdDownload size={15} /> 导出当前层</button>
+              : <button type="button" className="workflow-secondary-button" onClick={onCreatePixelLayers} disabled={!onCreatePixelLayers}><MdLayers size={15} /> 生成像素分层</button>}
             <button type="button" className="workflow-primary-button" onClick={onExportPsd} disabled={!capabilities.psdExport} title={capabilities.psdExport ? '下载多图层 PSD' : '完成像素分层后可导出 PSD'}><MdDownload size={15} /> 下载 PSD</button>
           </div>
           {error && <div className="workflow-error-box"><span>{error}</span></div>}

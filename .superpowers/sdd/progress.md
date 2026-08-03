@@ -951,3 +951,11 @@
   mixed-case variants. The focused Canvas/generation guard suite passed 49/49;
   production deployment and authenticated browser acceptance still await the
   owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.
+- The compatibility layer-workbench card still exposed visibility, ordering,
+  export and “可移动” controls even when semantic analysis had not produced
+  verified pixel layers. It now gates those controls on `capabilities.pixelLayers`
+  and offers the real pixel-layer conversion action otherwise, matching the
+  modular card. The focused layer/UI regression passed 32/32 and the
+  6,435-module production build passed. Production deployment and authenticated
+  browser acceptance still await the owner-provided
+  `SHUBAO_CANARY_SESSION_TOKEN`.
