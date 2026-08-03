@@ -3404,6 +3404,7 @@ app.post('/api/reverse-prompt', async (req, res) => {
 async function segmentLightBackground(imageBuffer) {
   const { data, info } = await sharp(imageBuffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
+  const original = Buffer.from(data);
   const visited = new Uint8Array(width * height);
   const queue = new Int32Array(width * height);
   let head = 0;
@@ -3434,7 +3435,7 @@ async function segmentLightBackground(imageBuffer) {
     data[index * channels + 3] = 0;
     if (x === 0 || x === width - 1 || y === 0 || y === height - 1) data[index * channels + 3] = 0;
   }
-  const backgroundData = Buffer.from(data);
+  const backgroundData = Buffer.from(original);
   for (let index = 0; index < width * height; index += 1) {
     if (!visited[index]) backgroundData[index * channels + 3] = 0;
   }
@@ -3906,9 +3907,11 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
       { name: '商品主体', description: '已从浅色背景中分离，可单独移动和导出。' },
       { name: '背景', description: '保留原图中与商品主体分开的背景区域。' },
     ];
+    const subjectIndex = semanticLayers.findIndex(layer => /商品|主体|产品/.test(layer.name));
+    const backgroundIndex = semanticLayers.findIndex((layer, index) => index !== subjectIndex && /背景|底色|氛围/.test(layer.name));
     const resolvedLayers = semanticLayers.map((layer, index) => {
-      const isSubject = /商品|主体|产品/.test(layer.name) || index === 0;
-      const isBackground = /背景|底色|氛围/.test(layer.name) || index === 1;
+      const isSubject = index === (subjectIndex >= 0 ? subjectIndex : 0);
+      const isBackground = index === (backgroundIndex >= 0 ? backgroundIndex : semanticLayers.length > 1 ? (isSubject ? 1 : 0) : -1);
       return {
         ...layer,
         kind: 'image',
@@ -3917,6 +3920,12 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
         editable: Boolean(isSubject || isBackground),
       };
     });
+    if (!resolvedLayers.some(layer => layer.url === subjectAsset.url)) {
+      resolvedLayers.unshift({ name: '商品主体', description: '已从浅色背景中分离，可单独移动和导出。', kind: 'image', url: subjectAsset.url, preview_url: subjectAsset.url, editable: true });
+    }
+    if (!resolvedLayers.some(layer => layer.url === backgroundAsset.url)) {
+      resolvedLayers.push({ name: '背景', description: '保留原图中与商品主体分开的背景区域。', kind: 'image', url: backgroundAsset.url, preview_url: backgroundAsset.url, editable: true });
+    }
     const semanticCapabilities = analyzeSceneCapabilities({ layers });
     const capabilities = { ...semanticCapabilities, semanticAnalysis: layers.length > 0, pixelLayers: true, movableLayers: true, psdExport: false };
     res.json({ layers: resolvedLayers, status: '已分离 2 个基础像素层', capabilities });
