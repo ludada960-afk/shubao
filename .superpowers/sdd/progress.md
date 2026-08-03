@@ -966,3 +966,17 @@
   contracts. The remaining evidence gap is external: authenticated production
   canary and public deployment still require the owner-provided
   `SHUBAO_CANARY_SESSION_TOKEN`.
+- Production release closure on 2026-08-03: the deployment preflight passed with
+  collaboration `READY`, whitespace validation, and the complete repository
+  suite at 1,055/1,055. `scripts/deploy-production.ps1` successfully deployed
+  commit `6d44f7b` to `https://shuimg.cn/`, preserved the runtime database and
+  secret files, restarted PM2 as PID `2520641`, and completed the 600-second
+  stability window without a process restart. Both the initial and final
+  authenticated ecommerce canaries passed billing, direction planning, three
+  stable assets, Works persistence, stable image variants, and Canvas session
+  persistence; final task `ec_9795d6e5-65d1-4c0e-b961-3d424b84fcfe` delivered
+  three stable assets. Final public health is green, the remote `server/index.mjs`
+  hash matches the local release, and the deployment lock is absent. Two earlier
+  automatic rollbacks were caused by one transient connection failure and one
+  stochastic `manual_review` quality result; the final retry passed. The 12
+  user-owned `server/extension_tasks` deletions and `.tmp/` remain untouched.
