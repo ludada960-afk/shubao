@@ -1037,3 +1037,13 @@
   deployment remain pending `SHUBAO_FAL_KEY`; production currently has neither that
   key nor the legacy remove-background key. The 12 user-owned extension-task
   deletions and `.tmp/` remain untouched.
+- Browser-distributed Canvas segmentation design approved on 2026-08-03:
+  paid FAL masks are being replaced by a pinned U2NetP ONNX model running in a
+  dedicated browser Worker. The server will sign VLM-derived crop prompts,
+  validate browser masks against those prompts, preserve the existing billing
+  and owned-asset boundary, and continue generating original-pixel product
+  layers. A source-anchored transient task card will expose real model-download,
+  product-detection, per-instance extraction and final materialization progress;
+  it will never enter persisted Canvas state. Implementation and verification
+  are in progress. User-owned extension-task deletions and `.tmp/` remain
+  untouched.
