@@ -1403,24 +1403,17 @@ export default function EcCanvas() {
   const handleContextAction = async (action, node) => {
     if (action?.startsWith('create:')) {
       const actionId = action.slice('create:'.length);
-      const sourceIndex = Math.max(0, nodes.findIndex(item => item.id === node?.id));
-      const source = nodes[sourceIndex] || node;
+      const source = nodes.find(item => item.id === node?.id) || node;
       if (!canDeriveFromNode(source)) {
         showToast('完成当前处理后，可从生成结果继续派生', 'info');
         return;
       }
-      const child = createDerivedNode({
-        sourceNodeIds: [source.id],
-        actionId,
+      const actionSpec = getCanvasAction(actionId);
+      if (!actionSpec) return;
+      handleCreateDerivedNode(source.id, actionSpec, {
         x: source.x + source.w + GAP * 2,
         y: source.y,
-        inputs: { sourceNodeId: source.id, sourceUrl: source.url || null },
       });
-      setNodes(prev => [...prev, child]);
-      setConnections(prev => [...prev, createChildConnection(source.id, child.id, actionId)]);
-      setSelected(child.id);
-      setMultiSelected(new Set([child.id]));
-      showToast(`已创建${child.title}节点`, 'success');
       return;
     }
     switch (action) {

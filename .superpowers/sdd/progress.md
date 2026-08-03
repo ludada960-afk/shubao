@@ -897,3 +897,10 @@
   remains the path for general scenes. Focused pixel and syntax checks passed;
   production deployment and authenticated browser acceptance still await the
   owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.
+- The Canvas context-menu create path was still constructing bare draft nodes
+  directly, so smart remix and layer analysis behaved differently depending on
+  which entry point the user clicked. It now delegates to the same executable
+  workflow-node creation path as the canvas toolbar, including automatic prompt
+  analysis and layer analysis. The focused Canvas contract remains covered;
+  production deployment and authenticated browser acceptance still await the
+  owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.

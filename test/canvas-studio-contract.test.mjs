@@ -198,6 +198,17 @@ test('canvas workflow retry resubmits an existing generation request and reruns 
   assert.match(retry, /void workflowProcessRef\.current\?\.\(\{ \.\.\.node/);
 });
 
+test('context create actions reuse the executable workflow-node creation path', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const start = page.indexOf('const handleContextAction = async');
+  const end = page.indexOf('  const handleRecognizeCanvasText', start);
+  assert.ok(start >= 0 && end > start);
+  const branch = page.slice(start, end);
+  assert.match(branch, /const actionSpec = getCanvasAction\(actionId\)/);
+  assert.match(branch, /handleCreateDerivedNode\(source\.id, actionSpec/);
+  assert.doesNotMatch(branch, /const child = createDerivedNode\(/);
+});
+
 test('focused editing exposes complete functional annotation and geometry controls', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
