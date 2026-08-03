@@ -858,3 +858,12 @@
   passed 15/15, followed by the 6,435-module production build, build-asset
   check, collaboration policy and whitespace validation. Production remains
   pending the owner-provided Canary session token.
+- Final regression after the single-input fix passed the complete repository
+  suite: 1,043/1,043 tests, with no failures or skips. The production build,
+  build-asset check, collaboration policy and whitespace validation remain
+  green. A GitHub capability review was also completed as a fallback because
+  the local `agent-reach` executable is unavailable: BRIA RMBG 2.0 requires a
+  commercial license for commercial use, while SAM 2 requires a separate
+  Python/PyTorch/CUDA runtime, so neither was added as an unverified Node
+  dependency. Production deployment and authenticated browser acceptance
+  remain pending the owner-provided Canary session token.
