@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, regenerateText, generateEcommerceSuite, transformCanvasImage, analyzeCanvasLayers, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, regenerateText, generateEcommerceSuite, transformCanvasImage, analyzeCanvasLayers, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -133,7 +133,8 @@ function normalizeLayerItems(layers, nodeId) {
     description: layer.description || '',
     visible: layer.visible !== false,
     locked: Boolean(layer.locked),
-    preview_url: layer.preview_url || '',
+    url: layer.url || layer.preview_url || '',
+    preview_url: layer.preview_url || layer.url || '',
   }));
 }
 
@@ -518,6 +519,8 @@ export default function EcCanvas() {
   const [textInspectorNodeId, setTextInspectorNodeId] = useState(null);
   const [textCompositionSaving, setTextCompositionSaving] = useState(false);
   const [textCompositionError, setTextCompositionError] = useState('');
+  const [textOcrBlocks, setTextOcrBlocks] = useState(null);
+  const [textOcrLoading, setTextOcrLoading] = useState(false);
   const [canvasSession, setCanvasSession] = useState(null);
   const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
@@ -1052,6 +1055,10 @@ export default function EcCanvas() {
     if (!source || !actionSpec?.execute?.nodeKind || !canDeriveFromNode(source)) return;
     const sourceUrl = source.url || source.assets?.find(asset => asset?.url)?.url || null;
     const nodeActionId = actionSpec.execute.nodeActionId;
+    if (nodeActionId === 'remove-bg') {
+      void handleDirectRemoveBackground({ ...source, url: sourceUrl }, world);
+      return;
+    }
     const promptSeed = source.direction
       ? [source.direction.purpose, source.direction.composition, source.direction.copy].filter(Boolean).join('\n')
       : '';
@@ -1272,6 +1279,35 @@ export default function EcCanvas() {
     link.click();
   }, [showToast]);
 
+  const handleWorkflowLayerAddToCanvas = useCallback((node, layer) => {
+    const url = layer?.url || layer?.preview_url;
+    if (!url) {
+      showToast('这一层没有可编辑的像素资源', 'info');
+      return;
+    }
+    const output = normalizeCanvasNode({
+      id: `node_layer_${Date.now()}`,
+      kind: 'image',
+      status: 'ready',
+      url,
+      x: node.x + node.w + GAP * 2,
+      y: node.y,
+      w: 220,
+      h: 220,
+      ratio: '1:1',
+      name: layer.name || '独立图层',
+      displayLabel: layer.name || '独立图层',
+      sourceNodeIds: [node.id],
+      group: '素材',
+      showMeta: true,
+    });
+    setNodes(previous => [...previous, output]);
+    setConnections(previous => [...previous, createChildConnection(node.id, output.id, 'layer-output')]);
+    setSelected(output.id);
+    setMultiSelected(new Set([output.id]));
+    showToast(`${layer.name || '图层'}已放到画布，可单独移动`, 'success');
+  }, [showToast]);
+
   const handleWorkflowPixelLayers = useCallback(async (node) => {
     const compositionDocument = node.inputs?.compositionDocument;
     if (!compositionDocument?.id) {
@@ -1403,19 +1439,7 @@ export default function EcCanvas() {
         setDirectionRatio(node.ratio || '3:4');
         break;
       case 'remove-bg':
-        showToast('AI 抠图中…请稍候', 'info');
-        try {
-          const data = await removeBg({ image_url: node.url });
-          const resultUrl = data.result_url || data.url;
-          if (resultUrl) {
-            setNodes(ns => ns.map(n => n.id === node.id ? { ...n, url: resultUrl, loaded: false } : n));
-            showToast('抠图完成！', 'success');
-          } else {
-            showToast(data.error || '抠图返回为空', 'error');
-          }
-        } catch (e) {
-          handleCanvasActionError(e, { type: 'remove-bg', nodeId: node.id });
-        }
+        await handleDirectRemoveBackground(node, { x: node.x + node.w + GAP * 2, y: node.y });
         break;
       case 'reverse-prompt':
         await handleToolAction('reverse-prompt', node);
@@ -1435,6 +1459,55 @@ export default function EcCanvas() {
     }
   };
 
+  const handleRecognizeCanvasText = useCallback(async (node) => {
+    if (!node?.url || textOcrLoading) return;
+    setTextOcrBlocks(null);
+    setTextOcrLoading(true);
+    setTextCompositionError('');
+    try {
+      const response = await recognizeCanvasText({ image_url: node.url });
+      setTextOcrBlocks(Array.isArray(response.blocks) ? response.blocks : []);
+      if (!response.blocks?.length) setTextCompositionError('没有识别到图片内文字');
+    } catch (error) {
+      setTextOcrBlocks([]);
+      setTextCompositionError(error?.message || '图片文字识别失败');
+    } finally {
+      setTextOcrLoading(false);
+    }
+  }, [textOcrLoading]);
+
+  const handleDirectRemoveBackground = useCallback(async (source, placement = {}) => {
+    if (!source?.url || promptLoading) return;
+    setPromptLoading(true);
+    try {
+      const data = await removeBg({ image_url: source.url });
+      const resultUrl = data.result_url || data.url;
+      if (!resultUrl) throw new Error(data.error || '去背结果为空');
+      const output = normalizeCanvasNode({
+        ...source,
+        id: `node_remove_bg_${Date.now()}`,
+        kind: 'image',
+        status: 'ready',
+        url: resultUrl,
+        x: Number.isFinite(placement.x) ? placement.x : source.x + source.w + GAP * 2,
+        y: Number.isFinite(placement.y) ? placement.y : source.y,
+        name: `${source.name || source.displayLabel || '电商图'}-透明底`,
+        displayLabel: `${source.name || source.displayLabel || '电商图'}-透明底`,
+        sourceNodeIds: [source.id],
+        showMeta: true,
+      });
+      setNodes(previous => [...previous, output]);
+      setConnections(previous => [...previous, createChildConnection(source.id, output.id, 'remove-bg-output')]);
+      setSelected(output.id);
+      setMultiSelected(new Set([output.id]));
+      showToast('去背完成，已生成可继续编辑的透明底图片', 'success');
+    } catch (error) {
+      handleCanvasActionError(error, { type: 'remove-bg', nodeId: source.id });
+    } finally {
+      setPromptLoading(false);
+    }
+  }, [handleCanvasActionError, promptLoading, showToast]);
+
   const handleToolAction = async (action, node) => {
     if (!node) return;
     const actionSpec = getCanvasAction(action?.id || action);
@@ -1442,7 +1515,9 @@ export default function EcCanvas() {
     const handler = actionSpec?.execute?.handler || actionId;
     if (handler === 'edit-text') {
       setTextInspectorNodeId(node.id);
+      setTextOcrBlocks(node.kind === 'image' || node.kind === 'output' ? null : undefined);
       setTextCompositionError('');
+      if (node.kind === 'image' || node.kind === 'output') void handleRecognizeCanvasText(node);
       return;
     }
     if (['crop', 'annotation', 'grid-split', 'split-image', 'move-scale'].includes(handler)) {
@@ -2304,6 +2379,37 @@ export default function EcCanvas() {
   const handleSaveTextLayer = useCallback(async (layer) => {
     const node = nodes.find(item => item.id === textInspectorNodeId);
     if (!node || textCompositionSaving) return;
+    if (Array.isArray(layer?.ocrBlocks)) {
+      setTextCompositionSaving(true);
+      setTextCompositionError('');
+      try {
+        const response = await replaceCanvasText({ image_url: node.url, blocks: layer.ocrBlocks });
+        const url = response.result_url || response.url;
+        if (!url) throw new Error('文字替换结果为空');
+        const output = normalizeCanvasNode({
+          ...node,
+          id: `node_text_edit_${Date.now()}`,
+          kind: 'image',
+          status: 'ready',
+          url,
+          x: node.x + node.w + GAP * 2,
+          y: node.y,
+          name: `${node.name || node.displayLabel || '电商图'}-文字已替换`,
+          displayLabel: `${node.name || node.displayLabel || '电商图'}-文字已替换`,
+          sourceNodeIds: [node.id],
+        });
+        setNodes(previous => [...previous, output]);
+        setConnections(previous => [...previous, createChildConnection(node.id, output.id, 'text-edit-output')]);
+        setSelected(output.id);
+        setMultiSelected(new Set([output.id]));
+        showToast('图片文字已替换，原图仍保留', 'success');
+      } catch (error) {
+        setTextCompositionError(error?.message || '图片文字替换失败');
+      } finally {
+        setTextCompositionSaving(false);
+      }
+      return;
+    }
     const projectId = result.projectId;
     const versionId = result.resultVersionId || result.sourceVersionId;
     const backgroundAssetId = node.compositionBackgroundAssetId || generatedAssetIdFromUrl(node.url);
@@ -2507,7 +2613,7 @@ export default function EcCanvas() {
             activeTool={activeTool}
             onToolChange={setActiveTool}
             onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
-            onText={handleAddTextNode}
+            onText={() => selectedNode?.url ? handleToolAction('edit-text', selectedNode) : handleAddTextNode()}
             layersOpen={layersPanelOpen}
             onLayers={() => setLayersPanelOpen(open => !open)}
           />
@@ -2542,7 +2648,7 @@ export default function EcCanvas() {
 
           <div style={{ '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale), position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
-            <ConnectionDraftLine draft={connectionDraft} nodes={connectionNodes} />
+            <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
               const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);
@@ -2673,6 +2779,7 @@ export default function EcCanvas() {
                       return next;
                     }),
                     onExportPng: handleWorkflowLayerExport,
+                    onAddToCanvas: layer => handleWorkflowLayerAddToCanvas(node, layer),
                     onCreatePixelLayers: node.inputs?.compositionDocument ? () => handleWorkflowPixelLayers(node) : undefined,
                     onExportPsd: () => handleWorkflowPsdExport(node),
                   } : undefined}
@@ -2728,7 +2835,7 @@ export default function EcCanvas() {
                 ? actionsForSurface({ surface: 'image-editor', node: nodes.find(node => node.id === connectionPicker.sourceNodeId) })
                 : portCreationActions}
               position={clampCanvasPickerPosition({
-                world: { x: connectionPicker.world.x + 14, y: connectionPicker.world.y + 14 },
+                world: connectionPicker.world,
                 viewport,
                 bounds: containerRef.current?.getBoundingClientRect(),
               })}
@@ -2853,8 +2960,28 @@ export default function EcCanvas() {
       {textInspectorNode && (
         <TextLayerInspector
           layer={defaultTextLayerForNode(textInspectorNode)}
+          ocrMode={textInspectorNode.kind === 'image' || textInspectorNode.kind === 'output'}
+          ocrBlocks={textInspectorNode.kind === 'image' || textInspectorNode.kind === 'output' ? textOcrBlocks : null}
+          ocrLoading={textOcrLoading}
+          position={(() => {
+            const bounds = containerRef.current?.getBoundingClientRect();
+            const scale = Math.max(0.15, viewport.scale || 1);
+            const nodeLeft = (bounds?.left || 0) + viewport.x + textInspectorNode.x * scale;
+            const nodeTop = (bounds?.top || 0) + viewport.y + textInspectorNode.y * scale;
+            const nodeRight = nodeLeft + textInspectorNode.w * scale;
+            const panelWidth = 310;
+            const panelHeight = 520;
+            const viewportWidth = window.innerWidth || 1280;
+            const viewportHeight = window.innerHeight || 800;
+            const left = nodeRight + 12 + panelWidth <= viewportWidth - 12
+              ? nodeRight + 12
+              : Math.max(12, nodeLeft - panelWidth - 12);
+            const top = Math.min(Math.max(12, nodeTop), Math.max(12, viewportHeight - panelHeight - 12));
+            return { left, top };
+          })()}
           saving={textCompositionSaving}
           error={textCompositionError}
+          onRecognize={() => handleRecognizeCanvasText(textInspectorNode)}
           onSave={handleSaveTextLayer}
           onClose={() => { setTextInspectorNodeId(null); setTextCompositionError(''); }}
         />

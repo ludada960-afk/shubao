@@ -356,3 +356,27 @@ export function getDirectionShotRows(direction = {}) {
   }
   return rows;
 }
+
+/** Update one visible shot plan while keeping the direction snapshot immutable. */
+export function updateDirectionShotPlan(direction = {}, shotId = '', value = '') {
+  const match = String(shotId).match(/^(.*)-(\d+)$/);
+  if (!match) return direction;
+  const role = match[1];
+  const shotIndex = Number(match[2]);
+  if (!Number.isInteger(shotIndex) || shotIndex < 0) return direction;
+
+  const groups = Array.isArray(direction?.deliverables) ? direction.deliverables : [];
+  let changed = false;
+  const deliverables = groups.map(group => {
+    const groupRole = safeDirectionText(group?.role ?? group?.key, 48).toLowerCase();
+    if (groupRole !== role || !Array.isArray(group?.shots) || !group.shots[shotIndex]) return group;
+    changed = true;
+    return {
+      ...group,
+      shots: group.shots.map((shot, index) => index === shotIndex
+        ? { ...shot, visual_execution: String(value || '').slice(0, 600) }
+        : shot),
+    };
+  });
+  return changed ? { ...direction, deliverables } : direction;
+}

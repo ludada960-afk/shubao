@@ -160,7 +160,7 @@ export function SmartRemixNodeCard({ node, sourceImage, prompt = '', productImag
   );
 }
 
-export function LayerWorkbenchNodeCard({ layers = [], selectedLayerId, status = 'draft', selected = false, capabilities = {}, error, onRetry, onSelectLayer, onToggleVisibility, onToggleLock, onMoveLayer, onExportPng, onExportPsd, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
+export function LayerWorkbenchNodeCard({ layers = [], selectedLayerId, status = 'draft', selected = false, capabilities = {}, error, onRetry, onSelectLayer, onToggleVisibility, onToggleLock, onMoveLayer, onExportPng, onAddToCanvas, onExportPsd, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
   const selectedLayer = layers.find(layer => layer.id === selectedLayerId) || layers[0];
   return (
     <CanvasNodeShell title="图层编辑" subtitle="拆分元素后逐层调整" icon={MdLayers} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} className="workflow-node-layer-workbench">
@@ -179,7 +179,7 @@ export function LayerWorkbenchNodeCard({ layers = [], selectedLayerId, status = 
           </div>
           {selectedLayer && <div className="workflow-layer-inspector">
             <div className="workflow-section-label"><strong>{selectedLayer.name}</strong><span>当前图层</span></div>
-            <div className="workflow-layer-quick-actions"><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'up')}>上移</button><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'down')}>下移</button></div>
+            <div className="workflow-layer-quick-actions"><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'up')}>上移</button><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'down')}>下移</button><button type="button" onClick={() => onAddToCanvas?.(selectedLayer)} disabled={!selectedLayer.url && !selectedLayer.preview_url}>放到画布</button></div>
             <div className="workflow-layer-capabilities"><span><MdOpenWith size={14} /> 可移动</span><span><MdColorLens size={14} /> 可调色</span>{selectedLayer.kind === 'text' && <span><MdEdit size={14} /> 可编辑文字</span>}</div>
           </div>}
           <div className="workflow-node-footer-row">

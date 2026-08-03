@@ -325,6 +325,9 @@
 .ec-canvas-focused-field output { min-width: 32px; color: #20242a; font-weight: 650; }
 .ec-canvas-focused-text { width: 170px; height: 36px; box-sizing: border-box; padding: 0 9px; border: 1px solid #e2e6eb; border-radius: 6px; outline: 0; font-size: 11px; }
 .ec-canvas-focused-text:focus { border-color: var(--canvas-command); box-shadow: 0 0 0 2px color-mix(in srgb, var(--canvas-command) 12%, transparent); }
+.ec-canvas-focused-field.is-icon-only { width: 36px; min-width: 36px; padding: 0; justify-content: center; }
+.ec-canvas-focused-field.is-icon-only input[type="range"] { width: 28px; }
+.ec-canvas-focused-text.is-compact { width: 88px; }
 .ec-canvas-crop-frame { position: absolute; box-sizing: border-box; border: 2px solid #fff; outline: 1px solid var(--canvas-command); background: rgba(37, 99, 235, .05); box-shadow: 0 0 0 9999px rgba(15, 23, 42, .48); pointer-events: none; }
 .ec-canvas-crop-frame > i { position: absolute; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command); }
 .ec-canvas-crop-frame > i:nth-child(1) { left: -6px; top: -6px; }

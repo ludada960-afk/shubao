@@ -37,6 +37,38 @@ export function parseVisionLayers(raw = '') {
     .filter(layer => layer.name);
 }
 
+export function parseVisionTextBlocks(raw = '') {
+  const match = String(raw).match(/\{[\s\S]*\}/);
+  if (!match) return [];
+  let parsed;
+  try { parsed = JSON.parse(match[0]); } catch { return []; }
+  if (!Array.isArray(parsed?.blocks)) return [];
+  return parsed.blocks
+    .filter(block => block && typeof block.text === 'string' && block.text.trim())
+    .slice(0, 40)
+    .map((block, index) => ({
+      id: String(block.id || `text-${index + 1}`).slice(0, 60),
+      text: block.text.trim().slice(0, 400),
+      x: clampUnit(block.x),
+      y: clampUnit(block.y),
+      width: clampUnit(block.width, 0.1),
+      height: clampUnit(block.height, 0.08),
+      color: /^#[0-9a-f]{6}$/i.test(String(block.color || '')) ? block.color : '#111111',
+      background: /^#[0-9a-f]{6}$/i.test(String(block.background || '')) ? block.background : '#ffffff',
+    }))
+    .map(block => ({
+      ...block,
+      width: Math.min(block.width, 1 - block.x),
+      height: Math.min(block.height, 1 - block.y),
+    }))
+    .filter(block => block.width > 0 && block.height > 0);
+}
+
+function clampUnit(value, fallback = 0) {
+  const parsed = Number(value);
+  return Math.min(1, Math.max(0, Number.isFinite(parsed) ? parsed : fallback));
+}
+
 export function analyzeSceneCapabilities({ layers = [] } = {}) {
   return {
     semanticAnalysis: Array.isArray(layers),

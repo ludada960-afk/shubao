@@ -1,13 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { MdCheck, MdEdit, MdExpandLess, MdExpandMore } from 'react-icons/md';
+import { MdCheck, MdExpandLess, MdExpandMore } from 'react-icons/md';
 import {
   getDirectionCardState,
   getDirectionDeliverableGroups,
-  getDirectionPlanSummary,
   getDirectionShotRows,
-  normalizeDirectionTags,
   getReadableTextColor,
-  normalizeDirectionColor,
   shouldActivateDirection,
   summarizeDirectionDeliverables,
 } from './directionUiModel';
@@ -30,28 +27,21 @@ import {
  * @param {number} props.index - 卡片索引
  * @param {boolean} props.selected - 是否选中
  * @param {Function} props.onSelect - 选择回调 (index) => void
- * @param {string} [props.editableDescription] - 可编辑的描述文本
- * @param {Function} [props.onDescriptionChange] - 描述变化回调 (value) => void
+ * @param {Function} [props.onShotChange] - 单张图片计划变化回调 (shotId, value) => void
  */
 export default function DirectionOptionCard({
   direction,
   index,
   selected,
   onSelect,
-  editableDescription = '',
-  onDescriptionChange,
+  onShotChange,
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [isPlanExpanded, setIsPlanExpanded] = useState(false);
 
   // 获取卡片状态
   const cardState = getDirectionCardState({ direction, selected, index });
-  const { colors, styles, editableStyles } = cardState;
+  const { colors, styles } = cardState;
 
-  // 处理标签
-  const tags = normalizeDirectionTags(direction?.visual_tone);
-  const planSummary = getDirectionPlanSummary(direction);
   const deliverableGroups = getDirectionDeliverableGroups(direction);
   const shotRows = getDirectionShotRows(direction);
   const deliverableSummary = summarizeDirectionDeliverables(direction);
@@ -79,35 +69,6 @@ export default function DirectionOptionCard({
     [index, onSelect]
   );
 
-  // 编辑区聚焦
-  const handleEditFocus = () => {
-    setIsEditing(true);
-    onSelect?.(index);
-  };
-
-  // 编辑区失焦
-  const handleEditBlur = () => {
-    setIsEditing(false);
-  };
-
-  // 编辑区变化
-  const handleEditChange = (e) => {
-    onDescriptionChange?.(e.target.value);
-  };
-
-  // 计算当前编辑区样式
-  const getEditAreaStyle = () => {
-    if (isEditing) {
-      return editableStyles.focus;
-    }
-    if (isHovered) {
-      return editableStyles.hover;
-    }
-    return editableStyles.default;
-  };
-
-  const editAreaStyle = getEditAreaStyle();
-
   return (
     <div
       role="radio"
@@ -116,8 +77,6 @@ export default function DirectionOptionCard({
       tabIndex={0}
       onClick={handleCardClick}
       onKeyDown={handleKeyDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       style={{
         background: styles.background,
         borderRadius: 8,
@@ -161,9 +120,6 @@ export default function DirectionOptionCard({
             >
               {direction?.title || `设计方向 ${index + 1}`}
             </h3>
-            <div style={{ marginTop: 4, fontSize: 10, color: '#8a8177' }}>
-              已结合商品、参考图与本轮套图配置
-            </div>
           </div>
 
           {/* 选中状态指示器 */}
@@ -189,8 +145,8 @@ export default function DirectionOptionCard({
           </div>
         </div>
 
-        {/* 一句话定位 */}
-        {direction?.one_liner && (
+        {/* 用户真正需要先理解的是标题和一句话定位。 */}
+        {(direction?.one_liner || direction?.short_desc || direction?.description) && (
           <div
             style={{
               fontSize: 12,
@@ -203,73 +159,15 @@ export default function DirectionOptionCard({
               display: 'inline-block',
             }}
           >
-            {direction.one_liner}
-          </div>
-        )}
-
-        {/* 视觉调性标签 */}
-        {tags.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              gap: 4,
-              flexWrap: 'wrap',
-              marginBottom: 10,
-            }}
-          >
-            {tags.map((tag, j) => (
-              <span
-                key={j}
-                style={{
-                  padding: '2px 8px',
-                  borderRadius: 6,
-                  background: '#F3F1ED',
-                  border: '1px solid #E7E2DA',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: '#5F574F',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {(planSummary.commercialObjective || planSummary.audience) && (
-          <div style={{ borderTop: '1px solid #ece9e4', paddingTop: 12, marginTop: 10 }}>
-            {planSummary.commercialObjective && (
-              <div style={{ display: 'grid', gridTemplateColumns: '66px minmax(0, 1fr)', gap: 8, fontSize: 11, lineHeight: 1.55 }}>
-                <span style={{ color: '#8a8177', fontWeight: 700 }}>商业目标</span>
-                <span style={{ color: '#302c28' }}>{planSummary.commercialObjective}</span>
-              </div>
-            )}
-            {planSummary.audience && (
-              <div style={{ display: 'grid', gridTemplateColumns: '66px minmax(0, 1fr)', gap: 8, marginTop: 6, fontSize: 11, lineHeight: 1.55 }}>
-                <span style={{ color: '#8a8177', fontWeight: 700 }}>目标用户</span>
-                <span style={{ color: '#302c28' }}>{planSummary.audience}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {planSummary.strategyItems.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 16px', marginTop: 12 }}>
-            {planSummary.strategyItems.map(item => (
-              <div key={item.key} style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: '#8a8177', fontWeight: 700 }}>{item.label}</div>
-                <div style={{ marginTop: 3, fontSize: 11, lineHeight: 1.5, color: '#3f3933' }}>{item.value}</div>
-              </div>
-            ))}
+            {direction.one_liner || direction.short_desc || direction.description}
           </div>
         )}
 
         {deliverableGroups.length > 0 && (
           <div style={{ borderTop: '1px solid #ece9e4', paddingTop: 12, marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: '#8a8177', fontWeight: 700 }}>本方案将生成</div>
+                <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: '#8a8177', fontWeight: 700 }}>逐张图片计划</div>
                 <div style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5, color: '#292622', fontWeight: 700 }}>{deliverableSummary}</div>
               </div>
               {shotRows.length > 0 && (
@@ -313,14 +211,22 @@ export default function DirectionOptionCard({
                         <strong style={{ fontSize: 11, color: '#2f2b27' }}>{group.label} · {group.count} 张</strong>
                         <span style={{ fontSize: 10, color: '#8a8177' }}>{group.ratio}</span>
                       </div>
-                      {group.strategy && <p style={{ margin: '4px 0 0', fontSize: 10, color: '#756d65', lineHeight: 1.5 }}>{group.strategy}</p>}
                       {groupShots.map((shot, shotIndex) => (
                         <div key={shot.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr)', gap: 6, marginTop: 8 }}>
                           <span style={{ fontSize: 10, color: colors.primary, fontWeight: 800 }}>{shotIndex + 1}</span>
                           <div>
                             <div style={{ fontSize: 11, color: '#342f2b', fontWeight: 700 }}>{shot.label}</div>
                             {shot.purpose && <div style={{ marginTop: 2, fontSize: 10, lineHeight: 1.45, color: '#625b54' }}>{shot.purpose}</div>}
-                            {shot.visualExecution && <div style={{ marginTop: 2, fontSize: 10, lineHeight: 1.45, color: '#8a8177' }}>{shot.visualExecution}</div>}
+                            <textarea
+                              value={shot.visualExecution || ''}
+                              aria-label={`编辑${shot.label}的图片计划`}
+                              onFocus={() => onSelect?.(index)}
+                              onChange={event => onShotChange?.(shot.id, event.target.value)}
+                              onClick={event => event.stopPropagation()}
+                              placeholder="写下这张图要怎么拍、突出什么"
+                              rows={2}
+                              style={{ width: '100%', boxSizing: 'border-box', marginTop: 5, padding: '6px 7px', border: '1px solid #e5e0d9', borderRadius: 6, background: '#fff', color: '#403a34', font: '11px/1.45 inherit', resize: 'vertical', outline: 'none' }}
+                            />
                           </div>
                         </div>
                       ))}
@@ -332,117 +238,6 @@ export default function DirectionOptionCard({
           </div>
         )}
 
-        {/* 可编辑区域 - 方案执行说明 */}
-        {onDescriptionChange && (
-          <div
-            data-editable-area
-            style={{
-              marginTop: 12,
-              padding: '10px 12px',
-              borderRadius: 10,
-              transition: 'all 0.15s ease',
-              ...editAreaStyle,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                marginBottom: 6,
-              }}
-            >
-              <MdEdit
-                size={14}
-                style={{
-                  color: isEditing ? colors.primary : 'var(--text-muted, #999)',
-                  transition: 'color 0.15s',
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: isEditing
-                    ? colors.primary
-                    : 'var(--text-muted, #999)',
-                  transition: 'color 0.15s',
-                }}
-              >
-                整套执行说明可编辑
-              </span>
-              {!isEditing && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: 'var(--text-muted, #999)',
-                    marginLeft: 'auto',
-                  }}
-                >
-                  生成前可继续加工
-                </span>
-              )}
-            </div>
-            <textarea
-              value={editableDescription}
-              aria-label={`编辑${direction?.title || `方向 ${index + 1}`}的执行说明`}
-              onChange={handleEditChange}
-              onFocus={handleEditFocus}
-              onBlur={handleEditBlur}
-              onClick={(e) => e.stopPropagation()}
-              placeholder="补充或修改方案执行细节..."
-              style={{
-                width: '100%',
-                minHeight: 60,
-                padding: 0,
-                border: 'none',
-                background: 'transparent',
-                fontSize: 12,
-                lineHeight: 1.6,
-                color: colors.cardText,
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                cursor: 'text',
-              }}
-            />
-          </div>
-        )}
-
-        {/* 配色预览 */}
-        {direction?.preview_colors?.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              gap: 6,
-              marginTop: 12,
-              alignItems: 'center',
-            }}
-          >
-            <span
-              style={{
-                fontSize: 10,
-                color: '#999',
-                marginRight: 4,
-              }}
-            >
-              配色:
-            </span>
-            {direction.preview_colors.slice(0, 5).map((c, j) => (
-              <div
-                key={j}
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: '50%',
-                  background: normalizeDirectionColor(c),
-                  border: '2px solid #fff',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                }}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

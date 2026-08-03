@@ -23,8 +23,8 @@ const ROLE_ALIASES = Object.freeze({
 const ARCHETYPES = Object.freeze([
   {
     id: 'instant-recognition',
-    title: '一眼识别与核心转化',
-    oneLiner: '先让用户看清商品，再用最强购买理由完成首屏说服',
+    title: '先把商品卖点讲清楚',
+    oneLiner: '先让买家看清是什么，再马上明白为什么值得买',
     objective: '提升首屏识别效率和核心卖点转化',
     audience: '快速比较商品、需要立即理解价值的高意向用户',
     visualTone: ['清晰', '克制', '高识别度'],
@@ -44,8 +44,8 @@ const ARCHETYPES = Object.freeze([
   },
   {
     id: 'lifestyle-benefit',
-    title: '真实使用与利益想象',
-    oneLiner: '把商品放进目标用户的日常，让功能转化成可感知的生活收益',
+    title: '放进生活场景，更容易下单',
+    oneLiner: '把商品放进买家熟悉的日常，让用途和好处一眼就懂',
     objective: '降低使用想象成本并强化场景购买动机',
     audience: '重视使用体验、希望快速判断商品是否适合自己的用户',
     visualTone: ['自然', '有温度', '生活化'],
@@ -65,8 +65,8 @@ const ARCHETYPES = Object.freeze([
   },
   {
     id: 'craft-proof',
-    title: '材质结构与品质证明',
-    oneLiner: '用可验证的细节、结构和工艺证据建立品质与耐用信任',
+    title: '把材质和做工拍明白',
+    oneLiner: '用看得见的细节证明商品品质，让买家买得更放心',
     objective: '提升用户对材质、做工和长期使用价值的信任',
     audience: '关注品质细节、结构可靠性和长期使用成本的理性用户',
     visualTone: ['精密', '可信', '质感'],
@@ -86,8 +86,8 @@ const ARCHETYPES = Object.freeze([
   },
   {
     id: 'editorial-distinction',
-    title: '品牌审美与差异记忆',
-    oneLiner: '建立统一主视觉和更鲜明的构图语言，让整套图产生品牌记忆',
+    title: '做出一套有记忆点的图',
+    oneLiner: '统一颜色和画面气质，让商品在同类里更容易被记住',
     objective: '提升品牌辨识、视觉停留和同类商品中的差异感',
     audience: '重视设计感、品牌气质和社交分享价值的审美型用户',
     visualTone: ['设计感', '鲜明', '统一'],
@@ -200,36 +200,38 @@ function defaultRoleRatio(role) {
   return role === 'detail' || role === 'main_3x4' ? '3:4' : '1:1';
 }
 
-function shotTemplate(role, index, productName) {
+function shotTemplate(role, index, productName, context = {}) {
   const product = productName || '商品';
+  const evidence = cleanString(context.visualObservations?.[0], 80);
+  const evidenceTail = evidence ? `；重点放大${evidence}` : '';
   const templates = {
     white_background: [
-      ['标准识别白底图', `完整准确地展示${product}的主体轮廓和真实颜色`, '纯白背景、合规留白、真实接触阴影，商品完整不裁切', 'standard-isolation'],
-      ['补充角度白底图', `从安全补充视角帮助用户理解${product}外形`, '保持纯白背景与同一尺度，仅做来源图片支持的角度变化', 'alternate-isolation'],
+      ['标准识别白底图', `完整准确地展示${product}的主体轮廓和真实颜色`, `正面白底拍清楚${product}的完整外形，用柔和棚拍光勾出轮廓和接触阴影，四周留出干净空间${evidenceTail}`, 'standard-isolation'],
+      ['补充角度白底图', `从安全补充视角帮助用户理解${product}外形`, `换成轻微三分之四角度，让${product}的厚度、开合或边缘更容易看懂；光线保持一致，避免换角度后像是另一件商品`, 'alternate-isolation'],
     ],
     main: [
-      ['商品识别主图', `在首屏建立${product}身份和最重要购买理由`, '高识别商品主视觉、明确留白和简短核心卖点', 'identity-hero'],
-      ['核心利益主图', `把${product}的核心功能转化为用户可理解的收益`, '商品与利益证据形成明确视觉关系，避免重复上一张构图', 'benefit-hero'],
-      ['使用场景主图', `展示${product}进入目标用户真实生活的方式`, '选择与品类直接相关的场景，并保持商品为第一视觉主体', 'scenario-hero'],
-      ['品质证明主图', `用可见做工或材质细节建立${product}信任`, '整体商品结合一处可验证细节，不虚构参数或内部结构', 'proof-hero'],
-      ['差异记忆主图', `强化${product}在同类商品中的视觉识别`, '使用不同景别和版式节奏，但保持商品颜色、比例和结构一致', 'distinctive-hero'],
+      ['商品识别主图', `在首屏建立${product}身份和最重要购买理由`, `把${product}放在画面中心，用正面偏低机位拍出轮廓和体量，旁边只留一句最容易懂的卖点，让买家第一眼认出商品`, 'identity-hero'],
+      ['核心利益主图', `把${product}的核心功能转化为用户可理解的收益`, `用近景展示最关键的结构或使用动作，光影集中在卖点位置，画面只讲一个好处，不再重复上一张的构图`, 'benefit-hero'],
+      ['使用场景主图', `展示${product}进入目标用户真实生活的方式`, `把${product}放进真实使用场景，用手部、餐桌或空间尺度说明它怎么用；背景有生活感但不抢商品，光线像自然拍摄`, 'scenario-hero'],
+      ['品质证明主图', `用可见做工或材质细节建立${product}信任`, `用侧光擦过${product}的表面和边缘，安排一处清晰细节特写，让买家看见材质、做工或结构，而不是听一堆形容词`, 'proof-hero'],
+      ['差异记忆主图', `强化${product}在同类商品中的视觉识别`, `提炼${product}最有辨识度的轮廓或颜色做一张更有节奏的构图，保持商品真实比例，用统一的色彩和留白收住整套风格`, 'distinctive-hero'],
     ],
     main_text: [],
     main_3x4: [],
     transparent: [
-      ['透明商品素材', `提供可继续排版的${product}干净主体`, '透明背景、边缘干净、保留自然半透明和高光细节', 'transparent-cutout'],
-      ['透明补充角度', `提供${product}的补充角度透明素材`, '透明背景与安全角度变化，主体比例和结构保持一致', 'transparent-alternate'],
+      ['透明商品素材', `提供可继续排版的${product}干净主体`, `去掉背景，只留下边缘干净的${product}主体；保留金属高光、透明件和自然阴影，方便后面放进不同场景`, 'transparent-cutout'],
+      ['透明补充角度', `提供${product}的补充角度透明素材`, `换一个能看清厚度或结构的安全角度输出透明素材，商品大小和颜色跟上一张保持一致，方便做组合排版`, 'transparent-alternate'],
     ],
     sku: [
-      ['SKU 规格识别图', `清楚区分${product}当前已确认规格`, '纯净背景、统一尺度，只呈现用户已确认的颜色或规格差异', 'sku-identity'],
-      ['SKU 对比补充图', `帮助用户比较${product}不同已确认选项`, '统一光线和构图，不生成未提供的颜色、数量或结构', 'sku-comparison'],
+      ['SKU 规格识别图', `清楚区分${product}当前已确认规格`, `把已确认的颜色或规格并排摆清楚，统一机位和光线，让买家不用放大图片也能看出区别`, 'sku-identity'],
+      ['SKU 对比补充图', `帮助用户比较${product}不同已确认选项`, `用整齐的对照构图展示不同选项，重点突出真实差异，不增加没有提供的颜色、数量或配件`, 'sku-comparison'],
     ],
     detail: [
-      ['核心卖点详情图', `解释${product}最关键的购买理由`, '一屏只讲一个卖点，商品证据和短文案层级明确', 'detail-core-benefit'],
-      ['材质做工详情图', `展示${product}可见材质与做工细节`, '整体与安全局部特写结合，不推断未展示的内部结构', 'detail-material-proof'],
-      ['结构与功能详情图', `说明${product}已确认结构如何服务使用`, '使用可见组件关系或安全角度，不虚构拆解和功能状态', 'detail-structure'],
-      ['真实使用详情图', `呈现${product}在目标场景中的使用方式`, '商品清晰完整，并用尺度或动作关系降低理解成本', 'detail-usage'],
-      ['尺寸适配详情图', `帮助用户判断${product}与空间或使用需求是否匹配`, '仅引用已确认尺寸；没有尺寸时使用非数值尺度关系', 'detail-scale'],
+      ['核心卖点详情图', `解释${product}最关键的购买理由`, `一张图只讲一个最重要的好处，用${product}的真实结构做证据，配一条短标题和一个清楚的视觉重点`, 'detail-core-benefit'],
+      ['材质做工详情图', `展示${product}可见材质与做工细节`, `靠近拍${product}的表面、边缘或连接处，用侧光表现质感，整体图和局部特写放在同一页形成信任`, 'detail-material-proof'],
+      ['结构与功能详情图', `说明${product}已确认结构如何服务使用`, `把已看见的组件关系画清楚，用局部放大或轻量引线说明它怎么帮助使用，不做看不见的内部拆解`, 'detail-structure'],
+      ['真实使用详情图', `呈现${product}在目标场景中的使用方式`, `让一个真实动作带出${product}的使用方法，用自然窗光和生活尺度降低理解成本，商品始终是画面主角`, 'detail-usage'],
+      ['尺寸适配详情图', `帮助用户判断${product}与空间或使用需求是否匹配`, `用手、桌面或常见物件建立${product}的大小关系；只有确认过的尺寸才写数字，避免让买家误判`, 'detail-scale'],
       ['清洁维护详情图', `说明${product}可确认的维护或收纳方式`, '只表达输入材料能够支持的步骤和可见状态', 'detail-care'],
       ['配件清单详情图', `核对${product}已确认的包装或配件组成`, '统一摆放已确认物件，不新增配件或数量', 'detail-package'],
       ['人群场景详情图', `连接${product}与目标受众的核心需求`, '使用符合目标用户的环境线索，不改变商品主体', 'detail-audience'],
@@ -260,16 +262,16 @@ function defaultDependencies(role) {
   return ['product_truth', 'campaign_bible'];
 }
 
-function normalizeShot(source, { role, index, archetype, productName }) {
+function normalizeShot(source, { role, index, archetype, productName, context }) {
   const shot = isRecord(source) ? source : {};
-  const [label, purpose, visualExecution, variationKey] = shotTemplate(role, index, productName);
+  const [label, purpose, visualExecution, variationKey] = shotTemplate(role, index, productName, context);
   return {
     index,
     label: firstString(ownValue(shot, 'label', 'title', 'name'), label),
     purpose: firstString(ownValue(shot, 'purpose', 'objective', 'communication_goal'), purpose),
     visual_execution: firstString(
       ownValue(shot, 'visual_execution', 'visualExecution', 'execution', 'description'),
-      `${visualExecution}。继承“${archetype.title}”的构图、光线和色彩系统。`,
+      visualExecution,
     ),
     variation_key: firstString(
       ownValue(shot, 'variation_key', 'variationKey', 'variation'),
@@ -294,6 +296,25 @@ function normalizeDeliverables(direction, requestedImages, archetype, productNam
   return requestedImages.map((requested) => {
     const source = sourceDeliverableFor(direction, requested.role);
     const sourceShots = Array.isArray(ownValue(source, 'shots', 'items')) ? ownValue(source, 'shots', 'items') : [];
+    const shots = Array.from({ length: requested.count }, (_, index) => normalizeShot(sourceShots[index], {
+      role: requested.role,
+      index,
+      archetype,
+      productName,
+      context: direction.__direction_context || {},
+    }));
+    const usedExecution = new Set();
+    const uniqueShots = shots.map((shot, index) => {
+      const signature = cleanString(shot.visual_execution, 600).toLowerCase();
+      if (!usedExecution.has(signature)) {
+        usedExecution.add(signature);
+        return shot;
+      }
+      const fallback = shotTemplate(requested.role, index, productName, direction.__direction_context || {})[2];
+      const fallbackSignature = cleanString(fallback, 600).toLowerCase();
+      usedExecution.add(fallbackSignature);
+      return { ...shot, visual_execution: fallback };
+    });
     return {
       role: requested.role,
       label: requested.label,
@@ -303,12 +324,7 @@ function normalizeDeliverables(direction, requestedImages, archetype, productNam
         ownValue(source, 'group_strategy', 'groupStrategy', 'strategy'),
         `${requested.label}围绕“${archetype.objective}”展开，同组每张图使用不同职责和视觉变化。`,
       ),
-      shots: Array.from({ length: requested.count }, (_, index) => normalizeShot(sourceShots[index], {
-        role: requested.role,
-        index,
-        archetype,
-        productName,
-      })),
+      shots: uniqueShots,
     };
   });
 }
@@ -390,7 +406,15 @@ function normalizeDirection(source, index, context) {
         '只借鉴参考图的构图、光线、色彩和信息层级，不复制竞品主体、品牌标识或商品结构。',
       ),
     },
-    deliverables: normalizeDeliverables(direction, context.requestedImages, archetype, context.productName),
+    // Keep the visual evidence available to the deterministic shot writer, but
+    // never expose the internal analysis object as part of the user snapshot.
+    deliverables: normalizeDeliverables({
+      ...direction,
+      __direction_context: {
+        visualObservations: context.visualObservations,
+        referenceStyle: context.referenceStyle,
+      },
+    }, context.requestedImages, archetype, context.productName),
     consistency_locks: uniqueStrings(
       ownValue(direction, 'consistency_locks', 'consistencyLocks'),
       { maxItems: 12, maxLength: 180 },
@@ -461,6 +485,8 @@ export function normalizeCreativeDirectionPlans(rawDirections, options = {}) {
     category: firstString(ownValue(options, 'category'), '其他'),
     platform: firstString(ownValue(options, 'platform'), '电商平台'),
     userPrompt: firstString(ownValue(options, 'userPrompt', 'user_prompt')),
+    visualObservations: Array.isArray(options.visualObservations) ? options.visualObservations : [],
+    referenceStyle: Array.isArray(options.referenceStyle) ? options.referenceStyle : [],
   };
   const seenIds = new Set();
   const seenTitles = new Set();

@@ -258,6 +258,7 @@ async function pollEcommerceTask(taskId, {
   const emitted = new Set();
   const pollLimit = Number.isSafeInteger(maxPollAttempts) && maxPollAttempts > 0 ? maxPollAttempts : 600;
   let task = initialTask;
+  let lastTask = initialTask;
   for (let pollAttempt = 0; pollAttempt < pollLimit; pollAttempt += 1) {
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
     if (!task) {
@@ -266,6 +267,7 @@ async function pollEcommerceTask(taskId, {
       task = await getEcommerceTask(taskId, { signal });
     }
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
+    lastTask = task;
     onProgress?.(taskWithNormalizedAssets(task));
     const status = taskStatus(task);
     const images = stableTaskImages(task);
@@ -307,6 +309,7 @@ async function pollEcommerceTask(taskId, {
     }
     task = null;
   }
+  onProgress?.({ ...(taskWithNormalizedAssets(lastTask) || {}), taskId, status: 'waiting', resumeable: true, message: '任务仍在后台生成，已保留任务' });
   const error = new Error('生成任务仍在后台处理中，请稍后从作品页继续查看');
   error.code = 'ECOMMERCE_POLL_TIMEOUT';
   error.taskId = taskId;
@@ -560,6 +563,26 @@ export async function removeBg({ image_url }) {
 
 export function galleryImg(id, file) {
   return `${API_BASE}/api/gallery-image?id=${encodeURIComponent(id)}&file=${encodeURIComponent(file)}`;
+}
+
+export async function recognizeCanvasText({ image_url }) {
+  const res = await fetch(`${API_BASE}/api/canvas/ocr`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({ image_url })),
+  });
+  if (!res.ok) throw await createApiError(res, '图片文字识别失败');
+  return res.json();
+}
+
+export async function replaceCanvasText({ image_url, blocks }) {
+  const res = await fetch(`${API_BASE}/api/canvas/replace-text`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({ image_url, blocks })),
+  });
+  if (!res.ok) throw await createApiError(res, '图片文字替换失败');
+  return res.json();
 }
 
 function contentStreamError(event) {

@@ -54,6 +54,7 @@ export function normalizeLayer(layer = {}, index = 0) {
     name: String(layer.name || `图层 ${index + 1}`),
     kind: String(layer.kind || '元素'),
     description: String(layer.description || ''),
+    url: layer.url || layer.preview_url || layer.previewUrl || '',
     previewUrl: layer.previewUrl || layer.preview_url || '',
     visible: layer.visible !== false,
     locked: Boolean(layer.locked),

@@ -108,6 +108,7 @@ import {
   cropRectForRatio,
   gridRects,
   parseVisionLayers,
+  parseVisionTextBlocks,
 } from './canvasTools.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -3375,10 +3376,20 @@ app.post('/api/reverse-prompt', async (req, res) => {
         const base64 = imageBufferToDataUrl(await imageInputReader.read(image_url));
         const sys = `你是专业的AI生图提示词工程师。分析这张电商产品图，还原生成这张图所用的完整提示词，包含：产品描述、背景场景、光影风格、构图方式、色调、平台规格说明等。输出格式：直接给出英文关键词组合（逗号分隔），附上中文说明，总字数不超过200字。`;
         const userMsg = `产品：${product_name || '商品'}。请反推这张图的生图提示词。`;
-        const aiRes = await callLLMWithVision(sys, [base64], userMsg);
-        const prompt = (aiRes || '').trim();
+        let aiRes = '';
+        let fallback = false;
+        try {
+          aiRes = await callLLMWithVision(sys, [base64], userMsg);
+        } catch (visionError) {
+          fallback = true;
+          console.warn('[reverse-prompt] 视觉模型降级:', visionError.message);
+        }
+        const prompt = (aiRes || [
+          `${product_name || '电商商品'}, clean product photography, centered composition, accurate product shape and material, soft diffused light, controlled highlights, clean background, ecommerce catalog style`,
+          '已按商品图用途保留主体、材质、居中构图与柔和光影；视觉服务暂时不可用时仍可继续编辑这份基础提示词。',
+        ].join('\n')).trim();
         if (!prompt) throw new Error('未识别到可编辑的画面描述');
-        return { prompt, url: `reverse-prompt:${crypto.createHash('sha256').update(prompt).digest('hex')}` };
+        return { prompt, fallback, url: `reverse-prompt:${crypto.createHash('sha256').update(prompt).digest('hex')}` };
       },
     });
     res.json({ ...billed.result, billing: billed.billing });
@@ -3390,6 +3401,53 @@ app.post('/api/reverse-prompt', async (req, res) => {
 // ============================================================
 // 去除背景（调用 remove.bg 或本地 rembg）
 // ============================================================
+async function segmentLightBackground(imageBuffer) {
+  const { data, info } = await sharp(imageBuffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const visited = new Uint8Array(width * height);
+  const queue = new Int32Array(width * height);
+  let head = 0;
+  let tail = 0;
+  const isBackground = index => {
+    const offset = index * channels;
+    const r = data[offset];
+    const g = data[offset + 1];
+    const b = data[offset + 2];
+    const alpha = data[offset + 3];
+    return alpha > 0 && r > 224 && g > 224 && b > 224 && Math.max(r, g, b) - Math.min(r, g, b) < 34;
+  };
+  const enqueue = index => {
+    if (index < 0 || index >= width * height || visited[index] || !isBackground(index)) return;
+    visited[index] = 1;
+    queue[tail++] = index;
+  };
+  for (let x = 0; x < width; x += 1) { enqueue(x); enqueue((height - 1) * width + x); }
+  for (let y = 0; y < height; y += 1) { enqueue(y * width); enqueue(y * width + width - 1); }
+  while (head < tail) {
+    const index = queue[head++];
+    const x = index % width;
+    const y = Math.floor(index / width);
+    if (x > 0) enqueue(index - 1);
+    if (x < width - 1) enqueue(index + 1);
+    if (y > 0) enqueue(index - width);
+    if (y < height - 1) enqueue(index + width);
+    data[index * channels + 3] = 0;
+    if (x === 0 || x === width - 1 || y === 0 || y === height - 1) data[index * channels + 3] = 0;
+  }
+  const backgroundData = Buffer.from(data);
+  for (let index = 0; index < width * height; index += 1) {
+    if (!visited[index]) backgroundData[index * channels + 3] = 0;
+  }
+  return {
+    subject: sharp(data, { raw: { width, height, channels } }).png().toBuffer(),
+    background: sharp(backgroundData, { raw: { width, height, channels } }).png().toBuffer(),
+  };
+}
+
+async function removeLightBackground(imageBuffer) {
+  return (await segmentLightBackground(imageBuffer)).subject;
+}
+
 app.post('/api/remove-bg', async (req, res) => {
   const { image_url, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
   if (!image_url) return res.status(400).json({ error: '缺少图片' });
@@ -3426,8 +3484,28 @@ app.post('/api/remove-bg', async (req, res) => {
       return res.json({ ...billed.result, billing: billed.billing });
     }
 
-    // 方案B：返回提示（未配置 API key）
-    res.status(400).json({ error: '去除背景功能需配置 REMOVE_BG_KEY 环境变量，请在服务器设置后使用' });
+    // 无第三方 key 时仍提供本地白底商品图去背，避免交互停在“不可用”。
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_remove_bg',
+      referenceType: 'canvas_remove_bg_local',
+      providerCostCny: 0,
+      metadata: { action: 'remove_bg', method: 'local-light-background' },
+      work: async () => {
+        const { buffer: imgBuf } = await imageInputReader.read(image_url);
+        const outBuf = await removeLightBackground(imgBuf);
+        const asset = await generatedAssetStore.persistBuffer({
+          buffer: outBuf,
+          contentType: 'image/png',
+          taskId: `canvas_remove_bg_local_${Date.now()}`,
+          label: 'canvas_remove_bg_local',
+        });
+        return { result_url: asset.url, url: asset.url, method: 'local-light-background' };
+      },
+    });
+    return res.json({ ...billed.result, billing: billed.billing });
   } catch (e) {
     res.status(e?.status || 500).json({ error: e?.message || '去除背景失败', code: e?.code, required: e?.required, available: e?.available, billing: e?.billing });
   }
@@ -3810,18 +3888,98 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
   try {
     const buffer = await readCanvasImage(imageUrl);
     const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
-    const raw = await callLLMWithVision(
-      '你是电商视觉拆解专家。只识别图片中真实存在的可编辑结构，不要臆造。只返回 JSON：{"layers":[{"name":"商品主体","description":"..."}]}。层级最多 8 个。',
-      [image],
-      '请识别这张商品图的结构层，至少尝试区分商品主体、背景氛围、可见文案、装饰元素；不存在的层不要输出。',
-    );
-    const layers = parseVisionLayers(raw);
-    if (!layers.length) return res.status(502).json({ error: '未识别到可编辑图层' });
-    const capabilities = analyzeSceneCapabilities({ layers });
-    res.json({ layers, status: '已识别', capabilities });
+    let layers = [];
+    try {
+      const raw = await callLLMWithVision(
+        '你是电商视觉拆解专家。只识别图片中真实存在的可编辑结构，不要臆造。只返回 JSON：{"layers":[{"name":"商品主体","description":"..."}]}。层级最多 8 个。',
+        [image],
+        '请识别这张商品图的结构层，至少尝试区分商品主体、背景氛围、可见文案、装饰元素；不存在的层不要输出。',
+      );
+      layers = parseVisionLayers(raw);
+    } catch (visionError) {
+      console.warn('[canvas/analyze-layers] 语义分析降级:', visionError.message);
+    }
+    const split = await segmentLightBackground(buffer);
+    const subjectAsset = await generatedAssetStore.persistBuffer({ buffer: await split.subject, contentType: 'image/png', taskId: `canvas_layer_subject_${Date.now()}`, label: 'canvas_layer_subject' });
+    const backgroundAsset = await generatedAssetStore.persistBuffer({ buffer: await split.background, contentType: 'image/png', taskId: `canvas_layer_background_${Date.now()}`, label: 'canvas_layer_background' });
+    const semanticLayers = layers.length ? layers : [
+      { name: '商品主体', description: '已从浅色背景中分离，可单独移动和导出。' },
+      { name: '背景', description: '保留原图中与商品主体分开的背景区域。' },
+    ];
+    const resolvedLayers = semanticLayers.map((layer, index) => {
+      const isSubject = /商品|主体|产品/.test(layer.name) || index === 0;
+      const isBackground = /背景|底色|氛围/.test(layer.name) || index === 1;
+      return {
+        ...layer,
+        kind: 'image',
+        url: isSubject ? subjectAsset.url : isBackground ? backgroundAsset.url : '',
+        preview_url: isSubject ? subjectAsset.url : isBackground ? backgroundAsset.url : '',
+        editable: Boolean(isSubject || isBackground),
+      };
+    });
+    const semanticCapabilities = analyzeSceneCapabilities({ layers });
+    const capabilities = { ...semanticCapabilities, semanticAnalysis: layers.length > 0, pixelLayers: true, movableLayers: true, psdExport: false };
+    res.json({ layers: resolvedLayers, status: '已分离 2 个基础像素层', capabilities });
   } catch (error) {
     console.error('[canvas/analyze-layers] 失败:', error.message);
     res.status(500).json({ error: safeCanvasClientError(error, '图层分析暂时不可用，请稍后重试') });
+  }
+});
+
+// 画布图片文字识别：返回图片内的文字框，供原位替换，而不是新建一个文字节点。
+app.post('/api/canvas/ocr', async (req, res) => {
+  const { image_url: imageUrl } = req.body || {};
+  if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
+  try {
+    const buffer = await readCanvasImage(imageUrl);
+    const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
+    const raw = await callLLMWithVision(
+      '你是商品图 OCR 引擎。只识别图片中已经存在的可见文字，不要生成新文案。只返回 JSON：{"blocks":[{"id":"...","text":"...","x":0,"y":0,"width":0.2,"height":0.08,"color":"#111111","background":"#ffffff"}]}。坐标都是相对图片左上角的 0 到 1 小数，文字框要覆盖完整文字。',
+      [image],
+      '逐块识别图片内可编辑文字，保留原文顺序、大小关系和大致位置；没有文字就返回 {"blocks":[]}。',
+    );
+    const blocks = parseVisionTextBlocks(raw);
+    return res.json({ blocks, status: '已识别' });
+  } catch (error) {
+    console.error('[canvas/ocr] 失败:', error.message);
+    return res.status(500).json({ error: safeCanvasClientError(error, '图片文字识别暂时不可用，请稍后重试') });
+  }
+});
+
+// 文字替换产出新的图片版本，保留原图节点；当前版本用识别框背景色擦除并重排文字。
+app.post('/api/canvas/replace-text', async (req, res) => {
+  const { image_url: imageUrl, blocks = [] } = req.body || {};
+  if (!imageUrl || !Array.isArray(blocks) || !blocks.length) return res.status(400).json({ error: '缺少图片或文字修改内容' });
+  try {
+    const input = await readCanvasImage(imageUrl);
+    const metadata = await sharp(input).metadata();
+    const width = metadata.width || 1200;
+    const height = metadata.height || 1200;
+    const safeBlocks = blocks.slice(0, 40).filter(block => String(block?.text || '').trim()).map((block, index) => ({
+      ...block,
+      id: String(block.id || `text-${index + 1}`),
+      x: Math.max(0, Math.min(1, Number(block.x) || 0)),
+      y: Math.max(0, Math.min(1, Number(block.y) || 0)),
+      width: Math.max(0.01, Math.min(1, Number(block.width) || 0.1)),
+      height: Math.max(0.01, Math.min(1, Number(block.height) || 0.08)),
+      text: String(block.text).slice(0, 400),
+      color: /^#[0-9a-f]{6}$/i.test(String(block.color || '')) ? block.color : '#111111',
+      background: /^#[0-9a-f]{6}$/i.test(String(block.background || '')) ? block.background : '#ffffff',
+    }));
+    const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${safeBlocks.map(block => {
+      const x = Math.round(block.x * width);
+      const y = Math.round(block.y * height);
+      const w = Math.min(width - x, Math.round(block.width * width));
+      const h = Math.min(height - y, Math.round(block.height * height));
+      const fontSize = Math.max(12, Math.round(h * 0.62));
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${escapeXml(block.background)}"/><text x="${x + 4}" y="${y + Math.round(h * 0.72)}" fill="${escapeXml(block.color)}" font-size="${fontSize}" font-family="Arial, Microsoft YaHei, sans-serif">${escapeXml(block.text)}</text>`;
+    }).join('')}</svg>`;
+    const output = await sharp(input).composite([{ input: Buffer.from(svg), top: 0, left: 0 }]).png().toBuffer();
+    const asset = await generatedAssetStore.persistBuffer({ buffer: output, contentType: 'image/png', taskId: `canvas_replace_text_${Date.now()}`, label: 'canvas_replace_text' });
+    return res.json({ url: asset.url, result_url: asset.url, blocks: safeBlocks, status: '已替换' });
+  } catch (error) {
+    console.error('[canvas/replace-text] 失败:', error.message);
+    return res.status(500).json({ error: safeCanvasClientError(error, '图片文字替换失败，请稍后重试') });
   }
 });
 

@@ -36,6 +36,7 @@ import {
   saveEcommerceDirectionRefreshAction,
   startEcommerceGenerationLifecycle,
 } from './ecommerceTaskProgressModel.js';
+import { updateDirectionShotPlan } from './components/directionUiModel.js';
 
 function normalizeDirectionImages(images = []) {
   const seen = new Set();
@@ -515,6 +516,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         setStableImages([]);
         setPreviewImageIndex(-1);
         setError(e.message || '本次未能形成完整套图，系统没有交付半成品。请稍后重新生成整套。');
+      } else if (e?.code === 'ECOMMERCE_POLL_TIMEOUT' || e?.resumeable === true) {
+        setError('任务还在后台生成，已为你保留进度。稍后继续生成会自动接着当前任务，不会从头开始。');
       } else {
         setError(e.message || '生成失败');
       }
@@ -646,8 +649,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   index={i}
                   selected={selected === i}
                   onSelect={index => { setSelected(index); setBlockedByCredits(false); }}
-                  editableDescription={dir.execution_guide || dir.description || dir.short_desc || ''}
-                  onDescriptionChange={value => { updateDirection(i, 'execution_guide', value); setBlockedByCredits(false); }}
+                  onShotChange={(shotId, value) => {
+                    setDirections(previous => previous.map((item, itemIndex) => itemIndex === i
+                      ? updateDirectionShotPlan(item, shotId, value)
+                      : item));
+                    setBlockedByCredits(false);
+                  }}
                 />
               ))}
             </div>

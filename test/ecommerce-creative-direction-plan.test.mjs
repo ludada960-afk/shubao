@@ -158,3 +158,23 @@ test('returns defensive data and ignores prototype-polluting fields', () => {
   assert.equal(Object.hasOwn(second[0], '__proto__'), false);
   assert.equal(Object.hasOwn(second[0].visual_system, '__proto__'), false);
 });
+
+test('writes merchant-facing shot briefs with distinct visual decisions', () => {
+  const [plan] = normalizeCreativeDirectionPlans([{}], {
+    productName: '不锈钢便携餐盒',
+    category: '餐具',
+    userPrompt: '突出密封、便携和日常使用',
+    visualObservations: ['银色金属盒身和透明上盖'],
+    requestedImages: [
+      { key: 'main_text', label: '商品主图', count: 3, ratio: '1:1' },
+      { key: 'detail', label: '详情图', count: 5, ratio: '3:4' },
+    ],
+  });
+  const shots = plan.deliverables.flatMap(group => group.shots);
+  const executions = shots.map(shot => shot.visual_execution);
+  assert.equal(new Set(executions).size, executions.length);
+  assert.ok(executions.every(value => /光|角度|场景|细节|结构|材质|拍|放大|好处|动作|组件|大小/.test(value)));
+  assert.ok(executions.some(value => /使用场景|真实动作|生活/.test(value)));
+  assert.ok(executions.some(value => /侧光|表面|边缘|质感/.test(value)));
+  assert.ok(executions.every(value => !/继承“.*”的构图、光线和色彩系统/.test(value)));
+});

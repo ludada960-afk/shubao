@@ -398,13 +398,13 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
           ['rectangle', '矩形', Square],
           ['arrow', '箭头', ArrowUpRight],
           ['text', '文字', FileText],
-        ].map(([tool, label, Icon]) => <button key={tool} type="button" className={(options.annotationTool || 'pen') === tool ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, annotationTool: tool })}><Icon size={15} />{label}</button>)}
-        <label className="ec-canvas-focused-field"><span>颜色</span><input type="color" aria-label="标注颜色" value={options.annotationColor || '#ef4444'} onChange={event => onOptionChange?.({ ...options, annotationColor: event.target.value })} /></label>
-        <label className="ec-canvas-focused-field"><span>粗细</span><input type="range" aria-label="标注粗细" min="1" max="12" value={options.annotationWidth || 3} onChange={event => onOptionChange?.({ ...options, annotationWidth: Number(event.target.value) })} /></label>
-        <input className="ec-canvas-focused-text" type="text" aria-label="标注说明" placeholder="输入标注文字或说明" value={options.annotation || ''} onChange={event => onOptionChange?.({ ...options, annotation: event.target.value })} />
-        <button type="button" disabled={!options.annotationHistory?.length} onClick={undoAnnotation}><Undo2 size={15} />撤销</button>
-        <button type="button" disabled={!options.annotationFuture?.length} onClick={redoAnnotation}><Redo2 size={15} />重做</button>
-        <button type="button" onClick={() => commitAnnotations([])}><Eraser size={15} />清除标注</button>
+        ].map(([tool, label, Icon]) => <button key={tool} type="button" title={label} aria-label={label} className={(options.annotationTool || 'pen') === tool ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, annotationTool: tool })}><Icon size={15} /></button>)}
+        <label className="ec-canvas-focused-field is-icon-only" title="标注颜色"><span className="sr-only">颜色</span><input type="color" aria-label="标注颜色" value={options.annotationColor || '#ef4444'} onChange={event => onOptionChange?.({ ...options, annotationColor: event.target.value })} /></label>
+        <label className="ec-canvas-focused-field is-icon-only" title={`标注粗细 ${options.annotationWidth || 3}px`}><span className="sr-only">粗细</span><input type="range" aria-label="标注粗细" min="1" max="12" value={options.annotationWidth || 3} onChange={event => onOptionChange?.({ ...options, annotationWidth: Number(event.target.value) })} /></label>
+        <input className="ec-canvas-focused-text is-compact" type="text" aria-label="标注说明" title="标注文字" placeholder="文字" value={options.annotation || ''} onChange={event => onOptionChange?.({ ...options, annotation: event.target.value })} />
+        <button type="button" title="撤销" aria-label="撤销" disabled={!options.annotationHistory?.length} onClick={undoAnnotation}><Undo2 size={15} /></button>
+        <button type="button" title="重做" aria-label="重做" disabled={!options.annotationFuture?.length} onClick={redoAnnotation}><Redo2 size={15} /></button>
+        <button type="button" title="清除标注" aria-label="清除标注" onClick={() => commitAnnotations([])}><Eraser size={15} /></button>
       </>}
       {isMoveScale && <>
         <label className="ec-canvas-focused-field is-wide"><span>缩放</span><input type="range" aria-label="缩放比例" min="0.5" max="2" step="0.05" value={options.scale || 1} onChange={event => onOptionChange?.({ ...options, scale: Number(event.target.value) })} /><output>{Math.round((options.scale || 1) * 100)}%</output></label>

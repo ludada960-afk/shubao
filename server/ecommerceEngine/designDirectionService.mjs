@@ -327,6 +327,8 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         category: cleanString(ownValue(input, 'category')),
         platform: cleanString(ownValue(input, 'platform')),
         userPrompt: description,
+        visualObservations: analysis.product_observations,
+        referenceStyle: analysis.reference_style,
       });
       const plannerComplete = plannerHasFourUsableDirections(parsedPlan?.directions);
       // A completed visual pass plus the local four-archetype plan is a usable

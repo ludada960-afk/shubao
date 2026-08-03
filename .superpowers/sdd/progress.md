@@ -804,3 +804,36 @@
   fail-closed. Focused direction tests pass 9/9; the full suite passes 1,036/1,036,
   the 6,435-module production build and collaboration check pass. The change is
   ready for one final production deployment and authenticated ecommerce canary.
+- Fresh local release verification after the planner fallback fix passed 1,037/1,037
+  tests, the 6,435-module Vite build, build-asset checks, collaboration policy,
+  Node syntax checks and `git diff --check`. The sole deployment script was invoked
+  and failed closed before any archive, lock or remote mutation because
+  `SHUBAO_CANARY_SESSION_TOKEN` is not configured in this environment. Production
+  remains unchanged and awaits the owner-provided Canary session token.
+- After the product clarification, the second-step direction card was simplified
+  to the user-facing contract: one title, one subtitle and an optional per-image
+  plan. Commercial objective, audience, product-strategy jargon, palette tags and
+  the whole-plan execution textarea are no longer exposed in the card. Each shot
+  plan is now editable in place and is copied immutably into the selected direction
+  payload. TDD red was reproduced before implementation; the focused direction,
+  generation-recovery, Canvas, composition and layering regression passed 87/87,
+  the full suite passed 1,039/1,039, the 6,435-module build, build checks,
+  collaboration policy and whitespace validation passed. The local Canvas browser
+  QA passed desktop/mobile interaction checks with no page errors. `agent-reach`
+  remains unavailable on this machine, so competitor research is explicitly
+  unverified rather than represented as completed.
+- Follow-up implementation after the screenshot review: direction plans now use
+  merchant-facing, product-specific shot briefs with visual decisions instead of
+  repeated internal constraints. Canvas derivation keeps the release-point
+  picker anchored to its temporary connection line; remove-background produces
+  a connected output node and has a billed local light-background fallback when
+  no remove.bg key is configured. Added OCR blocks plus raster text replacement
+  routes and an image-anchored editor, and changed the bottom T action to open
+  that OCR editor for images. Layer analysis now creates real subject/background
+  PNG assets and can place an individual layer onto the canvas for independent
+  movement; PSD remains unavailable until a verified composition document exists.
+  Poll timeouts now preserve a resumable task message, reverse prompt has an
+  editable deterministic fallback, and annotation controls are icon-first with
+  tooltips. Focused contracts passed 33/33, build, export checks, syntax,
+  collaboration and whitespace checks passed. Production deployment was not
+  attempted in this pass.

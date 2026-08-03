@@ -17,6 +17,7 @@ export default function LayerWorkbenchNodeCard({
   onToggleLock,
   onMoveLayer,
   onExportPng,
+  onAddToCanvas,
   onCreatePixelLayers,
   onExportPsd,
   onPointerDown,
@@ -44,7 +45,7 @@ export default function LayerWorkbenchNodeCard({
         </div>
         {layerCapabilities.pixelLayers && selectedLayer && <div className={styles.layerInspector}>
           <div className={styles.sectionLabel}><strong>{selectedLayer.name}</strong><span>当前图层</span></div>
-          <div className={styles.quickActions}><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'up')}>上移</button><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'down')}>下移</button></div>
+          <div className={styles.quickActions}><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'up')}>上移</button><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'down')}>下移</button><button type="button" onClick={() => onAddToCanvas?.(selectedLayer)} disabled={!selectedLayer.url}>放到画布</button></div>
           <div className={styles.capabilityList}><span><MdOpenWith size={14} /> 可移动</span><span><MdColorLens size={14} /> 可调色</span>{selectedLayer.kind === 'text' && <span><MdEdit size={14} /> 可编辑文字</span>}</div>
         </div>}
         <div className={styles.footerRow}>
