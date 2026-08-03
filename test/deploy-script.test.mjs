@@ -82,6 +82,15 @@ test('production deploy tolerates transient SSH handshake failures', () => {
   assert.match(deploy, /ServerAliveCountMax=3/);
 });
 
+test('production deploy retries the complete ecommerce canary without weakening its gate', () => {
+  assert.match(deploy, /function\s+Invoke-EcommerceProductionVerification/i);
+  assert.match(deploy, /\[int\]\$MaxAttempts\s*=\s*3/);
+  assert.match(deploy, /for\s*\(\$attempt\s*=\s*1;\s*\$attempt\s*-le\s*\$MaxAttempts/i);
+  assert.match(deploy, /Start-Sleep -Seconds \$RetryDelaySeconds/);
+  assert.equal((deploy.match(/Invoke-EcommerceProductionVerification\s+-FailureMessage/g) || []).length, 2);
+  assert.match(deploy, /throw \"\$FailureMessage after \$MaxAttempts attempts\"/);
+});
+
 test('production deploy uploads release helpers and archive in one SCP session', () => {
   assert.equal((deploy.match(/& scp @ssh/g) || []).length, 1);
   assert.match(deploy, /\$uploadSources\s*=\s*@\(/);

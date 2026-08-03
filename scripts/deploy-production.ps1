@@ -89,6 +89,32 @@ function Wait-PublicProductionReady {
   throw "Public production health did not become ready within $TimeoutSeconds seconds"
 }
 
+function Invoke-EcommerceProductionVerification {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$FailureMessage,
+    [ValidateRange(1, 5)]
+    [int]$MaxAttempts = 3,
+    [ValidateRange(0, 300)]
+    [int]$RetryDelaySeconds = 20
+  )
+
+  $verifier = Join-Path $PSScriptRoot "verify-production-ecommerce.ps1"
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    try {
+      & $verifier -BaseUrl "https://shuimg.cn"
+      if ($LASTEXITCODE -ne 0) { throw "Verifier exited with code $LASTEXITCODE" }
+      return
+    } catch {
+      if ($attempt -ge $MaxAttempts) {
+        throw "$FailureMessage after $MaxAttempts attempts"
+      }
+      Write-Warning "$FailureMessage on attempt $attempt of $MaxAttempts; retrying in $RetryDelaySeconds seconds"
+      Start-Sleep -Seconds $RetryDelaySeconds
+    }
+  }
+}
+
 $hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
 $hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
 if ($hasImageGatewayKey -and -not $hasVisionGatewayKey) {
@@ -191,8 +217,7 @@ try {
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   $initialVerificationPid = Get-RemotePm2ProcessId
-  & (Join-Path $PSScriptRoot "verify-production-ecommerce.ps1") -BaseUrl "https://shuimg.cn"
-  if ($LASTEXITCODE -ne 0) { throw "Authenticated ecommerce production verification failed" }
+  Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed"
   $initialVerificationEndPid = Get-RemotePm2ProcessId
   if ($initialVerificationEndPid -ne $initialVerificationPid) {
     throw "PM2 process restarted during initial ecommerce verification: $initialVerificationPid -> $initialVerificationEndPid"
@@ -203,8 +228,7 @@ try {
   Start-Sleep -Seconds $CanarySeconds
   & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
-  & (Join-Path $PSScriptRoot "verify-production-ecommerce.ps1") -BaseUrl "https://shuimg.cn"
-  if ($LASTEXITCODE -ne 0) { throw "Authenticated ecommerce production canary failed" }
+  Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed"
   $canaryEndPid = Get-RemotePm2ProcessId
   if ($canaryEndPid -ne $canaryPid) {
     throw "PM2 process restarted during canary: $canaryPid -> $canaryEndPid"
