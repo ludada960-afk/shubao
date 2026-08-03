@@ -52,7 +52,7 @@ export function createCanvasTextNode({ x = 0, y = 0, sourceNodeId = '', now = Da
     w: 420,
     h: 180,
     text: '',
-    placeholder: '输入标题、卖点或生成要求',
+    placeholder: '输入文字',
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
     status: 'ready',
     textStyle: {

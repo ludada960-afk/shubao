@@ -743,6 +743,7 @@ export default function EcCanvas() {
   // 注意：ref 初始值为空函数，在下面的 useEffect 中更新
   const handleDeleteRef = useRef(() => {});
   const fitViewRef = useRef(() => {});
+  const handleAddTextRef = useRef(() => {});
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -764,6 +765,12 @@ export default function EcCanvas() {
       }
       // 只在画布 tab 处理
       if (tab !== 'canvas') return;
+      // T: 创建普通可编辑文本对象；输入框和 contenteditable 内不抢快捷键
+      if (!isTyping && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        handleAddTextRef.current?.();
+        return;
+      }
       // Delete/Backspace: 删除选中节点
       if ((e.key === 'Delete' || e.key === 'Backspace') && (selected || multiSelected.size > 0)) {
         e.preventDefault();
@@ -2223,6 +2230,10 @@ export default function EcCanvas() {
     return textNode;
   }, [nodes, viewport]);
 
+  useEffect(() => {
+    handleAddTextRef.current = handleAddTextNode;
+  }, [handleAddTextNode]);
+
   const handleTextNodeChange = useCallback((nodeId, text) => {
     setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text, name: text.trim().split(/\r?\n/)[0]?.slice(0, 32) || '文本' } : node));
   }, []);
@@ -2232,8 +2243,11 @@ export default function EcCanvas() {
     try {
       const response = await regenerateText(textComposerValue.trim(), result.category || result.product_name || '电商文案');
       const text = String(response?.text || response?.content || response?.result || textComposerValue).trim();
-      handleTextNodeChange(textComposerNodeId, text);
+      const nodeId = textComposerNodeId;
+      handleTextNodeChange(nodeId, text);
       setTextComposerValue('');
+      setTextComposerNodeId(null);
+      setEditingTextNodeId(nodeId);
       showToast('文案已生成，可直接编辑和拖动', 'success');
     } catch (error) {
       handleCanvasActionError(error, { type: 'text-generation', nodeId: textComposerNodeId });
@@ -2663,7 +2677,7 @@ export default function EcCanvas() {
             activeTool={activeTool}
             onToolChange={setActiveTool}
             onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
-            onText={() => selectedNode?.url ? handleToolAction('edit-text', selectedNode) : handleAddTextNode()}
+            onText={() => handleAddTextNode()}
             layersOpen={layersPanelOpen}
             onLayers={() => setLayersPanelOpen(open => !open)}
           />
@@ -2738,6 +2752,7 @@ export default function EcCanvas() {
                 />;
               }
               if (node.kind === 'text') {
+                if (textComposerNodeId === node.id) return null;
                 return <StudioTextNode
                   key={node.id}
                   node={node}

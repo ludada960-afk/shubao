@@ -74,7 +74,7 @@ test('text creation produces a real editable canvas object rather than a form ca
     w: 420,
     h: 180,
     text: '',
-    placeholder: '输入标题、卖点或生成要求',
+    placeholder: '输入文字',
     sourceNodeIds: ['source-1'],
     status: 'ready',
     textStyle: {
@@ -148,6 +148,13 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.match(source, /onDoubleClick/);
   assert.match(source, /onPointerDown\?\.\(event, node\.id\)/);
   assert.doesNotMatch(source, /<header>\s*文本\s*<\/header>/);
+});
+
+test('plain text tools never route through image text generation', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(page, /onText=\{\(\) => handleAddTextNode\(\)\}/);
+  assert.match(page, /e\.key\.toLowerCase\(\) === ['"]t['"][\s\S]*?handleAddTextRef\.current/);
+  assert.match(page, /if \(textComposerNodeId === node\.id\) return null;/);
 });
 
 test('canvas page removes independent lane labels, role-gated uploads, and duplicate rail actions', () => {

@@ -550,7 +550,7 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
       suppressContentEditableWarning
       role="textbox"
       aria-multiline="true"
-      data-placeholder={node.placeholder || '输入标题、卖点或生成要求'}
+      data-placeholder={node.placeholder || '输入文字'}
       style={node.textStyle || undefined}
       onFocus={() => onSelect?.(node.id)}
       onInput={event => onChange?.(node.id, event.currentTarget.textContent || '')}
