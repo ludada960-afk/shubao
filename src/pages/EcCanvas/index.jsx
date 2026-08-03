@@ -714,6 +714,11 @@ export default function EcCanvas() {
 
   useEffect(() => {
     const load = async () => {
+      if (result?.browserQa) {
+        setPastWorks([]);
+        setTrashWorks([]);
+        return;
+      }
       let localWorks = [];
       let serverWorks = [];
       try {
@@ -732,7 +737,7 @@ export default function EcCanvas() {
       setTrashWorks([...normalizeCanvasWorkPanel({ localWorks: localTrash, serverWorks: [], ownerEmail: phone }).filter(item => !trashKeys.has(String(item._saveKey || item.id))), ...serverTrash]);
     };
     load();
-  }, [phone]);
+  }, [phone, result?.browserQa]);
 
   // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
   // 注意：ref 初始值为空函数，在下面的 useEffect 中更新

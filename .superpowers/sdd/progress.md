@@ -923,3 +923,13 @@
   production build passed again. Production deployment and authenticated
   browser acceptance still await the owner-provided
   `SHUBAO_CANARY_SESSION_TOKEN`.
+- Local browser smoke found that the development-only Canvas QA fixture marked
+  itself logged in but still requested owner-scoped Works and Trash data,
+  producing four irrelevant 401 console errors. The Canvas page now skips those
+  remote reads for `result.browserQa` and uses empty local panels instead. With
+  the fixture loaded at 1440x900 and 390x844, six seeded media nodes rendered,
+  no runtime errors or API requests occurred, and document width stayed within
+  the viewport. The focused Canvas regression passed 47/47, the full repository
+  suite passed 1,054/1,054, and the production build passed. Authenticated
+  production browser acceptance and deployment still await the owner-provided
+  `SHUBAO_CANARY_SESSION_TOKEN`.

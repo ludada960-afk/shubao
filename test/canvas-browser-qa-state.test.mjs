@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { createCanvasBrowserQaState } from '../src/pages/EcCanvas/canvasBrowserQaState.js';
+
+const canvasPage = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
 
 test('canvas browser QA state is unavailable outside local development', () => {
   assert.equal(createCanvasBrowserQaState({ enabled: false, search: '?qa=ec-canvas' }), null);
@@ -29,4 +32,9 @@ test('canvas browser QA state supplies one source and all commerce asset lanes',
     state.result.images.map(image => image.ratio),
     ['1:1', '1:1', '3:4', '1:1', '1:1'],
   );
+});
+
+test('canvas browser QA fixture does not make unauthorized works requests', () => {
+  assert.match(canvasPage, /if \(result\?\.browserQa\) \{/);
+  assert.match(canvasPage, /setPastWorks\(\[\]\);\s*setTrashWorks\(\[\]\);\s*return;/);
 });
