@@ -3912,7 +3912,7 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
 });
 
 // 画布图片文字识别：返回图片内的文字框，供原位替换，而不是新建一个文字节点。
-app.post('/api/canvas/ocr', async (req, res) => {
+app.post('/api/canvas/ocr', authenticateEcommerceRequest, async (req, res) => {
   const { image_url: imageUrl } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
   try {
@@ -3934,7 +3934,7 @@ app.post('/api/canvas/ocr', async (req, res) => {
 });
 
 // 文字替换产出新的图片版本，保留原图节点；当前版本用识别框背景色擦除并重排文字。
-app.post('/api/canvas/replace-text', async (req, res) => {
+app.post('/api/canvas/replace-text', authenticateEcommerceRequest, async (req, res) => {
   const { image_url: imageUrl, blocks = [] } = req.body || {};
   if (!imageUrl || !Array.isArray(blocks) || !blocks.length) return res.status(400).json({ error: '缺少图片或文字修改内容' });
   try {

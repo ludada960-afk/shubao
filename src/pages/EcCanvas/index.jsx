@@ -1143,18 +1143,30 @@ export default function EcCanvas() {
     setPromptLoading(true);
     try {
       const count = Math.max(1, Math.min(4, Number(node.inputs?.outputCount) || 1));
+      const requestedOutputIndexes = Array.isArray(node.inputs?.pendingOutputIndexes)
+        ? [...new Set(node.inputs.pendingOutputIndexes.filter(index => Number.isInteger(index) && index >= 0 && index < count))]
+        : [];
+      const pendingOutputIndexes = requestedOutputIndexes.length
+        ? requestedOutputIndexes
+        : Array.from({ length: count }, (_, index) => index);
       const referenceImages = [
         ...(node.inputs?.productImages || []),
         ...(node.inputs?.referenceImages || []),
       ].map(image => image?.url || image?.src || image?.image_url).filter(Boolean);
-      const urls = await Promise.all(Array.from({ length: count }, (_, index) => regenerateCanvasImage({
+      const settled = await Promise.allSettled(pendingOutputIndexes.map(index => regenerateCanvasImage({
         prompt,
         imageUrl: sourceUrl,
         referenceImages,
         ratio: node.inputs?.ratio || source.ratio,
         requestKey: `${generationRunId}:${index + 1}`,
       })));
-      const outputs = urls.map((url, index) => normalizeCanvasNode({
+      const successful = settled.flatMap((result, resultIndex) => result.status === 'fulfilled'
+        ? [{ index: pendingOutputIndexes[resultIndex], url: result.value }]
+        : []);
+      const failed = settled.flatMap((result, resultIndex) => result.status === 'rejected'
+        ? [{ index: pendingOutputIndexes[resultIndex], error: result.reason }]
+        : []);
+      const outputs = successful.map(({ index, url }) => normalizeCanvasNode({
         ...source,
         id: `node_output_${Date.now()}_${index}`,
         kind: 'image',
@@ -1166,16 +1178,27 @@ export default function EcCanvas() {
         displayLabel: `${source.name || source.displayLabel || '电商图'}-二创结果${count > 1 ? `-${index + 1}` : ''}`,
         sourceNodeIds: [node.id],
       }));
+      const previousOutput = node.output || {};
+      const outputNodeIds = [...new Set([...(previousOutput.nodeIds || []), ...outputs.map(output => output.id)])];
+      const remainingIndexes = failed.map(item => item.index);
       setNodes(prev => prev.map(item => item.id === node.id ? {
         ...item,
-        status: 'success',
-        inputs: { ...(item.inputs || {}), generationRunId: null },
-        output: { nodeIds: outputs.map(output => output.id), urls },
+        status: remainingIndexes.length ? 'error' : 'success',
+        error: remainingIndexes.length ? (failed[0]?.error?.message || '部分图片生成失败，请重试失败项') : null,
+        inputs: { ...(item.inputs || {}), generationRunId: remainingIndexes.length ? generationRunId : null, pendingOutputIndexes: remainingIndexes },
+        output: { nodeIds: outputNodeIds, urls: [...(previousOutput.urls || []), ...outputs.map(output => output.url)] },
       } : item).concat(outputs));
       setConnections(prev => outputs.reduce((edges, output) => [...edges, createChildConnection(node.id, output.id, 'smart-remix-output')], prev));
-      setSelected(outputs[0].id);
-      setMultiSelected(new Set(outputs.map(output => output.id)));
-      showToast(`已生成 ${outputs.length} 张新的电商图`, 'success');
+      if (outputs.length) {
+        setSelected(outputs[0].id);
+        setMultiSelected(new Set(outputs.map(output => output.id)));
+      }
+      if (remainingIndexes.length) {
+        handleCanvasActionError(failed[0]?.error || new Error('部分图片生成失败，请重试失败项'), { type: 'smart-remix', nodeId: node.id });
+        showToast(`已生成 ${outputs.length} 张，${remainingIndexes.length} 张失败，可只重试失败项`, 'info');
+      } else {
+        showToast(`已生成 ${outputs.length} 张新的电商图`, 'success');
+      }
     } catch (error) {
       updateWorkflowNode(node.id, { status: 'error', error: error.message || '生成失败，请重试' });
       handleCanvasActionError(error, { type: 'smart-remix', nodeId: node.id });
@@ -2785,7 +2808,7 @@ export default function EcCanvas() {
                     onRemoveProductImage: image => updateWorkflowInputs(node.id, { productImages: (node.inputs?.productImages || []).filter(item => item.id !== image.id) }),
                     onAddReferenceImages: files => handleWorkflowAddImages(node.id, 'referenceImages', files),
                     onRemoveReferenceImage: image => updateWorkflowInputs(node.id, { referenceImages: (node.inputs?.referenceImages || []).filter(item => item.id !== image.id) }),
-                    onOutputCountChange: value => updateWorkflowInputs(node.id, { outputCount: value }),
+                    onOutputCountChange: value => updateWorkflowInputs(node.id, { outputCount: value, generationRunId: null, pendingOutputIndexes: [] }),
                     onGenerate: () => handleWorkflowGenerate(node),
                   } : undefined}
                   layerProps={node.kind === 'layer-workbench' ? {

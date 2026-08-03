@@ -206,7 +206,10 @@ test('canvas remix variants use one stable run id for retries and distinct reque
   const generate = page.slice(start, end);
   assert.match(generate, /generationRunId/);
   assert.match(generate, /requestKey:\s*`\$\{generationRunId\}:\$\{index \+ 1\}`/);
-  assert.match(generate, /generationRunId:\s*null/);
+  assert.match(generate, /generationRunId:\s*remainingIndexes\.length\s*\?\s*generationRunId\s*:\s*null/);
+  assert.match(generate, /Promise\.allSettled/);
+  assert.match(generate, /pendingOutputIndexes/);
+  assert.match(generate, /只重试失败项/);
 });
 
 test('context create actions reuse the executable workflow-node creation path', () => {

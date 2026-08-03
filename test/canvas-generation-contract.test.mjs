@@ -68,10 +68,20 @@ test('Canvas OCR uses the formal ecommerce vision gateway instead of the legacy 
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/ocr', '// 文字替换产出新的图片版本');
 
+  assert.match(route, /app\.post\('\/api\/canvas\/ocr',\s*authenticateEcommerceRequest/);
   assert.match(route, /createEcommerceVlmClient\(\)\.analyzeJson\(/);
   assert.doesNotMatch(route, /callLLMWithVision\(/);
   assert.match(route, /parseVisionTextBlocks\(JSON\.stringify\(visionResult\)\)/);
   assert.match(route, /status:\s*['"]已识别['"]/);
+});
+
+test('Canvas image text replacement is owner-authenticated before reading source pixels', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/canvas/replace-text', '// 画布像素分层');
+
+  assert.match(route, /app\.post\('\/api\/canvas\/replace-text',\s*authenticateEcommerceRequest/);
+  assert.match(route, /readCanvasImage\(imageUrl\)/);
+  assert.match(route, /generatedAssetStore\.persistBuffer/);
 });
 
 test('Canvas reverse prompt uses the formal ecommerce vision gateway with an editable fallback', async () => {

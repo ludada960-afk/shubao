@@ -933,3 +933,14 @@
   suite passed 1,054/1,054, and the production build passed. Authenticated
   production browser acceptance and deployment still await the owner-provided
   `SHUBAO_CANARY_SESSION_TOKEN`.
+- Canvas OCR and replacement-text routes now require the signed ecommerce owner
+  session before reading source pixels or persisting a new image version. Smart
+  remix generation now uses `Promise.allSettled`: successful outputs stay on the
+  canvas, failed output indexes are persisted on the workflow node, and retry
+  resubmits only those indexes with the same durable request keys. Changing the
+  output count starts a fresh logical run. Malformed pending-index state falls
+  back to the full requested output set instead of reporting a false success.
+  Focused Canvas/API regression passed after the final contract adjustment and
+  the 6,435-module production build passed. Production deployment and
+  authenticated browser acceptance still await the owner-provided
+  `SHUBAO_CANARY_SESSION_TOKEN`.
