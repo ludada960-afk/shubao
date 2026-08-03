@@ -9,6 +9,7 @@ import sharp from 'sharp';
 import {
   assertInstancePixelCoverage,
   assertOwnedGeneratedAssetUrl,
+  createVerifierSegmentationMasks,
   verifyRestoredImageAssets,
   verifyCanvasSegmentation,
 } from '../scripts/verify-canvas-segmentation.mjs';
@@ -94,6 +95,36 @@ function segmentationPlanFixture({ width = 80, height = 80 } = {}) {
     expires_at: '2099-01-01T00:00:00.000Z',
   };
 }
+
+test('verifier masks retain transparent contour pixels after tight cropping', async () => {
+  const [mask] = await createVerifierSegmentationMasks([
+    { id: 'product-1', box: [10, 20, 110, 140] },
+  ]);
+  const encoded = String(mask.data).replace(/^data:image\/png;base64,/, '');
+  const { data, info } = await sharp(Buffer.from(encoded, 'base64'))
+    .greyscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const active = [];
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[y * info.width + x] >= 16) active.push({ x, y });
+    }
+  }
+  assert.ok(active.length > 0);
+  const left = Math.min(...active.map(pixel => pixel.x));
+  const right = Math.max(...active.map(pixel => pixel.x));
+  const top = Math.min(...active.map(pixel => pixel.y));
+  const bottom = Math.max(...active.map(pixel => pixel.y));
+  let transparentPixels = 0;
+  const croppedPixels = (right - left + 1) * (bottom - top + 1);
+  for (let y = top; y <= bottom; y += 1) {
+    for (let x = left; x <= right; x += 1) {
+      if (data[y * info.width + x] < 250) transparentPixels += 1;
+    }
+  }
+  assert.ok(transparentPixels / croppedPixels >= 0.01);
+});
 
 test('rejects external provider URLs instead of treating them as stable owned assets', () => {
   assert.throws(

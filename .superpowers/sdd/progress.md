@@ -1065,3 +1065,20 @@
   or console errors. Production deployment remains a separate authenticated
   release step. The 12 user-owned extension-task deletions and `.tmp/` remain
   untouched.
+- Browser-distributed Canvas segmentation production release completed on
+  2026-08-03. `scripts/deploy-production.ps1` deployed runtime commit `d189f9a`
+  to `https://shuimg.cn/` as PM2 PID `2679051`; the authenticated initial and
+  final ecommerce canaries delivered three stable assets in tasks
+  `ec_5067e863-e22e-4468-b006-f50a9946c61b` and
+  `ec_1872f25a-ed1c-4848-9753-dfe16e36bd3f`. The dedicated production Canvas
+  verifier then passed real three-subject removal, one product group, three
+  distinct draggable product instances, a clean background, editable text, and
+  exact save/reload pixel persistence in session
+  `cbc2a021-f59b-4a37-9e5b-e208ebb20d3f`. Its synthetic acceptance masks were
+  corrected from tight-cropped opaque rectangles to contour masks, with a
+  regression proving transparency remains after materialization. Final full
+  regression passed 1,123/1,123 and the 6,442-module production build passed.
+  Public health is green, the deployment lock is absent, and the 4,574,861-byte
+  production U2NetP model matches SHA-256
+  `309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8`.
+  The 12 user-owned extension-task deletions and `.tmp/` remain untouched.

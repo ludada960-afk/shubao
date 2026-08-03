@@ -236,8 +236,16 @@ export async function createVerifierSegmentationMasks(prompts = []) {
   const size = 320;
   const inset = 8;
   const pixels = Buffer.alloc(size * size, 0);
+  const center = (size - 1) / 2;
+  const radius = center - inset;
   for (let y = inset; y < size - inset; y += 1) {
-    pixels.fill(255, y * size + inset, y * size + size - inset);
+    for (let x = inset; x < size - inset; x += 1) {
+      const normalizedX = (x - center) / radius;
+      const normalizedY = (y - center) / radius;
+      if ((normalizedX * normalizedX) + (normalizedY * normalizedY) <= 1) {
+        pixels[y * size + x] = 255;
+      }
+    }
   }
   const png = await sharp(pixels, { raw: { width: size, height: size, channels: 1 } }).png().toBuffer();
   const data = `data:image/png;base64,${png.toString('base64')}`;
