@@ -629,7 +629,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#1f2937' }}>视觉方向</div>
-                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>选择最贴近商品定位的一套方向，执行说明仍可修改。</div>
+                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>先选一套最适合商品的方向，再按图片逐张调整怎么拍、突出什么。</div>
               </div>
               <button
                 type="button"
