@@ -144,12 +144,10 @@ export function SmartRemixNodeCard({ node, sourceImage, prompt = '', productImag
     <CanvasNodeShell title={action?.label} subtitle={action?.description} icon={MdImageSearch} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} className="workflow-node-smart-remix">
       <div className="workflow-node-body">
         {sourceImage && <div className="workflow-source-preview"><img src={sourceImage.url} alt={sourceImage.name || '源图'} /><span>源图</span></div>}
-        <label className="workflow-field-label" htmlFor={`remix-prompt-${node?.id || 'draft'}`}>画面描述 <em>可编辑</em></label>
-        <textarea id={`remix-prompt-${node?.id || 'draft'}`} className="workflow-prompt-editor" value={prompt} onChange={event => onPromptChange?.(event.target.value)} placeholder="系统会根据源图生成画面描述，你可以直接修改" rows={5} />
+        <label className="workflow-field-label" htmlFor={`remix-prompt-${node?.id || 'draft'}`}>生成要求 <em>可编辑</em></label>
+        <textarea id={`remix-prompt-${node?.id || 'draft'}`} className="workflow-prompt-editor" value={prompt} onChange={event => onPromptChange?.(event.target.value)} placeholder="写清楚这次要怎么改、突出什么，系统会保留商品主体" rows={4} />
         <ImageRail label="产品图" hint="补充不同角度，帮助保持商品一致" images={productImages} onAdd={onAddProductImages} onRemove={onRemoveProductImage} />
         <ImageRail label="参考图" hint="可选，用于补充风格和构图" images={referenceImages} onAdd={onAddReferenceImages} onRemove={onRemoveReferenceImage} />
-        <label className="workflow-field-label" htmlFor={`remix-instruction-${node?.id || 'draft'}`}>补充调整</label>
-        <textarea id={`remix-instruction-${node?.id || 'draft'}`} value={instruction} onChange={event => onInstructionChange?.(event.target.value)} placeholder="例如：突出防水、便携和材质细节" rows={2} />
         <div className="workflow-node-footer-row">
           <label className="workflow-count-control">生成 <select value={outputCount} onChange={event => onOutputCountChange?.(Number(event.target.value))}><option value={1}>1 张</option><option value={2}>2 张</option><option value={4}>4 张</option></select></label>
           <button type="button" className="workflow-primary-button" onClick={onGenerate} disabled={status === 'running' || !prompt.trim()}>{status === 'running' ? '生成中…' : '生成新方案'}</button>

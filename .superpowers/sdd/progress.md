@@ -849,3 +849,12 @@
   build-asset check, Node syntax, whitespace and collaboration checks passed.
   Production deployment remains pending the owner-provided
   `SHUBAO_CANARY_SESSION_TOKEN`.
+- The canvas remix workflow still exposed a second free-form text field named
+  “补充调整” alongside the main image-generation request. This duplicated the
+  user's instruction surface and contradicted the single-input interaction
+  requested for the canvas. Both the runtime modular card and its legacy
+  compatibility export now expose one `生成要求` textarea; product images and
+  reference images remain separate visual inputs. The focused Canvas contract
+  passed 15/15, followed by the 6,435-module production build, build-asset
+  check, collaboration policy and whitespace validation. Production remains
+  pending the owner-provided Canary session token.

@@ -175,6 +175,13 @@ test('image composer owns reference uploads instead of reopening a legacy floati
   assert.doesNotMatch(source, /ReferenceComposer/);
 });
 
+test('image remix workflow keeps one editable generation request field', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/SmartRemixNodeCard.jsx', import.meta.url), 'utf8');
+  assert.equal((source.match(/<textarea\b/g) || []).length, 1);
+  assert.match(source, /生成要求/);
+  assert.doesNotMatch(source, /remix-instruction|补充调整/);
+});
+
 test('focused editing exposes complete functional annotation and geometry controls', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
