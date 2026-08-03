@@ -14,6 +14,17 @@
 
 ## Current execution
 
+- Canvas selected-composer and structured image-mention correction is active.
+  The signed-in reference product at `https://liuyingai.cn/canvas-studio`
+  was exercised directly on 2026-08-03: text, image and ecommerce-suite
+  creation add only a body; one bottom composer appears only for the selected
+  body; image derivation preselects the source as `@图片1`; and the `@` control
+  opens an actual reference picker. Approved design and TDD plan are recorded
+  in `docs/superpowers/specs/2026-08-03-canvas-selected-composer-and-image-mentions-design.md`
+  and `docs/superpowers/plans/2026-08-03-canvas-selected-composer-and-image-mentions.md`.
+  No files are delegated. The 12 unrelated deleted extension-task JSON files
+  and `.tmp/` remain user-owned and must not be staged or restored.
+
 - Integrated commercial Canvas and ecommerce creative-workflow closure is in
   progress in the Codex worktree; no files are delegated. The Canvas parity
   audit and interaction implementation are complete locally, including live
