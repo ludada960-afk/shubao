@@ -298,6 +298,7 @@ export function createCanvasLayeringService(deps = {}) {
       }
       layers.push(...segmented.plan.textBlocks.map(textLayer));
       return {
+        result_url: groupLayer?.url || instanceLayers[0]?.url,
         status: warnings.length ? 'partial' : 'complete',
         layers,
         capabilities: {

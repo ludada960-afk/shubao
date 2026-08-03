@@ -183,6 +183,7 @@ test('creates three tight product assets, one grouped asset, clean background an
   })));
   const group = result.layers.find(layer => layer.semanticType === 'product-group');
   assert.ok(group?.url.startsWith('/api/generated-assets/'));
+  assert.equal(result.result_url, group.url);
   assert.ok(result.layers.some(layer => layer.semanticType === 'background'));
   assert.deepEqual(result.layers.find(layer => layer.semanticType === 'text'), {
     id: 'caption',
@@ -215,6 +216,7 @@ test('returns a truthful partial result when only background reconstruction fail
   assert.equal(result.capabilities.backgroundCleanPlate, false);
   assert.ok(result.warnings.includes('背景净版生成失败'));
   assert.equal(result.layers.some(layer => layer.semanticType === 'background'), false);
+  assert.equal(result.result_url, result.layers.find(layer => layer.semanticType === 'product-group').url);
 });
 
 test('reports partial capabilities when an expected product instance has no reliable mask', async () => {
@@ -229,6 +231,7 @@ test('reports partial capabilities when an expected product instance has no reli
   assert.equal(result.layers.some(layer => layer.semanticType === 'product-group'), false);
   assert.equal(result.layers.some(layer => layer.semanticType === 'background'), false);
   assert.ok(result.warnings.some(warning => /1 个商品实例/.test(warning)));
+  assert.equal(result.result_url, result.layers.find(layer => layer.semanticType === 'product-instance').url);
 });
 
 test('remove background fails instead of delivering an incomplete product union', async () => {
