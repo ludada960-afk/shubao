@@ -980,3 +980,15 @@
   automatic rollbacks were caused by one transient connection failure and one
   stochastic `manual_review` quality result; the final retry passed. The 12
   user-owned `server/extension_tasks` deletions and `.tmp/` remain untouched.
+- Canvas text-entry correction on 2026-08-03: commit `2f4b544` separates the
+  plain text tool from image text generation. The bottom toolbar and keyboard
+  `T` now always create a normal editable text node, with a neutral `输入文字`
+  placeholder. The derived 文案生成 path keeps only its anchored generation
+  composer, hides the duplicate text node while composing, and returns to the
+  editable text object after generation. Focused Canvas regression passed
+  65/65; full repository regression passed 1,056/1,056; production build and
+  build-asset checks passed. Three release attempts were automatically rolled
+  back because the upstream `detail-slice-visual-form` quality gate ended as
+  `manual_review` or `sharp_repair`; billing and health passed each time, and
+  the public service remains healthy on the prior release. The 12 user-owned
+  extension-task deletions and `.tmp/` remain untouched.
