@@ -54,11 +54,23 @@ test('Canvas layer analysis returns real movable pixel layers without claiming P
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/analyze-layers', '// 画布像素分层');
 
+  assert.match(route, /createEcommerceVlmClient\(\)\.analyzeJson\(/);
+  assert.doesNotMatch(route, /callLLMWithVision\(/);
   assert.match(route, /analyzeSceneCapabilities\(\{\s*layers\s*\}\)/);
   assert.match(route, /res\.json\(\{\s*layers:[\s\S]*?capabilities/);
   assert.match(route, /pixelLayers:\s*true/);
   assert.match(route, /movableLayers:\s*true/);
   assert.doesNotMatch(route, /psdExport:\s*true/);
+});
+
+test('Canvas OCR uses the formal ecommerce vision gateway instead of the legacy LLM-only path', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/canvas/ocr', '// 文字替换产出新的图片版本');
+
+  assert.match(route, /createEcommerceVlmClient\(\)\.analyzeJson\(/);
+  assert.doesNotMatch(route, /callLLMWithVision\(/);
+  assert.match(route, /parseVisionTextBlocks\(JSON\.stringify\(visionResult\)\)/);
+  assert.match(route, /status:\s*['"]已识别['"]/);
 });
 
 test('Canvas pixel layering and PSD export are signed composition routes', async () => {

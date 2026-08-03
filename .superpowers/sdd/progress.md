@@ -867,3 +867,13 @@
   Python/PyTorch/CUDA runtime, so neither was added as an unverified Node
   dependency. Production deployment and authenticated browser acceptance
   remain pending the owner-provided Canary session token.
+- Follow-up audit found that Canvas OCR and semantic layer analysis still used
+  the legacy `callLLMWithVision` path, while the formal ecommerce visual
+  pipeline uses `createEcommerceVlmClient` and the MINI gateway when configured.
+  Both Canvas routes now use `createEcommerceVlmClient().analyzeJson` with
+  explicit OCR/layer JSON contracts, so Canvas no longer reports visual
+  analysis unavailable solely because the legacy LLM settings are absent. The
+  focused Canvas/API regression passed 43/43, followed by Node syntax,
+  production build, build-asset check, collaboration policy and whitespace
+  validation. Production deployment and authenticated browser acceptance still
+  await the owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.

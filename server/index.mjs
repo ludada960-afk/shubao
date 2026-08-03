@@ -3891,12 +3891,14 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
     const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
     let layers = [];
     try {
-      const raw = await callLLMWithVision(
-        '你是电商视觉拆解专家。只识别图片中真实存在的可编辑结构，不要臆造。只返回 JSON：{"layers":[{"name":"商品主体","description":"..."}]}。层级最多 8 个。',
-        [image],
-        '请识别这张商品图的结构层，至少尝试区分商品主体、背景氛围、可见文案、装饰元素；不存在的层不要输出。',
-      );
-      layers = parseVisionLayers(raw);
+      const visionResult = await createEcommerceVlmClient().analyzeJson({
+        systemPrompt: '你是电商视觉拆解专家。只识别图片中真实存在的可编辑结构，不要臆造。只返回 JSON：{"layers":[{"name":"商品主体","description":"..."}]}。层级最多 8 个。',
+        userPrompt: '请识别这张商品图的结构层，至少尝试区分商品主体、背景氛围、可见文案、装饰元素；不存在的层不要输出。',
+        images: [image],
+        maxTokens: 1500,
+        temperature: 0.3,
+      });
+      layers = parseVisionLayers(JSON.stringify(visionResult));
     } catch (visionError) {
       console.warn('[canvas/analyze-layers] 语义分析降级:', visionError.message);
     }
@@ -3942,12 +3944,14 @@ app.post('/api/canvas/ocr', async (req, res) => {
   try {
     const buffer = await readCanvasImage(imageUrl);
     const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
-    const raw = await callLLMWithVision(
-      '你是商品图 OCR 引擎。只识别图片中已经存在的可见文字，不要生成新文案。只返回 JSON：{"blocks":[{"id":"...","text":"...","x":0,"y":0,"width":0.2,"height":0.08,"color":"#111111","background":"#ffffff"}]}。坐标都是相对图片左上角的 0 到 1 小数，文字框要覆盖完整文字。',
-      [image],
-      '逐块识别图片内可编辑文字，保留原文顺序、大小关系和大致位置；没有文字就返回 {"blocks":[]}。',
-    );
-    const blocks = parseVisionTextBlocks(raw);
+    const visionResult = await createEcommerceVlmClient().analyzeJson({
+      systemPrompt: '你是商品图 OCR 引擎。只识别图片中已经存在的可见文字，不要生成新文案。只返回 JSON：{"blocks":[{"id":"...","text":"...","x":0,"y":0,"width":0.2,"height":0.08,"color":"#111111","background":"#ffffff"}]}。坐标都是相对图片左上角的 0 到 1 小数，文字框要覆盖完整文字。',
+      userPrompt: '逐块识别图片内可编辑文字，保留原文顺序、大小关系和大致位置；没有文字就返回 {"blocks":[]}。',
+      images: [image],
+      maxTokens: 1500,
+      temperature: 0.3,
+    });
+    const blocks = parseVisionTextBlocks(JSON.stringify(visionResult));
     return res.json({ blocks, status: '已识别' });
   } catch (error) {
     console.error('[canvas/ocr] 失败:', error.message);
