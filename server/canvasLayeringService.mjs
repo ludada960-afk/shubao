@@ -92,12 +92,14 @@ export function createCanvasLayeringService(deps = {}) {
       imageUrl: imageBufferToDataUrl({ buffer: sourceBuffer, contentType: 'image/png' }),
       prompts,
       maxMasks: prompts.length,
+      imageWidth: width,
+      imageHeight: height,
       signal,
     });
     const instanceById = new Map(plan.instances.map(instance => [instance.id, instance]));
     const accepted = [];
     for (const [index, rawMask] of segmented.masks.entries()) {
-      const instance = instanceById.get(rawMask.promptId) || plan.instances[index];
+      const instance = instanceById.get(rawMask.promptId);
       if (!instance || (rawMask.score != null && Number(rawMask.score) < 0.5)) continue;
       try {
         const maskInput = await imageInputReader.read(rawMask.url);
@@ -109,10 +111,18 @@ export function createCanvasLayeringService(deps = {}) {
       }
     }
     if (!accepted.length) throw layeringError('CANVAS_LAYER_MASKS_INVALID', '没有得到可靠的商品像素层');
-    return { sourceBuffer, width, height, plan, accepted, requestId: segmented.requestId || '' };
+    return {
+      sourceBuffer,
+      width,
+      height,
+      plan,
+      accepted,
+      omittedProductInstances: Math.max(0, plan.instances.length - accepted.length),
+      requestId: segmented.requestId || '',
+    };
   }
 
-  async function persistProductLayers(segmented) {
+  async function persistProductLayers(segmented, { includeGroup = true } = {}) {
     const instanceLayers = [];
     for (const { instance, mask, confidence } of segmented.accepted) {
       const composed = await compositeMaskedAsset(segmented.sourceBuffer, mask);
@@ -132,27 +142,36 @@ export function createCanvasLayeringService(deps = {}) {
       });
     }
     const groupMask = unionSegmentationMasks(segmented.accepted.map(item => item.mask));
-    const groupComposed = await compositeMaskedAsset(segmented.sourceBuffer, groupMask);
-    const groupAsset = await persistPng(generatedAssetStore, groupComposed.buffer, 'canvas_layer_product_group');
-    const groupLayer = {
-      id: 'product-group',
-      kind: 'image',
-      semanticType: 'product-group',
-      name: segmented.plan.productGroup?.name || '商品主体',
-      url: groupAsset.url,
-      assetId: groupAsset.id,
-      bounds: groupComposed.bounds,
-      pixelWidth: groupComposed.width,
-      pixelHeight: groupComposed.height,
-      confidence: segmented.plan.productGroup?.confidence || Math.min(...segmented.accepted.map(item => item.confidence)),
-      editable: true,
-    };
+    let groupLayer = null;
+    if (includeGroup) {
+      const groupComposed = await compositeMaskedAsset(segmented.sourceBuffer, groupMask);
+      const groupAsset = await persistPng(generatedAssetStore, groupComposed.buffer, 'canvas_layer_product_group');
+      groupLayer = {
+        id: 'product-group',
+        kind: 'image',
+        semanticType: 'product-group',
+        name: segmented.plan.productGroup?.name || '商品主体',
+        url: groupAsset.url,
+        assetId: groupAsset.id,
+        bounds: groupComposed.bounds,
+        pixelWidth: groupComposed.width,
+        pixelHeight: groupComposed.height,
+        confidence: segmented.plan.productGroup?.confidence || Math.min(...segmented.accepted.map(item => item.confidence)),
+        editable: true,
+      };
+    }
     return { groupMask, groupLayer, instanceLayers };
   }
 
   return {
     async removeBackground({ imageUrl, signal } = {}) {
       const segmented = await segmentProducts({ imageUrl, signal });
+      if (segmented.omittedProductInstances > 0) {
+        throw layeringError(
+          'CANVAS_LAYER_INSTANCE_COVERAGE_INCOMPLETE',
+          '商品实例分割不完整，未生成可能漏掉商品的去背结果',
+        );
+      }
       const groupMask = unionSegmentationMasks(segmented.accepted.map(item => item.mask));
       const composed = await compositeMaskedAsset(segmented.sourceBuffer, groupMask);
       const asset = await persistPng(generatedAssetStore, composed.buffer, 'canvas_remove_bg_sam3');
@@ -170,11 +189,19 @@ export function createCanvasLayeringService(deps = {}) {
 
     async createLayers({ imageUrl, signal } = {}) {
       const segmented = await segmentProducts({ imageUrl, signal });
-      const { groupMask, groupLayer, instanceLayers } = await persistProductLayers(segmented);
-      const layers = [groupLayer, ...instanceLayers];
+      const completeProductGroup = segmented.omittedProductInstances === 0;
+      const { groupMask, groupLayer, instanceLayers } = await persistProductLayers(segmented, {
+        includeGroup: completeProductGroup,
+      });
+      const layers = [...(groupLayer ? [groupLayer] : []), ...instanceLayers];
       const warnings = [];
+      if (segmented.omittedProductInstances > 0) {
+        warnings.push(`${segmented.omittedProductInstances} 个商品实例未能可靠分离`);
+      }
       let backgroundCleanPlate = false;
-      if (typeof createBackgroundCleanPlate === 'function') {
+      if (!completeProductGroup) {
+        warnings.push('商品实例不完整，未生成整组商品层和背景净版');
+      } else if (typeof createBackgroundCleanPlate === 'function') {
         try {
           const maskBuffer = await segmentationMaskToPng(groupMask);
           const cleanPlateResult = await createBackgroundCleanPlate({
@@ -217,8 +244,9 @@ export function createCanvasLayeringService(deps = {}) {
         layers,
         capabilities: {
           movableLayers: true,
-          productGroup: true,
+          productGroup: Boolean(groupLayer),
           productInstances: instanceLayers.length,
+          omittedProductInstances: segmented.omittedProductInstances,
           backgroundCleanPlate,
           editableText: segmented.plan.textBlocks.length,
           psdExport: false,

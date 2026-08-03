@@ -9,6 +9,7 @@ const ACTIONS = Object.freeze({
   translate: { paid: true, units: 1, currency: 'ec_points', sku: 'ec_image_2k' },
   upscale: { paid: true, units: 1, currency: 'ec_points', sku: 'ec_image_2k' },
   'upscale-4k': { paid: true, units: 2, currency: 'ec_points', sku: 'ec_image_4k' },
+  'layer-edit': { paid: true, units: 3, currency: 'ec_points', sku: 'ec_smart_layer' },
   'pixel-layers': { paid: true, units: 3, currency: 'ec_points', sku: 'ec_layer_psd' },
   'psd-export': FREE,
 });

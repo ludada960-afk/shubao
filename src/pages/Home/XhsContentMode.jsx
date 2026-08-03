@@ -43,6 +43,8 @@ import {
 } from './ec/ecommerceTaskProgressModel.js';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
+import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
+import { appendImageMention } from '../../components/creation/imageMentionModel.js';
 import './Home.css';
 
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
@@ -207,6 +209,18 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
+  const xhsMentionImages = useMemo(() => refImages.map((url, index) => ({
+    id: `xhs-reference-${index}`,
+    url,
+    name: `参考图 ${index + 1}`,
+    role: 'reference',
+  })), [refImages]);
+  const plogMentionImages = useMemo(() => plogRefPreview ? [{
+    id: 'plog-reference-1',
+    url: plogRefPreview,
+    name: '参考图 1',
+    role: 'reference',
+  }] : [], [plogRefPreview]);
 
   // 检查书签工具返回的提取数据
   useEffect(() => {
@@ -825,8 +839,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     }} />
                 </div>
               </div>
-              {refImages.length > 0 && (
-                <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap', alignItems:'center' }}>
                   {refImages.map((src, i) => (
                     <div key={i} style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)', flexShrink:0 }}>
                       <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
@@ -834,8 +847,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         style={{ position:'absolute', top:1, right:1, width:16, height:16, borderRadius:'50%', background:'rgba(0,0,0,0.6)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:8 }}>✕</div>
                     </div>
                   ))}
-                </div>
-              )}
+                <ImageMentionPicker
+                  images={xhsMentionImages}
+                  selectionMode="insert"
+                  onToggle={image => setText(appendImageMention(inputText, image.label))}
+                />
+              </div>
             </div>
           )}
 
@@ -883,16 +900,21 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     }} />
                 </div>
               </div>
-              {plogRefPreview && (
-                <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8 }}>
+              <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8 }}>
+                {plogRefPreview && <>
                   <div style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)' }}>
                     <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                     <div onClick={() => { setHomePlogReferenceAssetIds([]); setPlogRefImg(null); setPlogRefPreview(''); }}
                       style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700 }}>×</div>
                   </div>
                   <span style={{ fontSize:12, color:'var(--text-muted)' }}>参考图</span>
-                </div>
-              )}
+                </>}
+                <ImageMentionPicker
+                  images={plogMentionImages}
+                  selectionMode="insert"
+                  onToggle={image => setPlogText(appendImageMention(plogText, image.label))}
+                />
+              </div>
             </div>
           )}
 
@@ -1145,6 +1167,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       ))}
                       {refImages.length < 3 && <div className="ref-add" onClick={() => fileRef.current?.click()}><Upload size={14} /></div>}
                       <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { setXhsReferenceAssetIds([]); addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value = ''; }} />
+                      <ImageMentionPicker
+                        images={xhsMentionImages}
+                        selectionMode="insert"
+                        onToggle={image => setText(appendImageMention(inputText, image.label))}
+                      />
                       <span className="ref-hint">参考图（可选，最多3张）</span>
                     </div>
                     <div className="tags-cloud-wrap">
@@ -1183,6 +1210,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         </div>
                       )}
                       <span style={{ fontSize:13, color:'#999' }}>参考图（可选，AI自动统一整组色调）</span>
+                      <ImageMentionPicker
+                        images={plogMentionImages}
+                        selectionMode="insert"
+                        onToggle={image => setPlogText(appendImageMention(plogText, image.label))}
+                      />
                       <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => {
                         const f=e.target.files?.[0]; if(f){setHomePlogReferenceAssetIds([]);setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));}
                         e.target.value='';

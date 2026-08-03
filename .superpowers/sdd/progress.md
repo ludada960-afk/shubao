@@ -1019,3 +1019,21 @@
   browser smoke are required before release. Production deployment remains a
   separate authenticated release step; user-owned extension-task deletions and
   `.tmp/` remain untouched.
+- Real Canvas segmentation and automatic layer materialization on 2026-08-03:
+  SAM 3 box prompts now map masks by returned geometry instead of response order,
+  normalize provider-sized masks to source pixels, remove disconnected noise, and
+  fail closed when any expected product instance is missing. Remove-background
+  persists only a complete all-product transparent union. Smart layering directly
+  materializes the grouped product, each accepted product instance, reconstructed
+  background, and editable text as connected draggable child nodes; partial results
+  no longer advertise a complete group or background. The production verifier now
+  checks three distinct instance assets and bounds, meaningful transparency, owned
+  stable bytes, group containment, and exact Canvas save/reload topology. Independent
+  review findings were covered by regression tests, and the final focused re-review
+  returned `Ready: Yes` with no Critical or Important findings. The complete suite
+  passed 1,115/1,115, the 6,439-module production build passed, Node syntax, collaboration
+  policy, and whitespace validation passed. Local desktop/mobile Canvas smoke passed
+  without overflow or broken visible assets. Real provider acceptance and production
+  deployment remain pending `SHUBAO_FAL_KEY`; production currently has neither that
+  key nor the legacy remove-background key. The 12 user-owned extension-task
+  deletions and `.tmp/` remain untouched.

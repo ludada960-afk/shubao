@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('Canvas workbench offers real pixel layering before verified PSD download', async () => {
+test('legacy Canvas workbench still offers verified PSD preparation for saved sessions', async () => {
   const canvas = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const card = await readFile(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/LayerWorkbenchNodeCard.jsx', import.meta.url), 'utf8');
   const legacyCard = await readFile(new URL('../src/pages/EcCanvas/components/workflowNodes/index.jsx', import.meta.url), 'utf8');
 
   assert.match(canvas, /createCanvasPixelLayers,\s*exportCanvasPsd/);
-  assert.match(canvas, /capabilities:\s*data\.capabilities/);
+  assert.match(canvas, /layerCapabilities:\s*data\.capabilities\s*\|\|\s*\{\}/);
   assert.match(canvas, /capabilities:\s*node\.inputs\?\.capabilities\s*\|\|\s*\{\}/);
   assert.match(canvas, /onCreatePixelLayers:\s*node\.inputs\?\.compositionDocument\s*\?\s*\(\)\s*=>\s*handleWorkflowPixelLayers\(node\)/);
   assert.match(canvas, /onExportPsd:\s*\(\)\s*=>\s*handleWorkflowPsdExport\(node\)/);
@@ -23,6 +23,24 @@ test('Canvas workbench offers real pixel layering before verified PSD download',
   assert.match(legacyCard, /hasPixelLayers\s*=\s*capabilities\.pixelLayers\s*===\s*true/);
   assert.match(legacyCard, /hasPixelLayers\s*&&\s*selectedLayer/);
   assert.match(legacyCard, /生成像素分层/);
+});
+
+test('new smart-layer actions materialize real child nodes instead of opening a selection workbench', async () => {
+  const canvas = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const createStart = canvas.indexOf('const handleCreateDerivedNode');
+  const createEnd = canvas.indexOf('const updateWorkflowNode', createStart);
+  assert.notEqual(createStart, -1);
+  assert.notEqual(createEnd, -1);
+  const createHandler = canvas.slice(createStart, createEnd);
+
+  assert.match(createHandler, /nodeActionId\s*===\s*['"]layer-edit['"][\s\S]*?handleSmartLayerMaterialization/);
+  assert.ok(
+    createHandler.indexOf("nodeActionId === 'layer-edit'") < createHandler.indexOf('createDerivedNode({'),
+    'smart layering must bypass the legacy workbench node',
+  );
+  assert.match(canvas, /materializeCanvasLayers\(\{/);
+  assert.match(canvas, /\.concat\(result\.nodes\)/);
+  assert.match(canvas, /\[\.\.\.retained,\s*\.\.\.result\.connections\]/);
 });
 
 test('text composition retains a real source image layer for pixel-layer export', async () => {

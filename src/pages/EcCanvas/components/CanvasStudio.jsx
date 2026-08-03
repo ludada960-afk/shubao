@@ -38,6 +38,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
+import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import { getCanvasNodePresentation } from '../canvasStudioModel.js';
 import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
@@ -171,16 +172,7 @@ export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(
   </div>;
 }
 
-export function CanvasTextComposer({ node, position, value = '', loading = false, onChange, onSubmit, onClose }) {
-  if (!node) return null;
-  return <section className="ec-canvas-node-composer ec-canvas-text-composer" style={position} aria-label="生成文案">
-    <div className="ec-canvas-composer-heading"><strong>从当前内容继续创作</strong><button type="button" aria-label="关闭文案生成器" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button></div>
-    <textarea value={value} disabled={loading} placeholder="描述要生成的标题、卖点、详情文案或设计要求" onChange={event => onChange?.(event.target.value)} />
-    <div className="ec-canvas-composer-footer"><span>电商文案</span><button type="button" disabled={loading || !value.trim()} onClick={onSubmit}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button></div>
-  </section>;
-}
-
-function ComposerSources({ sources = [], onAddSources, onRemoveSource, skill = '', onSkillChange }) {
+function ComposerSources({ sources = [], availableSources = [], onAddSources, onRemoveSource, onToggleSource, uploadLabel = '图片' }) {
   return <div className="ec-canvas-composer-sources" aria-label={`已引用 ${sources.length} 张图片`}>
     {sources.slice(0, 6).map((source, index) => <span className="ec-canvas-composer-source" key={source.id || source.url || index}>
       <ResponsiveImage
@@ -195,18 +187,37 @@ function ComposerSources({ sources = [], onAddSources, onRemoveSource, skill = '
       <b>@图片{index + 1}</b>
       {onRemoveSource && <button type="button" data-canvas-control="true" aria-label={`移除${source.name || `引用图片 ${index + 1}`}`} onClick={event => { event.stopPropagation(); onRemoveSource(source.id); }}><X size={11} /></button>}
     </span>)}
-    {onAddSources && <label className="ec-canvas-composer-source-add" aria-label="添加参考图片" title="添加参考图片">
-      <ImagePlus size={18} /><small>图片</small><input type="file" accept="image/*" multiple hidden onChange={event => { onAddSources([...event.target.files]); event.target.value = ''; }} />
+    {onAddSources && <label className="ec-canvas-composer-source-add" aria-label={`添加${uploadLabel}`} title={`添加${uploadLabel}`}>
+      <ImagePlus size={18} /><small>{uploadLabel}</small><input type="file" accept="image/*" multiple hidden onChange={event => { onAddSources([...event.target.files]); event.target.value = ''; }} />
     </label>}
-    <label className="ec-canvas-composer-source-add ec-canvas-composer-skill" aria-label="选择 Skill" title="选择 Skill">
-      <WandSparkles size={18} /><small>{skill || 'Skill'}</small>
-      <select data-canvas-control="true" aria-label="选择 Skill" value={skill} onChange={event => onSkillChange?.(event.target.value)}>
-        <option value="">Skill</option>
-        <option value="电商视觉设计">电商视觉设计</option>
-        <option value="商品卖点提炼">商品卖点提炼</option>
-      </select>
-    </label>
+    <ImageMentionPicker images={availableSources} selectedImages={sources} onToggle={onToggleSource} />
   </div>;
+}
+
+export function CanvasGenerationNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onDoubleClick, onHoverChange, onPortPointerDown, onPortClick, onResizeStart }) {
+  const isImage = node.kind === 'image-composer';
+  const isSuite = node.kind === 'suite-composer';
+  const direction = node.directions?.[node.selectedDirection || 0];
+  return <article
+    data-canvas-node-id={node.id}
+    className={`ec-canvas-generation-node is-${isImage ? 'image' : 'suite'} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
+    style={{ left: node.x, top: node.y, width: node.w, height: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}
+    onPointerDown={event => onPointerDown?.(event, node.id)}
+    onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
+    onDoubleClick={event => { event.stopPropagation(); if (node.url) onDoubleClick?.(node); }}
+    onMouseEnter={() => onHoverChange?.(node.id)}
+    onMouseLeave={() => onHoverChange?.(null)}
+  >
+    {isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : <div className="ec-canvas-generation-placeholder">
+      {isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
+      <strong>{isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
+      {isSuite && <span>{direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
+      {node.status === 'processing' && <small>{node.progressLabel || '正在处理...'}</small>}
+      {node.error && <small className="is-error">{node.error}</small>}
+    </div>}
+    <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
+    <DerivePort visible={selected && Boolean(node.url)} disabled={!node.url} onPointerDown={onPortPointerDown} onClick={onPortClick} />
+  </article>;
 }
 
 function ComposerPreview({ node, source, label = '图片生成', selection, onSelectionChange }) {
@@ -252,22 +263,13 @@ function ComposerPreview({ node, source, label = '图片生成', selection, onSe
   </div>;
 }
 
-export function CanvasImageComposer({ node, sources = [], loading = false, onPointerDown, onChange, onAddSources, onRemoveSource, onGenerate, onClose }) {
+export function CanvasImageComposer({ node, position, sources = [], availableSources = [], loading = false, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
   if (!node) return null;
   const source = sources[0];
   const isLocalEdit = node.actionId === 'inpaint';
-  return <article
-    data-canvas-node-id={node.id}
-    className="ec-canvas-node-composer ec-canvas-image-composer"
-    style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}
-  >
-    <ComposerPreview node={node} source={source} label={isLocalEdit ? '局部改图' : '图片生成'} selection={node.selection} onSelectionChange={selection => onChange?.({ selection })} />
-    <div className="ec-canvas-composer-panel">
-      <div className="ec-canvas-composer-heading" onPointerDown={event => onPointerDown?.(event, node.id)}>
-        <span><WandSparkles size={16} /><strong>{isLocalEdit ? '局部改图' : node.actionId ? '图片生成与编辑' : '图片生成'}</strong></span>
-        <button type="button" aria-label="关闭图片生成器" data-canvas-control="true" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button>
-      </div>
-      <ComposerSources sources={sources} skill={node.skill} onSkillChange={skill => onChange?.({ skill })} onAddSources={onAddSources} onRemoveSource={onRemoveSource} />
+  return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-image-composer" style={position} aria-label={isLocalEdit ? '局部改图操作台' : '图片生成操作台'} onPointerDown={event => event.stopPropagation()}>
+      {isLocalEdit && <ComposerPreview node={node} source={source} label="局部改图" selection={node.selection} onSelectionChange={selection => onChange?.({ selection })} />}
+      <ComposerSources sources={sources} availableSources={availableSources} onToggleSource={onToggleSource} onAddSources={onAddSources} onRemoveSource={onRemoveSource} />
       {isLocalEdit && <div className="ec-canvas-selection-mode" role="group" aria-label="局部目标">
         <span>局部目标</span>
         {['whole', 'rectangle', 'subject'].map(mode => <button key={mode} type="button" className={node.selection?.mode === mode || (!node.selection && mode === 'whole') ? 'is-active' : ''} data-canvas-control="true" onClick={event => { event.stopPropagation(); onChange?.({ selection: { mode } }); }}>{mode === 'whole' ? '整图' : mode === 'rectangle' ? '框选' : '主体'}</button>)}
@@ -280,52 +282,46 @@ export function CanvasImageComposer({ node, sources = [], loading = false, onPoi
         onChange={event => onChange?.({ prompt: event.target.value })}
       />
       <div className="ec-canvas-composer-footer">
-        <select data-canvas-control="true" aria-label="图片模型" value={node.model || 'GPT Image 2'} onChange={event => onChange?.({ model: event.target.value })}><option>GPT Image 2</option><option>Lume Flow IMG-2</option></select>
         <select data-canvas-control="true" aria-label="图片比例" value={node.ratio || '1:1'} onChange={event => onChange?.({ ratio: event.target.value })}>{['自动 / 1:1', '3:4', '4:3', '9:16', '16:9'].map(ratio => <option key={ratio} value={ratio.includes('/') ? ratio.split(' / ')[1] : ratio}>{ratio}</option>)}</select>
-        <select data-canvas-control="true" aria-label="生成速度" value={node.speed || '快速'} onChange={event => onChange?.({ speed: event.target.value })}><option>快速</option><option>质量</option></select>
+        <select data-canvas-control="true" aria-label="清晰度" value={node.resolution || '2K'} onChange={event => onChange?.({ resolution: event.target.value })}>{['1K', '2K', '4K'].map(value => <option key={value}>{value}</option>)}</select>
         <select data-canvas-control="true" aria-label="生成数量" value={node.count || 1} onChange={event => onChange?.({ count: Number(event.target.value) })}>{[1, 2, 3, 4].map(count => <option key={count} value={count}>x{count}</option>)}</select>
         <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || (isLocalEdit && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
           {loading ? '生成中' : <><Sparkles size={15} />生成</>}
         </button>
       </div>
-    </div>
-  </article>;
+  </section>;
 }
 
-export function CanvasTextGenerationComposer({ node, sources = [], loading = false, onPointerDown, onChange, onAddSources, onRemoveSource, onGenerate, onClose }) {
+export function CanvasTextGenerationComposer({ node, position, sources = [], availableSources = [], loading = false, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
   if (!node) return null;
-  return <article data-canvas-node-id={node.id} className="ec-canvas-node-composer ec-canvas-text-generation-composer" style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}>
-    <div className="ec-canvas-composer-heading" onPointerDown={event => onPointerDown?.(event, node.id)}>
-      <span><MessageSquareText size={16} /><strong>生成文案</strong></span>
-      <button type="button" aria-label="关闭文案生成器" data-canvas-control="true" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button>
-    </div>
-    <ComposerSources sources={sources} skill={node.skill} onSkillChange={skill => onChange?.({ skill })} onAddSources={onAddSources} onRemoveSource={onRemoveSource} />
+  return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-text-generation-composer" style={position} aria-label="文案生成操作台" onPointerDown={event => event.stopPropagation()}>
+    <ComposerSources sources={sources} availableSources={availableSources} onToggleSource={onToggleSource} onAddSources={onAddSources} onRemoveSource={onRemoveSource} />
     <textarea data-canvas-control="true" value={node.prompt || ''} disabled={loading} placeholder="描述要生成的标题、卖点、详情文案或设计要求" onChange={event => onChange?.({ prompt: event.target.value })} />
     <div className="ec-canvas-composer-footer">
-      <select data-canvas-control="true" aria-label="文案模型" value={node.model || 'Lume Flow LM'} onChange={event => onChange?.({ model: event.target.value })}><option>Lume Flow LM</option><option>GPT-5</option></select>
       <select data-canvas-control="true" aria-label="文案数量" value={node.count || 1} onChange={event => onChange?.({ count: Number(event.target.value) })}>{[1, 2, 3, 4].map(count => <option key={count} value={count}>x{count}</option>)}</select>
-      <span>引用图片会保留为 @ 参考</span>
+      <span>{sources.length ? `已引用 ${sources.length} 张图片` : '可直接编辑上方文案，或在这里继续生成'}</span>
       <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim()} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
     </div>
-  </article>;
+  </section>;
 }
 
-export function CanvasEcommerceComposer({ node, sources = [], loading = false, onPointerDown, onChange, onAddSources, onRemoveSource, onGenerate, onChooseDirection, onClose }) {
+export function CanvasEcommerceComposer({ node, position, sources = [], availableSources = [], loading = false, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onChooseDirection }) {
   if (!node) return null;
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const planning = node.suiteStep === 'directions';
-  return <article data-canvas-node-id={node.id} className="ec-canvas-node-composer ec-canvas-suite-composer" style={{ left: node.x, top: node.y, width: node.w, minHeight: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}>
-    <div className="ec-canvas-composer-heading" onPointerDown={event => onPointerDown?.(event, node.id)}>
-      <span><Sparkles size={16} /><strong>{planning ? '选择设计方案' : '生成电商套图'}</strong></span>
-      <button type="button" aria-label="关闭电商套图生成器" data-canvas-control="true" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onClose?.(); }}><X size={15} /></button>
-    </div>
-    {!planning && <ComposerSources sources={sources} onAddSources={onAddSources} onRemoveSource={onRemoveSource} />}
+  return <section data-canvas-control="true" className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-suite-composer" style={position} aria-label={planning ? '选择设计方案' : '电商套图操作台'} onPointerDown={event => event.stopPropagation()}>
+    {!planning && <div className="ec-canvas-suite-source-rows">
+      <ComposerSources sources={sources.filter(source => (node.sourceRoles?.[source.id] || source.role) === 'product')} availableSources={availableSources} onToggleSource={source => onToggleSource?.(source, 'product')} onAddSources={files => onAddSources?.(files, 'product')} onRemoveSource={onRemoveSource} uploadLabel="产品图" />
+      <ComposerSources sources={sources.filter(source => (node.sourceRoles?.[source.id] || source.role) !== 'product')} availableSources={availableSources} onToggleSource={source => onToggleSource?.(source, 'reference')} onAddSources={files => onAddSources?.(files, 'reference')} onRemoveSource={onRemoveSource} uploadLabel="参考图" />
+    </div>}
     {!planning ? <>
       <textarea data-canvas-control="true" value={node.prompt || ''} disabled={loading} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={event => onChange?.({ prompt: event.target.value })} />
       <div className="ec-canvas-suite-options">
         <label>目标平台<select data-canvas-control="true" value={node.platform || '淘宝'} onChange={event => onChange?.({ platform: event.target.value })}>{['淘宝', '天猫', '京东', '拼多多', '小红书'].map(platform => <option key={platform}>{platform}</option>)}</select></label>
         <label>主图比例<select data-canvas-control="true" value={node.ratio || '1:1'} onChange={event => onChange?.({ ratio: event.target.value })}>{['1:1', '3:4', '4:3'].map(ratio => <option key={ratio}>{ratio}</option>)}</select></label>
+        <label>清晰度<select data-canvas-control="true" aria-label="清晰度" value={node.resolution || '2K'} onChange={event => onChange?.({ resolution: event.target.value })}>{['1K', '2K', '4K'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>语言<select data-canvas-control="true" value={node.language || '中文'} onChange={event => onChange?.({ language: event.target.value })}><option>中文</option><option>英文</option></select></label>
+        <label>套图数量<select data-canvas-control="true" aria-label="套图数量" value={node.count || 6} onChange={event => onChange?.({ count: Number(event.target.value) })}>{[3, 6, 9, 12].map(value => <option key={value} value={value}>{value} 张</option>)}</select></label>
       </div>
     </> : <div className="ec-canvas-direction-list" aria-label="设计方案">
       {directions.map((direction, index) => <button key={direction.id || index} type="button" data-canvas-control="true" className={node.selectedDirection === index ? 'is-selected' : ''} onClick={event => { event.stopPropagation(); onChooseDirection?.(direction, index); }}><strong>{direction.title || direction.name || `方案 ${index + 1}`}</strong><small>{direction.hook || direction.description || direction.summary || '保留商品主体，生成一套完整电商视觉'}</small></button>)}
@@ -335,7 +331,7 @@ export function CanvasEcommerceComposer({ node, sources = [], loading = false, o
       <span>{planning ? '选中方案后再生成套图' : '先分析商品与参考图，再进入设计方案'}</span>
       <button type="button" data-canvas-control="true" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && node.selectedDirection == null)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}</>}</button>
     </div>
-  </article>;
+  </section>;
 }
 
 const FOCUSED_EDITOR_LABELS = {
@@ -494,7 +490,7 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
   </div>;
 }
 
-function DerivePort({ visible, disabled, onPointerDown, onPointerUp }) {
+function DerivePort({ visible, disabled, onPointerDown, onPointerUp, onClick }) {
   return <button
     type="button"
     className="ec-canvas-node-port"
@@ -507,6 +503,7 @@ function DerivePort({ visible, disabled, onPointerDown, onPointerUp }) {
     style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
     onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event); }}
     onPointerUp={event => { onPointerUp?.(event); }}
+    onClick={event => { event.stopPropagation(); onClick?.(event); }}
   ><Plus size={16} /></button>;
 }
 
@@ -534,6 +531,7 @@ export function CanvasImageNode({
   onHoverChange,
   onPortPointerDown,
   onPortPointerUp,
+  onPortClick,
   onResizeStart,
 }) {
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
@@ -563,7 +561,7 @@ export function CanvasImageNode({
       <span>{[node.group, node.ratio, node.size].filter(Boolean).join(' · ')}</span>
     </footer>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
-    <DerivePort visible={presentation.handlesVisible} disabled={!node.url} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} />
+    <DerivePort visible={presentation.handlesVisible} disabled={!node.url} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
   </article>;
 }
 
@@ -576,6 +574,7 @@ export function CanvasSourceNode({
   onDoubleClick,
   onHoverChange,
   onPortPointerDown,
+  onPortClick,
 }) {
   const assets = (node.assets || []).filter(asset => asset?.url);
   return <article
@@ -602,7 +601,7 @@ export function CanvasSourceNode({
       />)}
       {!assets.length && <div className="ec-canvas-source-empty">商品原图暂不可用</div>}
     </div>
-    <DerivePort visible={selected} disabled={!assets.length} onPointerDown={onPortPointerDown} />
+    <DerivePort visible={selected} disabled={!assets.length} onPointerDown={onPortPointerDown} onClick={onPortClick} />
   </article>;
 }
 

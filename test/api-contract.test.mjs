@@ -669,13 +669,46 @@ test('canvas regeneration forwards supplementary visual references', async t => 
     imageUrl: '/api/generated-assets/source.png',
     referenceImages: ['/api/ec-temp-img/reference.png'],
     ratio: '3:4',
+    resolution: '4K',
   });
   const requestBody = requests.find(request => request.url.endsWith('/api/canvas/regenerate')).body;
   assert.deepEqual(requestBody.reference_images, ['/api/ec-temp-img/reference.png']);
   assert.equal(requestBody.ratio, '3:4');
+  assert.equal(requestBody.resolution, '4K');
+  assert.equal(requests.find(request => request.url.endsWith('/api/billing/quote')).body.sku, 'ec_image_4k');
   assert.equal(requestBody.billing_quote_id, 'canvas-quote');
   assert.match(requestBody.request_key, /^canvas-[0-9a-f]{8}$/);
   assert.equal(requestBody.billing_action_id, requestBody.request_key);
+});
+
+test('Canvas text generation sends ordered visual references to the signed vision route', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const requests = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: () => JSON.stringify({ token: 'signed-canvas-session', expiresAt: '2999-01-01T00:00:00.000Z' }),
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), headers: options.headers, body: JSON.parse(options.body || '{}') });
+    return new Response(JSON.stringify({ text: '保留杯身结构的夏日卖点文案' }), { status: 200 });
+  };
+
+  const { regenerateCanvasText } = await import(`../src/services/api.js?canvas-text-refs=${Date.now()}`);
+  const result = await regenerateCanvasText({
+    prompt: '提炼三条卖点',
+    referenceImages: ['/api/generated-assets/a.png', '/api/generated-assets/b.png'],
+    count: 3,
+  });
+
+  assert.equal(result.text, '保留杯身结构的夏日卖点文案');
+  assert.equal(requests[0].url, '/api/canvas/regenerate-text');
+  assert.equal(requests[0].headers.Authorization, 'Bearer signed-canvas-session');
+  assert.deepEqual(requests[0].body.reference_images, ['/api/generated-assets/a.png', '/api/generated-assets/b.png']);
+  assert.equal(requests[0].body.count, 3);
 });
 
 test('canvas regeneration keeps a stable billing action for retries and separates explicit variants', async t => {
@@ -767,12 +800,16 @@ test('Canvas API helpers send the signed session token and omit body email autho
     '/api/canvas/transform',
     '/api/billing/quote',
     '/api/canvas/transform',
+    '/api/billing/quote',
     '/api/canvas/analyze-layers',
   ]);
   assert.deepEqual(
     requests.filter(request => request.url.endsWith('/api/billing/quote')).map(request => request.body.sku),
-    ['ec_image_2k', 'ec_image_2k', 'ec_image_4k'],
+    ['ec_image_2k', 'ec_image_2k', 'ec_image_4k', 'ec_smart_layer'],
   );
+  const layerRequest = requests.find(request => request.url.endsWith('/api/canvas/analyze-layers'));
+  assert.match(layerRequest.body.billing_quote_id, /^quote-/);
+  assert.match(layerRequest.body.billing_action_id, /^canvas-[0-9a-f-]{36}$/i);
   for (const request of requests) {
     assert.equal(request.headers.Authorization, 'Bearer signed-canvas-session', request.url);
     assert.equal(Object.hasOwn(request.body, 'email'), false, request.url);

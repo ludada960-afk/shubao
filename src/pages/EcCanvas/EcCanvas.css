@@ -219,6 +219,16 @@
 .ec-canvas-text-drag-handle { position: absolute; z-index: 2; top: 7px; left: 50%; width: 30px; height: 22px; display: grid; place-items: center; padding: 0; transform: translateX(-50%); border: 0; border-radius: 6px; background: rgba(255, 255, 255, .92); color: #8a919b; cursor: grab; opacity: 0; transition: color 140ms ease-out, background 140ms ease-out, opacity 140ms ease-out; }
 .ec-canvas-copy-node:hover .ec-canvas-text-drag-handle,
 .ec-canvas-copy-node.is-selected .ec-canvas-text-drag-handle { opacity: 1; }
+
+.ec-canvas-generation-node { position: absolute; z-index: 15; box-sizing: border-box; overflow: visible; border: 1px solid #d9dee5; border-radius: 8px; background: #f6f7f9; box-shadow: 0 5px 18px rgba(15, 23, 42, .09); color: #7c848f; cursor: grab; touch-action: none; transition: opacity 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out; }
+.ec-canvas-generation-node.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command), 0 12px 32px rgba(15, 23, 42, .14); }
+.ec-canvas-generation-node.is-dimmed { opacity: .25; }
+.ec-canvas-generation-node.is-image > div:first-child { overflow: hidden; border-radius: 7px; }
+.ec-canvas-generation-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 28px; text-align: center; }
+.ec-canvas-generation-placeholder strong { color: #545d69; font-size: 14px; }
+.ec-canvas-generation-placeholder span { max-width: 390px; color: #9aa2ad; font-size: 11px; line-height: 1.55; }
+.ec-canvas-generation-placeholder small { color: #717b87; font-size: 10px; }
+.ec-canvas-generation-placeholder small.is-error { color: #c43f38; }
 .ec-canvas-text-drag-handle:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-text-drag-handle:active { cursor: grabbing; }
 
@@ -277,11 +287,10 @@
   box-shadow: 0 18px 48px rgba(15, 23, 42, .16), 0 3px 10px rgba(15, 23, 42, .08);
   color: #20242a;
 }
+.ec-canvas-context-composer { min-height: 0; overflow: visible; cursor: default; }
 .ec-canvas-node-composer textarea { width: calc(100% - 28px); min-height: 84px; box-sizing: border-box; display: block; margin: 0 14px 12px; padding: 11px 12px; resize: vertical; border: 1px solid #e2e6eb; border-radius: 7px; outline: 0; background: #fafbfc; color: #20242a; font: 12px/1.6 inherit; }
 .ec-canvas-node-composer textarea:focus { border-color: var(--canvas-command); box-shadow: 0 0 0 3px rgba(37, 99, 235, .10); background: #fff; }
 .ec-canvas-node-composer select { height: 30px; padding: 0 25px 0 9px; border: 1px solid #dfe3e8; border-radius: 6px; outline: 0; background: #f7f8fa; color: #4d5560; font: 10px inherit; }
-.ec-canvas-image-composer { min-height: 278px; }
-.ec-canvas-suite-composer { min-height: 356px; }
 .ec-canvas-image-composer,
 .ec-canvas-text-generation-composer,
 .ec-canvas-suite-composer { overflow: visible; }
@@ -338,6 +347,8 @@
 .ec-canvas-suite-options select { width: 100%; }
 .ec-canvas-text-composer { width: min(520px, calc(100vw - 24px)); }
 .ec-canvas-text-composer .ec-canvas-composer-heading { cursor: default; }
+.ec-canvas-suite-source-rows { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-bottom: 1px solid #edf0f3; }
+.ec-canvas-suite-source-rows .ec-canvas-composer-sources + .ec-canvas-composer-sources { border-left: 1px solid #edf0f3; }
 
 .ec-canvas-focused-editor { position: absolute; z-index: 140; box-sizing: border-box; overflow: visible; border: 2px solid var(--canvas-command); border-radius: 8px; background: #fff; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12), 0 12px 30px rgba(15, 23, 42, .18); }
 .ec-canvas-focused-stage { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; border-radius: 6px; background-color: #eef1f4; background-image: linear-gradient(45deg, #e2e6ea 25%, transparent 25%), linear-gradient(-45deg, #e2e6ea 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e6ea 75%), linear-gradient(-45deg, transparent 75%, #e2e6ea 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; cursor: crosshair; }
@@ -405,6 +416,9 @@
   .ec-canvas-bottom-toolbar { left: auto; right: 8px; bottom: 10px; transform: none; }
   .ec-canvas-layers-panel { left: 8px; bottom: 66px; width: min(288px, calc(100vw - 16px)); max-height: calc(100% - 90px); }
   .ec-canvas-node-composer { width: min(520px, calc(100vw - 20px)) !important; max-width: calc(100vw - 20px); }
+  .ec-canvas-suite-source-rows { grid-template-columns: 1fr; }
+  .ec-canvas-suite-source-rows .ec-canvas-composer-sources + .ec-canvas-composer-sources { border-left: 0; border-top: 1px solid #edf0f3; }
+  .ec-canvas-suite-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ec-canvas-suite-options { grid-template-columns: 1fr; }
   .ec-canvas-focused-toolbar { max-width: min(620px, calc(100vw - 16px)); }
 }

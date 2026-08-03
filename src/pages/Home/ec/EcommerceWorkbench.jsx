@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
+import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
+import { appendImageMention } from '../../../components/creation/imageMentionModel.js';
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 
 function ImageCard({ role, image, label, index, onRemove }) {
@@ -47,6 +49,10 @@ export default function EcommerceWorkbench({
   const referenceInputRef = useRef(null);
   const deck = buildUploadDeck({ productImages, refImages });
   const nextSlot = nextProductSlot(productImages.length);
+  const mentionImages = [
+    ...deck.productRail.map((image, index) => ({ ...image, id: image.id || `product-${index}`, name: nextProductSlot(index).label, role: 'product' })),
+    ...deck.referenceRail.map((image, index) => ({ ...image, id: image.id || `reference-${index}`, name: `参考图 ${index + 1}`, role: 'reference' })),
+  ];
 
   return (
     <section className="ec-workbench" aria-label="电商生图工作台">
@@ -110,6 +116,13 @@ export default function EcommerceWorkbench({
             onChange={event => onDescriptionChange(event.target.value)}
             className={!description ? 'ec-empty' : ''}
             aria-label="补充商品信息和生成要求"
+          />
+        </div>
+        <div className="ec-workbench-mention-row">
+          <ImageMentionPicker
+            images={mentionImages}
+            selectionMode="insert"
+            onToggle={image => onDescriptionChange(appendImageMention(description, image.label))}
           />
         </div>
       </div>

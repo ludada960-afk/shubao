@@ -8,7 +8,7 @@ const {
   verifyRuntimeConfigFiles,
 } = require('./verify-runtime-config.cjs');
 
-const SECRET_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY']);
+const SECRET_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'FAL_KEY']);
 const MAX_STDIN_BYTES = 16 * 1024;
 
 function validateSecretPayload(payload) {
@@ -34,15 +34,17 @@ function validateVisionSecretPayload(payload) {
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('runtime secret payload must be an object');
   }
-  const keys = Object.keys(payload);
-  if (keys.length !== 1 || keys[0] !== 'MINI_API_KEY') {
+  const keys = Object.keys(payload).sort();
+  if (!keys.includes('MINI_API_KEY') || keys.some(key => !['FAL_KEY', 'MINI_API_KEY'].includes(key))) {
     throw new Error('runtime secret payload has unexpected fields');
   }
-  const value = payload.MINI_API_KEY;
-  if (typeof value !== 'string' || /[\r\n\0]/.test(value)) {
+  if (typeof payload.MINI_API_KEY !== 'string' || /[\r\n\0]/.test(payload.MINI_API_KEY)) {
     throw new Error('MINI_API_KEY is invalid');
   }
-  return value;
+  if (Object.hasOwn(payload, 'FAL_KEY') && (typeof payload.FAL_KEY !== 'string' || /[\r\n\0]/.test(payload.FAL_KEY))) {
+    throw new Error('FAL_KEY is invalid');
+  }
+  return { miniApiKey: payload.MINI_API_KEY, falKey: payload.FAL_KEY };
 }
 
 function renderRuntimeConfig(source, values) {
@@ -130,14 +132,39 @@ function replaceVisionSecret(filePaths, payload) {
   if (!Array.isArray(filePaths) || filePaths.length !== 2) {
     throw new Error('exactly two runtime config files are required');
   }
-  const visionApiKey = validateVisionSecretPayload(payload);
+  const { miniApiKey, falKey } = validateVisionSecretPayload(payload);
   const configs = filePaths.map(filePath => parseEnv(fs.readFileSync(path.resolve(filePath), 'utf8')));
   if (configs[0].IMAGE_API_KEY !== configs[1].IMAGE_API_KEY) {
     throw new Error('IMAGE_API_KEY differs between runtime config files');
   }
+  if (configs[0].FAL_KEY !== configs[1].FAL_KEY) {
+    throw new Error('FAL_KEY differs between runtime config files');
+  }
   configureRuntimeFiles(filePaths, {
     IMAGE_API_KEY: configs[0].IMAGE_API_KEY,
-    MINI_API_KEY: visionApiKey,
+    MINI_API_KEY: miniApiKey,
+    FAL_KEY: falKey ?? configs[0].FAL_KEY,
+  });
+}
+
+function replaceSegmentationSecret(filePaths, payload) {
+  if (!Array.isArray(filePaths) || filePaths.length !== 2) {
+    throw new Error('exactly two runtime config files are required');
+  }
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)
+    || Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'FAL_KEY')) {
+    throw new Error('runtime secret payload has unexpected fields');
+  }
+  const falKey = payload.FAL_KEY;
+  if (typeof falKey !== 'string' || /[\r\n\0]/.test(falKey)) throw new Error('FAL_KEY is invalid');
+  const configs = filePaths.map(filePath => parseEnv(fs.readFileSync(path.resolve(filePath), 'utf8')));
+  for (const key of ['IMAGE_API_KEY', 'MINI_API_KEY']) {
+    if (configs[0][key] !== configs[1][key]) throw new Error(`${key} differs between runtime config files`);
+  }
+  configureRuntimeFiles(filePaths, {
+    IMAGE_API_KEY: configs[0].IMAGE_API_KEY,
+    MINI_API_KEY: configs[0].MINI_API_KEY,
+    FAL_KEY: falKey,
   });
 }
 
@@ -156,8 +183,8 @@ async function readStdin() {
 async function run(argv) {
   const [primaryPath, flag, peerPath, mode, ...rest] = argv;
   if (!primaryPath || flag !== '--peer' || !peerPath || rest.length
-    || (mode && !['--retain-secrets', '--replace-vision-key'].includes(mode))) {
-    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env> [--retain-secrets|--replace-vision-key]');
+    || (mode && !['--retain-secrets', '--replace-vision-key', '--replace-segmentation-key'].includes(mode))) {
+    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env> [--retain-secrets|--replace-vision-key|--replace-segmentation-key]');
   }
   if (mode === '--retain-secrets') {
     configureRuntimeFilesFromExisting([primaryPath, peerPath]);
@@ -176,6 +203,11 @@ async function run(argv) {
     console.log('Runtime vision gateway configuration updated for both environment files');
     return;
   }
+  if (mode === '--replace-segmentation-key') {
+    replaceSegmentationSecret([primaryPath, peerPath], payload);
+    console.log('Runtime segmentation gateway configuration updated for both environment files');
+    return;
+  }
   configureRuntimeFiles([primaryPath, peerPath], payload);
   console.log('Runtime gateway configuration updated for both environment files');
 }
@@ -183,6 +215,7 @@ async function run(argv) {
 module.exports = {
   configureRuntimeFiles,
   configureRuntimeFilesFromExisting,
+  replaceSegmentationSecret,
   replaceVisionSecret,
   renderRuntimeConfig,
   validateSecretPayload,

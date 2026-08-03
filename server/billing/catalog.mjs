@@ -23,6 +23,7 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_reverse_prompt: { units: 200, providerCostCny: 0.01 },
   ec_remove_bg: { units: 500, providerCostCny: 0.03 },
   ec_direction_refresh: { units: 1000, providerCostCny: 0.05 },
+  ec_smart_layer: { units: 3000, providerCostCny: 0.20 },
   ec_layer_psd: { units: 3000, providerCostCny: 0.20 },
   content_full_set: { units: 1, currency: 'content_sets' },
 });

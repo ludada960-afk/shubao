@@ -133,6 +133,34 @@ test('Canvas handler keeps the successful url response contract and may include 
   });
 });
 
+test('Canvas handler bills with the SKU selected by the requested resolution', async () => {
+  const billedSkus = [];
+  const handler = createCanvasRegenerateHandler({
+    service: {
+      async regenerate() {
+        return { url: '/api/generated-assets/canvas.png' };
+      },
+    },
+    billing: {
+      async execute({ sku, work }) {
+        billedSkus.push(sku);
+        return { result: await work(), billing: { status: 'settled' } };
+      },
+    },
+  });
+
+  await handler({
+    _userEmail: 'signed-owner@example.com',
+    body: { prompt: 'test', image_url: 'primary.png', resolution: '4K', ratio: '3:4' },
+  }, createResponse());
+  await handler({
+    _userEmail: 'signed-owner@example.com',
+    body: { prompt: 'test', image_url: 'primary.png', resolution: '2K', ratio: '1:1' },
+  }, createResponse());
+
+  assert.deepEqual(billedSkus, ['ec_image_4k', 'ec_image_2k']);
+});
+
 test('Canvas handler accepts only the signed owner and never a body email fallback', async () => {
   let calls = 0;
   const handler = createCanvasRegenerateHandler({

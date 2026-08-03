@@ -67,7 +67,7 @@ function semanticPlan() {
   };
 }
 
-async function createHarness({ cleanPlate = true } = {}) {
+async function createHarness({ cleanPlate = true, omittedPromptIds = [] } = {}) {
   const source = await sourceFixture();
   const maskEntries = await Promise.all(RECTS.map(async rect => [
     `https://masks.test/${rect.id}.png`,
@@ -94,7 +94,7 @@ async function createHarness({ cleanPlate = true } = {}) {
     async segment({ prompts }) {
       return {
         requestId: 'sam-1',
-        masks: prompts.map(prompt => ({
+        masks: prompts.filter(prompt => !omittedPromptIds.includes(prompt.id)).map(prompt => ({
           url: `https://masks.test/${prompt.id}.png`,
           promptId: prompt.id,
           score: 0.95,
@@ -127,6 +127,39 @@ test('normalizes binary masks, computes overlap and unions all product instances
   const union = unionSegmentationMasks([first, second]);
   assert.deepEqual(union.bounds, { x: 10, y: 14, width: 61, height: 51 });
   assert.equal(union.coverage, (24 * 28 + 28 * 30) / (WIDTH * HEIGHT));
+});
+
+test('normalizes provider-sized masks back to source pixels with nearest-neighbor edges', async () => {
+  const providerWidth = WIDTH / 2;
+  const providerHeight = HEIGHT / 2;
+  const pixels = Buffer.alloc(providerWidth * providerHeight, 0);
+  for (let y = 7; y < 21; y += 1) {
+    for (let x = 5; x < 17; x += 1) pixels[y * providerWidth + x] = 255;
+  }
+  const providerMask = await sharp(pixels, {
+    raw: { width: providerWidth, height: providerHeight, channels: 1 },
+  }).png().toBuffer();
+
+  const normalized = await normalizeSegmentationMask(providerMask, { width: WIDTH, height: HEIGHT });
+
+  assert.deepEqual(normalized.bounds, { x: 10, y: 14, width: 24, height: 28 });
+  assert.ok(normalized.data.every(value => value === 0 || value === 255));
+});
+
+test('removes tiny disconnected mask islands before calculating tight product bounds', async () => {
+  const pixels = Buffer.alloc(WIDTH * HEIGHT, 0);
+  for (let y = 20; y < 60; y += 1) {
+    for (let x = 30; x < 70; x += 1) pixels[y * WIDTH + x] = 255;
+  }
+  pixels[2 * WIDTH + 115] = 255;
+  const noisyMask = await sharp(pixels, {
+    raw: { width: WIDTH, height: HEIGHT, channels: 1 },
+  }).png().toBuffer();
+
+  const normalized = await normalizeSegmentationMask(noisyMask, { width: WIDTH, height: HEIGHT });
+
+  assert.deepEqual(normalized.bounds, { x: 30, y: 20, width: 40, height: 40 });
+  assert.equal(normalized.data[2 * WIDTH + 115], 0);
 });
 
 test('creates three tight product assets, one grouped asset, clean background and editable text', async () => {
@@ -182,6 +215,29 @@ test('returns a truthful partial result when only background reconstruction fail
   assert.equal(result.capabilities.backgroundCleanPlate, false);
   assert.ok(result.warnings.includes('背景净版生成失败'));
   assert.equal(result.layers.some(layer => layer.semanticType === 'background'), false);
+});
+
+test('reports partial capabilities when an expected product instance has no reliable mask', async () => {
+  const { service } = await createHarness({ omittedPromptIds: ['orange-box'] });
+  const result = await service.createLayers({ imageUrl: '/source.png' });
+
+  assert.equal(result.status, 'partial');
+  assert.equal(result.capabilities.productInstances, 2);
+  assert.equal(result.capabilities.omittedProductInstances, 1);
+  assert.equal(result.capabilities.productGroup, false);
+  assert.equal(result.capabilities.backgroundCleanPlate, false);
+  assert.equal(result.layers.some(layer => layer.semanticType === 'product-group'), false);
+  assert.equal(result.layers.some(layer => layer.semanticType === 'background'), false);
+  assert.ok(result.warnings.some(warning => /1 个商品实例/.test(warning)));
+});
+
+test('remove background fails instead of delivering an incomplete product union', async () => {
+  const { service } = await createHarness({ omittedPromptIds: ['orange-box'] });
+
+  await assert.rejects(
+    () => service.removeBackground({ imageUrl: '/source.png' }),
+    error => error.code === 'CANVAS_LAYER_INSTANCE_COVERAGE_INCOMPLETE',
+  );
 });
 
 test('remove background unions every accepted product instead of returning one instance', async () => {

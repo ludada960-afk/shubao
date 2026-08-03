@@ -64,6 +64,9 @@ import {
   createCanvasGenerationService,
   createCanvasRegenerateHandler,
 } from './canvasGenerationService.mjs';
+import { createCanvasBackgroundCleanPlate } from './canvasBackgroundCleanPlate.mjs';
+import { createCanvasLayeringService } from './canvasLayeringService.mjs';
+import { createFalSegmentationClient } from './falSegmentationClient.mjs';
 import { resolveGenerationSize } from './ecommerceEngine/modelCatalog.mjs';
 import {
   createEcommerceAssetRouteHandlers,
@@ -103,11 +106,9 @@ import {
   getGenerationRateLimit,
 } from './generationRouteGuard.mjs';
 import {
-  analyzeSceneCapabilities,
   buildCanvasTransformPrompt,
   cropRectForRatio,
   gridRects,
-  parseVisionLayers,
   parseVisionTextBlocks,
 } from './canvasTools.mjs';
 import { segmentUniformBackground } from './canvasSegmentation.mjs';
@@ -1727,13 +1728,14 @@ return {
 // 单张图片重新生成
 // ============================================================
 app.post('/api/regenerate-image', async (req, res) => {
-  const { prompt, category } = req.body;
+  const { prompt, category, ratio = '1:1', resolution = '2K' } = req.body;
   if (!prompt) return res.status(400).json({ error: '缺少prompt' });
   try {
     // 复用 generateImage 以获得JK检测/赛道优化
-    const url = await generateImage(prompt, category || '', false);
+    const selectedSize = resolveGenerationSize({ resolution, ratio });
+    const url = await generateImage(prompt, category || '', false, undefined, selectedSize.size);
     if (!url) throw new Error('生成失败');
-    res.json({ url });
+    res.json({ url, ratio: selectedSize.ratio, resolution: selectedSize.resolution });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3171,6 +3173,18 @@ const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
     throw error;
   },
 };
+const canvasBackgroundCleanPlate = createCanvasBackgroundCleanPlate({
+  providerAdapter: ecommerceProviderAdapter,
+  imageInputReader,
+  model: IMG_MODEL,
+});
+const canvasLayeringService = createCanvasLayeringService({
+  visionClient: createEcommerceVlmClient(),
+  segmentationClient: createFalSegmentationClient(),
+  generatedAssetStore,
+  imageInputReader,
+  createBackgroundCleanPlate: canvasBackgroundCleanPlate,
+});
 const canvasGenerationService = createCanvasGenerationService({
   store: canvasGenerationStore,
   imageInputReader,
@@ -3423,17 +3437,22 @@ app.post('/api/remove-bg', async (req, res) => {
   const REMOVE_BG_KEY = process.env.REMOVE_BG_KEY || '';
 
   try {
-    // 方案A：使用 remove.bg API（需配置 REMOVE_BG_KEY）
-    if (REMOVE_BG_KEY) {
-      const billed = await canvasOneShotBilling.execute({
-        ownerEmail: req._userEmail,
-        quoteId,
-        actionId,
-        sku: 'ec_remove_bg',
-        referenceType: 'canvas_remove_bg',
-        providerCostCny: 0.03,
-        metadata: { action: 'remove_bg' },
-        work: async () => {
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_remove_bg',
+      referenceType: 'canvas_remove_bg',
+      providerCostCny: 0.03,
+      metadata: { action: 'remove_bg', primaryMethod: 'sam3' },
+      work: async () => {
+        try {
+          return await canvasLayeringService.removeBackground({ imageUrl: image_url });
+        } catch (segmentationError) {
+          console.warn('[remove-bg] SAM3 分割降级:', segmentationError.code || segmentationError.message);
+        }
+
+        if (REMOVE_BG_KEY) {
           const { buffer: imgBuf } = await imageInputReader.read(image_url);
           const form = new FormData();
           form.append('image_file', new Blob([imgBuf]), 'image.png');
@@ -3446,22 +3465,9 @@ app.post('/api/remove-bg', async (req, res) => {
           const asset = await generatedAssetStore.persistBuffer({
             buffer: outBuf, contentType: 'image/png', taskId: `canvas_remove_bg_${Date.now()}`, label: 'canvas_remove_bg',
           });
-          return { result_url: asset.url, url: asset.url };
-        },
-      });
-      return res.json({ ...billed.result, billing: billed.billing });
-    }
+          return { result_url: asset.url, url: asset.url, method: 'remove-bg-api' };
+        }
 
-    // 无第三方 key 时提供安全的纯色/浅色背景去背；复杂场景交给 remove.bg，避免误切主体。
-    const billed = await canvasOneShotBilling.execute({
-      ownerEmail: req._userEmail,
-      quoteId,
-      actionId,
-      sku: 'ec_remove_bg',
-      referenceType: 'canvas_remove_bg_local',
-      providerCostCny: 0,
-      metadata: { action: 'remove_bg', method: 'local-uniform-background' },
-      work: async () => {
         const { buffer: imgBuf } = await imageInputReader.read(image_url);
         const outBuf = await removeLightBackground(imgBuf);
         const asset = await generatedAssetStore.persistBuffer({
@@ -3849,67 +3855,74 @@ app.post('/api/canvas/transform', async (req, res) => {
   }
 });
 
-// 画布图文分层：返回 Vision 真实识别结果，前端只展示已识别的层。
+app.post('/api/canvas/regenerate-text', authenticateEcommerceRequest, async (req, res) => {
+  const {
+    prompt,
+    reference_images: referenceImages = [],
+    count = 1,
+  } = req.body || {};
+  if (!String(prompt || '').trim()) return res.status(400).json({ error: '缺少文案生成要求' });
+  if (!Array.isArray(referenceImages) || referenceImages.length > 8) {
+    return res.status(400).json({ error: '参考图片数量不合法' });
+  }
+  try {
+    const outputCount = Math.max(1, Math.min(4, Number(count) || 1));
+    const visualInputs = [];
+    for (const imageUrl of referenceImages) {
+      visualInputs.push(imageBufferToDataUrl(await imageInputReader.read(imageUrl)));
+    }
+    const mentionGuide = visualInputs.length
+      ? visualInputs.map((_, index) => `@图片${index + 1}`).join('、')
+      : '无参考图片';
+    const text = await createEcommerceVlmClient().completeText({
+      systemPrompt: [
+        '你是专业电商文案编辑。根据用户要求输出可直接编辑使用的中文文案，不要解释过程。',
+        '参考图片按输入顺序对应 @图片1、@图片2……；必须准确区分每张图片，不能虚构图片中不存在的商品属性。',
+        '默认给出清晰标题和精炼正文；用户指定格式、数量或语言时严格遵循。',
+      ].join('\n'),
+      userPrompt: `参考顺序：${mentionGuide}\n生成 ${outputCount} 个版本。\n生成要求：${String(prompt).trim()}`,
+      images: visualInputs,
+      maxTokens: Math.min(4000, 1200 * outputCount),
+      temperature: 0.45,
+    });
+    const output = String(text || '').trim();
+    if (!output) throw new Error('视觉模型未返回文案');
+    return res.json({ text: output });
+  } catch (error) {
+    console.error('[canvas/regenerate-text] 失败:', error.message);
+    return res.status(error?.status || 500).json({ error: safeCanvasClientError(error, '文案生成暂时不可用，请稍后重试') });
+  }
+});
+
+// 画布图文分层：自动生成可移动的商品实例、商品整组、背景净版与文字层。
 app.post('/api/canvas/analyze-layers', async (req, res) => {
-  const { image_url: imageUrl } = req.body || {};
+  const {
+    image_url: imageUrl,
+    billing_quote_id: quoteId,
+    billing_action_id: actionId,
+  } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
   try {
-    const buffer = await readCanvasImage(imageUrl);
-    const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
-    let layers = [];
-    try {
-      const visionResult = await createEcommerceVlmClient().analyzeJson({
-        systemPrompt: '你是电商视觉拆解专家。只识别图片中真实存在的可编辑结构，不要臆造。只返回 JSON：{"layers":[{"name":"商品主体","description":"..."}]}。层级最多 8 个。',
-        userPrompt: '请识别这张商品图的结构层，至少尝试区分商品主体、背景氛围、可见文案、装饰元素；不存在的层不要输出。',
-        images: [image],
-        maxTokens: 1500,
-        temperature: 0.3,
-      });
-      layers = parseVisionLayers(JSON.stringify(visionResult));
-    } catch (visionError) {
-      console.warn('[canvas/analyze-layers] 语义分析降级:', visionError.message);
-    }
-    const split = await segmentUniformBackground(buffer);
-    const subjectAsset = split.segmented
-      ? await generatedAssetStore.persistBuffer({ buffer: await split.subject, contentType: 'image/png', taskId: `canvas_layer_subject_${Date.now()}`, label: 'canvas_layer_subject' })
-      : null;
-    const backgroundAsset = split.segmented
-      ? await generatedAssetStore.persistBuffer({ buffer: await split.background, contentType: 'image/png', taskId: `canvas_layer_background_${Date.now()}`, label: 'canvas_layer_background' })
-      : null;
-    const semanticLayers = layers.length ? layers : [
-      { name: '商品主体', description: split.segmented ? '已从背景中分离，可单独移动和导出。' : '识别到商品主体；当前图片未找到可靠的纯色背景。' },
-      { name: '背景', description: split.segmented ? '保留原图中与商品主体分开的背景区域。' : '未生成可单独移动的背景层。' },
-    ];
-    const subjectIndex = semanticLayers.findIndex(layer => /商品|主体|产品/.test(layer.name));
-    const backgroundIndex = semanticLayers.findIndex((layer, index) => index !== subjectIndex && /背景|底色|氛围/.test(layer.name));
-    const resolvedLayers = semanticLayers.map((layer, index) => {
-      const isSubject = index === (subjectIndex >= 0 ? subjectIndex : 0);
-      const isBackground = index === (backgroundIndex >= 0 ? backgroundIndex : semanticLayers.length > 1 ? (isSubject ? 1 : 0) : -1);
-      return {
-        ...layer,
-        kind: 'image',
-        url: isSubject && subjectAsset ? subjectAsset.url : isBackground && backgroundAsset ? backgroundAsset.url : '',
-        preview_url: isSubject && subjectAsset ? subjectAsset.url : isBackground && backgroundAsset ? backgroundAsset.url : '',
-        editable: split.segmented && Boolean(isSubject || isBackground),
-      };
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_smart_layer',
+      referenceType: 'canvas_smart_layer',
+      providerCostCny: 0.20,
+      metadata: { action: 'smart_layer', method: 'vision-sam3-image2' },
+      work: () => canvasLayeringService.createLayers({ imageUrl }),
     });
-    if (split.segmented && !resolvedLayers.some(layer => layer.url === subjectAsset?.url)) {
-      resolvedLayers.unshift({ name: '商品主体', description: split.segmented ? '已从背景中分离，可单独移动和导出。' : '识别到商品主体；当前图片未找到可靠的纯色背景。', kind: 'image', url: subjectAsset.url, preview_url: subjectAsset.url, editable: split.segmented });
-    }
-    if (split.segmented && !resolvedLayers.some(layer => layer.url === backgroundAsset?.url)) {
-      resolvedLayers.push({ name: '背景', description: split.segmented ? '保留原图中与商品主体分开的背景区域。' : '未生成可单独移动的背景层。', kind: 'image', url: backgroundAsset.url, preview_url: backgroundAsset.url, editable: split.segmented });
-    }
-    const semanticCapabilities = analyzeSceneCapabilities({ layers });
-    const capabilities = { ...semanticCapabilities, semanticAnalysis: layers.length > 0, pixelLayers: split.segmented, movableLayers: split.segmented, psdExport: false };
-    res.json({
-      layers: resolvedLayers,
-      status: split.segmented ? '已分离 2 个基础像素层' : '已识别结构，但未找到可靠的纯色背景',
-      capabilities,
-      segmentation: { segmented: split.segmented, method: split.method, backgroundCoverage: split.backgroundCoverage },
-    });
+    res.json({ ...billed.result, billing: billed.billing });
   } catch (error) {
     console.error('[canvas/analyze-layers] 失败:', error.message);
-    res.status(500).json({ error: safeCanvasClientError(error, '图层分析暂时不可用，请稍后重试') });
+    res.status(error?.status || 500).json({
+      error: safeCanvasClientError(error, '图层分析暂时不可用，请稍后重试'),
+      code: error?.code,
+      required: error?.required,
+      available: error?.available,
+      billing: error?.billing,
+    });
   }
 });
 

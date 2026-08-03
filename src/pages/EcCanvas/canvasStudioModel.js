@@ -113,6 +113,15 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
     prompt: '',
     count: 1,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
+    textStyle: {
+      block: 'body',
+      color: '#20242a',
+      fontSize: 18,
+      fontStyle: 'normal',
+      fontWeight: 400,
+      list: 'none',
+      textAlign: 'left',
+    },
   };
 }
 

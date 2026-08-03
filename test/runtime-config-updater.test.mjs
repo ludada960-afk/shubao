@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const {
   configureRuntimeFiles,
   configureRuntimeFilesFromExisting,
+  replaceSegmentationSecret,
   replaceVisionSecret,
   renderRuntimeConfig,
   validateSecretPayload,
@@ -22,6 +23,7 @@ const {
 const SECRETS = Object.freeze({
   IMAGE_API_KEY: 'sk-image-test-key-that-is-long-enough',
   MINI_API_KEY: 'opaque-vision-key-that-is-long-enough',
+  FAL_KEY: 'fal-segmentation-key-that-is-long-enough',
 });
 
 test('runtime updater preserves unrelated values and writes the exact gateway contract', () => {
@@ -36,6 +38,7 @@ test('runtime updater preserves unrelated values and writes the exact gateway co
   );
   assert.equal(parsed.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
   assert.equal(parsed.MINI_API_KEY, SECRETS.MINI_API_KEY);
+  assert.equal(parsed.FAL_KEY, SECRETS.FAL_KEY);
   assert.match(rendered, /^# existing/m);
 });
 
@@ -82,6 +85,7 @@ test('runtime updater migrates the gateway contract while retaining existing pro
     'MINI_MODEL=gpt-5.5',
     `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}`,
     `MINI_API_KEY=${SECRETS.MINI_API_KEY}`,
+    `FAL_KEY=${SECRETS.FAL_KEY}`,
     '',
   ].join('\n');
   try {
@@ -95,6 +99,7 @@ test('runtime updater migrates the gateway contract while retaining existing pro
     assert.equal(migrated.MINI_MODEL, 'gpt-5.6-luna');
     assert.equal(migrated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
     assert.equal(migrated.MINI_API_KEY, SECRETS.MINI_API_KEY);
+    assert.equal(migrated.FAL_KEY, SECRETS.FAL_KEY);
     assert.equal(migrated.PORT, '3001');
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -106,8 +111,8 @@ test('runtime updater refuses to retain divergent peer secrets', () => {
   const primary = join(directory, '.env');
   const peer = join(directory, 'server.env');
   try {
-    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\n`, { mode: 0o600 });
-    writeFileSync(peer, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=another-vision-key-that-is-long-enough\n`, { mode: 0o600 });
+    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nFAL_KEY=${SECRETS.FAL_KEY}\n`, { mode: 0o600 });
+    writeFileSync(peer, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=another-vision-key-that-is-long-enough\nFAL_KEY=${SECRETS.FAL_KEY}\n`, { mode: 0o600 });
 
     assert.throws(
       () => configureRuntimeFilesFromExisting([primary, peer]),
@@ -128,6 +133,7 @@ test('runtime updater replaces only the vision secret while retaining the image 
     'MINI_MODEL=gpt-5.5',
     `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}`,
     `MINI_API_KEY=${SECRETS.MINI_API_KEY}`,
+    `FAL_KEY=${SECRETS.FAL_KEY}`,
     '',
   ].join('\n');
   try {
@@ -140,6 +146,7 @@ test('runtime updater replaces only the vision secret while retaining the image 
     assert.doesNotThrow(() => verifyRuntimeConfigFiles(primary, peer));
     assert.equal(updated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
     assert.equal(updated.MINI_API_KEY, 'production-vision-key-that-is-long-enough');
+    assert.equal(updated.FAL_KEY, SECRETS.FAL_KEY);
     assert.equal(updated.MINI_BASE_URL, 'https://api2.65535.space');
     assert.equal(updated.MINI_MODEL, 'gpt-5.6-luna');
   } finally {
@@ -152,8 +159,8 @@ test('vision-only replacement rejects unexpected fields and divergent image secr
   const primary = join(directory, '.env');
   const peer = join(directory, 'server.env');
   try {
-    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\n`, { mode: 0o600 });
-    writeFileSync(peer, 'IMAGE_API_KEY=another-image-key-that-is-long-enough\nMINI_API_KEY=another-vision-key-that-is-long-enough\n', { mode: 0o600 });
+    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nFAL_KEY=${SECRETS.FAL_KEY}\n`, { mode: 0o600 });
+    writeFileSync(peer, `IMAGE_API_KEY=another-image-key-that-is-long-enough\nMINI_API_KEY=another-vision-key-that-is-long-enough\nFAL_KEY=${SECRETS.FAL_KEY}\n`, { mode: 0o600 });
 
     assert.throws(
       () => replaceVisionSecret([primary, peer], { MINI_API_KEY: 'production-vision-key-that-is-long-enough' }),
@@ -163,6 +170,27 @@ test('vision-only replacement rejects unexpected fields and divergent image secr
       () => replaceVisionSecret([primary, primary], { MINI_API_KEY: SECRETS.MINI_API_KEY, EXTRA: 'nope' }),
       /unexpected fields/i,
     );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('segmentation-only replacement retains matching image and vision secrets', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-fal-'));
+  const primary = join(directory, '.env');
+  const peer = join(directory, 'server.env');
+  const legacy = `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nFAL_KEY=old-fal-key-that-is-long-enough\n`;
+  try {
+    writeFileSync(primary, legacy, { mode: 0o600 });
+    writeFileSync(peer, legacy, { mode: 0o600 });
+
+    replaceSegmentationSecret([primary, peer], { FAL_KEY: SECRETS.FAL_KEY });
+
+    const updated = parseEnv(readFileSync(primary, 'utf8'));
+    assert.doesNotThrow(() => verifyRuntimeConfigFiles(primary, peer));
+    assert.equal(updated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
+    assert.equal(updated.MINI_API_KEY, SECRETS.MINI_API_KEY);
+    assert.equal(updated.FAL_KEY, SECRETS.FAL_KEY);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

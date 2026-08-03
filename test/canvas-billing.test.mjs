@@ -14,6 +14,16 @@ test('canvas action prices distinguish deterministic tools from AI work', () => 
     assert.equal(formatCanvasActionPrice(action), '1 积分');
   }
   assert.equal(formatCanvasActionPrice('upscale-4k'), '2 积分');
+  assert.equal(formatCanvasActionPrice('layer-edit'), '3 积分');
+});
+
+test('automatic smart layering uses its own billed action', () => {
+  assert.deepEqual(getCanvasActionBilling('layer-edit'), {
+    paid: true,
+    units: 3,
+    currency: 'ec_points',
+    sku: 'ec_smart_layer',
+  });
 });
 
 test('pixel-layer preparation is billed while PSD export is free after a real layered asset exists', () => {

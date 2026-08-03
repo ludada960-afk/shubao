@@ -154,6 +154,15 @@ test('text generation starts as an editable document body and keeps source refer
     prompt: '',
     count: 1,
     sourceNodeIds: ['image-1'],
+    textStyle: {
+      block: 'body',
+      color: '#20242a',
+      fontSize: 18,
+      fontStyle: 'normal',
+      fontWeight: 400,
+      list: 'none',
+      textAlign: 'left',
+    },
   });
 });
 
@@ -189,7 +198,6 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.match(source, /ec-canvas-derive-menu/);
   assert.match(source, /contentEditable=\{editing\}/);
   assert.match(source, /CanvasMultiSelectionToolbar/);
-  assert.match(source, /CanvasTextComposer/);
   assert.match(source, /CanvasTextGenerationComposer/);
   assert.match(source, /CanvasImageComposer/);
   assert.match(source, /CanvasEcommerceComposer/);
@@ -199,11 +207,62 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.doesNotMatch(source, /<header>\s*文本\s*<\/header>/);
 });
 
+test('generation bodies render in the node map while one selected composer renders after it', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const mapStart = page.indexOf('{visibleNodes.map');
+  const mapEnd = page.indexOf('{!focusedEditor', mapStart);
+  assert.ok(mapStart >= 0 && mapEnd > mapStart);
+  const nodeMap = page.slice(mapStart, mapEnd);
+  const selectedSurface = page.slice(mapEnd);
+  assert.match(nodeMap, /<CanvasGenerationNode/);
+  assert.match(nodeMap, /node\.kind === 'text-composer'[\s\S]*?<StudioTextNode/);
+  assert.doesNotMatch(nodeMap, /<CanvasImageComposer|<CanvasTextGenerationComposer|<CanvasEcommerceComposer/);
+  assert.match(selectedSurface, /selectedNode\?\.kind === 'image-composer'[\s\S]*?<CanvasImageComposer/);
+  assert.match(selectedSurface, /selectedNode\?\.kind === 'text-composer'[\s\S]*?<CanvasTextGenerationComposer/);
+  assert.match(selectedSurface, /selectedNode\?\.kind === 'suite-composer'[\s\S]*?<CanvasEcommerceComposer/);
+});
+
+test('left-rail creation stays idle while source-derived creation opens its linked composer', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const start = page.indexOf('const addCanvasComposer = useCallback');
+  const end = page.indexOf('const updateComposerNode', start);
+  const creation = page.slice(start, end);
+  assert.match(creation, /setSelected\(sourceNodeIds\.length \? composer\.id : null\)/);
+  assert.match(creation, /setMultiSelected\(sourceNodeIds\.length \? new Set\(\[composer\.id\]\) : new Set\(\)\)/);
+});
+
+test('contextual composers expose fixed product controls without model selectors or destructive close buttons', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(source, /export function CanvasGenerationNode/);
+  assert.match(source, /aria-label="清晰度"/);
+  assert.match(source, /aria-label="套图数量"/);
+  assert.match(source, /ImageMentionPicker/);
+  assert.doesNotMatch(source, /aria-label="图片模型"/);
+  assert.doesNotMatch(source, /aria-label="文案模型"/);
+  assert.doesNotMatch(source, /关闭图片生成器|关闭文案生成器|关闭电商套图生成器/);
+});
+
+test('Canvas generation forwards selected quality and structured references', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const imageStart = page.indexOf('const handleImageComposerGenerate');
+  const imageEnd = page.indexOf('const handleSuiteComposerGenerate', imageStart);
+  const imageHandler = page.slice(imageStart, imageEnd);
+  assert.match(imageHandler, /referenceImages:\s*sourceNodes\.slice\(1\)/);
+  assert.match(imageHandler, /resolution:\s*composer\.resolution/);
+  const textStart = page.indexOf('const handleTextGenerationGenerate');
+  const textEnd = page.indexOf('const handleAddTextNode', textStart);
+  const textHandler = page.slice(textStart, textEnd);
+  assert.match(textHandler, /regenerateCanvasText\(\{/);
+  assert.match(textHandler, /referenceImages:\s*sourceNodes\.map/);
+  assert.match(textHandler, /count:\s*composer\.count/);
+});
+
 test('plain text tools never route through image text generation', () => {
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   assert.match(page, /onText=\{\(\) => handleAddTextNode\(\)\}/);
   assert.match(page, /e\.key\.toLowerCase\(\) === ['"]t['"][\s\S]*?handleAddTextRef\.current/);
-  assert.match(page, /if \(textComposerNodeId === node\.id\) return null;/);
+  assert.match(page, /node\.kind === 'text' \|\| node\.kind === 'text-composer'/);
+  assert.doesNotMatch(page, /textComposerNodeId|textComposerValue/);
 });
 
 test('canvas page removes independent lane labels, role-gated uploads, and duplicate rail actions', () => {
@@ -230,17 +289,16 @@ test('canvas page removes independent lane labels, role-gated uploads, and dupli
 test('image composer owns reference uploads instead of reopening a legacy floating composer', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(source, /onAddSources/);
-  assert.match(source, /aria-label="添加参考图片"/);
+  assert.match(source, /aria-label=\{`添加\$\{uploadLabel\}`\}/);
+  assert.match(source, /ImageMentionPicker/);
   assert.doesNotMatch(source, /ReferenceComposer/);
 });
 
-test('generation composer controls stop canvas gestures and close their owning node', () => {
+test('generation composer controls stop canvas gestures and selection owns dismissal', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
-  assert.match(source, /onPointerDown=\{event => event\.stopPropagation\(\)\}/);
-  assert.match(source, /onClick=\{event => \{ event\.stopPropagation\(\); onClose\?\.\(\); \}\}/);
-  assert.match(source, /aria-label="关闭图片生成器"/);
-  assert.match(source, /aria-label="关闭文案生成器"/);
-  assert.match(source, /aria-label="关闭电商套图生成器"/);
+  const composerSource = source.slice(source.indexOf('export function CanvasImageComposer'), source.indexOf('const FOCUSED_EDITOR_LABELS'));
+  assert.match(composerSource, /onPointerDown=\{event => event\.stopPropagation\(\)\}/);
+  assert.doesNotMatch(composerSource, /onClose\?\.\(\)/);
 });
 
 test('image generation composer uses a complete preview and optional local edit target', () => {
@@ -349,8 +407,8 @@ test('new canvas surfaces have a complete responsive visual contract', () => {
   'ec-canvas-multi-toolbar',
     'ec-canvas-multi-selection-box',
     'ec-canvas-node-composer',
-    'ec-canvas-image-composer',
-    'ec-canvas-suite-composer',
+    'ec-canvas-context-composer',
+    'ec-canvas-generation-node',
     'ec-canvas-focused-editor',
     'ec-canvas-focused-stage',
     'ec-canvas-focused-toolbar',

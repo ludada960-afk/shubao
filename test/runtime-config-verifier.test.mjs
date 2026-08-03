@@ -17,6 +17,7 @@ const {
 const VALID_SECRETS = {
   IMAGE_API_KEY: 'sk-image-test-key-that-is-long-enough',
   MINI_API_KEY: 'opaque-vision-key-that-is-long-enough',
+  FAL_KEY: 'fal-segmentation-key-that-is-long-enough',
 };
 
 function envText(overrides = {}) {
@@ -49,6 +50,10 @@ test('runtime config validator accepts only the target gateway contract', () => 
   assert.doesNotThrow(
     () => validateRuntimeConfig(parseEnv(envText({ MINI_API_KEY: 'vision-test-key-that-is-long-enough' }))),
   );
+  assert.throws(
+    () => validateRuntimeConfig(parseEnv(envText({ FAL_KEY: '' }))),
+    /FAL_KEY is missing or looks like a placeholder/i,
+  );
 });
 
 test('runtime config permission validator rejects group or world access', () => {
@@ -75,6 +80,8 @@ test('runtime config file verification requires private permissions and matching
     }
     writeFileSync(peer, envText({ MINI_API_KEY: 'sk-different-vision-key-that-is-long-enough' }), { mode: 0o600 });
     assert.throws(() => verifyRuntimeConfigFiles(primary, peer), /MINI_API_KEY differs between runtime config files/i);
+    writeFileSync(peer, envText({ FAL_KEY: 'fal-different-key-that-is-long-enough' }), { mode: 0o600 });
+    assert.throws(() => verifyRuntimeConfigFiles(primary, peer), /FAL_KEY differs between runtime config files/i);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

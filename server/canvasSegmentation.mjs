@@ -162,14 +162,58 @@ function maskSummary(data, width, height) {
   };
 }
 
+function removeSmallMaskIslands(data, width, height) {
+  const total = width * height;
+  const labels = new Int32Array(total);
+  const areas = new Int32Array(total + 1);
+  const queue = new Int32Array(total);
+  let label = 0;
+  let largest = 0;
+  for (let start = 0; start < total; start += 1) {
+    if (data[start] < 16 || labels[start]) continue;
+    label += 1;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    labels[start] = label;
+    while (head < tail) {
+      const index = queue[head++];
+      const x = index % width;
+      const y = Math.floor(index / width);
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        const nextY = y + offsetY;
+        if (nextY < 0 || nextY >= height) continue;
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (offsetX === 0 && offsetY === 0) continue;
+          const nextX = x + offsetX;
+          if (nextX < 0 || nextX >= width) continue;
+          const next = nextY * width + nextX;
+          if (data[next] < 16 || labels[next]) continue;
+          labels[next] = label;
+          queue[tail++] = next;
+        }
+      }
+    }
+    areas[label] = tail;
+    largest = Math.max(largest, tail);
+  }
+  const minimumArea = Math.max(4, Math.ceil(largest * 0.002), Math.ceil(total * 0.00002));
+  for (let index = 0; index < total; index += 1) {
+    if (labels[index] && areas[labels[index]] < minimumArea) data[index] = 0;
+  }
+  return data;
+}
+
 export async function normalizeSegmentationMask(maskBuffer, { width, height } = {}) {
   if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
     throw new TypeError('mask width and height are required');
   }
-  const { data, info } = await sharp(maskBuffer, { failOn: 'error' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  if (info.width !== width || info.height !== height) {
-    throw maskError('SEGMENTATION_MASK_DIMENSIONS', '分割结果尺寸与源图不一致');
+  const metadata = await sharp(maskBuffer, { failOn: 'error' }).metadata();
+  let maskPipeline = sharp(maskBuffer, { failOn: 'error' }).ensureAlpha();
+  if (metadata.width !== width || metadata.height !== height) {
+    maskPipeline = maskPipeline.resize(width, height, { fit: 'fill', kernel: sharp.kernel.nearest });
   }
+  const { data, info } = await maskPipeline.raw().toBuffer({ resolveWithObject: true });
   let transparent = 0;
   let opaque = 0;
   for (let index = 0; index < width * height; index += 1) {
@@ -185,7 +229,7 @@ export async function normalizeSegmentationMask(maskBuffer, { width, height } = 
       ? data[offset + 3]
       : Math.max(data[offset], data[offset + 1], data[offset + 2]);
   }
-  return maskSummary(alpha, width, height);
+  return maskSummary(removeSmallMaskIslands(alpha, width, height), width, height);
 }
 
 export function maskIntersectionOverUnion(left, right) {

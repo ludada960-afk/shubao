@@ -180,8 +180,16 @@ test('image generation handlers remain executable from the non-hover creation su
 test('canvas interaction surfaces dismiss each other and text has one toolbar', () => {
   assert.match(canvasSource, /setContextMenu\(null\);\s*setConnectionPicker\(null\);\s*setAddMenuOpen\(false\);/);
   assert.match(canvasSource, /multiSelected\.size <= 1[\s\S]{0,260}<CanvasObjectToolbar/);
-  assert.match(canvasSource, /selectedNode\?\.kind === 'text' && <CanvasTextToolbar/);
+  assert.match(canvasSource, /\['text', 'text-composer'\]\.includes\(selectedNode\?\.kind\) && <CanvasTextToolbar/);
   assert.doesNotMatch(canvasStudioSource, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp/);
+});
+
+test('clicking an image output port opens the derive picker without requiring a drag', () => {
+  assert.match(canvasStudioSource, /function DerivePort\(\{[^}]*onClick/);
+  assert.match(canvasStudioSource, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event\); \}\}/);
+  assert.match(canvasSource, /const handlePortClick = useCallback/);
+  assert.match(canvasSource, /setConnectionPicker\(\{\s*sourceNodeId:\s*nodeId,\s*world:\s*toWorldPoint\(event\)/);
+  assert.match(canvasSource, /onPortClick=\{event => handlePortClick\(event, node\.id\)\}/);
 });
 
 test('locked nodes cannot enter the resize interaction and empty paste is a no-op', () => {

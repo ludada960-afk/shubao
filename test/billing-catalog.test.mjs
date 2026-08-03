@@ -51,6 +51,13 @@ test('pixel-layer preparation has a server-authoritative quote', () => {
   });
 });
 
+test('automatic smart layering has a dedicated server-authoritative quote', () => {
+  assert.deepEqual(quoteFeature('ec_smart_layer', 1), {
+    sku: 'ec_smart_layer', quantity: 1, units: 3000, totalUnits: 3000,
+    currency: 'ec_points', providerCostCny: 0.20,
+  });
+});
+
 test('quote quantity must be a positive integer', () => {
   for (const quantity of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(() => quoteFeature('ec_image_2k', quantity), /quantity/i);

@@ -498,6 +498,9 @@ export async function generateEcommerceSuite({
   sceneStyle,
   platform,
   batchPlan,
+  generationSettings,
+  sizing,
+  direction,
   email,
   draftId,
   resumeTaskId,
@@ -514,6 +517,9 @@ export async function generateEcommerceSuite({
     realShots: productImages || [],
     platform: platform || '淘宝',
     imageSelections: planToSelections(batchPlan),
+    generationSettings,
+    sizing,
+    direction,
     email,
     draftId,
     resumeTaskId,
@@ -1087,11 +1093,11 @@ export async function getExtractData(token) {
 }
 
 /* ── 单图重生成 ── */
-export async function regenerateImage(prompt, category) {
+export async function regenerateImage(prompt, category, { ratio = '1:1', resolution = '2K' } = {}) {
   const res = await fetch(`${API_BASE}/api/regenerate-image`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ prompt, category: category || '' })),
+    body: JSON.stringify(withSessionEmail({ prompt, category: category || '', ratio, resolution })),
   });
   if (!res.ok) throw await createApiError(res, '图片重生成失败');
   const d = await res.json();
@@ -1108,6 +1114,22 @@ export async function regenerateText(text, category) {
   });
   if (!res.ok) throw await createApiError(res, '文案重生成失败');
   return res.json();
+}
+
+export async function regenerateCanvasText({ prompt, referenceImages = [], count = 1 }) {
+  const res = await fetch(`${API_BASE}/api/canvas/regenerate-text`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({
+      prompt,
+      reference_images: referenceImages.map(normalizeCanvasImageUrl),
+      count: Math.max(1, Math.min(4, Number(count) || 1)),
+    }),
+  });
+  if (!res.ok) throw await createApiError(res, '文案生成失败');
+  const data = await res.json();
+  if (!String(data?.text || '').trim()) throw new Error(data?.error || '文案生成失败');
+  return data;
 }
 
 export async function saveWork(work, phone, { signal } = {}) {
@@ -1162,17 +1184,18 @@ export async function saveWork(work, phone, { signal } = {}) {
   return null;
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio, requestKey = '', selection }) {
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio, resolution = '2K', requestKey = '', selection }) {
   const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
   const logicalRequestKey = String([
-    requestKey || [prompt, normalizedImageUrl, ratio || '', ...referenceImages].join('\u0000'),
+    requestKey || [prompt, normalizedImageUrl, ratio || '', resolution, ...referenceImages].join('\u0000'),
     JSON.stringify(selection || {}),
   ].join('\u0000')).slice(0, 120000);
   const stableRequestKey = stableCanvasActionId(logicalRequestKey);
-  const billing = await quoteCanvasAction('ec_image_2k', stableRequestKey);
+  const billingSku = String(resolution).toUpperCase() === '4K' ? 'ec_image_4k' : 'ec_image_2k';
+  const billing = await quoteCanvasAction(billingSku, stableRequestKey);
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, request_key: stableRequestKey, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
+    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, resolution, request_key: stableRequestKey, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
@@ -1222,10 +1245,15 @@ export async function transformCanvasImage({
 }
 
 export async function analyzeCanvasLayers(imageUrl) {
+  const billing = await quoteCanvasAction('ec_smart_layer');
   const res = await fetch(`${API_BASE}/api/canvas/analyze-layers`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ image_url: normalizeCanvasImageUrl(imageUrl) }),
+    body: JSON.stringify({
+      image_url: normalizeCanvasImageUrl(imageUrl),
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '图层分析失败');

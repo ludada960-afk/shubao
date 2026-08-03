@@ -35,6 +35,8 @@ test('submits bounded SAM 3 box prompts and normalizes owned mask metadata', asy
 
   const result = await client.segment({
     imageUrl: 'data:image/png;base64,AA==',
+    imageWidth: 320,
+    imageHeight: 240,
     prompts: [
       { id: 'gray-box', box: [12.2, 18.8, 102.9, 121.1] },
       { id: 'orange-box', box: [160, 40, 280, 190] },
@@ -60,6 +62,93 @@ test('submits bounded SAM 3 box prompts and normalizes owned mask metadata', asy
       { url: 'https://fal.media/mask-2.png', width: 320, height: 240, score: 0.91, box: [0.7, 0.45, 0.24, 0.35], promptId: 'orange-box' },
     ],
   });
+});
+
+test('rejects ambiguous reordered masks when a multi-prompt response has no geometry', async () => {
+  const client = createFalSegmentationClient({
+    apiKey: 'fal-test-secret',
+    fetchImpl: async () => jsonResponse({
+      masks: [
+        { url: 'https://fal.media/unknown-1.png' },
+        { url: 'https://fal.media/unknown-2.png' },
+      ],
+      scores: [0.9, 0.9],
+    }),
+  });
+
+  await assert.rejects(
+    () => client.segment({
+      imageUrl: 'data:image/png;base64,AA==',
+      imageWidth: 320,
+      imageHeight: 240,
+      prompts: [
+        { id: 'gray-box', box: [12, 19, 103, 121] },
+        { id: 'orange-box', box: [160, 40, 280, 190] },
+      ],
+    }),
+    error => error.code === 'SEGMENTATION_RESPONSE_INVALID',
+  );
+});
+
+test('maps reordered masks back to prompt IDs using top-level SAM scores and normalized boxes', async () => {
+  const client = createFalSegmentationClient({
+    apiKey: 'fal-test-secret',
+    fetchImpl: async () => jsonResponse({
+      masks: [
+        { url: 'https://fal.media/orange.png', width: 1024, height: 1024 },
+        { url: 'https://fal.media/gray.png', width: 1024, height: 1024 },
+      ],
+      scores: [0.93, 0.97],
+      boxes: [
+        [0.6875, 0.4791667, 0.375, 0.625],
+        [0.1796875, 0.2916667, 0.284375, 0.425],
+      ],
+    }),
+  });
+
+  const result = await client.segment({
+    imageUrl: 'data:image/png;base64,AA==',
+    imageWidth: 320,
+    imageHeight: 240,
+    prompts: [
+      { id: 'gray-box', box: [12, 19, 103, 121] },
+      { id: 'orange-box', box: [160, 40, 280, 190] },
+    ],
+  });
+
+  assert.deepEqual(result.masks.map(mask => ({ promptId: mask.promptId, score: mask.score })), [
+    { promptId: 'orange-box', score: 0.93 },
+    { promptId: 'gray-box', score: 0.97 },
+  ]);
+});
+
+test('uses a global one-to-one box assignment when greedy output order would consume the wrong prompt', async () => {
+  const client = createFalSegmentationClient({
+    apiKey: 'fal-test-secret',
+    fetchImpl: async () => jsonResponse({
+      masks: [
+        { url: 'https://fal.media/overlap.png' },
+        { url: 'https://fal.media/left-only.png' },
+      ],
+      scores: [0.94, 0.96],
+      boxes: [
+        [0.475, 0.5, 0.5, 1],
+        [0.15, 0.5, 0.3, 1],
+      ],
+    }),
+  });
+
+  const result = await client.segment({
+    imageUrl: 'data:image/png;base64,AA==',
+    imageWidth: 200,
+    imageHeight: 100,
+    prompts: [
+      { id: 'left-product', box: [0, 0, 120, 100] },
+      { id: 'right-product', box: [80, 0, 200, 100] },
+    ],
+  });
+
+  assert.deepEqual(result.masks.map(mask => mask.promptId), ['right-product', 'left-product']);
 });
 
 test('requires a server-side key and rejects unsafe or excessive input', async () => {

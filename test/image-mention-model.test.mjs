@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  appendImageMention,
   buildCanvasImageReferencePayload,
   buildImageMentions,
   buildRoleAwareImagePayload,
@@ -61,4 +62,17 @@ test('ecommerce requests preserve product and reference roles', () => {
     productImages: ['/a.png', '/c.png'],
     referenceImages: ['/b.png'],
   });
+});
+
+test('an image mention is inserted once with readable spacing', () => {
+  assert.equal(appendImageMention('', '@图片1'), '@图片1 ');
+  assert.equal(appendImageMention('保留杯身', '@图片2'), '保留杯身 @图片2 ');
+  assert.equal(appendImageMention('参考 @图片1 的构图', '@图片1'), '参考 @图片1 的构图');
+});
+
+test('plain image URLs become stable mention candidates for content creation', () => {
+  assert.deepEqual(buildImageMentions(['/a.png', '/b.png']).map(item => ({ label: item.label, url: item.url })), [
+    { label: '@图片1', url: '/a.png' },
+    { label: '@图片2', url: '/b.png' },
+  ]);
 });

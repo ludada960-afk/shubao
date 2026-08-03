@@ -418,14 +418,15 @@ export function createCanvasRegenerateHandler({ service, billing } = {}) {
         });
       }
       const body = req?.body || {};
+      const selectedSize = resolveGenerationSize(body);
       const billed = await billing.execute({
         ownerEmail,
         quoteId: body.billing_quote_id,
         actionId: body.billing_action_id,
-        sku: 'ec_image_2k',
+        sku: selectedSize.resolution === '4K' ? 'ec_image_4k' : 'ec_image_2k',
         referenceType: 'canvas_regenerate',
         providerCostCny: 0.0694,
-        metadata: { action: 'regenerate' },
+        metadata: { action: 'regenerate', resolution: selectedSize.resolution },
         resumableWork: true,
         work: () => service.regenerate({ ownerEmail, body }),
       });

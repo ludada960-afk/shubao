@@ -37,6 +37,27 @@ test('Canvas AI transforms reuse the durable provider-job service instead of dir
   assert.doesNotMatch(route, /callImageAPI\(/);
 });
 
+test('Canvas text generation is signed and sends ordered owned images to the vision model', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/canvas/regenerate-text', '// 画布图文分层');
+
+  assert.match(route, /authenticateEcommerceRequest/);
+  assert.match(route, /reference_images:\s*referenceImages/);
+  assert.match(route, /count\s*=\s*1/);
+  assert.match(route, /生成\s*\$\{outputCount\}\s*个版本/);
+  assert.match(route, /imageInputReader\.read\(imageUrl\)/);
+  assert.match(route, /createEcommerceVlmClient\(\)\.completeText\(/);
+  assert.match(route, /images:\s*visualInputs/);
+  assert.doesNotMatch(route, /contentAnalysis\([^)]*@图片/);
+});
+
+test('Canvas generated node geometry uses the shared ratio parser for every supported ratio', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+
+  assert.match(source, /ratioValue\(ratio/);
+  assert.doesNotMatch(source, /ratio === '3:4' \? 3 \/ 4/);
+});
+
 test('Canvas pixel transforms honor requested grid size and split direction', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/transform', '// 画布图文分层');
@@ -50,18 +71,26 @@ test('Canvas pixel transforms honor requested grid size and split direction', as
   assert.match(route, /annotations\s*=\s*\[\]/);
 });
 
-test('Canvas layer analysis only advertises movable pixel layers after reliable segmentation', async () => {
+test('Canvas layer analysis is billed and delegates to the real segmentation service', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/analyze-layers', '// 画布像素分层');
 
-  assert.match(route, /createEcommerceVlmClient\(\)\.analyzeJson\(/);
-  assert.doesNotMatch(route, /callLLMWithVision\(/);
-  assert.match(route, /analyzeSceneCapabilities\(\{\s*layers\s*\}\)/);
-  assert.match(route, /res\.json\(\{\s*layers:[\s\S]*?capabilities/);
-  assert.match(route, /const split = await segmentUniformBackground\(buffer\)/);
-  assert.match(route, /pixelLayers:\s*split\.segmented/);
-  assert.match(route, /movableLayers:\s*split\.segmented/);
-  assert.doesNotMatch(route, /psdExport:\s*true/);
+  assert.match(source, /createFalSegmentationClient\(/);
+  assert.match(source, /createCanvasLayeringService\(\{/);
+  assert.match(route, /canvasOneShotBilling\.execute\(\{/);
+  assert.match(route, /sku:\s*['"]ec_smart_layer['"]/);
+  assert.match(route, /canvasLayeringService\.createLayers\(\{/);
+  assert.doesNotMatch(route, /segmentUniformBackground|parseVisionLayers|analyzeSceneCapabilities/);
+});
+
+test('Canvas background removal prefers real product segmentation before legacy fallbacks', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/remove-bg', '// 详情切片');
+
+  assert.match(route, /canvasLayeringService\.removeBackground\(\{/);
+  assert.match(route, /sku:\s*['"]ec_remove_bg['"]/);
+  assert.match(route, /REMOVE_BG_KEY/);
+  assert.match(route, /removeLightBackground/);
 });
 
 test('Canvas OCR uses the formal ecommerce vision gateway instead of the legacy LLM-only path', async () => {

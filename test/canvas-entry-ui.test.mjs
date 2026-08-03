@@ -22,7 +22,8 @@ test('commerce canvas uses a quiet professional shell and contextual world panel
   assert.match(source, /CanvasLeftRail/);
   assert.match(source, /CanvasBottomToolbar/);
   assert.match(source, /CanvasZoomControls/);
-  assert.match(source, /getContextPanelPosition/);
+  assert.match(source, /getCanvasComposerPresentation/);
+  assert.match(source, /selectedComposerPosition = getCanvasComposerPresentation\([\s\S]*?\)\.position/);
   assert.doesNotMatch(source, /空白拖拽平移/);
   assert.doesNotMatch(source, /fixed[^\n]+right: 20[^\n]+bottom: 20/);
   assert.match(css, /\.ec-canvas-stage \{[^}]*overflow: clip;/);
