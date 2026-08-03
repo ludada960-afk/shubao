@@ -69,6 +69,74 @@ function clampUnit(value, fallback = 0) {
   return Math.min(1, Math.max(0, Number.isFinite(parsed) ? parsed : fallback));
 }
 
+function normalizeUnitBox(box) {
+  if (!Array.isArray(box) || box.length !== 4) return null;
+  const values = box.map(Number);
+  if (!values.every(Number.isFinite)) return null;
+  const [x, y, width, height] = values;
+  if (x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > 1.000001 || y + height > 1.000001) return null;
+  return [clampUnit(x), clampUnit(y), Math.min(width, 1 - x), Math.min(height, 1 - y)];
+}
+
+function boxOverlapRatio(left, right) {
+  if (!left || !right) return 0;
+  const leftRight = left[0] + left[2];
+  const leftBottom = left[1] + left[3];
+  const rightRight = right[0] + right[2];
+  const rightBottom = right[1] + right[3];
+  const width = Math.max(0, Math.min(leftRight, rightRight) - Math.max(left[0], right[0]));
+  const height = Math.max(0, Math.min(leftBottom, rightBottom) - Math.max(left[1], right[1]));
+  return (width * height) / Math.max(Number.EPSILON, left[2] * left[3]);
+}
+
+function safeLayerId(value, fallback) {
+  return String(value || fallback).trim().replace(/[^a-z0-9_-]/gi, '-').slice(0, 60) || fallback;
+}
+
+export function normalizeCanvasLayerPlan(raw = {}, { maxInstances = 8, maxTextBlocks = 20 } = {}) {
+  const groupBox = normalizeUnitBox(raw?.productGroup?.box);
+  const productGroup = groupBox ? {
+    name: String(raw.productGroup?.name || '商品主体').trim().slice(0, 80) || '商品主体',
+    box: groupBox,
+    confidence: clampUnit(raw.productGroup?.confidence, 0.5),
+  } : null;
+  const instances = (Array.isArray(raw?.instances) ? raw.instances : [])
+    .map((item, index) => {
+      const box = normalizeUnitBox(item?.box);
+      const confidence = clampUnit(item?.confidence, 0);
+      const kind = String(item?.kind || '').trim().toLowerCase();
+      if (!box || kind !== 'product' || confidence < 0.55) return null;
+      if (productGroup && boxOverlapRatio(box, productGroup.box) < 0.2) return null;
+      return {
+        id: safeLayerId(item.id, `product-${index + 1}`),
+        name: String(item.name || `商品 ${index + 1}`).trim().slice(0, 80) || `商品 ${index + 1}`,
+        kind: 'product',
+        box,
+        confidence,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, Math.max(1, Math.min(8, Number(maxInstances) || 8)));
+  const textBlocks = (Array.isArray(raw?.textBlocks) ? raw.textBlocks : [])
+    .map((block, index) => {
+      const text = String(block?.text || '').trim().slice(0, 400);
+      const box = normalizeUnitBox(block?.box);
+      const confidence = clampUnit(block?.confidence, 0);
+      if (!text || !box || confidence < 0.5) return null;
+      return {
+        id: safeLayerId(block.id, `text-${index + 1}`),
+        text,
+        box,
+        confidence,
+        color: /^#[0-9a-f]{6}$/i.test(String(block?.color || '')) ? block.color : '#111111',
+        background: /^#[0-9a-f]{6}$/i.test(String(block?.background || '')) ? block.background : '#ffffff',
+      };
+    })
+    .filter(Boolean)
+    .slice(0, Math.max(1, Math.min(40, Number(maxTextBlocks) || 20)));
+  return { productGroup, instances, textBlocks };
+}
+
 export function analyzeSceneCapabilities({ layers = [] } = {}) {
   return {
     semanticAnalysis: Array.isArray(layers),

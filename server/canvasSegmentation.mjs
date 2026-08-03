@@ -127,3 +127,124 @@ export async function segmentUniformBackground(imageBuffer) {
     backgroundCoverage,
   };
 }
+
+function maskError(code, message) {
+  return Object.assign(new Error(message), { code, status: 422 });
+}
+
+function maskSummary(data, width, height) {
+  let active = 0;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let index = 0; index < data.length; index += 1) {
+    if (data[index] < 16) continue;
+    active += 1;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  if (!active) throw maskError('SEGMENTATION_MASK_EMPTY', '分割结果没有有效像素');
+  const coverage = active / (width * height);
+  if (coverage > 0.98 || coverage < 0.005) {
+    throw maskError('SEGMENTATION_MASK_IMPLAUSIBLE', '分割结果覆盖范围不可信');
+  }
+  return {
+    data,
+    width,
+    height,
+    coverage,
+    bounds: { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
+  };
+}
+
+export async function normalizeSegmentationMask(maskBuffer, { width, height } = {}) {
+  if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
+    throw new TypeError('mask width and height are required');
+  }
+  const { data, info } = await sharp(maskBuffer, { failOn: 'error' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  if (info.width !== width || info.height !== height) {
+    throw maskError('SEGMENTATION_MASK_DIMENSIONS', '分割结果尺寸与源图不一致');
+  }
+  let transparent = 0;
+  let opaque = 0;
+  for (let index = 0; index < width * height; index += 1) {
+    const alpha = data[index * info.channels + 3];
+    if (alpha < 250) transparent += 1;
+    if (alpha > 5) opaque += 1;
+  }
+  const hasMeaningfulAlpha = transparent > 0 && opaque > 0;
+  const alpha = Buffer.alloc(width * height);
+  for (let index = 0; index < alpha.length; index += 1) {
+    const offset = index * info.channels;
+    alpha[index] = hasMeaningfulAlpha
+      ? data[offset + 3]
+      : Math.max(data[offset], data[offset + 1], data[offset + 2]);
+  }
+  return maskSummary(alpha, width, height);
+}
+
+export function maskIntersectionOverUnion(left, right) {
+  if (!left?.data || !right?.data || left.width !== right.width || left.height !== right.height) return 0;
+  let intersection = 0;
+  let union = 0;
+  for (let index = 0; index < left.data.length; index += 1) {
+    const leftActive = left.data[index] >= 16;
+    const rightActive = right.data[index] >= 16;
+    if (leftActive && rightActive) intersection += 1;
+    if (leftActive || rightActive) union += 1;
+  }
+  return union ? intersection / union : 0;
+}
+
+export function unionSegmentationMasks(masks = []) {
+  const first = masks[0];
+  if (!first?.data || !masks.every(mask => mask.width === first.width && mask.height === first.height)) {
+    throw new TypeError('compatible segmentation masks are required');
+  }
+  const data = Buffer.alloc(first.data.length);
+  for (const mask of masks) {
+    for (let index = 0; index < data.length; index += 1) data[index] = Math.max(data[index], mask.data[index]);
+  }
+  return maskSummary(data, first.width, first.height);
+}
+
+export async function segmentationMaskToPng(mask) {
+  if (!mask?.data) throw new TypeError('segmentation mask is required');
+  return sharp(mask.data, { raw: { width: mask.width, height: mask.height, channels: 1 } }).png().toBuffer();
+}
+
+export async function compositeMaskedAsset(sourceBuffer, mask) {
+  if (!mask?.data || !mask?.bounds) throw new TypeError('segmentation mask is required');
+  const { data, info } = await sharp(sourceBuffer, { failOn: 'error' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  if (info.width !== mask.width || info.height !== mask.height) {
+    throw maskError('SEGMENTATION_SOURCE_DIMENSIONS', '源图尺寸与分割结果不一致');
+  }
+  const output = Buffer.from(data);
+  for (let index = 0; index < mask.data.length; index += 1) {
+    const alphaOffset = index * info.channels + 3;
+    output[alphaOffset] = Math.round(output[alphaOffset] * mask.data[index] / 255);
+  }
+  const full = sharp(output, { raw: { width: info.width, height: info.height, channels: info.channels } });
+  const buffer = await full.extract({
+    left: mask.bounds.x,
+    top: mask.bounds.y,
+    width: mask.bounds.width,
+    height: mask.bounds.height,
+  }).png().toBuffer();
+  return {
+    buffer,
+    width: mask.bounds.width,
+    height: mask.bounds.height,
+    bounds: {
+      x: mask.bounds.x / info.width,
+      y: mask.bounds.y / info.height,
+      width: mask.bounds.width / info.width,
+      height: mask.bounds.height / info.height,
+    },
+  };
+}

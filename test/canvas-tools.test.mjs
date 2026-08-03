@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { analyzeSceneCapabilities, buildCanvasTransformPrompt, cropRectForRatio, gridRects, parseVisionLayers, parseVisionTextBlocks } from '../server/canvasTools.mjs';
+import { analyzeSceneCapabilities, buildCanvasTransformPrompt, cropRectForRatio, gridRects, normalizeCanvasLayerPlan, parseVisionLayers, parseVisionTextBlocks } from '../server/canvasTools.mjs';
 import { segmentUniformBackground } from '../server/canvasSegmentation.mjs';
 
 test('builds action-specific canvas prompts without losing product identity rules', () => {
@@ -58,6 +58,28 @@ test('parses OCR blocks with bounded editable coordinates', () => {
   const blocks = parseVisionTextBlocks('结果：{"blocks":[{"id":"headline","text":"新品","x":0.1,"y":0.2,"width":0.4,"height":0.12,"color":"#112233","background":"#ffffff"}]}');
   assert.deepEqual(blocks, [{ id: 'headline', text: '新品', x: 0.1, y: 0.2, width: 0.4, height: 0.12, color: '#112233', background: '#ffffff' }]);
   assert.deepEqual(parseVisionTextBlocks('不是 JSON'), []);
+});
+
+test('normalizes a bounded merchant layer plan without promoting scene props to products', () => {
+  const plan = normalizeCanvasLayerPlan({
+    productGroup: { name: '三色保鲜盒', box: [0.12, 0.18, 0.72, 0.58], confidence: 0.97 },
+    instances: [
+      { id: 'gray-box', name: '灰色盒', kind: 'product', box: [0.36, 0.2, 0.2, 0.2], confidence: 0.96 },
+      { id: 'blue-box', name: '蓝色盒', kind: 'product', box: [0.15, 0.48, 0.28, 0.25], confidence: 0.94 },
+      { id: 'orange-box', name: '橙色盒', kind: 'product', box: [0.55, 0.48, 0.28, 0.25], confidence: 0.95 },
+      { id: 'plate', name: '餐盘', kind: 'background', box: [0.6, 0.01, 0.35, 0.3], confidence: 0.99 },
+      { id: 'outside', name: '无关物体', kind: 'product', box: [0.9, 0.9, 0.08, 0.08], confidence: 0.99 },
+      { id: 'weak', name: '不确定商品', kind: 'product', box: [0.2, 0.2, 0.1, 0.1], confidence: 0.2 },
+    ],
+    textBlocks: [
+      { id: 'caption', text: '三色盖子可选择', box: [0.16, 0.83, 0.68, 0.08], confidence: 0.93, color: '#ffffff', background: '#efb64e' },
+      { id: 'empty', text: ' ', box: [0, 0, 0.2, 0.1], confidence: 1 },
+    ],
+  });
+
+  assert.deepEqual(plan.instances.map(item => item.id), ['gray-box', 'blue-box', 'orange-box']);
+  assert.deepEqual(plan.textBlocks.map(item => item.text), ['三色盖子可选择']);
+  assert.deepEqual(plan.productGroup.box, [0.12, 0.18, 0.72, 0.58]);
 });
 
 test('separates a reliable uniform colored background into movable pixel layers', async () => {
