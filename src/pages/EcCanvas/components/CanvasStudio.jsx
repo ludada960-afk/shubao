@@ -470,7 +470,7 @@ export function CanvasImageNode({
   return <article
     data-canvas-node-id={node.id}
     className={`ec-canvas-media-node is-${presentation.state} ${presentation.dimmed ? 'is-dimmed' : ''}`}
-    style={{ left: node.x, top: node.y, width: node.w, visibility: node.hidden ? 'hidden' : 'visible' }}
+    style={{ left: node.x, top: node.y, width: node.w, zIndex: Number.isFinite(node.zIndex) ? node.zIndex : undefined, visibility: node.hidden ? 'hidden' : 'visible' }}
     onPointerDown={event => onPointerDown?.(event, node.id)}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
     onDoubleClick={event => { event.stopPropagation(); onDoubleClick?.(node); }}

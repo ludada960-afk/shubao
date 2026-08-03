@@ -1301,6 +1301,8 @@ export default function EcCanvas() {
       sourceNodeIds: [node.id],
       group: '素材',
       showMeta: true,
+      layerRole: /背景|底色|氛围/.test(String(layer.name || '')) ? 'background' : 'foreground',
+      zIndex: /背景|底色|氛围/.test(String(layer.name || '')) ? 10 : 20,
     });
     setNodes(previous => [...previous, output]);
     setConnections(previous => [...previous, createChildConnection(node.id, output.id, 'layer-output')]);
