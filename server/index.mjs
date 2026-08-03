@@ -3379,7 +3379,13 @@ app.post('/api/reverse-prompt', async (req, res) => {
         let aiRes = '';
         let fallback = false;
         try {
-          aiRes = await callLLMWithVision(sys, [base64], userMsg);
+          aiRes = await createEcommerceVlmClient().completeText({
+            systemPrompt: sys,
+            userPrompt: userMsg,
+            images: [base64],
+            maxTokens: 1200,
+            temperature: 0.3,
+          });
         } catch (visionError) {
           fallback = true;
           console.warn('[reverse-prompt] 视觉模型降级:', visionError.message);

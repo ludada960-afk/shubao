@@ -530,6 +530,7 @@ export default function EcCanvas() {
   const dragFrameRef = useRef(null);
   const pendingDragRef = useRef(null);
   const draftReadyRef = useRef(false);
+  const workflowProcessRef = useRef(null);
   const sourceUploadRef = useRef(null);
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
@@ -1074,7 +1075,6 @@ export default function EcCanvas() {
         prompt: promptSeed,
         productImages: source.kind === 'source_group' ? (source.assets || []) : [],
         referenceImages: [],
-        instruction: '',
         outputCount: 1,
         layers: [],
         selectedLayerId: null,
@@ -1119,7 +1119,7 @@ export default function EcCanvas() {
   const handleWorkflowGenerate = useCallback(async (node) => {
     const source = nodes.find(item => item.id === node.sourceNodeIds?.[0]);
     const sourceUrl = node.inputs?.sourceUrl || source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
-    const prompt = [node.inputs?.prompt, node.inputs?.instruction].filter(Boolean).join('\n').trim();
+    const prompt = String(node.inputs?.prompt || '').trim();
     if (!sourceUrl || !prompt || promptLoading) {
       showToast('请先补充可编辑的画面描述', 'info');
       return;
@@ -1169,6 +1169,10 @@ export default function EcCanvas() {
     updateWorkflowNode(node.id, { status: 'draft', error: null });
     if (!sourceUrl) return;
     if (node.actionId === 'smart-remix') {
+      if (String(node.inputs?.prompt || '').trim()) {
+        void handleWorkflowGenerate({ ...node, status: 'draft', error: null });
+        return;
+      }
       updateWorkflowNode(node.id, { status: 'analyzing' });
       reversePrompt({ image_url: sourceUrl, product_name: source.name || source.displayLabel || '电商图片' })
         .then(data => updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), prompt: data.prompt || '' } }))
@@ -1181,8 +1185,10 @@ export default function EcCanvas() {
           updateWorkflowNode(node.id, { status: 'ready', inputs: { ...(node.inputs || {}), layers, selectedLayerId: layers[0]?.id || null, capabilities: data.capabilities } });
         })
         .catch(error => updateWorkflowNode(node.id, { status: 'error', error: error.message || '图层分析失败' }));
+    } else {
+      void workflowProcessRef.current?.({ ...node, status: 'draft', error: null });
     }
-  }, [nodes, updateWorkflowNode]);
+  }, [handleWorkflowGenerate, nodes, updateWorkflowNode]);
 
   const handleWorkflowAddImages = useCallback(async (nodeId, field, files = []) => {
     if (!files.length) return;
@@ -1224,7 +1230,7 @@ export default function EcCanvas() {
     setPromptLoading(true);
     try {
       const actionId = node.actionId;
-      const prompt = [node.inputs?.prompt, node.inputs?.instruction].filter(Boolean).join('\n').trim();
+      const prompt = String(node.inputs?.prompt || '').trim();
       let url = '';
       if (actionId === 'remove-bg') {
         const data = await removeBg({ image_url: sourceUrl });
@@ -1260,6 +1266,10 @@ export default function EcCanvas() {
       setPromptLoading(false);
     }
   }, [nodes, promptLoading, showToast, updateWorkflowNode, handleCanvasActionError]);
+
+  useEffect(() => {
+    workflowProcessRef.current = handleWorkflowProcess;
+  }, [handleWorkflowProcess]);
 
   const updateWorkflowLayers = useCallback((nodeId, updater) => {
     setNodes(prev => prev.map(node => {
@@ -2754,7 +2764,6 @@ export default function EcCanvas() {
                     prompt: node.inputs?.prompt || '',
                     productImages,
                     referenceImages,
-                    instruction: node.inputs?.instruction || '',
                     outputCount: node.inputs?.outputCount || 1,
                     error: node.error,
                     onPromptChange: value => updateWorkflowInputs(node.id, { prompt: value }),
@@ -2762,7 +2771,6 @@ export default function EcCanvas() {
                     onRemoveProductImage: image => updateWorkflowInputs(node.id, { productImages: (node.inputs?.productImages || []).filter(item => item.id !== image.id) }),
                     onAddReferenceImages: files => handleWorkflowAddImages(node.id, 'referenceImages', files),
                     onRemoveReferenceImage: image => updateWorkflowInputs(node.id, { referenceImages: (node.inputs?.referenceImages || []).filter(item => item.id !== image.id) }),
-                    onInstructionChange: value => updateWorkflowInputs(node.id, { instruction: value }),
                     onOutputCountChange: value => updateWorkflowInputs(node.id, { outputCount: value }),
                     onGenerate: () => handleWorkflowGenerate(node),
                   } : undefined}

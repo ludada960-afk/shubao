@@ -177,9 +177,25 @@ test('image composer owns reference uploads instead of reopening a legacy floati
 
 test('image remix workflow keeps one editable generation request field', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/SmartRemixNodeCard.jsx', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   assert.equal((source.match(/<textarea\b/g) || []).length, 1);
   assert.match(source, /生成要求/);
   assert.doesNotMatch(source, /remix-instruction|补充调整/);
+  assert.doesNotMatch(page, /node\.inputs\?\.instruction/);
+  assert.doesNotMatch(page, /instruction:\s*''/);
+});
+
+test('canvas workflow retry resubmits an existing generation request and reruns ordinary processing nodes', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const start = page.indexOf('const handleWorkflowRetry = useCallback');
+  const end = page.indexOf('\n\n  const handleWorkflowAddImages', start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const retry = page.slice(start, end);
+  assert.match(retry, /node\.actionId === ['"]smart-remix['"]/);
+  assert.match(retry, /node\.inputs\?\.prompt/);
+  assert.match(retry, /handleWorkflowGenerate\(\{ \.\.\.node/);
+  assert.match(retry, /void workflowProcessRef\.current\?\.\(\{ \.\.\.node/);
 });
 
 test('focused editing exposes complete functional annotation and geometry controls', () => {

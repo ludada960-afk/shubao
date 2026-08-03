@@ -138,7 +138,7 @@ function ImageRail({ label, hint, images = [], onAdd, onRemove }) {
   );
 }
 
-export function SmartRemixNodeCard({ node, sourceImage, prompt = '', productImages = [], referenceImages = [], instruction = '', outputCount = 1, status = 'draft', selected = false, error, onPromptChange, onAddProductImages, onRemoveProductImage, onAddReferenceImages, onRemoveReferenceImage, onInstructionChange, onOutputCountChange, onGenerate, onRetry, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
+export function SmartRemixNodeCard({ node, sourceImage, prompt = '', productImages = [], referenceImages = [], outputCount = 1, status = 'draft', selected = false, error, onPromptChange, onAddProductImages, onRemoveProductImage, onAddReferenceImages, onRemoveReferenceImage, onOutputCountChange, onGenerate, onRetry, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
   const action = getCanvasAction(node?.actionId || 'smart-remix');
   return (
     <CanvasNodeShell title={action?.label} subtitle={action?.description} icon={MdImageSearch} status={status} selected={selected} onRetry={onRetry} onPointerDown={onPointerDown} onContextMenu={onContextMenu} onPortPointerDown={onPortPointerDown} onPortPointerUp={onPortPointerUp} className="workflow-node-smart-remix">

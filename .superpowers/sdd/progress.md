@@ -877,3 +877,14 @@
   production build, build-asset check, collaboration policy and whitespace
   validation. Production deployment and authenticated browser acceptance still
   await the owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.
+- Final workflow audit found two remaining executable gaps: reverse prompt still
+  used the legacy vision path, and a failed smart-remix retry re-ran analysis
+  instead of resubmitting the existing generation request. Reverse prompt now
+  uses the formal ecommerce VLM text path with an editable deterministic
+  fallback; smart-remix retries submit the saved prompt, while ordinary process
+  nodes retry their actual operation. The old hidden `instruction` input is no
+  longer created, passed, or appended to generation requests. Focused Canvas
+  regression passed 53/53 and the full repository suite passed 1,046/1,046;
+  production build, build-asset check, syntax and whitespace validation passed.
+  Production deployment and authenticated browser acceptance still await the
+  owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.

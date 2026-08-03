@@ -73,6 +73,16 @@ test('Canvas OCR uses the formal ecommerce vision gateway instead of the legacy 
   assert.match(route, /status:\s*['"]已识别['"]/);
 });
 
+test('Canvas reverse prompt uses the formal ecommerce vision gateway with an editable fallback', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const route = extractCanvasRoute(source, '/api/reverse-prompt', '// 去除背景（调用 remove.bg 或本地 rembg）');
+
+  assert.match(route, /createEcommerceVlmClient\(\)\.completeText\(/);
+  assert.doesNotMatch(route, /callLLMWithVision\(/);
+  assert.match(route, /fallback\s*=\s*true/);
+  assert.match(route, /clean product photography/);
+});
+
 test('Canvas pixel layering and PSD export are signed composition routes', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const pixelRoute = extractCanvasRoute(source, '/api/canvas/pixel-layers', '// 画布 PSD 导出');
