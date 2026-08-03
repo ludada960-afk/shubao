@@ -24,6 +24,9 @@
   and `docs/superpowers/plans/2026-08-03-canvas-selected-composer-and-image-mentions.md`.
   No files are delegated. The 12 unrelated deleted extension-task JSON files
   and `.tmp/` remain user-owned and must not be staged or restored.
+  Task 1 is complete: compact generation-node geometry, selected-composer
+  presentation and ordered role-preserving image-mention contracts are covered
+  by 28/28 focused tests. The React surface split is the next boundary.
 
 - Integrated commercial Canvas and ecommerce creative-workflow closure is in
   progress in the Codex worktree; no files are delegated. The Canvas parity

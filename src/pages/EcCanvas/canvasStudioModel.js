@@ -21,6 +21,21 @@ export function getCanvasNodePresentation({ selected = false, hovered = false, f
   };
 }
 
+export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 24 } = {}) {
+  const visible = Boolean(node?.id && node.id === selectedId && Number(selectedCount) === 1);
+  if (!visible) return { visible: false, position: null };
+  const nodeWidth = Math.max(1, finite(node.w, width));
+  const nodeHeight = Math.max(1, finite(node.h, 0));
+  return {
+    visible: true,
+    position: {
+      left: Math.round(finite(node.x) + (nodeWidth - width) / 2),
+      top: Math.round(finite(node.y) + nodeHeight + gap),
+      width,
+    },
+  };
+}
+
 export function resizeCanvasNode(node = {}, { width } = {}) {
   const currentWidth = Math.max(1, finite(node.w, MIN_NODE_WIDTH));
   const currentHeight = Math.max(1, finite(node.h, currentWidth));
@@ -74,10 +89,11 @@ export function createCanvasImageComposerNode({ x = 0, y = 0, sourceNodeId = '',
     status: 'ready',
     x: finite(x),
     y: finite(y),
-    w: 520,
-    h: 278,
+    w: 280,
+    h: 280,
     prompt: '',
     ratio: '1:1',
+    resolution: '2K',
     count: 1,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
   };
@@ -90,10 +106,11 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
     status: 'ready',
     x: finite(x),
     y: finite(y),
-    w: 560,
-    h: 326,
+    w: 480,
+    h: 220,
+    text: '',
+    placeholder: '双击开始编辑...',
     prompt: '',
-    model: 'Lume Flow LM',
     count: 1,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
   };
@@ -107,10 +124,12 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     x: finite(x),
     y: finite(y),
     w: 560,
-    h: 356,
+    h: 360,
     prompt: '',
     platform,
     ratio: '1:1',
+    resolution: '2K',
+    language: '中文',
     count: 6,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
   };

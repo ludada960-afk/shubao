@@ -9,6 +9,7 @@ import {
   createCanvasTextComposerNode,
   createCanvasTextNode,
   createUploadedImageNodes,
+  getCanvasComposerPresentation,
   getCanvasNodePresentation,
   normalizeCanvasSelection,
   resizeCanvasNode,
@@ -106,17 +107,18 @@ test('native uploads become clean individual image nodes without source-card chr
   ]);
 });
 
-test('image and ecommerce generation start as movable canvas nodes beside their source', () => {
+test('image and ecommerce generation start as content-only canvas nodes beside their source', () => {
   assert.deepEqual(createCanvasImageComposerNode({ x: 400, y: 220, sourceNodeId: 'image-1', now: 123 }), {
     id: 'image_composer_123',
     kind: 'image-composer',
     status: 'ready',
     x: 400,
     y: 220,
-    w: 520,
-    h: 278,
+    w: 280,
+    h: 280,
     prompt: '',
     ratio: '1:1',
+    resolution: '2K',
     count: 1,
     sourceNodeIds: ['image-1'],
   });
@@ -127,28 +129,47 @@ test('image and ecommerce generation start as movable canvas nodes beside their 
     x: 500,
     y: 260,
     w: 560,
-    h: 356,
+    h: 360,
     prompt: '',
     platform: '天猫',
     ratio: '1:1',
+    resolution: '2K',
+    language: '中文',
     count: 6,
     sourceNodeIds: ['image-1'],
   });
 });
 
-test('text generation is a standalone composer and keeps source references separate from editable text', () => {
+test('text generation starts as an editable document body and keeps source references separate', () => {
   assert.deepEqual(createCanvasTextComposerNode({ x: 600, y: 320, sourceNodeId: 'image-1', now: 789 }), {
     id: 'text_composer_789',
     kind: 'text-composer',
     status: 'ready',
     x: 600,
     y: 320,
-    w: 560,
-    h: 326,
+    w: 480,
+    h: 220,
+    text: '',
+    placeholder: '双击开始编辑...',
     prompt: '',
-    model: 'Lume Flow LM',
     count: 1,
     sourceNodeIds: ['image-1'],
+  });
+});
+
+test('only one selected generation node receives a contextual composer position', () => {
+  const node = createCanvasImageComposerNode({ x: 400, y: 220, now: 123 });
+  assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: node.id, selectedCount: 1 }), {
+    visible: true,
+    position: { left: 220, top: 524, width: 640 },
+  });
+  assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: 'another', selectedCount: 1 }), {
+    visible: false,
+    position: null,
+  });
+  assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: node.id, selectedCount: 2 }), {
+    visible: false,
+    position: null,
   });
 });
 
