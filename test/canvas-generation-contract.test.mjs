@@ -71,14 +71,20 @@ test('Canvas pixel transforms honor requested grid size and split direction', as
   assert.match(route, /annotations\s*=\s*\[\]/);
 });
 
-test('Canvas layer analysis is billed and delegates to the real segmentation service', async () => {
+test('Canvas browser segmentation plan is signed and final layer analysis is billed', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const planRoute = extractCanvasRoute(source, '/api/canvas/segmentation-plan', '// 画布图文分层');
   const route = extractCanvasRoute(source, '/api/canvas/analyze-layers', '// 画布像素分层');
 
-  assert.match(source, /createFalSegmentationClient\(/);
+  assert.doesNotMatch(source, /createFalSegmentationClient\(/);
+  assert.match(source, /createCanvasSegmentationPlanTokenService\(\{/);
   assert.match(source, /createCanvasLayeringService\(\{/);
+  assert.match(planRoute, /canvasLayeringService\.createSegmentationPlan\(\{/);
+  assert.match(planRoute, /canvasSegmentationPlanTokens\.issue\(\{/);
   assert.match(route, /canvasOneShotBilling\.execute\(\{/);
   assert.match(route, /sku:\s*['"]ec_smart_layer['"]/);
+  assert.match(route, /canvasSegmentationPlanTokens\.verify\(\{/);
+  assert.match(route, /decodeBrowserSegmentationMasks\(/);
   assert.match(route, /canvasLayeringService\.createLayers\(\{/);
   assert.doesNotMatch(route, /segmentUniformBackground|parseVisionLayers|analyzeSceneCapabilities/);
 });
@@ -88,6 +94,8 @@ test('Canvas background removal prefers real product segmentation before legacy 
   const route = extractCanvasRoute(source, '/api/remove-bg', '// 详情切片');
 
   assert.match(route, /canvasLayeringService\.removeBackground\(\{/);
+  assert.match(route, /canvasSegmentationPlanTokens\.verify\(\{/);
+  assert.match(route, /decodeBrowserSegmentationMasks\(/);
   assert.match(route, /sku:\s*['"]ec_remove_bg['"]/);
   assert.match(route, /REMOVE_BG_KEY/);
   assert.match(route, /removeLightBackground/);

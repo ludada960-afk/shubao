@@ -2,9 +2,11 @@ import sharp from 'sharp';
 
 import { imageBufferToDataUrl, imageBufferToVisionDataUrl } from './imageInput.mjs';
 import { normalizeCanvasLayerPlan } from './canvasTools.mjs';
+import { createBrowserSegmentationPrompts } from './canvasSegmentationPlan.mjs';
 import {
   compositeMaskedAsset,
   maskIntersectionOverUnion,
+  normalizeSegmentationCropMask,
   normalizeSegmentationMask,
   segmentationMaskToPng,
   unionSegmentationMasks,
@@ -26,7 +28,9 @@ function pixelBox(box, width, height) {
 
 function assertDependencies(deps) {
   if (typeof deps?.visionClient?.analyzeJson !== 'function') throw new TypeError('visionClient.analyzeJson is required');
-  if (typeof deps?.segmentationClient?.segment !== 'function') throw new TypeError('segmentationClient.segment is required');
+  if (deps?.segmentationClient != null && typeof deps.segmentationClient.segment !== 'function') {
+    throw new TypeError('segmentationClient.segment must be a function');
+  }
   if (typeof deps?.generatedAssetStore?.persistBuffer !== 'function') throw new TypeError('generatedAssetStore.persistBuffer is required');
   if (typeof deps?.imageInputReader?.read !== 'function') throw new TypeError('imageInputReader.read is required');
 }
@@ -65,13 +69,17 @@ export function createCanvasLayeringService(deps = {}) {
     createBackgroundCleanPlate,
   } = deps;
 
-  async function segmentProducts({ imageUrl, signal }) {
+  async function readSource(imageUrl) {
     const sourceInput = await imageInputReader.read(imageUrl);
     const sourceBuffer = await sharp(sourceInput.buffer, { failOn: 'error' }).rotate().png().toBuffer();
     const metadata = await sharp(sourceBuffer).metadata();
     const width = metadata.width;
     const height = metadata.height;
     if (!width || !height) throw layeringError('CANVAS_LAYER_SOURCE_INVALID', '源图片尺寸无效', 400);
+    return { sourceBuffer, width, height };
+  }
+
+  async function analyzeProducts({ sourceBuffer, signal }) {
     const visionImage = await imageBufferToVisionDataUrl({ buffer: sourceBuffer });
     const rawPlan = await visionClient.analyzeJson({
       systemPrompt: [
@@ -87,23 +95,58 @@ export function createCanvasLayeringService(deps = {}) {
     });
     const plan = normalizeCanvasLayerPlan(rawPlan);
     if (!plan.instances.length) throw layeringError('CANVAS_LAYER_PRODUCTS_NOT_FOUND', '没有识别到可分离的商品主体');
-    const prompts = plan.instances.map(instance => ({ id: instance.id, box: pixelBox(instance.box, width, height) }));
-    const segmented = await segmentationClient.segment({
-      imageUrl: imageBufferToDataUrl({ buffer: sourceBuffer, contentType: 'image/png' }),
-      prompts,
-      maxMasks: prompts.length,
-      imageWidth: width,
-      imageHeight: height,
-      signal,
-    });
+    return plan;
+  }
+
+  async function segmentProducts({ imageUrl, segmentationPlan, segmentationMasks, signal }) {
+    const source = await readSource(imageUrl);
+    const { sourceBuffer, width, height } = source;
+    let plan;
+    let rawMasks;
+    let requestId = '';
+    let method = 'u2netp-browser';
+    let browserPrompts = [];
+    if (segmentationPlan) {
+      if (segmentationPlan.source?.width !== width || segmentationPlan.source?.height !== height) {
+        throw layeringError('CANVAS_SEGMENTATION_SOURCE_MISMATCH', '源图片尺寸与智能抠图计划不一致', 409);
+      }
+      plan = normalizeCanvasLayerPlan(segmentationPlan.plan);
+      browserPrompts = Array.isArray(segmentationPlan.prompts) ? segmentationPlan.prompts : [];
+      rawMasks = Array.isArray(segmentationMasks) ? segmentationMasks : [];
+    } else {
+      if (typeof segmentationClient?.segment !== 'function') {
+        throw layeringError('CANVAS_BROWSER_SEGMENTATION_REQUIRED', '请在支持智能抠图的浏览器中重试', 409);
+      }
+      plan = await analyzeProducts({ sourceBuffer, signal });
+      const prompts = plan.instances.map(instance => ({ id: instance.id, box: pixelBox(instance.box, width, height) }));
+      const segmented = await segmentationClient.segment({
+        imageUrl: imageBufferToDataUrl({ buffer: sourceBuffer, contentType: 'image/png' }),
+        prompts,
+        maxMasks: prompts.length,
+        imageWidth: width,
+        imageHeight: height,
+        signal,
+      });
+      rawMasks = segmented.masks;
+      requestId = segmented.requestId || '';
+      method = 'sam3';
+    }
     const instanceById = new Map(plan.instances.map(instance => [instance.id, instance]));
+    const promptById = new Map(browserPrompts.map(prompt => [prompt.id, prompt]));
     const accepted = [];
-    for (const [index, rawMask] of segmented.masks.entries()) {
+    for (const rawMask of rawMasks) {
       const instance = instanceById.get(rawMask.promptId);
       if (!instance || (rawMask.score != null && Number(rawMask.score) < 0.5)) continue;
       try {
-        const maskInput = await imageInputReader.read(rawMask.url);
-        const mask = await normalizeSegmentationMask(maskInput.buffer, { width, height });
+        let mask;
+        if (segmentationPlan) {
+          const prompt = promptById.get(rawMask.promptId);
+          if (!prompt || !Buffer.isBuffer(rawMask.buffer)) continue;
+          mask = await normalizeSegmentationCropMask(rawMask.buffer, { width, height, box: prompt.box });
+        } else {
+          const maskInput = await imageInputReader.read(rawMask.url);
+          mask = await normalizeSegmentationMask(maskInput.buffer, { width, height });
+        }
         if (accepted.some(item => maskIntersectionOverUnion(item.mask, mask) >= 0.85)) continue;
         accepted.push({ instance, mask, confidence: rawMask.score == null ? instance.confidence : Number(rawMask.score) });
       } catch (error) {
@@ -118,7 +161,8 @@ export function createCanvasLayeringService(deps = {}) {
       plan,
       accepted,
       omittedProductInstances: Math.max(0, plan.instances.length - accepted.length),
-      requestId: segmented.requestId || '',
+      requestId,
+      method,
     };
   }
 
@@ -164,8 +208,18 @@ export function createCanvasLayeringService(deps = {}) {
   }
 
   return {
-    async removeBackground({ imageUrl, signal } = {}) {
-      const segmented = await segmentProducts({ imageUrl, signal });
+    async createSegmentationPlan({ imageUrl, signal } = {}) {
+      const source = await readSource(imageUrl);
+      const plan = await analyzeProducts({ sourceBuffer: source.sourceBuffer, signal });
+      return {
+        source: { width: source.width, height: source.height },
+        plan,
+        prompts: createBrowserSegmentationPrompts(plan, { width: source.width, height: source.height }),
+      };
+    },
+
+    async removeBackground({ imageUrl, segmentationPlan, segmentationMasks, signal } = {}) {
+      const segmented = await segmentProducts({ imageUrl, segmentationPlan, segmentationMasks, signal });
       if (segmented.omittedProductInstances > 0) {
         throw layeringError(
           'CANVAS_LAYER_INSTANCE_COVERAGE_INCOMPLETE',
@@ -174,12 +228,16 @@ export function createCanvasLayeringService(deps = {}) {
       }
       const groupMask = unionSegmentationMasks(segmented.accepted.map(item => item.mask));
       const composed = await compositeMaskedAsset(segmented.sourceBuffer, groupMask);
-      const asset = await persistPng(generatedAssetStore, composed.buffer, 'canvas_remove_bg_sam3');
+      const asset = await persistPng(
+        generatedAssetStore,
+        composed.buffer,
+        segmented.method === 'u2netp-browser' ? 'canvas_remove_bg_browser' : 'canvas_remove_bg_sam3',
+      );
       return {
         url: asset.url,
         result_url: asset.url,
         assetId: asset.id,
-        method: 'sam3',
+        method: segmented.method,
         subjectCount: segmented.accepted.length,
         bounds: composed.bounds,
         pixelWidth: composed.width,
@@ -187,8 +245,8 @@ export function createCanvasLayeringService(deps = {}) {
       };
     },
 
-    async createLayers({ imageUrl, signal } = {}) {
-      const segmented = await segmentProducts({ imageUrl, signal });
+    async createLayers({ imageUrl, segmentationPlan, segmentationMasks, signal } = {}) {
+      const segmented = await segmentProducts({ imageUrl, segmentationPlan, segmentationMasks, signal });
       const completeProductGroup = segmented.omittedProductInstances === 0;
       const { groupMask, groupLayer, instanceLayers } = await persistProductLayers(segmented, {
         includeGroup: completeProductGroup,
@@ -252,7 +310,7 @@ export function createCanvasLayeringService(deps = {}) {
           psdExport: false,
         },
         warnings,
-        segmentation: { method: 'sam3', requestId: segmented.requestId },
+        segmentation: { method: segmented.method, requestId: segmented.requestId },
       };
     },
   };

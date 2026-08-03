@@ -12,6 +12,7 @@ const EXPENSIVE_POST_ROUTE_LIST = [
   '/api/generate-ecommerce',
   '/api/canvas/regenerate',
   '/api/canvas/transform',
+  '/api/canvas/segmentation-plan',
   '/api/canvas/analyze-layers',
   '/api/canvas/ocr',
   '/api/canvas/replace-text',

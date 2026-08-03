@@ -22,6 +22,7 @@ const EXPENSIVE_POST_ROUTES = [
   '/api/generate-ecommerce',
   '/api/canvas/regenerate',
   '/api/canvas/transform',
+  '/api/canvas/segmentation-plan',
   '/api/canvas/analyze-layers',
   '/api/canvas/ocr',
   '/api/canvas/replace-text',
@@ -35,6 +36,7 @@ const EXPENSIVE_POST_ROUTES = [
 const CANVAS_AI_ROUTES = [
   '/api/canvas/regenerate',
   '/api/canvas/transform',
+  '/api/canvas/segmentation-plan',
   '/api/canvas/analyze-layers',
   '/api/canvas/ocr',
   '/api/canvas/replace-text',

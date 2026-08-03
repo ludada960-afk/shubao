@@ -66,7 +66,10 @@ import {
 } from './canvasGenerationService.mjs';
 import { createCanvasBackgroundCleanPlate } from './canvasBackgroundCleanPlate.mjs';
 import { createCanvasLayeringService } from './canvasLayeringService.mjs';
-import { createFalSegmentationClient } from './falSegmentationClient.mjs';
+import {
+  createCanvasSegmentationPlanTokenService,
+  decodeBrowserSegmentationMasks,
+} from './canvasSegmentationPlan.mjs';
 import { resolveGenerationSize } from './ecommerceEngine/modelCatalog.mjs';
 import {
   createEcommerceAssetRouteHandlers,
@@ -140,6 +143,7 @@ const authSessionSecret = resolveAuthSessionSecret({
 });
 const contentSessionTokens = createSessionTokenService({ secret: authSessionSecret });
 const billingQuoteService = createBillingQuoteService({ secret: authSessionSecret });
+const canvasSegmentationPlanTokens = createCanvasSegmentationPlanTokenService({ secret: authSessionSecret });
 const contentBilling = createContentBilling({ db, contentEntitlements, walletService });
 const {
   beginContentGeneration,
@@ -282,6 +286,7 @@ const SIGNED_GENERATION_ROUTES = new Set([
   '/api/polish-ec-text',
   '/api/canvas/regenerate',
   '/api/canvas/transform',
+  '/api/canvas/segmentation-plan',
   '/api/canvas/analyze-layers',
   '/api/canvas/ocr',
   '/api/canvas/replace-text',
@@ -3180,7 +3185,6 @@ const canvasBackgroundCleanPlate = createCanvasBackgroundCleanPlate({
 });
 const canvasLayeringService = createCanvasLayeringService({
   visionClient: createEcommerceVlmClient(),
-  segmentationClient: createFalSegmentationClient(),
   generatedAssetStore,
   imageInputReader,
   createBackgroundCleanPlate: canvasBackgroundCleanPlate,
@@ -3431,12 +3435,26 @@ async function removeLightBackground(imageBuffer) {
 }
 
 app.post('/api/remove-bg', async (req, res) => {
-  const { image_url, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
+  const {
+    image_url,
+    segmentation_plan_token: planToken,
+    segmentation_masks: rawMasks,
+    billing_quote_id: quoteId,
+    billing_action_id: actionId,
+  } = req.body || {};
   if (!image_url) return res.status(400).json({ error: '缺少图片' });
 
   const REMOVE_BG_KEY = process.env.REMOVE_BG_KEY || '';
 
   try {
+    const segmentationPlan = planToken ? canvasSegmentationPlanTokens.verify({
+      token: planToken,
+      ownerEmail: req._userEmail,
+      imageUrl: image_url,
+    }) : null;
+    const segmentationMasks = segmentationPlan
+      ? decodeBrowserSegmentationMasks(rawMasks, segmentationPlan.prompts)
+      : null;
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
@@ -3444,12 +3462,14 @@ app.post('/api/remove-bg', async (req, res) => {
       sku: 'ec_remove_bg',
       referenceType: 'canvas_remove_bg',
       providerCostCny: 0.03,
-      metadata: { action: 'remove_bg', primaryMethod: 'sam3' },
+      metadata: { action: 'remove_bg', primaryMethod: segmentationPlan ? 'u2netp-browser' : 'legacy-fallback' },
       work: async () => {
-        try {
-          return await canvasLayeringService.removeBackground({ imageUrl: image_url });
-        } catch (segmentationError) {
-          console.warn('[remove-bg] SAM3 分割降级:', segmentationError.code || segmentationError.message);
+        if (segmentationPlan) {
+          return canvasLayeringService.removeBackground({
+            imageUrl: image_url,
+            segmentationPlan,
+            segmentationMasks,
+          });
         }
 
         if (REMOVE_BG_KEY) {
@@ -3894,15 +3914,51 @@ app.post('/api/canvas/regenerate-text', authenticateEcommerceRequest, async (req
   }
 });
 
+app.post('/api/canvas/segmentation-plan', async (req, res) => {
+  const { image_url: imageUrl } = req.body || {};
+  if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
+  try {
+    const analysis = await canvasLayeringService.createSegmentationPlan({ imageUrl });
+    const issued = canvasSegmentationPlanTokens.issue({
+      ownerEmail: req._userEmail,
+      imageUrl,
+      source: analysis.source,
+      plan: analysis.plan,
+      prompts: analysis.prompts,
+    });
+    return res.json({
+      source: analysis.source,
+      prompts: analysis.prompts,
+      text_blocks: analysis.plan.textBlocks,
+      plan_token: issued.planToken,
+      expires_at: issued.expiresAt,
+    });
+  } catch (error) {
+    console.error('[canvas/segmentation-plan] 失败:', error.message);
+    return res.status(error?.status || 500).json({
+      error: safeCanvasClientError(error, '商品识别暂时不可用，请稍后重试'),
+      code: error?.code,
+    });
+  }
+});
+
 // 画布图文分层：自动生成可移动的商品实例、商品整组、背景净版与文字层。
 app.post('/api/canvas/analyze-layers', async (req, res) => {
   const {
     image_url: imageUrl,
+    segmentation_plan_token: planToken,
+    segmentation_masks: rawMasks,
     billing_quote_id: quoteId,
     billing_action_id: actionId,
   } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
   try {
+    const segmentationPlan = canvasSegmentationPlanTokens.verify({
+      token: planToken,
+      ownerEmail: req._userEmail,
+      imageUrl,
+    });
+    const segmentationMasks = decodeBrowserSegmentationMasks(rawMasks, segmentationPlan.prompts);
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
@@ -3910,8 +3966,12 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
       sku: 'ec_smart_layer',
       referenceType: 'canvas_smart_layer',
       providerCostCny: 0.20,
-      metadata: { action: 'smart_layer', method: 'vision-sam3-image2' },
-      work: () => canvasLayeringService.createLayers({ imageUrl }),
+      metadata: { action: 'smart_layer', method: 'vision-u2netp-browser-image2' },
+      work: () => canvasLayeringService.createLayers({
+        imageUrl,
+        segmentationPlan,
+        segmentationMasks,
+      }),
     });
     res.json({ ...billed.result, billing: billed.billing });
   } catch (error) {

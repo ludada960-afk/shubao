@@ -232,6 +232,30 @@ export async function normalizeSegmentationMask(maskBuffer, { width, height } = 
   return maskSummary(removeSmallMaskIslands(alpha, width, height), width, height);
 }
 
+export async function normalizeSegmentationCropMask(maskBuffer, { width, height, box } = {}) {
+  if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
+    throw new TypeError('mask width and height are required');
+  }
+  const [left, top, right, bottom] = Array.isArray(box) ? box.map(Number) : [];
+  if (![left, top, right, bottom].every(Number.isSafeInteger)
+    || left < 0 || top < 0 || right > width || bottom > height
+    || right <= left || bottom <= top) {
+    throw new TypeError('a valid crop box is required');
+  }
+  const cropWidth = right - left;
+  const cropHeight = bottom - top;
+  const { data } = await sharp(maskBuffer, { failOn: 'error' })
+    .greyscale()
+    .resize(cropWidth, cropHeight, { fit: 'fill', kernel: sharp.kernel.nearest })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const expanded = Buffer.alloc(width * height);
+  for (let y = 0; y < cropHeight; y += 1) {
+    data.copy(expanded, (top + y) * width + left, y * cropWidth, (y + 1) * cropWidth);
+  }
+  return maskSummary(removeSmallMaskIslands(expanded, width, height), width, height);
+}
+
 export function maskIntersectionOverUnion(left, right) {
   if (!left?.data || !right?.data || left.width !== right.width || left.height !== right.height) return 0;
   let intersection = 0;

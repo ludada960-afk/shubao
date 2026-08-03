@@ -254,6 +254,59 @@ test('remove background unions every accepted product instead of returning one i
   assert.equal(metadata.height, 51);
 });
 
+test('creates a signed-plan-ready analysis and consumes browser crop masks without a provider client', async () => {
+  const source = await sourceFixture();
+  const persisted = [];
+  const generatedAssetStore = {
+    async persistBuffer({ buffer, contentType, label }) {
+      const id = `browser-asset-${persisted.length + 1}.png`;
+      persisted.push({ id, buffer: Buffer.from(buffer), contentType, label });
+      return { id, url: `/api/generated-assets/${id}`, contentType };
+    },
+  };
+  const service = createCanvasLayeringService({
+    visionClient: { async analyzeJson() { return semanticPlan(); } },
+    generatedAssetStore,
+    imageInputReader: {
+      async read(url) {
+        if (url === '/source.png') return { buffer: source, contentType: 'image/png' };
+        throw new Error(`unknown fixture ${url}`);
+      },
+    },
+    createBackgroundCleanPlate: async () => sharp({
+      create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 246, g: 240, b: 228, alpha: 1 } },
+    }).png().toBuffer(),
+  });
+
+  const analysis = await service.createSegmentationPlan({ imageUrl: '/source.png' });
+  assert.deepEqual(analysis.source, { width: WIDTH, height: HEIGHT });
+  assert.equal(analysis.prompts.length, 3);
+
+  const segmentationMasks = await Promise.all(analysis.prompts.map(async prompt => {
+    const rect = RECTS.find(item => item.id === prompt.id);
+    const fullMask = await maskFixture(rect);
+    const [left, top, right, bottom] = prompt.box;
+    const buffer = await sharp(fullMask).extract({
+      left,
+      top,
+      width: right - left,
+      height: bottom - top,
+    }).png().toBuffer();
+    return { promptId: prompt.id, box: prompt.box, buffer };
+  }));
+  const result = await service.createLayers({
+    imageUrl: '/source.png',
+    segmentationPlan: analysis,
+    segmentationMasks,
+  });
+
+  assert.equal(result.status, 'complete');
+  assert.equal(result.capabilities.productInstances, 3);
+  assert.equal(result.segmentation.method, 'u2netp-browser');
+  assert.equal(result.layers.filter(layer => layer.semanticType === 'product-instance').length, 3);
+  assert.equal(persisted.filter(asset => /canvas_layer_product/.test(asset.label)).length, 4);
+});
+
 test('rejects masks that are empty, nearly full-frame or duplicate an accepted instance', async () => {
   const empty = await sharp(Buffer.alloc(WIDTH * HEIGHT), { raw: { width: WIDTH, height: HEIGHT, channels: 1 } }).png().toBuffer();
   await assert.rejects(
