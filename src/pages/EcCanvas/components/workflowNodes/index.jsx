@@ -3,7 +3,6 @@ import {
   MdAutoFixHigh,
   MdChevronRight,
   MdClose,
-  MdColorLens,
   MdDownload,
   MdEdit,
   MdImageSearch,
@@ -178,7 +177,7 @@ export function LayerWorkbenchNodeCard({ layers = [], selectedLayerId, status = 
           {selectedLayer && <div className="workflow-layer-inspector">
             <div className="workflow-section-label"><strong>{selectedLayer.name}</strong><span>当前图层</span></div>
             <div className="workflow-layer-quick-actions"><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'up')}>上移</button><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'down')}>下移</button><button type="button" onClick={() => onAddToCanvas?.(selectedLayer)} disabled={!selectedLayer.url && !selectedLayer.preview_url}>放到画布</button></div>
-            <div className="workflow-layer-capabilities"><span><MdOpenWith size={14} /> 可移动</span><span><MdColorLens size={14} /> 可调色</span>{selectedLayer.kind === 'text' && <span><MdEdit size={14} /> 可编辑文字</span>}</div>
+            <div className="workflow-layer-capabilities"><span><MdOpenWith size={14} /> 可移动</span>{selectedLayer.kind === 'text' && <span><MdEdit size={14} /> 可编辑文字</span>}</div>
           </div>}
           <div className="workflow-node-footer-row">
             <button type="button" className="workflow-secondary-button" onClick={() => onExportPng?.(selectedLayer)} disabled={!selectedLayer}><MdDownload size={15} /> 导出当前层</button>

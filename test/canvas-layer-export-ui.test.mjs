@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 test('Canvas workbench offers real pixel layering before verified PSD download', async () => {
   const canvas = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const card = await readFile(new URL('../src/pages/EcCanvas/components/workflowNodes/modular/LayerWorkbenchNodeCard.jsx', import.meta.url), 'utf8');
+  const legacyCard = await readFile(new URL('../src/pages/EcCanvas/components/workflowNodes/index.jsx', import.meta.url), 'utf8');
 
   assert.match(canvas, /createCanvasPixelLayers,\s*exportCanvasPsd/);
   assert.match(canvas, /capabilities:\s*data\.capabilities/);
@@ -17,6 +18,8 @@ test('Canvas workbench offers real pixel layering before verified PSD download',
   assert.match(card, /onCreatePixelLayers/);
   assert.match(card, /生成像素分层/);
   assert.match(card, /layerCapabilities\.pixelLayers\s*&&\s*selectedLayer/);
+  assert.doesNotMatch(card, /可调色/);
+  assert.doesNotMatch(legacyCard, /可调色/);
 });
 
 test('text composition retains a real source image layer for pixel-layer export', async () => {

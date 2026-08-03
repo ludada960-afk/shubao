@@ -1,5 +1,5 @@
 import React from 'react';
-import { MdColorLens, MdDownload, MdEdit, MdLayers, MdLock, MdLockOpen, MdOpenWith, MdOutlineVisibility, MdVisibilityOff } from 'react-icons/md';
+import { MdDownload, MdEdit, MdLayers, MdLock, MdLockOpen, MdOpenWith, MdOutlineVisibility, MdVisibilityOff } from 'react-icons/md';
 import CanvasNodeShell from './CanvasNodeShell';
 import { getLayerCapabilities, normalizeLayers } from './workflowNodeViewModel';
 import styles from './CanvasWorkflowNodes.module.css';
@@ -46,7 +46,7 @@ export default function LayerWorkbenchNodeCard({
         {layerCapabilities.pixelLayers && selectedLayer && <div className={styles.layerInspector}>
           <div className={styles.sectionLabel}><strong>{selectedLayer.name}</strong><span>当前图层</span></div>
           <div className={styles.quickActions}><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'up')}>上移</button><button type="button" onClick={() => onMoveLayer?.(selectedLayer, 'down')}>下移</button><button type="button" onClick={() => onAddToCanvas?.(selectedLayer)} disabled={!selectedLayer.url}>放到画布</button></div>
-          <div className={styles.capabilityList}><span><MdOpenWith size={14} /> 可移动</span><span><MdColorLens size={14} /> 可调色</span>{selectedLayer.kind === 'text' && <span><MdEdit size={14} /> 可编辑文字</span>}</div>
+          <div className={styles.capabilityList}><span><MdOpenWith size={14} /> 可移动</span>{selectedLayer.kind === 'text' && <span><MdEdit size={14} /> 可编辑文字</span>}</div>
         </div>}
         <div className={styles.footerRow}>
           {layerCapabilities.pixelLayers && <button type="button" className={styles.secondaryButton} onClick={() => onExportPng?.(selectedLayer)} disabled={!selectedLayer}><MdDownload size={15} /> 导出当前层</button>}

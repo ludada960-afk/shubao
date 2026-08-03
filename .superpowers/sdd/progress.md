@@ -914,3 +914,12 @@
   build-asset check, syntax and whitespace validation. Production deployment
   and authenticated browser acceptance still await the owner-provided
   `SHUBAO_CANARY_SESSION_TOKEN`.
+- Final UI truthfulness audit removed the unimplemented “可调色” capability
+  claim from both modular and legacy layer workbench cards. The cards now expose
+  only the operations that are actually wired: visibility, locking, ordering,
+  placing a layer on the canvas, text editing where applicable, and PNG export.
+  A focused contract now guards both card variants against reintroducing that
+  false affordance. The focused Canvas/API regression passed 71/71 and the
+  production build passed again. Production deployment and authenticated
+  browser acceptance still await the owner-provided
+  `SHUBAO_CANARY_SESSION_TOKEN`.
