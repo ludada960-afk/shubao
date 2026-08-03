@@ -98,7 +98,13 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
 }
 
 export function CanvasDeriveMenu({ actions = [], position = {}, title = '引用当前素材生成', onBack, onClose, onSelect }) {
-  return <div className="ec-canvas-derive-menu" style={position} role="menu" aria-label="从当前素材继续创作">
+  const { x, y, ...positionStyle } = position || {};
+  const menuStyle = {
+    ...positionStyle,
+    ...(x != null ? { left: x } : {}),
+    ...(y != null ? { top: y } : {}),
+  };
+  return <div className="ec-canvas-derive-menu" style={menuStyle} role="menu" aria-label="从当前素材继续创作">
     <div className="ec-canvas-menu-heading">
       <span>{onBack && <button type="button" aria-label="返回创作类型" onClick={onBack}><ArrowLeft size={14} /></button>}{title}</span>
       <button type="button" aria-label="关闭派生菜单" onClick={onClose}><X size={15} /></button>

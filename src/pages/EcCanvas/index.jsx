@@ -378,14 +378,15 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
 }
 
 function ConnectionDraftLine({ draft, nodes }) {
-  if (!draft?.sourceNodeId || !draft.pointer) return null;
+  const pointer = draft?.pointer || draft?.world;
+  if (!draft?.sourceNodeId || !pointer) return null;
   const source = nodes.find(node => node.id === draft.sourceNodeId);
   if (!source) return null;
   const sourcePort = getCanvasPortCenter(source, 'output');
   const x1 = sourcePort.x;
   const y1 = sourcePort.y;
-  const x2 = draft.pointer.x;
-  const y2 = draft.pointer.y;
+  const x2 = pointer.x;
+  const y2 = pointer.y;
   const mx = (x1 + x2) / 2;
   return (
     <svg aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 12 }}>
