@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import sharp from 'sharp';
 import { analyzeSceneCapabilities, buildCanvasTransformPrompt, cropRectForRatio, gridRects, parseVisionLayers, parseVisionTextBlocks } from '../server/canvasTools.mjs';
+import { segmentUniformBackground } from '../server/canvasSegmentation.mjs';
 
 test('builds action-specific canvas prompts without losing product identity rules', () => {
   const prompt = buildCanvasTransformPrompt({ action: 'translate', targetLanguage: '英文', prompt: '保留原有价格层级' });
@@ -56,4 +58,51 @@ test('parses OCR blocks with bounded editable coordinates', () => {
   const blocks = parseVisionTextBlocks('结果：{"blocks":[{"id":"headline","text":"新品","x":0.1,"y":0.2,"width":0.4,"height":0.12,"color":"#112233","background":"#ffffff"}]}');
   assert.deepEqual(blocks, [{ id: 'headline', text: '新品', x: 0.1, y: 0.2, width: 0.4, height: 0.12, color: '#112233', background: '#ffffff' }]);
   assert.deepEqual(parseVisionTextBlocks('不是 JSON'), []);
+});
+
+test('separates a reliable uniform colored background into movable pixel layers', async () => {
+  const width = 100;
+  const height = 80;
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const product = x >= 30 && x < 70 && y >= 24 && y < 60;
+      pixels[offset] = product ? 24 : 208;
+      pixels[offset + 1] = product ? 30 : 229;
+      pixels[offset + 2] = product ? 36 : 244;
+      pixels[offset + 3] = 255;
+    }
+  }
+  const result = await segmentUniformBackground(await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer());
+  assert.equal(result.segmented, true);
+  assert.equal(result.method, 'uniform-border-flood-fill');
+  const subject = await sharp(await result.subject).raw().toBuffer({ resolveWithObject: true });
+  const background = await sharp(await result.background).raw().toBuffer({ resolveWithObject: true });
+  assert.equal(subject.data[3], 0);
+  assert.equal(subject.data[(40 * width + 50) * 4 + 3], 255);
+  assert.equal(background.data[3], 255);
+  assert.equal(background.data[(40 * width + 50) * 4 + 3], 0);
+});
+
+test('does not claim pixel separation when image corners disagree', async () => {
+  const width = 40;
+  const height = 40;
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const warm = x < width / 2 && y < height / 2;
+      pixels[offset] = warm ? 224 : 32;
+      pixels[offset + 1] = warm ? 198 : 92;
+      pixels[offset + 2] = warm ? 164 : 180;
+      pixels[offset + 3] = 255;
+    }
+  }
+  const result = await segmentUniformBackground(await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer());
+  assert.equal(result.segmented, false);
+  const subject = await sharp(await result.subject).raw().toBuffer();
+  const background = await sharp(await result.background).raw().toBuffer();
+  assert.equal(subject[3], 255);
+  assert.equal(background[3], 0);
 });

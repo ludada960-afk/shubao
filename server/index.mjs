@@ -110,6 +110,7 @@ import {
   parseVisionLayers,
   parseVisionTextBlocks,
 } from './canvasTools.mjs';
+import { segmentUniformBackground } from './canvasSegmentation.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function safeCanvasClientError(error, fallback = '画布服务暂时不可用，请稍后重试') {
@@ -3407,52 +3408,10 @@ app.post('/api/reverse-prompt', async (req, res) => {
 // ============================================================
 // 去除背景（调用 remove.bg 或本地 rembg）
 // ============================================================
-async function segmentLightBackground(imageBuffer) {
-  const { data, info } = await sharp(imageBuffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const { width, height, channels } = info;
-  const original = Buffer.from(data);
-  const visited = new Uint8Array(width * height);
-  const queue = new Int32Array(width * height);
-  let head = 0;
-  let tail = 0;
-  const isBackground = index => {
-    const offset = index * channels;
-    const r = data[offset];
-    const g = data[offset + 1];
-    const b = data[offset + 2];
-    const alpha = data[offset + 3];
-    return alpha > 0 && r > 224 && g > 224 && b > 224 && Math.max(r, g, b) - Math.min(r, g, b) < 34;
-  };
-  const enqueue = index => {
-    if (index < 0 || index >= width * height || visited[index] || !isBackground(index)) return;
-    visited[index] = 1;
-    queue[tail++] = index;
-  };
-  for (let x = 0; x < width; x += 1) { enqueue(x); enqueue((height - 1) * width + x); }
-  for (let y = 0; y < height; y += 1) { enqueue(y * width); enqueue(y * width + width - 1); }
-  while (head < tail) {
-    const index = queue[head++];
-    const x = index % width;
-    const y = Math.floor(index / width);
-    if (x > 0) enqueue(index - 1);
-    if (x < width - 1) enqueue(index + 1);
-    if (y > 0) enqueue(index - width);
-    if (y < height - 1) enqueue(index + width);
-    data[index * channels + 3] = 0;
-    if (x === 0 || x === width - 1 || y === 0 || y === height - 1) data[index * channels + 3] = 0;
-  }
-  const backgroundData = Buffer.from(original);
-  for (let index = 0; index < width * height; index += 1) {
-    if (!visited[index]) backgroundData[index * channels + 3] = 0;
-  }
-  return {
-    subject: sharp(data, { raw: { width, height, channels } }).png().toBuffer(),
-    background: sharp(backgroundData, { raw: { width, height, channels } }).png().toBuffer(),
-  };
-}
-
 async function removeLightBackground(imageBuffer) {
-  return (await segmentLightBackground(imageBuffer)).subject;
+  const split = await segmentUniformBackground(imageBuffer);
+  if (!split.segmented) throw new Error('未检测到可靠的纯色或浅色背景，无法安全去背');
+  return split.subject;
 }
 
 app.post('/api/remove-bg', async (req, res) => {
@@ -3491,7 +3450,7 @@ app.post('/api/remove-bg', async (req, res) => {
       return res.json({ ...billed.result, billing: billed.billing });
     }
 
-    // 无第三方 key 时仍提供本地白底商品图去背，避免交互停在“不可用”。
+    // 无第三方 key 时提供安全的纯色/浅色背景去背；复杂场景交给 remove.bg，避免误切主体。
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
@@ -3499,7 +3458,7 @@ app.post('/api/remove-bg', async (req, res) => {
       sku: 'ec_remove_bg',
       referenceType: 'canvas_remove_bg_local',
       providerCostCny: 0,
-      metadata: { action: 'remove_bg', method: 'local-light-background' },
+      metadata: { action: 'remove_bg', method: 'local-uniform-background' },
       work: async () => {
         const { buffer: imgBuf } = await imageInputReader.read(image_url);
         const outBuf = await removeLightBackground(imgBuf);
@@ -3509,7 +3468,7 @@ app.post('/api/remove-bg', async (req, res) => {
           taskId: `canvas_remove_bg_local_${Date.now()}`,
           label: 'canvas_remove_bg_local',
         });
-        return { result_url: asset.url, url: asset.url, method: 'local-light-background' };
+        return { result_url: asset.url, url: asset.url, method: 'local-uniform-background' };
       },
     });
     return res.json({ ...billed.result, billing: billed.billing });
@@ -3908,12 +3867,16 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
     } catch (visionError) {
       console.warn('[canvas/analyze-layers] 语义分析降级:', visionError.message);
     }
-    const split = await segmentLightBackground(buffer);
-    const subjectAsset = await generatedAssetStore.persistBuffer({ buffer: await split.subject, contentType: 'image/png', taskId: `canvas_layer_subject_${Date.now()}`, label: 'canvas_layer_subject' });
-    const backgroundAsset = await generatedAssetStore.persistBuffer({ buffer: await split.background, contentType: 'image/png', taskId: `canvas_layer_background_${Date.now()}`, label: 'canvas_layer_background' });
+    const split = await segmentUniformBackground(buffer);
+    const subjectAsset = split.segmented
+      ? await generatedAssetStore.persistBuffer({ buffer: await split.subject, contentType: 'image/png', taskId: `canvas_layer_subject_${Date.now()}`, label: 'canvas_layer_subject' })
+      : null;
+    const backgroundAsset = split.segmented
+      ? await generatedAssetStore.persistBuffer({ buffer: await split.background, contentType: 'image/png', taskId: `canvas_layer_background_${Date.now()}`, label: 'canvas_layer_background' })
+      : null;
     const semanticLayers = layers.length ? layers : [
-      { name: '商品主体', description: '已从浅色背景中分离，可单独移动和导出。' },
-      { name: '背景', description: '保留原图中与商品主体分开的背景区域。' },
+      { name: '商品主体', description: split.segmented ? '已从背景中分离，可单独移动和导出。' : '识别到商品主体；当前图片未找到可靠的纯色背景。' },
+      { name: '背景', description: split.segmented ? '保留原图中与商品主体分开的背景区域。' : '未生成可单独移动的背景层。' },
     ];
     const subjectIndex = semanticLayers.findIndex(layer => /商品|主体|产品/.test(layer.name));
     const backgroundIndex = semanticLayers.findIndex((layer, index) => index !== subjectIndex && /背景|底色|氛围/.test(layer.name));
@@ -3923,20 +3886,25 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
       return {
         ...layer,
         kind: 'image',
-        url: isSubject ? subjectAsset.url : isBackground ? backgroundAsset.url : '',
-        preview_url: isSubject ? subjectAsset.url : isBackground ? backgroundAsset.url : '',
-        editable: Boolean(isSubject || isBackground),
+        url: isSubject && subjectAsset ? subjectAsset.url : isBackground && backgroundAsset ? backgroundAsset.url : '',
+        preview_url: isSubject && subjectAsset ? subjectAsset.url : isBackground && backgroundAsset ? backgroundAsset.url : '',
+        editable: split.segmented && Boolean(isSubject || isBackground),
       };
     });
-    if (!resolvedLayers.some(layer => layer.url === subjectAsset.url)) {
-      resolvedLayers.unshift({ name: '商品主体', description: '已从浅色背景中分离，可单独移动和导出。', kind: 'image', url: subjectAsset.url, preview_url: subjectAsset.url, editable: true });
+    if (split.segmented && !resolvedLayers.some(layer => layer.url === subjectAsset?.url)) {
+      resolvedLayers.unshift({ name: '商品主体', description: split.segmented ? '已从背景中分离，可单独移动和导出。' : '识别到商品主体；当前图片未找到可靠的纯色背景。', kind: 'image', url: subjectAsset.url, preview_url: subjectAsset.url, editable: split.segmented });
     }
-    if (!resolvedLayers.some(layer => layer.url === backgroundAsset.url)) {
-      resolvedLayers.push({ name: '背景', description: '保留原图中与商品主体分开的背景区域。', kind: 'image', url: backgroundAsset.url, preview_url: backgroundAsset.url, editable: true });
+    if (split.segmented && !resolvedLayers.some(layer => layer.url === backgroundAsset?.url)) {
+      resolvedLayers.push({ name: '背景', description: split.segmented ? '保留原图中与商品主体分开的背景区域。' : '未生成可单独移动的背景层。', kind: 'image', url: backgroundAsset.url, preview_url: backgroundAsset.url, editable: split.segmented });
     }
     const semanticCapabilities = analyzeSceneCapabilities({ layers });
-    const capabilities = { ...semanticCapabilities, semanticAnalysis: layers.length > 0, pixelLayers: true, movableLayers: true, psdExport: false };
-    res.json({ layers: resolvedLayers, status: '已分离 2 个基础像素层', capabilities });
+    const capabilities = { ...semanticCapabilities, semanticAnalysis: layers.length > 0, pixelLayers: split.segmented, movableLayers: split.segmented, psdExport: false };
+    res.json({
+      layers: resolvedLayers,
+      status: split.segmented ? '已分离 2 个基础像素层' : '已识别结构，但未找到可靠的纯色背景',
+      capabilities,
+      segmentation: { segmented: split.segmented, method: split.method, backgroundCoverage: split.backgroundCoverage },
+    });
   } catch (error) {
     console.error('[canvas/analyze-layers] 失败:', error.message);
     res.status(500).json({ error: safeCanvasClientError(error, '图层分析暂时不可用，请稍后重试') });

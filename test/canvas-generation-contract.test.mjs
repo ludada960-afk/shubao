@@ -50,7 +50,7 @@ test('Canvas pixel transforms honor requested grid size and split direction', as
   assert.match(route, /annotations\s*=\s*\[\]/);
 });
 
-test('Canvas layer analysis returns real movable pixel layers without claiming PSD capability', async () => {
+test('Canvas layer analysis only advertises movable pixel layers after reliable segmentation', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/analyze-layers', '// 画布像素分层');
 
@@ -58,8 +58,9 @@ test('Canvas layer analysis returns real movable pixel layers without claiming P
   assert.doesNotMatch(route, /callLLMWithVision\(/);
   assert.match(route, /analyzeSceneCapabilities\(\{\s*layers\s*\}\)/);
   assert.match(route, /res\.json\(\{\s*layers:[\s\S]*?capabilities/);
-  assert.match(route, /pixelLayers:\s*true/);
-  assert.match(route, /movableLayers:\s*true/);
+  assert.match(route, /const split = await segmentUniformBackground\(buffer\)/);
+  assert.match(route, /pixelLayers:\s*split\.segmented/);
+  assert.match(route, /movableLayers:\s*split\.segmented/);
   assert.doesNotMatch(route, /psdExport:\s*true/);
 });
 

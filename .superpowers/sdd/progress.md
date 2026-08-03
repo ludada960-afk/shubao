@@ -888,3 +888,12 @@
   production build, build-asset check, syntax and whitespace validation passed.
   Production deployment and authenticated browser acceptance still await the
   owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.
+- The local background fallback has been hardened for the final Canvas audit.
+  `server/canvasSegmentation.mjs` now supports reliable uniform-color and light
+  backgrounds through corner-consistency checks plus border flood fill. Complex
+  or corner-inconsistent scenes return no pixel-layer capability instead of
+  claiming a false successful separation. Remove-background now fails safely
+  when the local fallback cannot prove a safe cut, while configured remove.bg
+  remains the path for general scenes. Focused pixel and syntax checks passed;
+  production deployment and authenticated browser acceptance still await the
+  owner-provided `SHUBAO_CANARY_SESSION_TOKEN`.
