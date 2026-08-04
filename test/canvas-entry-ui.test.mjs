@@ -48,22 +48,23 @@ test('mobile canvas stacks the header and keeps bottom controls separate', async
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-bottom-toolbar \{ left: auto; right: 8px;[\s\S]*?transform: none/);
 });
 
-test('browser segmentation uses a contextual transient progress card with cancel and retry', async () => {
+test('browser segmentation reports progress on the transient workflow node and edge', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
-  const component = await readFile(new URL('../src/pages/EcCanvas/components/CanvasSegmentationProgress.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
 
   assert.match(source, /const \[segmentationJobs, setSegmentationJobs\] = useState\(\[\]\)/);
   assert.match(source, /canvasSegmentationRuntime\.prewarm/);
   assert.match(source, /createCanvasSegmentationPlan/);
   assert.match(source, /segmentationMasksToApi/);
-  assert.match(source, /segmentationJobs\.map\(job => <CanvasSegmentationProgress/);
+  assert.doesNotMatch(source, /segmentationJobs\.map\(job => <CanvasSegmentationProgress/);
+  assert.match(source, /workflowNodeId/);
+  assert.match(source, /progressLabel: progress\.detail \|\| progress\.label/);
+  assert.match(source, /currentProgress = reduceSegmentationProgress\(currentProgress, event\)/);
+  assert.match(source, /ec-canvas-edge-processing/);
   assert.match(source, /segmentationAbortRef\.current\.values\(\)/);
   assert.match(source, /segmentationAbortRef\.current\.clear\(\)/);
   assert.match(source, /createCanvasSnapshot\(\{ nodes, connections, viewport \}\)/);
   assert.doesNotMatch(source, /createCanvasSnapshot\(\{[^}]*segmentationJobs/);
-  assert.match(component, /aria-label="取消处理"/);
-  assert.match(component, /aria-label="重试"/);
-  assert.match(component, /role="progressbar"/);
-  assert.match(css, /\.ec-canvas-segmentation-progress \{[^}]*position: absolute;/);
+  assert.match(css, /\.ec-canvas-generation-node\.is-processing \{[^}]*border-style: dashed/);
+  assert.match(css, /\.ec-canvas-edge-processing \{/);
 });

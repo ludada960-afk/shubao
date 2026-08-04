@@ -128,14 +128,19 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     status: 'ready',
     x: 500,
     y: 260,
-    w: 560,
-    h: 360,
+    w: 640,
+    h: 420,
     prompt: '',
     platform: '天猫',
+    suiteType: '完整套图',
     ratio: '1:1',
     resolution: '2K',
     language: '中文',
     count: 6,
+    skuMode: '默认SKU',
+    styleSkill: 'smart',
+    productInfoMode: 'auto',
+    copywritingMode: 'smart',
     sourceNodeIds: ['image-1'],
   });
 });
@@ -152,6 +157,8 @@ test('text generation starts as an editable document body and keeps source refer
     text: '',
     placeholder: '双击开始编辑...',
     prompt: '',
+    ratio: '1:1',
+    resolution: '2K',
     count: 1,
     sourceNodeIds: ['image-1'],
     textStyle: {
@@ -188,6 +195,16 @@ test('only one selected generation node receives a contextual composer position'
     viewport: { x: 0, y: 0, scale: 1 },
     height: 360,
   }).position, { left: 148, top: 116, width: 640 });
+
+  const mobile = getCanvasComposerPresentation({
+    node: { ...node, x: 80, y: 460, w: 640, h: 420 },
+    selectedId: node.id,
+    selectedCount: 1,
+    viewportBounds: { width: 390, height: 752 },
+    viewport: { x: 0, y: 0, scale: 0.68 },
+    height: 420,
+  });
+  assert.ok(mobile.position.top + 420 + 48 / 0.68 <= 752 / 0.68 - 12 / 0.68 + 1);
 
   const leftRail = getCanvasComposerPresentation({
     node: { id: node.id, x: -40, y: 80, w: 240, h: 120 },
@@ -278,11 +295,36 @@ test('contextual composers expose fixed product controls without model selectors
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(source, /export function CanvasGenerationNode/);
   assert.match(source, /aria-label="清晰度"/);
-  assert.match(source, /aria-label="套图数量"/);
+  assert.match(source, /套图数量/);
   assert.match(source, /ImageMentionPicker/);
   assert.doesNotMatch(source, /aria-label="图片模型"/);
   assert.doesNotMatch(source, /aria-label="文案模型"/);
   assert.doesNotMatch(source, /关闭图片生成器|关闭文案生成器|关闭电商套图生成器/);
+  assert.match(source, /hasProductSource/);
+  assert.match(source, /hasProductSource \? 'reference' : 'product'/);
+});
+
+test('canvas composers keep text boards editable and expose shared image-generation controls', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(source, /ec-canvas-generation-text-board/);
+  assert.match(source, /contentEditable/);
+  assert.match(source, /aria-label="图片比例"/);
+  assert.match(source, /aria-label="清晰度"/);
+  assert.match(source, /CANVAS_COUNT_OPTIONS/);
+  assert.match(source, /aria-label="引用图片"/);
+  assert.doesNotMatch(source, /描述要生成的标题、卖点、详情文案或设计要求/);
+});
+
+test('canvas text generation creates image results while retaining its editable board', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const start = page.indexOf('const handleTextGenerationGenerate');
+  const end = page.indexOf('const handleAddTextNode', start);
+  const handler = page.slice(start, end);
+  assert.match(handler, /regenerateCanvasImage/);
+  assert.match(handler, /regenerateImage/);
+  assert.match(handler, /kind: 'image'/);
+  assert.doesNotMatch(handler, /regenerateCanvasText/);
+  assert.doesNotMatch(handler, /kind: 'text',[\s\S]*?status: 'success'/);
 });
 
 test('Canvas generation forwards selected quality and structured references', () => {
@@ -295,9 +337,10 @@ test('Canvas generation forwards selected quality and structured references', ()
   const textStart = page.indexOf('const handleTextGenerationGenerate');
   const textEnd = page.indexOf('const handleAddTextNode', textStart);
   const textHandler = page.slice(textStart, textEnd);
-  assert.match(textHandler, /regenerateCanvasText\(\{/);
-  assert.match(textHandler, /referenceImages:\s*sourceNodes\.map/);
-  assert.match(textHandler, /count:\s*composer\.count/);
+  assert.match(textHandler, /regenerateCanvasImage\(\{/);
+  assert.match(textHandler, /referenceImages:\s*sourceNodes\.slice\(1\)/);
+  assert.match(textHandler, /resolution:\s*composer\.resolution/);
+  assert.match(textHandler, /Array\.from\(\{ length: count \}/);
 });
 
 test('plain text tools never route through image text generation', () => {

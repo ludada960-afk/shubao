@@ -59,12 +59,27 @@ function normalizeMaterialLayer(layer, index) {
   };
 }
 
+function layerFingerprint(layer = {}) {
+  const bounds = layer.bounds && typeof layer.bounds === 'object'
+    ? ['x', 'y', 'width', 'height'].map(key => Number.isFinite(Number(layer.bounds[key])) ? Number(layer.bounds[key]).toFixed(5) : '').join(',')
+    : '';
+  return [
+    layer.kind,
+    layer.semanticType,
+    layer.url || layer.text,
+    bounds,
+    layer.pixelWidth || '',
+    layer.pixelHeight || '',
+  ].join('|');
+}
+
 function textNode(layer, common) {
+  const textWidth = Math.min(320, Math.max(160, Math.round(String(layer.text || '').length * 13 + 32)));
   return {
     ...common,
     kind: 'text',
-    w: 270,
-    h: 92,
+    w: textWidth,
+    h: 54,
     text: layer.text,
     placeholder: '输入文字',
     textStyle: {
@@ -95,7 +110,16 @@ function imageNode(layer, common) {
 export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId } = {}) {
   const sourceId = String(sourceNode?.id || '').trim();
   if (!sourceId) throw new TypeError('sourceNode.id is required');
-  const validLayers = (Array.isArray(layers) ? layers : []).map(normalizeMaterialLayer).filter(Boolean);
+  const seenLayers = new Set();
+  const validLayers = (Array.isArray(layers) ? layers : [])
+    .map(normalizeMaterialLayer)
+    .filter(Boolean)
+    .filter(layer => {
+      const fingerprint = layerFingerprint(layer);
+      if (seenLayers.has(fingerprint)) return false;
+      seenLayers.add(fingerprint);
+      return true;
+    });
   if (!validLayers.length) {
     throw Object.assign(new Error('智能分层没有返回可编辑像素或文字内容'), {
       code: 'CANVAS_LAYER_RESULT_EMPTY',
@@ -158,7 +182,7 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
       confidence: Number.isFinite(Number(layer.confidence)) ? Number(layer.confidence) : null,
       editable: true,
       status: 'ready',
-      sourceNodeIds: [groupId],
+      sourceNodeIds: [sourceId],
       actionId: 'layer-edit',
       group: '智能分层',
       role: layer.semanticType,
@@ -185,17 +209,6 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     from: sourceId,
     to: node.id,
     type: 'derived',
-  })).concat(childNodes.map((node, index) => ({
-    id: `edge_${stableRunId}_group_${index + 1}`,
-    fromNodeId: groupId,
-    fromPort: 'output',
-    toNodeId: node.id,
-    toPort: 'input',
-    relation: 'derived',
-    actionId: 'layer-edit',
-    from: groupId,
-    to: node.id,
-    type: 'derived',
-  })));
+  }));
   return { nodes, connections, layers: validLayers };
 }

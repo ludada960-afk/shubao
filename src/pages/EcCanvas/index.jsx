@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import JSZip from 'jszip';
 import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateCanvasText, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -56,7 +56,6 @@ import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot }
 import { buildCanvasImportResult, canvasOutputImages, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
-import CanvasSegmentationProgress from './components/CanvasSegmentationProgress.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, selectedCanvasBounds } from './canvasInteractionModel.js';
@@ -65,6 +64,7 @@ import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
 import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
 import { canvasSegmentationRuntime, segmentationMasksToApi } from './canvasSegmentationRuntime.js';
+import { appendImageMention, buildImageMentions, removeImageMention } from '../../components/creation/imageMentionModel.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -566,10 +566,14 @@ export default function EcCanvas() {
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
   const focusedNodeIds = hoveredNodeId ? getCanvasFocusIds(hoveredNodeId, connections) : null;
+  const rawAvailableComposerSources = nodes.filter(node => node?.url && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind) && node.id !== selectedNode?.id);
+  const availableComposerSources = buildImageMentions(rawAvailableComposerSources).map(mention => ({
+    ...rawAvailableComposerSources.find(node => node.id === mention.sourceNodeId),
+    ...mention,
+  }));
   const selectedComposerSources = selectedNode
-    ? (selectedNode.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url)
+    ? (selectedNode.sourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
     : [];
-  const availableComposerSources = nodes.filter(node => node?.url && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind) && node.id !== selectedNode?.id);
   const selectedComposerPosition = getCanvasComposerPresentation({
     node: selectedNode,
     selectedId: selected,
@@ -976,6 +980,23 @@ export default function EcCanvas() {
     }
     if (pointerMode.kind === 'drag') {
       const point = toWorldPoint(e);
+      if (Math.hypot(point.x - pointerMode.start.x, point.y - pointerMode.start.y) > 2) {
+        const draggingIds = new Set(pointerMode.ids || []);
+        setNodes(previous => {
+          let changed = false;
+          const expandedGroups = new Set();
+          const next = previous.map(node => {
+            if (!draggingIds.has(node.id) || node.layerExpanded || !node.layerChildIds?.length) return node;
+            changed = true;
+            expandedGroups.add(node.id);
+            return { ...node, layerExpanded: true };
+          }).map(node => expandedGroups.size && [...expandedGroups].some(groupId => {
+            const group = previous.find(item => item.id === groupId);
+            return group?.layerChildIds?.includes(node.id);
+          }) ? { ...node, hidden: false } : node);
+          return changed ? next : previous;
+        });
+      }
       pendingDragRef.current = { ids: pointerMode.ids, start: pointerMode.start, point };
       if (!dragFrameRef.current) dragFrameRef.current = requestAnimationFrame(flushDragFrame);
     }
@@ -1053,13 +1074,6 @@ export default function EcCanvas() {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
       return;
     }
-    const activeNode = nodes.find(node => node.id === id);
-    if (activeNode?.layerChildIds?.length && !activeNode.layerExpanded) {
-      const childIds = new Set(activeNode.layerChildIds);
-      setNodes(previous => previous.map(node => node.id === id
-        ? { ...node, layerExpanded: true }
-        : childIds.has(node.id) ? { ...node, hidden: false } : node));
-    }
     if (e.ctrlKey || e.metaKey || e.shiftKey) {
       setMultiSelected(prev => {
         const next = new Set(prev);
@@ -1102,7 +1116,8 @@ export default function EcCanvas() {
   const handlePortPointerDown = useCallback((e, nodeId, side) => {
     if (side !== 'out') return;
     const source = nodes.find(node => node.id === nodeId);
-    if (!canDeriveFromNode(source)) {
+    const canOpenComposer = ['image-composer', 'text-composer', 'suite-composer'].includes(source?.kind);
+    if (!canDeriveFromNode(source) && !canOpenComposer) {
       showToast('完成当前处理后，可从生成结果继续派生', 'info');
       return;
     }
@@ -1115,7 +1130,8 @@ export default function EcCanvas() {
 
   const handlePortClick = useCallback((event, nodeId) => {
     const source = nodes.find(node => node.id === nodeId);
-    if (!canDeriveFromNode(source)) return;
+    const canOpenComposer = ['image-composer', 'text-composer', 'suite-composer'].includes(source?.kind);
+    if (!canDeriveFromNode(source) && !canOpenComposer) return;
     setConnectionPicker({
       sourceNodeId: nodeId,
       world: toWorldPoint(event),
@@ -1158,9 +1174,19 @@ export default function EcCanvas() {
       progress: reduceSegmentationProgress(null, { stage: 'preparing' }),
     };
     setSegmentationJobs(previous => previous.filter(item => item.sourceId !== source.id || item.action !== action).concat(job));
-    const updateProgress = event => setSegmentationJobs(previous => previous.map(item => item.id === jobId
-      ? { ...item, progress: reduceSegmentationProgress(item.progress, event), error: '' }
-      : item));
+    let currentProgress = job.progress;
+    const updateProgress = event => {
+      currentProgress = reduceSegmentationProgress(currentProgress, event);
+      const progress = currentProgress;
+      setSegmentationJobs(previous => previous.map(item => item.id === jobId
+        ? { ...item, progress, error: '' }
+        : item));
+      if (workflowNodeId) {
+        setNodes(previous => previous.map(node => node.id === workflowNodeId
+          ? { ...node, status: 'processing', progress: progress.percent, progressLabel: progress.detail || progress.label || '正在处理图片' }
+          : node));
+      }
+    };
     let completed = false;
     try {
       if (canvasSegmentationRuntime.isWarm()) updateProgress({ stage: 'detecting' });
@@ -1239,6 +1265,7 @@ export default function EcCanvas() {
         action: 'smart-layer',
         placement: anchor,
         replaceNodeId,
+        workflowNodeId: pendingId,
       });
       const result = materializeCanvasLayers({
         sourceNode: source,
@@ -1297,7 +1324,7 @@ export default function EcCanvas() {
     setSelected(pendingId);
     setMultiSelected(new Set([pendingId]));
     try {
-      const data = await executeBrowserSegmentation({ source, action: 'remove-bg', placement });
+      const data = await executeBrowserSegmentation({ source, action: 'remove-bg', placement, workflowNodeId: pendingId });
       const resultUrl = data.result_url || data.url;
       if (!resultUrl) throw new Error(data.error || '去背结果为空');
       const output = normalizeCanvasNode({
@@ -2275,7 +2302,7 @@ export default function EcCanvas() {
     // 左侧添加是独立节点；只有图片右侧派生或显式传入 sourceNodeId 才建立引用关系。
     const sourceNodeId = placement.sourceNodeId || '';
     const sourceNodeIds = [...new Set([...(placement.sourceNodeIds || []), sourceNodeId].filter(Boolean))];
-    const size = kind === 'suite' ? { w: 560, h: 360 } : kind === 'text' ? { w: 480, h: 220 } : { w: 280, h: 280 };
+    const size = kind === 'suite' ? { w: 640, h: 420 } : kind === 'text' ? { w: 480, h: 220 } : { w: 280, h: 280 };
     const position = createComposerPlacement(size.w, size.h, { ...placement, sourceNodeId });
     const baseComposer = kind === 'suite'
       ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: result.platform || '淘宝' })
@@ -2321,7 +2348,7 @@ export default function EcCanvas() {
     const sourceNodes = (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
     updateComposerNode(composer.id, { status: 'processing', error: '' });
     try {
-      const count = Math.max(1, Math.min(4, Number(composer.count) || 1));
+      const count = Math.max(1, Math.min(10, Number(composer.count) || 1));
       const selection = normalizeCanvasSelection(composer.selection);
       const selectionPrompt = selection.mode === 'rectangle'
         ? `仅修改图片中归一化区域 x=${selection.rect.x.toFixed(3)}, y=${selection.rect.y.toFixed(3)}, w=${selection.rect.w.toFixed(3)}, h=${selection.rect.h.toFixed(3)}，区域外内容保持不变。`
@@ -2430,11 +2457,13 @@ export default function EcCanvas() {
           real_shots: productNodes.slice(0, 6).map(node => node.url),
           ref_shots: referenceNodes.slice(0, 6).map(node => node.url),
           platform: composer.platform || result.platform || '淘宝',
-          style_skill: 'smart',
-          product_params: {},
+          style_skill: composer.styleSkill || 'smart',
+          product_params: { mode: composer.productInfoMode || 'auto', skuMode: composer.skuMode || '默认SKU' },
           skus: [],
-          copywriting: {},
-          requested_images: [{ key: 'main_text', count: 3 }, { key: 'detail_slice_feature', count: 3 }],
+          copywriting: { mode: composer.copywritingMode || 'smart' },
+          requested_images: composer.suiteType === '主图'
+            ? [{ key: 'main_text', count: 3 }]
+            : [{ key: 'main_text', count: 3 }, { key: 'detail_slice_feature', count: 3 }],
         });
         const directions = Array.isArray(response?.directions) && response.directions.length
           ? response.directions
@@ -2469,10 +2498,20 @@ export default function EcCanvas() {
           composer.directions?.[composer.selectedDirection || 0]?.description,
           composer.prompt?.trim(),
           `输出语言：${composer.language || '中文'}`,
+          `套图类型：${composer.suiteType || '完整套图'}`,
+          `商品信息模式：${composer.productInfoMode === 'prompt' ? '优先使用描述' : '自动识别'}`,
+          `文案策划：${composer.copywritingMode === 'none' ? '不生成文案' : 'AI规划文案'}`,
         ].filter(Boolean).join('\n') || result.product_name || '专业电商视觉',
         platform: composer.platform || result.platform || '淘宝',
         batchPlan: { imageSelections },
-        generationSettings: { resolution: composer.resolution || '2K' },
+        generationSettings: {
+          resolution: composer.resolution || '2K',
+          suiteType: composer.suiteType || '完整套图',
+          skuMode: composer.skuMode || '默认SKU',
+          styleSkill: composer.styleSkill || 'smart',
+          productInfoMode: composer.productInfoMode || 'auto',
+          copywritingMode: composer.copywritingMode || 'smart',
+        },
         sizing: { smart: false, resolution: composer.resolution || '2K', images: imageSelections },
         direction: composer.directions?.[composer.selectedDirection || 0] || null,
         email: phone,
@@ -2525,34 +2564,68 @@ export default function EcCanvas() {
   }, [updateComposerNode]);
 
   const handleTextGenerationGenerate = useCallback(async composer => {
-    if (!composer?.prompt?.trim() || composer.status === 'processing') return;
+    const boardText = String(composer?.text || '').trim();
+    const promptText = String(composer?.prompt || '').trim();
+    if ((!boardText && !promptText) || composer.status === 'processing') return;
     updateComposerNode(composer.id, { status: 'processing', error: '' });
     try {
       const sourceNodes = (composer.sourceNodeIds || [])
         .map(id => nodes.find(node => node.id === id))
         .filter(node => node?.url);
-      const response = await regenerateCanvasText({
-        prompt: composer.prompt.trim(),
-        referenceImages: sourceNodes.map(node => node.url),
-        count: composer.count || 1,
-      });
-      const text = String(response?.title || response?.text || response?.content || response?.body_text || composer.prompt).trim();
+      const prompt = [
+        boardText ? `请在生成画面中准确呈现以下文字内容，保持字面、顺序和可读性：${boardText}` : '',
+        promptText,
+      ].filter(Boolean).join('\n');
+      const count = Math.max(1, Math.min(10, Number(composer.count) || 1));
+      const urls = await Promise.all(Array.from({ length: count }, () => sourceNodes.length
+        ? regenerateCanvasImage({
+          prompt,
+          imageUrl: sourceNodes[0].url,
+          referenceImages: sourceNodes.slice(1).map(node => node.url),
+          ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
+          resolution: composer.resolution || '2K',
+        })
+        : regenerateImage(prompt, result.category || '电商图片', {
+          ratio: composer.ratio || '1:1',
+          resolution: composer.resolution || '2K',
+        })));
+      const createdAt = Date.now();
+      const ratio = composer.ratio || '1:1';
+      const ratioNumber = ratioValue(ratio);
+      const outputs = urls.map((url, index) => normalizeCanvasNode({
+        id: `text_generation_output_${createdAt}_${index + 1}`,
+        assetId: `text_generation_asset_${createdAt}_${index + 1}`,
+        kind: 'image',
+        status: 'ready',
+        url,
+        name: `画面生成结果 ${index + 1}`,
+        displayLabel: `画面生成结果 ${index + 1}`,
+        group: '素材',
+        role: '创作图片',
+        ratio,
+        sourceNodeIds: [composer.id],
+        x: composer.x + composer.w + 56 + index * 268,
+        y: composer.y,
+        w: 230,
+        h: Math.round(230 / ratioNumber),
+        showMeta: true,
+      }));
       setNodes(previous => previous.map(node => node.id === composer.id ? {
         ...node,
-        kind: 'text',
         status: 'success',
-        text,
-        name: text.split(/\r?\n/)[0]?.slice(0, 32) || '生成文案',
-      } : node));
+        generatedCount: outputs.length,
+        outputNodeIds: outputs.map(output => output.id),
+        progress: 100,
+      } : node).concat(outputs));
+      setConnections(previous => outputs.reduce((edges, output) => addConnection(edges, composer.id, output.id, 'generated'), previous));
       setSelected(composer.id);
       setMultiSelected(new Set([composer.id]));
-      setEditingTextNodeId(composer.id);
-      showToast('文案已生成，可直接编辑和拖动', 'success');
+      showToast(`已生成 ${outputs.length} 张画面`, 'success');
     } catch (error) {
-      updateComposerNode(composer.id, { status: 'error', error: error.message || '文案生成失败' });
-      handleCanvasActionError(error, { type: 'text-generation', nodeId: composer.id });
+      updateComposerNode(composer.id, { status: 'error', error: error.message || '画面生成失败' });
+      handleCanvasActionError(error, { type: 'image-generation-from-text', nodeId: composer.id });
     }
-  }, [handleCanvasActionError, nodes, result.category, result.product_name, showToast, updateComposerNode]);
+  }, [handleCanvasActionError, nodes, result.category, showToast, updateComposerNode]);
 
   const handleAddTextNode = useCallback((placement = {}) => {
     if (placement?.openComposer) {
@@ -2625,7 +2698,7 @@ export default function EcCanvas() {
   };
 
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
-    const accepted = files.filter(file => file?.type?.startsWith('image/')).slice(0, 6);
+    const accepted = files.filter(file => file?.type?.startsWith('image/')).slice(0, 8);
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer'].includes(node.kind));
     if (!accepted.length || !composer) return;
     const uploadStartedAt = Date.now();
@@ -2662,30 +2735,36 @@ export default function EcCanvas() {
   }, [nodes, result, showToast]);
 
   const removeComposerSource = useCallback((composerId, sourceId) => {
+    const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);
     setNodes(previous => previous.map(node => node.id === composerId
       ? {
         ...node,
         sourceNodeIds: (node.sourceNodeIds || []).filter(id => id !== sourceId),
         sourceRoles: Object.fromEntries(Object.entries(node.sourceRoles || {}).filter(([id]) => id !== sourceId)),
+        prompt: mention?.label ? removeImageMention(node.prompt, mention.label) : node.prompt,
       }
       : node));
     setConnections(previous => previous.filter(edge => !(edge.from === sourceId && edge.to === composerId)));
-  }, []);
+  }, [nodes]);
 
   const toggleComposerSource = useCallback((composerId, image, role = 'reference') => {
     const sourceId = String(image?.sourceNodeId || image?.id || '');
     if (!sourceId) return;
     const composer = nodes.find(node => node.id === composerId);
     const exists = composer?.sourceNodeIds?.includes(sourceId);
-    const currentRole = composer?.sourceRoles?.[sourceId] || nodes.find(node => node.id === sourceId)?.role || 'reference';
-    if (exists && currentRole === role) {
-      removeComposerSource(composerId, sourceId);
+    if (exists) {
+      setNodes(previous => previous.map(node => node.id === composerId ? {
+        ...node,
+        sourceRoles: { ...(node.sourceRoles || {}), [sourceId]: role },
+        prompt: appendImageMention(node.prompt, image?.label),
+      } : node));
       return;
     }
     setNodes(previous => previous.map(node => node.id === composerId ? {
       ...node,
       sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), sourceId])],
       sourceRoles: { ...(node.sourceRoles || {}), [sourceId]: role },
+      prompt: appendImageMention(node.prompt, image?.label),
     } : node));
     setConnections(previous => addConnection(previous, sourceId, composerId, 'derived'));
   }, [nodes, removeComposerSource]);
@@ -3084,13 +3163,6 @@ export default function EcCanvas() {
           <div style={{ '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale), position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
             <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
             <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
-            {segmentationJobs.map(job => <CanvasSegmentationProgress
-              key={job.id}
-              job={job}
-              onCancel={handleSegmentationJobCancel}
-              onRetry={handleSegmentationJobRetry}
-              onClose={handleSegmentationJobClose}
-            />)}
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
               const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);
@@ -3173,7 +3245,9 @@ export default function EcCanvas() {
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={node => setZoomImg({ url: node.url, label: node.name || '图片预览' })}
+                  onTextChange={handleTextNodeChange}
+                  onTextSelect={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); }}
+                  onDoubleClick={node => node.url && setZoomImg({ url: node.url, label: node.name || '图片预览' })}
                 />;
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));

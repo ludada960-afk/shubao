@@ -36,10 +36,11 @@ import {
   WandSparkles,
   X,
   ArrowUpRight,
+  ChevronDown,
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
-import { CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, getCanvasNodePresentation } from '../canvasStudioModel.js';
+import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SUITE_COUNT_OPTIONS, getCanvasNodePresentation } from '../canvasStudioModel.js';
 import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
 
@@ -174,17 +175,17 @@ export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(
 
 function ComposerSources({ sources = [], onAddSources, onRemoveSource, uploadLabel = '图片' }) {
   return <div className="ec-canvas-composer-sources" aria-label={`已引用 ${sources.length} 张图片`}>
-    {sources.slice(0, 6).map((source, index) => <span className="ec-canvas-composer-source" key={source.id || source.url || index}>
+    {sources.slice(0, 8).map((source, index) => <span className="ec-canvas-composer-source" key={source.id || source.url || index} data-source-id={source.id || source.url}>
       <ResponsiveImage
         src={source.url}
         alt={source.name || `引用图片 ${index + 1}`}
         variant="canvas"
         ratio={source.ratio || '1:1'}
-        sizes="72px"
-        style={{ width: 72, height: 72 }}
+        sizes="64px"
+        style={{ width: '100%', height: '100%' }}
         imgStyle={{ objectFit: 'contain' }}
       />
-      <b>@图片{index + 1}</b>
+      <b>{source.label || `@图片${index + 1}`}</b>
       {onRemoveSource && <button type="button" data-canvas-control="true" aria-label={`移除${source.name || `引用图片 ${index + 1}`}`} onClick={event => { event.stopPropagation(); onRemoveSource(source.id); }}><X size={11} /></button>}
     </span>)}
     {onAddSources && <label className="ec-canvas-composer-source-add" aria-label={`添加${uploadLabel}`} title={`添加${uploadLabel}`}>
@@ -194,10 +195,116 @@ function ComposerSources({ sources = [], onAddSources, onRemoveSource, uploadLab
 }
 
 function ComposerMention({ availableSources = [], sources = [], onToggleSource }) {
-  return <div className="ec-canvas-composer-mention"><ImageMentionPicker images={availableSources} selectedImages={sources} onToggle={onToggleSource} /></div>;
+  return <div className="ec-canvas-composer-mention" aria-label="引用图片"><ImageMentionPicker images={availableSources} selectedImages={sources} selectionMode="insert" onToggle={onToggleSource} /></div>;
 }
 
-export function CanvasGenerationNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onDoubleClick, onHoverChange, onPortPointerDown, onPortClick, onResizeStart }) {
+function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_OPTIONS, includeCount = true }) {
+  const [open, setOpen] = useState('');
+  const rootRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = event => {
+      if (!rootRef.current?.contains(event.target)) setOpen('');
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  const ratio = node?.ratio || '1:1';
+  const resolution = node?.resolution || '2K';
+  const count = Number(node?.count) || countOptions[0] || 1;
+  const toggle = key => setOpen(current => current === key ? '' : key);
+  return <div className="ec-canvas-parameter-controls" ref={rootRef} onPointerDown={event => event.stopPropagation()}>
+    <div className="ec-canvas-parameter-item">
+      <button type="button" data-canvas-control="true" aria-label="图片比例" aria-haspopup="menu" aria-expanded={open === 'ratio'} onClick={() => toggle('ratio')}>自动 / {ratio}<ChevronDown size={12} /></button>
+      {open === 'ratio' && <div className="ec-canvas-parameter-popover ec-canvas-ratio-popover" role="menu" aria-label="图片比例选项">
+        {CANVAS_RATIO_OPTIONS.map(value => <button key={value} type="button" className={value === ratio ? 'is-active' : ''} onClick={() => { onChange?.({ ratio: value }); setOpen(''); }}>
+          <i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} /><span>{value}</span>
+        </button>)}
+      </div>}
+    </div>
+    <div className="ec-canvas-parameter-item">
+      <button type="button" data-canvas-control="true" aria-label="清晰度" aria-haspopup="menu" aria-expanded={open === 'resolution'} onClick={() => toggle('resolution')}>{resolution}<ChevronDown size={12} /></button>
+      {open === 'resolution' && <div className="ec-canvas-parameter-popover ec-canvas-resolution-popover" role="menu" aria-label="清晰度选项">
+        {CANVAS_RESOLUTION_OPTIONS.map(value => <button key={value} type="button" className={value === resolution ? 'is-active' : ''} onClick={() => { onChange?.({ resolution: value }); setOpen(''); }}><strong>{value}</strong><small>{value === '1K' ? '标准' : value === '2K' ? '高清' : '超清'}</small></button>)}
+      </div>}
+    </div>
+    {includeCount && <div className="ec-canvas-parameter-item">
+      <button type="button" data-canvas-control="true" aria-label="生成数量" aria-haspopup="menu" aria-expanded={open === 'count'} onClick={() => toggle('count')}>x{count}<ChevronDown size={12} /></button>
+      {open === 'count' && <div className="ec-canvas-parameter-popover ec-canvas-count-popover" role="menu" aria-label="生成数量选项">
+        {countOptions.map(value => <button key={value} type="button" className={value === count ? 'is-active' : ''} onClick={() => { onChange?.({ count: value }); setOpen(''); }}>{value}</button>)}
+      </div>}
+    </div>}
+  </div>;
+}
+
+const CANVAS_SUITE_PLATFORMS = Object.freeze(['淘宝', '天猫', '京东', '拼多多', '小红书']);
+const CANVAS_SUITE_TYPES = Object.freeze(['完整套图', '主图+详情', '主图']);
+const CANVAS_SUITE_LANGUAGES = Object.freeze(['中文', '英文']);
+
+function CanvasOptionMenu({ label, value, options = [], ariaLabel, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = event => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  return <div className="ec-canvas-option-menu" ref={rootRef}>
+    <button type="button" data-canvas-control="true" aria-label={ariaLabel || label} aria-haspopup="menu" aria-expanded={open} onPointerDown={event => event.stopPropagation()} onClick={() => setOpen(current => !current)}>
+      <span>{label}</span><strong>{value}</strong><ChevronDown size={12} />
+    </button>
+    {open && <div className="ec-canvas-option-popover" role="menu" aria-label={`${label}选项`} onPointerDown={event => event.stopPropagation()}>
+      {options.map(option => {
+        const item = typeof option === 'string' ? { value: option, label: option } : option;
+        return <button key={item.value} type="button" className={item.value === value ? 'is-active' : ''} onClick={() => { onSelect?.(item.value); setOpen(false); }}>
+          <span>{item.label}</span>{item.description && <small>{item.description}</small>}
+        </button>;
+      })}
+    </div>}
+  </div>;
+}
+
+function CanvasSuitePlanMenu({ node, onChange }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = event => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  const choose = change => onChange?.(change);
+  return <div className="ec-canvas-option-menu ec-canvas-suite-plan-menu" ref={rootRef}>
+    <button type="button" data-canvas-control="true" aria-label="套图方案" aria-haspopup="menu" aria-expanded={open} onPointerDown={event => event.stopPropagation()} onClick={() => setOpen(current => !current)}>
+      <span>套图方案</span><strong>{node.platform || '淘宝'} · {node.suiteType || '完整套图'}</strong><ChevronDown size={12} />
+    </button>
+    {open && <div className="ec-canvas-suite-plan-popover" role="menu" aria-label="套图方案选项" onPointerDown={event => event.stopPropagation()}>
+      <div className="ec-canvas-suite-plan-group"><strong>目标平台</strong><div>{CANVAS_SUITE_PLATFORMS.map(value => <button key={value} type="button" className={value === (node.platform || '淘宝') ? 'is-active' : ''} onClick={() => choose({ platform: value })}>{value}</button>)}</div></div>
+      <div className="ec-canvas-suite-plan-group"><strong>套图类型</strong><div>{CANVAS_SUITE_TYPES.map(value => <button key={value} type="button" className={value === (node.suiteType || '完整套图') ? 'is-active' : ''} onClick={() => choose({ suiteType: value })}>{value}</button>)}</div></div>
+      <div className="ec-canvas-suite-plan-group"><strong>目标语言</strong><div>{CANVAS_SUITE_LANGUAGES.map(value => <button key={value} type="button" className={value === (node.language || '中文') ? 'is-active' : ''} onClick={() => choose({ language: value })}>{value}</button>)}</div></div>
+      <div className="ec-canvas-suite-plan-group"><strong>套图数量</strong><div>{CANVAS_SUITE_COUNT_OPTIONS.map(value => <button key={value} type="button" className={value === (Number(node.count) || 6) ? 'is-active' : ''} onClick={() => choose({ count: value })}>{value}张</button>)}</div></div>
+    </div>}
+  </div>;
+}
+
+function CanvasSuiteControls({ node, availableSources, sources, onChange, onToggleSource }) {
+  return <div className="ec-canvas-suite-controls" role="group" aria-label="套图参数">
+    <CanvasSuitePlanMenu node={node} onChange={onChange} />
+    <CanvasOptionMenu label="SKU变体" value={node.skuMode || '默认SKU'} options={['默认SKU', '多SKU变体']} onSelect={value => onChange?.({ skuMode: value })} />
+    <CanvasOptionMenu label="智能风格" value={node.styleSkill === 'custom' ? '自定义' : '智能'} options={[{ value: 'smart', label: '智能风格', description: '根据商品和平台自动匹配' }, { value: 'custom', label: '自定义风格', description: '结合输入要求生成' }]} onSelect={value => onChange?.({ styleSkill: value })} />
+    <CanvasOptionMenu label="商品信息" value={node.productInfoMode === 'prompt' ? '使用描述' : '自动识别'} options={[{ value: 'auto', label: '自动识别商品', description: '从产品图提取结构和卖点' }, { value: 'prompt', label: '使用输入描述', description: '优先参考输入区的商品信息' }]} onSelect={value => onChange?.({ productInfoMode: value })} />
+    <CanvasOptionMenu label="文案策划" value={node.copywritingMode === 'none' ? '不生成' : 'AI规划'} options={[{ value: 'smart', label: 'AI规划文案', description: '生成主图和详情图文字' }, { value: 'none', label: '不生成文案', description: '只生成画面和版式' }]} onSelect={value => onChange?.({ copywritingMode: value })} />
+    <CanvasParameterControls node={node} onChange={onChange} includeCount={false} />
+    <ComposerMention availableSources={availableSources} sources={sources} onToggleSource={onToggleSource} />
+  </div>;
+}
+
+export function CanvasGenerationNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onDoubleClick, onHoverChange, onPortPointerDown, onPortClick, onResizeStart, onTextChange, onTextSelect }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -209,19 +316,31 @@ export function CanvasGenerationNode({ node, selected = false, dimmed = false, o
     style={{ left: node.x, top: node.y, width: node.w, height: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}
     onPointerDown={event => onPointerDown?.(event, node.id)}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
-    onDoubleClick={event => { event.stopPropagation(); if (node.url) onDoubleClick?.(node); }}
+    onDoubleClick={event => { event.stopPropagation(); if (isText || node.url) onDoubleClick?.(node); }}
     onMouseEnter={() => onHoverChange?.(node.id)}
     onMouseLeave={() => onHoverChange?.(null)}
   >
-    {isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : <div className="ec-canvas-generation-placeholder">
-      {isText ? <MessageSquareText size={25} /> : isLayerGroup ? <Layers3 size={28} /> : isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
-      <strong>{isText ? '生成文案' : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
+    {isText ? <div
+      className="ec-canvas-generation-text-board"
+      contentEditable={node.status !== 'processing'}
+      suppressContentEditableWarning
+      role="textbox"
+      aria-label="生成文案编辑区"
+      aria-multiline="true"
+      data-placeholder={node.placeholder || '双击开始编辑...'}
+      style={node.textStyle || undefined}
+      onPointerDown={event => event.stopPropagation()}
+      onFocus={() => onTextSelect?.(node.id)}
+      onInput={event => onTextChange?.(node.id, event.currentTarget.textContent || '')}
+    >{node.text || ''}</div> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : <div className="ec-canvas-generation-placeholder">
+      {isLayerGroup ? <Layers3 size={28} /> : isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
+      <strong>{isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
       {node.status === 'processing' && <small>{node.progressLabel || '正在处理...'}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
     </div>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
-    <DerivePort visible={selected && Boolean(node.url)} disabled={!node.url} onPointerDown={onPortPointerDown} onClick={onPortClick} />
+    <DerivePort visible={selected} disabled={false} onPointerDown={onPortPointerDown} onClick={onPortClick} />
   </article>;
 }
 
@@ -287,9 +406,7 @@ export function CanvasImageComposer({ node, position, sources = [], availableSou
         onChange={event => onChange?.({ prompt: event.target.value })}
       />
       <div className="ec-canvas-composer-footer">
-        <select data-canvas-control="true" aria-label="图片比例" value={node.ratio || '1:1'} onChange={event => onChange?.({ ratio: event.target.value })}>{CANVAS_RATIO_OPTIONS.map((ratio, index) => <option key={ratio} value={ratio}>{index === 0 ? '自动 / 1:1' : ratio}</option>)}</select>
-        <select data-canvas-control="true" aria-label="清晰度" value={node.resolution || '2K'} onChange={event => onChange?.({ resolution: event.target.value })}>{CANVAS_RESOLUTION_OPTIONS.map(value => <option key={value}>{value}</option>)}</select>
-        <select data-canvas-control="true" aria-label="生成数量" value={node.count || 1} onChange={event => onChange?.({ count: Number(event.target.value) })}>{[1, 2, 3, 4].map(count => <option key={count} value={count}>x{count}</option>)}</select>
+        <CanvasParameterControls node={node} onChange={onChange} />
         <ComposerMention availableSources={availableSources} sources={sources} onToggleSource={onToggleSource} />
         <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || (isLocalEdit && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
           {loading ? '生成中' : <><Sparkles size={15} />生成</>}
@@ -300,14 +417,13 @@ export function CanvasImageComposer({ node, position, sources = [], availableSou
 
 export function CanvasTextGenerationComposer({ node, position, sources = [], availableSources = [], loading = false, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
   if (!node) return null;
-  return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-text-generation-composer" style={position} aria-label="文案生成操作台" onPointerDown={event => event.stopPropagation()}>
+  return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-text-generation-composer" style={position} aria-label="图片生成操作台" onPointerDown={event => event.stopPropagation()}>
     <ComposerSources sources={sources} onAddSources={onAddSources} onRemoveSource={onRemoveSource} />
-    <textarea data-canvas-control="true" value={node.prompt || ''} disabled={loading} placeholder="描述要生成的标题、卖点、详情文案或设计要求" onChange={event => onChange?.({ prompt: event.target.value })} />
+    <textarea data-canvas-control="true" value={node.prompt || ''} disabled={loading} placeholder="描述你想生成的画面；看板中的文字会作为画面文字要求" onChange={event => onChange?.({ prompt: event.target.value })} />
     <div className="ec-canvas-composer-footer">
-      <select data-canvas-control="true" aria-label="文案数量" value={node.count || 1} onChange={event => onChange?.({ count: Number(event.target.value) })}>{[1, 2, 3, 4].map(count => <option key={count} value={count}>x{count}</option>)}</select>
-      <span>{sources.length ? `已引用 ${sources.length} 张图片` : '可直接编辑上方文案，或在这里继续生成'}</span>
+      <CanvasParameterControls node={node} onChange={onChange} />
       <ComposerMention availableSources={availableSources} sources={sources} onToggleSource={onToggleSource} />
-      <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim()} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
+      <button type="button" data-canvas-control="true" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
     </div>
   </section>;
 }
@@ -323,20 +439,24 @@ export function CanvasEcommerceComposer({ node, position, sources = [], availabl
     </div>}
     {!planning ? <>
       <textarea data-canvas-control="true" value={node.prompt || ''} disabled={loading} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={event => onChange?.({ prompt: event.target.value })} />
-      <div className="ec-canvas-suite-options">
-        <label>目标平台<select data-canvas-control="true" value={node.platform || '淘宝'} onChange={event => onChange?.({ platform: event.target.value })}>{['淘宝', '天猫', '京东', '拼多多', '小红书'].map(platform => <option key={platform}>{platform}</option>)}</select></label>
-        <label>主图比例<select data-canvas-control="true" value={node.ratio || '1:1'} onChange={event => onChange?.({ ratio: event.target.value })}>{CANVAS_RATIO_OPTIONS.slice(0, 3).map(ratio => <option key={ratio}>{ratio}</option>)}</select></label>
-        <label>清晰度<select data-canvas-control="true" aria-label="清晰度" value={node.resolution || '2K'} onChange={event => onChange?.({ resolution: event.target.value })}>{CANVAS_RESOLUTION_OPTIONS.map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>语言<select data-canvas-control="true" value={node.language || '中文'} onChange={event => onChange?.({ language: event.target.value })}><option>中文</option><option>英文</option></select></label>
-        <label>套图数量<select data-canvas-control="true" aria-label="套图数量" value={node.count || 6} onChange={event => onChange?.({ count: Number(event.target.value) })}>{[3, 6, 9, 12].map(value => <option key={value} value={value}>{value} 张</option>)}</select></label>
-      </div>
     </> : <div className="ec-canvas-direction-list" aria-label="设计方案">
       {directions.map((direction, index) => <button key={direction.id || index} type="button" data-canvas-control="true" className={node.selectedDirection === index ? 'is-selected' : ''} onClick={event => { event.stopPropagation(); onChooseDirection?.(direction, index); }}><strong>{direction.title || direction.name || `方案 ${index + 1}`}</strong><small>{direction.hook || direction.description || direction.summary || '保留商品主体，生成一套完整电商视觉'}</small></button>)}
       {!directions.length && <p>正在整理商品卖点和视觉方向...</p>}
     </div>}
+    <CanvasSuiteControls
+      node={node}
+      availableSources={availableSources}
+      sources={sources}
+      onChange={onChange}
+      onToggleSource={source => {
+        const sourceId = source.sourceNodeId || source.id;
+        const hasProductSource = sources.some(item => (node.sourceRoles?.[item.sourceNodeId || item.id] || item.role) === 'product');
+        const role = node.sourceRoles?.[sourceId] || (source.role === 'product' ? 'product' : '') || (hasProductSource ? 'reference' : 'product');
+        onToggleSource?.(source, role);
+      }}
+    />
     <div className="ec-canvas-composer-footer">
       <span>{planning ? '选中方案后再生成套图' : '先分析商品与参考图，再进入设计方案'}</span>
-      <ComposerMention availableSources={availableSources} sources={sources} onToggleSource={(source) => onToggleSource?.(source, node.sourceRoles?.[source.id] || 'reference')} />
       <button type="button" data-canvas-control="true" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && node.selectedDirection == null)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}</>}</button>
     </div>
   </section>;

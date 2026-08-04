@@ -6,6 +6,7 @@ import {
   buildCanvasImageReferencePayload,
   buildImageMentions,
   buildRoleAwareImagePayload,
+  removeImageMention,
   toggleImageMention,
 } from '../src/components/creation/imageMentionModel.js';
 
@@ -68,6 +69,12 @@ test('an image mention is inserted once with readable spacing', () => {
   assert.equal(appendImageMention('', '@图片1'), '@图片1 ');
   assert.equal(appendImageMention('保留杯身', '@图片2'), '保留杯身 @图片2 ');
   assert.equal(appendImageMention('参考 @图片1 的构图', '@图片1'), '参考 @图片1 的构图');
+});
+
+test('removing an image mention only removes the selected token', () => {
+  assert.equal(removeImageMention('保留 @图片1 的主体，并参考 @图片2', '@图片1'), '保留 的主体，并参考 @图片2');
+  assert.equal(removeImageMention('@图片1 @图片2', '@图片2'), '@图片1');
+  assert.equal(removeImageMention('没有引用图片', '@图片1'), '没有引用图片');
 });
 
 test('plain image URLs become stable mention candidates for content creation', () => {

@@ -3,6 +3,8 @@ const MAX_NODE_WIDTH = 960;
 
 export const CANVAS_RATIO_OPTIONS = Object.freeze(['1:1', '3:4', '4:3', '9:16', '16:9']);
 export const CANVAS_RESOLUTION_OPTIONS = Object.freeze(['1K', '2K', '4K']);
+export const CANVAS_COUNT_OPTIONS = Object.freeze([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+export const CANVAS_SUITE_COUNT_OPTIONS = Object.freeze([3, 6, 9, 12]);
 
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -42,15 +44,19 @@ export function getCanvasComposerPresentation({ node, selectedId = '', selectedC
   const visibleTop = hasViewport ? -finite(viewport?.y) / scale + 12 / scale : Number.NEGATIVE_INFINITY;
   const visibleRight = hasViewport ? (viewportWidth - finite(viewport?.x)) / scale - 12 / scale : Number.POSITIVE_INFINITY;
   const visibleBottom = hasViewport ? (viewportHeight - finite(viewport?.y)) / scale - 12 / scale : Number.POSITIVE_INFINITY;
+  // Footer controls wrap into extra rows on narrow canvases. Reserve the
+  // equivalent of 48 CSS pixels so the contextual surface stays above the
+  // viewport edge after the world layer is scaled.
+  const placementHeight = hasViewport && viewportWidth <= 620 ? height + 48 / scale : height;
   const preferredLeft = finite(node.x) + (nodeWidth - panelWidth) / 2;
   const belowTop = finite(node.y) + nodeHeight + gap;
-  const aboveTop = finite(node.y) - height - gap;
-  const preferredTop = hasViewport && belowTop + height > visibleBottom && aboveTop >= visibleTop ? aboveTop : belowTop;
+  const aboveTop = finite(node.y) - placementHeight - gap;
+  const preferredTop = hasViewport && belowTop + placementHeight > visibleBottom && aboveTop >= visibleTop ? aboveTop : belowTop;
   return {
     visible: true,
     position: {
       left: Math.round(hasViewport ? Math.min(visibleRight - panelWidth, Math.max(visibleLeft, preferredLeft)) : preferredLeft),
-      top: Math.round(hasViewport ? Math.min(visibleBottom - height, Math.max(visibleTop, preferredTop)) : preferredTop),
+      top: Math.round(hasViewport ? Math.min(visibleBottom - placementHeight, Math.max(visibleTop, preferredTop)) : preferredTop),
       width: Math.round(panelWidth),
     },
   };
@@ -131,6 +137,8 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
     text: '',
     placeholder: '双击开始编辑...',
     prompt: '',
+    ratio: '1:1',
+    resolution: '2K',
     count: 1,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
     textStyle: {
@@ -152,14 +160,19 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     status: 'ready',
     x: finite(x),
     y: finite(y),
-    w: 560,
-    h: 360,
+    w: 640,
+    h: 420,
     prompt: '',
     platform,
+    suiteType: '完整套图',
     ratio: '1:1',
     resolution: '2K',
     language: '中文',
     count: 6,
+    skuMode: '默认SKU',
+    styleSkill: 'smart',
+    productInfoMode: 'auto',
+    copywritingMode: 'smart',
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
   };
 }

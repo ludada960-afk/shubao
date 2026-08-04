@@ -1116,3 +1116,21 @@
   canvas save/reload persistence all passed in session
   `1dc4095d-fc27-4451-b346-07e03663284e`. User-owned extension-task deletions
   and `.tmp/` remain untouched.
+- Canvas generation correction follow-up completed locally on 2026-08-04.
+  Text generation is an editable compact board whose selected composer creates
+  images; image and suite nodes stay content-only until selected. Shared
+  source tiles now contain complete centered previews, the footer owns ratio,
+  1K/2K/4K quality, quantity and `@` controls, and suite references assign the
+  first mention to the product lane and later mentions to the reference lane.
+  Right-side derive ports open the same contextual surfaces as the add rail.
+  Mobile composer placement reserves wrapped-footer height, and segmentation
+  progress is monotonic on the transient processing node and animated edge.
+  Smart-layer materialization deduplicates exact layers, keeps the group
+  collapsed until drag, and connects every child directly to the source.
+  Focused Canvas regression passed 45/45, full repository regression passed
+  1,130/1,130, the 6,441-module production build and asset check passed,
+  collaboration policy is READY, and mobile browser QA at 390x844 reported no
+  composer overflow. No files are delegated; the 12 user-owned
+  `server/extension_tasks` deletions and `.tmp/` remain untouched. Production
+  deployment is still pending the final explicit commit and authenticated
+  release verification.

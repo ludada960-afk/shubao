@@ -31,7 +31,7 @@ export function buildImageMentions(images = []) {
 
   return unique.map((image, order) => ({
     ...image,
-    label: `@图片${order + 1}`,
+    label: image.label || `@图片${order + 1}`,
     order,
   }));
 }
@@ -42,6 +42,18 @@ export function appendImageMention(text, label) {
   if (!mention || current.includes(mention)) return current;
   const separator = current && !/\s$/.test(current) ? ' ' : '';
   return `${current}${separator}${mention} `;
+}
+
+export function removeImageMention(text, label) {
+  const current = String(text || '');
+  const mention = String(label || '').trim();
+  if (!mention) return current;
+  const escaped = mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return current
+    .replace(new RegExp(`(^|\\s)${escaped}(?=\\s|$)`, 'g'), '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([，。；：！？、])/g, '$1')
+    .trim();
 }
 
 export function toggleImageMention(mentions = [], image = {}) {
