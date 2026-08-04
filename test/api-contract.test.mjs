@@ -668,11 +668,16 @@ test('canvas regeneration forwards supplementary visual references', async t => 
     prompt: '保留商品结构，换成夏日场景',
     imageUrl: '/api/generated-assets/source.png',
     referenceImages: ['/api/ec-temp-img/reference.png'],
+    references: [
+      { sourceNodeId: 'source', assetId: 'asset-source', url: '/api/generated-assets/source.png', displayName: '正面图', mention: '@正面图', role: 'product', order: 0 },
+      { sourceNodeId: 'reference', assetId: 'asset-reference', url: '/api/ec-temp-img/reference.png', displayName: '参考图 1', mention: '@参考图 1', role: 'reference', order: 1 },
+    ],
     ratio: '3:4',
     resolution: '4K',
   });
   const requestBody = requests.find(request => request.url.endsWith('/api/canvas/regenerate')).body;
   assert.deepEqual(requestBody.reference_images, ['/api/ec-temp-img/reference.png']);
+  assert.deepEqual(requestBody.reference_metadata.map(item => item.mention), ['@正面图', '@参考图 1']);
   assert.equal(requestBody.ratio, '3:4');
   assert.equal(requestBody.resolution, '4K');
   assert.equal(requests.find(request => request.url.endsWith('/api/billing/quote')).body.sku, 'ec_image_4k');
@@ -701,6 +706,10 @@ test('Canvas text generation sends ordered visual references to the signed visio
   const result = await regenerateCanvasText({
     prompt: '提炼三条卖点',
     referenceImages: ['/api/generated-assets/a.png', '/api/generated-assets/b.png'],
+    references: [
+      { sourceNodeId: 'a', url: '/api/generated-assets/a.png', displayName: '正面图', mention: '@正面图', role: 'product', order: 0 },
+      { sourceNodeId: 'b', url: '/api/generated-assets/b.png', displayName: '参考图 1', mention: '@参考图 1', role: 'reference', order: 1 },
+    ],
     count: 3,
   });
 
@@ -708,6 +717,7 @@ test('Canvas text generation sends ordered visual references to the signed visio
   assert.equal(requests[0].url, '/api/canvas/regenerate-text');
   assert.equal(requests[0].headers.Authorization, 'Bearer signed-canvas-session');
   assert.deepEqual(requests[0].body.reference_images, ['/api/generated-assets/a.png', '/api/generated-assets/b.png']);
+  assert.deepEqual(requests[0].body.reference_metadata.map(item => item.mention), ['@正面图', '@参考图 1']);
   assert.equal(requests[0].body.count, 3);
 });
 

@@ -103,6 +103,15 @@ export function findCanvasBlankPlacement({
     addCandidate({ x: sourceNode.x - w - gap, y: sourceNode.y });
     addCandidate({ x: sourceNode.x, y: sourceNode.y - h - gap });
   }
+  const center = {
+    x: visible.x + (visible.w - w) / 2,
+    y: visible.y + (visible.h - h) / 2,
+  };
+  addCandidate(center);
+  addCandidate({ x: center.x + w + gap, y: center.y });
+  addCandidate({ x: center.x - w - gap, y: center.y });
+  addCandidate({ x: center.x, y: center.y + h + gap });
+  addCandidate({ x: center.x, y: center.y - h - gap });
   const stepX = Math.max(120, Math.min(w + gap, 320));
   const stepY = Math.max(100, Math.min(h + gap, 260));
   for (let y = visible.y; y <= maxY; y += stepY) {

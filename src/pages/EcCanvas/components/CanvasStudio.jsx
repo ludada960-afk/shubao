@@ -28,6 +28,7 @@ import {
   Redo2,
   ScanText,
   Scissors,
+  SlidersHorizontal,
   Square,
   Sparkles,
   Trash2,
@@ -40,7 +41,16 @@ import {
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
-import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SUITE_COUNT_OPTIONS, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide } from '../canvasStudioModel.js';
+import SizingPanel from '../../Home/ec/SizingPanel.jsx';
+import SkuPanel from '../../Home/ec/SkuPanel.jsx';
+import StylePanel from '../../Home/ec/StylePanel.jsx';
+import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
+import CopyPanel from '../../Home/ec/CopyPanel.jsx';
+import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
+import DirectionOptionCard from '../../Home/ec/components/DirectionOptionCard.jsx';
+import { updateDirectionShotPlan } from '../../Home/ec/components/directionUiModel.js';
+import { createSmartConfiguration, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
+import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide } from '../canvasStudioModel.js';
 import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
 
@@ -237,69 +247,79 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   </div>;
 }
 
-const CANVAS_SUITE_PLATFORMS = Object.freeze(['淘宝', '天猫', '京东', '拼多多', '小红书']);
-const CANVAS_SUITE_TYPES = Object.freeze(['完整套图', '主图+详情', '主图']);
-const CANVAS_SUITE_LANGUAGES = Object.freeze(['中文', '英文']);
+const SUITE_PANEL_BUTTONS = Object.freeze([
+  { key: 'sizing', label: '套图方案', icon: Grid2X2 },
+  { key: 'sku', label: 'SKU变体', icon: Layers3 },
+  { key: 'style', label: '视觉方向', icon: WandSparkles },
+  { key: 'params', label: '商品信息', icon: Info },
+  { key: 'copy', label: '内容规范', icon: FileText },
+  { key: 'settings', label: '生成设置', icon: SlidersHorizontal },
+]);
 
-function CanvasOptionMenu({ label, value, options = [], ariaLabel, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = event => {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [open]);
-  return <div className="ec-canvas-option-menu" ref={rootRef}>
-    <button type="button" data-canvas-control="true" aria-label={ariaLabel || label} aria-haspopup="menu" aria-expanded={open} onPointerDown={event => event.stopPropagation()} onClick={() => setOpen(current => !current)}>
-      <span>{label}</span><strong>{value}</strong><ChevronDown size={12} />
-    </button>
-    {open && <div className="ec-canvas-option-popover" role="menu" aria-label={`${label}选项`} onPointerDown={event => event.stopPropagation()}>
-      {options.map(option => {
-        const item = typeof option === 'string' ? { value: option, label: option } : option;
-        return <button key={item.value} type="button" className={item.value === value ? 'is-active' : ''} onClick={() => { onSelect?.(item.value); setOpen(false); }}>
-          <span>{item.label}</span>{item.description && <small>{item.description}</small>}
-        </button>;
-      })}
-    </div>}
-  </div>;
-}
-
-function CanvasSuitePlanMenu({ node, onChange }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = event => {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [open]);
-  const choose = change => onChange?.(change);
-  return <div className="ec-canvas-option-menu ec-canvas-suite-plan-menu" ref={rootRef}>
-    <button type="button" data-canvas-control="true" aria-label="套图方案" aria-haspopup="menu" aria-expanded={open} onPointerDown={event => event.stopPropagation()} onClick={() => setOpen(current => !current)}>
-      <span>套图方案</span><strong>{node.platform || '淘宝'} · {node.suiteType || '完整套图'}</strong><ChevronDown size={12} />
-    </button>
-    {open && <div className="ec-canvas-suite-plan-popover" role="menu" aria-label="套图方案选项" onPointerDown={event => event.stopPropagation()}>
-      <div className="ec-canvas-suite-plan-group"><strong>目标平台</strong><div>{CANVAS_SUITE_PLATFORMS.map(value => <button key={value} type="button" className={value === (node.platform || '淘宝') ? 'is-active' : ''} onClick={() => choose({ platform: value })}>{value}</button>)}</div></div>
-      <div className="ec-canvas-suite-plan-group"><strong>套图类型</strong><div>{CANVAS_SUITE_TYPES.map(value => <button key={value} type="button" className={value === (node.suiteType || '完整套图') ? 'is-active' : ''} onClick={() => choose({ suiteType: value })}>{value}</button>)}</div></div>
-      <div className="ec-canvas-suite-plan-group"><strong>目标语言</strong><div>{CANVAS_SUITE_LANGUAGES.map(value => <button key={value} type="button" className={value === (node.language || '中文') ? 'is-active' : ''} onClick={() => choose({ language: value })}>{value}</button>)}</div></div>
-      <div className="ec-canvas-suite-plan-group"><strong>套图数量</strong><div>{CANVAS_SUITE_COUNT_OPTIONS.map(value => <button key={value} type="button" className={value === (Number(node.count) || 6) ? 'is-active' : ''} onClick={() => choose({ count: value })}>{value}张</button>)}</div></div>
-    </div>}
-  </div>;
+function suiteConfiguration(node = {}) {
+  const defaults = createSmartConfiguration();
+  const value = node.configuration || {};
+  return {
+    ...defaults,
+    ...value,
+    sizing: { ...defaults.sizing, ...(value.sizing || {}) },
+    productParams: { ...defaults.productParams, ...(value.productParams || {}) },
+    copywriting: { ...defaults.copywriting, ...(value.copywriting || {}) },
+    genSettings: { ...defaults.genSettings, ...(value.genSettings || {}), resolution: value.genSettings?.resolution || node.resolution || '2K' },
+  };
 }
 
 function CanvasSuiteControls({ node, onChange }) {
-  return <div className="ec-canvas-suite-controls" role="group" aria-label="套图参数">
-    <CanvasSuitePlanMenu node={node} onChange={onChange} />
-    <CanvasOptionMenu label="SKU变体" value={node.skuMode || '默认SKU'} options={['默认SKU', '多SKU变体']} onSelect={value => onChange?.({ skuMode: value })} />
-    <CanvasOptionMenu label="智能风格" value={node.styleSkill === 'custom' ? '自定义' : '智能'} options={[{ value: 'smart', label: '智能风格', description: '根据商品和平台自动匹配' }, { value: 'custom', label: '自定义风格', description: '结合输入要求生成' }]} onSelect={value => onChange?.({ styleSkill: value })} />
-    <CanvasOptionMenu label="商品信息" value={node.productInfoMode === 'prompt' ? '使用描述' : '自动识别'} options={[{ value: 'auto', label: '自动识别商品', description: '从产品图提取结构和卖点' }, { value: 'prompt', label: '使用输入描述', description: '优先参考输入区的商品信息' }]} onSelect={value => onChange?.({ productInfoMode: value })} />
-    <CanvasOptionMenu label="文案策划" value={node.copywritingMode === 'none' ? '不生成' : 'AI规划'} options={[{ value: 'smart', label: 'AI规划文案', description: '生成主图和详情图文字' }, { value: 'none', label: '不生成文案', description: '只生成画面和版式' }]} onSelect={value => onChange?.({ copywritingMode: value })} />
-    <CanvasParameterControls node={node} onChange={onChange} includeCount={false} />
+  const [activePanel, setActivePanel] = useState('');
+  const rootRef = useRef(null);
+  const configuration = suiteConfiguration(node);
+  useEffect(() => {
+    if (!activePanel) return undefined;
+    const close = event => {
+      if (!rootRef.current?.contains(event.target)) setActivePanel('');
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [activePanel]);
+  const update = (key, value, legacy = {}) => onChange?.({
+    ...legacy,
+    configuration: { ...configuration, [key]: value },
+  });
+  const summary = key => {
+    if (key === 'sizing') return summarizeCommerceConfiguration('sizing', configuration.sizing);
+    if (key === 'sku') return summarizeCommerceConfiguration('sku', configuration);
+    if (key === 'params') return summarizeCommerceConfiguration('params', configuration);
+    if (key === 'style') return configuration.styleSkill === 'smart' ? '智能风格' : '自定义风格';
+    if (key === 'copy') return Object.values(configuration.copywriting || {}).some(Boolean) ? '已配置' : 'AI规划';
+    return `${configuration.genSettings?.resolution || '2K'}·最佳质量`;
+  };
+  return <div className="ec-canvas-suite-controls" role="group" aria-label="套图参数" ref={rootRef}>
+    {SUITE_PANEL_BUTTONS.map(item => <div className="ec-canvas-suite-control" key={item.key}>
+      <button
+        type="button"
+        data-canvas-control="true"
+        className={activePanel === item.key ? 'is-active' : ''}
+        aria-expanded={activePanel === item.key}
+        aria-haspopup="dialog"
+        onClick={() => setActivePanel(current => current === item.key ? '' : item.key)}
+      ><item.icon size={14} /><span>{item.label}</span><strong>{summary(item.key)}</strong><ChevronDown size={12} /></button>
+      {activePanel === item.key && <div className="ec-canvas-suite-panel-popover" role="dialog" aria-label={`${item.label}设置`} onPointerDown={event => event.stopPropagation()}>
+        {item.key === 'sizing' && <SizingPanel
+          platform={configuration.platform}
+          onPlatformChange={value => update('platform', value)}
+          sizing={configuration.sizing}
+          onSizingChange={value => update('sizing', value, { count: (value.images || []).reduce((total, image) => total + (Number(image.count) || 0), 0) || node.count })}
+          smartMode
+          onOverride={() => {}}
+          resolution={configuration.genSettings.resolution}
+        />}
+        {item.key === 'sku' && <SkuPanel skus={configuration.skus} onChange={value => update('skus', value)} sizing={configuration.sizing} onSizingChange={value => update('sizing', value)} />}
+        {item.key === 'style' && <StylePanel value={configuration.styleSkill} onChange={value => update('styleSkill', value, { styleSkill: value })} customColors={configuration.customColors} onColorsChange={value => update('customColors', value)} smartMode onOverride={() => {}} onResetOverride={() => {}} />}
+        {item.key === 'params' && <ParamsPanel params={configuration.productParams} onChange={value => update('productParams', value)} smartMode onOverride={() => {}} />}
+        {item.key === 'copy' && <CopyPanel copywriting={configuration.copywriting} onChange={value => update('copywriting', value)} smartMode onOverride={() => {}} />}
+        {item.key === 'settings' && <GenSettingsPanel value={configuration.genSettings} onChange={value => update('genSettings', value, { resolution: value.resolution || node.resolution })} />}
+      </div>}
+    </div>)}
   </div>;
 }
 
@@ -443,13 +463,13 @@ export function CanvasEcommerceComposer({ node, position, sources = [], availabl
     </div>}
     {!planning ? <>
       <textarea data-canvas-control="true" value={node.prompt || ''} disabled={loading} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={event => onChange?.({ prompt: event.target.value })} />
-    </> : <div className="ec-canvas-direction-list" aria-label="设计方案">
-      {directions.map((direction, index) => <button key={direction.id || index} type="button" data-canvas-control="true" className={node.selectedDirection === index ? 'is-selected' : ''} onClick={event => { event.stopPropagation(); onChooseDirection?.(direction, index); }}><strong>{direction.title || direction.name || `方案 ${index + 1}`}</strong><small>{direction.hook || direction.description || direction.summary || '保留商品主体，生成一套完整电商视觉'}</small></button>)}
+    </> : <div className="ec-canvas-direction-list" aria-label="整体设计规范与图片规划">
+      {directions.map((direction, index) => <DirectionOptionCard key={direction.id || index} direction={direction} index={index} selected={node.selectedDirection === index} onSelect={selectedIndex => onChooseDirection?.(directions[selectedIndex], selectedIndex)} onShotChange={(shotId, value) => onChange?.({ directions: directions.map((item, itemIndex) => itemIndex === index ? updateDirectionShotPlan(item, shotId, value) : item) })} />)}
       {!directions.length && <p>正在整理商品卖点和视觉方向...</p>}
     </div>}
     <CanvasSuiteControls node={node} onChange={onChange} />
     <div className="ec-canvas-composer-footer">
-      <span>{planning ? '选中方案后再生成套图' : '先分析商品与参考图，再进入设计方案'}</span>
+      <span>{planning ? '确认逐图计划后生成完整套图' : '先分析商品与参考图，再进入整体设计方案'}</span>
       <ComposerMention availableSources={availableSources} sources={sources} onToggleSource={source => {
         const sourceId = source.sourceNodeId || source.id;
         const hasProductSource = sources.some(item => (node.sourceRoles?.[item.sourceNodeId || item.id] || item.role) === 'product');

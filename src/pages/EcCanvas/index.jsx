@@ -53,18 +53,18 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot } from './canvasSessionModel.js';
-import { buildCanvasImportResult, canvasOutputImages, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
+import { buildCanvasImportResult, canvasOutputImages, canvasWorkOutputFingerprint, collectCanvasWorkImages, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
-import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, selectedCanvasBounds } from './canvasInteractionModel.js';
+import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createUploadedImageNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
 import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
 import { canvasSegmentationRuntime, segmentationMasksToApi } from './canvasSegmentationRuntime.js';
-import { appendImageMention, buildImageMentions, removeImageMention } from '../../components/creation/imageMentionModel.js';
+import { appendImageMention, buildCanvasImageReferencePayload, buildImageMentions, buildRoleAwareImagePayload, removeImageMention } from '../../components/creation/imageMentionModel.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -556,6 +556,7 @@ export default function EcCanvas() {
   const canvasSessionRef = useRef(null);
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
+  const workOutputFingerprintRef = useRef('');
   const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
@@ -659,18 +660,41 @@ export default function EcCanvas() {
   }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, result.browserQa, imageList.length]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !canvasSaveKeyRef.current || pointerMode?.kind === 'drag') return undefined;
+    if (!draftReadyRef.current || !canvasSaveKeyRef.current || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
     const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
     const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
     return () => clearTimeout(timer);
   }, [connections, nodes, pointerMode?.kind, viewport]);
 
   useEffect(() => {
+    if (!draftReadyRef.current || result.browserQa || !result._saveKey || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
+    const fingerprint = canvasWorkOutputFingerprint(nodes);
+    if (!fingerprint || fingerprint === workOutputFingerprintRef.current) return undefined;
+    const baseImages = canvasOutputImages(result);
+    const imageRecords = collectCanvasWorkImages({ baseImages, nodes });
+    if (imageRecords.length <= baseImages.length) {
+      workOutputFingerprintRef.current = fingerprint;
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      const workResult = { ...result, images: imageRecords, imageRecords };
+      const saved = await saveWork(workResult, phone);
+      if (!saved) return;
+      workOutputFingerprintRef.current = fingerprint;
+      setPastWorks(previous => normalizeCanvasWorkPanel({
+        serverWorks: [workResult, ...previous],
+        ownerEmail: phone,
+      }));
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [nodes, phone, pointerMode?.kind, result]);
+
+  useEffect(() => {
     canvasSessionRef.current = canvasSession;
   }, [canvasSession]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || canvasSessionBusy || pointerMode?.kind === 'drag') return undefined;
+    if (!draftReadyRef.current || canvasSessionBusy || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
     const projectId = result.projectId;
     const baseVersionId = result.resultVersionId || result.sourceVersionId;
     if (!projectId || !baseVersionId) return undefined;
@@ -689,7 +713,10 @@ export default function EcCanvas() {
         canvasSessionRef.current = session;
         setCanvasSession(session);
         if (result._saveKey) {
-          const workResult = { ...result };
+          const workResult = {
+            ...result,
+            imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes }),
+          };
           delete workResult.canvasSession;
           await saveWork({ ...workResult, canvasSessionId: session.id, canvasSessionRevision: session.revision }, phone);
         }
@@ -888,7 +915,7 @@ export default function EcCanvas() {
     const dy = pending.point.y - pending.start.y;
     if (!dx && !dy) return;
     setNodes(previous => moveSelectedNodes(previous, pending.ids, dx, dy));
-    setPointerMode(previous => previous?.kind === 'drag' ? { ...previous, start: pending.point } : previous);
+    setPointerMode(previous => ['drag', 'layer-extract'].includes(previous?.kind) ? { ...previous, start: pending.point } : previous);
   }, []);
 
   useEffect(() => () => {
@@ -980,25 +1007,22 @@ export default function EcCanvas() {
       setNodes(previous => previous.map(node => node.id === pointerMode.nodeId ? resized : node));
       return;
     }
+    if (pointerMode.kind === 'layer-extract') {
+      const point = toWorldPoint(e);
+      if (Math.hypot(point.x - pointerMode.start.x, point.y - pointerMode.start.y) <= 2) return;
+      setNodes(previous => previous.map(node => {
+        if (node.id === pointerMode.sourceNodeId) return { ...node, layerExpanded: true };
+        if (node.id === pointerMode.targetNodeId) return { ...node, hidden: false };
+        return node;
+      }));
+      setSelected(pointerMode.targetNodeId);
+      setMultiSelected(new Set([pointerMode.targetNodeId]));
+      pendingDragRef.current = { ids: new Set([pointerMode.targetNodeId]), start: pointerMode.start, point };
+      if (!dragFrameRef.current) dragFrameRef.current = requestAnimationFrame(flushDragFrame);
+      return;
+    }
     if (pointerMode.kind === 'drag') {
       const point = toWorldPoint(e);
-      if (Math.hypot(point.x - pointerMode.start.x, point.y - pointerMode.start.y) > 2) {
-        const draggingIds = new Set(pointerMode.ids || []);
-        setNodes(previous => {
-          let changed = false;
-          const expandedGroups = new Set();
-          const next = previous.map(node => {
-            if (!draggingIds.has(node.id) || node.layerExpanded || !node.layerChildIds?.length) return node;
-            changed = true;
-            expandedGroups.add(node.id);
-            return { ...node, layerExpanded: true };
-          }).map(node => expandedGroups.size && [...expandedGroups].some(groupId => {
-            const group = previous.find(item => item.id === groupId);
-            return group?.layerChildIds?.includes(node.id);
-          }) ? { ...node, hidden: false } : node);
-          return changed ? next : previous;
-        });
-      }
       pendingDragRef.current = { ids: pointerMode.ids, start: pointerMode.start, point };
       if (!dragFrameRef.current) dragFrameRef.current = requestAnimationFrame(flushDragFrame);
     }
@@ -1087,6 +1111,18 @@ export default function EcCanvas() {
       return;
     }
     const baseIds = multiSelected.has(id) ? multiSelected : new Set([id]);
+    const activeNode = nodes.find(node => node.id === id);
+    if (activeNode?.kind === 'layer-group') {
+      const point = toWorldPoint(e);
+      const targetLayer = pickCanvasLayerAtPoint(nodes, id, point);
+      if (targetLayer) {
+        setSelected(id);
+        setMultiSelected(new Set([id]));
+        setPointerMode({ kind: 'layer-extract', sourceNodeId: id, targetNodeId: targetLayer.id, start: point });
+        try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
+        return;
+      }
+    }
     const ids = expandCanvasDragSelection(nodes, id, baseIds);
     setSelected(ids.size === 1 ? id : null);
     setMultiSelected(ids);
@@ -1257,7 +1293,7 @@ export default function EcCanvas() {
       setNodes(previous => previous
         .filter(node => node.id !== pendingId)
         .map(node => node.id === source.id ? {
-          ...node,
+          ...result.sourceNode,
           layerStatus: data.status || 'complete',
           layerCapabilities: data.capabilities || {},
         } : node)
@@ -1266,7 +1302,7 @@ export default function EcCanvas() {
         const retained = removeConnectionsForNodes(previous, new Set([pendingId]));
         return [...retained, ...result.connections];
       });
-      const groupNodeId = result.nodes[0]?.id || source.id;
+      const groupNodeId = result.sourceNode.id;
       setSelected(groupNodeId);
       setMultiSelected(new Set([groupNodeId]));
       const warning = Array.isArray(data.warnings) && data.warnings.length
@@ -1957,7 +1993,7 @@ export default function EcCanvas() {
       return;
     }
     if (handler === 'reverse-prompt') {
-      const textNode = createCanvasTextNode({ x: node.x + node.w + 56, y: node.y, sourceNodeId: node.id });
+      const textNode = createCanvasTextComposerNode({ x: node.x + node.w + 56, y: node.y, sourceNodeId: node.id });
       textNode.status = 'processing';
       textNode.text = '正在分析画面内容...';
       setNodes(previous => [...previous, textNode]);
@@ -1967,7 +2003,13 @@ export default function EcCanvas() {
       try {
         const data = await reversePrompt({ image_url: node.url, product_name: node.name || node.displayLabel || node.label });
         if (!data.prompt) throw new Error('未得到可编辑的提示词');
-        setNodes(previous => previous.map(item => item.id === textNode.id ? { ...item, status: 'ready', text: data.prompt, name: '画面提示词' } : item));
+        setNodes(previous => previous.map(item => item.id === textNode.id ? {
+          ...item,
+          status: 'ready',
+          text: data.prompt,
+          prompt: '',
+          name: '画面提示词',
+        } : item));
       } catch (error) {
         setNodes(previous => previous.map(item => item.id === textNode.id ? { ...item, status: 'error', text: '画面分析暂时不可用，请稍后重试' } : item));
         handleCanvasActionError(error, { type: 'reverse-prompt', nodeId: node.id });
@@ -2310,6 +2352,10 @@ export default function EcCanvas() {
   const handleImageComposerGenerate = useCallback(async composer => {
     if (!composer?.prompt?.trim() || composer.status === 'processing') return;
     const sourceNodes = (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    const sourceReferences = buildCanvasImageReferencePayload(buildImageMentions(sourceNodes.map(node => ({
+      ...node,
+      role: composer.sourceRoles?.[node.id] || (node.id === composer.sourceNodeIds?.[0] ? 'product' : 'reference'),
+    }))));
     updateComposerNode(composer.id, { status: 'processing', error: '' });
     try {
       const count = Math.max(1, Math.min(10, Number(composer.count) || 1));
@@ -2330,6 +2376,7 @@ export default function EcCanvas() {
             prompt,
             imageUrl: sourceNodes[0].url,
             referenceImages: sourceNodes.slice(1).map(node => node.url),
+            references: sourceReferences.references,
             ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
             resolution: composer.resolution || '2K',
             selection,
@@ -2353,6 +2400,7 @@ export default function EcCanvas() {
             prompt,
             imageUrl: sourceNodes[0].url,
             referenceImages: sourceNodes.slice(1).map(node => node.url),
+            references: sourceReferences.references,
             ratio: composer.ratio || '1:1',
             resolution: composer.resolution || '2K',
           })
@@ -2407,6 +2455,13 @@ export default function EcCanvas() {
     const sourceNodes = (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
     const productNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'product');
     const referenceNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'reference');
+    const sourceMentions = buildImageMentions(sourceNodes.map(node => ({
+      ...node,
+      role: composer.sourceRoles?.[node.id] || 'product',
+    })));
+    const roleAwareSources = buildRoleAwareImagePayload(sourceMentions);
+    const configuration = composer.configuration || {};
+    const sizingImages = Array.isArray(configuration.sizing?.images) ? configuration.sizing.images : [];
     if (!productNodes.length) {
       showToast('请先连接或选中一张清晰商品图', 'info');
       return;
@@ -2420,12 +2475,15 @@ export default function EcCanvas() {
           category: result.category || '其他',
           real_shots: productNodes.slice(0, 6).map(node => node.url),
           ref_shots: referenceNodes.slice(0, 6).map(node => node.url),
-          platform: composer.platform || result.platform || '淘宝',
-          style_skill: composer.styleSkill || 'smart',
-          product_params: { mode: composer.productInfoMode || 'auto', skuMode: composer.skuMode || '默认SKU' },
-          skus: [],
-          copywriting: { mode: composer.copywritingMode || 'smart' },
-          requested_images: composer.suiteType === '主图'
+          asset_mentions: roleAwareSources.assets,
+          platform: configuration.platform === 'smart' ? (composer.platform || result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
+          style_skill: configuration.styleSkill || composer.styleSkill || 'smart',
+          product_params: configuration.productParams || {},
+          skus: configuration.skus || [],
+          copywriting: configuration.copywriting || {},
+          requested_images: sizingImages.length
+            ? sizingImages
+            : composer.suiteType === '主图'
             ? [{ key: 'main_text', count: 3 }]
             : [{ key: 'main_text', count: 3 }, { key: 'detail_slice_feature', count: 3 }],
         });
@@ -2435,7 +2493,7 @@ export default function EcCanvas() {
         setNodes(previous => previous.map(node => node.id === composer.id
           ? { ...node, status: 'ready', suiteStep: 'directions', directions, selectedDirection: 0 }
           : node));
-        showToast('设计方案已生成，请先选择一个方向', 'success');
+        showToast('整体设计规范与逐图计划已生成', 'success');
       } catch (error) {
         updateComposerNode(composer.id, { status: 'error', error: error.message || '设计方案生成失败' });
         handleCanvasActionError(error, { type: 'ecommerce-directions', nodeId: composer.id });
@@ -2446,7 +2504,7 @@ export default function EcCanvas() {
     const desiredCount = Math.max(3, Math.min(12, Number(composer.count) || 6));
     const mainCount = Math.min(3, Math.max(1, Math.floor((desiredCount - 1) / 2)));
     const detailCount = Math.max(1, desiredCount - 1 - mainCount);
-    const imageSelections = [
+    const imageSelections = sizingImages.length ? sizingImages : [
       { key: 'white_bg', count: 1, ratio: composer.ratio || '1:1' },
       { key: 'main_text', count: mainCount, ratio: composer.ratio || '1:1' },
       { key: 'detail_slice_feature', count: detailCount, ratio: composer.ratio || '1:1' },
@@ -2456,8 +2514,9 @@ export default function EcCanvas() {
     const roleRows = { 白底图: 0, 主图: 1, 详情图: 2, SKU: 3, 素材: 4 };
     try {
       await generateEcommerceSuite({
-        productImages: productNodes.map(node => ({ assetId: node.assetId, url: node.url, previewUrl: node.url, role: 'product' })),
-        referenceImages: referenceNodes.map(node => ({ assetId: node.assetId, url: node.url, previewUrl: node.url, role: 'reference' })),
+        productImages: productNodes.map(node => ({ assetId: node.assetId, url: node.url, previewUrl: node.url, name: node.name || node.displayLabel, role: 'product' })),
+        referenceImages: referenceNodes.map(node => ({ assetId: node.assetId, url: node.url, previewUrl: node.url, name: node.name || node.displayLabel, role: 'reference' })),
+        assetMentions: roleAwareSources.assets,
         sceneStyle: [
           composer.directions?.[composer.selectedDirection || 0]?.description,
           composer.prompt?.trim(),
@@ -2466,17 +2525,18 @@ export default function EcCanvas() {
           `商品信息模式：${composer.productInfoMode === 'prompt' ? '优先使用描述' : '自动识别'}`,
           `文案策划：${composer.copywritingMode === 'none' ? '不生成文案' : 'AI规划文案'}`,
         ].filter(Boolean).join('\n') || result.product_name || '专业电商视觉',
-        platform: composer.platform || result.platform || '淘宝',
+        platform: configuration.platform === 'smart' ? (composer.platform || result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
         batchPlan: { imageSelections },
         generationSettings: {
-          resolution: composer.resolution || '2K',
+          ...(configuration.genSettings || {}),
+          resolution: configuration.genSettings?.resolution || composer.resolution || '2K',
           suiteType: composer.suiteType || '完整套图',
           skuMode: composer.skuMode || '默认SKU',
-          styleSkill: composer.styleSkill || 'smart',
+          styleSkill: configuration.styleSkill || composer.styleSkill || 'smart',
           productInfoMode: composer.productInfoMode || 'auto',
           copywritingMode: composer.copywritingMode || 'smart',
         },
-        sizing: { smart: false, resolution: composer.resolution || '2K', images: imageSelections },
+        sizing: { ...(configuration.sizing || {}), smart: configuration.sizing?.smart ?? false, resolution: configuration.genSettings?.resolution || composer.resolution || '2K', images: imageSelections },
         direction: composer.directions?.[composer.selectedDirection || 0] || null,
         email: phone,
         onProgress: progress => updateComposerNode(composer.id, { progress: progress?.progress || progress?.percent || 0, progressLabel: progress?.message || progress?.label || '正在生成套图' }),
@@ -2536,6 +2596,10 @@ export default function EcCanvas() {
       const sourceNodes = (composer.sourceNodeIds || [])
         .map(id => nodes.find(node => node.id === id))
         .filter(node => node?.url);
+      const sourceReferences = buildCanvasImageReferencePayload(buildImageMentions(sourceNodes.map((node, index) => ({
+        ...node,
+        role: index === 0 ? 'product' : 'reference',
+      }))));
       const prompt = [
         boardText ? `请在生成画面中准确呈现以下文字内容，保持字面、顺序和可读性：${boardText}` : '',
         promptText,
@@ -2546,6 +2610,7 @@ export default function EcCanvas() {
           prompt,
           imageUrl: sourceNodes[0].url,
           referenceImages: sourceNodes.slice(1).map(node => node.url),
+          references: sourceReferences.references,
           ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
           resolution: composer.resolution || '2K',
         })
@@ -2596,8 +2661,8 @@ export default function EcCanvas() {
       return addCanvasComposer('text', placement);
     }
     const bounds = containerRef.current?.getBoundingClientRect();
-    const width = 240;
-    const height = 64;
+    const width = 420;
+    const height = 84;
     const source = placement?.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : undefined;
     const position = findCanvasBlankPlacement({
       width,
@@ -2976,7 +3041,10 @@ export default function EcCanvas() {
         : await createCanvasSession({ projectId, baseVersionId, snapshot });
       setCanvasSession(session);
       if (result._saveKey) {
-        const workResult = { ...result };
+          const workResult = {
+            ...result,
+            imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes }),
+          };
         delete workResult.canvasSession;
         await saveWork({
           ...workResult,
@@ -3048,7 +3116,6 @@ export default function EcCanvas() {
         onFilterChange={setActiveFilter}
         onBack={handleBack}
         onExport={() => setExportOpen(true)}
-        onSave={handleCanvasSessionSave}
         onRestore={handleCanvasSessionRestore}
         onNew={handleNew}
         saving={canvasSessionBusy}

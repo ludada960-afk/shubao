@@ -1,7 +1,3 @@
-const GRID_COLUMNS = 3;
-const GRID_COLUMN_WIDTH = 278;
-const GRID_ROW_HEIGHT = 300;
-
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
 }
@@ -20,6 +16,26 @@ function imageSize(layer) {
     w: nodeWidth,
     h: Math.max(120, Math.min(320, Math.round(nodeWidth / aspect))),
     ratio: `${Math.round(width)}:${Math.round(height)}`,
+  };
+}
+
+function layerGeometry(layer, sourceNode) {
+  const bounds = layer?.bounds;
+  const hasBounds = bounds && ['x', 'y', 'width', 'height']
+    .every(key => Number.isFinite(Number(bounds[key])));
+  if (!hasBounds) {
+    return {
+      x: finite(sourceNode.x),
+      y: finite(sourceNode.y),
+      w: finite(sourceNode.w, 240),
+      h: finite(sourceNode.h, 240),
+    };
+  }
+  return {
+    x: finite(sourceNode.x) + finite(sourceNode.w, 240) * Number(bounds.x),
+    y: finite(sourceNode.y) + finite(sourceNode.h, 240) * Number(bounds.y),
+    w: finite(sourceNode.w, 240) * Number(bounds.width),
+    h: finite(sourceNode.h, 240) * Number(bounds.height),
   };
 }
 
@@ -74,18 +90,15 @@ function layerFingerprint(layer = {}) {
 }
 
 function textNode(layer, common) {
-  const textWidth = Math.min(320, Math.max(160, Math.round(String(layer.text || '').length * 13 + 32)));
   return {
     ...common,
     kind: 'text',
-    w: textWidth,
-    h: 54,
     text: layer.text,
     placeholder: '输入文字',
     textStyle: {
       block: 'body',
       color: layer.color || '#20242a',
-      background: layer.background || 'transparent',
+      background: 'transparent',
       fontSize: 18,
       fontStyle: 'normal',
       fontWeight: 400,
@@ -98,7 +111,7 @@ function textNode(layer, common) {
 function imageNode(layer, common) {
   return {
     ...common,
-    ...imageSize(layer),
+    ratio: imageSize(layer).ratio,
     kind: 'image',
     url: layer.url,
     assetId: layer.assetId || '',
@@ -126,54 +139,13 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     });
   }
   const stableRunId = safeId(runId, `run-${Date.now()}`);
-  const originX = finite(anchor?.x, finite(sourceNode.x) + finite(sourceNode.w, 240) + 72);
-  const originY = finite(anchor?.y, finite(sourceNode.y));
-  const semanticGroupIndex = validLayers.findIndex(layer => layer.semanticType === 'product-group');
-  const groupLayerIndex = semanticGroupIndex >= 0
-    ? semanticGroupIndex
-    : validLayers.findIndex(layer => layer.kind === 'image');
-  const groupLayer = groupLayerIndex >= 0
-    ? validLayers[groupLayerIndex]
-    : validLayers.find(layer => layer.kind === 'image') || validLayers[0];
-  const childLayers = validLayers.filter((_, index) => index !== groupLayerIndex);
-  const groupId = `layer_group_${stableRunId}`;
-  const groupCommon = {
-    id: groupId,
-    name: '',
-    displayLabel: '',
-    semanticType: 'product-group',
-    layerBounds: groupLayer.bounds || null,
-    confidence: Number.isFinite(Number(groupLayer.confidence)) ? Number(groupLayer.confidence) : null,
-    editable: true,
-    status: 'ready',
-    sourceNodeIds: [sourceId],
-    actionId: 'layer-edit',
-    group: '智能分层',
-    role: 'product-group',
-    x: originX,
-    y: originY,
-    hidden: false,
-    locked: false,
-    layerExpanded: false,
-    layerChildIds: [],
-    showMeta: false,
-  };
-  const groupNode = groupLayer.kind === 'text'
-    ? textNode(groupLayer, { ...groupCommon, kind: 'text' })
-    : imageNode(groupLayer, groupCommon);
-  groupNode.id = groupId;
-  groupNode.kind = 'layer-group';
-  // Keep the collapsed card visually identical to the source. The extracted
-  // product/background/text assets become draggable children only after expand.
-  groupNode.url = sourceNode.url || groupLayer.url || '';
-  groupNode.w = Math.max(220, finite(sourceNode.w, 240));
-  groupNode.h = Math.max(120, finite(sourceNode.h, 240));
-  groupNode.ratio = sourceNode.ratio || groupLayer.ratio || '1:1';
-  groupNode.layerCount = childLayers.length;
+  const hasProductGroup = validLayers.some(layer => layer.semanticType === 'product-group');
+  const childLayers = hasProductGroup
+    ? validLayers.filter(layer => layer.semanticType !== 'product-instance')
+    : validLayers;
+  const groupId = sourceId;
 
-  const childNodes = childLayers.map((layer, index) => {
-    const col = index % GRID_COLUMNS;
-    const row = Math.floor(index / GRID_COLUMNS);
+  const childNodes = childLayers.map((layer) => {
     const id = `layer_${stableRunId}_${layer.id}`;
     const common = {
       id,
@@ -190,17 +162,25 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
       role: layer.semanticType,
       parentLayerGroupId: groupId,
       layerGroupId: groupId,
-      x: originX + groupNode.w + 48 + col * GRID_COLUMN_WIDTH,
-      y: originY + row * GRID_ROW_HEIGHT,
+      ...layerGeometry(layer, sourceNode),
       hidden: true,
       locked: false,
       showMeta: false,
     };
     return layer.kind === 'text' ? textNode(layer, common) : imageNode(layer, common);
   });
-  groupNode.layerChildIds = childNodes.map(node => node.id);
-  const nodes = [groupNode, ...childNodes];
-  const connections = [groupNode, ...childNodes].map((node, index) => ({
+  const sourceNodeResult = {
+    ...sourceNode,
+    kind: 'layer-group',
+    status: 'ready',
+    actionId: 'layer-edit',
+    group: '智能分层',
+    layerExpanded: false,
+    layerChildIds: childNodes.map(node => node.id),
+    layerCount: childNodes.length,
+    showMeta: false,
+  };
+  const connections = childNodes.map((node, index) => ({
     id: `edge_${stableRunId}_${index + 1}`,
     fromNodeId: sourceId,
     fromPort: 'output',
@@ -212,5 +192,5 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     to: node.id,
     type: 'derived',
   }));
-  return { nodes, connections, layers: validLayers };
+  return { sourceNode: sourceNodeResult, nodes: childNodes, connections, layers: validLayers };
 }

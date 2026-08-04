@@ -1,5 +1,5 @@
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-const MAX_DIRECTION_COUNT = 4;
+const MAX_DIRECTION_COUNT = 1;
 const DEFAULT_REQUESTED_IMAGES = Object.freeze([
   { key: 'white_bg', label: '白底图', count: 1, ratio: '1:1' },
   { key: 'main_text', label: '商品主图', count: 3, ratio: '1:1' },
@@ -437,6 +437,23 @@ function normalizeDirection(source, index, context) {
     ], { maxItems: 12, maxLength: 180 }),
     execution_guide: executionGuide,
     preview_colors: palette.length ? [...palette] : [...archetype.palette],
+    overall_spec: {
+      locked: true,
+      visual_style: uniqueStrings(
+        ownValue(direction, 'visual_tone', 'visualTone', 'visual_keywords', 'visualKeywords', 'keywords'),
+        { maxItems: 8, maxLength: 32 },
+      ).length
+        ? uniqueStrings(ownValue(direction, 'visual_tone', 'visualTone', 'visual_keywords', 'visualKeywords', 'keywords'), { maxItems: 8, maxLength: 32 }).join('、')
+        : archetype.visualTone.join('、'),
+      palette: palette.length ? [...palette] : [...archetype.palette],
+      lighting: firstString(ownValue(visualSource, 'lighting'), ownValue(direction, 'lighting'), archetype.lighting),
+      composition: firstString(ownValue(visualSource, 'composition'), ownValue(direction, 'composition'), archetype.composition),
+      camera_language: firstString(ownValue(visualSource, 'camera_language', 'cameraLanguage'), ownValue(direction, 'camera_language', 'cameraLanguage'), archetype.camera),
+      background_language: firstString(ownValue(visualSource, 'background_language', 'backgroundLanguage'), ownValue(direction, 'background_language', 'backgroundLanguage'), archetype.background),
+      typography_intent: firstString(ownValue(visualSource, 'typography_intent', 'typographyIntent'), ownValue(direction, 'typography_intent', 'typographyIntent'), archetype.typography),
+      copy_tone: firstString(ownValue(visualSource, 'copy_tone', 'copyTone'), ownValue(direction, 'copy_tone', 'copyTone'), archetype.copyTone),
+      product_fidelity: '商品外观、颜色、比例、结构、品牌标识和已确认文字必须保持一致，不得虚构不可见结构或功能。',
+    },
   };
 }
 
@@ -473,7 +490,7 @@ function ensureUniquePlan(plan, index, seenIds, seenTitles, seenStrategies, cont
 }
 
 /**
- * Turns untrusted model output into exactly four executable creative plans.
+ * Turns untrusted model output into one complete executable creative plan.
  * The requested suite is authoritative; model output may enrich duties but can
  * never change image roles, counts, ratios, or introduce unsupported media.
  */
@@ -488,14 +505,7 @@ export function normalizeCreativeDirectionPlans(rawDirections, options = {}) {
     visualObservations: Array.isArray(options.visualObservations) ? options.visualObservations : [],
     referenceStyle: Array.isArray(options.referenceStyle) ? options.referenceStyle : [],
   };
-  const seenIds = new Set();
-  const seenTitles = new Set();
-  const seenStrategies = new Set();
-
-  return Array.from({ length: MAX_DIRECTION_COUNT }, (_, index) => {
-    const normalized = normalizeDirection(sources[index], index, context);
-    return ensureUniquePlan(normalized, index, seenIds, seenTitles, seenStrategies, context);
-  });
+  return Array.from({ length: MAX_DIRECTION_COUNT }, (_, index) => normalizeDirection(sources[index], index, context));
 }
 
 export { DEFAULT_REQUESTED_IMAGES };

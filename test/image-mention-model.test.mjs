@@ -24,7 +24,7 @@ test('image mentions are ordered, deduplicated and receive stable display labels
       url: '/a.png',
       name: '正面图',
       role: 'product',
-      label: '@图片1',
+      label: '@正面图',
       order: 0,
     },
     {
@@ -33,7 +33,7 @@ test('image mentions are ordered, deduplicated and receive stable display labels
       url: '/b.png',
       name: '风格图',
       role: 'reference',
-      label: '@图片2',
+      label: '@风格图',
       order: 1,
     },
   ]);
@@ -41,8 +41,8 @@ test('image mentions are ordered, deduplicated and receive stable display labels
 
 test('toggling a mention preserves the remaining order and relabels it deterministically', () => {
   const selected = buildImageMentions(assets.slice(0, 2));
-  assert.deepEqual(toggleImageMention(selected, assets[0]).map(item => item.label), ['@图片1']);
-  assert.deepEqual(toggleImageMention(selected.slice(0, 1), assets[1]).map(item => item.label), ['@图片1', '@图片2']);
+  assert.deepEqual(toggleImageMention(selected, assets[0]).map(item => item.label), ['@风格图']);
+  assert.deepEqual(toggleImageMention(selected.slice(0, 1), assets[1]).map(item => item.label), ['@正面图', '@风格图']);
 });
 
 test('canvas image requests use the first mention as source and preserve later reference order', () => {
@@ -50,6 +50,10 @@ test('canvas image requests use the first mention as source and preserve later r
     imageUrl: '/a.png',
     referenceImages: ['/b.png'],
     sourceNodeIds: ['product-a', 'reference-b'],
+    references: [
+      { sourceNodeId: 'product-a', assetId: 'asset-a', url: '/a.png', displayName: '正面图', mention: '@正面图', role: 'product', order: 0 },
+      { sourceNodeId: 'reference-b', assetId: 'asset-b', url: '/b.png', displayName: '风格图', mention: '@风格图', role: 'reference', order: 1 },
+    ],
   });
 });
 
@@ -62,7 +66,19 @@ test('ecommerce requests preserve product and reference roles', () => {
   assert.deepEqual(buildRoleAwareImagePayload(mentions), {
     productImages: ['/a.png', '/c.png'],
     referenceImages: ['/b.png'],
+    assets: [
+      { sourceNodeId: 'product-a', assetId: 'asset-a', url: '/a.png', displayName: '正面图', mention: '@正面图', role: 'product', order: 0 },
+      { sourceNodeId: 'reference-b', assetId: 'asset-b', url: '/b.png', displayName: '风格图', mention: '@风格图', role: 'reference', order: 1 },
+      { sourceNodeId: 'product-c', assetId: '', url: '/c.png', displayName: '图片3', mention: '@图片3', role: 'product', order: 2 },
+    ],
   });
+});
+
+test('duplicate human labels remain readable and deterministic', () => {
+  assert.deepEqual(buildImageMentions([
+    { id: 'a', url: '/a.png', name: '参考图' },
+    { id: 'b', url: '/b.png', name: '参考图' },
+  ]).map(item => item.label), ['@参考图', '@参考图2']);
 });
 
 test('an image mention is inserted once with readable spacing', () => {

@@ -5,6 +5,8 @@ import test from 'node:test';
 import {
   buildCanvasImportResult,
   canvasOutputImages,
+  canvasWorkOutputFingerprint,
+  collectCanvasWorkImages,
   normalizeCanvasWorkPanel,
 } from '../src/pages/EcCanvas/canvasWorkModel.js';
 
@@ -109,6 +111,36 @@ test('immediate Canvas handoff prefers structured delivery records over the lega
     images: { 'white-background': '/api/generated-assets/legacy.png' },
     imageRecords: structured,
   }), structured);
+});
+
+test('canvas autosave adds generated and edited stable images to Works without duplicating originals', () => {
+  const original = '/api/generated-assets/' + 'a'.repeat(64) + '.png';
+  const generated = '/api/generated-assets/' + 'b'.repeat(64) + '.png';
+  const edited = '/api/generated-assets/' + 'c'.repeat(64) + '.png';
+  const images = collectCanvasWorkImages({
+    baseImages: [{ key: 'original', label: '原始主图', url: original }],
+    nodes: [
+      { id: 'source', kind: 'image', url: original, name: '原始主图' },
+      { id: 'generated', kind: 'image-composer', status: 'success', url: generated, name: '图片生成结果', ratio: '1:1' },
+      { id: 'edited', kind: 'output', status: 'ready', url: edited, name: '去除背景结果', ratio: '1:1' },
+      { id: 'pending', kind: 'output', status: 'processing', url: '/pending.png' },
+    ],
+  });
+
+  assert.deepEqual(images.map(image => image.url), [original, generated, edited]);
+  assert.equal(images[1].label, '图片生成结果');
+  assert.equal(images[2].source, 'canvas');
+});
+
+test('work output fingerprint changes only when a completed canvas image changes', () => {
+  assert.equal(
+    canvasWorkOutputFingerprint([
+      { url: '/a.png', status: 'ready', kind: 'output' },
+      { url: '/draft.png', status: 'processing', kind: 'image-composer' },
+    ]),
+    '/a.png',
+  );
+  assert.equal(canvasWorkOutputFingerprint([{ url: '/a.png', status: 'ready', kind: 'output' }]), '/a.png');
 });
 
 test('canvas-backed scripts have a declared package dependency', async () => {

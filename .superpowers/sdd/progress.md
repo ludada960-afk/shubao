@@ -1217,3 +1217,31 @@
   `https://shuimg.cn` SEO, security, health, billing and CORS audit passes 27/27
   with one canonical copy of each security header. User-owned extension-task
   deletions and `.tmp/` remain untouched.
+- Canvas product-model completion passed local acceptance on 2026-08-05. The
+  left add rail now creates idle copy, image, and ecommerce-suite nodes; only
+  selection reveals a composer anchored directly below the node. Derived
+  actions preserve one direct source edge and a real structured `@` reference.
+  Copy boards and ordinary text objects are draggable on one click, editable on
+  double click, free-resizable, and leave edit mode on canvas blur. New text is
+  placed at the visible center or its nearest free center-adjacent position.
+  Image composers expose centered labeled uploads plus mutually exclusive
+  ratio, 1K/2K/4K quality, quantity, and mention controls. Ecommerce suite
+  controls reuse the homepage sizing, SKU, style, product information, copy,
+  and generation-setting panels with exactly one panel open at a time. Suite
+  planning is now one locked overall design specification with editable,
+  distinct per-image briefs instead of four repetitive directions. Smart
+  layering upgrades the original image in place, keeps semantic children
+  collapsed until extraction, groups product instances, uses transparent
+  editable text, drops exact duplicates, and connects children only to the
+  source. Completed generated and edited images are deduplicated into Works.
+  Production orchestration now degrades one retryable visual-analysis failure
+  to a deterministic validated plan before billing instead of leaving the job
+  analyzing forever on upstream 502/timeout responses. Browser acceptance at
+  1440x900 and 390x844 verified node/composer disclosure, panning, text drag and
+  edit lifecycle, upload labels, parameter menus, structured mentions, and
+  homepage panel reuse; browser logs contain no application errors. Focused
+  Canvas regression passed 104/104, focused server regression passed 129/129,
+  full repository regression passed 1,178/1,178, the 6,443-module production
+  build passed, collaboration policy is READY, and whitespace validation is
+  clean. The production diagnosis helper was removed; user-owned extension-task
+  deletions and unrelated `.tmp/` research remain untouched.

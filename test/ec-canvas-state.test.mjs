@@ -241,14 +241,14 @@ test('fresh Canvas imports hydrate durable text compositions from the project ve
   assert.match(canvasSource, /compositionBackgroundAssetId/);
 });
 
-test('Canvas persistence keeps explicit recovery commands while synchronizing drafts automatically', () => {
+test('Canvas persistence keeps recovery and autosave without exposing a broken manual save command', () => {
   assert.match(canvasSource, /createCanvasSession/);
   assert.match(canvasSource, /saveCanvasSession/);
   assert.match(canvasSource, /loadCanvasSession/);
   assert.match(canvasSource, /const handleCanvasSessionSave[\s\S]*?createCanvasSnapshot/);
   assert.match(canvasSource, /const handleCanvasSessionRestore[\s\S]*?restoreCanvasSnapshot/);
-  assert.match(canvasSource, /<CanvasTopBar[\s\S]*?onSave=\{handleCanvasSessionSave\}[\s\S]*?onRestore=\{handleCanvasSessionRestore\}/);
-  assert.match(canvasChromeSource, /<Save[^>]*\/>\{saving \? '保存中' : '保存'\}/);
+  assert.match(canvasSource, /<CanvasTopBar[\s\S]*?onRestore=\{handleCanvasSessionRestore\}/);
+  assert.doesNotMatch(canvasChromeSource, /<Save[^>]*\/>\{saving \? '保存中' : '保存'\}/);
   assert.match(canvasChromeSource, /label="恢复已保存画布"[\s\S]*?<RotateCcw/);
   assert.match(canvasSource, /saveCanvasDraft\(/);
   assert.match(canvasSource, /remoteSaveTimerRef/);

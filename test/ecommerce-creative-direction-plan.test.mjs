@@ -22,7 +22,7 @@ function normalize(rawDirections = []) {
   });
 }
 
-test('always returns four complete and commercially distinct directions', () => {
+test('returns one complete executable direction with a locked design system', () => {
   const plans = normalize([
     {
       id: 'trust',
@@ -39,8 +39,7 @@ test('always returns four complete and commercially distinct directions', () => 
     },
   ]);
 
-  assert.equal(plans.length, 4);
-  assert.equal(new Set(plans.map(plan => plan.id)).size, 4);
+  assert.equal(plans.length, 1);
   assert.ok(plans.every(plan => plan.schema_version === 1));
   assert.ok(plans.every(plan => plan.title && plan.one_liner));
   assert.ok(plans.every(plan => plan.commercial_objective && plan.audience));
@@ -49,12 +48,9 @@ test('always returns four complete and commercially distinct directions', () => 
   assert.ok(plans.every(plan => plan.product_strategy.hero_focus));
   assert.ok(plans.every(plan => plan.risk_guards.length >= 2));
 
-  const signatures = plans.map(plan => [
-    plan.commercial_objective,
-    plan.visual_system.composition,
-    plan.product_strategy.scenario_plan,
-  ].join('\u0000').toLowerCase());
-  assert.equal(new Set(signatures).size, 4);
+  assert.equal(plans[0].overall_spec.locked, true);
+  assert.equal(plans[0].overall_spec.palette.length, 3);
+  assert.match(plans[0].overall_spec.product_fidelity, /商品外观/);
 });
 
 test('treats the requested suite configuration as authoritative for every direction', () => {
@@ -121,7 +117,7 @@ test('normalizes legacy direction fields without mutating the source object', ()
   assert.equal(plan.deliverables.length, requestedImages.length);
 });
 
-test('replaces duplicate or incomplete model output with deterministic fallback strategies', () => {
+test('replaces incomplete model output with one deterministic fallback strategy', () => {
   const duplicate = {
     title: '同一个方向',
     commercial_objective: '只做换色',
@@ -132,9 +128,8 @@ test('replaces duplicate or incomplete model output with deterministic fallback 
   const second = normalize([duplicate, structuredClone(duplicate), {}, null]);
 
   assert.deepEqual(first, second);
-  assert.equal(first.length, 4);
-  assert.equal(new Set(first.map(plan => plan.id)).size, 4);
-  assert.equal(new Set(first.map(plan => plan.title)).size, 4);
+  assert.equal(first.length, 1);
+  assert.equal(first[0].deliverables.length, requestedImages.length);
 });
 
 test('returns defensive data and ignores prototype-polluting fields', () => {

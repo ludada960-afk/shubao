@@ -19,16 +19,16 @@ const visualResponse = JSON.stringify({
 });
 
 const plannerResponse = JSON.stringify({
-  directions: Array.from({ length: 4 }, (_, index) => ({
-    id: `daily-${index + 1}`,
-    title: ['通勤餐桌日常', '纯净材质证言', '轻量便携秩序', '温暖家庭使用'][index],
+  directions: [{
+    id: 'daily-plan',
+    title: '通勤餐桌日常',
     one_liner: '从真实场景展示商品的使用收益',
     commercial_objective: '降低使用想象成本',
     audience: '通勤上班族',
     visual_tone: ['自然', '轻盈', '可信'],
     visual_system: { composition: '餐桌环境中的主体留白' },
     product_strategy: { scenario_plan: '办公桌和午餐场景' },
-  })),
+  }],
 });
 
 function serviceHarness({ visual = visualResponse, planner = plannerResponse } = {}) {
@@ -86,7 +86,7 @@ test('separates bounded visual analysis from text-only direction planning', asyn
   assert.match(planner.request.userPrompt, /圆柱结构/);
   assert.match(planner.request.userPrompt, /white_bg（白底图）×1/);
   assert.equal(reads.every(read => read.signal === controller.signal), true);
-  assert.equal(result.directions.length, 4);
+  assert.equal(result.directions.length, 1);
   assert.equal(result.directions[0].deliverables.find(group => group.role === 'detail').count, 2);
   assert.deepEqual(result.analysis.product_observations, ['圆柱结构', '银色金属表面']);
   assert.equal(result.analysis.status, 'complete');
@@ -108,7 +108,7 @@ test('caps visual inputs at four images per role', async () => {
   assert.match(vision.request.userPrompt, /图片 5-8：视觉参考图/);
 });
 
-test('visual provider failure degrades gracefully and still plans four complete directions', async () => {
+test('visual provider failure degrades gracefully and still plans one complete direction', async () => {
   const { service, calls } = serviceHarness({
     visual: Object.assign(new Error('provider timed out'), { code: 'VISUAL_ANALYSIS_TIMEOUT', status: 504 }),
   });
@@ -117,18 +117,18 @@ test('visual provider failure degrades gracefully and still plans four complete 
   assert.equal(calls.length, 2);
   assert.equal(calls[1].context.stage, 'planner');
   assert.match(calls[1].request.userPrompt, /视觉分析暂不可用/);
-  assert.equal(result.directions.length, 4);
+  assert.equal(result.directions.length, 1);
   assert.ok(result.directions.every(direction => direction.deliverables.length === 3));
   assert.equal(result.analysis.status, 'fallback');
   assert.equal(result.degraded, true);
 });
 
-test('invalid planner output falls back to four deterministic complete directions', async () => {
+test('invalid planner output falls back to one deterministic complete direction', async () => {
   const { service, calls } = serviceHarness({ planner: '```json\n{"directions": [invalid]}\n```' });
   const result = await service.generate(generationInput());
 
   assert.equal(calls.length, 2);
-  assert.equal(result.directions.length, 4);
+  assert.equal(result.directions.length, 1);
   assert.ok(result.directions.every(direction => direction.deliverables.length === 3));
   assert.equal(result.analysis.status, 'complete');
   assert.equal(result.degraded, true);
@@ -143,7 +143,7 @@ test('planner timeout uses the completed visual pass and local directions withou
   });
   const result = await service.generate(generationInput());
 
-  assert.equal(result.directions.length, 4);
+  assert.equal(result.directions.length, 1);
   assert.equal(result.analysis.status, 'complete');
   assert.equal(result.planner_fallback, true);
   assert.equal(result.degraded, false);
@@ -151,13 +151,13 @@ test('planner timeout uses the completed visual pass and local directions withou
   assert.ok(result.directions.every(direction => direction.deliverables.length === 3));
 });
 
-test('four empty planner entries are degraded instead of being treated as a billable refresh', async () => {
+test('an empty planner entry is degraded instead of being treated as a billable refresh', async () => {
   const { service } = serviceHarness({
-    planner: JSON.stringify({ directions: [{}, {}, {}, {}] }),
+    planner: JSON.stringify({ directions: [{}] }),
   });
   const result = await service.generate(generationInput());
 
-  assert.equal(result.directions.length, 4);
+  assert.equal(result.directions.length, 1);
   assert.ok(result.directions.every(direction => direction.title.length > 0));
   assert.equal(result.degraded, true);
 });
@@ -169,7 +169,7 @@ test('text-only input skips visual analysis and still produces complete directio
   assert.equal(calls.length, 1);
   assert.equal(calls[0].context.stage, 'planner');
   assert.deepEqual(calls[0].request.images, []);
-  assert.equal(result.directions.length, 4);
+  assert.equal(result.directions.length, 1);
   assert.equal(result.analysis.status, 'fallback');
   assert.equal(result.degraded, false);
 });

@@ -795,6 +795,9 @@ export function createEcommerceOrchestrator(deps = {}) {
     'migrateLegacyVisualAsset',
   );
   const analyzeVisualInputs = requireFunction(own(deps, 'analyzeVisualInputs'), 'analyzeVisualInputs');
+  const fallbackVisualInputs = typeof own(deps, 'fallbackVisualInputs') === 'function'
+    ? own(deps, 'fallbackVisualInputs')
+    : null;
   const compileCampaignBible = requireFunction(own(deps, 'compileCampaignBible'), 'compileCampaignBible');
   const buildAssetPlan = requireFunction(own(deps, 'buildAssetPlan'), 'buildAssetPlan');
   const compileAssetRequest = requireFunction(own(deps, 'compileAssetRequest'), 'compileAssetRequest');
@@ -1793,7 +1796,17 @@ export function createEcommerceOrchestrator(deps = {}) {
         }
         const inputAssets = visualInputSnapshot.assets;
         const payload = { ...job.payload, assets: inputAssets };
-        const visualAnalysis = await analyzeVisualInputs(payload);
+        let visualAnalysisMode = 'primary';
+        let visualAnalysisErrorCode = '';
+        let visualAnalysis;
+        try {
+          visualAnalysis = await analyzeVisualInputs(payload);
+        } catch (error) {
+          if (error?.retryable !== true || !fallbackVisualInputs) throw error;
+          visualAnalysis = await fallbackVisualInputs(payload, { cause: error });
+          visualAnalysisMode = 'fallback';
+          visualAnalysisErrorCode = cleanString(error?.code) || 'VISUAL_ANALYSIS_UNAVAILABLE';
+        }
         const productTruth = own(visualAnalysis, 'productTruth');
         const styleReferenceProfile = own(visualAnalysis, 'styleReferenceProfile');
         const visualAnalysisCache = own(visualAnalysis, 'cache');
@@ -1819,6 +1832,8 @@ export function createEcommerceOrchestrator(deps = {}) {
           productTruth,
           styleReferenceProfile,
           visualAnalysisCache,
+          ...(visualAnalysisMode === 'fallback' ? { visualAnalysisMode } : {}),
+          ...(visualAnalysisErrorCode ? { visualAnalysisErrorCode } : {}),
           campaignBible,
           assetPlan,
           deterministicInputs: {

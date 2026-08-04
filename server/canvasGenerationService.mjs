@@ -50,6 +50,26 @@ function selectionInstruction(selection) {
   return `仅修改归一化区域 x=${x.toFixed(3)}, y=${y.toFixed(3)}, w=${w.toFixed(3)}, h=${h.toFixed(3)}，区域外内容保持不变。`;
 }
 
+function normalizeReferenceMetadata(value, visualInputs) {
+  if (!Array.isArray(value)) return [];
+  const allowedUrls = new Set(visualInputs);
+  return value.slice(0, 9).map((item, index) => {
+    if (!item || typeof item !== 'object') return null;
+    const url = cleanString(item.url);
+    if (!url || !allowedUrls.has(url)) return null;
+    const displayName = cleanString(item.displayName || item.name || item.label).replace(/^@/, '') || `图片${index + 1}`;
+    return {
+      sourceNodeId: cleanString(item.sourceNodeId),
+      assetId: cleanString(item.assetId),
+      url,
+      displayName,
+      mention: cleanString(item.mention || item.label) || `@${displayName}`,
+      role: item.role === 'product' ? 'product' : 'reference',
+      order: Number.isFinite(Number(item.order)) ? Number(item.order) : index,
+    };
+  }).filter(Boolean);
+}
+
 function serializedError(error) {
   return {
     message: error?.message || 'Canvas generation failed',
@@ -85,12 +105,14 @@ function normalizeRequest(ownerEmailInput, body = {}) {
     primaryImage,
     ...(Array.isArray(body?.reference_images) ? body.reference_images : []),
   ].map(cleanString).filter(Boolean).slice(0, 9);
+  const referenceMetadata = normalizeReferenceMetadata(body?.reference_metadata, visualInputs);
   const selectedSize = resolveGenerationSize({ resolution: body?.resolution || '2K', ratio: body?.ratio });
   const canonical = JSON.stringify({
     ownerEmail,
     prompt,
     requestKey,
     visualInputs,
+    referenceMetadata,
     selection,
     resolution: selectedSize.resolution,
     ratio: selectedSize.ratio,
@@ -102,6 +124,7 @@ function normalizeRequest(ownerEmailInput, body = {}) {
     prompt,
     requestKey,
     visualInputs,
+    referenceMetadata,
     selectedSize,
     requestFingerprint: fingerprint,
     requestId: `canvas_${fingerprint}`,
@@ -279,10 +302,13 @@ export function createCanvasGenerationService({
             const referenceNote = resolvedInputs.length > 1
               ? ` Image 0 is the authoritative product view. Images 1 through ${resolvedInputs.length - 1} are indexed visual references; borrow only compatible composition or style cues from them without changing the product identity.`
               : '';
+            const mentionNote = request.referenceMetadata.length
+              ? ` User references map as follows: ${request.referenceMetadata.map(item => `${item.mention}=${item.displayName} (${item.role})`).join('; ')}. Resolve every @ mention against this mapping.`
+              : '';
             heartbeat.assertOwned();
             const submitted = await providerAdapter.submitEdit({
               idempotencyKey: request.idempotencyKey,
-              prompt: `Create a polished ecommerce product visual. Preserve the supplied product identity and structure.${referenceNote} ${request.prompt}`,
+              prompt: `Create a polished ecommerce product visual. Preserve the supplied product identity and structure.${referenceNote}${mentionNote} ${request.prompt}`,
               modelRoute: {
                 model: providerModel,
                 size: request.selectedSize.size,

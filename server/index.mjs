@@ -101,7 +101,9 @@ import {
   evaluateSuiteDiversity,
   planRepair,
   repairEcommerceAsset,
+  mergeProductFacts,
 } from './ecommerceEngine/index.mjs';
+import { normalizeStyleReferenceProfile } from './ecommerceEngine/styleReferenceProfile.mjs';
 import { createVisualAnalysisService } from './ecommerceEngine/visualAnalysisService.mjs';
 import { createVisualAnalysisStore } from './ecommerceEngine/visualAnalysisStore.mjs';
 import { createVlmClient, createVlmDeadline } from './ecommerceEngine/vlmClient.mjs';
@@ -3084,6 +3086,21 @@ async function analyzeEcommerceVisualInputs(payload) {
   });
 }
 
+function fallbackEcommerceVisualInputs(payload) {
+  const productTruth = mergeProductFacts({ user: ecommerceUserFacts(payload) });
+  const styleReferenceProfile = normalizeStyleReferenceProfile({
+    sourceAssetIds: (payload.assets?.reference || []).map(asset => asset.assetId).filter(Boolean),
+  });
+  return {
+    productTruth,
+    styleReferenceProfile,
+    cache: {
+      product: `fallback:${productTruth.fingerprint}`,
+      style: `fallback:${styleReferenceProfile.sourceAssetIds.join(',') || 'none'}`,
+    },
+  };
+}
+
 async function prepareEcommerceProviderRequest(request) {
   const inputAssets = [];
   for (const [index, asset] of (Array.isArray(request.inputAssets) ? request.inputAssets : []).entries()) {
@@ -3261,6 +3278,7 @@ const orchestrator = createEcommerceOrchestrator({
   jobs: ecommerceJobs,
   migrateLegacyVisualAsset,
   analyzeVisualInputs: analyzeEcommerceVisualInputs,
+  fallbackVisualInputs: fallbackEcommerceVisualInputs,
   compileCampaignBible,
   buildAssetPlan,
   compileAssetRequest,
@@ -3935,6 +3953,7 @@ app.post('/api/canvas/regenerate-text', authenticateEcommerceRequest, async (req
   const {
     prompt,
     reference_images: referenceImages = [],
+    reference_metadata: referenceMetadata = [],
     count = 1,
   } = req.body || {};
   if (!String(prompt || '').trim()) return res.status(400).json({ error: '缺少文案生成要求' });
@@ -3948,12 +3967,18 @@ app.post('/api/canvas/regenerate-text', authenticateEcommerceRequest, async (req
       visualInputs.push(imageBufferToDataUrl(await imageInputReader.read(imageUrl)));
     }
     const mentionGuide = visualInputs.length
-      ? visualInputs.map((_, index) => `@图片${index + 1}`).join('、')
+      ? visualInputs.map((_, index) => {
+        const meta = Array.isArray(referenceMetadata) ? referenceMetadata[index] : null;
+        const label = String(meta?.mention || meta?.label || `@图片${index + 1}`).trim();
+        const name = String(meta?.displayName || meta?.name || label.replace(/^@/, '')).trim();
+        const role = meta?.role === 'product' ? '商品图' : '参考图';
+        return `${label}=${name}（${role}，输入序号 ${index + 1}）`;
+      }).join('；')
       : '无参考图片';
     const text = await createEcommerceVlmClient().completeText({
       systemPrompt: [
         '你是专业电商文案编辑。根据用户要求输出可直接编辑使用的中文文案，不要解释过程。',
-        '参考图片按输入顺序对应 @图片1、@图片2……；必须准确区分每张图片，不能虚构图片中不存在的商品属性。',
+        '参考图片通过用户可见的 @名称与输入序号建立映射；必须准确区分每张图片，不能虚构图片中不存在的商品属性。',
         '默认给出清晰标题和精炼正文；用户指定格式、数量或语言时严格遵循。',
       ].join('\n'),
       userPrompt: `参考顺序：${mentionGuide}\n生成 ${outputCount} 个版本。\n生成要求：${String(prompt).trim()}`,

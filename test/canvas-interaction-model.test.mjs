@@ -8,12 +8,27 @@ import {
   getContextPanelPosition,
   expandCanvasDragSelection,
   isCanvasConnectionVisible,
+  pickCanvasLayerAtPoint,
   multiSelectionActionsForNodes,
   moveCanvasNodes,
   MULTI_SELECTION_ACTIONS,
   applyMultiSelectionAction,
   shouldPersistCanvasMutation,
 } from '../src/pages/EcCanvas/canvasInteractionModel.js';
+
+test('layer extraction picks the visible semantic layer without moving the collapsed source', () => {
+  const nodes = [
+    { id: 'source', kind: 'layer-group', x: 100, y: 80, w: 240, h: 320, layerChildIds: ['products', 'background', 'copy'] },
+    { id: 'products', parentLayerGroupId: 'source', semanticType: 'product-group', x: 124, y: 118, w: 192, h: 166, hidden: true },
+    { id: 'background', parentLayerGroupId: 'source', semanticType: 'background', x: 100, y: 80, w: 240, h: 320, hidden: true },
+    { id: 'copy', parentLayerGroupId: 'source', semanticType: 'text', kind: 'text', x: 143, y: 342, w: 154, h: 26, hidden: true },
+  ];
+
+  assert.equal(pickCanvasLayerAtPoint(nodes, 'source', { x: 180, y: 180 })?.id, 'products');
+  assert.equal(pickCanvasLayerAtPoint(nodes, 'source', { x: 180, y: 350 })?.id, 'copy');
+  assert.equal(pickCanvasLayerAtPoint(nodes, 'source', { x: 110, y: 390 })?.id, 'background');
+  assert.equal(pickCanvasLayerAtPoint(nodes, 'source', { x: 500, y: 500 }), null);
+});
 
 test('hover focus keeps the active node and its direct relations visible', () => {
   const focused = getCanvasFocusIds('main-a', [
@@ -25,15 +40,15 @@ test('hover focus keeps the active node and its direct relations visible', () =>
   assert.equal(getCanvasFocusIds('', []).size, 0);
 });
 
-test('contextual composer anchors below the selected node and stays in visible world bounds', () => {
+test('contextual composer remains below the selected node even when it extends beyond the viewport', () => {
   assert.deepEqual(
     getContextPanelPosition({
-      node: { x: 700, y: 100, w: 230, h: 307 },
+      node: { x: 700, y: 500, w: 230, h: 307 },
       viewport: { x: -500, y: -260, scale: 1.5 },
       bounds: { width: 1280, height: 800 },
       panel: { width: 520, height: 238 },
     }),
-    { left: 555, top: 420, width: 520, placement: 'below' },
+    { left: 555, top: 820, width: 520, placement: 'below' },
   );
 });
 

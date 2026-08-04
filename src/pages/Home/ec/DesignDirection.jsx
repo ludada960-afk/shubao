@@ -534,7 +534,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const LOAD_STAGES = [
     { label: '整理商品事实', desc: '核对主体、材质、结构与不确定信息' },
     { label: '提炼商业与视觉策略', desc: '结合用户要求、参考图和目标平台' },
-    { label: '编排四套完整方案', desc: '为本轮每张图片分配职责、比例与执行要求' },
+    { label: '编排完整设计方案', desc: '统一整体规范，并为每张图片分配职责、比例与执行要求' },
   ];
 
   const inheritedProductImages = normalizeDirectionImages([...(params?.realShots || []), ...(params?.productImages || [])]);
@@ -563,10 +563,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             <MdArrowBack size={16} /> 返回
           </div>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#1a1a1a' }}>
-            确认设计方向
+            确认设计方案
           </h2>
           <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 4 }}>
-            AI 已为你的产品设计了多套视觉方案
+            AI 已结合商品事实、参考图与平台要求制定完整视觉方案
           </span>
         </div>
 
@@ -628,8 +628,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#1f2937' }}>视觉方向</div>
-                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>先选一套最适合商品的方向，再按图片逐张调整怎么拍、突出什么。</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1f2937' }}>整体设计规范与图片规划</div>
+                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>整体视觉规范由系统统一锁定；每张图片的标题、职责和执行要求可以逐项调整。</div>
               </div>
               <button
                 type="button"
@@ -637,11 +637,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 onClick={handleRefreshDirections}
                 disabled={loading}
               >
-                <MdRefresh size={14} />重新分析四个方向 · 1 AI 积分
+                <MdRefresh size={14} />重新分析设计方案 · 1 AI 积分
               </button>
             </div>
-            {/* 2×2 对称布局 */}
-            <div role="radiogroup" aria-label="选择一个设计方向" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, marginBottom: 24 }}>
+            <div role="radiogroup" aria-label="确认设计方案" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16, marginBottom: 24 }}>
               {directions.map((dir, i) => (
                 <DirectionOptionCard
                   key={dir.id || i}

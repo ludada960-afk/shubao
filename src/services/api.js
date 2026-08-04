@@ -408,6 +408,24 @@ function ownedAssetReference(image) {
   return assetId && url ? { assetId, url } : null;
 }
 
+function imageReferenceMetadata(images = []) {
+  return (Array.isArray(images) ? images : []).map((image, order) => {
+    if (!image || typeof image !== 'object') return null;
+    const url = imageValue(image);
+    if (!url) return null;
+    const displayName = String(image.displayName || image.name || image.label || `图片${order + 1}`).trim().replace(/^@/, '');
+    return {
+      sourceNodeId: String(image.sourceNodeId || image.id || ''),
+      assetId: String(image.assetId || ''),
+      url,
+      displayName,
+      mention: String(image.mention || image.label || `@${displayName}`),
+      role: image.role === 'product' ? 'product' : 'reference',
+      order,
+    };
+  }).filter(Boolean);
+}
+
 function splitEcommerceInputs(images) {
   const owned = [];
   const legacy = [];
@@ -502,6 +520,7 @@ export async function generateEcommerceSuite({
   generationSettings,
   sizing,
   direction,
+  assetMentions,
   email,
   draftId,
   resumeTaskId,
@@ -521,6 +540,7 @@ export async function generateEcommerceSuite({
     generationSettings,
     sizing,
     direction,
+    assetMentions,
     email,
     draftId,
     resumeTaskId,
@@ -749,7 +769,7 @@ export function generatePlogContent({
   }, options);
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
   const ownerEmail = getSessionEmail() || String(email || '').trim().toLowerCase();
   const savedReference = loadEcommerceTaskReference({ ownerEmail, draftId });
   if (savedReference && (!resumeTaskId || resumeTaskId === savedReference.taskId)) {
@@ -800,6 +820,10 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     restrictions: restrictions || '',
     direction: direction || null,
   };
+  const resolvedMentions = Array.isArray(assetMentions) && assetMentions.length
+    ? assetMentions
+    : imageReferenceMetadata([...(realShots || []), ...(refImgs || [])]);
+  if (resolvedMentions.length) body.asset_mentions = resolvedMentions;
   if (productInputs.owned.length || referenceInputs.owned.length) {
     body.assets = {
       product: productInputs.owned,
@@ -1140,13 +1164,14 @@ export async function regenerateText(text, category) {
   return res.json();
 }
 
-export async function regenerateCanvasText({ prompt, referenceImages = [], count = 1 }) {
+export async function regenerateCanvasText({ prompt, referenceImages = [], references = [], count = 1 }) {
   const res = await fetch(`${API_BASE}/api/canvas/regenerate-text`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       prompt,
       reference_images: referenceImages.map(normalizeCanvasImageUrl),
+      reference_metadata: references,
       count: Math.max(1, Math.min(4, Number(count) || 1)),
     }),
   });
@@ -1208,7 +1233,7 @@ export async function saveWork(work, phone, { signal } = {}) {
   return null;
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], ratio, resolution = '2K', requestKey = '', selection }) {
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', requestKey = '', selection }) {
   const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
   const logicalRequestKey = String([
     requestKey || [prompt, normalizedImageUrl, ratio || '', resolution, ...referenceImages].join('\u0000'),
@@ -1219,7 +1244,7 @@ export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages 
   const billing = await quoteCanvasAction(billingSku, stableRequestKey);
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), ratio, resolution, request_key: stableRequestKey, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
+    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), reference_metadata: references, ratio, resolution, request_key: stableRequestKey, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');

@@ -11,6 +11,23 @@ function normalizeRole(role) {
   return role === 'product' ? 'product' : 'reference';
 }
 
+function readableName(image, fallback) {
+  const raw = String(image?.name || image?.displayLabel || image?.label || '').trim().replace(/^@/, '');
+  return raw || fallback;
+}
+
+function referenceRecord(item) {
+  return {
+    sourceNodeId: item.sourceNodeId,
+    assetId: item.assetId,
+    url: item.url,
+    displayName: item.name,
+    mention: item.label,
+    role: item.role,
+    order: item.order,
+  };
+}
+
 export function buildImageMentions(images = []) {
   const seen = new Set();
   const unique = [];
@@ -24,16 +41,23 @@ export function buildImageMentions(images = []) {
       sourceNodeId: String(image?.sourceNodeId || image?.id || identity),
       assetId: String(image?.assetId || ''),
       url,
-      name: String(image?.name || image?.displayLabel || ''),
+      name: readableName(image, ''),
       role: normalizeRole(image?.role),
     });
   }
 
-  return unique.map((image, order) => ({
-    ...image,
-    label: image.label || `@图片${order + 1}`,
-    order,
-  }));
+  const labelCounts = new Map();
+  return unique.map((image, order) => {
+    const name = readableName(image, `图片${order + 1}`);
+    const occurrence = (labelCounts.get(name) || 0) + 1;
+    labelCounts.set(name, occurrence);
+    return {
+      ...image,
+      name,
+      label: `@${name}${occurrence > 1 ? occurrence : ''}`,
+      order,
+    };
+  });
 }
 
 export function appendImageMention(text, label) {
@@ -72,6 +96,7 @@ export function buildCanvasImageReferencePayload(mentions = []) {
     imageUrl: normalized[0]?.url || '',
     referenceImages: normalized.slice(1).map(item => item.url),
     sourceNodeIds: normalized.map(item => item.sourceNodeId),
+    references: normalized.map(referenceRecord),
   };
 }
 
@@ -80,5 +105,6 @@ export function buildRoleAwareImagePayload(mentions = []) {
   return {
     productImages: normalized.filter(item => item.role === 'product').map(item => item.url),
     referenceImages: normalized.filter(item => item.role === 'reference').map(item => item.url),
+    assets: normalized.map(referenceRecord),
   };
 }

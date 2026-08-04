@@ -14,7 +14,6 @@ import {
   MousePointer2,
   Plus,
   RotateCcw,
-  Save,
   Sparkles,
   Type,
   X,
@@ -42,7 +41,6 @@ export function CanvasTopBar({
   onFilterChange,
   onBack,
   onExport,
-  onSave,
   onRestore,
   onNew,
   saving = false,
@@ -75,7 +73,6 @@ export function CanvasTopBar({
         </label>
         <button type="button" className="ec-canvas-command" onClick={onExport}><Download size={15} />导出</button>
         <IconButton label="恢复已保存画布" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={16} /></IconButton>
-        <button type="button" className="ec-canvas-command is-primary" disabled={saving} onClick={onSave}><Save size={15} />{saving ? '保存中' : '保存'}</button>
       </>}
       <button type="button" className="ec-canvas-command is-dark" onClick={onNew}><Sparkles size={15} />新建生图</button>
     </div>

@@ -374,15 +374,15 @@
 .ec-canvas-node-composer { max-width: calc(100vw - 24px); }
 .ec-canvas-composer-footer { flex-wrap: wrap; }
 
-/* Shared composer controls: keep the reference rail and footer aligned at every ratio. */
-.ec-canvas-composer-sources { min-height: 84px; align-items: center; padding: 10px 14px; }
-.ec-canvas-composer-source { width: 64px; height: 64px; flex: 0 0 64px; box-sizing: border-box; display: block; overflow: visible; }
+/* Shared composer controls: keep references fully visible and upload affordances centered. */
+.ec-canvas-composer-sources { min-height: 104px; align-items: center; padding: 10px 14px; }
+.ec-canvas-composer-source { width: 72px; height: 84px; flex: 0 0 72px; box-sizing: border-box; display: block; overflow: visible; }
 .ec-canvas-composer-source > div { width: 100% !important; height: 100% !important; display: block; overflow: hidden; border-radius: 6px; }
 .ec-canvas-composer-source > div > img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .ec-canvas-composer-source > b { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; width: auto; box-sizing: border-box; padding: 4px 3px 3px; border-radius: 0 0 6px 6px; background: rgba(32, 36, 42, .66); color: #fff; font-size: 9px; line-height: 1.1; }
-.ec-canvas-composer-source-add { width: 64px; height: 64px; flex: 0 0 64px; box-sizing: border-box; display: grid; place-items: center; align-content: center; gap: 4px; padding: 0; overflow: hidden; }
+.ec-canvas-composer-source-add { width: 72px; height: 84px; flex: 0 0 72px; box-sizing: border-box; display: grid; place-items: center; align-content: center; gap: 5px; padding: 8px; overflow: hidden; text-align: center; }
 .ec-canvas-composer-source-add svg { display: block; flex: 0 0 auto; }
-.ec-canvas-composer-source-add small { display: block; margin: 0; line-height: 1; }
+.ec-canvas-composer-source-add small { display: block; margin: 0; max-width: 100%; line-height: 1.2; white-space: normal; }
 .ec-canvas-composer-footer { align-items: center; gap: 8px; min-height: 52px; }
 .ec-canvas-composer-footer > .ec-canvas-parameter-controls { order: 1; }
 .ec-canvas-composer-footer > .ec-canvas-composer-mention { margin-left: 0; order: 2; }
@@ -413,6 +413,12 @@
 .ec-canvas-generation-node.is-text { overflow: hidden; border: 1px solid #e1e5eb; border-radius: 9px; background: #fff; box-shadow: 0 10px 24px rgba(15,23,42,.08); }
 .ec-canvas-generation-node.is-text.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.14), 0 10px 24px rgba(15,23,42,.08); }
 .ec-canvas-suite-controls { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid #edf0f3; background: #fff; }
+.ec-canvas-suite-control { position: relative; min-width: 0; }
+.ec-canvas-suite-control > button { height: 32px; max-width: 190px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
+.ec-canvas-suite-control > button strong { max-width: 88px; overflow: hidden; color: #252a31; font-size: 10px; text-overflow: ellipsis; }
+.ec-canvas-suite-control > button:hover, .ec-canvas-suite-control > button.is-active { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
+.ec-canvas-suite-panel-popover { position: absolute; z-index: 40; left: 0; bottom: calc(100% + 8px); width: min(520px, calc(100vw - 32px)); max-height: min(620px, calc(100vh - 140px)); overflow: auto; border: 1px solid #e0e4ea; border-radius: 8px; background: #fff; box-shadow: 0 18px 44px rgba(15, 23, 42, .18); }
+.ec-canvas-suite-control:nth-last-child(-n+2) .ec-canvas-suite-panel-popover { right: 0; left: auto; }
 .ec-canvas-option-menu { position: relative; min-width: 0; }
 .ec-canvas-option-menu > button { height: 32px; max-width: 180px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
 .ec-canvas-option-menu > button:hover, .ec-canvas-option-menu > button[aria-expanded="true"] { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }

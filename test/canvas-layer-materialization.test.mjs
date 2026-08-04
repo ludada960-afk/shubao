@@ -16,7 +16,7 @@ const source = Object.freeze({
   name: '三色保鲜盒',
 });
 
-test('smart layering materializes grouped product, instances, background and text as draggable child nodes', () => {
+test('smart layering upgrades the source in place and keeps commercial groups, background and transparent text stacked', () => {
   const result = materializeCanvasLayers({
     sourceNode: source,
     runId: 'run-1',
@@ -30,31 +30,30 @@ test('smart layering materializes grouped product, instances, background and tex
     ],
   });
 
-  assert.equal(result.nodes.length, 6);
-  assert.equal(result.connections.length, 6);
-  assert.equal(new Set(result.nodes.map(node => node.id)).size, 6);
+  assert.equal(result.nodes.length, 3);
+  assert.equal(result.connections.length, 3);
+  assert.equal(new Set(result.nodes.map(node => node.id)).size, 3);
   assert.deepEqual(result.nodes.map(node => node.semanticType), [
-    'product-group', 'product-instance', 'product-instance', 'product-instance', 'background', 'text',
+    'product-group', 'background', 'text',
   ]);
-  assert.equal(result.nodes[0].semanticType, 'product-group');
-  assert.equal(result.nodes[0].kind, 'layer-group');
-  assert.equal(result.nodes[0].layerExpanded, false);
-  assert.equal(result.nodes[0].layerChildIds.length, 5);
-  assert.equal(result.nodes[0].showMeta, false);
-  assert.ok(result.nodes.slice(1).every(node => node.hidden === true));
-  assert.ok(result.nodes.slice(1).every(node => node.parentLayerGroupId === result.nodes[0].id));
-  assert.ok(result.connections.some(edge => edge.fromNodeId === source.id && edge.toNodeId === result.nodes[0].id));
+  assert.equal(result.sourceNode.id, source.id);
+  assert.equal(result.sourceNode.kind, 'layer-group');
+  assert.equal(result.sourceNode.layerExpanded, false);
+  assert.equal(result.sourceNode.layerChildIds.length, 3);
+  assert.equal(result.sourceNode.showMeta, false);
+  assert.ok(result.nodes.every(node => node.hidden === true));
+  assert.ok(result.nodes.every(node => node.parentLayerGroupId === source.id));
   assert.ok(result.connections.every(edge => edge.fromNodeId === source.id));
-  assert.ok(result.connections.every(edge => edge.toNodeId !== result.nodes[0].id || edge.fromNodeId === source.id));
-  assert.ok(!result.connections.some(edge => edge.fromNodeId === result.nodes[0].id));
   assert.ok(result.connections.every(edge => result.nodes.some(node => node.id === edge.toNodeId)));
   assert.ok(result.nodes.every(node => node.editable !== false));
   const text = result.nodes.find(node => node.kind === 'text');
   assert.equal(text.text, '三色盖子可选择');
-  assert.equal(text.w, 160);
-  assert.equal(text.h, 54);
+  assert.equal(text.x, source.x + source.w * 0.18);
+  assert.equal(text.y, source.y + source.h * 0.82);
+  assert.equal(text.w, source.w * 0.64);
+  assert.equal(text.h, source.h * 0.08);
   assert.equal(text.textStyle.color, '#ffffff');
-  assert.equal(text.textStyle.background, '#e8a92a');
+  assert.equal(text.textStyle.background, 'transparent');
 });
 
 test('smart layering keeps the original full-scene image in the collapsed group card', () => {
@@ -67,10 +66,10 @@ test('smart layering keeps the original full-scene image in the collapsed group 
     ],
   });
 
-  assert.equal(result.nodes[0].url, '/original-scene.png');
-  assert.equal(result.nodes[0].ratio, '3:4');
-  assert.equal(result.nodes[0].layerExpanded, false);
-  assert.equal(result.nodes[1].hidden, true);
+  assert.equal(result.sourceNode.url, '/original-scene.png');
+  assert.equal(result.sourceNode.ratio, '3:4');
+  assert.equal(result.sourceNode.layerExpanded, false);
+  assert.equal(result.nodes[0].hidden, true);
 });
 
 test('smart layering drops exact duplicate pixel layers without collapsing distinct instances', () => {
@@ -84,7 +83,7 @@ test('smart layering drops exact duplicate pixel layers without collapsing disti
       { id: 'product-2', kind: 'image', semanticType: 'product-instance', url: '/product.png', pixelWidth: 300, pixelHeight: 300, bounds: { x: 0.6, y: 0.1, width: 0.2, height: 0.2 }, editable: true },
     ],
   });
-  assert.equal(result.nodes.filter(node => node.semanticType === 'product-instance').length, 2);
+  assert.equal(result.nodes.filter(node => node.semanticType === 'product-instance').length, 0);
 });
 
 test('smart layering produces stable non-overlapping placements from an explicit anchor', () => {
@@ -104,11 +103,11 @@ test('smart layering produces stable non-overlapping placements from an explicit
     })),
   });
 
-  assert.deepEqual(result.nodes[0].x, 500);
-  assert.deepEqual(result.nodes[0].y, 200);
+  assert.deepEqual(result.sourceNode.x, source.x);
+  assert.deepEqual(result.sourceNode.y, source.y);
   const positions = result.nodes.map(node => `${node.x}:${node.y}`);
-  assert.equal(new Set(positions).size, result.nodes.length);
-  assert.equal(result.nodes[0].kind, 'layer-group');
+  assert.equal(new Set(positions).size, 1);
+  assert.equal(result.sourceNode.kind, 'layer-group');
   assert.deepEqual(
     materializeCanvasLayers({ sourceNode: source, runId: 'stable-run', anchor: { x: 500, y: 200 }, layers: result.layers }).nodes.map(node => node.id),
     result.nodes.map(node => node.id),

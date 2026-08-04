@@ -3,6 +3,7 @@ import { MdCheck, MdExpandLess, MdExpandMore } from 'react-icons/md';
 import {
   getDirectionCardState,
   getDirectionDeliverableGroups,
+  getDirectionPlanSummary,
   getDirectionShotRows,
   getReadableTextColor,
   shouldActivateDirection,
@@ -45,6 +46,9 @@ export default function DirectionOptionCard({
   const deliverableGroups = getDirectionDeliverableGroups(direction);
   const shotRows = getDirectionShotRows(direction);
   const deliverableSummary = summarizeDirectionDeliverables(direction);
+  const planSummary = getDirectionPlanSummary(direction);
+  const visualSystem = direction?.visual_system || {};
+  const overallSpec = direction?.overall_spec || {};
 
   // 处理选择 - 点击编辑区时不触发
   const handleCardClick = useCallback(
@@ -162,6 +166,33 @@ export default function DirectionOptionCard({
             {direction.one_liner || direction.short_desc || direction.description}
           </div>
         )}
+
+        <section style={{ marginTop: 12, padding: 12, borderRadius: 7, background: '#f7f8fa', border: '1px solid #e7e9ee' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <strong style={{ fontSize: 12, color: '#25282d' }}>整体设计规范</strong>
+            <span style={{ fontSize: 9, color: '#69717d' }}>统一视觉标准，不随单张修改改变</span>
+          </div>
+          <div style={{ marginTop: 9, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 12px' }}>
+            {[
+              ['商业目标', planSummary.commercialObjective],
+              ['目标用户', planSummary.audience],
+              ['视觉风格', overallSpec.visual_style || (Array.isArray(direction?.visual_tone) ? direction.visual_tone.join('、') : '')],
+              ['光线', overallSpec.lighting || visualSystem.lighting],
+              ['构图', overallSpec.composition || visualSystem.composition],
+              ['镜头', overallSpec.camera_language || visualSystem.camera_language],
+              ['背景', overallSpec.background_language || visualSystem.background_language],
+              ['字体与文案', [overallSpec.typography_intent || visualSystem.typography_intent, overallSpec.copy_tone || visualSystem.copy_tone].filter(Boolean).join('；')],
+            ].filter(([, value]) => value).map(([label, value]) => (
+              <div key={label} style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: '#818894' }}>{label}</div>
+                <div style={{ marginTop: 2, fontSize: 10, lineHeight: 1.5, color: '#3f454e' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          {(overallSpec.product_fidelity || direction?.consistency_locks?.length) && <div style={{ marginTop: 9, paddingTop: 8, borderTop: '1px solid #e3e6eb', fontSize: 10, lineHeight: 1.5, color: '#555d68' }}>
+            <strong>商品一致性：</strong>{overallSpec.product_fidelity || direction.consistency_locks.join('；')}
+          </div>}
+        </section>
 
         {deliverableGroups.length > 0 && (
           <div style={{ borderTop: '1px solid #ece9e4', paddingTop: 12, marginTop: 12 }}>

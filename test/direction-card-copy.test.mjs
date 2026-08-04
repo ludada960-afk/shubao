@@ -31,10 +31,11 @@ test('updates one image plan without mutating the direction snapshot', () => {
   assert.equal(updated.deliverables[0].shots[0].visual_execution, '正面展示商品');
 });
 
-test('the direction card keeps the user-facing copy to title, subtitle, and per-image plan', () => {
+test('the direction card exposes the locked overall design system and editable per-image plan', () => {
   const source = readFileSync(new URL('../src/pages/Home/ec/components/DirectionOptionCard.jsx', import.meta.url), 'utf8');
 
-  assert.doesNotMatch(source, /商业目标|目标用户|商品策略|整套执行说明可编辑/);
+  assert.match(source, /整体设计规范/);
+  assert.match(source, /统一视觉标准，不随单张修改改变/);
   assert.match(source, /逐张图片计划/);
   assert.match(source, /onShotChange/);
 });

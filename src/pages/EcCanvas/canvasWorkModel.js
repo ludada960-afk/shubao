@@ -62,3 +62,37 @@ export function canvasOutputImages(result = {}) {
   const imageRecords = normalizeWorkImages(result.imageRecords);
   return imageRecords.length ? imageRecords : normalizeWorkImages(result.images);
 }
+
+export function collectCanvasWorkImages({ baseImages = [], nodes = [] } = {}) {
+  const images = normalizeWorkImages(baseImages);
+  const seen = new Set(images.map(image => image.url));
+  const outputKinds = new Set(['output', 'image-composer']);
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    const url = cleanString(node?.url);
+    const complete = node?.status === 'ready' || node?.status === 'success';
+    if (!url || !complete || !outputKinds.has(node?.kind) || seen.has(url)) continue;
+    seen.add(url);
+    images.push({
+      key: cleanString(node.assetId || node.id) || `canvas_${images.length + 1}`,
+      label: cleanString(node.displayLabel || node.name) || '画布创作',
+      displayName: cleanString(node.displayLabel || node.name) || '画布创作',
+      url,
+      role: cleanString(node.role),
+      group: cleanString(node.group) || '画布创作',
+      ratio: cleanString(node.ratio),
+      size: cleanString(node.size),
+      source: 'canvas',
+    });
+  }
+  return images;
+}
+
+export function canvasWorkOutputFingerprint(nodes = []) {
+  const outputKinds = new Set(['output', 'image-composer']);
+  return (Array.isArray(nodes) ? nodes : [])
+    .filter(node => outputKinds.has(node?.kind) && ['ready', 'success'].includes(node?.status))
+    .map(node => cleanString(node?.url))
+    .filter(Boolean)
+    .sort()
+    .join('\n');
+}

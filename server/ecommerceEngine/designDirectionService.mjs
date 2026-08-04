@@ -162,9 +162,9 @@ function buildVisionUserPrompt(input, productCount, referenceCount) {
 }
 
 function buildPlannerSystemPrompt() {
-  return `你是兼具电商策略、视觉设计、商品摄影和转化经验的创意总监。根据已整理的商品事实、视觉参考和用户需求，输出恰好四套商业策略显著不同的设计方向。这里只规划方向骨架，不生成逐张图片清单；系统会依据权威套图配置补全每张图的职责。
+  return `你是兼具电商策略、视觉设计、商品摄影和转化经验的创意总监。根据已整理的商品事实、视觉参考和用户需求，输出恰好一套最适合当前商品和平台的完整设计方向。这里只规划统一视觉规范；系统会依据权威套图配置补全每张图的职责和可编辑执行计划。
 
-所有方向都必须保留商品真实性，不得捏造性能、认证、材质或不可见结构。四套方向不能只是换颜色，要在受众、购买问题、场景、镜头语言或信息策略上真正不同。
+方案必须保留商品真实性，不得捏造性能、认证、材质或不可见结构。不要提供多个近似选项；直接做出最优判断，并让构图、光线、场景、镜头和信息策略共同服务一个清晰商业目标。
 
 只返回 JSON，不要 Markdown：
 {
@@ -215,7 +215,7 @@ function buildPlannerUserPrompt(input, analysis) {
     productFacts(input),
     `视觉分析：${analysisSummary}`,
     `权威套图配置：${requestedSuiteSummary(ownValue(input, 'requested_images', 'requestedImages'))}`,
-    '请输出恰好四套方向。不要输出 deliverables 或逐张图片清单。',
+    '请输出恰好一套最优方向。不要输出 deliverables 或逐张图片清单。',
   ].join('\n');
 }
 
@@ -223,9 +223,9 @@ function isCancelled(error, signal) {
   return Boolean(signal?.aborted || error?.name === 'AbortError' || error?.code === 'VISUAL_ANALYSIS_ABORTED');
 }
 
-function plannerHasFourUsableDirections(value) {
+function plannerHasOneUsableDirection(value) {
   return Array.isArray(value)
-    && value.length === 4
+    && value.length === 1
     && value.every(direction => direction
       && typeof direction === 'object'
       && !Array.isArray(direction)
@@ -237,7 +237,7 @@ function plannerHasFourUsableDirections(value) {
 
 function fallbackDirectionsAreComplete(value) {
   return Array.isArray(value)
-    && value.length === 4
+    && value.length === 1
     && value.every(direction => direction
       && cleanString(direction.title)
       && cleanString(direction.one_liner)
@@ -330,8 +330,8 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         visualObservations: analysis.product_observations,
         referenceStyle: analysis.reference_style,
       });
-      const plannerComplete = plannerHasFourUsableDirections(parsedPlan?.directions);
-      // A completed visual pass plus the local four-archetype plan is a usable
+      const plannerComplete = plannerHasOneUsableDirection(parsedPlan?.directions);
+      // A completed visual pass plus the local complete plan is a usable
       // product result even when the optional text planner times out. Do not
       // expose a paid-looking failure for a request that already has a safe,
       // complete set of directions; invalid model JSON remains degraded.

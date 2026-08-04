@@ -82,26 +82,14 @@ export function getContextMenuPosition({
 }
 
 export function getContextPanelPosition({ node = {}, viewport = {}, bounds = {}, panel = {} } = {}) {
-  const scale = Math.max(0.01, finite(viewport.scale, 1));
-  const worldLeft = -finite(viewport.x) / scale;
-  const worldTop = -finite(viewport.y) / scale;
-  const worldRight = (finite(bounds.width, 1440) - finite(viewport.x)) / scale;
-  const worldBottom = (finite(bounds.height, 900) - finite(viewport.y)) / scale;
   const panelWidth = finite(panel.width, 520);
-  const panelHeight = finite(panel.height, 238);
-  const gutter = VIEWPORT_GUTTER / scale;
   const centeredX = finite(node.x) + finite(node.w, 230) / 2 - panelWidth / 2;
-  const x = Math.min(worldRight - panelWidth - gutter, Math.max(worldLeft + gutter, centeredX));
   const belowY = finite(node.y) + finite(node.h, 230) + PANEL_GAP;
-  const canFitBelow = belowY + panelHeight <= worldBottom - gutter;
-  const placement = canFitBelow ? 'below' : 'above';
-  const targetY = canFitBelow ? belowY : finite(node.y) - panelHeight - PANEL_GAP;
-  const y = Math.min(worldBottom - panelHeight - gutter, Math.max(worldTop + gutter, targetY));
   return {
-    left: roundCoordinate(x),
-    top: roundCoordinate(y),
+    left: roundCoordinate(centeredX),
+    top: roundCoordinate(belowY),
     width: panelWidth,
-    placement,
+    placement: 'below',
   };
 }
 
@@ -147,6 +135,26 @@ export function expandCanvasDragSelection(nodes = [], activeNodeId, selectedIds 
     if (node.groupId === activeNode.groupId) ids.add(node.id);
   });
   return ids;
+}
+
+export function pickCanvasLayerAtPoint(nodes = [], sourceNodeId, point = {}) {
+  const source = nodes.find(node => node?.id === sourceNodeId && node?.kind === 'layer-group');
+  if (!source) return null;
+  const childIds = new Set(Array.isArray(source.layerChildIds) ? source.layerChildIds : []);
+  const x = finite(point.x, Number.NaN);
+  const y = finite(point.y, Number.NaN);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const priority = node => node.kind === 'text' || node.semanticType === 'text'
+    ? 3
+    : node.semanticType === 'product-group' ? 2
+      : node.semanticType === 'background' ? 0 : 1;
+  return nodes
+    .filter(node => childIds.has(node?.id) || node?.parentLayerGroupId === sourceNodeId)
+    .filter(node => x >= finite(node.x)
+      && x <= finite(node.x) + Math.max(1, finite(node.w, 1))
+      && y >= finite(node.y)
+      && y <= finite(node.y) + Math.max(1, finite(node.h, 1)))
+    .sort((a, b) => priority(b) - priority(a))[0] || null;
 }
 
 export function selectedCanvasBounds(nodes = [], selectedIds = new Set()) {

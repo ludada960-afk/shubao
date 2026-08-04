@@ -74,18 +74,18 @@ test('text creation produces a real editable canvas object rather than a form ca
     kind: 'text',
     x: 120,
     y: 160,
-    w: 240,
-    h: 64,
-    text: '',
-    placeholder: '输入文字',
+    w: 420,
+    h: 84,
+    text: '双击编辑文字',
+    placeholder: '双击编辑文字',
     sourceNodeIds: ['source-1'],
     status: 'ready',
     textStyle: {
       block: 'body',
       color: '#20242a',
-      fontSize: 24,
+      fontSize: 48,
       fontStyle: 'normal',
-      fontWeight: 400,
+      fontWeight: 700,
       list: 'none',
       textAlign: 'left',
     },
@@ -142,6 +142,16 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     productInfoMode: 'auto',
     copywritingMode: 'smart',
     sourceNodeIds: ['image-1'],
+    configuration: {
+      platform: '天猫',
+      sizing: { smart: true, images: [] },
+      styleSkill: 'smart',
+      customColors: null,
+      productParams: { category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' },
+      skus: [],
+      copywriting: { plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' },
+      genSettings: { resolution: '2K', negativePrompt: '' },
+    },
   });
 });
 
@@ -194,7 +204,7 @@ test('only one selected generation node receives a contextual composer position'
     viewportBounds: { width: 800, height: 640 },
     viewport: { x: 0, y: 0, scale: 1 },
     height: 360,
-  }).position, { left: 148, top: 128, width: 640 });
+  }).position, { left: 580, top: 792, width: 640 });
 
   const mobile = getCanvasComposerPresentation({
     node: { ...node, x: 80, y: 460, w: 640, h: 420 },
@@ -204,7 +214,7 @@ test('only one selected generation node receives a contextual composer position'
     viewport: { x: 0, y: 0, scale: 0.68 },
     height: 420,
   });
-  assert.ok(mobile.position.top + 420 + 48 / 0.68 <= 752 / 0.68 - 12 / 0.68 + 1);
+  assert.deepEqual(mobile.position, { left: 80, top: 892, width: 640 });
 
   const leftRail = getCanvasComposerPresentation({
     node: { id: node.id, x: -40, y: 80, w: 240, h: 120 },
@@ -214,10 +224,10 @@ test('only one selected generation node receives a contextual composer position'
     viewport: { x: 0, y: 0, scale: 1 },
     height: 300,
   });
-  assert.equal(leftRail.position.left, 72);
+  assert.deepEqual(leftRail.position, { left: -240, top: 212, width: 640 });
 });
 
-test('contextual composer avoids neighboring nodes when an in-view alternative exists', () => {
+test('contextual composer stays anchored below its node instead of dodging neighboring nodes', () => {
   const node = createCanvasImageComposerNode({ id: 'composer', x: 760, y: 500, now: 123 });
   const position = getCanvasComposerPresentation({
     node,
@@ -229,13 +239,10 @@ test('contextual composer avoids neighboring nodes when an in-view alternative e
     height: 360,
     avoidNodes: [{ id: 'asset', x: 770, y: 128, w: 240, h: 240 }],
   }).position;
-  assert.equal(position.left < 770 + 240 + 12
-    && position.left + position.width + 12 > 770
-    && position.top < 128 + 240 + 12
-    && position.top + 360 + 12 > 128, false);
+  assert.deepEqual(position, { left: 750, top: 792, width: 300 });
 });
 
-test('contextual composer never leaves the visible canvas when every free candidate is occupied', () => {
+test('contextual composer can extend beyond the viewport so canvas panning remains authoritative', () => {
   const node = createCanvasSuiteComposerNode({ x: 1600, y: 260, now: 456 });
   const viewportBounds = { width: 1280, height: 672 };
   const viewport = { x: 0, y: 0, scale: 0.68 };
@@ -254,14 +261,7 @@ test('contextual composer never leaves the visible canvas when every free candid
       h: 330,
     })),
   }).position;
-  const visibleLeft = -viewport.x / viewport.scale + 72 / viewport.scale;
-  const visibleTop = -viewport.y / viewport.scale + 12 / viewport.scale;
-  const visibleRight = (viewportBounds.width - viewport.x) / viewport.scale - 12 / viewport.scale;
-  const visibleBottom = (viewportBounds.height - viewport.y) / viewport.scale - 12 / viewport.scale;
-  assert.ok(position.left >= visibleLeft - 1);
-  assert.ok(position.left + position.width <= visibleRight + 1);
-  assert.ok(position.top >= visibleTop - 1);
-  assert.ok(position.top + 420 <= visibleBottom + 1);
+  assert.deepEqual(position, { left: 1600, top: 692, width: 640 });
 });
 
 test('local edit selections are normalized before they become generation input', () => {
@@ -287,6 +287,13 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.match(source, /onDoubleClick/);
   assert.match(source, /onPointerDown\?\.\(event, node\.id\)/);
   assert.doesNotMatch(source, /<header>\s*文本\s*<\/header>/);
+  assert.match(source, /SizingPanel/);
+  assert.match(source, /SkuPanel/);
+  assert.match(source, /StylePanel/);
+  assert.match(source, /ParamsPanel/);
+  assert.match(source, /CopyPanel/);
+  assert.match(source, /GenSettingsPanel/);
+  assert.match(source, /const \[activePanel, setActivePanel\] = useState\(''\)/);
 });
 
 test('generation bodies render in the node map while one selected composer renders after it', () => {
@@ -318,7 +325,7 @@ test('smart-layer generation keeps the result collapsed and expands only its hid
   assert.match(page, /layerChildIds/);
   assert.match(page, /layerExpanded: true/);
   assert.match(page, /node\.kind === ['"]layer-group['"]/);
-  assert.match(page, /const groupNodeId = result\.nodes\[0\]\?\.id \|\| source\.id/);
+  assert.match(page, /const groupNodeId = result\.sourceNode\.id/);
   assert.match(page, /setMultiSelected\(new Set\(\[groupNodeId\]\)\)/);
 });
 
@@ -353,7 +360,8 @@ test('contextual composers expose fixed product controls without model selectors
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(source, /export function CanvasGenerationNode/);
   assert.match(source, /aria-label="清晰度"/);
-  assert.match(source, /套图数量/);
+  assert.match(source, /套图方案/);
+  assert.match(source, /生成设置/);
   assert.match(source, /ImageMentionPicker/);
   assert.doesNotMatch(source, /aria-label="图片模型"/);
   assert.doesNotMatch(source, /aria-label="文案模型"/);
@@ -407,6 +415,19 @@ test('plain text tools never route through image text generation', () => {
   assert.match(page, /e\.key\.toLowerCase\(\) === ['"]t['"][\s\S]*?handleAddTextRef\.current/);
   assert.match(page, /node\.kind === 'text'/);
   assert.doesNotMatch(page, /textComposerNodeId|textComposerValue/);
+});
+
+test('plain text starts as a bold double-click hint and reverse prompt reuses the text composer', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const model = readFileSync(new URL('../src/pages/EcCanvas/canvasStudioModel.js', import.meta.url), 'utf8');
+  const reverseStart = page.indexOf("if (handler === 'reverse-prompt')");
+  const reverseEnd = page.indexOf("if (handler === 'grid-split')", reverseStart);
+  const reverseHandler = page.slice(reverseStart, reverseEnd);
+  assert.match(model, /text: '双击编辑文字'/);
+  assert.match(model, /fontSize: 48/);
+  assert.match(model, /fontWeight: 700/);
+  assert.match(reverseHandler, /createCanvasTextComposerNode/);
+  assert.doesNotMatch(reverseHandler, /createCanvasTextNode/);
 });
 
 test('canvas page removes independent lane labels, role-gated uploads, and duplicate rail actions', () => {
@@ -543,6 +564,17 @@ test('inline crop and blank placement stay normalized and avoid occupied canvas 
   });
   assert.ok(placement.x >= 24 && placement.y >= 24);
   assert.equal(placement.x < 680 && placement.x + 260 > 420 && placement.y < 520 && placement.y + 180 > 260, false);
+});
+
+test('blank placement starts at the visible canvas center before scanning its edges', () => {
+  const placement = findCanvasBlankPlacement({
+    width: 420,
+    height: 84,
+    viewport: { x: -120, y: 40, scale: 0.8 },
+    bounds: { width: 1200, height: 800 },
+    nodes: [],
+  });
+  assert.deepEqual(placement, { x: 690, y: 408 });
 });
 
 test('blank placement expands beyond a crowded viewport instead of returning an overlap', () => {

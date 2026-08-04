@@ -556,7 +556,7 @@ test('production planner default fallback validates before hold with exact execu
   });
 });
 
-test('visual failure stops before billing and never submits provider work', async t => {
+test('retryable visual analysis failure degrades once and continues the generation pipeline', async t => {
   const failure = Object.assign(new Error('图片分析服务暂时不可用'), {
     code: 'VISUAL_ANALYSIS_UNAVAILABLE',
     status: 503,
@@ -565,19 +565,36 @@ test('visual failure stops before billing and never submits provider work', asyn
   const { orchestrator, jobs, calls } = await createHarness(t, {
     orchestratorOptions: {
       analyzeVisualInputs: async () => { throw failure; },
+      fallbackVisualInputs: payload => ({
+        productTruth: {
+          productName: payload.product_name,
+          category: payload.category,
+          sourceAssetIds: payload.assets.product.map(asset => asset.assetId),
+          fingerprint: 'fallback-truth-fingerprint',
+          confirmedFacts: {},
+          forbiddenMutations: [],
+        },
+        styleReferenceProfile: {
+          palette: [],
+          lighting: '',
+          composition: '',
+          sourceAssetIds: [],
+          prohibitedTransfers: ['reference products', 'brands', 'logos', 'source copy'],
+          confidence: null,
+        },
+        cache: { product: 'fallback', style: 'fallback' },
+      }),
     },
   });
   const created = orchestrator.createJob(jobInput('job-visual-failure'));
 
-  await assert.rejects(
-    () => orchestrator.runJob(created.id),
-    error => error?.code === 'VISUAL_ANALYSIS_UNAVAILABLE',
-  );
+  const completed = await orchestrator.runJob(created.id);
 
-  assert.equal(calls.hold.length, 0);
-  assert.equal(calls.submit.length, 0);
-  assert.equal(jobs.get(created.id).status, 'analyzing');
-  assert.equal(jobs.get(created.id).progress.orchestrationSnapshot, undefined);
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+  assert.equal(jobs.get(created.id).progress.orchestrationSnapshot.visualAnalysisMode, 'fallback');
+  assert.equal(jobs.get(created.id).progress.orchestrationSnapshot.visualAnalysisErrorCode, 'VISUAL_ANALYSIS_UNAVAILABLE');
 });
 
 test('invalid visual result stops before billing and never submits provider work', async t => {
