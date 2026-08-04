@@ -83,31 +83,79 @@ export function findCanvasBlankPlacement({
     .map(node => ({ x: Number(node.x) || 0, y: Number(node.y) || 0, w: Number(node.w) || 1, h: Number(node.h) || 1 }));
   const available = candidate => !occupied.some(rect => rectsOverlap({ ...candidate, w, h }, rect, gap));
   const candidates = [];
+  const addCandidate = (candidate, { keepInViewport = false } = {}) => {
+    if (!candidate || !Number.isFinite(Number(candidate.x)) || !Number.isFinite(Number(candidate.y))) return;
+    candidates.push(keepInViewport ? {
+      x: round(Number(candidate.x)),
+      y: round(Number(candidate.y)),
+    } : clampCandidate(candidate));
+  };
   if (preferred && Number.isFinite(preferred.x) && Number.isFinite(preferred.y)) {
-    candidates.push(
-      preferred,
-      { x: preferred.x + w + gap, y: preferred.y },
-      { x: preferred.x - w - gap, y: preferred.y },
-      { x: preferred.x, y: preferred.y + h + gap },
-      { x: preferred.x, y: preferred.y - h - gap },
-    );
+    addCandidate(preferred);
+    addCandidate({ x: preferred.x + w + gap, y: preferred.y });
+    addCandidate({ x: preferred.x - w - gap, y: preferred.y });
+    addCandidate({ x: preferred.x, y: preferred.y + h + gap });
+    addCandidate({ x: preferred.x, y: preferred.y - h - gap });
   }
   if (sourceNode) {
-    candidates.push(
-      { x: sourceNode.x + sourceNode.w + gap, y: sourceNode.y },
-      { x: sourceNode.x, y: sourceNode.y + sourceNode.h + gap },
-      { x: sourceNode.x - w - gap, y: sourceNode.y },
-      { x: sourceNode.x, y: sourceNode.y - h - gap },
-    );
+    addCandidate({ x: sourceNode.x + sourceNode.w + gap, y: sourceNode.y });
+    addCandidate({ x: sourceNode.x, y: sourceNode.y + sourceNode.h + gap });
+    addCandidate({ x: sourceNode.x - w - gap, y: sourceNode.y });
+    addCandidate({ x: sourceNode.x, y: sourceNode.y - h - gap });
   }
   const stepX = Math.max(120, Math.min(w + gap, 320));
   const stepY = Math.max(100, Math.min(h + gap, 260));
   for (let y = visible.y; y <= maxY; y += stepY) {
-    for (let x = visible.x; x <= maxX; x += stepX) candidates.push({ x, y });
+    for (let x = visible.x; x <= maxX; x += stepX) addCandidate({ x, y });
   }
   for (const candidate of candidates) {
-    const normalized = clampCandidate(candidate);
-    if (available(normalized)) return normalized;
+    if (available(candidate)) return candidate;
   }
-  return clampCandidate(candidates[0] || { x: visible.x, y: visible.y });
+
+  // A crowded viewport is normal on an infinite canvas. Do not clamp the
+  // fallback back over an existing node; continue the search just outside the
+  // viewport and use the nearest free position instead.
+  const anchor = preferred && Number.isFinite(preferred.x) && Number.isFinite(preferred.y)
+    ? preferred
+    : { x: visible.x, y: visible.y };
+  const overflowCandidates = [];
+  const addOverflowCandidate = (x, y) => {
+    if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return;
+    overflowCandidates.push({ x: round(Number(x)), y: round(Number(y)) });
+  };
+  const radiusX = Math.max(w + gap, stepX);
+  const radiusY = Math.max(h + gap, stepY);
+  for (let ring = 1; ring <= 8; ring += 1) {
+    addOverflowCandidate(anchor.x + ring * radiusX, anchor.y);
+    addOverflowCandidate(anchor.x - ring * radiusX, anchor.y);
+    addOverflowCandidate(anchor.x, anchor.y + ring * radiusY);
+    addOverflowCandidate(anchor.x, anchor.y - ring * radiusY);
+    addOverflowCandidate(anchor.x + ring * radiusX, anchor.y + ring * radiusY);
+    addOverflowCandidate(anchor.x - ring * radiusX, anchor.y + ring * radiusY);
+    addOverflowCandidate(anchor.x + ring * radiusX, anchor.y - ring * radiusY);
+    addOverflowCandidate(anchor.x - ring * radiusX, anchor.y - ring * radiusY);
+  }
+  if (occupied.length) {
+    const right = Math.max(...occupied.map(rect => rect.x + rect.w), visible.x + visible.w);
+    const bottom = Math.max(...occupied.map(rect => rect.y + rect.h), visible.y + visible.h);
+    addOverflowCandidate(right + gap, visible.y);
+    addOverflowCandidate(visible.x, bottom + gap);
+  }
+  const visibleArea = candidate => {
+    const overlapWidth = Math.max(0, Math.min(candidate.x + w, visible.x + visible.w) - Math.max(candidate.x, visible.x));
+    const overlapHeight = Math.max(0, Math.min(candidate.y + h, visible.y + visible.h) - Math.max(candidate.y, visible.y));
+    return overlapWidth * overlapHeight;
+  };
+  const candidateDistance = candidate => Math.abs(candidate.x - anchor.x) + Math.abs(candidate.y - anchor.y);
+  overflowCandidates.sort((left, right) => visibleArea(right) - visibleArea(left) || candidateDistance(left) - candidateDistance(right));
+  for (const candidate of overflowCandidates) {
+    if (available(candidate)) return candidate;
+  }
+
+  // The bottom-right fallback is outside every finite occupied rectangle. It
+  // is preferable to returning an overlapping node even in an unusually dense
+  // or very large saved canvas.
+  const right = Math.max(visible.x + visible.w, ...occupied.map(rect => rect.x + rect.w));
+  const bottom = Math.max(visible.y + visible.h, ...occupied.map(rect => rect.y + rect.h));
+  return { x: round(right + gap), y: round(bottom + gap) };
 }

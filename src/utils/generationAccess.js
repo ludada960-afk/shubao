@@ -3,7 +3,7 @@ import { createPendingPaidAction, savePendingPaidAction } from './pendingPaidAct
 
 const DRAFT_REFERENCES_STORAGE_KEY = 'shubao.pendingPaidDrafts.v1';
 const BILLING_CURRENCIES = new Set(['ec_points', 'content_sets']);
-const CONTENT_SET_SOURCES = new Set(['plog', 'xhs-content', 'xhs-plog']);
+const CONTENT_PAYWALL_SOURCES = new Set(['plog', 'xhs-content', 'xhs-plog']);
 
 function supportedCurrency(value) {
   return typeof value === 'string' && BILLING_CURRENCIES.has(value.trim())
@@ -11,13 +11,19 @@ function supportedCurrency(value) {
     : '';
 }
 
+function paywallTab({ currency, source } = {}) {
+  const normalizedSource = typeof source === 'string' ? source.trim().toLowerCase() : '';
+  return currency === 'content_sets' || CONTENT_PAYWALL_SOURCES.has(normalizedSource)
+    ? 'content'
+    : 'ecommerce';
+}
+
 export function resolvePendingActionCurrency({ currency, action, source } = {}) {
   const callerCurrency = supportedCurrency(currency);
   if (callerCurrency) return callerCurrency;
   const actionCurrency = supportedCurrency(action?.currency);
   if (actionCurrency) return actionCurrency;
-  const normalizedSource = typeof source === 'string' ? source.trim().toLowerCase() : '';
-  return CONTENT_SET_SOURCES.has(normalizedSource) ? 'content_sets' : 'ec_points';
+  return 'ec_points';
 }
 
 function activeSessionOwner(storage, now) {
@@ -156,7 +162,7 @@ export function handleGenerationAccessError(error, dispatch, {
     const pendingAction = { ...pendingReference, billing };
     dispatch({
       type: 'OPEN_PAYWALL',
-      tab: resolvedCurrency === 'content_sets' ? 'content' : 'ecommerce',
+      tab: paywallTab({ currency: resolvedCurrency, source: resolvedSource }),
       reason: 'INSUFFICIENT_CREDITS',
       pendingAction,
     });

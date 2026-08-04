@@ -5,8 +5,10 @@ import {
   createBillingOrder,
   fetchBillingBalance,
   fetchBillingCatalog,
+  fetchBillingOrder,
   fetchBillingLedger,
   quoteBillingAction,
+  waitForBillingOrder,
 } from '../src/services/billing.js';
 import { ApiError } from '../src/services/apiError.js';
 
@@ -48,6 +50,7 @@ test('billing client sends each private request with a bearer token and server-o
     sets: 999,
     credits: 999,
   });
+  await fetchBillingOrder('order-1');
   await fetchBillingLedger({ currency: 'ec_points', limit: 20, offset: 10 });
 
   assert.deepEqual(requests.map(({ url, options }) => ({
@@ -59,6 +62,7 @@ test('billing client sends each private request with a bearer token and server-o
     { url: '/api/billing/balance', method: 'GET', body: null },
     { url: '/api/billing/quote', method: 'POST', body: { sku: 'ec_100', quantity: 2 } },
     { url: '/api/billing/orders', method: 'POST', body: { productSku: 'ec_100', provider: 'manual', idempotencyKey: 'order-1' } },
+    { url: '/api/billing/orders/order-1', method: 'GET', body: null },
     { url: '/api/billing/ledger?currency=ec_points&limit=20&offset=10', method: 'GET', body: null },
   ]);
   for (const { options } of requests) {
@@ -78,4 +82,27 @@ test('billing client converts non-success responses to ApiError', async (t) => {
     assert.equal(error.code, 'BILLING_DOWN');
     return true;
   });
+});
+
+test('billing order polling tolerates a transient upstream response and stops at a terminal order', async (t) => {
+  installSession();
+  const originalFetch = globalThis.fetch;
+  const responses = [
+    jsonResponse({ error: 'temporarily unavailable', code: 'BILLING_UPSTREAM' }, 503),
+    jsonResponse({ order: { id: 'order-2', status: 'pending' } }),
+    jsonResponse({ order: { id: 'order-2', status: 'credited', grantUnits: 105000 } }),
+  ];
+  globalThis.fetch = async () => responses.shift();
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const updates = [];
+  const result = await waitForBillingOrder('order-2', {
+    intervalMs: 250,
+    maxAttempts: 3,
+    onUpdate: order => updates.push(order.status),
+  });
+
+  assert.equal(result.status, 'credited');
+  assert.deepEqual(updates, ['pending', 'credited']);
+  assert.equal(responses.length, 0);
 });

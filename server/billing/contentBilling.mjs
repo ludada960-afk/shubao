@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { resolveContentBillingConfig } from './contentBillingConfig.mjs';
 
 const CONTENT_CURRENCY = 'content_sets';
 const FAILURE_REASON = 'generation_failed';
@@ -707,12 +708,14 @@ function billingSnapshot({
   holdId = null,
   entitlement = null,
   balance,
+  currency = CONTENT_CURRENCY,
+  billedUnits = 1,
 }) {
   const unlimited = balance?.unlimited === true;
   return {
-    currency: CONTENT_CURRENCY,
+    currency,
     status,
-    settledUnits: status === 'settled' ? 1 : 0,
+    settledUnits: status === 'settled' ? billedUnits : 0,
     balance: balance === null || unlimited ? null : (balance?.availableUnits ?? 0),
     heldUnits: balance?.heldUnits ?? 0,
     unlimited,
@@ -729,6 +732,7 @@ export function createContentBilling({
   walletService,
   now = Date.now,
   leaseMs = DEFAULT_LEASE_MS,
+  ...billingOptions
 } = {}) {
   if (!db || typeof db.prepare !== 'function' || typeof db.transaction !== 'function') {
     throw new TypeError('db must be a better-sqlite3 database');
@@ -745,6 +749,16 @@ export function createContentBilling({
   if (typeof now !== 'function') throw new TypeError('now must be a function');
   if (!Number.isSafeInteger(leaseMs) || leaseMs <= 0) {
     throw new TypeError('leaseMs must be a positive safe integer');
+  }
+
+  const billingConfig = resolveContentBillingConfig(billingOptions);
+
+  function makeBillingSnapshot(input) {
+    return billingSnapshot({
+      ...input,
+      currency: billingConfig.currency,
+      billedUnits: billingConfig.itemUnits,
+    });
   }
 
   ensureContentGenerationJobSchema(db);
@@ -790,7 +804,7 @@ export function createContentBilling({
   }
 
   function currentBalance(ownerEmail) {
-    return walletService.getBalance(ownerEmail, CONTENT_CURRENCY);
+    return walletService.getBalance(ownerEmail, billingConfig.currency);
   }
 
   function mutationBalance(ownerEmail, ...candidates) {
@@ -908,7 +922,7 @@ export function createContentBilling({
       workId: input.workId,
       mode: input.mode,
     });
-    const billing = billingSnapshot({
+    const billing = makeBillingSnapshot({
       status: 'held',
       generationId: input.generationId,
       workId: input.workId,
@@ -954,8 +968,8 @@ export function createContentBilling({
     } catch (error) {
       if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
         const balance = currentBalance(ownerEmail);
-        error.currency = CONTENT_CURRENCY;
-        error.required = 1;
+        error.currency = billingConfig.currency;
+        error.required = billingConfig.itemUnits;
         error.available = balance.unlimited ? null : balance.availableUnits;
         error.resumeable = true;
       }
@@ -1005,7 +1019,7 @@ export function createContentBilling({
       workId: row.work_id,
       reason: FAILURE_REASON,
     });
-    const billing = billingSnapshot({
+    const billing = makeBillingSnapshot({
       status: failed.status,
       generationId: input.generationId,
       workId: row.work_id,
@@ -1061,7 +1075,7 @@ export function createContentBilling({
         workId: row.work_id,
         reason: FAILURE_REASON,
       });
-      const billing = billingSnapshot({
+      const billing = makeBillingSnapshot({
         status: failed.status,
         generationId: input.generationId,
         workId: row.work_id,
@@ -1099,7 +1113,7 @@ export function createContentBilling({
       workId: row.work_id,
       result,
     });
-    const billing = billingSnapshot({
+    const billing = makeBillingSnapshot({
       status: completed.status,
       generationId: input.generationId,
       workId: row.work_id,
@@ -1145,7 +1159,7 @@ export function createContentBilling({
     const generationId = normalizeGenerationId(input.generationId, { allowGenerated: true });
     normalizeMode(input.mode);
     const workId = workIdFor(generationId);
-    const billing = billingSnapshot({
+    const billing = makeBillingSnapshot({
       status: 'preview',
       generationId,
       workId,

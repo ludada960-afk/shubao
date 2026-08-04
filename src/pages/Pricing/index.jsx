@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MdAutoAwesome } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
@@ -8,15 +8,23 @@ import {
   buildPricingPlans,
   createOrderRequest,
   enabledPaymentProviders,
+  formatPaymentProviderLabel,
   formatCatalogGrant,
   formatCatalogPrice,
 } from '../../components/billing/pricingCatalogModel.js';
-import { createBillingOrder } from '../../services/billing.js';
+import { createBillingOrder, fetchBillingOrder, waitForBillingOrder } from '../../services/billing.js';
+import {
+  clearPendingPaymentOrder,
+  createPendingPaymentOrder,
+  isTerminalPaymentOrderStatus,
+  loadPendingPaymentOrder,
+  savePendingPaymentOrder,
+} from '../../utils/pendingPaymentOrder.js';
 
 const FAQ_CONTENT = {
   content: [
-    { q: '创作套数如何计算？', a: '每次完成一篇小红书或 Plog 内容及整套配图，结算 1 个创作套数。' },
-    { q: '创作套数多久有效？', a: '当前套餐自到账起 30 天有效，具体有效期以套餐卡片展示为准。' },
+    { q: '小红书 / Plog 如何计算 AI 积分？', a: '一套 9 张图按 9 张 2K 图片计费，共 9 AI 积分；实际生成前会先冻结本次预计额度，稳定交付后才结算。' },
+    { q: '生成失败会扣额度吗？', a: '只有稳定交付完整结果后才结算；上游或服务异常导致失败会释放本次冻结额度。' },
     { q: '生成内容可以商用吗？', a: '可以。请在发布前检查平台规范、品牌素材授权和生成内容准确性。' },
   ],
   ecommerce: [
@@ -37,6 +45,7 @@ export default function PricingPage() {
   const {
     state,
     dispatch,
+    refreshBillingBalance,
     refreshBillingCatalog,
   } = useApp();
   const [tab, setTab] = useState('content');
@@ -44,8 +53,13 @@ export default function PricingPage() {
   const [catalogError, setCatalogError] = useState('');
   const [orderStatus, setOrderStatus] = useState('');
   const [orderingProvider, setOrderingProvider] = useState('');
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const paymentAbortRef = useRef(null);
+  const paymentKeysRef = useRef(new Map());
+  const paymentCheckoutRef = useRef(null);
+  const restoredPaymentKeyRef = useRef('');
   const metadata = tab === 'content' ? PRICING_XHS : PRICING_EC;
-  const currency = tab === 'content' ? 'content_sets' : 'ec_points';
+  const currency = 'ec_points';
   const plans = useMemo(
     () => buildPricingPlans(state.billingCatalog, metadata, currency),
     [currency, metadata, state.billingCatalog],
@@ -62,6 +76,51 @@ export default function PricingPage() {
       .catch(() => setCatalogError('套餐信息暂时无法加载，请稍后重试。'));
   }, [refreshBillingCatalog]);
 
+  useEffect(() => () => paymentAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!state.logged || !state.phone || !plans.length) return;
+    const saved = loadPendingPaymentOrder(state.phone);
+    if (!saved) return;
+    const plan = plans.find(candidate => candidate.sku === saved.productSku);
+    if (!plan) return;
+    const restoreKey = `${saved.orderId}:${saved.productSku}`;
+    if (restoredPaymentKeyRef.current === restoreKey) return;
+    restoredPaymentKeyRef.current = restoreKey;
+    paymentCheckoutRef.current = saved.checkout || null;
+    setSelectedPlan(plan);
+    setPaymentOrder(saved);
+    setOrderStatus('检测到未完成订单，正在恢复订单状态；当前页面和草稿已保留。');
+    fetchBillingOrder(saved.orderId)
+      .then(response => {
+        const order = response?.order || response;
+        if (!order || typeof order !== 'object') return;
+        const checkout = order.checkout || saved.checkout;
+        const restored = checkout ? { ...order, checkout } : order;
+        setPaymentOrder(restored);
+        if (isTerminalPaymentOrderStatus(order.status)) {
+          clearPendingPaymentOrder();
+          paymentKeysRef.current.delete(`${saved.productSku}:${saved.provider}`);
+          if (order.status === 'credited') {
+            setOrderStatus('支付已到账，额度已刷新；当前页面和草稿仍已保留。');
+            refreshBillingBalance().catch(() => {});
+          } else {
+            setOrderStatus('订单已结束，当前页面和草稿仍已保留。');
+          }
+          return;
+        }
+        savePendingPaymentOrder(createPendingPaymentOrder({
+          ...saved,
+          status: order.status || saved.status,
+          checkout,
+        }));
+        setOrderStatus('订单仍待支付，完成支付后会自动确认到账；当前页面和草稿不会丢失。');
+      })
+      .catch(error => {
+        if (error?.name !== 'AbortError') setOrderStatus('订单状态暂时无法确认，可重新打开支付页或稍后刷新。');
+      });
+  }, [plans, refreshBillingBalance, state.logged, state.phone]);
+
   const openPurchase = (plan) => {
     if (!state.logged) {
       dispatch({ type: 'SHOW_LOGIN', show: true });
@@ -69,7 +128,15 @@ export default function PricingPage() {
     }
     if (!plan.enabled || providers.length === 0) return;
     setOrderStatus('');
+    setPaymentOrder(null);
+    paymentCheckoutRef.current = null;
     setSelectedPlan(plan);
+  };
+
+  const closePurchase = () => {
+    paymentAbortRef.current?.abort();
+    paymentAbortRef.current = null;
+    setSelectedPlan(null);
   };
 
   const createOrder = async (provider) => {
@@ -77,12 +144,87 @@ export default function PricingPage() {
     setOrderingProvider(provider.id);
     setOrderStatus('');
     try {
+      const requestKey = `${selectedPlan.sku}:${provider.id}`;
+      const idempotencyKey = paymentKeysRef.current.get(requestKey)
+        || createOrderRequest({ productSku: selectedPlan.sku, provider: provider.id }).idempotencyKey;
+      paymentKeysRef.current.set(requestKey, idempotencyKey);
       const payload = createOrderRequest({
         productSku: selectedPlan.sku,
         provider: provider.id,
+        idempotencyKey,
       });
-      await createBillingOrder(payload);
-      setOrderStatus('订单已创建，请按页面提示完成购买后刷新余额。');
+      const response = await createBillingOrder(payload);
+      const order = response?.order || response;
+      if (order?.checkout) paymentCheckoutRef.current = order.checkout;
+      const orderWithCheckout = order?.checkout || !paymentCheckoutRef.current
+        ? order
+        : { ...order, checkout: paymentCheckoutRef.current };
+      setPaymentOrder(orderWithCheckout);
+      if (order?.id && state.phone) {
+        if (isTerminalPaymentOrderStatus(order.status)) clearPendingPaymentOrder();
+        else savePendingPaymentOrder(createPendingPaymentOrder({
+          ownerEmail: state.phone,
+          orderId: order.id,
+          productSku: selectedPlan.sku,
+          provider: provider.id,
+          idempotencyKey,
+          status: order.status || 'pending',
+          checkout: orderWithCheckout?.checkout,
+        }));
+      }
+      setOrderStatus(order?.status === 'credited'
+        ? '支付已到账，当前页面和草稿已保留。'
+        : '订单已创建，完成支付后本页会自动确认到账。');
+      if (order?.checkout?.url && typeof window !== 'undefined') {
+        window.open(order.checkout.url, '_blank', 'noopener,noreferrer');
+      }
+      if (order?.id && order.status !== 'credited') {
+        paymentAbortRef.current?.abort();
+        const controller = new AbortController();
+        paymentAbortRef.current = controller;
+        try {
+          const settled = await waitForBillingOrder(order.id, {
+            signal: controller.signal,
+            onUpdate: next => {
+              const checkout = next?.checkout || paymentCheckoutRef.current;
+              const nextWithCheckout = checkout ? { ...next, checkout } : next;
+              setPaymentOrder(nextWithCheckout);
+              if (next?.id && state.phone) {
+                if (isTerminalPaymentOrderStatus(next.status)) clearPendingPaymentOrder();
+                else savePendingPaymentOrder(createPendingPaymentOrder({
+                  ownerEmail: state.phone,
+                  orderId: next.id,
+                  productSku: selectedPlan.sku,
+                  provider: provider.id,
+                  idempotencyKey,
+                  status: next.status || 'pending',
+                  checkout,
+                }));
+              }
+              if (next?.status === 'paid') setOrderStatus('支付已确认，正在入账…');
+            },
+          });
+          const settledWithCheckout = settled?.checkout || !paymentCheckoutRef.current
+            ? settled
+            : { ...settled, checkout: paymentCheckoutRef.current };
+          setPaymentOrder(settledWithCheckout);
+          paymentKeysRef.current.delete(requestKey);
+          if (isTerminalPaymentOrderStatus(settled.status)) clearPendingPaymentOrder();
+          if (settled.status === 'credited') {
+            await refreshBillingBalance();
+            setOrderStatus('支付已到账，额度已刷新。');
+          } else {
+            setOrderStatus('订单未完成支付，当前页面和草稿仍已保留。');
+          }
+        } catch (error) {
+          if (error?.name !== 'AbortError') {
+            setOrderStatus(error?.message || '暂时无法确认订单状态，请稍后刷新余额。');
+          }
+        }
+      } else if (order?.status === 'credited') {
+        paymentKeysRef.current.delete(requestKey);
+        clearPendingPaymentOrder();
+      }
     } catch (error) {
       setOrderStatus(error?.message || '订单创建失败，请稍后重试。');
     } finally {
@@ -106,7 +248,6 @@ export default function PricingPage() {
           <div style={{ marginBottom: 18 }}>
             <BillingBalanceCard
               ecommercePoints={state.ecPoints}
-              contentSets={state.contentSets}
               unlimited={state.unlimited}
             />
           </div>
@@ -121,7 +262,7 @@ export default function PricingPage() {
           marginBottom: 20,
         }}>
           {[
-            { key: 'content', label: '小红书 / Plog · 创作套数' },
+            { key: 'content', label: '小红书 / Plog · AI 积分' },
             { key: 'ecommerce', label: '电商图片 / 画布 AI 积分' },
           ].map(item => (
             <button
@@ -268,7 +409,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {selectedPlan && providers.length > 0 && (
+      {selectedPlan && (providers.length > 0 || paymentOrder) && (
         <div
           role="dialog"
           aria-modal="true"
@@ -283,26 +424,33 @@ export default function PricingPage() {
             justifyContent: 'center',
             padding: 20,
           }}
-          onClick={() => setSelectedPlan(null)}
+          onClick={closePurchase}
         >
           <div style={{ background: '#fff', borderRadius: 20, maxWidth: 360, width: '100%', padding: 28, textAlign: 'center' }} onClick={event => event.stopPropagation()}>
             <h2 style={{ margin: 0, fontSize: 18 }}>{selectedPlan.name}</h2>
             <p style={{ color: 'var(--text-muted)' }}>
               ¥{formatCatalogPrice(selectedPlan.priceFen)} · {formatCatalogGrant(selectedPlan)}
             </p>
-            <div style={{ display: 'grid', gap: 10 }}>
+            {providers.length > 0 ? <div style={{ display: 'grid', gap: 10 }}>
               {providers.map(provider => (
                 <button
                   key={provider.id}
                   type="button"
-                  disabled={Boolean(orderingProvider)}
+                  disabled={Boolean(orderingProvider) || paymentOrder?.status === 'pending' || paymentOrder?.status === 'paid'}
                   onClick={() => createOrder(provider)}
                   style={{ minHeight: 44, border: '1px solid #1A1614', borderRadius: 12, background: '#1A1614', color: '#fff', cursor: orderingProvider ? 'wait' : 'pointer' }}
                 >
-                  {orderingProvider === provider.id ? '正在创建安全订单…' : `使用 ${provider.id} 支付`}
+                  {orderingProvider === provider.id ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
               ))}
-            </div>
+            </div> : <div role="status" style={{ padding: 10, borderRadius: 10, background: '#FFF7D6', color: '#7A5600', fontSize: 12 }}>
+              当前支付渠道暂时不可用，但已创建的订单仍可继续查询。
+            </div>}
+            {paymentOrder?.checkout?.url && (
+              <button type="button" onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')} style={{ marginTop: 12, width: '100%', minHeight: 40, border: '1px solid #1A1614', borderRadius: 10, background: '#fff', color: '#1A1614', cursor: 'pointer', fontWeight: 700 }}>
+                重新打开支付页
+              </button>
+            )}
             {orderStatus && <p role="status" style={{ color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10, fontSize: 12 }}>{orderStatus}</p>}
           </div>
         </div>

@@ -20,6 +20,7 @@ import {
   replaceCachedWorksForOwner,
 } from '../utils/workRecords.js';
 import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
+import { withTransientTaskSyncRetry } from './taskSync.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 const ECOMMERCE_SUITE_REPAIR_VERSION = 1;
@@ -962,20 +963,20 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
 
 export async function getEcommerceTask(taskId, { signal } = {}) {
   if (!taskId) throw new Error('缺少任务编号');
-  const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`, {
-    headers: signedSessionHeaders(),
-    signal,
-  });
+  const res = await withTransientTaskSyncRetry(() => fetch(
+    `${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`,
+    { headers: signedSessionHeaders(), signal },
+  ), { signal });
   if (!res.ok) throw await createApiError(res, '读取任务失败');
   const data = await res.json();
   return data.task || data;
 }
 
 export async function listEcommerceTasks({ signal } = {}) {
-  const res = await fetch(`${API_BASE}/api/ecommerce/jobs`, {
+  const res = await withTransientTaskSyncRetry(() => fetch(`${API_BASE}/api/ecommerce/jobs`, {
     headers: signedSessionHeaders(),
     signal,
-  });
+  }), { signal });
   if (!res.ok) throw await createApiError(res, '读取任务列表失败');
   const data = await res.json();
   return Array.isArray(data.tasks) ? data.tasks : [];

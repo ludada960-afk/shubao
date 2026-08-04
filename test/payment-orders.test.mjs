@@ -119,6 +119,120 @@ test('rejects disabled payment adapters without writing orders', t => {
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM payment_orders').get().count, 0);
 });
 
+test('supports asynchronous provider order creation without weakening idempotency', async t => {
+  let calls = 0;
+  const { db, service } = createHarness({
+    providers: {
+      stripe: {
+        enabled: true,
+        async createOrder(orderSnapshot) {
+          calls += 1;
+          return {
+            providerOrderId: `async_${orderSnapshot.id}`,
+            checkout: { mode: 'redirect', url: 'https://pay.example.test/async-order' },
+          };
+        },
+        async verifyEvent(event) {
+          return event;
+        },
+      },
+    },
+  });
+  t.after(() => db.close());
+
+  const input = {
+    ownerEmail: 'async@example.com', productSku: 'ec_starter_29',
+    provider: 'stripe', idempotencyKey: 'async-provider-order',
+  };
+  const order = await service.createOrder(input);
+  const repeated = await service.createOrder(input);
+
+  assert.equal(order.providerOrderId, `async_${order.id}`);
+  assert.deepEqual(order.checkout, {
+    mode: 'redirect', url: 'https://pay.example.test/async-order',
+  });
+  assert.equal(repeated.id, order.id);
+  assert.equal(calls, 1);
+
+  const credited = await service.applyProviderEvent('stripe', {
+    eventId: 'async-provider-event', providerOrderId: order.providerOrderId,
+    merchantOrderId: order.id, status: 'paid',
+  });
+  assert.equal(credited.status, 'credited');
+});
+
+test('marks asynchronous terminal provider rejection failed and keeps transient failures retryable', async t => {
+  let mode = 'transient';
+  const { db, service } = createHarness({
+    providers: {
+      stripe: {
+        enabled: true,
+        async createOrder(orderSnapshot) {
+          if (mode === 'transient') throw new Error('temporary gateway timeout');
+          if (mode === 'terminal') {
+            const error = new Error('provider rejected order');
+            error.code = 'PAYMENT_PROVIDER_ORDER_REJECTED';
+            throw error;
+          }
+          return { providerOrderId: `recovered_${orderSnapshot.id}` };
+        },
+      },
+    },
+  });
+  t.after(() => db.close());
+
+  const transientInput = {
+    ownerEmail: 'retry@example.com', productSku: 'ec_starter_29',
+    provider: 'stripe', idempotencyKey: 'async-transient-order',
+  };
+  await assert.rejects(
+    service.createOrder(transientInput),
+    error => error.code === 'PAYMENT_PROVIDER_UNAVAILABLE'
+      && /temporarily unavailable/.test(error.message)
+      && /temporary gateway timeout/.test(error.cause?.message || ''),
+  );
+  assert.equal(db.prepare('SELECT status FROM payment_orders WHERE idempotency_key = ?')
+    .get(transientInput.idempotencyKey).status, 'pending');
+  mode = 'success';
+  assert.match((await service.createOrder(transientInput)).providerOrderId, /^recovered_/);
+
+  mode = 'terminal';
+  const terminalInput = {
+    ownerEmail: 'terminal@example.com', productSku: 'ec_starter_29',
+    provider: 'stripe', idempotencyKey: 'async-terminal-order',
+  };
+  await assert.rejects(
+    service.createOrder(terminalInput),
+    error => error.code === 'PAYMENT_PROVIDER_ORDER_REJECTED',
+  );
+  assert.equal(db.prepare('SELECT status FROM payment_orders WHERE idempotency_key = ?')
+    .get(terminalInput.idempotencyKey).status, 'failed');
+});
+
+test('rejects malformed provider responses with a retryable gateway code', async t => {
+  const { db, service } = createHarness({
+    providers: {
+      stripe: {
+        enabled: true,
+        async createOrder() {
+          return { checkout: { mode: 'redirect', url: 'https://pay.example.test/missing-id' } };
+        },
+      },
+    },
+  });
+  t.after(() => db.close());
+
+  await assert.rejects(
+    service.createOrder({
+      ownerEmail: 'malformed@example.com', productSku: 'ec_starter_29',
+      provider: 'stripe', idempotencyKey: 'malformed-provider-order',
+    }),
+    error => error.code === 'PAYMENT_PROVIDER_INVALID_RESPONSE',
+  );
+  assert.equal(db.prepare('SELECT status FROM payment_orders WHERE idempotency_key = ?')
+    .get('malformed-provider-order').status, 'pending');
+});
+
 test('keeps a failed server snapshot for provider creation failures', t => {
   const { db, service } = createHarness({
     providers: {
@@ -174,7 +288,11 @@ test('retries a recoverable provider creation with the same merchant order id', 
   });
   t.after(() => db.close());
 
-  assert.throws(() => createStripeOrder(service, { idempotencyKey: 'recoverable-order' }), /response lost/);
+  assert.throws(
+    () => createStripeOrder(service, { idempotencyKey: 'recoverable-order' }),
+    error => error.code === 'PAYMENT_PROVIDER_UNAVAILABLE'
+      && /response lost/.test(error.cause?.message || ''),
+  );
   const pending = db.prepare(`
     SELECT id, status, provider_order_id FROM payment_orders WHERE idempotency_key = ?
   `).get('recoverable-order');
@@ -214,7 +332,11 @@ test('settles a response-lost order from a verified webhook merchant order id', 
   });
   t.after(() => db.close());
 
-  assert.throws(() => createStripeOrder(service, { idempotencyKey: 'webhook-recovery' }), /response lost/);
+  assert.throws(
+    () => createStripeOrder(service, { idempotencyKey: 'webhook-recovery' }),
+    error => error.code === 'PAYMENT_PROVIDER_UNAVAILABLE'
+      && /response lost/.test(error.cause?.message || ''),
+  );
   const pending = db.prepare(`
     SELECT id FROM payment_orders WHERE idempotency_key = ?
   `).get('webhook-recovery');

@@ -1,3 +1,5 @@
+import { resolveContentBillingConfig } from './contentBillingConfig.mjs';
+
 const CONTENT_CURRENCY = 'content_sets';
 const CONTENT_ITEM_KEY = 'content-set';
 const CONTENT_ITEM_SKU = 'content_full_set';
@@ -152,14 +154,21 @@ function validateProductSnapshot(payload, order) {
   } catch {
     throw catalogSourceError('catalog payload is not valid JSON');
   }
+  const regenerationRequired = order.grant_currency === CONTENT_CURRENCY;
+  const validRegeneration = regenerationRequired
+    ? Number.isSafeInteger(product.regenPerWork) && product.regenPerWork > 0
+    : product.regenPerWork === undefined
+      || product.regenPerWork === null
+      || (Number.isSafeInteger(product.regenPerWork) && product.regenPerWork > 0);
+  const validityDays = product.validityDays ?? null;
   if (!isPlainObject(product)
     || typeof product.sku !== 'string' || product.sku.trim() === ''
     || typeof product.currency !== 'string' || product.currency.trim() === ''
     || !Number.isSafeInteger(product.priceFen) || product.priceFen <= 0
     || !Number.isSafeInteger(product.grantUnits) || product.grantUnits <= 0
-    || !Number.isSafeInteger(product.regenPerWork) || product.regenPerWork <= 0
-    || (product.validityDays !== null
-      && (!Number.isSafeInteger(product.validityDays) || product.validityDays < 0))) {
+    || !validRegeneration
+    || (validityDays !== null
+      && (!Number.isSafeInteger(validityDays) || validityDays < 0))) {
     throw catalogSourceError('catalog payload has an invalid content product shape');
   }
   if (product.sku !== order.product_sku
@@ -168,7 +177,7 @@ function validateProductSnapshot(payload, order) {
     || product.grantUnits !== order.grant_units) {
     throw catalogSourceError('catalog payload does not match the payment order');
   }
-  return product;
+  return { ...product, validityDays };
 }
 
 function expiryFromCompletion(completedAt, validityDays) {
@@ -200,7 +209,7 @@ function entitlementResult(row, planSnapshot = null) {
   };
 }
 
-export function createContentEntitlements(db, walletService) {
+export function createContentEntitlements(db, walletService, options = {}) {
   if (!db || typeof db.prepare !== 'function' || typeof db.transaction !== 'function') {
     throw new TypeError('db must be a better-sqlite3 database');
   }
@@ -210,6 +219,11 @@ export function createContentEntitlements(db, walletService) {
     || typeof walletService.releaseItem !== 'function') {
     throw new TypeError('walletService hold, settle, and release methods are required');
   }
+  const billingConfig = resolveContentBillingConfig(options);
+  const contentCurrency = billingConfig.currency;
+  const contentItemKey = billingConfig.itemKey;
+  const contentItemSku = billingConfig.itemSku;
+  const contentItemUnits = billingConfig.itemUnits;
 
   const statements = {
     selectHoldByKey: db.prepare('SELECT * FROM billing_holds WHERE idempotency_key = ?'),
@@ -251,9 +265,9 @@ export function createContentEntitlements(db, walletService) {
         'Content generation belongs to another owner',
       );
     }
-    if (hold.currency !== CONTENT_CURRENCY
+    if (hold.currency !== contentCurrency
       || hold.quote_id !== input.generationId
-      || hold.total_units !== 1) {
+      || hold.total_units !== contentItemUnits) {
       throw catalogSourceError('hold identity does not match the content generation');
     }
 
@@ -275,20 +289,20 @@ export function createContentEntitlements(db, walletService) {
       );
     }
     const mode = userMetadata.mode;
-    const item = statements.selectHoldItem.get(hold.id, CONTENT_ITEM_KEY);
+    const item = statements.selectHoldItem.get(hold.id, contentItemKey);
     if (!item
-      || item.sku !== CONTENT_ITEM_SKU
-      || item.units !== 1) {
+      || item.sku !== contentItemSku
+      || item.units !== contentItemUnits) {
       throw catalogSourceError('content hold item is invalid');
     }
 
     const expectedFingerprint = fingerprint({
       ownerEmail: input.ownerEmail,
-      currency: CONTENT_CURRENCY,
+      currency: contentCurrency,
       quoteId: input.generationId,
       idempotencyKey,
       expiresAt: null,
-      items: [{ key: CONTENT_ITEM_KEY, sku: CONTENT_ITEM_SKU, units: 1 }],
+      items: [{ key: contentItemKey, sku: contentItemSku, units: contentItemUnits }],
       metadata: serverHoldMetadata({ ...input, mode }),
     });
     if (!isPlainObject(internal)
@@ -333,7 +347,7 @@ export function createContentEntitlements(db, walletService) {
       const lot = statements.selectLot.get(reserved.lotId);
       if (!lot
         || lot.owner_email !== context.hold.owner_email
-        || lot.currency !== CONTENT_CURRENCY
+        || lot.currency !== contentCurrency
         || lot.source_type !== 'payment_order'
         || (lot.expires_at ?? null) !== (reserved.expiresAt ?? null)) {
         throw catalogSourceError('allocated credit lot does not prove a paid source');
@@ -351,7 +365,7 @@ export function createContentEntitlements(db, walletService) {
     const order = statements.selectPaymentOrder.get(paymentOrderId);
     if (!order
       || order.owner_email !== context.hold.owner_email
-      || order.grant_currency !== CONTENT_CURRENCY
+      || order.grant_currency !== contentCurrency
       || order.status !== 'credited') {
       throw catalogSourceError('payment order does not match the paid hold');
     }
@@ -375,7 +389,7 @@ export function createContentEntitlements(db, walletService) {
       paymentOrderId: order.id,
       productSku: product.sku,
       catalogVersion: order.catalog_version,
-      regenPerWork: product.regenPerWork,
+      regenPerWork: product.regenPerWork ?? null,
       validityDays: product.validityDays,
       unlimited: false,
     };
@@ -389,7 +403,7 @@ export function createContentEntitlements(db, walletService) {
       }
       return {
         paymentOrderId: null,
-        productSku: CONTENT_ITEM_SKU,
+        productSku: contentItemSku,
         catalogVersion: null,
         regenPerWork: null,
         validityDays: null,
@@ -418,9 +432,12 @@ export function createContentEntitlements(db, walletService) {
       || (plan.unlimited && (row.included_count !== 0
         || row.used_count !== 0 || row.held_count !== 0
         || plan.paymentOrderId !== null || plan.regenPerWork !== null))
-      || (!plan.unlimited && (!Number.isSafeInteger(plan.regenPerWork)
-        || plan.regenPerWork !== row.included_count
-        || typeof plan.paymentOrderId !== 'string' || plan.paymentOrderId.trim() === ''))) {
+      || (!plan.unlimited && (
+        typeof plan.paymentOrderId !== 'string' || plan.paymentOrderId.trim() === ''
+        || (plan.regenPerWork === null
+          ? row.included_count !== 0 || row.used_count !== 0 || row.held_count !== 0
+          : !Number.isSafeInteger(plan.regenPerWork) || plan.regenPerWork !== row.included_count)
+      ))) {
       throw codedError(
         'CONTENT_ENTITLEMENT_INTEGRITY_ERROR',
         `Entitlement ${row.work_id} violates its stored plan`,
@@ -495,7 +512,7 @@ export function createContentEntitlements(db, walletService) {
     const source = proveSource(context);
     const completedAt = new Date().toISOString();
     const expiresAt = expiryFromCompletion(completedAt, source.validityDays);
-    const settlement = walletService.settleItem(context.hold.id, CONTENT_ITEM_KEY, {
+    const settlement = walletService.settleItem(context.hold.id, contentItemKey, {
       referenceType: 'content_work',
       referenceId: input.workId,
       providerCostCny: 0,
@@ -513,6 +530,9 @@ export function createContentEntitlements(db, walletService) {
       ownerEmail: input.ownerEmail,
       paymentOrderId: source.paymentOrderId,
       productSku: source.productSku,
+      currency: contentCurrency,
+      itemKey: contentItemKey,
+      itemUnits: contentItemUnits,
       catalogVersion: source.catalogVersion,
       regenPerWork: source.regenPerWork,
       validityDays: source.validityDays,
@@ -536,7 +556,7 @@ export function createContentEntitlements(db, walletService) {
     statements.insertEntitlement.run(
       input.workId,
       input.ownerEmail,
-      source.unlimited ? 0 : source.regenPerWork,
+      source.unlimited || source.regenPerWork === null ? 0 : source.regenPerWork,
       expiresAt,
       JSON.stringify(planSnapshot),
     );
@@ -569,7 +589,7 @@ export function createContentEntitlements(db, walletService) {
         reason,
       };
     }
-    const release = walletService.releaseItem(context.hold.id, CONTENT_ITEM_KEY, {
+    const release = walletService.releaseItem(context.hold.id, contentItemKey, {
       reason,
       idempotencyKey: releaseIdempotencyKey(input.generationId),
       metadata: {
@@ -767,10 +787,10 @@ export function createContentEntitlements(db, walletService) {
       const normalized = normalizeSetInput(input, { requireMode: true });
       return walletService.createHold({
         ownerEmail: normalized.ownerEmail,
-        currency: CONTENT_CURRENCY,
+        currency: contentCurrency,
         quoteId: normalized.generationId,
         idempotencyKey: holdIdempotencyKey(normalized.generationId),
-        items: [{ key: CONTENT_ITEM_KEY, sku: CONTENT_ITEM_SKU, units: 1 }],
+        items: [{ key: contentItemKey, sku: contentItemSku, units: contentItemUnits }],
         metadata: serverHoldMetadata(normalized),
       });
     },

@@ -37,17 +37,21 @@ function pageNumber(value, fallback, label) {
 }
 
 function currency(value) {
-  const normalized = value === undefined ? 'content_sets' : identifier(value, 'currency');
+  // New work is settled in the shared ecommerce point wallet. The legacy
+  // content-set ledger remains readable when callers explicitly request it.
+  const normalized = value === undefined ? 'ec_points' : identifier(value, 'currency');
   if (!CURRENCIES.has(normalized)) throw codedError('BILLING_REQUEST_INVALID');
   return normalized;
 }
 
 function publicCatalog(paymentService) {
   const products = Object.values(PRODUCTS)
-    .filter(product => product.enabled !== false)
+    // Keep old content-set SKUs available to server-side compatibility code,
+    // but never advertise them as purchasable commercial plans.
+    .filter(product => product.enabled !== false && product.currency !== 'content_sets')
     .map(({ enabled, providerCostCny, ...product }) => ({ ...product }));
   const features = Object.entries(FEATURE_SKUS)
-    .filter(([, feature]) => feature.enabled !== false)
+    .filter(([, feature]) => feature.enabled !== false && feature.currency !== 'content_sets')
     .map(([sku, feature]) => ({
       sku,
       units: feature.units,
@@ -58,7 +62,12 @@ function publicCatalog(paymentService) {
     : [])
     .filter(provider => SAFE_IDENTIFIER.test(provider?.id || ''))
     .map(provider => ({ id: provider.id, enabled: provider.enabled === true }));
-  return { products, features, paymentProviders };
+  return {
+    billing: { primaryCurrency: 'ec_points', displayUnit: 'AI 积分', unitsPerPoint: 1000 },
+    products,
+    features,
+    paymentProviders,
+  };
 }
 
 function publicQuote(quote) {
@@ -86,6 +95,7 @@ function publicOrder(order) {
     status: order.status,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
+    ...(order.checkout && typeof order.checkout === 'object' ? { checkout: order.checkout } : {}),
   };
 }
 
@@ -117,6 +127,19 @@ export function billingHttpError(error) {
     return {
       status: 503,
       body: { error: '支付服务暂不可用，请稍后重试', code: error.code, retryable: false },
+    };
+  }
+  if (error?.code === 'PAYMENT_PROVIDER_UNAVAILABLE'
+    || error?.code === 'PAYMENT_PROVIDER_INVALID_RESPONSE') {
+    return {
+      status: 503,
+      body: { error: '支付渠道暂时不可用，请稍后重试', code: error.code, retryable: true },
+    };
+  }
+  if (error?.code === 'PAYMENT_PROVIDER_ORDER_REJECTED') {
+    return {
+      status: 422,
+      body: { error: '支付渠道未能创建订单，请检查支付方式后重试', code: error.code, retryable: false },
     };
   }
   if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
@@ -160,7 +183,11 @@ function ownerFor(req) {
 function handler(fn) {
   return (req, res) => {
     try {
-      return fn(req, res);
+      const result = fn(req, res);
+      if (result !== null && typeof result === 'object' && typeof result.then === 'function') {
+        return Promise.resolve(result).catch(error => sendMappedError(res, error));
+      }
+      return result;
     } catch (error) {
       return sendMappedError(res, error);
     }
@@ -228,7 +255,9 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
     createOrder: handler((req, res) => {
       const ownerEmail = ownerFor(req);
       const productSku = identifier(req.body?.productSku, 'productSku');
-      if (!Object.hasOwn(PRODUCTS, productSku) || PRODUCTS[productSku].enabled === false) {
+      if (!Object.hasOwn(PRODUCTS, productSku)
+        || PRODUCTS[productSku].enabled === false
+        || PRODUCTS[productSku].currency !== 'ec_points') {
         throw codedError('BILLING_REQUEST_INVALID');
       }
       const order = paymentService.createOrder({
@@ -237,6 +266,10 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
         provider: identifier(req.body?.provider, 'provider'),
         idempotencyKey: identifier(req.body?.idempotencyKey, 'idempotencyKey'),
       });
+      if (order !== null && typeof order === 'object' && typeof order.then === 'function') {
+        return Promise.resolve(order)
+          .then(created => res.status(201).json({ order: publicOrder(created) }));
+      }
       return res.status(201).json({ order: publicOrder(order) });
     }),
 
@@ -245,6 +278,22 @@ export function createBillingRouteHandlers({ walletService, paymentService, quot
       const order = paymentService.getOrder(identifier(req.params?.id, 'orderId'));
       if (!order || order.ownerEmail !== ownerEmail) throw codedError('BILLING_ORDER_NOT_FOUND');
       return res.json({ order: publicOrder(order) });
+    }),
+
+    providerWebhook: handler((req, res) => {
+      if (typeof paymentService.applyProviderEvent !== 'function') {
+        throw codedError('PAYMENT_PROVIDER_DISABLED');
+      }
+      const provider = identifier(req.params?.provider, 'provider');
+      const order = paymentService.applyProviderEvent(provider, req.body, {
+        rawBody: req.rawBody,
+        headers: req.headers,
+      });
+      if (order !== null && typeof order === 'object' && typeof order.then === 'function') {
+        return Promise.resolve(order)
+          .then(credited => res.json({ ok: true, order: publicOrder(credited) }));
+      }
+      return res.json({ ok: true, order: publicOrder(order) });
     }),
 
     ledger: handler((req, res) => {
@@ -268,6 +317,7 @@ export function mountBillingRoutes(app, deps) {
   app.post('/api/billing/quote', handlers.requireUser, handlers.quote);
   app.post('/api/billing/orders', handlers.requireUser, handlers.createOrder);
   app.get('/api/billing/orders/:id', handlers.requireUser, handlers.order);
+  app.post('/api/billing/webhooks/:provider', handlers.providerWebhook);
   app.get('/api/billing/ledger', handlers.requireUser, handlers.ledger);
   app.post('/api/create-payment', handlers.legacyPaymentDisabled);
   app.get('/api/payment/success', handlers.legacyPaymentDisabled);

@@ -20,7 +20,7 @@ test('content pending actions retain only an owned draft and reference asset IDs
 
   assert.deepEqual(action, {
     type: 'plog',
-    currency: 'content_sets',
+    currency: 'ec_points',
     draftId,
     referenceAssetIds: ['asset-1'],
   });
@@ -69,6 +69,23 @@ test('preview completion remains free and cannot manufacture a content-set balan
     contentSets: null,
     unlimited: false,
     result: preview,
+  });
+});
+
+test('unified ecommerce-point completion exposes the authoritative point balance', () => {
+  const stable = '/api/generated-assets/a'.padEnd(88, '1');
+  const event = {
+    type: 'complete',
+    cover_url: stable,
+    image_urls: [stable.replace(/1$/, '2')],
+    billing: { currency: 'ec_points', status: 'settled', balance: 96000, unlimited: false },
+  };
+
+  assert.deepEqual(acceptAuthoritativeContentCompletion(event), {
+    status: 'settled',
+    ecPoints: 96000,
+    unlimited: false,
+    result: event,
   });
 });
 

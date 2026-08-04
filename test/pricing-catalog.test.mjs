@@ -8,6 +8,7 @@ import {
   createPricingModalViewState,
   createOrderRequest,
   enabledPaymentProviders,
+  formatPaymentProviderLabel,
   transitionPricingModalView,
 } from '../src/components/billing/pricingCatalogModel.js';
 
@@ -22,10 +23,10 @@ const PRICING_EC = [
   { sku: 'ec_studio_199', name: '工作室包' },
 ];
 const PRICING_XHS = [
-  { sku: 'xhs_entry_19', name: '入门' },
-  { sku: 'xhs_growth_49', name: '进阶' },
-  { sku: 'xhs_creator_99', name: '创作者' },
-  { sku: 'xhs_studio_199', name: '工作室' },
+  { sku: 'ec_trial_990', name: '体验包' },
+  { sku: 'ec_starter_29', name: '入门包' },
+  { sku: 'ec_growth_79', name: '成长包' },
+  { sku: 'ec_studio_199', name: '工作室包' },
 ];
 
 test('authoritative server catalog contains the exact ecommerce permanent point packs', () => {
@@ -119,7 +120,7 @@ test('interrupted pricing flow opens full plans and returns without clearing pen
   assert.equal(returned.priceReason, 'INSUFFICIENT_CREDITS');
 });
 
-test('interrupted plan browser exposes all four authoritative content packages and validity', () => {
+test('interrupted plan browser exposes the shared ecommerce-point packages', () => {
   const modal = transitionPricingModalView(createPricingModalViewState({
     interrupted: true,
     pendingAction: { id: 'pending-content' },
@@ -128,7 +129,7 @@ test('interrupted plan browser exposes all four authoritative content packages a
   assert.equal(modal.mode, 'plans');
 
   assert.deepEqual(
-    buildPricingPlans({ products: PUBLIC_PRODUCTS }, PRICING_XHS, 'content_sets')
+    buildPricingPlans({ products: PUBLIC_PRODUCTS }, PRICING_XHS, 'ec_points')
       .map(plan => ({
         sku: plan.sku,
         priceFen: plan.priceFen,
@@ -136,10 +137,10 @@ test('interrupted plan browser exposes all four authoritative content packages a
         validityDays: plan.validityDays,
       })),
     [
-      { sku: 'xhs_entry_19', priceFen: 1900, grantUnits: 3, validityDays: 30 },
-      { sku: 'xhs_growth_49', priceFen: 4900, grantUnits: 10, validityDays: 30 },
-      { sku: 'xhs_creator_99', priceFen: 9900, grantUnits: 25, validityDays: 30 },
-      { sku: 'xhs_studio_199', priceFen: 19900, grantUnits: 60, validityDays: 30 },
+      { sku: 'ec_trial_990', priceFen: 990, grantUnits: 30000, validityDays: null },
+      { sku: 'ec_starter_29', priceFen: 2900, grantUnits: 105000, validityDays: null },
+      { sku: 'ec_growth_79', priceFen: 7900, grantUnits: 295000, validityDays: null },
+      { sku: 'ec_studio_199', priceFen: 19900, grantUnits: 760000, validityDays: null },
     ],
   );
 });
@@ -152,6 +153,13 @@ test('enabled payment providers expose only safe public identifiers', () => {
     ],
   }), [{ id: 'testpay', enabled: true }]);
   assert.deepEqual(enabledPaymentProviders({ paymentProviders: [] }), []);
+});
+
+test('payment provider ids map to user-facing channel labels', () => {
+  assert.equal(formatPaymentProviderLabel('wechat'), '微信支付');
+  assert.equal(formatPaymentProviderLabel('wechat_pay'), '微信支付');
+  assert.equal(formatPaymentProviderLabel('alipay'), '支付宝');
+  assert.equal(formatPaymentProviderLabel('internal-provider'), '在线支付');
 });
 
 test('secure order request contains exactly trusted identifiers and a standards UUID fallback', () => {

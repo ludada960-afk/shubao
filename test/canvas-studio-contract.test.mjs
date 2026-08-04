@@ -217,6 +217,53 @@ test('only one selected generation node receives a contextual composer position'
   assert.equal(leftRail.position.left, 72);
 });
 
+test('contextual composer avoids neighboring nodes when an in-view alternative exists', () => {
+  const node = createCanvasImageComposerNode({ id: 'composer', x: 760, y: 500, now: 123 });
+  const position = getCanvasComposerPresentation({
+    node,
+    selectedId: node.id,
+    selectedCount: 1,
+    width: 300,
+    viewportBounds: { width: 1200, height: 640 },
+    viewport: { x: 0, y: 0, scale: 1 },
+    height: 360,
+    avoidNodes: [{ id: 'asset', x: 770, y: 128, w: 240, h: 240 }],
+  }).position;
+  assert.equal(position.left < 770 + 240 + 12
+    && position.left + position.width + 12 > 770
+    && position.top < 128 + 240 + 12
+    && position.top + 360 + 12 > 128, false);
+});
+
+test('contextual composer never leaves the visible canvas when every free candidate is occupied', () => {
+  const node = createCanvasSuiteComposerNode({ x: 1600, y: 260, now: 456 });
+  const viewportBounds = { width: 1280, height: 672 };
+  const viewport = { x: 0, y: 0, scale: 0.68 };
+  const position = getCanvasComposerPresentation({
+    node,
+    selectedId: node.id,
+    selectedCount: 1,
+    viewportBounds,
+    viewport,
+    height: 420,
+    avoidNodes: Array.from({ length: 12 }, (_, index) => ({
+      id: `asset-${index}`,
+      x: 100 + (index % 4) * 430,
+      y: 40 + Math.floor(index / 4) * 360,
+      w: 400,
+      h: 330,
+    })),
+  }).position;
+  const visibleLeft = -viewport.x / viewport.scale + 72 / viewport.scale;
+  const visibleTop = -viewport.y / viewport.scale + 12 / viewport.scale;
+  const visibleRight = (viewportBounds.width - viewport.x) / viewport.scale - 12 / viewport.scale;
+  const visibleBottom = (viewportBounds.height - viewport.y) / viewport.scale - 12 / viewport.scale;
+  assert.ok(position.left >= visibleLeft - 1);
+  assert.ok(position.left + position.width <= visibleRight + 1);
+  assert.ok(position.top >= visibleTop - 1);
+  assert.ok(position.top + 420 <= visibleBottom + 1);
+});
+
 test('local edit selections are normalized before they become generation input', () => {
   assert.deepEqual(normalizeCanvasSelection({ mode: 'rectangle', rect: { x: -0.2, y: 0.1, w: 1.4, h: 0.5 } }), {
     mode: 'rectangle',
@@ -496,6 +543,26 @@ test('inline crop and blank placement stay normalized and avoid occupied canvas 
   });
   assert.ok(placement.x >= 24 && placement.y >= 24);
   assert.equal(placement.x < 680 && placement.x + 260 > 420 && placement.y < 520 && placement.y + 180 > 260, false);
+});
+
+test('blank placement expands beyond a crowded viewport instead of returning an overlap', () => {
+  const placement = findCanvasBlankPlacement({
+    width: 640,
+    height: 420,
+    viewport: { x: 0, y: 0, scale: 1 },
+    bounds: { width: 1200, height: 800 },
+    nodes: [
+      { id: 'top', x: 24, y: 24, w: 1152, h: 300 },
+      { id: 'bottom', x: 24, y: 340, w: 1152, h: 420 },
+    ],
+  });
+  const overlaps = node => placement.x < node.x + node.w + 16
+    && placement.x + 640 + 16 > node.x
+    && placement.y < node.y + node.h + 16
+    && placement.y + 420 + 16 > node.y;
+  assert.equal(overlaps({ x: 24, y: 24, w: 1152, h: 300 }), false);
+  assert.equal(overlaps({ x: 24, y: 340, w: 1152, h: 420 }), false);
+  assert.ok(placement.x < 24 || placement.y < 24 || placement.x > 536 || placement.y > 356);
 });
 
 test('new canvas surfaces have a complete responsive visual contract', () => {

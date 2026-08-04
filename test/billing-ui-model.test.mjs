@@ -89,7 +89,7 @@ test('billing components retain their key presentation paths', () => {
   assert.match(priceBadgeSource, /compact\s*\?\s*styles\.priceBadgeCompact/);
 
   assert.match(balanceCardSource, /currency="ec_points"/);
-  assert.match(balanceCardSource, /currency="content_sets"/);
+  assert.doesNotMatch(balanceCardSource, /currency="content_sets"/);
   assert.doesNotMatch(balanceCardSource, /不限额度|专属权益/);
 
   assert.match(quoteBreakdownSource, /formatBillingUnits\(totalUnits,\s*currency\)/);

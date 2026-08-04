@@ -8,7 +8,6 @@
 
 const STORAGE_KEY = 'sb-auth';
 const API_BASE = '';
-export const CLOSED_BETA_EMAIL = '867550189@qq.com';
 const invalidSessionListeners = new Set();
 
 function getStored() {
@@ -40,20 +39,12 @@ export function handleSessionResponse(response) {
   return response;
 }
 
-export function isClosedBetaEmail(email) {
-  return String(email || '').trim().toLowerCase() === CLOSED_BETA_EMAIL;
-}
-
 export async function sendOTP(email) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   // 如果是手机号格式，报错提示
   if (/^1\d{10}$/.test(normalizedEmail)) {
     throw new Error('请输入邮箱地址，如 user@example.com');
   }
-  if (!isClosedBetaEmail(normalizedEmail)) {
-    throw new Error('该邮箱暂未开通访问权限');
-  }
-
   const res = await fetch(`${API_BASE}/api/auth/send-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

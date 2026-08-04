@@ -579,6 +579,7 @@ export default function EcCanvas() {
     selectedCount: multiSelected.size,
     viewportBounds: containerRef.current?.getBoundingClientRect(),
     viewport,
+    avoidNodes: nodes,
     height: selectedNode?.kind === 'suite-composer' ? 420 : selectedNode?.kind === 'image-composer' ? 320 : 300,
   }).position;
 

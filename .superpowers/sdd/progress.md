@@ -1156,3 +1156,29 @@
   build and asset check passed, and collaboration policy is READY. Production
   deployment remains the next release step; user-owned extension-task
   deletions and `.tmp/` remain untouched.
+- Commercial billing, payment recovery, content reliability and market audit
+  completed locally on 2026-08-04. Ecommerce, Canvas, Xiaohongshu and Plog now
+  use the shared `ec_points` wallet; a complete nine-image content set costs
+  nine AI points, while `867550189@qq.com` remains server-authoritative and
+  unlimited for internal acceptance even when deployment allowlists add more
+  accounts. Insufficient balance preserves the owner-scoped pending action,
+  editor inputs, uploaded assets and Canvas state; real WeChat/Alipay adapters
+  may create orders and verify raw-body webhooks asynchronously, but providers
+  stay disabled until merchant credentials and signed callbacks exist. Content
+  generation now uses bounded primary generation plus lower-concurrency missing
+  image recovery, persists every asset before delivery, rejects incomplete or
+  duplicate nine-image sets, and releases held points on exhaustion. SEO,
+  security headers, explicit CORS, robots, sitemap, manifest and a reusable
+  production audit were added, and the ordinary app icon payload was reduced
+  from 154 KB to 23 KB. Fresh evidence: full repository regression 1,165/1,165,
+  6,443-module production build, post-build asset check, collaboration READY,
+  production baseline audit 27/27, dependency audit with no high/moderate
+  finding, and clean whitespace validation. A final Canvas placement regression
+  now keeps contextual composers fully inside the visible canvas even when every
+  collision-free candidate is occupied; desktop and 390x844 browser QA confirmed
+  the suite composer remains visible, the bottom toolbar stays unobstructed, and
+  a plain-text node exits double-click editing on canvas blur without losing its
+  content. Fresh full regression is 1,166/1,166 and the 6,443-module production
+  build plus post-build asset check pass. The remaining release step is
+  production deployment plus authenticated generation and billing canaries;
+  user-owned extension-task deletions and `.tmp/` remain untouched.

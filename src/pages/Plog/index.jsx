@@ -180,12 +180,13 @@ export default function PlogPage() {
     } catch (e) {
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'plog',
-        currency: 'content_sets',
+        currency: 'ec_points',
         draftId: plogDraftId,
         action: buildContentPendingAction({
           type: 'plog',
           draftId: plogDraftId,
           referenceAssetIds: ownedReferenceAssetIds,
+          billingCurrency: 'ec_points',
         }),
       });
       setErr(accessResult ? '' : (e.message || '生成失败'));

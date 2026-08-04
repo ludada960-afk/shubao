@@ -43,6 +43,7 @@ async function invoke(app, method, path, request = {}) {
     headers: request.headers ?? {},
     query: request.query ?? {},
     params: request.params ?? {},
+    rawBody: request.rawBody,
   };
   const res = createResponse();
   let index = 0;
@@ -120,6 +121,42 @@ test('catalog exposes enabled pixel-layer pricing without provider costs', async
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body.features.find(item => item.sku === 'ec_layer_psd'), { sku: 'ec_layer_psd', units: 3000, currency: 'ec_points' });
   assert.equal(JSON.stringify(res.body).includes('providerCostCny'), false);
+});
+
+test('public catalog advertises only the shared point wallet', async t => {
+  const { app, db } = createHarness();
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'GET', '/api/billing/catalog');
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.billing, {
+    primaryCurrency: 'ec_points',
+    displayUnit: 'AI 积分',
+    unitsPerPoint: 1000,
+  });
+  assert.equal(res.body.products.some(product => product.currency === 'content_sets'), false);
+  assert.equal(res.body.features.some(feature => feature.currency === 'content_sets'), false);
+  assert.ok(res.body.products.some(product => product.sku === 'ec_starter_29'));
+  assert.ok(res.body.features.some(feature => feature.sku === 'xhs_image_set_2k'));
+});
+
+test('new order routes reject legacy content-set products even when a provider is enabled', async t => {
+  const providers = {
+    testpay: {
+      enabled: true,
+      createOrder: () => ({ providerOrderId: 'must-not-be-created' }),
+    },
+  };
+  const { app, db, sessionTokens } = createHarness({ providers });
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'POST', '/api/billing/orders', {
+    headers: signedHeaders(sessionTokens, 'buyer@example.com'),
+    body: { productSku: 'xhs_entry_19', provider: 'testpay', idempotencyKey: 'legacy-order-blocked' },
+  });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, 'BILLING_REQUEST_INVALID');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM payment_orders').get().count, 0);
 });
 
 test('quotes ignore client supplied units and price', async t => {
@@ -271,7 +308,7 @@ test('SQLite busy errors map to a retryable structured HTTP response', async t =
   });
 });
 
-test('disabled payment providers do not create orders', async t => {
+test('legacy products are rejected before disabled payment providers are consulted', async t => {
   const { app, db, sessionTokens } = createHarness();
   t.after(() => db.close());
 
@@ -282,8 +319,8 @@ test('disabled payment providers do not create orders', async t => {
       amount: 1, sets: 99, email: 'attacker@example.com',
     },
   });
-  assert.equal(res.statusCode, 503);
-  assert.equal(res.body.code, 'PAYMENT_PROVIDER_DISABLED');
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, 'BILLING_REQUEST_INVALID');
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM payment_orders').get().count, 0);
 });
 
@@ -320,6 +357,155 @@ test('public catalog reports no enabled payment route in production-equivalent c
   const { res } = await invoke(app, 'GET', '/api/billing/catalog');
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body.paymentProviders, []);
+});
+
+test('provider webhooks verify and credit one order idempotently without a browser session', async t => {
+  const providers = {
+    testpay: {
+      enabled: true,
+      createOrder: () => ({
+        providerOrderId: 'remote-webhook-order',
+        checkout: { mode: 'redirect', url: 'https://pay.example.test/checkout/order-1' },
+      }),
+      verifyEvent: event => event,
+    },
+  };
+  const { app, db, walletService, paymentService, sessionTokens } = createHarness({ providers });
+  t.after(() => db.close());
+  const order = paymentService.createOrder({
+    ownerEmail: 'buyer@example.com', productSku: 'ec_starter_29', provider: 'testpay', idempotencyKey: 'webhook-order-1',
+  });
+  assert.deepEqual(order.checkout, { mode: 'redirect', url: 'https://pay.example.test/checkout/order-1' });
+
+  const event = { eventId: 'event-1', providerOrderId: 'remote-webhook-order', merchantOrderId: order.id, status: 'paid' };
+  const first = await invoke(app, 'POST', '/api/billing/webhooks/:provider', {
+    params: { provider: 'testpay' }, body: event,
+  });
+  assert.equal(first.res.statusCode, 200);
+  assert.equal(first.res.body.order.status, 'credited');
+  const fetched = await invoke(app, 'GET', '/api/billing/orders/:id', {
+    params: { id: order.id },
+    headers: signedHeaders(sessionTokens, 'buyer@example.com'),
+  });
+  assert.deepEqual(fetched.res.body.order.checkout, {
+    mode: 'redirect',
+    url: 'https://pay.example.test/checkout/order-1',
+  });
+  assert.equal(walletService.getBalance('buyer@example.com', 'ec_points').availableUnits, 105000);
+
+  const replay = await invoke(app, 'POST', '/api/billing/webhooks/:provider', {
+    params: { provider: 'testpay' }, body: event,
+  });
+  assert.equal(replay.res.statusCode, 200);
+  assert.equal(replay.res.body.order.status, 'credited');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM wallet_ledger WHERE owner_email = ?').get('buyer@example.com').count, 1);
+});
+
+test('provider webhook verification receives the raw request context', async t => {
+  let verificationContext;
+  const providers = {
+    testpay: {
+      enabled: true,
+      createOrder: () => ({ providerOrderId: 'raw-context-order' }),
+      verifyEvent: (event, context) => {
+        verificationContext = context;
+        return event;
+      },
+    },
+  };
+  const { app, db, paymentService } = createHarness({ providers });
+  t.after(() => db.close());
+  const order = paymentService.createOrder({
+    ownerEmail: 'context@example.com', productSku: 'ec_trial_990', provider: 'testpay', idempotencyKey: 'raw-context-order',
+  });
+  const { res } = await invoke(app, 'POST', '/api/billing/webhooks/:provider', {
+    params: { provider: 'testpay' },
+    headers: { 'x-provider-signature': 'signature-value' },
+    rawBody: Buffer.from('{"event":"paid"}'),
+    body: { eventId: 'raw-event', providerOrderId: order.providerOrderId, merchantOrderId: order.id, status: 'paid' },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(verificationContext.rawBody.toString('utf8'), '{"event":"paid"}');
+  assert.equal(verificationContext.headers['x-provider-signature'], 'signature-value');
+});
+
+test('billing routes await asynchronous payment adapters and map rejected promises', async t => {
+  const providers = {
+    testpay: {
+      enabled: true,
+      async createOrder(snapshot) {
+        if (snapshot.ownerEmail === 'rejected@example.com') {
+          const error = new Error('provider rejected order');
+          error.code = 'PAYMENT_PROVIDER_ORDER_REJECTED';
+          throw error;
+        }
+        return { providerOrderId: `async-route-${snapshot.id}` };
+      },
+      async verifyEvent(event) {
+        return event;
+      },
+    },
+  };
+  const { app, db, sessionTokens } = createHarness({ providers });
+  t.after(() => db.close());
+
+  const created = await invoke(app, 'POST', '/api/billing/orders', {
+    headers: signedHeaders(sessionTokens, 'async-route@example.com'),
+    body: {
+      productSku: 'ec_starter_29', provider: 'testpay',
+      idempotencyKey: 'async-route-order',
+    },
+  });
+  assert.equal(created.res.statusCode, 201);
+  assert.match(created.res.body.order.providerOrderId, /^async-route-/);
+
+  const credited = await invoke(app, 'POST', '/api/billing/webhooks/:provider', {
+    params: { provider: 'testpay' },
+    body: {
+      eventId: 'async-route-event',
+      providerOrderId: created.res.body.order.providerOrderId,
+      merchantOrderId: created.res.body.order.id,
+      status: 'paid',
+    },
+  });
+  assert.equal(credited.res.statusCode, 200);
+  assert.equal(credited.res.body.order.status, 'credited');
+
+  const rejected = await invoke(app, 'POST', '/api/billing/orders', {
+    headers: signedHeaders(sessionTokens, 'rejected@example.com'),
+    body: {
+      productSku: 'ec_starter_29', provider: 'testpay',
+      idempotencyKey: 'async-route-rejected',
+    },
+  });
+  assert.equal(rejected.res.statusCode, 422);
+  assert.equal(rejected.res.body.code, 'PAYMENT_PROVIDER_ORDER_REJECTED');
+});
+
+test('billing routes identify temporary payment gateway failures as retryable', async t => {
+  const providers = {
+    testpay: {
+      enabled: true,
+      async createOrder() {
+        throw new Error('network timeout');
+      },
+    },
+  };
+  const { app, db, sessionTokens } = createHarness({ providers });
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'POST', '/api/billing/orders', {
+    headers: signedHeaders(sessionTokens, 'gateway@example.com'),
+    body: {
+      productSku: 'ec_starter_29', provider: 'testpay',
+      idempotencyKey: 'gateway-unavailable-order',
+    },
+  });
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.code, 'PAYMENT_PROVIDER_UNAVAILABLE');
+  assert.equal(res.body.retryable, true);
+  assert.equal(db.prepare('SELECT status FROM payment_orders WHERE idempotency_key = ?')
+    .get('gateway-unavailable-order').status, 'pending');
 });
 
 test('legacy payment compatibility endpoints are disabled and grant nothing', async t => {

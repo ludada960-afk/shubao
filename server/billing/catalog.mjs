@@ -20,6 +20,9 @@ export const PRODUCTS = freezeCatalog({
 export const FEATURE_SKUS = freezeCatalog({
   ec_image_2k: { units: 1000, providerCostCny: 0.0694 },
   ec_image_4k: { units: 2000, providerCostCny: 0.0694 },
+  // One Xiaohongshu/Plog set is a cover plus eight content images.
+  // It uses the same point ledger as ecommerce generation: 9 x 2K images.
+  xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.6246 },
   ec_reverse_prompt: { units: 200, providerCostCny: 0.01 },
   ec_remove_bg: { units: 500, providerCostCny: 0.03 },
   ec_direction_refresh: { units: 1000, providerCostCny: 0.05 },

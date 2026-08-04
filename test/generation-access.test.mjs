@@ -166,7 +166,7 @@ test('default 402 handling derives a signed owner, current route, stable draft, 
   assert.equal(pendingAction.route, '/plog');
   assert.match(pendingAction.draftId, /^pending-/);
   assert.equal(pendingAction.draftId, secondActions[0].pendingAction.draftId);
-  assert.deepEqual(pendingAction.action, { type: 'plog', currency: 'content_sets' });
+    assert.deepEqual(pendingAction.action, { type: 'plog', currency: 'ec_points' });
   assert.deepEqual(pendingAction.billing, { required: 1, available: 0 });
   const { billing: secondBilling, ...secondPersistedAction } = secondActions[0].pendingAction;
   assert.deepEqual(secondBilling, { required: 1, available: 0 });
@@ -244,7 +244,7 @@ test('insufficient-balance currency follows safe caller, action, and source prec
   for (const source of ['plog', 'xhs-content', 'xhs-plog']) {
     const paywall = open(source);
     assert.equal(paywall.tab, 'content', source);
-    assert.equal(paywall.pendingAction.action.currency, 'content_sets', source);
+    assert.equal(paywall.pendingAction.action.currency, 'ec_points', source);
   }
 
   const ecommerce = open('ecommerce-direction');
@@ -261,7 +261,7 @@ test('insufficient-balance currency follows safe caller, action, and source prec
     currency: 'ec_points',
     action: { type: 'plog', currency: 'content_sets' },
   });
-  assert.equal(callerOverride.tab, 'ecommerce');
+  assert.equal(callerOverride.tab, 'content');
   assert.equal(callerOverride.pendingAction.action.currency, 'ec_points');
 
   const invalidOverride = open('xhs-content', {
@@ -269,7 +269,7 @@ test('insufficient-balance currency follows safe caller, action, and source prec
     action: { type: 'xhs-content', currency: 'also_invalid' },
   });
   assert.equal(invalidOverride.tab, 'content');
-  assert.equal(invalidOverride.pendingAction.action.currency, 'content_sets');
+  assert.equal(invalidOverride.pendingAction.action.currency, 'ec_points');
 });
 
 test('content-set 402 actions retain only reference identifiers and reject raw draft data', () => {

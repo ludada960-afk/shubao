@@ -1,0 +1,17 @@
+{
+  "name": "薯包AI",
+  "short_name": "薯包AI",
+  "description": "AI 电商商品图与小红书图文工作台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#171717",
+  "icons": [
+    {
+      "src": "/images/logo-icon.webp",
+      "sizes": "400x400",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}

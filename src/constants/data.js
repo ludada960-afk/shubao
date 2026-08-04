@@ -33,10 +33,10 @@ export const QUICK_HINTS = [
 
 /* ═══════ 定价方案 ═══════ */
 export const PRICING_XHS = [
-  { sku:'xhs_entry_19', name:'入门', desc:'适合偶尔创作的小红书与 Plog 用户' },
-  { sku:'xhs_growth_49', name:'进阶', pop:true, desc:'适合稳定更新的个人创作者' },
-  { sku:'xhs_creator_99', name:'创作者', desc:'适合高频内容创作' },
-  { sku:'xhs_studio_199', name:'工作室', desc:'适合团队批量创作' },
+  { sku:'ec_trial_990', name:'体验包', desc:'适合少量试用小红书与 Plog 创作' },
+  { sku:'ec_starter_29', name:'入门包', pop:true, desc:'适合日常发布与素材补充' },
+  { sku:'ec_growth_79', name:'成长包', desc:'适合稳定更新和多主题创作' },
+  { sku:'ec_studio_199', name:'工作室包', desc:'适合团队批量创作与二次编辑' },
 ];
 
 export const PRICING_EC = [
@@ -53,7 +53,7 @@ export const FEATURES = [
   { icon: Layers,           title:'9张完整配图',      desc:'1张封面+8张内容页，带拼图排版和文字标注，下载即可发布' },
   { icon: MdRotateLeft,        title:'单张可重新生成',   desc:'对某张图不满意？单独刷新这一张，不浪费整套额度' },
   { icon: MousePointerClick,title:'一键复制文案',     desc:'标题、正文、标签分别复制或一键全部复制，直接粘贴发布' },
-  { icon: MdVerified,      title:'按套计费不套路',   desc:'用多少买多少，不自动续费，套餐不过期' },
+  { icon: MdVerified,      title:'AI 积分按次结算',   desc:'按实际生成张数结算，不自动续费，失败会释放冻结额度' },
 ];
 
 /* ═══════ 小知识 Tips ═══════ */

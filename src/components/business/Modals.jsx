@@ -1,11 +1,11 @@
-import React, { useReducer, useState, useEffect, useMemo } from 'react';
+import React, { useReducer, useState, useEffect, useMemo, useRef } from 'react';
 import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose } from 'react-icons/md';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
 import { IMAGES } from '../../constants/images';
 import { PRICING_XHS, PRICING_EC } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
-import { sendOTP, verifyOTP, isClosedBetaEmail } from '../../services/auth';
+import { sendOTP, verifyOTP } from '../../services/auth';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
 import { resolvePendingActionCurrency } from '../../utils/generationAccess.js';
 import BillingBalanceCard from '../billing/BillingBalanceCard.jsx';
@@ -14,11 +14,19 @@ import {
   createPricingModalViewState,
   createOrderRequest,
   enabledPaymentProviders,
+  formatPaymentProviderLabel,
   formatCatalogGrant,
   formatCatalogPrice,
   transitionPricingModalView,
 } from '../billing/pricingCatalogModel.js';
-import { createBillingOrder } from '../../services/billing.js';
+import { createBillingOrder, fetchBillingOrder, waitForBillingOrder } from '../../services/billing.js';
+import {
+  clearPendingPaymentOrder,
+  createPendingPaymentOrder,
+  isTerminalPaymentOrderStatus,
+  loadPendingPaymentOrder,
+  savePendingPaymentOrder,
+} from '../../utils/pendingPaymentOrder.js';
 import { createLoginOtpState, loginOtpReducer, remainingResendSeconds } from './loginOtpState.js';
 
 /* ═══════ Login Modal ═══════ */
@@ -48,7 +56,6 @@ export function LoginModal() {
 
   const handleSendCode = async () => {
     if (!email.trim() || !email.includes('@')) { setErr('请输入正确的邮箱地址'); return; }
-    if (!isClosedBetaEmail(email)) { setErr('暂时无法使用该邮箱登录，请稍后再试'); return; }
     setLoading(true); setErr('');
     try {
       await sendOTP(email.trim());
@@ -168,13 +175,18 @@ export function PricingModal() {
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('');
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const paymentAbortRef = useRef(null);
+  const paymentKeysRef = useRef(new Map());
+  const paymentCheckoutRef = useRef(null);
+  const restoredPaymentKeyRef = useRef('');
   const [modalView, setModalView] = useState(() => createPricingModalViewState({
     interrupted: state.priceReason === 'INSUFFICIENT_CREDITS',
     pendingAction: state.pendingPaidAction,
     priceReason: state.priceReason,
   }));
   const metadata = tab === 'content' ? PRICING_XHS : PRICING_EC;
-  const currency = tab === 'content' ? 'content_sets' : 'ec_points';
+  const currency = 'ec_points';
   const plans = useMemo(
     () => buildPricingPlans(state.billingCatalog, metadata, currency),
     [currency, metadata, state.billingCatalog],
@@ -200,6 +212,51 @@ export function PricingModal() {
     state.showPrice,
     state.priceTab,
   ]);
+
+  useEffect(() => {
+    if (!state.showPrice || !state.logged || !state.phone || !plans.length) return;
+    const saved = loadPendingPaymentOrder(state.phone);
+    if (!saved) return;
+    const plan = plans.find(candidate => candidate.sku === saved.productSku);
+    if (!plan) return;
+    const restoreKey = `${saved.orderId}:${saved.productSku}`;
+    if (restoredPaymentKeyRef.current === restoreKey) return;
+    restoredPaymentKeyRef.current = restoreKey;
+    paymentCheckoutRef.current = saved.checkout || null;
+    setPayModal(plan);
+    setPaymentOrder(saved);
+    setPaymentStatus('检测到未完成订单，正在恢复订单状态；当前工作已保留。');
+    fetchBillingOrder(saved.orderId)
+      .then(response => {
+        const order = response?.order || response;
+        if (!order || typeof order !== 'object') return;
+        const checkout = order.checkout || saved.checkout;
+        const restored = checkout ? { ...order, checkout } : order;
+        setPaymentOrder(restored);
+        if (isTerminalPaymentOrderStatus(order.status)) {
+          clearPendingPaymentOrder();
+          paymentKeysRef.current.delete(`${saved.productSku}:${saved.provider}`);
+          if (order.status === 'credited') {
+            setPaymentStatus('支付已到账，额度已刷新；关闭窗口即可继续创作。');
+            refreshBillingBalance().catch(() => {});
+          } else {
+            setPaymentStatus('订单已结束，当前工作仍已保留。');
+          }
+          return;
+        }
+        savePendingPaymentOrder(createPendingPaymentOrder({
+          ...saved,
+          status: order.status || saved.status,
+          checkout,
+        }));
+        setPaymentStatus('订单仍待支付，完成支付后会自动确认到账；当前工作不会丢失。');
+      })
+      .catch(error => {
+        if (error?.name !== 'AbortError') setPaymentStatus('订单状态暂时无法确认，可重新打开支付页或稍后刷新。');
+      });
+  }, [plans, refreshBillingBalance, state.logged, state.phone, state.showPrice]);
+
+  useEffect(() => () => paymentAbortRef.current?.abort(), []);
 
   if (!state.showPrice) return null;
   const close = () => dispatch({ type: 'SHOW_PRICE', show: false });
@@ -227,7 +284,15 @@ export function PricingModal() {
     if (!state.logged) { dispatch({ type: 'SHOW_LOGIN', show: true }); return; }
     if (!p.enabled || providers.length === 0) return;
     setPaymentStatus('');
+    setPaymentOrder(null);
+    paymentCheckoutRef.current = null;
     setPayModal(p);
+  };
+
+  const closePayment = () => {
+    paymentAbortRef.current?.abort();
+    paymentAbortRef.current = null;
+    setPayModal(null);
   };
 
   const createOrder = async (provider) => {
@@ -235,11 +300,86 @@ export function PricingModal() {
     setPayLoading(true);
     setPaymentStatus('');
     try {
-      await createBillingOrder(createOrderRequest({
+      const requestKey = `${payModal.sku}:${provider.id}`;
+      const idempotencyKey = paymentKeysRef.current.get(requestKey)
+        || createOrderRequest({ productSku: payModal.sku, provider: provider.id }).idempotencyKey;
+      paymentKeysRef.current.set(requestKey, idempotencyKey);
+      const response = await createBillingOrder(createOrderRequest({
         productSku: payModal.sku,
         provider: provider.id,
+        idempotencyKey,
       }));
-      setPaymentStatus('订单已创建，请按页面提示完成购买后刷新余额。');
+      const order = response?.order || response;
+      if (order?.checkout) paymentCheckoutRef.current = order.checkout;
+      const orderWithCheckout = order?.checkout || !paymentCheckoutRef.current
+        ? order
+        : { ...order, checkout: paymentCheckoutRef.current };
+      setPaymentOrder(orderWithCheckout);
+      if (order?.id && state.phone) {
+        if (isTerminalPaymentOrderStatus(order.status)) clearPendingPaymentOrder();
+        else savePendingPaymentOrder(createPendingPaymentOrder({
+          ownerEmail: state.phone,
+          orderId: order.id,
+          productSku: payModal.sku,
+          provider: provider.id,
+          idempotencyKey,
+          status: order.status || 'pending',
+          checkout: orderWithCheckout?.checkout,
+        }));
+      }
+      setPaymentStatus(order?.status === 'credited'
+        ? '支付已到账，当前工作已保留，关闭窗口即可继续创作。'
+        : '订单已创建，完成支付后本页会自动确认到账；当前工作不会丢失。');
+      if (order?.checkout?.url && typeof window !== 'undefined') {
+        window.open(order.checkout.url, '_blank', 'noopener,noreferrer');
+      }
+      if (order?.id && order.status !== 'credited') {
+        paymentAbortRef.current?.abort();
+        const controller = new AbortController();
+        paymentAbortRef.current = controller;
+        try {
+          const settled = await waitForBillingOrder(order.id, {
+            signal: controller.signal,
+            onUpdate: next => {
+              const checkout = next?.checkout || paymentCheckoutRef.current;
+              const nextWithCheckout = checkout ? { ...next, checkout } : next;
+              setPaymentOrder(nextWithCheckout);
+              if (next?.id && state.phone) {
+                if (isTerminalPaymentOrderStatus(next.status)) clearPendingPaymentOrder();
+                else savePendingPaymentOrder(createPendingPaymentOrder({
+                  ownerEmail: state.phone,
+                  orderId: next.id,
+                  productSku: payModal.sku,
+                  provider: provider.id,
+                  idempotencyKey,
+                  status: next.status || 'pending',
+                  checkout,
+                }));
+              }
+              if (next?.status === 'paid') setPaymentStatus('支付已确认，正在入账…');
+            },
+          });
+          const settledWithCheckout = settled?.checkout || !paymentCheckoutRef.current
+            ? settled
+            : { ...settled, checkout: paymentCheckoutRef.current };
+          setPaymentOrder(settledWithCheckout);
+          paymentKeysRef.current.delete(requestKey);
+          if (isTerminalPaymentOrderStatus(settled.status)) clearPendingPaymentOrder();
+          if (settled.status === 'credited') {
+            await refreshBillingBalance();
+            setPaymentStatus('支付已到账，当前工作已保留，关闭窗口即可继续创作。');
+          } else {
+            setPaymentStatus('订单未完成支付，当前工作仍已保留。');
+          }
+        } catch (error) {
+          if (error?.name !== 'AbortError') {
+            setPaymentStatus(error?.message || '暂时无法确认订单状态，请稍后刷新余额。');
+          }
+        }
+      } else if (order?.status === 'credited') {
+        paymentKeysRef.current.delete(requestKey);
+        clearPendingPaymentOrder();
+      }
     } catch (error) {
       setPaymentStatus(error?.message || '订单创建失败，请稍后重试。');
     } finally {
@@ -313,7 +453,6 @@ export function PricingModal() {
           <div style={{ marginBottom: 18 }}>
             <BillingBalanceCard
               ecommercePoints={state.ecPoints}
-              contentSets={state.contentSets}
               unlimited={state.unlimited}
             />
           </div>
@@ -327,7 +466,7 @@ export function PricingModal() {
           marginBottom: 20,
         }}>
           {[
-            { key: 'content', label: '小红书 / Plog 创作套数' },
+            { key: 'content', label: '小红书 / Plog AI 积分' },
             { key: 'ecommerce', label: '电商图片 / 画布 AI 积分' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -433,12 +572,12 @@ export function PricingModal() {
       </div>
 
       {/* Payment modal */}
-      {payModal && providers.length > 0 && (
+      {payModal && (providers.length > 0 || paymentOrder) && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,
           background: 'rgba(0,0,0,0.5)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', padding: 20,
-        }} onClick={() => setPayModal(null)}>
+        }} onClick={closePayment}>
           <div style={{
             background: '#fff', borderRadius: 20, maxWidth: 360,
             width: '100%', padding: 28, textAlign: 'center',
@@ -454,25 +593,33 @@ export function PricingModal() {
               选择支付方式
             </div>
 
-            <div style={{ display: 'grid', gap: 10 }}>
+            {providers.length > 0 ? <div style={{ display: 'grid', gap: 10 }}>
               {providers.map(provider => (
                 <button
                   key={provider.id}
                   type="button"
                   onClick={() => createOrder(provider)}
-                  disabled={payLoading}
+                  disabled={payLoading || paymentOrder?.status === 'pending' || paymentOrder?.status === 'paid'}
                   style={{ width: '100%', padding: '12px 0', borderRadius: 12, border: 0, background: '#1f2937', color: '#fff', fontSize: 13, fontWeight: 800, cursor: payLoading ? 'wait' : 'pointer' }}
                 >
-                  {payLoading ? '正在创建安全订单…' : `使用 ${provider.id} 支付`}
+                  {payLoading ? '正在创建安全订单…' : `使用 ${formatPaymentProviderLabel(provider.id)}`}
                 </button>
               ))}
-            </div>
+            </div> : <div role="status" style={{ padding: 10, borderRadius: 10, background: '#FFF7D6', color: '#7A5600', fontSize: 12 }}>
+              当前支付渠道暂时不可用，但已创建的订单仍可继续查询。
+            </div>}
 
             <div style={{
               fontSize: 11, color: 'var(--text-faint)', marginTop: 16, lineHeight: 1.5,
             }}>
-              完成购买后可刷新额度并继续刚才的创作，当前内容不会丢失。
+              完成购买后会自动刷新额度，关闭此窗口即可回到刚才的创作位置。
             </div>
+
+            {paymentOrder?.checkout?.url && (
+              <button type="button" onClick={() => window.open(paymentOrder.checkout.url, '_blank', 'noopener,noreferrer')} style={{ marginTop: 12, width: '100%', minHeight: 40, border: '1px solid #1A1614', borderRadius: 10, background: '#fff', color: '#1A1614', cursor: 'pointer', fontWeight: 700 }}>
+                重新打开支付页
+              </button>
+            )}
 
             {paymentStatus && <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.5, color: '#73510D', background: '#FFF8E7', borderRadius: 10, padding: 10 }}>{paymentStatus}</div>}
           </div>

@@ -2,7 +2,7 @@
 const _b = (n) => new URL('/images/' + encodeURIComponent(n), import.meta.url).href;
 
 export const IMAGES = {
-  appicon:     _b('cropped.png'),
+  appicon:     _b('logo-icon.webp'),
   logo_lg:     _b('LOGO.png'),
   scene:       _b('小薯包.png'),
 

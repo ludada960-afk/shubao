@@ -23,12 +23,19 @@ const EXPENSIVE_POST_ROUTE_LIST = [
   '/api/extension/regenerate',
 ];
 
+function isUnlimitedGenerationOwner(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  return normalized === '867550189@qq.com'
+    || (typeof process?.env?.SHUBAO_UNLIMITED_EMAILS === 'string'
+      && process.env.SHUBAO_UNLIMITED_EMAILS.split(',').some(value => value.trim().toLowerCase() === normalized));
+}
+
 export const BETA_GUARDED_POST_ROUTES = new Set(EXPENSIVE_POST_ROUTE_LIST);
 export const RATE_LIMITED_POST_ROUTES = new Set(EXPENSIVE_POST_ROUTE_LIST);
 
 export function getGenerationRateLimit(email) {
   return {
-    max: String(email || '').trim().toLowerCase() === '867550189@qq.com' ? 60 : 10,
+    max: isUnlimitedGenerationOwner(email) ? 60 : 10,
     windowMs: 60_000,
   };
 }

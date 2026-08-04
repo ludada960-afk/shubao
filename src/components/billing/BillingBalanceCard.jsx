@@ -9,7 +9,6 @@ function BalanceValue({ units, currency, unlimited }) {
 
 export default function BillingBalanceCard({
   ecommercePoints = 0,
-  contentSets = 0,
   unlimited = false,
   insufficient = false,
   insufficientText = '当前余额不足，请补充额度后继续',
@@ -23,16 +22,10 @@ export default function BillingBalanceCard({
         </div>
       </div>
       <div className={styles.balanceGrid}>
-        <div className={styles.balanceItem}>
-          <span className={styles.balanceLabel}>电商生图</span>
+        <div className={styles.balanceItem} style={{ gridColumn: '1 / -1' }}>
+          <span className={styles.balanceLabel}>AI 积分（电商 / 小红书 / 画布）</span>
           <strong className={styles.balanceValue}>
             <BalanceValue units={ecommercePoints} currency="ec_points" unlimited={unlimited} />
-          </strong>
-        </div>
-        <div className={styles.balanceItem}>
-          <span className={styles.balanceLabel}>小红书 / Plog</span>
-          <strong className={styles.balanceValue}>
-            <BalanceValue units={contentSets} currency="content_sets" unlimited={unlimited} />
           </strong>
         </div>
       </div>

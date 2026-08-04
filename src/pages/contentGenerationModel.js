@@ -1,4 +1,5 @@
 const CONTENT_SETS = 'content_sets';
+const UNIFIED_CURRENCY = 'ec_points';
 const FINAL_BILLING_STATUSES = new Set(['settled', 'needs_review', 'preview']);
 const STABLE_ASSET = /^\/api\/generated-assets\/[A-Za-z0-9._-]+$/;
 
@@ -30,10 +31,11 @@ export function buildContentPendingAction({
   type = 'content',
   draftId = '',
   referenceAssetIds = [],
+  billingCurrency = UNIFIED_CURRENCY,
 } = {}) {
   return {
     type: String(type || 'content').trim() || 'content',
-    currency: CONTENT_SETS,
+    currency: String(billingCurrency || UNIFIED_CURRENCY).trim() || UNIFIED_CURRENCY,
     draftId: String(draftId || '').trim(),
     referenceAssetIds: referenceIds(referenceAssetIds),
   };
@@ -42,10 +44,18 @@ export function buildContentPendingAction({
 export function acceptAuthoritativeContentCompletion(event) {
   const billing = event?.billing;
   if (event?.type !== 'complete'
-    || billing?.currency !== CONTENT_SETS
+    || ![CONTENT_SETS, 'ec_points'].includes(billing?.currency)
     || !FINAL_BILLING_STATUSES.has(billing.status)
     || !stableAssets(event)) return null;
   const isPreview = billing.status === 'preview';
+  if (billing.currency === 'ec_points') {
+    return {
+      status: billing.status,
+      ecPoints: !isPreview && Number.isFinite(billing.balance) ? Math.max(0, billing.balance) : null,
+      unlimited: billing.unlimited === true,
+      result: event,
+    };
+  }
   return {
     status: billing.status,
     contentSets: !isPreview && Number.isFinite(billing.balance) ? Math.max(0, billing.balance) : null,

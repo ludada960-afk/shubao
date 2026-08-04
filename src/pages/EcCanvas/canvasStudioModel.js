@@ -28,7 +28,7 @@ export function getCanvasNodePresentation({ selected = false, hovered = false, f
   };
 }
 
-export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 12, height = 360, viewportBounds, viewport } = {}) {
+export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 12, height = 360, viewportBounds, viewport, avoidNodes = [] } = {}) {
   const visible = Boolean(node?.id && node.id === selectedId && Number(selectedCount) === 1);
   if (!visible) return { visible: false, position: null };
   const nodeWidth = Math.max(1, finite(node.w, width));
@@ -54,13 +54,58 @@ export function getCanvasComposerPresentation({ node, selectedId = '', selectedC
   const belowTop = finite(node.y) + nodeHeight + gap;
   const aboveTop = finite(node.y) - placementHeight - gap;
   const preferredTop = hasViewport && belowTop + placementHeight > visibleBottom && aboveTop >= visibleTop ? aboveTop : belowTop;
+  const basePosition = {
+    left: Math.round(hasViewport ? Math.min(visibleRight - panelWidth, Math.max(visibleLeft, preferredLeft)) : preferredLeft),
+    top: Math.round(hasViewport ? Math.min(visibleBottom - placementHeight, Math.max(visibleTop, preferredTop)) : preferredTop),
+    width: Math.round(panelWidth),
+  };
+  const occupied = Array.isArray(avoidNodes)
+    ? avoidNodes.filter(item => item?.id && item.id !== node.id && item.hidden !== true).map(item => ({
+      x: finite(item.x),
+      y: finite(item.y),
+      w: Math.max(1, finite(item.w, 1)),
+      h: Math.max(1, finite(item.h, 1)),
+    }))
+    : [];
+  if (!occupied.length) {
+    return { visible: true, position: basePosition };
+  }
+
+  const panelHeight = placementHeight;
+  const overlaps = candidate => occupied.some(rect => candidate.left < rect.x + rect.w + gap
+    && candidate.left + panelWidth + gap > rect.x
+    && candidate.top < rect.y + rect.h + gap
+    && candidate.top + panelHeight + gap > rect.y);
+  const clampPosition = candidate => ({
+    left: Math.round(hasViewport ? Math.min(visibleRight - panelWidth, Math.max(visibleLeft, candidate.left)) : candidate.left),
+    top: Math.round(hasViewport ? Math.min(visibleBottom - panelHeight, Math.max(visibleTop, candidate.top)) : candidate.top),
+    width: Math.round(panelWidth),
+  });
+  const candidates = [
+    basePosition,
+    clampPosition({ left: preferredLeft, top: belowTop }),
+    clampPosition({ left: preferredLeft, top: aboveTop }),
+    clampPosition({ left: finite(node.x) + nodeWidth + gap, top: finite(node.y) }),
+    clampPosition({ left: finite(node.x) - panelWidth - gap, top: finite(node.y) }),
+  ];
+  for (const candidate of candidates) {
+    if (!overlaps(candidate)) return { visible: true, position: candidate };
+  }
+
+  // When every visible placement intersects another node, partial overlap is
+  // still usable; an off-screen composer is not. Choose the in-view candidate
+  // with the smallest collision area instead of escaping beyond the viewport.
+  const collisionArea = candidate => occupied.reduce((total, rect) => {
+    const overlapWidth = Math.max(0, Math.min(candidate.left + panelWidth, rect.x + rect.w) - Math.max(candidate.left, rect.x));
+    const overlapHeight = Math.max(0, Math.min(candidate.top + panelHeight, rect.y + rect.h) - Math.max(candidate.top, rect.y));
+    return total + overlapWidth * overlapHeight;
+  }, 0);
+  const fallback = candidates.reduce((best, candidate) => (
+    collisionArea(candidate) < collisionArea(best) ? candidate : best
+  ), basePosition);
   return {
     visible: true,
-    position: {
-      left: Math.round(hasViewport ? Math.min(visibleRight - panelWidth, Math.max(visibleLeft, preferredLeft)) : preferredLeft),
-      top: Math.round(hasViewport ? Math.min(visibleBottom - placementHeight, Math.max(visibleTop, preferredTop)) : preferredTop),
-      width: Math.round(panelWidth),
-    },
+    position: fallback,
   };
 }
 

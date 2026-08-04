@@ -59,6 +59,14 @@ function normalizeVerifiedEvent(value) {
 
 function orderFromRow(row) {
   if (!row) return null;
+  let checkout = null;
+  if (typeof row.checkout_payload === 'string' && row.checkout_payload.trim() !== '') {
+    try {
+      checkout = normalizeCheckout(JSON.parse(row.checkout_payload));
+    } catch {
+      checkout = null;
+    }
+  }
   return {
     id: row.id,
     ownerEmail: row.owner_email,
@@ -71,6 +79,7 @@ function orderFromRow(row) {
     providerOrderId: row.provider_order_id,
     status: row.status,
     idempotencyKey: row.idempotency_key,
+    ...(checkout ? { checkout } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -138,6 +147,37 @@ function isUniqueConstraint(error) {
   return error?.code === 'SQLITE_CONSTRAINT_UNIQUE' || error?.code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
 }
 
+function normalizeCheckout(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const mode = typeof value.mode === 'string' ? value.mode.trim().toLowerCase() : '';
+  const url = typeof value.url === 'string' ? value.url.trim() : '';
+  const qrCode = typeof value.qrCode === 'string' ? value.qrCode.trim() : '';
+  const normalized = {};
+  if (mode === 'redirect' || mode === 'qr') normalized.mode = mode;
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:') normalized.url = parsed.toString();
+    } catch {
+      // Invalid provider checkout URLs must never reach the browser.
+    }
+  }
+  if (qrCode && qrCode.length <= 2_000_000
+    && (/^https:\/\//i.test(qrCode) || /^data:image\/(?:png|jpeg|webp);base64,/i.test(qrCode))) {
+    normalized.qrCode = qrCode;
+  }
+  return Object.keys(normalized).length ? normalized : null;
+}
+
+function serializeCheckout(value) {
+  const normalized = normalizeCheckout(value);
+  return normalized ? JSON.stringify(normalized) : '';
+}
+
+function isPromiseLike(value) {
+  return value !== null && typeof value === 'object' && typeof value.then === 'function';
+}
+
 export function createPaymentService(db, walletService, providers = {}) {
   if (!db || typeof db.prepare !== 'function' || typeof db.transaction !== 'function') {
     throw new TypeError('db must be a better-sqlite3 database');
@@ -160,8 +200,8 @@ export function createPaymentService(db, walletService, providers = {}) {
       INSERT INTO payment_orders (
         id, owner_email, product_sku, catalog_version, amount_cny,
         grant_currency, grant_units, provider, provider_order_id, status,
-        idempotency_key, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', 'pending', ?, ?, ?)
+        idempotency_key, checkout_payload, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', 'pending', ?, '', ?, ?)
     `),
     insertCatalogSnapshot: db.prepare(`
       INSERT INTO billing_catalog (sku, version, payload, enabled, effective_at)
@@ -187,7 +227,9 @@ export function createPaymentService(db, walletService, providers = {}) {
     `),
     updateProviderOrder: db.prepare(`
       UPDATE payment_orders
-      SET provider_order_id = ?, updated_at = ?
+      SET provider_order_id = ?,
+          checkout_payload = COALESCE(NULLIF(?, ''), checkout_payload),
+          updated_at = ?
       WHERE id = ? AND status = 'pending' AND provider_order_id = ''
     `),
     markCreateFailed: db.prepare(`
@@ -293,10 +335,11 @@ export function createPaymentService(db, walletService, providers = {}) {
     };
   }
 
-  function bindProviderOrder(order, providerOrderId) {
+  function bindProviderOrder(order, providerOrderId, checkout = null) {
     try {
       const update = statements.updateProviderOrder.run(
         providerOrderId,
+        serializeCheckout(checkout),
         new Date().toISOString(),
         order.id,
       );
@@ -314,17 +357,51 @@ export function createPaymentService(db, walletService, providers = {}) {
     return error?.code === 'PAYMENT_PROVIDER_ORDER_REJECTED';
   }
 
-  function createRemoteOrder(order, adapter) {
-    let providerResult;
-    try {
-      providerResult = adapter.createOrder(providerSnapshot(order));
-    } catch (error) {
-      if (isTerminalProviderCreationError(error)) {
-        statements.markCreateFailed.run(new Date().toISOString(), order.id);
-      }
+  function handleProviderCreationError(order, error) {
+    if (isTerminalProviderCreationError(error)) {
+      statements.markCreateFailed.run(new Date().toISOString(), order.id);
       throw error;
     }
-    return bindProviderOrder(order, nonEmptyString(providerResult?.providerOrderId, 'providerOrderId'));
+    if (typeof error?.code === 'string' && error.code.startsWith('PAYMENT_')) throw error;
+    const unavailable = codedError(
+      'PAYMENT_PROVIDER_UNAVAILABLE',
+      `Payment provider ${order.provider} is temporarily unavailable`,
+    );
+    unavailable.cause = error;
+    throw unavailable;
+  }
+
+  function bindProviderResult(order, providerResult) {
+    const checkout = normalizeCheckout(providerResult?.checkout);
+    try {
+      return bindProviderOrder(
+        order,
+        nonEmptyString(providerResult?.providerOrderId, 'providerOrderId'),
+        checkout,
+      );
+    } catch (error) {
+      if (typeof error?.code === 'string' && error.code.startsWith('PAYMENT_')) throw error;
+      const invalidResponse = codedError(
+        'PAYMENT_PROVIDER_INVALID_RESPONSE',
+        `Payment provider ${order.provider} returned an invalid order response`,
+      );
+      invalidResponse.cause = error;
+      throw invalidResponse;
+    }
+  }
+
+  function createRemoteOrder(order, adapter) {
+    try {
+      const providerResult = adapter.createOrder(providerSnapshot(order));
+      if (isPromiseLike(providerResult)) {
+        return Promise.resolve(providerResult)
+          .then(result => bindProviderResult(order, result))
+          .catch(error => handleProviderCreationError(order, error));
+      }
+      return bindProviderResult(order, providerResult);
+    } catch (error) {
+      return handleProviderCreationError(order, error);
+    }
   }
 
   function createOrder(input) {
@@ -422,11 +499,18 @@ export function createPaymentService(db, walletService, providers = {}) {
     return getOrder(order.id);
   });
 
-  function applyProviderEvent(providerInput, event) {
+  function applyProviderEvent(providerInput, event, context = {}) {
     const provider = normalizeProvider(providerInput);
     const adapter = adapterFor(provider, 'verifyEvent');
-    const verifiedEvent = normalizeVerifiedEvent(adapter.verifyEvent(event));
-    return settleVerifiedEvent(provider, verifiedEvent);
+    const verified = adapter.verifyEvent(event, {
+      rawBody: Buffer.isBuffer(context?.rawBody) ? context.rawBody : null,
+      headers: context?.headers && typeof context.headers === 'object' ? context.headers : {},
+    });
+    if (isPromiseLike(verified)) {
+      return Promise.resolve(verified)
+        .then(value => settleVerifiedEvent(provider, normalizeVerifiedEvent(value)));
+    }
+    return settleVerifiedEvent(provider, normalizeVerifiedEvent(verified));
   }
 
   function listProviders() {

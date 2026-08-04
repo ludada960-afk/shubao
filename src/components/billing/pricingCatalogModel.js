@@ -1,4 +1,12 @@
 const SAFE_PROVIDER_ID = /^[a-z0-9][a-z0-9_-]{0,127}$/i;
+const PAYMENT_PROVIDER_LABELS = Object.freeze({
+  wechat: '微信支付',
+  wechatpay: '微信支付',
+  wechat_pay: '微信支付',
+  alipay: '支付宝',
+  alipay_trade: '支付宝',
+  stripe: '银行卡支付',
+});
 
 function publicProductMap(catalog) {
   const products = Array.isArray(catalog?.products) ? catalog.products : [];
@@ -68,6 +76,11 @@ export function enabledPaymentProviders(catalog) {
     .map(provider => ({ id: provider.id, enabled: true }));
 }
 
+export function formatPaymentProviderLabel(providerId) {
+  const normalized = typeof providerId === 'string' ? providerId.trim().toLowerCase() : '';
+  return PAYMENT_PROVIDER_LABELS[normalized] || '在线支付';
+}
+
 export function formatCatalogPrice(priceFen) {
   const value = Number(priceFen) / 100;
   return Number.isFinite(value)
@@ -97,8 +110,9 @@ export function createOrderRequest(input, cryptoImpl = globalThis.crypto) {
   const productSku = typeof input?.productSku === 'string' ? input.productSku.trim() : '';
   const provider = typeof input?.provider === 'string' ? input.provider.trim() : '';
   if (!productSku || !provider) throw new TypeError('productSku and provider are required');
-  const idempotencyKey = typeof cryptoImpl?.randomUUID === 'function'
+  const requestedKey = typeof input?.idempotencyKey === 'string' ? input.idempotencyKey.trim() : '';
+  const idempotencyKey = requestedKey || (typeof cryptoImpl?.randomUUID === 'function'
     ? cryptoImpl.randomUUID()
-    : fallbackUuid(cryptoImpl);
+    : fallbackUuid(cryptoImpl));
   return { productSku, provider, idempotencyKey };
 }

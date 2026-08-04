@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /works
+Disallow: /canvas
+
+Sitemap: https://shuimg.cn/sitemap.xml

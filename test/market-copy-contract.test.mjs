@@ -15,7 +15,7 @@ test('market copy exposes no rollout or privileged-account language', () => {
 
 test('pricing exposes exactly the two product currencies', () => {
   const pricing = readFileSync(new URL('../src/pages/Pricing/index.jsx', import.meta.url), 'utf8');
-  assert.match(pricing, /小红书\s*\/\s*Plog\s*[· ]\s*创作套数/);
+  assert.match(pricing, /小红书\s*\/\s*Plog\s*[· ]\s*AI\s*积分/);
   assert.match(pricing, /电商图片\s*\/\s*画布\s*AI\s*积分/);
   assert.doesNotMatch(pricing, /永久\s*AI\s*积分包/);
 });

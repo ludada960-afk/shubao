@@ -10,6 +10,7 @@ import { listEcommerceTasks } from '../services/api.js';
 import { getSessionToken } from '../services/auth.js';
 import { useApp } from './AppContext.jsx';
 import { hasActiveDurableTasks, normalizeDurableTask } from './durableTaskModel.js';
+import { taskSyncMessage } from '../services/taskSync.js';
 
 const TaskContext = createContext(null);
 
@@ -139,7 +140,7 @@ export function TaskProvider({ children }) {
         dispatch({ type: 'CLEAR_DURABLE_TASKS' });
         return;
       }
-      dispatch({ type: 'DURABLE_TASKS_ERROR', error: error?.message });
+      dispatch({ type: 'DURABLE_TASKS_ERROR', error: taskSyncMessage(error) });
     } finally {
       if (requestRef.current === controller) requestRef.current = null;
     }

@@ -53,7 +53,7 @@ let observedEcommerceWorkVersion = 0;
 
 export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp, recoveryCheckpoint = null }) {
   const { state, dispatch, fetchCredits, refreshBillingBalance } = useApp();
-  const { inputText, logged, contentSets, unlimited, mode } = state;
+  const { inputText, logged, ecPoints, unlimited, mode } = state;
   const ownerEmail = String(state.email || state.phone || '').trim().toLowerCase();
   const workVersion = Number(state._workVersion || 0);
   const [err, setErr] = useState('');
@@ -82,7 +82,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [ecStylePack, setEcStylePack] = useState('');
   const [ecSelections, setEcSelections] = useState([]);
   const [ecPlatform, setEcPlatform] = useState('淘宝');
-  const [ecPoints, setEcPoints] = useState('');       // 逗号/分号/换行分隔
+  const [ecProductPoints, setEcProductPoints] = useState(''); // 逗号/分号/换行分隔
   const [ecBeauty, setEcBeauty] = useState(false);
   const [ecMaterial, setEcMaterial] = useState('');
   const [ecTargetAudience, setEcTargetAudience] = useState('');
@@ -261,13 +261,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             if (d.analysis.category) setEcCat(d.analysis.category);
             if (d.analysis.stylePack) setEcStylePack(d.analysis.stylePack);
             if (d.analysis.material) setEcMaterial(d.analysis.material);
-            if (d.analysis.keySellingPoints?.length) setEcPoints(d.analysis.keySellingPoints.join(', '));
+            if (d.analysis.keySellingPoints?.length) setEcProductPoints(d.analysis.keySellingPoints.join(', '));
           } else {
             // 没反推结果 → 不污染默认类目（避免默认「美妆护肤」导致美妆报告）
             setEcCat('');
           }
           // sellingPoints 直接从 POST 数据来，analysis 没有也能用
-          if (d.sellingPoints?.length && !d.analysis?.keySellingPoints?.length) setEcPoints(d.sellingPoints.join(', '));
+          if (d.sellingPoints?.length && !d.analysis?.keySellingPoints?.length) setEcProductPoints(d.sellingPoints.join(', '));
           if (d.images?.length) setEcRefImgs(d.images.slice(0, 8));
 
           setExtractingProduct(false);
@@ -296,7 +296,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     if (upd.analysis.category) setEcCat(upd.analysis.category);
                     if (upd.analysis.stylePack) setEcStylePack(upd.analysis.stylePack);
                     if (upd.analysis.material) setEcMaterial(upd.analysis.material);
-                    if (upd.analysis.keySellingPoints?.length) setEcPoints(upd.analysis.keySellingPoints.join(', '));
+                    if (upd.analysis.keySellingPoints?.length) setEcProductPoints(upd.analysis.keySellingPoints.join(', '));
                     setToast({ message: `✅ 视觉分析完成：${upd.analysis.category} · 风格已自动匹配`, type: 'success' });
                     break;
                   }
@@ -348,7 +348,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const prevStyleRef = useRef(ecStylePack);
   // 每个风格包推荐一套完整的默认图片组，覆盖主图+核心配图
   useEffect(() => {
-    const points = parsePoints(ecPoints);
+    const points = parsePoints(ecProductPoints);
     const pointsCount = points.length;
     const recs = [];
     const dim = (key) => { const d = getDim(key); return { width:d[0], height:d[1] }; };
@@ -397,7 +397,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       const manual = prev.filter(p => !recMap.has(p.key));
       return [...manual, ...recs];
     });
-  }, [ecPoints, ecMaterial, ecRefImgs.length, ecCat, ecStylePack, ecPlatform]);
+  }, [ecProductPoints, ecMaterial, ecRefImgs.length, ecCat, ecStylePack, ecPlatform]);
 
   const updateSelection = (key, delta) => {
     setEcSelections(prev => {
@@ -438,7 +438,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       const data = await generateEcommercePreview({
         productName: ecName.trim(),
         category: ecCat,
-        points: ecPoints.trim(),
+        points: ecProductPoints.trim(),
         refCount: ecRefImgs.length,
         hasMaterial: !!ecMaterial,
         stylePack: ecStylePack || null,
@@ -520,7 +520,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         productName: isRaw ? ecName.trim().slice(0, 120) : ecName.trim(),
         category: ecCat,
         platform: ecPlatform,
-        points: [ecPoints, isRaw ? ecName.trim() : ''].filter(Boolean).join('\n'),
+        points: [ecProductPoints, isRaw ? ecName.trim() : ''].filter(Boolean).join('\n'),
         refImgs: ecRefImgs,
         realShots: [],
         email: state.phone,
@@ -643,12 +643,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     } catch (e) {
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'xhs-content',
-        currency: 'content_sets',
+        currency: 'ec_points',
         draftId: xhsContentDraftId,
         action: buildContentPendingAction({
           type: 'xhs-content',
           draftId: xhsContentDraftId,
           referenceAssetIds,
+          billingCurrency: 'ec_points',
         }),
       });
       setErr(accessResult ? '' : (e.message || '生成失败'));
@@ -702,12 +703,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     } catch (e) {
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'xhs-plog',
-        currency: 'content_sets',
+        currency: 'ec_points',
         draftId: homePlogDraftId,
         action: buildContentPendingAction({
           type: 'xhs-plog',
           draftId: homePlogDraftId,
           referenceAssetIds,
+          billingCurrency: 'ec_points',
         }),
       });
       setErr(accessResult ? '' : (e.message || '生成失败'));
@@ -1182,7 +1184,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                     <button className="gen-btn xhs" onClick={doGenXHS} disabled={!inputText.trim()}>
                       <MdAutoAwesome size={14} /> {!logged ? '免费预览（文案+封面）' : unlimited ? '一键生成爆款图文' : '一键生成爆款图文'}
                     </button>
-                    <div className="gen-hint">{!logged ? '免费预览：生成文案和 1 张封面，不消耗创作套数' : unlimited ? '完整图文包含文章与整套配图' : `剩余 ${contentSets ?? 0} 创作套数 · 完整图文 = 1 创作套数`}</div>
+                    <div className="gen-hint">{!logged ? '免费预览：生成文案和 1 张封面，不消耗 AI 积分' : unlimited ? '完整图文包含文章与 9 张配图' : `剩余 ${ecPoints ?? 0} AI 积分 · 完整 9 图套装 = 9 AI 积分`}</div>
                   </div>
                 )}
                 {xhsSubMode === 'plog' && (
@@ -1353,7 +1355,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
                 {/* 卖点+材质 — 与 tags-cloud-wrap 相同的 padding 和分隔线 */}
                 <div style={{ display:'flex', gap:10, padding:'12px 16px', borderBottom:'1.5px solid var(--border)' }}>
-                  <input className="ec-link-input" value={ecPoints} onChange={e => setEcPoints(e.target.value)}
+                    <input className="ec-link-input" value={ecProductPoints} onChange={e => setEcProductPoints(e.target.value)}
                     placeholder="卖点（逗号分隔）例如：高保湿, 24小时持久" style={{ flex:2 }} />
                   <input className="ec-link-input" value={ecMaterial} onChange={e => setEcMaterial(e.target.value)}
                     placeholder="材质/规格（选填）" style={{ flex:1 }} />

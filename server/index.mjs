@@ -30,7 +30,10 @@ import { mountBillingRoutes } from './billing/routes.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createOneShotBilling } from './billing/oneShotBilling.mjs';
 import { createCanvasBilledActionStore } from './billing/canvasBilledActionStore.mjs';
-import { createContentEntitlements } from './billing/contentEntitlements.mjs';
+import {
+  createContentEntitlements,
+  isCompleteContentDelivery,
+} from './billing/contentEntitlements.mjs';
 import {
   authenticateContentRequest,
   contentBillingHttpError,
@@ -116,6 +119,7 @@ import {
   parseVisionTextBlocks,
 } from './canvasTools.mjs';
 import { segmentUniformBackground } from './canvasSegmentation.mjs';
+import { generateCompleteImageSet } from './contentImageGeneration.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function safeCanvasClientError(error, fallback = '画布服务暂时不可用，请稍后重试') {
@@ -131,6 +135,16 @@ if (fs.existsSync(envPath)) {
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/["']/g, '');
   });
   console.log('  → 已加载 .env 配置');
+}
+
+// New content generations share the ecommerce point wallet. Legacy content-set
+// rows remain readable through the compatibility path in the entitlement store.
+if (!process.env.SHUBAO_ACCESS_MODE) process.env.SHUBAO_ACCESS_MODE = 'commercial';
+if (!process.env.SHUBAO_CONTENT_BILLING_CURRENCY) {
+  process.env.SHUBAO_CONTENT_BILLING_CURRENCY = 'ec_points';
+}
+if (!process.env.SHUBAO_CONTENT_BILLING_UNITS) {
+  process.env.SHUBAO_CONTENT_BILLING_UNITS = '9000';
 }
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
@@ -238,6 +252,36 @@ function saveUsers(users) {
 
 const app = express();
 app.set('trust proxy', 'loopback');
+app.disable('x-powered-by');
+
+const defaultAllowedOrigins = [
+  'https://shuimg.cn',
+  'https://www.shuimg.cn',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+];
+const configuredAllowedOrigins = String(process.env.SHUBAO_ALLOWED_ORIGINS || '')
+  .split(/[\s,]+/)
+  .map(origin => origin.trim().replace(/\/$/, ''))
+  .filter(origin => /^https?:\/\//i.test(origin));
+const allowedOrigins = new Set(configuredAllowedOrigins.length ? configuredAllowedOrigins : defaultAllowedOrigins);
+
+// Keep browser-facing hardening centralized so API, static files and health
+// responses share the same baseline. CSP stays intentionally configurable:
+// the editor uses inline styles and provider-hosted image URLs.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  if (req.secure) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 
 // 轻量健康检查：供 PM2、反向代理和部署脚本判断进程是否真的能响应。
 app.get('/health', (req, res) => {
@@ -249,7 +293,7 @@ app.get('/health', (req, res) => {
 app.use((req, res, next) => {
   const host = req.headers.host || '';
   const isShuimg = host.indexOf('shuimg') !== -1;
-  const isSecure = req.secure || !!req.headers['x-forwarded-proto'];
+  const isSecure = req.secure;
   const isLocalDev = host.indexOf('localhost') !== -1 || /^\d+\.\d+\.\d+\.\d+/.test(host);
   // 仅在非本地开发环境 且 有 shuimg 域名 且 非 API 路径 且 非 HTTPS 时跳转
   if (isShuimg && !isLocalDev && !req.path.startsWith('/api/') && !isSecure) {
@@ -260,8 +304,22 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors());
-app.use(express.json({ limit: '30mb' }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin.replace(/\/$/, ''))) return callback(null, true);
+    return callback(null, false);
+  },
+  maxAge: 600,
+}));
+
+function captureWebhookBody(req, _res, buffer) {
+  if (req.originalUrl?.startsWith('/api/billing/webhooks/')) {
+    req.rawBody = Buffer.from(buffer);
+  }
+}
+
+app.use(express.json({ limit: '30mb', verify: captureWebhookBody }));
+app.use(express.urlencoded({ limit: '2mb', extended: false, verify: captureWebhookBody }));
 
 app.get('/api/generated-assets/:id', async (req, res) => {
   const asset = await imageDelivery.readGeneratedVariant(
@@ -1914,41 +1972,29 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
   allPrompts.forEach(t => t.jkContext = hasJKContext);
   if (hasJKContext) console.log('[JK context] 全部 ' + allPrompts.length + ' 张图启用校园风覆盖模式');
 
-  const results = [];
-  const queue = [...allPrompts];
-  const MAX_WORKERS = 5;
-
   send('progress', { step: 'generating_images', msg: '正在生成图片...', total: allPrompts.length });
-
-  async function worker() {
-    while (queue.length > 0) {
-      const task = queue.shift();
-      let lastErr = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          if (attempt > 1) await new Promise(r => setTimeout(r, 2000 * (attempt - 1)));
-          const source = await generateImage(task.prompt, task.category, task.id === 'cover', task.jkContext);
-          if (source) {
-            const url = await persistGeneratedAsset({ source, generationId, label: `xhs-${task.id}` });
-            results.push({ id: task.id, url });
-            send('image', { id: task.id, url, generationId, workId });
-            lastErr = null;
-            break;
-          }
-        } catch(e) {
-          lastErr = e.message;
-          console.error('[gen]', task.id, 'attempt', attempt, 'failed:', e.message);
-        }
-      }
-      if (lastErr) console.error('[gen]', task.id, 'all attempts failed:', lastErr);
-    }
-  }
-  const workers = Array.from({ length: Math.min(MAX_WORKERS, allPrompts.length) }, () => worker());
-  await Promise.all(workers);
+  const results = await generateCompleteImageSet({
+    tasks: allPrompts,
+    execute: async task => {
+      const source = await generateImage(
+        task.prompt,
+        task.category,
+        task.id === 'cover',
+        task.jkContext,
+      );
+      return await persistGeneratedAsset({ source, generationId, label: `xhs-${task.id}` });
+    },
+    onComplete: entry => {
+      send('image', { ...entry, generationId, workId });
+    },
+    onAttemptFailure: ({ task, phase, attempt, attempts, error }) => {
+      console.error('[gen]', task.id, phase, 'attempt', `${attempt}/${attempts}`, 'failed:', error.message);
+    },
+  });
 
   send('progress', { step: 'assembling', msg: '正在组装结果...' });
   const result = assembleResults(analysis, visual, results);
-  return {
+  const delivery = {
     title: analysis.title,
     body_text: analysis.body_text,
     hashtags: analysis.hashtags,
@@ -1961,6 +2007,13 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
     cover_prompt: visual.coverPrompt || '',
     image_prompts: (visual.imagePrompts || []).map(p => ({ page_id: p.page_id, prompt: p.prompt })),
   };
+  if (!isCompleteContentDelivery(delivery)) {
+    const error = new Error('生成结果未形成九张唯一稳定图片，额度将原路退回');
+    error.code = 'CONTENT_IMAGE_SET_INCOMPLETE';
+    error.retryable = true;
+    throw error;
+  }
+  return delivery;
 }
 
 app.post('/api/generate', async (req, res) => {
