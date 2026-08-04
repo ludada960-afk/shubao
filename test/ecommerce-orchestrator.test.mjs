@@ -1358,6 +1358,67 @@ test('caps provider-backed system repair at one and releases a needs-review item
   assert.deepEqual(calls.release.map(call => call.itemId), ['main-one']);
 });
 
+test('runs one deterministic repair after provider repair budget is exhausted', async t => {
+  let qualityAttempt = 0;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    quality: () => {
+      qualityAttempt += 1;
+      if (qualityAttempt <= 2) {
+        return {
+          passed: false,
+          checks: { visualQuality: { status: 'fail', issueCodes: ['planned_shot_not_fulfilled'] } },
+          repairAction: {
+            type: 'regenerate_from_product_truth',
+            focusIssueCodes: ['planned_shot_not_fulfilled'],
+            userCharge: false,
+          },
+          confidence: 'low',
+        };
+      }
+      if (qualityAttempt === 3) {
+        return {
+          passed: false,
+          checks: { technical: { status: 'fail', issueCodes: ['dimension_mismatch'] } },
+          repairAction: {
+            type: 'sharp_repair',
+            focusIssueCodes: ['dimension_mismatch'],
+            operations: ['resize'],
+            userCharge: false,
+          },
+          confidence: 'low',
+        };
+      }
+      return {
+        passed: true,
+        checks: {},
+        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
+        confidence: 'high',
+      };
+    },
+    orchestratorOptions: {
+      canRetry: attempt => attempt < 2,
+      repairAsset: async input => {
+        calls.repair.push(input);
+        return { buffer: IMAGE_BUFFER, contentType: 'image/png' };
+      },
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-provider-then-local-repair'));
+
+  const completed = await orchestrator.runJob(created.id);
+  const asset = jobs.assets.getAsset(created.id, 'main-one');
+
+  assert.equal(completed.status, 'completed');
+  assert.equal(asset.state, 'completed');
+  assert.equal(asset.attemptCount, 3);
+  assert.equal(asset.requestSnapshot.executionCount.deterministicRepairs, 1);
+  assert.equal(calls.submit.length, 3, 'initial provider task plus two bounded provider repairs');
+  assert.equal(calls.repair.length, 1, 'the final local repair does not replay the provider');
+  assert.equal(calls.quality.length, 4);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
+});
+
 test('terminalizes a zero-delivery project before closing the task without an empty work', async t => {
   const lifecycle = [];
   const { orchestrator } = await createHarness(t, {

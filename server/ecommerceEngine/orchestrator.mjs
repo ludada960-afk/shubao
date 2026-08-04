@@ -216,6 +216,22 @@ function withProviderSubmissionCount(asset, requestSnapshot, providerJobId = own
   };
 }
 
+function deterministicRepairCount(asset) {
+  const count = own(own(own(asset, 'requestSnapshot'), 'executionCount'), 'deterministicRepairs');
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
+function withDeterministicRepairCount(asset) {
+  const requestSnapshot = own(asset, 'requestSnapshot') || {};
+  return {
+    ...requestSnapshot,
+    executionCount: {
+      ...own(requestSnapshot, 'executionCount'),
+      deterministicRepairs: deterministicRepairCount(asset) + 1,
+    },
+  };
+}
+
 function providerSubmissionEntries(assets) {
   return assets.flatMap(asset => {
     const count = providerSubmissionCount(asset);
@@ -1406,9 +1422,12 @@ export function createEcommerceOrchestrator(deps = {}) {
             const hasActionableProviderRepair = !['', 'none', 'manual_review'].includes(
               cleanString(own(repairAction, 'type')).toLowerCase(),
             );
-            const providerRepairAvailable = usesDeterministicRepair
-              || (hasActionableProviderRepair && providerSubmissionCount(current) < 3);
-            if (!providerRepairAvailable || !canRetry(current.attemptCount, repairAction)) {
+            const repairAvailable = usesDeterministicRepair
+              ? deterministicRepairCount(current) < 1
+              : hasActionableProviderRepair
+                && providerSubmissionCount(current) < 3
+                && canRetry(current.attemptCount, repairAction);
+            if (!repairAvailable) {
               const reason = `quality_review:${(repairAction.focusIssueCodes || []).join(',') || repairAction.type}`;
               current = store.transitionAsset(job.id, item.id, 'releasing', {
                 requestSnapshot: {
@@ -1514,6 +1533,7 @@ export function createEcommerceOrchestrator(deps = {}) {
             current = store.transitionAsset(job.id, item.id, 'quality_check', {
               stableUrl: asset.url,
               attemptCount: nextAttempt,
+              requestSnapshot: withDeterministicRepairCount(current),
               leaseToken,
             });
             continue;
