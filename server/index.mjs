@@ -112,6 +112,7 @@ import {
   buildCanvasTransformPrompt,
   cropRectForRatio,
   gridRects,
+  gridRectsFromGuides,
   parseVisionTextBlocks,
 } from './canvasTools.mjs';
 import { segmentUniformBackground } from './canvasSegmentation.mjs';
@@ -3764,6 +3765,8 @@ app.post('/api/canvas/transform', async (req, res) => {
     annotation = '',
     annotations = [],
     grid = 2,
+    grid_vertical: gridVertical,
+    grid_horizontal: gridHorizontal,
     direction = 'vertical',
     crop_rect: cropRect,
     split_position: splitPosition,
@@ -3798,7 +3801,7 @@ app.post('/api/canvas/transform', async (req, res) => {
         return res.status(400).json({ error: `图片尺寸过小，无法拆分为 ${gridSize * gridSize} 张独立切片` });
       }
       const urls = [];
-      for (const [index, rect] of gridRects(width, height, gridSize, gridSize).entries()) {
+      for (const [index, rect] of gridRectsFromGuides(width, height, gridSize, gridSize, gridVertical, gridHorizontal).entries()) {
         const output = await sharp(sourceBuffer).extract(rect).png().toBuffer();
         const asset = await generatedAssetStore.persistBuffer({
           buffer: output,

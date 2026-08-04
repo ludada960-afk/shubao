@@ -1141,3 +1141,18 @@
   backups. Earlier attempts were automatically rolled back because the
   inherited canary session was stale. User-owned extension-task deletions and
   `.tmp/` remain untouched.
+- Canvas generation node semantics completed locally on 2026-08-04. Left-rail
+  文案生成、图片生成 and 电商套图 actions now create independent idle nodes;
+  selecting a node opens its contextual composer, while only source/output
+  image nodes expose the derive port. Right-side derive actions create the
+  same composer with the selected image preserved as a direct connection and
+  an inserted `@图片N` mention. Ecommerce suite composers now switch from the
+  first-step product/reference brief to a selectable design-direction second
+  step before streaming the final image plan. Port hit testing no longer
+  overlaps resize handles, text and generation boards resize freely, and
+  transient segmentation progress is rendered on the processing node/edge
+  without a second floating progress card. Focused regression passed 101/101,
+  full repository regression passed 1,138/1,138, the 6,441-module production
+  build and asset check passed, and collaboration policy is READY. Production
+  deployment remains the next release step; user-owned extension-task
+  deletions and `.tmp/` remain untouched.

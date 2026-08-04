@@ -1,5 +1,7 @@
 const MIN_NODE_WIDTH = 160;
+const MIN_NODE_HEIGHT = 56;
 const MAX_NODE_WIDTH = 960;
+const MAX_NODE_HEIGHT = 1200;
 
 export const CANVAS_RATIO_OPTIONS = Object.freeze(['1:1', '3:4', '4:3', '9:16', '16:9']);
 export const CANVAS_RESOLUTION_OPTIONS = Object.freeze(['1K', '2K', '4K']);
@@ -26,7 +28,7 @@ export function getCanvasNodePresentation({ selected = false, hovered = false, f
   };
 }
 
-export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 24, height = 360, viewportBounds, viewport } = {}) {
+export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 12, height = 360, viewportBounds, viewport } = {}) {
   const visible = Boolean(node?.id && node.id === selectedId && Number(selectedCount) === 1);
   if (!visible) return { visible: false, position: null };
   const nodeWidth = Math.max(1, finite(node.w, width));
@@ -74,6 +76,116 @@ export function resizeCanvasNode(node = {}, { width } = {}) {
   };
 }
 
+function gridSize(value, fallback = 3) {
+  return Math.min(5, Math.max(2, Math.round(finite(value, fallback))));
+}
+
+export function getGridGuidePositions(grid = 3, positions) {
+  const count = gridSize(grid) - 1;
+  if (Array.isArray(positions) && positions.length === count && positions.every(value => Number.isFinite(Number(value)))) {
+    return positions.map(value => Math.min(1, Math.max(0, Number(value))));
+  }
+  return Array.from({ length: count }, (_, index) => (index + 1) / (count + 1));
+}
+
+export function moveGridGuide(positions = [], index, value, minGap = 0.08) {
+  if (!Array.isArray(positions) || index < 0 || index >= positions.length) return Array.isArray(positions) ? [...positions] : [];
+  const next = positions.map(item => Math.min(1, Math.max(0, finite(item))));
+  const gap = Math.min(0.25, Math.max(0.02, finite(minGap, 0.08)));
+  const lower = index === 0 ? gap : next[index - 1] + gap;
+  const upper = index === next.length - 1 ? 1 - gap : next[index + 1] - gap;
+  next[index] = Math.min(upper, Math.max(lower, finite(value, next[index])));
+  return next;
+}
+
+export function resizeCanvasNodeByHandle(node = {}, {
+  handle = 'se',
+  dx = 0,
+  dy = 0,
+  preserveAspect = false,
+  minWidth = MIN_NODE_WIDTH,
+  minHeight = MIN_NODE_HEIGHT,
+} = {}) {
+  const original = {
+    x: finite(node.x),
+    y: finite(node.y),
+    w: Math.max(1, finite(node.w, MIN_NODE_WIDTH)),
+    h: Math.max(1, finite(node.h, MIN_NODE_HEIGHT)),
+  };
+  const horizontal = String(handle).includes('e') || String(handle).includes('w');
+  const vertical = String(handle).includes('n') || String(handle).includes('s');
+  const minW = Math.max(48, finite(minWidth, MIN_NODE_WIDTH));
+  const minH = Math.max(32, finite(minHeight, MIN_NODE_HEIGHT));
+  let left = original.x;
+  let right = original.x + original.w;
+  let top = original.y;
+  let bottom = original.y + original.h;
+  const moveX = finite(dx);
+  const moveY = finite(dy);
+
+  if (!preserveAspect) {
+    if (String(handle).includes('w')) left = Math.min(right - minW, left + moveX);
+    if (String(handle).includes('e')) right = Math.max(left + minW, right + moveX);
+    if (String(handle).includes('n')) top = Math.min(bottom - minH, top + moveY);
+    if (String(handle).includes('s')) bottom = Math.max(top + minH, bottom + moveY);
+    return {
+      ...node,
+      x: Math.round(left),
+      y: Math.round(top),
+      w: Math.round(Math.min(MAX_NODE_WIDTH, Math.max(minW, right - left))),
+      h: Math.round(Math.min(MAX_NODE_HEIGHT, Math.max(minH, bottom - top))),
+    };
+  }
+
+  const aspect = Math.max(0.05, ratioValue(node.ratio, original.w / original.h));
+  let nextW = original.w;
+  let nextH = original.h;
+  const widthCandidate = String(handle).includes('w')
+    ? original.w - moveX
+    : String(handle).includes('e') ? original.w + moveX : original.w;
+  const heightCandidate = String(handle).includes('n')
+    ? original.h - moveY
+    : String(handle).includes('s') ? original.h + moveY : original.h;
+  if (horizontal && vertical) {
+    const widthTravel = Math.abs(widthCandidate - original.w) / Math.max(1, original.w);
+    const heightTravel = Math.abs(heightCandidate - original.h) / Math.max(1, original.h);
+    if (widthTravel >= heightTravel) {
+      nextW = widthCandidate;
+      nextH = nextW / aspect;
+    } else {
+      nextH = heightCandidate;
+      nextW = nextH * aspect;
+    }
+  } else if (horizontal) {
+    nextW = widthCandidate;
+    nextH = nextW / aspect;
+  } else if (vertical) {
+    nextH = heightCandidate;
+    nextW = nextH * aspect;
+  }
+  nextW = Math.min(MAX_NODE_WIDTH, Math.max(minW, nextW));
+  nextH = Math.min(MAX_NODE_HEIGHT, Math.max(minH, nextH));
+  if (String(handle).includes('w')) left = right - nextW;
+  else if (String(handle).includes('e')) right = left + nextW;
+  else {
+    left = original.x;
+    right = left + nextW;
+  }
+  if (String(handle).includes('n')) top = bottom - nextH;
+  else if (String(handle).includes('s')) bottom = top + nextH;
+  else {
+    top = original.y;
+    bottom = top + nextH;
+  }
+  return {
+    ...node,
+    x: Math.round(left),
+    y: Math.round(top),
+    w: Math.round(right - left),
+    h: Math.round(bottom - top),
+  };
+}
+
 export function applyCanvasMoveScale(node = {}, { scale = 1, offsetX = 0, offsetY = 0 } = {}) {
   const currentWidth = Math.max(1, finite(node.w, MIN_NODE_WIDTH));
   const next = resizeCanvasNode(node, { width: currentWidth * Math.min(2.5, Math.max(0.1, finite(scale, 1))) });
@@ -90,8 +202,8 @@ export function createCanvasTextNode({ x = 0, y = 0, sourceNodeId = '', now = Da
     kind: 'text',
     x: finite(x),
     y: finite(y),
-    w: 420,
-    h: 180,
+    w: 240,
+    h: 64,
     text: '',
     placeholder: '输入文字',
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
@@ -99,7 +211,7 @@ export function createCanvasTextNode({ x = 0, y = 0, sourceNodeId = '', now = Da
     textStyle: {
       block: 'body',
       color: '#20242a',
-      fontSize: 18,
+      fontSize: 24,
       fontStyle: 'normal',
       fontWeight: 400,
       list: 'none',

@@ -52,7 +52,7 @@ test('browser segmentation reports progress on the transient workflow node and e
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
 
-  assert.match(source, /const \[segmentationJobs, setSegmentationJobs\] = useState\(\[\]\)/);
+  assert.doesNotMatch(source, /segmentationJobs/);
   assert.match(source, /canvasSegmentationRuntime\.prewarm/);
   assert.match(source, /createCanvasSegmentationPlan/);
   assert.match(source, /segmentationMasksToApi/);

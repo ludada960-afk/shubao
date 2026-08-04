@@ -74,8 +74,8 @@ test('text creation produces a real editable canvas object rather than a form ca
     kind: 'text',
     x: 120,
     y: 160,
-    w: 420,
-    h: 180,
+    w: 240,
+    h: 64,
     text: '',
     placeholder: '输入文字',
     sourceNodeIds: ['source-1'],
@@ -83,7 +83,7 @@ test('text creation produces a real editable canvas object rather than a form ca
     textStyle: {
       block: 'body',
       color: '#20242a',
-      fontSize: 18,
+      fontSize: 24,
       fontStyle: 'normal',
       fontWeight: 400,
       list: 'none',
@@ -177,7 +177,7 @@ test('only one selected generation node receives a contextual composer position'
   const node = createCanvasImageComposerNode({ x: 400, y: 220, now: 123 });
   assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: node.id, selectedCount: 1 }), {
     visible: true,
-    position: { left: 220, top: 524, width: 640 },
+    position: { left: 220, top: 512, width: 640 },
   });
   assert.deepEqual(getCanvasComposerPresentation({ node, selectedId: 'another', selectedCount: 1 }), {
     visible: false,
@@ -194,7 +194,7 @@ test('only one selected generation node receives a contextual composer position'
     viewportBounds: { width: 800, height: 640 },
     viewport: { x: 0, y: 0, scale: 1 },
     height: 360,
-  }).position, { left: 148, top: 116, width: 640 });
+  }).position, { left: 148, top: 128, width: 640 });
 
   const mobile = getCanvasComposerPresentation({
     node: { ...node, x: 80, y: 460, w: 640, h: 420 },
@@ -289,6 +289,17 @@ test('left-rail creation stays idle while source-derived creation opens its link
   const creation = page.slice(start, end);
   assert.match(creation, /setSelected\(sourceNodeIds\.length \? composer\.id : null\)/);
   assert.match(creation, /setMultiSelected\(sourceNodeIds\.length \? new Set\(\[composer\.id\]\) : new Set\(\)\)/);
+});
+
+test('right-side image generation reuses the independent image composer with source context', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const start = page.indexOf("action.id === 'image-edit' && connectionPicker.mode !== 'image-editor'");
+  const end = page.indexOf("else if (connectionPicker.mode === 'image-editor'", start);
+  assert.ok(start >= 0 && end > start);
+  const branch = page.slice(start, end);
+  assert.match(branch, /addCanvasComposer\('image'/);
+  assert.match(branch, /sourceNodeId: connectionPicker\.sourceNodeId/);
+  assert.doesNotMatch(branch, /setConnectionPicker\(previous => \(\{ \.\.\.previous, mode:/);
 });
 
 test('contextual composers expose fixed product controls without model selectors or destructive close buttons', () => {
@@ -512,4 +523,11 @@ test('the primary add rail has a generous Liuying-style hit target', () => {
   assert.match(css, /\.ec-canvas-left-rail \{[^}]*width: 52px;[^}]*padding: 6px;/);
   assert.match(css, /\.ec-canvas-left-rail \.ec-canvas-rail-add \{[^}]*width: 40px;[^}]*height: 40px;/);
   assert.match(chrome, /className="ec-canvas-rail-add"><Plus size=\{22\}/);
+});
+
+test('canvas output port stays clear of resize handles and owns click feedback', () => {
+  const css = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(css, /\.ec-canvas-node-port \{[^}]*right: -32px/);
+  assert.match(source, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp\?\.\(event\); \}\}/);
 });

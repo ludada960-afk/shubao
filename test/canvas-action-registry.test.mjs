@@ -86,15 +86,20 @@ test('context commands never advertise image-only operations on text or source g
   }
 });
 
-test('only ready source images and completed outputs expose deep workflow actions', () => {
+test('ready image outputs expose deep workflow actions while running outputs stay disabled', () => {
   const sourceGroup = { id: 'source-1', kind: 'source_group', status: 'ready', assets: [{ url: '/product.png' }] };
   const runningOutput = { id: 'output-2', kind: 'output', status: 'generating', url: '/still-running.png' };
+  const readyOutput = { id: 'output-3', kind: 'output', status: 'ready', url: '/ready.png' };
 
   assert.deepEqual(
     actionsForSurface({ surface: 'image-editor', node: sourceGroup }).map(action => action.id),
     ['product-remix', 'outpaint', 'inpaint', 'translate', 'upscale'],
   );
   assert.deepEqual(actionsForSurface({ surface: 'image-editor', node: runningOutput }), []);
+  assert.deepEqual(
+    actionsForSurface({ surface: 'image-editor', node: readyOutput }).map(action => action.id),
+    ['product-remix', 'outpaint', 'inpaint', 'translate', 'upscale'],
+  );
   assert.equal(actionsForSurface({ surface: 'image-editor', node: { kind: 'process', status: 'ready', url: '/derived.png' } }).length, 0);
 });
 

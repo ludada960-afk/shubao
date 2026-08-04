@@ -181,7 +181,7 @@ test('canvas interaction surfaces dismiss each other and text has one toolbar', 
   assert.match(canvasSource, /setContextMenu\(null\);\s*setConnectionPicker\(null\);\s*setAddMenuOpen\(false\);/);
   assert.match(canvasSource, /multiSelected\.size <= 1[\s\S]{0,260}<CanvasObjectToolbar/);
   assert.match(canvasSource, /selectedNode\?\.kind === 'text' && <CanvasTextToolbar/);
-  assert.doesNotMatch(canvasStudioSource, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp/);
+  assert.match(canvasStudioSource, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp/);
 });
 
 test('clicking an image output port opens the derive picker without requiring a drag', () => {

@@ -59,7 +59,7 @@ import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, selectedCanvasBounds } from './canvasInteractionModel.js';
-import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createUploadedImageNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNode } from './canvasStudioModel.js';
+import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createUploadedImageNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
 import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
@@ -529,7 +529,6 @@ export default function EcCanvas() {
   const [zoomImg, setZoomImg] = useState(null);
   const [toast, setToast] = useState(null);
   const [promptLoading, setPromptLoading] = useState(false);
-  const [segmentationJobs, setSegmentationJobs] = useState([]);
   const [editingTextNodeId, setEditingTextNodeId] = useState(null);
   const [focusedEditor, setFocusedEditor] = useState(null);
   const [imageInfoNode, setImageInfoNode] = useState(null);
@@ -550,8 +549,8 @@ export default function EcCanvas() {
   const dragFrameRef = useRef(null);
   const pendingDragRef = useRef(null);
   const draftReadyRef = useRef(false);
-  const workflowProcessRef = useRef(null);
   const segmentationAbortRef = useRef(new Map());
+  const workflowProcessRef = useRef(null);
   const sourceUploadRef = useRef(null);
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
@@ -811,6 +810,7 @@ export default function EcCanvas() {
         setPointerMode(null);
         setMarquee(null);
         setContextMenu(null);
+        setEditingTextNodeId(null);
         setSelected(null);
         setMultiSelected(new Set());
         return;
@@ -969,12 +969,13 @@ export default function EcCanvas() {
     }
     if (pointerMode.kind === 'resize') {
       const dx = (e.clientX - pointerMode.startX) / Math.max(0.01, viewport.scale);
-      const width = pointerMode.corner.includes('w')
-        ? pointerMode.original.w - dx
-        : pointerMode.original.w + dx;
-      const resized = resizeCanvasNode(pointerMode.original, { width });
-      if (pointerMode.corner.includes('w')) resized.x = pointerMode.original.x + pointerMode.original.w - resized.w;
-      if (pointerMode.corner.includes('n')) resized.y = pointerMode.original.y + pointerMode.original.h - resized.h;
+      const dy = (e.clientY - pointerMode.startY) / Math.max(0.01, viewport.scale);
+      const resized = resizeCanvasNodeByHandle(pointerMode.original, {
+        handle: pointerMode.handle,
+        dx,
+        dy,
+        preserveAspect: pointerMode.preserveAspect,
+      });
       setNodes(previous => previous.map(node => node.id === pointerMode.nodeId ? resized : node));
       return;
     }
@@ -1067,6 +1068,7 @@ export default function EcCanvas() {
   const handleNodeDown = useCallback((e, id) => {
     e.stopPropagation();
     if (e.button !== 0) return;
+    setEditingTextNodeId(null);
     setContextMenu(null);
     setConnectionPicker(null);
     setAddMenuOpen(false);
@@ -1091,17 +1093,22 @@ export default function EcCanvas() {
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
   }, [activeTool, multiSelected, nodes, toWorldPoint, viewport.x, viewport.y]);
 
-  const handleNodeResizeStart = useCallback((event, nodeId, corner) => {
+  const handleNodeResizeStart = useCallback((event, nodeId, handle) => {
     const node = nodes.find(candidate => candidate.id === nodeId);
     if (!node || node.locked || event.button !== 0) return;
+    setEditingTextNodeId(null);
     setSelected(nodeId);
     setMultiSelected(new Set([nodeId]));
     setPointerMode({
       kind: 'resize',
       nodeId,
-      corner,
+      handle,
       startX: event.clientX,
+      startY: event.clientY,
       original: { ...node },
+      // Completed image assets keep their pixel ratio; generation boards and
+      // editable text/suite nodes are layout objects and stay freely resizable.
+      preserveAspect: ['image', 'output'].includes(node.kind),
     });
     try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch {}
   }, [nodes]);
@@ -1116,8 +1123,7 @@ export default function EcCanvas() {
   const handlePortPointerDown = useCallback((e, nodeId, side) => {
     if (side !== 'out') return;
     const source = nodes.find(node => node.id === nodeId);
-    const canOpenComposer = ['image-composer', 'text-composer', 'suite-composer'].includes(source?.kind);
-    if (!canDeriveFromNode(source) && !canOpenComposer) {
+    if (!canDeriveFromNode(source)) {
       showToast('完成当前处理后，可从生成结果继续派生', 'info');
       return;
     }
@@ -1130,8 +1136,7 @@ export default function EcCanvas() {
 
   const handlePortClick = useCallback((event, nodeId) => {
     const source = nodes.find(node => node.id === nodeId);
-    const canOpenComposer = ['image-composer', 'text-composer', 'suite-composer'].includes(source?.kind);
-    if (!canDeriveFromNode(source) && !canOpenComposer) return;
+    if (!canDeriveFromNode(source)) return;
     setConnectionPicker({
       sourceNodeId: nodeId,
       world: toWorldPoint(event),
@@ -1162,32 +1167,16 @@ export default function EcCanvas() {
     const jobId = `canvas-segmentation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const controller = new AbortController();
     segmentationAbortRef.current.set(jobId, controller);
-    const job = {
-      id: jobId,
-      action,
-      sourceId: source.id,
-      sourceUrl: proxyImg(sourceUrl),
-      x: Number.isFinite(placement.x) ? placement.x : source.x + source.w + GAP * 2,
-      y: Number.isFinite(placement.y) ? placement.y : source.y,
-      replaceNodeId,
-      workflowNodeId,
-      progress: reduceSegmentationProgress(null, { stage: 'preparing' }),
-    };
-    setSegmentationJobs(previous => previous.filter(item => item.sourceId !== source.id || item.action !== action).concat(job));
-    let currentProgress = job.progress;
+    let currentProgress = reduceSegmentationProgress(null, { stage: 'preparing' });
     const updateProgress = event => {
       currentProgress = reduceSegmentationProgress(currentProgress, event);
       const progress = currentProgress;
-      setSegmentationJobs(previous => previous.map(item => item.id === jobId
-        ? { ...item, progress, error: '' }
-        : item));
       if (workflowNodeId) {
         setNodes(previous => previous.map(node => node.id === workflowNodeId
           ? { ...node, status: 'processing', progress: progress.percent, progressLabel: progress.detail || progress.label || '正在处理图片' }
           : node));
       }
     };
-    let completed = false;
     try {
       if (canvasSegmentationRuntime.isWarm()) updateProgress({ stage: 'detecting' });
       const planRequest = createCanvasSegmentationPlan(sourceUrl, { signal: controller.signal });
@@ -1213,21 +1202,12 @@ export default function EcCanvas() {
           segmentation_masks: masks,
           signal: controller.signal,
         });
-      completed = true;
       updateProgress({ stage: 'complete' });
       return data;
     } catch (error) {
-      if (error?.name !== 'AbortError') {
-        setSegmentationJobs(previous => previous.map(item => item.id === jobId
-          ? { ...item, error: error?.message || '处理失败，请重试' }
-          : item));
-      }
       throw error;
     } finally {
       segmentationAbortRef.current.delete(jobId);
-      if (completed || controller.signal.aborted) {
-        setSegmentationJobs(previous => previous.filter(item => item.id !== jobId));
-      }
     }
   }, []);
 
@@ -1605,32 +1585,6 @@ export default function EcCanvas() {
   useEffect(() => {
     workflowProcessRef.current = handleWorkflowProcess;
   }, [handleWorkflowProcess]);
-
-  const handleSegmentationJobCancel = useCallback(job => {
-    segmentationAbortRef.current.get(job.id)?.abort();
-    setSegmentationJobs(previous => previous.filter(item => item.id !== job.id));
-  }, []);
-
-  const handleSegmentationJobClose = useCallback(job => {
-    setSegmentationJobs(previous => previous.filter(item => item.id !== job.id));
-  }, []);
-
-  const handleSegmentationJobRetry = useCallback(job => {
-    setSegmentationJobs(previous => previous.filter(item => item.id !== job.id));
-    if (job.workflowNodeId) {
-      const workflowNode = nodes.find(node => node.id === job.workflowNodeId);
-      if (workflowNode) void workflowProcessRef.current?.(workflowNode);
-      return;
-    }
-    const source = nodes.find(node => node.id === job.sourceId);
-    if (!source) return;
-    const placement = { x: job.x, y: job.y };
-    if (job.action === 'smart-layer') {
-      void handleSmartLayerMaterialization(source, placement, { replaceNodeId: job.replaceNodeId || '' });
-    } else {
-      void handleDirectRemoveBackground(source, placement);
-    }
-  }, [handleDirectRemoveBackground, handleSmartLayerMaterialization, nodes]);
 
   const updateWorkflowLayers = useCallback((nodeId, updater) => {
     setNodes(prev => prev.map(node => {
@@ -2098,6 +2052,8 @@ export default function EcCanvas() {
         annotations: options.annotations,
         cropRect: options.cropRect,
         splitPosition: options.splitPosition,
+        gridVertical: options.gridVertical,
+        gridHorizontal: options.gridHorizontal,
       });
       const urls = [response?.url, ...(response?.urls || []).map(item => typeof item === 'string' ? item : item?.url)].filter(Boolean);
       if (!urls.length) throw new Error('图片处理没有返回结果');
@@ -2294,7 +2250,7 @@ export default function EcCanvas() {
       nodes,
       sourceNode: source,
       preferred,
-      gap: 32,
+      gap: 16,
     });
   }, [nodes, viewport]);
 
@@ -2302,6 +2258,13 @@ export default function EcCanvas() {
     // 左侧添加是独立节点；只有图片右侧派生或显式传入 sourceNodeId 才建立引用关系。
     const sourceNodeId = placement.sourceNodeId || '';
     const sourceNodeIds = [...new Set([...(placement.sourceNodeIds || []), sourceNodeId].filter(Boolean))];
+    const sourceMentions = buildImageMentions(sourceNodeIds
+      .map(id => nodes.find(node => node.id === id))
+      .filter(node => node?.url));
+    const initialPrompt = sourceMentions.reduce(
+      (text, mention) => appendImageMention(text, mention.label),
+      String(placement.prompt || ''),
+    );
     const size = kind === 'suite' ? { w: 640, h: 420 } : kind === 'text' ? { w: 480, h: 220 } : { w: 280, h: 280 };
     const position = createComposerPlacement(size.w, size.h, { ...placement, sourceNodeId });
     const baseComposer = kind === 'suite'
@@ -2313,7 +2276,7 @@ export default function EcCanvas() {
       ...baseComposer,
       sourceNodeIds,
       sourceRoles: Object.fromEntries(sourceNodeIds.map(id => [id, kind === 'suite' ? 'product' : 'reference'])),
-      ...(placement.prompt ? { prompt: placement.prompt } : {}),
+      ...(initialPrompt ? { prompt: initialPrompt } : {}),
       ...(placement.actionId ? { actionId: placement.actionId } : {}),
       ...(placement.selection ? { selection: normalizeCanvasSelection(placement.selection) } : {}),
     };
@@ -2325,7 +2288,7 @@ export default function EcCanvas() {
     setMultiSelected(sourceNodeIds.length ? new Set([composer.id]) : new Set());
     setActiveTool('select');
     return composer;
-  }, [createComposerPlacement, result.platform]);
+  }, [createComposerPlacement, nodes, result.platform]);
 
   const updateComposerNode = useCallback((nodeId, change) => {
     setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, ...change } : node));
@@ -2632,8 +2595,8 @@ export default function EcCanvas() {
       return addCanvasComposer('text', placement);
     }
     const bounds = containerRef.current?.getBoundingClientRect();
-    const width = 420;
-    const height = 180;
+    const width = 240;
+    const height = 64;
     const source = placement?.sourceNodeId ? nodes.find(node => node.id === placement.sourceNodeId) : undefined;
     const position = findCanvasBlankPlacement({
       width,
@@ -2645,7 +2608,7 @@ export default function EcCanvas() {
       preferred: Number.isFinite(placement?.x) && Number.isFinite(placement?.y)
         ? { x: placement.x, y: placement.y }
         : undefined,
-      gap: 32,
+      gap: 16,
     });
     const textNode = createCanvasTextNode({
       ...position,
@@ -2654,7 +2617,6 @@ export default function EcCanvas() {
     setNodes(previous => [...previous, textNode]);
     setSelected(textNode.id);
     setMultiSelected(new Set([textNode.id]));
-    setEditingTextNodeId(textNode.id);
     if (placement?.sourceNodeId) {
       setConnections(previous => addConnection(previous, placement.sourceNodeId, textNode.id, 'derived'));
     }
@@ -2667,7 +2629,7 @@ export default function EcCanvas() {
   }, [handleAddTextNode]);
 
   const handleTextNodeChange = useCallback((nodeId, text) => {
-    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text, name: text.trim().split(/\r?\n/)[0]?.slice(0, 32) || '文本' } : node));
+    setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, text } : node));
   }, []);
   const handleCanvasSourceUpload = async event => {
     const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('image/')).slice(0, 8);
@@ -3192,8 +3154,6 @@ export default function EcCanvas() {
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
-                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
-                  onPortClick={event => handlePortClick(event, node.id)}
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
@@ -3213,6 +3173,7 @@ export default function EcCanvas() {
                   onPortPointerUp={event => handlePortPointerUp(event, node.id, 'out')}
                   onPortClick={event => handlePortClick(event, node.id)}
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+                  canDerive={canDeriveFromNode(node)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onDoubleClick={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
@@ -3230,6 +3191,7 @@ export default function EcCanvas() {
                   onSelect={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); }}
                   onDoubleClick={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); setEditingTextNodeId(nodeId); }}
                   onBlur={nodeId => setEditingTextNodeId(current => current === nodeId ? null : current)}
+                  onResizeStart={(event, handle) => handleNodeResizeStart(event, node.id, handle)}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
@@ -3240,13 +3202,14 @@ export default function EcCanvas() {
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
-                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
-                  onPortClick={event => handlePortClick(event, node.id)}
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onTextChange={handleTextNodeChange}
                   onTextSelect={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); }}
+                  editing={editingTextNodeId === node.id}
+                  onTextDoubleClick={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); setEditingTextNodeId(nodeId); }}
+                  onTextBlur={nodeId => setEditingTextNodeId(current => current === nodeId ? null : current)}
                   onDoubleClick={node => node.url && setZoomImg({ url: node.url, label: node.name || '图片预览' })}
                 />;
               }
@@ -3384,9 +3347,9 @@ export default function EcCanvas() {
                 } else if (action.id === 'ecommerce-suite') {
                   addCanvasComposer('suite', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (action.id === 'image-edit' && connectionPicker.mode !== 'image-editor') {
-                  setConnectionPicker(previous => ({ ...previous, mode: 'image-editor' }));
-                  return;
-                } else if (action.id === 'image-edit') {
+                  // The right-side image action is the same generation node as
+                  // the left rail. Its only extra behavior is carrying the
+                  // selected image into the prompt/reference context.
                   addCanvasComposer('image', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (connectionPicker.mode === 'image-editor' && ['product-remix', 'outpaint', 'inpaint', 'translate', 'upscale'].includes(action.id)) {
                   addCanvasComposer('image', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId, actionId: action.id === 'outpaint' ? 'extend' : action.id, selection: action.id === 'inpaint' ? { mode: 'whole' } : undefined });

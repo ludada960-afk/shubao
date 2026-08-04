@@ -57,6 +57,22 @@ test('smart layering materializes grouped product, instances, background and tex
   assert.equal(text.textStyle.background, '#e8a92a');
 });
 
+test('smart layering keeps the original full-scene image in the collapsed group card', () => {
+  const result = materializeCanvasLayers({
+    sourceNode: { ...source, url: '/original-scene.png', ratio: '3:4' },
+    runId: 'collapsed-source-run',
+    layers: [
+      { id: 'group', kind: 'image', semanticType: 'product-group', url: '/transparent-products.png', pixelWidth: 600, pixelHeight: 600, editable: true },
+      { id: 'product', kind: 'image', semanticType: 'product-instance', url: '/product.png', pixelWidth: 300, pixelHeight: 300, editable: true },
+    ],
+  });
+
+  assert.equal(result.nodes[0].url, '/original-scene.png');
+  assert.equal(result.nodes[0].ratio, '3:4');
+  assert.equal(result.nodes[0].layerExpanded, false);
+  assert.equal(result.nodes[1].hidden, true);
+});
+
 test('smart layering drops exact duplicate pixel layers without collapsing distinct instances', () => {
   const result = materializeCanvasLayers({
     sourceNode: source,

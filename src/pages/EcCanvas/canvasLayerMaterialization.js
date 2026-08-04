@@ -163,10 +163,12 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     : imageNode(groupLayer, groupCommon);
   groupNode.id = groupId;
   groupNode.kind = 'layer-group';
-  groupNode.url = groupLayer.url || sourceNode.url || '';
+  // Keep the collapsed card visually identical to the source. The extracted
+  // product/background/text assets become draggable children only after expand.
+  groupNode.url = sourceNode.url || groupLayer.url || '';
   groupNode.w = Math.max(220, finite(sourceNode.w, 240));
   groupNode.h = Math.max(120, finite(sourceNode.h, 240));
-  groupNode.ratio = groupLayer.ratio || sourceNode.ratio || '1:1';
+  groupNode.ratio = sourceNode.ratio || groupLayer.ratio || '1:1';
   groupNode.layerCount = childLayers.length;
 
   const childNodes = childLayers.map((layer, index) => {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { analyzeSceneCapabilities, buildCanvasTransformPrompt, cropRectForRatio, gridRects, normalizeCanvasLayerPlan, parseVisionLayers, parseVisionTextBlocks } from '../server/canvasTools.mjs';
+import { analyzeSceneCapabilities, buildCanvasTransformPrompt, cropRectForRatio, gridRects, gridRectsFromGuides, normalizeCanvasLayerPlan, parseVisionLayers, parseVisionTextBlocks } from '../server/canvasTools.mjs';
 import { segmentUniformBackground } from '../server/canvasSegmentation.mjs';
 
 test('builds action-specific canvas prompts without losing product identity rules', () => {
@@ -35,6 +35,22 @@ test('supports configurable grids and directional image splits', () => {
     { left: 0, top: 0, width: 1000, height: 300 },
     { left: 0, top: 300, width: 1000, height: 300 },
   ]);
+});
+
+test('builds non-uniform grid rectangles from draggable guide positions', () => {
+  const rects = gridRectsFromGuides(1000, 800, 3, 3, [0.2, 0.75], [0.35, 0.6]);
+  assert.deepEqual(rects, [
+    { left: 0, top: 0, width: 200, height: 280 },
+    { left: 200, top: 0, width: 550, height: 280 },
+    { left: 750, top: 0, width: 250, height: 280 },
+    { left: 0, top: 280, width: 200, height: 200 },
+    { left: 200, top: 280, width: 550, height: 200 },
+    { left: 750, top: 280, width: 250, height: 200 },
+    { left: 0, top: 480, width: 200, height: 320 },
+    { left: 200, top: 480, width: 550, height: 320 },
+    { left: 750, top: 480, width: 250, height: 320 },
+  ]);
+  assert.equal(rects.reduce((sum, rect) => sum + rect.width * rect.height, 0), 1000 * 800);
 });
 
 test('parses valid vision layer JSON and rejects invented wrapper text', () => {

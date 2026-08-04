@@ -64,7 +64,7 @@ test('Canvas pixel transforms honor requested grid size and split direction', as
   assert.match(route, /grid\s*=\s*2/);
   assert.match(route, /direction\s*=\s*['"]vertical['"]/);
   assert.match(route, /pixelActions\s*=\s*new Set\(\[['"]crop['"],\s*['"]grid-split['"],\s*['"]split-image['"],\s*['"]annotation['"]\]\)/);
-  assert.match(route, /gridRects\(width, height, gridSize, gridSize\)/);
+  assert.match(route, /gridRectsFromGuides\(width, height, gridSize, gridSize, gridVertical, gridHorizontal\)/);
   assert.match(route, /gridRects\(width, height, direction === ['"]vertical['"] \? 2 : 1, direction === ['"]horizontal['"] \? 2 : 1\)/);
   assert.match(route, /crop_rect:\s*cropRect/);
   assert.match(route, /split_position:\s*splitPosition/);

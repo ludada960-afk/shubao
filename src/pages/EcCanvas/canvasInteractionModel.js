@@ -21,7 +21,7 @@ export const MULTI_SELECTION_ACTIONS = Object.freeze([
 
 function isExportableCanvasImage(node = {}) {
   if (!node.url) return false;
-  if (node.kind === 'output') return node.status === 'completed';
+  if (node.kind === 'output') return ['ready', 'success', 'completed'].includes(node.status);
   return node.kind === 'image' && ['ready', 'success', 'completed'].includes(node.status);
 }
 

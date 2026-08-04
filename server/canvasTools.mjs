@@ -175,3 +175,47 @@ export function gridRects(width, height, columns = 2, rows = 2) {
   }
   return rects;
 }
+
+function gridGuidePixels(size, divisions, positions) {
+  const internalCount = Math.max(0, divisions - 1);
+  const values = Array.isArray(positions) && positions.length === internalCount
+    ? positions.map(value => Number(value))
+    : [];
+  if (values.length !== internalCount || values.some(value => !Number.isFinite(value))) {
+    return Array.from({ length: divisions + 1 }, (_, index) => Math.floor(size * index / divisions));
+  }
+  const normalized = values
+    .map(value => Math.min(1, Math.max(0, value)))
+    .sort((left, right) => left - right);
+  const pixels = [0];
+  for (let index = 0; index < normalized.length; index += 1) {
+    const remaining = normalized.length - index;
+    const requested = Math.round(normalized[index] * size);
+    const minimum = pixels[index] + 1;
+    const maximum = size - remaining;
+    pixels.push(Math.min(maximum, Math.max(minimum, requested)));
+  }
+  pixels.push(size);
+  return pixels;
+}
+
+export function gridRectsFromGuides(width, height, columns = 2, rows = 2, verticalPositions, horizontalPositions) {
+  const safeWidth = Math.max(1, Math.round(Number(width) || 1));
+  const safeHeight = Math.max(1, Math.round(Number(height) || 1));
+  const safeColumns = Math.min(5, Math.max(1, Math.round(Number(columns) || 2)));
+  const safeRows = Math.min(5, Math.max(1, Math.round(Number(rows) || 2)));
+  const xBounds = gridGuidePixels(safeWidth, safeColumns, verticalPositions);
+  const yBounds = gridGuidePixels(safeHeight, safeRows, horizontalPositions);
+  const rects = [];
+  for (let row = 0; row < safeRows; row += 1) {
+    for (let column = 0; column < safeColumns; column += 1) {
+      rects.push({
+        left: xBounds[column],
+        top: yBounds[row],
+        width: xBounds[column + 1] - xBounds[column],
+        height: yBounds[row + 1] - yBounds[row],
+      });
+    }
+  }
+  return rects;
+}
