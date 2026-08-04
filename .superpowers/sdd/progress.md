@@ -1107,3 +1107,12 @@
   the release was then confirmed with the latest session and the independent
   post-deploy canary passed. User-owned extension-task deletions and `.tmp/`
   remain untouched.
+- Dedicated production Canvas segmentation verification completed on
+  2026-08-04 against the released service using the three-container fixture.
+  Remove Background returned a transparent asset with `subjectCount: 3`;
+  Smart Layering returned one distinct product group, three distinct product
+  instances, a clean background plate, and one editable text layer with no
+  warnings. Asset ownership, transparency, geometry coverage, and exact
+  canvas save/reload persistence all passed in session
+  `1dc4095d-fc27-4451-b346-07e03663284e`. User-owned extension-task deletions
+  and `.tmp/` remain untouched.
