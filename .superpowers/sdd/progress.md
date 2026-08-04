@@ -1098,3 +1098,12 @@
   browser QA confirmed the compact nodes, contextual controls, and @ popup
   remain within viewport bounds. The 12 user-owned extension-task deletions
   and `.tmp/` remain untouched.
+- Canvas generation surface release completed on 2026-08-04. Commit `7cb26ce`
+  is serving from production under PM2 PID `2846434`; public health is green,
+  the deployment lock is absent, and the post-release authenticated ecommerce
+  verifier delivered three stable assets in task
+  `ec_76c948d0-93b8-446b-a4c2-1fbad40a063c`. The first deployment attempt was
+  automatically rolled back because the shell held an older rejected session;
+  the release was then confirmed with the latest session and the independent
+  post-deploy canary passed. User-owned extension-task deletions and `.tmp/`
+  remain untouched.
