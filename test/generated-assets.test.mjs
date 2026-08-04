@@ -83,6 +83,66 @@ test('persists and reads the exact stable bytes in one quality-gate operation', 
   assert.equal(stable.contentType, 'image/png');
 });
 
+test('retries a transient generated-image download timeout before persisting', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-timeout-retry-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const timeoutError = Object.assign(new Error('The operation was aborted due to timeout'), {
+    name: 'TimeoutError',
+  });
+  const delays = [];
+  let downloadAttempts = 0;
+  const store = createGeneratedAssetStore({
+    directory: dir,
+    retryDelaysMs: [25],
+    sleepImpl: async delay => delays.push(delay),
+    fetchImpl: async () => {
+      downloadAttempts += 1;
+      if (downloadAttempts === 1) throw timeoutError;
+      return new Response(Buffer.from([137, 80, 78, 71, 9]), {
+        headers: { 'content-type': 'image/png' },
+      });
+    },
+  });
+
+  const stable = await store.persistAndRead({
+    sourceUrl: 'https://provider.example/transient-timeout.png',
+    taskId: 'ec_timeout_retry',
+    label: 'main_timeout_retry',
+  });
+
+  assert.equal(downloadAttempts, 2);
+  assert.deepEqual(delays, [25]);
+  assert.match(stable.asset.url, /^\/api\/generated-assets\/[a-f0-9]{64}\.png$/);
+});
+
+test('marks an exhausted transient generated-image download as resumable', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-network-exhausted-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const networkError = new TypeError('fetch failed');
+  let downloadAttempts = 0;
+  const store = createGeneratedAssetStore({
+    directory: dir,
+    retryDelaysMs: [0],
+    sleepImpl: async () => {},
+    fetchImpl: async () => {
+      downloadAttempts += 1;
+      throw networkError;
+    },
+  });
+
+  await assert.rejects(
+    () => store.persistAndRead({
+      sourceUrl: 'https://provider.example/network-exhausted.png',
+      taskId: 'ec_network_exhausted',
+      label: 'main_network_exhausted',
+    }),
+    error => error?.code === 'GENERATED_ASSET_DOWNLOAD_UNAVAILABLE'
+      && error?.retryable === true
+      && error?.cause === networkError,
+  );
+  assert.equal(downloadAttempts, 2);
+});
+
 test('reuses downloaded bytes for quality review instead of reading the whole file again', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-assets-test-'));
   t.after(() => rm(dir, { recursive: true, force: true }));

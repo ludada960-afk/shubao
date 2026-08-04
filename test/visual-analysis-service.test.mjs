@@ -416,6 +416,7 @@ test('VLM client aborts a bounded request and clears its timeout', async () => {
     apiKey: 'test-only-key',
     baseUrl: 'https://vision.example',
     timeoutMs: 25,
+    retryDelaysMs: [],
     setTimeoutImpl(callback, milliseconds) {
       scheduledMs = milliseconds;
       queueMicrotask(callback);
@@ -445,6 +446,49 @@ test('VLM client aborts a bounded request and clears its timeout', async () => {
   assert.equal(scheduledMs, 25);
   assert.equal(observedSignal.aborted, true);
   assert.equal(clearedToken, timerToken);
+});
+
+test('VLM client retries its own transient timeout before succeeding', async () => {
+  const delays = [];
+  let timerCount = 0;
+  let callCount = 0;
+  const client = createVlmClient({
+    apiKey: 'test-only-key',
+    baseUrl: 'https://vision.example',
+    timeoutMs: 25,
+    retryDelaysMs: [15],
+    sleepImpl: async delay => delays.push(delay),
+    setTimeoutImpl(callback) {
+      timerCount += 1;
+      if (timerCount === 1) queueMicrotask(callback);
+      return { timerCount };
+    },
+    clearTimeoutImpl() {},
+    fetchImpl: async (_url, options) => {
+      callCount += 1;
+      if (callCount === 1) {
+        return new Promise((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+        });
+      }
+      return {
+        ok: true,
+        async json() {
+          return { choices: [{ message: { content: '{"recovered":true}' } }] };
+        },
+      };
+    },
+  });
+
+  const result = await client.analyzeJson({
+    systemPrompt: 'Return JSON only.',
+    userPrompt: 'Analyze style.',
+    images: ['data:image/png;base64,AA=='],
+  });
+
+  assert.deepEqual(result, { recovered: true });
+  assert.equal(callCount, 2);
+  assert.deepEqual(delays, [15]);
 });
 
 test('VLM client completes bounded text requests without requiring an image', async () => {

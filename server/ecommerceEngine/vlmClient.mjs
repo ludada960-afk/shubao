@@ -205,6 +205,10 @@ export function createVlmClient({
           } catch (error) {
             if (signal?.aborted) throw externalAbortError(signal);
             if (timedOut) {
+              if (attempt < retryDelaysMs.length) {
+                await sleepImpl(retryDelaysMs[attempt]);
+                continue;
+              }
               throw codedError('VISUAL_ANALYSIS_TIMEOUT', '图片分析超时，请稍后重试', {
                 status: 504,
                 retryable: true,

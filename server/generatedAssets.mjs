@@ -3,6 +3,16 @@ import { link, mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises
 import { resolve, basename } from 'node:path';
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+const DEFAULT_DOWNLOAD_TIMEOUT_MS = 20_000;
+const DEFAULT_DOWNLOAD_RETRY_DELAYS_MS = Object.freeze([500, 1_500]);
+const RETRYABLE_DOWNLOAD_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'EPIPE',
+  'ETIMEDOUT',
+]);
 const MIME_EXTENSIONS = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -29,6 +39,21 @@ function integrityError(cause) {
   });
 }
 
+function isRetryableDownloadError(error) {
+  const name = String(error?.name || '').trim();
+  const code = String(error?.code || '').trim().toUpperCase();
+  return name === 'TimeoutError'
+    || name === 'AbortError'
+    || error instanceof TypeError
+    || RETRYABLE_DOWNLOAD_CODES.has(code)
+    || error?.retryable === true;
+}
+
+function retryableDownloadStatus(status) {
+  return status === 408 || status === 425 || status === 429
+    || (Number.isInteger(status) && status >= 500);
+}
+
 export function stableAssetDataUrl({ buffer, contentType } = {}) {
   if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error('生成图片内容为空');
   const mimeType = String(contentType || '').trim().toLowerCase();
@@ -43,9 +68,18 @@ export function createGeneratedAssetStore({
   maxBytes = MAX_IMAGE_BYTES,
   readFileImpl = readFile,
   onPersist = null,
+  downloadTimeoutMs = DEFAULT_DOWNLOAD_TIMEOUT_MS,
+  retryDelaysMs = DEFAULT_DOWNLOAD_RETRY_DELAYS_MS,
+  sleepImpl = milliseconds => new Promise(resolveSleep => setTimeout(resolveSleep, milliseconds)),
 } = {}) {
   if (!directory) throw new Error('generated asset directory is required');
   if (typeof readFileImpl !== 'function') throw new TypeError('readFileImpl must be a function');
+  if (!Number.isSafeInteger(downloadTimeoutMs) || downloadTimeoutMs <= 0
+    || !Array.isArray(retryDelaysMs) || retryDelaysMs.length > 5
+    || retryDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)
+    || typeof sleepImpl !== 'function') {
+    throw new TypeError('generated asset download retry configuration is invalid');
+  }
   const root = resolve(directory);
 
   async function notifyPersist(asset) {
@@ -55,14 +89,37 @@ export function createGeneratedAssetStore({
 
   async function downloadAndPersist({ sourceUrl, taskId = '', label = '' } = {}) {
     getSafeHttpUrl(sourceUrl);
-    const response = await fetchImpl(sourceUrl, { signal: AbortSignal.timeout(20000) });
-    if (!response?.ok) throw new Error(`下载生成图片失败: ${response?.status || 'network error'}`);
+    let response;
+    let buffer;
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+      try {
+        response = await fetchImpl(sourceUrl, { signal: AbortSignal.timeout(downloadTimeoutMs) });
+        if (!response?.ok) {
+          const error = Object.assign(
+            new Error(`下载生成图片失败: ${response?.status || 'network error'}`),
+            { retryable: retryableDownloadStatus(response?.status) },
+          );
+          throw error;
+        }
+        buffer = Buffer.from(await response.arrayBuffer());
+        break;
+      } catch (error) {
+        const retryable = isRetryableDownloadError(error);
+        if (!retryable) throw error;
+        if (attempt >= retryDelaysMs.length) {
+          throw Object.assign(new Error('生成图片下载暂时不可用', { cause: error }), {
+            code: 'GENERATED_ASSET_DOWNLOAD_UNAVAILABLE',
+            retryable: true,
+          });
+        }
+        await sleepImpl(retryDelaysMs[attempt]);
+      }
+    }
     const mimeType = (response.headers?.get('content-type') || '').split(';')[0].trim().toLowerCase();
     const extension = MIME_EXTENSIONS[mimeType];
     if (!extension) throw new Error('生成图片类型不受支持');
     const declaredLength = Number(response.headers?.get('content-length') || 0);
     if (declaredLength > maxBytes) throw new Error('生成图片文件过大');
-    const buffer = Buffer.from(await response.arrayBuffer());
     if (!buffer.length || buffer.length > maxBytes) throw new Error('生成图片文件过大或为空');
 
     const fileName = assetNameFor(buffer, extension);

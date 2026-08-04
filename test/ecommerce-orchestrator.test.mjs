@@ -2256,6 +2256,55 @@ test('provider output storage EIO keeps downloading state and resumes without pr
   assert.equal(calls.release.length, 0);
 });
 
+test('provider output download TimeoutError remains resumable instead of failing the suite', async t => {
+  const timeoutError = Object.assign(new Error('The operation was aborted due to timeout'), {
+    name: 'TimeoutError',
+  });
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    persist: () => { throw timeoutError; },
+  });
+  const created = orchestrator.createJob(jobInput('job-provider-download-timeout'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.code === 'GENERATED_ASSET_STORAGE_UNAVAILABLE'
+      && error?.status === 503
+      && error?.retryable === true
+      && error?.cause === timeoutError,
+  );
+
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'downloading');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.poll.length, 1);
+  assert.equal(calls.release.length, 0);
+});
+
+test('provider output retryable download failure remains resumable instead of failing the suite', async t => {
+  const downloadError = Object.assign(new Error('provider output temporarily unavailable'), {
+    code: 'GENERATED_ASSET_DOWNLOAD_UNAVAILABLE',
+    retryable: true,
+  });
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    persist: () => { throw downloadError; },
+  });
+  const created = orchestrator.createJob(jobInput('job-provider-download-retryable'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.code === 'GENERATED_ASSET_STORAGE_UNAVAILABLE'
+      && error?.status === 503
+      && error?.retryable === true
+      && error?.cause === downloadError,
+  );
+
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'downloading');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.poll.length, 1);
+  assert.equal(calls.release.length, 0);
+});
+
 test('Sharp output storage EIO keeps repairing state and resumes without provider replay', async t => {
   const storageError = Object.assign(new Error('Sharp output disk unavailable'), { code: 'EIO' });
   let qualityAttempt = 0;

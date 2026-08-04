@@ -238,7 +238,11 @@ const RETRYABLE_GENERATED_ASSET_STORAGE_CODES = new Set([
 ]);
 
 function mapGeneratedAssetStorageError(error) {
-  if (!RETRYABLE_GENERATED_ASSET_STORAGE_CODES.has(cleanString(error?.code).toUpperCase())) {
+  const errorName = cleanString(error?.name);
+  if (error?.retryable !== true
+    && errorName !== 'TimeoutError'
+    && errorName !== 'AbortError'
+    && !RETRYABLE_GENERATED_ASSET_STORAGE_CODES.has(cleanString(error?.code).toUpperCase())) {
     return error;
   }
   const mapped = httpError(

@@ -1182,3 +1182,23 @@
   build plus post-build asset check pass. The remaining release step is
   production deployment plus authenticated generation and billing canaries;
   user-owned extension-task deletions and `.tmp/` remain untouched.
+- Production deployment diagnosis and transient recovery hardening completed on
+  2026-08-04. The first authenticated release candidate passed billing but was
+  rolled back after two ecommerce canary tasks failed. Read-only production
+  checkpoints showed that the provider had generated the images: one task had
+  two stable assets and the other had all three, but a provider-result download
+  exceeded the single 20-second fetch deadline. Node reported `TimeoutError`,
+  which the storage mapper did not recognize as retryable, so the complete-set
+  gate correctly released the otherwise valid suite. Generated-image downloads
+  now retry bounded transient network/timeout and 408/425/429/5xx failures;
+  exhausted transient failures retain an explicit resumable error contract and
+  remain checkpointed in `downloading` for idempotent background resume without
+  provider replay or duplicate billing.
+  VLM calls now honor timeout retries, while design-direction vision gets one
+  retry and the optional planner keeps a shorter no-retry budget so the local
+  four-direction fallback remains inside the 75-second route deadline. The new
+  regression cases failed before the fixes and the focused suite now passes
+  134/134. The full repository test command, 6,443-module production build,
+  post-build asset check, collaboration policy and whitespace validation all
+  pass. Production redeployment and authenticated canaries are next; user-owned
+  extension-task deletions and `.tmp/` remain untouched.
