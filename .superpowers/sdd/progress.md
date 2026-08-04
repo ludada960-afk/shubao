@@ -1132,5 +1132,12 @@
   collaboration policy is READY, and mobile browser QA at 390x844 reported no
   composer overflow. No files are delegated; the 12 user-owned
   `server/extension_tasks` deletions and `.tmp/` remain untouched. Production
-  deployment is still pending the final explicit commit and authenticated
-  release verification.
+  deployment completed on 2026-08-04 under commit `30bcf93`. The latest
+  authenticated release switched production to `index-Cn27HXHJ.js` under PM2
+  PID `2887085`; final billing verification passed, final ecommerce
+  verification delivered three stable assets in task
+  `ec_82d3e621-0162-4d17-9461-79511c1cffa5`, the PM2 PID stayed stable through
+  the canary window, and the deployment lock was cleared with three retained
+  backups. Earlier attempts were automatically rolled back because the
+  inherited canary session was stale. User-owned extension-task deletions and
+  `.tmp/` remain untouched.
