@@ -25,19 +25,26 @@ function completedDirections() {
       commercial_opportunities: ['突出新鲜质感'],
     },
     degraded: false,
-    directions: Array.from({ length: 4 }, (_, index) => ({
-      id: `canary-direction-${index + 1}`,
-      title: `生产验收方向${index + 1}`,
+    directions: [{
+      id: 'canary-direction-1',
+      title: '生产验收设计方案',
       one_liner: '真实展示商品外观',
       commercial_objective: '建立商品识别',
       audience: '电商消费者',
       execution_guide: '保持商品真实并区分每张图职责',
+      overall_spec: {
+        locked: true,
+        visual_style: '真实、清晰、克制',
+        lighting: '柔和棚拍光',
+        composition: '主体居中并保留信息空间',
+        product_fidelity: '商品外观、颜色、比例和结构保持一致',
+      },
       deliverables: [
         { role: 'main_text', count: 1, shots: [{ index: 0, label: '商品识别主图' }] },
         { role: 'detail', count: 1, shots: [{ index: 0, label: '核心卖点详情图' }] },
         { role: 'white_background', count: 1, shots: [{ index: 0, label: '白底首图' }] },
       ],
-    })),
+    }],
   };
 }
 

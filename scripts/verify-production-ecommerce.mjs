@@ -48,13 +48,19 @@ function assertDirectionContract(response) {
   if (response?.degraded !== false || response?.analysis?.status !== 'complete') {
     throw new Error('Ecommerce production canary direction analysis was degraded');
   }
-  if (!Array.isArray(response.directions) || response.directions.length !== 4) {
-    throw new Error('Ecommerce production canary did not receive exactly four directions');
+  if (!Array.isArray(response.directions) || response.directions.length !== 1) {
+    throw new Error('Ecommerce production canary did not receive exactly one complete design plan');
   }
   const expected = new Map([['main_text', 1], ['detail', 1], ['white_background', 1]]);
   for (const direction of response.directions) {
     if (!String(direction?.id || '').trim() || !String(direction?.title || '').trim()) {
       throw new Error('Ecommerce production canary received an invalid direction identity');
+    }
+    const overallSpec = direction.overall_spec;
+    if (overallSpec?.locked !== true
+      || ['visual_style', 'lighting', 'composition', 'product_fidelity']
+        .some(field => !String(overallSpec?.[field] || '').trim())) {
+      throw new Error('Ecommerce production canary design plan is missing its locked overall specification');
     }
     const deliverables = Array.isArray(direction.deliverables) ? direction.deliverables : [];
     for (const [role, count] of expected) {
