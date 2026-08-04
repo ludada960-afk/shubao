@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const deploy = readFileSync(new URL('../scripts/deploy-production.ps1', import.meta.url), 'utf8');
 const verify = readFileSync(new URL('../scripts/verify-production-billing.ps1', import.meta.url), 'utf8');
@@ -99,6 +99,23 @@ test('production deploy uploads release helpers and archive in one SCP session',
   assert.match(deploy, /\$databaseBackupHelper/);
   assert.match(deploy, /\$archive/);
   assert.match(deploy, /& scp @ssh @uploadSources/);
+});
+
+test('production deploy installs and rolls back the versioned Nginx security contract', () => {
+  const nginxConfigUrl = new URL('../scripts/nginx/shuimg.cn.conf', import.meta.url);
+  assert.equal(existsSync(nginxConfigUrl), true);
+  const nginx = readFileSync(nginxConfigUrl, 'utf8');
+  assert.match(nginx, /add_header X-Content-Type-Options "nosniff" always/);
+  assert.match(nginx, /add_header X-Frame-Options "SAMEORIGIN" always/);
+  assert.match(nginx, /add_header Referrer-Policy "strict-origin-when-cross-origin" always/);
+  assert.match(nginx, /add_header Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)" always/);
+  assert.match(nginx, /proxy_hide_header X-Content-Type-Options/);
+  assert.match(deploy, /nginx[\\/]shuimg\.cn\.conf/);
+  assert.match(deploy, /dist server scripts\/nginx\/shuimg\.cn\.conf/);
+  assert.match(deploy, /nginx-config/);
+  assert.match(deploy, /sudo nginx -t/);
+  assert.match(deploy, /sudo systemctl reload nginx/);
+  assert.match(deploy, /restore.*nginx|nginx.*restore/i);
 });
 
 test('runtime gateway updater accepts secrets only through stdin and rolls files back atomically', () => {

@@ -49,6 +49,8 @@ $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
 $runtimeConfigHelper = Join-Path $PSScriptRoot "verify-runtime-config.cjs"
 $runtimeConfigUpdater = Join-Path $PSScriptRoot "configure-runtime-gateways.cjs"
 $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
+$nginxConfig = Join-Path $PSScriptRoot "nginx\shuimg.cn.conf"
+$remoteNginxConfig = "/etc/nginx/sites-available/shuimg.cn"
 $remoteRuntimeHelperDir = "/tmp/shubao-runtime-tools-$stamp"
 $remoteDatabaseBackupHelper = "$remoteRuntimeHelperDir/backup-runtime-db.cjs"
 $remoteRuntimeConfigHelper = "$remoteRuntimeHelperDir/verify-runtime-config.cjs"
@@ -60,6 +62,10 @@ $remoteBackup = ""
 $releaseStarted = $false
 $runtimeConfigTouched = $false
 $runtimeConfigBackupCreated = $false
+
+if (-not (Test-Path -LiteralPath $nginxConfig -PathType Leaf)) {
+  throw "Versioned production Nginx configuration is missing"
+}
 $deploymentSucceeded = $false
 
 function Get-RemotePm2ProcessId {
@@ -163,7 +169,7 @@ tar -czf $archive -C $repo `
   --exclude='server/.env' `
   --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
-  dist server package.json package-lock.json ecosystem.config.cjs
+  dist server scripts/nginx/shuimg.cn.conf package.json package-lock.json ecosystem.config.cjs
 if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
 
 $lockCommand = "set -e; lock='$remoteLock'; if ! mkdir `$lock 2>/dev/null; then if find `$lock -maxdepth 0 -mmin +30 | grep -q .; then rm -rf -- `$lock; mkdir `$lock; else echo 'Another deployment is active:'; cat `$lock/owner 2>/dev/null || true; exit 73; fi; fi; printf '%s\n' '$User@$env:COMPUTERNAME $commit $stamp' > `$lock/owner; umask 077; mkdir -m 700 '$remoteRuntimeHelperDir'"
@@ -207,10 +213,10 @@ try {
   }
   $remoteStamp = "$stamp-$commit"
   $remoteBackup = "$RemoteDir/deploy-backups/$remoteStamp"
-  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; mkdir -p $remoteBackup/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $RemoteDir/server/ $remoteBackup/server/; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot"
+  & ssh @ssh $target "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; mkdir -p $remoteBackup/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $RemoteDir/server/ $remoteBackup/server/; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; sudo mkdir -p $WebRoot; sudo cp -a $WebRoot $remoteBackup/webroot; sudo cp '$remoteNginxConfig' $remoteBackup/nginx-config"
   if ($LASTEXITCODE -ne 0) { throw "Remote backup failed" }
   $releaseStarted = $true
-  & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env --max-memory-restart 1G; for attempt in `$(seq 1 30); do if curl -fsS http://127.0.0.1:3001/health; then exit 0; fi; sleep 2; done; exit 1"
+  & ssh @ssh $target "set -e; cd $RemoteDir; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx; sudo cp -a $RemoteDir/dist/. $WebRoot/; pm2 restart shubao --update-env --max-memory-restart 1G; for attempt in `$(seq 1 30); do if curl -fsS http://127.0.0.1:3001/health; then exit 0; fi; sleep 2; done; exit 1"
   if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
 
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
@@ -244,9 +250,9 @@ try {
   Write-Host "Deployed $commit to https://shuimg.cn/"
 } catch {
   if ($releaseStarted) {
-    Write-Warning "Deployment failed; starting rollback from $remoteBackup"
+    Write-Warning "Deployment failed; starting application and Nginx restore from $remoteBackup"
     $runtimeRestore = if ($runtimeConfigBackupCreated) { "cp '$remoteRuntimeConfigBackup/root.env' '$RemoteDir/.env'; cp '$remoteRuntimeConfigBackup/server.env' '$RemoteDir/server/.env'; chmod 600 '$RemoteDir/.env' '$RemoteDir/server/.env';" } else { "" }
-    & ssh @ssh $target "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' $remoteBackup/server/ server/; rm -rf dist; cp -a $remoteBackup/dist dist; sudo rm -rf $WebRoot/*; sudo cp -a $remoteBackup/webroot/. $WebRoot/; $runtimeRestore pm2 reload shubao --update-env"
+    & ssh @ssh $target "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' $remoteBackup/server/ server/; rm -rf dist; cp -a $remoteBackup/dist dist; sudo rm -rf $WebRoot/*; sudo cp -a $remoteBackup/webroot/. $WebRoot/; sudo cp $remoteBackup/nginx-config '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx; $runtimeRestore pm2 reload shubao --update-env"
     if ($LASTEXITCODE -eq 0 -and $runtimeConfigBackupCreated) { $runtimeConfigTouched = $false }
   } elseif ($runtimeConfigTouched -and $runtimeConfigBackupCreated) {
     Write-Warning "Deployment failed before release; restoring the previous runtime gateway configuration"

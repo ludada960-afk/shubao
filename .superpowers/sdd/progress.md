@@ -1202,3 +1202,18 @@
   post-build asset check, collaboration policy and whitespace validation all
   pass. Production redeployment and authenticated canaries are next; user-owned
   extension-task deletions and `.tmp/` remain untouched.
+- Release `16c0a01` deployed successfully to `https://shuimg.cn/` on 2026-08-04
+  with PM2 process `3015960`. Authenticated ecommerce tasks
+  `ec_79e41d18-f132-443c-b6d2-0aa0d00861f7` and
+  `ec_f04f6923-30e8-420c-b970-5435ba8e1899` each delivered all three stable
+  assets; one intervening semantic-quality `needs_review` result exercised the
+  bounded canary retry without causing an infrastructure failure or rollback.
+  The deploy gate independently reran the full 1,171/1,171 regression suite and
+  6,443-module production build. A real public audit then found that Nginx-served
+  SPA files bypassed Express security headers. The production virtual host is now
+  versioned in `scripts/nginx/shuimg.cn.conf`; deployment backs it up, validates
+  it with `nginx -t`, reloads safely, and restores it with the application on any
+  failed release. The live configuration passed syntax validation and the final
+  `https://shuimg.cn` SEO, security, health, billing and CORS audit passes 27/27
+  with one canonical copy of each security header. User-owned extension-task
+  deletions and `.tmp/` remain untouched.
