@@ -1082,3 +1082,19 @@
   production U2NetP model matches SHA-256
   `309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8`.
   The 12 user-owned extension-task deletions and `.tmp/` remain untouched.
+- Canvas generation surface convergence completed on 2026-08-04. Generation
+  nodes are now content-only until selected, with one contextual composer
+  anchored to the active node; image, copy, and ecommerce-suite composers use
+  the shared source tile layout, bottom-row @ references, fixed ratio/quality/
+  quantity controls, and no user-facing model selector. Portaled reference
+  menus stay inside the viewport, including mobile and left-rail edge cases.
+  Smart-layer results now materialize as a collapsed draggable group with
+  hidden child layers, processing cards and animated relation edges; uploads,
+  remove-background, smart-layer, crop, annotation and merge results no longer
+  show final-result metadata chrome. Plain T creates a real text node, and
+  annotation mode supports keyboard undo/redo. Focused and full regression
+  suites passed 38/38 and 1,126/1,126; production build, build check,
+  collaboration policy, and whitespace validation passed. Desktop/mobile
+  browser QA confirmed the compact nodes, contextual controls, and @ popup
+  remain within viewport bounds. The 12 user-owned extension-task deletions
+  and `.tmp/` remain untouched.

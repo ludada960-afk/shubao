@@ -374,11 +374,14 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
         const x2 = toPort.x;
         const y2 = toPort.y;
         const mx = (x1 + x2) / 2;
-        const style = styles[conn.relation || conn.type] || styles.reference;
+        const isProcessing = from.status === 'processing' || to.status === 'processing';
+        const style = isProcessing
+          ? { stroke: '#7c3aed', dash: '8 6' }
+          : styles[conn.relation || conn.type] || styles.reference;
         const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
         return (
           <g key={i}>
-            <path data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
+            <path className={isProcessing ? 'ec-canvas-edge-processing' : undefined} data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke', transition: 'opacity 0.16s, stroke-width 0.16s' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={isFocused ? 0.9 : 0.14} />
           </g>
         );
@@ -426,8 +429,16 @@ function readCanvasImageFiles(files = [], startedAt = Date.now()) {
   })));
 }
 
-async function persistCanvasUploadAssets(assets = []) {
-  const urls = await uploadECTempImages(assets.map(asset => asset.url));
+async function persistCanvasUploadAssets(assets = [], { allowLocalFallback = false } = {}) {
+  let urls;
+  try {
+    urls = await uploadECTempImages(assets.map(asset => asset.url));
+  } catch (error) {
+    if (allowLocalFallback && /failed to fetch|networkerror|load failed/i.test(String(error?.message || error))) {
+      return assets.map(asset => ({ ...asset, previewUrl: asset.url, temporary: true }));
+    }
+    throw error;
+  }
   if (urls.length !== assets.length || urls.some(url => !url)) {
     throw new Error('图片上传失败，请重试');
   }
@@ -558,11 +569,14 @@ export default function EcCanvas() {
   const selectedComposerSources = selectedNode
     ? (selectedNode.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url)
     : [];
-  const availableComposerSources = nodes.filter(node => node?.url && ['image', 'output', 'image-composer'].includes(node.kind) && node.id !== selectedNode?.id);
+  const availableComposerSources = nodes.filter(node => node?.url && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind) && node.id !== selectedNode?.id);
   const selectedComposerPosition = getCanvasComposerPresentation({
     node: selectedNode,
     selectedId: selected,
     selectedCount: multiSelected.size,
+    viewportBounds: containerRef.current?.getBoundingClientRect(),
+    viewport,
+    height: selectedNode?.kind === 'suite-composer' ? 420 : selectedNode?.kind === 'image-composer' ? 320 : 300,
   }).position;
 
   // toast helper
@@ -1039,6 +1053,13 @@ export default function EcCanvas() {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
       return;
     }
+    const activeNode = nodes.find(node => node.id === id);
+    if (activeNode?.layerChildIds?.length && !activeNode.layerExpanded) {
+      const childIds = new Set(activeNode.layerChildIds);
+      setNodes(previous => previous.map(node => node.id === id
+        ? { ...node, layerExpanded: true }
+        : childIds.has(node.id) ? { ...node, hidden: false } : node));
+    }
     if (e.ctrlKey || e.metaKey || e.shiftKey) {
       setMultiSelected(prev => {
         const next = new Set(prev);
@@ -1187,10 +1208,31 @@ export default function EcCanvas() {
   const handleSmartLayerMaterialization = useCallback(async (source, anchor = {}, { replaceNodeId = '' } = {}) => {
     const sourceUrl = source?.url || source?.assets?.find(asset => asset?.url)?.url || '';
     if (!source?.id || !sourceUrl || promptLoading) return;
+    const pendingId = replaceNodeId || `layer_group_pending_${Date.now()}`;
+    const pendingNode = {
+      id: pendingId,
+      kind: 'layer-group',
+      status: 'processing',
+      progressLabel: '正在识别商品、背景和文字',
+      x: Number.isFinite(anchor.x) ? anchor.x : source.x + source.w + GAP * 2,
+      y: Number.isFinite(anchor.y) ? anchor.y : source.y,
+      w: Math.max(220, source.w || 240),
+      h: Math.max(120, source.h || 240),
+      ratio: source.ratio || '1:1',
+      sourceNodeIds: [source.id],
+      actionId: 'layer-edit',
+      layerExpanded: false,
+      layerChildIds: [],
+      showMeta: false,
+    };
     setConnectionDraft(null);
     setConnectionPicker(null);
     setPointerMode(null);
     setPromptLoading(true);
+    setNodes(previous => [...previous.filter(node => node.id !== pendingId), pendingNode]);
+    setConnections(previous => [...removeConnectionsForNodes(previous, new Set([pendingId])), createChildConnection(source.id, pendingId, 'layer-edit')]);
+    setSelected(pendingId);
+    setMultiSelected(new Set([pendingId]));
     try {
       const data = await executeBrowserSegmentation({
         source,
@@ -1205,7 +1247,7 @@ export default function EcCanvas() {
         runId: createCanvasGenerationRunId(),
       });
       setNodes(previous => previous
-        .filter(node => !replaceNodeId || node.id !== replaceNodeId)
+        .filter(node => node.id !== pendingId)
         .map(node => node.id === source.id ? {
           ...node,
           layerStatus: data.status || 'complete',
@@ -1213,18 +1255,19 @@ export default function EcCanvas() {
         } : node)
         .concat(result.nodes));
       setConnections(previous => {
-        const retained = replaceNodeId
-          ? removeConnectionsForNodes(previous, new Set([replaceNodeId]))
-          : previous;
+        const retained = removeConnectionsForNodes(previous, new Set([pendingId]));
         return [...retained, ...result.connections];
       });
-      setSelected(result.nodes[0]?.id || source.id);
-      setMultiSelected(new Set(result.nodes.map(node => node.id)));
+      const groupNodeId = result.nodes[0]?.id || source.id;
+      setSelected(groupNodeId);
+      setMultiSelected(new Set([groupNodeId]));
       const warning = Array.isArray(data.warnings) && data.warnings.length
         ? `；${data.warnings.join('、')}`
         : '';
       showToast(`已生成 ${result.nodes.length} 个可独立拖动图层${warning}`, data.status === 'partial' ? 'info' : 'success');
     } catch (error) {
+      setNodes(previous => previous.filter(node => node.id !== pendingId));
+      setConnections(previous => removeConnectionsForNodes(previous, new Set([pendingId])));
       if (error?.name !== 'AbortError') handleCanvasActionError(error, { type: 'layer-edit', nodeId: source.id });
     } finally {
       setPromptLoading(false);
@@ -1233,7 +1276,26 @@ export default function EcCanvas() {
 
   const handleDirectRemoveBackground = useCallback(async (source, placement = {}) => {
     if (!source?.url || promptLoading) return;
+    const pendingId = `remove_bg_pending_${Date.now()}`;
+    const pendingNode = {
+      id: pendingId,
+      kind: 'layer-group',
+      status: 'processing',
+      progressLabel: '正在识别商品主体',
+      x: Number.isFinite(placement.x) ? placement.x : source.x + source.w + GAP * 2,
+      y: Number.isFinite(placement.y) ? placement.y : source.y,
+      w: Math.max(220, source.w || 240),
+      h: Math.max(120, source.h || 240),
+      ratio: source.ratio || '1:1',
+      sourceNodeIds: [source.id],
+      actionId: 'remove-bg',
+      showMeta: false,
+    };
     setPromptLoading(true);
+    setNodes(previous => [...previous, pendingNode]);
+    setConnections(previous => [...previous, createChildConnection(source.id, pendingId, 'remove-bg')]);
+    setSelected(pendingId);
+    setMultiSelected(new Set([pendingId]));
     try {
       const data = await executeBrowserSegmentation({ source, action: 'remove-bg', placement });
       const resultUrl = data.result_url || data.url;
@@ -1247,17 +1309,19 @@ export default function EcCanvas() {
         ...canvasImageResultGeometry(data, source),
         x: Number.isFinite(placement.x) ? placement.x : source.x + source.w + GAP * 2,
         y: Number.isFinite(placement.y) ? placement.y : source.y,
-        name: `${source.name || source.displayLabel || '电商图'}-透明底`,
-        displayLabel: `${source.name || source.displayLabel || '电商图'}-透明底`,
+        name: '',
+        displayLabel: '',
         sourceNodeIds: [source.id],
-        showMeta: true,
+        showMeta: false,
       });
-      setNodes(previous => [...previous, output]);
-      setConnections(previous => [...previous, createChildConnection(source.id, output.id, 'remove-bg-output')]);
+      setNodes(previous => [...previous.filter(node => node.id !== pendingId), output]);
+      setConnections(previous => [...removeConnectionsForNodes(previous, new Set([pendingId])), createChildConnection(source.id, output.id, 'remove-bg-output')]);
       setSelected(output.id);
       setMultiSelected(new Set([output.id]));
       showToast('去背完成，已生成可继续编辑的透明底图片', 'success');
     } catch (error) {
+      setNodes(previous => previous.filter(node => node.id !== pendingId));
+      setConnections(previous => removeConnectionsForNodes(previous, new Set([pendingId])));
       if (error?.name !== 'AbortError') handleCanvasActionError(error, { type: 'remove-bg', nodeId: source.id });
     } finally {
       setPromptLoading(false);
@@ -1580,7 +1644,7 @@ export default function EcCanvas() {
       displayLabel: layer.name || '独立图层',
       sourceNodeIds: [node.id],
       group: '素材',
-      showMeta: true,
+      showMeta: false,
       layerRole: /背景|底色|氛围/.test(String(layer.name || '')) ? 'background' : 'foreground',
       zIndex: /背景|底色|氛围/.test(String(layer.name || '')) ? 10 : 20,
     });
@@ -2035,7 +2099,7 @@ export default function EcCanvas() {
           name: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
           displayLabel: `${source.name || '图片'}-${FOCUSED_OUTPUT_LABELS[action] || '处理结果'}${urls.length > 1 ? index + 1 : ''}`,
           sourceNodeIds: [source.id],
-          showMeta: true,
+          showMeta: false,
         });
         occupied.push(child);
         return child;
@@ -2096,7 +2160,7 @@ export default function EcCanvas() {
           displayLabel: '合并图层',
           group: selectedNodes[0].group || '素材',
           sourceNodeIds: selectedNodes.map(node => node.id),
-          showMeta: true,
+          showMeta: false,
         });
         setNodes(previous => [...previous, merged]);
         setConnections(previous => selectedNodes.reduce((current, source) => addConnection(current, source.id, merged.id, 'merge'), previous));
@@ -2475,6 +2539,7 @@ export default function EcCanvas() {
       const text = String(response?.title || response?.text || response?.content || response?.body_text || composer.prompt).trim();
       setNodes(previous => previous.map(node => node.id === composer.id ? {
         ...node,
+        kind: 'text',
         status: 'success',
         text,
         name: text.split(/\r?\n/)[0]?.slice(0, 32) || '生成文案',
@@ -2539,7 +2604,7 @@ export default function EcCanvas() {
     setPromptLoading(true);
     try {
       const assets = await readCanvasImageFiles(files, uploadStartedAt);
-      const persistedAssets = await persistCanvasUploadAssets(assets);
+      const persistedAssets = await persistCanvasUploadAssets(assets, { allowLocalFallback: Boolean(result.browserQa) });
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
@@ -2549,7 +2614,9 @@ export default function EcCanvas() {
       setNodes(previous => [...previous, ...uploadedNodes]);
       setSelected(uploadedNodes[0]?.id || null);
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
-      showToast(`已加入 ${uploadedNodes.length} 张图片，可直接拖动、编辑或继续生成`, 'success');
+      showToast(persistedAssets.some(asset => asset.temporary)
+        ? `已加入 ${uploadedNodes.length} 张图片（当前网络不可用，仅保留本地预览）`
+        : `已加入 ${uploadedNodes.length} 张图片，可直接拖动、编辑或继续生成`, persistedAssets.some(asset => asset.temporary) ? 'info' : 'success');
     } catch (error) {
       showToast(error.message || '图片上传失败，请重试', 'error');
     } finally {
@@ -2564,7 +2631,7 @@ export default function EcCanvas() {
     const uploadStartedAt = Date.now();
     try {
       const assets = await readCanvasImageFiles(accepted, uploadStartedAt);
-      const persistedAssets = await persistCanvasUploadAssets(assets);
+      const persistedAssets = await persistCanvasUploadAssets(assets, { allowLocalFallback: Boolean(result.browserQa) });
       const uploadedNodes = createUploadedImageNodes({
         assets: persistedAssets,
         x: composer.x - persistedAssets.length * 278 - 36,
@@ -2586,7 +2653,9 @@ export default function EcCanvas() {
       setConnections(previous => uploadedIds.reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
       setSelected(composerId);
       setMultiSelected(new Set([composerId]));
-      showToast(`已连接 ${uploadedNodes.length} 张${role === 'product' ? '产品图' : '参考图'}`, 'success');
+      showToast(persistedAssets.some(asset => asset.temporary)
+        ? `已连接 ${uploadedNodes.length} 张图片（当前网络不可用，仅保留本地预览）`
+        : `已连接 ${uploadedNodes.length} 张${role === 'product' ? '产品图' : '参考图'}`, persistedAssets.some(asset => asset.temporary) ? 'info' : 'success');
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
     }
@@ -3044,6 +3113,21 @@ export default function EcCanvas() {
                   onDoubleClick={preview => setZoomImg({ url: preview.url, label: node.name || '商品素材' })}
                 />;
               }
+              if (node.kind === 'layer-group') {
+                return <CanvasGenerationNode
+                  key={node.id}
+                  node={node}
+                  selected={selectedNodeState}
+                  dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
+                  onPointerDown={handleNodeDown}
+                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
+                  onPortClick={event => handlePortClick(event, node.id)}
+                  onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+                  onHoverChange={setHoveredNodeId}
+                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                  onDoubleClick={node => node.url && setZoomImg({ url: node.url, label: '图片预览' })}
+                />;
+              }
               if (node.kind === 'image' || node.kind === 'output') {
                 return <StudioImageNode
                   key={node.id}
@@ -3062,7 +3146,7 @@ export default function EcCanvas() {
                   onDoubleClick={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
                 />;
               }
-              if (node.kind === 'text' || node.kind === 'text-composer') {
+              if (node.kind === 'text') {
                 return <StudioTextNode
                   key={node.id}
                   node={node}
@@ -3077,7 +3161,7 @@ export default function EcCanvas() {
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
-              if (node.kind === 'image-composer' || node.kind === 'suite-composer') {
+              if (node.kind === 'image-composer' || node.kind === 'text-composer' || node.kind === 'suite-composer') {
                 return <CanvasGenerationNode
                   key={node.id}
                   node={node}
@@ -3161,8 +3245,8 @@ export default function EcCanvas() {
               style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
-            {!focusedEditor && multiSelected.size <= 1 && selectedNode && !['text', 'text-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
-            {!focusedEditor && multiSelected.size <= 1 && ['text', 'text-composer'].includes(selectedNode?.kind) && <CanvasTextToolbar
+            {!focusedEditor && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {!focusedEditor && multiSelected.size <= 1 && selectedNode?.kind === 'text' && <CanvasTextToolbar
               node={selectedNode}
               viewport={viewport}
               bounds={containerRef.current?.getBoundingClientRect()}

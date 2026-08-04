@@ -147,8 +147,8 @@ test('text generation starts as an editable document body and keeps source refer
     status: 'ready',
     x: 600,
     y: 320,
-    w: 480,
-    h: 220,
+    w: 340,
+    h: 170,
     text: '',
     placeholder: '双击开始编辑...',
     prompt: '',
@@ -180,6 +180,24 @@ test('only one selected generation node receives a contextual composer position'
     visible: false,
     position: null,
   });
+  assert.deepEqual(getCanvasComposerPresentation({
+    node: { ...node, x: 760, y: 500 },
+    selectedId: node.id,
+    selectedCount: 1,
+    viewportBounds: { width: 800, height: 640 },
+    viewport: { x: 0, y: 0, scale: 1 },
+    height: 360,
+  }).position, { left: 148, top: 116, width: 640 });
+
+  const leftRail = getCanvasComposerPresentation({
+    node: { id: node.id, x: -40, y: 80, w: 240, h: 120 },
+    selectedId: node.id,
+    selectedCount: 1,
+    viewportBounds: { width: 800, height: 640 },
+    viewport: { x: 0, y: 0, scale: 1 },
+    height: 300,
+  });
+  assert.equal(leftRail.position.left, 72);
 });
 
 test('local edit selections are normalized before they become generation input', () => {
@@ -215,11 +233,36 @@ test('generation bodies render in the node map while one selected composer rende
   const nodeMap = page.slice(mapStart, mapEnd);
   const selectedSurface = page.slice(mapEnd);
   assert.match(nodeMap, /<CanvasGenerationNode/);
-  assert.match(nodeMap, /node\.kind === 'text-composer'[\s\S]*?<StudioTextNode/);
+  assert.match(nodeMap, /node\.kind === 'text-composer'[\s\S]*?<CanvasGenerationNode/);
   assert.doesNotMatch(nodeMap, /<CanvasImageComposer|<CanvasTextGenerationComposer|<CanvasEcommerceComposer/);
   assert.match(selectedSurface, /selectedNode\?\.kind === 'image-composer'[\s\S]*?<CanvasImageComposer/);
   assert.match(selectedSurface, /selectedNode\?\.kind === 'text-composer'[\s\S]*?<CanvasTextGenerationComposer/);
   assert.match(selectedSurface, /selectedNode\?\.kind === 'suite-composer'[\s\S]*?<CanvasEcommerceComposer/);
+});
+
+test('uploaded and edited canvas assets do not render result metadata chrome', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const model = readFileSync(new URL('../src/pages/EcCanvas/canvasStudioModel.js', import.meta.url), 'utf8');
+  assert.match(model, /showMeta: false/);
+  const focused = page.slice(page.indexOf('const handleFocusedEditorConfirm'), page.indexOf('const handleMultiSelectionAction'));
+  assert.doesNotMatch(focused, /showMeta:\s*true/);
+  assert.match(page, /name: '',[\s\S]*?displayLabel: '',[\s\S]*?showMeta: false/);
+});
+
+test('smart-layer generation keeps the result collapsed and expands only its hidden children later', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(page, /layerChildIds/);
+  assert.match(page, /layerExpanded: true/);
+  assert.match(page, /node\.kind === ['"]layer-group['"]/);
+  assert.match(page, /const groupNodeId = result\.nodes\[0\]\?\.id \|\| source\.id/);
+  assert.match(page, /setMultiSelected\(new Set\(\[groupNodeId\]\)\)/);
+});
+
+test('annotation editor handles undo and redo from the keyboard', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(source, /addEventListener\('keydown'/);
+  assert.match(source, /annotationHistory/);
+  assert.match(source, /annotationFuture/);
 });
 
 test('left-rail creation stays idle while source-derived creation opens its linked composer', () => {
@@ -261,7 +304,7 @@ test('plain text tools never route through image text generation', () => {
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   assert.match(page, /onText=\{\(\) => handleAddTextNode\(\)\}/);
   assert.match(page, /e\.key\.toLowerCase\(\) === ['"]t['"][\s\S]*?handleAddTextRef\.current/);
-  assert.match(page, /node\.kind === 'text' \|\| node\.kind === 'text-composer'/);
+  assert.match(page, /node\.kind === 'text'/);
   assert.doesNotMatch(page, /textComposerNodeId|textComposerValue/);
 });
 

@@ -67,7 +67,8 @@ test('legacy quick actions never duplicate the registry-driven command surfaces'
 
 test('only source and completed output images can create workflow children', () => {
   assert.equal(canDeriveFromNode({ kind: 'source_group', status: 'ready', assets: [{ url: '/product.png' }] }), true);
-  assert.equal(canDeriveFromNode({ kind: 'image', status: 'ready' }), true);
+  assert.equal(canDeriveFromNode({ kind: 'image', status: 'ready', url: '/image.png' }), true);
+  assert.equal(canDeriveFromNode({ kind: 'layer-group', status: 'success', url: '/group.png' }), true);
   assert.equal(canDeriveFromNode({ kind: 'output', status: 'completed', url: '/output.png' }), true);
   assert.equal(canDeriveFromNode({ kind: 'output', status: 'generating', url: '/output.png' }), false);
   for (const status of ['draft', 'analyzing', 'running', 'error']) {

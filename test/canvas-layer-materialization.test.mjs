@@ -31,13 +31,20 @@ test('smart layering materializes grouped product, instances, background and tex
   });
 
   assert.equal(result.nodes.length, 6);
-  assert.equal(result.connections.length, 6);
+  assert.equal(result.connections.length, 11);
   assert.equal(new Set(result.nodes.map(node => node.id)).size, 6);
   assert.deepEqual(result.nodes.map(node => node.semanticType), [
     'product-group', 'product-instance', 'product-instance', 'product-instance', 'background', 'text',
   ]);
-  assert.ok(result.nodes.every(node => node.sourceNodeIds.includes(source.id)));
-  assert.ok(result.connections.every(edge => edge.fromNodeId === source.id));
+  assert.equal(result.nodes[0].semanticType, 'product-group');
+  assert.equal(result.nodes[0].kind, 'layer-group');
+  assert.equal(result.nodes[0].layerExpanded, false);
+  assert.equal(result.nodes[0].layerChildIds.length, 5);
+  assert.equal(result.nodes[0].showMeta, false);
+  assert.ok(result.nodes.slice(1).every(node => node.hidden === true));
+  assert.ok(result.nodes.slice(1).every(node => node.parentLayerGroupId === result.nodes[0].id));
+  assert.ok(result.connections.some(edge => edge.fromNodeId === source.id && edge.toNodeId === result.nodes[0].id));
+  assert.ok(result.connections.some(edge => edge.fromNodeId === result.nodes[0].id));
   assert.ok(result.connections.every(edge => result.nodes.some(node => node.id === edge.toNodeId)));
   assert.ok(result.nodes.every(node => node.editable !== false));
   const text = result.nodes.find(node => node.kind === 'text');
@@ -67,6 +74,7 @@ test('smart layering produces stable non-overlapping placements from an explicit
   assert.deepEqual(result.nodes[0].y, 200);
   const positions = result.nodes.map(node => `${node.x}:${node.y}`);
   assert.equal(new Set(positions).size, result.nodes.length);
+  assert.equal(result.nodes[0].kind, 'layer-group');
   assert.deepEqual(
     materializeCanvasLayers({ sourceNode: source, runId: 'stable-run', anchor: { x: 500, y: 200 }, layers: result.layers }).nodes.map(node => node.id),
     result.nodes.map(node => node.id),

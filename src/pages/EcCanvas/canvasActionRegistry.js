@@ -2,7 +2,7 @@ import { formatCanvasActionPrice, getCanvasActionBilling } from './canvasBilling
 
 function isReadyImage(node = {}) {
   if (node.kind === 'output') return Boolean(node.url) && node.status === 'completed';
-  return node.kind === 'image' && ['ready', 'success', 'completed'].includes(node.status);
+  return ['image', 'layer-group'].includes(node.kind) && Boolean(node.url) && ['ready', 'success', 'completed'].includes(node.status);
 }
 
 export function canCreateWorkflowFromNode(node = {}) {

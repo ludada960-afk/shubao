@@ -224,6 +224,9 @@
 .ec-canvas-generation-node.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command), 0 12px 32px rgba(15, 23, 42, .14); }
 .ec-canvas-generation-node.is-dimmed { opacity: .25; }
 .ec-canvas-generation-node.is-image > div:first-child { overflow: hidden; border-radius: 7px; }
+.ec-canvas-generation-node.is-processing { border-style: dashed; border-color: #8b5cf6; animation: ecCanvasGeneratingCard 1.5s ease-in-out infinite; }
+.ec-canvas-generation-node.is-processing::after { position: absolute; inset: -2px; border: 1px solid rgba(139, 92, 246, .72); border-radius: 9px; box-shadow: 0 0 18px rgba(139, 92, 246, .28); content: ''; pointer-events: none; animation: ecCanvasGeneratingGlow 1.5s ease-in-out infinite; }
+.ec-canvas-generation-node.is-layer-group { background: #f6f7f9; }
 .ec-canvas-generation-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 28px; text-align: center; }
 .ec-canvas-generation-placeholder strong { color: #545d69; font-size: 14px; }
 .ec-canvas-generation-placeholder span { max-width: 390px; color: #9aa2ad; font-size: 11px; line-height: 1.55; }
@@ -374,6 +377,15 @@
 .ec-canvas-text-composer .ec-canvas-composer-heading { cursor: default; }
 .ec-canvas-suite-source-rows { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-bottom: 1px solid #edf0f3; }
 .ec-canvas-suite-source-rows .ec-canvas-composer-sources + .ec-canvas-composer-sources { border-left: 1px solid #edf0f3; }
+.ec-canvas-composer-source { width: 62px; height: 62px; flex: 0 0 62px; display: block; overflow: visible; }
+.ec-canvas-composer-source > div { width: 100% !important; height: 100% !important; overflow: hidden; border-radius: 5px; }
+.ec-canvas-composer-source > b { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; width: auto; padding: 3px 3px 2px; border-radius: 0 0 5px 5px; background: rgba(32, 36, 42, .62); color: #fff; font-size: 9px; line-height: 1.1; }
+.ec-canvas-composer-source-add { position: relative; width: 62px; height: 62px; flex: 0 0 62px; display: grid; place-items: center; align-content: center; gap: 3px; box-sizing: border-box; }
+.ec-canvas-composer-source-add small { display: block; color: #69727d; font-size: 9px; line-height: 1; }
+.ec-canvas-composer-mention { display: flex; align-items: center; margin-left: auto; }
+.ec-canvas-composer-mention .image-mention-trigger { width: 34px; height: 34px; }
+.ec-canvas-node-composer { max-width: calc(100vw - 24px); }
+.ec-canvas-composer-footer { flex-wrap: wrap; }
 
 .ec-canvas-focused-editor { position: absolute; z-index: 140; box-sizing: border-box; overflow: visible; border: 2px solid var(--canvas-command); border-radius: 8px; background: #fff; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12), 0 12px 30px rgba(15, 23, 42, .18); }
 .ec-canvas-focused-stage { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; border-radius: 6px; background-color: #eef1f4; background-image: linear-gradient(45deg, #e2e6ea 25%, transparent 25%), linear-gradient(-45deg, #e2e6ea 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e6ea 75%), linear-gradient(-45deg, transparent 75%, #e2e6ea 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; cursor: crosshair; }
@@ -416,9 +428,15 @@
 .ec-canvas-grid-guide.is-grid-5 { background-size: 20% 20%; background-image: linear-gradient(90deg, rgba(37,99,235,.75) 1px, transparent 1px), linear-gradient(rgba(37,99,235,.75) 1px, transparent 1px); }
 .ec-canvas-annotation-layer { width: 100%; height: 100%; overflow: visible; }
 
+.ec-canvas-edge-processing { stroke-dashoffset: 0; filter: drop-shadow(0 0 3px rgba(124, 58, 237, .58)); animation: ecCanvasEdgeGlow 1.1s linear infinite; }
+.ec-canvas-copy-node [role="textbox"] { min-height: 72px; padding: 14px 16px; }
+
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @keyframes ecCanvasPulse { 50% { opacity: .35; } }
+@keyframes ecCanvasGeneratingCard { 50% { box-shadow: 0 0 0 1px rgba(139, 92, 246, .75), 0 0 24px rgba(139, 92, 246, .22); } }
+@keyframes ecCanvasGeneratingGlow { 50% { opacity: .42; transform: scale(1.015); } }
+@keyframes ecCanvasEdgeGlow { to { stroke-dashoffset: -28; } }
 
 @media (max-width: 860px) {
   .ec-canvas-topbar { overflow-x: auto; }

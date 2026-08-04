@@ -1,6 +1,9 @@
 const MIN_NODE_WIDTH = 160;
 const MAX_NODE_WIDTH = 960;
 
+export const CANVAS_RATIO_OPTIONS = Object.freeze(['1:1', '3:4', '4:3', '9:16', '16:9']);
+export const CANVAS_RESOLUTION_OPTIONS = Object.freeze(['1K', '2K', '4K']);
+
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
 }
@@ -21,17 +24,34 @@ export function getCanvasNodePresentation({ selected = false, hovered = false, f
   };
 }
 
-export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 24 } = {}) {
+export function getCanvasComposerPresentation({ node, selectedId = '', selectedCount = 1, width = 640, gap = 24, height = 360, viewportBounds, viewport } = {}) {
   const visible = Boolean(node?.id && node.id === selectedId && Number(selectedCount) === 1);
   if (!visible) return { visible: false, position: null };
   const nodeWidth = Math.max(1, finite(node.w, width));
   const nodeHeight = Math.max(1, finite(node.h, 0));
+  const viewportWidth = finite(viewportBounds?.width);
+  const viewportHeight = finite(viewportBounds?.height);
+  const scale = Math.max(0.05, finite(viewport?.scale, 1));
+  const hasViewport = viewportWidth > 0 && viewportHeight > 0;
+  const panelWidth = hasViewport
+    ? Math.max(260, Math.min(width, viewportWidth / scale - 24 / scale))
+    : width;
+  // Keep the contextual composer clear of the fixed left tool rail when a node
+  // is close to the canvas edge.
+  const visibleLeft = hasViewport ? -finite(viewport?.x) / scale + 72 / scale : Number.NEGATIVE_INFINITY;
+  const visibleTop = hasViewport ? -finite(viewport?.y) / scale + 12 / scale : Number.NEGATIVE_INFINITY;
+  const visibleRight = hasViewport ? (viewportWidth - finite(viewport?.x)) / scale - 12 / scale : Number.POSITIVE_INFINITY;
+  const visibleBottom = hasViewport ? (viewportHeight - finite(viewport?.y)) / scale - 12 / scale : Number.POSITIVE_INFINITY;
+  const preferredLeft = finite(node.x) + (nodeWidth - panelWidth) / 2;
+  const belowTop = finite(node.y) + nodeHeight + gap;
+  const aboveTop = finite(node.y) - height - gap;
+  const preferredTop = hasViewport && belowTop + height > visibleBottom && aboveTop >= visibleTop ? aboveTop : belowTop;
   return {
     visible: true,
     position: {
-      left: Math.round(finite(node.x) + (nodeWidth - width) / 2),
-      top: Math.round(finite(node.y) + nodeHeight + gap),
-      width,
+      left: Math.round(hasViewport ? Math.min(visibleRight - panelWidth, Math.max(visibleLeft, preferredLeft)) : preferredLeft),
+      top: Math.round(hasViewport ? Math.min(visibleBottom - height, Math.max(visibleTop, preferredTop)) : preferredTop),
+      width: Math.round(panelWidth),
     },
   };
 }
@@ -106,8 +126,8 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
     status: 'ready',
     x: finite(x),
     y: finite(y),
-    w: 480,
-    h: 220,
+    w: 340,
+    h: 170,
     text: '',
     placeholder: '双击开始编辑...',
     prompt: '',

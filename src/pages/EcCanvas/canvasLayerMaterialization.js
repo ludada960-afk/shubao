@@ -1,6 +1,6 @@
 const GRID_COLUMNS = 3;
 const GRID_COLUMN_WIDTH = 278;
-const GRID_ROW_HEIGHT = 340;
+const GRID_ROW_HEIGHT = 300;
 
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -63,8 +63,8 @@ function textNode(layer, common) {
   return {
     ...common,
     kind: 'text',
-    w: 300,
-    h: 140,
+    w: 270,
+    h: 92,
     text: layer.text,
     placeholder: '输入文字',
     textStyle: {
@@ -88,7 +88,7 @@ function imageNode(layer, common) {
     url: layer.url,
     assetId: layer.assetId || '',
     loaded: false,
-    showMeta: true,
+    showMeta: false,
   };
 }
 
@@ -104,31 +104,77 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
   const stableRunId = safeId(runId, `run-${Date.now()}`);
   const originX = finite(anchor?.x, finite(sourceNode.x) + finite(sourceNode.w, 240) + 72);
   const originY = finite(anchor?.y, finite(sourceNode.y));
-  const nodes = validLayers.map((layer, index) => {
+  const semanticGroupIndex = validLayers.findIndex(layer => layer.semanticType === 'product-group');
+  const groupLayerIndex = semanticGroupIndex >= 0
+    ? semanticGroupIndex
+    : validLayers.findIndex(layer => layer.kind === 'image');
+  const groupLayer = groupLayerIndex >= 0
+    ? validLayers[groupLayerIndex]
+    : validLayers.find(layer => layer.kind === 'image') || validLayers[0];
+  const childLayers = validLayers.filter((_, index) => index !== groupLayerIndex);
+  const groupId = `layer_group_${stableRunId}`;
+  const groupCommon = {
+    id: groupId,
+    name: '',
+    displayLabel: '',
+    semanticType: 'product-group',
+    layerBounds: groupLayer.bounds || null,
+    confidence: Number.isFinite(Number(groupLayer.confidence)) ? Number(groupLayer.confidence) : null,
+    editable: true,
+    status: 'ready',
+    sourceNodeIds: [sourceId],
+    actionId: 'layer-edit',
+    group: '智能分层',
+    role: 'product-group',
+    x: originX,
+    y: originY,
+    hidden: false,
+    locked: false,
+    layerExpanded: false,
+    layerChildIds: [],
+    showMeta: false,
+  };
+  const groupNode = groupLayer.kind === 'text'
+    ? textNode(groupLayer, { ...groupCommon, kind: 'text' })
+    : imageNode(groupLayer, groupCommon);
+  groupNode.id = groupId;
+  groupNode.kind = 'layer-group';
+  groupNode.url = groupLayer.url || sourceNode.url || '';
+  groupNode.w = Math.max(220, finite(sourceNode.w, 240));
+  groupNode.h = Math.max(120, finite(sourceNode.h, 240));
+  groupNode.ratio = groupLayer.ratio || sourceNode.ratio || '1:1';
+  groupNode.layerCount = childLayers.length;
+
+  const childNodes = childLayers.map((layer, index) => {
     const col = index % GRID_COLUMNS;
     const row = Math.floor(index / GRID_COLUMNS);
     const id = `layer_${stableRunId}_${layer.id}`;
     const common = {
       id,
-      name: layer.name,
-      displayLabel: layer.name,
+      name: '',
+      displayLabel: '',
       semanticType: layer.semanticType,
       layerBounds: layer.bounds || null,
       confidence: Number.isFinite(Number(layer.confidence)) ? Number(layer.confidence) : null,
       editable: true,
       status: 'ready',
-      sourceNodeIds: [sourceId],
+      sourceNodeIds: [groupId],
       actionId: 'layer-edit',
       group: '智能分层',
       role: layer.semanticType,
-      x: originX + col * GRID_COLUMN_WIDTH,
+      parentLayerGroupId: groupId,
+      layerGroupId: groupId,
+      x: originX + groupNode.w + 48 + col * GRID_COLUMN_WIDTH,
       y: originY + row * GRID_ROW_HEIGHT,
-      hidden: false,
+      hidden: true,
       locked: false,
+      showMeta: false,
     };
     return layer.kind === 'text' ? textNode(layer, common) : imageNode(layer, common);
   });
-  const connections = nodes.map((node, index) => ({
+  groupNode.layerChildIds = childNodes.map(node => node.id);
+  const nodes = [groupNode, ...childNodes];
+  const connections = [groupNode, ...childNodes].map((node, index) => ({
     id: `edge_${stableRunId}_${index + 1}`,
     fromNodeId: sourceId,
     fromPort: 'output',
@@ -139,6 +185,17 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     from: sourceId,
     to: node.id,
     type: 'derived',
-  }));
+  })).concat(childNodes.map((node, index) => ({
+    id: `edge_${stableRunId}_group_${index + 1}`,
+    fromNodeId: groupId,
+    fromPort: 'output',
+    toNodeId: node.id,
+    toPort: 'input',
+    relation: 'derived',
+    actionId: 'layer-edit',
+    from: groupId,
+    to: node.id,
+    type: 'derived',
+  })));
   return { nodes, connections, layers: validLayers };
 }
