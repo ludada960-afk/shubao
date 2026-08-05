@@ -9,8 +9,8 @@ function imageIdentity(image = {}) {
   return String(image.sourceNodeId || image.id || image.assetId || image.url || '');
 }
 
-export default function ImageMentionPicker({ images = [], selectedImages = [], onToggle, disabled = false, selectionMode = 'toggle' }) {
-  const [open, setOpen] = useState(false);
+export default function ImageMentionPicker({ images = [], selectedImages = [], onToggle, disabled = false, selectionMode = 'toggle', open: controlledOpen, onOpenChange }) {
+  const [localOpen, setLocalOpen] = useState(false);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
@@ -19,6 +19,13 @@ export default function ImageMentionPicker({ images = [], selectedImages = [], o
   const selected = useMemo(() => buildImageMentions(selectedImages), [selectedImages]);
   const selectedIds = useMemo(() => new Set(selected.map(imageIdentity)), [selected]);
   const insertMode = selectionMode === 'insert';
+  const isControlled = typeof controlledOpen === 'boolean';
+  const open = isControlled ? controlledOpen : localOpen;
+  const setOpen = next => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (!isControlled) setLocalOpen(value);
+    onOpenChange?.(value);
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -27,6 +34,18 @@ export default function ImageMentionPicker({ images = [], selectedImages = [], o
     };
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
   }, [open]);
 
   const updateMenuPosition = useCallback(() => {

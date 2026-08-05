@@ -293,7 +293,7 @@ test('studio surface owns distinct add, selection and derivation controls', () =
   assert.match(source, /ParamsPanel/);
   assert.match(source, /CopyPanel/);
   assert.match(source, /GenSettingsPanel/);
-  assert.match(source, /const \[activePanel, setActivePanel\] = useState\(''\)/);
+  assert.match(source, /toggleCanvasComposerSurface/);
 });
 
 test('generation bodies render in the node map while one selected composer renders after it', () => {
@@ -379,6 +379,20 @@ test('canvas composers keep text boards editable and expose shared image-generat
   assert.match(source, /CANVAS_COUNT_OPTIONS/);
   assert.match(source, /aria-label="引用图片"/);
   assert.doesNotMatch(source, /描述要生成的标题、卖点、详情文案或设计要求/);
+});
+
+test('Canvas suite uses one editable overall plan and readable source naming', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  const model = readFileSync(new URL('../src/pages/EcCanvas/canvasSuitePlanModel.js', import.meta.url), 'utf8');
+  assert.match(source, /CanvasSuitePlanEditor/);
+  assert.match(source, /整体设计方案/);
+  assert.match(source, /data-suite-plan-field/);
+  assert.doesNotMatch(source, /<DirectionOptionCard/);
+  assert.match(source, /上传产品图/);
+  assert.match(source, /上传参考图/);
+  assert.match(source, /onOpenChange/);
+  assert.match(model, /visualDirection/);
+  assert.match(model, /shots/);
 });
 
 test('canvas text generation creates image results while retaining its editable board', () => {

@@ -323,16 +323,16 @@ test('an incomplete suite is repaired automatically and only the complete retry 
         status: 'needs_review',
         output: { images: {} },
         assets: [
-          { assetId: 'main-1', status: 'needs_review', previewUrl: '/api/generated-assets/review-1.png' },
+          { assetId: 'main-1', status: 'completed', stableUrl: '/api/generated-assets/partial-main.png' },
           { assetId: 'detail-1', status: 'needs_review', previewUrl: '/api/generated-assets/review-2.png' },
         ],
       });
     }
     if (path === '/api/ecommerce/jobs/task-review/retry-plan') {
-      return new Response(JSON.stringify({ plan: { sku: 'ec_image_2k', quantity: 2 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ plan: { sku: 'ec_image_2k', quantity: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (path === '/api/billing/quote') {
-      return new Response(JSON.stringify({ quote: { quoteId: 'retry-quote', totalUnits: 2 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ quote: { quoteId: 'retry-quote', totalUnits: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (path === '/api/ecommerce/jobs/task-review/retry-failed') {
       return new Response(JSON.stringify({ taskId: 'task-review-retry', status: 'queued' }), { status: 202, headers: { 'content-type': 'application/json' } });
@@ -433,7 +433,7 @@ test('a saved failed task requires an explicit retry before a replacement POST i
   ]);
 });
 
-test('SSE incomplete suite stops after bounded automatic repairs and never returns partial images', async t => {
+test('SSE full-batch failure stops without an automatic retry or billing quote', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   const storage = ecommerceStorage();
@@ -447,6 +447,7 @@ test('SSE incomplete suite stops after bounded automatic repairs and never retur
     if (path === '/api/generate-ecommerce') {
       return new Response(
         'data: {"type":"job","taskId":"task-sse-review"}\n\n' +
+        'data: {"type":"image","id":"main","state":"needs_review","previewUrl":"/api/generated-assets/sse-review.png"}\n\n' +
         'data: {"type":"complete","status":"needs_review","images":{"main":"/api/generated-assets/sse-review.png"},"errors":[]}\n\n',
         { status: 200, headers: { 'content-type': 'text/event-stream' } },
       );
@@ -480,16 +481,18 @@ test('SSE incomplete suite stops after bounded automatic repairs and never retur
       platform: '淘宝',
       draftId: 'ec-draft-sse-review',
     }),
-    error => error.code === 'ECOMMERCE_TASK_RETRY_REQUIRED' && error.retryable === true,
+    error => error.code === 'ECOMMERCE_TASK_RETRY_REQUIRED'
+      && error.retryable === true
+      && /停止自动重跑/.test(error.message),
   );
   assert.equal(loadEcommerceTaskReference({
     ownerEmail: 'owner@example.com',
     draftId: 'ec-draft-sse-review',
     storage,
-  }), null);
-  assert.equal(retryNumber, 2);
-  assert.equal(calls.filter(call => call.url.endsWith('/retry-failed')).length, 2);
-  assert.equal(calls.filter(call => call.url === '/api/billing/quote').length, 2);
+  })?.taskId, 'task-sse-review');
+  assert.equal(retryNumber, 0);
+  assert.equal(calls.filter(call => call.url.endsWith('/retry-failed')).length, 0);
+  assert.equal(calls.filter(call => call.url === '/api/billing/quote').length, 0);
 });
 
 test('legacy ecommerce SSE never previews a quality-check intermediate as a delivered image', async t => {

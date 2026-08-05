@@ -11,9 +11,8 @@ function normalizeRole(role) {
   return role === 'product' ? 'product' : 'reference';
 }
 
-function readableName(image, fallback) {
-  const raw = String(image?.name || image?.displayLabel || image?.label || '').trim().replace(/^@/, '');
-  return raw || fallback;
+function canonicalName(role, index) {
+  return `${role === 'product' ? '产品图' : '参考图'}${index + 1}`;
 }
 
 function referenceRecord(item) {
@@ -41,20 +40,22 @@ export function buildImageMentions(images = []) {
       sourceNodeId: String(image?.sourceNodeId || image?.id || identity),
       assetId: String(image?.assetId || ''),
       url,
-      name: readableName(image, ''),
+      name: '',
       role: normalizeRole(image?.role),
     });
   }
 
-  const labelCounts = new Map();
+  const roleOrders = new Map();
   return unique.map((image, order) => {
-    const name = readableName(image, `图片${order + 1}`);
-    const occurrence = (labelCounts.get(name) || 0) + 1;
-    labelCounts.set(name, occurrence);
+    const role = normalizeRole(image.role);
+    const roleIndex = roleOrders.get(role) || 0;
+    roleOrders.set(role, roleIndex + 1);
+    const name = canonicalName(role, roleIndex);
     return {
       ...image,
+      role,
       name,
-      label: `@${name}${occurrence > 1 ? occurrence : ''}`,
+      label: `@${name}`,
       order,
     };
   });

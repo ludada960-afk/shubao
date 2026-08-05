@@ -498,7 +498,7 @@ test('frontend stores the signed session and follows a 202 ecommerce job to stab
   }
 });
 
-test('frontend automatically replaces a needs-review job with one complete-suite retry', async t => {
+test('frontend automatically repairs a small partial failure with one failed-item retry', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   t.after(() => {
@@ -526,8 +526,11 @@ test('frontend automatically replaces a needs-review job with one complete-suite
       return new Response(JSON.stringify({ ok: true, task: {
         id: 'job-partial',
         status: 'needs_review',
-        output: { images: {}, errors: [] },
-        assets: [{ assetId: 'main', status: 'needs_review' }],
+        output: { images: { main: '/api/generated-assets/partial.png' }, errors: [] },
+        assets: [
+          { assetId: 'main', status: 'completed', stableUrl: '/api/generated-assets/partial.png' },
+          { assetId: 'detail', status: 'needs_review' },
+        ],
       } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (path === '/api/ecommerce/jobs/job-partial/retry-plan') {

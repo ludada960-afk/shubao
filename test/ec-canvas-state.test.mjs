@@ -180,7 +180,7 @@ test('image generation handlers remain executable from the non-hover creation su
 test('canvas interaction surfaces dismiss each other and text has one toolbar', () => {
   assert.match(canvasSource, /setContextMenu\(null\);\s*setConnectionPicker\(null\);\s*setAddMenuOpen\(false\);/);
   assert.match(canvasSource, /multiSelected\.size <= 1[\s\S]{0,260}<CanvasObjectToolbar/);
-  assert.match(canvasSource, /selectedNode\?\.kind === 'text' && <CanvasTextToolbar/);
+  assert.match(canvasSource, /\['text', 'text-composer'\]\.includes\(selectedNode\?\.kind\) && <CanvasTextToolbar/);
   assert.match(canvasStudioSource, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp/);
 });
 

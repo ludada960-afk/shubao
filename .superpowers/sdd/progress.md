@@ -1267,3 +1267,18 @@
   A post-timeout standalone verification passed with task
   `ec_614da207-c9ab-4214-b027-d0b1d5b2e3d4`; PM2 stayed on PID `3243301` and
   the remote deployment lock was cleared.
+- Canvas Studio experience upgrade completed locally on 2026-08-05. Image
+  sources now use canonical role labels (`产品图1` / `参考图1`) across tiles and
+  mentions; composer surfaces are centrally exclusive and close on outside
+  click, selection change, or Escape. Text nodes expose the complete readable
+  editing toolbar, while ecommerce planning is one editable overall design
+  plan with clear fields and per-image responsibilities. The visual layer now
+  has larger upload rails, readable labels, stronger focus states, responsive
+  toolbar overflow, and consistent spacing/shadows. Automatic ecommerce repair
+  now permits only one small partial-failure repair, never auto-retries a
+  full-batch failure, preserves the task reference, and supports explicit
+  failed-item retry. Focused model/API/browser contract tests pass; browser QA
+  at 1440x900 and 390x844 found no horizontal document overflow or console
+  errors. The full regression, build, deployment, and authenticated canary
+  checks remain to be run for this release. User-owned extension-task
+  deletions, `.tmp/`, and the unrelated diagnosis helper remain untouched.

@@ -8,6 +8,14 @@ export const CANVAS_RESOLUTION_OPTIONS = Object.freeze(['1K', '2K', '4K']);
 export const CANVAS_COUNT_OPTIONS = Object.freeze([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 export const CANVAS_SUITE_COUNT_OPTIONS = Object.freeze([3, 6, 9, 12]);
 
+export function toggleCanvasComposerSurface(current = '', next = '') {
+  return current === next ? '' : String(next || '');
+}
+
+export function closeCanvasComposerSurface() {
+  return '';
+}
+
 function finite(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
 }

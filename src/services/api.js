@@ -21,11 +21,12 @@ import {
 } from '../utils/workRecords.js';
 import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
 import { withTransientTaskSyncRetry } from './taskSync.js';
+import { getEcommerceAutoRepairDecision } from './ecommerceRetryPolicy.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 const ECOMMERCE_SUITE_REPAIR_VERSION = 1;
 const ECOMMERCE_SUITE_REPAIR_TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_AUTOMATIC_SUITE_REPAIRS = 2;
+const MAX_AUTOMATIC_SUITE_REPAIRS = 1;
 
 export const API = API_BASE;
 
@@ -145,11 +146,12 @@ function ecommerceTaskExpiredError(status) {
   return error;
 }
 
-function ecommerceRetryRequiredError(task) {
+function ecommerceRetryRequiredError(task, message = '本次未能形成完整套图，系统没有交付半成品。请在任务记录中选择失败项重试') {
   const error = ecommerceTaskError(task);
-  error.message = '本次未能形成完整套图，系统没有交付半成品。请重新完成整套生成';
+  error.message = message;
   error.code = 'ECOMMERCE_TASK_RETRY_REQUIRED';
   error.retryable = true;
+  error.resumeable = true;
   return error;
 }
 
@@ -201,16 +203,17 @@ async function repairIncompleteSuite(task, options) {
   const sourceTaskId = String(task?.id || task?.taskId || options.taskId || '').trim();
   if (!sourceTaskId) throw ecommerceRetryRequiredError(task);
   const repairAttempt = Number.isSafeInteger(options.repairAttempt) ? options.repairAttempt : 0;
-  if (repairAttempt >= MAX_AUTOMATIC_SUITE_REPAIRS) {
-    clearEcommerceTaskReference({
-      ownerEmail: options.ownerEmail,
-      draftId: options.draftId,
-      taskId: sourceTaskId,
-    });
-    clearSuiteRepairCheckpoint(options);
-    const error = ecommerceRetryRequiredError(task);
-    error.message = '系统已自动补全两轮，但仍未形成完整套图。本轮未交付，也未扣除未交付图片额度，请稍后重试';
-    throw error;
+  if (options.automaticRepair !== false) {
+    if (repairAttempt >= MAX_AUTOMATIC_SUITE_REPAIRS) {
+      throw ecommerceRetryRequiredError(task, '局部修复仍未完成，系统已停止自动重跑，避免重复扣费。请在任务记录中选择失败项重试');
+    }
+    const decision = getEcommerceAutoRepairDecision(task);
+    if (!decision.allowed) {
+      const message = decision.reason === 'full_batch_failed'
+        ? '本轮没有形成任何可交付图片，系统已停止自动重跑，避免重复扣费。请在任务记录中选择失败项重试'
+        : '本轮仍有未交付图片，系统已停止自动重跑，避免重复扣费。请在任务记录中选择失败项重试';
+      throw ecommerceRetryRequiredError(task, message);
+    }
   }
 
   options.onProgress?.({
@@ -256,6 +259,7 @@ async function repairIncompleteSuite(task, options) {
     ...options,
     initialTask: undefined,
     repairAttempt: repairAttempt + 1,
+    automaticRepair: false,
   });
 }
 
@@ -270,6 +274,7 @@ async function pollEcommerceTask(taskId, {
   signal,
   isCurrent,
   repairAttempt = 0,
+  automaticRepair = true,
 }) {
   const emitted = new Set();
   const pollLimit = Number.isSafeInteger(maxPollAttempts) && maxPollAttempts > 0 ? maxPollAttempts : 600;
@@ -288,6 +293,9 @@ async function pollEcommerceTask(taskId, {
     const status = taskStatus(task);
     const images = stableTaskImages(task);
     if (status === 'needs_review') {
+      if (!automaticRepair) {
+        throw ecommerceRetryRequiredError(task, '定向修复后仍有未交付图片，系统没有继续自动重跑。请在任务记录中选择失败项重试');
+      }
       return repairIncompleteSuite(task, {
         taskId,
         onImage,
@@ -299,6 +307,7 @@ async function pollEcommerceTask(taskId, {
         signal,
         isCurrent,
         repairAttempt,
+        automaticRepair: true,
       });
     }
     if (status === 'completed') {
@@ -791,6 +800,20 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
       if (typeof isCurrent === 'function' && !isCurrent()) return null;
       clearEcommerceTaskReference({ ownerEmail, draftId, taskId: savedReference.taskId });
       if (!retry) throw ecommerceRetryRequiredError(savedTask);
+    } else if (savedStatus === 'needs_review' && retry) {
+      return repairIncompleteSuite(savedTask, {
+        taskId: savedReference.taskId,
+        onImage,
+        onProgress,
+        pollIntervalMs,
+        maxPollAttempts,
+        ownerEmail,
+        draftId,
+        signal,
+        isCurrent,
+        repairAttempt: 0,
+        automaticRepair: false,
+      });
     } else {
       return pollEcommerceTask(savedReference.taskId, {
         initialTask: savedTask,
@@ -925,12 +948,12 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
           state: d.state || d.status || '',
           taskId: d.taskId || result.taskId || '',
         };
+        result.assets = [
+          ...result.assets.filter(asset => (asset.id || asset.assetId) !== image.id),
+          image,
+        ];
         if (isEcommerceAssetDeliverable(image)) {
           result.images[image.id] = image.stableUrl;
-          result.assets = [
-            ...result.assets.filter(asset => (asset.id || asset.assetId) !== image.id),
-            image,
-          ];
         }
       } else if (d.type === 'complete') {
         gotComplete = true;

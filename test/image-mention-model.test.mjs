@@ -16,33 +16,33 @@ const assets = [
   { id: 'product-a', assetId: 'asset-a', url: '/a.png', name: '重复图', role: 'reference' },
 ];
 
-test('image mentions are ordered, deduplicated and receive stable display labels', () => {
+test('image mentions use role-aware canonical names instead of raw filenames', () => {
   assert.deepEqual(buildImageMentions(assets), [
     {
       sourceNodeId: 'product-a',
       assetId: 'asset-a',
       url: '/a.png',
-      name: '正面图',
+      name: '产品图1',
       role: 'product',
-      label: '@正面图',
+      label: '@产品图1',
       order: 0,
     },
     {
       sourceNodeId: 'reference-b',
       assetId: 'asset-b',
       url: '/b.png',
-      name: '风格图',
+      name: '参考图1',
       role: 'reference',
-      label: '@风格图',
+      label: '@参考图1',
       order: 1,
     },
   ]);
 });
 
-test('toggling a mention preserves the remaining order and relabels it deterministically', () => {
+test('toggling a mention preserves the remaining role order and relabels it deterministically', () => {
   const selected = buildImageMentions(assets.slice(0, 2));
-  assert.deepEqual(toggleImageMention(selected, assets[0]).map(item => item.label), ['@风格图']);
-  assert.deepEqual(toggleImageMention(selected.slice(0, 1), assets[1]).map(item => item.label), ['@正面图', '@风格图']);
+  assert.deepEqual(toggleImageMention(selected, assets[0]).map(item => item.label), ['@参考图1']);
+  assert.deepEqual(toggleImageMention(selected.slice(0, 1), assets[1]).map(item => item.label), ['@产品图1', '@参考图1']);
 });
 
 test('canvas image requests use the first mention as source and preserve later reference order', () => {
@@ -51,8 +51,8 @@ test('canvas image requests use the first mention as source and preserve later r
     referenceImages: ['/b.png'],
     sourceNodeIds: ['product-a', 'reference-b'],
     references: [
-      { sourceNodeId: 'product-a', assetId: 'asset-a', url: '/a.png', displayName: '正面图', mention: '@正面图', role: 'product', order: 0 },
-      { sourceNodeId: 'reference-b', assetId: 'asset-b', url: '/b.png', displayName: '风格图', mention: '@风格图', role: 'reference', order: 1 },
+      { sourceNodeId: 'product-a', assetId: 'asset-a', url: '/a.png', displayName: '产品图1', mention: '@产品图1', role: 'product', order: 0 },
+      { sourceNodeId: 'reference-b', assetId: 'asset-b', url: '/b.png', displayName: '参考图1', mention: '@参考图1', role: 'reference', order: 1 },
     ],
   });
 });
@@ -67,35 +67,35 @@ test('ecommerce requests preserve product and reference roles', () => {
     productImages: ['/a.png', '/c.png'],
     referenceImages: ['/b.png'],
     assets: [
-      { sourceNodeId: 'product-a', assetId: 'asset-a', url: '/a.png', displayName: '正面图', mention: '@正面图', role: 'product', order: 0 },
-      { sourceNodeId: 'reference-b', assetId: 'asset-b', url: '/b.png', displayName: '风格图', mention: '@风格图', role: 'reference', order: 1 },
-      { sourceNodeId: 'product-c', assetId: '', url: '/c.png', displayName: '图片3', mention: '@图片3', role: 'product', order: 2 },
+      { sourceNodeId: 'product-a', assetId: 'asset-a', url: '/a.png', displayName: '产品图1', mention: '@产品图1', role: 'product', order: 0 },
+      { sourceNodeId: 'reference-b', assetId: 'asset-b', url: '/b.png', displayName: '参考图1', mention: '@参考图1', role: 'reference', order: 1 },
+      { sourceNodeId: 'product-c', assetId: '', url: '/c.png', displayName: '产品图2', mention: '@产品图2', role: 'product', order: 2 },
     ],
   });
 });
 
-test('duplicate human labels remain readable and deterministic', () => {
+test('canonical role labels remain readable and deterministic for duplicate assets', () => {
   assert.deepEqual(buildImageMentions([
     { id: 'a', url: '/a.png', name: '参考图' },
     { id: 'b', url: '/b.png', name: '参考图' },
-  ]).map(item => item.label), ['@参考图', '@参考图2']);
+  ]).map(item => item.label), ['@参考图1', '@参考图2']);
 });
 
 test('an image mention is inserted once with readable spacing', () => {
-  assert.equal(appendImageMention('', '@图片1'), '@图片1 ');
-  assert.equal(appendImageMention('保留杯身', '@图片2'), '保留杯身 @图片2 ');
-  assert.equal(appendImageMention('参考 @图片1 的构图', '@图片1'), '参考 @图片1 的构图');
+  assert.equal(appendImageMention('', '@参考图1'), '@参考图1 ');
+  assert.equal(appendImageMention('保留杯身', '@参考图2'), '保留杯身 @参考图2 ');
+  assert.equal(appendImageMention('参考 @参考图1 的构图', '@参考图1'), '参考 @参考图1 的构图');
 });
 
 test('removing an image mention only removes the selected token', () => {
-  assert.equal(removeImageMention('保留 @图片1 的主体，并参考 @图片2', '@图片1'), '保留 的主体，并参考 @图片2');
-  assert.equal(removeImageMention('@图片1 @图片2', '@图片2'), '@图片1');
-  assert.equal(removeImageMention('没有引用图片', '@图片1'), '没有引用图片');
+  assert.equal(removeImageMention('保留 @参考图1 的主体，并参考 @参考图2', '@参考图1'), '保留 的主体，并参考 @参考图2');
+  assert.equal(removeImageMention('@参考图1 @参考图2', '@参考图2'), '@参考图1');
+  assert.equal(removeImageMention('没有引用图片', '@参考图1'), '没有引用图片');
 });
 
 test('plain image URLs become stable mention candidates for content creation', () => {
   assert.deepEqual(buildImageMentions(['/a.png', '/b.png']).map(item => ({ label: item.label, url: item.url })), [
-    { label: '@图片1', url: '/a.png' },
-    { label: '@图片2', url: '/b.png' },
+    { label: '@参考图1', url: '/a.png' },
+    { label: '@参考图2', url: '/b.png' },
   ]);
 });

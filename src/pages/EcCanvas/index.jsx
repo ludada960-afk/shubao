@@ -60,6 +60,7 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createUploadedImageNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
+import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
 import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
@@ -530,6 +531,7 @@ export default function EcCanvas() {
   const [toast, setToast] = useState(null);
   const [promptLoading, setPromptLoading] = useState(false);
   const [editingTextNodeId, setEditingTextNodeId] = useState(null);
+  const [activeComposerSurface, setActiveComposerSurface] = useState('');
   const [focusedEditor, setFocusedEditor] = useState(null);
   const [imageInfoNode, setImageInfoNode] = useState(null);
   const [imageInfoName, setImageInfoName] = useState('');
@@ -557,6 +559,22 @@ export default function EcCanvas() {
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
   const workOutputFingerprintRef = useRef('');
+
+  useEffect(() => {
+    setActiveComposerSurface('');
+  }, [selected]);
+
+  useEffect(() => {
+    if (!activeComposerSurface) return undefined;
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setActiveComposerSurface('');
+      }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [activeComposerSurface]);
   const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
@@ -2490,8 +2508,9 @@ export default function EcCanvas() {
         const directions = Array.isArray(response?.directions) && response.directions.length
           ? response.directions
           : [{ title: '商品主视觉方案', hook: '保留商品主体，围绕平台和使用场景生成完整套图。', description: composer.prompt?.trim() || '' }];
+        const suitePlan = buildCanvasSuitePlan(directions[0], composer.prompt);
         setNodes(previous => previous.map(node => node.id === composer.id
-          ? { ...node, status: 'ready', suiteStep: 'directions', directions, selectedDirection: 0 }
+          ? { ...node, status: 'ready', suiteStep: 'directions', directions, suitePlan, selectedDirection: 0 }
           : node));
         showToast('整体设计规范与逐图计划已生成', 'success');
       } catch (error) {
@@ -2501,6 +2520,8 @@ export default function EcCanvas() {
       return;
     }
     updateComposerNode(composer.id, { status: 'processing', error: '', generatedCount: 0 });
+    const suitePlan = buildCanvasSuitePlan(composer.suitePlan || composer.directions?.[0], composer.prompt);
+    const directionSource = composer.directions?.[0] || {};
     const desiredCount = Math.max(3, Math.min(12, Number(composer.count) || 6));
     const mainCount = Math.min(3, Math.max(1, Math.floor((desiredCount - 1) / 2)));
     const detailCount = Math.max(1, desiredCount - 1 - mainCount);
@@ -2518,7 +2539,13 @@ export default function EcCanvas() {
         referenceImages: referenceNodes.map(node => ({ assetId: node.assetId, url: node.url, previewUrl: node.url, name: node.name || node.displayLabel, role: 'reference' })),
         assetMentions: roleAwareSources.assets,
         sceneStyle: [
-          composer.directions?.[composer.selectedDirection || 0]?.description,
+          suitePlan.brief,
+          `视觉方向：${suitePlan.visualDirection}`,
+          `商品策略：${suitePlan.productStrategy}`,
+          `目标人群：${suitePlan.audience}`,
+          `构图与光线：${suitePlan.composition}`,
+          `文案规则：${suitePlan.copyRules}`,
+          `一致性与风险：${suitePlan.qualityRisks}`,
           composer.prompt?.trim(),
           `输出语言：${composer.language || '中文'}`,
           `套图类型：${composer.suiteType || '完整套图'}`,
@@ -2537,7 +2564,7 @@ export default function EcCanvas() {
           copywritingMode: composer.copywritingMode || 'smart',
         },
         sizing: { ...(configuration.sizing || {}), smart: configuration.sizing?.smart ?? false, resolution: configuration.genSettings?.resolution || composer.resolution || '2K', images: imageSelections },
-        direction: composer.directions?.[composer.selectedDirection || 0] || null,
+        direction: applyCanvasSuitePlanToDirection(suitePlan, directionSource),
         email: phone,
         onProgress: progress => updateComposerNode(composer.id, { progress: progress?.progress || progress?.percent || 0, progressLabel: progress?.message || progress?.label || '正在生成套图' }),
         onImage: image => {
@@ -3351,7 +3378,7 @@ export default function EcCanvas() {
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
             {!focusedEditor && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
-            {!focusedEditor && multiSelected.size <= 1 && selectedNode?.kind === 'text' && <CanvasTextToolbar
+            {!focusedEditor && multiSelected.size <= 1 && ['text', 'text-composer'].includes(selectedNode?.kind) && <CanvasTextToolbar
               node={selectedNode}
               viewport={viewport}
               bounds={containerRef.current?.getBoundingClientRect()}
@@ -3363,10 +3390,12 @@ export default function EcCanvas() {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
               node={selectedNode}
               position={selectedComposerPosition}
-              sources={selectedComposerSources}
-              availableSources={availableComposerSources}
-              loading={selectedNode.status === 'processing'}
-              onChange={change => updateComposerNode(selectedNode.id, change)}
+               sources={selectedComposerSources}
+               availableSources={availableComposerSources}
+               loading={selectedNode.status === 'processing'}
+               activeSurface={activeComposerSurface}
+               onSurfaceChange={setActiveComposerSurface}
+               onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
               onToggleSource={source => toggleComposerSource(selectedNode.id, source, 'reference')}
@@ -3375,10 +3404,12 @@ export default function EcCanvas() {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'text-composer' && <CanvasTextGenerationComposer
               node={selectedNode}
               position={selectedComposerPosition}
-              sources={selectedComposerSources}
-              availableSources={availableComposerSources}
-              loading={selectedNode.status === 'processing'}
-              onChange={change => updateComposerNode(selectedNode.id, change)}
+               sources={selectedComposerSources}
+               availableSources={availableComposerSources}
+               loading={selectedNode.status === 'processing'}
+               activeSurface={activeComposerSurface}
+               onSurfaceChange={setActiveComposerSurface}
+               onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
               onToggleSource={source => toggleComposerSource(selectedNode.id, source, 'reference')}
@@ -3387,16 +3418,17 @@ export default function EcCanvas() {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'suite-composer' && <CanvasEcommerceComposer
               node={selectedNode}
               position={selectedComposerPosition}
-              sources={selectedComposerSources}
-              availableSources={availableComposerSources}
-              loading={selectedNode.status === 'processing'}
-              onChange={change => updateComposerNode(selectedNode.id, change)}
+               sources={selectedComposerSources}
+               availableSources={availableComposerSources}
+               loading={selectedNode.status === 'processing'}
+               activeSurface={activeComposerSurface}
+               onSurfaceChange={setActiveComposerSurface}
+               onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={(files, role) => handleComposerSourceUpload(selectedNode.id, files, role)}
-              onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
-              onToggleSource={(source, role) => toggleComposerSource(selectedNode.id, source, role)}
-              onGenerate={() => handleSuiteComposerGenerate(selectedNode)}
-              onChooseDirection={(_, index) => handleSuiteDirectionSelect(selectedNode.id, selectedNode.directions?.[index], index)}
-            />}
+               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
+               onToggleSource={(source, role) => toggleComposerSource(selectedNode.id, source, role)}
+               onGenerate={() => handleSuiteComposerGenerate(selectedNode)}
+             />}
             {connectionPicker && <CanvasDeriveMenu
               actions={connectionPicker.mode === 'image-editor'
                 ? actionsForSurface({ surface: 'image-editor', node: nodes.find(node => node.id === connectionPicker.sourceNodeId) })
