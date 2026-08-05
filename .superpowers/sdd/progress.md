@@ -1274,11 +1274,15 @@
   editing toolbar, while ecommerce planning is one editable overall design
   plan with clear fields and per-image responsibilities. The visual layer now
   has larger upload rails, readable labels, stronger focus states, responsive
-  toolbar overflow, and consistent spacing/shadows. Automatic ecommerce repair
-  now permits only one small partial-failure repair, never auto-retries a
-  full-batch failure, preserves the task reference, and supports explicit
-  failed-item retry. Focused model/API/browser contract tests pass; browser QA
-  at 1440x900 and 390x844 found no horizontal document overflow or console
-  errors. The full regression, build, deployment, and authenticated canary
-  checks remain to be run for this release. User-owned extension-task
-  deletions, `.tmp/`, and the unrelated diagnosis helper remain untouched.
+   toolbar overflow, and consistent spacing/shadows. Automatic ecommerce repair
+   now permits only one small partial-failure repair, never auto-retries a
+   full-batch failure, preserves the task reference, and supports explicit
+   failed-item retry. Full regression passed 1,192/1,192 tests; the production
+   build transformed 6,445 modules, and the asset and collaboration checks
+   passed. Release `d425479` is live at `https://shuimg.cn/` with public and
+   local health returning 200, PM2 on PID `3276104`, and the remote deploy lock
+   cleared. The deployment wrapper exceeded its local wait during the
+   600-second canary window, so authenticated billing and ecommerce verification
+   were rerun independently after the remote PM2 restart; both passed, including
+   delivery of three stable ecommerce assets. User-owned extension-task
+   deletions, `.tmp/`, and the unrelated diagnosis helper remain untouched.
