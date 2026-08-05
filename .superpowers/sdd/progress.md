@@ -1245,3 +1245,16 @@
   build passed, collaboration policy is READY, and whitespace validation is
   clean. The production diagnosis helper was removed; user-owned extension-task
   deletions and unrelated `.tmp/` research remain untouched.
+- Ecommerce creative workflow rebuild Task 3 completed locally on 2026-08-05.
+  The second-step direction cards now expose commercial objective, audience,
+  product strategy, exact image groups and expandable per-shot duties, with a
+  separately editable execution guide that keeps the edited direction selected
+  and reaches the durable generation brief. The direction grid is desktop 2x2
+  and mobile single-column. TDD red was observed before implementation; focused
+  direction/UI/route regression passed 73/73, full repository regression passed
+  1,184/1,184, the 6,443-module production build and post-build asset check
+  passed, collaboration policy is READY, and whitespace validation is clean.
+  Production deployment is pending the authenticated canary session token and
+  deployment SSH key in the current environment. The 12 user-owned
+  `server/extension_tasks` deletions, `.tmp/`, and the unrelated diagnosis
+  helper remain untouched.

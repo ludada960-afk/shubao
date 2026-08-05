@@ -36,7 +36,11 @@ import {
   saveEcommerceDirectionRefreshAction,
   startEcommerceGenerationLifecycle,
 } from './ecommerceTaskProgressModel.js';
-import { updateDirectionShotPlan } from './components/directionUiModel.js';
+import {
+  getDirectionExecutionGuide,
+  updateDirectionExecutionGuide,
+  updateDirectionShotPlan,
+} from './components/directionUiModel.js';
 
 function normalizeDirectionImages(images = []) {
   const seen = new Set();
@@ -467,6 +471,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     } catch (e) {
       if (!isGenerationCurrent(generationToken)) return;
       const failedQuoteId = billingQuote?.quoteId || '';
+      const fallbackDirection = directions[selected] || {};
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'ecommerce-direction',
         ownerEmail: state.phone,
@@ -475,7 +480,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         quoteId: failedQuoteId,
         action: pendingAction || buildEcommercePendingAction({
           platform: params?.platform || '淘宝',
-          direction: directions[selected] || {},
+          direction: {
+            ...fallbackDirection,
+            brief: getDirectionExecutionGuide(fallbackDirection),
+          },
           sizing: {
             ...(params?.sizing || {}),
             resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
@@ -640,7 +648,20 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 <MdRefresh size={14} />重新分析设计方案 · 1 AI 积分
               </button>
             </div>
-            <div role="radiogroup" aria-label="确认设计方案" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16, marginBottom: 24 }}>
+            <style>{`
+              .ec-direction-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 16px;
+                margin-bottom: 24px;
+              }
+              @media (max-width: 760px) {
+                .ec-direction-grid {
+                  grid-template-columns: 1fr;
+                }
+              }
+            `}</style>
+            <div role="radiogroup" aria-label="确认设计方案" className="ec-direction-grid">
               {directions.map((dir, i) => (
                 <DirectionOptionCard
                   key={dir.id || i}
@@ -648,6 +669,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   index={i}
                   selected={selected === i}
                   onSelect={index => { setSelected(index); setBlockedByCredits(false); }}
+                  onExecutionGuideChange={value => {
+                    setSelected(i);
+                    setDirections(previous => previous.map((item, itemIndex) => itemIndex === i
+                      ? updateDirectionExecutionGuide(item, value)
+                      : item));
+                    setBlockedByCredits(false);
+                  }}
                   onShotChange={(shotId, value) => {
                     setDirections(previous => previous.map((item, itemIndex) => itemIndex === i
                       ? updateDirectionShotPlan(item, shotId, value)

@@ -268,6 +268,30 @@ function safeDirectionCount(value) {
   return Number.isFinite(count) ? Math.max(0, Math.min(20, Math.trunc(count))) : 0;
 }
 
+const EXECUTION_GUIDE_MAX_LENGTH = 1200;
+
+/** Returns the editable guide without changing the configured image package. */
+export function getDirectionExecutionGuide(direction = {}) {
+  const source = safeDirectionRecord(direction);
+  return safeDirectionText(
+    source.execution_guide
+      ?? source.executionGuide
+      ?? source.description
+      ?? source.short_desc
+      ?? source.one_liner,
+    EXECUTION_GUIDE_MAX_LENGTH,
+  );
+}
+
+/** Updates only the guide text so the selected direction keeps its plan intact. */
+export function updateDirectionExecutionGuide(direction = {}, value = '') {
+  if (!direction || typeof direction !== 'object' || Array.isArray(direction)) return direction;
+  return {
+    ...direction,
+    execution_guide: String(value ?? '').slice(0, EXECUTION_GUIDE_MAX_LENGTH),
+  };
+}
+
 /**
  * Returns the decision-level information a merchant needs before selecting a
  * direction. The visual details stay separate from the editable execution

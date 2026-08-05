@@ -3,6 +3,7 @@ import { MdCheck, MdExpandLess, MdExpandMore } from 'react-icons/md';
 import {
   getDirectionCardState,
   getDirectionDeliverableGroups,
+  getDirectionExecutionGuide,
   getDirectionPlanSummary,
   getDirectionShotRows,
   getReadableTextColor,
@@ -28,6 +29,7 @@ import {
  * @param {number} props.index - 卡片索引
  * @param {boolean} props.selected - 是否选中
  * @param {Function} props.onSelect - 选择回调 (index) => void
+ * @param {Function} [props.onExecutionGuideChange] - 整套执行说明变化回调 (value) => void
  * @param {Function} [props.onShotChange] - 单张图片计划变化回调 (shotId, value) => void
  */
 export default function DirectionOptionCard({
@@ -35,6 +37,7 @@ export default function DirectionOptionCard({
   index,
   selected,
   onSelect,
+  onExecutionGuideChange,
   onShotChange,
 }) {
   const [isPlanExpanded, setIsPlanExpanded] = useState(false);
@@ -47,6 +50,7 @@ export default function DirectionOptionCard({
   const shotRows = getDirectionShotRows(direction);
   const deliverableSummary = summarizeDirectionDeliverables(direction);
   const planSummary = getDirectionPlanSummary(direction);
+  const executionGuide = getDirectionExecutionGuide(direction);
   const visualSystem = direction?.visual_system || {};
   const overallSpec = direction?.overall_spec || {};
 
@@ -192,6 +196,40 @@ export default function DirectionOptionCard({
           {(overallSpec.product_fidelity || direction?.consistency_locks?.length) && <div style={{ marginTop: 9, paddingTop: 8, borderTop: '1px solid #e3e6eb', fontSize: 10, lineHeight: 1.5, color: '#555d68' }}>
             <strong>商品一致性：</strong>{overallSpec.product_fidelity || direction.consistency_locks.join('；')}
           </div>}
+          {planSummary.strategyItems.length > 0 && (
+            <div style={{ marginTop: 9, paddingTop: 8, borderTop: '1px solid #e3e6eb' }}>
+              <strong style={{ fontSize: 10, color: '#555d68' }}>商品策略</strong>
+              <div style={{ display: 'grid', gap: 5, marginTop: 6 }}>
+                {planSummary.strategyItems.map(item => (
+                  <div key={item.key} style={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr)', gap: 6, fontSize: 10, lineHeight: 1.5 }}>
+                    <span style={{ color: '#818894', fontWeight: 800 }}>{item.label}</span>
+                    <span style={{ color: '#3f454e' }}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section data-editable-area style={{ marginTop: 12, padding: 12, borderRadius: 7, background: '#fffdf8', border: '1px solid #eee2c8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <strong style={{ fontSize: 12, color: '#352d23' }}>整套执行说明</strong>
+            <span style={{ fontSize: 9, color: '#8a8177' }}>确认后进入后续生成请求</span>
+          </div>
+          <textarea
+            data-editable-area
+            value={executionGuide}
+            aria-label={`编辑${direction?.title || `方案 ${index + 1}`}的整套执行说明`}
+            onFocus={() => onSelect?.(index)}
+            onChange={event => onExecutionGuideChange?.(event.target.value)}
+            onClick={event => event.stopPropagation()}
+            readOnly={!onExecutionGuideChange}
+            aria-readonly={!onExecutionGuideChange}
+            placeholder="补充这套方案的统一执行说明"
+            rows={4}
+            maxLength={1200}
+            style={{ width: '100%', boxSizing: 'border-box', marginTop: 7, padding: '8px 9px', border: '1px solid #e7dcc1', borderRadius: 6, background: '#fff', color: '#403a34', font: '11px/1.55 inherit', resize: 'vertical', outline: 'none' }}
+          />
         </section>
 
         {deliverableGroups.length > 0 && (
