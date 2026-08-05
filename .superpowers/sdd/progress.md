@@ -1254,7 +1254,16 @@
   direction/UI/route regression passed 73/73, full repository regression passed
   1,184/1,184, the 6,443-module production build and post-build asset check
   passed, collaboration policy is READY, and whitespace validation is clean.
-  Production deployment is pending the authenticated canary session token and
-  deployment SSH key in the current environment. The 12 user-owned
+  Production deployment completed after authenticated canary verification; the
+  12 user-owned
   `server/extension_tasks` deletions, `.tmp/`, and the unrelated diagnosis
   helper remain untouched.
+- Production deployment completed on 2026-08-05 for commit `b59dd6b` via
+  `scripts/deploy-production.ps1`. The first two attempts were automatically
+  rolled back by the production quality gate (`401` canary credential on the
+  first attempt, then a real provider result entering `needs_review`). The
+  successful release passed public health, billing, three-asset ecommerce
+  delivery, stable URL variants, Works continuity, and Canvas persistence.
+  A post-timeout standalone verification passed with task
+  `ec_614da207-c9ab-4214-b027-d0b1d5b2e3d4`; PM2 stayed on PID `3243301` and
+  the remote deployment lock was cleared.
