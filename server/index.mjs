@@ -762,53 +762,28 @@ async function generateImage(prompt, category, isCover, jkContext, customSize, r
 }
 
 // Ref: 参考图 base64，传给 GPT-Image-2 做视觉参考
-async function callImageAPI(fullPrompt, customSize, refImageBase64, generationSettings = {}, fallbackSize = '1024x1024') {
-  const url = `${IMG_BASE}/v1/images/generations`;
-  const size = customSize || '1024x1366';
-  const body = {
-    model: IMG_MODEL,
-    prompt: fullPrompt,
-    n: 1,
-    size,
-    response_format: 'url',
-  };
-  // 传参考图到生图模型（模型能看到产品原本的样子）
-  // 不额外收费——GPT-Image-2/image2image 按输出张数计费
+async function callImageAPI(fullPrompt, customSize, refImageBase64) {
+  const size = customSize || resolveGenerationSize({ resolution: '2K', ratio: '3:4' }).size;
+  const inputAssets = [];
   if (refImageBase64) {
-    body.image = refImageBase64;
+    const match = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=\s]+)$/i.exec(String(refImageBase64));
+    if (!match) throw new Error('参考图必须是 PNG、JPEG 或 WebP data URI');
+    const buffer = Buffer.from(match[2].replace(/\s/g, ''), 'base64');
+    if (!buffer.length) throw new Error('参考图不能为空');
+    inputAssets.push({ buffer, contentType: match[1].toLowerCase(), fileName: 'legacy-reference.png' });
   }
   return imageGenerationPool.run(async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => { try { controller.abort(); } catch(e) {} }, 300000);
-    let res;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...imageProviderAuthHeaders() },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-    } finally { clearTimeout(timeout); }
-
-    if (!res.ok && ['400', '422'].includes(String(res.status)) && body.size !== fallbackSize) {
-      const retryBody = { ...body, size: fallbackSize };
-      const retry = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...imageProviderAuthHeaders() },
-        body: JSON.stringify(retryBody),
-        signal: controller.signal,
-      });
-      if (retry.ok) {
-        const retryData = await retry.json();
-        return retryData.data?.[0]?.url || retryData.data?.[0]?.b64_json || '';
-      }
+    const submitted = await ecommerceProviderAdapter.submitEdit({
+      idempotencyKey: `legacy-image-${crypto.randomUUID()}`,
+      prompt: fullPrompt,
+      modelRoute: { model: IMG_MODEL, size, async: true, mode: inputAssets.length ? 'edit' : 'generate' },
+      inputAssets,
+    });
+    const completed = await ecommerceProviderAdapter.pollUntilReady(submitted.jobId);
+    if (completed.status !== 'completed' || !completed.outputUrl) {
+      throw new Error(completed.error || '图片任务未完成');
     }
-    if (!res.ok) {
-      const err = await res.text().catch(() => res.statusText);
-      throw new Error(`Image API error ${res.status}: ${err}`);
-    }
-    const data = await res.json();
-    return data.data?.[0]?.url || data.data?.[0]?.b64_json || '';
+    return completed.outputUrl;
   });
 }
 
@@ -3201,12 +3176,6 @@ const canvasOneShotBilling = createOneShotBilling({
   actionStore: createCanvasBilledActionStore(db),
 });
 
-function imageProviderAuthHeaders() {
-  return IMG_AUTH_STRATEGY === 'bearer'
-    ? { Authorization: `Bearer ${IMG_KEY}` }
-    : { 'x-api-key': IMG_KEY };
-}
-
 function imageProviderCredential() {
   return IMG_AUTH_STRATEGY === 'bearer'
     ? { bearerToken: IMG_KEY, authStrategy: 'bearer' }
@@ -4449,7 +4418,7 @@ httpServer = app.listen(PORT, () => {
   console.log(`║     → 内容策划/文案生成/分析推理 (纯文本)`);
   console.log(`║  ② 👁️ MINI(识图): ${MINI_BASE ? MINI_BASE + '/v1/chat/completions' : '未配置'} (${MINI_MODEL})`);
   console.log(`║     → 参考图分析/VLM视觉解析/产品识别`);
-  console.log(`║  ③ 🎨 IMAGE(生图): ${IMG_BASE}/v1/images/generations (${IMG_MODEL})`);
+  console.log(`║  ③ 🎨 IMAGE(生图): ${IMG_BASE}/v1/tasks (${IMG_MODEL}, async)`);
   console.log(`║     → 电商商品图/XHS配图/Plog图片生成`);
   console.log(`╚══════════════════════════════════════════════════╝`);
   console.log(`   HTTP: http://localhost:${PORT}`);

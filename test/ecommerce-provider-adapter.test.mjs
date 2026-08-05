@@ -82,6 +82,40 @@ test('native task protocol submits JSON data URIs and polls the documented task 
   assert.equal(requests[1].url, 'https://task-api.example.test/v1/tasks/native-job-1');
 });
 
+test('native task protocol submits text-only image tasks without a reference image', async () => {
+  let captured;
+  const adapter = createProviderAdapter({
+    baseUrl: 'https://task-api.example.test',
+    bearerToken: 'bearer-secret',
+    protocol: 'native-tasks',
+    fetchImpl: async (url, init) => {
+      captured = { url, init };
+      return jsonResponse(202, { id: 'native-text-job-1', kind: 'image', status: 'pending' });
+    },
+  });
+
+  const submitted = await adapter.submitEdit({
+    idempotencyKey: 'legacy-text-image-1',
+    prompt: 'A clean ecommerce product poster on a white background.',
+    modelRoute: { model: 'gpt-image-2', size: '1536x2048', async: true, mode: 'generate' },
+    inputAssets: [],
+  });
+
+  assert.deepEqual(submitted, { jobId: 'native-text-job-1', status: 'queued' });
+  assert.equal(captured.url, 'https://task-api.example.test/v1/tasks');
+  const payload = JSON.parse(captured.init.body);
+  assert.deepEqual(payload, {
+    kind: 'image',
+    model: 'gpt-image-2',
+    input: {
+      prompt: 'A clean ecommerce product poster on a white background.',
+      size: '3:4',
+      resolution: '2k',
+      n: 1,
+    },
+  });
+});
+
 test('submits indexed multipart edits with async mode and bearer auth only', async () => {
   let captured;
   const adapter = createProviderAdapter({

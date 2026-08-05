@@ -255,12 +255,12 @@ async function buildNativeTask(request) {
   const route = own(request, 'modelRoute');
   const model = cleanString(own(route, 'model'));
   const size = cleanString(own(route, 'size'));
-  const assets = own(request, 'inputAssets');
+  const assets = own(request, 'inputAssets') ?? [];
   if (!SAFE_IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
     throw new TypeError('provider edit idempotency key is invalid');
   }
   if (!prompt || !model || !size) throw new TypeError('provider edit prompt, model, and size are required');
-  if (!Array.isArray(assets) || assets.length === 0) throw new TypeError('provider edit requires image inputs');
+  if (!Array.isArray(assets)) throw new TypeError('provider image inputs must be an array');
   if (assets.length > MAX_INPUT_IMAGES) throw new RangeError('provider edit accepts at most 10 images');
   const nativeSizing = resolveNativeTaskSizing(size);
 
@@ -277,7 +277,7 @@ async function buildNativeTask(request) {
         prompt,
         ...nativeSizing,
         n: 1,
-        image: images.length === 1 ? images[0] : images,
+        ...(images.length ? { image: images.length === 1 ? images[0] : images } : {}),
       },
     }),
     idempotencyKey,
