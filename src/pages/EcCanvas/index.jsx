@@ -592,6 +592,9 @@ export default function EcCanvas() {
   const selectedComposerSources = selectedNode
     ? (selectedNode.sourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
     : [];
+  const selectedComposerMentions = selectedNode
+    ? (selectedNode.mentionSourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
+    : [];
   const selectedComposerPosition = getCanvasComposerPresentation({
     node: selectedNode,
     selectedId: selected,
@@ -2319,17 +2322,10 @@ export default function EcCanvas() {
     // 左侧添加是独立节点；只有图片右侧派生或显式传入 sourceNodeId 才建立引用关系。
     const sourceNodeId = placement.sourceNodeId || '';
     const sourceNodeIds = [...new Set([...(placement.sourceNodeIds || []), sourceNodeId].filter(Boolean))];
-    const sourceMentions = buildImageMentions(sourceNodeIds
-      .map(id => nodes.find(node => node.id === id))
-      .filter(node => node?.url));
-    const initialPrompt = sourceMentions.reduce(
-      (text, mention) => appendImageMention(text, mention.label),
-      String(placement.prompt || ''),
-    );
     const size = kind === 'suite' ? { w: 640, h: 420 } : kind === 'text' ? { w: 480, h: 220 } : { w: 280, h: 280 };
     const position = createComposerPlacement(size.w, size.h, { ...placement, sourceNodeId });
     const baseComposer = kind === 'suite'
-      ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: result.platform || '淘宝' })
+      ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: 'smart' })
       : kind === 'text'
         ? createCanvasTextComposerNode({ ...position, sourceNodeId })
         : createCanvasImageComposerNode({ ...position, sourceNodeId });
@@ -2337,7 +2333,7 @@ export default function EcCanvas() {
       ...baseComposer,
       sourceNodeIds,
       sourceRoles: Object.fromEntries(sourceNodeIds.map(id => [id, kind === 'suite' ? 'product' : 'reference'])),
-      ...(initialPrompt ? { prompt: initialPrompt } : {}),
+      ...(placement.prompt ? { prompt: String(placement.prompt) } : {}),
       ...(placement.actionId ? { actionId: placement.actionId } : {}),
       ...(placement.selection ? { selection: normalizeCanvasSelection(placement.selection) } : {}),
     };
@@ -2369,7 +2365,8 @@ export default function EcCanvas() {
 
   const handleImageComposerGenerate = useCallback(async composer => {
     if (!composer?.prompt?.trim() || composer.status === 'processing') return;
-    const sourceNodes = (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
+    const sourceNodes = composerSourceIds.map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
     const sourceReferences = buildCanvasImageReferencePayload(buildImageMentions(sourceNodes.map(node => ({
       ...node,
       role: composer.sourceRoles?.[node.id] || (node.id === composer.sourceNodeIds?.[0] ? 'product' : 'reference'),
@@ -2470,7 +2467,8 @@ export default function EcCanvas() {
 
   const handleSuiteComposerGenerate = useCallback(async composer => {
     if (!composer || composer.status === 'processing') return;
-    const sourceNodes = (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
+    const sourceNodes = composerSourceIds.map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
     const productNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'product');
     const referenceNodes = sourceNodes.filter(node => (composer.sourceRoles?.[node.id] || 'product') === 'reference');
     const sourceMentions = buildImageMentions(sourceNodes.map(node => ({
@@ -2494,7 +2492,7 @@ export default function EcCanvas() {
           real_shots: productNodes.slice(0, 6).map(node => node.url),
           ref_shots: referenceNodes.slice(0, 6).map(node => node.url),
           asset_mentions: roleAwareSources.assets,
-          platform: configuration.platform === 'smart' ? (composer.platform || result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
+          platform: configuration.platform === 'smart' ? (composer.platform && composer.platform !== 'smart' ? composer.platform : result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
           style_skill: configuration.styleSkill || composer.styleSkill || 'smart',
           product_params: configuration.productParams || {},
           skus: configuration.skus || [],
@@ -2552,7 +2550,7 @@ export default function EcCanvas() {
           `商品信息模式：${composer.productInfoMode === 'prompt' ? '优先使用描述' : '自动识别'}`,
           `文案策划：${composer.copywritingMode === 'none' ? '不生成文案' : 'AI规划文案'}`,
         ].filter(Boolean).join('\n') || result.product_name || '专业电商视觉',
-        platform: configuration.platform === 'smart' ? (composer.platform || result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
+        platform: configuration.platform === 'smart' ? (composer.platform && composer.platform !== 'smart' ? composer.platform : result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
         batchPlan: { imageSelections },
         generationSettings: {
           ...(configuration.genSettings || {}),
@@ -2620,7 +2618,8 @@ export default function EcCanvas() {
     if ((!boardText && !promptText) || composer.status === 'processing') return;
     updateComposerNode(composer.id, { status: 'processing', error: '' });
     try {
-      const sourceNodes = (composer.sourceNodeIds || [])
+      const composerSourceIds = [...new Set([...(composer.sourceNodeIds || []), ...(composer.mentionSourceNodeIds || [])])];
+      const sourceNodes = composerSourceIds
         .map(id => nodes.find(node => node.id === id))
         .filter(node => node?.url);
       const sourceReferences = buildCanvasImageReferencePayload(buildImageMentions(sourceNodes.map((node, index) => ({
@@ -2795,6 +2794,7 @@ export default function EcCanvas() {
       ? {
         ...node,
         sourceNodeIds: (node.sourceNodeIds || []).filter(id => id !== sourceId),
+        mentionSourceNodeIds: (node.mentionSourceNodeIds || []).filter(id => id !== sourceId),
         sourceRoles: Object.fromEntries(Object.entries(node.sourceRoles || {}).filter(([id]) => id !== sourceId)),
         prompt: mention?.label ? removeImageMention(node.prompt, mention.label) : node.prompt,
       }
@@ -2805,24 +2805,16 @@ export default function EcCanvas() {
   const toggleComposerSource = useCallback((composerId, image, role = 'reference') => {
     const sourceId = String(image?.sourceNodeId || image?.id || '');
     if (!sourceId) return;
-    const composer = nodes.find(node => node.id === composerId);
-    const exists = composer?.sourceNodeIds?.includes(sourceId);
-    if (exists) {
-      setNodes(previous => previous.map(node => node.id === composerId ? {
-        ...node,
-        sourceRoles: { ...(node.sourceRoles || {}), [sourceId]: role },
-        prompt: appendImageMention(node.prompt, image?.label),
-      } : node));
-      return;
-    }
     setNodes(previous => previous.map(node => node.id === composerId ? {
       ...node,
-      sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), sourceId])],
-      sourceRoles: { ...(node.sourceRoles || {}), [sourceId]: role },
-      prompt: appendImageMention(node.prompt, image?.label),
+      mentionSourceNodeIds: (node.mentionSourceNodeIds || []).includes(sourceId)
+        ? (node.mentionSourceNodeIds || []).filter(id => id !== sourceId)
+        : [...new Set([...(node.mentionSourceNodeIds || []), sourceId])],
+      prompt: (node.mentionSourceNodeIds || []).includes(sourceId)
+        ? removeImageMention(node.prompt, image?.label)
+        : appendImageMention(node.prompt, image?.label),
     } : node));
-    setConnections(previous => addConnection(previous, sourceId, composerId, 'derived'));
-  }, [nodes, removeComposerSource]);
+  }, []);
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
@@ -3391,6 +3383,7 @@ export default function EcCanvas() {
               node={selectedNode}
               position={selectedComposerPosition}
                sources={selectedComposerSources}
+               mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
                loading={selectedNode.status === 'processing'}
                activeSurface={activeComposerSurface}
@@ -3405,6 +3398,7 @@ export default function EcCanvas() {
               node={selectedNode}
               position={selectedComposerPosition}
                sources={selectedComposerSources}
+               mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
                loading={selectedNode.status === 'processing'}
                activeSurface={activeComposerSurface}
@@ -3419,6 +3413,7 @@ export default function EcCanvas() {
               node={selectedNode}
               position={selectedComposerPosition}
                sources={selectedComposerSources}
+               mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
                loading={selectedNode.status === 'processing'}
                activeSurface={activeComposerSurface}

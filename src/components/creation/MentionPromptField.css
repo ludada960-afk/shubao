@@ -1,0 +1,41 @@
+.mention-prompt-field {
+  min-height: 96px;
+  box-sizing: border-box;
+  margin: 0 16px 14px;
+  width: calc(100% - 32px);
+  padding: 14px 15px;
+  overflow: auto;
+  border: 1px solid #dfe4ea;
+  border-radius: 9px;
+  outline: 0;
+  background: #fbfcfd;
+  color: #20242a;
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.mention-prompt-field:focus {
+  border-color: #7da5ef;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .1);
+  background: #fff;
+}
+.mention-prompt-field:empty::before {
+  content: attr(data-placeholder);
+  color: #8993a0;
+  pointer-events: none;
+}
+.mention-prompt-field.is-disabled {
+  opacity: .62;
+  pointer-events: none;
+}
+.mention-prompt-token {
+  display: inline;
+  padding: 1px 4px;
+  border-radius: 5px;
+  color: #1769e0;
+  background: #eaf2ff;
+  font-weight: 700;
+  white-space: nowrap;
+}

@@ -22,7 +22,7 @@ import {
   resolveEcommercePlan,
 } from './ecommercePlanModel.js';
 import { buildSupplementDeck, withEcommerceCanvasSources } from './workbenchState';
-import DirectionOptionCard from './components/DirectionOptionCard';
+import EcommerceDesignPlanEditor from './EcommerceDesignPlanEditor.jsx';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import {
@@ -38,8 +38,6 @@ import {
 } from './ecommerceTaskProgressModel.js';
 import {
   getDirectionExecutionGuide,
-  updateDirectionExecutionGuide,
-  updateDirectionShotPlan,
 } from './components/directionUiModel.js';
 
 function normalizeDirectionImages(images = []) {
@@ -366,7 +364,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationSignal);
       if (!isGenerationCurrent(generationToken) || !uploadedSupplement) return;
       const dir = directions[selected];
-      const editableBrief = dir?.execution_guide || dir?.description || dir?.short_desc || '';
+      const editableBrief = dir?.brief || dir?.execution_guide || dir?.description || dir?.short_desc || '';
       const directionBrief = [dir?.title, dir?.one_liner, editableBrief].filter(Boolean).join('。');
       pendingAction = buildEcommercePendingAction({
         platform: params?.platform || '淘宝',
@@ -631,13 +629,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           </div>
         )}
 
-        {/* ── 方向卡片 ── */}
+        {/* ── 统一设计方案 ── */}
         {!loading && directions.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#1f2937' }}>整体设计规范与图片规划</div>
-                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>整体视觉规范由系统统一锁定；每张图片的标题、职责和执行要求可以逐项调整。</div>
+                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>先确认统一视觉规则，再逐张调整执行重点和画面比例。</div>
               </div>
               <button
                 type="button"
@@ -648,43 +646,17 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 <MdRefresh size={14} />重新分析设计方案 · 1 AI 积分
               </button>
             </div>
-            <style>{`
-              .ec-direction-grid {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 16px;
-                margin-bottom: 24px;
-              }
-              @media (max-width: 760px) {
-                .ec-direction-grid {
-                  grid-template-columns: 1fr;
-                }
-              }
-            `}</style>
-            <div role="radiogroup" aria-label="确认设计方案" className="ec-direction-grid">
-              {directions.map((dir, i) => (
-                <DirectionOptionCard
-                  key={dir.id || i}
-                  direction={dir}
-                  index={i}
-                  selected={selected === i}
-                  onSelect={index => { setSelected(index); setBlockedByCredits(false); }}
-                  onExecutionGuideChange={value => {
-                    setSelected(i);
-                    setDirections(previous => previous.map((item, itemIndex) => itemIndex === i
-                      ? updateDirectionExecutionGuide(item, value)
-                      : item));
-                    setBlockedByCredits(false);
-                  }}
-                  onShotChange={(shotId, value) => {
-                    setDirections(previous => previous.map((item, itemIndex) => itemIndex === i
-                      ? updateDirectionShotPlan(item, shotId, value)
-                      : item));
-                    setBlockedByCredits(false);
-                  }}
-                />
-              ))}
-            </div>
+            <EcommerceDesignPlanEditor
+              direction={directions[selected] || directions[0]}
+              prompt={extraDesc || params?.description}
+              onChange={plan => {
+                const activeIndex = Math.min(selected, directions.length - 1);
+                setDirections(previous => previous.map((item, itemIndex) => itemIndex === activeIndex
+                  ? { ...item, ...plan, brief: plan.brief, one_liner: plan.brief, execution_guide: plan.brief }
+                  : item));
+                setBlockedByCredits(false);
+              }}
+            />
 
             {/* ── 补充素材与调整：复用第一步工作台 ── */}
             <div style={{ background: '#fff', borderRadius: 16, padding: '16px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', marginBottom: 20 }}>

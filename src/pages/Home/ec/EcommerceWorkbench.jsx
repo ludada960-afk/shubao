@@ -1,8 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
-import { appendImageMention } from '../../../components/creation/imageMentionModel.js';
+import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
+import { appendImageMention, buildImageMentions, removeImageMention } from '../../../components/creation/imageMentionModel.js';
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 
 function ImageCard({ role, image, label, index, onRemove }) {
@@ -47,12 +48,22 @@ export default function EcommerceWorkbench({
 }) {
   const productInputRef = useRef(null);
   const referenceInputRef = useRef(null);
+  const [mentionedIds, setMentionedIds] = useState([]);
   const deck = buildUploadDeck({ productImages, refImages });
   const nextSlot = nextProductSlot(productImages.length);
   const mentionImages = [
     ...deck.productRail.map((image, index) => ({ ...image, id: image.id || `product-${index}`, name: nextProductSlot(index).label, role: 'product' })),
     ...deck.referenceRail.map((image, index) => ({ ...image, id: image.id || `reference-${index}`, name: `参考图 ${index + 1}`, role: 'reference' })),
   ];
+  const normalizedMentionImages = buildImageMentions(mentionImages);
+  const selectedMentionImages = normalizedMentionImages.filter(image => mentionedIds.includes(String(image.sourceNodeId)));
+  const handleMentionToggle = image => {
+    const id = String(image?.id || image?.sourceNodeId || '');
+    if (!id) return;
+    const selected = mentionedIds.includes(id);
+    setMentionedIds(previous => selected ? previous.filter(value => value !== id) : [...previous, id]);
+    onDescriptionChange(selected ? removeImageMention(description, image.label) : appendImageMention(description, image.label));
+  };
 
   return (
     <section className="ec-workbench" aria-label="电商生图工作台">
@@ -106,23 +117,26 @@ export default function EcommerceWorkbench({
 
         <div className="ec-textarea-wrap ec-xhs-prompt">
           {!description && (
-            <div className="ec-textarea-placeholder ec-xhs-placeholder">
+            <div className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints">
               <span className="ec-placeholder-line"><span className="ec-cursor ec-xhs-cursor" aria-hidden="true" />{promptTitle}</span>
               {promptExamples.slice(0, 2).map((example, index) => <span key={example} className={`ec-placeholder-line ${index === 0 ? 'ec-xhs-example-first' : ''}`}>{example}</span>)}
             </div>
           )}
-          <textarea
+          <MentionPromptField
             value={description}
-            onChange={event => onDescriptionChange(event.target.value)}
+            mentions={selectedMentionImages}
+            onChange={value => onDescriptionChange(value)}
             className={!description ? 'ec-empty' : ''}
+            placeholder=""
             aria-label="补充商品信息和生成要求"
           />
         </div>
         <div className="ec-workbench-mention-row">
           <ImageMentionPicker
             images={mentionImages}
+            selectedImages={selectedMentionImages}
             selectionMode="insert"
-            onToggle={image => onDescriptionChange(appendImageMention(description, image.label))}
+            onToggle={handleMentionToggle}
           />
         </div>
       </div>

@@ -602,10 +602,11 @@
   height: 94px;
   flex: 0 0 76px;
   box-sizing: border-box;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 10px 7px;
   overflow: visible;
   border-color: #aeb9c8;
@@ -619,9 +620,18 @@
   max-width: 100%;
   overflow: visible;
   color: #4e5967;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.3;
   white-space: nowrap;
+}
+.ec-canvas-composer-source-add-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #5474a8;
+  background: #f2f6ff;
 }
 .ec-canvas-suite-source-rows {
   gap: 0;
@@ -642,7 +652,7 @@
   border-radius: 8px;
   background: #fbfcfd;
   color: #20242a;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.7;
 }
 .ec-canvas-node-composer textarea::placeholder { color: #8993a0; opacity: 1; }
@@ -696,12 +706,12 @@
 .ec-canvas-parameter-controls { gap: 8px; }
 .ec-canvas-parameter-item > button,
 .ec-canvas-suite-control > button {
-  height: 36px;
+  height: 40px;
   border-color: #d9e0e8;
   border-radius: 8px;
   color: #3f4a58;
   background: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 650;
 }
 .ec-canvas-parameter-item > button { max-width: 132px; }
@@ -715,8 +725,8 @@
   box-shadow: 0 0 0 2px rgba(37, 99, 235, .08);
 }
 .ec-canvas-suite-controls {
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 16px 18px;
   border-top-color: #e8ebef;
   background: #fff;
 }
@@ -729,21 +739,21 @@
   max-width: 132px;
   overflow: hidden;
   color: inherit;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   text-overflow: ellipsis;
 }
 .ec-canvas-suite-panel-popover {
-  width: min(560px, calc(100vw - 32px));
-  max-height: min(640px, calc(100vh - 112px));
+  width: min(700px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 104px));
   border-color: #dce2e9;
   border-radius: 10px;
   box-shadow: 0 22px 54px rgba(15, 23, 42, .18), 0 4px 12px rgba(15, 23, 42, .07);
 }
 .ec-canvas-suite-plan-editor {
-  max-height: 520px;
+  max-height: 680px;
   overflow: auto;
-  padding: 18px 18px 20px;
+  padding: 0;
   background: #fff;
   color: #20242a;
 }
@@ -825,16 +835,16 @@
   border-radius: 10px;
   box-shadow: 0 16px 38px rgba(15, 23, 42, .16), 0 3px 10px rgba(15, 23, 42, .06);
 }
-.ec-canvas-text-toolbar button { width: 34px; height: 34px; flex: 0 0 34px; color: #4e5b6b; font-size: 11px; font-weight: 700; }
+.ec-canvas-text-toolbar button { width: 38px; height: 38px; flex: 0 0 38px; color: #4e5b6b; font-size: 13px; font-weight: 700; }
 .ec-canvas-text-toolbar button:hover { color: #1f4e9f; background: #edf4ff; }
 .ec-canvas-text-toolbar button.is-active { color: #1f5fca; background: #e7f0ff; box-shadow: inset 0 0 0 1px #bdd2f7; }
 .ec-canvas-text-toolbar button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
-.ec-canvas-text-color { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 34px; border-radius: 7px; }
+.ec-canvas-text-color { width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 38px; border-radius: 7px; }
 .ec-canvas-text-color:hover { background: #edf4ff; }
 .ec-canvas-text-color input { width: 19px; height: 19px; padding: 0; border: 0; border-radius: 5px; background: transparent; }
 
 @media (max-width: 620px) {
-  .ec-canvas-suite-plan-editor { padding: 16px 14px 18px; }
+  .ec-canvas-suite-plan-editor { padding: 0; }
   .ec-canvas-suite-plan-grid { grid-template-columns: 1fr; gap: 12px; }
   .ec-canvas-suite-source-rows .ec-canvas-composer-sources + .ec-canvas-composer-sources { border-top: 1px solid #e8ebef; }
   .ec-canvas-composer-footer > span { flex: 1 1 100%; }

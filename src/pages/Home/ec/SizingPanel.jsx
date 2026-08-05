@@ -83,7 +83,7 @@ function RatioSelect({ value, onChange, disabled, resolution }) {
 }
 
 const PLATFORMS = [
-  { key: 'smart', label: '智能', icon: '🤖' },
+  { key: 'smart', label: '智能方案', icon: '🤖' },
   { key: '淘宝', label: '淘宝', icon: '🟠' },
   { key: '京东', label: '京东', icon: '🔴' },
   { key: '拼多多', label: '拼多多', icon: '🟢' },
@@ -104,6 +104,7 @@ function hasSameImages(left, right) {
 export default function SizingPanel({
   platform = 'smart',
   onPlatformChange,
+  onPlatformSizingChange,
   sizing = { smart: true, images: [] },
   onSizingChange,
   smartMode = true,
@@ -119,11 +120,15 @@ export default function SizingPanel({
 
   /* ── 平台切换 ── */
   const handlePlatform = useCallback((key) => {
-    onPlatformChange?.(key);
     const newImages = resolveSizingImages(key, { smart: true, images: [], resolution });
-    onSizingChange?.({ smart: true, images: newImages });
+    if (onPlatformSizingChange) {
+      onPlatformSizingChange(key, { smart: true, images: newImages });
+    } else {
+      onPlatformChange?.(key);
+      onSizingChange?.({ smart: true, images: newImages });
+    }
     onOverride?.(false);
-  }, [onPlatformChange, onSizingChange, onOverride, resolution]);
+  }, [onPlatformChange, onPlatformSizingChange, onSizingChange, onOverride, resolution]);
 
   /* ── 切换图片类型勾选 ── */
   const toggleType = useCallback((typeKey) => {
@@ -202,7 +207,7 @@ export default function SizingPanel({
           {PLATFORMS.map(p => {
             const active = platform === p.key;
             return (
-              <div key={p.key} onClick={() => handlePlatform(p.key)}
+              <button key={p.key} type="button" onClick={() => handlePlatform(p.key)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
                   padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
@@ -210,12 +215,12 @@ export default function SizingPanel({
                   borderColor: active ? '#1a1a1a' : 'rgba(0,0,0,0.1)',
                   background: active ? '#1a1a1a' : 'rgba(0,0,0,0.03)',
                   color: active ? '#fff' : 'var(--text-secondary)',
-                  transition: 'all 0.18s ease', whiteSpace: 'nowrap',
+                  transition: 'all 0.18s ease', whiteSpace: 'nowrap', fontFamily: 'inherit',
                 }}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; }}
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}>
                 <span>{p.icon}</span><span>{p.label}</span>
-              </div>
+              </button>
             );
           })}
         </div>

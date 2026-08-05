@@ -252,7 +252,7 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
   };
 }
 
-export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = '淘宝', now = Date.now() } = {}) {
+export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = 'smart', now = Date.now() } = {}) {
   return {
     id: `suite_composer_${now}`,
     kind: 'suite-composer',

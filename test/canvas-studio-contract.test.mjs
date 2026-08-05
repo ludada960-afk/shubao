@@ -383,10 +383,12 @@ test('canvas composers keep text boards editable and expose shared image-generat
 
 test('Canvas suite uses one editable overall plan and readable source naming', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  const sharedPlan = readFileSync(new URL('../src/pages/Home/ec/EcommerceDesignPlanEditor.jsx', import.meta.url), 'utf8');
   const model = readFileSync(new URL('../src/pages/EcCanvas/canvasSuitePlanModel.js', import.meta.url), 'utf8');
   assert.match(source, /CanvasSuitePlanEditor/);
+  assert.match(source, /EcommerceDesignPlanEditor/);
   assert.match(source, /整体设计方案/);
-  assert.match(source, /data-suite-plan-field/);
+  assert.match(sharedPlan, /data-suite-plan-field/);
   assert.doesNotMatch(source, /<DirectionOptionCard/);
   assert.match(source, /上传产品图/);
   assert.match(source, /上传参考图/);

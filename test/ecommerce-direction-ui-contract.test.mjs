@@ -35,12 +35,10 @@ test('方案卡片应展示商品策略并提供整套执行说明编辑入口',
   assert.match(cardSource, /aria-label=\{`编辑\$\{direction\?\.title/);
 });
 
-test('方案页面应保持编辑方案选中并使用桌面双列、移动单列布局', () => {
-  assert.match(pageSource, /updateDirectionExecutionGuide/);
-  assert.match(pageSource, /onExecutionGuideChange/);
-  assert.match(pageSource, /setSelected\(i\)/);
-  assert.match(pageSource, /ec-direction-grid/);
-  assert.match(pageSource, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(pageSource, /@media\s*\(max-width:\s*760px\)/);
-  assert.match(pageSource, /grid-template-columns:\s*1fr/);
+test('方案页面使用统一可编辑的整体设计方案，并保留补充素材入口', () => {
+  assert.match(pageSource, /EcommerceDesignPlanEditor/);
+  assert.match(pageSource, /整体设计规范与图片规划/);
+  assert.match(pageSource, /execution_guide: plan\.brief/);
+  assert.doesNotMatch(pageSource, /<DirectionOptionCard/);
+  assert.doesNotMatch(pageSource, /ec-direction-grid/);
 });

@@ -68,7 +68,9 @@ export default function RecoveryShelf({ logged, onRestore }) {
     }
   };
 
-  if (!logged || (!checkpoints.length && !error)) return null;
+  // A transient fetch failure should not occupy the main workspace. Valid
+  // checkpoints remain visible and recoverable when they are actually loaded.
+  if (!logged || !checkpoints.length) return null;
 
   return (
     <section className="recovery-shelf" aria-label="未完成任务">
