@@ -1325,3 +1325,12 @@
   the last known live Canvas release remains `d425479`. A later authorized
   resume must run the deployment script and its production canaries before
   closing the release.
+- Production release completed on 2026-08-06 at `f7675a4` after the invalid
+  stored canary session was replaced with an in-memory server-issued canary
+  session. The controlled deployment reran the serial suite and production
+  build, passed public health and authenticated billing before and after the
+  600-second canary window, and passed two real ecommerce verifications with
+  three stable assets each (`ec_20c2f66b-0047-4d1c-b05e-b460538dc2d6` and
+  `ec_72075b1b-b4fb-4eb8-aed8-ae678cb343b7`). PM2 remained on PID `3515947`;
+  the remote deployment lock was released. The temporary canary token was held
+  only in the deployment process and was removed afterward.
