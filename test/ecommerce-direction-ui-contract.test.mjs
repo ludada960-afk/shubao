@@ -38,7 +38,20 @@ test('方案卡片应展示商品策略并提供整套执行说明编辑入口',
 test('方案页面使用统一可编辑的整体设计方案，并保留补充素材入口', () => {
   assert.match(pageSource, /EcommerceDesignPlanEditor/);
   assert.match(pageSource, /整体设计规范与图片规划/);
+  assert.match(pageSource, /ec-direction-plan-stack/);
   assert.match(pageSource, /execution_guide: plan\.brief/);
   assert.doesNotMatch(pageSource, /<DirectionOptionCard/);
   assert.doesNotMatch(pageSource, /ec-direction-grid/);
+});
+
+test('方案编辑器以生成规格和逐图差异为核心，而不是泛化表单', () => {
+  const editorSource = readFileSync(new URL('../src/pages/Home/ec/EcommerceDesignPlanEditor.jsx', import.meta.url), 'utf8');
+  const editorCss = readFileSync(new URL('../src/pages/Home/ec/EcommerceDesignPlanEditor.css', import.meta.url), 'utf8');
+  const homeCss = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
+
+  assert.match(editorSource, /生成规格/);
+  assert.match(editorSource, /本图差异/);
+  assert.match(editorSource, /商品依据/);
+  assert.match(editorCss, /#f4efe5/i);
+  assert.match(homeCss, /--ec-prompt-inline/);
 });

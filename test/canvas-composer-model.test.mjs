@@ -81,3 +81,30 @@ test('detailed per-shot edits compile into the durable generation direction', ()
   assert.match(shot.visual_execution, /自然侧光下的近景台面/);
   assert.match(shot.visual_execution, /不得虚构材质认证或参数/);
 });
+
+test('suite plans expose product evidence and each shot differentiator as editable generation specifications', () => {
+  const plan = buildCanvasSuitePlan({
+    productName: '赤霞珠干红葡萄酒',
+    category: '红酒',
+    analysis: {
+      product_observations: ['深红色酒液', '深色玻璃瓶'],
+      product_uncertainties: ['年份未确认'],
+    },
+    product_creative_profile: {
+      id: 'red-wine',
+      typography_intent: '优雅衬线体，留白克制',
+      copy_tone: '礼赠感、克制、以品鉴氛围表达价值',
+    },
+    deliverables: [{
+      role: 'main_text', label: '商品主图', count: 1, ratio: '1:1', shots: [{
+        label: '礼赠主视觉', purpose: '建立高级礼赠感', variation_key: 'gift-hero',
+        visual_execution: '低饱和深红背景，瓶身居中并保留左侧标题空间',
+      }],
+    }],
+  });
+
+  assert.deepEqual(plan.evidence.observations, ['深红色酒液', '深色玻璃瓶']);
+  assert.equal(plan.creativeProfile.id, 'red-wine');
+  assert.equal(plan.shots[0].differentiator, 'gift-hero');
+  assert.match(plan.shots[0].copy, /优雅衬线体|礼赠感/);
+});

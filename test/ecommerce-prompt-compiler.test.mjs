@@ -535,6 +535,56 @@ test('compiles the selected direction strategy and exact per-image execution int
   assert.match(schema.sections.generationInstructions.composition, /整体商品结合一处可验证材质微距/);
 });
 
+test('passes every edited per-shot generation specification into the provider request', () => {
+  const truth = productTruth();
+  const bible = campaignBible({
+    deliverables: [{
+      role: 'main_3x4',
+      label: '主图',
+      count: 1,
+      ratio: '3:4',
+      shots: [{
+        label: '材质证明主图',
+        purpose: '让买家先看懂瓶身材质',
+        generation_specification: {
+          design_goal: '用一张图证明磨砂玻璃和银色泵头的质感',
+          visual_style: '红酒般深红背景中的高端静物摄影',
+          scene: '晚餐前的高端梳妆台，只有必要的材质线索',
+          product_focus: '瓶身轮廓、磨砂玻璃、银色泵头必须以商品图为准',
+          composition: '瓶身位于右侧三分线，左侧保留标题安全区',
+          content_elements: '一束窄边缘光和一块低反射石材台面',
+          copy: '优雅衬线体；标题只写“真实质感”',
+          negative_constraints: '不得加入人物、虚构功效、认证或额外包装文字',
+        },
+      }],
+    }],
+  });
+  const plan = buildAssetPlan({
+    productTruth: truth,
+    campaignBible: bible,
+    sizing: { images: [{ key: 'main_3x4', count: 1, ratio: '3:4' }] },
+  });
+  const result = compileAssetRequest({
+    assetPlanItem: plan[0],
+    productTruth: truth,
+    campaignBible: bible,
+    assets: { product: [asset('product-front'), asset('product-side')], reference: [] },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+  assert.deepEqual(schema.sections.generationInstructions.shotSpecification, {
+    designGoal: '用一张图证明磨砂玻璃和银色泵头的质感',
+    visualStyle: '红酒般深红背景中的高端静物摄影',
+    scene: '晚餐前的高端梳妆台，只有必要的材质线索',
+    productFocus: '瓶身轮廓、磨砂玻璃、银色泵头必须以商品图为准',
+    composition: '瓶身位于右侧三分线，左侧保留标题安全区',
+    contentElements: '一束窄边缘光和一块低反射石材台面',
+    copy: '优雅衬线体；标题只写“真实质感”',
+    negativeConstraints: '不得加入人物、虚构功效、认证或额外包装文字',
+  });
+  assert.match(result.prompt, /优雅衬线体/);
+  assert.match(result.prompt, /不得加入人物/);
+});
+
 test('compiles transparent deliverables as alpha-only product cutouts that ignore campaign backgrounds and style assets', () => {
   const result = compileAssetRequest({
     assetPlanItem: assetPlanItem({

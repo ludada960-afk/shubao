@@ -653,10 +653,11 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 <MdRefresh size={14} />重新分析设计方案 · 1 AI 积分
               </button>
             </div>
-            <EcommerceDesignPlanEditor
-              direction={directions[selected] || directions[0]}
-              prompt={extraDesc || params?.description}
-              onChange={plan => {
+            <div className="ec-direction-plan-stack">
+              <EcommerceDesignPlanEditor
+                direction={directions[selected] || directions[0]}
+                prompt={extraDesc || params?.description}
+                onChange={plan => {
                 const activeIndex = Math.min(selected, directions.length - 1);
                 setDirections(previous => previous.map((item, itemIndex) => itemIndex === activeIndex
                   ? {
@@ -669,11 +670,11 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                   }
                   : item));
                 setBlockedByCredits(false);
-              }}
-            />
+                }}
+              />
 
-            {/* ── 补充素材与调整：复用第一步工作台 ── */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: '16px 18px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', marginBottom: 20 }}>
+              {/* ── 补充素材与调整：复用第一步工作台 ── */}
+              <div className="ec-direction-supplement">
               <EcommerceWorkbench
                 productImages={supplementDeck.productImages}
                 refImages={supplementDeck.referenceImages}
@@ -709,6 +710,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               </div>
 
               {blockedByCredits && <div style={{ marginTop: 12, borderRadius: 12, padding: '10px 12px', background: '#FFF8E7', border: '1px solid #F4D88A', color: '#73510D', fontSize: 12 }}>当前方案和补充内容已经保留。完成充值后，直接点击下方“继续生成”即可。</div>}
+              </div>
             </div>
 
             {/* ── 确认按钮 ── */}

@@ -173,3 +173,30 @@ test('writes merchant-facing shot briefs with distinct visual decisions', () => 
   assert.ok(executions.some(value => /侧光|表面|边缘|质感/.test(value)));
   assert.ok(executions.every(value => !/继承“.*”的构图、光线和色彩系统/.test(value)));
 });
+
+test('builds a category-specific creative profile instead of reusing a generic type and copy rule', () => {
+  const [wine] = normalizeCreativeDirectionPlans([{}], {
+    productName: '赤霞珠干红葡萄酒',
+    category: '红酒',
+    userPrompt: '礼赠场景，突出年份感和高级感',
+    visualObservations: ['深红色酒液和深色玻璃瓶'],
+    requestedImages: [{ key: 'main_text', label: '商品主图', count: 2, ratio: '1:1' }],
+  });
+  const [doll] = normalizeCreativeDirectionPlans([{}], {
+    productName: '毛绒安抚娃娃',
+    category: '玩具娃娃',
+    userPrompt: '送给学龄前孩子的礼物',
+    visualObservations: ['柔软毛绒和圆润耳朵'],
+    requestedImages: [{ key: 'main_text', label: '商品主图', count: 2, ratio: '1:1' }],
+  });
+
+  assert.equal(wine.product_creative_profile.id, 'red-wine');
+  assert.match(wine.visual_system.typography_intent, /优雅|衬线/);
+  assert.match(wine.visual_system.copy_tone, /克制|礼赠/);
+  assert.match(wine.deliverables[0].shots[0].copy, /优雅|克制|礼赠/);
+
+  assert.equal(doll.product_creative_profile.id, 'playful-doll');
+  assert.match(doll.visual_system.typography_intent, /圆润|童趣/);
+  assert.match(doll.visual_system.copy_tone, /亲切|轻快/);
+  assert.notEqual(wine.visual_system.typography_intent, doll.visual_system.typography_intent);
+});

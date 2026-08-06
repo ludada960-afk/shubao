@@ -510,6 +510,22 @@ function platformSection(assetPlanItem, productTruth) {
   };
 }
 
+function shotSpecificationSection(assetPlanItem) {
+  const source = isRecord(ownValue(assetPlanItem, 'shotSpecification'))
+    ? ownValue(assetPlanItem, 'shotSpecification')
+    : {};
+  return {
+    designGoal: cleanString(ownValue(source, 'designGoal', 'design_goal')),
+    visualStyle: cleanString(ownValue(source, 'visualStyle', 'visual_style')),
+    scene: cleanString(ownValue(source, 'scene')),
+    productFocus: cleanString(ownValue(source, 'productFocus', 'product_focus')),
+    composition: cleanString(ownValue(source, 'composition')),
+    contentElements: cleanString(ownValue(source, 'contentElements', 'content_elements')),
+    copy: cleanString(ownValue(source, 'copy')),
+    negativeConstraints: cleanString(ownValue(source, 'negativeConstraints', 'negative_constraints')),
+  };
+}
+
 function deriveResolution(generationSize, ratio) {
   for (const [resolution, ratios] of Object.entries(LEGAL_IMAGE_SIZES)) {
     if (Object.hasOwn(ratios, ratio) && ratios[ratio] === generationSize) return resolution;
@@ -563,6 +579,7 @@ export function compileAssetRequest({
   const productName = cleanString(ownValue(truth, 'productName'));
   const category = cleanString(ownValue(truth, 'category'));
   const materials = normalizeStrings(ownValue(truth, 'materials'));
+  const shotSpecification = shotSpecificationSection(item);
   const sections = {
     roleObjective: {
       role,
@@ -603,6 +620,7 @@ export function compileAssetRequest({
           background: 'Render on an actual transparent alpha canvas. Every background pixel must remain transparent; do not create a scene, gradient, wall, floor, shadow backdrop, or opaque fill.',
           palette: [],
           copyPolicy: 'No added text, promotional copy, labels, watermarks, borders, badges, or graphics.',
+          shotSpecification,
         }
       : {
           subject: 'Preserve the user product from indexed product views; create only the requested role composition.',
@@ -613,6 +631,7 @@ export function compileAssetRequest({
           palette: campaign.palette,
           copyPolicy: 'Keep copy space restrained. Do not synthesize exact labels or factual text.',
           outputContract: 'Generate one complete independent image with one commercial purpose. No collage, contact sheet, montage, multi-panel grid, storyboard, picture-in-picture, thumbnail collection, or multiple candidate layouts.',
+          shotSpecification,
         },
     platformRecommendation: platformSection(item, truth),
     deterministicOverlays: {

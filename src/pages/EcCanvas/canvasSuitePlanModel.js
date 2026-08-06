@@ -65,6 +65,18 @@ function evidenceFor(direction) {
   };
 }
 
+function creativeProfileFor(direction) {
+  const profile = record(direction.product_creative_profile || direction.productCreativeProfile);
+  return {
+    id: firstText(profile.id, 'category-responsive'),
+    label: firstText(profile.label, '商品品类适配'),
+    typographyIntent: firstText(profile.typography_intent, profile.typographyIntent, '清晰、可读且符合商品定位的中文排版'),
+    copyTone: firstText(profile.copy_tone, profile.copyTone, '用具体、可验证的商品价值表达'),
+    sceneRule: firstText(profile.scene_rule, profile.sceneRule, '场景只服务于商品用途和购买动机'),
+    visualMotif: firstText(profile.visual_motif, profile.visualMotif, '商品事实优先的商业视觉'),
+  };
+}
+
 function productLabel(direction) {
   const evidence = evidenceFor(direction);
   return firstText(
@@ -86,6 +98,7 @@ function factAnchor(direction) {
 function defaultShotDetails({ direction, group, title, purpose, responsibility }) {
   const product = productLabel(direction);
   const evidence = evidenceFor(direction);
+  const creativeProfile = creativeProfileFor(direction);
   const style = evidence.referenceStyle.length
     ? `沿用参考图可迁移的${evidence.referenceStyle.join('、')}，但不复制参考图中的商品、品牌或包装。`
     : '保持统一的商业摄影质感，光线、色彩和留白服务于商品识别。';
@@ -95,12 +108,12 @@ function defaultShotDetails({ direction, group, title, purpose, responsibility }
   const role = `${group}${title ? `·${title}` : ''}`;
   return {
     objective: firstText(purpose, `围绕${product}的${role}建立明确的商品沟通重点。`),
-    visualStyle: style,
-    scene: firstText(responsibility, `以${product}为画面唯一主角，场景只提供理解用途所需的环境线索。`),
+    visualStyle: `${style} 视觉母题：${creativeProfile.visualMotif}。`,
+    scene: firstText(responsibility, `以${product}为画面唯一主角，${creativeProfile.sceneRule}。`),
     productFocus: `${factAnchor(direction)}商品外观、颜色、比例、组件关系和已确认文字保持一致。`,
     composition: '先保证商品主体完整可辨，再用景别、视角和留白建立信息层级；避免主体贴边或被装饰遮挡。',
     contentElements: `只安排与${product}核心用途相关的道具、动作或尺度参照；每张图只承担一个清晰重点。`,
-    copy: '如需文字，仅使用用户明确提供或从商品图可读出的信息；短标题对应当前画面重点，不堆叠多个卖点。',
+    copy: `字体与版式：${creativeProfile.typographyIntent}。文案语气：${creativeProfile.copyTone}。仅使用用户明确提供或从商品图可读出的信息；短标题对应当前画面重点，不堆叠多个卖点。`,
     negativeConstraints: `${uncertainty} ${evidence.referenceStyle.length ? '参考图只借鉴视觉语言，不替换当前商品主体。' : ''}`.trim(),
   };
 }
@@ -137,10 +150,11 @@ function shotRows(direction) {
         id: `${role}-${index + 1}`,
         group: groupLabel,
         title,
-        purpose,
-        responsibility,
-        dimension: ratio,
-        ...detailsFromShot(shot, defaults),
+      purpose,
+      responsibility,
+      dimension: ratio,
+      differentiator: firstText(shot.variation_key, shot.variationKey, shot.purpose, title),
+      ...detailsFromShot(shot, defaults),
       };
     });
   });
@@ -162,6 +176,7 @@ function normalizedShotRows(direction) {
       purpose,
       responsibility,
       dimension: firstText(value.dimension, value.ratio, '1:1'),
+      differentiator: firstText(value.differentiator, value.variation_key, value.variationKey, purpose, title),
       ...detailsFromShot(value, defaults),
     };
   });
@@ -173,6 +188,7 @@ export function buildCanvasSuitePlan(input = {}, prompt = '') {
   const strategy = record(direction.product_strategy || direction.productStrategy);
   const overall = record(direction.overall_spec || direction.overallSpec);
   const evidence = evidenceFor(direction);
+  const creativeProfile = creativeProfileFor(direction);
   const consistency = Array.isArray(direction.consistency_locks || direction.consistencyLocks)
     ? (direction.consistency_locks || direction.consistencyLocks).join('；')
     : '';
@@ -240,7 +256,19 @@ export function buildCanvasSuitePlan(input = {}, prompt = '') {
     copyRules,
     qualityRisks,
     productName: productLabel(direction),
+    category: firstText(direction.category, direction.productCategory, '其他'),
     analysis: analysisFor(direction),
+    evidence,
+    creativeProfile,
+    generationSpecification: {
+      productEvidence: evidence.observations.length
+        ? evidence.observations.join('；')
+        : '仅使用上传商品图与用户明确填写的事实。',
+      visualLanguage: firstText(visual.visual_style, visual.visualStyle, direction.visual_tone, direction.one_liner),
+      typographyAndCopy: `${creativeProfile.typographyIntent}；${creativeProfile.copyTone}`,
+      sceneLogic: firstText(strategy.scenario_plan, strategy.scenarioPlan, creativeProfile.sceneRule),
+      fidelityLock: qualityRisks,
+    },
     shots: normalizedShotRows(direction),
   };
 }
@@ -293,6 +321,16 @@ export function applyCanvasSuitePlanToDirection(plan = {}, direction = {}) {
             ...shot,
             label: edited.title,
             purpose: edited.objective || edited.purpose,
+            generationSpecification: {
+              design_goal: edited.objective || edited.purpose,
+              visual_style: edited.visualStyle,
+              scene: edited.scene || edited.responsibility,
+              product_focus: edited.productFocus,
+              composition: edited.composition,
+              content_elements: edited.contentElements,
+              copy: edited.copy,
+              negative_constraints: edited.negativeConstraints,
+            },
             visual_execution: compiledShotExecution(edited),
             visualExecution: compiledShotExecution(edited),
           } : shot;

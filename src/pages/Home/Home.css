@@ -469,12 +469,13 @@
   box-shadow: 0 3px 12px rgba(124, 58, 237, .25);
 }
 .ec-xhs-prompt {
+  --ec-prompt-inline: 18px;
   min-width: 0;
   width: 100%;
   min-height: 92px;
   display: flex;
   flex-direction: column;
-  padding: 6px 20px 6px 18px;
+  padding: 6px 0;
 }
 .ec-xhs-prompt textarea,
 .ec-xhs-prompt .mention-prompt-field {
@@ -483,7 +484,7 @@
   width: 100%;
   min-height: 92px;
   flex: 1;
-  padding: 8px 0;
+  padding: 8px var(--ec-prompt-inline);
   border: none;
   outline: none;
   resize: none;
@@ -497,7 +498,7 @@
   margin: 0;
   width: 100%;
   min-height: 92px;
-  padding: 8px 0;
+  padding: 8px var(--ec-prompt-inline);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -517,13 +518,13 @@
   align-items: center;
   padding: 0 8px 2px;
 }
-.ec-xhs-placeholder { font-size: 15px; line-height: 28px; padding: 8px 0; box-sizing: border-box; }
+.ec-xhs-placeholder { font-size: 15px; line-height: 28px; padding: 8px var(--ec-prompt-inline); box-sizing: border-box; }
 .ec-xhs-example-first { margin-top: 12px; }
-.ec-xhs-placeholder .ec-placeholder-line:not(:first-child) { padding-left: 4px; }
+.ec-xhs-placeholder .ec-placeholder-line:not(:first-child) { padding-left: 0; }
 @media (max-width: 760px) {
   .ec-xhs-media-column { padding: 10px 8px 0; }
   .ec-xhs-media-strip { min-height: 122px; }
-  .ec-xhs-prompt { min-height: 92px; padding: 6px 16px; }
+  .ec-xhs-prompt { --ec-prompt-inline: 16px; min-height: 92px; padding: 6px 0; }
   .ec-xhs-prompt textarea,
   .ec-xhs-prompt .mention-prompt-field { min-height: 92px; }
 }

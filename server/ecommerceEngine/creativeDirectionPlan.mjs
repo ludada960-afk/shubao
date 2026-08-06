@@ -200,6 +200,50 @@ function defaultRoleRatio(role) {
   return role === 'detail' || role === 'main_3x4' ? '3:4' : '1:1';
 }
 
+function productCreativeProfile(context = {}) {
+  const signal = `${context.productName || ''} ${context.category || ''} ${context.userPrompt || ''}`.toLowerCase();
+  const profile = {
+    id: 'category-responsive',
+    label: '商品品类适配',
+    typographyIntent: '依据商品品类和价格定位选择清晰、可读的中文字体与信息层级',
+    copyTone: '用具体、可验证的商品价值表达，不堆砌泛化形容词',
+    sceneRule: '场景只使用能解释商品用途、受众或购买动机的真实线索',
+    visualMotif: '商品事实优先的商业视觉',
+    rationale: '先让买家识别商品，再用可见证据建立购买理由。',
+  };
+  if (/红酒|葡萄酒|赤霞珠|梅洛|cabernet|merlot|wine/.test(signal)) {
+    return {
+      id: 'red-wine', label: '红酒礼赠与品鉴',
+      typographyIntent: '优雅衬线体或高对比中文宋体感标题，留白克制，数字与年份信息精确排版',
+      copyTone: '克制、礼赠感与品鉴氛围并重，避免夸张功效或空泛奢华词',
+      sceneRule: '以餐桌、礼赠、品鉴或酒窖质感为线索，深红、墨绿、暖金只能衬托瓶身而不喧宾夺主',
+      visualMotif: '沉静质感、仪式感留白与瓶身标签可读性',
+      rationale: '酒类购买依赖礼赠判断、品质想象和标签识别，画面应先建立高级感，再落到可见瓶身事实。',
+    };
+  }
+  if (/白酒|药酒|黄酒|米酒|酱香|浓香|酒类|liquor/.test(signal)) {
+    return {
+      id: 'chinese-liquor', label: '中式酒类信任表达',
+      typographyIntent: '稳重的中文宋体感或牌匾感标题搭配清晰正文字体，避免轻浮装饰字',
+      copyTone: '亲切、可信、讲究场合与传承感，只表达可确认的原料、工艺或饮用场景',
+      sceneRule: '以宴席、家宴、节庆或东方器物质感建立氛围，避免虚构年份、产区、功效和认证',
+      visualMotif: '中式秩序、熟悉场景与真实包装识别',
+      rationale: '中式酒类的购买决策重视可信度和场合适配，文字与画面需要亲近但不能失去事实边界。',
+    };
+  }
+  if (/娃娃|玩具|毛绒|积木|儿童|童装|盲盒|doll|toy/.test(signal)) {
+    return {
+      id: 'playful-doll', label: '童趣玩具表达',
+      typographyIntent: '圆润、童趣、易读的中文标题，字形有轻快节奏但不影响包装和商品识别',
+      copyTone: '亲切、轻快、具象，围绕陪伴、触感、互动或送礼情绪，不使用成人化奢华话术',
+      sceneRule: '以明亮安全的儿童房、礼物开箱或陪伴互动为线索，环境干净并保持商品主角位置',
+      visualMotif: '圆润色块、柔软触感与可感知的陪伴情绪',
+      rationale: '玩具买家先判断可爱度、亲和感和送礼适配，文字需要与商品的软萌气质一致。',
+    };
+  }
+  return profile;
+}
+
 function shotTemplate(role, index, productName, context = {}) {
   const product = productName || '商品';
   const evidence = cleanString(context.visualObservations?.[0], 80);
@@ -264,6 +308,7 @@ function defaultDependencies(role) {
 
 function shotDetailDefaults({ role, index, productName, label, purpose, visualExecution, context = {} }) {
   const product = productName || '当前商品';
+  const creativeProfile = context.creativeProfile || productCreativeProfile(context);
   const observations = uniqueStrings(context.visualObservations, { maxItems: 5, maxLength: 160 });
   const referenceStyle = uniqueStrings(context.referenceStyle, { maxItems: 4, maxLength: 100 });
   const uncertainties = uniqueStrings(context.productUncertainties, { maxItems: 5, maxLength: 120 });
@@ -287,11 +332,11 @@ function shotDetailDefaults({ role, index, productName, label, purpose, visualEx
   }[role] || '与当前商品用途直接相关的场景';
   const copy = role === 'transparent'
     ? '不主动添加文案，保留完整干净主体供后续排版。'
-    : `如需文字，只围绕“${label}”提炼一句短标题；不添加未从商品图或用户输入确认的信息。`;
+    : `文字策略：${creativeProfile.typographyIntent}。文案语气：${creativeProfile.copyTone}。只围绕“${label}”提炼一句短标题，不添加未从商品图或用户输入确认的信息。`;
   return {
     objective: `${purpose}。本张只承担“${label}”这一项沟通任务，不重复其他图片的主重点。`,
-    visual_style: `${referenceLine}以真实材质、清晰轮廓和稳定色彩为优先。`,
-    scene: `场景采用${roleScene}，环境元素只服务于${product}的${label}展示，不抢主体。`,
+    visual_style: `${referenceLine}视觉母题：${creativeProfile.visualMotif}。以真实材质、清晰轮廓和稳定色彩为优先。`,
+    scene: `场景采用${roleScene}；${creativeProfile.sceneRule}。环境元素只服务于${product}的${label}展示，不抢主体。`,
     product_focus: `${factLine}保持${product}的外观、颜色、比例、组件关系、品牌标识和已确认文字一致。`,
     composition: `${visualExecution}。主体先完整可辨，再用景别、视角和留白建立层级；避免贴边、遮挡和无依据的结构变化。`,
     content_elements: `画面只安排能证明“${label}”的商品局部、道具、动作或尺度参照；${observations[0] ? `优先突出${observations[0]}。` : ''}`.trim(),
@@ -391,6 +436,7 @@ function normalizeDeliverables(direction, requestedImages, archetype, productNam
 function normalizeDirection(source, index, context) {
   const direction = isRecord(source) ? source : {};
   const archetype = ARCHETYPES[index % ARCHETYPES.length];
+  const creativeProfile = productCreativeProfile(context);
   const visualSource = isRecord(ownValue(direction, 'visual_system', 'visualSystem'))
     ? ownValue(direction, 'visual_system', 'visualSystem')
     : {};
@@ -404,7 +450,7 @@ function normalizeDirection(source, index, context) {
   const title = firstString(ownValue(direction, 'title', 'name'), archetype.title);
   const executionGuide = firstString(
     ownValue(direction, 'execution_guide', 'executionGuide', 'editableBrief', 'editable_brief', 'description', 'brief'),
-    `围绕“${archetype.objective}”建立统一主视觉。${archetype.heroFocus}；${archetype.scenarioPlan}。`,
+    `围绕“${archetype.objective}”建立统一主视觉。${creativeProfile.rationale}${archetype.heroFocus}；${archetype.scenarioPlan}。`,
   );
 
   return {
@@ -418,6 +464,15 @@ function normalizeDirection(source, index, context) {
       archetype.objective,
     ),
     audience: firstString(ownValue(direction, 'audience', 'target_audience'), archetype.audience),
+    product_creative_profile: {
+      id: creativeProfile.id,
+      label: creativeProfile.label,
+      typography_intent: creativeProfile.typographyIntent,
+      copy_tone: creativeProfile.copyTone,
+      scene_rule: creativeProfile.sceneRule,
+      visual_motif: creativeProfile.visualMotif,
+      rationale: creativeProfile.rationale,
+    },
     visual_tone: uniqueStrings(
       ownValue(direction, 'visual_tone', 'visualTone', 'visual_keywords', 'visualKeywords', 'keywords'),
       { maxItems: 8, maxLength: 32 },
@@ -441,6 +496,7 @@ function normalizeDirection(source, index, context) {
       typography_intent: firstString(
         ownValue(visualSource, 'typography_intent', 'typographyIntent'),
         ownValue(direction, 'typography_intent', 'typographyIntent'),
+        creativeProfile.typographyIntent,
         archetype.typography,
       ),
       information_density: firstString(
@@ -452,6 +508,7 @@ function normalizeDirection(source, index, context) {
       copy_tone: firstString(
         ownValue(visualSource, 'copy_tone', 'copyTone'),
         ownValue(direction, 'copy_tone', 'copyTone'),
+        creativeProfile.copyTone,
         archetype.copyTone,
       ),
     },
@@ -459,7 +516,7 @@ function normalizeDirection(source, index, context) {
       hero_focus: firstString(ownValue(strategySource, 'hero_focus', 'heroFocus'), archetype.heroFocus),
       angle_plan: firstString(ownValue(strategySource, 'angle_plan', 'anglePlan'), archetype.anglePlan),
       interaction_plan: firstString(ownValue(strategySource, 'interaction_plan', 'interactionPlan'), archetype.interactionPlan),
-      scenario_plan: firstString(ownValue(strategySource, 'scenario_plan', 'scenarioPlan'), archetype.scenarioPlan),
+      scenario_plan: firstString(ownValue(strategySource, 'scenario_plan', 'scenarioPlan'), creativeProfile.sceneRule, archetype.scenarioPlan),
       reference_adaptation: firstString(
         ownValue(strategySource, 'reference_adaptation', 'referenceAdaptation'),
         '只借鉴参考图的构图、光线、色彩和信息层级，不复制竞品主体、品牌标识或商品结构。',
@@ -473,6 +530,7 @@ function normalizeDirection(source, index, context) {
         visualObservations: context.visualObservations,
         productUncertainties: context.productUncertainties,
         referenceStyle: context.referenceStyle,
+        creativeProfile,
       },
     }, context.requestedImages, archetype, context.productName),
     consistency_locks: uniqueStrings(
@@ -510,8 +568,8 @@ function normalizeDirection(source, index, context) {
       composition: firstString(ownValue(visualSource, 'composition'), ownValue(direction, 'composition'), archetype.composition),
       camera_language: firstString(ownValue(visualSource, 'camera_language', 'cameraLanguage'), ownValue(direction, 'camera_language', 'cameraLanguage'), archetype.camera),
       background_language: firstString(ownValue(visualSource, 'background_language', 'backgroundLanguage'), ownValue(direction, 'background_language', 'backgroundLanguage'), archetype.background),
-      typography_intent: firstString(ownValue(visualSource, 'typography_intent', 'typographyIntent'), ownValue(direction, 'typography_intent', 'typographyIntent'), archetype.typography),
-      copy_tone: firstString(ownValue(visualSource, 'copy_tone', 'copyTone'), ownValue(direction, 'copy_tone', 'copyTone'), archetype.copyTone),
+      typography_intent: firstString(ownValue(visualSource, 'typography_intent', 'typographyIntent'), ownValue(direction, 'typography_intent', 'typographyIntent'), creativeProfile.typographyIntent, archetype.typography),
+      copy_tone: firstString(ownValue(visualSource, 'copy_tone', 'copyTone'), ownValue(direction, 'copy_tone', 'copyTone'), creativeProfile.copyTone, archetype.copyTone),
       product_fidelity: '商品外观、颜色、比例、结构、品牌标识和已确认文字必须保持一致，不得虚构不可见结构或功能。',
     },
   };

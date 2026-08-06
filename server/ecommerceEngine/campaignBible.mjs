@@ -45,6 +45,46 @@ function normalizeCount(value) {
   return Number.isFinite(count) ? Math.max(0, Math.min(20, Math.trunc(count))) : 0;
 }
 
+function normalizeShotSpecification(candidate) {
+  const source = ownValue(candidate, 'shotSpecification', 'generationSpecification', 'generation_specification');
+  const nested = source && typeof source === 'object' && !Array.isArray(source) ? source : {};
+  const fields = {
+    designGoal: firstNonEmpty(
+      ownValue(nested, 'designGoal', 'design_goal', 'objective'),
+      ownValue(candidate, 'designGoal', 'design_goal', 'objective'),
+    ),
+    visualStyle: firstNonEmpty(
+      ownValue(nested, 'visualStyle', 'visual_style'),
+      ownValue(candidate, 'visualStyle', 'visual_style'),
+    ),
+    scene: firstNonEmpty(
+      ownValue(nested, 'scene', 'scenario', 'scenePlan', 'scene_plan'),
+      ownValue(candidate, 'scene', 'scenario', 'scenePlan', 'scene_plan'),
+    ),
+    productFocus: firstNonEmpty(
+      ownValue(nested, 'productFocus', 'product_focus', 'productFidelity', 'product_fidelity'),
+      ownValue(candidate, 'productFocus', 'product_focus', 'productFidelity', 'product_fidelity'),
+    ),
+    composition: firstNonEmpty(
+      ownValue(nested, 'composition', 'layout', 'camera'),
+      ownValue(candidate, 'composition', 'layout', 'camera'),
+    ),
+    contentElements: firstNonEmpty(
+      ownValue(nested, 'contentElements', 'content_elements', 'content', 'elements'),
+      ownValue(candidate, 'contentElements', 'content_elements', 'content', 'elements'),
+    ),
+    copy: firstNonEmpty(
+      ownValue(nested, 'copy', 'copywriting', 'text', 'copy_content'),
+      ownValue(candidate, 'copy', 'copywriting', 'text', 'copy_content'),
+    ),
+    negativeConstraints: firstNonEmpty(
+      ownValue(nested, 'negativeConstraints', 'negative_constraints', 'constraints', 'prohibited'),
+      ownValue(candidate, 'negativeConstraints', 'negative_constraints', 'constraints', 'prohibited'),
+    ),
+  };
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value));
+}
+
 function normalizeIndex(value, fallback) {
   const index = Number(value);
   return Number.isFinite(index) && index >= 0 ? Math.trunc(index) : fallback;
@@ -56,6 +96,7 @@ function normalizeShotManifest(value) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return [];
     const label = firstNonEmpty(ownValue(candidate, 'label', 'title', 'name'));
     if (!label) return [];
+    const shotSpecification = normalizeShotSpecification(candidate);
     return [{
       index: normalizeIndex(ownValue(candidate, 'index'), index),
       label,
@@ -65,6 +106,7 @@ function normalizeShotManifest(value) {
       ),
       variationKey: firstNonEmpty(ownValue(candidate, 'variationKey', 'variation_key', 'variation')),
       dependsOn: normalizeStrings(ownValue(candidate, 'dependsOn', 'depends_on')),
+      ...(Object.keys(shotSpecification).length ? { shotSpecification } : {}),
     }];
   }).slice(0, 20);
 }

@@ -142,6 +142,25 @@ function directionDeliverableFor(campaignBible, itemRole) {
   return null;
 }
 
+function shotSpecificationFor(shot) {
+  const nested = isRecord(ownValue(shot, 'shotSpecification'))
+    ? ownValue(shot, 'shotSpecification')
+    : isRecord(ownValue(shot, 'generationSpecification') || ownValue(shot, 'generation_specification'))
+      ? (ownValue(shot, 'generationSpecification') || ownValue(shot, 'generation_specification'))
+      : shot;
+  const read = (...keys) => keys.map(key => cleanString(ownValue(nested, key))).find(Boolean) || '';
+  return {
+    designGoal: read('designGoal', 'design_goal', 'objective', 'purpose'),
+    visualStyle: read('visualStyle', 'visual_style', 'style'),
+    scene: read('scene', 'scenario', 'scenePlan', 'scene_plan'),
+    productFocus: read('productFocus', 'product_focus', 'productFidelity', 'product_fidelity'),
+    composition: read('composition', 'layout', 'camera'),
+    contentElements: read('contentElements', 'content_elements', 'content', 'elements'),
+    copy: read('copy', 'copywriting', 'text', 'copy_content'),
+    negativeConstraints: read('negativeConstraints', 'negative_constraints', 'constraints', 'prohibited'),
+  };
+}
+
 function directionShotFor(campaignBible, itemRole, roleIndex) {
   const group = directionDeliverableFor(campaignBible, itemRole);
   const shots = Array.isArray(ownValue(group, 'shots')) ? ownValue(group, 'shots') : [];
@@ -156,6 +175,7 @@ function directionShotFor(campaignBible, itemRole, roleIndex) {
     variationKey: safeKey(ownValue(shot, 'variationKey')),
     dependsOn: uniqueStrings(ownValue(shot, 'dependsOn')),
     groupStrategy: cleanString(ownValue(group, 'groupStrategy')),
+    shotSpecification: shotSpecificationFor(shot),
   };
 }
 
@@ -553,6 +573,9 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       ...(plannedShot?.variationKey ? { variationKey: plannedShot.variationKey } : {}),
       ...(plannedShot?.dependsOn?.length ? { dependsOn: [...plannedShot.dependsOn] } : {}),
       ...(plannedShot?.groupStrategy ? { groupStrategy: plannedShot.groupStrategy } : {}),
+      ...(Object.keys(plannedShot?.shotSpecification || {}).length
+        ? { shotSpecification: { ...plannedShot.shotSpecification } }
+        : {}),
     };
     const shotIntent = directShot(planningItem, {
       productTruth: truth,
