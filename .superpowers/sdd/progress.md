@@ -1317,3 +1317,11 @@
   User-owned `server/extension_tasks`
   deletions, `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain
   intentionally uncommitted and untouched.
+- The recovery follow-up is committed locally as `2e75578` (`fix: keep canvas
+  suite failures actionable`) and independently re-reviewed with no remaining
+  findings. Production deployment has not run: two invocations of the mandated
+  `scripts/deploy-production.ps1` were stopped before script execution because
+  external permission review timed out. Do not describe production as updated;
+  the last known live Canvas release remains `d425479`. A later authorized
+  resume must run the deployment script and its production canaries before
+  closing the release.
