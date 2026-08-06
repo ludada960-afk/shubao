@@ -1300,3 +1300,20 @@
   loaded without console errors. User-owned `server/extension_tasks` deletions,
   `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain intentionally
   uncommitted and untouched.
+- Canvas suite failure recovery follow-up completed locally on 2026-08-06.
+  A suite with an already-rendered overall plan previously hid `node.error` in
+  the plan-preview branch while its confirm action immediately dismissed the
+  composer, leaving only a transient Toast and making an intentional retry hard
+  to distinguish from a duplicate submission. The selected suite composer now
+  remains visible, presents its failure beside the confirm action as an
+  accessible alert, and exposes a deliberate `重新生成` action that reuses the
+  existing generation handler (which clears the error and preserves existing
+  retry/idempotency semantics). TDD RED was observed in
+  `test/canvas-studio-contract.test.mjs`; the post-review follow-up adds a
+  synchronous in-flight guard around charged suite submissions and leaves only
+  the explicit retry control after an error. Focused Canvas regression passed
+  47/47, the full serial repository test suite, 6,448-module production build,
+  post-build asset check, collaboration policy, and whitespace check all passed.
+  User-owned `server/extension_tasks`
+  deletions, `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain
+  intentionally uncommitted and untouched.

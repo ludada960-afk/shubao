@@ -559,6 +559,7 @@ export default function EcCanvas() {
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
   const workOutputFingerprintRef = useRef('');
+  const suiteGenerationInFlightRef = useRef(new Set());
 
   useEffect(() => {
     setActiveComposerSurface('');
@@ -2529,6 +2530,8 @@ export default function EcCanvas() {
       }
       return;
     }
+    if (suiteGenerationInFlightRef.current.has(composer.id)) return;
+    suiteGenerationInFlightRef.current.add(composer.id);
     updateComposerNode(composer.id, { status: 'processing', error: '', generatedCount: 0 });
     const suitePlan = buildCanvasSuitePlan(composer.suitePlan || composer.directions?.[0], composer.prompt);
     const directionSource = composer.directions?.[0] || {};
@@ -2617,6 +2620,8 @@ export default function EcCanvas() {
     } catch (error) {
       updateComposerNode(composer.id, { status: 'error', error: error.message || '套图生成失败' });
       handleCanvasActionError(error, { type: 'ecommerce-suite', nodeId: composer.id });
+    } finally {
+      suiteGenerationInFlightRef.current.delete(composer.id);
     }
   }, [getDesignDirections, handleCanvasActionError, nodes, phone, result.category, result.platform, result.product_name, showToast, updateComposerNode]);
 

@@ -397,6 +397,29 @@ test('Canvas suite uses one editable overall plan and readable source naming', (
   assert.match(model, /shots/);
 });
 
+test('Canvas suite keeps a failed generation actionable beside its confirm control', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  const start = source.indexOf('export function CanvasEcommerceComposer');
+  const end = source.indexOf('const FOCUSED_EDITOR_LABELS', start);
+  const composer = source.slice(start, end);
+
+  assert.match(composer, /node\.error[\s\S]*?role="alert"/);
+  assert.match(composer, /重新生成/);
+  assert.match(composer, /node\.error \? <div className="ec-canvas-composer-error" role="alert"/);
+  assert.doesNotMatch(composer, /onSurfaceChange\?\.\(closeCanvasComposerSurface\(\)\); onGenerate\?\.\(\);/);
+});
+
+test('Canvas suite prevents concurrent charged generation submissions', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const start = page.indexOf('const handleSuiteComposerGenerate');
+  const end = page.indexOf('const handleSuiteDirectionSelect', start);
+  const handler = page.slice(start, end);
+
+  assert.match(handler, /suiteGenerationInFlightRef\.current\.has\(composer\.id\)/);
+  assert.match(handler, /suiteGenerationInFlightRef\.current\.add\(composer\.id\)/);
+  assert.match(handler, /finally \{\s*suiteGenerationInFlightRef\.current\.delete\(composer\.id\);\s*\}/);
+});
+
 test('canvas text generation creates image results while retaining its editable board', () => {
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const start = page.indexOf('const handleTextGenerationGenerate');

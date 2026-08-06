@@ -440,6 +440,11 @@
 .ec-canvas-suite-composer .ec-canvas-composer-footer > span { flex: 1 1 180px; }
 .ec-canvas-suite-composer .ec-canvas-composer-footer > button { flex: 0 0 auto; }
 .ec-canvas-suite-composer .ec-canvas-composer-sources { min-height: 82px; }
+.ec-canvas-composer-error { display: flex; align-items: center; gap: 8px; flex: 1 1 180px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #f1c5c1; border-radius: 6px; background: #fff7f6; color: #a2332d; font-size: 11px; line-height: 1.4; }
+.ec-canvas-composer-error > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ec-canvas-composer-error > button { flex: 0 0 auto; height: 28px; padding: 0 9px; border: 1px solid #d95d56; border-radius: 5px; background: #fff; color: #ae3c35; font: inherit; font-weight: 700; cursor: pointer; }
+.ec-canvas-composer-error > button:hover:not(:disabled) { border-color: #a2332d; background: #fff0ef; }
+.ec-canvas-composer-error > button:disabled { opacity: .55; cursor: not-allowed; }
 
 .ec-canvas-focused-editor { position: absolute; z-index: 140; box-sizing: border-box; overflow: visible; border: 2px solid var(--canvas-command); border-radius: 8px; background: #fff; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12), 0 12px 30px rgba(15, 23, 42, .18); }
 .ec-canvas-focused-stage { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center; border-radius: 6px; background-color: #eef1f4; background-image: linear-gradient(45deg, #e2e6ea 25%, transparent 25%), linear-gradient(-45deg, #e2e6ea 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e6ea 75%), linear-gradient(-45deg, transparent 75%, #e2e6ea 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; cursor: crosshair; }

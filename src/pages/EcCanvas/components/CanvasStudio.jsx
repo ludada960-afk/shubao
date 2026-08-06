@@ -480,8 +480,13 @@ export function CanvasEcommerceComposer({ node, position, sources = [], mentionS
         const role = node.sourceRoles?.[sourceId] || (source.role === 'product' ? 'product' : '') || (hasProductSource ? 'reference' : 'product');
         onToggleSource?.(source, role);
       }} />
-      <span>{planning ? '确认方案后生成整套图片' : '先分析商品与参考图，再进入整体设计方案'}</span>
-       <button type="button" data-canvas-control="true" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady)} onClick={event => { event.stopPropagation(); onSurfaceChange?.(closeCanvasComposerSurface()); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}</>}</button>
+      {node.error ? <div className="ec-canvas-composer-error" role="alert">
+        <span>{node.error}</span>
+        <button type="button" data-canvas-control="true" disabled={loading} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>重新生成</button>
+      </div> : <>
+        <span>{planning ? '确认方案后生成整套图片' : '先分析商品与参考图，再进入整体设计方案'}</span>
+        <button type="button" data-canvas-control="true" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}</>}</button>
+      </>}
     </div>
   </section>;
 }
