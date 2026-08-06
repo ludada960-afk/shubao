@@ -1334,3 +1334,15 @@
   `ec_72075b1b-b4fb-4eb8-aed8-ae678cb343b7`). PM2 remained on PID `3515947`;
   the remote deployment lock was released. The temporary canary token was held
   only in the deployment process and was removed afterward.
+
+- Production release completed on 2026-08-06 at `0ca4f81` through the mandated
+  `scripts/deploy-production.ps1` flow. The local full regression passed
+  `1200/1200` and the Vite production build passed. Public health and billing
+  verification passed, followed by two authenticated ecommerce production
+  checks that each delivered exactly three stable assets
+  (`ec_dfd8afb2-dba8-46c8-8c36-8127628c952b` and
+  `ec_2ff9ac11-c070-4ed7-83e2-a26bde9756b1`). The 120-second canary completed
+  without a PM2 PID change; post-canary billing also passed and the remote
+  deployment lock was released. User-owned deleted `server/extension_tasks`
+  files, `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain
+  uncommitted and untouched.
