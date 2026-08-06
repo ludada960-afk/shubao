@@ -1284,5 +1284,19 @@
    cleared. The deployment wrapper exceeded its local wait during the
    600-second canary window, so authenticated billing and ecommerce verification
    were rerun independently after the remote PM2 restart; both passed, including
-   delivery of three stable ecommerce assets. User-owned extension-task
-   deletions, `.tmp/`, and the unrelated diagnosis helper remain untouched.
+  delivery of three stable ecommerce assets. User-owned extension-task
+  deletions, `.tmp/`, and the unrelated diagnosis helper remain untouched.
+- The follow-up screenshot-driven ecommerce planning recovery completed locally
+  on 2026-08-06 under commit `ddaf644`. Product and reference uploads now use
+  canonical neutral labels; analysis facts, visual style, and uncertainty
+  constraints are expanded into editable per-shot fields and compiled back into
+  the durable generation direction. The homepage now shows generation errors at
+  the generator, Canvas opens a durable empty workspace when no result exists,
+  and a synchronous error boundary prevents a blank page after a render error.
+  Focused direction and Canvas plan regressions passed. The full repository
+  suite passed serially at `1194/1194` (parallel Node test workers can race when
+  SQLite child processes close), the 6,448-module production build and post-build
+  asset check passed, `git diff --check` is clean, and the local Canvas QA page
+  loaded without console errors. User-owned `server/extension_tasks` deletions,
+  `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain intentionally
+  uncommitted and untouched.
