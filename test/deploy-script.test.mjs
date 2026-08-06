@@ -11,7 +11,8 @@ const runtimeConfigVerifier = readFileSync(new URL('../scripts/verify-runtime-co
 const runtimeConfigUpdater = readFileSync(new URL('../scripts/configure-runtime-gateways.cjs', import.meta.url), 'utf8');
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
-  assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
+  assert.doesNotMatch(deploy, /SHUBAO_CANARY_SESSION_TOKEN/);
+  assert.match(deploy, /verify-production-canary\.mjs/);
   assert.match(deploy, /git[^\n]*diff --check/i);
   assert.match(deploy, /function\s+Invoke-CheckedNative/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run test/i);
@@ -59,8 +60,8 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /if\s*\(\$releaseStarted\)/);
   assert.equal((deploy.match(/pm2 restart shubao/g) || []).length, 1);
   assert.match(deploy, /pm2 restart shubao --update-env --max-memory-restart 1G/);
-  assert.match(deploy, /verify-production-billing\.ps1/);
-  assert.match(deploy, /verify-production-ecommerce\.ps1/);
+  assert.doesNotMatch(deploy, /verify-production-billing\.ps1/);
+  assert.doesNotMatch(deploy, /verify-production-ecommerce\.ps1/);
   assert.match(verify, /verify-production-billing\.mjs/);
   assert.match(ecommerceVerify, /verify-production-ecommerce\.mjs/);
   assert.match(deploy, /pm2 pid shubao/);
@@ -83,12 +84,23 @@ test('production deploy tolerates transient SSH handshake failures', () => {
 });
 
 test('production deploy retries the complete ecommerce canary without weakening its gate', () => {
-  assert.match(deploy, /function\s+Invoke-EcommerceProductionVerification/i);
+  assert.match(deploy, /function\s+Invoke-ProductionCanaryVerification/i);
   assert.match(deploy, /\[int\]\$MaxAttempts\s*=\s*3/);
   assert.match(deploy, /for\s*\(\$attempt\s*=\s*1;\s*\$attempt\s*-le\s*\$MaxAttempts/i);
   assert.match(deploy, /Start-Sleep -Seconds \$RetryDelaySeconds/);
-  assert.equal((deploy.match(/Invoke-EcommerceProductionVerification\s+-FailureMessage/g) || []).length, 2);
+  assert.equal((deploy.match(/Invoke-ProductionCanaryVerification\s+-FailureMessage/g) || []).length, 2);
   assert.match(deploy, /throw \"\$FailureMessage after \$MaxAttempts attempts\"/);
+});
+
+test('production canary verifier creates an in-memory deployment session without exposing credentials', () => {
+  const canaryVerifierUrl = new URL('../scripts/verify-production-canary.mjs', import.meta.url);
+  assert.equal(existsSync(canaryVerifierUrl), true);
+  const canaryVerifier = readFileSync(canaryVerifierUrl, 'utf8');
+  assert.match(canaryVerifier, /createSessionTokenService/);
+  assert.match(canaryVerifier, /verifyProductionEcommerce/);
+  assert.match(canaryVerifier, /verifyProduction/);
+  assert.doesNotMatch(canaryVerifier, /console\.(?:log|error)\([^\n]*(?:token|secret)/i);
+  assert.doesNotMatch(canaryVerifier, /writeFileSync|appendFileSync/);
 });
 
 test('production deploy uploads release helpers and archive in one SCP session', () => {
