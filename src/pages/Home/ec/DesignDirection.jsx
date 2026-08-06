@@ -541,7 +541,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         setStableImages([]);
         setPreviewImageIndex(-1);
         setErrorStage('generation');
-        setError(e.message || '本次未能形成完整套图，系统没有交付半成品。请稍后重新生成整套。');
+        setError(e.message || '部分图片暂未完成，已生成的结果已经保留。请在任务记录中补全未完成图片。');
       } else if (e?.code === 'ECOMMERCE_POLL_TIMEOUT' || e?.resumeable === true) {
         setErrorStage('generation');
         setError('任务还在后台生成，已为你保留进度。稍后继续生成会自动接着当前任务，不会从头开始。');

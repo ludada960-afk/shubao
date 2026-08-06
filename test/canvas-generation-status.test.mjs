@@ -3,10 +3,11 @@ import test from 'node:test';
 
 import { toGenerationStatus } from '../src/pages/EcCanvas/generationStatusModel.js';
 
-test('quality review is transparent and retryable without pretending an asset completed', () => {
+test('an older review state offers completion without exposing internal quality language', () => {
   const status = toGenerationStatus({ status: 'needs_review' });
   assert.equal(status.action, 'retry');
-  assert.match(status.detail, /未扣除/);
+  assert.match(status.detail, /已.*保留|补全/);
+  assert.doesNotMatch(`${status.title}${status.detail}`, /质量|修订|检查/);
 });
 
 test('provider credential details never reach the user-facing status', () => {

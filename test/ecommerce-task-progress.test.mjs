@@ -28,10 +28,10 @@ test('normalizes every server asset state into a user-safe Chinese state', () =>
     submitted: '正在生成',
     polling: '正在生成',
     downloading: '正在生成',
-    quality_check: '质量检查',
-    repairing: '正在修复',
+    quality_check: '正在优化',
+    repairing: '正在优化',
     completed: '已完成',
-    needs_review: '需要修订',
+    needs_review: '待补全',
     failed: '失败',
     cancelled: '失败',
   };
@@ -60,6 +60,8 @@ test('global task dock lists every failed image with its own label and error', (
   assert.match(source, /asset\.label/);
   assert.match(source, /asset\.error/);
   assert.doesNotMatch(source, /assetErrors\[0\]/);
+  assert.match(source, /补全未完成图片/);
+  assert.doesNotMatch(source, /整套未完成|未形成完整交付|重新生成整套/);
 });
 
 test('normalizes an asset with Asset Plan role and never exposes a provider state as its label', () => {
@@ -87,7 +89,7 @@ test('normalizes an asset with Asset Plan role and never exposes a provider stat
     width: 1536,
     height: 2048,
     state: 'quality_check',
-    userState: '质量检查',
+    userState: '正在优化',
     stableUrl: '/api/generated-assets/detail-1.png',
     previewUrl: '',
     error: '',
@@ -95,13 +97,13 @@ test('normalizes an asset with Asset Plan role and never exposes a provider stat
   assert.doesNotMatch(asset.userState, /quality_check|provider/i);
 });
 
-test('keeps a review image as a non-deliverable preview', () => {
+test('keeps an older review image as a non-deliverable preview without exposing internal review language', () => {
   const asset = normalizeEcommerceAsset({
     assetId: 'review-1',
     state: 'needs_review',
     previewUrl: '/api/generated-assets/review-1.png',
   });
-  assert.equal(asset.userState, '需要修订');
+  assert.equal(asset.userState, '待补全');
   assert.equal(asset.previewUrl, '/api/generated-assets/review-1.png');
   assert.equal(asset.stableUrl, '');
 });

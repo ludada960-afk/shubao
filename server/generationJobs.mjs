@@ -53,8 +53,8 @@ function safeProgress(value) {
 }
 
 function publicTaskError(status) {
-  if (status === 'needs_review') return '本轮没有形成完整套图，未作为作品交付';
-  if (status === 'failed') return '本轮生成未完成，请稍后重新生成整套';
+  if (status === 'needs_review') return '部分图片暂未生成，可继续补全';
+  if (status === 'failed') return '生成暂未完成，请重新开始';
   if (status === 'cancelled') return '任务已停止';
   return '';
 }
@@ -246,7 +246,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
             '图片',
           ),
           error: asset.state === 'needs_review'
-            ? '本轮未形成完整套图，未交付且本张不计费'
+            ? '这张图片暂未完成，可继续补全'
             : ['failed', 'cancelled'].includes(asset.state)
               ? '图片生成未完成，本张未计费'
               : '',

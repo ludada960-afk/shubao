@@ -1168,21 +1168,23 @@ test('incomplete suite settles verified assets and retries only the uncharged it
   let rejectSecondOnce = true;
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-one'), planItem('main-two')],
-    quality: async ({ input }) => {
-      if (input.assetPlanItem.id === 'main-two' && rejectSecondOnce) {
+    submit: ({ request, providerIndex }) => ({
+      jobId: `${request.prompt.includes('main-two') ? 'main-two' : 'main-one'}-${providerIndex}`,
+      status: 'queued',
+    }),
+    poll: ({ providerJobId }) => {
+      if (providerJobId.startsWith('main-two') && rejectSecondOnce) {
         rejectSecondOnce = false;
         return {
-          passed: false,
-          checks: {},
-          repairAction: { type: 'none', focusIssueCodes: ['product_fidelity'], userCharge: false },
-          confidence: 'high',
+          jobId: providerJobId,
+          status: 'failed',
+          error: 'provider returned no image',
         };
       }
       return {
-        passed: true,
-        checks: {},
-        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
-        confidence: 'high',
+        jobId: providerJobId,
+        status: 'completed',
+        outputUrl: `https://provider.example/${providerJobId}.png`,
       };
     },
   });
@@ -1213,21 +1215,23 @@ test('failed-item retry claim is idempotent for concurrent duplicate quote submi
   let rejectSecondOnce = true;
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-one'), planItem('main-two')],
-    quality: async ({ input }) => {
-      if (input.assetPlanItem.id === 'main-two' && rejectSecondOnce) {
+    submit: ({ request, providerIndex }) => ({
+      jobId: `${request.prompt.includes('main-two') ? 'main-two' : 'main-one'}-${providerIndex}`,
+      status: 'queued',
+    }),
+    poll: ({ providerJobId }) => {
+      if (providerJobId.startsWith('main-two') && rejectSecondOnce) {
         rejectSecondOnce = false;
         return {
-          passed: false,
-          checks: {},
-          repairAction: { type: 'none', focusIssueCodes: ['product_fidelity'], userCharge: false },
-          confidence: 'high',
+          jobId: providerJobId,
+          status: 'failed',
+          error: 'provider returned no image',
         };
       }
       return {
-        passed: true,
-        checks: {},
-        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
-        confidence: 'high',
+        jobId: providerJobId,
+        status: 'completed',
+        outputUrl: `https://provider.example/${providerJobId}.png`,
       };
     },
   });
@@ -1333,7 +1337,7 @@ test('preserves explicit legacy alias asset identities before analysis and compi
   assert.deepEqual(calls.compileAssets[0], calls.analyzePayloads[0].assets);
 });
 
-test('caps provider-backed system repair at one and releases a needs-review item without settlement', async t => {
+test('records provider-backed quality feedback without another image call or withholding delivery', async t => {
   const { orchestrator, jobs, calls } = await createHarness(t, {
     quality: () => ({
       passed: false,
@@ -1351,33 +1355,22 @@ test('caps provider-backed system repair at one and releases a needs-review item
   const completed = await orchestrator.runJob(created.id);
   const asset = jobs.assets.getAsset(created.id, 'main-one');
 
-  assert.equal(completed.status, 'needs_review');
-  assert.equal(asset.state, 'needs_review');
-  assert.equal(asset.attemptCount, 1);
-  assert.equal(calls.submit.length, 2, 'initial provider task plus one bounded system repair');
-  assert.equal(calls.quality.length, 2);
-  assert.equal(calls.settle.length, 0);
-  assert.deepEqual(calls.release.map(call => call.itemId), ['main-one']);
+  assert.equal(completed.status, 'completed');
+  assert.equal(asset.state, 'completed');
+  assert.equal(asset.attemptCount, 0);
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.quality.length, 1);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
+  assert.equal(asset.requestSnapshot.qualityReview.status, 'advisory');
 });
 
-test('runs one deterministic repair after provider repair budget is exhausted', async t => {
+test('runs one local deterministic repair without spending another provider image call', async t => {
   let qualityAttempt = 0;
   const { orchestrator, jobs, calls } = await createHarness(t, {
     quality: () => {
       qualityAttempt += 1;
-      if (qualityAttempt <= 2) {
-        return {
-          passed: false,
-          checks: { visualQuality: { status: 'fail', issueCodes: ['planned_shot_not_fulfilled'] } },
-          repairAction: {
-            type: 'regenerate_from_product_truth',
-            focusIssueCodes: ['planned_shot_not_fulfilled'],
-            userCharge: false,
-          },
-          confidence: 'low',
-        };
-      }
-      if (qualityAttempt === 3) {
+      if (qualityAttempt === 1) {
         return {
           passed: false,
           checks: { technical: { status: 'fail', issueCodes: ['dimension_mismatch'] } },
@@ -1412,16 +1405,16 @@ test('runs one deterministic repair after provider repair budget is exhausted', 
 
   assert.equal(completed.status, 'completed');
   assert.equal(asset.state, 'completed');
-  assert.equal(asset.attemptCount, 3);
+  assert.equal(asset.attemptCount, 1);
   assert.equal(asset.requestSnapshot.executionCount.deterministicRepairs, 1);
-  assert.equal(calls.submit.length, 3, 'initial provider task plus two bounded provider repairs');
-  assert.equal(calls.repair.length, 1, 'the final local repair does not replay the provider');
-  assert.equal(calls.quality.length, 4);
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.repair.length, 1);
+  assert.equal(calls.quality.length, 2);
   assert.equal(calls.settle.length, 1);
   assert.equal(calls.release.length, 0);
 });
 
-test('terminalizes a zero-delivery project before closing the task without an empty work', async t => {
+test('advisory quality feedback still creates a complete durable work', async t => {
   const lifecycle = [];
   const { orchestrator } = await createHarness(t, {
     quality: () => ({
@@ -1440,8 +1433,9 @@ test('terminalizes a zero-delivery project before closing the task without an em
         async begin({ job }) {
           return { projectId: 'project-empty', sourceVersionId: 'source-empty', generationRunId: job.id, assetPlanFingerprint: 'empty-fingerprint' };
         },
-        async complete() {
-          throw new Error('zero-delivery task must not create a result version');
+        async complete({ job, output }) {
+          lifecycle.push(['complete', job.id, Object.keys(output.images).length]);
+          return { resultVersionId: 'result-advisory' };
         },
         async terminate({ job, status }) {
           lifecycle.push(['terminate', status]);
@@ -1457,12 +1451,15 @@ test('terminalizes a zero-delivery project before closing the task without an em
 
   const completed = await orchestrator.runJob(orchestrator.createJob(jobInput('job-empty-review')).id);
 
-  assert.equal(completed.status, 'needs_review');
-  assert.deepEqual(completed.output.images, {});
-  assert.deepEqual(lifecycle, [['terminate', 'needs_review']]);
+  assert.equal(completed.status, 'completed');
+  assert.deepEqual(Object.keys(completed.output.images), ['main-one']);
+  assert.deepEqual(lifecycle, [
+    ['complete', completed.id, 1],
+    ['persist', 'completed'],
+  ]);
 });
 
-test('suite diversity retries only the duplicate item before settlement and keeps the retry cap', async t => {
+test('suite diversity feedback stays advisory and never spends another image call', async t => {
   const checks = new Map();
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-one', 'main_text'), planItem('main-two', 'main_text')],
@@ -1488,21 +1485,21 @@ test('suite diversity retries only the duplicate item before settlement and keep
   const result = await orchestrator.runJob(created.id);
 
   assert.equal(result.status, 'completed');
-  assert.equal(calls.submit.length, 3, 'two initial renders plus one targeted duplicate repair');
+  assert.equal(calls.submit.length, 2);
   assert.equal(calls.settle.length, 2);
   assert.equal(calls.release.length, 0);
   assert.equal(checks.get('main-one'), 1);
-  assert.equal(checks.get('main-two'), 2);
+  assert.equal(checks.get('main-two'), 1);
   assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-one')).length, 1);
-  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-two')).length, 2);
+  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-two')).length, 1);
   assert.equal(result.assets.length, 2);
   assert.deepEqual(result.progress.executionCount.submissionsByAsset, {
     'main-one': 1,
-    'main-two': 2,
+    'main-two': 1,
   });
 });
 
-test('semantic collage repairs only the failed asset once and passes its verdict to delivery', async t => {
+test('semantic collage feedback stays advisory and preserves one image call per asset', async t => {
   const qualityAttempts = new Map();
   const suiteChecks = new Map();
   const { orchestrator, calls } = await createHarness(t, {
@@ -1559,15 +1556,15 @@ test('semantic collage repairs only the failed asset once and passes its verdict
   assert.equal(result.status, 'completed');
   assert.equal(result.assets.length, 2);
   assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-one')).length, 1);
-  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-two')).length, 2);
+  assert.equal(calls.submit.filter(request => request.prompt.startsWith('generate main-two')).length, 1);
   assert.equal(calls.settle.length, 2);
   assert.equal(calls.release.length, 0);
   assert.equal(qualityAttempts.get('main-one'), 1);
-  assert.equal(qualityAttempts.get('main-two'), 2);
-  assert.equal(suiteChecks.size, 2);
+  assert.equal(qualityAttempts.get('main-two'), 1);
+  assert.equal(suiteChecks.size, 1);
   assert.deepEqual(result.progress.executionCount.submissionsByAsset, {
     'main-one': 1,
-    'main-two': 2,
+    'main-two': 1,
   });
 });
 
@@ -1667,7 +1664,7 @@ test('keeps a completed asset and parent task resumable when incremental work pe
   assert.equal(calls.settle.length, 1);
 });
 
-test('reruns product-fidelity quality after deterministic repair and never settles a failed repair', async t => {
+test('reruns advisory quality after deterministic repair and still delivers the repaired image', async t => {
   let qualityAttempt = 0;
   const productTruth = {
     productName: '银色测试商品',
@@ -1730,16 +1727,16 @@ test('reruns product-fidelity quality after deterministic repair and never settl
 
   const completed = await orchestrator.runJob(created.id);
 
-  assert.equal(completed.status, 'needs_review');
+  assert.equal(completed.status, 'completed');
   assert.equal(calls.repair.length, 1);
   assert.deepEqual(calls.repair[0].productTruth, productTruth);
   assert.equal(calls.quality.length, 2);
   assert.equal(calls.quality[1].productTruth.fingerprint, 'truth-silver');
-  assert.equal(calls.settle.length, 0);
-  assert.deepEqual(calls.release.map(call => call.itemId), ['transparent-one']);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
 });
 
-test('keeps verified images deliverable when another planned image is not deliverable', async t => {
+test('keeps every persisted image deliverable when one receives adverse quality feedback', async t => {
   const lifecycle = [];
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-pass'), planItem('detail-fail', 'detail')],
@@ -1765,8 +1762,9 @@ test('keeps verified images deliverable when another planned image is not delive
         async begin({ job }) {
           return { projectId: 'project-partial', sourceVersionId: 'source-partial', generationRunId: job.id, assetPlanFingerprint: 'partial-fingerprint' };
         },
-        async complete() {
-          throw new Error('partial delivery must not create a result version');
+        async complete({ job, output }) {
+          lifecycle.push(['complete', job.id, Object.keys(output.images).length]);
+          return { resultVersionId: 'result-advisory-suite' };
         },
         async terminate({ job, status }) {
           lifecycle.push(['terminate', status]);
@@ -1782,24 +1780,24 @@ test('keeps verified images deliverable when another planned image is not delive
 
   const completed = await orchestrator.runJob(created.id);
 
-  assert.equal(completed.status, 'needs_review');
-  assert.deepEqual(calls.settle.map(call => call.itemId), ['main-pass']);
-  assert.deepEqual(calls.release.map(call => call.itemId), ['detail-fail']);
-  assert.deepEqual(Object.keys(completed.output.images), ['main-pass']);
-  assert.equal(completed.progress.resultVersionId, undefined);
+  assert.equal(completed.status, 'completed');
+  assert.deepEqual(calls.settle.map(call => call.itemId).sort(), ['detail-fail', 'main-pass']);
+  assert.equal(calls.release.length, 0);
+  assert.deepEqual(Object.keys(completed.output.images).sort(), ['detail-fail', 'main-pass']);
+  assert.equal(completed.progress.resultVersionId, 'result-advisory-suite');
   const delivered = completed.assets.find(asset => asset.assetId === 'main-pass');
   assert.equal(delivered.stableUrl, PNG_A);
   assert.equal(delivered.previewUrl, undefined);
   assert.equal(delivered.error, '');
-  const rejected = completed.assets.find(asset => asset.assetId === 'detail-fail');
-  assert.equal(rejected.stableUrl, undefined);
-  assert.equal(rejected.previewUrl, PNG_A);
-  assert.equal(rejected.outputUrl, undefined);
-  assert.equal(rejected.providerJobId, undefined);
-  assert.equal(rejected.requestSnapshot, undefined);
-  assert.equal(rejected.error, '本轮未形成完整套图，未交付且本张不计费');
-  assert.equal(completed.output.errors[0].error, '本轮未形成完整套图，未交付且本张不计费');
-  assert.deepEqual(lifecycle, [['terminate', 'needs_review']]);
+  const advisory = completed.assets.find(asset => asset.assetId === 'detail-fail');
+  assert.match(advisory.stableUrl, /^\/api\/generated-assets\/[ab]{64}\.png$/);
+  assert.equal(advisory.previewUrl, undefined);
+  assert.equal(advisory.error, '');
+  assert.deepEqual(completed.output.errors, []);
+  assert.deepEqual(lifecycle, [
+    ['complete', completed.id, 2],
+    ['persist', 'completed', 'result-advisory-suite'],
+  ]);
 });
 
 test('delivers the whole suite after bounded retries when only semantic review is unavailable', async t => {
@@ -1847,24 +1845,70 @@ test('delivers the whole suite after bounded retries when only semantic review i
   assert.match(durableUnavailable.stableUrl, /^\/api\/generated-assets\/[ab]{64}\.png$/);
   assert.equal(durableUnavailable.requestSnapshot.qualityRetry.status, 'deferred');
   assert.equal(durableUnavailable.requestSnapshot.qualityRetry.attempts, 3);
-  assert.equal(durableUnavailable.requestSnapshot.qualityReview.status, 'deferred');
+  assert.equal(durableUnavailable.requestSnapshot.qualityReview.status, 'advisory');
   assert.equal(durableUnavailable.requestSnapshot.qualityReview.code, 'QUALITY_SERVICE_UNAVAILABLE');
   assert.deepEqual(Object.keys(result.output.images).sort(), ['detail-service-unavailable', 'main-pass']);
 });
 
-test('repairs a quality-rejected deliverable twice internally before completing the suite', async t => {
+test('delivers a valid provider image without spending more image calls on advisory quality feedback', async t => {
+  const { orchestrator, calls, jobs } = await createHarness(t, {
+    quality: () => ({
+      passed: false,
+      checks: {
+        productFidelity: {
+          status: 'fail',
+          issueCodes: ['product_identity_mismatch'],
+        },
+      },
+      repairAction: {
+        type: 'regenerate_from_product_truth',
+        focusIssueCodes: ['product_identity_mismatch'],
+        userCharge: false,
+      },
+      confidence: 'low',
+    }),
+  });
+
+  const created = orchestrator.createJob(jobInput('job-advisory-quality'));
+  const result = await orchestrator.runJob(created.id);
+  const durable = jobs.assets.getAsset(created.id, 'main-one');
+
+  assert.equal(result.status, 'completed');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.quality.length, 1);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
+  assert.equal(result.assets[0].state, 'completed');
+  assert.equal(result.assets[0].error, '');
+  assert.equal(durable.requestSnapshot.qualityReview.status, 'advisory');
+  assert.equal(durable.requestSnapshot.qualityReview.code, 'QUALITY_FEEDBACK_NON_BLOCKING');
+});
+
+test('delivers a persisted provider image when the advisory quality service throws', async t => {
+  const { orchestrator, calls, jobs } = await createHarness(t, {
+    quality: () => {
+      throw new Error('quality model unavailable');
+    },
+  });
+
+  const created = orchestrator.createJob(jobInput('job-quality-error-advisory'));
+  const result = await orchestrator.runJob(created.id);
+  const durable = jobs.assets.getAsset(created.id, 'main-one');
+
+  assert.equal(result.status, 'completed');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
+  assert.equal(result.assets[0].state, 'completed');
+  assert.equal(durable.requestSnapshot.qualityReview.status, 'advisory');
+  assert.equal(durable.requestSnapshot.qualityReview.code, 'QUALITY_SERVICE_ERROR_NON_BLOCKING');
+});
+
+test('does not regenerate a quality-rejected image after a valid provider output exists', async t => {
   let checks = 0;
   const { orchestrator, calls } = await createHarness(t, {
     quality: () => {
       checks += 1;
-      if (checks >= 3) {
-        return {
-          passed: true,
-          checks: {},
-          repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
-          confidence: 'high',
-        };
-      }
       return {
         passed: false,
         checks: { productFidelity: { status: 'fail', issueCodes: ['product_identity_mismatch'] } },
@@ -1876,14 +1920,13 @@ test('repairs a quality-rejected deliverable twice internally before completing 
         confidence: 'low',
       };
     },
-    orchestratorOptions: { canRetry: attempt => attempt < 2 },
   });
 
   const result = await orchestrator.runJob(orchestrator.createJob(jobInput('job-two-repairs')).id);
 
   assert.equal(result.status, 'completed');
-  assert.equal(calls.quality.length, 3);
-  assert.equal(calls.submit.length, 3);
+  assert.equal(calls.quality.length, 1);
+  assert.equal(calls.submit.length, 1);
   assert.equal(calls.settle.length, 1);
   assert.equal(calls.release.length, 0);
 });
@@ -2113,7 +2156,7 @@ test('legacy repair eligibility without a submitted repair remains one provider 
   });
 });
 
-test('legacy initial provider history remains when a new repair intent is added', async t => {
+test('legacy provider repair state delivers its persisted image without another provider call', async t => {
   const item = planItem('legacy-provider-repair');
   const { orchestrator, jobs, calls } = await createHarness(t, { items: [item] });
   const input = jobInput('job-legacy-provider-repair-intent');
@@ -2164,11 +2207,13 @@ test('legacy initial provider history remains when a new repair intent is added'
   const completed = await orchestrator.runJob(input.id);
 
   assert.equal(completed.status, 'completed');
-  assert.equal(calls.submit.length, 1);
-  assert.equal(completed.progress.executionCount.providerSubmissions, 2);
-  assert.equal(completed.progress.executionCount.providerRepairs, 1);
+  assert.equal(calls.submit.length, 0);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 1);
+  assert.equal(completed.progress.executionCount.providerRepairs, 0);
   assert.deepEqual(completed.progress.executionCount.submissionsByAsset, {
-    'legacy-provider-repair': 2,
+    'legacy-provider-repair': 1,
   });
 });
 
@@ -2995,9 +3040,8 @@ test('reuses a durable initial submission intent after acknowledgement persisten
   assert.doesNotMatch(JSON.stringify(completed.progress.executionCount), /provider-secret-must-not-persist/);
 });
 
-test('reuses a durable repair submission intent after acknowledgement persistence fails', async t => {
+test('advisory quality feedback never creates a provider repair submission intent', async t => {
   const providerJobs = new Map();
-  let qualityAttempt = 0;
   const { orchestrator, jobs, calls } = await createHarness(t, {
     submit: ({ request }) => {
       if (!providerJobs.has(request.idempotencyKey)) {
@@ -3009,76 +3053,34 @@ test('reuses a durable repair submission intent after acknowledgement persistenc
         authorization: 'Bearer provider-secret-must-not-persist',
       };
     },
-    quality: () => {
-      qualityAttempt += 1;
-      if (qualityAttempt === 1) {
-        return {
-          passed: false,
-          checks: { visualQuality: { status: 'fail', issueCodes: ['local_artifact'] } },
-          repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'], userCharge: false },
-          confidence: 'low',
-        };
-      }
-      return {
-        passed: true,
-        checks: {},
-        repairAction: { type: 'none', focusIssueCodes: [], userCharge: false },
-        confidence: 'high',
-      };
-    },
+    quality: () => ({
+      passed: false,
+      checks: { visualQuality: { status: 'fail', issueCodes: ['local_artifact'] } },
+      repairAction: { type: 'image_edit', focusIssueCodes: ['local_artifact'], userCharge: false },
+      confidence: 'low',
+    }),
   });
-  const originalMarkSubmitted = jobs.assets.markSubmitted;
-  let failedRepairAck = false;
-  jobs.assets.markSubmitted = (jobId, assetId, patch) => {
-    const asset = jobs.assets.getAsset(jobId, assetId);
-    if (!failedRepairAck && asset.state === 'repairing') {
-      failedRepairAck = true;
-      throw new Error('local repair acknowledgement write failed');
-    }
-    return originalMarkSubmitted(jobId, assetId, patch);
-  };
   const created = orchestrator.createJob(jobInput('job-repair-ack-retry'));
 
-  await assert.rejects(
-    () => orchestrator.runJob(created.id),
-    error => error?.retryable === true && /repair acknowledgement write failed/.test(error.message),
-  );
-
-  const repairIntent = jobs.assets.getAsset(created.id, 'main-one');
-  assert.equal(jobs.get(created.id).status, 'generating');
-  assert.equal(repairIntent.state, 'repairing');
-  assert.equal(calls.release.length, 0);
-  assert.equal(calls.submit.length, 2);
-  assert.deepEqual(repairIntent.requestSnapshot.submissionIntents.map(intent => ({
-    ordinal: intent.ordinal,
-    kind: intent.kind,
-    status: intent.status,
-  })), [
-    { ordinal: 0, kind: 'initial', status: 'acknowledged' },
-    { ordinal: 1, kind: 'repair', status: 'intent' },
-  ]);
-
-  const repairKey = calls.submit[1].idempotencyKey;
   const completed = await orchestrator.runJob(created.id);
-  const acknowledged = jobs.assets.getAsset(created.id, 'main-one');
+  const delivered = jobs.assets.getAsset(created.id, 'main-one');
 
   assert.equal(completed.status, 'completed');
-  assert.equal(providerJobs.size, 2);
-  assert.equal(calls.submit.length, 3);
-  assert.equal(calls.submit[2].idempotencyKey, repairKey);
+  assert.equal(delivered.state, 'completed');
   assert.equal(calls.release.length, 0);
-  assert.equal(completed.progress.executionCount.providerSubmissions, 2);
-  assert.equal(completed.progress.executionCount.providerRepairs, 1);
-  assert.deepEqual(acknowledged.requestSnapshot.submissionIntents.map(intent => ({
+  assert.equal(calls.submit.length, 1);
+  assert.equal(providerJobs.size, 1);
+  assert.deepEqual(delivered.requestSnapshot.submissionIntents.map(intent => ({
     ordinal: intent.ordinal,
     kind: intent.kind,
     status: intent.status,
     providerJobId: intent.providerJobId,
   })), [
     { ordinal: 0, kind: 'initial', status: 'acknowledged', providerJobId: 'provider-logical-1' },
-    { ordinal: 1, kind: 'repair', status: 'acknowledged', providerJobId: 'provider-logical-2' },
   ]);
-  assert.doesNotMatch(JSON.stringify(acknowledged.requestSnapshot), /provider-secret-must-not-persist/);
+  assert.equal(completed.progress.executionCount.providerSubmissions, 1);
+  assert.equal(completed.progress.executionCount.providerRepairs, 0);
+  assert.doesNotMatch(JSON.stringify(delivered.requestSnapshot), /provider-secret-must-not-persist/);
   assert.doesNotMatch(JSON.stringify(completed.progress.executionCount), /provider-secret-must-not-persist/);
 });
 
@@ -3433,8 +3435,7 @@ test('replays a confirmed settlement after the local completion transition fails
   assert.equal(calls.release.length, 0);
 });
 
-test('keeps a quality release recoverable and retries the same item on resume', async t => {
-  let releaseAttempts = 0;
+test('advisory quality feedback never enters billing release recovery', async t => {
   const { orchestrator, jobs, calls } = await createHarness(t, {
     quality: () => ({
       passed: false,
@@ -3446,24 +3447,16 @@ test('keeps a quality release recoverable and retries the same item on resume', 
       },
       confidence: 'low',
     }),
-    release: ({ item }) => {
-      releaseAttempts += 1;
-      if (releaseAttempts === 1) throw new Error('temporary release lock');
-      return { status: 'released', itemKey: item.id };
-    },
   });
   const created = orchestrator.createJob(jobInput('job-quality-release-resume'));
 
-  await assert.rejects(orchestrator.runJob(created.id), /temporary release lock/);
-  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'releasing');
-  assert.equal(calls.settle.length, 0);
+  const completed = await orchestrator.runJob(created.id);
 
-  const resumed = await orchestrator.runJob(created.id);
-
-  assert.equal(resumed.status, 'needs_review');
-  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'needs_review');
-  assert.equal(calls.submit.length, 2);
-  assert.deepEqual(calls.release.map(call => call.itemId), ['main-one', 'main-one']);
+  assert.equal(completed.status, 'completed');
+  assert.equal(jobs.assets.getAsset(created.id, 'main-one').state, 'completed');
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.settle.length, 1);
+  assert.equal(calls.release.length, 0);
 });
 
 test('does not swallow a failed release or terminalize a provider failure until release succeeds', async t => {

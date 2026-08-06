@@ -4,7 +4,7 @@ export function toGenerationStatus(task = {}) {
   const state = String(task.status || task.state || '').toLowerCase();
   const raw = String(task.error || task?.output?.errors?.find?.(item => item?.error || item?.message)?.error || '');
   if (state === 'needs_review') {
-    return { tone: 'review', title: '需要确认', detail: '这张图片未达到交付标准，未扣除本次积分。你可以查看结果后重试或保留为素材。', retryable: true, action: 'retry' };
+    return { tone: 'review', title: '图片待补全', detail: '可用结果已经保留，你可以继续补全这张图片。', retryable: true, action: 'retry' };
   }
   if (UNSAFE_PROVIDER_DETAILS.test(raw) || state === 'failed') {
     return { tone: 'error', title: '暂时无法生成', detail: '视觉服务暂时不可用，未扣除本次积分，请稍后重试。', retryable: true, action: 'retry' };

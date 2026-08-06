@@ -146,7 +146,7 @@ function ecommerceTaskExpiredError(status) {
   return error;
 }
 
-function ecommerceRetryRequiredError(task, message = '本次未能形成完整套图，系统没有交付半成品。请在任务记录中选择失败项重试') {
+function ecommerceRetryRequiredError(task, message = '部分图片暂未完成，已生成的结果已经保留。请在任务记录中补全未完成图片') {
   const error = ecommerceTaskError(task);
   error.message = message;
   error.code = 'ECOMMERCE_TASK_RETRY_REQUIRED';
@@ -1061,7 +1061,7 @@ export async function retryFailedEcommerceTask(taskId, { billingQuoteId, signal 
     body: JSON.stringify({ billingQuoteId }),
     signal,
   });
-  if (!res.ok) throw await createApiError(res, '重新生成整套失败');
+  if (!res.ok) throw await createApiError(res, '补全未完成图片失败');
   return res.json();
 }
 

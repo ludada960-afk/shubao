@@ -76,37 +76,26 @@ export function EcommerceDesignPlanEditor({ direction = {}, prompt = '', onChang
   const updateField = (key, value) => onChange?.(updateCanvasSuitePlanField(plan, key, value));
   const updateShot = (shotId, key, value) => onChange?.(updateCanvasSuitePlanShot(plan, shotId, { [key]: value }));
   const shots = Array.isArray(plan.shots) ? plan.shots : [];
-  const evidence = plan.evidence || {};
-  const evidenceTags = [...(evidence.observations || []), ...(evidence.referenceStyle || [])].slice(0, 8);
 
   return <div className="ec-shared-plan-editor" aria-label="整体设计方案编辑区">
-    <header className="ec-shared-plan-heading">
-      <div>
-        <span className="ec-shared-plan-kicker">商品驱动方案</span>
-        <h3>{plan.productName}的生成规格</h3>
-        <p>从商品事实、用户要求和品类表达出发，先锁定整套规则，再为每张图分配不可替代的商业职责。</p>
-      </div>
-      <span className="ec-shared-plan-state"><Check size={14} />可编辑</span>
-    </header>
-    <section className="ec-plan-context" aria-label="商品依据">
-      <div><span>商品依据</span><strong>{plan.category} · {plan.creativeProfile?.label}</strong></div>
-      <p>{plan.generationSpecification?.productEvidence}</p>
-      {evidenceTags.length > 0 && <div className="ec-plan-evidence-tags">{evidenceTags.map(tag => <span key={tag}>{tag}</span>)}</div>}
-      {evidence.uncertainties?.length > 0 && <small>未确认：{evidence.uncertainties.join('；')}</small>}
+    <section className="ec-plan-overview" aria-label="整体规划">
+      <header className="ec-shared-plan-heading">
+        <div><h3>整体规划</h3><p>统一整套图片的商品表达、视觉规则与文案方向。</p></div>
+        <span className="ec-shared-plan-state"><Check size={14} />可编辑</span>
+      </header>
+      <label className="ec-shared-plan-brief">
+        <span>核心叙事</span>
+        <textarea data-suite-plan-field="brief" value={plan.brief || ''} onChange={event => onChange?.({ ...plan, brief: event.target.value.slice(0, 1800) })} aria-label="编辑整套执行思路" />
+      </label>
+      <section className="ec-plan-specification" aria-label="整套生成规格">
+        <div className="ec-shared-plan-grid">
+          {CANVAS_SUITE_PLAN_FIELDS.map(field => <PlanSpecField key={field.key} field={field} plan={plan} onChange={updateField} />)}
+        </div>
+      </section>
     </section>
-    <label className="ec-shared-plan-brief">
-      <span>整套商业叙事</span>
-      <textarea data-suite-plan-field="brief" value={plan.brief || ''} onChange={event => onChange?.({ ...plan, brief: event.target.value.slice(0, 1800) })} aria-label="编辑整套执行思路" />
-    </label>
-    <section className="ec-plan-specification" aria-label="整套生成规格">
-      <div className="ec-plan-specification-heading"><span className="ec-shared-plan-kicker">整套生成规格</span><p>这些规则控制整套画面的一致性；逐图计划负责各自的画面重点。</p></div>
-      <div className="ec-shared-plan-grid">
-        {CANVAS_SUITE_PLAN_FIELDS.map(field => <PlanSpecField key={field.key} field={field} plan={plan} onChange={updateField} />)}
-      </div>
-    </section>
-    <section className="ec-shared-shot-plan" aria-label="逐图计划">
+    <section className="ec-shared-shot-plan" aria-label="逐张规划">
       <div className="ec-shared-shot-heading">
-        <div><span className="ec-shared-plan-kicker">执行清单</span><h4>逐图计划</h4><p>展开后优先调整高亮的本图重点，再补充统一约束。</p></div>
+        <div><h3>逐张规划</h3><p>展开图片，直接调整它的主题、场景、镜头与信息表达。</p></div>
         <strong>{shots.length} 张</strong>
       </div>
       {shots.length ? shots.map((shot, index) => <EditableShot

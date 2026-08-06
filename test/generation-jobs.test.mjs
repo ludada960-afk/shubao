@@ -161,7 +161,7 @@ test('owner task list closes a stale pre-billing visual analysis instead of show
     const [summary] = jobs.listOwner('owner@example.com');
 
     assert.equal(summary.status, 'failed');
-    assert.equal(summary.error, '本轮生成未完成，请稍后重新生成整套');
+    assert.equal(summary.error, '生成暂未完成，请重新开始');
     assert.equal(jobs.get(job.id).error, '图片分析超时，本轮未扣费，请重新生成');
   } finally {
     jobs.close();

@@ -1346,3 +1346,20 @@
   deployment lock was released. User-owned deleted `server/extension_tasks`
   files, `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain
   uncommitted and untouched.
+- Screenshot-driven ecommerce delivery recovery completed locally on 2026-08-07.
+  The design plan now exposes only the editable `整体规划` and `逐张规划`
+  surfaces in a neutral product-tool layout; desktop 1440x900 and mobile
+  390x844 browser checks found no horizontal overflow or console errors.
+  A persisted provider image is now delivered even when advisory quality or
+  suite-diversity feedback fails, and neither new nor ordinary legacy quality
+  repair states can submit another provider image request. One deterministic
+  local Sharp repair remains available without provider cost. Genuine
+  provider-no-image failures still retain targeted completion recovery. Task
+  and Canvas wording no longer exposes internal quality-review or full-suite
+  regeneration language. TDD RED was observed for both current and legacy
+  repair behavior; focused orchestrator regression passed 88/88, the full
+  repository suite passed 1202/1202, the 6448-module production build and
+  post-build asset check passed, collaboration policy is READY, and whitespace
+  validation is clean. Production deployment is the remaining release step;
+  user-owned extension-task deletions, `.tmp/`, and the diagnosis helper remain
+  uncommitted and untouched.

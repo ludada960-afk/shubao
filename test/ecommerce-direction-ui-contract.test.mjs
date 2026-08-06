@@ -53,8 +53,13 @@ test('方案编辑器突出每张图可编辑的重点，并在中等桌面宽�
   assert.match(editorSource, /本图重点/);
   assert.doesNotMatch(editorSource, /本图差异/);
   assert.match(editorSource, /ec-shared-shot-field--primary/);
-  assert.match(editorSource, /商品依据/);
-  assert.match(editorCss, /#f4efe5/i);
+  assert.match(editorSource, />整体规划</);
+  assert.match(editorSource, />逐张规划</);
+  assert.doesNotMatch(editorSource, /商品驱动方案/);
+  assert.doesNotMatch(editorSource, /商品依据/);
+  assert.doesNotMatch(editorSource, /执行清单/);
+  assert.match(editorCss, /#f7f8fa/i);
+  assert.doesNotMatch(editorCss, /#f4efe5/i);
   assert.match(editorCss, /@media \(max-width: 900px\)/);
   assert.match(editorCss, /grid-template-columns: 30px minmax\(0, 1fr\) auto 20px/);
   assert.match(editorCss, /\.ec-direction-supplement[^{]*\{[^}]*min-width: 0/);
