@@ -24,6 +24,9 @@ function Invoke-CheckedNative {
   if ($LASTEXITCODE -ne 0) { throw "$FailureMessage (exit code $LASTEXITCODE)" }
 }
 
+if ([string]::IsNullOrWhiteSpace($env:SHUBAO_CANARY_SESSION_TOKEN)) {
+  throw "SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment"
+}
 $repo = (Resolve-Path $RepoPath).Path
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $commit = ((& git -C $repo rev-parse --short HEAD) -join "").Trim()
@@ -46,16 +49,12 @@ $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
 $runtimeConfigHelper = Join-Path $PSScriptRoot "verify-runtime-config.cjs"
 $runtimeConfigUpdater = Join-Path $PSScriptRoot "configure-runtime-gateways.cjs"
 $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
-$productionCanaryVerifier = Join-Path $PSScriptRoot "verify-production-canary.mjs"
-$canaryFixture = Join-Path $repo "test_image.png"
 $nginxConfig = Join-Path $PSScriptRoot "nginx\shuimg.cn.conf"
 $remoteNginxConfig = "/etc/nginx/sites-available/shuimg.cn"
 $remoteRuntimeHelperDir = "/tmp/shubao-runtime-tools-$stamp"
 $remoteDatabaseBackupHelper = "$remoteRuntimeHelperDir/backup-runtime-db.cjs"
 $remoteRuntimeConfigHelper = "$remoteRuntimeHelperDir/verify-runtime-config.cjs"
 $remoteRuntimeConfigUpdater = "$remoteRuntimeHelperDir/configure-runtime-gateways.cjs"
-$remoteCanaryFixture = "$remoteRuntimeHelperDir/test_image.png"
-$remoteProductionCanaryVerifier = "$RemoteDir/scripts/verify-production-canary.mjs"
 $remoteReleaseArchive = "$remoteRuntimeHelperDir/$(Split-Path $archive -Leaf)"
 $remoteRuntimeConfigBackup = "/tmp/shubao-runtime-config-backup-$stamp"
 $lockAcquired = $false
@@ -66,9 +65,6 @@ $runtimeConfigBackupCreated = $false
 
 if (-not (Test-Path -LiteralPath $nginxConfig -PathType Leaf)) {
   throw "Versioned production Nginx configuration is missing"
-}
-if (-not (Test-Path -LiteralPath $productionCanaryVerifier -PathType Leaf) -or -not (Test-Path -LiteralPath $canaryFixture -PathType Leaf)) {
-  throw "Production canary verifier or fixture is missing"
 }
 $deploymentSucceeded = $false
 
@@ -99,7 +95,7 @@ function Wait-PublicProductionReady {
   throw "Public production health did not become ready within $TimeoutSeconds seconds"
 }
 
-function Invoke-ProductionCanaryVerification {
+function Invoke-EcommerceProductionVerification {
   param(
     [Parameter(Mandatory = $true)]
     [string]$FailureMessage,
@@ -109,9 +105,10 @@ function Invoke-ProductionCanaryVerification {
     [int]$RetryDelaySeconds = 20
   )
 
+  $verifier = Join-Path $PSScriptRoot "verify-production-ecommerce.ps1"
   for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     try {
-      & ssh @ssh $target "node '$remoteProductionCanaryVerifier' --app-dir '$RemoteDir' --base-url 'https://shuimg.cn' --fixture-path '$remoteCanaryFixture'"
+      & $verifier -BaseUrl "https://shuimg.cn"
       if ($LASTEXITCODE -ne 0) { throw "Verifier exited with code $LASTEXITCODE" }
       return
     } catch {
@@ -172,7 +169,7 @@ tar -czf $archive -C $repo `
   --exclude='server/.env' `
   --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
-  dist server scripts/nginx/shuimg.cn.conf scripts/verify-production-billing.mjs scripts/verify-production-ecommerce.mjs scripts/verify-production-canary.mjs package.json package-lock.json ecosystem.config.cjs
+  dist server scripts/nginx/shuimg.cn.conf package.json package-lock.json ecosystem.config.cjs
 if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
 
 $lockCommand = "set -e; lock='$remoteLock'; if ! mkdir `$lock 2>/dev/null; then if find `$lock -maxdepth 0 -mmin +30 | grep -q .; then rm -rf -- `$lock; mkdir `$lock; else echo 'Another deployment is active:'; cat `$lock/owner 2>/dev/null || true; exit 73; fi; fi; printf '%s\n' '$User@$env:COMPUTERNAME $commit $stamp' > `$lock/owner; umask 077; mkdir -m 700 '$remoteRuntimeHelperDir'"
@@ -185,7 +182,6 @@ try {
     $runtimeConfigHelper,
     $runtimeConfigUpdater,
     $databaseBackupHelper,
-    $canaryFixture,
     $archive
   )
   & scp @ssh @uploadSources "$target`:$remoteRuntimeHelperDir/"
@@ -224,8 +220,10 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Remote restart or health check failed" }
 
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
+  & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
+  if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   $initialVerificationPid = Get-RemotePm2ProcessId
-  Invoke-ProductionCanaryVerification -FailureMessage "Authenticated ecommerce production verification failed"
+  Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed"
   $initialVerificationEndPid = Get-RemotePm2ProcessId
   if ($initialVerificationEndPid -ne $initialVerificationPid) {
     throw "PM2 process restarted during initial ecommerce verification: $initialVerificationPid -> $initialVerificationEndPid"
@@ -234,7 +232,9 @@ try {
   $canaryPid = $initialVerificationEndPid
   Write-Host "Canary started for $CanarySeconds seconds (PM2 pid: $canaryPid)"
   Start-Sleep -Seconds $CanarySeconds
-  Invoke-ProductionCanaryVerification -FailureMessage "Authenticated ecommerce production canary failed"
+  & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
+  if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
+  Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed"
   $canaryEndPid = Get-RemotePm2ProcessId
   if ($canaryEndPid -ne $canaryPid) {
     throw "PM2 process restarted during canary: $canaryPid -> $canaryEndPid"
