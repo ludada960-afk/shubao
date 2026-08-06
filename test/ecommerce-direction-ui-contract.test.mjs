@@ -44,14 +44,19 @@ test('方案页面使用统一可编辑的整体设计方案，并保留补充�
   assert.doesNotMatch(pageSource, /ec-direction-grid/);
 });
 
-test('方案编辑器以生成规格和逐图差异为核心，而不是泛化表单', () => {
+test('方案编辑器突出每张图可编辑的重点，并在中等桌面宽度保持可收缩布局', () => {
   const editorSource = readFileSync(new URL('../src/pages/Home/ec/EcommerceDesignPlanEditor.jsx', import.meta.url), 'utf8');
   const editorCss = readFileSync(new URL('../src/pages/Home/ec/EcommerceDesignPlanEditor.css', import.meta.url), 'utf8');
   const homeCss = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
 
   assert.match(editorSource, /生成规格/);
-  assert.match(editorSource, /本图差异/);
+  assert.match(editorSource, /本图重点/);
+  assert.doesNotMatch(editorSource, /本图差异/);
+  assert.match(editorSource, /ec-shared-shot-field--primary/);
   assert.match(editorSource, /商品依据/);
   assert.match(editorCss, /#f4efe5/i);
+  assert.match(editorCss, /@media \(max-width: 900px\)/);
+  assert.match(editorCss, /grid-template-columns: 30px minmax\(0, 1fr\) auto 20px/);
+  assert.match(editorCss, /\.ec-direction-supplement[^{]*\{[^}]*min-width: 0/);
   assert.match(homeCss, /--ec-prompt-inline/);
 });

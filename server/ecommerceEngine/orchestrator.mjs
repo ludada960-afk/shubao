@@ -1743,7 +1743,10 @@ export function createEcommerceOrchestrator(deps = {}) {
         : assets.some(asset => asset.state === 'needs_review')
           ? 'needs_review'
           : '';
-    return releaseTarget
+    // A quality rejection applies to that image only. Keep every verified image
+    // available and bill it normally; only the rejected item remains uncharged
+    // and eligible for a targeted retry. A user cancellation is the exception.
+    return releaseTarget === 'cancelled'
       ? releaseVerifiedSuiteAssets({ job, assetPlan, holdId, targetState: releaseTarget })
       : settleVerifiedSuiteAssets({ job, assetPlan, holdId });
   }

@@ -9,8 +9,11 @@ import {
   updateCanvasSuitePlanShot,
 } from '../../EcCanvas/canvasSuitePlanModel.js';
 
+const PRIMARY_SHOT_FIELD_KEYS = new Set(['objective', 'scene', 'composition', 'contentElements', 'copy']);
+
 function ShotField({ field, shot, onChange }) {
-  return <label className="ec-shared-shot-field">
+  const primary = PRIMARY_SHOT_FIELD_KEYS.has(field.key);
+  return <label className={`ec-shared-shot-field ${primary ? 'ec-shared-shot-field--primary' : 'ec-shared-shot-field--shared'}`}>
     <span>{field.label}</span>
     <textarea
       data-suite-shot-detail-field={`${shot.id}-${field.key}`}
@@ -41,7 +44,6 @@ function EditableShot({ shot, expanded, onToggle, onChange }) {
         <strong>{shot.title}</strong>
         <span>{shot.group} · {shot.purpose}</span>
       </span>
-      <span className="ec-shared-shot-difference">本图差异 · {shot.differentiator}</span>
       <b className="ec-shared-shot-ratio">{shot.dimension}</b>
       {expanded ? <ChevronUp size={17} aria-hidden="true" /> : <ChevronDown size={17} aria-hidden="true" />}
     </button>
@@ -56,7 +58,10 @@ function EditableShot({ shot, expanded, onToggle, onChange }) {
         />
       </label>
       <section className="ec-shared-shot-spec" aria-label={`${shot.title}生成规格`}>
-        <div className="ec-shared-shot-spec-heading"><span>生成规格</span><p>本图的差异会连同商品事实与整套规则一起传入生成。</p></div>
+        <div className="ec-shared-shot-spec-heading">
+          <div><span>本图重点</span><p>优先调整高亮字段，决定这张图的主题、场景、镜头与信息表达。</p></div>
+          <p>商品还原与生成约束会作为整套一致性规则一并传入。</p>
+        </div>
         <div className="ec-shared-shot-detail-grid">
           {CANVAS_SUITE_SHOT_FIELDS.map(field => <ShotField key={field.key} field={field} shot={shot} onChange={onChange} />)}
         </div>
@@ -94,14 +99,14 @@ export function EcommerceDesignPlanEditor({ direction = {}, prompt = '', onChang
       <textarea data-suite-plan-field="brief" value={plan.brief || ''} onChange={event => onChange?.({ ...plan, brief: event.target.value.slice(0, 1800) })} aria-label="编辑整套执行思路" />
     </label>
     <section className="ec-plan-specification" aria-label="整套生成规格">
-      <div className="ec-plan-specification-heading"><span className="ec-shared-plan-kicker">整套生成规格</span><p>这些规则控制整套画面的统一性；逐图内容只写本张图片的差异。</p></div>
+      <div className="ec-plan-specification-heading"><span className="ec-shared-plan-kicker">整套生成规格</span><p>这些规则控制整套画面的一致性；逐图计划负责各自的画面重点。</p></div>
       <div className="ec-shared-plan-grid">
         {CANVAS_SUITE_PLAN_FIELDS.map(field => <PlanSpecField key={field.key} field={field} plan={plan} onChange={updateField} />)}
       </div>
     </section>
     <section className="ec-shared-shot-plan" aria-label="逐图计划">
       <div className="ec-shared-shot-heading">
-        <div><span className="ec-shared-plan-kicker">执行清单</span><h4>逐图计划</h4><p>先看“本图差异”，再展开修改具体画面和提示词约束。</p></div>
+        <div><span className="ec-shared-plan-kicker">执行清单</span><h4>逐图计划</h4><p>展开后优先调整高亮的本图重点，再补充统一约束。</p></div>
         <strong>{shots.length} 张</strong>
       </div>
       {shots.length ? shots.map((shot, index) => <EditableShot

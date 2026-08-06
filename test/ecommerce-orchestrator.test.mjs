@@ -1164,7 +1164,7 @@ test('three quoted plan items create exactly three visible assets and three prov
   });
 });
 
-test('incomplete-suite retry creates a newly quoted job for the whole uncharged suite', async t => {
+test('incomplete suite settles verified assets and retries only the uncharged item', async t => {
   let rejectSecondOnce = true;
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-one'), planItem('main-two')],
@@ -1190,10 +1190,12 @@ test('incomplete-suite retry creates a newly quoted job for the whole uncharged 
   const original = await orchestrator.runJob('job-retry-source');
   assert.equal(original.status, 'needs_review');
   assert.deepEqual(calls.compile, ['main-one', 'main-two']);
+  assert.deepEqual(calls.settle.map(call => call.itemId), ['main-one']);
+  assert.deepEqual(calls.release.map(call => call.itemId), ['main-two']);
 
   const retryPlan = orchestrator.getFailedRetryPlan({ id: original.id, ownerEmail: OWNER });
-  assert.deepEqual(retryPlan.itemIds, ['main-one', 'main-two']);
-  assert.equal(retryPlan.quantity, 2);
+  assert.deepEqual(retryPlan.itemIds, ['main-two']);
+  assert.equal(retryPlan.quantity, 1);
 
   const retryJob = orchestrator.createFailedRetryJob({
     id: original.id,
@@ -1202,9 +1204,9 @@ test('incomplete-suite retry creates a newly quoted job for the whole uncharged 
   });
   const completed = await orchestrator.runJob(retryJob.id);
   assert.equal(completed.status, 'completed');
-  assert.deepEqual(calls.compile, ['main-one', 'main-two', 'main-one', 'main-two']);
-  assert.deepEqual(calls.hold.at(-1).itemIds, ['main-one', 'main-two']);
-  assert.equal(calls.submit.length, 4);
+  assert.deepEqual(calls.compile, ['main-one', 'main-two', 'main-two']);
+  assert.deepEqual(calls.hold.at(-1).itemIds, ['main-two']);
+  assert.equal(calls.submit.length, 3);
 });
 
 test('failed-item retry claim is idempotent for concurrent duplicate quote submissions', async t => {
@@ -1258,10 +1260,10 @@ test('failed-item retry claim is idempotent for concurrent duplicate quote submi
   ]);
 
   assert.equal(orchestrator.getJob(firstRetry.id, { ownerEmail: OWNER }).status, 'completed');
-  assert.deepEqual(calls.compile.slice(beforeRetry.compile), ['main-one', 'main-two']);
-  assert.deepEqual(calls.hold.slice(beforeRetry.hold).map(call => call.itemIds), [['main-one', 'main-two']]);
-  assert.equal(calls.submit.length, beforeRetry.submit + 2);
-  assert.equal(calls.settle.length, beforeRetry.settle + 2);
+  assert.deepEqual(calls.compile.slice(beforeRetry.compile), ['main-two']);
+  assert.deepEqual(calls.hold.slice(beforeRetry.hold).map(call => call.itemIds), [['main-two']]);
+  assert.equal(calls.submit.length, beforeRetry.submit + 1);
+  assert.equal(calls.settle.length, beforeRetry.settle + 1);
 });
 
 test('waits for in-flight asset workers to settle before releasing a failed parent runner', async t => {
@@ -1737,7 +1739,7 @@ test('reruns product-fidelity quality after deterministic repair and never settl
   assert.deepEqual(calls.release.map(call => call.itemId), ['transparent-one']);
 });
 
-test('releases the whole suite without settlement when any planned image is not deliverable', async t => {
+test('keeps verified images deliverable when another planned image is not deliverable', async t => {
   const lifecycle = [];
   const { orchestrator, calls } = await createHarness(t, {
     items: [planItem('main-pass'), planItem('detail-fail', 'detail')],
@@ -1781,14 +1783,14 @@ test('releases the whole suite without settlement when any planned image is not 
   const completed = await orchestrator.runJob(created.id);
 
   assert.equal(completed.status, 'needs_review');
-  assert.deepEqual(calls.settle.map(call => call.itemId), []);
-  assert.deepEqual(calls.release.map(call => call.itemId).sort(), ['detail-fail', 'main-pass']);
-  assert.deepEqual(Object.keys(completed.output.images), []);
+  assert.deepEqual(calls.settle.map(call => call.itemId), ['main-pass']);
+  assert.deepEqual(calls.release.map(call => call.itemId), ['detail-fail']);
+  assert.deepEqual(Object.keys(completed.output.images), ['main-pass']);
   assert.equal(completed.progress.resultVersionId, undefined);
-  const withheld = completed.assets.find(asset => asset.assetId === 'main-pass');
-  assert.equal(withheld.stableUrl, undefined);
-  assert.equal(withheld.previewUrl, PNG_A);
-  assert.equal(withheld.error, '本轮未形成完整套图，未交付且本张不计费');
+  const delivered = completed.assets.find(asset => asset.assetId === 'main-pass');
+  assert.equal(delivered.stableUrl, PNG_A);
+  assert.equal(delivered.previewUrl, undefined);
+  assert.equal(delivered.error, '');
   const rejected = completed.assets.find(asset => asset.assetId === 'detail-fail');
   assert.equal(rejected.stableUrl, undefined);
   assert.equal(rejected.previewUrl, PNG_A);

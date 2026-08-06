@@ -155,9 +155,9 @@ export default function SupplementAssetDeck({
   };
 
   return (
-    <div style={{ display: 'flex', gap: 16 }}>
+    <div style={{ display: 'flex', width: '100%', minWidth: 0, gap: 16, flexWrap: 'wrap' }}>
       {/* 左侧：产品图上传区 */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: '1 1 320px', minWidth: 0 }}>
         {/* 标题 */}
         <div
           style={{
@@ -207,6 +207,8 @@ export default function SupplementAssetDeck({
             onWheel={(e) => handleWheel(e, productScrollRef)}
             style={{
               display: 'flex',
+              minWidth: 0,
+              maxWidth: '100%',
               gap: 12,
               overflowX: 'auto',
               paddingBottom: 20, // 为建议标签留出空间
@@ -271,7 +273,7 @@ export default function SupplementAssetDeck({
       </div>
 
       {/* 右侧：参考图上传区 */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: '1 1 320px', minWidth: 0 }}>
         {/* 标题 */}
         <div
           style={{
@@ -335,6 +337,8 @@ export default function SupplementAssetDeck({
             onWheel={(e) => handleWheel(e, referenceScrollRef)}
             style={{
               display: 'flex',
+              minWidth: 0,
+              maxWidth: '100%',
               gap: 12,
               overflowX: 'auto',
               paddingBottom: 20,
