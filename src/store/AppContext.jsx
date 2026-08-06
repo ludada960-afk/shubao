@@ -53,10 +53,32 @@ function createInitialState() {
   return browserQaState ? { ...initialState, ...browserQaState } : initialState;
 }
 
+function createEmptyCanvasResult() {
+  return {
+    id: 'canvas-empty-workspace',
+    _ecResult: true,
+    _emptyCanvas: true,
+    product_name: '电商画布',
+    category: '电商图片',
+    platform: '淘宝',
+    productAssets: [],
+    referenceAssets: [],
+    images: [],
+    imageRecords: [],
+  };
+}
+
 function reducer(state, action) {
   switch (action.type) {
     case 'NAVIGATE':
       return { ...state, page: action.page, galleryItem: null };
+    case 'OPEN_CANVAS':
+      return {
+        ...state,
+        page: 'ec-canvas',
+        galleryItem: null,
+        result: state.result || createEmptyCanvasResult(),
+      };
     case 'NEW_WORK':
       return { ...state, page: 'home', genState: 'idle', result: null, galleryItem: null, _workVersion: (state._workVersion || 0) + 1 };
     case 'SET_MODE':

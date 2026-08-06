@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PRODUCT_SLOT_PLAN,
   buildSupplementDeck,
   buildUploadDeck,
   createSmartConfiguration,
@@ -15,16 +14,17 @@ import {
   withEcommerceCanvasSources,
 } from '../src/pages/Home/ec/workbenchState.js';
 
-test('guides each added product photo to a complementary angle', () => {
+test('names each uploaded product image with one canonical product label', () => {
   assert.equal(nextProductSlot(0).key, 'front');
-  assert.equal(nextProductSlot(0).label, '正面图');
+  assert.equal(nextProductSlot(0).label, '产品图1');
   assert.equal(nextProductSlot(1).key, 'angle');
-  assert.equal(nextProductSlot(1).label, '45°侧面图');
-  assert.equal(nextProductSlot(2).label, '背面图');
+  assert.equal(nextProductSlot(1).label, '产品图2');
+  assert.equal(nextProductSlot(2).label, '产品图3');
   assert.equal(nextProductSlot(3).key, 'detail');
-  assert.equal(nextProductSlot(3).label, '细节图');
-  assert.equal(nextProductSlot(4).label, '场景图');
-  assert.equal(nextProductSlot(99).key, PRODUCT_SLOT_PLAN.at(-1).key);
+  assert.equal(nextProductSlot(3).label, '产品图4');
+  assert.equal(nextProductSlot(4).label, '产品图5');
+  assert.equal(nextProductSlot(99).key, 'product-100');
+  assert.equal(nextProductSlot(99).label, '产品图100');
 });
 
 test('restoring the smart package discards an unapplied SKU package change', () => {

@@ -328,6 +328,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         platform: cleanString(ownValue(input, 'platform')),
         userPrompt: description,
         visualObservations: analysis.product_observations,
+        productUncertainties: analysis.product_uncertainties,
         referenceStyle: analysis.reference_style,
       });
       const plannerComplete = plannerHasOneUsableDirection(parsedPlan?.directions);

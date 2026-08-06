@@ -1,12 +1,17 @@
 export const PRODUCT_UPLOAD_ROLES = [
-  { key: 'front', label: '正面主视图', hint: '建议先放一张清晰商品图' },
-  { key: 'side', label: '侧面 / 45°图', hint: '可补充，帮助保持比例一致' },
-  { key: 'back', label: '背面图', hint: '可补充背面结构' },
-  { key: 'scene', label: '使用场景图', hint: '可补充真实使用方式' },
-  { key: 'detail', label: '材质或结构细节', hint: '可补充纹理、接口或工艺' },
-  { key: 'sku', label: '包装 / SKU图', hint: '可补充颜色与规格关系' },
+  { key: 'front', label: '产品图1', hint: '上传第一张清晰商品图' },
+  { key: 'side', label: '产品图2', hint: '可补充任意角度或结构' },
+  { key: 'back', label: '产品图3', hint: '可继续补充商品真实信息' },
+  { key: 'scene', label: '产品图4', hint: '可补充使用方式或尺度关系' },
+  { key: 'detail', label: '产品图5', hint: '可补充材质、接口或工艺' },
+  { key: 'sku', label: '产品图6', hint: '可补充颜色、规格或包装关系' },
 ];
 
 export function nextProductRole(images = []) {
-  return PRODUCT_UPLOAD_ROLES[Math.min(images.length, PRODUCT_UPLOAD_ROLES.length - 1)];
+  const index = Number.isFinite(images.length) ? Math.max(0, images.length) : 0;
+  return PRODUCT_UPLOAD_ROLES[index] || {
+    key: `product-${index + 1}`,
+    label: `产品图${index + 1}`,
+    hint: '继续上传商品图，补充商品真实信息',
+  };
 }

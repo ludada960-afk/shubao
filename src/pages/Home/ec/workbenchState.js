@@ -1,14 +1,18 @@
 export const PRODUCT_SLOT_PLAN = [
-  { key: 'front', label: '正面图', hint: '上传正面主视图，完整展示商品轮廓' },
-  { key: 'angle', label: '45°侧面图', hint: '建议上传 45° 侧面图，补足结构与比例' },
-  { key: 'back', label: '背面图', hint: '建议上传背面或俯视图，补足未展示部分' },
-  { key: 'detail', label: '细节图', hint: '建议上传材质、接口、纹理或工艺细节' },
-  { key: 'scale', label: '场景图', hint: '建议上传手持或使用场景，帮助判断尺度' },
+  { key: 'front', label: '产品图1', hint: '上传第一张清晰商品图，展示你希望保留的真实外观' },
+  { key: 'angle', label: '产品图2', hint: '可补充任意角度，帮助补全商品结构和比例' },
+  { key: 'back', label: '产品图3', hint: '可继续上传商品图，补充未展示的部分' },
+  { key: 'detail', label: '产品图4', hint: '可补充材质、接口、纹理或工艺细节' },
+  { key: 'scale', label: '产品图5', hint: '可补充使用或尺度关系，便于完整识别' },
 ];
 
 export function nextProductSlot(count = 0) {
   const safeCount = Number.isFinite(count) ? Math.max(0, count) : 0;
-  return PRODUCT_SLOT_PLAN[Math.min(safeCount, PRODUCT_SLOT_PLAN.length - 1)];
+  return PRODUCT_SLOT_PLAN[safeCount] || {
+    key: `product-${safeCount + 1}`,
+    label: `产品图${safeCount + 1}`,
+    hint: '继续上传商品图，补充商品的真实信息',
+  };
 }
 
 export function createWorkbenchState() {

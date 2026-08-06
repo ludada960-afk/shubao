@@ -4,6 +4,6 @@ import assert from 'node:assert/strict';
 import { nextProductRole } from '../src/pages/Home/ec/uploadRoles.js';
 
 test('shows the next empty role card after every uploaded product image', () => {
-  assert.equal(nextProductRole([]).label, '正面主视图');
-  assert.equal(nextProductRole(['a']).label, '侧面 / 45°图');
+  assert.equal(nextProductRole([]).label, '产品图1');
+  assert.equal(nextProductRole(['a']).label, '产品图2');
 });

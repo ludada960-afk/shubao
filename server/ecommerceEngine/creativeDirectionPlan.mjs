@@ -207,7 +207,7 @@ function shotTemplate(role, index, productName, context = {}) {
   const templates = {
     white_background: [
       ['标准识别白底图', `完整准确地展示${product}的主体轮廓和真实颜色`, `正面白底拍清楚${product}的完整外形，用柔和棚拍光勾出轮廓和接触阴影，四周留出干净空间${evidenceTail}`, 'standard-isolation'],
-      ['补充角度白底图', `从安全补充视角帮助用户理解${product}外形`, `换成轻微三分之四角度，让${product}的厚度、开合或边缘更容易看懂；光线保持一致，避免换角度后像是另一件商品`, 'alternate-isolation'],
+      ['补充角度白底图', `从安全补充视角说明${product}的厚度、边缘或开合关系`, `换成轻微三分之四角度，让${product}的厚度、开合或边缘更容易看懂；光线保持一致，避免换角度后像是另一件商品`, 'alternate-isolation'],
     ],
     main: [
       ['商品识别主图', `在首屏建立${product}身份和最重要购买理由`, `把${product}放在画面中心，用正面偏低机位拍出轮廓和体量，旁边只留一句最容易懂的卖点，让买家第一眼认出商品`, 'identity-hero'],
@@ -231,7 +231,7 @@ function shotTemplate(role, index, productName, context = {}) {
       ['材质做工详情图', `展示${product}可见材质与做工细节`, `靠近拍${product}的表面、边缘或连接处，用侧光表现质感，整体图和局部特写放在同一页形成信任`, 'detail-material-proof'],
       ['结构与功能详情图', `说明${product}已确认结构如何服务使用`, `把已看见的组件关系画清楚，用局部放大或轻量引线说明它怎么帮助使用，不做看不见的内部拆解`, 'detail-structure'],
       ['真实使用详情图', `呈现${product}在目标场景中的使用方式`, `让一个真实动作带出${product}的使用方法，用自然窗光和生活尺度降低理解成本，商品始终是画面主角`, 'detail-usage'],
-      ['尺寸适配详情图', `帮助用户判断${product}与空间或使用需求是否匹配`, `用手、桌面或常见物件建立${product}的大小关系；只有确认过的尺寸才写数字，避免让买家误判`, 'detail-scale'],
+      ['尺寸适配详情图', `说明${product}与空间或使用需求的可确认匹配关系`, `用手、桌面或常见物件建立${product}的大小关系；只有确认过的尺寸才写数字，避免让买家误判`, 'detail-scale'],
       ['清洁维护详情图', `说明${product}可确认的维护或收纳方式`, '只表达输入材料能够支持的步骤和可见状态', 'detail-care'],
       ['配件清单详情图', `核对${product}已确认的包装或配件组成`, '统一摆放已确认物件，不新增配件或数量', 'detail-package'],
       ['人群场景详情图', `连接${product}与目标受众的核心需求`, '使用符合目标用户的环境线索，不改变商品主体', 'detail-audience'],
@@ -239,7 +239,7 @@ function shotTemplate(role, index, productName, context = {}) {
       ['品牌收束详情图', `以统一视觉语言完成${product}套图收束`, '继承主视觉色彩、光线和版式，保留清晰行动空间', 'detail-closing'],
     ],
   };
-  if (role === 'main_text' || role === 'main_3x4') return shotTemplate('main', index, productName);
+  if (role === 'main_text' || role === 'main_3x4') return shotTemplate('main', index, productName, context);
   const roleTemplates = templates[role] || templates.main;
   const template = roleTemplates[index % roleTemplates.length];
   const round = Math.floor(index / roleTemplates.length);
@@ -262,17 +262,76 @@ function defaultDependencies(role) {
   return ['product_truth', 'campaign_bible'];
 }
 
+function shotDetailDefaults({ role, index, productName, label, purpose, visualExecution, context = {} }) {
+  const product = productName || '当前商品';
+  const observations = uniqueStrings(context.visualObservations, { maxItems: 5, maxLength: 160 });
+  const referenceStyle = uniqueStrings(context.referenceStyle, { maxItems: 4, maxLength: 100 });
+  const uncertainties = uniqueStrings(context.productUncertainties, { maxItems: 5, maxLength: 120 });
+  const factLine = observations.length
+    ? `识别依据：${observations.join('、')}。`
+    : `识别依据：上传的${product}商品图和用户明确填写的内容。`;
+  const uncertaintyLine = uncertainties.length
+    ? `未确认项：${uncertainties.join('、')}，不得在画面中补写为确定事实。`
+    : '未确认的尺寸、性能、认证、内部结构和配件数量不得被画面擅自补全。';
+  const referenceLine = referenceStyle.length
+    ? `参考图仅迁移${referenceStyle.join('、')}等视觉语言，不替换当前商品主体。`
+    : '保持统一的商业摄影质感，参考图只影响构图和气质，不替换当前商品主体。';
+  const roleScene = {
+    white_background: '干净的中性棚拍背景',
+    main: '克制的电商首屏场景',
+    main_text: '克制的电商首屏场景',
+    main_3x4: '适配竖版浏览的生活化场景',
+    transparent: '无背景的可排版素材场景',
+    sku: '统一光线下的规格对照场景',
+    detail: '与当前卖点直接相关的真实使用场景',
+  }[role] || '与当前商品用途直接相关的场景';
+  const copy = role === 'transparent'
+    ? '不主动添加文案，保留完整干净主体供后续排版。'
+    : `如需文字，只围绕“${label}”提炼一句短标题；不添加未从商品图或用户输入确认的信息。`;
+  return {
+    objective: `${purpose}。本张只承担“${label}”这一项沟通任务，不重复其他图片的主重点。`,
+    visual_style: `${referenceLine}以真实材质、清晰轮廓和稳定色彩为优先。`,
+    scene: `场景采用${roleScene}，环境元素只服务于${product}的${label}展示，不抢主体。`,
+    product_focus: `${factLine}保持${product}的外观、颜色、比例、组件关系、品牌标识和已确认文字一致。`,
+    composition: `${visualExecution}。主体先完整可辨，再用景别、视角和留白建立层级；避免贴边、遮挡和无依据的结构变化。`,
+    content_elements: `画面只安排能证明“${label}”的商品局部、道具、动作或尺度参照；${observations[0] ? `优先突出${observations[0]}。` : ''}`.trim(),
+    copy,
+    negative_constraints: `${uncertaintyLine} ${referenceLine}`.trim(),
+    role_index: index,
+  };
+}
+
 function normalizeShot(source, { role, index, archetype, productName, context }) {
   const shot = isRecord(source) ? source : {};
   const [label, purpose, visualExecution, variationKey] = shotTemplate(role, index, productName, context);
+  const resolvedLabel = firstString(ownValue(shot, 'label', 'title', 'name'), label);
+  const resolvedPurpose = firstString(ownValue(shot, 'purpose', 'objective', 'communication_goal'), purpose);
+  const resolvedExecution = firstString(
+    ownValue(shot, 'visual_execution', 'visualExecution', 'execution', 'description'),
+    visualExecution,
+  );
+  const detailDefaults = shotDetailDefaults({
+    role,
+    index,
+    productName,
+    label: resolvedLabel,
+    purpose: resolvedPurpose,
+    visualExecution: resolvedExecution,
+    context,
+  });
   return {
     index,
-    label: firstString(ownValue(shot, 'label', 'title', 'name'), label),
-    purpose: firstString(ownValue(shot, 'purpose', 'objective', 'communication_goal'), purpose),
-    visual_execution: firstString(
-      ownValue(shot, 'visual_execution', 'visualExecution', 'execution', 'description'),
-      visualExecution,
-    ),
+    label: resolvedLabel,
+    purpose: resolvedPurpose,
+    visual_execution: resolvedExecution,
+    design_goal: firstString(ownValue(shot, 'design_goal', 'designGoal', 'objective', 'purpose'), detailDefaults.objective),
+    visual_style: firstString(ownValue(shot, 'visual_style', 'visualStyle', 'style'), detailDefaults.visual_style),
+    scene: firstString(ownValue(shot, 'scene', 'scenario', 'scene_plan', 'scenario_plan'), detailDefaults.scene),
+    product_focus: firstString(ownValue(shot, 'product_focus', 'productFocus', 'product_fidelity', 'productFidelity'), detailDefaults.product_focus),
+    composition: firstString(ownValue(shot, 'composition', 'layout', 'camera'), detailDefaults.composition),
+    content_elements: firstString(ownValue(shot, 'content_elements', 'contentElements', 'content', 'elements'), detailDefaults.content_elements),
+    copy: firstString(ownValue(shot, 'copy', 'copywriting', 'text', 'copy_content'), detailDefaults.copy),
+    negative_constraints: firstString(ownValue(shot, 'negative_constraints', 'negativeConstraints', 'constraints', 'prohibited'), detailDefaults.negative_constraints),
     variation_key: firstString(
       ownValue(shot, 'variation_key', 'variationKey', 'variation'),
       variationKey,
@@ -412,6 +471,7 @@ function normalizeDirection(source, index, context) {
       ...direction,
       __direction_context: {
         visualObservations: context.visualObservations,
+        productUncertainties: context.productUncertainties,
         referenceStyle: context.referenceStyle,
       },
     }, context.requestedImages, archetype, context.productName),
@@ -503,6 +563,7 @@ export function normalizeCreativeDirectionPlans(rawDirections, options = {}) {
     platform: firstString(ownValue(options, 'platform'), '电商平台'),
     userPrompt: firstString(ownValue(options, 'userPrompt', 'user_prompt')),
     visualObservations: Array.isArray(options.visualObservations) ? options.visualObservations : [],
+    productUncertainties: Array.isArray(options.productUncertainties) ? options.productUncertainties : [],
     referenceStyle: Array.isArray(options.referenceStyle) ? options.referenceStyle : [],
   };
   return Array.from({ length: MAX_DIRECTION_COUNT }, (_, index) => normalizeDirection(sources[index], index, context));

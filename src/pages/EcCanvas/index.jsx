@@ -2504,8 +2504,20 @@ export default function EcCanvas() {
             : [{ key: 'main_text', count: 3 }, { key: 'detail_slice_feature', count: 3 }],
         });
         const directions = Array.isArray(response?.directions) && response.directions.length
-          ? response.directions
-          : [{ title: '商品主视觉方案', hook: '保留商品主体，围绕平台和使用场景生成完整套图。', description: composer.prompt?.trim() || '' }];
+          ? response.directions.map(direction => ({
+            ...direction,
+            analysis: response.analysis || null,
+            productName: result.product_name || productNodes[0].name || '商品',
+            category: result.category || '其他',
+          }))
+          : [{
+            title: '商品主视觉方案',
+            hook: '保留商品主体，围绕平台和使用场景生成完整套图。',
+            description: composer.prompt?.trim() || '',
+            analysis: response?.analysis || null,
+            productName: result.product_name || productNodes[0].name || '商品',
+            category: result.category || '其他',
+          }];
         const suitePlan = buildCanvasSuitePlan(directions[0], composer.prompt);
         setNodes(previous => previous.map(node => node.id === composer.id
           ? { ...node, status: 'ready', suiteStep: 'directions', directions, suitePlan, selectedDirection: 0 }

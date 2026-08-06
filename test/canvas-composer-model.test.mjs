@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyCanvasSuitePlanToDirection,
   buildCanvasSuitePlan,
   updateCanvasSuitePlanField,
+  updateCanvasSuitePlanShot,
 } from '../src/pages/EcCanvas/canvasSuitePlanModel.js';
 import {
   closeCanvasComposerSurface,
@@ -52,4 +54,30 @@ test('suite plan field edits are immutable and do not discard shot plans', () =>
   assert.equal(updated.composition, '右侧留出统一文案区');
   assert.equal(updated.shots[0].dimension, '3:4');
   assert.equal(updated.shots[0].title, '材质细节');
+});
+
+test('detailed per-shot edits compile into the durable generation direction', () => {
+  const direction = {
+    deliverables: [{
+      role: 'detail',
+      label: '详情图',
+      count: 1,
+      ratio: '3:4',
+      shots: [{ label: '材质细节', purpose: '展示材质', visual_execution: '靠近展示纹理' }],
+    }],
+    visual_system: {},
+    product_strategy: {},
+  };
+  const plan = buildCanvasSuitePlan(direction, '突出真实材质');
+  const edited = updateCanvasSuitePlanShot(plan, 'detail-1', {
+    title: '表面质感细节',
+    scene: '自然侧光下的近景台面',
+    negativeConstraints: '不得虚构材质认证或参数。',
+  });
+  const applied = applyCanvasSuitePlanToDirection(edited, direction);
+  const shot = applied.deliverables[0].shots[0];
+
+  assert.equal(shot.label, '表面质感细节');
+  assert.match(shot.visual_execution, /自然侧光下的近景台面/);
+  assert.match(shot.visual_execution, /不得虚构材质认证或参数/);
 });

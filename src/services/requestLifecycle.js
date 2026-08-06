@@ -42,5 +42,9 @@ export function createBoundedRequestLifecycle({
 export function requestFailureMessage(error, lifecycle, fallback = '加载失败，请稍后重试') {
   if (lifecycle?.didTimeout?.()) return lifecycle.timeoutMessage;
   if (error?.name === 'AbortError' || error?.code === 'VISUAL_ANALYSIS_ABORTED') return '';
-  return error?.message || fallback;
+  const message = String(error?.message || '');
+  if (/failed to fetch|networkerror|load failed/i.test(message)) {
+    return '网络请求失败，请检查网络后重试；系统不会自动重复提交生图任务';
+  }
+  return message || fallback;
 }

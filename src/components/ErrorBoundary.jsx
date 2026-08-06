@@ -2,10 +2,8 @@ import React from 'react';
 import { MdRefresh } from 'react-icons/md';
 
 /**
- * B6/B8: 增强版 ErrorBoundary
- * - 自动恢复（非致命错误）
- * - 错误计数 + 防抖（连续 3 次错误才显示崩溃页）
- * - 保留错误堆栈供调试
+ * B6/B8: 页面级错误兜底。
+ * React 的错误边界必须同步返回状态对象；错误发生时直接展示可操作的恢复页，避免整页只剩背景色。
  */
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -14,18 +12,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    const now = Date.now();
-    return (prevState) => {
-      // 10 秒内的连续错误计数
-      const withinWindow = now - prevState.lastErrorTime < 10000;
-      const count = withinWindow ? prevState.errorCount + 1 : 1;
-      // 连续 3 次才显示崩溃页
-      if (count >= 3) {
-        return { hasError: true, error, errorCount: count, lastErrorTime: now };
-      }
-      // 否则静默恢复
-      return { hasError: false, error: null, errorCount: count, lastErrorTime: now };
-    };
+    return { hasError: true, error, errorCount: 1, lastErrorTime: Date.now() };
   }
 
   componentDidCatch(error, errorInfo) {

@@ -59,7 +59,7 @@ export default function WorksPage() {
       platform: w.platform || '淘宝',
     };
     dispatch({ type: 'SET_RESULT', result: normalized });
-    dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+    dispatch({ type: 'OPEN_CANVAS' });
   };
 
   const styleIcon = (s) => EC_STYLE_ICONS[s] || '🖼️';

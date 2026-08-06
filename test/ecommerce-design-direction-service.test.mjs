@@ -93,6 +93,19 @@ test('separates bounded visual analysis from text-only direction planning', asyn
   assert.equal(result.degraded, false);
 });
 
+test('turns visual facts and uncertainties into editable per-shot generation constraints', async () => {
+  const { service } = serviceHarness();
+  const result = await service.generate(generationInput());
+  const shot = result.directions[0].deliverables.find(group => group.role === 'main_text').shots[0];
+
+  assert.match(shot.design_goal, /商品识别主图|商品主图/);
+  assert.match(shot.product_focus, /圆柱结构/);
+  assert.match(shot.negative_constraints, /容量无法从图片确认/);
+  assert.match(shot.negative_constraints, /不得/);
+  assert.match(shot.visual_style, /自然餐桌光线|留白排版/);
+  assert.match(shot.composition, /主体/);
+});
+
 test('caps visual inputs at four images per role', async () => {
   const { service, calls } = serviceHarness();
   await service.generate(generationInput({

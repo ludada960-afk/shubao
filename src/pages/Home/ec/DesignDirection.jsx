@@ -23,6 +23,7 @@ import {
 } from './ecommercePlanModel.js';
 import { buildSupplementDeck, withEcommerceCanvasSources } from './workbenchState';
 import EcommerceDesignPlanEditor from './EcommerceDesignPlanEditor.jsx';
+import { applyCanvasSuitePlanToDirection } from '../../EcCanvas/canvasSuitePlanModel.js';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import {
@@ -55,6 +56,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const [selected, setSelected] = useState(0);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState('');
+  const [errorStage, setErrorStage] = useState('');
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState(''); // C4: SSE 进度文本
   const [genStage, setGenStage] = useState(0); // C4: 生成阶段
@@ -182,6 +184,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     analysisRequestRef.current = analysisRequest;
     setLoading(true);
     setError('');
+    setErrorStage('');
     setLoadStage(0);
     let timer1;
     let timer2;
@@ -216,9 +219,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
 
       setLoadStage(3);
 
-      setDirections(res.directions || []);
       setAnalysis(res.analysis || null);
-      if (res.directions?.length) setSelected(0);
+      const enrichedDirections = (res.directions || []).map(direction => ({
+        ...direction,
+        analysis: res.analysis || null,
+        productName: params?.productName || params?.description?.slice(0, 20) || '商品',
+        category: params?.category || '其他',
+      }));
+      setDirections(enrichedDirections);
+      if (enrichedDirections.length) setSelected(0);
     } catch (e) {
       if (analysisRequestRef.current !== analysisRequest) return;
       const message = requestFailureMessage(e, analysisRequest);
@@ -230,7 +239,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           billing: e?.billing,
         });
       }
-      if (message) setError(message);
+      if (message) {
+        setErrorStage('analysis');
+        setError(message);
+      }
     } finally {
       clearTimeout(timer1);
       clearTimeout(timer2);
@@ -272,7 +284,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         draftId,
         currency: 'ec_points',
       });
-      if (!accessResult) setError(e?.message || '重新分析失败，请稍后重试');
+      if (!accessResult) {
+        setErrorStage('analysis');
+        setError(e?.message || '重新分析失败，请稍后重试');
+      }
     }
   };
 
@@ -346,6 +361,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       lifecycle: generationLifecycle,
       quoteReady: Boolean(billingQuote && ecommercePlan.quoteRequest),
       onError: (preconditionError) => {
+        setErrorStage('generation');
         setError(preconditionError.message);
         setGenerating(false);
       },
@@ -353,6 +369,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     if (!generation) return;
     const { token: generationToken, signal: generationSignal } = generation;
     setGenerating(true);
+    setError('');
+    setErrorStage('generation');
     setBlockedByCredits(false);
     setGenProgress('正在生成…');
     setGenStage(0);
@@ -464,6 +482,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         dispatch({ type: 'CLEAR_PAYWALL' });
         onGenerated?.();
       } else {
+        setErrorStage('generation');
         setError('任务尚未完成或没有稳定图片，请稍后继续生成');
       }
     } catch (e) {
@@ -521,10 +540,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         setAssetProgress([]);
         setStableImages([]);
         setPreviewImageIndex(-1);
+        setErrorStage('generation');
         setError(e.message || '本次未能形成完整套图，系统没有交付半成品。请稍后重新生成整套。');
       } else if (e?.code === 'ECOMMERCE_POLL_TIMEOUT' || e?.resumeable === true) {
+        setErrorStage('generation');
         setError('任务还在后台生成，已为你保留进度。稍后继续生成会自动接着当前任务，不会从头开始。');
       } else {
+        setErrorStage('generation');
         setError(e.message || '生成失败');
       }
     } finally {
@@ -614,21 +636,6 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           </div>
         )}
 
-        {/* ── 错误 ── */}
-        {error && (
-          <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12,
-            padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span style={{ fontSize: 13, color: '#dc2626' }}>{error}</span>
-            <div onClick={loadDirections} style={{
-              marginLeft: 'auto', padding: '4px 12px', borderRadius: 8,
-              background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600,
-              cursor: 'pointer',
-            }}>重试</div>
-          </div>
-        )}
-
         {/* ── 统一设计方案 ── */}
         {!loading && directions.length > 0 && (
           <>
@@ -652,7 +659,14 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               onChange={plan => {
                 const activeIndex = Math.min(selected, directions.length - 1);
                 setDirections(previous => previous.map((item, itemIndex) => itemIndex === activeIndex
-                  ? { ...item, ...plan, brief: plan.brief, one_liner: plan.brief, execution_guide: plan.brief }
+                  ? {
+                    ...item,
+                    ...applyCanvasSuitePlanToDirection(plan, item),
+                    ...plan,
+                    brief: plan.brief,
+                    one_liner: plan.brief,
+                    execution_guide: plan.brief,
+                  }
                   : item));
                 setBlockedByCredits(false);
               }}
@@ -717,6 +731,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 )}
               </button>
             </div>
+            {error && errorStage === 'generation' && (
+              <div role="alert" style={{ maxWidth: 720, margin: '14px auto 0', padding: '12px 16px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', fontSize: 13, lineHeight: 1.55 }}>
+                <strong style={{ display: 'block', marginBottom: 3 }}>这次生成没有交付成品</strong>
+                <span>{error}</span>
+              </div>
+            )}
             <div style={{ textAlign: 'center', marginTop: 9, fontSize: 12, fontWeight: 700, color: quoteError ? '#b91c1c' : '#6b625a' }}>
               {quoteError || quoteNotice || quoteText}
             </div>
@@ -786,11 +806,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         )}
 
         {/* ── 无方向数据 ── */}
-        {!loading && !error && directions.length === 0 && (
+        {!loading && directions.length === 0 && (
           <div style={{
             textAlign: 'center', padding: '60px 20px',
             color: 'var(--text-muted)', fontSize: 14,
           }}>
+            {error && errorStage === 'analysis' && <div role="alert" style={{ maxWidth: 520, margin: '0 auto 18px', padding: '12px 16px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', lineHeight: 1.55 }}>{error}</div>}
             <p>未生成设计方向，请检查输入后重试</p>
             <div onClick={loadDirections} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,

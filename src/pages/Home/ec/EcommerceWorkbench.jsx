@@ -118,7 +118,7 @@ export default function EcommerceWorkbench({
         <div className="ec-textarea-wrap ec-xhs-prompt">
           {!description && (
             <div className="ec-textarea-placeholder ec-xhs-placeholder ec-xhs-prompt-hints">
-              <span className="ec-placeholder-line"><span className="ec-cursor ec-xhs-cursor" aria-hidden="true" />{promptTitle}</span>
+              <span className="ec-placeholder-line">{promptTitle}</span>
               {promptExamples.slice(0, 2).map((example, index) => <span key={example} className={`ec-placeholder-line ${index === 0 ? 'ec-xhs-example-first' : ''}`}>{example}</span>)}
             </div>
           )}

@@ -50,7 +50,7 @@ function SideNav() {
           dispatch({ type: 'SHOW_LOGIN', show: true });
           return;
         }
-        dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+        dispatch({ type: 'OPEN_CANVAS' });
       },
     },
     {

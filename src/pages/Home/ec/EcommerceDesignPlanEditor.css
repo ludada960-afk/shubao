@@ -1,5 +1,5 @@
 .ec-shared-plan-editor {
-  padding: 24px 24px 28px;
+  padding: 28px 30px 34px;
   background: #fff;
   color: #20242a;
 }
@@ -8,17 +8,17 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
+  gap: 22px;
 }
 .ec-shared-plan-heading {
-  padding-bottom: 18px;
-  border-bottom: 1px solid #edf0f3;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e9edf2;
 }
 .ec-shared-plan-kicker {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   color: #2563eb;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: .02em;
 }
@@ -26,59 +26,63 @@
 .ec-shared-shot-heading h4 {
   margin: 0;
   color: #15171a;
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1.35;
 }
-.ec-shared-plan-heading p {
-  margin: 7px 0 0;
+.ec-shared-plan-heading p,
+.ec-shared-shot-heading p {
+  margin: 8px 0 0;
   color: #687383;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
 }
 .ec-shared-plan-state {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
-  padding: 7px 10px;
+  padding: 8px 11px;
   border: 1px solid #bfe5d4;
   border-radius: 7px;
   color: #18794e;
   background: #f2fbf6;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
   white-space: nowrap;
 }
 .ec-shared-plan-editor label {
   display: grid;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 .ec-shared-plan-editor label > span {
-  color: #3d4652;
-  font-size: 13px;
+  color: #35404d;
+  font-size: 14px;
   font-weight: 800;
 }
 .ec-shared-plan-brief {
-  padding: 20px 0 6px;
+  padding: 24px 0 8px;
 }
-.ec-shared-plan-editor textarea {
+.ec-shared-plan-editor textarea,
+.ec-shared-plan-editor input {
   width: 100%;
-  min-height: 78px;
   box-sizing: border-box;
   margin: 0;
-  padding: 12px 13px;
+  padding: 13px 14px;
   resize: vertical;
-  border: 1px solid #dfe4ea;
+  border: 1px solid #dbe2ea;
   border-radius: 8px;
   outline: 0;
   background: #fbfcfd;
   color: #303945;
-  font: 13px/1.7 inherit;
+  font: 14px/1.72 inherit;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
-.ec-shared-plan-brief textarea { min-height: 96px; }
-.ec-shared-plan-editor textarea:focus {
+.ec-shared-plan-editor textarea { min-height: 84px; }
+.ec-shared-plan-brief textarea { min-height: 112px; }
+.ec-shared-plan-editor input { height: 44px; resize: none; }
+.ec-shared-plan-editor textarea:focus,
+.ec-shared-plan-editor input:focus {
   border-color: #7da5ef;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, .1);
   background: #fff;
@@ -86,119 +90,194 @@
 .ec-shared-plan-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 16px;
-  padding: 14px 0 22px;
+  gap: 22px 20px;
+  padding: 18px 0 28px;
 }
 .ec-shared-shot-plan {
-  padding-top: 20px;
-  border-top: 1px solid #edf0f3;
+  padding-top: 24px;
+  border-top: 1px solid #e9edf2;
 }
 .ec-shared-shot-heading {
-  align-items: center;
-  margin-bottom: 13px;
+  align-items: flex-end;
+  margin-bottom: 16px;
 }
-.ec-shared-shot-heading .ec-shared-plan-kicker { margin-bottom: 3px; }
+.ec-shared-shot-heading .ec-shared-plan-kicker { margin-bottom: 4px; }
 .ec-shared-shot-heading strong {
-  color: #626d7b;
-  font-size: 13px;
+  color: #4b5969;
+  font-size: 14px;
+  white-space: nowrap;
 }
 .ec-shared-shot {
-  padding: 13px 0 14px;
-  border-top: 1px solid #f0f2f5;
+  margin-top: 10px;
+  border: 1px solid #e1e7ef;
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
-.ec-shared-shot-meta {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 9px;
+.ec-shared-shot.is-expanded {
+  border-color: #9bbaf2;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, .08);
 }
-.ec-shared-shot-meta > div {
+.ec-shared-shot-toggle {
+  width: 100%;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto 20px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ec-shared-shot-toggle:hover { background: #f8fbff; }
+.ec-shared-shot-index {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #2563eb;
+  background: #edf4ff;
+  font-size: 13px;
+  font-weight: 850;
+}
+.ec-shared-shot-summary {
   min-width: 0;
   display: grid;
   gap: 5px;
 }
-.ec-shared-shot-meta strong { color: #303945; font-size: 13px; }
-.ec-shared-shot-meta span { color: #737e8d; font-size: 12px; line-height: 1.5; }
-.ec-shared-shot-meta > b {
-  flex: 0 0 auto;
-  padding: 4px 7px;
-  border: 1px solid #d9e1ec;
-  border-radius: 5px;
-  color: #536b8f;
-  background: #f5f8fc;
-  font-size: 12px;
+.ec-shared-shot-summary strong {
+  overflow: hidden;
+  color: #222b36;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.ec-shared-shot textarea { min-height: 72px; }
+.ec-shared-shot-summary span {
+  overflow: hidden;
+  color: #6c7785;
+  font-size: 13px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ec-shared-shot-ratio {
+  padding: 5px 8px;
+  border: 1px solid #cfdced;
+  border-radius: 5px;
+  color: #42638e;
+  background: #f5f8fc;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.ec-shared-shot-body {
+  padding: 2px 18px 20px;
+  border-top: 1px solid #e9eef5;
+  background: #fbfcfe;
+}
+.ec-shared-shot-title-field {
+  padding: 18px 0 4px;
+}
+.ec-shared-shot-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 16px;
+  padding-top: 14px;
+}
+.ec-shared-shot-field textarea { min-height: 94px; }
+.ec-shared-shot-field:first-child { grid-column: 1 / -1; }
 .ec-shared-shot-empty {
   margin: 0;
   padding: 16px 0 2px;
   color: #788392;
-  font-size: 13px;
+  font-size: 14px;
 }
 .ec-shared-plan-preview {
   height: 100%;
   box-sizing: border-box;
   overflow: auto;
-  padding: 26px;
+  padding: 28px;
   background: #fbfcfe;
   color: #20242a;
 }
 .ec-shared-plan-preview-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e9edf3;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e5eaf0;
 }
-.ec-shared-plan-preview-header strong {
-  color: #536b8f;
-  font-size: 13px;
-}
-.ec-shared-plan-preview > p {
-  margin: 18px 0 20px;
+.ec-shared-plan-preview-header .ec-shared-plan-kicker { margin-bottom: 5px; }
+.ec-shared-plan-preview-header strong { color: #202a36; font-size: 19px; }
+.ec-shared-plan-preview-header > span { color: #536b8f; font-size: 14px; font-weight: 750; }
+.ec-shared-plan-preview-brief {
+  margin: 20px 0 22px;
   color: #394452;
-  font-size: 14px;
-  line-height: 1.75;
+  font-size: 15px;
+  line-height: 1.8;
 }
 .ec-shared-plan-preview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 .ec-shared-plan-preview-grid > div {
   display: grid;
-  gap: 5px;
-  padding: 13px;
-  border: 1px solid #e1e7ef;
+  gap: 7px;
+  padding: 15px;
+  border: 1px solid #dfe6ef;
   border-radius: 8px;
   background: #fff;
 }
-.ec-shared-plan-preview-grid b { color: #3d4652; font-size: 12px; }
-.ec-shared-plan-preview-grid span { color: #687383; font-size: 12px; line-height: 1.55; }
+.ec-shared-plan-preview-grid b { color: #35404d; font-size: 13px; }
+.ec-shared-plan-preview-grid span { color: #687383; font-size: 13px; line-height: 1.65; }
 .ec-shared-plan-preview-shots {
   display: grid;
   gap: 8px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid #e9edf3;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #e5eaf0;
 }
-.ec-shared-plan-preview-shots > div {
+.ec-shared-plan-preview-shots-title {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid #e1e7ef;
+  margin-bottom: 3px;
+}
+.ec-shared-plan-preview-shots-title b { color: #253140; font-size: 15px; }
+.ec-shared-plan-preview-shots-title span { color: #7a8694; font-size: 12px; }
+.ec-shared-plan-preview-shots > div:not(.ec-shared-plan-preview-shots-title) {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid #dfe6ef;
   border-radius: 7px;
   background: #fff;
 }
-.ec-shared-plan-preview-shots strong { color: #394452; font-size: 12px; }
-.ec-shared-plan-preview-shots span { color: #536b8f; font-size: 12px; font-weight: 700; }
-
+.ec-shared-plan-preview-shots i {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #2563eb;
+  background: #edf4ff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+.ec-shared-plan-preview-shots strong { color: #394452; font-size: 13px; }
+.ec-shared-plan-preview-shots span { color: #536b8f; font-size: 13px; font-weight: 700; }
 .ec-home-design-plan {
-  width: min(100%, 820px);
+  width: min(100%, 960px);
   margin: 0 auto;
   overflow: hidden;
   border: 1px solid #dedfe4;
@@ -206,12 +285,15 @@
   background: #fff;
   box-shadow: 0 16px 34px rgba(30, 38, 52, .1);
 }
-
 @media (max-width: 680px) {
-  .ec-shared-plan-editor { padding: 20px 18px 22px; }
+  .ec-shared-plan-editor { padding: 22px 18px 26px; }
   .ec-shared-plan-grid,
-  .ec-shared-plan-preview-grid { grid-template-columns: 1fr; }
-  .ec-shared-plan-preview { padding: 20px 18px; }
-  .ec-shared-plan-heading { gap: 10px; }
-  .ec-shared-plan-heading h3 { font-size: 18px; }
+  .ec-shared-plan-preview-grid,
+  .ec-shared-shot-detail-grid { grid-template-columns: 1fr; }
+  .ec-shared-shot-field:first-child { grid-column: auto; }
+  .ec-shared-plan-preview { padding: 22px 18px; }
+  .ec-shared-plan-heading { gap: 12px; }
+  .ec-shared-plan-heading h3 { font-size: 19px; }
+  .ec-shared-shot-toggle { grid-template-columns: 28px minmax(0, 1fr) auto 18px; gap: 8px; padding-inline: 10px; }
+  .ec-shared-shot-summary span { white-space: normal; }
 }
