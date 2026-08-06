@@ -1363,3 +1363,22 @@
   validation is clean. Production deployment is the remaining release step;
   user-owned extension-task deletions, `.tmp/`, and the diagnosis helper remain
   uncommitted and untouched.
+
+- Screenshot-driven ecommerce delivery recovery was deployed and independently
+  verified on 2026-08-07 at release `9a94711`. The first deployment continuation
+  identified that `SHUBAO_CANARY_SESSION_TOKEN` had been set to a literal
+  PowerShell expression rather than a session value. A proposed server-local
+  signer was rejected by the security gate and fully reverted in `9a94711`;
+  production retained the normal externally authenticated Canary boundary. The
+  user-provided session then passed a standalone billing probe before deployment.
+  The mandated `scripts/deploy-production.ps1` reran the serial repository suite
+  (`1202/1202`) and transformed `6448` modules, installed and restarted PM2, and
+  passed billing plus two real ecommerce verifications around the full 600-second
+  Canary window. Tasks `ec_d212189e-968a-428b-98c7-f3cba0dfa318` and
+  `ec_cd30e7bd-4d20-4d70-9213-7131a04aa118` each delivered exactly three stable
+  assets. PM2 remained on PID `3714312`; the remote deployment lock was released.
+  Independent public audit passed `27/27`, and local/remote `dist/index.html`
+  SHA-256 matched at
+  `c3c93585cdd4f64bea6447c3dda80eef8fc881fcf39dc71cacd03ce9b545f7fe`.
+  User-owned extension-task deletions, `.tmp/`, and the diagnosis helper remain
+  uncommitted and untouched.
