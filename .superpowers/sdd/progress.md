@@ -1382,3 +1382,26 @@
   `c3c93585cdd4f64bea6447c3dda80eef8fc881fcf39dc71cacd03ce9b545f7fe`.
   User-owned extension-task deletions, `.tmp/`, and the diagnosis helper remain
   uncommitted and untouched.
+- Global ecommerce Canvas delivery release candidate completed locally on
+  2026-08-07 across commits `97098af`, `f950578`, `f20257b`, and `ee92a83`.
+  Arrow mode now performs real marquee selection with an arrow/crosshair cursor,
+  Hand mode exclusively pans with grab/grabbing feedback, and the bottom dock
+  exposes the Shift multi-select hint without overlapping mobile controls.
+  Canvas cards and contextual toolbars use compact content-sized metadata and
+  controls. Export provenance excludes uploaded source assets and non-image
+  composition data; browser-native directory/file pickers are used where
+  available, with image-only single-file or ZIP fallbacks. Detail merging is
+  now a deterministic top-to-bottom ecommerce long-image workflow with explicit
+  ordering, server-side Sharp composition, PNG/JPEG output, and no alignment
+  controls. Detail generation is 9:16 throughout planning, UI, policy, prompt,
+  and provider-size resolution. Variant comparison plans carry exact confirmed
+  SKU facts into deterministic overlays, while white/transparent catalog assets
+  preserve already-compliant sources and prohibit shadows, cropping, halos, and
+  edge contamination. Desktop 1440x1000 and mobile 390x844 browser acceptance
+  verified marquee selection, panning, compact multi-selection controls,
+  export-source exclusion, save-location language, disabled ineligible long
+  export, zero horizontal overflow, and zero console warnings/errors. The full
+  serial repository suite passed `1220/1220`; the 6,451-module production build,
+  export validation, and collaboration check passed. Production deployment is
+  the remaining step. The 12 user-owned extension-task deletions, `.tmp/`, and
+  `scripts/diagnose-recent-ecommerce-jobs.cjs` remain untouched and uncommitted.
