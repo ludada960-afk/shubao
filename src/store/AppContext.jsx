@@ -25,6 +25,8 @@ const initialState = {
   contentSets: 0,
   credits: 0,
   unlimited: false,
+  balanceRefreshStatus: 'idle',
+  balanceRefreshError: '',
   billingCatalog: null,
   billingLedger: [],
   // UI
@@ -105,6 +107,8 @@ function reducer(state, action) {
           contentSets: 0,
           credits: 0,
           unlimited: false,
+          balanceRefreshStatus: 'idle',
+          balanceRefreshError: '',
           billingCatalog: null,
           billingLedger: [],
           pendingPaidAction: null,
@@ -117,6 +121,12 @@ function reducer(state, action) {
         contentSets: action.contentSets,
         credits: action.contentSets,
         unlimited: Boolean(action.unlimited),
+      };
+    case 'SET_BALANCE_REFRESH':
+      return {
+        ...state,
+        balanceRefreshStatus: action.status || 'idle',
+        balanceRefreshError: action.error || '',
       };
     case 'SET_CREDITS':
       return {
@@ -174,10 +184,19 @@ export function AppProvider({ children }) {
 
   const refreshBillingBalance = useCallback(async () => {
     const requestEpoch = sessionRequestGate.capture();
-    const entitlement = normalizeEntitlement(await fetchBillingBalance());
-    if (!sessionRequestGate.isCurrent(requestEpoch)) return undefined;
-    dispatch({ type: 'SET_ENTITLEMENT', ...entitlement });
-    return entitlement;
+    dispatch({ type: 'SET_BALANCE_REFRESH', status: 'refreshing' });
+    try {
+      const entitlement = normalizeEntitlement(await fetchBillingBalance());
+      if (!sessionRequestGate.isCurrent(requestEpoch)) return undefined;
+      dispatch({ type: 'SET_ENTITLEMENT', ...entitlement });
+      dispatch({ type: 'SET_BALANCE_REFRESH', status: 'ready' });
+      return entitlement;
+    } catch (error) {
+      if (sessionRequestGate.isCurrent(requestEpoch)) {
+        dispatch({ type: 'SET_BALANCE_REFRESH', status: 'error', error: error?.message || '额度刷新失败' });
+      }
+      throw error;
+    }
   }, [dispatch, sessionRequestGate]);
 
   const refreshBillingCatalog = useCallback(async () => {
