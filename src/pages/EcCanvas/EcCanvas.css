@@ -297,7 +297,7 @@
   white-space: nowrap;
 }
 .ec-canvas-multi-toolbar > strong { flex: 0 0 auto; padding: 0 7px; color: #252a31; font-size: var(--ec-canvas-action-font); font-weight: 750; }
-.ec-canvas-multi-toolbar button { height: var(--ec-canvas-control-height); display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: #4f5762; font-size: var(--ec-canvas-action-font); font-weight: 650; }
+.ec-canvas-multi-toolbar button { width: var(--ec-canvas-control-height); height: var(--ec-canvas-control-height); display: inline-flex; align-items: center; justify-content: center; gap: 0; flex: 0 0 var(--ec-canvas-control-height); padding: 0; border: 0; border-radius: 6px; background: transparent; color: #4f5762; font-size: var(--ec-canvas-action-font); font-weight: 650; }
 .ec-canvas-multi-toolbar button:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-multi-toolbar button.is-accent { color: #087f5b; }
 .ec-canvas-multi-toolbar button.is-danger { color: #d43d35; }
@@ -540,6 +540,8 @@
   .ec-canvas-suite-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ec-canvas-suite-options { grid-template-columns: 1fr; }
   .ec-canvas-focused-toolbar { max-width: min(620px, calc(100vw - 16px)); }
+  .ec-canvas-multi-toolbar button { width: 28px; flex-basis: 28px; }
+  .ec-canvas-multi-toolbar > strong { padding: 0 4px; font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

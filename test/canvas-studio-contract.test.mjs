@@ -664,6 +664,11 @@ test('Canvas density uses content-sized toolbars and readable metadata', () => {
   assert.match(css, /--ec-canvas-action-font:\s*12px/);
   assert.match(css, /--ec-canvas-meta-font:\s*10px/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*font-size:\s*var\(--ec-canvas-action-font\)/s);
+  assert.match(source, /const estimatedWidth = 10 \+ actions\.length \* 38;/);
+  assert.match(source, /const estimatedWidth = 86 \+ actions\.length \* 38;/);
+  assert.match(source, /className="is-compact" aria-label=\{action\.label\}/);
+  assert.doesNotMatch(source, /<Icon size=\{15\} \/><span>\{action\.label\}<\/span>/);
+  assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*width:\s*var\(--ec-canvas-control-height\);[^}]*justify-content:\s*center;[^}]*padding:\s*0;/s);
 });
 
 test('the primary add rail has a generous Liuying-style hit target', () => {

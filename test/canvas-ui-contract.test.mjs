@@ -31,4 +31,6 @@ test('compact selection controls and mobile bottom controls have bounded geometr
   const mobile = css.slice(css.indexOf('@media (max-width: 620px)'));
   assert.match(mobile, /\.ec-canvas-zoom-controls\s*\{[^}]*left:\s*8px/s);
   assert.match(mobile, /\.ec-canvas-bottom-dock\s*\{[^}]*right:\s*8px/s);
+  assert.match(mobile, /\.ec-canvas-multi-toolbar button\s*\{[^}]*width:\s*28px;[^}]*flex-basis:\s*28px/s);
+  assert.match(mobile, /\.ec-canvas-multi-toolbar > strong\s*\{[^}]*padding:\s*0 4px;[^}]*font-size:\s*11px/s);
 });
