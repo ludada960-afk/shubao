@@ -140,6 +140,19 @@ function isPaletteOrColorLock(lock) {
   return /\bpalette\b|\bcolors?\b/.test(normalizedLock);
 }
 
+function normalizeCreativeRoute(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const keys = [
+    'id', 'title', 'sellingThesis', 'sceneFamily', 'composition',
+    'cameraLanguage', 'informationHierarchy', 'proofStrategy',
+    'paletteIntent', 'lightingIntent', 'rationale',
+  ];
+  return Object.fromEntries(keys.flatMap(key => {
+    const normalized = normalizeString(ownValue(value, key));
+    return normalized ? [[key, normalized]] : [];
+  }));
+}
+
 /**
  * Compiles a selected visual direction into the shared campaign rules used by
  * every asset role. The direction title deliberately comes only from the
@@ -180,6 +193,11 @@ export function compileCampaignBible(direction = {}, overrides = {}, styleRefere
 
   return {
     schemaVersion: 2,
+    creativeAttemptId: firstNonEmpty(ownValue(direction, 'creativeAttemptId', 'creative_attempt_id')),
+    creativeRoute: normalizeCreativeRoute(ownValue(direction, 'creativeRoute', 'creative_route')),
+    routeFingerprint: firstNonEmpty(ownValue(direction, 'routeFingerprint', 'route_fingerprint')),
+    routeRationale: firstNonEmpty(ownValue(direction, 'routeRationale', 'route_rationale')),
+    routeDifference: firstNonEmpty(ownValue(direction, 'routeDifference', 'route_difference')),
     directionId: firstNonEmpty(ownValue(direction, 'id', 'directionId', 'direction_id')),
     title: normalizeString(ownValue(direction, 'title')),
     editableBrief: hasEditableBriefOverride

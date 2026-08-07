@@ -93,6 +93,36 @@ test('separates bounded visual analysis from text-only direction planning', asyn
   assert.equal(result.degraded, false);
 });
 
+test('binds one bounded creative route to the visible plan and planner prompt', async () => {
+  const { service, calls } = serviceHarness();
+  const result = await service.generate(generationInput({
+    creative_attempt_id: 'attempt-visible-route',
+  }));
+
+  const planner = calls.find(call => call.context?.stage === 'planner');
+  const direction = result.directions[0];
+  assert.match(planner.request.userPrompt, /本次创意路线/);
+  assert.match(planner.request.userPrompt, /圆柱结构/);
+  assert.equal(direction.creative_attempt_id, 'attempt-visible-route');
+  assert.equal(direction.route_fingerprint, result.creativeRoute.fingerprint);
+  assert.match(direction.route_rationale, /便携焖烧杯/);
+  assert.ok(direction.creative_route?.sceneFamily);
+});
+
+test('a deliberate new direction attempt avoids the supplied recent route', async () => {
+  const firstHarness = serviceHarness();
+  const first = await firstHarness.service.generate(generationInput({ creative_attempt_id: 'attempt-old' }));
+  const secondHarness = serviceHarness();
+  const second = await secondHarness.service.generate(generationInput({
+    creative_attempt_id: 'attempt-new',
+    recent_creative_routes: [first.creativeRoute.route],
+  }));
+
+  assert.notEqual(second.creativeRoute.fingerprint, first.creativeRoute.fingerprint);
+  assert.notEqual(second.directions[0].route_fingerprint, first.directions[0].route_fingerprint);
+  assert.ok(second.directions[0].route_difference);
+});
+
 test('turns visual facts and uncertainties into editable per-shot generation constraints', async () => {
   const { service } = serviceHarness();
   const result = await service.generate(generationInput());

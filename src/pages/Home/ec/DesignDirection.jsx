@@ -47,6 +47,10 @@ function normalizeDirectionImages(images = []) {
     .filter(image => image.url && !seen.has(image.url) && seen.add(image.url));
 }
 
+function createClientCreativeAttemptId() {
+  return `ec-route-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+}
+
 /* ═══════ 设计方向确认页（三段式第二步）═══ */
 export default function DesignDirection({ params, onBack, onGenerated }) {
   const { state, dispatch, fetchCredits } = useApp();
@@ -84,6 +88,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const generationLifecycleRef = useRef(null);
   const directionRefreshActionRef = useRef(null);
   const analysisRequestRef = useRef(null);
+  const creativeAttemptRef = useRef(createClientCreativeAttemptId());
+  const recentCreativeRoutesRef = useRef([]);
   if (!generationLifecycleRef.current) {
     generationLifecycleRef.current = createEcommerceGenerationLifecycleController({
       ownerEmail,
@@ -105,6 +111,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setStableImages([]);
     setAssetProgress([]);
     setGenProgress('');
+    creativeAttemptRef.current = createClientCreativeAttemptId();
+    recentCreativeRoutesRef.current = [];
     directionRefreshActionRef.current = loadEcommerceDirectionRefreshAction({ ownerEmail, draftId })?.actionId || null;
   }, [ownerEmail, draftId]);
 
@@ -177,7 +185,11 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     return () => { cancelled = true; };
   }, [quoteRequestKey]);
 
-  const loadDirections = async ({ refreshBilling = null } = {}) => {
+  const loadDirections = async ({
+    refreshBilling = null,
+    creativeAttemptId = creativeAttemptRef.current,
+    recentRoutes = recentCreativeRoutesRef.current,
+  } = {}) => {
     analysisRequestRef.current?.cancel();
     analysisRequestRef.current?.cleanup();
     const analysisRequest = createBoundedRequestLifecycle();
@@ -210,6 +222,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         skus: params?.skus || [],
         copywriting: params?.copywriting || {},
         requested_images: ecommercePlan.images,
+        creative_attempt_id: creativeAttemptId,
+        recent_creative_routes: recentRoutes,
         refresh: Boolean(refreshBilling),
         billingQuoteId: refreshBilling?.quoteId,
         billingActionId: refreshBilling?.actionId,
@@ -227,6 +241,13 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         category: params?.category || '其他',
       }));
       setDirections(enrichedDirections);
+      if (res.creativeRoute?.attemptId) creativeAttemptRef.current = res.creativeRoute.attemptId;
+      if (res.creativeRoute?.route) {
+        recentCreativeRoutesRef.current = [
+          res.creativeRoute.route,
+          ...recentCreativeRoutesRef.current.filter(route => route?.id !== res.creativeRoute.route.id),
+        ].slice(0, 6);
+      }
       if (enrichedDirections.length) setSelected(0);
     } catch (e) {
       if (analysisRequestRef.current !== analysisRequest) return;
@@ -262,11 +283,19 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         || `ec-direction-refresh-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
       directionRefreshActionRef.current = actionId;
       saveEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
+      const nextCreativeAttemptId = createClientCreativeAttemptId();
+      const currentRoute = directions[selected]?.creative_route;
+      const recentRoutes = [
+        ...(currentRoute ? [currentRoute] : []),
+        ...recentCreativeRoutesRef.current,
+      ].filter((route, index, list) => route && list.findIndex(item => item?.id === route.id) === index).slice(0, 6);
       await loadDirections({
         refreshBilling: {
           quoteId: quote.quoteId,
           actionId,
         },
+        creativeAttemptId: nextCreativeAttemptId,
+        recentRoutes,
       });
       clearEcommerceDirectionRefreshAction({ ownerEmail, draftId, actionId });
       directionRefreshActionRef.current = null;
@@ -650,7 +679,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 onClick={handleRefreshDirections}
                 disabled={loading}
               >
-                <MdRefresh size={14} />重新分析设计方案 · 1 AI 积分
+                <MdRefresh size={14} />换一套创意路线 · 1 AI 积分
               </button>
             </div>
             <div className="ec-direction-plan-stack">

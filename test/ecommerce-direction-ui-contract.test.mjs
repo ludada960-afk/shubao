@@ -40,6 +40,9 @@ test('方案页面使用统一可编辑的整体设计方案，并保留补充�
   assert.match(pageSource, /整体设计规范与图片规划/);
   assert.match(pageSource, /ec-direction-plan-stack/);
   assert.match(pageSource, /execution_guide: plan\.brief/);
+  assert.match(pageSource, /creative_attempt_id/);
+  assert.match(pageSource, /recent_creative_routes/);
+  assert.match(pageSource, /换一套创意路线/);
   assert.doesNotMatch(pageSource, /<DirectionOptionCard/);
   assert.doesNotMatch(pageSource, /ec-direction-grid/);
 });
@@ -56,7 +59,10 @@ test('方案编辑器突出每张图可编辑的重点，并在中等桌面宽�
   assert.match(editorSource, />整体规划</);
   assert.match(editorSource, />逐张规划</);
   assert.doesNotMatch(editorSource, /商品驱动方案/);
-  assert.doesNotMatch(editorSource, /商品依据/);
+  assert.match(editorSource, /本次商品依据/);
+  assert.match(editorSource, /参考图借鉴/);
+  assert.match(editorSource, /用户要求如何进入方案/);
+  assert.match(editorSource, /本次路线选择/);
   assert.doesNotMatch(editorSource, /执行清单/);
   assert.match(editorCss, /#f7f8fa/i);
   assert.doesNotMatch(editorCss, /#f4efe5/i);

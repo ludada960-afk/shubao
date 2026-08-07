@@ -569,6 +569,36 @@ test('compiles the selected direction strategy and exact per-image execution int
   assert.match(schema.sections.generationInstructions.composition, /整体商品结合一处可验证材质微距/);
 });
 
+test('carries the selected creative route into every non-isolated provider request', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem(),
+    productTruth: productTruth(),
+    campaignBible: campaignBible({
+      creativeAttemptId: 'attempt-route-1',
+      routeFingerprint: 'route-fingerprint-1',
+      routeRationale: '根据商品和提示词选择规格证据路线',
+      routeDifference: '从生活场景改为规格对照',
+      creativeRoute: {
+        id: 'spec-comparison-grid',
+        sellingThesis: '规格差异与决策效率',
+        composition: '模块网格与等尺度对比',
+        cameraLanguage: '一致机位配局部放大',
+        proofStrategy: '并列呈现已确认规格',
+      },
+    }),
+    assets: {
+      product: [asset('product-front')],
+      reference: [asset('style-editorial')],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+
+  assert.equal(schema.sections.campaignBible.creativeAttemptId, 'attempt-route-1');
+  assert.equal(schema.sections.campaignBible.routeFingerprint, 'route-fingerprint-1');
+  assert.equal(schema.sections.campaignBible.creativeRoute.id, 'spec-comparison-grid');
+  assert.match(schema.sections.campaignBible.routeRationale, /规格证据路线/);
+});
+
 test('passes every edited per-shot generation specification into the provider request', () => {
   const truth = productTruth();
   const bible = campaignBible({

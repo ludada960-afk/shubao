@@ -200,3 +200,27 @@ test('nested visual system takes precedence over legacy flat fields without acce
   });
   assert.deepEqual(bible.deliverables, []);
 });
+
+test('preserves creative attempt and route identity in the campaign bible', () => {
+  const route = {
+    id: 'spec-comparison-grid',
+    sellingThesis: '规格差异与决策效率',
+    sceneFamily: '统一背景的规格对照',
+    composition: '模块网格与等尺度对比',
+    cameraLanguage: '一致机位配局部放大',
+    proofStrategy: '并列呈现已确认尺寸材质和规格',
+  };
+  const bible = compileCampaignBible({
+    creative_attempt_id: 'attempt-42',
+    creative_route: route,
+    route_fingerprint: 'fingerprint-42',
+    route_rationale: '针对多规格商品提高决策效率',
+    route_difference: '改为规格网格对比',
+  });
+
+  assert.equal(bible.creativeAttemptId, 'attempt-42');
+  assert.equal(bible.routeFingerprint, 'fingerprint-42');
+  assert.deepEqual(bible.creativeRoute, route);
+  assert.equal(bible.routeRationale, '针对多规格商品提高决策效率');
+  assert.equal(bible.routeDifference, '改为规格网格对比');
+});

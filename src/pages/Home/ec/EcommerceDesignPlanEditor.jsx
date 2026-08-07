@@ -76,6 +76,16 @@ export function EcommerceDesignPlanEditor({ direction = {}, prompt = '', onChang
   const updateField = (key, value) => onChange?.(updateCanvasSuitePlanField(plan, key, value));
   const updateShot = (shotId, key, value) => onChange?.(updateCanvasSuitePlanShot(plan, shotId, { [key]: value }));
   const shots = Array.isArray(plan.shots) ? plan.shots : [];
+  const analysis = direction?.analysis || {};
+  const observations = Array.isArray(analysis.product_observations) ? analysis.product_observations : [];
+  const referenceStyle = Array.isArray(analysis.reference_style) ? analysis.reference_style : [];
+  const route = direction?.creative_route || {};
+  const insightRows = [
+    ['本次商品依据', observations.join('、') || '依据商品图和用户已确认信息建立商品事实。'],
+    ['参考图借鉴', referenceStyle.join('、') || '只借鉴构图、光线和信息层级，不替换商品主体。'],
+    ['用户要求如何进入方案', prompt || '围绕当前商品生成专业电商套图。'],
+    ['本次路线选择', direction?.route_rationale || route?.rationale || '根据商品事实、平台和用户要求选择本次商业叙事。'],
+  ];
 
   return <div className="ec-shared-plan-editor" aria-label="整体设计方案编辑区">
     <section className="ec-plan-overview" aria-label="整体规划">
@@ -83,6 +93,10 @@ export function EcommerceDesignPlanEditor({ direction = {}, prompt = '', onChang
         <div><h3>整体规划</h3><p>统一整套图片的商品表达、视觉规则与文案方向。</p></div>
         <span className="ec-shared-plan-state"><Check size={14} />可编辑</span>
       </header>
+      <div className="ec-plan-evidence" aria-label="本次方案依据">
+        {insightRows.map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}
+        {direction?.route_difference && <div className="ec-plan-evidence-change"><b>与上一方案的变化</b><span>{direction.route_difference}</span></div>}
+      </div>
       <label className="ec-shared-plan-brief">
         <span>核心叙事</span>
         <textarea data-suite-plan-field="brief" value={plan.brief || ''} onChange={event => onChange?.({ ...plan, brief: event.target.value.slice(0, 1800) })} aria-label="编辑整套执行思路" />

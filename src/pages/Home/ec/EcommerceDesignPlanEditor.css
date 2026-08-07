@@ -69,6 +69,26 @@
   font-size: 14px;
   font-weight: 800;
 }
+.ec-plan-evidence {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid #dfe4ea;
+  border-radius: 6px;
+  background: #dfe4ea;
+}
+.ec-plan-evidence > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px;
+  background: #fff;
+}
+.ec-plan-evidence b { color: #35404d; font-size: 12px; }
+.ec-plan-evidence span { color: #626b77; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.ec-plan-evidence-change { grid-column: 1 / -1; background: #eef4ff !important; }
 .ec-shared-plan-brief {
   padding: 18px 0 4px;
 }
@@ -310,6 +330,7 @@
 @media (max-width: 900px) {
   .ec-shared-plan-editor { padding: 22px 18px 26px; }
   .ec-shared-plan-grid,
+  .ec-plan-evidence,
   .ec-shared-plan-preview-grid,
   .ec-shared-shot-detail-grid { grid-template-columns: 1fr; }
   .ec-shared-shot-field:first-child { grid-column: auto; }

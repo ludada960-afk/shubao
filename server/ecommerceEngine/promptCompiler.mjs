@@ -443,6 +443,11 @@ function campaignSection(campaignBible, isolated = false) {
   if (isolated) {
     return {
       directionId: cleanString(ownValue(campaignBible, 'directionId')),
+      creativeAttemptId: '',
+      creativeRoute: {},
+      routeFingerprint: '',
+      routeRationale: '',
+      routeDifference: '',
       title: '',
       brief: '',
       commercialObjective: '',
@@ -470,6 +475,17 @@ function campaignSection(campaignBible, isolated = false) {
     : {};
   return {
     directionId: cleanString(ownValue(campaignBible, 'directionId')),
+    creativeAttemptId: cleanString(ownValue(campaignBible, 'creativeAttemptId')),
+    creativeRoute: isRecord(ownValue(campaignBible, 'creativeRoute'))
+      ? Object.fromEntries(Object.entries(ownValue(campaignBible, 'creativeRoute'))
+        .flatMap(([key, value]) => {
+          const normalized = cleanString(value);
+          return normalized ? [[key, normalized]] : [];
+        }))
+      : {},
+    routeFingerprint: cleanString(ownValue(campaignBible, 'routeFingerprint')),
+    routeRationale: cleanString(ownValue(campaignBible, 'routeRationale')),
+    routeDifference: cleanString(ownValue(campaignBible, 'routeDifference')),
     title: cleanString(ownValue(campaignBible, 'title')),
     brief: cleanString(ownValue(campaignBible, 'editableBrief')),
     commercialObjective: cleanString(ownValue(campaignBible, 'commercialObjective')),

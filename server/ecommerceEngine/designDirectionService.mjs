@@ -1,4 +1,5 @@
 import { normalizeCreativeDirectionPlans } from './creativeDirectionPlan.mjs';
+import { createCreativeAttemptId, selectCreativeRoute } from './creativeRoutePolicy.mjs';
 
 const MAX_IMAGES_PER_ROLE = 4;
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -164,7 +165,7 @@ function buildVisionUserPrompt(input, productCount, referenceCount) {
 function buildPlannerSystemPrompt() {
   return `你是兼具电商策略、视觉设计、商品摄影和转化经验的创意总监。根据已整理的商品事实、视觉参考和用户需求，输出恰好一套最适合当前商品和平台的完整设计方向。这里只规划统一视觉规范；系统会依据权威套图配置补全每张图的职责和可编辑执行计划。
 
-方案必须保留商品真实性，不得捏造性能、认证、材质或不可见结构。不要提供多个近似选项；直接做出最优判断，并让构图、光线、场景、镜头和信息策略共同服务一个清晰商业目标。
+方案必须保留商品真实性，不得捏造性能、认证、材质或不可见结构。不要提供多个近似选项；直接做出最优判断，并严格执行输入中已经选定的“本次创意路线”。创意路线只改变商业叙事、场景、构图、镜头和信息策略，不能改变商品事实。
 
 只返回 JSON，不要 Markdown：
 {
@@ -202,7 +203,7 @@ function buildPlannerSystemPrompt() {
 }`;
 }
 
-function buildPlannerUserPrompt(input, analysis) {
+function buildPlannerUserPrompt(input, analysis, creativeRoute) {
   const analysisSummary = analysis.status === 'complete'
     ? JSON.stringify({
       product_observations: analysis.product_observations,
@@ -214,9 +215,59 @@ function buildPlannerUserPrompt(input, analysis) {
   return [
     productFacts(input),
     `视觉分析：${analysisSummary}`,
+    `本次创意路线：${JSON.stringify({
+      attempt_id: creativeRoute.attemptId,
+      route: creativeRoute.route,
+      rationale: creativeRoute.rationale,
+      difference_from_recent: creativeRoute.difference,
+    })}`,
     `权威套图配置：${requestedSuiteSummary(ownValue(input, 'requested_images', 'requestedImages'))}`,
-    '请输出恰好一套最优方向。不要输出 deliverables 或逐张图片清单。',
+    '请输出恰好一套最优方向。方案名、商业目标、场景、构图、镜头和证明方法必须体现本次创意路线，并明确结合商品观察、参考图特征和用户需求。不要输出 deliverables 或逐张图片清单。',
   ].join('\n');
+}
+
+function recentCreativeRoutes(input) {
+  const value = ownValue(input, 'recent_creative_routes', 'recentCreativeRoutes');
+  return Array.isArray(value) ? value.filter(item => isRecord(item)).slice(0, 6) : [];
+}
+
+function bindCreativeRoute(direction, selection) {
+  const route = selection.route;
+  const deliverables = Array.isArray(direction.deliverables)
+    ? direction.deliverables.map(group => ({
+      ...group,
+      shots: Array.isArray(group.shots) ? group.shots.map(shot => ({
+        ...shot,
+        visual_execution: [shot.visual_execution, `本次路线执行：${route.proofStrategy}；${route.composition}；${route.cameraLanguage}。`]
+          .filter(Boolean).join(' '),
+        route_fingerprint: selection.fingerprint,
+      })) : [],
+    }))
+    : [];
+  return {
+    ...direction,
+    creative_attempt_id: selection.attemptId,
+    creative_route: route,
+    route_fingerprint: selection.fingerprint,
+    route_rationale: selection.rationale,
+    route_difference: selection.difference,
+    one_liner: route.sellingThesis || direction.one_liner,
+    visual_system: {
+      ...(isRecord(direction.visual_system) ? direction.visual_system : {}),
+      composition: route.composition,
+      camera_language: route.cameraLanguage,
+      lighting: route.lightingIntent,
+      information_density: route.informationHierarchy,
+    },
+    product_strategy: {
+      ...(isRecord(direction.product_strategy) ? direction.product_strategy : {}),
+      scenario_plan: route.sceneFamily,
+      hero_focus: route.sellingThesis,
+      reference_adaptation: `${route.proofStrategy}；只迁移参考图的视觉语言，不复制竞品主体。`,
+    },
+    execution_guide: `${selection.rationale}${selection.difference ? ` 与上一方案的主要变化：${selection.difference}。` : ''} ${direction.execution_guide || ''}`.trim(),
+    deliverables,
+  };
 }
 
 function isCancelled(error, signal) {
@@ -299,17 +350,33 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
 
       let parsedPlan = null;
       let plannerFailureReason = '';
+      const creativeAttemptId = cleanString(
+        ownValue(input, 'creative_attempt_id', 'creativeAttemptId'),
+        160,
+      ) || createCreativeAttemptId();
+      const creativeRoute = selectCreativeRoute({
+        evidence: {
+          productName,
+          category: cleanString(ownValue(input, 'category')),
+          platform: cleanString(ownValue(input, 'platform')),
+          userPrompt: description,
+          productObservations: analysis.product_observations,
+          referenceStyle: analysis.reference_style,
+        },
+        attemptId: creativeAttemptId,
+        recentRoutes: recentCreativeRoutes(input),
+      });
       try {
         const response = await completeText({
           systemPrompt: buildPlannerSystemPrompt(),
-          userPrompt: buildPlannerUserPrompt(input, analysis),
+          userPrompt: buildPlannerUserPrompt(input, analysis, creativeRoute),
           images: [],
           signal,
           // The planner only returns a direction skeleton; deliverables are
           // deterministically expanded below. Keeping this compact avoids
           // spending the entire request deadline on verbose JSON.
           maxTokens: 1800,
-          temperature: 0.25,
+          temperature: 0.48,
         }, { stage: 'planner' });
         parsedPlan = parseModelJson(response);
         if (!parsedPlan) plannerFailureReason = 'PLANNER_INVALID_RESPONSE';
@@ -330,7 +397,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         visualObservations: analysis.product_observations,
         productUncertainties: analysis.product_uncertainties,
         referenceStyle: analysis.reference_style,
-      });
+      }).map(direction => bindCreativeRoute(direction, creativeRoute));
       const plannerComplete = plannerHasOneUsableDirection(parsedPlan?.directions);
       // A completed visual pass plus the local complete plan is a usable
       // product result even when the optional text planner times out. Do not
@@ -345,6 +412,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
       return {
         directions,
         analysis,
+        creativeRoute,
         planner_fallback: plannerFallback,
         degraded: (images.length > 0 && !visualComplete) || !effectivePlannerComplete,
         degradedReasons: [

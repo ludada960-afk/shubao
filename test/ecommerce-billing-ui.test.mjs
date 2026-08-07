@@ -543,9 +543,9 @@ test('initial direction analysis is included while explicit refresh is authorita
   assert.match(direction, /directionRefreshActionRef\.current\s*=\s*actionId/);
   assert.match(direction, /saveEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId,\s*actionId\s*\}\)/);
   assert.match(direction, /clearEcommerceDirectionRefreshAction\(\{\s*ownerEmail,\s*draftId,\s*actionId\s*\}\)/);
-  assert.match(direction, /await loadDirections\([\s\S]{0,240}directionRefreshActionRef\.current\s*=\s*null/);
+  assert.match(direction, /await loadDirections\([\s\S]{0,720}directionRefreshActionRef\.current\s*=\s*null/);
   assert.match(analysisSlice, /if\s*\(refreshBilling\)\s*\{[\s\S]{0,180}throw Object\.assign\(new Error\(message\)/);
-  assert.match(direction, /重新分析设计方案\s*·\s*1 AI 积分/);
+  assert.match(direction, /换一套创意路线\s*·\s*1 AI 积分/);
 
   const homeStyles = await fs.readFile(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
   assert.match(direction, /className="ec-direction-action ec-direction-action--refresh"/);
