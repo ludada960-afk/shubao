@@ -42,12 +42,12 @@ const PLATFORM_VISUAL_GUIDE = {
 };
 
 const PLATFORM_SIZES = {
-  '淘宝':       { '1:1':'1440×1440px', '3:4':'1440×1920px' },
-  '京东':       { '1:1':'1440×1440px', '3:4':'1440×1920px' },
-  '拼多多':     { '1:1':'1440×1440px', '3:4':'1440×1920px' },
-  '小红书电商': { '1:1':'1440×1440px', '3:4':'1440×1920px' },
-  '抖音电商':   { '1:1':'1440×1440px', '3:4':'1440×1920px' },
-  '亚马逊':     { '1:1':'1000×1000px', '3:4':'1500×2000px' },
+  '淘宝':       { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px' },
+  '京东':       { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px' },
+  '拼多多':     { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px' },
+  '小红书电商': { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px' },
+  '抖音电商':   { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px' },
+  '亚马逊':     { '1:1':'1000×1000px', '3:4':'1500×2000px', '9:16':'1152×2048px' },
 };
 
 // ============================================================
@@ -59,12 +59,12 @@ const ROLE_INFO = {
   main_3x4:        { label: '主图 3:4', ratio: '3:4', hasText: true, hasSellingPoint: false },
   transparent:     { label: 'PNG透明图', ratio: '1:1', hasText: false, hasSellingPoint: false },
   sku:             { label: 'SKU规格图', ratio: '1:1', hasText: true, hasSellingPoint: false },
-  detail_slice_size:    { label: '尺寸标注', ratio: '3:4', hasText: true, hasSellingPoint: false },
-  detail_slice_scene:   { label: '场景切片', ratio: '3:4', hasText: false, hasSellingPoint: false },
-  detail_slice_qc:      { label: '质检报告', ratio: '3:4', hasText: true, hasSellingPoint: false },
-  detail_slice_compare: { label: '对比切片', ratio: '3:4', hasText: true, hasSellingPoint: false },
-  detail_slice_feature: { label: '功能切片', ratio: '3:4', hasText: true, hasSellingPoint: false },
-  detail_slice_care:    { label: '保养切片', ratio: '3:4', hasText: true, hasSellingPoint: false },
+  detail_slice_size:    { label: '尺寸标注', ratio: '9:16', hasText: true, hasSellingPoint: false },
+  detail_slice_scene:   { label: '场景切片', ratio: '9:16', hasText: false, hasSellingPoint: false },
+  detail_slice_qc:      { label: '质检报告', ratio: '9:16', hasText: true, hasSellingPoint: false },
+  detail_slice_compare: { label: '对比切片', ratio: '9:16', hasText: true, hasSellingPoint: false },
+  detail_slice_feature: { label: '功能切片', ratio: '9:16', hasText: true, hasSellingPoint: false },
+  detail_slice_care:    { label: '保养切片', ratio: '9:16', hasText: true, hasSellingPoint: false },
 };
 
 // ============================================================
@@ -106,6 +106,7 @@ export function assemblePrompt(params) {
   const platformGuide = PLATFORM_VISUAL_GUIDE[platform] || PLATFORM_VISUAL_GUIDE['淘宝'];
   const sizeInfo = getSizeInfo(platform, role.ratio);
   const myPoint = sellingPoints[0] || '';
+  const isolated = baseKey === 'white_bg' || baseKey === 'transparent';
 
   const layers = [];
 
@@ -113,12 +114,12 @@ export function assemblePrompt(params) {
   layers.push(buildFoundationLayer(productName, category, cat, roleKey));
 
   // ───── 第 2 层: 视觉层 (品类视觉 + 双图融合描述) ─────
-  layers.push(buildVisualLayer(cat, roleKey, realShot, styleRef, { productFidelity, styleTransfer }));
+  if (!isolated) layers.push(buildVisualLayer(cat, roleKey, realShot, styleRef, { productFidelity, styleTransfer }));
 
   // ───── 第 3 层: 风格层 (Skill 包 Campaign Lock) ─────
   const lock = getCampaignLock(styleSkill);
   const lockText = buildCampaignLockText(lock);
-  if (lockText) layers.push(`[CAMPAIGN STYLE LOCK]\n${lockText}`);
+  if (!isolated && lockText) layers.push(`[CAMPAIGN STYLE LOCK]\n${lockText}`);
 
   // ───── 第 4 层: 细节层 (卖点/文案/标注) ─────
   layers.push(buildDetailLayer(roleKey, baseKey, productName, category, cat, myPoint, sellingPoints, variant, sliceNote));
@@ -128,7 +129,7 @@ export function assemblePrompt(params) {
 
   // Role override from skill
   const override = getRoleOverride(styleSkill, baseKey);
-  if (override && Object.keys(override).length > 0) {
+  if (!isolated && override && Object.keys(override).length > 0) {
     const overrideText = Object.entries(override)
       .map(([k, v]) => `${k}: ${v}`)
       .join('. ');
@@ -195,7 +196,7 @@ function buildDetailLayer(roleKey, baseKey, productName, category, cat, myPoint,
       ].join('\n');
       break;
     case 'transparent':
-      detail = `Absolutely NO background — transparent. Soft shadow below product for compositing. NO text. Clean edges.`;
+      detail = `True transparent alpha background. Complete uncropped product. Absolutely NO cast shadow, contact shadow, floor, reflection, matte, or halo. NO text. Clean antialiased edges.`;
       break;
     case 'sku': {
       const col = variant?.color || '';
@@ -244,6 +245,7 @@ function buildConstraintLayer(roleKey, baseKey, platform, platformGuide, sizeInf
   // 角色特定约束
   if (baseKey === 'white_bg') {
     constraints.push('CRITICAL: Pure white background #FFFFFF. NO text, badges, labels, or logos.');
+    constraints.push('NO cast shadow, contact shadow, drop shadow, reflection, floor, horizon, gradient, props, edge halo, or crop.');
     constraints.push('Only original product printed text is allowed.');
     constraints.push('NO people, no models, no hands, no body parts.');
   } else if (baseKey === 'main_text') {
@@ -256,7 +258,7 @@ function buildConstraintLayer(roleKey, baseKey, platform, platformGuide, sizeInf
     constraints.push('Optional minimal Chinese promotional text in corner.');
   } else if (baseKey === 'transparent') {
     constraints.push('NO background. NO text. Clean cutout edges.');
-    constraints.push('Soft shadow for compositing only.');
+    constraints.push('NO cast shadow, contact shadow, reflection, matte, halo, jagged edge, or crop.');
   }
 
   // 通用约束
@@ -277,7 +279,8 @@ function buildConstraintLayer(roleKey, baseKey, platform, platformGuide, sizeInf
 function getSizeInfo(platform, ratio) {
   const dims = PLATFORM_SIZES[platform];
   if (dims && ratio && dims[ratio]) return dims[ratio];
-  return ratio === '1:1' ? '1440×1440px' : '1440×1920px';
+  if (ratio === '1:1') return '1440×1440px';
+  return ratio === '9:16' ? '1152×2048px' : '1440×1920px';
 }
 
 function buildFallbackPrompt(productName, category, roleKey) {

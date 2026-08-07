@@ -41,7 +41,7 @@ test('smart and custom sizing resolve to explicit legal production images', asyn
     { key: 'white_bg', count: 1, ratio: '1:1' },
     { key: 'main_text', count: 3, ratio: '1:1' },
     { key: 'transparent', count: 1, ratio: '1:1' },
-    { key: 'detail', count: 5, ratio: '3:4' },
+    { key: 'detail', count: 5, ratio: '9:16' },
   ]);
 
   const custom = resolveSizingImages('淘宝', {
@@ -56,7 +56,7 @@ test('smart and custom sizing resolve to explicit legal production images', asyn
   });
   assert.deepEqual(custom.map(({ key, count, ratio }) => ({ key, count, ratio })), [
     { key: 'main_text', count: 2, ratio: '1:1' },
-    { key: 'detail', count: 4, ratio: '3:4' },
+    { key: 'detail', count: 4, ratio: '9:16' },
     { key: 'transparent', count: 1, ratio: '1:1' },
   ]);
 });

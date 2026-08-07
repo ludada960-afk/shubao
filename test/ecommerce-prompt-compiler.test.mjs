@@ -345,6 +345,40 @@ test('requires SKU facts to exactly match user or OCR Product Truth SKU authorit
   assert.equal(overlayValues.includes('FORGED-CERT'), false);
 });
 
+test('compiles confirmed variant comparison rows as deterministic overlays without model-authored values', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem({
+      id: 'detail-slice-variant-comparison',
+      role: 'detail_slice_variant_comparison',
+      ratio: '9:16',
+      generationSize: '1152x2048',
+      generationMode: 'deterministic_overlay',
+      requiredFacts: [],
+      variantComparison: {
+        variants: [
+          { label: '小号', facts: [{ name: 'capacity', value: '500 mL' }, { name: 'material', value: '304 steel' }] },
+          { label: '大号', facts: [{ name: 'capacity', value: '900 mL' }, { name: 'material', value: '316 steel' }] },
+        ],
+      },
+    }),
+    productTruth: productTruth(),
+    campaignBible: campaignBible(),
+    assets: {
+      product: [asset('product-front'), asset('product-side')],
+      reference: [asset('style-editorial'), asset('style-lighting')],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+
+  assert.deepEqual(schema.sections.deterministicOverlays.variantComparison.variants, [
+    { label: '小号', facts: [{ name: 'capacity', value: '500 mL' }, { name: 'material', value: '304 steel' }] },
+    { label: '大号', facts: [{ name: 'capacity', value: '900 mL' }, { name: 'material', value: '316 steel' }] },
+  ]);
+  assert.match(schema.sections.deterministicOverlays.instruction, /variant.*confirmed|confirmed.*variant/i);
+  assert.match(schema.sections.generationInstructions.copyPolicy, /must not render.*variant|variant.*must not render/i);
+  assert.doesNotMatch(JSON.stringify(schema.sections.generationInstructions), /500 mL|900 mL|304 steel|316 steel/);
+});
+
 test('evidence-gates package text and does not promote arbitrary forbidden mutations into overlays', () => {
   const result = compileAssetRequest({
     assetPlanItem: assetPlanItem(),
@@ -634,6 +668,40 @@ test('compiles transparent deliverables as alpha-only product cutouts that ignor
   assert.deepEqual(schema.sections.deterministicOverlays.items, []);
   assert.match(schema.sections.referenceSafety, /transparency.*cannot|cannot.*transparency/i);
   assert.doesNotMatch(result.prompt, /dramatic campaign spotlight|campaign scene with props|warm marble campaign background/);
+});
+
+test('compiles white-background deliverables as shadow-free catalog isolation and ignores campaign styling', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem({
+      id: 'white-background',
+      role: 'white_background',
+      purpose: 'Marketplace catalog isolation.',
+      ratio: '1:1',
+      generationSize: '2048x2048',
+      styleReferenceIds: [],
+      qualityChecks: ['technical_dimensions', 'product_fidelity', 'platform_compliance', 'shadow_free_catalog', 'clean_product_edges', 'complete_product'],
+    }),
+    productTruth: productTruth(),
+    campaignBible: campaignBible({
+      lighting: 'dramatic spotlight with a long cast shadow that must not leak',
+      composition: 'product on a marble floor with props that must not leak',
+      backgroundLanguage: 'warm gradient campaign background that must not leak',
+    }),
+    assets: {
+      product: [asset('product-front'), asset('product-side')],
+      reference: [asset('style-editorial'), asset('style-lighting')],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+  const instructions = JSON.stringify(schema.sections.generationInstructions);
+
+  assert.deepEqual(result.inputAssets.map(item => item.assetId), ['product-front', 'product-side']);
+  assert.equal(schema.sections.campaignBible.backgroundLanguage, '');
+  assert.match(schema.sections.generationInstructions.background, /#FFFFFF|pure white/i);
+  assert.match(instructions, /no.*shadow|shadow.*forbidden/i);
+  assert.match(instructions, /complete product/i);
+  assert.doesNotMatch(instructions, /dramatic spotlight|marble floor|warm gradient/);
+  assert.doesNotMatch(result.prompt, /long cast shadow that must not leak/);
 });
 
 test('keeps proof and protection responsibilities separate from product views', () => {

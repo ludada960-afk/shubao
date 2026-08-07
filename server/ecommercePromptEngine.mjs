@@ -152,24 +152,24 @@ const IMAGE_ROLES = {
   main_3x4:        { label:'主图 3:4',    group:'主图', desc:'多角度/场景 3:4',       ratio:'3:4', priority:3 },
   transparent:     { label:'透明PNG',     group:'素材', desc:'去底透明素材',          ratio:'1:1', priority:4 },
   sku:             { label:'SKU规格图',   group:'规格', desc:'多色/规格并排',         ratio:'1:1', priority:5 },
-  detail_slice_size:    { label:'尺寸标注切片', group:'详情', desc:'引线标尺寸',     ratio:'3:4', priority:6 },
-  detail_slice_scene:   { label:'场景拍摄切片', group:'详情', desc:'真实环境',       ratio:'3:4', priority:7 },
-  detail_slice_qc:      { label:'质检报告切片', group:'详情', desc:'合格证/检测',     ratio:'3:4', priority:8 },
-  detail_slice_compare: { label:'优势对比切片', group:'详情', desc:'vs同款差异',     ratio:'3:4', priority:9 },
-  detail_slice_feature: { label:'细节功能切片', group:'详情', desc:'功能点callout',  ratio:'3:4', priority:10 },
-  detail_slice_care:    { label:'保养维护切片', group:'详情', desc:'保养说明',       ratio:'3:4', priority:11 },
+  detail_slice_size:    { label:'尺寸标注切片', group:'详情', desc:'引线标尺寸',     ratio:'9:16', priority:6 },
+  detail_slice_scene:   { label:'场景拍摄切片', group:'详情', desc:'真实环境',       ratio:'9:16', priority:7 },
+  detail_slice_qc:      { label:'质检报告切片', group:'详情', desc:'合格证/检测',     ratio:'9:16', priority:8 },
+  detail_slice_compare: { label:'优势对比切片', group:'详情', desc:'vs同款差异',     ratio:'9:16', priority:9 },
+  detail_slice_feature: { label:'细节功能切片', group:'详情', desc:'功能点callout',  ratio:'9:16', priority:10 },
+  detail_slice_care:    { label:'保养维护切片', group:'详情', desc:'保养说明',       ratio:'9:16', priority:11 },
 };
 
 // ============================================================
 // 平台尺寸映射 — 更精准
 // ============================================================
 const PLATFORM_SIZES = {
-  '淘宝':       { '1:1':'1440×1440px', '3:4':'1440×1920px', desc:'淘宝/天猫，首图1440×1440' },
-  '京东':       { '1:1':'1440×1440px', '3:4':'1440×1920px', desc:'京东，品质优先' },
-  '拼多多':     { '1:1':'1440×1440px', '3:4':'1440×1920px', desc:'拼多多，可含促销文字' },
-  '小红书电商': { '1:1':'1440×1440px', '3:4':'1440×1920px', desc:'小红书商城，3:4竖版' },
-  '抖音电商':   { '1:1':'1440×1440px', '3:4':'1440×1920px', desc:'抖音小店，移动优先' },
-  '亚马逊':     { '1:1':'1000×1000px', '3:4':'1500×2000px', desc:'Amazon，白底图不可含文字' },
+  '淘宝':       { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px', desc:'淘宝/天猫，首图1440×1440' },
+  '京东':       { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px', desc:'京东，品质优先' },
+  '拼多多':     { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px', desc:'拼多多，可含促销文字' },
+  '小红书电商': { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px', desc:'小红书商城，9:16竖版详情' },
+  '抖音电商':   { '1:1':'1440×1440px', '3:4':'1440×1920px', '9:16':'1152×2048px', desc:'抖音小店，移动优先' },
+  '亚马逊':     { '1:1':'1000×1000px', '3:4':'1500×2000px', '9:16':'1152×2048px', desc:'Amazon，白底图不可含文字' },
 };
 
 const PLATFORM_VISUAL_GUIDE = {
@@ -369,6 +369,7 @@ function buildRolePrompt(roleKey, ctx) {
         'Product on pure white background #FFFFFF. ' +
         'Product: ' + productName + '. ' + cat.materials + '. ' + cat.texture + '. ' +
         'Keep product as in reference. Extract from original bg. ' +
+        'Show the complete uncropped product with clean antialiased edges. No cast shadow, contact shadow, reflection, floor, horizon, gradient, props, matte, or halo. ' +
         'No new text: no prices, no badges, no labels. ' +
         'Only product original printed text preserved. ' +
         'Style: commercial catalog. 8K. 1:1. Final: ' + sizeInfo + '.'
@@ -395,12 +396,12 @@ function buildRolePrompt(roleKey, ctx) {
       return (
         `E-commerce transparent PNG product image of ${productName}. ` +
         `PRODUCT: ${productName}, ${category}. ${cat.materials}. ${cat.texture}. ` +
-        `SETTING: Absolutely NO background — transparent. Product isolated. ` +
-        `LIGHTING: ${cat.lighting}. Soft shadow below product (for compositing). ` +
+        `SETTING: Absolutely NO background — true transparent alpha. Product isolated with no cast shadow, contact shadow, floor, reflection, matte, or halo. ` +
+        `LIGHTING: Neutral even edge-safe product illumination. No shadow of any kind. ` +
         `COMPOSITION: 3/4 elevated angle, product centered, covering 85%+ of frame. ` +
         `STYLE: Cut-out product photography. Clean edges. No background at all. ` +
         `TEXT: NO text, badges, labels, or logos. ` +
-        `CONSTRAINTS: Must look like a professionally cut-out transparent PNG. ` +
+        `CONSTRAINTS: Must look like a professionally cut-out transparent PNG with a complete uncropped product and clean antialiased edges. ` +
         `Edges must be clean and sharp. No background elements. ` +
         `ASPECT RATIO: 1:1 square. Final output: ${sizeInfo}. ` +
         `PLATFORM: ${platformVisual}`
@@ -483,11 +484,11 @@ function buildDetailSlicePrompt(sliceType, { productName, category, cat, myPoint
         base +
         `LAYOUT: Product centered with leader lines (thin red arrows) pointing to edges, ` +
         `each line ends in a dimension callout in Chinese (e.g., "长 20cm", "宽 10cm", "高 5cm"). ` +
-        `Use the seller-provided dimensions if given, otherwise show representative measurements. ` +
+        `Use seller-confirmed dimensions only. If no dimensions were provided, leave numeric callouts blank for deterministic post-processing and never invent representative measurements. ` +
         `Top header: "${productName} 尺寸标注" in Chinese. ` +
         `STYLE: Technical infographic, clean, readable on mobile. ` +
         `CONSTRAINTS: Chinese numbers/units accurate. No fake characters. ` +
-        `SIZE: 1440px wide, height ≤2880px, 3:4-ish vertical slice. Final: ${sizeInfo}. ` +
+        `SIZE: 9:16 full-height mobile detail screen. Final: ${sizeInfo}. ` +
         `PLATFORM: ${platformVisual}${note}`
       );
     case 'detail_slice_scene':

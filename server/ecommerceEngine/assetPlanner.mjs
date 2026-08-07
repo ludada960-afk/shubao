@@ -1,4 +1,5 @@
 import { getAssetPlanStrategy, normalizeEcommerceCategory } from './categoryKnowledge.mjs';
+import { isCatalogIsolationRole } from './catalogIsolation.mjs';
 import {
   commercialDutyIdFor,
   HERO_DUTIES,
@@ -13,7 +14,19 @@ import { directShot } from './shotDirector.mjs';
 import { compileTypographySystem } from './typographyPolicy.mjs';
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-const FACT_FIELDS = ['color', 'size', 'capacity', 'dimLabel', 'count'];
+const SKU_FACT_FIELDS = [
+  'color',
+  'size',
+  'capacity',
+  'dimLabel',
+  'material',
+  'dimensions',
+  'finish',
+  'weight',
+  'compatibility',
+  'count',
+];
+const SKU_LABEL_FIELDS = ['label', 'variantName', 'skuLabel'];
 const COUNTED_SIZING_KEYS = new Set(['white_bg', 'white_background', 'main_text', 'main_3x4', 'transparent', 'detail']);
 const DEFAULT_DETAIL_DUTY_COUNT = 5;
 
@@ -73,14 +86,38 @@ function normalizeSkus(value) {
   if (!Array.isArray(value)) return [];
   return value.flatMap((sku) => {
     if (!isRecord(sku)) return [];
-    const descriptiveFacts = FACT_FIELDS.slice(0, -1).flatMap((field) => {
+    const facts = SKU_FACT_FIELDS.flatMap((field) => {
       const value = cleanString(ownValue(sku, field));
       return value ? [{ name: field, value }] : [];
     });
-    if (!descriptiveFacts.length) return [];
-    const count = cleanString(ownValue(sku, 'count'));
-    return [[...descriptiveFacts, ...(count ? [{ name: 'count', value: count }] : [])]];
+    const explicitLabel = SKU_LABEL_FIELDS.map(field => cleanString(ownValue(sku, field))).find(Boolean) || '';
+    if (!facts.some(fact => fact.name !== 'count')) return [];
+    const fallbackLabel = facts.find(fact => ['color', 'size', 'capacity', 'dimLabel'].includes(fact.name))?.value;
+    return [{ label: explicitLabel || fallbackLabel || `规格 ${facts.length + 1}`, facts }];
   });
+}
+
+function variantComparisonFor(skuRows) {
+  if (skuRows.length < 2) return null;
+  const valuesByName = new Map();
+  for (const row of skuRows) {
+    for (const fact of row.facts) {
+      if (!valuesByName.has(fact.name)) valuesByName.set(fact.name, new Set());
+      valuesByName.get(fact.name).add(fact.value);
+    }
+  }
+  const differentiatingNames = new Set([...valuesByName]
+    .filter(([, values]) => values.size > 1)
+    .map(([name]) => name));
+  if (!differentiatingNames.size) return null;
+  return {
+    variants: skuRows.map(row => ({
+      label: row.label,
+      facts: row.facts
+        .filter(fact => differentiatingNames.has(fact.name))
+        .map(fact => ({ ...fact })),
+    })),
+  };
 }
 
 function normalizeSizing(value) {
@@ -206,6 +243,7 @@ function policyRole(role) {
 
 function qualityChecks(role, generationMode) {
   const checks = ['technical_dimensions', 'product_fidelity', 'platform_compliance'];
+  if (isCatalogIsolationRole(role)) checks.push('shadow_free_catalog', 'clean_product_edges', 'complete_product');
   if (generationMode === 'deterministic_overlay') checks.push('deterministic_fact_overlay');
   if (role === 'detail_slice_qc') checks.push('proof_asset_traceability');
   if (role === 'sku') checks.push('sku_value_match');
@@ -225,8 +263,9 @@ function skuVariantIdentity(skuFacts) {
   };
 }
 
-function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, category, platform, sizing }) {
-  const ratio = resolveRatio({ role }, sizing, defaultRatio);
+function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, variantComparison = null, category, platform, sizing }) {
+  const roleDefaultRatio = role.startsWith('detail_slice_') ? '9:16' : defaultRatio;
+  const ratio = resolveRatio({ role }, sizing, roleDefaultRatio);
   const generationSize = LEGAL_IMAGE_SIZES[sizing.resolution][ratio];
   const policy = getPlatformPolicy(platform, policyRole(role), category);
   const id = requestedId || role.replaceAll('_', '-');
@@ -241,6 +280,7 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
     purpose,
     commercialDutyId: commercialDutyIdFor(role, commercialDutyKey),
     ...(variantIdentity ? { variantIdentity } : {}),
+    ...(variantComparison ? { variantComparison } : {}),
     communicationGoal,
     ratio,
     generationSize,
@@ -249,7 +289,7 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
       : exportTargets,
     generationMode,
     productAssetIds: [...productAssetIds],
-    styleReferenceIds: role === 'transparent' ? [] : [...styleReferenceIds],
+    styleReferenceIds: isCatalogIsolationRole(role) ? [] : [...styleReferenceIds],
     proofAssetIds: [...proofAssetIds],
     requiredFacts: requiredFacts.map((fact) => ({ ...fact })),
     riskLevel: riskLevel(role),
@@ -368,6 +408,7 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const identity = productIdentity(truth);
   const normalizedPlatform = cleanString(platform) || 'taobao';
   const mainRoles = explicitMainRoles(normalizedSizing);
+  const normalizedSkus = normalizeSkus(skus);
   const items = [];
 
   if (normalizedSizing.hasExplicitCounts) {
@@ -532,7 +573,30 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     }
   }
 
-  normalizeSkus(skus).forEach((skuFacts, index) => {
+  const variantComparison = variantComparisonFor(normalizedSkus);
+  if (variantComparison) {
+    const replaceIndex = items.findLastIndex(item => item.role.startsWith('detail_slice_'));
+    if (replaceIndex >= 0) {
+      items[replaceIndex] = buildItem({
+        id: 'detail-slice-variant-comparison',
+        role: 'detail_slice_variant_comparison',
+        purpose: 'Compare the confirmed differences between available variants so the buyer can choose the correct specification.',
+        commercialDutyKey: 'variantcomparison',
+        communicationGoal: 'Help the buyer compare confirmed variant dimensions, capacity, material, finish, weight, compatibility, color, or size without invented claims.',
+        requiredFacts: [],
+        generationMode: 'deterministic_overlay',
+        productAssetIds,
+        styleReferenceIds,
+        variantComparison,
+        category,
+        platform: normalizedPlatform,
+        sizing: normalizedSizing,
+      });
+    }
+  }
+
+  normalizedSkus.forEach((sku, index) => {
+    const skuFacts = sku.facts;
     items.push(buildItem({
       id: `sku-${index + 1}`,
       role: 'sku',

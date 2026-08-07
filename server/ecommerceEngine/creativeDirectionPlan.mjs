@@ -4,7 +4,7 @@ const DEFAULT_REQUESTED_IMAGES = Object.freeze([
   { key: 'white_bg', label: '白底图', count: 1, ratio: '1:1' },
   { key: 'main_text', label: '商品主图', count: 3, ratio: '1:1' },
   { key: 'transparent', label: '透明素材', count: 1, ratio: '1:1' },
-  { key: 'detail', label: '详情图', count: 5, ratio: '3:4' },
+  { key: 'detail', label: '详情图', count: 5, ratio: '9:16' },
 ]);
 
 const ROLE_ALIASES = Object.freeze({
@@ -197,7 +197,8 @@ function defaultRoleLabel(role) {
 }
 
 function defaultRoleRatio(role) {
-  return role === 'detail' || role === 'main_3x4' ? '3:4' : '1:1';
+  if (role === 'detail') return '9:16';
+  return role === 'main_3x4' ? '3:4' : '1:1';
 }
 
 function productCreativeProfile(context = {}) {
@@ -250,7 +251,7 @@ function shotTemplate(role, index, productName, context = {}) {
   const evidenceTail = evidence ? `；重点放大${evidence}` : '';
   const templates = {
     white_background: [
-      ['标准识别白底图', `完整准确地展示${product}的主体轮廓和真实颜色`, `正面白底拍清楚${product}的完整外形，用柔和棚拍光勾出轮廓和接触阴影，四周留出干净空间${evidenceTail}`, 'standard-isolation'],
+      ['标准识别白底图', `完整准确地展示${product}的主体轮廓和真实颜色`, `正面白底拍清楚${product}的完整外形，使用均匀中性商品光，不生成投影、接触阴影、地面或背景渐变，四周留出干净空间${evidenceTail}`, 'standard-isolation'],
       ['补充角度白底图', `从安全补充视角说明${product}的厚度、边缘或开合关系`, `换成轻微三分之四角度，让${product}的厚度、开合或边缘更容易看懂；光线保持一致，避免换角度后像是另一件商品`, 'alternate-isolation'],
     ],
     main: [
@@ -263,7 +264,7 @@ function shotTemplate(role, index, productName, context = {}) {
     main_text: [],
     main_3x4: [],
     transparent: [
-      ['透明商品素材', `提供可继续排版的${product}干净主体`, `去掉背景，只留下边缘干净的${product}主体；保留金属高光、透明件和自然阴影，方便后面放进不同场景`, 'transparent-cutout'],
+      ['透明商品素材', `提供可继续排版的${product}干净主体`, `去掉背景和所有投影，只留下边缘干净、无白边无黑边且完整的${product}主体；保留商品自身真实材质高光和透明件`, 'transparent-cutout'],
       ['透明补充角度', `提供${product}的补充角度透明素材`, `换一个能看清厚度或结构的安全角度输出透明素材，商品大小和颜色跟上一张保持一致，方便做组合排版`, 'transparent-alternate'],
     ],
     sku: [

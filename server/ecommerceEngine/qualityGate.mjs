@@ -39,6 +39,8 @@ QUALITY_JSON_EXAMPLE_START
 ${JSON.stringify(example, null, 2)}
 QUALITY_JSON_EXAMPLE_END
 根据 Product Truth 检查商品主体是否漂移、结构、颜色、包装、Logo 是否被篡改，并检查乱码、错误文字、水印、糊雾、噪点、明显变形、廉价塑料感或不自然阴影。
+当 role 是 white_background 时，任何投影、接触阴影、倒影、地面线、渐变、道具、商品裁切、白边、黑边或毛边都必须令 visualQuality.passed=false，并给出具体 issueCodes（例如 catalog_shadow_present、product_cropped、edge_halo_or_fringe）。
+当 role 是 transparent 时，任何投影、接触阴影、倒影、不透明背景、白边、黑边、毛边、商品裁切或透明细节丢失都必须令 visualQuality.passed=false，并给出具体 issueCodes。
 如果请求中包含 Asset Responsibility，还要检查画面是否明显完成该图已经确认的 purpose、creativeExecution 和 variationKey。只判断画面中可观察的任务，不因主观风格偏好判失败；明确没有完成时令 visualQuality.passed=false，并加入 issueCodes: ["planned_shot_not_fulfilled"]，同时在 intentFulfillment.evidence 说明可见依据。没有足够证据时不要臆造问题。`;
 }
 export const WHITE_BACKGROUND_REQUIREMENTS = Object.freeze({

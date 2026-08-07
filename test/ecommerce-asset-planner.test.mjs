@@ -58,6 +58,8 @@ test('default planner builds a contract-valid exact fallback suite', () => {
 
   assert.equal(plan.length, 7);
   assert.equal(plan.filter(item => item.role.startsWith('detail_slice_')).length, 5);
+  assert.ok(plan.filter(item => item.role.startsWith('detail_slice_')).every(item => item.ratio === '9:16'));
+  assert.ok(plan.filter(item => item.role.startsWith('detail_slice_')).every(item => item.generationSize === '1152x2048'));
   assert.ok(plan.every(item => item.communicationGoal));
   assert.equal(new Set(plan.map(item => item.commercialDutyId)).size, plan.length);
   assert.equal(validatePlanContract(plan), plan);
@@ -75,6 +77,19 @@ test('plans 3C parameter content from confirmed user facts only', () => {
   assert.deepEqual(parameters.productAssetIds, ['product-front', 'product-side']);
   assert.deepEqual(parameters.styleReferenceIds, ['style-board']);
   assert.equal(factValues(parameters).some((fact) => fact.includes('80 g')), false);
+});
+
+test('isolates white and transparent catalog assets from campaign style and requires clean shadow-free edges', () => {
+  const plan = buildAssetPlan({ productTruth: productTruth(), campaignBible });
+
+  for (const role of ['white_background', 'transparent']) {
+    const item = plan.find(candidate => candidate.role === role);
+    if (!item) continue;
+    assert.deepEqual(item.styleReferenceIds, []);
+    assert.ok(item.qualityChecks.includes('shadow_free_catalog'));
+    assert.ok(item.qualityChecks.includes('clean_product_edges'));
+    assert.ok(item.qualityChecks.includes('complete_product'));
+  }
 });
 
 test('food plans exclude certification and QC without a real proof asset', () => {
@@ -116,6 +131,57 @@ test('plans exactly one SKU item per valid user SKU variant and preserves its fi
   assert.deepEqual(skuItems.map((item) => item.id), ['sku-1', 'sku-2']);
   const skuTargetIds = skuItems.flatMap(item => item.exportTargets.map(target => target.targetId));
   assert.equal(new Set(skuTargetIds).size, skuTargetIds.length);
+});
+
+test('replaces one requested detail with a confirmed multi-variant comparison without growing the suite', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible,
+    platform: 'taobao',
+    sizing: { images: [{ key: 'detail', count: 5, ratio: '9:16' }] },
+    skus: [
+      { label: '小号', capacity: '500 mL', material: '304 stainless steel', dimensions: '10 x 12 cm' },
+      { label: '大号', capacity: '900 mL', material: '316 stainless steel', dimensions: '13 x 16 cm' },
+    ],
+  });
+  const details = plan.filter(item => item.role.startsWith('detail_slice_'));
+  const comparison = details.find(item => item.role === 'detail_slice_variant_comparison');
+
+  assert.equal(details.length, 5);
+  assert.ok(comparison);
+  assert.equal(comparison.generationMode, 'deterministic_overlay');
+  assert.equal(comparison.ratio, '9:16');
+  assert.deepEqual(comparison.variantComparison, {
+    variants: [
+      {
+        label: '小号',
+        facts: [
+          { name: 'capacity', value: '500 mL' },
+          { name: 'material', value: '304 stainless steel' },
+          { name: 'dimensions', value: '10 x 12 cm' },
+        ],
+      },
+      {
+        label: '大号',
+        facts: [
+          { name: 'capacity', value: '900 mL' },
+          { name: 'material', value: '316 stainless steel' },
+          { name: 'dimensions', value: '13 x 16 cm' },
+        ],
+      },
+    ],
+  });
+  assert.equal(validatePlanContract(plan), plan);
+});
+
+test('does not create a variant comparison when fewer than two valid variants exist', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible,
+    skus: [{ label: '标准款', capacity: '500 mL' }],
+  });
+
+  assert.equal(plan.some(item => item.role === 'detail_slice_variant_comparison'), false);
 });
 
 test('adds QC slice only with a real proof asset and assigns that asset to the slice', () => {

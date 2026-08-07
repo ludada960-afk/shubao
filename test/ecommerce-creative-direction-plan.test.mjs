@@ -174,6 +174,14 @@ test('writes merchant-facing shot briefs with distinct visual decisions', () => 
   assert.ok(executions.every(value => !/继承“.*”的构图、光线和色彩系统/.test(value)));
 });
 
+test('new direction plans default detail screens to 9:16', () => {
+  const [plan] = normalizeCreativeDirectionPlans([{}], {
+    productName: '不锈钢便携餐盒',
+    category: '餐具',
+  });
+  assert.equal(plan.deliverables.find(group => group.role === 'detail').ratio, '9:16');
+});
+
 test('builds a category-specific creative profile instead of reusing a generic type and copy rule', () => {
   const [wine] = normalizeCreativeDirectionPlans([{}], {
     productName: '赤霞珠干红葡萄酒',

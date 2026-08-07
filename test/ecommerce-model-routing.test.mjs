@@ -70,10 +70,10 @@ test('validates legal numeric dimensions and rejects unsafe dimensions', () => {
   }
 });
 
-test('defaults an unavailable ratio to the legal square ratio', () => {
+test('promotes a 1K 9:16 request to the smallest supported portrait tier', () => {
   assert.deepEqual(buildModelRoute({ resolution: '1K', ratio: '9:16' }), {
     model: 'gpt-image-2',
-    size: '1024x1024',
+    size: '1152x2048',
     async: true,
     mode: 'edit',
   });

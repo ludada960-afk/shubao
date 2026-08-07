@@ -1,4 +1,5 @@
 import { assembleStructuredPrompt } from './promptAssembler.mjs';
+import { catalogIsolationContract, isCatalogIsolationRole } from './catalogIsolation.mjs';
 import { LEGAL_IMAGE_SIZES, buildModelRoute } from './modelCatalog.mjs';
 import { getPlatformPolicy } from './platformPolicies.mjs';
 import { classifyFactRisk } from './productTruth.mjs';
@@ -240,6 +241,17 @@ function normalizeFactEntries(value) {
   return facts;
 }
 
+function normalizeVariantComparison(value) {
+  if (!isRecord(value) || !Array.isArray(ownValue(value, 'variants'))) return null;
+  const variants = ownValue(value, 'variants').flatMap((variant) => {
+    if (!isRecord(variant)) return [];
+    const label = cleanString(ownValue(variant, 'label'));
+    const facts = normalizeFactEntries(ownValue(variant, 'facts'));
+    return label && facts.length ? [{ label, facts }] : [];
+  });
+  return variants.length >= 2 ? { variants } : null;
+}
+
 function confirmedFactMap(productTruth) {
   const facts = ownValue(productTruth, 'confirmedFacts');
   const result = new Map();
@@ -427,8 +439,8 @@ function safeForbiddenMutations(productTruth) {
   return result;
 }
 
-function campaignSection(campaignBible, transparent = false) {
-  if (transparent) {
+function campaignSection(campaignBible, isolated = false) {
+  if (isolated) {
     return {
       directionId: cleanString(ownValue(campaignBible, 'directionId')),
       title: '',
@@ -570,16 +582,22 @@ export function compileAssetRequest({
   const inputAssets = selectInputAssets(item, truth, assets);
   const role = cleanString(ownValue(item, 'role'));
   const transparent = role === 'transparent';
+  const isolated = isCatalogIsolationRole(role);
+  const isolation = catalogIsolationContract(role);
+  const variantComparison = role === 'detail_slice_variant_comparison'
+    ? normalizeVariantComparison(ownValue(item, 'variantComparison'))
+    : null;
   const ratio = cleanString(ownValue(item, 'ratio'));
   const splitFacts = splitFactsForRendering(item, truth);
   const visualFacts = splitFacts.visualFacts;
   const overlays = transparent ? [] : splitFacts.overlays;
-  const campaign = campaignSection(bible, transparent);
+  const campaign = campaignSection(bible, isolated);
   const modelRoute = compileModelRoute(item);
   const productName = cleanString(ownValue(truth, 'productName'));
   const category = cleanString(ownValue(truth, 'category'));
   const materials = normalizeStrings(ownValue(truth, 'materials'));
   const shotSpecification = shotSpecificationSection(item);
+  const safeShotSpecification = isolated ? {} : shotSpecification;
   const sections = {
     roleObjective: {
       role,
@@ -611,16 +629,20 @@ export function compileAssetRequest({
     imageIndexDuties: inputAssets.map(({ index, assetId, kind, responsibility }) => ({
       index, assetId, kind, responsibility,
     })),
-    generationInstructions: transparent
+    generationInstructions: isolated
       ? {
-          subject: 'Create one isolated product cutout while preserving the user product exactly from indexed product views.',
+          subject: transparent
+            ? 'Create one isolated product cutout on true transparent alpha while preserving the user product exactly from indexed product views.'
+            : 'Create one marketplace-ready white-background catalog image while preserving the user product exactly from indexed product views.',
           materials: materials.join(', '),
-          lighting: 'Use neutral, even, edge-safe product lighting without a cast background or campaign atmosphere.',
-          composition: 'Center the complete product inside the canvas with clean contours, no props, no surface, and no crop.',
-          background: 'Render on an actual transparent alpha canvas. Every background pixel must remain transparent; do not create a scene, gradient, wall, floor, shadow backdrop, or opaque fill.',
+          lighting: isolation.lighting,
+          composition: isolation.composition,
+          background: isolation.background,
+          edgePolicy: isolation.edgePolicy,
+          sourcePreservation: isolation.sourcePreservation,
           palette: [],
           copyPolicy: 'No added text, promotional copy, labels, watermarks, borders, badges, or graphics.',
-          shotSpecification,
+          shotSpecification: safeShotSpecification,
         }
       : {
           subject: 'Preserve the user product from indexed product views; create only the requested role composition.',
@@ -629,14 +651,19 @@ export function compileAssetRequest({
           composition: `Create a single-frame, single-scene composition for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim(),
           background: campaign.backgroundLanguage,
           palette: campaign.palette,
-          copyPolicy: 'Keep copy space restrained. Do not synthesize exact labels or factual text.',
+          copyPolicy: variantComparison
+            ? 'Reserve a clean comparison region, but the image model must not render variant labels, values, tables, dimensions, materials, or specification text. Those exact confirmed values are applied only by deterministic post-processing.'
+            : 'Keep copy space restrained. Do not synthesize exact labels or factual text.',
           outputContract: 'Generate one complete independent image with one commercial purpose. No collage, contact sheet, montage, multi-panel grid, storyboard, picture-in-picture, thumbnail collection, or multiple candidate layouts.',
-          shotSpecification,
+          shotSpecification: safeShotSpecification,
         },
     platformRecommendation: platformSection(item, truth),
     deterministicOverlays: {
-      instruction: 'Exact Chinese, prices, promotions, parameter tables, SKU labels, dimensions, certificates or reports, and comparison claims are post-processing only; the image model must not render them.',
+      instruction: variantComparison
+        ? 'Every variant label and value below is user-confirmed plan data. Preserve row-to-variant binding exactly, invent no missing value, and apply the comparison only in deterministic post-processing; the image model must not render it.'
+        : 'Exact Chinese, prices, promotions, parameter tables, SKU labels, dimensions, certificates or reports, and comparison claims are post-processing only; the image model must not render them.',
       items: overlays,
+      ...(variantComparison ? { variantComparison } : {}),
     },
     forbiddenMutations: {
       instruction: 'Do not alter protected product geometry, components, colors, logos, or packaging layout.',
@@ -646,8 +673,10 @@ export function compileAssetRequest({
       riskLevel: cleanString(ownValue(item, 'riskLevel')) || 'low',
       qualityChecks: normalizeStrings(ownValue(item, 'qualityChecks')),
     },
-    referenceSafety: transparent
-      ? 'Style references are excluded from this transparent deliverable. Campaign style, background, or scene instructions cannot override real alpha transparency. Product views remain the only identity authority.'
+    referenceSafety: isolated
+      ? transparent
+        ? 'Style references and campaign styling are excluded from this catalog-isolation deliverable. True alpha transparency cannot be overridden by any style, background, lighting, scene, or decorative instruction. Product views remain the only identity authority.'
+        : 'Style references and campaign styling are excluded from this catalog-isolation deliverable. No style, background, lighting, scene, or decorative instruction may override pure white, shadow-free isolation. Product views remain the only identity authority.'
       : 'Style references may contribute style only. They must never replace, copy, or substitute for the user\'s real product. Proof assets are evidence only and are never product views.',
   };
 

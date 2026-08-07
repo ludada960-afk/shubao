@@ -72,8 +72,14 @@ export function selectGenerationModel(input = {}) {
 }
 
 export function resolveGenerationSize(input = {}) {
-  const resolution = RESOLUTIONS.has(input.resolution) ? input.resolution : '2K';
+  let resolution = RESOLUTIONS.has(input.resolution) ? input.resolution : '2K';
   const requestedRatio = input.ratio ?? input.aspectRatio;
+  if (requestedRatio && !Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio)) {
+    const resolutionOrder = Object.keys(LEGAL_IMAGE_SIZES);
+    const requestedIndex = resolutionOrder.indexOf(resolution);
+    const promoted = resolutionOrder.slice(Math.max(0, requestedIndex + 1)).find(candidate => Object.hasOwn(LEGAL_IMAGE_SIZES[candidate], requestedRatio));
+    if (promoted) resolution = promoted;
+  }
   const ratio = Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio) ? requestedRatio : '1:1';
   const size = LEGAL_IMAGE_SIZES[resolution][ratio];
 
