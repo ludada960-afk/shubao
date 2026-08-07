@@ -454,10 +454,14 @@ async function persistCanvasUploadAssets(assets = [], { allowLocalFallback = fal
 }
 
 export default function EcCanvas() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, refreshBillingBalance } = useApp();
   const dialog = useDialog();
   const result = state.result || {};
   const phone = state.phone || '';
+
+  useEffect(() => {
+    if (state.logged) refreshBillingBalance().catch(() => {});
+  }, [state.logged, refreshBillingBalance]);
   const [viewport, setViewport] = useState({ x: 80, y: 40, scale: 1 });
   const [nodes, setNodes] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -3141,6 +3145,15 @@ export default function EcCanvas() {
         onNew={handleNew}
         saving={canvasSessionBusy}
         canRestore={Boolean(canvasSession?.id || result.canvasSessionId)}
+        entitlement={{
+          logged: state.logged,
+          ecPoints: state.ecPoints,
+          unlimited: state.unlimited,
+          refreshStatus: state.balanceRefreshStatus,
+          onRefresh: refreshBillingBalance,
+          onPurchase: () => dispatch({ type: 'SHOW_PRICE', show: true }),
+          onLogin: () => dispatch({ type: 'SHOW_LOGIN', show: true }),
+        }}
       />
 
       {tab === 'canvas' ? (

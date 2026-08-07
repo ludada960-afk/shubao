@@ -15,6 +15,7 @@ test('Canvas keeps distinct select and hand tools with a discoverable multi-sele
 
 test('full-suite export remains an explicit top-level Canvas command', () => {
   assert.match(chrome, /导出整套图片/);
+  assert.match(chrome, /AccountEntitlementControl/);
   assert.match(page, /setExportSelectionIds\(new Set\(\)\)/);
 });
 

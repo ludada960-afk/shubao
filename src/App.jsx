@@ -24,6 +24,7 @@ import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api'
 import { signOut } from './services/auth';
 import { shouldShowNoteModal } from './routing/resultRouting';
 import { buildContentCanvasResult } from './utils/contentCanvasHandoff.js';
+import AccountEntitlementControl from './components/billing/AccountEntitlementControl.jsx';
 
 /* ═══════ 左侧导航栏（3按钮精简版）═══════ */
 function SideNav() {
@@ -124,8 +125,18 @@ function SideNav() {
 
 /* ═══════ TopBar（无容器，直接浮在页面）═══════ */
 function TopBar() {
-  const { state, dispatch } = useApp();
-  const { page, logged, credits } = state;
+  const { state, dispatch, refreshBillingBalance } = useApp();
+  const { page, logged, ecPoints, unlimited, balanceRefreshStatus } = state;
+
+  useEffect(() => {
+    if (!logged) return undefined;
+    const refreshOnVisible = () => {
+      if (document.visibilityState === 'visible') refreshBillingBalance().catch(() => {});
+    };
+    refreshBillingBalance().catch(() => {});
+    document.addEventListener('visibilitychange', refreshOnVisible);
+    return () => document.removeEventListener('visibilitychange', refreshOnVisible);
+  }, [logged, refreshBillingBalance]);
 
   return (
     <div className="app-topbar" style={{
@@ -156,21 +167,15 @@ function TopBar() {
 
         {/* Right: 按钮组 */}
         <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* 套餐 */}
-          <button onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, height: 44,
-              padding: '0 20px', border: 'none', borderRadius: 'var(--radius-full)',
-              background: 'var(--accent)', color: '#fff',
-              fontSize: 13, fontWeight: 900, cursor: 'pointer', fontFamily: 'inherit',
-              boxShadow: '0 14px 32px rgba(28,25,23,0.18)',
-              transition: 'all 0.15s', whiteSpace: 'nowrap',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#2A2521'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.background = 'var(--accent)'; }}>
-            <MdAutoAwesome size={16} fill="rgba(252,211,77,0.8)" color="#FCD34D" />
-            套餐
-          </button>
+          <AccountEntitlementControl
+            logged={logged}
+            ecPoints={ecPoints}
+            unlimited={unlimited}
+            refreshStatus={balanceRefreshStatus}
+            onRefresh={refreshBillingBalance}
+            onPurchase={() => dispatch({ type: 'SHOW_PRICE', show: true })}
+            onLogin={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
+          />
 
           {/* 登录 */}
           {logged ? (

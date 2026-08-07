@@ -18,6 +18,7 @@ import {
   Type,
   X,
 } from 'lucide-react';
+import AccountEntitlementControl from '../../../components/billing/AccountEntitlementControl.jsx';
 
 function IconButton({ label, children, active = false, disabled = false, onClick, className = '' }) {
   return <button
@@ -45,6 +46,7 @@ export function CanvasTopBar({
   onNew,
   saving = false,
   canRestore = false,
+  entitlement,
 }) {
   return <header className="ec-canvas-topbar">
     <div className="ec-canvas-topbar-leading">
@@ -64,6 +66,16 @@ export function CanvasTopBar({
       </nav>
     </div>
     <div className="ec-canvas-topbar-actions">
+      <AccountEntitlementControl
+        compact
+        logged={entitlement?.logged}
+        ecPoints={entitlement?.ecPoints}
+        unlimited={entitlement?.unlimited}
+        refreshStatus={entitlement?.refreshStatus}
+        onRefresh={entitlement?.onRefresh}
+        onPurchase={entitlement?.onPurchase}
+        onLogin={entitlement?.onLogin}
+      />
       {tab === 'canvas' && <>
         <label className="ec-canvas-filter">
           <span className="sr-only">图片类型</span>
