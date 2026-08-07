@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -433,24 +433,12 @@ function readCanvasImageFiles(files = [], startedAt = Date.now()) {
   })));
 }
 
-async function persistCanvasUploadAssets(assets = [], { allowLocalFallback = false } = {}) {
-  let urls;
-  try {
-    urls = await uploadECTempImages(assets.map(asset => asset.url));
-  } catch (error) {
-    if (allowLocalFallback && /failed to fetch|networkerror|load failed/i.test(String(error?.message || error))) {
-      return assets.map(asset => ({ ...asset, previewUrl: asset.url, temporary: true }));
-    }
-    throw error;
+async function persistCanvasUploadAssets(assets = [], { role = 'product' } = {}) {
+  const persisted = await uploadEcommerceAssets(assets, role);
+  if (persisted.length !== assets.length || persisted.some(asset => !asset?.url || !/^\/api\/generated-assets\//i.test(asset.url))) {
+    throw new Error('图片上传结果不完整，请重试');
   }
-  if (urls.length !== assets.length || urls.some(url => !url)) {
-    throw new Error('图片上传失败，请重试');
-  }
-  return assets.map((asset, index) => ({
-    ...asset,
-    url: urls[index],
-    previewUrl: urls[index],
-  }));
+  return assets.map((asset, index) => ({ ...asset, ...persisted[index] }));
 }
 
 export default function EcCanvas() {
@@ -1571,8 +1559,8 @@ export default function EcCanvas() {
         reader.onerror = () => reject(new Error('读取图片失败'));
         reader.readAsDataURL(file);
       })));
-      const urls = await uploadECTempImages(dataUrls);
-      const images = urls.map((url, index) => ({ id: `workflow_ref_${Date.now()}_${index}`, url, name: files[index]?.name || '追加素材' }));
+      const assets = await uploadEcommerceAssets(dataUrls, 'reference');
+      const images = assets.map((asset, index) => ({ ...asset, id: `workflow_ref_${Date.now()}_${index}`, name: files[index]?.name || '追加素材' }));
       setNodes(prev => prev.map(node => node.id === nodeId ? { ...node, inputs: { ...(node.inputs || {}), [field]: [...(node.inputs?.[field] || []), ...images] } } : node));
       showToast(`已添加 ${images.length} 张素材`, 'success');
     } catch (error) {
@@ -2772,7 +2760,7 @@ export default function EcCanvas() {
     setPromptLoading(true);
     try {
       const assets = await readCanvasImageFiles(files, uploadStartedAt);
-      const persistedAssets = await persistCanvasUploadAssets(assets, { allowLocalFallback: Boolean(result.browserQa) });
+      const persistedAssets = await persistCanvasUploadAssets(assets, { role: 'product' });
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
@@ -2799,7 +2787,7 @@ export default function EcCanvas() {
     const uploadStartedAt = Date.now();
     try {
       const assets = await readCanvasImageFiles(accepted, uploadStartedAt);
-      const persistedAssets = await persistCanvasUploadAssets(assets, { allowLocalFallback: Boolean(result.browserQa) });
+      const persistedAssets = await persistCanvasUploadAssets(assets, { role });
       const uploadedNodes = createUploadedImageNodes({
         assets: persistedAssets,
         x: composer.x - persistedAssets.length * 278 - 36,
@@ -3161,7 +3149,6 @@ export default function EcCanvas() {
           ecPoints: state.ecPoints,
           unlimited: state.unlimited,
           refreshStatus: state.balanceRefreshStatus,
-          onRefresh: refreshBillingBalance,
           onPurchase: () => dispatch({ type: 'SHOW_PRICE', show: true }),
           onLogin: () => dispatch({ type: 'SHOW_LOGIN', show: true }),
         }}

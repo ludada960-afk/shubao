@@ -165,6 +165,13 @@ test('fresh Canvas generation returns to ecommerce home and imports Works as a n
   assert.match(worksSource, /dispatch\(\{ type: 'SET_RESULT', result: normalized \}\);/);
 });
 
+test('Works distinguishes cache-backed loading from a genuinely empty account', () => {
+  assert.match(worksSource, /loadCachedWorks/);
+  assert.match(worksSource, /const \[worksLoading, setWorksLoading\]/);
+  assert.match(worksSource, /正在加载作品/);
+  assert.match(worksSource, /worksLoading && !currentWorks\.length \?/);
+});
+
 test('Canvas uses product dialogs and omits internal direction copy', () => {
   assert.doesNotMatch(canvasSource, /方案名称由 AI/);
   assert.doesNotMatch(canvasSource, /window\.(?:alert|confirm|prompt)\s*\(/);
@@ -224,6 +231,12 @@ test('canvas uploads are persisted before node creation and an empty canvas rema
   assert.doesNotMatch(canvasSource, /canvasSaveKeyRef\.current \|\| !nodes\.length/);
   assert.doesNotMatch(canvasSource, /draftReadyRef\.current \|\| !nodes\.length/);
   assert.doesNotMatch(canvasSource, /if \(!snapshot\.nodes\.length\) return;/);
+});
+
+test('Canvas persists uploaded source assets through durable ecommerce storage', () => {
+  assert.match(canvasSource, /uploadEcommerceAssets/);
+  assert.doesNotMatch(canvasSource, /persistCanvasUploadAssets[\s\S]{0,260}uploadECTempImages/);
+  assert.doesNotMatch(canvasSource, /temporary:\s*true/);
 });
 
 test('double-click image preview is a keyboard-accessible dialog', () => {

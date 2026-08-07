@@ -72,7 +72,6 @@ export function CanvasTopBar({
         ecPoints={entitlement?.ecPoints}
         unlimited={entitlement?.unlimited}
         refreshStatus={entitlement?.refreshStatus}
-        onRefresh={entitlement?.onRefresh}
         onPurchase={entitlement?.onPurchase}
         onLogin={entitlement?.onLogin}
       />

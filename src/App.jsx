@@ -172,7 +172,6 @@ function TopBar() {
             ecPoints={ecPoints}
             unlimited={unlimited}
             refreshStatus={balanceRefreshStatus}
-            onRefresh={refreshBillingBalance}
             onPurchase={() => dispatch({ type: 'SHOW_PRICE', show: true })}
             onLogin={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
           />

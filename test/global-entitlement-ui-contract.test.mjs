@@ -12,7 +12,7 @@ test('application and canvas headers share the account entitlement control', asy
   ]);
 
   assert.match(app, /AccountEntitlementControl/);
-  assert.match(app, /onRefresh=\{refreshBillingBalance\}/);
+  assert.doesNotMatch(app, /onRefresh=\{refreshBillingBalance\}/);
   assert.match(app, /type: 'SHOW_PRICE'/);
   assert.match(app, /type: 'SHOW_LOGIN'/);
   assert.match(chrome, /AccountEntitlementControl/);
@@ -29,7 +29,8 @@ test('canvas entitlement layout preserves primary canvas commands on mobile', as
   ]);
 
   assert.match(chrome, /AccountEntitlementControl/);
-  assert.match(control, /购买额度/);
+  assert.match(control, /点击充值额度/);
+  assert.doesNotMatch(control, /account-entitlement-purchase/);
   assert.match(chrome, /导出整套图片/);
   assert.match(chrome, /新建生图/);
   const mobile = css.slice(css.indexOf('@media (max-width: 620px)'));

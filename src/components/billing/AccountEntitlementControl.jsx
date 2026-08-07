@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, Plus, RefreshCw } from 'lucide-react';
+import { Coins, ArrowUpRight } from 'lucide-react';
 import { accountEntitlementDisplay } from './accountEntitlementModel.js';
 
 export default function AccountEntitlementControl({
@@ -7,14 +7,11 @@ export default function AccountEntitlementControl({
   ecPoints = 0,
   unlimited = false,
   refreshStatus = 'ready',
-  onRefresh,
   onPurchase,
   onLogin,
   compact = false,
 }) {
   const display = accountEntitlementDisplay({ logged, ecPoints, unlimited, refreshStatus });
-  const isRefreshing = display.state === 'refreshing';
-  const refresh = () => Promise.resolve(onRefresh?.()).catch(() => {});
   const openAccount = () => {
     if (!logged) onLogin?.();
     else onPurchase?.();
@@ -27,53 +24,32 @@ export default function AccountEntitlementControl({
         type="button"
         className="account-entitlement-value"
         onClick={openAccount}
-        aria-label={logged ? `账户额度：${display.value}，点击购买额度` : '登录后查看额度'}
-        title={logged ? '点击购买额度；刷新图标更新余额' : '登录后查看额度'}
+        aria-label={logged ? `AI 积分：${display.value}，点击充值额度` : '登录后查看额度'}
+        title={logged ? '点击充值额度' : '登录后查看额度'}
       >
         <Coins size={15} aria-hidden="true" />
         <span className="account-entitlement-copy">
-          {!compact && <small>{display.label}</small>}
+          <small>AI 积分</small>
           <strong>{display.value}</strong>
         </span>
-      </button>
-      {logged && (
-        <button
-          type="button"
-          className="account-entitlement-refresh"
-          onClick={refresh}
-          disabled={isRefreshing}
-          aria-label="刷新账户额度"
-          title="刷新账户额度"
-        >
-          <RefreshCw size={14} className={isRefreshing ? 'is-spinning' : ''} />
-        </button>
-      )}
-      <button type="button" className="account-entitlement-purchase" onClick={onPurchase} title="购买额度">
-        <Plus size={14} aria-hidden="true" />购买额度
+        {logged && <ArrowUpRight size={14} aria-hidden="true" className="account-entitlement-arrow" />}
       </button>
       </div>
       <style>{`
-        .account-entitlement-control { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: var(--text-secondary, #45413d); }
+        .account-entitlement-control { display: inline-flex; align-items: center; min-width: 0; color: #fff; }
         .account-entitlement-control button { border: 0; font: inherit; cursor: pointer; }
-        .account-entitlement-value { min-width: 0; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 5px 9px; border-radius: 7px; background: rgba(255,255,255,.72); color: inherit; text-align: left; }
-        .account-entitlement-value:hover { background: rgba(255,255,255,.98); }
+        .account-entitlement-value { min-width: 0; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 9px; background: #17181c; color: inherit; text-align: left; box-shadow: 0 4px 14px rgba(20,22,28,.15); transition: background .15s, border-color .15s, transform .15s; }
+        .account-entitlement-value:hover { background: #24262d; border-color: rgba(255,255,255,.28) !important; transform: translateY(-1px); }
+        .account-entitlement-value > svg:first-child { color: #f3c969; }
         .account-entitlement-copy { min-width: 0; display: grid; gap: 1px; }
-        .account-entitlement-copy small { color: var(--text-muted, #78716c); font-size: 10px; line-height: 1; }
-        .account-entitlement-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent, #1c1917); font-size: 12px; line-height: 1.2; }
-        .account-entitlement-refresh { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border-radius: 6px; background: transparent; color: var(--text-muted, #78716c); }
-        .account-entitlement-refresh:hover:not(:disabled) { background: rgba(0,0,0,.06); color: var(--accent, #1c1917); }
-        .account-entitlement-refresh:disabled { cursor: wait; opacity: .55; }
-        .account-entitlement-purchase { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; padding: 0 10px; border-radius: 7px; background: var(--accent, #1c1917); color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; }
-        .account-entitlement-purchase:hover { background: #2b2622; }
-        .account-entitlement-control[data-state="error"] .account-entitlement-value { color: #b54708; background: #fff7ed; }
-        .account-entitlement-control .is-spinning { animation: account-entitlement-spin .8s linear infinite; }
-        @keyframes account-entitlement-spin { to { transform: rotate(360deg); } }
+        .account-entitlement-copy small { color: #aeb3bf; font-size: 10px; line-height: 1; }
+        .account-entitlement-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 12px; line-height: 1.2; }
+        .account-entitlement-arrow { color: #aeb3bf; margin-left: 2px; }
+        .account-entitlement-control[data-state="error"] .account-entitlement-value { border-color: #d99b53 !important; }
         @media (max-width: 639px) {
           .topbar-actions .account-entitlement-control { gap: 2px; }
-          .topbar-actions .account-entitlement-copy small,
-          .topbar-actions .account-entitlement-refresh { display: none; }
+          .topbar-actions .account-entitlement-copy small { display: none; }
           .topbar-actions .account-entitlement-value { min-height: 34px; padding: 4px 7px; }
-          .topbar-actions .account-entitlement-purchase { width: 34px; min-height: 34px; padding: 0; font-size: 0; }
         }
       `}</style>
     </>

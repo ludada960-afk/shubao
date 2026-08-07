@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MdAutoAwesome, MdLogin, MdRefresh, MdShoppingCart, MdEdit } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { loadWorks } from '../../services/api';
+import { loadCachedWorks, loadWorks } from '../../services/api';
 import { EC_PLATFORM_SPECS } from '../../constants/data';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stableWorkKey } from '../../utils/workRecords.js';
@@ -29,15 +29,26 @@ export default function WorksPage() {
   const { state, dispatch } = useApp();
   const { works, logged, mode, phone } = state;
   const [tab, setTab] = useState(mode === 'ecommerce' ? 'ec' : 'xhs');
+  const [worksLoading, setWorksLoading] = useState(Boolean(logged));
 
   const refresh = async () => {
-    const serverWorks = (await loadWorks(phone)).map(work => work._ecResult
-      ? { ...work, images: normalizeWorkImages(work.images) }
-      : work);
-    dispatch({ type: 'SET_WORKS', works: serverWorks });
+    setWorksLoading(true);
+    try {
+      const serverWorks = (await loadWorks(phone)).map(work => work._ecResult
+        ? { ...work, images: normalizeWorkImages(work.images) }
+        : work);
+      dispatch({ type: 'SET_WORKS', works: serverWorks });
+    } finally {
+      setWorksLoading(false);
+    }
   };
 
-  useEffect(() => { if (logged) refresh(); }, [logged, phone]);
+  useEffect(() => {
+    if (!logged) { setWorksLoading(false); return; }
+    const cached = loadCachedWorks(phone);
+    if (cached.length) dispatch({ type: 'SET_WORKS', works: cached });
+    refresh();
+  }, [logged, phone]);
 
   const xhsWorks = works.filter(w => !w._ecResult);
   const ecWorks = works.filter(w => w._ecResult);
@@ -133,7 +144,12 @@ export default function WorksPage() {
         </div>
 
         {/* Empty state */}
-        {!currentWorks.length ? (
+        {worksLoading && !currentWorks.length ? (
+          <div aria-live="polite" style={{ display: 'grid', gap: 12, maxWidth: 720, margin: '0 auto' }}>
+            {[1, 2, 3].map(item => <div key={item} style={{ height: 86, borderRadius: 8, background: '#f0f2f5' }} />)}
+            <span style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>正在加载作品</span>
+          </div>
+        ) : !currentWorks.length ? (
           <EmptyState
             image={IMAGES.empty}
             title={logged ? '暂无作品' : '登录后查看作品'}

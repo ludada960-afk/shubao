@@ -399,7 +399,7 @@ async function imageToDataUrl(image) {
   return imageValue(image);
 }
 
-async function prepareImageInputs(images, { signal } = {}) {
+async function prepareImageInputs(images, { signal, role = 'product' } = {}) {
   if (signal?.aborted) throw ecommerceUploadAbortError();
   if (!images?.length) return [];
   const values = (await Promise.all(images.map(imageToDataUrl))).filter(Boolean);
@@ -407,14 +407,15 @@ async function prepareImageInputs(images, { signal } = {}) {
   const urls = values.filter(value => /^(?:https?:\/\/|\/api\/)/i.test(value));
   const base64s = values.filter(value => value.startsWith('data:image/'));
   if (!base64s.length) return urls;
-  return [...urls, ...(await uploadECTempImages(base64s, { signal }))];
+  const durableAssets = await uploadEcommerceAssets(base64s, role, { signal });
+  return [...urls, ...durableAssets.map(asset => asset.url)];
 }
 
 function ownedAssetReference(image) {
   if (!image || typeof image !== 'object') return null;
   const assetId = typeof image.assetId === 'string' ? image.assetId.trim() : '';
   const url = imageValue(image);
-  return assetId && url ? { assetId, url } : null;
+  return assetId && /^\/api\/generated-assets\//i.test(url) ? { assetId, url } : null;
 }
 
 function imageReferenceMetadata(images = []) {
@@ -854,11 +855,11 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     };
   }
   if (productInputs.legacy.length) {
-    body.real_shots = await prepareImageInputs(productInputs.legacy);
+    body.real_shots = await prepareImageInputs(productInputs.legacy, { role: 'product' });
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
   }
   if (referenceInputs.legacy.length) {
-    body.reference_images = await prepareImageInputs(referenceInputs.legacy);
+    body.reference_images = await prepareImageInputs(referenceInputs.legacy, { role: 'reference' });
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
   }
   if (typeof isCurrent === 'function' && !isCurrent()) return null;
@@ -1090,13 +1091,13 @@ export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
 
 export async function getDesignDirections(params, { signal } = {}) {
   // 先上传图片到服务器，再用 URL 请求
-  const uploadAndReplace = async (imgs) => {
+  const uploadAndReplace = async (imgs, role) => {
     if (!imgs?.length) return [];
-    return prepareImageInputs(imgs, { signal });
+    return prepareImageInputs(imgs, { signal, role });
   };
 
-  const real_shots = await uploadAndReplace(params.real_shots);
-  const ref_shots = await uploadAndReplace(params.ref_shots);
+  const real_shots = await uploadAndReplace(params.real_shots, 'product');
+  const ref_shots = await uploadAndReplace(params.ref_shots, 'reference');
 
   const res = await fetch(`${API_BASE}/api/ecommerce/design-directions`, {
     method: 'POST',
@@ -1500,6 +1501,15 @@ export async function loadWorks(ownerEmail = getSessionEmail()) {
       owner,
     ));
   } catch { return []; }
+}
+
+export function loadCachedWorks(ownerEmail = getSessionEmail()) {
+  try {
+    const owner = String(ownerEmail || '').trim().toLowerCase();
+    return filterWorksForOwner(JSON.parse(localStorage.getItem('sb-works') || '[]'), owner);
+  } catch {
+    return [];
+  }
 }
 
 /* ── ZIP 下载 ── */

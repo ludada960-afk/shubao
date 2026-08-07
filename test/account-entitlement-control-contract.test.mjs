@@ -7,8 +7,9 @@ const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 test('account entitlement control exposes accessible balance actions', async () => {
   const control = await source('../src/components/billing/AccountEntitlementControl.jsx');
 
-  assert.match(control, /aria-label="刷新账户额度"/);
-  assert.match(control, /购买额度/);
+  assert.doesNotMatch(control, /刷新账户额度/);
+  assert.doesNotMatch(control, /account-entitlement-purchase/);
+  assert.match(control, /点击充值额度/);
   assert.match(control, /登录后查看额度/);
   assert.match(control, /accountEntitlementDisplay/);
 });

@@ -56,7 +56,6 @@ import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createRetentionService } from './projects/retentionService.mjs';
-import { migrateLegacyWorkOnRead } from './projects/legacyMigration.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
 import { createPixelLayers } from './composition/layerService.mjs';
@@ -2151,10 +2150,10 @@ mountWorkRoutes(app, {
     });
   },
   mapError: contentBillingHttpError,
-  listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => {
-    migrateLegacyWorkOnRead({ ownerEmail, work, projectStore });
-    return { ...work, retention: retentionService.describeWork({ ownerEmail, work }) };
-  }),
+  listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => ({
+    ...work,
+    retention: retentionService.describeWork({ ownerEmail, work }),
+  })),
   listTrash: ownerEmail => getDeletedWorks({ ownerEmail }),
   saveOwnedWork: (work, ownerEmail) => upsertWork(work, { ownerEmail }),
   deleteOwnedWork: (saveKey, ownerEmail) => softDeleteWork(saveKey, { ownerEmail }),

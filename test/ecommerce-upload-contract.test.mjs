@@ -83,6 +83,37 @@ test('authenticated ecommerce asset upload returns original and preview records 
   });
 });
 
+test('direction inputs upload each Base64 image as a durable role-scoped asset', async (t) => {
+  installSignedSession();
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), body: JSON.parse(options.body) });
+    if (String(url).endsWith('/design-directions')) return jsonResponse({ directions: [] });
+    const index = requests.length;
+    return jsonResponse({
+      original: { assetId: `${String(index).repeat(64)}.jpg`, url: `/api/generated-assets/${String(index).repeat(64)}.jpg`, role: index === 1 ? 'product' : 'reference' },
+      preview: { assetId: `${String(index + 4).repeat(64)}.webp`, url: `/api/generated-assets/${String(index + 4).repeat(64)}.webp`, role: index === 1 ? 'product' : 'reference' },
+    }, 201);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; delete globalThis.localStorage; });
+
+  const api = await import(`../src/services/api.js?direction-assets=${Date.now()}`);
+  await api.getDesignDirections({
+    real_shots: ['data:image/jpeg;base64,PRODUCT'],
+    ref_shots: ['data:image/jpeg;base64,REFERENCE'],
+    smartBrief: '保留产品真实结构',
+  });
+
+  assert.deepEqual(requests.map(request => request.url), [
+    '/api/ecommerce/assets',
+    '/api/ecommerce/assets',
+    '/api/ecommerce/design-directions',
+  ]);
+  assert.equal(requests[0].body.role, 'product');
+  assert.equal(requests[1].body.role, 'reference');
+});
+
 test('formal generation preserves owner-scoped asset IDs, quote reference, and merges 4K into planner sizing', async (t) => {
   installSignedSession();
   const originalFetch = globalThis.fetch;
