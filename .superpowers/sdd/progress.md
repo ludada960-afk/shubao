@@ -35,8 +35,15 @@
   one two-stage state machine with explicit `开始导出`, progress, retry and
   repeat-export states. Top-level suite export freezes the full generated scope
   independently of current Canvas selection. Focused Canvas regression passed
-  121/121 and the 6,454-module production build passed. Task 5 durable long
-  detail storage and right-side placement is next.
+  121/121 and the 6,454-module production build passed. Task 5 is complete
+  locally: long-detail composition validates every decoded input and final
+  Sharp output, persists through content-addressed generated-asset storage,
+  reads the asset back before success, and returns durable URL, dimensions,
+  MIME, byte size and ordered source IDs. Canvas uses a shared right-first
+  collision-aware placement function instead of placing the result below all
+  content. Focused Canvas/durable-asset regression passed 128/128 and the
+  6,455-module production build passed. Task 6 Canvas interaction and global UI
+  closure is next.
 
 - Canvas selected-composer and structured image-mention correction is active.
   The signed-in reference product at `https://liuyingai.cn/canvas-studio`

@@ -9,6 +9,7 @@ import {
 import { deliveryStrategy, safeDeliveryName } from '../src/pages/EcCanvas/browserFileDelivery.js';
 
 const canvasSource = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 
 test('asset provenance distinguishes source, generated, derived, and composition nodes', () => {
   assert.equal(resolveAssetProvenance({ kind: 'image', isProductSource: true, url: '/source.png' }), 'source');
@@ -54,4 +55,12 @@ test('delivery strategy asks for a directory or filename and has one-download fa
   assert.equal(deliveryStrategy({ mode: 'images', fileCount: 3, capabilities: {} }), 'zip');
   assert.equal(deliveryStrategy({ mode: 'images', fileCount: 1, capabilities: {} }), 'single-download');
   assert.equal(safeDeliveryName('商品/主图:01', 'PNG'), '商品-主图-01.png');
+});
+
+test('long detail uses durable generated storage and right-side derived placement', () => {
+  const route = serverSource.slice(serverSource.indexOf("app.post('/api/ecommerce/stitch-long'"), serverSource.indexOf('// 电商正式生成只注册持久化编排路由'));
+  assert.match(route, /composeAndPersistLongDetail/);
+  assert.doesNotMatch(route, /dist.*stitched|writeFileSync/);
+  assert.match(canvasSource, /placeDerivedRightOfSources/);
+  assert.match(canvasSource, /detailNodes\.map\(node => node\.id\)/);
 });

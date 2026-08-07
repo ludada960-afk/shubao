@@ -1126,11 +1126,11 @@ export async function polishECText({ text, product_name, category }) {
 }
 
 /* ── 详情切片拼长图（微信分享用） ── */
-export async function stitchLongImage(imageUrls, format = 'png') {
+export async function stitchLongImage(imageUrls, format = 'png', sourceIds = []) {
   const res = await fetch(`${API_BASE}/api/ecommerce/stitch-long`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageUrls, format }),
+    body: JSON.stringify({ imageUrls, format, sourceIds }),
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => res.statusText);

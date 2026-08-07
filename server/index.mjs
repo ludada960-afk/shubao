@@ -82,7 +82,7 @@ import {
   createEcommerceExportRouteHandlers,
   createEcommerceExportService,
 } from './ecommerceEngine/exportService.mjs';
-import { composeLongDetail } from './ecommerceEngine/longDetailComposer.mjs';
+import { composeAndPersistLongDetail } from './ecommerceEngine/longDetailComposer.mjs';
 import {
   buildAssetPlan,
   buildFormalEcommerceQualityPrompt,
@@ -3551,33 +3551,16 @@ app.post('/api/remove-bg', async (req, res) => {
 // 详情切片 → 纵向拼成长图（用于微信分享）
 // ============================================================
 app.post('/api/ecommerce/stitch-long', async (req, res) => {
-  const { imageUrls, format = 'png' } = req.body || {};
+  const { imageUrls, sourceIds = [], format = 'png' } = req.body || {};
   if (!imageUrls?.length) return res.status(400).json({ error: '缺少切片图' });
   if (imageUrls.length > 20) return res.status(400).json({ error: '切片数不能超过 20' });
   try {
-    // 下载所有切片为 Buffer
-    const bufs = [];
-    for (const u of imageUrls) {
-      try {
-        const { buffer } = await imageInputReader.read(u);
-        bufs.push(buffer);
-      } catch (error) {
-        throw new Error(`下载切片失败：${error.message}`);
-      }
-    }
-    if (bufs.length === 0) return res.status(400).json({ error: '没有可拼接的有效图片' });
-
-    const composed = await composeLongDetail(bufs, { width: 1440, format });
-
-    // 保存到 dist 下的合成图目录，返回 URL
-    const outDir = join(process.cwd(), 'dist', 'stitched');
-    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-    const fileName = `long-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${composed.format}`;
-    const outPath = join(outDir, fileName);
-    fs.writeFileSync(outPath, composed.buffer);
-    const url = `/stitched/${fileName}`;
-    console.log(`[stitch-long] 拼接 ${bufs.length} 片 → ${composed.width}x${composed.height} → ${url}`);
-    res.json({ url, width: composed.width, height: composed.height, count: composed.count, format: composed.format });
+    const composed = await composeAndPersistLongDetail({ imageUrls, sourceIds, format }, {
+      imageInputReader,
+      generatedAssetStore,
+    });
+    console.log(`[stitch-long] 拼接 ${composed.count} 片 → ${composed.width}x${composed.height} → ${composed.url}`);
+    res.json(composed);
   } catch (e) {
     console.warn('[stitch-long] 失败:', e.message);
     res.status(500).json({ error: '拼接失败：' + (e.message || '') });

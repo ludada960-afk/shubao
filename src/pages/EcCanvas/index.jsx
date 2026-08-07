@@ -66,6 +66,7 @@ import { canvasSegmentationRuntime, segmentationMasksToApi } from './canvasSegme
 import { appendImageMention, buildCanvasImageReferencePayload, buildImageMentions, buildRoleAwareImagePayload, removeImageMention } from '../../components/creation/imageMentionModel.js';
 import { selectDeliverableNodes } from './canvasAssetProvenance.js';
 import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
+import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import './EcCanvas.css';
@@ -2214,12 +2215,24 @@ export default function EcCanvas() {
         const detailNodes = orderedDetailNodes.length ? orderedDetailNodes : orderDetailNodes(exportNodes);
         if (detailNodes.length < 2) throw new Error('请至少选择 2 张详情图再合并');
         if (!composedLongExportRef.current) {
-          const data = await stitchLongImage(detailNodes.map(node => node.url), exportFormat.toLowerCase());
+          const data = await stitchLongImage(
+            detailNodes.map(node => node.url),
+            exportFormat.toLowerCase(),
+            detailNodes.map(node => node.id),
+          );
           if (!data.url) throw new Error('详情长图合成失败');
-          const y = Math.max(...nodes.map(node => Number(node.y || 0) + Number(node.h || 0) + 120), 0);
           const createdAt = Date.now();
           const counter = nodes.filter(node => node.role === '详情长图').length + 1;
           const longName = `详情长图-${String(counter).padStart(2, '0')}`;
+          const displayWidth = 240;
+          const displayHeight = Math.round(displayWidth * ((data.height || 1200) / (data.width || 800)));
+          const placement = placeDerivedRightOfSources({
+            sources: detailNodes,
+            occupied: nodes,
+            width: displayWidth,
+            height: displayHeight,
+            gap: 80,
+          });
           const merged = {
             ...normalizeAsset({
               id: `node_long_${createdAt}`,
@@ -2230,16 +2243,15 @@ export default function EcCanvas() {
               group: '详情图',
               role: '详情长图',
               ratio: '长图',
-              w: 240,
-              h: Math.round(240 * ((data.height || 1200) / (data.width || 800))),
-              x: Math.min(...detailNodes.map(node => Number(node.x || 0))),
-              y,
+              w: displayWidth,
+              h: displayHeight,
+              ...placement,
             }, nodes.length),
             kind: 'image',
             status: 'ready',
             provenance: 'derived',
-            derivedFromIds: detailNodes.map(node => node.id),
-            sourceNodeIds: detailNodes.map(node => node.id),
+            derivedFromIds: data.sourceIds?.length ? data.sourceIds : detailNodes.map(node => node.id),
+            sourceNodeIds: data.sourceIds?.length ? data.sourceIds : detailNodes.map(node => node.id),
             sequence: detailNodes.length + 1,
           };
           composedLongExportRef.current = merged;
