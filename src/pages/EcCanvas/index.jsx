@@ -528,6 +528,7 @@ export default function EcCanvas() {
   const remoteSnapshotRef = useRef('');
   const workOutputFingerprintRef = useRef('');
   const suiteGenerationInFlightRef = useRef(new Set());
+  const toastTimerRef = useRef(null);
 
   useEffect(() => {
     setActiveComposerSurface('');
@@ -587,9 +588,23 @@ export default function EcCanvas() {
   }).position;
 
   // toast helper
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = null;
+    setToast(null);
+  }, []);
+
   const showToast = useCallback((msg, type = 'info') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
+      setToast(null);
+    }, 3000);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -3653,8 +3668,9 @@ export default function EcCanvas() {
 
       {/* Toast 提示 */}
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 10003, background: toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#10b981' : '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 600, padding: '10px 20px', borderRadius: 10, boxShadow: '0 6px 20px rgba(0,0,0,0.2)', animation: 'toastIn 0.3s ease' }}>
-          {toast.msg}
+        <div className={`ec-canvas-toast is-${toast.type || 'info'}`} role="status">
+          <span>{toast.msg}</span>
+          <button type="button" aria-label="关闭提示" title="关闭" onClick={dismissToast}>×</button>
         </div>
       )}
 

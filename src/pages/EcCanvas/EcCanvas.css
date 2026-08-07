@@ -100,6 +100,12 @@
 .ec-canvas-bottom-dock { position: absolute; z-index: 58; left: 50%; bottom: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(-50%); }
 .ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 8px; background: #fff; box-shadow: 0 3px 8px rgba(21, 23, 26, .12); }
 .ec-canvas-selection-hint { padding: 5px 8px; border: 1px solid rgba(15, 23, 42, .08); border-radius: 6px; background: rgba(255, 255, 255, .96); box-shadow: 0 2px 6px rgba(21, 23, 26, .09); color: #59616b; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.ec-canvas-toast { position: fixed; z-index: 10003; left: 50%; bottom: 24px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 13px; transform: translateX(-50%); border-radius: 8px; background: #475569; color: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, .22); font-size: 12px; font-weight: 650; animation: toastIn .2s ease; }
+.ec-canvas-toast.is-error { background: #c9362e; }
+.ec-canvas-toast.is-success { background: #087f5b; }
+.ec-canvas-toast > span { min-width: 0; overflow-wrap: anywhere; }
+.ec-canvas-toast > button { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: rgba(255, 255, 255, .14); color: #fff; font-size: 18px; line-height: 1; }
+.ec-canvas-toast > button:hover { background: rgba(255, 255, 255, .24); }
 .ec-canvas-zoom-controls { left: 12px; bottom: 14px; align-items: center; gap: 1px; padding: 3px; border-radius: 8px; }
 .ec-canvas-bottom-toolbar .ec-canvas-icon-button,
 .ec-canvas-zoom-controls .ec-canvas-icon-button { width: 34px; height: 34px; flex-basis: 34px; }

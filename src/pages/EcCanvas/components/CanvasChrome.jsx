@@ -71,7 +71,7 @@ export function CanvasTopBar({
             {filters.map(filter => <option key={filter} value={filter}>{filter}</option>)}
           </select>
         </label>
-        <button type="button" className="ec-canvas-command" onClick={onExport}><Download size={15} />导出</button>
+        <button type="button" className="ec-canvas-command" onClick={onExport}><Download size={15} />导出整套图片</button>
         <IconButton label="恢复已保存画布" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={16} /></IconButton>
       </>}
       <button type="button" className="ec-canvas-command is-dark" onClick={onNew}><Sparkles size={15} />新建生图</button>

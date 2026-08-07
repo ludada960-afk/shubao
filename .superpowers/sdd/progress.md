@@ -42,8 +42,14 @@
   MIME, byte size and ordered source IDs. Canvas uses a shared right-first
   collision-aware placement function instead of placing the result below all
   content. Focused Canvas/durable-asset regression passed 128/128 and the
-  6,455-module production build passed. Task 6 Canvas interaction and global UI
-  closure is next.
+  6,455-module production build passed. Task 6 is complete locally: existing
+  select-tool marquee, hand-only panning, Shift multi-select hint, compact
+  content-sized selection commands and separated mobile bottom controls were
+  reverified; the top bar now names `导出整套图片` explicitly, and transient
+  notices have a dismiss action plus timer replacement so an old notice cannot
+  clear a newer one. Focused interaction/UI/export regression passed 118/118
+  and the 6,455-module production build passed. Task 7 full regression, browser
+  acceptance and production release is next.
 
 - Canvas selected-composer and structured image-mention correction is active.
   The signed-in reference product at `https://liuyingai.cn/canvas-studio`
