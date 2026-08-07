@@ -137,7 +137,7 @@ function shotRows(direction) {
     const group = record(value);
     const role = text(group.role || group.key, `group-${groupIndex + 1}`);
     const groupLabel = firstText(group.label, group.name, '图片计划');
-    const ratio = firstText(group.ratio, group.dimension, '1:1');
+    const ratio = firstText(group.targetRatio, group.target_ratio, group.ratio, group.dimension, '1:1');
     const count = Math.max(1, Number(group.count) || (Array.isArray(group.shots) ? group.shots.length : 1));
     const shots = Array.isArray(group.shots) ? group.shots : [];
     return Array.from({ length: count }, (_, index) => {

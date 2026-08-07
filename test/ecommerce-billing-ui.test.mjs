@@ -25,10 +25,11 @@ function productTruth() {
 
 test('sizing UI exposes only production roles and ratios', async () => {
   const source = await fs.readFile(new URL('../src/pages/Home/ec/SizingPanel.jsx', import.meta.url), 'utf8');
+  const registrySource = await fs.readFile(new URL('../src/pages/Home/ec/ecommerceFormatRegistry.js', import.meta.url), 'utf8');
 
   assert.doesNotMatch(source, /key:\s*['"]poster['"]/);
-  for (const unsupported of ['16:9', '2:3', '21:9', '5:4', '4:5', '32:9']) {
-    assert.doesNotMatch(source, new RegExp(unsupported.replace(':', '\\:')));
+  for (const supported of ['16:9', '2:3', '4:5', '3:2']) {
+    assert.match(registrySource, new RegExp(supported.replace(':', '\\:')));
   }
   assert.match(source, /resolveSizingImages/);
 });
@@ -55,10 +56,11 @@ test('smart and custom sizing resolve to explicit legal production images', asyn
     ],
   });
   assert.deepEqual(custom.map(({ key, count, ratio }) => ({ key, count, ratio })), [
-    { key: 'main_text', count: 2, ratio: '1:1' },
+    { key: 'main_text', count: 2, ratio: '4:3' },
     { key: 'detail', count: 4, ratio: '9:16' },
     { key: 'transparent', count: 1, ratio: '1:1' },
   ]);
+  assert.equal(custom.find(image => image.key === 'main_text').targetRatio, '16:9');
 });
 
 test('smart package disclosure, quote quantity, and server plan all describe the same ten deliverables', async () => {
@@ -96,7 +98,7 @@ test('UI plan quantity matches the production asset plan and all IDs are determi
       smart: false,
       images: [
         { key: 'white_bg', count: 2, ratio: '1:1' },
-        { key: 'main_text', count: 2, ratio: '1:1' },
+        { key: 'main_text', count: 2, ratio: '1:1', targetRatio: '1:1', cropPolicy: 'none' },
         { key: 'main_3x4', count: 1, ratio: '3:4' },
         { key: 'transparent', count: 2, ratio: '1:1' },
         { key: 'detail', count: 6, ratio: '3:4' },
@@ -222,7 +224,7 @@ test('creates a stable draft id and a complete reference-only ecommerce pending 
       resolution: '4K',
       images: [
         { key: 'main_text', count: 2, ratio: '1:1', preview: 'data:image/png;base64,AAAA' },
-        { key: 'detail', count: 3, ratio: '3:4' },
+        { key: 'detail', count: 3, ratio: '3:4', targetRatio: '4:5', cropPolicy: 'cover-center' },
       ],
     },
     skus: [
@@ -263,8 +265,8 @@ test('creates a stable draft id and a complete reference-only ecommerce pending 
       smart: false,
       resolution: '4K',
       images: [
-        { key: 'main_text', count: 2, ratio: '1:1' },
-        { key: 'detail', count: 3, ratio: '3:4' },
+        { key: 'main_text', count: 2, ratio: '1:1', targetRatio: '1:1', cropPolicy: 'none' },
+        { key: 'detail', count: 3, ratio: '3:4', targetRatio: '4:5', cropPolicy: 'cover-center' },
       ],
     },
     skus: [

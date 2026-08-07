@@ -93,6 +93,24 @@ test('separates bounded visual analysis from text-only direction planning', asyn
   assert.equal(result.degraded, false);
 });
 
+test('describes the requested target ratio instead of the promoted generation ratio', async () => {
+  const { service, calls } = serviceHarness();
+  const result = await service.generate(generationInput({
+    requested_images: [{
+      key: 'main_text',
+      label: '横版商品主图',
+      count: 1,
+      ratio: '4:3',
+      targetRatio: '16:9',
+      cropPolicy: 'cover-center',
+    }],
+  }));
+
+  const planner = calls.find(call => call.context?.stage === 'planner');
+  assert.match(planner.request.userPrompt, /比例 16:9/);
+  assert.equal(result.directions[0].deliverables[0].ratio, '16:9');
+});
+
 test('binds one bounded creative route to the visible plan and planner prompt', async () => {
   const { service, calls } = serviceHarness();
   const result = await service.generate(generationInput({

@@ -129,12 +129,14 @@ function normalizeSizing(value) {
     const key = safeKey(ownValue(image, 'id') ?? ownValue(image, 'role') ?? ownValue(image, 'key'));
     if (!key || key === 'poster') return [];
     const ratio = cleanString(ownValue(image, 'ratio'));
+    const targetRatio = cleanString(ownValue(image, 'targetRatio') ?? ownValue(image, 'target_ratio'));
+    const cropPolicy = cleanString(ownValue(image, 'cropPolicy') ?? ownValue(image, 'crop_policy'));
     const hasCount = hasOwn(image, 'count');
     const rawCount = Number(ownValue(image, 'count'));
     const count = hasCount && Number.isFinite(rawCount)
       ? Math.max(0, Math.min(20, Math.trunc(rawCount)))
       : null;
-    return [{ key, ratio, count, hasCount }];
+    return [{ key, ratio, targetRatio, cropPolicy, count, hasCount }];
   });
   const hasExplicitCounts = normalizedImages.some(image => image.hasCount);
   const seen = new Set();
@@ -145,7 +147,13 @@ function normalizeSizing(value) {
       if (seen.has(image.key)) return [];
       if (hasExplicitCounts && (!image.hasCount || !COUNTED_SIZING_KEYS.has(image.key))) return [];
       seen.add(image.key);
-      return [{ key: image.key, ratio: image.ratio, count: image.count }];
+      return [{
+        key: image.key,
+        ratio: image.ratio,
+        targetRatio: image.targetRatio,
+        cropPolicy: image.cropPolicy,
+        count: image.count,
+      }];
     }),
   };
 }
@@ -225,12 +233,17 @@ function configuredCount(sizing, ...keys) {
   return Number.isSafeInteger(selection?.count) && selection.count > 0 ? selection.count : 0;
 }
 
-function resolveRatio(item, sizing, defaultRatio) {
+function resolveRatioSelection(item, sizing, defaultRatio) {
   const exactSelection = sizing.images.find((entry) => entry.key === item.role);
   const aliasKeys = new Set(selectionKeys(item).filter((key) => key !== item.role));
   const selection = exactSelection || sizing.images.find((entry) => aliasKeys.has(entry.key));
   const candidate = selection?.ratio || defaultRatio;
-  return Object.hasOwn(LEGAL_IMAGE_SIZES[sizing.resolution], candidate) ? candidate : defaultRatio;
+  const ratio = Object.hasOwn(LEGAL_IMAGE_SIZES[sizing.resolution], candidate) ? candidate : defaultRatio;
+  return {
+    ratio,
+    targetRatio: selection?.targetRatio || ratio,
+    cropPolicy: selection?.cropPolicy || 'none',
+  };
 }
 
 function policyRole(role) {
@@ -265,9 +278,11 @@ function skuVariantIdentity(skuFacts) {
 
 function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, variantComparison = null, category, platform, sizing }) {
   const roleDefaultRatio = role.startsWith('detail_slice_') ? '9:16' : defaultRatio;
-  const requestedRatio = resolveRatio({ role }, sizing, roleDefaultRatio);
-  const resolvedGeneration = resolveGenerationSize({ resolution: sizing.resolution, ratio: requestedRatio });
+  const ratioSelection = resolveRatioSelection({ role }, sizing, roleDefaultRatio);
+  const resolvedGeneration = resolveGenerationSize({ resolution: sizing.resolution, ratio: ratioSelection.ratio });
   const ratio = resolvedGeneration.ratio;
+  const targetRatio = ratioSelection.targetRatio || ratio;
+  const cropPolicy = targetRatio === ratio ? 'none' : ratioSelection.cropPolicy;
   const generationSize = resolvedGeneration.size;
   const policy = getPlatformPolicy(platform, policyRole(role), category);
   const id = requestedId || role.replaceAll('_', '-');
@@ -275,7 +290,7 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
     generationSize,
     ratio,
     assetPlanItemId: id,
-  });
+  }).map(target => ({ ...target, targetRatio, cropPolicy }));
   return {
     id,
     role,
@@ -285,6 +300,8 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
     ...(variantComparison ? { variantComparison } : {}),
     communicationGoal,
     ratio,
+    targetRatio,
+    cropPolicy,
     generationSize,
     exportTargets: role === 'transparent'
       ? exportTargets.filter(target => target.format === 'png')

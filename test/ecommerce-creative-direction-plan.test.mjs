@@ -182,6 +182,23 @@ test('new direction plans default detail screens to 9:16', () => {
   assert.equal(plan.deliverables.find(group => group.role === 'detail').ratio, '9:16');
 });
 
+test('uses the requested ecommerce target ratio in the visible direction plan', () => {
+  const [plan] = normalizeCreativeDirectionPlans([{}], {
+    productName: '桌面扩展坞',
+    category: '数码3C',
+    requestedImages: [{
+      key: 'main_text',
+      label: '横版商品主图',
+      count: 1,
+      ratio: '4:3',
+      targetRatio: '16:9',
+      cropPolicy: 'cover-center',
+    }],
+  });
+
+  assert.equal(plan.deliverables[0].ratio, '16:9');
+});
+
 test('builds a category-specific creative profile instead of reusing a generic type and copy rule', () => {
   const [wine] = normalizeCreativeDirectionPlans([{}], {
     productName: '赤霞珠干红葡萄酒',

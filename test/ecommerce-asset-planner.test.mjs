@@ -236,6 +236,23 @@ test('applies sizing overrides per matching role with legal generation dimension
   }
 });
 
+test('preserves a requested ecommerce target ratio while using a legal promoted generation ratio', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth({ category: '数码3C' }),
+    campaignBible,
+    platform: '淘宝',
+    sizing: {
+      resolution: '2K',
+      images: [{ key: 'main_text', count: 1, ratio: '4:3', targetRatio: '16:9', cropPolicy: 'cover-center' }],
+    },
+  });
+
+  assert.equal(plan[0].ratio, '4:3');
+  assert.equal(plan[0].targetRatio, '16:9');
+  assert.equal(plan[0].cropPolicy, 'cover-center');
+  assert.ok(plan[0].exportTargets.every(target => target.targetRatio === '16:9'));
+});
+
 test('prefers exact sizing roles over generic aliases regardless of input order', () => {
   const plan = buildAssetPlan({
     productTruth: productTruth({

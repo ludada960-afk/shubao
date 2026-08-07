@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { Check, Info, Zap, Pencil } from 'lucide-react';
+import AnchoredPortal from '../../../components/ui/AnchoredPortal.jsx';
 import {
   getLegalRatios,
   IMAGE_TYPES,
@@ -7,6 +8,7 @@ import {
   RATIOS,
   resolveSizingImages,
 } from './ecommercePlanModel.js';
+import { normalizeCommerceFormat } from './ecommerceFormatRegistry.js';
 
 /* 比例形状预览图标 */
 function RatioShape({ w, h, active }) {
@@ -20,22 +22,15 @@ function RatioShape({ w, h, active }) {
 }
 
 /* 内联比例选择器（替代原生 select）*/
-function RatioSelect({ value, onChange, disabled, resolution }) {
+function RatioSelect({ value, onChange, disabled, resolution, role, platform }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
-  const legalRatios = getLegalRatios(resolution);
+  const legalRatios = getLegalRatios(resolution, role, platform);
   const current = legalRatios.find(r => r.key === value) || legalRatios[0];
 
-  React.useEffect(() => {
-    if (!open) return;
-    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    setTimeout(() => window.addEventListener('mousedown', close), 0);
-    return () => window.removeEventListener('mousedown', close);
-  }, [open]);
-
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <div onClick={() => !disabled && setOpen(o => !o)}
+    <div style={{ position: 'relative' }}>
+      <button ref={ref} type="button" onClick={() => !disabled && setOpen(o => !o)} disabled={disabled}
         style={{
           display: 'flex', alignItems: 'center', gap: 4, height: 26, padding: '0 7px',
           borderRadius: 7, border: `1px solid ${disabled ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.14)'}`, 
@@ -43,19 +38,18 @@ function RatioSelect({ value, onChange, disabled, resolution }) {
           cursor: disabled ? 'not-allowed' : 'pointer', 
           fontSize: 11, fontWeight: 700, 
           color: disabled ? 'var(--text-muted)' : '#1a1a1a', 
-          userSelect: 'none',
+          userSelect: 'none', fontFamily: 'inherit',
         }}>
         <RatioShape w={current.w} h={current.h} active={false} />
         <span>{current.label}</span>
         {!disabled && <svg width={8} height={8} viewBox="0 0 8 8"><path d="M1 2.5 L4 5.5 L7 2.5" stroke="#999" strokeWidth={1.5} fill="none" strokeLinecap="round"/></svg>}
-      </div>
-      {open && (
+      </button>
+      <AnchoredPortal anchorRef={ref} open={open} onDismiss={() => setOpen(false)} minWidth={292} maxWidth={360} className="ec-ratio-portal">
         <div style={{
-          position: 'absolute', top: 30, right: 0, zIndex: 1000,
           background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
           borderRadius: 10, border: '1px solid rgba(0,0,0,0.10)',
           boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: '6px',
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, minWidth: 160,
+          display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 4,
         }}>
           {legalRatios.map(r => {
             const sel = r.key === value;
@@ -77,7 +71,7 @@ function RatioSelect({ value, onChange, disabled, resolution }) {
             );
           })}
         </div>
-      )}
+      </AnchoredPortal>
     </div>
   );
 }
@@ -96,7 +90,10 @@ function hasSameImages(left, right) {
   if (left.length !== right.length) return false;
   return left.every((item, index) => {
     const baseline = right[index];
-    return item.key === baseline.key && item.count === baseline.count && item.ratio === baseline.ratio;
+    return item.key === baseline.key
+      && item.count === baseline.count
+      && item.ratio === baseline.ratio
+      && (item.targetRatio || item.ratio) === (baseline.targetRatio || baseline.ratio);
   });
 }
 
@@ -140,7 +137,15 @@ export default function SizingPanel({
       next = activeImages.filter(i => i.key !== typeKey);
     } else {
       // 勾选 → 添加（默认数量）
-      next = [...activeImages, { key: typeKey, count: typeDef.defaultCount || 1, ratio: typeDef.defaultRatio, label: typeDef.label }];
+      const format = normalizeCommerceFormat({ ratio: typeDef.defaultRatio, role: typeKey });
+      next = [...activeImages, {
+        key: typeKey,
+        count: typeDef.defaultCount || 1,
+        ratio: format.generationRatio,
+        targetRatio: format.targetRatio,
+        cropPolicy: format.cropPolicy,
+        label: typeDef.label,
+      }];
     }
     const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
@@ -159,8 +164,14 @@ export default function SizingPanel({
 
   /* ── 修改比例 ── */
   const updateRatio = useCallback((typeKey, ratio) => {
-    if (!getLegalRatios(resolution).some(option => option.key === ratio)) return;
-    const next = activeImages.map(i => i.key === typeKey ? { ...i, ratio } : i);
+    if (!getLegalRatios(resolution, typeKey, platform).some(option => option.key === ratio)) return;
+    const format = normalizeCommerceFormat({ ratio, role: typeKey });
+    const next = activeImages.map(i => i.key === typeKey ? {
+      ...i,
+      ratio: format.generationRatio,
+      targetRatio: format.targetRatio,
+      cropPolicy: format.cropPolicy,
+    } : i);
     const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
@@ -285,10 +296,12 @@ export default function SizingPanel({
                       cursor: checked ? 'text' : 'not-allowed',
                     }} />
                   <RatioSelect 
-                    value={checked && activeItem ? activeItem.ratio : typeDef.defaultRatio} 
+                    value={checked && activeItem ? (activeItem.targetRatio || activeItem.ratio) : typeDef.defaultRatio}
                     onChange={r => checked && updateRatio(typeDef.key, r)} 
                     disabled={!checked}
                     resolution={resolution}
+                    role={typeDef.key}
+                    platform={platform}
                   />
                 </div>
               </div>

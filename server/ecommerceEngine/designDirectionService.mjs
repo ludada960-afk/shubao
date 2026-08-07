@@ -105,7 +105,7 @@ function requestedSuiteSummary(value) {
     const key = cleanString(ownValue(group, 'key', 'role', 'id'), 48);
     const label = cleanString(ownValue(group, 'label', 'name'), 48) || key;
     const count = Math.max(0, Math.min(20, Math.trunc(Number(ownValue(group, 'count')) || 0)));
-    const ratio = cleanString(ownValue(group, 'ratio'), 20);
+    const ratio = cleanString(ownValue(group, 'targetRatio', 'target_ratio', 'ratio'), 20);
     return count > 0 && key ? `${key}（${label}）×${count}，比例 ${ratio || '智能'}` : '';
   }).filter(Boolean).join('；') || '使用系统智能套图配置';
 }

@@ -178,7 +178,10 @@ function normalizeRequestedImages(value) {
       role,
       label: firstString(ownValue(entry, 'label', 'name'), defaultRoleLabel(role)),
       count,
-      ratio: firstString(ownValue(entry, 'ratio'), defaultRoleRatio(role)),
+      ratio: firstString(
+        ownValue(entry, 'targetRatio', 'target_ratio', 'ratio'),
+        defaultRoleRatio(role),
+      ),
     });
   }
   return result.length ? result : normalizeRequestedImages(DEFAULT_REQUESTED_IMAGES);

@@ -56,6 +56,21 @@ test('suite plan field edits are immutable and do not discard shot plans', () =>
   assert.equal(updated.shots[0].title, '材质细节');
 });
 
+test('suite plans display the requested ecommerce target ratio', () => {
+  const plan = buildCanvasSuitePlan({
+    deliverables: [{
+      role: 'main_text',
+      label: '横版商品主图',
+      count: 1,
+      ratio: '4:3',
+      targetRatio: '16:9',
+      shots: [{ label: '横版主视觉' }],
+    }],
+  });
+
+  assert.equal(plan.shots[0].dimension, '16:9');
+});
+
 test('detailed per-shot edits compile into the durable generation direction', () => {
   const direction = {
     deliverables: [{

@@ -1,10 +1,11 @@
 import { containsUnsafeImagePayload } from '../../../utils/imagePayloadText.js';
+import {
+  ECOMMERCE_FORMATS,
+  formatsFor,
+  normalizeCommerceFormat,
+} from './ecommerceFormatRegistry.js';
 
-const RESOLUTION_RATIOS = Object.freeze({
-  '1K': Object.freeze(['1:1', '3:4', '4:3', '9:16']),
-  '2K': Object.freeze(['1:1', '3:4', '4:3', '9:16']),
-  '4K': Object.freeze(['1:1', '3:4', '4:3', '9:16']),
-});
+const RESOLUTIONS = new Set(['1K', '2K', '4K']);
 
 export const IMAGE_TYPES = Object.freeze([
   Object.freeze({
@@ -31,7 +32,7 @@ export const IMAGE_TYPES = Object.freeze([
     key: 'main_3x4',
     label: '商品主图 3:4',
     icon: '📱',
-    defaultRatio: '9:16',
+    defaultRatio: '3:4',
     defaultCount: 3,
     desc: '竖版主图，适合移动端展示',
     usage: '竖版主图',
@@ -51,7 +52,7 @@ export const IMAGE_TYPES = Object.freeze([
     key: 'detail',
     label: '详情切片',
     icon: '📋',
-    defaultRatio: '3:4',
+    defaultRatio: '9:16',
     defaultCount: 5,
     desc: '长图详情页切片，含多种子类',
     usage: '详情页长图',
@@ -59,12 +60,7 @@ export const IMAGE_TYPES = Object.freeze([
   }),
 ]);
 
-export const RATIOS = Object.freeze([
-  Object.freeze({ key: '1:1', label: '1:1', w: 18, h: 18, usage: '正方形' }),
-  Object.freeze({ key: '3:4', label: '3:4', w: 14, h: 18, usage: '竖版' }),
-  Object.freeze({ key: '4:3', label: '4:3', w: 18, h: 14, usage: '横版' }),
-  Object.freeze({ key: '9:16', label: '9:16', w: 10, h: 18, usage: '全屏竖版' }),
-]);
+export const RATIOS = ECOMMERCE_FORMATS;
 
 function preset(name, icon, desc, images) {
   return Object.freeze({
@@ -117,7 +113,7 @@ export const PLATFORM_PRESETS = Object.freeze({
 const TYPE_BY_KEY = new Map(IMAGE_TYPES.map(type => [type.key, type]));
 
 function normalizeResolution(value) {
-  return Object.hasOwn(RESOLUTION_RATIOS, value) ? value : '2K';
+  return RESOLUTIONS.has(value) ? value : '2K';
 }
 
 function normalizeCount(value, maxCount) {
@@ -126,11 +122,12 @@ function normalizeCount(value, maxCount) {
   return Math.max(0, Math.min(maxCount, Math.trunc(count)));
 }
 
-function legalRatio(type, requestedRatio, resolution) {
-  const legal = RESOLUTION_RATIOS[resolution];
-  if (legal.includes(requestedRatio)) return requestedRatio;
-  if (legal.includes(type.defaultRatio)) return type.defaultRatio;
-  return legal[0];
+function legalRatio(type, image) {
+  return normalizeCommerceFormat({
+    ratio: image?.ratio || type.defaultRatio,
+    targetRatio: image?.targetRatio || image?.target_ratio,
+    role: type.key,
+  });
 }
 
 function sourceImages(platform, sizing) {
@@ -138,9 +135,9 @@ function sourceImages(platform, sizing) {
   return (PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart).images;
 }
 
-export function getLegalRatios(resolution = '2K') {
-  const legal = new Set(RESOLUTION_RATIOS[normalizeResolution(resolution)]);
-  return RATIOS.filter(ratio => legal.has(ratio.key));
+export function getLegalRatios(resolution = '2K', role = 'main_text', platform = 'smart') {
+  normalizeResolution(resolution);
+  return formatsFor({ role, platform });
 }
 
 export function resolveSizingImages(platform = 'smart', sizing = {}) {
@@ -151,10 +148,13 @@ export function resolveSizingImages(platform = 'smart', sizing = {}) {
     const type = TYPE_BY_KEY.get(image?.key);
     if (!type || seen.has(type.key)) continue;
     seen.add(type.key);
+    const format = legalRatio(type, image);
     result.push({
       key: type.key,
       count: normalizeCount(image?.count ?? type.defaultCount, type.maxCount),
-      ratio: legalRatio(type, image?.ratio, resolution),
+      ratio: format.generationRatio,
+      targetRatio: format.targetRatio,
+      cropPolicy: format.cropPolicy,
       label: type.label,
     });
   }
@@ -328,7 +328,13 @@ export function buildEcommercePendingAction({
       smart: sizing?.smart !== false,
       resolution,
       images: resolveSizingImages(safePlatform, { ...sizing, resolution })
-        .map(({ key, count, ratio }) => ({ key, count, ratio })),
+        .map(({ key, count, ratio, targetRatio, cropPolicy }) => ({
+          key,
+          count,
+          ratio,
+          targetRatio,
+          cropPolicy,
+        })),
     },
     skus: pendingSkus(skus),
     customColors: (Array.isArray(customColors) ? customColors : [])
