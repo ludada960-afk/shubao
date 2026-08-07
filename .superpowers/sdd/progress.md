@@ -1460,3 +1460,30 @@
   The release lock and exact temporary helper directory were cleared. User-owned
   extension-task deletions, `.tmp/`, and the diagnosis helper remain untouched
   and uncommitted.
+
+- Ecommerce Canvas creative/export stability release completed on 2026-08-07
+  at `02e517d` (`fix: compact canvas selection toolbars`) and is live at
+  `https://shuimg.cn/`. Arrow mode now supports drag marquee selection while
+  hand mode only pans; compact contextual actions stay visible on desktop and
+  mobile. Export uses a two-stage destination then explicit `开始导出` flow,
+  suite ZIPs contain generated images only, and selected detail images compose
+  into a durable, vertically stitched long image placed to the right of source
+  nodes. Detail defaults are 9:16; confirmed SKU facts reach overlays; compliant
+  white/transparent sources retain clean edges without added shadows.
+  Browser acceptance at `1440x1000` and `390x844` verified marquee, hand pan,
+  Shift selection, export paths, long-detail placement, dismissible notices,
+  no horizontal overflow, and no console/network errors. The release gate passed
+  full serial regression `1265/1265`, a 6,455-module production build,
+  `npm run check`, `npm run collab:check`, and whitespace validation. The
+  mandated deployment script backed up and validated production, then passed
+  public health, 600-second Canary, stable PM2 PID `3983196`, and two real
+  ecommerce checks: `ec_8f02ea03-d987-4cf9-b7f0-60731e3ad7cb` and
+  `ec_c69dd604-b011-4dba-bbf6-6f050c27d400`, each with three stable assets.
+  A transient Canary ecommerce verification retried once and passed. Independent
+  public audit passed `27/27`; local, remote application and WebRoot
+  `index.html` SHA-256 values match
+  `85177ffb7cf961ddace3fff333bdcf489d2359264d110025a8e1038d47aa7c04`.
+  The remote deployment lock is released. The 12 user-owned deleted
+  `server/extension_tasks` files, `.tmp/`, and
+  `scripts/diagnose-recent-ecommerce-jobs.cjs` remain intentionally uncommitted
+  and untouched.
