@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
@@ -66,7 +66,8 @@ import { canvasSegmentationRuntime, segmentationMasksToApi } from './canvasSegme
 import { appendImageMention, buildCanvasImageReferencePayload, buildImageMentions, buildRoleAwareImagePayload, removeImageMention } from '../../components/creation/imageMentionModel.js';
 import { selectDeliverableNodes } from './canvasAssetProvenance.js';
 import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
-import { saveIndividualImages, saveLongDetailImage } from './browserFileDelivery.js';
+import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
+import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -482,7 +483,11 @@ export default function EcCanvas() {
   const [groupDraft, setGroupDraft] = useState('详情图');
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState('PNG');
-  const [exportMode, setExportMode] = useState('逐张图片');
+  const [exportMode, setExportMode] = useState('images');
+  const [exportIntent, setExportIntent] = useState('suite');
+  const [exportSelectionIds, setExportSelectionIds] = useState(new Set());
+  const [exportDelivery, dispatchExportDelivery] = useReducer(exportDeliveryReducer, undefined, createExportDeliveryState);
+  const composedLongExportRef = useRef(null);
   const [detailOrderIds, setDetailOrderIds] = useState([]);
   const [connectionPicker, setConnectionPicker] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
@@ -542,7 +547,7 @@ export default function EcCanvas() {
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
-  const exportScope = selectDeliverableNodes(nodes, multiSelected);
+  const exportScope = selectDeliverableNodes(nodes, exportSelectionIds);
   const orderedDetailNodes = (detailOrderIds.length
     ? detailOrderIds.map(id => exportScope.deliverables.find(node => node.id === id)).filter(Boolean)
     : orderDetailNodes(exportScope.deliverables));
@@ -550,7 +555,9 @@ export default function EcCanvas() {
 
   useEffect(() => {
     if (!exportOpen) return;
-    setDetailOrderIds(orderDetailNodes(selectDeliverableNodes(nodes, multiSelected).deliverables).map(node => node.id));
+    setDetailOrderIds(orderDetailNodes(selectDeliverableNodes(nodes, exportSelectionIds).deliverables).map(node => node.id));
+    composedLongExportRef.current = null;
+    dispatchExportDelivery({ type: 'reset', config: { mode: exportMode, format: exportFormat } });
   }, [exportOpen]);
   const multiSelectionBounds = selectedCanvasBounds(nodes, multiSelected);
   const focusedEditorNode = focusedEditor ? nodes.find(node => node.id === focusedEditor.nodeId) : null;
@@ -1723,27 +1730,18 @@ export default function EcCanvas() {
   const handleDownload = (id) => {
     const n = id ? nodes.find(n => n.id === id) : nodes.find(n => n.id === selected);
     if (n) {
-      const a = document.createElement('a');
-      // B2: 走代理 URL 避免跨域 404
-      a.href = proxyImg(n.url);
-      a.download = `${n.name || n.displayLabel || n.label}.png`;
-      a.target = '_blank';
-      a.click();
+      setExportSelectionIds(new Set([n.id]));
+      setExportMode('images');
+      setExportIntent('single');
+      setExportOpen(true);
     }
   };
 
-  // A6: 多选下载 (B2: 走代理 URL)
   const handleMultiDownload = () => {
-    multiSelected.forEach(id => {
-      const n = nodes.find(n => n.id === id);
-      if (n) {
-        const a = document.createElement('a');
-        a.href = proxyImg(n.url);
-        a.download = `${n.name || n.displayLabel || n.label}.png`;
-        a.target = '_blank';
-        a.click();
-      }
-    });
+    setExportSelectionIds(new Set(multiSelected));
+    setExportMode('images');
+    setExportIntent('selection');
+    setExportOpen(true);
   };
 
   // A6: 右键菜单动作
@@ -2152,12 +2150,13 @@ export default function EcCanvas() {
       return;
     }
     if (actionId === 'export-selection') {
-      setExportMode('逐张图片');
-      setExportOpen(true);
+      handleMultiDownload();
       return;
     }
     if (actionId === 'stitch-details') {
-      setExportMode('详情长图');
+      setExportSelectionIds(new Set(multiSelected));
+      setExportMode('long-detail');
+      setExportIntent('long-detail');
       setExportOpen(true);
       return;
     }
@@ -2168,57 +2167,110 @@ export default function EcCanvas() {
     }
   };
 
-  const handleExport = async () => {
-    const { deliverables: exportNodes, excludedSources } = selectDeliverableNodes(nodes, multiSelected);
+  const configureExport = (nextMode, nextFormat = exportFormat) => {
+    setExportMode(nextMode);
+    setExportFormat(nextFormat);
+    composedLongExportRef.current = null;
+    dispatchExportDelivery({ type: 'configure', config: { mode: nextMode, format: nextFormat } });
+  };
+
+  const handleChooseExportDestination = async () => {
+    const { deliverables: exportNodes, excludedSources } = exportScope;
     if (!exportNodes.length) {
       showToast(excludedSources.length ? '所选内容只有原始素材，请选择生成结果' : '没有可交付的生成图片', 'info');
       return;
     }
     try {
-      if (exportMode === '详情长图') {
+      const longDetail = exportMode === 'long-detail';
+      const single = !longDetail && exportNodes.length === 1;
+      const destination = await chooseDeliveryDestination({
+        mode: longDetail ? 'long-detail' : single ? 'single' : 'images',
+        fileCount: longDetail ? 1 : exportNodes.length,
+        format: exportFormat,
+        productName: result.product_name || '商品',
+        filename: single ? safeDeliveryName(exportNodes[0].name || exportNodes[0].id, exportFormat) : undefined,
+      });
+      if (destination.cancelled) {
+        dispatchExportDelivery({ type: 'cancelled' });
+        return;
+      }
+      dispatchExportDelivery({ type: 'destination-ready', destination });
+    } catch (error) {
+      dispatchExportDelivery({ type: 'error', error: error.message || '无法选择保存位置' });
+    }
+  };
+
+  const handleStartExport = async () => {
+    const { deliverables: exportNodes, excludedSources } = exportScope;
+    if (!exportDelivery.destination) {
+      dispatchExportDelivery({ type: 'error', error: '请先选择保存位置' });
+      return;
+    }
+    try {
+      const longDetail = exportMode === 'long-detail';
+      dispatchExportDelivery({ type: 'preparing', total: longDetail ? 1 : exportNodes.length });
+      let deliveryItems = exportNodes;
+      if (longDetail) {
         const detailNodes = orderedDetailNodes.length ? orderedDetailNodes : orderDetailNodes(exportNodes);
         if (detailNodes.length < 2) throw new Error('请至少选择 2 张详情图再合并');
-        const data = await stitchLongImage(detailNodes.map(node => node.url), exportFormat.toLowerCase());
-        if (!data.url) throw new Error('详情长图合成失败');
-        const y = Math.max(...nodes.map(node => Number(node.y || 0) + Number(node.h || 0) + 120), 0);
-        const createdAt = Date.now();
-        const counter = nodes.filter(node => node.role === '详情长图').length + 1;
-        const longName = `详情长图-${String(counter).padStart(2, '0')}`;
-        const merged = {
-          ...normalizeAsset({
-            id: `node_long_${createdAt}`,
-            assetId: `asset_long_${createdAt}`,
-            url: data.url,
-            sourceKey: 'detail_long',
-            name: longName,
-            group: '详情图',
-            role: '详情长图',
-            ratio: '长图',
-            w: 240,
-            h: Math.round(240 * ((data.height || 1200) / (data.width || 800))),
-            x: Math.min(...detailNodes.map(node => Number(node.x || 0))),
-            y,
-          }, nodes.length),
-          kind: 'image',
-          status: 'ready',
-          provenance: 'derived',
-          derivedFromIds: detailNodes.map(node => node.id),
-          sourceNodeIds: detailNodes.map(node => node.id),
-          sequence: detailNodes.length + 1,
-        };
-        setNodes(previous => [...previous, merged]);
-        setConnections(previous => detailNodes.reduce((current, source) => addConnection(current, source.id, merged.id, 'long-detail'), previous));
-        setSelected(merged.id);
-        setMultiSelected(new Set([merged.id]));
-        const saved = await saveLongDetailImage({ url: data.url, name: `${result.product_name || '商品'}-详情长图`, format: exportFormat }, { proxyUrl: proxyImg });
-        showToast(saved.cancelled ? '详情长图已加入画布，已取消下载' : '详情长图已加入画布并保存', saved.cancelled ? 'info' : 'success');
-      } else {
-        const saved = await saveIndividualImages(exportNodes, { format: exportFormat, productName: result.product_name || '商品', proxyUrl: proxyImg });
-        if (saved.cancelled) return;
-        showToast(`已保存 ${exportNodes.length} 张${exportFormat}生成图片${excludedSources.length ? `，已排除 ${excludedSources.length} 张原始素材` : ''}`, 'success');
+        if (!composedLongExportRef.current) {
+          const data = await stitchLongImage(detailNodes.map(node => node.url), exportFormat.toLowerCase());
+          if (!data.url) throw new Error('详情长图合成失败');
+          const y = Math.max(...nodes.map(node => Number(node.y || 0) + Number(node.h || 0) + 120), 0);
+          const createdAt = Date.now();
+          const counter = nodes.filter(node => node.role === '详情长图').length + 1;
+          const longName = `详情长图-${String(counter).padStart(2, '0')}`;
+          const merged = {
+            ...normalizeAsset({
+              id: `node_long_${createdAt}`,
+              assetId: `asset_long_${createdAt}`,
+              url: data.url,
+              sourceKey: 'detail_long',
+              name: longName,
+              group: '详情图',
+              role: '详情长图',
+              ratio: '长图',
+              w: 240,
+              h: Math.round(240 * ((data.height || 1200) / (data.width || 800))),
+              x: Math.min(...detailNodes.map(node => Number(node.x || 0))),
+              y,
+            }, nodes.length),
+            kind: 'image',
+            status: 'ready',
+            provenance: 'derived',
+            derivedFromIds: detailNodes.map(node => node.id),
+            sourceNodeIds: detailNodes.map(node => node.id),
+            sequence: detailNodes.length + 1,
+          };
+          composedLongExportRef.current = merged;
+          setNodes(previous => [...previous, merged]);
+          setConnections(previous => detailNodes.reduce((current, source) => addConnection(current, source.id, merged.id, 'long-detail'), previous));
+          setSelected(merged.id);
+          setMultiSelected(new Set([merged.id]));
+        }
+        deliveryItems = [{
+          id: composedLongExportRef.current.id,
+          url: composedLongExportRef.current.url,
+          name: `${result.product_name || '商品'}-详情长图`,
+          format: exportFormat,
+        }];
       }
-      setExportOpen(false);
+      const prepared = await prepareImageDeliverables(deliveryItems, {
+        format: exportFormat,
+        proxyUrl: proxyImg,
+        onProgress: progress => dispatchExportDelivery({ type: 'progress', ...progress }),
+      });
+      dispatchExportDelivery({ type: 'writing', total: prepared.length });
+      const saved = await writePreparedDeliverables(exportDelivery.destination, prepared, {
+        onProgress: progress => dispatchExportDelivery({ type: 'progress', ...progress }),
+      });
+      dispatchExportDelivery({ type: 'success', count: saved.count });
+      showToast(longDetail
+        ? '详情长图已加入画布并导出'
+        : `已导出 ${saved.count} 张生成图片${excludedSources.length ? `，已排除 ${excludedSources.length} 张原始素材` : ''}`,
+      'success');
     } catch (error) {
+      dispatchExportDelivery({ type: 'error', error: error.message || '导出失败' });
       showToast(error.message || '导出失败', 'error');
     }
   };
@@ -3052,7 +3104,12 @@ export default function EcCanvas() {
         filters={['全部', ...ASSET_GROUPS]}
         onFilterChange={setActiveFilter}
         onBack={handleBack}
-        onExport={() => { setExportMode('逐张图片'); setExportOpen(true); }}
+        onExport={() => {
+          setExportSelectionIds(new Set());
+          setExportMode('images');
+          setExportIntent('suite');
+          setExportOpen(true);
+        }}
         onRestore={handleCanvasSessionRestore}
         onNew={handleNew}
         saving={canvasSessionBusy}
@@ -3540,14 +3597,14 @@ export default function EcCanvas() {
       {exportOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>电商图片交付</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>将保存 {exportScope.deliverables.length} 张生成结果{exportScope.excludedSources.length ? `，已排除 ${exportScope.excludedSources.length} 张原始素材` : ''}</div></div><button type="button" aria-label="关闭导出" title="关闭" onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportIntent === 'single' ? '图片另存为' : '电商图片交付'}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>将交付 {exportMode === 'long-detail' ? 1 : exportScope.deliverables.length} 张生成结果{exportScope.excludedSources.length ? `，已排除 ${exportScope.excludedSources.length} 张原始素材` : ''}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
             <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-              {[['逐张图片', '选择文件夹后只保存生成图片'], ['详情长图', canExportLongDetail ? '按下方顺序无缝拼接并另存为一张长图' : '至少需要 2 张已生成的详情图']].map(([mode, desc]) => {
-                const disabled = mode === '详情长图' && !canExportLongDetail;
-                return <button key={mode} type="button" disabled={disabled} onClick={() => setExportMode(mode)} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #2563eb' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{mode}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>;
+              {[['images', exportIntent === 'single' ? '另存为' : '导出整套图片', exportIntent === 'single' ? '选择文件名后，再确认开始导出' : '选择文件夹后，只导出生成图片'], ['long-detail', '合成并导出详情长图', canExportLongDetail ? '按下方顺序无缝拼接为一张长图' : '至少需要 2 张已生成的详情图']].map(([mode, label, desc]) => {
+                const disabled = (mode === 'long-detail' && !canExportLongDetail) || isExportDeliveryBusy(exportDelivery) || exportIntent === 'single' && mode === 'long-detail';
+                return <button key={mode} type="button" disabled={disabled} onClick={() => { configureExport(mode); setExportIntent(mode === 'long-detail' ? 'long-detail' : exportIntent); }} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #2563eb' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{label}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>;
               })}
             </div>
-            {exportMode === '详情长图' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
+            {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
               <div style={{ display: 'grid', gap: 6 }}>
                 {orderedDetailNodes.map((node, index) => <div key={node.id} style={{ minHeight: 44, display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 30px 30px', alignItems: 'center', gap: 7, padding: '5px 6px', border: '1px solid #e4e7eb', borderRadius: 7, background: '#fafbfc' }}>
@@ -3559,8 +3616,17 @@ export default function EcCanvas() {
                 {orderedDetailNodes.length < 2 && <div style={{ padding: '10px 11px', borderRadius: 7, background: '#fff7ed', color: '#9a5b13', fontSize: 12 }}>请至少选择 2 张已生成的详情图。</div>}
               </div>
             </div>}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" onClick={() => setExportFormat(format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{format}</button>)}</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" disabled={!exportScope.deliverables.length || (exportMode === '详情长图' && !canExportLongDetail)} onClick={handleExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: !exportScope.deliverables.length || (exportMode === '详情长图' && !canExportLongDetail) ? 'not-allowed' : 'pointer' }}><MdFileDownload size={14} /> 选择保存位置</button></div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
+            {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDelivery.destination.name}</div>}
+            {(exportDelivery.status === 'preparing' || exportDelivery.status === 'writing') && <div style={{ marginBottom: 12, fontSize: 12, color: '#475569' }}>{exportDelivery.status === 'preparing' ? '正在校验图片' : '正在写入文件'} · {exportDelivery.progress.completed}/{exportDelivery.progress.total}</div>}
+            {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>已导出 {exportDelivery.result?.count || 0} 张图片到 {exportDelivery.destination?.name || '所选位置'}</div>}
+            {exportDelivery.status === 'cancelled' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#f8fafc', color: '#64748b', fontSize: 12 }}>已取消选择保存位置，导出配置仍保留。</div>}
+            {exportDelivery.status === 'error' && <div role="alert" style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: 12 }}>{exportDelivery.error}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
+              <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>{exportDelivery.status === 'success' ? '完成' : '取消'}</button>
+              <button type="button" disabled={isExportDeliveryBusy(exportDelivery) || !exportScope.deliverables.length || (exportMode === 'long-detail' && !canExportLongDetail)} onClick={handleChooseExportDestination} style={{ border: '1px solid #d7dde5', borderRadius: 8, padding: '9px 13px', background: '#fff', color: '#374151', fontWeight: 700, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer' }}>{exportDelivery.destination ? '更改保存位置' : '选择保存位置'}</button>
+              {exportDelivery.destination && <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={handleStartExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .55 : 1 }}><MdFileDownload size={14} /> {exportDelivery.status === 'success' ? '再次导出' : '开始导出'}</button>}
+            </div>
           </div>
         </div>
       )}

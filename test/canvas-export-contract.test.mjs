@@ -39,6 +39,13 @@ test('Canvas export no longer packages JSON or loops automatic anchor downloads'
   assert.match(canvasSource, /selectDeliverableNodes/);
   assert.match(canvasSource, /至少需要 2 张已生成的详情图/);
   assert.match(canvasSource, /disabled=\{disabled\}/);
+  assert.match(canvasSource, /导出整套图片/);
+  assert.match(canvasSource, /合成并导出详情长图/);
+  assert.match(canvasSource, /开始导出/);
+  assert.match(canvasSource, /chooseDeliveryDestination/);
+  assert.match(canvasSource, /prepareImageDeliverables/);
+  assert.match(canvasSource, /writePreparedDeliverables/);
+  assert.doesNotMatch(canvasSource, /saveIndividualImages|saveLongDetailImage/);
 });
 
 test('delivery strategy asks for a directory or filename and has one-download fallbacks', () => {

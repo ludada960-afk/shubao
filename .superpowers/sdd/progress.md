@@ -28,7 +28,15 @@
   summaries expose delivered/charged/released/failed/retryable counts, and
   owner-scoped dismissal removes only terminal history while preserving durable
   job, billing and project evidence. Focused Task 3 regression passed 126/126;
-  Task 4 two-stage verified browser delivery is next.
+  Task 4 is complete locally: destination selection never opens a writable,
+  every response must be successful image MIME with non-zero bytes before any
+  file is created, write failures abort the active stream, and directory,
+  ZIP, single-file, suite, selected, long-detail and single-image delivery use
+  one two-stage state machine with explicit `开始导出`, progress, retry and
+  repeat-export states. Top-level suite export freezes the full generated scope
+  independently of current Canvas selection. Focused Canvas regression passed
+  121/121 and the 6,454-module production build passed. Task 5 durable long
+  detail storage and right-side placement is next.
 
 - Canvas selected-composer and structured image-mention correction is active.
   The signed-in reference product at `https://liuyingai.cn/canvas-studio`
