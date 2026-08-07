@@ -96,3 +96,9 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   `ec_c69dd604-b011-4dba-bbf6-6f050c27d400`，均交付 3 个稳定资产。
 - 当前本地、远端应用 `dist/index.html` 与 WebRoot 文件 SHA-256 一致：
   `85177ffb7cf961ddace3fff333bdcf489d2359264d110025a8e1038d47aa7c04`。
+- 2026-08-07，账号 `867550189@qq.com` 的作品页空白经生产核查确认不是迁移
+  缺失：数据库中有 54 条正常作品、79 个项目和 173 个项目资产，回收站为 0。
+  `PRAGMA integrity_check` 发现 `works` 与 `tasks` 的若干索引不一致，前端把
+  读取失败退化为空列表，因而表现为“作品为空”。已先创建一致性 SQLite 备份，
+  再仅执行 `REINDEX`；修复后完整性检查为 `ok`，54 条记录可稳定读取，PM2
+  仍为 `3983196`。该操作未修改作品内容、归属或资产。

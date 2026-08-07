@@ -1487,3 +1487,15 @@
   `server/extension_tasks` files, `.tmp/`, and
   `scripts/diagnose-recent-ecommerce-jobs.cjs` remain intentionally uncommitted
   and untouched.
+
+- Production data recovery completed on 2026-08-07 for owner
+  `867550189@qq.com`. The reported empty Works page was not a legacy migration
+  omission: the live database contained 54 active works, 79 projects and 173
+  project assets for this owner, with no soft-deleted works. A read-only
+  `PRAGMA integrity_check` identified inconsistent `works` and `tasks` indexes;
+  this allowed a work-list read to fail and the client fallback to appear as an
+  empty collection. A consistent SQLite backup was created under the protected
+  production deploy-backup directory before executing `REINDEX` only. Post-fix
+  integrity is `ok`, the exact owner query returns all 54 records (50 on the
+  current list page), `/health` is healthy, and PM2 remained PID `3983196`.
+  No work payload, owner, asset, project, or billing record was changed.
