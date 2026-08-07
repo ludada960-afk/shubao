@@ -23,12 +23,13 @@ const canvasStudioSource = readFileSync(new URL('../src/pages/EcCanvas/component
 const worksSource = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
 
 
-test('plain left drag pans the canvas while Shift drag starts marquee selection', () => {
-  assert.equal(getCanvasPointerIntent({ button: 0 }), 'pan');
-  assert.equal(getCanvasPointerIntent({ button: 0, shiftKey: true }), 'marquee');
-  assert.equal(getCanvasPointerIntent({ button: 1 }), 'pan');
-  assert.equal(getCanvasPointerIntent({ button: 0, altKey: true }), 'pan');
-  assert.equal(getCanvasPointerIntent({ button: 0, spaceKey: true }), 'pan');
+test('select drag starts marquee while hand and temporary navigation gestures pan', () => {
+  assert.equal(getCanvasPointerIntent({ tool: 'select', button: 0 }), 'marquee');
+  assert.equal(getCanvasPointerIntent({ tool: 'select', button: 0, shiftKey: true }), 'marquee');
+  assert.equal(getCanvasPointerIntent({ tool: 'select', button: 1 }), 'pan');
+  assert.equal(getCanvasPointerIntent({ tool: 'select', button: 0, altKey: true }), 'pan');
+  assert.equal(getCanvasPointerIntent({ tool: 'select', button: 0, spaceKey: true }), 'pan');
+  assert.equal(getCanvasPointerIntent({ tool: 'hand', button: 0 }), 'pan');
 });
 
 test('canvas controls do not start pan or marquee gestures', () => {
@@ -37,10 +38,16 @@ test('canvas controls do not start pan or marquee gestures', () => {
 });
 
 test('canvas cursor communicates pan and marquee modes', () => {
-  assert.equal(canvasCursorForState({ pointerKind: null, shiftKey: false }), 'grab');
-  assert.equal(canvasCursorForState({ pointerKind: 'pan' }), 'grabbing');
-  assert.equal(canvasCursorForState({ pointerKind: 'marquee' }), 'crosshair');
-  assert.equal(canvasCursorForState({ pointerKind: null, shiftKey: true }), 'crosshair');
+  assert.equal(canvasCursorForState({ tool: 'select', pointerKind: null }), 'default');
+  assert.equal(canvasCursorForState({ tool: 'hand', pointerKind: null }), 'grab');
+  assert.equal(canvasCursorForState({ tool: 'select', pointerKind: 'pan' }), 'grabbing');
+  assert.equal(canvasCursorForState({ tool: 'select', pointerKind: 'marquee' }), 'crosshair');
+  assert.equal(canvasCursorForState({ tool: 'select', spaceKey: true }), 'grab');
+});
+
+test('Canvas exposes the select-tool multi-selection hint', () => {
+  assert.match(canvasChromeSource, /拖拽框选，Shift\+点击多选/);
+  assert.match(canvasSource, /tool:\s*activeTool/);
 });
 
 test('binds canvas wheel handling as non-passive and removes it cleanly', () => {

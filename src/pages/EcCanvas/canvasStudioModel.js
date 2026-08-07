@@ -330,6 +330,7 @@ export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = D
       id: `upload_${now}_${index}`,
       assetId: asset.assetId || `upload-asset-${now}-${index}`,
       kind: 'image',
+      provenance: 'source',
       status: 'ready',
       url: asset.url,
       name: asset.name || `上传图片 ${index + 1}`,

@@ -1,3 +1,6 @@
+import { selectDeliverableNodes } from './canvasAssetProvenance.js';
+import { isLongDetailCandidate } from './detailCompositionModel.js';
+
 const VIEWPORT_GUTTER = 12;
 const PANEL_GAP = 13;
 
@@ -15,7 +18,7 @@ export const MULTI_SELECTION_ACTIONS = Object.freeze([
   Object.freeze({ id: 'bind-elements', label: '绑定元素' }),
   Object.freeze({ id: 'group-elements', label: '打组' }),
   Object.freeze({ id: 'export-selection', label: '导出' }),
-  Object.freeze({ id: 'merge-layers', label: '合并图层' }),
+  Object.freeze({ id: 'stitch-details', label: '合成长图' }),
   Object.freeze({ id: 'delete-selection', label: '删除' }),
 ]);
 
@@ -29,8 +32,11 @@ export function multiSelectionActionsForNodes(nodes = [], selectedIds = new Set(
   const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
   const selected = nodes.filter(node => ids.has(node.id));
   const imageOnly = selected.length >= 2 && selected.every(isExportableCanvasImage);
+  const { deliverables } = selectDeliverableNodes(nodes, ids);
+  const detailCount = deliverables.filter(isLongDetailCandidate).length;
   return MULTI_SELECTION_ACTIONS.filter(action => {
-    if (action.id === 'export-selection' || action.id === 'merge-layers') return imageOnly;
+    if (action.id === 'export-selection') return imageOnly && deliverables.length > 0;
+    if (action.id === 'stitch-details') return detailCount >= 2;
     return true;
   });
 }

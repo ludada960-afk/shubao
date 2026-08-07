@@ -7,6 +7,10 @@
   --canvas-command: var(--command);
   --canvas-command-hover: var(--command-hover);
   --canvas-focus: var(--focus-ring);
+  --ec-canvas-control-height: 32px;
+  --ec-canvas-action-font: 12px;
+  --ec-canvas-meta-font: 10px;
+  --ec-canvas-control-gap: 4px;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -88,13 +92,14 @@
 .ec-canvas-stage { flex: 1; position: relative; overflow: clip; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
 
 .ec-canvas-left-rail,
-.ec-canvas-bottom-toolbar,
 .ec-canvas-zoom-controls { position: absolute; z-index: 58; display: flex; background: #fff; box-shadow: 0 3px 8px rgba(21, 23, 26, .12); }
 .ec-canvas-left-rail { left: 12px; top: 50%; transform: translateY(-50%); width: 52px; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-radius: 8px; }
 .ec-canvas-left-rail .ec-canvas-rail-add { width: 40px; height: 40px; flex: 0 0 40px; margin-bottom: 2px; color: #fff; background: var(--canvas-command); }
 .ec-canvas-left-rail .ec-canvas-rail-add:hover:not(:disabled),
 .ec-canvas-left-rail .ec-canvas-rail-add.is-active { color: #fff; background: var(--canvas-command-hover); }
-.ec-canvas-bottom-toolbar { left: 50%; bottom: 14px; transform: translateX(-50%); align-items: center; gap: 2px; padding: 5px; border-radius: 8px; }
+.ec-canvas-bottom-dock { position: absolute; z-index: 58; left: 50%; bottom: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(-50%); }
+.ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 8px; background: #fff; box-shadow: 0 3px 8px rgba(21, 23, 26, .12); }
+.ec-canvas-selection-hint { padding: 5px 8px; border: 1px solid rgba(15, 23, 42, .08); border-radius: 6px; background: rgba(255, 255, 255, .96); box-shadow: 0 2px 6px rgba(21, 23, 26, .09); color: #59616b; font-size: 11px; font-weight: 650; white-space: nowrap; }
 .ec-canvas-zoom-controls { left: 12px; bottom: 14px; align-items: center; gap: 1px; padding: 3px; border-radius: 8px; }
 .ec-canvas-bottom-toolbar .ec-canvas-icon-button,
 .ec-canvas-zoom-controls .ec-canvas-icon-button { width: 34px; height: 34px; flex-basis: 34px; }
@@ -190,9 +195,9 @@
 .ec-canvas-copy-node.is-dimmed { opacity: .25; }
 .ec-canvas-media-frame { width: 100%; overflow: hidden; border-radius: 7px 7px 0 0; background: #f2f3f5; }
 .ec-canvas-media-frame img { pointer-events: none; -webkit-user-drag: none; }
-.ec-canvas-media-node footer { min-height: 48px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 8px 10px; border-top: 1px solid #eef0f2; }
-.ec-canvas-media-node footer strong { overflow: hidden; color: #20242a; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.ec-canvas-media-node footer span { overflow: hidden; color: #9198a2; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-media-node footer { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 8px 7px; border-top: 1px solid #eef0f2; }
+.ec-canvas-media-node footer strong { overflow: hidden; color: #20242a; font-size: var(--ec-canvas-action-font); font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-media-node footer span { overflow: hidden; color: #7b8490; font-size: var(--ec-canvas-meta-font); line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-node-port { position: absolute; z-index: 9; right: -32px; top: 50%; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; transform: translateY(-50%); border: 1px solid #d8dde4; border-radius: 50%; background: #fff; color: #4b5563; box-shadow: 0 3px 10px rgba(15, 23, 42, .14); cursor: crosshair; transition: opacity 140ms ease-out, color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out; }
 .ec-canvas-node-port:hover:not(:disabled) { color: #fff; background: var(--canvas-command); border-color: var(--canvas-command); transform: translateY(-50%) scale(1.06); }
 .ec-canvas-node-port:disabled { cursor: not-allowed; opacity: .35 !important; }
@@ -247,8 +252,9 @@
 .ec-canvas-text-drag-handle:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-text-drag-handle:active { cursor: grabbing; }
 
-.ec-canvas-object-toolbar { position: absolute; z-index: 80; display: flex; align-items: center; gap: 2px; max-width: min(820px, 80vw); overflow-x: auto; padding: 5px; transform: translate(-50%, -100%) scale(var(--canvas-overlay-scale, 1)); transform-origin: bottom center; border: 1px solid rgba(15, 23, 42, .07); border-radius: 8px; background: rgba(255, 255, 255, .98); box-shadow: 0 10px 30px rgba(15, 23, 42, .15); white-space: nowrap; }
-.ec-canvas-object-toolbar button { height: 36px; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: #444d59; font-size: 12px; font-weight: 650; transition: color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out; }
+.ec-canvas-object-toolbar { position: absolute; z-index: 80; display: flex; align-items: center; gap: var(--ec-canvas-control-gap); max-width: min(820px, 86vw); overflow-x: auto; padding: 4px; transform: translate(-50%, -100%) scale(var(--canvas-overlay-scale, 1)); transform-origin: bottom center; border: 1px solid rgba(15, 23, 42, .07); border-radius: 8px; background: rgba(255, 255, 255, .98); box-shadow: 0 10px 30px rgba(15, 23, 42, .15); white-space: nowrap; }
+.ec-canvas-object-toolbar button { height: var(--ec-canvas-control-height); display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: #444d59; font-size: var(--ec-canvas-action-font); font-weight: 650; transition: color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out; }
+.ec-canvas-object-toolbar button.is-compact { width: var(--ec-canvas-control-height); justify-content: center; padding: 0; }
 .ec-canvas-object-toolbar button:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-object-toolbar button:active { transform: translateY(1px); }
 .ec-canvas-object-toolbar button:focus-visible { outline: 2px solid var(--canvas-focus); outline-offset: 1px; }
@@ -272,10 +278,10 @@
   z-index: 82;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--ec-canvas-control-gap);
   max-width: min(900px, 86vw);
   overflow-x: auto;
-  padding: 5px;
+  padding: 4px;
   transform: translate(-50%, -100%) scale(var(--canvas-overlay-scale, 1));
   transform-origin: bottom center;
   border: 1px solid rgba(15, 23, 42, .07);
@@ -284,8 +290,8 @@
   box-shadow: 0 10px 30px rgba(15, 23, 42, .15);
   white-space: nowrap;
 }
-.ec-canvas-multi-toolbar > span { padding: 0 8px; color: #7a818b; font-size: 10px; font-weight: 700; }
-.ec-canvas-multi-toolbar button { height: 32px; display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #4f5762; font-size: 10px; font-weight: 650; }
+.ec-canvas-multi-toolbar > strong { flex: 0 0 auto; padding: 0 7px; color: #252a31; font-size: var(--ec-canvas-action-font); font-weight: 750; }
+.ec-canvas-multi-toolbar button { height: var(--ec-canvas-control-height); display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: #4f5762; font-size: var(--ec-canvas-action-font); font-weight: 650; }
 .ec-canvas-multi-toolbar button:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-multi-toolbar button.is-accent { color: #087f5b; }
 .ec-canvas-multi-toolbar button.is-danger { color: #d43d35; }
@@ -520,7 +526,7 @@
   .ec-canvas-tabs { display: none; }
   .ec-canvas-left-rail { left: 8px; }
   .ec-canvas-zoom-controls { left: 8px; bottom: 10px; }
-  .ec-canvas-bottom-toolbar { left: auto; right: 8px; bottom: 10px; transform: none; }
+  .ec-canvas-bottom-dock { left: auto; right: 8px; bottom: 10px; align-items: flex-end; transform: none; }
   .ec-canvas-layers-panel { left: 8px; bottom: 66px; width: min(288px, calc(100vw - 16px)); max-height: calc(100% - 90px); }
   .ec-canvas-node-composer { width: min(520px, calc(100vw - 20px)) !important; max-width: calc(100vw - 20px); }
   .ec-canvas-suite-source-rows { grid-template-columns: 1fr; }

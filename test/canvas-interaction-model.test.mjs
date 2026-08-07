@@ -94,24 +94,24 @@ test('multi selection matches the observed commerce editing surface', () => {
     'bind-elements',
     'group-elements',
     'export-selection',
-    'merge-layers',
+    'stitch-details',
     'delete-selection',
   ]);
 });
 
-test('multi selection only advertises pixel export and merge for image-only selections', () => {
+test('multi selection only advertises delivery and long-detail stitching for eligible outputs', () => {
   const images = [
-    { id: 'a', kind: 'image', status: 'ready', url: '/a.png' },
-    { id: 'b', kind: 'output', status: 'completed', url: '/b.png' },
+    { id: 'a', kind: 'output', group: '详情图', status: 'ready', url: '/a.png' },
+    { id: 'b', kind: 'output', group: '详情图', status: 'completed', url: '/b.png' },
   ];
   const imageActions = multiSelectionActionsForNodes(images, new Set(['a', 'b'])).map(action => action.id);
   assert.equal(imageActions.includes('export-selection'), true);
-  assert.equal(imageActions.includes('merge-layers'), true);
+  assert.equal(imageActions.includes('stitch-details'), true);
 
   const mixed = [...images, { id: 'text', kind: 'text', text: '卖点' }];
   const mixedActions = multiSelectionActionsForNodes(mixed, new Set(['a', 'text'])).map(action => action.id);
   assert.equal(mixedActions.includes('export-selection'), false);
-  assert.equal(mixedActions.includes('merge-layers'), false);
+  assert.equal(mixedActions.includes('stitch-details'), false);
 });
 
 test('multi selection geometry is deterministic and keeps non-selected nodes untouched', () => {

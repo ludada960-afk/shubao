@@ -1,16 +1,16 @@
-export function getCanvasPointerIntent({ button = 0, shiftKey = false, altKey = false, spaceKey = false, isInteractive = false } = {}) {
+export function getCanvasPointerIntent({ tool = 'select', button = 0, altKey = false, spaceKey = false, isInteractive = false } = {}) {
   if (isInteractive) return 'ignore';
   if (button === 1) return 'pan';
   if (button !== 0) return 'ignore';
-  if (shiftKey) return 'marquee';
-  if (altKey || spaceKey) return 'pan';
-  return 'pan';
+  if (tool === 'hand' || altKey || spaceKey) return 'pan';
+  return 'marquee';
 }
 
-export function canvasCursorForState({ pointerKind = null, shiftKey = false } = {}) {
+export function canvasCursorForState({ tool = 'select', pointerKind = null, spaceKey = false } = {}) {
   if (pointerKind === 'pan') return 'grabbing';
-  if (pointerKind === 'marquee' || shiftKey) return 'crosshair';
-  return 'grab';
+  if (pointerKind === 'marquee') return 'crosshair';
+  if (tool === 'hand' || spaceKey) return 'grab';
+  return 'default';
 }
 
 export function bindNonPassiveWheel(element, handler) {
@@ -35,12 +35,12 @@ const ASSET_META = {
   main_3x4: { name: '竖版主图', group: '主图', role: '竖版主图', ratio: '3:4', usage: '抖音/小红书竖版流量，竖版构图更沉浸，利于转化' },
   transparent: { name: '透明PNG素材', group: '素材', role: '透明PNG素材', ratio: '1:1', usage: '二次合成素材，可自由叠加任意背景，设计师必备' },
   sku: { name: 'SKU规格图', group: 'SKU', role: 'SKU规格图', ratio: '1:1', usage: '颜色/尺码选择器展示图，降低买家决策成本，减少退货' },
-  detail_slice_size: { name: '尺寸标注图', group: '详情图', role: '尺寸标注图', ratio: '3:4', usage: '详情页尺寸背书，精准尺码参考，降低因尺码不符退货率' },
-  detail_slice_scene: { name: '场景使用图', group: '详情图', role: '场景使用图', ratio: '3:4', usage: '真实使用场景展示，帮助买家代入使用感，提升购买欲' },
-  detail_slice_qc: { name: '品质背书图', group: '详情图', role: '品质背书图', ratio: '3:4', usage: '品质信任背书，降低买家疑虑，适用于食品/母婴/医疗类' },
-  detail_slice_compare: { name: '优势对比图', group: '详情图', role: '优势对比图', ratio: '3:4', usage: '与竞品直观对比，突出差异化卖点，提升转化' },
-  detail_slice_feature: { name: '细节功能图', group: '详情图', role: '细节功能图', ratio: '3:4', usage: '产品细节/工艺放大展示，建立品质感知，支撑定价溢价' },
-  detail_slice_care: { name: '使用维护图', group: '详情图', role: '使用维护图', ratio: '3:4', usage: '使用注意事项说明，减少因误用导致的差评和退货' },
+  detail_slice_size: { name: '尺寸标注图', group: '详情图', role: '尺寸标注图', ratio: '9:16', usage: '详情页尺寸背书，精准尺码参考，降低因尺码不符退货率' },
+  detail_slice_scene: { name: '场景使用图', group: '详情图', role: '场景使用图', ratio: '9:16', usage: '真实使用场景展示，帮助买家代入使用感，提升购买欲' },
+  detail_slice_qc: { name: '品质背书图', group: '详情图', role: '品质背书图', ratio: '9:16', usage: '品质信任背书，降低买家疑虑，适用于食品/母婴/医疗类' },
+  detail_slice_compare: { name: '优势对比图', group: '详情图', role: '优势对比图', ratio: '9:16', usage: '与竞品直观对比，突出差异化卖点，提升转化' },
+  detail_slice_feature: { name: '细节功能图', group: '详情图', role: '细节功能图', ratio: '9:16', usage: '产品细节/工艺放大展示，建立品质感知，支撑定价溢价' },
+  detail_slice_care: { name: '使用维护图', group: '详情图', role: '使用维护图', ratio: '9:16', usage: '使用注意事项说明，减少因误用导致的差评和退货' },
   detail_long: { name: '详情长图', group: '详情图', role: '详情长图', ratio: '长图', usage: '将多张详情切片合成为一张可交付长图' },
 };
 
@@ -60,7 +60,7 @@ export function normalizeAsset(input = {}, index = 0, counters = {}) {
   const name = input.name || `${meta.name}${suffix}`;
   const ratio = input.ratio || meta.ratio;
   const w = input.w || 200;
-  const h = input.h || (ratio === '3:4' ? Math.round(w * 4 / 3) : ratio === '长图' ? 300 : w);
+  const h = input.h || (ratio === '3:4' ? Math.round(w * 4 / 3) : ratio === '9:16' ? Math.round(w * 16 / 9) : ratio === '长图' ? 300 : w);
   return {
     id: input.id || `asset_${sourceKey}_${index}`,
     assetId: input.assetId || `asset_${sourceKey}_${index}`,
@@ -72,6 +72,10 @@ export function normalizeAsset(input = {}, index = 0, counters = {}) {
     usage: input.usage || meta.usage,
     sourceKey,
     sourceDirectionId: input.sourceDirectionId,
+    provenance: input.provenance || input.assetOrigin,
+    sequence: input.sequence ?? input.planSequence ?? input.shotSequence ?? input.shotIndex ?? input.generationIndex,
+    derivedFromIds: Array.isArray(input.derivedFromIds) ? [...input.derivedFromIds] : undefined,
+    sourceNodeIds: Array.isArray(input.sourceNodeIds) ? [...input.sourceNodeIds] : undefined,
     editable: input.editable !== false,
     x: input.x ?? 0,
     y: input.y ?? 0,

@@ -94,7 +94,7 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
 
 export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction }) {
   if (!node || !actions.length) return null;
-  const estimatedWidth = actions.reduce((total, action) => total + (['crop', 'split-image', 'download', 'delete'].includes(action.id) ? 48 : Math.max(88, String(action.label || '').length * 13 + 46)), 10);
+  const estimatedWidth = actions.reduce((total, action) => total + (['crop', 'split-image', 'download', 'delete'].includes(action.id) ? 38 : Math.max(64, String(action.label || '').length * 12 + 38)), 10);
   return <div
     className="ec-canvas-object-toolbar"
     role="toolbar"
@@ -168,7 +168,7 @@ const MULTI_ICONS = {
   'bind-elements': Link2,
   'group-elements': Ungroup,
   'export-selection': Download,
-  'merge-layers': Layers3,
+  'stitch-details': Layers3,
   'delete-selection': Trash2,
 };
 
@@ -176,9 +176,11 @@ export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(
   const bounds = selectedCanvasBounds(nodes, selectedIds);
   const count = selectedIds instanceof Set ? selectedIds.size : (selectedIds || []).length;
   if (!bounds || count < 2) return null;
-  return <div className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: 680, height: 46 })}>
+  const actions = multiSelectionActionsForNodes(nodes, selectedIds);
+  const estimatedWidth = 86 + actions.reduce((total, action) => total + Math.max(54, String(action.label || '').length * 12 + 34), 0);
+  return <div className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: estimatedWidth, height: 42 })}>
     <strong>{count} 个已选中</strong>
-    {multiSelectionActionsForNodes(nodes, selectedIds).map(action => {
+    {actions.map(action => {
       const Icon = MULTI_ICONS[action.id] || WandSparkles;
       return <button key={action.id} type="button" className={action.id === 'delete-selection' ? 'is-danger' : ''} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action.id)}><Icon size={15} /><span>{action.label}</span></button>;
     })}

@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import JSZip from 'jszip';
-import { MdArrowBack, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
+import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadECTempImages, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
   bindNonPassiveWheel,
-  canStitch,
   canvasCursorForState,
   fitViewport,
   getCanvasPointerIntent,
@@ -66,6 +64,9 @@ import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLaye
 import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
 import { canvasSegmentationRuntime, segmentationMasksToApi } from './canvasSegmentationRuntime.js';
 import { appendImageMention, buildCanvasImageReferencePayload, buildImageMentions, buildRoleAwareImagePayload, removeImageMention } from '../../components/creation/imageMentionModel.js';
+import { selectDeliverableNodes } from './canvasAssetProvenance.js';
+import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
+import { saveIndividualImages, saveLongDetailImage } from './browserFileDelivery.js';
 import './EcCanvas.css';
 
 function generatedAssetIdFromUrl(url = '') {
@@ -208,7 +209,7 @@ function autoLayout(imageList) {
     imgs.forEach((img, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const h = img.ratio === '3:4' ? Math.round(NODE_W * 4 / 3) : NODE_W;
+      const h = img.ratio === '3:4' ? Math.round(NODE_W * 4 / 3) : img.ratio === '9:16' ? Math.round(NODE_W * 16 / 9) : NODE_W;
       maxRowH = Math.max(maxRowH, h + 60);
       nodes.push({
         ...img,
@@ -450,45 +451,6 @@ async function persistCanvasUploadAssets(assets = [], { allowLocalFallback = fal
   }));
 }
 
-function loadMergeImage(url) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = 'anonymous';
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('合并图层时有图片加载失败'));
-    image.src = proxyImg(url);
-  });
-}
-
-async function renderMergedCanvasImage(selectedNodes = []) {
-  const ids = new Set(selectedNodes.map(node => node.id));
-  const bounds = selectedCanvasBounds(selectedNodes, ids);
-  if (!bounds || selectedNodes.length < 2) throw new Error('请至少选择两张图片');
-  const outputScale = Math.min(1, 2048 / Math.max(1, bounds.w), 2048 / Math.max(1, bounds.h));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(bounds.w * outputScale));
-  canvas.height = Math.max(1, Math.round(bounds.h * outputScale));
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('当前浏览器无法合并图层');
-  context.scale(outputScale, outputScale);
-  for (const node of selectedNodes) {
-    const image = await loadMergeImage(node.url);
-    const frameWidth = Math.max(1, Number(node.w) || image.naturalWidth);
-    const frameHeight = Math.max(1, Number(node.h) || image.naturalHeight);
-    const fit = Math.min(frameWidth / image.naturalWidth, frameHeight / image.naturalHeight);
-    const drawWidth = image.naturalWidth * fit;
-    const drawHeight = image.naturalHeight * fit;
-    const drawX = Number(node.x) - bounds.x + (frameWidth - drawWidth) / 2;
-    const drawY = Number(node.y) - bounds.y + (frameHeight - drawHeight) / 2;
-    context.save();
-    context.translate(drawX + drawWidth / 2, drawY + drawHeight / 2);
-    context.scale(node.flipX ? -1 : 1, node.flipY ? -1 : 1);
-    context.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
-    context.restore();
-  }
-  return { dataUrl: canvas.toDataURL('image/png'), bounds };
-}
-
 export default function EcCanvas() {
   const { state, dispatch } = useApp();
   const dialog = useDialog();
@@ -520,8 +482,8 @@ export default function EcCanvas() {
   const [groupDraft, setGroupDraft] = useState('详情图');
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState('PNG');
-  const [exportMode, setExportMode] = useState('逐张导出');
-  const [alignMode, setAlignMode] = useState('left');
+  const [exportMode, setExportMode] = useState('逐张图片');
+  const [detailOrderIds, setDetailOrderIds] = useState([]);
   const [connectionPicker, setConnectionPicker] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
   const [tab, setTab] = useState('canvas');
@@ -580,6 +542,15 @@ export default function EcCanvas() {
   const hasCurrent = imageList.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+  const exportScope = selectDeliverableNodes(nodes, multiSelected);
+  const orderedDetailNodes = (detailOrderIds.length
+    ? detailOrderIds.map(id => exportScope.deliverables.find(node => node.id === id)).filter(Boolean)
+    : orderDetailNodes(exportScope.deliverables));
+
+  useEffect(() => {
+    if (!exportOpen) return;
+    setDetailOrderIds(orderDetailNodes(selectDeliverableNodes(nodes, multiSelected).deliverables).map(node => node.id));
+  }, [exportOpen]);
   const multiSelectionBounds = selectedCanvasBounds(nodes, multiSelected);
   const focusedEditorNode = focusedEditor ? nodes.find(node => node.id === focusedEditor.nodeId) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
@@ -965,17 +936,18 @@ export default function EcCanvas() {
     const interactiveTarget = e.target?.closest?.('button,input,textarea,select,a,[contenteditable="true"],[data-canvas-control="true"]');
     if (!interactiveTarget && editingTextNodeId) setEditingTextNodeId(null);
     const intent = getCanvasPointerIntent({
+      tool: activeTool,
       button: e.button,
       shiftKey: e.shiftKey,
       altKey: e.altKey,
-      spaceKey: spacePressed || activeTool === 'hand',
+      spaceKey: spacePressed,
       isInteractive: Boolean(interactiveTarget),
     });
     if (intent === 'ignore') return;
     e.preventDefault();
     if (intent === 'marquee') {
       const point = toWorldPoint(e);
-      setPointerMode({ kind: 'marquee', start: point, additive: e.ctrlKey || e.metaKey });
+      setPointerMode({ kind: 'marquee', start: point, additive: e.shiftKey || e.ctrlKey || e.metaKey });
       setMarquee({ x: point.x, y: point.y, w: 0, h: 0 });
     } else {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
@@ -2179,47 +2151,13 @@ export default function EcCanvas() {
       return;
     }
     if (actionId === 'export-selection') {
+      setExportMode('逐张图片');
       setExportOpen(true);
       return;
     }
-    if (actionId === 'merge-layers') {
-      const selectedNodes = nodes.filter(node => multiSelected.has(node.id) && node.url && ['image', 'output'].includes(node.kind));
-      if (selectedNodes.length !== multiSelected.size || selectedNodes.length < 2) {
-        showToast('合并图层仅支持两张或以上图片', 'info');
-        return;
-      }
-      setPromptLoading(true);
-      try {
-        const { dataUrl, bounds } = await renderMergedCanvasImage(selectedNodes);
-        const [url] = await uploadECTempImages([dataUrl]);
-        if (!url) throw new Error('合并图层上传失败');
-        const createdAt = Date.now();
-        const merged = normalizeCanvasNode({
-          id: `node_merged_${createdAt}`,
-          kind: 'image',
-          status: 'ready',
-          url,
-          x: bounds.x,
-          y: bounds.y,
-          w: bounds.w,
-          h: bounds.h,
-          ratio: bounds.w === bounds.h ? '1:1' : `${Math.round(bounds.w)}:${Math.round(bounds.h)}`,
-          name: '合并图层',
-          displayLabel: '合并图层',
-          group: selectedNodes[0].group || '素材',
-          sourceNodeIds: selectedNodes.map(node => node.id),
-          showMeta: false,
-        });
-        setNodes(previous => [...previous, merged]);
-        setConnections(previous => selectedNodes.reduce((current, source) => addConnection(current, source.id, merged.id, 'merge'), previous));
-        setSelected(merged.id);
-        setMultiSelected(new Set([merged.id]));
-        showToast('已生成合并图层，原对象仍然保留', 'success');
-      } catch (error) {
-        showToast(error.message || '合并图层失败', 'error');
-      } finally {
-        setPromptLoading(false);
-      }
+    if (actionId === 'stitch-details') {
+      setExportMode('详情长图');
+      setExportOpen(true);
       return;
     }
     if (actionId === 'bind-elements' || actionId === 'group-elements') {
@@ -2229,62 +2167,54 @@ export default function EcCanvas() {
     }
   };
 
-  const handleAlignSelected = (mode) => {
-    const selectedNodes = nodes.filter(node => multiSelected.has(node.id));
-    if (selectedNodes.length < 2) return;
-    const anchor = selectedNodes[0];
-    setNodes(prev => prev.map(node => {
-      if (!multiSelected.has(node.id) || node.id === anchor.id) return node;
-      if (mode === 'left') return { ...node, x: anchor.x };
-      if (mode === 'right') return { ...node, x: anchor.x + anchor.w - node.w };
-      if (mode === 'center') return { ...node, x: anchor.x + (anchor.w - node.w) / 2 };
-      if (mode === 'top') return { ...node, y: anchor.y };
-      if (mode === 'bottom') return { ...node, y: anchor.y + anchor.h - node.h };
-      return node;
-    }));
-    setAlignMode(mode);
-    showToast('已按电商排版规范对齐', 'success');
-  };
-
   const handleExport = async () => {
-    const exportNodes = nodes.filter(node => node.url && (multiSelected.size ? multiSelected.has(node.id) : true));
-    if (!exportNodes.length) return;
+    const { deliverables: exportNodes, excludedSources } = selectDeliverableNodes(nodes, multiSelected);
+    if (!exportNodes.length) {
+      showToast(excludedSources.length ? '所选内容只有原始素材，请选择生成结果' : '没有可交付的生成图片', 'info');
+      return;
+    }
     try {
-      if (exportMode === '合并为详情长图') {
-        const detailNodes = exportNodes.filter(node => node.group === '详情图');
+      if (exportMode === '详情长图') {
+        const detailNodes = orderedDetailNodes.length ? orderedDetailNodes : orderDetailNodes(exportNodes);
         if (detailNodes.length < 2) throw new Error('请至少选择 2 张详情图再合并');
-        const data = await stitchLongImage(detailNodes.map(node => node.url));
+        const data = await stitchLongImage(detailNodes.map(node => node.url), exportFormat.toLowerCase());
         if (!data.url) throw new Error('详情长图合成失败');
-        const link = document.createElement('a');
-        link.href = proxyImg(data.url);
-        link.download = `${result.product_name || '商品'}-详情长图.png`;
-        link.click();
-        showToast('详情长图已导出', 'success');
-      } else if (exportMode === '素材包清单') {
-        const zip = new JSZip();
-        const manifest = exportNodes.map(node => ({ name: node.name, group: node.group, role: node.role, ratio: node.ratio, usage: node.usage, sourceDirectionId: node.sourceDirectionId || null }));
-        zip.file('素材清单.json', JSON.stringify({ product: result.product_name || '商品', platform: result.platform || '淘宝', assets: manifest }, null, 2));
-        for (const node of exportNodes) {
-          try {
-            const response = await fetch(proxyImg(node.url));
-            if (response.ok) zip.file(`${node.name || node.id}.${exportFormat.toLowerCase()}`, await response.blob());
-          } catch {}
-        }
-        const blob = await zip.generateAsync({ type: 'blob' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${result.product_name || '商品'}-电商素材包.zip`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        showToast('电商素材包已导出', 'success');
+        const y = Math.max(...nodes.map(node => Number(node.y || 0) + Number(node.h || 0) + 120), 0);
+        const createdAt = Date.now();
+        const counter = nodes.filter(node => node.role === '详情长图').length + 1;
+        const longName = `详情长图-${String(counter).padStart(2, '0')}`;
+        const merged = {
+          ...normalizeAsset({
+            id: `node_long_${createdAt}`,
+            assetId: `asset_long_${createdAt}`,
+            url: data.url,
+            sourceKey: 'detail_long',
+            name: longName,
+            group: '详情图',
+            role: '详情长图',
+            ratio: '长图',
+            w: 240,
+            h: Math.round(240 * ((data.height || 1200) / (data.width || 800))),
+            x: Math.min(...detailNodes.map(node => Number(node.x || 0))),
+            y,
+          }, nodes.length),
+          kind: 'image',
+          status: 'ready',
+          provenance: 'derived',
+          derivedFromIds: detailNodes.map(node => node.id),
+          sourceNodeIds: detailNodes.map(node => node.id),
+          sequence: detailNodes.length + 1,
+        };
+        setNodes(previous => [...previous, merged]);
+        setConnections(previous => detailNodes.reduce((current, source) => addConnection(current, source.id, merged.id, 'long-detail'), previous));
+        setSelected(merged.id);
+        setMultiSelected(new Set([merged.id]));
+        const saved = await saveLongDetailImage({ url: data.url, name: `${result.product_name || '商品'}-详情长图`, format: exportFormat }, { proxyUrl: proxyImg });
+        showToast(saved.cancelled ? '详情长图已加入画布，已取消下载' : '详情长图已加入画布并保存', saved.cancelled ? 'info' : 'success');
       } else {
-        exportNodes.forEach(node => {
-          const link = document.createElement('a');
-          link.href = proxyImg(node.url);
-          link.download = `${node.name || node.id}.${exportFormat.toLowerCase()}`;
-          link.click();
-        });
-        showToast(`已导出 ${exportNodes.length} 张${exportFormat}素材`, 'success');
+        const saved = await saveIndividualImages(exportNodes, { format: exportFormat, productName: result.product_name || '商品', proxyUrl: proxyImg });
+        if (saved.cancelled) return;
+        showToast(`已保存 ${exportNodes.length} 张${exportFormat}生成图片${excludedSources.length ? `，已排除 ${excludedSources.length} 张原始素材` : ''}`, 'success');
       }
       setExportOpen(false);
     } catch (error) {
@@ -2885,36 +2815,6 @@ export default function EcCanvas() {
     showToast('已删除素材关系', 'success');
   }, [showToast]);
 
-  const handleStitch = async () => {
-    const selectedNodes = nodes.filter(node => multiSelected.has(node.id) && node.group === '详情图');
-    if (selectedNodes.length < 2) return;
-    try {
-      showToast('正在合成长详情图…', 'info');
-      const data = await stitchLongImage(selectedNodes.map(node => node.url));
-      if (!data.url) throw new Error('合成结果为空');
-      const y = Math.max(...nodes.map(node => node.y + node.h + 120), 0);
-      const counter = nodes.filter(node => node.role === '详情长图').length + 1;
-      const merged = normalizeAsset({
-        id: `node_long_${Date.now()}`,
-        assetId: `asset_long_${Date.now()}`,
-        url: data.url,
-        sourceKey: 'detail_long',
-        name: `详情长图-${String(counter).padStart(2, '0')}`,
-        group: '详情图',
-        role: '详情长图',
-        ratio: '长图',
-        w: 240,
-        h: Math.round(240 * ((data.height || 1200) / (data.width || 800))),
-        x: 0,
-        y,
-      }, nodes.length);
-      setNodes(prev => [...prev, merged]);
-      setConnections(prev => selectedNodes.reduce((acc, source) => addConnection(acc, source.id, merged.id, 'merge'), prev));
-      setMultiSelected(new Set());
-      showToast('详情长图已加入画布', 'success');
-    } catch (error) { showToast(error.message || '合成长图失败', 'error'); }
-  };
-
   const handleDirectionSave = () => {
     if (!directionDraft) return;
     const direction = {
@@ -3151,7 +3051,7 @@ export default function EcCanvas() {
         filters={['全部', ...ASSET_GROUPS]}
         onFilterChange={setActiveFilter}
         onBack={handleBack}
-        onExport={() => setExportOpen(true)}
+        onExport={() => { setExportMode('逐张图片'); setExportOpen(true); }}
         onRestore={handleCanvasSessionRestore}
         onNew={handleNew}
         saving={canvasSessionBusy}
@@ -3162,7 +3062,7 @@ export default function EcCanvas() {
         <div
           ref={containerRef}
           className="ec-canvas-stage"
-          style={{ cursor: pointerMode?.kind === 'pan' ? 'grabbing' : activeTool === 'hand' ? 'grab' : canvasCursorForState({ pointerKind: pointerMode?.kind, shiftKey: shiftPressed }) }}
+          style={{ cursor: canvasCursorForState({ tool: activeTool, pointerKind: pointerMode?.kind, spaceKey: spacePressed }) }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -3638,14 +3538,25 @@ export default function EcCanvas() {
 
       {exportOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: 'min(500px,100%)', background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>电商素材交付</div><div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>按平台交付习惯导出单图、详情长图或素材包</div></div><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button></div>
+          <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>电商图片交付</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>将保存 {exportScope.deliverables.length} 张生成结果{exportScope.excludedSources.length ? `，已排除 ${exportScope.excludedSources.length} 张原始素材` : ''}</div></div><button type="button" aria-label="关闭导出" title="关闭" onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button></div>
             <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-              {[['逐张导出', '每张图片按业务名称分别导出'], ['合并为详情长图', '将选中的详情图按顺序拼成长图'], ['素材包清单', '图片 + 分组 + 用途 + 方案来源一起打包']].map(([mode, desc]) => <button key={mode} type="button" onClick={() => setExportMode(mode)} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #7c3aed' : '1px solid #e5e7eb', borderRadius: 10, padding: '10px 12px', background: exportMode === mode ? 'rgba(124,58,237,.06)' : '#fff', cursor: 'pointer' }}><div style={{ fontSize: 12, fontWeight: 800, color: '#374151' }}>{mode}</div><div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>{desc}</div></button>)}
+              {[['逐张图片', '选择文件夹后只保存生成图片'], ['详情长图', '按下方顺序无缝拼接并另存为一张长图']].map(([mode, desc]) => <button key={mode} type="button" onClick={() => setExportMode(mode)} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #2563eb' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: 'pointer' }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{mode}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>)}
             </div>
+            {exportMode === '详情长图' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
+              <div style={{ display: 'grid', gap: 6 }}>
+                {orderedDetailNodes.map((node, index) => <div key={node.id} style={{ minHeight: 44, display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 30px 30px', alignItems: 'center', gap: 7, padding: '5px 6px', border: '1px solid #e4e7eb', borderRadius: 7, background: '#fafbfc' }}>
+                  <img src={proxyImg(node.url)} alt="" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 4, background: '#eef0f2' }} />
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: '#343a43' }}>{index + 1}. {node.name || node.role || '详情图'}</span>
+                  <button type="button" aria-label={`上移${node.name || '详情图'}`} title="上移" disabled={index === 0} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index - 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? .35 : 1 }}><MdArrowUpward size={15} /></button>
+                  <button type="button" aria-label={`下移${node.name || '详情图'}`} title="下移" disabled={index === orderedDetailNodes.length - 1} onClick={() => setDetailOrderIds(ids => moveDetailItem(ids, index, index + 1))} style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', border: 0, borderRadius: 6, background: '#eef1f4', color: '#4f5864', cursor: index === orderedDetailNodes.length - 1 ? 'not-allowed' : 'pointer', opacity: index === orderedDetailNodes.length - 1 ? .35 : 1 }}><MdArrowDownward size={15} /></button>
+                </div>)}
+                {orderedDetailNodes.length < 2 && <div style={{ padding: '10px 11px', borderRadius: 7, background: '#fff7ed', color: '#9a5b13', fontSize: 12 }}>请至少选择 2 张已生成的详情图。</div>}
+              </div>
+            </div>}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" onClick={() => setExportFormat(format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{format}</button>)}</div>
-            {multiSelected.size > 1 && <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 12, marginBottom: 14 }}><div style={{ fontSize: 11, fontWeight: 800, color: '#374151', marginBottom: 7 }}>选中素材排版</div><div style={{ display: 'flex', gap: 5 }}>{[['left', '左对齐'], ['center', '水平居中'], ['right', '右对齐'], ['top', '顶对齐'], ['bottom', '底对齐']].map(([mode, label]) => <button key={mode} type="button" onClick={() => handleAlignSelected(mode)} style={{ border: 0, borderRadius: 7, padding: '6px 7px', background: alignMode === mode ? 'rgba(124,58,237,.12)' : '#f3f4f6', color: alignMode === mode ? '#7c3aed' : '#666', fontSize: 10, cursor: 'pointer' }}>{label}</button>)}</div></div>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" onClick={handleExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', background: '#047857', color: '#fff', fontWeight: 800, cursor: 'pointer' }}><MdFileDownload size={14} /> 确认导出</button></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" disabled={!exportScope.deliverables.length || (exportMode === '详情长图' && orderedDetailNodes.length < 2)} onClick={handleExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: 'pointer' }}><MdFileDownload size={14} /> 选择保存位置</button></div>
           </div>
         </div>
       )}

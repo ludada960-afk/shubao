@@ -52,6 +52,7 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
       ...node,
       id: `source-${workId}-${node.assetId || index + 1}`,
       isProductSource: true,
+      provenance: 'source',
       sourceNodeIds: [],
     }));
   const sourceNode = sourceNodes[0] || {
@@ -67,6 +68,7 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
     url: '',
     showMeta: false,
     isProductSource: true,
+    provenance: 'source',
     sourceNodeIds: [],
   };
   const hasSource = sourceNodes.length > 0;
@@ -78,6 +80,7 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
       id: `output-${assetId}`,
       assetId,
       kind: 'output',
+      provenance: 'generated',
       status: 'completed',
       name: visibleName(asset.name || asset.label || asset.role, `电商图 ${index + 1}`),
       displayLabel: visibleName(asset.name || asset.label || asset.role, `电商图 ${index + 1}`),

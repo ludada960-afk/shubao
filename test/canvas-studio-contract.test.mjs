@@ -655,6 +655,17 @@ test('new canvas surfaces have a complete responsive visual contract', () => {
   assert.doesNotMatch(css, /\.ec-canvas-focused-editor\s*\{[^}]*inset:\s*0/);
 });
 
+test('Canvas density uses content-sized toolbars and readable metadata', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /width:\s*680/);
+  assert.doesNotMatch(source, /Math\.max\(88,/);
+  assert.doesNotMatch(css, /\.ec-canvas-media-node footer\s*\{[^}]*min-height:\s*48px/s);
+  assert.match(css, /--ec-canvas-action-font:\s*12px/);
+  assert.match(css, /--ec-canvas-meta-font:\s*10px/);
+  assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*font-size:\s*var\(--ec-canvas-action-font\)/s);
+});
+
 test('the primary add rail has a generous Liuying-style hit target', () => {
   const css = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   const chrome = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasChrome.jsx', import.meta.url), 'utf8');

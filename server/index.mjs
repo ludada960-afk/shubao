@@ -82,6 +82,7 @@ import {
   createEcommerceExportRouteHandlers,
   createEcommerceExportService,
 } from './ecommerceEngine/exportService.mjs';
+import { composeLongDetail } from './ecommerceEngine/longDetailComposer.mjs';
 import {
   buildAssetPlan,
   buildFormalEcommerceQualityPrompt,
@@ -3550,7 +3551,7 @@ app.post('/api/remove-bg', async (req, res) => {
 // 详情切片 → 纵向拼成长图（用于微信分享）
 // ============================================================
 app.post('/api/ecommerce/stitch-long', async (req, res) => {
-  const { imageUrls } = req.body || {};
+  const { imageUrls, format = 'png' } = req.body || {};
   if (!imageUrls?.length) return res.status(400).json({ error: '缺少切片图' });
   if (imageUrls.length > 20) return res.status(400).json({ error: '切片数不能超过 20' });
   try {
@@ -3566,36 +3567,17 @@ app.post('/api/ecommerce/stitch-long', async (req, res) => {
     }
     if (bufs.length === 0) return res.status(400).json({ error: '没有可拼接的有效图片' });
 
-    // 统一宽度为 1440，纵向拼接
-    const TARGET_W = 1440;
-    const resized = await Promise.all(bufs.map(b => sharp(b).resize({ width: TARGET_W, withoutEnlargement: false }).toBuffer()));
-    const metas = await Promise.all(resized.map(b => sharp(b).metadata()));
-    const totalH = metas.reduce((s, m) => s + (m.height || 0), 0);
-
-    if (totalH > 30000) {
-      return res.status(400).json({ error: '拼接后长图过高（' + totalH + 'px），请减少切片数' });
-    }
-
-    // 用 sharp 的 raw pixel 纵向堆叠：创建空白大图 composite
-    const composites = [];
-    let yOff = 0;
-    for (let i = 0; i < resized.length; i++) {
-      composites.push({ input: resized[i], top: yOff, left: 0 });
-      yOff += metas[i].height || 0;
-    }
-    const longBuf = await sharp({
-      create: { width: TARGET_W, height: totalH, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
-    }).composite(composites).png().toBuffer();
+    const composed = await composeLongDetail(bufs, { width: 1440, format });
 
     // 保存到 dist 下的合成图目录，返回 URL
     const outDir = join(process.cwd(), 'dist', 'stitched');
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-    const fileName = `long-${Date.now()}-${Math.random().toString(36).slice(2,8)}.png`;
+    const fileName = `long-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${composed.format}`;
     const outPath = join(outDir, fileName);
-    fs.writeFileSync(outPath, longBuf);
+    fs.writeFileSync(outPath, composed.buffer);
     const url = `/stitched/${fileName}`;
-    console.log(`[stitch-long] 拼接 ${bufs.length} 片 → ${TARGET_W}x${totalH} → ${url}`);
-    res.json({ url, width: TARGET_W, height: totalH, count: bufs.length });
+    console.log(`[stitch-long] 拼接 ${bufs.length} 片 → ${composed.width}x${composed.height} → ${url}`);
+    res.json({ url, width: composed.width, height: composed.height, count: composed.count, format: composed.format });
   } catch (e) {
     console.warn('[stitch-long] 失败:', e.message);
     res.status(500).json({ error: '拼接失败：' + (e.message || '') });
