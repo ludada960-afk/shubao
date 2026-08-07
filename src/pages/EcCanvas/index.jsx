@@ -1014,7 +1014,12 @@ export default function EcCanvas() {
     }
     if (pointerMode.kind === 'marquee') {
       const point = toWorldPoint(e);
-      setMarquee({ x: pointerMode.start.x, y: pointerMode.start.y, w: point.x - pointerMode.start.x, h: point.y - pointerMode.start.y });
+      setMarquee({
+        x: Math.min(pointerMode.start.x, point.x),
+        y: Math.min(pointerMode.start.y, point.y),
+        w: Math.abs(point.x - pointerMode.start.x),
+        h: Math.abs(point.y - pointerMode.start.y),
+      });
       return;
     }
     if (pointerMode.kind === 'resize') {
@@ -2176,6 +2181,7 @@ export default function EcCanvas() {
     if (actionId === 'stitch-details') {
       setExportSelectionIds(new Set(multiSelected));
       setExportMode('long-detail');
+      setExportFormat('JPG');
       setExportIntent('long-detail');
       setExportOpen(true);
       return;
@@ -2187,11 +2193,12 @@ export default function EcCanvas() {
     }
   };
 
-  const configureExport = (nextMode, nextFormat = exportFormat) => {
+  const configureExport = (nextMode, nextFormat) => {
+    const resolvedFormat = nextFormat || (nextMode === 'long-detail' ? 'JPG' : 'PNG');
     setExportMode(nextMode);
-    setExportFormat(nextFormat);
+    setExportFormat(resolvedFormat);
     composedLongExportRef.current = null;
-    dispatchExportDelivery({ type: 'configure', config: { mode: nextMode, format: nextFormat } });
+    dispatchExportDelivery({ type: 'configure', config: { mode: nextMode, format: resolvedFormat } });
   };
 
   const handleChooseExportDestination = async () => {
@@ -2295,10 +2302,13 @@ export default function EcCanvas() {
       const saved = await writePreparedDeliverables(exportDelivery.destination, prepared, {
         onProgress: progress => dispatchExportDelivery({ type: 'progress', ...progress }),
       });
-      dispatchExportDelivery({ type: 'success', count: saved.count });
+      dispatchExportDelivery({ type: 'success', count: saved.count, verification: saved.verification });
+      const verified = saved.verification === 'filesystem';
       showToast(longDetail
-        ? '详情长图已加入画布并导出'
-        : `已导出 ${saved.count} 张生成图片${excludedSources.length ? `，已排除 ${excludedSources.length} 张原始素材` : ''}`,
+        ? (verified ? '详情长图已加入画布，并已验证写入' : '详情长图已加入画布，已开始下载')
+        : (verified
+          ? `已验证写入 ${saved.count} 张生成图片${excludedSources.length ? `，已排除 ${excludedSources.length} 张原始素材` : ''}`
+          : `已开始下载 ${saved.count} 张生成图片，请在浏览器下载列表确认`),
       'success');
     } catch (error) {
       dispatchExportDelivery({ type: 'error', error: error.message || '导出失败' });
@@ -3138,6 +3148,7 @@ export default function EcCanvas() {
         onExport={() => {
           setExportSelectionIds(new Set());
           setExportMode('images');
+          setExportFormat('PNG');
           setExportIntent('suite');
           setExportOpen(true);
         }}
@@ -3481,7 +3492,7 @@ export default function EcCanvas() {
           </div>
 
           {marquee && (
-            <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: Math.abs(marquee.w) * viewport.scale, height: Math.abs(marquee.h) * viewport.scale, transform: `translate(${marquee.w < 0 ? marquee.w * viewport.scale : 0}px,${marquee.h < 0 ? marquee.h * viewport.scale : 0})`, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
+            <div style={{ position: 'absolute', left: marquee.x * viewport.scale + viewport.x, top: marquee.y * viewport.scale + viewport.y, width: marquee.w * viewport.scale, height: marquee.h * viewport.scale, border: '1px solid #7c3aed', background: 'rgba(124,58,237,.10)', pointerEvents: 'none', zIndex: 20 }} />
           )}
 
         </div>
@@ -3659,7 +3670,7 @@ export default function EcCanvas() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
             {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDelivery.destination.name}</div>}
             {(exportDelivery.status === 'preparing' || exportDelivery.status === 'writing') && <div style={{ marginBottom: 12, fontSize: 12, color: '#475569' }}>{exportDelivery.status === 'preparing' ? '正在校验图片' : '正在写入文件'} · {exportDelivery.progress.completed}/{exportDelivery.progress.total}</div>}
-            {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>已导出 {exportDelivery.result?.count || 0} 张图片到 {exportDelivery.destination?.name || '所选位置'}</div>}
+            {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>{exportDelivery.result?.verification === 'filesystem' ? '已验证写入' : '已开始下载'} {exportDelivery.result?.count || 0} 张图片{exportDelivery.result?.verification === 'filesystem' ? `到 ${exportDelivery.destination?.name || '所选位置'}` : '，请在浏览器下载列表确认'}</div>}
             {exportDelivery.status === 'cancelled' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#f8fafc', color: '#64748b', fontSize: 12 }}>已取消选择保存位置，导出配置仍保留。</div>}
             {exportDelivery.status === 'error' && <div role="alert" style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: 12 }}>{exportDelivery.error}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>

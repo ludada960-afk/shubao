@@ -1023,7 +1023,12 @@ test('pricing page exposes no legacy or clickable payment-provider path while pr
     assert.doesNotMatch(source, /\bpaidSuccess\b/);
     assert.match(source, /支付服务接入中/);
   }
-  assert.match(pricing, /电商图片\s*\/\s*画布\s*AI\s*积分/);
+  assert.match(pricing, /所有创作功能共用一套 AI 积分/);
+  assert.match(pricing, /PRICING_PLANS/);
+  assert.doesNotMatch(pricing, /小红书 \/ Plog · AI 积分/);
+  assert.doesNotMatch(pricingModalOnly, /小红书 \/ Plog AI 积分/);
+  assert.match(pricingModalOnly, /所有创作功能共用一套 AI 积分/);
+  assert.match(pricingModalOnly, /PRICING_PLANS/);
   assert.doesNotMatch(pricing, /每套套餐中的「套」是什么意思/);
   assert.doesNotMatch(pricing, /服务端|实时报价|幂等/);
   assert.doesNotMatch(pricingModalOnly, /套餐 SKU|支付通道|幂等|服务端|实时报价/);

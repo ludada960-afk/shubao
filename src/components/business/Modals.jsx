@@ -3,7 +3,7 @@ import { MdLogin, MdAutoAwesome, MdAutorenew, MdClose } from 'react-icons/md';
 import { Modal, CharImg } from '../ui/index';
 import Button from '../ui/Button';
 import { IMAGES } from '../../constants/images';
-import { PRICING_XHS, PRICING_EC } from '../../constants/data';
+import { PRICING_PLANS } from '../../constants/data';
 import { useApp } from '../../store/AppContext';
 import { sendOTP, verifyOTP } from '../../services/auth';
 import InsufficientBalanceModal from '../billing/InsufficientBalanceModal.jsx';
@@ -171,7 +171,6 @@ export function LoginModal() {
 /* ═══════ Pricing Modal (灵图风格) ═══════ */
 export function PricingModal() {
   const { state, dispatch, refreshBillingBalance, refreshBillingCatalog } = useApp();
-  const [tab, setTab] = useState(state.priceTab || 'content');
   const [payModal, setPayModal] = useState(null);
   const [payLoading, setPayLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('');
@@ -185,11 +184,10 @@ export function PricingModal() {
     pendingAction: state.pendingPaidAction,
     priceReason: state.priceReason,
   }));
-  const metadata = tab === 'content' ? PRICING_XHS : PRICING_EC;
   const currency = 'ec_points';
   const plans = useMemo(
-    () => buildPricingPlans(state.billingCatalog, metadata, currency),
-    [currency, metadata, state.billingCatalog],
+    () => buildPricingPlans(state.billingCatalog, PRICING_PLANS, currency),
+    [state.billingCatalog],
   );
   const providers = useMemo(
     () => enabledPaymentProviders(state.billingCatalog),
@@ -198,7 +196,6 @@ export function PricingModal() {
 
   useEffect(() => {
     if (!state.showPrice) return;
-    setTab(state.priceTab || 'content');
     setModalView(createPricingModalViewState({
       interrupted: state.priceReason === 'INSUFFICIENT_CREDITS',
       pendingAction: state.pendingPaidAction,
@@ -405,12 +402,13 @@ export function PricingModal() {
         width: 'calc(100% - 32px)', maxWidth: 480,
         maxHeight: 'calc(100vh - 40px)',
         overflowY: 'auto',
+        scrollbarWidth: 'none',
         background: '#fff',
         borderRadius: 24,
         boxShadow: '0 28px 90px rgba(0,0,0,0.2)',
         padding: 28,
         animation: 'scaleIn 0.15s ease',
-      }}>
+      }} className="pricing-modal-scroll-shell">
         {/* Close button */}
         <button onClick={close}
           style={{
@@ -458,31 +456,8 @@ export function PricingModal() {
           </div>
         )}
 
-        {/* Tab pills */}
-        <div style={{
-          display: 'flex', gap: 4,
-          background: 'rgba(0,0,0,0.04)',
-          borderRadius: 12, padding: 4,
-          marginBottom: 20,
-        }}>
-          {[
-            { key: 'content', label: '小红书 / Plog AI 积分' },
-            { key: 'ecommerce', label: '电商图片 / 画布 AI 积分' },
-          ].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              style={{
-                flex: 1, padding: '10px 0',
-                border: 'none', background: tab === t.key ? '#fff' : 'transparent',
-                borderRadius: 10, fontFamily: 'inherit',
-                fontSize: 13, fontWeight: tab === t.key ? 900 : 600,
-                color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                boxShadow: tab === t.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s',
-              }}>
-              {t.label}
-            </button>
-          ))}
+        <div style={{ marginBottom: 20, padding: '10px 12px', borderRadius: 10, background: '#f7f8fa', color: 'var(--text-muted)', fontSize: 12 }}>
+          所有创作功能共用一套 AI 积分，按实际使用量结算。
         </div>
 
         {providers.length === 0 && (

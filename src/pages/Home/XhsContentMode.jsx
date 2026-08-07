@@ -3,7 +3,7 @@ import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, C
 import { MdAutoAwesome, MdExpandMore, MdAdd, MdEdit, MdGpsFixed, MdPalette, MdRefresh, MdContentCopy, MdVerified, MdChevronRight, MdVisibility, MdCheck, MdClose, MdRotateLeft, MdLightbulb, MdAddPhotoAlternate } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { GALLERY, QUICK_HINTS, PRICING_XHS, PRICING_EC, EC_CATS, EC_PLATFORM_DIMS, EC_IMG_RATIOS, EC_MAIN_TYPES } from '../../constants/data';
+import { GALLERY, QUICK_HINTS, EC_CATS, EC_PLATFORM_DIMS, EC_IMG_RATIOS, EC_MAIN_TYPES } from '../../constants/data';
 // 兼容：旧版首页电商 tab 仍引用已删除的 EC_ADV_TYPES / EC_STYLE_PACKS。
 // 用本地 stub 保持旧 tab 的运行行为不变（type-shape 与常量同名；服务端忽略 stylePack）。
 const EC_ADV_TYPES = [

@@ -63,7 +63,7 @@ test('authoritative server catalog contains the exact Xiaohongshu and Plog packa
 
 test('static pricing metadata contains no trusted price, grant, or validity fields', async () => {
   const source = await fs.readFile(new URL('../src/constants/data.js', import.meta.url), 'utf8');
-  const pricingStart = source.indexOf('export const PRICING_XHS');
+  const pricingStart = source.indexOf('export const PRICING_PLANS');
   const pricingEnd = source.indexOf('/* ═══════ 功能亮点', pricingStart);
   const pricingSource = source.slice(pricingStart, pricingEnd);
   assert.match(pricingSource, /sku\s*:/);

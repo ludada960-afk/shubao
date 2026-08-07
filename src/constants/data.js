@@ -32,18 +32,11 @@ export const QUICK_HINTS = [
 ];
 
 /* ═══════ 定价方案 ═══════ */
-export const PRICING_XHS = [
-  { sku:'ec_trial_990', name:'体验包', desc:'适合少量试用小红书与 Plog 创作' },
-  { sku:'ec_starter_29', name:'入门包', pop:true, desc:'适合日常发布与素材补充' },
+export const PRICING_PLANS = [
+  { sku:'ec_trial_990', name:'体验包', desc:'适合少量试用薯包 AI 创作' },
+  { sku:'ec_starter_29', name:'入门包', pop:true, desc:'适合日常创作与素材补充' },
   { sku:'ec_growth_79', name:'成长包', desc:'适合稳定更新和多主题创作' },
   { sku:'ec_studio_199', name:'工作室包', desc:'适合团队批量创作与二次编辑' },
-];
-
-export const PRICING_EC = [
-  { sku:'ec_trial_990', name:'体验包', desc:'适合少量试用电商生图能力' },
-  { sku:'ec_starter_29', name:'入门包', pop:true, desc:'适合日常上新与素材补充' },
-  { sku:'ec_growth_79', name:'成长包', desc:'适合稳定上新和多 SKU 运营' },
-  { sku:'ec_studio_199', name:'工作室包', desc:'适合团队批量生产电商视觉' },
 ];
 
 /* ═══════ 功能亮点 ═══════ */

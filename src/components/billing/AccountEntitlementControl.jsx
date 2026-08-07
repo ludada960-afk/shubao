@@ -17,7 +17,7 @@ export default function AccountEntitlementControl({
   const refresh = () => Promise.resolve(onRefresh?.()).catch(() => {});
   const openAccount = () => {
     if (!logged) onLogin?.();
-    else refresh();
+    else onPurchase?.();
   };
 
   return (
@@ -27,8 +27,8 @@ export default function AccountEntitlementControl({
         type="button"
         className="account-entitlement-value"
         onClick={openAccount}
-        aria-label={logged ? `账户额度：${display.value}，点击刷新` : '登录后查看额度'}
-        title={logged ? (display.state === 'error' ? '额度刷新失败，点击重试' : '点击刷新账户额度') : '登录后查看额度'}
+        aria-label={logged ? `账户额度：${display.value}，点击购买额度` : '登录后查看额度'}
+        title={logged ? '点击购买额度；刷新图标更新余额' : '登录后查看额度'}
       >
         <Coins size={15} aria-hidden="true" />
         <span className="account-entitlement-copy">

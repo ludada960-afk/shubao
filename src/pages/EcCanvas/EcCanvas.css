@@ -104,7 +104,6 @@
 .ec-canvas-left-rail .ec-canvas-rail-add.is-active { color: #fff; background: var(--canvas-command-hover); }
 .ec-canvas-bottom-dock { position: absolute; z-index: 58; left: 50%; bottom: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(-50%); }
 .ec-canvas-bottom-toolbar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 8px; background: #fff; box-shadow: 0 3px 8px rgba(21, 23, 26, .12); }
-.ec-canvas-selection-hint { padding: 5px 8px; border: 1px solid rgba(15, 23, 42, .08); border-radius: 6px; background: rgba(255, 255, 255, .96); box-shadow: 0 2px 6px rgba(21, 23, 26, .09); color: #59616b; font-size: 11px; font-weight: 650; white-space: nowrap; }
 .ec-canvas-toast { position: fixed; z-index: 10003; left: 50%; bottom: 24px; max-width: min(520px, calc(100vw - 24px)); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 13px; transform: translateX(-50%); border-radius: 8px; background: #475569; color: #fff; box-shadow: 0 6px 20px rgba(15, 23, 42, .22); font-size: 12px; font-weight: 650; animation: toastIn .2s ease; }
 .ec-canvas-toast.is-error { background: #c9362e; }
 .ec-canvas-toast.is-success { background: #087f5b; }
@@ -302,7 +301,8 @@
   white-space: nowrap;
 }
 .ec-canvas-multi-toolbar > strong { flex: 0 0 auto; padding: 0 7px; color: #252a31; font-size: var(--ec-canvas-action-font); font-weight: 750; }
-.ec-canvas-multi-toolbar button { width: var(--ec-canvas-control-height); height: var(--ec-canvas-control-height); display: inline-flex; align-items: center; justify-content: center; gap: 0; flex: 0 0 var(--ec-canvas-control-height); padding: 0; border: 0; border-radius: 6px; background: transparent; color: #4f5762; font-size: var(--ec-canvas-action-font); font-weight: 650; }
+.ec-canvas-multi-toolbar button { min-width: var(--ec-canvas-control-height); width: auto; height: var(--ec-canvas-control-height); display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 0 0 auto; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: #4f5762; font-size: var(--ec-canvas-action-font); font-weight: 650; }
+.ec-canvas-multi-toolbar button span { white-space: nowrap; }
 .ec-canvas-multi-toolbar button:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-multi-toolbar button.is-accent { color: #087f5b; }
 .ec-canvas-multi-toolbar button.is-danger { color: #d43d35; }
@@ -549,7 +549,7 @@
   .ec-canvas-suite-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ec-canvas-suite-options { grid-template-columns: 1fr; }
   .ec-canvas-focused-toolbar { max-width: min(620px, calc(100vw - 16px)); }
-  .ec-canvas-multi-toolbar button { width: 28px; flex-basis: 28px; }
+  .ec-canvas-multi-toolbar button { min-width: 28px; }
   .ec-canvas-multi-toolbar > strong { padding: 0 4px; font-size: 11px; }
 }
 

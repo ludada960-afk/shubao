@@ -3,14 +3,19 @@ import sharp from 'sharp';
 const FORMATS = new Set(['png', 'jpg']);
 
 export async function composeLongDetail(buffers = [], {
-  width = 1440,
+  width,
   maxHeight = 30_000,
   format = 'png',
   sharpImpl = sharp,
 } = {}) {
   if (!Array.isArray(buffers) || buffers.length < 2) throw new Error('请至少提供 2 张详情图');
   if (buffers.length > 20) throw new Error('切片数不能超过 20');
-  if (!Number.isSafeInteger(width) || width < 1 || width > 4096) throw new Error('长图宽度无效');
+  const preserveSourceWidth = width === undefined;
+  const firstMetadata = preserveSourceWidth
+    ? await sharpImpl(buffers[0], { failOn: 'error', limitInputPixels: 80_000_000 }).metadata()
+    : null;
+  const targetWidth = width === undefined ? Math.min(1440, Number(firstMetadata?.width) || 0) : width;
+  if (!Number.isSafeInteger(targetWidth) || targetWidth < 1 || targetWidth > 4096) throw new Error('长图宽度无效');
   if (!Number.isSafeInteger(maxHeight) || maxHeight < 1) throw new Error('长图高度限制无效');
   const outputFormat = String(format || 'png').toLowerCase() === 'jpeg' ? 'jpg' : String(format || 'png').toLowerCase();
   if (!FORMATS.has(outputFormat)) throw new Error('长图格式仅支持 PNG 或 JPG');
@@ -20,7 +25,7 @@ export async function composeLongDetail(buffers = [], {
     if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error(`第 ${index + 1} 张详情图为空`);
     const result = await sharpImpl(buffer, { failOn: 'error', limitInputPixels: 80_000_000 })
       .rotate()
-      .resize({ width, withoutEnlargement: false, kernel: 'lanczos3' })
+      .resize({ width: targetWidth, withoutEnlargement: preserveSourceWidth, kernel: 'lanczos3' })
       .png({ compressionLevel: 6 })
       .toBuffer({ resolveWithObject: true });
     if (!result.info.height) throw new Error('详情切片尺寸无效');
@@ -36,18 +41,18 @@ export async function composeLongDetail(buffers = [], {
     return layer;
   });
   let output = sharpImpl({
-    create: { width, height, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
+    create: { width: targetWidth, height, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } },
   }).composite(composites);
   output = outputFormat === 'jpg'
     ? output.flatten({ background: '#ffffff' }).jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
     : output.png({ compressionLevel: 9, adaptiveFiltering: false });
   const encoded = await output.toBuffer({ resolveWithObject: true });
   if (!Buffer.isBuffer(encoded.data) || !encoded.data.length) throw new Error('详情长图输出为空');
-  if (encoded.info.width !== width || encoded.info.height !== height) throw new Error('详情长图输出尺寸校验失败');
+  if (encoded.info.width !== targetWidth || encoded.info.height !== height) throw new Error('详情长图输出尺寸校验失败');
   const contentType = outputFormat === 'jpg' ? 'image/jpeg' : 'image/png';
   return {
     buffer: encoded.data,
-    width,
+    width: targetWidth,
     height,
     count: resized.length,
     format: outputFormat,
@@ -60,7 +65,7 @@ export async function composeAndPersistLongDetail({
   imageUrls,
   sourceIds = [],
   format = 'png',
-  width = 1440,
+  width,
 } = {}, {
   imageInputReader,
   generatedAssetStore,
@@ -80,7 +85,7 @@ export async function composeAndPersistLongDetail({
     buffers.push(image.buffer);
   }
 
-  const composed = await composeLongDetail(buffers, { width, format, sharpImpl });
+  const composed = await composeLongDetail(buffers, { ...(width === undefined ? {} : { width }), format, sharpImpl });
   const asset = await generatedAssetStore.persistBuffer({
     buffer: composed.buffer,
     contentType: composed.contentType,

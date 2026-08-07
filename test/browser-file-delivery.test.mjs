@@ -93,6 +93,7 @@ test('all suite images are prepared before the first file is created', async () 
             write: async () => events.push(`write:${filename}`),
             close: async () => events.push(`close:${filename}`),
           }),
+          getFile: async () => new Blob([filename === '主图.png' ? '/one' : '/two'], { type: 'image/png' }),
         };
       },
     },
@@ -100,8 +101,23 @@ test('all suite images are prepared before the first file is created', async () 
   const result = await writePreparedDeliverables(destination, prepared);
 
   assert.equal(result.count, 2);
+  assert.equal(result.verification, 'filesystem');
   assert.deepEqual(events.slice(0, 2), ['fetch:/one', 'fetch:/two']);
   assert.equal(events.findIndex(event => event.startsWith('file:')) > 1, true);
+});
+
+test('filesystem delivery rejects a write that cannot be verified by reading it back', async () => {
+  const prepared = [{ filename: '主图.png', blob: new Blob(['pixels'], { type: 'image/png' }), size: 6, contentType: 'image/png' }];
+  const destination = {
+    strategy: 'save-file',
+    name: '主图.png',
+    handle: {
+      createWritable: async () => ({ write: async () => {}, close: async () => {} }),
+      getFile: async () => new Blob(['wrong'], { type: 'image/png' }),
+    },
+  };
+
+  await assert.rejects(writePreparedDeliverables(destination, prepared), /保存验证失败/);
 });
 
 test('an open writable stream is aborted when writing fails', async () => {
@@ -143,6 +159,7 @@ test('fallback delivery writes validated blobs through ZIP or a single object UR
     assert.deepEqual(files.map(([name]) => name), ['主图.png', '详情图.png']);
     assert.equal(downloads[0][1], '水杯-电商图片.zip');
     assert.equal(result.count, 2);
+    assert.equal(result.verification, 'download-started');
   });
 
   await t.test('single fallback downloads the prepared blob instead of its remote URL', async () => {

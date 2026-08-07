@@ -37,7 +37,7 @@ const initialState = {
   pendingPaidAction: null,
   // 模式
   mode: 'ecommerce',  // content | ecommerce — 默认电商生图
-  priceTab: 'content',
+  priceTab: 'credits',
   // 作品集
   works: [],
   // 展示
@@ -152,7 +152,7 @@ function reducer(state, action) {
     case 'SHOW_PRICE':
       return { ...state, showPrice: action.show };
     case 'OPEN_PAYWALL':
-      return { ...state, showPrice: true, priceTab: action.tab || 'ecommerce', priceReason: action.reason || 'INSUFFICIENT_CREDITS', pendingPaidAction: action.pendingAction || null };
+      return { ...state, showPrice: true, priceTab: 'credits', priceReason: action.reason || 'INSUFFICIENT_CREDITS', pendingPaidAction: action.pendingAction || null };
     case 'RESTORE_PENDING_PAID_ACTION':
       return { ...state, pendingPaidAction: action.pendingAction || null };
     case 'CLEAR_PAYWALL':

@@ -99,14 +99,13 @@ export function CanvasLeftRail({ addMenuOpen = false, onAddMenuToggle }) {
 
 export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText, layersOpen = false, onLayers }) {
   const tools = [
-    { id: 'select', label: '选择：拖拽框选，Shift+点击多选', icon: MousePointer2 },
+    { id: 'select', label: '选择工具：拖拽框选 / Shift+点击多选', icon: MousePointer2 },
     { id: 'hand', label: '抓手', icon: Hand },
     { id: 'image', label: '添加图片', icon: ImagePlus, onClick: onImage },
     { id: 'text', label: '添加文本', icon: Type, onClick: onText },
     { id: 'layers', label: '图层', icon: Layers3, onClick: onLayers },
   ];
   return <div className="ec-canvas-bottom-dock">
-    {activeTool === 'select' && <span className="ec-canvas-selection-hint">拖拽框选，Shift+点击多选</span>}
     <div className="ec-canvas-bottom-toolbar" role="toolbar" aria-label="画布工具">
       {tools.map(tool => <IconButton
         key={tool.id}

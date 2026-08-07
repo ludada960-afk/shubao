@@ -176,12 +176,12 @@ export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(
   const count = selectedIds instanceof Set ? selectedIds.size : (selectedIds || []).length;
   if (!bounds || count < 2) return null;
   const actions = multiSelectionActionsForNodes(nodes, selectedIds);
-  const estimatedWidth = 86 + actions.length * 38;
+  const estimatedWidth = 76 + actions.reduce((total, action) => total + Math.max(56, action.label.length * 12 + 34), 0);
   return <div className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: estimatedWidth, height: 42 })}>
     <strong>{count} 个已选中</strong>
     {actions.map(action => {
       const Icon = MULTI_ICONS[action.id] || WandSparkles;
-      return <button key={action.id} type="button" className={`is-compact ${action.id === 'delete-selection' ? 'is-danger' : ''}`} aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action.id)}><Icon size={15} /></button>;
+      return <button key={action.id} type="button" className={`is-compact ${action.id === 'delete-selection' ? 'is-danger' : ''}`} aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action.id)}><Icon size={15} /><span>{action.label}</span></button>;
     })}
   </div>;
 }

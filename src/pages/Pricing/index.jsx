@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MdAutoAwesome } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { PRICING_XHS, PRICING_EC } from '../../constants/data';
+import { PRICING_PLANS } from '../../constants/data';
 import Footer from '../../components/layout/Footer';
 import BillingBalanceCard from '../../components/billing/BillingBalanceCard.jsx';
 import {
@@ -21,18 +21,12 @@ import {
   savePendingPaymentOrder,
 } from '../../utils/pendingPaymentOrder.js';
 
-const FAQ_CONTENT = {
-  content: [
-    { q: '小红书 / Plog 如何计算 AI 积分？', a: '一套 9 张图按 9 张 2K 图片计费，共 9 AI 积分；实际生成前会先冻结本次预计额度，稳定交付后才结算。' },
-    { q: '生成失败会扣额度吗？', a: '只有稳定交付完整结果后才结算；上游或服务异常导致失败会释放本次冻结额度。' },
-    { q: '生成内容可以商用吗？', a: '可以。请在发布前检查平台规范、品牌素材授权和生成内容准确性。' },
-  ],
-  ecommerce: [
-    { q: 'AI 积分如何使用？', a: '不同电商生图与画布能力会消耗相应积分，确认生成前会展示本次所需积分。' },
-    { q: 'AI 积分会过期吗？', a: '电商 AI 积分永久有效，不按月清零。' },
-    { q: '支持哪些电商场景？', a: '可用于主图、白底图、详情图、SKU 图和画布二创等场景，具体以产品内已开放功能为准。' },
-  ],
-};
+const FAQ_CONTENT = [
+  { q: 'AI 积分如何使用？', a: '不同创作、图片生成与画布能力会消耗相应 AI 积分，确认操作前会展示本次所需积分。' },
+  { q: '生成失败会扣额度吗？', a: '只有稳定交付完整结果后才结算；上游或服务异常导致失败会释放本次冻结额度。' },
+  { q: 'AI 积分会过期吗？', a: 'AI 积分永久有效，不按月清零。' },
+  { q: '生成内容可以商用吗？', a: '可以。请在发布前检查平台规范、品牌素材授权和生成内容准确性。' },
+];
 
 const CARD_COLORS = [
   'linear-gradient(135deg, #f59e0b, #f97316)',
@@ -48,7 +42,6 @@ export default function PricingPage() {
     refreshBillingBalance,
     refreshBillingCatalog,
   } = useApp();
-  const [tab, setTab] = useState('content');
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [catalogError, setCatalogError] = useState('');
   const [orderStatus, setOrderStatus] = useState('');
@@ -58,17 +51,16 @@ export default function PricingPage() {
   const paymentKeysRef = useRef(new Map());
   const paymentCheckoutRef = useRef(null);
   const restoredPaymentKeyRef = useRef('');
-  const metadata = tab === 'content' ? PRICING_XHS : PRICING_EC;
   const currency = 'ec_points';
   const plans = useMemo(
-    () => buildPricingPlans(state.billingCatalog, metadata, currency),
-    [currency, metadata, state.billingCatalog],
+    () => buildPricingPlans(state.billingCatalog, PRICING_PLANS, currency),
+    [state.billingCatalog],
   );
   const providers = useMemo(
     () => enabledPaymentProviders(state.billingCatalog),
     [state.billingCatalog],
   );
-  const faqs = FAQ_CONTENT[tab];
+  const faqs = FAQ_CONTENT;
 
   useEffect(() => {
     refreshBillingCatalog()
@@ -253,39 +245,8 @@ export default function PricingPage() {
           </div>
         )}
 
-        <div style={{
-          display: 'flex',
-          gap: 4,
-          background: 'rgba(0,0,0,0.04)',
-          borderRadius: 12,
-          padding: 4,
-          marginBottom: 20,
-        }}>
-          {[
-            { key: 'content', label: '小红书 / Plog · AI 积分' },
-            { key: 'ecommerce', label: '电商图片 / 画布 AI 积分' },
-          ].map(item => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setTab(item.key)}
-              style={{
-                flex: 1,
-                padding: '10px 8px',
-                border: 'none',
-                background: tab === item.key ? '#fff' : 'transparent',
-                borderRadius: 10,
-                fontFamily: 'inherit',
-                fontSize: 12,
-                fontWeight: tab === item.key ? 900 : 600,
-                color: tab === item.key ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                boxShadow: tab === item.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div style={{ marginBottom: 20, padding: '10px 12px', borderRadius: 10, background: '#f7f8fa', color: 'var(--text-muted)', fontSize: 12 }}>
+          所有创作功能共用一套 AI 积分，按实际使用量结算。
         </div>
 
         {providers.length === 0 && (

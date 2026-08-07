@@ -66,6 +66,15 @@ test('long detail output is persisted through durable generated asset storage wi
   assert.equal(durableReads, 1);
 });
 
+test('long detail defaults to the first source width without enlarging smaller sources', async () => {
+  const result = await composeLongDetail([
+    await solid(1152, 2048, '#ffffff'),
+    await solid(900, 1200, '#eeeeee'),
+  ], { format: 'jpg' });
+  assert.equal(result.width, 1152);
+  assert.equal(result.height, 3248);
+});
+
 test('long detail persistence rejects invalid sources before creating an asset', async () => {
   let persisted = false;
   await assert.rejects(composeAndPersistLongDetail({

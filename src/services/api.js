@@ -1132,10 +1132,7 @@ export async function stitchLongImage(imageUrls, format = 'png', sourceIds = [])
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageUrls, format, sourceIds }),
   });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg.slice(0, 200));
-  }
+  if (!res.ok) throw await createApiError(res, '详情长图合成失败');
   return res.json();
 }
 

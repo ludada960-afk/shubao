@@ -45,8 +45,9 @@ test('canvas cursor communicates pan and marquee modes', () => {
   assert.equal(canvasCursorForState({ tool: 'select', spaceKey: true }), 'grab');
 });
 
-test('Canvas exposes the select-tool multi-selection hint', () => {
-  assert.match(canvasChromeSource, /拖拽框选，Shift\+点击多选/);
+test('Canvas exposes the select-tool multi-selection hint through the tool label', () => {
+  assert.match(canvasChromeSource, /拖拽框选\s*\/\s*Shift\+点击多选/);
+  assert.doesNotMatch(canvasChromeSource, /ec-canvas-selection-hint/);
   assert.match(canvasSource, /tool:\s*activeTool/);
 });
 

@@ -158,6 +158,14 @@ async function writeToHandle(handle, blob) {
   }
 }
 
+async function verifyWrittenHandle(handle, expectedSize) {
+  if (typeof handle?.getFile !== 'function') throw new Error('保存验证失败：浏览器未提供文件回读能力');
+  const file = await handle.getFile();
+  if (!file || Number(file.size) !== Number(expectedSize)) {
+    throw new Error('文件保存验证失败，文件大小与生成结果不一致');
+  }
+}
+
 export async function writePreparedDeliverables(destination, prepared, {
   zipFactory = () => new JSZip(),
   downloadBlob = null,
@@ -175,11 +183,13 @@ export async function writePreparedDeliverables(destination, prepared, {
       const item = prepared[index];
       const handle = await destination.handle.getFileHandle(item.filename, { create: true });
       await writeToHandle(handle, item.blob);
+      await verifyWrittenHandle(handle, item.size || item.blob.size);
       onProgress({ completed: index + 1, total: prepared.length, phase: 'writing' });
     }
   } else if (destination.strategy === 'save-file') {
     if (prepared.length !== 1) throw new Error('单文件保存位置只能写入一张图片');
     await writeToHandle(destination.handle, prepared[0].blob);
+    await verifyWrittenHandle(destination.handle, prepared[0].size || prepared[0].blob.size);
     onProgress({ completed: 1, total: 1, phase: 'writing' });
   } else if (destination.strategy === 'zip') {
     const zip = zipFactory();
@@ -196,5 +206,10 @@ export async function writePreparedDeliverables(destination, prepared, {
     throw new Error('不支持的保存方式');
   }
 
-  return { strategy: destination.strategy, count: prepared.length, destinationName: destination.name || '' };
+  return {
+    strategy: destination.strategy,
+    count: prepared.length,
+    destinationName: destination.name || '',
+    verification: ['directory', 'save-file'].includes(destination.strategy) ? 'filesystem' : 'download-started',
+  };
 }

@@ -41,7 +41,7 @@ export function exportDeliveryReducer(state, action = {}) {
     case 'progress':
       return { ...state, progress: { completed: action.completed || 0, total: action.total || state.progress.total || 0 } };
     case 'success':
-      return { ...state, status: 'success', result: { count: action.count || 0 }, progress: { completed: action.count || 0, total: action.count || state.progress.total || 0 }, error: '' };
+      return { ...state, status: 'success', result: { count: action.count || 0, verification: action.verification || 'download-started' }, progress: { completed: action.count || 0, total: action.count || state.progress.total || 0 }, error: '' };
     case 'cancelled':
       return { ...state, status: 'cancelled', error: '' };
     case 'error':
