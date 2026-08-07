@@ -18,13 +18,17 @@
   `c4651a6` and implementation plan `5ff58ef`; no files are delegated. Task 1
   is complete at `53e01ea`: bounded creative attempts preserve factual truth,
   retries reuse the same route, and explicit replanning selects a materially
-  different compatible route. Task 2 is complete locally: one shared format
-  registry exposes eight commerce ratios, unsupported provider ratios retain
-  their requested target and crop policy through recovery, planning, export
-  targets, second-step directions and Canvas previews, detail defaults to 9:16,
-  and ratio menus render in a viewport portal outside clipped configuration
-  panels. Focused regression passed 78/78 and the 6,453-module production build
-  passed. Task 3 generation terminal-state and task-dismissal work is next.
+  different compatible route. Task 2 is complete at `65eaa68`: one shared
+  format registry exposes eight commerce ratios, unsupported provider ratios
+  retain their requested target and crop policy through recovery, planning,
+  export targets, second-step directions and Canvas previews, detail defaults
+  to 9:16, and ratio menus render in a viewport portal outside clipped
+  configuration panels. Task 3 is complete locally: transient provider terminal
+  failures remain resumable without duplicate holds or releases, terminal task
+  summaries expose delivered/charged/released/failed/retryable counts, and
+  owner-scoped dismissal removes only terminal history while preserving durable
+  job, billing and project evidence. Focused Task 3 regression passed 126/126;
+  Task 4 two-stage verified browser delivery is next.
 
 - Canvas selected-composer and structured image-mention correction is active.
   The signed-in reference product at `https://liuyingai.cn/canvas-studio`

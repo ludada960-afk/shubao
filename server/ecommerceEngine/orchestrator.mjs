@@ -399,12 +399,27 @@ function summarizeAssets(assets) {
     needsReview: 0,
     failed: 0,
     active: 0,
+    delivered: 0,
+    charged: 0,
+    released: 0,
+    retryable: 0,
   };
   for (const asset of assets) {
-    if (asset.state === 'completed') summary.completed += 1;
-    else if (asset.state === 'needs_review') summary.needsReview += 1;
-    else if (asset.state === 'failed' || asset.state === 'cancelled') summary.failed += 1;
-    else summary.active += 1;
+    if (asset.state === 'completed') {
+      summary.completed += 1;
+      summary.delivered += 1;
+      summary.charged += 1;
+    } else if (asset.state === 'needs_review') {
+      summary.needsReview += 1;
+      summary.released += 1;
+      summary.retryable += 1;
+    } else if (asset.state === 'failed' || asset.state === 'cancelled') {
+      summary.failed += 1;
+      summary.released += 1;
+      if (asset.state === 'failed') summary.retryable += 1;
+    } else {
+      summary.active += 1;
+    }
   }
   return summary;
 }
@@ -447,9 +462,17 @@ function normalizedProviderResult(result, providerJobId) {
   if (!isRecord(result)) throw new Error('provider poll returned an invalid result');
   const status = cleanString(own(result, 'status')).toLowerCase();
   if (status === 'failed') {
+    const statusCode = Number(own(result, 'statusCode') ?? own(result, 'httpStatus'));
+    const errorCode = cleanString(own(result, 'code') ?? own(result, 'errorCode')).toUpperCase();
+    const retryable = own(result, 'retryable') === true
+      || statusCode === 408
+      || statusCode === 425
+      || statusCode === 429
+      || statusCode >= 500
+      || /(?:TIMEOUT|RATE_LIMIT|UNAVAILABLE|OVERLOAD|NETWORK)/.test(errorCode);
     throw Object.assign(new Error(cleanString(own(result, 'error')) || 'provider generation failed'), {
-      code: 'PROVIDER_GENERATION_FAILED',
-      retryable: false,
+      code: retryable ? 'PROVIDER_GENERATION_TRANSIENT' : 'PROVIDER_GENERATION_FAILED',
+      retryable,
     });
   }
   const outputUrl = cleanString(own(result, 'outputUrl'));
@@ -932,6 +955,13 @@ export function createEcommerceOrchestrator(deps = {}) {
       throw httpError('登录信息无效', 401, 'AUTH_REQUIRED');
     }
     return jobs.listOwner(normalizedOwner, { limit });
+  }
+
+  function dismissJob({ id, ownerEmail } = {}) {
+    if (typeof jobs.dismissOwned !== 'function') {
+      throw httpError('任务记录服务暂不可用，请稍后重试', 503, 'ECOMMERCE_DISMISS_UNAVAILABLE');
+    }
+    return jobs.dismissOwned(validateId(id, 'job id'), cleanString(ownerEmail));
   }
 
   function failedRetryPlanForJob(source) {
@@ -2101,6 +2131,7 @@ export function createEcommerceOrchestrator(deps = {}) {
   return {
     createJob,
     createFailedRetryJob,
+    dismissJob,
     getFailedRetryPlan,
     getJob,
     listJobs,
@@ -2214,6 +2245,22 @@ export function createEcommerceRouteHandlers({
         return res.json({
           ok: true,
           tasks: orchestrator.listJobs({ ownerEmail: req?._userEmail }),
+        });
+      } catch (error) {
+        return responseError(res, error);
+      }
+    },
+    dismissJob(req, res) {
+      try {
+        if (typeof orchestrator.dismissJob !== 'function') {
+          throw httpError('任务记录服务暂不可用，请稍后重试', 503, 'ECOMMERCE_DISMISS_UNAVAILABLE');
+        }
+        return res.json({
+          ok: true,
+          task: orchestrator.dismissJob({
+            id: req?.params?.id,
+            ownerEmail: req?._userEmail,
+          }),
         });
       } catch (error) {
         return responseError(res, error);

@@ -136,7 +136,17 @@ test('owner task list exposes only numeric progress counters and never orchestra
     });
 
     const [summary] = jobs.listOwner('owner@example.com');
-    assert.deepEqual(summary.progress, { current: 1, total: 2, completed: 1, needsReview: 0, failed: 1 });
+    assert.deepEqual(summary.progress, {
+      current: 1,
+      total: 2,
+      completed: 1,
+      needsReview: 0,
+      failed: 1,
+      delivered: 1,
+      charged: 1,
+      released: 1,
+      retryable: 1,
+    });
     assert.equal(JSON.stringify(summary).includes('hidden-provider-prompt'), false);
     assert.equal(JSON.stringify(summary).includes('private-input'), false);
     assert.equal(JSON.stringify(summary).includes('hidden-payload'), false);
@@ -220,5 +230,43 @@ test('startup treats a recent SQLite UTC timestamp as recent in every local time
     reopened.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('dismisses only owned terminal task summaries while preserving the durable job', () => {
+  const jobs = createGenerationJobs(':memory:');
+  try {
+    const active = jobs.create({
+      id: 'job-active-dismiss',
+      ownerEmail: 'owner@example.com',
+      payload: { product_name: '活动商品' },
+    });
+    assert.throws(
+      () => jobs.dismissOwned(active.id, 'owner@example.com'),
+      error => error?.status === 409,
+    );
+
+    const terminal = jobs.create({
+      id: 'job-terminal-dismiss',
+      ownerEmail: 'owner@example.com',
+      payload: { product_name: '完成商品' },
+    });
+    jobs.transition(terminal.id, 'analyzing');
+    jobs.transition(terminal.id, 'generating');
+    jobs.transition(terminal.id, 'completed');
+
+    assert.throws(
+      () => jobs.dismissOwned(terminal.id, 'other@example.com'),
+      error => error?.status === 404,
+    );
+    assert.deepEqual(jobs.dismissOwned(terminal.id, 'OWNER@example.com'), {
+      id: terminal.id,
+      status: 'dismissed',
+    });
+    assert.deepEqual(jobs.listOwner('owner@example.com').map(job => job.id), [active.id]);
+    assert.equal(jobs.get(terminal.id).status, 'completed');
+    assert.ok(jobs.get(terminal.id).dismissedAt);
+  } finally {
+    jobs.close();
   }
 });

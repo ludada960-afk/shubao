@@ -1191,6 +1191,19 @@ test('incomplete suite settles verified assets and retries only the uncharged it
   orchestrator.createJob(jobInput('job-retry-source'));
   const original = await orchestrator.runJob('job-retry-source');
   assert.equal(original.status, 'needs_review');
+  assert.deepEqual({
+    delivered: original.progress.delivered,
+    charged: original.progress.charged,
+    released: original.progress.released,
+    failed: original.progress.failed,
+    retryable: original.progress.retryable,
+  }, {
+    delivered: 1,
+    charged: 1,
+    released: 1,
+    failed: 1,
+    retryable: 1,
+  });
   assert.deepEqual(calls.compile, ['main-one', 'main-two']);
   assert.deepEqual(calls.settle.map(call => call.itemId), ['main-one']);
   assert.deepEqual(calls.release.map(call => call.itemId), ['main-two']);
@@ -1290,6 +1303,33 @@ test('waits for in-flight asset workers to settle before releasing a failed pare
 
   assert.equal(slowWorkerCompleted, true);
   assert.equal(calls.submit.length, 2);
+});
+
+test('provider-reported transient terminal failure resumes without another hold or release', async t => {
+  let pollAttempts = 0;
+  const { orchestrator, jobs, calls } = await createHarness(t, {
+    poll: ({ providerJobId }) => {
+      pollAttempts += 1;
+      return pollAttempts === 1
+        ? { jobId: providerJobId, status: 'failed', statusCode: 429, error: 'rate limited' }
+        : { jobId: providerJobId, status: 'completed', outputUrl: `https://provider.example/${providerJobId}.png` };
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-provider-transient-result'));
+
+  await assert.rejects(
+    () => orchestrator.runJob(created.id),
+    error => error?.retryable === true && error?.code === 'PROVIDER_GENERATION_TRANSIENT',
+  );
+  assert.equal(jobs.get(created.id).status, 'generating');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.release.length, 0);
+
+  const completed = await orchestrator.runJob(created.id);
+  assert.equal(completed.status, 'completed');
+  assert.equal(calls.hold.length, 1);
+  assert.equal(calls.submit.length, 1);
+  assert.equal(calls.release.length, 0);
 });
 
 test('createJob only persists queued work and does not start a second background runner', async t => {

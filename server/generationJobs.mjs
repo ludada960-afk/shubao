@@ -43,12 +43,22 @@ function safeLabel(value, fallback = '') {
 function safeProgress(value) {
   const progress = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const count = key => Number.isSafeInteger(progress[key]) && progress[key] >= 0 ? progress[key] : 0;
+  const completed = count('completed');
+  const needsReview = count('needsReview');
+  const failed = count('failed');
+  const fallbackCount = (key, fallback) => Number.isSafeInteger(progress[key]) && progress[key] >= 0
+    ? progress[key]
+    : fallback;
   return {
     current: count('current'),
     total: count('total'),
-    completed: count('completed'),
-    needsReview: count('needsReview'),
-    failed: count('failed'),
+    completed,
+    needsReview,
+    failed,
+    delivered: fallbackCount('delivered', completed),
+    charged: fallbackCount('charged', completed),
+    released: fallbackCount('released', needsReview + failed),
+    retryable: fallbackCount('retryable', needsReview + failed),
   };
 }
 
@@ -85,6 +95,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
       visual_input_schema_version INTEGER,
       lease_token TEXT,
       lease_expires_at TEXT,
+      dismissed_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -103,6 +114,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
   if (!columns.has('visual_input_schema_version')) {
     db.exec('ALTER TABLE ecommerce_jobs ADD COLUMN visual_input_schema_version INTEGER');
   }
+  if (!columns.has('dismissed_at')) db.exec('ALTER TABLE ecommerce_jobs ADD COLUMN dismissed_at TEXT');
   const assets = createEcommerceJobStore(db);
 
   function nowMs() {
@@ -220,6 +232,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
         visualInputSchemaVersion: row.visual_input_schema_version,
         leaseToken: row.lease_token,
         leaseExpiresAt: row.lease_expires_at,
+        dismissedAt: row.dismissed_at,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -233,6 +246,7 @@ export function createGenerationJobs(dbPath = ':memory:', {
         SELECT id, status, error, payload, progress, updated_at
         FROM ecommerce_jobs
         WHERE lower(owner_email) = ?
+          AND dismissed_at IS NULL
         ORDER BY updated_at DESC, created_at DESC
         LIMIT ?
       `).all(ownerEmail, safeLimit).map(row => {
@@ -262,6 +276,29 @@ export function createGenerationJobs(dbPath = ':memory:', {
           assets: assetRows,
         };
       });
+    },
+    dismissOwned(idInput, ownerEmailInput) {
+      const id = cleanString(idInput);
+      const ownerEmail = cleanString(ownerEmailInput).toLowerCase();
+      if (!id || !ownerEmail || !ownerEmail.includes('@')) {
+        throw Object.assign(new Error('任务不存在'), { status: 404, code: 'ECOMMERCE_JOB_NOT_FOUND' });
+      }
+      const current = api.get(id);
+      if (!current || current.ownerEmail.toLowerCase() !== ownerEmail) {
+        throw Object.assign(new Error('任务不存在'), { status: 404, code: 'ECOMMERCE_JOB_NOT_FOUND' });
+      }
+      if (!FINAL_STATES.has(current.status)) {
+        throw Object.assign(new Error('生成中的任务不能删除'), { status: 409, code: 'ECOMMERCE_JOB_ACTIVE' });
+      }
+      if (!current.dismissedAt) {
+        const timestamp = new Date(nowMs()).toISOString();
+        db.prepare(`
+          UPDATE ecommerce_jobs
+          SET dismissed_at = ?, updated_at = ?
+          WHERE id = ? AND lower(owner_email) = ? AND dismissed_at IS NULL
+        `).run(timestamp, timestamp, id, ownerEmail);
+      }
+      return { id, status: 'dismissed' };
     },
     transition(id, status, patch = {}) {
       if (!STATES.has(status)) throw new Error(`unknown status: ${status}`);

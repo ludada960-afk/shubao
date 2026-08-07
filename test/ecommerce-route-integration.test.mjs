@@ -224,6 +224,59 @@ test('job handler delegates signed owner scope and returns durable asset progres
   });
 });
 
+test('terminal task dismissal delegates signed ownership and returns an archived summary', () => {
+  const calls = [];
+  const handlers = createEcommerceRouteHandlers({
+    orchestrator: {
+      createJob() { throw new Error('not used'); },
+      getJob() { throw new Error('not used'); },
+      dismissJob(input) {
+        calls.push(input);
+        return { id: input.id, status: 'dismissed' };
+      },
+    },
+  });
+  const res = responseHarness();
+
+  handlers.dismissJob({
+    _userEmail: 'owner@example.com',
+    params: { id: 'job-terminal' },
+  }, res);
+
+  assert.deepEqual(calls, [{ id: 'job-terminal', ownerEmail: 'owner@example.com' }]);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { ok: true, task: { id: 'job-terminal', status: 'dismissed' } });
+});
+
+test('frontend dismisses an ecommerce task with a signed encoded DELETE request', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const requests = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: () => JSON.stringify({ email: 'owner@example.com', token: 'signed-session-token' }),
+    setItem: () => {},
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), options });
+    return new Response(JSON.stringify({ ok: true, task: { id: 'job / terminal', status: 'dismissed' } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  const api = await import(`../src/services/api.js?dismiss-task=${Date.now()}`);
+
+  const result = await api.dismissEcommerceTask('job / terminal');
+
+  assert.equal(result.status, 'dismissed');
+  assert.equal(requests[0].url, '/api/ecommerce/jobs/job%20%2F%20terminal');
+  assert.equal(requests[0].options.method, 'DELETE');
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-session-token');
+});
+
 test('route handlers preserve structured status codes for ownership and billing failures', async () => {
   const handlers = createEcommerceRouteHandlers({
     orchestrator: {

@@ -3603,6 +3603,7 @@ function authenticateEcommerceRequest(req, res, next) {
 app.post('/api/ecommerce/assets', authenticateEcommerceRequest, ecommerceAssetRouteHandlers.upload);
 app.post('/api/ecommerce/exports', authenticateEcommerceRequest, ecommerceExportRouteHandlers.create);
 app.get('/api/ecommerce/jobs', authenticateEcommerceRequest, ecommerceRouteHandlers.listJobs);
+app.delete('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.dismissJob);
 app.post('/api/ecommerce/jobs/:id/retry-plan', authenticateEcommerceRequest, ecommerceRouteHandlers.retryPlan);
 app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, ecommerceRouteHandlers.retryFailed);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);

@@ -3,6 +3,7 @@ import {
   MdAutoAwesome,
   MdCheckCircle,
   MdClose,
+  MdDeleteOutline,
   MdError,
   MdHourglassTop,
   MdOutlineFactCheck,
@@ -35,11 +36,13 @@ function progressText(task) {
 }
 
 export default function TaskSidebar() {
-  const { tasks, activeCount, errorCount, loadError, refreshTasks } = useTasks();
+  const { tasks, activeCount, errorCount, loadError, refreshTasks, dismissTask } = useTasks();
   const { confirm } = useDialog();
   const [open, setOpen] = useState(false);
   const [retryingTaskId, setRetryingTaskId] = useState('');
+  const [dismissingTaskId, setDismissingTaskId] = useState('');
   const [retryErrors, setRetryErrors] = useState({});
+  const [dismissErrors, setDismissErrors] = useState({});
   const dockRef = useRef(null);
 
   useEffect(() => {
@@ -81,6 +84,28 @@ export default function TaskSidebar() {
       }));
     } finally {
       setRetryingTaskId('');
+    }
+  };
+
+  const dismissTerminalTask = async task => {
+    if (!task?.id || dismissingTaskId || !task.actions?.includes('dismiss')) return;
+    const confirmed = await confirm({
+      title: '删除任务记录',
+      message: '仅从任务列表移除这条记录，已生成图片和账务记录不会删除。',
+      confirmLabel: '删除记录',
+    });
+    if (!confirmed) return;
+    setDismissingTaskId(task.id);
+    setDismissErrors(current => ({ ...current, [task.id]: '' }));
+    try {
+      await dismissTask(task.id);
+    } catch (error) {
+      setDismissErrors(current => ({
+        ...current,
+        [task.id]: error?.message || '删除任务记录失败，请稍后重试',
+      }));
+    } finally {
+      setDismissingTaskId('');
     }
   };
 
@@ -218,7 +243,9 @@ export default function TaskSidebar() {
               const percent = task.total > 0 ? Math.min(100, Math.round((task.done / task.total) * 100)) : 0;
               const assetErrors = (task.assets || []).filter(asset => asset.error);
               const retryError = retryErrors[task.id];
+              const dismissError = dismissErrors[task.id];
               const retrying = retryingTaskId === task.id;
+              const dismissing = dismissingTaskId === task.id;
               return (
                 <article
                   key={task.id}
@@ -289,6 +316,12 @@ export default function TaskSidebar() {
                     </div>
                   )}
 
+                  {dismissError && (
+                    <div role="alert" style={{ marginTop: 9, padding: '8px 10px', borderRadius: 10, background: '#fff3ee', color: '#9f493c', fontSize: 11, lineHeight: 1.5 }}>
+                      {dismissError}
+                    </div>
+                  )}
+
                   {task.actions?.includes('retry_failed') && (
                     <button
                       type="button"
@@ -309,6 +342,34 @@ export default function TaskSidebar() {
                       }}
                     >
                       {retrying ? '正在确认费用…' : '补全未完成图片'}
+                    </button>
+                  )}
+                  {task.actions?.includes('dismiss') && (
+                    <button
+                      type="button"
+                      onClick={() => dismissTerminalTask(task)}
+                      disabled={dismissing}
+                      aria-label={`删除任务记录：${task.title || '电商套图'}`}
+                      style={{
+                        marginTop: 7,
+                        width: '100%',
+                        minHeight: 32,
+                        border: '1px solid rgba(70, 52, 38, 0.12)',
+                        borderRadius: 10,
+                        background: '#fff',
+                        color: '#756a62',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: dismissing ? 'wait' : 'pointer',
+                        opacity: dismissing ? 0.65 : 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <MdDeleteOutline size={15} />
+                      {dismissing ? '正在删除…' : '删除任务记录'}
                     </button>
                   )}
                 </article>

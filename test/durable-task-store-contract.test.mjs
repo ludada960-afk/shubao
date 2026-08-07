@@ -29,3 +29,12 @@ test('failed task actions use a quoted server retry instead of resetting local r
   assert.match(sidebar, /retryFailedEcommerceTask/);
   assert.doesNotMatch(sidebar, /retryTask\(task\.id\)/);
 });
+
+test('terminal server tasks use the owner-scoped dismissal API and leave active tasks protected', () => {
+  const sidebar = readFileSync(new URL('../src/components/task/TaskSidebar.jsx', import.meta.url), 'utf8');
+  assert.match(source, /dismissEcommerceTask/);
+  assert.match(source, /DISMISS_DURABLE_TASK/);
+  assert.match(sidebar, /task\.actions\?\.includes\('dismiss'\)/);
+  assert.match(sidebar, /删除任务记录/);
+  assert.doesNotMatch(sidebar, /ACTIVE_STATES\.has\(task\.status\)[\s\S]{0,120}dismissEcommerceTask/);
+});

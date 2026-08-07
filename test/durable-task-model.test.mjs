@@ -35,13 +35,14 @@ test('durable task summary preserves completed failed and total image counts', (
   });
 });
 
-test('failed durable tasks expose only open and failed-item retry actions', () => {
+test('terminal durable tasks expose dismissal separately from failed-item retry', () => {
   const task = normalizeDurableTask({
     id: 'job-failed',
     status: 'needs_review',
     assets: [{ assetId: 'detail-2', state: 'needs_review' }],
   });
 
-  assert.deepEqual(task.actions, ['open', 'retry_failed']);
+  assert.deepEqual(task.actions, ['open', 'retry_failed', 'dismiss']);
   assert.equal(task.failed, 1);
+  assert.deepEqual(normalizeDurableTask({ id: 'job-done', status: 'completed' }).actions, ['open', 'dismiss']);
 });

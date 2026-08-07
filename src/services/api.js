@@ -1029,6 +1029,18 @@ export async function listEcommerceTasks({ signal } = {}) {
   return Array.isArray(data.tasks) ? data.tasks : [];
 }
 
+export async function dismissEcommerceTask(taskId, { signal } = {}) {
+  if (!taskId) throw new Error('缺少任务编号');
+  const res = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`, {
+    method: 'DELETE',
+    headers: signedSessionHeaders(),
+    signal,
+  });
+  if (!res.ok) throw await createApiError(res, '删除任务记录失败');
+  const data = await res.json();
+  return data.task || data;
+}
+
 export async function quoteFailedEcommerceTask(taskId, { signal } = {}) {
   if (!taskId) throw new Error('缺少任务编号');
   const planResponse = await fetch(`${API_BASE}/api/ecommerce/jobs/${encodeURIComponent(taskId)}/retry-plan`, {

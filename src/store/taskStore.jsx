@@ -6,7 +6,7 @@ import {
   useReducer,
   useRef,
 } from 'react';
-import { listEcommerceTasks } from '../services/api.js';
+import { dismissEcommerceTask, listEcommerceTasks } from '../services/api.js';
 import { getSessionToken } from '../services/auth.js';
 import { useApp } from './AppContext.jsx';
 import { hasActiveDurableTasks, normalizeDurableTask } from './durableTaskModel.js';
@@ -55,6 +55,12 @@ function taskReducer(state, action) {
 
     case 'DURABLE_TASKS_ERROR':
       return { ...state, loadError: action.error || '任务列表暂时无法刷新' };
+
+    case 'DISMISS_DURABLE_TASK':
+      return {
+        ...state,
+        tasks: state.tasks.filter(task => task.id !== action.id || task.source !== 'server'),
+      };
 
     case 'ADD_TASK': {
       const task = {
@@ -176,6 +182,10 @@ export function TaskProvider({ children }) {
     dispatch({ type: 'UPDATE_TASK', id, ...updates });
   }, []);
   const removeTask = useCallback(id => dispatch({ type: 'REMOVE_TASK', id }), []);
+  const dismissTask = useCallback(async id => {
+    await dismissEcommerceTask(id);
+    dispatch({ type: 'DISMISS_DURABLE_TASK', id });
+  }, []);
   const retryTask = useCallback(id => dispatch({ type: 'RETRY_TASK', id }), []);
   const clearDone = useCallback(() => dispatch({ type: 'CLEAR_DONE' }), []);
 
@@ -200,6 +210,7 @@ export function TaskProvider({ children }) {
       addTask,
       updateTask,
       removeTask,
+      dismissTask,
       retryTask,
       clearDone,
       dispatch,

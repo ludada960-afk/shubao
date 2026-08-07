@@ -22,9 +22,10 @@ export function normalizeDurableTask(job = {}) {
   const done = assets.filter(asset => asset.state === 'completed').length;
   const progressTotal = Number(job?.progress?.total);
   const total = assets.length || (Number.isSafeInteger(progressTotal) && progressTotal >= 0 ? progressTotal : 0);
-  const actions = TERMINAL_JOB_STATES.has(status) && failed > 0
-    ? ['open', 'retry_failed']
-    : ['open'];
+  const terminal = TERMINAL_JOB_STATES.has(status);
+  const actions = terminal && failed > 0
+    ? ['open', 'retry_failed', 'dismiss']
+    : terminal ? ['open', 'dismiss'] : ['open'];
   return {
     id: text(job.id),
     title: text(job.title, '电商套图'),
