@@ -1514,3 +1514,17 @@
   this feature as live until a newly issued ephemeral
   `SHUBAO_CANARY_SESSION_TOKEN` passes the normal deployment gate. User-owned
   extension-task deletions, `.tmp/`, and the diagnosis helper remain untouched.
+
+- Ecommerce Canvas and entitlement delivery release completed on 2026-08-07 at
+  `6213ab1` (`fix: close ecommerce canvas and credit delivery gaps`). The
+  mandated deployment path reran the serial suite (`1275/1275`) and the
+  6,457-module production build, then backed up production and restarted PM2.
+  Authenticated billing passed before and after the full 600-second Canary;
+  real ecommerce verifications `ec_42adc18f-be89-4cd5-bb0d-ce4837d8d1ba` and
+  `ec_3eb2752c-da29-4bfb-88f0-4f795b882541` each delivered three stable assets.
+  PM2 remained stable on PID `4022215`; the remote deployment lock was
+  released. Independent public health and billing probes passed, and the public
+  security, SEO, catalog, and CORS audit passed `27/27`. The temporary Canary
+  session token was held only in the deployment process and removed at exit;
+  user-owned extension-task deletions, `.tmp/`, and the diagnosis helper remain
+  untouched.
