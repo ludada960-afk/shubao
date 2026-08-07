@@ -1405,3 +1405,21 @@
   export validation, and collaboration check passed. Production deployment is
   the remaining step. The 12 user-owned extension-task deletions, `.tmp/`, and
   `scripts/diagnose-recent-ecommerce-jobs.cjs` remain untouched and uncommitted.
+- Global ecommerce Canvas delivery was released to `https://shuimg.cn/` on
+  2026-08-07 from commit `fe0ae63` through the mandated production deployment
+  path. The deploy gate independently reran the full `1220/1220` serial suite
+  and 6,451-module production build, backed up the application, WebRoot, Nginx,
+  and SQLite state, validated Nginx, and restarted PM2. Initial authenticated
+  ecommerce task `ec_ab108b63-8b7a-45be-83ae-85176ad50ccf` delivered three
+  stable assets before the Canary. After the process-output connection ended,
+  the unchanged PM2 process had remained healthy for substantially longer than
+  the planned 600-second observation window; independent post-Canary billing
+  and ecommerce verification then passed with task
+  `ec_a2f79816-6090-4098-a1f7-93b3f357bfb9`, again delivering three stable
+  assets with Canvas persistence and image variants. PM2 remained on PID
+  `3866031`. The public SEO, security, health, billing-catalog, and CORS audit
+  passed `27/27`; local and production `dist/index.html` SHA-256 matched at
+  `7aa407016372551695fac4e08f5024c993fbc2cbb10e52e8e43edeaf028f5b6d`.
+  The release lock and exact temporary helper directory were cleared. User-owned
+  extension-task deletions, `.tmp/`, and the diagnosis helper remain untouched
+  and uncommitted.
