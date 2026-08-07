@@ -45,7 +45,7 @@ test('mobile canvas stacks the header and keeps bottom controls separate', async
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-topbar \{[\s\S]*?flex-wrap: wrap/);
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-topbar \{[\s\S]*?flex-basis: 92px/);
-  assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-bottom-toolbar \{ left: auto; right: 8px;[\s\S]*?transform: none/);
+  assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.ec-canvas-bottom-dock \{ left: auto; right: 8px;[\s\S]*?transform: none/);
 });
 
 test('browser segmentation reports progress on the transient workflow node and edge', async () => {

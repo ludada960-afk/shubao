@@ -8,7 +8,7 @@ import {
 } from './commercialDutyCatalog.mjs';
 import { isFactGatedDetailRole, resolveDetailDuties } from './detailDutyPolicy.mjs';
 import { layoutContractFor, textLayerPlanFor } from './layoutContracts.mjs';
-import { LEGAL_IMAGE_SIZES } from './modelCatalog.mjs';
+import { LEGAL_IMAGE_SIZES, resolveGenerationSize } from './modelCatalog.mjs';
 import { getPlatformPolicy, planExportTargets } from './platformPolicies.mjs';
 import { directShot } from './shotDirector.mjs';
 import { compileTypographySystem } from './typographyPolicy.mjs';
@@ -265,8 +265,10 @@ function skuVariantIdentity(skuFacts) {
 
 function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, variantComparison = null, category, platform, sizing }) {
   const roleDefaultRatio = role.startsWith('detail_slice_') ? '9:16' : defaultRatio;
-  const ratio = resolveRatio({ role }, sizing, roleDefaultRatio);
-  const generationSize = LEGAL_IMAGE_SIZES[sizing.resolution][ratio];
+  const requestedRatio = resolveRatio({ role }, sizing, roleDefaultRatio);
+  const resolvedGeneration = resolveGenerationSize({ resolution: sizing.resolution, ratio: requestedRatio });
+  const ratio = resolvedGeneration.ratio;
+  const generationSize = resolvedGeneration.size;
   const policy = getPlatformPolicy(platform, policyRole(role), category);
   const id = requestedId || role.replaceAll('_', '-');
   const exportTargets = planExportTargets(policy, {

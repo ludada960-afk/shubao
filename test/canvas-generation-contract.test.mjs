@@ -171,9 +171,9 @@ test('shared catalog resolves every Canvas size to an exact legal entry', () => 
   }
 
   assert.deepEqual(modelCatalog.resolveGenerationSize({ resolution: '1K', ratio: '9:16' }), {
-    resolution: '1K',
-    ratio: '1:1',
-    size: '1024x1024',
+    resolution: '2K',
+    ratio: '9:16',
+    size: '1152x2048',
   });
 });
 
