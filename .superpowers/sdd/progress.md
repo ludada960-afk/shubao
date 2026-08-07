@@ -1499,3 +1499,18 @@
   integrity is `ok`, the exact owner query returns all 54 records (50 on the
   current list page), `/health` is healthy, and PM2 remained PID `3983196`.
   No work payload, owner, asset, project, or billing record was changed.
+
+- Global entitlement visibility is complete locally at `d44ebff` and `c0658ab`.
+  The shared server-authoritative balance control now appears in the application
+  header and Canvas, distinguishes `AI 积分` from `购买额度`, supports guarded
+  refresh and the existing login/pricing paths, and keeps mobile Canvas commands
+  accessible. Focused regression passed `17/17`; the serial repository suite
+  passed `1273/1273`; the production build transformed `6457` modules; build,
+  collaboration, and whitespace checks passed. Local browser acceptance could
+  not be run because the environment denied access to `127.0.0.1:5174`.
+  A production release attempt from `c0658ab` was safely rolled back after the
+  authenticated billing probe returned `401`; the script restored the previous
+  application and Nginx backup and released the remote lock. Do not describe
+  this feature as live until a newly issued ephemeral
+  `SHUBAO_CANARY_SESSION_TOKEN` passes the normal deployment gate. User-owned
+  extension-task deletions, `.tmp/`, and the diagnosis helper remain untouched.
