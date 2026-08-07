@@ -546,6 +546,7 @@ export default function EcCanvas() {
   const orderedDetailNodes = (detailOrderIds.length
     ? detailOrderIds.map(id => exportScope.deliverables.find(node => node.id === id)).filter(Boolean)
     : orderDetailNodes(exportScope.deliverables));
+  const canExportLongDetail = orderedDetailNodes.length >= 2;
 
   useEffect(() => {
     if (!exportOpen) return;
@@ -3541,7 +3542,10 @@ export default function EcCanvas() {
           <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>电商图片交付</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>将保存 {exportScope.deliverables.length} 张生成结果{exportScope.excludedSources.length ? `，已排除 ${exportScope.excludedSources.length} 张原始素材` : ''}</div></div><button type="button" aria-label="关闭导出" title="关闭" onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>×</button></div>
             <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-              {[['逐张图片', '选择文件夹后只保存生成图片'], ['详情长图', '按下方顺序无缝拼接并另存为一张长图']].map(([mode, desc]) => <button key={mode} type="button" onClick={() => setExportMode(mode)} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #2563eb' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: 'pointer' }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{mode}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>)}
+              {[['逐张图片', '选择文件夹后只保存生成图片'], ['详情长图', canExportLongDetail ? '按下方顺序无缝拼接并另存为一张长图' : '至少需要 2 张已生成的详情图']].map(([mode, desc]) => {
+                const disabled = mode === '详情长图' && !canExportLongDetail;
+                return <button key={mode} type="button" disabled={disabled} onClick={() => setExportMode(mode)} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid #2563eb' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{mode}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>;
+              })}
             </div>
             {exportMode === '详情长图' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
@@ -3556,7 +3560,7 @@ export default function EcCanvas() {
               </div>
             </div>}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" onClick={() => setExportFormat(format)} style={{ border: 0, borderRadius: 999, padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: 'pointer' }}>{format}</button>)}</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" disabled={!exportScope.deliverables.length || (exportMode === '详情长图' && orderedDetailNodes.length < 2)} onClick={handleExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: 'pointer' }}><MdFileDownload size={14} /> 选择保存位置</button></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><button type="button" onClick={() => setExportOpen(false)} style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: '#f3f4f6', cursor: 'pointer' }}>取消</button><button type="button" disabled={!exportScope.deliverables.length || (exportMode === '详情长图' && !canExportLongDetail)} onClick={handleExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: !exportScope.deliverables.length || (exportMode === '详情长图' && !canExportLongDetail) ? 'not-allowed' : 'pointer' }}><MdFileDownload size={14} /> 选择保存位置</button></div>
           </div>
         </div>
       )}
