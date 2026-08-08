@@ -3324,8 +3324,8 @@ const ecommerceDesignDirectionService = createDesignDirectionService({
     return imageBufferToVisionDataUrl(image);
   },
   completeText: (request, { stage } = {}) => createEcommerceVlmClient({
-    timeoutMs: stage === 'vision' ? 18_000 : 30_000,
-    retryDelaysMs: stage === 'vision' ? [750] : [],
+    timeoutMs: stage === 'vision' ? 40_000 : 30_000,
+    retryDelaysMs: [],
   }).completeText(request),
 });
 

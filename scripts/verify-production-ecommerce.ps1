@@ -13,5 +13,15 @@ if (-not (Test-Path -LiteralPath $FixturePath -PathType Leaf)) {
 }
 
 $verifier = Join-Path $PSScriptRoot "verify-production-ecommerce.mjs"
-& node $verifier --base-url $BaseUrl --session-token $SessionToken --fixture-path $FixturePath
-if ($LASTEXITCODE -ne 0) { throw "Ecommerce production verification failed" }
+$previousSessionToken = $env:SHUBAO_CANARY_SESSION_TOKEN
+try {
+  $env:SHUBAO_CANARY_SESSION_TOKEN = $SessionToken
+  & node $verifier --base-url $BaseUrl --fixture-path $FixturePath
+  if ($LASTEXITCODE -ne 0) { throw "Ecommerce production verification failed" }
+} finally {
+  if ($null -eq $previousSessionToken) {
+    Remove-Item Env:SHUBAO_CANARY_SESSION_TOKEN -ErrorAction SilentlyContinue
+  } else {
+    $env:SHUBAO_CANARY_SESSION_TOKEN = $previousSessionToken
+  }
+}

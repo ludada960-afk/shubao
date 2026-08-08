@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { requestJson, verifyProduction } from '../scripts/verify-production-billing.mjs';
+import * as billingVerifier from '../scripts/verify-production-billing.mjs';
+
+const { requestJson, verifyProduction } = billingVerifier;
+
+test('production verifier reads its canary session from the process environment without a CLI secret', () => {
+  assert.equal(typeof billingVerifier.parseArguments, 'function');
+  assert.deepEqual(billingVerifier.parseArguments([], { SHUBAO_CANARY_SESSION_TOKEN: 'owner-session' }), {
+    baseUrl: 'https://shuimg.cn',
+    sessionToken: 'owner-session',
+  });
+});
 
 test('public verifier retries transient transport failures before returning JSON', async () => {
   let attempts = 0;

@@ -82,8 +82,11 @@ export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToke
   console.log(`Production verification passed for ${root}`);
 }
 
-function parseArguments(argv) {
-  const options = { baseUrl: DEFAULT_BASE_URL, sessionToken: '' };
+export function parseArguments(argv, env = process.env) {
+  const options = {
+    baseUrl: DEFAULT_BASE_URL,
+    sessionToken: env.SHUBAO_CANARY_SESSION_TOKEN || '',
+  };
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === '--base-url') options.baseUrl = argv[++index] || DEFAULT_BASE_URL;
     if (argv[index] === '--session-token') options.sessionToken = argv[++index] || '';

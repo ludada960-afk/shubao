@@ -15,6 +15,7 @@ const productionEcosystem = readFileSync(new URL('../ecosystem.production.config
 const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 const ecommerceIdleProbe = readFileSync(new URL('../scripts/check-ecommerce-idle.cjs', import.meta.url), 'utf8');
 const deploymentLockRunner = readFileSync(new URL('../scripts/deployment-lock-runner.sh', import.meta.url), 'utf8');
+const extensionTaskManager = readFileSync(new URL('../server/extensionTaskManager.mjs', import.meta.url), 'utf8');
 const canarySessionHelperUrl = new URL('../scripts/production-canary-session.ps1', import.meta.url);
 const canarySessionHelper = existsSync(canarySessionHelperUrl) ? readFileSync(canarySessionHelperUrl, 'utf8') : '';
 
@@ -84,6 +85,8 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /verify-production-ecommerce\.ps1/);
   assert.match(verify, /verify-production-billing\.mjs/);
   assert.match(ecommerceVerify, /verify-production-ecommerce\.mjs/);
+  assert.doesNotMatch(verify, /--session-token/);
+  assert.doesNotMatch(ecommerceVerify, /--session-token/);
   assert.match(deploy, /pm2 pid shubao/);
   assert.doesNotMatch(deploy, /pm2 jlist/);
   assert.ok(
@@ -214,6 +217,15 @@ test('first-migration rollback restores and proves legacy health before switchin
     previous = position;
   }
   assert.ok((deploy.match(/-TimeoutSeconds 2400/g) || []).length >= 2);
+  for (const runtimeDirectory of ['generated-assets/', 'uploads/', 'temp_uploads/', 'cache_img/', 'cache_overlay/', 'extension_downloads/', 'extension_tasks/', 'backups/']) {
+    assert.match(rollback, new RegExp(`--exclude=['"]${runtimeDirectory.replace('/', '\\/')}['"]`));
+  }
+});
+
+test('extension task recovery recreates its runtime directory before every scheduled scan', () => {
+  assert.match(extensionTaskManager, /function\s+ensureTasksDirectory\s*\(/);
+  assert.match(extensionTaskManager, /function\s+recoverStaleTasks[\s\S]*?ensureTasksDirectory\(\)[\s\S]*?fs\.readdirSync\(TASKS_DIR\)/);
+  assert.match(extensionTaskManager, /function\s+cleanExpiredTasks[\s\S]*?ensureTasksDirectory\(\)[\s\S]*?fs\.readdirSync\(TASKS_DIR\)/);
 });
 
 test('production deploy tolerates transient SSH handshake failures', () => {

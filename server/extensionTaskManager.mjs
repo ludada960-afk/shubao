@@ -12,7 +12,11 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TASKS_DIR = path.resolve(__dirname, 'extension_tasks');
 
-if (!fs.existsSync(TASKS_DIR)) fs.mkdirSync(TASKS_DIR, { recursive: true });
+function ensureTasksDirectory() {
+  fs.mkdirSync(TASKS_DIR, { recursive: true });
+}
+
+ensureTasksDirectory();
 
 /* ── 内存中的任务缓存（加速读取） ── */
 const taskCache = new Map();
@@ -23,6 +27,7 @@ function taskFile(taskId) {
 }
 
 function persistTask(task) {
+  ensureTasksDirectory();
   const filePath = taskFile(task.taskId);
   if (!filePath) throw new Error('invalid task id');
   const tempPath = `${filePath}.${process.pid}.tmp`;
@@ -111,6 +116,7 @@ export function updateTask(taskId, updates) {
 
 /* ── 获取下一个待处理任务 ── */
 export function getNextPendingTask(status = TASK_STATUS.PENDING) {
+  ensureTasksDirectory();
   const files = fs.readdirSync(TASKS_DIR).filter(f => f.endsWith('.json'));
   for (const file of files) {
     try {
@@ -123,6 +129,7 @@ export function getNextPendingTask(status = TASK_STATUS.PENDING) {
 
 /* ── 清理过期任务（>24h） ── */
 export function cleanExpiredTasks() {
+  ensureTasksDirectory();
   const now = Date.now();
   const files = fs.readdirSync(TASKS_DIR).filter(f => f.endsWith('.json'));
   for (const file of files) {
@@ -148,6 +155,7 @@ export function cleanExpiredTasks() {
 
 // 进程异常退出后，避免任务永久停留在“处理中”。下次启动将其标记为可重试失败。
 export function recoverStaleTasks(maxAgeMs = 30 * 60 * 1000) {
+  ensureTasksDirectory();
   const now = Date.now();
   const active = new Set([
     TASK_STATUS.DOWNLOADING,
