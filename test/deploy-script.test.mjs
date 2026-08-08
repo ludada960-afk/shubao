@@ -9,7 +9,7 @@ const ecommerceVerify = readFileSync(new URL('../scripts/verify-production-ecomm
 const backupHelper = readFileSync(new URL('../scripts/backup-runtime-db.cjs', import.meta.url), 'utf8');
 const runtimeConfigVerifier = readFileSync(new URL('../scripts/verify-runtime-config.cjs', import.meta.url), 'utf8');
 const runtimeConfigUpdater = readFileSync(new URL('../scripts/configure-runtime-gateways.cjs', import.meta.url), 'utf8');
-const productionEcosystem = readFileSync(new URL('../ecosystem.production.cjs', import.meta.url), 'utf8');
+const productionEcosystem = readFileSync(new URL('../ecosystem.production.config.cjs', import.meta.url), 'utf8');
 const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 const ecommerceIdleProbe = readFileSync(new URL('../scripts/check-ecommerce-idle.cjs', import.meta.url), 'utf8');
 const deploymentLockRunner = readFileSync(new URL('../scripts/deployment-lock-runner.sh', import.meta.url), 'utf8');
@@ -69,7 +69,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /if\s*\(\$releaseStarted\)/);
   const releaseWindow = deploy.slice(deploy.indexOf("tar xzf '$remoteReleaseArchive'"), deploy.indexOf('Wait-PublicProductionReady'));
   assert.doesNotMatch(releaseWindow, /pm2 restart shubao/);
-  assert.match(deploy, /pm2 startOrReload ecosystem\.production\.cjs --only shubao-production --update-env/);
+  assert.match(deploy, /pm2 startOrReload ecosystem\.production\.config\.cjs --only shubao-production --update-env/);
   assert.equal((deploy.match(/pm2 save/g) || []).length, 2);
   assert.match(deploy, /verify-production-billing\.ps1/);
   assert.match(deploy, /verify-production-ecommerce\.ps1/);
@@ -115,6 +115,8 @@ test('deployment lock is process-backed and the foreground fences every producti
 });
 
 test('production uses one cluster worker with readiness and graceful background draining', () => {
+  assert.match(deploy, /ecosystem\.production\.config\.cjs/);
+  assert.doesNotMatch(deploy, /ecosystem\.production\.cjs(?:\s|['"])/);
   assert.match(productionEcosystem, /name:\s*['"]shubao-production['"]/);
   assert.match(productionEcosystem, /PORT:\s*['"]3002['"]/);
   assert.match(productionEcosystem, /exec_mode:\s*['"]cluster['"]/);
@@ -149,7 +151,7 @@ test('production static files switch through a versioned atomic symlink', () => 
 });
 
 test('one-time PM2 migration cuts traffic to a healthy blue-green worker before retiring the legacy process', () => {
-  const clusterStart = deploy.indexOf('pm2 start ecosystem.production.cjs --only shubao-production --update-env');
+  const clusterStart = deploy.indexOf('pm2 start ecosystem.production.config.cjs --only shubao-production --update-env');
   const clusterHealth = deploy.indexOf('curl -fsS http://127.0.0.1:3002/health');
   const nginxReload = deploy.indexOf('sudo systemctl reload nginx');
   const canaryWait = deploy.indexOf('Start-Sleep -Seconds $CanarySeconds');
