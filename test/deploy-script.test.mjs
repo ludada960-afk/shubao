@@ -152,10 +152,12 @@ test('production static files switch through a versioned atomic symlink', () => 
 
 test('one-time PM2 migration cuts traffic to a healthy blue-green worker before retiring the legacy process', () => {
   const clusterStart = deploy.indexOf('pm2 start ecosystem.production.config.cjs --only shubao-production --update-env');
+  const staleMisclassifiedDelete = deploy.indexOf('pm2 delete ecosystem.production >/dev/null 2>&1 || true');
   const clusterHealth = deploy.indexOf('curl -fsS http://127.0.0.1:3002/health');
   const nginxReload = deploy.indexOf('sudo systemctl reload nginx');
   const canaryWait = deploy.indexOf('Start-Sleep -Seconds $CanarySeconds');
   const legacyDelete = deploy.indexOf('pm2 delete shubao >/dev/null 2>&1 || true');
+  assert.ok(staleMisclassifiedDelete >= 0 && staleMisclassifiedDelete < clusterStart);
   assert.ok(clusterStart >= 0 && clusterStart < clusterHealth);
   assert.ok(clusterHealth < nginxReload);
   assert.ok(nginxReload < canaryWait);
