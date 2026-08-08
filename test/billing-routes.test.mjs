@@ -12,6 +12,7 @@ import { createPaymentService } from '../server/billing/paymentService.mjs';
 import { createSessionTokenService, authenticateContentRequest } from '../server/billing/contentBilling.mjs';
 import { mountBillingRoutes } from '../server/billing/routes.mjs';
 import { createBillingQuoteService } from '../server/billing/quoteService.mjs';
+import { isUnlimitedBetaEmail } from '../server/accessPolicy.mjs';
 
 const SESSION_SECRET = 'billing-route-test-secret-billing-route-test-secret';
 
@@ -188,6 +189,19 @@ test('owner account reports unlimited while retaining honest numeric balances', 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.unlimited, true);
   assert.deepEqual(res.body.balances.content_sets, { availableUnits: 0, heldUnits: 0, unlimited: true });
+});
+
+test('full beta tester account receives the same unlimited billing entitlement', async t => {
+  const tester = '240485042@qq.com';
+  const { app, db, sessionTokens } = createHarness({ isUnlimited: isUnlimitedBetaEmail });
+  t.after(() => db.close());
+
+  const { res } = await invoke(app, 'GET', '/api/billing/balance', {
+    headers: signedHeaders(sessionTokens, tester),
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.unlimited, true);
+  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 0, heldUnits: 0, unlimited: true });
 });
 
 test('orders and ledger entries are scoped to the signed owner', async t => {

@@ -137,7 +137,7 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
     const path = parsed.pathname;
     const variant = parsed.searchParams.get('variant') || '';
     requests.push({ path, variant, options });
-    if (path === '/api/session') return json({ ok: true, email: 'canary@example.com' });
+    if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
     if (path === '/api/ecommerce/assets') {
       const body = JSON.parse(options.body);
       return json(body.role === 'product' ? { original: PRODUCT } : { original: REFERENCE }, 201);
@@ -198,6 +198,24 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
   assert.equal(body.direction.id, 'canary-direction-1');
 });
 
+test('ecommerce production verifier never uses a beta tester for automated deployment generation', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'shubao-production-canary-owner-'));
+  const fixturePath = join(directory, 'fixture.png');
+  await writeFile(fixturePath, Buffer.from('fixture'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const requests = [];
+  const fetchImpl = async url => {
+    requests.push(new URL(url).pathname);
+    return json({ ok: true, email: '240485042@qq.com' });
+  };
+
+  await assert.rejects(
+    verifyProductionEcommerce({ sessionToken: 'collaborator-token', fixturePath, fetchImpl }),
+    /main owner account/i,
+  );
+  assert.deepEqual(requests, ['/api/session']);
+});
+
 test('ecommerce production verifier rejects partial delivery and never treats it as an acceptance pass', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'shubao-production-canary-'));
   const fixturePath = join(directory, 'fixture.png');
@@ -205,7 +223,7 @@ test('ecommerce production verifier rejects partial delivery and never treats it
   t.after(() => rm(directory, { recursive: true, force: true }));
   const fetchImpl = async url => {
     const path = new URL(url).pathname;
-    if (path === '/api/session') return json({ ok: true, email: 'canary@example.com' });
+    if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
     if (path === '/api/ecommerce/assets') return json({ original: PRODUCT }, 201);
     if (path === '/api/ecommerce/design-directions') return json(completedDirections());
     if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });

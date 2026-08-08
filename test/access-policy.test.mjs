@@ -8,8 +8,15 @@ test('normalizes and allows the closed-beta owner email', () => {
   assert.equal(isAllowedBetaEmail(' 867550189@QQ.COM '), true);
 });
 
+test('allows the full beta tester account with unlimited usage without replacing the owner', () => {
+  assert.equal(isAllowedBetaEmail(' 240485042@QQ.COM '), true);
+  assert.equal(isUnlimitedBetaEmail(' 240485042@QQ.COM '), true);
+  assert.equal(isAllowedBetaEmail('867550189@qq.com'), true);
+  assert.equal(isUnlimitedBetaEmail('867550189@qq.com'), true);
+});
 
-test('grants unlimited generation entitlement only to the owner account', () => {
+
+test('rejects unlimited generation entitlement for unlisted accounts', () => {
   assert.equal(isUnlimitedBetaEmail(' 867550189@QQ.COM '), true);
   assert.equal(isUnlimitedBetaEmail('other@example.com'), false);
   assert.equal(isUnlimitedBetaEmail(''), false);

@@ -483,7 +483,8 @@ test('guarded path normalization preserves root and internal path bytes', async 
   assert.equal(normalizeGuardedPath('/api/canvas/%74ransform/'), '/api/canvas/%74ransform');
 });
 
-test('owner beta account has a testing-friendly rate limit without disabling abuse protection', () => {
+test('owner and full beta tester accounts share the testing rate limit without disabling abuse protection', () => {
   assert.deepEqual(getGenerationRateLimit('867550189@qq.com'), { max: 60, windowMs: 60_000 });
+  assert.deepEqual(getGenerationRateLimit('240485042@qq.com'), { max: 60, windowMs: 60_000 });
   assert.deepEqual(getGenerationRateLimit('someone@example.com'), { max: 10, windowMs: 60_000 });
 });

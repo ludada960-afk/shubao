@@ -94,3 +94,22 @@ test('delete and restore return not found when the signed owner does not own the
   assert.equal(deniedRestore.statusCode, 404);
   assert.equal(ownerDelete.statusCode, 200);
 });
+
+test('full beta tester saves and lists works under their own account identity', async () => {
+  const tester = '240485042@qq.com';
+  const { app, calls } = harness();
+  const saved = await invoke(app, 'POST', '/api/save-work', {
+    headers: { authorization: tester },
+    body: { work: { _saveKey: 'tester-work', _phone: '867550189@qq.com', title: '内测作品' } },
+  });
+  const listed = await invoke(app, 'GET', '/api/works', {
+    headers: { authorization: tester },
+  });
+
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(listed.body, [{ _phone: tester }]);
+  assert.equal(calls[0][0], 'save');
+  assert.equal(calls[0][1], tester);
+  assert.equal(calls[0][2]._phone, tester);
+  assert.deepEqual(calls[1], ['list', tester]);
+});

@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { requestJson } from './verify-production-billing.mjs';
 
 const DEFAULT_BASE_URL = 'https://shuimg.cn';
+const CANARY_OWNER_EMAIL = '867550189@qq.com';
 const DEFAULT_FIXTURE_PATH = fileURLToPath(new URL('../test_image.png', import.meta.url));
 const TERMINAL_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const DELIVERY_GROUPS = new Set(['白底图', '主图', '详情图', 'SKU', '素材']);
@@ -326,6 +327,9 @@ export async function verifyProductionEcommerce({
   const session = await request(`${root}/api/session`, { headers });
   if (session?.ok !== true || !String(session?.email || '').trim()) {
     throw new Error('Canary session is not authenticated');
+  }
+  if (String(session.email).trim().toLowerCase() !== CANARY_OWNER_EMAIL) {
+    throw new Error('Production ecommerce verification must use the main owner account');
   }
 
   const [product, reference] = await Promise.all([

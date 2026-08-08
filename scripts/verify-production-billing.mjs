@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 
 const DEFAULT_BASE_URL = 'https://shuimg.cn';
 const DEFAULT_TIMEOUT_MS = 20_000;
+const CANARY_OWNER_EMAIL = '867550189@qq.com';
 
 const wait = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
@@ -59,6 +60,10 @@ export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToke
   }
 
   const headers = { authorization: `Bearer ${sessionToken}` };
+  const session = await requestJson(`${root}/api/session`, { headers });
+  if (String(session?.email || '').trim().toLowerCase() !== CANARY_OWNER_EMAIL) {
+    throw new Error('Production verification must use the main owner account');
+  }
   const balanceBefore = await requestJson(`${root}/api/billing/balance`, { headers });
   if (balanceBefore.unlimited !== true) throw new Error('Canary owner is not unlimited');
   const quoteResponse = await requestJson(`${root}/api/billing/quote`, {

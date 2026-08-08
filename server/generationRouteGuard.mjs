@@ -1,3 +1,5 @@
+import { isUnlimitedBetaEmail } from './accessPolicy.mjs';
+
 const EXPENSIVE_POST_ROUTE_LIST = [
   '/api/generate',
   '/api/regenerate-image',
@@ -24,10 +26,7 @@ const EXPENSIVE_POST_ROUTE_LIST = [
 ];
 
 function isUnlimitedGenerationOwner(email) {
-  const normalized = String(email || '').trim().toLowerCase();
-  return normalized === '867550189@qq.com'
-    || (typeof process?.env?.SHUBAO_UNLIMITED_EMAILS === 'string'
-      && process.env.SHUBAO_UNLIMITED_EMAILS.split(',').some(value => value.trim().toLowerCase() === normalized));
+  return isUnlimitedBetaEmail(email);
 }
 
 export const BETA_GUARDED_POST_ROUTES = new Set(EXPENSIVE_POST_ROUTE_LIST);

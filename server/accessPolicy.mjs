@@ -1,4 +1,6 @@
 const DEFAULT_OWNER_EMAIL = '867550189@qq.com';
+const DEFAULT_BETA_TESTER_EMAILS = Object.freeze(['240485042@qq.com']);
+const DEFAULT_BETA_EMAILS = Object.freeze([DEFAULT_OWNER_EMAIL, ...DEFAULT_BETA_TESTER_EMAILS]);
 
 function configuredEmails(name, required = []) {
   const raw = typeof process?.env?.[name] === 'string' ? process.env[name] : '';
@@ -22,11 +24,11 @@ export function normalizeEmail(value) {
 }
 
 function closedBetaEmails() {
-  return configuredEmails('SHUBAO_CLOSED_BETA_EMAILS', [DEFAULT_OWNER_EMAIL]);
+  return configuredEmails('SHUBAO_CLOSED_BETA_EMAILS', DEFAULT_BETA_EMAILS);
 }
 
 function unlimitedBetaEmails() {
-  return configuredEmails('SHUBAO_UNLIMITED_EMAILS', [DEFAULT_OWNER_EMAIL]);
+  return configuredEmails('SHUBAO_UNLIMITED_EMAILS', DEFAULT_BETA_EMAILS);
 }
 
 export function isAllowedBetaEmail(value) {
