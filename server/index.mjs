@@ -288,7 +288,16 @@ app.use((req, res, next) => {
 
 // 轻量健康检查：供 PM2、反向代理和部署脚本判断进程是否真的能响应。
 app.get('/health', (req, res) => {
-  res.json({ ok: true, service: 'shubao', pid: process.pid, uptime: Math.round(process.uptime()), imageQueue: imageGenerationPool.stats() });
+  const ready = !shuttingDown;
+  res.status(ready ? 200 : 503).json({
+    ok: ready,
+    ready,
+    service: 'shubao',
+    pid: process.pid,
+    uptime: Math.round(process.uptime()),
+    imageQueue: imageGenerationPool.stats(),
+    ecommerceRuntime: orchestrator.runtimeStats(),
+  });
 });
 
 // HTTP → HTTPS 跳转（仅生产环境 shuimg.cn 且有 SSL 证书时启用）
@@ -4344,7 +4353,7 @@ const recoverEcommerceStartup = createEcommerceStartupRecovery({
   orchestrator,
   maxAttempts: 3,
   retryDelayMs: 250,
-  maxFollowUpScans: 3,
+  maxFollowUpScans: 40,
   followUpDelayMs: 30_000,
   onAttemptError(error, attempt) {
     console.error(`[ecommerce] 启动恢复扫描失败 (${attempt}/3):`, error.message);
@@ -4372,6 +4381,7 @@ httpServer = app.listen(PORT, () => {
   console.log(`║     → 电商商品图/XHS配图/Plog图片生成`);
   console.log(`╚══════════════════════════════════════════════════╝`);
   console.log(`   HTTP: http://localhost:${PORT}`);
+  process.send?.('ready');
 });
 httpServer.on('error', err => {
   console.error(`‼️ HTTP 服务启动失败 (${PORT}):`, err.message);
@@ -4409,9 +4419,21 @@ async function shutdown(signal) {
   shuttingDown = true;
   console.log(`[shutdown] 收到 ${signal}，停止接收新请求`);
   recoverEcommerceStartup.stop();
-  const force = setTimeout(() => process.exit(1), 10000);
+  const configuredDrainMs = Number(process.env.SHUBAO_SHUTDOWN_DRAIN_MS);
+  const drainTimeoutMs = Number.isSafeInteger(configuredDrainMs) && configuredDrainMs > 0
+    ? configuredDrainMs
+    : 18 * 60 * 1000;
+  const force = setTimeout(() => process.exit(1), drainTimeoutMs + 30_000);
   force.unref();
-  await Promise.all([closeServer(httpServer), closeServer(httpsServer)]);
+  const [ecommerceIdle, imageQueueIdle] = await Promise.all([
+    orchestrator.waitForIdle({ timeoutMs: drainTimeoutMs }),
+    imageGenerationPool.waitForIdle({ timeoutMs: drainTimeoutMs }),
+    closeServer(httpServer),
+    closeServer(httpsServer),
+  ]);
+  if (!ecommerceIdle || !imageQueueIdle) {
+    console.error('[shutdown] 后台任务未在排空期限内完成，将由持久化租约在新进程恢复');
+  }
   clearTimeout(force);
   process.exit(0);
 }

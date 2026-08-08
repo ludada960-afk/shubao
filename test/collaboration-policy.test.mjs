@@ -83,10 +83,10 @@ test('repository publishes one durable AI collaboration entrypoint', () => {
 
 test('production deployment script enforces a remote deployment lock', () => {
   const deploy = readFileSync(path.join(repoRoot, 'scripts', 'deploy-production.ps1'), 'utf8');
-  assert.match(deploy, /\.shubao-deploy\.lock/);
+  assert.match(deploy, /\.shubao-deploy-v2\.lock/);
   assert.match(deploy, /try\s*\{/);
   assert.match(deploy, /finally\s*\{/);
-  assert.match(deploy, /Release remote deployment lock/);
+  assert.match(deploy, /Released remote deployment lock/);
 });
 
 test('preflight output stays concise when many runtime files exist', () => {

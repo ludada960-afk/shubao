@@ -50,12 +50,12 @@ export function CanvasTopBar({
 }) {
   return <header className="ec-canvas-topbar">
     <div className="ec-canvas-topbar-leading">
-      <IconButton label="返回" onClick={onBack}><ArrowLeft size={17} /></IconButton>
+      <IconButton label="返回" className="ec-canvas-topbar-surface" onClick={onBack}><ArrowLeft size={18} /></IconButton>
       <div className="ec-canvas-project-title">
         <strong>{title || '电商画布'}</strong>
         <span><i className={saving ? 'is-saving' : ''} />{saving ? '正在保存' : meta}</span>
       </div>
-      <nav className="ec-canvas-tabs" aria-label="画布视图">
+      <nav className="ec-canvas-tabs ec-canvas-topbar-surface" aria-label="画布视图">
         {[['canvas', '当前画布'], ['works', '作品集'], ['trash', '回收站']].map(([id, label]) => <button
           key={id}
           type="button"
@@ -76,16 +76,16 @@ export function CanvasTopBar({
         onLogin={entitlement?.onLogin}
       />
       {tab === 'canvas' && <>
-        <label className="ec-canvas-filter">
+        <label className="ec-canvas-filter ec-canvas-topbar-surface">
           <span className="sr-only">图片类型</span>
           <select value={activeFilter} onChange={event => onFilterChange?.(event.target.value)}>
             {filters.map(filter => <option key={filter} value={filter}>{filter}</option>)}
           </select>
         </label>
-        <button type="button" className="ec-canvas-command" onClick={onExport}><Download size={15} />导出整套图片</button>
-        <IconButton label="恢复已保存画布" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={16} /></IconButton>
+        <button type="button" className="ec-canvas-command ec-canvas-topbar-surface" onClick={onExport}><Download size={16} />导出整套图片</button>
+        <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}
-      <button type="button" className="ec-canvas-command is-dark" onClick={onNew}><Sparkles size={15} />新建生图</button>
+      <button type="button" className="ec-canvas-command ec-canvas-topbar-surface is-dark" onClick={onNew}><Sparkles size={16} />新建生图</button>
     </div>
   </header>;
 }

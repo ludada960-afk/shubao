@@ -300,6 +300,36 @@ function shotTemplate(role, index, productName, context = {}) {
   ];
 }
 
+function cameraAssignmentFor(role, index) {
+  const canonical = role === 'main_text' || role === 'main_3x4' ? 'main' : role;
+  const assignments = {
+    white_background: ['正面平视标准商品机位', '轻微三分之四补充机位'],
+    transparent: ['正面平视完整素材机位', '轻微三分之四补充机位'],
+    sku: ['正面平视统一规格机位', '正面平视统一对照机位'],
+    main: [
+      '正面偏低的商品识别机位',
+      '左前三分之四的卖点近景机位',
+      '接近人眼高度的真实使用机位',
+      '右前三分之四的轮廓与材质机位',
+      '正面偏置的差异记忆机位',
+    ],
+    detail: [
+      '正面平视的核心卖点机位',
+      '侧向掠射光的材质微距机位',
+      '右前三分之四的结构关系机位',
+      '接近人眼高度的真实使用机位',
+      '正面直立、近似正交投影的公平对比机位',
+      '轻俯视的维护步骤机位',
+      '正面平视的配件清单机位',
+      '环境中景的人群场景机位',
+      '正面平视的事实对照机位',
+      '完整主体的品牌收束机位',
+    ],
+  };
+  const choices = assignments[canonical] || assignments.main;
+  return choices[index % choices.length];
+}
+
 function defaultDependencies(role) {
   if (role === 'white_background' || role === 'transparent' || role === 'sku') {
     return ['product_truth'];
@@ -337,15 +367,18 @@ function shotDetailDefaults({ role, index, productName, label, purpose, visualEx
   const copy = role === 'transparent'
     ? '不主动添加文案，保留完整干净主体供后续排版。'
     : `文字策略：${creativeProfile.typographyIntent}。文案语气：${creativeProfile.copyTone}。只围绕“${label}”提炼一句短标题，不添加未从商品图或用户输入确认的信息。`;
+  const cameraAssignment = cameraAssignmentFor(role, index);
+  const fairComparison = role === 'detail' && index % 10 === 4;
   return {
     objective: `${purpose}。本张只承担“${label}”这一项沟通任务，不重复其他图片的主重点。`,
     visual_style: `${referenceLine}视觉母题：${creativeProfile.visualMotif}。以真实材质、清晰轮廓和稳定色彩为优先。`,
     scene: `场景采用${roleScene}；${creativeProfile.sceneRule}。环境元素只服务于${product}的${label}展示，不抢主体。`,
     product_focus: `${factLine}保持${product}的外观、颜色、比例、组件关系、品牌标识和已确认文字一致。`,
     composition: `${visualExecution}。主体先完整可辨，再用景别、视角和留白建立层级；避免贴边、遮挡和无依据的结构变化。`,
+    camera_assignment: cameraAssignment,
     content_elements: `画面只安排能证明“${label}”的商品局部、道具、动作或尺度参照；${observations[0] ? `优先突出${observations[0]}。` : ''}`.trim(),
     copy,
-    negative_constraints: `${uncertaintyLine} ${referenceLine}`.trim(),
+    negative_constraints: `${uncertaintyLine} ${referenceLine}${fairComparison ? ' 不允许把斜向商品与正面参照物并排比较，也不允许混用视平线、基准面或透视比例。' : ''}`.trim(),
     role_index: index,
   };
 }
@@ -368,6 +401,16 @@ function normalizeShot(source, { role, index, archetype, productName, context })
     visualExecution: resolvedExecution,
     context,
   });
+  const cameraAssignment = firstString(
+    ownValue(shot, 'camera_assignment', 'cameraAssignment', 'target_camera', 'targetCamera'),
+    detailDefaults.camera_assignment,
+  );
+  const composition = firstString(ownValue(shot, 'composition', 'layout', 'camera'), detailDefaults.composition);
+  const negativeConstraints = firstString(
+    ownValue(shot, 'negative_constraints', 'negativeConstraints', 'constraints', 'prohibited'),
+    detailDefaults.negative_constraints,
+  );
+  const fairComparison = role === 'detail' && index % 10 === 4;
   return {
     index,
     label: resolvedLabel,
@@ -377,10 +420,11 @@ function normalizeShot(source, { role, index, archetype, productName, context })
     visual_style: firstString(ownValue(shot, 'visual_style', 'visualStyle', 'style'), detailDefaults.visual_style),
     scene: firstString(ownValue(shot, 'scene', 'scenario', 'scene_plan', 'scenario_plan'), detailDefaults.scene),
     product_focus: firstString(ownValue(shot, 'product_focus', 'productFocus', 'product_fidelity', 'productFidelity'), detailDefaults.product_focus),
-    composition: firstString(ownValue(shot, 'composition', 'layout', 'camera'), detailDefaults.composition),
+    camera_assignment: cameraAssignment,
+    composition: `${composition} 目标机位：${cameraAssignment}。${fairComparison ? '商品与所有参照物保持正面直立、同一视平线、同一基准面和同一投影关系。' : ''}`.trim(),
     content_elements: firstString(ownValue(shot, 'content_elements', 'contentElements', 'content', 'elements'), detailDefaults.content_elements),
     copy: firstString(ownValue(shot, 'copy', 'copywriting', 'text', 'copy_content'), detailDefaults.copy),
-    negative_constraints: firstString(ownValue(shot, 'negative_constraints', 'negativeConstraints', 'constraints', 'prohibited'), detailDefaults.negative_constraints),
+    negative_constraints: `${negativeConstraints}${fairComparison ? ' 不允许把斜向商品与正面参照物并排比较。' : ''}`.trim(),
     variation_key: firstString(
       ownValue(shot, 'variation_key', 'variationKey', 'variation'),
       variationKey,
@@ -456,6 +500,12 @@ function normalizeDirection(source, index, context) {
     ownValue(direction, 'execution_guide', 'executionGuide', 'editableBrief', 'editable_brief', 'description', 'brief'),
     `围绕“${archetype.objective}”建立统一主视觉。${creativeProfile.rationale}${archetype.heroFocus}；${archetype.scenarioPlan}。`,
   );
+  const baseAnglePlan = firstString(ownValue(strategySource, 'angle_plan', 'anglePlan'), archetype.anglePlan);
+  const sourceViewRule = context.sourceViewCount === 1
+    ? '单张源图只作为商品身份依据，不把上传角度复制到整套图；按逐张目标机位做保守换角，隐藏且无法确认的结构不作为画面重点。'
+    : context.sourceViewCount > 1
+      ? '综合所有商品事实图分配逐张目标机位，不让整套图重复同一视角。'
+      : '按逐张目标机位建立镜头变化，不虚构无法确认的商品结构。';
 
   return {
     schema_version: 1,
@@ -518,7 +568,7 @@ function normalizeDirection(source, index, context) {
     },
     product_strategy: {
       hero_focus: firstString(ownValue(strategySource, 'hero_focus', 'heroFocus'), archetype.heroFocus),
-      angle_plan: firstString(ownValue(strategySource, 'angle_plan', 'anglePlan'), archetype.anglePlan),
+      angle_plan: `${baseAnglePlan}；${sourceViewRule}`,
       interaction_plan: firstString(ownValue(strategySource, 'interaction_plan', 'interactionPlan'), archetype.interactionPlan),
       scenario_plan: firstString(ownValue(strategySource, 'scenario_plan', 'scenarioPlan'), creativeProfile.sceneRule, archetype.scenarioPlan),
       reference_adaptation: firstString(
@@ -534,6 +584,7 @@ function normalizeDirection(source, index, context) {
         visualObservations: context.visualObservations,
         productUncertainties: context.productUncertainties,
         referenceStyle: context.referenceStyle,
+        sourceViewCount: context.sourceViewCount,
         creativeProfile,
       },
     }, context.requestedImages, archetype, context.productName),
@@ -627,6 +678,9 @@ export function normalizeCreativeDirectionPlans(rawDirections, options = {}) {
     visualObservations: Array.isArray(options.visualObservations) ? options.visualObservations : [],
     productUncertainties: Array.isArray(options.productUncertainties) ? options.productUncertainties : [],
     referenceStyle: Array.isArray(options.referenceStyle) ? options.referenceStyle : [],
+    sourceViewCount: Number.isSafeInteger(options.sourceViewCount) && options.sourceViewCount >= 0
+      ? options.sourceViewCount
+      : 0,
   };
   return Array.from({ length: MAX_DIRECTION_COUNT }, (_, index) => normalizeDirection(sources[index], index, context));
 }

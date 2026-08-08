@@ -148,3 +148,79 @@ test('compiled provider prompts carry the exact shot, layout, and text-layer con
   assert.match(request.prompt, /"textLayerPlan"/);
   assert.match(request.prompt, /one complete independent image/i);
 });
+
+test('single-view suites assign evidence-safe target viewpoints instead of repeating the uploaded angle', () => {
+  const plan = buildAssetPlan({
+    productTruth: singleViewTruth(),
+    campaignBible,
+    platform: '淘宝',
+    sizing: {
+      images: [
+        { key: 'main_text', count: 3, ratio: '1:1' },
+        { key: 'detail', count: 4, ratio: '9:16' },
+      ],
+    },
+  });
+  const commercialShots = plan.filter(item => !['white_background', 'transparent', 'sku'].includes(item.role));
+
+  assert.ok(commercialShots.every(item => item.shotIntent.viewSynthesis?.sourceViewCount === 1));
+  assert.ok(commercialShots.every(item => item.shotIntent.viewSynthesis?.mode === 'single_view_conservative'));
+  assert.ok(commercialShots.every(item => /target camera|target viewpoint/i.test(item.shotIntent.productOrientation)));
+  assert.ok(commercialShots.every(item => !/preserve the authoritative product orientation/i.test(item.shotIntent.productOrientation)));
+  assert.ok(new Set(commercialShots.map(item => item.shotIntent.viewSynthesis?.targetView)).size >= 4);
+});
+
+test('scale comparison shots require one fair camera baseline for every compared object', () => {
+  const directed = directShot({
+    id: 'detail-slice-scale',
+    role: 'detail_slice_scale',
+    purpose: 'Show the fifth detail responsibility.',
+  }, {
+    productTruth: singleViewTruth(),
+    itemIndex: 4,
+  });
+
+  assert.equal(directed.type, 'usage_scale');
+  assert.equal(directed.comparisonContract?.enabled, true);
+  assert.equal(directed.comparisonContract?.orientation, 'upright front-facing neutral view');
+  assert.equal(directed.comparisonContract?.projection, 'same orthographic-like projection');
+  assert.equal(directed.comparisonContract?.baseline, 'same ground plane and eye-level camera');
+  assert.match(directed.comparisonContract?.scalePolicy || '', /confirmed dimensions|relative comparison/i);
+  assert.match(directed.comparisonContract?.forbiddenMismatch || '', /three-quarter|front-facing/i);
+});
+
+test('compiled comparison prompts make fair-view geometry an explicit generation instruction', () => {
+  const truth = singleViewTruth();
+  const plan = buildAssetPlan({
+    productTruth: truth,
+    campaignBible,
+    platform: '淘宝',
+    sizing: { images: [{ key: 'detail', count: 9, ratio: '9:16' }] },
+  });
+  const comparisonSeed = plan[0];
+  const comparison = {
+    ...comparisonSeed,
+    id: 'detail-slice-scale',
+    role: 'detail_slice_scale',
+    purpose: 'Compare the product size with familiar everyday objects.',
+    shotIntent: directShot({
+      id: 'detail-slice-scale',
+      role: 'detail_slice_scale',
+      purpose: 'Compare the product size with familiar everyday objects.',
+    }, { productTruth: truth, itemIndex: 4 }),
+  };
+
+  const request = compileAssetRequest({
+    assetPlanItem: comparison,
+    productTruth: truth,
+    campaignBible,
+    assets: {
+      product: [{ assetId: 'product-front', url: '/api/generated-assets/product-front.png' }],
+    },
+  });
+
+  assert.match(request.prompt, /"comparisonContract"/);
+  assert.match(request.prompt, /same orthographic-like projection/i);
+  assert.match(request.prompt, /same ground plane and eye-level camera/i);
+  assert.match(request.prompt, /never compare a three-quarter product view against front-facing objects/i);
+});

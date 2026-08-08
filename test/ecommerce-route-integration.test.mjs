@@ -493,6 +493,8 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.match(server, /app\.post\('\/api\/generate-ecommerce',\s*ecommerceRouteHandlers\.generate\)/);
   assert.match(server, /authenticateContentRequest\(req,\s*\{[\s\S]{0,200}sessionTokens:\s*contentSessionTokens/);
   assert.match(server, /createEcommerceStartupRecovery\(/);
+  assert.match(server, /maxFollowUpScans:\s*40/);
+  assert.match(server, /followUpDelayMs:\s*30_000/);
   assert.match(server, /await recoverEcommerceStartup\(\)/);
   assert.ok(server.indexOf('await recoverEcommerceStartup()') < server.indexOf('app.listen(PORT'));
   assert.match(server, /recoverEcommerceStartup\.stop\(\)/);

@@ -174,6 +174,28 @@ test('writes merchant-facing shot briefs with distinct visual decisions', () => 
   assert.ok(executions.every(value => !/继承“.*”的构图、光线和色彩系统/.test(value)));
 });
 
+test('visible plans turn a single uploaded view into explicit suite camera assignments', () => {
+  const [plan] = normalizeCreativeDirectionPlans([{}], {
+    productName: '不锈钢便携餐盒',
+    category: '餐具',
+    sourceViewCount: 1,
+    requestedImages: [
+      { key: 'main_text', label: '商品主图', count: 3, ratio: '1:1' },
+      { key: 'detail', label: '详情图', count: 5, ratio: '9:16' },
+    ],
+  });
+  const mainShots = plan.deliverables.find(group => group.role === 'main_text').shots;
+  const scaleShot = plan.deliverables.find(group => group.role === 'detail').shots[4];
+
+  assert.match(plan.product_strategy.angle_plan, /单张源图只作为商品身份依据/);
+  assert.equal(new Set(mainShots.map(shot => shot.camera_assignment)).size, mainShots.length);
+  assert.ok(mainShots.every(shot => /目标机位/.test(shot.composition)));
+  assert.match(scaleShot.composition, /正面直立/);
+  assert.match(scaleShot.composition, /同一视平线/);
+  assert.match(scaleShot.composition, /同一基准面/);
+  assert.match(scaleShot.negative_constraints, /斜向.*正面|正面.*斜向/);
+});
+
 test('new direction plans default detail screens to 9:16', () => {
   const [plan] = normalizeCreativeDirectionPlans([{}], {
     productName: '不锈钢便携餐盒',

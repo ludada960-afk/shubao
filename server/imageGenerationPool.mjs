@@ -7,6 +7,13 @@
 export function createImageGenerationPool({ concurrency = 3, maxQueue = 24 } = {}) {
   let active = 0;
   const queue = [];
+  const idleWaiters = new Set();
+
+  function notifyIdle() {
+    if (active || queue.length) return;
+    for (const resolve of idleWaiters) resolve(true);
+    idleWaiters.clear();
+  }
 
   function drain() {
     while (active < concurrency && queue.length) {
@@ -18,6 +25,7 @@ export function createImageGenerationPool({ concurrency = 3, maxQueue = 24 } = {
         .finally(() => {
           active -= 1;
           drain();
+          notifyIdle();
         });
     }
   }
@@ -33,6 +41,25 @@ export function createImageGenerationPool({ concurrency = 3, maxQueue = 24 } = {
     },
     stats() {
       return { active, queued: queue.length, concurrency, maxQueue };
+    },
+    waitForIdle({ timeoutMs = 0 } = {}) {
+      if (!active && !queue.length) return Promise.resolve(true);
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
+        return Promise.reject(new TypeError('timeoutMs must be a non-negative safe integer'));
+      }
+      return new Promise(resolve => {
+        let timer = null;
+        const finish = idle => {
+          if (timer) clearTimeout(timer);
+          idleWaiters.delete(finish);
+          resolve(idle);
+        };
+        idleWaiters.add(finish);
+        if (timeoutMs > 0) {
+          timer = setTimeout(() => finish(false), timeoutMs);
+          timer.unref?.();
+        }
+      });
     },
   };
 }

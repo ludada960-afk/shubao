@@ -390,6 +390,31 @@ function orchestrationSnapshot(items, holdId, schemaVersion = 3) {
   };
 }
 
+test('runtime drain waits for an active durable ecommerce job to finish', async t => {
+  let releaseSubmit;
+  let submitStarted;
+  const started = new Promise(resolve => { submitStarted = resolve; });
+  const { orchestrator } = await createHarness(t, {
+    submit: async ({ providerIndex }) => {
+      submitStarted();
+      await new Promise(resolve => { releaseSubmit = resolve; });
+      return { jobId: `provider-${providerIndex}`, status: 'queued' };
+    },
+  });
+  const created = orchestrator.createJob(jobInput('job-runtime-drain'));
+  const running = orchestrator.runJob(created.id);
+  await started;
+
+  assert.deepEqual(orchestrator.runtimeStats(), { activeJobs: 1 });
+  assert.equal(await orchestrator.waitForIdle({ timeoutMs: 5 }), false);
+  const draining = orchestrator.waitForIdle({ timeoutMs: 500 });
+  releaseSubmit();
+
+  await running;
+  assert.equal(await draining, true);
+  assert.deepEqual(orchestrator.runtimeStats(), { activeJobs: 0 });
+});
+
 test('runs the required sequence, persists stable bytes, and settles one successful item', async t => {
   const { orchestrator, jobs, calls } = await createHarness(t);
   const created = orchestrator.createJob(jobInput('job-success'));

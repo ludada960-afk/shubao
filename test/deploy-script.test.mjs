@@ -9,6 +9,10 @@ const ecommerceVerify = readFileSync(new URL('../scripts/verify-production-ecomm
 const backupHelper = readFileSync(new URL('../scripts/backup-runtime-db.cjs', import.meta.url), 'utf8');
 const runtimeConfigVerifier = readFileSync(new URL('../scripts/verify-runtime-config.cjs', import.meta.url), 'utf8');
 const runtimeConfigUpdater = readFileSync(new URL('../scripts/configure-runtime-gateways.cjs', import.meta.url), 'utf8');
+const productionEcosystem = readFileSync(new URL('../ecosystem.production.cjs', import.meta.url), 'utf8');
+const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
+const ecommerceIdleProbe = readFileSync(new URL('../scripts/check-ecommerce-idle.cjs', import.meta.url), 'utf8');
+const deploymentLockRunner = readFileSync(new URL('../scripts/deployment-lock-runner.sh', import.meta.url), 'utf8');
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
@@ -37,7 +41,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /SHUBAO_IMAGE_API_KEY/);
   assert.match(deploy, /SHUBAO_VISION_API_KEY/);
   assert.doesNotMatch(deploy, /SHUBAO_FAL_KEY|FAL_KEY/);
-  assert.match(deploy, /runtimePayload\s*\|\s*&\s*ssh/i);
+  assert.match(deploy, /Invoke-LockedRemote[^\n]*-InputText\s+\$runtimePayload/i);
   assert.doesNotMatch(deploy, /--replace-segmentation-key/i);
   assert.match(deploy, /root\.env/);
   assert.match(deploy, /server\.env/);
@@ -50,15 +54,23 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /deploy-backups/);
   assert.match(deploy, /tail -n \+4/);
   assert.match(deploy, /old backup retention cleanup failed/i);
+  assert.match(deploymentLockRunner, /flock -n/);
+  assert.match(deploy, /ProcessStartInfo/);
+  assert.match(deploy, /Assert-DeploymentLockHeld/);
+  assert.match(deploy, /LOCK_ACQUIRED/);
+  assert.doesNotMatch(deploy, /rm -rf -- '\$remoteLock'/);
   assert.match(deploy, /npm ci --omit=dev/);
-  assert.match(deploy, /seq 1 30/);
-  assert.match(deploy, /curl -fsS http:\/\/127\.0\.0\.1:3001\/health/);
+  assert.match(deploy, /seq 1 60/);
+  assert.match(deploy, /seq 1 120/);
+  assert.match(deploy, /curl -fsS http:\/\/127\.0\.0\.1:3002\/health/);
   assert.match(deploy, /catch\s*\{/);
   assert.match(deploy, /rollback/i);
   assert.match(deploy, /\$releaseStarted\s*=\s*\$false/);
   assert.match(deploy, /if\s*\(\$releaseStarted\)/);
-  assert.equal((deploy.match(/pm2 restart shubao/g) || []).length, 1);
-  assert.match(deploy, /pm2 restart shubao --update-env --max-memory-restart 1G/);
+  const releaseWindow = deploy.slice(deploy.indexOf("tar xzf '$remoteReleaseArchive'"), deploy.indexOf('Wait-PublicProductionReady'));
+  assert.doesNotMatch(releaseWindow, /pm2 restart shubao/);
+  assert.match(deploy, /pm2 startOrReload ecosystem\.production\.cjs --only shubao-production --update-env/);
+  assert.equal((deploy.match(/pm2 save/g) || []).length, 2);
   assert.match(deploy, /verify-production-billing\.ps1/);
   assert.match(deploy, /verify-production-ecommerce\.ps1/);
   assert.match(verify, /verify-production-billing\.mjs/);
@@ -73,6 +85,104 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /PM2 process restarted during initial ecommerce verification/i);
   assert.match(deploy, /Start-Sleep -Seconds \$CanarySeconds/);
   assert.match(deploy, /process restarted during canary/i);
+});
+
+test('deployment lock is process-backed and the foreground fences every production mutation', () => {
+  assert.match(deploymentLockRunner, /command -v flock/);
+  assert.match(deploy, /function\s+Invoke-LockedRemote/);
+  assert.match(deploy, /StandardInput\.WriteLine/);
+  assert.match(deploy, /ReadLineAsync/);
+  assert.match(deploy, /AddSeconds\(\$TimeoutSeconds \+ 60\)/);
+  assert.match(deploy, /RedirectStandardInput\s*=\s*\$true/);
+  assert.match(deploy, /StandardInput\.Close\(\)/);
+  assert.match(deploy, /HasExited/);
+  assert.match(deploy, /\.Kill\(/);
+  assert.doesNotMatch(deploy, /Start-Job/);
+  assert.doesNotMatch(deploy, /mmin \+/);
+  assert.doesNotMatch(deploy, /heartbeat/);
+  assert.ok((deploy.match(/Assert-DeploymentLockHeld/g) || []).length >= 5);
+  assert.ok((deploy.match(/Invoke-LockedRemote\s+-Command/g) || []).length >= 8);
+  assert.match(deploy, /deployment-lock-runner\.sh/);
+  assert.match(deploymentLockRunner, /flock\s+-n/);
+  assert.match(deploymentLockRunner, /base64\s+-d/);
+  assert.match(deploymentLockRunner, /input_payload=.*tr -d/);
+  assert.match(deploymentLockRunner, /timeout\s+--kill-after=30s/);
+  assert.doesNotMatch(deploymentLockRunner, /--foreground/);
+  assert.match(deploymentLockRunner, /printf\s+"\\nLOCK_RESULT/);
+  assert.match(deploymentLockRunner, /LOCK_RESULT/);
+});
+
+test('production uses one cluster worker with readiness and graceful background draining', () => {
+  assert.match(productionEcosystem, /name:\s*['"]shubao-production['"]/);
+  assert.match(productionEcosystem, /PORT:\s*['"]3002['"]/);
+  assert.match(productionEcosystem, /exec_mode:\s*['"]cluster['"]/);
+  assert.match(productionEcosystem, /instances:\s*1/);
+  assert.match(productionEcosystem, /wait_ready:\s*true/);
+  assert.match(productionEcosystem, /listen_timeout:\s*120_000/);
+  assert.match(productionEcosystem, /kill_timeout:\s*1_200_000/);
+  assert.match(serverSource, /process\.send\?\.\('ready'\)/);
+  assert.match(serverSource, /orchestrator\.waitForIdle/);
+  assert.match(serverSource, /imageGenerationPool\.waitForIdle/);
+});
+
+test('one-time migration probe closes its readonly database before returning status', () => {
+  assert.match(ecommerceIdleProbe, /process\.exitCode\s*=/);
+  assert.doesNotMatch(ecommerceIdleProbe, /process\.exit\(/);
+  assert.match(ecommerceIdleProbe, /finally\s*\{\s*db\.close\(\)/);
+  assert.match(ecommerceIdleProbe, /ecommerce_jobs/);
+  assert.match(ecommerceIdleProbe, /canvas_generation_jobs/);
+  assert.match(ecommerceIdleProbe, /content_generation_jobs/);
+  assert.match(ecommerceIdleProbe, /tasks/);
+});
+
+test('production static files switch through a versioned atomic symlink', () => {
+  const nginx = readFileSync(new URL('../scripts/nginx/shuimg.cn.conf', import.meta.url), 'utf8');
+  assert.match(nginx, /root \/var\/www\/shubao\/current;/);
+  assert.match(nginx, /proxy_pass http:\/\/127\.0\.0\.1:3002/);
+  assert.match(deploy, /\/var\/www\/shubao\/releases/);
+  assert.match(deploy, /\$remoteStaticNext = "\$WebRoot\.next"/);
+  assert.match(deploy, /ln -s \$remoteStaticRelease \$remoteStaticNext/);
+  assert.match(deploy, /mv -Tf \$remoteStaticNext \$WebRoot/);
+  assert.doesNotMatch(deploy, /sudo cp -a \$RemoteDir\/dist\/\. \$WebRoot\//);
+});
+
+test('one-time PM2 migration cuts traffic to a healthy blue-green worker before retiring the legacy process', () => {
+  const clusterStart = deploy.indexOf('pm2 start ecosystem.production.cjs --only shubao-production --update-env');
+  const clusterHealth = deploy.indexOf('curl -fsS http://127.0.0.1:3002/health');
+  const nginxReload = deploy.indexOf('sudo systemctl reload nginx');
+  const canaryWait = deploy.indexOf('Start-Sleep -Seconds $CanarySeconds');
+  const legacyDelete = deploy.indexOf('pm2 delete shubao >/dev/null 2>&1 || true');
+  assert.ok(clusterStart >= 0 && clusterStart < clusterHealth);
+  assert.ok(clusterHealth < nginxReload);
+  assert.ok(nginxReload < canaryWait);
+  assert.ok(canaryWait < legacyDelete);
+  assert.match(deploy, /ss -Htn state established/);
+});
+
+test('first-migration rollback restores and proves legacy health before switching traffic or retiring the cluster', () => {
+  assert.match(deploy, /legacy-pid/);
+  assert.match(deploy, /legacy-server\.sha256/);
+  assert.match(deploy, /sha256sum -c \$remoteBackup\/legacy-server\.sha256/);
+  const rollback = deploy.slice(deploy.indexOf('$rollbackCommand ='));
+  const rollbackSteps = [
+    'legacy_pid_before=',
+    'legacy-pid',
+    'legacy_pid_after=',
+    'pm2 pid shubao',
+    'if [ `"`$legacy_pid_after`" != `"`$legacy_pid_before`" ]',
+    'pm2 restart shubao --update-env',
+    'curl -fsS http://127.0.0.1:3001/health',
+    'sudo cp $remoteBackup/nginx-config',
+    'sudo systemctl reload nginx',
+    'pm2 delete shubao-production',
+  ];
+  let previous = -1;
+  for (const step of rollbackSteps) {
+    const position = rollback.indexOf(step, previous + 1);
+    assert.ok(position > previous, `rollback step is missing or out of order: ${step}`);
+    previous = position;
+  }
+  assert.ok((deploy.match(/-TimeoutSeconds 2400/g) || []).length >= 2);
 });
 
 test('production deploy tolerates transient SSH handshake failures', () => {

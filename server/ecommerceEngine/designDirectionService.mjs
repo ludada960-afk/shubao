@@ -397,6 +397,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         visualObservations: analysis.product_observations,
         productUncertainties: analysis.product_uncertainties,
         referenceStyle: analysis.reference_style,
+        sourceViewCount: productImages.length,
       }).map(direction => bindCreativeRoute(direction, creativeRoute));
       const plannerComplete = plannerHasOneUsableDirection(parsedPlan?.directions);
       // A completed visual pass plus the local complete plan is a usable

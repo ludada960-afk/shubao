@@ -906,6 +906,38 @@ export function createEcommerceOrchestrator(deps = {}) {
     && own(deps, 'parentLeaseHeartbeatMs') < parentLeaseMs
     ? own(deps, 'parentLeaseHeartbeatMs')
     : Math.max(10, Math.floor(parentLeaseMs / 3));
+  const activeRuns = new Set();
+  const idleWaiters = new Set();
+
+  function notifyRuntimeIdle() {
+    if (activeRuns.size) return;
+    for (const resolve of idleWaiters) resolve(true);
+    idleWaiters.clear();
+  }
+
+  function runtimeStats() {
+    return { activeJobs: activeRuns.size };
+  }
+
+  function waitForIdle({ timeoutMs = 0 } = {}) {
+    if (!activeRuns.size) return Promise.resolve(true);
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
+      return Promise.reject(new TypeError('timeoutMs must be a non-negative safe integer'));
+    }
+    return new Promise(resolve => {
+      let timer = null;
+      const finish = idle => {
+        if (timer) clearTimeout(timer);
+        idleWaiters.delete(finish);
+        resolve(idle);
+      };
+      idleWaiters.add(finish);
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => finish(false), timeoutMs);
+        timer.unref?.();
+      }
+    });
+  }
 
   function getJob(idInput, { ownerEmail } = {}) {
     const id = validateId(idInput, 'job id');
@@ -1731,7 +1763,7 @@ export function createEcommerceOrchestrator(deps = {}) {
       : settleVerifiedSuiteAssets({ job, assetPlan, holdId });
   }
 
-  async function runJob(idInput, { leaseToken: suppliedLeaseToken = '' } = {}) {
+  async function executeJob(idInput, { leaseToken: suppliedLeaseToken = '' } = {}) {
     const id = validateId(idInput, 'job id');
     let job = jobs.get(id);
     if (!job) throw httpError('任务不存在', 404, 'ECOMMERCE_JOB_NOT_FOUND');
@@ -2115,6 +2147,16 @@ export function createEcommerceOrchestrator(deps = {}) {
     }
   }
 
+  function runJob(idInput, options = {}) {
+    const execution = executeJob(idInput, options);
+    activeRuns.add(execution);
+    execution.finally(() => {
+      activeRuns.delete(execution);
+      notifyRuntimeIdle();
+    }).catch(() => {});
+    return execution;
+  }
+
   async function resumeJobs() {
     const claims = [];
     const claimedIds = new Set();
@@ -2149,6 +2191,8 @@ export function createEcommerceOrchestrator(deps = {}) {
     listJobs,
     resumeJobs,
     runJob,
+    runtimeStats,
+    waitForIdle,
   };
 }
 

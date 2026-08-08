@@ -53,6 +53,39 @@ function cameraFor(type, itemIndex) {
   return { ...base, azimuth: normalizedAzimuth(base.azimuth + offset) };
 }
 
+function targetViewFor(type, camera) {
+  const family = {
+    identity: 'canonical identity view',
+    feature: 'feature-led three-quarter view',
+    usage_scale: 'eye-level contextual view',
+    alternate_angle: 'opposite exterior three-quarter view',
+    open_state: 'interaction-state view',
+    material_macro: 'material detail view',
+    component_relationship: 'component relationship view',
+    exploded_view: 'confirmed assembly view',
+    packaging: 'packaging identity view',
+  }[type] || 'faithful product view';
+  return `${family}; elevation ${camera.elevation} degrees, azimuth ${camera.azimuth} degrees, ${camera.distance}`;
+}
+
+function requiresFairComparison(item) {
+  const role = cleanString(item?.role).toLowerCase();
+  const purpose = cleanString(item?.purpose).toLowerCase();
+  return /(?:^|_)scale(?:_|$)|comparison/.test(role)
+    || /comparison|compare|尺寸|大小|对比/.test(purpose);
+}
+
+function fairComparisonContract() {
+  return {
+    enabled: true,
+    orientation: 'upright front-facing neutral view',
+    projection: 'same orthographic-like projection',
+    baseline: 'same ground plane and eye-level camera',
+    scalePolicy: 'Use confirmed dimensions when available; otherwise show an explicitly relative comparison without numerical size claims or perspective distortion.',
+    forbiddenMismatch: 'Never compare a three-quarter product view against front-facing objects, mix camera elevations, or enlarge one object through perspective.',
+  };
+}
+
 function intentFor(item, roleIndex) {
   const role = cleanString(item?.role).toLowerCase();
   const subrole = role.replace(/^detail_slice_/, '');
@@ -158,15 +191,33 @@ export function directShot(item = {}, context = {}) {
   ]).slice(0, 8);
   const truthMutations = uniqueStrings(productTruth.forbiddenMutations);
   const role = cleanString(item?.role).toLowerCase();
+  const comparisonContract = requiresFairComparison(item) ? fairComparisonContract() : null;
+  const plannedCamera = cameraFor(type, itemIndex);
+  const camera = comparisonContract
+    ? { ...plannedCamera, elevation: 0, azimuth: 0, distance: 'medium', lensIntent: 'fair scale comparison' }
+    : plannedCamera;
+  const catalogIsolation = ['white_background', 'transparent', 'sku'].includes(role);
+  const targetView = targetViewFor(type, camera);
+  const viewSynthesis = catalogIsolation ? null : {
+    sourceViewCount: sourceViews.length,
+    mode: sourceViews.length > 1 ? 'multi_view_grounded' : 'single_view_conservative',
+    targetView,
+    inferencePolicy: sourceViews.length > 1
+      ? 'Use all authoritative product views to realize the assigned target viewpoint without changing identity.'
+      : 'Synthesize only a conservative camera change around the complete visible exterior; keep ambiguous hidden details unfeatured and unchanged.',
+    suiteRule: 'Treat the uploaded view as identity evidence, not as a camera angle that every suite image must repeat.',
+  };
 
   return {
     type,
     requestedType,
     label: labelFor(item, type, roleIndex),
-    camera: cameraFor(type, itemIndex),
-    productOrientation: type === 'alternate_angle'
-      ? 'show a different evidence-supported exterior side'
-      : 'preserve the authoritative product orientation and geometry',
+    camera,
+    productOrientation: catalogIsolation
+      ? 'preserve the authoritative product orientation and geometry'
+      : `Reorient the complete product to the target camera and target viewpoint (${targetView}) while preserving exact geometry, proportions, part count, labels, colors, and product identity.`,
+    ...(viewSynthesis ? { viewSynthesis } : {}),
+    ...(comparisonContract ? { comparisonContract } : {}),
     interactionState: interactionFor(type),
     sceneFamily: sceneFamilyFor(type, role),
     crop: cropFor(type),

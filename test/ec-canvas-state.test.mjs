@@ -23,6 +23,7 @@ const canvasSource = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', imp
 const canvasChromeSource = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasChrome.jsx', import.meta.url), 'utf8');
 const canvasStudioSource = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
 const worksSource = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
+const canvasCss = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
 
 
 test('select drag starts marquee while hand and temporary navigation gestures pan', () => {
@@ -265,6 +266,17 @@ test('credit hover keeps every label legible on the dark Canvas hover state', ()
   assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-copy small \{ color: #d9dde7; \}/);
   assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-copy strong \{ color: #fff; \}/);
   assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-arrow \{ color: #d9dde7; \}/);
+});
+
+test('Canvas top navigation uses one spacious control rhythm and consistent surface feedback', () => {
+  assert.match(canvasCss, /--ec-canvas-topbar-control-height:\s*38px/);
+  assert.match(canvasCss, /\.ec-canvas-topbar\s*\{[\s\S]*?height:\s*62px;[\s\S]*?flex:\s*0 0 62px;/);
+  assert.match(canvasCss, /\.ec-canvas-topbar-actions\s*\{\s*gap:\s*9px;/);
+  assert.match(canvasCss, /\.ec-canvas-topbar-surface[\s\S]*?border:\s*1px solid var\(--canvas-hairline\);[\s\S]*?box-shadow:\s*0 2px 7px rgba\(21, 23, 26, \.08\);/);
+  assert.match(canvasCss, /\.ec-canvas-topbar-surface:hover:not\(:disabled\)[\s\S]*?transform:\s*translateY\(-1px\);/);
+  assert.match(canvasChromeSource, /className="ec-canvas-tabs ec-canvas-topbar-surface"/);
+  assert.match(canvasChromeSource, /className="ec-canvas-command ec-canvas-topbar-surface"/);
+  assert.match(canvasChromeSource, /className="ec-canvas-filter ec-canvas-topbar-surface"/);
 });
 
 test('image information opens an editable product dialog and saves node metadata', () => {
