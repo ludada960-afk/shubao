@@ -27,14 +27,12 @@ export default function HomePage() {
     {
       mode: 'ecommerce',
       title: '电商生图',
-      description: '商品套图与详情视觉',
-      src: '/images/style-packs/case141.jpg',
+      src: '/images/home/workspace-ecommerce.png',
     },
     {
       mode: 'content',
       title: '小红书图文',
-      description: '种草内容与生活方式表达',
-      src: '/images/style-packs/case462.jpg',
+      src: '/images/home/workspace-xhs.png',
     },
   ];
 
@@ -127,8 +125,6 @@ export default function HomePage() {
                     <span className="homepage-mode-card-visual">
                       <img src={option.src} alt={`${option.title}案例`} loading="eager" />
                     </span>
-                    <span className="homepage-mode-card-description">{option.description}</span>
-                    <span className="homepage-mode-card-state">{active ? '当前工作台' : '切换进入'}</span>
                   </button>
                 );
               })}

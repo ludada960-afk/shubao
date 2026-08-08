@@ -20,7 +20,7 @@ export default function Footer() {
           <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-bold)' }}>薯包AI</span>
         </div>
         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-hint)', margin: '0 0 8px' }}>
-          AI 小红书爆款图文 + 电商商品图生成
+          一站式 AI 视觉内容策划、生成与编辑
         </p>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 'var(--text-xs)', color: 'var(--text-invisible)' }}>
           <span style={{ cursor: 'pointer' }} onClick={() => go('home', 'content')}>小红书图文</span>
