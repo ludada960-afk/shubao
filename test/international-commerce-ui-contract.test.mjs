@@ -38,15 +38,21 @@ test('smart ecommerce remains one complete suite that includes detail images', (
   assert.deepEqual(resolveSizingImages('smart', { smart: true, images: [], contentType: 'detail' }), suite);
 });
 
-test('platform picker exposes grouped markets and language without content type tabs', () => {
+test('platform picker exposes a flat option list and language without content type tabs', () => {
   assert.match(sizingPanel, /COMMERCE_PLATFORMS/);
-  assert.match(sizingPanel, /国内平台/);
-  assert.match(sizingPanel, /跨境平台/);
+  assert.doesNotMatch(sizingPanel, />智能推荐</);
+  assert.doesNotMatch(sizingPanel, />国内平台</);
+  assert.doesNotMatch(sizingPanel, />跨境平台</);
   assert.match(sizingPanel, /目标语言/);
   assert.match(commerceRegistry, /无文字（纯视觉）/);
   assert.doesNotMatch(sizingPanel, /COMMERCE_CONTENT_TYPES/);
   assert.match(ecMode, /targetLanguage/);
   assert.match(ecMode, /const contentType = 'main'/);
+});
+
+test('nested option portals remain inside the ecommerce configuration interaction boundary', () => {
+  assert.match(ecMode, /closest\?\.\('\[data-anchored-portal="true"\]'\)/);
+  assert.match(ecMode, /ec-workbench-submit-actions[\s\S]*hasOverrides[\s\S]*恢复智能方案[\s\S]*ec-workbench-next/);
 });
 
 test('pending generation and orchestration preserve the same commerce context', () => {

@@ -189,6 +189,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       const btnRow = btnRowRef.current;
       if (panel && panel.contains(e.target)) return;
       if (btnRow && btnRow.contains(e.target)) return;
+      if (e.target?.closest?.('[data-anchored-portal="true"]')) return;
       setActivePanel(null);
     };
     window.addEventListener('keydown', handleKey);
@@ -918,9 +919,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                 {assetUploadError}
               </div>
             )}
+            <div className="ec-workbench-submit-actions">
+            {hasOverrides && (
+              <button type="button" className="ec-restore-smart" onClick={restoreSmartPlan}>
+                恢复智能方案
+              </button>
+            )}
             <button className="ec-workbench-next" disabled={!canGen || uploadingAssets} onClick={handleNext}
             style={{
-              marginLeft: 'auto', height: 38, padding: '0 22px', borderRadius: 12,
+              height: 38, padding: '0 22px', borderRadius: 12,
               border: 'none', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
               background: canGen && !uploadingAssets
                 ? 'linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f59e0b 100%)'
@@ -934,14 +941,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = canGen && !uploadingAssets ? '0 4px 16px rgba(124,58,237,0.3)' : 'none'; }}>
             {uploadingAssets ? '正在上传原图…' : '下一步'} <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
             </button>
-          </div>
-          {hasOverrides && (
-            <div className="ec-workbench-secondary-row">
-              <button type="button" className="ec-restore-smart" onClick={restoreSmartPlan}>
-                恢复智能方案
-              </button>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

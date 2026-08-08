@@ -110,7 +110,10 @@ export default function SizingPanel({
   // 已激活的 key 集合
   const activeKeys = useMemo(() => new Set(activeImages.map(i => i.key)), [activeImages]);
   // 是否已被用户自定义
-  const isCustomized = sizing.smart === false || (sizing.images?.length > 0 && !sizing.smart);
+  const isCustomized = platform !== 'smart'
+    || targetLanguage !== 'zh-CN'
+    || sizing.smart === false
+    || (sizing.images?.length > 0 && !sizing.smart);
 
   /* ── 平台切换 ── */
   const handlePlatform = useCallback((key) => {
@@ -122,13 +125,14 @@ export default function SizingPanel({
       onSizingChange?.({ smart: true, images: newImages });
     }
     setPlatformOpen(false);
-    onOverride?.(false);
+    onOverride?.(key !== 'smart');
   }, [onPlatformChange, onPlatformSizingChange, onSizingChange, onOverride, resolution]);
 
   const handleLanguage = useCallback((nextLanguage) => {
     onTargetLanguageChange?.(nextLanguage);
     setLanguageOpen(false);
-  }, [onTargetLanguageChange]);
+    onOverride?.(nextLanguage !== 'zh-CN');
+  }, [onOverride, onTargetLanguageChange]);
 
   /* ── 切换图片类型勾选 ── */
   const toggleType = useCallback((typeKey) => {
@@ -228,19 +232,12 @@ export default function SizingPanel({
             </button>
             {platformOpen && (
               <AnchoredPortal anchorRef={platformButtonRef} open={platformOpen} onDismiss={() => setPlatformOpen(false)} align="center" minWidth={320} maxWidth={420} className="ec-commerce-menu">
-                <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{['smart', 'domestic', 'cross-border'].map(group => {
-                  const options = COMMERCE_PLATFORMS.filter(item => item.group === group);
-                  if (!options.length) return null;
-                  return <div key={group}>
-                    <div style={{ padding: '6px 8px 4px', fontSize: 10, color: 'var(--text-muted)', fontWeight: 800 }}>{group === 'smart' ? '智能推荐' : group === 'domestic' ? '国内平台' : '跨境平台'}</div>
-                    {options.map(option => (
+                <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{COMMERCE_PLATFORMS.map(option => (
                       <button key={option.id} type="button" onClick={() => handlePlatform(option.id)}
                         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', border: 0, borderRadius: 8, background: option.id === platform ? 'rgba(124,58,237,0.10)' : 'transparent', color: option.id === platform ? '#6d28d9' : 'var(--text-primary)', fontSize: 12, fontWeight: option.id === platform ? 800 : 500, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
                         <span>{option.label}</span><span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{option.locale}</span>
                       </button>
-                    ))}
-                  </div>;
-                })}</div>
+                    ))}</div>
               </AnchoredPortal>
             )}
           </div>

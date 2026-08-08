@@ -282,7 +282,7 @@
 .ec-workbench-actions { display: flex; flex-direction: column; gap: 8px; }
 .ec-workbench-primary-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ec-workbench-tools { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
-.ec-workbench-secondary-row { display: flex; justify-content: flex-end; min-height: 34px; }
+.ec-workbench-submit-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .ec-restore-smart {
   min-height: 34px;
   padding: 0 13px;
@@ -1782,8 +1782,9 @@
   }
   .ec-workbench-tools > div,
   .ec-workbench-tools > button { flex: 0 0 auto; }
+  .ec-workbench-submit-actions { gap: 6px; }
+  .ec-restore-smart { min-height: 40px; padding-inline: 10px; }
   .ec-workbench-next { margin-left: 0 !important; height: 40px !important; padding-inline: 16px !important; }
-  .ec-workbench-secondary-row { justify-content: flex-end; padding-inline: 2px; }
   .ec-workbench-heading { padding-inline: 2px; }
   .ec-workbench-heading strong { font-size: 16px; }
   .ec-xhs-composer { padding: 7px 4px 8px; }
