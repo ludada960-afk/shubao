@@ -165,6 +165,7 @@ test('one-time migration probe closes its readonly database before returning sta
   assert.match(ecommerceIdleProbe, /canvas_generation_jobs/);
   assert.match(ecommerceIdleProbe, /content_generation_jobs/);
   assert.match(ecommerceIdleProbe, /tasks/);
+  assert.match(ecommerceIdleProbe, /status = 'processing' OR \(status = 'pending' AND updated_at >= datetime\('now', '-15 minutes'\)\)/);
 });
 
 test('production static files switch through a versioned atomic symlink', () => {

@@ -20,7 +20,9 @@ const checks = [
   },
   {
     table: 'tasks',
-    where: "status IN ('pending', 'processing')",
+    // Pending legacy tasks can remain in the database after a browser closes.
+    // Only a recently updated pending task can still be picked up by the old worker.
+    where: "status = 'processing' OR (status = 'pending' AND updated_at >= datetime('now', '-15 minutes'))",
   },
 ];
 
