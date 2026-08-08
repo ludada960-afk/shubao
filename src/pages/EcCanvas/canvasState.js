@@ -6,6 +6,11 @@ export function getCanvasPointerIntent({ tool = 'select', button = 0, altKey = f
   return 'marquee';
 }
 
+export function getNodePointerIntent({ tool = 'select', button = 0 } = {}) {
+  if (button !== 0) return 'ignore';
+  return tool === 'hand' ? 'select' : 'drag';
+}
+
 export function canvasCursorForState({ tool = 'select', pointerKind = null, spaceKey = false } = {}) {
   if (pointerKind === 'pan') return 'grabbing';
   if (pointerKind === 'marquee') return 'crosshair';
@@ -25,6 +30,11 @@ export function zoomAroundCursor(viewport, point, factor) {
   const worldX = (point.x - viewport.x) / viewport.scale;
   const worldY = (point.y - viewport.y) / viewport.scale;
   return { scale, x: point.x - worldX * scale, y: point.y - worldY * scale };
+}
+
+export function zoomPreviewByWheel(scale, deltaY) {
+  const factor = deltaY < 0 ? 1.15 : 0.87;
+  return Math.max(0.5, Math.min(4, Number((scale * factor).toFixed(2))));
 }
 
 export const ASSET_GROUPS = ['白底图', '主图', '详情图', 'SKU', '素材'];

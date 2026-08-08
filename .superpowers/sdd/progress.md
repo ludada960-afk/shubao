@@ -1532,3 +1532,15 @@
   session token was held only in the deployment process and removed at exit;
   user-owned extension-task deletions, `.tmp/`, and the diagnosis helper remain
   untouched.
+
+- Canvas interaction follow-up completed locally on 2026-08-08. The shared
+  entitlement control now preserves readable label, numeric balance, and
+  recharge-arrow colors over its Canvas dark hover state. Long-image preview
+  opens at 100%, listens to a non-passive mouse wheel, clamps zoom to 50%-400%,
+  and resets when closed or replaced. Hand mode retains empty-canvas panning,
+  but clicking a node selects it and exposes the same object toolbar as Select
+  mode; modifier multi-selection remains available in both modes. Focused
+  tests passed, the full serial suite passed `1282/1282`, and production build
+  (`6457` modules), build check, collaboration policy, and whitespace validation
+  passed. Browser-only visual inspection was not run because the local gstack
+  browse binary has not been set up; no runtime file or credential was changed.

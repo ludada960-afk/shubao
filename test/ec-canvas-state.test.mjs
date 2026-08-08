@@ -8,12 +8,14 @@ import {
   fitViewport,
   readableInitialViewport,
   getCanvasPointerIntent,
+  getNodePointerIntent,
   canvasCursorForState,
   moveSelectedNodes,
   normalizeAsset,
   removeConnectionsForNodes,
   selectNodesInRect,
   zoomAroundCursor,
+  zoomPreviewByWheel,
 } from '../src/pages/EcCanvas/canvasState.js';
 import { readFileSync } from 'node:fs';
 
@@ -30,6 +32,12 @@ test('select drag starts marquee while hand and temporary navigation gestures pa
   assert.equal(getCanvasPointerIntent({ tool: 'select', button: 0, altKey: true }), 'pan');
   assert.equal(getCanvasPointerIntent({ tool: 'select', button: 0, spaceKey: true }), 'pan');
   assert.equal(getCanvasPointerIntent({ tool: 'hand', button: 0 }), 'pan');
+});
+
+test('hand mode selects a node while preserving empty-canvas panning', () => {
+  assert.equal(getCanvasPointerIntent({ tool: 'hand', button: 0 }), 'pan');
+  assert.equal(getNodePointerIntent({ tool: 'hand', button: 0 }), 'select');
+  assert.equal(getNodePointerIntent({ tool: 'select', button: 0 }), 'drag');
 });
 
 test('canvas controls do not start pan or marquee gestures', () => {
@@ -76,6 +84,12 @@ test('zoom keeps the canvas point under the cursor fixed', () => {
   const after = zoomAroundCursor(before, point, 1.25);
   assert.equal((point.x - after.x) / after.scale, (point.x - before.x) / before.scale);
   assert.equal((point.y - after.y) / after.scale, (point.y - before.y) / before.scale);
+});
+
+test('preview wheel zoom stays within a usable range', () => {
+  assert.equal(zoomPreviewByWheel(1, -120), 1.15);
+  assert.equal(zoomPreviewByWheel(0.5, 120), 0.5);
+  assert.equal(zoomPreviewByWheel(4, -120), 4);
 });
 
 test('fitViewport centres a node group', () => {
@@ -242,6 +256,15 @@ test('Canvas persists uploaded source assets through durable ecommerce storage',
 test('double-click image preview is a keyboard-accessible dialog', () => {
   assert.match(canvasSource, /role="dialog" aria-modal="true" aria-label=\{`\$\{zoomImg\.label \|\| '图片'\}大图预览`\}/);
   assert.match(canvasSource, /button type="button" aria-label="关闭大图预览"/);
+  assert.match(canvasSource, /bindNonPassiveWheel\(previewDialogRef\.current, handlePreviewWheel\)/);
+  assert.match(canvasSource, /transform:\s*`scale\(\$\{previewScale\}\)`/);
+});
+
+test('credit hover keeps every label legible on the dark Canvas hover state', () => {
+  const control = readFileSync(new URL('../src/components/billing/AccountEntitlementControl.jsx', import.meta.url), 'utf8');
+  assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-copy small \{ color: #d9dde7; \}/);
+  assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-copy strong \{ color: #fff; \}/);
+  assert.match(control, /\.account-entitlement-value:hover \.account-entitlement-arrow \{ color: #d9dde7; \}/);
 });
 
 test('image information opens an editable product dialog and saves node metadata', () => {

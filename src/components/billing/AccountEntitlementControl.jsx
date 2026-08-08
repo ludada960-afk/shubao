@@ -45,6 +45,9 @@ export default function AccountEntitlementControl({
         .account-entitlement-copy small { color: #aeb3bf; font-size: 10px; line-height: 1; }
         .account-entitlement-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 12px; line-height: 1.2; }
         .account-entitlement-arrow { color: #aeb3bf; margin-left: 2px; }
+        .account-entitlement-value:hover .account-entitlement-copy small { color: #d9dde7; }
+        .account-entitlement-value:hover .account-entitlement-copy strong { color: #fff; }
+        .account-entitlement-value:hover .account-entitlement-arrow { color: #d9dde7; }
         .account-entitlement-control[data-state="error"] .account-entitlement-value { border-color: #d99b53 !important; }
         @media (max-width: 639px) {
           .topbar-actions .account-entitlement-control { gap: 2px; }

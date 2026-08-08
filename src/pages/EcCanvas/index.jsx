@@ -9,6 +9,7 @@ import {
   canvasCursorForState,
   fitViewport,
   getCanvasPointerIntent,
+  getNodePointerIntent,
   getAssetMeta,
   moveSelectedNodes,
   normalizeAsset,
@@ -16,6 +17,7 @@ import {
   removeConnectionsForNodes,
   selectNodesInRect,
   zoomAroundCursor,
+  zoomPreviewByWheel,
 } from './canvasState';
 import {
   createChildConnection,
@@ -488,6 +490,7 @@ export default function EcCanvas() {
   const [pastWorks, setPastWorks] = useState([]);
   const [trashWorks, setTrashWorks] = useState([]);
   const [zoomImg, setZoomImg] = useState(null);
+  const [previewScale, setPreviewScale] = useState(1);
   const [toast, setToast] = useState(null);
   const [promptLoading, setPromptLoading] = useState(false);
   const [editingTextNodeId, setEditingTextNodeId] = useState(null);
@@ -506,6 +509,7 @@ export default function EcCanvas() {
   const [canvasSession, setCanvasSession] = useState(null);
   const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
+  const previewDialogRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
   const dragFrameRef = useRef(null);
@@ -1087,6 +1091,23 @@ export default function EcCanvas() {
     });
   }, []);
 
+  const openImagePreview = useCallback((image) => {
+    setPreviewScale(1);
+    setZoomImg(image);
+  }, []);
+
+  const closeImagePreview = useCallback(() => {
+    setZoomImg(null);
+    setPreviewScale(1);
+  }, []);
+
+  const handlePreviewWheel = useCallback((e) => {
+    e.preventDefault();
+    setPreviewScale(scale => zoomPreviewByWheel(scale, e.deltaY));
+  }, []);
+
+  useEffect(() => bindNonPassiveWheel(previewDialogRef.current, handlePreviewWheel), [handlePreviewWheel, zoomImg]);
+
   const handleCanvasActionError = useCallback((error, action = {}) => {
     const accessResult = handleGenerationAccessError(error, dispatch, {
       source: 'canvas',
@@ -1112,10 +1133,6 @@ export default function EcCanvas() {
     setContextMenu(null);
     setConnectionPicker(null);
     setAddMenuOpen(false);
-    if (activeTool === 'hand') {
-      setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
-      return;
-    }
     if (e.ctrlKey || e.metaKey || e.shiftKey) {
       setMultiSelected(prev => {
         const next = new Set(prev);
@@ -1123,6 +1140,11 @@ export default function EcCanvas() {
       return next;
       });
       setSelected(null);
+      return;
+    }
+    if (getNodePointerIntent({ tool: activeTool, button: e.button }) === 'select') {
+      setSelected(id);
+      setMultiSelected(new Set([id]));
       return;
     }
     const baseIds = multiSelected.has(id) ? multiSelected : new Set([id]);
@@ -1143,7 +1165,7 @@ export default function EcCanvas() {
     setMultiSelected(ids);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [activeTool, multiSelected, nodes, toWorldPoint, viewport.x, viewport.y]);
+  }, [activeTool, multiSelected, nodes, toWorldPoint]);
 
   const handleNodeResizeStart = useCallback((event, nodeId, handle) => {
     const node = nodes.find(candidate => candidate.id === nodeId);
@@ -3244,7 +3266,7 @@ export default function EcCanvas() {
                   onPortClick={event => handlePortClick(event, node.id)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={preview => setZoomImg({ url: preview.url, label: node.name || '商品素材' })}
+                  onDoubleClick={preview => openImagePreview({ url: preview.url, label: node.name || '商品素材' })}
                 />;
               }
               if (node.kind === 'layer-group') {
@@ -3257,7 +3279,7 @@ export default function EcCanvas() {
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={node => node.url && setZoomImg({ url: node.url, label: '图片预览' })}
+                  onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: '图片预览' })}
                 />;
               }
               if (node.kind === 'image' || node.kind === 'output') {
@@ -3276,7 +3298,7 @@ export default function EcCanvas() {
                   canDerive={canDeriveFromNode(node)}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={node => setZoomImg({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
+                  onDoubleClick={node => openImagePreview({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
                 />;
               }
               if (node.kind === 'text') {
@@ -3310,7 +3332,7 @@ export default function EcCanvas() {
                   editing={editingTextNodeId === node.id}
                   onTextDoubleClick={nodeId => { setSelected(nodeId); setMultiSelected(new Set([nodeId])); setEditingTextNodeId(nodeId); }}
                   onTextBlur={nodeId => setEditingTextNodeId(current => current === nodeId ? null : current)}
-                  onDoubleClick={node => node.url && setZoomImg({ url: node.url, label: node.name || '图片预览' })}
+                  onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: node.name || '图片预览' })}
                 />;
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
@@ -3510,7 +3532,7 @@ export default function EcCanvas() {
                   </div>
                   <div style={{ display: 'flex', gap: 6, padding: '0 14px 12px', overflowX: 'auto' }}>
                     {(work.images || []).slice(0, 6).map((img, i) => (
-                      <button key={i} type="button" onClick={() => setZoomImg({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
+                      <button key={i} type="button" onClick={() => openImagePreview({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
                         <ResponsiveImage src={img} variant="thumb" ratio="1:1" alt={img.label || `作品图片 ${i + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
                     ))}
@@ -3671,9 +3693,9 @@ export default function EcCanvas() {
 
       {/* 图片放大预览 */}
       {zoomImg && (
-        <div role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={() => setZoomImg(null)} style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} onClick={e => e.stopPropagation()} />
-          <button type="button" aria-label="关闭大图预览" onClick={() => setZoomImg(null)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
+        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: 10001, overflow: 'hidden', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
+          <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
       )}
 
