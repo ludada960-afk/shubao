@@ -5,7 +5,7 @@ module.exports = {
     name: 'shubao-production',
     script: 'server/index.mjs',
     cwd: __dirname,
-    env: { NODE_ENV: 'production', PORT: '3002' },
+    env: { NODE_ENV: 'production', PORT: '3002', DISABLE_DIRECT_HTTPS: '1' },
     exec_mode: 'cluster',
     instances: 1,
     wait_ready: true,

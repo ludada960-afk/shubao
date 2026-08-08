@@ -119,6 +119,7 @@ test('production uses one cluster worker with readiness and graceful background 
   assert.doesNotMatch(deploy, /ecosystem\.production\.cjs(?:\s|['"])/);
   assert.match(productionEcosystem, /name:\s*['"]shubao-production['"]/);
   assert.match(productionEcosystem, /PORT:\s*['"]3002['"]/);
+  assert.match(productionEcosystem, /DISABLE_DIRECT_HTTPS:\s*['"]1['"]/);
   assert.match(productionEcosystem, /exec_mode:\s*['"]cluster['"]/);
   assert.match(productionEcosystem, /instances:\s*1/);
   assert.match(productionEcosystem, /wait_ready:\s*true/);
@@ -127,6 +128,8 @@ test('production uses one cluster worker with readiness and graceful background 
   assert.match(serverSource, /process\.send\?\.\('ready'\)/);
   assert.match(serverSource, /orchestrator\.waitForIdle/);
   assert.match(serverSource, /imageGenerationPool\.waitForIdle/);
+  assert.match(serverSource, /process\.env\.DISABLE_DIRECT_HTTPS\s*!==\s*['"]1['"]/);
+  assert.match(serverSource, /if\s*\(directHttpsEnabled\s*&&\s*fs\.existsSync\(certPath\)\s*&&\s*fs\.existsSync\(keyPath\)\)/);
 });
 
 test('one-time migration probe closes its readonly database before returning status', () => {

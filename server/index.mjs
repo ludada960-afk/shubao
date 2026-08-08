@@ -4396,7 +4396,8 @@ httpServer.keepAliveTimeout = 65 * 1000;
 const certDir = resolve(__dirname, '..', 'cert');
 const certPath = join(certDir, 'cert.pem');
 const keyPath = join(certDir, 'key.pem');
-if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+const directHttpsEnabled = process.env.DISABLE_DIRECT_HTTPS !== '1';
+if (directHttpsEnabled && fs.existsSync(certPath) && fs.existsSync(keyPath)) {
   const credentials = { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) };
   const SSL_PORT = process.env.SSL_PORT || 3443;
   httpsServer = https.createServer(credentials, app).listen(SSL_PORT, () => {
@@ -4408,9 +4409,11 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
     process.exitCode = 1;
     process.exit(1);
   });
-} else {
+} else if (directHttpsEnabled) {
   console.log(`   证书不存在，跳过 HTTPS`);
   console.log(`   生成证书: cd cert && openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout key.pem -out cert.pem`);
+} else {
+  console.log(`   直连 HTTPS 已禁用，由反向代理终止 TLS`);
 }
 
 let shuttingDown = false;
