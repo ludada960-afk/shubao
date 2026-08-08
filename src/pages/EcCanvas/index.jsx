@@ -31,6 +31,7 @@ import {
 } from './nodeWorkflow';
 import { CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes';
 import { CanvasBottomToolbar, CanvasLayersPanel, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
+import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import {
   CanvasAddMenu,
   CanvasDeriveMenu,
@@ -2360,7 +2361,7 @@ export default function EcCanvas() {
     const size = kind === 'suite' ? { w: 640, h: 420 } : kind === 'text' ? { w: 480, h: 220 } : { w: 280, h: 280 };
     const position = createComposerPlacement(size.w, size.h, { ...placement, sourceNodeId });
     const baseComposer = kind === 'suite'
-      ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: 'smart' })
+      ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: result.commerceContext?.platform || result.platform || 'smart', commerceContext: result.commerceContext })
       : kind === 'text'
         ? createCanvasTextComposerNode({ ...position, sourceNodeId })
         : createCanvasImageComposerNode({ ...position, sourceNodeId });
@@ -2512,6 +2513,12 @@ export default function EcCanvas() {
     })));
     const roleAwareSources = buildRoleAwareImagePayload(sourceMentions);
     const configuration = composer.configuration || {};
+    const commerceContext = normalizeCommerceContext({
+      ...(result.commerceContext || {}),
+      ...(composer.commerceContext || {}),
+      ...(configuration.commerceContext || {}),
+      platform: configuration.commerceContext?.platform || configuration.platform || composer.commerceContext?.platform || composer.platform || result.commerceContext?.platform || result.platform,
+    });
     const sizingImages = Array.isArray(configuration.sizing?.images) ? configuration.sizing.images : [];
     if (!productNodes.length) {
       showToast('请先连接或选中一张清晰商品图', 'info');
@@ -2527,7 +2534,10 @@ export default function EcCanvas() {
           real_shots: productNodes.slice(0, 6).map(node => node.url),
           ref_shots: referenceNodes.slice(0, 6).map(node => node.url),
           asset_mentions: roleAwareSources.assets,
-          platform: configuration.platform === 'smart' ? (composer.platform && composer.platform !== 'smart' ? composer.platform : result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
+          platform: commerceContext.platform,
+          content_type: commerceContext.contentType,
+          target_language: commerceContext.targetLanguage,
+          commerce_context: commerceContext,
           style_skill: configuration.styleSkill || composer.styleSkill || 'smart',
           product_params: configuration.productParams || {},
           skus: configuration.skus || [],
@@ -2544,6 +2554,7 @@ export default function EcCanvas() {
             analysis: response.analysis || null,
             productName: result.product_name || productNodes[0].name || '商品',
             category: result.category || '其他',
+            commerce_context: commerceContext,
           }))
           : [{
             title: '商品主视觉方案',
@@ -2594,12 +2605,15 @@ export default function EcCanvas() {
           `文案规则：${suitePlan.copyRules}`,
           `一致性与风险：${suitePlan.qualityRisks}`,
           composer.prompt?.trim(),
-          `输出语言：${composer.language || '中文'}`,
+          `输出语言：${commerceContext.targetLanguage === 'visual' ? '无文字（纯视觉）' : commerceContext.locale}`,
           `套图类型：${composer.suiteType || '完整套图'}`,
           `商品信息模式：${composer.productInfoMode === 'prompt' ? '优先使用描述' : '自动识别'}`,
           `文案策划：${composer.copywritingMode === 'none' ? '不生成文案' : 'AI规划文案'}`,
         ].filter(Boolean).join('\n') || result.product_name || '专业电商视觉',
-        platform: configuration.platform === 'smart' ? (composer.platform && composer.platform !== 'smart' ? composer.platform : result.platform || '淘宝') : (configuration.platform || composer.platform || result.platform || '淘宝'),
+        platform: commerceContext.platform,
+        contentType: commerceContext.contentType,
+        targetLanguage: commerceContext.targetLanguage,
+        commerceContext,
         batchPlan: { imageSelections },
         generationSettings: {
           ...(configuration.genSettings || {}),
@@ -2610,7 +2624,7 @@ export default function EcCanvas() {
           productInfoMode: composer.productInfoMode || 'auto',
           copywritingMode: composer.copywritingMode || 'smart',
         },
-        sizing: { ...(configuration.sizing || {}), smart: configuration.sizing?.smart ?? false, resolution: configuration.genSettings?.resolution || composer.resolution || '2K', images: imageSelections },
+        sizing: { ...(configuration.sizing || {}), smart: configuration.sizing?.smart ?? false, contentType: commerceContext.contentType, resolution: configuration.genSettings?.resolution || composer.resolution || '2K', images: imageSelections },
         direction: applyCanvasSuitePlanToDirection(suitePlan, directionSource),
         email: phone,
         onProgress: progress => updateComposerNode(composer.id, { progress: progress?.progress || progress?.percent || 0, progressLabel: progress?.message || progress?.label || '正在生成套图' }),

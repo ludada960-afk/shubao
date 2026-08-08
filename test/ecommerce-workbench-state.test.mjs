@@ -57,6 +57,11 @@ test('smart configuration restores every editable panel including SKU and produc
   });
   assert.deepEqual(createSmartConfiguration(), {
     platform: 'smart',
+    commerceContext: {
+      platform: 'smart',
+      contentType: 'main',
+      targetLanguage: 'visual',
+    },
     sizing: { smart: true, images: [] },
     styleSkill: 'smart',
     customColors: null,

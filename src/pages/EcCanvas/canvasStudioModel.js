@@ -1,3 +1,5 @@
+import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
+
 const MIN_NODE_WIDTH = 160;
 const MIN_NODE_HEIGHT = 56;
 const MAX_NODE_WIDTH = 960;
@@ -252,7 +254,8 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
   };
 }
 
-export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = 'smart', now = Date.now() } = {}) {
+export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = 'smart', commerceContext, now = Date.now() } = {}) {
+  const normalizedCommerceContext = normalizeCommerceContext({ platform, ...(commerceContext || {}) });
   return {
     id: `suite_composer_${now}`,
     kind: 'suite-composer',
@@ -263,6 +266,7 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     h: 420,
     prompt: '',
     platform,
+    commerceContext: normalizedCommerceContext,
     suiteType: '完整套图',
     ratio: '1:1',
     resolution: '2K',
@@ -274,7 +278,8 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     copywritingMode: 'smart',
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
     configuration: {
-      platform,
+      platform: normalizedCommerceContext.platform,
+      commerceContext: normalizedCommerceContext,
       sizing: { smart: true, images: [] },
       styleSkill: 'smart',
       customColors: null,

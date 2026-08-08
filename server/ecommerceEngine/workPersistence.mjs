@@ -1,5 +1,6 @@
 import { sanitizeSnapshot } from './jobStore.mjs';
 import { ecommerceDeliveryMetadataForPlan } from './deliveryMetadata.mjs';
+import { normalizeCommerceContext } from './internationalCommerceRegistry.mjs';
 
 const STABLE_GENERATED_URL = /^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|png|webp)$/i;
 
@@ -44,7 +45,11 @@ function workInputSnapshot(payload) {
     detail_plan: payload.detail_plan,
     maintenance: payload.maintenance,
     direction: payload.direction,
+    commerce_context: payload.commerce_context,
   });
+  const commerceContext = isRecord(snapshot.commerce_context)
+    ? normalizeCommerceContext(snapshot.commerce_context)
+    : null;
   return {
     productAssets: Array.isArray(snapshot.productAssets) ? snapshot.productAssets : [],
     referenceAssets: Array.isArray(snapshot.referenceAssets) ? snapshot.referenceAssets : [],
@@ -55,6 +60,7 @@ function workInputSnapshot(payload) {
     detail_plan: isRecord(snapshot.detail_plan) ? snapshot.detail_plan : null,
     maintenance: cleanString(snapshot.maintenance),
     direction: isRecord(snapshot.direction) ? snapshot.direction : null,
+    ...(commerceContext ? { commerceContext } : {}),
   };
 }
 
@@ -71,7 +77,11 @@ export function buildEcommerceTaskWork({ job = {}, assets = [], status } = {}) {
     _phone: cleanString(job.ownerEmail).toLowerCase(),
     product_name: cleanString(payload.product_name) || '商品套图',
     category: cleanString(payload.category) || '其他',
-    platform: cleanString(payload.platform) || '淘宝',
+    platform: inputSnapshot.commerceContext?.platform || cleanString(payload.platform) || '淘宝',
+    ...(inputSnapshot.commerceContext ? {
+      contentType: inputSnapshot.commerceContext.contentType,
+      targetLanguage: inputSnapshot.commerceContext.targetLanguage,
+    } : {}),
     _ecResult: true,
     generationStatus,
     projectId: cleanString(progress.projectId),

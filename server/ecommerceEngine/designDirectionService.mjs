@@ -1,5 +1,11 @@
 import { normalizeCreativeDirectionPlans } from './creativeDirectionPlan.mjs';
 import { createCreativeAttemptId, selectCreativeRoute } from './creativeRoutePolicy.mjs';
+import {
+  COMMERCE_CONTENT_TYPES,
+  commerceLanguage,
+  commercePlatform,
+  normalizeCommerceContext,
+} from './internationalCommerceRegistry.mjs';
 
 const MAX_IMAGES_PER_ROLE = 4;
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -110,7 +116,22 @@ function requestedSuiteSummary(value) {
   }).filter(Boolean).join('；') || '使用系统智能套图配置';
 }
 
+function commerceContextFor(input) {
+  const supplied = ownValue(input, 'commerce_context', 'commerceContext');
+  const context = isRecord(supplied) ? supplied : {};
+  return normalizeCommerceContext({
+    ...context,
+    platform: ownValue(context, 'platform') || ownValue(input, 'platform'),
+    contentType: ownValue(context, 'contentType', 'content_type') || ownValue(input, 'content_type', 'contentType'),
+    targetLanguage: ownValue(context, 'targetLanguage', 'target_language') || ownValue(input, 'target_language', 'targetLanguage'),
+  });
+}
+
 function productFacts(input) {
+  const commerceContext = commerceContextFor(input);
+  const platform = commercePlatform(commerceContext.platform);
+  const contentType = COMMERCE_CONTENT_TYPES.find(option => option.id === commerceContext.contentType) || COMMERCE_CONTENT_TYPES[0];
+  const language = commerceLanguage(commerceContext.targetLanguage);
   const productParams = isRecord(ownValue(input, 'product_params', 'productParams'))
     ? ownValue(input, 'product_params', 'productParams')
     : {};
@@ -119,7 +140,12 @@ function productFacts(input) {
   return [
     `商品名称：${cleanString(ownValue(input, 'product_name', 'productName')) || '未指定'}`,
     `品类：${cleanString(ownValue(input, 'category')) || '其他'}`,
-    `目标平台：${cleanString(ownValue(input, 'platform')) || '智能推荐'}`,
+    `目标平台：${platform.label}`,
+    `内容类型：${contentType.label}`,
+    `目标语言：${language.label}`,
+    commerceContext.targetLanguage === 'visual'
+      ? '文字策略：纯视觉，不生成标题、卖点、参数文字或装饰性伪文字。'
+      : `文字策略：所有面向消费者的文案必须使用 ${language.label}，不得混入其他语言或伪文字。`,
     `用户需求：${cleanString(ownValue(input, 'description', 'user_prompt', 'userPrompt')) || '生成一套专业电商视觉'}`,
     `材质：${cleanString(ownValue(productParams, 'material')) || '未确认'}`,
     `工艺：${cleanString(ownValue(productParams, 'craft')) || '未确认'}`,
@@ -303,6 +329,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
 
   return {
     async generate(input = {}, { signal } = {}) {
+      const commerceContext = commerceContextFor(input);
       const productName = cleanString(ownValue(input, 'product_name', 'productName'));
       const description = cleanString(ownValue(input, 'description', 'user_prompt', 'userPrompt'));
       const productUrls = normalizeImageUrls(ownValue(input, 'real_shots', 'realShots'));
@@ -358,7 +385,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         evidence: {
           productName,
           category: cleanString(ownValue(input, 'category')),
-          platform: cleanString(ownValue(input, 'platform')),
+          platform: commerceContext.platform,
           userPrompt: description,
           productObservations: analysis.product_observations,
           referenceStyle: analysis.reference_style,
@@ -392,13 +419,16 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         requestedImages,
         productName,
         category: cleanString(ownValue(input, 'category')),
-        platform: cleanString(ownValue(input, 'platform')),
+        platform: commerceContext.platform,
         userPrompt: description,
         visualObservations: analysis.product_observations,
         productUncertainties: analysis.product_uncertainties,
         referenceStyle: analysis.reference_style,
         sourceViewCount: productImages.length,
-      }).map(direction => bindCreativeRoute(direction, creativeRoute));
+      }).map(direction => ({
+        ...bindCreativeRoute(direction, creativeRoute),
+        commerce_context: { ...commerceContext },
+      }));
       const plannerComplete = plannerHasOneUsableDirection(parsedPlan?.directions);
       // A completed visual pass plus the local complete plan is a usable
       // product result even when the optional text planner times out. Do not
@@ -414,6 +444,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         directions,
         analysis,
         creativeRoute,
+        commerceContext,
         planner_fallback: plannerFallback,
         degraded: (images.length > 0 && !visualComplete) || !effectivePlannerComplete,
         degradedReasons: [

@@ -296,6 +296,7 @@ const STRUCTURED_SECTION_ORDER = Object.freeze([
   'shotIntent',
   'layoutContract',
   'textLayerPlan',
+  'commerceContext',
   'productTruth',
   'campaignBible',
   'imageIndexDuties',

@@ -12,6 +12,7 @@ import { sanitizeSnapshot } from './jobStore.mjs';
 import { assertExecutionCount, validatePlanContract } from './planContract.mjs';
 import { ecommerceFeatureForItem } from './ecommerceBilling.mjs';
 import { ecommerceDeliveryMetadataForPlan } from './deliveryMetadata.mjs';
+import { normalizeCommerceContext } from './internationalCommerceRegistry.mjs';
 
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
@@ -434,7 +435,22 @@ function directionFromPayload(payload) {
   };
 }
 
+function commerceContextFromPayload(payload) {
+  const supplied = own(payload, 'commerce_context');
+  const context = isRecord(supplied) ? supplied : {};
+  return normalizeCommerceContext({
+    ...context,
+    platform: own(context, 'platform') || own(payload, 'platform'),
+    contentType: own(context, 'contentType') || own(payload, 'content_type'),
+    targetLanguage: own(context, 'targetLanguage')
+      || own(payload, 'target_language')
+      || own(payload, 'language')
+      || 'zh-CN',
+  });
+}
+
 function campaignOverrides(payload, direction, assets) {
+  const commerceContext = commerceContextFromPayload(payload);
   return {
     editableBrief: own(direction, 'editableBrief')
       ?? own(direction, 'execution_guide')
@@ -447,7 +463,7 @@ function campaignOverrides(payload, direction, assets) {
       : assets.reference.map(asset => asset.assetId),
     category: cleanString(own(payload, 'category')),
     priceBand: cleanString(own(payload, 'price_band')),
-    language: cleanString(own(payload, 'language')) || 'zh-CN',
+    language: commerceContext.targetLanguage === 'visual' ? 'zh-CN' : commerceContext.locale,
   };
 }
 
@@ -1849,6 +1865,7 @@ export function createEcommerceOrchestrator(deps = {}) {
           throw httpError('图片分析结果无效', 502, 'VISUAL_ANALYSIS_INVALID_RESPONSE');
         }
         const direction = directionFromPayload(payload);
+        const commerceContext = commerceContextFromPayload(payload);
         const campaignBible = compileCampaignBible(
           direction,
           campaignOverrides(payload, direction, inputAssets),
@@ -1857,7 +1874,8 @@ export function createEcommerceOrchestrator(deps = {}) {
         const assetPlan = validatePlanContract(buildAssetPlan({
           productTruth,
           campaignBible,
-          platform: own(payload, 'platform') || '淘宝',
+          platform: commerceContext.platform,
+          commerceContext,
           sizing: own(payload, 'sizing') || {},
           skus: own(payload, 'skus') || [],
           uploadedProofs: inputAssets.proof,
@@ -1873,7 +1891,8 @@ export function createEcommerceOrchestrator(deps = {}) {
           assetPlan,
           deterministicInputs: {
             assets: inputAssets,
-            platform: own(payload, 'platform') || '淘宝',
+            platform: commerceContext.platform,
+            commerceContext,
             sizing: own(payload, 'sizing') || {},
             skus: own(payload, 'skus') || [],
           },

@@ -26,6 +26,7 @@ import {
 } from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
+import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
 import {
   createEcommerceGenerationPreconditionError,
   createEcommerceGenerationToken,
@@ -142,6 +143,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* — 配置 — */
   const [platform, setPlatform] = useState('smart');
   const [sizing, setSizing] = useState({ smart: true, images: [] });
+  const [contentType, setContentType] = useState('main');
+  const [targetLanguage, setTargetLanguage] = useState('visual');
   const [styleSkill, setStyleSkill] = useState('smart');
   const [customColors, setCustomColors] = useState(null);
   const [productParams, setProductParams] = useState({ category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' });
@@ -157,9 +160,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   useEffect(() => {
     if (!recoveryCheckpoint || recoveryCheckpoint.project?.kind !== 'ecommerce') return;
     const restored = restoreCheckpointIntoEditor(recoveryCheckpoint);
+    const restoredCommerceContext = normalizeCommerceContext({
+      ...(restored.commerceContext || {}),
+      platform: restored.commerceContext?.platform || restored.platform,
+    });
     setDescription(restored.description);
-    setPlatform(restored.platform);
+    setPlatform(restoredCommerceContext.platform);
     setSizing(restored.sizing);
+    setContentType(restoredCommerceContext.contentType);
+    setTargetLanguage(restoredCommerceContext.targetLanguage);
     setStyleSkill(restored.styleSkill);
     setCustomColors(restored.customColors);
     setProductParams(restored.productParams);
@@ -211,6 +220,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     skus,
     copywriting,
     genSettings,
+    commerceContext: { platform, contentType, targetLanguage },
   });
   const smartLabel = smartMode
     ? (Object.values(effectiveSmartOverrides).some(Boolean) ? SMART_LABELS.tuned : SMART_LABELS.on)
@@ -240,10 +250,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     setUploadingAssets(true);
     setAssetUploadError('');
     const baseSizing = (smartMode && !effectiveSmartOverrides.sizing) ? { smart: true, images: [] } : sizing;
+    const commerceContext = normalizeCommerceContext({ platform, contentType, targetLanguage });
     const effectiveSizing = {
       smart: baseSizing.smart !== false,
       resolution: genSettings.resolution,
-      images: resolveSizingImages(platform, { ...baseSizing, resolution: genSettings.resolution }),
+      contentType: commerceContext.contentType,
+      images: resolveSizingImages(commerceContext.platform, { ...baseSizing, resolution: genSettings.resolution, contentType: commerceContext.contentType }),
     };
     const effectiveStyle = (smartMode && !effectiveSmartOverrides.style) ? 'smart' : styleSkill;
     const effectiveParams = productParams;
@@ -263,7 +275,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         realShots,
         refShots,
         productImages: realShots,
-        platform,
+        platform: commerceContext.platform,
+        contentType: commerceContext.contentType,
+        targetLanguage: commerceContext.targetLanguage,
+        commerceContext,
         sizing: effectiveSizing,
         styleSkill: effectiveStyle,
         customColors,
@@ -341,6 +356,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     const smart = createSmartConfiguration();
     setPlatform(smart.platform);
     setSizing(smart.sizing);
+    setContentType(smart.commerceContext?.contentType || 'main');
+    setTargetLanguage(smart.commerceContext?.targetLanguage || 'visual');
     setStyleSkill(smart.styleSkill);
     setCustomColors(smart.customColors);
     setProductParams(smart.productParams);
@@ -451,6 +468,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
             sizing={sizing} onSizingChange={setSizing}
             smartMode={smartMode} onOverride={(isOverridden) => handleOverride('sizing', isOverridden)}
             resolution={genSettings.resolution}
+            contentType={contentType}
+            targetLanguage={targetLanguage}
+            onContentTypeChange={setContentType}
+            onTargetLanguageChange={setTargetLanguage}
           />
         )}
         {activePanel === 'style' && (

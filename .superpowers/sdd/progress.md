@@ -1582,3 +1582,19 @@
   decoded all 14 covers with zero HTTP failures and opened the image modal;
   public audit passed `27/27`. Production contains 14 top-level case folders and
   132 source files with no nested duplicate, and the deployment lock is free.
+
+- Global commerce generation implementation completed locally on 2026-08-08.
+  A single normalized commerce context now carries content type, domestic or
+  cross-border platform, target language/locale and policy version from the
+  first-step configuration through design direction, durable orchestration,
+  per-asset planning, provider prompts, Works persistence and Canvas suite
+  recovery. The UI exposes main/detail/ad modes, 18 platform targets and 22
+  language choices in portal-backed menus; visual-only output explicitly bans
+  generated typography, while localized output preserves confirmed facts and
+  locale policy. Detail defaults remain 9:16 and legacy tasks keep their prior
+  behavior. The serial suite passed `1320/1320`; the production build transformed
+  `6458` modules; asset, collaboration and whitespace checks passed. Production
+  deployment and post-release Canary remain the next release boundary. The
+  friend beta account `240485042@qq.com` remains a real unlimited user and is
+  excluded from automation; only owner account `867550189@qq.com` may be used
+  by the deployment Canary.

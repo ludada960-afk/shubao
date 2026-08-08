@@ -4,8 +4,26 @@ import {
   formatsFor,
   normalizeCommerceFormat,
 } from './ecommerceFormatRegistry.js';
+import { normalizeCommerceContext } from './internationalCommerceRegistry.js';
 
 const RESOLUTIONS = new Set(['1K', '2K', '4K']);
+
+const CONTENT_TYPE_PRESETS = Object.freeze({
+  main: Object.freeze([
+    { key: 'white_bg', count: 1, ratio: '1:1' },
+    { key: 'main_text', count: 4, ratio: '1:1' },
+    { key: 'transparent', count: 1, ratio: '1:1' },
+  ]),
+  detail: Object.freeze([
+    { key: 'detail', count: 6, ratio: '9:16' },
+    { key: 'sku', count: 1, ratio: '1:1' },
+  ]),
+  ad: Object.freeze([
+    { key: 'main_3x4', count: 3, ratio: '3:4' },
+    { key: 'main_text', count: 2, ratio: '1:1' },
+    { key: 'detail', count: 2, ratio: '9:16' },
+  ]),
+});
 
 export const IMAGE_TYPES = Object.freeze([
   Object.freeze({
@@ -132,7 +150,12 @@ function legalRatio(type, image) {
 
 function sourceImages(platform, sizing) {
   if (Array.isArray(sizing?.images) && sizing.images.length > 0) return sizing.images;
-  return (PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart).images;
+  if (CONTENT_TYPE_PRESETS[sizing?.contentType]) return CONTENT_TYPE_PRESETS[sizing.contentType];
+  const platformAliases = {
+    taobao: '淘宝', tmall: '淘宝', pinduoduo: '拼多多', jd: '京东', douyin: '抖音',
+    xiaohongshu: '小红书', amazon: '亚马逊', 'amazon-aplus-wide': '亚马逊',
+  };
+  return (PLATFORM_PRESETS[platform] || PLATFORM_PRESETS[platformAliases[platform]] || PLATFORM_PRESETS.smart).images;
 }
 
 export function getLegalRatios(resolution = '2K', role = 'main_text', platform = 'smart') {
@@ -296,6 +319,7 @@ export function invalidateEcommerceQuote({ refreshVersion = 0 } = {}) {
 
 export function buildEcommercePendingAction({
   platform = 'smart',
+  commerceContext,
   direction = {},
   sizing = {},
   skus = [],
@@ -308,7 +332,10 @@ export function buildEcommercePendingAction({
   promptReferences = [],
 } = {}) {
   const resolution = normalizeResolution(sizing?.resolution);
-  const safePlatform = safeReferenceText(platform, PENDING_TEXT_LIMITS.platform) || 'smart';
+  const normalizedCommerceContext = commerceContext
+    ? normalizeCommerceContext({ platform, ...commerceContext })
+    : null;
+  const safePlatform = safeReferenceText(normalizedCommerceContext?.platform || platform, PENDING_TEXT_LIMITS.platform) || 'smart';
   const directionBrief = safeReferenceText(
     direction?.brief
       ?? direction?.editableBrief
@@ -319,12 +346,14 @@ export function buildEcommercePendingAction({
   );
   return {
     type: 'ecommerce_generate',
+    ...(normalizedCommerceContext ? { commerceContext: normalizedCommerceContext } : {}),
     direction: {
       id: safeReferenceText(direction?.id, PENDING_TEXT_LIMITS.directionId) || 'smart',
       brief: directionBrief,
     },
     sizing: {
       platform: safePlatform,
+      ...(normalizedCommerceContext ? { contentType: normalizedCommerceContext.contentType } : {}),
       smart: sizing?.smart !== false,
       resolution,
       images: resolveSizingImages(safePlatform, { ...sizing, resolution })

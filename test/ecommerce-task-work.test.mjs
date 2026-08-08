@@ -117,6 +117,38 @@ test('work snapshots preserve source roles and complete buyer-facing delivery me
   }]);
 });
 
+test('work snapshots preserve global commerce context for Works and Canvas recovery', () => {
+  const base = job();
+  const work = buildEcommerceTaskWork({
+    job: job({
+      payload: {
+        ...base.payload,
+        platform: 'amazon',
+        commerce_context: {
+          platform: 'amazon',
+          contentType: 'detail',
+          targetLanguage: 'en',
+          locale: 'en-US',
+          policyVersion: 'global-commerce-v1',
+        },
+      },
+    }),
+    assets: [asset('main-1', 'completed', URL_A, 'main_text', '商品识别主图')],
+    status: 'completed',
+  });
+
+  assert.equal(work.platform, 'amazon');
+  assert.equal(work.contentType, 'detail');
+  assert.equal(work.targetLanguage, 'en');
+  assert.deepEqual(work.commerceContext, {
+    platform: 'amazon',
+    contentType: 'detail',
+    targetLanguage: 'en',
+    locale: 'en-US',
+    policyVersion: 'global-commerce-v1',
+  });
+});
+
 test('incremental persistence serializes concurrent updates and finalizes the same work', async () => {
   const writes = [];
   const persistence = createEcommerceTaskWorkPersistence({

@@ -12,6 +12,7 @@ import { LEGAL_IMAGE_SIZES, resolveGenerationSize } from './modelCatalog.mjs';
 import { getPlatformPolicy, planExportTargets } from './platformPolicies.mjs';
 import { directShot } from './shotDirector.mjs';
 import { compileTypographySystem } from './typographyPolicy.mjs';
+import { normalizeCommerceContext } from './internationalCommerceRegistry.mjs';
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const SKU_FACT_FIELDS = [
@@ -302,6 +303,7 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
     ratio,
     targetRatio,
     cropPolicy,
+    platform,
     generationSize,
     exportTargets: role === 'transparent'
       ? exportTargets.filter(target => target.format === 'png')
@@ -414,7 +416,7 @@ function explicitDetailSpecs(strategy, productTruth, count, proofAssetIds) {
  * selected only from the legal model catalog; platform dimensions remain export
  * targets for deterministic post-processing.
  */
-export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform = 'taobao', sizing = {}, skus = [], uploadedProofs = [] } = {}) {
+export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform = 'taobao', commerceContext, sizing = {}, skus = [], uploadedProofs = [] } = {}) {
   const truth = isRecord(productTruth) ? productTruth : {};
   const bible = isRecord(campaignBible) ? campaignBible : {};
   const category = normalizeCategory(ownValue(truth, 'category'));
@@ -425,7 +427,11 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
   const styleReferenceIds = uniqueStrings(ownValue(bible, 'referenceAssetIds'));
   const proofAssetIds = normalizeProofIds(uploadedProofs);
   const identity = productIdentity(truth);
-  const normalizedPlatform = cleanString(platform) || 'taobao';
+  const hasCommerceContext = isRecord(commerceContext);
+  const normalizedCommerceContext = normalizeCommerceContext(hasCommerceContext
+    ? { ...commerceContext, platform: ownValue(commerceContext, 'platform') || platform }
+    : { platform, targetLanguage: 'zh-CN' });
+  const normalizedPlatform = normalizedCommerceContext.platform;
   const mainRoles = explicitMainRoles(normalizedSizing);
   const normalizedSkus = normalizeSkus(skus);
   const items = [];
@@ -636,9 +642,11 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
 
   const roleOccurrences = new Map();
   const directionRoleOccurrences = new Map();
-  const typographySystem = isRecord(ownValue(bible, 'typographySystem'))
-    ? ownValue(bible, 'typographySystem')
-    : compileTypographySystem({ category, language: 'zh-CN' });
+  const typographySystem = hasCommerceContext && normalizedCommerceContext.targetLanguage !== 'visual'
+    ? compileTypographySystem({ category, language: normalizedCommerceContext.locale })
+    : isRecord(ownValue(bible, 'typographySystem'))
+      ? ownValue(bible, 'typographySystem')
+      : compileTypographySystem({ category, language: 'zh-CN' });
   const directedItems = items.map((item, itemIndex) => {
     const roleIndex = roleOccurrences.get(item.role) || 0;
     roleOccurrences.set(item.role, roleIndex + 1);
@@ -690,10 +698,22 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
       category,
       platform: normalizedPlatform,
     });
+    const textLayerPlan = normalizedCommerceContext.targetLanguage === 'visual'
+      ? {
+          mode: 'no_text',
+          editableLayersAvailable: false,
+          requiresComposition: false,
+          exactTextOnly: true,
+          renderMarketingTextInImageModel: false,
+          regions: [],
+          typographySystem: { ...typographySystem, language: 'visual' },
+        }
+      : textLayerPlanFor(directedItem, { layoutContract, typographySystem });
     return {
       ...directedItem,
+      commerceContext: { ...normalizedCommerceContext },
       layoutContract,
-      textLayerPlan: textLayerPlanFor(directedItem, { layoutContract, typographySystem }),
+      textLayerPlan,
     };
   });
 

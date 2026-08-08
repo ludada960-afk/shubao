@@ -65,6 +65,25 @@ test('default planner builds a contract-valid exact fallback suite', () => {
   assert.equal(validatePlanContract(plan), plan);
 });
 
+test('carries global commerce context into every asset and disables text for visual-only output', () => {
+  const plan = buildAssetPlan({
+    productTruth: productTruth(),
+    campaignBible,
+    commerceContext: {
+      platform: 'Amazon',
+      contentType: 'detail',
+      targetLanguage: 'visual',
+    },
+  });
+
+  assert.ok(plan.every(item => item.platform === 'amazon'));
+  assert.ok(plan.every(item => item.commerceContext.contentType === 'detail'));
+  assert.ok(plan.every(item => item.commerceContext.targetLanguage === 'visual'));
+  assert.ok(plan.every(item => item.textLayerPlan.mode === 'no_text'));
+  assert.ok(plan.every(item => item.textLayerPlan.requiresComposition === false));
+  assert.ok(plan.every(item => item.textLayerPlan.regions.length === 0));
+});
+
 test('plans 3C parameter content from confirmed user facts only', () => {
   const plan = buildAssetPlan({ productTruth: productTruth(), campaignBible, platform: 'taobao' });
   const parameters = plan.find((item) => item.role === 'detail_slice_parameters');

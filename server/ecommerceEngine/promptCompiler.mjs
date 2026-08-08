@@ -614,6 +614,14 @@ export function compileAssetRequest({
   const materials = normalizeStrings(ownValue(truth, 'materials'));
   const shotSpecification = shotSpecificationSection(item);
   const safeShotSpecification = isolated ? {} : shotSpecification;
+  const commerceContext = isRecord(ownValue(item, 'commerceContext'))
+    ? ownValue(item, 'commerceContext')
+    : {};
+  const visualOnly = cleanString(ownValue(commerceContext, 'targetLanguage')) === 'visual'
+    || cleanString(ownValue(ownValue(item, 'textLayerPlan'), 'mode')) === 'no_text';
+  const localizedCopyPolicy = visualOnly
+    ? 'No generated text, letters, numbers, pseudo-text, labels, captions, badges, watermarks, or decorative typography anywhere in the image.'
+    : `Keep copy space restrained. Any consumer-facing copy must use locale ${cleanString(ownValue(commerceContext, 'locale')) || 'und'} only. Do not synthesize exact labels or factual text.`;
   const sections = {
     roleObjective: {
       role,
@@ -629,6 +637,7 @@ export function compileAssetRequest({
     shotIntent: isRecord(ownValue(item, 'shotIntent')) ? ownValue(item, 'shotIntent') : {},
     layoutContract: isRecord(ownValue(item, 'layoutContract')) ? ownValue(item, 'layoutContract') : {},
     textLayerPlan: isRecord(ownValue(item, 'textLayerPlan')) ? ownValue(item, 'textLayerPlan') : {},
+    commerceContext,
     productTruth: {
       identity: {
         productName,
@@ -667,9 +676,11 @@ export function compileAssetRequest({
           composition: `Create a single-frame, single-scene composition for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim(),
           background: campaign.backgroundLanguage,
           palette: campaign.palette,
-          copyPolicy: variantComparison
+          copyPolicy: visualOnly
+            ? localizedCopyPolicy
+            : variantComparison
             ? 'Reserve a clean comparison region, but the image model must not render variant labels, values, tables, dimensions, materials, or specification text. Those exact confirmed values are applied only by deterministic post-processing.'
-            : 'Keep copy space restrained. Do not synthesize exact labels or factual text.',
+            : localizedCopyPolicy,
           outputContract: 'Generate one complete independent image with one commercial purpose. No collage, contact sheet, montage, multi-panel grid, storyboard, picture-in-picture, thumbnail collection, or multiple candidate layouts.',
           shotSpecification: safeShotSpecification,
         },
@@ -677,7 +688,7 @@ export function compileAssetRequest({
     deterministicOverlays: {
       instruction: variantComparison
         ? 'Every variant label and value below is user-confirmed plan data. Preserve row-to-variant binding exactly, invent no missing value, and apply the comparison only in deterministic post-processing; the image model must not render it.'
-        : 'Exact Chinese, prices, promotions, parameter tables, SKU labels, dimensions, certificates or reports, and comparison claims are post-processing only; the image model must not render them.',
+        : 'Exact consumer copy, prices, promotions, parameter tables, SKU labels, dimensions, certificates or reports, and comparison claims are post-processing only; the image model must not render them.',
       items: overlays,
       ...(variantComparison ? { variantComparison } : {}),
     },

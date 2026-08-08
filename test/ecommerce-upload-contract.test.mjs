@@ -157,6 +157,13 @@ test('formal generation preserves owner-scoped asset IDs, quote reference, and m
     },
     generationSettings: { resolution: '4K', negativePrompt: '错误品牌元素' },
     billingQuoteId: 'bq1.accepted.quote',
+    contentType: 'detail',
+    targetLanguage: 'en',
+    commerceContext: {
+      platform: 'Amazon',
+      contentType: 'detail',
+      targetLanguage: 'en',
+    },
   });
 
   assert.equal(requests.length, 1);
@@ -178,6 +185,16 @@ test('formal generation preserves owner-scoped asset IDs, quote reference, and m
     images: [{ key: 'main_text', count: 2, ratio: '1:1' }],
   });
   assert.equal(requests[0].body.billing_quote_id, 'bq1.accepted.quote');
+  assert.deepEqual(requests[0].body.commerce_context, {
+    platform: 'amazon',
+    contentType: 'detail',
+    targetLanguage: 'en',
+    locale: 'en-US',
+    policyVersion: 'global-commerce-v1',
+  });
+  assert.equal(requests[0].body.platform, 'amazon');
+  assert.equal(requests[0].body.content_type, 'detail');
+  assert.equal(requests[0].body.target_language, 'en');
   assert.equal(Object.hasOwn(requests[0].body, 'real_shots'), false);
   assert.equal(Object.hasOwn(requests[0].body, 'reference_images'), false);
 });

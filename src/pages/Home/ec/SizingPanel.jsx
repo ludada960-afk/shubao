@@ -1,5 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
-import { Check, Info, Zap, Pencil } from 'lucide-react';
+import React, { useMemo, useCallback, useRef, useState } from 'react';
+import { Check, Info, Zap, Pencil, ChevronDown, Globe2 } from 'lucide-react';
 import AnchoredPortal from '../../../components/ui/AnchoredPortal.jsx';
 import {
   getLegalRatios,
@@ -9,6 +9,11 @@ import {
   resolveSizingImages,
 } from './ecommercePlanModel.js';
 import { normalizeCommerceFormat } from './ecommerceFormatRegistry.js';
+import {
+  COMMERCE_CONTENT_TYPES,
+  COMMERCE_LANGUAGES,
+  COMMERCE_PLATFORMS,
+} from './internationalCommerceRegistry.js';
 
 /* 比例形状预览图标 */
 function RatioShape({ w, h, active }) {
@@ -76,16 +81,6 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
   );
 }
 
-const PLATFORMS = [
-  { key: 'smart', label: '智能方案', icon: '🤖' },
-  { key: '淘宝', label: '淘宝', icon: '🟠' },
-  { key: '京东', label: '京东', icon: '🔴' },
-  { key: '拼多多', label: '拼多多', icon: '🟢' },
-  { key: '抖音', label: '抖音', icon: '🎵' },
-  { key: '小红书', label: '小红书', icon: '📕' },
-  { key: '亚马逊', label: '亚马逊', icon: '🌐' },
-];
-
 function hasSameImages(left, right) {
   if (left.length !== right.length) return false;
   return left.every((item, index) => {
@@ -107,9 +102,17 @@ export default function SizingPanel({
   smartMode = true,
   onOverride,
   resolution = '2K',
+  contentType = 'main',
+  targetLanguage = 'visual',
+  onContentTypeChange,
+  onTargetLanguageChange,
 }) {
+  const [platformOpen, setPlatformOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const platformButtonRef = useRef(null);
+  const languageButtonRef = useRef(null);
   // 当前激活的图片类型列表
-  const activeImages = resolveSizingImages(platform, { ...sizing, resolution });
+  const activeImages = resolveSizingImages(platform, { ...sizing, resolution, contentType });
   // 已激活的 key 集合
   const activeKeys = useMemo(() => new Set(activeImages.map(i => i.key)), [activeImages]);
   // 是否已被用户自定义
@@ -117,15 +120,30 @@ export default function SizingPanel({
 
   /* ── 平台切换 ── */
   const handlePlatform = useCallback((key) => {
-    const newImages = resolveSizingImages(key, { smart: true, images: [], resolution });
+    const newImages = resolveSizingImages(key, { smart: true, images: [], resolution, contentType });
     if (onPlatformSizingChange) {
       onPlatformSizingChange(key, { smart: true, images: newImages });
     } else {
       onPlatformChange?.(key);
       onSizingChange?.({ smart: true, images: newImages });
     }
+    setPlatformOpen(false);
     onOverride?.(false);
-  }, [onPlatformChange, onPlatformSizingChange, onSizingChange, onOverride, resolution]);
+  }, [contentType, onPlatformChange, onPlatformSizingChange, onSizingChange, onOverride, resolution]);
+
+  const handleContentType = useCallback((nextType) => {
+    onContentTypeChange?.(nextType);
+    if (sizing.smart !== false) {
+      onSizingChange?.({ smart: true, images: resolveSizingImages(platform, { smart: true, images: [], resolution, contentType: nextType }) });
+    }
+    setPlatformOpen(false);
+    onOverride?.(nextType !== 'main');
+  }, [onContentTypeChange, onOverride, onSizingChange, platform, resolution, sizing.smart]);
+
+  const handleLanguage = useCallback((nextLanguage) => {
+    onTargetLanguageChange?.(nextLanguage);
+    setLanguageOpen(false);
+  }, [onTargetLanguageChange]);
 
   /* ── 切换图片类型勾选 ── */
   const toggleType = useCallback((typeKey) => {
@@ -147,20 +165,20 @@ export default function SizingPanel({
         label: typeDef.label,
       }];
     }
-    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution, contentType });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeKeys, activeImages, onSizingChange, onOverride, platform, resolution]);
+  }, [activeKeys, activeImages, contentType, onSizingChange, onOverride, platform, resolution]);
 
   /* ── 修改数量 ── */
   const updateCount = useCallback((typeKey, count) => {
     const next = activeImages.map(i => i.key === typeKey ? { ...i, count: Math.max(0, Math.min(count, IMAGE_TYPES.find(t => t.key === typeKey)?.maxCount || 20)) } : i);
-    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution, contentType });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
+  }, [activeImages, contentType, onSizingChange, onOverride, platform, resolution]);
 
   /* ── 修改比例 ── */
   const updateRatio = useCallback((typeKey, ratio) => {
@@ -172,14 +190,16 @@ export default function SizingPanel({
       targetRatio: format.targetRatio,
       cropPolicy: format.cropPolicy,
     } : i);
-    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution, contentType });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
+  }, [activeImages, contentType, onSizingChange, onOverride, platform, resolution]);
 
   const totalImages = activeImages.reduce((s, img) => s + (img.count || 0), 0);
   const pDef = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
+  const platformOption = COMMERCE_PLATFORMS.find(item => item.id === platform) || COMMERCE_PLATFORMS[0];
+  const languageOption = COMMERCE_LANGUAGES.find(item => item.id === targetLanguage) || COMMERCE_LANGUAGES[0];
   const planSummary = activeImages
     .filter(item => item.count > 0)
     .map(item => `${item.label || item.key}×${item.count}`)
@@ -212,34 +232,78 @@ export default function SizingPanel({
       )}
 
       <div style={{ padding: '14px 16px 12px' }}>
-        {/* ── 平台选择 ── */}
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>目标平台</div>
-        <div style={{ display: 'flex', gap: 5, marginBottom: 16, flexWrap: 'wrap' }}>
-          {PLATFORMS.map(p => {
-            const active = platform === p.key;
+        {/* ── 内容类型、平台与语言 ── */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+          {COMMERCE_CONTENT_TYPES.map(type => {
+            const active = contentType === type.id;
             return (
-              <button key={p.key} type="button" onClick={() => handlePlatform(p.key)}
+              <button key={type.id} type="button" onClick={() => handleContentType(type.id)}
+                title={type.description}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
-                  border: '1.5px solid', fontSize: 12, fontWeight: 600,
-                  borderColor: active ? '#1a1a1a' : 'rgba(0,0,0,0.1)',
-                  background: active ? '#1a1a1a' : 'rgba(0,0,0,0.03)',
-                  color: active ? '#fff' : 'var(--text-secondary)',
-                  transition: 'all 0.18s ease', whiteSpace: 'nowrap', fontFamily: 'inherit',
-                }}
-                onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; }}
-                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}>
-                <span>{p.icon}</span><span>{p.label}</span>
-              </button>
+                  flex: 1, minWidth: 0, height: 34, padding: '0 8px', borderRadius: 10,
+                  border: `1px solid ${active ? '#6d28d9' : 'rgba(0,0,0,0.10)'}`,
+                  background: active ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : '#fff',
+                  color: active ? '#fff' : 'var(--text-secondary)', fontSize: 12,
+                  fontWeight: active ? 800 : 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}>{type.label}</button>
             );
           })}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>目标平台</div>
+            <button ref={platformButtonRef} type="button" aria-expanded={platformOpen} onClick={() => { setPlatformOpen(open => !open); setLanguageOpen(false); }}
+              style={{ width: '100%', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 11px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{platformOption.label}</span>
+              <ChevronDown size={15} style={{ flexShrink: 0, transform: platformOpen ? 'rotate(180deg)' : 'none' }} />
+            </button>
+            {platformOpen && (
+              <AnchoredPortal anchorRef={platformButtonRef} open={platformOpen} onDismiss={() => setPlatformOpen(false)} align="start" minWidth={320} maxWidth={420} className="ec-commerce-menu">
+                <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{['smart', 'domestic', 'cross-border'].map(group => {
+                  const options = COMMERCE_PLATFORMS.filter(item => item.group === group);
+                  if (!options.length) return null;
+                  return <div key={group}>
+                    <div style={{ padding: '6px 8px 4px', fontSize: 10, color: 'var(--text-muted)', fontWeight: 800 }}>{group === 'smart' ? '智能推荐' : group === 'domestic' ? '国内平台' : '跨境平台'}</div>
+                    {options.map(option => (
+                      <button key={option.id} type="button" onClick={() => handlePlatform(option.id)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', border: 0, borderRadius: 8, background: option.id === platform ? 'rgba(124,58,237,0.10)' : 'transparent', color: option.id === platform ? '#6d28d9' : 'var(--text-primary)', fontSize: 12, fontWeight: option.id === platform ? 800 : 500, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        <span>{option.label}</span><span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{option.locale}</span>
+                      </button>
+                    ))}
+                  </div>;
+                })}</div>
+              </AnchoredPortal>
+            )}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>目标语言</div>
+            <button ref={languageButtonRef} type="button" aria-expanded={languageOpen} onClick={() => { setLanguageOpen(open => !open); setPlatformOpen(false); }}
+              style={{ width: '100%', height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 11px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)', background: '#f8f8fa', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{languageOption.label}</span>
+              <ChevronDown size={15} style={{ flexShrink: 0, transform: languageOpen ? 'rotate(180deg)' : 'none' }} />
+            </button>
+            {languageOpen && (
+              <AnchoredPortal anchorRef={languageButtonRef} open={languageOpen} onDismiss={() => setLanguageOpen(false)} align="start" minWidth={320} maxWidth={420} className="ec-commerce-menu">
+                <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{COMMERCE_LANGUAGES.map(option => (
+                  <button key={option.id} type="button" onClick={() => handleLanguage(option.id)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', border: 0, borderRadius: 8, background: option.id === targetLanguage ? 'rgba(124,58,237,0.10)' : 'transparent', color: option.id === targetLanguage ? '#6d28d9' : 'var(--text-primary)', fontSize: 12, fontWeight: option.id === targetLanguage ? 800 : 500, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <span>{option.label}</span><span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{option.locale}</span>
+                  </button>
+                ))}</div>
+              </AnchoredPortal>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, color: 'var(--text-muted)', fontSize: 10 }}>
+          <Globe2 size={12} />
+          <span>{platformOption.summary}</span>
         </div>
 
         {/* ── 平台说明 ── */}
         {pDef.desc && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, padding: '6px 10px', background: 'rgba(0,0,0,0.025)', borderRadius: 8 }}>
-            <Info size={12} /> 当前方案：{pDef.name} · {planSummary}
+            <Info size={12} /> 当前方案：{platformOption.label} · {planSummary}
           </div>
         )}
 
@@ -316,7 +380,7 @@ export default function SizingPanel({
           fontSize: 12, fontWeight: 600, color: 'var(--text-muted)',
         }}>
           <span>共 <b style={{ color: 'var(--text-primary)' }}>{totalImages}</b> 张图片</span>
-          {platform === '亚马逊' && (
+          {platform === 'amazon' && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#e67e22', fontSize: 11 }}>
               <Info size={12} /> 亚马逊首图须纯白底
             </span>

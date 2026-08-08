@@ -105,6 +105,57 @@ function parseStructuredPrompt(prompt) {
   };
 }
 
+test('global commerce context reaches the provider prompt and visual-only mode forbids all generated text', () => {
+  const truth = productTruth();
+  const bible = campaignBible();
+  const [item] = buildAssetPlan({
+    productTruth: truth,
+    campaignBible: bible,
+    commerceContext: { platform: 'amazon', contentType: 'detail', targetLanguage: 'visual' },
+  });
+  const result = compileAssetRequest({
+    assetPlanItem: item,
+    productTruth: truth,
+    campaignBible: bible,
+    assets: {
+      product: [asset('product-front'), asset('product-side')],
+      reference: [asset('style-editorial'), asset('style-lighting')],
+      proof: [],
+      protection: [],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+
+  assert.deepEqual(schema.sections.commerceContext, item.commerceContext);
+  assert.match(schema.sections.generationInstructions.copyPolicy, /No generated text/);
+  assert.equal(schema.sections.textLayerPlan.mode, 'no_text');
+});
+
+test('localized commerce prompts state the exact consumer-facing locale', () => {
+  const truth = productTruth();
+  const bible = campaignBible();
+  const [item] = buildAssetPlan({
+    productTruth: truth,
+    campaignBible: bible,
+    commerceContext: { platform: 'amazon', contentType: 'main', targetLanguage: 'en' },
+  });
+  const result = compileAssetRequest({
+    assetPlanItem: item,
+    productTruth: truth,
+    campaignBible: bible,
+    assets: {
+      product: [asset('product-front'), asset('product-side')],
+      reference: [asset('style-editorial'), asset('style-lighting')],
+      proof: [],
+      protection: [],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+
+  assert.equal(schema.sections.commerceContext.locale, 'en-US');
+  assert.match(schema.sections.generationInstructions.copyPolicy, /en-US/);
+});
+
 test('does not send unsupported factual detail duties to the provider', () => {
   const truth = productTruth({
     category: '数码3C',
@@ -816,6 +867,7 @@ test('keeps adversarial JSON strings as data without creating schema fields', ()
   assert.deepEqual(Object.keys(schema).sort(), ['schemaVersion', 'sections']);
   assert.deepEqual(Object.keys(schema.sections).sort(), [
     'campaignBible',
+    'commerceContext',
     'deterministicOverlays',
     'forbiddenMutations',
     'generationInstructions',

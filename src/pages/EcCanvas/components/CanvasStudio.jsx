@@ -55,6 +55,7 @@ import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, 
 import { buildCanvasSuitePlan } from '../canvasSuitePlanModel.js';
 import { buildImageMentions } from '../../../components/creation/imageMentionModel.js';
 import EcommerceDesignPlanEditor, { EcommerceDesignPlanPreview } from '../../Home/ec/EcommerceDesignPlanEditor.jsx';
+import { normalizeCommerceContext } from '../../Home/ec/internationalCommerceRegistry.js';
 
 const ACTION_ICONS = {
   'edit-text': FileText,
@@ -263,9 +264,17 @@ const SUITE_PANEL_BUTTONS = Object.freeze([
 function suiteConfiguration(node = {}) {
   const defaults = createSmartConfiguration();
   const value = node.configuration || {};
+  const commerceContext = normalizeCommerceContext({
+    ...(defaults.commerceContext || {}),
+    ...(node.commerceContext || {}),
+    ...(value.commerceContext || {}),
+    platform: value.commerceContext?.platform || value.platform || node.commerceContext?.platform || node.platform,
+  });
   return {
     ...defaults,
     ...value,
+    platform: commerceContext.platform,
+    commerceContext,
     sizing: { ...defaults.sizing, ...(value.sizing || {}) },
     productParams: { ...defaults.productParams, ...(value.productParams || {}) },
     copywriting: { ...defaults.copywriting, ...(value.copywriting || {}) },
@@ -310,7 +319,20 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
       {activePanel === item.key && <div className="ec-canvas-suite-panel-popover" role="dialog" aria-label={`${item.label}设置`} onPointerDown={event => event.stopPropagation()}>
         {item.key === 'sizing' && <SizingPanel
           platform={configuration.platform}
-          onPlatformSizingChange={(platform, sizing) => onChange?.({ platform, configuration: { ...configuration, platform, sizing } })}
+          contentType={configuration.commerceContext.contentType}
+          targetLanguage={configuration.commerceContext.targetLanguage}
+          onPlatformSizingChange={(platform, sizing) => {
+            const commerceContext = normalizeCommerceContext({ ...configuration.commerceContext, platform });
+            onChange?.({ platform: commerceContext.platform, commerceContext, configuration: { ...configuration, platform: commerceContext.platform, commerceContext, sizing } });
+          }}
+          onContentTypeChange={contentType => {
+            const commerceContext = normalizeCommerceContext({ ...configuration.commerceContext, contentType });
+            onChange?.({ commerceContext, configuration: { ...configuration, commerceContext } });
+          }}
+          onTargetLanguageChange={targetLanguage => {
+            const commerceContext = normalizeCommerceContext({ ...configuration.commerceContext, targetLanguage });
+            onChange?.({ commerceContext, language: commerceContext.targetLanguage, configuration: { ...configuration, commerceContext } });
+          }}
           sizing={configuration.sizing}
           onSizingChange={value => update('sizing', value, { count: (value.images || []).reduce((total, image) => total + (Number(image.count) || 0), 0) || node.count })}
           smartMode

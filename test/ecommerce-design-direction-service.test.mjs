@@ -111,6 +111,32 @@ test('describes the requested target ratio instead of the promoted generation ra
   assert.equal(result.directions[0].deliverables[0].ratio, '16:9');
 });
 
+test('plans against the normalized platform, content type, and target language', async () => {
+  const { service, calls } = serviceHarness();
+  const result = await service.generate(generationInput({
+    platform: 'Amazon',
+    commerce_context: {
+      platform: 'Amazon',
+      contentType: 'detail',
+      targetLanguage: 'en',
+    },
+  }));
+
+  const vision = calls.find(call => call.context?.stage === 'vision');
+  const planner = calls.find(call => call.context?.stage === 'planner');
+  assert.match(vision.request.userPrompt, /Amazon/);
+  assert.match(planner.request.userPrompt, /详情图/);
+  assert.match(planner.request.userPrompt, /英语/);
+  assert.deepEqual(result.commerceContext, {
+    platform: 'amazon',
+    contentType: 'detail',
+    targetLanguage: 'en',
+    locale: 'en-US',
+    policyVersion: 'global-commerce-v1',
+  });
+  assert.ok(result.directions.every(direction => direction.commerce_context?.targetLanguage === 'en'));
+});
+
 test('binds one bounded creative route to the visible plan and planner prompt', async () => {
   const { service, calls } = serviceHarness();
   const result = await service.generate(generationInput({

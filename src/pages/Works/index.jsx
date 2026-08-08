@@ -11,6 +11,7 @@ import Button from '../../components/ui/Button';
 import Footer from '../../components/layout/Footer';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { formatRetentionStatus } from './retentionModel.js';
+import { COMMERCE_CONTENT_TYPES, COMMERCE_LANGUAGES, COMMERCE_PLATFORMS } from '../Home/ec/internationalCommerceRegistry.js';
 
 const TABS = [
   { key: 'xhs', label: '小红书图文' },
@@ -19,6 +20,7 @@ const TABS = [
 
 const EC_STYLE_ICONS = { '白底主图': '⬜', '场景图': '🌄', '详情图': '📋', '组合图': '🖼️' };
 const getEcImages = work => normalizeWorkImages(work?.images);
+const commerceLabel = (options, value, fallback = '') => options.find(option => option.id === value)?.label || fallback || value;
 const EC_GENERATION_STATUS = {
   generating: { label: '正在生成', background: '#EEF2FF', color: '#4338CA' },
   needs_review: { label: '需要确认', background: '#FFF7E8', color: '#A15C00' },
@@ -234,8 +236,16 @@ export default function WorksPage() {
                           fontSize: 10, background: '#f5f5f5', color: '#666',
                           padding: '1px 7px', borderRadius: 4,
                         }}>
-                          {(EC_PLATFORM_SPECS[w.platform] || {}).name || w.platform}
+                          {commerceLabel(COMMERCE_PLATFORMS, w.commerceContext?.platform || w.platform, (EC_PLATFORM_SPECS[w.platform] || {}).name)}
                         </span>
+                        {w.targetLanguage && <span style={{
+                          fontSize: 10, background: '#EEF7F1', color: '#177B48',
+                          padding: '1px 7px', borderRadius: 4,
+                        }}>{commerceLabel(COMMERCE_LANGUAGES, w.targetLanguage)}</span>}
+                        {w.contentType && <span style={{
+                          fontSize: 10, background: '#FFF7E8', color: '#A15C00',
+                          padding: '1px 7px', borderRadius: 4,
+                        }}>{commerceLabel(COMMERCE_CONTENT_TYPES, w.contentType)}</span>}
                         <span style={{
                           fontSize: 10, background: status.background, color: status.color,
                           padding: '1px 7px', borderRadius: 4, fontWeight: 700,

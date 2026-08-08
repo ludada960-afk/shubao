@@ -38,6 +38,11 @@ export function createSmartOverrides() {
 export function createSmartConfiguration() {
   return {
     platform: 'smart',
+    commerceContext: {
+      platform: 'smart',
+      contentType: 'main',
+      targetLanguage: 'visual',
+    },
     sizing: { smart: true, images: [] },
     styleSkill: 'smart',
     customColors: null,
@@ -60,9 +65,15 @@ export function deriveEffectiveSmartOverrides(configuration = {}) {
   const productParams = configuration.productParams || {};
   const copywriting = configuration.copywriting || {};
   const genSettings = configuration.genSettings || {};
+  const commerceContext = {
+    contentType: 'main',
+    targetLanguage: 'visual',
+    ...(configuration.commerceContext || {}),
+  };
 
   return {
     sizing: configuration.platform !== 'smart'
+      || commerceContext.contentType !== 'main'
       || sizing.smart === false
       || (Array.isArray(sizing.images) && sizing.images.length > 0 && sizing.smart !== true),
     style: configuration.styleSkill !== 'smart' || customColors.length > 0,
@@ -70,7 +81,8 @@ export function deriveEffectiveSmartOverrides(configuration = {}) {
     sku: (Array.isArray(configuration.skus) ? configuration.skus : [])
       .some(sku => ['color', 'size', 'capacity', 'dimLabel'].some(field => hasText(sku?.[field]))),
     copy: Object.values(copywriting).some(hasText),
-    settings: (genSettings.resolution || '2K') !== '2K' || hasText(genSettings.negativePrompt),
+    settings: (genSettings.resolution || '2K') !== '2K' || hasText(genSettings.negativePrompt)
+      || commerceContext.targetLanguage !== 'visual',
   };
 }
 

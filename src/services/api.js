@@ -22,6 +22,7 @@ import {
 import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
 import { isTransientTaskSyncError, withTransientTaskSyncRetry } from './taskSync.js';
 import { getEcommerceAutoRepairDecision } from './ecommerceRetryPolicy.js';
+import { normalizeCommerceContext } from '../pages/Home/ec/internationalCommerceRegistry.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 const ECOMMERCE_SUITE_REPAIR_VERSION = 1;
@@ -576,6 +577,9 @@ export async function generateEcommerceSuite({
   referenceImages,
   sceneStyle,
   platform,
+  contentType,
+  targetLanguage,
+  commerceContext,
   batchPlan,
   generationSettings,
   sizing,
@@ -596,6 +600,9 @@ export async function generateEcommerceSuite({
     refImgs: referenceImages || [],
     realShots: productImages || [],
     platform: platform || '淘宝',
+    contentType,
+    targetLanguage,
+    commerceContext,
     imageSelections: planToSelections(batchPlan),
     generationSettings,
     sizing,
@@ -829,7 +836,7 @@ export function generatePlogContent({
   }, options);
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, contentType, targetLanguage, commerceContext, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
   const ownerEmail = getSessionEmail() || String(email || '').trim().toLowerCase();
   const submissionContext = { ownerEmail, draftId };
   const savedReference = loadEcommerceTaskReference({ ownerEmail, draftId });
@@ -883,10 +890,14 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
 
   const productInputs = splitEcommerceInputs(realShots);
   const referenceInputs = splitEcommerceInputs(refImgs);
+  const hasCommerceContext = Boolean(commerceContext || contentType || targetLanguage);
+  const normalizedCommerceContext = hasCommerceContext
+    ? normalizeCommerceContext({ platform, contentType, targetLanguage, ...(commerceContext || {}) })
+    : null;
   const body = {
     product_name: productName,
     category,
-    platform,
+    platform: normalizedCommerceContext?.platform || platform,
     selling_points: points || '',
     skus: skus || [],
     detail_plan: detailPlan || null,
@@ -895,6 +906,11 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     restrictions: restrictions || '',
     direction: direction || null,
   };
+  if (normalizedCommerceContext) {
+    body.commerce_context = normalizedCommerceContext;
+    body.content_type = normalizedCommerceContext.contentType;
+    body.target_language = normalizedCommerceContext.targetLanguage;
+  }
   const resolvedMentions = Array.isArray(assetMentions) && assetMentions.length
     ? assetMentions
     : imageReferenceMetadata([...(realShots || []), ...(refImgs || [])]);

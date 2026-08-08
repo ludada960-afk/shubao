@@ -40,6 +40,7 @@ import {
 import {
   getDirectionExecutionGuide,
 } from './components/directionUiModel.js';
+import { normalizeCommerceContext } from './internationalCommerceRegistry.js';
 
 function normalizeDirectionImages(images = []) {
   const seen = new Set();
@@ -137,12 +138,18 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     return () => globalThis.removeEventListener?.('keydown', handlePreviewKey);
   }, [previewImageIndex, stableImages.length]);
 
+  const commerceContext = useMemo(() => normalizeCommerceContext({
+    ...(params?.commerceContext || {}),
+    platform: params?.commerceContext?.platform || params?.platform,
+    contentType: params?.commerceContext?.contentType || params?.contentType,
+    targetLanguage: params?.commerceContext?.targetLanguage || params?.targetLanguage,
+  }), [params?.commerceContext, params?.contentType, params?.platform, params?.targetLanguage]);
   const ecommercePlan = useMemo(() => resolveEcommercePlan({
-    platform: params?.platform || 'smart',
-    sizing: params?.sizing || {},
+    platform: commerceContext.platform,
+    sizing: { ...(params?.sizing || {}), contentType: commerceContext.contentType },
     resolution: params?.genSettings?.resolution || '2K',
     skus: params?.skus || [],
-  }), [params?.genSettings?.resolution, params?.platform, params?.sizing, params?.skus]);
+  }), [commerceContext.contentType, commerceContext.platform, params?.genSettings?.resolution, params?.sizing, params?.skus]);
   const quoteText = formatEcommerceQuote({
     quantity: ecommercePlan.quantity,
     quote: billingQuote,
@@ -216,7 +223,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         category: params?.category || '其他',
         real_shots: [...(params?.realShots || []), ...uploadedSupplement.product],
         ref_shots: [...(params?.refShots || []), ...uploadedSupplement.reference],
-        platform: params?.platform || 'smart',
+        platform: commerceContext.platform,
+        content_type: commerceContext.contentType,
+        target_language: commerceContext.targetLanguage,
+        commerce_context: commerceContext,
         style_skill: params?.styleSkill || 'smart',
         product_params: params?.productParams || {},
         skus: params?.skus || [],
@@ -239,6 +249,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         analysis: res.analysis || null,
         productName: params?.productName || params?.description?.slice(0, 20) || '商品',
         category: params?.category || '其他',
+        commerce_context: commerceContext,
       }));
       setDirections(enrichedDirections);
       if (res.creativeRoute?.attemptId) creativeAttemptRef.current = res.creativeRoute.attemptId;
@@ -414,13 +425,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       const editableBrief = dir?.brief || dir?.execution_guide || dir?.description || dir?.short_desc || '';
       const directionBrief = [dir?.title, dir?.one_liner, editableBrief].filter(Boolean).join('。');
       pendingAction = buildEcommercePendingAction({
-        platform: params?.platform || '淘宝',
+        platform: commerceContext.platform,
+        commerceContext,
         direction: {
           id: dir?.id,
           brief: editableBrief || dir?.one_liner || '',
         },
         sizing: {
           ...(params?.sizing || {}),
+          contentType: commerceContext.contentType,
           resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
         },
         skus: params?.skus || [],
@@ -442,7 +455,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         productName: params?.productName || params?.description?.slice(0, 20) || '商品',
         category: params?.category || '其他',
         points: [params?.copywriting?.sellingPoints || params?.description || '', directionBrief].filter(Boolean).join('。设计方向：'),
-        platform: params?.platform || '淘宝',
+        platform: commerceContext.platform,
+        contentType: commerceContext.contentType,
+        targetLanguage: commerceContext.targetLanguage,
+        commerceContext,
         email: state.phone,
         refImgs: [...(params?.refShots || []), ...uploadedSupplement.reference],
         realShots: [...(params?.realShots || []), ...uploadedSupplement.product],
@@ -495,7 +511,10 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           _ecResult: true,
           _direction: dir,
           category: params?.category || '其他',
-          platform: params?.platform || '淘宝',
+          platform: commerceContext.platform,
+          contentType: commerceContext.contentType,
+          targetLanguage: commerceContext.targetLanguage,
+          commerceContext,
         }, {
           productAssets: [...(params?.realShots || []), ...uploadedSupplement.product],
           referenceAssets: [...(params?.refShots || []), ...uploadedSupplement.reference],
@@ -525,13 +544,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         draftId: params?.draftId || '',
         quoteId: failedQuoteId,
         action: pendingAction || buildEcommercePendingAction({
-          platform: params?.platform || '淘宝',
+          platform: commerceContext.platform,
+          commerceContext,
           direction: {
             ...fallbackDirection,
             brief: getDirectionExecutionGuide(fallbackDirection),
           },
           sizing: {
             ...(params?.sizing || {}),
+            contentType: commerceContext.contentType,
             resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
           },
           skus: params?.skus || [],

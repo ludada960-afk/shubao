@@ -45,16 +45,20 @@ const alias = new Map([
 export function normalizeCommerceContext(value = {}) {
   const rawPlatform = String(value.platform || '').trim();
   const rawLanguage = String(value.targetLanguage || value.target_language || '').trim();
-  const platform = COMMERCE_PLATFORMS.some(item => item.id === rawPlatform)
-    ? rawPlatform
-    : alias.get(rawPlatform) || 'smart';
-  const targetLanguage = COMMERCE_LANGUAGES.some(item => item.id === rawLanguage)
-    ? rawLanguage
-    : alias.get(rawLanguage) || 'visual';
+  const normalizedPlatform = rawPlatform.toLowerCase();
+  const normalizedLanguage = rawLanguage.toLowerCase();
+  const platform = COMMERCE_PLATFORMS.some(item => item.id === normalizedPlatform)
+    ? normalizedPlatform
+    : alias.get(rawPlatform) || alias.get(normalizedPlatform) || 'smart';
+  const targetLanguage = COMMERCE_LANGUAGES.find(item => item.id.toLowerCase() === normalizedLanguage)?.id
+    || alias.get(rawLanguage)
+    || alias.get(normalizedLanguage)
+    || 'visual';
+  const rawContentType = value.contentType || value.content_type;
   const language = COMMERCE_LANGUAGES.find(item => item.id === targetLanguage) || COMMERCE_LANGUAGES[0];
   return {
     platform,
-    contentType: ['main', 'detail', 'ad'].includes(value.contentType) ? value.contentType : 'main',
+    contentType: ['main', 'detail', 'ad'].includes(rawContentType) ? rawContentType : 'main',
     targetLanguage,
     locale: language.locale,
     policyVersion: 'global-commerce-v1',

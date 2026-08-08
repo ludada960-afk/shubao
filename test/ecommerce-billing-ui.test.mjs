@@ -530,7 +530,7 @@ test('initial direction analysis is included while explicit refresh is authorita
   assert.match(direction, /createBoundedRequestLifecycle/);
   assert.match(direction, /analysisRequestRef\s*=\s*useRef\(null\)/);
   assert.match(analysisSlice, /uploadSupplementAssetsForAnalysis\(analysisRequest\.signal\)/);
-  assert.match(analysisSlice, /getDesignDirections\([\s\S]{0,900}\{\s*signal:\s*analysisRequest\.signal\s*\}\)/);
+  assert.match(analysisSlice, /getDesignDirections\([\s\S]{0,1400}\{\s*signal:\s*analysisRequest\.signal\s*\}\)/);
   assert.match(direction, /analysisRequestRef\.current\?\.cancel\(\)/);
   assert.match(direction, /analysisRequestRef\.current\?\.cleanup\(\)/);
   assert.match(direction, /uploadSupplementAssetsForGeneration\(generationToken/);
