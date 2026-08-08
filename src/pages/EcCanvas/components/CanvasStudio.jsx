@@ -319,15 +319,10 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
       {activePanel === item.key && <div className="ec-canvas-suite-panel-popover" role="dialog" aria-label={`${item.label}设置`} onPointerDown={event => event.stopPropagation()}>
         {item.key === 'sizing' && <SizingPanel
           platform={configuration.platform}
-          contentType={configuration.commerceContext.contentType}
           targetLanguage={configuration.commerceContext.targetLanguage}
           onPlatformSizingChange={(platform, sizing) => {
             const commerceContext = normalizeCommerceContext({ ...configuration.commerceContext, platform });
             onChange?.({ platform: commerceContext.platform, commerceContext, configuration: { ...configuration, platform: commerceContext.platform, commerceContext, sizing } });
-          }}
-          onContentTypeChange={contentType => {
-            const commerceContext = normalizeCommerceContext({ ...configuration.commerceContext, contentType });
-            onChange?.({ commerceContext, configuration: { ...configuration, commerceContext } });
           }}
           onTargetLanguageChange={targetLanguage => {
             const commerceContext = normalizeCommerceContext({ ...configuration.commerceContext, targetLanguage });

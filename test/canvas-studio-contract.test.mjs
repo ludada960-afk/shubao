@@ -135,8 +135,8 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     commerceContext: {
       platform: 'tmall',
       contentType: 'main',
-      targetLanguage: 'visual',
-      locale: 'und',
+      targetLanguage: 'zh-CN',
+      locale: 'zh-CN',
       policyVersion: 'global-commerce-v1',
     },
     suiteType: '完整套图',
@@ -154,8 +154,8 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
       commerceContext: {
         platform: 'tmall',
         contentType: 'main',
-        targetLanguage: 'visual',
-        locale: 'und',
+        targetLanguage: 'zh-CN',
+        locale: 'zh-CN',
         policyVersion: 'global-commerce-v1',
       },
       sizing: { smart: true, images: [] },

@@ -53,7 +53,7 @@ export function normalizeCommerceContext(value = {}) {
   const targetLanguage = COMMERCE_LANGUAGES.find(item => item.id.toLowerCase() === normalizedLanguage)?.id
     || alias.get(rawLanguage)
     || alias.get(normalizedLanguage)
-    || 'visual';
+    || 'zh-CN';
   const rawContentType = value.contentType || value.content_type;
   const language = COMMERCE_LANGUAGES.find(item => item.id === targetLanguage) || COMMERCE_LANGUAGES[0];
   return {

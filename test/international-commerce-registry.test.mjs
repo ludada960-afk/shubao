@@ -51,8 +51,8 @@ test('commerce context normalizes legacy labels and fails closed for unknown val
   }), {
     platform: 'smart',
     contentType: 'main',
-    targetLanguage: 'visual',
-    locale: 'und',
+    targetLanguage: 'zh-CN',
+    locale: 'zh-CN',
     policyVersion: 'global-commerce-v1',
   });
 });

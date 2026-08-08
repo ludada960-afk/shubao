@@ -143,8 +143,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* — 配置 — */
   const [platform, setPlatform] = useState('smart');
   const [sizing, setSizing] = useState({ smart: true, images: [] });
-  const [contentType, setContentType] = useState('main');
-  const [targetLanguage, setTargetLanguage] = useState('visual');
+  const contentType = 'main';
+  const [targetLanguage, setTargetLanguage] = useState('zh-CN');
   const [styleSkill, setStyleSkill] = useState('smart');
   const [customColors, setCustomColors] = useState(null);
   const [productParams, setProductParams] = useState({ category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' });
@@ -167,7 +167,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     setDescription(restored.description);
     setPlatform(restoredCommerceContext.platform);
     setSizing(restored.sizing);
-    setContentType(restoredCommerceContext.contentType);
     setTargetLanguage(restoredCommerceContext.targetLanguage);
     setStyleSkill(restored.styleSkill);
     setCustomColors(restored.customColors);
@@ -255,7 +254,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       smart: baseSizing.smart !== false,
       resolution: genSettings.resolution,
       contentType: commerceContext.contentType,
-      images: resolveSizingImages(commerceContext.platform, { ...baseSizing, resolution: genSettings.resolution, contentType: commerceContext.contentType }),
+      images: resolveSizingImages(commerceContext.platform, { ...baseSizing, resolution: genSettings.resolution }),
     };
     const effectiveStyle = (smartMode && !effectiveSmartOverrides.style) ? 'smart' : styleSkill;
     const effectiveParams = productParams;
@@ -356,8 +355,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     const smart = createSmartConfiguration();
     setPlatform(smart.platform);
     setSizing(smart.sizing);
-    setContentType(smart.commerceContext?.contentType || 'main');
-    setTargetLanguage(smart.commerceContext?.targetLanguage || 'visual');
+    setTargetLanguage(smart.commerceContext?.targetLanguage || 'zh-CN');
     setStyleSkill(smart.styleSkill);
     setCustomColors(smart.customColors);
     setProductParams(smart.productParams);
@@ -390,7 +388,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     if (!el) return;
     const btnRect = el.getBoundingClientRect();
     const vw = window.innerWidth;
-    const baseWidth = activePanel === 'copy' ? 520 : activePanel === 'sizing' ? 460 : activePanel === 'settings' ? 420 : 420;
+    const baseWidth = ({ sizing: 560, sku: 540, style: 520, params: 520, copy: 620, settings: 460 })[activePanel] || 520;
     const panelW = Math.min(Math.max(baseWidth, 400), Math.max(320, vw - 32));
     const btnCenterX = btnRect.left + btnRect.width / 2;
     setPanelPos({
@@ -423,11 +421,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       const vw = window.innerWidth;
       
       // 面板宽度：根据内容类型调整
-      const isCopyPanel = key === 'copy';
-      const isSizingPanel = key === 'sizing';
-      const isSettingsPanel = key === 'settings';
-      const baseWidth = isCopyPanel ? 520 : isSizingPanel ? 460 : isSettingsPanel ? 380 : 420;
-      const maxPW = Math.min(vw - 32, 640);
+      const baseWidth = ({ sizing: 560, sku: 540, style: 520, params: 520, copy: 620, settings: 460 })[key] || 520;
+      const maxPW = Math.min(vw - 32, 680);
       const panelW = Math.min(Math.max(baseWidth, 400), maxPW);
       
       // 使用 Portal 固定在视口：不受顶部导航、父级 overflow 或卡片高度裁切。
@@ -450,8 +445,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* ── 浮层渲染：Portal 到 body，彻底避免卡片与导航裁切 ── */
   const renderPanel = () => {
     if (!activePanel) return null;
+    const panelMeta = BUTTONS.find(item => item.key === activePanel);
     return createPortal(
-        <div id="ec-floating-panel" style={{
+        <div id="ec-floating-panel" className="ec-config-panel" data-panel={activePanel} style={{
           ...GLASS_PANEL,
           position: 'fixed',
           bottom: panelPos.bottom,
@@ -461,16 +457,20 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           overflowY: 'auto',
           zIndex: 1100,
           transformOrigin: 'bottom center',
+          '--ec-panel-anchor-x': `${Math.max(28, Math.min(panelPos.width - 28, panelPos.btnCenterX - panelPos.left))}px`,
         }}>
+        <div className="ec-config-panel-header">
+          <span className="ec-config-panel-icon">{panelMeta?.icon}</span>
+          <div><strong>{panelMeta?.label}</strong><span>调整本次电商套图的生成规则</span></div>
+        </div>
+        <div className="ec-config-panel-body">
         {activePanel === 'sizing' && (
           <SizingPanel
             platform={platform} onPlatformChange={setPlatform}
             sizing={sizing} onSizingChange={setSizing}
             smartMode={smartMode} onOverride={(isOverridden) => handleOverride('sizing', isOverridden)}
             resolution={genSettings.resolution}
-            contentType={contentType}
             targetLanguage={targetLanguage}
-            onContentTypeChange={setContentType}
             onTargetLanguageChange={setTargetLanguage}
           />
         )}
@@ -496,6 +496,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         {activePanel === 'settings' && (
           <GenSettingsPanel value={genSettings} onChange={value => { setGenSettings(value); handleOverride('settings'); }} />
         )}
+        </div>
       </div>,
       document.body,
     );
@@ -859,7 +860,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                 onClick={() => openPanel(btn.key)}
                 aria-label={`${btn.label}：${summary.text || btn.label}`}
                 aria-expanded={isOpen}
-                className={isOverridden ? 'ec-btn-overridden' : ''}
+                className={`ec-config-trigger${isOpen ? ' is-open' : ''}${isOverridden ? ' ec-btn-overridden' : ''}`}
                 style={{
                   ...BTN_BASE,
                   appearance: 'none',
@@ -895,14 +896,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                   filter: isOverridden ? 'drop-shadow(0 1px 2px rgba(124,58,237,0.2))' : 'none',
                 }}>{btn.icon}</span>
                 {/* 焦图AI风格：直接显示配置内容，替代原有标签 */}
-                {summary.text ? (
-                  <span style={{ 
-                    color: isOverridden ? '#1a1a1a' : 'var(--text-secondary)',
-                    fontWeight: isOverridden ? 700 : 600,
-                  }}>{summary.text}</span>
-                ) : (
-                  <span style={{ color: isOverridden ? '#1a1a1a' : 'var(--text-secondary)' }}>{btn.label}</span>
-                )}
+                <span className="ec-config-trigger-copy">
+                  <span>{btn.label}</span>
+                  <strong>{summary.text || btn.label}</strong>
+                </span>
                 {isOverridden && !summary.text && <span className="ec-override-dot" />}
                 <ChevronDown size={13} style={{
                   opacity: isOpen ? 0.8 : 0.4,

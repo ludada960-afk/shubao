@@ -20,33 +20,33 @@ test('smart configuration carries the global commerce context', () => {
   assert.deepEqual(configuration.commerceContext, {
     platform: 'smart',
     contentType: 'main',
-    targetLanguage: 'visual',
+    targetLanguage: 'zh-CN',
   });
   assert.deepEqual(normalizeCommerceContext(configuration.commerceContext), {
     platform: 'smart',
     contentType: 'main',
-    targetLanguage: 'visual',
-    locale: 'und',
+    targetLanguage: 'zh-CN',
+    locale: 'zh-CN',
     policyVersion: 'global-commerce-v1',
   });
 });
 
-test('content type changes smart image defaults without changing the detail ratio contract', () => {
-  const detail = resolveSizingImages('amazon', { smart: true, images: [], contentType: 'detail' });
-  assert.ok(detail.some(image => image.key === 'detail'));
-  assert.ok(detail.every(image => image.key === 'detail' || image.key === 'sku'));
-  assert.ok(detail.filter(image => image.key === 'detail').every(image => image.ratio === '9:16'));
+test('smart ecommerce remains one complete suite that includes detail images', () => {
+  const suite = resolveSizingImages('smart', { smart: true, images: [] });
+  assert.ok(suite.some(image => image.key === 'detail'));
+  assert.ok(suite.filter(image => image.key === 'detail').every(image => image.ratio === '9:16'));
+  assert.deepEqual(resolveSizingImages('smart', { smart: true, images: [], contentType: 'detail' }), suite);
 });
 
-test('platform picker exposes grouped markets, target language and content type controls', () => {
+test('platform picker exposes grouped markets and language without content type tabs', () => {
   assert.match(sizingPanel, /COMMERCE_PLATFORMS/);
   assert.match(sizingPanel, /国内平台/);
   assert.match(sizingPanel, /跨境平台/);
   assert.match(sizingPanel, /目标语言/);
   assert.match(commerceRegistry, /无文字（纯视觉）/);
-  assert.match(sizingPanel, /COMMERCE_CONTENT_TYPES/);
+  assert.doesNotMatch(sizingPanel, /COMMERCE_CONTENT_TYPES/);
   assert.match(ecMode, /targetLanguage/);
-  assert.match(ecMode, /contentType/);
+  assert.match(ecMode, /const contentType = 'main'/);
 });
 
 test('pending generation and orchestration preserve the same commerce context', () => {
@@ -68,7 +68,7 @@ test('pending generation and orchestration preserve the same commerce context', 
   assert.match(orchestrator, /normalizeCommerceContext/);
   assert.match(orchestrator, /commerceContext/);
   assert.match(canvasStudio, /onTargetLanguageChange/);
-  assert.match(canvasStudio, /onContentTypeChange/);
+  assert.doesNotMatch(canvasStudio, /onContentTypeChange/);
   assert.match(canvasPage, /commerce_context/);
   assert.match(canvasPage, /targetLanguage/);
   assert.match(worksPage, /COMMERCE_LANGUAGES/);

@@ -60,7 +60,7 @@ test('smart configuration restores every editable panel including SKU and produc
     commerceContext: {
       platform: 'smart',
       contentType: 'main',
-      targetLanguage: 'visual',
+      targetLanguage: 'zh-CN',
     },
     sizing: { smart: true, images: [] },
     styleSkill: 'smart',

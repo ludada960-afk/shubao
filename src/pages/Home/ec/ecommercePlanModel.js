@@ -150,7 +150,6 @@ function legalRatio(type, image) {
 
 function sourceImages(platform, sizing) {
   if (Array.isArray(sizing?.images) && sizing.images.length > 0) return sizing.images;
-  if (CONTENT_TYPE_PRESETS[sizing?.contentType]) return CONTENT_TYPE_PRESETS[sizing.contentType];
   const platformAliases = {
     taobao: '淘宝', tmall: '淘宝', pinduoduo: '拼多多', jd: '京东', douyin: '抖音',
     xiaohongshu: '小红书', amazon: '亚马逊', 'amazon-aplus-wide': '亚马逊',

@@ -111,7 +111,7 @@ export function normalizeContentType(value) {
 
 export function normalizeTargetLanguage(value) {
   const key = normalized(value);
-  return LANGUAGE_ALIASES.get(key) || LANGUAGE_ALIASES.get(key.toLowerCase()) || 'visual';
+  return LANGUAGE_ALIASES.get(key) || LANGUAGE_ALIASES.get(key.toLowerCase()) || 'zh-CN';
 }
 
 export function commercePlatform(platformId) {

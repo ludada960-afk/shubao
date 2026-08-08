@@ -9,11 +9,7 @@ import {
   resolveSizingImages,
 } from './ecommercePlanModel.js';
 import { normalizeCommerceFormat } from './ecommerceFormatRegistry.js';
-import {
-  COMMERCE_CONTENT_TYPES,
-  COMMERCE_LANGUAGES,
-  COMMERCE_PLATFORMS,
-} from './internationalCommerceRegistry.js';
+import { COMMERCE_LANGUAGES, COMMERCE_PLATFORMS } from './internationalCommerceRegistry.js';
 
 /* 比例形状预览图标 */
 function RatioShape({ w, h, active }) {
@@ -49,7 +45,7 @@ function RatioSelect({ value, onChange, disabled, resolution, role, platform }) 
         <span>{current.label}</span>
         {!disabled && <svg width={8} height={8} viewBox="0 0 8 8"><path d="M1 2.5 L4 5.5 L7 2.5" stroke="#999" strokeWidth={1.5} fill="none" strokeLinecap="round"/></svg>}
       </button>
-      <AnchoredPortal anchorRef={ref} open={open} onDismiss={() => setOpen(false)} minWidth={292} maxWidth={360} className="ec-ratio-portal">
+      <AnchoredPortal anchorRef={ref} open={open} onDismiss={() => setOpen(false)} align="center" minWidth={292} maxWidth={360} className="ec-ratio-portal">
         <div style={{
           background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(16px)',
           borderRadius: 10, border: '1px solid rgba(0,0,0,0.10)',
@@ -102,9 +98,7 @@ export default function SizingPanel({
   smartMode = true,
   onOverride,
   resolution = '2K',
-  contentType = 'main',
-  targetLanguage = 'visual',
-  onContentTypeChange,
+  targetLanguage = 'zh-CN',
   onTargetLanguageChange,
 }) {
   const [platformOpen, setPlatformOpen] = useState(false);
@@ -112,7 +106,7 @@ export default function SizingPanel({
   const platformButtonRef = useRef(null);
   const languageButtonRef = useRef(null);
   // 当前激活的图片类型列表
-  const activeImages = resolveSizingImages(platform, { ...sizing, resolution, contentType });
+  const activeImages = resolveSizingImages(platform, { ...sizing, resolution });
   // 已激活的 key 集合
   const activeKeys = useMemo(() => new Set(activeImages.map(i => i.key)), [activeImages]);
   // 是否已被用户自定义
@@ -120,7 +114,7 @@ export default function SizingPanel({
 
   /* ── 平台切换 ── */
   const handlePlatform = useCallback((key) => {
-    const newImages = resolveSizingImages(key, { smart: true, images: [], resolution, contentType });
+    const newImages = resolveSizingImages(key, { smart: true, images: [], resolution });
     if (onPlatformSizingChange) {
       onPlatformSizingChange(key, { smart: true, images: newImages });
     } else {
@@ -129,16 +123,7 @@ export default function SizingPanel({
     }
     setPlatformOpen(false);
     onOverride?.(false);
-  }, [contentType, onPlatformChange, onPlatformSizingChange, onSizingChange, onOverride, resolution]);
-
-  const handleContentType = useCallback((nextType) => {
-    onContentTypeChange?.(nextType);
-    if (sizing.smart !== false) {
-      onSizingChange?.({ smart: true, images: resolveSizingImages(platform, { smart: true, images: [], resolution, contentType: nextType }) });
-    }
-    setPlatformOpen(false);
-    onOverride?.(nextType !== 'main');
-  }, [onContentTypeChange, onOverride, onSizingChange, platform, resolution, sizing.smart]);
+  }, [onPlatformChange, onPlatformSizingChange, onSizingChange, onOverride, resolution]);
 
   const handleLanguage = useCallback((nextLanguage) => {
     onTargetLanguageChange?.(nextLanguage);
@@ -165,20 +150,20 @@ export default function SizingPanel({
         label: typeDef.label,
       }];
     }
-    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution, contentType });
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeKeys, activeImages, contentType, onSizingChange, onOverride, platform, resolution]);
+  }, [activeKeys, activeImages, onSizingChange, onOverride, platform, resolution]);
 
   /* ── 修改数量 ── */
   const updateCount = useCallback((typeKey, count) => {
     const next = activeImages.map(i => i.key === typeKey ? { ...i, count: Math.max(0, Math.min(count, IMAGE_TYPES.find(t => t.key === typeKey)?.maxCount || 20)) } : i);
-    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution, contentType });
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeImages, contentType, onSizingChange, onOverride, platform, resolution]);
+  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
 
   /* ── 修改比例 ── */
   const updateRatio = useCallback((typeKey, ratio) => {
@@ -190,11 +175,11 @@ export default function SizingPanel({
       targetRatio: format.targetRatio,
       cropPolicy: format.cropPolicy,
     } : i);
-    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution, contentType });
+    const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
     onOverride?.(!isBackToRecommended);
-  }, [activeImages, contentType, onSizingChange, onOverride, platform, resolution]);
+  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
 
   const totalImages = activeImages.reduce((s, img) => s + (img.count || 0), 0);
   const pDef = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
@@ -232,24 +217,7 @@ export default function SizingPanel({
       )}
 
       <div style={{ padding: '14px 16px 12px' }}>
-        {/* ── 内容类型、平台与语言 ── */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {COMMERCE_CONTENT_TYPES.map(type => {
-            const active = contentType === type.id;
-            return (
-              <button key={type.id} type="button" onClick={() => handleContentType(type.id)}
-                title={type.description}
-                style={{
-                  flex: 1, minWidth: 0, height: 34, padding: '0 8px', borderRadius: 10,
-                  border: `1px solid ${active ? '#6d28d9' : 'rgba(0,0,0,0.10)'}`,
-                  background: active ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : '#fff',
-                  color: active ? '#fff' : 'var(--text-secondary)', fontSize: 12,
-                  fontWeight: active ? 800 : 600, cursor: 'pointer', fontFamily: 'inherit',
-                }}>{type.label}</button>
-            );
-          })}
-        </div>
-
+        {/* ── 平台与语言 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
           <div style={{ position: 'relative' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>目标平台</div>
@@ -259,7 +227,7 @@ export default function SizingPanel({
               <ChevronDown size={15} style={{ flexShrink: 0, transform: platformOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
             {platformOpen && (
-              <AnchoredPortal anchorRef={platformButtonRef} open={platformOpen} onDismiss={() => setPlatformOpen(false)} align="start" minWidth={320} maxWidth={420} className="ec-commerce-menu">
+              <AnchoredPortal anchorRef={platformButtonRef} open={platformOpen} onDismiss={() => setPlatformOpen(false)} align="center" minWidth={320} maxWidth={420} className="ec-commerce-menu">
                 <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{['smart', 'domestic', 'cross-border'].map(group => {
                   const options = COMMERCE_PLATFORMS.filter(item => item.group === group);
                   if (!options.length) return null;
@@ -284,7 +252,7 @@ export default function SizingPanel({
               <ChevronDown size={15} style={{ flexShrink: 0, transform: languageOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
             {languageOpen && (
-              <AnchoredPortal anchorRef={languageButtonRef} open={languageOpen} onDismiss={() => setLanguageOpen(false)} align="start" minWidth={320} maxWidth={420} className="ec-commerce-menu">
+              <AnchoredPortal anchorRef={languageButtonRef} open={languageOpen} onDismiss={() => setLanguageOpen(false)} align="center" minWidth={320} maxWidth={420} className="ec-commerce-menu">
                 <div style={{ padding: 6, maxHeight: 'min(520px, calc(100vh - 32px))', overflowY: 'auto', borderRadius: 12, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 16px 36px rgba(0,0,0,0.16)' }}>{COMMERCE_LANGUAGES.map(option => (
                   <button key={option.id} type="button" onClick={() => handleLanguage(option.id)}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', border: 0, borderRadius: 8, background: option.id === targetLanguage ? 'rgba(124,58,237,0.10)' : 'transparent', color: option.id === targetLanguage ? '#6d28d9' : 'var(--text-primary)', fontSize: 12, fontWeight: option.id === targetLanguage ? 800 : 500, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>

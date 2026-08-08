@@ -28,7 +28,9 @@ export default function AnchoredPortal({
     const roomAbove = rect.top - VIEWPORT_GAP;
     const placeAbove = roomBelow < Math.min(measuredHeight, 260) && roomAbove > roomBelow;
     const maxHeight = Math.max(160, (placeAbove ? roomAbove : roomBelow) - VIEWPORT_GAP);
-    const idealLeft = align === 'start' ? rect.left : rect.right - measuredWidth;
+    const idealLeft = align === 'center'
+      ? rect.left + (rect.width - measuredWidth) / 2
+      : align === 'start' ? rect.left : rect.right - measuredWidth;
     const left = Math.max(VIEWPORT_GAP, Math.min(idealLeft, viewportWidth - measuredWidth - VIEWPORT_GAP));
     const top = placeAbove
       ? Math.max(VIEWPORT_GAP, rect.top - Math.min(measuredHeight, maxHeight) - VIEWPORT_GAP)

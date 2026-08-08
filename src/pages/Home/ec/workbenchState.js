@@ -41,7 +41,7 @@ export function createSmartConfiguration() {
     commerceContext: {
       platform: 'smart',
       contentType: 'main',
-      targetLanguage: 'visual',
+      targetLanguage: 'zh-CN',
     },
     sizing: { smart: true, images: [] },
     styleSkill: 'smart',
@@ -67,7 +67,7 @@ export function deriveEffectiveSmartOverrides(configuration = {}) {
   const genSettings = configuration.genSettings || {};
   const commerceContext = {
     contentType: 'main',
-    targetLanguage: 'visual',
+    targetLanguage: 'zh-CN',
     ...(configuration.commerceContext || {}),
   };
 
@@ -82,7 +82,7 @@ export function deriveEffectiveSmartOverrides(configuration = {}) {
       .some(sku => ['color', 'size', 'capacity', 'dimLabel'].some(field => hasText(sku?.[field]))),
     copy: Object.values(copywriting).some(hasText),
     settings: (genSettings.resolution || '2K') !== '2K' || hasText(genSettings.negativePrompt)
-      || commerceContext.targetLanguage !== 'visual',
+      || commerceContext.targetLanguage !== 'zh-CN',
   };
 }
 
