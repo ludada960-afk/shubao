@@ -24,10 +24,11 @@ function Invoke-CheckedNative {
   if ($LASTEXITCODE -ne 0) { throw "$FailureMessage (exit code $LASTEXITCODE)" }
 }
 
-function Test-CanarySessionTokenFormat {
-  param([AllowNull()][string]$Token)
-  return -not [string]::IsNullOrWhiteSpace($Token) -and $Token -match '^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+$canarySessionHelper = Join-Path $PSScriptRoot 'production-canary-session.ps1'
+if (-not (Test-Path -LiteralPath $canarySessionHelper -PathType Leaf)) {
+  throw "Production canary session helper is missing"
 }
+. $canarySessionHelper
 
 $canarySessionToken = $env:SHUBAO_CANARY_SESSION_TOKEN
 if (-not (Test-CanarySessionTokenFormat $canarySessionToken)) {
@@ -36,7 +37,21 @@ if (-not (Test-CanarySessionTokenFormat $canarySessionToken)) {
 if (-not (Test-CanarySessionTokenFormat $canarySessionToken)) {
   throw "SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment"
 }
-$env:SHUBAO_CANARY_SESSION_TOKEN = $canarySessionToken
+Remove-Item Env:SHUBAO_CANARY_SESSION_TOKEN -ErrorAction SilentlyContinue
+
+function Invoke-WithCanarySession {
+  param(
+    [Parameter(Mandatory = $true)]
+    [scriptblock]$Command
+  )
+  try {
+    $env:SHUBAO_CANARY_SESSION_TOKEN = $script:canarySessionToken
+    & $Command
+  } finally {
+    Remove-Item Env:SHUBAO_CANARY_SESSION_TOKEN -ErrorAction SilentlyContinue
+  }
+}
+
 $repo = (Resolve-Path $RepoPath).Path
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $commit = ((& git -C $repo rev-parse --short HEAD) -join "").Trim()
@@ -349,11 +364,11 @@ try {
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
   & node $galleryVerifier --base-url "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public gallery verification failed" }
-  & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
+  Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   Assert-DeploymentLockHeld
   $initialVerificationPid = Get-RemotePm2ProcessId
-  Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed"
+  Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed" }
   $initialVerificationEndPid = Get-RemotePm2ProcessId
   if ($initialVerificationEndPid -ne $initialVerificationPid) {
     throw "PM2 process restarted during initial ecommerce verification: $initialVerificationPid -> $initialVerificationEndPid"
@@ -363,9 +378,9 @@ try {
   Write-Host "Canary started for $CanarySeconds seconds (PM2 pid: $canaryPid)"
   Start-Sleep -Seconds $CanarySeconds
   Assert-DeploymentLockHeld
-  & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn"
+  Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
-  Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed"
+  Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
   $canaryEndPid = Get-RemotePm2ProcessId
   if ($canaryEndPid -ne $canaryPid) {
     throw "PM2 process restarted during canary: $canaryPid -> $canaryEndPid"

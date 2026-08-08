@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const deploy = readFileSync(new URL('../scripts/deploy-production.ps1', import.meta.url), 'utf8');
 const verify = readFileSync(new URL('../scripts/verify-production-billing.ps1', import.meta.url), 'utf8');
@@ -13,12 +15,16 @@ const productionEcosystem = readFileSync(new URL('../ecosystem.production.config
 const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 const ecommerceIdleProbe = readFileSync(new URL('../scripts/check-ecommerce-idle.cjs', import.meta.url), 'utf8');
 const deploymentLockRunner = readFileSync(new URL('../scripts/deployment-lock-runner.sh', import.meta.url), 'utf8');
+const canarySessionHelperUrl = new URL('../scripts/production-canary-session.ps1', import.meta.url);
+const canarySessionHelper = existsSync(canarySessionHelperUrl) ? readFileSync(canarySessionHelperUrl, 'utf8') : '';
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
-  assert.match(deploy, /function\s+Test-CanarySessionTokenFormat/i);
+  assert.match(canarySessionHelper, /-cmatch\s+['"]\^eyJ[^\r\n]+\\z['"]/);
   assert.match(deploy, /GetEnvironmentVariable\(['"]SHUBAO_CANARY_SESSION_TOKEN['"],\s*['"]User['"]\)/);
-  assert.match(deploy, /\$env:SHUBAO_CANARY_SESSION_TOKEN\s*=\s*\$canarySessionToken/);
+  assert.match(deploy, /function\s+Invoke-WithCanarySession/i);
+  assert.match(deploy, /finally\s*\{\s*Remove-Item\s+Env:SHUBAO_CANARY_SESSION_TOKEN/i);
+  assert.ok(deploy.indexOf('Remove-Item Env:SHUBAO_CANARY_SESSION_TOKEN') < deploy.indexOf('Write-Host "Building $commit..."'));
   assert.match(deploy, /git[^\n]*diff --check/i);
   assert.match(deploy, /function\s+Invoke-CheckedNative/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run test/i);
@@ -88,6 +94,19 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /PM2 process restarted during initial ecommerce verification/i);
   assert.match(deploy, /Start-Sleep -Seconds \$CanarySeconds/);
   assert.match(deploy, /process restarted during canary/i);
+});
+
+test('PowerShell canary token validation is case-sensitive and rejects trailing input', { skip: process.platform !== 'win32' }, () => {
+  const helperPath = fileURLToPath(canarySessionHelperUrl).replaceAll("'", "''");
+  const evaluate = token => spawnSync('powershell', [
+    '-NoProfile',
+    '-Command',
+    `. '${helperPath}'; if (Test-CanarySessionTokenFormat $env:TOKEN_UNDER_TEST) { exit 0 } else { exit 1 }`,
+  ], { env: { ...process.env, TOKEN_UNDER_TEST: token } }).status === 0;
+
+  assert.equal(evaluate('eyJlbWFpbCI6InRlc3QifQ.signature'), true);
+  assert.equal(evaluate('EYJlbWFpbCI6InRlc3QifQ.signature'), false);
+  assert.equal(evaluate('eyJlbWFpbCI6InRlc3QifQ.signature\n'), false);
 });
 
 test('deployment lock is process-backed and the foreground fences every production mutation', () => {
