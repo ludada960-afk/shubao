@@ -279,9 +279,13 @@ try {
   $lockProcessInfo.RedirectStandardInput = $true
   $lockProcessInfo.RedirectStandardOutput = $true
   $lockProcessInfo.RedirectStandardError = $true
-  foreach ($argument in @($ssh) + @($target, $remoteLockCommand)) {
-    $lockProcessInfo.ArgumentList.Add($argument)
-  }
+  $lockProcessInfo.Arguments = ((@($ssh) + @($target, $remoteLockCommand)) | ForEach-Object {
+    $argumentValue = [string]$_
+    if ($argumentValue.Contains('"')) {
+      throw "Remote lock process argument contains an unsupported quote"
+    }
+    '"' + $argumentValue + '"'
+  }) -join ' '
   $lockProcess = [System.Diagnostics.Process]::new()
   $lockProcess.StartInfo = $lockProcessInfo
   if (-not $lockProcess.Start()) {
