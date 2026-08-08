@@ -24,9 +24,19 @@ function Invoke-CheckedNative {
   if ($LASTEXITCODE -ne 0) { throw "$FailureMessage (exit code $LASTEXITCODE)" }
 }
 
-if ([string]::IsNullOrWhiteSpace($env:SHUBAO_CANARY_SESSION_TOKEN)) {
+function Test-CanarySessionTokenFormat {
+  param([AllowNull()][string]$Token)
+  return -not [string]::IsNullOrWhiteSpace($Token) -and $Token -match '^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+}
+
+$canarySessionToken = $env:SHUBAO_CANARY_SESSION_TOKEN
+if (-not (Test-CanarySessionTokenFormat $canarySessionToken)) {
+  $canarySessionToken = [Environment]::GetEnvironmentVariable('SHUBAO_CANARY_SESSION_TOKEN', 'User')
+}
+if (-not (Test-CanarySessionTokenFormat $canarySessionToken)) {
   throw "SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment"
 }
+$env:SHUBAO_CANARY_SESSION_TOKEN = $canarySessionToken
 $repo = (Resolve-Path $RepoPath).Path
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $commit = ((& git -C $repo rev-parse --short HEAD) -join "").Trim()

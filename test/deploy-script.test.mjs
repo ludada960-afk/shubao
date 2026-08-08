@@ -16,6 +16,9 @@ const deploymentLockRunner = readFileSync(new URL('../scripts/deployment-lock-ru
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
+  assert.match(deploy, /function\s+Test-CanarySessionTokenFormat/i);
+  assert.match(deploy, /GetEnvironmentVariable\(['"]SHUBAO_CANARY_SESSION_TOKEN['"],\s*['"]User['"]\)/);
+  assert.match(deploy, /\$env:SHUBAO_CANARY_SESSION_TOKEN\s*=\s*\$canarySessionToken/);
   assert.match(deploy, /git[^\n]*diff --check/i);
   assert.match(deploy, /function\s+Invoke-CheckedNative/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run test/i);
