@@ -1544,3 +1544,13 @@
   (`6457` modules), build check, collaboration policy, and whitespace validation
   passed. Browser-only visual inspection was not run because the local gstack
   browse binary has not been set up; no runtime file or credential was changed.
+
+- Production deployment of `58f4a1d` was attempted on 2026-08-08 through the
+  mandated deployment script. Local serial tests and the production build
+  passed, remote backup/upload/restart and public health passed, then the first
+  authenticated billing probe returned `401`. The script fail-closed, restored
+  the remote application and Nginx backup, reloaded PM2, and released the
+  deployment lock. The public `/health` endpoint was healthy after rollback.
+  The local `SHUBAO_CANARY_SESSION_TOKEN` and current clipboard were not
+  parseable JWTs, so a fresh owner session is required before retrying; do not
+  bypass the billing canary or claim this commit is live.
