@@ -945,6 +945,18 @@ export function createEcommerceOrchestrator(deps = {}) {
     }
     const requestedId = cleanString(own(input, 'id'));
     const id = requestedId ? validateId(requestedId, 'job id') : `ec_${randomUUID()}`;
+    if (requestedId) {
+      const existing = jobs.get(id);
+      if (existing) {
+        if (cleanString(existing.ownerEmail).toLowerCase() !== ownerEmail) {
+          throw httpError('生成请求编号已被占用', 409, 'ECOMMERCE_IDEMPOTENCY_CONFLICT');
+        }
+        if (JSON.stringify(existing.payload) !== JSON.stringify(payload)) {
+          throw httpError('生成请求内容与已提交任务不一致', 409, 'ECOMMERCE_IDEMPOTENCY_CONFLICT');
+        }
+        return getJob(existing.id, { ownerEmail });
+      }
+    }
     const job = jobs.create({ id, ownerEmail, payload });
     return getJob(job.id, { ownerEmail });
   }
@@ -2217,6 +2229,7 @@ export function createEcommerceRouteHandlers({
     async generate(req, res) {
       try {
         const job = orchestrator.createJob({
+          id: req?.headers?.['idempotency-key'],
           ownerEmail: req?._userEmail,
           payload: req?.body ?? {},
         });

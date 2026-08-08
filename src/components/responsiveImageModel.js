@@ -27,6 +27,23 @@ export function responsiveImageSrcSet(source, format = 'webp') {
     .join(', ');
 }
 
+export function retryImageUrl(url, retryCount = 0) {
+  const value = String(url || '');
+  const attempt = Number(retryCount);
+  if (!value || !Number.isSafeInteger(attempt) || attempt <= 0) return value;
+  return `${value}${value.includes('?') ? '&' : '?'}image_retry=${attempt}`;
+}
+
+export function retryImageSrcSet(srcSet, retryCount = 0) {
+  if (!srcSet || retryCount <= 0) return srcSet;
+  return String(srcSet).split(',').map(candidate => {
+    const value = candidate.trim();
+    const separator = value.lastIndexOf(' ');
+    if (separator < 0) return retryImageUrl(value, retryCount);
+    return `${retryImageUrl(value.slice(0, separator), retryCount)}${value.slice(separator)}`;
+  }).join(', ');
+}
+
 function decodeUrl(url) {
   if (!url || typeof Image === 'undefined') return Promise.resolve();
   if (predecodeRequests.has(url)) return predecodeRequests.get(url);

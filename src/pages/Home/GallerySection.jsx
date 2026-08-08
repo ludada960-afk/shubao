@@ -61,9 +61,9 @@ export default function GallerySection({ maxItems = 24, showHeader = true }) {
             style={{ borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.3s' }}
             onMouseEnter={e => {
               e.currentTarget.style.transform = 'translateY(-2px)';
-              void predecodeResponsiveImage(g.cover_url, 'display');
+              void predecodeResponsiveImage(g.cover_url, 'display').catch(() => {});
             }}
-            onFocus={() => { void predecodeResponsiveImage(g.cover_url, 'display'); }}
+            onFocus={() => { void predecodeResponsiveImage(g.cover_url, 'display').catch(() => {}); }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}>
             {g.cover_url ? (
               <div style={{ position: 'relative', lineHeight: 0 }}>

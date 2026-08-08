@@ -45,9 +45,9 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   useEffect(() => {
     if (item?._ecResult || !displayImgs[imgIdx]) return;
-    void predecodeResponsiveImage(displayImgs[imgIdx], 'display');
+    void predecodeResponsiveImage(displayImgs[imgIdx], 'display').catch(() => {});
     const next = displayImgs[imgIdx + 1];
-    if (next) void predecodeResponsiveImage(next, 'display');
+    if (next) void predecodeResponsiveImage(next, 'display').catch(() => {});
   }, [displayImgs, imgIdx, item?._ecResult]);
 
   // 键盘导航

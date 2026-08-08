@@ -20,11 +20,12 @@ import {
   replaceCachedWorksForOwner,
 } from '../utils/workRecords.js';
 import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
-import { withTransientTaskSyncRetry } from './taskSync.js';
+import { isTransientTaskSyncError, withTransientTaskSyncRetry } from './taskSync.js';
 import { getEcommerceAutoRepairDecision } from './ecommerceRetryPolicy.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 const ECOMMERCE_SUITE_REPAIR_VERSION = 1;
+const ECOMMERCE_SUBMISSION_VERSION = 1;
 const ECOMMERCE_SUITE_REPAIR_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_AUTOMATIC_SUITE_REPAIRS = 1;
 
@@ -163,6 +164,42 @@ function suiteRepairStorageKey({ ownerEmail, draftId }) {
     : '';
 }
 
+function ecommerceSubmissionStorageKey({ ownerEmail, draftId }) {
+  const owner = String(ownerEmail || '').trim().toLowerCase();
+  const draft = String(draftId || '').trim();
+  return owner && draft
+    ? `sb-ecommerce-submission:v${ECOMMERCE_SUBMISSION_VERSION}:${encodeURIComponent(owner)}:${encodeURIComponent(draft)}`
+    : '';
+}
+
+function createEcommerceSubmissionId() {
+  const suffix = globalThis.crypto?.randomUUID?.()
+    || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `ec_request_${suffix}`;
+}
+
+function loadOrCreateEcommerceSubmission(context) {
+  const key = ecommerceSubmissionStorageKey(context);
+  if (!key || typeof localStorage === 'undefined') return createEcommerceSubmissionId();
+  try {
+    const saved = String(localStorage.getItem(key) || '').trim();
+    if (/^ec_request_[a-z0-9-]{8,100}$/i.test(saved)) return saved;
+    const created = createEcommerceSubmissionId();
+    localStorage.setItem(key, created);
+    return created;
+  } catch {
+    return createEcommerceSubmissionId();
+  }
+}
+
+function clearEcommerceSubmission(context, submissionId) {
+  const key = ecommerceSubmissionStorageKey(context);
+  if (!key || typeof localStorage === 'undefined') return;
+  try {
+    if (!submissionId || localStorage.getItem(key) === submissionId) localStorage.removeItem(key);
+  } catch {}
+}
+
 function loadSuiteRepairCheckpoint(context) {
   const key = suiteRepairStorageKey(context);
   if (!key || typeof localStorage === 'undefined') return null;
@@ -285,7 +322,20 @@ async function pollEcommerceTask(taskId, {
     if (!task) {
       await waitFor(Number.isFinite(pollIntervalMs) ? Math.max(0, pollIntervalMs) : 1500);
       if (typeof isCurrent === 'function' && !isCurrent()) return null;
-      task = await getEcommerceTask(taskId, { signal });
+      try {
+        task = await getEcommerceTask(taskId, { signal });
+      } catch (error) {
+        if (!isTransientTaskSyncError(error)) throw error;
+        onProgress?.({
+          ...(taskWithNormalizedAssets(lastTask) || {}),
+          taskId,
+          status: 'reconnecting',
+          resumeable: true,
+          message: '任务进度连接正在恢复，生成仍在后台继续',
+        });
+        task = null;
+        continue;
+      }
     }
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
     lastTask = task;
@@ -781,6 +831,7 @@ export function generatePlogContent({
 
 export async function generateEcommerce({ productName, category, refImgs, realShots, platform, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
   const ownerEmail = getSessionEmail() || String(email || '').trim().toLowerCase();
+  const submissionContext = { ownerEmail, draftId };
   const savedReference = loadEcommerceTaskReference({ ownerEmail, draftId });
   if (savedReference && (!resumeTaskId || resumeTaskId === savedReference.taskId)) {
     let savedTask;
@@ -896,12 +947,26 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     signal?.removeEventListener?.('abort', abortFromCaller);
   };
 
-  const res = await fetch(`${API_BASE}/api/generate-ecommerce`, {
-    method: 'POST',
-    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  }).catch(e => { clearController(); throw new Error('网络请求失败: ' + e.message); });
+  const submissionId = loadOrCreateEcommerceSubmission(submissionContext);
+  let res;
+  try {
+    res = await withTransientTaskSyncRetry(() => fetch(`${API_BASE}/api/generate-ecommerce`, {
+      method: 'POST',
+      headers: signedSessionHeaders({
+        'Content-Type': 'application/json',
+        'Idempotency-Key': submissionId,
+      }),
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    }), {
+      signal: controller.signal,
+      retries: 3,
+      baseDelayMs: 500,
+    });
+  } catch (error) {
+    clearController();
+    throw error;
+  }
 
   if (!res.ok) {
     clearController();
@@ -913,6 +978,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
       const queued = await res.json();
       const taskId = queued.taskId || queued.task?.id;
       if (!taskId) throw new Error('生成任务创建失败，请重试');
+      clearEcommerceSubmission(submissionContext, submissionId);
       if (typeof isCurrent === 'function' && !isCurrent()) return null;
       saveEcommerceTaskReference({ ownerEmail, draftId, taskId });
       return pollEcommerceTask(taskId, {

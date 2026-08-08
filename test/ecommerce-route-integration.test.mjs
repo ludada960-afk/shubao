@@ -106,6 +106,33 @@ test('generation handler returns HTTP 202 queued without waiting for provider co
   });
 });
 
+test('generation handler forwards the client idempotency key to durable job creation', async () => {
+  const calls = [];
+  const handlers = createEcommerceRouteHandlers({
+    orchestrator: {
+      createJob(input) {
+        calls.push(input);
+        return { id: input.id, status: 'queued' };
+      },
+      runJob() { return Promise.resolve(); },
+      getJob() { throw new Error('not used'); },
+    },
+    onBackgroundError: error => assert.fail(error),
+  });
+  const req = {
+    _userEmail: '867550189@qq.com',
+    headers: { 'idempotency-key': 'ec_request_12345678-1234-4234-9234-123456789abc' },
+    body: { product_name: '测试商品' },
+  };
+  const res = responseHarness();
+
+  await handlers.generate(req, res);
+
+  assert.equal(res.statusCode, 202);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].id, 'ec_request_12345678-1234-4234-9234-123456789abc');
+});
+
 test('generation handler retries recoverable background failures and coalesces polling wakeups', async () => {
   let attempts = 0;
   const retryDelays = [];
@@ -792,6 +819,121 @@ test('frontend bounds async polling and preserves the task id on timeout', async
     error => error?.code === 'ECOMMERCE_POLL_TIMEOUT' && error?.taskId === 'job-timeout',
   );
   assert.equal(requestCount, 3);
+});
+
+test('frontend keeps the durable task attached through an exhausted transient polling burst', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = new Map();
+  const requestHeaders = [];
+  let pollRequests = 0;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: key => storage.get(key) || null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: key => storage.delete(key),
+  };
+  storage.set('sb-user', JSON.stringify({
+    email: '867550189@qq.com',
+    token: 'signed-session-token',
+  }));
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url);
+    if (path.endsWith('/api/generate-ecommerce')) {
+      requestHeaders.push(options.headers['Idempotency-Key']);
+      return new Response(JSON.stringify({ taskId: 'job-reconnect', status: 'queued' }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    pollRequests += 1;
+    if (pollRequests <= 3) throw new TypeError('Failed to fetch');
+    return new Response(JSON.stringify({
+      ok: true,
+      task: {
+        id: 'job-reconnect',
+        status: 'completed',
+        output: { images: { main: '/api/generated-assets/final.png' }, errors: [] },
+        assets: [{ assetId: 'main', state: 'completed', stableUrl: '/api/generated-assets/final.png' }],
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const api = await import(`../src/services/api.js?transient-poll-recovery=${Date.now()}`);
+  const progress = [];
+
+  const result = await api.generateEcommerce({
+    productName: '测试商品',
+    category: '家居',
+    realShots: [],
+    refImgs: [],
+    draftId: 'draft-reconnect',
+    pollIntervalMs: 0,
+    onProgress: value => progress.push(value),
+  });
+
+  assert.deepEqual(result.images, { main: '/api/generated-assets/final.png' });
+  assert.equal(pollRequests, 4);
+  assert.match(requestHeaders[0], /^ec_request_[a-f0-9-]+$/i);
+  assert.equal(progress.some(value => value.status === 'reconnecting' && value.taskId === 'job-reconnect'), true);
+});
+
+test('frontend retries an ambiguous generation submission with one idempotency key', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const storage = new Map();
+  const submissionKeys = [];
+  let submissions = 0;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = {
+    getItem: key => storage.get(key) || null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: key => storage.delete(key),
+  };
+  storage.set('sb-user', JSON.stringify({
+    email: '867550189@qq.com',
+    token: 'signed-session-token',
+  }));
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url);
+    if (path.endsWith('/api/generate-ecommerce')) {
+      submissions += 1;
+      submissionKeys.push(options.headers['Idempotency-Key']);
+      if (submissions === 1) throw new TypeError('Failed to fetch');
+      return new Response(JSON.stringify({ taskId: submissionKeys[0], status: 'queued' }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({
+      ok: true,
+      task: {
+        id: submissionKeys[0],
+        status: 'completed',
+        output: { images: { main: '/api/generated-assets/final.png' }, errors: [] },
+        assets: [{ assetId: 'main', state: 'completed', stableUrl: '/api/generated-assets/final.png' }],
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const api = await import(`../src/services/api.js?submission-recovery=${Date.now()}`);
+
+  const result = await api.generateEcommerce({
+    productName: '测试商品',
+    category: '家居',
+    realShots: [],
+    refImgs: [],
+    draftId: 'draft-submit',
+    pollIntervalMs: 0,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(submissions, 2);
+  assert.equal(submissionKeys[0], submissionKeys[1]);
 });
 
 test('selected design direction reaches the durable job as structured campaign input', async () => {

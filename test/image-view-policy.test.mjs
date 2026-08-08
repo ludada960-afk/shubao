@@ -14,13 +14,17 @@ test('shared responsive image component uses width candidates and reveals only d
   assert.match(source, /responsiveImageSrcSet\(src, 'webp'\)/);
   assert.match(model, /proxyImg\(raw, variant\)/);
   assert.match(model, /proxyImg\(raw, 'full'\)/);
-  assert.match(source, /srcSet=\{avifSrcSet\}/);
+  assert.match(source, /srcSet=\{retryAvifSrcSet\}/);
+  assert.match(source, /srcSet=\{retryWebpSrcSet\}/);
   assert.match(source, /sizes=\{sizes\}/);
   assert.match(source, /loading=\{priority \? 'eager' : 'lazy'\}/);
   assert.match(source, /decoding="async"/);
   assert.match(source, /fetchpriority=\{priority \? 'high' : 'auto'\}/);
   assert.match(source, /\.decode\(\)/);
   assert.match(source, /objectFit: 'contain'/);
+  assert.match(source, /retryCount/);
+  assert.match(source, /IMAGE_RETRY_DELAYS_MS/);
+  assert.match(source, /retryImageUrl/);
 });
 
 test('work, case, detail, and canvas surfaces declare purpose-sized candidates', async () => {

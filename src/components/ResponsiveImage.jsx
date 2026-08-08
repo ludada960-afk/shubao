@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { responsiveImageCandidates, responsiveImageSrcSet } from './responsiveImageModel.js';
+import {
+  responsiveImageCandidates,
+  responsiveImageSrcSet,
+  retryImageSrcSet,
+  retryImageUrl,
+} from './responsiveImageModel.js';
+
+const IMAGE_RETRY_DELAYS_MS = Object.freeze([750, 2_000, 5_000]);
 
 function normalizedRatio(value) {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return String(value);
@@ -31,20 +38,37 @@ export default function ResponsiveImage({
   const [optimizedFailed, setOptimizedFailed] = useState(false);
   const [decoded, setDecoded] = useState(false);
   const [candidateIndex, setCandidateIndex] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
   const candidates = useMemo(() => responsiveImageCandidates(src, variant), [src, variant]);
   const fallbacks = useMemo(() => responsiveImageCandidates(src, 'full'), [src]);
   const avifSrcSet = useMemo(() => responsiveImageSrcSet(src, 'avif'), [src]);
   const webpSrcSet = useMemo(() => responsiveImageSrcSet(src, 'webp'), [src]);
-  const imageSrc = optimizedFailed
+  const baseImageSrc = optimizedFailed
     ? (fallbacks[candidateIndex] || '')
     : (candidates[0] || fallbacks[0] || '');
+  const imageSrc = retryImageUrl(baseImageSrc, retryCount);
+  const retryAvifSrcSet = retryImageSrcSet(avifSrcSet, retryCount);
+  const retryWebpSrcSet = retryImageSrcSet(webpSrcSet, retryCount);
 
   useEffect(() => {
     setFailed(false);
     setOptimizedFailed(false);
     setDecoded(false);
     setCandidateIndex(0);
+    setRetryCount(0);
   }, [src, variant]);
+
+  useEffect(() => {
+    if (!failed || retryCount >= IMAGE_RETRY_DELAYS_MS.length) return undefined;
+    const timer = setTimeout(() => {
+      setOptimizedFailed(false);
+      setCandidateIndex(0);
+      setDecoded(false);
+      setFailed(false);
+      setRetryCount(count => count + 1);
+    }, IMAGE_RETRY_DELAYS_MS[retryCount]);
+    return () => clearTimeout(timer);
+  }, [failed, retryCount]);
   return (
     <div
       className={className}
@@ -60,8 +84,8 @@ export default function ResponsiveImage({
     >
       {imageSrc && !failed && (
         <picture style={{ display: 'contents' }}>
-          {!optimizedFailed && avifSrcSet && <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} />}
-          {!optimizedFailed && webpSrcSet && <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} />}
+          {!optimizedFailed && retryAvifSrcSet && <source type="image/avif" srcSet={retryAvifSrcSet} sizes={sizes} />}
+          {!optimizedFailed && retryWebpSrcSet && <source type="image/webp" srcSet={retryWebpSrcSet} sizes={sizes} />}
           <img
             src={imageSrc}
             alt={alt}
@@ -90,7 +114,7 @@ export default function ResponsiveImage({
                 return;
               }
               setFailed(true);
-              onError?.(event);
+              if (retryCount >= IMAGE_RETRY_DELAYS_MS.length) onError?.(event);
             }}
             style={{
               width: '100%', height: '100%', display: 'block', objectFit: 'contain',
