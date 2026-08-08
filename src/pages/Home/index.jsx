@@ -23,17 +23,20 @@ export default function HomePage() {
   const ecParamsRef = useRef({});  // 第一步收集的参数
   const modeShowcaseRef = useRef(null);
 
-  const modeCards = isXHS
-    ? [
-        { src: '/images/style-packs/case462.jpg', label: '生活方式图文' },
-        { src: '/images/style-packs/case33.jpg', label: '种草内容策划' },
-        { src: '/images/style-packs/case313.jpg', label: '社交视觉排版' },
-      ]
-    : [
-        { src: '/images/style-packs/case192.jpg', label: '商品主视觉' },
-        { src: '/images/style-packs/case157.jpg', label: '卖点场景图' },
-        { src: '/images/style-packs/case141.jpg', label: '详情页切片' },
-      ];
+  const modeOptions = [
+    {
+      mode: 'ecommerce',
+      title: '电商生图',
+      description: '商品套图与详情视觉',
+      src: '/images/style-packs/case141.jpg',
+    },
+    {
+      mode: 'content',
+      title: '小红书图文',
+      description: '种草内容与生活方式表达',
+      src: '/images/style-packs/case462.jpg',
+    },
+  ];
 
   const handleModePointerMove = event => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -81,57 +84,54 @@ export default function HomePage() {
           <div style={{ textAlign: 'center' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 900, color: 'var(--text-secondary)', boxShadow: 'var(--shadow-sm)' }}>
               <MdAutoAwesome size={16} fill="#FBBF24" color="#F59E0B" />
-              薯包 AI · <span style={{opacity:0.7}}>电商商品图</span><span style={{opacity:0.3}}> + </span><span style={{opacity:0.7}}>小红书图文</span>
+              薯包 AI · <span style={{ opacity: 0.7 }}>智能视觉内容创作平台</span>
             </span>
 
             <h1 style={{ fontSize: 38, fontWeight: 900, lineHeight: 1.05, color: 'var(--accent)', marginTop: 16, marginBottom: 0, letterSpacing: 'normal' }} className="homepage-h1">
-              上传商品素材，生成<span className="hero-gradient-text">电商套图</span>
+              上传创意素材，生成<span className="hero-gradient-text">专业视觉</span>
             </h1>
             <style>{`@media (min-width:640px){.homepage-h1{font-size:54px!important}}@media(min-width:1024px){.homepage-h1{font-size:62px!important}}`}</style>
 
             <p style={{ margin: '12px auto 0', maxWidth: 860, fontSize: 15, fontWeight: 500, color: 'var(--text-muted)' }} className="homepage-subtitle">
-              电商商品图与小红书图文，在同一个工作台完成
+              电商套图、小红书图文与更多营销内容，在同一个工作台完成
             </p>
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>
 
           <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />
 
-          {/* ═══ 主模式切换：案例卡片随指针响应，激活项平滑滑动 ═══ */}
+          {/* ═══ 主模式切换：卡片本身就是工作台入口 ═══ */}
           <div
             ref={modeShowcaseRef}
             className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : 'is-commerce'}`}
             onPointerMove={handleModePointerMove}
             onPointerLeave={resetModePointer}
           >
-            <div className="homepage-mode-art" key={isXHS ? 'xhs' : 'commerce'} aria-hidden="true">
-              {modeCards.map((card, index) => (
-                <figure className={`homepage-mode-card card-${index + 1}`} key={card.src}>
-                  <img src={card.src} alt="" loading="eager" />
-                  <figcaption>{card.label}</figcaption>
-                </figure>
-              ))}
-            </div>
-            <div className="homepage-mode-switch" role="tablist" aria-label="创作模式">
-              <span className="homepage-mode-indicator" aria-hidden="true" />
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!isXHS}
-                className={!isXHS ? 'is-active' : ''}
-                onClick={() => dispatch({ type: 'SET_MODE', mode: 'ecommerce' })}
-              >
-                <MdShoppingCart size={17} /> 电商生图
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={isXHS}
-                className={isXHS ? 'is-active' : ''}
-                onClick={() => { dispatch({ type: 'SET_MODE', mode: 'content' }); setEcStep(1); }}
-              >
-                <MdEdit size={17} /> 小红书图文
-              </button>
+            <div className="homepage-mode-cards" role="tablist" aria-label="创作模式">
+              {modeOptions.map((option, index) => {
+                const active = option.mode === (isXHS ? 'content' : 'ecommerce');
+                const ModeIcon = option.mode === 'ecommerce' ? MdShoppingCart : MdEdit;
+                return (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className={`homepage-mode-card card-${index + 1}${active ? ' is-active' : ''}`}
+                    key={option.mode}
+                    onClick={() => {
+                      dispatch({ type: 'SET_MODE', mode: option.mode });
+                      if (option.mode === 'content') setEcStep(1);
+                    }}
+                  >
+                    <span className="homepage-mode-card-title"><ModeIcon size={16} />{option.title}</span>
+                    <span className="homepage-mode-card-visual">
+                      <img src={option.src} alt={`${option.title}案例`} loading="eager" />
+                    </span>
+                    <span className="homepage-mode-card-description">{option.description}</span>
+                    <span className="homepage-mode-card-state">{active ? '当前工作台' : '切换进入'}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

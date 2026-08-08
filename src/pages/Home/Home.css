@@ -2249,60 +2249,72 @@
   .ec-config-trigger { min-width: 112px !important; }
 }
 
-/* Homepage mode switch: responsive product cards + sliding selector */
+/* Homepage mode switch: each visual card is the actual workspace entry */
 .homepage-mode-showcase {
   --mode-tilt-x: 0deg; --mode-tilt-y: 0deg;
-  display: flex; flex-direction: column; align-items: center; width: min(100%, 520px);
-  margin: 18px auto 0; perspective: 900px;
+  display: flex; justify-content: center; width: min(100%, 560px);
+  margin: 20px auto 0; perspective: 1000px;
 }
-.homepage-mode-art {
-  position: relative; width: 310px; height: 112px;
+.homepage-mode-cards {
+  display: flex; align-items: flex-end; justify-content: center; gap: 12px;
   transform: rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y));
   transform-style: preserve-3d; transition: transform .18s ease-out;
   animation: homepageModeCardsIn .42s cubic-bezier(.2,.8,.2,1) both;
 }
 .homepage-mode-card {
-  position: absolute; top: 4px; width: 112px; height: 98px; overflow: hidden;
-  margin: 0; border: 5px solid rgba(255,255,255,.96); border-radius: 8px;
-  background: #fff; box-shadow: 0 14px 30px rgba(64,48,36,.16);
-  transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease; transform-origin: 50% 90%;
+  position: relative; display: grid; grid-template-rows: 30px 112px 27px; width: 168px; height: 177px;
+  overflow: hidden; padding: 7px; border: 1px solid rgba(54,47,43,.10); border-radius: 8px;
+  color: #322e32; background: rgba(255,255,255,.96); cursor: pointer; font-family: inherit;
+  box-shadow: 0 16px 34px rgba(64,48,36,.14); transform-origin: 50% 100%;
+  transition: transform .3s cubic-bezier(.2,.8,.2,1), border-color .25s ease, box-shadow .3s ease;
 }
-.homepage-mode-card img { width: 100%; height: 72px; display: block; object-fit: cover; }
-.homepage-mode-card figcaption {
-  height: 26px; display: flex; align-items: center; justify-content: center;
-  color: #3c373e; background: #fff; font-size: 10px; font-weight: 760;
+.homepage-mode-card-title {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 13px; font-weight: 820;
 }
-.homepage-mode-card.card-1 { left: 10px; transform: rotate(-8deg) translateZ(2px); }
-.homepage-mode-card.card-2 { left: 99px; z-index: 2; transform: translateY(-5px) translateZ(18px); }
-.homepage-mode-card.card-3 { right: 10px; transform: rotate(8deg) translateZ(2px); }
-.homepage-mode-card:hover { z-index: 4; transform: translateY(-10px) rotate(0) translateZ(28px); box-shadow: 0 20px 38px rgba(64,48,36,.22); }
-.homepage-mode-switch {
-  position: relative; display: grid; grid-template-columns: repeat(2, 1fr); width: 310px;
-  padding: 5px; border: 1px solid rgba(53,47,42,.08); border-radius: 8px;
-  background: rgba(246,243,238,.86); box-shadow: inset 0 1px 3px rgba(45,39,34,.07), 0 8px 22px rgba(62,49,37,.08);
-  backdrop-filter: blur(16px) saturate(120%);
+.homepage-mode-card-visual {
+  position: relative; display: block; overflow: hidden; border-radius: 6px;
+  background: #f2eff1;
 }
-.homepage-mode-indicator {
-  position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc(50% - 5px);
-  border-radius: 6px; background: #1d1c1f; box-shadow: 0 6px 16px rgba(29,28,31,.19);
-  transition: transform .32s cubic-bezier(.22,.8,.22,1), background .25s ease;
+.homepage-mode-card-visual img {
+  width: 100%; height: 100%; display: block; object-fit: cover;
+  transition: transform .4s cubic-bezier(.2,.8,.2,1), filter .25s ease;
 }
-.homepage-mode-showcase.is-xhs .homepage-mode-indicator { transform: translateX(100%); background: #d94a55; }
-.homepage-mode-switch button {
-  position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
-  min-width: 0; height: 42px; padding: 0 16px; border: 0; border-radius: 6px;
-  color: #655f66; background: transparent; cursor: pointer; font: 730 14px/1 inherit;
-  transition: color .22s ease, transform .18s ease;
+.homepage-mode-card-description {
+  display: flex; align-items: center; justify-content: center;
+  color: #777078; font-size: 10px; font-weight: 650;
 }
-.homepage-mode-switch button:hover { color: #242127; transform: translateY(-1px); }
-.homepage-mode-switch button.is-active { color: #fff; }
+.homepage-mode-card-state {
+  position: absolute; right: 10px; top: 10px; z-index: 2; padding: 3px 6px;
+  border-radius: 4px; color: #fff; background: rgba(31,29,32,.82);
+  font-size: 9px; font-weight: 760; opacity: 0; transform: translateY(-3px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.homepage-mode-card.card-1 { transform: rotate(-4deg) translateY(4px); }
+.homepage-mode-card.card-2 { transform: rotate(4deg) translateY(4px); }
+.homepage-mode-card:hover, .homepage-mode-card:focus-visible {
+  z-index: 3; border-color: rgba(109,93,252,.28); outline: none;
+  transform: translateY(-10px) rotate(0) translateZ(24px);
+  box-shadow: 0 24px 46px rgba(64,48,36,.21);
+}
+.homepage-mode-card:hover .homepage-mode-card-visual img { transform: scale(1.06); }
+.homepage-mode-card:hover .homepage-mode-card-state { opacity: 1; transform: translateY(0); }
+.homepage-mode-card.is-active {
+  border-color: rgba(109,93,252,.42); transform: translateY(-6px) rotate(0) translateZ(16px);
+  box-shadow: 0 0 0 3px rgba(109,93,252,.09), 0 22px 42px rgba(64,48,36,.19);
+}
+.homepage-mode-card.is-active .homepage-mode-card-state { opacity: 1; transform: translateY(0); background: #6656e8; }
+.homepage-mode-showcase.is-xhs .homepage-mode-card.is-active {
+  border-color: rgba(217,74,85,.42); box-shadow: 0 0 0 3px rgba(217,74,85,.08), 0 22px 42px rgba(64,48,36,.19);
+}
+.homepage-mode-showcase.is-xhs .homepage-mode-card.is-active .homepage-mode-card-state { background: #d94a55; }
 @keyframes homepageModeCardsIn {
   from { opacity: 0; transform: translateY(8px) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }
   to { opacity: 1; transform: translateY(0) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }
 }
 @media (max-width: 640px) {
-  .homepage-mode-art { width: 276px; transform: scale(.9) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }
-  .homepage-mode-switch { width: min(310px, calc(100vw - 48px)); }
+  .homepage-mode-cards { gap: 8px; transform: scale(.92) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }
+  .homepage-mode-card { width: 148px; height: 165px; grid-template-rows: 28px 102px 25px; }
 }
 
 /* ── 自定义 placeholder 光标动画 ── */
