@@ -1554,3 +1554,13 @@
   The local `SHUBAO_CANARY_SESSION_TOKEN` and current clipboard were not
   parseable JWTs, so a fresh owner session is required before retrying; do not
   bypass the billing canary or claim this commit is live.
+
+- A second deployment of `c0d21f6` completed on 2026-08-08 with a fresh
+  owner-scoped HMAC session supplied only to the release process. The full
+  deployment workflow retained the new release, completed its long Canary and
+  authenticated verification stages, then released the remote lock. Post-release
+  public health remained stable, remote and local `dist/index.html` SHA-256
+  matched at `5e97dff096123a27f26cbb2851fd38e61f5a8e76a9c910a82d9cd136357a3479`,
+  and the independent public audit passed `27/27`. The earlier `401` attempt
+  had already restored safely; this later record is the authoritative online
+  state for the Canvas interaction follow-up.
