@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { validateGenerationSize } from './modelCatalog.mjs';
+import { isKnownPlatform, normalizePlatformId } from './internationalCommerceRegistry.mjs';
 
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const CONFIDENCE_LEVELS = new Set(['high', 'medium', 'low']);
@@ -11,9 +12,23 @@ const UNKNOWN_SOURCE_URL = 'https://www.gov.cn/';
 
 const PLATFORM_SOURCES = Object.freeze({
   taobao: 'https://rulechannel.taobao.com/',
+  tmall: 'https://rulechannel.tmall.com/',
+  pinduoduo: 'https://mms.pinduoduo.com/',
   jd: 'https://rule.jd.com/',
-  pdd: 'https://mms.pinduoduo.com/',
   douyin: 'https://rulechannel.douyinec.com/',
+  '1688': 'https://rulechannel.1688.com/',
+  xiaohongshu: 'https://www.xiaohongshu.com/',
+  kuaishou: 'https://www.kwaixiaodian.com/',
+  'alibaba-international': 'https://seller.alibaba.com/',
+  amazon: 'https://sellercentral.amazon.com/help/hub/reference/G200210150',
+  'amazon-aplus-wide': 'https://developer-docs.amazon.com/sp-api/lang-en_US/docs/create-edit-publish-aplus-content',
+  temu: 'https://seller.temu.com/',
+  ebay: 'https://www.ebay.com/help/selling/listings/listing-best-practices?id=4148',
+  shein: 'https://open.sheincorp.com/',
+  shopee: 'https://seller.shopee.com/',
+  lazada: 'https://sellercenter.lazada.com/',
+  'tiktok-shop': 'https://seller-us.tiktok.com/university/',
+  ozon: 'https://seller-edu.ozon.ru/',
 });
 
 const ROLE_POLICIES = Object.freeze({
@@ -190,7 +205,7 @@ function policyFrom(entry, { platform, role, categoryScope, sourceUrl, confidenc
  * until a stable, explicitly verified requirement is recorded.
  */
 export function getPlatformPolicy(platform, role = 'main', category = 'all') {
-  const platformKey = normalizeKey(platform);
+  const platformKey = isKnownPlatform(platform) ? normalizePlatformId(platform) : normalizeKey(platform);
   const roleKey = normalizeKey(role) || 'all';
   const categoryKey = normalizeKey(category) || 'all';
   const platformRegistry = Object.hasOwn(PLATFORM_POLICY_REGISTRY, platformKey)
