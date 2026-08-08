@@ -50,11 +50,10 @@ export default function CopyPanel({ copywriting, onChange, smartMode = true, onO
         </div>
       )}
 
-        <div style={{ padding: '14px 16px 12px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>文案策划</div>
+      <div className="ec-panel-fields" style={{ padding: '14px 16px 12px' }}>
         {/* 创意思路：满宽 */}
         <div style={{ marginBottom: 10 }}>
-          <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <label className="ec-panel-field-label" style={{ ...lbl }}>
             <Lightbulb size={12} color="#7c3aed" /> 创意思路
           </label>
           <textarea value={copywriting.plan || ''} onChange={e => setF('plan', e.target.value)}
@@ -74,7 +73,7 @@ export default function CopyPanel({ copywriting, onChange, smartMode = true, onO
             { key: 'maintenance', label: '保养维护', icon: <HeartHandshake size={12} color="#7c3aed" />, ph: '使用注意事项、保养方法、储存条件…' },
           ].map(f => (
             <div key={f.key}>
-              <label style={{ ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <label className="ec-panel-field-label" style={{ ...lbl }}>
                 {f.icon} {f.label}
               </label>
               <textarea value={copywriting[f.key] || ''} onChange={e => setF(f.key, e.target.value)}

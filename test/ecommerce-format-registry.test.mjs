@@ -13,7 +13,7 @@ test('offers a complete ecommerce format set instead of four global ratios', () 
     '1:1', '4:5', '3:4', '2:3', '9:16', '4:3', '3:2', '16:9',
   ]);
   assert.equal(formatsFor({ role: 'detail', platform: '淘宝' }).some(format => format.key === '9:16'), true);
-  assert.equal(formatsFor({ role: 'detail', platform: '淘宝' }).some(format => format.key === '16:9'), false);
+  assert.equal(formatsFor({ role: 'detail', platform: '淘宝' }).some(format => format.key === '16:9'), true);
   assert.equal(formatsFor({ role: 'main_text', platform: '淘宝' }).length >= 6, true);
 });
 

@@ -33,7 +33,9 @@ function closestGenerationRatio(targetRatio) {
 
 export function formatsFor({ role = 'main_text', platform = 'smart' } = {}) {
   const roleKey = String(role || '').trim();
-  const values = ECOMMERCE_FORMATS.filter(item => item.roles.includes(roleKey));
+  const values = roleKey === 'detail'
+    ? ECOMMERCE_FORMATS
+    : ECOMMERCE_FORMATS.filter(item => item.roles.includes(roleKey));
   if (platform === '亚马逊' && ['white_bg', 'transparent'].includes(roleKey)) {
     return values.filter(item => item.key === '1:1');
   }

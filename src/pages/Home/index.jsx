@@ -21,6 +21,32 @@ export default function HomePage() {
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState(null);
   const ecParamsRef = useRef({});  // 第一步收集的参数
+  const modeShowcaseRef = useRef(null);
+
+  const modeCards = isXHS
+    ? [
+        { src: '/images/style-packs/case462.jpg', label: '生活方式图文' },
+        { src: '/images/style-packs/case33.jpg', label: '种草内容策划' },
+        { src: '/images/style-packs/case313.jpg', label: '社交视觉排版' },
+      ]
+    : [
+        { src: '/images/style-packs/case192.jpg', label: '商品主视觉' },
+        { src: '/images/style-packs/case157.jpg', label: '卖点场景图' },
+        { src: '/images/style-packs/case141.jpg', label: '详情页切片' },
+      ];
+
+  const handleModePointerMove = event => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - 0.5;
+    const y = (event.clientY - rect.top) / rect.height - 0.5;
+    event.currentTarget.style.setProperty('--mode-tilt-x', `${(-y * 5).toFixed(2)}deg`);
+    event.currentTarget.style.setProperty('--mode-tilt-y', `${(x * 7).toFixed(2)}deg`);
+  };
+
+  const resetModePointer = event => {
+    event.currentTarget.style.setProperty('--mode-tilt-x', '0deg');
+    event.currentTarget.style.setProperty('--mode-tilt-y', '0deg');
+  };
 
   useEffect(() => {
     clearLegacyEcommerceDraftState();
@@ -71,40 +97,40 @@ export default function HomePage() {
 
           <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />
 
-          {/* ═══ 主模式切换 — 大号胶囊 ═══ */}
-          <div className="homepage-mode-switch" style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
-            <div style={{ display: 'flex', gap: 5, padding: 5, borderRadius: 30, background: 'rgba(0,0,0,0.04)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.06)' }}>
-              <button onClick={() => dispatch({ type: 'SET_MODE', mode: 'ecommerce' })}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '11px 28px', borderRadius: 25,
-                  border: 'none',
-                  background: !isXHS ? '#1a1a1a' : 'transparent',
-                  color: !isXHS ? '#fff' : '#555',
-                  fontWeight: 700, fontSize: 15,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  transition: 'all 0.2s',
-                  boxShadow: !isXHS ? 'inset 0 2px 6px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                }}
-                onMouseEnter={e => { if (isXHS) { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#1a1a1a'; } }}
-                onMouseLeave={e => { if (isXHS) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555'; } }}>
-                <MdShoppingCart size={16} /> 电商生图
+          {/* ═══ 主模式切换：案例卡片随指针响应，激活项平滑滑动 ═══ */}
+          <div
+            ref={modeShowcaseRef}
+            className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : 'is-commerce'}`}
+            onPointerMove={handleModePointerMove}
+            onPointerLeave={resetModePointer}
+          >
+            <div className="homepage-mode-art" key={isXHS ? 'xhs' : 'commerce'} aria-hidden="true">
+              {modeCards.map((card, index) => (
+                <figure className={`homepage-mode-card card-${index + 1}`} key={card.src}>
+                  <img src={card.src} alt="" loading="eager" />
+                  <figcaption>{card.label}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <div className="homepage-mode-switch" role="tablist" aria-label="创作模式">
+              <span className="homepage-mode-indicator" aria-hidden="true" />
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!isXHS}
+                className={!isXHS ? 'is-active' : ''}
+                onClick={() => dispatch({ type: 'SET_MODE', mode: 'ecommerce' })}
+              >
+                <MdShoppingCart size={17} /> 电商生图
               </button>
-              <button onClick={() => { dispatch({ type: 'SET_MODE', mode: 'content' }); setEcStep(1); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '11px 28px', borderRadius: 25,
-                  border: 'none',
-                  background: isXHS ? '#1a1a1a' : 'transparent',
-                  color: isXHS ? '#fff' : '#555',
-                  fontWeight: 700, fontSize: 15,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  transition: 'all 0.2s',
-                  boxShadow: isXHS ? 'inset 0 2px 6px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                }}
-                onMouseEnter={e => { if (!isXHS) { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#1a1a1a'; } }}
-                onMouseLeave={e => { if (!isXHS) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555'; } }}>
-                <MdEdit size={16} /> 小红书图文
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isXHS}
+                className={isXHS ? 'is-active' : ''}
+                onClick={() => { dispatch({ type: 'SET_MODE', mode: 'content' }); setEcStep(1); }}
+              >
+                <MdEdit size={17} /> 小红书图文
               </button>
             </div>
           </div>

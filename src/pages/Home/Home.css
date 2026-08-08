@@ -2227,17 +2227,82 @@
   border-color: #7567ec !important; outline: none !important; background: #fff !important;
   box-shadow: 0 0 0 3px rgba(117,103,236,.10) !important;
 }
-.ec-commerce-menu > div, .ec-ratio-menu > div {
-  border: 1px solid rgba(255,255,255,.78) !important; border-radius: 8px !important;
-  background: rgba(39,37,42,.94) !important; box-shadow: 0 22px 56px rgba(20,17,15,.28) !important;
-  backdrop-filter: blur(22px) saturate(130%);
+.ec-commerce-menu > div, .ec-ratio-menu > div, .ec-ratio-portal > div, .ec-inline-option-menu {
+  border: 1px solid rgba(72,64,78,.12) !important; border-radius: 8px !important;
+  background: rgba(255,255,255,.94) !important;
+  box-shadow: 0 22px 56px rgba(55,45,37,.16), 0 2px 10px rgba(55,45,37,.06) !important;
+  backdrop-filter: blur(22px) saturate(135%);
 }
-.ec-commerce-menu button { color: #f7f5f8 !important; }
-.ec-commerce-menu button span:last-child { color: #aaa3af !important; }
-.ec-ratio-menu span { color: #dad6dc !important; }
+.ec-commerce-menu button { color: #312d34 !important; transition: background .16s ease, color .16s ease, transform .16s ease; }
+.ec-commerce-menu button:hover { background: rgba(109,93,252,.08) !important; color: #5f50df !important; transform: translateX(2px); }
+.ec-commerce-menu button span:last-child { color: #938b97 !important; }
+.ec-ratio-menu span, .ec-ratio-portal span { color: #5f5963; }
+.ec-inline-option-menu > div:hover { background: rgba(109,93,252,.09) !important; color: #5f50df !important; }
+.ec-panel-fields { position: relative; }
+.ec-panel-field-label {
+  display: flex !important; align-items: center; gap: 6px; margin-bottom: 6px !important;
+  color: #625b66 !important; font-size: 11px !important; font-weight: 740 !important;
+}
+.ec-panel-field-label svg { color: #6d5dfc; filter: drop-shadow(0 2px 4px rgba(109,93,252,.15)); }
 @media (max-width: 900px) {
   .ec-workbench-tools { gap: 7px !important; }
   .ec-config-trigger { min-width: 112px !important; }
+}
+
+/* Homepage mode switch: responsive product cards + sliding selector */
+.homepage-mode-showcase {
+  --mode-tilt-x: 0deg; --mode-tilt-y: 0deg;
+  display: flex; flex-direction: column; align-items: center; width: min(100%, 520px);
+  margin: 18px auto 0; perspective: 900px;
+}
+.homepage-mode-art {
+  position: relative; width: 310px; height: 112px;
+  transform: rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y));
+  transform-style: preserve-3d; transition: transform .18s ease-out;
+  animation: homepageModeCardsIn .42s cubic-bezier(.2,.8,.2,1) both;
+}
+.homepage-mode-card {
+  position: absolute; top: 4px; width: 112px; height: 98px; overflow: hidden;
+  margin: 0; border: 5px solid rgba(255,255,255,.96); border-radius: 8px;
+  background: #fff; box-shadow: 0 14px 30px rgba(64,48,36,.16);
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease; transform-origin: 50% 90%;
+}
+.homepage-mode-card img { width: 100%; height: 72px; display: block; object-fit: cover; }
+.homepage-mode-card figcaption {
+  height: 26px; display: flex; align-items: center; justify-content: center;
+  color: #3c373e; background: #fff; font-size: 10px; font-weight: 760;
+}
+.homepage-mode-card.card-1 { left: 10px; transform: rotate(-8deg) translateZ(2px); }
+.homepage-mode-card.card-2 { left: 99px; z-index: 2; transform: translateY(-5px) translateZ(18px); }
+.homepage-mode-card.card-3 { right: 10px; transform: rotate(8deg) translateZ(2px); }
+.homepage-mode-card:hover { z-index: 4; transform: translateY(-10px) rotate(0) translateZ(28px); box-shadow: 0 20px 38px rgba(64,48,36,.22); }
+.homepage-mode-switch {
+  position: relative; display: grid; grid-template-columns: repeat(2, 1fr); width: 310px;
+  padding: 5px; border: 1px solid rgba(53,47,42,.08); border-radius: 8px;
+  background: rgba(246,243,238,.86); box-shadow: inset 0 1px 3px rgba(45,39,34,.07), 0 8px 22px rgba(62,49,37,.08);
+  backdrop-filter: blur(16px) saturate(120%);
+}
+.homepage-mode-indicator {
+  position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc(50% - 5px);
+  border-radius: 6px; background: #1d1c1f; box-shadow: 0 6px 16px rgba(29,28,31,.19);
+  transition: transform .32s cubic-bezier(.22,.8,.22,1), background .25s ease;
+}
+.homepage-mode-showcase.is-xhs .homepage-mode-indicator { transform: translateX(100%); background: #d94a55; }
+.homepage-mode-switch button {
+  position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 0; height: 42px; padding: 0 16px; border: 0; border-radius: 6px;
+  color: #655f66; background: transparent; cursor: pointer; font: 730 14px/1 inherit;
+  transition: color .22s ease, transform .18s ease;
+}
+.homepage-mode-switch button:hover { color: #242127; transform: translateY(-1px); }
+.homepage-mode-switch button.is-active { color: #fff; }
+@keyframes homepageModeCardsIn {
+  from { opacity: 0; transform: translateY(8px) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }
+  to { opacity: 1; transform: translateY(0) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }
+}
+@media (max-width: 640px) {
+  .homepage-mode-art { width: 276px; transform: scale(.9) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }
+  .homepage-mode-switch { width: min(310px, calc(100vw - 48px)); }
 }
 
 /* ── 自定义 placeholder 光标动画 ── */
