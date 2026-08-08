@@ -1593,8 +1593,13 @@
   generated typography, while localized output preserves confirmed facts and
   locale policy. Detail defaults remain 9:16 and legacy tasks keep their prior
   behavior. The serial suite passed `1320/1320`; the production build transformed
-  `6458` modules; asset, collaboration and whitespace checks passed. Production
-  deployment and post-release Canary remain the next release boundary. The
-  friend beta account `240485042@qq.com` remains a real unlimited user and is
-  excluded from automation; only owner account `867550189@qq.com` may be used
-  by the deployment Canary.
+  `6458` modules; asset, collaboration and whitespace checks passed. Commit
+  `69fdd38` was deployed through the mandated release script. Production stayed
+  healthy on PM2 PID `122374` through the full 600-second Canary; real tasks
+  `ec_665db7a4-da6b-4f8b-baa1-ac0238aafd4e` and
+  `ec_7d9aea13-ea33-4a2a-bb2d-f6c89dac900e` each delivered three stable assets.
+  The independent public audit passed `27/27`, the deployed bundle contains the
+  new Amazon A+, TikTok Shop and visual-only controls, and the remote lock was
+  released. The friend beta account `240485042@qq.com` remains a real unlimited
+  user and was excluded from automation; only owner account `867550189@qq.com`
+  was eligible for the deployment Canary.
