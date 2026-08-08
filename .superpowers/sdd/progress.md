@@ -1564,3 +1564,21 @@
   and the independent public audit passed `27/27`. The earlier `401` attempt
   had already restored safely; this later record is the authoritative online
   state for the Canvas interaction follow-up.
+
+- Ecommerce task reconnection and gallery ownership release `28e22cb` completed
+  on 2026-08-08. The reported `Failed to fetch` task was confirmed in production
+  as `completed` with all 10 assets; the client had mistaken an exhausted
+  transient polling burst for a business failure. New submissions now reuse a
+  durable owner/draft idempotency key, transient POSTs cannot create duplicate
+  jobs or charges, and exhausted polling reconnects to the same durable task.
+  The complete 14-case, 117-image `薯包出品` catalog is now part of the release
+  archive, atomically replaced and rolled back with the application, and image
+  components retry bounded decode/delivery failures instead of remaining blank.
+  The mandated release passed `1287/1287`, the 6,457-module build, all 117 public
+  gallery probes, authenticated billing, two real ecommerce tasks
+  (`ec_6d3f5b7a-6e4d-4c39-986f-0ed47423fc1a` and
+  `ec_9e5c0814-333a-40af-9ac7-a15c19cf8a02`, three stable assets each), and the
+  600-second Canary on stable PM2 PID `22334`. Independent browser acceptance
+  decoded all 14 covers with zero HTTP failures and opened the image modal;
+  public audit passed `27/27`. Production contains 14 top-level case folders and
+  132 source files with no nested duplicate, and the deployment lock is free.
