@@ -85,6 +85,7 @@ test('content generation keeps compact planning, complete-set retries and a long
   assert.match(server, /return createDynamicXhsFallback/);
   assert.match(server, /return compileDynamicXhsVisual/);
   assert.match(server, /generateCompleteImageSet\(\{[\s\S]*label: 'plog-'/);
+  assert.ok((server.match(/signal:\s*AbortSignal\.timeout\(45_000\)/g) || []).length >= 3);
   assert.match(client, /720000/);
   assert.match(client, /generateContentStream[\s\S]*headers:\s*signedSessionHeaders\(\{ 'Content-Type': 'application\/json' \}\)/);
 });

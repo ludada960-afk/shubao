@@ -1194,7 +1194,11 @@ async function contentAnalysis(textContent, { creativeDirection = null, visionCo
   if (creativeDirection) {
     try {
       const request = buildDynamicXhsAnalysisRequest({ text: textContent, visionContext, direction: creativeDirection });
-      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.82, maxTokens: 6500 });
+      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, {
+        signal: AbortSignal.timeout(45_000),
+        temperature: 0.82,
+        maxTokens: 6500,
+      });
       const dynamic = normalizeDynamicXhsAnalysis(parseXhsPlannerJson(raw), { direction: creativeDirection, text: textContent });
       if (dynamic) return dynamic;
       throw new Error('动态策划缺少完整标题、正文或页面');
@@ -1959,7 +1963,12 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
   "reusable_principles": ["可借鉴但不照抄的设计原则"],
   "aesthetic_tags": ["标签1", "标签2"]
 }`;
-      const visionResult = await callMiniLLM(visionPrompt, images.slice(0, 3), '分析这些参考图的视觉风格');
+      const visionResult = await callMiniLLM(
+        visionPrompt,
+        images.slice(0, 3),
+        '分析这些参考图的视觉风格',
+        { signal: AbortSignal.timeout(45_000) },
+      );
       const parsed = JSON.parse((visionResult || '{}').replace(/```(json)?/g, '').trim());
       if (parsed?.color_palette?.length || parsed?.style_vibe) {
         visionContext = '\n\n[参考图视觉特征]\n' +
@@ -4268,7 +4277,11 @@ async function generatePlogContentSet({
   if (!skipEnrich && text.length > 6) {
     try {
       const request = buildDynamicPlogRequest({ text, scene, direction: creativeDirection, count: totalCount });
-      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.86, maxTokens: 5000 });
+      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, {
+        signal: AbortSignal.timeout(45_000),
+        temperature: 0.86,
+        maxTokens: 5000,
+      });
       creativePlan = normalizeDynamicPlogPlan(parseXhsPlannerJson(raw), totalCount);
       if (!creativePlan) throw new Error('动态Plog策划缺少完整镜头');
       lenses = creativePlan.lenses;
