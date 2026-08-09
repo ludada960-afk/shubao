@@ -11,6 +11,9 @@ const WORK_TYPE_ALIASES = Object.freeze({
   plog: 'xhs',
   xhs: 'xhs',
   xiaohongshu: 'xhs',
+  video: 'video',
+  ai_video: 'video',
+  aivideo: 'video',
 });
 
 function cleanString(value) {
@@ -24,6 +27,7 @@ function normalizedOwner(value) {
 export function inferWorkType(work = {}) {
   const explicit = cleanString(work.workType || work.contentType || work.generationType).toLowerCase();
   if (explicit) return WORK_TYPE_ALIASES[explicit] || explicit;
+  if (work._videoResult || work.video_url || work.video?.url) return 'video';
   return work._ecResult ? 'ecommerce' : 'xhs';
 }
 

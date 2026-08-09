@@ -47,7 +47,7 @@ test('legacy connections normalize without losing relation', () => {
   assert.equal(edge.type, 'reference');
 });
 
-test('derived actions exclude video and create a child node', () => {
+test('derived image actions create a child node while video uses the shared creation surface', () => {
   assert.equal(CANVAS_ACTIONS.some(action => action.id === 'video'), false);
   assert.equal(isDerivedAction('smart-remix'), true);
   const child = createDerivedNode({ sourceNodeIds: ['asset-1'], actionId: 'smart-remix', x: 300, y: 100 });
@@ -65,12 +65,13 @@ test('legacy quick actions never duplicate the registry-driven command surfaces'
   }
 });
 
-test('only source and ready output images can create workflow children', () => {
+test('source media and ready outputs can create workflow children', () => {
   assert.equal(canDeriveFromNode({ kind: 'source_group', status: 'ready', assets: [{ url: '/product.png' }] }), true);
   assert.equal(canDeriveFromNode({ kind: 'image', status: 'ready', url: '/image.png' }), true);
   assert.equal(canDeriveFromNode({ kind: 'layer-group', status: 'success', url: '/group.png' }), true);
   assert.equal(canDeriveFromNode({ kind: 'output', status: 'completed', url: '/output.png' }), true);
   assert.equal(canDeriveFromNode({ kind: 'output', status: 'ready', url: '/ready-output.png' }), true);
+  assert.equal(canDeriveFromNode({ kind: 'video', status: 'ready', url: '/ready-output.mp4' }), true);
   assert.equal(canDeriveFromNode({ kind: 'output', status: 'generating', url: '/output.png' }), false);
   for (const status of ['draft', 'analyzing', 'running', 'error']) {
     assert.equal(canDeriveFromNode({ kind: 'smart-remix', status }), false, status);

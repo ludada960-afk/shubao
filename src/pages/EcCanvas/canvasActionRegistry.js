@@ -5,6 +5,10 @@ function isReadyImage(node = {}) {
   return ['image', 'layer-group'].includes(node.kind) && Boolean(node.url) && ['ready', 'success', 'completed'].includes(node.status);
 }
 
+function isReadyMedia(node = {}) {
+  return isReadyImage(node) || (node.kind === 'video' && Boolean(node.url) && ['ready', 'success', 'completed'].includes(node.status));
+}
+
 export function canCreateWorkflowFromNode(node = {}) {
   if (node.kind === 'source_group') {
     return node.status === 'ready'
@@ -12,7 +16,7 @@ export function canCreateWorkflowFromNode(node = {}) {
       && Array.isArray(node.assets)
       && node.assets.some(asset => asset?.url);
   }
-  return isReadyImage(node);
+  return isReadyMedia(node);
 }
 
 function action(id, label, surfaces, priceFeature, requiresPrompt, execute, options = {}) {

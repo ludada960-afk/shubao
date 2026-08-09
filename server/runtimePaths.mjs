@@ -3,6 +3,7 @@ const RUNTIME_PREFIXES = [
   'cache_overlay/',
   'uploads/',
   'generated-assets/',
+  'video-assets/',
   'extension_downloads/',
   'extension_tasks/',
   'prompts/',

@@ -16,9 +16,11 @@ const EXPECTED_RUNTIME_CONFIG = Object.freeze({
   NANO_BANANA_BASE_URL: 'https://api.change2pro.com',
   NANO_BANANA_FLASH_MODEL: 'gemini-3.1-flash-image',
   NANO_BANANA_PRO_MODEL: 'gemini-3-pro-image',
+  IP233_VIDEO_BASE_URL: 'https://api-new.ip233.com/v1',
+  IP233_VIDEO_MODEL: 'sd5-seedance-2.0',
 });
 
-const REQUIRED_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'NANO_BANANA_API_KEY']);
+const REQUIRED_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'NANO_BANANA_API_KEY', 'VIDEO_API_KEY']);
 const PLACEHOLDER_RE = /(?:your[-_ ]?key|example|placeholder|change[-_ ]?me|replace[-_ ]?me|x{3,})/i;
 
 function parseEnv(source) {

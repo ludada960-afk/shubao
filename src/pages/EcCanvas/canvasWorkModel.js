@@ -28,6 +28,10 @@ function allWorkImages(work = {}) {
   });
 }
 
+function workVideoUrl(work = {}) {
+  return cleanString(work.video_url || work.videoUrl || work.video?.url || work._videoResult?.url);
+}
+
 export function canvasWorkCategory(work = {}) {
   return inferWorkType(work);
 }
@@ -39,15 +43,18 @@ export function filterCanvasWorks(works = [], category = 'all') {
 
 function normalizePanelWork(work = {}) {
   const images = allWorkImages(work);
-  if (!images.length) return null;
   const workType = canvasWorkCategory(work);
+  const videoUrl = workVideoUrl(work);
+  if (!images.length && !videoUrl) return null;
   return {
     ...work,
-    id: work.id || work.taskId || work._saveKey || images[0]?.url || Date.now(),
+    id: work.id || work.taskId || work._saveKey || images[0]?.url || videoUrl || Date.now(),
     name: displayName(work),
     product_name: cleanString(work.product_name) || displayName(work),
     platform: cleanString(work.platform) || '淘宝',
     images,
+    videoUrl,
+    video: work.video || (videoUrl ? { url: videoUrl } : null),
     createdAt: work.createdAt || work.at || '',
     workType,
   };

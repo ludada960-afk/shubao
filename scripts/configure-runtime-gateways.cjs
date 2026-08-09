@@ -8,7 +8,7 @@ const {
   verifyRuntimeConfigFiles,
 } = require('./verify-runtime-config.cjs');
 
-const SECRET_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'NANO_BANANA_API_KEY']);
+const SECRET_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'NANO_BANANA_API_KEY', 'VIDEO_API_KEY']);
 const MAX_STDIN_BYTES = 16 * 1024;
 
 function validateSecretPayload(payload) {

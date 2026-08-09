@@ -528,6 +528,11 @@ export function PricingModal() {
                 </div>
 
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  {Number.isFinite(p.compareAtFen) && p.compareAtFen > p.priceFen && (
+                    <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>
+                      正式版价 <span style={{ textDecoration: 'line-through' }}>¥{formatCatalogPrice(p.compareAtFen)}</span>
+                    </div>
+                  )}
                   <div style={{
                     fontSize: 26, fontWeight: 900,
                     color: 'var(--accent)',
@@ -536,7 +541,7 @@ export function PricingModal() {
                     ¥{formatCatalogPrice(p.priceFen)}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {p.enabled ? (providers.length > 0 ? '选择套餐' : '暂不可购买') : '套餐已停用'}
+                    {p.enabled ? (providers.length > 0 ? '公测价 · 选择套餐' : '公测价 · 暂不可购买') : '套餐已停用'}
                   </div>
                 </div>
               </div>

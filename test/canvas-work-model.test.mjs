@@ -12,6 +12,24 @@ import {
   normalizeCanvasWorkPanel,
 } from '../src/pages/EcCanvas/canvasWorkModel.js';
 
+test('video works remain visible without image thumbnails and filter as video', () => {
+  const works = normalizeCanvasWorkPanel({
+    ownerEmail: 'owner@example.com',
+    serverWorks: [{
+      id: 'video-1',
+      _phone: 'owner@example.com',
+      _videoResult: true,
+      title: '商品短视频',
+      video_url: '/api/video/assets/result.mp4',
+      video: { duration: 8, resolution: '720p' },
+    }],
+  });
+  assert.equal(works.length, 1);
+  assert.equal(works[0].videoUrl, '/api/video/assets/result.mp4');
+  assert.equal(canvasWorkCategory(works[0]), 'video');
+  assert.equal(filterCanvasWorks(works, 'video').length, 1);
+});
+
 test('Canvas work panel keeps only the signed owner local works and preserves server metadata', () => {
   const localWorks = [
     {

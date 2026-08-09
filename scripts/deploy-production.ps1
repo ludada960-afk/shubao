@@ -239,6 +239,11 @@ if ([string]::IsNullOrWhiteSpace($nanoGatewayKey)) {
 }
 $hasNanoGatewayKey = -not [string]::IsNullOrWhiteSpace($nanoGatewayKey)
 if ($hasNanoGatewayKey) { $env:SHUBAO_NANO_BANANA_API_KEY = $nanoGatewayKey }
+$videoGatewayKey = $env:SHUBAO_VIDEO_API_KEY
+if ([string]::IsNullOrWhiteSpace($videoGatewayKey)) {
+  $videoGatewayKey = [Environment]::GetEnvironmentVariable('SHUBAO_VIDEO_API_KEY', 'User')
+}
+$hasVideoGatewayKey = -not [string]::IsNullOrWhiteSpace($videoGatewayKey)
 if ($hasImageGatewayKey -and -not $hasVisionGatewayKey) {
   throw "SHUBAO_IMAGE_API_KEY requires SHUBAO_VISION_API_KEY"
 }
@@ -290,6 +295,7 @@ tar -czf $archive -C $repo `
   --exclude='server/uploads' `
   --exclude='server/generated-assets' `
   --exclude='server/temp_uploads' `
+  --exclude='server/video-assets' `
   --exclude='server/node_modules' `
   --exclude='server/.env' `
   --exclude='server/.auth-session-secret' `
@@ -343,7 +349,7 @@ try {
   $lockAcquired = $true
 
   Assert-DeploymentLockHeld
-  if ($hasImageGatewayKey -or $hasVisionGatewayKey -or $hasNanoGatewayKey) {
+  if ($hasImageGatewayKey -or $hasVisionGatewayKey -or $hasNanoGatewayKey -or $hasVideoGatewayKey) {
     Invoke-LockedRemote -Command "set -e; umask 077; test ! -e '$remoteRuntimeConfigBackup'; mkdir -m 700 '$remoteRuntimeConfigBackup'; cp '$RemoteDir/.env' '$remoteRuntimeConfigBackup/root.env'; cp '$RemoteDir/server/.env' '$remoteRuntimeConfigBackup/server.env'; chmod 600 '$remoteRuntimeConfigBackup/root.env' '$remoteRuntimeConfigBackup/server.env'" -TimeoutSeconds 120 -FailureMessage "Runtime configuration backup failed"
     $runtimeConfigBackupCreated = $true
     $runtimeConfigTouched = $true
@@ -351,6 +357,7 @@ try {
     if ($hasImageGatewayKey) { $runtimeSecrets.IMAGE_API_KEY = $env:SHUBAO_IMAGE_API_KEY }
     if ($hasVisionGatewayKey) { $runtimeSecrets.MINI_API_KEY = $env:SHUBAO_VISION_API_KEY }
     if ($hasNanoGatewayKey) { $runtimeSecrets.NANO_BANANA_API_KEY = $nanoGatewayKey }
+    if ($hasVideoGatewayKey) { $runtimeSecrets.VIDEO_API_KEY = $videoGatewayKey }
     $runtimePayload = $runtimeSecrets | ConvertTo-Json -Compress
     $runtimeUpdateCommand = "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --replace-secrets"
     Invoke-LockedRemote -Command $runtimeUpdateCommand -InputText $runtimePayload -TimeoutSeconds 120 -FailureMessage "Production runtime gateway configuration update failed"
@@ -369,7 +376,7 @@ try {
   Invoke-LockedRemote -Command "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; mkdir -p $remoteBackup/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $RemoteDir/server/ $remoteBackup/server/; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; if [ -L $WebRoot ] || [ -d $WebRoot ]; then sudo cp -aL $WebRoot $remoteBackup/webroot; else sudo cp -aL $legacyWebRoot $remoteBackup/webroot; fi; if [ -f $RemoteDir/ecosystem.production.config.cjs ]; then cp $RemoteDir/ecosystem.production.config.cjs $remoteBackup/ecosystem.production.config.cjs; fi; if pm2 describe shubao >/dev/null 2>&1; then legacy_pid=`$(pm2 pid shubao); case `"`$legacy_pid`" in ''|*[!0-9]*) exit 1 ;; esac; printf '%s\n' `"`$legacy_pid`" > $remoteBackup/legacy-pid; sha256sum $RemoteDir/server/index.mjs > $remoteBackup/legacy-server.sha256; fi; if [ -f $remotePm2ClusterMarker ]; then touch $remoteBackup/pm2-cluster-enabled; fi; sudo cp '$remoteNginxConfig' $remoteBackup/nginx-config" -TimeoutSeconds 600 -FailureMessage "Remote backup failed"
   $releaseStarted = $true
   Assert-DeploymentLockHeld
-  Invoke-LockedRemote -Command "set -e; cd $RemoteDir; if [ -d '$RemoteDir/$galleryDirectoryName' ]; then mv '$RemoteDir/$galleryDirectoryName' '$remoteBackup/$galleryDirectoryName'; fi; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; mkdir -p $RemoteDir/.runtime server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/cache_img server/cache_overlay server/backups; pm2 delete ecosystem.production >/dev/null 2>&1 || true; if [ -f $remotePm2ClusterMarker ]; then pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; else pm2 delete shubao-production >/dev/null 2>&1 || true; pm2 start ecosystem.production.config.cjs --only shubao-production --update-env; touch $remotePm2ClusterMarker; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo mkdir -p $staticReleasesRoot $remoteStaticRelease; sudo cp -a $RemoteDir/dist/. $remoteStaticRelease/; sudo rm -f $remoteStaticNext; sudo ln -s $remoteStaticRelease $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx" -TimeoutSeconds 2400 -FailureMessage "Remote restart or health check failed"
+  Invoke-LockedRemote -Command "set -e; cd $RemoteDir; if [ -d '$RemoteDir/$galleryDirectoryName' ]; then mv '$RemoteDir/$galleryDirectoryName' '$remoteBackup/$galleryDirectoryName'; fi; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; mkdir -p $RemoteDir/.runtime server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/video-assets/input server/video-assets/output server/cache_img server/cache_overlay server/backups; pm2 delete ecosystem.production >/dev/null 2>&1 || true; if [ -f $remotePm2ClusterMarker ]; then pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; else pm2 delete shubao-production >/dev/null 2>&1 || true; pm2 start ecosystem.production.config.cjs --only shubao-production --update-env; touch $remotePm2ClusterMarker; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo mkdir -p $staticReleasesRoot $remoteStaticRelease; sudo cp -a $RemoteDir/dist/. $remoteStaticRelease/; sudo rm -f $remoteStaticNext; sudo ln -s $remoteStaticRelease $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx" -TimeoutSeconds 2400 -FailureMessage "Remote restart or health check failed"
 
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
   & node $galleryVerifier --base-url "https://shuimg.cn"

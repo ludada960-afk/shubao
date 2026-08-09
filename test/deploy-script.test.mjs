@@ -53,6 +53,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /SHUBAO_IMAGE_API_KEY/);
   assert.match(deploy, /SHUBAO_VISION_API_KEY/);
   assert.match(deploy, /SHUBAO_NANO_BANANA_API_KEY/);
+  assert.match(deploy, /SHUBAO_VIDEO_API_KEY/);
   assert.doesNotMatch(deploy, /SHUBAO_FAL_KEY|FAL_KEY/);
   assert.match(deploy, /Invoke-LockedRemote[^\n]*-InputText\s+\$runtimePayload/i);
   assert.doesNotMatch(deploy, /--replace-segmentation-key/i);
@@ -282,7 +283,7 @@ test('runtime gateway updater accepts secrets only through stdin and rolls files
   assert.match(runtimeConfigUpdater, /renameSync/);
   assert.match(runtimeConfigUpdater, /configureRuntimeFiles/);
   assert.doesNotMatch(runtimeConfigUpdater, /FAL_KEY|replaceSegmentationSecret|replace-segmentation-key/);
-  assert.doesNotMatch(runtimeConfigUpdater, /console\.(?:log|error)\([^\n]*(?:IMAGE_API_KEY|MINI_API_KEY|NANO_BANANA_API_KEY)/);
+  assert.doesNotMatch(runtimeConfigUpdater, /console\.(?:log|error)\([^\n]*(?:IMAGE_API_KEY|MINI_API_KEY|NANO_BANANA_API_KEY|VIDEO_API_KEY)/);
 });
 
 test('production runtime verifier fails closed without exposing secret values', () => {
@@ -300,6 +301,9 @@ test('production runtime verifier fails closed without exposing secret values', 
   assert.match(runtimeConfigVerifier, /IMAGE_API_KEY/);
   assert.match(runtimeConfigVerifier, /MINI_API_KEY/);
   assert.match(runtimeConfigVerifier, /NANO_BANANA_API_KEY/);
+  assert.match(runtimeConfigVerifier, /VIDEO_API_KEY/);
+  assert.match(runtimeConfigVerifier, /https:\/\/api-new\.ip233\.com\/v1/);
+  assert.match(runtimeConfigVerifier, /sd5-seedance-2\.0/);
   assert.doesNotMatch(runtimeConfigVerifier, /FAL_KEY/);
   assert.match(runtimeConfigVerifier, /0o077/);
   assert.doesNotMatch(runtimeConfigVerifier, /console\.(?:log|error)\([^\n]*(?:secret|value)/i);

@@ -8,6 +8,8 @@ export const CANVAS_CREATION_OPTIONS = Object.freeze([
   Object.freeze({ id: 'text-generation', label: '生成文案', description: '从当前商品图提炼卖点和电商文案' }),
   Object.freeze({ id: 'image-edit', label: '图片生成', description: '按新的画面要求编辑或生成图片' }),
   Object.freeze({ id: 'ecommerce-suite', label: '电商套图', description: '用当前商品继续生成完整套图' }),
+  Object.freeze({ id: 'video-upload', label: '上传视频', description: '把现有视频加入画布继续创作' }),
+  Object.freeze({ id: 'video-generation', label: '生成视频', description: '用当前图片或视频生成营销成片', priceLabel: '32积分起' }),
 ]);
 
 export const MULTI_SELECTION_ACTIONS = Object.freeze([

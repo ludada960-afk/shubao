@@ -63,13 +63,15 @@ test('context menu is clamped to the browser viewport', () => {
   );
 });
 
-test('node port presents only the three Shubao creation capabilities', () => {
+test('node port presents Shubao image, text, ecommerce, and video capabilities', () => {
   assert.deepEqual(CANVAS_CREATION_OPTIONS.map(option => option.id), [
     'text-generation',
     'image-edit',
     'ecommerce-suite',
+    'video-upload',
+    'video-generation',
   ]);
-  assert.equal(CANVAS_CREATION_OPTIONS.some(option => /video|workflow/i.test(option.id)), false);
+  assert.equal(CANVAS_CREATION_OPTIONS.find(option => option.id === 'video-generation')?.priceLabel, '32积分起');
 });
 
 test('drag frames update geometry without persistence and drag end persists once', () => {

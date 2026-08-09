@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
-import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
+import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
@@ -44,6 +44,7 @@ import {
   CanvasObjectToolbar,
   CanvasSourceNode as StudioSourceNode,
   CanvasTextGenerationComposer,
+  CanvasVideoComposer,
   CanvasTextNode as StudioTextNode,
   CanvasTextToolbar,
 } from './components/CanvasStudio.jsx';
@@ -60,7 +61,7 @@ import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, selectedCanvasBounds } from './canvasInteractionModel.js';
-import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createUploadedImageNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
+import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
@@ -72,13 +73,26 @@ import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
 import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
+import { quoteBillingAction } from '../../services/billing.js';
+import { createVideoJob, getVideoJob, uploadVideoAsset } from '../../services/video.js';
 import './EcCanvas.css';
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'all', label: '全部作品' },
   { id: 'ecommerce', label: '电商商品图' },
   { id: 'xhs', label: '小红书图文' },
+  { id: 'video', label: 'AI 视频' },
 ]);
+
+const VIDEO_FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
+
+function videoSku(resolution, duration) {
+  return `video_seedance_${resolution}_${Number(duration) <= 8 ? 'short' : 'long'}`;
+}
+
+function delay(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
 
 function generatedAssetIdFromUrl(url = '') {
   return String(url).match(/\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))(?:[?#]|$)/i)?.[1] || '';
@@ -526,6 +540,7 @@ export default function EcCanvas() {
   const segmentationAbortRef = useRef(new Map());
   const workflowProcessRef = useRef(null);
   const sourceUploadRef = useRef(null);
+  const videoUploadRef = useRef(null);
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
   const remoteSaveTimerRef = useRef(null);
@@ -594,7 +609,7 @@ export default function EcCanvas() {
     viewportBounds: containerRef.current?.getBoundingClientRect(),
     viewport,
     avoidNodes: nodes,
-    height: selectedNode?.kind === 'suite-composer' ? 420 : selectedNode?.kind === 'image-composer' ? 320 : 300,
+    height: selectedNode?.kind === 'suite-composer' ? 420 : selectedNode?.kind === 'image-composer' ? 320 : selectedNode?.kind === 'video-composer' ? 330 : 300,
   }).position;
 
   // toast helper
@@ -2385,13 +2400,15 @@ export default function EcCanvas() {
     // 左侧添加是独立节点；只有图片右侧派生或显式传入 sourceNodeId 才建立引用关系。
     const sourceNodeId = placement.sourceNodeId || '';
     const sourceNodeIds = [...new Set([...(placement.sourceNodeIds || []), sourceNodeId].filter(Boolean))];
-    const size = kind === 'suite' ? { w: 640, h: 420 } : kind === 'text' ? { w: 480, h: 220 } : { w: 280, h: 280 };
+    const size = kind === 'suite' ? { w: 640, h: 420 } : kind === 'text' ? { w: 480, h: 220 } : kind === 'video' ? { w: 360, h: 240 } : { w: 280, h: 280 };
     const position = createComposerPlacement(size.w, size.h, { ...placement, sourceNodeId });
     const baseComposer = kind === 'suite'
       ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: result.commerceContext?.platform || result.platform || 'taobao', commerceContext: result.commerceContext })
       : kind === 'text'
         ? createCanvasTextComposerNode({ ...position, sourceNodeId })
-        : createCanvasImageComposerNode({ ...position, sourceNodeId });
+        : kind === 'video'
+          ? createCanvasVideoComposerNode({ ...position, sourceNodeId })
+          : createCanvasImageComposerNode({ ...position, sourceNodeId });
     const composer = {
       ...baseComposer,
       sourceNodeIds,
@@ -2413,6 +2430,76 @@ export default function EcCanvas() {
   const updateComposerNode = useCallback((nodeId, change) => {
     setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, ...change } : node));
   }, []);
+
+  const ensureVideoAsset = useCallback(async node => {
+    const existingId = node?.videoAssetId || String(node?.url || '').match(/\/api\/video\/assets\/([^/?#]+)/)?.[1];
+    if (existingId) return { id: existingId, url: node.url, kind: node.kind === 'video' ? 'video' : 'image' };
+    if (!node?.url) throw new Error('参考素材缺少可用地址');
+    const kind = node.kind === 'video' ? 'video' : 'image';
+    const response = await fetch(kind === 'image' ? proxyImg(node.url) : node.url);
+    if (!response.ok) throw new Error('参考素材读取失败');
+    const blob = await response.blob();
+    const extension = kind === 'video' ? 'mp4' : (blob.type.split('/')[1] || 'png');
+    const file = new File([blob], `${node.name || kind}.${extension}`, { type: blob.type || (kind === 'video' ? 'video/mp4' : 'image/png') });
+    return uploadVideoAsset(file, kind);
+  }, []);
+
+  const handleVideoComposerGenerate = useCallback(async composer => {
+    if (!String(composer?.prompt || '').trim() || composer.status === 'processing') return;
+    updateComposerNode(composer.id, { status: 'processing', error: '', progress: 2, progressLabel: '正在准备参考素材' });
+    try {
+      const sourceNodes = [...new Set(composer.sourceNodeIds || [])].map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+      const uploaded = [];
+      for (const source of sourceNodes.slice(0, 9)) uploaded.push({ source, asset: await ensureVideoAsset(source) });
+      const imageAssets = uploaded.filter(item => item.source.kind !== 'video').map(item => item.asset);
+      const videoAssets = uploaded.filter(item => item.source.kind === 'video').map(item => item.asset);
+      const sku = videoSku(composer.resolution || '720p', composer.duration || 8);
+      const quote = (await quoteBillingAction({ sku, quantity: 1 })).quote;
+      const urls = Object.fromEntries(uploaded.map(item => [item.asset.id, item.asset.url]));
+      const response = await createVideoJob({
+        mode: videoAssets.length ? 'remake' : imageAssets.length ? 'reference' : 'script',
+        prompt: String(composer.prompt).trim(),
+        negativePrompt: '',
+        duration: Number(composer.duration) || 8,
+        aspectRatio: composer.aspectRatio || '9:16',
+        resolution: composer.resolution || '720p',
+        generateAudio: composer.generateAudio !== false,
+        seed: 0,
+        billingQuoteId: quote.quoteId,
+        references: {
+          firstImage: '',
+          lastImage: '',
+          images: imageAssets.map(asset => asset.id),
+          videos: videoAssets.map(asset => asset.id),
+          audios: [],
+          urls,
+        },
+      }, globalThis.crypto?.randomUUID?.() || `canvas-video-${Date.now()}`);
+      let job = response.job;
+      while (!VIDEO_FINAL_STATUSES.has(job.status)) {
+        await delay(5000);
+        job = (await getVideoJob(job.id)).job;
+        updateComposerNode(composer.id, { progress: job.progress || 3, progressLabel: `视频生成中 ${job.progress || 0}%`, videoJobId: job.id });
+      }
+      if (job.status !== 'completed' || !job.resultUrl) throw new Error(job.error || '本次视频没有交付成片，积分已退回');
+      updateComposerNode(composer.id, {
+        status: 'success',
+        url: job.resultUrl,
+        videoAssetId: job.resultAssetId || '',
+        videoJobId: job.id,
+        name: String(composer.prompt).trim().slice(0, 32) || 'AI 视频',
+        displayLabel: 'AI 视频成片',
+        progress: 100,
+        progressLabel: '成片已交付',
+      });
+      await refreshBillingBalance?.({ force: true }).catch(() => {});
+      showToast('视频成片已交付，并保存到作品集', 'success');
+    } catch (error) {
+      updateComposerNode(composer.id, { status: 'error', error: error.message || '视频生成失败', progressLabel: '' });
+      if (error?.status === 402) dispatch({ type: 'OPEN_PAYWALL', reason: 'INSUFFICIENT_CREDITS' });
+      else showToast(error.message || '视频生成失败', 'error');
+    }
+  }, [dispatch, ensureVideoAsset, nodes, refreshBillingBalance, showToast, updateComposerNode]);
 
   const removeCanvasNode = useCallback(nodeId => {
     const ids = new Set([nodeId]);
@@ -2860,9 +2947,35 @@ export default function EcCanvas() {
     }
   };
 
+  const handleCanvasVideoUpload = async event => {
+    const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('video/')).slice(0, 4);
+    event.target.value = '';
+    if (!files.length) return;
+    const uploadStartedAt = Date.now();
+    setPromptLoading(true);
+    try {
+      const assets = [];
+      for (const file of files) assets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      const bounds = containerRef.current?.getBoundingClientRect();
+      const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
+      const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
+      const uploadedNodes = createUploadedVideoNodes({ assets, x: worldX, y: worldY, now: uploadStartedAt });
+      draftReadyRef.current = true;
+      canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `video-upload-${uploadStartedAt}` });
+      setNodes(previous => [...previous, ...uploadedNodes]);
+      setSelected(uploadedNodes[0]?.id || null);
+      setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
+      showToast(`已加入 ${uploadedNodes.length} 个视频，可继续引用生成`, 'success');
+    } catch (error) {
+      showToast(error.message || '视频上传失败，请重试', 'error');
+    } finally {
+      setPromptLoading(false);
+    }
+  };
+
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
     const accepted = files.filter(file => file?.type?.startsWith('image/')).slice(0, 8);
-    const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer'].includes(node.kind));
+    const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
     if (!accepted.length || !composer) return;
     const uploadStartedAt = Date.now();
     try {
@@ -2926,6 +3039,10 @@ export default function EcCanvas() {
   }, []);
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
+    if (canvasWorkCategory(work) === 'video') {
+      dispatch({ type: 'NAVIGATE', page: 'video-studio' });
+      return;
+    }
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     setTab('canvas');
   };
@@ -3192,7 +3309,7 @@ export default function EcCanvas() {
       ...(imageAction || {}),
       ...option,
       group: '继续创作',
-      priceLabel: imageAction?.priceLabel || '免费',
+      priceLabel: option.priceLabel || imageAction?.priceLabel || '免费',
     };
   });
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
@@ -3247,6 +3364,7 @@ export default function EcCanvas() {
           }}
         >
           <input ref={sourceUploadRef} type="file" accept="image/*" multiple onChange={handleCanvasSourceUpload} style={{ display: 'none' }} />
+          <input ref={videoUploadRef} type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={handleCanvasVideoUpload} style={{ display: 'none' }} />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
             onAddMenuToggle={() => setAddMenuOpen(open => !open)}
@@ -3258,10 +3376,12 @@ export default function EcCanvas() {
             onSelect={actionId => {
               setAddMenuOpen(false);
               if (actionId === 'upload') sourceUploadRef.current?.click();
+              else if (actionId === 'upload-video') videoUploadRef.current?.click();
               else if (actionId === 'works') setTab('works');
               else if (actionId === 'text-generation') addCanvasComposer('text');
               else if (actionId === 'image') addCanvasComposer('image');
               else if (actionId === 'ecommerce') addCanvasComposer('suite');
+              else if (actionId === 'video') addCanvasComposer('video');
             }}
           />
           <CanvasBottomToolbar
@@ -3290,12 +3410,14 @@ export default function EcCanvas() {
           {!nodes.length && (
             <div className="ec-canvas-empty-state">
               <div>
-                <strong>双击画布导入商品素材</strong>
-                <p>从商品原图开始，继续生成主图、详情图、SKU 和透明素材</p>
+                <strong>把图片和视频放进同一个创作画布</strong>
+                <p>从商品素材开始，继续生成套图、文案和营销视频</p>
                 <div className="ec-canvas-empty-actions">
                   <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><MdAddPhotoAlternate size={15} />上传图片</button>
+                  <button type="button" onClick={() => videoUploadRef.current?.click()}><MdVideoLibrary size={15} />上传视频</button>
                   <button type="button" onClick={() => setTab('works')}><MdCollections size={15} />从我的作品导入</button>
                   <button type="button" onClick={() => addCanvasComposer('suite')}><MdAutoFixHigh size={15} />生成电商套图</button>
+                  <button type="button" onClick={() => addCanvasComposer('video')}><MdVideoLibrary size={15} />生成视频</button>
                 </div>
               </div>
             </div>
@@ -3374,7 +3496,7 @@ export default function EcCanvas() {
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                 />;
               }
-              if (node.kind === 'image-composer' || node.kind === 'text-composer' || node.kind === 'suite-composer') {
+              if (node.kind === 'video' || node.kind === 'image-composer' || node.kind === 'text-composer' || node.kind === 'suite-composer' || node.kind === 'video-composer') {
                 return <CanvasGenerationNode
                   key={node.id}
                   node={node}
@@ -3461,7 +3583,7 @@ export default function EcCanvas() {
               style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
             />}
             {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
-            {!focusedEditor && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
+            {!focusedEditor && multiSelected.size <= 1 && selectedNode && selectedNode.kind !== 'text' && !['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(selectedNode.kind) && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={actionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} />}
             {!focusedEditor && multiSelected.size <= 1 && ['text', 'text-composer'].includes(selectedNode?.kind) && <CanvasTextToolbar
               node={selectedNode}
               viewport={viewport}
@@ -3516,6 +3638,16 @@ export default function EcCanvas() {
                onToggleSource={(source, role) => toggleComposerSource(selectedNode.id, source, role)}
                onGenerate={() => handleSuiteComposerGenerate(selectedNode)}
              />}
+            {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'video-composer' && <CanvasVideoComposer
+              node={selectedNode}
+              position={selectedComposerPosition}
+              sources={selectedComposerSources}
+              loading={selectedNode.status === 'processing'}
+              onChange={change => updateComposerNode(selectedNode.id, change)}
+              onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
+              onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
+              onGenerate={() => handleVideoComposerGenerate(selectedNode)}
+            />}
             {connectionPicker && <CanvasDeriveMenu
               actions={connectionPicker.mode === 'image-editor'
                 ? actionsForSurface({ surface: 'image-editor', node: nodes.find(node => node.id === connectionPicker.sourceNodeId) })
@@ -3533,6 +3665,10 @@ export default function EcCanvas() {
                   handleAddTextNode({ ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId, openComposer: true });
                 } else if (action.id === 'ecommerce-suite') {
                   addCanvasComposer('suite', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
+                } else if (action.id === 'video-upload') {
+                  videoUploadRef.current?.click();
+                } else if (action.id === 'video-generation') {
+                  addCanvasComposer('video', { ...connectionPicker.world, sourceNodeId: connectionPicker.sourceNodeId });
                 } else if (action.id === 'image-edit' && connectionPicker.mode !== 'image-editor') {
                   // The right-side image action is the same generation node as
                   // the left rail. Its only extra behavior is carrying the
@@ -3578,7 +3714,7 @@ export default function EcCanvas() {
             <div className="ec-canvas-work-empty">
               <MdCollections size={42} />
               <strong>登录后查看作品</strong>
-              <span>你的电商套图、小红书图文和画布创作都会保存在这里</span>
+              <span>你的电商套图、小红书图文、AI 视频和画布创作都会保存在这里</span>
               <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
             </div>
           ) : ((tab === 'trash' ? trashWorks : visibleWorks).length === 0) ? (
@@ -3594,8 +3730,8 @@ export default function EcCanvas() {
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{work.name}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#999', marginTop: 3 }}>
-                        <span className={`ec-canvas-work-kind is-${canvasWorkCategory(work)}`}>{canvasWorkCategory(work) === 'ecommerce' ? '电商' : canvasWorkCategory(work) === 'xhs' ? '小红书' : canvasWorkCategory(work)}</span>
-                        <span>{work.images?.length || 0} 张图片</span>
+                        <span className={`ec-canvas-work-kind is-${canvasWorkCategory(work)}`}>{canvasWorkCategory(work) === 'ecommerce' ? '电商' : canvasWorkCategory(work) === 'xhs' ? '小红书' : canvasWorkCategory(work) === 'video' ? '视频' : canvasWorkCategory(work)}</span>
+                        <span>{canvasWorkCategory(work) === 'video' ? `${work.video?.duration || 0} 秒 · ${String(work.video?.resolution || '').toUpperCase()}` : `${work.images?.length || 0} 张图片`}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -3608,7 +3744,7 @@ export default function EcCanvas() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, padding: '0 14px 12px', overflowX: 'auto' }}>
-                    {(work.images || []).slice(0, 6).map((img, i) => (
+                    {canvasWorkCategory(work) === 'video' && work.videoUrl ? <video src={work.videoUrl} controls playsInline preload="metadata" style={{ width: '100%', height: 180, objectFit: 'contain', borderRadius: 8, background: '#111827' }} /> : (work.images || []).slice(0, 6).map((img, i) => (
                       <button key={i} type="button" onClick={() => openImagePreview({ url: proxyImg(img), label: img.label || '' })} style={{ width: 72, height: 72, padding: 0, overflow: 'hidden', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
                         <ResponsiveImage src={img} variant="thumb" ratio="1:1" alt={img.label || `作品图片 ${i + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>

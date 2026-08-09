@@ -24,6 +24,7 @@ const SECRETS = Object.freeze({
   IMAGE_API_KEY: 'sk-image-test-key-that-is-long-enough',
   MINI_API_KEY: 'opaque-vision-key-that-is-long-enough',
   NANO_BANANA_API_KEY: 'sk-nano-test-key-that-is-long-enough',
+  VIDEO_API_KEY: 'sk-video-test-key-that-is-long-enough',
 });
 
 test('runtime updater preserves unrelated values and writes the exact gateway contract', () => {
@@ -39,6 +40,7 @@ test('runtime updater preserves unrelated values and writes the exact gateway co
   assert.equal(parsed.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
   assert.equal(parsed.MINI_API_KEY, SECRETS.MINI_API_KEY);
   assert.equal(parsed.NANO_BANANA_API_KEY, SECRETS.NANO_BANANA_API_KEY);
+  assert.equal(parsed.VIDEO_API_KEY, SECRETS.VIDEO_API_KEY);
   assert.match(rendered, /^# existing/m);
 });
 
@@ -86,6 +88,7 @@ test('runtime updater migrates the gateway contract while retaining existing pro
     `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}`,
     `MINI_API_KEY=${SECRETS.MINI_API_KEY}`,
     `NANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}`,
+    `VIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}`,
     '',
   ].join('\n');
   try {
@@ -100,6 +103,7 @@ test('runtime updater migrates the gateway contract while retaining existing pro
     assert.equal(migrated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
     assert.equal(migrated.MINI_API_KEY, SECRETS.MINI_API_KEY);
     assert.equal(migrated.NANO_BANANA_API_KEY, SECRETS.NANO_BANANA_API_KEY);
+    assert.equal(migrated.VIDEO_API_KEY, SECRETS.VIDEO_API_KEY);
     assert.equal(migrated.PORT, '3001');
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -111,8 +115,8 @@ test('runtime updater refuses to retain divergent peer secrets', () => {
   const primary = join(directory, '.env');
   const peer = join(directory, 'server.env');
   try {
-    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\n`, { mode: 0o600 });
-    writeFileSync(peer, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=another-vision-key-that-is-long-enough\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\n`, { mode: 0o600 });
+    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\nVIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}\n`, { mode: 0o600 });
+    writeFileSync(peer, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=another-vision-key-that-is-long-enough\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\nVIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}\n`, { mode: 0o600 });
 
     assert.throws(
       () => configureRuntimeFilesFromExisting([primary, peer]),
@@ -134,6 +138,7 @@ test('runtime updater replaces only the vision secret while retaining the image 
     `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}`,
     `MINI_API_KEY=${SECRETS.MINI_API_KEY}`,
     `NANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}`,
+    `VIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}`,
     '',
   ].join('\n');
   try {
@@ -147,6 +152,7 @@ test('runtime updater replaces only the vision secret while retaining the image 
     assert.equal(updated.IMAGE_API_KEY, SECRETS.IMAGE_API_KEY);
     assert.equal(updated.MINI_API_KEY, 'production-vision-key-that-is-long-enough');
     assert.equal(updated.NANO_BANANA_API_KEY, SECRETS.NANO_BANANA_API_KEY);
+    assert.equal(updated.VIDEO_API_KEY, SECRETS.VIDEO_API_KEY);
     assert.equal(updated.MINI_BASE_URL, 'https://api2.65535.space');
     assert.equal(updated.MINI_MODEL, 'gpt-5.6-luna');
   } finally {
@@ -159,8 +165,8 @@ test('vision-only replacement rejects unexpected fields and divergent image secr
   const primary = join(directory, '.env');
   const peer = join(directory, 'server.env');
   try {
-    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\n`, { mode: 0o600 });
-    writeFileSync(peer, `IMAGE_API_KEY=another-image-key-that-is-long-enough\nMINI_API_KEY=another-vision-key-that-is-long-enough\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\n`, { mode: 0o600 });
+    writeFileSync(primary, `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\nVIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}\n`, { mode: 0o600 });
+    writeFileSync(peer, `IMAGE_API_KEY=another-image-key-that-is-long-enough\nMINI_API_KEY=another-vision-key-that-is-long-enough\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\nVIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}\n`, { mode: 0o600 });
 
     assert.throws(
       () => replaceVisionSecret([primary, peer], { MINI_API_KEY: 'production-vision-key-that-is-long-enough' }),
@@ -179,7 +185,7 @@ test('runtime updater can add only the Nano Banana secret while retaining peer s
   const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-nano-'));
   const primary = join(directory, '.env');
   const peer = join(directory, 'server.env');
-  const legacy = `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\n`;
+  const legacy = `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nVIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}\n`;
   try {
     writeFileSync(primary, legacy, { mode: 0o600 });
     writeFileSync(peer, legacy, { mode: 0o600 });

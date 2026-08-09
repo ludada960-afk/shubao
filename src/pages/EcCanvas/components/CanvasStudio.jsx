@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Bold,
   Check,
+  Clapperboard,
   Copy,
   Crop,
   Download,
@@ -36,6 +37,7 @@ import {
   Ungroup,
   Undo2,
   WandSparkles,
+  Volume2,
   X,
   ArrowUpRight,
   ChevronDown,
@@ -77,10 +79,12 @@ const ACTION_ICONS = {
 
 const ADD_ACTIONS = [
   { id: 'upload', label: '上传图片', description: '加入自己的商品图或参考图', icon: ImagePlus },
+  { id: 'upload-video', label: '上传视频', description: '加入已有成片或参考视频', icon: Clapperboard },
   { id: 'works', label: '从作品导入', description: '使用已生成的作品继续创作', icon: FolderOpen },
   { id: 'image', label: '生成图片', description: '用提示词或引用素材创建新图片', icon: WandSparkles },
   { id: 'text-generation', label: '生成文案', description: '结合提示词和参考图生成可编辑文案', icon: MessageSquareText },
   { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: Sparkles },
+  { id: 'video', label: '生成视频', description: '用提示词、图片或视频创建营销成片', icon: Clapperboard },
 ];
 
 export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
@@ -362,16 +366,17 @@ export function CanvasGenerationNode({ node, selected = false, dimmed = false, e
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
   const isSuite = node.kind === 'suite-composer';
+  const isVideo = node.kind === 'video' || node.kind === 'video-composer';
   const direction = node.directions?.[node.selectedDirection || 0];
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const suitePlan = isSuite && directions.length ? buildCanvasSuitePlan(node.suitePlan || direction, node.prompt) : null;
   return <article
     data-canvas-node-id={node.id}
-    className={`ec-canvas-generation-node is-${isImage ? 'image' : isText ? 'text' : 'suite'} ${node.status === 'processing' ? 'is-processing' : ''} ${isLayerGroup ? 'is-layer-group' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
+    className={`ec-canvas-generation-node is-${isVideo ? 'video' : isImage ? 'image' : isText ? 'text' : 'suite'} ${node.status === 'processing' ? 'is-processing' : ''} ${isLayerGroup ? 'is-layer-group' : ''} ${selected ? 'is-selected' : ''} ${dimmed ? 'is-dimmed' : ''}`}
     style={{ left: node.x, top: node.y, width: node.w, height: node.h, visibility: node.hidden ? 'hidden' : 'visible' }}
     onPointerDown={event => onPointerDown?.(event, node.id)}
     onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
-    onDoubleClick={event => { event.stopPropagation(); if (isText) onTextDoubleClick?.(node.id); else if (node.url) onDoubleClick?.(node); }}
+    onDoubleClick={event => { event.stopPropagation(); if (isText) onTextDoubleClick?.(node.id); else if (!isVideo && node.url) onDoubleClick?.(node); }}
     onMouseEnter={() => onHoverChange?.(node.id)}
     onMouseLeave={() => onHoverChange?.(null)}
   >
@@ -389,9 +394,9 @@ export function CanvasGenerationNode({ node, selected = false, dimmed = false, e
       onFocus={() => onTextSelect?.(node.id)}
       onInput={event => onTextChange?.(node.id, event.currentTarget.textContent || '')}
       onBlur={() => onTextBlur?.(node.id)}
-    >{node.text || ''}</div> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : isSuite && directions.length ? <EcommerceDesignPlanPreview direction={suitePlan} prompt={node.prompt} /> : <div className="ec-canvas-generation-placeholder">
-      {isLayerGroup ? <Layers3 size={28} /> : isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
-      <strong>{isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
+    >{node.text || ''}</div> : isVideo && node.url ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : isSuite && directions.length ? <EcommerceDesignPlanPreview direction={suitePlan} prompt={node.prompt} /> : <div className="ec-canvas-generation-placeholder">
+      {isVideo ? <Clapperboard size={28} /> : isLayerGroup ? <Layers3 size={28} /> : isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
+      <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
       {node.status === 'processing' && <small>{node.progressLabel || '正在处理...'}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
@@ -482,6 +487,36 @@ export function CanvasTextGenerationComposer({ node, position, sources = [], men
       <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={onToggleSource} />
       <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
       <button type="button" data-canvas-control="true" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
+    </div>
+  </section>;
+}
+
+export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onGenerate }) {
+  if (!node) return null;
+  const imageSources = sources.filter(source => source.kind !== 'video');
+  const videoSources = sources.filter(source => source.kind === 'video');
+  const points = node.resolution === '480p'
+    ? (Number(node.duration) <= 8 ? 32 : 40)
+    : (Number(node.duration) <= 8 ? 48 : 58);
+  return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-video-composer" style={position} aria-label="视频生成操作台" onPointerDown={event => event.stopPropagation()}>
+    <ComposerSources sources={imageSources} role="reference" onAddSources={onAddSources} onRemoveSource={onRemoveSource} uploadLabel="上传参考图" />
+    {videoSources.length > 0 && <div className="ec-canvas-video-sources" aria-label={`已引用 ${videoSources.length} 个视频`}>
+      {videoSources.slice(0, 4).map(source => <span key={source.id}>
+        <video src={source.url} muted playsInline preload="metadata" />
+        <strong>{source.name || source.displayLabel || '参考视频'}</strong>
+        <button type="button" aria-label={`移除${source.name || '参考视频'}`} onClick={() => onRemoveSource?.(source.id)}><X size={12} /></button>
+      </span>)}
+    </div>}
+    <textarea data-canvas-control="true" value={node.prompt || ''} maxLength={1200} disabled={loading} placeholder="描述主体、动作、镜头、场景和节奏" onChange={event => onChange?.({ prompt: event.target.value })} />
+    <div className="ec-canvas-video-controls">
+      <label>清晰度<select value={node.resolution || '720p'} onChange={event => onChange?.({ resolution: event.target.value })}><option value="480p">480P 预览</option><option value="720p">720P 成片</option></select></label>
+      <label>画幅<select value={node.aspectRatio || '9:16'} onChange={event => onChange?.({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
+      <label>时长<select value={node.duration || 8} onChange={event => onChange?.({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
+      <label className="is-toggle"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => onChange?.({ generateAudio: event.target.checked })} /><Volume2 size={14} />声音</label>
+    </div>
+    <div className="ec-canvas-composer-footer">
+      {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || `${points} AI 积分 / 次 · 交付后扣费`}</span>}
+      <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim()} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button>
     </div>
   </section>;
 }

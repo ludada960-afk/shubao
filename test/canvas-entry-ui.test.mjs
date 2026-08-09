@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('empty commerce canvas guides a seller to upload product originals or import works', async () => {
+test('empty canvas presents image, video, works, and generation entrypoints', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
-  assert.match(source, /双击画布导入商品素材/);
+  assert.match(source, /把图片和视频放进同一个创作画布/);
   assert.match(source, /上传图片/);
+  assert.match(source, /上传视频/);
   assert.match(source, /从我的作品导入/);
   assert.match(source, /生成电商套图/);
+  assert.match(source, /生成视频/);
   assert.match(source, /onDoubleClick=\{[\s\S]*?sourceUploadRef\.current\?\.click\(\)/);
   assert.doesNotMatch(source, /CanvasSourceImportSheet|sourceImportOpen|product_original|style_reference|general_material/);
   assert.match(css, /\.ec-canvas-empty-state \{[^}]*z-index: 10;[^}]*pointer-events: none;/);

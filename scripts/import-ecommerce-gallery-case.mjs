@@ -24,6 +24,22 @@ export function inferImageRole(fileName, index = 0) {
   };
 }
 
+function meaningful(value) {
+  const text = String(value || '').trim();
+  return /^(?:generated|image|output)(?:\s*\d+)?$/i.test(text) ? '' : text;
+}
+
+export function resolveImageDeclaration(fileName, declarations = []) {
+  const normalized = basename(String(fileName || '')).toLowerCase();
+  const declared = declarations.find(image => [image?.file, image?.sourceFile, image?.url]
+    .some(value => basename(String(value || '')).toLowerCase() === normalized)) || {};
+  return {
+    ...declared,
+    label: meaningful(declared.label),
+    description: meaningful(declared.description),
+  };
+}
+
 const COVER_EXCLUDE = /白底|透明|png素材|抠图|去背/i;
 const COVER_PRIORITY = [
   /主图|首图|封面|核心卖点/i,
@@ -125,7 +141,7 @@ async function importCase(argv = process.argv.slice(2)) {
   const id = safeId(args.id || metadata.id) || generatedId;
   const caseDir = join(outputRoot, id);
   await mkdir(caseDir, { recursive: true });
-  const declaredImages = new Map((metadata.images || []).map(image => [image.file, image]));
+  const declaredImages = Array.isArray(metadata.images) ? metadata.images : [];
   const imported = [];
   for (let index = 0; index < sourceFiles.length; index += 1) {
     const file = sourceFiles[index];
@@ -134,7 +150,7 @@ async function importCase(argv = process.argv.slice(2)) {
     await sharp(join(inputDir, file)).rotate().resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 90, effort: 5 }).toFile(output);
     const dimensions = await sharp(output).metadata();
-    const declared = declaredImages.get(file) || {};
+    const declared = resolveImageDeclaration(file, declaredImages);
     const inferred = inferImageRole(file, index);
     imported.push({
       url: '/gallery/ecommerce/' + id + '/' + outputName,

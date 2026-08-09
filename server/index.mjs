@@ -137,6 +137,11 @@ import {
 } from './canvasTools.mjs';
 import { segmentUniformBackground } from './canvasSegmentation.mjs';
 import { generateCompleteImageSet } from './contentImageGeneration.mjs';
+import {
+  createVideoGeneration,
+  readRequestBuffer,
+  sendVideoAsset,
+} from './videoGeneration.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function safeCanvasClientError(error, fallback = '画布服务暂时不可用，请稍后重试') {
@@ -192,6 +197,16 @@ const generatedAssetStore = createGeneratedAssetStore({
   onPersist: asset => {
     void imageDelivery.prewarmGeneratedVariants(asset.id).catch(() => {});
   },
+});
+const videoGeneration = createVideoGeneration({
+  db,
+  walletService,
+  quoteService: billingQuoteService,
+  upsertWork,
+  assetRoot: resolve(__dirname, 'video-assets'),
+  apiKey: process.env.IP233_VIDEO_API_KEY || process.env.VIDEO_API_KEY || '',
+  baseUrl: process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
+  model: process.env.IP233_VIDEO_MODEL || 'sd5-seedance-2.0',
 });
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
@@ -3668,6 +3683,62 @@ app.post('/api/ecommerce/jobs/:id/retry-plan', authenticateEcommerceRequest, eco
 app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, ecommerceRouteHandlers.retryFailed);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
+app.get('/api/video/capabilities', authenticateEcommerceRequest, (_req, res) => {
+  res.json({ loading: false, ...videoGeneration.capabilities() });
+});
+app.post('/api/video/assets', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const kind = String(req.headers['x-video-asset-kind'] || '').trim().toLowerCase();
+    const limits = { image: 10 * 1024 * 1024, video: 50 * 1024 * 1024, audio: 15 * 1024 * 1024 };
+    if (!limits[kind]) return res.status(400).json({ error: '素材类型不支持' });
+    const buffer = await readRequestBuffer(req, limits[kind]);
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const publicBaseUrl = `${proto}://${req.get('host')}`;
+    const asset = await videoGeneration.uploadAsset({
+      ownerEmail: req._userEmail,
+      kind,
+      contentType: req.headers['content-type'],
+      buffer,
+      publicBaseUrl,
+    });
+    return res.status(201).json({ asset });
+  } catch (error) {
+    return res.status(error?.status || 500).json({ code: error?.code, error: error?.message || '素材上传失败' });
+  }
+});
+app.get('/api/video/assets/:id', async (req, res) => {
+  const asset = await videoGeneration.readAsset(req.params.id);
+  if (!asset) return res.status(404).end('video asset not found');
+  return sendVideoAsset(req, res, asset);
+});
+app.post('/api/video/jobs', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const result = await videoGeneration.createJob({
+      ownerEmail: req._userEmail,
+      idempotencyKey: req.get('Idempotency-Key'),
+      billingQuoteId: req.body?.billingQuoteId,
+      publicBaseUrl: `${proto}://${req.get('host')}`,
+      input: req.body,
+    });
+    return res.status(result.replay ? 200 : 202).json(result);
+  } catch (error) {
+    return res.status(error?.status || 500).json({
+      code: error?.code,
+      error: error?.status && error.status < 500 ? error.message : '视频任务创建失败，请稍后重试',
+      required: error?.required,
+      available: error?.available,
+    });
+  }
+});
+app.get('/api/video/jobs', authenticateEcommerceRequest, (req, res) => {
+  res.json({ jobs: videoGeneration.listJobs(req._userEmail, req.query.limit) });
+});
+app.get('/api/video/jobs/:id', authenticateEcommerceRequest, (req, res) => {
+  const job = videoGeneration.getJob(req._userEmail, req.params.id);
+  return job ? res.json({ job }) : res.status(404).json({ error: '视频任务不存在' });
+});
+
 function sendCompositionError(error, res) {
   const code = error?.code || 'COMPOSITION_REQUEST_FAILED';
   if (error?.status === 402) {
@@ -4455,6 +4526,7 @@ const recoverEcommerceStartup = createEcommerceStartupRecovery({
   },
 });
 const startupRecoveryResults = await recoverEcommerceStartup();
+videoGeneration.recover();
 const resumed = startupRecoveryResults.filter(result => result.status === 'fulfilled').length;
 const failedRecoveries = startupRecoveryResults.filter(result => result.status === 'rejected');
 if (startupRecoveryResults.length) {

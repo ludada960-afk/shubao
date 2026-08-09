@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MdAutoAwesome, MdEdit, MdShoppingCart } from 'react-icons/md';
+import { MdAutoAwesome, MdEdit, MdShoppingCart, MdVideoLibrary } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
 import EcMode from './EcMode';
@@ -33,6 +33,11 @@ export default function HomePage() {
       mode: 'content',
       title: '小红书图文',
       src: '/images/home/workspace-xhs.png',
+    },
+    {
+      page: 'video-studio',
+      title: 'AI 视频',
+      src: '/images/home/workspace-video.png',
     },
   ];
 
@@ -91,7 +96,7 @@ export default function HomePage() {
             <style>{`@media (min-width:640px){.homepage-h1{font-size:54px!important}}@media(min-width:1024px){.homepage-h1{font-size:62px!important}}`}</style>
 
             <p style={{ margin: '12px auto 0', maxWidth: 860, fontSize: 15, fontWeight: 500, color: 'var(--text-muted)' }} className="homepage-subtitle">
-              电商套图、小红书图文与更多营销内容，在同一个工作台完成
+              电商套图、小红书图文与 AI 视频，在同一个工作台完成
             </p>
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>
@@ -107,16 +112,27 @@ export default function HomePage() {
           >
             <div className="homepage-mode-cards" role="tablist" aria-label="创作模式">
               {modeOptions.map((option, index) => {
-                const active = option.mode === (isXHS ? 'content' : 'ecommerce');
-                const ModeIcon = option.mode === 'ecommerce' ? MdShoppingCart : MdEdit;
+                const active = Boolean(option.mode) && option.mode === (isXHS ? 'content' : 'ecommerce');
+                const ModeIcon = option.page === 'video-studio'
+                  ? MdVideoLibrary
+                  : option.mode === 'ecommerce' ? MdShoppingCart : MdEdit;
                 return (
                   <button
                     type="button"
                     role="tab"
                     aria-selected={active}
                     className={`homepage-mode-card card-${index + 1}${active ? ' is-active' : ''}`}
-                    key={option.mode}
+                    key={option.mode || option.page}
                     onClick={() => {
+                      if (option.page === 'video-studio') {
+                        if (!state.logged) {
+                          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'video-studio', source: state.page } });
+                          dispatch({ type: 'SHOW_LOGIN', show: true });
+                        } else {
+                          dispatch({ type: 'NAVIGATE', page: 'video-studio' });
+                        }
+                        return;
+                      }
                       dispatch({ type: 'SET_MODE', mode: option.mode });
                       if (option.mode === 'content') setEcStep(1);
                     }}

@@ -4,7 +4,7 @@ import { FEATURE_SKUS, PRODUCTS, getProduct, quoteFeature, assertContributionMar
 
 test('client cannot choose the price or grant amount', () => {
   const product = getProduct('ec_starter_29');
-  assert.deepEqual(product, { sku: 'ec_starter_29', priceFen: 2900, currency: 'ec_points', grantUnits: 105000, validityDays: null });
+  assert.deepEqual(product, { sku: 'ec_starter_29', priceFen: 2900, compareAtFen: 4900, currency: 'ec_points', grantUnits: 105000, validityDays: null });
 
   product.priceFen = 1;
   product.grantUnits = 1;
@@ -31,6 +31,14 @@ test('exported catalog entries cannot be mutated by callers', () => {
 test('quotes ecommerce outputs from server feature weights', () => {
   assert.equal(quoteFeature('ec_image_2k', 8).totalUnits, 8000);
   assert.equal(quoteFeature('ec_image_4k', 2).totalUnits, 4000);
+});
+
+test('video quotes are fixed per successful generation', () => {
+  assert.equal(quoteFeature('video_seedance_480p_short', 1).totalUnits, 32000);
+  assert.equal(quoteFeature('video_seedance_480p_long', 1).totalUnits, 40000);
+  assert.equal(quoteFeature('video_seedance_720p_short', 1).totalUnits, 48000);
+  assert.equal(quoteFeature('video_seedance_720p_long', 1).totalUnits, 58000);
+  assert.equal(quoteFeature('video_seedance_720p_long', 1).providerCostCny, 4.355);
 });
 
 test('quotes an explicit design-direction refresh as one AI point', () => {

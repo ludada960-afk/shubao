@@ -294,6 +294,24 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
   };
 }
 
+export function createCanvasVideoComposerNode({ x = 0, y = 0, sourceNodeId = '', now = Date.now() } = {}) {
+  return {
+    id: `video_composer_${now}`,
+    kind: 'video-composer',
+    status: 'ready',
+    x: finite(x),
+    y: finite(y),
+    w: 360,
+    h: 240,
+    prompt: '',
+    resolution: '720p',
+    aspectRatio: '9:16',
+    duration: 8,
+    generateAudio: true,
+    sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
+  };
+}
+
 function unit(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.min(1, Math.max(0, number)) : fallback;
@@ -361,4 +379,35 @@ export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = D
       hidden: false,
     };
   });
+}
+
+export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = Date.now() } = {}) {
+  const width = 320;
+  const gap = 42;
+  return assets.filter(asset => asset?.url).map((asset, index) => ({
+    id: `video_upload_${now}_${index}`,
+    assetId: asset.id || asset.assetId || `video-asset-${now}-${index}`,
+    videoAssetId: asset.id || asset.videoAssetId || '',
+    kind: 'video',
+    provenance: 'source',
+    status: 'ready',
+    url: asset.url,
+    name: asset.name || `上传视频 ${index + 1}`,
+    displayLabel: asset.name || `上传视频 ${index + 1}`,
+    group: '视频',
+    role: '参考视频',
+    aspectRatio: asset.aspectRatio || '16:9',
+    duration: Number(asset.duration) || 0,
+    resolution: asset.resolution || '',
+    sourceNodeIds: [],
+    editable: true,
+    showMeta: true,
+    x: finite(x) + index * (width + gap),
+    y: finite(y),
+    w: width,
+    h: Math.round(width / ratioValue(asset.aspectRatio || '16:9', 16 / 9)),
+    rotation: 0,
+    locked: false,
+    hidden: false,
+  }));
 }

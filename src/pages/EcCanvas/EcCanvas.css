@@ -444,6 +444,19 @@
 .ec-canvas-generation-text-board:focus { box-shadow: inset 0 0 0 2px var(--canvas-command); }
 .ec-canvas-generation-node.is-text { overflow: hidden; border: 1px solid #e1e5eb; border-radius: 9px; background: #fff; box-shadow: 0 10px 24px rgba(15,23,42,.08); }
 .ec-canvas-generation-node.is-text.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.14), 0 10px 24px rgba(15,23,42,.08); }
+.ec-canvas-generation-node.is-video { overflow: hidden; border: 1px solid #d8dee7; border-radius: 9px; background: #111827; box-shadow: 0 10px 24px rgba(15,23,42,.14); }
+.ec-canvas-generation-node.is-video.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.18), 0 12px 28px rgba(15,23,42,.18); }
+.ec-canvas-generation-node.is-video > video { display: block; width: 100%; height: 100%; object-fit: contain; background: #111827; }
+.ec-canvas-video-composer { width: min(560px, calc(100vw - 24px)); }
+.ec-canvas-video-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; border-top: 1px solid #edf0f3; }
+.ec-canvas-video-controls label { display: grid; gap: 5px; color: #69727d; font-size: 10px; font-weight: 700; }
+.ec-canvas-video-controls select { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #dfe3e8; border-radius: 6px; background: #fff; color: #20242a; }
+.ec-canvas-video-controls .is-toggle { display: flex; align-items: center; justify-content: center; flex-direction: row; gap: 6px; padding-top: 16px; }
+.ec-canvas-video-sources { display: flex; gap: 8px; padding: 10px 12px 0; overflow-x: auto; }
+.ec-canvas-video-sources > span { position: relative; width: 116px; min-width: 116px; height: 68px; overflow: hidden; border: 1px solid #dfe3e8; border-radius: 6px; background: #111827; }
+.ec-canvas-video-sources video { width: 100%; height: 100%; object-fit: cover; opacity: .82; }
+.ec-canvas-video-sources strong { position: absolute; right: 6px; bottom: 5px; left: 6px; overflow: hidden; color: #fff; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-video-sources button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(17,24,39,.72); cursor: pointer; }
 .ec-canvas-suite-controls { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid #edf0f3; background: #fff; }
 .ec-canvas-suite-control { position: relative; min-width: 0; }
 .ec-canvas-suite-control > button { height: 32px; max-width: 190px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }

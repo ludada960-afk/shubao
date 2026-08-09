@@ -4,7 +4,7 @@
 import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
-import { MdAutoAwesome, MdCheck, MdDashboard, MdFolder, MdGridOn } from 'react-icons/md';
+import { MdAutoAwesome, MdCheck, MdDashboard, MdFolder, MdGridOn, MdVideoLibrary } from 'react-icons/md';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -17,6 +17,7 @@ const PlogPage = React.lazy(() => import('./pages/Plog/index'));
 const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
 const EcStudioPage = React.lazy(() => import('./pages/EcStudio/index'));
 const EcAutoPage = React.lazy(() => import('./pages/EcAuto/index'));
+const VideoStudioPage = React.lazy(() => import('./pages/VideoStudio/index'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
@@ -51,6 +52,19 @@ function SideNav() {
           return;
         }
         dispatch({ type: 'OPEN_CANVAS' });
+      },
+    },
+    {
+      icon: <MdVideoLibrary size={20} />,
+      label: '视频创作',
+      active: page === 'video-studio',
+      onClick: () => {
+        if (!state.logged) {
+          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'video-studio', source: state.page } });
+          dispatch({ type: 'SHOW_LOGIN', show: true });
+          return;
+        }
+        dispatch({ type: 'NAVIGATE', page: 'video-studio' });
       },
     },
     {
@@ -280,6 +294,7 @@ function AppRouter() {
     'ec-canvas': EcCanvasPage,
     'ec-studio': EcStudioPage,
     'ec-auto': EcAutoPage,
+    'video-studio': VideoStudioPage,
   };
   const PageComponent = pageMap[page] || HomePage;
   const previewItem = galleryItem || result;

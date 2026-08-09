@@ -7,10 +7,10 @@ function freezeCatalog(entries) {
 }
 
 export const PRODUCTS = freezeCatalog({
-  ec_trial_990: { sku: 'ec_trial_990', priceFen: 990, currency: 'ec_points', grantUnits: 30000, validityDays: null },
-  ec_starter_29: { sku: 'ec_starter_29', priceFen: 2900, currency: 'ec_points', grantUnits: 105000, validityDays: null },
-  ec_growth_79: { sku: 'ec_growth_79', priceFen: 7900, currency: 'ec_points', grantUnits: 295000, validityDays: null },
-  ec_studio_199: { sku: 'ec_studio_199', priceFen: 19900, currency: 'ec_points', grantUnits: 760000, validityDays: null },
+  ec_trial_990: { sku: 'ec_trial_990', priceFen: 990, compareAtFen: 1900, currency: 'ec_points', grantUnits: 30000, validityDays: null },
+  ec_starter_29: { sku: 'ec_starter_29', priceFen: 2900, compareAtFen: 4900, currency: 'ec_points', grantUnits: 105000, validityDays: null },
+  ec_growth_79: { sku: 'ec_growth_79', priceFen: 7900, compareAtFen: 12900, currency: 'ec_points', grantUnits: 295000, validityDays: null },
+  ec_studio_199: { sku: 'ec_studio_199', priceFen: 19900, compareAtFen: 29900, currency: 'ec_points', grantUnits: 760000, validityDays: null },
   xhs_entry_19: { sku: 'xhs_entry_19', priceFen: 1900, currency: 'content_sets', grantUnits: 3, validityDays: 30, regenPerWork: 5 },
   xhs_growth_49: { sku: 'xhs_growth_49', priceFen: 4900, currency: 'content_sets', grantUnits: 10, validityDays: 30, regenPerWork: 8 },
   xhs_creator_99: { sku: 'xhs_creator_99', priceFen: 9900, currency: 'content_sets', grantUnits: 25, validityDays: 30, regenPerWork: 15 },
@@ -27,6 +27,13 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_nano_pro_1k: { units: 1000, providerCostCny: 0.06 },
   ec_nano_pro_2k: { units: 1000, providerCostCny: 0.06 },
   ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
+  // This Seedance channel charges a fixed amount per successful generation.
+  // Point weights keep at least 70%
+  // model contribution margin against the least expensive point package.
+  video_seedance_480p_short: { units: 32000, providerCostCny: 4.355 },
+  video_seedance_480p_long: { units: 40000, providerCostCny: 4.355 },
+  video_seedance_720p_short: { units: 48000, providerCostCny: 4.355 },
+  video_seedance_720p_long: { units: 58000, providerCostCny: 4.355 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.
   xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.342 },
