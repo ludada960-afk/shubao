@@ -47,3 +47,27 @@ test('reports drain state and waits for active image work before process shutdow
   assert.equal(await draining, true);
   assert.equal(pool.stats().active, 0);
 });
+
+test('rotates queued work across account keys instead of draining one account first', async () => {
+  const pool = createImageGenerationPool({ concurrency: 1, maxQueue: 8 });
+  const order = [];
+  let release;
+  const blocking = pool.run(() => new Promise(resolve => { release = resolve; }), { key: 'owner-a' });
+  const queued = [
+    pool.run(async () => order.push('a-1'), { key: 'owner-a' }),
+    pool.run(async () => order.push('a-2'), { key: 'owner-a' }),
+    pool.run(async () => order.push('b-1'), { key: 'owner-b' }),
+    pool.run(async () => order.push('b-2'), { key: 'owner-b' }),
+  ];
+
+  await new Promise(resolve => setImmediate(resolve));
+  release('done');
+  await Promise.all([blocking, ...queued]);
+  assert.deepEqual(order, ['b-1', 'a-1', 'b-2', 'a-2']);
+});
+
+test('production defaults retain enough queued work for a multi-user burst', () => {
+  const pool = createImageGenerationPool();
+  assert.equal(pool.stats().concurrency, 3);
+  assert.ok(pool.stats().maxQueue >= 120);
+});

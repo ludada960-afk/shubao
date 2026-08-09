@@ -829,6 +829,10 @@ export function createEcommerceOrchestrator(deps = {}) {
     throw new TypeError('durable generation jobs with an asset store are required');
   }
   const store = jobs.assets;
+  const imageGenerationPool = own(deps, 'imageGenerationPool');
+  if (!imageGenerationPool || typeof imageGenerationPool.run !== 'function') {
+    throw new TypeError('imageGenerationPool with run() is required');
+  }
   const migrateLegacyVisualAsset = requireFunction(
     own(deps, 'migrateLegacyVisualAsset'),
     'migrateLegacyVisualAsset',
@@ -2011,14 +2015,14 @@ export function createEcommerceOrchestrator(deps = {}) {
           const item = assetPlan[assetCursor];
           assetCursor += 1;
           try {
-            await runAsset({
+            await imageGenerationPool.run(() => runAsset({
               job: { ...job, payload },
               item,
               productTruth,
               campaignBible,
               holdId,
               canonicalPlanById,
-            });
+            }), { key: job.ownerEmail });
           } catch (error) {
             if (!workerError) workerError = error;
           }

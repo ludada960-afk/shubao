@@ -254,7 +254,7 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
   };
 }
 
-export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = 'smart', commerceContext, now = Date.now() } = {}) {
+export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '', platform = 'taobao', commerceContext, now = Date.now() } = {}) {
   const normalizedCommerceContext = normalizeCommerceContext({ platform, ...(commerceContext || {}) });
   return {
     id: `suite_composer_${now}`,

@@ -11,19 +11,20 @@ const sizingPanel = readFileSync(new URL('../src/pages/Home/ec/SizingPanel.jsx',
 const commerceRegistry = readFileSync(new URL('../src/pages/Home/ec/internationalCommerceRegistry.js', import.meta.url), 'utf8');
 const designDirection = readFileSync(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
 const orchestrator = readFileSync(new URL('../server/ecommerceEngine/orchestrator.mjs', import.meta.url), 'utf8');
+const serverIndex = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 const canvasStudio = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
 const canvasPage = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
 const worksPage = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
 
-test('smart configuration carries the global commerce context', () => {
+test('default configuration starts from Taobao and carries the global commerce context', () => {
   const configuration = createSmartConfiguration();
   assert.deepEqual(configuration.commerceContext, {
-    platform: 'smart',
+    platform: 'taobao',
     contentType: 'main',
     targetLanguage: 'zh-CN',
   });
   assert.deepEqual(normalizeCommerceContext(configuration.commerceContext), {
-    platform: 'smart',
+    platform: 'taobao',
     contentType: 'main',
     targetLanguage: 'zh-CN',
     locale: 'zh-CN',
@@ -31,11 +32,11 @@ test('smart configuration carries the global commerce context', () => {
   });
 });
 
-test('smart ecommerce remains one complete suite that includes detail images', () => {
-  const suite = resolveSizingImages('smart', { smart: true, images: [] });
+test('default Taobao ecommerce remains one complete suite that includes detail images', () => {
+  const suite = resolveSizingImages('taobao', { smart: true, images: [] });
   assert.ok(suite.some(image => image.key === 'detail'));
   assert.ok(suite.filter(image => image.key === 'detail').every(image => image.ratio === '9:16'));
-  assert.deepEqual(resolveSizingImages('smart', { smart: true, images: [], contentType: 'detail' }), suite);
+  assert.deepEqual(resolveSizingImages('taobao', { smart: true, images: [], contentType: 'detail' }), suite);
 });
 
 test('platform picker exposes a flat option list and language without content type tabs', () => {
@@ -45,6 +46,7 @@ test('platform picker exposes a flat option list and language without content ty
   assert.doesNotMatch(sizingPanel, />跨境平台</);
   assert.match(sizingPanel, /目标语言/);
   assert.match(commerceRegistry, /无文字（纯视觉）/);
+  assert.doesNotMatch(commerceRegistry, /id: 'smart', label: '智能匹配'/);
   assert.doesNotMatch(sizingPanel, /COMMERCE_CONTENT_TYPES/);
   assert.match(ecMode, /targetLanguage/);
   assert.match(ecMode, /const contentType = 'main'/);
@@ -52,7 +54,12 @@ test('platform picker exposes a flat option list and language without content ty
 
 test('nested option portals remain inside the ecommerce configuration interaction boundary', () => {
   assert.match(ecMode, /closest\?\.\('\[data-anchored-portal="true"\]'\)/);
-  assert.match(ecMode, /ec-workbench-submit-actions[\s\S]*hasOverrides[\s\S]*恢复智能方案[\s\S]*ec-workbench-next/);
+  assert.doesNotMatch(ecMode, /恢复智能方案/);
+  assert.doesNotMatch(sizingPanel, /已启用智能方案/);
+  assert.match(ecMode, /ec-config-adjusted-badge/);
+  assert.match(canvasStudio, /configuration\.platform/);
+  assert.doesNotMatch(canvasStudio, /smartMode\s+onOverride/);
+  assert.doesNotMatch(canvasPage, /result\.platform \|\| 'smart'/);
 });
 
 test('pending generation and orchestration preserve the same commerce context', () => {
@@ -78,4 +85,10 @@ test('pending generation and orchestration preserve the same commerce context', 
   assert.match(canvasPage, /commerce_context/);
   assert.match(canvasPage, /targetLanguage/);
   assert.match(worksPage, /COMMERCE_LANGUAGES/);
+});
+
+test('ecommerce asset generation uses the shared global image queue', () => {
+  assert.match(serverIndex, /createEcommerceOrchestrator\(\{[\s\S]*imageGenerationPool/);
+  assert.match(orchestrator, /imageGenerationPool\.run\([\s\S]*runAsset/);
+  assert.match(orchestrator, /key:\s*job\.ownerEmail/);
 });

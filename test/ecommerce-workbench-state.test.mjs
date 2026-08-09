@@ -38,15 +38,15 @@ test('restoring the smart package discards an unapplied SKU package change', () 
   assert.deepEqual(result, baseline);
 });
 
-test('new workbench state starts with a smart package and independent SKU data', () => {
+test('new workbench state starts with a Taobao package and independent SKU data', () => {
   const state = createWorkbenchState();
 
-  assert.equal(state.packageMode, 'smart');
+  assert.equal(state.packageMode, 'taobao');
   assert.deepEqual(state.skus, []);
-  assert.equal(summarizePackage({ platform: 'smart', images: [] }), '智能套图方案');
+  assert.equal(summarizePackage({ platform: 'taobao', images: [] }), '淘宝套图方案');
 });
 
-test('smart configuration restores every editable panel including SKU and product facts', () => {
+test('default configuration starts from Taobao and keeps every editable panel independent', () => {
   assert.deepEqual(createSmartOverrides(), {
     sizing: false,
     style: false,
@@ -56,9 +56,9 @@ test('smart configuration restores every editable panel including SKU and produc
     settings: false,
   });
   assert.deepEqual(createSmartConfiguration(), {
-    platform: 'smart',
+    platform: 'taobao',
     commerceContext: {
-      platform: 'smart',
+      platform: 'taobao',
       contentType: 'main',
       targetLanguage: 'zh-CN',
     },
@@ -74,7 +74,7 @@ test('smart configuration restores every editable panel including SKU and produc
 
 test('effective smart overrides clear immediately when the last SKU is deleted', () => {
   const configured = deriveEffectiveSmartOverrides({
-    platform: 'smart',
+    platform: 'taobao',
     sizing: { smart: true, images: [] },
     styleSkill: 'smart',
     customColors: null,
@@ -86,7 +86,7 @@ test('effective smart overrides clear immediately when the last SKU is deleted',
   assert.equal(configured.sku, true);
 
   const cleared = deriveEffectiveSmartOverrides({
-    platform: 'smart',
+    platform: 'taobao',
     sizing: { smart: true, images: [] },
     styleSkill: 'smart',
     customColors: null,

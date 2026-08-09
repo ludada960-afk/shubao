@@ -520,7 +520,7 @@ test('every running ecommerce entry binds callbacks and completion to its owner-
     assert.match(source, usesLifecycleController ? /createEcommerceGenerationLifecycleController/ : /createEcommerceGenerationToken/, `${name} creates a generation token`);
     assert.match(source, usesLifecycleController ? /generationLifecycle\.isCurrent/ : /isEcommerceGenerationTokenCurrent/, `${name} guards callbacks`);
     assert.match(source, usesLifecycleController ? /generationLifecycle\.(?:invalidate|release)/ : /generationTokenRef\.current\s*=\s*null/, `${name} invalidates stale requests`);
-    assert.match(source, usesLifecycleController ? /generationLifecycle\.unmount\(\)/ : /useEffect\(\(\)\s*=>\s*(?:\(\)\s*=>\s*\{|[\s\S]{0,80}return\s*\(\)\s*=>\s*\{)[\s\S]{0,500}(?:generationTokenRef\.current\s*=\s*null|invalidateEcommerceGenerationRequest)/, `${name} invalidates on unmount`);
+    assert.match(source, usesLifecycleController ? /generationLifecycle\.unmount\(\)/ : /useEffect\(\s*\(\)\s*=>\s*(?:\(\)\s*=>\s*\{|[\s\S]{0,80}return\s*\(\)\s*=>\s*\{)[\s\S]{0,500}(?:generationTokenRef\.current\s*=\s*null|invalidateEcommerceGenerationRequest)/, `${name} invalidates on unmount`);
   }
 });
 
@@ -577,8 +577,8 @@ test('initial direction analysis is included while explicit refresh is authorita
 
   const ecMode = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
   assert.match(ecMode, /generationAbortRef/);
-  assert.match(ecMode, /uploadEcommerceAssets\(productImages, 'product', \{ signal: generationController\.signal \}\)/);
-  assert.match(ecMode, /uploadEcommerceAssets\(refImages, 'reference', \{ signal: generationController\.signal \}\)/);
+  assert.match(ecMode, /uploadEcommerceAssets\(\s*productImages,\s*'product',\s*\{\s*signal:\s*generationController\.signal\s*\}\s*\)/);
+  assert.match(ecMode, /uploadEcommerceAssets\(\s*refImages,\s*'reference',\s*\{\s*signal:\s*generationController\.signal\s*\}\s*\)/);
 });
 
 test('design-direction refresh is settled server-side against the signed owner', async () => {
@@ -625,7 +625,7 @@ test('commerce configuration and navigation controls keep native button semantic
   const skuPanel = await fs.readFile(new URL('../src/pages/Home/ec/SkuPanel.jsx', import.meta.url), 'utf8');
   const app = await fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
 
-  assert.match(ecMode, /<button type="button" key=\{btn\.key\}/);
+  assert.match(ecMode, /<button\s+type="button"\s+key=\{btn\.key\}/);
   assert.match(ecMode, /aria-expanded=\{isOpen\}/);
   assert.match(skuPanel, /<button type="button" aria-label=\{`删除变体 \$\{idx \+ 1\}`\}/);
   assert.doesNotMatch(skuPanel, /<div onClick=\{\(\) => rm\(sku\.id\)\}/);

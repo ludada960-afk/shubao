@@ -10,6 +10,8 @@ import {
 
 test('commerce registry covers domestic and cross-border platform families', () => {
   const ids = COMMERCE_PLATFORMS.map(platform => platform.id);
+  assert.equal(ids[0], 'taobao');
+  assert.equal(ids.includes('smart'), false);
   assert.ok(ids.includes('taobao'));
   assert.ok(ids.includes('tmall'));
   assert.ok(ids.includes('amazon'));
@@ -49,10 +51,12 @@ test('commerce context normalizes legacy labels and fails closed for unknown val
     contentType: 'unknown',
     targetLanguage: 'made-up-language',
   }), {
-    platform: 'smart',
+    platform: 'taobao',
     contentType: 'main',
     targetLanguage: 'zh-CN',
     locale: 'zh-CN',
     policyVersion: 'global-commerce-v1',
   });
+
+  assert.equal(normalizeCommerceContext({ platform: 'smart' }).platform, 'taobao');
 });

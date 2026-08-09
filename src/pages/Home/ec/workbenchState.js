@@ -17,7 +17,7 @@ export function nextProductSlot(count = 0) {
 
 export function createWorkbenchState() {
   return {
-    packageMode: 'smart',
+    packageMode: 'taobao',
     skus: [],
     productImages: [],
     refImages: [],
@@ -37,9 +37,9 @@ export function createSmartOverrides() {
 
 export function createSmartConfiguration() {
   return {
-    platform: 'smart',
+    platform: 'taobao',
     commerceContext: {
-      platform: 'smart',
+      platform: 'taobao',
       contentType: 'main',
       targetLanguage: 'zh-CN',
     },
@@ -72,7 +72,7 @@ export function deriveEffectiveSmartOverrides(configuration = {}) {
   };
 
   return {
-    sizing: configuration.platform !== 'smart'
+    sizing: configuration.platform !== 'taobao'
       || commerceContext.contentType !== 'main'
       || sizing.smart === false
       || (Array.isArray(sizing.images) && sizing.images.length > 0 && sizing.smart !== true),
@@ -143,8 +143,8 @@ export function reconcilePackage({ baseline = [], draft = [], applied = [] } = {
   return draftKey === baselineKey ? normalizedBaseline : normalizedDraft.length ? normalizedDraft : [...applied];
 }
 
-export function summarizePackage({ platform = 'smart', images = [] } = {}) {
-  if (platform === 'smart' && !images.length) return '智能套图方案';
+export function summarizePackage({ platform = 'taobao', images = [] } = {}) {
+  if (platform === 'taobao' && !images.length) return '淘宝套图方案';
   const imageCount = images.reduce((total, item) => total + (item?.count || 0), 0);
   return imageCount ? `${imageCount} 张套图` : '自定义套图方案';
 }

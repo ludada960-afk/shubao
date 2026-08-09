@@ -11,7 +11,6 @@ export const COMMERCE_CONTENT_TYPES = freezeOptions([
 ]);
 
 export const COMMERCE_PLATFORMS = freezeOptions([
-  { id: 'smart', label: '智能匹配', market: 'smart', group: 'smart', locale: 'und', summary: '根据商品和参考图选择更稳妥的交付规范' },
   { id: 'taobao', label: '淘宝', market: 'domestic', group: 'domestic', locale: 'zh-CN', summary: '方形主图、商品卖点与详情长图' },
   { id: 'tmall', label: '天猫', market: 'domestic', group: 'domestic', locale: 'zh-CN', summary: '品牌化主图、详情切片与活动素材' },
   { id: 'pinduoduo', label: '拼多多', market: 'domestic', group: 'domestic', locale: 'zh-CN', summary: '商品主体清晰，主图轮播与卖点信息' },
@@ -58,7 +57,7 @@ export const COMMERCE_LANGUAGES = freezeOptions([
 ]);
 
 const PLATFORM_ALIASES = new Map([
-  ['smart', 'smart'], ['智能', 'smart'], ['智能匹配', 'smart'],
+  ['smart', 'taobao'], ['智能', 'taobao'], ['智能匹配', 'taobao'],
   ['淘宝', 'taobao'], ['taobao', 'taobao'],
   ['天猫', 'tmall'], ['tmall', 'tmall'],
   ['拼多多', 'pinduoduo'], ['pdd', 'pinduoduo'], ['pinduoduo', 'pinduoduo'],
@@ -97,7 +96,7 @@ function normalized(value) {
 
 export function normalizePlatformId(value) {
   const key = normalized(value);
-  return PLATFORM_ALIASES.get(key) || PLATFORM_ALIASES.get(key.toLowerCase()) || 'smart';
+  return PLATFORM_ALIASES.get(key) || PLATFORM_ALIASES.get(key.toLowerCase()) || 'taobao';
 }
 
 export function isKnownPlatform(value) {

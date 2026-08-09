@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
-import { Check, Info, Zap, Pencil, ChevronDown, Globe2 } from 'lucide-react';
+import { Check, Info, ChevronDown, Globe2 } from 'lucide-react';
 import AnchoredPortal from '../../../components/ui/AnchoredPortal.jsx';
 import {
   getLegalRatios,
@@ -90,13 +90,11 @@ function hasSameImages(left, right) {
 
 /* ═══════ SizingPanel — 图片类型组件库 + 平台推荐 ═══════ */
 export default function SizingPanel({
-  platform = 'smart',
+  platform = 'taobao',
   onPlatformChange,
   onPlatformSizingChange,
   sizing = { smart: true, images: [] },
   onSizingChange,
-  smartMode = true,
-  onOverride,
   resolution = '2K',
   targetLanguage = 'zh-CN',
   onTargetLanguageChange,
@@ -109,12 +107,6 @@ export default function SizingPanel({
   const activeImages = resolveSizingImages(platform, { ...sizing, resolution });
   // 已激活的 key 集合
   const activeKeys = useMemo(() => new Set(activeImages.map(i => i.key)), [activeImages]);
-  // 是否已被用户自定义
-  const isCustomized = platform !== 'smart'
-    || targetLanguage !== 'zh-CN'
-    || sizing.smart === false
-    || (sizing.images?.length > 0 && !sizing.smart);
-
   /* ── 平台切换 ── */
   const handlePlatform = useCallback((key) => {
     const newImages = resolveSizingImages(key, { smart: true, images: [], resolution });
@@ -125,14 +117,12 @@ export default function SizingPanel({
       onSizingChange?.({ smart: true, images: newImages });
     }
     setPlatformOpen(false);
-    onOverride?.(key !== 'smart');
-  }, [onPlatformChange, onPlatformSizingChange, onSizingChange, onOverride, resolution]);
+  }, [onPlatformChange, onPlatformSizingChange, onSizingChange, resolution]);
 
   const handleLanguage = useCallback((nextLanguage) => {
     onTargetLanguageChange?.(nextLanguage);
     setLanguageOpen(false);
-    onOverride?.(nextLanguage !== 'zh-CN');
-  }, [onOverride, onTargetLanguageChange]);
+  }, [onTargetLanguageChange]);
 
   /* ── 切换图片类型勾选 ── */
   const toggleType = useCallback((typeKey) => {
@@ -157,8 +147,7 @@ export default function SizingPanel({
     const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
-    onOverride?.(!isBackToRecommended);
-  }, [activeKeys, activeImages, onSizingChange, onOverride, platform, resolution]);
+  }, [activeKeys, activeImages, onSizingChange, platform, resolution]);
 
   /* ── 修改数量 ── */
   const updateCount = useCallback((typeKey, count) => {
@@ -166,8 +155,7 @@ export default function SizingPanel({
     const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
-    onOverride?.(!isBackToRecommended);
-  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
+  }, [activeImages, onSizingChange, platform, resolution]);
 
   /* ── 修改比例 ── */
   const updateRatio = useCallback((typeKey, ratio) => {
@@ -182,8 +170,7 @@ export default function SizingPanel({
     const baseline = resolveSizingImages(platform, { smart: true, images: [], resolution });
     const isBackToRecommended = hasSameImages(next, baseline);
     onSizingChange?.({ smart: isBackToRecommended, images: next });
-    onOverride?.(!isBackToRecommended);
-  }, [activeImages, onSizingChange, onOverride, platform, resolution]);
+  }, [activeImages, onSizingChange, platform, resolution]);
 
   const totalImages = activeImages.reduce((s, img) => s + (img.count || 0), 0);
   const pDef = PLATFORM_PRESETS[platform] || PLATFORM_PRESETS.smart;
@@ -196,30 +183,6 @@ export default function SizingPanel({
 
   return (
     <div style={{ padding: 0 }}>
-      {/* ── 智能方案指示 ── */}
-      {smartMode && !isCustomized && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.04))',
-          borderBottom: '1px solid rgba(34,197,94,0.12)',
-          fontSize: 12, fontWeight: 600, color: '#16a34a',
-        }}>
-          <Zap size={14} />
-          <span>当前：已启用智能方案 · 系统根据平台自动推荐最佳图片组合</span>
-        </div>
-      )}
-      {isCustomized && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.03))',
-          borderBottom: '1px solid rgba(124,58,237,0.1)',
-          fontSize: 12, fontWeight: 600, color: '#7c3aed',
-        }}>
-          <Pencil size={14} />
-          <span>已自定义配置 · 基于智能推荐修改</span>
-        </div>
-      )}
-
       <div style={{ padding: '14px 16px 12px' }}>
         {/* ── 平台与语言 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>

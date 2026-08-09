@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Pencil, Lightbulb, Target, ShieldCheck, Search, HeartHandshake } from 'lucide-react';
+import { Lightbulb, Target, ShieldCheck, Search, HeartHandshake } from 'lucide-react';
 
 const lbl = { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 5 };
 // 自适应高度 textarea：onInput 时动态撑开
@@ -11,10 +11,8 @@ const taBase = {
   resize: 'none', overflowY: 'hidden', minHeight: 60, transition: 'border-color 0.15s',
 };
 
-export default function CopyPanel({ copywriting, onChange, smartMode = true, onOverride }) {
-  const setF = (key, val) => { onChange({ ...copywriting, [key]: val }); onOverride?.(); };
-
-  const isCustomized = copywriting.plan || copywriting.sellingPoints || copywriting.qc || copywriting.details || copywriting.maintenance;
+export default function CopyPanel({ copywriting, onChange }) {
+  const setF = (key, val) => onChange({ ...copywriting, [key]: val });
 
   const detailFields = [
     { key: 'plan', label: '创意思路', icon: <Lightbulb size={12} />, ph: '整体策划方向、产品定位、目标人群...' },
@@ -26,30 +24,6 @@ export default function CopyPanel({ copywriting, onChange, smartMode = true, onO
 
   return (
     <div style={{ padding: 0 }}>
-      {/* ── 智能方案指示 ── */}
-      {smartMode && !isCustomized && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.04))',
-          borderBottom: '1px solid rgba(34,197,94,0.12)',
-          fontSize: 12, fontWeight: 600, color: '#16a34a',
-        }}>
-          <Sparkles size={14} />
-          <span>当前：已启用智能方案 · 系统自动匹配平台标题、卖点、详情文案风格</span>
-        </div>
-      )}
-      {isCustomized && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.03))',
-          borderBottom: '1px solid rgba(124,58,237,0.1)',
-          fontSize: 12, fontWeight: 600, color: '#7c3aed',
-        }}>
-          <Pencil size={14} />
-          <span>已自定义配置</span>
-        </div>
-      )}
-
       <div className="ec-panel-fields" style={{ padding: '14px 16px 12px' }}>
         {/* 创意思路：满宽 */}
         <div style={{ marginBottom: 10 }}>

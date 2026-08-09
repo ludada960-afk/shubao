@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Pencil, Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-react';
+import { Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-react';
 
 const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', '食品饮料', '母婴用品', '宠物用品', '运动户外', '汽车用品', '图书文具', '珠宝配饰', '其他'];
 
@@ -10,11 +10,9 @@ const inp = {
   color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function ParamsPanel({ params, onChange, smartMode = true, onOverride }) {
+export default function ParamsPanel({ params, onChange }) {
   const [catOpen, setCatOpen] = useState(false);
-  const set = (key, val) => { onChange({ ...params, [key]: val }); onOverride?.(); };
-
-  const isCustomized = params.category || params.size || params.baseColor || params.material || params.craft;
+  const set = (key, val) => onChange({ ...params, [key]: val });
 
   const fields = [
     { key: 'size', label: '产品尺寸', icon: Ruler, ph: '长×宽×高 (cm)' },
@@ -26,30 +24,6 @@ export default function ParamsPanel({ params, onChange, smartMode = true, onOver
 
   return (
     <div style={{ padding: 0 }}>
-      {/* ── 智能方案指示 ── */}
-      {smartMode && !isCustomized && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.04))',
-          borderBottom: '1px solid rgba(34,197,94,0.12)',
-          fontSize: 12, fontWeight: 600, color: '#16a34a',
-        }}>
-          <Sparkles size={14} />
-          <span>当前：已启用智能方案 · 系统自动提取产品特征、光影、材质</span>
-        </div>
-      )}
-      {isCustomized && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 16px', background: 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.03))',
-          borderBottom: '1px solid rgba(124,58,237,0.1)',
-          fontSize: 12, fontWeight: 600, color: '#7c3aed',
-        }}>
-          <Pencil size={14} />
-          <span>已自定义配置</span>
-        </div>
-      )}
-
       <div className="ec-panel-fields" style={{ padding: '14px 16px 12px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div style={{ gridColumn: '1 / -1' }}>

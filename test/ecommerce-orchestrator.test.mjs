@@ -155,6 +155,7 @@ async function createHarness(t, {
   const billingHolds = new Map();
   const deps = {
     jobs,
+    imageGenerationPool: { run: task => task() },
     schedule: () => {
       calls.scheduled += 1;
     },

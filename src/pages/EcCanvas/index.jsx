@@ -2361,7 +2361,7 @@ export default function EcCanvas() {
     const size = kind === 'suite' ? { w: 640, h: 420 } : kind === 'text' ? { w: 480, h: 220 } : { w: 280, h: 280 };
     const position = createComposerPlacement(size.w, size.h, { ...placement, sourceNodeId });
     const baseComposer = kind === 'suite'
-      ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: result.commerceContext?.platform || result.platform || 'smart', commerceContext: result.commerceContext })
+      ? createCanvasSuiteComposerNode({ ...position, sourceNodeId, platform: result.commerceContext?.platform || result.platform || 'taobao', commerceContext: result.commerceContext })
       : kind === 'text'
         ? createCanvasTextComposerNode({ ...position, sourceNodeId })
         : createCanvasImageComposerNode({ ...position, sourceNodeId });

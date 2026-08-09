@@ -3239,6 +3239,7 @@ const ecommerceTaskWorkPersistence = createEcommerceTaskWorkPersistence({ upsert
 const ecommerceProjectLifecycle = createEcommerceProjectLifecycle({ projectStore });
 const orchestrator = createEcommerceOrchestrator({
   jobs: ecommerceJobs,
+  imageGenerationPool,
   migrateLegacyVisualAsset,
   analyzeVisualInputs: analyzeEcommerceVisualInputs,
   fallbackVisualInputs: fallbackEcommerceVisualInputs,

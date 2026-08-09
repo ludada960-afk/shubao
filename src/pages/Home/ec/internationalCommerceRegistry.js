@@ -5,7 +5,6 @@ export const COMMERCE_CONTENT_TYPES = Object.freeze([
 ]);
 
 export const COMMERCE_PLATFORMS = Object.freeze([
-  { id: 'smart', label: '智能匹配', market: 'smart', group: 'smart', locale: 'und', summary: '根据商品和参考图选择更稳妥的交付规范' },
   { id: 'taobao', label: '淘宝', market: 'domestic', group: 'domestic', locale: 'zh-CN', summary: '方形主图、商品卖点与详情长图' },
   { id: 'tmall', label: '天猫', market: 'domestic', group: 'domestic', locale: 'zh-CN', summary: '品牌化主图、详情切片与活动素材' },
   { id: 'pinduoduo', label: '拼多多', market: 'domestic', group: 'domestic', locale: 'zh-CN', summary: '商品主体清晰，主图轮播与卖点信息' },
@@ -36,7 +35,7 @@ export const COMMERCE_LANGUAGES = Object.freeze([
 ].map(([id, label, shortLabel, locale, direction]) => Object.freeze({ id, label, shortLabel, locale, direction })));
 
 const alias = new Map([
-  ['智能匹配', 'smart'], ['淘宝', 'taobao'], ['天猫', 'tmall'], ['拼多多', 'pinduoduo'], ['京东', 'jd'], ['抖音', 'douyin'], ['小红书', 'xiaohongshu'],
+  ['smart', 'taobao'], ['智能匹配', 'taobao'], ['淘宝', 'taobao'], ['天猫', 'tmall'], ['拼多多', 'pinduoduo'], ['京东', 'jd'], ['抖音', 'douyin'], ['小红书', 'xiaohongshu'],
   ['阿里巴巴国际站', 'alibaba-international'], ['亚马逊', 'amazon'], ['亚马逊A+超宽幅', 'amazon-aplus-wide'], ['TEMU', 'temu'], ['eBay', 'ebay'], ['SHEIN', 'shein'], ['快手', 'kuaishou'],
   ['Shopee', 'shopee'], ['Lazada', 'lazada'], ['TikTok', 'tiktok-shop'], ['TikTok Shop', 'tiktok-shop'], ['Ozon', 'ozon'],
   ['无文字', 'visual'], ['无文字（纯视觉）', 'visual'], ['中文', 'zh-CN'], ['中文（简体）', 'zh-CN'], ['中文（繁体）', 'zh-TW'], ['英语', 'en'],
@@ -49,7 +48,7 @@ export function normalizeCommerceContext(value = {}) {
   const normalizedLanguage = rawLanguage.toLowerCase();
   const platform = COMMERCE_PLATFORMS.some(item => item.id === normalizedPlatform)
     ? normalizedPlatform
-    : alias.get(rawPlatform) || alias.get(normalizedPlatform) || 'smart';
+    : alias.get(rawPlatform) || alias.get(normalizedPlatform) || 'taobao';
   const targetLanguage = COMMERCE_LANGUAGES.find(item => item.id.toLowerCase() === normalizedLanguage)?.id
     || alias.get(rawLanguage)
     || alias.get(normalizedLanguage)

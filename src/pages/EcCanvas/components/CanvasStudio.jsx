@@ -48,7 +48,7 @@ import StylePanel from '../../Home/ec/StylePanel.jsx';
 import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
 import CopyPanel from '../../Home/ec/CopyPanel.jsx';
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
-import { createSmartConfiguration, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
+import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
 import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
 import { getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
@@ -285,6 +285,7 @@ function suiteConfiguration(node = {}) {
 function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChange }) {
   const rootRef = useRef(null);
   const configuration = suiteConfiguration(node);
+  const adjustedPanels = deriveEffectiveSmartOverrides(configuration);
   useEffect(() => {
     if (!activeSurface?.startsWith('suite:')) return undefined;
     const close = event => {
@@ -311,11 +312,11 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
       <button
         type="button"
         data-canvas-control="true"
-        className={activePanel === item.key ? 'is-active' : ''}
+        className={`${activePanel === item.key ? 'is-active' : ''}${adjustedPanels[item.key] ? ' is-adjusted' : ''}`}
         aria-expanded={activePanel === item.key}
         aria-haspopup="dialog"
         onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `suite:${item.key}`))}
-      ><item.icon size={14} /><span>{summary(item.key)}</span><ChevronDown size={12} /></button>
+      ><item.icon size={14} /><span>{summary(item.key)}</span>{adjustedPanels[item.key] && <small>已调整</small>}<ChevronDown size={12} /></button>
       {activePanel === item.key && <div className="ec-canvas-suite-panel-popover" role="dialog" aria-label={`${item.label}设置`} onPointerDown={event => event.stopPropagation()}>
         {item.key === 'sizing' && <SizingPanel
           platform={configuration.platform}
@@ -330,14 +331,12 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
           }}
           sizing={configuration.sizing}
           onSizingChange={value => update('sizing', value, { count: (value.images || []).reduce((total, image) => total + (Number(image.count) || 0), 0) || node.count })}
-          smartMode
-          onOverride={() => {}}
           resolution={configuration.genSettings.resolution}
         />}
         {item.key === 'sku' && <SkuPanel skus={configuration.skus} onChange={value => update('skus', value)} sizing={configuration.sizing} onSizingChange={value => update('sizing', value)} />}
-        {item.key === 'style' && <StylePanel value={configuration.styleSkill} onChange={value => update('styleSkill', value, { styleSkill: value })} customColors={configuration.customColors} onColorsChange={value => update('customColors', value)} smartMode onOverride={() => {}} onResetOverride={() => {}} />}
-        {item.key === 'params' && <ParamsPanel params={configuration.productParams} onChange={value => update('productParams', value)} smartMode onOverride={() => {}} />}
-        {item.key === 'copy' && <CopyPanel copywriting={configuration.copywriting} onChange={value => update('copywriting', value)} smartMode onOverride={() => {}} />}
+        {item.key === 'style' && <StylePanel value={configuration.styleSkill} onChange={value => update('styleSkill', value, { styleSkill: value })} customColors={configuration.customColors} onColorsChange={value => update('customColors', value)} />}
+        {item.key === 'params' && <ParamsPanel params={configuration.productParams} onChange={value => update('productParams', value)} />}
+        {item.key === 'copy' && <CopyPanel copywriting={configuration.copywriting} onChange={value => update('copywriting', value)} />}
         {item.key === 'settings' && <GenSettingsPanel value={configuration.genSettings} onChange={value => update('genSettings', value, { resolution: value.resolution || node.resolution })} />}
       </div>}
     </div>)}
