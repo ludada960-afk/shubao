@@ -4,9 +4,11 @@ import test from 'node:test';
 
 import {
   buildCanvasImportResult,
+  canvasWorkCategory,
   canvasOutputImages,
   canvasWorkOutputFingerprint,
   collectCanvasWorkImages,
+  filterCanvasWorks,
   normalizeCanvasWorkPanel,
 } from '../src/pages/EcCanvas/canvasWorkModel.js';
 
@@ -62,6 +64,48 @@ test('Canvas work panel keeps only the signed owner local works and preserves se
   assert.equal(panel[0].canvasSessionId, 'canvas-session-1');
   assert.equal(panel[0].canvasSessionRevision, 4);
   assert.equal(panel[0].productAssets[0].assetId, 'server-product');
+});
+
+test('Canvas work collection keeps ecommerce and Xiaohongshu works in one categorized library', () => {
+  const panel = normalizeCanvasWorkPanel({
+    serverWorks: [
+      {
+        _saveKey: 'ec-1',
+        _ecResult: true,
+        product_name: '电商套图',
+        images: { main: '/api/generated-assets/' + 'a'.repeat(64) + '.png' },
+      },
+      {
+        _saveKey: 'xhs-1',
+        title: '小红书图文',
+        cover_url: '/api/generated-assets/' + 'b'.repeat(64) + '.png',
+        image_urls: [
+          '/api/generated-assets/' + 'c'.repeat(64) + '.png',
+          '/api/generated-assets/' + 'd'.repeat(64) + '.png',
+        ],
+      },
+    ],
+  });
+
+  assert.equal(panel.length, 2);
+  assert.equal(canvasWorkCategory(panel[0]), 'ecommerce');
+  assert.equal(canvasWorkCategory(panel[1]), 'xhs');
+  assert.equal(panel[1].images.length, 3);
+  assert.deepEqual(filterCanvasWorks(panel, 'xhs').map(work => work._saveKey), ['xhs-1']);
+  assert.equal(filterCanvasWorks(panel, 'all').length, 2);
+});
+
+test('importing a Xiaohongshu work preserves its library category in Canvas', () => {
+  const imported = buildCanvasImportResult({
+    _saveKey: 'xhs-import',
+    title: '旅行图文',
+    cover_url: '/cover.png',
+    image_urls: ['/page-1.png'],
+  }, { importId: 'fresh-import' });
+
+  assert.equal(imported.workType, 'xhs');
+  assert.equal(imported._ecResult, true);
+  assert.equal(imported.imageRecords.length, 2);
 });
 
 test('Canvas open-work result preserves project, product and session metadata', () => {

@@ -1,4 +1,4 @@
-import { mergeWorkCollections } from '../../utils/workRecords.js';
+import { inferWorkType, mergeWorkCollections } from '../../utils/workRecords.js';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 
 function cleanString(value) {
@@ -13,9 +13,34 @@ function displayName(work = {}) {
   return cleanString(work.product_name || work.name || work.title) || '历史作品';
 }
 
+function allWorkImages(work = {}) {
+  const candidates = [
+    ...normalizeWorkImages(work.images),
+    ...normalizeWorkImages(work.cover_url ? [work.cover_url] : []),
+    ...normalizeWorkImages(work.image_urls),
+    ...normalizeWorkImages((Array.isArray(work.pages) ? work.pages : []).map(page => page?.image_url || page?.url || page)),
+  ];
+  const seen = new Set();
+  return candidates.filter(image => {
+    if (!image?.url || seen.has(image.url)) return false;
+    seen.add(image.url);
+    return true;
+  });
+}
+
+export function canvasWorkCategory(work = {}) {
+  return inferWorkType(work);
+}
+
+export function filterCanvasWorks(works = [], category = 'all') {
+  const list = Array.isArray(works) ? works : [];
+  return category === 'all' ? list : list.filter(work => canvasWorkCategory(work) === category);
+}
+
 function normalizePanelWork(work = {}) {
-  const images = normalizeWorkImages(work.images);
+  const images = allWorkImages(work);
   if (!images.length) return null;
+  const workType = canvasWorkCategory(work);
   return {
     ...work,
     id: work.id || work.taskId || work._saveKey || images[0]?.url || Date.now(),
@@ -24,7 +49,7 @@ function normalizePanelWork(work = {}) {
     platform: cleanString(work.platform) || '淘宝',
     images,
     createdAt: work.createdAt || work.at || '',
-    _ecResult: true,
+    workType,
   };
 }
 
@@ -34,13 +59,12 @@ export function normalizeCanvasWorkPanel({ localWorks = [], serverWorks = [], ow
     ? (Array.isArray(localWorks) ? localWorks : []).filter(work => normalizedOwner(work?._phone) === owner)
     : [];
   return mergeWorkCollections(serverWorks, ownedLocalWorks)
-    .filter(work => work?._ecResult)
     .map(normalizePanelWork)
     .filter(Boolean);
 }
 
 export function buildCanvasImportResult(work = {}, { importId } = {}) {
-  const imageRecords = normalizeWorkImages(work.images);
+  const imageRecords = allWorkImages(work);
   const images = Object.fromEntries(imageRecords.map((image, index) => [
     image.key || image.label || `image_${index + 1}`,
     image.url,
@@ -52,6 +76,7 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
     productAssets: normalizeWorkImages(work.productAssets || work.product_assets || work.productImages || work.source_images || work.sourceImages),
     product_name: displayName(work),
     _ecResult: true,
+    workType: canvasWorkCategory(work),
     platform: cleanString(work.platform) || '淘宝',
     _saveKey: work._saveKey || '',
     canvasImportId: importId || globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,

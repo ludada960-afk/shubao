@@ -3,6 +3,15 @@ import { normalizeWorkImages } from './workImages.js';
 const PERSISTENT_GENERATED_IMAGE = /^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|png|webp)(?:\?.*)?$/i;
 const UNSAFE_ECOMMERCE_IMAGE = /^(?:blob:|data:)|(?:^|\/)(?:temp_uploads?|uploads?|ec-temp-img)(?:\/|$)/i;
 const GENERATION_STATUSES = new Set(['generating', 'completed', 'needs_review']);
+const WORK_TYPE_ALIASES = Object.freeze({
+  ec: 'ecommerce',
+  commerce: 'ecommerce',
+  ecommerce: 'ecommerce',
+  content: 'xhs',
+  plog: 'xhs',
+  xhs: 'xhs',
+  xiaohongshu: 'xhs',
+});
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -10,6 +19,16 @@ function cleanString(value) {
 
 function normalizedOwner(value) {
   return cleanString(value).toLowerCase();
+}
+
+export function inferWorkType(work = {}) {
+  const explicit = cleanString(work.workType || work.contentType || work.generationType).toLowerCase();
+  if (explicit) return WORK_TYPE_ALIASES[explicit] || explicit;
+  return work._ecResult ? 'ecommerce' : 'xhs';
+}
+
+export function withWorkType(work = {}) {
+  return { ...work, workType: inferWorkType(work) };
 }
 
 export function filterWorksForOwner(works, ownerEmail) {

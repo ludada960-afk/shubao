@@ -12,7 +12,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { DialogProvider, useDialog } from './components/ui/DialogProvider.jsx';
 const HomePage = React.lazy(() => import('./pages/Home/index'));
 const PricingPage = React.lazy(() => import('./pages/Pricing/index'));
-const WorksPage = React.lazy(() => import('./pages/Works/index'));
 const RemakePage = React.lazy(() => import('./pages/Remake/index'));
 const PlogPage = React.lazy(() => import('./pages/Plog/index'));
 const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
@@ -57,8 +56,15 @@ function SideNav() {
     {
       icon: <MdFolder size={20} />,
       label: '作品',
-      active: page === 'works',
-      onClick: () => dispatch({ type: 'NAVIGATE', page: 'works' }),
+      active: false,
+      onClick: () => {
+        if (!state.logged) {
+          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'works', source: state.page } });
+          dispatch({ type: 'SHOW_LOGIN', show: true });
+          return;
+        }
+        dispatch({ type: 'OPEN_CANVAS', tab: 'works' });
+      },
     },
   ];
 
@@ -269,7 +275,6 @@ function AppRouter() {
     home: HomePage,
     gallery: HomePage,  // 不再独立
     pricing: PricingPage,
-    works: WorksPage,
     remake: RemakePage,
     plog: PlogPage,
     'ec-canvas': EcCanvasPage,

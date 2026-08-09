@@ -28,14 +28,12 @@ test('shared responsive image component uses width candidates and reveals only d
 });
 
 test('work, case, detail, and canvas surfaces declare purpose-sized candidates', async () => {
-  const [works, canvas, gallery, noteModal] = await Promise.all([
-    readFile(new URL('./src/pages/Works/index.jsx', root), 'utf8'),
+  const [canvas, gallery, noteModal] = await Promise.all([
     readFile(new URL('./src/pages/EcCanvas/index.jsx', root), 'utf8'),
     readFile(new URL('./src/pages/Home/GallerySection.jsx', root), 'utf8'),
     readFile(new URL('./src/NoteModal.jsx', root), 'utf8'),
   ]);
-  assert.match(works, /ResponsiveImage[\s\S]*variant="thumb"/);
-  assert.match(works, /sizes="56px"/);
+  assert.match(canvas, /ResponsiveImage[\s\S]*variant="thumb"/);
   assert.match(canvas, /ResponsiveImage[\s\S]*variant="canvas"/);
   assert.match(gallery, /ResponsiveImage[\s\S]*variant="thumb"/);
   assert.match(gallery, /predecodeResponsiveImage/);

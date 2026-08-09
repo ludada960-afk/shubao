@@ -14,7 +14,6 @@ const orchestrator = readFileSync(new URL('../server/ecommerceEngine/orchestrato
 const serverIndex = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 const canvasStudio = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
 const canvasPage = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
-const worksPage = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
 
 test('default configuration starts from Taobao and carries the global commerce context', () => {
   const configuration = createSmartConfiguration();
@@ -84,7 +83,6 @@ test('pending generation and orchestration preserve the same commerce context', 
   assert.doesNotMatch(canvasStudio, /onContentTypeChange/);
   assert.match(canvasPage, /commerce_context/);
   assert.match(canvasPage, /targetLanguage/);
-  assert.match(worksPage, /COMMERCE_LANGUAGES/);
 });
 
 test('ecommerce asset generation uses the shared global image queue', () => {

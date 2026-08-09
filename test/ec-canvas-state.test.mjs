@@ -22,7 +22,6 @@ import { readFileSync } from 'node:fs';
 const canvasSource = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
 const canvasChromeSource = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasChrome.jsx', import.meta.url), 'utf8');
 const canvasStudioSource = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
-const worksSource = readFileSync(new URL('../src/pages/Works/index.jsx', import.meta.url), 'utf8');
 const canvasCss = readFileSync(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
 
 
@@ -177,14 +176,7 @@ test('Canvas imports a fresh session instead of automatically restoring local no
 test('fresh Canvas generation returns to ecommerce home and imports Works as a new session', () => {
   assert.match(canvasSource, /dispatch\(\{ type: 'SET_MODE', mode: 'ecommerce' \}\);\s*dispatch\(\{ type: 'NAVIGATE', page: 'home' \}\);/);
   assert.match(canvasSource, /createFreshCanvasSession\(\{\s*work: result,/);
-  assert.match(worksSource, /dispatch\(\{ type: 'SET_RESULT', result: normalized \}\);/);
-});
-
-test('Works distinguishes cache-backed loading from a genuinely empty account', () => {
-  assert.match(worksSource, /loadCachedWorks/);
-  assert.match(worksSource, /const \[worksLoading, setWorksLoading\]/);
-  assert.match(worksSource, /正在加载作品/);
-  assert.match(worksSource, /worksLoading && !currentWorks\.length \?/);
+  assert.match(canvasSource, /dispatch\(\{ type: 'SET_RESULT', result: buildCanvasImportResult\(work\) \}\);/);
 });
 
 test('Canvas uses product dialogs and omits internal direction copy', () => {
@@ -286,7 +278,7 @@ test('image information opens an editable product dialog and saves node metadata
 });
 
 test('every Works import carries a fresh Canvas session token', () => {
-  assert.match(worksSource, /canvasImportId:/);
+  assert.match(canvasSource, /buildCanvasImportResult\(work\)/);
   assert.match(canvasSource, /result\.canvasImportId/);
 });
 
@@ -315,6 +307,14 @@ test('an explicit Canvas save records the session handle on its owner-scoped Wor
   const saveBlock = canvasSource.match(/const handleCanvasSessionSave[\s\S]*?const handleCanvasSessionRestore/)?.[0] || '';
   assert.match(saveBlock, /await saveWork\(\{[\s\S]*?canvasSessionId: session\.id[\s\S]*?canvasSessionRevision: session\.revision/);
   assert.match(saveBlock, /phone/);
+});
+
+test('generated outputs from a blank Canvas are saved into the unified work collection', () => {
+  const autosaveBlock = canvasSource.match(/const fingerprint = canvasWorkOutputFingerprint[\s\S]*?\}, \[nodes, phone, pointerMode\?\.kind, result\]\);/)?.[0] || '';
+  assert.doesNotMatch(autosaveBlock, /!result\._saveKey/);
+  assert.match(autosaveBlock, /canvasGeneratedWorkKeyRef\.current/);
+  assert.match(autosaveBlock, /await saveWork\(workResult, phone\)/);
+  assert.match(autosaveBlock, /setPastWorks/);
 });
 
 test('source-group workflow generation uses the first owned product asset', () => {

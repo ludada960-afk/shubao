@@ -73,11 +73,21 @@ function createEmptyCanvasResult() {
 function reducer(state, action) {
   switch (action.type) {
     case 'NAVIGATE':
+      if (action.page === 'works') {
+        return {
+          ...state,
+          page: 'ec-canvas',
+          canvasEntryTab: 'works',
+          galleryItem: null,
+          result: state.result || createEmptyCanvasResult(),
+        };
+      }
       return { ...state, page: action.page, galleryItem: null };
     case 'OPEN_CANVAS':
       return {
         ...state,
         page: 'ec-canvas',
+        canvasEntryTab: action.tab || 'canvas',
         galleryItem: null,
         result: state.result || createEmptyCanvasResult(),
       };

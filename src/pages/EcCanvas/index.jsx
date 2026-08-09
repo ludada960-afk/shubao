@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -54,7 +54,7 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot } from './canvasSessionModel.js';
-import { buildCanvasImportResult, canvasOutputImages, canvasWorkOutputFingerprint, collectCanvasWorkImages, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
+import { buildCanvasImportResult, canvasOutputImages, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
@@ -73,6 +73,12 @@ import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import './EcCanvas.css';
+
+const WORK_CATEGORY_OPTIONS = Object.freeze([
+  { id: 'all', label: '全部作品' },
+  { id: 'ecommerce', label: '电商商品图' },
+  { id: 'xhs', label: '小红书图文' },
+]);
 
 function generatedAssetIdFromUrl(url = '') {
   return String(url).match(/\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))(?:[?#]|$)/i)?.[1] || '';
@@ -487,7 +493,8 @@ export default function EcCanvas() {
   const [detailOrderIds, setDetailOrderIds] = useState([]);
   const [connectionPicker, setConnectionPicker] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);     // A6: 右键菜单
-  const [tab, setTab] = useState('canvas');
+  const [tab, setTab] = useState(state.canvasEntryTab || 'canvas');
+  const [workCategory, setWorkCategory] = useState('all');
   const [pastWorks, setPastWorks] = useState([]);
   const [trashWorks, setTrashWorks] = useState([]);
   const [zoomImg, setZoomImg] = useState(null);
@@ -524,12 +531,18 @@ export default function EcCanvas() {
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
   const workOutputFingerprintRef = useRef('');
+  const canvasGeneratedWorkKeyRef = useRef(result._saveKey || '');
   const suiteGenerationInFlightRef = useRef(new Set());
   const toastTimerRef = useRef(null);
 
   useEffect(() => {
     setActiveComposerSurface('');
   }, [selected]);
+
+  useEffect(() => {
+    canvasGeneratedWorkKeyRef.current = result._saveKey || '';
+    workOutputFingerprintRef.current = '';
+  }, [result.id, result._saveKey, result.canvasImportId]);
 
   useEffect(() => {
     if (!activeComposerSurface) return undefined;
@@ -681,7 +694,7 @@ export default function EcCanvas() {
   }, [connections, nodes, pointerMode?.kind, viewport]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || result.browserQa || !result._saveKey || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
+    if (!draftReadyRef.current || result.browserQa || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
     const fingerprint = canvasWorkOutputFingerprint(nodes);
     if (!fingerprint || fingerprint === workOutputFingerprintRef.current) return undefined;
     const baseImages = canvasOutputImages(result);
@@ -691,9 +704,18 @@ export default function EcCanvas() {
       return undefined;
     }
     const timer = setTimeout(async () => {
-      const workResult = { ...result, images: imageRecords, imageRecords };
+      canvasGeneratedWorkKeyRef.current ||= `canvas-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+      const workResult = {
+        ...result,
+        _saveKey: canvasGeneratedWorkKeyRef.current,
+        product_name: result.product_name || '画布创作',
+        workType: result.workType || 'ecommerce',
+        images: imageRecords,
+        imageRecords,
+      };
       const saved = await saveWork(workResult, phone);
       if (!saved) return;
+      if (saved._saveKey) canvasGeneratedWorkKeyRef.current = saved._saveKey;
       workOutputFingerprintRef.current = fingerprint;
       setPastWorks(previous => normalizeCanvasWorkPanel({
         serverWorks: [workResult, ...previous],
@@ -818,6 +840,10 @@ export default function EcCanvas() {
         const parsed = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
         localWorks = Array.isArray(parsed) ? parsed : [];
       } catch {}
+      const cachedWorks = loadCachedWorks(phone);
+      if (cachedWorks.length) {
+        setPastWorks(normalizeCanvasWorkPanel({ localWorks, serverWorks: cachedWorks, ownerEmail: phone }));
+      }
       try { 
         serverWorks = await loadWorks(phone);
       } catch {}
@@ -825,9 +851,8 @@ export default function EcCanvas() {
         try { return JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]'); } catch { return []; }
       })();
       const serverTrash = await loadTrash(phone);
-      const trashKeys = new Set(serverTrash.map(item => String(item._saveKey || item.id)));
       setPastWorks(normalizeCanvasWorkPanel({ localWorks, serverWorks, ownerEmail: phone }));
-      setTrashWorks([...normalizeCanvasWorkPanel({ localWorks: localTrash, serverWorks: [], ownerEmail: phone }).filter(item => !trashKeys.has(String(item._saveKey || item.id))), ...serverTrash]);
+      setTrashWorks(normalizeCanvasWorkPanel({ localWorks: localTrash, serverWorks: serverTrash, ownerEmail: phone }));
     };
     load();
   }, [phone, result?.browserQa]);
@@ -2907,13 +2932,7 @@ export default function EcCanvas() {
       const ok = await restoreWork(work._saveKey);
       if (!ok) return showToast('恢复失败，请重试', 'error');
     }
-    setPastWorks(prev => [...prev, {
-      id: work.id,
-      name: work.product_name || work.name || '历史作品',
-      images: normalizeWorkImages(work.images),
-      createdAt: work.at || '',
-      _saveKey: work._saveKey,
-    }]);
+    setPastWorks(prev => normalizeCanvasWorkPanel({ serverWorks: [work, ...prev], ownerEmail: phone }));
     setTrashWorks(prev => prev.filter(item => String(item._saveKey || item.id) !== String(work._saveKey || work.id)));
     try {
       const localTrash = JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]');
@@ -3157,12 +3176,17 @@ export default function EcCanvas() {
       priceLabel: imageAction?.priceLabel || '免费',
     };
   });
+  const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
+  const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
+    option.id,
+    filterCanvasWorks(pastWorks, option.id).length,
+  ]));
 
   return (
     <div className="ec-canvas-page">
       <CanvasTopBar
         title={tab === 'canvas' ? (result.product_name || '电商画布') : tab === 'trash' ? '回收站' : '我的作品集'}
-        meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : pastWorks.length} 个作品`}
+        meta={tab === 'canvas' ? `${nodes.length} 个资产${multiSelected.size ? ` · ${multiSelected.size} 已选中` : ''}` : `${tab === 'trash' ? trashWorks.length : visibleWorks.length} 个作品`}
         tab={tab}
         onTabChange={setTab}
         activeFilter={activeFilter}
@@ -3521,19 +3545,39 @@ export default function EcCanvas() {
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 20px 72px' }}>
-          {((tab === 'trash' ? trashWorks : pastWorks).length === 0) ? (
+          {tab === 'works' && <div className="ec-canvas-work-filters" role="tablist" aria-label="作品分类">
+            {WORK_CATEGORY_OPTIONS.map(option => <button
+              key={option.id}
+              type="button"
+              role="tab"
+              aria-selected={workCategory === option.id}
+              className={workCategory === option.id ? 'is-active' : ''}
+              onClick={() => setWorkCategory(option.id)}
+            >{option.label}<span>{workCategoryCounts[option.id]}</span></button>)}
+          </div>}
+          {!state.logged && tab === 'works' ? (
+            <div className="ec-canvas-work-empty">
+              <MdCollections size={42} />
+              <strong>登录后查看作品</strong>
+              <span>你的电商套图、小红书图文和画布创作都会保存在这里</span>
+              <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
+            </div>
+          ) : ((tab === 'trash' ? trashWorks : visibleWorks).length === 0) ? (
             <div style={{ textAlign: 'center', padding: '80px 20px' }}>
               <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.15 }}>{tab === 'trash' ? '🗑️' : '📁'}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#999' }}>{tab === 'trash' ? '回收站是空的' : '还没有作品'}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#999' }}>{tab === 'trash' ? '回收站是空的' : workCategory === 'all' ? '还没有作品' : '这个分类还没有作品'}</div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16 }}>
-              {(tab === 'trash' ? trashWorks : pastWorks).map(work => (
+              {(tab === 'trash' ? trashWorks : visibleWorks).map(work => (
                 <div key={work.id} style={{ borderRadius: 16, overflow: 'hidden', background: '#fff', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px' }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{work.name}</div>
-                      <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>{work.images?.length || 0} 张图片</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#999', marginTop: 3 }}>
+                        <span className={`ec-canvas-work-kind is-${canvasWorkCategory(work)}`}>{canvasWorkCategory(work) === 'ecommerce' ? '电商' : canvasWorkCategory(work) === 'xhs' ? '小红书' : canvasWorkCategory(work)}</span>
+                        <span>{work.images?.length || 0} 张图片</span>
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <div onClick={() => openWork(work)} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdOpenInNew size={14} /></div>

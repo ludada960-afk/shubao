@@ -18,6 +18,7 @@ import {
   filterWorksForOwner,
   mergeWorkCollections,
   replaceCachedWorksForOwner,
+  withWorkType,
 } from '../utils/workRecords.js';
 import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
 import { isTransientTaskSyncError, withTransientTaskSyncRetry } from './taskSync.js';
@@ -1299,7 +1300,8 @@ export async function regenerateCanvasText({ prompt, referenceImages = [], refer
 export async function saveWork(work, phone, { signal } = {}) {
   if (signal?.aborted) return null;
   const ownerEmail = String(phone || getSessionEmail() || '').trim().toLowerCase();
-  const localWork = ownerEmail ? { ...work, _phone: ownerEmail } : work;
+  const typedWork = withWorkType(work);
+  const localWork = ownerEmail ? { ...typedWork, _phone: ownerEmail } : typedWork;
   // 本地先存
   try {
     if (ownerEmail) {
