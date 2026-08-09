@@ -571,7 +571,8 @@ export default function EcCanvas() {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [activeComposerSurface]);
   const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
-  const hasCurrent = imageList.length > 0;
+  const resultVideoUrl = String(result.video_url || result.videoUrl || result.video?.url || result._videoResult?.url || '').trim();
+  const hasCurrent = imageList.length > 0 || Boolean(resultVideoUrl);
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
   const exportScope = selectDeliverableNodes(nodes, exportSelectionIds);
@@ -640,11 +641,25 @@ export default function EcCanvas() {
       return () => { cancelled = true; };
     }
     draftReadyRef.current = false;
-    const session = createFreshCanvasSession({
-      work: result,
-      productAssets: productAssetsForCanvas(result),
-      outputs: imageList,
-    });
+    const session = imageList.length > 0
+      ? createFreshCanvasSession({
+        work: result,
+        productAssets: productAssetsForCanvas(result),
+        outputs: imageList,
+      })
+      : {
+        nodes: createUploadedVideoNodes({
+          assets: [{
+            id: result.id || result.taskId || `video-${Date.now()}`,
+            name: result.product_name || result.prompt || '视频作品',
+            url: resultVideoUrl,
+          }],
+          x: 80,
+          y: 80,
+          now: Date.now(),
+        }),
+        connections: [],
+      };
     const draftKey = canvasDraftKey(result);
     canvasSaveKeyRef.current = result.browserQa ? null : draftKey;
     const draft = result.browserQa ? null : loadCanvasDraft(draftKey);
@@ -699,7 +714,7 @@ export default function EcCanvas() {
       draftReadyRef.current = true;
     });
     return () => { cancelled = true; };
-  }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, result.browserQa, imageList.length]);
+  }, [result.id, result._saveKey, result.taskId, result.product_name, result.canvasImportId, result.browserQa, imageList.length, resultVideoUrl]);
 
   useEffect(() => {
     if (!draftReadyRef.current || !canvasSaveKeyRef.current || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
@@ -3039,10 +3054,6 @@ export default function EcCanvas() {
   }, []);
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
   const openWork = (work) => {
-    if (canvasWorkCategory(work) === 'video') {
-      dispatch({ type: 'NAVIGATE', page: 'video-studio' });
-      return;
-    }
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     setTab('canvas');
   };

@@ -2,14 +2,17 @@ export const IMAGE_MODELS = Object.freeze([
   Object.freeze({
     id: 'image2', label: 'GPT Image 2', badge: '高性价比',
     description: '适合高频电商套图、白底图与常规商品视觉。',
+    visual: '/images/models/gpt-image-2.png',
   }),
   Object.freeze({
     id: 'nano-banana-2', label: 'Nano Banana 2', badge: '多参考一致性',
     description: '适合多参考图、文字排版、商品一致性与局部修改。',
+    visual: '/images/models/nano-banana-2.png',
   }),
   Object.freeze({
     id: 'nano-banana-pro', label: 'Nano Banana Pro', badge: '专业精修',
     description: '适合复杂品牌资产、精细本地化与高要求商业成片。',
+    visual: '/images/models/nano-banana-pro.png',
   }),
 ]);
 

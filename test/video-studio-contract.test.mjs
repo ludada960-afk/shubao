@@ -4,10 +4,13 @@ import { readFile } from 'node:fs/promises';
 
 const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 
-test('video studio is an authenticated durable billed workspace', async () => {
-  const [app, page, server, generation] = await Promise.all([
+test('video studio is an authenticated durable billed workspace embedded in home and canvas', async () => {
+  const [app, home, page, canvas, workModel, server, generation] = await Promise.all([
     source('../src/App.jsx'),
+    source('../src/pages/Home/index.jsx'),
     source('../src/pages/VideoStudio/index.jsx'),
+    source('../src/pages/EcCanvas/index.jsx'),
+    source('../src/pages/EcCanvas/canvasWorkModel.js'),
     source('../server/index.mjs'),
     source('../server/videoGeneration.mjs'),
   ]);
@@ -19,10 +22,20 @@ test('video studio is an authenticated durable billed workspace', async () => {
   assert.match(page, /爆款重构/);
   assert.match(page, /AI 积分 \/ 次/);
   assert.match(page, /disabled=\{!canGenerate\}/);
+  assert.match(page, /embedded = false/);
+  assert.match(page, /在画布中继续/);
+  assert.match(page, /type: 'SET_RESULT'/);
+  assert.match(page, /type: 'NAVIGATE', page: 'ec-canvas'/);
+  assert.match(home, /mode: 'video'/);
+  assert.match(home, /<VideoStudioPage embedded/);
   assert.match(server, /\/api\/video\/capabilities/);
   assert.match(server, /\/api\/video\/jobs/);
-  assert.match(await source('../src/pages/Home/index.jsx'), /workspace-video\.png/);
-  assert.match(await source('../src/pages/EcCanvas/index.jsx'), /CanvasVideoComposer/);
+  assert.match(home, /workspace-video-v2\.png/);
+  assert.match(canvas, /CanvasVideoComposer/);
+  assert.match(canvas, /resultVideoUrl/);
+  assert.match(canvas, /createUploadedVideoNodes/);
+  assert.match(canvas, /buildCanvasImportResult\(work\)/);
+  assert.match(workModel, /videoUrl,\n    video_url: videoUrl/);
   assert.match(await source('../src/pages/EcCanvas/canvasStudioModel.js'), /createCanvasVideoComposerNode/);
   assert.match(generation, /walletService\.createHold/);
   assert.match(generation, /walletService\.settleItem/);

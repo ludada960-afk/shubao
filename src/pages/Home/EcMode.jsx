@@ -383,6 +383,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* ── 6 个功能按钮（AI 感图标升级）── */
   const BUTTONS = [
     {
+      key: 'settings',
+      label: '生成设置',
+      icon: <Settings2 size={15} strokeWidth={1.8} />
+    },
+    {
       key: 'sizing',
       label: '套图方案',
       icon: <Images size={15} strokeWidth={1.8} />
@@ -406,11 +411,6 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       key: 'copy',
       label: '内容规范',
       icon: <FileText size={15} strokeWidth={1.8} />
-    },
-    {
-      key: 'settings',
-      label: '生成设置',
-      icon: <Settings2 size={15} strokeWidth={1.8} />
     }
   ];
 
@@ -528,7 +528,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         </div>
         <div className="ec-config-panel-body">
           {activePanel === 'sizing' && <SizingPanel platform={platform} onPlatformChange={setPlatform} sizing={sizing} onSizingChange={setSizing} resolution={genSettings.resolution} targetLanguage={targetLanguage} onTargetLanguageChange={setTargetLanguage} />}
-          {activePanel === 'style' && <StylePanel value={styleSkill} onChange={setStyleSkill} customColors={customColors} onColorsChange={setCustomColors} />}
+          {activePanel === 'style' && <StylePanel value={styleSkill} onChange={setStyleSkill} customColors={customColors} onColorsChange={setCustomColors} negativePrompt={genSettings.negativePrompt} onNegativePromptChange={(negativePrompt) => setGenSettings(current => ({ ...current, negativePrompt }))} />}
           {activePanel === 'params' && <ParamsPanel params={productParams} onChange={setProductParams} />}
           {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />}
           {activePanel === 'copy' && <CopyPanel copywriting={copywriting} onChange={setCopywriting} />}

@@ -72,6 +72,7 @@ export function normalizeCanvasWorkPanel({ localWorks = [], serverWorks = [], ow
 
 export function buildCanvasImportResult(work = {}, { importId } = {}) {
   const imageRecords = allWorkImages(work);
+  const videoUrl = workVideoUrl(work);
   const images = Object.fromEntries(imageRecords.map((image, index) => [
     image.key || image.label || `image_${index + 1}`,
     image.url,
@@ -80,6 +81,9 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
     ...work,
     images,
     imageRecords,
+    videoUrl,
+    video_url: videoUrl,
+    video: work.video || (videoUrl ? { url: videoUrl } : null),
     productAssets: normalizeWorkImages(work.productAssets || work.product_assets || work.productImages || work.source_images || work.sourceImages),
     product_name: displayName(work),
     _ecResult: true,

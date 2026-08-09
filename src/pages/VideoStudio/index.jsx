@@ -46,7 +46,7 @@ function jobStatus(job) {
   return '正在提交';
 }
 
-export default function VideoStudioPage() {
+export default function VideoStudioPage({ embedded = false }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false });
   const [mode, setMode] = useState('script');
@@ -169,12 +169,32 @@ export default function VideoStudioPage() {
         : true;
   const canGenerate = capabilities.generationEnabled && quote?.quoteId && prompt.trim() && requires && !submitting;
 
-  return <main className="video-studio-page">
+  const openJobInCanvas = (videoJob = job) => {
+    if (!videoJob?.resultUrl) return;
+    dispatch({
+      type: 'SET_RESULT',
+      result: {
+        ...videoJob,
+        id: videoJob.workId || videoJob.id,
+        taskId: videoJob.id,
+        product_name: videoJob.prompt || '视频作品',
+        workType: 'video',
+        category: 'video',
+        videoUrl: videoJob.resultUrl,
+        video_url: videoJob.resultUrl,
+        video: { url: videoJob.resultUrl },
+        canvasImportId: globalThis.crypto?.randomUUID?.() || `video-${videoJob.id}-${Date.now()}`,
+      },
+    });
+    dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
+  };
+
+  return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`}>
     <header className="video-studio-heading">
       <div>
-        <span className="video-studio-kicker"><Clapperboard size={16} />AI 营销视频工作台</span>
-        <h1>从素材到成片，逐镜头可控</h1>
-        <p>脚本、参考素材、声音和交付规格在一个任务里完成。</p>
+        <span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span>
+        <h1>从创意素材到营销成片</h1>
+        <p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p>
       </div>
       <button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>
         AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong>
@@ -227,19 +247,20 @@ export default function VideoStudioPage() {
         </div>
       </aside>
 
-      <div className="video-stage">
+      {(!embedded || job || history.length > 0) && <div className="video-stage">
         <div className="video-frame" style={{ aspectRatio: ratio.replace(':', ' / ') }}>
           {job?.status === 'completed' && job.resultUrl
             ? <video src={job.resultUrl} controls playsInline />
             : <div className="video-empty"><Upload size={30} /><strong>{job ? jobStatus(job) : '成片会显示在这里'}</strong><span>{job?.error || '只在确认交付后扣费，失败自动退回冻结积分'}</span>{job && !FINAL.has(job.status) && <progress max="100" value={job.progress || 2} />}</div>}
         </div>
+        {job?.status === 'completed' && job.resultUrl && <button className="video-open-canvas" type="button" onClick={() => openJobInCanvas(job)}>在画布中继续</button>}
         <div className="video-history">
           <div className="video-history-title"><strong>生成记录</strong><span>刷新页面后任务仍会继续</span></div>
           {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
             <span>{item.prompt || '视频任务'}</span><small>{jobStatus(item)}</small>
           </button>) : <p className="video-history-empty">暂无视频任务</p>}
         </div>
-      </div>
+      </div>}
     </section>
   </main>;
 }

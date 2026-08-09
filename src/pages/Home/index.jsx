@@ -3,6 +3,7 @@ import { MdAutoAwesome, MdEdit, MdShoppingCart, MdVideoLibrary } from 'react-ico
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
 import EcMode from './EcMode';
+import VideoStudioPage from '../VideoStudio';
 import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
@@ -17,6 +18,7 @@ export default function HomePage() {
   const { state, dispatch } = useApp();
   const { mode } = state;
   const isXHS = mode === 'content';
+  const isVideo = mode === 'video';
   const [xhsSubMode, setXhsSubMode] = useState('content');
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState(null);
@@ -30,14 +32,14 @@ export default function HomePage() {
       src: '/images/home/workspace-ecommerce.png',
     },
     {
+      mode: 'video',
+      title: '视频生成',
+      src: '/images/home/workspace-video-v2.png',
+    },
+    {
       mode: 'content',
       title: '小红书图文',
       src: '/images/home/workspace-xhs.png',
-    },
-    {
-      page: 'video-studio',
-      title: 'AI 视频',
-      src: '/images/home/workspace-video.png',
     },
   ];
 
@@ -103,7 +105,7 @@ export default function HomePage() {
             <style>{`@media (min-width:640px){.homepage-h1{font-size:54px!important}}@media(min-width:1024px){.homepage-h1{font-size:62px!important}}`}</style>
 
             <p style={{ margin: '12px auto 0', maxWidth: 860, fontSize: 15, fontWeight: 500, color: 'var(--text-muted)' }} className="homepage-subtitle">
-              电商套图、小红书图文与 AI 视频，在同一个工作台完成
+              电商套图、营销视频与小红书图文，在同一个工作台完成
             </p>
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>
@@ -113,35 +115,24 @@ export default function HomePage() {
           {/* ═══ 主模式切换：卡片本身就是工作台入口 ═══ */}
           <div
             ref={modeShowcaseRef}
-            className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : 'is-commerce'}`}
+            className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : isVideo ? 'is-video' : 'is-commerce'}`}
             onPointerMove={handleModePointerMove}
             onPointerLeave={resetModePointer}
           >
             <div className="homepage-mode-cards" role="tablist" aria-label="创作模式">
               {modeOptions.map((option, index) => {
-                const active = Boolean(option.mode) && option.mode === (isXHS ? 'content' : 'ecommerce');
-                const ModeIcon = option.page === 'video-studio'
-                  ? MdVideoLibrary
-                  : option.mode === 'ecommerce' ? MdShoppingCart : MdEdit;
+                const active = option.mode === mode;
+                const ModeIcon = option.mode === 'video' ? MdVideoLibrary : option.mode === 'ecommerce' ? MdShoppingCart : MdEdit;
                 return (
                   <button
                     type="button"
                     role="tab"
                     aria-selected={active}
                     className={`homepage-mode-card card-${index + 1}${active ? ' is-active' : ''}`}
-                    key={option.mode || option.page}
+                    key={option.mode}
                     onClick={() => {
-                      if (option.page === 'video-studio') {
-                        if (!state.logged) {
-                          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'video-studio', source: state.page } });
-                          dispatch({ type: 'SHOW_LOGIN', show: true });
-                        } else {
-                          dispatch({ type: 'NAVIGATE', page: 'video-studio' });
-                        }
-                        return;
-                      }
                       dispatch({ type: 'SET_MODE', mode: option.mode });
-                      if (option.mode === 'content') setEcStep(1);
+                      if (option.mode !== 'ecommerce') setEcStep(1);
                     }}
                   >
                     <span className="homepage-mode-card-title"><ModeIcon size={16} />{option.title}</span>
@@ -156,7 +147,7 @@ export default function HomePage() {
 
 
           {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}
-          {!isXHS && ecStep === 2 && (
+          {!isXHS && !isVideo && ecStep === 2 && (
             <DesignDirection
               params={ecParamsRef.current}
               onBack={() => setEcStep(1)}
@@ -166,11 +157,11 @@ export default function HomePage() {
           <div id="creation-workbench" className="surface-card" style={{
             display: ecStep === 2 ? 'none' : undefined,
             marginTop: 20,
-            background: isXHS ? '#fff' : 'transparent',
-            boxShadow: isXHS ? undefined : 'none',
+            background: isXHS || isVideo ? '#fff' : 'transparent',
+            boxShadow: isXHS || isVideo ? undefined : 'none',
           }}>
             <div className="surface-card-inner">
-              {isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : (
+              {isVideo ? <VideoStudioPage embedded /> : isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : (
                 <EcMode ecStep={ecStep} setEcStep={setEcStep}
                   onStepChange={(params) => { ecParamsRef.current = params; }}
                   recoveryCheckpoint={recoveryCheckpoint} />

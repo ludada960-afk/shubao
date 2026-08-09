@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { HexColorPicker } from 'react-colorful';
-import { Sparkles, Lock, Unlock } from 'lucide-react';
+import { Ban, Info, Sparkles, Lock, Unlock } from 'lucide-react';
 
 /* ═══════ 6 套风格 = 完整方案（含光影+色调+构图）═══ */
 const STYLES = [
@@ -49,7 +49,7 @@ const STYLES = [
   }
 ];
 
-export default function StylePanel({ value = 'smart', onChange, customColors, onColorsChange }) {
+export default function StylePanel({ value = 'smart', onChange, customColors, onColorsChange, negativePrompt = '', onNegativePromptChange }) {
   const [showBrandColor, setShowBrandColor] = useState(false);
   const [pickerColor, setPickerColor] = useState('#7c3aed');
 
@@ -338,6 +338,24 @@ export default function StylePanel({ value = 'smart', onChange, customColors, on
               </div>
             </div>
           )}
+        </div>
+
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700 }}>
+            <Ban size={13} color="#7c3aed" /> 避免出现的元素
+            <span title="作为画面约束补充，不会覆盖商品实拍中的真实结构" style={{ display: 'inline-flex' }}>
+              <Info size={12} color="var(--text-muted)" />
+            </span>
+          </label>
+          <div style={{ marginBottom: 7, color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.5 }}>
+            建议填写商品结构变形、异常手部、乱码文字、无关道具等具体风险。
+          </div>
+          <input
+            value={negativePrompt}
+            onChange={event => onNegativePromptChange?.(event.target.value)}
+            placeholder="商品结构变形、异常手部、乱码文字、无关道具"
+            style={{ width: '100%', height: 36, boxSizing: 'border-box', padding: '0 10px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 7, background: 'rgba(248,248,250,.92)', color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 11, outline: 'none' }}
+          />
         </div>
       </div>
     </div>

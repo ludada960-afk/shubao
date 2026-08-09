@@ -2272,24 +2272,27 @@
   transition: transform .4s cubic-bezier(.2,.8,.2,1), filter .25s ease;
 }
 .homepage-mode-card.card-1 { transform: rotate(-9deg) translate(20px, 10px); transform-origin: right bottom; }
-.homepage-mode-card.card-2 { transform: translateY(-4px); transform-origin: center bottom; }
+.homepage-mode-card.card-2 { transform: rotate(-1deg) translateY(-4px); transform-origin: center bottom; }
 .homepage-mode-card.card-3 { transform: rotate(9deg) translate(-20px, 10px); transform-origin: left bottom; }
 .homepage-mode-card:hover, .homepage-mode-card:focus-visible {
   z-index: 3; border-color: rgba(109,93,252,.28); outline: none;
-  transform: translateY(-16px) rotate(0) translateZ(24px);
   box-shadow: 0 24px 46px rgba(64,48,36,.21);
 }
+.homepage-mode-card.card-1:hover, .homepage-mode-card.card-1:focus-visible { transform: rotate(-9deg) translate(20px,-6px) translateZ(24px); }
+.homepage-mode-card.card-2:hover, .homepage-mode-card.card-2:focus-visible { transform: rotate(-1deg) translateY(-18px) translateZ(24px); }
+.homepage-mode-card.card-3:hover, .homepage-mode-card.card-3:focus-visible { transform: rotate(9deg) translate(-20px,-6px) translateZ(24px); }
 .homepage-mode-card:hover .homepage-mode-card-visual img { transform: scale(1.07); }
 .homepage-mode-card.is-active {
-  border-color: rgba(109,93,252,.34); transform: translateY(-5px) rotate(0) translateZ(12px);
+  border-color: rgba(109,93,252,.34);
   box-shadow: 0 0 0 3px rgba(109,93,252,.09), 0 22px 42px rgba(64,48,36,.19);
 }
+.homepage-mode-card.card-1.is-active { transform: rotate(-9deg) translate(20px,2px) translateZ(12px); }
+.homepage-mode-card.card-2.is-active { transform: rotate(-1deg) translateY(-11px) translateZ(12px); }
+.homepage-mode-card.card-3.is-active { transform: rotate(9deg) translate(-20px,2px) translateZ(12px); }
 .homepage-mode-showcase.is-xhs .homepage-mode-card.is-active {
   border-color: rgba(217,74,85,.42); box-shadow: 0 0 0 3px rgba(217,74,85,.08), 0 22px 42px rgba(64,48,36,.19);
 }
-.homepage-mode-card.is-active:hover, .homepage-mode-card.is-active:focus-visible {
-  transform: translateY(-16px) rotate(0) translateZ(24px);
-}
+.homepage-mode-showcase.is-video .homepage-mode-card.is-active { border-color: rgba(79,70,229,.42); box-shadow: 0 0 0 3px rgba(79,70,229,.09), 0 22px 42px rgba(64,48,36,.19); }
 .homepage-mode-showcase + .surface-card { position: relative; z-index: 4; }
 @keyframes homepageModeCardsIn {
   from { opacity: 0; transform: translateY(8px) rotateX(var(--mode-tilt-x)) rotateY(var(--mode-tilt-y)); }

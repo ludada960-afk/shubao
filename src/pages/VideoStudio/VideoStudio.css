@@ -49,6 +49,15 @@
 .video-history button.active { border-color: #18181b; box-shadow: inset 3px 0 #18181b; }
 .video-history button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-history button small { flex: 0 0 auto; color: #717784; }
+.video-open-canvas { margin-top: 14px; min-height: 42px; border: 0; border-radius: 7px; padding: 0 18px; background: #202126; color: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.video-studio-page.is-embedded { min-height: 0; padding: 0; background: transparent; }
+.video-studio-page.is-embedded .video-studio-heading { max-width: none; margin: 0; padding: 22px 24px 16px; align-items: center; border-bottom: 1px solid rgba(28,25,23,.08); }
+.video-studio-page.is-embedded .video-studio-heading h1 { margin-top: 5px; font-size: 22px; }
+.video-studio-page.is-embedded .video-studio-heading p { font-size: 13px; }
+.video-studio-page.is-embedded .video-balance { display: none; }
+.video-studio-page.is-embedded .video-workbench { max-width: none; min-height: 0; grid-template-columns: 1fr; border: 0; border-radius: 0; box-shadow: none; }
+.video-studio-page.is-embedded .video-controls { border-right: 0; padding: 22px 24px 26px; }
+.video-studio-page.is-embedded .video-stage { border-top: 1px solid #e6e7eb; padding: 28px 24px; }
 @media(max-width:900px) {
   .video-studio-page { padding: 18px 12px 36px; }
   .video-studio-heading { align-items: flex-start; }

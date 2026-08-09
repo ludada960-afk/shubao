@@ -1627,3 +1627,18 @@
   released. The friend beta account `240485042@qq.com` remains a real unlimited
   user and was excluded from automation; only owner account `867550189@qq.com`
   was eligible for the deployment Canary.
+
+- Video creation integration candidate completed locally on 2026-08-10. Home
+  mode cards now present ecommerce generation, video generation, and
+  Xiaohongshu content in that order with fixed angled poses; the video
+  workbench is embedded in the same visual shell, supports script, first/last
+  frame, multimodal reference, and remake workflows, and routes delivered
+  video results into the existing Canvas video-node path without paid
+  generation during QA. Ecommerce generation settings are first in the
+  toolbar, use real model visual thumbnails, keep the server quote next to
+  resolution, and move negative constraints into visual direction. Focused
+  contracts passed, full serial regression passed `1359/1359`, production
+  build passed with `6462` modules, `npm run check`, `npm run collab:check`,
+  and whitespace validation passed. Production deployment is the remaining
+  step. User-owned package changes, extension-task deletions, `.tmp/`, and the
+  diagnosis helper remain untouched and uncommitted.
