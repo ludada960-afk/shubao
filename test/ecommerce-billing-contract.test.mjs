@@ -13,10 +13,20 @@ function item(id, generationSize = '2048x2048') {
 
 test('catalog exposes server-owned Nano Banana model and resolution SKUs', () => {
   const cases = [
-    ['ec_nano_flash_1k', 8000], ['ec_nano_flash_2k', 12000], ['ec_nano_flash_4k', 18000],
-    ['ec_nano_pro_1k', 16000], ['ec_nano_pro_2k', 16000], ['ec_nano_pro_4k', 28000],
+    ['ec_nano_flash_1k', 1000], ['ec_nano_flash_2k', 1000], ['ec_nano_flash_4k', 2000],
+    ['ec_nano_pro_1k', 1000], ['ec_nano_pro_2k', 1000], ['ec_nano_pro_4k', 2000],
   ];
-  for (const [sku, units] of cases) assert.equal(quoteFeature(sku, 1).units, units);
+  for (const [sku, units] of cases) {
+    const quote = quoteFeature(sku, 1);
+    assert.equal(quote.units, units);
+    assert.equal(quote.providerCostCny, 0.06);
+  }
+});
+
+test('catalog uses middle-station RMB costs without currency conversion', () => {
+  assert.equal(quoteFeature('ec_image_2k', 1).providerCostCny, 0.038);
+  assert.equal(quoteFeature('ec_image_4k', 1).providerCostCny, 0.038);
+  assert.equal(quoteFeature('xhs_image_set_2k', 1).providerCostCny, 0.342);
 });
 
 function harness({ ownerEmail = 'owner@example.com', assetPlan = [item('main-1'), item('main-2')] } = {}) {

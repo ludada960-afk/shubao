@@ -38,7 +38,7 @@ export function generationUnits(imageModel, resolution = '2K') {
   const sku = generationBillingSku(imageModel, resolution);
   return {
     ec_image_2k: 1000, ec_image_4k: 2000,
-    ec_nano_flash_1k: 8000, ec_nano_flash_2k: 12000, ec_nano_flash_4k: 18000,
-    ec_nano_pro_1k: 16000, ec_nano_pro_2k: 16000, ec_nano_pro_4k: 28000,
+    ec_nano_flash_1k: 1000, ec_nano_flash_2k: 1000, ec_nano_flash_4k: 2000,
+    ec_nano_pro_1k: 1000, ec_nano_pro_2k: 1000, ec_nano_pro_4k: 2000,
   }[sku];
 }

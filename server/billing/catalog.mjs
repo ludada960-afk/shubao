@@ -18,17 +18,18 @@ export const PRODUCTS = freezeCatalog({
 });
 
 export const FEATURE_SKUS = freezeCatalog({
-  ec_image_2k: { units: 1000, providerCostCny: 0.0694 },
-  ec_image_4k: { units: 2000, providerCostCny: 0.0694 },
-  ec_nano_flash_1k: { units: 8000, providerCostCny: 0.50 },
-  ec_nano_flash_2k: { units: 12000, providerCostCny: 0.75 },
-  ec_nano_flash_4k: { units: 18000, providerCostCny: 1.12 },
-  ec_nano_pro_1k: { units: 16000, providerCostCny: 0.99 },
-  ec_nano_pro_2k: { units: 16000, providerCostCny: 0.99 },
-  ec_nano_pro_4k: { units: 28000, providerCostCny: 1.78 },
+  // Both middle-station dashboards label balances with "$" but settle these prices in CNY.
+  ec_image_2k: { units: 1000, providerCostCny: 0.038 },
+  ec_image_4k: { units: 2000, providerCostCny: 0.038 },
+  ec_nano_flash_1k: { units: 1000, providerCostCny: 0.06 },
+  ec_nano_flash_2k: { units: 1000, providerCostCny: 0.06 },
+  ec_nano_flash_4k: { units: 2000, providerCostCny: 0.06 },
+  ec_nano_pro_1k: { units: 1000, providerCostCny: 0.06 },
+  ec_nano_pro_2k: { units: 1000, providerCostCny: 0.06 },
+  ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.
-  xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.6246 },
+  xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.342 },
   ec_reverse_prompt: { units: 200, providerCostCny: 0.01 },
   ec_remove_bg: { units: 500, providerCostCny: 0.03 },
   ec_direction_refresh: { units: 1000, providerCostCny: 0.05 },
