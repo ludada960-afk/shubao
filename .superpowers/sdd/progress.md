@@ -31,6 +31,12 @@
   bounded per-request output budget and the legacy LLM path falls back to the
   verified vision gateway. This follow-up must be redeployed and re-canary-tested
   before the XHS release is considered complete.
+  After the gateway fix deployed, a real XHS request passed planning but the
+  edge connection ended at roughly 126 seconds while the server queue later
+  returned idle. The shared paid and preview SSE transports now send a 15-second
+  comment heartbeat and clear it at terminal delivery, preventing browser and
+  proxy idle timeouts during long image gaps. This transport follow-up also
+  requires full redeploy and a streaming 9-image production canary.
 
 - Ecommerce stability follow-up is complete locally: direction and Canvas uploads now use durable owner-scoped assets per image instead of oversized or expiring temporary URLs; Works hydrates the owner cache and renders an explicit loading state; the Works list no longer synchronously migrates every legacy ecommerce row; and the application/canvas headers expose one automatic-refresh AI-points recharge pill. Focused regression passed 45/45, full regression passed 1279/1279, production build/check passed, collaboration policy is READY. Local browser snapshot was attempted but the bundled browse daemon remained stuck waiting for another instance, so only the Vite shell HTTP check was available.
 - Production release attempt for `54afb95` was rejected by the final authenticated billing probe: `GET /api/billing/balance` returned HTTP 401 with the current Canary session token. The deploy script automatically restored the prior application and Nginx state. Do not claim this commit is online until a valid production Canary session is supplied and the full deploy script passes.

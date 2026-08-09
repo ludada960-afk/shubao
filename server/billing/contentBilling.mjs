@@ -311,6 +311,16 @@ export function createSseTransport(res) {
         return false;
       }
     },
+    heartbeat() {
+      if (transportClosed) return false;
+      try {
+        res.write(': keep-alive\n\n');
+        return true;
+      } catch {
+        transportClosed = true;
+        return false;
+      }
+    },
     end() {
       if (transportClosed) return false;
       try {
@@ -461,8 +471,14 @@ export function createBilledSseRunner({
 
     let lifecycleHandled = false;
     let heartbeat = null;
+    let transportHeartbeat = null;
     try {
       heartbeat = startLeaseHeartbeat({ ownerEmail, begun });
+      transportHeartbeat = setIntervalFn(
+        () => transport.heartbeat(),
+        Math.min(heartbeatMs ?? 15_000, 15_000),
+      );
+      transportHeartbeat?.unref?.();
       let delivery;
       try {
         delivery = await generate({
@@ -526,6 +542,7 @@ export function createBilledSseRunner({
       };
     } finally {
       heartbeat?.stop();
+      if (transportHeartbeat) clearIntervalFn(transportHeartbeat);
       if (!lifecycleHandled) {
         try {
           await failContentGeneration({
@@ -543,9 +560,17 @@ export function createBilledSseRunner({
   };
 }
 
-export function createPreviewSseRunner({ previewContentGeneration } = {}) {
+export function createPreviewSseRunner({
+  previewContentGeneration,
+  heartbeatMs = 15_000,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval,
+} = {}) {
   if (typeof previewContentGeneration !== 'function') {
     throw new TypeError('previewContentGeneration is required');
+  }
+  if (!Number.isSafeInteger(heartbeatMs) || heartbeatMs <= 0) {
+    throw new TypeError('preview heartbeatMs must be a positive safe integer');
   }
   return async function runPreviewSse({ res, generationId, mode, generateCover } = {}) {
     if (typeof generateCover !== 'function') throw new TypeError('generateCover callback is required');
@@ -558,6 +583,8 @@ export function createPreviewSseRunner({ previewContentGeneration } = {}) {
     }
     const transport = createSseTransport(res);
     transport.open();
+    const heartbeat = setIntervalFn(() => transport.heartbeat(), heartbeatMs);
+    heartbeat?.unref?.();
     try {
       const generated = await generateCover({
         generationId: preview.generationId,
@@ -599,6 +626,7 @@ export function createPreviewSseRunner({ previewContentGeneration } = {}) {
         error: serializedError(error, 'CONTENT_PREVIEW_FAILED'),
       };
     } finally {
+      clearIntervalFn(heartbeat);
       transport.end();
     }
   };

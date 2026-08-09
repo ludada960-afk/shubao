@@ -816,8 +816,9 @@ test('active billed runner renews its lease so retries stay in progress without 
   let releaseExecutor;
   const started = new Promise(resolve => { markStarted = resolve; });
   const executorGate = new Promise(resolve => { releaseExecutor = resolve; });
+  const firstResponse = new FakeResponse();
   const firstRun = runner({
-    res: new FakeResponse(),
+    res: firstResponse,
     ownerEmail: OWNER,
     generationId,
     mode: 'xhs',
@@ -834,6 +835,7 @@ test('active billed runner renews its lease so retries stay in progress without 
   try {
     harness.advance(60);
     await scheduler.tick();
+    assert.ok(firstResponse.writes.includes(': keep-alive\n\n'), 'long SSE work must stay alive before the first image event');
     harness.advance(50);
     const retryResponse = new FakeResponse();
     const retry = await runner({
