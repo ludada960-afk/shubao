@@ -21,6 +21,16 @@ import {
   classifyScene, getLensesForScene, extractToneFromImage, buildToneCard,
   buildPlogPrompt, generatePlogCopy, generatePlogCaption, enrichLensesWithLLM
 } from './plogPromptEngine.mjs';
+import {
+  buildDynamicXhsAnalysisRequest,
+  buildDynamicXhsVisualRequest,
+  buildDynamicPlogRequest,
+  deriveXhsCreativeDirection,
+  normalizeDynamicXhsAnalysis,
+  normalizeDynamicXhsVisual,
+  normalizeDynamicPlogPlan,
+  parseXhsPlannerJson,
+} from './xhsCreativePlanner.mjs';
 
 import { initDB, migrateLegacyUserCredits, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
 import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
@@ -1171,7 +1181,18 @@ const CONTENT_ANALYSIS_UP = `【强制】你只能基于「文案」字段的内
 // ============================================================
 // 工作流：内容分析
 // ============================================================
-async function contentAnalysis(textContent) {
+async function contentAnalysis(textContent, { creativeDirection = null, visionContext = '' } = {}) {
+  if (creativeDirection) {
+    try {
+      const request = buildDynamicXhsAnalysisRequest({ text: textContent, visionContext, direction: creativeDirection });
+      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.82, maxTokens: 22000 });
+      const dynamic = normalizeDynamicXhsAnalysis(parseXhsPlannerJson(raw), { direction: creativeDirection, text: textContent });
+      if (dynamic) return dynamic;
+      throw new Error('动态策划缺少完整标题、正文或页面');
+    } catch (error) {
+      console.warn('[XHS dynamic planner] 策划失败，回退兼容分析:', error.message);
+    }
+  }
   // ===== 前置关键词分类：从用户输入提取品类（绕开LLM分类不可靠的问题） =====
   function detectCategory(text) {
     const t = text.toLowerCase();
@@ -1201,11 +1222,12 @@ async function contentAnalysis(textContent) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  const sysPrompt = CONTENT_ANALYSIS_SP.replace(/{{current_year}}/g, String(currentYear)).replace(/{{current_month}}/g, String(currentMonth)).replace(/{{text_content}}/g, textContent)
+  const legacyTextContent = `${textContent}${visionContext || ''}`;
+  const sysPrompt = CONTENT_ANALYSIS_SP.replace(/{{current_year}}/g, String(currentYear)).replace(/{{current_month}}/g, String(currentMonth)).replace(/{{text_content}}/g, legacyTextContent)
     .replace('{{detected_category}}', detectedCat || '');
   const userPrompt = CONTENT_ANALYSIS_UP
     .replace('{{category}}', '自动判断')
-    .replace('{{text_content}}', textContent)
+    .replace('{{text_content}}', legacyTextContent)
     .replace(/{{current_year}}/g, String(currentYear))
     .replace(/{{current_month}}/g, String(currentMonth));
 
@@ -1605,7 +1627,18 @@ const VISUAL_PLANNING_UP = `根据以下内容方案和品类，生成8条内容
 // ============================================================
 // 工作流：视觉规划
 // ============================================================
-async function visualPlanning(analysisResult) {
+async function visualPlanning(analysisResult, { creativeDirection = null } = {}) {
+  if (creativeDirection) {
+    try {
+      const request = buildDynamicXhsVisualRequest({ analysis: analysisResult, direction: creativeDirection });
+      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.78, maxTokens: 22000 });
+      const dynamic = normalizeDynamicXhsVisual(parseXhsPlannerJson(raw), analysisResult, creativeDirection);
+      if (dynamic) return dynamic;
+      throw new Error('动态视觉规划缺少封面或内容页提示词');
+    } catch (error) {
+      console.warn('[XHS dynamic visual planner] 规划失败，回退兼容视觉规划:', error.message);
+    }
+  }
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -1904,19 +1937,24 @@ async function runXhsPreview(req, res) {
 async function generateXhsContentSet({ text, images, send, generationId, workId }) {
   console.log('\n=== 开始工作流: "' + text.slice(0, 40) + '..." ===');
   send('progress', { step: 'content_analysis', msg: '正在分析内容...' });
+  const creativeDirection = deriveXhsCreativeDirection(generationId || text);
 
   // 【XHS 参考图 Vision 分析】
   let visionContext = '';
   if (images?.length) {
     send('progress', { step: 'vision', msg: '正在分析参考图...' });
     try {
-      const visionPrompt = `你是一个小红书内容图片分析专家。分析这些参考图，提取视觉风格特征，用 JSON 返回：
+      const visionPrompt = `你是一个小红书内容与视觉分析专家。分析这些参考图，区分可验证的画面事实和可借鉴的方法，不要照抄参考图中的具体文案，用 JSON 返回：
 {
   "color_palette": ["#hex1", "#hex2", "#hex3"],
   "style_vibe": "风格描述（简约/清新/复古/治愈/高级/可爱等）",
   "mood": "整体氛围",
   "lighting": "光线特色",
   "composition": "构图特点",
+  "subject_facts": ["能从图中直接确认的主体或场景"],
+  "narrative_pattern": "这些图如何组织信息和推进阅读",
+  "text_hierarchy": "标题、副标题、标签和正文的层级关系",
+  "reusable_principles": ["可借鉴但不照抄的设计原则"],
   "aesthetic_tags": ["标签1", "标签2"]
 }`;
       const visionResult = await callMiniLLM(visionPrompt, images.slice(0, 3), '分析这些参考图的视觉风格');
@@ -1927,16 +1965,21 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
           (parsed.mood ? `氛围：${parsed.mood}\n` : '') +
           (parsed.color_palette?.length ? `色调：${parsed.color_palette.join('、')}\n` : '') +
           (parsed.lighting ? `光线：${parsed.lighting}\n` : '') +
-          (parsed.composition ? `构图：${parsed.composition}\n` : '');
+          (parsed.composition ? `构图：${parsed.composition}\n` : '') +
+          (parsed.subject_facts?.length ? `可确认主体：${parsed.subject_facts.join('、')}\n` : '') +
+          (parsed.narrative_pattern ? `内容组织：${parsed.narrative_pattern}\n` : '') +
+          (parsed.text_hierarchy ? `文字层级：${parsed.text_hierarchy}\n` : '') +
+          (parsed.reusable_principles?.length ? `可借鉴原则：${parsed.reusable_principles.join('、')}\n` : '');
       }
     } catch (e) {
       console.warn('[XHS Vision] 参考图分析失败（不阻断）:', e.message);
     }
   }
 
-  const analysis = await contentAnalysis(text + visionContext);
+  send('progress', { step: 'creative_plan', msg: `正在形成${creativeDirection.name}内容方案...` });
+  const analysis = await contentAnalysis(text, { creativeDirection, visionContext });
   send('progress', { step: 'visual_planning', msg: '正在规划视觉...' });
-  const visual = await visualPlanning(analysis);
+  const visual = await visualPlanning(analysis, { creativeDirection });
 
   // 并发生图（每完成一张就推送）
   const allPrompts = [
@@ -1993,6 +2036,9 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
     image_count: result.image_count || 0,
     cover_prompt: visual.coverPrompt || '',
     image_prompts: (visual.imagePrompts || []).map(p => ({ page_id: p.page_id, prompt: p.prompt })),
+    creative_direction: analysis.creative_direction || creativeDirection.id,
+    creative_seed: analysis.creative_seed || creativeDirection.seed,
+    creative_brief: analysis.creative_brief || null,
   };
   if (!isCompleteContentDelivery(delivery)) {
     const error = new Error('生成结果未形成九张唯一稳定图片，额度将原路退回');
@@ -4211,15 +4257,22 @@ async function generatePlogContentSet({
   const options = plogOptions({ style, layout, coverVariant });
   send('progress', { step: 'scene', msg: '正在分析场景...' });
   const scene = classifyScene(text);
+  const creativeDirection = deriveXhsCreativeDirection(generationId || text);
 
-  send('progress', { step: 'lens', msg: '正在拆分生活碎片镜头...' });
+  send('progress', { step: 'lens', msg: `正在形成${creativeDirection.name}生活镜头...` });
   const totalCount = 9;
   let lenses = getLensesForScene(scene, totalCount);
+  let creativePlan = null;
   if (!skipEnrich && text.length > 6) {
     try {
-      lenses = await enrichLensesWithLLM(lenses, text, scene, callMiniLLM);
+      const request = buildDynamicPlogRequest({ text, scene, direction: creativeDirection, count: totalCount });
+      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.86, maxTokens: 5000 });
+      creativePlan = normalizeDynamicPlogPlan(parseXhsPlannerJson(raw), totalCount);
+      if (!creativePlan) throw new Error('动态Plog策划缺少完整镜头');
+      lenses = creativePlan.lenses;
     } catch (error) {
-      console.error('[plog] enrich失败, 使用预定义:', error.message);
+      console.error('[plog dynamic] 规划失败, 使用兼容镜头:', error.message);
+      try { lenses = await enrichLensesWithLLM(lenses, text, scene, callMiniLLM); } catch (fallbackError) { console.error('[plog] enrich失败:', fallbackError.message); }
     }
   }
 
@@ -4279,13 +4332,15 @@ async function generatePlogContentSet({
     style: options.style,
     layout: options.layout,
     coverVariant: options.coverVariant,
-    caption: generatePlogCaption(scene, scene, options.style),
-    copyLines: generatePlogCopy(scene, lenses, toneInfo),
+    caption: creativePlan?.caption || generatePlogCaption(scene, scene, options.style),
+    copyLines: creativePlan?.copyLines || generatePlogCopy(scene, lenses, toneInfo),
     cover_url: coverUrl,
     image_urls: imageUrls,
     image_count: imageUrls.length,
     total_count: totalCount,
     toneInfo,
+    creative_direction: creativeDirection.id,
+    creative_seed: creativeDirection.seed,
   };
 }
 

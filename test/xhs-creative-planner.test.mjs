@@ -1,0 +1,45 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  buildDynamicXhsAnalysisRequest,
+  buildDynamicXhsVisualRequest,
+  buildDynamicPlogRequest,
+  deriveXhsCreativeDirection,
+  normalizeDynamicXhsAnalysis,
+  normalizeDynamicXhsVisual,
+  normalizeDynamicPlogPlan,
+} from '../server/xhsCreativePlanner.mjs';
+
+test('creative direction is stable for retries and varies across new runs', () => {
+  const first = deriveXhsCreativeDirection('run-a');
+  assert.deepEqual(first, deriveXhsCreativeDirection('run-a'));
+  const ids = ['run-a', 'run-b', 'run-c', 'run-d', 'run-e'].map(id => deriveXhsCreativeDirection(id).id);
+  assert.ok(new Set(ids).size >= 3);
+});
+
+test('dynamic XHS analysis plans eight editable pages without fixed tracks', () => {
+  const direction = deriveXhsCreativeDirection('run-a');
+  const request = buildDynamicXhsAnalysisRequest({ text: '记录一次周末城市漫游', visionContext: '低饱和自然光', direction });
+  assert.match(request.systemPrompt, /不按固定赛道模板/);
+  assert.match(request.userPrompt, /恰好8个内容页/);
+  const analysis = normalizeDynamicXhsAnalysis({
+    topic: '城市记录', title: '周末城市漫游', body_text: '从街角开始记录。',
+    pages: Array.from({ length: 8 }, (_, i) => ({ page_id: i + 1, title: `第${i + 1}页`, story: '真实内容' })),
+  }, { direction });
+  assert.equal(analysis.pages.length, 8);
+  assert.equal(analysis.creative_direction, direction.id);
+});
+
+test('dynamic visual and Plog plans normalize to complete delivery shapes', () => {
+  const direction = deriveXhsCreativeDirection('run-b');
+  const analysis = normalizeDynamicXhsAnalysis({ title: '一篇记录', body_text: '正文', pages: Array.from({ length: 8 }, (_, i) => ({ page_id: i + 1, title: `页${i + 1}` })) }, { direction });
+  const visualRequest = buildDynamicXhsVisualRequest({ analysis, direction });
+  assert.match(visualRequest.userPrompt, /必须有8条image_prompts/);
+  const visual = normalizeDynamicXhsVisual({ cover_prompt: '封面', visual_system: '编辑感', image_prompts: Array.from({ length: 8 }, (_, i) => ({ page_id: i + 1, prompt: `p${i + 1}` })) }, analysis, direction);
+  assert.equal(visual.imagePrompts.length, 8);
+  const plogRequest = buildDynamicPlogRequest({ text: '周末咖啡', scene: '居家日常', direction });
+  assert.match(plogRequest.systemPrompt, /不使用固定赛道镜头库/);
+  const plog = normalizeDynamicPlogPlan({ caption: '周末片段', lenses: Array.from({ length: 9 }, (_, i) => ({ zh: `镜头${i + 1}`, en: `shot ${i + 1}` })), copy_lines: Array.from({ length: 9 }, (_, i) => `句子${i + 1}`) });
+  assert.equal(plog.lenses.length, 9);
+  assert.equal(plog.copyLines.length, 9);
+});

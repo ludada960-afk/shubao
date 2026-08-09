@@ -14,6 +14,18 @@
 
 ## Current execution
 
+- Dynamic Xiaohongshu/Plog creative planning is complete locally. The legacy
+  track templates remain only as a fail-safe fallback; paid XHS runs now derive
+  a retry-stable creative direction from the durable generation ID, analyze
+  reference-image narrative and hierarchy, plan one cover plus eight distinct
+  content pages, and persist the creative brief with the work. Plog replaces
+  fixed scene lenses with the same dynamic direction contract and falls back to
+  the existing lens engine on malformed planning output. Focused planner tests
+  pass 3/3, full regression passes 1329/1329, the 6,458-module production build,
+  build check, collaboration policy and diff check pass. Production release is
+  the next boundary. The 12 unrelated deleted extension-task JSON files and
+  existing `.tmp/`/diagnostic files remain user-owned and excluded.
+
 - Ecommerce stability follow-up is complete locally: direction and Canvas uploads now use durable owner-scoped assets per image instead of oversized or expiring temporary URLs; Works hydrates the owner cache and renders an explicit loading state; the Works list no longer synchronously migrates every legacy ecommerce row; and the application/canvas headers expose one automatic-refresh AI-points recharge pill. Focused regression passed 45/45, full regression passed 1279/1279, production build/check passed, collaboration policy is READY. Local browser snapshot was attempted but the bundled browse daemon remained stuck waiting for another instance, so only the Vite shell HTTP check was available.
 - Production release attempt for `54afb95` was rejected by the final authenticated billing probe: `GET /api/billing/balance` returned HTTP 401 with the current Canary session token. The deploy script automatically restored the prior application and Nginx state. Do not claim this commit is online until a valid production Canary session is supplied and the full deploy script passes.
 - The follow-up `3679005` release reached the remote 600-second Canary wait, but the local execution host timed out before post-Canary checks and left its lock. The post-Canary billing probe using the clipboard value again returned HTTP 401. The application, static assets and Nginx were restored from `/home/ubuntu/shubao/deploy-backups/20260808-001742-3679005`; PM2 health was verified after rollback and the dedicated deployment lock was removed.
