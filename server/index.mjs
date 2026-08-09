@@ -595,6 +595,14 @@ async function callLLM(systemPrompt, userContent, options = {}) {
     errors.push('未配置 LLM API（LLM_BASE_URL）');
   }
 
+  if (MINI_KEY && MINI_BASE) {
+    try {
+      return await callMiniLLM(systemPrompt, [], String(userContent || ''), options);
+    } catch (error) {
+      errors.push(`Vision gateway fallback: ${error.message}`);
+    }
+  }
+
   throw new Error(`LLM 调用失败: ${errors.join(' | ')}`);
 }
 
@@ -633,7 +641,7 @@ async function callLLMWithVision(systemPrompt, images, userPrompt) {
 // ============================================================
 // Vision 调用 — 商品图和参考图分析
 // ============================================================
-async function callMiniLLM(systemPrompt, imageUrl, userPrompt, { signal } = {}) {
+async function callMiniLLM(systemPrompt, imageUrl, userPrompt, { signal, maxTokens = 1500, temperature = 0.3 } = {}) {
   const images = imageUrl
     ? (Array.isArray(imageUrl) ? imageUrl : [imageUrl]).filter(Boolean)
     : [];
@@ -642,8 +650,8 @@ async function callMiniLLM(systemPrompt, imageUrl, userPrompt, { signal } = {}) 
     userPrompt: userPrompt || (images.length ? '分析这些图片' : '请处理这段内容'),
     images,
     signal,
-    maxTokens: 1500,
-    temperature: 0.3,
+    maxTokens: Math.min(Math.max(Number(maxTokens) || 1500, 256), 12000),
+    temperature: Math.min(Math.max(Number(temperature) || 0.3, 0), 1),
   });
 }
 

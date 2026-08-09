@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   buildDynamicXhsAnalysisRequest,
   buildDynamicXhsVisualRequest,
@@ -42,4 +43,10 @@ test('dynamic visual and Plog plans normalize to complete delivery shapes', () =
   const plog = normalizeDynamicPlogPlan({ caption: '周末片段', lenses: Array.from({ length: 9 }, (_, i) => ({ zh: `镜头${i + 1}`, en: `shot ${i + 1}` })), copy_lines: Array.from({ length: 9 }, (_, i) => `句子${i + 1}`) });
   assert.equal(plog.lenses.length, 9);
   assert.equal(plog.copyLines.length, 9);
+});
+
+test('content planning can request complete JSON and legacy LLM failures use the verified gateway', () => {
+  const server = fs.readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  assert.match(server, /maxTokens\s*=\s*1500[\s\S]*Math\.min\(Math\.max\(Number\(maxTokens\)/);
+  assert.match(server, /Vision gateway fallback:[\s\S]*callMiniLLM|callMiniLLM\(systemPrompt, \[\], String\(userContent/);
 });

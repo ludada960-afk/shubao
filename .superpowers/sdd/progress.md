@@ -25,6 +25,12 @@
   build check, collaboration policy and diff check pass. Production release is
   the next boundary. The 12 unrelated deleted extension-task JSON files and
   existing `.tmp/`/diagnostic files remain user-owned and excluded.
+  The first post-deploy XHS canary exposed a legacy runtime failure: the new
+  planner response was truncated by a shared 1,500-token cap, then its fallback
+  reached an expired legacy LLM key. The shared text/VLM adapter now honors a
+  bounded per-request output budget and the legacy LLM path falls back to the
+  verified vision gateway. This follow-up must be redeployed and re-canary-tested
+  before the XHS release is considered complete.
 
 - Ecommerce stability follow-up is complete locally: direction and Canvas uploads now use durable owner-scoped assets per image instead of oversized or expiring temporary URLs; Works hydrates the owner cache and renders an explicit loading state; the Works list no longer synchronously migrates every legacy ecommerce row; and the application/canvas headers expose one automatic-refresh AI-points recharge pill. Focused regression passed 45/45, full regression passed 1279/1279, production build/check passed, collaboration policy is READY. Local browser snapshot was attempted but the bundled browse daemon remained stuck waiting for another instance, so only the Vite shell HTTP check was available.
 - Production release attempt for `54afb95` was rejected by the final authenticated billing probe: `GET /api/billing/balance` returned HTTP 401 with the current Canary session token. The deploy script automatically restored the prior application and Nginx state. Do not claim this commit is online until a valid production Canary session is supplied and the full deploy script passes.
