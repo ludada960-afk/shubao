@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { MdContentCopy, MdCheck, MdRefresh, MdDownload, MdClose, MdAutorenew, MdArrowBack, MdArrowForward, MdFullscreen, MdGridOn } from 'react-icons/md';
 import { proxyImg, regenerateImage, downloadZip } from './services/api';
 import { IMAGES } from './constants/images';
@@ -6,6 +6,62 @@ import { EC_PLATFORM_SPECS } from './constants/data';
 import { useDialog } from './components/ui/DialogProvider.jsx';
 import ResponsiveImage from './components/ResponsiveImage.jsx';
 import { predecodeResponsiveImage } from './components/responsiveImageModel.js';
+
+function ecommerceGallerySlides(item) {
+  const raw = Array.isArray(item?.images) ? item.images : Object.entries(item?.images || {});
+  const images = raw.map((image, index) => Array.isArray(image)
+    ? { url: image[1], label: image[0] || '商品展示图 ' + (index + 1), description: '展示本套方案中的商品视觉内容' }
+    : { url: image.url, label: image.label || image.style || image.role || '商品展示图 ' + (index + 1), description: image.description || image.sellingPoint || image.purpose || '展示本套方案中的商品视觉内容', width: image.width, height: image.height, size: image.size }
+  ).filter(image => image.url);
+  const cover = item?.cover_mosaic_url || item?.cover_url;
+  return [
+    ...(cover ? [{ url: cover, label: '套图总览', description: '把主图、场景、卖点与细节集中呈现，便于快速判断整套方案。', isCover: true }] : []),
+    ...images.filter(image => image.url !== cover),
+  ];
+}
+
+function EcommerceGalleryPreview({ item, onClose }) {
+  const slides = useMemo(() => ecommerceGallerySlides(item), [item]);
+  const [index, setIndex] = useState(0);
+  const wheelLockRef = useRef(0);
+  const current = slides[index];
+  useEffect(() => {
+    if (!current?.url) return;
+    void predecodeResponsiveImage(current.url, 'display').catch(() => {});
+    if (slides[index + 1]?.url) void predecodeResponsiveImage(slides[index + 1].url, 'display').catch(() => {});
+  }, [current?.url, index, slides]);
+  const handleWheel = event => {
+    event.preventDefault(); event.stopPropagation();
+    if (Math.abs(event.deltaY) < 8 || Date.now() - wheelLockRef.current < 180) return;
+    wheelLockRef.current = Date.now();
+    setIndex(value => event.deltaY > 0 ? Math.min(slides.length - 1, value + 1) : Math.max(0, value - 1));
+  };
+  if (!current) return null;
+  const dimensions = current.size || (current.width && current.height ? current.width + ' × ' + current.height : '');
+  return <div className="ec-gallery-overlay animate-fade-in" onClick={onClose}>
+    <div className="ec-gallery-modal animate-scale-in" onClick={event => event.stopPropagation()} onWheel={handleWheel}>
+      <div className="ec-gallery-visual">
+        <ResponsiveImage src={current.url} alt={current.label} variant="display" ratio="3:4" priority sizes="min(72vw, 980px)"
+          style={{ width: '100%', height: '100%', background: '#f5f5f5' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        {index > 0 && <button className="ec-gallery-nav ec-gallery-prev" type="button" aria-label="上一张" onClick={() => setIndex(value => value - 1)}><MdArrowBack size={20} /></button>}
+        {index < slides.length - 1 && <button className="ec-gallery-nav ec-gallery-next" type="button" aria-label="下一张" onClick={() => setIndex(value => value + 1)}><MdArrowForward size={20} /></button>}
+        <div className="ec-gallery-progress">{index + 1} / {slides.length}</div>
+      </div>
+      <aside className="ec-gallery-details">
+        <button className="ec-gallery-close" type="button" aria-label="关闭" onClick={onClose}><MdClose size={20} /></button>
+        <span className="ec-gallery-kind">电商套图案例</span><h2>{item.title || item.product_name || '电商套图'}</h2>
+        <div className="ec-gallery-meta">{item.platform || '电商平台'} · {Math.max(0, slides.length - 1)} 张成品图</div>
+        <div className="ec-gallery-current"><span>{current.isCover ? '封面' : '第 ' + index + ' 张'}</span><h3>{current.label}</h3><p>{current.description}</p>{dimensions && <small>{dimensions}</small>}</div>
+        <div className="ec-gallery-strip" aria-label="套图图片目录">{slides.map((slide, slideIndex) => <button key={slide.url + slideIndex} type="button" className={slideIndex === index ? 'active' : ''} onClick={() => setIndex(slideIndex)} aria-label={'查看' + slide.label}>
+          <span>{String(slideIndex + 1).padStart(2, '0')}</span><strong>{slide.label}</strong>
+        </button>)}</div><div className="ec-gallery-wheel-hint">滚动鼠标切换图片</div>
+      </aside>
+    </div>
+    <style>{`
+      .ec-gallery-overlay{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;padding:24px;background:rgba(18,18,20,.78);overscroll-behavior:none;backdrop-filter:blur(10px)}.ec-gallery-modal{display:grid;width:min(1180px,94vw);height:min(780px,92vh);grid-template-columns:minmax(0,1fr) 340px;overflow:hidden;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:#fff;box-shadow:0 28px 80px rgba(0,0,0,.32)}.ec-gallery-visual{position:relative;min-width:0;overflow:hidden;background:#f1f1f1}.ec-gallery-nav{position:absolute;top:50%;display:grid;width:42px;height:42px;place-items:center;border:0;border-radius:50%;background:rgba(25,25,27,.78);color:#fff;cursor:pointer;transform:translateY(-50%);backdrop-filter:blur(8px)}.ec-gallery-prev{left:16px}.ec-gallery-next{right:16px}.ec-gallery-progress{position:absolute;bottom:16px;left:50%;padding:6px 10px;border-radius:6px;background:rgba(25,25,27,.76);color:#fff;font-size:12px;font-weight:800;transform:translateX(-50%)}.ec-gallery-details{position:relative;display:flex;min-width:0;flex-direction:column;padding:30px 26px 22px;background:#fff}.ec-gallery-close{position:absolute;top:18px;right:18px;display:grid;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:#f2f2f3;color:#333;cursor:pointer}.ec-gallery-kind{align-self:flex-start;margin-bottom:14px;padding:5px 8px;border-radius:5px;background:#f1edff;color:#6545e7;font-size:11px;font-weight:800}.ec-gallery-details h2{margin:0 40px 7px 0;color:#202124;font-size:21px;line-height:1.35;letter-spacing:0}.ec-gallery-meta{color:#888b92;font-size:12px}.ec-gallery-current{margin-top:28px;padding-top:24px;border-top:1px solid #ececef}.ec-gallery-current>span{color:#7463d9;font-size:11px;font-weight:800}.ec-gallery-current h3{margin:7px 0 8px;color:#25262a;font-size:18px;letter-spacing:0}.ec-gallery-current p{margin:0;color:#656870;font-size:13px;line-height:1.75}.ec-gallery-current small{display:block;margin-top:10px;color:#9a9ca2;font-size:11px}.ec-gallery-strip{display:flex;margin-top:auto;flex-direction:column;gap:5px;max-height:174px;overflow-y:auto;padding:2px}.ec-gallery-strip button{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:#f5f5f6;color:#6c6e74;cursor:pointer;text-align:left}.ec-gallery-strip button span{font:700 10px/1 ui-monospace,monospace;color:#a2a3a8}.ec-gallery-strip button strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.ec-gallery-strip button.active{border-color:#cfc5ff;background:#f1edff;color:#563ee0}.ec-gallery-wheel-hint{margin-top:12px;color:#a1a2a8;font-size:11px;text-align:center}@media(max-width:760px){.ec-gallery-overlay{padding:0}.ec-gallery-modal{width:100vw;height:100dvh;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;border:0;border-radius:0}.ec-gallery-details{max-height:36dvh;padding:18px}.ec-gallery-details h2{font-size:17px}.ec-gallery-current{margin-top:12px;padding-top:12px}.ec-gallery-strip{margin-top:14px;flex-direction:row;overflow-x:auto;overflow-y:hidden}.ec-gallery-strip button{max-width:140px;flex:0 0 auto}.ec-gallery-wheel-hint{display:none}}
+    `}</style>
+  </div>;
+}
 
 export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery, onSendToCanvas }) {
   const dialog = useDialog();
@@ -20,6 +76,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
   const [editTags, setEditTags] = useState('');
   const [ecZoom, setEcZoom] = useState(false);
   const [ecIdx, setEcIdx] = useState(0);
+  const wheelLockRef = useRef(0);
 
   const imgs = useMemo(() => {
     const a = [];
@@ -42,6 +99,23 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
   const bodyText = item?.body_text || '';
   const tagStr = (item?.hashtags || []).join(' ');
   const maxI = displayImgs.length || 1;
+
+  useEffect(() => {
+    if (!item) return undefined;
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousOverscroll = body.style.overscrollBehavior;
+    document.documentElement.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehavior = previousOverscroll;
+    };
+  }, [item]);
 
   useEffect(() => {
     if (item?._ecResult || !displayImgs[imgIdx]) return;
@@ -69,6 +143,12 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   // 滚轮切图
   const handleWheel = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (Math.abs(e.deltaY) < 8) return;
+    const now = Date.now();
+    if (now - wheelLockRef.current < 180) return;
+    wheelLockRef.current = now;
     if (e.deltaY > 0 && imgIdx < maxI - 1) setImgIdx(i => i + 1);
     if (e.deltaY < 0 && imgIdx > 0) setImgIdx(i => i - 1);
   };
@@ -114,6 +194,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
   };
 
   if (!item) return null;
+
+  if (item._galleryItem && item._galleryType === 'ecommerce') {
+    return <EcommerceGalleryPreview item={item} onClose={onClose} />;
+  }
 
   // ═══════ EC 结果展示 ═══════
   if (item._ecResult) {
