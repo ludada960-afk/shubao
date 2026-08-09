@@ -8,7 +8,7 @@ const {
   verifyRuntimeConfigFiles,
 } = require('./verify-runtime-config.cjs');
 
-const SECRET_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY']);
+const SECRET_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'NANO_BANANA_API_KEY']);
 const MAX_STDIN_BYTES = 16 * 1024;
 
 function validateSecretPayload(payload) {
@@ -42,6 +42,22 @@ function validateVisionSecretPayload(payload) {
     throw new Error('MINI_API_KEY is invalid');
   }
   return { miniApiKey: payload.MINI_API_KEY };
+}
+
+function validatePartialSecretPayload(payload) {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('runtime secret payload must be an object');
+  }
+  const keys = Object.keys(payload);
+  if (!keys.length || keys.some(key => !SECRET_KEYS.includes(key))) {
+    throw new Error('runtime secret payload has unexpected fields');
+  }
+  for (const key of keys) {
+    if (typeof payload[key] !== 'string' || /[\r\n\0]/.test(payload[key])) {
+      throw new Error(`${key} is invalid`);
+    }
+  }
+  return payload;
 }
 
 function renderRuntimeConfig(source, values) {
@@ -130,14 +146,27 @@ function replaceVisionSecret(filePaths, payload) {
     throw new Error('exactly two runtime config files are required');
   }
   const { miniApiKey } = validateVisionSecretPayload(payload);
-  const configs = filePaths.map(filePath => parseEnv(fs.readFileSync(path.resolve(filePath), 'utf8')));
-  if (configs[0].IMAGE_API_KEY !== configs[1].IMAGE_API_KEY) {
-    throw new Error('IMAGE_API_KEY differs between runtime config files');
+  replaceRuntimeSecrets(filePaths, { MINI_API_KEY: miniApiKey });
+}
+
+function replaceRuntimeSecrets(filePaths, payload) {
+  if (!Array.isArray(filePaths) || filePaths.length !== 2) {
+    throw new Error('exactly two runtime config files are required');
   }
-  configureRuntimeFiles(filePaths, {
-    IMAGE_API_KEY: configs[0].IMAGE_API_KEY,
-    MINI_API_KEY: miniApiKey,
-  });
+  const replacements = validatePartialSecretPayload(payload);
+  const configs = filePaths.map(filePath => parseEnv(fs.readFileSync(path.resolve(filePath), 'utf8')));
+  const secrets = {};
+  for (const key of SECRET_KEYS) {
+    if (Object.hasOwn(replacements, key)) {
+      secrets[key] = replacements[key];
+      continue;
+    }
+    if (configs[0][key] !== configs[1][key]) {
+      throw new Error(`${key} differs between runtime config files`);
+    }
+    secrets[key] = configs[0][key];
+  }
+  configureRuntimeFiles(filePaths, secrets);
 }
 
 async function readStdin() {
@@ -155,8 +184,8 @@ async function readStdin() {
 async function run(argv) {
   const [primaryPath, flag, peerPath, mode, ...rest] = argv;
   if (!primaryPath || flag !== '--peer' || !peerPath || rest.length
-    || (mode && !['--retain-secrets', '--replace-vision-key'].includes(mode))) {
-    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env> [--retain-secrets|--replace-vision-key]');
+    || (mode && !['--retain-secrets', '--replace-vision-key', '--replace-secrets'].includes(mode))) {
+    throw new Error('usage: node configure-runtime-gateways.cjs <runtime-env> --peer <peer-env> [--retain-secrets|--replace-vision-key|--replace-secrets]');
   }
   if (mode === '--retain-secrets') {
     configureRuntimeFilesFromExisting([primaryPath, peerPath]);
@@ -175,6 +204,11 @@ async function run(argv) {
     console.log('Runtime vision gateway configuration updated for both environment files');
     return;
   }
+  if (mode === '--replace-secrets') {
+    replaceRuntimeSecrets([primaryPath, peerPath], payload);
+    console.log('Runtime gateway secrets updated for both environment files');
+    return;
+  }
   configureRuntimeFiles([primaryPath, peerPath], payload);
   console.log('Runtime gateway configuration updated for both environment files');
 }
@@ -182,6 +216,7 @@ async function run(argv) {
 module.exports = {
   configureRuntimeFiles,
   configureRuntimeFilesFromExisting,
+  replaceRuntimeSecrets,
   replaceVisionSecret,
   renderRuntimeConfig,
   validateSecretPayload,

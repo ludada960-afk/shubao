@@ -10,7 +10,7 @@ import {
 
 test('exposes the exact legal generation size catalog', () => {
   assert.deepEqual(LEGAL_IMAGE_SIZES, {
-    '1K': { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768' },
+    '1K': { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '9:16': '576x1024' },
     '2K': { '1:1': '2048x2048', '3:4': '1536x2048', '4:3': '2048x1536', '9:16': '1152x2048' },
     '4K': { '1:1': '2880x2880', '3:4': '2448x3264', '4:3': '3264x2448', '9:16': '2160x3840' },
   });
@@ -18,7 +18,12 @@ test('exposes the exact legal generation size catalog', () => {
 
 test('uses gpt-image-2 and a 2K square for a standard formal asset', () => {
   assert.deepEqual(buildModelRoute({ resolution: '2K', assetCount: 1, batchEligible: false }), {
+    imageModel: 'smart',
+    provider: 'image2',
     model: 'gpt-image-2',
+    resolution: '2K',
+    ratio: '1:1',
+    imageSize: '2K',
     size: '2048x2048',
     async: true,
     mode: 'edit',
@@ -70,10 +75,15 @@ test('validates legal numeric dimensions and rejects unsafe dimensions', () => {
   }
 });
 
-test('promotes a 1K 9:16 request to the smallest supported portrait tier', () => {
+test('keeps a 1K 9:16 request in the requested portrait tier', () => {
   assert.deepEqual(buildModelRoute({ resolution: '1K', ratio: '9:16' }), {
+    imageModel: 'smart',
+    provider: 'image2',
     model: 'gpt-image-2',
-    size: '1152x2048',
+    resolution: '1K',
+    ratio: '9:16',
+    imageSize: '1K',
+    size: '576x1024',
     async: true,
     mode: 'edit',
   });
@@ -81,7 +91,12 @@ test('promotes a 1K 9:16 request to the smallest supported portrait tier', () =>
 
 test('defaults inherited ratio keys to the legal square ratio', () => {
   assert.deepEqual(buildModelRoute({ resolution: '2K', ratio: 'toString' }), {
+    imageModel: 'smart',
+    provider: 'image2',
     model: 'gpt-image-2',
+    resolution: '2K',
+    ratio: '1:1',
+    imageSize: '2K',
     size: '2048x2048',
     async: true,
     mode: 'edit',

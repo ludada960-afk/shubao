@@ -109,6 +109,9 @@ import {
   createEcommerceTaskWorkPersistence,
   createProviderAdapter,
   createProviderRouter,
+  createModelProviderRouter,
+  createNanoBananaProviderAdapter,
+  ecommerceFeatureForItem,
   evaluateAsset,
   evaluateSuiteDiversity,
   planRepair,
@@ -534,6 +537,10 @@ const IMG_LEGACY_BASE = (process.env.IMAGE_BASE_URL || '').replace(/\/+$/, '');
 const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
 const IMG_AUTH_STRATEGY = String(process.env.IMAGE_AUTH_STRATEGY || 'bearer').trim().toLowerCase();
 const IMG_PROVIDER_PROTOCOL = String(process.env.IMAGE_PROVIDER_PROTOCOL || 'native-tasks').trim().toLowerCase();
+const NANO_BANANA_KEY = process.env.NANO_BANANA_API_KEY || '';
+const NANO_BANANA_BASE = (process.env.NANO_BANANA_BASE_URL || 'https://api.change2pro.com').replace(/\/+$/, '');
+const NANO_BANANA_FLASH_MODEL = process.env.NANO_BANANA_FLASH_MODEL || 'gemini-3.1-flash-image';
+const NANO_BANANA_PRO_MODEL = process.env.NANO_BANANA_PRO_MODEL || 'gemini-3-pro-image';
 
 // Vision API — 商品图和参考图分析
 const MINI_KEY = process.env.MINI_API_KEY || '';
@@ -3245,7 +3252,7 @@ const createConfiguredImageAdapter = (baseUrl, {
   editPath: process.env.IMAGE_EDIT_PATH || '/v1/images/edits',
   pollPath,
 });
-const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
+const image2ProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
   primary: createConfiguredImageAdapter(IMG_BASE),
   ...(IMG_OVERFLOW_BASE ? { overflow: createConfiguredImageAdapter(IMG_OVERFLOW_BASE) } : {}),
   legacy: IMG_LEGACY_BASE ? createConfiguredImageAdapter(IMG_LEGACY_BASE, {
@@ -3261,6 +3268,13 @@ const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
     error.retryable = true;
     throw error;
   },
+  async poll() {
+    const error = new Error('图片生成服务暂未配置');
+    error.status = 503;
+    error.code = 'IMAGE_PROVIDER_UNAVAILABLE';
+    error.retryable = true;
+    throw error;
+  },
   async pollUntilReady() {
     const error = new Error('图片生成服务暂未配置');
     error.status = 503;
@@ -3269,6 +3283,18 @@ const ecommerceProviderAdapter = IMG_BASE && IMG_KEY ? createProviderRouter({
     throw error;
   },
 };
+const nanoBananaProviderAdapter = NANO_BANANA_KEY ? createNanoBananaProviderAdapter({
+  apiKey: NANO_BANANA_KEY,
+  baseUrl: NANO_BANANA_BASE,
+  flashModel: NANO_BANANA_FLASH_MODEL,
+  proModel: NANO_BANANA_PRO_MODEL,
+  generatedAssetStore,
+  publicBaseUrl: process.env.INTERNAL_PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3002}`,
+}) : null;
+const ecommerceProviderAdapter = createModelProviderRouter({
+  image2: image2ProviderAdapter,
+  nanoBanana: nanoBananaProviderAdapter,
+});
 const canvasBackgroundCleanPlate = createCanvasBackgroundCleanPlate({
   providerAdapter: ecommerceProviderAdapter,
   imageInputReader,
@@ -3819,6 +3845,7 @@ app.post('/api/canvas/transform', async (req, res) => {
     ratio = '1:1',
     target_language: targetLanguage = '中文',
     resolution = '2K',
+    image_model: imageModel = 'image2',
     annotation = '',
     annotations = [],
     grid = 2,
@@ -3902,15 +3929,16 @@ app.post('/api/canvas/transform', async (req, res) => {
       return res.json({ url: asset.url, annotation: text, annotationCount: annotations.length || (text ? 1 : 0) });
     }
 
-    const selectedSize = resolveGenerationSize({ resolution, ratio });
+    const selectedSize = resolveGenerationSize({ resolution, ratio, imageModel });
+    const feature = ecommerceFeatureForItem({ imageModel, generationSize: selectedSize.size });
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
       actionId,
-      sku: selectedSize.resolution === '4K' ? 'ec_image_4k' : 'ec_image_2k',
+      sku: feature.sku,
       referenceType: 'canvas_transform',
-      providerCostCny: 0.0694,
-      metadata: { action },
+      providerCostCny: feature.providerCostCny,
+      metadata: { action, imageModel },
       resumableWork: true,
       work: () => canvasGenerationService.regenerate({
         ownerEmail: req._userEmail,
@@ -3919,6 +3947,7 @@ app.post('/api/canvas/transform', async (req, res) => {
           image_url: imageUrl,
           ratio: selectedSize.ratio,
           resolution: selectedSize.resolution,
+          image_model: imageModel,
         },
       }),
     });

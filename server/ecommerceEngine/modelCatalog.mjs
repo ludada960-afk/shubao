@@ -1,10 +1,17 @@
 export const LEGAL_IMAGE_SIZES = Object.freeze({
-  '1K': { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768' },
+  '1K': { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '9:16': '576x1024' },
   '2K': { '1:1': '2048x2048', '3:4': '1536x2048', '4:3': '2048x1536', '9:16': '1152x2048' },
   '4K': { '1:1': '2880x2880', '3:4': '2448x3264', '4:3': '3264x2448', '9:16': '2160x3840' },
 });
 
 const RESOLUTIONS = new Set(Object.keys(LEGAL_IMAGE_SIZES));
+export const IMAGE_MODEL_IDS = Object.freeze({
+  SMART: 'smart',
+  IMAGE2: 'image2',
+  NANO_BANANA_2: 'nano-banana-2',
+  NANO_BANANA_PRO: 'nano-banana-pro',
+});
+const IMAGE_MODELS = new Set(Object.values(IMAGE_MODEL_IDS));
 const MAX_EDGE = 3840;
 const MAX_PIXELS = 8_294_400;
 
@@ -57,7 +64,15 @@ function hasExplicitFourKRequirement(input) {
     || input.fourKRequired === true;
 }
 
+export function normalizeImageModel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return IMAGE_MODELS.has(normalized) ? normalized : IMAGE_MODEL_IDS.SMART;
+}
+
 export function selectGenerationModel(input = {}) {
+  const imageModel = normalizeImageModel(input.imageModel);
+  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2) return 'gemini-3.1-flash-image';
+  if (imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO) return 'gemini-3-pro-image';
   const assetCount = input.assetCount;
   const eligibleBatch = Number.isInteger(assetCount)
     && assetCount >= 2
@@ -89,10 +104,19 @@ export function resolveGenerationSize(input = {}) {
 }
 
 export function buildModelRoute(input = {}) {
-  const { resolution, size } = resolveGenerationSize(input);
+  const imageModel = normalizeImageModel(input.imageModel);
+  const { resolution, ratio, size } = resolveGenerationSize(input);
+  const provider = imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2 || imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO
+    ? 'nano-banana'
+    : 'image2';
 
   return {
-    model: selectGenerationModel({ ...input, resolution }),
+    imageModel,
+    provider,
+    model: selectGenerationModel({ ...input, imageModel, resolution }),
+    resolution,
+    ratio,
+    imageSize: resolution,
     size,
     async: true,
     mode: 'edit',

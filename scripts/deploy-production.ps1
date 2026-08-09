@@ -76,6 +76,7 @@ $databaseBackupHelper = Join-Path $PSScriptRoot "backup-runtime-db.cjs"
 $runtimeConfigHelper = Join-Path $PSScriptRoot "verify-runtime-config.cjs"
 $runtimeConfigUpdater = Join-Path $PSScriptRoot "configure-runtime-gateways.cjs"
 $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
+$nanoGatewayProbe = Join-Path $PSScriptRoot "probe-nano-banana-gateway.mjs"
 $galleryVerifier = Join-Path $PSScriptRoot "verify-production-gallery.mjs"
 $galleryDirectoryName = -join [char[]](34223, 21253, 20986, 21697)
 $galleryAssetsDir = Join-Path $repo $galleryDirectoryName
@@ -232,12 +233,22 @@ function Invoke-EcommerceProductionVerification {
 
 $hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
 $hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
+$nanoGatewayKey = $env:SHUBAO_NANO_BANANA_API_KEY
+if ([string]::IsNullOrWhiteSpace($nanoGatewayKey)) {
+  $nanoGatewayKey = [Environment]::GetEnvironmentVariable('SHUBAO_NANO_BANANA_API_KEY', 'User')
+}
+$hasNanoGatewayKey = -not [string]::IsNullOrWhiteSpace($nanoGatewayKey)
+if ($hasNanoGatewayKey) { $env:SHUBAO_NANO_BANANA_API_KEY = $nanoGatewayKey }
 if ($hasImageGatewayKey -and -not $hasVisionGatewayKey) {
   throw "SHUBAO_IMAGE_API_KEY requires SHUBAO_VISION_API_KEY"
 }
 if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
   & node $gatewayProbe --validate-only
   if ($LASTEXITCODE -ne 0) { throw "Production gateway credential format validation failed" }
+}
+if ($hasNanoGatewayKey) {
+  & node $nanoGatewayProbe --validate-only
+  if ($LASTEXITCODE -ne 0) { throw "Nano Banana credential format validation failed" }
 }
 
 Write-Host "Building $commit..."
@@ -257,6 +268,10 @@ if ($hasImageGatewayKey -and $hasVisionGatewayKey) {
 } elseif ($hasVisionGatewayKey) {
   & node $gatewayProbe --vision-only
   if ($LASTEXITCODE -ne 0) { throw "Authenticated production vision gateway probe failed" }
+}
+if ($hasNanoGatewayKey) {
+  & node $nanoGatewayProbe
+  if ($LASTEXITCODE -ne 0) { throw "Authenticated Nano Banana gateway probe failed" }
 }
 
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
@@ -328,25 +343,20 @@ try {
   $lockAcquired = $true
 
   Assert-DeploymentLockHeld
-  if ($hasVisionGatewayKey) {
+  if ($hasImageGatewayKey -or $hasVisionGatewayKey -or $hasNanoGatewayKey) {
     Invoke-LockedRemote -Command "set -e; umask 077; test ! -e '$remoteRuntimeConfigBackup'; mkdir -m 700 '$remoteRuntimeConfigBackup'; cp '$RemoteDir/.env' '$remoteRuntimeConfigBackup/root.env'; cp '$RemoteDir/server/.env' '$remoteRuntimeConfigBackup/server.env'; chmod 600 '$remoteRuntimeConfigBackup/root.env' '$remoteRuntimeConfigBackup/server.env'" -TimeoutSeconds 120 -FailureMessage "Runtime configuration backup failed"
     $runtimeConfigBackupCreated = $true
     $runtimeConfigTouched = $true
-    if ($hasImageGatewayKey) {
-      $runtimePayload = @{
-        IMAGE_API_KEY = $env:SHUBAO_IMAGE_API_KEY
-        MINI_API_KEY = $env:SHUBAO_VISION_API_KEY
-      } | ConvertTo-Json -Compress
-      $runtimeUpdateCommand = "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env"
-    } else {
-      $runtimePayload = @{
-        MINI_API_KEY = $env:SHUBAO_VISION_API_KEY
-      } | ConvertTo-Json -Compress
-      $runtimeUpdateCommand = "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --replace-vision-key"
-    }
+    $runtimeSecrets = @{}
+    if ($hasImageGatewayKey) { $runtimeSecrets.IMAGE_API_KEY = $env:SHUBAO_IMAGE_API_KEY }
+    if ($hasVisionGatewayKey) { $runtimeSecrets.MINI_API_KEY = $env:SHUBAO_VISION_API_KEY }
+    if ($hasNanoGatewayKey) { $runtimeSecrets.NANO_BANANA_API_KEY = $nanoGatewayKey }
+    $runtimePayload = $runtimeSecrets | ConvertTo-Json -Compress
+    $runtimeUpdateCommand = "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --replace-secrets"
     Invoke-LockedRemote -Command $runtimeUpdateCommand -InputText $runtimePayload -TimeoutSeconds 120 -FailureMessage "Production runtime gateway configuration update failed"
     Remove-Variable runtimePayload -ErrorAction SilentlyContinue
     Remove-Variable runtimeUpdateCommand -ErrorAction SilentlyContinue
+    Remove-Variable runtimeSecrets -ErrorAction SilentlyContinue
     Invoke-LockedRemote -Command "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env" -TimeoutSeconds 120 -FailureMessage "Production runtime gateway configuration verification failed after update"
   } else {
     Invoke-LockedRemote -Command "node $remoteRuntimeConfigHelper $RemoteDir/.env --peer $RemoteDir/server/.env" -TimeoutSeconds 120 -FailureMessage "Production runtime gateway configuration verification failed"

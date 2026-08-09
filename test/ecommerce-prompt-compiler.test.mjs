@@ -910,13 +910,23 @@ test('uses catalog-owned cost routing and exactly matches the asset item generat
   });
 
   assert.deepEqual(standard.modelRoute, {
+    imageModel: 'smart',
+    provider: 'image2',
     model: 'gpt-image-2',
+    resolution: '2K',
+    ratio: '3:4',
+    imageSize: '2K',
     size: '1536x2048',
     async: true,
     mode: 'edit',
   });
   assert.deepEqual(fourK.modelRoute, {
+    imageModel: 'smart',
+    provider: 'image2',
     model: 'gpt-image-2',
+    resolution: '4K',
+    ratio: '3:4',
+    imageSize: '4K',
     size: '2448x3264',
     async: true,
     mode: 'edit',

@@ -499,8 +499,8 @@ test('production wiring uses the durable orchestrator, signed ownership, startup
   assert.ok(server.indexOf('await recoverEcommerceStartup()') < server.indexOf('app.listen(PORT'));
   assert.match(server, /recoverEcommerceStartup\.stop\(\)/);
   assert.doesNotMatch(server, /orchestrator\.resumeJobs\(\)\.then\(/);
-  const unavailableStart = server.indexOf("const ecommerceProviderAdapter = IMG_BASE && IMG_KEY");
-  const unavailableEnd = server.indexOf('const orchestrator = createEcommerceOrchestrator', unavailableStart);
+  const unavailableStart = server.indexOf('const image2ProviderAdapter = IMG_BASE && IMG_KEY');
+  const unavailableEnd = server.indexOf('const nanoBananaProviderAdapter', unavailableStart);
   assert.match(server.slice(unavailableStart, unavailableEnd), /error\.retryable\s*=\s*true/);
   assert.match(ecommerceBilling, /idempotencyKey:\s*`ec-release-remainder:\$\{job\.id\}:setup`/);
   const legacyRouteStart = server.indexOf("app.post('/api/generate-ecommerce'");

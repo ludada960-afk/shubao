@@ -58,6 +58,8 @@ export {
 export {
   createProviderRouter,
 } from './providerRouter.mjs';
+export { createModelProviderRouter } from './modelProviderRouter.mjs';
+export { createNanoBananaProviderAdapter } from './nanoBananaProviderAdapter.mjs';
 export {
   normalizeProductTruth, mergeProductFacts, buildProductTruthPrompt,
 } from './productTruth.mjs';

@@ -182,6 +182,7 @@ test('formal generation preserves owner-scoped asset IDs, quote reference, and m
   assert.deepEqual(requests[0].body.sizing, {
     smart: false,
     resolution: '4K',
+    imageModel: 'image2',
     images: [{ key: 'main_text', count: 2, ratio: '1:1' }],
   });
   assert.equal(requests[0].body.billing_quote_id, 'bq1.accepted.quote');

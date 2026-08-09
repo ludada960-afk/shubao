@@ -24,6 +24,27 @@ export function inferImageRole(fileName, index = 0) {
   };
 }
 
+const COVER_EXCLUDE = /白底|透明|png素材|抠图|去背/i;
+const COVER_PRIORITY = [
+  /主图|首图|封面|核心卖点/i,
+  /场景|使用|模特|上身|实拍/i,
+  /材质|细节|工艺|结构|尺寸|参数|对比/i,
+  /详情/i,
+];
+
+export function selectCoverImages(images, limit = 7) {
+  return images
+    .map((image, index) => {
+      const text = `${image?.sourceFile || ''} ${image?.label || ''} ${image?.description || ''}`;
+      const priority = COVER_PRIORITY.findIndex(pattern => pattern.test(text));
+      return { image, index, text, score: priority < 0 ? 1 : COVER_PRIORITY.length - priority + 1 };
+    })
+    .filter(entry => !COVER_EXCLUDE.test(entry.text))
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .slice(0, Math.max(1, Math.min(7, Number(limit) || 7)))
+    .map(entry => entry.image);
+}
+
 export function createMosaicLayout(count, width = 1200, height = 1600, gap = 8) {
   const safeCount = Math.max(0, Math.min(7, Number(count) || 0));
   if (!safeCount) return [];
@@ -124,7 +145,9 @@ async function importCase(argv = process.argv.slice(2)) {
       sourceFile: file,
     });
   }
-  const coverInputs = imported.slice(0, 7).map((_, index) => join(caseDir, String(index + 1).padStart(2, '0') + '.webp'));
+  const coverSelection = selectCoverImages(imported);
+  const coverInputs = (coverSelection.length ? coverSelection : imported.slice(0, 7))
+    .map(image => join(caseDir, image.url.split('/').pop()));
   await buildCover(coverInputs, join(caseDir, 'cover.webp'));
   const entry = {
     id, type: 'ecommerce', title,

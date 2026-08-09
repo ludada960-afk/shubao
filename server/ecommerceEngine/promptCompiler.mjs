@@ -569,6 +569,7 @@ function compileModelRoute(assetPlanItem) {
   const generationSize = cleanString(ownValue(assetPlanItem, 'generationSize'));
   const resolution = deriveResolution(generationSize, ratio);
   const route = buildModelRoute({
+    imageModel: cleanString(ownValue(assetPlanItem, 'imageModel')),
     resolution,
     ratio,
     assetCount: 1,

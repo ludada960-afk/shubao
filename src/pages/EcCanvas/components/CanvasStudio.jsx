@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { IMAGE_MODELS, imageModelLabel } from '../../../services/imageModelCatalog.js';
 import {
   AlignCenter,
   AlignLeft,
@@ -226,9 +227,18 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   const open = activeSurface.startsWith('parameter:') ? activeSurface.slice('parameter:'.length) : '';
   const ratio = node?.ratio || '1:1';
   const resolution = node?.resolution || '2K';
+  const imageModel = node?.imageModel || 'image2';
   const count = Number(node?.count) || countOptions[0] || 1;
   const toggle = key => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `parameter:${key}`));
   return <div className="ec-canvas-parameter-controls" ref={rootRef} onPointerDown={event => event.stopPropagation()}>
+    <div className="ec-canvas-parameter-item">
+      <button type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
+      {open === 'model' && <div className="ec-canvas-parameter-popover ec-canvas-model-popover" role="menu" aria-label="生图模型选项">
+        {IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => { onChange?.({ imageModel: model.id }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
+          <strong>{model.label}</strong><small>{model.badge}</small>
+        </button>)}
+      </div>}
+    </div>
     <div className="ec-canvas-parameter-item">
       <button type="button" data-canvas-control="true" aria-label="图片比例" aria-haspopup="menu" aria-expanded={open === 'ratio'} onClick={() => toggle('ratio')}>自动 / {ratio}<ChevronDown size={12} /></button>
       {open === 'ratio' && <div className="ec-canvas-parameter-popover ec-canvas-ratio-popover" role="menu" aria-label="图片比例选项">
@@ -278,7 +288,7 @@ function suiteConfiguration(node = {}) {
     sizing: { ...defaults.sizing, ...(value.sizing || {}) },
     productParams: { ...defaults.productParams, ...(value.productParams || {}) },
     copywriting: { ...defaults.copywriting, ...(value.copywriting || {}) },
-    genSettings: { ...defaults.genSettings, ...(value.genSettings || {}), resolution: value.genSettings?.resolution || node.resolution || '2K' },
+    genSettings: { ...defaults.genSettings, ...(value.genSettings || {}), resolution: value.genSettings?.resolution || node.resolution || '2K', imageModel: value.genSettings?.imageModel || node.imageModel || 'image2' },
   };
 }
 
@@ -305,7 +315,7 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
     if (key === 'params') return summarizeCommerceConfiguration('params', configuration);
     if (key === 'style') return configuration.styleSkill === 'smart' ? '智能风格' : '自定义风格';
     if (key === 'copy') return Object.values(configuration.copywriting || {}).some(Boolean) ? '已配置' : 'AI规划';
-    return `${configuration.genSettings?.resolution || '2K'}·最佳质量`;
+    return `${imageModelLabel(configuration.genSettings?.imageModel)}·${configuration.genSettings?.resolution || '2K'}`;
   };
   return <div className="ec-canvas-suite-controls" role="group" aria-label="套图参数" ref={rootRef}>
     {SUITE_PANEL_BUTTONS.map(item => <div className="ec-canvas-suite-control" key={item.key}>

@@ -1,6 +1,8 @@
 import { quoteFeature } from '../billing/catalog.mjs';
+import { normalizeImageModel } from './modelCatalog.mjs';
 
 const FOUR_K_SIZES = new Set(['2880x2880', '2448x3264', '3264x2448', '2160x3840']);
+const ONE_K_SIZES = new Set(['1024x1024', '768x1024', '1024x768', '576x1024']);
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -16,10 +18,12 @@ function reQuoteError(code, message) {
 }
 
 export function ecommerceFeatureForItem(item) {
-  return quoteFeature(
-    FOUR_K_SIZES.has(cleanString(item?.generationSize)) ? 'ec_image_4k' : 'ec_image_2k',
-    1,
-  );
+  const imageModel = normalizeImageModel(item?.imageModel);
+  const generationSize = cleanString(item?.generationSize);
+  const resolution = FOUR_K_SIZES.has(generationSize) ? '4k' : ONE_K_SIZES.has(generationSize) ? '1k' : '2k';
+  if (imageModel === 'nano-banana-2') return quoteFeature(`ec_nano_flash_${resolution}`, 1);
+  if (imageModel === 'nano-banana-pro') return quoteFeature(`ec_nano_pro_${resolution}`, 1);
+  return quoteFeature(resolution === '4k' ? 'ec_image_4k' : 'ec_image_2k', 1);
 }
 
 export function createEcommerceBilling({ walletService, quoteService } = {}) {
@@ -97,6 +101,7 @@ export function createEcommerceBilling({ walletService, quoteService } = {}) {
           taskId: job.id,
           role: item.role,
           generationSize: item.generationSize,
+          imageModel: normalizeImageModel(item.imageModel),
           qualityConfidence: quality?.confidence || '',
         },
       });

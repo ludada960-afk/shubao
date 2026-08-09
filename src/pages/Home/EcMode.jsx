@@ -171,6 +171,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
   const [genSettings, setGenSettings] = useState({
     resolution: '2K',
+    imageModel: 'image2',
     negativePrompt: ''
   });
 
@@ -268,6 +269,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     const effectiveSizing = {
       smart: sizing.smart !== false,
       resolution: genSettings.resolution,
+      imageModel: genSettings.imageModel || 'image2',
       contentType: commerceContext.contentType,
       images: resolveSizingImages(commerceContext.platform, {
         ...sizing,
@@ -1122,8 +1124,9 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
                       return filled > 0 ? { text: `${filled}项文案`, isSmart: false } : { text: '文案策划', isSmart: false };
                     }
                     case 'settings': {
-                      const { resolution = '1K' } = genSettings;
-                      return { text: `${resolution}·最佳质量`, isSmart: false };
+                      const { resolution = '2K', imageModel = 'image2' } = genSettings;
+                      const modelLabel = imageModel === 'nano-banana-pro' ? 'Nano Pro' : imageModel === 'nano-banana-2' ? 'Nano 2' : 'Image 2';
+                      return { text: `${modelLabel}·${resolution}`, isSmart: false };
                     }
                     default:
                       return { text: null, isSmart: false };

@@ -11,6 +11,14 @@ function item(id, generationSize = '2048x2048') {
   return { id, role: 'main', generationSize };
 }
 
+test('catalog exposes server-owned Nano Banana model and resolution SKUs', () => {
+  const cases = [
+    ['ec_nano_flash_1k', 8000], ['ec_nano_flash_2k', 12000], ['ec_nano_flash_4k', 18000],
+    ['ec_nano_pro_1k', 16000], ['ec_nano_pro_2k', 16000], ['ec_nano_pro_4k', 28000],
+  ];
+  for (const [sku, units] of cases) assert.equal(quoteFeature(sku, 1).units, units);
+});
+
 function harness({ ownerEmail = 'owner@example.com', assetPlan = [item('main-1'), item('main-2')] } = {}) {
   const quoteService = createBillingQuoteService({
     secret: SECRET,

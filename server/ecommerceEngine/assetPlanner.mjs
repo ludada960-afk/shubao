@@ -8,7 +8,7 @@ import {
 } from './commercialDutyCatalog.mjs';
 import { isFactGatedDetailRole, resolveDetailDuties } from './detailDutyPolicy.mjs';
 import { layoutContractFor, textLayerPlanFor } from './layoutContracts.mjs';
-import { LEGAL_IMAGE_SIZES, resolveGenerationSize } from './modelCatalog.mjs';
+import { LEGAL_IMAGE_SIZES, normalizeImageModel, resolveGenerationSize } from './modelCatalog.mjs';
 import { getPlatformPolicy, planExportTargets } from './platformPolicies.mjs';
 import { directShot } from './shotDirector.mjs';
 import { compileTypographySystem } from './typographyPolicy.mjs';
@@ -143,6 +143,7 @@ function normalizeSizing(value) {
   const seen = new Set();
   return {
     resolution: Object.hasOwn(LEGAL_IMAGE_SIZES, resolution) ? resolution : '2K',
+    imageModel: normalizeImageModel(ownValue(sizing, 'imageModel') ?? ownValue(sizing, 'image_model')),
     hasExplicitCounts,
     images: normalizedImages.flatMap((image) => {
       if (seen.has(image.key)) return [];
@@ -280,7 +281,7 @@ function skuVariantIdentity(skuFacts) {
 function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communicationGoal, defaultRatio = '3:4', requiredFacts, generationMode = 'edit', productAssetIds, styleReferenceIds, proofAssetIds = [], variantIdentity = null, variantComparison = null, category, platform, sizing }) {
   const roleDefaultRatio = role.startsWith('detail_slice_') ? '9:16' : defaultRatio;
   const ratioSelection = resolveRatioSelection({ role }, sizing, roleDefaultRatio);
-  const resolvedGeneration = resolveGenerationSize({ resolution: sizing.resolution, ratio: ratioSelection.ratio });
+  const resolvedGeneration = resolveGenerationSize({ imageModel: sizing.imageModel, resolution: sizing.resolution, ratio: ratioSelection.ratio });
   const ratio = resolvedGeneration.ratio;
   const targetRatio = ratioSelection.targetRatio || ratio;
   const cropPolicy = targetRatio === ratio ? 'none' : ratioSelection.cropPolicy;
@@ -304,6 +305,7 @@ function buildItem({ id: requestedId, role, purpose, commercialDutyKey, communic
     targetRatio,
     cropPolicy,
     platform,
+    imageModel: sizing.imageModel,
     generationSize,
     exportTargets: role === 'transparent'
       ? exportTargets.filter(target => target.format === 'png')

@@ -148,8 +148,9 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     platform: commerceContext.platform,
     sizing: { ...(params?.sizing || {}), contentType: commerceContext.contentType },
     resolution: params?.genSettings?.resolution || '2K',
+    imageModel: params?.genSettings?.imageModel || 'image2',
     skus: params?.skus || [],
-  }), [commerceContext.contentType, commerceContext.platform, params?.genSettings?.resolution, params?.sizing, params?.skus]);
+  }), [commerceContext.contentType, commerceContext.platform, params?.genSettings?.imageModel, params?.genSettings?.resolution, params?.sizing, params?.skus]);
   const quoteText = formatEcommerceQuote({
     quantity: ecommercePlan.quantity,
     quote: billingQuote,
@@ -435,6 +436,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           ...(params?.sizing || {}),
           contentType: commerceContext.contentType,
           resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
+          imageModel: params?.genSettings?.imageModel || params?.sizing?.imageModel || 'image2',
         },
         skus: params?.skus || [],
         customColors: params?.customColors || [],
@@ -554,6 +556,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             ...(params?.sizing || {}),
             contentType: commerceContext.contentType,
             resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
+            imageModel: params?.genSettings?.imageModel || params?.sizing?.imageModel || 'image2',
           },
           skus: params?.skus || [],
           customColors: params?.customColors || [],

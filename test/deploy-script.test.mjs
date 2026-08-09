@@ -11,6 +11,7 @@ const ecommerceVerify = readFileSync(new URL('../scripts/verify-production-ecomm
 const backupHelper = readFileSync(new URL('../scripts/backup-runtime-db.cjs', import.meta.url), 'utf8');
 const runtimeConfigVerifier = readFileSync(new URL('../scripts/verify-runtime-config.cjs', import.meta.url), 'utf8');
 const runtimeConfigUpdater = readFileSync(new URL('../scripts/configure-runtime-gateways.cjs', import.meta.url), 'utf8');
+const nanoGatewayProbe = readFileSync(new URL('../scripts/probe-nano-banana-gateway.mjs', import.meta.url), 'utf8');
 const productionEcosystem = readFileSync(new URL('../ecosystem.production.config.cjs', import.meta.url), 'utf8');
 const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 const ecommerceIdleProbe = readFileSync(new URL('../scripts/check-ecommerce-idle.cjs', import.meta.url), 'utf8');
@@ -36,6 +37,7 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /verify-runtime-config\.cjs/i);
   assert.match(deploy, /configure-runtime-gateways\.cjs/i);
   assert.match(deploy, /probe-production-gateways\.mjs/i);
+  assert.match(deploy, /probe-nano-banana-gateway\.mjs/i);
   assert.match(deploy, /& node \$gatewayProbe --validate-only/i);
   assert.ok(
     deploy.indexOf('& node $gatewayProbe --validate-only') < deploy.indexOf('Write-Host "Building $commit..."'),
@@ -43,13 +45,14 @@ test('production deploy protects runtime state and has a reversible release gate
   );
   assert.match(deploy, /SHUBAO_IMAGE_API_KEY requires SHUBAO_VISION_API_KEY/i);
   assert.match(deploy, /--vision-only/i);
-  assert.match(deploy, /--replace-vision-key/i);
+  assert.match(deploy, /--replace-secrets/i);
   assert.match(deploy, /Authenticated production gateway probe failed/i);
   assert.match(deploy, /shubao-runtime-tools/i);
   assert.match(deploy, /remoteRuntimeHelperDir\/verify-runtime-config\.cjs/i);
   assert.match(deploy, /remoteRuntimeHelperDir\/configure-runtime-gateways\.cjs/i);
   assert.match(deploy, /SHUBAO_IMAGE_API_KEY/);
   assert.match(deploy, /SHUBAO_VISION_API_KEY/);
+  assert.match(deploy, /SHUBAO_NANO_BANANA_API_KEY/);
   assert.doesNotMatch(deploy, /SHUBAO_FAL_KEY|FAL_KEY/);
   assert.match(deploy, /Invoke-LockedRemote[^\n]*-InputText\s+\$runtimePayload/i);
   assert.doesNotMatch(deploy, /--replace-segmentation-key/i);
@@ -279,7 +282,7 @@ test('runtime gateway updater accepts secrets only through stdin and rolls files
   assert.match(runtimeConfigUpdater, /renameSync/);
   assert.match(runtimeConfigUpdater, /configureRuntimeFiles/);
   assert.doesNotMatch(runtimeConfigUpdater, /FAL_KEY|replaceSegmentationSecret|replace-segmentation-key/);
-  assert.doesNotMatch(runtimeConfigUpdater, /console\.(?:log|error)\([^\n]*(?:IMAGE_API_KEY|MINI_API_KEY)/);
+  assert.doesNotMatch(runtimeConfigUpdater, /console\.(?:log|error)\([^\n]*(?:IMAGE_API_KEY|MINI_API_KEY|NANO_BANANA_API_KEY)/);
 });
 
 test('production runtime verifier fails closed without exposing secret values', () => {
@@ -296,9 +299,17 @@ test('production runtime verifier fails closed without exposing secret values', 
   assert.match(runtimeConfigVerifier, /MINI_MODEL[\s\S]*gpt-5\.6-luna/);
   assert.match(runtimeConfigVerifier, /IMAGE_API_KEY/);
   assert.match(runtimeConfigVerifier, /MINI_API_KEY/);
+  assert.match(runtimeConfigVerifier, /NANO_BANANA_API_KEY/);
   assert.doesNotMatch(runtimeConfigVerifier, /FAL_KEY/);
   assert.match(runtimeConfigVerifier, /0o077/);
   assert.doesNotMatch(runtimeConfigVerifier, /console\.(?:log|error)\([^\n]*(?:secret|value)/i);
+});
+
+test('Nano Banana gateway probe validates stable production aliases without exposing credentials', () => {
+  assert.match(nanoGatewayProbe, /gemini-3\.1-flash-image/);
+  assert.match(nanoGatewayProbe, /gemini-3-pro-image/);
+  assert.match(nanoGatewayProbe, /--generate/);
+  assert.doesNotMatch(nanoGatewayProbe, /console\.(?:log|error)\([^\n]*(?:apiKey|NANO_BANANA_API_KEY)/);
 });
 
 test('runtime database backup helper resolves the deployed driver and closes the source', () => {

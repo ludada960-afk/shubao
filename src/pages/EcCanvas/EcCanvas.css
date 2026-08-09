@@ -425,6 +425,9 @@
 .ec-canvas-parameter-popover { position: absolute; z-index: 30; left: 0; bottom: calc(100% + 9px); box-sizing: border-box; padding: 10px; border: 1px solid #e1e5eb; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 36px rgba(15,23,42,.16); }
 .ec-canvas-parameter-popover button { border: 1px solid #e1e5eb; background: #fff; color: #59616c; cursor: pointer; }
 .ec-canvas-parameter-popover button:hover, .ec-canvas-parameter-popover button.is-active { border-color: #3b82f6; background: #eff6ff; color: #2563eb; }
+.ec-canvas-model-popover { width: 220px; display: grid; gap: 6px; }
+.ec-canvas-model-popover button { width: 100%; padding: 9px 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
+.ec-canvas-model-popover small { color: #8a93a0; white-space: nowrap; }
 .ec-canvas-ratio-popover { width: 274px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .ec-canvas-ratio-popover button { min-height: 66px; display: grid; place-items: center; align-content: center; gap: 5px; border-radius: 9px; font-size: 10px; }
 .ec-canvas-ratio-shape { display: block; width: 22px; height: 22px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 2px; }

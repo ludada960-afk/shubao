@@ -5,6 +5,7 @@ import {
   normalizeCommerceFormat,
 } from './ecommerceFormatRegistry.js';
 import { normalizeCommerceContext } from './internationalCommerceRegistry.js';
+import { generationBillingSku, normalizeImageModel } from '../../../services/imageModelCatalog.js';
 
 const RESOLUTIONS = new Set(['1K', '2K', '4K']);
 
@@ -193,18 +194,21 @@ export function resolveEcommercePlan({
   platform = 'smart',
   sizing = {},
   resolution = '2K',
+  imageModel = 'image2',
   skus = [],
 } = {}) {
   const normalizedResolution = normalizeResolution(resolution);
+  const normalizedImageModel = normalizeImageModel(imageModel);
   const images = resolveSizingImages(platform, { ...sizing, resolution: normalizedResolution });
   const quantity = images.reduce((total, image) => total + image.count, 0) + validSkuCount(skus);
   return {
     resolution: normalizedResolution,
+    imageModel: normalizedImageModel,
     images,
     quantity,
     quoteRequest: quantity > 0
       ? {
-          sku: normalizedResolution === '4K' ? 'ec_image_4k' : 'ec_image_2k',
+          sku: generationBillingSku(normalizedImageModel, normalizedResolution),
           quantity,
         }
       : null,

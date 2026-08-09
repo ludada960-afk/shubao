@@ -24,6 +24,7 @@ import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
 import { isTransientTaskSyncError, withTransientTaskSyncRetry } from './taskSync.js';
 import { getEcommerceAutoRepairDecision } from './ecommerceRetryPolicy.js';
 import { normalizeCommerceContext } from '../pages/Home/ec/internationalCommerceRegistry.js';
+import { generationBillingSku, normalizeImageModel } from './imageModelCatalog.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 const ECOMMERCE_SUITE_REPAIR_VERSION = 1;
@@ -943,10 +944,11 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   // B5: 传递场景预设风格到后端
   if (styleSkill) body.style_skill = styleSkill;
   if (customColors) body.custom_colors = customColors;
-  if (sizing || generationSettings?.resolution) {
+  if (sizing || generationSettings?.resolution || generationSettings?.imageModel) {
     body.sizing = {
       ...(sizing || {}),
       resolution: generationSettings?.resolution || sizing?.resolution || '2K',
+      imageModel: generationSettings?.imageModel || sizing?.imageModel || 'image2',
     };
   }
   if (typeof billingQuoteId === 'string' && billingQuoteId.trim()) {
@@ -1350,18 +1352,19 @@ export async function saveWork(work, phone, { signal } = {}) {
   return null;
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', requestKey = '', selection }) {
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = 'image2', requestKey = '', selection }) {
   const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
+  const normalizedImageModel = normalizeImageModel(imageModel);
   const logicalRequestKey = String([
-    requestKey || [prompt, normalizedImageUrl, ratio || '', resolution, ...referenceImages].join('\u0000'),
+    requestKey || [prompt, normalizedImageUrl, ratio || '', resolution, normalizedImageModel, ...referenceImages].join('\u0000'),
     JSON.stringify(selection || {}),
   ].join('\u0000')).slice(0, 120000);
   const stableRequestKey = stableCanvasActionId(logicalRequestKey);
-  const billingSku = String(resolution).toUpperCase() === '4K' ? 'ec_image_4k' : 'ec_image_2k';
+  const billingSku = generationBillingSku(normalizedImageModel, resolution);
   const billing = await quoteCanvasAction(billingSku, stableRequestKey);
   const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
     method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), reference_metadata: references, ratio, resolution, request_key: stableRequestKey, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
+    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), reference_metadata: references, ratio, resolution, image_model: normalizedImageModel, request_key: stableRequestKey, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
@@ -1376,6 +1379,7 @@ export async function transformCanvasImage({
   ratio = '1:1',
   targetLanguage = '中文',
   resolution = '2K',
+  imageModel = 'image2',
   annotation = '',
   annotations = [],
   grid = 2,
@@ -1386,7 +1390,8 @@ export async function transformCanvasImage({
   splitPosition,
 }) {
   const paid = new Set(['retouch', 'extend', 'translate', 'upscale', 'inpaint']);
-  const billingSku = String(resolution).toUpperCase() === '4K' ? 'ec_image_4k' : 'ec_image_2k';
+  const normalizedImageModel = normalizeImageModel(imageModel);
+  const billingSku = generationBillingSku(normalizedImageModel, resolution);
   const billing = paid.has(action) ? await quoteCanvasAction(billingSku) : null;
   const res = await fetch(`${API_BASE}/api/canvas/transform`, {
     method: 'POST',
@@ -1398,6 +1403,7 @@ export async function transformCanvasImage({
       ratio,
       target_language: targetLanguage,
       resolution,
+      image_model: normalizedImageModel,
       annotation,
       annotations,
       grid,

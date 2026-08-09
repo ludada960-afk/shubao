@@ -17,6 +17,7 @@ const {
 const VALID_SECRETS = {
   IMAGE_API_KEY: 'sk-image-test-key-that-is-long-enough',
   MINI_API_KEY: 'opaque-vision-key-that-is-long-enough',
+  NANO_BANANA_API_KEY: 'sk-nano-test-key-that-is-long-enough',
 };
 
 function envText(overrides = {}) {
@@ -48,6 +49,10 @@ test('runtime config validator accepts only the target gateway contract', () => 
   );
   assert.doesNotThrow(
     () => validateRuntimeConfig(parseEnv(envText({ MINI_API_KEY: 'vision-test-key-that-is-long-enough' }))),
+  );
+  assert.throws(
+    () => validateRuntimeConfig(parseEnv(envText({ NANO_BANANA_API_KEY: 'short' }))),
+    /NANO_BANANA_API_KEY is missing or looks like a placeholder/i,
   );
 });
 

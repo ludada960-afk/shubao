@@ -119,6 +119,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     prompt: '',
     ratio: '1:1',
     resolution: '2K',
+    imageModel: 'image2',
     count: 1,
     sourceNodeIds: ['image-1'],
   });
@@ -142,6 +143,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     suiteType: '完整套图',
     ratio: '1:1',
     resolution: '2K',
+    imageModel: 'image2',
     language: '中文',
     count: 6,
     skuMode: '默认SKU',
@@ -164,7 +166,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
       productParams: { category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' },
       skus: [],
       copywriting: { plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' },
-      genSettings: { resolution: '2K', negativePrompt: '' },
+      genSettings: { resolution: '2K', imageModel: 'image2', negativePrompt: '' },
     },
   });
 });
@@ -183,6 +185,7 @@ test('text generation starts as an editable document body and keeps source refer
     prompt: '',
     ratio: '1:1',
     resolution: '2K',
+    imageModel: 'image2',
     count: 1,
     sourceNodeIds: ['image-1'],
     textStyle: {
@@ -440,7 +443,6 @@ test('canvas text generation creates image results while retaining its editable 
   const end = page.indexOf('const handleAddTextNode', start);
   const handler = page.slice(start, end);
   assert.match(handler, /regenerateCanvasImage/);
-  assert.match(handler, /regenerateImage/);
   assert.match(handler, /kind: 'image'/);
   assert.doesNotMatch(handler, /regenerateCanvasText/);
   assert.doesNotMatch(handler, /kind: 'text',[\s\S]*?status: 'success'/);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, regenerateImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
+import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
   ASSET_GROUPS,
   addConnection,
@@ -1527,6 +1527,8 @@ export default function EcCanvas() {
         imageUrl: sourceUrl,
         referenceImages,
         ratio: node.inputs?.ratio || source.ratio,
+        resolution: node.inputs?.resolution || source.resolution || '2K',
+        imageModel: node.inputs?.imageModel || source.imageModel || 'image2',
         requestKey: `${generationRunId}:${index + 1}`,
       })));
       const successful = settled.flatMap((result, resultIndex) => result.status === 'fulfilled'
@@ -1650,9 +1652,9 @@ export default function EcCanvas() {
         url = data.result_url || data.url || '';
         resultGeometry = canvasImageResultGeometry(data, source);
       } else if (actionId === 'inpaint') {
-        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio });
+        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || 'image2' });
       } else {
-        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio });
+        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || 'image2' });
         url = data.url || data.result_url || '';
       }
       if (!url) throw new Error('处理结果为空');
@@ -2021,7 +2023,7 @@ export default function EcCanvas() {
       try {
         const prompt = [node.direction?.purpose, node.direction?.composition, node.direction?.copy]
           .filter(Boolean).join('\n') || '保持商品、品牌和文字准确，重新生成同一商业用途的电商图片。';
-        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio });
+        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio, resolution: node.resolution || '2K', imageModel: node.imageModel || 'image2' });
         const output = normalizeCanvasNode({
           ...node,
           id: `node_regenerated_${Date.now()}`,
@@ -2073,7 +2075,7 @@ export default function EcCanvas() {
     if (handler === 'grid-split') {
       setPromptLoading(true);
       try {
-        const data = await transformCanvasImage({ action: actionId, imageUrl: node.url });
+        const data = await transformCanvasImage({ action: actionId, imageUrl: node.url, resolution: node.resolution || '2K', imageModel: node.imageModel || 'image2' });
         const parts = (data.urls || []).map(({ url }, index) => ({
           ...node,
           id: `${node.id}_grid_${index + 1}_${Date.now()}`,
@@ -2455,6 +2457,7 @@ export default function EcCanvas() {
             references: sourceReferences.references,
             ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
             resolution: composer.resolution || '2K',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
             selection,
           });
           return response;
@@ -2466,6 +2469,7 @@ export default function EcCanvas() {
             imageUrl: sourceNodes[0].url,
             ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
             resolution: composer.resolution || '2K',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
           });
           const url = response?.url || response?.result_url;
           if (!url) throw new Error('图片处理没有返回结果');
@@ -2479,10 +2483,14 @@ export default function EcCanvas() {
             references: sourceReferences.references,
             ratio: composer.ratio || '1:1',
             resolution: composer.resolution || '2K',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
           })
-          : regenerateImage(composer.prompt.trim(), result.category || '电商图片', {
+          : regenerateCanvasImage({
+            prompt: composer.prompt.trim(),
+            imageUrl: '',
             ratio: composer.ratio || '1:1',
             resolution: composer.resolution || '2K',
+            imageModel: composer.imageModel || 'image2',
           });
       }));
       const createdAt = Date.now();
@@ -2498,6 +2506,8 @@ export default function EcCanvas() {
         displayLabel: `图片生成结果 ${index + 2}`,
         group: '素材',
         role: '创作图片',
+        imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+        resolution: composer.resolution || '2K',
         ratio,
         sourceNodeIds: [composer.id],
         x: composer.x + composer.w + 56 + index * 268,
@@ -2643,6 +2653,7 @@ export default function EcCanvas() {
         generationSettings: {
           ...(configuration.genSettings || {}),
           resolution: configuration.genSettings?.resolution || composer.resolution || '2K',
+          imageModel: configuration.genSettings?.imageModel || composer.imageModel || 'image2',
           suiteType: composer.suiteType || '完整套图',
           skuMode: composer.skuMode || '默认SKU',
           styleSkill: configuration.styleSkill || composer.styleSkill || 'smart',
@@ -2676,6 +2687,8 @@ export default function EcCanvas() {
             role,
             ratio,
             size: image.size || '',
+            imageModel: configuration.genSettings?.imageModel || composer.imageModel || 'image2',
+            resolution: configuration.genSettings?.resolution || composer.resolution || '2K',
             sourceNodeIds: [composer.id],
             x: composer.x + composer.w + 80 + column * 268,
             y: composer.y + (roleRows[group] ?? 4) * 390,
@@ -2729,10 +2742,14 @@ export default function EcCanvas() {
           references: sourceReferences.references,
           ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
           resolution: composer.resolution || '2K',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
         })
-        : regenerateImage(prompt, result.category || '电商图片', {
+        : regenerateCanvasImage({
+          prompt,
+          imageUrl: '',
           ratio: composer.ratio || '1:1',
           resolution: composer.resolution || '2K',
+          imageModel: composer.imageModel || 'image2',
         })));
       const createdAt = Date.now();
       const ratio = composer.ratio || '1:1';
@@ -2747,6 +2764,8 @@ export default function EcCanvas() {
         displayLabel: `画面生成结果 ${index + 1}`,
         group: '素材',
         role: '创作图片',
+        imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+        resolution: composer.resolution || '2K',
         ratio,
         sourceNodeIds: [composer.id],
         x: composer.x + composer.w + 56 + index * 268,
