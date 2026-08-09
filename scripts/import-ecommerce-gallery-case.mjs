@@ -173,6 +173,7 @@ async function importCase(argv = process.argv.slice(2)) {
     cover_url: '/gallery/ecommerce/' + id + '/cover.webp',
     cover_mosaic_url: '/gallery/ecommerce/' + id + '/cover.webp',
     images: imported,
+    ...(metadata.remix && typeof metadata.remix === 'object' ? { remix: metadata.remix } : {}),
   };
   await writeFile(join(caseDir, 'case.json'), JSON.stringify(entry, null, 2) + '\n', 'utf8');
   const indexPath = join(outputRoot, 'cases.json');

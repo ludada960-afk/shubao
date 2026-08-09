@@ -7,10 +7,10 @@ function freezeCatalog(entries) {
 }
 
 export const PRODUCTS = freezeCatalog({
-  ec_trial_990: { sku: 'ec_trial_990', priceFen: 990, compareAtFen: 1900, currency: 'ec_points', grantUnits: 30000, validityDays: null },
-  ec_starter_29: { sku: 'ec_starter_29', priceFen: 2900, compareAtFen: 4900, currency: 'ec_points', grantUnits: 105000, validityDays: null },
-  ec_growth_79: { sku: 'ec_growth_79', priceFen: 7900, compareAtFen: 12900, currency: 'ec_points', grantUnits: 295000, validityDays: null },
-  ec_studio_199: { sku: 'ec_studio_199', priceFen: 19900, compareAtFen: 29900, currency: 'ec_points', grantUnits: 760000, validityDays: null },
+  ec_trial_990: { sku: 'ec_trial_990', priceFen: 990, currency: 'ec_points', grantUnits: 30000, validityDays: null },
+  ec_starter_29: { sku: 'ec_starter_29', priceFen: 2900, currency: 'ec_points', grantUnits: 105000, validityDays: null },
+  ec_growth_79: { sku: 'ec_growth_79', priceFen: 7900, currency: 'ec_points', grantUnits: 295000, validityDays: null },
+  ec_studio_199: { sku: 'ec_studio_199', priceFen: 19900, currency: 'ec_points', grantUnits: 760000, validityDays: null },
   xhs_entry_19: { sku: 'xhs_entry_19', priceFen: 1900, currency: 'content_sets', grantUnits: 3, validityDays: 30, regenPerWork: 5 },
   xhs_growth_49: { sku: 'xhs_growth_49', priceFen: 4900, currency: 'content_sets', grantUnits: 10, validityDays: 30, regenPerWork: 8 },
   xhs_creator_99: { sku: 'xhs_creator_99', priceFen: 9900, currency: 'content_sets', grantUnits: 25, validityDays: 30, regenPerWork: 15 },

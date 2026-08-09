@@ -553,7 +553,6 @@ test('creates a new immutable catalog version when a SKU payload changes and set
       payload: {
         sku: 'ec_starter_29',
         priceFen: 2900,
-        compareAtFen: 4900,
         currency: 'ec_points',
         grantUnits: 105000,
         validityDays: null,

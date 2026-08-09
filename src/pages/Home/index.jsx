@@ -77,6 +77,13 @@ export default function HomePage() {
     }
   };
 
+  const restoreGalleryCheckpoint = checkpoint => {
+    restoreCheckpoint(checkpoint);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      document.getElementById('creation-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }));
+  };
+
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)', overflowX: 'clip', paddingBottom: 80 }}>
       <div className="creative-bg-glow" />
@@ -156,7 +163,7 @@ export default function HomePage() {
               onGenerated={() => setEcStep(3)}
             />
           )}
-          <div className="surface-card" style={{
+          <div id="creation-workbench" className="surface-card" style={{
             display: ecStep === 2 ? 'none' : undefined,
             marginTop: 20,
             background: isXHS ? '#fff' : 'transparent',
@@ -173,7 +180,7 @@ export default function HomePage() {
         </div>
 
         {/* 案例发现区 */}
-        <GallerySection maxItems={24} />
+        <GallerySection maxItems={24} onUseSameStyle={restoreGalleryCheckpoint} />
       </div>
       <Footer />
     </div>

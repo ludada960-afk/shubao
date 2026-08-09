@@ -192,6 +192,8 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     setSkus(restored.skus);
     setCopywriting(restored.copywriting);
     setGenSettings(restored.genSettings);
+    setProductImages(restored.productImages);
+    setRefImages(restored.referenceImages);
   }, [recoveryCheckpoint]);
 
   /* — 面板（Portal 定位用视口坐标）—— */

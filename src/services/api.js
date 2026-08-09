@@ -543,6 +543,18 @@ export async function uploadEcommerceAssets(images, role = 'product', { signal }
         role: image.role || role,
       };
     }
+    const reusableUrl = typeof image === 'string' ? image : image?.reusableGalleryAsset ? image.url : '';
+    if (reusableUrl) {
+      const parsed = new URL(reusableUrl, globalThis.location?.origin || 'http://localhost');
+      const currentOrigin = globalThis.location?.origin;
+      if ((!currentOrigin || parsed.origin === currentOrigin) && parsed.pathname.startsWith('/gallery/')) {
+        const response = await fetch(parsed.href, { signal });
+        if (!response.ok) throw new Error('案例素材读取失败，请刷新后重试');
+        const blob = await response.blob();
+        if (!String(blob.type || '').startsWith('image/')) throw new Error('案例素材格式无效');
+        return uploadEcommerceAsset({ file: blob, role, signal });
+      }
+    }
     return uploadEcommerceAsset({
       data: typeof image === 'string' && image.startsWith('data:image/') ? image : undefined,
       file: image?.file || image,

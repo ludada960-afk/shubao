@@ -41,6 +41,7 @@ test('gallery loads curated ecommerce cases and exposes same-style action', asyn
   const source = await readFile(new URL('../src/pages/Home/GallerySection.jsx', import.meta.url), 'utf8');
   assert.match(source, /gallery\/ecommerce\/cases\.json/);
   assert.match(source, /做同款/);
-  assert.match(source, /SET_MODE/);
-  assert.match(source, /SET_INPUT/);
+  assert.match(source, /gallery-card-overlay/);
+  assert.doesNotMatch(source, /gallery-card-actions/);
+  assert.match(source, /onUseSameStyle/);
 });

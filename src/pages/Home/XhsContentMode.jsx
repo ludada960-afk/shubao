@@ -160,6 +160,10 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     if (kind === 'xiaohongshu') {
       dispatch({ type: 'SET_INPUT', text: typeof snapshot.text === 'string' ? snapshot.text : '' });
       if (Array.isArray(snapshot.referenceAssetIds)) setXhsReferenceAssetIds(snapshot.referenceAssetIds);
+      if (Array.isArray(snapshot.referenceImages)) {
+        setRefImages(snapshot.referenceImages.filter(value => typeof value === 'string' && value.trim()).slice(0, 3));
+        setXhsReferenceAssetIds([]);
+      }
     }
     if (kind === 'plog') {
       setPlogText(typeof snapshot.text === 'string' ? snapshot.text : '');

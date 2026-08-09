@@ -30,14 +30,12 @@ test('video studio is an authenticated durable billed workspace', async () => {
   assert.match(generation, /upsertWork/);
 });
 
-test('pricing presents documented formal prices separately from public beta prices', async () => {
+test('pricing presents only the real checkout price', async () => {
   const [catalog, modal] = await Promise.all([
     source('../server/billing/catalog.mjs'),
     source('../src/components/business/Modals.jsx'),
   ]);
-  assert.match(catalog, /compareAtFen:\s*1900/);
-  assert.match(catalog, /compareAtFen:\s*29900/);
-  assert.match(modal, /正式版价/);
-  assert.match(modal, /公测价/);
-  assert.match(modal, /textDecoration:\s*'line-through'/);
+  assert.doesNotMatch(catalog, /compareAtFen/);
+  assert.doesNotMatch(modal, /正式版价|公测价|line-through/);
+  assert.match(modal, /选择套餐/);
 });
