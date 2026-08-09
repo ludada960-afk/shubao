@@ -744,7 +744,7 @@ async function generateContentStream(path, payload, { onImage, onProgress, signa
 
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(withSessionEmail(payload)),
     signal: controller.signal,
   }).catch(e => { clearTimeout(timeoutId); throw new Error('网络请求失败: ' + e.message); });
