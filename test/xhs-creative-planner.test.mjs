@@ -5,6 +5,9 @@ import {
   buildDynamicXhsAnalysisRequest,
   buildDynamicXhsVisualRequest,
   buildDynamicPlogRequest,
+  compileDynamicXhsVisual,
+  createDynamicPlogFallback,
+  createDynamicXhsFallback,
   deriveXhsCreativeDirection,
   normalizeDynamicXhsAnalysis,
   normalizeDynamicXhsVisual,
@@ -49,4 +52,38 @@ test('content planning can request complete JSON and legacy LLM failures use the
   const server = fs.readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
   assert.match(server, /maxTokens\s*=\s*1500[\s\S]*Math\.min\(Math\.max\(Number\(maxTokens\)/);
   assert.match(server, /Vision gateway fallback:[\s\S]*callMiniLLM|callMiniLLM\(systemPrompt, \[\], String\(userContent/);
+});
+
+test('model-independent fallbacks preserve the nine-page contract without fixed tracks', () => {
+  const direction = deriveXhsCreativeDirection('fallback-run');
+  const analysis = createDynamicXhsFallback({
+    text: '周末在图书馆看书。窗边光线很好。回家路上整理了笔记。',
+    direction,
+  });
+  assert.equal(analysis.pages.length, 8);
+  assert.equal(analysis.creative_direction, direction.id);
+  assert.match(analysis.body_text, /图书馆/);
+
+  const visual = compileDynamicXhsVisual({ analysis, direction });
+  assert.match(visual.coverPrompt, new RegExp(analysis.title));
+  assert.equal(visual.imagePrompts.length, 8);
+  assert.equal(new Set(visual.imagePrompts.map(item => item.prompt)).size, 8);
+
+  const plog = createDynamicPlogFallback({
+    text: '咖啡店的下午。雨停后走回家。',
+    direction,
+    count: 9,
+  });
+  assert.equal(plog.lenses.length, 9);
+  assert.equal(plog.copyLines.length, 9);
+});
+
+test('content generation keeps compact planning, complete-set retries and a long client stream window', () => {
+  const server = fs.readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const client = fs.readFileSync(new URL('../src/services/api.js', import.meta.url), 'utf8');
+  assert.match(server, /maxTokens:\s*6500/);
+  assert.match(server, /return createDynamicXhsFallback/);
+  assert.match(server, /return compileDynamicXhsVisual/);
+  assert.match(server, /generateCompleteImageSet\(\{[\s\S]*label: 'plog-'/);
+  assert.match(client, /720000/);
 });

@@ -1231,7 +1231,7 @@ test('XHS and Plog routes use shared runners, stable persistence, and local one-
       mode: 'plog',
       paidFunction: 'generatePlogContentSet',
       previewFunction: 'runPlogPreview',
-      paidUpstream: /enrichLensesWithLLM\(/,
+      paidUpstream: /createDynamicPlogFallback\(/,
       forbiddenPreview: /enrichLensesWithLLM\(|extractToneFromImage\(|callMiniLLM\(/,
     },
   ];
@@ -1253,14 +1253,9 @@ test('XHS and Plog routes use shared runners, stable persistence, and local one-
 
       const paid = extractNamedFunction(server, spec.paidFunction);
       assert.match(paid, spec.paidUpstream);
-      if (spec.name === 'XHS') {
-        assert.match(paid, /generateCompleteImageSet\(\{/);
-        assertBefore(paid, 'await persistGeneratedAsset(', /onComplete:/, `${spec.name} persists before image completion callbacks`);
-        assertBefore(paid, 'await persistGeneratedAsset(', /send\((?:'|")image(?:'|")/, `${spec.name} persists before image SSE`);
-      } else {
-        assertBefore(paid, 'await persistGeneratedAsset(', 'results.push(', `${spec.name} persists before collecting results`);
-        assertBefore(paid, 'await persistGeneratedAsset(', /send\((?:'|")image(?:'|")/, `${spec.name} persists before image SSE`);
-      }
+      assert.match(paid, /generateCompleteImageSet\(\{/);
+      assertBefore(paid, 'persistGeneratedAsset(', /onComplete:/, `${spec.name} persists before image completion callbacks`);
+      assertBefore(paid, 'persistGeneratedAsset(', /send\((?:'|")image(?:'|")/, `${spec.name} persists before image SSE`);
 
       const preview = extractNamedFunction(server, spec.previewFunction);
       assert.match(preview, /runContentPreviewSse\(/);

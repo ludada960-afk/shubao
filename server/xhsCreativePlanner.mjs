@@ -46,6 +46,119 @@ function cleanText(value, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function compactSourceText(value, maxLength = 700) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function sourceFragments(value) {
+  const source = compactSourceText(value);
+  const parts = source.split(/[。！？!?；;\n]+/).map(part => part.trim()).filter(Boolean);
+  return [...new Set(parts.length ? parts : [source || '围绕用户提供的主题展开'])];
+}
+
+function rotate(items, offset) {
+  const start = Math.abs(offset) % items.length;
+  return [...items.slice(start), ...items.slice(0, start)];
+}
+
+export function createDynamicXhsFallback({ text, direction } = {}) {
+  const d = direction || deriveXhsCreativeDirection(text || 'xhs-default');
+  const source = compactSourceText(text);
+  const fragments = sourceFragments(source);
+  const roles = rotate(FALLBACK_PAGE_ROLES, d.seed % FALLBACK_PAGE_ROLES.length);
+  const topic = fragments[0].slice(0, 18) || '这次记录';
+  const title = ({
+    'field-notes': '把这段真实记录下来',
+    'decision-guide': '先看清楚再做选择',
+    'before-after': '变化藏在这些细节里',
+    'personal-route': '这条路线可以慢慢走',
+    'myth-check': '先把容易误解的说清楚',
+    'mood-board': '这些片段组成了今天',
+  }[d.id] || topic).slice(0, 20);
+  const pages = roles.map(([role, label], index) => {
+    const fragment = fragments[index % fragments.length];
+    const pageTitle = fragments.length > 1 ? fragment.slice(0, 16) : label;
+    return {
+      page_id: index + 1,
+      page_type: 'content',
+      role,
+      title: pageTitle || label,
+      hook: pageTitle || label,
+      story: fragment || source,
+      info_blocks: [],
+      layout_hint: `以“${pageTitle || label}”为单一阅读重点，主视觉与文字分层，保留安全边距。`,
+      visual_intent: `${d.visual}；只呈现原文能够支持的主体和场景。`,
+    };
+  });
+  return {
+    category: topic,
+    title,
+    body_text: source.length >= 40 ? source : `${source || topic}。这次不添加没有依据的经历和数据，只把能确认的内容整理清楚。`,
+    hashtags: ['#真实记录', '#生活灵感'],
+    tags: [],
+    pages,
+    creative_direction: d.id,
+    creative_seed: d.seed,
+    creative_brief: {
+      audience: '对这一主题感兴趣的读者',
+      promise: '用一组有推进关系的页面看清原文重点',
+      evidence: fragments.slice(0, 6),
+      voice: d.voice,
+      visual_system: d.visual,
+      variation_note: `${d.name}动态兜底`,
+    },
+  };
+}
+
+export function compileDynamicXhsVisual({ analysis, direction } = {}) {
+  const d = direction || deriveXhsCreativeDirection(analysis?.title || 'xhs-default');
+  const visualSystem = cleanText(analysis?.creative_brief?.visual_system, `${d.name}：${d.visual}`);
+  const compositions = rotate([
+    '环境建立镜头', '主体近景', '俯拍信息布局', '过程动作镜头',
+    '材质细节特写', '同尺度对比构图', '步骤清单构图', '留白总结画面',
+  ], d.seed % 8);
+  const safeTitle = cleanText(analysis?.title, '这次记录').slice(0, 20);
+  return {
+    visualSystem,
+    coverPrompt: `小红书竖版3:4封面。创意方向：${d.name}。视觉系统：${visualSystem}。围绕“${safeTitle}”建立一个明确主视觉，画面只使用策划中可确认的主体与场景。画面上方显示准确简体中文标题“${safeTitle}”，文字简短清晰，四周保留5%安全边距，不添加虚构数据、价格或经历。`,
+    imagePrompts: Array.from({ length: 8 }, (_, index) => {
+      const page = analysis?.pages?.find(item => item.page_id === index + 1) || {};
+      const title = cleanText(page.title, `内容 ${index + 1}`).slice(0, 20);
+      const story = cleanText(page.story, title).slice(0, 180);
+      return {
+        page_id: index + 1,
+        prompt: `小红书竖版3:4内容页，第${index + 1}页。统一视觉系统：${visualSystem}。本页采用${compositions[index]}，页面职责是“${cleanText(page.role, '内容推进')}”。主视觉和场景依据：${cleanText(page.visual_intent, story)}。本页事实内容：${story}。只显示少量准确简体中文，主标题“${title}”，不得添加策划之外的数据、产品功效、价格或个人经历。主视觉、标题和辅助信息层级清楚，与前后页面构图有变化，四周保留5%安全边距。`,
+      };
+    }),
+    creative_direction: d.id,
+  };
+}
+
+export function createDynamicPlogFallback({ text, direction, count = 9 } = {}) {
+  const d = direction || deriveXhsCreativeDirection(text || 'plog-default');
+  const fragments = sourceFragments(text);
+  const shots = rotate([
+    ['开场环境', 'wide establishing shot with natural context'],
+    ['当下主体', 'eye-level medium shot of the main real subject'],
+    ['手边细节', 'close-up detail of an object explicitly supported by the text'],
+    ['动作过程', 'candid process shot with natural movement'],
+    ['光线变化', 'quiet light-and-shadow transition grounded in the same setting'],
+    ['空间关系', 'side-angle composition showing subject and surroundings'],
+    ['局部质感', 'macro texture detail with restrained depth of field'],
+    ['收尾片段', 'calm closing moment with visual breathing room'],
+    ['回望总结', 'final reflective frame echoing the opening without invented events'],
+  ], d.seed % 9);
+  const lenses = Array.from({ length: count }, (_, index) => ({
+    zh: `${shots[index % shots.length][0]}：${fragments[index % fragments.length].slice(0, 14)}`,
+    en: `${shots[index % shots.length][1]}. Stay faithful to: ${fragments[index % fragments.length]}.`,
+  }));
+  return {
+    caption: cleanText(fragments[0], '生活碎片').slice(0, 28),
+    copyLines: Array.from({ length: count }, (_, index) => fragments[index % fragments.length].slice(0, 36)),
+    lenses,
+  };
+}
+
 export function parseXhsPlannerJson(raw) {
   const text = String(raw || '')
     .replace(/^```(?:json)?\s*/i, '')
@@ -66,7 +179,7 @@ export function buildDynamicXhsAnalysisRequest({ text, visionContext = '', direc
   const d = direction || deriveXhsCreativeDirection('xhs-default');
   return {
     systemPrompt: `你是薯包AI的小红书内容总策划。你不按固定赛道模板写稿，而是先理解输入事实、参考图和读者任务，再选择最适合这一篇内容的叙事结构。\n本轮创意方向：${d.name}。叙事线：${d.arc}。文字语气：${d.voice}。必须避开：${d.avoid}。\n只输出合法JSON，不要Markdown代码围栏。不得编造输入中没有的价格、地点、品牌、功效、评分、经历或效果；缺失信息就写“未提供”或换成不依赖该事实的表达。每一页只解决一个阅读任务，页面之间要有明显的信息推进。`,
-    userPrompt: `用户原始内容：\n${String(text || '').trim()}\n\n${visionContext ? `参考图观察：\n${visionContext}\n\n` : ''}请完成一次独立策划，输出：\n{\n  "topic": "内容主题",\n  "title": "20字以内标题",\n  "body_text": "可直接发布的小红书正文，分段清晰，事实准确，语气自然",\n  "hashtags": ["#标签"],\n  "tags": [],\n  "creative_brief": {"audience":"目标读者","promise":"读者能获得什么","evidence":["输入中可用事实"],"voice":"本篇语气","visual_system":"本篇视觉系统","variation_note":"本轮和常见模板的差异"},\n  "pages": [\n    {"page_id":1,"page_type":"content","role":"页面职责","title":"页标题","hook":"页钩子","story":"本页内容","info_blocks":[{"label":"事实标签","value":"事实值"}],"layout_hint":"构图和信息层级","visual_intent":"主体、视角、场景、光线、文字位置"}\n  ]\n}\n必须输出恰好8个内容页(page_id 1-8)，加上独立封面共9张。内容页角色要覆盖：语境、核心发现、证据、过程或方法、细节、取舍/对比、行动建议、总结互动；若原文不适合某一角色，改成最自然的等价阅读任务。不要套用固定行业页序。` ,
+    userPrompt: `用户原始内容：\n${compactSourceText(text, 1200)}\n\n${visionContext ? `参考图观察：\n${compactSourceText(visionContext, 900)}\n\n` : ''}请完成一次独立策划，只输出紧凑JSON：\n{"topic":"主题","title":"20字以内标题","body_text":"300字以内可发布正文","hashtags":["#标签"],"creative_brief":{"audience":"读者","promise":"价值","evidence":["已知事实"],"voice":"语气","visual_system":"视觉系统","variation_note":"差异"},"pages":[{"page_id":1,"role":"职责","title":"12字内页标题","hook":"短钩子","story":"60字内本页事实内容","layout_hint":"构图层级","visual_intent":"主体视角场景"}]}\n必须输出恰好8个内容页(page_id 1-8)，加上独立封面共9张。每页只解决一个阅读任务并形成信息推进；角色按内容自然决定，不要套用固定行业页序。`,
   };
 }
 

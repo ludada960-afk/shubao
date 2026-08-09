@@ -738,7 +738,7 @@ function contentStreamError(event) {
 
 async function generateContentStream(path, payload, { onImage, onProgress, signal } = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 180000); // 3分钟超时
+  const timeoutId = setTimeout(() => controller.abort(), 720000); // 九图任务允许完整经过策划、排队与恢复
   // 合并外部 signal
   if (signal) signal.addEventListener('abort', () => controller.abort());
 

@@ -19,15 +19,16 @@ import { buildOutline, IMAGE_TYPE_INFO } from './ecommercePromptEngine.mjs';
 import {
   PLOG_STYLES, PLOG_CATEGORIES, SCENE_LENSES, LAYOUT_TEMPLATES, COVER_VARIANTS,
   classifyScene, getLensesForScene, extractToneFromImage, buildToneCard,
-  buildPlogPrompt, generatePlogCopy, generatePlogCaption, enrichLensesWithLLM
+  buildPlogPrompt, generatePlogCopy, generatePlogCaption
 } from './plogPromptEngine.mjs';
 import {
   buildDynamicXhsAnalysisRequest,
-  buildDynamicXhsVisualRequest,
   buildDynamicPlogRequest,
+  compileDynamicXhsVisual,
+  createDynamicPlogFallback,
+  createDynamicXhsFallback,
   deriveXhsCreativeDirection,
   normalizeDynamicXhsAnalysis,
-  normalizeDynamicXhsVisual,
   normalizeDynamicPlogPlan,
   parseXhsPlannerJson,
 } from './xhsCreativePlanner.mjs';
@@ -1193,12 +1194,13 @@ async function contentAnalysis(textContent, { creativeDirection = null, visionCo
   if (creativeDirection) {
     try {
       const request = buildDynamicXhsAnalysisRequest({ text: textContent, visionContext, direction: creativeDirection });
-      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.82, maxTokens: 22000 });
+      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.82, maxTokens: 6500 });
       const dynamic = normalizeDynamicXhsAnalysis(parseXhsPlannerJson(raw), { direction: creativeDirection, text: textContent });
       if (dynamic) return dynamic;
       throw new Error('动态策划缺少完整标题、正文或页面');
     } catch (error) {
-      console.warn('[XHS dynamic planner] 策划失败，回退兼容分析:', error.message);
+      console.warn('[XHS dynamic planner] 策划失败，使用动态事实兜底:', error.message);
+      return createDynamicXhsFallback({ text: textContent, direction: creativeDirection });
     }
   }
   // ===== 前置关键词分类：从用户输入提取品类（绕开LLM分类不可靠的问题） =====
@@ -1637,15 +1639,7 @@ const VISUAL_PLANNING_UP = `根据以下内容方案和品类，生成8条内容
 // ============================================================
 async function visualPlanning(analysisResult, { creativeDirection = null } = {}) {
   if (creativeDirection) {
-    try {
-      const request = buildDynamicXhsVisualRequest({ analysis: analysisResult, direction: creativeDirection });
-      const raw = await callMiniLLM(request.systemPrompt, [], request.userPrompt, { temperature: 0.78, maxTokens: 22000 });
-      const dynamic = normalizeDynamicXhsVisual(parseXhsPlannerJson(raw), analysisResult, creativeDirection);
-      if (dynamic) return dynamic;
-      throw new Error('动态视觉规划缺少封面或内容页提示词');
-    } catch (error) {
-      console.warn('[XHS dynamic visual planner] 规划失败，回退兼容视觉规划:', error.message);
-    }
+    return compileDynamicXhsVisual({ analysis: analysisResult, direction: creativeDirection });
   }
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -4269,8 +4263,8 @@ async function generatePlogContentSet({
 
   send('progress', { step: 'lens', msg: `正在形成${creativeDirection.name}生活镜头...` });
   const totalCount = 9;
-  let lenses = getLensesForScene(scene, totalCount);
-  let creativePlan = null;
+  let creativePlan = createDynamicPlogFallback({ text, direction: creativeDirection, count: totalCount });
+  let lenses = creativePlan.lenses;
   if (!skipEnrich && text.length > 6) {
     try {
       const request = buildDynamicPlogRequest({ text, scene, direction: creativeDirection, count: totalCount });
@@ -4279,8 +4273,7 @@ async function generatePlogContentSet({
       if (!creativePlan) throw new Error('动态Plog策划缺少完整镜头');
       lenses = creativePlan.lenses;
     } catch (error) {
-      console.error('[plog dynamic] 规划失败, 使用兼容镜头:', error.message);
-      try { lenses = await enrichLensesWithLLM(lenses, text, scene, callMiniLLM); } catch (fallbackError) { console.error('[plog] enrich失败:', fallbackError.message); }
+      console.error('[plog dynamic] 规划失败, 使用动态事实镜头:', error.message);
     }
   }
 
@@ -4290,34 +4283,29 @@ async function generatePlogContentSet({
     : null;
 
   send('progress', { step: 'generating', msg: '正在绘制 Plog 图片...', total: totalCount, current: 0 });
-  const results = [];
-  for (let index = 0; index < totalCount; index += 1) {
+  let completedCount = 0;
+  const tasks = Array.from({ length: totalCount }, (_, index) => {
     const isCover = index === 0;
-    const prompt = buildPlogPrompt({
-      lens: lenses[index],
-      style: options.style,
-      toneInfo,
-      isCover,
+    return {
+      id: isCover ? 'cover' : 'p' + index,
       index,
-      totalCount,
-      category: scene,
-      layout: options.layout,
-      coverVariant: options.coverVariant,
-    });
-    try {
-      const source = await callImageAPI(prompt, null, null);
-      if (!source) continue;
-      const id = isCover ? 'cover' : 'p' + index;
-      const url = await persistGeneratedAsset({
-        source,
-        generationId,
-        label: 'plog-' + id,
-      });
-      results.push({ id, url });
+      prompt: buildPlogPrompt({
+        lens: lenses[index], style: options.style, toneInfo, isCover, index, totalCount,
+        category: scene, layout: options.layout, coverVariant: options.coverVariant,
+      }),
+    };
+  });
+  const results = await generateCompleteImageSet({
+    tasks,
+    execute: async task => {
+      const source = await callImageAPI(task.prompt, null, null);
+      return persistGeneratedAsset({ source, generationId, label: 'plog-' + task.id });
+    },
+    onComplete: (entry, task) => {
+      completedCount += 1;
       send('image', {
-        id,
-        url,
-        index,
+        ...entry,
+        index: task.index,
         total: totalCount,
         generationId,
         workId,
@@ -4326,12 +4314,13 @@ async function generatePlogContentSet({
         step: 'generating',
         msg: '正在绘制 Plog 图片...',
         total: totalCount,
-        current: index + 1,
+        current: completedCount,
       });
-    } catch (error) {
-      console.error('[plog-v2]', index, 'failed:', error.message);
-    }
-  }
+    },
+    onAttemptFailure: ({ task, phase, attempt, attempts, error }) => {
+      console.error('[plog-v2]', task.id, phase, 'attempt', `${attempt}/${attempts}`, 'failed:', error.message);
+    },
+  });
 
   const coverUrl = results.find(result => result.id === 'cover')?.url || '';
   const imageUrls = results.filter(result => result.id !== 'cover').map(result => result.url);
