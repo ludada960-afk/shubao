@@ -15,6 +15,8 @@ test('video creation modes expose three distinct user jobs', () => {
 test('smart creation chooses the compatible upstream mode from supplied materials', () => {
   assert.equal(resolveVideoApiMode('smart', {}), 'script');
   assert.equal(resolveVideoApiMode('smart', { images: [{}] }), 'reference');
+  assert.equal(resolveVideoApiMode('smart', { videos: [{}] }), 'reference');
+  assert.equal(resolveVideoApiMode('smart', { audios: [{}] }), 'reference');
   assert.equal(resolveVideoApiMode('frame', { first: [{}], last: [{}] }), 'frame');
   assert.equal(resolveVideoApiMode('remake', { images: [{}], videos: [{}] }), 'remake');
 });

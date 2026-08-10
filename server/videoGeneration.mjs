@@ -235,7 +235,7 @@ export function createVideoGeneration({
 
   function normalizeReferences(ownerEmail, input, publicBaseUrl) {
     const references = input && typeof input === 'object' ? input : {};
-    const ids = ['firstImage', 'lastImage', ...(references.images || []), ...(references.videos || []), ...(references.audios || [])]
+    const ids = [references.firstImage, references.lastImage, ...(references.images || []), ...(references.videos || []), ...(references.audios || [])]
       .filter(Boolean)
       .map(value => clean(value, 100));
     if (ids.length > 12) throw httpError(400, 'VIDEO_REFERENCES_LIMIT', '参考素材总数不能超过 12 个');
@@ -449,7 +449,10 @@ export function createVideoGeneration({
     if (!RESOLUTIONS.has(resolution) || !RATIOS.has(aspectRatio)) throw httpError(400, 'VIDEO_FORMAT_INVALID', '视频规格不支持');
     const references = normalizeReferences(ownerEmail, input?.references, publicBaseUrl);
     if (mode === 'frame' && (!references.firstImage || !references.lastImage)) throw httpError(400, 'VIDEO_FRAME_REQUIRED', '首尾帧模式需要两张图片');
-    if ((mode === 'reference' || mode === 'remake') && !references.images.length) throw httpError(400, 'VIDEO_REFERENCE_IMAGE_REQUIRED', '多模态参考至少需要一张图片');
+    if (mode === 'reference' && !references.images.length && !references.videos.length && !references.audios.length) {
+      throw httpError(400, 'VIDEO_REFERENCE_REQUIRED', '多模态参考至少需要一个图片、视频或音频素材');
+    }
+    if (mode === 'remake' && !references.images.length) throw httpError(400, 'VIDEO_REFERENCE_IMAGE_REQUIRED', '爆款重构至少需要一张商品图片');
     if (mode === 'remake' && !references.videos.length) throw httpError(400, 'VIDEO_REMAKE_SOURCE_REQUIRED', '爆款重构需要一个参考视频');
 
     const sku = videoFeatureSku({ resolution, duration });

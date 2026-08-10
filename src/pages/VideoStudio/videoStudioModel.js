@@ -5,7 +5,7 @@ export const VIDEO_CREATION_MODES = [
 ];
 
 export function resolveVideoApiMode(mode, files = {}) {
-  if (mode === 'smart') return files.images?.length ? 'reference' : 'script';
+  if (mode === 'smart') return files.images?.length || files.videos?.length || files.audios?.length ? 'reference' : 'script';
   return mode;
 }
 
