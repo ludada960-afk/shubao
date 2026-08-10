@@ -24,9 +24,8 @@ test('visual skills explain the transformation before the user selects one', () 
     assert.ok(skill.outcome);
     assert.ok(skill.preserves);
     assert.ok(skill.bestFor);
-    assert.ok(Array.isArray(skill.previews));
-    assert.ok(skill.previews.length >= 2);
-    assert.ok(skill.previews.every(preview => /^\/images\//.test(preview)));
+    assert.match(skill.preview, /^\/images\/visual-recipes\/(?:free|poster|social-cover|brand-kv)\.png$/);
+    assert.doesNotMatch(skill.preview, /reference-card-/);
   }
   assert.equal(VISUAL_CREATION_SKILLS.some(skill => 'persona' in skill), false);
 });

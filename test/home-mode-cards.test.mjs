@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import sharp from 'sharp';
 
@@ -18,8 +19,11 @@ test('home presents four stable visual creation domains in one workspace family'
   assert.match(source, /homepage-mode-cards/);
   assert.match(source, /<VideoStudioPage embedded/);
   assert.match(source, /<VisualCreationMode/);
-  assert.match(source, /reference-card-video\.png/);
-  assert.match(source, /reference-card-product\.png/);
+  assert.match(options, /entry-ecommerce\.png/);
+  assert.match(options, /entry-video\.png/);
+  assert.match(options, /entry-xhs\.png/);
+  assert.match(options, /entry-visual\.png/);
+  assert.doesNotMatch(source, /reference-card-/);
   assert.doesNotMatch(source, /homepage-mode-indicator/);
   assert.match(source, /上传创意素材，生成/);
   assert.match(source, /电商套图、营销视频、小红书图文与自由创作/);
@@ -33,28 +37,49 @@ test('home presents four stable visual creation domains in one workspace family'
   assert.match(styles, /\.homepage-mode-card:focus-visible/);
   assert.doesNotMatch(styles, /\.homepage-mode-card\.is-active[^}]*rotate\(0\)/);
   assert.match(styles, /transition: transform \.2s cubic-bezier/);
+  assert.doesNotMatch(styles, /\.homepage-mode-card:hover \.homepage-mode-card-visual img/);
+  assert.doesNotMatch(styles, /\.homepage-mode-card:hover,[\s\S]*?z-index:\s*5/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.homepage-mode-card/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.homepage-mode-card \{[^}]*width:\s*min\(/);
   assert.match(styles, /\.homepage-mode-card-visual img \{[^}]*object-fit:\s*contain/);
 });
 
-test('mode card reference assets preserve their transparent layered-card silhouettes', async () => {
+test('mode cards use original normalized artwork with transparent margins', async () => {
   const assets = [
-    '../public/images/home/reference-card-product.png',
-    '../public/images/home/reference-card-fashion.png',
-    '../public/images/home/reference-card-video.png',
-    '../public/images/home/reference-card-remix.png',
+    '../public/images/home/entry-ecommerce.png',
+    '../public/images/home/entry-video.png',
+    '../public/images/home/entry-xhs.png',
+    '../public/images/home/entry-visual.png',
   ];
+
+  const manifest = JSON.parse(readFileSync(new URL('../public/images/home/entry-assets.manifest.json', import.meta.url), 'utf8'));
+  assert.equal(Object.keys(manifest.assets).length, 8);
+  for (const item of Object.values(manifest.assets)) {
+    assert.match(item.path, /^\/images\/(?:home|visual-recipes)\/[a-z-]+\.png$/);
+    assert.equal(item.alpha, true);
+    assert.match(item.promptSummary, /^Original /);
+  }
 
   for (const asset of assets) {
     const input = readFileSync(new URL(asset, import.meta.url));
     const metadata = await sharp(input).metadata();
     const alpha = await sharp(input).extractChannel('alpha').stats();
     assert.equal(metadata.format, 'png');
+    assert.equal(metadata.width, 420);
+    assert.equal(metadata.height, 360);
     assert.equal(metadata.hasAlpha, true);
     assert.equal(alpha.channels[0].min, 0);
     assert.ok(alpha.channels[0].max >= 250);
+    const name = new URL(asset, import.meta.url).pathname.split('/').pop();
+    assert.equal(manifest.assets[name].sha256, createHash('sha256').update(input).digest('hex'));
   }
+
+  for (const copiedAsset of [
+    '../public/images/home/reference-card-product.png',
+    '../public/images/home/reference-card-fashion.png',
+    '../public/images/home/reference-card-video.png',
+    '../public/images/home/reference-card-remix.png',
+  ]) assert.equal(existsSync(new URL(copiedAsset, import.meta.url)), false);
 });
 
 test('ecommerce controls put model first and keep negative constraints with visual direction', () => {

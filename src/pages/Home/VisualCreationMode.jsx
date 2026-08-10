@@ -318,9 +318,7 @@ export default function VisualCreationMode() {
               onClick={() => setSkillId(skill.id)}
             >
               <span className="visual-skill-preview" aria-hidden="true">
-                {skill.previews.slice(0, 2).map((preview, index) => (
-                  <img key={preview} src={preview} alt="" className={`preview-${index + 1}`} />
-                ))}
+                <img src={skill.preview} alt="" />
               </span>
               <span className="visual-skill-title">
                 <strong>{skill.title}</strong>

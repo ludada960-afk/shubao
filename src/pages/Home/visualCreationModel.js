@@ -8,7 +8,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     preserves: '你的主体、关系与明确约束',
     outcome: '由描述自由定义画面风格与构图',
     bestFor: '概念图、插画、场景与开放需求',
-    previews: Object.freeze(['/images/home/reference-card-product.png', '/images/home/reference-card-fashion.png']),
+    preview: '/images/visual-recipes/free.png',
   }),
   Object.freeze({
     id: 'poster',
@@ -17,7 +17,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     preserves: '核心主体、品牌信息与标题优先级',
     outcome: '完整构图、清晰层级与可读排版区',
     bestFor: '活动、上新、节日与线下海报',
-    previews: Object.freeze(['/images/home/reference-card-product.png', '/images/home/reference-card-video.png']),
+    preview: '/images/visual-recipes/poster.png',
   }),
   Object.freeze({
     id: 'social-cover',
@@ -26,7 +26,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     preserves: '主体辨识度与标题信息优先级',
     outcome: '强视觉焦点、标题安全区与紧凑构图',
     bestFor: '小红书、公众号与短视频封面',
-    previews: Object.freeze(['/images/home/reference-card-fashion.png', '/images/home/reference-card-video.png']),
+    preview: '/images/visual-recipes/social-cover.png',
   }),
   Object.freeze({
     id: 'brand-kv',
@@ -35,7 +35,7 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     preserves: '品牌身份、产品特征与关键色',
     outcome: '可延展的场景、材质、光影与构图系统',
     bestFor: 'Campaign KV、发布会与主题传播',
-    previews: Object.freeze(['/images/home/reference-card-product.png', '/images/home/reference-card-remix.png']),
+    preview: '/images/visual-recipes/brand-kv.png',
   }),
 ]);
 

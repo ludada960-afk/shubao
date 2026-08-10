@@ -31,22 +31,22 @@ export default function HomePage() {
     {
       mode: 'ecommerce',
       title: '电商生图',
-      src: '/images/home/workspace-ecommerce.png',
+      src: '/images/home/entry-ecommerce.png',
     },
     {
       mode: 'video',
       title: '视频生成',
-      src: '/images/home/reference-card-video.png',
+      src: '/images/home/entry-video.png',
     },
     {
       mode: 'content',
       title: '小红书图文',
-      src: '/images/home/workspace-xhs.png',
+      src: '/images/home/entry-xhs.png',
     },
     {
       mode: 'visual',
       title: '自由创作',
-      src: '/images/home/reference-card-product.png',
+      src: '/images/home/entry-visual.png',
     },
   ];
 

@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "assets": {
+    "entry-ecommerce.png": {
+      "path": "/images/home/entry-ecommerce.png",
+      "sha256": "894bc2e9cc005a16d80f220e87c108c0dce301382bb6024030f3c68c0bd9a276",
+      "width": 420,
+      "height": 360,
+      "alpha": true,
+      "promptSummary": "Original three-card ecommerce product stack",
+      "kind": "entry"
+    },
+    "entry-video.png": {
+      "path": "/images/home/entry-video.png",
+      "sha256": "4d6ee99aa25828722b6c1491f2e46eee2faeebc0cd98fe06dfb9140f7df4a386",
+      "width": 420,
+      "height": 360,
+      "alpha": true,
+      "promptSummary": "Original three-card product video sequence",
+      "kind": "entry"
+    },
+    "entry-xhs.png": {
+      "path": "/images/home/entry-xhs.png",
+      "sha256": "97e8de8866b60eb02a36b38f9f4031dbedb412b3c853082e8bdefa30705b5bb5",
+      "width": 420,
+      "height": 360,
+      "alpha": true,
+      "promptSummary": "Original three-card lifestyle editorial stack",
+      "kind": "entry"
+    },
+    "entry-visual.png": {
+      "path": "/images/home/entry-visual.png",
+      "sha256": "6cc5a18e5f3947a36a86f463d3a24eef49492df819a6abea2d845f35e65ebc58",
+      "width": 420,
+      "height": 360,
+      "alpha": true,
+      "promptSummary": "Original three-card visual design stack",
+      "kind": "entry"
+    },
+    "free.png": {
+      "path": "/images/visual-recipes/free.png",
+      "sha256": "7309840d19c5d3e0f44956f39aa6b17ef7159efbafc3ca2ad9c23e5d3e7eb7d4",
+      "width": 760,
+      "height": 300,
+      "alpha": true,
+      "promptSummary": "Original free-creation transformation diptych",
+      "kind": "recipe"
+    },
+    "poster.png": {
+      "path": "/images/visual-recipes/poster.png",
+      "sha256": "9a843d60d03b7a34ea3b39f6261971f8d0d855cd2d7966f09115a46f069ba53e",
+      "width": 760,
+      "height": 300,
+      "alpha": true,
+      "promptSummary": "Original poster transformation diptych",
+      "kind": "recipe"
+    },
+    "social-cover.png": {
+      "path": "/images/visual-recipes/social-cover.png",
+      "sha256": "aab42ee9ca2e3d048916c425f950cf3ca036c2eef2de8f6c83bec99f6e63ef8c",
+      "width": 760,
+      "height": 300,
+      "alpha": true,
+      "promptSummary": "Original social-cover transformation diptych",
+      "kind": "recipe"
+    },
+    "brand-kv.png": {
+      "path": "/images/visual-recipes/brand-kv.png",
+      "sha256": "013337d49a7e5d090b6f9ee2729a99cac6123d40e9343986fb0807d1094bc22d",
+      "width": 760,
+      "height": 300,
+      "alpha": true,
+      "promptSummary": "Original brand-key-visual transformation diptych",
+      "kind": "recipe"
+    }
+  }
+}
