@@ -14,6 +14,21 @@
 
 ## Current execution
 
+- Visual workspace and video routing redesign is active under the approved
+  specification
+  `docs/superpowers/specs/2026-08-10-visual-workspace-video-routing-redesign.md`.
+  The durable product decisions are: retain four top-level creation domains;
+  keep posters as a Free Visual Creation recipe; remove every competitor-derived
+  `reference-card-*.png`; use original Shubao artwork; keep side-navigation
+  geometry fixed while animating icon internals; remove the duplicate video
+  upload plus button; keep the desktop video command bar on one row; expose
+  curated Fast/Stable/2K products instead of raw intermediary models; and keep
+  MiniMax H3 hidden until its credential, three real generation modes, durable
+  output, billing/recovery, and monitored reliability gates all pass. The
+  unrelated deleted extension-task JSON files and existing `.tmp/` and
+  diagnostic files remain user-owned and excluded. No implementation files are
+  delegated.
+
 - Dynamic Xiaohongshu/Plog creative planning is complete locally. The legacy
   track templates remain only as a fail-safe fallback; paid XHS runs now derive
   a retry-stable creative direction from the durable generation ID, analyze
