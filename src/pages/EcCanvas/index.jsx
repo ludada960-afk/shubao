@@ -75,6 +75,7 @@ import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, 
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import { quoteBillingAction } from '../../services/billing.js';
 import { createVideoJob, getVideoJob, uploadVideoAsset } from '../../services/video.js';
+import { resolveVideoApiMode, hasRequiredVideoInputs } from '../VideoStudio/videoStudioModel.js';
 import './EcCanvas.css';
 
 const WORK_CATEGORY_OPTIONS = Object.freeze([
@@ -92,6 +93,16 @@ function videoSku(resolution, duration) {
 
 function delay(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+function canvasVideoInputFiles(composer = {}, sourceNodes = []) {
+  const mode = composer.mode || 'smart';
+  const roleFor = node => composer.sourceRoles?.[node.id] || node.role || 'reference';
+  const images = sourceNodes.filter(node => node.kind !== 'video' && (mode === 'smart' || !['first', 'last'].includes(roleFor(node))));
+  const videos = sourceNodes.filter(node => node.kind === 'video');
+  const first = sourceNodes.filter(node => node.kind !== 'video' && roleFor(node) === 'first');
+  const last = sourceNodes.filter(node => node.kind !== 'video' && roleFor(node) === 'last');
+  return { images, videos, first, last };
 }
 
 function generatedAssetIdFromUrl(url = '') {
@@ -2461,18 +2472,27 @@ export default function EcCanvas() {
 
   const handleVideoComposerGenerate = useCallback(async composer => {
     if (!String(composer?.prompt || '').trim() || composer.status === 'processing') return;
-    updateComposerNode(composer.id, { status: 'processing', error: '', progress: 2, progressLabel: '正在准备参考素材' });
+    const sourceNodes = [...new Set(composer.sourceNodeIds || [])].map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    const files = canvasVideoInputFiles(composer, sourceNodes);
+    const mode = composer.mode || 'smart';
+    if (!hasRequiredVideoInputs(mode, files)) {
+      updateComposerNode(composer.id, { status: 'ready', error: mode === 'frame' ? '首尾帧需要同时连接首帧和尾帧图片' : '爆款重构需要同时连接替换图片和参考视频' });
+      return;
+    }
+    updateComposerNode(composer.id, { mode: composer.mode || 'smart', status: 'processing', error: '', progress: 2, progressLabel: '正在准备参考素材' });
     try {
-      const sourceNodes = [...new Set(composer.sourceNodeIds || [])].map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
       const uploaded = [];
       for (const source of sourceNodes.slice(0, 9)) uploaded.push({ source, asset: await ensureVideoAsset(source) });
-      const imageAssets = uploaded.filter(item => item.source.kind !== 'video').map(item => item.asset);
+      const roleFor = source => composer.sourceRoles?.[source.id] || source.role || 'reference';
+      const firstImage = uploaded.find(item => item.source.kind !== 'video' && roleFor(item.source) === 'first')?.asset;
+      const lastImage = uploaded.find(item => item.source.kind !== 'video' && roleFor(item.source) === 'last')?.asset;
+      const imageAssets = uploaded.filter(item => item.source.kind !== 'video' && (mode === 'smart' || !['first', 'last'].includes(roleFor(item.source)))).map(item => item.asset);
       const videoAssets = uploaded.filter(item => item.source.kind === 'video').map(item => item.asset);
       const sku = videoSku(composer.resolution || '720p', composer.duration || 8);
       const quote = (await quoteBillingAction({ sku, quantity: 1 })).quote;
       const urls = Object.fromEntries(uploaded.map(item => [item.asset.id, item.asset.url]));
       const response = await createVideoJob({
-        mode: videoAssets.length ? 'remake' : imageAssets.length ? 'reference' : 'script',
+        mode: resolveVideoApiMode(mode, files),
         prompt: String(composer.prompt).trim(),
         negativePrompt: '',
         duration: Number(composer.duration) || 8,
@@ -2482,10 +2502,10 @@ export default function EcCanvas() {
         seed: 0,
         billingQuoteId: quote.quoteId,
         references: {
-          firstImage: '',
-          lastImage: '',
-          images: imageAssets.map(asset => asset.id),
-          videos: videoAssets.map(asset => asset.id),
+          firstImage: firstImage?.id || '',
+          lastImage: lastImage?.id || '',
+          images: mode === 'frame' ? [] : imageAssets.map(asset => asset.id),
+          videos: mode === 'frame' ? [] : videoAssets.map(asset => asset.id),
           audios: [],
           urls,
         },
@@ -2989,19 +3009,32 @@ export default function EcCanvas() {
   };
 
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
-    const accepted = files.filter(file => file?.type?.startsWith('image/')).slice(0, 8);
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
+    const accepted = composer?.kind === 'video-composer'
+      ? files.filter(file => file?.type?.startsWith('image/') || file?.type?.startsWith('video/')).slice(0, 8)
+      : files.filter(file => file?.type?.startsWith('image/')).slice(0, 8);
     if (!accepted.length || !composer) return;
     const uploadStartedAt = Date.now();
     try {
-      const assets = await readCanvasImageFiles(accepted, uploadStartedAt);
-      const persistedAssets = await persistCanvasUploadAssets(assets, { role });
-      const uploadedNodes = createUploadedImageNodes({
+      const imageFiles = accepted.filter(file => file.type.startsWith('image/'));
+      const videoFiles = accepted.filter(file => file.type.startsWith('video/'));
+      const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
+      const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
+      const imageNodes = createUploadedImageNodes({
         assets: persistedAssets,
         x: composer.x - persistedAssets.length * 278 - 36,
         y: composer.y,
         now: uploadStartedAt,
       }).map(node => ({ ...node, role }));
+      const videoAssets = [];
+      for (const file of videoFiles) videoAssets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      const videoNodes = createUploadedVideoNodes({
+        assets: videoAssets,
+        x: composer.x - Math.max(1, videoAssets.length) * 360 - 36,
+        y: composer.y + (imageNodes.length ? 112 : 0),
+        now: uploadStartedAt,
+      }).map(node => ({ ...node, role }));
+      const uploadedNodes = [...imageNodes, ...videoNodes];
       const uploadedIds = uploadedNodes.map(node => node.id);
       draftReadyRef.current = true;
       canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${uploadStartedAt}` });
@@ -3018,8 +3051,8 @@ export default function EcCanvas() {
       setSelected(composerId);
       setMultiSelected(new Set([composerId]));
       showToast(persistedAssets.some(asset => asset.temporary)
-        ? `已连接 ${uploadedNodes.length} 张图片（当前网络不可用，仅保留本地预览）`
-        : `已连接 ${uploadedNodes.length} 张${role === 'product' ? '产品图' : '参考图'}`, persistedAssets.some(asset => asset.temporary) ? 'info' : 'success');
+        ? `已连接 ${uploadedNodes.length} 个素材（当前网络不可用，仅保留本地预览）`
+        : `已连接 ${uploadedNodes.length} 个素材`, persistedAssets.some(asset => asset.temporary) ? 'info' : 'success');
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
     }
@@ -3421,7 +3454,7 @@ export default function EcCanvas() {
           {!nodes.length && (
             <div className="ec-canvas-empty-state">
               <div>
-                <strong>把图片和视频放进同一个创作画布</strong>
+                <strong>从一个素材开始，继续完成整套视觉内容</strong>
                 <p>从商品素材开始，继续生成套图、文案和营销视频</p>
                 <div className="ec-canvas-empty-actions">
                   <button type="button" className="is-primary" onClick={() => sourceUploadRef.current?.click()}><MdAddPhotoAlternate size={15} />上传图片</button>
@@ -3655,7 +3688,7 @@ export default function EcCanvas() {
               sources={selectedComposerSources}
               loading={selectedNode.status === 'processing'}
               onChange={change => updateComposerNode(selectedNode.id, change)}
-              onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
+              onAddSources={(files, role) => handleComposerSourceUpload(selectedNode.id, files, role)}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
               onGenerate={() => handleVideoComposerGenerate(selectedNode)}
             />}

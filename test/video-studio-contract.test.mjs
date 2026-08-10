@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('video studio is an authenticated durable billed workspace embedded in home and canvas', async () => {
-  const [app, home, page, styles, canvas, workModel, server, generation] = await Promise.all([
+  const [app, home, page, styles, canvas, workModel, server, generation, videoModel] = await Promise.all([
     source('../src/App.jsx'),
     source('../src/pages/Home/index.jsx'),
     source('../src/pages/VideoStudio/index.jsx'),
@@ -14,6 +14,7 @@ test('video studio is an authenticated durable billed workspace embedded in home
     source('../src/pages/EcCanvas/canvasWorkModel.js'),
     source('../server/index.mjs'),
     source('../server/videoGeneration.mjs'),
+    source('../src/pages/VideoStudio/videoStudioModel.js'),
   ]);
   assert.match(app, /video-studio/);
   assert.match(app, /视频创作/);
@@ -66,11 +67,25 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(server, /\/api\/video\/jobs/);
   assert.match(home, /workspace-video-model\.png/);
   assert.match(canvas, /CanvasVideoComposer/);
+  assert.match(canvas, /resolveVideoApiMode/);
+  assert.match(canvas, /hasRequiredVideoInputs/);
   assert.match(canvas, /resultVideoUrl/);
   assert.match(canvas, /createUploadedVideoNodes/);
+  assert.match(canvas, /mode:\s*composer\.mode \|\| 'smart'/);
   assert.match(canvas, /buildCanvasImportResult\(work\)/);
   assert.match(workModel, /videoUrl,\n    video_url: videoUrl/);
-  assert.match(await source('../src/pages/EcCanvas/canvasStudioModel.js'), /createCanvasVideoComposerNode/);
+  const canvasStudio = await source('../src/pages/EcCanvas/components/CanvasStudio.jsx');
+  const canvasModel = await source('../src/pages/EcCanvas/canvasStudioModel.js');
+  assert.match(canvasModel, /createCanvasVideoComposerNode/);
+  assert.match(canvasModel, /mode:\s*'smart'/);
+  assert.match(canvasStudio, /VIDEO_CREATION_MODES/);
+  assert.match(canvasStudio, /VIDEO_CREATION_MODES\.map/);
+  assert.match(canvasStudio, /\{option\.label\}/);
+  assert.match(videoModel, /智能成片/);
+  assert.match(videoModel, /首尾帧/);
+  assert.match(videoModel, /爆款重构/);
+  const canvasVideoComposer = canvasStudio.match(/export function CanvasVideoComposer[\s\S]*?export function CanvasEcommerceComposer/)?.[0] || '';
+  assert.doesNotMatch(canvasVideoComposer, /脚本成片|多图参考|产品图/);
   assert.match(generation, /walletService\.createHold/);
   assert.match(generation, /walletService\.settleItem/);
   assert.match(generation, /walletService\.releaseItem/);

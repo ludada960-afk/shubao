@@ -5,7 +5,7 @@ import test from 'node:test';
 test('empty canvas presents image, video, works, and generation entrypoints', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
-  assert.match(source, /把图片和视频放进同一个创作画布/);
+  assert.match(source, /从一个素材开始，继续完成整套视觉内容/);
   assert.match(source, /上传图片/);
   assert.match(source, /上传视频/);
   assert.match(source, /从我的作品导入/);
@@ -15,6 +15,7 @@ test('empty canvas presents image, video, works, and generation entrypoints', as
   assert.doesNotMatch(source, /CanvasSourceImportSheet|sourceImportOpen|product_original|style_reference|general_material/);
   assert.match(css, /\.ec-canvas-empty-state \{[^}]*z-index: 10;[^}]*pointer-events: none;/);
   assert.match(css, /\.ec-canvas-empty-state > div \{[^}]*pointer-events: auto;/);
+  assert.match(css, /\.ec-canvas-empty-actions \{[^}]*grid-template-columns:\s*repeat\(5/);
 });
 
 test('commerce canvas uses a quiet professional shell and contextual world panels', async () => {

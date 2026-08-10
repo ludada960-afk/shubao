@@ -59,6 +59,7 @@ import { buildCanvasSuitePlan } from '../canvasSuitePlanModel.js';
 import { buildImageMentions } from '../../../components/creation/imageMentionModel.js';
 import EcommerceDesignPlanEditor, { EcommerceDesignPlanPreview } from '../../Home/ec/EcommerceDesignPlanEditor.jsx';
 import { normalizeCommerceContext } from '../../Home/ec/internationalCommerceRegistry.js';
+import { VIDEO_CREATION_MODES, hasRequiredVideoInputs } from '../../VideoStudio/videoStudioModel.js';
 
 const ACTION_ICONS = {
   'edit-text': FileText,
@@ -192,9 +193,9 @@ export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(
   </div>;
 }
 
-function ComposerSources({ sources = [], role, onAddSources, onRemoveSource, uploadLabel = '上传图片' }) {
+function ComposerSources({ sources = [], role, onAddSources, onRemoveSource, uploadLabel = '上传图片', accept = 'image/*' }) {
   const displaySources = buildImageMentions(sources.map(source => ({ ...source, role: role || source.role })));
-  return <div className="ec-canvas-composer-sources" aria-label={`已引用 ${sources.length} 张图片`}>
+  return <div className="ec-canvas-composer-sources" aria-label={`已引用 ${sources.length} 个素材`}>
     {displaySources.slice(0, 8).map((source, index) => <span className="ec-canvas-composer-source" key={source.sourceNodeId || source.url || index} data-source-id={source.sourceNodeId || source.url}>
       <ResponsiveImage
         src={source.url}
@@ -209,7 +210,20 @@ function ComposerSources({ sources = [], role, onAddSources, onRemoveSource, upl
       {onRemoveSource && <button type="button" data-canvas-control="true" aria-label={`移除${source.name}`} onClick={event => { event.stopPropagation(); onRemoveSource(source.sourceNodeId); }}><X size={11} /></button>}
     </span>)}
     {onAddSources && <label className="ec-canvas-composer-source-add" aria-label={`添加${uploadLabel}`} title={`添加${uploadLabel}`}>
-      <span className="ec-canvas-composer-source-add-icon"><ImagePlus size={20} /></span><small>{uploadLabel}</small><input type="file" accept="image/*" multiple hidden onChange={event => { onAddSources([...event.target.files]); event.target.value = ''; }} />
+      <span className="ec-canvas-composer-source-add-icon"><ImagePlus size={20} /></span><small>{uploadLabel}</small><input type="file" accept={accept} multiple hidden onChange={event => { onAddSources([...event.target.files]); event.target.value = ''; }} />
+    </label>}
+  </div>;
+}
+
+function VideoSourceStrip({ sources = [], onAddSources, onRemoveSource, uploadLabel = '上传视频' }) {
+  return <div className="ec-canvas-video-sources" aria-label={`已引用 ${sources.length} 个视频`}>
+    {sources.slice(0, 4).map(source => <span key={source.id}>
+      <video src={source.url} muted playsInline preload="metadata" />
+      <strong>{source.name || source.displayLabel || '参考视频'}</strong>
+      <button type="button" aria-label={`移除${source.name || '参考视频'}`} onClick={() => onRemoveSource?.(source.id)}><X size={12} /></button>
+    </span>)}
+    {onAddSources && <label className="ec-canvas-composer-source-add is-video" aria-label={`添加${uploadLabel}`} title={`添加${uploadLabel}`}>
+      <span className="ec-canvas-composer-source-add-icon"><Clapperboard size={19} /></span><small>{uploadLabel}</small><input type="file" accept="video/*" multiple hidden onChange={event => { onAddSources([...event.target.files]); event.target.value = ''; }} />
     </label>}
   </div>;
 }
@@ -493,19 +507,33 @@ export function CanvasTextGenerationComposer({ node, position, sources = [], men
 
 export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onGenerate }) {
   if (!node) return null;
+  const mode = node.mode || 'smart';
   const imageSources = sources.filter(source => source.kind !== 'video');
   const videoSources = sources.filter(source => source.kind === 'video');
+  const roleFor = source => node.sourceRoles?.[source.id] || source.role || 'reference';
+  const firstSources = imageSources.filter(source => roleFor(source) === 'first');
+  const lastSources = imageSources.filter(source => roleFor(source) === 'last');
+  const referenceImages = mode === 'smart' ? imageSources : imageSources.filter(source => !['first', 'last'].includes(roleFor(source)));
+  const videoFiles = { images: referenceImages, videos: videoSources, first: firstSources, last: lastSources };
+  const materialsReady = hasRequiredVideoInputs(mode, videoFiles);
   const points = node.resolution === '480p'
     ? (Number(node.duration) <= 8 ? 32 : 40)
     : (Number(node.duration) <= 8 ? 48 : 58);
   return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-video-composer" style={position} aria-label="视频生成操作台" onPointerDown={event => event.stopPropagation()}>
-    <ComposerSources sources={imageSources} role="reference" onAddSources={onAddSources} onRemoveSource={onRemoveSource} uploadLabel="上传参考图" />
-    {videoSources.length > 0 && <div className="ec-canvas-video-sources" aria-label={`已引用 ${videoSources.length} 个视频`}>
-      {videoSources.slice(0, 4).map(source => <span key={source.id}>
-        <video src={source.url} muted playsInline preload="metadata" />
-        <strong>{source.name || source.displayLabel || '参考视频'}</strong>
-        <button type="button" aria-label={`移除${source.name || '参考视频'}`} onClick={() => onRemoveSource?.(source.id)}><X size={12} /></button>
-      </span>)}
+    <div className="ec-canvas-video-mode-tabs" role="tablist" aria-label="视频创作模式">
+      {VIDEO_CREATION_MODES.map(option => <button key={option.id} type="button" role="tab" aria-selected={mode === option.id} className={mode === option.id ? 'is-active' : ''} onClick={() => onChange?.({ mode: option.id, error: '' })}>
+        <strong>{option.label}</strong><small>{option.hint}</small>
+      </button>)}
+    </div>
+    {mode === 'frame' ? <div className="ec-canvas-video-material-grid">
+      <ComposerSources sources={firstSources} role="first" onAddSources={files => onAddSources?.(files, 'first')} onRemoveSource={onRemoveSource} uploadLabel="上传首帧" />
+      <ComposerSources sources={lastSources} role="last" onAddSources={files => onAddSources?.(files, 'last')} onRemoveSource={onRemoveSource} uploadLabel="上传尾帧" />
+    </div> : mode === 'remake' ? <div className="ec-canvas-video-material-grid">
+      <ComposerSources sources={referenceImages} role="reference" onAddSources={files => onAddSources?.(files, 'reference')} onRemoveSource={onRemoveSource} uploadLabel="替换图片" />
+      <VideoSourceStrip sources={videoSources} onAddSources={files => onAddSources?.(files, 'reference')} onRemoveSource={onRemoveSource} uploadLabel="参考视频" />
+    </div> : <div className="ec-canvas-video-material-grid">
+      <ComposerSources sources={referenceImages} role="reference" onAddSources={files => onAddSources?.(files, 'reference')} onRemoveSource={onRemoveSource} uploadLabel="添加图片" />
+      <VideoSourceStrip sources={videoSources} onAddSources={files => onAddSources?.(files, 'reference')} onRemoveSource={onRemoveSource} uploadLabel="添加视频" />
     </div>}
     <textarea data-canvas-control="true" value={node.prompt || ''} maxLength={1200} disabled={loading} placeholder="描述主体、动作、镜头、场景和节奏" onChange={event => onChange?.({ prompt: event.target.value })} />
     <div className="ec-canvas-video-controls">
@@ -516,7 +544,7 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
     </div>
     <div className="ec-canvas-composer-footer">
       {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || `${points} AI 积分 / 次 · 交付后扣费`}</span>}
-      <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim()} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button>
+      <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || !materialsReady} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button>
     </div>
   </section>;
 }

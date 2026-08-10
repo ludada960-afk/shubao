@@ -148,11 +148,11 @@
 .ec-canvas-layer-mark { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; border-radius: 6px; background: #eef1f4; color: #68717c; }
 
 .ec-canvas-empty-state { position: absolute; z-index: 10; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.ec-canvas-empty-state > div { display: flex; flex-direction: column; align-items: center; max-width: 560px; padding: 24px; pointer-events: auto; }
+.ec-canvas-empty-state > div { display: flex; flex-direction: column; align-items: center; width: min(720px, calc(100vw - 32px)); padding: 24px; pointer-events: auto; }
 .ec-canvas-empty-state strong { font-size: 15px; font-weight: 750; letter-spacing: 0; }
 .ec-canvas-empty-state p { margin: 6px 0 17px; color: var(--canvas-muted); font-size: 12px; }
-.ec-canvas-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
-.ec-canvas-empty-actions button { height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border: 0; border-radius: 7px; background: #fff; color: #34393f; box-shadow: 0 2px 7px rgba(21, 23, 26, .12); font-size: 11px; font-weight: 700; }
+.ec-canvas-empty-actions { width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.ec-canvas-empty-actions button { min-width: 0; height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; border: 0; border-radius: 7px; background: #fff; color: #34393f; box-shadow: 0 2px 7px rgba(21, 23, 26, .12); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .ec-canvas-empty-actions button:hover { color: var(--canvas-command); background: #f7f9ff; }
 .ec-canvas-empty-actions button.is-primary { color: #fff; background: var(--canvas-command); }
 
@@ -448,6 +448,13 @@
 .ec-canvas-generation-node.is-video.is-selected { border-color: var(--canvas-command); box-shadow: 0 0 0 2px rgba(37,99,235,.18), 0 12px 28px rgba(15,23,42,.18); }
 .ec-canvas-generation-node.is-video > video { display: block; width: 100%; height: 100%; object-fit: contain; background: #111827; }
 .ec-canvas-video-composer { width: min(560px, calc(100vw - 24px)); }
+.ec-canvas-video-mode-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px 12px 8px; border-bottom: 1px solid #edf0f3; }
+.ec-canvas-video-mode-tabs button { min-width: 0; display: grid; gap: 2px; padding: 7px 8px; border: 1px solid #dde3ec; border-radius: 7px; background: #fff; color: #59616c; text-align: left; cursor: pointer; }
+.ec-canvas-video-mode-tabs button:hover, .ec-canvas-video-mode-tabs button.is-active { border-color: var(--canvas-command); background: #f5f8ff; color: var(--canvas-command); }
+.ec-canvas-video-mode-tabs strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-video-mode-tabs small { overflow: hidden; color: #7c8591; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-video-material-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 12px 0; }
+.ec-canvas-video-material-grid .ec-canvas-composer-sources, .ec-canvas-video-material-grid .ec-canvas-video-sources { min-width: 0; padding: 0; }
 .ec-canvas-video-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; border-top: 1px solid #edf0f3; }
 .ec-canvas-video-controls label { display: grid; gap: 5px; color: #69727d; font-size: 10px; font-weight: 700; }
 .ec-canvas-video-controls select { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #dfe3e8; border-radius: 6px; background: #fff; color: #20242a; }
@@ -457,6 +464,7 @@
 .ec-canvas-video-sources video { width: 100%; height: 100%; object-fit: cover; opacity: .82; }
 .ec-canvas-video-sources strong { position: absolute; right: 6px; bottom: 5px; left: 6px; overflow: hidden; color: #fff; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-video-sources button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(17,24,39,.72); cursor: pointer; }
+.ec-canvas-video-sources .ec-canvas-composer-source-add { min-width: 76px; height: 68px; }
 .ec-canvas-suite-controls { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid #edf0f3; background: #fff; }
 .ec-canvas-suite-control { position: relative; min-width: 0; }
 .ec-canvas-suite-control > button { height: 32px; max-width: 190px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 17px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
@@ -557,6 +565,10 @@
 }
 
 @media (max-width: 620px) {
+  .ec-canvas-empty-state > div { width: min(360px, calc(100vw - 24px)); padding: 18px 12px; }
+  .ec-canvas-empty-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ec-canvas-empty-actions button { justify-content: flex-start; }
+  .ec-canvas-empty-actions button:last-child { grid-column: 1 / -1; justify-content: center; }
   .ec-canvas-topbar { height: 96px; flex-basis: 96px; flex-wrap: wrap; align-content: center; gap: 4px; padding: 4px 8px; overflow: hidden; }
   .ec-canvas-topbar-leading { width: 100%; gap: 6px; }
   .ec-canvas-project-title { flex: 1; min-width: 0; max-width: none; }
