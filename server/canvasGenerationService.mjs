@@ -2,6 +2,11 @@ import crypto from 'node:crypto';
 
 import { buildModelRoute, normalizeImageModel, resolveGenerationSize } from './ecommerceEngine/modelCatalog.mjs';
 import { ecommerceFeatureForItem } from './ecommerceEngine/ecommerceBilling.mjs';
+import {
+  buildCanvasGenerationPrompt,
+  normalizeCreationIntent,
+  normalizeVisualSkillId,
+} from './visualCreationSkills.mjs';
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -100,6 +105,10 @@ function normalizeRequest(ownerEmailInput, body = {}) {
   const prompt = [cleanString(body?.prompt), selectionInstruction(selection)].filter(Boolean).join('\n');
   const primaryImage = cleanString(body?.image_url);
   const requestKey = cleanString(body?.request_key).slice(0, 160);
+  const creationIntent = normalizeCreationIntent(body?.creation_intent ?? body?.creationIntent);
+  const skillId = creationIntent === 'visual'
+    ? normalizeVisualSkillId(body?.skill_id ?? body?.skillId)
+    : 'free';
   if (!ownerEmail) throw invalidRequest('Canvas generation owner is required');
   if (!prompt) throw invalidRequest('缺少生成说明');
   const visualInputs = [
@@ -116,6 +125,8 @@ function normalizeRequest(ownerEmailInput, body = {}) {
     visualInputs,
     referenceMetadata,
     selection,
+    creationIntent,
+    skillId,
     imageModel,
     resolution: selectedSize.resolution,
     ratio: selectedSize.ratio,
@@ -128,6 +139,9 @@ function normalizeRequest(ownerEmailInput, body = {}) {
     requestKey,
     visualInputs,
     referenceMetadata,
+    selection,
+    creationIntent,
+    skillId,
     imageModel,
     selectedSize,
     requestFingerprint: fingerprint,
@@ -245,6 +259,8 @@ export function createCanvasGenerationService({
           requestKey: request.requestKey,
           inputCount: request.visualInputs.length,
           selection: request.selection,
+          creationIntent: request.creationIntent,
+          skillId: request.skillId,
         ratio: request.selectedSize.ratio,
         size: request.selectedSize.size,
         imageModel: request.imageModel,
@@ -305,7 +321,9 @@ export function createCanvasGenerationService({
             }
             if (request.visualInputs.length && resolvedInputs.length === 0) throw invalidRequest('读取原图失败');
             const referenceNote = resolvedInputs.length > 1
-              ? ` Image 0 is the authoritative product view. Images 1 through ${resolvedInputs.length - 1} are indexed visual references; borrow only compatible composition or style cues from them without changing the product identity.`
+              ? request.creationIntent === 'visual'
+                ? `Image 0 is the primary subject or composition reference. Images 1 through ${resolvedInputs.length - 1} are indexed visual references; borrow only compatible identity, composition, palette, texture, or style cues.`
+                : ` Image 0 is the authoritative product view. Images 1 through ${resolvedInputs.length - 1} are indexed visual references; borrow only compatible composition or style cues from them without changing the product identity.`
               : '';
             const mentionNote = request.referenceMetadata.length
               ? ` User references map as follows: ${request.referenceMetadata.map(item => `${item.mention}=${item.displayName} (${item.role})`).join('; ')}. Resolve every @ mention against this mapping.`
@@ -321,9 +339,14 @@ export function createCanvasGenerationService({
             const hasImageInputs = resolvedInputs.length > 0;
             const submitted = await providerAdapter.submitEdit({
               idempotencyKey: request.idempotencyKey,
-              prompt: hasImageInputs
-                ? `Create a polished ecommerce product visual. Preserve the supplied product identity and structure.${referenceNote}${mentionNote} ${request.prompt}`
-                : `Create a polished ecommerce visual from the user's instructions. ${request.prompt}`,
+              prompt: buildCanvasGenerationPrompt({
+                creationIntent: request.creationIntent,
+                skillId: request.skillId,
+                userPrompt: request.prompt,
+                hasImageInputs,
+                referenceNote,
+                mentionNote,
+              }),
               modelRoute: selectedRoute.provider === 'image2'
                 ? { ...selectedRoute, model: providerModel, mode: hasImageInputs ? 'edit' : 'generate' }
                 : { ...selectedRoute, mode: hasImageInputs ? 'edit' : 'generate' },
@@ -456,6 +479,10 @@ export function createCanvasRegenerateHandler({ service, billing } = {}) {
         });
       }
       const body = req?.body || {};
+      const creationIntent = normalizeCreationIntent(body.creation_intent ?? body.creationIntent);
+      const skillId = creationIntent === 'visual'
+        ? normalizeVisualSkillId(body.skill_id ?? body.skillId)
+        : 'free';
       const imageModel = normalizeImageModel(body.image_model ?? body.imageModel);
       const selectedSize = resolveGenerationSize({ ...body, imageModel });
       const feature = ecommerceFeatureForItem({ imageModel, generationSize: selectedSize.size });
@@ -464,9 +491,15 @@ export function createCanvasRegenerateHandler({ service, billing } = {}) {
         quoteId: body.billing_quote_id,
         actionId: body.billing_action_id,
         sku: feature.sku,
-        referenceType: 'canvas_regenerate',
+        referenceType: creationIntent === 'visual' ? 'visual_creation' : 'canvas_regenerate',
         providerCostCny: feature.providerCostCny,
-        metadata: { action: 'regenerate', resolution: selectedSize.resolution, imageModel },
+        metadata: {
+          action: creationIntent === 'visual' ? 'visual_create' : 'regenerate',
+          resolution: selectedSize.resolution,
+          imageModel,
+          creationIntent,
+          skillId,
+        },
         resumableWork: true,
         work: () => service.regenerate({ ownerEmail, body }),
       });

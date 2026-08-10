@@ -650,6 +650,7 @@ test('canvas regeneration forwards supplementary visual references', async t => 
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;
   const requests = [];
+  const controller = new AbortController();
   t.after(() => {
     globalThis.fetch = originalFetch;
     globalThis.localStorage = originalStorage;
@@ -657,7 +658,7 @@ test('canvas regeneration forwards supplementary visual references', async t => 
   globalThis.localStorage = { getItem: () => JSON.stringify({ email: '867550189@qq.com' }) };
   globalThis.fetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    requests.push({ url: String(url), body });
+    requests.push({ url: String(url), body, signal: options.signal });
     if (String(url).endsWith('/api/billing/quote')) {
       return new Response(JSON.stringify({ quote: { quoteId: 'canvas-quote' } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
@@ -677,12 +678,18 @@ test('canvas regeneration forwards supplementary visual references', async t => 
     ],
     ratio: '3:4',
     resolution: '4K',
+    creationIntent: 'visual',
+    skillId: 'poster',
+    signal: controller.signal,
   });
   const requestBody = requests.find(request => request.url.endsWith('/api/canvas/regenerate')).body;
   assert.deepEqual(requestBody.reference_images, ['/api/ec-temp-img/reference.png']);
   assert.deepEqual(requestBody.reference_metadata.map(item => item.mention), ['@正面图', '@参考图 1']);
   assert.equal(requestBody.ratio, '3:4');
   assert.equal(requestBody.resolution, '4K');
+  assert.equal(requestBody.creation_intent, 'visual');
+  assert.equal(requestBody.skill_id, 'poster');
+  assert.equal(requests.find(request => request.url.endsWith('/api/canvas/regenerate')).signal, controller.signal);
   assert.equal(requests.find(request => request.url.endsWith('/api/billing/quote')).body.sku, 'ec_image_4k');
   assert.equal(requestBody.billing_quote_id, 'canvas-quote');
   assert.match(requestBody.request_key, /^canvas-[0-9a-f]{8}$/);
@@ -735,7 +742,7 @@ test('canvas regeneration keeps a stable billing action for retries and separate
   globalThis.localStorage = { getItem: () => JSON.stringify({ email: '867550189@qq.com' }) };
   globalThis.fetch = async (url, options = {}) => {
     const body = JSON.parse(options.body || '{}');
-    requests.push({ url: String(url), body });
+    requests.push({ url: String(url), body, signal: options.signal });
     if (String(url).endsWith('/api/billing/quote')) {
       return new Response(JSON.stringify({ quote: { quoteId: `quote-${requests.length}` } }), { status: 200 });
     }

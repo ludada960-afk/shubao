@@ -18,6 +18,14 @@ test('server Canvas generation has no Contact Sheet production dependency', asyn
   assert.doesNotMatch(source, /referenceContactSheet|buildReferenceContactSheet/);
 });
 
+test('optional Canvas vision configuration is resolved only when a vision action runs', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const wiring = source.match(/const canvasLayeringService = createCanvasLayeringService\(\{[\s\S]*?\n\}\);/)?.[0] || '';
+
+  assert.match(wiring, /visionClient:\s*\{\s*analyzeJson:\s*request\s*=>\s*createEcommerceVlmClient\(\)\.analyzeJson\(request\),?\s*\}/);
+  assert.doesNotMatch(wiring, /visionClient:\s*createEcommerceVlmClient\(\)/);
+});
+
 test('server Canvas regeneration is a thin route over the executable durable service', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const route = extractCanvasRoute(source, '/api/canvas/regenerate', 'async function readCanvasImage');

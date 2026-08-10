@@ -3316,7 +3316,9 @@ const canvasBackgroundCleanPlate = createCanvasBackgroundCleanPlate({
   model: IMG_MODEL,
 });
 const canvasLayeringService = createCanvasLayeringService({
-  visionClient: createEcommerceVlmClient(),
+  visionClient: {
+    analyzeJson: request => createEcommerceVlmClient().analyzeJson(request),
+  },
   generatedAssetStore,
   imageInputReader,
   createBackgroundCleanPlate: canvasBackgroundCleanPlate,

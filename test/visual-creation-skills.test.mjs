@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  buildCanvasGenerationPrompt,
+  normalizeCreationIntent,
+  normalizeVisualSkillId,
+} from '../server/visualCreationSkills.mjs';
+
+test('creation intent and visual skill ids are server allowlisted', () => {
+  assert.equal(normalizeCreationIntent('visual'), 'visual');
+  assert.equal(normalizeCreationIntent('anything-else'), 'ecommerce');
+  assert.equal(normalizeVisualSkillId('poster'), 'poster');
+  assert.equal(normalizeVisualSkillId('private-system-prompt'), 'free');
+});
+
+test('visual prompts are generic, skill-aware and preserve reference identity without ecommerce leakage', () => {
+  const prompt = buildCanvasGenerationPrompt({
+    creationIntent: 'visual',
+    skillId: 'poster',
+    userPrompt: '夏日音乐节，标题为 SUNSET LIVE',
+    hasImageInputs: true,
+    referenceNote: ' Reference images are indexed.',
+    mentionNote: ' Resolve @主图.',
+  });
+  assert.match(prompt, /poster/i);
+  assert.match(prompt, /SUNSET LIVE/);
+  assert.match(prompt, /Preserve the recognizable identity/);
+  assert.match(prompt, /clear visual hierarchy/i);
+  assert.doesNotMatch(prompt, /ecommerce/i);
+});
+
+test('default Canvas prompts retain the existing ecommerce contract', () => {
+  const prompt = buildCanvasGenerationPrompt({
+    creationIntent: 'ecommerce',
+    userPrompt: '换成夏日场景',
+    hasImageInputs: true,
+  });
+  assert.match(prompt, /polished ecommerce product visual/i);
+  assert.match(prompt, /Preserve the supplied product identity and structure/);
+});

@@ -4,12 +4,13 @@
 import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
-import { MdAutoAwesome, MdCheck, MdDashboard, MdFolder, MdGridOn, MdVideoLibrary } from 'react-icons/md';
+import { MdAutoAwesome, MdCheck, MdFolder, MdGridOn, MdVideoLibrary } from 'react-icons/md';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import { DialogProvider, useDialog } from './components/ui/DialogProvider.jsx';
+import './styles/app-shell.css';
 const HomePage = React.lazy(() => import('./pages/Home/index'));
 const PricingPage = React.lazy(() => import('./pages/Pricing/index'));
 const RemakePage = React.lazy(() => import('./pages/Remake/index'));
@@ -83,59 +84,20 @@ function SideNav() {
   ];
 
   return (
-    <div className="app-side-nav" style={{
-      position: 'fixed', left: 0, top: '50%', transform: 'translateY(-50%)',
-      zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8,
-      padding: '10px', marginLeft: 16,
-      background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
-      borderRadius: 20, border: '1px solid rgba(0,0,0,0.08)',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-    }}>
+    <div className="app-side-nav">
       {items.map((item, i) => {
-        const isGen = item.isPrimary;
-        // 按钮样式：更像可点击的按钮，有明确的背景和边框
-        const bg = isGen
-          ? (item.active
-              ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
-              : 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(167,139,250,0.08))')
-          : item.active 
-            ? 'linear-gradient(135deg, rgba(0,0,0,0.08), rgba(0,0,0,0.04))' 
-            : 'rgba(0,0,0,0.03)';
-        const color = isGen
-          ? (item.active ? '#fff' : '#7c3aed')
-          : item.active ? '#1a1a1a' : '#666';
-        const border = isGen
-          ? (item.active ? 'none' : '1.5px solid rgba(124,58,237,0.25)')
-          : item.active ? '1.5px solid rgba(0,0,0,0.15)' : '1.5px solid rgba(0,0,0,0.08)';
-        const shadow = item.active 
-          ? '0 4px 12px rgba(0,0,0,0.15)' 
-          : '0 2px 6px rgba(0,0,0,0.04)';
-
         return (
-          <button key={i} type="button" onClick={item.onClick} title={item.label} aria-label={item.label}
+          <button
+            key={i}
+            type="button"
+            onClick={item.onClick}
+            title={item.label}
+            aria-label={item.label}
             aria-current={item.active ? 'page' : undefined}
-            style={{
-              width: 44, height: 44, borderRadius: 14,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
-              background: bg, color, border, boxShadow: shadow,
-              padding: 0, font: 'inherit',
-            }}
-            onMouseEnter={e => {
-              if (!item.active) {
-                e.currentTarget.style.background = isGen
-                  ? 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(167,139,250,0.15))'
-                  : 'rgba(0,0,0,0.06)';
-                e.currentTarget.style.transform = 'scale(1.05)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-              }
-            }}
-            onMouseLeave={e => { 
-              e.currentTarget.style.background = bg; 
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = shadow;
-            }}>
-            {item.icon}
+            className={`app-side-nav-item${item.isPrimary ? ' is-primary' : ''}${item.active ? ' is-active' : ''}`}
+          >
+            <span className="app-side-nav-icon" aria-hidden="true">{item.icon}</span>
+            <span className="app-side-nav-label">{item.label}</span>
           </button>
         );
       })}
@@ -146,7 +108,7 @@ function SideNav() {
 /* ═══════ TopBar（无容器，直接浮在页面）═══════ */
 function TopBar() {
   const { state, dispatch, refreshBillingBalance } = useApp();
-  const { page, logged, ecPoints, unlimited, balanceRefreshStatus } = state;
+  const { logged, ecPoints, unlimited, balanceRefreshStatus } = state;
 
   useEffect(() => {
     if (!logged) return undefined;
@@ -159,34 +121,22 @@ function TopBar() {
   }, [logged, refreshBillingBalance]);
 
   return (
-    <div className="app-topbar" style={{
-      position: 'sticky', top: 0, zIndex: 100,
-      paddingTop: 28, userSelect: 'none',
-    }}>
+    <div className="app-topbar" style={{ zIndex: 100, userSelect: 'none' }}>
       {/* 纯 Logo + 按钮行，无背景无框无阴影 */}
-      <div className="topbar-row" style={{
-        maxWidth: 1680, margin: '0 auto',
-        paddingLeft: 36, paddingRight: 36,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
+      <div className="topbar-row">
         {/* Left: Logo — 匹配灵图: 侧面阴影 + 26px文字 + 薯包 AI */}
         <div className="topbar-brand" onClick={() => dispatch({ type: 'NAVIGATE', page: 'home' })}
-          style={{ display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', height: 50 }}>
-          <span className="topbar-brand-mark" style={{
-            display: 'flex', width: 42, height: 42, borderRadius: 12, overflow: 'hidden', flexShrink: 0,
-            boxShadow: '3px 6px 18px rgba(160,130,220,0.35), 1px 2px 6px rgba(0,0,0,0.10)',
-          }}>
+          style={{ cursor: 'pointer' }}>
+          <span className="topbar-brand-mark">
             <img src={IMAGES.appicon} alt="薯包AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </span>
-          <span style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: '#333', letterSpacing: '0.03em' }}
-            className="topbar-logo">
+          <span className="topbar-logo">
             薯包 AI
           </span>
-          <style>{`@media (min-width: 640px) { .topbar-logo { font-size: 26px !important; font-weight: 800 !important; letter-spacing: 0.03em !important; } }`}</style>
         </div>
 
         {/* Right: 按钮组 */}
-        <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="topbar-actions">
           <AccountEntitlementControl
             logged={logged}
             ecPoints={ecPoints}
@@ -198,29 +148,19 @@ function TopBar() {
 
           {/* 登录 */}
           {logged ? (
-            <button onClick={async () => { await signOut(); dispatch({ type: 'SET_LOGGED', logged: false, phone: '' }); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, height: 44,
-                padding: '0 24px', border: 'none', borderRadius: 'var(--radius-full)',
-                background: 'transparent', fontSize: 15, fontWeight: 700,
-                color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
-                whiteSpace: 'nowrap', transition: 'all 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.5)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+            <button
+              type="button"
+              className="topbar-action-button"
+              onClick={async () => { await signOut(); dispatch({ type: 'SET_LOGGED', logged: false, phone: '' }); }}
+            >
               <MdCheck size={16} /> 已登录
             </button>
           ) : (
-            <button onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, height: 44,
-                padding: '0 24px', border: 'none', borderRadius: 'var(--radius-full)',
-                background: 'transparent', fontSize: 15, fontWeight: 700,
-                color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
-                whiteSpace: 'nowrap', transition: 'all 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.5)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+            <button
+              type="button"
+              className="topbar-action-button"
+              onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}
+            >
               去登录
             </button>
           )}

@@ -629,5 +629,5 @@ test('commerce configuration and navigation controls keep native button semantic
   assert.match(ecMode, /aria-expanded=\{isOpen\}/);
   assert.match(skuPanel, /<button type="button" aria-label=\{`删除变体 \$\{idx \+ 1\}`\}/);
   assert.doesNotMatch(skuPanel, /<div onClick=\{\(\) => rm\(sku\.id\)\}/);
-  assert.match(app, /<button key=\{i\} type="button"[\s\S]{0,160}aria-current=/);
+  assert.match(app, /<button\s+key=\{i\}\s+type="button"[\s\S]{0,240}aria-current=/);
 });

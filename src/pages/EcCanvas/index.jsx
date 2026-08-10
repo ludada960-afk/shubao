@@ -83,6 +83,7 @@ const WORK_CATEGORY_OPTIONS = Object.freeze([
   { id: 'ecommerce', label: '电商商品图' },
   { id: 'xhs', label: '小红书图文' },
   { id: 'video', label: 'AI 视频' },
+  { id: 'visual', label: '自由创作' },
 ]);
 
 const VIDEO_FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
@@ -3758,7 +3759,7 @@ export default function EcCanvas() {
             <div className="ec-canvas-work-empty">
               <MdCollections size={42} />
               <strong>登录后查看作品</strong>
-              <span>你的电商套图、小红书图文、AI 视频和画布创作都会保存在这里</span>
+              <span>你的电商套图、小红书图文、AI 视频、自由创作和画布内容都会保存在这里</span>
               <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
             </div>
           ) : ((tab === 'trash' ? trashWorks : visibleWorks).length === 0) ? (

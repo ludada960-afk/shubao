@@ -161,6 +161,34 @@ test('Canvas handler bills with the SKU selected by the requested resolution', a
   assert.deepEqual(billedSkus, ['ec_image_4k', 'ec_image_2k']);
 });
 
+test('Canvas handler labels visual creation in billing metadata without changing the SKU catalog', async () => {
+  let billingRequest;
+  const handler = createCanvasRegenerateHandler({
+    service: { async regenerate() { return { url: '/api/generated-assets/visual.png' }; } },
+    billing: {
+      async execute(request) {
+        billingRequest = request;
+        return { result: await request.work(), billing: { status: 'settled' } };
+      },
+    },
+  });
+
+  await handler({
+    _userEmail: 'signed-owner@example.com',
+    body: {
+      prompt: '音乐节海报',
+      creation_intent: 'visual',
+      skill_id: 'poster',
+      resolution: '2K',
+    },
+  }, createResponse());
+
+  assert.equal(billingRequest.sku, 'ec_image_2k');
+  assert.equal(billingRequest.referenceType, 'visual_creation');
+  assert.equal(billingRequest.metadata.creationIntent, 'visual');
+  assert.equal(billingRequest.metadata.skillId, 'poster');
+});
+
 test('Canvas handler accepts only the signed owner and never a body email fallback', async () => {
   let calls = 0;
   const handler = createCanvasRegenerateHandler({

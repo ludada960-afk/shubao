@@ -151,6 +151,46 @@ test('Canvas service preserves primary and supplementary input order for indexed
   assert.equal(result.url, `/api/generated-assets/${result.taskId}.png`);
 });
 
+test('Canvas visual intent uses an allowlisted skill prompt and persists intent in the durable fingerprint', async t => {
+  const submitted = [];
+  const harness = createHarness({
+    imageInputReader: { async read(source) { return { buffer: Buffer.from(source), contentType: 'image/png' }; } },
+    providerAdapter: {
+      async submitEdit(request) {
+        submitted.push(request);
+        return { jobId: `provider-visual-${submitted.length}`, status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        return { jobId, status: 'completed', outputUrl: `https://provider.example/${jobId}.png`, error: '' };
+      },
+    },
+  });
+  t.after(() => harness.close());
+
+  const base = {
+    prompt: '夏日音乐节，标题为 SUNSET LIVE',
+    image_url: 'subject.png',
+    creation_intent: 'visual',
+    request_key: 'visual-run:1',
+  };
+  const poster = await harness.service.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: { ...base, skill_id: 'poster' },
+  });
+  const free = await harness.service.regenerate({
+    ownerEmail: 'owner@example.com',
+    body: { ...base, skill_id: 'free' },
+  });
+
+  assert.notEqual(poster.taskId, free.taskId);
+  assert.match(submitted[0].prompt, /poster/i);
+  assert.match(submitted[0].prompt, /clear visual hierarchy/i);
+  assert.doesNotMatch(submitted[0].prompt, /ecommerce/i);
+  const snapshot = harness.store.get(poster.taskId).requestSnapshot;
+  assert.equal(snapshot.creationIntent, 'visual');
+  assert.equal(snapshot.skillId, 'poster');
+});
+
 test('Canvas service carries a normalized local-edit target into the durable provider request', async t => {
   let submittedRequest;
   const harness = createHarness({

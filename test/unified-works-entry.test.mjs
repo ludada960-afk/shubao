@@ -23,6 +23,7 @@ test('Canvas work collection exposes extensible category filters', () => {
   assert.match(canvas, /全部作品/);
   assert.match(canvas, /电商商品图/);
   assert.match(canvas, /小红书图文/);
+  assert.match(canvas, /自由创作/);
 });
 
 test('every save path persists an explicit normalized work type', () => {

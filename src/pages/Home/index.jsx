@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MdAutoAwesome, MdEdit, MdShoppingCart, MdVideoLibrary } from 'react-icons/md';
+import { MdAutoAwesome, MdEdit, MdPalette, MdShoppingCart, MdVideoLibrary } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import XhsContentMode from './XhsContentMode';
 import EcMode from './EcMode';
 import VideoStudioPage from '../VideoStudio';
+import VisualCreationMode from './VisualCreationMode';
 import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
@@ -19,6 +20,7 @@ export default function HomePage() {
   const { mode } = state;
   const isXHS = mode === 'content';
   const isVideo = mode === 'video';
+  const isVisual = mode === 'visual';
   const [xhsSubMode, setXhsSubMode] = useState('content');
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState(null);
@@ -34,27 +36,19 @@ export default function HomePage() {
     {
       mode: 'video',
       title: '视频生成',
-      src: '/images/home/workspace-video-model.png',
+      src: '/images/home/reference-card-video.png',
     },
     {
       mode: 'content',
       title: '小红书图文',
       src: '/images/home/workspace-xhs.png',
     },
+    {
+      mode: 'visual',
+      title: '自由创作',
+      src: '/images/home/reference-card-product.png',
+    },
   ];
-
-  const handleModePointerMove = event => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-    event.currentTarget.style.setProperty('--mode-tilt-x', `${(-y * 5).toFixed(2)}deg`);
-    event.currentTarget.style.setProperty('--mode-tilt-y', `${(x * 7).toFixed(2)}deg`);
-  };
-
-  const resetModePointer = event => {
-    event.currentTarget.style.setProperty('--mode-tilt-x', '0deg');
-    event.currentTarget.style.setProperty('--mode-tilt-y', '0deg');
-  };
 
   useEffect(() => {
     clearLegacyEcommerceDraftState();
@@ -105,7 +99,7 @@ export default function HomePage() {
             <style>{`@media (min-width:640px){.homepage-h1{font-size:54px!important}}@media(min-width:1024px){.homepage-h1{font-size:62px!important}}`}</style>
 
             <p style={{ margin: '12px auto 0', maxWidth: 860, fontSize: 15, fontWeight: 500, color: 'var(--text-muted)' }} className="homepage-subtitle">
-              电商套图、营销视频与小红书图文，在同一个工作台完成
+              电商套图、营销视频、小红书图文与自由创作，在同一个工作台完成
             </p>
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>
@@ -115,14 +109,12 @@ export default function HomePage() {
           {/* ═══ 主模式切换：卡片本身就是工作台入口 ═══ */}
           <div
             ref={modeShowcaseRef}
-            className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : isVideo ? 'is-video' : 'is-commerce'}`}
-            onPointerMove={handleModePointerMove}
-            onPointerLeave={resetModePointer}
+            className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : isVideo ? 'is-video' : isVisual ? 'is-visual' : 'is-commerce'}`}
           >
             <div className="homepage-mode-cards" role="tablist" aria-label="创作模式">
               {modeOptions.map((option, index) => {
                 const active = option.mode === mode;
-                const ModeIcon = option.mode === 'video' ? MdVideoLibrary : option.mode === 'ecommerce' ? MdShoppingCart : MdEdit;
+                const ModeIcon = option.mode === 'video' ? MdVideoLibrary : option.mode === 'ecommerce' ? MdShoppingCart : option.mode === 'visual' ? MdPalette : MdEdit;
                 return (
                   <button
                     type="button"
@@ -147,7 +139,7 @@ export default function HomePage() {
 
 
           {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}
-          {!isXHS && !isVideo && ecStep === 2 && (
+          {!isXHS && !isVideo && !isVisual && ecStep === 2 && (
             <DesignDirection
               params={ecParamsRef.current}
               onBack={() => setEcStep(1)}
@@ -157,15 +149,16 @@ export default function HomePage() {
           <div id="creation-workbench" className="surface-card" style={{
             display: ecStep === 2 ? 'none' : undefined,
             marginTop: 20,
-            background: isXHS || isVideo ? '#fff' : 'transparent',
-            boxShadow: isXHS || isVideo ? undefined : 'none',
+            background: isXHS || isVideo || isVisual ? '#fff' : 'transparent',
+            boxShadow: isXHS || isVideo || isVisual ? undefined : 'none',
           }}>
             <div className="surface-card-inner">
-              {isVideo ? <VideoStudioPage embedded /> : isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : (
+              {isVideo ? <VideoStudioPage embedded /> : isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : !isVisual ? (
                 <EcMode ecStep={ecStep} setEcStep={setEcStep}
                   onStepChange={(params) => { ecParamsRef.current = params; }}
                   recoveryCheckpoint={recoveryCheckpoint} />
-              )}
+              ) : null}
+              <div hidden={!isVisual}><VisualCreationMode /></div>
             </div>
           </div>
         </div>

@@ -65,7 +65,7 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(home, /<VideoStudioPage embedded/);
   assert.match(server, /\/api\/video\/capabilities/);
   assert.match(server, /\/api\/video\/jobs/);
-  assert.match(home, /workspace-video-model\.png/);
+  assert.match(home, /reference-card-video\.png/);
   assert.match(canvas, /CanvasVideoComposer/);
   assert.match(canvas, /resolveVideoApiMode/);
   assert.match(canvas, /hasRequiredVideoInputs/);

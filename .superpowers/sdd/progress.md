@@ -1642,3 +1642,33 @@
   and whitespace validation passed. Production deployment is the remaining
   step. User-owned package changes, extension-task deletions, `.tmp/`, and the
   diagnosis helper remain untouched and uncommitted.
+
+- Video creation experience unification Task 1: complete (commits
+  `77e1c5d..875935a`, review clean). The standalone studio now exposes only
+  smart creation, first/last frames, and viral remake; all optional smart
+  image/video/audio references survive the API boundary, and focused model,
+  studio contract, and server generation tests pass `9/9` without paid work.
+
+- Video creation experience unification Task 2: complete (commits
+  `875935a..d20739d`, review clean). Canvas now uses the same three video jobs,
+  validates frame/remake materials before quote creation, routes mixed image
+  and video sources through one uploader, and preserves connected nodes,
+  durable polling, and result placement. Focused contracts pass `7/7`; the
+  production build transformed `6463` modules without paid generation.
+
+- Free visual creation integration and reference-asset correction completed
+  locally on 2026-08-10. The fourth home entry is `自由创作`, with skill-based
+  poster, social-cover, brand-KV, and free-creation recipes, durable reference
+  uploads, per-slot retries, Canvas handoff, and server allowlisted intent
+  prompts. The home video and free-creation cards now use the user-provided
+  transparent layered-card PNGs directly (`reference-card-video.png` and
+  `reference-card-product.png`); the previously generated opaque collages are
+  no longer referenced. Desktop and 390px mobile browser checks found no
+  horizontal overflow or image clipping. The API now defers optional Canvas
+  VLM client creation until a vision action runs, so an unconfigured local VLM
+  no longer prevents health and gallery-image routes from starting; those
+  routes returned 200 and the full browser pass had no failed responses or
+  console errors. Full serial regression passed `1379/1379`, production build
+  transformed `6467` modules, and build, collaboration, and whitespace checks
+  passed. No paid generation was used; production deployment remains
+  intentionally pending.

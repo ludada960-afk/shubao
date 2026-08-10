@@ -126,6 +126,21 @@ test('importing a Xiaohongshu work preserves its library category in Canvas', ()
   assert.equal(imported.imageRecords.length, 2);
 });
 
+test('free visual creation stays in its own Canvas work category', () => {
+  const work = {
+    _saveKey: 'visual-work',
+    _phone: 'owner@example.com',
+    _ecResult: true,
+    workType: 'visual',
+    product_name: '音乐节海报',
+    images: [{ key: 'poster-1', url: '/api/generated-assets/' + '9'.repeat(64) + '.png' }],
+  };
+  const panel = normalizeCanvasWorkPanel({ ownerEmail: 'owner@example.com', serverWorks: [work] });
+  assert.equal(canvasWorkCategory(panel[0]), 'visual');
+  assert.equal(filterCanvasWorks(panel, 'visual').length, 1);
+  assert.equal(buildCanvasImportResult(panel[0], { importId: 'visual-import' }).workType, 'visual');
+});
+
 test('Canvas open-work result preserves project, product and session metadata', () => {
   const result = buildCanvasImportResult({
     name: '云端保温杯',

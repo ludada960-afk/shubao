@@ -14,6 +14,9 @@ const WORK_TYPE_ALIASES = Object.freeze({
   video: 'video',
   ai_video: 'video',
   aivideo: 'video',
+  visual: 'visual',
+  creation: 'visual',
+  visual_creation: 'visual',
 });
 
 function cleanString(value) {

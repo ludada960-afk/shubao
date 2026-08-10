@@ -28,11 +28,12 @@ export function fetchBillingBalance() {
   return requestJson('/api/billing/balance');
 }
 
-export function quoteBillingAction(input) {
+export function quoteBillingAction(input, { signal } = {}) {
   return requestJson('/api/billing/quote', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(withoutEmail(input)),
+    signal,
   });
 }
 
