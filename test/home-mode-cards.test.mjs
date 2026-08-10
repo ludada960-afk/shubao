@@ -15,6 +15,7 @@ test('home presents image, content, and video as one visual workspace family', (
   assert.match(options, /title: '视频生成'/);
   assert.match(source, /homepage-mode-cards/);
   assert.match(source, /<VideoStudioPage embedded/);
+  assert.match(source, /workspace-video-model\.png/);
   assert.doesNotMatch(source, /homepage-mode-indicator/);
   assert.match(source, /上传创意素材，生成/);
   assert.match(source, /电商套图、营销视频与小红书图文/);

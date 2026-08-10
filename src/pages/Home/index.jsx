@@ -34,7 +34,7 @@ export default function HomePage() {
     {
       mode: 'video',
       title: '视频生成',
-      src: '/images/home/workspace-video-v2.png',
+      src: '/images/home/workspace-video-model.png',
     },
     {
       mode: 'content',

@@ -22,6 +22,13 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /爆款重构/);
   assert.match(page, /AI 积分 \/ 次/);
   assert.match(page, /disabled=\{!canGenerate\}/);
+  assert.match(page, /video-composer/);
+  assert.match(page, /video-config-trigger/);
+  assert.match(page, /createPortal/);
+  assert.match(page, /创作模式/);
+  assert.match(page, /素材参考/);
+  assert.match(page, /镜头规格/);
+  assert.match(page, /生成设置/);
   assert.match(page, /embedded = false/);
   assert.match(page, /在画布中继续/);
   assert.match(page, /type: 'SET_RESULT'/);
@@ -30,7 +37,7 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(home, /<VideoStudioPage embedded/);
   assert.match(server, /\/api\/video\/capabilities/);
   assert.match(server, /\/api\/video\/jobs/);
-  assert.match(home, /workspace-video-v2\.png/);
+  assert.match(home, /workspace-video-model\.png/);
   assert.match(canvas, /CanvasVideoComposer/);
   assert.match(canvas, /resultVideoUrl/);
   assert.match(canvas, /createUploadedVideoNodes/);
