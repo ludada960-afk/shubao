@@ -139,6 +139,9 @@ test('public catalog advertises only the shared point wallet', async t => {
   assert.equal(res.body.features.some(feature => feature.currency === 'content_sets'), false);
   assert.ok(res.body.products.some(product => product.sku === 'ec_starter_29'));
   assert.ok(res.body.features.some(feature => feature.sku === 'xhs_image_set_2k'));
+  assert.ok(res.body.features.some(feature => feature.sku === 'video_seedance_fast_short'));
+  assert.ok(res.body.features.some(feature => feature.sku === 'video_seedance_standard_long'));
+  assert.equal(res.body.features.some(feature => feature.sku.startsWith('video_minimax_h3_2k_')), false);
 });
 
 test('new order routes reject legacy content-set products even when a provider is enabled', async t => {

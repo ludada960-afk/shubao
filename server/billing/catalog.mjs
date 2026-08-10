@@ -27,13 +27,14 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_nano_pro_1k: { units: 1000, providerCostCny: 0.06 },
   ec_nano_pro_2k: { units: 1000, providerCostCny: 0.06 },
   ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
-  // This Seedance channel charges a fixed amount per successful generation.
-  // Point weights keep at least 70%
-  // model contribution margin against the least expensive point package.
-  video_seedance_480p_short: { units: 32000, providerCostCny: 4.355 },
-  video_seedance_480p_long: { units: 40000, providerCostCny: 4.355 },
-  video_seedance_720p_short: { units: 48000, providerCostCny: 4.355 },
-  video_seedance_720p_long: { units: 58000, providerCostCny: 4.355 },
+  // Video products are priced against the least favorable point package and
+  // include the payment-cost allowance in the contribution-margin gate.
+  video_seedance_fast_short: { units: 40000, providerCostCny: 2.73 },
+  video_seedance_fast_long: { units: 46000, providerCostCny: 2.73 },
+  video_seedance_standard_short: { units: 62000, providerCostCny: 4.355 },
+  video_seedance_standard_long: { units: 72000, providerCostCny: 4.355 },
+  video_minimax_h3_2k_short: { units: 68000, providerCostCny: 3.25, public: false },
+  video_minimax_h3_2k_long: { units: 78000, providerCostCny: 3.25, public: false },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.
   xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.342 },

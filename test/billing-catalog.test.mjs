@@ -34,11 +34,35 @@ test('quotes ecommerce outputs from server feature weights', () => {
 });
 
 test('video quotes are fixed per successful generation', () => {
-  assert.equal(quoteFeature('video_seedance_480p_short', 1).totalUnits, 32000);
-  assert.equal(quoteFeature('video_seedance_480p_long', 1).totalUnits, 40000);
-  assert.equal(quoteFeature('video_seedance_720p_short', 1).totalUnits, 48000);
-  assert.equal(quoteFeature('video_seedance_720p_long', 1).totalUnits, 58000);
-  assert.equal(quoteFeature('video_seedance_720p_long', 1).providerCostCny, 4.355);
+  const expected = {
+    video_seedance_fast_short: [40000, 2.73, true],
+    video_seedance_fast_long: [46000, 2.73, true],
+    video_seedance_standard_short: [62000, 4.355, true],
+    video_seedance_standard_long: [72000, 4.355, true],
+    video_minimax_h3_2k_short: [68000, 3.25, false],
+    video_minimax_h3_2k_long: [78000, 3.25, false],
+  };
+  for (const [sku, [units, providerCostCny, isPublic]] of Object.entries(expected)) {
+    assert.equal(quoteFeature(sku, 1).totalUnits, units);
+    assert.equal(quoteFeature(sku, 1).providerCostCny, providerCostCny);
+    assert.equal(FEATURE_SKUS[sku].public !== false, isPublic);
+  }
+  for (const legacy of ['video_seedance_480p_short', 'video_seedance_720p_long']) {
+    assert.throws(() => quoteFeature(legacy, 1), /unknown feature sku/i);
+  }
+});
+
+test('every video price clears the margin gate on the least favorable point package', () => {
+  const unitPriceCny = Math.min(...Object.values(PRODUCTS)
+    .filter(product => product.currency === 'ec_points')
+    .map(product => (product.priceFen / 100) / product.grantUnits));
+  const videoFeatures = Object.values(FEATURE_SKUS).filter(feature => Number.isFinite(feature.providerCostCny))
+    .filter((_feature, index, values) => values.length > 0)
+    .filter(feature => Object.entries(FEATURE_SKUS).some(([sku, item]) => item === feature && sku.startsWith('video_')));
+  assert.equal(videoFeatures.length, 6);
+  for (const feature of videoFeatures) {
+    assert.ok(assertContributionMargin(feature, feature.units * unitPriceCny) >= 0.70);
+  }
 });
 
 test('quotes an explicit design-direction refresh as one AI point', () => {

@@ -51,7 +51,7 @@ function publicCatalog(paymentService) {
     .filter(product => product.enabled !== false && product.currency !== 'content_sets')
     .map(({ enabled, providerCostCny, ...product }) => ({ ...product }));
   const features = Object.entries(FEATURE_SKUS)
-    .filter(([, feature]) => feature.enabled !== false && feature.currency !== 'content_sets')
+    .filter(([, feature]) => feature.enabled !== false && feature.public !== false && feature.currency !== 'content_sets')
     .map(([sku, feature]) => ({
       sku,
       units: feature.units,

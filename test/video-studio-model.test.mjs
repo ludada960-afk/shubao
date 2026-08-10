@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   VIDEO_CREATION_MODES,
   hasRequiredVideoInputs,
+  quoteForVideoProduct,
   resolveVideoApiMode,
 } from '../src/pages/VideoStudio/videoStudioModel.js';
 
@@ -27,4 +28,19 @@ test('only frame and remake have mandatory material combinations', () => {
   assert.equal(hasRequiredVideoInputs('frame', { first: [{}], last: [{}] }), true);
   assert.equal(hasRequiredVideoInputs('remake', { images: [{}], videos: [] }), false);
   assert.equal(hasRequiredVideoInputs('remake', { images: [{}], videos: [{}] }), true);
+});
+
+test('frontend video quotes come from the selected public product contract', () => {
+  const product = {
+    id: 'seedance_standard',
+    durations: { min: 4, max: 15 },
+    quotes: {
+      short: { sku: 'video_seedance_standard_short', units: 62000, points: 62 },
+      long: { sku: 'video_seedance_standard_long', units: 72000, points: 72 },
+    },
+  };
+  assert.deepEqual(quoteForVideoProduct(product, 8), product.quotes.short);
+  assert.deepEqual(quoteForVideoProduct(product, 9), product.quotes.long);
+  assert.throws(() => quoteForVideoProduct(product, 3), /4 到 15 秒/);
+  assert.throws(() => quoteForVideoProduct({ ...product, quotes: {} }, 8), /报价/);
 });
