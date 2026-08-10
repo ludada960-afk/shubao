@@ -4,7 +4,8 @@
 import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
-import { MdAutoAwesome, MdCheck, MdFolder, MdGridOn, MdVideoLibrary } from 'react-icons/md';
+import { MdCheck } from 'react-icons/md';
+import { Sparkles, LayoutGrid, SquarePlay, FolderOpen } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -35,14 +36,16 @@ function SideNav() {
   // 生图（新建）/ 画布 / 作品 — 语义清晰，无重叠
   const items = [
     {
-      icon: <MdAutoAwesome size={19} />,
+      icon: Sparkles,
+      motion: 'sparkles',
       label: '生图',
       isPrimary: true,       // 主行动按钮，始终紫色强调
       active: page === 'home',
       onClick: () => dispatch({ type: 'NEW_WORK' }),  // 彻底重置状态，强制 remount
     },
     {
-      icon: <MdGridOn size={20} />,
+      icon: LayoutGrid,
+      motion: 'grid',
       label: '画布',
       active: page === 'ec-canvas',
       onClick: () => {
@@ -56,7 +59,8 @@ function SideNav() {
       },
     },
     {
-      icon: <MdVideoLibrary size={20} />,
+      icon: SquarePlay,
+      motion: 'video',
       label: '视频创作',
       active: page === 'video-studio',
       onClick: () => {
@@ -69,7 +73,8 @@ function SideNav() {
       },
     },
     {
-      icon: <MdFolder size={20} />,
+      icon: FolderOpen,
+      motion: 'folder',
       label: '作品',
       active: false,
       onClick: () => {
@@ -86,18 +91,21 @@ function SideNav() {
   return (
     <div className="app-side-nav">
       {items.map((item, i) => {
+        const Icon = item.icon;
         return (
           <button
             key={i}
             type="button"
             onClick={item.onClick}
-            title={item.label}
             aria-label={item.label}
             aria-current={item.active ? 'page' : undefined}
+            data-nav-icon={item.motion}
             className={`app-side-nav-item${item.isPrimary ? ' is-primary' : ''}${item.active ? ' is-active' : ''}`}
           >
-            <span className="app-side-nav-icon" aria-hidden="true">{item.icon}</span>
-            <span className="app-side-nav-label">{item.label}</span>
+            <span className={`app-side-nav-icon motion-${item.motion}`} aria-hidden="true">
+              <Icon size={item.isPrimary ? 19 : 20} strokeWidth={2.1} />
+            </span>
+            <span className="app-side-nav-tooltip" role="tooltip" aria-hidden="true">{item.label}</span>
           </button>
         );
       })}
