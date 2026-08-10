@@ -86,6 +86,9 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(videoModel, /爆款重构/);
   const canvasVideoComposer = canvasStudio.match(/export function CanvasVideoComposer[\s\S]*?export function CanvasEcommerceComposer/)?.[0] || '';
   assert.doesNotMatch(canvasVideoComposer, /脚本成片|多图参考|产品图/);
+  assert.match(canvasVideoComposer, /ComposerSources[\s\S]*accept="image\/\*,video\/\*"/);
+  assert.doesNotMatch(canvasVideoComposer, /VideoSourceStrip/);
+  assert.doesNotMatch(canvasVideoComposer, /accept="video\/\*"/);
   assert.match(generation, /walletService\.createHold/);
   assert.match(generation, /walletService\.settleItem/);
   assert.match(generation, /walletService\.releaseItem/);

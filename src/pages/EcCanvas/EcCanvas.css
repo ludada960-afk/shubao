@@ -641,6 +641,15 @@
   height: 70px !important;
   border-radius: 7px 7px 0 0;
 }
+.ec-canvas-composer-source-preview.is-video {
+  background: #111827;
+}
+.ec-canvas-composer-source-preview.is-video > video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .ec-canvas-composer-source > b {
   position: static;
   display: flex;
