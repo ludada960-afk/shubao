@@ -2,18 +2,21 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import {
   Aperture,
+  AtSign,
+  Check,
   ChevronDown,
   Clapperboard,
   FileAudio,
   ImagePlus,
-  Images,
   Mic2,
   Play,
+  Plus,
   Settings2,
   Sparkles,
   Upload,
   Video,
   Volume2,
+  X,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext.jsx';
 import { quoteBillingAction } from '../../services/billing.js';
@@ -36,8 +39,6 @@ const MODES = [
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
 const FINAL = new Set(['completed', 'failed', 'needs_review']);
 const TOOLBAR_ITEMS = [
-  { key: 'mode', label: '创作模式', icon: Clapperboard, description: '选择镜头生成方式' },
-  { key: 'assets', label: '素材参考', icon: Images, description: '上传首尾帧或参考素材' },
   { key: 'shot', label: '镜头规格', icon: Aperture, description: '设置画幅与成片时长' },
   { key: 'sound', label: '声音', icon: Mic2, description: '控制同期声音与音频参考' },
   { key: 'settings', label: '生成设置', icon: Settings2, description: '设置清晰度与高级约束' },
@@ -52,12 +53,48 @@ function pointsFor(resolution, duration) {
   return values[skuFor(resolution, duration)];
 }
 
-function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange }) {
-  return <label className="video-asset-input">
-    <input type="file" accept={accept} multiple={multiple} onChange={event => onChange(Array.from(event.target.files || []))} />
-    <Icon size={20} />
-    <span>{files.length ? files.map(file => file.name).join('、') : label}</span>
-  </label>;
+function fileKind(file) {
+  const type = String(file?.type || '').toLowerCase();
+  const name = String(file?.name || '').toLowerCase();
+  if (type.startsWith('image/') || /\.(png|jpe?g|webp|gif|avif)$/.test(name)) return 'image';
+  if (type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/.test(name)) return 'video';
+  if (type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|ogg|flac)$/.test(name)) return 'audio';
+  return '';
+}
+
+function MediaPreview({ file }) {
+  const [source, setSource] = useState('');
+  const kind = fileKind(file);
+
+  useEffect(() => {
+    if (!file || !globalThis.URL?.createObjectURL) return undefined;
+    const nextSource = globalThis.URL.createObjectURL(file);
+    setSource(nextSource);
+    return () => globalThis.URL.revokeObjectURL(nextSource);
+  }, [file]);
+
+  if (kind === 'image' && source) return <img className="video-media-preview" src={source} alt="" />;
+  if (kind === 'video' && source) return <video className="video-media-preview" src={source} muted preload="metadata" />;
+  return <span className="video-media-audio-preview"><FileAudio size={25} /><small>{kind === 'audio' ? '音频' : '素材'}</small></span>;
+}
+
+function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove }) {
+  const file = files[0];
+  return <div className={`video-media-card video-media-picker${file ? ' has-file' : ''}`}>
+    <label className="video-media-picker-control">
+      <input type="file" accept={accept} multiple={multiple} onChange={event => {
+        onChange(Array.from(event.target.files || []));
+        event.target.value = '';
+      }} />
+      {file ? <MediaPreview file={file} /> : <>
+        <span className="video-media-add-icon"><Icon size={20} /></span>
+        <strong>{label}</strong>
+        <small>点击选择文件</small>
+      </>}
+      {file && <span className="video-media-caption">{files.length > 1 ? `${label} · ${files.length} 个` : label}</span>}
+    </label>
+    {file && onRemove && <button type="button" className="video-media-remove" aria-label={`移除${label}`} onClick={onRemove}><X size={14} /></button>}
+  </div>;
 }
 
 function jobStatus(job) {
@@ -87,9 +124,12 @@ export default function VideoStudioPage({ embedded = false }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [activePanel, setActivePanel] = useState(null);
+  const [inlineMenu, setInlineMenu] = useState(null);
   const [panelPosition, setPanelPosition] = useState({ left: 16, bottom: 80, width: 520, maxHeight: 560, anchor: 260 });
   const pollRef = useRef(null);
   const toolbarRef = useRef(null);
+  const quickUploadRef = useRef(null);
+  const quickToolsRef = useRef(null);
   const buttonRefs = useRef({});
   const openedJobRef = useRef('');
 
@@ -165,8 +205,52 @@ export default function VideoStudioPage({ embedded = false }) {
     };
   }, [activePanel, positionPanel]);
 
+  useEffect(() => {
+    if (!inlineMenu) return undefined;
+    const closeMenu = event => {
+      if (!quickToolsRef.current?.contains(event.target)) setInlineMenu(null);
+    };
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') setInlineMenu(null);
+    };
+    document.addEventListener('pointerdown', closeMenu);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [inlineMenu]);
+
   function replaceFiles(key, next, limit) {
-    setFiles(current => ({ ...current, [key]: next.slice(0, limit) }));
+    setFiles(current => {
+      if (!['images', 'videos', 'audios'].includes(key)) return { ...current, [key]: next.slice(0, limit) };
+      const occupied = ['images', 'videos', 'audios']
+        .filter(itemKey => itemKey !== key)
+        .reduce((sum, itemKey) => sum + current[itemKey].length, 0);
+      return { ...current, [key]: next.slice(0, Math.min(limit, Math.max(0, 9 - occupied))) };
+    });
+  }
+
+  function removeFile(key, index) {
+    setFiles(current => ({ ...current, [key]: current[key].filter((_, itemIndex) => itemIndex !== index) }));
+  }
+
+  function appendQuickFiles(items) {
+    setFiles(current => {
+      if (mode === 'frame') {
+        const images = items.filter(file => fileKind(file) === 'image');
+        const frames = [...current.first, ...current.last, ...images].slice(0, 2);
+        return { ...current, first: frames.slice(0, 1), last: frames.slice(1, 2) };
+      }
+      const available = Math.max(0, 9 - current.images.length - current.videos.length - current.audios.length);
+      const accepted = items.filter(file => fileKind(file)).slice(0, available);
+      return {
+        ...current,
+        images: [...current.images, ...accepted.filter(file => fileKind(file) === 'image')],
+        videos: [...current.videos, ...accepted.filter(file => fileKind(file) === 'video')],
+        audios: [...current.audios, ...accepted.filter(file => fileKind(file) === 'audio')],
+      };
+    });
   }
 
   async function uploadFiles(items, kind) {
@@ -196,12 +280,15 @@ export default function VideoStudioPage({ embedded = false }) {
     setError('');
     setSubmitting(true);
     try {
+      const selected = mode === 'frame'
+        ? { first: files.first, last: files.last, images: [], videos: [], audios: [] }
+        : { first: [], last: [], images: files.images, videos: files.videos, audios: files.audios };
       const [first, last, images, videos, audios] = await Promise.all([
-        uploadFiles(files.first, 'image'),
-        uploadFiles(files.last, 'image'),
-        uploadFiles(files.images, 'image'),
-        uploadFiles(files.videos, 'video'),
-        uploadFiles(files.audios, 'audio'),
+        uploadFiles(selected.first, 'image'),
+        uploadFiles(selected.last, 'image'),
+        uploadFiles(selected.images, 'image'),
+        uploadFiles(selected.videos, 'video'),
+        uploadFiles(selected.audios, 'audio'),
       ]);
       const urls = Object.fromEntries([...first, ...last, ...images, ...videos, ...audios].map(asset => [asset.id, asset.url]));
       const idempotencyKey = globalThis.crypto?.randomUUID?.() || `video-${Date.now()}`;
@@ -272,41 +359,51 @@ export default function VideoStudioPage({ embedded = false }) {
     openJobInCanvas(job);
   }, [job]);
 
-  const activeMode = MODES.find(item => item.id === mode) || MODES[0];
-  const assetCount = Object.values(files).reduce((sum, items) => sum + items.length, 0);
-  const assetSummary = mode === 'script' ? '无需参考素材' : assetCount ? `${assetCount} 个素材` : '待上传素材';
+  const materialEntries = [
+    ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片' })),
+    ...files.videos.map((file, index) => ({ file, key: 'videos', index, kind: 'video', label: '视频' })),
+    ...files.audios.map((file, index) => ({ file, key: 'audios', index, kind: 'audio', label: '音频' })),
+  ];
+  const assetCount = mode === 'frame' ? files.first.length + files.last.length : materialEntries.length;
   const toolbarSummary = {
-    mode: activeMode.label,
-    assets: assetSummary,
     shot: `${ratio} · ${duration}秒`,
     sound: sound ? '生成声音' : '无声音',
     settings: `${resolution.toUpperCase()} · Seed ${seed || '随机'}`,
   };
 
   const renderAssetPickers = () => {
-    if (mode === 'script') {
-      return <div className="video-panel-empty"><Sparkles size={22} /><strong>脚本成片无需参考素材</strong><span>直接描述主体、动作、镜头和节奏即可。</span></div>;
-    }
     if (mode === 'frame') {
-      return <div className="video-panel-assets two-columns">
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} />
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} />
+      return <div className="video-media-deck is-frame">
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} />
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} />
+        <div className="video-media-guidance"><strong>用两张画面定义镜头起点与终点</strong><small>中间动作、运镜和节奏在下方描述。</small></div>
       </div>;
     }
-    return <div className="video-panel-assets">
-      <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="参考图片（最多 9 张）" files={files.images} multiple onChange={next => replaceFiles('images', next, 9)} />
-      <FilePicker accept="video/mp4,video/webm,video/quicktime" icon={Video} label={mode === 'remake' ? '原视频（最多 3 个）' : '参考视频（最多 3 个）'} files={files.videos} multiple onChange={next => replaceFiles('videos', next, 3)} />
-      <FilePicker accept="audio/*" icon={FileAudio} label="参考音频（最多 3 个）" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} />
+    return <div className={`video-media-deck${materialEntries.length ? '' : ' is-empty'}`}>
+      {materialEntries.map(item => <article key={`${item.key}-${item.index}-${item.file.name}`} className={`video-media-card video-media-preview-card is-${item.kind}`}>
+        <MediaPreview file={item.file} />
+        <span className="video-media-type">{item.label}</span>
+        <span className="video-media-caption">{item.file.name}</span>
+        <button type="button" className="video-media-remove" aria-label={`移除${item.file.name}`} onClick={() => removeFile(item.key, item.index)}><X size={14} /></button>
+      </article>)}
+      {materialEntries.length < 9 && <label className="video-media-card video-media-add-card">
+        <input type="file" accept="image/*,video/*,audio/*" multiple onChange={event => {
+          appendQuickFiles(Array.from(event.target.files || []));
+          event.target.value = '';
+        }} />
+        <span className="video-media-add-icon"><Plus size={20} /></span>
+        <strong>添加素材</strong>
+        <small>图片、视频或音频</small>
+      </label>}
+      {!materialEntries.length && <div className="video-media-guidance">
+        <strong>{mode === 'remake' ? '放入原视频和需要替换的商品素材' : '把产品、人物或场景素材放在这里'}</strong>
+        <small>支持图片、视频和音频，最多 9 个素材。</small>
+        <span><i><ImagePlus size={14} />图片</i><i><Video size={14} />视频</i><i><FileAudio size={14} />音频</i></span>
+      </div>}
     </div>;
   };
 
   const renderPanelBody = () => {
-    if (activePanel === 'mode') return <div className="video-mode-grid">
-      {MODES.map(item => <button key={item.id} type="button" className={mode === item.id ? 'is-selected' : ''} onClick={() => setMode(item.id)}>
-        <span>{item.label}</span><small>{item.hint}</small>
-      </button>)}
-    </div>;
-    if (activePanel === 'assets') return renderAssetPickers();
     if (activePanel === 'shot') return <>
       <div className="video-panel-section"><strong>视频画幅</strong><div className="video-ratio-grid">
         {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => setRatio(value)}><i style={{ aspectRatio: value.replace(':', ' / ') }} />{value}</button>)}
@@ -320,7 +417,7 @@ export default function VideoStudioPage({ embedded = false }) {
       <button type="button" className={`video-sound-choice${sound ? ' is-selected' : ''}`} onClick={() => setSound(current => !current)}>
         <span><Volume2 size={20} /><strong>生成同期声音</strong><small>根据画面内容生成环境声和动作声音</small></span><i aria-hidden="true" />
       </button>
-      {(mode === 'reference' || mode === 'remake') && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" icon={FileAudio} label="上传参考音频（最多 3 个）" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} /></div>}
+      {(mode === 'reference' || mode === 'remake') && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" icon={FileAudio} label="上传参考音频" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} /></div>}
     </>;
     if (activePanel === 'settings') return <>
       <div className="video-panel-section"><strong>清晰度</strong><div className="video-resolution-grid">
@@ -354,18 +451,53 @@ export default function VideoStudioPage({ embedded = false }) {
     </section>, document.body);
   };
 
+  const mentionedAssets = mode === 'frame' ? [...files.first, ...files.last] : materialEntries.map(item => item.file);
+  const promptPlaceholder = mode === 'remake'
+    ? '说明需要保留的节奏、镜头和叙事，再描述要替换的商品、人物或场景。'
+    : mode === 'frame'
+      ? '描述首帧到尾帧之间的动作、镜头运动、场景变化和节奏。'
+      : '描述主体、动作、镜头、场景和节奏。例如：人物拿起香水走向窗边，镜头从产品特写平滑推进到真实使用场景。';
+  const insertMention = file => {
+    setPrompt(current => `${current}${current && !/\s$/.test(current) ? ' ' : ''}@${file.name} `);
+    setInlineMenu(null);
+  };
+
   return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`}>
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
     <section className="video-composer" aria-label="视频生成工作区">
-      <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成可交付的视频</h2><p>描述内容，再按需调整创作模式、素材、镜头、声音和生成设置。</p></header>
+      <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成可交付的视频</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
+      <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
+        {MODES.map(item => <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => setMode(item.id)}>
+          <strong>{item.label}</strong><span>{item.hint}</span>
+        </button>)}
+      </div>
+      <section className="video-materials" aria-label="上传素材">
+        <header><div><Upload size={17} /><span><strong>上传素材</strong><small>{mode === 'frame' ? '首尾帧用于控制镜头起点与终点' : '支持图片、视频和音频，脚本成片可不上传'}</small></span></div>{assetCount > 0 && <b>{assetCount} 个</b>}</header>
+        {renderAssetPickers()}
+      </section>
       <div className="video-composer-input">
-        {assetCount > 0 && <div className="video-selected-assets">{Object.entries(files).flatMap(([key, items]) => items.map(file => <span key={`${key}-${file.name}`}>{file.name}</span>))}</div>}
-        <textarea id="video-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={1200} placeholder="描述主体、动作、镜头、场景和节奏。例如：人物拿起香水走向窗边，镜头从产品特写平滑推进到真实使用场景。" />
+        <textarea id="video-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={1200} placeholder={promptPlaceholder} />
         <div className="video-text-meta"><span>{prompt.length}/1200</span><span><Sparkles size={14} />提交前锁定本次费用</span></div>
         {job && !FINAL.has(job.status) && <div className="video-job-progress"><span>{jobStatus(job)}</span><progress max="100" value={job.progress || 2} /></div>}
         {error && <div className="video-error">{error}</div>}
         {!capabilities.loading && !capabilities.generationEnabled && <div className="video-error">视频通道尚未完成安全配置，当前不会扣除积分。</div>}
+      </div>
+
+      <div className="video-quick-tools" ref={quickToolsRef}>
+        <input ref={quickUploadRef} type="file" hidden multiple accept={mode === 'frame' ? 'image/jpeg,image/png,image/webp' : 'image/*,video/*,audio/*'} onChange={event => {
+          appendQuickFiles(Array.from(event.target.files || []));
+          event.target.value = '';
+        }} />
+        <button type="button" className="video-icon-tool" aria-label="添加素材" title="添加素材" onClick={() => quickUploadRef.current?.click()}><Plus size={18} /></button>
+        <span className="video-inline-control">
+          <button type="button" className="video-icon-tool" aria-label="引用素材" title="引用素材" aria-expanded={inlineMenu === 'mentions'} onClick={() => setInlineMenu(current => current === 'mentions' ? null : 'mentions')}><AtSign size={17} /></button>
+          {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map((file, index) => <button key={`${file.name}-${index}`} type="button" onClick={() => insertMention(file)}><span>{file.name}</span><small>插入提示词</small></button>) : <p>上传素材后可在提示词中引用</p>}</div>}
+        </span>
+        <span className="video-inline-control">
+          <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><Sparkles size={15} /><span>Seedance 2.0</span><ChevronDown size={13} /></button>
+          {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong><button type="button" className="is-selected" onClick={() => setInlineMenu(null)}><span><b>Seedance 2.0</b><small>稳定生成营销短片，支持多模态参考与同期声音</small></span><Check size={16} /></button></div>}
+        </span>
       </div>
 
       <footer className="video-toolbar" ref={toolbarRef}>

@@ -5,10 +5,11 @@ import { readFile } from 'node:fs/promises';
 const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('video studio is an authenticated durable billed workspace embedded in home and canvas', async () => {
-  const [app, home, page, canvas, workModel, server, generation] = await Promise.all([
+  const [app, home, page, styles, canvas, workModel, server, generation] = await Promise.all([
     source('../src/App.jsx'),
     source('../src/pages/Home/index.jsx'),
     source('../src/pages/VideoStudio/index.jsx'),
+    source('../src/pages/VideoStudio/VideoStudio.css'),
     source('../src/pages/EcCanvas/index.jsx'),
     source('../src/pages/EcCanvas/canvasWorkModel.js'),
     source('../server/index.mjs'),
@@ -20,13 +21,36 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /首尾帧/);
   assert.match(page, /多模态参考/);
   assert.match(page, /爆款重构/);
+  assert.match(page, /video-mode-tabs/);
+  assert.match(page, /role="tablist"/);
+  assert.match(page, /video-materials/);
+  assert.match(page, /上传素材/);
+  assert.match(page, /video-media-deck/);
+  assert.match(page, /video-media-add-card/);
+  assert.match(page, /图片、视频或音频/);
+  assert.match(page, /MediaPreview/);
+  assert.doesNotMatch(page, /return <div className="video-panel-assets">/);
+  assert.doesNotMatch(page, /图片素材（可选）/);
+  assert.match(page, /video-quick-tools/);
+  assert.match(page, /引用素材/);
+  assert.match(page, /Seedance 2\.0/);
+  assert.match(page, /quickUploadRef/);
+  assert.doesNotMatch(page, /脚本成片无需参考素材/);
+  assert.doesNotMatch(page, /\{ key: 'mode'/);
+  assert.doesNotMatch(page, /\{ key: 'assets'/);
+  assert.match(styles, /\.video-mode-tabs/);
+  assert.match(styles, /\.video-materials/);
+  assert.match(styles, /\.video-media-deck/);
+  assert.match(styles, /\.video-media-add-card/);
+  assert.match(styles, /\.video-media-preview/);
+  assert.match(styles, /\.video-inline-menu/);
   assert.match(page, /AI 积分 \/ 次/);
   assert.match(page, /disabled=\{!canGenerate\}/);
   assert.match(page, /video-composer/);
   assert.match(page, /video-config-trigger/);
   assert.match(page, /createPortal/);
-  assert.match(page, /创作模式/);
-  assert.match(page, /素材参考/);
+  assert.match(page, /视频创作模式/);
+  assert.match(page, /上传素材/);
   assert.match(page, /镜头规格/);
   assert.match(page, /生成设置/);
   assert.match(page, /embedded = false/);
