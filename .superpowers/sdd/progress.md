@@ -1670,5 +1670,18 @@
   routes returned 200 and the full browser pass had no failed responses or
   console errors. Full serial regression passed `1379/1379`, production build
   transformed `6467` modules, and build, collaboration, and whitespace checks
-  passed. No paid generation was used; production deployment remains
-  intentionally pending.
+  passed. No paid generation was used; production deployment was intentionally
+  pending at this local-validation checkpoint.
+
+- Production release `8d793fe` completed on 2026-08-10 through the mandated
+  `scripts/deploy-production.ps1` entry point. The release passed `1379/1379`,
+  the 6,467-module production build, all 117 gallery-image checks,
+  authenticated billing verification, and two real ecommerce tasks
+  (`ec_c5c91415-d80c-403b-a602-4856bae6f2b0` and
+  `ec_8bb9251f-5a16-4baf-aafc-c03cd41c06ba`, three stable assets each). The
+  full 600-second Canary completed on stable PM2 PID `826010`; explicit public
+  audit passed `27/27` at `https://shuimg.cn/`. Independent 1440px desktop and
+  390px mobile browser acceptance confirmed all four home entries, the supplied
+  transparent layered-card assets, and the free-creation workspace with no
+  failed responses, console errors, or horizontal overflow. The deployment
+  script reported the remote lock released and saved the PM2 process list.
