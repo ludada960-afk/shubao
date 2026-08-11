@@ -40,6 +40,33 @@ test('normalizes anything_tryon into versioned semantic groups without losing ba
   assert.deepEqual(payload.assets.reference, []);
 });
 
+test('keeps only supported try-on constraints and defaults missing constraints safely', () => {
+  const payload = normalizeEcommerceAbilityPayload({
+    product_name: '约束穿搭',
+    ability_recipe: {
+      id: 'anything_tryon',
+      version: 1,
+      constraints: {
+        preserveMaterial: true,
+        preservePattern: false,
+        consistentPersonScene: true,
+        injected: 'discard',
+      },
+    },
+    assets: { items: [asset('item-one', 'product')] },
+  });
+
+  assert.deepEqual(payload.ability_recipe, {
+    id: 'anything_tryon',
+    version: 1,
+    constraints: {
+      preserveMaterial: true,
+      preservePattern: false,
+      consistentPersonScene: true,
+    },
+  });
+});
+
 test('rejects try-on requests before billing when item input is missing or a role is ambiguous', () => {
   assert.throws(
     () => normalizeEcommerceAbilityPayload({

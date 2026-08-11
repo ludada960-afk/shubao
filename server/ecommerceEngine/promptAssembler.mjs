@@ -300,6 +300,7 @@ const STRUCTURED_SECTION_ORDER = Object.freeze([
   'productTruth',
   'campaignBible',
   'imageIndexDuties',
+  'abilityRecipe',
   'generationInstructions',
   'platformRecommendation',
   'deterministicOverlays',

@@ -126,3 +126,29 @@ test('fails closed for missing, tampered, expired, cross-owner, or mismatched qu
       && error?.reQuoteRequired === true,
   );
 });
+
+test('preflight verifies quote ownership and freshness without accepting the final generation plan', () => {
+  let now = Date.parse('2026-08-12T00:00:00.000Z');
+  const service = createBillingQuoteService({
+    secret: SECRET,
+    now: () => now,
+    ttlMs: 1000,
+  });
+  const issued = service.issue({ ownerEmail: 'owner@example.com', quote: quote() });
+
+  assert.equal(service.verifyFresh({
+    quoteId: issued.quoteId,
+    ownerEmail: 'OWNER@example.com',
+  }).quoteId, issued.quoteId);
+
+  assert.throws(
+    () => service.verifyFresh({ quoteId: issued.quoteId, ownerEmail: 'other@example.com' }),
+    error => error?.code === 'BILLING_QUOTE_MISMATCH' && error?.status === 409,
+  );
+
+  now += 1001;
+  assert.throws(
+    () => service.verifyFresh({ quoteId: issued.quoteId, ownerEmail: 'owner@example.com' }),
+    error => error?.code === 'BILLING_QUOTE_EXPIRED' && error?.status === 409,
+  );
+});

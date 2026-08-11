@@ -15,8 +15,10 @@ test('app shell uses the global header and navigation contract', () => {
   assert.match(app, /className="app-side-nav-tooltip"/);
   assert.match(app, /data-nav-icon=\{item\.motion\}/);
   assert.match(app, /Sparkles, LayoutGrid, SquarePlay, FolderOpen/);
+  assert.ok(app.indexOf("label: '视频创作'") < app.indexOf("label: '画布'"));
   assert.doesNotMatch(app, /onMouseEnter=|onMouseLeave=/);
   assert.match(shellCss, /\.app-side-nav-item \{[\s\S]*?width:\s*44px[\s\S]*?height:\s*44px/);
+  assert.match(shellCss, /\.app-side-nav \{[\s\S]*?gap:\s*11px/);
   assert.doesNotMatch(desktopShellCss, /\.app-side-nav-item:hover\s*\{[^}]*width:/);
   assert.doesNotMatch(desktopShellCss, /\.app-side-nav-item:focus-visible\s*\{[^}]*width:/);
   assert.match(shellCss, /\.app-side-nav-item:focus-visible/);

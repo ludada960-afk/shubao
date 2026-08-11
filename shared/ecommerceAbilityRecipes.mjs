@@ -76,9 +76,9 @@ const RAW_RECIPES = [
     examples: [
       {
         id: 'tryon-input-output',
-        inputAssetUrls: ['/images/home/ability-tryon-example-input.png'],
-        outputAssetUrls: ['/images/home/ability-tryon-example-output.png'],
-        caption: '商品 + 模特参考 -> 自然上身',
+        inputAssetUrls: ['/images/home/tryon-showcase-angles.png'],
+        outputAssetUrls: ['/images/home/tryon-showcase-reference.png'],
+        caption: '商品组合与模特参考 -> 多角度自然上身',
       },
     ],
   },

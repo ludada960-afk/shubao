@@ -86,6 +86,41 @@ test('binds the hold to the owner quote and exact recomputed asset plan', async 
   });
 });
 
+test('preflight rejects an expired quote before a generation job is persisted', () => {
+  let now = Date.parse('2026-08-12T00:00:00.000Z');
+  const quoteService = createBillingQuoteService({
+    secret: SECRET,
+    now: () => now,
+    ttlMs: 1000,
+  });
+  const walletService = {
+    createHold() { throw new Error('not used'); },
+    getBalance() { return { availableUnits: 50_000, heldUnits: 0, unlimited: false }; },
+    settleItem() {},
+    releaseItem() {},
+    releaseRemainder() {},
+  };
+  const billing = createEcommerceBilling({ walletService, quoteService });
+  const issued = quoteService.issue({
+    ownerEmail: 'owner@example.com',
+    quote: quoteFeature('ec_image_2k', 2),
+  });
+
+  assert.equal(billing.preflight({
+    ownerEmail: 'owner@example.com',
+    payload: { billing_quote_id: issued.quoteId },
+  }).quoteId, issued.quoteId);
+
+  now += 1001;
+  assert.throws(
+    () => billing.preflight({
+      ownerEmail: 'owner@example.com',
+      payload: { billing_quote_id: issued.quoteId },
+    }),
+    error => error?.code === 'BILLING_QUOTE_EXPIRED' && error?.status === 409,
+  );
+});
+
 test('rejects missing, cross-owner, count, resolution, and mixed-plan quote mismatches before creating a hold', async () => {
   const base = harness();
   const cases = [

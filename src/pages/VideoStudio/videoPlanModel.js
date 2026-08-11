@@ -17,6 +17,8 @@ export function getVideoFileKind(file = {}) {
 }
 
 function flattenFiles(files = {}) {
+  const counters = { image: 0, video: 0, audio: 0 };
+  const labels = { image: '图片', video: '视频', audio: '音频' };
   const groups = [
     ['first', files.first || []],
     ['last', files.last || []],
@@ -24,14 +26,18 @@ function flattenFiles(files = {}) {
     ['videos', files.videos || []],
     ['audios', files.audios || []],
   ];
-  return groups.flatMap(([group, items]) => items.map((file, index) => ({
-    group,
-    index,
-    file,
-    kind: getVideoFileKind(file),
-    name: clean(file.name, 80) || `${group}-${index + 1}`,
-    size: Number(file.size) || 0,
-  })));
+  return groups.flatMap(([group, items]) => items.map((file, index) => {
+    const kind = getVideoFileKind(file);
+    if (labels[kind]) counters[kind] += 1;
+    return {
+      group,
+      index,
+      file,
+      kind,
+      name: labels[kind] ? `${labels[kind]}${counters[kind]}` : `${group}-${index + 1}`,
+      size: Number(file.size) || 0,
+    };
+  }));
 }
 
 function formatBytes(bytes) {

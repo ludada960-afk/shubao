@@ -518,6 +518,16 @@ function isTryOnAbility(abilityRecipe, semanticAssets) {
     ));
 }
 
+function safeTryOnConstraints(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const keys = ['preserveMaterial', 'preservePattern', 'consistentPersonScene'];
+  const result = {};
+  for (const key of keys) {
+    if (typeof value[key] === 'boolean') result[key] = value[key];
+  }
+  return Object.keys(result).length ? result : null;
+}
+
 function imageWithRole(image, role) {
   if (typeof image === 'string') return { url: image, role };
   if (!image || typeof image !== 'object') return null;
@@ -961,6 +971,9 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     body.ability_recipe = {
       id: abilityRecipe?.id || 'anything_tryon',
       version: Number.isSafeInteger(abilityRecipe?.version) ? abilityRecipe.version : 1,
+      ...(safeTryOnConstraints(abilityRecipe?.constraints)
+        ? { constraints: safeTryOnConstraints(abilityRecipe.constraints) }
+        : {}),
     };
     body.person_mode = personMode === 'reference' ? 'reference' : 'smart';
     if (Array.isArray(assetRoles)) body.asset_roles = assetRoles;
@@ -1282,6 +1295,9 @@ export async function getDesignDirections(params, { signal } = {}) {
         ability_recipe: {
           id: suppliedRecipe?.id || 'anything_tryon',
           version: Number.isSafeInteger(suppliedRecipe?.version) ? suppliedRecipe.version : 1,
+          ...(safeTryOnConstraints(suppliedRecipe?.constraints)
+            ? { constraints: safeTryOnConstraints(suppliedRecipe.constraints) }
+            : {}),
         },
         person_mode: params?.person_mode === 'reference' || params?.personMode === 'reference'
           ? 'reference'

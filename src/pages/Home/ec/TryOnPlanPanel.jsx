@@ -30,7 +30,7 @@ export default function TryOnPlanPanel({ sizing, onSizingChange }) {
   return (
     <div className="ec-tryon-plan-panel">
       <div className="ec-tryon-panel-block">
-        <div className="ec-tryon-panel-label"><RectangleVertical size={13} /><div><strong>成片画幅</strong><span>优先选择能完整展示人物与商品关系的竖幅</span></div></div>
+        <div className="ec-tryon-panel-label"><RectangleVertical size={16} /><div><strong>成片画幅</strong><span>优先完整展示人物与商品</span></div></div>
         <div className="ec-tryon-ratio-grid">
           {RATIOS.map(option => {
             const selected = current.ratio === option.id;
@@ -39,7 +39,7 @@ export default function TryOnPlanPanel({ sizing, onSizingChange }) {
         </div>
       </div>
       <div className="ec-tryon-panel-block">
-        <div className="ec-tryon-panel-label"><Images size={13} /><div><strong>生成张数</strong><span>第二步会为每张图安排不同姿态、景别与商品重点</span></div></div>
+        <div className="ec-tryon-panel-label"><Images size={16} /><div><strong>生成张数</strong><span>每张安排不同姿态与景别</span></div></div>
         <div className="ec-tryon-count-row">
           {[1, 2, 3, 4].map(count => <button type="button" key={count} className={current.count === count ? 'is-selected' : ''} onClick={() => update({ count })}>{count} 张</button>)}
         </div>

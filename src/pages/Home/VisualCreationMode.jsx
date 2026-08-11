@@ -301,8 +301,8 @@ export default function VisualCreationMode() {
     <section className="visual-creation" aria-labelledby="visual-creation-title">
       <header className="visual-creation-heading">
         <span className="visual-creation-kicker"><MdAutoAwesome />自由创作</span>
-        <h2 id="visual-creation-title">把想法变成可继续编辑的视觉作品</h2>
-        <p>{selectedSkill.shortDescription}</p>
+        <h2 id="visual-creation-title">自由创作，做出可继续编辑的视觉</h2>
+        <p>选择创作方向，再用一句话和参考图开始。</p>
       </header>
 
       <div className="visual-skill-grid" role="listbox" aria-label="创作配方">
@@ -324,11 +324,6 @@ export default function VisualCreationMode() {
                 <strong>{skill.title}</strong>
                 {selected && <MdCheckCircle aria-label="已选择" />}
               </span>
-              <span className="visual-skill-facts">
-                <span><b>保留</b>{skill.preserves}</span>
-                <span><b>结果</b>{skill.outcome}</span>
-                <span><b>适合</b>{skill.bestFor}</span>
-              </span>
             </button>
           );
         })}
@@ -339,8 +334,6 @@ export default function VisualCreationMode() {
           <span><MdAutoAwesome />{selectedSkill.title}</span>
           <strong>{selectedSkill.shortDescription}</strong>
           <p>{selectedSkill.outcome}</p>
-          <div><b>保留</b>{selectedSkill.preserves}</div>
-          <div><b>适合</b>{selectedSkill.bestFor}</div>
         </div>
         <div className="visual-skill-stage-art">
           <img src={selectedSkill.preview} alt={`${selectedSkill.title}原创输入与生成效果示例`} />

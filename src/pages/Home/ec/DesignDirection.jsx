@@ -478,7 +478,23 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     setStableImages([]);
     setPreviewImageIndex(-1);
     let pendingAction = null;
+    let submissionQuote = billingQuote;
     try {
+      // The direction page can stay open longer than the signed quote TTL.
+      // Refresh immediately before creating work so a stale page never submits a dead quote.
+      const freshQuoteResponse = await quoteBillingAction(ecommercePlan.quoteRequest, { signal: generationSignal });
+      submissionQuote = freshQuoteResponse?.quote;
+      if (!submissionQuote?.quoteId) {
+        throw Object.assign(new Error('费用确认失败，请重新获取费用后再生成'), {
+          code: 'BILLING_QUOTE_REQUIRED',
+          status: 409,
+          reQuoteRequired: true,
+        });
+      }
+      if (!isGenerationCurrent(generationToken)) return;
+      setBillingQuote(submissionQuote);
+      setQuoteError('');
+      setQuoteNotice('费用已重新确认');
       const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationSignal);
       if (!isGenerationCurrent(generationToken) || !uploadedSupplement) return;
       const semanticRoleAssets = isTryOn ? {
@@ -561,7 +577,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           ...dir,
           editableBrief,
         },
-        billingQuoteId: billingQuote.quoteId,
+        billingQuoteId: submissionQuote.quoteId,
         draftId: params?.draftId || '',
         retry: false,
         signal: generationSignal,
@@ -625,7 +641,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       }
     } catch (e) {
       if (!isGenerationCurrent(generationToken)) return;
-      const failedQuoteId = billingQuote?.quoteId || '';
+      const failedQuoteId = submissionQuote?.quoteId || billingQuote?.quoteId || '';
       const fallbackDirection = directions[selected] || {};
       const accessResult = handleGenerationAccessError(e, dispatch, {
         source: 'ecommerce-direction',
@@ -815,8 +831,8 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#1f2937' }}>整体设计规范与图片规划</div>
-                <div style={{ marginTop: 3, fontSize: 12, color: '#8a8177' }}>先确认统一视觉规则，再逐张调整执行重点和画面比例。</div>
+                <div style={{ fontSize: 18, fontWeight: 850, color: '#1f2937' }}>方案总览</div>
+                <div style={{ marginTop: 4, fontSize: 13, color: '#756d64' }}>先查看方案依据，再调整核心叙事和逐图执行。</div>
               </div>
               <button
                 type="button"

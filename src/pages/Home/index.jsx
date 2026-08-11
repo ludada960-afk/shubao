@@ -107,7 +107,7 @@ export default function HomePage() {
           <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />
 
           {/* ═══ 主模式切换：卡片本身就是工作台入口 ═══ */}
-          <div
+          {ecStep !== 2 && <div
             ref={modeShowcaseRef}
             className={`homepage-mode-showcase ${isXHS ? 'is-xhs' : isVideo ? 'is-video' : isVisual ? 'is-visual' : 'is-commerce'}`}
           >
@@ -135,7 +135,7 @@ export default function HomePage() {
                 );
               })}
             </div>
-          </div>
+          </div>}
 
 
           {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}

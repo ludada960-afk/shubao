@@ -620,6 +620,12 @@ export function compileAssetRequest({
   const inputAssets = selectInputAssets(item, truth, assets, abilityRecipe);
   const role = cleanString(ownValue(item, 'role'));
   const tryOn = cleanString(ownValue(abilityRecipe, 'id')) === 'anything_tryon';
+  const tryOnConstraints = tryOn && isRecord(ownValue(abilityRecipe, 'constraints'))
+    ? ownValue(abilityRecipe, 'constraints')
+    : {};
+  const preserveMaterial = tryOnConstraints.preserveMaterial !== false;
+  const preservePattern = tryOnConstraints.preservePattern !== false;
+  const consistentPersonScene = tryOnConstraints.consistentPersonScene !== false;
   const transparent = role === 'transparent';
   const isolated = isCatalogIsolationRole(role);
   const isolation = catalogIsolationContract(role);
@@ -694,7 +700,7 @@ export function compileAssetRequest({
         }
       : {
           subject: tryOn
-            ? 'Dress the exact user products from indexed product views onto the indexed person reference when present, or generate one commercially plausible model when person mode is smart. Preserve item count, order, fit, material, color, pattern, logos, and construction.'
+            ? `Dress the exact user products from indexed product views onto the indexed person reference when present, or generate one commercially plausible model when person mode is smart. Preserve item count, order, fit, color, logos, and construction. ${preserveMaterial ? 'Lock material, drape, reflectance, and surface texture.' : 'Material and drape may adapt to the scene, but do not invent extra products.'} ${preservePattern ? 'Lock patterns, woven details, hardware, and mark placement.' : 'Pattern treatment may adapt to the composition, but do not invent brand marks.'} ${consistentPersonScene ? 'Keep the person identity, pose continuity, environment, and lighting coherent across the set.' : 'Allow person pose and scene styling to vary for exploration while keeping the merchandise recognizable.'}`
             : 'Preserve the user product from indexed product views; create only the requested role composition.',
           materials: materials.join(', '),
           lighting: campaign.lighting,
@@ -734,6 +740,11 @@ export function compileAssetRequest({
         id: 'anything_tryon',
         version: Number.isSafeInteger(abilityRecipe?.version) ? abilityRecipe.version : 1,
         personMode: personMode === 'reference' ? 'reference' : 'smart',
+        constraints: {
+          preserveMaterial,
+          preservePattern,
+          consistentPersonScene,
+        },
         roleContract: 'product views are authoritative merchandise; person reference controls identity and pose; scene reference controls environment and light only',
       },
     } : {}),

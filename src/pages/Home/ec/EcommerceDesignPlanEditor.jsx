@@ -11,6 +11,21 @@ import {
 
 const PRIMARY_SHOT_FIELD_KEYS = new Set(['objective', 'scene', 'composition', 'contentElements', 'copy']);
 
+const ROUTE_FIELD_LABELS = {
+  sellingThesis: '核心卖点',
+  sceneFamily: '场景体系',
+  composition: '构图方式',
+  cameraLanguage: '镜头语言',
+  informationHierarchy: '信息层级',
+  proofStrategy: '证明方式',
+  paletteIntent: '配色方向',
+  lightingIntent: '光线方向',
+};
+
+function humanizeRouteDifference(value) {
+  return String(value || '').split(/\s*;\s*/).filter(Boolean).map(part => part.replace(/^([A-Za-z][A-Za-z0-9_]*):\s*/, (_, key) => `${ROUTE_FIELD_LABELS[key] || key}：`)).join('；');
+}
+
 function ShotField({ field, shot, onChange }) {
   const primary = PRIMARY_SHOT_FIELD_KEYS.has(field.key);
   return <label className={`ec-shared-shot-field ${primary ? 'ec-shared-shot-field--primary' : 'ec-shared-shot-field--shared'}`}>
@@ -88,20 +103,20 @@ export function EcommerceDesignPlanEditor({ direction = {}, prompt = '', onChang
   ];
 
   return <div className="ec-shared-plan-editor" aria-label="整体设计方案编辑区">
-    <section className="ec-plan-overview" aria-label="整体规划">
+    <section className="ec-plan-overview" aria-label="统一视觉基线">
       <header className="ec-shared-plan-heading">
-        <div><h3>整体规划</h3><p>统一整套图片的商品表达、视觉规则与文案方向。</p></div>
-        <span className="ec-shared-plan-state"><Check size={14} />可编辑</span>
+        <div><h3>统一视觉基线</h3><p>先锁定商品事实和视觉方向，再展开逐图执行。</p></div>
       </header>
       <div className="ec-plan-evidence" aria-label="本次方案依据">
         {insightRows.map(([label, value]) => <div key={label}><b>{label}</b><span>{value}</span></div>)}
-        {direction?.route_difference && <div className="ec-plan-evidence-change"><b>与上一方案的变化</b><span>{direction.route_difference}</span></div>}
+        {direction?.route_difference && <div className="ec-plan-evidence-change"><b>与上一方案的变化</b><span>{humanizeRouteDifference(direction.route_difference)}</span></div>}
       </div>
-      <label className="ec-shared-plan-brief">
-        <span>核心叙事</span>
+      <label className="ec-shared-plan-brief ec-plan-editable-field">
+        <span><b>核心叙事</b><em><Check size={13} />可编辑</em></span>
         <textarea data-suite-plan-field="brief" value={plan.brief || ''} onChange={event => onChange?.({ ...plan, brief: event.target.value.slice(0, 1800) })} aria-label="编辑整套执行思路" />
       </label>
       <section className="ec-plan-specification" aria-label="整套生成规格">
+        <div className="ec-editable-section-heading"><strong>生成规格</strong><span>下方字段可直接调整，修改会同步到整套方案。</span></div>
         <div className="ec-shared-plan-grid">
           {CANVAS_SUITE_PLAN_FIELDS.map(field => <PlanSpecField key={field.key} field={field} plan={plan} onChange={updateField} />)}
         </div>

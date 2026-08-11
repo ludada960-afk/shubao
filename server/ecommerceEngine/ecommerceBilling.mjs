@@ -39,6 +39,14 @@ export function createEcommerceBilling({ walletService, quoteService } = {}) {
   }
 
   return {
+    preflight({ ownerEmail, payload } = {}) {
+      if (typeof quoteService.verifyFresh !== 'function') return null;
+      return quoteService.verifyFresh({
+        quoteId: cleanString(payload?.billing_quote_id),
+        ownerEmail,
+      });
+    },
+
     async hold({ job, assetPlan }) {
       if (!Array.isArray(assetPlan) || assetPlan.length === 0) {
         throw reQuoteError('BILLING_QUOTE_PLAN_EMPTY', '生成方案为空，请重新确认套图方案');

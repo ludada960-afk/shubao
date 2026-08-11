@@ -45,6 +45,20 @@ function SideNav() {
       onClick: () => dispatch({ type: 'NEW_WORK' }),  // 彻底重置状态，强制 remount
     },
     {
+      icon: SquarePlay,
+      motion: 'video',
+      label: '视频创作',
+      active: page === 'video-studio',
+      onClick: () => {
+        if (!state.logged) {
+          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'video-studio', source: state.page } });
+          dispatch({ type: 'SHOW_LOGIN', show: true });
+          return;
+        }
+        dispatch({ type: 'NAVIGATE', page: 'video-studio' });
+      },
+    },
+    {
       icon: LayoutGrid,
       motion: 'grid',
       label: '画布',
@@ -57,20 +71,6 @@ function SideNav() {
           return;
         }
         dispatch({ type: 'OPEN_CANVAS' });
-      },
-    },
-    {
-      icon: SquarePlay,
-      motion: 'video',
-      label: '视频创作',
-      active: page === 'video-studio',
-      onClick: () => {
-        if (!state.logged) {
-          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'video-studio', source: state.page } });
-          dispatch({ type: 'SHOW_LOGIN', show: true });
-          return;
-        }
-        dispatch({ type: 'NAVIGATE', page: 'video-studio' });
       },
     },
     {

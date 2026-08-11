@@ -81,7 +81,7 @@
   z-index: 200;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 11px;
   padding: 10px;
   margin-left: 16px;
   transform: translateY(-50%);
@@ -152,7 +152,9 @@
 }
 
 .app-side-nav-item:hover:not(.is-primary):not(.is-active) {
-  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(109, 93, 252, 0.24);
+  color: #6554d9;
+  background: rgba(109, 93, 252, 0.08);
 }
 
 .app-side-nav-item:focus-visible {

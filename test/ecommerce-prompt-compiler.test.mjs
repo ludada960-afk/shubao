@@ -131,6 +131,41 @@ test('global commerce context reaches the provider prompt and visual-only mode f
   assert.equal(schema.sections.textLayerPlan.mode, 'no_text');
 });
 
+test('try-on prompt carries explicit material, pattern, and continuity constraints', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem({
+      id: 'try-on-main',
+      role: 'try_on_main',
+      purpose: 'Create one wearable commerce frame.',
+      productAssetIds: ['product-front'],
+      styleReferenceIds: [],
+    }),
+    productTruth: productTruth(),
+    campaignBible: campaignBible(),
+    abilityRecipe: {
+      id: 'anything_tryon',
+      version: 1,
+      constraints: {
+        preserveMaterial: true,
+        preservePattern: false,
+        consistentPersonScene: true,
+      },
+    },
+    assets: {
+      items: [asset('product-front')],
+      person: [asset('person-reference')],
+      scene: [asset('scene-reference')],
+    },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+
+  assert.equal(schema.sections.abilityRecipe.constraints.preserveMaterial, true);
+  assert.equal(schema.sections.abilityRecipe.constraints.preservePattern, false);
+  assert.match(schema.sections.generationInstructions.subject, /Lock material/);
+  assert.match(schema.sections.generationInstructions.subject, /Pattern treatment may adapt/);
+  assert.match(schema.sections.generationInstructions.subject, /Keep the person identity/);
+});
+
 test('localized commerce prompts state the exact consumer-facing locale', () => {
   const truth = productTruth();
   const bible = campaignBible();

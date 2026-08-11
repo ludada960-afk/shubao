@@ -458,9 +458,15 @@ function ComposerPreview({ node, source, label = '图片生成', selection, onSe
 }
 
 export function CanvasImageComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
+  const promptFieldRef = useRef(null);
   if (!node) return null;
   const source = sources[0];
   const isLocalEdit = node.actionId === 'inpaint';
+  const handleToggleSource = sourceImage => {
+    const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
+    onToggleSource?.(sourceImage, { skipPromptInsert: true });
+    if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
+  };
   return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-image-composer" style={position} aria-label={isLocalEdit ? '局部改图操作台' : '图片生成操作台'} onPointerDown={event => event.stopPropagation()}>
       {isLocalEdit && <ComposerPreview node={node} source={source} label="局部改图" selection={node.selection} onSelectionChange={selection => onChange?.({ selection })} />}
       <ComposerSources sources={sources} role="reference" onAddSources={onAddSources} onRemoveSource={onRemoveSource} uploadLabel={isLocalEdit ? '上传目标图' : '上传参考图'} />
@@ -469,6 +475,7 @@ export function CanvasImageComposer({ node, position, sources = [], mentionSourc
         {['whole', 'rectangle', 'subject'].map(mode => <button key={mode} type="button" className={node.selection?.mode === mode || (!node.selection && mode === 'whole') ? 'is-active' : ''} data-canvas-control="true" onClick={event => { event.stopPropagation(); onChange?.({ selection: { mode } }); }}>{mode === 'whole' ? '整图' : mode === 'rectangle' ? '框选' : '主体'}</button>)}
       </div>}
       <MentionPromptField
+        ref={promptFieldRef}
         data-canvas-control="true"
         value={node.prompt || ''}
         mentions={mentionSources}
@@ -478,7 +485,7 @@ export function CanvasImageComposer({ node, position, sources = [], mentionSourc
         onChange={value => onChange?.({ prompt: value })}
       />
       <div className="ec-canvas-composer-footer">
-        <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={onToggleSource} />
+        <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
         <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
         <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || (isLocalEdit && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
           {loading ? '生成中' : <><Sparkles size={15} />生成</>}
@@ -488,12 +495,18 @@ export function CanvasImageComposer({ node, position, sources = [], mentionSourc
 }
 
 export function CanvasTextGenerationComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
+  const promptFieldRef = useRef(null);
   if (!node) return null;
+  const handleToggleSource = sourceImage => {
+    const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === (sourceImage.sourceNodeId || sourceImage.id));
+    onToggleSource?.(sourceImage, { skipPromptInsert: true });
+    if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
+  };
   return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-text-generation-composer" style={position} aria-label="文案生成操作台" onPointerDown={event => event.stopPropagation()}>
     <ComposerSources sources={sources} role="reference" onAddSources={onAddSources} onRemoveSource={onRemoveSource} uploadLabel="上传参考图" />
-    <MentionPromptField data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述你想生成的画面；看板中的文字会作为画面文字要求" onChange={value => onChange?.({ prompt: value })} />
+    <MentionPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述你想生成的画面；看板中的文字会作为画面文字要求" onChange={value => onChange?.({ prompt: value })} />
     <div className="ec-canvas-composer-footer">
-      <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={onToggleSource} />
+      <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
       <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
       <button type="button" data-canvas-control="true" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成</>}</button>
     </div>
@@ -582,6 +595,7 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
 }
 
 export function CanvasEcommerceComposer({ node, position, sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate }) {
+  const promptFieldRef = useRef(null);
   if (!node) return null;
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const planning = node.suiteStep === 'directions';
@@ -592,7 +606,7 @@ export function CanvasEcommerceComposer({ node, position, sources = [], mentionS
       <ComposerSources sources={sources.filter(source => (node.sourceRoles?.[source.id] || source.role) !== 'product')} role="reference" onAddSources={files => onAddSources?.(files, 'reference')} onRemoveSource={onRemoveSource} uploadLabel="上传参考图" />
     </div>}
     {!planning ? <>
-      <MentionPromptField data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={value => onChange?.({ prompt: value })} />
+      <MentionPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="补充商品卖点、目标人群、使用场景或想要的视觉方向" onChange={value => onChange?.({ prompt: value })} />
     </> : <CanvasSuitePlanEditor plan={buildCanvasSuitePlan(node.suitePlan || directions[0], node.prompt)} onChange={plan => onChange?.({ suitePlan: plan })} />}
     <CanvasSuiteControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
     <div className="ec-canvas-composer-footer">
@@ -600,7 +614,9 @@ export function CanvasEcommerceComposer({ node, position, sources = [], mentionS
         const sourceId = source.sourceNodeId || source.id;
         const hasProductSource = sources.some(item => (node.sourceRoles?.[item.sourceNodeId || item.id] || item.role) === 'product');
         const role = node.sourceRoles?.[sourceId] || (source.role === 'product' ? 'product' : '') || (hasProductSource ? 'reference' : 'product');
-        onToggleSource?.(source, role);
+        const selected = mentionSources.some(item => (item.sourceNodeId || item.id) === sourceId);
+        onToggleSource?.(source, role, { skipPromptInsert: true });
+        if (!selected) promptFieldRef.current?.insertMention(source.label);
       }} />
       {node.error ? <div className="ec-canvas-composer-error" role="alert">
         <span>{node.error}</span>

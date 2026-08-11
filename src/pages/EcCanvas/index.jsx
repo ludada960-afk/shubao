@@ -3147,7 +3147,7 @@ export default function EcCanvas() {
     setConnections(previous => previous.filter(edge => !(edge.from === sourceId && edge.to === composerId)));
   }, [nodes]);
 
-  const toggleComposerSource = useCallback((composerId, image, role = 'reference') => {
+  const toggleComposerSource = useCallback((composerId, image, role = 'reference', options = {}) => {
     const sourceId = String(image?.sourceNodeId || image?.id || '');
     if (!sourceId) return;
     setNodes(previous => previous.map(node => node.id === composerId ? {
@@ -3155,9 +3155,11 @@ export default function EcCanvas() {
       mentionSourceNodeIds: (node.mentionSourceNodeIds || []).includes(sourceId)
         ? (node.mentionSourceNodeIds || []).filter(id => id !== sourceId)
         : [...new Set([...(node.mentionSourceNodeIds || []), sourceId])],
-      prompt: (node.mentionSourceNodeIds || []).includes(sourceId)
-        ? removeImageMention(node.prompt, image?.label)
-        : appendImageMention(node.prompt, image?.label),
+      prompt: options.skipPromptInsert
+        ? node.prompt
+        : (node.mentionSourceNodeIds || []).includes(sourceId)
+          ? removeImageMention(node.prompt, image?.label)
+          : appendImageMention(node.prompt, image?.label),
     } : node));
   }, []);
   const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
@@ -3724,7 +3726,7 @@ export default function EcCanvas() {
                onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
-              onToggleSource={source => toggleComposerSource(selectedNode.id, source, 'reference')}
+              onToggleSource={(source, options) => toggleComposerSource(selectedNode.id, source, 'reference', options)}
               onGenerate={() => handleImageComposerGenerate(selectedNode)}
             />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'text-composer' && <CanvasTextGenerationComposer
@@ -3739,7 +3741,7 @@ export default function EcCanvas() {
                onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
-              onToggleSource={source => toggleComposerSource(selectedNode.id, source, 'reference')}
+              onToggleSource={(source, options) => toggleComposerSource(selectedNode.id, source, 'reference', options)}
               onGenerate={() => handleTextGenerationGenerate(selectedNode)}
             />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'suite-composer' && <CanvasEcommerceComposer
@@ -3754,7 +3756,7 @@ export default function EcCanvas() {
                onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={(files, role) => handleComposerSourceUpload(selectedNode.id, files, role)}
                onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
-               onToggleSource={(source, role) => toggleComposerSource(selectedNode.id, source, role)}
+               onToggleSource={(source, role, options) => toggleComposerSource(selectedNode.id, source, role, options)}
                onGenerate={() => handleSuiteComposerGenerate(selectedNode)}
              />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'video-composer' && <CanvasVideoComposer

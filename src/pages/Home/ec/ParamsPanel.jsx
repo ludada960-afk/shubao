@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-react';
+import { CircleHelp, Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-react';
 
 const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', '食品饮料', '母婴用品', '宠物用品', '运动户外', '汽车用品', '图书文具', '珠宝配饰', '其他'];
 
-const lbl = { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 };
+const lbl = { fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 };
 const inp = {
-  width: '100%', padding: '8px 12px', fontSize: 13, borderRadius: 8,
+  width: '100%', padding: '9px 12px', fontSize: 14, borderRadius: 8,
   border: '1px solid rgba(0,0,0,0.12)', background: 'rgba(0,0,0,0.03)',
   color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
 };
@@ -38,7 +38,7 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
                 onFocus={() => setCatOpen(true)}
                 onBlur={() => setTimeout(() => setCatOpen(false), 200)}
                 placeholder={mode === 'tryon' ? '服饰 / 鞋包 / 配饰...' : '美妆护肤 / 3C数码...'}
-                style={{ ...inp, height: 36, fontSize: 12 }} />
+                style={{ ...inp, height: 42 }} />
               {catOpen && (
                 <div className="ec-inline-option-menu" style={{
                   position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
@@ -50,7 +50,7 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
                   {CATEGORIES.map(c => (
                     <div key={c} onClick={() => { set('category', c); setCatOpen(false); }}
                       style={{
-                        padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                        padding: '6px 11px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
                         background: params.category === c ? '#1a1a1a' : 'rgba(0,0,0,0.04)',
                         color: params.category === c ? '#fff' : 'var(--text-secondary)',
                         fontWeight: params.category === c ? 600 : 400,
@@ -66,17 +66,17 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
               <label className="ec-panel-field-label" style={{ ...lbl }}><f.icon size={12} /> {f.label}</label>
               <input value={params[f.key] || ''} onChange={e => set(f.key, e.target.value)}
                 placeholder={f.ph}
-                style={{ ...inp, height: 36, fontSize: 12 }} />
+                style={{ ...inp, height: 42 }} />
             </div>
           ))}
           {mode === 'tryon' && (
             <div className="ec-tryon-preserve-options" style={{ gridColumn: '1 / -1' }}>
               {[
-                ['preserveMaterial', '锁定材质纹理'],
-                ['preservePattern', '锁定图案与标识'],
-                ['consistentPersonScene', '人物与场景保持一致'],
-              ].map(([key, label]) => (
-                <label key={key}><input type="checkbox" checked={params[key] !== false} onChange={event => set(key, event.target.checked)} /><span>{label}</span></label>
+                ['preserveMaterial', '锁定材质纹理', '强化材质、垂坠、反光与表面纹理约束，降低换装后质感漂移。'],
+                ['preservePattern', '锁定图案与标识', '强化印花、织纹、五金和标识位置约束，减少图案被重绘。'],
+                ['consistentPersonScene', '保持人物与场景', '强化人物身份、姿态、环境与光线连续性，适合批量生成同组穿搭。'],
+              ].map(([key, label, help]) => (
+                <label key={key} title={help}><input type="checkbox" checked={params[key] !== false} onChange={event => set(key, event.target.checked)} /><span>{label}</span><CircleHelp size={14} aria-label={help} /></label>
               ))}
             </div>
           )}

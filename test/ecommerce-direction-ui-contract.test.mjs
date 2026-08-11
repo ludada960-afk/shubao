@@ -37,7 +37,7 @@ test('方案卡片应展示商品策略并提供整套执行说明编辑入口',
 
 test('方案页面使用统一可编辑的整体设计方案，并保留补充素材入口', () => {
   assert.match(pageSource, /EcommerceDesignPlanEditor/);
-  assert.match(pageSource, /整体设计规范与图片规划/);
+  assert.match(pageSource, /方案总览/);
   assert.match(pageSource, /ec-direction-plan-stack/);
   assert.match(pageSource, /execution_guide: plan\.brief/);
   assert.match(pageSource, /creative_attempt_id/);
@@ -56,7 +56,7 @@ test('方案编辑器突出每张图可编辑的重点，并在中等桌面宽�
   assert.match(editorSource, /本图重点/);
   assert.doesNotMatch(editorSource, /本图差异/);
   assert.match(editorSource, /ec-shared-shot-field--primary/);
-  assert.match(editorSource, />整体规划</);
+  assert.match(editorSource, />统一视觉基线</);
   assert.match(editorSource, />逐张规划</);
   assert.doesNotMatch(editorSource, /商品驱动方案/);
   assert.match(editorSource, /本次商品依据/);

@@ -10,6 +10,7 @@ import {
   ImagePlus,
   Mic2,
   Play,
+  RefreshCw,
   Settings2,
   Sparkles,
   Upload,
@@ -17,6 +18,7 @@ import {
   Volume2,
   X,
 } from 'lucide-react';
+import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import { useApp } from '../../store/AppContext.jsx';
 import { quoteBillingAction } from '../../services/billing.js';
 import {
@@ -44,6 +46,11 @@ const TOOLBAR_ITEMS = [
   { key: 'sound', label: '声音', icon: Mic2, description: '控制同期声音与音频参考' },
   { key: 'settings', label: '生成设置', icon: Settings2, description: '设置清晰度与高级约束' },
 ];
+const VIDEO_MODE_ICONS = Object.freeze({
+  smart: Sparkles,
+  frame: Aperture,
+  remake: RefreshCw,
+});
 
 function fileKind(file) {
   const type = String(file?.type || '').toLowerCase();
@@ -95,6 +102,11 @@ function jobStatus(job) {
   if (job?.status === 'needs_review') return '受理结果确认中';
   if (job?.status === 'processing') return `生成中 ${job.progress || 0}%`;
   return '正在提交';
+}
+
+function VideoModelMark({ provider = '' }) {
+  const isMiniMax = String(provider).toLowerCase().includes('minimax');
+  return <span className={`video-model-mark ${isMiniMax ? 'is-minimax' : 'is-seedance'}`} aria-hidden="true"><i /></span>;
 }
 
 function VideoPlanModal({ plan, onClose, onConfirm }) {
@@ -152,6 +164,7 @@ export default function VideoStudioPage({ embedded = false }) {
   const pollRef = useRef(null);
   const toolbarRef = useRef(null);
   const quickToolsRef = useRef(null);
+  const promptFieldRef = useRef(null);
   const firstFrameInputRef = useRef(null);
   const lastFrameInputRef = useRef(null);
   const buttonRefs = useRef({});
@@ -513,10 +526,36 @@ export default function VideoStudioPage({ embedded = false }) {
   }, [job]);
 
   const materialEntries = [
-    ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片' })),
-    ...files.videos.map((file, index) => ({ file, key: 'videos', index, kind: 'video', label: '视频' })),
-    ...files.audios.map((file, index) => ({ file, key: 'audios', index, kind: 'audio', label: '音频' })),
+    ...files.images.map((file, index) => ({ file, key: 'images', index, kind: 'image', label: '图片', name: `图片${index + 1}` })),
+    ...files.videos.map((file, index) => ({ file, key: 'videos', index, kind: 'video', label: '视频', name: `视频${index + 1}` })),
+    ...files.audios.map((file, index) => ({ file, key: 'audios', index, kind: 'audio', label: '音频', name: `音频${index + 1}` })),
   ];
+  const mentionedAssets = useMemo(() => {
+    if (mode === 'frame') {
+      return [...files.first, ...files.last].map((file, index) => ({
+        file,
+        id: `video-frame-${index + 1}`,
+        sourceNodeId: `video-frame-${index + 1}`,
+        kind: 'image',
+        name: `图片${index + 1}`,
+        label: `@图片${index + 1}`,
+      }));
+    }
+    const counters = { image: 0, video: 0, audio: 0 };
+    const names = { image: '图片', video: '视频', audio: '音频' };
+    return materialEntries.map(item => {
+      counters[item.kind] += 1;
+      const name = `${names[item.kind]}${counters[item.kind]}`;
+      return {
+        file: item.file,
+        id: `video-${item.kind}-${counters[item.kind]}`,
+        sourceNodeId: `video-${item.kind}-${counters[item.kind]}`,
+        kind: item.kind,
+        name,
+        label: `@${name}`,
+      };
+    });
+  }, [files, mode]);
   const assetCount = mode === 'frame' ? files.first.length + files.last.length : materialEntries.length;
   const toolbarSummary = {
     shot: `${ratio} · ${duration}秒`,
@@ -554,7 +593,7 @@ export default function VideoStudioPage({ embedded = false }) {
         {materialEntries.map(item => <article key={`${item.key}-${item.index}-${item.file.name}`} className={`video-media-card video-media-preview-card is-${item.kind}`}>
           <MediaPreview file={item.file} />
           <span className="video-media-type">{item.label}</span>
-          <span className="video-media-caption">{item.file.name}</span>
+          <span className="video-media-caption">{item.name}</span>
           <button type="button" className="video-media-remove" aria-label={`移除${item.file.name}`} onClick={() => removeFile(item.key, item.index)}><X size={14} /></button>
         </article>)}
       </div>}
@@ -608,7 +647,6 @@ export default function VideoStudioPage({ embedded = false }) {
     </section>, document.body);
   };
 
-  const mentionedAssets = mode === 'frame' ? [...files.first, ...files.last] : materialEntries.map(item => item.file);
   const promptPlaceholder = mode === 'remake'
     ? '说明要保留的镜头节奏、转场和叙事，再写清要替换进去的商品、人物或场景。'
     : mode === 'frame'
@@ -616,7 +654,7 @@ export default function VideoStudioPage({ embedded = false }) {
       : '描述主体、动作、镜头、场景和节奏。例如：人物拿起香水走向窗边，镜头从产品特写平滑推进到真实使用场景。';
   const insertMention = file => {
     setPlanReviewed(false);
-    setPrompt(current => `${current}${current && !/\s$/.test(current) ? ' ' : ''}@${file.name} `);
+    promptFieldRef.current?.insertMention(file.label);
     setInlineMenu(null);
   };
 
@@ -626,9 +664,12 @@ export default function VideoStudioPage({ embedded = false }) {
     <section className="video-composer" aria-label="视频生成工作区">
       <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成可交付的视频</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
       <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
-        {VIDEO_CREATION_MODES.map(item => <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setMode(item.id); }}>
-          <strong>{item.label}</strong><span>{item.hint}</span>
-        </button>)}
+        {VIDEO_CREATION_MODES.map(item => {
+          const ModeIcon = VIDEO_MODE_ICONS[item.id] || Clapperboard;
+          return <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setMode(item.id); }}>
+            <span className="video-mode-icon" aria-hidden="true"><ModeIcon size={18} /></span><span className="video-mode-copy"><strong>{item.label}</strong><small>{item.hint}</small></span><i aria-hidden="true" />
+          </button>;
+        })}
       </div>
       <section className="video-content-composer">
         <section className="video-materials" aria-label="上传素材">
@@ -636,26 +677,34 @@ export default function VideoStudioPage({ embedded = false }) {
           {renderAssetPickers()}
         </section>
         <div className="video-composer-input">
-          <textarea id="video-prompt" value={prompt} onChange={event => { setPlanReviewed(false); setPrompt(event.target.value); }} maxLength={1200} placeholder={promptPlaceholder} />
+          <MentionPromptField
+            ref={promptFieldRef}
+            id="video-prompt"
+            value={prompt}
+            mentions={mentionedAssets}
+            onChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, 1200)); }}
+            placeholder={promptPlaceholder}
+            className="video-prompt-mentions"
+          />
           <div className="video-text-meta"><span>{prompt.length}/1200</span><span><Sparkles size={14} />提交前锁定本次费用</span></div>
           {job && !FINAL.has(job.status) && <div className="video-job-progress"><span>{jobStatus(job)}</span><progress max="100" value={job.progress || 2} /></div>}
           {error && <div className="video-error">{error}</div>}
           {!capabilities.loading && !capabilities.generationEnabled && <div className="video-error">视频通道尚未完成安全配置，当前不会扣除积分。</div>}
         </div>
 
-        <div className="video-quick-tools" ref={quickToolsRef}>
-          {mentionedAssets.length > 0 && <span className="video-inline-control">
-            <button type="button" className="video-icon-tool" aria-label="引用素材" title="引用素材" aria-expanded={inlineMenu === 'mentions'} onClick={() => setInlineMenu(current => current === 'mentions' ? null : 'mentions')}><AtSign size={17} /></button>
-            {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map((file, index) => <button key={`${file.name}-${index}`} type="button" onClick={() => insertMention(file)}><span>{file.name}</span><small>插入提示词</small></button>) : <p>上传素材后可在提示词中引用</p>}</div>}
-          </span>}
-          <span className="video-inline-control">
-            <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><span className="video-model-mark">{selectedProduct?.providerLabel === 'MiniMax' ? 'M' : 'S'}</span><span>{selectedProduct?.label || '选择视频模型'}</span><ChevronDown size={13} /></button>
-            {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><span className="video-model-mark">{product.providerLabel === 'MiniMax' ? 'M' : 'S'}</span><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small><small className="video-model-limit">{product.limitations}</small><small>{product.quotes?.short?.points}-{product.quotes?.long?.points} AI 积分 / 次</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
-          </span>
-        </div>
-
         <footer className="video-toolbar" ref={toolbarRef}>
-          <div className="video-toolbar-buttons">
+          <div className="video-toolbar-controls">
+            <div className="video-quick-tools" ref={quickToolsRef}>
+              <span className="video-inline-control">
+                <button type="button" className="video-icon-tool" aria-label="引用素材" title="引用素材" aria-expanded={inlineMenu === 'mentions'} onClick={() => setInlineMenu(current => current === 'mentions' ? null : 'mentions')}><AtSign size={17} /></button>
+                {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map(file => <button key={file.id} type="button" onPointerDown={event => event.preventDefault()} onClick={() => insertMention(file)}><span>{file.name}</span><small>{file.kind === 'image' ? '视觉参考' : file.kind === 'video' ? '镜头参考' : '声音参考'}</small></button>) : <p>上传素材后会按“图片1、视频1、音频1”自动编号</p>}</div>}
+              </span>
+              <span className="video-inline-control">
+                <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><VideoModelMark provider={selectedProduct?.providerLabel} /><span>{selectedProduct?.label || '选择视频模型'}</span><ChevronDown size={13} /></button>
+                {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><VideoModelMark provider={product.providerLabel} /><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small><small className="video-model-limit">{product.limitations}</small><small>{product.quotes?.short?.points}-{product.quotes?.long?.points} AI 积分 / 次</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
+              </span>
+            </div>
+            <div className="video-toolbar-buttons">
             {TOOLBAR_ITEMS.map(item => {
               const Icon = item.icon;
               const isOpen = activePanel === item.key;
@@ -669,6 +718,7 @@ export default function VideoStudioPage({ embedded = false }) {
                 onClick={() => openPanel(item.key)}
               ><Icon size={17} /><span><small>{item.label}</small><strong>{toolbarSummary[item.key]}</strong></span><ChevronDown size={14} /></button>;
             })}
+            </div>
           </div>
           <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'} · 方案分析 1 积分</span></div><div className="video-submit-actions"><button type="button" className="video-plan-trigger" disabled={planning} onClick={openVideoPlan}><Aperture size={15} />{planning ? '正在分析素材' : planReviewed ? '方案已确认' : activeAnalysis ? '查看生成方案' : '分析并生成方案'}</button><button type="button" disabled={!canGenerate} onClick={handleGenerate}><Play size={17} />{submitting ? '正在提交' : quoteError || '开始生成'}</button></div></div>
         </footer>

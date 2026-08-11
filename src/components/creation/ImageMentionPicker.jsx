@@ -85,6 +85,7 @@ export default function ImageMentionPicker({ images = [], selectedImages = [], o
           type="button"
           role={insertMode ? 'menuitem' : 'menuitemcheckbox'}
           {...(insertMode ? {} : { 'aria-checked': active })}
+          onPointerDown={event => event.preventDefault()}
           onClick={event => {
             event.stopPropagation();
             onToggle?.(image);

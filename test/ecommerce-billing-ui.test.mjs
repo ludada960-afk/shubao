@@ -442,7 +442,9 @@ test('direction confirmation requests an authoritative quote instead of embeddin
 
   assert.match(source, /quoteBillingAction/);
   assert.match(source, /formatEcommerceQuote/);
-  assert.match(source, /billingQuoteId:\s*billingQuote\.quoteId/);
+  assert.match(source, /quoteBillingAction\(ecommercePlan\.quoteRequest,\s*\{\s*signal:\s*generationSignal\s*\}\)/);
+  assert.match(source, /submissionQuote\s*=\s*freshQuoteResponse\?\.quote/);
+  assert.match(source, /billingQuoteId:\s*submissionQuote\.quoteId/);
   assert.match(source, /buildEcommercePendingAction/);
   assert.match(source, /ownerEmail:\s*state\.(?:email|phone)/);
   assert.match(source, /draftId:\s*params\?\.draftId/);

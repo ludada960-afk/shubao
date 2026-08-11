@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { insertImageMentionAt } from './imageMentionModel.js';
 import './MentionPromptField.css';
 
 function escapeHtml(value) {
@@ -26,24 +27,90 @@ export function renderMentionMarkup(value = '', mentions = []) {
   return html;
 }
 
-export default function MentionPromptField({
+function selectionOffsets(field) {
+  const selection = globalThis.getSelection?.();
+  if (!field || !selection?.rangeCount) return null;
+  const range = selection.getRangeAt(0);
+  if (!field.contains(range.commonAncestorContainer)) return null;
+  const start = range.cloneRange();
+  start.selectNodeContents(field);
+  start.setEnd(range.startContainer, range.startOffset);
+  const end = range.cloneRange();
+  end.selectNodeContents(field);
+  end.setEnd(range.endContainer, range.endOffset);
+  return { start: start.toString().length, end: end.toString().length };
+}
+
+function restoreCaret(field, offset) {
+  if (!field || !globalThis.document?.createRange || !globalThis.getSelection) return;
+  const walker = document.createTreeWalker(field, globalThis.NodeFilter?.SHOW_TEXT || 4);
+  let remaining = Math.max(0, Number(offset) || 0);
+  let node = walker.nextNode();
+  while (node) {
+    const length = node.textContent?.length || 0;
+    if (remaining <= length) {
+      const range = document.createRange();
+      range.setStart(node, remaining);
+      range.collapse(true);
+      const selection = globalThis.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+    remaining -= length;
+    node = walker.nextNode();
+  }
+}
+
+const MentionPromptField = forwardRef(function MentionPromptField({
   value = '',
   mentions = [],
   onChange,
   placeholder = '描述你想生成的内容',
   className = '',
   ...props
-}) {
+}, ref) {
   const fieldRef = useRef(null);
+  const selectionRangeRef = useRef(null);
+  const pendingCaretRef = useRef(null);
   const markup = useMemo(() => renderMentionMarkup(value, mentions), [value, mentions]);
   const syncKey = `${value}\u0000${mentions.map(image => image?.sourceNodeId || image?.id || image?.label).join('|')}`;
   const lastSyncKey = useRef('');
+
+  const rememberSelection = useCallback(() => {
+    const offsets = selectionOffsets(fieldRef.current);
+    if (offsets) selectionRangeRef.current = offsets;
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    focus() {
+      fieldRef.current?.focus();
+    },
+    insertMention(label) {
+      const field = fieldRef.current;
+      const current = field?.textContent ?? String(value || '');
+      const saved = selectionRangeRef.current || { start: current.length, end: current.length };
+      const result = insertImageMentionAt(current, label, saved.start, saved.end);
+      if (result.value === current) return result;
+      pendingCaretRef.current = result.caret;
+      selectionRangeRef.current = { start: result.caret, end: result.caret };
+      lastSyncKey.current = '';
+      onChange?.(result.value);
+      return result;
+    },
+  }), [onChange, value]);
 
   useEffect(() => {
     const field = fieldRef.current;
     if (!field || lastSyncKey.current === syncKey) return;
     if (field.innerHTML !== markup) field.innerHTML = markup;
     lastSyncKey.current = syncKey;
+    if (pendingCaretRef.current !== null) {
+      const caret = pendingCaretRef.current;
+      pendingCaretRef.current = null;
+      field.focus();
+      restoreCaret(field, caret);
+    }
   }, [markup, syncKey]);
 
   return <div
@@ -57,7 +124,14 @@ export default function MentionPromptField({
     onInput={event => {
       lastSyncKey.current = '';
       onChange?.(event.currentTarget.textContent || '');
+      rememberSelection();
     }}
+    onKeyUp={rememberSelection}
+    onMouseUp={rememberSelection}
+    onSelect={rememberSelection}
+    onBlur={rememberSelection}
     {...props}
   />;
-}
+});
+
+export default MentionPromptField;

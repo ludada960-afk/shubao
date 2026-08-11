@@ -69,6 +69,25 @@ export function appendImageMention(text, label) {
   return `${current}${separator}${mention} `;
 }
 
+export function insertImageMentionAt(text, label, selectionStart, selectionEnd = selectionStart) {
+  const current = String(text || '');
+  const mention = String(label || '').trim();
+  const fallback = current.length;
+  const start = Math.max(0, Math.min(current.length, Number.isInteger(selectionStart) ? selectionStart : fallback));
+  const end = Math.max(start, Math.min(current.length, Number.isInteger(selectionEnd) ? selectionEnd : start));
+  if (!mention || current.includes(mention)) return { value: current, caret: start };
+
+  const before = current.slice(0, start);
+  const after = current.slice(end);
+  const prefix = before && !/\s$/.test(before) ? ' ' : '';
+  const suffix = after && !/^\s/.test(after) ? ' ' : '';
+  const inserted = `${prefix}${mention}${suffix || ' '}`;
+  return {
+    value: `${before}${inserted}${after}`,
+    caret: before.length + inserted.length,
+  };
+}
+
 export function removeImageMention(text, label) {
   const current = String(text || '');
   const mention = String(label || '').trim();

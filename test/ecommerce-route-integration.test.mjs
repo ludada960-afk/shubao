@@ -133,6 +133,23 @@ test('generation handler forwards the client idempotency key to durable job crea
   assert.equal(calls[0].id, 'ec_request_12345678-1234-4234-9234-123456789abc');
 });
 
+test('orchestrator validates quote freshness before creating a durable generation job', async () => {
+  const source = await fs.readFile(
+    new URL('../server/ecommerceEngine/orchestrator.mjs', import.meta.url),
+    'utf8',
+  );
+  const createJob = source.slice(
+    source.indexOf('  function createJob(input = {})'),
+    source.indexOf('  function listJobs', source.indexOf('  function createJob(input = {})')),
+  );
+
+  assert.match(createJob, /billing\.preflight\(\{\s*ownerEmail,\s*payload\s*\}\)/);
+  assert.ok(
+    createJob.indexOf('billing.preflight') < createJob.indexOf('jobs.create'),
+    'quote freshness must be checked before jobs.create',
+  );
+});
+
 test('generation handler retries recoverable background failures and coalesces polling wakeups', async () => {
   let attempts = 0;
   const retryDelays = [];

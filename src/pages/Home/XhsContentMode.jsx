@@ -44,12 +44,30 @@ import {
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
-import { appendImageMention } from '../../components/creation/imageMentionModel.js';
+import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
 import './Home.css';
 
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
 let _extractSessionToken = null;
 let observedEcommerceWorkVersion = 0;
+
+function insertMentionInTextarea(fieldRef, currentValue, setValue, label) {
+  const field = fieldRef.current;
+  const result = insertImageMentionAt(
+    currentValue,
+    label,
+    field?.selectionStart,
+    field?.selectionEnd,
+  );
+  if (result.value === currentValue) return;
+  setValue(result.value);
+  const restore = () => {
+    field?.focus();
+    field?.setSelectionRange?.(result.caret, result.caret);
+  };
+  if (globalThis.requestAnimationFrame) globalThis.requestAnimationFrame(restore);
+  else globalThis.setTimeout?.(restore, 0);
+}
 
 export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp, recoveryCheckpoint = null }) {
   const { state, dispatch, fetchCredits, refreshBillingBalance } = useApp();
@@ -59,6 +77,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [err, setErr] = useState('');
   const [refImages, setRefImages] = useState([]);
   const fileRef = useRef(null);
+  const xhsPromptRef = useRef(null);
   const [xhsContentDraftId, setXhsContentDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'xhs-content' }));
   const [xhsReferenceAssetIds, setXhsReferenceAssetIds] = useState([]);
   // 小红书子模式：content(种草) / plog(生活碎片) — 支持外部传入或内部管理
@@ -73,6 +92,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [plogRefImg, setPlogRefImg] = useState(null);
   const [plogRefPreview, setPlogRefPreview] = useState('');
   const plogFileRef = useRef(null);
+  const plogPromptRef = useRef(null);
   const [homePlogDraftId, setHomePlogDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'xhs-plog' }));
   const [homePlogReferenceAssetIds, setHomePlogReferenceAssetIds] = useState([]);
 
@@ -835,7 +855,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <span className="ec-placeholder-line">例：独居女生的晚间护肤流程</span>
                     </div>
                   )}
-                  <textarea value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
+                  <textarea ref={xhsPromptRef} value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
                     className={!inputText ? 'ec-empty' : ''}
                     style={{
                       width:'100%', flex:1, minHeight:180, border:'none', background:'transparent',
@@ -856,7 +876,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <ImageMentionPicker
                   images={xhsMentionImages}
                   selectionMode="insert"
-                  onToggle={image => setText(appendImageMention(inputText, image.label))}
+                  onToggle={image => insertMentionInTextarea(xhsPromptRef, inputText, setText, image.label)}
                 />
               </div>
             </div>
@@ -896,7 +916,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <span className="ec-placeholder-line">例：雨天窝在沙发上看书喝热可可</span>
                     </div>
                   )}
-                  <textarea value={plogText} onChange={e => setPlogText(e.target.value)}
+                  <textarea ref={plogPromptRef} value={plogText} onChange={e => setPlogText(e.target.value)}
                     className={!plogText ? 'ec-empty' : ''}
                     style={{
                       width:'100%', flex:1, minHeight:180, border:'none', background:'transparent',
@@ -918,7 +938,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <ImageMentionPicker
                   images={plogMentionImages}
                   selectionMode="insert"
-                  onToggle={image => setPlogText(appendImageMention(plogText, image.label))}
+                  onToggle={image => insertMentionInTextarea(plogPromptRef, plogText, setPlogText, image.label)}
                 />
               </div>
             </div>
@@ -1161,7 +1181,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 {xhsSubMode === 'content' && (
                   <div>
                     <div className="hero-textarea-wrap">
-                      <textarea className="hero-textarea" value={inputText} onChange={e => setText(e.target.value)} placeholder=" " />
+                      <textarea ref={xhsPromptRef} className="hero-textarea" value={inputText} onChange={e => setText(e.target.value)} placeholder=" " />
                       <div className="custom-placeholder">
                         <div className="ph-main">✍️ 在这里输入创作主题，一句话就够了…</div>
                         <div className="ph-sub">例如：厦门3天2夜旅游攻略、百元蓝牙耳机测评</div>
@@ -1176,7 +1196,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <ImageMentionPicker
                         images={xhsMentionImages}
                         selectionMode="insert"
-                        onToggle={image => setText(appendImageMention(inputText, image.label))}
+                        onToggle={image => insertMentionInTextarea(xhsPromptRef, inputText, setText, image.label)}
                       />
                       <span className="ref-hint">参考图（可选，最多3张）</span>
                     </div>
@@ -1195,7 +1215,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                   <div>
                     {/* 输入 */}
                     <div className="hero-textarea-wrap">
-                      <textarea className="hero-textarea" value={plogText} onChange={e => setPlogText(e.target.value)} placeholder=" " />
+                      <textarea ref={plogPromptRef} className="hero-textarea" value={plogText} onChange={e => setPlogText(e.target.value)} placeholder=" " />
                       <div className="custom-placeholder">
                         <div className="ph-main">📝 描述你的生活场景</div>
                         <div className="ph-sub">例如：独居日常｜周末宅家看书喝咖啡</div>
@@ -1219,7 +1239,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                       <ImageMentionPicker
                         images={plogMentionImages}
                         selectionMode="insert"
-                        onToggle={image => setPlogText(appendImageMention(plogText, image.label))}
+                        onToggle={image => insertMentionInTextarea(plogPromptRef, plogText, setPlogText, image.label)}
                       />
                       <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => {
                         const f=e.target.files?.[0]; if(f){setHomePlogReferenceAssetIds([]);setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));}

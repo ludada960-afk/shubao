@@ -172,6 +172,9 @@ function productFacts(input) {
   const productParams = isRecord(ownValue(input, 'product_params', 'productParams'))
     ? ownValue(input, 'product_params', 'productParams')
     : {};
+  const tryOnConstraints = isRecord(ownValue(ownValue(input, 'ability_recipe', 'abilityRecipe'), 'constraints'))
+    ? ownValue(ownValue(input, 'ability_recipe', 'abilityRecipe'), 'constraints')
+    : {};
   const copywriting = isRecord(ownValue(input, 'copywriting')) ? ownValue(input, 'copywriting') : {};
   const skus = Array.isArray(ownValue(input, 'skus')) ? ownValue(input, 'skus') : [];
   return [
@@ -187,6 +190,9 @@ function productFacts(input) {
     `材质：${cleanString(ownValue(productParams, 'material')) || '未确认'}`,
     `工艺：${cleanString(ownValue(productParams, 'craft')) || '未确认'}`,
     `尺寸：${cleanString(ownValue(productParams, 'size')) || '未确认'}`,
+    ...(Object.keys(tryOnConstraints).length ? [
+      `上身约束：${tryOnConstraints.preserveMaterial !== false ? '锁定材质与纹理' : '允许材质随场景适配'}；${tryOnConstraints.preservePattern !== false ? '锁定图案与标识' : '允许图案随构图适配'}；${tryOnConstraints.consistentPersonScene !== false ? '保持人物与场景连续' : '允许人物与场景重新编排'}`,
+    ] : []),
     `用户卖点：${cleanString(ownValue(copywriting, 'sellingPoints', 'selling_points')) || '未填写'}`,
     `用户策划补充：${cleanString(ownValue(copywriting, 'plan')) || '未填写'}`,
     `SKU：${skus.map(sku => (isRecord(sku)

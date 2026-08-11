@@ -344,7 +344,17 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         productImages: realShots,
         personShots,
         sceneShots,
-        abilityRecipe: { id: activeAbilityRecipe.id, version: activeAbilityRecipe.version },
+        abilityRecipe: {
+          id: activeAbilityRecipe.id,
+          version: activeAbilityRecipe.version,
+          ...(tryOn ? {
+            constraints: {
+              preserveMaterial: effectiveParams.preserveMaterial !== false,
+              preservePattern: effectiveParams.preservePattern !== false,
+              consistentPersonScene: effectiveParams.consistentPersonScene !== false,
+            },
+          } : {}),
+        },
         assetRoles,
         roleImages: roleAssetGroups,
         personMode: tryOn ? personMode : 'smart',

@@ -17,6 +17,7 @@ test('direction confirmation keeps the current in-memory editor mounted for back
   const home = await readFile(new URL('../src/pages/Home/index.jsx', import.meta.url), 'utf8');
 
   assert.match(home, /ecStep === 2\s*&&\s*\(\s*<DesignDirection/);
+  assert.match(home, /ecStep !== 2\s*&&\s*<div[\s\S]*homepage-mode-showcase/);
   assert.match(home, /isVideo\s*\?\s*<VideoStudioPage[\s\S]{0,700}isXHS\s*\?\s*<XhsContentMode[\s\S]{0,700}!isVisual\s*\?\s*\(\s*<EcMode/);
   assert.match(home, /display:\s*ecStep === 2\s*\?\s*['"]none['"]\s*:\s*undefined/);
 });

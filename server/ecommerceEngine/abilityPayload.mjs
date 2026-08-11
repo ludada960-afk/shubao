@@ -19,6 +19,15 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function safeTryOnConstraints(value) {
+  if (!isRecord(value)) return null;
+  const result = {};
+  for (const key of ['preserveMaterial', 'preservePattern', 'consistentPersonScene']) {
+    if (typeof value[key] === 'boolean') result[key] = value[key];
+  }
+  return Object.keys(result).length ? result : null;
+}
+
 function abilityError(message, cause) {
   return Object.assign(new Error(message || '电商能力配置无效'), {
     status: 400,
@@ -93,9 +102,9 @@ export function normalizeEcommerceAbilityPayload(payload = {}) {
   if (!isRecord(payload)) throw abilityError('电商生成请求无效');
   if (!hasAbilityContract(payload)) return payload;
 
+  const descriptor = own(payload, 'ability_recipe', 'abilityRecipe');
   let normalized;
   try {
-    const descriptor = own(payload, 'ability_recipe', 'abilityRecipe');
     const recipeId = cleanString(descriptor?.id) || 'product_suite';
     assertNoAmbiguousGroups(payload, recipeId);
     normalized = normalizeEcommerceAbilityRequest(payload);
@@ -106,9 +115,16 @@ export function normalizeEcommerceAbilityPayload(payload = {}) {
 
   const recipeId = normalized.recipe.id;
   const personMode = normalized.personMode;
+  const suppliedConstraints = recipeId === TRY_ON_ID
+    ? safeTryOnConstraints(own(descriptor, 'constraints'))
+    : null;
   const next = {
     ...payload,
-    ability_recipe: { id: recipeId, version: normalized.recipe.version },
+    ability_recipe: {
+      id: recipeId,
+      version: normalized.recipe.version,
+      ...(suppliedConstraints ? { constraints: suppliedConstraints } : {}),
+    },
     asset_roles: normalized.assetRoles,
     assets: safeAssetGroups(payload.assets, recipeId, normalized.slotAssets),
   };

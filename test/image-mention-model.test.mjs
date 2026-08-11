@@ -6,6 +6,7 @@ import {
   buildCanvasImageReferencePayload,
   buildImageMentions,
   buildRoleAwareImagePayload,
+  insertImageMentionAt,
   removeImageMention,
   toggleImageMention,
 } from '../src/components/creation/imageMentionModel.js';
@@ -85,6 +86,21 @@ test('an image mention is inserted once with readable spacing', () => {
   assert.equal(appendImageMention('', '@参考图1'), '@参考图1 ');
   assert.equal(appendImageMention('保留杯身', '@参考图2'), '保留杯身 @参考图2 ');
   assert.equal(appendImageMention('参考 @参考图1 的构图', '@参考图1'), '参考 @参考图1 的构图');
+});
+
+test('an image mention is inserted at the saved cursor instead of always appending', () => {
+  assert.deepEqual(insertImageMentionAt('请保留杯身颜色', '@产品图1', 1, 1), {
+    value: '请 @产品图1 保留杯身颜色',
+    caret: 8,
+  });
+  assert.deepEqual(insertImageMentionAt('参考旧图完成构图', '@参考图1', 2, 4), {
+    value: '参考 @参考图1 完成构图',
+    caret: 9,
+  });
+  assert.deepEqual(insertImageMentionAt('参考 @参考图1 的构图', '@参考图1', 0, 0), {
+    value: '参考 @参考图1 的构图',
+    caret: 0,
+  });
 });
 
 test('removing an image mention only removes the selected token', () => {

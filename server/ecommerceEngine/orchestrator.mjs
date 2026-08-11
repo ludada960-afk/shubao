@@ -1049,6 +1049,9 @@ export function createEcommerceOrchestrator(deps = {}) {
     if (!cleanString(own(payload, 'product_name'))) {
       throw httpError('缺少商品名称', 400, 'PRODUCT_NAME_REQUIRED');
     }
+    if (typeof billing.preflight === 'function') {
+      billing.preflight({ ownerEmail, payload });
+    }
     const requestedId = cleanString(own(input, 'id'));
     const id = requestedId ? validateId(requestedId, 'job id') : `ec_${randomUUID()}`;
     if (requestedId) {

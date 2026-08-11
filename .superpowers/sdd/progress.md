@@ -1734,3 +1734,21 @@
   video capability contract passed without creating a video task. PM2 startup state was saved.
   No paid video generation was run. The remaining external acceptance item is one user-run
   real video generation against the configured Seedance route.
+
+- 2026-08-12 ecommerce stability and workbench polish release candidate: production
+  diagnosis identified the recurring first-failure/second-success pattern as an expired
+  billing quote reused from the design-direction page. The failed request created no
+  provider assets and incurred no image-generation cost. Confirmation now refreshes the
+  quote immediately before durable job creation, with server-side freshness preflight
+  before persistence. Mention insertion now preserves the caret and selection and works
+  on the first click across ecommerce, Xiaohongshu, free creation, video and Canvas.
+  Ecommerce step two no longer renders the home mode-card showcase over analysis content;
+  its plan hierarchy, editable states and route-difference labels are clearer and fully
+  localized. The prompt assembler now preserves the compiled `abilityRecipe` section.
+  Full serial regression passed `1462/1462`; the production build transformed `6474`
+  modules; build assets, collaboration policy and whitespace checks passed. Desktop and
+  390px browser QA covered ecommerce, try-on, video, free creation and the animated
+  sidebar without console errors or page overflow. No paid video generation was run.
+  Remaining gate: explicit staging and review, commit, mandated production deployment,
+  then public acceptance. User-owned extension-task deletions, `.tmp/`, and the diagnosis
+  helper remain outside the release.

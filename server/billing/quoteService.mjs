@@ -106,6 +106,36 @@ export function createBillingQuoteService({
     return Math.trunc(value);
   }
 
+  function readFreshQuote({ quoteId, ownerEmail } = {}) {
+    const payload = parseToken(secret, quoteId);
+    let normalizedPayload;
+    try {
+      normalizedPayload = {
+        ownerEmail: normalizeOwnerEmail(payload.ownerEmail),
+        ...normalizeQuote(payload),
+        issuedAt: new Date(nonEmptyString(payload.issuedAt, 'issuedAt')).toISOString(),
+        expiresAt: new Date(nonEmptyString(payload.expiresAt, 'expiresAt')).toISOString(),
+      };
+    } catch {
+      throw invalidQuote();
+    }
+    const issuedAtMs = Date.parse(normalizedPayload.issuedAt);
+    const expiresAtMs = Date.parse(normalizedPayload.expiresAt);
+    if (!Number.isFinite(issuedAtMs) || !Number.isFinite(expiresAtMs) || expiresAtMs <= issuedAtMs) {
+      throw invalidQuote();
+    }
+    if (currentTime() >= expiresAtMs) {
+      throw quoteError('BILLING_QUOTE_EXPIRED', 409, '费用确认已过期，请重新获取费用后再生成');
+    }
+    if (normalizedPayload.ownerEmail !== normalizeOwnerEmail(ownerEmail)) {
+      throw quoteError('BILLING_QUOTE_MISMATCH', 409, '当前生成方案与费用确认不一致，请重新获取费用');
+    }
+    return {
+      quoteId: quoteId.trim(),
+      ...normalizedPayload,
+    };
+  }
+
   return {
     issue({ ownerEmail, quote } = {}) {
       const normalizedOwner = normalizeOwnerEmail(ownerEmail);
@@ -127,40 +157,18 @@ export function createBillingQuoteService({
       };
     },
 
-    verify({ quoteId, ownerEmail, expectedQuote } = {}) {
-      const payload = parseToken(secret, quoteId);
-      let normalizedPayload;
-      try {
-        normalizedPayload = {
-          ownerEmail: normalizeOwnerEmail(payload.ownerEmail),
-          ...normalizeQuote(payload),
-          issuedAt: new Date(nonEmptyString(payload.issuedAt, 'issuedAt')).toISOString(),
-          expiresAt: new Date(nonEmptyString(payload.expiresAt, 'expiresAt')).toISOString(),
-        };
-      } catch {
-        throw invalidQuote();
-      }
-      const issuedAtMs = Date.parse(normalizedPayload.issuedAt);
-      const expiresAtMs = Date.parse(normalizedPayload.expiresAt);
-      if (!Number.isFinite(issuedAtMs) || !Number.isFinite(expiresAtMs) || expiresAtMs <= issuedAtMs) {
-        throw invalidQuote();
-      }
-      if (currentTime() >= expiresAtMs) {
-        throw quoteError('BILLING_QUOTE_EXPIRED', 409, '费用确认已过期，请重新获取费用后再生成');
-      }
+    verifyFresh({ quoteId, ownerEmail } = {}) {
+      return readFreshQuote({ quoteId, ownerEmail });
+    },
 
-      const normalizedOwner = normalizeOwnerEmail(ownerEmail);
+    verify({ quoteId, ownerEmail, expectedQuote } = {}) {
+      const fresh = readFreshQuote({ quoteId, ownerEmail });
       const normalizedExpected = normalizeQuote(expectedQuote);
-      const mismatched = normalizedPayload.ownerEmail !== normalizedOwner
-        || QUOTE_FIELDS.some(field => normalizedPayload[field] !== normalizedExpected[field]);
+      const mismatched = QUOTE_FIELDS.some(field => fresh[field] !== normalizedExpected[field]);
       if (mismatched) {
         throw quoteError('BILLING_QUOTE_MISMATCH', 409, '当前生成方案与费用确认不一致，请重新获取费用');
       }
-
-      return {
-        quoteId: quoteId.trim(),
-        ...normalizedPayload,
-      };
+      return fresh;
     },
   };
 }
