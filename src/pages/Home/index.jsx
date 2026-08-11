@@ -99,7 +99,7 @@ export default function HomePage() {
             <style>{`@media (min-width:640px){.homepage-h1{font-size:54px!important}}@media(min-width:1024px){.homepage-h1{font-size:62px!important}}`}</style>
 
             <p style={{ margin: '12px auto 0', maxWidth: 860, fontSize: 15, fontWeight: 500, color: 'var(--text-muted)' }} className="homepage-subtitle">
-              电商套图、营销视频、小红书图文与自由创作，在同一个工作台完成
+              从一张素材开始，生成能上架、能种草、能传播的专业视觉
             </p>
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>

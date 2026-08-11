@@ -26,7 +26,8 @@ test('home presents four stable visual creation domains in one workspace family'
   assert.doesNotMatch(source, /reference-card-/);
   assert.doesNotMatch(source, /homepage-mode-indicator/);
   assert.match(source, /上传创意素材，生成/);
-  assert.match(source, /电商套图、营销视频、小红书图文与自由创作/);
+  assert.match(source, /从一张素材开始，生成能上架、能种草、能传播的专业视觉/);
+  assert.doesNotMatch(source, /在同一个工作台完成/);
   assert.match(page, /智能视觉内容创作平台/);
   assert.match(footer, /AI 视觉内容策划、生成与编辑/);
   assert.match(styles, /\.homepage-mode-card\.card-1 \{[^}]*rotate\(-10deg\)/);

@@ -7,6 +7,11 @@ import { appendImageMention, buildImageMentions, removeImageMention } from '../.
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
 
+const ABILITY_RESULT_COPY = {
+  product_suite: '生成整套主图与详情视觉',
+  anything_tryon: '把商品自然穿到模特身上',
+};
+
 function ImageCard({ role, image, label, index, onRemove }) {
   return (
     <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
@@ -137,15 +142,14 @@ export default function EcommerceWorkbench({
   return (
     <section className="ec-workbench" aria-label="电商生图工作台">
       {showAbilitySelector && (
-        <div className="ec-ability-selector" aria-label="选择电商创作能力">
-          <div className="ec-ability-selector-heading"><span><Sparkles size={14} />能力配方</span><small>默认商品套图保持原有流程；专用能力只改变输入角色和生成目标</small></div>
+        <div className="ec-ability-selector" role="tablist" aria-label="选择电商创作能力">
           <div className="ec-ability-selector-options">
             {ECOMMERCE_ABILITY_RECIPES.map(recipe => {
               const selected = recipe.id === abilityRecipeId;
               return (
-                <button type="button" key={recipe.id} className={`ec-ability-selector-option ${selected ? 'is-selected' : ''}`} aria-pressed={selected} onClick={() => selectRecipe(recipe.id)}>
+                <button type="button" role="tab" key={recipe.id} className={`ec-ability-selector-option ${selected ? 'is-selected' : ''}`} aria-selected={selected} onClick={() => selectRecipe(recipe.id)}>
                   <span className="ec-ability-selector-thumb"><ResponsiveImage src={recipe.id === 'anything_tryon' ? '/images/home/ability-tryon-example-output.png' : '/images/home/entry-ecommerce.png'} variant="thumb" ratio="1:1" alt="" /></span>
-                  <span className="ec-ability-selector-copy"><strong>{recipe.label}</strong><small>{recipe.summary}</small><em>{recipe.id === 'anything_tryon' ? '商品 + 模特 + 场景' : '产品图 × 参考图'}</em></span>
+                  <span className="ec-ability-selector-copy"><strong>{recipe.label}</strong><span>{ABILITY_RESULT_COPY[recipe.id]}</span></span>
                   {selected && <Check size={16} className="ec-ability-selector-check" />}
                 </button>
               );

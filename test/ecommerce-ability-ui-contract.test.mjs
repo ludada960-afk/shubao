@@ -33,6 +33,15 @@ test('try-on is exposed as an explicit ability layer while the default product r
   assert.match(direction, /showAbilitySelector=\{false\}/);
 });
 
+test('ability switch presents concise user outcomes instead of internal implementation notes', () => {
+  assert.match(workbench, /生成整套主图与详情视觉/);
+  assert.match(workbench, /把商品自然穿到模特身上/);
+  assert.doesNotMatch(workbench, /能力配方/);
+  assert.doesNotMatch(workbench, /默认商品套图保持原有流程/);
+  assert.doesNotMatch(workbench, /专用能力只改变输入角色和生成目标/);
+  assert.doesNotMatch(workbench, /产品图 × 参考图/);
+});
+
 test('try-on uses a focused four-panel configuration instead of inheriting SKU and copywriting controls', () => {
   assert.match(ecMode, /abilityRecipeId === 'anything_tryon'/);
   assert.match(ecMode, /label: '成片规格'/);

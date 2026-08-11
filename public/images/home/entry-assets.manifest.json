@@ -12,29 +12,29 @@
     },
     "entry-video.png": {
       "path": "/images/home/entry-video.png",
-      "sha256": "4d6ee99aa25828722b6c1491f2e46eee2faeebc0cd98fe06dfb9140f7df4a386",
+      "sha256": "4a716151ccd977dc1450a14c932bca0e24c2b38654a2a49bf14a81b2b36cdd2c",
       "width": 420,
       "height": 360,
       "alpha": true,
-      "promptSummary": "Original three-card product video sequence",
+      "promptSummary": "Original three-card human fashion video sequence",
       "kind": "entry"
     },
     "entry-xhs.png": {
       "path": "/images/home/entry-xhs.png",
-      "sha256": "97e8de8866b60eb02a36b38f9f4031dbedb412b3c853082e8bdefa30705b5bb5",
+      "sha256": "839829284db5f77151646c054add837bc3e2a4d10280feee0d12afc4237aeaff",
       "width": 420,
       "height": 360,
       "alpha": true,
-      "promptSummary": "Original three-card lifestyle editorial stack",
+      "promptSummary": "Original three-card Xiaohongshu lifestyle recommendation stack",
       "kind": "entry"
     },
     "entry-visual.png": {
       "path": "/images/home/entry-visual.png",
-      "sha256": "6cc5a18e5f3947a36a86f463d3a24eef49492df819a6abea2d845f35e65ebc58",
+      "sha256": "63996fd51a183ac099dabf37f7fd05a58887a6fd29186b8b70a69227d8ced031",
       "width": 420,
       "height": 360,
       "alpha": true,
-      "promptSummary": "Original three-card visual design stack",
+      "promptSummary": "Original three-card human editorial poster stack",
       "kind": "entry"
     },
     "free.png": {
