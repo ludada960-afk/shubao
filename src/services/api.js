@@ -483,7 +483,9 @@ function imageReferenceMetadata(images = []) {
       url,
       displayName,
       mention: String(image.mention || image.label || `@${displayName}`),
-      role: image.role === 'product' ? 'product' : 'reference',
+      role: ['product', 'reference', 'items', 'person', 'scene'].includes(image.role)
+        ? image.role
+        : 'reference',
       order,
     };
   }).filter(Boolean);
@@ -498,6 +500,28 @@ function splitEcommerceInputs(images) {
     else legacy.push(image);
   }
   return { owned, legacy };
+}
+
+function firstNonEmptyImageList(...values) {
+  for (const value of values) {
+    if (Array.isArray(value) && value.length > 0) return value;
+  }
+  return [];
+}
+
+function isTryOnAbility(abilityRecipe, semanticAssets) {
+  return abilityRecipe?.id === 'anything_tryon'
+    || (semanticAssets && typeof semanticAssets === 'object' && (
+      Object.hasOwn(semanticAssets, 'items')
+      || Object.hasOwn(semanticAssets, 'person')
+      || Object.hasOwn(semanticAssets, 'scene')
+    ));
+}
+
+function imageWithRole(image, role) {
+  if (typeof image === 'string') return { url: image, role };
+  if (!image || typeof image !== 'object') return null;
+  return { ...image, role };
 }
 
 function ecommerceUploadAbortError() {
@@ -850,7 +874,7 @@ export function generatePlogContent({
   }, options);
 }
 
-export async function generateEcommerce({ productName, category, refImgs, realShots, platform, contentType, targetLanguage, commerceContext, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
+export async function generateEcommerce({ productName, category, refImgs, realShots, platform, contentType, targetLanguage, commerceContext, points, skus, detailPlan, maintenance, material, restrictions, imageSelections, imageSize, generationSettings, styleSkill, customColors, sizing, direction, assetMentions, abilityRecipe, roleAssets, roleImages, assetRoles, personMode, billingQuoteId, email, draftId, resumeTaskId, retry = false, onImage, onProgress, pollIntervalMs = 1500, maxPollAttempts = 600, signal, isCurrent }) {
   const ownerEmail = getSessionEmail() || String(email || '').trim().toLowerCase();
   const submissionContext = { ownerEmail, draftId };
   const savedReference = loadEcommerceTaskReference({ ownerEmail, draftId });
@@ -902,8 +926,21 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     }
   }
 
-  const productInputs = splitEcommerceInputs(realShots);
+  const semanticAssets = roleAssets || roleImages || {};
+  const isTryOn = isTryOnAbility(abilityRecipe, semanticAssets);
+  const itemImages = isTryOn
+    ? firstNonEmptyImageList(semanticAssets.items, realShots)
+    : realShots;
+  const personImages = isTryOn
+    ? (Array.isArray(semanticAssets.person) ? semanticAssets.person : [])
+    : [];
+  const sceneImages = isTryOn
+    ? firstNonEmptyImageList(semanticAssets.scene, refImgs)
+    : [];
+  const productInputs = splitEcommerceInputs(itemImages);
   const referenceInputs = splitEcommerceInputs(refImgs);
+  const personInputs = splitEcommerceInputs(personImages);
+  const sceneInputs = splitEcommerceInputs(sceneImages);
   const hasCommerceContext = Boolean(commerceContext || contentType || targetLanguage);
   const normalizedCommerceContext = hasCommerceContext
     ? normalizeCommerceContext({ platform, contentType, targetLanguage, ...(commerceContext || {}) })
@@ -920,16 +957,39 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     restrictions: restrictions || '',
     direction: direction || null,
   };
+  if (isTryOn) {
+    body.ability_recipe = {
+      id: abilityRecipe?.id || 'anything_tryon',
+      version: Number.isSafeInteger(abilityRecipe?.version) ? abilityRecipe.version : 1,
+    };
+    body.person_mode = personMode === 'reference' ? 'reference' : 'smart';
+    if (Array.isArray(assetRoles)) body.asset_roles = assetRoles;
+  }
   if (normalizedCommerceContext) {
     body.commerce_context = normalizedCommerceContext;
     body.content_type = normalizedCommerceContext.contentType;
     body.target_language = normalizedCommerceContext.targetLanguage;
   }
+  const mentionInputs = isTryOn
+    ? [
+        ...(itemImages || []).map(image => imageWithRole(image, 'items')).filter(Boolean),
+        ...(personImages || []).map(image => imageWithRole(image, 'person')).filter(Boolean),
+        ...(sceneImages || []).map(image => imageWithRole(image, 'scene')).filter(Boolean),
+      ]
+    : [...(realShots || []), ...(refImgs || [])];
   const resolvedMentions = Array.isArray(assetMentions) && assetMentions.length
     ? assetMentions
-    : imageReferenceMetadata([...(realShots || []), ...(refImgs || [])]);
+    : imageReferenceMetadata(mentionInputs);
   if (resolvedMentions.length) body.asset_mentions = resolvedMentions;
-  if (productInputs.owned.length || referenceInputs.owned.length) {
+  if (isTryOn) {
+    if (productInputs.owned.length || personInputs.owned.length || sceneInputs.owned.length) {
+      body.assets = {
+        items: productInputs.owned,
+        person: personInputs.owned,
+        scene: sceneInputs.owned,
+      };
+    }
+  } else if (productInputs.owned.length || referenceInputs.owned.length) {
     body.assets = {
       product: productInputs.owned,
       reference: referenceInputs.owned,
@@ -939,8 +999,16 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
     body.real_shots = await prepareImageInputs(productInputs.legacy, { role: 'product' });
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
   }
-  if (referenceInputs.legacy.length) {
+  if (!isTryOn && referenceInputs.legacy.length) {
     body.reference_images = await prepareImageInputs(referenceInputs.legacy, { role: 'reference' });
+    if (typeof isCurrent === 'function' && !isCurrent()) return null;
+  }
+  if (isTryOn && personInputs.legacy.length) {
+    body.person_images = await prepareImageInputs(personInputs.legacy, { role: 'person' });
+    if (typeof isCurrent === 'function' && !isCurrent()) return null;
+  }
+  if (isTryOn && sceneInputs.legacy.length) {
+    body.scene_images = await prepareImageInputs(sceneInputs.legacy, { role: 'scene' });
     if (typeof isCurrent === 'function' && !isCurrent()) return null;
   }
   if (typeof isCurrent === 'function' && !isCurrent()) return null;
@@ -1193,16 +1261,55 @@ export async function getDesignDirections(params, { signal } = {}) {
     return prepareImageInputs(imgs, { signal, role });
   };
 
-  const real_shots = await uploadAndReplace(params.real_shots, 'product');
-  const ref_shots = await uploadAndReplace(params.ref_shots, 'reference');
+  const semanticSource = params?.roleAssets || params?.roleImages || {};
+  const suppliedRecipe = params?.ability_recipe || params?.abilityRecipe;
+  const tryOn = isTryOnAbility(suppliedRecipe, semanticSource);
+  const personSource = tryOn
+    ? firstNonEmptyImageList(semanticSource.person, params?.personShots)
+    : [];
+  const [real_shots, ref_shots, person] = await Promise.all([
+    tryOn
+      ? uploadAndReplace(firstNonEmptyImageList(semanticSource.items, params?.real_shots, params?.realShots), 'product')
+      : uploadAndReplace(params?.real_shots, 'product'),
+    tryOn
+      ? uploadAndReplace(firstNonEmptyImageList(semanticSource.scene, params?.ref_shots, params?.refShots), 'scene')
+      : uploadAndReplace(params?.ref_shots, 'reference'),
+    uploadAndReplace(personSource, 'person'),
+  ]);
+
+  const semanticPayload = tryOn
+    ? {
+        ability_recipe: {
+          id: suppliedRecipe?.id || 'anything_tryon',
+          version: Number.isSafeInteger(suppliedRecipe?.version) ? suppliedRecipe.version : 1,
+        },
+        person_mode: params?.person_mode === 'reference' || params?.personMode === 'reference'
+          ? 'reference'
+          : 'smart',
+        // Keep the role lanes explicit at the analysis boundary. The formal
+        // generation endpoint receives the durable asset manifest later.
+        items: real_shots,
+        person,
+        scene: ref_shots,
+        person_images: person,
+        scene_images: ref_shots,
+      }
+    : {};
+
+  const requestParams = tryOn
+    ? Object.fromEntries(Object.entries(params || {}).filter(([key]) => ![
+        'abilityRecipe', 'ability_recipe', 'roleAssets', 'roleImages', 'assetRoles', 'asset_roles', 'personMode', 'person_mode',
+      ].includes(key)))
+    : params;
 
   const res = await fetch(`${API_BASE}/api/ecommerce/design-directions`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(withSessionEmail({
-      ...params,
+      ...requestParams,
       real_shots,
       ref_shots,
+      ...semanticPayload,
       billing_quote_id: params.billingQuoteId,
       billing_action_id: params.billingActionId,
     })),

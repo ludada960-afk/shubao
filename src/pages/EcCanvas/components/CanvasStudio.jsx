@@ -60,6 +60,7 @@ import { buildImageMentions } from '../../../components/creation/imageMentionMod
 import EcommerceDesignPlanEditor, { EcommerceDesignPlanPreview } from '../../Home/ec/EcommerceDesignPlanEditor.jsx';
 import { normalizeCommerceContext } from '../../Home/ec/internationalCommerceRegistry.js';
 import { VIDEO_CREATION_MODES, hasRequiredVideoInputs } from '../../VideoStudio/videoStudioModel.js';
+import { buildVideoPlan } from '../../VideoStudio/videoPlanModel.js';
 
 const ACTION_ICONS = {
   'edit-text': FileText,
@@ -500,6 +501,7 @@ export function CanvasTextGenerationComposer({ node, position, sources = [], men
 }
 
 export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onGenerate }) {
+  const [planOpen, setPlanOpen] = useState(false);
   if (!node) return null;
   const mode = node.mode || 'smart';
   const imageSources = sources.filter(source => source.kind !== 'video');
@@ -513,38 +515,46 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
     : sources.filter(source => !['first', 'last'].includes(roleFor(source)));
   const videoFiles = { images: referenceImages, videos: videoSources, first: firstSources, last: lastSources };
   const materialsReady = hasRequiredVideoInputs(mode, videoFiles);
-  const points = node.resolution === '480p'
-    ? (Number(node.duration) <= 8 ? 32 : 40)
-    : (Number(node.duration) <= 8 ? 48 : 58);
+  const planFiles = {
+    images: referenceImages.map(source => ({ type: 'image/png', name: source.name || '参考图片' })),
+    videos: videoSources.map(source => ({ type: 'video/mp4', name: source.name || '参考视频' })),
+    audios: [],
+    first: firstSources.map(source => ({ type: 'image/png', name: source.name || '首帧图' })),
+    last: lastSources.map(source => ({ type: 'image/png', name: source.name || '尾帧图' })),
+  };
+  const plan = buildVideoPlan({ mode, prompt: node.prompt, files: planFiles, duration: node.duration || 8, ratio: node.aspectRatio || '9:16', resolution: node.resolution || '720p', sound: node.generateAudio !== false });
+  const change = next => onChange?.({ ...next, planReviewed: false });
+  const confirmPlan = () => { onChange?.({ planReviewed: true, error: '' }); setPlanOpen(false); };
   return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-video-composer" style={position} aria-label="视频生成操作台" onPointerDown={event => event.stopPropagation()}>
     <div className="ec-canvas-video-mode-tabs" role="tablist" aria-label="视频创作模式">
-      {VIDEO_CREATION_MODES.map(option => <button key={option.id} type="button" role="tab" aria-selected={mode === option.id} className={mode === option.id ? 'is-active' : ''} onClick={() => onChange?.({ mode: option.id, error: '' })}>
+      {VIDEO_CREATION_MODES.map(option => <button key={option.id} type="button" role="tab" aria-selected={mode === option.id} className={mode === option.id ? 'is-active' : ''} onClick={() => change({ mode: option.id, error: '' })}>
         <strong>{option.label}</strong><small>{option.hint}</small>
       </button>)}
     </div>
     {mode === 'frame' ? <div className="ec-canvas-video-material-grid">
-      <ComposerSources sources={firstSources} role="first" onAddSources={files => onAddSources?.(files, 'first')} onRemoveSource={onRemoveSource} uploadLabel="上传首帧" />
-      <ComposerSources sources={lastSources} role="last" onAddSources={files => onAddSources?.(files, 'last')} onRemoveSource={onRemoveSource} uploadLabel="上传尾帧" />
+      <ComposerSources sources={firstSources} role="first" onAddSources={files => { change({}); onAddSources?.(files, 'first'); }} onRemoveSource={sourceId => { change({}); onRemoveSource?.(sourceId); }} uploadLabel="上传首帧" />
+      <ComposerSources sources={lastSources} role="last" onAddSources={files => { change({}); onAddSources?.(files, 'last'); }} onRemoveSource={sourceId => { change({}); onRemoveSource?.(sourceId); }} uploadLabel="上传尾帧" />
     </div> : <div className="ec-canvas-video-material-grid">
       <ComposerSources
         sources={mixedReferenceSources}
         role="reference"
         accept="image/*,video/*"
-        onAddSources={files => onAddSources?.(files, 'reference')}
-        onRemoveSource={onRemoveSource}
+        onAddSources={files => { change({}); onAddSources?.(files, 'reference'); }}
+        onRemoveSource={sourceId => { change({}); onRemoveSource?.(sourceId); }}
         uploadLabel={mode === 'remake' ? '添加素材' : '上传素材'}
       />
     </div>}
-    <textarea data-canvas-control="true" value={node.prompt || ''} maxLength={1200} disabled={loading} placeholder="描述主体、动作、镜头、场景和节奏" onChange={event => onChange?.({ prompt: event.target.value })} />
+    <textarea data-canvas-control="true" value={node.prompt || ''} maxLength={1200} disabled={loading} placeholder="描述主体、动作、镜头、场景和节奏" onChange={event => change({ prompt: event.target.value })} />
     <div className="ec-canvas-video-controls">
-      <label>清晰度<select value={node.resolution || '720p'} onChange={event => onChange?.({ resolution: event.target.value })}><option value="480p">480P 预览</option><option value="720p">720P 成片</option></select></label>
-      <label>画幅<select value={node.aspectRatio || '9:16'} onChange={event => onChange?.({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
-      <label>时长<select value={node.duration || 8} onChange={event => onChange?.({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
-      <label className="is-toggle"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => onChange?.({ generateAudio: event.target.checked })} /><Volume2 size={14} />声音</label>
+      <label>清晰度<select value={node.resolution || '720p'} onChange={event => change({ resolution: event.target.value })}><option value="720p">720P 成片</option></select></label>
+      <label>画幅<select value={node.aspectRatio || '9:16'} onChange={event => change({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
+      <label>时长<select value={node.duration || 8} onChange={event => change({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
+      <label className="is-toggle"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => change({ generateAudio: event.target.checked })} /><Volume2 size={14} />声音</label>
     </div>
+    {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>生成前方案</strong><small>本地整理，不调用上游</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
     <div className="ec-canvas-composer-footer">
-      {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || `${points} AI 积分 / 次 · 交付后扣费`}</span>}
-      <button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || !materialsReady} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button>
+      {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || '62 AI 积分 / 次 · 确认方案后扣费'}</span>}
+      <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" onClick={event => { event.stopPropagation(); setPlanOpen(true); }}>{node.planReviewed ? '方案已确认' : '预览生成方案'}</button><button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button></div>
     </div>
   </section>;
 }

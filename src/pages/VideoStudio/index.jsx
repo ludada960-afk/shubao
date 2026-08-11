@@ -27,7 +27,13 @@ import {
   listVideoJobs,
   uploadVideoAsset,
 } from '../../services/video.js';
-import { VIDEO_CREATION_MODES, hasRequiredVideoInputs, resolveVideoApiMode } from './videoStudioModel.js';
+import {
+  VIDEO_CREATION_MODES,
+  hasRequiredVideoInputs,
+  quoteForVideoProduct,
+  resolveVideoApiMode,
+} from './videoStudioModel.js';
+import { buildVideoPlan } from './videoPlanModel.js';
 import './VideoStudio.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -37,15 +43,6 @@ const TOOLBAR_ITEMS = [
   { key: 'sound', label: '声音', icon: Mic2, description: '控制同期声音与音频参考' },
   { key: 'settings', label: '生成设置', icon: Settings2, description: '设置清晰度与高级约束' },
 ];
-
-function skuFor(resolution, duration) {
-  return `video_seedance_${resolution}_${duration <= 8 ? 'short' : 'long'}`;
-}
-
-function pointsFor(resolution, duration) {
-  const values = { video_seedance_480p_short: 32, video_seedance_480p_long: 40, video_seedance_720p_short: 48, video_seedance_720p_long: 58 };
-  return values[skuFor(resolution, duration)];
-}
 
 function fileKind(file) {
   const type = String(file?.type || '').toLowerCase();
@@ -99,9 +96,33 @@ function jobStatus(job) {
   return '正在提交';
 }
 
+function VideoPlanModal({ plan, onClose, onConfirm }) {
+  if (!plan) return null;
+  return createPortal(<div className="video-plan-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="video-plan-modal" role="dialog" aria-modal="true" aria-labelledby="video-plan-title">
+      <header className="video-plan-header">
+        <div><span className="video-plan-eyebrow"><Sparkles size={14} />生成前方案</span><h2 id="video-plan-title">先确认镜头怎么走，再提交生成</h2><p>这一步只整理你已上传的素材与设置，不调用上游，也不会扣积分。</p></div>
+        <button type="button" className="video-plan-close" aria-label="关闭生成方案" onClick={onClose}><X size={18} /></button>
+      </header>
+      <div className="video-plan-summary">
+        <div><small>创作路径</small><strong>{plan.laneLabel}</strong></div>
+        <div><small>输出规格</small><strong>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</strong></div>
+        <div><small>素材数量</small><strong>{plan.assets.length ? `${plan.assets.length} 个已编排` : '无上传素材'}</strong></div>
+      </div>
+      <div className="video-plan-body">
+        <section className="video-plan-section"><div className="video-plan-section-title"><strong>素材如何进入镜头</strong><span>{plan.mode === 'frame' ? '精确起止' : '按角色引用'}</span></div><div className="video-plan-material-map">{plan.materialMap.map(item => <div className="video-plan-material-item" key={`${item.label}-${item.detail}`}><span>{item.label}</span><strong>{item.detail}</strong><small>{item.count ? `${item.count} 个` : '待补充'}</small></div>)}</div></section>
+        <section className="video-plan-section"><div className="video-plan-section-title"><strong>镜头节奏</strong><span>本地推演</span></div><div className="video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><div><strong>{beat.label}</strong><p>{beat.detail}</p></div><small>{beat.source}</small></article>)}</div></section>
+        {(plan.blockers.length > 0 || plan.warnings.length > 0) && <section className="video-plan-section video-plan-notices"><div className="video-plan-section-title"><strong>提交前检查</strong><span>{plan.blockers.length ? `${plan.blockers.length} 项待处理` : '可以继续'}</span></div>{plan.blockers.map(item => <div className="video-plan-notice is-blocking" key={item.code}><X size={15} /><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}{plan.warnings.map(item => <div className="video-plan-notice" key={item.code}><Aperture size={15} /><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</section>}
+      </div>
+      <footer className="video-plan-footer"><span>{plan.cost ? `本次预计 ${Math.ceil(Number(plan.cost.units || 0) / 1000)} AI 积分，点击开始生成后才会冻结` : '报价加载中，提交时会再次校验费用'}</span><div><button type="button" className="video-plan-secondary" onClick={onClose}>返回调整</button><button type="button" className="video-plan-primary" disabled={!plan.ready} onClick={onConfirm}><Check size={16} />确认生成方案</button></div></footer>
+    </section>
+  </div>, document.body);
+}
+
 export default function VideoStudioPage({ embedded = false }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false });
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [mode, setMode] = useState('smart');
   const [files, setFiles] = useState({ first: [], last: [], images: [], videos: [], audios: [] });
   const [prompt, setPrompt] = useState('');
@@ -117,6 +138,8 @@ export default function VideoStudioPage({ embedded = false }) {
   const [history, setHistory] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planReviewed, setPlanReviewed] = useState(false);
   const [activePanel, setActivePanel] = useState(null);
   const [inlineMenu, setInlineMenu] = useState(null);
   const [panelPosition, setPanelPosition] = useState({ left: 16, bottom: 80, width: 520, maxHeight: 560, anchor: 260 });
@@ -129,25 +152,76 @@ export default function VideoStudioPage({ embedded = false }) {
   const buttonRefs = useRef({});
   const openedJobRef = useRef('');
 
-  const sku = useMemo(() => skuFor(resolution, duration), [resolution, duration]);
-  const estimatedPoints = pointsFor(resolution, duration);
+  const products = Array.isArray(capabilities.products) ? capabilities.products : [];
+  const selectedProduct = products.find(product => product.id === selectedProductId)
+    || products.find(product => product.id === capabilities.defaultProductId)
+    || products[0]
+    || null;
+  const selectedQuote = useMemo(() => {
+    if (!selectedProduct) return null;
+    try {
+      return quoteForVideoProduct(selectedProduct, duration);
+    } catch {
+      return null;
+    }
+  }, [duration, selectedProduct]);
+  const sku = selectedQuote?.sku || '';
+  const estimatedPoints = Math.ceil(Number(quote?.totalUnits ?? selectedQuote?.units ?? 0) / 1000);
+  const videoPlan = useMemo(() => buildVideoPlan({
+    mode,
+    prompt,
+    files,
+    duration,
+    ratio,
+    resolution,
+    sound,
+    product: selectedProduct,
+  }), [duration, files, mode, prompt, ratio, resolution, selectedProduct, sound]);
 
   useEffect(() => {
     fetchVideoCapabilities()
-      .then(setCapabilities)
+      .then(result => {
+        setCapabilities(result);
+        const available = Array.isArray(result.products) ? result.products : [];
+        setSelectedProductId(current => (
+          available.some(product => product.id === current)
+            ? current
+            : result.defaultProductId || available[0]?.id || ''
+        ));
+      })
       .catch(() => setCapabilities({ loading: false, generationEnabled: false }));
-    listVideoJobs().then(result => setHistory(result.jobs || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!state.logged) {
+      setHistory([]);
+      return;
+    }
+    listVideoJobs().then(result => setHistory(result.jobs || [])).catch(() => {});
+  }, [state.logged]);
 
   useEffect(() => {
     let active = true;
     setQuote(null);
     setQuoteError('');
+    if (!sku) return () => { active = false; };
     quoteBillingAction({ sku, quantity: 1 })
       .then(result => { if (active) setQuote(result.quote); })
       .catch(() => { if (active) setQuoteError('费用确认暂时不可用'); });
     return () => { active = false; };
   }, [sku]);
+
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const min = Number(selectedProduct.durations?.min) || 4;
+    const max = Number(selectedProduct.durations?.max) || 15;
+    setDuration(current => Math.max(min, Math.min(max, current)));
+    if (!selectedProduct.resolutions?.includes(resolution)) {
+      setResolution(selectedProduct.resolutions?.[0] || '720p');
+    }
+    if (!selectedProduct.modes?.includes(resolveVideoApiMode(mode, files))) setMode('smart');
+    if (mode === 'frame' && selectedProduct.frameAudio === false) setSound(false);
+  }, [selectedProductId]);
 
   useEffect(() => () => clearTimeout(pollRef.current), []);
 
@@ -218,6 +292,7 @@ export default function VideoStudioPage({ embedded = false }) {
   }, [inlineMenu]);
 
   function replaceFiles(key, next, limit) {
+    setPlanReviewed(false);
     setFiles(current => {
       if (!['images', 'videos', 'audios'].includes(key)) return { ...current, [key]: next.slice(0, limit) };
       const occupied = ['images', 'videos', 'audios']
@@ -228,10 +303,12 @@ export default function VideoStudioPage({ embedded = false }) {
   }
 
   function removeFile(key, index) {
+    setPlanReviewed(false);
     setFiles(current => ({ ...current, [key]: current[key].filter((_, itemIndex) => itemIndex !== index) }));
   }
 
   function appendQuickFiles(items) {
+    setPlanReviewed(false);
     setFiles(current => {
       if (mode === 'frame') {
         const images = items.filter(file => fileKind(file) === 'image');
@@ -288,7 +365,7 @@ export default function VideoStudioPage({ embedded = false }) {
   }
 
   async function handleGenerate() {
-    if (submitting || !quote?.quoteId) return;
+    if (submitting || !quote?.quoteId || !planReviewed || !videoPlan.ready) return;
     setError('');
     setSubmitting(true);
     try {
@@ -305,6 +382,7 @@ export default function VideoStudioPage({ embedded = false }) {
       const urls = Object.fromEntries([...first, ...last, ...images, ...videos, ...audios].map(asset => [asset.id, asset.url]));
       const idempotencyKey = globalThis.crypto?.randomUUID?.() || `video-${Date.now()}`;
       const result = await createVideoJob({
+        productId: selectedProduct.id,
         mode: resolveVideoApiMode(mode, files),
         prompt,
         negativePrompt,
@@ -337,7 +415,12 @@ export default function VideoStudioPage({ embedded = false }) {
   }
 
   const requires = hasRequiredVideoInputs(mode, files);
-  const canGenerate = capabilities.generationEnabled && quote?.quoteId && prompt.trim() && requires && !submitting;
+  const canGenerate = capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && videoPlan.ready && !submitting;
+
+  const openVideoPlan = () => {
+    setError('');
+    setPlanOpen(true);
+  };
 
   const openJobInCanvas = (videoJob = job) => {
     if (!videoJob?.resultUrl) return;
@@ -412,26 +495,25 @@ export default function VideoStudioPage({ embedded = false }) {
   const renderPanelBody = () => {
     if (activePanel === 'shot') return <>
       <div className="video-panel-section"><strong>视频画幅</strong><div className="video-ratio-grid">
-        {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => setRatio(value)}><i style={{ aspectRatio: value.replace(':', ' / ') }} />{value}</button>)}
+        {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setRatio(value); }}><i style={{ aspectRatio: value.replace(':', ' / ') }} />{value}</button>)}
       </div></div>
       <div className="video-panel-section"><div className="video-panel-section-title"><strong>视频时长</strong><span>{duration} 秒</span></div>
-        <input className="video-duration-range" type="range" min="4" max="15" step="1" value={duration} onChange={event => setDuration(Number(event.target.value))} />
-        <div className="video-range-labels"><span>4 秒</span><span>15 秒</span></div>
+        <input className="video-duration-range" type="range" min={selectedProduct?.durations?.min || 4} max={selectedProduct?.durations?.max || 15} step="1" value={duration} onChange={event => { setPlanReviewed(false); setDuration(Number(event.target.value)); }} />
+        <div className="video-range-labels"><span>{selectedProduct?.durations?.min || 4} 秒</span><span>{selectedProduct?.durations?.max || 15} 秒</span></div>
       </div>
     </>;
     if (activePanel === 'sound') return <>
-      <button type="button" className={`video-sound-choice${sound ? ' is-selected' : ''}`} onClick={() => setSound(current => !current)}>
+      <button type="button" className={`video-sound-choice${sound ? ' is-selected' : ''}`} onClick={() => { setPlanReviewed(false); setSound(current => !current); }}>
         <span><Volume2 size={20} /><strong>生成同期声音</strong><small>根据画面内容生成环境声和动作声音</small></span><i aria-hidden="true" />
       </button>
       {mode !== 'frame' && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" icon={FileAudio} label="上传参考音频" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} /></div>}
     </>;
     if (activePanel === 'settings') return <>
       <div className="video-panel-section"><strong>清晰度</strong><div className="video-resolution-grid">
-        <button type="button" className={resolution === '480p' ? 'is-selected' : ''} onClick={() => setResolution('480p')}><b>480P</b><span>快速预览</span></button>
-        <button type="button" className={resolution === '720p' ? 'is-selected' : ''} onClick={() => setResolution('720p')}><b>720P</b><span>正式成片</span></button>
+        {(selectedProduct?.resolutions || ['720p']).map(value => <button key={value} type="button" className={resolution === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setResolution(value); }}><b>{value.toUpperCase()}</b><span>{value === '2k' ? '精制成片' : '正式成片'}</span></button>)}
       </div></div>
-      <label className="video-panel-field"><span>避免出现的内容</span><textarea value={negativePrompt} onChange={event => setNegativePrompt(event.target.value)} maxLength={1200} placeholder="例如：画面抖动、人物结构异常、乱码文字、无关道具" /></label>
-      <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => setSeed(Number(event.target.value) || 0)} /><small>填 0 表示随机生成</small></label>
+      <label className="video-panel-field"><span>避免出现的内容</span><textarea value={negativePrompt} onChange={event => { setPlanReviewed(false); setNegativePrompt(event.target.value); }} maxLength={1200} placeholder="例如：画面抖动、人物结构异常、乱码文字、无关道具" /></label>
+      <label className="video-panel-field compact"><span>随机种子</span><input type="number" value={seed} onChange={event => { setPlanReviewed(false); setSeed(Number(event.target.value) || 0); }} /><small>填 0 表示随机生成</small></label>
     </>;
     return null;
   };
@@ -464,6 +546,7 @@ export default function VideoStudioPage({ embedded = false }) {
       ? '描述首帧到尾帧之间的动作、镜头运动、场景变化和节奏。'
       : '描述主体、动作、镜头、场景和节奏。例如：人物拿起香水走向窗边，镜头从产品特写平滑推进到真实使用场景。';
   const insertMention = file => {
+    setPlanReviewed(false);
     setPrompt(current => `${current}${current && !/\s$/.test(current) ? ' ' : ''}@${file.name} `);
     setInlineMenu(null);
   };
@@ -474,7 +557,7 @@ export default function VideoStudioPage({ embedded = false }) {
     <section className="video-composer" aria-label="视频生成工作区">
       <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成可交付的视频</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
       <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
-        {VIDEO_CREATION_MODES.map(item => <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => setMode(item.id)}>
+        {VIDEO_CREATION_MODES.map(item => <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setMode(item.id); }}>
           <strong>{item.label}</strong><span>{item.hint}</span>
         </button>)}
       </div>
@@ -484,7 +567,7 @@ export default function VideoStudioPage({ embedded = false }) {
           {renderAssetPickers()}
         </section>
         <div className="video-composer-input">
-          <textarea id="video-prompt" value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={1200} placeholder={promptPlaceholder} />
+          <textarea id="video-prompt" value={prompt} onChange={event => { setPlanReviewed(false); setPrompt(event.target.value); }} maxLength={1200} placeholder={promptPlaceholder} />
           <div className="video-text-meta"><span>{prompt.length}/1200</span><span><Sparkles size={14} />提交前锁定本次费用</span></div>
           {job && !FINAL.has(job.status) && <div className="video-job-progress"><span>{jobStatus(job)}</span><progress max="100" value={job.progress || 2} /></div>}
           {error && <div className="video-error">{error}</div>}
@@ -498,8 +581,8 @@ export default function VideoStudioPage({ embedded = false }) {
             {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map((file, index) => <button key={`${file.name}-${index}`} type="button" onClick={() => insertMention(file)}><span>{file.name}</span><small>插入提示词</small></button>) : <p>上传素材后可在提示词中引用</p>}</div>}
           </span>
           <span className="video-inline-control">
-            <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><Sparkles size={15} /><span>Seedance 2.0</span><ChevronDown size={13} /></button>
-            {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong><button type="button" className="is-selected" onClick={() => setInlineMenu(null)}><span><b>Seedance 2.0</b><small>稳定生成营销短片，支持多模态参考与同期声音</small></span><Check size={16} /></button></div>}
+            <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><Sparkles size={15} /><span>{selectedProduct ? 'Seedance 2.0 · ' + selectedProduct.label : '选择视频模型'}</span><ChevronDown size={13} /></button>
+            {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><span><b>{product.label}</b><small>{product.id === 'seedance_fast' ? '更快出片，适合试稿与高频迭代' : '稳定生成营销短片，适合正式交付'}</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
           </span>
         </div>
 
@@ -519,12 +602,13 @@ export default function VideoStudioPage({ embedded = false }) {
               ><Icon size={17} /><span><small>{item.label}</small><strong>{toolbarSummary[item.key]}</strong></span><ChevronDown size={14} /></button>;
             })}
           </div>
-          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'}</span></div><button type="button" disabled={!canGenerate} onClick={handleGenerate}><Play size={17} />{submitting ? '正在上传' : quoteError || '开始生成'}</button></div>
+          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'}</span></div><div className="video-submit-actions"><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />{planReviewed ? '方案已确认' : '预览生成方案'}</button><button type="button" disabled={!canGenerate} onClick={handleGenerate}><Play size={17} />{submitting ? '正在上传' : quoteError || '开始生成'}</button></div></div>
         </footer>
       </section>
     </section>
 
     {renderFloatingPanel()}
+    {planOpen && <VideoPlanModal plan={videoPlan} onClose={() => setPlanOpen(false)} onConfirm={() => { setPlanReviewed(true); setPlanOpen(false); }} />}
 
     {!embedded && <section className="video-workbench"><div className="video-stage">
         <div className="video-frame" style={{ aspectRatio: ratio.replace(':', ' / ') }}>

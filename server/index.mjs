@@ -205,8 +205,10 @@ const videoGeneration = createVideoGeneration({
   upsertWork,
   assetRoot: resolve(__dirname, 'video-assets'),
   apiKey: process.env.IP233_VIDEO_API_KEY || process.env.VIDEO_API_KEY || '',
+  minimaxApiKey: process.env.MINIMAX_VIDEO_API_KEY || '',
   baseUrl: process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
-  model: process.env.IP233_VIDEO_MODEL || 'sd5-seedance-2.0',
+  minimaxBaseUrl: process.env.MINIMAX_VIDEO_BASE_URL || process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
+  allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',
 });
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
@@ -3127,17 +3129,22 @@ function ecommerceUserFacts(payload) {
 }
 
 async function analyzeEcommerceVisualInputs(payload) {
+  const abilityId = String(payload?.ability_recipe?.id || '').trim();
   return visualAnalysisService.analyze({
     productAssets: Array.isArray(payload.assets?.product) ? payload.assets.product : [],
-    styleAssets: Array.isArray(payload.assets?.reference) ? payload.assets.reference : [],
+    styleAssets: abilityId === 'anything_tryon'
+      ? (Array.isArray(payload.assets?.scene) ? payload.assets.scene : [])
+      : (Array.isArray(payload.assets?.reference) ? payload.assets.reference : []),
     userFacts: ecommerceUserFacts(payload),
   });
 }
 
 function fallbackEcommerceVisualInputs(payload) {
   const productTruth = mergeProductFacts({ user: ecommerceUserFacts(payload) });
+  const abilityId = String(payload?.ability_recipe?.id || '').trim();
+  const referenceAssets = abilityId === 'anything_tryon' ? payload.assets?.scene : payload.assets?.reference;
   const styleReferenceProfile = normalizeStyleReferenceProfile({
-    sourceAssetIds: (payload.assets?.reference || []).map(asset => asset.assetId).filter(Boolean),
+    sourceAssetIds: (referenceAssets || []).map(asset => asset.assetId).filter(Boolean),
   });
   return {
     productTruth,
@@ -3685,7 +3692,7 @@ app.post('/api/ecommerce/jobs/:id/retry-plan', authenticateEcommerceRequest, eco
 app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, ecommerceRouteHandlers.retryFailed);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
-app.get('/api/video/capabilities', authenticateEcommerceRequest, (_req, res) => {
+app.get('/api/video/capabilities', (_req, res) => {
   res.json({ loading: false, ...videoGeneration.capabilities() });
 });
 app.post('/api/video/assets', authenticateEcommerceRequest, async (req, res) => {

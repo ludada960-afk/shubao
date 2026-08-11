@@ -27,6 +27,8 @@ import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanM
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
 import { createEcommerceGenerationPreconditionError, createEcommerceGenerationToken, ecommerceLoginPreflight, invalidateEcommerceGenerationRequest, isEcommerceGenerationTokenCurrent } from './ec/ecommerceTaskProgressModel.js';
 import { restoreCheckpointIntoEditor } from './ec/projectLifecycleModel.js';
+import { getEcommerceAbilityRecipe } from '../../../shared/ecommerceAbilityRecipes.mjs';
+import { createAbilityEditorState, switchAbilityRecipe } from './ec/workbenchState.js';
 
 // 3–5 张清晰、多角度的产品实拍通常能提供足够的商品事实，继续堆叠近似角度反而会稀释参考。
 const PRODUCT_SHOT_PLAN = [
@@ -133,8 +135,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* — 图片 — */
   const [productImages, setProductImages] = useState([]);
   const [refImages, setRefImages] = useState([]);
+  const [abilityRecipeId, setAbilityRecipeId] = useState('product_suite');
+  const [personMode, setPersonMode] = useState('smart');
+  const [roleImages, setRoleImages] = useState(() => createAbilityEditorState().roleImages);
+  const [unmappedImages, setUnmappedImages] = useState([]);
   const [uploadingAssets, setUploadingAssets] = useState(false);
   const [assetUploadError, setAssetUploadError] = useState('');
+  const objectUrlsRef = useRef(new Set());
   const prodFileRef = useRef(null);
   const refFileRef = useRef(null);
   const cardRef = useRef(null);
@@ -194,6 +201,21 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     setGenSettings(restored.genSettings);
     setProductImages(restored.productImages);
     setRefImages(restored.referenceImages);
+    const restoredRecipeId = restored.abilityRecipe?.id || restored.recipeId || 'product_suite';
+    let restoredRecipe;
+    try {
+      restoredRecipe = getEcommerceAbilityRecipe(restoredRecipeId);
+    } catch {
+      restoredRecipe = getEcommerceAbilityRecipe('product_suite');
+    }
+    setAbilityRecipeId(restoredRecipe.id);
+    setPersonMode(restored.personMode === 'reference' ? 'reference' : 'smart');
+    setRoleImages({
+      items: Array.isArray(restored.roleImages?.items) ? restored.roleImages.items : [],
+      person: Array.isArray(restored.roleImages?.person) ? restored.roleImages.person : [],
+      scene: Array.isArray(restored.roleImages?.scene) ? restored.roleImages.scene : [],
+    });
+    setUnmappedImages(Array.isArray(restored.unmappedImages) ? restored.unmappedImages : []);
   }, [recoveryCheckpoint]);
 
   /* — 面板（Portal 定位用视口坐标）—— */
@@ -241,7 +263,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     genSettings,
     commerceContext: { platform, contentType, targetLanguage }
   });
-  const canGen = productImages.length > 0 || description.trim().length > 0;
+  const activeAbilityRecipe = getEcommerceAbilityRecipe(abilityRecipeId);
+  const activeItemImages = abilityRecipeId === 'anything_tryon' ? roleImages.items : productImages;
+  const canGen = abilityRecipeId === 'anything_tryon'
+    ? activeItemImages.length > 0
+    : productImages.length > 0 || description.trim().length > 0;
 
   /* ── 下一步 ── */
   const handleNext = async () => {
@@ -283,15 +309,29 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     const effectiveCopy = copywriting;
 
     try {
-      const [realShots, refShots] = await Promise.all([
-        uploadEcommerceAssets(productImages, 'product', {
-          signal: generationController.signal
-        }),
-        uploadEcommerceAssets(refImages, 'reference', {
-          signal: generationController.signal
-        })
-      ]);
+      const tryOn = abilityRecipeId === 'anything_tryon';
+      const [realShots, refShots, personShots, sceneShots] = tryOn
+        ? await Promise.all([
+          uploadEcommerceAssets(roleImages.items, 'product', { signal: generationController.signal }),
+          Promise.resolve([]),
+          uploadEcommerceAssets(roleImages.person, 'person', { signal: generationController.signal }),
+          uploadEcommerceAssets(roleImages.scene, 'scene', { signal: generationController.signal }),
+        ])
+        : await Promise.all([
+          uploadEcommerceAssets(productImages, 'product', { signal: generationController.signal }),
+          uploadEcommerceAssets(refImages, 'reference', { signal: generationController.signal }),
+          Promise.resolve([]),
+          Promise.resolve([]),
+        ]);
       if (!isGenerationCurrent(generationToken)) return;
+      const roleAssetGroups = tryOn
+        ? { items: realShots, person: personShots, scene: sceneShots }
+        : { product: realShots, reference: refShots };
+      const assetRoles = Object.entries(roleAssetGroups).flatMap(([role, assets]) => assets.map((asset, ordinal) => ({
+        assetId: asset.assetId,
+        role,
+        ordinal,
+      })));
       onStepChange?.({
         draftId,
         productName: description.trim() || '商品',
@@ -300,6 +340,13 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
         realShots,
         refShots,
         productImages: realShots,
+        personShots,
+        sceneShots,
+        abilityRecipe: { id: activeAbilityRecipe.id, version: activeAbilityRecipe.version },
+        assetRoles,
+        roleImages: roleAssetGroups,
+        personMode: tryOn ? personMode : 'smart',
+        unmappedImages,
         platform: commerceContext.platform,
         contentType: commerceContext.contentType,
         targetLanguage: commerceContext.targetLanguage,
@@ -325,31 +372,102 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     }
   };
 
-  /* ── 图片上传 ── */
-  const handleProdUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    setProductImages((prev) => [...prev, ...files.map((f) => ({ url: URL.createObjectURL(f), file: f }))]);
-    e.target.value = '';
-  };
-  const handleRefUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    setRefImages((prev) => [...prev, ...files.map((f) => ({ url: URL.createObjectURL(f), file: f }))]);
-    e.target.value = '';
-  };
-  const removeProdImg = (idx) => {
-    setProductImages((prev) => {
-      const removed = prev[idx];
-      if (removed?.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
-      return prev.filter((_, i) => i !== idx);
+  /* ── 图片上传：统一按能力配方的语义槽处理 ── */
+  const appendRoleFiles = (role, event) => {
+    const files = Array.from(event?.target?.files || []);
+    const recipe = getEcommerceAbilityRecipe(abilityRecipeId);
+    const slot = recipe.inputSlots.find(item => item.id === role);
+    if (!slot) return;
+    const current = role === 'product'
+      ? productImages
+      : role === 'reference' ? refImages : (roleImages[role] || []);
+    const available = Math.max(0, slot.max - current.length);
+    if (!available) {
+      setAssetUploadError(`${slot.label}最多上传 ${slot.max} 张`);
+      event.target.value = '';
+      return;
+    }
+    const additions = files.slice(0, available).map(file => {
+      const url = URL.createObjectURL(file);
+      objectUrlsRef.current.add(url);
+      return { url, file };
     });
+    const next = [...current, ...additions];
+    if (role === 'product' || role === 'items') setProductImages(next);
+    if (role === 'reference') setRefImages(next);
+    setRoleImages(previous => ({ ...previous, [role]: next }));
+    setAssetUploadError('');
+    event.target.value = '';
   };
-  const removeRefImg = (idx) => {
-    setRefImages((prev) => {
-      const removed = prev[idx];
-      if (removed?.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
-      return prev.filter((_, i) => i !== idx);
+
+  const handleRoleUpload = (role, event) => appendRoleFiles(role, event);
+  const handleProdUpload = event => appendRoleFiles(abilityRecipeId === 'anything_tryon' ? 'items' : 'product', event);
+  const handleRefUpload = event => appendRoleFiles(abilityRecipeId === 'anything_tryon' ? 'scene' : 'reference', event);
+
+  const handlePersonModeChange = mode => {
+    const nextMode = mode === 'reference' ? 'reference' : 'smart';
+    if (nextMode === 'smart') {
+      (roleImages.person || []).forEach(image => {
+        if (image?.url?.startsWith('blob:')) {
+          URL.revokeObjectURL(image.url);
+          objectUrlsRef.current.delete(image.url);
+        }
+      });
+      setRoleImages(previous => ({ ...previous, person: [] }));
+    }
+    setPersonMode(nextMode);
+  };
+
+  const removeRoleImage = (role, index) => {
+    const current = role === 'product'
+      ? productImages
+      : role === 'reference' ? refImages : (roleImages[role] || []);
+    const removed = current[index];
+    if (removed?.url?.startsWith('blob:')) {
+      URL.revokeObjectURL(removed.url);
+      objectUrlsRef.current.delete(removed.url);
+    }
+    const next = current.filter((_, itemIndex) => itemIndex !== index);
+    if (role === 'product' || role === 'items') setProductImages(next);
+    if (role === 'reference') setRefImages(next);
+    setRoleImages(previous => ({ ...previous, [role]: next }));
+  };
+
+  const handleRecipeChange = nextRecipeId => {
+    if (nextRecipeId === abilityRecipeId) return;
+    const switched = switchAbilityRecipe({
+      currentRecipeId: abilityRecipeId,
+      nextRecipeId,
+      currentRoleImages: {
+        ...roleImages,
+        product: productImages,
+        reference: refImages,
+        unmapped: unmappedImages,
+      },
+      productImages,
+      refImages,
     });
+    setAbilityRecipeId(nextRecipeId);
+    setPersonMode(switched.personMode || 'smart');
+    setUnmappedImages(switched.unmappedImages || []);
+    if (nextRecipeId === 'anything_tryon') {
+      setRoleImages({
+        items: switched.roleImages.items || [],
+        person: switched.roleImages.person || [],
+        scene: switched.roleImages.scene || [],
+      });
+      setProductImages(switched.roleImages.items || []);
+      setRefImages([]);
+    } else {
+      setProductImages(switched.productImages || []);
+      setRefImages(switched.refImages || []);
+      setRoleImages({ items: [], person: [], scene: [] });
+    }
+    setAssetUploadError('');
   };
+
+  const removeProdImg = index => removeRoleImage(abilityRecipeId === 'anything_tryon' ? 'items' : 'product', index);
+  const removeRefImg = index => removeRoleImage(abilityRecipeId === 'anything_tryon' ? 'scene' : 'reference', index);
 
   /* ── 产品图上传建议提示 ── */
   const getProdHint = (count) => {
@@ -369,16 +487,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   };
 
   /* ── 组件卸载时释放所有 Object URL 防止内存泄漏 ── */
-  useEffect(() => {
-    return () => {
-      productImages.forEach((img) => {
-        if (img?.url?.startsWith('blob:')) URL.revokeObjectURL(img.url);
-      });
-      refImages.forEach((img) => {
-        if (img?.url?.startsWith('blob:')) URL.revokeObjectURL(img.url);
-      });
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => {
+    objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    objectUrlsRef.current.clear();
+  }, []);
 
   /* ── 6 个功能按钮（AI 感图标升级）── */
   const BUTTONS = [
@@ -649,7 +761,24 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           position: 'relative'
         }}
       >
-        <EcommerceWorkbench productImages={productImages} refImages={refImages} description={description} onDescriptionChange={setDescription} onProductUpload={handleProdUpload} onReferenceUpload={handleRefUpload} onRemoveProduct={removeProdImg} onRemoveReference={removeRefImg} />
+        <EcommerceWorkbench
+          productImages={productImages}
+          refImages={refImages}
+          roleImages={roleImages}
+          unmappedImages={unmappedImages}
+          abilityRecipeId={abilityRecipeId}
+          personMode={personMode}
+          onPersonModeChange={handlePersonModeChange}
+          onAbilityRecipeChange={handleRecipeChange}
+          onRoleUpload={handleRoleUpload}
+          onRoleRemove={removeRoleImage}
+          description={description}
+          onDescriptionChange={setDescription}
+          onProductUpload={handleProdUpload}
+          onReferenceUpload={handleRefUpload}
+          onRemoveProduct={removeProdImg}
+          onRemoveReference={removeRefImg}
+        />
         {/* ═══ 上下布局：上方双列上传区 + 下方文字输入 ═══ */}
         {false && (
           <div style={{ display: 'none' }}>

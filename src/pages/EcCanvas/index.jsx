@@ -88,8 +88,8 @@ const WORK_CATEGORY_OPTIONS = Object.freeze([
 
 const VIDEO_FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
 
-function videoSku(resolution, duration) {
-  return `video_seedance_${resolution}_${Number(duration) <= 8 ? 'short' : 'long'}`;
+function videoSku(duration) {
+  return `video_seedance_standard_${Number(duration) <= 8 ? 'short' : 'long'}`;
 }
 
 function delay(milliseconds) {
@@ -2473,6 +2473,10 @@ export default function EcCanvas() {
 
   const handleVideoComposerGenerate = useCallback(async composer => {
     if (!String(composer?.prompt || '').trim() || composer.status === 'processing') return;
+    if (!composer.planReviewed) {
+      updateComposerNode(composer.id, { status: 'ready', error: '请先预览并确认生成方案' });
+      return;
+    }
     const sourceNodes = [...new Set(composer.sourceNodeIds || [])].map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
     const files = canvasVideoInputFiles(composer, sourceNodes);
     const mode = composer.mode || 'smart';
@@ -2489,10 +2493,11 @@ export default function EcCanvas() {
       const lastImage = uploaded.find(item => item.source.kind !== 'video' && roleFor(item.source) === 'last')?.asset;
       const imageAssets = uploaded.filter(item => item.source.kind !== 'video' && (mode === 'smart' || !['first', 'last'].includes(roleFor(item.source)))).map(item => item.asset);
       const videoAssets = uploaded.filter(item => item.source.kind === 'video').map(item => item.asset);
-      const sku = videoSku(composer.resolution || '720p', composer.duration || 8);
+      const sku = videoSku(composer.duration || 8);
       const quote = (await quoteBillingAction({ sku, quantity: 1 })).quote;
       const urls = Object.fromEntries(uploaded.map(item => [item.asset.id, item.asset.url]));
       const response = await createVideoJob({
+        productId: 'seedance_standard',
         mode: resolveVideoApiMode(mode, files),
         prompt: String(composer.prompt).trim(),
         negativePrompt: '',

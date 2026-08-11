@@ -59,6 +59,17 @@ test('runtime config validator accepts only the target gateway contract', () => 
     () => validateRuntimeConfig(parseEnv(envText({ VIDEO_API_KEY: 'short' }))),
     /VIDEO_API_KEY is missing or looks like a placeholder/i,
   );
+  assert.doesNotThrow(
+    () => validateRuntimeConfig(parseEnv(envText({ MINIMAX_VIDEO_API_KEY: 'minimax-video-test-key-that-is-long-enough' }))),
+  );
+  assert.throws(
+    () => validateRuntimeConfig(parseEnv(envText({ MINIMAX_VIDEO_API_KEY: 'short' }))),
+    /MINIMAX_VIDEO_API_KEY/i,
+  );
+  assert.throws(
+    () => validateRuntimeConfig(parseEnv(envText({ MINIMAX_VIDEO_PUBLIC_ENABLED: 'true' }))),
+    /MINIMAX_VIDEO_PUBLIC_ENABLED must match/i,
+  );
 });
 
 test('runtime config permission validator rejects group or world access', () => {
@@ -85,6 +96,19 @@ test('runtime config file verification requires private permissions and matching
     }
     writeFileSync(peer, envText({ MINI_API_KEY: 'sk-different-vision-key-that-is-long-enough' }), { mode: 0o600 });
     assert.throws(() => verifyRuntimeConfigFiles(primary, peer), /MINI_API_KEY differs between runtime config files/i);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('runtime config verification rejects divergent optional MiniMax credentials', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-minimax-peer-'));
+  const primary = join(directory, '.env');
+  const peer = join(directory, 'server.env');
+  try {
+    writeFileSync(primary, envText({ MINIMAX_VIDEO_API_KEY: 'minimax-video-test-key-that-is-long-enough' }), { mode: 0o600 });
+    writeFileSync(peer, envText(), { mode: 0o600 });
+    assert.throws(() => verifyRuntimeConfigFiles(primary, peer), /MINIMAX_VIDEO_API_KEY differs/i);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

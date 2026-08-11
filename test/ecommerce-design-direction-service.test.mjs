@@ -93,6 +93,35 @@ test('separates bounded visual analysis from text-only direction planning', asyn
   assert.equal(result.degraded, false);
 });
 
+test('keeps try-on item, person, and scene roles separate during visual analysis', async () => {
+  const { service, calls } = serviceHarness();
+  const result = await service.generate(generationInput({
+    real_shots: [],
+    ref_shots: [],
+    ability_recipe: { id: 'anything_tryon', version: 1 },
+    person_mode: 'reference',
+    items: ['/item.png'],
+    person: ['/person.png'],
+    scene: ['/scene.png'],
+  }));
+
+  const vision = calls.find(call => call.context?.stage === 'vision');
+  const planner = calls.find(call => call.context?.stage === 'planner');
+  assert.deepEqual(vision.request.images.map(image => image.url), [
+    'data:image/mock;base64,/item.png',
+    'data:image/mock;base64,/person.png',
+    'data:image/mock;base64,/scene.png',
+  ]);
+  assert.match(vision.request.userPrompt, /图片 1：商品与穿搭素材/);
+  assert.match(vision.request.userPrompt, /图片 2：模特参考图/);
+  assert.match(vision.request.userPrompt, /图片 3：场景参考图/);
+  assert.match(planner.request.userPrompt, /万物上身/);
+  assert.match(planner.request.userPrompt, /参考模特图/);
+  assert.deepEqual(result.ability_recipe, { id: 'anything_tryon', version: 1 });
+  assert.equal(result.person_mode, 'reference');
+  assert.equal(result.directions.length, 1);
+});
+
 test('describes the requested target ratio instead of the promoted generation ratio', async () => {
   const { service, calls } = serviceHarness();
   const result = await service.generate(generationInput({

@@ -459,6 +459,25 @@
 .ec-canvas-video-controls label { display: grid; gap: 5px; color: #69727d; font-size: 10px; font-weight: 700; }
 .ec-canvas-video-controls select { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #dfe3e8; border-radius: 6px; background: #fff; color: #20242a; }
 .ec-canvas-video-controls .is-toggle { display: flex; align-items: center; justify-content: center; flex-direction: row; gap: 6px; padding-top: 16px; }
+.ec-canvas-video-actions { display: inline-flex; align-items: center; gap: 6px; }
+.ec-canvas-video-plan-trigger { min-height: 30px; padding: 0 9px; border: 1px solid #d9d2ff; border-radius: 6px; background: #faf8ff; color: #6354cb; font: 10px inherit; cursor: pointer; }
+.ec-canvas-video-plan-trigger:hover { border-color: #7869e8; background: #f2efff; }
+.ec-canvas-video-plan { position: absolute; z-index: 42; right: 12px; bottom: 50px; left: 12px; max-height: 310px; overflow: auto; padding: 11px; border: 1px solid #dfe3eb; border-radius: 9px; background: rgba(255,255,255,.98); box-shadow: 0 18px 44px rgba(15,23,42,.18); }
+.ec-canvas-video-plan > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ec-canvas-video-plan > header > div { display: grid; gap: 2px; }
+.ec-canvas-video-plan > header strong { color: #20242a; font-size: 12px; }
+.ec-canvas-video-plan > header small { color: #8b93a0; font-size: 9px; }
+.ec-canvas-video-plan > header button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid #e1e5eb; border-radius: 6px; background: #fff; color: #7c8591; cursor: pointer; }
+.ec-canvas-video-plan-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 8px; border-radius: 7px; background: #f6f4ff; color: #6657d0; font-size: 10px; }
+.ec-canvas-video-plan-summary span { color: #7f8794; }
+.ec-canvas-video-plan-beats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.ec-canvas-video-plan-beats article { min-width: 0; display: grid; gap: 4px; padding: 8px; border: 1px solid #e7e9ee; border-radius: 7px; background: #fff; }
+.ec-canvas-video-plan-beats span { color: #6959d7; font-size: 9px; font-weight: 800; }
+.ec-canvas-video-plan-beats strong { overflow: hidden; color: #343a43; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-video-plan-beats small { color: #858e9a; font-size: 9px; line-height: 1.4; }
+.ec-canvas-video-plan-errors { display: grid; gap: 4px; margin-top: 8px; padding: 8px; border-radius: 7px; background: #fff6f6; color: #b54747; font-size: 9px; line-height: 1.45; }
+.ec-canvas-video-plan-confirm { width: 100%; min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; margin-top: 9px; border: 0; border-radius: 6px; background: #6758d6; color: #fff; font: 800 10px inherit; cursor: pointer; }
+.ec-canvas-video-plan-confirm:disabled { background: #e3e5e9; color: #a2a8b1; cursor: not-allowed; }
 .ec-canvas-video-sources { display: flex; gap: 8px; padding: 10px 12px 0; overflow-x: auto; }
 .ec-canvas-video-sources > span { position: relative; width: 116px; min-width: 116px; height: 68px; overflow: hidden; border: 1px solid #dfe3e8; border-radius: 6px; background: #111827; }
 .ec-canvas-video-sources video { width: 100%; height: 100%; object-fit: cover; opacity: .82; }

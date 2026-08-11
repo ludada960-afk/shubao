@@ -1403,6 +1403,68 @@ test('preserves explicit legacy alias asset identities before analysis and compi
   assert.deepEqual(calls.compileAssets[0], calls.analyzePayloads[0].assets);
 });
 
+test('normalizes try-on roles before analysis, billing, and provider submission', async t => {
+  const { orchestrator, calls } = await createHarness(t);
+  const created = orchestrator.createJob({
+    id: 'job-try-on-semantic-roles',
+    ownerEmail: OWNER,
+    payload: {
+      product_name: '春季穿搭',
+      category: '服饰',
+      platform: '淘宝',
+      ability_recipe: { id: 'anything_tryon', version: 1 },
+      person_mode: 'reference',
+      assets: {
+        items: [
+          { assetId: 'item-jacket', url: '/api/ecommerce/assets/jacket' },
+          { assetId: 'item-bag', url: '/api/ecommerce/assets/bag' },
+        ],
+        person: [{ assetId: 'person-reference', url: '/api/ecommerce/assets/person' }],
+        scene: [{ assetId: 'scene-reference', url: '/api/ecommerce/assets/scene' }],
+      },
+      asset_roles: [
+        { assetId: 'item-jacket', role: 'items', ordinal: 0 },
+        { assetId: 'item-bag', role: 'items', ordinal: 1 },
+        { assetId: 'person-reference', role: 'person', ordinal: 0 },
+        { assetId: 'scene-reference', role: 'scene', ordinal: 0 },
+      ],
+    },
+  });
+
+  await orchestrator.runJob(created.id);
+
+  assert.deepEqual(calls.analyzePayloads[0].assets.items.map(asset => asset.assetId), [
+    'item-jacket',
+    'item-bag',
+  ]);
+  assert.deepEqual(calls.analyzePayloads[0].assets.person.map(asset => asset.assetId), ['person-reference']);
+  assert.deepEqual(calls.analyzePayloads[0].assets.scene.map(asset => asset.assetId), ['scene-reference']);
+  assert.equal(calls.compileAssets[0].person[0].assetId, 'person-reference');
+  assert.equal(calls.compileAssets[0].scene[0].assetId, 'scene-reference');
+  assert.equal(calls.submit.length, 1);
+});
+
+test('rejects an incomplete try-on role manifest before creating billable work', async t => {
+  const { orchestrator, calls } = await createHarness(t);
+
+  assert.throws(() => orchestrator.createJob({
+    id: 'job-try-on-incomplete-manifest',
+    ownerEmail: OWNER,
+    payload: {
+      product_name: '春季穿搭',
+      category: '服饰',
+      ability_recipe: { id: 'anything_tryon', version: 1 },
+      assets: {
+        items: [{ assetId: 'item-jacket', url: '/api/ecommerce/assets/jacket' }],
+      },
+      asset_roles: [],
+    },
+  }), error => error?.code === 'ECOMMERCE_ABILITY_INVALID' && error?.status === 400);
+
+  assert.equal(calls.hold.length, 0);
+  assert.equal(calls.submit.length, 0);
+});
+
 test('records provider-backed quality feedback without another image call or withholding delivery', async t => {
   const { orchestrator, jobs, calls } = await createHarness(t, {
     quality: () => ({

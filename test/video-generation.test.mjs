@@ -5,12 +5,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createVideoGeneration, videoFeatureSku } from '../server/videoGeneration.mjs';
+import { VIDEO_CATALOG_VERSION } from '../server/videoCatalog.mjs';
 
 test('video pricing tier is derived server-side from delivery resolution and duration', () => {
-  assert.equal(videoFeatureSku({ resolution: '480p', duration: 4 }), 'video_seedance_480p_short');
-  assert.equal(videoFeatureSku({ resolution: '480p', duration: 15 }), 'video_seedance_480p_long');
-  assert.equal(videoFeatureSku({ resolution: '720p', duration: 8 }), 'video_seedance_720p_short');
-  assert.equal(videoFeatureSku({ resolution: '720p', duration: 9 }), 'video_seedance_720p_long');
+  assert.equal(videoFeatureSku({ productId: 'seedance_standard', duration: 4 }), 'video_seedance_standard_short');
+  assert.equal(videoFeatureSku({ productId: 'seedance_standard', duration: 15 }), 'video_seedance_standard_long');
+  assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 8 }), 'video_seedance_fast_short');
+  assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 9 }), 'video_seedance_fast_long');
 });
 
 function createVideoGenerationHarness(t) {
@@ -87,31 +88,28 @@ test('reference mode accepts a video-only reference job', async t => {
   assert.deepEqual(result.job.references.audios, []);
 });
 
-test('reference mode accepts an audio-only reference job', async t => {
+test('reference mode rejects an audio-only reference job before billing', async t => {
   const service = createVideoGenerationHarness(t);
   const ownerEmail = 'owner@example.com';
   const audio = await uploadReferenceAsset(service, ownerEmail, 'audio');
 
-  const result = await service.createJob({
-    ownerEmail,
-    idempotencyKey: 'audio-only-reference',
-    billingQuoteId: 'quote-audio-only',
-    publicBaseUrl: 'https://example.com',
-    input: {
-      mode: 'reference',
-      prompt: '根据这段音频生成广告视频',
-      duration: 8,
-      aspectRatio: '9:16',
-      resolution: '720p',
-      references: { audios: [audio.id] },
-    },
-  });
-
-  assert.equal(result.replay, false);
-  assert.equal(result.job.mode, 'reference');
-  assert.deepEqual(result.job.references.audios, [audio.id]);
-  assert.deepEqual(result.job.references.images, []);
-  assert.deepEqual(result.job.references.videos, []);
+  await assert.rejects(
+    service.createJob({
+      ownerEmail,
+      idempotencyKey: 'audio-only-reference',
+      billingQuoteId: 'quote-audio-only',
+      publicBaseUrl: 'https://example.com',
+      input: {
+        mode: 'reference',
+        prompt: '根据这段音频生成广告视频',
+        duration: 8,
+        aspectRatio: '9:16',
+        resolution: '720p',
+        references: { audios: [audio.id] },
+      },
+    }),
+    error => error?.code === 'VIDEO_VISUAL_REFERENCE_REQUIRED',
+  );
 });
 
 test('reference mode rejects an empty reference job', async t => {
@@ -132,6 +130,84 @@ test('reference mode rejects an empty reference job', async t => {
         references: {},
       },
     }),
-    error => error?.code === 'VIDEO_REFERENCE_REQUIRED',
+    error => error?.code === 'VIDEO_VISUAL_REFERENCE_REQUIRED',
   );
+});
+
+test('new jobs persist the product, route, catalog version, and provider-cost snapshot', async t => {
+  const service = createVideoGenerationHarness(t);
+  const result = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'snapshot-job',
+    billingQuoteId: 'quote-snapshot',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      productId: 'seedance_standard',
+      mode: 'script',
+      prompt: '固定价格快照测试',
+      duration: 8,
+      aspectRatio: '9:16',
+      resolution: '720p',
+    },
+  });
+  assert.equal(result.job.productId, 'seedance_standard');
+  assert.equal(result.job.providerRoute, 'sd5-seedance-2.0');
+  assert.equal(result.job.catalogVersion, VIDEO_CATALOG_VERSION);
+  assert.equal(result.job.providerCostCny, 4.355);
+});
+
+test('an accepted upstream task is never submitted again after retryable polling failures', async t => {
+  const db = new (await import('better-sqlite3')).default(':memory:');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-retry-'));
+  let submitCalls = 0;
+  let pollCalls = 0;
+  const provider = {
+    enabled: true,
+    routeId: 'sd5-seedance-2.0',
+    model: 'sd5-seedance-2.0',
+    submit: async () => { submitCalls += 1; return { id: 'accepted-task', progress: 0 }; },
+    get: async () => {
+      pollCalls += 1;
+      const error = new Error('temporary upstream read failure');
+      error.retryable = true;
+      throw error;
+    },
+    download: async () => { throw new Error('download must not run'); },
+  };
+  const service = createVideoGeneration({
+    db,
+    walletService: {
+      createHold: input => ({ id: `hold-${input.metadata.taskId}` }),
+      getBalance: () => ({ unlimited: false, availableUnits: 999999 }),
+      settleItem: () => ({ status: 'settled' }),
+      releaseItem: () => ({ status: 'released' }),
+    },
+    quoteService: { verify: ({ quoteId, expectedQuote }) => ({ quoteId, currency: expectedQuote.currency, expiresAt: '2099-01-01T00:00:00.000Z' }) },
+    upsertWork() {},
+    assetRoot,
+    providerRegistry: { get: () => provider, publicProducts: () => [] },
+    pollIntervalMs: 1,
+    maxConcurrent: 1,
+  });
+  t.after(() => {
+    service.close?.();
+    db.close();
+    rmSync(assetRoot, { recursive: true, force: true });
+  });
+  const created = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'accepted-once',
+    billingQuoteId: 'quote-accepted-once',
+    publicBaseUrl: 'https://example.com',
+    input: { productId: 'seedance_standard', mode: 'script', prompt: '只提交一次', duration: 5, aspectRatio: '16:9', resolution: '720p' },
+  });
+  await new Promise(resolve => {
+    const check = () => (pollCalls > 0 ? resolve() : setTimeout(check, 2));
+    check();
+  });
+  assert.equal(submitCalls, 1);
+  assert.equal(service.getJob('owner@example.com', created.job.id).providerTaskId, undefined);
 });

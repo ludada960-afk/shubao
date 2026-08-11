@@ -65,4 +65,8 @@ test('public products omit hidden routes and private provider details', () => {
   assert.deepEqual(products.find(product => product.id === 'seedance_fast').quotes.short, {
     sku: 'video_seedance_fast_short', units: 40000, points: 40,
   });
+  assert.deepEqual(
+    publicVideoProducts({ includeHidden: true }).map(product => product.id),
+    ['seedance_fast', 'seedance_standard', 'minimax_h3_2k'],
+  );
 });

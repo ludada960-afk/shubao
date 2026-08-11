@@ -309,6 +309,7 @@ export function createCanvasVideoComposerNode({ x = 0, y = 0, sourceNodeId = '',
     aspectRatio: '9:16',
     duration: 8,
     generateAudio: true,
+    planReviewed: false,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
   };
 }

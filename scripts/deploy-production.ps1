@@ -78,6 +78,7 @@ $runtimeConfigUpdater = Join-Path $PSScriptRoot "configure-runtime-gateways.cjs"
 $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
 $nanoGatewayProbe = Join-Path $PSScriptRoot "probe-nano-banana-gateway.mjs"
 $galleryVerifier = Join-Path $PSScriptRoot "verify-production-gallery.mjs"
+$videoVerifier = Join-Path $PSScriptRoot "verify-production-video.mjs"
 $galleryDirectoryName = -join [char[]](34223, 21253, 20986, 21697)
 $galleryAssetsDir = Join-Path $repo $galleryDirectoryName
 $nginxConfig = Join-Path $PSScriptRoot "nginx\shuimg.cn.conf"
@@ -244,6 +245,11 @@ if ([string]::IsNullOrWhiteSpace($videoGatewayKey)) {
   $videoGatewayKey = [Environment]::GetEnvironmentVariable('SHUBAO_VIDEO_API_KEY', 'User')
 }
 $hasVideoGatewayKey = -not [string]::IsNullOrWhiteSpace($videoGatewayKey)
+$minimaxVideoGatewayKey = $env:SHUBAO_MINIMAX_VIDEO_API_KEY
+if ([string]::IsNullOrWhiteSpace($minimaxVideoGatewayKey)) {
+  $minimaxVideoGatewayKey = [Environment]::GetEnvironmentVariable('SHUBAO_MINIMAX_VIDEO_API_KEY', 'User')
+}
+$hasMinimaxVideoGatewayKey = -not [string]::IsNullOrWhiteSpace($minimaxVideoGatewayKey)
 if ($hasImageGatewayKey -and -not $hasVisionGatewayKey) {
   throw "SHUBAO_IMAGE_API_KEY requires SHUBAO_VISION_API_KEY"
 }
@@ -349,7 +355,7 @@ try {
   $lockAcquired = $true
 
   Assert-DeploymentLockHeld
-  if ($hasImageGatewayKey -or $hasVisionGatewayKey -or $hasNanoGatewayKey -or $hasVideoGatewayKey) {
+  if ($hasImageGatewayKey -or $hasVisionGatewayKey -or $hasNanoGatewayKey -or $hasVideoGatewayKey -or $hasMinimaxVideoGatewayKey) {
     Invoke-LockedRemote -Command "set -e; umask 077; test ! -e '$remoteRuntimeConfigBackup'; mkdir -m 700 '$remoteRuntimeConfigBackup'; cp '$RemoteDir/.env' '$remoteRuntimeConfigBackup/root.env'; cp '$RemoteDir/server/.env' '$remoteRuntimeConfigBackup/server.env'; chmod 600 '$remoteRuntimeConfigBackup/root.env' '$remoteRuntimeConfigBackup/server.env'" -TimeoutSeconds 120 -FailureMessage "Runtime configuration backup failed"
     $runtimeConfigBackupCreated = $true
     $runtimeConfigTouched = $true
@@ -358,6 +364,7 @@ try {
     if ($hasVisionGatewayKey) { $runtimeSecrets.MINI_API_KEY = $env:SHUBAO_VISION_API_KEY }
     if ($hasNanoGatewayKey) { $runtimeSecrets.NANO_BANANA_API_KEY = $nanoGatewayKey }
     if ($hasVideoGatewayKey) { $runtimeSecrets.VIDEO_API_KEY = $videoGatewayKey }
+    if ($hasMinimaxVideoGatewayKey) { $runtimeSecrets.MINIMAX_VIDEO_API_KEY = $minimaxVideoGatewayKey }
     $runtimePayload = $runtimeSecrets | ConvertTo-Json -Compress
     $runtimeUpdateCommand = "node $remoteRuntimeConfigUpdater $RemoteDir/.env --peer $RemoteDir/server/.env --replace-secrets"
     Invoke-LockedRemote -Command $runtimeUpdateCommand -InputText $runtimePayload -TimeoutSeconds 120 -FailureMessage "Production runtime gateway configuration update failed"
@@ -381,6 +388,8 @@ try {
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
   & node $galleryVerifier --base-url "https://shuimg.cn"
   if ($LASTEXITCODE -ne 0) { throw "Public gallery verification failed" }
+  & node $videoVerifier --base-url "https://shuimg.cn"
+  if ($LASTEXITCODE -ne 0) { throw "Public video contract verification failed" }
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   Assert-DeploymentLockHeld
@@ -398,6 +407,8 @@ try {
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
   Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
+  & node $videoVerifier --base-url "https://shuimg.cn"
+  if ($LASTEXITCODE -ne 0) { throw "Public video contract canary failed" }
   $canaryEndPid = Get-RemotePm2ProcessId
   if ($canaryEndPid -ne $canaryPid) {
     throw "PM2 process restarted during canary: $canaryPid -> $canaryEndPid"

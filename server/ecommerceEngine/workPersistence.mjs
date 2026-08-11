@@ -35,9 +35,20 @@ function deliveredImages(assets) {
 }
 
 function workInputSnapshot(payload) {
+  const abilityRecipe = isRecord(payload.ability_recipe) ? payload.ability_recipe : null;
+  const tryOn = cleanString(abilityRecipe?.id) === 'anything_tryon';
   const snapshot = sanitizeSnapshot({
     productAssets: Array.isArray(payload.assets?.product) ? payload.assets.product : [],
     referenceAssets: Array.isArray(payload.assets?.reference) ? payload.assets.reference : [],
+    ...(tryOn ? {
+      itemAssets: Array.isArray(payload.assets?.items) ? payload.assets.items : [],
+      personAssets: Array.isArray(payload.assets?.person) ? payload.assets.person : [],
+      sceneAssets: Array.isArray(payload.assets?.scene) ? payload.assets.scene : [],
+      abilityRecipe,
+      personMode: cleanString(payload.person_mode) || 'smart',
+      assetRoles: Array.isArray(payload.asset_roles) ? payload.asset_roles : [],
+      unmappedImages: Array.isArray(payload.unmapped_images) ? payload.unmapped_images : [],
+    } : {}),
     selling_points: payload.selling_points,
     material: payload.material,
     restrictions: payload.restrictions,
@@ -61,6 +72,15 @@ function workInputSnapshot(payload) {
     maintenance: cleanString(snapshot.maintenance),
     direction: isRecord(snapshot.direction) ? snapshot.direction : null,
     ...(commerceContext ? { commerceContext } : {}),
+    ...(tryOn ? {
+      itemAssets: Array.isArray(snapshot.itemAssets) ? snapshot.itemAssets : [],
+      personAssets: Array.isArray(snapshot.personAssets) ? snapshot.personAssets : [],
+      sceneAssets: Array.isArray(snapshot.sceneAssets) ? snapshot.sceneAssets : [],
+      abilityRecipe: isRecord(snapshot.abilityRecipe) ? snapshot.abilityRecipe : abilityRecipe,
+      personMode: cleanString(snapshot.personMode) || 'smart',
+      assetRoles: Array.isArray(snapshot.assetRoles) ? snapshot.assetRoles : [],
+      unmappedImages: Array.isArray(snapshot.unmappedImages) ? snapshot.unmappedImages : [],
+    } : {}),
   };
 }
 

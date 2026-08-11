@@ -53,6 +53,13 @@ test('runtime updater rejects malformed or line-breaking secrets', () => {
     () => validateSecretPayload({ ...SECRETS, MINI_API_KEY: `${SECRETS.MINI_API_KEY}\nINJECTED=yes` }),
     /MINI_API_KEY/i,
   );
+  assert.doesNotThrow(
+    () => validateSecretPayload({ ...SECRETS, MINIMAX_VIDEO_API_KEY: 'minimax-video-test-key-that-is-long-enough' }),
+  );
+  assert.throws(
+    () => validateSecretPayload({ ...SECRETS, MINIMAX_VIDEO_API_KEY: 'short' }),
+    /MINIMAX_VIDEO_API_KEY/i,
+  );
 });
 
 test('runtime updater writes both files privately and leaves them verifier-ready', () => {
@@ -192,6 +199,24 @@ test('runtime updater can add only the Nano Banana secret while retaining peer s
     replaceRuntimeSecrets([primary, peer], { NANO_BANANA_API_KEY: SECRETS.NANO_BANANA_API_KEY });
     const updated = parseEnv(readFileSync(primary, 'utf8'));
     assert.equal(updated.NANO_BANANA_API_KEY, SECRETS.NANO_BANANA_API_KEY);
+    assert.doesNotThrow(() => verifyRuntimeConfigFiles(primary, peer));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('runtime updater can add the optional MiniMax video secret without making it public', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shubao-runtime-minimax-'));
+  const primary = join(directory, '.env');
+  const peer = join(directory, 'server.env');
+  const legacy = `IMAGE_API_KEY=${SECRETS.IMAGE_API_KEY}\nMINI_API_KEY=${SECRETS.MINI_API_KEY}\nNANO_BANANA_API_KEY=${SECRETS.NANO_BANANA_API_KEY}\nVIDEO_API_KEY=${SECRETS.VIDEO_API_KEY}\n`;
+  try {
+    writeFileSync(primary, legacy, { mode: 0o600 });
+    writeFileSync(peer, legacy, { mode: 0o600 });
+    replaceRuntimeSecrets([primary, peer], { MINIMAX_VIDEO_API_KEY: 'minimax-video-test-key-that-is-long-enough' });
+    const updated = parseEnv(readFileSync(primary, 'utf8'));
+    assert.equal(updated.MINIMAX_VIDEO_API_KEY, 'minimax-video-test-key-that-is-long-enough');
+    assert.equal(updated.MINIMAX_VIDEO_PUBLIC_ENABLED, 'false');
     assert.doesNotThrow(() => verifyRuntimeConfigFiles(primary, peer));
   } finally {
     rmSync(directory, { recursive: true, force: true });

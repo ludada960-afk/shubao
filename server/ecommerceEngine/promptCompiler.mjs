@@ -9,6 +9,8 @@ const MAX_INPUT_ASSETS = 10;
 const GROUP_LIMITS = Object.freeze({
   product: 5,
   style: 3,
+  person: 1,
+  scene: 1,
   proof: 2,
   protection: 2,
 });
@@ -157,15 +159,23 @@ function responsibilityFor(kind, position) {
   if (kind === 'style') {
     return 'Style-only visual-language reference; never copy, depict, or substitute its product.';
   }
+  if (kind === 'person') {
+    return 'Person reference for identity, pose, and body presentation only; do not copy unrelated clothing or background.';
+  }
+  if (kind === 'scene') {
+    return 'Scene reference for environment, lighting, and camera language only; do not copy unrelated products, people, or logos.';
+  }
   if (kind === 'proof') {
     return 'Evidence source for deterministic post-processing only; it is not a product view.';
   }
   return 'Protect one exact product identity element from mutation only.';
 }
 
-function selectInputAssets(assetPlanItem, productTruth, assets) {
+function selectInputAssets(assetPlanItem, productTruth, assets, abilityRecipe) {
   const source = isRecord(assets) ? assets : {};
   const role = cleanString(ownValue(assetPlanItem, 'role'));
+  const abilityId = cleanString(ownValue(abilityRecipe, 'id'));
+  const tryOn = abilityId === 'anything_tryon';
   const productIds = uniqueIdentifiers(ownValue(assetPlanItem, 'productAssetIds'));
   const styleIds = role === 'transparent'
     ? []
@@ -179,9 +189,18 @@ function selectInputAssets(assetPlanItem, productTruth, assets) {
   const groups = [
     ['product', productIds.length
       ? normalizeAssetCandidates(ownArray(source, 'product', 'products'), productIds)
-      : []],
-    ['style', styleIds.length
+      : tryOn ? normalizeAssetCandidates(
+        ownArray(source, 'items', 'product', 'products'),
+        [],
+      ) : []],
+    ['style', !tryOn && styleIds.length
       ? normalizeAssetCandidates(ownArray(source, 'reference', 'references', 'style'), styleIds)
+      : []],
+    ['person', tryOn
+      ? normalizeAssetCandidates(ownArray(source, 'person', 'people'), [])
+      : []],
+    ['scene', tryOn
+      ? normalizeAssetCandidates(ownArray(source, 'scene', 'scenes'), [])
       : []],
     ['proof', proofIds.length ? normalizeAssetCandidates(proofSources, proofIds) : []],
     ['protection', protectionIds.length
@@ -592,12 +611,15 @@ export function compileAssetRequest({
   productTruth = {},
   campaignBible = {},
   assets = {},
+  abilityRecipe = null,
+  personMode = null,
 } = {}) {
   const item = isRecord(assetPlanItem) ? assetPlanItem : {};
   const truth = isRecord(productTruth) ? productTruth : {};
   const bible = isRecord(campaignBible) ? campaignBible : {};
-  const inputAssets = selectInputAssets(item, truth, assets);
+  const inputAssets = selectInputAssets(item, truth, assets, abilityRecipe);
   const role = cleanString(ownValue(item, 'role'));
+  const tryOn = cleanString(ownValue(abilityRecipe, 'id')) === 'anything_tryon';
   const transparent = role === 'transparent';
   const isolated = isCatalogIsolationRole(role);
   const isolation = catalogIsolationContract(role);
@@ -671,10 +693,14 @@ export function compileAssetRequest({
           shotSpecification: safeShotSpecification,
         }
       : {
-          subject: 'Preserve the user product from indexed product views; create only the requested role composition.',
+          subject: tryOn
+            ? 'Dress the exact user products from indexed product views onto the indexed person reference when present, or generate one commercially plausible model when person mode is smart. Preserve item count, order, fit, material, color, pattern, logos, and construction.'
+            : 'Preserve the user product from indexed product views; create only the requested role composition.',
           materials: materials.join(', '),
           lighting: campaign.lighting,
-          composition: `Create a single-frame, single-scene composition for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim(),
+          composition: tryOn
+            ? `Create a single-frame, single-scene commercial try-on image for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim()
+            : `Create a single-frame, single-scene composition for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim(),
           background: campaign.backgroundLanguage,
           palette: campaign.palette,
           copyPolicy: visualOnly
@@ -682,7 +708,9 @@ export function compileAssetRequest({
             : variantComparison
             ? 'Reserve a clean comparison region, but the image model must not render variant labels, values, tables, dimensions, materials, or specification text. Those exact confirmed values are applied only by deterministic post-processing.'
             : localizedCopyPolicy,
-          outputContract: 'Generate one complete independent image with one commercial purpose. No collage, contact sheet, montage, multi-panel grid, storyboard, picture-in-picture, thumbnail collection, or multiple candidate layouts.',
+          outputContract: tryOn
+            ? 'Generate one complete independent try-on image with one commercial purpose. No collage, contact sheet, montage, multi-panel grid, storyboard, picture-in-picture, thumbnail collection, extra garments, duplicated limbs, or unrelated brand marks.'
+            : 'Generate one complete independent image with one commercial purpose. No collage, contact sheet, montage, multi-panel grid, storyboard, picture-in-picture, thumbnail collection, or multiple candidate layouts.',
           shotSpecification: safeShotSpecification,
         },
     platformRecommendation: platformSection(item, truth),
@@ -701,11 +729,21 @@ export function compileAssetRequest({
       riskLevel: cleanString(ownValue(item, 'riskLevel')) || 'low',
       qualityChecks: normalizeStrings(ownValue(item, 'qualityChecks')),
     },
+    ...(tryOn ? {
+      abilityRecipe: {
+        id: 'anything_tryon',
+        version: Number.isSafeInteger(abilityRecipe?.version) ? abilityRecipe.version : 1,
+        personMode: personMode === 'reference' ? 'reference' : 'smart',
+        roleContract: 'product views are authoritative merchandise; person reference controls identity and pose; scene reference controls environment and light only',
+      },
+    } : {}),
     referenceSafety: isolated
       ? transparent
         ? 'Style references and campaign styling are excluded from this catalog-isolation deliverable. True alpha transparency cannot be overridden by any style, background, lighting, scene, or decorative instruction. Product views remain the only identity authority.'
         : 'Style references and campaign styling are excluded from this catalog-isolation deliverable. No style, background, lighting, scene, or decorative instruction may override pure white, shadow-free isolation. Product views remain the only identity authority.'
-      : 'Style references may contribute style only. They must never replace, copy, or substitute for the user\'s real product. Proof assets are evidence only and are never product views.',
+      : tryOn
+        ? 'Try-on roles are isolated by responsibility: product views define merchandise, person references define the person, and scene references define only environment and lighting. Never import garments, logos, people, or products from the wrong role.'
+        : 'Style references may contribute style only. They must never replace, copy, or substitute for the user\'s real product. Proof assets are evidence only and are never product views.',
   };
 
   return {

@@ -111,7 +111,8 @@
     background-color 180ms ease,
     border-color 180ms ease,
     color 180ms ease,
-    box-shadow 180ms ease;
+    box-shadow 180ms ease,
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .app-side-nav-item.is-primary {
@@ -134,6 +135,7 @@
 }
 
 .app-side-nav-item:hover {
+  transform: translateX(4px) scale(1.04);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -154,6 +156,7 @@
 }
 
 .app-side-nav-item:focus-visible {
+  transform: translateX(3px) scale(1.03);
   outline: 3px solid rgba(124, 58, 237, 0.2);
   outline-offset: 2px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);

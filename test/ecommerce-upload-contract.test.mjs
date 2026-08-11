@@ -114,6 +114,47 @@ test('direction inputs upload each Base64 image as a durable role-scoped asset',
   assert.equal(requests[1].body.role, 'reference');
 });
 
+test('direction analysis keeps try-on item, person, and scene lanes without duplicate uploads', async (t) => {
+  installSignedSession();
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const body = JSON.parse(options.body);
+    requests.push({ url: String(url), body });
+    if (String(url).endsWith('/design-directions')) return jsonResponse({ directions: [] });
+    const index = requests.filter(request => request.url.endsWith('/assets')).length;
+    return jsonResponse({
+      original: { assetId: `${String(index).repeat(64)}.jpg`, url: `/api/generated-assets/${String(index).repeat(64)}.jpg`, role: body.role },
+      preview: { assetId: `${String(index + 4).repeat(64)}.webp`, url: `/api/generated-assets/${String(index + 4).repeat(64)}.webp`, role: body.role },
+    }, 201);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; delete globalThis.localStorage; });
+
+  const api = await import(`../src/services/api.js?tryon-directions=${Date.now()}`);
+  await api.getDesignDirections({
+    product_name: '春季穿搭',
+    abilityRecipe: { id: 'anything_tryon', version: 1 },
+    personMode: 'reference',
+    roleImages: {
+      items: ['data:image/jpeg;base64,ITEM'],
+      person: ['data:image/jpeg;base64,PERSON'],
+      scene: ['data:image/jpeg;base64,SCENE'],
+    },
+  });
+
+  const uploads = requests.filter(request => request.url.endsWith('/assets'));
+  assert.equal(uploads.length, 3);
+  assert.deepEqual(uploads.map(request => request.body.role).sort(), ['person', 'product', 'scene']);
+  const direction = requests.find(request => request.url.endsWith('/design-directions'))?.body;
+  assert.deepEqual(direction.ability_recipe, { id: 'anything_tryon', version: 1 });
+  assert.equal(direction.person_mode, 'reference');
+  assert.equal(direction.items.length, 1);
+  assert.equal(direction.person.length, 1);
+  assert.equal(direction.scene.length, 1);
+  assert.equal(Object.hasOwn(direction, 'roleImages'), false);
+  assert.equal(Object.hasOwn(direction, 'abilityRecipe'), false);
+});
+
 test('formal generation preserves owner-scoped asset IDs, quote reference, and merges 4K into planner sizing', async (t) => {
   installSignedSession();
   const originalFetch = globalThis.fetch;
@@ -198,4 +239,62 @@ test('formal generation preserves owner-scoped asset IDs, quote reference, and m
   assert.equal(requests[0].body.target_language, 'en');
   assert.equal(Object.hasOwn(requests[0].body, 'real_shots'), false);
   assert.equal(Object.hasOwn(requests[0].body, 'reference_images'), false);
+});
+
+test('formal generation carries try-on roles and an ordered ability manifest', async (t) => {
+  installSignedSession();
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), body: JSON.parse(options.body) });
+    return new Response(
+      'data: {"type":"complete","images":{"main":"/api/generated-assets/result.png"},"errors":[]}\n\n',
+      { status: 200, headers: { 'content-type': 'text/event-stream' } },
+    );
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    delete globalThis.localStorage;
+  });
+
+  const api = await import(`../src/services/api.js?tryon-generation=${Date.now()}`);
+  const owned = (id, role) => ({
+    assetId: `${id.repeat(64)}.png`,
+    url: `/api/generated-assets/${id.repeat(64)}.png`,
+    previewUrl: `/api/generated-assets/${id.repeat(64)}.webp`,
+    role,
+  });
+  const items = [owned('a', 'product'), owned('b', 'product')];
+  const person = [owned('c', 'person')];
+  const scene = [owned('d', 'scene')];
+
+  await api.generateEcommerce({
+    productName: '春季穿搭',
+    category: '服饰穿搭',
+    platform: '淘宝',
+    abilityRecipe: { id: 'anything_tryon', version: 1 },
+    roleAssets: { items, person, scene },
+    personMode: 'reference',
+    assetRoles: [
+      { assetId: items[0].assetId, role: 'items', ordinal: 0 },
+      { assetId: items[1].assetId, role: 'items', ordinal: 1 },
+      { assetId: person[0].assetId, role: 'person', ordinal: 0 },
+      { assetId: scene[0].assetId, role: 'scene', ordinal: 0 },
+    ],
+  });
+
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].body.ability_recipe, { id: 'anything_tryon', version: 1 });
+  assert.equal(requests[0].body.person_mode, 'reference');
+  assert.deepEqual(requests[0].body.assets, {
+    items: items.map(({ assetId, url }) => ({ assetId, url })),
+    person: person.map(({ assetId, url }) => ({ assetId, url })),
+    scene: scene.map(({ assetId, url }) => ({ assetId, url })),
+  });
+  assert.deepEqual(requests[0].body.asset_roles, [
+    { assetId: items[0].assetId, role: 'items', ordinal: 0 },
+    { assetId: items[1].assetId, role: 'items', ordinal: 1 },
+    { assetId: person[0].assetId, role: 'person', ordinal: 0 },
+    { assetId: scene[0].assetId, role: 'scene', ordinal: 0 },
+  ]);
 });

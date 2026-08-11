@@ -1,3 +1,5 @@
+import { getEcommerceAbilityRecipe } from '../../../../shared/ecommerceAbilityRecipes.mjs';
+
 export const PRODUCT_SLOT_PLAN = [
   { key: 'front', label: '产品图1', hint: '上传第一张清晰商品图，展示你希望保留的真实外观' },
   { key: 'angle', label: '产品图2', hint: '可补充任意角度，帮助补全商品结构和比例' },
@@ -21,6 +23,132 @@ export function createWorkbenchState() {
     skus: [],
     productImages: [],
     refImages: [],
+  };
+}
+
+function normalizeAbilityImage(image) {
+  if (typeof image === 'string') return image ? { url: image } : null;
+  if (!image || typeof image !== 'object') return null;
+  const url = image.url || image.src || image.image_url || '';
+  return url ? { ...image, url } : null;
+}
+
+function normalizeAbilityImages(images) {
+  return (Array.isArray(images) ? images : []).map(normalizeAbilityImage).filter(Boolean);
+}
+
+function uniqueAbilityImages(images) {
+  const seen = new Set();
+  return normalizeAbilityImages(images).filter(image => {
+    const key = String(image.assetId || image.id || image.url || '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function createAbilityEditorState() {
+  return {
+    recipeId: 'product_suite',
+    personMode: 'smart',
+    roleImages: { items: [], person: [], scene: [] },
+    unmappedImages: [],
+  };
+}
+
+export function buildAbilityUploadDeck({
+  recipeId = 'product_suite',
+  personMode = 'smart',
+  roleImages = {},
+  productImages = [],
+  refImages = [],
+} = {}) {
+  const recipe = getEcommerceAbilityRecipe(recipeId);
+  const source = roleImages && typeof roleImages === 'object' ? roleImages : {};
+  const resolvedPersonMode = recipe.id === 'anything_tryon'
+    ? (personMode === 'reference' ? 'reference' : 'smart')
+    : 'smart';
+  const slots = recipe.inputSlots.map(slot => {
+    const fallback = slot.id === 'product'
+      ? productImages
+      : slot.id === 'items' ? productImages
+        : slot.id === 'reference' ? refImages : [];
+    const images = normalizeAbilityImages(source[slot.id] ?? fallback);
+    const visibleImages = slot.id === 'person' && resolvedPersonMode === 'smart' ? [] : images;
+    return {
+      ...slot,
+      images: visibleImages,
+      count: visibleImages.length,
+      canAdd: visibleImages.length < slot.max
+        && (slot.id !== 'person' || resolvedPersonMode === 'reference'),
+      modeOptions: slot.id === 'person' ? [
+        { id: 'smart', label: '智能模特', description: '由 AI 生成匹配人物' },
+        { id: 'reference', label: '参考模特图', description: '尽量保留人物身份与姿态' },
+      ] : [],
+      selectedMode: slot.id === 'person' ? resolvedPersonMode : null,
+    };
+  });
+  return {
+    recipe,
+    personMode: resolvedPersonMode,
+    slots,
+    overflowImages: normalizeAbilityImages(source.unmapped || []),
+  };
+}
+
+export function switchAbilityRecipe({
+  currentRecipeId = 'product_suite',
+  nextRecipeId = 'product_suite',
+  currentRoleImages = {},
+  productImages = [],
+  refImages = [],
+} = {}) {
+  const current = currentRoleImages && typeof currentRoleImages === 'object' ? currentRoleImages : {};
+  const currentProducts = uniqueAbilityImages(current.product || productImages);
+  const currentReferences = uniqueAbilityImages(current.reference || refImages);
+  const currentUnmapped = uniqueAbilityImages(current.unmapped);
+  const currentItems = uniqueAbilityImages(current.items);
+  const currentPerson = uniqueAbilityImages(current.person);
+  const currentScene = uniqueAbilityImages(current.scene);
+
+  if (nextRecipeId === 'anything_tryon') {
+    const items = currentItems.length ? currentItems : currentProducts;
+    return {
+      recipeId: nextRecipeId,
+      personMode: currentPerson.length ? 'reference' : 'smart',
+      roleImages: { items, person: currentPerson, scene: currentScene },
+      unmappedImages: uniqueAbilityImages([
+        ...currentReferences,
+        ...currentUnmapped,
+        ...(currentProducts.length && items.length === 0 ? currentProducts : []),
+      ]),
+    };
+  }
+
+  if (currentRecipeId === 'anything_tryon') {
+    return {
+      recipeId: nextRecipeId,
+      personMode: 'smart',
+      roleImages: {
+        items: [],
+        person: [],
+        scene: [],
+        product: currentItems,
+        reference: uniqueAbilityImages([...currentPerson, ...currentScene]),
+      },
+      productImages: currentItems,
+      refImages: uniqueAbilityImages([...currentPerson, ...currentScene, ...currentUnmapped]),
+      unmappedImages: [],
+    };
+  }
+
+  return {
+    recipeId: nextRecipeId,
+    personMode: 'smart',
+    roleImages: { items: [], person: [], scene: [], product: currentProducts, reference: currentReferences },
+    productImages: currentProducts,
+    refImages: currentReferences,
+    unmappedImages: [],
   };
 }
 
@@ -174,10 +302,37 @@ function canvasSourceAsset(asset) {
   return url ? { ...asset, url } : null;
 }
 
-export function withEcommerceCanvasSources(delivery = {}, { productAssets = [], referenceAssets = [] } = {}) {
-  return {
+export function buildAbilityAssetRoles(roleImages = {}) {
+  return ['items', 'person', 'scene'].flatMap(role => {
+    const assets = Array.isArray(roleImages?.[role]) ? roleImages[role] : [];
+    return assets.reduce((manifest, asset) => {
+      const assetId = typeof asset?.assetId === 'string' ? asset.assetId.trim() : '';
+      if (assetId) manifest.push({ assetId, role, ordinal: manifest.length });
+      return manifest;
+    }, []);
+  });
+}
+
+export function withEcommerceCanvasSources(delivery = {}, {
+  productAssets = [],
+  referenceAssets = [],
+  itemAssets,
+  personAssets,
+  sceneAssets,
+  abilityRecipe,
+  personMode,
+  assetRoles,
+} = {}) {
+  const next = {
     ...delivery,
     productAssets: (Array.isArray(productAssets) ? productAssets : []).map(canvasSourceAsset).filter(Boolean),
     referenceAssets: (Array.isArray(referenceAssets) ? referenceAssets : []).map(canvasSourceAsset).filter(Boolean),
   };
+  if (itemAssets !== undefined) next.itemAssets = (Array.isArray(itemAssets) ? itemAssets : []).map(canvasSourceAsset).filter(Boolean);
+  if (personAssets !== undefined) next.personAssets = (Array.isArray(personAssets) ? personAssets : []).map(canvasSourceAsset).filter(Boolean);
+  if (sceneAssets !== undefined) next.sceneAssets = (Array.isArray(sceneAssets) ? sceneAssets : []).map(canvasSourceAsset).filter(Boolean);
+  if (abilityRecipe !== undefined) next.abilityRecipe = abilityRecipe;
+  if (personMode !== undefined) next.personMode = personMode;
+  if (assetRoles !== undefined) next.assetRoles = Array.isArray(assetRoles) ? assetRoles : [];
+  return next;
 }

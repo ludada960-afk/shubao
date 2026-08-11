@@ -8,8 +8,8 @@ test('the shared ecommerce workbench inserts real image mentions on home and ste
 
   assert.match(workbench, /ImageMentionPicker/);
   assert.match(workbench, /appendImageMention\(description, image\.label\)/);
-  assert.match(workbench, /role:\s*['"]product['"]/);
-  assert.match(workbench, /role:\s*['"]reference['"]/);
+  assert.match(workbench, /slot\.id === ['"]product['"] \? ['"]product['"]/);
+  assert.match(workbench, /slot\.id === ['"]reference['"] \? ['"]reference['"]/);
   assert.match(direction, /<EcommerceWorkbench/);
 });
 

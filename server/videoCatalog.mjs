@@ -115,9 +115,9 @@ function publicQuote(sku) {
   return { sku, units: quote.totalUnits, points: Math.ceil(quote.totalUnits / 1000) };
 }
 
-export function publicVideoProducts() {
+export function publicVideoProducts({ includeHidden = false } = {}) {
   return Object.values(VIDEO_PRODUCTS)
-    .filter(product => product.public === true)
+    .filter(product => product.public === true || includeHidden)
     .map(product => ({
       id: product.id,
       label: product.label,

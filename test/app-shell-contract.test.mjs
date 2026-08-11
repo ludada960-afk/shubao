@@ -25,6 +25,8 @@ test('app shell uses the global header and navigation contract', () => {
   assert.match(shellCss, /\.app-side-nav-icon svg > :nth-child\(3\)[^}]*transition-delay:\s*80ms/);
   assert.match(shellCss, /\.app-side-nav-icon svg > :nth-child\(4\)[^}]*transition-delay:\s*110ms/);
   assert.match(shellCss, /\.app-side-nav-item:is\(:hover,\s*:focus-visible\) \.motion-grid/);
+  assert.match(shellCss, /\.app-side-nav-item:hover\s*\{[^}]*transform:\s*translateX\(4px\) scale\(1\.04\)/);
+  assert.match(shellCss, /\.app-side-nav-item \{[\s\S]*?transform 260ms cubic-bezier\(0\.34,\s*1\.56,\s*0\.64,\s*1\)/);
   assert.match(shellCss, /@media \(max-width:\s*639px\)[\s\S]*?\.app-side-nav-tooltip[\s\S]*?display:\s*none/);
   assert.match(shellCss, /@media \(prefers-reduced-motion:\s*reduce\)/);
 });

@@ -91,6 +91,43 @@ function normalizeImageUrls(value) {
   }).slice(0, MAX_IMAGES_PER_ROLE);
 }
 
+function firstNonEmptyUrls(...values) {
+  for (const value of values) {
+    const urls = normalizeImageUrls(value);
+    if (urls.length) return urls;
+  }
+  return [];
+}
+
+function abilityDescriptor(input) {
+  const value = ownValue(input, 'ability_recipe', 'abilityRecipe');
+  return isRecord(value) ? value : null;
+}
+
+function tryOnRoleUrls(input, role) {
+  const assets = isRecord(ownValue(input, 'assets')) ? ownValue(input, 'assets') : {};
+  if (role === 'items') {
+    return firstNonEmptyUrls(
+      ownValue(input, 'items'),
+      ownValue(assets, 'items', 'products', 'product'),
+      ownValue(input, 'real_shots', 'realShots'),
+    );
+  }
+  if (role === 'person') {
+    return firstNonEmptyUrls(
+      ownValue(input, 'person'),
+      ownValue(input, 'person_images', 'personImages'),
+      ownValue(assets, 'person', 'people'),
+    );
+  }
+  return firstNonEmptyUrls(
+    ownValue(input, 'scene'),
+    ownValue(input, 'scene_images', 'sceneImages'),
+    ownValue(assets, 'scene', 'scenes'),
+    ownValue(input, 'ref_shots', 'refShots'),
+  );
+}
+
 async function resolveRoleImages(urls, readImageAsDataUrl, signal, detail) {
   const results = [];
   for (const url of urls) {
@@ -173,7 +210,25 @@ function buildVisionSystemPrompt() {
 }`;
 }
 
-function buildVisionUserPrompt(input, productCount, referenceCount) {
+function buildVisionUserPrompt(input, productCount, referenceCount, roleCounts = null) {
+  if (roleCounts) {
+    let cursor = 1;
+    const roleLine = (count, label, fallback) => {
+      if (count <= 0) return fallback;
+      const start = cursor;
+      const end = cursor + count - 1;
+      cursor = end + 1;
+      return `图片 ${start === end ? start : `${start}-${end}`}：${label}`;
+    };
+    return [
+      '能力配方：万物上身。商品素材决定真实商品，人物与场景只决定呈现关系。',
+      roleLine(roleCounts.items, '商品与穿搭素材，只确认当前商品的颜色、结构、图案、材质和数量。', '没有商品与穿搭素材，不得猜测商品外观。'),
+      roleLine(roleCounts.person, '模特参考图，只参考人物身份、体态、姿势和取景，不得替换商品。', '未提供模特参考图，将由系统生成匹配模特。'),
+      roleLine(roleCounts.scene, '场景参考图，只参考环境、光线和空间关系，不得把场景中的物品当成商品。', '未提供场景参考图，请规划可控且不喧宾夺主的场景。'),
+      `模特方式：${roleCounts.personMode === 'reference' ? '参考模特图' : '智能模特'}`,
+      productFacts(input),
+    ].join('\n');
+  }
   const productEnd = productCount;
   const referenceStart = productCount + 1;
   const referenceEnd = productCount + referenceCount;
@@ -238,8 +293,17 @@ function buildPlannerUserPrompt(input, analysis, creativeRoute) {
       commercial_opportunities: analysis.commercial_opportunities,
     })
     : '视觉分析暂不可用。仅依据以下用户明确文字规划，不得猜测商品外观或性能。';
+  const descriptor = abilityDescriptor(input);
+  const abilityContext = descriptor?.id === 'anything_tryon'
+    ? [
+        '能力配方：万物上身。请围绕商品上身、穿搭关系、人物姿态和真实场景规划结果。',
+        `模特方式：${ownValue(input, 'person_mode', 'personMode') === 'reference' ? '参考模特图' : '智能模特'}。`,
+        '商品素材必须保持为唯一商品事实来源；模特图不得改变商品，场景图不得被当成商品参考。',
+      ].join('\n')
+    : '';
   return [
     productFacts(input),
+    abilityContext,
     `视觉分析：${analysisSummary}`,
     `本次创意路线：${JSON.stringify({
       attempt_id: creativeRoute.attemptId,
@@ -332,17 +396,27 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
       const commerceContext = commerceContextFor(input);
       const productName = cleanString(ownValue(input, 'product_name', 'productName'));
       const description = cleanString(ownValue(input, 'description', 'user_prompt', 'userPrompt'));
-      const productUrls = normalizeImageUrls(ownValue(input, 'real_shots', 'realShots'));
-      const referenceUrls = normalizeImageUrls(ownValue(input, 'ref_shots', 'refShots'));
+      const descriptor = abilityDescriptor(input);
+      const isTryOn = descriptor?.id === 'anything_tryon';
+      const productUrls = isTryOn
+        ? tryOnRoleUrls(input, 'items')
+        : normalizeImageUrls(ownValue(input, 'real_shots', 'realShots'));
+      const referenceUrls = isTryOn
+        ? tryOnRoleUrls(input, 'scene')
+        : normalizeImageUrls(ownValue(input, 'ref_shots', 'refShots'));
+      const personUrls = isTryOn ? tryOnRoleUrls(input, 'person') : [];
       if (!productName && !description && productUrls.length === 0) {
         throw Object.assign(new Error('请至少填写产品名称或上传产品图'), { status: 400 });
       }
 
-      const [productImages, referenceImages] = await Promise.all([
+      const [productImages, personImages, referenceImages] = await Promise.all([
         resolveRoleImages(productUrls, readImageAsDataUrl, signal, 'auto'),
+        resolveRoleImages(personUrls, readImageAsDataUrl, signal, 'auto'),
         resolveRoleImages(referenceUrls, readImageAsDataUrl, signal, 'auto'),
       ]);
-      const images = [...productImages, ...referenceImages];
+      const images = isTryOn
+        ? [...productImages, ...personImages, ...referenceImages]
+        : [...productImages, ...referenceImages];
       let analysis = sanitizeAnalysis(null, 'fallback');
       let visualComplete = images.length === 0;
       let visualFailureReason = images.length > 0 ? 'VISUAL_ANALYSIS_UNAVAILABLE' : '';
@@ -350,7 +424,17 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         try {
           const response = await completeText({
             systemPrompt: buildVisionSystemPrompt(),
-            userPrompt: buildVisionUserPrompt(input, productImages.length, referenceImages.length),
+            userPrompt: buildVisionUserPrompt(
+              input,
+              productImages.length,
+              referenceImages.length,
+              isTryOn ? {
+                items: productImages.length,
+                person: personImages.length,
+                scene: referenceImages.length,
+                personMode: ownValue(input, 'person_mode', 'personMode') === 'reference' ? 'reference' : 'smart',
+              } : null,
+            ),
             images,
             signal,
             maxTokens: 900,
@@ -396,7 +480,7 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
       try {
         const response = await completeText({
           systemPrompt: buildPlannerSystemPrompt(),
-          userPrompt: buildPlannerUserPrompt(input, analysis, creativeRoute),
+        userPrompt: buildPlannerUserPrompt(input, analysis, creativeRoute),
           images: [],
           signal,
           // The planner only returns a direction skeleton; deliverables are
@@ -445,6 +529,13 @@ export function createDesignDirectionService({ readImageAsDataUrl, completeText 
         analysis,
         creativeRoute,
         commerceContext,
+        ...(isTryOn ? {
+          ability_recipe: {
+            id: descriptor?.id || 'anything_tryon',
+            version: Number.isSafeInteger(descriptor?.version) ? descriptor.version : 1,
+          },
+          person_mode: ownValue(input, 'person_mode', 'personMode') === 'reference' ? 'reference' : 'smart',
+        } : {}),
         planner_fallback: plannerFallback,
         degraded: (images.length > 0 && !visualComplete) || !effectivePlannerComplete,
         degradedReasons: [

@@ -9,6 +9,7 @@ const {
 } = require('./verify-runtime-config.cjs');
 
 const SECRET_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'NANO_BANANA_API_KEY', 'VIDEO_API_KEY']);
+const OPTIONAL_SECRET_KEYS = Object.freeze(['MINIMAX_VIDEO_API_KEY']);
 const MAX_STDIN_BYTES = 16 * 1024;
 
 function validateSecretPayload(payload) {
@@ -16,10 +17,12 @@ function validateSecretPayload(payload) {
     throw new Error('runtime secret payload must be an object');
   }
   const keys = Object.keys(payload).sort();
-  if (keys.join(',') !== [...SECRET_KEYS].sort().join(',')) {
+  const allowed = [...SECRET_KEYS, ...OPTIONAL_SECRET_KEYS].sort();
+  if (keys.some(key => !allowed.includes(key)) || SECRET_KEYS.some(key => !keys.includes(key))) {
     throw new Error('runtime secret payload has unexpected fields');
   }
-  for (const key of SECRET_KEYS) {
+  for (const key of [...SECRET_KEYS, ...OPTIONAL_SECRET_KEYS]) {
+    if (!Object.hasOwn(payload, key)) continue;
     const value = payload[key];
     if (typeof value !== 'string' || /[\r\n\0]/.test(value)) {
       throw new Error(`${key} is invalid`);
@@ -49,7 +52,7 @@ function validatePartialSecretPayload(payload) {
     throw new Error('runtime secret payload must be an object');
   }
   const keys = Object.keys(payload);
-  if (!keys.length || keys.some(key => !SECRET_KEYS.includes(key))) {
+  if (!keys.length || keys.some(key => ![...SECRET_KEYS, ...OPTIONAL_SECRET_KEYS].includes(key))) {
     throw new Error('runtime secret payload has unexpected fields');
   }
   for (const key of keys) {
@@ -137,6 +140,12 @@ function configureRuntimeFilesFromExisting(filePaths) {
     }
     payload[key] = configs[0][key];
   }
+  for (const key of OPTIONAL_SECRET_KEYS) {
+    if ((configs[0][key] || '') !== (configs[1][key] || '')) {
+      throw new Error(`${key} differs between runtime config files`);
+    }
+    if (configs[0][key] !== undefined) payload[key] = configs[0][key];
+  }
   validateSecretPayload(payload);
   configureRuntimeFiles(filePaths, payload);
 }
@@ -156,7 +165,7 @@ function replaceRuntimeSecrets(filePaths, payload) {
   const replacements = validatePartialSecretPayload(payload);
   const configs = filePaths.map(filePath => parseEnv(fs.readFileSync(path.resolve(filePath), 'utf8')));
   const secrets = {};
-  for (const key of SECRET_KEYS) {
+  for (const key of [...SECRET_KEYS, ...OPTIONAL_SECRET_KEYS]) {
     if (Object.hasOwn(replacements, key)) {
       secrets[key] = replacements[key];
       continue;
@@ -164,7 +173,7 @@ function replaceRuntimeSecrets(filePaths, payload) {
     if (configs[0][key] !== configs[1][key]) {
       throw new Error(`${key} differs between runtime config files`);
     }
-    secrets[key] = configs[0][key];
+    if (configs[0][key] !== undefined) secrets[key] = configs[0][key];
   }
   configureRuntimeFiles(filePaths, secrets);
 }
@@ -220,6 +229,7 @@ module.exports = {
   replaceVisionSecret,
   renderRuntimeConfig,
   validateSecretPayload,
+  OPTIONAL_SECRET_KEYS,
 };
 
 if (require.main === module) {

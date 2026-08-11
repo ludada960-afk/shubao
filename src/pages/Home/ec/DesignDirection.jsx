@@ -21,7 +21,7 @@ import {
   invalidateEcommerceQuote,
   resolveEcommercePlan,
 } from './ecommercePlanModel.js';
-import { buildSupplementDeck, withEcommerceCanvasSources } from './workbenchState';
+import { buildAbilityAssetRoles, buildSupplementDeck, withEcommerceCanvasSources } from './workbenchState';
 import EcommerceDesignPlanEditor from './EcommerceDesignPlanEditor.jsx';
 import { applyCanvasSuitePlanToDirection } from '../../EcCanvas/canvasSuitePlanModel.js';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
@@ -44,8 +44,29 @@ import { normalizeCommerceContext } from './internationalCommerceRegistry.js';
 
 function normalizeDirectionImages(images = []) {
   const seen = new Set();
-  return images.map(image => typeof image === 'string' ? { url: image } : { ...(image || {}), url: image?.url || image?.src || image?.image_url || '' })
+  return (Array.isArray(images) ? images : []).map(image => typeof image === 'string' ? { url: image } : { ...(image || {}), url: image?.url || image?.src || image?.image_url || '' })
     .filter(image => image.url && !seen.has(image.url) && seen.add(image.url));
+}
+
+function mergeDirectionImages(...groups) {
+  const seen = new Set();
+  return groups.flatMap(group => normalizeDirectionImages(group)).filter(image => {
+    const key = String(image.assetId || image.id || image.url || '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function tryOnRecipeId(params) {
+  return params?.abilityRecipe?.id || params?.ability_recipe?.id || params?.recipeId || 'product_suite';
+}
+
+function roleImagesFromParams(params = {}, role) {
+  const roleImages = params.roleImages && typeof params.roleImages === 'object' ? params.roleImages : {};
+  if (role === 'items') return mergeDirectionImages(roleImages.items, params.realShots, params.productImages);
+  if (role === 'person') return mergeDirectionImages(roleImages.person, params.personShots);
+  return mergeDirectionImages(roleImages.scene, params.sceneShots, params.refShots);
 }
 
 function createClientCreativeAttemptId() {
@@ -75,6 +96,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   // 补充上传图片必须保持产品事实与视觉参考两条独立数据流。
   const [extraProductImages, setExtraProductImages] = useState([]);
   const [extraReferenceImages, setExtraReferenceImages] = useState([]);
+  const [extraPersonImages, setExtraPersonImages] = useState([]);
+  const abilityRecipeId = tryOnRecipeId(params);
+  const isTryOn = abilityRecipeId === 'anything_tryon';
+  const [activePersonMode, setActivePersonMode] = useState(
+    params?.personMode === 'reference' || params?.person_mode === 'reference' ? 'reference' : 'smart',
+  );
+  const initialTryOnItems = roleImagesFromParams(params, 'items');
+  const initialTryOnPerson = roleImagesFromParams(params, 'person');
+  const initialTryOnScene = roleImagesFromParams(params, 'scene');
   const [blockedByCredits, setBlockedByCredits] = useState(false);
   const [supplementError, setSupplementError] = useState('');
   const [billingQuote, setBillingQuote] = useState(null);
@@ -87,6 +117,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   const generationTokenRef = useRef(null);
   const generationAbortRef = useRef(null);
   const generationLifecycleRef = useRef(null);
+  const supplementBlobUrlsRef = useRef(new Set());
   const directionRefreshActionRef = useRef(null);
   const analysisRequestRef = useRef(null);
   const creativeAttemptRef = useRef(createClientCreativeAttemptId());
@@ -121,7 +152,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     analysisRequestRef.current?.cancel();
     analysisRequestRef.current?.cleanup();
     generationLifecycle.unmount();
+    supplementBlobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    supplementBlobUrlsRef.current.clear();
   }, []);
+
+  useEffect(() => {
+    [...extraProductImages, ...extraReferenceImages, ...extraPersonImages].forEach(image => {
+      if (image?.url?.startsWith('blob:')) supplementBlobUrlsRef.current.add(image.url);
+    });
+  }, [extraProductImages, extraReferenceImages, extraPersonImages]);
 
   useEffect(() => {
     if (previewImageIndex < 0) return undefined;
@@ -217,13 +256,27 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
       }, 4000);
 
       const uploadedSupplement = await uploadSupplementAssetsForAnalysis(analysisRequest.signal);
+      const semanticRoleImages = isTryOn ? {
+        items: mergeDirectionImages(initialTryOnItems, uploadedSupplement.product),
+        person: activePersonMode === 'reference' ? mergeDirectionImages(initialTryOnPerson, uploadedSupplement.person) : [],
+        scene: mergeDirectionImages(initialTryOnScene, uploadedSupplement.reference),
+      } : null;
 
       const res = await getDesignDirections({
         product_name: params?.productName || params?.description?.slice(0, 20) || '商品',
         description: extraDesc || params?.description || '',
         category: params?.category || '其他',
-        real_shots: [...(params?.realShots || []), ...uploadedSupplement.product],
-        ref_shots: [...(params?.refShots || []), ...uploadedSupplement.reference],
+        real_shots: isTryOn
+          ? semanticRoleImages.items
+          : [...(params?.realShots || []), ...uploadedSupplement.product],
+        ref_shots: isTryOn
+          ? semanticRoleImages.scene
+          : [...(params?.refShots || []), ...uploadedSupplement.reference],
+        ...(isTryOn ? {
+          abilityRecipe: params?.abilityRecipe || params?.ability_recipe || { id: abilityRecipeId, version: 1 },
+          personMode: activePersonMode,
+          roleImages: semanticRoleImages,
+        } : {}),
         platform: commerceContext.platform,
         content_type: commerceContext.contentType,
         target_language: commerceContext.targetLanguage,
@@ -355,14 +408,18 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     const rejected = checked.find(item => !item.result.valid);
     setSupplementError(rejected ? `${rejected.file.name || '图片'}：${rejected.result.error}` : '');
     if (validFiles.length) {
-      const setter = type === 'product' ? setExtraProductImages : setExtraReferenceImages;
+      const setter = type === 'product'
+        ? setExtraProductImages
+        : type === 'person' ? setExtraPersonImages : setExtraReferenceImages;
       setter(prev => appendSupplementFiles(prev, validFiles, { sourceType: type }));
       setBlockedByCredits(false);
     }
     event.target.value = '';
   };
   const removeSupplementImage = (type, index) => {
-    const setter = type === 'product' ? setExtraProductImages : setExtraReferenceImages;
+    const setter = type === 'product'
+      ? setExtraProductImages
+      : type === 'person' ? setExtraPersonImages : setExtraReferenceImages;
     setter(prev => {
       const removed = prev[index];
       if (removed?.url?.startsWith('blob:')) URL.revokeObjectURL(removed.url);
@@ -371,20 +428,22 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
   };
 
   const uploadSupplementAssets = async ({ generationToken, signal } = {}) => {
-    const [product, reference] = await Promise.all([
+    const [product, reference, person] = await Promise.all([
       uploadEcommerceAssets(extraProductImages, 'product', { signal }),
       uploadEcommerceAssets(extraReferenceImages, 'reference', { signal }),
+      isTryOn ? uploadEcommerceAssets(extraPersonImages, 'person', { signal }) : Promise.resolve([]),
     ]);
     const uploaded = resolveEcommerceSupplementUpload({
       product,
       reference,
+      person,
       generationToken,
       isGenerationCurrent,
     });
     if (!uploaded) return null;
     setExtraProductImages(uploaded.product);
     setExtraReferenceImages(uploaded.reference);
-    return uploaded;
+    return { ...uploaded, person: Array.isArray(person) ? person : [] };
   };
   const uploadSupplementAssetsForAnalysis = (signal) => uploadSupplementAssets({ signal });
   const uploadSupplementAssetsForGeneration = (generationToken, signal) => uploadSupplementAssets({ generationToken, signal });
@@ -422,6 +481,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     try {
       const uploadedSupplement = await uploadSupplementAssetsForGeneration(generationToken, generationSignal);
       if (!isGenerationCurrent(generationToken) || !uploadedSupplement) return;
+      const semanticRoleAssets = isTryOn ? {
+        items: mergeDirectionImages(initialTryOnItems, uploadedSupplement.product),
+        person: activePersonMode === 'reference' ? mergeDirectionImages(initialTryOnPerson, uploadedSupplement.person) : [],
+        scene: mergeDirectionImages(initialTryOnScene, uploadedSupplement.reference),
+      } : null;
+      const semanticAssetRoles = isTryOn ? buildAbilityAssetRoles(semanticRoleAssets) : [];
+      const abilityRecipe = isTryOn
+        ? (params?.abilityRecipe || params?.ability_recipe || { id: abilityRecipeId, version: 1 })
+        : undefined;
       const dir = directions[selected];
       const editableBrief = dir?.brief || dir?.execution_guide || dir?.description || dir?.short_desc || '';
       const directionBrief = [dir?.title, dir?.one_liner, editableBrief].filter(Boolean).join('。');
@@ -440,10 +508,16 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         },
         skus: params?.skus || [],
         customColors: params?.customColors || [],
-        originalProductAssets: params?.realShots || [],
-        supplementalProductAssets: uploadedSupplement.product,
-        originalReferenceAssets: params?.refShots || [],
-        supplementalReferenceAssets: uploadedSupplement.reference,
+        originalProductAssets: isTryOn ? semanticRoleAssets.items : params?.realShots || [],
+        supplementalProductAssets: isTryOn ? [] : uploadedSupplement.product,
+        originalReferenceAssets: isTryOn ? semanticRoleAssets.scene : params?.refShots || [],
+        supplementalReferenceAssets: isTryOn ? [] : uploadedSupplement.reference,
+        ...(isTryOn ? {
+          abilityRecipe,
+          personMode: activePersonMode,
+          roleAssets: semanticRoleAssets,
+          assetRoles: semanticAssetRoles,
+        } : {}),
         promptText: extraDesc,
         promptReferences: [
           { key: 'product_name', text: params?.productName || '' },
@@ -462,8 +536,14 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         targetLanguage: commerceContext.targetLanguage,
         commerceContext,
         email: state.phone,
-        refImgs: [...(params?.refShots || []), ...uploadedSupplement.reference],
-        realShots: [...(params?.realShots || []), ...uploadedSupplement.product],
+        refImgs: isTryOn ? [] : [...(params?.refShots || []), ...uploadedSupplement.reference],
+        realShots: isTryOn ? semanticRoleAssets.items : [...(params?.realShots || []), ...uploadedSupplement.product],
+        ...(isTryOn ? {
+          abilityRecipe,
+          roleAssets: semanticRoleAssets,
+          assetRoles: semanticAssetRoles,
+          personMode: activePersonMode,
+        } : {}),
         skus: params?.skus || [],
         detailPlan: params?.copywriting?.detailPlan || {},
         maintenance: params?.copywriting?.maintenance || '',
@@ -518,8 +598,16 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           targetLanguage: commerceContext.targetLanguage,
           commerceContext,
         }, {
-          productAssets: [...(params?.realShots || []), ...uploadedSupplement.product],
-          referenceAssets: [...(params?.refShots || []), ...uploadedSupplement.reference],
+          productAssets: isTryOn ? semanticRoleAssets.items : [...(params?.realShots || []), ...uploadedSupplement.product],
+          referenceAssets: isTryOn ? semanticRoleAssets.scene : [...(params?.refShots || []), ...uploadedSupplement.reference],
+          ...(isTryOn ? {
+            itemAssets: semanticRoleAssets.items,
+            personAssets: semanticRoleAssets.person,
+            sceneAssets: semanticRoleAssets.scene,
+            abilityRecipe,
+            personMode: activePersonMode,
+            assetRoles: semanticAssetRoles,
+          } : {}),
         });
 
         const phone = state.phone || '';
@@ -560,10 +648,24 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           },
           skus: params?.skus || [],
           customColors: params?.customColors || [],
-          originalProductAssets: params?.realShots || [],
+          originalProductAssets: isTryOn ? initialTryOnItems : params?.realShots || [],
           supplementalProductAssets: extraProductImages,
-          originalReferenceAssets: params?.refShots || [],
+          originalReferenceAssets: isTryOn ? initialTryOnScene : params?.refShots || [],
           supplementalReferenceAssets: extraReferenceImages,
+          ...(isTryOn ? {
+            abilityRecipe: params?.abilityRecipe || params?.ability_recipe || { id: abilityRecipeId, version: 1 },
+            personMode: activePersonMode,
+            roleAssets: {
+              items: mergeDirectionImages(initialTryOnItems, extraProductImages),
+              person: activePersonMode === 'reference' ? mergeDirectionImages(initialTryOnPerson, extraPersonImages) : [],
+              scene: mergeDirectionImages(initialTryOnScene, extraReferenceImages),
+            },
+            assetRoles: buildAbilityAssetRoles({
+              items: mergeDirectionImages(initialTryOnItems, extraProductImages),
+              person: activePersonMode === 'reference' ? mergeDirectionImages(initialTryOnPerson, extraPersonImages) : [],
+              scene: mergeDirectionImages(initialTryOnScene, extraReferenceImages),
+            }),
+          } : {}),
           promptText: extraDesc,
           promptReferences: [
             { key: 'product_name', text: params?.productName || '' },
@@ -626,8 +728,27 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     inheritedReferenceImages,
     addedReferenceImages: extraReferenceImages,
   });
+  const abilitySupplementRoleImages = isTryOn ? {
+    items: [
+      ...initialTryOnItems.map(image => ({ ...image, locked: true })),
+      ...normalizeDirectionImages(extraProductImages),
+    ],
+    person: [
+      ...initialTryOnPerson.map(image => ({ ...image, locked: true })),
+      ...normalizeDirectionImages(extraPersonImages),
+    ],
+    scene: [
+      ...initialTryOnScene.map(image => ({ ...image, locked: true })),
+      ...normalizeDirectionImages(extraReferenceImages),
+    ],
+  } : {};
   const inheritedProductCount = inheritedProductImages.length;
   const inheritedReferenceCount = inheritedReferenceImages.length;
+  const inheritedTryOnCounts = {
+    items: initialTryOnItems.length,
+    person: initialTryOnPerson.length,
+    scene: initialTryOnScene.length,
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100 }}>
@@ -731,6 +852,23 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
               <EcommerceWorkbench
                 productImages={supplementDeck.productImages}
                 refImages={supplementDeck.referenceImages}
+                roleImages={abilitySupplementRoleImages}
+                unmappedImages={params?.unmappedImages || []}
+                abilityRecipeId={abilityRecipeId}
+                personMode={activePersonMode}
+                onPersonModeChange={mode => setActivePersonMode(mode === 'reference' ? 'reference' : 'smart')}
+                onRoleUpload={isTryOn ? (role, event) => appendSupplementImages(
+                  event,
+                  role === 'items' ? 'product' : role === 'person' ? 'person' : 'reference',
+                ) : undefined}
+                onRoleRemove={isTryOn ? (role, index) => {
+                  const inheritedCount = inheritedTryOnCounts[role] || 0;
+                  if (index < inheritedCount) return;
+                  removeSupplementImage(
+                    role === 'items' ? 'product' : role === 'person' ? 'person' : 'reference',
+                    index - inheritedCount,
+                  );
+                } : undefined}
                 description={extraDesc}
                 onDescriptionChange={value => { setExtraDesc(value); setBlockedByCredits(false); }}
                 onProductUpload={event => appendSupplementImages(event, 'product')}

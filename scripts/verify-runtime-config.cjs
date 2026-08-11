@@ -18,9 +18,11 @@ const EXPECTED_RUNTIME_CONFIG = Object.freeze({
   NANO_BANANA_PRO_MODEL: 'gemini-3-pro-image',
   IP233_VIDEO_BASE_URL: 'https://api-new.ip233.com/v1',
   IP233_VIDEO_MODEL: 'sd5-seedance-2.0',
+  MINIMAX_VIDEO_PUBLIC_ENABLED: 'false',
 });
 
 const REQUIRED_KEYS = Object.freeze(['IMAGE_API_KEY', 'MINI_API_KEY', 'NANO_BANANA_API_KEY', 'VIDEO_API_KEY']);
+const OPTIONAL_SECRET_KEYS = Object.freeze(['MINIMAX_VIDEO_API_KEY']);
 const PLACEHOLDER_RE = /(?:your[-_ ]?key|example|placeholder|change[-_ ]?me|replace[-_ ]?me|x{3,})/i;
 
 function parseEnv(source) {
@@ -52,6 +54,12 @@ function validateRuntimeConfig(config) {
       throw new Error(`${key} is missing or looks like a placeholder`);
     }
   }
+  if (config.MINIMAX_VIDEO_API_KEY !== undefined && config.MINIMAX_VIDEO_API_KEY !== '') {
+    const candidate = String(config.MINIMAX_VIDEO_API_KEY).trim();
+    if (candidate.length < 24 || PLACEHOLDER_RE.test(candidate)) {
+      throw new Error('MINIMAX_VIDEO_API_KEY is malformed or looks like a placeholder');
+    }
+  }
 }
 
 function validatePrivateMode(mode, fileName) {
@@ -74,9 +82,9 @@ function verifyRuntimeConfigFiles(primaryPath, peerPath) {
   const primary = readRuntimeConfig(primaryPath);
   if (!peerPath) return primary;
   const peer = readRuntimeConfig(peerPath);
-  const comparableKeys = [...Object.keys(EXPECTED_RUNTIME_CONFIG), ...REQUIRED_KEYS];
+  const comparableKeys = [...Object.keys(EXPECTED_RUNTIME_CONFIG), ...REQUIRED_KEYS, ...OPTIONAL_SECRET_KEYS];
   for (const key of comparableKeys) {
-    if (primary.config[key] !== peer.config[key]) {
+    if ((primary.config[key] || '') !== (peer.config[key] || '')) {
       throw new Error(`${key} differs between runtime config files`);
     }
   }
@@ -94,6 +102,7 @@ function run(argv) {
 
 module.exports = {
   EXPECTED_RUNTIME_CONFIG,
+  OPTIONAL_SECRET_KEYS,
   parseEnv,
   validatePrivateMode,
   validateRuntimeConfig,

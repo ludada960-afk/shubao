@@ -8,7 +8,7 @@ const DEFAULT_MAX_DIMENSION = 12_000;
 const DEFAULT_PREVIEW_SIZE = 512;
 const ASSET_ID_RE = /^[a-f0-9]{64}\.(?:jpg|png|webp)$/;
 const REQUEST_FIELDS = new Set(['data', 'role', 'declaredMimeType']);
-const ROLES = new Set(['product', 'reference', 'style', 'proof']);
+const ROLES = new Set(['product', 'reference', 'style', 'proof', 'person', 'scene']);
 const FORMAT_DETAILS = Object.freeze({
   jpeg: { extension: 'jpg', mimeType: 'image/jpeg' },
   png: { extension: 'png', mimeType: 'image/png' },

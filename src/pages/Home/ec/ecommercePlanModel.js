@@ -331,6 +331,10 @@ export function buildEcommercePendingAction({
   supplementalProductAssets = [],
   originalReferenceAssets = [],
   supplementalReferenceAssets = [],
+  abilityRecipe,
+  personMode,
+  roleAssets,
+  assetRoles,
   promptText = '',
   promptReferences = [],
 } = {}) {
@@ -347,6 +351,23 @@ export function buildEcommercePendingAction({
       ?? direction?.one_liner,
     PENDING_TEXT_LIMITS.directionBrief,
   );
+  const normalizedAbilityRecipe = abilityRecipe && typeof abilityRecipe === 'object'
+    ? {
+      id: safeReferenceText(abilityRecipe.id, 64),
+      version: Number.isSafeInteger(abilityRecipe.version) ? abilityRecipe.version : 1,
+    }
+    : null;
+  const isTryOn = normalizedAbilityRecipe?.id === 'anything_tryon';
+  const normalizedRoleAssets = isTryOn && roleAssets && typeof roleAssets === 'object'
+    ? Object.fromEntries(['items', 'person', 'scene'].map(role => [role, uniqueAssetIds(roleAssets[role])]))
+    : null;
+  const normalizedAssetRoles = isTryOn
+    ? (Array.isArray(assetRoles) ? assetRoles : []).map(item => ({
+      assetId: safeReferenceText(item?.assetId, 160),
+      role: safeReferenceText(item?.role, 24),
+      ordinal: Number.isSafeInteger(item?.ordinal) && item.ordinal >= 0 ? item.ordinal : 0,
+    })).filter(item => item.assetId && ['items', 'person', 'scene'].includes(item.role))
+    : [];
   return {
     type: 'ecommerce_generate',
     ...(normalizedCommerceContext ? { commerceContext: normalizedCommerceContext } : {}),
@@ -382,6 +403,24 @@ export function buildEcommercePendingAction({
         supplemental: uniqueAssetIds(supplementalReferenceAssets),
       },
     },
+    ...(isTryOn ? {
+      abilityRecipe: normalizedAbilityRecipe,
+      personMode: personMode === 'reference' ? 'reference' : 'smart',
+      assetIds: {
+        product: {
+          original: uniqueAssetIds(originalProductAssets),
+          supplemental: uniqueAssetIds(supplementalProductAssets),
+        },
+        reference: {
+          original: uniqueAssetIds(originalReferenceAssets),
+          supplemental: uniqueAssetIds(supplementalReferenceAssets),
+        },
+        items: normalizedRoleAssets?.items || [],
+        person: normalizedRoleAssets?.person || [],
+        scene: normalizedRoleAssets?.scene || [],
+      },
+      assetRoles: normalizedAssetRoles,
+    } : {}),
     prompt: {
       text: safeReferenceText(promptText, PENDING_TEXT_LIMITS.promptText),
       references: pendingPromptReferences(promptReferences),

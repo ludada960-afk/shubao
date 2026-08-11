@@ -13,6 +13,7 @@ import { assertExecutionCount, validatePlanContract } from './planContract.mjs';
 import { ecommerceFeatureForItem } from './ecommerceBilling.mjs';
 import { ecommerceDeliveryMetadataForPlan } from './deliveryMetadata.mjs';
 import { normalizeCommerceContext } from './internationalCommerceRegistry.mjs';
+import { normalizeEcommerceAbilityPayload, TRY_ON_ID } from './abilityPayload.mjs';
 
 const PARENT_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const ASSET_FINAL_STATES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
@@ -375,6 +376,39 @@ async function assetsFromPayload(payload, { job, migrateLegacyVisualAsset }) {
     throw invalidVisualAssetInput('visual assets must be an object');
   }
   const explicit = isRecord(explicitValue) ? explicitValue : {};
+  const abilityRecipe = own(payload, 'ability_recipe');
+  const abilityId = cleanString(isRecord(abilityRecipe) ? own(abilityRecipe, 'id') : '');
+  if (abilityId === TRY_ON_ID) {
+    const items = await normalizeFormalAssetGroups(
+      suppliedAssetGroups(explicit, payload, ['items', 'products', 'product'], 'real_shots'),
+      'items',
+      { job, migrateLegacyVisualAsset },
+    );
+    const person = await normalizeFormalAssetGroups(
+      suppliedAssetGroups(explicit, payload, ['person', 'people'], 'person_images'),
+      'person',
+      { job, migrateLegacyVisualAsset },
+    );
+    const scene = await normalizeFormalAssetGroups(
+      suppliedAssetGroups(explicit, payload, ['scene', 'scenes'], 'scene_images'),
+      'scene',
+      { job, migrateLegacyVisualAsset },
+    );
+    const proof = normalizeAuxiliaryAssetGroup(
+      own(explicit, 'proof') ?? own(explicit, 'proofs') ?? own(payload, 'uploaded_proofs'),
+      'proof',
+    );
+    const protection = normalizeAuxiliaryAssetGroup(own(explicit, 'protection'), 'protection');
+    return {
+      product: items,
+      reference: [],
+      items,
+      person,
+      scene,
+      proof,
+      protection,
+    };
+  }
   const product = await normalizeFormalAssetGroups(
     suppliedAssetGroups(explicit, payload, ['product', 'products'], 'real_shots'),
     'product',
@@ -451,6 +485,8 @@ function commerceContextFromPayload(payload) {
 
 function campaignOverrides(payload, direction, assets) {
   const commerceContext = commerceContextFromPayload(payload);
+  const abilityId = cleanString(own(own(payload, 'ability_recipe'), 'id'));
+  const referenceAssets = abilityId === TRY_ON_ID ? assets.scene : assets.reference;
   return {
     editableBrief: own(direction, 'editableBrief')
       ?? own(direction, 'execution_guide')
@@ -460,7 +496,7 @@ function campaignOverrides(payload, direction, assets) {
     customColors: Array.isArray(own(payload, 'custom_colors')) ? own(payload, 'custom_colors') : [],
     referenceAssetIds: Array.isArray(own(payload, 'reference_asset_ids'))
       ? own(payload, 'reference_asset_ids')
-      : assets.reference.map(asset => asset.assetId),
+      : referenceAssets.map(asset => asset.assetId),
     category: cleanString(own(payload, 'category')),
     priceBand: cleanString(own(payload, 'price_band')),
     language: commerceContext.targetLanguage === 'visual' ? 'zh-CN' : commerceContext.locale,
@@ -538,12 +574,25 @@ function visualInputSnapshotFromProgress(progress) {
       if (!Array.isArray(group)) throw new TypeError(`${label} assets must be an array`);
       normalized[label] = group.map(asset => normalizeFormalAsset(asset, label));
     }
+    const abilityId = cleanString(own(own(snapshot, 'ability_recipe'), 'id'));
+    const hasSemanticAssets = abilityId === TRY_ON_ID
+      || ['items', 'person', 'scene'].some(label => Object.hasOwn(assets, label));
+    if (hasSemanticAssets) {
+      for (const label of ['items', 'person', 'scene']) {
+        const group = own(assets, label);
+        normalized[label] = Array.isArray(group)
+          ? group.map(asset => normalizeFormalAsset(asset, label))
+          : [];
+      }
+    }
   } catch (error) {
     throw Object.assign(invalidOrchestrationSnapshot(), { cause: error });
   }
   return sanitizeSnapshot({
     schemaVersion: VISUAL_INPUT_SNAPSHOT_VERSION,
     assets: normalized,
+    ...(isRecord(own(snapshot, 'ability_recipe')) ? { ability_recipe: own(snapshot, 'ability_recipe') } : {}),
+    ...(cleanString(own(snapshot, 'person_mode')) ? { person_mode: own(snapshot, 'person_mode') } : {}),
   });
 }
 
@@ -991,7 +1040,12 @@ export function createEcommerceOrchestrator(deps = {}) {
     const ownerEmail = cleanString(own(input, 'ownerEmail')).toLowerCase();
     if (!ownerEmail || !ownerEmail.includes('@')) throw httpError('登录信息无效', 401, 'AUTH_REQUIRED');
     const rawPayload = own(input, 'payload');
-    const payload = sanitizeSnapshot(rawPayload);
+    let payload;
+    try {
+      payload = normalizeEcommerceAbilityPayload(sanitizeSnapshot(rawPayload));
+    } catch (error) {
+      throw error?.status ? error : httpError(error?.message || '电商能力配置无效', 400, 'ECOMMERCE_ABILITY_INVALID');
+    }
     if (!cleanString(own(payload, 'product_name'))) {
       throw httpError('缺少商品名称', 400, 'PRODUCT_NAME_REQUIRED');
     }
@@ -1266,6 +1320,8 @@ export function createEcommerceOrchestrator(deps = {}) {
           productTruth,
           campaignBible,
           assets: own(job.payload, 'assets') ?? {},
+          abilityRecipe: own(job.payload, 'ability_recipe'),
+          personMode: own(job.payload, 'person_mode'),
         });
       }
       return compiledRequest;
@@ -1840,6 +1896,12 @@ export function createEcommerceOrchestrator(deps = {}) {
           visualInputSnapshot = sanitizeSnapshot({
             schemaVersion: VISUAL_INPUT_SNAPSHOT_VERSION,
             assets: inputAssets,
+            ...(isRecord(own(job.payload, 'ability_recipe'))
+              ? { ability_recipe: own(job.payload, 'ability_recipe') }
+              : {}),
+            ...(cleanString(own(job.payload, 'person_mode'))
+              ? { person_mode: own(job.payload, 'person_mode') }
+              : {}),
           });
           job = jobs.checkpoint(id, {
             progress: {
@@ -1850,7 +1912,16 @@ export function createEcommerceOrchestrator(deps = {}) {
           });
         }
         const inputAssets = visualInputSnapshot.assets;
-        const payload = { ...job.payload, assets: inputAssets };
+        const payload = {
+          ...job.payload,
+          assets: inputAssets,
+          ...(isRecord(own(visualInputSnapshot, 'ability_recipe'))
+            ? { ability_recipe: own(visualInputSnapshot, 'ability_recipe') }
+            : {}),
+          ...(cleanString(own(visualInputSnapshot, 'person_mode'))
+            ? { person_mode: own(visualInputSnapshot, 'person_mode') }
+            : {}),
+        };
         let visualAnalysisMode = 'primary';
         let visualAnalysisErrorCode = '';
         let visualAnalysis;
@@ -1899,6 +1970,12 @@ export function createEcommerceOrchestrator(deps = {}) {
             commerceContext,
             sizing: own(payload, 'sizing') || {},
             skus: own(payload, 'skus') || [],
+            ...(isRecord(own(payload, 'ability_recipe'))
+              ? { ability_recipe: own(payload, 'ability_recipe') }
+              : {}),
+            ...(cleanString(own(payload, 'person_mode'))
+              ? { person_mode: own(payload, 'person_mode') }
+              : {}),
           },
         });
         validateOrchestrationSnapshot(snapshot, { requireVisualAnalysis: true });
@@ -1920,6 +1997,12 @@ export function createEcommerceOrchestrator(deps = {}) {
       const payload = {
         ...job.payload,
         assets: deterministicInputs.assets,
+        ...(isRecord(own(deterministicInputs, 'ability_recipe'))
+          ? { ability_recipe: own(deterministicInputs, 'ability_recipe') }
+          : {}),
+        ...(cleanString(own(deterministicInputs, 'person_mode'))
+          ? { person_mode: own(deterministicInputs, 'person_mode') }
+          : {}),
       };
       let holdId = retryAssetPlan
         ? cleanString(own(job.progress, 'holdId'))

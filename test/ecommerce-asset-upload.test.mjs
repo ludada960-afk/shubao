@@ -126,6 +126,19 @@ test('detects actual PNG MIME for raw base64 and ignores a false client declarat
   assert.deepEqual((await generatedAssetStore.read(result.original.assetId)).buffer, png);
 });
 
+test('accepts semantic person and scene roles without changing the durable asset contract', async (t) => {
+  const { service } = await harness(t);
+  const png = await fixture('png');
+  for (const role of ['person', 'scene']) {
+    const result = await service.upload({
+      ownerEmail: 'owner@example.com',
+      body: { role, data: png.toString('base64') },
+    });
+    assert.equal(result.original.role, role);
+    assert.equal(result.preview.role, role);
+  }
+});
+
 test('normalizes decoded WebP and AVIF uploads to lossless PNG originals', async (t) => {
   const { generatedAssetStore, service } = await harness(t);
   for (const format of ['webp', 'avif']) {

@@ -369,6 +369,40 @@ test('ecommerce pending action rejects actual image payloads without deleting no
   assert.equal(binaryPrompt.prompt.text, '');
 });
 
+test('try-on pending action persists the recipe, person mode, semantic assets, and role manifest', async () => {
+  const { buildEcommercePendingAction } = await planModel();
+  const itemId = `${'1'.repeat(64)}.png`;
+  const personId = `${'2'.repeat(64)}.png`;
+  const sceneId = `${'3'.repeat(64)}.png`;
+
+  const pending = buildEcommercePendingAction({
+    platform: '淘宝',
+    abilityRecipe: { id: 'anything_tryon', version: 1 },
+    personMode: 'reference',
+    roleAssets: {
+      items: [{ assetId: itemId }],
+      person: [{ assetId: personId }],
+      scene: [{ assetId: sceneId }],
+    },
+    assetRoles: [
+      { assetId: itemId, role: 'items', ordinal: 0 },
+      { assetId: personId, role: 'person', ordinal: 0 },
+      { assetId: sceneId, role: 'scene', ordinal: 0 },
+    ],
+  });
+
+  assert.deepEqual(pending.abilityRecipe, { id: 'anything_tryon', version: 1 });
+  assert.equal(pending.personMode, 'reference');
+  assert.deepEqual(pending.assetIds.items, [itemId]);
+  assert.deepEqual(pending.assetIds.person, [personId]);
+  assert.deepEqual(pending.assetIds.scene, [sceneId]);
+  assert.deepEqual(pending.assetRoles, [
+    { assetId: itemId, role: 'items', ordinal: 0 },
+    { assetId: personId, role: 'person', ordinal: 0 },
+    { assetId: sceneId, role: 'scene', ordinal: 0 },
+  ]);
+});
+
 test('re-quote invalidation changes the request dependency without changing the plan', async () => {
   const {
     ecommerceQuoteRequestKey,

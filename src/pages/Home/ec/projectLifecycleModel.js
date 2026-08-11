@@ -14,6 +14,10 @@ export const EMPTY_ECOMMERCE_EDITOR = Object.freeze({
   genSettings: Object.freeze({ resolution: '2K', negativePrompt: '' }),
   productImages: Object.freeze([]),
   referenceImages: Object.freeze([]),
+  abilityRecipe: null,
+  personMode: 'smart',
+  roleImages: Object.freeze({ items: Object.freeze([]), person: Object.freeze([]), scene: Object.freeze([]) }),
+  unmappedImages: Object.freeze([]),
 });
 
 function clone(value) {
@@ -52,6 +56,28 @@ export function restoreCheckpointIntoEditor(checkpoint) {
   if (Array.isArray(source.skus)) editor.skus = clone(source.skus);
   if (Array.isArray(source.productImages)) editor.productImages = clone(source.productImages);
   if (Array.isArray(source.referenceImages)) editor.referenceImages = clone(source.referenceImages);
+  if (source.ability_recipe && typeof source.ability_recipe === 'object' && !Array.isArray(source.ability_recipe)) {
+    editor.abilityRecipe = clone(source.ability_recipe);
+  } else if (source.abilityRecipe && typeof source.abilityRecipe === 'object' && !Array.isArray(source.abilityRecipe)) {
+    editor.abilityRecipe = clone(source.abilityRecipe);
+  }
+  if (source.person_mode === 'reference' || source.personMode === 'reference') {
+    editor.personMode = 'reference';
+  }
+  if (source.roleImages && typeof source.roleImages === 'object' && !Array.isArray(source.roleImages)) {
+    editor.roleImages = {
+      items: Array.isArray(source.roleImages.items) ? clone(source.roleImages.items) : [],
+      person: Array.isArray(source.roleImages.person) ? clone(source.roleImages.person) : [],
+      scene: Array.isArray(source.roleImages.scene) ? clone(source.roleImages.scene) : [],
+    };
+  } else if (source.assets && typeof source.assets === 'object' && !Array.isArray(source.assets)) {
+    editor.roleImages = {
+      items: Array.isArray(source.assets.items) ? clone(source.assets.items) : [],
+      person: Array.isArray(source.assets.person) ? clone(source.assets.person) : [],
+      scene: Array.isArray(source.assets.scene) ? clone(source.assets.scene) : [],
+    };
+  }
+  if (Array.isArray(source.unmappedImages)) editor.unmappedImages = clone(source.unmappedImages);
   if (Array.isArray(source.customColors) || source.customColors === null) editor.customColors = clone(source.customColors);
   return editor;
 }

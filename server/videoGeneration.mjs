@@ -3,13 +3,29 @@ import fs from 'node:fs';
 import { rename, stat, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { quoteFeature } from './billing/catalog.mjs';
+import {
+  DEFAULT_VIDEO_PRODUCT_ID,
+  VIDEO_CATALOG_VERSION,
+  VIDEO_PRODUCTS,
+  getVideoProduct,
+  validateVideoProductInput,
+  videoFeatureSku as catalogVideoFeatureSku,
+} from './videoCatalog.mjs';
+import {
+  buildProviderPayload,
+  createVideoProviderRegistry,
+  isVideoProviderFailure,
+} from './videoProviders.mjs';
+import { createOwnerFairVideoQueue } from './videoQueue.mjs';
 
 const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
 const ACTIVE_STATUSES = new Set(['queued', 'submitting', 'processing']);
 const RATIOS = new Set(['21:9', '16:9', '4:3', '1:1', '3:4', '9:16']);
-const RESOLUTIONS = new Set(['480p', '720p']);
 const INPUT_LIMITS = Object.freeze({ image: 10 * 1024 * 1024, video: 50 * 1024 * 1024, audio: 15 * 1024 * 1024 });
 const OUTPUT_LIMIT = 100 * 1024 * 1024;
+const CIRCUIT_MIN_SAMPLES = 5;
+const CIRCUIT_WINDOW = 20;
+const CIRCUIT_COOLDOWN_MS = 15 * 60 * 1000;
 const CONTENT_TYPES = Object.freeze({
   image: new Set(['image/jpeg', 'image/png', 'image/webp']),
   video: new Set(['video/mp4', 'video/webm', 'video/quicktime']),
@@ -24,10 +40,8 @@ function httpError(status, code, message, details = {}) {
   return Object.assign(new Error(message), { status, code, ...details });
 }
 
-export function videoFeatureSku({ resolution, duration }) {
-  const safeResolution = RESOLUTIONS.has(resolution) ? resolution : '480p';
-  const suffix = Number(duration) <= 8 ? 'short' : 'long';
-  return `video_seedance_${safeResolution}_${suffix}`;
+export function videoFeatureSku({ productId = DEFAULT_VIDEO_PRODUCT_ID, duration } = {}) {
+  return catalogVideoFeatureSku({ productId, duration });
 }
 
 function parseJson(value, fallback) {
@@ -41,6 +55,11 @@ function serializeJob(row) {
     status: row.status,
     mode: row.mode,
     sku: row.sku,
+    productId: row.product_id || DEFAULT_VIDEO_PRODUCT_ID,
+    providerRoute: row.provider_route || 'sd5-seedance-2.0',
+    catalogVersion: row.catalog_version || 'legacy-seedance-v1',
+    providerCostCny: Number(row.provider_cost_cny ?? 4.355),
+    failureClass: row.failure_class || '',
     prompt: row.prompt,
     duration: row.duration,
     aspectRatio: row.aspect_ratio,
@@ -143,9 +162,15 @@ export function createVideoGeneration({
   upsertWork,
   assetRoot,
   apiKey,
+  minimaxApiKey,
+  credentials,
   baseUrl,
+  minimaxBaseUrl,
   model,
   fetchImpl,
+  providerRegistry,
+  allowHiddenProducts = false,
+  now = Date.now,
   pollIntervalMs = 5000,
   maxConcurrent = 2,
 } = {}) {
@@ -188,6 +213,12 @@ export function createVideoGeneration({
       result_asset_id TEXT NOT NULL DEFAULT '',
       result_url TEXT NOT NULL DEFAULT '',
       error TEXT NOT NULL DEFAULT '',
+      product_id TEXT NOT NULL DEFAULT 'seedance_standard',
+      provider_route TEXT NOT NULL DEFAULT 'sd5-seedance-2.0',
+      catalog_version TEXT NOT NULL DEFAULT 'legacy-seedance-v1',
+      provider_cost_cny REAL NOT NULL DEFAULT 4.355,
+      failure_class TEXT NOT NULL DEFAULT '',
+      quote_id TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       UNIQUE(owner_email, idempotency_key)
@@ -195,12 +226,37 @@ export function createVideoGeneration({
     CREATE INDEX IF NOT EXISTS idx_video_jobs_owner ON video_jobs(owner_email, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_video_jobs_status ON video_jobs(status, updated_at);
   `);
+  const columns = new Set(db.prepare('PRAGMA table_info(video_jobs)').all().map(column => column.name));
+  const migrations = [
+    ['product_id', "TEXT NOT NULL DEFAULT 'seedance_standard'"],
+    ['provider_route', "TEXT NOT NULL DEFAULT 'sd5-seedance-2.0'"],
+    ['catalog_version', "TEXT NOT NULL DEFAULT 'legacy-seedance-v1'"],
+    ['provider_cost_cny', 'REAL NOT NULL DEFAULT 4.355'],
+    ['failure_class', "TEXT NOT NULL DEFAULT ''"],
+    ['quote_id', "TEXT NOT NULL DEFAULT ''"],
+  ];
+  for (const [column, definition] of migrations) {
+    if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
+  }
 
-  const provider = createVideoProvider({ apiKey, baseUrl, model, fetchImpl });
+  const registry = providerRegistry || createVideoProviderRegistry({
+    baseUrl,
+    minimaxBaseUrl,
+    credentials: {
+      seedance: credentials?.seedance || apiKey || '',
+      minimax: credentials?.minimax || minimaxApiKey || '',
+    },
+    fetchImpl,
+  });
   const selectJob = db.prepare('SELECT * FROM video_jobs WHERE id = ?');
-  const active = new Set();
-  const queued = [];
-  let running = 0;
+  const routeCapacities = Object.fromEntries(Object.values(VIDEO_PRODUCTS).map(product => [
+    product.routeId,
+    maxConcurrent === 0 ? 0 : Math.min(product.concurrency, Math.max(1, Number(maxConcurrent) || product.concurrency)),
+  ]));
+  const queue = createOwnerFairVideoQueue({ capacities: routeCapacities });
+  const retryTimers = new Set();
+  const circuitStates = new Map();
+  let closed = false;
 
   function jobForOwner(ownerEmail, id) {
     return db.prepare('SELECT * FROM video_jobs WHERE id = ? AND owner_email = ?').get(id, ownerEmail);
@@ -212,6 +268,92 @@ export function createVideoGeneration({
     db.prepare(`UPDATE video_jobs SET ${entries.map(([key]) => `${key} = ?`).join(', ')}, updated_at = datetime('now', 'localtime') WHERE id = ?`)
       .run(...entries.map(([, value]) => value), id);
     return selectJob.get(id);
+  }
+
+  function nowMs() {
+    const value = Number(now());
+    return Number.isFinite(value) ? Math.trunc(value) : Date.now();
+  }
+
+  function circuitHistory(routeId) {
+    return db.prepare(`SELECT id, status, failure_class FROM video_jobs
+      WHERE provider_route = ? AND provider_task_id <> '' AND status IN ('completed', 'failed')
+      ORDER BY updated_at DESC, rowid DESC LIMIT ?`).all(routeId, CIRCUIT_WINDOW);
+  }
+
+  function historySignature(rows) {
+    return rows.map(row => `${row.id}:${row.status}:${row.failure_class}`).join('|');
+  }
+
+  function shouldOpenCircuit(rows) {
+    if (rows.length < CIRCUIT_MIN_SAMPLES) return false;
+    const failures = rows.filter(row => row.status === 'failed' && row.failure_class === 'provider').length;
+    const consecutiveFailures = rows.slice(0, 3).length === 3
+      && rows.slice(0, 3).every(row => row.status === 'failed' && row.failure_class === 'provider');
+    return consecutiveFailures || failures / rows.length >= 0.5;
+  }
+
+  function circuitHealth(productId) {
+    const product = getVideoProduct(productId);
+    const provider = registry.get(product.id);
+    if (!provider?.enabled) return { status: 'unavailable', reason: 'credential_missing' };
+    const rows = circuitHistory(product.routeId);
+    const signature = historySignature(rows);
+    let state = circuitStates.get(product.routeId);
+    if (state?.suppressedSignature === signature && !state.openedAt) {
+      return { status: 'ready', reason: '' };
+    }
+    if (!state) {
+      state = { openedAt: 0, halfOpenInFlight: false, suppressedSignature: '' };
+      circuitStates.set(product.routeId, state);
+    }
+    if (!state.openedAt && shouldOpenCircuit(rows)) state.openedAt = nowMs();
+    if (!state.openedAt) return { status: 'ready', reason: '' };
+    if (nowMs() - state.openedAt < CIRCUIT_COOLDOWN_MS) {
+      return { status: 'open', reason: 'provider_unhealthy', retryAt: state.openedAt + CIRCUIT_COOLDOWN_MS };
+    }
+    return { status: 'half_open', reason: 'provider_probe_required', probeInFlight: state.halfOpenInFlight };
+  }
+
+  function admitProduct(productId) {
+    const product = getVideoProduct(productId);
+    const health = circuitHealth(product.id);
+    if (health.status === 'ready') return health;
+    if (health.status === 'half_open') {
+      const state = circuitStates.get(product.routeId);
+      if (!state.halfOpenInFlight) {
+        state.halfOpenInFlight = true;
+        return { status: 'probe', reason: '' };
+      }
+    }
+    throw httpError(503, 'VIDEO_PRODUCT_UNAVAILABLE', '该视频产品暂时不可用，请稍后再试', { retryable: true });
+  }
+
+  function releaseProductProbe(productId) {
+    const product = getVideoProduct(productId);
+    const state = circuitStates.get(product.routeId);
+    if (state?.halfOpenInFlight) state.halfOpenInFlight = false;
+  }
+
+  function recordCircuitOutcome(job, success) {
+    if (!job?.provider_route || !job?.provider_task_id) return;
+    const state = circuitStates.get(job.provider_route);
+    if (state?.halfOpenInFlight) {
+      state.halfOpenInFlight = false;
+      if (success) {
+        state.openedAt = 0;
+        state.suppressedSignature = historySignature(circuitHistory(job.provider_route));
+      } else {
+        state.openedAt = nowMs();
+        state.suppressedSignature = '';
+      }
+      return;
+    }
+    if (!success && shouldOpenCircuit(circuitHistory(job.provider_route))) {
+      const next = state || { halfOpenInFlight: false, suppressedSignature: '' };
+      next.openedAt = nowMs();
+      circuitStates.set(job.provider_route, next);
+    }
   }
 
   function publicAssetUrl(publicBaseUrl, id) {
@@ -263,27 +405,12 @@ export function createVideoGeneration({
     };
   }
 
-  function providerPayload(job) {
-    const refs = parseJson(job.refs_json, {});
-    const urls = refs.urls || {};
-    const payload = {
-      prompt: job.prompt,
-      duration: job.duration,
-      aspect_ratio: job.aspect_ratio,
-      resolution: job.resolution,
-      generate_audio: job.generate_audio === 1,
-      seed: job.seed,
-    };
-    if (job.negative_prompt) payload.negative_prompt = job.negative_prompt;
-    if (job.mode === 'frame') {
-      payload.first_image_url = urls[refs.firstImage];
-      payload.last_image_url = urls[refs.lastImage];
-    } else if (job.mode !== 'script') {
-      payload.reference_image_urls = refs.images.map(id => urls[id]);
-      payload.reference_video_urls = refs.videos.map(id => urls[id]);
-      payload.reference_audio_urls = refs.audios.map(id => urls[id]);
+  function providerForJob(job) {
+    const provider = registry.get(job.product_id);
+    if (!provider?.enabled || provider.routeId !== job.provider_route) {
+      throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中', { retryable: true });
     }
-    return payload;
+    return provider;
   }
 
   async function persistOutput(job, response) {
@@ -304,21 +431,29 @@ export function createVideoGeneration({
   }
 
   async function complete(job, output) {
-    const quote = quoteFeature(job.sku, 1);
     const settlement = walletService.settleItem(job.hold_id, 'video', {
       referenceType: 'video_generation',
       referenceId: output.id,
-      providerCostCny: quote.providerCostCny,
+      providerCostCny: Number(job.provider_cost_cny),
       idempotencyKey: `video-settle:${job.id}`,
-      metadata: { taskId: job.id, model: provider.model, resolution: job.resolution, duration: job.duration },
+      metadata: {
+        taskId: job.id,
+        productId: job.product_id,
+        providerRoute: job.provider_route,
+        catalogVersion: job.catalog_version,
+        resolution: job.resolution,
+        duration: job.duration,
+      },
     });
-    updateJob(job.id, {
+    const completedJob = updateJob(job.id, {
       status: 'completed',
       progress: 100,
       result_asset_id: output.id,
       result_url: output.url,
       error: '',
+      failure_class: '',
     });
+    recordCircuitOutcome(completedJob, true);
     upsertWork({
       _saveKey: `video:${job.id}`,
       _phone: job.owner_email,
@@ -337,34 +472,47 @@ export function createVideoGeneration({
         aspectRatio: job.aspect_ratio,
         resolution: job.resolution,
         generateAudio: job.generate_audio === 1,
-        model: provider.model,
+        productId: job.product_id,
       },
-      billing: { status: settlement.status, currency: quote.currency },
+      billing: { status: settlement.status, currency: 'ec_points' },
     }, { ownerEmail: job.owner_email });
   }
 
   async function fail(job, error) {
+    const failureClass = isVideoProviderFailure(error) ? 'provider' : 'delivery';
     try {
       walletService.releaseItem(job.hold_id, 'video', {
         reason: `video_failed:${clean(error?.code || error?.message, 100) || 'unknown'}`,
         idempotencyKey: `video-release:${job.id}`,
-        metadata: { taskId: job.id, model: provider.model },
+        metadata: { taskId: job.id, productId: job.product_id, providerRoute: job.provider_route },
       });
     } catch {}
-    updateJob(job.id, { status: 'failed', error: '本次没有交付成片，冻结积分已退回', progress: 0 });
+    const failedJob = updateJob(job.id, {
+      status: 'failed',
+      error: '本次没有交付成片，冻结积分已退回',
+      progress: 0,
+      failure_class: failureClass,
+    });
+    recordCircuitOutcome(failedJob, false);
   }
 
   async function processJob(id) {
     let job = selectJob.get(id);
     if (!job || FINAL_STATUSES.has(job.status)) return;
+    if (closed) return;
+    let provider;
     try {
+      provider = providerForJob(job);
       if (!job.provider_task_id) {
         if (job.status === 'submitting') {
           updateJob(id, { status: 'needs_review', error: '上游受理结果待确认，未重复提交也未结算积分' });
           return;
         }
         updateJob(id, { status: 'submitting', error: '' });
-        const submitted = await provider.submit(providerPayload(job), job.id);
+        const submitted = await provider.submit(buildProviderPayload({
+          product: getVideoProduct(job.product_id),
+          job,
+        }).body, job.id);
         job = updateJob(id, {
           status: 'processing',
           provider_task_id: clean(submitted.id, 200),
@@ -372,7 +520,9 @@ export function createVideoGeneration({
         });
       }
       let transientFailures = 0;
-      for (let attempt = 0; attempt < 1440; attempt += 1) {
+      const product = getVideoProduct(job.product_id);
+      const interval = Math.max(1, Number(pollIntervalMs || product.pollIntervalMs) || product.pollIntervalMs);
+      for (let attempt = 0; attempt < 1440 && !closed; attempt += 1) {
         let result;
         try {
           result = await provider.get(job.provider_task_id);
@@ -380,56 +530,56 @@ export function createVideoGeneration({
         } catch (error) {
           if (!error?.retryable || transientFailures >= 20) throw error;
           transientFailures += 1;
-          await new Promise(resolveDelay => setTimeout(resolveDelay, pollIntervalMs));
+          await new Promise(resolveDelay => setTimeout(resolveDelay, interval));
           continue;
         }
         const status = clean(result.status, 40).toLowerCase();
         const progress = Math.max(job.progress || 0, Math.min(99, Number(result.progress) || 0));
         updateJob(id, { status: 'processing', progress });
         if (status === 'completed') {
-          const output = await persistOutput(job, await provider.download(job.provider_task_id));
+          const output = await persistOutput(job, await provider.download(job.provider_task_id, result));
           await complete(job, output);
           return;
         }
         if (['failed', 'cancelled', 'canceled', 'error'].includes(status)) {
           throw httpError(502, 'VIDEO_PROVIDER_FAILED', '上游未能生成视频');
         }
-        await new Promise(resolveDelay => setTimeout(resolveDelay, pollIntervalMs));
+        await new Promise(resolveDelay => setTimeout(resolveDelay, interval));
       }
+      if (closed) return;
       throw httpError(504, 'VIDEO_PROVIDER_TIMEOUT', '视频任务仍未完成', { retryable: true });
     } catch (error) {
       job = selectJob.get(id) || job;
       if (error?.retryable && job.provider_task_id) {
         updateJob(id, { status: 'processing', error: '上游连接波动，正在自动继续确认' });
-        const timer = setTimeout(() => enqueue(id), 15_000);
+        const timer = setTimeout(() => {
+          retryTimers.delete(timer);
+          enqueue(id);
+        }, 15_000);
         timer.unref?.();
+        retryTimers.add(timer);
+        return;
+      }
+      if (error?.code === 'VIDEO_PROVIDER_UNREACHABLE' && !job.provider_task_id) {
+        updateJob(id, { status: 'needs_review', error: '上游受理结果待确认，未重复提交也未结算积分', failure_class: 'submission_unknown' });
         return;
       }
       await fail(job, error);
     }
   }
 
-  function drain() {
-    while (running < maxConcurrent && queued.length) {
-      const id = queued.shift();
-      if (active.has(id)) continue;
-      active.add(id);
-      running += 1;
-      void processJob(id).finally(() => {
-        active.delete(id);
-        running -= 1;
-        drain();
-      });
-    }
-  }
-
   function enqueue(id) {
-    if (!active.has(id) && !queued.includes(id)) queued.push(id);
-    drain();
+    const job = selectJob.get(id);
+    if (!job || FINAL_STATUSES.has(job.status)) return false;
+    return queue.enqueue({
+      routeId: job.provider_route,
+      ownerEmail: job.owner_email,
+      jobId: id,
+      task: () => processJob(id),
+    });
   }
 
   async function createJob({ ownerEmail, idempotencyKey, billingQuoteId, publicBaseUrl, input }) {
-    if (!provider.enabled) throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中');
     const requestKey = clean(idempotencyKey, 120);
     if (!requestKey) throw httpError(400, 'VIDEO_IDEMPOTENCY_REQUIRED', '缺少防重复提交标识');
     const replay = db.prepare('SELECT * FROM video_jobs WHERE owner_email = ? AND idempotency_key = ?').get(ownerEmail, requestKey);
@@ -437,57 +587,118 @@ export function createVideoGeneration({
     const activeCount = db.prepare("SELECT COUNT(*) AS count FROM video_jobs WHERE owner_email = ? AND status IN ('queued','submitting','processing')").get(ownerEmail).count;
     if (activeCount >= 2) throw httpError(429, 'VIDEO_USER_CONCURRENCY_LIMIT', '同一账号最多同时处理 2 个视频任务');
 
-    const prompt = clean(input?.prompt, 1200);
+    const productId = clean(input?.productId || DEFAULT_VIDEO_PRODUCT_ID, 80);
+    let product;
+    try { product = getVideoProduct(productId); } catch (error) {
+      throw httpError(400, 'VIDEO_PRODUCT_INVALID', error.message);
+    }
+    if (!product.public && !allowHiddenProducts) {
+      throw httpError(400, 'VIDEO_PRODUCT_UNAVAILABLE', '该视频产品暂未开放');
+    }
+    if (!registry.get(product.id)?.enabled) {
+      throw httpError(503, 'VIDEO_PROVIDER_NOT_CONFIGURED', '视频服务正在配置中');
+    }
+    const prompt = clean(input?.prompt, 7000);
     const negativePrompt = clean(input?.negativePrompt, 1200);
     const duration = Number(input?.duration);
-    const resolution = clean(input?.resolution, 20);
+    const resolution = clean(input?.resolution, 20).toLowerCase();
     const aspectRatio = clean(input?.aspectRatio, 20);
     const mode = ['script', 'frame', 'reference', 'remake'].includes(input?.mode) ? input.mode : 'script';
     const seed = Number.isSafeInteger(Number(input?.seed)) ? Number(input.seed) : 0;
     if (!prompt) throw httpError(400, 'VIDEO_PROMPT_REQUIRED', '请输入视频内容');
-    if (!Number.isSafeInteger(duration) || duration < 4 || duration > 15) throw httpError(400, 'VIDEO_DURATION_INVALID', '视频时长必须为 4 到 15 秒');
-    if (!RESOLUTIONS.has(resolution) || !RATIOS.has(aspectRatio)) throw httpError(400, 'VIDEO_FORMAT_INVALID', '视频规格不支持');
+    try {
+      validateVideoProductInput({
+        productId: product.id,
+        duration,
+        mode,
+        resolution,
+        generateAudio: input?.generateAudio !== false,
+      });
+    } catch (error) {
+      throw httpError(400, 'VIDEO_PRODUCT_INPUT_INVALID', error.message);
+    }
+    if (!RATIOS.has(aspectRatio)) throw httpError(400, 'VIDEO_FORMAT_INVALID', '视频规格不支持');
     const references = normalizeReferences(ownerEmail, input?.references, publicBaseUrl);
     if (mode === 'frame' && (!references.firstImage || !references.lastImage)) throw httpError(400, 'VIDEO_FRAME_REQUIRED', '首尾帧模式需要两张图片');
-    if (mode === 'reference' && !references.images.length && !references.videos.length && !references.audios.length) {
-      throw httpError(400, 'VIDEO_REFERENCE_REQUIRED', '多模态参考至少需要一个图片、视频或音频素材');
+    if (mode === 'reference' && !references.images.length && !references.videos.length) {
+      throw httpError(400, 'VIDEO_VISUAL_REFERENCE_REQUIRED', references.audios.length
+        ? '音频不能单独生成视频，请补充图片或视频素材'
+        : '多模态参考至少需要一个图片或视频素材');
     }
     if (mode === 'remake' && !references.images.length) throw httpError(400, 'VIDEO_REFERENCE_IMAGE_REQUIRED', '爆款重构至少需要一张商品图片');
     if (mode === 'remake' && !references.videos.length) throw httpError(400, 'VIDEO_REMAKE_SOURCE_REQUIRED', '爆款重构需要一个参考视频');
 
-    const sku = videoFeatureSku({ resolution, duration });
+    const sku = videoFeatureSku({ productId: product.id, duration });
     const expectedQuote = quoteFeature(sku, 1);
     const verified = quoteService.verify({ quoteId: clean(billingQuoteId, 5000), ownerEmail, expectedQuote });
     const id = crypto.randomUUID();
+    const admission = admitProduct(product.id);
     let hold;
     try {
-      hold = walletService.createHold({
-        ownerEmail,
-        currency: verified.currency,
-        quoteId: verified.quoteId,
-        idempotencyKey: `video-hold:${id}`,
-        expiresAt: verified.expiresAt,
-        items: [{ key: 'video', sku, units: expectedQuote.units }],
-        metadata: { source: 'video_generation', taskId: id, model: provider.model },
-      });
-    } catch (error) {
-      if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
-        const balance = walletService.getBalance(ownerEmail, expectedQuote.currency);
-        throw httpError(402, error.code, 'AI 积分不足，请购买套餐后继续', {
-          required: expectedQuote.totalUnits,
-          available: balance.unlimited ? expectedQuote.totalUnits : balance.availableUnits,
+      try {
+        hold = walletService.createHold({
+          ownerEmail,
+          currency: verified.currency,
+          quoteId: verified.quoteId,
+          idempotencyKey: `video-hold:${id}`,
+          expiresAt: verified.expiresAt,
+          items: [{ key: 'video', sku, units: expectedQuote.units }],
+          metadata: {
+            source: 'video_generation',
+            taskId: id,
+            productId: product.id,
+            providerRoute: product.routeId,
+            catalogVersion: VIDEO_CATALOG_VERSION,
+          },
         });
+      } catch (error) {
+        if (error?.code === 'BILLING_INSUFFICIENT_CREDITS') {
+          const balance = walletService.getBalance(ownerEmail, expectedQuote.currency);
+          throw httpError(402, error.code, 'AI 积分不足，请购买套餐后继续', {
+            required: expectedQuote.totalUnits,
+            available: balance.unlimited ? expectedQuote.totalUnits : balance.availableUnits,
+          });
+        }
+        throw error;
+      }
+      db.prepare(`INSERT INTO video_jobs (
+        id, owner_email, idempotency_key, status, mode, sku, prompt, negative_prompt,
+        duration, aspect_ratio, resolution, generate_audio, seed, refs_json, hold_id,
+        product_id, provider_route, catalog_version, provider_cost_cny, failure_class, quote_id
+      ) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        id, ownerEmail, requestKey, mode, sku, prompt, negativePrompt, duration, aspectRatio,
+        resolution, input?.generateAudio === false ? 0 : 1, seed, JSON.stringify(references), hold.id,
+        product.id, product.routeId, VIDEO_CATALOG_VERSION, expectedQuote.providerCostCny, '', verified.quoteId,
+      );
+    } catch (error) {
+      if (admission.status === 'probe') releaseProductProbe(product.id);
+      if (hold) {
+        try {
+          walletService.releaseItem(hold.id, 'video', {
+            reason: 'video_create_persist_failed',
+            idempotencyKey: `video-release:${id}`,
+            metadata: { taskId: id, productId: product.id, providerRoute: product.routeId },
+          });
+        } catch {}
       }
       throw error;
     }
-    db.prepare(`INSERT INTO video_jobs (
-      id, owner_email, idempotency_key, status, mode, sku, prompt, negative_prompt,
-      duration, aspect_ratio, resolution, generate_audio, seed, refs_json, hold_id
-    ) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, ownerEmail, requestKey, mode, sku, prompt, negativePrompt, duration, aspectRatio,
-      resolution, input?.generateAudio === false ? 0 : 1, seed, JSON.stringify(references), hold.id,
-    );
-    enqueue(id);
+    if (!enqueue(id)) {
+      if (admission.status === 'probe') releaseProductProbe(product.id);
+      try {
+        walletService.releaseItem(hold.id, 'video', {
+          reason: 'video_queue_closed',
+          idempotencyKey: `video-release:${id}`,
+          metadata: { taskId: id, productId: product.id, providerRoute: product.routeId },
+        });
+      } catch {}
+      updateJob(id, {
+        status: 'failed',
+        error: '视频队列暂时不可用，冻结积分已退回',
+        failure_class: 'delivery',
+      });
+      throw httpError(503, 'VIDEO_QUEUE_UNAVAILABLE', '视频队列暂时不可用，请稍后重试', { retryable: true });
+    }
     return { job: serializeJob(selectJob.get(id)), replay: false };
   }
 
@@ -516,19 +727,34 @@ export function createVideoGeneration({
 
   return {
     capabilities() {
+      const products = registry.publicProducts({ includeHidden: allowHiddenProducts })
+        .map(product => ({
+          ...product,
+          availability: circuitHealth(product.id).status,
+        }))
+        .filter(product => ['ready', 'probe'].includes(product.availability));
+      const defaultProduct = products.find(product => product.default) || products[0] || null;
+      const resolutions = [...new Set(products.flatMap(product => product.resolutions))];
+      const durations = products.length
+        ? {
+          min: Math.min(...products.map(product => product.durations.min)),
+          max: Math.max(...products.map(product => product.durations.max)),
+        }
+        : { min: 0, max: 0 };
+      const qualities = products.flatMap(product => [
+        { productId: product.id, sku: product.quotes.short.sku, duration: `${product.durations.min}-${Math.min(8, product.durations.max)}`, points: product.quotes.short.points },
+        { productId: product.id, sku: product.quotes.long.sku, duration: '9-15', points: product.quotes.long.points },
+      ]);
       return {
-        generationEnabled: provider.enabled,
-        model: provider.model,
-        billing: { currency: 'ec_points', unit: 'generation', providerCostCny: 4.355 },
-        durations: { min: 4, max: 15 },
-        resolutions: ['480p', '720p'],
+        generationEnabled: Boolean(products.length),
+        model: defaultProduct?.id || '',
+        defaultProductId: defaultProduct?.id || DEFAULT_VIDEO_PRODUCT_ID,
+        products,
+        billing: { currency: 'ec_points', unit: 'generation' },
+        durations,
+        resolutions,
         aspectRatios: [...RATIOS],
-        qualities: [
-          { sku: 'video_seedance_480p_short', resolution: '480p', duration: '4-8', points: 32 },
-          { sku: 'video_seedance_480p_long', resolution: '480p', duration: '9-15', points: 40 },
-          { sku: 'video_seedance_720p_short', resolution: '720p', duration: '4-8', points: 48 },
-          { sku: 'video_seedance_720p_long', resolution: '720p', duration: '9-15', points: 58 },
-        ],
+        qualities,
       };
     },
     uploadAsset,
@@ -540,6 +766,12 @@ export function createVideoGeneration({
     },
     readAsset,
     recover,
+    close() {
+      closed = true;
+      for (const timer of retryTimers) clearTimeout(timer);
+      retryTimers.clear();
+      queue.close();
+    },
   };
 }
 
