@@ -103,6 +103,12 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /process restarted during canary/i);
 });
 
+test('production release archive includes shared server runtime modules', () => {
+  assert.match(deploy, /dist server shared scripts\/nginx\/shuimg\.cn\.conf/);
+  assert.match(deploy, /tar -tzf \$archive shared\/ecommerceAbilityRecipes\.mjs/);
+  assert.match(deploy, /Release archive runtime module verification failed/);
+});
+
 test('PowerShell canary token validation is case-sensitive and rejects trailing input', { skip: process.platform !== 'win32' }, () => {
   const helperPath = fileURLToPath(canarySessionHelperUrl).replaceAll("'", "''");
   const evaluate = token => spawnSync('powershell', [
@@ -269,7 +275,7 @@ test('production deploy installs and rolls back the versioned Nginx security con
   assert.match(nginx, /add_header Permissions-Policy "camera=\(\), microphone=\(\), geolocation=\(\)" always/);
   assert.match(nginx, /proxy_hide_header X-Content-Type-Options/);
   assert.match(deploy, /nginx[\\/]shuimg\.cn\.conf/);
-  assert.match(deploy, /dist server scripts\/nginx\/shuimg\.cn\.conf/);
+  assert.match(deploy, /dist server shared scripts\/nginx\/shuimg\.cn\.conf/);
   assert.match(deploy, /nginx-config/);
   assert.match(deploy, /sudo nginx -t/);
   assert.match(deploy, /sudo systemctl reload nginx/);

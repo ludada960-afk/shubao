@@ -306,8 +306,10 @@ tar -czf $archive -C $repo `
   --exclude='server/.env' `
   --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
-  dist server scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
+  dist server shared scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
 if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
+tar -tzf $archive shared/ecommerceAbilityRecipes.mjs | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Release archive runtime module verification failed" }
 
 try {
   & ssh @ssh $target "set -e; umask 077; test ! -e '$remoteRuntimeHelperDir'; mkdir -m 700 '$remoteRuntimeHelperDir'"
