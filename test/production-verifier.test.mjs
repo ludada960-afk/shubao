@@ -80,3 +80,33 @@ test('production billing verifier never uses a beta tester for automated deploym
   );
   assert.deepEqual(requests, ['/health', '/', '/api/billing/catalog', '/api/session']);
 });
+
+test('production billing verifier accepts the owner real point wallet without mutating it', async t => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const balance = {
+    unlimited: false,
+    balances: {
+      ec_points: { availableUnits: 300000, heldUnits: 0, unlimited: false },
+    },
+  };
+  globalThis.fetch = async (url, options = {}) => {
+    const path = new URL(url).pathname;
+    requests.push({ path, method: options.method || 'GET' });
+    if (path === '/health') return new Response(JSON.stringify({ ok: true, imageQueue: {} }));
+    if (path === '/') return new Response(JSON.stringify({ ok: true }));
+    if (path === '/api/billing/catalog') return new Response(JSON.stringify({ products: [], providers: [] }));
+    if (path === '/api/session') return new Response(JSON.stringify({ ok: true, email: '867550189@qq.com' }));
+    if (path === '/api/billing/balance') return new Response(JSON.stringify(balance));
+    if (path === '/api/billing/quote') return new Response(JSON.stringify({ quote: { quoteId: 'quote-1', totalUnits: 200 } }));
+    throw new Error(`unexpected billing probe ${path}`);
+  };
+
+  await verifyProduction({ baseUrl: 'https://shuimg.cn', sessionToken: 'owner-token' });
+  assert.deepEqual(requests.map(request => request.path), [
+    '/health', '/', '/api/billing/catalog', '/api/session',
+    '/api/billing/balance', '/api/billing/quote', '/api/billing/balance',
+  ]);
+  assert.equal(requests.find(request => request.path === '/api/billing/quote').method, 'POST');
+});

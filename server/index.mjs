@@ -34,12 +34,20 @@ import {
 } from './xhsCreativePlanner.mjs';
 
 import { initDB, migrateLegacyUserCredits, getAllUsers, getUserCredits, addUserCredits, consumeUserCredit, createTask, startTask, updateTaskProgress, completeTask, failTask, getTask, getAllWorks, getDeletedWorks, getWorkCount, upsertWork, softDeleteWork, restoreWork } from './db.mjs';
-import { isUnlimitedBetaEmail, normalizeEmail, requireBetaEmail } from './accessPolicy.mjs';
+import { normalizeEmail } from './accessPolicy.mjs';
+import {
+  getAccountAccess,
+  requireAccountAccess,
+  requireAdminAccess,
+  requireFeatureAccess,
+} from './accessControl.mjs';
 import { createWalletService } from './billing/walletService.mjs';
 import { createPaymentService } from './billing/paymentService.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
 import { createBillingQuoteService } from './billing/quoteService.mjs';
 import { createOneShotBilling } from './billing/oneShotBilling.mjs';
+import { createAdminOperations } from './adminOperations.mjs';
+import { mountAdminRoutes } from './adminRoutes.mjs';
 import { createCanvasBilledActionStore } from './billing/canvasBilledActionStore.mjs';
 import {
   createContentEntitlements,
@@ -127,6 +135,7 @@ import {
   BETA_GUARDED_POST_ROUTES,
   RATE_LIMITED_POST_ROUTES,
   getGenerationRateLimit,
+  getGenerationRouteFeature,
 } from './generationRouteGuard.mjs';
 import {
   buildCanvasTransformPrompt,
@@ -142,6 +151,7 @@ import {
   readRequestBuffer,
   sendVideoAsset,
 } from './videoGeneration.mjs';
+import { createVideoPlanningService } from './videoPlanning.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function safeCanvasClientError(error, fallback = '画布服务暂时不可用，请稍后重试') {
@@ -171,7 +181,17 @@ if (!process.env.SHUBAO_CONTENT_BILLING_UNITS) {
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
 const db = initDB();
-const walletService = createWalletService(db, { isUnlimited: isUnlimitedBetaEmail });
+const walletService = createWalletService(db);
+const authorizeAccountEmail = email => requireAccountAccess(db, email);
+const adminOperations = createAdminOperations({
+  db,
+  walletService,
+  runtimeStatus: () => ({
+    imageQueue: imageGenerationPool.stats(),
+    ecommerce: orchestrator.runtimeStats(),
+    video: videoGeneration.runtimeStats(),
+  }),
+});
 const paymentService = createPaymentService(db, walletService);
 const contentEntitlements = createContentEntitlements(db, walletService);
 const authSessionSecret = resolveAuthSessionSecret({
@@ -382,6 +402,10 @@ const rateLimitStore = new Map();         // key: `${email-or-ip}:${minuteBucket
 const CONTENT_PREVIEW_ROUTES = new Set(['/api/generate', '/api/plog-generate']);
 const SIGNED_GENERATION_ROUTES = new Set([
   ...CONTENT_PREVIEW_ROUTES,
+  '/api/regenerate-image',
+  '/api/regenerate-text',
+  '/api/analyze',
+  '/api/extract-product-link',
   '/api/generate-ecommerce',
   '/api/ecommerce/auto-recognize',
   '/api/ecommerce/design-directions',
@@ -396,6 +420,8 @@ const SIGNED_GENERATION_ROUTES = new Set([
   '/api/canvas/psd-export',
   '/api/reverse-prompt',
   '/api/remove-bg',
+  '/api/extension/analyze',
+  '/api/extension/regenerate',
 ]);
 function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || 'unknown';
@@ -450,15 +476,24 @@ function betaAccessMiddleware(req, res, next, guardedPath = normalizeGuardedPath
     try {
       req._userEmail = authenticateContentRequest(req, {
         sessionTokens: contentSessionTokens,
-        authorizeEmail: requireBetaEmail,
+        authorizeEmail: authorizeAccountEmail,
       });
+      const feature = getGenerationRouteFeature(guardedPath);
+      const featureAccess = feature ? requireFeatureAccess(db, req._userEmail, feature) : null;
+      if (featureAccess && !featureAccess.ok) {
+        return res.status(featureAccess.status).json({
+          error: featureAccess.error,
+          code: featureAccess.code,
+          feature,
+        });
+      }
       return next();
     } catch (error) {
       const mapped = contentBillingHttpError(error);
       return res.status(mapped.status).json(mapped.body);
     }
   }
-  const access = requireBetaEmail(req.body?.email);
+  const access = authorizeAccountEmail(req.body?.email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   req._userEmail = access.email;
   next();
@@ -471,8 +506,21 @@ mountBillingRoutes(app, {
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,
-      authorizeEmail: requireBetaEmail,
+      authorizeEmail: authorizeAccountEmail,
     });
+  },
+});
+
+mountAdminRoutes(app, {
+  operations: adminOperations,
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+  authorizeAdmin(email) {
+    return requireAdminAccess(db, email);
   },
 });
 
@@ -481,9 +529,23 @@ mountProjectRoutes(app, {
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,
-      authorizeEmail: requireBetaEmail,
+      authorizeEmail: authorizeAccountEmail,
     });
   },
+});
+
+app.get('/api/account/access', (req, res) => {
+  try {
+    const ownerEmail = authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+    const account = getAccountAccess(db, ownerEmail);
+    return res.json({ account });
+  } catch (error) {
+    const mapped = contentBillingHttpError(error);
+    return res.status(mapped.status).json(mapped.body);
+  }
 });
 
 function sendContentInputError(res) {
@@ -2237,7 +2299,7 @@ mountWorkRoutes(app, {
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,
-      authorizeEmail: requireBetaEmail,
+      authorizeEmail: authorizeAccountEmail,
     });
   },
   mapError: contentBillingHttpError,
@@ -3255,6 +3317,12 @@ const canvasOneShotBilling = createOneShotBilling({
   quoteService: billingQuoteService,
   actionStore: createCanvasBilledActionStore(db),
 });
+const videoPlanningService = createVideoPlanningService({
+  completeText: request => createEcommerceVlmClient({
+    timeoutMs: 45_000,
+    retryDelaysMs: [750],
+  }).completeText(request),
+});
 
 function imageProviderCredential() {
   return IMG_AUTH_STRATEGY === 'bearer'
@@ -3675,7 +3743,7 @@ function authenticateEcommerceRequest(req, res, next) {
   try {
     req._userEmail = authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,
-      authorizeEmail: requireBetaEmail,
+      authorizeEmail: authorizeAccountEmail,
     });
     next();
   } catch (error) {
@@ -3683,6 +3751,27 @@ function authenticateEcommerceRequest(req, res, next) {
     res.status(mapped.status).json(mapped.body);
   }
 }
+
+function authenticateFeatureRequest(feature) {
+  return (req, res, next) => {
+    try {
+      req._userEmail = authenticateContentRequest(req, {
+        sessionTokens: contentSessionTokens,
+        authorizeEmail: authorizeAccountEmail,
+      });
+      const access = requireFeatureAccess(db, req._userEmail, feature);
+      if (!access.ok) {
+        return res.status(access.status).json({ error: access.error, code: access.code, feature });
+      }
+      return next();
+    } catch (error) {
+      const mapped = contentBillingHttpError(error);
+      return res.status(mapped.status).json(mapped.body);
+    }
+  };
+}
+
+const authenticateVideoRequest = authenticateFeatureRequest('video_generation');
 
 app.post('/api/ecommerce/assets', authenticateEcommerceRequest, ecommerceAssetRouteHandlers.upload);
 app.post('/api/ecommerce/exports', authenticateEcommerceRequest, ecommerceExportRouteHandlers.create);
@@ -3695,7 +3784,54 @@ app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteH
 app.get('/api/video/capabilities', (_req, res) => {
   res.json({ loading: false, ...videoGeneration.capabilities() });
 });
-app.post('/api/video/assets', authenticateEcommerceRequest, async (req, res) => {
+app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
+  const {
+    billingQuoteId: quoteId,
+    billingActionId: actionId,
+    analysisImageIds = [],
+  } = req.body || {};
+  try {
+    const imageIds = [...new Set((Array.isArray(analysisImageIds) ? analysisImageIds : [])
+      .map(value => String(value || '').trim()).filter(Boolean))].slice(0, 9);
+    const images = [];
+    for (const id of imageIds) {
+      const asset = await videoGeneration.readAsset(id);
+      if (!asset || asset.row.owner_email !== req._userEmail || asset.row.kind !== 'image') {
+        const error = new Error('视频方案包含无效或无权访问的分析素材');
+        error.status = 400;
+        error.code = 'VIDEO_PLAN_ASSET_INVALID';
+        throw error;
+      }
+      const buffer = fs.readFileSync(asset.filePath);
+      images.push(`data:${asset.row.content_type};base64,${buffer.toString('base64')}`);
+    }
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'video_plan_analysis',
+      referenceType: 'video_plan_analysis',
+      providerCostCny: 0.05,
+      metadata: { action: 'video_plan_analysis', feature: 'video_generation' },
+      work: async () => {
+        const plan = await videoPlanningService.analyze({ ...req.body, images });
+        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex');
+        return { ...plan, url: `video-plan:${fingerprint}` };
+      },
+    });
+    const { url: _reference, ...plan } = billed.result;
+    return res.json({ plan, billing: billed.billing });
+  } catch (error) {
+    return res.status(error?.status || 500).json({
+      error: error?.message || '视频方案分析失败',
+      code: error?.code,
+      required: error?.required,
+      available: error?.available,
+      billing: error?.billing,
+    });
+  }
+});
+app.post('/api/video/assets', authenticateVideoRequest, async (req, res) => {
   try {
     const kind = String(req.headers['x-video-asset-kind'] || '').trim().toLowerCase();
     const limits = { image: 10 * 1024 * 1024, video: 50 * 1024 * 1024, audio: 15 * 1024 * 1024 };
@@ -3720,7 +3856,7 @@ app.get('/api/video/assets/:id', async (req, res) => {
   if (!asset) return res.status(404).end('video asset not found');
   return sendVideoAsset(req, res, asset);
 });
-app.post('/api/video/jobs', authenticateEcommerceRequest, async (req, res) => {
+app.post('/api/video/jobs', authenticateVideoRequest, async (req, res) => {
   try {
     const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
     const result = await videoGeneration.createJob({
@@ -3740,10 +3876,10 @@ app.post('/api/video/jobs', authenticateEcommerceRequest, async (req, res) => {
     });
   }
 });
-app.get('/api/video/jobs', authenticateEcommerceRequest, (req, res) => {
+app.get('/api/video/jobs', authenticateVideoRequest, (req, res) => {
   res.json({ jobs: videoGeneration.listJobs(req._userEmail, req.query.limit) });
 });
-app.get('/api/video/jobs/:id', authenticateEcommerceRequest, (req, res) => {
+app.get('/api/video/jobs/:id', authenticateVideoRequest, (req, res) => {
   const job = videoGeneration.getJob(req._userEmail, req.params.id);
   return job ? res.json({ job }) : res.status(404).json({ error: '视频任务不存在' });
 });
@@ -4279,7 +4415,7 @@ app.post('/api/canvas/psd-export', authenticateEcommerceRequest, async (req, res
 app.post('/api/auth/send-code', async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!email || !email.includes('@')) return res.status(400).json({ error: '请输入正确的邮箱' });
-  const access = requireBetaEmail(email);
+  const access = authorizeAccountEmail(email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   try {
     const result = await sendVerificationCode(access.email);
@@ -4293,7 +4429,7 @@ app.post('/api/auth/verify-code', (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const { code } = req.body || {};
   if (!email || !code) return res.status(400).json({ error: '参数不完整' });
-  const access = requireBetaEmail(email);
+  const access = authorizeAccountEmail(email);
   if (!access.ok) return res.status(access.status).json({ error: access.error });
   const result = verifyCode(access.email, code);
   if (result.ok) {

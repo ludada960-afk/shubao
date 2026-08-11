@@ -65,7 +65,13 @@ export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToke
     throw new Error('Production verification must use the main owner account');
   }
   const balanceBefore = await requestJson(`${root}/api/billing/balance`, { headers });
-  if (balanceBefore.unlimited !== true) throw new Error('Canary owner is not unlimited');
+  const pointsBalance = balanceBefore.balances?.ec_points;
+  if (balanceBefore.unlimited !== false || !pointsBalance || pointsBalance.unlimited !== false) {
+    throw new Error('Canary owner does not use the real ec_points wallet');
+  }
+  if (!Number.isSafeInteger(pointsBalance.availableUnits) || pointsBalance.availableUnits < 200) {
+    throw new Error('Canary owner ec_points balance is insufficient for the read-only quote probe');
+  }
   const quoteResponse = await requestJson(`${root}/api/billing/quote`, {
     method: 'POST',
     headers: { ...headers, 'content-type': 'application/json' },

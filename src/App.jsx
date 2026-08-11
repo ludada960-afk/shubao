@@ -5,7 +5,7 @@ import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
 import { MdCheck } from 'react-icons/md';
-import { Sparkles, LayoutGrid, SquarePlay, FolderOpen } from 'lucide-react';
+import { Sparkles, LayoutGrid, SquarePlay, FolderOpen, ShieldCheck } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -20,6 +20,7 @@ const EcCanvasPage = React.lazy(() => import('./pages/EcCanvas/index'));
 const EcStudioPage = React.lazy(() => import('./pages/EcStudio/index'));
 const EcAutoPage = React.lazy(() => import('./pages/EcAuto/index'));
 const VideoStudioPage = React.lazy(() => import('./pages/VideoStudio/index'));
+const AdminConsolePage = React.lazy(() => import('./pages/AdminConsole/index.jsx'));
 import LoadingView from './pages/Generate/Loading';
 import NoteModal from './NoteModal';
 import { downloadZip, saveWork, regenerateText, proxyImg } from './services/api';
@@ -117,6 +118,7 @@ function SideNav() {
 function TopBar() {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const { logged, ecPoints, unlimited, balanceRefreshStatus } = state;
+  const canAdmin = ['owner', 'admin'].includes(state.accountAccess?.role);
 
   useEffect(() => {
     if (!logged) return undefined;
@@ -145,6 +147,18 @@ function TopBar() {
 
         {/* Right: 按钮组 */}
         <div className="topbar-actions">
+          {canAdmin && (
+            <button
+              type="button"
+              className="topbar-action-button topbar-admin-button"
+              aria-label="管理后台"
+              title="管理后台"
+              aria-current={state.page === 'admin' ? 'page' : undefined}
+              onClick={() => dispatch({ type: 'NAVIGATE', page: 'admin' })}
+            >
+              <ShieldCheck size={16} /> <span className="topbar-admin-label">管理后台</span>
+            </button>
+          )}
           <AccountEntitlementControl
             logged={logged}
             ecPoints={ecPoints}
@@ -243,6 +257,7 @@ function AppRouter() {
     'ec-studio': EcStudioPage,
     'ec-auto': EcAutoPage,
     'video-studio': VideoStudioPage,
+    admin: AdminConsolePage,
   };
   const PageComponent = pageMap[page] || HomePage;
   const previewItem = galleryItem || result;

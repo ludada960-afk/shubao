@@ -46,3 +46,11 @@ export function createVideoJob(input, idempotencyKey) {
     body: JSON.stringify(input),
   });
 }
+
+export function analyzeVideoPlan(input) {
+  return request('/api/video/plans', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}

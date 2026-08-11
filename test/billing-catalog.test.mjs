@@ -41,6 +41,7 @@ test('video quotes are fixed per successful generation', () => {
     video_seedance_standard_long: [72000, 4.355, true],
     video_minimax_h3_2k_short: [68000, 3.25, false],
     video_minimax_h3_2k_long: [78000, 3.25, false],
+    video_plan_analysis: [1000, 0.05, true],
   };
   for (const [sku, [units, providerCostCny, isPublic]] of Object.entries(expected)) {
     assert.equal(quoteFeature(sku, 1).totalUnits, units);
@@ -59,7 +60,7 @@ test('every video price clears the margin gate on the least favorable point pack
   const videoFeatures = Object.values(FEATURE_SKUS).filter(feature => Number.isFinite(feature.providerCostCny))
     .filter((_feature, index, values) => values.length > 0)
     .filter(feature => Object.entries(FEATURE_SKUS).some(([sku, item]) => item === feature && sku.startsWith('video_')));
-  assert.equal(videoFeatures.length, 6);
+  assert.equal(videoFeatures.length, 7);
   for (const feature of videoFeatures) {
     assert.ok(assertContributionMargin(feature, feature.units * unitPriceCny) >= 0.70);
   }

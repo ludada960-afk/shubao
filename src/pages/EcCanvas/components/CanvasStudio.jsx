@@ -500,8 +500,10 @@ export function CanvasTextGenerationComposer({ node, position, sources = [], men
   </section>;
 }
 
-export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onGenerate }) {
+export function CanvasVideoComposer({ node, position, sources = [], loading = false, onChange, onAddSources, onRemoveSource, onAnalyze, onGenerate }) {
   const [planOpen, setPlanOpen] = useState(false);
+  const [planning, setPlanning] = useState(false);
+  const [previewPlan, setPreviewPlan] = useState(null);
   if (!node) return null;
   const mode = node.mode || 'smart';
   const imageSources = sources.filter(source => source.kind !== 'video');
@@ -522,9 +524,29 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
     first: firstSources.map(source => ({ type: 'image/png', name: source.name || '首帧图' })),
     last: lastSources.map(source => ({ type: 'image/png', name: source.name || '尾帧图' })),
   };
-  const plan = buildVideoPlan({ mode, prompt: node.prompt, files: planFiles, duration: node.duration || 8, ratio: node.aspectRatio || '9:16', resolution: node.resolution || '720p', sound: node.generateAudio !== false });
-  const change = next => onChange?.({ ...next, planReviewed: false });
+  const localPlan = buildVideoPlan({ mode, prompt: node.prompt, files: planFiles, duration: node.duration || 8, ratio: node.aspectRatio || '9:16', resolution: node.resolution || '720p', sound: node.generateAudio !== false });
+  const analyzedPlan = previewPlan || node.videoPlan;
+  const plan = analyzedPlan ? { ...localPlan, ...analyzedPlan, assets: analyzedPlan.assets?.length ? analyzedPlan.assets : localPlan.assets, beats: analyzedPlan.beats?.length ? analyzedPlan.beats : localPlan.beats, analyzed: true } : { ...localPlan, analyzed: false };
+  const change = next => { setPreviewPlan(null); onChange?.({ ...next, planReviewed: false, videoPlan: null, plannedVideoAssets: null }); };
   const confirmPlan = () => { onChange?.({ planReviewed: true, error: '' }); setPlanOpen(false); };
+  const openPlan = async event => {
+    event.stopPropagation();
+    if (!localPlan.ready || analyzedPlan) {
+      setPlanOpen(true);
+      return;
+    }
+    if (planning) return;
+    setPlanning(true);
+    try {
+      const next = await onAnalyze?.();
+      if (next) {
+        setPreviewPlan(next);
+        setPlanOpen(true);
+      }
+    } finally {
+      setPlanning(false);
+    }
+  };
   return <section className="ec-canvas-node-composer ec-canvas-context-composer ec-canvas-video-composer" style={position} aria-label="视频生成操作台" onPointerDown={event => event.stopPropagation()}>
     <div className="ec-canvas-video-mode-tabs" role="tablist" aria-label="视频创作模式">
       {VIDEO_CREATION_MODES.map(option => <button key={option.id} type="button" role="tab" aria-selected={mode === option.id} className={mode === option.id ? 'is-active' : ''} onClick={() => change({ mode: option.id, error: '' })}>
@@ -551,10 +573,10 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
       <label>时长<select value={node.duration || 8} onChange={event => change({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
       <label className="is-toggle"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => change({ generateAudio: event.target.checked })} /><Volume2 size={14} />声音</label>
     </div>
-    {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>生成前方案</strong><small>本地整理，不调用上游</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
+    {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>素材分析与生成前方案</strong><small>{plan.analyzed ? '真实素材分析已完成 · 已结算 1 AI 积分' : '补齐输入后进行真实分析'}</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.risks?.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.risks.map((item, index) => <span key={`${item}-${index}`}>风险：{item}</span>)}</div>}{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready || !plan.analyzed} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
     <div className="ec-canvas-composer-footer">
       {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || '62 AI 积分 / 次 · 确认方案后扣费'}</span>}
-      <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" onClick={event => { event.stopPropagation(); setPlanOpen(true); }}>{node.planReviewed ? '方案已确认' : '预览生成方案'}</button><button type="button" data-canvas-control="true" disabled={loading || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button></div>
+      <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>{planning ? '正在分析素材' : node.planReviewed ? '方案已确认' : analyzedPlan ? '查看生成方案' : '分析并生成方案'}</button><button type="button" data-canvas-control="true" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频</>}</button></div>
     </div>
   </section>;
 }

@@ -35,6 +35,7 @@ export const FEATURE_SKUS = freezeCatalog({
   video_seedance_standard_long: { units: 72000, providerCostCny: 4.355 },
   video_minimax_h3_2k_short: { units: 68000, providerCostCny: 3.25, public: false },
   video_minimax_h3_2k_long: { units: 78000, providerCostCny: 3.25, public: false },
+  video_plan_analysis: { units: 1000, providerCostCny: 0.05 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.
   xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.342 },

@@ -20,6 +20,8 @@ test('video products expose one curated stable contract', () => {
     'minimax_h3_2k',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
+  assert.equal(getVideoProduct('seedance_standard').label, 'Seedance 2.0 标准');
+  assert.match(getVideoProduct('seedance_fast').description, /720P/);
   assert.equal(getVideoProduct('minimax_h3_2k').public, false);
   assert.equal(Object.isFrozen(VIDEO_PRODUCTS), true);
   assert.equal(Object.isFrozen(getVideoProduct('seedance_standard').limits), true);
@@ -62,6 +64,8 @@ test('public products omit hidden routes and private provider details', () => {
   assert.equal(products.find(product => product.default)?.id, DEFAULT_VIDEO_PRODUCT_ID);
   assert.equal(products.every(product => !('routeId' in product) && !('credential' in product)), true);
   assert.equal(products.every(product => !JSON.stringify(product).includes('providerCostCny')), true);
+  assert.equal(products.find(product => product.id === 'seedance_fast').providerLabel, '字节跳动');
+  assert.match(products.find(product => product.id === 'seedance_standard').limitations, /高峰期/);
   assert.deepEqual(products.find(product => product.id === 'seedance_fast').quotes.short, {
     sku: 'video_seedance_fast_short', units: 40000, points: 40,
   });

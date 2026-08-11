@@ -28,7 +28,7 @@ function closedBetaEmails() {
 }
 
 function unlimitedBetaEmails() {
-  return configuredEmails('SHUBAO_UNLIMITED_EMAILS', DEFAULT_BETA_EMAILS);
+  return configuredEmails('SHUBAO_UNLIMITED_EMAILS');
 }
 
 export function isAllowedBetaEmail(value) {

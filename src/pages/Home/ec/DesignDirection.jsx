@@ -855,6 +855,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 roleImages={abilitySupplementRoleImages}
                 unmappedImages={params?.unmappedImages || []}
                 abilityRecipeId={abilityRecipeId}
+                showAbilitySelector={false}
                 personMode={activePersonMode}
                 onPersonModeChange={mode => setActivePersonMode(mode === 'reference' ? 'reference' : 'smart')}
                 onRoleUpload={isTryOn ? (role, event) => appendSupplementImages(

@@ -1,3 +1,5 @@
+import { ensureAccessSchema } from '../accessControl.mjs';
+
 export function ensureBillingSchema(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS wallets (
@@ -69,6 +71,15 @@ export function ensureBillingSchema(db) {
       charged_units INTEGER NOT NULL,
       shadow_units INTEGER NOT NULL DEFAULT 0,
       provider_cost_cny REAL NOT NULL DEFAULT 0,
+      credit_face_value_cny REAL NOT NULL DEFAULT 0,
+      cash_revenue_cny REAL NOT NULL DEFAULT 0,
+      promo_subsidy_cny REAL NOT NULL DEFAULT 0,
+      cost_source TEXT NOT NULL DEFAULT 'catalog_fixed',
+      cost_confidence TEXT NOT NULL DEFAULT 'medium',
+      feature TEXT NOT NULL DEFAULT '',
+      provider TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      catalog_version INTEGER NOT NULL DEFAULT 0,
       reference_type TEXT NOT NULL,
       reference_id TEXT NOT NULL,
       metadata TEXT NOT NULL DEFAULT '{}',
@@ -119,4 +130,22 @@ export function ensureBillingSchema(db) {
   if (!paymentOrderColumns.includes('checkout_payload')) {
     db.exec("ALTER TABLE payment_orders ADD COLUMN checkout_payload TEXT NOT NULL DEFAULT ''");
   }
+  const usageEventColumns = db.prepare("PRAGMA table_info(usage_events)").all().map(column => column.name);
+  const usageColumns = [
+    ['credit_face_value_cny', 'REAL NOT NULL DEFAULT 0'],
+    ['cash_revenue_cny', 'REAL NOT NULL DEFAULT 0'],
+    ['promo_subsidy_cny', 'REAL NOT NULL DEFAULT 0'],
+    ['cost_source', "TEXT NOT NULL DEFAULT 'catalog_fixed'"],
+    ['cost_confidence', "TEXT NOT NULL DEFAULT 'medium'"],
+    ['feature', "TEXT NOT NULL DEFAULT ''"],
+    ['provider', "TEXT NOT NULL DEFAULT ''"],
+    ['model', "TEXT NOT NULL DEFAULT ''"],
+    ['catalog_version', 'INTEGER NOT NULL DEFAULT 0'],
+  ];
+  for (const [name, definition] of usageColumns) {
+    if (!usageEventColumns.includes(name)) {
+      db.exec(`ALTER TABLE usage_events ADD COLUMN ${name} ${definition}`);
+    }
+  }
+  ensureAccessSchema(db);
 }

@@ -87,7 +87,7 @@ test('ecommerce controls put model first and keep negative constraints with visu
   const settings = readFileSync(new URL('../src/pages/Home/ec/GenSettingsPanel.jsx', import.meta.url), 'utf8');
   const style = readFileSync(new URL('../src/pages/Home/ec/StylePanel.jsx', import.meta.url), 'utf8');
   const catalog = readFileSync(new URL('../src/services/imageModelCatalog.js', import.meta.url), 'utf8');
-  const buttons = ecMode.match(/const BUTTONS = \[([\s\S]*?)\n  \];/)?.[1] || '';
+  const buttons = ecMode.match(/const DEFAULT_BUTTONS = \[([\s\S]*?)\n  \];/)?.[1] || '';
 
   assert.match(buttons.trimStart(), /^\{\s*key: 'settings'/);
   assert.match(ecMode, /negativePrompt=\{genSettings\.negativePrompt\}/);

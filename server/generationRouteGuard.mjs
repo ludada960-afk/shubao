@@ -1,5 +1,3 @@
-import { isUnlimitedBetaEmail } from './accessPolicy.mjs';
-
 const EXPENSIVE_POST_ROUTE_LIST = [
   '/api/generate',
   '/api/regenerate-image',
@@ -8,6 +6,7 @@ const EXPENSIVE_POST_ROUTE_LIST = [
   '/api/extract-product-link',
   '/api/ecommerce/auto-recognize',
   '/api/ecommerce/design-directions',
+  '/api/video/plans',
   '/api/polish-ec-text',
   '/api/reverse-prompt',
   '/api/remove-bg',
@@ -25,16 +24,42 @@ const EXPENSIVE_POST_ROUTE_LIST = [
   '/api/extension/regenerate',
 ];
 
-function isUnlimitedGenerationOwner(email) {
-  return isUnlimitedBetaEmail(email);
-}
+const ROUTE_FEATURES = new Map([
+  ['/api/generate', 'content_generation'],
+  ['/api/regenerate-image', 'content_generation'],
+  ['/api/regenerate-text', 'content_generation'],
+  ['/api/analyze', 'content_generation'],
+  ['/api/plog-generate', 'content_generation'],
+  ['/api/extract-product-link', 'ecommerce_image'],
+  ['/api/ecommerce/auto-recognize', 'ecommerce_image'],
+  ['/api/ecommerce/design-directions', 'ecommerce_image'],
+  ['/api/video/plans', 'video_generation'],
+  ['/api/polish-ec-text', 'ecommerce_image'],
+  ['/api/generate-ecommerce', 'ecommerce_image'],
+  ['/api/extension/analyze', 'ecommerce_image'],
+  ['/api/extension/regenerate', 'ecommerce_image'],
+  ['/api/reverse-prompt', 'visual_creation'],
+  ['/api/remove-bg', 'visual_creation'],
+  ['/api/canvas/regenerate', 'visual_creation'],
+  ['/api/canvas/transform', 'visual_creation'],
+  ['/api/canvas/segmentation-plan', 'visual_creation'],
+  ['/api/canvas/analyze-layers', 'visual_creation'],
+  ['/api/canvas/ocr', 'visual_creation'],
+  ['/api/canvas/replace-text', 'visual_creation'],
+  ['/api/canvas/pixel-layers', 'visual_creation'],
+  ['/api/canvas/psd-export', 'visual_creation'],
+]);
 
 export const BETA_GUARDED_POST_ROUTES = new Set(EXPENSIVE_POST_ROUTE_LIST);
 export const RATE_LIMITED_POST_ROUTES = new Set(EXPENSIVE_POST_ROUTE_LIST);
 
+export function getGenerationRouteFeature(path) {
+  return ROUTE_FEATURES.get(String(path || '').trim().toLowerCase()) || null;
+}
+
 export function getGenerationRateLimit(email) {
   return {
-    max: isUnlimitedGenerationOwner(email) ? 60 : 10,
+    max: 10,
     windowMs: 60_000,
   };
 }

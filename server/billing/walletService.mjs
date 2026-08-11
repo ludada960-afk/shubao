@@ -6,6 +6,7 @@ const INTERNAL_IDEMPOTENCY_PREFIX = '__wallet_internal__:';
 const DEFAULT_HOLD_DURATION_MS = 60 * 60 * 1000;
 const KNOWN_OPERATIONS = new Set([
   'grant',
+  'revoke',
   'hold',
   'settle',
   'release',
@@ -96,6 +97,14 @@ function hasStoredResultShape(operation, result) {
     return hasNonEmptyString(result, 'id')
       && hasNonEmptyString(result, 'creditLotId')
       && hasNonEmptyString(result, 'ledgerId')
+      && hasBalanceShape(result.balance);
+  }
+  if (operation === 'revoke') {
+    return hasNonEmptyString(result, 'id')
+      && hasNonEmptyString(result, 'ledgerId')
+      && Number.isSafeInteger(result.units)
+      && result.units > 0
+      && Array.isArray(result.lotAllocations)
       && hasBalanceShape(result.balance);
   }
   if (operation === 'hold') {
@@ -213,6 +222,30 @@ function normalizeGrantInput(input = {}, validationNowMs = Date.now()) {
     validationNowMs,
     fingerprint: fingerprint(operationInput),
   };
+}
+
+function normalizeRevokeInput(input = {}) {
+  const ownerEmail = nonEmptyString(input.ownerEmail, 'ownerEmail');
+  const currency = nonEmptyString(input.currency, 'currency');
+  const units = positiveSafeInteger(input.units);
+  const idempotencyKey = externalIdempotencyKey(input.idempotencyKey);
+  const sourceType = input.sourceType === undefined
+    ? 'admin_revoke'
+    : nonEmptyString(input.sourceType, 'sourceType');
+  const sourceId = input.sourceId === undefined
+    ? idempotencyKey
+    : nonEmptyString(input.sourceId, 'sourceId');
+  const metadata = jsonValue(input.metadata);
+  const operationInput = {
+    ownerEmail,
+    currency,
+    units,
+    idempotencyKey,
+    sourceType,
+    sourceId,
+    metadata,
+  };
+  return { ...operationInput, fingerprint: fingerprint(operationInput) };
 }
 
 function normalizeHoldInput(input = {}) {
@@ -351,6 +384,9 @@ function insufficientCredits(currency, required, available) {
     `Insufficient ${currency}: required ${required}, available ${available}`,
   );
   error.code = 'BILLING_INSUFFICIENT_CREDITS';
+  error.currency = currency;
+  error.required = required;
+  error.available = available;
   return error;
 }
 
@@ -417,6 +453,24 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
         remaining_units, refundable, expires_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
+    selectRevocableLots: db.prepare(`
+      SELECT id, source_type, source_id, remaining_units, expires_at
+      FROM credit_lots
+      WHERE owner_email = ? AND currency = ? AND remaining_units > 0
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday(?))
+      ORDER BY
+        CASE WHEN source_type = 'admin_grant' THEN 0 ELSE 1 END ASC,
+        CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END ASC,
+        julianday(expires_at) ASC,
+        created_at DESC,
+        id DESC
+    `),
+    revokeLot: db.prepare(`
+      UPDATE credit_lots
+      SET remaining_units = remaining_units - ?
+      WHERE id = ? AND remaining_units >= ?
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday(?))
+    `),
     selectExpiredLots: db.prepare(`
       SELECT id, remaining_units, expires_at
       FROM credit_lots
@@ -457,7 +511,7 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
         AND (expires_at IS NULL OR julianday(expires_at) > julianday(?))
     `),
     selectLot: db.prepare(`
-      SELECT id, granted_units, remaining_units, expires_at,
+      SELECT id, source_type, source_id, granted_units, remaining_units, expires_at,
              CASE
                WHEN expires_at IS NULL OR julianday(expires_at) > julianday(?) THEN 1
                ELSE 0
@@ -517,8 +571,13 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
     insertUsage: db.prepare(`
       INSERT INTO usage_events (
         id, owner_email, currency, sku, charged_units, shadow_units,
-        provider_cost_cny, reference_type, reference_id, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        provider_cost_cny, credit_face_value_cny, cash_revenue_cny,
+        promo_subsidy_cny, cost_source, cost_confidence, feature, provider,
+        model, catalog_version, reference_type, reference_id, metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    selectPaymentOrderRevenue: db.prepare(`
+      SELECT amount_cny, grant_units FROM payment_orders WHERE id = ?
     `),
     listLedger: db.prepare(`
       SELECT * FROM wallet_ledger
@@ -751,6 +810,34 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
     return { restoredUnits, expiredUnits };
   }
 
+  function buildUsageAccounting({ allocation, currency, itemUnits }) {
+    const unitRevenue = currency === 'ec_points'
+      ? (199 / 760000)
+      : (currency === 'content_sets' ? (199 / 60) : 0);
+    let cashRevenueCny = 0;
+    let promoUnits = 0;
+    let allocatedUnits = 0;
+    for (const itemLot of allocation?.lots || []) {
+      const units = itemLot.units;
+      allocatedUnits += units;
+      const lot = statements.selectLot.get(currentTimeIso(), itemLot.lotId);
+      if (lot?.source_type === 'payment_order') {
+        const order = statements.selectPaymentOrderRevenue.get(lot.source_id);
+        if (order && order.grant_units > 0 && order.amount_cny >= 0) {
+          cashRevenueCny += units * (order.amount_cny / 100 / order.grant_units);
+          continue;
+        }
+      }
+      promoUnits += units;
+    }
+    if (allocatedUnits === 0) promoUnits = itemUnits;
+    return {
+      creditFaceValueCny: Number((itemUnits * unitRevenue).toFixed(6)),
+      cashRevenueCny: Number(cashRevenueCny.toFixed(6)),
+      promoSubsidyCny: Number((promoUnits * unitRevenue).toFixed(6)),
+    };
+  }
+
   const grantTx = db.transaction(input => {
     const existing = existingMutation(input.idempotencyKey, 'grant', input.fingerprint);
     if (existing.found) return existing.result;
@@ -820,6 +907,81 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
       input.sourceId,
       input.idempotencyKey,
       storedLedgerMetadata('grant', input.fingerprint, input.metadata, { creditLotId }, result),
+    );
+    return result;
+  });
+
+  const revokeTx = db.transaction(input => {
+    const existing = existingMutation(input.idempotencyKey, 'revoke', input.fingerprint);
+    if (existing.found) return existing.result;
+    if (Boolean(isUnlimited(input.ownerEmail))) {
+      throw new Error('Cannot revoke credits from an unlimited account');
+    }
+    let wallet = ensureWallet(input.ownerEmail, input.currency);
+    const nowIso = currentTimeIso();
+    wallet = reconcileExpiredLots(input.ownerEmail, input.currency, wallet, nowIso);
+    if (wallet.available_units < input.units) {
+      throw insufficientCredits(input.currency, input.units, wallet.available_units);
+    }
+
+    let remaining = input.units;
+    const lotAllocations = [];
+    for (const lot of statements.selectRevocableLots.all(input.ownerEmail, input.currency, nowIso)) {
+      if (remaining === 0) break;
+      const units = Math.min(remaining, lot.remaining_units);
+      if (statements.revokeLot.run(units, lot.id, units, nowIso).changes !== 1) {
+        throw new Error(`Credit lot changed during revocation: ${lot.id}`);
+      }
+      lotAllocations.push({
+        lotId: lot.id,
+        sourceType: lot.source_type,
+        sourceId: lot.source_id,
+        units,
+      });
+      remaining -= units;
+    }
+    if (remaining !== 0) throw new Error(`Credit lot invariant violation: ${remaining} revoke units unavailable`);
+
+    const availableUnits = wallet.available_units - input.units;
+    statements.updateWallet.run(
+      availableUnits,
+      wallet.held_units,
+      input.ownerEmail,
+      input.currency,
+    );
+    const balance = balanceResult(
+      statements.selectWallet.get(input.ownerEmail, input.currency),
+      false,
+    );
+    const ledgerId = randomUUID();
+    const result = {
+      id: ledgerId,
+      ledgerId,
+      ownerEmail: input.ownerEmail,
+      currency: input.currency,
+      units: input.units,
+      lotAllocations,
+      balance,
+    };
+    statements.insertLedger.run(
+      ledgerId,
+      input.ownerEmail,
+      input.currency,
+      'revoke',
+      -input.units,
+      0,
+      balance.availableUnits,
+      balance.heldUnits,
+      input.sourceType,
+      input.sourceId,
+      input.idempotencyKey,
+      storedLedgerMetadata(
+        'revoke',
+        input.fingerprint,
+        input.metadata,
+        { lotAllocations },
+        result,
+      ),
     );
     return result;
   });
@@ -936,7 +1098,7 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
     }
 
     const accounting = loadHoldAccounting(hold);
-    allocationForItem(accounting, item);
+    const allocation = allocationForItem(accounting, item);
     let wallet = ensureWallet(hold.owner_email, hold.currency);
     const unlimited = accounting.accountingMode === 'unlimited';
     if (!unlimited) {
@@ -968,6 +1130,25 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
     const nextStatus = holdStatus(hold.total_units, settledUnits, hold.released_units);
     statements.updateHold.run(nextStatus, settledUnits, hold.released_units, hold.id);
 
+    const usageAccounting = {
+      ...buildUsageAccounting({
+        allocation,
+        currency: hold.currency,
+        itemUnits: item.units,
+      }),
+      costSource: input.metadata?.cost?.source || 'catalog_fixed',
+      costConfidence: input.metadata?.cost?.confidence || 'medium',
+      feature: input.metadata?.feature || '',
+      provider: input.metadata?.provider || '',
+      model: input.metadata?.model || '',
+      catalogVersion: Number.isSafeInteger(input.metadata?.catalogVersion)
+        ? input.metadata.catalogVersion
+        : 0,
+    };
+    const accountingMetadata = {
+      ...(input.metadata || {}),
+      billingAccounting: usageAccounting,
+    };
     const usageEventId = randomUUID();
     statements.insertUsage.run(
       usageEventId,
@@ -977,9 +1158,18 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
       unlimited ? 0 : item.units,
       unlimited ? item.units : 0,
       input.providerCostCny,
+      usageAccounting.creditFaceValueCny,
+      usageAccounting.cashRevenueCny,
+      usageAccounting.promoSubsidyCny,
+      usageAccounting.costSource,
+      usageAccounting.costConfidence,
+      usageAccounting.feature,
+      usageAccounting.provider,
+      usageAccounting.model,
+      usageAccounting.catalogVersion,
       input.referenceType,
       input.referenceId,
-      JSON.stringify(input.metadata),
+      JSON.stringify(accountingMetadata),
     );
 
     const ledgerId = randomUUID();
@@ -1233,6 +1423,10 @@ export function createWalletService(db, { isUnlimited = () => false, now = Date.
   return {
     grant(input) {
       return grantTx(normalizeGrantInput(input, currentTimeMs()));
+    },
+
+    revoke(input) {
+      return revokeTx(normalizeRevokeInput(input));
     },
 
     getBalance(ownerEmail, currency) {

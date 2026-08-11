@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('video studio is an authenticated durable billed workspace embedded in home and canvas', async () => {
-  const [app, home, page, styles, canvas, workModel, server, generation, videoModel] = await Promise.all([
+  const [app, home, page, styles, canvas, workModel, server, generation, videoModel, videoService, assetAnalysis] = await Promise.all([
     source('../src/App.jsx'),
     source('../src/pages/Home/index.jsx'),
     source('../src/pages/VideoStudio/index.jsx'),
@@ -15,6 +15,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
     source('../server/index.mjs'),
     source('../server/videoGeneration.mjs'),
     source('../src/pages/VideoStudio/videoStudioModel.js'),
+    source('../src/services/video.js'),
+    source('../src/pages/VideoStudio/videoAssetAnalysis.js'),
   ]);
   assert.match(app, /video-studio/);
   assert.match(app, /视频创作/);
@@ -27,8 +29,14 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /resolveVideoApiMode/);
   assert.match(page, /hasRequiredVideoInputs/);
   assert.match(page, /buildVideoPlan/);
-  assert.match(page, /预览生成方案/);
+  assert.match(page, /分析并生成方案/);
   assert.match(page, /确认生成方案/);
+  assert.match(page, /方案分析 1 积分/);
+  assert.match(page, /analyzeVideoPlan/);
+  assert.match(page, /inspectVideoPlanningFiles/);
+  assert.match(page, /plannedUploads/);
+  assert.match(page, /reusable = plannedUploads/);
+  assert.doesNotMatch(page, /不调用上游，也不会扣积分/);
   assert.match(page, /planReviewed/);
   assert.match(page, /useState\('smart'\)/);
   assert.match(page, /video-mode-tabs/);
@@ -37,14 +45,21 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /video-materials/);
   assert.match(page, /上传素材/);
   assert.match(page, /video-media-deck/);
-  assert.match(page, /video-media-add-card/);
-  assert.match(page, /图片、视频或音频/);
+  assert.match(page, /video-material-actions/);
+  assert.match(page, /kind: 'image'/);
+  assert.match(page, /kind: 'video'/);
+  assert.match(page, /kind: 'audio'/);
+  assert.match(page, /video-material-action is-\$\{action\.kind\}/);
+  assert.doesNotMatch(page, /aria-label="添加素材"/);
   assert.match(page, /MediaPreview/);
   assert.doesNotMatch(page, /return <div className="video-panel-assets">/);
   assert.doesNotMatch(page, /图片素材（可选）/);
   assert.match(page, /video-quick-tools/);
   assert.match(page, /引用素材/);
-  assert.match(page, /Seedance 2\.0/);
+  assert.match(page, /providerLabel/);
+  assert.match(page, /tierLabel/);
+  assert.match(page, /limitations/);
+  assert.match(page, /AI 积分 \/ 次/);
   assert.doesNotMatch(page, /quickUploadRef/);
   assert.doesNotMatch(page, /脚本成片无需参考素材/);
   assert.doesNotMatch(page, /\{ key: 'mode'/);
@@ -54,7 +69,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(styles, /\.video-content-composer/);
   assert.match(styles, /\.video-materials/);
   assert.match(styles, /\.video-media-deck/);
-  assert.match(styles, /\.video-media-add-card/);
+  assert.match(styles, /\.video-material-actions/);
+  assert.match(styles, /\.video-material-action\.is-image/);
   assert.match(styles, /\.video-media-preview/);
   assert.match(styles, /\.video-inline-menu/);
   assert.match(page, /AI 积分 \/ 次/);
@@ -75,6 +91,12 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(server, /\/api\/video\/capabilities/);
   assert.doesNotMatch(server, /app\.get\('\/api\/video\/capabilities',\s*authenticateEcommerceRequest/);
   assert.match(server, /\/api\/video\/jobs/);
+  assert.match(server, /\/api\/video\/plans/);
+  assert.match(server, /video_plan_analysis/);
+  assert.match(videoService, /export function analyzeVideoPlan/);
+  assert.match(assetAnalysis, /videoMetadata/);
+  assert.match(assetAnalysis, /audioMetadata/);
+  assert.match(assetAnalysis, /frameTimes/);
   assert.match(page, /if \(!state\.logged\)[\s\S]*?setHistory\(\[\]\)/);
   assert.match(page, /\}, \[state\.logged\]\);/);
   assert.match(home, /entry-video\.png/);
@@ -95,8 +117,13 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(canvasStudio, /VIDEO_CREATION_MODES/);
   assert.match(canvasStudio, /VIDEO_CREATION_MODES\.map/);
   assert.match(canvasStudio, /buildVideoPlan/);
-  assert.match(canvasStudio, /预览生成方案/);
+  assert.match(canvasStudio, /分析并生成方案/);
+  assert.match(canvasStudio, /真实素材分析已完成/);
+  assert.doesNotMatch(canvasStudio, /本地整理，不调用上游/);
   assert.match(canvasStudio, /planReviewed/);
+  assert.match(canvas, /handleVideoComposerAnalyze/);
+  assert.match(canvas, /plannedVideoAssets/);
+  assert.match(canvas, /analyzeVideoPlan/);
   assert.doesNotMatch(canvasStudio, /480P 预览/);
   assert.match(canvasStudio, /\{option\.label\}/);
   assert.match(videoModel, /智能成片/);

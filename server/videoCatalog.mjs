@@ -1,6 +1,6 @@
 import { FEATURE_SKUS, quoteFeature } from './billing/catalog.mjs';
 
-export const VIDEO_CATALOG_VERSION = 'video-products-2026-08-11-v1';
+export const VIDEO_CATALOG_VERSION = 'video-products-2026-08-11-v2';
 export const DEFAULT_VIDEO_PRODUCT_ID = 'seedance_standard';
 
 function deepFreeze(value) {
@@ -12,7 +12,11 @@ function deepFreeze(value) {
 export const VIDEO_PRODUCTS = deepFreeze({
   seedance_fast: {
     id: 'seedance_fast',
-    label: '快速成片',
+    label: 'Seedance 2.0 Fast',
+    providerLabel: '字节跳动',
+    tierLabel: '快速成片',
+    description: '更快完成 720P 营销短片，适合试稿、批量迭代和节奏验证。',
+    limitations: '优先速度；复杂人物一致性与精细动作建议改用标准版。',
     routeId: 'sd5-seedance-2.0-fast',
     credential: 'seedance',
     public: true,
@@ -28,7 +32,11 @@ export const VIDEO_PRODUCTS = deepFreeze({
   },
   seedance_standard: {
     id: 'seedance_standard',
-    label: '稳定成片',
+    label: 'Seedance 2.0 标准',
+    providerLabel: '字节跳动',
+    tierLabel: '正式交付',
+    description: '稳定完成 720P 多模态营销短片，适合商品、人物与场景的正式交付。',
+    limitations: '生成时间更长；高峰期会进入独立队列等待。',
     routeId: 'sd5-seedance-2.0',
     credential: 'seedance',
     public: true,
@@ -44,7 +52,11 @@ export const VIDEO_PRODUCTS = deepFreeze({
   },
   minimax_h3_2k: {
     id: 'minimax_h3_2k',
-    label: '2K 精制',
+    label: 'MiniMax H3 2K',
+    providerLabel: 'MiniMax',
+    tierLabel: '2K 精制',
+    description: '支持 2K、多模态和首尾帧的精制路线，适合高质量短片。',
+    limitations: '当前通道仍在稳定性验收，暂不向普通账号开放。',
     routeId: 'minimax-h3-2k',
     credential: 'minimax',
     public: false,
@@ -121,6 +133,10 @@ export function publicVideoProducts({ includeHidden = false } = {}) {
     .map(product => ({
       id: product.id,
       label: product.label,
+      providerLabel: product.providerLabel,
+      tierLabel: product.tierLabel,
+      description: product.description,
+      limitations: product.limitations,
       public: true,
       default: product.default === true,
       durations: { ...product.durations },

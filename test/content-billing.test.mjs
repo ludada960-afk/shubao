@@ -1181,7 +1181,8 @@ function assertBefore(source, earlier, later, message) {
 test('server initializes durable billing, signed sessions, trusted proxy IPs, and token-only paid auth', async () => {
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   assert.match(server, /const db = initDB\(\);/);
-  assert.match(server, /createWalletService\(db,\s*\{\s*isUnlimited:\s*isUnlimitedBetaEmail\s*\}\)/);
+  assert.match(server, /const walletService = createWalletService\(db\);/);
+  assert.doesNotMatch(server, /createWalletService\(db,\s*\{\s*isUnlimited:/);
   assert.match(server, /createContentEntitlements\(db, walletService\)/);
   assert.match(server, /createContentBilling\(\{\s*db,\s*contentEntitlements,\s*walletService,?\s*\}\)/);
   assert.match(server, /createGeneratedAssetPersister\(\{\s*generatedAssetStore/);
@@ -1204,7 +1205,7 @@ test('server initializes durable billing, signed sessions, trusted proxy IPs, an
   assert.match(middleware, /req\._contentPreview = true/);
   assert.match(middleware, /authenticateContentRequest\(req/);
   assertBefore(middleware, 'req._contentPreview = true', 'authenticateContentRequest', 'preview is separated before session auth');
-  assertBefore(middleware, 'authenticateContentRequest', 'requireBetaEmail(req.body?.email)', 'paid content auth precedes legacy body auth');
+  assertBefore(middleware, 'authenticateContentRequest', 'authorizeAccountEmail(req.body?.email)', 'signed content auth precedes legacy body auth');
   assert.match(server, /betaAccessMiddleware\(req, res, continueWithRateLimit(?:, guardedPath)?\)/);
 
   const verifyRoute = extractRouteHandler(server, '/api/auth/verify-code');

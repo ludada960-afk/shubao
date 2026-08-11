@@ -334,6 +334,19 @@ export default function VisualCreationMode() {
         })}
       </div>
 
+      <section className="visual-skill-stage" aria-label={`${selectedSkill.title}效果预览`}>
+        <div className="visual-skill-stage-copy">
+          <span><MdAutoAwesome />{selectedSkill.title}</span>
+          <strong>{selectedSkill.shortDescription}</strong>
+          <p>{selectedSkill.outcome}</p>
+          <div><b>保留</b>{selectedSkill.preserves}</div>
+          <div><b>适合</b>{selectedSkill.bestFor}</div>
+        </div>
+        <div className="visual-skill-stage-art">
+          <img src={selectedSkill.preview} alt={`${selectedSkill.title}原创输入与生成效果示例`} />
+        </div>
+      </section>
+
       <div className="visual-creation-composer">
         <div
           className="visual-reference-zone"
@@ -345,11 +358,11 @@ export default function VisualCreationMode() {
         >
           <div className="visual-reference-heading">
             <span><MdAddPhotoAlternate />参考素材 <small>{references.length}/{MAX_REFERENCES}</small></span>
-            <small>接受 JPG、PNG、WebP，最多 6 张，单张 15MB</small>
+            <small>JPG、PNG、WebP · 最多 6 张</small>
           </div>
           <div className="visual-reference-list">
             {references.map((reference, index) => (
-              <figure className="visual-reference-item" key={reference.id}>
+              <figure className={`visual-reference-item visual-reference-item-${index % 3}`} key={reference.id}>
                 <img src={reference.previewUrl} alt={`参考图 ${index + 1}`} />
                 <figcaption>参考图 {index + 1}</figcaption>
                 <button
@@ -368,8 +381,9 @@ export default function VisualCreationMode() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={busy}
               >
-                <MdAddPhotoAlternate />
-                <span>添加素材</span>
+                <span className="visual-reference-add-icon"><MdAddPhotoAlternate /></span>
+                <strong>参考图</strong>
+                <span>主体、构图或风格</span>
               </button>
             )}
           </div>
@@ -389,7 +403,7 @@ export default function VisualCreationMode() {
             ref={promptRef}
             value={prompt}
             onChange={event => setPrompt(event.target.value)}
-            placeholder="描述你想创作的画面、主体、场景、构图、文字与限制条件..."
+            placeholder={`描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}
             maxLength={3000}
             disabled={busy}
           />

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { getSession, onSessionInvalid } from '../services/auth';
 import { fetchBillingBalance, fetchBillingCatalog, fetchBillingLedger } from '../services/billing';
+import { fetchAccountAccess } from '../services/admin.js';
 import { clearPendingPaidAction, loadPendingPaidAction } from '../utils/pendingPaidAction.js';
 import {
   createSessionRequestGate,
@@ -29,6 +30,7 @@ const initialState = {
   balanceRefreshError: '',
   billingCatalog: null,
   billingLedger: [],
+  accountAccess: null,
   // UI
   showLogin: false,
   loginIntent: null,
@@ -121,9 +123,12 @@ function reducer(state, action) {
           balanceRefreshError: '',
           billingCatalog: null,
           billingLedger: [],
+          accountAccess: null,
           pendingPaidAction: null,
         }),
       };
+    case 'SET_ACCOUNT_ACCESS':
+      return { ...state, accountAccess: action.account || null };
     case 'SET_ENTITLEMENT':
       return {
         ...state,
@@ -250,6 +255,19 @@ export function AppProvider({ children }) {
     };
     restore();
   }, [refreshBillingBalance, refreshBillingCatalog]);
+
+  useEffect(() => {
+    if (!state.logged) return undefined;
+    let active = true;
+    fetchAccountAccess()
+      .then((result) => {
+        if (active) dispatch({ type: 'SET_ACCOUNT_ACCESS', account: result.account || null });
+      })
+      .catch(() => {
+        if (active) dispatch({ type: 'SET_ACCOUNT_ACCESS', account: null });
+      });
+    return () => { active = false; };
+  }, [state.logged, dispatch]);
 
   useEffect(() => onSessionInvalid(() => {
     dispatch({ type: 'SET_LOGGED', logged: false, phone: '' });

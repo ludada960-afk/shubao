@@ -29,6 +29,16 @@
   diagnostic files remain user-owned and excluded. No implementation files are
   delegated.
 
+- Visual workspace redesign Task 1 is complete in `2fc9883`: four original
+  transparent entry assets and four original recipe diptychs are normalized,
+  hashed, and wired into Home; the copied `reference-card-*.png` files are
+  deleted. Task 1 focused regression passed `9/9` at the implementation
+  boundary, and the asset normalizer now fails on missing alpha or visible
+  pixels touching the output edge.
+- Visual workspace redesign Task 2 is complete in `d2cc50c`: the SideNav keeps
+  fixed geometry, uses Lucide icons with staggered internal-child motion, and
+  exposes independent tooltips. Focused shell/mobile regression passed `7/7`.
+
 - Dynamic Xiaohongshu/Plog creative planning is complete locally. The legacy
   track templates remain only as a fail-safe fallback; paid XHS runs now derive
   a retry-stable creative direction from the durable generation ID, analyze
@@ -1700,3 +1710,17 @@
   transparent layered-card assets, and the free-creation workspace with no
   failed responses, console errors, or horizontal overflow. The deployment
   script reported the remote lock released and saved the PM2 process list.
+- 2026-08-11 continuation: the local release candidate now preserves the original ecommerce
+  product x reference workbench as the default and adds try-on as an explicit ability recipe.
+  Try-on uses semantic product/person/scene slots, an original input-to-output showcase,
+  tailored material/fit/consistency settings, and a server-backed second-step plan. Free
+  creation uses the same workbench language with four skill previews and a unified reference
+  upload/prompt/toolbar contract. Video keeps three distinct modes, multimodal plan analysis,
+  idempotent billing, fair queues and Canvas handoff; no paid video generation was run.
+  Admin now reports account permissions, finite point balances, audit history, runtime/task
+  health, and cost/profit breakdowns by feature, provider, SKU and model. Full regression has
+  passed `1453/1453`; desktop and 390px browser QA found no console errors or page overflow.
+  Remaining release gate: build/check, explicit staging and review, then the mandated production
+  deployment script and public verification. User-owned extension-task deletions, `.tmp/`, and
+  the diagnosis helper remain outside the release. Production video generation remains a user
+  test because it is paid.

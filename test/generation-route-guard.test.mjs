@@ -6,6 +6,7 @@ import {
   BETA_GUARDED_POST_ROUTES,
   RATE_LIMITED_POST_ROUTES,
   getGenerationRateLimit,
+  getGenerationRouteFeature,
 } from '../server/generationRouteGuard.mjs';
 
 const EXPENSIVE_POST_ROUTES = [
@@ -104,7 +105,10 @@ function createUnsignedCanvasGuardHarness(source) {
     'SIGNED_GENERATION_ROUTES',
     'authenticateContentRequest',
     'contentSessionTokens',
-    'requireBetaEmail',
+    'authorizeAccountEmail',
+    'getGenerationRouteFeature',
+    'requireFeatureAccess',
+    'db',
     'contentBillingHttpError',
     'normalizeGuardedPath',
     `${betaDeclaration}; return betaAccessMiddleware;`,
@@ -125,6 +129,9 @@ function createUnsignedCanvasGuardHarness(source) {
       bodyAuthCalls += 1;
       return { ok: true, email };
     },
+    getGenerationRouteFeature,
+    () => ({ ok: true }),
+    {},
     error => ({
       status: 401,
       body: { error: error.message, code: error.code },
@@ -168,6 +175,13 @@ test('every expensive generation route requires beta access and rate limiting', 
   }
 });
 
+test('every expensive generation route is assigned to one of the four account features', () => {
+  const known = new Set(['ecommerce_image', 'video_generation', 'content_generation', 'visual_creation']);
+  for (const route of EXPENSIVE_POST_ROUTES) {
+    assert.equal(known.has(getGenerationRouteFeature(route)), true, `${route} must have a feature boundary`);
+  }
+});
+
 test('every Canvas AI route belongs to the signed generation route set', async () => {
   const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const signedRoutes = extractSignedGenerationRoutes(source);
@@ -196,7 +210,10 @@ test('unsigned Canvas AI requests cannot use body or query email to reach rate l
     'SIGNED_GENERATION_ROUTES',
     'authenticateContentRequest',
     'contentSessionTokens',
-    'requireBetaEmail',
+    'authorizeAccountEmail',
+    'getGenerationRouteFeature',
+    'requireFeatureAccess',
+    'db',
     'contentBillingHttpError',
     'normalizeGuardedPath',
     `${declaration}; return betaAccessMiddleware;`,
@@ -217,6 +234,9 @@ test('unsigned Canvas AI requests cannot use body or query email to reach rate l
       bodyAuthCalls += 1;
       return { ok: true, email };
     },
+    getGenerationRouteFeature,
+    () => ({ ok: true }),
+    {},
     error => ({
       status: 401,
       body: { error: error.message, code: error.code },
@@ -267,7 +287,10 @@ test('unsigned Canvas trailing-slash variants cannot bypass signed auth or reach
     'SIGNED_GENERATION_ROUTES',
     'authenticateContentRequest',
     'contentSessionTokens',
-    'requireBetaEmail',
+    'authorizeAccountEmail',
+    'getGenerationRouteFeature',
+    'requireFeatureAccess',
+    'db',
     'contentBillingHttpError',
     'normalizeGuardedPath',
     `${betaDeclaration}; return betaAccessMiddleware;`,
@@ -288,6 +311,9 @@ test('unsigned Canvas trailing-slash variants cannot bypass signed auth or reach
       bodyAuthCalls += 1;
       return { ok: true, email };
     },
+    getGenerationRouteFeature,
+    () => ({ ok: true }),
+    {},
     error => ({
       status: 401,
       body: { error: error.message, code: error.code },
@@ -413,7 +439,10 @@ test('content preview trailing slashes use the normalized path for preview and r
     'SIGNED_GENERATION_ROUTES',
     'authenticateContentRequest',
     'contentSessionTokens',
-    'requireBetaEmail',
+    'authorizeAccountEmail',
+    'getGenerationRouteFeature',
+    'requireFeatureAccess',
+    'db',
     'contentBillingHttpError',
     'normalizeGuardedPath',
     `${betaDeclaration}; return betaAccessMiddleware;`,
@@ -430,6 +459,9 @@ test('content preview trailing slashes use the normalized path for preview and r
     () => {
       throw new Error('preview request must not use body email auth');
     },
+    getGenerationRouteFeature,
+    () => ({ ok: true }),
+    {},
     error => ({ status: 401, body: { error: error.message } }),
     normalizeGuardedPath,
   );
@@ -484,7 +516,7 @@ test('guarded path normalization preserves root and internal path bytes', async 
 });
 
 test('owner and full beta tester accounts share the testing rate limit without disabling abuse protection', () => {
-  assert.deepEqual(getGenerationRateLimit('867550189@qq.com'), { max: 60, windowMs: 60_000 });
-  assert.deepEqual(getGenerationRateLimit('240485042@qq.com'), { max: 60, windowMs: 60_000 });
+  assert.deepEqual(getGenerationRateLimit('867550189@qq.com'), { max: 10, windowMs: 60_000 });
+  assert.deepEqual(getGenerationRateLimit('240485042@qq.com'), { max: 10, windowMs: 60_000 });
   assert.deepEqual(getGenerationRateLimit('someone@example.com'), { max: 10, windowMs: 60_000 });
 });

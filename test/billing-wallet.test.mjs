@@ -1152,6 +1152,66 @@ test('unrelated operations cannot preempt protected keyless terminal mutations',
   ]);
 });
 
+test('administrator revocation removes available promotional credits idempotently', t => {
+  const { db, service } = createTestService();
+  t.after(() => db.close());
+  service.grant({
+    ownerEmail: 'tester@example.com',
+    currency: 'ec_points',
+    units: 100000,
+    idempotencyKey: 'admin-grant-for-revoke',
+    sourceType: 'admin_grant',
+    sourceId: 'beta-seed',
+  });
+
+  const first = service.revoke({
+    ownerEmail: 'tester@example.com',
+    currency: 'ec_points',
+    units: 25000,
+    idempotencyKey: 'admin-revoke-1',
+    sourceType: 'admin_revoke',
+    sourceId: 'admin-action-1',
+    metadata: { reason: '缩减测试额度' },
+  });
+  const replay = service.revoke({
+    ownerEmail: 'tester@example.com',
+    currency: 'ec_points',
+    units: 25000,
+    idempotencyKey: 'admin-revoke-1',
+    sourceType: 'admin_revoke',
+    sourceId: 'admin-action-1',
+    metadata: { reason: '缩减测试额度' },
+  });
+
+  assert.equal(first.ledgerId, replay.ledgerId);
+  assert.deepEqual(service.getBalance('tester@example.com', 'ec_points'), {
+    availableUnits: 75000,
+    heldUnits: 0,
+    unlimited: false,
+  });
+  assert.equal(service.listLedger('tester@example.com', 'ec_points').filter(entry => entry.eventType === 'revoke').length, 1);
+});
+
+test('administrator revocation cannot consume held or unavailable credits', t => {
+  const { db, service } = createTestService();
+  t.after(() => db.close());
+  service.grant({ ownerEmail: 'held@example.com', currency: 'ec_points', units: 1000, idempotencyKey: 'held-grant' });
+  service.createHold({
+    ownerEmail: 'held@example.com',
+    currency: 'ec_points',
+    quoteId: 'held-quote',
+    idempotencyKey: 'held-hold',
+    items: [{ key: 'image', sku: 'ec_image_2k', units: 800 }],
+  });
+
+  assert.throws(() => service.revoke({
+    ownerEmail: 'held@example.com',
+    currency: 'ec_points',
+    units: 300,
+    idempotencyKey: 'held-revoke',
+  }), error => error?.code === 'BILLING_INSUFFICIENT_CREDITS' && error.available === 200);
+});
+
 test('unlimited accounts keep zero balances and record shadow usage with real cost', t => {
   const unlimitedEmail = '867550189@qq.com';
   const { db, service } = createTestService(ownerEmail => ownerEmail === unlimitedEmail);

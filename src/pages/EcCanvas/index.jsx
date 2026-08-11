@@ -74,7 +74,8 @@ import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import { quoteBillingAction } from '../../services/billing.js';
-import { createVideoJob, getVideoJob, uploadVideoAsset } from '../../services/video.js';
+import { analyzeVideoPlan, createVideoJob, getVideoJob, uploadVideoAsset } from '../../services/video.js';
+import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js';
 import { resolveVideoApiMode, hasRequiredVideoInputs } from '../VideoStudio/videoStudioModel.js';
 import './EcCanvas.css';
 
@@ -2486,8 +2487,9 @@ export default function EcCanvas() {
     }
     updateComposerNode(composer.id, { mode: composer.mode || 'smart', status: 'processing', error: '', progress: 2, progressLabel: '正在准备参考素材' });
     try {
+      const reusableAssets = composer.plannedVideoAssets || {};
       const uploaded = [];
-      for (const source of sourceNodes.slice(0, 9)) uploaded.push({ source, asset: await ensureVideoAsset(source) });
+      for (const source of sourceNodes.slice(0, 9)) uploaded.push({ source, asset: reusableAssets[source.id] || await ensureVideoAsset(source) });
       const roleFor = source => composer.sourceRoles?.[source.id] || source.role || 'reference';
       const firstImage = uploaded.find(item => item.source.kind !== 'video' && roleFor(item.source) === 'first')?.asset;
       const lastImage = uploaded.find(item => item.source.kind !== 'video' && roleFor(item.source) === 'last')?.asset;
@@ -2541,6 +2543,73 @@ export default function EcCanvas() {
       else showToast(error.message || '视频生成失败', 'error');
     }
   }, [dispatch, ensureVideoAsset, nodes, refreshBillingBalance, showToast, updateComposerNode]);
+
+  const handleVideoComposerAnalyze = useCallback(async composer => {
+    if (!String(composer?.prompt || '').trim() || composer.status === 'processing') return null;
+    const sourceNodes = [...new Set(composer.sourceNodeIds || [])].map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    const files = canvasVideoInputFiles(composer, sourceNodes);
+    const mode = composer.mode || 'smart';
+    if (!hasRequiredVideoInputs(mode, files)) {
+      const message = mode === 'frame' ? '首尾帧需要同时连接首帧和尾帧图片' : mode === 'remake' ? '爆款重构需要同时连接替换图片和参考视频' : '请先补充可分析的素材或完整提示词';
+      updateComposerNode(composer.id, { error: message, planReviewed: false });
+      return null;
+    }
+    updateComposerNode(composer.id, { error: '', progressLabel: '正在读取素材并生成方案' });
+    try {
+      const uploaded = [];
+      const localGroups = { first: [], last: [], images: [], videos: [], audios: [] };
+      const roleFor = source => composer.sourceRoles?.[source.id] || source.role || 'reference';
+      for (const source of sourceNodes.slice(0, 9)) {
+        const asset = await ensureVideoAsset(source);
+        uploaded.push({ source, asset });
+        const kind = source.kind === 'video' ? 'video' : 'image';
+        const response = await fetch(asset.url);
+        if (!response.ok) throw new Error('参考素材读取失败');
+        const blob = await response.blob();
+        const file = new File([blob], source.name || `${kind}-${source.id}`, { type: blob.type || (kind === 'video' ? 'video/mp4' : 'image/png') });
+        const role = roleFor(source);
+        if (kind === 'video') localGroups.videos.push(file);
+        else if (mode === 'frame' && role === 'first') localGroups.first.push(file);
+        else if (mode === 'frame' && role === 'last') localGroups.last.push(file);
+        else localGroups.images.push(file);
+      }
+      const inspected = await inspectVideoPlanningFiles(localGroups);
+      const originalImageCount = localGroups.first.length + localGroups.last.length + localGroups.images.length;
+      const analysisFrames = inspected.frames.slice(0, Math.max(0, 9 - originalImageCount));
+      const frameAssets = [];
+      for (const frame of analysisFrames) frameAssets.push(await uploadVideoAsset(frame, 'image'));
+      const analysisQuote = (await quoteBillingAction({ sku: 'video_plan_analysis', quantity: 1 })).quote;
+      const imageIds = uploaded.filter(item => item.source.kind !== 'video').map(item => item.asset.id);
+      const response = await analyzeVideoPlan({
+        billingQuoteId: analysisQuote.quoteId,
+        billingActionId: globalThis.crypto?.randomUUID?.() || `canvas-video-plan-${Date.now()}`,
+        productId: 'seedance_standard',
+        mode,
+        prompt: String(composer.prompt).trim(),
+        negativePrompt: '',
+        duration: Number(composer.duration) || 8,
+        ratio: composer.aspectRatio || '9:16',
+        resolution: composer.resolution || '720p',
+        sound: composer.generateAudio !== false,
+        manifest: inspected.manifest,
+        analysisImageIds: [...imageIds, ...frameAssets.map(asset => asset.id)],
+      });
+      const plannedVideoAssets = Object.fromEntries(uploaded.map(item => [item.source.id, item.asset]));
+      updateComposerNode(composer.id, {
+        videoPlan: response.plan,
+        plannedVideoAssets,
+        planReviewed: false,
+        error: '',
+        progressLabel: '',
+      });
+      await refreshBillingBalance?.({ force: true }).catch(() => {});
+      return response.plan;
+    } catch (error) {
+      updateComposerNode(composer.id, { error: error.message || '素材分析暂时失败，请稍后重试', progressLabel: '', planReviewed: false });
+      if (error?.status === 402 || error?.code === 'BILLING_INSUFFICIENT_CREDITS') dispatch({ type: 'OPEN_PAYWALL', reason: 'INSUFFICIENT_CREDITS' });
+      return null;
+    }
+  }, [dispatch, ensureVideoAsset, nodes, refreshBillingBalance, updateComposerNode]);
 
   const removeCanvasNode = useCallback(nodeId => {
     const ids = new Set([nodeId]);
@@ -3696,6 +3765,7 @@ export default function EcCanvas() {
               onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={(files, role) => handleComposerSourceUpload(selectedNode.id, files, role)}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
+              onAnalyze={() => handleVideoComposerAnalyze(selectedNode)}
               onGenerate={() => handleVideoComposerGenerate(selectedNode)}
             />}
             {connectionPicker && <CanvasDeriveMenu

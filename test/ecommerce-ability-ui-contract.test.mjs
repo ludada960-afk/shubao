@@ -7,30 +7,37 @@ const ecMode = readFileSync(new URL('../src/pages/Home/EcMode.jsx', import.meta.
 const direction = readFileSync(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
 
-test('ecommerce workbench renders a shared ability recipe rail with effect language', () => {
-  assert.match(workbench, /ECOMMERCE_ABILITY_RECIPES|EcommerceAbilityRecipe/);
-  assert.match(workbench, /保留/);
-  assert.match(workbench, /结果/);
-  assert.match(workbench, /适合/);
-  assert.match(workbench, /aria-selected/);
-  assert.match(workbench, /anything_tryon/);
-  assert.match(workbench, /ec-ability-example-flow/);
-  assert.match(workbench, /inputAssetUrls/);
-  assert.match(workbench, /outputAssetUrls/);
-  assert.match(workbench, /上传素材/);
-  assert.match(workbench, /生成效果/);
+test('default ecommerce workbench preserves the established product-reference framework', () => {
+  assert.match(workbench, /buildUploadDeck/);
+  assert.match(workbench, /nextProductSlot/);
+  assert.match(workbench, /ec-xhs-media-strip/);
+  assert.match(workbench, /role="product"/);
+  assert.match(workbench, /ec-xhs-multiply/);
+  assert.match(workbench, /role="reference"/);
+  assert.match(workbench, /上传商品素材，生成整套电商视觉/);
+  assert.doesNotMatch(workbench, /ec-ability-rail/);
+  assert.doesNotMatch(workbench, /ec-ability-example-flow/);
+  assert.doesNotMatch(workbench, /ec-ability-slot-grid/);
 });
 
-test('try-on workbench swaps to semantic item, person, and scene slots and has one upload surface per slot', () => {
-  assert.match(workbench, /buildAbilityUploadDeck/);
-  assert.match(workbench, /roleImages/);
-  assert.match(workbench, /items/);
-  assert.match(workbench, /person/);
-  assert.match(workbench, /scene/);
-  assert.match(workbench, /智能模特/);
-  assert.match(workbench, /参考模特图/);
-  assert.match(workbench, /待整理素材/);
-  assert.doesNotMatch(workbench, /ec-workbench-bottom-upload/);
+test('try-on is exposed as an explicit ability layer while the default product rail remains intact', () => {
+  assert.match(workbench, /anything_tryon/);
+  assert.match(workbench, /ec-ability-selector/);
+  assert.match(workbench, /ec-tryon-showcase/);
+  assert.match(workbench, /personMode === 'reference'/);
+  assert.doesNotMatch(workbench, /buildAbilityUploadDeck/);
+  assert.match(ecMode, /anything_tryon/);
+  assert.match(ecMode, /roleImages\.items/);
+  assert.match(ecMode, /roleImages\.person/);
+  assert.match(ecMode, /roleImages\.scene/);
+  assert.match(direction, /showAbilitySelector=\{false\}/);
+});
+
+test('try-on uses a focused four-panel configuration instead of inheriting SKU and copywriting controls', () => {
+  assert.match(ecMode, /abilityRecipeId === 'anything_tryon'/);
+  assert.match(ecMode, /label: '成片规格'/);
+  assert.match(ecMode, /label: '商品细节'/);
+  assert.match(ecMode, /TryOnPlanPanel/);
 });
 
 test('EcMode carries recipe and role assets through the step boundary', () => {
@@ -50,9 +57,8 @@ test('direction confirmation preserves try-on role lanes into analysis, generati
   assert.match(direction, /sceneShots/);
 });
 
-test('recipe rail and role slots have responsive and reduced-motion contracts', () => {
-  assert.match(styles, /\.ec-ability-rail/);
-  assert.match(styles, /\.ec-ability-slot/);
-  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.ec-ability/);
-  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.ec-ability-rail/);
+test('established ecommerce media strip keeps its responsive contract', () => {
+  assert.match(styles, /\.ec-xhs-media-strip/);
+  assert.match(styles, /\.ec-xhs-upload-card/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.ec-xhs/);
 });

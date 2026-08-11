@@ -10,7 +10,6 @@ import {
   ImagePlus,
   Mic2,
   Play,
-  Plus,
   Settings2,
   Sparkles,
   Upload,
@@ -21,6 +20,7 @@ import {
 import { useApp } from '../../store/AppContext.jsx';
 import { quoteBillingAction } from '../../services/billing.js';
 import {
+  analyzeVideoPlan,
   createVideoJob,
   fetchVideoCapabilities,
   getVideoJob,
@@ -34,6 +34,7 @@ import {
   resolveVideoApiMode,
 } from './videoStudioModel.js';
 import { buildVideoPlan } from './videoPlanModel.js';
+import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
 import './VideoStudio.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -101,7 +102,7 @@ function VideoPlanModal({ plan, onClose, onConfirm }) {
   return createPortal(<div className="video-plan-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="video-plan-modal" role="dialog" aria-modal="true" aria-labelledby="video-plan-title">
       <header className="video-plan-header">
-        <div><span className="video-plan-eyebrow"><Sparkles size={14} />生成前方案</span><h2 id="video-plan-title">先确认镜头怎么走，再提交生成</h2><p>这一步只整理你已上传的素材与设置，不调用上游，也不会扣积分。</p></div>
+        <div><span className="video-plan-eyebrow"><Sparkles size={14} />素材分析与生成前方案</span><h2 id="video-plan-title">先确认素材怎么用、镜头怎么走</h2><p>{plan.analyzed ? '已完成真实素材分析，本次分析已结算 1 AI 积分；正式成片费用尚未冻结。' : '先补齐必要输入，再进行 1 AI 积分的真实素材分析。'}</p></div>
         <button type="button" className="video-plan-close" aria-label="关闭生成方案" onClick={onClose}><X size={18} /></button>
       </header>
       <div className="video-plan-summary">
@@ -110,11 +111,12 @@ function VideoPlanModal({ plan, onClose, onConfirm }) {
         <div><small>素材数量</small><strong>{plan.assets.length ? `${plan.assets.length} 个已编排` : '无上传素材'}</strong></div>
       </div>
       <div className="video-plan-body">
-        <section className="video-plan-section"><div className="video-plan-section-title"><strong>素材如何进入镜头</strong><span>{plan.mode === 'frame' ? '精确起止' : '按角色引用'}</span></div><div className="video-plan-material-map">{plan.materialMap.map(item => <div className="video-plan-material-item" key={`${item.label}-${item.detail}`}><span>{item.label}</span><strong>{item.detail}</strong><small>{item.count ? `${item.count} 个` : '待补充'}</small></div>)}</div></section>
-        <section className="video-plan-section"><div className="video-plan-section-title"><strong>镜头节奏</strong><span>本地推演</span></div><div className="video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><div><strong>{beat.label}</strong><p>{beat.detail}</p></div><small>{beat.source}</small></article>)}</div></section>
+        <section className="video-plan-section"><div className="video-plan-section-title"><strong>素材如何进入镜头</strong><span>{plan.mode === 'frame' ? '精确起止' : plan.analyzed ? '逐项识别' : '按角色引用'}</span></div><div className="video-plan-material-map">{(plan.analyzed && plan.assets.length ? plan.assets : plan.materialMap).map((item, index) => <div className="video-plan-material-item" key={`${item.name || item.label}-${index}`}><span>{item.role || item.label}</span><strong>{item.name || item.detail}</strong><small>{item.use || (item.count ? `${item.count} 个` : '待补充')}</small>{item.observations?.length > 0 && <p>{item.observations.join('；')}</p>}</div>)}</div></section>
+        <section className="video-plan-section"><div className="video-plan-section-title"><strong>镜头节奏</strong><span>{plan.analyzed ? '多模态分析' : '等待分析'}</span></div><div className="video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><div><strong>{beat.label}</strong><p>{beat.detail}</p>{beat.camera && <p>镜头：{beat.camera}</p>}{beat.audio && <p>声音：{beat.audio}</p>}</div><small>{beat.source}</small></article>)}</div></section>
+        {plan.analyzed && (plan.creativeStrategy || plan.risks?.length > 0) && <section className="video-plan-section video-plan-notices"><div className="video-plan-section-title"><strong>策略与风险</strong><span>提交前可返回调整</span></div>{plan.creativeStrategy && <div className="video-plan-strategy">{plan.creativeStrategy}</div>}{plan.risks?.map((item, index) => <div className="video-plan-notice" key={`${item}-${index}`}><Aperture size={15} /><span><strong>需要留意</strong><small>{item}</small></span></div>)}</section>}
         {(plan.blockers.length > 0 || plan.warnings.length > 0) && <section className="video-plan-section video-plan-notices"><div className="video-plan-section-title"><strong>提交前检查</strong><span>{plan.blockers.length ? `${plan.blockers.length} 项待处理` : '可以继续'}</span></div>{plan.blockers.map(item => <div className="video-plan-notice is-blocking" key={item.code}><X size={15} /><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}{plan.warnings.map(item => <div className="video-plan-notice" key={item.code}><Aperture size={15} /><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</section>}
       </div>
-      <footer className="video-plan-footer"><span>{plan.cost ? `本次预计 ${Math.ceil(Number(plan.cost.units || 0) / 1000)} AI 积分，点击开始生成后才会冻结` : '报价加载中，提交时会再次校验费用'}</span><div><button type="button" className="video-plan-secondary" onClick={onClose}>返回调整</button><button type="button" className="video-plan-primary" disabled={!plan.ready} onClick={onConfirm}><Check size={16} />确认生成方案</button></div></footer>
+      <footer className="video-plan-footer"><span>{plan.cost ? `成片预计 ${Math.ceil(Number(plan.cost.units || 0) / 1000)} AI 积分，点击开始生成后才会冻结` : '成片报价加载中，提交时会再次校验费用'}</span><div><button type="button" className="video-plan-secondary" onClick={onClose}>返回调整</button><button type="button" className="video-plan-primary" disabled={!plan.ready || !plan.analyzed} onClick={onConfirm}><Check size={16} />确认生成方案</button></div></footer>
     </section>
   </div>, document.body);
 }
@@ -140,13 +142,16 @@ export default function VideoStudioPage({ embedded = false }) {
   const [error, setError] = useState('');
   const [planOpen, setPlanOpen] = useState(false);
   const [planReviewed, setPlanReviewed] = useState(false);
+  const [analyzedPlan, setAnalyzedPlan] = useState(null);
+  const [analyzedSignature, setAnalyzedSignature] = useState('');
+  const [plannedUploads, setPlannedUploads] = useState(null);
+  const [planning, setPlanning] = useState(false);
   const [activePanel, setActivePanel] = useState(null);
   const [inlineMenu, setInlineMenu] = useState(null);
   const [panelPosition, setPanelPosition] = useState({ left: 16, bottom: 80, width: 520, maxHeight: 560, anchor: 260 });
   const pollRef = useRef(null);
   const toolbarRef = useRef(null);
   const quickToolsRef = useRef(null);
-  const materialInputRef = useRef(null);
   const firstFrameInputRef = useRef(null);
   const lastFrameInputRef = useRef(null);
   const buttonRefs = useRef({});
@@ -177,6 +182,25 @@ export default function VideoStudioPage({ embedded = false }) {
     sound,
     product: selectedProduct,
   }), [duration, files, mode, prompt, ratio, resolution, selectedProduct, sound]);
+  const planSignature = useMemo(() => JSON.stringify({
+    productId: selectedProduct?.id || '', mode, prompt, negativePrompt, duration, ratio, resolution, sound, seed,
+    files: Object.fromEntries(Object.entries(files).map(([key, items]) => [key, (items || []).map(file => ({ name: file.name, size: file.size, type: file.type, modified: file.lastModified }))])),
+  }), [duration, files, mode, negativePrompt, prompt, ratio, resolution, seed, selectedProduct?.id, sound]);
+  const activeAnalysis = analyzedSignature === planSignature ? analyzedPlan : null;
+  const effectivePlan = useMemo(() => activeAnalysis ? {
+    ...videoPlan,
+    ...activeAnalysis,
+    assets: activeAnalysis.assets?.length ? activeAnalysis.assets : videoPlan.assets,
+    beats: activeAnalysis.beats?.length ? activeAnalysis.beats : videoPlan.beats,
+    analyzed: true,
+  } : { ...videoPlan, analyzed: false }, [activeAnalysis, videoPlan]);
+
+  useEffect(() => {
+    if (analyzedSignature && analyzedSignature !== planSignature) {
+      setPlanReviewed(false);
+      setPlanOpen(false);
+    }
+  }, [analyzedSignature, planSignature]);
 
   useEffect(() => {
     fetchVideoCapabilities()
@@ -326,22 +350,6 @@ export default function VideoStudioPage({ embedded = false }) {
     });
   }
 
-  const openMaterialPicker = useCallback(() => {
-    if (mode === 'frame') {
-      if (!files.first.length) {
-        firstFrameInputRef.current?.click();
-        return;
-      }
-      if (!files.last.length) {
-        lastFrameInputRef.current?.click();
-        return;
-      }
-      firstFrameInputRef.current?.click();
-      return;
-    }
-    materialInputRef.current?.click();
-  }, [files.first.length, files.last.length, mode]);
-
   async function uploadFiles(items, kind) {
     const uploaded = [];
     for (const file of items) uploaded.push(await uploadVideoAsset(file, kind));
@@ -365,26 +373,29 @@ export default function VideoStudioPage({ embedded = false }) {
   }
 
   async function handleGenerate() {
-    if (submitting || !quote?.quoteId || !planReviewed || !videoPlan.ready) return;
+    if (submitting || !quote?.quoteId || !planReviewed || !effectivePlan.ready || !activeAnalysis || analyzedSignature !== planSignature) return;
     setError('');
     setSubmitting(true);
     try {
       const selected = mode === 'frame'
         ? { first: files.first, last: files.last, images: [], videos: [], audios: [] }
         : { first: [], last: [], images: files.images, videos: files.videos, audios: files.audios };
-      const [first, last, images, videos, audios] = await Promise.all([
-        uploadFiles(selected.first, 'image'),
-        uploadFiles(selected.last, 'image'),
-        uploadFiles(selected.images, 'image'),
-        uploadFiles(selected.videos, 'video'),
-        uploadFiles(selected.audios, 'audio'),
-      ]);
+      const reusable = plannedUploads?.signature === planSignature ? plannedUploads.assets : null;
+      const [first, last, images, videos, audios] = reusable
+        ? [reusable.first, reusable.last, reusable.images, reusable.videos, reusable.audios]
+        : await Promise.all([
+          uploadFiles(selected.first, 'image'),
+          uploadFiles(selected.last, 'image'),
+          uploadFiles(selected.images, 'image'),
+          uploadFiles(selected.videos, 'video'),
+          uploadFiles(selected.audios, 'audio'),
+        ]);
       const urls = Object.fromEntries([...first, ...last, ...images, ...videos, ...audios].map(asset => [asset.id, asset.url]));
       const idempotencyKey = globalThis.crypto?.randomUUID?.() || `video-${Date.now()}`;
       const result = await createVideoJob({
         productId: selectedProduct.id,
         mode: resolveVideoApiMode(mode, files),
-        prompt,
+        prompt: activeAnalysis.optimizedPrompt || prompt,
         negativePrompt,
         duration,
         aspectRatio: ratio,
@@ -415,11 +426,64 @@ export default function VideoStudioPage({ embedded = false }) {
   }
 
   const requires = hasRequiredVideoInputs(mode, files);
-  const canGenerate = capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && videoPlan.ready && !submitting;
+  const canGenerate = capabilities.generationEnabled && selectedProduct && quote?.quoteId && prompt.trim() && requires && planReviewed && effectivePlan.ready && activeAnalysis && !submitting && !planning;
 
-  const openVideoPlan = () => {
+  const openVideoPlan = async () => {
     setError('');
-    setPlanOpen(true);
+    if (!videoPlan.ready) {
+      setPlanOpen(true);
+      return;
+    }
+    if (activeAnalysis) {
+      setPlanOpen(true);
+      return;
+    }
+    if (planning) return;
+    setPlanning(true);
+    try {
+      const selected = mode === 'frame'
+        ? { first: files.first, last: files.last, images: [], videos: [], audios: [] }
+        : { first: [], last: [], images: files.images, videos: files.videos, audios: files.audios };
+      const inspected = await inspectVideoPlanningFiles(selected);
+      const originalImageCount = selected.first.length + selected.last.length + selected.images.length;
+      const analysisFrames = inspected.frames.slice(0, Math.max(0, 9 - originalImageCount));
+      const [first, last, images, videos, audios, frames] = await Promise.all([
+        uploadFiles(selected.first, 'image'),
+        uploadFiles(selected.last, 'image'),
+        uploadFiles(selected.images, 'image'),
+        uploadFiles(selected.videos, 'video'),
+        uploadFiles(selected.audios, 'audio'),
+        uploadFiles(analysisFrames, 'image'),
+      ]);
+      const planQuote = (await quoteBillingAction({ sku: 'video_plan_analysis', quantity: 1 })).quote;
+      const result = await analyzeVideoPlan({
+        billingQuoteId: planQuote.quoteId,
+        billingActionId: globalThis.crypto?.randomUUID?.() || `video-plan-${Date.now()}`,
+        productId: selectedProduct?.id,
+        mode,
+        prompt,
+        negativePrompt,
+        duration,
+        ratio,
+        resolution,
+        sound,
+        manifest: inspected.manifest,
+        analysisImageIds: [...first, ...last, ...images, ...frames].map(asset => asset.id),
+      });
+      setPlannedUploads({ signature: planSignature, assets: { first, last, images, videos, audios } });
+      setAnalyzedPlan(result.plan);
+      setAnalyzedSignature(planSignature);
+      setPlanReviewed(false);
+      setPlanOpen(true);
+      await refreshBillingBalance?.({ force: true }).catch(() => {});
+    } catch (planError) {
+      if (planError?.status === 402 || planError?.code === 'BILLING_INSUFFICIENT_CREDITS') {
+        dispatch({ type: 'OPEN_PAYWALL', reason: 'INSUFFICIENT_CREDITS' });
+      }
+      setError(planError?.message || '素材分析暂时失败，请稍后重试');
+    } finally {
+      setPlanning(false);
+    }
   };
 
   const openJobInCanvas = (videoJob = job) => {
@@ -468,26 +532,31 @@ export default function VideoStudioPage({ embedded = false }) {
         <div className="video-media-guidance"><strong>用两张画面定义镜头起点与终点</strong><small>中间动作、运镜和节奏在下方描述。</small></div>
       </div>;
     }
-    return <div className={`video-media-deck${materialEntries.length ? '' : ' is-empty'}`}>
-      {materialEntries.map(item => <article key={`${item.key}-${item.index}-${item.file.name}`} className={`video-media-card video-media-preview-card is-${item.kind}`}>
-        <MediaPreview file={item.file} />
-        <span className="video-media-type">{item.label}</span>
-        <span className="video-media-caption">{item.file.name}</span>
-        <button type="button" className="video-media-remove" aria-label={`移除${item.file.name}`} onClick={() => removeFile(item.key, item.index)}><X size={14} /></button>
-      </article>)}
-      {materialEntries.length < 9 && <label className="video-media-card video-media-add-card">
-        <input ref={materialInputRef} type="file" accept="image/*,video/*,audio/*" multiple onChange={event => {
-          appendQuickFiles(Array.from(event.target.files || []));
-          event.target.value = '';
-        }} />
-        <span className="video-media-add-icon"><Plus size={20} /></span>
-        <strong>添加素材</strong>
-        <small>图片、视频或音频</small>
-      </label>}
-      {!materialEntries.length && <div className="video-media-guidance">
-        <strong>{mode === 'remake' ? '先放入参考视频，再补充要替换进去的商品素材' : '把产品、人物或场景素材放在这里'}</strong>
-        <small>{mode === 'remake' ? '至少需要 1 个参考视频和 1 组替换素材，最多 9 个素材。' : '支持图片、视频和音频，最多 9 个素材。'}</small>
-        <span><i><ImagePlus size={14} />图片</i><i><Video size={14} />视频</i><i><FileAudio size={14} />音频</i></span>
+    const uploadActions = mode === 'remake'
+      ? [
+        { kind: 'image', key: 'images', label: '替换图片', hint: '商品、人物或场景', icon: ImagePlus, accept: 'image/*', count: files.images.length },
+        { kind: 'video', key: 'videos', label: '参考视频', hint: '提取节奏与镜头结构', icon: Video, accept: 'video/*', count: files.videos.length },
+        { kind: 'audio', key: 'audios', label: '参考音频', hint: '音乐、对白或声音', icon: FileAudio, accept: 'audio/*', count: files.audios.length },
+      ]
+      : [
+        { kind: 'image', key: 'images', label: '图片', hint: '商品、人物与场景', icon: ImagePlus, accept: 'image/*', count: files.images.length },
+        { kind: 'video', key: 'videos', label: '视频', hint: '动作、运镜与节奏', icon: Video, accept: 'video/*', count: files.videos.length },
+        { kind: 'audio', key: 'audios', label: '音频', hint: '音乐、对白与声音', icon: FileAudio, accept: 'audio/*', count: files.audios.length },
+      ];
+    return <div className="video-material-workspace">
+      <div className="video-material-actions" aria-label="选择素材类型">
+        {uploadActions.map(action => <label key={action.kind} className={`video-material-action is-${action.kind}`}>
+          <input type="file" accept={action.accept} multiple onChange={event => { appendQuickFiles(Array.from(event.target.files || [])); event.target.value = ''; }} />
+          <span><action.icon size={19} /></span><strong>{action.label}</strong><small>{action.hint}</small>{action.count > 0 && <b>{action.count}</b>}
+        </label>)}
+      </div>
+      {materialEntries.length > 0 && <div className="video-media-deck">
+        {materialEntries.map(item => <article key={`${item.key}-${item.index}-${item.file.name}`} className={`video-media-card video-media-preview-card is-${item.kind}`}>
+          <MediaPreview file={item.file} />
+          <span className="video-media-type">{item.label}</span>
+          <span className="video-media-caption">{item.file.name}</span>
+          <button type="button" className="video-media-remove" aria-label={`移除${item.file.name}`} onClick={() => removeFile(item.key, item.index)}><X size={14} /></button>
+        </article>)}
       </div>}
     </div>;
   };
@@ -575,14 +644,13 @@ export default function VideoStudioPage({ embedded = false }) {
         </div>
 
         <div className="video-quick-tools" ref={quickToolsRef}>
-          <button type="button" className="video-icon-tool" aria-label="添加素材" title="添加素材" onClick={openMaterialPicker}><Plus size={18} /></button>
-          <span className="video-inline-control">
+          {mentionedAssets.length > 0 && <span className="video-inline-control">
             <button type="button" className="video-icon-tool" aria-label="引用素材" title="引用素材" aria-expanded={inlineMenu === 'mentions'} onClick={() => setInlineMenu(current => current === 'mentions' ? null : 'mentions')}><AtSign size={17} /></button>
             {inlineMenu === 'mentions' && <div className="video-inline-menu is-mentions"><strong>引用素材</strong>{mentionedAssets.length ? mentionedAssets.map((file, index) => <button key={`${file.name}-${index}`} type="button" onClick={() => insertMention(file)}><span>{file.name}</span><small>插入提示词</small></button>) : <p>上传素材后可在提示词中引用</p>}</div>}
-          </span>
+          </span>}
           <span className="video-inline-control">
-            <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><Sparkles size={15} /><span>{selectedProduct ? 'Seedance 2.0 · ' + selectedProduct.label : '选择视频模型'}</span><ChevronDown size={13} /></button>
-            {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><span><b>{product.label}</b><small>{product.id === 'seedance_fast' ? '更快出片，适合试稿与高频迭代' : '稳定生成营销短片，适合正式交付'}</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
+            <button type="button" className="video-model-trigger" aria-expanded={inlineMenu === 'model'} onClick={() => setInlineMenu(current => current === 'model' ? null : 'model')}><span className="video-model-mark">{selectedProduct?.providerLabel === 'MiniMax' ? 'M' : 'S'}</span><span>{selectedProduct?.label || '选择视频模型'}</span><ChevronDown size={13} /></button>
+            {inlineMenu === 'model' && <div className="video-inline-menu is-model"><strong>视频模型</strong>{products.map(product => <button key={product.id} type="button" className={selectedProduct?.id === product.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setSelectedProductId(product.id); setInlineMenu(null); }}><span className="video-model-mark">{product.providerLabel === 'MiniMax' ? 'M' : 'S'}</span><span><b>{product.label}<em>{product.tierLabel}</em></b><small>{product.description}</small><small className="video-model-limit">{product.limitations}</small><small>{product.quotes?.short?.points}-{product.quotes?.long?.points} AI 积分 / 次</small></span>{selectedProduct?.id === product.id && <Check size={16} />}</button>)}</div>}
           </span>
         </div>
 
@@ -602,13 +670,13 @@ export default function VideoStudioPage({ embedded = false }) {
               ><Icon size={17} /><span><small>{item.label}</small><strong>{toolbarSummary[item.key]}</strong></span><ChevronDown size={14} /></button>;
             })}
           </div>
-          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'}</span></div><div className="video-submit-actions"><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />{planReviewed ? '方案已确认' : '预览生成方案'}</button><button type="button" disabled={!canGenerate} onClick={handleGenerate}><Play size={17} />{submitting ? '正在上传' : quoteError || '开始生成'}</button></div></div>
+          <div className="video-submit-row"><div><strong>{estimatedPoints} AI 积分 / 次</strong><span>{resolution.toUpperCase()} · {duration} 秒 · {sound ? '含声音' : '无声音'} · 方案分析 1 积分</span></div><div className="video-submit-actions"><button type="button" className="video-plan-trigger" disabled={planning} onClick={openVideoPlan}><Aperture size={15} />{planning ? '正在分析素材' : planReviewed ? '方案已确认' : activeAnalysis ? '查看生成方案' : '分析并生成方案'}</button><button type="button" disabled={!canGenerate} onClick={handleGenerate}><Play size={17} />{submitting ? '正在提交' : quoteError || '开始生成'}</button></div></div>
         </footer>
       </section>
     </section>
 
     {renderFloatingPanel()}
-    {planOpen && <VideoPlanModal plan={videoPlan} onClose={() => setPlanOpen(false)} onConfirm={() => { setPlanReviewed(true); setPlanOpen(false); }} />}
+    {planOpen && <VideoPlanModal plan={effectivePlan} onClose={() => setPlanOpen(false)} onConfirm={() => { setPlanReviewed(true); setPlanOpen(false); }} />}
 
     {!embedded && <section className="video-workbench"><div className="video-stage">
         <div className="video-frame" style={{ aspectRatio: ratio.replace(':', ' / ') }}>

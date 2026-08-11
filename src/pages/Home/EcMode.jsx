@@ -20,6 +20,7 @@ import ParamsPanel from './ec/ParamsPanel';
 import SkuPanel from './ec/SkuPanel';
 import CopyPanel from './ec/CopyPanel';
 import GenSettingsPanel from './ec/GenSettingsPanel';
+import TryOnPlanPanel from './ec/TryOnPlanPanel';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
@@ -154,6 +155,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* — 配置 — */
   const [platform, setPlatform] = useState('taobao');
   const [sizing, setSizing] = useState({ smart: true, images: [] });
+  const productSuiteSizingRef = useRef({ smart: true, images: [] });
   const contentType = 'main';
   const [targetLanguage, setTargetLanguage] = useState('zh-CN');
   const [styleSkill, setStyleSkill] = useState('smart');
@@ -400,7 +402,10 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     event.target.value = '';
   };
 
-  const handleRoleUpload = (role, event) => appendRoleFiles(role, event);
+  const handleRoleUpload = (role, event) => {
+    if (role === 'person' && event?.target?.files?.length) setPersonMode('reference');
+    appendRoleFiles(role, event);
+  };
   const handleProdUpload = event => appendRoleFiles(abilityRecipeId === 'anything_tryon' ? 'items' : 'product', event);
   const handleRefUpload = event => appendRoleFiles(abilityRecipeId === 'anything_tryon' ? 'scene' : 'reference', event);
 
@@ -430,6 +435,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     const next = current.filter((_, itemIndex) => itemIndex !== index);
     if (role === 'product' || role === 'items') setProductImages(next);
     if (role === 'reference') setRefImages(next);
+    if (role === 'person' && next.length === 0) setPersonMode('smart');
     setRoleImages(previous => ({ ...previous, [role]: next }));
   };
 
@@ -451,6 +457,11 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     setPersonMode(switched.personMode || 'smart');
     setUnmappedImages(switched.unmappedImages || []);
     if (nextRecipeId === 'anything_tryon') {
+      productSuiteSizingRef.current = sizing;
+      setSizing({
+        smart: false,
+        images: [{ key: 'main_3x4', label: '穿搭成片', count: 4, ratio: '3:4', targetRatio: '3:4', cropPolicy: 'none' }],
+      });
       setRoleImages({
         items: switched.roleImages.items || [],
         person: switched.roleImages.person || [],
@@ -459,6 +470,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       setProductImages(switched.roleImages.items || []);
       setRefImages([]);
     } else {
+      setSizing(productSuiteSizingRef.current || { smart: true, images: [] });
       setProductImages(switched.productImages || []);
       setRefImages(switched.refImages || []);
       setRoleImages({ items: [], person: [], scene: [] });
@@ -493,7 +505,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   }, []);
 
   /* ── 6 个功能按钮（AI 感图标升级）── */
-  const BUTTONS = [
+  const DEFAULT_BUTTONS = [
     {
       key: 'settings',
       label: '生成设置',
@@ -525,6 +537,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
       icon: <FileText size={15} strokeWidth={1.8} />
     }
   ];
+  const BUTTONS = abilityRecipeId === 'anything_tryon'
+    ? [
+      DEFAULT_BUTTONS[0],
+      { ...DEFAULT_BUTTONS[1], label: '成片规格' },
+      DEFAULT_BUTTONS[3],
+      { ...DEFAULT_BUTTONS[4], label: '商品细节' },
+    ]
+    : DEFAULT_BUTTONS;
 
   /* ── 面板定位：Portal 固定到当前按钮，并在滚动时持续跟随 ── */
   const repositionPanel = useCallback(() => {
@@ -635,13 +655,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
           <span className="ec-config-panel-icon">{panelMeta?.icon}</span>
           <div>
             <strong>{panelMeta?.label}</strong>
-            <span>调整本次电商套图的生成规则</span>
+            <span>{abilityRecipeId === 'anything_tryon' ? '调整本次上身成片的生成规则' : '调整本次电商套图的生成规则'}</span>
           </div>
         </div>
         <div className="ec-config-panel-body">
-          {activePanel === 'sizing' && <SizingPanel platform={platform} onPlatformChange={setPlatform} sizing={sizing} onSizingChange={setSizing} resolution={genSettings.resolution} targetLanguage={targetLanguage} onTargetLanguageChange={setTargetLanguage} />}
+          {activePanel === 'sizing' && (abilityRecipeId === 'anything_tryon'
+            ? <TryOnPlanPanel sizing={sizing} onSizingChange={setSizing} />
+            : <SizingPanel platform={platform} onPlatformChange={setPlatform} sizing={sizing} onSizingChange={setSizing} resolution={genSettings.resolution} targetLanguage={targetLanguage} onTargetLanguageChange={setTargetLanguage} />)}
           {activePanel === 'style' && <StylePanel value={styleSkill} onChange={setStyleSkill} customColors={customColors} onColorsChange={setCustomColors} negativePrompt={genSettings.negativePrompt} onNegativePromptChange={(negativePrompt) => setGenSettings(current => ({ ...current, negativePrompt }))} />}
-          {activePanel === 'params' && <ParamsPanel params={productParams} onChange={setProductParams} />}
+          {activePanel === 'params' && <ParamsPanel mode={abilityRecipeId === 'anything_tryon' ? 'tryon' : 'product'} params={productParams} onChange={setProductParams} />}
           {activePanel === 'sku' && <SkuPanel skus={skus} onChange={setSkus} sizing={sizing} onSizingChange={setSizing} />}
           {activePanel === 'copy' && <CopyPanel copywriting={copywriting} onChange={setCopywriting} />}
           {activePanel === 'settings' && <GenSettingsPanel value={genSettings} onChange={setGenSettings} />}

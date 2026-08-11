@@ -8,6 +8,29 @@ import { fileURLToPath } from 'url';
 import { ensureBillingSchema } from './billing/schema.mjs';
 import { createWalletService } from './billing/walletService.mjs';
 import { ensureProjectSchema } from './projects/schema.mjs';
+import { bootstrapDefaultAccountAccess } from './accessControl.mjs';
+
+const BETA_CREDIT_BOOTSTRAP_ID = 'beta-credit-bootstrap-2026-08-11';
+
+export function bootstrapBetaCreditGrants(database) {
+  const walletService = createWalletService(database);
+  const grants = [
+    { email: '867550189@qq.com', units: 300000 },
+    { email: '240485042@qq.com', units: 100000 },
+  ];
+  for (const grant of grants) {
+    walletService.grant({
+      ownerEmail: grant.email,
+      currency: 'ec_points',
+      units: grant.units,
+      sourceType: 'admin_grant',
+      sourceId: BETA_CREDIT_BOOTSTRAP_ID,
+      idempotencyKey: `${BETA_CREDIT_BOOTSTRAP_ID}:${grant.email}`,
+      metadata: { reason: '封闭内测迁移初始积分', migrationId: BETA_CREDIT_BOOTSTRAP_ID },
+    });
+  }
+  return { migrationId: BETA_CREDIT_BOOTSTRAP_ID, grants: grants.length };
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = resolve(__dirname, 'works.db');
@@ -120,6 +143,8 @@ export function initDB(dbPath = DB_PATH) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_email, created_at DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_works_owner ON works(owner_email, created_at DESC)');
   ensureBillingSchema(db);
+  bootstrapDefaultAccountAccess(db);
+  bootstrapBetaCreditGrants(db);
   ensureProjectSchema(db);
   migrateLegacyUserCredits(db);
 

@@ -264,9 +264,8 @@
   }
 
   .topbar-logo {
+    display: none;
     white-space: nowrap;
-    font-size: 20px;
-    letter-spacing: 0;
   }
 
   .topbar-actions {
@@ -277,6 +276,16 @@
     height: 38px;
     padding-inline: 12px;
     font-size: 13px;
+  }
+
+  .topbar-admin-button {
+    width: 38px;
+    padding-inline: 0 !important;
+    justify-content: center;
+  }
+
+  .topbar-admin-label {
+    display: none;
   }
 
   .app-side-nav {

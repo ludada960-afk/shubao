@@ -10,11 +10,16 @@ const inp = {
   color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
 };
 
-export default function ParamsPanel({ params, onChange }) {
+export default function ParamsPanel({ params, onChange, mode = 'product' }) {
   const [catOpen, setCatOpen] = useState(false);
   const set = (key, val) => onChange({ ...params, [key]: val });
 
-  const fields = [
+  const fields = mode === 'tryon' ? [
+    { key: 'baseColor', label: '必须保留的颜色', icon: Palette, ph: '例：炭灰、米白、酒红' },
+    { key: 'material', label: '商品材质', icon: Layers3, ph: '羊毛 / 真皮 / 金属 / 雪纺' },
+    { key: 'craft', label: '版型与工艺', icon: Hammer, ph: '廓形、垂坠、刺绣、五金细节' },
+    { key: 'size', label: '尺码与比例', icon: Ruler, ph: '宽松版 / 标准版 / 商品尺寸' },
+  ] : [
     { key: 'size', label: '产品尺寸', icon: Ruler, ph: '长×宽×高 (cm)' },
     { key: 'baseColor', label: '底色/主色', icon: Palette, ph: '白色 / #F5F0EB' },
     { key: 'accentColor', label: '点缀色', icon: Pipette, ph: '金色 / 玫瑰金' },
@@ -27,12 +32,12 @@ export default function ParamsPanel({ params, onChange }) {
       <div className="ec-panel-fields" style={{ padding: '14px 16px 12px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label className="ec-panel-field-label" style={{ ...lbl }}><Shapes size={12} /> 品类</label>
+            <label className="ec-panel-field-label" style={{ ...lbl }}><Shapes size={12} /> {mode === 'tryon' ? '商品类型' : '品类'}</label>
             <div style={{ position: 'relative' }}>
               <input value={params.category || ''} onChange={e => set('category', e.target.value)}
                 onFocus={() => setCatOpen(true)}
                 onBlur={() => setTimeout(() => setCatOpen(false), 200)}
-                placeholder="美妆护肤 / 3C数码..."
+                placeholder={mode === 'tryon' ? '服饰 / 鞋包 / 配饰...' : '美妆护肤 / 3C数码...'}
                 style={{ ...inp, height: 36, fontSize: 12 }} />
               {catOpen && (
                 <div className="ec-inline-option-menu" style={{
@@ -64,6 +69,17 @@ export default function ParamsPanel({ params, onChange }) {
                 style={{ ...inp, height: 36, fontSize: 12 }} />
             </div>
           ))}
+          {mode === 'tryon' && (
+            <div className="ec-tryon-preserve-options" style={{ gridColumn: '1 / -1' }}>
+              {[
+                ['preserveMaterial', '锁定材质纹理'],
+                ['preservePattern', '锁定图案与标识'],
+                ['consistentPersonScene', '人物与场景保持一致'],
+              ].map(([key, label]) => (
+                <label key={key}><input type="checkbox" checked={params[key] !== false} onChange={event => set(key, event.target.checked)} /><span>{label}</span></label>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

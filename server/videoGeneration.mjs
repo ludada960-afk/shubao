@@ -726,6 +726,28 @@ export function createVideoGeneration({
   }
 
   return {
+    runtimeStats() {
+      const routes = Object.values(VIDEO_PRODUCTS).map(product => {
+        const adapter = registry.get(product.id);
+        const health = circuitHealth(product.id);
+        return {
+          productId: product.id,
+          label: product.label,
+          routeId: product.routeId,
+          configured: adapter?.enabled === true,
+          public: product.public === true,
+          availability: health.status,
+          reason: health.reason || '',
+          retryAt: health.retryAt || null,
+          queue: queue.stats(product.routeId),
+        };
+      });
+      return {
+        running: routes.reduce((total, route) => total + route.queue.running, 0),
+        queued: routes.reduce((total, route) => total + route.queue.queued, 0),
+        routes,
+      };
+    },
     capabilities() {
       const products = registry.publicProducts({ includeHidden: allowHiddenProducts })
         .map(product => ({

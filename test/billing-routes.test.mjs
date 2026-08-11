@@ -181,30 +181,32 @@ test('quotes ignore client supplied units and price', async t => {
   assert.equal(JSON.stringify(res.body.quote).includes('providerCostCny'), false);
 });
 
-test('owner account reports unlimited while retaining honest numeric balances', async t => {
+test('owner account reports a real numeric balance', async t => {
   const owner = '867550189@qq.com';
-  const { app, db, sessionTokens } = createHarness({ isUnlimited: email => email === owner });
+  const { app, db, walletService, sessionTokens } = createHarness();
   t.after(() => db.close());
+  walletService.grant({ ownerEmail: owner, currency: 'ec_points', units: 300000, idempotencyKey: 'owner-real-balance' });
 
   const { res } = await invoke(app, 'GET', '/api/billing/balance', {
     headers: signedHeaders(sessionTokens, owner),
   });
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.unlimited, true);
-  assert.deepEqual(res.body.balances.content_sets, { availableUnits: 0, heldUnits: 0, unlimited: true });
+  assert.equal(res.body.unlimited, false);
+  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 300000, heldUnits: 0, unlimited: false });
 });
 
-test('full beta tester account receives the same unlimited billing entitlement', async t => {
+test('full beta tester account receives a real numeric balance', async t => {
   const tester = '240485042@qq.com';
-  const { app, db, sessionTokens } = createHarness({ isUnlimited: isUnlimitedBetaEmail });
+  const { app, db, walletService, sessionTokens } = createHarness();
   t.after(() => db.close());
+  walletService.grant({ ownerEmail: tester, currency: 'ec_points', units: 100000, idempotencyKey: 'tester-real-balance' });
 
   const { res } = await invoke(app, 'GET', '/api/billing/balance', {
     headers: signedHeaders(sessionTokens, tester),
   });
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.unlimited, true);
-  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 0, heldUnits: 0, unlimited: true });
+  assert.equal(res.body.unlimited, false);
+  assert.deepEqual(res.body.balances.ec_points, { availableUnits: 100000, heldUnits: 0, unlimited: false });
 });
 
 test('orders and ledger entries are scoped to the signed owner', async t => {

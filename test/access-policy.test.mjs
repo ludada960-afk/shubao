@@ -8,16 +8,16 @@ test('normalizes and allows the closed-beta owner email', () => {
   assert.equal(isAllowedBetaEmail(' 867550189@QQ.COM '), true);
 });
 
-test('allows the full beta tester account with unlimited usage without replacing the owner', () => {
+test('keeps beta access separate from unlimited billing', () => {
   assert.equal(isAllowedBetaEmail(' 240485042@QQ.COM '), true);
-  assert.equal(isUnlimitedBetaEmail(' 240485042@QQ.COM '), true);
+  assert.equal(isUnlimitedBetaEmail(' 240485042@QQ.COM '), false);
   assert.equal(isAllowedBetaEmail('867550189@qq.com'), true);
-  assert.equal(isUnlimitedBetaEmail('867550189@qq.com'), true);
+  assert.equal(isUnlimitedBetaEmail('867550189@qq.com'), false);
 });
 
 
 test('rejects unlimited generation entitlement for unlisted accounts', () => {
-  assert.equal(isUnlimitedBetaEmail(' 867550189@QQ.COM '), true);
+  assert.equal(isUnlimitedBetaEmail(' 867550189@QQ.COM '), false);
   assert.equal(isUnlimitedBetaEmail('other@example.com'), false);
   assert.equal(isUnlimitedBetaEmail(''), false);
 });
@@ -40,7 +40,7 @@ test('reads access and unlimited email configuration at call time', () => {
     assert.equal(isAllowedBetaEmail('closed@example.com'), true);
     assert.equal(isAllowedBetaEmail('867550189@qq.com'), true);
     assert.equal(isUnlimitedBetaEmail('unlimited@example.com'), true);
-    assert.equal(isUnlimitedBetaEmail('867550189@qq.com'), true);
+    assert.equal(isUnlimitedBetaEmail('867550189@qq.com'), false);
   } finally {
     for (const [key, value] of [
       ['SHUBAO_ACCESS_MODE', originalMode],
