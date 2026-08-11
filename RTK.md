@@ -135,3 +135,9 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 视频工作台保留智能成片、首尾帧、爆款重构三种独立模式，图片/视频/音频素材分析、方案预览、队列、路由熔断、积分和 Canvas 交接已接通。因为视频生成是付费动作，本候选版本没有由 Codex 触发真实视频生成；用户需要在上线后自行做一次真实视频验收。
 - 后台可管理账号角色、状态、四板块权限、赠送/回收积分、审计和实时任务；汇总按功能、提供商、SKU、模型区分积分消耗、上游成本、理论收入、现金收入、内测补贴和贡献。`867550189@qq.com` 和 `240485042@qq.com` 的现有权限与有限积分设置以数据库/服务端初始化为准，不再使用无限余额旁路。
 - 已验证：`npm test` `1453/1453`、桌面与 390px 移动浏览器关键页面、无页面横向溢出、视频页面无付费生成请求。下一步是构建、部署脚本、生产健康/公开审计及线上浏览器复核；失败则停止发布并按部署脚本回滚。
+
+## 2026-08-11 Production Release
+
+- 提交 `996792d` 已通过唯一入口 `scripts/deploy-production.ps1` 发布。部署命令本地等待窗口在末尾阶段超时，但远端核验确认发布已经完成：`server/index.mjs` 与 `dist/index.html` 哈希分别和本地候选一致，PM2 `shubao-production` 在线，PID `1147183`，部署锁可重新获取且已释放。
+- `https://shuimg.cn/health` 返回 200；独立生产审计 `AUDIT_BASE_URL=https://shuimg.cn npm run audit:production` 通过 `27/27`；公开视频能力校验通过，两条公开路线为 Seedance 2.0 Fast 和标准版，MiniMax 仍隐藏。匿名 `/api/admin/summary` 返回 `401 AUTH_SESSION_REQUIRED`。
+- 本次部署没有触发视频生成；视频只做能力探针和静态流程验证。用户仍需自行用内测额度完成一次真实视频生成验收，验证上游在真实素材、排队和结果回传上的实际表现。

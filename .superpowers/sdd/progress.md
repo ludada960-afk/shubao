@@ -1724,3 +1724,13 @@
   deployment script and public verification. User-owned extension-task deletions, `.tmp/`, and
   the diagnosis helper remain outside the release. Production video generation remains a user
   test because it is paid.
+
+- Production release `996792d` was completed through `scripts/deploy-production.ps1` on
+  2026-08-11. The local command window expired during the final post-Canary tail, so the
+  wrapper did not return its final line; independent verification confirmed the release was
+  active and no rollback was needed: local and remote `server/index.mjs` and `dist/index.html`
+  SHA-256 values matched, PM2 `shubao-production` was online at PID `1147183`, the deployment
+  lock was free, public health returned 200, the public audit passed `27/27`, and the public
+  video capability contract passed without creating a video task. PM2 startup state was saved.
+  No paid video generation was run. The remaining external acceptance item is one user-run
+  real video generation against the configured Seedance route.
