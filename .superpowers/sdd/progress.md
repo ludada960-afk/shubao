@@ -1772,3 +1772,14 @@
   task were run. Runtime extension-task deletions, `.tmp/`, and the diagnosis
   helper remain excluded. Next boundary: user-owned real video acceptance only;
   do not trigger it automatically.
+
+- 2026-08-13 screenshot-driven production-case redesign is approved and active under
+  `docs/superpowers/specs/2026-08-13-production-case-and-canvas-experience-redesign.md`.
+  Showcase assets for anything-tryon and all four free-creation recipes must be created
+  through the real ShuBao production image pipeline so case creation also validates
+  idempotency, billing, provider delivery, stable assets, Canvas handoff, and recovery.
+  Local contract and UI fixes must land before paid image cases are submitted. Each case
+  gets one initial task; a retry may reuse the same request key only after confirming no
+  duplicate settlement. Existing provider images must never trigger an automatic second
+  provider call. No real video generation is authorized. The 12 extension-task deletions,
+  `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain user-owned and excluded.
