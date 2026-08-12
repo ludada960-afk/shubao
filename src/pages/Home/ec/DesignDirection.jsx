@@ -912,7 +912,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                     onClick={handlePolish}
                     disabled={!extraDesc.trim() || polishing}
                   >
-                    <MdAutoAwesome size={13} />{polishing ? '润色中…' : 'AI 润色补充说明'}
+                    <MdAutoAwesome size={13} />{polishing ? '润色中…' : 'AI 润色补充说明 · 0.2 AI 积分'}
                   </button>
                 </div>
               </div>

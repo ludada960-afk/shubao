@@ -687,7 +687,7 @@ export default function EcStudioPage() {
                     opacity: recognizing ? 0.6 : 1,
                   }}
                 >
-                  <Sparkle weight="fill" size={14} /> {recognizing ? 'AI 识别中...' : '🤖 AI 自动识别'}
+                  <Sparkle weight="fill" size={14} /> {recognizing ? 'AI 识别中...' : 'AI 自动识别 · 0.2 AI 积分'}
                 </button>
                 <span style={{ fontSize: 12, color: '#888', alignSelf: 'center' }}>
                   识别后自动填到下方 5 步，可手动改

@@ -77,6 +77,17 @@ test('quotes an explicit design-direction refresh as one AI point', () => {
   });
 });
 
+test('low-cost AI helpers share a server-authoritative 0.2 point quote', () => {
+  assert.deepEqual(quoteFeature('ec_ai_assistant', 1), {
+    sku: 'ec_ai_assistant',
+    quantity: 1,
+    units: 200,
+    totalUnits: 200,
+    currency: 'ec_points',
+    providerCostCny: 0.01,
+  });
+});
+
 test('pixel-layer preparation has a server-authoritative quote', () => {
   assert.deepEqual(quoteFeature('ec_layer_psd', 1), {
     sku: 'ec_layer_psd', quantity: 1, units: 3000, totalUnits: 3000,

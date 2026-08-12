@@ -39,7 +39,7 @@ test('new smart-layer actions materialize real child nodes instead of opening a 
     'smart layering must bypass the legacy workbench node',
   );
   assert.match(canvas, /materializeCanvasLayers\(\{/);
-  assert.match(canvas, /\.concat\(result\.nodes\)/);
+  assert.match(canvas, /\.concat\(\{[\s\S]*?\.\.\.result\.groupNode[\s\S]*?\},\s*result\.nodes\)/);
   assert.match(canvas, /\[\.\.\.retained,\s*\.\.\.result\.connections\]/);
 });
 

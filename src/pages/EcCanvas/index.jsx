@@ -65,6 +65,7 @@ import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteC
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
+import { readCanvasTextRecognitionCache, writeCanvasTextRecognitionCache } from './canvasTextRecognitionModel.js';
 import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
 import { canvasSegmentationRuntime, segmentationMasksToApi } from './canvasSegmentationRuntime.js';
 import { appendImageMention, buildCanvasImageReferencePayload, buildImageMentions, buildRoleAwareImagePayload, removeImageMention } from '../../components/creation/imageMentionModel.js';
@@ -562,6 +563,7 @@ export default function EcCanvas() {
   const canvasGeneratedWorkKeyRef = useRef(result._saveKey || '');
   const suiteGenerationInFlightRef = useRef(new Set());
   const toastTimerRef = useRef(null);
+  const textOcrCacheRef = useRef(new Map());
 
   useEffect(() => {
     setActiveComposerSurface('');
@@ -1398,17 +1400,16 @@ export default function EcCanvas() {
       });
       setNodes(previous => previous
         .filter(node => node.id !== pendingId)
-        .map(node => node.id === source.id ? {
-          ...result.sourceNode,
+        .concat({
+          ...result.groupNode,
           layerStatus: data.status || 'complete',
           layerCapabilities: data.capabilities || {},
-        } : node)
-        .concat(result.nodes));
+        }, result.nodes));
       setConnections(previous => {
         const retained = removeConnectionsForNodes(previous, new Set([pendingId]));
         return [...retained, ...result.connections];
       });
-      const groupNodeId = result.sourceNode.id;
+      const groupNodeId = result.groupNode.id;
       setSelected(groupNodeId);
       setMultiSelected(new Set([groupNodeId]));
       const warning = Array.isArray(data.warnings) && data.warnings.length
@@ -1918,13 +1919,20 @@ export default function EcCanvas() {
 
   const handleRecognizeCanvasText = useCallback(async (node) => {
     if (!node?.url || textOcrLoading) return;
-    setTextOcrBlocks(null);
+    const cachedBlocks = readCanvasTextRecognitionCache(textOcrCacheRef.current, node);
+    if (cachedBlocks !== undefined) {
+      setTextOcrBlocks(cachedBlocks);
+      setTextCompositionError(cachedBlocks.length ? '' : '没有识别到图片内文字');
+      return;
+    }
     setTextOcrLoading(true);
     setTextCompositionError('');
     try {
       const response = await recognizeCanvasText({ image_url: node.url });
-      setTextOcrBlocks(Array.isArray(response.blocks) ? response.blocks : []);
-      if (!response.blocks?.length) setTextCompositionError('没有识别到图片内文字');
+      const blocks = Array.isArray(response.blocks) ? response.blocks : [];
+      writeCanvasTextRecognitionCache(textOcrCacheRef.current, node, blocks);
+      setTextOcrBlocks(blocks);
+      if (!blocks.length) setTextCompositionError('没有识别到图片内文字');
     } catch (error) {
       setTextOcrBlocks([]);
       setTextCompositionError(error?.message || '图片文字识别失败');
@@ -1940,9 +1948,12 @@ export default function EcCanvas() {
     const handler = actionSpec?.execute?.handler || actionId;
     if (handler === 'edit-text') {
       setTextInspectorNodeId(node.id);
-      setTextOcrBlocks(node.kind === 'image' || node.kind === 'output' ? null : undefined);
+      const cachedBlocks = node.kind === 'image' || node.kind === 'output'
+        ? readCanvasTextRecognitionCache(textOcrCacheRef.current, node)
+        : undefined;
+      setTextOcrBlocks(cachedBlocks === undefined ? null : cachedBlocks);
       setTextCompositionError('');
-      if (node.kind === 'image' || node.kind === 'output') void handleRecognizeCanvasText(node);
+      if ((node.kind === 'image' || node.kind === 'output') && cachedBlocks === undefined) void handleRecognizeCanvasText(node);
       return;
     }
     if (['crop', 'annotation', 'grid-split', 'split-image', 'move-scale'].includes(handler)) {
@@ -3805,6 +3816,23 @@ export default function EcCanvas() {
                 setConnectionDraft(null);
               }}
             />}
+            {textInspectorNode && (
+              <TextLayerInspector
+                layer={defaultTextLayerForNode(textInspectorNode)}
+                ocrMode={textInspectorNode.kind === 'image' || textInspectorNode.kind === 'output'}
+                ocrBlocks={textInspectorNode.kind === 'image' || textInspectorNode.kind === 'output' ? textOcrBlocks : null}
+                ocrLoading={textOcrLoading}
+                position={{
+                  left: textInspectorNode.x + textInspectorNode.w + 12 / Math.max(0.15, viewport.scale || 1),
+                  top: textInspectorNode.y,
+                }}
+                saving={textCompositionSaving}
+                error={textCompositionError}
+                onRecognize={() => handleRecognizeCanvasText(textInspectorNode)}
+                onSave={handleSaveTextLayer}
+                onClose={() => { setTextInspectorNodeId(null); setTextCompositionError(''); }}
+              />
+            )}
             <CanvasFocusedEditor
               mode={focusedEditor?.mode}
               node={focusedEditorNode}
@@ -3921,36 +3949,6 @@ export default function EcCanvas() {
             </div>
           </div>
         </div>
-      )}
-
-      {textInspectorNode && (
-        <TextLayerInspector
-          layer={defaultTextLayerForNode(textInspectorNode)}
-          ocrMode={textInspectorNode.kind === 'image' || textInspectorNode.kind === 'output'}
-          ocrBlocks={textInspectorNode.kind === 'image' || textInspectorNode.kind === 'output' ? textOcrBlocks : null}
-          ocrLoading={textOcrLoading}
-          position={(() => {
-            const bounds = containerRef.current?.getBoundingClientRect();
-            const scale = Math.max(0.15, viewport.scale || 1);
-            const nodeLeft = (bounds?.left || 0) + viewport.x + textInspectorNode.x * scale;
-            const nodeTop = (bounds?.top || 0) + viewport.y + textInspectorNode.y * scale;
-            const nodeRight = nodeLeft + textInspectorNode.w * scale;
-            const panelWidth = 310;
-            const panelHeight = 520;
-            const viewportWidth = window.innerWidth || 1280;
-            const viewportHeight = window.innerHeight || 800;
-            const left = nodeRight + 12 + panelWidth <= viewportWidth - 12
-              ? nodeRight + 12
-              : Math.max(12, nodeLeft - panelWidth - 12);
-            const top = Math.min(Math.max(12, nodeTop), Math.max(12, viewportHeight - panelHeight - 12));
-            return { left, top };
-          })()}
-          saving={textCompositionSaving}
-          error={textCompositionError}
-          onRecognize={() => handleRecognizeCanvasText(textInspectorNode)}
-          onSave={handleSaveTextLayer}
-          onClose={() => { setTextInspectorNodeId(null); setTextCompositionError(''); }}
-        />
       )}
 
       {inspectorOpen && multiSelected.size > 0 && (

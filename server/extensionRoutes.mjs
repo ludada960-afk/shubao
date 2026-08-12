@@ -20,6 +20,23 @@ if (!fs.existsSync(DOWNLOADS_DIR)) fs.mkdirSync(DOWNLOADS_DIR, { recursive: true
 
 const router = Router();
 
+function isBillingPreconditionError(error) {
+  const code = String(error?.code || '');
+  return error?.status === 402
+    || code === 'BILLING_INSUFFICIENT_CREDITS'
+    || code.startsWith('BILLING_QUOTE_')
+    || code.startsWith('CANVAS_BILLING_ACTION_');
+}
+
+function restoreExtensionTaskAfterFailure(taskId, error, retryStatus, retryProgress) {
+  if (!taskId) return;
+  if (isBillingPreconditionError(error)) {
+    updateTask(taskId, { status: retryStatus, progress: retryProgress, error: null });
+    return;
+  }
+  updateTask(taskId, { status: TASK_STATUS.FAILED, error: error?.message || '扩展任务失败' });
+}
+
 /* ════════════════════════════════════════
  * 接口1：接收插件上传的采集数据
  * ════════════════════════════════════════ */
@@ -266,6 +283,11 @@ async function runAnalysis(taskId) {
     });
   }
 
+  const providerBackedResults = analysisResults.filter(result => !result.error && !result.fallback);
+  if (!providerBackedResults.length) {
+    throw Object.assign(new Error('扩展分析未获得有效结果'), { status: 502, code: 'EXTENSION_ANALYSIS_UNAVAILABLE' });
+  }
+
   updateTask(taskId, {
     status: TASK_STATUS.ANALYZED,
     progress: 50,
@@ -301,19 +323,7 @@ async function analyzeSingleImage(imgInfo, env, productTitle) {
   const apiBase = (env.LLM_BASE_URL || '').replace(/\/+$/, '');
 
   if (!apiKey) {
-    // 如果没有 API Key，返回兜底分析结果
-    return {
-      index: imgInfo.index,
-      url: imgInfo.url,
-      subject: productTitle || '商品',
-      layout: '居中展示，留白充分',
-      lighting: '柔和的商业产品光',
-      background: '纯色背景',
-      colors: ['#F5F5F5', '#333333', '#FFFFFF'],
-      text: '',
-      composition: '商品居中，3/4视角',
-      mood: '专业电商',
-    };
+    throw Object.assign(new Error('扩展分析服务暂不可用'), { status: 503, code: 'EXTENSION_ANALYSIS_UNAVAILABLE' });
   }
 
   // 构建请求体：先尝试 OpenAI-compatible (含 image_url)
@@ -388,21 +398,17 @@ async function analyzeSingleImage(imgInfo, env, productTitle) {
     }
   } catch (err) {
     console.warn(`[ext] Vision API call failed:`, err.message);
+    throw Object.assign(new Error('扩展分析服务暂不可用'), {
+      status: 502,
+      code: 'EXTENSION_ANALYSIS_UNAVAILABLE',
+      cause: err,
+    });
   }
 
-  // 兜底
-  return {
-    index: imgInfo.index,
-    url: imgInfo.url,
-    subject: productTitle || '商品',
-    layout: '居中展示，留白充分',
-    lighting: '柔和的商业产品光',
-    background: '纯色背景',
-    colors: ['#F5F5F5', '#333333', '#FFFFFF'],
-    text: '',
-    composition: '商品居中',
-    mood: '专业电商',
-  };
+  throw Object.assign(new Error('扩展分析服务返回了无法识别的结果'), {
+    status: 502,
+    code: 'EXTENSION_ANALYSIS_INVALID_RESPONSE',
+  });
 }
 
 /* ──────── AI 重新生成 ──────── */
@@ -421,9 +427,13 @@ async function runGeneration(taskId) {
   const targetPlatform = userProduct.platform || '淘宝';
 
   const generated = [];
+  const tierCount = ({ basic: 3, standard: 5, complete: 9 })[tier] || 3;
+  const referenceImages = analysis.images.slice(0, tierCount);
+  if (!referenceImages.length) throw new Error('没有可用的分析结果');
+  const sourceImages = Array.from({ length: tierCount }, (_, index) => referenceImages[index % referenceImages.length]);
 
-  for (let i = 0; i < analysis.images.length; i++) {
-    const ref = analysis.images[i];
+  for (let i = 0; i < sourceImages.length; i++) {
+    const ref = sourceImages[i];
     const sp = sellingPoints[i % Math.max(1, sellingPoints.length)] || '';
 
     // 构建保持原图构图的 prompt
@@ -459,8 +469,12 @@ async function runGeneration(taskId) {
       });
     }
 
-    const progress = 50 + Math.round(((i + 1) / analysis.images.length) * 45);
+    const progress = 50 + Math.round(((i + 1) / sourceImages.length) * 45);
     updateTask(taskId, { progress, generatedImages: generated });
+  }
+
+  if (generated.filter(item => item.url).length !== tierCount) {
+    throw Object.assign(new Error(`扩展生成未完成 ${tierCount} 张图片`), { status: 502, code: 'EXTENSION_GENERATION_INCOMPLETE' });
   }
 
   updateTask(taskId, {
@@ -560,7 +574,8 @@ export default router;
 
 /* 备用：直接挂载到 app 上（如果 Router 方式有兼容问题） */
 
-export function mountOnApp(app) {
+export function mountOnApp(app, { billing } = {}) {
+  if (!billing || typeof billing.execute !== 'function') throw new TypeError('extension billing service is required');
   // Express 4: 直接用 app.post/get 注册路由
   app.post('/api/extension/collect', (req, res) => {
     try {
@@ -568,12 +583,12 @@ export function mountOnApp(app) {
       if (!images || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ ok: false, error: '缺少图片数据' });
       }
-      const taskId = createTask({ images, title, platform, pageUrl, ratios });
+      const taskId = createTask({ images: images.slice(0, 9), title, platform, pageUrl, ratios: ratios?.slice?.(0, 9) || [] });
       downloadImages(taskId).catch(err => {
         console.error(`[ext] 下载失败 ${taskId}:`, err.message);
         updateTask(taskId, { status: TASK_STATUS.FAILED, error: err.message });
       });
-      res.json({ ok: true, taskId, imageCount: images.length });
+      res.json({ ok: true, taskId, imageCount: Math.min(images.length, 9) });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -593,28 +608,40 @@ export function mountOnApp(app) {
 
   app.post('/api/extension/analyze', async (req, res) => {
     try {
-      const { taskId } = req.body || {};
+      const { taskId, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
       if (!taskId) return res.status(400).json({ ok: false, error: '缺少 taskId' });
       const task = getTask(taskId);
       if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
-      if (task.analysis) return res.json({ ok: true, analysis: task.analysis });
+      if (task.analysis) return res.json({ ok: true, analysis: task.analysis, url: `extension-analysis:${taskId}` });
       if (task.status !== TASK_STATUS.DOWNLOADED && task.status !== TASK_STATUS.ANALYZING) {
         return res.json({ ok: true, status: task.status, message: '图片尚未就绪' });
       }
       updateTask(taskId, { status: TASK_STATUS.ANALYZING, progress: 30 });
-      runAnalysis(taskId).catch(err => {
-        console.error(`[ext] 分析失败 ${taskId}:`, err.message);
-        updateTask(taskId, { status: TASK_STATUS.FAILED, error: err.message });
+      const billed = await billing.execute({
+        ownerEmail: req._userEmail,
+        quoteId,
+        actionId,
+        sku: 'ec_extension_analysis',
+        referenceType: 'extension_analysis',
+        providerCostCny: 0.09,
+        metadata: { action: 'extension_analyze', taskId },
+        work: async () => {
+          await runAnalysis(taskId);
+          const result = getTask(taskId)?.analysis;
+          if (!result) throw new Error('扩展分析未返回结果');
+          return { analysis: result, url: `extension-analysis:${taskId}` };
+        },
       });
-      res.json({ ok: true, status: TASK_STATUS.ANALYZING, message: '分析已启动' });
+      res.json({ ok: true, ...billed.result, billing: billed.billing });
     } catch (err) {
-      res.status(500).json({ ok: false, error: err.message });
+      restoreExtensionTaskAfterFailure(req.body?.taskId, err, TASK_STATUS.DOWNLOADED, 25);
+      res.status(err?.status || 500).json({ ok: false, error: err.message, code: err?.code, required: err?.required, available: err?.available, billing: err?.billing });
     }
   });
 
   app.post('/api/extension/regenerate', async (req, res) => {
     try {
-      const { taskId, productName, category, sellingPoints, tier, platform } = req.body || {};
+      const { taskId, productName, category, sellingPoints, tier, platform, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
       if (!taskId || !productName) return res.status(400).json({ ok: false, error: '缺少 taskId 或 productName' });
       const task = getTask(taskId);
       if (!task) return res.status(404).json({ ok: false, error: '任务不存在' });
@@ -622,13 +649,26 @@ export function mountOnApp(app) {
         status: TASK_STATUS.GENERATING, progress: 50,
         userProduct: { productName, category: category || '', sellingPoints: sellingPoints || [], tier: tier || 'basic', platform: platform || '' },
       });
-      runGeneration(taskId).catch(err => {
-        console.error(`[ext] 生成失败 ${taskId}:`, err.message);
-        updateTask(taskId, { status: TASK_STATUS.FAILED, error: err.message });
+      const extensionSku = ({ basic: 'ec_extension_basic', standard: 'ec_extension_standard', complete: 'ec_extension_complete' })[tier] || 'ec_extension_basic';
+      const billed = await billing.execute({
+        ownerEmail: req._userEmail,
+        quoteId,
+        actionId,
+        sku: extensionSku,
+        referenceType: 'extension_regeneration',
+        providerCostCny: ({ basic: 0.114, standard: 0.19, complete: 0.342 })[tier] || 0.114,
+        metadata: { action: 'extension_regenerate', taskId, tier: tier || 'basic' },
+        work: async () => {
+          await runGeneration(taskId);
+          const result = getTask(taskId);
+          if (!result?.generatedImages?.length) throw new Error('扩展生成未返回结果');
+          return { taskId, generatedImages: result.generatedImages, url: `extension-generation:${taskId}` };
+        },
       });
-      res.json({ ok: true, taskId, message: '生成已启动' });
+      res.json({ ok: true, ...billed.result, billing: billed.billing });
     } catch (err) {
-      res.status(500).json({ ok: false, error: err.message });
+      restoreExtensionTaskAfterFailure(req.body?.taskId, err, TASK_STATUS.ANALYZED, 50);
+      res.status(err?.status || 500).json({ ok: false, error: err.message, code: err?.code, required: err?.required, available: err?.available, billing: err?.billing });
     }
   });
 

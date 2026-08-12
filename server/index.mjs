@@ -1904,32 +1904,70 @@ return {
 // 单张图片重新生成
 // ============================================================
 app.post('/api/regenerate-image', async (req, res) => {
-  const { prompt, category, ratio = '1:1', resolution = '2K' } = req.body;
+  const {
+    prompt,
+    category,
+    ratio = '1:1',
+    resolution = '2K',
+    billing_quote_id: quoteId,
+    billing_action_id: actionId,
+  } = req.body;
   if (!prompt) return res.status(400).json({ error: '缺少prompt' });
   try {
-    // 复用 generateImage 以获得JK检测/赛道优化
     const selectedSize = resolveGenerationSize({ resolution, ratio });
-    const url = await generateImage(prompt, category || '', false, undefined, selectedSize.size);
-    if (!url) throw new Error('生成失败');
-    res.json({ url, ratio: selectedSize.ratio, resolution: selectedSize.resolution });
+    const feature = ecommerceFeatureForItem({ imageModel: 'image2', generationSize: selectedSize.size });
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: feature.sku,
+      referenceType: 'legacy_image_regeneration',
+      providerCostCny: feature.providerCostCny,
+      metadata: { action: 'regenerate_image', imageModel: 'image2' },
+      work: async () => {
+        const url = await generateImage(prompt, category || '', false, undefined, selectedSize.size);
+        if (!url) throw new Error('生成失败');
+        return { url, ratio: selectedSize.ratio, resolution: selectedSize.resolution };
+      },
+    });
+    res.json({ ...billed.result, billing: billed.billing });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err?.status || 500).json({
+      error: safeCanvasClientError(err, '图片重生成失败，请稍后重试'),
+      code: err?.code,
+      required: err?.required,
+      available: err?.available,
+      billing: err?.billing,
+    });
   }
 });
 app.post('/api/regenerate-text', async (req, res) => {
-  const { text } = req.body;
+  const { text, category, billing_quote_id: quoteId, billing_action_id: actionId } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
   try {
-    const analysis = await contentAnalysis(text);
-    res.json({
-      title: analysis.title || '',
-      body_text: analysis.body_text || '',
-      hashtags: analysis.hashtags || [],
-      category: analysis.category || '',
-      pages: analysis.pages || []
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_ai_assistant',
+      referenceType: 'legacy_text_regeneration',
+      providerCostCny: 0.01,
+      metadata: { action: 'regenerate_text', category: category || '' },
+      work: async () => {
+        const analysis = await contentAnalysis(text);
+        return {
+          title: analysis.title || '',
+          body_text: analysis.body_text || '',
+          hashtags: analysis.hashtags || [],
+          category: analysis.category || category || '',
+          pages: analysis.pages || [],
+          url: `regenerate-text:${crypto.createHash('sha256').update(JSON.stringify(analysis)).digest('hex')}`,
+        };
+      },
     });
+    res.json({ ...billed.result, billing: billed.billing });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err?.status || 500).json({ error: safeCanvasClientError(err, '文案重生成暂时不可用，请稍后重试'), code: err?.code, required: err?.required, available: err?.available, billing: err?.billing });
   }
 });
 
@@ -2172,13 +2210,25 @@ app.post('/api/generate', async (req, res) => {
 });
 
 app.post('/api/analyze', async (req, res) => {
-  const { text } = req.body;
+  const { text, billing_quote_id: quoteId, billing_action_id: actionId } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: '请输入内容' });
   try {
-    const analysis = await contentAnalysis(text);
-    res.json(analysis);
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_ai_assistant',
+      referenceType: 'legacy_content_analysis',
+      providerCostCny: 0.01,
+      metadata: { action: 'analyze' },
+      work: async () => {
+        const analysis = await contentAnalysis(text);
+        return { ...analysis, url: `content-analysis:${crypto.createHash('sha256').update(JSON.stringify(analysis)).digest('hex')}` };
+      },
+    });
+    res.json({ ...billed.result, billing: billed.billing });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err?.status || 500).json({ error: safeCanvasClientError(err, '内容分析暂时不可用，请稍后重试'), code: err?.code, required: err?.required, available: err?.available, billing: err?.billing });
   }
 });
 
@@ -2661,16 +2711,25 @@ function visionToStylePack(vision) {
 }
 
 app.post('/api/extract-product-link', async (req, res) => {
-  const { url } = req.body || {};
+  const { url, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
   if (!url) return res.status(400).json({ error: '缺少商品链接' });
 
   console.log(`[extract-link] 分析链接: ${url.slice(0, 80)}`);
 
   try {
-    // ——— 抓取页面 ———
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    const pageRes = await fetch(url, {
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_ai_assistant',
+      referenceType: 'legacy_product_link_extraction',
+      providerCostCny: 0.01,
+      metadata: { action: 'extract_product_link', host: (() => { try { return new URL(url).hostname; } catch { return ''; } })() },
+      work: async () => {
+        // ——— 抓取页面 ———
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        const pageRes = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'zh-CN,zh;q=0.9',
@@ -2679,9 +2738,12 @@ app.post('/api/extract-product-link', async (req, res) => {
     });
     clearTimeout(timeout);
 
-    if (!pageRes.ok) {
-      return res.json({ ok: true, note: '页面无法直接访问，请手动填写商品信息', title: '', images: [], stylePack: '' });
-    }
+        if (!pageRes.ok) {
+          throw Object.assign(new Error('页面无法直接访问，请手动填写商品信息'), {
+            status: 422,
+            code: 'PRODUCT_LINK_UNAVAILABLE',
+          });
+        }
 
     const html = await pageRes.text();
 
@@ -2734,9 +2796,12 @@ app.post('/api/extract-product-link', async (req, res) => {
       } catch {}
     }
 
-    // 如果还是没取到，返回空
+    // 没有可交付结果时让账本释放本次冻结积分。
     if (!product || !product.title) {
-      return res.json({ ok: true, note: '未能从页面提取到商品信息，请手动填写', title: '', images: [], stylePack: '' });
+      throw Object.assign(new Error('未能从页面提取到商品信息，请手动填写'), {
+        status: 422,
+        code: 'PRODUCT_LINK_NOT_FOUND',
+      });
     }
 
     // ——— Step 4: 整理图片列表 ———
@@ -2794,7 +2859,7 @@ app.post('/api/extract-product-link', async (req, res) => {
 
     console.log(`[extract-link] 成功: ${(product.title || '').slice(0, 40)}`);
 
-    return res.json({
+        return {
       ok: true,
       title: product.title || '',
       description: product.description || '',
@@ -2807,12 +2872,16 @@ app.post('/api/extract-product-link', async (req, res) => {
       stylePack: styleMapping.stylePack,
       styleConfidence: styleMapping.confidence,
       styleNote: styleMapping.stylePack ? `检测到商品图风格偏向「${styleMapping.stylePack}」` : '',
-      imageTypes: styleMapping.imageTypes,
+          imageTypes: styleMapping.imageTypes,
+          url: `extract-link:${crypto.createHash('sha256').update(JSON.stringify({ product, images, styleMapping })).digest('hex')}`,
+        };
+      },
     });
+    return res.json({ ...billed.result, billing: billed.billing });
 
   } catch (err) {
     console.error(`[extract-link] 失败:`, err.message);
-    res.json({ ok: true, note: '链接访问失败，请手动填写', title: '', images: [], stylePack: '' });
+    res.status(err?.status || 500).json({ error: safeCanvasClientError(err, '链接分析暂时不可用，请稍后重试'), code: err?.code, required: err?.required, available: err?.available, billing: err?.billing });
   }
 });
 
@@ -3073,16 +3142,25 @@ app.post('/api/ecommerce-preview', (req, res) => {
 // 智能识别：Vision 分析参考图 + smartBrief 文字 → 回填 5 步字段
 // ============================================================
 app.post('/api/ecommerce/auto-recognize', async (req, res) => {
-  const { smartBrief, refShots } = req.body || {};
+  const { smartBrief, refShots, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
   if (!smartBrief && !refShots?.length) {
     return res.status(400).json({ error: '请填写描述或上传参考图' });
   }
   try {
-    // 1) Vision 分析参考图（复用现有函数）
-    let vision = null;
-    if (refShots?.length) {
-      vision = await analyzeReferenceImages(refShots.slice(0, 5));
-    }
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_ai_assistant',
+      referenceType: 'ecommerce_auto_recognize',
+      providerCostCny: 0.01,
+      metadata: { action: 'auto_recognize' },
+      work: async () => {
+        // 1) Vision 分析参考图（复用现有函数）
+        let vision = null;
+        if (refShots?.length) {
+          vision = await analyzeReferenceImages(refShots.slice(0, 5));
+        }
 
     // 2) 让 LLM 综合参考图 + smartBrief 推断 5 步字段
     const sys = `你是电商运营专家。根据用户描述和参考图分析，推断商品信息并返回严格 JSON（只返回 JSON，不要其他文字）：
@@ -3119,10 +3197,14 @@ app.post('/api/ecommerce/auto-recognize', async (req, res) => {
     parsed.style_skill = STYLE_MAP[parsed.style_skill] || 'premium_minimal';
     parsed.rawVision = vision;
 
-    res.json(parsed);
+        parsed.url = `auto-recognize:${crypto.createHash('sha256').update(JSON.stringify(parsed)).digest('hex')}`;
+        return parsed;
+      },
+    });
+    res.json({ ...billed.result, billing: billed.billing });
   } catch (e) {
     console.warn('[auto-recognize] 失败:', e.message);
-    res.status(500).json({ error: 'AI 识别失败：' + (e.message || '') });
+    res.status(e?.status || 500).json({ error: safeCanvasClientError(e, 'AI 识别暂时不可用，请稍后重试'), code: e?.code, required: e?.required, available: e?.available, billing: e?.billing });
   }
 });
 
@@ -3574,17 +3656,31 @@ app.post('/api/ecommerce/design-directions', async (req, res) => {
 // AI 润色电商文案（供第二步「补充描述」使用）
 // ============================================================
 app.post('/api/polish-ec-text', async (req, res) => {
-  const { text, product_name, category } = req.body || {};
+  const { text, product_name, category, billing_quote_id: quoteId, billing_action_id: actionId } = req.body || {};
   if (!text?.trim()) return res.status(400).json({ error: '请输入需要润色的文案' });
 
   const sys = `你是资深电商策划文案。将用户提供的产品描述/需求，润色为专业的电商生图 prompt 关键词组合，保留核心需求，补充光影、材质、风格、平台规格等专业维度，让 AI 出图更精准。直接输出润色后的文案，不要解释，不要标题，不超过 150 字。`;
   const userMsg = `产品：${product_name || '未知'}，品类：${category || '其他'}\n原始描述：${text}`;
 
   try {
-    const result = await callMiniLLM(sys, [], userMsg);
-    res.json({ polished: (result || '').trim() });
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_ai_assistant',
+      referenceType: 'ecommerce_text_polish',
+      providerCostCny: 0.01,
+      metadata: { action: 'polish_ec_text', category: category || '' },
+      work: async () => {
+        const result = await callMiniLLM(sys, [], userMsg);
+        const polished = (result || '').trim();
+        if (!polished) throw new Error('AI 未返回润色文案');
+        return { polished, url: `polish-ec-text:${crypto.createHash('sha256').update(polished).digest('hex')}` };
+      },
+    });
+    res.json({ ...billed.result, billing: billed.billing });
   } catch (e) {
-    res.status(500).json({ error: '润色失败：' + e.message });
+    res.status(e?.status || 500).json({ error: safeCanvasClientError(e, '润色暂时不可用，请稍后重试'), code: e?.code, required: e?.required, available: e?.available, billing: e?.billing });
   }
 });
 
@@ -3606,7 +3702,7 @@ app.post('/api/reverse-prompt', async (req, res) => {
       metadata: { action: 'reverse_prompt' },
       work: async () => {
         const base64 = imageBufferToDataUrl(await imageInputReader.read(image_url));
-        const sys = `你是专业的AI生图提示词工程师。分析这张电商产品图，还原生成这张图所用的完整提示词，包含：产品描述、背景场景、光影风格、构图方式、色调、平台规格说明等。输出格式：直接给出英文关键词组合（逗号分隔），附上中文说明，总字数不超过200字。`;
+        const sys = `你是专业的 AI 生图提示词工程师。分析这张电商产品图，还原生成这张图所需的完整提示词，包含产品描述、背景场景、光影风格、构图方式、色调和平台规格。只输出中文提示词，使用自然、具体、可直接编辑的中文短句，不要附加英文版本、标题或解释，总字数不超过 200 字。`;
         const userMsg = `产品：${product_name || '商品'}。请反推这张图的生图提示词。`;
         let aiRes = '';
         let fallback = false;
@@ -3622,10 +3718,7 @@ app.post('/api/reverse-prompt', async (req, res) => {
           fallback = true;
           console.warn('[reverse-prompt] 视觉模型降级:', visionError.message);
         }
-        const prompt = (aiRes || [
-          `${product_name || '电商商品'}, clean product photography, centered composition, accurate product shape and material, soft diffused light, controlled highlights, clean background, ecommerce catalog style`,
-          '已按商品图用途保留主体、材质、居中构图与柔和光影；视觉服务暂时不可用时仍可继续编辑这份基础提示词。',
-        ].join('\n')).trim();
+        const prompt = (aiRes || `${product_name || '电商商品'}，干净的商业产品摄影，主体居中，准确保留商品外形、材质与品牌细节，使用柔和漫射光和克制高光，背景简洁，适合电商目录展示。`).trim();
         if (!prompt) throw new Error('未识别到可编辑的画面描述');
         return { prompt, fallback, url: `reverse-prompt:${crypto.createHash('sha256').update(prompt).digest('hex')}` };
       },
@@ -4186,6 +4279,8 @@ app.post('/api/canvas/regenerate-text', authenticateEcommerceRequest, async (req
     reference_images: referenceImages = [],
     reference_metadata: referenceMetadata = [],
     count = 1,
+    billing_quote_id: quoteId,
+    billing_action_id: actionId,
   } = req.body || {};
   if (!String(prompt || '').trim()) return res.status(400).json({ error: '缺少文案生成要求' });
   if (!Array.isArray(referenceImages) || referenceImages.length > 8) {
@@ -4193,36 +4288,48 @@ app.post('/api/canvas/regenerate-text', authenticateEcommerceRequest, async (req
   }
   try {
     const outputCount = Math.max(1, Math.min(4, Number(count) || 1));
-    const visualInputs = [];
-    for (const imageUrl of referenceImages) {
-      visualInputs.push(imageBufferToDataUrl(await imageInputReader.read(imageUrl)));
-    }
-    const mentionGuide = visualInputs.length
-      ? visualInputs.map((_, index) => {
-        const meta = Array.isArray(referenceMetadata) ? referenceMetadata[index] : null;
-        const label = String(meta?.mention || meta?.label || `@图片${index + 1}`).trim();
-        const name = String(meta?.displayName || meta?.name || label.replace(/^@/, '')).trim();
-        const role = meta?.role === 'product' ? '商品图' : '参考图';
-        return `${label}=${name}（${role}，输入序号 ${index + 1}）`;
-      }).join('；')
-      : '无参考图片';
-    const text = await createEcommerceVlmClient().completeText({
-      systemPrompt: [
-        '你是专业电商文案编辑。根据用户要求输出可直接编辑使用的中文文案，不要解释过程。',
-        '参考图片通过用户可见的 @名称与输入序号建立映射；必须准确区分每张图片，不能虚构图片中不存在的商品属性。',
-        '默认给出清晰标题和精炼正文；用户指定格式、数量或语言时严格遵循。',
-      ].join('\n'),
-      userPrompt: `参考顺序：${mentionGuide}\n生成 ${outputCount} 个版本。\n生成要求：${String(prompt).trim()}`,
-      images: visualInputs,
-      maxTokens: Math.min(4000, 1200 * outputCount),
-      temperature: 0.45,
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_ai_assistant',
+      referenceType: 'canvas_text_regeneration',
+      providerCostCny: 0.01,
+      metadata: { action: 'regenerate_canvas_text', outputCount },
+      work: async () => {
+        const visualInputs = [];
+        for (const imageUrl of referenceImages) {
+          visualInputs.push(imageBufferToDataUrl(await imageInputReader.read(imageUrl)));
+        }
+        const mentionGuide = visualInputs.length
+          ? visualInputs.map((_, index) => {
+            const meta = Array.isArray(referenceMetadata) ? referenceMetadata[index] : null;
+            const label = String(meta?.mention || meta?.label || `@图片${index + 1}`).trim();
+            const name = String(meta?.displayName || meta?.name || label.replace(/^@/, '')).trim();
+            const role = meta?.role === 'product' ? '商品图' : '参考图';
+            return `${label}=${name}（${role}，输入序号 ${index + 1}）`;
+          }).join('；')
+          : '无参考图片';
+        const text = await createEcommerceVlmClient().completeText({
+          systemPrompt: [
+            '你是专业电商文案编辑。根据用户要求输出可直接编辑使用的中文文案，不要解释过程。',
+            '参考图片通过用户可见的 @名称与输入序号建立映射；必须准确区分每张图片，不能虚构图片中不存在的商品属性。',
+            '默认给出清晰标题和精炼正文；用户指定格式、数量或语言时严格遵循。',
+          ].join('\n'),
+          userPrompt: `参考顺序：${mentionGuide}\n生成 ${outputCount} 个版本。\n生成要求：${String(prompt).trim()}`,
+          images: visualInputs,
+          maxTokens: Math.min(4000, 1200 * outputCount),
+          temperature: 0.45,
+        });
+        const output = String(text || '').trim();
+        if (!output) throw new Error('视觉模型未返回文案');
+        return { text: output, url: `canvas-text:${crypto.createHash('sha256').update(output).digest('hex')}` };
+      },
     });
-    const output = String(text || '').trim();
-    if (!output) throw new Error('视觉模型未返回文案');
-    return res.json({ text: output });
+    return res.json({ ...billed.result, billing: billed.billing });
   } catch (error) {
     console.error('[canvas/regenerate-text] 失败:', error.message);
-    return res.status(error?.status || 500).json({ error: safeCanvasClientError(error, '文案生成暂时不可用，请稍后重试') });
+    return res.status(error?.status || 500).json({ error: safeCanvasClientError(error, '文案生成暂时不可用，请稍后重试'), code: error?.code, required: error?.required, available: error?.available, billing: error?.billing });
   }
 });
 
@@ -4300,23 +4407,46 @@ app.post('/api/canvas/analyze-layers', async (req, res) => {
 
 // 画布图片文字识别：返回图片内的文字框，供原位替换，而不是新建一个文字节点。
 app.post('/api/canvas/ocr', authenticateEcommerceRequest, async (req, res) => {
-  const { image_url: imageUrl } = req.body || {};
+  const {
+    image_url: imageUrl,
+    billing_quote_id: quoteId,
+    billing_action_id: actionId,
+  } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
   try {
-    const buffer = await readCanvasImage(imageUrl);
-    const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
-    const visionResult = await createEcommerceVlmClient().analyzeJson({
-      systemPrompt: '你是商品图 OCR 引擎。只识别图片中已经存在的可见文字，不要生成新文案。只返回 JSON：{"blocks":[{"id":"...","text":"...","x":0,"y":0,"width":0.2,"height":0.08,"color":"#111111","background":"#ffffff"}]}。坐标都是相对图片左上角的 0 到 1 小数，文字框要覆盖完整文字。',
-      userPrompt: '逐块识别图片内可编辑文字，保留原文顺序、大小关系和大致位置；没有文字就返回 {"blocks":[]}。',
-      images: [image],
-      maxTokens: 1500,
-      temperature: 0.3,
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail: req._userEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_canvas_ocr',
+      referenceType: 'canvas_ocr',
+      providerCostCny: 0.01,
+      metadata: { action: 'ocr' },
+      work: async () => {
+        const buffer = await readCanvasImage(imageUrl);
+        const image = `data:image/png;base64,${(await sharp(buffer).png().toBuffer()).toString('base64')}`;
+        const visionResult = await createEcommerceVlmClient().analyzeJson({
+          systemPrompt: '你是商品图 OCR 引擎。只识别图片中已经存在的可见文字，不要生成新文案。只返回 JSON：{"blocks":[{"id":"...","text":"...","x":0,"y":0,"width":0.2,"height":0.08,"color":"#111111","background":"#ffffff"}]}。坐标都是相对图片左上角的 0 到 1 小数，文字框要覆盖完整文字。',
+          userPrompt: '逐块识别图片内可编辑文字，保留原文顺序、大小关系和大致位置；没有文字就返回 {"blocks":[]}。',
+          images: [image],
+          maxTokens: 1500,
+          temperature: 0.3,
+        });
+        const blocks = parseVisionTextBlocks(JSON.stringify(visionResult));
+        const fingerprint = crypto.createHash('sha256').update(JSON.stringify(blocks)).digest('hex');
+        return { blocks, status: '已识别', url: `canvas-ocr:${fingerprint}` };
+      },
     });
-    const blocks = parseVisionTextBlocks(JSON.stringify(visionResult));
-    return res.json({ blocks, status: '已识别' });
+    return res.json({ ...billed.result, billing: billed.billing });
   } catch (error) {
     console.error('[canvas/ocr] 失败:', error.message);
-    return res.status(500).json({ error: safeCanvasClientError(error, '图片文字识别暂时不可用，请稍后重试') });
+    return res.status(error?.status || 500).json({
+      error: safeCanvasClientError(error, '图片文字识别暂时不可用，请稍后重试'),
+      code: error?.code,
+      required: error?.required,
+      available: error?.available,
+      billing: error?.billing,
+    });
   }
 });
 
@@ -4442,7 +4572,7 @@ app.post('/api/auth/verify-code', (req, res) => {
 // ============================================================
 // 扩展端 API 路由
 // ============================================================
-mountExtRoutes(app);
+mountExtRoutes(app, { billing: canvasOneShotBilling });
 
 // ============================================================
 // 启动

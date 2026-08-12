@@ -709,6 +709,9 @@ test('Canvas text generation sends ordered visual references to the signed visio
   };
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url: String(url), headers: options.headers, body: JSON.parse(options.body || '{}') });
+    if (String(url).endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: 'canvas-text-quote' } }), { status: 200 });
+    }
     return new Response(JSON.stringify({ text: '保留杯身结构的夏日卖点文案' }), { status: 200 });
   };
 
@@ -724,11 +727,15 @@ test('Canvas text generation sends ordered visual references to the signed visio
   });
 
   assert.equal(result.text, '保留杯身结构的夏日卖点文案');
-  assert.equal(requests[0].url, '/api/canvas/regenerate-text');
-  assert.equal(requests[0].headers.Authorization, 'Bearer signed-canvas-session');
-  assert.deepEqual(requests[0].body.reference_images, ['/api/generated-assets/a.png', '/api/generated-assets/b.png']);
-  assert.deepEqual(requests[0].body.reference_metadata.map(item => item.mention), ['@正面图', '@参考图 1']);
-  assert.equal(requests[0].body.count, 3);
+  assert.equal(requests[0].url, '/api/billing/quote');
+  assert.equal(requests[0].body.sku, 'ec_ai_assistant');
+  assert.equal(requests[1].url, '/api/canvas/regenerate-text');
+  assert.equal(requests[1].headers.Authorization, 'Bearer signed-canvas-session');
+  assert.deepEqual(requests[1].body.reference_images, ['/api/generated-assets/a.png', '/api/generated-assets/b.png']);
+  assert.deepEqual(requests[1].body.reference_metadata.map(item => item.mention), ['@正面图', '@参考图 1']);
+  assert.equal(requests[1].body.count, 3);
+  assert.equal(requests[1].body.billing_quote_id, 'canvas-text-quote');
+  assert.match(requests[1].body.billing_action_id, /^canvas-[0-9a-f]{8}$/);
 });
 
 test('canvas regeneration keeps a stable billing action for retries and separates explicit variants', async t => {
@@ -993,6 +1000,14 @@ test('all service-layer expensive requests carry the authenticated session email
   }
   const designDirectionRequest = generationRequests.find(request => request.url.endsWith('/api/ecommerce/design-directions'));
   assert.equal(designDirectionRequest.signal, designDirectionController.signal);
+  const regenerateImageRequest = generationRequests.find(request => request.url.endsWith('/api/regenerate-image'));
+  assert.ok(regenerateImageRequest.body.billing_quote_id);
+  assert.ok(regenerateImageRequest.body.billing_action_id);
+  for (const path of ['/api/ecommerce/auto-recognize', '/api/polish-ec-text', '/api/regenerate-text', '/api/extract-product-link']) {
+    const request = generationRequests.find(candidate => candidate.url.endsWith(path));
+    assert.ok(request.body.billing_quote_id, `${path} must carry a server quote`);
+    assert.ok(request.body.billing_action_id, `${path} must carry an idempotency action`);
+  }
 });
 
 test('direct generation screens cannot bypass the authenticated API payload helpers', async () => {
@@ -1007,7 +1022,7 @@ test('direct generation screens cannot bypass the authenticated API payload help
   assert.match(plog, /generatePlogContent\(/);
   assert.match(xhs, /generatePlogContent\(/);
   assert.match(api, /JSON\.stringify\(withSessionEmail\(payload\)\)/);
-  assert.match(remake, /JSON\.stringify\(withSessionEmail\(\{ taskId \}\)\)/);
+  assert.match(remake, /JSON\.stringify\(withSessionEmail\(\{ taskId,[\s\S]{0,220}billing_quote_id/);
   assert.match(remake, /JSON\.stringify\(withSessionEmail\(\{[\s\S]{0,300}productName:/);
   assert.match(api, /if \(!res\.ok\) \{[\s\S]{0,100}throw await createApiError\(res,/);
   assert.match(plog, /handleGenerationAccessError\(e, dispatch,/);

@@ -38,8 +38,14 @@ app.use(express.json({ limit: '50mb' }));
 // 基本健康检查
 app.get('/health', (req, res) => res.json({ ok: true, service: 'extension' }));
 
-// 挂载扩展端路由
-mountOnApp(app);
+// 独立扩展服务不连接主站账本，默认拒绝任何 AI 消耗，避免绕过计费。
+mountOnApp(app, {
+  billing: {
+    async execute() {
+      throw Object.assign(new Error('扩展服务必须通过主站账本运行'), { status: 503, code: 'EXTENSION_BILLING_UNAVAILABLE' });
+    },
+  },
+});
 
 // 启动
 app.listen(PORT, () => {

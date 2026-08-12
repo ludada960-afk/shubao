@@ -39,7 +39,13 @@ export const FEATURE_SKUS = freezeCatalog({
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.
   xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.342 },
+  ec_ai_assistant: { units: 200, providerCostCny: 0.01 },
+  ec_extension_analysis: { units: 1500, providerCostCny: 0.09 },
+  ec_extension_basic: { units: 3000, providerCostCny: 0.114 },
+  ec_extension_standard: { units: 5000, providerCostCny: 0.19 },
+  ec_extension_complete: { units: 9000, providerCostCny: 0.342 },
   ec_reverse_prompt: { units: 200, providerCostCny: 0.01 },
+  ec_canvas_ocr: { units: 200, providerCostCny: 0.01 },
   ec_remove_bg: { units: 500, providerCostCny: 0.03 },
   ec_direction_refresh: { units: 1000, providerCostCny: 0.05 },
   ec_smart_layer: { units: 3000, providerCostCny: 0.20 },

@@ -246,7 +246,7 @@ export default function EcLegacyForm() {
       {/* 链接提取 */}
       <div style={{ ...SECTION, border: '1px solid #EEF2FF', background: '#F8FAFF' }}>
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-          🔗 粘贴商品链接（可选 — AI 自动填充表单）
+          🔗 粘贴商品链接（可选 — AI 自动填充表单 · 0.2 AI 积分）
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={link} onChange={e => setLink(e.target.value)} placeholder="粘贴淘宝/京东/拼多多链接..."
@@ -269,7 +269,7 @@ export default function EcLegacyForm() {
             color: '#fff', cursor: extracting || !link.trim() ? 'not-allowed' : 'pointer',
             fontSize: 13, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap',
           }}>
-            {extracting ? '分析中...' : '提取并填充'}
+            {extracting ? '分析中...' : '提取并填充 · 0.2'}
           </button>
         </div>
       </div>

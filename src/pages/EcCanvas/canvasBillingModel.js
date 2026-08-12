@@ -1,6 +1,7 @@
 const FREE = Object.freeze({ paid: false, units: 0, currency: 'ec_points', sku: null });
 const ACTIONS = Object.freeze({
   'reverse-prompt': { paid: true, units: 0.2, currency: 'ec_points', sku: 'ec_reverse_prompt' },
+  ocr: { paid: true, units: 0.2, currency: 'ec_points', sku: 'ec_canvas_ocr' },
   'remove-bg': { paid: true, units: 0.5, currency: 'ec_points', sku: 'ec_remove_bg' },
   'smart-remix': { paid: true, units: 1, currency: 'ec_points', sku: 'ec_image_2k' },
   inpaint: { paid: true, units: 1, currency: 'ec_points', sku: 'ec_image_2k' },

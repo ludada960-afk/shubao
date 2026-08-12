@@ -342,8 +342,24 @@ test('smart-layer generation keeps the result collapsed and expands only its hid
   assert.match(page, /layerChildIds/);
   assert.match(page, /layerExpanded: true/);
   assert.match(page, /node\.kind === ['"]layer-group['"]/);
-  assert.match(page, /const groupNodeId = result\.sourceNode\.id/);
+  assert.match(page, /const groupNodeId = result\.groupNode\.id/);
   assert.match(page, /setMultiSelected\(new Set\(\[groupNodeId\]\)\)/);
+});
+
+test('text recognition inspector stays in the canvas stacking context', () => {
+  const inspector = readFileSync(new URL('../src/pages/EcCanvas/components/TextLayerInspector.jsx', import.meta.url), 'utf8');
+  assert.match(inspector, /position:\s*['"]absolute['"]/);
+  assert.match(inspector, /transform:\s*['"]scale\(var\(--canvas-overlay-scale\)\)['"]/);
+  assert.doesNotMatch(inspector, /position:\s*['"]fixed['"]|zIndex:\s*10004/);
+});
+
+test('selected-image tools keep their command names visible without hover', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  const start = source.indexOf('export function CanvasObjectToolbar');
+  const end = source.indexOf('export function CanvasDeriveMenu', start);
+  const toolbar = source.slice(start, end);
+  assert.match(toolbar, /<span>\{action\.label\}<\/span>/);
+  assert.doesNotMatch(toolbar, /className="is-compact"/);
 });
 
 test('annotation editor handles undo and redo from the keyboard', () => {
@@ -681,7 +697,8 @@ test('Canvas density uses content-sized toolbars and readable metadata', () => {
   assert.match(css, /--ec-canvas-meta-font:\s*10px/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*font-size:\s*var\(--ec-canvas-action-font\)/s);
   assert.match(source, /const estimatedWidth = 76 \+ actions\.reduce/);
-  assert.match(source, /className="is-compact" aria-label=\{action\.label\}/);
+  assert.match(source, /title=\{action\.description \|\| action\.label\}/);
+  assert.match(source, /<span>\{action\.label\}<\/span>/);
   assert.match(source, /<Icon size=\{15\} \/><span>\{action\.label\}<\/span>/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*min-width:\s*var\(--ec-canvas-control-height\);[^}]*width:\s*auto;[^}]*padding:\s*0 8px;/s);
 });

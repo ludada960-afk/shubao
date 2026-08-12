@@ -13,6 +13,7 @@ import Footer from '../../components/layout/Footer';
 import { withSessionEmail } from '../../services/api';
 import { createApiError } from '../../services/apiError.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import { quoteBillingAction } from '../../services/billing.js';
 
 const EC_TIERS = [
   { key: 'basic', label: '基础版', count: 3, desc: '白底主图+卖点+场景' },
@@ -21,6 +22,13 @@ const EC_TIERS = [
 ];
 
 const EC_PLATFORMS = ['淘宝', '京东', '拼多多', '小红书电商', '抖音电商', '亚马逊'];
+const EXTENSION_SKUS = { basic: 'ec_extension_basic', standard: 'ec_extension_standard', complete: 'ec_extension_complete' };
+
+function extensionActionId(value) {
+  let hash = 2166136261;
+  for (const char of String(value || '')) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); }
+  return `extension-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
 
 export default function RemakePage() {
   const { dispatch } = useApp();
@@ -103,10 +111,11 @@ export default function RemakePage() {
     setLoading(true);
     setError('');
     try {
+      const billing = await quoteBillingAction({ sku: 'ec_extension_analysis', quantity: 1 });
       const res = await fetch(`${EXT_API}/api/extension/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(withSessionEmail({ taskId })),
+        body: JSON.stringify(withSessionEmail({ taskId, billing_quote_id: billing?.quote?.quoteId, billing_action_id: extensionActionId(`analyze:${taskId}`) })),
       });
       if (!res.ok) throw await createApiError(res, '分析失败');
       const data = await res.json();
@@ -118,19 +127,13 @@ export default function RemakePage() {
     setLoading(false);
   };
 
-  // 自动触发分析（当图片下载完成后）
-  useEffect(() => {
-    if (task?.status === 'downloaded' && taskId) {
-      startAnalysis();
-    }
-  }, [task?.status]);
-
   // 重新生成
   const handleGenerate = async () => {
     if (!productName.trim()) return;
     setGenerating(true);
     setError('');
     try {
+      const billing = await quoteBillingAction({ sku: EXTENSION_SKUS[tier] || EXTENSION_SKUS.basic, quantity: 1 });
       const res = await fetch(`${EXT_API}/api/extension/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,6 +144,8 @@ export default function RemakePage() {
           sellingPoints: sellingPoints.split('\n').filter(Boolean).map(s => s.trim()),
           tier,
           platform,
+          billing_quote_id: billing?.quote?.quoteId,
+          billing_action_id: extensionActionId(`regenerate:${taskId}:${productName.trim()}:${category}:${sellingPoints}:${tier}:${platform}`),
         })),
       });
       if (!res.ok) throw await createApiError(res, '生成失败');
@@ -442,7 +447,7 @@ export default function RemakePage() {
         {task?.status === 'downloaded' && (
           <div style={{ textAlign: 'center', padding: 20 }}>
             <Button primary onClick={startAnalysis} disabled={loading}>
-              <MdAutoAwesome size={14} /> {loading ? '分析中...' : '启动 AI 分析'}
+              <MdAutoAwesome size={14} /> {loading ? '分析中...' : '启动 AI 分析 · 1.5 AI 积分'}
             </Button>
           </div>
         )}

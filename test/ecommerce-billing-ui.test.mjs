@@ -584,6 +584,16 @@ test('initial direction analysis is included while explicit refresh is authorita
   assert.match(direction, /await loadDirections\([\s\S]{0,720}directionRefreshActionRef\.current\s*=\s*null/);
   assert.match(analysisSlice, /if\s*\(refreshBilling\)\s*\{[\s\S]{0,180}throw Object\.assign\(new Error\(message\)/);
   assert.match(direction, /换一套创意路线\s*·\s*1 AI 积分/);
+  assert.match(direction, /AI 润色补充说明\s*·\s*0\.2 AI 积分/);
+
+  const legacyStudio = await fs.readFile(new URL('../src/pages/EcStudio/index.jsx', import.meta.url), 'utf8');
+  assert.match(legacyStudio, /AI 自动识别\s*·\s*0\.2 AI 积分/);
+  const noteModal = await fs.readFile(new URL('../src/NoteModal.jsx', import.meta.url), 'utf8');
+  assert.match(noteModal, /重新生成\s*·\s*0\.2 AI 积分/);
+  const remake = await fs.readFile(new URL('../src/pages/Remake/index.jsx', import.meta.url), 'utf8');
+  assert.match(remake, /quoteBillingAction\(/);
+  assert.match(remake, /ec_extension_basic/);
+  assert.match(remake, /启动 AI 分析\s*·\s*1\.5 AI 积分/);
 
   const homeStyles = await fs.readFile(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
   assert.match(direction, /className="ec-direction-action ec-direction-action--refresh"/);
@@ -666,4 +676,10 @@ test('commerce configuration and navigation controls keep native button semantic
   assert.match(skuPanel, /<button type="button" aria-label=\{`删除变体 \$\{idx \+ 1\}`\}/);
   assert.doesNotMatch(skuPanel, /<div onClick=\{\(\) => rm\(sku\.id\)\}/);
   assert.match(app, /<button\s+key=\{i\}\s+type="button"[\s\S]{0,240}aria-current=/);
+});
+
+test('product link extraction visibly discloses its AI point price', async () => {
+  const source = await fs.readFile(new URL('../src/pages/Home/EcLegacyForm.jsx', import.meta.url), 'utf8');
+  assert.match(source, /AI 自动填充表单 · 0\.2 AI 积分/);
+  assert.match(source, /提取并填充 · 0\.2/);
 });

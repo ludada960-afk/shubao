@@ -755,11 +755,18 @@ export function galleryImg(id, file) {
   return `${API_BASE}/api/gallery-image?id=${encodeURIComponent(id)}&file=${encodeURIComponent(file)}`;
 }
 
-export async function recognizeCanvasText({ image_url }) {
+export async function recognizeCanvasText({ image_url, signal }) {
+  const normalizedImageUrl = normalizeCanvasImageUrl(image_url);
+  const billing = await quoteCanvasAction('ec_canvas_ocr', stableCanvasActionId(`ocr\u0000${normalizedImageUrl}`), { signal });
   const res = await fetch(`${API_BASE}/api/canvas/ocr`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ image_url: normalizeCanvasImageUrl(image_url) })),
+    body: JSON.stringify(withSessionEmail({
+      image_url: normalizedImageUrl,
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    })),
+    signal,
   });
   if (!res.ok) throw await createApiError(res, '图片文字识别失败');
   return res.json();
@@ -1258,10 +1265,21 @@ export async function retryFailedEcommerceTask(taskId, { billingQuoteId, signal 
 
 /* ── 电商智能识别（Vision 回填 5 步字段） ── */
 export async function autoRecognizeEcommerce({ smartBrief, refShots }) {
+  const brief = smartBrief || '';
+  const shots = refShots || [];
+  const billing = await quoteCanvasAction(
+    'ec_ai_assistant',
+    stableCanvasActionId(`auto-recognize\u0000${brief}\u0000${JSON.stringify(shots)}`),
+  );
   const res = await fetch(`${API_BASE}/api/ecommerce/auto-recognize`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ smartBrief: smartBrief || '', refShots: refShots || [] })),
+    body: JSON.stringify(withSessionEmail({
+      smartBrief: brief,
+      refShots: shots,
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    })),
   });
   if (!res.ok) throw await createApiError(res, '智能识别失败');
   return res.json();
@@ -1337,10 +1355,20 @@ export async function getDesignDirections(params, { signal } = {}) {
 
 /* ── EC 文案 AI 润色 ── */
 export async function polishECText({ text, product_name, category }) {
+  const billing = await quoteCanvasAction(
+    'ec_ai_assistant',
+    stableCanvasActionId(`polish\u0000${text}\u0000${product_name}\u0000${category}`),
+  );
   const res = await fetch(`${API_BASE}/api/polish-ec-text`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(withSessionEmail({ text, product_name, category })),
+    body: JSON.stringify(withSessionEmail({
+      text,
+      product_name,
+      category,
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    })),
   });
   if (!res.ok) throw await createApiError(res, '润色失败');
   return res.json();
@@ -1378,10 +1406,14 @@ export async function generateEcommercePreview({ productName, category, points, 
   return res.json();
 }
 export async function extractProductLink(url) {
+  const billing = await quoteCanvasAction(
+    'ec_ai_assistant',
+    stableCanvasActionId(`extract-product-link\u0000${url}`),
+  );
   const res = await fetch(`${API_BASE}/api/extract-product-link`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ url })),
+    body: JSON.stringify(withSessionEmail({ url, billing_quote_id: billing.quoteId, billing_action_id: billing.actionId })),
   });
   if (!res.ok) throw await createApiError(res, '链接分析失败');
   return res.json();
@@ -1395,10 +1427,19 @@ export async function getExtractData(token) {
 
 /* ── 单图重生成 ── */
 export async function regenerateImage(prompt, category, { ratio = '1:1', resolution = '2K' } = {}) {
+  const billingSku = generationBillingSku('image2', resolution);
+  const billing = await quoteCanvasAction(billingSku);
   const res = await fetch(`${API_BASE}/api/regenerate-image`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ prompt, category: category || '', ratio, resolution })),
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({
+      prompt,
+      category: category || '',
+      ratio,
+      resolution,
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    })),
   });
   if (!res.ok) throw await createApiError(res, '图片重生成失败');
   const d = await res.json();
@@ -1408,24 +1449,41 @@ export async function regenerateImage(prompt, category, { ratio = '1:1', resolut
 
 /* ── 文案重生成 ── */
 export async function regenerateText(text, category) {
+  const billing = await quoteCanvasAction(
+    'ec_ai_assistant',
+    stableCanvasActionId(`regenerate-text\u0000${text}\u0000${category}`),
+  );
   const res = await fetch(`${API_BASE}/api/regenerate-text`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(withSessionEmail({ text, category })),
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({
+      text,
+      category,
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
+    })),
   });
   if (!res.ok) throw await createApiError(res, '文案重生成失败');
   return res.json();
 }
 
 export async function regenerateCanvasText({ prompt, referenceImages = [], references = [], count = 1 }) {
+  const normalizedImages = referenceImages.map(normalizeCanvasImageUrl);
+  const outputCount = Math.max(1, Math.min(4, Number(count) || 1));
+  const billing = await quoteCanvasAction(
+    'ec_ai_assistant',
+    stableCanvasActionId(`canvas-text\u0000${prompt}\u0000${outputCount}\u0000${JSON.stringify(normalizedImages)}\u0000${JSON.stringify(references)}`),
+  );
   const res = await fetch(`${API_BASE}/api/canvas/regenerate-text`, {
     method: 'POST',
     headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       prompt,
-      reference_images: referenceImages.map(normalizeCanvasImageUrl),
+      reference_images: normalizedImages,
       reference_metadata: references,
-      count: Math.max(1, Math.min(4, Number(count) || 1)),
+      count: outputCount,
+      billing_quote_id: billing.quoteId,
+      billing_action_id: billing.actionId,
     }),
   });
   if (!res.ok) throw await createApiError(res, '文案生成失败');

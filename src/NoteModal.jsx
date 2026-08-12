@@ -864,7 +864,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                     if (item._galleryItem) { await dialog.notice({ title: '请先生成自己的作品', message: '案例用于查看效果，生成自己的作品后即可重新编辑文案。' }); return; }
                     await textRegen();
                   }}>
-                    <MdRefresh size={13} /> 重新生成
+                    <MdRefresh size={13} /> 重新生成 · 0.2 AI 积分
                   </button>
                 )}
                 {!editing && (

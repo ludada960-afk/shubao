@@ -30,7 +30,7 @@ export default function TextLayerInspector({ layer, position = {}, ocrMode = fal
   return (
     <aside
       aria-label="文字图层检查器"
-      style={{ position: 'fixed', zIndex: 10004, width: 'min(310px, calc(100vw - 36px))', boxSizing: 'border-box', background: '#fff', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8, boxShadow: '0 16px 42px rgba(15,23,42,.18)', padding: 14, ...position }}
+      style={{ position: 'absolute', zIndex: 32, width: 310, maxWidth: 'calc(100vw - 36px)', boxSizing: 'border-box', background: '#fff', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8, boxShadow: '0 16px 42px rgba(15,23,42,.18)', padding: 14, transform: 'scale(var(--canvas-overlay-scale))', transformOrigin: 'top left', ...position }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <MdTextFields size={18} color="#0f766e" />

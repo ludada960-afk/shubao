@@ -60,8 +60,13 @@ const routes = [
   route({
     id: '65535-gpt-5.6-luna', providerId: 'relay_65535', model: 'gpt-5.6-luna', status: 'connected',
     purpose: '识图与方案分析', billingUnit: '输入 / 输出每 100 万 Token', unitPriceText: '¥0.044 / ¥0.264',
-    appSkus: ['ec_reverse_prompt', 'video_plan_analysis', 'ec_direction_refresh'],
+    appSkus: ['ec_ai_assistant', 'ec_extension_analysis', 'ec_reverse_prompt', 'ec_canvas_ocr', 'video_plan_analysis', 'ec_direction_refresh'],
     health: '近 4 小时 99.83%，首字节约 5.6 秒', notes: '按 Token 浮动；站内动作采用封顶成本快照，非固定上游单次价。',
+  }),
+  route({ id: '65535-extension-ecommerce', providerId: 'relay_65535', model: 'gpt-image-2', status: 'connected',
+    purpose: '浏览器扩展复刻套装', billingUnit: '每套',
+    appSkus: ['ec_extension_basic', 'ec_extension_standard', 'ec_extension_complete'],
+    health: '复用生产图片通道', notes: '3/5/9 张套装按等级一次结算。',
   }),
   route({
     id: 'change-nano-flash', providerId: 'change2pro', model: 'gemini-3.1-flash-image', status: 'connected',

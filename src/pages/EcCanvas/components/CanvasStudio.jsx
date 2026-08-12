@@ -102,7 +102,7 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
 
 export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction }) {
   if (!node || !actions.length) return null;
-  const estimatedWidth = 10 + actions.length * 38;
+  const estimatedWidth = Math.min(820, 18 + actions.reduce((width, action) => width + Math.max(72, action.label.length * 13 + 30), 0));
   return <div
     className="ec-canvas-object-toolbar"
     role="toolbar"
@@ -111,8 +111,9 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
   >
     {actions.map(action => {
       const Icon = ACTION_ICONS[action.id] || WandSparkles;
-      return <button key={action.id} type="button" className="is-compact" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action, node)}>
+      return <button key={action.id} type="button" aria-label={action.label} title={action.description || action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action, node)}>
         <Icon size={16} />
+        <span>{action.label}</span>
       </button>;
     })}
   </div>;

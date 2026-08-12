@@ -56,7 +56,37 @@ test('Canvas text generation is signed and sends ordered owned images to the vis
   assert.match(route, /imageInputReader\.read\(imageUrl\)/);
   assert.match(route, /createEcommerceVlmClient\(\)\.completeText\(/);
   assert.match(route, /images:\s*visualInputs/);
+  assert.match(route, /canvasOneShotBilling\.execute\(\{/);
+  assert.match(route, /sku:\s*['"]ec_ai_assistant['"]/);
+  assert.match(route, /billing_quote_id:\s*quoteId/);
+  assert.match(route, /billing_action_id:\s*actionId/);
   assert.doesNotMatch(route, /contentAnalysis\([^)]*@图片/);
+});
+
+test('legacy AI helper routes settle through the shared one-shot ledger', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  for (const [routePath, nextMarker] of [
+    ['/api/regenerate-text', '// ============================================================\n// API 路由'],
+    ['/api/ecommerce/auto-recognize', '// ============================================================\n// 临时图片上传'],
+    ['/api/polish-ec-text', '// ============================================================\n// 反推提示词'],
+  ]) {
+    const route = extractCanvasRoute(source, routePath, nextMarker);
+    assert.match(route, /canvasOneShotBilling\.execute\(\{/);
+    assert.match(route, /sku:\s*['"]ec_ai_assistant['"]/);
+    assert.match(route, /ownerEmail:\s*req\._userEmail/);
+    assert.match(route, /billing_quote_id/);
+    assert.match(route, /billing_action_id/);
+  }
+  const analyzeStart = source.indexOf("app.post('/api/analyze'");
+  const analyzeRoute = source.slice(analyzeStart, source.indexOf('// ============================================================\n// 作品存储', analyzeStart));
+  assert.match(analyzeRoute, /canvasOneShotBilling\.execute\(\{/);
+  assert.match(analyzeRoute, /sku:\s*['"]ec_ai_assistant['"]/);
+  const extractStart = source.indexOf("app.post('/api/extract-product-link'");
+  const extractRoute = source.slice(extractStart, source.indexOf('// ── 持久化的 bookmarklet', extractStart));
+  assert.match(extractRoute, /canvasOneShotBilling\.execute\(\{/);
+  assert.match(extractRoute, /sku:\s*['"]ec_ai_assistant['"]/);
+  assert.match(extractRoute, /code:\s*['"]PRODUCT_LINK_UNAVAILABLE['"]/);
+  assert.match(extractRoute, /code:\s*['"]PRODUCT_LINK_NOT_FOUND['"]/);
 });
 
 test('Canvas generated node geometry uses the shared ratio parser for every supported ratio', async () => {
@@ -118,6 +148,10 @@ test('Canvas OCR uses the formal ecommerce vision gateway instead of the legacy 
   assert.doesNotMatch(route, /callLLMWithVision\(/);
   assert.match(route, /parseVisionTextBlocks\(JSON\.stringify\(visionResult\)\)/);
   assert.match(route, /status:\s*['"]已识别['"]/);
+  assert.match(route, /canvasOneShotBilling\.execute\(\{/);
+  assert.match(route, /sku:\s*['"]ec_canvas_ocr['"]/);
+  assert.match(route, /billing_quote_id:\s*quoteId/);
+  assert.match(route, /billing_action_id:\s*actionId/);
 });
 
 test('Canvas image text replacement is owner-authenticated before reading source pixels', async () => {
@@ -136,7 +170,8 @@ test('Canvas reverse prompt uses the formal ecommerce vision gateway with an edi
   assert.match(route, /createEcommerceVlmClient\(\)\.completeText\(/);
   assert.doesNotMatch(route, /callLLMWithVision\(/);
   assert.match(route, /fallback\s*=\s*true/);
-  assert.match(route, /clean product photography/);
+  assert.match(route, /只输出中文提示词/);
+  assert.doesNotMatch(route, /英文关键词组合|clean product photography/);
 });
 
 test('Canvas pixel layering and PSD export are signed composition routes', async () => {
@@ -190,4 +225,43 @@ test('server Canvas generation imports the shared size resolver without a local 
 
   assert.match(source, /import\s*\{\s*resolveGenerationSize\s*\}\s*from\s*['"]\.\/ecommerceEngine\/modelCatalog\.mjs['"]/);
   assert.doesNotMatch(source, /function\s+canvasSizeForRatio|const\s+sizes\s*=\s*\{\s*['"]1K['"]/);
+});
+
+test('legacy single-image regeneration uses one-shot billing before provider submission', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf("app.post('/api/regenerate-image'");
+  const end = source.indexOf("app.post('/api/regenerate-text'", start);
+  const route = source.slice(start, end);
+  assert.match(route, /canvasOneShotBilling\.execute\(\{/);
+  assert.match(route, /ecommerceFeatureForItem\(/);
+  assert.match(route, /billing_quote_id:\s*quoteId/);
+  assert.match(route, /billing_action_id:\s*actionId/);
+  assert.match(route, /ownerEmail:\s*req\._userEmail/);
+});
+
+test('extension AI tasks are attached to a leased billing action and tiered image quote', async () => {
+  const source = await readFile(new URL('../server/extensionRoutes.mjs', import.meta.url), 'utf8');
+  assert.match(source, /export function mountOnApp\(app,\s*\{\s*billing\s*\}\s*=\s*\{\}\)/);
+  assert.match(source, /sku:\s*['"]ec_extension_analysis['"]/);
+  assert.match(source, /referenceType:\s*['"]extension_analysis['"]/);
+  assert.match(source, /extensionSku/);
+  assert.match(source, /ec_extension_basic/);
+  assert.match(source, /ec_extension_standard/);
+  assert.match(source, /ec_extension_complete/);
+  assert.match(source, /referenceType:\s*['"]extension_regeneration['"]/);
+  assert.match(source, /billing_quote_id/);
+  assert.match(source, /billing_action_id/);
+  assert.match(source, /tierCount/);
+  assert.match(source, /analysis\.images\.slice\(0, tierCount\)/);
+  assert.match(source, /Array\.from\(\{ length: tierCount \}/);
+  assert.match(source, /images:\s*images\.slice\(0, 9\)/);
+});
+
+test('extension billing settles only complete provider-backed work and keeps rejected tasks retryable', async () => {
+  const source = await readFile(new URL('../server/extensionRoutes.mjs', import.meta.url), 'utf8');
+  assert.match(source, /if \(!apiKey\)\s*\{\s*throw Object\.assign\(new Error\(['"]扩展分析服务暂不可用['"]/);
+  assert.match(source, /if \(!providerBackedResults\.length\)\s*\{\s*throw Object\.assign\(new Error\(['"]扩展分析未获得有效结果['"]/);
+  assert.match(source, /if \(generated\.filter\(item => item\.url\)\.length !== tierCount\)/);
+  assert.match(source, /restoreExtensionTaskAfterFailure\(req\.body\?\.taskId, err, TASK_STATUS\.DOWNLOADED, 25\)/);
+  assert.match(source, /restoreExtensionTaskAfterFailure\(req\.body\?\.taskId, err, TASK_STATUS\.ANALYZED, 50\)/);
 });

@@ -143,7 +143,22 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
   const childLayers = hasProductGroup
     ? validLayers.filter(layer => layer.semanticType !== 'product-instance')
     : validLayers;
-  const groupId = sourceId;
+  const groupId = `layer_group_${stableRunId}`;
+  const groupNode = {
+    ...sourceNode,
+    id: groupId,
+    kind: 'layer-group',
+    status: 'ready',
+    actionId: 'layer-edit',
+    group: '智能分层',
+    x: Number.isFinite(Number(anchor?.x)) ? Number(anchor.x) : finite(sourceNode.x) + finite(sourceNode.w, 240) + 48,
+    y: Number.isFinite(Number(anchor?.y)) ? Number(anchor.y) : finite(sourceNode.y),
+    sourceNodeIds: [sourceId],
+    layerExpanded: false,
+    layerChildIds: [],
+    layerCount: 0,
+    showMeta: false,
+  };
 
   const childNodes = childLayers.map((layer) => {
     const id = `layer_${stableRunId}_${layer.id}`;
@@ -162,35 +177,47 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
       role: layer.semanticType,
       parentLayerGroupId: groupId,
       layerGroupId: groupId,
-      ...layerGeometry(layer, sourceNode),
+      ...layerGeometry(layer, groupNode),
       hidden: true,
       locked: false,
       showMeta: false,
     };
     return layer.kind === 'text' ? textNode(layer, common) : imageNode(layer, common);
   });
-  const sourceNodeResult = {
-    ...sourceNode,
-    kind: 'layer-group',
-    status: 'ready',
-    actionId: 'layer-edit',
-    group: '智能分层',
-    layerExpanded: false,
-    layerChildIds: childNodes.map(node => node.id),
-    layerCount: childNodes.length,
-    showMeta: false,
-  };
-  const connections = childNodes.map((node, index) => ({
-    id: `edge_${stableRunId}_${index + 1}`,
+  groupNode.layerChildIds = childNodes.map(node => node.id);
+  groupNode.layerCount = childNodes.length;
+  const connections = [{
+    id: `edge_${stableRunId}_source`,
     fromNodeId: sourceId,
+    fromPort: 'output',
+    toNodeId: groupId,
+    toPort: 'input',
+    relation: 'derived',
+    actionId: 'layer-edit',
+    from: sourceId,
+    to: groupId,
+    type: 'derived',
+  }, ...childNodes.map((node, index) => ({
+    id: `edge_${stableRunId}_${index + 1}`,
+    fromNodeId: groupId,
     fromPort: 'output',
     toNodeId: node.id,
     toPort: 'input',
     relation: 'derived',
     actionId: 'layer-edit',
-    from: sourceId,
+    from: groupId,
     to: node.id,
     type: 'derived',
-  }));
-  return { sourceNode: sourceNodeResult, nodes: childNodes, connections, layers: validLayers };
+  }))];
+  return {
+    sourceNode,
+    groupNode: {
+      ...groupNode,
+      layerChildIds: childNodes.map(node => node.id),
+      layerCount: childNodes.length,
+    },
+    nodes: childNodes,
+    connections,
+    layers: validLayers,
+  };
 }

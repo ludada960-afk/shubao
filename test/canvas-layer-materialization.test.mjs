@@ -16,7 +16,7 @@ const source = Object.freeze({
   name: '三色保鲜盒',
 });
 
-test('smart layering upgrades the source in place and keeps commercial groups, background and transparent text stacked', () => {
+test('smart layering preserves the source and creates an independent result group to its right', () => {
   const result = materializeCanvasLayers({
     sourceNode: source,
     runId: 'run-1',
@@ -31,32 +31,35 @@ test('smart layering upgrades the source in place and keeps commercial groups, b
   });
 
   assert.equal(result.nodes.length, 3);
-  assert.equal(result.connections.length, 3);
+  assert.equal(result.connections.length, 4);
   assert.equal(new Set(result.nodes.map(node => node.id)).size, 3);
   assert.deepEqual(result.nodes.map(node => node.semanticType), [
     'product-group', 'background', 'text',
   ]);
-  assert.equal(result.sourceNode.id, source.id);
-  assert.equal(result.sourceNode.kind, 'layer-group');
-  assert.equal(result.sourceNode.layerExpanded, false);
-  assert.equal(result.sourceNode.layerChildIds.length, 3);
-  assert.equal(result.sourceNode.showMeta, false);
+  assert.deepEqual(result.sourceNode, source);
+  assert.notEqual(result.groupNode.id, source.id);
+  assert.equal(result.groupNode.kind, 'layer-group');
+  assert.equal(result.groupNode.x, source.x + source.w + 48);
+  assert.equal(result.groupNode.y, source.y);
+  assert.equal(result.groupNode.layerExpanded, false);
+  assert.equal(result.groupNode.layerChildIds.length, 3);
+  assert.equal(result.groupNode.showMeta, false);
   assert.ok(result.nodes.every(node => node.hidden === true));
-  assert.ok(result.nodes.every(node => node.parentLayerGroupId === source.id));
-  assert.ok(result.connections.every(edge => edge.fromNodeId === source.id));
-  assert.ok(result.connections.every(edge => result.nodes.some(node => node.id === edge.toNodeId)));
+  assert.ok(result.nodes.every(node => node.parentLayerGroupId === result.groupNode.id));
+  assert.ok(result.connections.some(edge => edge.fromNodeId === source.id && edge.toNodeId === result.groupNode.id));
+  assert.ok(result.connections.filter(edge => edge.fromNodeId === result.groupNode.id).every(edge => result.nodes.some(node => node.id === edge.toNodeId)));
   assert.ok(result.nodes.every(node => node.editable !== false));
   const text = result.nodes.find(node => node.kind === 'text');
   assert.equal(text.text, '三色盖子可选择');
-  assert.equal(text.x, source.x + source.w * 0.18);
-  assert.equal(text.y, source.y + source.h * 0.82);
+  assert.equal(text.x, result.groupNode.x + source.w * 0.18);
+  assert.equal(text.y, result.groupNode.y + source.h * 0.82);
   assert.equal(text.w, source.w * 0.64);
   assert.equal(text.h, source.h * 0.08);
   assert.equal(text.textStyle.color, '#ffffff');
   assert.equal(text.textStyle.background, 'transparent');
 });
 
-test('smart layering keeps the original full-scene image in the collapsed group card', () => {
+test('smart layering keeps the original full-scene image untouched and previews it in the result group', () => {
   const result = materializeCanvasLayers({
     sourceNode: { ...source, url: '/original-scene.png', ratio: '3:4' },
     runId: 'collapsed-source-run',
@@ -67,8 +70,10 @@ test('smart layering keeps the original full-scene image in the collapsed group 
   });
 
   assert.equal(result.sourceNode.url, '/original-scene.png');
-  assert.equal(result.sourceNode.ratio, '3:4');
-  assert.equal(result.sourceNode.layerExpanded, false);
+  assert.equal(result.sourceNode.kind, 'image');
+  assert.equal(result.groupNode.url, '/original-scene.png');
+  assert.equal(result.groupNode.ratio, '3:4');
+  assert.equal(result.groupNode.layerExpanded, false);
   assert.equal(result.nodes[0].hidden, true);
 });
 
@@ -105,9 +110,12 @@ test('smart layering produces stable non-overlapping placements from an explicit
 
   assert.deepEqual(result.sourceNode.x, source.x);
   assert.deepEqual(result.sourceNode.y, source.y);
+  assert.deepEqual(result.groupNode.x, 500);
+  assert.deepEqual(result.groupNode.y, 200);
   const positions = result.nodes.map(node => `${node.x}:${node.y}`);
   assert.equal(new Set(positions).size, 1);
-  assert.equal(result.sourceNode.kind, 'layer-group');
+  assert.equal(result.sourceNode.kind, 'image');
+  assert.equal(result.groupNode.kind, 'layer-group');
   assert.deepEqual(
     materializeCanvasLayers({ sourceNode: source, runId: 'stable-run', anchor: { x: 500, y: 200 }, layers: result.layers }).nodes.map(node => node.id),
     result.nodes.map(node => node.id),
