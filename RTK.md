@@ -169,3 +169,21 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   该事实不得在后续恢复中写成“完整 600 秒 Canary 已通过”。
 - 部署时发现历史失败尝试留下的大型不完整备份占满磁盘，仅删除了两份明确标记为不完整的备份，
   未删除数据库、上传、缓存或用户作品；部署锁已清理，远端 Nginx/PM2 状态正常。
+
+## 2026-08-12 Canvas And Billing Release
+
+- 提交 `7dbe5ce` 完成万物上身与自由创作工作台收口；提交 `1894602` 完成 Canvas 文字识别缓存、
+  右侧独立智能分层结果、中文反推、文字标注层级与工具栏可见标签，并补齐电商、小红书、Canvas、
+  扩展分析和扩展生成中所有已审计上游 AI 动作的统一积分冻结、成功结算、失败释放与幂等重试。
+- OCR 首次识别收费 `0.2 AI 积分`，缓存结果重复打开不再识别或扣费；确定性文字替换免费。扩展分析
+  收费 `1.5`，基础/标准/完整复刻分别收费 `3/5/9`，必须实际交付完整 `3/5/9` 张才结算；余额或
+  报价失败会恢复任务到可重试状态，供应商全失败、部分生成和商品链接空结果均释放冻结积分。
+- `1894602` 已通过唯一入口 `scripts/deploy-production.ps1` 发布至 `https://shuimg.cn/`。部署内全量
+  测试 `1481/1481`、生产构建 `6475` 模块、图库 `117` 张、公开视频契约、两轮真实电商任务和
+  `600` 秒 Canary 全部通过。任务 `ec_726ceada-41f4-46fb-b4ef-971c7a72ae67` 与
+  `ec_c52fc0a1-0375-4a18-be0d-c51ac98c3068` 均交付 3 个稳定资产；未触发视频生成。
+- 独立生产审计 `27/27`，健康接口 `200`、`ready=true`，PM2 PID `1526367`，图片队列和活动电商
+  任务均为 `0`，远端部署锁已释放。生产公开计费目录已包含 `ec_ai_assistant`、`ec_canvas_ocr`、
+  `ec_extension_analysis`、`ec_extension_basic/standard/complete` 等新 SKU。
+- 工作树继续保留用户运行态且未提交：12 个 `server/extension_tasks/*.json` 删除项、`.tmp/`、
+  `scripts/diagnose-recent-ecommerce-jobs.cjs`。后续不得误恢复、误删除或误暂存这些内容。
