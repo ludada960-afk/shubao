@@ -26,6 +26,13 @@ test('visual skills explain the transformation before the user selects one', () 
     assert.ok(skill.bestFor);
     assert.match(skill.preview, /^\/images\/visual-recipes\/(?:free|poster|social-cover|brand-kv)\.png$/);
     assert.doesNotMatch(skill.preview, /reference-card-/);
+    assert.equal(skill.showcases.length, 2);
+    assert.ok(skill.showcases.every(showcase => showcase.title && showcase.description));
+    assert.ok(skill.showcases[0].input?.src);
+    assert.ok(skill.showcases[0].output?.src);
+    assert.notEqual(skill.showcases[0].input.src, skill.showcases[0].output.src);
+    assert.ok(skill.control?.label);
+    assert.ok(skill.control?.options?.length >= 2);
   }
   assert.equal(VISUAL_CREATION_SKILLS.some(skill => 'persona' in skill), false);
 });

@@ -56,34 +56,29 @@ function TryOnImageStack({ images, label, role, onRemove, onAdd, max = 5 }) {
 function TryOnShowcase({ personMode }) {
   const [activeSlide, setActiveSlide] = useState(personMode === 'reference' ? 1 : 0);
   const [manualRevision, setManualRevision] = useState(0);
-  const [previewSlide, setPreviewSlide] = useState(null);
+  const [previewItem, setPreviewItem] = useState(null);
   const slides = [
     {
       id: 'angles',
-      image: '/images/home/tryon-showcase-angles.png',
       eyebrow: '多视角成片',
       title: '一套商品，生成不同展示角度',
       description: '正面、侧面、背面与动态姿态，一次形成可选成片。',
-      sourcePosition: 'left center',
-      sourceSize: '220% auto',
+      source: { image: '/images/home/tryon-showcase/product-flatlay.png', label: '商品与穿搭' },
       results: [
-        { label: '正面', position: '61% 0%' },
-        { label: '动态', position: '100% 0%' },
-        { label: '侧面', position: '61% 100%' },
-        { label: '背面', position: '100% 100%' },
+        { label: '正面', image: '/images/home/tryon-showcase/angle-front.png' },
+        { label: '动态', image: '/images/home/tryon-showcase/angle-motion.png' },
+        { label: '侧面', image: '/images/home/tryon-showcase/angle-side.png' },
+        { label: '背面', image: '/images/home/tryon-showcase/angle-back.png' },
       ],
     },
     {
       id: 'reference',
-      image: '/images/home/tryon-showcase-reference.png',
       eyebrow: '参考模特',
       title: '保留人物气质，把商品准确换上身',
       description: '人物和场景保持连贯，商品颜色、版型与搭配关系清晰可见。',
-      sourcePosition: 'left center',
-      sourceSize: '300% auto',
-      referencePosition: 'center center',
-      referenceSize: '300% auto',
-      results: [{ label: '上身结果', position: 'right center' }],
+      source: { image: '/images/home/tryon-showcase/reference-flatlay.png', label: '商品与穿搭' },
+      reference: { image: '/images/home/tryon-showcase/reference-person.png', label: '参考模特' },
+      results: [{ label: '上身结果', image: '/images/home/tryon-showcase/reference-result.png' }],
     },
   ];
 
@@ -103,20 +98,26 @@ function TryOnShowcase({ personMode }) {
   }, [activeSlide, manualRevision]);
 
   useEffect(() => {
-    if (!previewSlide) return undefined;
+    if (!previewItem) return undefined;
     const close = event => {
-      if (event.key === 'Escape') setPreviewSlide(null);
+      if (event.key === 'Escape') setPreviewItem(null);
     };
     globalThis.addEventListener?.('keydown', close);
     return () => globalThis.removeEventListener?.('keydown', close);
-  }, [previewSlide]);
+  }, [previewItem]);
 
   const slide = slides[activeSlide];
   const chooseSlide = index => {
     setActiveSlide(index);
     setManualRevision(revision => revision + 1);
   };
-  const openPreview = () => setPreviewSlide(slide);
+  const openPreview = item => setPreviewItem({ ...item, title: slide.title, description: slide.description });
+  const renderCard = (item, className, alt) => (
+    <button key={item.id || item.image} type="button" className={`ec-tryon-showcase-card ${className}`} onClick={() => openPreview(item)} aria-label={`放大查看${item.label}`}>
+      <img src={item.image} alt={alt || item.label} />
+      <span>{item.label}</span><Maximize2 size={14} />
+    </button>
+  );
   return (
     <>
       <section className="ec-tryon-showcase" aria-label="万物上身效果预览">
@@ -129,36 +130,25 @@ function TryOnShowcase({ personMode }) {
           </div>
         </div>
         <div className={`ec-tryon-showcase-visual is-${slide.id}`} aria-live="polite">
-          <button type="button" className="ec-tryon-showcase-card ec-tryon-showcase-source-card" style={{ '--tryon-image': `url(${slide.image})`, '--tryon-position': slide.sourcePosition, '--tryon-size': slide.sourceSize }} onClick={openPreview} aria-label="放大查看商品素材">
-            <img src={slide.image} alt="商品与穿搭素材" />
-            <span>商品与穿搭</span><Maximize2 size={14} />
-          </button>
-          {slide.referencePosition && (
+          {renderCard(slide.source, 'ec-tryon-showcase-source-card', '商品与穿搭素材')}
+          {slide.reference && (
             <>
               <span className="ec-tryon-showcase-operator" aria-hidden="true"><Plus size={20} /></span>
-              <button type="button" className="ec-tryon-showcase-card ec-tryon-showcase-reference-card" style={{ '--tryon-image': `url(${slide.image})`, '--tryon-position': slide.referencePosition, '--tryon-size': slide.referenceSize }} onClick={openPreview} aria-label="放大查看参考模特">
-                <img src={slide.image} alt="参考模特" />
-                <span>参考模特</span><Maximize2 size={14} />
-              </button>
+              {renderCard(slide.reference, 'ec-tryon-showcase-reference-card', '参考模特')}
             </>
           )}
           <span className="ec-tryon-showcase-operator" aria-hidden="true"><ArrowRight size={22} /></span>
           <div className={`ec-tryon-showcase-results count-${slide.results.length}`}>
-            {slide.results.map((result, index) => (
-              <button type="button" className={`ec-tryon-showcase-card ec-tryon-result-card card-${index}`} style={{ '--tryon-image': `url(${slide.image})`, '--tryon-position': result.position, '--tryon-size': slide.id === 'angles' ? '364% auto' : '300% auto' }} key={result.label} onClick={openPreview} aria-label={`放大查看${result.label}`}>
-                <img src={slide.image} alt={result.label} />
-                <span>{result.label}</span><Maximize2 size={14} />
-              </button>
-            ))}
+            {slide.results.map((result, index) => renderCard(result, `ec-tryon-result-card card-${index}`, result.label))}
           </div>
         </div>
       </section>
-      {previewSlide && (
-        <div className="ec-tryon-preview-modal" role="dialog" aria-modal="true" aria-label={`${previewSlide.title}大图`} onMouseDown={event => { if (event.target === event.currentTarget) setPreviewSlide(null); }}>
+      {previewItem && (
+        <div className="ec-tryon-preview-modal" role="dialog" aria-modal="true" aria-label={`${previewItem.label}大图`} onMouseDown={event => { if (event.target === event.currentTarget) setPreviewItem(null); }}>
           <div className="ec-tryon-preview-dialog">
-            <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewSlide(null)} aria-label="关闭大图"><X size={20} /></button>
-            <img src={previewSlide.image} alt={`${previewSlide.title}完整原创案例`} />
-            <div><strong>{previewSlide.title}</strong><span>{previewSlide.description}</span></div>
+            <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewItem(null)} aria-label="关闭大图"><X size={20} /></button>
+            <img src={previewItem.image} alt={`${previewItem.label}大图`} />
+            <div><strong>{previewItem.label}</strong><span>{previewItem.description}</span></div>
           </div>
         </div>
       )}
@@ -234,7 +224,7 @@ export default function EcommerceWorkbench({
               const selected = recipe.id === abilityRecipeId;
               return (
                 <button type="button" role="tab" key={recipe.id} className={`ec-ability-selector-option ${selected ? 'is-selected' : ''}`} aria-selected={selected} onClick={() => selectRecipe(recipe.id)}>
-                  <span className="ec-ability-selector-thumb"><ResponsiveImage src={recipe.id === 'anything_tryon' ? '/images/home/tryon-showcase-reference.png' : '/images/home/entry-ecommerce.png'} variant="thumb" ratio="1:1" alt="" /></span>
+                  <span className="ec-ability-selector-thumb"><ResponsiveImage src={recipe.id === 'anything_tryon' ? '/images/home/tryon-showcase/reference-result.png' : '/images/home/entry-ecommerce.png'} variant="thumb" ratio="1:1" alt="" /></span>
                   <span className="ec-ability-selector-copy"><strong>{recipe.label}</strong><span>{ABILITY_RESULT_COPY[recipe.id]}</span></span>
                   {selected && <Check size={16} className="ec-ability-selector-check" />}
                 </button>

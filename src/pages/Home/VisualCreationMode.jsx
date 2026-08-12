@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MdAddPhotoAlternate,
+  MdAlternateEmail,
   MdAspectRatio,
   MdAutoAwesome,
+  MdCampaign,
   MdCheckCircle,
   MdClose,
   MdDownload,
@@ -10,15 +12,19 @@ import {
   MdHighQuality,
   MdImage,
   MdOpenInNew,
+  MdPalette,
   MdRefresh,
   MdSend,
+  MdShare,
   MdTune,
+  MdZoomOutMap,
 } from 'react-icons/md';
 
 import { useApp } from '../../store/AppContext';
 import { uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../services/api';
 import { IMAGE_MODELS, generationUnits } from '../../services/imageModelCatalog.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import {
   VISUAL_CREATION_SKILLS,
   VISUAL_RATIO_OPTIONS,
@@ -37,6 +43,12 @@ const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const VISUAL_SHOWCASE_AUTO_DWELL_MS = 9000;
 const VISUAL_SHOWCASE_MANUAL_DWELL_MS = 15000;
+const VISUAL_SKILL_ICONS = {
+  free: MdAutoAwesome,
+  poster: MdCampaign,
+  'social-cover': MdShare,
+  'brand-kv': MdPalette,
+};
 
 function referenceId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -76,6 +88,11 @@ export default function VisualCreationMode() {
   const [uploading, setUploading] = useState(false);
   const [showcaseSlide, setShowcaseSlide] = useState(0);
   const [showcaseManualRevision, setShowcaseManualRevision] = useState(0);
+  const [showMentionMenu, setShowMentionMenu] = useState(false);
+  const [previewItem, setPreviewItem] = useState(null);
+  const [skillControlValues, setSkillControlValues] = useState(() => Object.fromEntries(
+    VISUAL_CREATION_SKILLS.map(skill => [skill.id, skill.control?.options?.[0] || '']),
+  ));
   const runRef = useRef(null);
   const referencesRef = useRef([]);
   const fileInputRef = useRef(null);
@@ -87,6 +104,14 @@ export default function VisualCreationMode() {
   const retryIndexes = visualRetryIndexes(run);
   const successfulSlots = run?.slots?.filter(slot => slot.status === 'completed') || [];
   const estimatedPoints = ((generationUnits(imageModel, resolution) || 0) * count) / 1000;
+  const showcases = selectedSkill.showcases || [];
+  const selectedShowcase = showcases[showcaseSlide] || showcases[0];
+  const skillControl = skillControlValues[skillId] || selectedSkill.control?.options?.[0] || '';
+  const mentionOptions = useMemo(() => references.map((reference, index) => ({
+    id: reference.id,
+    sourceNodeId: `visual-reference-${index + 1}`,
+    label: `@参考图 ${index + 1}`,
+  })), [references]);
 
   useEffect(() => {
     setShowcaseSlide(0);
@@ -98,11 +123,11 @@ export default function VisualCreationMode() {
     if (media?.matches) return undefined;
     const delay = showcaseManualRevision ? VISUAL_SHOWCASE_MANUAL_DWELL_MS : VISUAL_SHOWCASE_AUTO_DWELL_MS;
     const timer = globalThis.setTimeout(() => {
-      setShowcaseSlide(current => (current + 1) % 2);
+      setShowcaseSlide(current => (current + 1) % Math.max(1, showcases.length));
       setShowcaseManualRevision(0);
     }, delay);
     return () => globalThis.clearTimeout(timer);
-  }, [skillId, showcaseSlide, showcaseManualRevision]);
+  }, [skillId, showcaseSlide, showcaseManualRevision, showcases.length]);
 
   const chooseShowcaseSlide = index => {
     setShowcaseSlide(index);
@@ -192,7 +217,7 @@ export default function VisualCreationMode() {
     if (!hasSuccess) return null;
     const nextWork = buildVisualWorkRecord({
       run: completedRun,
-      prompt: config.prompt,
+      prompt: config.originalPrompt || config.prompt,
       skillId: config.skillId,
       model: config.imageModel,
       ratio: config.ratio,
@@ -286,9 +311,12 @@ export default function VisualCreationMode() {
     try {
       const referenceAssets = await ensureDurableReferences(abortRef.current.signal);
       const nextRun = createVisualRun({ count });
+      const originalPrompt = prompt.trim();
       const config = {
-        prompt: prompt.trim(),
+        prompt: `${originalPrompt}\n创作模式：${selectedSkill.title}；${selectedSkill.control.label}：${skillControl}`,
+        originalPrompt,
         skillId,
+        skillControl,
         imageModel,
         ratio,
         resolution,
@@ -322,6 +350,28 @@ export default function VisualCreationMode() {
     dispatch({ type: 'NAVIGATE', page: 'ec-canvas' });
   };
 
+  const insertMention = label => {
+    promptRef.current?.insertMention?.(label);
+    setShowMentionMenu(false);
+  };
+
+  const updateSkillControl = value => {
+    setSkillControlValues(current => ({ ...current, [skillId]: value }));
+  };
+
+  const showcaseCard = (item, className) => item ? (
+    <button
+      type="button"
+      className={`visual-skill-stage-card ${className}`}
+      onClick={() => setPreviewItem(item)}
+      aria-label={`放大查看${item.label}`}
+    >
+      <img src={item.src} alt={item.alt || item.label} />
+      <span>{item.label}</span>
+      <MdZoomOutMap aria-hidden="true" />
+    </button>
+  ) : null;
+
   return (
     <section className="visual-creation" aria-labelledby="visual-creation-title">
       <header className="visual-creation-heading">
@@ -333,6 +383,7 @@ export default function VisualCreationMode() {
       <div className="visual-skill-grid" role="listbox" aria-label="创作配方">
         {VISUAL_CREATION_SKILLS.map(skill => {
           const selected = skill.id === skillId;
+          const SkillIcon = VISUAL_SKILL_ICONS[skill.id] || MdAutoAwesome;
           return (
             <button
               type="button"
@@ -342,11 +393,10 @@ export default function VisualCreationMode() {
               key={skill.id}
               onClick={() => setSkillId(skill.id)}
             >
-              <span className="visual-skill-preview" aria-hidden="true">
-                <img src={skill.preview} alt="" />
-              </span>
+              <span className="visual-skill-icon" aria-hidden="true"><SkillIcon /></span>
               <span className="visual-skill-title">
                 <strong>{skill.title}</strong>
+                <small>{skill.shortDescription}</small>
                 {selected && <MdCheckCircle aria-label="已选择" />}
               </span>
             </button>
@@ -357,21 +407,21 @@ export default function VisualCreationMode() {
       <section className="visual-skill-stage" aria-label={`${selectedSkill.title}效果预览`}>
         <div className="visual-skill-stage-copy">
           <span><MdAutoAwesome />{selectedSkill.title}</span>
-          <strong>{selectedSkill.shortDescription}</strong>
-          <p>{selectedSkill.outcome}</p>
+          <strong>{selectedShowcase?.title || selectedSkill.shortDescription}</strong>
+          <p>{selectedShowcase?.description || selectedSkill.outcome}</p>
           <div className="visual-showcase-controls" role="tablist" aria-label={`${selectedSkill.title}案例视图`}>
-            {[{ label: '输入与结果' }, { label: '结果细节' }].map((item, index) => <button type="button" role="tab" key={item.label} aria-label={item.label} aria-selected={showcaseSlide === index} className={showcaseSlide === index ? 'is-active' : ''} onClick={() => chooseShowcaseSlide(index)} />)}
+            {showcases.map((item, index) => <button type="button" role="tab" key={item.title} aria-label={item.title} aria-selected={showcaseSlide === index} className={showcaseSlide === index ? 'is-active' : ''} onClick={() => chooseShowcaseSlide(index)} />)}
           </div>
         </div>
         <div className="visual-skill-stage-art">
-          {showcaseSlide === 0 ? (
+          {selectedShowcase?.input ? (
             <>
-              <div className="visual-skill-stage-card visual-skill-stage-input"><img src={selectedSkill.preview} alt={`${selectedSkill.title}输入示例`} /><span>参考素材</span></div>
+              {showcaseCard(selectedShowcase.input, 'visual-skill-stage-input')}
               <span className="visual-skill-stage-operator" aria-hidden="true"><MdSend /></span>
-              <div className="visual-skill-stage-card visual-skill-stage-output"><img src={selectedSkill.preview} alt={`${selectedSkill.title}生成示例`} /><span>生成结果</span></div>
+              {showcaseCard(selectedShowcase.output, 'visual-skill-stage-output')}
             </>
           ) : (
-            <div className="visual-skill-stage-card visual-skill-stage-result-only"><img src={selectedSkill.preview} alt={`${selectedSkill.title}结果细节`} /><span>结果细节</span></div>
+            showcaseCard(selectedShowcase?.output, 'visual-skill-stage-result-only')
           )}
         </div>
       </section>
@@ -426,20 +476,46 @@ export default function VisualCreationMode() {
           />
         </div>
 
-        <label className="visual-prompt-field">
-          <span className="sr-only">画面描述</span>
-          <textarea
+        <div className="visual-prompt-field">
+          <MentionPromptField
             ref={promptRef}
             value={prompt}
-            onChange={event => setPrompt(event.target.value)}
+            mentions={mentionOptions}
+            onChange={value => setPrompt(String(value || '').slice(0, 3000))}
             placeholder={`描述你想生成的${selectedSkill.title}：主体、场景、构图、文字与限制条件...`}
-            maxLength={3000}
-            disabled={busy}
+            aria-label="画面描述"
+            className={busy ? 'is-disabled' : ''}
           />
-          <small>{prompt.length}/3000</small>
-        </label>
+          <div className="visual-prompt-footer">
+            <div className="visual-mention-wrap">
+              <button
+                type="button"
+                className="visual-mention-button"
+                aria-label="引用参考素材"
+                title="引用参考素材"
+                disabled={busy || mentionOptions.length === 0}
+                onClick={() => setShowMentionMenu(current => !current)}
+              ><MdAlternateEmail /></button>
+              {showMentionMenu && (
+                <div className="visual-mention-menu" role="menu" aria-label="选择参考素材">
+                  {mentionOptions.map(option => (
+                    <button type="button" role="menuitem" key={option.id} onClick={() => insertMention(option.label)}>{option.label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <small>{prompt.length}/3000</small>
+          </div>
+        </div>
 
         <div className="visual-parameter-bar">
+          <label className="visual-skill-control" title={selectedSkill.control.label}>
+            <MdAutoAwesome />
+            <span>{selectedSkill.control.label}</span>
+            <select value={skillControl} onChange={event => updateSkillControl(event.target.value)} disabled={busy}>
+              {selectedSkill.control.options.map(option => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </label>
           <label title="图片模型">
             <MdTune />
             <span className="sr-only">图片模型</span>
@@ -525,6 +601,18 @@ export default function VisualCreationMode() {
                 </footer>
               </article>
             ))}
+          </div>
+        </div>
+      )}
+
+      {previewItem && (
+        <div className="visual-preview-dialog" role="dialog" aria-modal="true" aria-label={previewItem.label} onMouseDown={event => {
+          if (event.currentTarget === event.target) setPreviewItem(null);
+        }}>
+          <div className="visual-preview-dialog-content">
+            <button type="button" className="visual-preview-close" aria-label="关闭预览" onClick={() => setPreviewItem(null)}><MdClose /></button>
+            <img src={previewItem.src} alt={previewItem.alt || previewItem.label} />
+            <strong>{previewItem.label}</strong>
           </div>
         </div>
       )}

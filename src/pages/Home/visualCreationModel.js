@@ -9,6 +9,23 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     outcome: '由描述自由定义画面风格与构图',
     bestFor: '概念图、插画、场景与开放需求',
     preview: '/images/visual-recipes/free.png',
+    control: Object.freeze({
+      label: '画面语言',
+      options: Object.freeze(['智能匹配', '写实摄影', '风格插画']),
+    }),
+    showcases: Object.freeze([
+      Object.freeze({
+        title: '从灵感到完整场景',
+        description: '保留主体关系，把简单素材扩展成有空间感的完整画面。',
+        input: Object.freeze({ src: '/images/visual-recipes/cases/free-input.png', label: '灵感素材' }),
+        output: Object.freeze({ src: '/images/visual-recipes/cases/free-output.png', label: '完整画面' }),
+      }),
+      Object.freeze({
+        title: '让构图继续生长',
+        description: '围绕主体补全光线、环境与叙事细节，结果可进入画布继续编辑。',
+        output: Object.freeze({ src: '/images/visual-recipes/cases/free-output.png', label: '场景细节' }),
+      }),
+    ]),
   }),
   Object.freeze({
     id: 'poster',
@@ -18,6 +35,23 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     outcome: '完整构图、清晰层级与可读排版区',
     bestFor: '活动、上新、节日与线下海报',
     preview: '/images/visual-recipes/poster.png',
+    control: Object.freeze({
+      label: '信息重点',
+      options: Object.freeze(['主标题优先', '产品优先', '活动信息优先']),
+    }),
+    showcases: Object.freeze([
+      Object.freeze({
+        title: '先聚焦，再排信息',
+        description: '把主体转成视觉焦点，并为标题、卖点和行动信息留出清晰层级。',
+        input: Object.freeze({ src: '/images/visual-recipes/cases/poster-input.png', label: '主体素材' }),
+        output: Object.freeze({ src: '/images/visual-recipes/cases/poster-output.png', label: '海报成稿' }),
+      }),
+      Object.freeze({
+        title: '一张图建立传播节奏',
+        description: '用对比、留白和阅读顺序把视觉与文案组织成可发布海报。',
+        output: Object.freeze({ src: '/images/visual-recipes/cases/poster-output.png', label: '版式细节' }),
+      }),
+    ]),
   }),
   Object.freeze({
     id: 'social-cover',
@@ -27,6 +61,23 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     outcome: '强视觉焦点、标题安全区与紧凑构图',
     bestFor: '小红书、公众号与短视频封面',
     preview: '/images/visual-recipes/social-cover.png',
+    control: Object.freeze({
+      label: '发布平台',
+      options: Object.freeze(['小红书', '公众号', 'B站封面', '抖音封面']),
+    }),
+    showcases: Object.freeze([
+      Object.freeze({
+        title: '移动端一眼读懂',
+        description: '强化人物与标题焦点，并按平台阅读习惯安排安全区。',
+        input: Object.freeze({ src: '/images/visual-recipes/cases/social-cover-input.png', label: '内容素材' }),
+        output: Object.freeze({ src: '/images/visual-recipes/cases/social-cover-output.png', label: '社媒封面' }),
+      }),
+      Object.freeze({
+        title: '把内容变成点击理由',
+        description: '兼顾人物情绪、标题可读性和平台缩略图中的辨识度。',
+        output: Object.freeze({ src: '/images/visual-recipes/cases/social-cover-output.png', label: '封面细节' }),
+      }),
+    ]),
   }),
   Object.freeze({
     id: 'brand-kv',
@@ -36,6 +87,23 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     outcome: '可延展的场景、材质、光影与构图系统',
     bestFor: 'Campaign KV、发布会与主题传播',
     preview: '/images/visual-recipes/brand-kv.png',
+    control: Object.freeze({
+      label: '延展方向',
+      options: Object.freeze(['产品聚焦', '场景延展', '材质叙事']),
+    }),
+    showcases: Object.freeze([
+      Object.freeze({
+        title: '从产品到品牌世界',
+        description: '保留产品识别点，把品牌色、材质和空间扩展成统一主视觉。',
+        input: Object.freeze({ src: '/images/visual-recipes/cases/brand-kv-input.png', label: '产品素材' }),
+        output: Object.freeze({ src: '/images/visual-recipes/cases/brand-kv-output.png', label: '品牌主视觉' }),
+      }),
+      Object.freeze({
+        title: '建立可延展的视觉系统',
+        description: '统一光影、色彩与图形语言，便于后续延展到不同传播尺寸。',
+        output: Object.freeze({ src: '/images/visual-recipes/cases/brand-kv-output.png', label: '系统细节' }),
+      }),
+    ]),
   }),
 ]);
 

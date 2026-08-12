@@ -70,14 +70,16 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
                 style={{ ...inp, height: 42 }} />
             </div>
           ))}
-          {mode === 'tryon' && (
-            <div className="ec-tryon-preserve-options" style={{ gridColumn: '1 / -1' }}>
-              {[
+          {mode === 'tryon' && (() => {
+            const preserveOptions = [
                 ['preserveMaterial', '锁定材质纹理', '强化材质、垂坠、反光与表面纹理约束，降低换装后质感漂移。'],
                 ['preservePattern', '锁定图案与标识', '强化印花、织纹、五金和标识位置约束，减少图案被重绘。'],
                 ['consistentPersonScene', '保持人物与场景', '强化人物身份、姿态、环境与光线连续性，适合批量生成同组穿搭。'],
-              ].map(([key, label, help]) => (
-                <label key={key} className="ec-tryon-preserve-option">
+            ];
+            const active = preserveOptions.find(([key]) => key === activeHelp);
+            return <div className="ec-tryon-preserve-options" style={{ gridColumn: '1 / -1' }}>
+              {preserveOptions.map(([key, label]) => (
+                <label key={key} className={`ec-tryon-preserve-option${activeHelp === key ? ' is-active' : ''}`}>
                   <input type="checkbox" checked={params[key] !== false} onChange={event => set(key, event.target.checked)} />
                   <span>{label}</span>
                   <button
@@ -87,11 +89,11 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
                     aria-expanded={activeHelp === key}
                     onClick={event => { event.preventDefault(); event.stopPropagation(); setActiveHelp(current => current === key ? null : key); }}
                   ><CircleHelp size={14} /></button>
-                  {activeHelp === key && <span className="ec-tryon-help-popover" role="tooltip">{help}</span>}
                 </label>
               ))}
-            </div>
-          )}
+              {active && <span className="ec-tryon-help-popover" role="tooltip"><strong>{active[1]}</strong><span>{active[2]}</span></span>}
+            </div>;
+          })()}
         </div>
       </div>
     </div>
