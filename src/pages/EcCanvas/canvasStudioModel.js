@@ -175,13 +175,15 @@ export function resizeCanvasNodeByHandle(node = {}, {
   };
 }
 
-export function applyCanvasMoveScale(node = {}, { scale = 1, offsetX = 0, offsetY = 0 } = {}) {
+export function applyCanvasMoveScale(node = {}, { scale = 1, offsetX = 0, offsetY = 0, rotation = 0 } = {}) {
   const currentWidth = Math.max(1, finite(node.w, MIN_NODE_WIDTH));
   const next = resizeCanvasNode(node, { width: currentWidth * Math.min(2.5, Math.max(0.1, finite(scale, 1))) });
+  const nextRotation = Math.min(180, Math.max(-180, finite(node.rotation) + finite(rotation)));
   return {
     ...next,
     x: finite(node.x) + finite(offsetX),
     y: finite(node.y) + finite(offsetY),
+    ...(nextRotation || Object.hasOwn(node, 'rotation') ? { rotation: nextRotation } : {}),
   };
 }
 

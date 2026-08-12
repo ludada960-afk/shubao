@@ -353,13 +353,25 @@ test('text recognition inspector stays in the canvas stacking context', () => {
   assert.doesNotMatch(inspector, /position:\s*['"]fixed['"]|zIndex:\s*10004/);
 });
 
-test('selected-image tools keep their command names visible without hover', () => {
+test('selected-image tools keep key command names and compact secondary actions', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   const start = source.indexOf('export function CanvasObjectToolbar');
   const end = source.indexOf('export function CanvasDeriveMenu', start);
   const toolbar = source.slice(start, end);
-  assert.match(toolbar, /<span>\{action\.label\}<\/span>/);
-  assert.doesNotMatch(toolbar, /className="is-compact"/);
+  assert.match(toolbar, /isCompactCanvasToolbarAction/);
+  assert.match(toolbar, /className=\{compact \? 'is-compact' : ''\}/);
+  assert.match(toolbar, /\{!compact && <span>\{action\.label\}<\/span>\}/);
+  assert.match(toolbar, /title=\{action\.description \|\| action\.label\}/);
+});
+
+test('image nodes report decoded natural dimensions and move-scale supports direct manipulation', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(source, /onNaturalSize/);
+  assert.match(source, /naturalWidth/);
+  assert.match(source, /naturalHeight/);
+  assert.match(source, /gesture\.kind === 'move-scale'/);
+  assert.match(source, /options\.rotation/);
+  assert.match(source, /ec-canvas-move-scale-frame/);
 });
 
 test('annotation editor handles undo and redo from the keyboard', () => {

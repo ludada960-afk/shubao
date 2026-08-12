@@ -99,7 +99,11 @@ export default function ResponsiveImage({
               const decode = typeof image.decode === 'function' ? image.decode() : Promise.resolve();
               decode.catch(() => {}).finally(() => {
                 setDecoded(true);
-                onLoad?.(event);
+                onLoad?.({
+                  currentTarget: image,
+                  naturalWidth: image.naturalWidth,
+                  naturalHeight: image.naturalHeight,
+                });
               });
             }}
             onError={event => {

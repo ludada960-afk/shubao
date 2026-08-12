@@ -214,6 +214,12 @@ test('clicking an image output port opens the derive picker without requiring a 
   assert.match(canvasSource, /onPortClick=\{event => handlePortClick\(event, node\.id\)\}/);
 });
 
+test('selecting a derivable image opens its adjacent quick action menu', () => {
+  assert.match(canvasSource, /openConnectionPickerForNode/);
+  assert.match(canvasSource, /sourceNodeId:\s*node\.id/);
+  assert.match(canvasSource, /onNaturalSize=\{handleImageNaturalSize\}/);
+});
+
 test('locked nodes cannot enter the resize interaction and empty paste is a no-op', () => {
   assert.match(canvasSource, /if \(!node \|\| node\.locked \|\| event\.button !== 0\) return;/);
   assert.match(canvasSource, /if \(handler === 'paste' && !objectClipboardRef\.current\) \{[\s\S]{0,180}?return;/);

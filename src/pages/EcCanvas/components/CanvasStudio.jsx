@@ -89,6 +89,20 @@ const ADD_ACTIONS = [
   { id: 'video', label: '生成视频', description: '用提示词、图片或视频创建营销成片', icon: Clapperboard },
 ];
 
+const LABELED_TOOLBAR_ACTIONS = new Set([
+  'edit-text',
+  'grid-split',
+  'layer-edit',
+  'remove-background',
+  'move-scale',
+  'reverse-prompt',
+  'annotation',
+]);
+
+export function isCompactCanvasToolbarAction(actionId) {
+  return !LABELED_TOOLBAR_ACTIONS.has(actionId);
+}
+
 export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
   if (!open) return null;
   return <div className="ec-canvas-add-menu" style={position} role="menu" aria-label="添加节点">
@@ -102,7 +116,9 @@ export function CanvasAddMenu({ open, onClose, onSelect, position = {} }) {
 
 export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAction }) {
   if (!node || !actions.length) return null;
-  const estimatedWidth = Math.min(820, 18 + actions.reduce((width, action) => width + Math.max(72, action.label.length * 13 + 30), 0));
+  const estimatedWidth = Math.min(820, 18 + actions.reduce((width, action) => (
+    width + (isCompactCanvasToolbarAction(action.id) ? 38 : Math.max(72, action.label.length * 13 + 30))
+  ), 0));
   return <div
     className="ec-canvas-object-toolbar"
     role="toolbar"
@@ -111,9 +127,10 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
   >
     {actions.map(action => {
       const Icon = ACTION_ICONS[action.id] || WandSparkles;
-      return <button key={action.id} type="button" aria-label={action.label} title={action.description || action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action, node)}>
+      const compact = isCompactCanvasToolbarAction(action.id);
+      return <button key={action.id} type="button" className={compact ? 'is-compact' : ''} aria-label={action.label} title={action.description || action.label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action, node)}>
         <Icon size={16} />
-        <span>{action.label}</span>
+        {!compact && <span>{action.label}</span>}
       </button>;
     })}
   </div>;
@@ -732,6 +749,14 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
     } else if (mode === 'crop') {
       onOptionChange?.({ ...options, ratio: '自由', cropRect: { x: point.x, y: point.y, w: 0, h: 0 } });
       gestureRef.current = { kind: 'crop', start: point };
+    } else if (isMoveScale) {
+      gestureRef.current = {
+        kind: 'move-scale',
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        offsetX: Number(options.offsetX) || 0,
+        offsetY: Number(options.offsetY) || 0,
+      };
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -768,6 +793,12 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
           h: Math.abs(point.y - gesture.start.y),
         }),
       });
+    } else if (gesture.kind === 'move-scale') {
+      onOptionChange?.({
+        ...options,
+        offsetX: Math.round(gesture.offsetX + event.clientX - gesture.startClientX),
+        offsetY: Math.round(gesture.offsetY + event.clientY - gesture.startClientY),
+      });
     }
   };
   const finishGesture = event => {
@@ -776,11 +807,12 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
   const previewTransform = isMoveScale
-    ? `translate(${Number(options.offsetX) || 0}px, ${Number(options.offsetY) || 0}px) scale(${Number(options.scale) || 1})`
+    ? `translate(${Number(options.offsetX) || 0}px, ${Number(options.offsetY) || 0}px) rotate(${Number(options.rotation) || 0}deg) scale(${Number(options.scale) || 1})`
     : undefined;
   return <div className={`ec-canvas-focused-editor is-${mode}`} aria-label={FOCUSED_EDITOR_LABELS[mode] || '图片编辑'} style={{ left: node.x, top: node.y, width: node.w, height: node.h }} onPointerDown={event => event.stopPropagation()}>
     <div ref={stageRef} className="ec-canvas-focused-stage" onPointerDown={onStagePointerDown} onPointerMove={onStagePointerMove} onPointerUp={finishGesture} onPointerCancel={finishGesture}>
       <ResponsiveImage src={node.url} alt={node.name || '待编辑图片'} variant="canvas" sizes={`${Math.ceil(node.w)}px`} style={{ width: '100%', height: '100%', transform: previewTransform }} imgStyle={{ objectFit: 'contain' }} />
+      {isMoveScale && <div className="ec-canvas-move-scale-frame" style={{ transform: previewTransform }} aria-hidden="true"><i /><i /><i /><i /></div>}
       {mode === 'crop' && <div className="ec-canvas-crop-frame" style={{ left: `${cropRect.x * 100}%`, top: `${cropRect.y * 100}%`, width: `${cropRect.w * 100}%`, height: `${cropRect.h * 100}%` }}><i /><i /><i /><i /></div>}
       {isSplit && <span className={`ec-canvas-split-guide is-${options.direction || 'vertical'}`} style={(options.direction || 'vertical') === 'vertical' ? { left: `${(options.splitPosition ?? 0.5) * 100}%` } : { top: `${(options.splitPosition ?? 0.5) * 100}%` }} />}
       {isGrid && <>
@@ -824,6 +856,7 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
         <label className="ec-canvas-focused-field is-wide"><span>缩放</span><input type="range" aria-label="缩放比例" min="0.5" max="2" step="0.05" value={options.scale || 1} onChange={event => onOptionChange?.({ ...options, scale: Number(event.target.value) })} /><output>{Math.round((options.scale || 1) * 100)}%</output></label>
         <label className="ec-canvas-focused-field"><span>水平</span><input type="number" aria-label="水平偏移" value={options.offsetX || 0} onChange={event => onOptionChange?.({ ...options, offsetX: Number(event.target.value) })} /></label>
         <label className="ec-canvas-focused-field"><span>垂直</span><input type="number" aria-label="垂直偏移" value={options.offsetY || 0} onChange={event => onOptionChange?.({ ...options, offsetY: Number(event.target.value) })} /></label>
+        <label className="ec-canvas-focused-field is-wide"><span>旋转</span><input type="range" aria-label="旋转角度" min="-180" max="180" step="1" value={options.rotation || 0} onChange={event => onOptionChange?.({ ...options, rotation: Number(event.target.value) })} /><output>{Math.round(options.rotation || 0)}°</output></label>
       </>}
       <i />
       <button type="button" onClick={onCancel}><X size={15} />取消</button>
@@ -875,6 +908,7 @@ export function CanvasImageNode({
   onPortPointerUp,
   onPortClick,
   onResizeStart,
+  onNaturalSize,
   canDerive = true,
 }) {
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
@@ -896,7 +930,12 @@ export function CanvasImageNode({
         sizes={`${Math.ceil(node.w)}px`}
         ratio={node.ratio}
         style={{ width: '100%', height: '100%' }}
-        imgStyle={{ objectFit: 'contain', objectPosition: 'center', transform: `${node.flipX ? 'scaleX(-1)' : ''} ${node.flipY ? 'scaleY(-1)' : ''}`.trim() || undefined }}
+        imgStyle={{ objectFit: 'contain', objectPosition: 'center', transform: `rotate(${Number(node.rotation) || 0}deg) ${node.flipX ? 'scaleX(-1)' : ''} ${node.flipY ? 'scaleY(-1)' : ''}`.trim() }}
+        onLoad={event => {
+          const naturalWidth = Number(event.naturalWidth || event.currentTarget?.naturalWidth);
+          const naturalHeight = Number(event.naturalHeight || event.currentTarget?.naturalHeight);
+          if (naturalWidth > 0 && naturalHeight > 0) onNaturalSize?.(node.id, { naturalWidth, naturalHeight });
+        }}
       />
     </div>
     {node.showMeta !== false && <footer>

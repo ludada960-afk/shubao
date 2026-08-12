@@ -1196,6 +1196,18 @@ export default function EcCanvas() {
 
   useEffect(() => bindNonPassiveWheel(containerRef.current, handleWheel), [handleWheel, tab]);
 
+  const openConnectionPickerForNode = useCallback(node => {
+    if (!canDeriveFromNode(node)) return;
+    setConnectionPicker({
+      sourceNodeId: node.id,
+      world: {
+        x: Number(node.x) + Number(node.w) + 42,
+        y: Number(node.y) + Number(node.h) / 2,
+      },
+    });
+    setConnectionDraft(null);
+  }, []);
+
   // 节点点击：Ctrl/Cmd 切换多选，拖动已选节点会批量移动
   const handleNodeDown = useCallback((e, id) => {
     e.stopPropagation();
@@ -1216,6 +1228,8 @@ export default function EcCanvas() {
     if (getNodePointerIntent({ tool: activeTool, button: e.button }) === 'select') {
       setSelected(id);
       setMultiSelected(new Set([id]));
+      const node = nodes.find(item => item.id === id);
+      if (node && ['image', 'output'].includes(node.kind)) openConnectionPickerForNode(node);
       return;
     }
     const baseIds = multiSelected.has(id) ? multiSelected : new Set([id]);
@@ -1236,7 +1250,7 @@ export default function EcCanvas() {
     setMultiSelected(ids);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e) });
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [activeTool, multiSelected, nodes, toWorldPoint]);
+  }, [activeTool, multiSelected, nodes, openConnectionPickerForNode, toWorldPoint]);
 
   const handleNodeResizeStart = useCallback((event, nodeId, handle) => {
     const node = nodes.find(candidate => candidate.id === nodeId);
@@ -1257,6 +1271,23 @@ export default function EcCanvas() {
     });
     try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch {}
   }, [nodes]);
+
+  const handleImageNaturalSize = useCallback((nodeId, { naturalWidth, naturalHeight }) => {
+    setNodes(previous => previous.map(node => {
+      if (node.id !== nodeId || naturalWidth <= 0 || naturalHeight <= 0) return node;
+      if (node.naturalWidth === naturalWidth && node.naturalHeight === naturalHeight) return node;
+      const width = Math.max(1, Number(node.w) || 240);
+      const height = Math.max(1, Math.round(width * naturalHeight / naturalWidth));
+      return {
+        ...node,
+        h: height,
+        ratio: `${naturalWidth}:${naturalHeight}`,
+        size: `${naturalWidth}×${naturalHeight}`,
+        naturalWidth,
+        naturalHeight,
+      };
+    }));
+  }, []);
 
   const handleToggleSelect = useCallback((e, id) => {
     const next = new Set(multiSelected);
@@ -1973,7 +2004,7 @@ export default function EcCanvas() {
                 annotationHistory: [],
                 annotationFuture: [],
               }
-              : {},
+              : { scale: 1, offsetX: 0, offsetY: 0, rotation: 0 },
       });
       return;
     }
@@ -3588,6 +3619,7 @@ export default function EcCanvas() {
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+                  onNaturalSize={handleImageNaturalSize}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: '图片预览' })}
