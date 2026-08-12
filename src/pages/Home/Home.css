@@ -2763,7 +2763,7 @@
 .ec-tryon-showcase-visual { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 18px; padding: 22px 24px; }
 .ec-tryon-showcase-card { position: relative; display: block; flex: 0 0 auto; overflow: hidden; padding: 0; border: 5px solid #fff; border-radius: 14px; background: #f1ece6; box-shadow: 0 10px 24px rgba(51,40,32,.15); cursor: zoom-in; transition: transform .25s ease,box-shadow .25s ease; }
 .ec-tryon-showcase-card:hover,.ec-tryon-showcase-card:focus-visible { z-index: 6; outline: none; transform: translateY(-5px) rotate(0deg); box-shadow: 0 16px 32px rgba(51,40,32,.2); }
-.ec-tryon-showcase-card img { position: relative; inset: auto; display: block; width: 100%; height: 100%; overflow: hidden; clip-path: none; object-fit: cover; }
+.ec-tryon-showcase-card img { position: relative; inset: auto; display: block; width: 100%; height: 100%; overflow: hidden; clip-path: none; object-fit: contain; }
 .ec-tryon-showcase-card > span { position: absolute; z-index: 2; right: 8px; bottom: 8px; padding: 4px 7px; border-radius: 5px; color: #fff; background: rgba(24,22,21,.72); font-size: 10px; font-weight: 900; }
 .ec-tryon-showcase-card > svg { position: absolute; z-index: 2; top: 8px; right: 8px; padding: 4px; box-sizing: content-box; border-radius: 50%; color: #fff; background: rgba(24,22,21,.65); }
 .ec-tryon-showcase-source-card { width: 146px; height: 184px; transform: rotate(-3deg); }
@@ -2789,6 +2789,16 @@
 .ec-tryon-preview-dialog strong { font-size: 18px; }
 .ec-tryon-preview-dialog span { color: #786f67; font-size: 13px; }
 .ec-tryon-preview-close { position: absolute; z-index: 2; top: 24px; right: 24px; display: grid; width: 38px; height: 38px; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(25,22,24,.76); cursor: pointer; }
+.ec-tryon-preview-previous,.ec-tryon-preview-next { position: absolute; z-index: 2; top: 50%; display: grid; width: 42px; height: 42px; place-items: center; padding: 0; transform: translateY(-50%); border: 1px solid rgba(255,255,255,.5); border-radius: 50%; color: #fff; background: rgba(25,22,24,.72); cursor: pointer; }
+.ec-tryon-preview-previous { left: 28px; }
+.ec-tryon-preview-next { right: 28px; }
+.ec-tryon-principles { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.ec-tryon-principle { position: relative; display: grid; min-width: 0; grid-template-columns: auto 1fr; gap: 4px 7px; padding: 12px 10px 10px; overflow: hidden; border: 1px solid rgba(105,81,194,.16); border-radius: 8px; background: linear-gradient(145deg,rgba(252,250,255,.96),rgba(255,251,244,.9)); }
+.ec-tryon-principle-index { position: absolute; top: 6px; right: 8px; color: rgba(105,81,194,.22); font: 900 18px/1 inherit; }
+.ec-tryon-principle-check { display: grid; width: 22px; height: 22px; grid-row: 1 / span 2; place-items: center; border-radius: 6px; color: #fff; background: #7258d6; }
+.ec-tryon-principle > span:last-child { display: grid; min-width: 0; gap: 3px; padding-right: 12px; }
+.ec-tryon-principle strong { color: #3d3548; font-size: 11px; }
+.ec-tryon-principle small { color: #8d8398; font-size: 9px; line-height: 1.4; }
 .ec-tryon-lane { overflow: visible; }
 .ec-tryon-lane-assets { min-height: 110px; overflow-y: visible; padding: 11px 3px 7px; }
 .ec-tryon-lane-assets .ec-xhs-upload-card:hover,.ec-tryon-lane-assets .ec-xhs-upload-card:focus-visible { transform: translateY(-3px); }
@@ -2811,4 +2821,7 @@
   .ec-tryon-showcase-results.count-4 .ec-tryon-result-card + .ec-tryon-result-card { margin-left: -24px; }
   .ec-tryon-showcase-results.count-1 { width: 92px; flex-basis: 92px; }
   .ec-tryon-showcase-results.count-1 .ec-tryon-result-card { width: 88px; height: 122px; }
+  .ec-tryon-principles { grid-template-columns: 1fr; }
+  .ec-tryon-preview-previous { left: 16px; }
+  .ec-tryon-preview-next { right: 16px; }
 }

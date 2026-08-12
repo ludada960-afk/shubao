@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const source = readFileSync(new URL('../src/pages/Home/VisualCreationMode.jsx', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/pages/Home/VisualCreationMode.css', import.meta.url), 'utf8');
+const model = readFileSync(new URL('../src/pages/Home/visualCreationModel.js', import.meta.url), 'utf8');
 
 test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /VISUAL_CREATION_SKILLS/);
@@ -27,6 +28,7 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /visual-showcase-controls/);
   assert.match(source, /visual-skill-stage-card/);
   assert.match(source, /selectedSkill\.showcases/);
+  assert.match(model, /productionCaseById/);
   assert.match(source, /visual-preview-dialog/);
   assert.match(source, /visual-skill-icon/);
   assert.doesNotMatch(source, /className="visual-skill-preview"/);

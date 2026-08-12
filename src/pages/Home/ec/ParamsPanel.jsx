@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CircleHelp, Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-react';
+import { Check, Shapes, Ruler, Palette, Pipette, Layers3, Hammer } from 'lucide-react';
 
 const CATEGORIES = ['美妆护肤', '3C数码', '家居日用', '服饰鞋包', '食品饮料', '母婴用品', '宠物用品', '运动户外', '汽车用品', '图书文具', '珠宝配饰', '其他'];
 
@@ -12,7 +12,6 @@ const inp = {
 
 export default function ParamsPanel({ params, onChange, mode = 'product' }) {
   const [catOpen, setCatOpen] = useState(false);
-  const [activeHelp, setActiveHelp] = useState(null);
   const set = (key, val) => onChange({ ...params, [key]: val });
 
   const fields = mode === 'tryon' ? [
@@ -71,27 +70,19 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
             </div>
           ))}
           {mode === 'tryon' && (() => {
-            const preserveOptions = [
+            const preservePrinciples = [
                 ['preserveMaterial', '锁定材质纹理', '强化材质、垂坠、反光与表面纹理约束，降低换装后质感漂移。'],
                 ['preservePattern', '锁定图案与标识', '强化印花、织纹、五金和标识位置约束，减少图案被重绘。'],
                 ['consistentPersonScene', '保持人物与场景', '强化人物身份、姿态、环境与光线连续性，适合批量生成同组穿搭。'],
             ];
-            const active = preserveOptions.find(([key]) => key === activeHelp);
-            return <div className="ec-tryon-preserve-options" style={{ gridColumn: '1 / -1' }}>
-              {preserveOptions.map(([key, label]) => (
-                <label key={key} className={`ec-tryon-preserve-option${activeHelp === key ? ' is-active' : ''}`}>
-                  <input type="checkbox" checked={params[key] !== false} onChange={event => set(key, event.target.checked)} />
-                  <span>{label}</span>
-                  <button
-                    type="button"
-                    className="ec-tryon-help-trigger"
-                    aria-label={`查看${label}说明`}
-                    aria-expanded={activeHelp === key}
-                    onClick={event => { event.preventDefault(); event.stopPropagation(); setActiveHelp(current => current === key ? null : key); }}
-                  ><CircleHelp size={14} /></button>
-                </label>
+            return <div className="ec-tryon-principles" style={{ gridColumn: '1 / -1' }} aria-label="万物上身生成原则">
+              {preservePrinciples.map(([key, label, description], index) => (
+                <div key={key} className="ec-tryon-principle">
+                  <span className="ec-tryon-principle-index">0{index + 1}</span>
+                  <span className="ec-tryon-principle-check"><Check size={13} /></span>
+                  <span><strong>{label}</strong><small>{description}</small></span>
+                </div>
               ))}
-              {active && <span className="ec-tryon-help-popover" role="tooltip"><strong>{active[1]}</strong><span>{active[2]}</span></span>}
             </div>;
           })()}
         </div>

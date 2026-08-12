@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, ImagePlus, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ImagePlus, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
 import { buildImageMentions, removeImageMention } from '../../../components/creation/imageMentionModel.js';
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
+import { productionCaseById } from '../productionCaseCatalog.js';
 
 const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
@@ -57,28 +58,25 @@ function TryOnShowcase({ personMode }) {
   const [activeSlide, setActiveSlide] = useState(personMode === 'reference' ? 1 : 0);
   const [manualRevision, setManualRevision] = useState(0);
   const [previewItem, setPreviewItem] = useState(null);
+  const angleCase = productionCaseById('tryon-angles');
+  const referenceCase = productionCaseById('tryon-reference');
   const slides = [
     {
       id: 'angles',
       eyebrow: '多视角成片',
       title: '一套商品，生成不同展示角度',
       description: '正面、侧面、背面与动态姿态，一次形成可选成片。',
-      source: { image: '/images/home/tryon-showcase/product-flatlay.png', label: '商品与穿搭' },
-      results: [
-        { label: '正面', image: '/images/home/tryon-showcase/angle-front.png' },
-        { label: '动态', image: '/images/home/tryon-showcase/angle-motion.png' },
-        { label: '侧面', image: '/images/home/tryon-showcase/angle-side.png' },
-        { label: '背面', image: '/images/home/tryon-showcase/angle-back.png' },
-      ],
+      source: angleCase.assets.find(asset => asset.role === 'source'),
+      results: angleCase.assets.filter(asset => asset.role === 'result'),
     },
     {
       id: 'reference',
       eyebrow: '参考模特',
       title: '保留人物气质，把商品准确换上身',
       description: '人物和场景保持连贯，商品颜色、版型与搭配关系清晰可见。',
-      source: { image: '/images/home/tryon-showcase/reference-flatlay.png', label: '商品与穿搭' },
-      reference: { image: '/images/home/tryon-showcase/reference-person.png', label: '参考模特' },
-      results: [{ label: '上身结果', image: '/images/home/tryon-showcase/reference-result.png' }],
+      source: referenceCase.assets.find(asset => asset.role === 'source'),
+      reference: referenceCase.assets.find(asset => asset.role === 'reference'),
+      results: referenceCase.assets.filter(asset => asset.role === 'result'),
     },
   ];
 
@@ -99,22 +97,34 @@ function TryOnShowcase({ personMode }) {
 
   useEffect(() => {
     if (!previewItem) return undefined;
+    const changePreview = direction => setPreviewItem(current => {
+      if (!current) return current;
+      const nextIndex = (current.index + direction + current.items.length) % current.items.length;
+      return { ...current.items[nextIndex], index: nextIndex, items: current.items, title: current.title, description: current.description };
+    });
     const close = event => {
       if (event.key === 'Escape') setPreviewItem(null);
+      if (event.key === 'ArrowLeft') changePreview(-1);
+      if (event.key === 'ArrowRight') changePreview(1);
     };
     globalThis.addEventListener?.('keydown', close);
     return () => globalThis.removeEventListener?.('keydown', close);
   }, [previewItem]);
 
   const slide = slides[activeSlide];
+  const previewItems = [slide.source, slide.reference, ...slide.results].filter(Boolean);
   const chooseSlide = index => {
     setActiveSlide(index);
     setManualRevision(revision => revision + 1);
   };
-  const openPreview = item => setPreviewItem({ ...item, title: slide.title, description: slide.description });
+  const openPreview = item => setPreviewItem({ ...item, index: previewItems.indexOf(item), items: previewItems, title: slide.title, description: slide.description });
+  const movePreview = direction => setPreviewItem(current => {
+    const nextIndex = (current.index + direction + current.items.length) % current.items.length;
+    return { ...current.items[nextIndex], index: nextIndex, items: current.items, title: current.title, description: current.description };
+  });
   const renderCard = (item, className, alt) => (
-    <button key={item.id || item.image} type="button" className={`ec-tryon-showcase-card ${className}`} onClick={() => openPreview(item)} aria-label={`放大查看${item.label}`}>
-      <img src={item.image} alt={alt || item.label} />
+    <button key={item.id || item.src} type="button" className={`ec-tryon-showcase-card ${className}`} style={{ '--case-ratio': item.ratio.replace(':', ' / ') }} onClick={() => openPreview(item)} aria-label={`放大查看${item.label}`}>
+      <img src={item.src} alt={alt || item.label} />
       <span>{item.label}</span><Maximize2 size={14} />
     </button>
   );
@@ -147,7 +157,9 @@ function TryOnShowcase({ personMode }) {
         <div className="ec-tryon-preview-modal" role="dialog" aria-modal="true" aria-label={`${previewItem.label}大图`} onMouseDown={event => { if (event.target === event.currentTarget) setPreviewItem(null); }}>
           <div className="ec-tryon-preview-dialog">
             <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewItem(null)} aria-label="关闭大图"><X size={20} /></button>
-            <img src={previewItem.image} alt={`${previewItem.label}大图`} />
+            <button type="button" className="ec-tryon-preview-previous" onClick={() => movePreview(-1)} aria-label="查看上一张"><ArrowLeft size={20} /></button>
+            <img src={previewItem.src} alt={`${previewItem.label}大图`} />
+            <button type="button" className="ec-tryon-preview-next" onClick={() => movePreview(1)} aria-label="查看下一张"><ArrowRight size={20} /></button>
             <div><strong>{previewItem.label}</strong><span>{previewItem.description}</span></div>
           </div>
         </div>

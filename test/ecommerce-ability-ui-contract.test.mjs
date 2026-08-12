@@ -34,26 +34,30 @@ test('try-on is exposed as an explicit ability layer while the default product r
   assert.match(direction, /showAbilitySelector=\{false\}/);
 });
 
-test('try-on showcase uses deliberate dwell, indicator-only navigation, and an enlarged detail view', () => {
+test('try-on showcase uses deliberate dwell and a keyboard-accessible gallery', () => {
   assert.match(workbench, /TRYON_AUTO_DWELL_MS/);
   assert.match(workbench, /TRYON_MANUAL_DWELL_MS/);
   assert.match(workbench, /ec-tryon-preview-modal/);
   assert.match(workbench, /ec-tryon-showcase-card/);
-  assert.doesNotMatch(workbench, /ChevronLeft|ChevronRight/);
+  assert.match(workbench, /ArrowLeft/);
+  assert.match(workbench, /ArrowRight/);
+  assert.match(workbench, /event\.key === 'ArrowLeft'/);
+  assert.match(workbench, /event\.key === 'ArrowRight'/);
+  assert.match(workbench, /ec-tryon-preview-previous/);
+  assert.match(workbench, /ec-tryon-preview-next/);
 });
 
 test('try-on showcase renders independent zoomable assets instead of cropping one composite image', () => {
-  assert.match(workbench, /tryon-showcase\/product-flatlay\.png/);
-  assert.match(workbench, /tryon-showcase\/angle-front\.png/);
-  assert.match(workbench, /tryon-showcase\/reference-person\.png/);
+  assert.match(workbench, /productionCaseById\('tryon-angles'\)/);
+  assert.match(workbench, /productionCaseById\('tryon-reference'\)/);
   assert.match(workbench, /openPreview\(item\)/);
   assert.doesNotMatch(workbench, /--tryon-image|sourcePosition|referencePosition/);
-  assert.match(styles, /\.ec-tryon-showcase-card img\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;[\s\S]*?clip-path:\s*none/);
+  assert.match(styles, /\.ec-tryon-showcase-card img\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;[\s\S]*?clip-path:\s*none;[\s\S]*?object-fit:\s*contain/);
   assert.doesNotMatch(styles, /\.ec-tryon-showcase-card img\s*\{[\s\S]*?width:\s*1px/);
 });
 
 test('try-on showcase gives every rendered asset a stable React key', () => {
-  assert.match(workbench, /key=\{item\.id \|\| item\.image\}/);
+  assert.match(workbench, /key=\{item\.id \|\| item\.src\}/);
 });
 
 test('ability switch presents concise user outcomes instead of internal implementation notes', () => {
@@ -72,16 +76,17 @@ test('try-on uses a focused four-panel configuration instead of inheriting SKU a
   assert.match(ecMode, /TryOnPlanPanel/);
 });
 
-test('try-on preservation constraints remain real controls while presenting Chinese labels and help', () => {
+test('try-on preservation principles are mandatory advantages instead of opt-out controls', () => {
   assert.match(paramsPanel, /preserveMaterial/);
   assert.match(paramsPanel, /preservePattern/);
   assert.match(paramsPanel, /consistentPersonScene/);
-  assert.match(paramsPanel, /ec-tryon-help-trigger/);
-  assert.match(paramsPanel, /ec-tryon-help-popover/);
-  assert.match(paramsPanel, /preserveOptions\.find/);
+  assert.match(paramsPanel, /ec-tryon-principles/);
+  assert.match(paramsPanel, /ec-tryon-principle-index/);
   assert.match(paramsPanel, /锁定材质纹理/);
   assert.match(paramsPanel, /锁定图案与标识/);
   assert.match(paramsPanel, /保持人物与场景/);
+  assert.doesNotMatch(paramsPanel, /type="checkbox"/);
+  assert.doesNotMatch(paramsPanel, /activeHelp/);
   assert.doesNotMatch(ecMode, /preserveMaterial\s*\|\s*preservePattern/);
 });
 
