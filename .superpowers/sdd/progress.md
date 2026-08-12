@@ -1761,5 +1761,14 @@
   remain the low-cost production candidates; no paid video generation was run.
   Full regression passed `1468/1468`, build transformed `6474` modules, and
   `git diff --check` is clean. Runtime extension-task deletions, `.tmp/`, and
-  the diagnosis helper remain excluded. Next boundary: explicit staging and
-  commit, mandated production deployment, then public and owner-admin QA.
+  the diagnosis helper remain excluded. Commit `2d24d93` is now deployed as
+  release `20260812-152607-2d24d93`; PM2 PID `1420063` is online, public health
+  is `200`, public audit is `27/27`, and anonymous admin summary is `401`.
+  Owner-admin browser QA confirmed all three provider snapshots and the RMB
+  1:1 unit-price/points/settlement ledger without desktop horizontal overflow.
+  The deployment runner was terminated by its local 900-second execution limit
+  during the final Canary tail; independent health and PM2 checks remained
+  stable for about 14 minutes. No second paid ecommerce task and no paid video
+  task were run. Runtime extension-task deletions, `.tmp/`, and the diagnosis
+  helper remain excluded. Next boundary: user-owned real video acceptance only;
+  do not trigger it automatically.
