@@ -144,15 +144,20 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     ? validLayers.filter(layer => layer.semanticType !== 'product-instance')
     : validLayers;
   const groupId = `layer_group_${stableRunId}`;
+  const groupWidth = finite(sourceNode.w, 240);
+  const groupHeight = finite(sourceNode.h, 240);
   const groupNode = {
-    ...sourceNode,
     id: groupId,
     kind: 'layer-group',
+    name: '智能分层',
+    displayLabel: '智能分层',
     status: 'ready',
     actionId: 'layer-edit',
     group: '智能分层',
-    x: Number.isFinite(Number(anchor?.x)) ? Number(anchor.x) : finite(sourceNode.x) + finite(sourceNode.w, 240) + 48,
+    x: Number.isFinite(Number(anchor?.x)) ? Number(anchor.x) : finite(sourceNode.x) + groupWidth + 48,
     y: Number.isFinite(Number(anchor?.y)) ? Number(anchor.y) : finite(sourceNode.y),
+    w: groupWidth,
+    h: groupHeight,
     sourceNodeIds: [sourceId],
     layerExpanded: false,
     layerChildIds: [],

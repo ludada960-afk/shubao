@@ -59,7 +59,7 @@ test('smart layering preserves the source and creates an independent result grou
   assert.equal(text.textStyle.background, 'transparent');
 });
 
-test('smart layering keeps the original full-scene image untouched and previews it in the result group', () => {
+test('smart layering keeps the original full-scene image untouched without copying media into the virtual group', () => {
   const result = materializeCanvasLayers({
     sourceNode: { ...source, url: '/original-scene.png', ratio: '3:4' },
     runId: 'collapsed-source-run',
@@ -71,8 +71,10 @@ test('smart layering keeps the original full-scene image untouched and previews 
 
   assert.equal(result.sourceNode.url, '/original-scene.png');
   assert.equal(result.sourceNode.kind, 'image');
-  assert.equal(result.groupNode.url, '/original-scene.png');
-  assert.equal(result.groupNode.ratio, '3:4');
+  assert.equal(Object.hasOwn(result.groupNode, 'url'), false);
+  assert.equal(Object.hasOwn(result.groupNode, 'assetId'), false);
+  assert.equal(Object.hasOwn(result.groupNode, 'ratio'), false);
+  assert.equal(Object.hasOwn(result.groupNode, 'loaded'), false);
   assert.equal(result.groupNode.layerExpanded, false);
   assert.equal(result.nodes[0].hidden, true);
 });
