@@ -35,10 +35,10 @@ test('quotes ecommerce outputs from server feature weights', () => {
 
 test('video quotes are fixed per successful generation', () => {
   const expected = {
-    video_seedance_fast_short: [40000, 2.73, true],
-    video_seedance_fast_long: [46000, 2.73, true],
-    video_seedance_standard_short: [62000, 4.355, true],
-    video_seedance_standard_long: [72000, 4.355, true],
+    video_seedance_fast_short: [40000, 2.47, true],
+    video_seedance_fast_long: [46000, 2.47, true],
+    video_seedance_standard_short: [62000, 3.64, true],
+    video_seedance_standard_long: [72000, 3.64, true],
     video_minimax_h3_2k_short: [68000, 3.25, false],
     video_minimax_h3_2k_long: [78000, 3.25, false],
     video_plan_analysis: [1000, 0.05, true],

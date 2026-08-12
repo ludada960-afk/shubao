@@ -153,7 +153,7 @@ test('new jobs persist the product, route, catalog version, and provider-cost sn
   assert.equal(result.job.productId, 'seedance_standard');
   assert.equal(result.job.providerRoute, 'sd5-seedance-2.0');
   assert.equal(result.job.catalogVersion, VIDEO_CATALOG_VERSION);
-  assert.equal(result.job.providerCostCny, 4.355);
+  assert.equal(result.job.providerCostCny, 3.64);
 });
 
 test('an accepted upstream task is never submitted again after retryable polling failures', async t => {

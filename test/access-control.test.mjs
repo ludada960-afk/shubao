@@ -112,6 +112,21 @@ test('keeps admin authorization separate from product permissions', t => {
     code: 'ACCOUNT_ADMIN_FORBIDDEN',
     error: '当前账号没有管理权限',
   });
+
+  upsertAccountAccess(db, {
+    email: 'delegated-admin@example.com',
+    role: 'admin',
+    status: 'active',
+    actorEmail: '867550189@qq.com',
+    reason: '验证后台仅限主管理员',
+    idempotencyKey: 'delegated-admin-owner-only-check',
+  });
+  assert.deepEqual(requireAdminAccess(db, 'delegated-admin@example.com'), {
+    ok: false,
+    status: 403,
+    code: 'ACCOUNT_ADMIN_FORBIDDEN',
+    error: '当前账号没有管理权限',
+  });
 });
 
 test('rejects unknown feature identifiers and invalid account input', t => {

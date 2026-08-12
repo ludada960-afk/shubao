@@ -12,6 +12,7 @@ const inp = {
 
 export default function ParamsPanel({ params, onChange, mode = 'product' }) {
   const [catOpen, setCatOpen] = useState(false);
+  const [activeHelp, setActiveHelp] = useState(null);
   const set = (key, val) => onChange({ ...params, [key]: val });
 
   const fields = mode === 'tryon' ? [
@@ -76,7 +77,18 @@ export default function ParamsPanel({ params, onChange, mode = 'product' }) {
                 ['preservePattern', '锁定图案与标识', '强化印花、织纹、五金和标识位置约束，减少图案被重绘。'],
                 ['consistentPersonScene', '保持人物与场景', '强化人物身份、姿态、环境与光线连续性，适合批量生成同组穿搭。'],
               ].map(([key, label, help]) => (
-                <label key={key} title={help}><input type="checkbox" checked={params[key] !== false} onChange={event => set(key, event.target.checked)} /><span>{label}</span><CircleHelp size={14} aria-label={help} /></label>
+                <label key={key} className="ec-tryon-preserve-option">
+                  <input type="checkbox" checked={params[key] !== false} onChange={event => set(key, event.target.checked)} />
+                  <span>{label}</span>
+                  <button
+                    type="button"
+                    className="ec-tryon-help-trigger"
+                    aria-label={`查看${label}说明`}
+                    aria-expanded={activeHelp === key}
+                    onClick={event => { event.preventDefault(); event.stopPropagation(); setActiveHelp(current => current === key ? null : key); }}
+                  ><CircleHelp size={14} /></button>
+                  {activeHelp === key && <span className="ec-tryon-help-popover" role="tooltip">{help}</span>}
+                </label>
               ))}
             </div>
           )}

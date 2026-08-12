@@ -175,7 +175,7 @@ export function requireFeatureAccess(db, value, feature) {
 export function requireAdminAccess(db, value) {
   const access = activeAccess(db, value);
   if (!access.ok) return access;
-  if (!['owner', 'admin'].includes(access.account.role)) {
+  if (access.account.role !== 'owner') {
     return denied('ACCOUNT_ADMIN_FORBIDDEN', '当前账号没有管理权限');
   }
   return access;

@@ -6,6 +6,8 @@ import {
   ChevronRight,
   CircleDollarSign,
   Coins,
+  Database,
+  ExternalLink,
   FileText,
   Image,
   LoaderCircle,
@@ -60,8 +62,18 @@ function money(value) {
   return `¥${Number(value || 0).toFixed(2)}`;
 }
 
+function preciseMoney(value) {
+  const amount = Number(value || 0);
+  const decimals = Math.abs(amount) > 0 && Math.abs(amount) < 0.01 ? 6 : 4;
+  return `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: decimals })}`;
+}
+
 function points(value) {
   return ledgerUnitsToVisiblePoints(value).toLocaleString('zh-CN', { maximumFractionDigits: 3 });
+}
+
+function visiblePoints(value) {
+  return Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 3 });
 }
 
 function dateTime(value) {
@@ -141,6 +153,48 @@ function MonitoringPanel({ monitoring }) {
       <div className="admin-monitoring-section"><div className="admin-band-heading compact"><div><span>失败诊断</span><h3>高频失败原因</h3></div></div>{failures.length ? <div className="admin-failure-list">{failures.map(item => <article key={`${item.service}:${item.failureClass}:${item.message}`}><span>{item.count}</span><div><strong>{SERVICE_LABELS[item.service] || item.service}</strong><small>{item.message}</small></div></article>)}</div> : <EmptyState title="暂无失败记录" detail="出现失败任务后会在这里聚合原因" />}</div>
     </div>
     <div className="admin-monitoring-section admin-recent-tasks"><div className="admin-band-heading compact"><div><span>任务追踪</span><h3>最近任务</h3></div><small>{tasks.length} 条</small></div>{tasks.length ? <div className="admin-task-list">{tasks.slice(0, 10).map(task => <article key={`${task.service}:${task.id}`}><span className={`admin-task-dot ${task.status}`} /><div><strong>{SERVICE_LABELS[task.service] || task.service}</strong><small>{task.id} · {task.ownerEmail}</small></div><span className={`admin-task-status ${task.status}`}>{jobStatusLabel(task.status)}</span><time>{dateTime(task.updatedAt)}</time></article>)}</div> : <EmptyState title="暂无任务记录" detail="用户提交生成任务后会显示在这里" />}</div>
+  </section>;
+}
+
+function routePrice(route) {
+  if (route.unitPriceText) return route.unitPriceText;
+  return `${preciseMoney(route.unitPriceCny)} / ${route.billingUnit || '次'}`;
+}
+
+function routeStateLabel(status) {
+  return { connected: '生产接入', configured: '已配置', candidate: '候选报价' }[status] || status;
+}
+
+function RouteTable({ routes, compact = false }) {
+  return <div className="admin-upstream-table-wrap"><table className="admin-upstream-table">
+    <thead><tr><th>来源 / 模型</th><th>用途</th><th>上游单价</th><th>站内扣分</th>{!compact && <th>已结算</th>}<th>依据与状态</th></tr></thead>
+    <tbody>{routes.map(route => <tr key={route.id}>
+      <td><strong>{route.model}</strong><small>{route.providerLabel}</small></td>
+      <td>{route.purpose}<small>{route.billingUnit}</small></td>
+      <td><strong>{routePrice(route)}</strong></td>
+      <td>{route.appActions?.length ? <div className="admin-action-price-list">{route.appActions.map(action => <span key={action.sku}><b>{skuLabel(action.sku)}</b>{visiblePoints(action.points)} 积分 · 结算成本 {preciseMoney(action.providerCostCny)}</span>)}</div> : <span className="admin-muted">未接入，不扣分</span>}</td>
+      {!compact && <td><strong>{Number(route.localSettledActions || 0).toLocaleString('zh-CN')} 次</strong><small>{preciseMoney(route.localSettledCostCny)}</small></td>}
+      <td><span className={`admin-ledger-state ${route.status}`}>{routeStateLabel(route.status)}</span><small>{route.health || route.notes}</small></td>
+    </tr>)}</tbody>
+  </table></div>;
+}
+
+function UpstreamLedgerPanel({ ledger }) {
+  if (!ledger) return null;
+  const activeRoutes = ledger.routes?.filter(route => route.status !== 'candidate') || [];
+  const candidateRoutes = ledger.routes?.filter(route => route.status === 'candidate') || [];
+  return <section className="admin-upstream-band" aria-labelledby="admin-upstream-title">
+    <div className="admin-band-heading"><div><span>上游成本账本</span><h2 id="admin-upstream-title">API 单价、扣费与站内结算</h2></div><small>人工核验于 {dateTime(ledger.verifiedAt)}</small></div>
+    <div className="admin-ledger-policy"><Database size={18} /><div><strong>{ledger.currencyPolicy}</strong><span>{ledger.scopeNote}</span></div><dl><div><dt>上游累计扣费</dt><dd>{preciseMoney(ledger.providerReportedSpendCny)}</dd></div><div><dt>本应用结算成本</dt><dd>{preciseMoney(ledger.localSettledCostCny)}</dd></div></dl></div>
+    <div className="admin-provider-grid">{ledger.providers?.map(provider => <article key={provider.id}>
+      <header><div><span className={`admin-provider-dot ${provider.monitoring?.tone}`} /><strong>{provider.label}</strong></div><a href={provider.dashboardUrl} target="_blank" rel="noreferrer" aria-label={`打开 ${provider.label} 后台`}><ExternalLink size={15} /></a></header>
+      <div className="admin-provider-money"><div><small>账户余额</small><strong>{preciseMoney(provider.balanceCny)}</strong></div><div><small>今日扣费</small><strong>{preciseMoney(provider.todaySpendCny)}</strong></div><div><small>累计扣费</small><strong>{preciseMoney(provider.reportedSpendCny)}</strong></div><div><small>上游请求</small><strong>{Number(provider.reportedRequests || 0).toLocaleString('zh-CN')}</strong></div></div>
+      <dl className="admin-reconciliation"><div><dt>本应用可归因</dt><dd>{preciseMoney(provider.localAttributedCostCny)}</dd></div><div><dt>口径差额</dt><dd>{preciseMoney(provider.referenceDifferenceCny)}</dd></div></dl>
+      <p>{provider.accountEvidence}</p>
+      <footer><span className={`admin-provider-health ${provider.monitoring?.tone}`}>{provider.monitoring?.label}</span><small>{provider.monitoring?.detail}</small></footer>
+    </article>)}</div>
+    <div className="admin-upstream-routes"><div className="admin-band-heading compact"><div><span>正在使用</span><h3>生产路由与站内价格</h3></div><small>{activeRoutes.length} 条接入或已配置路由</small></div><RouteTable routes={activeRoutes} /></div>
+    {!!candidateRoutes.length && <details className="admin-candidate-routes"><summary><span><strong>查看候选模型报价</strong><small>仅用于选型，不代表已经接入或可自动切换</small></span><ChevronRight size={17} /></summary><RouteTable routes={candidateRoutes} compact /></details>}
   </section>;
 }
 
@@ -257,7 +311,7 @@ function AccountEditor({ account, actorEmail, onClose, onChanged }) {
 
       <section className="admin-editor-section admin-usage-section">
         <div className="admin-section-heading"><div><strong>真实使用结果</strong><span>按已经结算的 AI 操作聚合</span></div></div>
-        <dl><div><dt>累计消耗</dt><dd>{points(account.usage.pointsConsumed)} 积分</dd></div><div><dt>上游成本</dt><dd>{money(account.usage.providerCostCny)}</dd></div><div><dt>理论收入</dt><dd>{money(account.usage.theoreticalRevenueCny)}</dd></div><div><dt>理论贡献</dt><dd>{money(account.usage.theoreticalContributionCny)}</dd></div><div><dt>已结算操作</dt><dd>{account.usage.actionCount}</dd></div><div><dt>最近活动</dt><dd>{dateTime(account.usage.lastActivityAt)}</dd></div></dl>
+        <dl><div><dt>累计消耗</dt><dd>{points(account.usage.pointsConsumed)} 积分</dd></div><div><dt>应用成本</dt><dd>{money(account.usage.providerCostCny)}</dd></div><div><dt>理论收入</dt><dd>{money(account.usage.theoreticalRevenueCny)}</dd></div><div><dt>理论贡献</dt><dd>{money(account.usage.theoreticalContributionCny)}</dd></div><div><dt>已结算操作</dt><dd>{account.usage.actionCount}</dd></div><div><dt>最近活动</dt><dd>{dateTime(account.usage.lastActivityAt)}</dd></div></dl>
       </section>
     </div>
   </aside>;
@@ -327,7 +381,7 @@ export default function AdminConsolePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const isAdmin = ['owner', 'admin'].includes(state.accountAccess?.role);
+  const isAdmin = state.accountAccess?.role === 'owner';
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     quiet ? setRefreshing(true) : setLoading(true);
@@ -387,7 +441,7 @@ export default function AdminConsolePage() {
         <div className="admin-metrics">
           <Metric icon={Users} label="已配置账号" value={metrics.accountsTotal || 0} detail={`${metrics.accountsActive || 0} 个正常使用`} />
           <Metric icon={WalletCards} label="累计消耗" value={`${points(metrics.pointsConsumed)} 积分`} detail={`${metrics.settledActions || 0} 次已结算操作`} />
-          <Metric icon={CircleDollarSign} label="上游真实成本" value={money(metrics.providerCostCny)} detail="按每次结算时成本快照" tone="cost" />
+          <Metric icon={CircleDollarSign} label="应用结算成本" value={money(metrics.providerCostCny)} detail="按 AI 动作结算时的成本快照" tone="cost" />
           <Metric icon={TrendingUp} label="理论贡献" value={money(metrics.theoreticalContributionCny)} detail={metrics.theoreticalMargin === null || metrics.theoreticalMargin === undefined ? '暂无收入数据' : `理论毛利率 ${(metrics.theoreticalMargin * 100).toFixed(1)}%`} tone="profit" />
         </div>
         <div className="admin-finance-strip" aria-label="成本与利润">
@@ -398,11 +452,13 @@ export default function AdminConsolePage() {
         </div>
       </section>
 
+      <UpstreamLedgerPanel ledger={summary?.upstreamLedger} />
+
       <MonitoringPanel monitoring={monitoring} />
 
       <section className="admin-accounts-band" aria-labelledby="admin-accounts-title">
         <div className="admin-band-heading"><div><span>账号与权限</span><h2 id="admin-accounts-title">内测账号</h2></div><label className="admin-search"><Search size={15} /><input value={query} placeholder="搜索邮箱或备注" onChange={event => setQuery(event.target.value)} /></label></div>
-        <div className="admin-table-wrap"><table className="admin-account-table"><thead><tr><th>账号</th><th>角色</th><th>权限</th><th>AI 积分</th><th>累计成本</th><th>状态</th><th aria-label="操作" /></tr></thead><tbody>{filteredAccounts.map(account => <tr key={account.email} className={selectedEmail === account.email ? 'is-selected' : ''} onClick={() => setSelectedEmail(account.email)}><td><strong>{account.email}</strong><small>{account.notes || '未填写备注'}</small></td><td>{ROLE_LABELS[account.role]}</td><td><div className="admin-feature-dots" aria-label={`${account.permissions.length} 个权限`}>{FEATURES.map(feature => <i key={feature.id} className={account.permissions.includes(feature.id) ? 'on' : ''} title={feature.label} />)}</div></td><td>{points(account.balances.ec_points.availableUnits)}</td><td>{money(account.usage.providerCostCny)}</td><td><span className={`admin-status ${account.status}`}>{STATUS_LABELS[account.status]}</span></td><td><button type="button" className="admin-row-open" aria-label={`管理 ${account.email}`}><ChevronRight size={17} /></button></td></tr>)}</tbody></table>{!filteredAccounts.length && <EmptyState title="没有匹配账号" detail="调整搜索条件或新增内测账号" />}</div>
+        <div className="admin-table-wrap"><table className="admin-account-table"><thead><tr><th>账号</th><th>角色</th><th>权限</th><th>AI 积分</th><th>应用成本</th><th>状态</th><th aria-label="操作" /></tr></thead><tbody>{filteredAccounts.map(account => <tr key={account.email} className={selectedEmail === account.email ? 'is-selected' : ''} onClick={() => setSelectedEmail(account.email)}><td><strong>{account.email}</strong><small>{account.notes || '未填写备注'}</small></td><td>{ROLE_LABELS[account.role]}</td><td><div className="admin-feature-dots" aria-label={`${account.permissions.length} 个权限`}>{FEATURES.map(feature => <i key={feature.id} className={account.permissions.includes(feature.id) ? 'on' : ''} title={feature.label} />)}</div></td><td>{points(account.balances.ec_points.availableUnits)}</td><td>{money(account.usage.providerCostCny)}</td><td><span className={`admin-status ${account.status}`}>{STATUS_LABELS[account.status]}</span></td><td><button type="button" className="admin-row-open" aria-label={`管理 ${account.email}`}><ChevronRight size={17} /></button></td></tr>)}</tbody></table>{!filteredAccounts.length && <EmptyState title="没有匹配账号" detail="调整搜索条件或新增内测账号" />}</div>
       </section>
 
       <section className="admin-insights-grid">
@@ -411,8 +467,8 @@ export default function AdminConsolePage() {
       </section>
 
       <section className="admin-sku-band" aria-labelledby="admin-sku-title">
-        <div className="admin-band-heading"><div><span>精细核算</span><h2 id="admin-sku-title">按模型与动作</h2></div><small>成本取结算时的上游快照，收入取积分面值</small></div>
-        {summary?.bySku?.length ? <div className="admin-sku-table-wrap"><table className="admin-sku-table"><thead><tr><th>动作 / 模型</th><th>板块</th><th>次数</th><th>消耗</th><th>上游成本</th><th>理论收入</th><th>贡献 / 毛利率</th></tr></thead><tbody>{summary.bySku.map(item => <tr key={`${item.sku}:${item.provider}:${item.model}`}><td><strong>{skuLabel(item.sku)}</strong><small>{item.model || item.sku} · {item.provider}</small></td><td>{SERVICE_LABELS[item.feature] || item.feature}</td><td>{item.actions}</td><td>{points(item.points_consumed)} 积分</td><td>{money(item.provider_cost_cny)}</td><td>{money(item.theoretical_revenue)}</td><td><strong>{money(item.theoretical_contribution_cny)}</strong><small>{item.theoretical_margin === null ? '暂无收入' : `${(item.theoretical_margin * 100).toFixed(1)}%`}</small></td></tr>)}</tbody></table></div> : <EmptyState title="暂无模型动作记录" detail="完成一次真实 AI 操作后，这里会显示具体 SKU、模型、成本与利润" />}
+        <div className="admin-band-heading"><div><span>精细核算</span><h2 id="admin-sku-title">按模型与动作</h2></div><small>应用成本取动作结算快照，收入取积分面值</small></div>
+        {summary?.bySku?.length ? <div className="admin-sku-table-wrap"><table className="admin-sku-table"><thead><tr><th>动作 / 模型</th><th>板块</th><th>次数</th><th>消耗</th><th>应用成本</th><th>理论收入</th><th>贡献 / 毛利率</th></tr></thead><tbody>{summary.bySku.map(item => <tr key={`${item.sku}:${item.provider}:${item.model}`}><td><strong>{skuLabel(item.sku)}</strong><small>{item.model || item.sku} · {item.provider}</small></td><td>{SERVICE_LABELS[item.feature] || item.feature}</td><td>{item.actions}</td><td>{points(item.points_consumed)} 积分</td><td>{money(item.provider_cost_cny)}</td><td>{money(item.theoretical_revenue)}</td><td><strong>{money(item.theoretical_contribution_cny)}</strong><small>{item.theoretical_margin === null ? '暂无收入' : `${(item.theoretical_margin * 100).toFixed(1)}%`}</small></td></tr>)}</tbody></table></div> : <EmptyState title="暂无模型动作记录" detail="完成一次真实 AI 操作后，这里会显示具体 SKU、模型、成本与利润" />}
       </section>
     </>}
 

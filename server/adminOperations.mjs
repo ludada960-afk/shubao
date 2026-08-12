@@ -5,6 +5,7 @@ import {
   replaceAccountFeatures,
   upsertAccountAccess,
 } from './accessControl.mjs';
+import { buildUpstreamCostLedger } from './billing/upstreamLedger.mjs';
 
 const CURRENCIES = ['ec_points', 'content_sets'];
 const MAX_CREDIT_ADJUSTMENT = 100_000_000;
@@ -303,9 +304,8 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
 
   function createAccount(actorEmail, input = {}) {
     const actor = getAccountAccess(db, actorEmail);
-    if (!actor || !['owner', 'admin'].includes(actor.role)) throw forbidden('admin access denied');
+    if (!actor || actor.role !== 'owner') throw forbidden('owner access denied');
     if (input.role === 'owner') throw forbidden('不能创建第二个主管理员账号');
-    if (actor.role !== 'owner' && input.role === 'admin') throw forbidden('只有主管理员可以创建管理员');
     const idempotencyKey = nonEmpty(input.idempotencyKey, 'idempotencyKey');
     const reason = nonEmpty(input.reason, 'reason');
     const account = upsertAccountAccess(db, {
@@ -334,16 +334,13 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
     const actor = getAccountAccess(db, actorEmail);
     const current = getAccountAccess(db, value);
     if (!current) throw accessNotFound();
-    if (!actor || !['owner', 'admin'].includes(actor.role)) throw forbidden('admin access denied');
+    if (!actor || actor.role !== 'owner') throw forbidden('owner access denied');
     if (current.role === 'owner' && actor.email !== current.email) throw forbidden('不能修改主管理员账号');
     if (current.email === actor.email && current.role === 'owner'
       && ((input.role && input.role !== 'owner') || (input.status && input.status !== 'active'))) {
       throw forbidden('主管理员不能停用或降级自己的账号');
     }
     if (input.role === 'owner' && current.role !== 'owner') throw forbidden('不能新增主管理员');
-    if (actor.role !== 'owner' && (current.role === 'admin' || input.role === 'admin')) {
-      throw forbidden('管理员不能修改其他管理员');
-    }
     return accountDetail(upsertAccountAccess(db, {
       email: current.email,
       role: input.role ?? current.role,
@@ -361,10 +358,7 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
     const email = normalizeAccountEmail(value);
     const target = getAccountAccess(db, email);
     if (!target) throw accessNotFound();
-    if (!actor || !['owner', 'admin'].includes(actor.role)) throw forbidden('admin access denied');
-    if (actor.role !== 'owner' && ['owner', 'admin'].includes(target.role)) {
-      throw forbidden('管理员不能修改管理账号权限');
-    }
+    if (!actor || actor.role !== 'owner') throw forbidden('owner access denied');
     replaceAccountFeatures(db, {
       email,
       features: input.permissions,
@@ -380,8 +374,7 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
     const email = normalizeAccountEmail(value);
     const target = getAccountAccess(db, email);
     if (!target) throw accessNotFound();
-    if (!actor || !['owner', 'admin'].includes(actor.role)) throw forbidden('admin access denied');
-    if (actor.role !== 'owner' && target.role === 'owner') throw forbidden('管理员不能调整主管理员额度');
+    if (!actor || actor.role !== 'owner') throw forbidden('owner access denied');
     const operation = nonEmpty(input.operation, 'operation').toLowerCase();
     if (!['grant', 'revoke'].includes(operation)) {
       throw Object.assign(new TypeError('operation is invalid'), { code: 'ADMIN_REQUEST_INVALID' });
@@ -447,6 +440,33 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
     const providerCost = roundMoney(row.provider_cost);
     const theoreticalRevenue = roundMoney(row.theoretical_revenue);
     const cashRevenue = roundMoney(row.cash_revenue);
+    const bySku = db.prepare(`
+      SELECT COALESCE(NULLIF(sku, ''), 'unclassified') AS sku,
+        COALESCE(NULLIF(feature, ''), 'unclassified') AS feature,
+        COALESCE(NULLIF(provider, ''), 'unknown') AS provider,
+        COALESCE(NULLIF(model, ''), '') AS model,
+        COUNT(*) AS actions,
+        COALESCE(SUM(charged_units), 0) AS points_consumed,
+        COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
+        COALESCE(SUM(cash_revenue_cny), 0) AS cash_revenue,
+        COALESCE(SUM(provider_cost_cny), 0) AS provider_cost_cny
+      FROM usage_events u ${usageWhere.sql}
+      GROUP BY COALESCE(NULLIF(sku, ''), 'unclassified'),
+        COALESCE(NULLIF(feature, ''), 'unclassified'),
+        COALESCE(NULLIF(provider, ''), 'unknown'),
+        COALESCE(NULLIF(model, ''), '')
+      ORDER BY provider_cost_cny DESC, actions DESC
+      LIMIT 100
+    `).all(...usageWhere.params).map(item => ({
+      ...item,
+      theoretical_revenue: roundMoney(item.theoretical_revenue),
+      cash_revenue: roundMoney(item.cash_revenue),
+      provider_cost_cny: roundMoney(item.provider_cost_cny),
+      theoretical_contribution_cny: roundMoney(Number(item.theoretical_revenue || 0) - Number(item.provider_cost_cny || 0)),
+      theoretical_margin: Number(item.theoretical_revenue || 0) > 0
+        ? Number(((Number(item.theoretical_revenue) - Number(item.provider_cost_cny || 0)) / Number(item.theoretical_revenue)).toFixed(4))
+        : null,
+    }));
     return {
       metrics: {
         accountsTotal: accountCounts.total,
@@ -501,33 +521,8 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
         provider_cost_cny: roundMoney(item.provider_cost_cny),
         theoretical_contribution_cny: roundMoney(Number(item.theoretical_revenue || 0) - Number(item.provider_cost_cny || 0)),
       })),
-      bySku: db.prepare(`
-        SELECT COALESCE(NULLIF(sku, ''), 'unclassified') AS sku,
-          COALESCE(NULLIF(feature, ''), 'unclassified') AS feature,
-          COALESCE(NULLIF(provider, ''), 'unknown') AS provider,
-          COALESCE(NULLIF(model, ''), '') AS model,
-          COUNT(*) AS actions,
-          COALESCE(SUM(charged_units), 0) AS points_consumed,
-          COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
-          COALESCE(SUM(cash_revenue_cny), 0) AS cash_revenue,
-          COALESCE(SUM(provider_cost_cny), 0) AS provider_cost_cny
-        FROM usage_events u ${usageWhere.sql}
-        GROUP BY COALESCE(NULLIF(sku, ''), 'unclassified'),
-          COALESCE(NULLIF(feature, ''), 'unclassified'),
-          COALESCE(NULLIF(provider, ''), 'unknown'),
-          COALESCE(NULLIF(model, ''), '')
-        ORDER BY provider_cost_cny DESC, actions DESC
-        LIMIT 100
-      `).all(...usageWhere.params).map(item => ({
-        ...item,
-        theoretical_revenue: roundMoney(item.theoretical_revenue),
-        cash_revenue: roundMoney(item.cash_revenue),
-        provider_cost_cny: roundMoney(item.provider_cost_cny),
-        theoretical_contribution_cny: roundMoney(Number(item.theoretical_revenue || 0) - Number(item.provider_cost_cny || 0)),
-        theoretical_margin: Number(item.theoretical_revenue || 0) > 0
-          ? Number(((Number(item.theoretical_revenue) - Number(item.provider_cost_cny || 0)) / Number(item.theoretical_revenue)).toFixed(4))
-          : null,
-      })),
+      bySku,
+      upstreamLedger: buildUpstreamCostLedger({ bySku, localSettledCostCny: providerCost }),
       jobs,
     };
   }

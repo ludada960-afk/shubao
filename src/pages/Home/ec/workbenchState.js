@@ -230,6 +230,9 @@ const PARAM_SUMMARY_LABELS = Object.freeze({
   accentColor: '辅色',
   material: '材质',
   craft: '工艺',
+  preserveMaterial: '材质锁定',
+  preservePattern: '图案锁定',
+  consistentPersonScene: '人物场景一致',
 });
 
 export function summarizeCommerceConfiguration(kind, state = {}) {
@@ -248,7 +251,7 @@ export function summarizeCommerceConfiguration(kind, state = {}) {
   }
   if (kind === 'params') {
     const parts = Object.entries(state.productParams || {})
-      .filter(([, value]) => String(value || '').trim())
+      .filter(([key, value]) => PARAM_SUMMARY_LABELS[key] && value !== false && String(value || '').trim())
       .map(([key]) => PARAM_SUMMARY_LABELS[key] || key);
     return parts.join('丨') || '商品信息';
   }

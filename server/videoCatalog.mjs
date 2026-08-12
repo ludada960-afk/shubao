@@ -1,6 +1,6 @@
 import { FEATURE_SKUS, quoteFeature } from './billing/catalog.mjs';
 
-export const VIDEO_CATALOG_VERSION = 'video-products-2026-08-11-v2';
+export const VIDEO_CATALOG_VERSION = 'video-products-2026-08-12-v3';
 export const DEFAULT_VIDEO_PRODUCT_ID = 'seedance_standard';
 
 function deepFreeze(value) {

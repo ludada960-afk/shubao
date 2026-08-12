@@ -58,8 +58,12 @@ export function LoginModal() {
     if (!email.trim() || !email.includes('@')) { setErr('请输入正确的邮箱地址'); return; }
     setLoading(true); setErr('');
     try {
-      await sendOTP(email.trim());
-      updateOtp({ type: 'CODE_SENT', now: Date.now(), cooldownMs: 60_000 });
+      const result = await sendOTP(email.trim());
+      updateOtp({
+        type: 'CODE_SENT',
+        now: Date.now(),
+        cooldownMs: Math.max(0, result.retryAfterSeconds) * 1000,
+      });
     } catch (e) { setErr(e.message); }
     setLoading(false);
   };

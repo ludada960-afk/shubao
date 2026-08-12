@@ -29,10 +29,10 @@ export const FEATURE_SKUS = freezeCatalog({
   ec_nano_pro_4k: { units: 2000, providerCostCny: 0.06 },
   // Video products are priced against the least favorable point package and
   // include the payment-cost allowance in the contribution-margin gate.
-  video_seedance_fast_short: { units: 40000, providerCostCny: 2.73 },
-  video_seedance_fast_long: { units: 46000, providerCostCny: 2.73 },
-  video_seedance_standard_short: { units: 62000, providerCostCny: 4.355 },
-  video_seedance_standard_long: { units: 72000, providerCostCny: 4.355 },
+  video_seedance_fast_short: { units: 40000, providerCostCny: 2.47 },
+  video_seedance_fast_long: { units: 46000, providerCostCny: 2.47 },
+  video_seedance_standard_short: { units: 62000, providerCostCny: 3.64 },
+  video_seedance_standard_long: { units: 72000, providerCostCny: 3.64 },
   video_minimax_h3_2k_short: { units: 68000, providerCostCny: 3.25, public: false },
   video_minimax_h3_2k_long: { units: 78000, providerCostCny: 3.25, public: false },
   video_plan_analysis: { units: 1000, providerCostCny: 0.05 },

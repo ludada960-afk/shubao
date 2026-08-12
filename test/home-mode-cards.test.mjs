@@ -23,6 +23,9 @@ test('home presents four stable visual creation domains in one workspace family'
   assert.match(options, /entry-video\.png/);
   assert.match(options, /entry-xhs\.png/);
   assert.match(options, /entry-visual\.png/);
+  assert.match(options, /entry-video\.png\?v=20260812/);
+  assert.match(options, /entry-xhs\.png\?v=20260812/);
+  assert.match(options, /entry-visual\.png\?v=20260812/);
   assert.doesNotMatch(source, /reference-card-/);
   assert.doesNotMatch(source, /homepage-mode-indicator/);
   assert.match(source, /上传创意素材，生成/);

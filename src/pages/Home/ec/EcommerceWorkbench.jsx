@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, ImagePlus, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowRight, Check, ImagePlus, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
@@ -11,6 +11,9 @@ const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
   anything_tryon: '把商品自然穿到模特身上',
 };
+
+const TRYON_AUTO_DWELL_MS = 9000;
+const TRYON_MANUAL_DWELL_MS = 15000;
 
 function ImageCard({ role, image, label, index, onRemove }) {
   return (
@@ -52,6 +55,8 @@ function TryOnImageStack({ images, label, role, onRemove, onAdd, max = 5 }) {
 
 function TryOnShowcase({ personMode }) {
   const [activeSlide, setActiveSlide] = useState(personMode === 'reference' ? 1 : 0);
+  const [manualRevision, setManualRevision] = useState(0);
+  const [previewSlide, setPreviewSlide] = useState(null);
   const slides = [
     {
       id: 'angles',
@@ -59,6 +64,14 @@ function TryOnShowcase({ personMode }) {
       eyebrow: '多视角成片',
       title: '一套商品，生成不同展示角度',
       description: '正面、侧面、背面与动态姿态，一次形成可选成片。',
+      sourcePosition: 'left center',
+      sourceSize: '220% auto',
+      results: [
+        { label: '正面', position: '61% 0%' },
+        { label: '动态', position: '100% 0%' },
+        { label: '侧面', position: '61% 100%' },
+        { label: '背面', position: '100% 100%' },
+      ],
     },
     {
       id: 'reference',
@@ -66,6 +79,11 @@ function TryOnShowcase({ personMode }) {
       eyebrow: '参考模特',
       title: '保留人物气质，把商品准确换上身',
       description: '人物和场景保持连贯，商品颜色、版型与搭配关系清晰可见。',
+      sourcePosition: 'left center',
+      sourceSize: '300% auto',
+      referencePosition: 'center center',
+      referenceSize: '300% auto',
+      results: [{ label: '上身结果', position: 'right center' }],
     },
   ];
 
@@ -76,30 +94,75 @@ function TryOnShowcase({ personMode }) {
   useEffect(() => {
     const media = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
     if (media?.matches) return undefined;
-    const timer = globalThis.setInterval(() => setActiveSlide(current => (current + 1) % slides.length), 6500);
-    return () => globalThis.clearInterval(timer);
-  }, []);
+    const delay = manualRevision ? TRYON_MANUAL_DWELL_MS : TRYON_AUTO_DWELL_MS;
+    const timer = globalThis.setTimeout(() => {
+      setActiveSlide(current => (current + 1) % slides.length);
+      setManualRevision(0);
+    }, delay);
+    return () => globalThis.clearTimeout(timer);
+  }, [activeSlide, manualRevision]);
+
+  useEffect(() => {
+    if (!previewSlide) return undefined;
+    const close = event => {
+      if (event.key === 'Escape') setPreviewSlide(null);
+    };
+    globalThis.addEventListener?.('keydown', close);
+    return () => globalThis.removeEventListener?.('keydown', close);
+  }, [previewSlide]);
 
   const slide = slides[activeSlide];
-  const move = offset => setActiveSlide(current => (current + offset + slides.length) % slides.length);
+  const chooseSlide = index => {
+    setActiveSlide(index);
+    setManualRevision(revision => revision + 1);
+  };
+  const openPreview = () => setPreviewSlide(slide);
   return (
-    <section className="ec-tryon-showcase" aria-label="万物上身效果预览">
-      <div className="ec-tryon-showcase-copy">
-        <span className="ec-showcase-kicker">{slide.eyebrow}</span>
-        <strong>{slide.title}</strong>
-        <span>{slide.description}</span>
-        <div className="ec-tryon-showcase-controls">
-          <button type="button" onClick={() => move(-1)} aria-label="上一个万物上身案例"><ChevronLeft size={17} /></button>
-          <div role="tablist" aria-label="万物上身案例">
-            {slides.map((item, index) => <button type="button" role="tab" key={item.id} aria-label={item.title} aria-selected={index === activeSlide} className={index === activeSlide ? 'is-active' : ''} onClick={() => setActiveSlide(index)} />)}
+    <>
+      <section className="ec-tryon-showcase" aria-label="万物上身效果预览">
+        <div className="ec-tryon-showcase-copy">
+          <span className="ec-showcase-kicker">{slide.eyebrow}</span>
+          <strong>{slide.title}</strong>
+          <span>{slide.description}</span>
+          <div className="ec-tryon-showcase-controls" role="tablist" aria-label="万物上身案例">
+            {slides.map((item, index) => <button type="button" role="tab" key={item.id} aria-label={item.title} aria-selected={index === activeSlide} className={index === activeSlide ? 'is-active' : ''} onClick={() => chooseSlide(index)} />)}
           </div>
-          <button type="button" onClick={() => move(1)} aria-label="下一个万物上身案例"><ChevronRight size={17} /></button>
         </div>
-      </div>
-      <div className="ec-tryon-showcase-visual" aria-live="polite">
-        <img src={slide.image} alt={`${slide.title}原创示例`} />
-      </div>
-    </section>
+        <div className={`ec-tryon-showcase-visual is-${slide.id}`} aria-live="polite">
+          <button type="button" className="ec-tryon-showcase-card ec-tryon-showcase-source-card" style={{ '--tryon-image': `url(${slide.image})`, '--tryon-position': slide.sourcePosition, '--tryon-size': slide.sourceSize }} onClick={openPreview} aria-label="放大查看商品素材">
+            <img src={slide.image} alt="商品与穿搭素材" />
+            <span>商品与穿搭</span><Maximize2 size={14} />
+          </button>
+          {slide.referencePosition && (
+            <>
+              <span className="ec-tryon-showcase-operator" aria-hidden="true"><Plus size={20} /></span>
+              <button type="button" className="ec-tryon-showcase-card ec-tryon-showcase-reference-card" style={{ '--tryon-image': `url(${slide.image})`, '--tryon-position': slide.referencePosition, '--tryon-size': slide.referenceSize }} onClick={openPreview} aria-label="放大查看参考模特">
+                <img src={slide.image} alt="参考模特" />
+                <span>参考模特</span><Maximize2 size={14} />
+              </button>
+            </>
+          )}
+          <span className="ec-tryon-showcase-operator" aria-hidden="true"><ArrowRight size={22} /></span>
+          <div className={`ec-tryon-showcase-results count-${slide.results.length}`}>
+            {slide.results.map((result, index) => (
+              <button type="button" className={`ec-tryon-showcase-card ec-tryon-result-card card-${index}`} style={{ '--tryon-image': `url(${slide.image})`, '--tryon-position': result.position, '--tryon-size': slide.id === 'angles' ? '364% auto' : '300% auto' }} key={result.label} onClick={openPreview} aria-label={`放大查看${result.label}`}>
+                <img src={slide.image} alt={result.label} />
+                <span>{result.label}</span><Maximize2 size={14} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+      {previewSlide && (
+        <div className="ec-tryon-preview-modal" role="dialog" aria-modal="true" aria-label={`${previewSlide.title}大图`} onMouseDown={event => { if (event.target === event.currentTarget) setPreviewSlide(null); }}>
+          <div className="ec-tryon-preview-dialog">
+            <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewSlide(null)} aria-label="关闭大图"><X size={20} /></button>
+            <img src={previewSlide.image} alt={`${previewSlide.title}完整原创案例`} />
+            <div><strong>{previewSlide.title}</strong><span>{previewSlide.description}</span></div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

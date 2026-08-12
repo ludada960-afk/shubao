@@ -118,7 +118,7 @@ function SideNav() {
 function TopBar() {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const { logged, ecPoints, unlimited, balanceRefreshStatus } = state;
-  const canAdmin = ['owner', 'admin'].includes(state.accountAccess?.role);
+  const canAdmin = state.accountAccess?.role === 'owner';
 
   useEffect(() => {
     if (!logged) return undefined;
@@ -196,6 +196,7 @@ function AppRouter() {
   const { state, dispatch } = useApp();
   const { page, genState, result, galleryItem } = state;
   const dialog = useDialog();
+  const canAdmin = state.accountAccess?.role === 'owner';
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -259,7 +260,9 @@ function AppRouter() {
     'video-studio': VideoStudioPage,
     admin: AdminConsolePage,
   };
-  const PageComponent = pageMap[page] || HomePage;
+  const PageComponent = page === 'admin' && !canAdmin
+    ? HomePage
+    : (pageMap[page] || HomePage);
   const previewItem = galleryItem || result;
   const galleryNotice = () => dialog.notice({
     title: '请先生成自己的作品',

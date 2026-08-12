@@ -62,7 +62,14 @@ export async function sendOTP(email) {
   const d = await res.json();
   if (!res.ok) throw new Error(d.error || '发送失败');
 
-  return { ok: true, mock: d.mock };
+  return {
+    ok: true,
+    mock: Boolean(d.mock),
+    reused: Boolean(d.reused),
+    retryAfterSeconds: Number.isFinite(Number(d.retryAfterSeconds))
+      ? Math.max(0, Number(d.retryAfterSeconds))
+      : 60,
+  };
 }
 
 export async function verifyOTP(email, code) {

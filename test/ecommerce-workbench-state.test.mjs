@@ -114,6 +114,13 @@ test('configuration summaries stay compact while exposing the meaningful selecti
   assert.equal(summarizeCommerceConfiguration('params', {
     productParams: { material: '不锈钢', size: '20cm', craft: '拉丝' },
   }), '材质丨尺寸丨工艺');
+  assert.equal(summarizeCommerceConfiguration('params', {
+    productParams: {
+      preserveMaterial: true,
+      preservePattern: false,
+      consistentPersonScene: true,
+    },
+  }), '材质锁定丨人物场景一致');
 });
 
 test('upload deck keeps two starter cards while later uploads enter scrollable rails', () => {

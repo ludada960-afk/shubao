@@ -35,6 +35,8 @@ import './VisualCreationMode.css';
 const MAX_REFERENCES = 6;
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const VISUAL_SHOWCASE_AUTO_DWELL_MS = 9000;
+const VISUAL_SHOWCASE_MANUAL_DWELL_MS = 15000;
 
 function referenceId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -72,6 +74,8 @@ export default function VisualCreationMode() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [showcaseSlide, setShowcaseSlide] = useState(0);
+  const [showcaseManualRevision, setShowcaseManualRevision] = useState(0);
   const runRef = useRef(null);
   const referencesRef = useRef([]);
   const fileInputRef = useRef(null);
@@ -83,6 +87,27 @@ export default function VisualCreationMode() {
   const retryIndexes = visualRetryIndexes(run);
   const successfulSlots = run?.slots?.filter(slot => slot.status === 'completed') || [];
   const estimatedPoints = ((generationUnits(imageModel, resolution) || 0) * count) / 1000;
+
+  useEffect(() => {
+    setShowcaseSlide(0);
+    setShowcaseManualRevision(0);
+  }, [skillId]);
+
+  useEffect(() => {
+    const media = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (media?.matches) return undefined;
+    const delay = showcaseManualRevision ? VISUAL_SHOWCASE_MANUAL_DWELL_MS : VISUAL_SHOWCASE_AUTO_DWELL_MS;
+    const timer = globalThis.setTimeout(() => {
+      setShowcaseSlide(current => (current + 1) % 2);
+      setShowcaseManualRevision(0);
+    }, delay);
+    return () => globalThis.clearTimeout(timer);
+  }, [skillId, showcaseSlide, showcaseManualRevision]);
+
+  const chooseShowcaseSlide = index => {
+    setShowcaseSlide(index);
+    setShowcaseManualRevision(revision => revision + 1);
+  };
 
   useEffect(() => {
     runRef.current = run;
@@ -334,9 +359,20 @@ export default function VisualCreationMode() {
           <span><MdAutoAwesome />{selectedSkill.title}</span>
           <strong>{selectedSkill.shortDescription}</strong>
           <p>{selectedSkill.outcome}</p>
+          <div className="visual-showcase-controls" role="tablist" aria-label={`${selectedSkill.title}案例视图`}>
+            {[{ label: '输入与结果' }, { label: '结果细节' }].map((item, index) => <button type="button" role="tab" key={item.label} aria-label={item.label} aria-selected={showcaseSlide === index} className={showcaseSlide === index ? 'is-active' : ''} onClick={() => chooseShowcaseSlide(index)} />)}
+          </div>
         </div>
         <div className="visual-skill-stage-art">
-          <img src={selectedSkill.preview} alt={`${selectedSkill.title}原创输入与生成效果示例`} />
+          {showcaseSlide === 0 ? (
+            <>
+              <div className="visual-skill-stage-card visual-skill-stage-input"><img src={selectedSkill.preview} alt={`${selectedSkill.title}输入示例`} /><span>参考素材</span></div>
+              <span className="visual-skill-stage-operator" aria-hidden="true"><MdSend /></span>
+              <div className="visual-skill-stage-card visual-skill-stage-output"><img src={selectedSkill.preview} alt={`${selectedSkill.title}生成示例`} /><span>生成结果</span></div>
+            </>
+          ) : (
+            <div className="visual-skill-stage-card visual-skill-stage-result-only"><img src={selectedSkill.preview} alt={`${selectedSkill.title}结果细节`} /><span>结果细节</span></div>
+          )}
         </div>
       </section>
 

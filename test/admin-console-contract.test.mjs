@@ -15,7 +15,8 @@ test('admin console is owner-scoped and wired to the protected admin api', async
 
   assert.match(app, /AdminConsolePage/);
   assert.match(app, /page:\s*'admin'/);
-  assert.match(app, /accountAccess\?\.role/);
+  assert.match(app, /accountAccess\?\.role\s*===\s*'owner'/);
+  assert.match(app, /page\s*===\s*'admin'\s*&&\s*!canAdmin/);
   assert.match(context, /fetchAccountAccess/);
   assert.match(context, /accountAccess/);
   assert.match(service, /\/api\/admin\/summary/);
@@ -36,6 +37,7 @@ test('admin console is owner-scoped and wired to the protected admin api', async
   assert.match(page, /自由创作/);
   assert.match(page, /发放积分/);
   assert.match(page, /回收积分/);
+  assert.match(page, /accountAccess\?\.role\s*===\s*'owner'/);
   assert.match(styles, /\.admin-console/);
   assert.match(styles, /@media\s*\(max-width:\s*760px\)/);
 });

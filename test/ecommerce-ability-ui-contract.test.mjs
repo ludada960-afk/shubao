@@ -5,6 +5,7 @@ import test from 'node:test';
 const workbench = readFileSync(new URL('../src/pages/Home/ec/EcommerceWorkbench.jsx', import.meta.url), 'utf8');
 const ecMode = readFileSync(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
 const direction = readFileSync(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
+const paramsPanel = readFileSync(new URL('../src/pages/Home/ec/ParamsPanel.jsx', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
 
 test('default ecommerce workbench preserves the established product-reference framework', () => {
@@ -33,6 +34,14 @@ test('try-on is exposed as an explicit ability layer while the default product r
   assert.match(direction, /showAbilitySelector=\{false\}/);
 });
 
+test('try-on showcase uses deliberate dwell, indicator-only navigation, and an enlarged detail view', () => {
+  assert.match(workbench, /TRYON_AUTO_DWELL_MS/);
+  assert.match(workbench, /TRYON_MANUAL_DWELL_MS/);
+  assert.match(workbench, /ec-tryon-preview-modal/);
+  assert.match(workbench, /ec-tryon-showcase-card/);
+  assert.doesNotMatch(workbench, /ChevronLeft|ChevronRight/);
+});
+
 test('ability switch presents concise user outcomes instead of internal implementation notes', () => {
   assert.match(workbench, /生成整套主图与详情视觉/);
   assert.match(workbench, /把商品自然穿到模特身上/);
@@ -47,6 +56,18 @@ test('try-on uses a focused four-panel configuration instead of inheriting SKU a
   assert.match(ecMode, /label: '成片规格'/);
   assert.match(ecMode, /label: '商品细节'/);
   assert.match(ecMode, /TryOnPlanPanel/);
+});
+
+test('try-on preservation constraints remain real controls while presenting Chinese labels and help', () => {
+  assert.match(paramsPanel, /preserveMaterial/);
+  assert.match(paramsPanel, /preservePattern/);
+  assert.match(paramsPanel, /consistentPersonScene/);
+  assert.match(paramsPanel, /ec-tryon-help-trigger/);
+  assert.match(paramsPanel, /ec-tryon-help-popover/);
+  assert.match(paramsPanel, /锁定材质纹理/);
+  assert.match(paramsPanel, /锁定图案与标识/);
+  assert.match(paramsPanel, /保持人物与场景/);
+  assert.doesNotMatch(ecMode, /preserveMaterial\s*\|\s*preservePattern/);
 });
 
 test('EcMode carries recipe and role assets through the step boundary', () => {

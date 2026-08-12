@@ -141,3 +141,12 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 提交 `996792d` 已通过唯一入口 `scripts/deploy-production.ps1` 发布。部署命令本地等待窗口在末尾阶段超时，但远端核验确认发布已经完成：`server/index.mjs` 与 `dist/index.html` 哈希分别和本地候选一致，PM2 `shubao-production` 在线，PID `1147183`，部署锁可重新获取且已释放。
 - `https://shuimg.cn/health` 返回 200；独立生产审计 `AUDIT_BASE_URL=https://shuimg.cn npm run audit:production` 通过 `27/27`；公开视频能力校验通过，两条公开路线为 Seedance 2.0 Fast 和标准版，MiniMax 仍隐藏。匿名 `/api/admin/summary` 返回 `401 AUTH_SESSION_REQUIRED`。
 - 本次部署没有触发视频生成；视频只做能力探针和静态流程验证。用户仍需自行用内测额度完成一次真实视频生成验收，验证上游在真实素材、排队和结果回传上的实际表现。
+
+## 2026-08-12 Upstream Billing Audit
+
+- 已在登录态核查 65535、Change2Pro 和 IP233 三个中转站，没有触发付费视频生成。三个站点使用的 `$` 数值均按人民币 1:1 记账，禁止进行美元汇率换算。
+- 65535 余额为 ¥6.60，累计 1,874 次请求，实际消耗 ¥24.9205；生图 Key 累计消耗 ¥24.6620，识图 Key 累计消耗 ¥0.2585。当前实际 `gpt-image-2` 为 ¥0.038/次；Seedance Fast 720p 为 ¥0.50/秒，标准 720p 为 ¥0.60/秒。
+- Change2Pro 余额为 ¥9.32，Nano Banana 共 13 次成功请求、累计消耗 ¥0.7800；当前生产路由 `gemini-3.1-flash-image` 的 1K/2K/4K 均为 ¥0.06/张。
+- IP233 余额为 ¥10，历史请求和消耗均为 0；实时目录中 `sd5-seedance-2.0-fast` 为 ¥2.47/次，标准版为 ¥3.64/次，Mini 为 ¥3.12/次。主 2.0/Fast/Mini 路由七日可用率页面显示 100%，但公告明确按次库存可能临时缺货；异步视频必须保存任务 ID、延迟轮询，并结合任务日志和用量日志对账。
+- 当前生产继续使用 IP233 的低成本 Fast/标准按次路由。65535 监控信息更完整，但长视频按秒成本明显更高；在创建专用视频 Key 前不自动接为故障切换，以免图片与视频账务和并发混在同一 Key 中。
+- 管理后台新增上游账本：同时展示中转站余额、今日/累计扣费、请求数、实时路由单价、薯包积分售价、本地结算成本，以及上游实报与本地归因的差额。只有 `867550189@qq.com` 的 owner 角色可见入口和页面，`240485042@qq.com` 等内测账号不可见也不可访问。历史视频任务保留创建时的成本快照，新任务使用同步后的单价。

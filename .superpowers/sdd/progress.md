@@ -1752,3 +1752,14 @@
   Remaining gate: explicit staging and review, commit, mandated production deployment,
   then public acceptance. User-owned extension-task deletions, `.tmp/`, and the diagnosis
   helper remain outside the release.
+
+- 2026-08-12 upstream cost sync candidate: audited the logged-in 65535,
+  Change2Pro and IP233 consoles and added `server/billing/upstreamLedger.mjs`.
+  Admin now reconciles provider-reported balance/today/cumulative spend,
+  requests, live route prices, local point settlement, and the provider/local
+  cost difference. Relay `$` values are RMB 1:1. IP233 Seedance request routes
+  remain the low-cost production candidates; no paid video generation was run.
+  Full regression passed `1468/1468`, build transformed `6474` modules, and
+  `git diff --check` is clean. Runtime extension-task deletions, `.tmp/`, and
+  the diagnosis helper remain excluded. Next boundary: explicit staging and
+  commit, mandated production deployment, then public and owner-admin QA.

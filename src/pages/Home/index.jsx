@@ -36,17 +36,17 @@ export default function HomePage() {
     {
       mode: 'video',
       title: '视频生成',
-      src: '/images/home/entry-video.png',
+      src: '/images/home/entry-video.png?v=20260812',
     },
     {
       mode: 'content',
       title: '小红书图文',
-      src: '/images/home/entry-xhs.png',
+      src: '/images/home/entry-xhs.png?v=20260812',
     },
     {
       mode: 'visual',
       title: '自由创作',
-      src: '/images/home/entry-visual.png',
+      src: '/images/home/entry-visual.png?v=20260812',
     },
   ];
 

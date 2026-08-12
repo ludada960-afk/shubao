@@ -8,6 +8,7 @@ import {
   loginOtpReducer,
   remainingResendSeconds,
 } from '../src/components/business/loginOtpState.js';
+import { getVerificationResendDecision } from '../server/mailService.mjs';
 
 const loginModalSource = readFileSync(new URL('../src/components/business/Modals.jsx', import.meta.url), 'utf8');
 const sharedUiSource = readFileSync(new URL('../src/components/ui/index.jsx', import.meta.url), 'utf8');
@@ -33,6 +34,22 @@ test('a new successful send always invalidates the previous code input', () => {
   assert.equal(sent.code, '');
   assert.equal(sent.step, 'code');
   assert.equal(sent.resendAt, 61_000);
+});
+
+test('reopening login reuses a still-valid code without sending another email', () => {
+  assert.deepEqual(getVerificationResendDecision({
+    code: '123456',
+    expiresAt: 301_000,
+    nextSendAt: 61_000,
+  }, 16_000), {
+    reused: true,
+    retryAfterSeconds: 45,
+  });
+});
+
+test('login modal resumes code entry using the server retry window', () => {
+  assert.match(loginModalSource, /result\.retryAfterSeconds/);
+  assert.match(loginModalSource, /CODE_SENT/);
 });
 
 test('starting a new login attempt never restores an old OTP', () => {
