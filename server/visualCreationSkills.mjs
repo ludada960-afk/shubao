@@ -15,7 +15,7 @@ export function normalizeVisualSkillId(value) {
 
 const VISUAL_SKILL_INSTRUCTIONS = Object.freeze({
   free: 'Create an original, polished visual that follows the requested subject, relationship, mood, composition, and constraints. Establish a clear focal hierarchy, believable spatial depth, deliberate lighting, and a coherent palette. Make every choice intentional and avoid generic filler.',
-  poster: 'Create a publication-ready poster with one intentional focal point, decisive visual hierarchy, disciplined typography, balanced negative space, and a clear reading order. Render every requested title or short text exactly as supplied and keep it legible. Do not invent extra copy, dates, prices, logos, or brand claims.',
+  poster: 'Create a publication-ready poster with one intentional focal point, clear visual hierarchy, disciplined typography, balanced negative space, and a clear reading order. Render every requested title or short text exactly as supplied and keep it legible. Do not invent extra copy, dates, prices, logos, or brand claims.',
   'social-cover': 'Create a high-impact platform-aware social media cover that remains immediately understandable at mobile thumbnail size. Use a strong focal point, compact composition, and safe title zones appropriate to the requested platform. Render requested title text exactly as supplied and legibly; never omit it or invent extra copy.',
   'brand-kv': 'Create a refined campaign system, not an isolated decorative image: use coherent composition, materials, lighting, palette, and graphic rhythm that can extend across formats. Preserve supplied brand identity, product geometry, proportions, labels, colors, and defining details exactly while building a distinctive brand world around them.',
 });
