@@ -1801,3 +1801,19 @@
   idempotency record. Full serial regression passes `1506/1506`; build transforms
   `6477` modules. Formal production deployment and public acceptance remain the
   final gate. No paid video generation was run.
+
+- 2026-08-13 visual gallery polish candidate `d258a93` integrates all 24
+  production-backed visual assets with their actual generation prompts and
+  replay settings into Inspiration Discovery. Ecommerce, Xiaohongshu and the
+  four visual recipes are deterministically interleaved; the first 16 cards
+  render first and an IntersectionObserver reveals later batches. Natural
+  aspect ratios, masonry flow, hover overlays and one-image modal deduplication
+  remove the fixed-frame whitespace shown in beta screenshots. The visual
+  recipe showcase now uses mode-specific native-ratio layouts, lighter selected
+  states and the ecommerce-family warm-to-white background treatment. Browser
+  acceptance verified 1440px and 390px without horizontal overflow, progressive
+  16-to-28-card loading, a single-image detail with the complete production
+  prompt, and zero application alerts. Full regression passed `1506/1506`;
+  the production build transformed `6478` modules; build checks and whitespace
+  validation passed. Production deployment remains the final gate. Runtime
+  extension-task deletions, `.tmp/`, and the diagnosis helper remain excluded.
