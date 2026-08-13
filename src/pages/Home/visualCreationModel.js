@@ -4,10 +4,10 @@ import { productionCaseById } from './productionCaseCatalog.js';
 function visualShowcases(caseId, first, second) {
   const item = productionCaseById(caseId);
   const input = item.assets.find(asset => asset.role === 'input');
-  const output = item.assets.find(asset => asset.role === 'output');
+  const outputs = item.assets.filter(asset => asset.role === 'output');
   return Object.freeze([
-    Object.freeze({ ...first, input, output }),
-    Object.freeze({ ...second, output }),
+    Object.freeze({ ...first, input, output: outputs[0], outputs }),
+    Object.freeze({ ...second, output: outputs[1] || outputs[0], outputs }),
   ]);
 }
 

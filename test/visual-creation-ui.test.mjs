@@ -10,6 +10,8 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /VISUAL_CREATION_SKILLS/);
   assert.match(source, /uploadEcommerceAssets/);
   assert.match(source, /regenerateCanvasImage/);
+  assert.match(source, /includeMetadata:\s*true/);
+  assert.match(source, /taskId:\s*result\.taskId/);
   assert.match(source, /generationUnits/);
   assert.match(source, /saveWork/);
   assert.match(source, /buildVisualCanvasResult/);
@@ -31,6 +33,11 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(model, /productionCaseById/);
   assert.match(source, /visual-preview-dialog/);
   assert.match(source, /visual-skill-icon/);
+  assert.match(source, /visual-ability-rail/);
+  assert.match(source, /selectedSkill\.preserves/);
+  assert.match(source, /selectedSkill\.outcome/);
+  assert.match(source, /selectedSkill\.bestFor/);
+  assert.match(source, /selectedShowcase\.outputs/);
   assert.doesNotMatch(source, /className="visual-skill-preview"/);
   assert.doesNotMatch(source, /className="visual-skill-facts"/);
   assert.doesNotMatch(source, /<b>保留<\/b>|<b>适合<\/b>|<b>结果<\/b>/);
@@ -40,6 +47,8 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(styles, /padding:\s*clamp\(/);
   assert.match(styles, /\.visual-skill-stage-card/);
   assert.match(styles, /\.visual-showcase-controls/);
+  assert.match(styles, /\.visual-ability-rail/);
+  assert.match(styles, /\.visual-skill-option\.is-selected \.visual-skill-title strong/);
   assert.match(styles, /\.visual-creation-composer/);
   assert.doesNotMatch(styles, /width:\s*200%/);
   assert.doesNotMatch(styles, /margin-left:\s*-100%/);

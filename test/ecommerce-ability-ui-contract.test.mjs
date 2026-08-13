@@ -23,6 +23,8 @@ test('default ecommerce workbench preserves the established product-reference fr
 
 test('try-on is exposed as an explicit ability layer while the default product rail remains intact', () => {
   assert.match(workbench, /anything_tryon/);
+  assert.match(workbench, /ProductSuiteShowcase/);
+  assert.match(workbench, /productionCaseById\('product-suite'\)/);
   assert.match(workbench, /ec-ability-selector/);
   assert.match(workbench, /ec-tryon-showcase/);
   assert.match(workbench, /personMode === 'reference'/);

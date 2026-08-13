@@ -26,8 +26,20 @@ test('visual prompts are generic, skill-aware and preserve reference identity wi
   assert.match(prompt, /poster/i);
   assert.match(prompt, /SUNSET LIVE/);
   assert.match(prompt, /Preserve the recognizable identity/);
-  assert.match(prompt, /clear visual hierarchy/i);
+  assert.match(prompt, /visual hierarchy/i);
   assert.doesNotMatch(prompt, /ecommerce/i);
+  assert.match(prompt, /typography/i);
+  assert.match(prompt, /exactly as supplied/i);
+});
+
+test('social and brand recipes encode their distinct production constraints', () => {
+  const social = buildCanvasGenerationPrompt({ creationIntent: 'visual', skillId: 'social-cover', userPrompt: '小红书：周末露营清单', hasImageInputs: false });
+  const brand = buildCanvasGenerationPrompt({ creationIntent: 'visual', skillId: 'brand-kv', userPrompt: '护肤新品春季主视觉', hasImageInputs: true });
+  assert.match(social, /mobile thumbnail/i);
+  assert.match(social, /render requested title text/i);
+  assert.match(social, /platform/i);
+  assert.match(brand, /campaign system/i);
+  assert.match(brand, /product geometry/i);
 });
 
 test('default Canvas prompts retain the existing ecommerce contract', () => {

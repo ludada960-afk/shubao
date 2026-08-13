@@ -662,13 +662,13 @@ test('canvas regeneration forwards supplementary visual references', async t => 
     if (String(url).endsWith('/api/billing/quote')) {
       return new Response(JSON.stringify({ quote: { quoteId: 'canvas-quote' } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
-    return new Response(JSON.stringify({ url: '/api/generated-assets/test.png' }), {
+    return new Response(JSON.stringify({ url: '/api/generated-assets/test.png', taskId: 'canvas-task-1', replay: false }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
     });
   };
   const { regenerateCanvasImage } = await import(`../src/services/api.js?canvas-refs=${Date.now()}`);
-  await regenerateCanvasImage({
+  const generated = await regenerateCanvasImage({
     prompt: '保留商品结构，换成夏日场景',
     imageUrl: '/api/generated-assets/source.png',
     referenceImages: ['/api/ec-temp-img/reference.png'],
@@ -680,8 +680,10 @@ test('canvas regeneration forwards supplementary visual references', async t => 
     resolution: '4K',
     creationIntent: 'visual',
     skillId: 'poster',
+    includeMetadata: true,
     signal: controller.signal,
   });
+  assert.deepEqual(generated, { url: '/api/generated-assets/test.png', taskId: 'canvas-task-1', replay: false, ratio: '', resolution: '' });
   const requestBody = requests.find(request => request.url.endsWith('/api/canvas/regenerate')).body;
   assert.deepEqual(requestBody.reference_images, ['/api/ec-temp-img/reference.png']);
   assert.deepEqual(requestBody.reference_metadata.map(item => item.mention), ['@正面图', '@参考图 1']);

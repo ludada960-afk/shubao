@@ -1545,7 +1545,7 @@ export async function saveWork(work, phone, { signal } = {}) {
   return null;
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = 'image2', requestKey = '', selection, creationIntent = 'ecommerce', skillId = 'free', signal }) {
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = 'image2', requestKey = '', selection, creationIntent = 'ecommerce', skillId = 'free', includeMetadata = false, signal }) {
   const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
   const normalizedImageModel = normalizeImageModel(imageModel);
   const logicalRequestKey = String([
@@ -1565,6 +1565,15 @@ export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
   if (!data.url) throw new Error(data.error || '重新生成失败');
+  if (includeMetadata) {
+    return {
+      url: data.url,
+      taskId: String(data.taskId || ''),
+      replay: Boolean(data.replay),
+      ratio: String(data.ratio || ''),
+      resolution: String(data.resolution || ''),
+    };
+  }
   return data.url;
 }
 

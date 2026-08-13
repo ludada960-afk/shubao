@@ -4,6 +4,15 @@ function asset({ src, label, role, ratio, intent, taskId = '', requestKey = '' }
 
 export const PRODUCTION_CASE_CATALOG = Object.freeze([
   Object.freeze({
+    id: 'product-suite',
+    status: 'fixture',
+    assets: Object.freeze([
+      asset({ src: '/images/home/entry-ecommerce.png', label: '商品素材', role: 'source', ratio: '411:376', intent: 'product_suite' }),
+      asset({ src: '/images/home/workspace-ecommerce.png', label: '主图视觉', role: 'result', ratio: '612:612', intent: 'product_suite' }),
+      asset({ src: '/images/home/entry-ecommerce.png', label: '详情视觉', role: 'result', ratio: '411:376', intent: 'product_suite' }),
+    ]),
+  }),
+  Object.freeze({
     id: 'tryon-angles',
     status: 'fixture',
     assets: Object.freeze([

@@ -249,7 +249,7 @@ export default function VisualCreationMode() {
     await Promise.all(indexes.map(async index => {
       const slot = latest.slots[index];
       try {
-        const url = await regenerateCanvasImage({
+        const result = await regenerateCanvasImage({
           prompt: config.prompt,
           imageUrl: primary,
           referenceImages: supplementary,
@@ -260,9 +260,16 @@ export default function VisualCreationMode() {
           requestKey: slot.requestKey,
           creationIntent: 'visual',
           skillId: config.skillId,
+          includeMetadata: true,
           signal: abortRef.current?.signal,
         });
-        latest = updateVisualRunSlot(latest, index, { status: 'completed', url, error: '' });
+        latest = updateVisualRunSlot(latest, index, {
+          status: 'completed',
+          url: result.url,
+          taskId: result.taskId,
+          replay: result.replay,
+          error: '',
+        });
       } catch (slotError) {
         failures.push(slotError);
         latest = updateVisualRunSlot(latest, index, {
@@ -418,11 +425,20 @@ export default function VisualCreationMode() {
             <>
               {showcaseCard(selectedShowcase.input, 'visual-skill-stage-input')}
               <span className="visual-skill-stage-operator" aria-hidden="true"><MdSend /></span>
-              {showcaseCard(selectedShowcase.output, 'visual-skill-stage-output')}
+              <div className={`visual-skill-stage-outputs count-${selectedShowcase.outputs?.length || 1}`}>
+                {(selectedShowcase.outputs || [selectedShowcase.output]).filter(Boolean).map((item, index) => showcaseCard(item, `visual-skill-stage-output output-${index}`))}
+              </div>
             </>
           ) : (
-            showcaseCard(selectedShowcase?.output, 'visual-skill-stage-result-only')
+            <div className={`visual-skill-stage-outputs is-result-only count-${selectedShowcase.outputs?.length || 1}`}>
+              {(selectedShowcase.outputs || [selectedShowcase.output]).filter(Boolean).map((item, index) => showcaseCard(item, `visual-skill-stage-result-only output-${index}`))}
+            </div>
           )}
+        </div>
+        <div className="visual-ability-rail" aria-label={`${selectedSkill.title}能力说明`}>
+          <div><span>01</span><small>输入保真</small><strong>{selectedSkill.preserves}</strong></div>
+          <div><span>02</span><small>生成能力</small><strong>{selectedSkill.outcome}</strong></div>
+          <div><span>03</span><small>适用任务</small><strong>{selectedSkill.bestFor}</strong></div>
         </div>
       </section>
 

@@ -168,6 +168,20 @@ function TryOnShowcase({ personMode }) {
   );
 }
 
+function ProductSuiteShowcase() {
+  const suiteCase = productionCaseById('product-suite');
+  const source = suiteCase.assets.find(asset => asset.role === 'source');
+  const results = suiteCase.assets.filter(asset => asset.role === 'result');
+  return <section className="ec-product-suite-showcase" aria-label="商品套图效果预览">
+    <div className="ec-product-suite-showcase-copy"><span className="ec-showcase-kicker">一套成片</span><strong>从商品素材，到一组能直接使用的视觉</strong><span>统一商品身份、光影和版式语言，同时生成主图与详情视觉。</span></div>
+    <div className="ec-product-suite-showcase-visual">
+      <span className="ec-product-suite-source"><ResponsiveImage src={source.src} ratio={source.ratio} alt={source.label} /></span>
+      <span className="ec-tryon-showcase-operator" aria-hidden="true"><ArrowRight size={22} /></span>
+      <div className="ec-product-suite-results">{results.map((result, index) => <span key={`${result.src}:${index}`} className={`result-${index}`}><ResponsiveImage src={result.src} ratio={result.ratio} alt={result.label} /><b>{result.label}</b></span>)}</div>
+    </div>
+  </section>;
+}
+
 export default function EcommerceWorkbench({
   productImages,
   refImages,
@@ -252,6 +266,7 @@ export default function EcommerceWorkbench({
       </div>
 
       {isTryOn && <TryOnShowcase personMode={personMode} />}
+      {!isTryOn && <ProductSuiteShowcase />}
 
       <div className={`ec-xhs-composer ${isTryOn ? 'is-tryon-composer' : ''}`}>
         <div className="ec-xhs-media-column">
