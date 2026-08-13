@@ -113,6 +113,8 @@ test('Canvas handler keeps the successful url response contract and may include 
           url: '/api/generated-assets/canvas.png',
           taskId: 'canvas_success',
           replay: false,
+          ratio: '3:4',
+          resolution: '2K',
         };
       },
     },
@@ -129,6 +131,9 @@ test('Canvas handler keeps the successful url response contract and may include 
   assert.deepEqual(res.body, {
     url: '/api/generated-assets/canvas.png',
     taskId: 'canvas_success',
+    replay: false,
+    ratio: '3:4',
+    resolution: '2K',
     billing: { currency: 'ec_points', status: 'settled', balance: null, unlimited: true },
   });
 });
@@ -159,6 +164,43 @@ test('Canvas handler bills with the SKU selected by the requested resolution', a
   }, createResponse());
 
   assert.deepEqual(billedSkus, ['ec_image_4k', 'ec_image_2k']);
+});
+
+test('Canvas handler exposes a settled billing replay even when the stored generation result came from its first run', async () => {
+  const handler = createCanvasRegenerateHandler({
+    service: {
+      async regenerate() {
+        return {
+          url: '/api/generated-assets/replayed.png',
+          taskId: 'canvas_replayed',
+          replay: false,
+          ratio: '1:1',
+          resolution: '2K',
+        };
+      },
+    },
+    billing: {
+      async execute() {
+        return {
+          replay: true,
+          result: {
+            url: '/api/generated-assets/replayed.png',
+            taskId: 'canvas_replayed',
+            replay: false,
+            ratio: '1:1',
+            resolution: '2K',
+          },
+          billing: { status: 'settled' },
+        };
+      },
+    },
+  });
+  const res = createResponse();
+
+  await handler({ _userEmail: 'signed-owner@example.com', body: { prompt: 'test' } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.replay, true);
 });
 
 test('Canvas handler labels visual creation in billing metadata without changing the SKU catalog', async () => {

@@ -507,6 +507,11 @@ export function createCanvasRegenerateHandler({ service, billing } = {}) {
       return res.json({
         url: result.url,
         ...(result.taskId ? { taskId: result.taskId } : {}),
+        ...(billed.replay === true || typeof result.replay === 'boolean'
+          ? { replay: billed.replay === true || result.replay === true }
+          : {}),
+        ...(cleanString(result.ratio) ? { ratio: cleanString(result.ratio) } : {}),
+        ...(cleanString(result.resolution) ? { resolution: cleanString(result.resolution) } : {}),
         billing: billed.billing,
       });
     } catch (error) {

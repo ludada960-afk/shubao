@@ -274,6 +274,9 @@ test('verifies three product instances, transparency, stable assets and Canvas s
   assert.match(requestBodies.find(item => item.path === '/api/remove-bg').body.image_url, /^data:image\/png;base64,/);
   const removeBody = requestBodies.find(item => item.path === '/api/remove-bg').body;
   const layersBody = requestBodies.find(item => item.path === '/api/canvas/analyze-layers').body;
+  const billedActionIds = [removeBody, layersBody].map(body => body.billing_action_id);
+  assert.equal(new Set(billedActionIds).size, 2);
+  assert.ok(billedActionIds.every(id => /^canvas-verifier-[a-f0-9]{32}-(remove-bg|smart-layer)$/.test(id)));
   assert.equal(removeBody.segmentation_plan_token, 'signed-segmentation-plan');
   assert.equal(layersBody.segmentation_plan_token, 'signed-segmentation-plan');
   assert.equal(removeBody.segmentation_masks.length, 3);

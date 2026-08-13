@@ -284,6 +284,7 @@ async function runBilledCanvasAction({
   sku,
   path,
   imageUrl,
+  actionKey,
   segmentationPlanToken,
   segmentationMasks,
   fetchImpl,
@@ -298,7 +299,7 @@ async function runBilledCanvasAction({
       segmentation_plan_token: segmentationPlanToken,
       segmentation_masks: segmentationMasks,
       billing_quote_id: quoteId,
-      billing_action_id: `canvas-verifier-${sku}-${crypto.randomUUID()}`,
+      billing_action_id: actionKey || `canvas-verifier-${sku}-${crypto.randomUUID()}`,
     }),
     fetchImpl,
     timeoutMs,
@@ -410,6 +411,9 @@ export async function verifyCanvasSegmentation({
     .update(`${sourcePixels.info.width}x${sourcePixels.info.height}:`)
     .update(sourcePixels.data)
     .digest('hex');
+  // The verifier can be interrupted after the request reaches the server. Derive
+  // billing ids from the exact source pixels so a retry replays the same charge.
+  const verifierActionPrefix = `canvas-verifier-${sourcePixelHash.slice(0, 32)}`;
   const sourceAsset = {
     rgba: sourcePixels.data,
     width: sourcePixels.info.width,
@@ -434,6 +438,7 @@ export async function verifyCanvasSegmentation({
     sku: 'ec_remove_bg',
     path: '/api/remove-bg',
     imageUrl: sourceDataUrl,
+    actionKey: `${verifierActionPrefix}-remove-bg`,
     segmentationPlanToken: segmentation.token,
     segmentationMasks: segmentation.masks,
     fetchImpl,
@@ -458,6 +463,7 @@ export async function verifyCanvasSegmentation({
     sku: 'ec_smart_layer',
     path: '/api/canvas/analyze-layers',
     imageUrl: sourceDataUrl,
+    actionKey: `${verifierActionPrefix}-smart-layer`,
     segmentationPlanToken: segmentation.token,
     segmentationMasks: segmentation.masks,
     fetchImpl,

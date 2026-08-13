@@ -1783,3 +1783,21 @@
   duplicate settlement. Existing provider images must never trigger an automatic second
   provider call. No real video generation is authorized. The 12 extension-task deletions,
   `.tmp/`, and `scripts/diagnose-recent-ecommerce-jobs.cjs` remain user-owned and excluded.
+
+- 2026-08-13 production-case and Canvas acceptance completed locally. Twenty-four
+  visual recipe examples (six each for free creation, poster, social cover, and
+  brand KV) plus one real anything-tryon example were generated through the
+  production image route, synced to durable public assets, and wired into the
+  home showcase with native ratios, modal arrows, keyboard navigation, and
+  Works/"做同款" metadata. The try-on run reused task
+  `ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb` after retry and its 3:4 result was
+  visually inspected. Canvas segmentation acceptance completed against the
+  real production route: transparent removal, one product group, six unique
+  product instances, a clean background plate, and save/reload session
+  `a0901cd6-62eb-4536-a71b-36552a6b48b7`; no original source node remains in
+  the replacement layer snapshot. The verifier now derives billing action IDs
+  from source pixels and SKU so interrupted audits replay safely. A short-timeout
+  duplicate audit was formally reversed by 3,500 units under a separate admin
+  idempotency record. Full serial regression passes `1506/1506`; build transforms
+  `6477` modules. Formal production deployment and public acceptance remain the
+  final gate. No paid video generation was run.

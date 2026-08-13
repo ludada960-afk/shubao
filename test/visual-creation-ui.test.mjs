@@ -32,6 +32,11 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /selectedSkill\.showcases/);
   assert.match(model, /productionCaseById/);
   assert.match(source, /visual-preview-dialog/);
+  assert.match(source, /visual-preview-previous/);
+  assert.match(source, /visual-preview-next/);
+  assert.match(source, /ArrowLeft/);
+  assert.match(source, /ArrowRight/);
+  assert.match(source, /setPreviewItem\(null\);\s*\n\s*setRatio/);
   assert.match(source, /visual-skill-icon/);
   assert.match(source, /visual-ability-rail/);
   assert.match(source, /selectedSkill\.preserves/);

@@ -18,6 +18,8 @@ import {
   MdShare,
   MdTune,
   MdZoomOutMap,
+  MdChevronLeft,
+  MdChevronRight,
 } from 'react-icons/md';
 
 import { useApp } from '../../store/AppContext';
@@ -112,6 +114,23 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
   const estimatedPoints = ((generationUnits(imageModel, resolution) || 0) * count) / 1000;
   const showcases = selectedSkill.showcases || [];
   const selectedShowcase = showcases[showcaseSlide] || showcases[0];
+  const previewItems = selectedShowcase?.assets || [];
+
+  useEffect(() => {
+    if (!previewItem) return undefined;
+    const move = direction => setPreviewItem(current => {
+      if (!current || previewItems.length < 2) return current;
+      const index = previewItems.findIndex(item => item.src === current.src);
+      return previewItems[(index + direction + previewItems.length) % previewItems.length];
+    });
+    const onKeyDown = event => {
+      if (event.key === 'Escape') setPreviewItem(null);
+      if (event.key === 'ArrowLeft') move(-1);
+      if (event.key === 'ArrowRight') move(1);
+    };
+    globalThis.addEventListener?.('keydown', onKeyDown);
+    return () => globalThis.removeEventListener?.('keydown', onKeyDown);
+  }, [previewItem, previewItems]);
   const skillControl = skillControlValues[skillId] || selectedSkill.control?.options?.[0] || '';
   const mentionOptions = useMemo(() => references.map((reference, index) => ({
     id: reference.id,
@@ -122,6 +141,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
   useEffect(() => {
     setShowcaseSlide(0);
     setShowcaseManualRevision(0);
+    setPreviewItem(null);
     setRatio(current => resolveVisualSkillRatio(skillId, current));
   }, [skillId]);
 
@@ -421,6 +441,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
       type="button"
       key={`${item.src}-${item.label}-${className}`}
       className={`visual-skill-stage-card ${className}`}
+      style={{ '--case-ratio': item.ratio?.replace(':', ' / ') || '1 / 1' }}
       onClick={() => setPreviewItem(item)}
       aria-label={`放大查看${item.label}`}
     >
@@ -678,6 +699,10 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
         }}>
           <div className="visual-preview-dialog-content">
             <button type="button" className="visual-preview-close" aria-label="关闭预览" onClick={() => setPreviewItem(null)}><MdClose /></button>
+            {previewItems.length > 1 && <>
+              <button type="button" className="visual-preview-previous" aria-label="查看上一张" title="上一张" onClick={() => setPreviewItem(current => { const index = previewItems.findIndex(item => item.src === current?.src); return previewItems[(index - 1 + previewItems.length) % previewItems.length]; })}><MdChevronLeft /></button>
+              <button type="button" className="visual-preview-next" aria-label="查看下一张" title="下一张" onClick={() => setPreviewItem(current => { const index = previewItems.findIndex(item => item.src === current?.src); return previewItems[(index + 1) % previewItems.length]; })}><MdChevronRight /></button>
+            </>}
             <img src={previewItem.src} alt={previewItem.alt || previewItem.label} />
             <strong>{previewItem.label}</strong>
           </div>

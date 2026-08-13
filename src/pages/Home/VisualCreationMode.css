@@ -298,29 +298,24 @@
 .visual-skill-stage-outputs.is-result-only { width: min(620px, 100%); }
 
 .visual-skill-stage-outputs.is-chapter {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  grid-template-rows: repeat(2, minmax(90px, 1fr));
+  display: flex;
   width: min(640px, 100%);
-  min-height: 242px;
-  gap: 12px;
+  min-height: 300px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
 }
 
 .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
-  width: 100%;
-  height: 100%;
-  min-height: 102px;
+  width: calc((100% - 28px) / 3);
+  height: auto;
+  aspect-ratio: var(--case-ratio);
   flex: none;
   transform: none;
 }
 
-.visual-skill-stage-outputs.is-chapter .output-0 {
-  grid-row: 1 / span 2;
-}
-
-.visual-skill-stage-outputs.is-chapter .output-1,
-.visual-skill-stage-outputs.is-chapter .output-2 {
-  transform: rotate(0deg);
+.visual-skill-stage-outputs.is-chapter .visual-skill-stage-card img {
+  object-fit: contain;
 }
 
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter {
@@ -333,8 +328,7 @@
 
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
   width: 31%;
-  min-height: 215px;
-  height: 215px;
+  height: auto;
   transform: rotate(-5deg);
 }
 
@@ -350,6 +344,40 @@
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
   z-index: 1;
   transform: rotate(6deg);
+}
+
+.visual-layout-print-wall .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
+  box-shadow: 0 15px 30px rgba(42, 36, 41, .18);
+}
+
+.visual-layout-touchpoint-board .visual-skill-stage-outputs.is-chapter {
+  align-items: stretch;
+}
+
+.visual-layout-touchpoint-board .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
+  height: auto;
+}
+
+@media (max-width: 760px) {
+  .visual-skill-stage-outputs.is-chapter {
+    min-height: 210px;
+    gap: 8px;
+  }
+
+  .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card,
+  .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
+    width: calc((100% - 16px) / 3);
+    max-width: none;
+    border-width: 3px;
+  }
+
+  .visual-skill-stage-card > span {
+    right: 4px;
+    bottom: 4px;
+    max-width: calc(100% - 8px);
+    padding: 3px 4px;
+    font-size: 9px;
+  }
 }
 
 .visual-skill-stage-result-only {
@@ -963,6 +991,32 @@
   cursor: pointer;
 }
 
+.visual-preview-previous,
+.visual-preview-next {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  place-items: center;
+  color: #343035;
+  background: rgba(255, 255, 255, .93);
+  border: 1px solid rgba(45, 40, 46, .12);
+  border-radius: 50%;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.visual-preview-previous { left: 12px; }
+.visual-preview-next { right: 12px; }
+
+@media (max-width: 640px) {
+  .visual-preview-previous { left: 8px; }
+  .visual-preview-next { right: 8px; }
+}
+
 .visual-spinner {
   display: inline-block;
   width: 15px;
@@ -1082,13 +1136,15 @@
   }
 
   .visual-skill-stage-outputs.is-chapter {
-    min-height: 174px;
+    width: 100%;
+    min-height: 210px;
     gap: 7px;
   }
 
   .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
-    min-height: 154px;
-    height: 154px;
+    width: calc((100% - 14px) / 3);
+    min-height: 0;
+    height: auto;
   }
 
   .visual-config-cluster { width: 100%; flex-basis: 100%; }
