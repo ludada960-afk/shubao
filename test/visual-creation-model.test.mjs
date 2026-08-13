@@ -6,9 +6,11 @@ import {
   buildVisualCanvasResult,
   buildVisualWorkRecord,
   createVisualRun,
+  resolveVisualSkillRatio,
   updateVisualRunSlot,
   visualRetryIndexes,
 } from '../src/pages/Home/visualCreationModel.js';
+import { buildGalleryRemixCheckpoint } from '../src/pages/Home/galleryRemixModel.js';
 
 const stableUrl = seed => `/api/generated-assets/${seed.repeat(64).slice(0, 64)}.png`;
 
@@ -28,13 +30,51 @@ test('visual skills explain the transformation before the user selects one', () 
     assert.doesNotMatch(skill.preview, /reference-card-/);
     assert.equal(skill.showcases.length, 2);
     assert.ok(skill.showcases.every(showcase => showcase.title && showcase.description));
-    assert.ok(skill.showcases[0].input?.src);
-    assert.ok(skill.showcases[0].output?.src);
-    assert.notEqual(skill.showcases[0].input.src, skill.showcases[0].output.src);
+    assert.ok(skill.showcases.every(showcase => showcase.assets?.length >= 3));
+    assert.ok(skill.showcases.every(showcase => showcase.layout?.type));
+    assert.ok(skill.showcases.every(showcase => showcase.assets.every(asset => asset.src && asset.ratio)));
     assert.ok(skill.control?.label);
     assert.ok(skill.control?.options?.length >= 2);
   }
   assert.equal(VISUAL_CREATION_SKILLS.some(skill => 'persona' in skill), false);
+});
+
+test('visual recipes expose platform-native ratios and a reusable generation snapshot', () => {
+  const social = VISUAL_CREATION_SKILLS.find(skill => skill.id === 'social-cover');
+  assert.deepEqual(social.control.options, ['小红书', '公众号', 'B站', '抖音']);
+  assert.deepEqual(social.ratios, ['3:4', '21:9', '16:9', '9:16']);
+  assert.ok(social.panels.some(panel => panel.id === 'platform'));
+  assert.ok(social.panels.some(panel => panel.id === 'headline'));
+
+  let run = createVisualRun({ runId: 'visual-remix-1', count: 1 });
+  run = updateVisualRunSlot(run, 0, {
+    status: 'completed',
+    url: stableUrl('a'),
+    taskId: 'task-remix-1',
+    replay: { requestKey: 'visual-remix-1:1', prompt: '平台原生封面', ratio: '21:9', resolution: '2K', imageModel: 'image2', skillId: 'social-cover' },
+  });
+  const work = buildVisualWorkRecord({
+    run,
+    prompt: '平台原生封面',
+    skillId: 'social-cover',
+    model: 'image2',
+    ratio: '21:9',
+    resolution: '2K',
+    referenceAssets: [{ assetId: 'ref-1', url: '/api/generated-assets/ref-1.png' }],
+    skillControl: '公众号',
+    panelValues: { headline: '一篇文章的核心观点' },
+  });
+  assert.equal(work.replay.skillId, 'social-cover');
+  assert.equal(work.replay.ratio, '21:9');
+  assert.equal(work.replay.skillControl, '公众号');
+  assert.deepEqual(work.replay.referenceAssets, [{ assetId: 'ref-1', url: '/api/generated-assets/ref-1.png' }]);
+  assert.equal(work.images[0].taskId, 'task-remix-1');
+});
+
+test('visual skill ratio falls back to a ratio supported by the selected recipe', () => {
+  assert.equal(resolveVisualSkillRatio('social-cover', '21:9'), '21:9');
+  assert.equal(resolveVisualSkillRatio('poster', '21:9'), '3:4');
+  assert.equal(resolveVisualSkillRatio('brand-kv', '4:3'), '16:9');
 });
 
 test('visual runs keep stable slot request keys and retry only failed slots', () => {
@@ -88,4 +128,25 @@ test('a visual work cannot persist temporary or data image outputs', () => {
   run = updateVisualRunSlot(run, 0, { status: 'completed', url: 'blob:https://example.test/unsafe' });
   run = updateVisualRunSlot(run, 1, { status: 'completed', url: 'data:image/png;base64,unsafe' });
   assert.throws(() => buildVisualWorkRecord({ run, prompt: 'unsafe' }), /稳定图片/);
+});
+
+test('visual work replay becomes a visual gallery checkpoint instead of an ecommerce remix', () => {
+  const checkpoint = buildGalleryRemixCheckpoint({
+    id: 'visual-gallery-1',
+    type: 'visual',
+    title: '平台原生封面',
+    visualSkillId: 'social-cover',
+    prompt: '为公众号制作横幅头图',
+    ratio: '21:9',
+    resolution: '2K',
+    imageModel: 'image2',
+    images: [{ url: '/api/generated-assets/gallery-1.png', ratio: '21:9' }],
+    referenceAssets: [{ assetId: 'ref-1', url: '/api/generated-assets/ref-1.png' }],
+    replay: { skillId: 'social-cover', skillControl: '公众号', panelValues: { headline: '结果先行' } },
+  });
+  assert.equal(checkpoint.project.kind, 'visual');
+  assert.equal(checkpoint.version.inputSnapshot.skillId, 'social-cover');
+  assert.equal(checkpoint.version.inputSnapshot.ratio, '21:9');
+  assert.equal(checkpoint.version.inputSnapshot.skillControl, '公众号');
+  assert.deepEqual(checkpoint.version.inputSnapshot.referenceAssets, [{ assetId: 'ref-1', url: '/api/generated-assets/ref-1.png' }]);
 });

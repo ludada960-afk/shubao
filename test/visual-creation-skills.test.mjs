@@ -42,6 +42,12 @@ test('social and brand recipes encode their distinct production constraints', ()
   assert.match(brand, /product geometry/i);
 });
 
+test('visual generation size registry supports social and brand native wide formats', async () => {
+  const { resolveGenerationSize } = await import('../server/ecommerceEngine/modelCatalog.mjs');
+  assert.equal(resolveGenerationSize({ resolution: '2K', ratio: '16:9' }).size, '2048x1152');
+  assert.equal(resolveGenerationSize({ resolution: '2K', ratio: '21:9' }).size, '2048x864');
+});
+
 test('default Canvas prompts retain the existing ecommerce contract', () => {
   const prompt = buildCanvasGenerationPrompt({
     creationIntent: 'ecommerce',

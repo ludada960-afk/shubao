@@ -37,7 +37,17 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /selectedSkill\.preserves/);
   assert.match(source, /selectedSkill\.outcome/);
   assert.match(source, /selectedSkill\.bestFor/);
-  assert.match(source, /selectedShowcase\.outputs/);
+  assert.match(source, /selectedShowcase\?\.assets/);
+  assert.match(source, /visual-config-trigger/);
+  assert.match(source, /visual-config-panel/);
+  assert.match(source, /创作配方/);
+  assert.match(source, /画面规格/);
+  assert.match(source, /生成设置/);
+  assert.ok(
+    source.indexOf('visual-config-panel') > source.indexOf('visual-creation-composer'),
+    'Skill 扩展参数应属于生成工作台，而不是案例展示区',
+  );
+  assert.match(source, /recoveryCheckpoint/);
   assert.doesNotMatch(source, /className="visual-skill-preview"/);
   assert.doesNotMatch(source, /className="visual-skill-facts"/);
   assert.doesNotMatch(source, /<b>保留<\/b>|<b>适合<\/b>|<b>结果<\/b>/);
@@ -50,6 +60,8 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(styles, /\.visual-ability-rail/);
   assert.match(styles, /\.visual-skill-option\.is-selected \.visual-skill-title strong/);
   assert.match(styles, /\.visual-creation-composer/);
+  assert.match(styles, /\.visual-config-trigger/);
+  assert.match(styles, /\.visual-config-panel/);
   assert.doesNotMatch(styles, /width:\s*200%/);
   assert.doesNotMatch(styles, /margin-left:\s*-100%/);
   assert.match(styles, /@media \(max-width: 640px\)/);

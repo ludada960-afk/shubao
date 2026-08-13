@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MdArrowForward, MdAutoAwesome, MdEdit, MdShoppingCart } from 'react-icons/md';
+import { MdArrowForward, MdAutoAwesome, MdEdit, MdPalette, MdShoppingCart } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { GALLERY } from '../../constants/data';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { predecodeResponsiveImage } from '../../components/responsiveImageModel.js';
 import { buildGalleryRemixCheckpoint } from './galleryRemixModel.js';
 
-function galleryType(item) { return item?.type === 'ecommerce' ? 'ecommerce' : 'xiaohongshu'; }
+function galleryType(item) {
+  if (item?.type === 'ecommerce') return 'ecommerce';
+  if (item?.type === 'visual' || item?.workType === 'visual' || item?.visualSkillId) return 'visual';
+  return 'xiaohongshu';
+}
 export default function GallerySection({ maxItems = 24, showHeader = true, onUseSameStyle }) {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [ecommerceCases, setEcommerceCases] = useState([]);
   useEffect(() => {
     let active = true;
@@ -16,13 +20,23 @@ export default function GallerySection({ maxItems = 24, showHeader = true, onUse
       .then(items => { if (active && Array.isArray(items)) setEcommerceCases(items); }).catch(() => {});
     return () => { active = false; };
   }, []);
-  const galleryItems = useMemo(() => [...ecommerceCases, ...GALLERY], [ecommerceCases]);
+  const visualWorks = useMemo(() => (Array.isArray(state.works) ? state.works : [])
+    .filter(work => work?.workType === 'visual' || work?.visualSkillId)
+    .map(work => ({
+      ...work,
+      id: work.id || work._saveKey || work.taskId,
+      type: 'visual',
+      title: work.title || work.product_name || '自由创作案例',
+      cover_url: work.cover_url || work.images?.[0]?.url || work.imageRecords?.[0]?.url || '',
+      image_urls: (work.images || work.imageRecords || []).map(image => typeof image === 'string' ? image : image?.url).filter(Boolean),
+    })), [state.works]);
+  const galleryItems = useMemo(() => [...visualWorks, ...ecommerceCases, ...GALLERY], [visualWorks, ecommerceCases]);
   const openItem = item => {
     const type = galleryType(item);
     dispatch({ type: 'VIEW_GALLERY_ITEM', item: {
       ...item,
       body_text: item.body_text || item.body || '', hashtags: item.hashtags || item.tags || [],
-      category: item.category || item.cat || '', _inputText: item.hint || '', _galleryItem: true,
+      category: item.category || item.cat || '', _inputText: item.hint || item.prompt || '', _galleryItem: true,
       _galleryType: type, _ecResult: type === 'ecommerce',
     } });
   };
@@ -47,7 +61,7 @@ export default function GallerySection({ maxItems = 24, showHeader = true, onUse
                 : <span className="gallery-card-placeholder">{item.title}</span>}
             </button>
             <div className="gallery-card-overlay">
-              <span className="gallery-card-badge">{type === 'ecommerce' ? <MdShoppingCart size={13} /> : <MdEdit size={13} />}{type === 'ecommerce' ? '电商套图' : '小红书图文'}</span>
+              <span className="gallery-card-badge">{type === 'ecommerce' ? <MdShoppingCart size={13} /> : type === 'visual' ? <MdPalette size={13} /> : <MdEdit size={13} />}{type === 'ecommerce' ? '电商套图' : type === 'visual' ? `自由创作 · ${item.visualSkillId || '视觉案例'}` : '小红书图文'}</span>
               <button className="gallery-card-remix" type="button" onClick={event => useSameStyle(event, item)}><MdAutoAwesome size={15} /> 做同款 <MdArrowForward size={14} /></button>
             </div>
           </article>;

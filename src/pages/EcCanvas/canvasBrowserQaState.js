@@ -1,4 +1,5 @@
 const QA_QUERY_VALUE = 'ec-canvas';
+const VISUAL_QA_QUERY_VALUE = 'visual';
 
 const QA_IMAGES = [
   {
@@ -59,9 +60,49 @@ const QA_IMAGES = [
 ];
 
 export function createCanvasBrowserQaState({ enabled, search = '' } = {}) {
-  if (!enabled || new URLSearchParams(search).get('qa') !== QA_QUERY_VALUE) return null;
+  const qaValue = new URLSearchParams(search).get('qa');
+  if (!enabled || ![QA_QUERY_VALUE, VISUAL_QA_QUERY_VALUE].includes(qaValue)) return null;
+
+  if (qaValue === VISUAL_QA_QUERY_VALUE) {
+    const referenceUrl = '/images/visual-recipes/cases/social-cover-input.png';
+    const resultUrl = '/images/visual-recipes/cases/social-cover-output.png';
+    return {
+      browserQa: true,
+      page: 'home',
+      mode: 'visual',
+      logged: false,
+      phone: '',
+      works: [{
+        id: 'visual-browser-qa-work',
+        _saveKey: 'visual-browser-qa-work',
+        workType: 'visual',
+        product_name: '社媒封面',
+        title: '社媒封面',
+        prompt: '为城市夜跑专题制作公众号头图，标题为「今晚，去追风」，突出路线、节奏和人群氛围。',
+        visualSkillId: 'social-cover',
+        ratio: '21:9',
+        resolution: '2K',
+        imageModel: 'image2',
+        createdAt: Date.now(),
+        images: [{ key: 'visual_1', url: resultUrl, label: '公众号头图', displayName: '公众号头图', role: 'visual_creation', ratio: '21:9' }],
+        imageRecords: [{ key: 'visual_1', url: resultUrl, label: '公众号头图', displayName: '公众号头图', role: 'visual_creation', ratio: '21:9' }],
+        replay: {
+          creationIntent: 'visual',
+          skillId: 'social-cover',
+          skillControl: '公众号',
+          panelValues: { platform: '横向头图', headline: '结果先行' },
+          prompt: '为城市夜跑专题制作公众号头图，标题为「今晚，去追风」，突出路线、节奏和人群氛围。',
+          imageModel: 'image2',
+          ratio: '21:9',
+          resolution: '2K',
+          referenceAssets: [{ assetId: 'visual-browser-qa-reference', url: referenceUrl, displayName: '夜跑素材' }],
+        },
+      }],
+    };
+  }
 
   return {
+    browserQa: true,
     page: 'ec-canvas',
     logged: true,
     phone: '',

@@ -3,11 +3,10 @@ import { productionCaseById } from './productionCaseCatalog.js';
 
 function visualShowcases(caseId, first, second) {
   const item = productionCaseById(caseId);
-  const input = item.assets.find(asset => asset.role === 'input');
-  const outputs = item.assets.filter(asset => asset.role === 'output');
+  const chapters = item.chapters || [];
   return Object.freeze([
-    Object.freeze({ ...first, input, output: outputs[0], outputs }),
-    Object.freeze({ ...second, output: outputs[1] || outputs[0], outputs }),
+    Object.freeze({ ...first, ...(chapters[0] || {}), assets: chapters[0]?.assets || item.assets }),
+    Object.freeze({ ...second, ...(chapters[1] || {}), assets: chapters[1]?.assets || item.assets }),
   ]);
 }
 
@@ -24,6 +23,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
       label: '画面语言',
       options: Object.freeze(['智能匹配', '写实摄影', '风格插画']),
     }),
+    panels: Object.freeze([
+      Object.freeze({ id: 'composition', label: '构图关系', options: Object.freeze(['自动规划', '主体延展', '连续叙事']) }),
+      Object.freeze({ id: 'continuity', label: '画面连续性', options: Object.freeze(['保留主体关系', '允许自由变化']) }),
+    ]),
+    ratios: Object.freeze(['1:1', '3:4', '4:3', '9:16']),
     showcases: visualShowcases('free',
       {
         title: '从灵感到完整场景',
@@ -46,6 +50,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
       label: '信息重点',
       options: Object.freeze(['主标题优先', '产品优先', '活动信息优先']),
     }),
+    panels: Object.freeze([
+      Object.freeze({ id: 'headline', label: '标题层级', options: Object.freeze(['主标题优先', '标题 + 卖点', '标题 + 行动信息']) }),
+      Object.freeze({ id: 'layout', label: '版式结构', options: Object.freeze(['编辑网格', '主视觉聚焦', '信息分栏']) }),
+    ]),
+    ratios: Object.freeze(['3:4', '4:3', '1:1']),
     showcases: visualShowcases('poster',
       {
         title: '先聚焦，再排信息',
@@ -66,8 +75,13 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     preview: '/images/visual-recipes/social-cover.png',
     control: Object.freeze({
       label: '发布平台',
-      options: Object.freeze(['小红书', '公众号', 'B站封面', '抖音封面']),
+      options: Object.freeze(['小红书', '公众号', 'B站', '抖音']),
     }),
+    panels: Object.freeze([
+      Object.freeze({ id: 'platform', label: '平台构图', options: Object.freeze(['移动端缩略图', '横向头图', '视频封面', '全屏竖版']) }),
+      Object.freeze({ id: 'headline', label: '标题策略', options: Object.freeze(['痛点钩子', '结果先行', '清单结构', '教程步骤']) }),
+    ]),
+    ratios: Object.freeze(['3:4', '21:9', '16:9', '9:16']),
     showcases: visualShowcases('social-cover',
       {
         title: '移动端一眼读懂',
@@ -90,6 +104,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
       label: '延展方向',
       options: Object.freeze(['产品聚焦', '场景延展', '材质叙事']),
     }),
+    panels: Object.freeze([
+      Object.freeze({ id: 'touchpoint', label: '品牌触点', options: Object.freeze(['主KV', '零售横幅', '社媒方图', '现场导视']) }),
+      Object.freeze({ id: 'identity', label: '识别系统', options: Object.freeze(['锁定品牌色', '锁定产品结构', '锁定光影材质']) }),
+    ]),
+    ratios: Object.freeze(['16:9', '21:9', '1:1', '3:4']),
     showcases: visualShowcases('brand-kv',
       {
         title: '从产品到品牌世界',
@@ -107,6 +126,8 @@ export const VISUAL_RATIO_OPTIONS = Object.freeze([
   Object.freeze({ id: '3:4', label: '竖版 3:4' }),
   Object.freeze({ id: '4:3', label: '横版 4:3' }),
   Object.freeze({ id: '9:16', label: '竖屏 9:16' }),
+  Object.freeze({ id: '16:9', label: '宽屏 16:9' }),
+  Object.freeze({ id: '21:9', label: '横幅 21:9' }),
 ]);
 
 function cleanString(value) {
@@ -115,6 +136,12 @@ function cleanString(value) {
 
 export function visualSkillById(skillId) {
   return VISUAL_CREATION_SKILLS.find(skill => skill.id === skillId) || VISUAL_CREATION_SKILLS[0];
+}
+
+export function resolveVisualSkillRatio(skillId, requestedRatio) {
+  const skill = visualSkillById(skillId);
+  const supported = Array.isArray(skill.ratios) && skill.ratios.length ? skill.ratios : ['1:1'];
+  return supported.includes(requestedRatio) ? requestedRatio : supported[0];
 }
 
 export function createVisualRun({ runId, count = 1, createdAt = Date.now() } = {}) {
@@ -171,6 +198,8 @@ export function buildVisualWorkRecord({
   ratio = '1:1',
   resolution = '2K',
   referenceAssets = [],
+  skillControl = '',
+  panelValues = {},
 } = {}) {
   if (!run?.id || !Array.isArray(run.slots)) throw new TypeError('visual run is required');
   const completedSlots = run.slots.filter(slot => slot.status === 'completed' && isPersistentEcommerceImageUrl(slot.url));
@@ -188,6 +217,7 @@ export function buildVisualWorkRecord({
     ratio,
     resolution,
     requestKey: slot.requestKey,
+    taskId: slot.taskId || '',
   }));
   const generationStatus = completedSlots.length === run.slots.length ? 'completed' : 'needs_review';
   return {
@@ -210,6 +240,19 @@ export function buildVisualWorkRecord({
     referenceAssets: Array.isArray(referenceAssets) ? referenceAssets : [],
     images,
     imageRecords: images,
+    replay: {
+      creationIntent: 'visual',
+      skillId: skill.id,
+      skillControl: cleanString(skillControl),
+      panelValues: panelValues && typeof panelValues === 'object' ? { ...panelValues } : {},
+      prompt: cleanString(prompt),
+      originalPrompt: cleanString(prompt),
+      imageModel: model,
+      ratio,
+      resolution,
+      referenceAssets: Array.isArray(referenceAssets) ? referenceAssets : [],
+      slots: images.map(image => ({ taskId: image.taskId, requestKey: image.requestKey, url: image.url })),
+    },
   };
 }
 

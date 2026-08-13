@@ -38,3 +38,18 @@ test('canvas browser QA fixture does not make unauthorized works requests', () =
   assert.match(canvasPage, /if \(result\?\.browserQa\) \{/);
   assert.match(canvasPage, /setPastWorks\(\[\]\);\s*setTrashWorks\(\[\]\);\s*return;/);
 });
+
+test('visual browser QA state opens the visual workbench with a replayable gallery work', () => {
+  const state = createCanvasBrowserQaState({ enabled: true, search: '?qa=visual' });
+
+  assert.equal(state.page, 'home');
+  assert.equal(state.mode, 'visual');
+  assert.equal(state.logged, false);
+  assert.equal(state.phone, '');
+  assert.equal(state.works.length, 1);
+  assert.equal(state.works[0].workType, 'visual');
+  assert.equal(state.works[0].replay.skillId, 'social-cover');
+  assert.equal(state.works[0].replay.skillControl, '公众号');
+  assert.equal(state.works[0].replay.ratio, '21:9');
+  assert.equal(state.works[0].replay.referenceAssets.length, 1);
+});

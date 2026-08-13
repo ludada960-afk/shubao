@@ -51,6 +51,28 @@ function ecommerceSources(item) {
 export function buildGalleryRemixCheckpoint(item = {}) {
   const id = cleanText(item.id) || `gallery-${Date.now()}`;
   const title = cleanText(item.title) || '案例同款';
+  if (item.type === 'visual' || item.workType === 'visual' || item.visualSkillId) {
+    const replay = item.replay || {};
+    const images = uniqueImages(item.images || item.imageRecords, 'reference', 6);
+    return {
+      project: { id: `gallery:${id}`, kind: 'visual', title },
+      version: {
+        id: `gallery:${id}:remix`,
+        inputSnapshot: {
+          skillId: cleanText(item.visualSkillId || replay.skillId) || 'free',
+          skillControl: cleanText(replay.skillControl),
+          panelValues: replay.panelValues && typeof replay.panelValues === 'object' ? { ...replay.panelValues } : {},
+          text: cleanText(replay.originalPrompt || replay.prompt || item.prompt) || title,
+          prompt: cleanText(replay.prompt || item.prompt) || title,
+          imageModel: cleanText(replay.imageModel || item.imageModel) || 'image2',
+          ratio: cleanText(replay.ratio || item.ratio) || '1:1',
+          resolution: cleanText(replay.resolution || item.resolution) || '2K',
+          referenceAssets: Array.isArray(item.referenceAssets) ? item.referenceAssets : (Array.isArray(replay.referenceAssets) ? replay.referenceAssets : []),
+          referenceImages: images.map(image => image.url),
+        },
+      },
+    };
+  }
   if (item.type === 'ecommerce') {
     const sources = ecommerceSources(item);
     return {

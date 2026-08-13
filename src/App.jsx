@@ -121,14 +121,14 @@ function TopBar() {
   const canAdmin = state.accountAccess?.role === 'owner';
 
   useEffect(() => {
-    if (!logged) return undefined;
+    if (!logged || state.browserQa) return undefined;
     const refreshOnVisible = () => {
       if (document.visibilityState === 'visible') refreshBillingBalance().catch(() => {});
     };
     refreshBillingBalance().catch(() => {});
     document.addEventListener('visibilitychange', refreshOnVisible);
     return () => document.removeEventListener('visibilitychange', refreshOnVisible);
-  }, [logged, refreshBillingBalance]);
+  }, [logged, refreshBillingBalance, state.browserQa]);
 
   return (
     <div className="app-topbar" style={{ zIndex: 100, userSelect: 'none' }}>

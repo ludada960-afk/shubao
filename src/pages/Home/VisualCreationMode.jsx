@@ -35,6 +35,7 @@ import {
   visualRetryIndexes,
   visualRunIsBusy,
   visualSkillById,
+  resolveVisualSkillRatio,
 } from './visualCreationModel.js';
 import './VisualCreationMode.css';
 
@@ -71,7 +72,7 @@ function selectedReferencePayload(assets) {
   }));
 }
 
-export default function VisualCreationMode() {
+export default function VisualCreationMode({ recoveryCheckpoint = null }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [skillId, setSkillId] = useState('free');
   const [prompt, setPrompt] = useState('');
@@ -90,14 +91,19 @@ export default function VisualCreationMode() {
   const [showcaseManualRevision, setShowcaseManualRevision] = useState(0);
   const [showMentionMenu, setShowMentionMenu] = useState(false);
   const [previewItem, setPreviewItem] = useState(null);
+  const [activeConfigPanel, setActiveConfigPanel] = useState(null);
   const [skillControlValues, setSkillControlValues] = useState(() => Object.fromEntries(
     VISUAL_CREATION_SKILLS.map(skill => [skill.id, skill.control?.options?.[0] || '']),
+  ));
+  const [panelValues, setPanelValues] = useState(() => Object.fromEntries(
+    VISUAL_CREATION_SKILLS.flatMap(skill => (skill.panels || []).map(panel => [panel.id, panel.options?.[0] || ''])),
   ));
   const runRef = useRef(null);
   const referencesRef = useRef([]);
   const fileInputRef = useRef(null);
   const promptRef = useRef(null);
   const abortRef = useRef(null);
+  const restoredCheckpointRef = useRef('');
 
   const selectedSkill = visualSkillById(skillId);
   const busy = uploading || visualRunIsBusy(run);
@@ -116,7 +122,36 @@ export default function VisualCreationMode() {
   useEffect(() => {
     setShowcaseSlide(0);
     setShowcaseManualRevision(0);
+    setRatio(current => resolveVisualSkillRatio(skillId, current));
   }, [skillId]);
+
+  useEffect(() => {
+    const snapshot = recoveryCheckpoint?.version?.inputSnapshot;
+    const checkpointId = recoveryCheckpoint?.version?.id || '';
+    if (!snapshot || !checkpointId || restoredCheckpointRef.current === checkpointId) return;
+    restoredCheckpointRef.current = checkpointId;
+    const nextSkill = visualSkillById(snapshot.skillId);
+    setSkillId(nextSkill.id);
+    setPrompt(String(snapshot.prompt || snapshot.text || '').slice(0, 3000));
+    setImageModel(snapshot.imageModel || 'image2');
+    setRatio(resolveVisualSkillRatio(nextSkill.id, snapshot.ratio || '1:1'));
+    setResolution(snapshot.resolution || '2K');
+    if (snapshot.skillControl) {
+      setSkillControlValues(current => ({ ...current, [nextSkill.id]: snapshot.skillControl }));
+    }
+    if (snapshot.panelValues && typeof snapshot.panelValues === 'object') {
+      setPanelValues(current => ({ ...current, ...snapshot.panelValues }));
+    }
+    const restoredReferences = (Array.isArray(snapshot.referenceAssets) ? snapshot.referenceAssets : []).map((asset, index) => ({
+      id: `restored-${checkpointId}-${index}`,
+      name: asset.displayName || `参考图 ${index + 1}`,
+      previewUrl: asset.url,
+      asset,
+      file: null,
+    })).filter(reference => reference.asset?.url);
+    setReferences(restoredReferences.slice(0, MAX_REFERENCES));
+    setNotice('已载入案例参数，可直接调整后生成');
+  }, [recoveryCheckpoint]);
 
   useEffect(() => {
     const media = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -223,8 +258,11 @@ export default function VisualCreationMode() {
       ratio: config.ratio,
       resolution: config.resolution,
       referenceAssets: config.referenceAssets,
+      skillControl: config.skillControl,
+      panelValues: config.panelValues,
     });
     setWork(nextWork);
+    dispatch({ type: 'SET_WORKS', works: [nextWork, ...(Array.isArray(state.works) ? state.works.filter(item => String(item._saveKey || item.id) !== String(nextWork._saveKey || nextWork.id)) : [])].slice(0, 50) });
     const saved = await saveWork(nextWork, state.phone);
     setNotice(saved ? '作品已保存，可下载或进入画布继续编辑' : '图片已完成，作品云端保存暂时失败');
     await refreshBillingBalance?.().catch(() => undefined);
@@ -319,11 +357,14 @@ export default function VisualCreationMode() {
       const referenceAssets = await ensureDurableReferences(abortRef.current.signal);
       const nextRun = createVisualRun({ count });
       const originalPrompt = prompt.trim();
+      const selectedPanelValues = Object.fromEntries((selectedSkill.panels || []).map(panel => [panel.id, panelValues[panel.id] || panel.options?.[0] || '']));
+      const panelInstruction = Object.entries(selectedPanelValues).map(([id, value]) => `${id}：${value}`).join('；');
       const config = {
-        prompt: `${originalPrompt}\n创作模式：${selectedSkill.title}；${selectedSkill.control.label}：${skillControl}`,
+        prompt: `${originalPrompt}\n创作模式：${selectedSkill.title}；${selectedSkill.control.label}：${skillControl}${panelInstruction ? `；扩展设置：${panelInstruction}` : ''}`,
         originalPrompt,
         skillId,
         skillControl,
+        panelValues: selectedPanelValues,
         imageModel,
         ratio,
         resolution,
@@ -366,9 +407,19 @@ export default function VisualCreationMode() {
     setSkillControlValues(current => ({ ...current, [skillId]: value }));
   };
 
+  const updatePanelValue = (id, value) => {
+    setPanelValues(current => ({ ...current, [id]: value }));
+  };
+
+  const toggleConfigPanel = panelId => {
+    if (busy) return;
+    setActiveConfigPanel(current => current === panelId ? null : panelId);
+  };
+
   const showcaseCard = (item, className) => item ? (
     <button
       type="button"
+      key={`${item.src}-${item.label}-${className}`}
       className={`visual-skill-stage-card ${className}`}
       onClick={() => setPreviewItem(item)}
       aria-label={`放大查看${item.label}`}
@@ -411,7 +462,7 @@ export default function VisualCreationMode() {
         })}
       </div>
 
-      <section className="visual-skill-stage" aria-label={`${selectedSkill.title}效果预览`}>
+      <section className={`visual-skill-stage visual-layout-${selectedShowcase?.layout?.type || 'editorial-grid'}`} aria-label={`${selectedSkill.title}效果预览`}>
         <div className="visual-skill-stage-copy">
           <span><MdAutoAwesome />{selectedSkill.title}</span>
           <strong>{selectedShowcase?.title || selectedSkill.shortDescription}</strong>
@@ -421,19 +472,9 @@ export default function VisualCreationMode() {
           </div>
         </div>
         <div className="visual-skill-stage-art">
-          {selectedShowcase?.input ? (
-            <>
-              {showcaseCard(selectedShowcase.input, 'visual-skill-stage-input')}
-              <span className="visual-skill-stage-operator" aria-hidden="true"><MdSend /></span>
-              <div className={`visual-skill-stage-outputs count-${selectedShowcase.outputs?.length || 1}`}>
-                {(selectedShowcase.outputs || [selectedShowcase.output]).filter(Boolean).map((item, index) => showcaseCard(item, `visual-skill-stage-output output-${index}`))}
-              </div>
-            </>
-          ) : (
-            <div className={`visual-skill-stage-outputs is-result-only count-${selectedShowcase.outputs?.length || 1}`}>
-              {(selectedShowcase.outputs || [selectedShowcase.output]).filter(Boolean).map((item, index) => showcaseCard(item, `visual-skill-stage-result-only output-${index}`))}
-            </div>
-          )}
+          <div className={`visual-skill-stage-outputs is-chapter count-${selectedShowcase?.assets?.length || 0}`}>
+            {(selectedShowcase?.assets || []).map((item, index) => showcaseCard(item, `visual-skill-stage-output output-${index}`))}
+          </div>
         </div>
         <div className="visual-ability-rail" aria-label={`${selectedSkill.title}能力说明`}>
           <div><span>01</span><small>输入保真</small><strong>{selectedSkill.preserves}</strong></div>
@@ -525,46 +566,56 @@ export default function VisualCreationMode() {
         </div>
 
         <div className="visual-parameter-bar">
-          <label className="visual-skill-control" title={selectedSkill.control.label}>
-            <MdAutoAwesome />
-            <span>{selectedSkill.control.label}</span>
-            <select value={skillControl} onChange={event => updateSkillControl(event.target.value)} disabled={busy}>
-              {selectedSkill.control.options.map(option => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </label>
-          <label title="图片模型">
-            <MdTune />
-            <span className="sr-only">图片模型</span>
-            <select value={imageModel} onChange={event => setImageModel(event.target.value)} disabled={busy}>
-              {IMAGE_MODELS.map(option => <option key={option.id} value={option.id}>模型 · {option.label}</option>)}
-            </select>
-          </label>
-          <label title="图片画幅">
-            <MdAspectRatio />
-            <span className="sr-only">图片画幅</span>
-            <select value={ratio} onChange={event => setRatio(event.target.value)} disabled={busy}>
-              {VISUAL_RATIO_OPTIONS.map(option => <option key={option.id} value={option.id}>画幅 · {option.label}</option>)}
-            </select>
-          </label>
-          <label title="图片清晰度">
-            <MdHighQuality />
-            <span className="sr-only">图片清晰度</span>
-            <select value={resolution} onChange={event => setResolution(event.target.value)} disabled={busy}>
-              {['1K', '2K', '4K'].map(option => <option key={option} value={option}>清晰度 · {option}</option>)}
-            </select>
-          </label>
-          <fieldset className="visual-count-control" disabled={busy}>
-            <legend className="sr-only">生成数量</legend>
-            {[1, 2, 3, 4].map(value => (
-              <button
-                type="button"
-                key={value}
-                className={count === value ? 'is-selected' : ''}
-                aria-pressed={count === value}
-                onClick={() => setCount(value)}
-              >{value} 张</button>
-            ))}
-          </fieldset>
+          <div className="visual-config-cluster" aria-label="生成配置">
+            <button type="button" className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
+              <MdAutoAwesome aria-hidden="true" />
+              <span className="visual-config-trigger-copy"><small>创作配方</small><strong>{selectedSkill.title} · {skillControl}</strong></span>
+              <MdTune aria-hidden="true" />
+            </button>
+            <button type="button" className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
+              <MdAspectRatio aria-hidden="true" />
+              <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{ratio} · {count} 张</strong></span>
+              <MdTune aria-hidden="true" />
+            </button>
+            <button type="button" className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
+              <MdHighQuality aria-hidden="true" />
+              <span className="visual-config-trigger-copy"><small>生成设置</small><strong>{model.label} · {resolution}</strong></span>
+              <MdTune aria-hidden="true" />
+            </button>
+          </div>
+          {activeConfigPanel && (
+            <div className="visual-config-panel" role="dialog" aria-label="生成配置面板">
+              {activeConfigPanel === 'recipe' && (
+                <>
+                  <div className="visual-config-panel-heading"><strong>{selectedSkill.title} 配方</strong><span>必选创作方向与 Skill 扩展能力</span></div>
+                  <label className="visual-config-field"><span>{selectedSkill.control.label}</span><select value={skillControl} onChange={event => updateSkillControl(event.target.value)} disabled={busy}>{selectedSkill.control.options.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                  <div className="visual-config-panel-grid">
+                    {(selectedSkill.panels || []).map(panel => (
+                      <label className="visual-config-field" key={panel.id}><span>{panel.label}</span><select value={panelValues[panel.id] || panel.options[0]} onChange={event => updatePanelValue(panel.id, event.target.value)} disabled={busy}>{panel.options.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                    ))}
+                  </div>
+                </>
+              )}
+              {activeConfigPanel === 'specs' && (
+                <>
+                  <div className="visual-config-panel-heading"><strong>画面规格</strong><span>先确定发布比例，再设置本次生成数量</span></div>
+                  <div className="visual-config-panel-grid">
+                    <label className="visual-config-field"><span>输出画幅</span><select value={ratio} onChange={event => setRatio(event.target.value)} disabled={busy}>{VISUAL_RATIO_OPTIONS.filter(option => selectedSkill.ratios?.includes(option.id)).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+                    <fieldset className="visual-config-field visual-count-control" disabled={busy}><legend>生成数量</legend><div>{[1, 2, 3, 4].map(value => <button type="button" key={value} className={count === value ? 'is-selected' : ''} aria-pressed={count === value} onClick={() => setCount(value)}>{value} 张</button>)}</div></fieldset>
+                  </div>
+                </>
+              )}
+              {activeConfigPanel === 'settings' && (
+                <>
+                  <div className="visual-config-panel-heading"><strong>生成设置</strong><span>沿用电商生图的模型与清晰度控制</span></div>
+                  <div className="visual-config-panel-grid">
+                    <label className="visual-config-field"><span>图片模型</span><select value={imageModel} onChange={event => setImageModel(event.target.value)} disabled={busy}>{IMAGE_MODELS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+                    <label className="visual-config-field"><span>清晰度</span><select value={resolution} onChange={event => setResolution(event.target.value)} disabled={busy}>{['1K', '2K', '4K'].map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <span className="visual-cost" title={`${model.label} ${resolution} 预计用量`}>
             预计 {estimatedPoints} AI 积分
           </span>

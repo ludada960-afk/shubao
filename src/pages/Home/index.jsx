@@ -10,6 +10,7 @@ import GallerySection from './GallerySection';
 import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
 import { clearLegacyEcommerceDraftState } from './ec/ecommerceDraftStore';
+import { loadWorks } from '../../services/api';
 
 /**
  * 薯包AI 首页 — 灵图结构精确复刻
@@ -54,6 +55,15 @@ export default function HomePage() {
     clearLegacyEcommerceDraftState();
   }, []);
 
+  useEffect(() => {
+    if (!state.logged || !state.phone || state.browserQa) return undefined;
+    let active = true;
+    loadWorks(state.phone).then(works => {
+      if (active && Array.isArray(works)) dispatch({ type: 'SET_WORKS', works });
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [state.logged, state.phone, state.browserQa, dispatch]);
+
   // 当结果被清除（新建作品）时，重置步骤
   useEffect(() => {
     if (state.genState === 'idle' && ecStep !== 1) {
@@ -65,6 +75,13 @@ export default function HomePage() {
     const kind = checkpoint?.project?.kind;
     setRecoveryCheckpoint(checkpoint);
     setEcStep(1);
+    if (kind === 'visual') {
+      dispatch({ type: 'SET_MODE', mode: 'visual' });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.getElementById('creation-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }));
+      return;
+    }
     if (kind === 'xiaohongshu' || kind === 'plog') {
       dispatch({ type: 'SET_MODE', mode: 'content' });
       setXhsSubMode(kind === 'plog' ? 'plog' : 'content');
@@ -104,7 +121,7 @@ export default function HomePage() {
             <style>{`.homepage-subtitle{line-height:28px}@media(min-width:768px){.homepage-subtitle{font-size:17px!important;line-height:30px!important}}`}</style>
           </div>
 
-          <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />
+          {!state.browserQa && <RecoveryShelf logged={state.logged} onRestore={restoreCheckpoint} />}
 
           {/* ═══ 主模式切换：卡片本身就是工作台入口 ═══ */}
           {ecStep !== 2 && <div
@@ -158,7 +175,7 @@ export default function HomePage() {
                   onStepChange={(params) => { ecParamsRef.current = params; }}
                   recoveryCheckpoint={recoveryCheckpoint} />
               ) : null}
-              <div hidden={!isVisual}><VisualCreationMode /></div>
+              <div hidden={!isVisual}><VisualCreationMode recoveryCheckpoint={recoveryCheckpoint} /></div>
             </div>
           </div>
         </div>

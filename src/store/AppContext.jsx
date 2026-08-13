@@ -243,6 +243,7 @@ export function AppProvider({ children }) {
 
   // 页面加载时从 localStorage 恢复登录状态
   useEffect(() => {
+    if (state.browserQa) return undefined;
     const restore = async () => {
       const session = await getSession();
       if (session?.token) {
@@ -254,7 +255,7 @@ export function AppProvider({ children }) {
       }
     };
     restore();
-  }, [refreshBillingBalance, refreshBillingCatalog]);
+  }, [refreshBillingBalance, refreshBillingCatalog, state.browserQa]);
 
   useEffect(() => {
     if (!state.logged) return undefined;
