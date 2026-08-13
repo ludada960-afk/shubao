@@ -14,6 +14,16 @@ test('account entitlement control exposes accessible balance actions', async () 
   assert.match(control, /accountEntitlementDisplay/);
 });
 
+test('mobile account entitlement stays icon-sized without widening the topbar', async () => {
+  const control = await source('../src/components/billing/AccountEntitlementControl.jsx');
+  const mobile = control.slice(control.indexOf('@media (max-width: 639px)'));
+
+  assert.match(mobile, /\.topbar-actions \.account-entitlement-copy\s*\{\s*display:\s*none/);
+  assert.match(mobile, /\.topbar-actions \.account-entitlement-arrow\s*\{\s*display:\s*none/);
+  assert.match(mobile, /\.topbar-actions \.account-entitlement-value\s*\{[^}]*width:\s*38px/s);
+  assert.match(mobile, /\.topbar-actions \.account-entitlement-value\s*\{[^}]*justify-content:\s*center/s);
+});
+
 test('authoritative balance refresh tracks pending and error states behind the session gate', async () => {
   const context = await source('../src/store/AppContext.jsx');
   const refreshStart = context.indexOf('const refreshBillingBalance = useCallback');

@@ -37,3 +37,12 @@ test('canvas entitlement layout preserves primary canvas commands on mobile', as
   assert.match(mobile, /\.account-entitlement-control\.is-compact/);
   assert.match(mobile, /\.ec-canvas-topbar-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
 });
+
+test('mobile application shell constrains header content to the viewport', async () => {
+  const css = await source('../src/styles/app-shell.css');
+  const mobile = css.slice(css.indexOf('@media (max-width: 639px)'));
+
+  assert.match(mobile, /\.topbar-row\s*\{[^}]*width:\s*100%/s);
+  assert.match(mobile, /\.topbar-actions\s*\{[^}]*min-width:\s*0/s);
+  assert.match(mobile, /\.topbar-actions\s*\{[^}]*flex-shrink:\s*1/s);
+});

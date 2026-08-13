@@ -50,9 +50,15 @@ export default function AccountEntitlementControl({
         .account-entitlement-value:hover .account-entitlement-arrow { color: #d9dde7; }
         .account-entitlement-control[data-state="error"] .account-entitlement-value { border-color: #d99b53 !important; }
         @media (max-width: 639px) {
-          .topbar-actions .account-entitlement-control { gap: 2px; }
-          .topbar-actions .account-entitlement-copy small { display: none; }
-          .topbar-actions .account-entitlement-value { min-height: 34px; padding: 4px 7px; }
+          .topbar-actions .account-entitlement-control { flex: 0 0 38px; }
+          .topbar-actions .account-entitlement-copy { display: none; }
+          .topbar-actions .account-entitlement-arrow { display: none; }
+          .topbar-actions .account-entitlement-value {
+            width: 38px;
+            min-height: 38px;
+            padding: 0;
+            justify-content: center;
+          }
         }
       `}</style>
     </>

@@ -1771,8 +1771,9 @@
 }
 
 @media (max-width: 639px) {
-  .homepage-shell { padding: 12px 10px 76px !important; }
-  .homepage-h1 { max-width: 340px; margin: 12px auto 0 !important; font-size: 30px !important; line-height: 1.12 !important; }
+  .homepage-shell { width: 100%; min-width: 0; box-sizing: border-box; padding: 12px 10px 76px !important; }
+  .homepage-shell > * { min-width: 0; }
+  .homepage-h1 { width: 100%; max-width: 340px; overflow-wrap: anywhere; margin: 12px auto 0 !important; font-size: 30px !important; line-height: 1.12 !important; }
   .homepage-subtitle { max-width: 330px !important; margin-top: 8px !important; font-size: 13px !important; line-height: 20px !important; }
   .homepage-mode-switch { margin-top: 18px !important; }
   .homepage-mode-switch > div { width: 100%; }

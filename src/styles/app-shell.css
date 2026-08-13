@@ -249,6 +249,9 @@
   }
 
   .topbar-row {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     padding-inline: 14px;
     gap: 8px;
   }
@@ -271,6 +274,9 @@
   }
 
   .topbar-actions {
+    min-width: 0;
+    flex-shrink: 1;
+    justify-content: flex-end;
     gap: 4px;
   }
 
