@@ -40,6 +40,10 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /planReviewed/);
   assert.match(page, /useState\('smart'\)/);
   assert.match(page, /video-mode-tabs/);
+  assert.match(page, /把创意素材变成吸引人的短片/);
+  assert.doesNotMatch(page, /变成可交付的视频/);
+  assert.match(page, /function VideoModelMark/);
+  assert.match(page, /<Clapperboard size=\{14\}/);
   assert.match(page, /role="tablist"/);
   assert.match(page, /video-content-composer/);
   assert.match(page, /video-materials/);
@@ -65,6 +69,9 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.doesNotMatch(page, /\{ key: 'mode'/);
   assert.doesNotMatch(page, /\{ key: 'assets'/);
   assert.match(styles, /\.video-mode-tabs/);
+  assert.match(styles, /button\.is-selected \.video-mode-copy strong/);
+  assert.match(styles, /color:\s*#fff/);
+  assert.doesNotMatch(styles, /\.video-model-mark\.is-seedance\s*\{\s*background:\s*conic-gradient/);
   assert.match(styles, /grid-template-columns:\s*repeat\(3/);
   assert.match(styles, /\.video-content-composer/);
   assert.match(styles, /\.video-materials/);

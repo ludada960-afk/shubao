@@ -106,7 +106,7 @@ function jobStatus(job) {
 
 function VideoModelMark({ provider = '' }) {
   const isMiniMax = String(provider).toLowerCase().includes('minimax');
-  return <span className={`video-model-mark ${isMiniMax ? 'is-minimax' : 'is-seedance'}`} aria-hidden="true"><i /></span>;
+  return <span className={`video-model-mark ${isMiniMax ? 'is-minimax' : 'is-seedance'}`} aria-hidden="true"><Clapperboard size={14} strokeWidth={2.2} /></span>;
 }
 
 function VideoPlanModal({ plan, onClose, onConfirm }) {
@@ -662,7 +662,7 @@ export default function VideoStudioPage({ embedded = false }) {
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
 
     <section className="video-composer" aria-label="视频生成工作区">
-      <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成可交付的视频</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
+      <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
       <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
         {VIDEO_CREATION_MODES.map(item => {
           const ModeIcon = VIDEO_MODE_ICONS[item.id] || Clapperboard;
