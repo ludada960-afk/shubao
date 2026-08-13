@@ -28,6 +28,14 @@ test('admin console is owner-scoped and wired to the protected admin api', async
   assert.match(page, /运营总览/);
   assert.match(page, /账号与权限/);
   assert.match(page, /成本与利润/);
+  assert.match(page, /单次生成怎么算/);
+  assert.match(page, /预计营收/);
+  assert.match(page, /上游成本/);
+  assert.match(page, /支付通道费/);
+  assert.match(page, /预计利润/);
+  assert.match(page, /利润率/);
+  assert.match(page, /赠送积分不计现金营收/);
+  assert.match(page, /buildUnitEconomicsRows/);
   assert.match(page, /操作审计/);
   assert.match(page, /运行监控/);
   assert.match(page, /最近任务/);

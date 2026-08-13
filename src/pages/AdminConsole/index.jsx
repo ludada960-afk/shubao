@@ -35,6 +35,7 @@ import {
   updateAdminAccount,
   updateAdminPermissions,
 } from '../../services/admin.js';
+import { buildUnitEconomicsRows, selectConservativeProduct } from './unitEconomicsModel.js';
 import './AdminConsole.css';
 
 const FEATURES = [
@@ -106,6 +107,12 @@ const SERVICE_LABELS = {
 const SKU_LABELS = {
   ec_image_2k: '电商生图 · 2K',
   ec_image_4k: '电商生图 · 4K',
+  ec_nano_flash_1k: 'Nano Banana 2 Flash · 1K',
+  ec_nano_flash_2k: 'Nano Banana 2 Flash · 2K',
+  ec_nano_flash_4k: 'Nano Banana 2 Flash · 4K',
+  ec_nano_pro_1k: 'Nano Banana Pro · 1K',
+  ec_nano_pro_2k: 'Nano Banana Pro · 2K',
+  ec_nano_pro_4k: 'Nano Banana Pro · 4K',
   xhs_image_set_2k: '小红书图文 · 2K 套图',
   video_seedance_fast_short: 'Seedance 2.0 Fast · 短片',
   video_seedance_fast_long: 'Seedance 2.0 Fast · 长片',
@@ -126,6 +133,16 @@ const SKU_LABELS = {
   ec_smart_layer: '电商 · 智能图层',
   ec_layer_psd: '电商 · PSD 图层',
 };
+
+const PRODUCT_LABELS = {
+  ec_trial_990: '体验包 · ¥9.90 / 30 积分', ec_starter_29: '入门包 · ¥29 / 105 积分',
+  ec_growth_79: '进阶包 · ¥79 / 295 积分', ec_studio_199: '工作室包 · ¥199 / 760 积分',
+};
+const ECONOMICS_FEATURES = [
+  'ec_image_2k', 'ec_image_4k', 'ec_nano_flash_1k', 'ec_nano_flash_2k', 'ec_nano_flash_4k',
+  'ec_nano_pro_1k', 'ec_nano_pro_2k', 'ec_nano_pro_4k', 'video_seedance_fast_short',
+  'video_seedance_fast_long', 'video_seedance_standard_short', 'video_seedance_standard_long',
+];
 
 function jobStatusLabel(status) {
   return JOB_STATUS_LABELS[status] || status || '未知';
@@ -201,6 +218,26 @@ function UpstreamLedgerPanel({ ledger }) {
     </article>)}</div>
     <div className="admin-upstream-routes"><div className="admin-band-heading compact"><div><span>正在使用</span><h3>生产路由与站内价格</h3></div><small>{activeRoutes.length} 条接入或已配置路由</small></div><RouteTable routes={activeRoutes} /></div>
     {!!candidateRoutes.length && <details className="admin-candidate-routes"><summary><span><strong>查看候选模型报价</strong><small>仅用于选型，不代表已经接入或可自动切换</small></span><ChevronRight size={17} /></summary><RouteTable routes={candidateRoutes} compact /></details>}
+  </section>;
+}
+
+function UnitEconomicsPanel({ catalog }) {
+  const conservative = selectConservativeProduct(catalog?.products);
+  const [basisSku, setBasisSku] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [revenueMode, setRevenueMode] = useState('paid');
+  const selectedBasis = basisSku || conservative?.sku || '';
+  const rows = useMemo(() => buildUnitEconomicsRows({ catalog, basisSku: selectedBasis, quantity, revenueMode, featureSkus: ECONOMICS_FEATURES }), [catalog, selectedBasis, quantity, revenueMode]);
+  if (!catalog || !rows.length) return null;
+  return <section className="admin-unit-economics" aria-labelledby="admin-unit-economics-title">
+    <div className="admin-band-heading"><div><span>单次生成怎么算</span><h2 id="admin-unit-economics-title">图片与视频利润明细</h2></div><small>估算表与下方历史真实结算分开统计</small></div>
+    <div className="admin-economics-controls">
+      <label><span>收入基准套餐</span><select value={selectedBasis} onChange={event => setBasisSku(event.target.value)}>{catalog.products.map(product => <option value={product.sku} key={product.sku}>{PRODUCT_LABELS[product.sku] || product.sku}{product.sku === conservative?.sku ? ' · 保守基准' : ''}</option>)}</select></label>
+      <label><span>连续生成数量</span><input type="number" min="1" max="100" value={quantity} onChange={event => setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} /></label>
+      <div className="admin-economics-mode" role="group" aria-label="收入类型"><button type="button" className={revenueMode === 'paid' ? 'active' : ''} onClick={() => setRevenueMode('paid')}>付费积分</button><button type="button" className={revenueMode === 'gift' ? 'active' : ''} onClick={() => setRevenueMode('gift')}>赠送积分</button></div>
+      <p>{revenueMode === 'gift' ? '赠送积分不计现金营收，表中利润即本次运营补贴。' : `每积分现金收入 ${preciseMoney(rows[0]?.pointRevenueCny)}，支付通道费按 ${(Number(catalog.paymentFeeRate || 0) * 100).toFixed(0)}% 估算。`}</p>
+    </div>
+    <div className="admin-economics-table-wrap"><table className="admin-economics-table"><thead><tr><th>生成动作</th><th>积分</th><th>预计营收</th><th>上游成本</th><th>支付通道费</th><th>预计利润</th><th>利润率</th></tr></thead><tbody>{rows.map(row => <tr key={row.sku}><td><strong>{skuLabel(row.sku)}</strong><small>{row.quantity} 次生成合计</small></td><td>{visiblePoints(row.points)}</td><td>{preciseMoney(row.revenueCny)}</td><td>{preciseMoney(row.providerCostCny)}</td><td>{preciseMoney(row.paymentFeeCny)}</td><td className={row.profitCny >= 0 ? 'is-profit' : 'is-subsidy'}><strong>{preciseMoney(row.profitCny)}</strong></td><td>{row.margin === null ? '补贴' : `${(row.margin * 100).toFixed(1)}%`}</td></tr>)}</tbody></table></div>
   </section>;
 }
 
@@ -457,6 +494,8 @@ export default function AdminConsolePage() {
           <div><small>失败/退回</small><strong>{metrics.failedOrReleasedActions || 0}</strong><span>失败率 {((metrics.failureRate || 0) * 100).toFixed(1)}%</span></div>
         </div>
       </section>
+
+      <UnitEconomicsPanel catalog={summary?.unitEconomicsCatalog} />
 
       <UpstreamLedgerPanel ledger={summary?.upstreamLedger} />
 

@@ -202,6 +202,10 @@ test('summary separates theoretical revenue, cash revenue, subsidy, cost, and co
   assert.equal(response.body.bySku[0].model, 'gpt-image-2');
   assert.equal(response.body.bySku[0].provider_cost_cny, 0.038);
   assert.ok(response.body.bySku[0].theoretical_contribution_cny > 0);
+  assert.equal(response.body.unitEconomicsCatalog.unitsPerPoint, 1000);
+  assert.equal(response.body.unitEconomicsCatalog.paymentFeeRate, 0.03);
+  assert.equal(response.body.unitEconomicsCatalog.products.find(item => item.sku === 'ec_studio_199').priceFen, 19900);
+  assert.equal(response.body.unitEconomicsCatalog.features.find(item => item.sku === 'ec_image_2k').providerCostCny, 0.038);
 });
 
 test('admin monitoring reports real task states, provider routes, and redacted failure reasons', async t => {

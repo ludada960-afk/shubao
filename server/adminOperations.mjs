@@ -6,6 +6,7 @@ import {
   upsertAccountAccess,
 } from './accessControl.mjs';
 import { buildUpstreamCostLedger } from './billing/upstreamLedger.mjs';
+import { buildUnitEconomicsCatalog } from './billing/unitEconomicsCatalog.mjs';
 
 const CURRENCIES = ['ec_points', 'content_sets'];
 const MAX_CREDIT_ADJUSTMENT = 100_000_000;
@@ -522,6 +523,7 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
         theoretical_contribution_cny: roundMoney(Number(item.theoretical_revenue || 0) - Number(item.provider_cost_cny || 0)),
       })),
       bySku,
+      unitEconomicsCatalog: buildUnitEconomicsCatalog(),
       upstreamLedger: buildUpstreamCostLedger({ bySku, localSettledCostCny: providerCost }),
       jobs,
     };
