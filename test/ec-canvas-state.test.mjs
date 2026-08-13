@@ -237,10 +237,11 @@ test('hidden and locked objects remain recoverable from a dedicated layers panel
   assert.match(canvasSource, /visibility: node\.hidden \? 'hidden' : 'visible'/);
 });
 
-test('canvas uploads are persisted before node creation and an empty canvas remains saveable', () => {
+test('canvas uploads render local previews before durable persistence and an empty canvas remains saveable', () => {
   assert.match(canvasSource, /persistCanvasUploadAssets/);
-  assert.match(canvasSource, /handleCanvasSourceUpload[\s\S]*?persistCanvasUploadAssets\(assets(?:,\s*\{[^}]*\})?\)[\s\S]*?createUploadedImageNodes/);
-  assert.match(canvasSource, /handleComposerSourceUpload[\s\S]*?persistCanvasUploadAssets\(assets(?:,\s*\{[^}]*\})?\)[\s\S]*?createUploadedImageNodes/);
+  assert.match(canvasSource, /handleCanvasSourceUpload[\s\S]*?createUploadedImageNodes[\s\S]*?persistCanvasUploadAssets\(assets(?:,\s*\{[^}]*\})?\)/);
+  assert.match(canvasSource, /status:\s*'uploading'/);
+  assert.match(canvasSource, /localPreviewUrl/);
   assert.doesNotMatch(canvasSource, /canvasSaveKeyRef\.current \|\| !nodes\.length/);
   assert.doesNotMatch(canvasSource, /draftReadyRef\.current \|\| !nodes\.length/);
   assert.doesNotMatch(canvasSource, /if \(!snapshot\.nodes\.length\) return;/);

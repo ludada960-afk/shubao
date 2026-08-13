@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   responsiveImageCandidates,
   responsiveImageSrcSet,
@@ -38,8 +38,10 @@ export default function ResponsiveImage({
   const [failed, setFailed] = useState(false);
   const [optimizedFailed, setOptimizedFailed] = useState(false);
   const [decoded, setDecoded] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [candidateIndex, setCandidateIndex] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
+  const sourceKeyRef = useRef(null);
   const candidates = useMemo(() => responsiveImageCandidates(src, variant), [src, variant]);
   const fallbacks = useMemo(() => responsiveImageCandidates(src, 'full'), [src]);
   const avifSrcSet = useMemo(() => responsiveImageSrcSet(src, 'avif'), [src]);
@@ -52,9 +54,19 @@ export default function ResponsiveImage({
   const retryWebpSrcSet = retryImageSrcSet(webpSrcSet, retryCount);
 
   useEffect(() => {
+    const nextKey = `${src || ''}\0${variant || ''}`;
+    // A cached image can fire load before effects run. Do not erase that
+    // successful state on the first mount; only reset when the source changes.
+    if (sourceKeyRef.current === null) {
+      sourceKeyRef.current = nextKey;
+      return;
+    }
+    if (sourceKeyRef.current === nextKey) return;
+    sourceKeyRef.current = nextKey;
     setFailed(false);
     setOptimizedFailed(false);
     setDecoded(false);
+    setLoaded(false);
     setCandidateIndex(0);
     setRetryCount(0);
   }, [src, variant]);
@@ -65,6 +77,7 @@ export default function ResponsiveImage({
       setOptimizedFailed(false);
       setCandidateIndex(0);
       setDecoded(false);
+      setLoaded(false);
       setFailed(false);
       setRetryCount(count => count + 1);
     }, IMAGE_RETRY_DELAYS_MS[retryCount]);
@@ -73,7 +86,8 @@ export default function ResponsiveImage({
   return (
     <div
       className={className}
-      aria-busy={Boolean(imageSrc) && !decoded}
+      aria-busy={Boolean(imageSrc) && !loaded}
+      data-decoded={decoded ? 'true' : undefined}
       onClick={onClick}
       style={{
         position: 'relative',
@@ -83,6 +97,7 @@ export default function ResponsiveImage({
         ...style,
       }}
     >
+      {imageSrc && !loaded && !failed && <span className="responsive-image-skeleton" aria-hidden="true" style={{ position: 'absolute', inset: 0, background: '#eceef1' }} />}
       {imageSrc && !failed && (
         <picture style={{ display: 'contents' }}>
           {!optimizedFailed && retryAvifSrcSet && <source type="image/avif" srcSet={retryAvifSrcSet} sizes={sizes} />}
@@ -97,18 +112,14 @@ export default function ResponsiveImage({
             sizes={sizes}
             onLoad={event => {
               const image = event.currentTarget;
+              setLoaded(true);
+              onLoad?.({ currentTarget: image, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight });
               const decode = typeof image.decode === 'function' ? image.decode() : Promise.resolve();
-              decode.catch(() => {}).finally(() => {
-                setDecoded(true);
-                onLoad?.({
-                  currentTarget: image,
-                  naturalWidth: image.naturalWidth,
-                  naturalHeight: image.naturalHeight,
-                });
-              });
+              void decode.catch(() => {}).finally(() => setDecoded(true));
             }}
             onError={event => {
               setDecoded(false);
+              setLoaded(false);
               if (!optimizedFailed) {
                 setOptimizedFailed(true);
                 setCandidateIndex(0);
@@ -125,7 +136,7 @@ export default function ResponsiveImage({
               width: '100%', height: ratio === 'auto' ? 'auto' : '100%', display: 'block', objectFit: 'contain',
               ...(ratio === 'auto' ? { objectFit: 'cover' } : {}),
               ...imgStyle,
-              opacity: decoded ? (imgStyle?.opacity ?? 1) : 0,
+              opacity: loaded ? (imgStyle?.opacity ?? 1) : 0,
               transition: imgStyle?.transition || 'opacity 120ms ease',
             }}
           />

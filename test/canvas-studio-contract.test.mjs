@@ -369,9 +369,9 @@ test('image nodes report decoded natural dimensions and move-scale supports dire
   assert.match(source, /onNaturalSize/);
   assert.match(source, /naturalWidth/);
   assert.match(source, /naturalHeight/);
-  assert.match(source, /gesture\.kind === 'move-scale'/);
+  assert.match(source, /gesture\.kind === 'move-source-draw'/);
   assert.match(source, /options\.rotation/);
-  assert.match(source, /ec-canvas-move-scale-frame/);
+  assert.match(source, /ec-canvas-move-scale-target/);
 });
 
 test('annotation editor handles undo and redo from the keyboard', () => {
@@ -613,12 +613,10 @@ test('focused editing exposes complete functional annotation and geometry contro
   }
   assert.match(source, /aria-label="标注颜色"/);
   assert.match(source, /aria-label="标注粗细"/);
-  assert.match(source, /aria-label="标注说明"/);
-  assert.match(source, /aria-label="缩放比例"/);
-  assert.match(source, /aria-label="水平偏移"/);
-  assert.match(source, /aria-label="垂直偏移"/);
-  assert.match(page, /applyCanvasMoveScale/);
-  assert.match(page, /focusedEditor\.mode === 'move-scale'[\s\S]*?setNodes/);
+  assert.match(source, /aria-label="在图片上输入文字"/);
+  assert.match(source, /ec-canvas-move-scale-source/);
+  assert.match(source, /ec-canvas-move-scale-target/);
+  assert.match(page, /focusedEditor\.mode === 'move-scale'[\s\S]*?transformCanvasImage/);
   assert.match(source, /onPointerMove/);
   assert.match(source, /annotations\.map/);
   assert.doesNotMatch(source, /aria-modal="true"/);
@@ -633,6 +631,14 @@ test('inline annotation geometry supports pen, rectangle, arrow, and text', () =
   const arrow = updateCanvasAnnotation(createCanvasAnnotation('arrow', { x: 0.2, y: 0.3 }, base), { x: 0.9, y: 0.8 });
   assert.deepEqual({ x1: arrow.x1, y1: arrow.y1, x2: arrow.x2, y2: arrow.y2 }, { x1: 0.2, y1: 0.3, x2: 0.9, y2: 0.8 });
   assert.equal(createCanvasAnnotation('text', { x: 0.5, y: 0.5 }, { ...base, text: '材质细节' }).text, '材质细节');
+});
+
+test('text annotation starts an inline editor at the clicked image point', () => {
+  const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
+  assert.match(source, /annotationTextDraft/);
+  assert.match(source, /autoFocus/);
+  assert.match(source, /commitAnnotationText/);
+  assert.doesNotMatch(source, /aria-label="标注说明"/);
 });
 
 test('inline crop and blank placement stay normalized and avoid occupied canvas objects', () => {
@@ -728,4 +734,11 @@ test('canvas output port stays clear of resize handles and owns click feedback',
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(css, /\.ec-canvas-node-port \{[^}]*right: -32px/);
   assert.match(source, /onPointerUp=\{event => \{ event\.stopPropagation\(\); onPointerUp\?\.\(event\); \}\}/);
+});
+
+test('canvas async processing cannot resurrect a deleted source node', () => {
+  const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(page, /nodesRef\.current\.some\(node => node\.id === source\.id\)/);
+  assert.match(page, /if \(!focusedEditor \|\| promptLoading\) return/);
+  assert.match(page, /removeCanvasNode\(node\.id\)/);
 });

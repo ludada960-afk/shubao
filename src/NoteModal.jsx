@@ -20,8 +20,35 @@ function ecommerceGallerySlides(item) {
   ];
 }
 
+function tryOnWorkflowAssets(item) {
+  const assets = (item?.assets || item?.images || []).map((asset, index) => ({
+    ...asset,
+    url: asset?.url || asset?.src || '',
+    label: asset?.label || (asset?.role === 'source' ? '商品与穿搭' : asset?.role === 'reference' ? '参考模特' : '上身结果'),
+    ratio: asset?.ratio || '3:4',
+    order: asset?.role === 'source' ? 0 : asset?.role === 'reference' ? 1 : 2 + index,
+  })).filter(asset => asset.url).sort((left, right) => left.order - right.order);
+  return assets;
+}
+
+function TryOnGalleryWorkflow({ item }) {
+  const assets = useMemo(() => tryOnWorkflowAssets(item), [item]);
+  return <div className="ec-gallery-tryon-workflow">
+    {assets.slice(0, 3).map((asset, index) => <React.Fragment key={asset.id || asset.url}>
+      {index > 0 && <span className={`ec-gallery-tryon-operator operator-${index}`}>{index === 1 ? '+' : '→'}</span>}
+      <figure className={`ec-gallery-tryon-asset role-${asset.role || index}`}>
+        <ResponsiveImage src={asset.url} alt={asset.label} variant="display" ratio={asset.ratio} priority
+          sizes="(min-width:760px) 24vw, 29vw" style={{ width: '100%', background: '#f6f2ed' }}
+          imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        <figcaption>{asset.label}</figcaption>
+      </figure>
+    </React.Fragment>)}
+  </div>;
+}
+
 function EcommerceGalleryPreview({ item, onClose }) {
   const slides = useMemo(() => ecommerceGallerySlides(item), [item]);
+  const isTryOn = item?.intent === 'anything_tryon';
   const [index, setIndex] = useState(0);
   const wheelLockRef = useRef(0);
   const current = slides[index];
@@ -41,24 +68,26 @@ function EcommerceGalleryPreview({ item, onClose }) {
   return <div className="ec-gallery-overlay animate-fade-in" onClick={onClose}>
     <div className="ec-gallery-modal animate-scale-in" onClick={event => event.stopPropagation()} onWheel={handleWheel}>
       <div className="ec-gallery-visual">
-        <ResponsiveImage src={current.url} alt={current.label} variant="display" ratio="3:4" priority sizes="min(72vw, 980px)"
-          style={{ width: '100%', height: '100%', background: '#f5f5f5' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-        {index > 0 && <button className="ec-gallery-nav ec-gallery-prev" type="button" aria-label="上一张" onClick={() => setIndex(value => value - 1)}><MdArrowBack size={20} /></button>}
-        {index < slides.length - 1 && <button className="ec-gallery-nav ec-gallery-next" type="button" aria-label="下一张" onClick={() => setIndex(value => value + 1)}><MdArrowForward size={20} /></button>}
-        <div className="ec-gallery-progress">{index + 1} / {slides.length}</div>
+        {isTryOn ? <TryOnGalleryWorkflow item={item} /> : <ResponsiveImage src={current.url} alt={current.label} variant="display" ratio={current.width && current.height ? `${current.width}:${current.height}` : item?.ratio || '3:4'} priority sizes="min(72vw, 980px)"
+          style={{ width: '100%', height: '100%', background: '#f5f5f5' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+        {!isTryOn && index > 0 && <button className="ec-gallery-nav ec-gallery-prev" type="button" aria-label="上一张" onClick={() => setIndex(value => value - 1)}><MdArrowBack size={20} /></button>}
+        {!isTryOn && index < slides.length - 1 && <button className="ec-gallery-nav ec-gallery-next" type="button" aria-label="下一张" onClick={() => setIndex(value => value + 1)}><MdArrowForward size={20} /></button>}
+        <div className="ec-gallery-progress">{isTryOn ? '完整工作流' : `${index + 1} / ${slides.length}`}</div>
       </div>
       <aside className="ec-gallery-details">
         <button className="ec-gallery-close" type="button" aria-label="关闭" onClick={onClose}><MdClose size={20} /></button>
-        <span className="ec-gallery-kind">电商套图案例</span><h2>{item.title || item.product_name || '电商套图'}</h2>
-        <div className="ec-gallery-meta">{item.platform || '电商平台'} · {Math.max(0, slides.length - 1)} 张成品图</div>
-        <div className="ec-gallery-current"><span>{current.isCover ? '封面' : '第 ' + index + ' 张'}</span><h3>{current.label}</h3><p>{current.description}</p>{dimensions && <small>{dimensions}</small>}</div>
-        <div className="ec-gallery-strip" aria-label="套图图片目录">{slides.map((slide, slideIndex) => <button key={slide.url + slideIndex} type="button" className={slideIndex === index ? 'active' : ''} onClick={() => setIndex(slideIndex)} aria-label={'查看' + slide.label}>
+        <span className="ec-gallery-kind">{isTryOn ? '万物上身案例' : '电商套图案例'}</span><h2>{item.title || item.product_name || '电商套图'}</h2>
+        <div className="ec-gallery-meta">{isTryOn ? '商品素材 + 参考模特 → 上身结果' : `${item.platform || '电商平台'} · ${Math.max(1, slides.length - 1)} 张成品图`}</div>
+        <div className="ec-gallery-current"><span>{isTryOn ? '生成逻辑' : current.isCover ? '封面' : '第 ' + index + ' 张'}</span><h3>{isTryOn ? '完整输入与结果一起复用' : current.label}</h3><p>{isTryOn ? item.prompt : current.description}</p>{!isTryOn && dimensions && <small>{dimensions}</small>}</div>
+        {!isTryOn && <div className="ec-gallery-strip" aria-label="套图图片目录">{slides.map((slide, slideIndex) => <button key={slide.url + slideIndex} type="button" className={slideIndex === index ? 'active' : ''} onClick={() => setIndex(slideIndex)} aria-label={'查看' + slide.label}>
           <span>{String(slideIndex + 1).padStart(2, '0')}</span><strong>{slide.label}</strong>
-        </button>)}</div><div className="ec-gallery-wheel-hint">滚动鼠标切换图片</div>
+        </button>)}</div>}<div className="ec-gallery-wheel-hint">{isTryOn ? '做同款会带入全部素材、提示词与参数' : '滚动鼠标切换图片'}</div>
       </aside>
     </div>
     <style>{`
       .ec-gallery-overlay{position:fixed;inset:0;z-index:9998;display:grid;place-items:center;padding:24px;background:rgba(18,18,20,.78);overscroll-behavior:none;backdrop-filter:blur(10px)}.ec-gallery-modal{display:grid;width:min(1180px,94vw);height:min(780px,92vh);grid-template-columns:minmax(0,1fr) 340px;overflow:hidden;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:#fff;box-shadow:0 28px 80px rgba(0,0,0,.32)}.ec-gallery-visual{position:relative;min-width:0;overflow:hidden;background:#f1f1f1}.ec-gallery-nav{position:absolute;top:50%;display:grid;width:42px;height:42px;place-items:center;border:0;border-radius:50%;background:rgba(25,25,27,.78);color:#fff;cursor:pointer;transform:translateY(-50%);backdrop-filter:blur(8px)}.ec-gallery-prev{left:16px}.ec-gallery-next{right:16px}.ec-gallery-progress{position:absolute;bottom:16px;left:50%;padding:6px 10px;border-radius:6px;background:rgba(25,25,27,.76);color:#fff;font-size:12px;font-weight:800;transform:translateX(-50%)}.ec-gallery-details{position:relative;display:flex;min-width:0;flex-direction:column;padding:30px 26px 22px;background:#fff}.ec-gallery-close{position:absolute;top:18px;right:18px;display:grid;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:#f2f2f3;color:#333;cursor:pointer}.ec-gallery-kind{align-self:flex-start;margin-bottom:14px;padding:5px 8px;border-radius:5px;background:#f1edff;color:#6545e7;font-size:11px;font-weight:800}.ec-gallery-details h2{margin:0 40px 7px 0;color:#202124;font-size:21px;line-height:1.35;letter-spacing:0}.ec-gallery-meta{color:#888b92;font-size:12px}.ec-gallery-current{margin-top:28px;padding-top:24px;border-top:1px solid #ececef}.ec-gallery-current>span{color:#7463d9;font-size:11px;font-weight:800}.ec-gallery-current h3{margin:7px 0 8px;color:#25262a;font-size:18px;letter-spacing:0}.ec-gallery-current p{margin:0;color:#656870;font-size:13px;line-height:1.75}.ec-gallery-current small{display:block;margin-top:10px;color:#9a9ca2;font-size:11px}.ec-gallery-strip{display:flex;margin-top:auto;flex-direction:column;gap:5px;max-height:174px;overflow-y:auto;padding:2px}.ec-gallery-strip button{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:#f5f5f6;color:#6c6e74;cursor:pointer;text-align:left}.ec-gallery-strip button span{font:700 10px/1 ui-monospace,monospace;color:#a2a3a8}.ec-gallery-strip button strong{overflow:hidden;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.ec-gallery-strip button.active{border-color:#cfc5ff;background:#f1edff;color:#563ee0}.ec-gallery-wheel-hint{margin-top:12px;color:#a1a2a8;font-size:11px;text-align:center}@media(max-width:760px){.ec-gallery-overlay{padding:0}.ec-gallery-modal{width:100vw;height:100dvh;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;border:0;border-radius:0}.ec-gallery-details{max-height:36dvh;padding:18px}.ec-gallery-details h2{font-size:17px}.ec-gallery-current{margin-top:12px;padding-top:12px}.ec-gallery-strip{margin-top:14px;flex-direction:row;overflow-x:auto;overflow-y:hidden}.ec-gallery-strip button{max-width:140px;flex:0 0 auto}.ec-gallery-wheel-hint{display:none}}
+      .ec-gallery-tryon-workflow{display:flex;width:100%;height:100%;align-items:center;justify-content:center;gap:16px;padding:56px 36px;background:linear-gradient(120deg,#fff8ea 0%,#faf7ff 67%,#edf8f6 100%)}.ec-gallery-tryon-asset{position:relative;min-width:0;max-width:28%;margin:0;padding:8px;border:1px solid rgba(67,55,45,.1);border-radius:8px;background:#fff;box-shadow:0 18px 40px rgba(47,37,30,.14);transform:rotate(-2deg)}.ec-gallery-tryon-asset.role-reference{transform:rotate(2deg)}.ec-gallery-tryon-asset.role-result{max-width:32%;transform:rotate(1deg)}.ec-gallery-tryon-asset figcaption{position:absolute;right:13px;bottom:13px;padding:5px 8px;border-radius:5px;background:rgba(25,23,23,.78);color:#fff;font-size:11px;font-weight:900}.ec-gallery-tryon-operator{display:grid;width:40px;height:40px;flex:0 0 40px;place-items:center;border:1px solid rgba(101,72,205,.18);border-radius:50%;background:#fff;color:#6548cb;font:900 22px/1 inherit;box-shadow:0 8px 22px rgba(76,52,161,.13)}
+      @media(max-width:760px){.ec-gallery-tryon-workflow{gap:5px;padding:26px 8px}.ec-gallery-tryon-asset{max-width:29%;padding:3px}.ec-gallery-tryon-asset.role-result{max-width:32%}.ec-gallery-tryon-operator{width:22px;height:22px;flex-basis:22px;font-size:13px}.ec-gallery-tryon-asset figcaption{right:5px;bottom:5px;padding:3px 4px;font-size:8px}}
     `}</style>
   </div>;
 }

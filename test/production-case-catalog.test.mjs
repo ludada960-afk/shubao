@@ -20,7 +20,7 @@ test('production case catalog gives every showcase asset a stable display contra
   for (const item of PRODUCTION_CASE_CATALOG) {
     assert.ok(['fixture', 'production'].includes(item.status));
     assert.ok(item.assets.length > 0);
-    assert.ok(item.assets.every(asset => asset.src.startsWith('/images/')));
+    assert.ok(item.assets.every(asset => asset.src.startsWith('/images/') || asset.src.startsWith('/gallery/')));
     assert.ok(item.assets.every(asset => /^\d+:\d+$/.test(asset.ratio)));
     assert.ok(item.assets.every(asset => asset.label && asset.intent));
   }

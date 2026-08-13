@@ -214,7 +214,7 @@ export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(
 
 function ComposerSources({ sources = [], role, onAddSources, onRemoveSource, uploadLabel = '上传图片', accept = 'image/*' }) {
   const normalizedSources = sources.map(source => ({ ...source, role: role || source.role }));
-  const imageNames = new Map(buildImageMentions(normalizedSources.filter(source => source.kind !== 'video')).map(source => [source.sourceNodeId || source.id || source.url, source.name]));
+  const imageNames = new Map(buildImageMentions(normalizedSources.filter(source => !['video', 'audio'].includes(source.kind))).map(source => [source.sourceNodeId || source.id || source.url, source.name]));
   return <div className="ec-canvas-composer-sources" aria-label={`已引用 ${sources.length} 个素材`}>
     {normalizedSources.slice(0, 8).map((source, index) => {
       const sourceId = source.sourceNodeId || source.id || source.url || index;
@@ -222,6 +222,8 @@ function ComposerSources({ sources = [], role, onAddSources, onRemoveSource, upl
       return <span className="ec-canvas-composer-source" key={sourceId} data-source-id={sourceId}>
       {source.kind === 'video'
         ? <div className="ec-canvas-composer-source-preview is-video"><video src={source.url} muted playsInline preload="metadata" /></div>
+        : source.kind === 'audio'
+          ? <div className="ec-canvas-composer-source-preview is-audio"><Volume2 size={20} /><span>音频</span></div>
         : <ResponsiveImage
           src={source.url}
           alt={sourceName}
@@ -537,8 +539,9 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
   const [previewPlan, setPreviewPlan] = useState(null);
   if (!node) return null;
   const mode = node.mode || 'smart';
-  const imageSources = sources.filter(source => source.kind !== 'video');
+  const imageSources = sources.filter(source => source.kind !== 'video' && source.kind !== 'audio');
   const videoSources = sources.filter(source => source.kind === 'video');
+  const audioSources = sources.filter(source => source.kind === 'audio');
   const roleFor = source => node.sourceRoles?.[source.id] || source.role || 'reference';
   const firstSources = imageSources.filter(source => roleFor(source) === 'first');
   const lastSources = imageSources.filter(source => roleFor(source) === 'last');
@@ -551,7 +554,7 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
   const planFiles = {
     images: referenceImages.map(source => ({ type: 'image/png', name: source.name || '参考图片' })),
     videos: videoSources.map(source => ({ type: 'video/mp4', name: source.name || '参考视频' })),
-    audios: [],
+    audios: audioSources.map(source => ({ type: 'audio/mpeg', name: source.name || '参考音频' })),
     first: firstSources.map(source => ({ type: 'image/png', name: source.name || '首帧图' })),
     last: lastSources.map(source => ({ type: 'image/png', name: source.name || '尾帧图' })),
   };
@@ -591,7 +594,7 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
       <ComposerSources
         sources={mixedReferenceSources}
         role="reference"
-        accept="image/*,video/*"
+        accept="image/*,video/*,audio/*"
         onAddSources={files => { change({}); onAddSources?.(files, 'reference'); }}
         onRemoveSource={sourceId => { change({}); onRemoveSource?.(sourceId); }}
         uploadLabel={mode === 'remake' ? '添加素材' : '上传素材'}
@@ -599,6 +602,7 @@ export function CanvasVideoComposer({ node, position, sources = [], loading = fa
     </div>}
     <textarea data-canvas-control="true" value={node.prompt || ''} maxLength={1200} disabled={loading} placeholder="描述主体、动作、镜头、场景和节奏" onChange={event => change({ prompt: event.target.value })} />
     <div className="ec-canvas-video-controls">
+      <label>视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => change({ modelProductId: event.target.value })}><option value="seedance_standard">Seedance 2.0 标准</option><option value="seedance_fast">Seedance 2.0 Fast</option></select></label>
       <label>清晰度<select value={node.resolution || '720p'} onChange={event => change({ resolution: event.target.value })}><option value="720p">720P 成片</option></select></label>
       <label>画幅<select value={node.aspectRatio || '9:16'} onChange={event => change({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
       <label>时长<select value={node.duration || 8} onChange={event => change({ duration: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, index) => index + 4).map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
@@ -658,6 +662,7 @@ const FOCUSED_EDITOR_LABELS = {
 export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, onCancel, onConfirm }) {
   const gestureRef = useRef(null);
   const stageRef = useRef(null);
+  const [annotationTextDraft, setAnnotationTextDraft] = useState(null);
   useEffect(() => {
     if (mode !== 'annotation') return undefined;
     const handleKeyDown = event => {
@@ -690,6 +695,10 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
   const ratios = mode === 'crop' ? ['原比例', '自由', '1:1', '3:4', '4:3', '9:16'] : [];
   const annotations = options.annotations || [];
   const cropRect = normalizeCanvasCropRect(options.cropRect || { x: 0.08, y: 0.08, w: 0.84, h: 0.84 });
+  const moveSourceRect = options.sourceRect ? normalizeCanvasCropRect(options.sourceRect) : null;
+  const moveTargetRect = options.targetRect ? normalizeCanvasCropRect(options.targetRect) : null;
+  const hasMoveSource = Boolean(moveSourceRect && moveSourceRect.w >= 0.03 && moveSourceRect.h >= 0.03);
+  const hasMoveTarget = Boolean(moveTargetRect && moveTargetRect.w >= 0.03 && moveTargetRect.h >= 0.03);
   const pointFromEvent = event => {
     const bounds = stageRef.current?.getBoundingClientRect();
     if (!bounds) return { x: 0, y: 0 };
@@ -704,6 +713,19 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
     annotationHistory: [...(options.annotationHistory || []), annotations].slice(-20),
     annotationFuture: [],
   });
+  const commitAnnotationText = () => {
+    if (!annotationTextDraft) return;
+    const text = String(annotationTextDraft.text || '').trim();
+    if (text) {
+      const shape = createCanvasAnnotation('text', annotationTextDraft, {
+        color: options.annotationColor,
+        width: options.annotationWidth,
+        text,
+      });
+      commitAnnotations([...annotations, shape]);
+    }
+    setAnnotationTextDraft(null);
+  };
   const undoAnnotation = () => {
     const history = [...(options.annotationHistory || [])];
     if (!history.length) return;
@@ -733,13 +755,14 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
     event.stopPropagation();
     const point = pointFromEvent(event);
     if (isAnnotation) {
-      const shape = createCanvasAnnotation(options.annotationTool || 'pen', point, {
-        color: options.annotationColor,
-        width: options.annotationWidth,
-        text: options.annotation,
-      });
-      commitAnnotations([...annotations, shape]);
-      if (shape.tool !== 'text') gestureRef.current = { kind: 'annotation', id: shape.id };
+      const tool = options.annotationTool || 'pen';
+      if (tool === 'text') {
+        setAnnotationTextDraft({ ...point, text: '' });
+      } else {
+        const shape = createCanvasAnnotation(tool, point, { color: options.annotationColor, width: options.annotationWidth });
+        commitAnnotations([...annotations, shape]);
+        gestureRef.current = { kind: 'annotation', id: shape.id };
+      }
     } else if (isSplit) {
       const splitPosition = (options.direction || 'vertical') === 'vertical' ? point.x : point.y;
       onOptionChange?.({ ...options, splitPosition });
@@ -750,13 +773,9 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
       onOptionChange?.({ ...options, ratio: '自由', cropRect: { x: point.x, y: point.y, w: 0, h: 0 } });
       gestureRef.current = { kind: 'crop', start: point };
     } else if (isMoveScale) {
-      gestureRef.current = {
-        kind: 'move-scale',
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        offsetX: Number(options.offsetX) || 0,
-        offsetY: Number(options.offsetY) || 0,
-      };
+      if (options.moveStage === 'target-adjust') return;
+      onOptionChange?.({ ...options, moveStage: 'drawing', sourceRect: { x: point.x, y: point.y, w: 0, h: 0 }, targetRect: null });
+      gestureRef.current = { kind: 'move-source-draw', start: point };
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -793,26 +812,76 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
           h: Math.abs(point.y - gesture.start.y),
         }),
       });
-    } else if (gesture.kind === 'move-scale') {
+    } else if (gesture.kind === 'move-source-draw') {
       onOptionChange?.({
         ...options,
-        offsetX: Math.round(gesture.offsetX + event.clientX - gesture.startClientX),
-        offsetY: Math.round(gesture.offsetY + event.clientY - gesture.startClientY),
+        moveStage: 'drawing',
+        sourceRect: normalizeCanvasCropRect({
+          x: Math.min(gesture.start.x, point.x),
+          y: Math.min(gesture.start.y, point.y),
+          w: Math.abs(point.x - gesture.start.x),
+          h: Math.abs(point.y - gesture.start.y),
+        }),
+        targetRect: null,
+      });
+    } else if (gesture.kind === 'move-target') {
+      const dx = point.x - gesture.start.x;
+      const dy = point.y - gesture.start.y;
+      onOptionChange?.({
+        ...options,
+        targetRect: normalizeCanvasCropRect({
+          ...gesture.rect,
+          x: Math.max(0, Math.min(1 - gesture.rect.w, gesture.rect.x + dx)),
+          y: Math.max(0, Math.min(1 - gesture.rect.h, gesture.rect.y + dy)),
+        }),
+      });
+    } else if (gesture.kind === 'resize-target') {
+      const rect = gesture.rect;
+      const left = gesture.handle.includes('w') ? point.x : rect.x;
+      const right = gesture.handle.includes('e') ? point.x : rect.x + rect.w;
+      const top = gesture.handle.includes('n') ? point.y : rect.y;
+      const bottom = gesture.handle.includes('s') ? point.y : rect.y + rect.h;
+      onOptionChange?.({
+        ...options,
+        targetRect: normalizeCanvasCropRect({
+          x: Math.min(left, right),
+          y: Math.min(top, bottom),
+          w: Math.max(0.03, Math.abs(right - left)),
+          h: Math.max(0.03, Math.abs(bottom - top)),
+        }),
       });
     }
+  };
+  const beginMoveTarget = event => {
+    if (!moveTargetRect) return;
+    event.stopPropagation();
+    gestureRef.current = { kind: 'move-target', start: pointFromEvent(event), rect: moveTargetRect };
+    stageRef.current?.setPointerCapture?.(event.pointerId);
+  };
+  const beginResizeMoveTarget = (event, handle) => {
+    if (!moveTargetRect) return;
+    event.stopPropagation();
+    gestureRef.current = { kind: 'resize-target', handle, rect: moveTargetRect };
+    stageRef.current?.setPointerCapture?.(event.pointerId);
   };
   const finishGesture = event => {
     event.stopPropagation();
     gestureRef.current = null;
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
-  const previewTransform = isMoveScale
-    ? `translate(${Number(options.offsetX) || 0}px, ${Number(options.offsetY) || 0}px) rotate(${Number(options.rotation) || 0}deg) scale(${Number(options.scale) || 1})`
-    : undefined;
   return <div className={`ec-canvas-focused-editor is-${mode}`} aria-label={FOCUSED_EDITOR_LABELS[mode] || '图片编辑'} style={{ left: node.x, top: node.y, width: node.w, height: node.h }} onPointerDown={event => event.stopPropagation()}>
     <div ref={stageRef} className="ec-canvas-focused-stage" onPointerDown={onStagePointerDown} onPointerMove={onStagePointerMove} onPointerUp={finishGesture} onPointerCancel={finishGesture}>
-      <ResponsiveImage src={node.url} alt={node.name || '待编辑图片'} variant="canvas" sizes={`${Math.ceil(node.w)}px`} style={{ width: '100%', height: '100%', transform: previewTransform }} imgStyle={{ objectFit: 'contain' }} />
-      {isMoveScale && <div className="ec-canvas-move-scale-frame" style={{ transform: previewTransform }} aria-hidden="true"><i /><i /><i /><i /></div>}
+      <ResponsiveImage src={node.url} alt={node.name || '待编辑图片'} variant="canvas" sizes={`${Math.ceil(node.w)}px`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} />
+      {isMoveScale && !hasMoveSource && <span className="ec-canvas-move-scale-hint">在要移动的对象上拖拽画框</span>}
+      {isMoveScale && hasMoveSource && <div className="ec-canvas-move-scale-source" style={{ left: `${moveSourceRect.x * 100}%`, top: `${moveSourceRect.y * 100}%`, width: `${moveSourceRect.w * 100}%`, height: `${moveSourceRect.h * 100}%` }}><span>原位置</span></div>}
+      {isMoveScale && hasMoveTarget && <div
+        className="ec-canvas-move-scale-target"
+        style={{ left: `${moveTargetRect.x * 100}%`, top: `${moveTargetRect.y * 100}%`, width: `${moveTargetRect.w * 100}%`, height: `${moveTargetRect.h * 100}%`, transform: `rotate(${Number(options.rotation) || 0}deg)` }}
+        onPointerDown={beginMoveTarget}
+      >
+        <span>新位置</span>
+        {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(handle => <button key={handle} type="button" aria-label={`从${handle}调整目标大小`} className={`ec-canvas-move-scale-handle is-${handle}`} onPointerDown={event => beginResizeMoveTarget(event, handle)} />)}
+      </div>}
       {mode === 'crop' && <div className="ec-canvas-crop-frame" style={{ left: `${cropRect.x * 100}%`, top: `${cropRect.y * 100}%`, width: `${cropRect.w * 100}%`, height: `${cropRect.h * 100}%` }}><i /><i /><i /><i /></div>}
       {isSplit && <span className={`ec-canvas-split-guide is-${options.direction || 'vertical'}`} style={(options.direction || 'vertical') === 'vertical' ? { left: `${(options.splitPosition ?? 0.5) * 100}%` } : { top: `${(options.splitPosition ?? 0.5) * 100}%` }} />}
       {isGrid && <>
@@ -832,6 +901,21 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
           return <text key={shape.id} x={shape.x * 1000} y={shape.y * 1000} fill={shape.color} fontSize={Math.max(32, strokeWidth * 8)} fontWeight="700">{shape.text}</text>;
         })}
       </svg>}
+      {isAnnotation && annotationTextDraft && <input
+        className="ec-canvas-annotation-text-input"
+        type="text"
+        autoFocus
+        aria-label="在图片上输入文字"
+        value={annotationTextDraft.text}
+        style={{ left: `${annotationTextDraft.x * 100}%`, top: `${annotationTextDraft.y * 100}%`, color: options.annotationColor || '#ef4444' }}
+        onPointerDown={event => event.stopPropagation()}
+        onChange={event => setAnnotationTextDraft(current => ({ ...current, text: event.target.value }))}
+        onBlur={commitAnnotationText}
+        onKeyDown={event => {
+          if (event.key === 'Enter') { event.preventDefault(); commitAnnotationText(); }
+          if (event.key === 'Escape') { event.preventDefault(); setAnnotationTextDraft(null); }
+        }}
+      />}
     </div>
     <div className="ec-canvas-focused-toolbar" role="toolbar" aria-label={FOCUSED_EDITOR_LABELS[mode]}>
       <strong>{FOCUSED_EDITOR_LABELS[mode]}</strong>
@@ -847,20 +931,21 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
         ].map(([tool, label, Icon]) => <button key={tool} type="button" title={label} aria-label={label} className={(options.annotationTool || 'pen') === tool ? 'is-active' : ''} onClick={() => onOptionChange?.({ ...options, annotationTool: tool })}><Icon size={15} /></button>)}
         <label className="ec-canvas-focused-field is-icon-only" title="标注颜色"><span className="sr-only">颜色</span><input type="color" aria-label="标注颜色" value={options.annotationColor || '#ef4444'} onChange={event => onOptionChange?.({ ...options, annotationColor: event.target.value })} /></label>
         <label className="ec-canvas-focused-field is-icon-only" title={`标注粗细 ${options.annotationWidth || 3}px`}><span className="sr-only">粗细</span><input type="range" aria-label="标注粗细" min="1" max="12" value={options.annotationWidth || 3} onChange={event => onOptionChange?.({ ...options, annotationWidth: Number(event.target.value) })} /></label>
-        <input className="ec-canvas-focused-text is-compact" type="text" aria-label="标注说明" title="标注文字" placeholder="文字" value={options.annotation || ''} onChange={event => onOptionChange?.({ ...options, annotation: event.target.value })} />
         <button type="button" title="撤销" aria-label="撤销" disabled={!options.annotationHistory?.length} onClick={undoAnnotation}><Undo2 size={15} /></button>
         <button type="button" title="重做" aria-label="重做" disabled={!options.annotationFuture?.length} onClick={redoAnnotation}><Redo2 size={15} /></button>
         <button type="button" title="清除标注" aria-label="清除标注" onClick={() => commitAnnotations([])}><Eraser size={15} /></button>
       </>}
       {isMoveScale && <>
-        <label className="ec-canvas-focused-field is-wide"><span>缩放</span><input type="range" aria-label="缩放比例" min="0.5" max="2" step="0.05" value={options.scale || 1} onChange={event => onOptionChange?.({ ...options, scale: Number(event.target.value) })} /><output>{Math.round((options.scale || 1) * 100)}%</output></label>
-        <label className="ec-canvas-focused-field"><span>水平</span><input type="number" aria-label="水平偏移" value={options.offsetX || 0} onChange={event => onOptionChange?.({ ...options, offsetX: Number(event.target.value) })} /></label>
-        <label className="ec-canvas-focused-field"><span>垂直</span><input type="number" aria-label="垂直偏移" value={options.offsetY || 0} onChange={event => onOptionChange?.({ ...options, offsetY: Number(event.target.value) })} /></label>
-        <label className="ec-canvas-focused-field is-wide"><span>旋转</span><input type="range" aria-label="旋转角度" min="-180" max="180" step="1" value={options.rotation || 0} onChange={event => onOptionChange?.({ ...options, rotation: Number(event.target.value) })} /><output>{Math.round(options.rotation || 0)}°</output></label>
+        {!hasMoveTarget && <button type="button" className="is-active" disabled={!hasMoveSource} onClick={() => onOptionChange?.({ ...options, moveStage: 'target-adjust', targetRect: moveSourceRect, rotation: 0 })}>确认原位置</button>}
+        {hasMoveTarget && <>
+          <span className="ec-canvas-focused-status">拖动蓝框调整位置，拖动控制点缩放</span>
+          <label className="ec-canvas-focused-field is-wide"><span>旋转</span><input type="range" aria-label="目标旋转角度" min="-180" max="180" step="1" value={options.rotation || 0} onChange={event => onOptionChange?.({ ...options, rotation: Number(event.target.value) })} /><output>{Math.round(options.rotation || 0)}°</output></label>
+          <button type="button" onClick={() => onOptionChange?.({ ...options, moveStage: 'drawing', sourceRect: null, targetRect: null, rotation: 0 })}>重新框选</button>
+        </>}
       </>}
       <i />
       <button type="button" onClick={onCancel}><X size={15} />取消</button>
-      <button type="button" className="is-primary" onClick={onConfirm}><Check size={15} />完成</button>
+      <button type="button" className="is-primary" disabled={isMoveScale && (!hasMoveSource || !hasMoveTarget)} onClick={onConfirm}><Check size={15} />完成</button>
     </div>
   </div>;
 }

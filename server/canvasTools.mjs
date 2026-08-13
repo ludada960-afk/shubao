@@ -1,17 +1,18 @@
-const ACTIONS = new Set(['retouch', 'extend', 'translate', 'upscale']);
+const ACTIONS = new Set(['retouch', 'extend', 'translate', 'upscale', 'move-scale']);
 
 export function assertCanvasAction(action) {
   if (!ACTIONS.has(action)) throw new Error(`不支持的画布操作: ${action || 'unknown'}`);
   return action;
 }
 
-export function buildCanvasTransformPrompt({ action, prompt = '', targetLanguage = '中文' } = {}) {
+export function buildCanvasTransformPrompt({ action, prompt = '', targetLanguage = '中文', sourceBox, targetBox, rotation = 0 } = {}) {
   assertCanvasAction(action);
   const instruction = {
     retouch: '只修改用户描述的局部区域。商品主体、轮廓、材质、颜色、logo、文字位置和整体构图必须保持一致。',
     extend: '扩展画布边缘并补全自然背景。商品主体保持原比例、位置、细节和光影，不要复制或拉伸商品。',
     translate: `将画面中的可见文案翻译成${targetLanguage}，保持原有版式、字号层级、商品主体和视觉风格，不添加额外文案。`,
     upscale: '生成更清晰的电商交付图。只提升纹理、边缘和细节质量，不改变商品外观、比例、颜色、logo或版式。',
+    'move-scale': `只移动或缩放原图归一化区域 ${JSON.stringify(sourceBox)} 内的完整对象，将它自然地放到归一化目标区域 ${JSON.stringify(targetBox)}，目标旋转 ${Number(rotation) || 0} 度。原位置用相邻背景自然补全；除这个对象外，商品、文字、logo、背景、画幅和其他内容必须保持不变。`,
   }[action];
   return [
     'Create a polished ecommerce product image from the supplied reference.',

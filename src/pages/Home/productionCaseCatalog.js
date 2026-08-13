@@ -41,9 +41,9 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
     id: 'product-suite',
     status: 'fixture',
     assets: Object.freeze([
-      asset({ src: '/images/home/entry-ecommerce.png', label: '商品素材', role: 'source', ratio: '411:376', intent: 'product_suite' }),
-      asset({ src: '/images/home/workspace-ecommerce.png', label: '主图视觉', role: 'result', ratio: '612:612', intent: 'product_suite' }),
-      asset({ src: '/images/home/entry-ecommerce.png', label: '详情视觉', role: 'result', ratio: '411:376', intent: 'product_suite' }),
+      asset({ src: '/gallery/ecommerce/stainless-steel-sauce-container/09.webp', label: '商品素材', role: 'source', ratio: '1:1', intent: 'product_suite' }),
+      asset({ src: '/gallery/ecommerce/stainless-steel-sauce-container/01.webp', label: '主图视觉', role: 'result', ratio: '1:1', intent: 'product_suite' }),
+      asset({ src: '/gallery/ecommerce/stainless-steel-sauce-container/05.webp', label: '详情视觉', role: 'result', ratio: '9:16', intent: 'product_suite' }),
     ]),
   }),
   Object.freeze({

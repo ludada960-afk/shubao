@@ -6,6 +6,7 @@ const workbench = readFileSync(new URL('../src/pages/Home/ec/EcommerceWorkbench.
 const ecMode = readFileSync(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
 const direction = readFileSync(new URL('../src/pages/Home/ec/DesignDirection.jsx', import.meta.url), 'utf8');
 const paramsPanel = readFileSync(new URL('../src/pages/Home/ec/ParamsPanel.jsx', import.meta.url), 'utf8');
+const catalog = readFileSync(new URL('../src/pages/Home/productionCaseCatalog.js', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/pages/Home/Home.css', import.meta.url), 'utf8');
 
 test('default ecommerce workbench preserves the established product-reference framework', () => {
@@ -60,6 +61,13 @@ test('try-on showcase renders independent zoomable assets instead of cropping on
 
 test('try-on showcase gives every rendered asset a stable React key', () => {
   assert.match(workbench, /key=\{item\.id \|\| item\.src\}/);
+});
+
+test('product suite showcase uses one real ecommerce workflow instead of duplicated fixture art', () => {
+  assert.match(catalog, /stainless-steel-sauce-container\/09\.webp/);
+  assert.match(catalog, /stainless-steel-sauce-container\/05\.webp/);
+  assert.match(workbench, /productionCaseById\('product-suite'\)/);
+  assert.match(styles, /\.ec-product-suite-showcase/);
 });
 
 test('ability switch presents concise user outcomes instead of internal implementation notes', () => {

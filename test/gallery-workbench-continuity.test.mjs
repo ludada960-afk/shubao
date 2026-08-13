@@ -19,14 +19,20 @@ test('inspiration cases use an overlay state and never replace ecommerce generat
 });
 
 test('inspiration gallery keeps production visual cases mixed with legacy categories', async () => {
-  const gallery = await readFile(new URL('./src/pages/Home/GallerySection.jsx', root), 'utf8');
+  const [gallery, model] = await Promise.all([
+    readFile(new URL('./src/pages/Home/GallerySection.jsx', root), 'utf8'),
+    readFile(new URL('./src/pages/Home/galleryModel.js', root), 'utf8'),
+  ]);
   assert.match(gallery, /PRODUCTION_CASE_CATALOG/);
-  assert.match(gallery, /productionPromptFor/);
-  assert.match(gallery, /interleave\(\[/);
+  assert.match(model, /productionPromptFor/);
+  assert.match(gallery, /stableGalleryItems\(\[/);
   assert.match(gallery, /IntersectionObserver/);
   assert.match(gallery, /INITIAL_VISIBLE/);
   assert.match(gallery, /loading-more|gallery-load-more/);
   assert.match(gallery, /body_text:\s*item\.body_text \|\| item\.body \|\| promptText/);
+  assert.match(model, /dedupeGalleryItems/);
+  assert.match(model, /stableGalleryItems/);
+  assert.doesNotMatch(model, /PRODUCTION_CASE_CATALOG\.filter\(entry => entry\.status === 'production'\)\.flatMap\(entry => entry\.assets/);
 });
 
 test('the global task dock is the only ecommerce progress surface', async () => {

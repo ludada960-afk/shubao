@@ -61,7 +61,7 @@ import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, selectedCanvasBounds } from './canvasInteractionModel.js';
-import { applyCanvasMoveScale, createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
+import { createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
@@ -90,8 +90,9 @@ const WORK_CATEGORY_OPTIONS = Object.freeze([
 
 const VIDEO_FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
 
-function videoSku(duration) {
-  return `video_seedance_standard_${Number(duration) <= 8 ? 'short' : 'long'}`;
+function videoSku(duration, productId = 'seedance_standard') {
+  const model = productId === 'seedance_fast' ? 'seedance_fast' : 'seedance_standard';
+  return `video_${model}_${Number(duration) <= 8 ? 'short' : 'long'}`;
 }
 
 function delay(milliseconds) {
@@ -101,11 +102,12 @@ function delay(milliseconds) {
 function canvasVideoInputFiles(composer = {}, sourceNodes = []) {
   const mode = composer.mode || 'smart';
   const roleFor = node => composer.sourceRoles?.[node.id] || node.role || 'reference';
-  const images = sourceNodes.filter(node => node.kind !== 'video' && (mode === 'smart' || !['first', 'last'].includes(roleFor(node))));
+  const images = sourceNodes.filter(node => !['video', 'audio'].includes(node.kind) && (mode === 'smart' || !['first', 'last'].includes(roleFor(node))));
   const videos = sourceNodes.filter(node => node.kind === 'video');
-  const first = sourceNodes.filter(node => node.kind !== 'video' && roleFor(node) === 'first');
-  const last = sourceNodes.filter(node => node.kind !== 'video' && roleFor(node) === 'last');
-  return { images, videos, first, last };
+  const audios = sourceNodes.filter(node => node.kind === 'audio');
+  const first = sourceNodes.filter(node => !['video', 'audio'].includes(node.kind) && roleFor(node) === 'first');
+  const last = sourceNodes.filter(node => !['video', 'audio'].includes(node.kind) && roleFor(node) === 'last');
+  return { images, videos, audios, first, last };
 }
 
 function generatedAssetIdFromUrl(url = '') {
@@ -489,9 +491,12 @@ export default function EcCanvas() {
   }, [state.logged, refreshBillingBalance]);
   const [viewport, setViewport] = useState({ x: 80, y: 40, scale: 1 });
   const [nodes, setNodes] = useState([]);
+  const nodesRef = useRef([]);
   const [selected, setSelected] = useState(null);
   const [multiSelected, setMultiSelected] = useState(new Set());
   const [connections, setConnections] = useState([]);
+
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [pointerMode, setPointerMode] = useState(null);
   const [activeTool, setActiveTool] = useState('select');
@@ -1938,8 +1943,7 @@ export default function EcCanvas() {
         showToast('链接已复制', 'success');
         break;
       case 'delete':
-        setNodes(ns => ns.filter(n => n.id !== node.id));
-        setConnections(prev => removeConnectionsForNodes(prev, new Set([node.id])));
+        removeCanvasNode(node.id);
         break;
       default:
         // 裁切、宫格切图、卖点标注、引用生成等统一复用顶部工具条的真实处理链路。
@@ -2004,7 +2008,7 @@ export default function EcCanvas() {
                 annotationHistory: [],
                 annotationFuture: [],
               }
-              : { scale: 1, offsetX: 0, offsetY: 0, rotation: 0 },
+              : { moveStage: 'drawing', sourceRect: null, targetRect: null, rotation: 0 },
       });
       return;
     }
@@ -2207,20 +2211,18 @@ export default function EcCanvas() {
   };
 
   const handleFocusedEditorConfirm = async () => {
-    if (!focusedEditor) return;
+    if (!focusedEditor || promptLoading) return;
     const source = nodes.find(node => node.id === focusedEditor.nodeId);
     if (!source) {
       setFocusedEditor(null);
       return;
     }
     if (focusedEditor.mode === 'move-scale') {
-      const options = focusedEditor.options || {};
-      setNodes(previous => previous.map(node => node.id === source.id
-        ? applyCanvasMoveScale(node, options)
-        : node));
-      setFocusedEditor(null);
-      showToast('位置与尺寸已更新', 'success');
-      return;
+      const { sourceRect, targetRect } = focusedEditor.options || {};
+      if (!sourceRect || !targetRect || sourceRect.w < 0.03 || sourceRect.h < 0.03 || targetRect.w < 0.03 || targetRect.h < 0.03) {
+        showToast('请先框选对象，并确认它的新位置和大小', 'info');
+        return;
+      }
     }
     setPromptLoading(true);
     try {
@@ -2238,9 +2240,16 @@ export default function EcCanvas() {
         splitPosition: options.splitPosition,
         gridVertical: options.gridVertical,
         gridHorizontal: options.gridHorizontal,
+        sourceBox: options.sourceRect,
+        targetBox: options.targetRect,
+        rotation: options.rotation,
       });
       const urls = [response?.url, ...(response?.urls || []).map(item => typeof item === 'string' ? item : item?.url)].filter(Boolean);
       if (!urls.length) throw new Error('图片处理没有返回结果');
+      if (!nodesRef.current.some(node => node.id === source.id)) {
+        setFocusedEditor(null);
+        return;
+      }
       const createdAt = Date.now();
       const occupied = [...nodes];
       const bounds = containerRef.current?.getBoundingClientRect();
@@ -2503,14 +2512,14 @@ export default function EcCanvas() {
 
   const ensureVideoAsset = useCallback(async node => {
     const existingId = node?.videoAssetId || String(node?.url || '').match(/\/api\/video\/assets\/([^/?#]+)/)?.[1];
-    if (existingId) return { id: existingId, url: node.url, kind: node.kind === 'video' ? 'video' : 'image' };
+    if (existingId) return { id: existingId, url: node.url, kind: ['video', 'audio'].includes(node.kind) ? node.kind : 'image' };
     if (!node?.url) throw new Error('参考素材缺少可用地址');
-    const kind = node.kind === 'video' ? 'video' : 'image';
+    const kind = node.kind === 'video' ? 'video' : node.kind === 'audio' ? 'audio' : 'image';
     const response = await fetch(kind === 'image' ? proxyImg(node.url) : node.url);
     if (!response.ok) throw new Error('参考素材读取失败');
     const blob = await response.blob();
-    const extension = kind === 'video' ? 'mp4' : (blob.type.split('/')[1] || 'png');
-    const file = new File([blob], `${node.name || kind}.${extension}`, { type: blob.type || (kind === 'video' ? 'video/mp4' : 'image/png') });
+    const extension = kind === 'video' ? 'mp4' : kind === 'audio' ? 'mp3' : (blob.type.split('/')[1] || 'png');
+    const file = new File([blob], `${node.name || kind}.${extension}`, { type: blob.type || (kind === 'video' ? 'video/mp4' : kind === 'audio' ? 'audio/mpeg' : 'image/png') });
     return uploadVideoAsset(file, kind);
   }, []);
 
@@ -2533,15 +2542,16 @@ export default function EcCanvas() {
       const uploaded = [];
       for (const source of sourceNodes.slice(0, 9)) uploaded.push({ source, asset: reusableAssets[source.id] || await ensureVideoAsset(source) });
       const roleFor = source => composer.sourceRoles?.[source.id] || source.role || 'reference';
-      const firstImage = uploaded.find(item => item.source.kind !== 'video' && roleFor(item.source) === 'first')?.asset;
-      const lastImage = uploaded.find(item => item.source.kind !== 'video' && roleFor(item.source) === 'last')?.asset;
-      const imageAssets = uploaded.filter(item => item.source.kind !== 'video' && (mode === 'smart' || !['first', 'last'].includes(roleFor(item.source)))).map(item => item.asset);
+      const firstImage = uploaded.find(item => !['video', 'audio'].includes(item.source.kind) && roleFor(item.source) === 'first')?.asset;
+      const lastImage = uploaded.find(item => !['video', 'audio'].includes(item.source.kind) && roleFor(item.source) === 'last')?.asset;
+      const imageAssets = uploaded.filter(item => !['video', 'audio'].includes(item.source.kind) && (mode === 'smart' || !['first', 'last'].includes(roleFor(item.source)))).map(item => item.asset);
       const videoAssets = uploaded.filter(item => item.source.kind === 'video').map(item => item.asset);
-      const sku = videoSku(composer.duration || 8);
+      const audioAssets = uploaded.filter(item => item.source.kind === 'audio').map(item => item.asset);
+      const sku = videoSku(composer.duration || 8, composer.modelProductId);
       const quote = (await quoteBillingAction({ sku, quantity: 1 })).quote;
       const urls = Object.fromEntries(uploaded.map(item => [item.asset.id, item.asset.url]));
       const response = await createVideoJob({
-        productId: 'seedance_standard',
+        productId: composer.modelProductId || 'seedance_standard',
         mode: resolveVideoApiMode(mode, files),
         prompt: String(composer.prompt).trim(),
         negativePrompt: '',
@@ -2556,7 +2566,7 @@ export default function EcCanvas() {
           lastImage: lastImage?.id || '',
           images: mode === 'frame' ? [] : imageAssets.map(asset => asset.id),
           videos: mode === 'frame' ? [] : videoAssets.map(asset => asset.id),
-          audios: [],
+          audios: audioAssets.map(asset => asset.id),
           urls,
         },
       }, globalThis.crypto?.randomUUID?.() || `canvas-video-${Date.now()}`);
@@ -2604,13 +2614,14 @@ export default function EcCanvas() {
       for (const source of sourceNodes.slice(0, 9)) {
         const asset = await ensureVideoAsset(source);
         uploaded.push({ source, asset });
-        const kind = source.kind === 'video' ? 'video' : 'image';
+        const kind = source.kind === 'video' ? 'video' : source.kind === 'audio' ? 'audio' : 'image';
         const response = await fetch(asset.url);
         if (!response.ok) throw new Error('参考素材读取失败');
         const blob = await response.blob();
         const file = new File([blob], source.name || `${kind}-${source.id}`, { type: blob.type || (kind === 'video' ? 'video/mp4' : 'image/png') });
         const role = roleFor(source);
         if (kind === 'video') localGroups.videos.push(file);
+        else if (kind === 'audio') localGroups.audios.push(file);
         else if (mode === 'frame' && role === 'first') localGroups.first.push(file);
         else if (mode === 'frame' && role === 'last') localGroups.last.push(file);
         else localGroups.images.push(file);
@@ -2621,11 +2632,11 @@ export default function EcCanvas() {
       const frameAssets = [];
       for (const frame of analysisFrames) frameAssets.push(await uploadVideoAsset(frame, 'image'));
       const analysisQuote = (await quoteBillingAction({ sku: 'video_plan_analysis', quantity: 1 })).quote;
-      const imageIds = uploaded.filter(item => item.source.kind !== 'video').map(item => item.asset.id);
+      const imageIds = uploaded.filter(item => !['video', 'audio'].includes(item.source.kind)).map(item => item.asset.id);
       const response = await analyzeVideoPlan({
         billingQuoteId: analysisQuote.quoteId,
         billingActionId: globalThis.crypto?.randomUUID?.() || `canvas-video-plan-${Date.now()}`,
-        productId: 'seedance_standard',
+        productId: composer.modelProductId || 'seedance_standard',
         mode,
         prompt: String(composer.prompt).trim(),
         negativePrompt: '',
@@ -2663,6 +2674,8 @@ export default function EcCanvas() {
       next.delete(nodeId);
       return next;
     });
+    setConnectionPicker(previous => previous?.sourceNodeId === nodeId ? null : previous);
+    setConnectionDraft(previous => previous?.sourceNodeId === nodeId ? null : previous);
   }, []);
 
   const handleImageComposerGenerate = useCallback(async composer => {
@@ -3079,19 +3092,30 @@ export default function EcCanvas() {
     setPromptLoading(true);
     try {
       const assets = await readCanvasImageFiles(files, uploadStartedAt);
-      const persistedAssets = await persistCanvasUploadAssets(assets, { role: 'product' });
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
-      const uploadedNodes = createUploadedImageNodes({ assets: persistedAssets, x: worldX, y: worldY, now: uploadStartedAt });
+      const uploadedNodes = createUploadedImageNodes({ assets, x: worldX, y: worldY, now: uploadStartedAt })
+        .map(node => ({ ...node, status: 'uploading', localPreviewUrl: node.url }));
       draftReadyRef.current = true;
       canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${uploadStartedAt}` });
       setNodes(previous => [...previous, ...uploadedNodes]);
       setSelected(uploadedNodes[0]?.id || null);
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
-      showToast(persistedAssets.some(asset => asset.temporary)
-        ? `已加入 ${uploadedNodes.length} 张图片（当前网络不可用，仅保留本地预览）`
-        : `已加入 ${uploadedNodes.length} 张图片，可直接拖动、编辑或继续生成`, persistedAssets.some(asset => asset.temporary) ? 'info' : 'success');
+      showToast(`已加入 ${uploadedNodes.length} 张图片，正在后台保存原图`, 'success');
+      void persistCanvasUploadAssets(assets, { role: 'product' }).then(persistedAssets => {
+        const persistedById = new Map(uploadedNodes.map((node, index) => [node.id, persistedAssets[index]]));
+        setNodes(previous => previous.map(node => {
+          const persisted = persistedById.get(node.id);
+          return persisted ? { ...node, ...persisted, url: persisted.url, status: 'ready', uploadError: '' } : node;
+        }));
+      }).catch(error => {
+        const uploadedIds = new Set(uploadedNodes.map(node => node.id));
+        setNodes(previous => previous.map(node => uploadedIds.has(node.id)
+          ? { ...node, status: 'upload-error', uploadError: error.message || '原图保存失败' }
+          : node));
+        showToast(error.message || '原图保存失败，本地预览仍可使用', 'error');
+      });
     } catch (error) {
       showToast(error.message || '图片上传失败，请重试', 'error');
     } finally {
@@ -3128,13 +3152,14 @@ export default function EcCanvas() {
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
     const accepted = composer?.kind === 'video-composer'
-      ? files.filter(file => file?.type?.startsWith('image/') || file?.type?.startsWith('video/')).slice(0, 8)
+      ? files.filter(file => file?.type?.startsWith('image/') || file?.type?.startsWith('video/') || file?.type?.startsWith('audio/')).slice(0, 8)
       : files.filter(file => file?.type?.startsWith('image/')).slice(0, 8);
     if (!accepted.length || !composer) return;
     const uploadStartedAt = Date.now();
     try {
       const imageFiles = accepted.filter(file => file.type.startsWith('image/'));
       const videoFiles = accepted.filter(file => file.type.startsWith('video/'));
+      const audioFiles = accepted.filter(file => file.type.startsWith('audio/'));
       const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
       const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
       const imageNodes = createUploadedImageNodes({
@@ -3151,7 +3176,14 @@ export default function EcCanvas() {
         y: composer.y + (imageNodes.length ? 112 : 0),
         now: uploadStartedAt,
       }).map(node => ({ ...node, role }));
-      const uploadedNodes = [...imageNodes, ...videoNodes];
+      const audioAssets = [];
+      for (const file of audioFiles) audioAssets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
+      const audioNodes = audioAssets.map((asset, index) => ({
+        id: `audio_upload_${uploadStartedAt}_${index}`, assetId: asset.id, videoAssetId: asset.id, kind: 'audio', provenance: 'source', status: 'ready',
+        url: asset.url, name: asset.name || `参考音频 ${index + 1}`, displayLabel: asset.name || `参考音频 ${index + 1}`, group: '音频', role,
+        x: composer.x - 300, y: composer.y + 150 + index * 92, w: 264, h: 72, sourceNodeIds: [], editable: true, showMeta: true,
+      }));
+      const uploadedNodes = [...imageNodes, ...videoNodes, ...audioNodes];
       const uploadedIds = uploadedNodes.map(node => node.id);
       draftReadyRef.current = true;
       canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${uploadStartedAt}` });

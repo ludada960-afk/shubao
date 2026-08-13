@@ -428,10 +428,10 @@
 }
 .video-mode-tabs button:hover { transform: translateY(-2px); }
 .video-mode-tabs button.is-selected {
-  border-color: #292c32;
-  background: #292c32;
-  color: #fff;
-  box-shadow: 0 9px 20px rgba(35, 37, 43, .18);
+  border-color: rgba(112,88,218,.24);
+  background: rgba(255,255,255,.94);
+  color: #292622;
+  box-shadow: 0 8px 20px rgba(83,62,47,.1);
 }
 .video-mode-tabs button > i {
   width: 5px;
@@ -440,7 +440,7 @@
   background: #d9d2cd;
   transition: background .2s ease, transform .2s ease;
 }
-.video-mode-tabs button.is-selected > i { width: 4px; height: 24px; border-radius: 4px; background: #ff7668; transform: none; }
+.video-mode-tabs button.is-selected > i { width: 4px; height: 24px; border-radius: 4px; background: linear-gradient(#755ee8,#ff7668); transform: none; }
 .video-mode-icon {
   width: 34px;
   height: 34px;
@@ -456,8 +456,8 @@
 .video-mode-copy { min-width: 0; display: grid !important; gap: 4px; }
 .video-mode-tabs .video-mode-copy strong { font-size: 14px; }
 .video-mode-tabs .video-mode-copy small { overflow: hidden; color: #978e86; font-size: 11px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-.video-mode-tabs button.is-selected .video-mode-copy strong { color: #fff; }
-.video-mode-tabs button.is-selected .video-mode-copy small { color: #d7d9de; }
+.video-mode-tabs button.is-selected .video-mode-copy strong { color: #292622; }
+.video-mode-tabs button.is-selected .video-mode-copy small { color: #817970; }
 .video-material-action { min-height: 96px; padding: 14px 16px; }
 .video-material-action > span { width: 40px; height: 40px; border-radius: 11px; }
 .video-material-action strong { font-size: 13px; }
@@ -495,7 +495,8 @@
   background: #343840;
   box-shadow: 0 3px 8px rgba(40,43,50,.13);
 }
-.video-model-mark.is-seedance { background: #343840; }
+.video-model-mark b { font: 800 13px/1 ui-sans-serif,system-ui,sans-serif; transform: skewX(-11deg); }
+.video-model-mark.is-seedance { background: linear-gradient(145deg,#3a58c8 5%,#7456db 45%,#43c7bd 100%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.24),0 3px 9px rgba(72,74,176,.22); }
 .video-model-mark.is-minimax { background: #e16f7b; }
 .video-inline-menu.is-model { width: 360px; }
 .video-inline-menu.is-model > button { align-items: flex-start; min-height: 72px; }

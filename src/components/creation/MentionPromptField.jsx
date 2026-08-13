@@ -60,6 +60,12 @@ function restoreCaret(field, offset) {
     remaining -= length;
     node = walker.nextNode();
   }
+  const range = document.createRange();
+  range.setStart(field, field.childNodes.length);
+  range.collapse(true);
+  const selection = globalThis.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 const MentionPromptField = forwardRef(function MentionPromptField({
@@ -73,6 +79,7 @@ const MentionPromptField = forwardRef(function MentionPromptField({
   const fieldRef = useRef(null);
   const selectionRangeRef = useRef(null);
   const pendingCaretRef = useRef(null);
+  const composingRef = useRef(false);
   const markup = useMemo(() => renderMentionMarkup(value, mentions), [value, mentions]);
   const syncKey = `${value}\u0000${mentions.map(image => image?.sourceNodeId || image?.id || image?.label).join('|')}`;
   const lastSyncKey = useRef('');
@@ -102,7 +109,7 @@ const MentionPromptField = forwardRef(function MentionPromptField({
 
   useEffect(() => {
     const field = fieldRef.current;
-    if (!field || lastSyncKey.current === syncKey) return;
+    if (!field || composingRef.current || lastSyncKey.current === syncKey) return;
     if (field.innerHTML !== markup) {
       const savedCaret = pendingCaretRef.current !== null
         ? pendingCaretRef.current
@@ -126,9 +133,17 @@ const MentionPromptField = forwardRef(function MentionPromptField({
     aria-multiline="true"
     data-placeholder={placeholder}
     onInput={event => {
+      rememberSelection();
+      lastSyncKey.current = '';
+      if (!composingRef.current && !event.nativeEvent?.isComposing) onChange?.(event.currentTarget.textContent || '');
+    }}
+    onBeforeInput={rememberSelection}
+    onCompositionStart={() => { composingRef.current = true; }}
+    onCompositionEnd={event => {
+      composingRef.current = false;
+      rememberSelection();
       lastSyncKey.current = '';
       onChange?.(event.currentTarget.textContent || '');
-      rememberSelection();
     }}
     onKeyUp={rememberSelection}
     onMouseUp={rememberSelection}

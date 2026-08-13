@@ -212,6 +212,10 @@ const imageDelivery = createImageDelivery({
   assetRoot: resolve(__dirname, 'generated-assets'),
   proxyCacheRoot: resolve(__dirname, 'cache_img'),
 });
+const PUBLIC_IMAGE_ROOTS = [
+  resolve(__dirname, '../public/images'),
+  resolve(__dirname, '../dist/images'),
+];
 const generatedAssetStore = createGeneratedAssetStore({
   directory: resolve(__dirname, 'generated-assets'),
   onPersist: asset => {
@@ -2414,6 +2418,42 @@ app.get('/api/gallery-image', async (req, res) => {
   }
 });
 
+app.get('/api/public-image', async (req, res) => {
+  const requestedPath = String(req.query.path || '').replaceAll('\\', '/');
+  if (!requestedPath.startsWith('/images/') || requestedPath.includes('\0')) {
+    return res.status(400).end('invalid image path');
+  }
+  const relativePath = requestedPath.slice('/images/'.length);
+  const segments = relativePath.split('/');
+  if (!segments.length || segments.some(segment => !segment || segment === '.' || segment === '..')) {
+    return res.status(400).end('invalid image path');
+  }
+  const extension = extname(relativePath).toLowerCase();
+  if (!GALLERY_IMAGE_EXTENSIONS.has(extension)) return res.status(400).end('invalid image file');
+  const variant = String(req.query.variant || 'full');
+  const format = String(req.query.format || 'webp');
+  try {
+    let image = null;
+    for (const root of PUBLIC_IMAGE_ROOTS) {
+      const filePath = resolve(root, ...segments);
+      if (!filePath.startsWith(`${root}${process.platform === 'win32' ? '\\' : '/'}`)) continue;
+      image = await imageDelivery.readLocalVariant(filePath, variant, format);
+      if (image) break;
+    }
+    if (!image) return res.status(404).end('file not found');
+    res.set('Content-Type', image.contentType);
+    res.set('Cache-Control', variant === 'full'
+      ? 'public, max-age=86400'
+      : 'public, max-age=31536000, immutable');
+    res.send(image.buffer);
+  } catch (error) {
+    if (/unsupported image (?:variant|format)/.test(String(error?.message || ''))) {
+      return res.status(400).end('invalid image variant');
+    }
+    res.status(500).end('public image unavailable');
+  }
+});
+
 function scheduleGalleryImageWarmup() {
   const covers = [];
   const thumbnails = [];
@@ -4163,14 +4203,25 @@ app.post('/api/canvas/transform', async (req, res) => {
     direction = 'vertical',
     crop_rect: cropRect,
     split_position: splitPosition,
+    source_box: sourceBox,
+    target_box: targetBox,
+    rotation = 0,
     billing_quote_id: quoteId,
     billing_action_id: actionId,
   } = req.body || {};
   if (!imageUrl) return res.status(400).json({ error: '缺少图片' });
   const pixelActions = new Set(['crop', 'grid-split', 'split-image', 'annotation']);
-  const aiActions = new Set(['retouch', 'extend', 'translate', 'upscale']);
+  const aiActions = new Set(['retouch', 'extend', 'translate', 'upscale', 'move-scale']);
   if (!pixelActions.has(action) && !aiActions.has(action)) {
     return res.status(400).json({ error: '不支持的画布操作' });
+  }
+  if (action === 'move-scale') {
+    const validBox = box => box && [box.x, box.y, box.w, box.h].every(Number.isFinite)
+      && box.x >= 0 && box.y >= 0 && box.w >= 0.03 && box.h >= 0.03
+      && box.x + box.w <= 1.000001 && box.y + box.h <= 1.000001;
+    if (!validBox(sourceBox) || !validBox(targetBox)) {
+      return res.status(400).json({ error: '请先框选对象，并确认它的新位置和大小' });
+    }
   }
   try {
     const taskId = `canvas_${action}_${Date.now()}`;
@@ -4252,7 +4303,7 @@ app.post('/api/canvas/transform', async (req, res) => {
       work: () => canvasGenerationService.regenerate({
         ownerEmail: req._userEmail,
         body: {
-          prompt: buildCanvasTransformPrompt({ action, prompt, targetLanguage }),
+          prompt: buildCanvasTransformPrompt({ action, prompt, targetLanguage, sourceBox, targetBox, rotation }),
           image_url: imageUrl,
           ratio: selectedSize.ratio,
           resolution: selectedSize.resolution,

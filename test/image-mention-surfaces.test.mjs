@@ -24,6 +24,10 @@ test('the mention picker preserves the editor selection before inserting on firs
   assert.match(field, /insertMention/);
   assert.match(field, /selectionRangeRef/);
   assert.match(picker, /onPointerDown=\{event => event\.preventDefault\(\)\}/);
+  assert.match(field, /onBeforeInput=\{rememberSelection\}/);
+  assert.match(field, /onCompositionStart/);
+  assert.match(field, /onCompositionEnd/);
+  assert.match(field, /rememberSelection\(\);[\s\S]*?onChange\?\./);
 });
 
 test('Xiaohongshu and Plog prompts share the image mention picker', async () => {

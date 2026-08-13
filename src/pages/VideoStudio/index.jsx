@@ -106,7 +106,9 @@ function jobStatus(job) {
 
 function VideoModelMark({ provider = '' }) {
   const isMiniMax = String(provider).toLowerCase().includes('minimax');
-  return <span className={`video-model-mark ${isMiniMax ? 'is-minimax' : 'is-seedance'}`} aria-hidden="true"><Clapperboard size={14} strokeWidth={2.2} /></span>;
+  return <span className={`video-model-mark ${isMiniMax ? 'is-minimax' : 'is-seedance'}`} aria-hidden="true">
+    {isMiniMax ? <Clapperboard size={14} strokeWidth={2.2} /> : <b>S</b>}
+  </span>;
 }
 
 function VideoPlanModal({ plan, onClose, onConfirm }) {

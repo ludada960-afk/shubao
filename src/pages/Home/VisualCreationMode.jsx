@@ -27,6 +27,7 @@ import { uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../se
 import { IMAGE_MODELS, generationUnits } from '../../services/imageModelCatalog.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
+import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import {
   VISUAL_CREATION_SKILLS,
   VISUAL_RATIO_OPTIONS,
@@ -170,7 +171,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
       file: null,
     })).filter(reference => reference.asset?.url);
     setReferences(restoredReferences.slice(0, MAX_REFERENCES));
-    setNotice('已载入案例参数，可直接调整后生成');
+    setNotice('');
   }, [recoveryCheckpoint]);
 
   useEffect(() => {
@@ -445,7 +446,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
       onClick={() => setPreviewItem(item)}
       aria-label={`放大查看${item.label}`}
     >
-      <img src={item.src} alt={item.alt || item.label} loading="eager" decoding="async" />
+      <ResponsiveImage src={item.src} alt={item.alt || item.label} variant="thumb" ratio={item.ratio || '1:1'} priority
+        sizes="(min-width:1080px) 22vw, 32vw" style={{ width: '100%', background: '#f7f5f7' }}
+        imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       <span>{item.label}</span>
       <MdZoomOutMap aria-hidden="true" />
     </button>
@@ -483,7 +486,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
         })}
       </div>
 
-      <section className={`visual-skill-stage visual-layout-${selectedShowcase?.layout?.type || 'editorial-grid'}`} aria-label={`${selectedSkill.title}效果预览`}>
+      <section className={`visual-skill-stage visual-layout-${selectedShowcase?.layout?.type || 'editorial-grid'}${showcaseSlide % 2 ? ' is-alternate' : ''}`} aria-label={`${selectedSkill.title}效果预览`}>
         <div className="visual-skill-stage-copy">
           <span><MdAutoAwesome />{selectedSkill.title}</span>
           <strong>{selectedShowcase?.title || selectedSkill.shortDescription}</strong>
@@ -608,13 +611,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
             <div className="visual-config-panel" role="dialog" aria-label="生成配置面板">
               {activeConfigPanel === 'recipe' && (
                 <>
-                  <div className="visual-config-panel-heading"><strong>{selectedSkill.title} 配方</strong><span>必选创作方向与 Skill 扩展能力</span></div>
+                  <div className="visual-config-panel-heading"><strong>{selectedSkill.title}方向</strong><span>只调整本次最重要的画面侧重</span></div>
                   <label className="visual-config-field"><span>{selectedSkill.control.label}</span><select value={skillControl} onChange={event => updateSkillControl(event.target.value)} disabled={busy}>{selectedSkill.control.options.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
-                  <div className="visual-config-panel-grid">
-                    {(selectedSkill.panels || []).map(panel => (
-                      <label className="visual-config-field" key={panel.id}><span>{panel.label}</span><select value={panelValues[panel.id] || panel.options[0]} onChange={event => updatePanelValue(panel.id, event.target.value)} disabled={busy}>{panel.options.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
-                    ))}
-                  </div>
                 </>
               )}
               {activeConfigPanel === 'specs' && (

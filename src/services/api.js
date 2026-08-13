@@ -409,7 +409,13 @@ export function proxyImg(url, variant = 'full', format = 'webp') {
   if (sameOrigin) return imageVariantUrl(sameOrigin[1], variant, format);
   // 已经是代理地址或 data URI 则直接返回
   if (url.startsWith('/api/') || url.startsWith('data:') || url.startsWith('blob:')) return imageVariantUrl(url, variant, format);
-  // 本地相对路径也直接返回
+  // Public showcase assets can be several megabytes. Route them through the
+  // same derivative service as generated work so masonry cards never fetch
+  // the source PNG just to display a 320px thumbnail.
+  if (url.startsWith('/images/')) {
+    return imageVariantUrl(`${API_BASE}/api/public-image?path=${encodeURIComponent(url)}`, variant, format);
+  }
+  // Other local relative paths stay untouched.
   if (url.startsWith('/')) return url;
   // 处理 http/https 图片 URL
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -424,7 +430,8 @@ export function imageVariantUrl(url, variant = 'full', format = 'webp') {
   if (!value || variant === 'full' || value.startsWith('data:') || value.startsWith('blob:')) return value;
   if (!value.startsWith('/api/generated-assets/')
     && !value.startsWith('/api/proxy-image')
-    && !value.startsWith('/api/gallery-image')) return value;
+    && !value.startsWith('/api/gallery-image')
+    && !value.startsWith('/api/public-image')) return value;
   const params = new URLSearchParams();
   params.set('variant', variant);
   if (format === 'avif') params.set('format', 'avif');
@@ -1593,8 +1600,11 @@ export async function transformCanvasImage({
   direction = 'vertical',
   cropRect,
   splitPosition,
+  sourceBox,
+  targetBox,
+  rotation = 0,
 }) {
-  const paid = new Set(['retouch', 'extend', 'translate', 'upscale', 'inpaint']);
+  const paid = new Set(['retouch', 'extend', 'translate', 'upscale', 'inpaint', 'move-scale']);
   const normalizedImageModel = normalizeImageModel(imageModel);
   const billingSku = generationBillingSku(normalizedImageModel, resolution);
   const billing = paid.has(action) ? await quoteCanvasAction(billingSku) : null;
@@ -1617,6 +1627,9 @@ export async function transformCanvasImage({
       direction,
       crop_rect: cropRect,
       split_position: splitPosition,
+      source_box: sourceBox,
+      target_box: targetBox,
+      rotation,
       ...(billing ? { billing_quote_id: billing.quoteId, billing_action_id: billing.actionId } : {}),
     }),
   });

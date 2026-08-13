@@ -110,8 +110,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(canvas, /CanvasVideoComposer/);
   assert.match(canvas, /resolveVideoApiMode/);
   assert.match(canvas, /hasRequiredVideoInputs/);
-  assert.match(canvas, /video_seedance_standard_/);
-  assert.match(canvas, /productId:\s*'seedance_standard'/);
+  assert.match(canvas, /`video_\$\{model\}_\$\{Number\(duration\)/);
+  assert.match(canvas, /productId:\s*composer\.modelProductId \|\| 'seedance_standard'/);
   assert.match(canvas, /resultVideoUrl/);
   assert.match(canvas, /createUploadedVideoNodes/);
   assert.match(canvas, /mode:\s*composer\.mode \|\| 'smart'/);
@@ -138,7 +138,10 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(videoModel, /爆款重构/);
   const canvasVideoComposer = canvasStudio.match(/export function CanvasVideoComposer[\s\S]*?export function CanvasEcommerceComposer/)?.[0] || '';
   assert.doesNotMatch(canvasVideoComposer, /脚本成片|多图参考|产品图/);
-  assert.match(canvasVideoComposer, /ComposerSources[\s\S]*accept="image\/\*,video\/\*"/);
+  assert.match(canvasVideoComposer, /ComposerSources[\s\S]*accept="image\/\*,video\/\*,audio\/\*"/);
+  assert.match(canvasVideoComposer, /accept="image\/\*,video\/\*,audio\/\*"/);
+  assert.match(canvasVideoComposer, /视频模型/);
+  assert.match(canvasVideoComposer, /modelProductId/);
   assert.doesNotMatch(canvasVideoComposer, /VideoSourceStrip/);
   assert.doesNotMatch(canvasVideoComposer, /accept="video\/\*"/);
   assert.match(generation, /walletService\.createHold/);

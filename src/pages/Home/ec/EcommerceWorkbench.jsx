@@ -124,7 +124,7 @@ function TryOnShowcase({ personMode }) {
   });
   const renderCard = (item, className, alt) => (
     <button key={item.id || item.src} type="button" className={`ec-tryon-showcase-card ${className}`} style={{ '--case-ratio': item.ratio.replace(':', ' / ') }} onClick={() => openPreview(item)} aria-label={`放大查看${item.label}`}>
-      <img src={item.src} alt={alt || item.label} />
+      <ResponsiveImage src={item.src} variant="display" ratio={item.ratio} alt={alt || item.label} imgStyle={{ objectFit: 'contain' }} />
       <span>{item.label}</span><Maximize2 size={14} />
     </button>
   );
@@ -158,7 +158,7 @@ function TryOnShowcase({ personMode }) {
           <div className="ec-tryon-preview-dialog">
             <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewItem(null)} aria-label="关闭大图"><X size={20} /></button>
             <button type="button" className="ec-tryon-preview-previous" onClick={() => movePreview(-1)} aria-label="查看上一张"><ArrowLeft size={20} /></button>
-            <img src={previewItem.src} alt={`${previewItem.label}大图`} />
+            <ResponsiveImage src={previewItem.src} variant="display" ratio={previewItem.ratio} alt={`${previewItem.label}大图`} imgStyle={{ objectFit: 'contain' }} />
             <button type="button" className="ec-tryon-preview-next" onClick={() => movePreview(1)} aria-label="查看下一张"><ArrowRight size={20} /></button>
             <div><strong>{previewItem.label}</strong><span>{previewItem.description}</span></div>
           </div>

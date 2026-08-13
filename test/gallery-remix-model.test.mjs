@@ -44,3 +44,27 @@ test('xiaohongshu gallery remix restores copy and up to three visual references'
     '/gallery/xhs/3.webp',
   ]);
 });
+
+test('anything try-on gallery remix restores complete role inputs instead of cropped outputs', () => {
+  const checkpoint = buildGalleryRemixCheckpoint({
+    id: 'tryon-reference',
+    type: 'ecommerce',
+    title: '商品与模特精准上身',
+    intent: 'anything_tryon',
+    prompt: '保留商品版型与模特姿态，生成自然上身结果',
+    assets: [
+      { url: '/full-product.png', label: '商品与穿搭', role: 'source', width: 1200, height: 1600 },
+      { url: '/full-model.png', label: '参考模特', role: 'reference', width: 1200, height: 1600 },
+      { url: '/result.png', label: '上身结果', role: 'result', width: 1200, height: 1600 },
+    ],
+  });
+
+  assert.equal(checkpoint.project.kind, 'ecommerce');
+  assert.equal(checkpoint.version.inputSnapshot.abilityRecipe.id, 'anything_tryon');
+  assert.equal(checkpoint.version.inputSnapshot.personMode, 'reference');
+  assert.deepEqual(checkpoint.version.inputSnapshot.roleImages.items.map(item => item.url), ['/full-product.png']);
+  assert.deepEqual(checkpoint.version.inputSnapshot.roleImages.person.map(item => item.url), ['/full-model.png']);
+  assert.deepEqual(checkpoint.version.inputSnapshot.roleImages.scene, []);
+  assert.deepEqual(checkpoint.version.inputSnapshot.productImages.map(item => item.url), ['/full-product.png']);
+  assert.deepEqual(checkpoint.version.inputSnapshot.referenceImages.map(item => item.url), ['/full-model.png']);
+});

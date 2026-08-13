@@ -35,6 +35,13 @@ function ecommerceImages(item) {
 }
 
 function ecommerceSources(item) {
+  const assets = Array.isArray(item?.assets) ? item.assets : [];
+  if (cleanText(item.intent || item?.remix?.intent) === 'anything_tryon' && assets.length) {
+    return {
+      productImages: uniqueImages(assets.filter(asset => ['source', 'product', 'items'].includes(asset?.role)), 'product', 5),
+      referenceImages: uniqueImages(assets.filter(asset => ['reference', 'person', 'model'].includes(asset?.role)), 'reference', 3),
+    };
+  }
   const images = ecommerceImages(item);
   const configuredProducts = uniqueImages(item?.remix?.productImages, 'product', 5);
   const configuredReferences = uniqueImages(item?.remix?.referenceImages, 'reference', 3);
@@ -75,6 +82,7 @@ export function buildGalleryRemixCheckpoint(item = {}) {
   }
   if (item.type === 'ecommerce') {
     const sources = ecommerceSources(item);
+    const anythingTryOn = cleanText(item.intent || item?.remix?.intent) === 'anything_tryon';
     return {
       project: { id: `gallery:${id}`, kind: 'ecommerce', title },
       version: {
@@ -84,6 +92,11 @@ export function buildGalleryRemixCheckpoint(item = {}) {
           platform: cleanText(item?.remix?.platform) || 'taobao',
           productImages: sources.productImages,
           referenceImages: sources.referenceImages,
+          ...(anythingTryOn ? {
+            abilityRecipe: { id: 'anything_tryon' },
+            personMode: 'reference',
+            roleImages: { items: sources.productImages, person: sources.referenceImages, scene: [] },
+          } : {}),
         },
       },
     };
