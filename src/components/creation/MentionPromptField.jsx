@@ -103,14 +103,18 @@ const MentionPromptField = forwardRef(function MentionPromptField({
   useEffect(() => {
     const field = fieldRef.current;
     if (!field || lastSyncKey.current === syncKey) return;
-    if (field.innerHTML !== markup) field.innerHTML = markup;
-    lastSyncKey.current = syncKey;
-    if (pendingCaretRef.current !== null) {
-      const caret = pendingCaretRef.current;
-      pendingCaretRef.current = null;
-      field.focus();
-      restoreCaret(field, caret);
+    if (field.innerHTML !== markup) {
+      const savedCaret = pendingCaretRef.current !== null
+        ? pendingCaretRef.current
+        : (selectionRangeRef.current ? selectionRangeRef.current.start : null);
+      field.innerHTML = markup;
+      if (savedCaret !== null && globalThis.document && globalThis.document.activeElement === field) {
+        const maxLen = (field.textContent || "").length;
+        restoreCaret(field, Math.min(savedCaret, maxLen));
+      }
     }
+    lastSyncKey.current = syncKey;
+    pendingCaretRef.current = null;
   }, [markup, syncKey]);
 
   return <div
