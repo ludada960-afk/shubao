@@ -1813,7 +1813,14 @@
   states and the ecommerce-family warm-to-white background treatment. Browser
   acceptance verified 1440px and 390px without horizontal overflow, progressive
   16-to-28-card loading, a single-image detail with the complete production
-  prompt, and zero application alerts. Full regression passed `1506/1506`;
-  the production build transformed `6478` modules; build checks and whitespace
-  validation passed. Production deployment remains the final gate. Runtime
-  extension-task deletions, `.tmp/`, and the diagnosis helper remain excluded.
+  prompt, and zero application alerts. The committed release head is `5caefea`.
+  Its final deployment regression passed `1507/1507`, and the production build
+  transformed `6478` modules. `scripts/deploy-production.ps1` deployed the release
+  on 2026-08-13: all 117 gallery images and responsive variants passed delivery
+  verification; PM2 stayed on PID `1846772` through the 600-second Canary; public
+  billing and video capability contracts passed; and authenticated ecommerce
+  tasks `ec_f8d90e8a-c110-4132-85da-4c8ed9e65e3c` and
+  `ec_efa38f6f-9fe2-43e3-b130-8e0a7f9058f0` each delivered three stable assets.
+  The release finished with the PM2 snapshot saved and the remote deployment lock
+  released. No paid video generation was run. Runtime extension-task deletions,
+  `.tmp/`, and the diagnosis helper remain excluded.
