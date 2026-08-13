@@ -84,14 +84,14 @@
 
 .visual-skill-option.is-selected {
   color: #fff;
-  background: #2d3036;
-  border-color: #2d3036;
-  box-shadow: 0 8px 18px rgba(38, 40, 46, .16);
+  background: linear-gradient(135deg, #7c5ce8 0%, #6a4dd6 100%);
+  border-color: #6a4dd6;
+  box-shadow: 0 8px 22px rgba(108, 77, 214, .28);
 }
-.visual-skill-option.is-selected .visual-skill-icon { color: #173b38; background: #82e2d0; }
+.visual-skill-option.is-selected .visual-skill-icon { color: #fff; background: rgba(255, 255, 255, .22); }
 .visual-skill-option.is-selected .visual-skill-title strong { color: #fff; }
-.visual-skill-option.is-selected .visual-skill-title small { color: #d6d8dd; }
-.visual-skill-option.is-selected .visual-skill-title > svg { color: #ff7c6d; }
+.visual-skill-option.is-selected .visual-skill-title small { color: rgba(255, 255, 255, .78); }
+.visual-skill-option.is-selected .visual-skill-title > svg { color: #ffd566; }
 
 .visual-skill-icon {
   display: grid;
@@ -149,8 +149,8 @@
   grid-template-rows: minmax(300px, auto) auto auto;
   min-height: 300px;
   overflow: hidden;
-  background: linear-gradient(100deg, #fffaf3, #fff 56%, #faf9ff);
-  border: 1px solid #e8e0e5;
+  background: linear-gradient(110deg, #fff4e0 0%, #fffaf3 35%, #fff 65%, #faf8ff 100%);
+  border: 1px solid #ece4d8;
   border-radius: 8px;
 }
 
@@ -216,14 +216,14 @@
   align-items: center;
   justify-content: center;
   gap: 22px;
-  background: rgba(255, 255, 255, .46);
+  background: transparent;
 }
 
 .visual-skill-stage-card {
   position: relative;
   display: block;
   width: min(250px, 42%);
-  height: 218px;
+  aspect-ratio: var(--case-ratio, 3 / 4);
   flex: 0 1 250px;
   overflow: hidden;
   padding: 0;
@@ -244,7 +244,8 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #f7f5f7;
 }
 
 .visual-skill-stage-card > span {
@@ -319,31 +320,34 @@
 }
 
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   align-items: center;
   justify-content: center;
-  gap: 0;
-  min-height: 250px;
+  gap: 12px;
+  min-height: 300px;
 }
 
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
-  width: 31%;
+  width: 100%;
   height: auto;
-  transform: rotate(-5deg);
+  transform: rotate(-2deg);
 }
 
-.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card + .visual-skill-stage-card {
-  margin-left: -18px;
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card:nth-child(1) {
+  grid-row: 1 / -1;
+  transform: rotate(-3deg);
 }
 
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-1 {
   z-index: 2;
-  transform: translateY(-10px) rotate(1deg);
+  transform: translateY(-2px) rotate(1deg);
 }
 
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
   z-index: 1;
-  transform: rotate(6deg);
+  transform: translateY(2px) rotate(2deg);
 }
 
 .visual-layout-print-wall .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
@@ -446,7 +450,7 @@
 
 .visual-creation-composer {
   overflow: visible;
-  background: linear-gradient(135deg,#fffaf2,#faf8ff);
+  background: linear-gradient(110deg, #fff5e6 0%, #fffaf2 42%, #fffdf8 72%, #fff 100%);
   border: 1px solid #eadfd2;
   border-radius: 8px;
 }
@@ -1115,7 +1119,6 @@
 
   .visual-skill-stage-card {
     width: 42%;
-    height: 148px;
     flex-basis: 42%;
     border-width: 3px;
   }
@@ -1142,7 +1145,7 @@
   }
 
   .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
-    width: calc((100% - 14px) / 3);
+    width: 100%;
     min-height: 0;
     height: auto;
   }

@@ -445,7 +445,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
       onClick={() => setPreviewItem(item)}
       aria-label={`放大查看${item.label}`}
     >
-      <img src={item.src} alt={item.alt || item.label} />
+      <img src={item.src} alt={item.alt || item.label} loading="eager" decoding="async" />
       <span>{item.label}</span>
       <MdZoomOutMap aria-hidden="true" />
     </button>

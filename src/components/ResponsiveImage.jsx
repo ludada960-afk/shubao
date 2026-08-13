@@ -9,6 +9,7 @@ import {
 const IMAGE_RETRY_DELAYS_MS = Object.freeze([750, 2_000, 5_000]);
 
 function normalizedRatio(value) {
+  if (value === 'auto') return null;
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return String(value);
   if (typeof value !== 'string') return '1 / 1';
   const match = value.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
@@ -78,7 +79,7 @@ export default function ResponsiveImage({
         position: 'relative',
         overflow: 'hidden',
         background: '#f4f4f5',
-        aspectRatio: normalizedRatio(ratio),
+        ...(normalizedRatio(ratio) ? { aspectRatio: normalizedRatio(ratio) } : {}),
         ...style,
       }}
     >
@@ -121,7 +122,8 @@ export default function ResponsiveImage({
               if (retryCount >= IMAGE_RETRY_DELAYS_MS.length) onError?.(event);
             }}
             style={{
-              width: '100%', height: '100%', display: 'block', objectFit: 'contain',
+              width: '100%', height: ratio === 'auto' ? 'auto' : '100%', display: 'block', objectFit: 'contain',
+              ...(ratio === 'auto' ? { objectFit: 'cover' } : {}),
               ...imgStyle,
               opacity: decoded ? (imgStyle?.opacity ?? 1) : 0,
               transition: imgStyle?.transition || 'opacity 120ms ease',

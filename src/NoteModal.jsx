@@ -80,8 +80,14 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   const imgs = useMemo(() => {
     const a = [];
-    if (item?.cover_url) a.push(item.cover_url);
-    if (item?.image_urls?.length) item.image_urls.forEach(u => { if (u) a.push(u); });
+    const seen = new Set();
+    const addUnique = (url) => {
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      a.push(url);
+    };
+    if (item?.cover_url) addUnique(item.cover_url);
+    if (item?.image_urls?.length) item.image_urls.forEach(u => addUnique(u));
     return a;
   }, [item]);
 
@@ -98,6 +104,8 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   const bodyText = item?.body_text || '';
   const tagStr = (item?.hashtags || []).join(' ');
+  const isVisualCase = item?._galleryType === 'visual' || item?.workType === 'visual' || !!item?.visualSkillId;
+  const displayRatio = item?.ratio || item?.images?.[0]?.ratio || '3:4';
   const maxI = displayImgs.length || 1;
 
   useEffect(() => {
@@ -561,7 +569,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                 <MdArrowBack size={18} />
               </button>
             )}
-            <ResponsiveImage src={imgs[imgIdx]} alt="" variant="display" ratio="3:4" priority sizes="90vw"
+            <ResponsiveImage src={imgs[imgIdx]} alt="" variant="display" ratio={displayRatio} priority sizes="90vw"
               style={{ width: '90vw', height: '90vh', background: 'transparent' }} imgStyle={S.zoomImg} />
             {imgIdx < maxI - 1 && (
               <button style={{ ...S.zoomNav, right: 12 }} onClick={(e) => { e.stopPropagation(); setImgIdx(i => Math.min(maxI - 1, i + 1)); }}>
@@ -589,7 +597,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       position: 'relative', overflow: 'hidden',
                     }}>
-                      <ResponsiveImage src={displayImgs[imgIdx]} alt="" variant="display" ratio="3:4" priority sizes="min(58vw, 920px)"
+                      <ResponsiveImage src={displayImgs[imgIdx]} alt="" variant="display" ratio={displayRatio} priority sizes="min(58vw, 920px)"
                         style={{ width: '100%', height: '100%', background: 'transparent' }}
                         imgStyle={{ maxWidth: '100%', maxHeight: 'calc(90vh - 90px)', objectFit: 'contain', filter: 'blur(16px)', opacity: 0.5, transform: 'scale(1.1)' }} />
                       {/* 遮罩层 */}
@@ -626,7 +634,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       </div>
                     </div>
                   ) : (
-                    <ResponsiveImage src={displayImgs[imgIdx]} alt="" variant="display" ratio="3:4" priority sizes="min(58vw, 920px)"
+                    <ResponsiveImage src={displayImgs[imgIdx]} alt="" variant="display" ratio={displayRatio} priority sizes="min(58vw, 920px)"
                       style={{ width: '100%', height: '100%', background: 'transparent', cursor: 'zoom-in' }} imgStyle={S.mainImg} onClick={() => setZoom(true)} />
                   )
                 ) : isPreview ? (
@@ -696,7 +704,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                       overflow: 'hidden',
                     }}>
                       {url ? (
-                        <ResponsiveImage src={url} alt="" variant="thumb" ratio="3:4" sizes="56px"
+                        <ResponsiveImage src={url} alt="" variant="thumb" ratio={displayRatio} sizes="56px"
                           style={{ width: '100%', height: '100%', background: 'transparent' }}
                           imgStyle={{
                             ...S.thumbImg,
@@ -794,6 +802,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                   <h1 style={S.title}>{item.title || ''}</h1>
                 )}
 
+                {/* 提示词标签（自由创作案例） */}
+                {isVisualCase && !editing && bodyText && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', marginBottom: 6, letterSpacing: '0.3px' }}>创作提示词</div>
+                )}
                 {/* 正文 */}
                 {editing ? (
                   <textarea value={editBody} onChange={e => setEditBody(e.target.value)}
@@ -824,6 +836,11 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
               {/* 底部操作栏 */}
               <div style={S.actionBar} className="note-modal-actions">
+                <style>{`
+                  .note-modal-actions button { transition: all 0.18s ease; }
+                  .note-modal-actions button:hover { filter: brightness(0.96); transform: translateY(-1px); }
+                  .note-modal-actions button:active { transform: translateY(0); }
+                `}</style>
                 {/* 编辑/保存 */}
                 {!item._galleryItem && (
                   <button style={{ ...S.actionBtn, background: editing ? '#e3f2fd' : '#f5f5f5', color: editing ? '#1565c0' : '#333' }}
@@ -963,14 +980,14 @@ const S = {
   // Action bar
   actionBar: {
     padding: '14px 22px', borderTop: '1px solid #f0f0f0',
-    background: '#fff', display: 'flex', gap: 10,
+    background: '#fff', display: 'flex', gap: 8, flexWrap: 'wrap',
   },
   actionBtn: {
-    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-    background: '#f5f5f5', border: 'none', borderRadius: 10,
-    fontSize: 13, fontWeight: 500, color: '#333',
-    padding: '12px 6px', cursor: 'pointer', fontFamily: 'inherit',
-    transition: 'all 0.15s',
+    flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+    background: '#f5f5f5', border: '1px solid transparent', borderRadius: 10,
+    fontSize: 13, fontWeight: 600, color: '#333',
+    padding: '11px 14px', cursor: 'pointer', fontFamily: 'inherit',
+    transition: 'all 0.15s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
   },
 
   // Zoom

@@ -181,7 +181,7 @@ export default function HomePage() {
         </div>
 
         {/* 案例发现区 */}
-        <GallerySection maxItems={24} onUseSameStyle={restoreGalleryCheckpoint} />
+        <GallerySection maxItems={48} onUseSameStyle={restoreGalleryCheckpoint} />
       </div>
       <Footer />
     </div>

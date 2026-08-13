@@ -1,5 +1,7 @@
-function asset({ src, label, role, ratio, intent, taskId = '', requestKey = '' }) {
-  return Object.freeze({ src, label, role, ratio, intent, taskId, requestKey });
+import { productionPromptFor } from './productionCasePrompts.js';
+
+function asset({ id = '', src, label, role, ratio, intent, taskId = '', requestKey = '', prompt = '' }) {
+  return Object.freeze({ id, src, label, role, ratio, intent, taskId, requestKey, prompt });
 }
 
 function chapter({ id, title, description, layout, assets }) {
@@ -12,7 +14,8 @@ function chapter({ id, title, description, layout, assets }) {
   });
 }
 
-const productionAsset = ({ id, label, ratio, taskId, requestKey, intent }) => asset({
+const productionAsset = ({ id, label, ratio, taskId, requestKey, intent, prompt = productionPromptFor(id) }) => asset({
+  id,
   src: `/images/visual-recipes/cases/${id}.png`,
   label,
   role: 'output',
@@ -20,6 +23,7 @@ const productionAsset = ({ id, label, ratio, taskId, requestKey, intent }) => as
   intent,
   taskId,
   requestKey,
+  prompt,
 });
 
 function visualProductionCase({ id, chapters }) {
@@ -57,9 +61,9 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
     id: 'tryon-reference',
     status: 'production',
     assets: Object.freeze([
-      asset({ src: '/images/home/tryon-showcase/reference-flatlay.png', label: '商品与穿搭', role: 'source', ratio: '390:1254', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result' }),
-      asset({ src: '/images/home/tryon-showcase/reference-person.png', label: '参考模特', role: 'reference', ratio: '315:1254', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result' }),
-      asset({ src: '/images/visual-recipes/cases/tryon-reference-result.png', label: '上身结果', role: 'result', ratio: '3:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result' }),
+      asset({ id: 'tryon-reference-flatlay', src: '/images/home/tryon-showcase/reference-flatlay.png', label: '商品与穿搭', role: 'source', ratio: '390:1254', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '保留商品材质、颜色和版型，把商品与穿搭放到参考模特身上，保持人物比例、服装关系和自然光线一致。' }),
+      asset({ id: 'tryon-reference-person', src: '/images/home/tryon-showcase/reference-person.png', label: '参考模特', role: 'reference', ratio: '315:1254', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '使用参考模特的姿态、人物比例和街景光线，准确承接商品与穿搭素材。' }),
+      asset({ id: 'tryon-reference-result', src: '/images/visual-recipes/cases/tryon-reference-result.png', label: '上身结果', role: 'result', ratio: '3:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '把商品与穿搭准确替换到参考模特身上，保留人物姿态、服装材质、配饰关系和原始场景光线。' }),
     ]),
   }),
   visualProductionCase({
