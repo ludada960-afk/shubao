@@ -2716,12 +2716,12 @@ test('migrates every schema-3 repeated hero beyond the legacy five-duty cycle', 
     'maintext:visibleoperation',
   ]);
   assert.deepEqual(completed.assetPlan.map(item => item.communicationGoal), [
-    'Establish immediate complete-product recognition.',
-    'Communicate one primary buyer benefit supported by Product Truth.',
-    'Clarify credible use context without inventing product facts.',
-    'Explain evidence-supported visible exterior structure.',
-    'Demonstrate visible material and craftsmanship quality.',
-    'Make visible controls and handling points easy to understand.',
+    'Text-ready square marketplace placement. Establish immediate complete-product recognition.',
+    'Text-ready square marketplace placement. Communicate one primary buyer benefit supported by Product Truth.',
+    'Text-ready square marketplace placement. Clarify credible use context without inventing product facts.',
+    'Text-ready square marketplace placement. Explain evidence-supported visible exterior structure.',
+    'Text-ready square marketplace placement. Demonstrate visible material and craftsmanship quality.',
+    'Text-ready square marketplace placement. Make visible controls and handling points easy to understand.',
   ]);
   assert.ok(completed.assetPlan.every(item => !/camera|composition|angle|\bview\b/i.test(item.communicationGoal)));
   assert.equal(jobs.get(input.id).progress.orchestrationSnapshot.schemaVersion, 4);

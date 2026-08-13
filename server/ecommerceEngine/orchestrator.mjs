@@ -748,9 +748,14 @@ function upgradePlanItems(assetPlan, productTruth = {}, deterministicInputs = {}
     }
     const catalogDuty = detailDuty || roleCatalogDuty(sourceRole, occurrence);
     const role = catalogDuty?.role || sourceRole;
+    const heroPlacement = sourceRole === 'main_3x4'
+      ? 'Vertical marketplace placement.'
+      : sourceRole === 'main_text' ? 'Text-ready square marketplace placement.' : '';
     const communicationGoal = variantIdentity
       ? legacySkuGoal(variantIdentity)
-      : catalogDuty?.goal
+      : (heroPlacement && catalogDuty?.goal)
+        ? `${heroPlacement} ${catalogDuty.goal}`
+        : catalogDuty?.goal
       || cleanString(own(item, 'communicationGoal'))
       || cleanString(own(item, 'purpose'))
       || `Commercial duty for ${role}`;
