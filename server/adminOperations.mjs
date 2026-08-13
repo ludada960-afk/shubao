@@ -37,6 +37,71 @@ function roundMoney(value) {
   return Number((Number(value) || 0).toFixed(6));
 }
 
+const SKU_CLASSIFICATIONS = Object.freeze({
+  ec_image_2k: { feature: 'ecommerce_image', provider: '65535' },
+  ec_image_4k: { feature: 'ecommerce_image', provider: '65535' },
+  xhs_image_set_2k: { feature: 'content_generation', provider: '65535' },
+  ec_nano_flash_1k: { feature: 'ecommerce_image', provider: 'Change2Pro' },
+  ec_nano_flash_2k: { feature: 'ecommerce_image', provider: 'Change2Pro' },
+  ec_nano_flash_4k: { feature: 'ecommerce_image', provider: 'Change2Pro' },
+  ec_nano_pro_1k: { feature: 'ecommerce_image', provider: 'Change2Pro' },
+  ec_nano_pro_2k: { feature: 'ecommerce_image', provider: 'Change2Pro' },
+  ec_nano_pro_4k: { feature: 'ecommerce_image', provider: 'Change2Pro' },
+  video_seedance_fast_short: { feature: 'video_generation', provider: 'IP233' },
+  video_seedance_fast_long: { feature: 'video_generation', provider: 'IP233' },
+  video_seedance_standard_short: { feature: 'video_generation', provider: 'IP233' },
+  video_seedance_standard_long: { feature: 'video_generation', provider: 'IP233' },
+  video_minimax_h3_2k_short: { feature: 'video_generation', provider: 'IP233' },
+  video_minimax_h3_2k_long: { feature: 'video_generation', provider: 'IP233' },
+  video_plan_analysis: { feature: 'video_generation', provider: '65535' },
+  ec_ai_assistant: { feature: 'visual_creation', provider: '65535' },
+  ec_reverse_prompt: { feature: 'ecommerce_image', provider: '65535' },
+  ec_extension_analysis: { feature: 'ecommerce_image', provider: '65535' },
+  ec_extension_basic: { feature: 'ecommerce_image', provider: '65535' },
+  ec_extension_standard: { feature: 'ecommerce_image', provider: '65535' },
+  ec_extension_complete: { feature: 'ecommerce_image', provider: '65535' },
+  ec_canvas_ocr: { feature: 'visual_creation', provider: '65535' },
+  ec_remove_bg: { feature: 'visual_creation', provider: '65535' },
+  ec_direction_refresh: { feature: 'ecommerce_image', provider: '65535' },
+  ec_smart_layer: { feature: 'visual_creation', provider: '65535' },
+  ec_layer_psd: { feature: 'visual_creation', provider: '65535' },
+});
+
+function classifyUsageRow(item) {
+  const fallback = SKU_CLASSIFICATIONS[item.sku] || {};
+  return {
+    ...item,
+    feature: item.feature && item.feature !== 'unclassified' ? item.feature : (fallback.feature || 'unclassified'),
+    provider: item.provider && item.provider !== 'unknown' ? item.provider : (fallback.provider || 'unknown'),
+  };
+}
+
+function breakdownBy(rows, key) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const value = row[key] || 'unclassified';
+    const current = grouped.get(value) || {
+      [key]: value, actions: 0, points_consumed: 0, theoretical_revenue: 0,
+      cash_revenue: 0, provider_cost_cny: 0,
+    };
+    current.actions += Number(row.actions || 0);
+    current.points_consumed += Number(row.points_consumed || 0);
+    current.theoretical_revenue += Number(row.theoretical_revenue || 0);
+    current.cash_revenue += Number(row.cash_revenue || 0);
+    current.provider_cost_cny += Number(row.provider_cost_cny || 0);
+    grouped.set(value, current);
+  }
+  return [...grouped.values()]
+    .sort((a, b) => b.provider_cost_cny - a.provider_cost_cny || b.actions - a.actions)
+    .map(item => ({
+      ...item,
+      theoretical_revenue: roundMoney(item.theoretical_revenue),
+      cash_revenue: roundMoney(item.cash_revenue),
+      provider_cost_cny: roundMoney(item.provider_cost_cny),
+      theoretical_contribution_cny: roundMoney(item.theoretical_revenue - item.provider_cost_cny),
+    }));
+}
+
 function safeOperationalText(value, maxLength = 220) {
   return String(value || '')
     .replace(/\bsk-[a-z0-9_-]{8,}\b/gi, '[redacted]')
@@ -467,7 +532,7 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
       theoretical_margin: Number(item.theoretical_revenue || 0) > 0
         ? Number(((Number(item.theoretical_revenue) - Number(item.provider_cost_cny || 0)) / Number(item.theoretical_revenue)).toFixed(4))
         : null,
-    }));
+    })).map(classifyUsageRow);
     return {
       metrics: {
         accountsTotal: accountCounts.total,
@@ -488,40 +553,8 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
           ? Number(((theoreticalRevenue - providerCost) / theoreticalRevenue).toFixed(4))
           : null,
       },
-      byProvider: db.prepare(`
-        SELECT COALESCE(NULLIF(provider, ''), 'unknown') AS provider,
-          COUNT(*) AS actions,
-          COALESCE(SUM(charged_units), 0) AS points_consumed,
-          COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
-          COALESCE(SUM(cash_revenue_cny), 0) AS cash_revenue,
-          COALESCE(SUM(provider_cost_cny), 0) AS provider_cost_cny
-        FROM usage_events u ${usageWhere.sql}
-        GROUP BY COALESCE(NULLIF(provider, ''), 'unknown')
-        ORDER BY provider_cost_cny DESC
-      `).all(...usageWhere.params).map(item => ({
-        ...item,
-        theoretical_revenue: roundMoney(item.theoretical_revenue),
-        cash_revenue: roundMoney(item.cash_revenue),
-        provider_cost_cny: roundMoney(item.provider_cost_cny),
-        theoretical_contribution_cny: roundMoney(Number(item.theoretical_revenue || 0) - Number(item.provider_cost_cny || 0)),
-      })),
-      byFeature: db.prepare(`
-        SELECT COALESCE(NULLIF(feature, ''), 'unclassified') AS feature,
-          COUNT(*) AS actions,
-          COALESCE(SUM(charged_units), 0) AS points_consumed,
-          COALESCE(SUM(credit_face_value_cny), 0) AS theoretical_revenue,
-          COALESCE(SUM(cash_revenue_cny), 0) AS cash_revenue,
-          COALESCE(SUM(provider_cost_cny), 0) AS provider_cost_cny
-        FROM usage_events u ${usageWhere.sql}
-        GROUP BY COALESCE(NULLIF(feature, ''), 'unclassified')
-        ORDER BY provider_cost_cny DESC
-      `).all(...usageWhere.params).map(item => ({
-        ...item,
-        theoretical_revenue: roundMoney(item.theoretical_revenue),
-        cash_revenue: roundMoney(item.cash_revenue),
-        provider_cost_cny: roundMoney(item.provider_cost_cny),
-        theoretical_contribution_cny: roundMoney(Number(item.theoretical_revenue || 0) - Number(item.provider_cost_cny || 0)),
-      })),
+      byProvider: breakdownBy(bySku, 'provider'),
+      byFeature: breakdownBy(bySku, 'feature'),
       bySku,
       unitEconomicsCatalog: buildUnitEconomicsCatalog(),
       upstreamLedger: buildUpstreamCostLedger({ bySku, localSettledCostCny: providerCost }),
