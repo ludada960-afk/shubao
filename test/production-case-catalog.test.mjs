@@ -18,7 +18,7 @@ test('production case catalog gives every showcase asset a stable display contra
     'brand-kv',
   ]);
   for (const item of PRODUCTION_CASE_CATALOG) {
-    assert.ok(['fixture', 'production'].includes(item.status));
+    assert.ok(['fixture', 'curated-showcase', 'production'].includes(item.status));
     assert.ok(item.assets.length > 0);
     assert.ok(item.assets.every(asset => asset.src.startsWith('/images/') || asset.src.startsWith('/gallery/')));
     assert.ok(item.assets.every(asset => /^\d+:\d+$/.test(asset.ratio)));
@@ -26,12 +26,13 @@ test('production case catalog gives every showcase asset a stable display contra
   }
 });
 
-test('reference try-on describes the three real user-visible stages', () => {
+test('reference try-on describes three honest curated user-visible stages', () => {
   const item = productionCaseById('tryon-reference');
-  assert.equal(item.status, 'production');
+  assert.equal(item.status, 'curated-showcase');
   assert.deepEqual(item.assets.map(asset => asset.role), ['source', 'reference', 'result']);
-  assert.deepEqual(item.assets.map(asset => asset.label), ['商品与穿搭', '参考模特', '上身结果']);
-  assert.ok(item.assets.every(asset => asset.taskId === 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb'));
+  assert.deepEqual(item.assets.map(asset => asset.label), ['完整商品与穿搭', '完整参考模特', '时尚街拍上身结果']);
+  assert.ok(item.assets.every(asset => !asset.taskId && !asset.requestKey));
+  assert.ok(item.assets.every(asset => asset.ratio === '3:4'));
 });
 
 test('product suite has a source and a publishable output deck', () => {

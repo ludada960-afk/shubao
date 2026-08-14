@@ -63,9 +63,10 @@ test('try-on showcase gives every rendered asset a stable React key', () => {
   assert.match(workbench, /key=\{item\.id \|\| item\.src\}/);
 });
 
-test('product suite showcase uses one real ecommerce workflow instead of duplicated fixture art', () => {
-  assert.match(catalog, /stainless-steel-sauce-container\/09\.webp/);
-  assert.match(catalog, /stainless-steel-sauce-container\/05\.webp/);
+test('product suite showcase uses one complete premium product workflow instead of the old generic pot fixture', () => {
+  assert.match(catalog, /product-suite\/cobalt-lamp-source\.webp/);
+  assert.match(catalog, /product-suite\/cobalt-lamp-detail\.webp/);
+  assert.doesNotMatch(catalog, /stainless-steel-sauce-container/);
   assert.match(workbench, /productionCaseById\('product-suite'\)/);
   assert.match(styles, /\.ec-product-suite-showcase/);
 });

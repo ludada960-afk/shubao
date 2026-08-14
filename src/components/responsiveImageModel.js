@@ -11,17 +11,25 @@ export function rawImageUrl(source) {
   return String(source);
 }
 
+function isDirectPublicAsset(url) {
+  return /^\/(?:images|gallery)\//i.test(String(url || ''));
+}
+
 export function responsiveImageCandidates(source, variant = 'thumb') {
   const raw = rawImageUrl(source);
   if (!raw) return [];
+  // Public showcase assets are already web-ready files. Loading them directly
+  // avoids an unnecessary image-service round trip on the first viewport.
+  if (isDirectPublicAsset(raw)) return [raw];
   const candidates = [proxyImg(raw, variant), proxyImg(raw, 'full')];
-  if (/^https?:\/\//i.test(raw)) candidates.push(raw);
+  candidates.push(raw);
   return [...new Set(candidates.filter(Boolean))];
 }
 
 export function responsiveImageSrcSet(source, format = 'webp') {
   const raw = rawImageUrl(source);
   if (!raw) return '';
+  if (isDirectPublicAsset(raw)) return '';
   return RESPONSIVE_IMAGE_WIDTHS
     .map(width => `${proxyImg(raw, `w${width}`, format)} ${width}w`)
     .join(', ');

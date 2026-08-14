@@ -39,31 +39,28 @@ function visualProductionCase({ id, chapters }) {
 export const PRODUCTION_CASE_CATALOG = Object.freeze([
   Object.freeze({
     id: 'product-suite',
-    status: 'fixture',
+    status: 'curated-showcase',
     assets: Object.freeze([
-      asset({ src: '/gallery/ecommerce/stainless-steel-sauce-container/09.webp', label: '商品素材', role: 'source', ratio: '1:1', intent: 'product_suite' }),
-      asset({ src: '/gallery/ecommerce/stainless-steel-sauce-container/01.webp', label: '主图视觉', role: 'result', ratio: '1:1', intent: 'product_suite' }),
-      asset({ src: '/gallery/ecommerce/stainless-steel-sauce-container/05.webp', label: '详情视觉', role: 'result', ratio: '9:16', intent: 'product_suite' }),
+      asset({ id: 'cobalt-lamp-source', src: '/images/home/product-suite/cobalt-lamp-source.webp', label: '完整商品素材', role: 'source', ratio: '1:1', intent: 'product_suite', prompt: '保留钴蓝玻璃灯罩、暖色灯芯与拉丝金属底座的完整结构和材质。' }),
+      asset({ id: 'cobalt-lamp-main', src: '/images/home/product-suite/cobalt-lamp-main.webp', label: '场景主图', role: 'result', ratio: '1:1', intent: 'product_suite', prompt: '为钴蓝玻璃台灯制作高端夜间家居场景主图，完整展示产品，不裁切，不添加文字。' }),
+      asset({ id: 'cobalt-lamp-detail', src: '/images/home/product-suite/cobalt-lamp-detail.webp', label: '长页详情视觉', role: 'result', ratio: '9:16', intent: 'product_suite', prompt: '制作完整9:16详情长图，依次展示产品全貌、玻璃灯罩、灯芯光效、金属底座和夜间场景，保持产品一致。' }),
     ]),
   }),
   Object.freeze({
     id: 'tryon-angles',
-    status: 'fixture',
+    status: 'curated-showcase',
     assets: Object.freeze([
-      asset({ src: '/images/home/tryon-showcase/product-flatlay.png', label: '商品与穿搭', role: 'source', ratio: '475:1254', intent: 'anything_tryon' }),
-      asset({ src: '/images/home/tryon-showcase/angle-front.png', label: '正面', role: 'result', ratio: '347:610', intent: 'anything_tryon' }),
-      asset({ src: '/images/home/tryon-showcase/angle-motion.png', label: '动态', role: 'result', ratio: '347:605', intent: 'anything_tryon' }),
-      asset({ src: '/images/home/tryon-showcase/angle-side.png', label: '侧面', role: 'result', ratio: '325:610', intent: 'anything_tryon' }),
-      asset({ src: '/images/home/tryon-showcase/angle-back.png', label: '背面', role: 'result', ratio: '325:605', intent: 'anything_tryon' }),
+      asset({ id: 'editorial-flatlay-angle', src: '/images/home/tryon-showcase/editorial-flatlay-v3.webp', label: '完整穿搭素材', role: 'source', ratio: '3:4', intent: 'anything_tryon', prompt: '完整保留黑色长大衣、针织上衣、米色长裤、皮鞋和包袋。' }),
+      asset({ id: 'editorial-multi-angle', src: '/images/home/tryon-showcase/editorial-multi-angle-v3.webp', label: '街拍多视角成片', role: 'result', ratio: '16:9', intent: 'anything_tryon', prompt: '创建虚构成年时尚模特，在欧洲街头完整穿着全部商品，以正面、四分之三、侧面和背面形成四张完整大卡片。' }),
     ]),
   }),
   Object.freeze({
     id: 'tryon-reference',
-    status: 'production',
+    status: 'curated-showcase',
     assets: Object.freeze([
-      asset({ id: 'tryon-reference-flatlay', src: '/images/home/tryon-showcase/reference-flatlay.png', label: '商品与穿搭', role: 'source', ratio: '390:1254', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '保留商品材质、颜色和版型，把商品与穿搭放到参考模特身上，保持人物比例、服装关系和自然光线一致。' }),
-      asset({ id: 'tryon-reference-person', src: '/images/home/tryon-showcase/reference-person.png', label: '参考模特', role: 'reference', ratio: '315:1254', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '使用参考模特的姿态、人物比例和街景光线，准确承接商品与穿搭素材。' }),
-      asset({ id: 'tryon-reference-result', src: '/images/visual-recipes/cases/tryon-reference-result.png', label: '上身结果', role: 'result', ratio: '3:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '把商品与穿搭准确替换到参考模特身上，保留人物姿态、服装材质、配饰关系和原始场景光线。' }),
+      asset({ id: 'editorial-flatlay-reference', src: '/images/home/tryon-showcase/editorial-flatlay-v3.webp', label: '完整商品与穿搭', role: 'source', ratio: '3:4', intent: 'anything_tryon', prompt: '完整保留黑色长大衣、针织上衣、米色长裤、皮鞋和包袋的材质、颜色、数量与搭配关系。' }),
+      asset({ id: 'editorial-model-reference', src: '/images/home/tryon-showcase/editorial-model-v3.webp', label: '完整参考模特', role: 'reference', ratio: '3:4', intent: 'anything_tryon', prompt: '参考成年模特的完整全身比例、街头行走姿态、镜头高度和自然城市光线。' }),
+      asset({ id: 'editorial-street-result', src: '/images/home/tryon-showcase/editorial-street-result-v3.webp', label: '时尚街拍上身结果', role: 'result', ratio: '3:4', intent: 'anything_tryon', prompt: '创建一位虚构成年时尚模特，完整穿着全部商品，在城市街头以具有张力的行走姿态拍摄，保留从头到脚的完整构图，不添加文字。' }),
     ]),
   }),
   visualProductionCase({

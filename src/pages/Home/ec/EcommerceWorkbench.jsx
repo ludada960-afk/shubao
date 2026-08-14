@@ -64,16 +64,16 @@ function TryOnShowcase({ personMode }) {
     {
       id: 'angles',
       eyebrow: '多视角成片',
-      title: '一套商品，生成不同展示角度',
-      description: '正面、侧面、背面与动态姿态，一次形成可选成片。',
+      title: '一套穿搭，拍出完整时尚角度',
+      description: '正面、四分之三、侧面与背面都保留完整造型，适合商品页和广告投放。',
       source: angleCase.assets.find(asset => asset.role === 'source'),
       results: angleCase.assets.filter(asset => asset.role === 'result'),
     },
     {
       id: 'reference',
-      eyebrow: '参考模特',
-      title: '保留人物气质，把商品准确换上身',
-      description: '人物和场景保持连贯，商品颜色、版型与搭配关系清晰可见。',
+      eyebrow: '场景上身',
+      title: '让完整穿搭进入真实街拍场景',
+      description: '从头到脚保留商品版型与搭配关系，用动态姿态呈现可投放的时尚画面。',
       source: referenceCase.assets.find(asset => asset.role === 'source'),
       reference: referenceCase.assets.find(asset => asset.role === 'reference'),
       results: referenceCase.assets.filter(asset => asset.role === 'result'),
@@ -169,17 +169,38 @@ function TryOnShowcase({ personMode }) {
 }
 
 function ProductSuiteShowcase() {
+  const [previewIndex, setPreviewIndex] = useState(-1);
   const suiteCase = productionCaseById('product-suite');
   const source = suiteCase.assets.find(asset => asset.role === 'source');
   const results = suiteCase.assets.filter(asset => asset.role === 'result');
-  return <section className="ec-product-suite-showcase" aria-label="商品套图效果预览">
-    <div className="ec-product-suite-showcase-copy"><span className="ec-showcase-kicker">一套成片</span><strong>从商品素材，到一组能直接使用的视觉</strong><span>统一商品身份、光影和版式语言，同时生成主图与详情视觉。</span></div>
+  const previewItems = [source, ...results].filter(Boolean);
+  useEffect(() => {
+    if (previewIndex < 0) return undefined;
+    const onKeyDown = event => {
+      if (event.key === 'Escape') setPreviewIndex(-1);
+      if (event.key === 'ArrowLeft') setPreviewIndex(current => (current - 1 + previewItems.length) % previewItems.length);
+      if (event.key === 'ArrowRight') setPreviewIndex(current => (current + 1) % previewItems.length);
+    };
+    globalThis.addEventListener?.('keydown', onKeyDown);
+    return () => globalThis.removeEventListener?.('keydown', onKeyDown);
+  }, [previewIndex, previewItems.length]);
+  const preview = previewItems[previewIndex];
+  return <><section className="ec-product-suite-showcase" aria-label="商品套图效果预览">
+    <div className="ec-product-suite-showcase-copy"><span className="ec-showcase-kicker">一套成片</span><strong>从质感商品，到完整主图与详情叙事</strong><span>锁定钴蓝玻璃、暖色灯芯和金属底座，让主图负责吸引，长页负责解释细节。</span></div>
     <div className="ec-product-suite-showcase-visual">
-      <span className="ec-product-suite-source"><ResponsiveImage src={source.src} ratio={source.ratio} alt={source.label} /></span>
+      <button type="button" className="ec-product-suite-source" style={{ '--case-ratio': source.ratio.replace(':', ' / ') }} onClick={() => setPreviewIndex(0)} aria-label={`放大查看${source.label}`}><ResponsiveImage src={source.src} ratio={source.ratio} alt={source.label} /><Maximize2 size={14} /></button>
       <span className="ec-tryon-showcase-operator" aria-hidden="true"><ArrowRight size={22} /></span>
-      <div className="ec-product-suite-results">{results.map((result, index) => <span key={`${result.src}:${index}`} className={`result-${index}`}><ResponsiveImage src={result.src} ratio={result.ratio} alt={result.label} /><b>{result.label}</b></span>)}</div>
+      <div className="ec-product-suite-results">{results.map((result, index) => <button type="button" key={`${result.src}:${index}`} className={`result-${index}`} style={{ '--case-ratio': result.ratio.replace(':', ' / ') }} onClick={() => setPreviewIndex(index + 1)} aria-label={`放大查看${result.label}`}><ResponsiveImage src={result.src} ratio={result.ratio} alt={result.label} /><b>{result.label}</b><Maximize2 size={14} /></button>)}</div>
     </div>
-  </section>;
+  </section>{preview && <div className="ec-tryon-preview-modal" role="dialog" aria-modal="true" aria-label={`${preview.label}大图`} onMouseDown={event => { if (event.target === event.currentTarget) setPreviewIndex(-1); }}>
+    <div className="ec-tryon-preview-dialog">
+      <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewIndex(-1)} aria-label="关闭大图"><X size={20} /></button>
+      <button type="button" className="ec-tryon-preview-previous" onClick={() => setPreviewIndex(current => (current - 1 + previewItems.length) % previewItems.length)} aria-label="查看上一张"><ArrowLeft size={20} /></button>
+      <ResponsiveImage src={preview.src} variant="display" ratio={preview.ratio} alt={`${preview.label}大图`} imgStyle={{ objectFit: 'contain' }} />
+      <button type="button" className="ec-tryon-preview-next" onClick={() => setPreviewIndex(current => (current + 1) % previewItems.length)} aria-label="查看下一张"><ArrowRight size={20} /></button>
+      <div><strong>{preview.label}</strong><span>使用左右方向键切换</span></div>
+    </div>
+  </div>}</>;
 }
 
 export default function EcommerceWorkbench({
@@ -250,7 +271,7 @@ export default function EcommerceWorkbench({
               const selected = recipe.id === abilityRecipeId;
               return (
                 <button type="button" role="tab" key={recipe.id} className={`ec-ability-selector-option ${selected ? 'is-selected' : ''}`} aria-selected={selected} onClick={() => selectRecipe(recipe.id)}>
-                  <span className="ec-ability-selector-thumb"><ResponsiveImage src={recipe.id === 'anything_tryon' ? '/images/home/tryon-showcase/reference-result.png' : '/images/home/entry-ecommerce.png'} variant="thumb" ratio="1:1" alt="" /></span>
+                  <span className="ec-ability-selector-thumb"><ResponsiveImage src={recipe.id === 'anything_tryon' ? '/images/home/ability-tryon-wide.webp' : '/images/home/ability-product-suite-wide.webp'} variant="thumb" ratio="16:9" alt="" /></span>
                   <span className="ec-ability-selector-copy"><strong>{recipe.label}</strong><span>{ABILITY_RESULT_COPY[recipe.id]}</span></span>
                   {selected && <Check size={16} className="ec-ability-selector-check" />}
                 </button>

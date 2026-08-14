@@ -30,12 +30,33 @@ export function galleryIdentity(item = {}) {
 
 export function dedupeGalleryItems(items = []) {
   const seen = new Set();
+  const seenCovers = new Set();
   return items.filter(item => {
     const key = galleryIdentity(item);
-    if (!key || seen.has(key)) return false;
+    const cover = canonicalUrl(item.cover_url || item.coverUrl || item.images?.[0]);
+    if (!key || seen.has(key) || (cover && seenCovers.has(cover))) return false;
     seen.add(key);
+    if (cover) seenCovers.add(cover);
     return true;
   });
+}
+
+function ratioHeight(item = {}) {
+  const ratio = clean(item.ratio || item.images?.[0]?.ratio || '3:4');
+  const [width, height] = ratio.split(':').map(Number);
+  return width > 0 && height > 0 ? height / width : 4 / 3;
+}
+
+export function stableGalleryColumns(items = [], columnCount = 4) {
+  const count = Math.max(1, Math.floor(Number(columnCount) || 1));
+  const columns = Array.from({ length: count }, () => []);
+  const heights = Array.from({ length: count }, () => 0);
+  items.forEach((item, index) => {
+    const columnIndex = heights.indexOf(Math.min(...heights));
+    columns[columnIndex].push({ item, index });
+    heights[columnIndex] += ratioHeight(item) + 0.06;
+  });
+  return columns;
 }
 
 export function stableGalleryItems(groups = []) {
@@ -48,23 +69,60 @@ export function stableGalleryItems(groups = []) {
   return dedupeGalleryItems(result);
 }
 
+export function appendGalleryItemsWithoutReordering(current = [], incoming = []) {
+  const nextByIdentity = new Map(incoming.map(item => [galleryIdentity(item), item]));
+  const preserved = current.map(item => nextByIdentity.get(galleryIdentity(item)) || item);
+  return dedupeGalleryItems([...preserved, ...incoming]);
+}
+
+export function tryOnWorkflowCards(item = {}) {
+  const assets = (item.assets || item.images || []).filter(asset => assetUrl(asset));
+  const product = assets.find(asset => asset.role === 'source') || assets[0];
+  const model = assets.find(asset => asset.role === 'reference');
+  const result = assets.find(asset => asset.role === 'result') || assets.at(-1);
+  return [product, model, result].filter((asset, index, cards) => {
+    if (!asset) return false;
+    const identity = clean(asset.id) || canonicalUrl(asset);
+    return cards.findIndex(candidate => (clean(candidate?.id) || canonicalUrl(candidate)) === identity) === index;
+  });
+}
+
 function tryOnGalleryItem(entry) {
   const assets = entry.assets.map(normalizedAsset).filter(Boolean);
   const output = assets.find(asset => asset.role === 'result') || assets.at(-1);
   const prompt = clean(output?.prompt) || assets.map(asset => clean(asset.prompt)).find(Boolean) || '保留商品与人物特征，生成自然可信的上身结果。';
+  const title = entry.id === 'tryon-angles'
+    ? '一套穿搭，多角度街拍成片'
+    : '商品与参考模特精准上身';
   return {
-    id: `production-${entry.id}`, type: 'ecommerce', intent: 'anything_tryon', title: '商品与模特精准上身',
+    id: `production-${entry.id}`, type: 'ecommerce', intent: 'anything_tryon', title,
     prompt, body_text: prompt, cover_url: output?.url || '', image_urls: assets.map(asset => asset.url), images: assets, assets,
-    ratio: '4:3', requestKey: output?.requestKey || '', imageModel: 'image2', resolution: '2K',
+    ratio: '4:3', requestKey: output?.requestKey || '', imageModel: entry.status === 'production' ? 'image2' : 'showcase', resolution: '2K',
     remix: { prompt, platform: 'smart', intent: 'anything_tryon' },
+  };
+}
+
+function productSuiteGalleryItem(entry) {
+  const assets = entry.assets.map(normalizedAsset).filter(Boolean);
+  const output = assets.find(asset => asset.role === 'result') || assets.at(-1);
+  const prompt = clean(output?.prompt) || '保留完整商品结构，生成一套统一主图与详情视觉。';
+  return {
+    id: `showcase-${entry.id}`, type: 'ecommerce', intent: 'product_suite', title: '钴蓝玻璃灯商品套图',
+    prompt, body_text: prompt, cover_url: output?.url || '', image_urls: assets.map(asset => asset.url), images: assets, assets,
+    ratio: output?.ratio || '1:1', requestKey: '', imageModel: 'showcase', resolution: '2K',
+    remix: { prompt, platform: 'taobao', intent: 'product_suite', referenceAssets: assets.filter(asset => asset.role === 'source') },
   };
 }
 
 export function productionGalleryItems(catalog = []) {
   const result = [];
-  for (const entry of catalog.filter(item => item.status === 'production')) {
+  for (const entry of catalog.filter(item => ['production', 'curated-showcase'].includes(item.status))) {
     if (entry.id === 'tryon-reference' || entry.assets?.some(asset => asset.intent === 'anything_tryon')) {
       result.push(tryOnGalleryItem(entry));
+      continue;
+    }
+    if (entry.id === 'product-suite') {
+      result.push(productSuiteGalleryItem(entry));
       continue;
     }
     for (const [index, asset] of (entry.assets || []).entries()) {

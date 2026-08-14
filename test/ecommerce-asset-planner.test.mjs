@@ -84,6 +84,34 @@ test('carries global commerce context into every asset and disables text for vis
   assert.ok(plan.every(item => item.textLayerPlan.regions.length === 0));
 });
 
+test('try-on planning replaces generic specification-grid direction with a full-body editorial contract', () => {
+  const [item] = buildAssetPlan({
+    productTruth: productTruth({ category: '服饰鞋包' }),
+    campaignBible: {
+      ...campaignBible,
+      title: '规格差异对比',
+      shotPlan: [{
+        role: 'main_3x4',
+        purpose: '用模块网格说明规格差异',
+        visualExecution: '旁边只留一句卖点',
+      }],
+    },
+    commerceContext: { platform: 'taobao', contentType: 'tryon', targetLanguage: 'zh-CN' },
+    sizing: { images: [{ key: 'main_3x4', count: 1, ratio: '3:4' }] },
+    abilityRecipe: { id: 'anything_tryon', version: 1 },
+    personMode: 'smart',
+  });
+
+  assert.equal(item.label, '智能模特上身成片');
+  assert.match(item.purpose, /上身/);
+  assert.match(item.creativeExecution, /虚构成年模特/);
+  assert.match(item.shotSpecification.composition, /complete head-to-toe full-body/i);
+  assert.doesNotMatch(JSON.stringify(item), /规格差异|模块网格|旁边只留一句卖点/);
+  assert.equal(item.commerceContext.targetLanguage, 'visual');
+  assert.equal(item.textLayerPlan.mode, 'no_text');
+  assert.equal(item.layoutContract.maxMarketingTextBlocks, 0);
+});
+
 test('plans 3C parameter content from confirmed user facts only', () => {
   const plan = buildAssetPlan({ productTruth: productTruth(), campaignBible, platform: 'taobao' });
   const parameters = plan.find((item) => item.role === 'detail_slice_parameters');

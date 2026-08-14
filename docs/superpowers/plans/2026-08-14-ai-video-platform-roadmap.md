@@ -242,3 +242,33 @@ Storyboard, timeline, Skill execution, and advanced editing are explicitly exclu
 ## 13. Definition of Program Success
 
 Shubao succeeds when a user can start from an intent or reference, approve reusable assets and a cost-bounded shot plan, generate and repair individual shots without losing successful work, assemble selected versions, export, and later clone the exact process. The success condition is not the number of exposed models; it is reliable delivery, controllable cost, continuity, and repeatable creative leverage.
+
+## 14. Long-Running Execution Ledger
+
+This ledger is the durable program checkpoint. A checkbox changes only when its evidence link, test result, production metric, and rollback boundary are recorded in this document or `RTK.md`.
+
+| Program slice | Status on 2026-08-14 | Evidence required to advance | Next action |
+| --- | --- | --- | --- |
+| Market and workflow research | Complete | Flova, TapNow, director workflow, corrected Feishu resource, and Xiaohongshu reconstruction flow reviewed without paid generation | Revalidate provider claims and prices monthly |
+| P0 design contract | Next | Approved schema, migration, state machine, billing compensation, outbox, media lifecycle, fault matrix, and explicit non-goals | Write the P0 technical spec before changing production tables |
+| P0 media foundation | Not started | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, and authorization tests pass | Implement behind a feature flag after P0 contract approval |
+| P0 reliable jobs and billing | Partial legacy foundation, not accepted | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Migrate existing image/video routes incrementally; do not fork another queue |
+| P1 storyboard workbench | Blocked by P0 | Ten internal projects finish without platform-state or billing failure | Build assets, shots, candidate approval, then a basic timeline |
+| P2 Skills, memory, replay | Blocked by P1 evidence | Two real workflows can be replayed from stored inputs and a versioned manifest | Product ad first; reference reconstruction second |
+| P3 advanced local editing | Research only | Each provider capability passes three real input-variant canaries and has a whole-shot fallback | Release reshoot, extension, tracking, and action control independently |
+
+### First 90-day sequence
+
+1. **Weeks 1-2 - P0 contract and baseline:** inventory current image/video/media/job/billing paths; freeze reliability metrics; design migrations, state transitions, outbox records, recovery ownership, proxy formats, and fault tests. No new editor feature enters this slice.
+2. **Weeks 3-5 - media path:** instant object-URL preview, background durable upload, content hashing, thumbnail/poster/proxy generation, resumable transfer, stable authorized URLs, and cleanup policy. Roll out to Canvas upload first, then homepage video upload.
+3. **Weeks 5-7 - job and billing path:** idempotent submission, durable attempts, outbox delivery, startup reconciliation, provider polling recovery, persisted-result handoff, settlement/release compensation, and admin task timelines.
+4. **Weeks 7-8 - adversarial acceptance:** run the complete fault matrix, restart recovery, queue saturation, moderation, timeout, deleted-source, object-store failure, and billing failure. Observe a limited internal beta until all Stage 0 exit metrics hold.
+5. **Weeks 9-12 - P1 narrow workbench:** only after Stage 0 exits, implement project assets, storyboard shots, candidate selection, a basic timeline, and three templates: product advertisement, image-to-video, and first/last-frame video.
+
+### Operating rules
+
+- Reliability work uses the existing production routes and migrates them; no parallel experimental queue becomes a second source of truth.
+- Every stage has one owner, one metric dashboard, one rollback target, and one weekly written checkpoint in `RTK.md`.
+- Provider/model choice stays server-configured and capability-gated. The user chooses Fast, Stable, or High quality; advanced model selection remains optional.
+- A feature is not complete when a button renders. It is complete only when its stored input changes provider behavior, survives refresh/restart, settles correctly, and has a tested failure path.
+- Gallery “view process / do the same” requires full provenance: original assets, prompts, parameters, catalog snapshot, selected versions, project graph, and rights confirmations. A final image alone is never treated as a replayable workflow.

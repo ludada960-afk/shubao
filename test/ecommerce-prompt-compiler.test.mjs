@@ -166,6 +166,37 @@ test('try-on prompt carries explicit material, pattern, and continuity constrain
   assert.match(schema.sections.generationInstructions.subject, /Keep the person identity/);
 });
 
+test('smart try-on prompt excludes generic grid and copy instructions', () => {
+  const result = compileAssetRequest({
+    assetPlanItem: assetPlanItem({
+      id: 'try-on-smart',
+      role: 'try_on_main',
+      purpose: 'Create a complete full-body ecommerce try-on frame.',
+      creativeExecution: 'Create a new fictional adult fashion model in a dynamic street pose.',
+      productAssetIds: ['product-front'],
+      styleReferenceIds: [],
+      commerceContext: { targetLanguage: 'visual', locale: 'und', contentType: 'tryon' },
+      textLayerPlan: { mode: 'no_text' },
+    }),
+    productTruth: productTruth(),
+    campaignBible: campaignBible({
+      lighting: 'specification grid lighting',
+      composition: '模块网格，旁边只留一句卖点，展示规格差异',
+      backgroundLanguage: 'technical comparison table',
+    }),
+    abilityRecipe: { id: 'anything_tryon', version: 1 },
+    personMode: 'smart',
+    assets: { items: [asset('product-front')], person: [], scene: [] },
+  });
+  const { schema } = parseStructuredPrompt(result.prompt);
+  const generation = JSON.stringify(schema.sections.generationInstructions);
+
+  assert.match(schema.sections.generationInstructions.subject, /new fictional adult fashion model/i);
+  assert.match(schema.sections.generationInstructions.composition, /complete head-to-toe/i);
+  assert.match(schema.sections.generationInstructions.copyPolicy, /No generated text/);
+  assert.doesNotMatch(generation, /规格差异|模块网格|旁边只留一句卖点|specification grid/i);
+});
+
 test('localized commerce prompts state the exact consumer-facing locale', () => {
   const truth = productTruth();
   const bible = campaignBible();

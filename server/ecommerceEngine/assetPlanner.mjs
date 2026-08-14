@@ -418,7 +418,7 @@ function explicitDetailSpecs(strategy, productTruth, count, proofAssetIds) {
  * selected only from the legal model catalog; platform dimensions remain export
  * targets for deterministic post-processing.
  */
-export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform = 'taobao', commerceContext, sizing = {}, skus = [], uploadedProofs = [] } = {}) {
+export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform = 'taobao', commerceContext, sizing = {}, skus = [], uploadedProofs = [], abilityRecipe = null, personMode = '' } = {}) {
   const truth = isRecord(productTruth) ? productTruth : {};
   const bible = isRecord(campaignBible) ? campaignBible : {};
   const category = normalizeCategory(ownValue(truth, 'category'));
@@ -719,5 +719,59 @@ export function buildAssetPlan({ productTruth = {}, campaignBible = {}, platform
     };
   });
 
-  return directedItems.sort((left, right) => left.id.localeCompare(right.id));
+  const isTryOn = cleanString(ownValue(abilityRecipe, 'id')) === 'anything_tryon';
+  const finalItems = isTryOn
+    ? directedItems.map((item) => {
+        const smartPerson = cleanString(personMode).toLowerCase() !== 'reference';
+        const label = smartPerson ? '智能模特上身成片' : '参考模特上身成片';
+        const creativeExecution = smartPerson
+          ? '创建一位全新的虚构成年模特，以具有时尚感的完整全身构图自然穿着全部商品；保留每件服饰与配件的数量、颜色、材质、版型和搭配关系，使用具有电商表现力的姿态与场景，不添加任何文字。'
+          : '以成年参考模特控制人物、姿态、镜头和场景连续性，把全部商品自然准确地穿到模特身上；保留每件服饰与配件的数量、颜色、材质、版型和搭配关系，完整展示从头到脚，不添加任何文字。';
+        return {
+          ...item,
+          label,
+          purpose: '把完整商品自然穿到成年模特身上，形成可直接用于电商展示的完整上身成片。',
+          communicationGoal: '让买家一眼看清商品真实上身效果、完整搭配关系与场景表现力。',
+          creativeExecution,
+          variationKey: 'tryon-editorial-full-body',
+          groupStrategy: '一张图只承担一个完整上身展示目的，不做规格表、拼贴、网格或文字信息层。',
+          commerceContext: {
+            ...item.commerceContext,
+            contentType: 'tryon',
+            targetLanguage: 'visual',
+            locale: 'und',
+          },
+          shotSpecification: {
+            visualStyle: 'High-fashion ecommerce editorial photography with natural commercial realism.',
+            scene: 'Follow the approved user scene and preserve a coherent single environment.',
+            composition: 'One adult model in a complete head-to-toe full-body frame; every garment and accessory remains fully visible with no crop, collage, grid, inset, or duplicated person.',
+            copy: 'No text, labels, badges, captions, logos, pseudo-text, or decorative typography.',
+          },
+          layoutContract: {
+            ...item.layoutContract,
+            maxMarketingTextBlocks: 0,
+            textRegions: [],
+          },
+          textLayerPlan: {
+            ...item.textLayerPlan,
+            mode: 'no_text',
+            editableLayersAvailable: false,
+            requiresComposition: false,
+            exactTextOnly: true,
+            renderMarketingTextInImageModel: false,
+            regions: [],
+          },
+          shotIntent: {
+            ...item.shotIntent,
+            planLabel: label,
+            plannedPurpose: '完整全身电商上身展示',
+            creativeExecution,
+            variationKey: 'tryon-editorial-full-body',
+            groupStrategy: '单张完整成片',
+          },
+        };
+      })
+    : directedItems;
+
+  return finalItems.sort((left, right) => left.id.localeCompare(right.id));
 }

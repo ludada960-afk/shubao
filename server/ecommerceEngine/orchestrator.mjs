@@ -1962,6 +1962,8 @@ export function createEcommerceOrchestrator(deps = {}) {
           sizing: own(payload, 'sizing') || {},
           skus: own(payload, 'skus') || [],
           uploadedProofs: inputAssets.proof,
+          abilityRecipe: own(payload, 'ability_recipe'),
+          personMode: own(payload, 'person_mode'),
         }));
         snapshot = sanitizeSnapshot({
           schemaVersion: CURRENT_ORCHESTRATION_SNAPSHOT_VERSION,

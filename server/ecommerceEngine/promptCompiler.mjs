@@ -700,15 +700,19 @@ export function compileAssetRequest({
         }
       : {
           subject: tryOn
-            ? `Dress the exact user products from indexed product views onto the indexed person reference when present, or generate one commercially plausible model when person mode is smart. Preserve item count, order, fit, color, logos, and construction. ${preserveMaterial ? 'Lock material, drape, reflectance, and surface texture.' : 'Material and drape may adapt to the scene, but do not invent extra products.'} ${preservePattern ? 'Lock patterns, woven details, hardware, and mark placement.' : 'Pattern treatment may adapt to the composition, but do not invent brand marks.'} ${consistentPersonScene ? 'Keep the person identity, pose continuity, environment, and lighting coherent across the set.' : 'Allow person pose and scene styling to vary for exploration while keeping the merchandise recognizable.'}`
+            ? `${personMode === 'reference' ? 'Dress the exact user products from indexed product views onto the indexed adult person reference.' : 'Create a new fictional adult fashion model wearing the exact user products from indexed product views.'} Preserve item count, order, fit, color, logos, and construction. ${preserveMaterial ? 'Lock material, drape, reflectance, and surface texture.' : 'Material and drape may adapt to the scene, but do not invent extra products.'} ${preservePattern ? 'Lock patterns, woven details, hardware, and mark placement.' : 'Pattern treatment may adapt to the composition, but do not invent brand marks.'} ${consistentPersonScene ? 'Keep the person identity, pose continuity, environment, and lighting coherent across the set.' : 'Allow person pose and scene styling to vary for exploration while keeping the merchandise recognizable.'}`
             : 'Preserve the user product from indexed product views; create only the requested role composition.',
           materials: materials.join(', '),
-          lighting: campaign.lighting,
+          lighting: tryOn
+            ? 'Natural high-end commercial fashion lighting with realistic skin, fabric texture, and dimensional separation.'
+            : campaign.lighting,
           composition: tryOn
-            ? `Create a single-frame, single-scene commercial try-on image for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim()
+            ? `Create one single-frame, single-scene commercial try-on image with one adult model in a complete head-to-toe full-body composition. Keep every garment and accessory fully visible without cropping. ${cleanString(ownValue(item, 'creativeExecution'))}`.trim()
             : `Create a single-frame, single-scene composition for this role only. ${cleanString(ownValue(item, 'creativeExecution'))} ${campaign.composition}`.trim(),
-          background: campaign.backgroundLanguage,
-          palette: campaign.palette,
+          background: tryOn
+            ? 'Use one coherent editorial environment derived only from the user brief or indexed scene reference; no comparison table, specification board, grid, or copy panel.'
+            : campaign.backgroundLanguage,
+          palette: tryOn ? normalizeStrings(ownValue(truth, 'primaryColors')) : campaign.palette,
           copyPolicy: visualOnly
             ? localizedCopyPolicy
             : variantComparison

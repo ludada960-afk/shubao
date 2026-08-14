@@ -151,7 +151,7 @@
   grid-template-rows: minmax(300px, auto) auto auto;
   min-height: 300px;
   overflow: hidden;
-  background: linear-gradient(110deg, #fff4e0 0%, #fffaf3 35%, #fff 65%, #faf8ff 100%);
+  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, #fff 79%, #fff 100%);
   border: 1px solid #ece4d8;
   border-radius: 8px;
 }
@@ -491,7 +491,7 @@
 
 .visual-creation-composer {
   overflow: visible;
-  background: linear-gradient(110deg, #fff5e6 0%, #fffaf2 42%, #fffdf8 72%, #fff 100%);
+  background: linear-gradient(90deg, #faefdf 0%, #fbf2e8 48%, #fdf8f3 65%, #fff 79%, #fff 100%);
   border: 1px solid #eadfd2;
   border-radius: 8px;
 }
