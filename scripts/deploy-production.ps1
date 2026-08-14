@@ -8,7 +8,9 @@ param(
   [ValidateRange(0, 3600)]
   [int]$CanarySeconds = 600,
   [ValidateRange(0, 600)]
-  [int]$PublicWarmupSeconds = 180
+  [int]$PublicWarmupSeconds = 180,
+  [ValidatePattern('^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')]
+  [string]$CanaryOwnerEmail = "867550189@qq.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -79,6 +81,7 @@ $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
 $nanoGatewayProbe = Join-Path $PSScriptRoot "probe-nano-banana-gateway.mjs"
 $galleryVerifier = Join-Path $PSScriptRoot "verify-production-gallery.mjs"
 $videoVerifier = Join-Path $PSScriptRoot "verify-production-video.mjs"
+$canarySessionIssuer = Join-Path $PSScriptRoot "issue-production-canary-session.mjs"
 $galleryDirectoryName = -join [char[]](34223, 21253, 20986, 21697)
 $galleryAssetsDir = Join-Path $repo $galleryDirectoryName
 $nginxConfig = Join-Path $PSScriptRoot "nginx\shuimg.cn.conf"
@@ -89,6 +92,7 @@ $remoteDatabaseBackupHelper = "$remoteRuntimeHelperDir/backup-runtime-db.cjs"
 $remoteRuntimeConfigHelper = "$remoteRuntimeHelperDir/verify-runtime-config.cjs"
 $remoteRuntimeConfigUpdater = "$remoteRuntimeHelperDir/configure-runtime-gateways.cjs"
 $remoteReleaseArchive = "$remoteRuntimeHelperDir/$(Split-Path $archive -Leaf)"
+$remoteCanarySessionFile = "$remoteRuntimeHelperDir/production-canary-session"
 $remoteRuntimeConfigBackup = "/tmp/shubao-runtime-config-backup-$stamp"
 $legacyWebRoot = "/var/www/shubao/assets"
 $staticReleasesRoot = "/var/www/shubao/releases"
@@ -111,6 +115,9 @@ if (-not (Test-Path -LiteralPath $galleryAssetsDir -PathType Container)) {
 }
 if (-not (Test-Path -LiteralPath $deploymentLockRunner -PathType Leaf)) {
   throw "Deployment lock runner is missing"
+}
+if (-not (Test-Path -LiteralPath $canarySessionIssuer -PathType Leaf)) {
+  throw "Production canary session issuer is missing"
 }
 $deploymentSucceeded = $false
 
@@ -227,6 +234,19 @@ function Get-RemotePm2ProcessId {
     throw "Could not read the shubao-production PM2 process id"
   }
   return [int64]$remotePid
+}
+
+function Refresh-CanarySessionAfterRestart {
+  $remotePid = Get-RemotePm2ProcessId
+  $issuerCommand = "set -e; umask 077; node '$RemoteDir/scripts/issue-production-canary-session.mjs' --owner-email '$CanaryOwnerEmail' --process-id '$remotePid' --repo-path '$RemoteDir' > '$remoteCanarySessionFile'; chmod 600 '$remoteCanarySessionFile'"
+  Invoke-LockedRemote -Command $issuerCommand -TimeoutSeconds 120 -FailureMessage "Post-restart canary session issuance failed"
+  $refreshedToken = ((& ssh @ssh $target "cat '$remoteCanarySessionFile'") -join "").Trim()
+  if ($LASTEXITCODE -ne 0 -or -not (Test-CanarySessionTokenFormat $refreshedToken)) {
+    throw "Post-restart canary session capture failed"
+  }
+  $script:canarySessionToken = $refreshedToken
+  Remove-Variable refreshedToken -ErrorAction SilentlyContinue
+  Invoke-LockedRemote -Command "rm -f '$remoteCanarySessionFile'" -TimeoutSeconds 120 -FailureMessage "Post-restart canary session cleanup failed"
 }
 
 function Wait-PublicProductionReady {
@@ -371,7 +391,7 @@ tar -czf $archive -C $repo `
   --exclude='server/.env' `
   --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
-  dist server shared scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
+  dist server shared scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs scripts/issue-production-canary-session.mjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
 if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
 tar -tzf $archive shared/ecommerceAbilityRecipes.mjs | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Release archive runtime module verification failed" }
@@ -455,6 +475,7 @@ try {
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery verification failed"
   Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract verification failed"
+  Refresh-CanarySessionAfterRestart
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   Assert-DeploymentLockHeld
