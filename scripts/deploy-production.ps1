@@ -232,6 +232,29 @@ function Invoke-EcommerceProductionVerification {
   }
 }
 
+function Invoke-NodeProductionVerification {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Verifier,
+    [Parameter(Mandatory = $true)]
+    [string]$FailureMessage,
+    [ValidateRange(1, 5)]
+    [int]$MaxAttempts = 3,
+    [ValidateRange(0, 300)]
+    [int]$RetryDelaySeconds = 10
+  )
+
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    & node $Verifier --base-url "https://shuimg.cn"
+    if ($LASTEXITCODE -eq 0) { return }
+    if ($attempt -ge $MaxAttempts) {
+      throw "$FailureMessage after $MaxAttempts attempts"
+    }
+    Write-Warning "$FailureMessage on attempt $attempt of $MaxAttempts; retrying in $RetryDelaySeconds seconds"
+    Start-Sleep -Seconds $RetryDelaySeconds
+  }
+}
+
 $hasImageGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_IMAGE_API_KEY)
 $hasVisionGatewayKey = -not [string]::IsNullOrWhiteSpace($env:SHUBAO_VISION_API_KEY)
 $nanoGatewayKey = $env:SHUBAO_NANO_BANANA_API_KEY
@@ -388,10 +411,8 @@ try {
   Invoke-LockedRemote -Command "set -e; cd $RemoteDir; if [ -d '$RemoteDir/$galleryDirectoryName' ]; then mv '$RemoteDir/$galleryDirectoryName' '$remoteBackup/$galleryDirectoryName'; fi; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; mkdir -p $RemoteDir/.runtime server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/video-assets/input server/video-assets/output server/cache_img server/cache_overlay server/backups; pm2 delete ecosystem.production >/dev/null 2>&1 || true; if [ -f $remotePm2ClusterMarker ]; then pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; else pm2 delete shubao-production >/dev/null 2>&1 || true; pm2 start ecosystem.production.config.cjs --only shubao-production --update-env; touch $remotePm2ClusterMarker; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo mkdir -p $staticReleasesRoot $remoteStaticRelease; sudo cp -a $RemoteDir/dist/. $remoteStaticRelease/; sudo rm -f $remoteStaticNext; sudo ln -s $remoteStaticRelease $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx" -TimeoutSeconds 2400 -FailureMessage "Remote restart or health check failed"
 
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
-  & node $galleryVerifier --base-url "https://shuimg.cn"
-  if ($LASTEXITCODE -ne 0) { throw "Public gallery verification failed" }
-  & node $videoVerifier --base-url "https://shuimg.cn"
-  if ($LASTEXITCODE -ne 0) { throw "Public video contract verification failed" }
+  Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery verification failed"
+  Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract verification failed"
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   Assert-DeploymentLockHeld
@@ -409,8 +430,8 @@ try {
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
   Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
-  & node $videoVerifier --base-url "https://shuimg.cn"
-  if ($LASTEXITCODE -ne 0) { throw "Public video contract canary failed" }
+  Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery canary failed"
+  Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract canary failed"
   $canaryEndPid = Get-RemotePm2ProcessId
   if ($canaryEndPid -ne $canaryPid) {
     throw "PM2 process restarted during canary: $canaryPid -> $canaryEndPid"

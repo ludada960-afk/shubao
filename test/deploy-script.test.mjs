@@ -255,6 +255,13 @@ test('production deploy retries the complete ecommerce canary without weakening 
   assert.match(deploy, /throw \"\$FailureMessage after \$MaxAttempts attempts\"/);
 });
 
+test('production deploy retries public Node verifiers across a release switch', () => {
+  assert.match(deploy, /function\s+Invoke-NodeProductionVerification/i);
+  assert.match(deploy, /& node \$Verifier --base-url \"https:\/\/shuimg\.cn\"/);
+  assert.equal((deploy.match(/Invoke-NodeProductionVerification\s+-Verifier/g) || []).length, 4);
+  assert.match(deploy, /throw \"\$FailureMessage after \$MaxAttempts attempts\"/);
+});
+
 test('production deploy uploads release helpers and archive in one SCP session', () => {
   assert.equal((deploy.match(/& scp @ssh/g) || []).length, 1);
   assert.match(deploy, /\$uploadSources\s*=\s*@\(/);
