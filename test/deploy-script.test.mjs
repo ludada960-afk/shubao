@@ -148,6 +148,9 @@ test('deployment lock is process-backed and the foreground fences every producti
   assert.match(deploymentLockRunner, /flock\s+-n/);
   assert.match(deploymentLockRunner, /base64\s+-d/);
   assert.match(deploymentLockRunner, /input_payload=.*tr -d/);
+  assert.match(deploymentLockRunner, /LOCK_REQUEST:/);
+  assert.match(deploymentLockRunner, /LOCK_PROTOCOL_ERROR:invalid request id/);
+  assert.match(deploymentLockRunner, /LOCK_RUNNER_EXIT:/);
   assert.match(deploymentLockRunner, /timeout\s+--kill-after=30s/);
   assert.doesNotMatch(deploymentLockRunner, /--foreground/);
   assert.match(deploymentLockRunner, /printf\s+"\\nLOCK_RESULT/);

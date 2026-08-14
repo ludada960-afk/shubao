@@ -1,6 +1,8 @@
 #!/bin/sh
 set -u
 
+trap 'status=$?; if [ "$status" -ne 0 ]; then printf "LOCK_RUNNER_EXIT:%s\n" "$status" >&2; fi' EXIT
+
 lock_path=${1:?lock path is required}
 owner_token=${2:?owner token is required}
 
@@ -14,8 +16,12 @@ printf "LOCK_ACQUIRED:%s\n" "$owner_token"
 
 while IFS=: read -r request_id timeout_seconds command_payload input_payload; do
   input_payload=$(printf "%s" "$input_payload" | tr -d "\r")
+  printf "LOCK_REQUEST:%s\n" "$request_id"
   case "$request_id" in
-    ""|*[!A-Za-z0-9._-]*) exit 64 ;;
+    ""|*[!A-Za-z0-9._-]*)
+      printf "LOCK_PROTOCOL_ERROR:invalid request id\n" >&2
+      exit 64
+      ;;
   esac
   case "$timeout_seconds" in
     ""|*[!0-9]*)

@@ -138,6 +138,9 @@ function Get-DeploymentLockChannelContext {
   }
 
   try {
+    if (-not $script:lockProcess.HasExited) {
+      $null = $script:lockProcess.WaitForExit(2000)
+    }
     if ($script:lockProcess.HasExited) {
       $details += "ssh exit code $($script:lockProcess.ExitCode)"
     } else {
