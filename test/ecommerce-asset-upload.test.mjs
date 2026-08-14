@@ -126,6 +126,28 @@ test('detects actual PNG MIME for raw base64 and ignores a false client declarat
   assert.deepEqual((await generatedAssetStore.read(result.original.assetId)).buffer, png);
 });
 
+test('accepts a bounded binary image without Base64 expansion and preserves idempotency', async (t) => {
+  const { generatedAssetStore, service } = await harness(t);
+  const png = await fixture('png', { width: 96, height: 64 });
+
+  const first = await service.uploadBuffer({
+    ownerEmail: 'owner@example.com',
+    role: 'product',
+    buffer: png,
+  });
+  const second = await service.uploadBuffer({
+    ownerEmail: 'owner@example.com',
+    role: 'product',
+    buffer: Buffer.from(png),
+  });
+
+  assert.deepEqual(second, first);
+  assert.equal(first.original.width, 96);
+  assert.equal(first.original.height, 64);
+  assert.equal(first.original.byteSize, png.length);
+  assert.deepEqual((await generatedAssetStore.read(first.original.assetId)).buffer, png);
+});
+
 test('accepts semantic person and scene roles without changing the durable asset contract', async (t) => {
   const { service } = await harness(t);
   const png = await fixture('png');
@@ -280,10 +302,40 @@ test('thin upload handler passes only signed owner identity and maps structured 
   assert.deepEqual(bad.body, { error: 'invalid upload', code: 'ASSET_FORMAT_UNSUPPORTED' });
 });
 
+test('thin upload handler routes raw image bytes with a role header to the binary service', async () => {
+  const calls = [];
+  const handlers = createEcommerceAssetRouteHandlers({
+    assetUploadService: {
+      async upload() {
+        throw new Error('JSON upload should not be used for a binary request');
+      },
+      async uploadBuffer(input) {
+        calls.push(input);
+        return { original: { assetId: `${'b'.repeat(64)}.png` } };
+      },
+    },
+  });
+  const response = responseHarness();
+  const buffer = Buffer.from([137, 80, 78, 71]);
+
+  await handlers.upload({
+    _userEmail: 'signed@example.com',
+    body: buffer,
+    headers: { 'x-ecommerce-asset-role': 'reference' },
+  }, response);
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(calls, [{
+    ownerEmail: 'signed@example.com',
+    role: 'reference',
+    buffer,
+  }]);
+});
+
 test('production registers the upload endpoint behind the existing ecommerce authentication boundary', async () => {
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
   assert.match(
     server,
-    /app\.post\('\/api\/ecommerce\/assets',\s*authenticateEcommerceRequest,\s*ecommerceAssetRouteHandlers\.upload\)/,
+    /app\.post\('\/api\/ecommerce\/assets',\s*authenticateEcommerceRequest,\s*ecommerceAssetBinaryBody,\s*ecommerceAssetRouteHandlers\.upload\)/,
   );
 });

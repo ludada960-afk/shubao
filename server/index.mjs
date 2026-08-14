@@ -3905,8 +3905,12 @@ function authenticateFeatureRequest(feature) {
 }
 
 const authenticateVideoRequest = authenticateFeatureRequest('video_generation');
+const ecommerceAssetBinaryBody = express.raw({
+  type: ['image/*', 'application/octet-stream'],
+  limit: '15mb',
+});
 
-app.post('/api/ecommerce/assets', authenticateEcommerceRequest, ecommerceAssetRouteHandlers.upload);
+app.post('/api/ecommerce/assets', authenticateEcommerceRequest, ecommerceAssetBinaryBody, ecommerceAssetRouteHandlers.upload);
 app.post('/api/ecommerce/exports', authenticateEcommerceRequest, ecommerceExportRouteHandlers.create);
 app.get('/api/ecommerce/jobs', authenticateEcommerceRequest, ecommerceRouteHandlers.listJobs);
 app.delete('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.dismissJob);

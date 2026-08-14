@@ -1849,3 +1849,35 @@
   created. The 12 runtime extension-task deletions, `.tmp/`,
   `.tmp_patch_responsive.py`, and the diagnosis helper remain user-owned and
   excluded.
+
+- 2026-08-15 production-showcase and image-delivery release candidate replaces
+  the imagegen homepage mockups with real ShuBao production outputs. The
+  ecommerce showcase uses task `ec_request_739acd9f-4873-4ff2-94b5-35f057278356`
+  and request catalog `showcase-20260814-earbuds-suite` for one complete
+  pearl-white earbud source plus white-background, benefit, lifestyle, craft
+  and long-detail deliverables. Anything try-on now presents the complete
+  uncropped flat-lay, full reference person and four independently generated
+  front/motion/side/back street-fashion outputs; source/reference cards never
+  reuse cropped composites. Both ability selectors are compact 58px fan-card
+  tabs, while product and try-on stages share one continuous warm-to-white
+  workbench gradient and all images open in the shared keyboard-accessible
+  lightbox. Free-creation previews use equal 390px stages with native-ratio,
+  recipe-specific arrangements and an alternating social-cover layout.
+  `ResponsiveImage` now loads checked-in 720px WebP thumbnails before durable
+  full-resolution sources: 56 thumbnails total 2.07 MB versus 141.09 MB of
+  originals, a 98.5% transfer reduction for card views. All 112 source and
+  thumbnail files passed pixel decoding; three corrupt cached production PNGs
+  were re-downloaded from their existing stable task URLs without new billing.
+  Browser acceptance at desktop and 390px verified no horizontal overflow,
+  stable 16-to-28-to-40-to-42 masonry positions, no duplicate gallery titles,
+  no failed visible image decode, modal button/keyboard navigation, and a real
+  contenteditable caret insertion result of `ABCXDEF`. Ecommerce uploads now
+  send authenticated raw image bytes, deduplicate in-flight File uploads,
+  retry one transient network/provider failure and retain Data URL compatibility;
+  the server validates binary roles and persists through the existing durable
+  asset service. Full serial regression passed `1532/1532`, collaboration and
+  asset checks passed, and `git diff --check` is clean. Remaining release gate:
+  explicit staging/review, commit, mandated production deployment and public
+  browser verification. The 12 runtime extension-task deletions, `.tmp/`,
+  `.tmp_patch_responsive.py`, and the diagnosis helper remain user-owned and
+  excluded. No paid video generation was run.

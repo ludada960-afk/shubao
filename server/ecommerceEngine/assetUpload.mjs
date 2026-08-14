@@ -48,14 +48,18 @@ function validateRequestBody(body) {
   if (Object.hasOwn(body, 'declaredMimeType') && typeof body.declaredMimeType !== 'string') {
     throw httpError('上传请求无效', 400, 'ASSET_REQUEST_INVALID');
   }
-  const role = Object.hasOwn(body, 'role') ? body.role : 'product';
-  if (typeof role !== 'string' || !ROLES.has(role.trim().toLowerCase())) {
-    throw httpError('素材角色无效', 400, 'ASSET_REQUEST_INVALID');
-  }
+  const role = validateRole(Object.hasOwn(body, 'role') ? body.role : 'product');
   return {
     data: body.data,
-    role: role.trim().toLowerCase(),
+    role,
   };
+}
+
+function validateRole(value) {
+  if (typeof value !== 'string' || !ROLES.has(value.trim().toLowerCase())) {
+    throw httpError('素材角色无效', 400, 'ASSET_REQUEST_INVALID');
+  }
+  return value.trim().toLowerCase();
 }
 
 function decodedLengthUpperBound(base64) {
@@ -319,17 +323,20 @@ export function createEcommerceAssetUploadService({
     }
   }
 
-  async function upload({ ownerEmail, body } = {}) {
-    const owner = normalizeOwner(ownerEmail);
-    const request = validateRequestBody(body);
-    const buffer = decodeBase64(request.data, maxOriginalBytes);
+  async function persistUpload({ owner, role, buffer }) {
+    if (!Buffer.isBuffer(buffer) || !buffer.length) {
+      throw httpError('图片内容为空', 400, 'ASSET_EMPTY');
+    }
+    if (buffer.length > maxOriginalBytes) {
+      throw httpError('图片文件过大', 413, 'ASSET_FILE_TOO_LARGE');
+    }
     const metadata = await inspectOriginal(buffer);
     const originalBuffer = await normalizeOriginal(buffer, metadata);
     const idempotencyKey = sha256(Buffer.concat([
       Buffer.from('ecommerce-upload-v1\0'),
       Buffer.from(owner),
       Buffer.from('\0'),
-      Buffer.from(request.role),
+      Buffer.from(role),
       Buffer.from('\0'),
       originalBuffer,
     ]));
@@ -358,7 +365,7 @@ export function createEcommerceAssetUploadService({
       width: metadata.width,
       height: metadata.height,
       byteSize: originalBuffer.length,
-      role: request.role,
+      role,
       ...(metadata.normalize ? { sourceFormat: metadata.sourceFormat, normalized: true } : {}),
     };
     const preview = {
@@ -371,7 +378,7 @@ export function createEcommerceAssetUploadService({
       width: previewOutput.width,
       height: previewOutput.height,
       byteSize: previewOutput.buffer.length,
-      role: request.role,
+      role,
     };
     const response = { original, preview };
     const timestampValue = now();
@@ -381,11 +388,29 @@ export function createEcommerceAssetUploadService({
       owner,
       original,
       preview,
-      role: request.role,
+      role,
       response,
       timestamp,
     });
     return parseStoredResponse(statements.replay.get(idempotencyKey)?.response_json) || response;
+  }
+
+  async function upload({ ownerEmail, body } = {}) {
+    const owner = normalizeOwner(ownerEmail);
+    const request = validateRequestBody(body);
+    return persistUpload({
+      owner,
+      role: request.role,
+      buffer: decodeBase64(request.data, maxOriginalBytes),
+    });
+  }
+
+  async function uploadBuffer({ ownerEmail, role = 'product', buffer } = {}) {
+    return persistUpload({
+      owner: normalizeOwner(ownerEmail),
+      role: validateRole(role),
+      buffer,
+    });
   }
 
   async function getOwnedAsset({ ownerEmail, assetId } = {}) {
@@ -401,6 +426,7 @@ export function createEcommerceAssetUploadService({
 
   return {
     upload,
+    uploadBuffer,
     getOwnedAsset,
   };
 }
@@ -423,10 +449,16 @@ export function createEcommerceAssetRouteHandlers({ assetUploadService } = {}) {
   return {
     async upload(req, res) {
       try {
-        const result = await assetUploadService.upload({
-          ownerEmail: req?._userEmail,
-          body: req?.body,
-        });
+        const result = Buffer.isBuffer(req?.body)
+          ? await assetUploadService.uploadBuffer({
+              ownerEmail: req?._userEmail,
+              role: req?.headers?.['x-ecommerce-asset-role'] || 'product',
+              buffer: req.body,
+            })
+          : await assetUploadService.upload({
+              ownerEmail: req?._userEmail,
+              body: req?.body,
+            });
         return res.status(201).json(result);
       } catch (error) {
         return respondWithError(res, error);

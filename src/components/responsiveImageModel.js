@@ -15,12 +15,21 @@ function isDirectPublicAsset(url) {
   return /^\/(?:images|gallery)\//i.test(String(url || ''));
 }
 
+function localPublicThumbnail(url) {
+  const match = String(url || '').match(/^\/images\/(.+?)\.(?:png|jpe?g|webp)$/i);
+  return match ? `/images/.thumbs/${match[1]}.webp` : '';
+}
+
 export function responsiveImageCandidates(source, variant = 'thumb') {
   const raw = rawImageUrl(source);
   if (!raw) return [];
-  // Public showcase assets are already web-ready files. Loading them directly
-  // avoids an unnecessary image-service round trip on the first viewport.
-  if (isDirectPublicAsset(raw)) return [raw];
+  // Showcase source PNGs are retained for zoom/detail views, while cards load
+  // a checked-in 720px WebP first. If a legacy asset has no thumbnail the
+  // component falls back to the source without involving another service.
+  if (isDirectPublicAsset(raw)) {
+    const thumbnail = variant === 'thumb' ? localPublicThumbnail(raw) : '';
+    return [...new Set([thumbnail, raw].filter(Boolean))];
+  }
   const candidates = [proxyImg(raw, variant), proxyImg(raw, 'full')];
   candidates.push(raw);
   return [...new Set(candidates.filter(Boolean))];

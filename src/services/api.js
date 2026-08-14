@@ -547,19 +547,24 @@ function ecommerceUploadAbortError() {
   return error;
 }
 
-export async function uploadEcommerceAsset({ data, file, role = 'product', signal } = {}) {
-  if (signal?.aborted) throw ecommerceUploadAbortError();
-  const sourceData = data || await imageToDataUrl(file);
-  if (signal?.aborted) throw ecommerceUploadAbortError();
-  if (typeof sourceData !== 'string' || !sourceData.startsWith('data:image/')) {
-    throw new Error('请选择 JPEG 或 PNG 原图后重试');
+const ecommerceBinaryUploadCache = new WeakMap();
+const ECOMMERCE_UPLOAD_RETRY_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+function binaryUploadSource(file) {
+  const source = file?.file || file;
+  return typeof Blob !== 'undefined' && source instanceof Blob ? source : null;
+}
+
+function binaryUploadRoleCache(source) {
+  let roleCache = ecommerceBinaryUploadCache.get(source);
+  if (!roleCache) {
+    roleCache = new Map();
+    ecommerceBinaryUploadCache.set(source, roleCache);
   }
-  const res = await fetch(`${API_BASE}/api/ecommerce/assets`, {
-    method: 'POST',
-    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ data: sourceData, role }),
-    signal,
-  });
+  return roleCache;
+}
+
+async function parseEcommerceUploadResponse(res, role) {
   if (!res.ok) throw await createApiError(res, '原图上传失败');
   const response = await res.json();
   if (!response?.original?.assetId || !response?.original?.url || !response?.preview?.url) {
@@ -571,6 +576,63 @@ export async function uploadEcommerceAsset({ data, file, role = 'product', signa
     previewUrl: response.preview.url,
     role: response.original.role || role,
   };
+}
+
+async function fetchEcommerceBinaryUpload(source, role, signal) {
+  let lastNetworkError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (signal?.aborted) throw ecommerceUploadAbortError();
+    try {
+      const res = await fetch(`${API_BASE}/api/ecommerce/assets`, {
+        method: 'POST',
+        headers: signedSessionHeaders({
+          'Content-Type': source.type || 'application/octet-stream',
+          'X-Ecommerce-Asset-Role': role,
+        }),
+        body: source,
+        signal,
+      });
+      if (ECOMMERCE_UPLOAD_RETRY_STATUSES.has(res.status) && attempt === 0) continue;
+      return await parseEcommerceUploadResponse(res, role);
+    } catch (error) {
+      if (error?.name === 'AbortError' || signal?.aborted) throw ecommerceUploadAbortError();
+      lastNetworkError = error;
+      if (!(error instanceof TypeError) || attempt > 0) throw error;
+    }
+  }
+  throw lastNetworkError || new Error('原图上传失败，请重试');
+}
+
+export async function uploadEcommerceAsset({ data, file, role = 'product', signal } = {}) {
+  if (signal?.aborted) throw ecommerceUploadAbortError();
+  const binarySource = data ? null : binaryUploadSource(file);
+  if (binarySource) {
+    if (binarySource.type && !binarySource.type.startsWith('image/')) {
+      throw new Error('请选择 JPEG、PNG、WebP 或 AVIF 原图后重试');
+    }
+    const roleCache = binaryUploadRoleCache(binarySource);
+    if (!roleCache.has(role)) {
+      const uploadPromise = fetchEcommerceBinaryUpload(binarySource, role, signal)
+        .catch(error => {
+          roleCache.delete(role);
+          throw error;
+        });
+      roleCache.set(role, uploadPromise);
+    }
+    return roleCache.get(role);
+  }
+  const sourceData = data || await imageToDataUrl(file);
+  if (signal?.aborted) throw ecommerceUploadAbortError();
+  if (typeof sourceData !== 'string' || !sourceData.startsWith('data:image/')) {
+    throw new Error('请选择 JPEG 或 PNG 原图后重试');
+  }
+  const res = await fetch(`${API_BASE}/api/ecommerce/assets`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ data: sourceData, role }),
+    signal,
+  });
+  return parseEcommerceUploadResponse(res, role);
 }
 
 export async function uploadEcommerceAssets(images, role = 'product', { signal } = {}) {

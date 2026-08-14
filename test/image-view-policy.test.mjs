@@ -15,12 +15,13 @@ test('shared responsive image component reserves layout and reveals loaded pixel
   assert.match(model, /proxyImg\(raw, variant\)/);
   assert.match(model, /proxyImg\(raw, 'full'\)/);
   assert.match(model, /RESPONSIVE_IMAGE_WIDTHS/);
+  assert.match(model, /\/images\/\.thumbs\//);
   assert.match(source, /srcSet=\{retryAvifSrcSet\}/);
   assert.match(source, /srcSet=\{retryWebpSrcSet\}/);
   assert.match(source, /sizes=\{sizes\}/);
-  assert.match(source, /loading=\{priority \? 'eager' : 'lazy'\}/);
+  assert.match(source, /loading=\{loading \|\| \(priority \? 'eager' : 'lazy'\)\}/);
   assert.match(source, /decoding="async"/);
-  assert.match(source, /fetchpriority=\{priority \? 'high' : 'auto'\}/);
+  assert.match(source, /fetchPriority=\{fetchPriority \|\| \(priority \? 'high' : 'auto'\)\}/);
   assert.match(source, /\.decode\(\)/);
   assert.match(source, /responsive-image-skeleton/);
   assert.match(source, /setLoaded\(true\)/);

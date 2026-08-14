@@ -45,7 +45,10 @@ test('responsive images fall back from optimized proxy to full and direct remote
 test('web-ready public assets bypass the image API on first paint', () => {
   assert.deepEqual(
     responsiveImageCandidates('/images/home/tryon-showcase/editorial-flatlay-v3.webp', 'thumb'),
-    ['/images/home/tryon-showcase/editorial-flatlay-v3.webp'],
+    [
+      '/images/.thumbs/home/tryon-showcase/editorial-flatlay-v3.webp',
+      '/images/home/tryon-showcase/editorial-flatlay-v3.webp',
+    ],
   );
   assert.equal(
     responsiveImageSrcSet('/gallery/ecommerce/example/cover.webp', 'avif'),

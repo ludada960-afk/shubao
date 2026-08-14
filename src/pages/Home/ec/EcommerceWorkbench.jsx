@@ -16,6 +16,20 @@ const ABILITY_RESULT_COPY = {
 const TRYON_AUTO_DWELL_MS = 9000;
 const TRYON_MANUAL_DWELL_MS = 15000;
 
+function AbilitySelectorFan({ recipeId }) {
+  const showcaseCase = productionCaseById(recipeId === 'anything_tryon' ? 'tryon-angles' : 'product-suite');
+  const assets = (showcaseCase?.assets || []).slice(0, 3);
+  return (
+    <span className="ec-ability-selector-fan" aria-hidden="true">
+      {assets.map((asset, index) => (
+        <span key={asset.id} className={`ec-ability-selector-fan-card fan-card-${index}`} style={{ '--case-ratio': asset.ratio.replace(':', ' / ') }}>
+          <ResponsiveImage src={asset.src} variant="thumb" ratio={asset.ratio} alt="" imgStyle={{ objectFit: 'contain' }} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function ImageCard({ role, image, label, index, onRemove }) {
   return (
     <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
@@ -186,7 +200,7 @@ function ProductSuiteShowcase() {
   }, [previewIndex, previewItems.length]);
   const preview = previewItems[previewIndex];
   return <><section className="ec-product-suite-showcase" aria-label="商品套图效果预览">
-    <div className="ec-product-suite-showcase-copy"><span className="ec-showcase-kicker">一套成片</span><strong>从质感商品，到完整主图与详情叙事</strong><span>锁定钴蓝玻璃、暖色灯芯和金属底座，让主图负责吸引，长页负责解释细节。</span></div>
+    <div className="ec-product-suite-showcase-copy"><span className="ec-showcase-kicker">真实套图</span><strong>从一款商品，到可直接投放的完整视觉</strong><span>同一副珍珠白耳机，主图建立质感，场景图讲使用价值，详情长图解释功能与工艺。</span></div>
     <div className="ec-product-suite-showcase-visual">
       <button type="button" className="ec-product-suite-source" style={{ '--case-ratio': source.ratio.replace(':', ' / ') }} onClick={() => setPreviewIndex(0)} aria-label={`放大查看${source.label}`}><ResponsiveImage src={source.src} ratio={source.ratio} alt={source.label} /><Maximize2 size={14} /></button>
       <span className="ec-tryon-showcase-operator" aria-hidden="true"><ArrowRight size={22} /></span>
@@ -271,7 +285,7 @@ export default function EcommerceWorkbench({
               const selected = recipe.id === abilityRecipeId;
               return (
                 <button type="button" role="tab" key={recipe.id} className={`ec-ability-selector-option ${selected ? 'is-selected' : ''}`} aria-selected={selected} onClick={() => selectRecipe(recipe.id)}>
-                  <span className="ec-ability-selector-thumb"><ResponsiveImage src={recipe.id === 'anything_tryon' ? '/images/home/ability-tryon-wide.webp' : '/images/home/ability-product-suite-wide.webp'} variant="thumb" ratio="16:9" alt="" /></span>
+                  <AbilitySelectorFan recipeId={recipe.id} />
                   <span className="ec-ability-selector-copy"><strong>{recipe.label}</strong><span>{ABILITY_RESULT_COPY[recipe.id]}</span></span>
                   {selected && <Check size={16} className="ec-ability-selector-check" />}
                 </button>

@@ -42,7 +42,8 @@ test('home presents four stable visual creation domains in one workspace family'
   assert.doesNotMatch(styles, /\.homepage-mode-card\.is-active[^}]*rotate\(0\)/);
   assert.match(styles, /transition: transform \.2s cubic-bezier/);
   assert.doesNotMatch(styles, /\.homepage-mode-card:hover \.homepage-mode-card-visual img/);
-  assert.doesNotMatch(styles, /\.homepage-mode-card:hover,[\s\S]*?z-index:\s*5/);
+  const hoverRule = styles.match(/\.homepage-mode-card:hover,\s*\.homepage-mode-card:focus-visible\s*\{([^}]*)\}/)?.[1] || '';
+  assert.doesNotMatch(hoverRule, /z-index\s*:/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.homepage-mode-card/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.homepage-mode-card \{[^}]*width:\s*min\(/);
   assert.match(styles, /\.homepage-mode-card-visual img \{[^}]*object-fit:\s*contain/);

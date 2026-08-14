@@ -43,6 +43,9 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /selectedSkill\.outcome/);
   assert.match(source, /selectedSkill\.bestFor/);
   assert.match(source, /selectedShowcase\?\.assets/);
+  assert.match(source, /showcaseLoadingPolicy/);
+  assert.match(source, /fetchPriority=\{showcaseLoadingPolicy/);
+  assert.match(source, /loading=\{showcaseLoadingPolicy/);
   assert.match(source, /visual-config-trigger/);
   assert.match(source, /visual-config-panel/);
   assert.match(source, /创作配方/);
@@ -59,9 +62,12 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(styles, /\.visual-skill-grid/);
   assert.match(styles, /width:\s*min\(1240px,\s*100%\)/);
   assert.match(styles, /\.visual-skill-stage/);
+  assert.match(styles, /--visual-showcase-height:/);
+  assert.match(styles, /height:\s*var\(--visual-showcase-height\)/);
   assert.match(styles, /padding:\s*clamp\(/);
   assert.match(styles, /\.visual-skill-stage-card/);
   assert.match(styles, /\.visual-showcase-controls/);
+  assert.match(styles, /\.visual-layout-platform-fan\.is-alternate/);
   assert.match(styles, /\.visual-ability-rail/);
   assert.match(styles, /\.visual-skill-option\.is-selected \.visual-skill-title strong/);
   assert.match(styles, /\.visual-creation-composer/);

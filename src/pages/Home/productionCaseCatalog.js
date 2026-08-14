@@ -1,7 +1,7 @@
 import { productionPromptFor } from './productionCasePrompts.js';
 
-function asset({ id = '', src, label, role, ratio, intent, taskId = '', requestKey = '', prompt = '' }) {
-  return Object.freeze({ id, src, label, role, ratio, intent, taskId, requestKey, prompt });
+function asset({ id = '', src, label, role, ratio, intent, taskId = '', requestKey = '', prompt = '', provenance = 'production' }) {
+  return Object.freeze({ id, src, label, role, ratio, intent, taskId, requestKey, prompt, provenance });
 }
 
 function chapter({ id, title, description, layout, assets }) {
@@ -39,28 +39,34 @@ function visualProductionCase({ id, chapters }) {
 export const PRODUCTION_CASE_CATALOG = Object.freeze([
   Object.freeze({
     id: 'product-suite',
-    status: 'curated-showcase',
+    status: 'production',
     assets: Object.freeze([
-      asset({ id: 'cobalt-lamp-source', src: '/images/home/product-suite/cobalt-lamp-source.webp', label: '完整商品素材', role: 'source', ratio: '1:1', intent: 'product_suite', prompt: '保留钴蓝玻璃灯罩、暖色灯芯与拉丝金属底座的完整结构和材质。' }),
-      asset({ id: 'cobalt-lamp-main', src: '/images/home/product-suite/cobalt-lamp-main.webp', label: '场景主图', role: 'result', ratio: '1:1', intent: 'product_suite', prompt: '为钴蓝玻璃台灯制作高端夜间家居场景主图，完整展示产品，不裁切，不添加文字。' }),
-      asset({ id: 'cobalt-lamp-detail', src: '/images/home/product-suite/cobalt-lamp-detail.webp', label: '长页详情视觉', role: 'result', ratio: '9:16', intent: 'product_suite', prompt: '制作完整9:16详情长图，依次展示产品全貌、玻璃灯罩、灯芯光效、金属底座和夜间场景，保持产品一致。' }),
+      asset({ id: 'earbuds-product-source', src: '/images/home/ecommerce-showcase/earbuds-product-source.png', label: '完整商品母图', role: 'source', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '为珍珠白与香槟金真无线降噪耳机生成完整商品母图，保持耳机与充电盒结构、颜色、材质和比例，不添加品牌或文字。' }),
+      asset({ id: 'earbuds-white', src: '/images/home/ecommerce-showcase/earbuds-white.png', label: '白底商品主图', role: 'result', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成纯净白底商品主图，完整展示珍珠白耳机与打开的充电盒，商品居中、不裁切。' }),
+      asset({ id: 'earbuds-main-lifestyle', src: '/images/home/ecommerce-showcase/earbuds-main-lifestyle.png', label: '通勤降噪主视觉', role: 'result', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成安静通勤女性佩戴场景，突出降噪与舒适佩戴价值，保持产品一致。' }),
+      asset({ id: 'earbuds-main-benefit', src: '/images/home/ecommerce-showcase/earbuds-main-benefit.png', label: '功能卖点主图', role: 'result', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成降噪、高清通话与续航卖点视觉，中文文案清晰、版式专业。' }),
+      asset({ id: 'earbuds-detail-benefit', src: '/images/home/ecommerce-showcase/earbuds-detail-benefit.png', label: '长页功能详情', role: 'result', ratio: '9:16', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成完整9:16详情长图，解释开盖即连、取出即用与降噪功能，内容不裁切。' }),
+      asset({ id: 'earbuds-detail-craft', src: '/images/home/ecommerce-showcase/earbuds-detail-craft.png', label: '长页工艺详情', role: 'result', ratio: '9:16', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成完整9:16材质与工艺详情长图，展示声学网、金属细节与佩戴结构。' }),
     ]),
   }),
   Object.freeze({
     id: 'tryon-angles',
-    status: 'curated-showcase',
+    status: 'production',
     assets: Object.freeze([
-      asset({ id: 'editorial-flatlay-angle', src: '/images/home/tryon-showcase/editorial-flatlay-v3.webp', label: '完整穿搭素材', role: 'source', ratio: '3:4', intent: 'anything_tryon', prompt: '完整保留黑色长大衣、针织上衣、米色长裤、皮鞋和包袋。' }),
-      asset({ id: 'editorial-multi-angle', src: '/images/home/tryon-showcase/editorial-multi-angle-v3.webp', label: '街拍多视角成片', role: 'result', ratio: '16:9', intent: 'anything_tryon', prompt: '创建虚构成年时尚模特，在欧洲街头完整穿着全部商品，以正面、四分之三、侧面和背面形成四张完整大卡片。' }),
+      asset({ id: 'tryon-product-flatlay', src: '/images/home/tryon-showcase/product-flatlay.png', label: '完整服饰套装', role: 'source', ratio: '3:8', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '完整保留炭灰长大衣、橄榄绿针织、米色长裤、帽子、包袋和鞋履的材质、颜色、数量与搭配关系。' }),
+      asset({ id: 'tryon-angle-front', src: '/images/home/tryon-showcase/angle-front.png', label: '街拍正面', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的正面街拍，保留全身比例与商品细节。' }),
+      asset({ id: 'tryon-angle-motion', src: '/images/home/tryon-showcase/angle-motion.png', label: '动态行走', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的动态行走姿态，具有时尚感且不裁切。' }),
+      asset({ id: 'tryon-angle-side', src: '/images/home/tryon-showcase/angle-side.png', label: '侧面版型', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的侧面版型视图，展示衣摆、裤型与配饰关系。' }),
+      asset({ id: 'tryon-angle-back', src: '/images/home/tryon-showcase/angle-back.png', label: '背面细节', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的背面视图，保持人物与场景连续。' }),
     ]),
   }),
   Object.freeze({
     id: 'tryon-reference',
-    status: 'curated-showcase',
+    status: 'production',
     assets: Object.freeze([
-      asset({ id: 'editorial-flatlay-reference', src: '/images/home/tryon-showcase/editorial-flatlay-v3.webp', label: '完整商品与穿搭', role: 'source', ratio: '3:4', intent: 'anything_tryon', prompt: '完整保留黑色长大衣、针织上衣、米色长裤、皮鞋和包袋的材质、颜色、数量与搭配关系。' }),
-      asset({ id: 'editorial-model-reference', src: '/images/home/tryon-showcase/editorial-model-v3.webp', label: '完整参考模特', role: 'reference', ratio: '3:4', intent: 'anything_tryon', prompt: '参考成年模特的完整全身比例、街头行走姿态、镜头高度和自然城市光线。' }),
-      asset({ id: 'editorial-street-result', src: '/images/home/tryon-showcase/editorial-street-result-v3.webp', label: '时尚街拍上身结果', role: 'result', ratio: '3:4', intent: 'anything_tryon', prompt: '创建一位虚构成年时尚模特，完整穿着全部商品，在城市街头以具有张力的行走姿态拍摄，保留从头到脚的完整构图，不添加文字。' }),
+      asset({ id: 'tryon-reference-product', src: '/images/home/tryon-showcase/product-flatlay.png', label: '完整商品与穿搭', role: 'source', ratio: '3:8', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '完整保留服饰套装的材质、颜色、数量与搭配关系。' }),
+      asset({ id: 'tryon-reference-person', src: '/images/home/tryon-showcase/reference-person.png', label: '完整参考模特', role: 'reference', ratio: '1:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '参考成年模特的完整全身比例、姿态与镜头高度。' }),
+      asset({ id: 'tryon-reference-result', src: '/images/home/tryon-showcase/angle-motion.png', label: '时尚街拍上身结果', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '将完整服饰套装自然穿到参考模特身上，保持人物与商品关系清晰。' }),
     ]),
   }),
   visualProductionCase({

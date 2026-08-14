@@ -6,14 +6,15 @@ import { PRODUCTION_VISUAL_CASES, productionVisualCaseById } from '../scripts/pr
 const SKILLS = new Set(['free', 'poster', 'social-cover', 'brand-kv']);
 const RATIOS = new Set(['1:1', '3:4', '4:3', '9:16', '16:9', '21:9']);
 
-test('formal visual case manifest covers six distinct cases per Skill', () => {
-  assert.equal(PRODUCTION_VISUAL_CASES.length, 24);
+test('formal visual case manifest covers six distinct showcases per Skill plus the production source asset', () => {
+  assert.equal(PRODUCTION_VISUAL_CASES.length, 25);
   for (const skillId of SKILLS) {
     const cases = PRODUCTION_VISUAL_CASES.filter(item => item.skillId === skillId);
-    assert.equal(cases.length, 6);
-    assert.equal(new Set(cases.map(item => item.topic)).size, 6);
-    assert.equal(new Set(cases.map(item => item.prompt)).size, 6);
-    assert.equal(new Set(cases.map(item => item.requestKey)).size, 6);
+    const expectedCount = skillId === 'free' ? 7 : 6;
+    assert.equal(cases.length, expectedCount);
+    assert.equal(new Set(cases.map(item => item.topic)).size, expectedCount);
+    assert.equal(new Set(cases.map(item => item.prompt)).size, expectedCount);
+    assert.equal(new Set(cases.map(item => item.requestKey)).size, expectedCount);
   }
 });
 

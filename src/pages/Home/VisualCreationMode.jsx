@@ -63,6 +63,13 @@ function generationErrorMessage(error) {
   return error?.message || '图片生成失败，请稍后重试';
 }
 
+function showcaseLoadingPolicy(index) {
+  return {
+    loading: index < 3 ? 'eager' : 'lazy',
+    fetchPriority: index === 0 ? 'high' : 'auto',
+  };
+}
+
 function selectedReferencePayload(assets) {
   return assets.map((asset, index) => ({
     sourceNodeId: `visual-reference-${index + 1}`,
@@ -437,7 +444,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
     setActiveConfigPanel(current => current === panelId ? null : panelId);
   };
 
-  const showcaseCard = (item, className) => item ? (
+  const showcaseCard = (item, className, index = 0) => item ? (
     <button
       type="button"
       key={`${item.src}-${item.label}-${className}`}
@@ -446,7 +453,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
       onClick={() => setPreviewItem(item)}
       aria-label={`放大查看${item.label}`}
     >
-      <ResponsiveImage src={item.src} alt={item.alt || item.label} variant="thumb" ratio={item.ratio || '1:1'} priority
+      <ResponsiveImage src={item.src} alt={item.alt || item.label} variant="thumb" ratio={item.ratio || '1:1'}
+        loading={showcaseLoadingPolicy(index).loading} fetchPriority={showcaseLoadingPolicy(index).fetchPriority}
         sizes="(min-width:1080px) 22vw, 32vw" style={{ width: '100%', background: '#f7f5f7' }}
         imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       <span>{item.label}</span>
@@ -497,7 +505,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
         </div>
         <div className="visual-skill-stage-art">
           <div className={`visual-skill-stage-outputs is-chapter count-${selectedShowcase?.assets?.length || 0}`}>
-            {(selectedShowcase?.assets || []).map((item, index) => showcaseCard(item, `visual-skill-stage-output output-${index}`))}
+            {(selectedShowcase?.assets || []).map((item, index) => showcaseCard(item, `visual-skill-stage-output output-${index}`, index))}
           </div>
         </div>
         <div className="visual-ability-rail" aria-label={`${selectedSkill.title}能力说明`}>

@@ -63,12 +63,25 @@ test('try-on showcase gives every rendered asset a stable React key', () => {
   assert.match(workbench, /key=\{item\.id \|\| item\.src\}/);
 });
 
-test('product suite showcase uses one complete premium product workflow instead of the old generic pot fixture', () => {
-  assert.match(catalog, /product-suite\/cobalt-lamp-source\.webp/);
-  assert.match(catalog, /product-suite\/cobalt-lamp-detail\.webp/);
-  assert.doesNotMatch(catalog, /stainless-steel-sauce-container/);
+test('product suite showcase uses a real premium earbuds production workflow', () => {
+  assert.match(catalog, /earbuds-suite/);
+  assert.doesNotMatch(catalog, /cobalt-lamp/);
+  assert.doesNotMatch(catalog, /curated-showcase/);
   assert.match(workbench, /productionCaseById\('product-suite'\)/);
   assert.match(styles, /\.ec-product-suite-showcase/);
+});
+
+test('ability selector derives a compact fan thumbnail from each real case', () => {
+  assert.match(workbench, /AbilitySelectorFan/);
+  assert.match(workbench, /ec-ability-selector-fan/);
+  assert.doesNotMatch(workbench, /ability-product-suite-wide\.webp|ability-tryon-wide\.webp/);
+  assert.match(styles, /\.ec-ability-selector-option\s*\{[^}]*min-height:\s*58px/);
+  assert.match(styles, /\.ec-ability-selector-fan/);
+});
+
+test('ecommerce showcases use one continuous surface without nested panel backgrounds', () => {
+  assert.match(styles, /--ec-showcase-surface:/);
+  assert.match(styles, /\.ec-product-suite-showcase-copy,\s*\.ec-product-suite-showcase-visual,\s*\.ec-tryon-showcase-copy,\s*\.ec-tryon-showcase-visual\s*\{[^}]*background:\s*transparent/);
 });
 
 test('ability switch presents concise user outcomes instead of internal implementation notes', () => {

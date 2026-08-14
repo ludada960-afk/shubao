@@ -14,6 +14,11 @@ const caseItem = ({ id, skillId, title, topic, platform = '', ratio, prompt, cha
 
 export const PRODUCTION_VISUAL_CASES = Object.freeze([
   caseItem({
+    id: 'product-earbuds-source', skillId: 'free', chapter: 'ecommerce-source', ratio: '1:1',
+    title: '珍珠白降噪耳机商品母图', topic: '电商商品素材',
+    prompt: '生成一张可直接作为电商套图输入的高清方形商品母图：一副原创、无品牌的珍珠白真无线降噪耳机与圆角充电盒，香槟金色金属细节，充电盒打开，两只耳机完整可见并保持合理结构。纯净暖白摄影棚背景，柔和侧逆光，真实塑料、金属和半透明声学网材质，产品居中、完整、不裁切，不出现人物、箭头、文字、标志、水印或其他商品。',
+  }),
+  caseItem({
     id: 'free-glass-whale', skillId: 'free', chapter: 'continuity', ratio: '4:3',
     title: '午夜博物馆', topic: '叙事场景',
     prompt: '创作一幅完整的横向电影感场景：闭馆后的自然博物馆大厅，一头透明玻璃鲸悬浮在展厅上空，体内流动着微弱星光；一名穿黄色雨衣的孩子站在中央仰望。深蓝夜色、湿润地面反光、真实空间尺度、明确前中后景，画面有故事但不出现任何文字、标志或水印。',

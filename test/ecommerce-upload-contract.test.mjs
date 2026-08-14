@@ -83,6 +83,56 @@ test('authenticated ecommerce asset upload returns original and preview records 
   });
 });
 
+test('browser files upload as binary, retry one transient network failure, and deduplicate concurrent requests', async (t) => {
+  installSignedSession();
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  let attempts = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    attempts += 1;
+    requests.push({
+      url: String(url),
+      method: options.method,
+      headers: options.headers,
+      body: options.body,
+    });
+    if (attempts === 1) throw new TypeError('Failed to fetch');
+    return jsonResponse({
+      original: {
+        assetId: `${'c'.repeat(64)}.png`,
+        url: `/api/generated-assets/${'c'.repeat(64)}.png`,
+        role: 'product',
+      },
+      preview: {
+        assetId: `${'d'.repeat(64)}.webp`,
+        url: `/api/generated-assets/${'d'.repeat(64)}.webp`,
+        role: 'product',
+      },
+    }, 201);
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    delete globalThis.localStorage;
+  });
+
+  const api = await import(`../src/services/api.js?binary-asset-upload=${Date.now()}`);
+  const source = new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' });
+  const [first, second] = await Promise.all([
+    api.uploadEcommerceAsset({ file: source, role: 'product' }),
+    api.uploadEcommerceAsset({ file: source, role: 'product' }),
+  ]);
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].url, '/api/ecommerce/assets');
+  assert.equal(requests[0].method, 'POST');
+  assert.equal(requests[0].headers.Authorization, 'Bearer signed-ecommerce-session');
+  assert.equal(requests[0].headers['Content-Type'], 'image/png');
+  assert.equal(requests[0].headers['X-Ecommerce-Asset-Role'], 'product');
+  assert.equal(requests[0].body, source);
+  assert.equal(requests[1].body, source);
+  assert.deepEqual(second, first);
+});
+
 test('direction inputs upload each Base64 image as a durable role-scoped asset', async (t) => {
   installSignedSession();
   const originalFetch = globalThis.fetch;

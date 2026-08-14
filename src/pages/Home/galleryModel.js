@@ -107,7 +107,7 @@ function productSuiteGalleryItem(entry) {
   const output = assets.find(asset => asset.role === 'result') || assets.at(-1);
   const prompt = clean(output?.prompt) || '保留完整商品结构，生成一套统一主图与详情视觉。';
   return {
-    id: `showcase-${entry.id}`, type: 'ecommerce', intent: 'product_suite', title: '钴蓝玻璃灯商品套图',
+    id: `showcase-${entry.id}`, type: 'ecommerce', intent: 'product_suite', title: '珍珠白降噪耳机商品套图',
     prompt, body_text: prompt, cover_url: output?.url || '', image_urls: assets.map(asset => asset.url), images: assets, assets,
     ratio: output?.ratio || '1:1', requestKey: '', imageModel: 'showcase', resolution: '2K',
     remix: { prompt, platform: 'taobao', intent: 'product_suite', referenceAssets: assets.filter(asset => asset.role === 'source') },

@@ -80,3 +80,25 @@ test('production try-on payload accepts a native output ratio and a case-specifi
   assert.equal(payload.sizing.images[0].targetRatio, '16:9');
   assert.match(payload.direction.editableBrief, /正面、侧面、背面/);
 });
+
+test('production try-on can request four independent editorial deliverables', () => {
+  const shots = [
+    { id: 'front', label: '正面街拍', ratio: '3:4', brief: '完整正面全身' },
+    { id: 'three-quarter', label: '四分之三街拍', ratio: '3:4', brief: '完整四分之三全身' },
+    { id: 'side', label: '侧面街拍', ratio: '3:4', brief: '完整侧面全身' },
+    { id: 'back', label: '背面街拍', ratio: '3:4', brief: '完整背面全身' },
+  ];
+  const direction = productionTryOnDirectionPayload({ item, person: null, personMode: 'smart', shots });
+  const generation = productionTryOnGenerationPayload({
+    item,
+    person: null,
+    personMode: 'smart',
+    direction: { id: 'editorial-angles' },
+    quoteId: 'quote-angles',
+    shots,
+  });
+
+  assert.deepEqual(direction.requested_images.map(image => image.key), shots.map(shot => shot.id));
+  assert.deepEqual(generation.sizing.images.map(image => image.id), shots.map(shot => shot.id));
+  assert.ok(generation.sizing.images.every(image => image.count === 1 && image.cropPolicy === 'none'));
+});

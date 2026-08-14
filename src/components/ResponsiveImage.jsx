@@ -22,6 +22,8 @@ export default function ResponsiveImage({
   alt = '',
   variant = 'thumb',
   priority = false,
+  loading,
+  fetchPriority,
   sizes = variant === 'display'
     ? 'min(100vw, 1600px)'
     : variant === 'canvas'
@@ -106,9 +108,9 @@ export default function ResponsiveImage({
             src={imageSrc}
             alt={alt}
             draggable="false"
-            loading={priority ? 'eager' : 'lazy'}
+            loading={loading || (priority ? 'eager' : 'lazy')}
             decoding="async"
-            fetchpriority={priority ? 'high' : 'auto'}
+            fetchPriority={fetchPriority || (priority ? 'high' : 'auto')}
             sizes={sizes}
             onLoad={event => {
               const image = event.currentTarget;

@@ -10,15 +10,34 @@ const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
 const AUDIT_ROOT = resolve(SCRIPT_ROOT, '../.tmp/production-visual-cases');
 const TERMINAL_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 
+function defaultShots(ratio) {
+  return [{ id: 'main_3x4', label: '上身成片', ratio, brief: '' }];
+}
+
+function normalizeShots(value, ratio = '3:4') {
+  const source = Array.isArray(value) && value.length ? value : defaultShots(ratio);
+  return source.map((shot, index) => ({
+    id: required(shot?.id || `look_${index + 1}`, `shot ${index + 1} ID`),
+    label: required(shot?.label || `上身成片 ${index + 1}`, `shot ${index + 1} label`),
+    ratio: required(shot?.ratio || ratio, `shot ${index + 1} ratio`),
+    brief: String(shot?.brief || '').trim(),
+  }));
+}
+
 function productionTryOnConfig(overrides = {}) {
   const caseId = overrides.caseId || process.env.SHUBAO_TRYON_CASE_ID || 'tryon-reference-result';
+  const ratio = overrides.ratio || process.env.SHUBAO_TRYON_RATIO || '3:4';
+  const envShots = process.env.SHUBAO_TRYON_SHOTS_JSON
+    ? JSON.parse(process.env.SHUBAO_TRYON_SHOTS_JSON)
+    : null;
   return {
     caseId,
     productName: overrides.productName || process.env.SHUBAO_TRYON_PRODUCT_NAME || '赤陶夹克城市穿搭',
     itemFixture: resolve(SCRIPT_ROOT, overrides.itemFixture || process.env.SHUBAO_TRYON_ITEM_FIXTURE || '../public/images/home/tryon-showcase/reference-flatlay.png'),
     personFixture: resolve(SCRIPT_ROOT, overrides.personFixture || process.env.SHUBAO_TRYON_PERSON_FIXTURE || '../public/images/home/tryon-showcase/reference-person.png'),
     personMode: overrides.personMode || process.env.SHUBAO_TRYON_PERSON_MODE || 'reference',
-    ratio: overrides.ratio || process.env.SHUBAO_TRYON_RATIO || '3:4',
+    ratio,
+    shots: normalizeShots(overrides.shots || envShots, ratio),
     brief: overrides.brief || process.env.SHUBAO_TRYON_BRIEF || '商品组合完整自然上身，人物与空间连续，画面不添加文字。',
     submissionId: overrides.submissionId || process.env.SHUBAO_TRYON_SUBMISSION_ID || `ec_production_${caseId.replace(/[^a-z0-9_-]/gi, '_')}`,
   };
@@ -57,7 +76,8 @@ async function uploadAsset({ request, fixturePath, role }) {
   return safeAsset(response?.original, role);
 }
 
-export function productionTryOnDirectionPayload({ item, person = null, personMode = 'reference', productName = '赤陶夹克城市穿搭', ratio = '3:4', brief = '' }) {
+export function productionTryOnDirectionPayload({ item, person = null, personMode = 'reference', productName = '赤陶夹克城市穿搭', ratio = '3:4', brief = '', shots = null }) {
+  const deliverables = normalizeShots(shots, ratio);
   return {
     product_name: productName,
     category: '服饰穿搭',
@@ -74,11 +94,19 @@ export function productionTryOnDirectionPayload({ item, person = null, personMod
     scene: [],
     real_shots: [item.url],
     ref_shots: [],
-    requested_images: [{ key: 'main_3x4', label: '上身成片', count: 1, ratio, targetRatio: ratio }],
+    requested_images: deliverables.map(shot => ({
+      key: shot.id,
+      label: shot.label,
+      count: 1,
+      ratio: shot.ratio,
+      targetRatio: shot.ratio,
+      purpose: shot.brief,
+    })),
   };
 }
 
-export function productionTryOnGenerationPayload({ item, person = null, personMode = 'reference', direction, quoteId, productName = '赤陶夹克城市穿搭', ratio = '3:4', brief = '' }) {
+export function productionTryOnGenerationPayload({ item, person = null, personMode = 'reference', direction, quoteId, productName = '赤陶夹克城市穿搭', ratio = '3:4', brief = '', shots = null }) {
+  const deliverables = normalizeShots(shots, ratio);
   const abilityRecipe = {
     id: 'anything_tryon',
     version: 1,
@@ -104,7 +132,13 @@ export function productionTryOnGenerationPayload({ item, person = null, personMo
       smart: false,
       resolution: '2K',
       imageModel: 'image2',
-      images: [{ id: 'main_3x4', ratio, targetRatio: ratio, cropPolicy: 'none', count: 1 }],
+      images: deliverables.map(shot => ({
+        id: shot.id,
+        ratio: shot.ratio,
+        targetRatio: shot.ratio,
+        cropPolicy: 'none',
+        count: 1,
+      })),
     },
     billing_quote_id: quoteId,
   };
@@ -120,29 +154,45 @@ function existingTryOnWork(works, productName) {
 }
 
 async function auditResult({ request, work, balanceBefore, balanceAfter, replay, config }) {
-  const image = work.images.find(candidate => candidate?.url) || {};
-  const stableUrl = stableAssetUrl(image.url);
+  const images = (Array.isArray(work.images) ? work.images : []).filter(candidate => candidate?.url);
+  if (images.length !== config.shots.length) {
+    throw new Error(`Production try-on returned ${images.length} images, expected ${config.shots.length}`);
+  }
+  const stableUrls = images.map(image => stableAssetUrl(image.url));
+  if (new Set(stableUrls).size !== stableUrls.length) throw new Error('Production try-on returned duplicate assets');
   const taskId = required(work.taskId, 'try-on task ID');
   const ledger = await request('/api/billing/ledger?currency=ec_points&limit=100&offset=0');
-  const ledgerEntry = (ledger?.entries || []).find(entry => (
+  const ledgerEntries = stableUrls.map(stableUrl => (ledger?.entries || []).find(entry => (
     [entry?.referenceId, entry?.reference_id].includes(stableUrl)
     || [entry?.referenceId, entry?.reference_id].includes(stableUrl.split('/').at(-1))
-  )) || null;
+  )) || null);
+  const publicFiles = images.map((image, index) => `/images/home/tryon-showcase/${config.caseId}-${config.shots[index].id}.png`);
   const audit = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    case: { id: config.caseId, title: config.productName, ratio: image.ratio || config.ratio, skillId: 'anything_tryon' },
+    case: { id: config.caseId, title: config.productName, ratio: images[0]?.ratio || config.ratio, skillId: 'anything_tryon' },
     taskId,
     requestKey: `production-${config.caseId}`,
-    stableUrl,
+    stableUrl: stableUrls[0],
+    stableUrls,
     replay,
-    billing: ledgerEntry,
+    billing: ledgerEntries[0],
+    billingEntries: ledgerEntries,
     balanceBefore: balanceBefore?.balances?.ec_points || null,
     balanceAfter: balanceAfter?.balances?.ec_points || null,
     itemAsset: work.itemAssets?.[0] || null,
     personAsset: work.personAssets?.[0] || null,
     savedWorkKey: work._saveKey || work.id,
-    publicFile: `/images/visual-recipes/cases/${config.caseId}.png`,
+    publicFile: publicFiles[0],
+    publicFiles,
+    outputs: images.map((image, index) => ({
+      id: config.shots[index].id,
+      label: config.shots[index].label,
+      ratio: image.ratio || config.shots[index].ratio,
+      stableUrl: stableUrls[index],
+      publicFile: publicFiles[index],
+      taskId,
+    })),
   };
   await mkdir(AUDIT_ROOT, { recursive: true });
   await writeFile(resolve(AUDIT_ROOT, `${config.caseId}.json`), `${JSON.stringify(audit, null, 2)}\n`, 'utf8');
@@ -177,7 +227,7 @@ export async function generateProductionTryOnCase({ sessionToken, baseUrl = DEFA
   const directionResponse = await request('/api/ecommerce/design-directions', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(productionTryOnDirectionPayload({ item, person, personMode: config.personMode, productName: config.productName, ratio: config.ratio, brief: config.brief })),
+    body: JSON.stringify(productionTryOnDirectionPayload({ item, person, personMode: config.personMode, productName: config.productName, ratio: config.ratio, brief: config.brief, shots: config.shots })),
     timeoutMs: 120_000,
   });
   if (directionResponse?.degraded || !Array.isArray(directionResponse?.directions) || directionResponse.directions.length !== 1) {
@@ -186,9 +236,9 @@ export async function generateProductionTryOnCase({ sessionToken, baseUrl = DEFA
   const quote = await request('/api/billing/quote', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ sku: 'ec_image_2k', quantity: 1 }),
+    body: JSON.stringify({ sku: 'ec_image_2k', quantity: config.shots.length }),
   });
-  if (quote?.quote?.totalUnits !== 1000 || !quote.quote.quoteId) throw new Error('Production try-on quote is invalid');
+  if (quote?.quote?.totalUnits !== 1000 * config.shots.length || !quote.quote.quoteId) throw new Error('Production try-on quote is invalid');
   const started = await request('/api/generate-ecommerce', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'idempotency-key': config.submissionId },
@@ -201,6 +251,7 @@ export async function generateProductionTryOnCase({ sessionToken, baseUrl = DEFA
       productName: config.productName,
       ratio: config.ratio,
       brief: config.brief,
+      shots: config.shots,
     })),
   });
   const taskId = required(started?.taskId, 'try-on task ID');
