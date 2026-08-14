@@ -394,6 +394,7 @@ try {
   $lockProcessInfo.RedirectStandardInput = $true
   $lockProcessInfo.RedirectStandardOutput = $true
   $lockProcessInfo.RedirectStandardError = $true
+  $lockProcessInfo.StandardInputEncoding = [Text.UTF8Encoding]::new($false)
   $lockProcessInfo.Arguments = ((@($ssh) + @($target, $remoteLockCommand)) | ForEach-Object {
     $argumentValue = [string]$_
     if ($argumentValue.Contains('"')) {
