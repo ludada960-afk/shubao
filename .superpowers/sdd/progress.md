@@ -1930,3 +1930,18 @@
   jobs. The audit defines the failure-injection tests and hard P0 exit gates;
   implementation remains behind route-C and formal-design approval. No paid
   generation or runtime-data mutation occurred.
+
+- 2026-08-15 the formal AI-video P0 foundation design is complete at
+  `docs/superpowers/specs/2026-08-15-ai-video-reliable-media-job-foundation-design.md`.
+  It fixes route C and the P0 boundary, defines the Job/Attempt/Delivery/Billing/
+  Projection and ReviewCase state machines, durable outbox/reconciliation,
+  authenticated user media, short-lived provider media signatures, streaming
+  delivery, additive migration flags, rollback, SLOs and the full fault-injection
+  exit matrix. Resumable upload is no longer an open dependency choice: use the
+  official MIT `@tus/server`, `@tus/file-store` and `tus-js-client`, keep ShuBao
+  SQLite sessions as the owner/audit source of truth, reject legacy
+  `tus-node-server`, and stop at a design-change gate instead of silently
+  hand-rolling a partial protocol if integration tests prove incompatibility.
+  The design is self-reviewed and is waiting for the required written product
+  approval before a file-by-file TDD implementation plan. No production code,
+  deploy, paid video generation or runtime-owned files were changed.

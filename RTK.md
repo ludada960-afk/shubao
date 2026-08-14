@@ -291,3 +291,22 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 定向视频/项目/计费回归 39 项通过，但缺少资产权限、复核处置、释放失败重放、各崩溃
   窗口恢复、输出去重和大文件续传测试。正式实施必须先补会失败的故障测试，再分批修复；
   路线 C 和正式 P0 设计批准前不开始新平台代码，也不触发付费视频生成。
+
+## 2026-08-15 AI Video P0 Formal Design Gate
+
+- 正式设计已写入
+  `docs/superpowers/specs/2026-08-15-ai-video-reliable-media-job-foundation-design.md`。
+  路线 C 固定为项目/资产版本/镜头导演工作台；P0 只建设可靠媒体、任务、交付、账务、
+  复核和投影底座，保留现有 `VideoStudio` 作为单镜头生成器，不提前扩张到分镜、时间线、
+  Skill 市场或新付费模型。
+- 设计把执行事实拆为 Job、Attempt、Delivery、Billing、Projection，并规定未知供应商提交
+  只核验不重提、验证交付后才结算、失败释放必须由真实账务状态驱动文案、Outbox 与
+  reconciliation 收敛 Works/项目投影、`needs_review` 改为有 SLA 和运营动作的 ReviewCase。
+- 私有用户媒体改为 owner 鉴权读取；供应商读取使用短期 HMAC 签名 URL 或原生文件上传。
+  大文件上传固定采用官方 MIT `@tus/server`、`@tus/file-store`、`tus-js-client`，禁止使用
+  旧 `tus-node-server`，也禁止在集成失败时静默手写不完整协议。输出下载和输入上传都必须
+  流式持久化，浏览器本地预览不等待云上传。
+- 正式设计包含 feature flags、附加式迁移、shadow write/backfill、灰度切读、独立回滚、
+  故障注入矩阵、SLO、安全保留和 P0 退出门槛。设计完成前没有修改生产代码、没有部署、
+  没有触发付费视频生成；下一步必须取得用户对书面设计的确认，随后才能编写逐文件 TDD
+  实施计划并进入代码实现。
