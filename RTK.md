@@ -187,3 +187,11 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   `ec_extension_analysis`、`ec_extension_basic/standard/complete` 等新 SKU。
 - 工作树继续保留用户运行态且未提交：12 个 `server/extension_tasks/*.json` 删除项、`.tmp/`、
   `scripts/diagnose-recent-ecommerce-jobs.cjs`。后续不得误恢复、误删除或误暂存这些内容。
+
+## 2026-08-14 Production and AI Video Roadmap Checkpoint
+
+- 线上真实版本已修正为 `6718e57`，Nginx `current` 指向 `/var/www/shubao/releases/20260814-092319-6718e57`；公开 HTML 入口为 `index-DeBnt_je.js`，PM2 `shubao-production` PID `2009483`，健康接口 `200`，正式发布已完成。
+- 上一次“后端健康但前端未更新”的原因已经确认：误用了根目录残留的简化部署脚本，将静态文件复制到 `/var/www/shubao/assets`，而 Nginx 实际从 `/var/www/shubao/current` 服务。根目录入口现只转发到工作树中的正式部署脚本，正式脚本新增公网案例/视频契约验证重试，仍保持失败自动回滚。
+- 本轮线上验收：全量测试 `1513/1513`、构建 `6479` modules、公开案例 `117`、公开视频契约 `2` 个产品、两次真实电商稳定资产验收、600 秒 Canary 通过；独立浏览器桌面/390px 移动端无横向溢出、首屏图像解码完成、无控制台错误。
+- 服务器磁盘曾因发布备份达到 100%；只删除了两个明确失败备份和一个失败 release，未触碰作品、数据库、当前版本或本轮回滚点，当前约 91% 使用率。后续必须把备份保留策略和 `generated-assets` 生命周期纳入运营任务，不能继续无限累积。
+- 可执行的长期 AI 视频路线图已保存为 `docs/superpowers/plans/2026-08-14-ai-video-platform-roadmap.md`。阶段顺序固定为：P0 媒体/任务/账务可靠性，P1 资产库/分镜/时间线 MVP，P2 声明式 Skill 与项目记忆，P3 逐秒重拍/延长/追踪替换/智能路由。每阶段须独立设计、测试、部署和退出验收，不得一次性复制竞品复杂度。
