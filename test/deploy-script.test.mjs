@@ -125,6 +125,11 @@ test('PowerShell canary token validation is case-sensitive and rejects trailing 
 test('deployment lock is process-backed and the foreground fences every production mutation', () => {
   assert.match(deploymentLockRunner, /command -v flock/);
   assert.match(deploy, /function\s+Invoke-LockedRemote/);
+  assert.match(deploy, /function\s+Get-DeploymentLockChannelContext/);
+  assert.match(deploy, /ssh exit code/);
+  assert.match(deploy, /ssh stderr:/);
+  assert.match(deploy, /Remote locked step started:/);
+  assert.match(deploy, /Remote locked step passed:/);
   assert.match(deploy, /StandardInput\.WriteLine/);
   assert.match(deploy, /ReadLineAsync/);
   assert.match(deploy, /AddSeconds\(\$TimeoutSeconds \+ 60\)/);

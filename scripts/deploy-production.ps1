@@ -131,6 +131,39 @@ function Assert-DeploymentLockHeld {
   }
 }
 
+function Get-DeploymentLockChannelContext {
+  $details = @()
+  if ($null -eq $script:lockProcess) {
+    return " (lock process was not started)"
+  }
+
+  try {
+    if ($script:lockProcess.HasExited) {
+      $details += "ssh exit code $($script:lockProcess.ExitCode)"
+    } else {
+      $details += "ssh process still running"
+    }
+  } catch {
+    $details += "ssh process state unavailable"
+  }
+
+  if ($null -ne $script:lockErrorTask -and $script:lockErrorTask.IsCompleted) {
+    try {
+      $stderr = ([string]$script:lockErrorTask.Result).Trim()
+      if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+        $stderr = ($stderr -replace '[\r\n]+', ' ')
+        if ($stderr.Length -gt 1200) { $stderr = $stderr.Substring(0, 1200) }
+        $details += "ssh stderr: $stderr"
+      }
+    } catch {
+      $details += "ssh stderr unavailable"
+    }
+  }
+
+  if ($details.Count -eq 0) { return "" }
+  return " ($($details -join '; '))"
+}
+
 function Invoke-LockedRemote {
   param(
     [Parameter(Mandatory = $true)]
@@ -143,6 +176,7 @@ function Invoke-LockedRemote {
   )
 
   Assert-DeploymentLockHeld
+  Write-Host "Remote locked step started: $FailureMessage"
   $script:lockedCommandSequence += 1
   $requestId = "$script:lockOwnerToken-$script:lockedCommandSequence"
   $commandPayload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Command))
@@ -151,7 +185,7 @@ function Invoke-LockedRemote {
     $script:lockProcess.StandardInput.WriteLine("$requestId`:$TimeoutSeconds`:$commandPayload`:$inputPayload")
     $script:lockProcess.StandardInput.Flush()
   } catch {
-    throw "Production deployment lock command channel was lost"
+    throw "Production deployment lock command channel was lost$(Get-DeploymentLockChannelContext)"
   }
 
   $resultPrefix = "LOCK_RESULT:$requestId`:"
@@ -164,7 +198,7 @@ function Invoke-LockedRemote {
     }
     $line = $lineTask.Result
     if ($null -eq $line) {
-      throw "Production deployment lock command channel was lost"
+      throw "Production deployment lock command channel was lost$(Get-DeploymentLockChannelContext)"
     }
     if ($line.StartsWith($resultPrefix, [StringComparison]::Ordinal)) {
       $statusText = $line.Substring($resultPrefix.Length)
@@ -172,6 +206,7 @@ function Invoke-LockedRemote {
       if (-not [int]::TryParse($statusText, [ref]$status) -or $status -ne 0) {
         throw "$FailureMessage (exit code $statusText)"
       }
+      Write-Host "Remote locked step passed: $FailureMessage"
       return
     }
     Write-Host $line
