@@ -1881,3 +1881,20 @@
   browser verification. The 12 runtime extension-task deletions, `.tmp/`,
   `.tmp_patch_responsive.py`, and the diagnosis helper remain user-owned and
   excluded. No paid video generation was run.
+
+- 2026-08-15 production-showcase and image-delivery release is complete at
+  `888b81c` through the mandated `scripts/deploy-production.ps1` path. Full
+  regression passed `1535/1535`, build transformed `6479` modules, and check,
+  collaboration, whitespace, 117-image delivery, public video contract,
+  billing, two real ecommerce generations, and the full 600-second Canary all
+  passed. Pre-Canary task `ec_4185742d-290d-4724-8bf9-5095976a95cd` and
+  post-Canary task `ec_d15b1429-b46a-48da-8119-6fd256b925f2` each delivered
+  three stable assets. Public health is ready, the homepage returns 200, and
+  the active bundle is `assets/index-Bb3OH1SM.js`. Live desktop/mobile QA found
+  no document overflow, broken images, or failed mode/lightbox interactions.
+  A follow-up coordinate audit revealed the apparent 16-to-28-to-40 gallery
+  "reorder" was only column-major DOM enumeration: every previously visible
+  card retained the exact same document x/y/width/height while new cards were
+  appended below their columns. No corrective gallery code change was made.
+  No paid video generation was run. Runtime extension-task deletions, `.tmp/`,
+  `.tmp_patch_responsive.py`, and the diagnosis helper remain excluded.

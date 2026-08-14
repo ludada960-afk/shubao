@@ -221,3 +221,33 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   兼容剥离双重处理，并由部署脚本测试覆盖。用户运行态的 12 个
   `server/extension_tasks/*.json` 删除项、`.tmp/`、`.tmp_patch_responsive.py` 和
   `scripts/diagnose-recent-ecommerce-jobs.cjs` 继续保持未提交且未被修改。
+
+## 2026-08-15 Production Showcase And Image Delivery Release
+
+- 提交 `8bcd29e` 与部署探针修复 `888b81c` 已通过唯一入口
+  `scripts/deploy-production.ps1` 发布至 `https://shuimg.cn/`。公开健康接口返回
+  `ready=true`，首页返回 `200`，当前公开入口 bundle 为 `assets/index-Bb3OH1SM.js`。
+- 商品套图展示改为薯包真实生产任务
+  `ec_request_739acd9f-4873-4ff2-94b5-35f057278356` 的珍珠白降噪耳机完整套图；
+  万物上身展示使用完整未裁切的穿搭素材、完整参考人物和四张独立生成的街拍结果。
+  两个 58px 能力切换保持按钮语义，展示区和输入区统一为单层暖色到白色渐变；所有
+  案例图均可进入共享放大弹窗并支持左右按钮、方向键和 Escape。
+- 56 张 720px WebP 缩略图总计约 `2.07 MB`，替代卡片首屏直接加载约
+  `141.09 MB` 原图，传输量降低约 `98.5%`；原图继续用于放大查看。112 个原图与
+  缩略图资源均通过像素解码检查，线上浏览器未发现坏图。
+- 电商上传现使用带鉴权的原始二进制传输、同一 File 并发去重、一次瞬时失败重试，
+  服务端继续走既有持久资产服务；真实 contenteditable 光标插入验收结果为
+  `ABCXDEF`，未再跳到输入起点。
+- 发布门完整通过：全量测试 `1535/1535`、`npm run check`、生产构建 `6479`
+  modules、协作检查、空白检查、117 张公开图库、2 个公开视频产品、计费契约、两轮
+  真实电商生成和完整 600 秒 Canary。任务
+  `ec_4185742d-290d-4724-8bf9-5095976a95cd` 与
+  `ec_d15b1429-b46a-48da-8119-6fd256b925f2` 均交付 3 个稳定资产；未触发付费视频生成。
+- 公网验收覆盖桌面和 390px：页面无横向溢出，商品套图、万物上身、自由创作切换
+  正常，放大弹窗键盘导航正常。灵感发现从 16 张逐步加载到 28、40 张时，对四列锚点
+  逐张记录文档坐标，已有卡片的 `x/y/宽高` 全部保持不变；此前按列读取 DOM 得到的
+  标题顺序差异不是视觉重排。线上 40 张阶段坏图计数为 0。
+- 部署脚本不再复用 PM2 重启前的短期探针会话，而是在重启后按实际 PID 和有效认证
+  配置签发新的短期 Canary 会话；凭据只存在于部署进程内，不输出、不落盘。运行态的
+  12 个 `server/extension_tasks/*.json` 删除项、`.tmp/`、`.tmp_patch_responsive.py`
+  和 `scripts/diagnose-recent-ecommerce-jobs.cjs` 继续保持用户所有且未提交。
