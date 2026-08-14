@@ -1917,3 +1917,16 @@
   implementation is waiting at the required product-route approval gate. No
   paid video generation was run, and the user-owned runtime deletions/temp files
   remain excluded.
+
+- 2026-08-15 AI-video P0 reliability audit is complete and recorded in
+  `docs/superpowers/specs/2026-08-15-ai-video-p0-reliability-audit.md`. The
+  existing video path has useful idempotency, queue, circuit-breaker, provider
+  task recovery and wallet primitives, but six code-proven gaps block P1:
+  unauthenticated asset reads, a terminal `needs_review` dead end, swallowed
+  credit-release failures with false refund copy, non-atomic delivery/billing/
+  job/work projection, isolated unversioned video assets, and whole-file upload
+  and download buffering. Existing video tests pass 39 targeted cases, but no
+  route test protects asset ownership and no operational action resolves review
+  jobs. The audit defines the failure-injection tests and hard P0 exit gates;
+  implementation remains behind route-C and formal-design approval. No paid
+  generation or runtime-data mutation occurred.

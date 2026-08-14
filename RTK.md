@@ -272,3 +272,22 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   路线确认后必须先完成 P0 媒体/任务/账务可靠性，再依次进入 P1 资产/分镜/时间线、P2
   声明式 Skill/项目记忆/案例克隆、P3 区间重拍/延长/跟踪替换/智能路由；每阶段须独立
   设计、自审、测试、部署和生产验收，未完成项保持显式状态。
+
+## 2026-08-15 AI Video P0 Reliability Audit
+
+- P0 代码级根因审计已保存到
+  `docs/superpowers/specs/2026-08-15-ai-video-p0-reliability-audit.md`。现有视频
+  链路已有幂等创建、队列、公平调度、熔断、供应商任务追踪、启动恢复和钱包预授权，
+  但尚不能安全承载长视频项目。
+- 已证明的六类阻塞问题：`GET /api/video/assets/:id` 无鉴权且 `readAsset` 不校验
+  owner；`needs_review` 被当成终态却没有自动/人工处置入口；积分释放异常被吞掉但界面
+  固定声称已退款；结果落盘、结算、任务完成和 Works 投影之间没有事务/outbox；独立
+  `video_assets` 没有项目版本、hash、代理/缩略图和保留治理；上传与供应商结果均整文件
+  缓冲，缺少断点续传和流式持久化。
+- 站内已有可复用原语：画布收费动作的跨进程租约/fencing、`delivered -> settled`
+  检查点、项目不可变版本、生成运行、恢复点、`project_assets` 和引用保留策略。P0 应
+  提炼这些成熟实现建立视频专用 `Job -> Attempt -> Delivery -> Settlement` 状态机，
+  不能另造一套互不兼容的基础设施。
+- 定向视频/项目/计费回归 39 项通过，但缺少资产权限、复核处置、释放失败重放、各崩溃
+  窗口恢复、输出去重和大文件续传测试。正式实施必须先补会失败的故障测试，再分批修复；
+  路线 C 和正式 P0 设计批准前不开始新平台代码，也不触发付费视频生成。
