@@ -15,6 +15,12 @@ owner_token=$1
 printf "LOCK_ACQUIRED:%s\n" "$owner_token"
 
 while IFS=: read -r request_id timeout_seconds command_payload input_payload; do
+  # Windows PowerShell 5.1 may prepend a UTF-8 BOM when it first opens the
+  # redirected stdin writer. Treat that transport preamble as framing, not ID.
+  utf8_bom=$(printf '\357\273\277')
+  case "$request_id" in
+    "$utf8_bom"*) request_id=${request_id#"$utf8_bom"} ;;
+  esac
   input_payload=$(printf "%s" "$input_payload" | tr -d "\r")
   printf "LOCK_REQUEST:%s\n" "$request_id"
   case "$request_id" in
