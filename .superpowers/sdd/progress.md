@@ -1824,3 +1824,28 @@
   The release finished with the PM2 snapshot saved and the remote deployment lock
   released. No paid video generation was run. Runtime extension-task deletions,
   `.tmp/`, and the diagnosis helper remain excluded.
+
+- 2026-08-14 ecommerce showcase final release `1d7eff3` is live at
+  `https://shuimg.cn/` through the mandated `scripts/deploy-production.ps1`
+  path. Nginx current is `/var/www/shubao/releases/20260814-182811-1d7eff3`;
+  PM2 PID `2139610` is healthy, the deploy lock is free, and the root disk has
+  about `5.3G` available after removing only verified stale deploy helpers,
+  non-current static releases, and oldest backups. Full regression passed
+  `1523/1523`, build transformed `6479` modules, 117 gallery images and two
+  public video products passed contract checks, the full 600-second Canary
+  completed, and ecommerce tasks
+  `ec_38dc5aee-5f32-41d4-9cc4-a21072aa37ab` and
+  `ec_c596bacf-4418-4141-b04d-afa22e473734` each delivered three stable assets.
+  Online browser QA at 1440px, 768px, and 390px confirmed no horizontal
+  overflow, no failed image decodes, no console errors, working modal keyboard
+  navigation, stable 16-to-28 gallery reveal positions, and working hover/remix
+  controls. The homepage showcase rasters were created with Codex imagegen,
+  not the ShuBao production generator; the two recorded Canary jobs are the
+  independent evidence for the real production pipeline. The executable video
+  roadmap remains at
+  `docs/superpowers/plans/2026-08-14-ai-video-platform-roadmap.md`, ordered P0
+  reliability, P1 asset/storyboard/timeline MVP, P2 declarative Skills and
+  project memory, then P3 precision editing and routing. No paid video job was
+  created. The 12 runtime extension-task deletions, `.tmp/`,
+  `.tmp_patch_responsive.py`, and the diagnosis helper remain user-owned and
+  excluded.
