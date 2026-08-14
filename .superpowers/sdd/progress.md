@@ -1898,3 +1898,22 @@
   appended below their columns. No corrective gallery code change was made.
   No paid video generation was run. Runtime extension-task deletions, `.tmp/`,
   `.tmp_patch_responsive.py`, and the diagnosis helper remain excluded.
+
+- 2026-08-15 AI-video research and route discovery is complete. The current
+  project/version, asset, billing, generation, canvas, gallery, operations and
+  one-shot video code paths were inventoried before proposing new architecture.
+  `VideoStudio` remains the shot-generation foundation; the exact missing layer
+  is durable project asset versions, storyboard shots, candidates/selections,
+  timeline clips, declarative SkillRuns and a provider-result event log. The
+  evidence and three route options are recorded in
+  `docs/superpowers/specs/2026-08-15-ai-video-platform-evidence-and-options.md`.
+  The recommended route uses Flova/TapNow as the project/workflow skeleton and
+  selectively adopts proven interaction patterns from Runway, Firefly,
+  Higgsfield, Luma, Google Flow, Dreamina, Vidu and Kling. Open-source reuse is
+  license-gated; GPL workflow projects are references or isolated services, not
+  code to copy into the proprietary UI. Public WeChat index snippets and public
+  videos confirm the direction of the 屿帆AI methods, but full article text was
+  not obtained and is explicitly not represented as verified. New AI-video
+  implementation is waiting at the required product-route approval gate. No
+  paid video generation was run, and the user-owned runtime deletions/temp files
+  remain excluded.

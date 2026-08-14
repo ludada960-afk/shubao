@@ -251,3 +251,24 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   配置签发新的短期 Canary 会话；凭据只存在于部署进程内，不输出、不落盘。运行态的
   12 个 `server/extension_tasks/*.json` 删除项、`.tmp/`、`.tmp_patch_responsive.py`
   和 `scripts/diagnose-recent-ecommerce-jobs.cjs` 继续保持用户所有且未提交。
+
+## 2026-08-15 AI Video Platform Research Decision Gate
+
+- 当前站点的项目版本、资产、生成任务、计费账本、画布、案例复用、运营指标和视频
+  单次生成链路已完成代码级盘点。现有 `VideoStudio` 应保留为未来的镜头生成器；核心
+  缺口是项目级资产版本、分镜、候选/选定版本、时间线、声明式 SkillRun 和结果事件日志，
+  而不是继续堆模型按钮。
+- 头部产品、官方能力、开源方案、社媒方法和许可证边界已整理到
+  `docs/superpowers/specs/2026-08-15-ai-video-platform-evidence-and-options.md`。推荐路线固定为：
+  以 Flova/TapNow 的项目记忆、资产/镜头依赖、Skill 工作流、人工确认和创作过程回放为
+  骨架；吸收 Runway/Firefly 的候选与时间线、Higgsfield/Luma 的镜头控制、Google Flow/
+  Dreamina 的 Agent 工作流，以及 Vidu/Kling 的资产绑定；适配薯包现有项目、计费和任务底座。
+- 开源复用须遵守许可证和退出策略：`tus-js-client` 可优先评估断点续传；ComfyUI 与相关
+  GPL 工作流只作为隔离执行后端或设计参考，禁止未经法务边界确认直接复制到专有前端；
+  OpenCut 可参考稳定时间线交互，Remotion/DesignCombo 须先完成具体许可证审查。
+- “屿帆AI”目前只取得公众号公开索引摘要和公开视频证据，可确认镜头语法、表演说话、
+  节奏、灯光、噪点修复和流程固化为 Skill 的方向，但未稳定取得文章全文；不得虚构具体步骤。
+- 新 AI 视频平台代码仍处于产品路线确认硬门槛，尚未开始实施，也未触发任何付费视频生成。
+  路线确认后必须先完成 P0 媒体/任务/账务可靠性，再依次进入 P1 资产/分镜/时间线、P2
+  声明式 Skill/项目记忆/案例克隆、P3 区间重拍/延长/跟踪替换/智能路由；每阶段须独立
+  设计、自审、测试、部署和生产验收，未完成项保持显式状态。
