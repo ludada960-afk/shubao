@@ -185,8 +185,12 @@ function Invoke-LockedRemote {
   $commandPayload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Command))
   $inputPayload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($InputText))
   try {
-    $script:lockProcess.StandardInput.WriteLine("$requestId`:$TimeoutSeconds`:$commandPayload`:$inputPayload")
-    $script:lockProcess.StandardInput.Flush()
+    # StreamWriter may emit a UTF-8 BOM on its first write in Windows PowerShell.
+    # The remote protocol is byte-framed, so write an explicit BOM-free line.
+    $wireLine = [Text.UTF8Encoding]::new($false).GetBytes("$requestId`:$TimeoutSeconds`:$commandPayload`:$inputPayload`n")
+    $wireStream = $script:lockProcess.StandardInput.BaseStream
+    $wireStream.Write($wireLine, 0, $wireLine.Length)
+    $wireStream.Flush()
   } catch {
     throw "Production deployment lock command channel was lost$(Get-DeploymentLockChannelContext)"
   }
@@ -394,7 +398,6 @@ try {
   $lockProcessInfo.RedirectStandardInput = $true
   $lockProcessInfo.RedirectStandardOutput = $true
   $lockProcessInfo.RedirectStandardError = $true
-  $lockProcessInfo.StandardInputEncoding = [Text.UTF8Encoding]::new($false)
   $lockProcessInfo.Arguments = ((@($ssh) + @($target, $remoteLockCommand)) | ForEach-Object {
     $argumentValue = [string]$_
     if ($argumentValue.Contains('"')) {

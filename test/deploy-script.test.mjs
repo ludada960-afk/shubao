@@ -130,11 +130,11 @@ test('deployment lock is process-backed and the foreground fences every producti
   assert.match(deploy, /ssh stderr:/);
   assert.match(deploy, /Remote locked step started:/);
   assert.match(deploy, /Remote locked step passed:/);
-  assert.match(deploy, /StandardInput\.WriteLine/);
+  assert.match(deploy, /StandardInput\.BaseStream/);
+  assert.match(deploy, /UTF8Encoding\]::new\(\$false\)/);
   assert.match(deploy, /ReadLineAsync/);
   assert.match(deploy, /AddSeconds\(\$TimeoutSeconds \+ 60\)/);
   assert.match(deploy, /RedirectStandardInput\s*=\s*\$true/);
-  assert.match(deploy, /StandardInputEncoding\s*=\s*\[Text\.UTF8Encoding\]::new\(\$false\)/);
   assert.match(deploy, /lockProcessInfo\.Arguments\s*=/);
   assert.doesNotMatch(deploy, /ArgumentList\.Add/);
   assert.match(deploy, /StandardInput\.Close\(\)/);
