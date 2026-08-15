@@ -99,6 +99,7 @@ function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChan
 function jobStatus(job) {
   if (job?.status === 'completed') return '成片已交付';
   if (job?.status === 'failed') return '未交付，积分已退回';
+  if (job?.status === 'reconciling') return '未交付，账务处理中';
   if (job?.status === 'needs_review') return '受理结果确认中';
   if (job?.status === 'processing') return `生成中 ${job.progress || 0}%`;
   return '正在提交';

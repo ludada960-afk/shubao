@@ -18,7 +18,7 @@ import {
 } from './videoProviders.mjs';
 import { createOwnerFairVideoQueue } from './videoQueue.mjs';
 
-const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
+const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review', 'reconciling']);
 const ACTIVE_STATUSES = new Set(['queued', 'submitting', 'processing']);
 const RATIOS = new Set(['21:9', '16:9', '4:3', '1:1', '3:4', '9:16']);
 const INPUT_LIMITS = Object.freeze({ image: 10 * 1024 * 1024, video: 50 * 1024 * 1024, audio: 15 * 1024 * 1024 });
@@ -60,6 +60,10 @@ function serializeJob(row, resultUrl = row?.result_url || '') {
     catalogVersion: row.catalog_version || 'legacy-seedance-v1',
     providerCostCny: Number(row.provider_cost_cny ?? 3.64),
     failureClass: row.failure_class || '',
+    billingState: row.status === 'completed' && (!row.billing_state || row.billing_state === 'held')
+      ? 'settled'
+      : row.billing_state || 'held',
+    reconciliationError: row.reconciliation_error || '',
     prompt: row.prompt,
     duration: row.duration,
     aspectRatio: row.aspect_ratio,
@@ -174,6 +178,7 @@ export function createVideoGeneration({
   now = Date.now,
   pollIntervalMs = 5000,
   maxConcurrent = 2,
+  reconciliationIntervalMs = 30_000,
 } = {}) {
   if (!db || !walletService || !quoteService || typeof upsertWork !== 'function') {
     throw new TypeError('video generation dependencies are required');
@@ -220,6 +225,9 @@ export function createVideoGeneration({
       provider_cost_cny REAL NOT NULL DEFAULT 3.64,
       failure_class TEXT NOT NULL DEFAULT '',
       quote_id TEXT NOT NULL DEFAULT '',
+      billing_state TEXT NOT NULL DEFAULT 'held',
+      reconciliation_error TEXT NOT NULL DEFAULT '',
+      release_attempts INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       UNIQUE(owner_email, idempotency_key)
@@ -236,10 +244,14 @@ export function createVideoGeneration({
     ['provider_cost_cny', 'REAL NOT NULL DEFAULT 4.355'],
     ['failure_class', "TEXT NOT NULL DEFAULT ''"],
     ['quote_id', "TEXT NOT NULL DEFAULT ''"],
+    ['billing_state', "TEXT NOT NULL DEFAULT 'held'"],
+    ['reconciliation_error', "TEXT NOT NULL DEFAULT ''"],
+    ['release_attempts', 'INTEGER NOT NULL DEFAULT 0'],
   ];
   for (const [column, definition] of migrations) {
     if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
   }
+  db.prepare("UPDATE video_jobs SET billing_state = 'settled' WHERE status = 'completed' AND billing_state = 'held'").run();
 
   const registry = providerRegistry || createVideoProviderRegistry({
     baseUrl,
@@ -466,29 +478,21 @@ export function createVideoGeneration({
   }
 
   async function complete(job, output) {
-    const settlement = walletService.settleItem(job.hold_id, 'video', {
-      referenceType: 'video_generation',
-      referenceId: output.id,
-      providerCostCny: Number(job.provider_cost_cny),
-      idempotencyKey: `video-settle:${job.id}`,
-      metadata: {
-        taskId: job.id,
-        productId: job.product_id,
-        providerRoute: job.provider_route,
-        catalogVersion: job.catalog_version,
-        resolution: job.resolution,
-        duration: job.duration,
-      },
-    });
-    const completedJob = updateJob(job.id, {
-      status: 'completed',
-      progress: 100,
+    const deliveredJob = updateJob(job.id, {
+      status: 'reconciling',
+      progress: 99,
       result_asset_id: output.id,
       result_url: output.url,
-      error: '',
+      error: '成片已交付，正在确认积分结算',
       failure_class: '',
+      billing_state: 'settlement_pending',
+      reconciliation_error: '',
     });
-    recordCircuitOutcome(completedJob, true);
+    recordCircuitOutcome(deliveredJob, true);
+    settleDeliveredJob(deliveredJob);
+  }
+
+  function upsertCompletedVideoWork(job, settlement) {
     upsertWork({
       _saveKey: `video:${job.id}`,
       _phone: job.owner_email,
@@ -500,9 +504,9 @@ export function createVideoGeneration({
       _videoResult: true,
       workType: 'video',
       generationType: 'video',
-      video_url: output.url,
+      video_url: job.result_url,
       video: {
-        url: output.url,
+        url: job.result_url,
         duration: job.duration,
         aspectRatio: job.aspect_ratio,
         resolution: job.resolution,
@@ -513,22 +517,89 @@ export function createVideoGeneration({
     }, { ownerEmail: job.owner_email });
   }
 
-  async function fail(job, error) {
-    const failureClass = isVideoProviderFailure(error) ? 'provider' : 'delivery';
+  function settleDeliveredJob(job) {
+    try {
+      const settlement = walletService.settleItem(job.hold_id, 'video', {
+        referenceType: 'video_generation',
+        referenceId: job.result_asset_id,
+        providerCostCny: Number(job.provider_cost_cny),
+        idempotencyKey: `video-settle:${job.id}`,
+        metadata: {
+          taskId: job.id,
+          productId: job.product_id,
+          providerRoute: job.provider_route,
+          catalogVersion: job.catalog_version,
+          resolution: job.resolution,
+          duration: job.duration,
+        },
+      });
+      const completedJob = updateJob(job.id, {
+        status: 'completed',
+        progress: 100,
+        error: '',
+        billing_state: 'settled',
+        reconciliation_error: '',
+      });
+      upsertCompletedVideoWork(completedJob, settlement);
+      return completedJob;
+    } catch (settlementError) {
+      return updateJob(job.id, {
+        status: 'reconciling',
+        progress: 99,
+        error: '成片已交付，积分结算确认中',
+        billing_state: 'settlement_pending',
+        reconciliation_error: clean(settlementError?.message, 500) || 'credit settlement failed',
+      });
+    }
+  }
+
+  function releaseHeldJob(job, error) {
+    const failureClass = job.failure_class || (isVideoProviderFailure(error) ? 'provider' : 'delivery');
     try {
       walletService.releaseItem(job.hold_id, 'video', {
         reason: `video_failed:${clean(error?.code || error?.message, 100) || 'unknown'}`,
         idempotencyKey: `video-release:${job.id}`,
         metadata: { taskId: job.id, productId: job.product_id, providerRoute: job.provider_route },
       });
-    } catch {}
-    const failedJob = updateJob(job.id, {
-      status: 'failed',
-      error: '本次没有交付成片，冻结积分已退回',
-      progress: 0,
-      failure_class: failureClass,
-    });
+      return updateJob(job.id, {
+        status: 'failed',
+        error: '本次没有交付成片，冻结积分已退回',
+        progress: 0,
+        failure_class: failureClass,
+        billing_state: 'released',
+        reconciliation_error: '',
+        release_attempts: Number(job.release_attempts || 0) + 1,
+      });
+    } catch (releaseError) {
+      return updateJob(job.id, {
+        status: 'reconciling',
+        error: '本次没有交付成片，冻结积分退回处理中',
+        progress: 0,
+        failure_class: failureClass,
+        billing_state: 'release_pending',
+        reconciliation_error: clean(releaseError?.message, 500) || 'credit release failed',
+        release_attempts: Number(job.release_attempts || 0) + 1,
+      });
+    }
+  }
+
+  async function fail(job, error) {
+    const failedJob = releaseHeldJob(job, error);
     recordCircuitOutcome(failedJob, false);
+  }
+
+  function reconcileBilling() {
+    const rows = db.prepare("SELECT * FROM video_jobs WHERE billing_state IN ('release_pending','settlement_pending') ORDER BY updated_at, rowid").all();
+    const summary = { checked: rows.length, released: 0, settled: 0, pending: 0 };
+    for (const row of rows) {
+      const reconciled = row.billing_state === 'settlement_pending'
+        ? settleDeliveredJob(row)
+        : releaseHeldJob(row, { code: row.failure_class || 'billing_reconciliation' });
+      if (reconciled.billing_state === 'released') summary.released += 1;
+      else if (reconciled.billing_state === 'settled') summary.settled += 1;
+      else summary.pending += 1;
+    }
+    return summary;
   }
 
   async function processJob(id) {
@@ -722,18 +793,7 @@ export function createVideoGeneration({
     }
     if (!enqueue(id)) {
       if (admission.status === 'probe') releaseProductProbe(product.id);
-      try {
-        walletService.releaseItem(hold.id, 'video', {
-          reason: 'video_queue_closed',
-          idempotencyKey: `video-release:${id}`,
-          metadata: { taskId: id, productId: product.id, providerRoute: product.routeId },
-        });
-      } catch {}
-      updateJob(id, {
-        status: 'failed',
-        error: '视频队列暂时不可用，冻结积分已退回',
-        failure_class: 'delivery',
-      });
+      releaseHeldJob(selectJob.get(id), { code: 'VIDEO_QUEUE_UNAVAILABLE' });
       throw httpError(503, 'VIDEO_QUEUE_UNAVAILABLE', '视频队列暂时不可用，请稍后重试', { retryable: true });
     }
     return { job: serializeOwnedJob(selectJob.get(id)), replay: false };
@@ -778,6 +838,7 @@ export function createVideoGeneration({
   }
 
   function recover() {
+    reconcileBilling();
     const rows = db.prepare("SELECT id, status, provider_task_id FROM video_jobs WHERE status IN ('queued','submitting','processing') ORDER BY created_at").all();
     for (const row of rows) {
       if (row.status === 'submitting' && !row.provider_task_id) {
@@ -787,6 +848,11 @@ export function createVideoGeneration({
       }
     }
   }
+
+  const reconciliationTimer = setInterval(() => {
+    if (!closed) reconcileBilling();
+  }, Math.max(5_000, Number(reconciliationIntervalMs) || 30_000));
+  reconciliationTimer.unref?.();
 
   return {
     runtimeStats() {
@@ -852,11 +918,13 @@ export function createVideoGeneration({
     readAsset,
     readSignedAsset,
     playbackUrlForAsset,
+    reconcileBilling,
     recover,
     close() {
       closed = true;
       for (const timer of retryTimers) clearTimeout(timer);
       retryTimers.clear();
+      clearInterval(reconciliationTimer);
       queue.close();
     },
   };
