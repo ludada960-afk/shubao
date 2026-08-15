@@ -3990,6 +3990,7 @@ app.get('/api/video/capabilities', (_req, res) => {
     loading: false,
     ...videoGeneration.capabilities(),
     uploadMode: videoPlatformFlags.VIDEO_PLATFORM_TUS_UPLOAD ? 'tus' : 'direct',
+    workbenchEnabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
   });
 });
 app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {

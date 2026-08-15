@@ -16,6 +16,11 @@
   `videoAssetId` plus non-authoritative metadata. Focused regression: 14/14.
 - Next boundary: expose the default-off workbench capability and add signed
   project/workbench clients before rendering the six-stage React workbench.
+- P1 Task 2 capability/project discovery slice is complete locally. The public
+  video capability contract exposes `workbenchEnabled` directly from the
+  default-off server flag; signed project clients now list and read owned
+  projects through the shared session invalidation and path validation logic.
+  Focused API/client/cutover regression: 42/42. Next: signed workbench client.
 
 ## Active workspace
 

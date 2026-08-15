@@ -10,6 +10,8 @@ import {
   consumeRecoveryCheckpoint,
   dismissRecoveryCheckpoint,
   loadCanvasSession,
+  getProject,
+  listProjects,
   listRecoveryCheckpoints,
   saveCanvasSession,
 } from '../src/services/projects.js';
@@ -136,6 +138,47 @@ test('project lifecycle client creates versions, checkpoints, and completion thr
   assert.equal((await createRecoveryCheckpoint('project-1', { versionId: 'version-1', reason: 'payment_required' })).id, 'checkpoint-1');
   assert.equal((await completeProject('project-1', { acceptedVersionId: 'version-1' })).status, 'completed');
   assert.equal(requests.every(request => request.options.headers.Authorization === 'Bearer signed-token'), true);
+});
+
+test('project discovery client lists and reads signed owner projects', async t => {
+  installSession('signed-project-discovery');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    if (path === '/api/projects') {
+      return jsonResponse({ projects: [{ id: 'video-project-1', kind: 'video', title: '品牌短片' }] });
+    }
+    return jsonResponse({ project: { id: 'video-project-1', kind: 'video', title: '品牌短片' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const projects = await listProjects();
+  const project = await getProject('video-project-1');
+
+  assert.equal(projects[0].kind, 'video');
+  assert.equal(project.id, 'video-project-1');
+  assert.deepEqual(requests.map(request => ({
+    path: request.path,
+    authorization: request.options.headers.Authorization,
+  })), [
+    { path: '/api/projects', authorization: 'Bearer signed-project-discovery' },
+    { path: '/api/projects/video-project-1', authorization: 'Bearer signed-project-discovery' },
+  ]);
+});
+
+test('project discovery rejects an invalid project ID before fetching', async t => {
+  installSession();
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    return jsonResponse({});
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await assert.rejects(getProject('\u0000project'), /请选择有效的项目/);
+  assert.equal(called, false);
 });
 
 test('Canvas session client creates, saves, and restores an encoded owner session', async t => {

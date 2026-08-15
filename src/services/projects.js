@@ -82,6 +82,21 @@ export async function createProject({ kind, title, idempotencyKey } = {}) {
   return response.project;
 }
 
+export async function listProjects() {
+  const response = await requestJson('/api/projects', {}, '暂时无法读取项目');
+  return Array.isArray(response?.projects) ? response.projects : [];
+}
+
+export async function getProject(projectId) {
+  const response = await requestJson(
+    `/api/projects/${projectPathSegment(projectId)}`,
+    {},
+    '暂时无法读取项目',
+  );
+  if (!response?.project?.id) throw new Error('项目信息暂时不可用，请稍后重试');
+  return response.project;
+}
+
 export async function createProjectVersion(projectId, payload = {}) {
   const response = await requestJson(`/api/projects/${projectPathSegment(projectId)}/versions`, {
     method: 'POST',

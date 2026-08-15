@@ -20,4 +20,5 @@ test('the server mounts the workbench only behind its default-off flag', () => {
   const source = fs.readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
   assert.match(source, /VIDEO_PLATFORM_P1_WORKBENCH\s*\?/);
   assert.match(source, /mountVideoWorkbenchRoutes\(app,\s*\{[\s\S]*enabled:\s*videoPlatformFlags\.VIDEO_PLATFORM_P1_WORKBENCH/);
+  assert.match(source, /workbenchEnabled:\s*videoPlatformFlags\.VIDEO_PLATFORM_P1_WORKBENCH/);
 });
