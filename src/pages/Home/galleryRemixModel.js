@@ -35,11 +35,23 @@ function ecommerceImages(item) {
 }
 
 function ecommerceSources(item) {
+  const declaredSources = Array.isArray(item?.remix?.sourceAssets)
+    ? item.remix.sourceAssets.filter(imageUrl)
+    : [];
   const assets = Array.isArray(item?.assets) ? item.assets : [];
-  if (cleanText(item.intent || item?.remix?.intent) === 'anything_tryon' && assets.length) {
+  if (cleanText(item.intent || item?.remix?.intent || item?.remix?.mode) === 'anything_tryon') {
+    const roleAssets = declaredSources.length ? declaredSources : assets;
     return {
-      productImages: uniqueImages(assets.filter(asset => ['source', 'product', 'items'].includes(asset?.role)), 'product', 5),
-      referenceImages: uniqueImages(assets.filter(asset => ['reference', 'person', 'model'].includes(asset?.role)), 'reference', 3),
+      productImages: uniqueImages(roleAssets.filter(asset => ['source', 'product', 'items'].includes(asset?.role)), 'product', 5),
+      referenceImages: uniqueImages(roleAssets.filter(asset => ['reference', 'reference_model', 'person', 'model'].includes(asset?.role)), 'reference', 3),
+      sceneImages: uniqueImages(roleAssets.filter(asset => asset?.role === 'scene'), 'scene', 1),
+    };
+  }
+  if (declaredSources.length) {
+    return {
+      productImages: uniqueImages(declaredSources.filter(asset => ['source', 'product', 'items'].includes(asset?.role)), 'product', 5),
+      referenceImages: uniqueImages(declaredSources.filter(asset => ['reference', 'reference_model', 'style', 'scene'].includes(asset?.role)), 'reference', 3),
+      sceneImages: [],
     };
   }
   const images = ecommerceImages(item);
@@ -52,7 +64,7 @@ function ecommerceSources(item) {
   const referenceImages = configuredReferences.length
     ? configuredReferences
     : uniqueImages(images.filter(image => !productUrls.has(imageUrl(image)) && !PRODUCT_SOURCE_PATTERN.test(`${image?.label || ''} ${image?.sourceFile || ''}`)), 'reference', 3);
-  return { productImages, referenceImages };
+  return { productImages, referenceImages, sceneImages: [] };
 }
 
 export function buildGalleryRemixCheckpoint(item = {}) {
@@ -82,7 +94,8 @@ export function buildGalleryRemixCheckpoint(item = {}) {
   }
   if (item.type === 'ecommerce') {
     const sources = ecommerceSources(item);
-    const anythingTryOn = cleanText(item.intent || item?.remix?.intent) === 'anything_tryon';
+    const recipeId = cleanText(item?.remix?.mode || item.intent || item?.remix?.intent) || 'product_suite';
+    const anythingTryOn = recipeId === 'anything_tryon';
     return {
       project: { id: `gallery:${id}`, kind: 'ecommerce', title },
       version: {
@@ -92,10 +105,10 @@ export function buildGalleryRemixCheckpoint(item = {}) {
           platform: cleanText(item?.remix?.platform) || 'taobao',
           productImages: sources.productImages,
           referenceImages: sources.referenceImages,
+          abilityRecipe: { id: recipeId },
           ...(anythingTryOn ? {
-            abilityRecipe: { id: 'anything_tryon' },
-            personMode: 'reference',
-            roleImages: { items: sources.productImages, person: sources.referenceImages, scene: [] },
+            personMode: sources.referenceImages.length ? 'reference' : 'smart',
+            roleImages: { items: sources.productImages, person: sources.referenceImages, scene: sources.sceneImages },
           } : {}),
         },
       },
