@@ -248,6 +248,12 @@ export function createCanvasGenerationService({
     };
   }
 
+  function reopenPersistenceFailure(job) {
+    if (job?.status !== 'failed' || !job.outputUrl || job.stableUrl) return job;
+    if (typeof store.reopenForPersistence !== 'function') return job;
+    return store.reopenForPersistence(job.requestId) || job;
+  }
+
   async function regenerate({ ownerEmail, body } = {}) {
     const request = normalizeRequest(ownerEmail, body);
     let job = store.getOrCreate({
@@ -266,6 +272,7 @@ export function createCanvasGenerationService({
         imageModel: request.imageModel,
       },
     });
+    job = reopenPersistenceFailure(job);
     if (job.status === 'completed' && job.stableUrl) {
       return {
         taskId: job.requestId,
@@ -281,6 +288,7 @@ export function createCanvasGenerationService({
     try {
       return await imageGenerationPool.run(async () => {
         job = store.get(job.requestId);
+        job = reopenPersistenceFailure(job);
         if (job?.status === 'completed' && job.stableUrl) {
           return {
             taskId: job.requestId,
@@ -294,6 +302,7 @@ export function createCanvasGenerationService({
         const claimed = store.claim(request.requestId);
         if (!claimed) {
           job = store.get(request.requestId);
+          job = reopenPersistenceFailure(job);
           if (job?.status === 'completed' && job.stableUrl) {
             return {
               taskId: job.requestId,
@@ -383,11 +392,21 @@ export function createCanvasGenerationService({
             });
           }
           heartbeat.assertOwned();
-          const asset = await generatedAssetStore.persist({
-            sourceUrl: job.outputUrl,
-            taskId: job.requestId,
-            label: 'canvas_regenerated',
-          });
+          let asset;
+          try {
+            asset = await generatedAssetStore.persist({
+              sourceUrl: job.outputUrl,
+              taskId: job.requestId,
+              label: 'canvas_regenerated',
+            });
+          } catch (cause) {
+            throw Object.assign(cause instanceof Error ? cause : new Error('Generated asset persistence failed'), {
+              status: 503,
+              code: 'CANVAS_ASSET_PERSIST_FAILED',
+              retryable: true,
+              resumeable: true,
+            });
+          }
           heartbeat.assertOwned();
           job = store.complete(job.requestId, {
             stableUrl: asset.url,

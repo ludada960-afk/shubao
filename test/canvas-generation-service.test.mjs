@@ -640,6 +640,58 @@ test('rejects a mismatched polled provider job id before persisting or returning
   assert.equal(persisted.status, 'failed');
 });
 
+test('a failed stable-asset write resumes from the provider output without generating twice', async t => {
+  let submitCalls = 0;
+  let pollCalls = 0;
+  let persistCalls = 0;
+  let failPersist = true;
+  const harness = createHarness({
+    imageInputReader: {
+      async read() {
+        return { buffer: Buffer.from('primary'), contentType: 'image/png' };
+      },
+    },
+    providerAdapter: {
+      async submitEdit() {
+        submitCalls += 1;
+        return { jobId: 'provider-persist-resume', status: 'queued' };
+      },
+      async pollUntilReady(jobId) {
+        pollCalls += 1;
+        return { jobId, status: 'completed', outputUrl: 'https://provider.example/already-generated.png' };
+      },
+    },
+    generatedAssetStore: {
+      async persist() {
+        persistCalls += 1;
+        if (failPersist) throw new Error('this deployment cannot store the generated file');
+        return { url: '/api/generated-assets/recovered-existing-output.png' };
+      },
+    },
+  });
+  t.after(() => harness.close());
+  const input = {
+    ownerEmail: 'owner@example.com',
+    body: { prompt: 'keep the existing output', image_url: 'primary.png', request_key: 'persist-resume' },
+  };
+
+  let firstError;
+  await assert.rejects(harness.service.regenerate(input), error => {
+    firstError = error;
+    return /cannot store/.test(error.message);
+  });
+  const afterFailure = harness.store.get(firstError.taskId);
+  assert.equal(afterFailure.outputUrl, 'https://provider.example/already-generated.png');
+  harness.db.prepare("UPDATE canvas_generation_jobs SET status = 'failed' WHERE request_id = ?").run(firstError.taskId);
+
+  failPersist = false;
+  const recovered = await harness.service.regenerate(input);
+  assert.equal(recovered.url, '/api/generated-assets/recovered-existing-output.png');
+  assert.equal(submitCalls, 1);
+  assert.equal(pollCalls, 1);
+  assert.equal(persistCalls, 2);
+});
+
 test('maps shared pool saturation to a retryable 503 without terminally failing the durable request', async t => {
   const harness = createHarness({
     imageInputReader: {
