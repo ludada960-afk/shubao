@@ -118,6 +118,8 @@ Required fields:
 
 `duration_ms` must be 500-60000. P1 accepts semantic camera language as text/JSON projection but does not translate it into provider fields.
 
+`updateShot.patch` may change only `position`, `purpose`, `durationMs`, `cameraLanguage` and `prompt`. Shot status and selected candidate are system-managed and cannot be set through the generic patch route.
+
 ### 5.4 `video_shot_asset_bindings`
 
 Pins a shot to one exact asset version.
@@ -154,9 +156,10 @@ Required fields:
 - `shot_id`, `candidate_id`
 - `position` integer, unique per project
 - `trim_start_ms`, `trim_end_ms`, `muted`
+- `status`: `active|stale`
 - `revision`, timestamps
 
-The candidate must be the shot's current selected candidate. `trim_end_ms` cannot exceed the shot duration. If selection changes, existing clips for the previous candidate become invalid and must be replaced explicitly; the store never silently swaps media.
+At creation time the candidate must be the shot's current selected candidate and the shot must not be stale. `trim_end_ms` cannot exceed the shot duration. If selection changes, existing clips for the previous candidate become `stale` in the same transaction and must be replaced explicitly; the store never silently swaps media. If an approved asset version makes a bound shot stale, its active timeline clips become stale in the same transaction.
 
 ## 6. State and Invariants
 
@@ -166,12 +169,13 @@ The candidate must be the shot's current selected candidate. `trim_end_ms` canno
 4. A shot binding always pins an explicit version.
 5. Approving a different asset version marks dependent shots stale; it does not rewrite bindings.
 6. Only one candidate per shot may be selected.
-7. A timeline clip may reference only the current selected candidate.
-8. Changing selection never silently rewrites a timeline clip.
+7. A new active timeline clip may reference only a non-stale shot's current selected candidate.
+8. Changing selection never silently rewrites a timeline clip; prior clips become stale transactionally.
 9. Ordered writes are transactional and reject duplicate positions.
 10. Mutable records require `expectedRevision`; a mismatch returns `VERSION_CONFLICT`.
 11. Deleting/archiving a source asset never deletes completed outputs automatically.
 12. Feature disabled means no P1 route is mounted; existing routes and schema reads remain unchanged.
+13. Generic shot edits cannot forge lifecycle status, candidate selection or ownership.
 
 ## 7. Service Interface
 
@@ -230,8 +234,8 @@ Provider/model fields are not part of the default card surface. A later advanced
 - Owner mismatch is indistinguishable from missing data.
 - Revision conflict returns the current record so the client can refresh deliberately.
 - Candidate registration does not imply billing success; a later integration must verify the P0 delivery before calling it.
-- Asset approval and stale-shot marking occur in one transaction.
-- Candidate selection occurs in one transaction.
+- Asset approval, stale-shot marking and affected timeline-clip invalidation occur in one transaction.
+- Candidate selection and prior timeline-clip invalidation occur in one transaction.
 - If an input project asset is deleted later, the immutable version and hash remain as provenance; UI repair is a later slice.
 - No background callback may mutate a deleted project without checking owner/project state.
 
@@ -245,7 +249,7 @@ Store tests use an in-memory SQLite database with the real project schema and st
 - explicit pinned bindings;
 - idempotent candidate registration;
 - transactional single selection;
-- timeline eligibility and no silent candidate replacement;
+- timeline eligibility, durable stale state and no silent candidate replacement;
 - optimistic revision conflicts;
 - stable ordering validation.
 
@@ -256,7 +260,7 @@ No test calls a provider, uploads to production storage, charges points, or requ
 ## 12. Rollout and Rollback
 
 1. Add the flag with a default of `false` because this is a future-stage incubation surface.
-2. Create additive tables at server startup; no existing table is rewritten.
+2. Create additive tables the first time the default-off workbench is enabled; no existing table is rewritten.
 3. Keep routes unmounted in production until P0 production gates pass.
 4. First enable only for an internal account cohort in a later release.
 5. Rollback by disabling the flag. Additive records remain for audit and can be migrated forward; no destructive rollback is required.
@@ -268,4 +272,3 @@ No test calls a provider, uploads to production storage, charges points, or requ
 - Asset, shot, candidate and timeline identifiers are consistent across schema and service contracts.
 - The design preserves existing project, media, billing and video-job sources of truth.
 - Public exposure is explicitly blocked until the prior production gate succeeds.
-

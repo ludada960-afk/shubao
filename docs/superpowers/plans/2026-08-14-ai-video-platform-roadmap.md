@@ -1,6 +1,6 @@
 # AI Video Platform Long-Term Execution Roadmap
 
-> **For agentic workers:** Each stage is an independent product increment. Before changing code for a stage, write and approve a stage-specific design and implementation plan, then use `superpowers:subagent-driven-development` or `superpowers:executing-plans` task by task. Checkboxes in this document track program gates, not individual coding steps.
+> **For agentic workers:** Each stage is an independent product increment. Before changing code for a stage, write and approve a stage-specific design and implementation plan, then use `superpowers:executing-plans` task by task. Checkboxes in this document track program gates, not individual coding steps.
 
 **Goal:** Turn Shubao from a collection of one-shot video model forms into a reliable, reusable AI video production system built around projects, approved assets, shots, versioned generation attempts, a timeline, and replayable workflows.
 

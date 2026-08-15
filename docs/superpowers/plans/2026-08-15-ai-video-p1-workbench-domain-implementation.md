@@ -255,7 +255,7 @@ git commit -m "feat: persist video workbench assets"
 
 **Interfaces:**
 - Produces: `createShot`, `updateShot`, `bindShotAssetVersion`.
-- Extends: `approveAssetVersion` to mark shots stale when they remain bound to an older version.
+- Extends: `approveAssetVersion` to mark shots stale when they remain bound to an older version; Task 4 adds transactional timeline invalidation once the clip table exists.
 
 - [ ] **Step 1: Write failing shot and stale-binding tests**
 
@@ -266,7 +266,7 @@ assert.equal(store.listWorkbench({ ownerEmail, projectId }).shots[0].status, 'st
 assert.equal(store.listWorkbench({ ownerEmail, projectId }).shots[0].bindings[0].assetVersionId, first.id);
 ```
 
-Add separate assertions that duplicate shot positions throw `INVALID_POSITION`, `durationMs: 499` throws `INVALID_DURATION`, an owner-mismatched binding throws `INVALID_BINDING`, and an old `expectedRevision` throws `VERSION_CONFLICT`.
+Add separate assertions that duplicate shot positions throw `INVALID_POSITION`, `durationMs: 499` throws `INVALID_DURATION`, an owner-mismatched binding throws `INVALID_BINDING`, and an old `expectedRevision` throws `VERSION_CONFLICT`. Prove `updateShot.patch` rejects `status`, `selectedCandidateId`, `ownerEmail` and `projectId`; those fields are never generic user edits.
 
 - [ ] **Step 2: Run and verify RED**
 
@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS video_shot_asset_bindings (
 );
 ```
 
-Implement the three methods with real owner/project/version validation. In the existing approval transaction run:
+Implement the three methods with real owner/project/version validation. Limit the mutable shot patch allow-list to `position`, `purpose`, `durationMs`, `cameraLanguage` and `prompt`; validate duration and position inside the same optimistic-revision transaction. In the existing approval transaction run:
 
 ```sql
 UPDATE video_storyboard_shots
@@ -353,7 +353,13 @@ assert.throws(() => store.addTimelineClip({
 }), error => error.code === 'INVALID_TIMELINE_CANDIDATE');
 ```
 
-Also prove that changing the shot selection does not rewrite an existing timeline clip and causes the old clip to be returned with `valid: false` in `listWorkbench`.
+Also prove:
+
+- changing the shot selection does not rewrite an existing timeline clip and marks the old clip `stale` in the same transaction;
+- selecting a candidate for an already stale shot keeps the shot stale;
+- adding a timeline clip for a stale shot throws `INVALID_TIMELINE_CANDIDATE`;
+- approving a newer bound asset version marks both the dependent shot and its active timeline clips stale;
+- a failed selection transaction leaves the prior candidate, shot and clip states unchanged.
 
 - [ ] **Step 2: Run and verify RED**
 
@@ -377,14 +383,17 @@ CREATE TABLE IF NOT EXISTS video_timeline_clips (
   id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
   shot_id TEXT NOT NULL, candidate_id TEXT NOT NULL, position INTEGER NOT NULL,
   trim_start_ms INTEGER NOT NULL DEFAULT 0, trim_end_ms INTEGER NOT NULL,
-  muted INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 1,
+  muted INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active',
+  revision INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(project_id, position),
   FOREIGN KEY(shot_id) REFERENCES video_storyboard_shots(id),
   FOREIGN KEY(candidate_id) REFERENCES video_shot_candidates(id)
 );
 ```
 
-`selectCandidate` must transact the revision check, previous candidate normalization, chosen candidate selection and shot update. `listWorkbench` computes `clip.valid` by comparing `clip.candidate_id` with the joined shot `selected_candidate_id`; it never mutates clips on read.
+`selectCandidate` must transact the revision check, previous candidate normalization, chosen candidate selection, shot update and invalidation of active clips that point at another candidate. It may move the shot to `approved` only when every binding still points at the asset's current approved version; otherwise the shot remains `stale`.
+
+Extend `approveAssetVersion` so the same approval transaction marks active clips for newly stale dependent shots as `stale`. `addTimelineClip` accepts only a non-stale shot's current selected candidate. `listWorkbench` returns the stored clip status and may add a derived `valid` convenience field, but it never repairs or mutates state on read.
 
 - [ ] **Step 4: Run focused tests and full workbench suite**
 
@@ -461,7 +470,7 @@ export function mountVideoWorkbenchRoutes(app, {
     throw new TypeError('enabled video workbench routes require store and authenticateOwner');
   }
 
-  // Mount the nine routes below.
+  // Mount the ten routes below.
   return true;
 }
 ```
@@ -483,7 +492,7 @@ function routeError(error, res) {
 }
 ```
 
-Mount the nine routes from the design. Each passes `ownerFor(req, authenticateOwner)` and `req.params.projectId`; no handler forwards a body owner field.
+Mount the ten routes from the design. Each passes `ownerFor(req, authenticateOwner)` and `req.params.projectId`; no handler forwards a body owner field.
 
 - [ ] **Step 4: Construct conditionally in `server/index.mjs`**
 
