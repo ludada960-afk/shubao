@@ -2030,3 +2030,13 @@
   `14/14`; no paid generation, production deployment or runtime data mutation
   occurred. Next boundary: pure presentation model and feature-gated P1
   project workbench UI.
+
+- 2026-08-15 AI-video P1 project-workbench presentation model is complete
+  locally. Video projects and completed jobs now use deterministic stable
+  ordering, upload choices expose only unique completed image/video/audio
+  assets, approved versions and selected candidates are derived from persisted
+  IDs, append positions come from persisted maxima, and the next workflow stage
+  is computed from real approved assets, storyboard selections and active
+  timeline clips. The focused pure-model suite passes `6/6`; no UI flag was
+  enabled, no paid generation ran and no runtime data changed. Next boundary:
+  connect these contracts to the protected VideoStudio project workbench.
