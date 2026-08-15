@@ -154,6 +154,7 @@ import {
 } from './videoGeneration.mjs';
 import { createVideoUploadService } from './videoUploadService.mjs';
 import { createVideoReconciliation } from './videoReconciliation.mjs';
+import { readVideoPlatformFlags } from './config.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -229,6 +230,7 @@ const generatedAssetStore = createGeneratedAssetStore({
 });
 const projectStore = createProjectStore(db);
 const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
+const videoPlatformFlags = readVideoPlatformFlags(process.env);
 const videoGeneration = createVideoGeneration({
   db,
   walletService,
@@ -241,7 +243,9 @@ const videoGeneration = createVideoGeneration({
   minimaxBaseUrl: process.env.MINIMAX_VIDEO_BASE_URL || process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',
   assetSigningSecret: authSessionSecret,
-  projectBridge: videoProjectBridge,
+  projectBridge: videoPlatformFlags.VIDEO_PLATFORM_PROJECT_BRIDGE ? videoProjectBridge : null,
+  ownerReads: videoPlatformFlags.VIDEO_PLATFORM_OWNER_READS,
+  readNewState: videoPlatformFlags.VIDEO_PLATFORM_READ_NEW_STATE,
 });
 const videoUploadService = createVideoUploadService({
   db,
@@ -252,6 +256,9 @@ videoReconciliation = createVideoReconciliation({
   db,
   reconcile: input => videoGeneration.reconcileOperations(input),
   cleanupUploads: input => videoUploadService.cleanExpiredUploads(input),
+  readAttempts: videoPlatformFlags.VIDEO_PLATFORM_ATTEMPTS,
+  readOutbox: videoPlatformFlags.VIDEO_PLATFORM_OUTBOX,
+  readNewState: videoPlatformFlags.VIDEO_PLATFORM_READ_NEW_STATE,
   actions: {
     recheck: jobId => videoGeneration.recheckJob(jobId),
     replayProjection: jobId => videoGeneration.replayProjection(jobId),
@@ -3959,7 +3966,11 @@ app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, e
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
 app.get('/api/video/capabilities', (_req, res) => {
-  res.json({ loading: false, ...videoGeneration.capabilities() });
+  res.json({
+    loading: false,
+    ...videoGeneration.capabilities(),
+    uploadMode: videoPlatformFlags.VIDEO_PLATFORM_TUS_UPLOAD ? 'tus' : 'direct',
+  });
 });
 app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
   const {
@@ -4029,6 +4040,9 @@ app.post('/api/video/assets', authenticateVideoRequest, async (req, res) => {
   }
 });
 app.all(['/api/video/uploads', '/api/video/uploads/:id'], authenticateVideoRequest, (req, res) => {
+  if (!videoPlatformFlags.VIDEO_PLATFORM_TUS_UPLOAD) {
+    return res.status(409).json({ code: 'VIDEO_TUS_DISABLED', error: '可续传上传暂时不可用，请使用兼容上传' });
+  }
   void videoUploadService.handle(req, res);
 });
 app.get('/api/video/upload-results/:id', authenticateVideoRequest, (req, res) => {

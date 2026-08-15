@@ -193,6 +193,8 @@ export function createVideoGeneration({
   pollIntervalMs = 5000,
   maxConcurrent = 2,
   reconciliationIntervalMs = 30_000,
+  ownerReads = true,
+  readNewState = true,
 } = {}) {
   if (!db || !walletService || !quoteService || typeof upsertWork !== 'function') {
     throw new TypeError('video generation dependencies are required');
@@ -442,9 +444,18 @@ export function createVideoGeneration({
   function serializeOwnedJob(row) {
     if (!row) return null;
     const resultUrl = row.result_asset_id
-      ? signedAssetUrl('', row.result_asset_id, row.owner_email, 'playback', 24 * 60 * 60 * 1000)
+      ? (ownerReads
+        ? signedAssetUrl('', row.result_asset_id, row.owner_email, 'playback', 24 * 60 * 60 * 1000)
+        : `/api/video/assets/${encodeURIComponent(row.result_asset_id)}`)
       : row.result_url || '';
-    return serializeJob(row, resultUrl);
+    if (readNewState) return serializeJob(row, resultUrl);
+    return serializeJob({
+      ...row,
+      billing_state: row.status === 'completed' ? 'settled' : row.billing_state,
+      delivery_state: row.status === 'completed' ? 'verified' : 'none',
+      project_projection_state: row.status === 'completed' ? 'projected' : 'none',
+      projection_state: row.status === 'completed' ? 'projected' : 'none',
+    }, resultUrl);
   }
 
   async function uploadAsset({ ownerEmail, kind, contentType, buffer, publicBaseUrl }) {
@@ -467,7 +478,9 @@ export function createVideoGeneration({
       kind,
       contentType: normalizedType,
       bytes: buffer.length,
-      url: signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000),
+      url: ownerReads
+        ? signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000)
+        : `/api/video/assets/${encodeURIComponent(id)}`,
     };
   }
 
@@ -503,7 +516,9 @@ export function createVideoGeneration({
         contentType: normalizedType,
         bytes: size,
         sha256: normalizedSha256,
-        url: signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000),
+        url: ownerReads
+          ? signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000)
+          : `/api/video/assets/${encodeURIComponent(id)}`,
       };
     } catch (error) {
       await fs.promises.rm(destination, { force: true }).catch(() => {});

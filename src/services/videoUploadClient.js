@@ -34,6 +34,51 @@ async function fetchUploadResult(uploadUrl) {
 }
 
 export function createVideoAssetUpload(file, kind, callbacks = {}) {
+  if (callbacks.resumable === false) {
+    const controller = new AbortController();
+    let settled = false;
+    let rejectPromise;
+    const token = getSessionToken();
+    const promise = new Promise((resolve, reject) => {
+      rejectPromise = reject;
+      callbacks.onState?.('uploading');
+      callbacks.onProgress?.({ bytesUploaded: 0, bytesTotal: file.size, progress: 0 });
+      fetch('/api/video/assets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+          'X-Video-Asset-Kind': kind,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: file,
+        signal: controller.signal,
+      }).then(async response => {
+        handleSessionResponse(response);
+        if (!response.ok) throw await createApiError(response, '视频素材上传失败');
+        const payload = await response.json();
+        if (!payload.asset) throw new Error('素材上传完成但尚未入库，请重试');
+        settled = true;
+        callbacks.onProgress?.({ bytesUploaded: file.size, bytesTotal: file.size, progress: 100 });
+        callbacks.onState?.('completed');
+        resolve(payload.asset);
+      }).catch(error => {
+        if (settled) return;
+        settled = true;
+        callbacks.onState?.(error?.name === 'AbortError' ? 'cancelled' : 'error');
+        reject(error);
+      });
+    });
+    return {
+      promise,
+      abort() {
+        if (settled) return;
+        settled = true;
+        controller.abort();
+        const error = Object.assign(new Error('素材上传已取消'), { name: 'AbortError' });
+        rejectPromise?.(error);
+      },
+    };
+  }
   let upload;
   let settled = false;
   let rejectPromise;

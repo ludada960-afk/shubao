@@ -1,7 +1,7 @@
 import { getSessionToken, handleSessionResponse } from './auth.js';
 import { createApiError } from './apiError.js';
 export { createImmediateMediaPreview, createVideoAssetUpload } from './videoUploadClient.js';
-import { uploadVideoAssetResumable } from './videoUploadClient.js';
+import { createVideoAssetUpload, uploadVideoAssetResumable } from './videoUploadClient.js';
 
 function headers(extra = {}) {
   const token = getSessionToken();
@@ -28,7 +28,10 @@ export function getVideoJob(id) {
 }
 
 export async function uploadVideoAsset(file, kind) {
-  return uploadVideoAssetResumable(file, kind);
+  const capabilities = await fetchVideoCapabilities().catch(() => ({ uploadMode: 'tus' }));
+  if (capabilities.uploadMode !== 'direct') return uploadVideoAssetResumable(file, kind);
+  const { promise } = createVideoAssetUpload(file, kind, { resumable: false });
+  return promise;
 }
 
 export function createVideoJob(input, idempotencyKey) {

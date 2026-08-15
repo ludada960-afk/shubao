@@ -58,6 +58,9 @@ export function createVideoReconciliation({
   reconcile = async () => ({}),
   cleanupUploads = async () => ({}),
   actions = {},
+  readAttempts = true,
+  readOutbox = true,
+  readNewState = true,
 } = {}) {
   if (!db?.prepare) throw new TypeError('video reconciliation requires a database');
   if (typeof reconcile !== 'function' || typeof cleanupUploads !== 'function') {
@@ -109,7 +112,7 @@ export function createVideoReconciliation({
       outbox: {},
       lease: null,
     };
-    if (!selectJob || !fullJobSchema) return empty;
+    if (!selectJob || !fullJobSchema || !readNewState) return empty;
     const rows = db.prepare('SELECT * FROM video_jobs ORDER BY updated_at, rowid').all();
     const countStatus = status => rows.filter(row => row.status === status).length;
     const backlog = {
@@ -139,7 +142,7 @@ export function createVideoReconciliation({
       else if (age < 30 * 60_000) ageBuckets.from15To30m += 1;
       else ageBuckets.over30m += 1;
     }
-    const segments = tableExists('video_job_attempts')
+    const segments = readAttempts && tableExists('video_job_attempts')
       ? db.prepare(`
         SELECT a.*, j.created_at AS job_created_at, j.provider_cost_cny,
           d.created_at AS delivery_created_at, d.verification_state
@@ -195,7 +198,7 @@ export function createVideoReconciliation({
     const groupedStates = table => tableExists(table)
       ? Object.fromEntries(db.prepare(`SELECT status AS state, COUNT(*) AS count FROM ${table} GROUP BY status`).all().map(row => [row.state, row.count]))
       : {};
-    const outbox = tableExists('video_outbox')
+    const outbox = readOutbox && tableExists('video_outbox')
       ? Object.fromEntries(db.prepare('SELECT state, COUNT(*) AS count FROM video_outbox GROUP BY state').all().map(row => [row.state, row.count]))
       : {};
     return {

@@ -31,6 +31,9 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /function\s+Invoke-CheckedNative/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run test/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run build/i);
+  assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run check/i);
+  assert.match(deploy, /verify-video-platform\.mjs/i);
+  assert.match(deploy, /--local --no-paid-generation/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*git diff --check/i);
   assert.match(deploy, /if\s*\(\$LASTEXITCODE\s*-ne\s*0\)\s*\{\s*throw/i);
   assert.match(deploy, /backup-runtime-db\.cjs/i);
@@ -105,8 +108,23 @@ test('production deploy protects runtime state and has a reversible release gate
 
 test('production release archive includes shared server runtime modules', () => {
   assert.match(deploy, /dist server shared scripts\/nginx\/shuimg\.cn\.conf/);
+  assert.match(deploy, /scripts\/backfill-video-platform\.mjs/);
+  assert.match(deploy, /scripts\/verify-video-platform\.mjs/);
   assert.match(deploy, /tar -tzf \$archive shared\/ecommerceAbilityRecipes\.mjs/);
   assert.match(deploy, /Release archive runtime module verification failed/);
+});
+
+test('production video cutover is verified before traffic switch and through authenticated canaries', () => {
+  const restart = deploy.indexOf('pm2 startOrReload ecosystem.production.config.cjs');
+  const backfill = deploy.indexOf('node scripts/backfill-video-platform.mjs');
+  const verifyPlatform = deploy.indexOf('node scripts/verify-video-platform.mjs');
+  const trafficSwitch = deploy.indexOf('sudo mv -Tf $remoteStaticNext $WebRoot');
+  assert.ok(restart >= 0 && restart < backfill);
+  assert.ok(backfill < verifyPlatform && verifyPlatform < trafficSwitch);
+  assert.match(deploy, /--asset-root server\/video-assets --apply/);
+  assert.match(deploy, /--database server\/works\.db --no-paid-generation/);
+  assert.match(deploy, /Authenticated video production verification failed/);
+  assert.match(deploy, /Authenticated video production canary failed/);
 });
 
 test('PowerShell canary token validation is case-sensitive and rejects trailing input', { skip: process.platform !== 'win32' }, () => {

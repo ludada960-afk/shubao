@@ -22,6 +22,23 @@ test('Canvas image inputs resolve app-relative assets before server processing',
   assert.equal(normalizeCanvasImageUrl('blob:https://canvas.example/id'), 'blob:https://canvas.example/id');
 });
 
+test('video platform cutover keeps explicit rollback gates in the runtime contract', async () => {
+  const [server, config, uploadClient] = await Promise.all([
+    fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8'),
+    fs.readFile(new URL('../server/config.mjs', import.meta.url), 'utf8'),
+    fs.readFile(new URL('../src/services/videoUploadClient.js', import.meta.url), 'utf8'),
+  ]);
+  for (const name of [
+    'VIDEO_PLATFORM_OWNER_READS', 'VIDEO_PLATFORM_ATTEMPTS', 'VIDEO_PLATFORM_OUTBOX',
+    'VIDEO_PLATFORM_PROJECT_BRIDGE', 'VIDEO_PLATFORM_TUS_UPLOAD', 'VIDEO_PLATFORM_READ_NEW_STATE',
+  ]) assert.match(config, new RegExp(name));
+  assert.match(server, /readVideoPlatformFlags\(process\.env\)/);
+  assert.match(server, /VIDEO_PLATFORM_PROJECT_BRIDGE \? videoProjectBridge : null/);
+  assert.match(server, /uploadMode: videoPlatformFlags\.VIDEO_PLATFORM_TUS_UPLOAD \? 'tus' : 'direct'/);
+  assert.match(uploadClient, /callbacks\.resumable === false/);
+  assert.match(uploadClient, /'\/api\/video\/assets'/);
+});
+
 function ecommerceStorage(owner = 'owner@example.com') {
   const values = new Map([['sb-auth', JSON.stringify({
     email: owner,

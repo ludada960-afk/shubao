@@ -81,6 +81,7 @@ $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
 $nanoGatewayProbe = Join-Path $PSScriptRoot "probe-nano-banana-gateway.mjs"
 $galleryVerifier = Join-Path $PSScriptRoot "verify-production-gallery.mjs"
 $videoVerifier = Join-Path $PSScriptRoot "verify-production-video.mjs"
+$videoPlatformVerifier = Join-Path $PSScriptRoot "verify-video-platform.mjs"
 $canarySessionIssuer = Join-Path $PSScriptRoot "issue-production-canary-session.mjs"
 $galleryDirectoryName = -join [char[]](34223, 21253, 20986, 21697)
 $galleryAssetsDir = Join-Path $repo $galleryDirectoryName
@@ -353,6 +354,8 @@ try {
   Invoke-CheckedNative -FailureMessage "Gallery source verification failed" -Command { & node $galleryVerifier --source-only }
   Invoke-CheckedNative -FailureMessage "Test suite failed" -Command { npm run test }
   Invoke-CheckedNative -FailureMessage "Production build failed" -Command { npm run build }
+  Invoke-CheckedNative -FailureMessage "Static contract check failed" -Command { npm run check }
+  Invoke-CheckedNative -FailureMessage "Local video platform verification failed" -Command { & node $videoPlatformVerifier --local --no-paid-generation }
   Invoke-CheckedNative -FailureMessage "Git whitespace validation failed" -Command { git diff --check }
 } finally {
   Pop-Location
@@ -391,7 +394,7 @@ tar -czf $archive -C $repo `
   --exclude='server/.env' `
   --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
-  dist server shared scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs scripts/issue-production-canary-session.mjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
+  dist server shared scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs scripts/issue-production-canary-session.mjs scripts/backfill-video-platform.mjs scripts/verify-video-platform.mjs scripts/verify-production-video.mjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
 if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
 tar -tzf $archive shared/ecommerceAbilityRecipes.mjs | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Release archive runtime module verification failed" }
@@ -470,12 +473,14 @@ try {
   Invoke-LockedRemote -Command "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; mkdir -p $remoteBackup/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $RemoteDir/server/ $remoteBackup/server/; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; if [ -L $WebRoot ] || [ -d $WebRoot ]; then sudo cp -aL $WebRoot $remoteBackup/webroot; else sudo cp -aL $legacyWebRoot $remoteBackup/webroot; fi; if [ -f $RemoteDir/ecosystem.production.config.cjs ]; then cp $RemoteDir/ecosystem.production.config.cjs $remoteBackup/ecosystem.production.config.cjs; fi; if pm2 describe shubao >/dev/null 2>&1; then legacy_pid=`$(pm2 pid shubao); case `"`$legacy_pid`" in ''|*[!0-9]*) exit 1 ;; esac; printf '%s\n' `"`$legacy_pid`" > $remoteBackup/legacy-pid; sha256sum $RemoteDir/server/index.mjs > $remoteBackup/legacy-server.sha256; fi; if [ -f $remotePm2ClusterMarker ]; then touch $remoteBackup/pm2-cluster-enabled; fi; sudo cp '$remoteNginxConfig' $remoteBackup/nginx-config" -TimeoutSeconds 600 -FailureMessage "Remote backup failed"
   $releaseStarted = $true
   Assert-DeploymentLockHeld
-  Invoke-LockedRemote -Command "set -e; cd $RemoteDir; if [ -d '$RemoteDir/$galleryDirectoryName' ]; then mv '$RemoteDir/$galleryDirectoryName' '$remoteBackup/$galleryDirectoryName'; fi; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; mkdir -p $RemoteDir/.runtime server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/video-assets/input server/video-assets/output server/cache_img server/cache_overlay server/backups; pm2 delete ecosystem.production >/dev/null 2>&1 || true; if [ -f $remotePm2ClusterMarker ]; then pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; else pm2 delete shubao-production >/dev/null 2>&1 || true; pm2 start ecosystem.production.config.cjs --only shubao-production --update-env; touch $remotePm2ClusterMarker; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo mkdir -p $staticReleasesRoot $remoteStaticRelease; sudo cp -a $RemoteDir/dist/. $remoteStaticRelease/; sudo rm -f $remoteStaticNext; sudo ln -s $remoteStaticRelease $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx" -TimeoutSeconds 2400 -FailureMessage "Remote restart or health check failed"
+  Invoke-LockedRemote -Command "set -e; cd $RemoteDir; if [ -d '$RemoteDir/$galleryDirectoryName' ]; then mv '$RemoteDir/$galleryDirectoryName' '$remoteBackup/$galleryDirectoryName'; fi; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; mkdir -p $RemoteDir/.runtime server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/video-assets/input server/video-assets/output server/cache_img server/cache_overlay server/backups; pm2 delete ecosystem.production >/dev/null 2>&1 || true; if [ -f $remotePm2ClusterMarker ]; then pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; else pm2 delete shubao-production >/dev/null 2>&1 || true; pm2 start ecosystem.production.config.cjs --only shubao-production --update-env; touch $remotePm2ClusterMarker; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; node scripts/backfill-video-platform.mjs --database server/works.db --asset-root server/video-assets --apply; node scripts/verify-video-platform.mjs --database server/works.db --no-paid-generation; sudo mkdir -p $staticReleasesRoot $remoteStaticRelease; sudo cp -a $RemoteDir/dist/. $remoteStaticRelease/; sudo rm -f $remoteStaticNext; sudo ln -s $remoteStaticRelease $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx" -TimeoutSeconds 2400 -FailureMessage "Remote restart or health check failed"
 
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery verification failed"
   Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract verification failed"
   Refresh-CanarySessionAfterRestart
+  Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
+  if ($LASTEXITCODE -ne 0) { throw "Authenticated video production verification failed" }
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   Assert-DeploymentLockHeld
@@ -493,6 +498,8 @@ try {
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
   Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
+  Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
+  if ($LASTEXITCODE -ne 0) { throw "Authenticated video production canary failed" }
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery canary failed"
   Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract canary failed"
   $canaryEndPid = Get-RemotePm2ProcessId

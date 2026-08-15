@@ -378,6 +378,7 @@ export default function VideoStudioPage({ embedded = false }) {
     current?.abort?.();
     const entry = { file, kind, status: 'uploading', progress: 0, asset: null, error: null, promise: null, abort: null };
     const operation = createVideoAssetUpload(file, kind, {
+      resumable: capabilities.uploadMode !== 'direct',
       onProgress({ progress }) {
         if (uploadsRef.current.get(file) !== entry) return;
         entry.progress = progress;
@@ -405,7 +406,7 @@ export default function VideoStudioPage({ embedded = false }) {
     uploadsRef.current.set(file, entry);
     refreshUploads();
     return entry.promise;
-  }, [refreshUploads]);
+  }, [capabilities.uploadMode, refreshUploads]);
 
   const ensureUpload = useCallback((file, kind) => {
     const current = uploadsRef.current.get(file);
