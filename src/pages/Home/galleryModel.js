@@ -104,7 +104,9 @@ function tryOnGalleryItem(entry) {
 
 function productSuiteGalleryItem(entry) {
   const assets = entry.assets.map(normalizedAsset).filter(Boolean);
-  const output = assets.find(asset => asset.role === 'result') || assets.at(-1);
+  const output = assets.find(asset => asset.displayRole === 'finalComposite')
+    || assets.find(asset => asset.role === 'result')
+    || assets.at(-1);
   const prompt = clean(output?.prompt) || '保留完整商品结构，生成一套统一主图与详情视觉。';
   return {
     id: `showcase-${entry.id}`, type: 'ecommerce', intent: 'product_suite', title: '珍珠白降噪耳机商品套图',
