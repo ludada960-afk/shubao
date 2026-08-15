@@ -110,7 +110,7 @@ export default function ResponsiveImage({
             draggable="false"
             loading={loading || (priority ? 'eager' : 'lazy')}
             decoding="async"
-            fetchPriority={fetchPriority || (priority ? 'high' : 'auto')}
+            fetchpriority={fetchPriority || (priority ? 'high' : 'auto')}
             sizes={sizes}
             onLoad={event => {
               const image = event.currentTarget;

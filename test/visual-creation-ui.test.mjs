@@ -71,6 +71,7 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(styles, /\.visual-layout-platform-fan \.visual-skill-stage-outputs\.is-chapter\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1\.45fr\)\s*minmax\(0,\s*1fr\)[^}]*grid-template-rows:\s*1fr/);
   assert.match(styles, /\.visual-layout-platform-fan \.visual-skill-stage-outputs\.is-chapter \.output-0\s*\{[^}]*rotate\(-4deg\)/);
   assert.match(styles, /\.visual-layout-platform-fan \.visual-skill-stage-outputs\.is-chapter \.output-2\s*\{[^}]*rotate\(4deg\)/);
+  assert.match(styles, /\.visual-layout-platform-fan \.visual-skill-stage-outputs\.is-chapter \.output-0,[\s\S]*?\.output-2\s*\{[^}]*width:\s*165px[^}]*height:\s*220px/);
   assert.match(styles, /\.visual-layout-platform-fan\.is-alternate \.visual-skill-stage-outputs\.is-chapter \.output-0\s*\{[^}]*grid-column:\s*1/);
   assert.match(styles, /\.visual-layout-platform-fan\.is-alternate \.visual-skill-stage-outputs\.is-chapter \.output-2\s*\{[^}]*grid-column:\s*3/);
   assert.match(styles, /\.visual-ability-rail/);

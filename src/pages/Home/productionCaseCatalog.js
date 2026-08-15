@@ -117,7 +117,7 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
       { id: 'social-formats', title: '教程、改造与决策内容', description: '全屏跟练、前后改造和数码横评分别使用步骤、结果和对比结构。', layout: { type: 'platform-fan' }, assets: [
         productionAsset({ id: 'social-xhs-rental', label: '小红书 · 租房改造', ratio: '3:4', intent: 'social-cover', platform: 'xiaohongshu', taskId: 'canvas_1406eb0ab17b7433312fbb9c431713bbeca355b029483cbfa9356e20c18db390', requestKey: 'showcase-20260813-social-xhs-rental' }),
         productionAsset({ id: 'social-bilibili-camera', label: 'B站 · 相机选择', ratio: '16:9', intent: 'social-cover', platform: 'bilibili', taskId: 'canvas_60ab45c50ad1bab858c3912af2990c2b40845fc1404aa16a5b2a4356c212f934', requestKey: 'showcase-20260813-social-bilibili-camera' }),
-        productionAsset({ id: 'social-douyin-stretch', label: '抖音 · 拉伸跟练', ratio: '9:16', intent: 'social-cover', platform: 'douyin', taskId: 'canvas_e92f25859c8750ae06337989ebe843d157ec62dcc387fee67739a7fd25700ede', requestKey: 'showcase-20260813-social-douyin-stretch' }),
+        productionAsset({ id: 'social-douyin-stretch', src: '/images/home/social-showcase/social-douyin-stretch-card.png', label: '抖音 · 拉伸跟练', ratio: '3:4', intent: 'social-cover', platform: 'douyin', provenance: 'production-composite', taskId: 'canvas_e92f25859c8750ae06337989ebe843d157ec62dcc387fee67739a7fd25700ede', requestKey: 'showcase-20260813-social-douyin-stretch' }),
       ] },
     ],
   }),

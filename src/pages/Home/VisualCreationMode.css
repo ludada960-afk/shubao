@@ -1247,9 +1247,14 @@
   justify-self: center;
 }
 
-.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0 {
-  width: auto;
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0,
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
+  width: 165px;
   height: 220px;
+  aspect-ratio: 3 / 4;
+}
+
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0 {
   grid-column: 1;
   grid-row: 1;
   transform: rotate(-4deg);
@@ -1265,8 +1270,6 @@
 }
 
 .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
-  width: auto;
-  height: 220px;
   grid-column: 3;
   grid-row: 1;
   transform: rotate(4deg);
@@ -1300,7 +1303,7 @@
 @media (max-width: 640px) {
   .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0,
   .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
-    width: auto;
+    width: 117px;
     height: 156px;
     max-height: 156px;
   }

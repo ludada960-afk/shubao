@@ -21,7 +21,7 @@ test('shared responsive image component reserves layout and reveals loaded pixel
   assert.match(source, /sizes=\{sizes\}/);
   assert.match(source, /loading=\{loading \|\| \(priority \? 'eager' : 'lazy'\)\}/);
   assert.match(source, /decoding="async"/);
-  assert.match(source, /fetchPriority=\{fetchPriority \|\| \(priority \? 'high' : 'auto'\)\}/);
+  assert.match(source, /fetchpriority=\{fetchPriority \|\| \(priority \? 'high' : 'auto'\)\}/);
   assert.match(source, /\.decode\(\)/);
   assert.match(source, /responsive-image-skeleton/);
   assert.match(source, /setLoaded\(true\)/);

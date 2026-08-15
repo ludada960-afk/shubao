@@ -9,12 +9,26 @@ const PROJECT_ROOT = resolve(SCRIPT_ROOT, '..');
 const SOURCE_ROOT = resolve(PROJECT_ROOT, 'public/images/home/tryon-showcase');
 const DEFAULT_OUTPUT_ROOT = SOURCE_ROOT;
 const DEFAULT_THUMB_ROOT = resolve(PROJECT_ROOT, 'public/images/.thumbs/home/tryon-showcase');
+const SOCIAL_SOURCE_ROOT = resolve(PROJECT_ROOT, 'public/images/visual-recipes/cases');
+const DEFAULT_SOCIAL_OUTPUT_ROOT = resolve(PROJECT_ROOT, 'public/images/home/social-showcase');
+const DEFAULT_SOCIAL_THUMB_ROOT = resolve(PROJECT_ROOT, 'public/images/.thumbs/home/social-showcase');
 
 export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
   Object.freeze({ id: 'tryon-selector-front-motion', kind: 'selector', ratio: '4:3', width: 1200, height: 900, sources: ['angle-front.png', 'angle-motion.png'] }),
   Object.freeze({ id: 'tryon-selector-side-back', kind: 'selector', ratio: '4:3', width: 1200, height: 900, sources: ['angle-side.png', 'angle-back.png'] }),
   Object.freeze({ id: 'tryon-selector-source-result', kind: 'selector', ratio: '4:3', width: 1200, height: 900, sources: ['editorial-flatlay-v3.webp', 'editorial-street-result-v3.webp'] }),
   Object.freeze({ id: 'tryon-reference-workflow', kind: 'workflow', ratio: '16:9', width: 1600, height: 900, sources: ['editorial-flatlay-v3.webp', 'editorial-model-v3.webp', 'editorial-street-result-v3.webp'] }),
+]);
+
+export const SOCIAL_SHOWCASE_ADAPTATIONS = Object.freeze([
+  Object.freeze({
+    id: 'social-douyin-stretch-card',
+    source: 'social-douyin-stretch.png',
+    ratio: '3:4',
+    width: 1200,
+    height: 1600,
+    provenance: 'production-composite',
+  }),
 ]);
 
 async function fullFrame(sourcePath, width, height) {
@@ -101,10 +115,44 @@ export async function buildHomeShowcaseComposites({
   return outputs;
 }
 
+export async function buildSocialShowcaseAdaptations({
+  outputRoot = DEFAULT_SOCIAL_OUTPUT_ROOT,
+  thumbRoot = DEFAULT_SOCIAL_THUMB_ROOT,
+  writeThumbs = true,
+} = {}) {
+  await mkdir(outputRoot, { recursive: true });
+  if (writeThumbs) await mkdir(thumbRoot, { recursive: true });
+  const outputs = [];
+  for (const definition of SOCIAL_SHOWCASE_ADAPTATIONS) {
+    const bytes = await fullFrame(
+      resolve(SOCIAL_SOURCE_ROOT, definition.source),
+      definition.width,
+      definition.height,
+    );
+    const outputPath = resolve(outputRoot, `${definition.id}.png`);
+    await sharp(bytes).png().toFile(outputPath);
+    if (writeThumbs) {
+      await sharp(bytes)
+        .resize({ width: 540, height: 720, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toFile(resolve(thumbRoot, `${definition.id}.webp`));
+    }
+    outputs.push({
+      ...definition,
+      path: outputPath,
+      pixelRatio: `${definition.width}:${definition.height}`,
+    });
+  }
+  return outputs;
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
-  buildHomeShowcaseComposites()
-    .then(outputs => console.log(JSON.stringify({ ok: true, outputs: outputs.map(({ id, path }) => ({ id, path })) }, null, 2)))
+  Promise.all([buildHomeShowcaseComposites(), buildSocialShowcaseAdaptations()])
+    .then(([homeOutputs, socialOutputs]) => console.log(JSON.stringify({
+      ok: true,
+      outputs: [...homeOutputs, ...socialOutputs].map(({ id, path }) => ({ id, path })),
+    }, null, 2)))
     .catch(error => {
       console.error(error?.stack || error);
       process.exitCode = 1;
