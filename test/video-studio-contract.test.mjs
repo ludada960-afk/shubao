@@ -99,6 +99,12 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.doesNotMatch(server, /app\.get\('\/api\/video\/capabilities',\s*authenticateEcommerceRequest/);
   assert.match(server, /\/api\/video\/jobs/);
   assert.match(server, /\/api\/video\/plans/);
+  assert.match(server, /app\.get\('\/api\/video\/assets\/:id',\s*authenticateVideoRequest/);
+  assert.match(server, /videoGeneration\.readAsset\(req\.params\.id, req\._userEmail\)/);
+  assert.match(server, /videoGeneration\.readAsset\(id, req\._userEmail\)/);
+  assert.match(server, /app\.get\('\/api\/video\/media\/:id'/);
+  assert.match(server, /videoGeneration\.readSignedAsset/);
+  assert.match(server, /videoGeneration\.playbackUrlForAsset\(assetId, ownerEmail\)/);
   assert.match(server, /video_plan_analysis/);
   assert.match(videoService, /export function analyzeVideoPlan/);
   assert.match(assetAnalysis, /videoMetadata/);

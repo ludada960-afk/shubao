@@ -48,7 +48,7 @@ function parseJson(value, fallback) {
   try { return JSON.parse(value || ''); } catch { return fallback; }
 }
 
-function serializeJob(row) {
+function serializeJob(row, resultUrl = row?.result_url || '') {
   if (!row) return null;
   return {
     id: row.id,
@@ -68,7 +68,7 @@ function serializeJob(row) {
     seed: row.seed,
     references: parseJson(row.refs_json, {}),
     progress: row.progress,
-    resultUrl: row.result_url || '',
+    resultUrl,
     error: row.error || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -170,6 +170,7 @@ export function createVideoGeneration({
   fetchImpl,
   providerRegistry,
   allowHiddenProducts = false,
+  assetSigningSecret = '',
   now = Date.now,
   pollIntervalMs = 5000,
   maxConcurrent = 2,
@@ -258,6 +259,7 @@ export function createVideoGeneration({
   const retryTimers = new Set();
   const circuitStates = new Map();
   let closed = false;
+  const signingSecret = clean(assetSigningSecret, 500) || crypto.randomBytes(32).toString('base64url');
 
   function jobForOwner(ownerEmail, id) {
     return db.prepare('SELECT * FROM video_jobs WHERE id = ? AND owner_email = ?').get(id, ownerEmail);
@@ -357,8 +359,29 @@ export function createVideoGeneration({
     }
   }
 
-  function publicAssetUrl(publicBaseUrl, id) {
-    return `${clean(publicBaseUrl, 500).replace(/\/+$/, '')}/api/video/assets/${encodeURIComponent(id)}`;
+  function signedAssetPayload({ id, ownerEmail, purpose, expires }) {
+    return [basename(clean(id, 140)), clean(ownerEmail, 320).toLowerCase(), clean(purpose, 40), String(expires)].join('\n');
+  }
+
+  function signAsset(input) {
+    return crypto.createHmac('sha256', signingSecret).update(signedAssetPayload(input)).digest('base64url');
+  }
+
+  function signedAssetUrl(publicBaseUrl, id, ownerEmail, purpose = 'playback', ttlMs = 60 * 60 * 1000) {
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    const expires = nowMs() + Math.max(60_000, Number(ttlMs) || 0);
+    const signature = signAsset({ id, ownerEmail: normalizedOwner, purpose, expires });
+    const query = new URLSearchParams({ purpose, expires: String(expires), signature });
+    const base = clean(publicBaseUrl, 500).replace(/\/+$/, '');
+    return `${base}/api/video/media/${encodeURIComponent(id)}?${query}`;
+  }
+
+  function serializeOwnedJob(row) {
+    if (!row) return null;
+    const resultUrl = row.result_asset_id
+      ? signedAssetUrl('', row.result_asset_id, row.owner_email, 'playback', 24 * 60 * 60 * 1000)
+      : row.result_url || '';
+    return serializeJob(row, resultUrl);
   }
 
   async function uploadAsset({ ownerEmail, kind, contentType, buffer, publicBaseUrl }) {
@@ -368,12 +391,20 @@ export function createVideoGeneration({
     if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > INPUT_LIMITS[kind]) {
       throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件大小不符合要求');
     }
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!normalizedOwner) throw httpError(401, 'VIDEO_ASSET_OWNER_REQUIRED', '登录已失效，请重新登录');
     const id = `${crypto.randomUUID()}${extensionFor(normalizedType)}`;
     const fileName = resolve(inputRoot, id);
     await writeFile(fileName, buffer, { flag: 'wx' });
     db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, file_name) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, ownerEmail, kind, normalizedType, buffer.length, basename(fileName));
-    return { id, kind, contentType: normalizedType, bytes: buffer.length, url: publicAssetUrl(publicBaseUrl, id) };
+      .run(id, normalizedOwner, kind, normalizedType, buffer.length, basename(fileName));
+    return {
+      id,
+      kind,
+      contentType: normalizedType,
+      bytes: buffer.length,
+      url: signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000),
+    };
   }
 
   function normalizeReferences(ownerEmail, input, publicBaseUrl) {
@@ -402,7 +433,10 @@ export function createVideoGeneration({
       images,
       videos,
       audios,
-      urls: Object.fromEntries(rows.map(row => [row.id, publicAssetUrl(publicBaseUrl, row.id)])),
+      urls: Object.fromEntries(rows.map(row => [
+        row.id,
+        signedAssetUrl(publicBaseUrl, row.id, ownerEmail, 'provider', 60 * 60 * 1000),
+      ])),
     };
   }
 
@@ -581,10 +615,12 @@ export function createVideoGeneration({
   }
 
   async function createJob({ ownerEmail, idempotencyKey, billingQuoteId, publicBaseUrl, input }) {
+    ownerEmail = clean(ownerEmail, 320).toLowerCase();
+    if (!ownerEmail) throw httpError(401, 'VIDEO_OWNER_REQUIRED', '登录已失效，请重新登录');
     const requestKey = clean(idempotencyKey, 120);
     if (!requestKey) throw httpError(400, 'VIDEO_IDEMPOTENCY_REQUIRED', '缺少防重复提交标识');
     const replay = db.prepare('SELECT * FROM video_jobs WHERE owner_email = ? AND idempotency_key = ?').get(ownerEmail, requestKey);
-    if (replay) return { job: serializeJob(replay), replay: true };
+    if (replay) return { job: serializeOwnedJob(replay), replay: true };
     const activeCount = db.prepare("SELECT COUNT(*) AS count FROM video_jobs WHERE owner_email = ? AND status IN ('queued','submitting','processing')").get(ownerEmail).count;
     if (activeCount >= 2) throw httpError(429, 'VIDEO_USER_CONCURRENCY_LIMIT', '同一账号最多同时处理 2 个视频任务');
 
@@ -700,12 +736,14 @@ export function createVideoGeneration({
       });
       throw httpError(503, 'VIDEO_QUEUE_UNAVAILABLE', '视频队列暂时不可用，请稍后重试', { retryable: true });
     }
-    return { job: serializeJob(selectJob.get(id)), replay: false };
+    return { job: serializeOwnedJob(selectJob.get(id)), replay: false };
   }
 
-  async function readAsset(id) {
+  async function readAsset(id, ownerEmail) {
     const safeId = basename(clean(id, 140));
-    const row = db.prepare('SELECT * FROM video_assets WHERE id = ?').get(safeId);
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!safeId || !normalizedOwner) return null;
+    const row = db.prepare('SELECT * FROM video_assets WHERE id = ? AND owner_email = ?').get(safeId, normalizedOwner);
     if (!row) return null;
     const folder = row.kind === 'output' ? outputRoot : inputRoot;
     const filePath = resolve(folder, row.file_name);
@@ -713,6 +751,30 @@ export function createVideoGeneration({
       const info = await stat(filePath);
       return { row, filePath, size: info.size };
     } catch { return null; }
+  }
+
+  async function readSignedAsset({ id, purpose, expires, signature }) {
+    const safeId = basename(clean(id, 140));
+    const normalizedPurpose = clean(purpose, 40);
+    const expiresAt = Number(expires);
+    const provided = clean(signature, 200);
+    if (!safeId || !['playback', 'provider'].includes(normalizedPurpose)) return null;
+    if (!Number.isSafeInteger(expiresAt) || expiresAt <= nowMs() || !provided) return null;
+    const row = db.prepare('SELECT owner_email FROM video_assets WHERE id = ?').get(safeId);
+    if (!row) return null;
+    const expected = signAsset({ id: safeId, ownerEmail: row.owner_email, purpose: normalizedPurpose, expires: expiresAt });
+    const expectedBuffer = Buffer.from(expected);
+    const providedBuffer = Buffer.from(provided);
+    if (expectedBuffer.length !== providedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, providedBuffer)) return null;
+    return readAsset(safeId, row.owner_email);
+  }
+
+  function playbackUrlForAsset(id, ownerEmail, publicBaseUrl = '') {
+    const safeId = basename(clean(id, 140));
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!safeId || !normalizedOwner) return '';
+    const owned = db.prepare('SELECT 1 FROM video_assets WHERE id = ? AND owner_email = ?').get(safeId, normalizedOwner);
+    return owned ? signedAssetUrl(publicBaseUrl, safeId, normalizedOwner, 'playback', 24 * 60 * 60 * 1000) : '';
   }
 
   function recover() {
@@ -782,12 +844,14 @@ export function createVideoGeneration({
     },
     uploadAsset,
     createJob,
-    getJob(ownerEmail, id) { return serializeJob(jobForOwner(ownerEmail, id)); },
+    getJob(ownerEmail, id) { return serializeOwnedJob(jobForOwner(ownerEmail, id)); },
     listJobs(ownerEmail, limit = 20) {
       return db.prepare('SELECT * FROM video_jobs WHERE owner_email = ? ORDER BY created_at DESC LIMIT ?')
-        .all(ownerEmail, Math.max(1, Math.min(50, Number(limit) || 20))).map(serializeJob);
+        .all(ownerEmail, Math.max(1, Math.min(50, Number(limit) || 20))).map(serializeOwnedJob);
     },
     readAsset,
+    readSignedAsset,
+    playbackUrlForAsset,
     recover,
     close() {
       closed = true;
@@ -815,7 +879,7 @@ export function sendVideoAsset(req, res, asset) {
   const range = clean(req.headers.range, 100);
   res.setHeader('Content-Type', asset.row.content_type);
   res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader('Cache-Control', asset.row.kind === 'output' ? 'private, max-age=86400' : 'public, max-age=3600');
+  res.setHeader('Cache-Control', asset.row.kind === 'output' ? 'private, max-age=86400' : 'private, max-age=3600');
   if (!range) {
     res.setHeader('Content-Length', asset.size);
     fs.createReadStream(asset.filePath).pipe(res);

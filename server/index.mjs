@@ -233,6 +233,7 @@ const videoGeneration = createVideoGeneration({
   baseUrl: process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   minimaxBaseUrl: process.env.MINIMAX_VIDEO_BASE_URL || process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',
+  assetSigningSecret: authSessionSecret,
 });
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
@@ -2357,10 +2358,19 @@ mountWorkRoutes(app, {
     });
   },
   mapError: contentBillingHttpError,
-  listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => ({
-    ...work,
-    retention: retentionService.describeWork({ ownerEmail, work }),
-  })),
+  listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => {
+    const stableVideoUrl = String(work.video_url || work.video?.url || '');
+    const assetId = /^\/api\/video\/assets\/([^/?#]+)$/.exec(stableVideoUrl)?.[1] || '';
+    const playbackUrl = assetId ? videoGeneration.playbackUrlForAsset(assetId, ownerEmail) : '';
+    return {
+      ...work,
+      ...(playbackUrl ? {
+        video_url: playbackUrl,
+        video: { ...(work.video || {}), url: playbackUrl },
+      } : {}),
+      retention: retentionService.describeWork({ ownerEmail, work }),
+    };
+  }),
   listTrash: ownerEmail => getDeletedWorks({ ownerEmail }),
   saveOwnedWork: (work, ownerEmail) => upsertWork(work, { ownerEmail }),
   deleteOwnedWork: (saveKey, ownerEmail) => softDeleteWork(saveKey, { ownerEmail }),
@@ -3932,8 +3942,8 @@ app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
       .map(value => String(value || '').trim()).filter(Boolean))].slice(0, 9);
     const images = [];
     for (const id of imageIds) {
-      const asset = await videoGeneration.readAsset(id);
-      if (!asset || asset.row.owner_email !== req._userEmail || asset.row.kind !== 'image') {
+      const asset = await videoGeneration.readAsset(id, req._userEmail);
+      if (!asset || asset.row.kind !== 'image') {
         const error = new Error('视频方案包含无效或无权访问的分析素材');
         error.status = 400;
         error.code = 'VIDEO_PLAN_ASSET_INVALID';
@@ -3988,8 +3998,18 @@ app.post('/api/video/assets', authenticateVideoRequest, async (req, res) => {
     return res.status(error?.status || 500).json({ code: error?.code, error: error?.message || '素材上传失败' });
   }
 });
-app.get('/api/video/assets/:id', async (req, res) => {
-  const asset = await videoGeneration.readAsset(req.params.id);
+app.get('/api/video/assets/:id', authenticateVideoRequest, async (req, res) => {
+  const asset = await videoGeneration.readAsset(req.params.id, req._userEmail);
+  if (!asset) return res.status(404).end('video asset not found');
+  return sendVideoAsset(req, res, asset);
+});
+app.get('/api/video/media/:id', async (req, res) => {
+  const asset = await videoGeneration.readSignedAsset({
+    id: req.params.id,
+    purpose: req.query.purpose,
+    expires: req.query.expires,
+    signature: req.query.signature,
+  });
   if (!asset) return res.status(404).end('video asset not found');
   return sendVideoAsset(req, res, asset);
 });

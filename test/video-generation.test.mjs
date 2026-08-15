@@ -14,7 +14,7 @@ test('video pricing tier is derived server-side from delivery resolution and dur
   assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 9 }), 'video_seedance_fast_long');
 });
 
-function createVideoGenerationHarness(t) {
+function createVideoGenerationHarness(t, overrides = {}) {
   const db = new Database(':memory:');
   const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-test-'));
   t.after(() => {
@@ -49,6 +49,8 @@ function createVideoGenerationHarness(t) {
       throw new Error('fetch should not be called in validation tests');
     },
     maxConcurrent: 0,
+    assetSigningSecret: 'test-video-asset-signing-secret',
+    ...overrides,
   });
 }
 
@@ -154,6 +156,60 @@ test('new jobs persist the product, route, catalog version, and provider-cost sn
   assert.equal(result.job.providerRoute, 'sd5-seedance-2.0');
   assert.equal(result.job.catalogVersion, VIDEO_CATALOG_VERSION);
   assert.equal(result.job.providerCostCny, 3.64);
+});
+
+test('video assets can only be read by their normalized owner', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'Owner@Example.com', 'image');
+
+  const owned = await service.readAsset(asset.id, ' owner@example.com ');
+  assert.equal(owned?.row.id, asset.id);
+  assert.equal(owned?.row.owner_email, 'owner@example.com');
+  assert.equal(await service.readAsset(asset.id, 'other@example.com'), null);
+  assert.equal(await service.readAsset(asset.id, ''), null);
+});
+
+test('video asset URLs are purpose-bound expiring capabilities', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'owner@example.com', 'video');
+  const accessUrl = new URL(asset.url);
+
+  assert.equal(accessUrl.pathname, `/api/video/media/${asset.id}`);
+  const accessed = await service.readSignedAsset({
+    id: asset.id,
+    purpose: accessUrl.searchParams.get('purpose'),
+    expires: accessUrl.searchParams.get('expires'),
+    signature: accessUrl.searchParams.get('signature'),
+  });
+  assert.equal(accessed?.row.id, asset.id);
+  assert.equal(await service.readSignedAsset({
+    id: asset.id,
+    purpose: 'provider',
+    expires: accessUrl.searchParams.get('expires'),
+    signature: accessUrl.searchParams.get('signature'),
+  }), null);
+  assert.equal(await service.readSignedAsset({
+    id: asset.id,
+    purpose: accessUrl.searchParams.get('purpose'),
+    expires: '1',
+    signature: accessUrl.searchParams.get('signature'),
+  }), null);
+  assert.equal(await service.readSignedAsset({
+    id: asset.id,
+    purpose: accessUrl.searchParams.get('purpose'),
+    expires: accessUrl.searchParams.get('expires'),
+    signature: `${accessUrl.searchParams.get('signature')}tampered`,
+  }), null);
+});
+
+test('stored video result URLs can be reminted for owned work playback', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'owner@example.com', 'video');
+
+  const playbackUrl = new URL(service.playbackUrlForAsset(asset.id, 'owner@example.com', 'https://example.com'));
+  assert.equal(playbackUrl.pathname, `/api/video/media/${asset.id}`);
+  assert.equal(playbackUrl.searchParams.get('purpose'), 'playback');
+  assert.equal(service.playbackUrlForAsset(asset.id, 'other@example.com'), '');
 });
 
 test('an accepted upstream task is never submitted again after retryable polling failures', async t => {
