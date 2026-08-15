@@ -127,9 +127,9 @@ test('face-forward usage payload requires a visible face and a worn earbud', () 
   assert.equal(payload.ratio, '3:4');
   assert.match(payload.prompt, /face clearly visible/i);
   assert.match(payload.prompt, /earbud (?:is )?visibly worn/i);
-  assert.match(payload.request_key, /earbuds-model-usage-v3$/);
+  assert.match(payload.request_key, /earbuds-model-usage-v4$/);
   assert.equal(payload.billing_quote_id, 'quote-usage');
-  assert.equal(payload.billing_action_id, 'showcase-showcase-20260815-earbuds-model-usage-v3');
+  assert.equal(payload.billing_action_id, 'showcase-showcase-20260815-earbuds-model-usage-v4');
 });
 
 test('usage failure preserves its quote and billing action for a no-requote retry', async () => {
@@ -149,7 +149,7 @@ test('usage failure preserves its quote and billing action for a no-requote retr
       failedAudit = error.audit;
       assert.equal(failedAudit.usage.status, 'failed');
       assert.equal(failedAudit.usage.quoteId, 'quote-1');
-      assert.equal(failedAudit.usage.billingActionId, 'showcase-showcase-20260815-earbuds-model-usage-v3');
+      assert.equal(failedAudit.usage.billingActionId, 'showcase-showcase-20260815-earbuds-model-usage-v4');
       return true;
     },
   );

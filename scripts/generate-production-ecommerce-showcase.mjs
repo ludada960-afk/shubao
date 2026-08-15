@@ -9,7 +9,7 @@ import {
   EARBUD_COMPOSITE_PROMPT_V3,
   EARBUD_COMPOSITE_REQUEST_KEY_V3,
   EARBUD_USAGE_PROMPT_V3,
-  EARBUD_USAGE_REQUEST_KEY_V3,
+  EARBUD_USAGE_REQUEST_KEY_V4,
 } from '../src/pages/Home/productionCasePromptLibrary.js';
 
 const DEFAULT_ROOT = 'https://shuimg.cn';
@@ -133,7 +133,7 @@ export function buildCompositePayload({ detailUrls, quoteId, requestKey = EARBUD
   };
 }
 
-export function buildUsagePayload({ detailUrls, quoteId, requestKey = EARBUD_USAGE_REQUEST_KEY_V3, billingActionId = `showcase-${requestKey}` }) {
+export function buildUsagePayload({ detailUrls, quoteId, requestKey = EARBUD_USAGE_REQUEST_KEY_V4, billingActionId = `showcase-${requestKey}` }) {
   const stable = assertStableAssets(detailUrls, DETAIL_SHOTS.length);
   return {
     prompt: EARBUD_USAGE_PROMPT_V3,
@@ -328,7 +328,7 @@ function defaultAudit() {
     generatedAt: new Date().toISOString(),
     stageOne: { status: 'pending', requestKey: DETAIL_SUBMISSION_ID },
     stageTwo: { status: 'pending', requestKey: EARBUD_COMPOSITE_REQUEST_KEY_V3 },
-    usage: { status: 'pending', requestKey: EARBUD_USAGE_REQUEST_KEY_V3 },
+    usage: { status: 'pending', requestKey: EARBUD_USAGE_REQUEST_KEY_V4 },
   };
 }
 
@@ -367,8 +367,8 @@ export async function generateProductionEcommerceShowcase({
     if (audit.stageTwo?.status === 'completed') audit.legacyStageTwo = audit.stageTwo;
     audit.stageTwo = { status: 'pending', requestKey: EARBUD_COMPOSITE_REQUEST_KEY_V3 };
   }
-  if (audit.usage?.requestKey !== EARBUD_USAGE_REQUEST_KEY_V3) {
-    audit.usage = { status: 'pending', requestKey: EARBUD_USAGE_REQUEST_KEY_V3 };
+  if (audit.usage?.requestKey !== EARBUD_USAGE_REQUEST_KEY_V4) {
+    audit.usage = { status: 'pending', requestKey: EARBUD_USAGE_REQUEST_KEY_V4 };
   }
   audit.generatedAt = new Date().toISOString();
   audit.balanceBefore = balanceBefore?.balances?.ec_points || null;
@@ -572,7 +572,7 @@ export async function generateProductionEcommerceShowcase({
       audit.usage = {
         status: 'completed',
         taskId: required(usage?.taskId, 'showcase usage task ID'),
-        requestKey: EARBUD_USAGE_REQUEST_KEY_V3,
+        requestKey: EARBUD_USAGE_REQUEST_KEY_V4,
         stableUrl,
         quoteId,
         billingActionId,

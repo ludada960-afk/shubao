@@ -12,7 +12,7 @@ export const EARBUD_DETAIL_PROMPTS = Object.freeze({
 });
 
 export const EARBUD_COMPOSITE_REQUEST_KEY_V3 = 'showcase-20260815-earbuds-composite-v3';
-export const EARBUD_USAGE_REQUEST_KEY_V3 = 'showcase-20260815-earbuds-model-usage-v3';
+export const EARBUD_USAGE_REQUEST_KEY_V4 = 'showcase-20260815-earbuds-model-usage-v4';
 
 export const EARBUD_COMPOSITE_PROMPT_V3 = `[Goal]
 Create one premium 4:3 ecommerce result board from the five supplied pearl-white and champagne-gold earbud detail panels. Preserve the exact earbud and charging-case structure, quantity, colors, materials, and proportions from the inputs.

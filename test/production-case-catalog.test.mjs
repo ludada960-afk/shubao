@@ -65,6 +65,12 @@ test('product suite has one wide final composite, five exact-prompt detail sourc
   assert.equal(finalAssets[0].taskId, 'canvas_9ddb1e933e598050fe014e69aa969d52b32a230623a586e6546a7ffcb02a5197');
   assert.equal(detailAssets.length, 5);
   assert.deepEqual(previews.map(asset => asset.selectorKind), ['structure', 'usage', 'scene']);
+  const usagePreview = previews.find(asset => asset.selectorKind === 'usage');
+  assert.equal(usagePreview.src, '/images/home/ecommerce-showcase/earbuds-suite-panel-model-usage.png');
+  assert.equal(usagePreview.requestKey, 'showcase-20260815-earbuds-model-usage-v4');
+  assert.equal(usagePreview.taskId, 'canvas_65d1792df11385e019c60ef2a69239732fc4ca109195aedcc530d404fc601adf');
+  assert.match(usagePreview.prompt, /face clearly visible/i);
+  assert.match(usagePreview.prompt, /earbud (?:is )?visibly worn/i);
   assert.ok(previews.every(asset => asset.isWhiteBackground !== true));
   assert.ok(previews.every(asset => asset.ratio === '3:4'));
   assert.doesNotMatch(item.assets.map(asset => asset.src).join('\n'), /cobalt-lamp/);
