@@ -76,12 +76,14 @@ import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createVideoProjectBridge } from './videoProjectBridge.mjs';
+import { createVideoWorkbenchStore } from './videoWorkbenchStore.mjs';
 import { createRetentionService } from './projects/retentionService.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
 import { createPixelLayers } from './composition/layerService.mjs';
 import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
+import { mountVideoWorkbenchRoutes } from './videoWorkbenchRoutes.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
   createCanvasGenerationService,
@@ -231,6 +233,9 @@ const generatedAssetStore = createGeneratedAssetStore({
 const projectStore = createProjectStore(db);
 const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
 const videoPlatformFlags = readVideoPlatformFlags(process.env);
+const videoWorkbenchStore = videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH
+  ? createVideoWorkbenchStore({ db, projectStore })
+  : null;
 const videoGeneration = createVideoGeneration({
   db,
   walletService,
@@ -568,6 +573,17 @@ const adminRouteHandlers = mountAdminRoutes(app, {
 
 mountProjectRoutes(app, {
   projectStore,
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+});
+
+mountVideoWorkbenchRoutes(app, {
+  enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
+  store: videoWorkbenchStore,
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,
