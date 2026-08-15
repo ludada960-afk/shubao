@@ -96,7 +96,7 @@ test('migrates legacy video jobs and preserves a stable historical snapshot', t 
   const service = createService({ db, assetRoot, now: () => 1_000_000 });
   t.after(() => service.close());
   const columns = new Set(db.prepare('PRAGMA table_info(video_jobs)').all().map(column => column.name));
-  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'reconciliation_error', 'release_attempts', 'review_deadline_ms', 'review_attempts', 'current_attempt_id']) {
+  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'delivery_state', 'projection_state', 'reconciliation_error', 'release_attempts', 'review_deadline_ms', 'review_attempts', 'current_attempt_id']) {
     assert.equal(columns.has(column), true, column);
   }
 
@@ -332,6 +332,8 @@ test('a delivered video is preserved while settlement is reconciled without refu
   assert.match(pending.resultUrl, /^\/api\/video\/media\//);
   assert.equal(releaseCalls, 0);
   assert.equal(savedWorks.length, 0);
+  const pendingOutbox = db.prepare("SELECT * FROM video_outbox WHERE aggregate_id = ? AND event_type = 'video.billing.settle.requested'").get(created.job.id);
+  assert.equal(pendingOutbox.state, 'pending');
 
   settlementShouldFail = false;
   const summary = service.reconcileBilling();
@@ -342,6 +344,100 @@ test('a delivered video is preserved while settlement is reconciled without refu
   assert.equal(releaseCalls, 0);
   assert.equal(settlementCalls, 2);
   assert.equal(savedWorks.length, 1);
+  const outbox = db.prepare('SELECT event_type, state FROM video_outbox WHERE aggregate_id = ? ORDER BY created_at, event_type').all(created.job.id);
+  assert.deepEqual(outbox.map(event => [event.event_type, event.state]), [
+    ['video.billing.settle.requested', 'done'],
+    ['video.job.finalize.requested', 'done'],
+    ['video.works.project.requested', 'done'],
+  ]);
+});
+
+test('a settled delivery retries only the failed works projection', async t => {
+  const db = new Database(':memory:');
+  const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-projection-reconcile-'));
+  let projectionShouldFail = true;
+  let settlementCalls = 0;
+  let projectionCalls = 0;
+  let releaseCalls = 0;
+  const registry = {
+    get: () => ({
+      enabled: true,
+      routeId: 'sd5-seedance-2.0',
+      submit: async () => ({ id: 'provider-projection-task', progress: 0 }),
+      get: async () => ({ status: 'completed', progress: 100 }),
+      download: async () => new Response(Buffer.from('video-output'), {
+        headers: { 'content-type': 'video/mp4', 'content-length': '12' },
+      }),
+    }),
+    publicProducts: () => publicVideoProducts(),
+  };
+  const service = createVideoGeneration({
+    db,
+    assetRoot,
+    providerRegistry: registry,
+    walletService: {
+      createHold: input => ({ id: `hold-${input.metadata.taskId}` }),
+      getBalance: () => ({ unlimited: false, availableUnits: 999999 }),
+      settleItem: () => { settlementCalls += 1; return { status: 'settled' }; },
+      releaseItem: () => { releaseCalls += 1; return { status: 'released' }; },
+    },
+    quoteService: { verify: ({ quoteId, expectedQuote }) => ({
+      quoteId,
+      currency: expectedQuote.currency,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    }) },
+    upsertWork: () => {
+      projectionCalls += 1;
+      if (projectionShouldFail) throw new Error('works store temporarily unavailable');
+    },
+    pollIntervalMs: 1,
+    maxConcurrent: 1,
+  });
+  t.after(() => {
+    service.close();
+    db.close();
+    rmSync(assetRoot, { recursive: true, force: true });
+  });
+
+  const created = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'projection-reconciliation',
+    billingQuoteId: 'projection-reconciliation-quote',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      productId: 'seedance_standard',
+      mode: 'script',
+      prompt: '作品投影补偿测试',
+      duration: 5,
+      aspectRatio: '16:9',
+      resolution: '720p',
+    },
+  });
+  await new Promise(resolve => {
+    const check = () => service.getJob('owner@example.com', created.job.id)?.projectionState === 'pending'
+      ? resolve()
+      : setTimeout(check, 2);
+    check();
+  });
+
+  const pending = service.getJob('owner@example.com', created.job.id);
+  assert.equal(pending.status, 'reconciling');
+  assert.equal(pending.billingState, 'settled');
+  assert.equal(pending.deliveryState, 'verified');
+  assert.equal(pending.projectionState, 'pending');
+  assert.match(pending.error, /作品库同步中/);
+  assert.equal(settlementCalls, 1);
+  assert.equal(projectionCalls, 1);
+  assert.equal(releaseCalls, 0);
+
+  projectionShouldFail = false;
+  service.reconcileBilling();
+  const completed = service.getJob('owner@example.com', created.job.id);
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.projectionState, 'projected');
+  assert.equal(settlementCalls, 1);
+  assert.equal(projectionCalls, 2);
+  assert.equal(releaseCalls, 0);
 });
 
 test('an unknown provider submission expires to an automatic credit release', async t => {
