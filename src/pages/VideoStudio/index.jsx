@@ -27,7 +27,8 @@ import {
   fetchVideoCapabilities,
   getVideoJob,
   listVideoJobs,
-  uploadVideoAsset,
+  createImmediateMediaPreview,
+  createVideoAssetUpload,
 } from '../../services/video.js';
 import {
   VIDEO_CREATION_MODES,
@@ -61,23 +62,50 @@ function fileKind(file) {
   return '';
 }
 
-function MediaPreview({ file }) {
+function MediaPreview({ file, upload }) {
   const [source, setSource] = useState('');
+  const previewRef = useRef(null);
   const kind = fileKind(file);
 
   useEffect(() => {
-    if (!file || !globalThis.URL?.createObjectURL) return undefined;
-    const nextSource = globalThis.URL.createObjectURL(file);
-    setSource(nextSource);
-    return () => globalThis.URL.revokeObjectURL(nextSource);
+    if (!file) return undefined;
+    const preview = createImmediateMediaPreview(file);
+    previewRef.current = preview;
+    setSource(preview.url);
+    return () => {
+      preview.revoke();
+      if (previewRef.current === preview) previewRef.current = null;
+    };
   }, [file]);
 
-  if (kind === 'image' && source) return <img className="video-media-preview" src={source} alt="" />;
-  if (kind === 'video' && source) return <video className="video-media-preview" src={source} muted preload="metadata" />;
+  useEffect(() => {
+    if (!upload.asset?.url || !previewRef.current) return;
+    previewRef.current.revoke();
+    previewRef.current = null;
+    setSource('');
+  }, [upload.asset?.url]);
+
+  const persistedSource = upload.asset?.url || source;
+  if (kind === 'image' && persistedSource) return <img className="video-media-preview" src={persistedSource} alt="" />;
+  if (kind === 'video' && persistedSource) return <video className="video-media-preview" src={persistedSource} muted preload="metadata" />;
   return <span className="video-media-audio-preview"><FileAudio size={25} /><small>{kind === 'audio' ? '音频' : '素材'}</small></span>;
 }
 
-function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove, inputRef }) {
+function UploadStatus({ upload, onRetry }) {
+  if (!upload) return null;
+  if (upload.status === 'uploading') return <span className="video-upload-status is-uploading">
+    <span>上传中 {upload.progress || 0}%</span><i><b style={{ width: `${upload.progress || 0}%` }} /></i>
+  </span>;
+  if (upload.status === 'error') return <button type="button" className="video-upload-status is-error" onClick={event => {
+    event.preventDefault();
+    event.stopPropagation();
+    onRetry?.();
+  }}><RefreshCw size={11} />重试上传</button>;
+  if (upload.status === 'completed') return <span className="video-upload-status is-completed"><Check size={11} />已上传</span>;
+  return null;
+}
+
+function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove, inputRef, upload, onRetry }) {
   const file = files[0];
   return <div className={`video-media-card video-media-picker${file ? ' has-file' : ''}`}>
     <label className="video-media-picker-control">
@@ -85,13 +113,14 @@ function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChan
         onChange(Array.from(event.target.files || []));
         event.target.value = '';
       }} />
-      {file ? <MediaPreview file={file} /> : <>
+      {file ? <MediaPreview file={file} upload={upload || {}} /> : <>
         <span className="video-media-add-icon"><Icon size={20} /></span>
         <strong>{label}</strong>
         <small>点击选择文件</small>
       </>}
       {file && <span className="video-media-caption">{files.length > 1 ? `${label} · ${files.length} 个` : label}</span>}
     </label>
+    {file && <UploadStatus upload={upload} onRetry={onRetry} />}
     {file && onRemove && <button type="button" className="video-media-remove" aria-label={`移除${label}`} onClick={onRemove}><X size={14} /></button>}
   </div>;
 }
@@ -177,6 +206,8 @@ export default function VideoStudioPage({ embedded = false }) {
   const lastFrameInputRef = useRef(null);
   const buttonRefs = useRef({});
   const openedJobRef = useRef('');
+  const uploadsRef = useRef(new Map());
+  const [, setUploadRevision] = useState(0);
 
   const products = Array.isArray(capabilities.products) ? capabilities.products : [];
   const selectedProduct = products.find(product => product.id === selectedProductId)
@@ -336,8 +367,92 @@ export default function VideoStudioPage({ embedded = false }) {
     };
   }, [inlineMenu]);
 
+  const refreshUploads = useCallback(() => setUploadRevision(value => value + 1), []);
+
+  const startUpload = useCallback((file, kind, { force = false } = {}) => {
+    const current = uploadsRef.current.get(file);
+    if (current && !force) {
+      if (current.asset) return Promise.resolve(current.asset);
+      if (current.status === 'uploading') return current.promise;
+    }
+    current?.abort?.();
+    const entry = { file, kind, status: 'uploading', progress: 0, asset: null, error: null, promise: null, abort: null };
+    const operation = createVideoAssetUpload(file, kind, {
+      onProgress({ progress }) {
+        if (uploadsRef.current.get(file) !== entry) return;
+        entry.progress = progress;
+        refreshUploads();
+      },
+    });
+    entry.abort = operation.abort;
+    entry.promise = operation.promise.then(asset => {
+      if (uploadsRef.current.get(file) === entry) {
+        entry.status = 'completed';
+        entry.progress = 100;
+        entry.asset = asset;
+        refreshUploads();
+      }
+      return asset;
+    }).catch(uploadError => {
+      if (uploadsRef.current.get(file) === entry) {
+        entry.status = uploadError?.name === 'AbortError' ? 'cancelled' : 'error';
+        entry.error = uploadError;
+        refreshUploads();
+      }
+      throw uploadError;
+    });
+    entry.promise.catch(() => {});
+    uploadsRef.current.set(file, entry);
+    refreshUploads();
+    return entry.promise;
+  }, [refreshUploads]);
+
+  const ensureUpload = useCallback((file, kind) => {
+    const current = uploadsRef.current.get(file);
+    if (current?.asset) return Promise.resolve(current.asset);
+    if (current?.status === 'uploading') return current.promise;
+    return startUpload(file, kind, { force: true });
+  }, [startUpload]);
+
+  const retryUpload = useCallback((file, kind) => {
+    if (!file) return;
+    void startUpload(file, kind, { force: true }).catch(() => {});
+  }, [startUpload]);
+
+  const uploadFor = useCallback(file => uploadsRef.current.get(file), []);
+
+  useEffect(() => {
+    if (!state.logged) {
+      uploadsRef.current.forEach(entry => entry.abort?.());
+      uploadsRef.current.clear();
+      refreshUploads();
+      return undefined;
+    }
+    const selected = new Map();
+    Object.entries(files).forEach(([key, items]) => {
+      const kind = key === 'videos' ? 'video' : key === 'audios' ? 'audio' : 'image';
+      items.forEach(file => selected.set(file, kind));
+    });
+    selected.forEach((kind, file) => {
+      if (!uploadsRef.current.has(file)) void startUpload(file, kind).catch(() => {});
+    });
+    uploadsRef.current.forEach((entry, file) => {
+      if (selected.has(file)) return;
+      entry.abort?.();
+      uploadsRef.current.delete(file);
+    });
+    refreshUploads();
+    return undefined;
+  }, [files, refreshUploads, startUpload, state.logged]);
+
+  useEffect(() => () => {
+    uploadsRef.current.forEach(entry => entry.abort?.());
+    uploadsRef.current.clear();
+  }, []);
+
   function replaceFiles(key, next, limit) {
     setPlanReviewed(false);
+    setPlannedUploads(null);
     setFiles(current => {
       if (!['images', 'videos', 'audios'].includes(key)) return { ...current, [key]: next.slice(0, limit) };
       const occupied = ['images', 'videos', 'audios']
@@ -349,11 +464,13 @@ export default function VideoStudioPage({ embedded = false }) {
 
   function removeFile(key, index) {
     setPlanReviewed(false);
+    setPlannedUploads(null);
     setFiles(current => ({ ...current, [key]: current[key].filter((_, itemIndex) => itemIndex !== index) }));
   }
 
   function appendQuickFiles(items) {
     setPlanReviewed(false);
+    setPlannedUploads(null);
     setFiles(current => {
       if (mode === 'frame') {
         const images = items.filter(file => fileKind(file) === 'image');
@@ -372,9 +489,7 @@ export default function VideoStudioPage({ embedded = false }) {
   }
 
   async function uploadFiles(items, kind) {
-    const uploaded = [];
-    for (const file of items) uploaded.push(await uploadVideoAsset(file, kind));
-    return uploaded;
+    return Promise.all(items.map(file => ensureUpload(file, kind)));
   }
 
   async function poll(id) {
@@ -574,8 +689,8 @@ export default function VideoStudioPage({ embedded = false }) {
   const renderAssetPickers = () => {
     if (mode === 'frame') {
       return <div className="video-media-deck is-frame">
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} inputRef={firstFrameInputRef} />
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} inputRef={lastFrameInputRef} />
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} inputRef={firstFrameInputRef} upload={uploadFor(files.first[0])} onRetry={() => retryUpload(files.first[0], 'image')} />
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} inputRef={lastFrameInputRef} upload={uploadFor(files.last[0])} onRetry={() => retryUpload(files.last[0], 'image')} />
         <div className="video-media-guidance"><strong>用两张画面定义镜头起点与终点</strong><small>中间动作、运镜和节奏在下方描述。</small></div>
       </div>;
     }
@@ -599,9 +714,10 @@ export default function VideoStudioPage({ embedded = false }) {
       </div>
       {materialEntries.length > 0 && <div className="video-media-deck">
         {materialEntries.map(item => <article key={`${item.key}-${item.index}-${item.file.name}`} className={`video-media-card video-media-preview-card is-${item.kind}`}>
-          <MediaPreview file={item.file} />
+          <MediaPreview file={item.file} upload={uploadFor(item.file) || {}} />
           <span className="video-media-type">{item.label}</span>
           <span className="video-media-caption">{item.name}</span>
+          <UploadStatus upload={uploadFor(item.file)} onRetry={() => retryUpload(item.file, item.kind)} />
           <button type="button" className="video-media-remove" aria-label={`移除${item.file.name}`} onClick={() => removeFile(item.key, item.index)}><X size={14} /></button>
         </article>)}
       </div>}
@@ -622,7 +738,7 @@ export default function VideoStudioPage({ embedded = false }) {
       <button type="button" className={`video-sound-choice${sound ? ' is-selected' : ''}`} onClick={() => { setPlanReviewed(false); setSound(current => !current); }}>
         <span><Volume2 size={20} /><strong>生成同期声音</strong><small>根据画面内容生成环境声和动作声音</small></span><i aria-hidden="true" />
       </button>
-      {mode !== 'frame' && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" icon={FileAudio} label="上传参考音频" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} /></div>}
+      {mode !== 'frame' && <div className="video-panel-section"><strong>音频参考</strong><FilePicker accept="audio/*" icon={FileAudio} label="上传参考音频" files={files.audios} multiple onChange={next => replaceFiles('audios', next, 3)} upload={uploadFor(files.audios[0])} onRetry={() => retryUpload(files.audios[0], 'audio')} /></div>}
     </>;
     if (activePanel === 'settings') return <>
       <div className="video-panel-section"><strong>清晰度</strong><div className="video-resolution-grid">

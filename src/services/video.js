@@ -1,5 +1,7 @@
 import { getSessionToken, handleSessionResponse } from './auth.js';
 import { createApiError } from './apiError.js';
+export { createImmediateMediaPreview, createVideoAssetUpload } from './videoUploadClient.js';
+import { uploadVideoAssetResumable } from './videoUploadClient.js';
 
 function headers(extra = {}) {
   const token = getSessionToken();
@@ -26,17 +28,7 @@ export function getVideoJob(id) {
 }
 
 export async function uploadVideoAsset(file, kind) {
-  const response = await fetch('/api/video/assets', {
-    method: 'POST',
-    headers: headers({
-      'Content-Type': file.type || 'application/octet-stream',
-      'X-Video-Asset-Kind': kind,
-    }),
-    body: file,
-  });
-  handleSessionResponse(response);
-  if (!response.ok) throw await createApiError(response, '视频素材上传失败');
-  return (await response.json()).asset;
+  return uploadVideoAssetResumable(file, kind);
 }
 
 export function createVideoJob(input, idempotencyKey) {

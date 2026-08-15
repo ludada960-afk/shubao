@@ -152,6 +152,7 @@ import {
   readRequestBuffer,
   sendVideoAsset,
 } from './videoGeneration.mjs';
+import { createVideoUploadService } from './videoUploadService.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -238,6 +239,11 @@ const videoGeneration = createVideoGeneration({
   allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',
   assetSigningSecret: authSessionSecret,
   projectBridge: videoProjectBridge,
+});
+const videoUploadService = createVideoUploadService({
+  db,
+  directory: resolve(__dirname, 'video-upload-staging'),
+  importAsset: input => videoGeneration.importUploadedAsset(input),
 });
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
@@ -4001,6 +4007,12 @@ app.post('/api/video/assets', authenticateVideoRequest, async (req, res) => {
     return res.status(error?.status || 500).json({ code: error?.code, error: error?.message || '素材上传失败' });
   }
 });
+app.all(['/api/video/uploads', '/api/video/uploads/:id'], authenticateVideoRequest, (req, res) => {
+  void videoUploadService.handle(req, res);
+});
+app.get('/api/video/upload-results/:id', authenticateVideoRequest, (req, res) => {
+  videoUploadService.handleResult(req, res, req.params.id);
+});
 app.get('/api/video/assets/:id', authenticateVideoRequest, async (req, res) => {
   const asset = await videoGeneration.readAsset(req.params.id, req._userEmail);
   if (!asset) return res.status(404).end('video asset not found');
@@ -4974,6 +4986,9 @@ async function shutdown(signal) {
   if (!ecommerceIdle || !imageQueueIdle) {
     console.error('[shutdown] 后台任务未在排空期限内完成，将由持久化租约在新进程恢复');
   }
+  videoUploadService.close();
+  videoGeneration.close();
+  clearInterval(retentionSweep);
   clearTimeout(force);
   process.exit(0);
 }

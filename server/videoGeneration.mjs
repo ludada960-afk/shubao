@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import { rename, stat, writeFile } from 'node:fs/promises';
+import { copyFile, link, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -469,6 +469,46 @@ export function createVideoGeneration({
       bytes: buffer.length,
       url: signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000),
     };
+  }
+
+  async function importUploadedAsset({ ownerEmail, kind, contentType, sourcePath, bytes, sha256, publicBaseUrl }) {
+    if (!Object.hasOwn(INPUT_LIMITS, kind)) throw httpError(400, 'VIDEO_ASSET_KIND_INVALID', '素材类型不支持');
+    const normalizedType = clean(contentType, 100).toLowerCase().split(';')[0];
+    if (!CONTENT_TYPES[kind].has(normalizedType)) throw httpError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!normalizedOwner) throw httpError(401, 'VIDEO_ASSET_OWNER_REQUIRED', '登录已失效，请重新登录');
+    const size = Number(bytes);
+    const sourceInfo = await stat(sourcePath);
+    if (!Number.isSafeInteger(size) || size <= 0 || size > INPUT_LIMITS[kind] || sourceInfo.size !== size) {
+      throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件大小不符合要求');
+    }
+    const normalizedSha256 = clean(sha256, 64).toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(normalizedSha256)) throw httpError(422, 'VIDEO_ASSET_CHECKSUM_INVALID', '素材文件校验失败');
+    const id = `${crypto.randomUUID()}${extensionFor(normalizedType)}`;
+    const destination = resolve(inputRoot, id);
+    try {
+      try {
+        await link(sourcePath, destination);
+      } catch (error) {
+        if (!['EXDEV', 'EPERM', 'EACCES'].includes(error?.code)) throw error;
+        await copyFile(sourcePath, destination, fs.constants.COPYFILE_EXCL);
+      }
+      const handle = await fs.promises.open(destination, 'r+');
+      try { await handle.sync(); } finally { await handle.close(); }
+      db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(id, normalizedOwner, kind, normalizedType, size, normalizedSha256, basename(destination));
+      return {
+        id,
+        kind,
+        contentType: normalizedType,
+        bytes: size,
+        sha256: normalizedSha256,
+        url: signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000),
+      };
+    } catch (error) {
+      await fs.promises.rm(destination, { force: true }).catch(() => {});
+      throw error;
+    }
   }
 
   function normalizeReferences(ownerEmail, input, publicBaseUrl) {
@@ -1226,6 +1266,7 @@ export function createVideoGeneration({
       };
     },
     uploadAsset,
+    importUploadedAsset,
     createJob,
     getJob(ownerEmail, id) { return serializeOwnedJob(jobForOwner(ownerEmail, id)); },
     listJobs(ownerEmail, limit = 20) {
