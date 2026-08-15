@@ -74,10 +74,11 @@ function harness({ enabled = true } = {}) {
   return { app, db, project, store, sessionTokens, ownerEmail };
 }
 
-function seedCompletedVideoJob(db, ownerEmail) {
+function seedCompletedVideoJob(db, ownerEmail, projectId) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS video_jobs (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, status TEXT NOT NULL,
+      project_id TEXT NOT NULL DEFAULT '',
       result_asset_id TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS video_assets (
@@ -89,8 +90,8 @@ function seedCompletedVideoJob(db, ownerEmail) {
   db.prepare(`INSERT INTO video_assets
     (id, owner_email, kind, content_type, bytes, sha256, file_name)
     VALUES ('route-output', ?, 'output', 'video/mp4', 2048, 'route-output-hash', 'route-output.mp4')`).run(ownerEmail);
-  db.prepare(`INSERT INTO video_jobs (id, owner_email, status, result_asset_id)
-    VALUES ('route-job', ?, 'completed', 'route-output')`).run(ownerEmail);
+  db.prepare(`INSERT INTO video_jobs (id, owner_email, project_id, status, result_asset_id)
+    VALUES ('route-job', ?, ?, 'completed', 'route-output')`).run(ownerEmail, projectId);
 }
 
 function seedUploadedVideoAsset(db, ownerEmail) {
@@ -189,7 +190,7 @@ test('workbench routes validate shot duration at the HTTP boundary', async t => 
 test('candidate route accepts only a completed owned job and ignores forged delivery fields', async t => {
   const { app, db, project, store, sessionTokens, ownerEmail } = harness();
   t.after(() => db.close());
-  seedCompletedVideoJob(db, ownerEmail);
+  seedCompletedVideoJob(db, ownerEmail, project.id);
   const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
     purpose: '开场', durationMs: 3000 });
   const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/candidates', {

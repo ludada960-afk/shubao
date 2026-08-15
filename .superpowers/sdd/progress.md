@@ -2019,3 +2019,14 @@
   regression passed `38/38`. No paid generation or production deployment ran.
   Next boundary: feature-gated P1 workbench client and UI, developed with a
   separate design/implementation contract before any public flag is enabled.
+
+- 2026-08-15 AI-video P1 candidate isolation is hardened locally. A completed
+  generation job can now be imported into a storyboard shot only when its
+  authoritative `video_jobs.project_id` matches the selected owned video
+  project in addition to the existing owner, completion and verified-delivery
+  checks. Same-account cross-project imports are rejected as not found, so
+  assets, prompts, billing provenance and timeline history cannot silently
+  cross project boundaries. The focused workbench store and route suite passes
+  `14/14`; no paid generation, production deployment or runtime data mutation
+  occurred. Next boundary: pure presentation model and feature-gated P1
+  project workbench UI.

@@ -413,7 +413,7 @@ export function createVideoWorkbenchStore({
       requireShot(owner, project.id, shotId);
       const jobId = clean(generationJobId, 256);
       const job = jobId ? db.prepare(`SELECT id, status, result_asset_id FROM video_jobs
-        WHERE id = ? AND owner_email = ?`).get(jobId, owner) : null;
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(jobId, owner, project.id) : null;
       if (!job) throw coded('VIDEO_JOB_NOT_FOUND', 'video generation job not found');
       if (job.status !== 'completed' || !clean(job.result_asset_id, 256)) {
         throw coded('VIDEO_JOB_NOT_READY', 'video generation job is not complete');

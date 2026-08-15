@@ -22,11 +22,12 @@ function harness() {
 }
 
 function seedCompletedVideoJob(db, {
-  jobId = 'job-1', ownerEmail = OWNER, outputAssetId = 'output-1', status = 'completed',
+  jobId = 'job-1', ownerEmail = OWNER, projectId = '', outputAssetId = 'output-1', status = 'completed',
 } = {}) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS video_jobs (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, status TEXT NOT NULL,
+      project_id TEXT NOT NULL DEFAULT '',
       result_asset_id TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS video_assets (
@@ -39,8 +40,8 @@ function seedCompletedVideoJob(db, {
     (id, owner_email, kind, content_type, bytes, sha256, file_name)
     VALUES (?, ?, 'output', 'video/mp4', 1024, 'verified-output-hash', 'output.mp4')`)
     .run(outputAssetId, ownerEmail);
-  db.prepare('INSERT INTO video_jobs (id, owner_email, status, result_asset_id) VALUES (?, ?, ?, ?)')
-    .run(jobId, ownerEmail, status, outputAssetId);
+  db.prepare('INSERT INTO video_jobs (id, owner_email, project_id, status, result_asset_id) VALUES (?, ?, ?, ?, ?)')
+    .run(jobId, ownerEmail, projectId, status, outputAssetId);
 }
 
 function seedUploadedVideoAsset(db, {
@@ -207,7 +208,7 @@ test('candidate registration is idempotent and selection never silently rewrites
 test('completed generation jobs are imported as candidates from authoritative delivery records', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());
-  seedCompletedVideoJob(db);
+  seedCompletedVideoJob(db, { projectId: project.id });
   const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
     purpose: '开场', durationMs: 4000 });
 
@@ -227,8 +228,11 @@ test('completed generation jobs are imported as candidates from authoritative de
 test('candidate job import rejects unfinished or foreign generation deliveries', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());
-  seedCompletedVideoJob(db, { jobId: 'pending-job', outputAssetId: 'pending-output', status: 'processing' });
+  seedCompletedVideoJob(db, { jobId: 'pending-job', projectId: project.id,
+    outputAssetId: 'pending-output', status: 'processing' });
   seedCompletedVideoJob(db, { jobId: 'foreign-job', ownerEmail: 'other@example.com', outputAssetId: 'foreign-output' });
+  seedCompletedVideoJob(db, { jobId: 'other-project-job', projectId: 'other-project',
+    outputAssetId: 'other-project-output' });
   const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
     purpose: '开场', durationMs: 4000 });
 
@@ -237,6 +241,9 @@ test('candidate job import rejects unfinished or foreign generation deliveries',
   }), error => error.code === 'VIDEO_JOB_NOT_READY');
   assert.throws(() => store.registerCandidateFromJob({
     ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'foreign-job',
+  }), error => error.code === 'VIDEO_JOB_NOT_FOUND');
+  assert.throws(() => store.registerCandidateFromJob({
+    ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'other-project-job',
   }), error => error.code === 'VIDEO_JOB_NOT_FOUND');
 });
 
