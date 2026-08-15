@@ -57,10 +57,13 @@ function createLegacyDatabase() {
   return db;
 }
 
-test('video platform flags default on and accept explicit rollback values only', () => {
+test('P0 video platform flags default on while future workbench remains default-off', () => {
   const defaults = readVideoPlatformFlags({});
   assert.deepEqual(Object.keys(defaults).sort(), [...VIDEO_PLATFORM_FLAG_NAMES].sort());
-  assert.ok(Object.values(defaults).every(Boolean));
+  assert.equal(defaults.VIDEO_PLATFORM_P1_WORKBENCH, false);
+  assert.ok(Object.entries(defaults)
+    .filter(([name]) => name !== 'VIDEO_PLATFORM_P1_WORKBENCH')
+    .every(([, enabled]) => enabled));
 
   const rolledBack = readVideoPlatformFlags({
     VIDEO_PLATFORM_OWNER_READS: 'false',
