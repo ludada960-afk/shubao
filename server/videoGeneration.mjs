@@ -69,7 +69,11 @@ function serializeJob(row, resultUrl = row?.result_url || '') {
       ? 'settled'
       : row.billing_state || 'held',
     deliveryState: row.delivery_state || (row.status === 'completed' ? 'verified' : 'none'),
+    projectProjectionState: row.project_projection_state || (row.status === 'completed' ? 'projected' : 'none'),
     projectionState: row.projection_state || (row.status === 'completed' ? 'projected' : 'none'),
+    projectId: row.project_id || '',
+    sourceVersionId: row.source_version_id || '',
+    resultVersionId: row.result_version_id || '',
     reconciliationError: row.reconciliation_error || '',
     reviewDeadlineAt: Number(row.review_deadline_ms || 0),
     attemptId: row.current_attempt_id || '',
@@ -182,6 +186,7 @@ export function createVideoGeneration({
   model,
   fetchImpl,
   providerRegistry,
+  projectBridge = null,
   allowHiddenProducts = false,
   assetSigningSecret = '',
   now = Date.now,
@@ -237,7 +242,11 @@ export function createVideoGeneration({
       quote_id TEXT NOT NULL DEFAULT '',
       billing_state TEXT NOT NULL DEFAULT 'held',
       delivery_state TEXT NOT NULL DEFAULT 'none',
+      project_projection_state TEXT NOT NULL DEFAULT 'none',
       projection_state TEXT NOT NULL DEFAULT 'none',
+      project_id TEXT NOT NULL DEFAULT '',
+      source_version_id TEXT NOT NULL DEFAULT '',
+      result_version_id TEXT NOT NULL DEFAULT '',
       reconciliation_error TEXT NOT NULL DEFAULT '',
       release_attempts INTEGER NOT NULL DEFAULT 0,
       review_deadline_ms INTEGER NOT NULL DEFAULT 0,
@@ -276,7 +285,11 @@ export function createVideoGeneration({
     ['quote_id', "TEXT NOT NULL DEFAULT ''"],
     ['billing_state', "TEXT NOT NULL DEFAULT 'held'"],
     ['delivery_state', "TEXT NOT NULL DEFAULT 'none'"],
+    ['project_projection_state', "TEXT NOT NULL DEFAULT 'none'"],
     ['projection_state', "TEXT NOT NULL DEFAULT 'none'"],
+    ['project_id', "TEXT NOT NULL DEFAULT ''"],
+    ['source_version_id', "TEXT NOT NULL DEFAULT ''"],
+    ['result_version_id', "TEXT NOT NULL DEFAULT ''"],
     ['reconciliation_error', "TEXT NOT NULL DEFAULT ''"],
     ['release_attempts', 'INTEGER NOT NULL DEFAULT 0'],
     ['review_deadline_ms', 'INTEGER NOT NULL DEFAULT 0'],
@@ -287,7 +300,7 @@ export function createVideoGeneration({
     if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
   }
   db.prepare("UPDATE video_jobs SET billing_state = 'settled' WHERE status = 'completed' AND billing_state = 'held'").run();
-  db.prepare("UPDATE video_jobs SET delivery_state = 'verified', projection_state = 'projected' WHERE status = 'completed'").run();
+  db.prepare("UPDATE video_jobs SET delivery_state = 'verified', project_projection_state = 'projected', projection_state = 'projected' WHERE status = 'completed'").run();
 
   const registry = providerRegistry || createVideoProviderRegistry({
     baseUrl,
@@ -446,8 +459,9 @@ export function createVideoGeneration({
     const id = `${crypto.randomUUID()}${extensionFor(normalizedType)}`;
     const fileName = resolve(inputRoot, id);
     await writeFile(fileName, buffer, { flag: 'wx' });
-    db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, file_name) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, normalizedOwner, kind, normalizedType, buffer.length, basename(fileName));
+    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+    db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(id, normalizedOwner, kind, normalizedType, buffer.length, sha256, basename(fileName));
     return {
       id,
       kind,
@@ -581,6 +595,7 @@ export function createVideoGeneration({
         failure_class: '',
         billing_state: 'settlement_pending',
         delivery_state: 'verified',
+        project_projection_state: projectBridge ? 'pending' : 'projected',
         projection_state: 'pending',
         reconciliation_error: '',
       });
@@ -655,7 +670,29 @@ export function createVideoGeneration({
           reconciliation_error: '',
         });
         outbox.complete(event.id);
-        ensureVideoEvent(settledJob, 'video.works.project.requested', 'works-project');
+        ensureVideoEvent(
+          settledJob,
+          projectBridge ? 'video.project.project.requested' : 'video.works.project.requested',
+          projectBridge ? 'project-project' : 'works-project',
+        );
+      })();
+      return;
+    }
+    if (event.event_type === 'video.project.project.requested') {
+      const projected = projectBridge.projectDelivery(job);
+      db.transaction(() => {
+        const projectedJob = updateJob(job.id, {
+          status: 'reconciling',
+          progress: 99,
+          error: '成片已交付，正在同步作品库',
+          project_projection_state: 'projected',
+          project_id: projected.project.id,
+          source_version_id: projected.sourceVersion.id,
+          result_version_id: projected.resultVersion.id,
+          reconciliation_error: '',
+        });
+        outbox.complete(event.id);
+        ensureVideoEvent(projectedJob, 'video.works.project.requested', 'works-project');
       })();
       return;
     }
@@ -675,7 +712,8 @@ export function createVideoGeneration({
       return;
     }
     if (event.event_type === 'video.job.finalize.requested') {
-      if (job.delivery_state !== 'verified' || job.billing_state !== 'settled' || job.projection_state !== 'projected') {
+      if (job.delivery_state !== 'verified' || job.billing_state !== 'settled'
+        || job.project_projection_state !== 'projected' || job.projection_state !== 'projected') {
         throw new Error('video finalization prerequisites are incomplete');
       }
       db.transaction(() => {
@@ -706,11 +744,15 @@ export function createVideoGeneration({
         const job = selectJob.get(claimed.aggregate_id);
         if (job) {
           const settlementPending = claimed.event_type === 'video.billing.settle.requested';
+          const projectPending = claimed.event_type === 'video.project.project.requested';
           updateJob(job.id, {
             status: 'reconciling',
             progress: 99,
-            error: settlementPending ? '成片已交付，积分结算确认中' : '成片已交付，作品库同步中',
+            error: settlementPending
+              ? '成片已交付，积分结算确认中'
+              : projectPending ? '成片已交付，项目记录同步中' : '成片已交付，作品库同步中',
             billing_state: settlementPending ? 'settlement_pending' : job.billing_state,
+            project_projection_state: projectPending ? 'pending' : job.project_projection_state,
             projection_state: settlementPending ? job.projection_state : 'pending',
             reconciliation_error: clean(error?.message, 500) || 'video outbox delivery failed',
           });
@@ -968,6 +1010,7 @@ export function createVideoGeneration({
     const id = crypto.randomUUID();
     const admission = admitProduct(product.id);
     let hold;
+    let jobPersisted = false;
     try {
       try {
         hold = walletService.createHold({
@@ -1004,6 +1047,17 @@ export function createVideoGeneration({
         resolution, input?.generateAudio === false ? 0 : 1, seed, JSON.stringify(references), hold.id,
         product.id, product.routeId, VIDEO_CATALOG_VERSION, expectedQuote.providerCostCny, '', verified.quoteId,
       );
+      jobPersisted = true;
+      if (projectBridge) {
+        const draft = projectBridge.ensureDraft(selectJob.get(id));
+        updateJob(id, {
+          project_projection_state: 'pending',
+          project_id: draft.project.id,
+          source_version_id: draft.sourceVersion.id,
+        });
+      } else {
+        updateJob(id, { project_projection_state: 'projected' });
+      }
     } catch (error) {
       if (admission.status === 'probe') releaseProductProbe(product.id);
       if (hold) {
@@ -1015,6 +1069,7 @@ export function createVideoGeneration({
           });
         } catch {}
       }
+      if (jobPersisted) db.prepare('DELETE FROM video_jobs WHERE id = ? AND provider_task_id = ?').run(id, '');
       throw error;
     }
     if (!enqueue(id)) {

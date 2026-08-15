@@ -1965,3 +1965,17 @@
   diff check is clean. Commit, production deployment and public verification
   remain pending. No paid video generation ran, and the 12 runtime
   extension-task deletions plus local temporary/diagnosis files remain excluded.
+
+- 2026-08-15 AI-video P0 Task 7 is complete in the clean release clone on
+  `codex/video-platform-p0`. Every video request now allocates an idempotent
+  durable video project, source version and role-preserving source assets before
+  provider submission. Verified, settled delivery creates an accepted result
+  version, generated-video project asset and explicit lineage before Works
+  projection and final completion. The projection is a durable outbox stage, so
+  crash recovery cannot report a completed job without the project record.
+  Legacy video assets have a strictly read-only bridge audit covering missing
+  owner/checksum/task references and duplicate content groups. Focused video
+  regression passed `35/35`; full regression passed `1552/1552`; `npm run check`,
+  the 6,479-module production build, syntax checks and `git diff --check` passed.
+  No paid video generation ran. Next boundary is P0 Task 8: official tus
+  resumable uploads with owner-bound sessions and immediate local previews.

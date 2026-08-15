@@ -91,6 +91,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /生成设置/);
   assert.match(page, /embedded = false/);
   assert.match(page, /在画布中继续/);
+  assert.match(page, /任务、素材与结果自动保存/);
+  assert.match(page, /job\?\.projectId \? `项目已保存/);
   assert.match(page, /type: 'SET_RESULT'/);
   assert.match(page, /type: 'NAVIGATE', page: 'ec-canvas'/);
   assert.match(home, /mode: 'video'/);

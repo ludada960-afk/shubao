@@ -96,7 +96,7 @@ test('migrates legacy video jobs and preserves a stable historical snapshot', t 
   const service = createService({ db, assetRoot, now: () => 1_000_000 });
   t.after(() => service.close());
   const columns = new Set(db.prepare('PRAGMA table_info(video_jobs)').all().map(column => column.name));
-  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'delivery_state', 'projection_state', 'reconciliation_error', 'release_attempts', 'review_deadline_ms', 'review_attempts', 'current_attempt_id']) {
+  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'delivery_state', 'projection_state', 'project_projection_state', 'project_id', 'source_version_id', 'result_version_id', 'reconciliation_error', 'release_attempts', 'review_deadline_ms', 'review_attempts', 'current_attempt_id']) {
     assert.equal(columns.has(column), true, column);
   }
 

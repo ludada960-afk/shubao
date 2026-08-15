@@ -75,6 +75,7 @@ import {
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
+import { createVideoProjectBridge } from './videoProjectBridge.mjs';
 import { createRetentionService } from './projects/retentionService.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
@@ -222,6 +223,8 @@ const generatedAssetStore = createGeneratedAssetStore({
     void imageDelivery.prewarmGeneratedVariants(asset.id).catch(() => {});
   },
 });
+const projectStore = createProjectStore(db);
+const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
 const videoGeneration = createVideoGeneration({
   db,
   walletService,
@@ -234,6 +237,7 @@ const videoGeneration = createVideoGeneration({
   minimaxBaseUrl: process.env.MINIMAX_VIDEO_BASE_URL || process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',
   assetSigningSecret: authSessionSecret,
+  projectBridge: videoProjectBridge,
 });
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
@@ -244,7 +248,6 @@ const runBilledContentSse = createBilledSseRunner({
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
-const projectStore = createProjectStore(db);
 const retentionService = createRetentionService({
   db,
   assetStore: {

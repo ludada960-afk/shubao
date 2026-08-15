@@ -105,6 +105,11 @@ function jobStatus(job) {
   return '正在提交';
 }
 
+function jobRecordStatus(job) {
+  const status = jobStatus(job);
+  return job?.projectId ? `项目已保存 · ${status}` : status;
+}
+
 function VideoModelMark({ provider = '' }) {
   const isMiniMax = String(provider).toLowerCase().includes('minimax');
   return <span className={`video-model-mark ${isMiniMax ? 'is-minimax' : 'is-seedance'}`} aria-hidden="true">
@@ -739,9 +744,9 @@ export default function VideoStudioPage({ embedded = false }) {
         </div>
         {job?.status === 'completed' && job.resultUrl && <button className="video-open-canvas" type="button" onClick={() => openJobInCanvas(job)}>在画布中继续</button>}
         <div className="video-history">
-          <div className="video-history-title"><strong>生成记录</strong><span>刷新页面后任务仍会继续</span></div>
+          <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
           {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
-            <span>{item.prompt || '视频任务'}</span><small>{jobStatus(item)}</small>
+            <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
           </button>) : <p className="video-history-empty">暂无视频任务</p>}
         </div>
       </div></section>}

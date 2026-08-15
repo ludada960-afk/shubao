@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog']);
+const PROJECT_KINDS = new Set(['ecommerce', 'xiaohongshu', 'plog', 'video']);
 const VERSION_REASONS = new Set(['generation', 'manual_save', 'canvas_save', 'accepted_result', 'migration']);
 const CHECKPOINT_REASONS = new Set(['payment_required', 'generation_interrupted', 'session_interrupted']);
 const ECOMMERCE_TERMINAL_RUN_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
@@ -216,6 +216,136 @@ export function createProjectStore(db, {
         id, project.ownerEmail, project.id, versionId, generationRunId, reason, expiry.toISOString(), created.toISOString(),
       );
       return hydrateCheckpoint(db.prepare('SELECT * FROM recovery_checkpoints WHERE id = ?').get(id));
+    },
+
+    ensureVideoGeneration({
+      ownerEmail,
+      generationRunId,
+      title = 'AI 视频项目',
+      inputSnapshot = {},
+      planSnapshot = {},
+      quoteId = null,
+      holdId = null,
+      assets = [],
+    }) {
+      const owner = normalizeOwner(ownerEmail);
+      const runId = String(generationRunId || '').trim();
+      if (!owner) throw new TypeError('ownerEmail is required');
+      if (!runId) throw new TypeError('generationRunId is required');
+      return db.transaction(() => {
+        const existingRun = db.prepare('SELECT * FROM project_generation_runs WHERE id = ? AND owner_email = ?').get(runId, owner);
+        if (existingRun) {
+          const run = runFromRow(existingRun);
+          return {
+            project: requireProject(owner, run.projectId),
+            sourceVersion: requireVersion(run.projectId, run.sourceVersionId),
+            run,
+          };
+        }
+        const project = insertProject({ ownerEmail: owner, kind: 'video', title });
+        const sourceVersionId = randomUUID();
+        const createdAt = timestamp().toISOString();
+        db.prepare(`INSERT INTO project_versions
+          (id, project_id, parent_version_id, reason, sequence, input_snapshot, plan_snapshot, canvas_snapshot_id, created_at)
+          VALUES (?, ?, NULL, 'generation', 1, ?, ?, NULL, ?)`).run(
+          sourceVersionId, project.id, JSON.stringify(inputSnapshot || {}), JSON.stringify(planSnapshot || {}), createdAt,
+        );
+        db.prepare("UPDATE projects SET status = 'running', head_version_id = ?, updated_at = ? WHERE id = ?")
+          .run(sourceVersionId, createdAt, project.id);
+        db.prepare(`INSERT INTO project_generation_runs
+          (id, project_id, source_version_id, owner_email, kind, status, quote_id, hold_id, progress, created_at)
+          VALUES (?, ?, ?, ?, 'video', 'queued', ?, ?, '{}', ?)`).run(
+          runId, project.id, sourceVersionId, owner, quoteId, holdId, createdAt,
+        );
+        for (const asset of Array.isArray(assets) ? assets : []) {
+          const assetId = String(asset?.assetId || '').trim();
+          const stableUrl = String(asset?.stableUrl || '').trim();
+          const contentHash = String(asset?.contentHash || '').trim();
+          if (!assetId || !stableUrl) continue;
+          db.prepare(`INSERT OR IGNORE INTO project_assets
+            (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'source', ?)`).run(
+              `${project.id}:${assetId}:source`, assetId, owner, project.id, sourceVersionId, runId,
+              String(asset?.role || 'reference'), contentHash || assetId, stableUrl,
+              String(asset?.mimeType || 'application/octet-stream'), createdAt,
+            );
+        }
+        return {
+          project: requireProject(owner, project.id),
+          sourceVersion: requireVersion(project.id, sourceVersionId),
+          run: runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ?').get(runId)),
+        };
+      }).immediate();
+    },
+
+    completeVideoGeneration({
+      ownerEmail,
+      generationRunId,
+      resultInputSnapshot = {},
+      resultPlanSnapshot = {},
+      outputAsset,
+      sourceAssetIds = [],
+    }) {
+      const owner = normalizeOwner(ownerEmail);
+      const runId = String(generationRunId || '').trim();
+      if (!owner) throw new TypeError('ownerEmail is required');
+      if (!runId) throw new TypeError('generationRunId is required');
+      const outputAssetId = String(outputAsset?.assetId || '').trim();
+      const stableUrl = String(outputAsset?.stableUrl || '').trim();
+      if (!outputAssetId || !stableUrl) throw new TypeError('outputAsset is required');
+      return db.transaction(() => {
+        const runRow = db.prepare('SELECT * FROM project_generation_runs WHERE id = ? AND owner_email = ?').get(runId, owner);
+        if (!runRow) throw codedError('GENERATION_RUN_NOT_FOUND', 'generation run not found');
+        const run = runFromRow(runRow);
+        const project = requireProject(owner, run.projectId);
+        const sourceVersion = requireVersion(project.id, run.sourceVersionId);
+        if (ECOMMERCE_TERMINAL_RUN_STATUSES.has(run.status)) {
+          if (run.status !== 'completed') throw terminalConflict(run.status, 'completed');
+          return {
+            project,
+            sourceVersion,
+            resultVersion: run.resultVersionId ? requireVersion(project.id, run.resultVersionId) : null,
+            run,
+          };
+        }
+        const resultVersionId = randomUUID();
+        const completedAt = timestamp().toISOString();
+        const sequence = db.prepare('SELECT COALESCE(MAX(sequence), 0) + 1 AS value FROM project_versions WHERE project_id = ?').get(project.id).value;
+        db.prepare(`INSERT INTO project_versions
+          (id, project_id, parent_version_id, reason, sequence, input_snapshot, plan_snapshot, canvas_snapshot_id, created_at)
+          VALUES (?, ?, ?, 'accepted_result', ?, ?, ?, NULL, ?)`).run(
+          resultVersionId, project.id, sourceVersion.id, sequence,
+          JSON.stringify(resultInputSnapshot || {}), JSON.stringify(resultPlanSnapshot || {}), completedAt,
+        );
+        const targetProjectAssetId = `${project.id}:${outputAssetId}:result`;
+        db.prepare(`INSERT INTO project_assets
+          (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, 'generated_video', ?, ?, ?, 'completed', ?)`).run(
+          targetProjectAssetId, outputAssetId, owner, project.id, resultVersionId, runId,
+          String(outputAsset?.contentHash || outputAssetId), stableUrl,
+          String(outputAsset?.mimeType || 'video/mp4'), completedAt,
+        );
+        for (const sourceAssetId of new Set(Array.isArray(sourceAssetIds) ? sourceAssetIds : [])) {
+          const sourceProjectAsset = db.prepare(`SELECT id FROM project_assets
+            WHERE project_id = ? AND asset_id = ? AND version_id = ?`).get(project.id, String(sourceAssetId || ''), sourceVersion.id);
+          if (!sourceProjectAsset) continue;
+          db.prepare(`INSERT OR IGNORE INTO project_asset_lineage
+            (project_id, source_asset_id, target_asset_id, relation, generation_run_id, created_at)
+            VALUES (?, ?, ?, 'generated_from', ?, ?)`).run(
+              project.id, sourceProjectAsset.id, targetProjectAssetId, runId, completedAt,
+            );
+        }
+        db.prepare(`UPDATE project_generation_runs SET status = 'completed', result_version_id = ?, completed_at = ?
+          WHERE id = ? AND project_id = ? AND owner_email = ?`).run(resultVersionId, completedAt, runId, project.id, owner);
+        db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?
+          WHERE id = ? AND owner_email = ?`).run(resultVersionId, resultVersionId, completedAt, completedAt, project.id, owner);
+        return {
+          project: requireProject(owner, project.id),
+          sourceVersion,
+          resultVersion: requireVersion(project.id, resultVersionId),
+          run: runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ?').get(runId)),
+        };
+      }).immediate();
     },
 
     listCheckpoints({ ownerEmail }) {
