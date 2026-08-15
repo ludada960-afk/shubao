@@ -28,6 +28,20 @@ The program is feasible, but only as a staged platform build.
 
 ## 2. Product Contract
 
+### 2.0 Reference architecture decision
+
+The product skeleton is fixed as follows so later implementation does not drift into another model-selection form:
+
+| Layer | Reference | What Shubao adopts | Boundary |
+|---|---|---|---|
+| Product and domain skeleton | Flova | Project memory, approved asset versions, shot dependencies, storyboard, timeline, visible workflow history, replayable Skills | Flova is a product reference, not a code dependency |
+| Spend and approval UX | Runway Agent | Show and review the plan before paid generation; choose models by capability; keep per-shot candidates and an integrated final cut | Provider/model detail stays behind an advanced disclosure |
+| Discovery and growth loop | TapNow/TapTV | Final work -> creation-process preview -> read-only project -> clone/remix | Private inputs are never copied across owners |
+| Local/open execution option | LTX Desktop, ComfyUI, Wan | Isolated worker/API candidates for proven workflows, previews, and capability canaries | Never make their node UI the normal-user product; license, weights, security, and operations require separate gates |
+| Existing Shubao foundation | VideoStudio, Canvas, projects, billing, gallery | Reuse the existing single-shot generator, project/version store, media delivery, billing ledger, and recipe replay | No second queue, wallet, project store, or gallery publisher |
+
+This choice is deliberately asymmetric: Flova supplies the product model; Runway and TapNow supply selected interaction patterns; open-source projects may supply isolated execution components only after a build-versus-buy review.
+
 ### 2.1 What the user sees
 
 - A **project** remembers approved people, products, wardrobe, scenes, props, style, voice, music, prompts, models, and output versions.
@@ -88,13 +102,15 @@ Dashboards must break down success, first-frame time, delivery latency, retries,
 
 ### Deliverables
 
-- [ ] **VID-P0-01 Media ingest:** instant local preview, content hash, durable original, image thumbnail variants, video poster and low-bitrate proxy, resumable upload, and authorization-preserving stable URLs.
-- [ ] **VID-P0-02 Job state machine:** `draft -> held -> queued -> submitting -> accepted -> processing -> persisting -> settled -> completed`, with explicit `needs_review`, `failed_released`, and `cancelled_released` terminals.
-- [ ] **VID-P0-03 Idempotency and outbox:** one idempotency key covers quote, hold, provider submission, result persistence, and settlement; durable events drive retries without duplicating side effects.
-- [ ] **VID-P0-04 Recovery:** startup reconciliation for expired leases, accepted provider tasks, persisted-but-unsettled results, and held terminal failures.
-- [ ] **VID-P0-05 Provider capability registry:** inputs, maximum references, duration, resolution, audio, first/last frame, local edit support, price snapshot, concurrency, polling interval, and circuit state live on the server.
-- [ ] **VID-P0-06 Operations:** structured failure classes, per-attempt cost, queue depth, time-in-state, task timeline, and admin drill-down from user-facing task to provider attempt and ledger entries.
-- [ ] **VID-P0-07 Fault suite:** provider timeout before/after acceptance, duplicate webhook, process kill during persistence, object-store failure, billing timeout, insufficient points, moderation block, and deleted source asset.
+- [x] **VID-P0-01 Media ingest, local implementation:** content hash, resumable upload session, owner authorization, stable delivery and project linkage are implemented. Browser-observed poster/proxy SLO remains a production gate.
+- [x] **VID-P0-02 Job state machine, local implementation:** accepted, processing, persisting, settlement/release and review states have durable handling and compatibility reads.
+- [x] **VID-P0-03 Idempotency and outbox, local implementation:** provider attempts and durable delivery events are persisted without duplicating paid side effects.
+- [x] **VID-P0-04 Recovery, local implementation:** startup/admin reconciliation covers uncertain submissions, accepted tasks, persisted deliveries, and billing compensation.
+- [x] **VID-P0-05 Provider capability registry, local implementation:** server-side validation and routing remain the source of truth.
+- [x] **VID-P0-06 Operations, local implementation:** owner/admin reads, attempt history, outbox state, reconciliation operations, and project bridge are feature-gated.
+- [x] **VID-P0-07 Fault suite, local evidence:** the P0 test suite and full regression pass locally without paid generation.
+
+**Status note (2026-08-15):** the P0 code slice is complete on the local feature branch. It is not a production-complete claim. Production deployment, flag rollout, browser timing evidence, controlled restart recovery, and observation-window metrics are still pending. P1 must not be exposed publicly until those exit gates pass.
 
 ### Stage 0 exit gate
 
@@ -217,6 +233,17 @@ Release each item behind a provider-specific capability gate:
 - Monthly: provider capability and price snapshots; disable products whose verified economics or reliability no longer meet their gate.
 - Per stage: continue, narrow, or stop based on exit metrics. Do not preserve a feature merely because engineering time was spent on it.
 
+### Definition of Ready and Done
+
+| Gate | Required evidence |
+|---|---|
+| Ready for implementation | User problem, current-code reuse map, non-goals, schema and API contract, billing semantics, failure matrix, license/security review, feature flag and rollback owner |
+| Ready for internal use | Focused TDD suite, full regression/build, migration/backfill proof, no-paid simulation, owner isolation, restart recovery, operational dashboard and support playbook |
+| Ready for production flag | Clean isolated release, desktop/mobile browser QA, canary budget approval, public asset hash, PM2/Nginx health, rollback release, zero unexplained billing state |
+| Done | Production observation meets the stage SLO, support can diagnose from job to attempt to ledger, documentation and `RTK.md` reflect reality, and every exposed control changes stored behavior |
+
+Local incubation of the next stage is allowed only behind a default-off flag and an additive schema. It cannot change existing production routes, trigger paid work, or be presented as shipped before the preceding production gate is satisfied.
+
 ## 11. Immediate Next Program Slice
 
 The first implementation spec after this roadmap is **VID-P0 Reliable Media and Job Foundation**. It must cover only:
@@ -250,10 +277,10 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 | Program slice | Status on 2026-08-14 | Evidence required to advance | Next action |
 | --- | --- | --- | --- |
 | Market and workflow research | Complete | Flova, TapNow, director workflow, corrected Feishu resource, and Xiaohongshu reconstruction flow reviewed without paid generation | Revalidate provider claims and prices monthly |
-| P0 design contract | Next | Approved schema, migration, state machine, billing compensation, outbox, media lifecycle, fault matrix, and explicit non-goals | Write the P0 technical spec before changing production tables |
-| P0 media foundation | Not started | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, and authorization tests pass | Implement behind a feature flag after P0 contract approval |
-| P0 reliable jobs and billing | Partial legacy foundation, not accepted | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Migrate existing image/video routes incrementally; do not fork another queue |
-| P1 storyboard workbench | Blocked by P0 | Ten internal projects finish without platform-state or billing failure | Build assets, shots, candidate approval, then a basic timeline |
+| P0 design contract | Complete locally | Schema, migration, state machine, billing compensation, outbox, media lifecycle, fault matrix, and explicit non-goals exist in the P0 design/implementation specs | Revalidate the contract during production rollout |
+| P0 media foundation | Local implementation complete; production evidence pending | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, and authorization tests pass | Deploy only after the shared release window; collect browser and object-store timing evidence |
+| P0 reliable jobs and billing | Local implementation and fault suite complete; production observation pending | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Roll out flags progressively, run a controlled restart canary, then observe |
+| P1 storyboard workbench | Public release blocked by P0 production gate; local schema incubation allowed | Ten internal projects finish without platform-state or billing failure | Implement additive contracts behind a default-off flag; do not route paid traffic |
 | P2 Skills, memory, replay | Blocked by P1 evidence | Two real workflows can be replayed from stored inputs and a versioned manifest | Product ad first; reference reconstruction second |
 | P3 advanced local editing | Research only | Each provider capability passes three real input-variant canaries and has a whole-shot fallback | Release reshoot, extension, tracking, and action control independently |
 
@@ -272,3 +299,47 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 - Provider/model choice stays server-configured and capability-gated. The user chooses Fast, Stable, or High quality; advanced model selection remains optional.
 - A feature is not complete when a button renders. It is complete only when its stored input changes provider behavior, survives refresh/restart, settles correctly, and has a tested failure path.
 - Gallery “view process / do the same” requires full provenance: original assets, prompts, parameters, catalog snapshot, selected versions, project graph, and rights confirmations. A final image alone is never treated as a replayable workflow.
+
+## 15. Current-System Reuse Map
+
+| New video-platform responsibility | Existing Shubao source of truth | Required change |
+|---|---|---|
+| Project ownership/versioning | `server/projects/*` and `server/videoProjectBridge.mjs` | Add video-workbench entities linked to existing projects; never create another project database |
+| Single-shot generation | `server/videoGeneration.mjs`, `server/videoProviders.mjs`, current VideoStudio | Treat each shot candidate as a normal reliable generation job |
+| Upload and media delivery | `server/videoUploadService.mjs`, generated assets and authorized delivery | Add poster/proxy variants and background processing without blocking local preview |
+| Billing and unit economics | Existing wallet holds, settle/release, usage events and admin reconciliation | Attribute each attempt and successful delivered second to project/shot/template |
+| Human approval | Current planning confirmation and Canvas selection patterns | Persist plan approval and candidate selection as auditable transitions |
+| Timeline/export | Current Canvas asset placement and export primitives | Introduce a minimal durable clip list before adding professional editing complexity |
+| Skill/replay | `server/visualCreationSkills.mjs`, gallery recipe/remix contracts | Replace hidden prompt bundles with versioned manifests and exact provenance |
+| Operations | Video attempts, outbox, reconciliation, admin operations | Add project/shot drill-down and stage SLOs; keep one operational truth |
+
+## 16. Reuse and License Gate
+
+| Candidate | License/evidence | Proposed use | Adoption gate |
+|---|---|---|---|
+| LTX Desktop | Apache-2.0 application code; model weights use separate terms | Architecture/performance-test reference and optional isolated local worker | Pin version; validate model license, GPU floor, cold start, output integrity and commercial terms |
+| LTX-2 weights | Community license with commercial conditions | Optional capability canary, never assumed available | Legal review and revenue-threshold check before any production use |
+| Wan2.2 / Wan skills | Apache-2.0 repositories | Optional self-hosted T2V/I2V/action experiments | Quality, VRAM, latency, moderation, security and delivered-second cost must beat managed fallback for a defined segment |
+| ComfyUI | GPL-3.0 ecosystem with third-party custom nodes | Isolated workflow runner or reference implementation | Process/API boundary, dependency allow-list, sandbox, SBOM, reproducible workflow lock and legal review |
+| VideoHelperSuite/custom nodes | Mixed community maintenance and operational risk | Research only until proven | No production dependency without ownership, soak tests, upgrade/rollback plan and license verification |
+| LivePortrait | MIT code, but default InsightFace models have non-commercial restrictions | Research for portrait driving | Replace restricted detector/model assets and verify all transitive licenses |
+| ConsisID | Apache-2.0 research code | Identity-consistency benchmark | Research benchmark only until quality, performance, moderation and maintenance gates pass |
+
+Mature open source is a way to reduce implementation risk, not a substitute for product and operations ownership. Shubao owns the customer-facing domain model, authorization, billing, state machine, quality gates and support path regardless of the execution worker.
+
+## 17. Practical Creator Methods as Product Primitives
+
+Public creator examples and official product documentation repeatedly validate the following methods. They become testable product primitives rather than opaque “tips”:
+
+| Creator method | Product primitive | Testable output |
+|---|---|---|
+| Character/product/environment reference sheets | Approved asset versions and named bindings | A shot records exactly which reference versions it used |
+| Reference-video breakdown | Shot detection, beat map and editable storyboard proposal | User can accept/reorder/reject the proposed shots before spend |
+| First/last frame control | Versioned keyframe bindings | Provider route is allowed only if it supports the required binding |
+| Pose/performance transfer | Motion-reference asset plus capability-gated route | Input rights and model capability are validated before submission |
+| Low-resolution draft then enhance | Candidate funnel with explicit HD promotion | Only selected candidates incur enhancement cost |
+| Per-shot repair | Shot retry, interval reshoot where supported, whole-shot fallback | Successful clips remain untouched and billing is attributed per attempt |
+| Music/voice continuity | Voice, music and beat assets with immutable versions | Timeline clips retain audio provenance and synchronization metadata |
+| Prompt timing and camera language | Structured shot direction translated by provider adapter | The UI shows intent; adapters produce provider-specific parameters |
+
+The public index confirms the existence and AI-video focus of the creator account “屿帆AI”, but the WeChat article bodies were not reliably accessible in this environment. Article-specific steps are therefore not treated as verified requirements. They should be added only from user-provided article URLs/exports or another lawful stable source.
