@@ -174,15 +174,35 @@ async function persistAudit(audit, enabled) {
   await writeFile(AUDIT_PATH, `${JSON.stringify(audit, null, 2)}\n`, 'utf8');
 }
 
+export async function fetchImageBytes({ url, token, fetchImpl = fetch, timeoutMs = 120_000, maxAttempts = 2 }) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetchImpl(url, {
+        headers: { authorization: `Bearer ${token}`, accept: 'image/*' },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!response.ok) {
+        const error = new Error(`Showcase asset download returned HTTP ${response.status}`);
+        error.retryable = response.status >= 500;
+        throw error;
+      }
+      const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+      if (!contentType.startsWith('image/')) throw new Error(`Showcase asset download returned ${contentType || 'unknown content type'}`);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.length < 10_000) throw new Error('Showcase asset download was unexpectedly small');
+      return bytes;
+    } catch (error) {
+      lastError = error;
+      const transient = error?.retryable === true || ['AbortError', 'TimeoutError', 'TypeError'].includes(error?.name);
+      if (!transient || attempt >= maxAttempts) throw error;
+    }
+  }
+  throw lastError;
+}
+
 async function downloadImage({ root, token, stableUrl, targetFile, ratio, fetchImpl }) {
-  const response = await fetchImpl(`${root}${stableUrl}`, {
-    headers: { authorization: `Bearer ${token}`, accept: 'image/*' },
-  });
-  if (!response.ok) throw new Error(`Showcase asset download returned HTTP ${response.status}`);
-  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-  if (!contentType.startsWith('image/')) throw new Error(`Showcase asset download returned ${contentType || 'unknown content type'}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (bytes.length < 10_000) throw new Error('Showcase asset download was unexpectedly small');
+  const bytes = await fetchImageBytes({ url: `${root}${stableUrl}`, token, fetchImpl });
   const metadata = await sharp(bytes).metadata();
   const [ratioWidth, ratioHeight] = ratio.split(':').map(Number);
   const expectedRatio = ratioWidth / ratioHeight;
@@ -304,10 +324,6 @@ export async function generateProductionEcommerceShowcase({
         quoteId,
       };
       await persistAudit(audit, writeAudit);
-      if (download) {
-        await downloadDetailStage({ audit, root, token, fetchImpl });
-        await persistAudit(audit, writeAudit);
-      }
     } catch (cause) {
       audit.stageOne = {
         status: 'failed',
@@ -334,6 +350,11 @@ export async function generateProductionEcommerceShowcase({
       error.audit = audit;
       throw error;
     }
+  }
+
+  if (download) {
+    await downloadDetailStage({ audit, root, token, fetchImpl });
+    await persistAudit(audit, writeAudit);
   }
 
   if (audit.stageTwo?.status === 'completed') {

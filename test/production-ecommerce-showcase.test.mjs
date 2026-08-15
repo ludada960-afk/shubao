@@ -6,6 +6,7 @@ import {
   buildCompositePayload,
   buildDetailDirectionPayload,
   buildDetailGenerationPayload,
+  fetchImageBytes,
   generateProductionEcommerceShowcase,
 } from '../scripts/generate-production-ecommerce-showcase.mjs';
 
@@ -106,6 +107,25 @@ test('composite payload consumes only unique stable stage-one assets', () => {
   assert.equal(payload.billing_quote_id, 'quote-1');
   assert.throws(() => assertStableAssets([detailUrls[0], detailUrls[0]]), /unique/i);
   assert.throws(() => assertStableAssets(['https://provider.example/result.png']), /stable/i);
+});
+
+test('stable asset download retries one transient timeout without resubmitting generation', async () => {
+  let attempts = 0;
+  const bytes = Buffer.alloc(12_000, 1);
+  const result = await fetchImageBytes({
+    url: 'https://shuimg.cn/api/generated-assets/example.png',
+    token: 'session',
+    timeoutMs: 25,
+    maxAttempts: 2,
+    fetchImpl: async (_url, options) => {
+      attempts += 1;
+      assert.ok(options.signal);
+      if (attempts === 1) throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+      return new Response(bytes, { status: 200, headers: { 'content-type': 'image/png' } });
+    },
+  });
+  assert.equal(attempts, 2);
+  assert.equal(result.length, bytes.length);
 });
 
 test('stage two uses the five delivered assets without resubmitting stage one', async () => {
