@@ -1,0 +1,134 @@
+import { getSessionToken } from './auth.js';
+import { createApiError } from './apiError.js';
+
+function pathSegment(value, message) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized || normalized.length > 200 || /[\u0000-\u001F\u007F]/.test(normalized)) {
+    throw new Error(message);
+  }
+  return encodeURIComponent(normalized);
+}
+
+const projectSegment = value => pathSegment(value, '请选择有效的视频项目');
+const assetSegment = value => pathSegment(value, '请选择有效的项目素材');
+const shotSegment = value => pathSegment(value, '请选择有效的分镜');
+
+function signedHeaders(headers = {}) {
+  const token = getSessionToken();
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
+}
+
+async function requestJson(path, options = {}, fallbackMessage = '视频项目请求失败') {
+  const response = await fetch(path, {
+    ...options,
+    headers: signedHeaders(options.headers),
+  });
+  if (!response.ok) throw await createApiError(response, fallbackMessage);
+  return response.json();
+}
+
+function jsonBody(value) {
+  return {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value || {}),
+  };
+}
+
+function requireValue(response, key, message) {
+  const value = response?.[key];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(message);
+  return value;
+}
+
+function workbenchBase(projectId) {
+  return `/api/video/projects/${projectSegment(projectId)}/workbench`;
+}
+
+function shotBase(projectId, shotId) {
+  return `${workbenchBase(projectId)}/shots/${shotSegment(shotId)}`;
+}
+
+export async function getVideoWorkbench(projectId) {
+  const response = await requestJson(workbenchBase(projectId), {}, '暂时无法读取视频项目');
+  if (!response?.project?.id || !Array.isArray(response.assets)
+    || !Array.isArray(response.shots) || !Array.isArray(response.timelineClips)) {
+    throw new Error('视频项目数据暂时不可用，请稍后重试');
+  }
+  return response;
+}
+
+export async function createWorkbenchAsset(projectId, payload = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/assets`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法创建项目素材');
+  return requireValue(response, 'asset', '项目素材暂时不可用，请稍后重试');
+}
+
+export async function importWorkbenchAssetVersion(projectId, assetId, payload = {}) {
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/assets/${assetSegment(assetId)}/versions`,
+    { method: 'POST', ...jsonBody(payload) },
+    '暂时无法导入项目素材',
+  );
+  return requireValue(response, 'version', '项目素材版本暂时不可用，请稍后重试');
+}
+
+export async function approveWorkbenchAssetVersion(projectId, assetId, payload = {}) {
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/assets/${assetSegment(assetId)}/approve`,
+    { method: 'POST', ...jsonBody(payload) },
+    '暂时无法确认项目素材',
+  );
+  return requireValue(response, 'asset', '项目素材暂时不可用，请稍后重试');
+}
+
+export async function createStoryboardShot(projectId, payload = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/shots`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法创建分镜');
+  return requireValue(response, 'shot', '分镜信息暂时不可用，请稍后重试');
+}
+
+export async function updateStoryboardShot(projectId, shotId, payload = {}) {
+  const response = await requestJson(shotBase(projectId, shotId), {
+    method: 'PATCH',
+    ...jsonBody(payload),
+  }, '暂时无法更新分镜');
+  return requireValue(response, 'shot', '分镜信息暂时不可用，请稍后重试');
+}
+
+export async function bindShotAssetVersion(projectId, shotId, payload = {}) {
+  const response = await requestJson(`${shotBase(projectId, shotId)}/bindings`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法绑定分镜素材');
+  return requireValue(response, 'binding', '分镜素材关系暂时不可用，请稍后重试');
+}
+
+export async function importJobCandidate(projectId, shotId, payload = {}) {
+  const response = await requestJson(`${shotBase(projectId, shotId)}/candidates`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法导入视频候选');
+  return requireValue(response, 'candidate', '视频候选暂时不可用，请稍后重试');
+}
+
+export async function selectShotCandidate(projectId, shotId, payload = {}) {
+  const response = await requestJson(`${shotBase(projectId, shotId)}/select`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法选定视频候选');
+  requireValue(response, 'shot', '分镜信息暂时不可用，请稍后重试');
+  requireValue(response, 'candidate', '视频候选暂时不可用，请稍后重试');
+  return response;
+}
+
+export async function addTimelineClip(projectId, payload = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/timeline/clips`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法加入时间线');
+  return requireValue(response, 'clip', '时间线片段暂时不可用，请稍后重试');
+}

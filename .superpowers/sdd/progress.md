@@ -21,6 +21,11 @@
   default-off server flag; signed project clients now list and read owned
   projects through the shared session invalidation and path validation logic.
   Focused API/client/cutover regression: 42/42. Next: signed workbench client.
+- P1 Task 3 is complete locally: one signed `videoWorkbench` client owns the
+  projection read plus asset/version approval, shot update/binding, verified
+  candidate import/selection and timeline mutation routes. Every path segment,
+  response shape and shared 401 invalidation path is covered; focused client
+  regression: 11/11. Next: pure workbench presentation model.
 
 ## Active workspace
 
