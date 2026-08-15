@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -9,6 +9,7 @@ import sharp from 'sharp';
 import {
   HOME_SHOWCASE_COMPOSITES,
   SOCIAL_SHOWCASE_ADAPTATIONS,
+  TRYON_LAYOUT_PLANS,
   buildHomeShowcaseComposites,
   buildSocialShowcaseAdaptations,
 } from '../scripts/build-home-showcase-composites.mjs';
@@ -19,19 +20,35 @@ test('try-on showcase composites preserve complete production assets in fixed wi
     const outputs = await buildHomeShowcaseComposites({ outputRoot, writeThumbs: false });
     assert.deepEqual(outputs.map(output => output.id), HOME_SHOWCASE_COMPOSITES.map(output => output.id));
     for (const output of outputs) {
-      const metadata = await sharp(output.path).metadata();
+      const metadata = await sharp(await readFile(output.path)).metadata();
       assert.equal(`${metadata.width}:${metadata.height}`, output.pixelRatio);
       assert.ok(metadata.width >= 1200);
       assert.ok(output.sources.length >= 2);
     }
-    assert.deepEqual(
-      outputs.filter(output => output.kind === 'selector').map(output => output.ratio),
-      ['4:3', '4:3', '4:3'],
-    );
-    assert.equal(outputs.find(output => output.kind === 'workflow').ratio, '16:9');
+    const multiAngle = outputs.find(output => output.kind === 'multi-angle');
+    const reference = outputs.find(output => output.kind === 'reference-workflow');
+    assert.equal(multiAngle.ratio, '16:9');
+    assert.equal(multiAngle.sources.length, 5);
+    assert.equal(reference.ratio, '16:9');
+    assert.equal(reference.sources.length, 3);
   } finally {
     await rm(outputRoot, { recursive: true, force: true });
   }
+});
+
+test('try-on layout plans fill the frame without duplicated or blurred padding stages', () => {
+  const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-v3'];
+  assert.deepEqual(multiAngle.stages, ['product', 'result-fan']);
+  assert.equal(multiAngle.resultCards.length, 4);
+  assert.deepEqual(multiAngle.resultCards.map(card => card.rotation), [-8, -3, 3, 8]);
+  assert.equal(multiAngle.arrow.kind, 'curved-editorial');
+  assert.ok(multiAngle.visualBounds.right - multiAngle.visualBounds.left >= 1504);
+
+  const reference = TRYON_LAYOUT_PLANS['tryon-reference-workflow'];
+  assert.deepEqual(reference.stages, ['product', 'reference-model', 'result']);
+  assert.equal(reference.fit, 'cover');
+  assert.equal(reference.blurPadding, false);
+  assert.ok(reference.visualBounds.right - reference.visualBounds.left >= 1504);
 });
 
 test('social showcase adaptations preserve the complete production cover in a symmetric frame', async () => {
@@ -40,7 +57,7 @@ test('social showcase adaptations preserve the complete production cover in a sy
     const outputs = await buildSocialShowcaseAdaptations({ outputRoot, writeThumbs: false });
     assert.deepEqual(outputs.map(output => output.id), SOCIAL_SHOWCASE_ADAPTATIONS.map(output => output.id));
     const output = outputs[0];
-    const metadata = await sharp(output.path).metadata();
+    const metadata = await sharp(await readFile(output.path)).metadata();
     assert.equal(`${metadata.width}:${metadata.height}`, '1200:1600');
     assert.equal(output.ratio, '3:4');
     assert.equal(output.provenance, 'production-composite');

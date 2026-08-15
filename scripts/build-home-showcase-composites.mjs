@@ -14,11 +14,51 @@ const DEFAULT_SOCIAL_OUTPUT_ROOT = resolve(PROJECT_ROOT, 'public/images/home/soc
 const DEFAULT_SOCIAL_THUMB_ROOT = resolve(PROJECT_ROOT, 'public/images/.thumbs/home/social-showcase');
 
 export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
-  Object.freeze({ id: 'tryon-selector-front-motion', kind: 'selector', ratio: '4:3', width: 1200, height: 900, sources: ['angle-front.png', 'angle-motion.png'] }),
-  Object.freeze({ id: 'tryon-selector-side-back', kind: 'selector', ratio: '4:3', width: 1200, height: 900, sources: ['angle-side.png', 'angle-back.png'] }),
-  Object.freeze({ id: 'tryon-selector-source-result', kind: 'selector', ratio: '4:3', width: 1200, height: 900, sources: ['editorial-flatlay-v3.webp', 'editorial-street-result-v3.webp'] }),
-  Object.freeze({ id: 'tryon-reference-workflow', kind: 'workflow', ratio: '16:9', width: 1600, height: 900, sources: ['editorial-flatlay-v3.webp', 'editorial-model-v3.webp', 'editorial-street-result-v3.webp'] }),
+  Object.freeze({
+    id: 'editorial-multi-angle-v3',
+    kind: 'multi-angle',
+    extension: 'webp',
+    ratio: '16:9',
+    width: 1600,
+    height: 900,
+    sources: ['editorial-flatlay-v3.webp', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
+  }),
+  Object.freeze({
+    id: 'tryon-reference-workflow',
+    kind: 'reference-workflow',
+    extension: 'png',
+    ratio: '16:9',
+    width: 1600,
+    height: 900,
+    sources: ['editorial-flatlay-v3.webp', 'reference-person.png', 'reference-result.png'],
+  }),
 ]);
+
+export const TRYON_LAYOUT_PLANS = Object.freeze({
+  'editorial-multi-angle-v3': Object.freeze({
+    stages: Object.freeze(['product', 'result-fan']),
+    fit: 'cover',
+    blurPadding: false,
+    visualBounds: Object.freeze({ left: 24, top: 44, right: 1584, bottom: 856 }),
+    product: Object.freeze({ left: 24, top: 72, width: 520, height: 756, rotation: -2 }),
+    arrow: Object.freeze({ kind: 'curved-editorial', left: 532, top: 318, width: 176, height: 210 }),
+    resultCards: Object.freeze([
+      Object.freeze({ left: 668, top: 118, width: 264, height: 664, rotation: -8 }),
+      Object.freeze({ left: 856, top: 76, width: 278, height: 706, rotation: -3 }),
+      Object.freeze({ left: 1066, top: 76, width: 278, height: 706, rotation: 3 }),
+      Object.freeze({ left: 1270, top: 118, width: 264, height: 664, rotation: 8 }),
+    ]),
+  }),
+  'tryon-reference-workflow': Object.freeze({
+    stages: Object.freeze(['product', 'reference-model', 'result']),
+    fit: 'cover',
+    blurPadding: false,
+    visualBounds: Object.freeze({ left: 24, top: 54, right: 1580, bottom: 846 }),
+    product: Object.freeze({ left: 24, top: 72, width: 508, height: 756, rotation: -2 }),
+    reference: Object.freeze({ left: 716, top: 68, width: 206, height: 764, rotation: -1 }),
+    result: Object.freeze({ left: 1350, top: 68, width: 206, height: 764, rotation: 2 }),
+  }),
+});
 
 export const SOCIAL_SHOWCASE_ADAPTATIONS = Object.freeze([
   Object.freeze({
@@ -51,37 +91,81 @@ async function fullFrame(sourcePath, width, height) {
     .toBuffer();
 }
 
-async function buildPair(definition) {
-  const panelWidth = 570;
-  const panelHeight = 860;
-  const panels = await Promise.all(definition.sources.map(source => fullFrame(resolve(SOURCE_ROOT, source), panelWidth, panelHeight)));
-  return sharp({ create: { width: definition.width, height: definition.height, channels: 4, background: '#eee9e2' } })
+function roundedMask(width, height, radius) {
+  return Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" rx="${radius}" fill="#fff"/></svg>`);
+}
+
+async function framedCover(sourcePath, { width, height, rotation = 0, border = 8, radius = 24 } = {}) {
+  const contentWidth = width - (border * 2);
+  const contentHeight = height - (border * 2);
+  const content = await sharp(sourcePath)
+    .resize(contentWidth, contentHeight, { fit: 'cover', position: 'centre' })
+    .composite([{ input: roundedMask(contentWidth, contentHeight, Math.max(8, radius - border)), blend: 'dest-in' }])
+    .png()
+    .toBuffer();
+  const card = await sharp({ create: { width, height, channels: 4, background: '#ffffff' } })
     .composite([
-      { input: panels[0], left: 20, top: 20 },
-      { input: panels[1], left: 610, top: 20 },
+      { input: roundedMask(width, height, radius), blend: 'dest-in' },
+      { input: content, left: border, top: border },
     ])
+    .png()
+    .toBuffer();
+  if (!rotation) return card;
+  return sharp(card).rotate(rotation, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+}
+
+async function placedCard(sourcePath, placement) {
+  const input = await framedCover(sourcePath, placement);
+  const metadata = await sharp(input).metadata();
+  const left = Math.round(placement.left - ((metadata.width - placement.width) / 2));
+  const top = Math.round(placement.top - ((metadata.height - placement.height) / 2));
+  return { input, left, top };
+}
+
+function multiAngleDecoration() {
+  return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4b3929" flood-opacity=".16"/></filter>
+      <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#cfc8bf"/><stop offset="1" stop-color="#a99c8d"/></linearGradient>
+    </defs>
+    <rect width="1600" height="900" fill="#f7f5f2"/>
+    <ellipse cx="1182" cy="814" rx="390" ry="34" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
+    <path d="M548 507 C596 448 631 388 687 342" fill="none" stroke="url(#arrow)" stroke-width="22" stroke-linecap="round"/>
+    <path d="M675 311 L724 324 L699 370 Z" fill="#a99c8d"/>
+  </svg>`);
+}
+
+async function buildMultiAngle(definition) {
+  const plan = TRYON_LAYOUT_PLANS[definition.id];
+  const [product, ...results] = await Promise.all([
+    placedCard(resolve(SOURCE_ROOT, definition.sources[0]), plan.product),
+    ...definition.sources.slice(1).map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
+  ]);
+  return sharp(multiAngleDecoration())
+    .composite([product, ...results])
     .png()
     .toBuffer();
 }
 
-function marker(symbol) {
-  return Buffer.from(`<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="29" fill="#ffffff" stroke="#d8d0c8" stroke-width="2"/><text x="32" y="42" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#5b524b">${symbol}</text></svg>`);
+function referenceDecoration() {
+  return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="flow" x1="0" x2="1"><stop stop-color="#d1c9c0"/><stop offset="1" stop-color="#9f9183"/></linearGradient></defs>
+    <rect width="1600" height="900" fill="#f7f5f2"/>
+    <circle cx="618" cy="450" r="42" fill="#2f2b28"/><path d="M598 450h40M618 430v40" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+    <path d="M978 526 C1082 466 1164 382 1288 334" fill="none" stroke="url(#flow)" stroke-width="22" stroke-linecap="round"/>
+    <path d="M1270 302 L1320 320 L1292 364 Z" fill="#9f9183"/>
+  </svg>`);
 }
 
-async function buildWorkflow(definition) {
-  const [product, model, result] = await Promise.all([
-    fullFrame(resolve(SOURCE_ROOT, definition.sources[0]), 520, 760),
-    fullFrame(resolve(SOURCE_ROOT, definition.sources[1]), 392, 700),
-    fullFrame(resolve(SOURCE_ROOT, definition.sources[2]), 392, 700),
+async function buildReferenceWorkflow(definition) {
+  const plan = TRYON_LAYOUT_PLANS[definition.id];
+  const [product, reference, result] = await Promise.all([
+    placedCard(resolve(SOURCE_ROOT, definition.sources[0]), plan.product),
+    placedCard(resolve(SOURCE_ROOT, definition.sources[1]), plan.reference),
+    placedCard(resolve(SOURCE_ROOT, definition.sources[2]), plan.result),
   ]);
-  return sharp({ create: { width: definition.width, height: definition.height, channels: 4, background: '#f4f1ed' } })
-    .composite([
-      { input: product, left: 44, top: 70 },
-      { input: marker('+'), left: 576, top: 418 },
-      { input: model, left: 650, top: 100 },
-      { input: marker('>'), left: 1058, top: 418 },
-      { input: result, left: 1148, top: 100 },
-    ])
+  return sharp(referenceDecoration())
+    .composite([product, reference, result])
     .png()
     .toBuffer();
 }
@@ -95,11 +179,13 @@ export async function buildHomeShowcaseComposites({
   if (writeThumbs) await mkdir(thumbRoot, { recursive: true });
   const outputs = [];
   for (const definition of HOME_SHOWCASE_COMPOSITES) {
-    const bytes = definition.kind === 'workflow'
-      ? await buildWorkflow(definition)
-      : await buildPair(definition);
-    const outputPath = resolve(outputRoot, `${definition.id}.png`);
-    await sharp(bytes).png().toFile(outputPath);
+    const bytes = definition.kind === 'multi-angle'
+      ? await buildMultiAngle(definition)
+      : await buildReferenceWorkflow(definition);
+    const outputPath = resolve(outputRoot, `${definition.id}.${definition.extension}`);
+    const output = sharp(bytes);
+    if (definition.extension === 'webp') await output.webp({ quality: 91 }).toFile(outputPath);
+    else await output.png().toFile(outputPath);
     if (writeThumbs) {
       await sharp(bytes)
         .resize({ width: 720, height: 720, fit: 'inside', withoutEnlargement: true })
