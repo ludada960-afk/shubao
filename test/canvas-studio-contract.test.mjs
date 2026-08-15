@@ -337,11 +337,18 @@ test('uploaded and edited canvas assets do not render result metadata chrome', (
   assert.match(page, /name: '',[\s\S]*?displayLabel: '',[\s\S]*?showMeta: false/);
 });
 
-test('smart-layer generation keeps the result collapsed and expands only its hidden children later', () => {
+test('smart-layer generation starts collapsed and replaces its composite with real children on extraction', () => {
   const page = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const interactionModel = readFileSync(new URL('../src/pages/EcCanvas/canvasInteractionModel.js', import.meta.url), 'utf8');
+  const studio = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(page, /layerChildIds/);
-  assert.match(page, /layerExpanded: true/);
+  assert.match(page, /expandCanvasLayerGroup\(previous, pointerMode\.sourceNodeId\)/);
+  assert.match(interactionModel, /layerExpanded: true, hidden: true/);
+  assert.match(interactionModel, /parentLayerGroupId === groupNodeId[\s\S]*?hidden: false/);
   assert.match(page, /node\.kind === ['"]layer-group['"]/);
+  assert.match(page, /layerChildren=\{nodes\.filter\(child => child\.parentLayerGroupId === node\.id\)\}/);
+  assert.match(studio, /ec-canvas-layer-composite/);
+  assert.match(studio, /\[\.\.\.layerChildren\]\.sort\([\s\S]*?\)\.map/);
   assert.match(page, /const groupNodeId = result\.groupNode\.id/);
   assert.match(page, /setMultiSelected\(new Set\(\[groupNodeId\]\)\)/);
 });

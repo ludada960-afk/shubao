@@ -113,6 +113,8 @@ test('PowerShell canary token validation is case-sensitive and rejects trailing 
   const helperPath = fileURLToPath(canarySessionHelperUrl).replaceAll("'", "''");
   const evaluate = token => spawnSync('powershell', [
     '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
     '-Command',
     `. '${helperPath}'; if (Test-CanarySessionTokenFormat $env:TOKEN_UNDER_TEST) { exit 0 } else { exit 1 }`,
   ], { env: { ...process.env, TOKEN_UNDER_TEST: token } }).status === 0;

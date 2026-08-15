@@ -1945,3 +1945,23 @@
   The design is self-reviewed and is waiting for the required written product
   approval before a file-by-file TDD implementation plan. No production code,
   deploy, paid video generation or runtime-owned files were changed.
+
+- 2026-08-15 the complete existing-product requirement/evidence audit is now
+  recorded in
+  `docs/superpowers/specs/2026-08-15-existing-product-requirements-evidence-audit.md`.
+  Every previously stated ecommerce, free-creation, gallery, upload/caret,
+  Canvas, reliability/admin and AI-video requirement is mapped to code, tests
+  and production evidence or an explicit limitation. The only newly proven
+  undeployed behavior gap was smart layering: success must replace the source
+  image and pending placeholder at the same frame, preserve source provenance
+  without a live source edge, initially show one collapsed layer-group
+  composite, and on the first layer extraction hide that composite while
+  revealing all real child layers. Failure keeps the source image. The change
+  was developed red-green and the focused Canvas suite passes 77/77. A final
+  relation-migration review added coverage so source-node workflow edges move
+  to the replacement group instead of disappearing; the focused interaction
+  suite passes 71/71. The full repository passes 1537/1537, the production build
+  transforms 6479 modules, build check and collaboration policy pass, and the
+  diff check is clean. Commit, production deployment and public verification
+  remain pending. No paid video generation ran, and the 12 runtime
+  extension-task deletions plus local temporary/diagnosis files remain excluded.

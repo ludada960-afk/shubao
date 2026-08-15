@@ -390,7 +390,36 @@ function CanvasSuitePlanEditor({ plan = {}, onChange }) {
   return <div className="ec-canvas-suite-plan-editor"><EcommerceDesignPlanEditor direction={plan} prompt={plan.brief} onChange={onChange} /></div>;
 }
 
-export function CanvasGenerationNode({ node, selected = false, dimmed = false, editing = false, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect }) {
+function layerCompositeStyle(layer = {}, group = {}) {
+  const bounds = layer.layerBounds;
+  const normalized = bounds && ['x', 'y', 'width', 'height']
+    .every(key => Number.isFinite(Number(bounds[key])));
+  if (normalized) {
+    return {
+      left: `${Number(bounds.x) * 100}%`,
+      top: `${Number(bounds.y) * 100}%`,
+      width: `${Number(bounds.width) * 100}%`,
+      height: `${Number(bounds.height) * 100}%`,
+    };
+  }
+  const width = Math.max(1, Number(group.w) || 1);
+  const height = Math.max(1, Number(group.h) || 1);
+  return {
+    left: `${((Number(layer.x) || Number(group.x) || 0) - (Number(group.x) || 0)) / width * 100}%`,
+    top: `${((Number(layer.y) || Number(group.y) || 0) - (Number(group.y) || 0)) / height * 100}%`,
+    width: `${Math.max(0, Number(layer.w) || width) / width * 100}%`,
+    height: `${Math.max(0, Number(layer.h) || height) / height * 100}%`,
+  };
+}
+
+function layerCompositeOrder(layer = {}) {
+  if (layer.semanticType === 'background') return 0;
+  if (layer.kind === 'text' || layer.semanticType === 'text') return 3;
+  if (layer.semanticType === 'product-group') return 1;
+  return 2;
+}
+
+export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -423,7 +452,13 @@ export function CanvasGenerationNode({ node, selected = false, dimmed = false, e
       onFocus={() => onTextSelect?.(node.id)}
       onInput={event => onTextChange?.(node.id, event.currentTarget.textContent || '')}
       onBlur={() => onTextBlur?.(node.id)}
-    >{node.text || ''}</div> : isVideo && node.url ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : isSuite && directions.length ? <EcommerceDesignPlanPreview direction={suitePlan} prompt={node.prompt} /> : <div className="ec-canvas-generation-placeholder">
+    >{node.text || ''}</div> : isVideo && node.url ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+      {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
+        {layer.kind === 'text'
+          ? <span style={layer.textStyle || undefined}>{layer.text}</span>
+          : <ResponsiveImage src={layer.url} alt="" variant="canvas" ratio={layer.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} />}
+      </div>)}
+    </div> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : isSuite && directions.length ? <EcommerceDesignPlanPreview direction={suitePlan} prompt={node.prompt} /> : <div className="ec-canvas-generation-placeholder">
       {isVideo ? <Clapperboard size={28} /> : isLayerGroup ? <Layers3 size={28} /> : isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
       <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}

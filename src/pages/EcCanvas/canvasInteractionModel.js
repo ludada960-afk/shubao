@@ -72,6 +72,50 @@ export function isCanvasConnectionVisible(connection = {}, nodes = []) {
   return Boolean(from && to && !from.hidden && !to.hidden);
 }
 
+export function replaceCanvasNodeWithLayerResult({
+  nodes = [],
+  connections = [],
+  sourceNodeId,
+  pendingNodeId,
+  groupNode,
+  childNodes = [],
+  resultConnections = [],
+} = {}) {
+  const removedIds = new Set([sourceNodeId, pendingNodeId].filter(Boolean));
+  const retainedNodes = nodes.filter(node => !removedIds.has(node?.id));
+  const replacementId = groupNode?.id;
+  const retainedConnections = connections.flatMap(connection => {
+    const fromId = connection?.fromNodeId || connection?.from;
+    const toId = connection?.toNodeId || connection?.to;
+    if (fromId === pendingNodeId || toId === pendingNodeId) return [];
+    if (fromId !== sourceNodeId && toId !== sourceNodeId) return [connection];
+    if (!replacementId) return [];
+    return [{
+      ...connection,
+      ...(fromId === sourceNodeId ? {
+        fromNodeId: replacementId,
+        ...(Object.hasOwn(connection, 'from') ? { from: replacementId } : {}),
+      } : {}),
+      ...(toId === sourceNodeId ? {
+        toNodeId: replacementId,
+        ...(Object.hasOwn(connection, 'to') ? { to: replacementId } : {}),
+      } : {}),
+    }];
+  });
+  return {
+    nodes: [...retainedNodes, groupNode, ...childNodes].filter(Boolean),
+    connections: [...retainedConnections, ...resultConnections],
+  };
+}
+
+export function expandCanvasLayerGroup(nodes = [], groupNodeId) {
+  return nodes.map(node => {
+    if (node?.id === groupNodeId) return { ...node, layerExpanded: true, hidden: true };
+    if (node?.parentLayerGroupId === groupNodeId) return { ...node, hidden: false };
+    return node;
+  });
+}
+
 export function getContextMenuPosition({
   x,
   y,

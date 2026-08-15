@@ -154,11 +154,12 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     status: 'ready',
     actionId: 'layer-edit',
     group: '智能分层',
-    x: Number.isFinite(Number(anchor?.x)) ? Number(anchor.x) : finite(sourceNode.x) + groupWidth + 48,
+    x: Number.isFinite(Number(anchor?.x)) ? Number(anchor.x) : finite(sourceNode.x),
     y: Number.isFinite(Number(anchor?.y)) ? Number(anchor.y) : finite(sourceNode.y),
     w: groupWidth,
     h: groupHeight,
-    sourceNodeIds: [sourceId],
+    sourceNodeIds: [],
+    provenanceSourceNodeId: sourceId,
     layerExpanded: false,
     layerChildIds: [],
     layerCount: 0,
@@ -176,7 +177,8 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
       confidence: Number.isFinite(Number(layer.confidence)) ? Number(layer.confidence) : null,
       editable: true,
       status: 'ready',
-      sourceNodeIds: [sourceId],
+      sourceNodeIds: [],
+      provenanceSourceNodeId: sourceId,
       actionId: 'layer-edit',
       group: '智能分层',
       role: layer.semanticType,
@@ -191,18 +193,7 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
   });
   groupNode.layerChildIds = childNodes.map(node => node.id);
   groupNode.layerCount = childNodes.length;
-  const connections = [{
-    id: `edge_${stableRunId}_source`,
-    fromNodeId: sourceId,
-    fromPort: 'output',
-    toNodeId: groupId,
-    toPort: 'input',
-    relation: 'derived',
-    actionId: 'layer-edit',
-    from: sourceId,
-    to: groupId,
-    type: 'derived',
-  }, ...childNodes.map((node, index) => ({
+  const connections = childNodes.map((node, index) => ({
     id: `edge_${stableRunId}_${index + 1}`,
     fromNodeId: groupId,
     fromPort: 'output',
@@ -213,9 +204,9 @@ export function materializeCanvasLayers({ sourceNode, layers = [], anchor, runId
     from: groupId,
     to: node.id,
     type: 'derived',
-  }))];
+  }));
   return {
-    sourceNode,
+    replacedSourceNodeId: sourceId,
     groupNode: {
       ...groupNode,
       layerChildIds: childNodes.map(node => node.id),

@@ -16,7 +16,7 @@ const source = Object.freeze({
   name: '三色保鲜盒',
 });
 
-test('smart layering preserves the source and creates an independent result group to its right', () => {
+test('smart layering replaces the source with a layer group in the same frame', () => {
   const result = materializeCanvasLayers({
     sourceNode: source,
     runId: 'run-1',
@@ -31,22 +31,26 @@ test('smart layering preserves the source and creates an independent result grou
   });
 
   assert.equal(result.nodes.length, 3);
-  assert.equal(result.connections.length, 4);
+  assert.equal(result.connections.length, 3);
   assert.equal(new Set(result.nodes.map(node => node.id)).size, 3);
   assert.deepEqual(result.nodes.map(node => node.semanticType), [
     'product-group', 'background', 'text',
   ]);
-  assert.deepEqual(result.sourceNode, source);
+  assert.equal(result.replacedSourceNodeId, source.id);
   assert.notEqual(result.groupNode.id, source.id);
   assert.equal(result.groupNode.kind, 'layer-group');
-  assert.equal(result.groupNode.x, source.x + source.w + 48);
+  assert.equal(result.groupNode.x, source.x);
   assert.equal(result.groupNode.y, source.y);
   assert.equal(result.groupNode.layerExpanded, false);
   assert.equal(result.groupNode.layerChildIds.length, 3);
+  assert.deepEqual(result.groupNode.sourceNodeIds, []);
+  assert.equal(result.groupNode.provenanceSourceNodeId, source.id);
   assert.equal(result.groupNode.showMeta, false);
   assert.ok(result.nodes.every(node => node.hidden === true));
+  assert.ok(result.nodes.every(node => node.sourceNodeIds.length === 0));
+  assert.ok(result.nodes.every(node => node.provenanceSourceNodeId === source.id));
   assert.ok(result.nodes.every(node => node.parentLayerGroupId === result.groupNode.id));
-  assert.ok(result.connections.some(edge => edge.fromNodeId === source.id && edge.toNodeId === result.groupNode.id));
+  assert.equal(result.connections.some(edge => edge.fromNodeId === source.id || edge.toNodeId === source.id), false);
   assert.ok(result.connections.filter(edge => edge.fromNodeId === result.groupNode.id).every(edge => result.nodes.some(node => node.id === edge.toNodeId)));
   assert.ok(result.nodes.every(node => node.editable !== false));
   const text = result.nodes.find(node => node.kind === 'text');
@@ -59,7 +63,7 @@ test('smart layering preserves the source and creates an independent result grou
   assert.equal(text.textStyle.background, 'transparent');
 });
 
-test('smart layering keeps the original full-scene image untouched without copying media into the virtual group', () => {
+test('smart layering keeps source provenance without copying source media into the replacement group', () => {
   const result = materializeCanvasLayers({
     sourceNode: { ...source, url: '/original-scene.png', ratio: '3:4' },
     runId: 'collapsed-source-run',
@@ -69,8 +73,7 @@ test('smart layering keeps the original full-scene image untouched without copyi
     ],
   });
 
-  assert.equal(result.sourceNode.url, '/original-scene.png');
-  assert.equal(result.sourceNode.kind, 'image');
+  assert.equal(result.replacedSourceNodeId, source.id);
   assert.equal(Object.hasOwn(result.groupNode, 'url'), false);
   assert.equal(Object.hasOwn(result.groupNode, 'assetId'), false);
   assert.equal(Object.hasOwn(result.groupNode, 'ratio'), false);
@@ -110,13 +113,11 @@ test('smart layering produces stable non-overlapping placements from an explicit
     })),
   });
 
-  assert.deepEqual(result.sourceNode.x, source.x);
-  assert.deepEqual(result.sourceNode.y, source.y);
+  assert.equal(result.replacedSourceNodeId, source.id);
   assert.deepEqual(result.groupNode.x, 500);
   assert.deepEqual(result.groupNode.y, 200);
   const positions = result.nodes.map(node => `${node.x}:${node.y}`);
   assert.equal(new Set(positions).size, 1);
-  assert.equal(result.sourceNode.kind, 'image');
   assert.equal(result.groupNode.kind, 'layer-group');
   assert.deepEqual(
     materializeCanvasLayers({ sourceNode: source, runId: 'stable-run', anchor: { x: 500, y: 200 }, layers: result.layers }).nodes.map(node => node.id),
