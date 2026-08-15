@@ -1,5 +1,11 @@
 import { productionPromptFor } from './productionCasePrompts.js';
 import { validateProductionCaseManifest } from './productionCaseManifest.js';
+import {
+  EARBUD_COMPOSITE_PROMPT_V3,
+  EARBUD_COMPOSITE_REQUEST_KEY_V3,
+  EARBUD_DETAIL_PROMPTS,
+  EARBUD_SUITE_REPLAY_PROMPT,
+} from './productionCasePromptLibrary.js';
 
 function asset({ id = '', src, label, role, ratio, intent, taskId = '', requestKey = '', prompt = '', provenance = 'production', ...metadata }) {
   return Object.freeze({ id, src, label, role, ratio, intent, taskId, requestKey, prompt, provenance, ...metadata });
@@ -40,19 +46,19 @@ function visualProductionCase({ id, chapters }) {
 
 const PRODUCT_SUITE_ASSETS = Object.freeze([
   asset({ id: 'earbuds-product-source', src: '/images/home/ecommerce-showcase/earbuds-product-source.png', label: '完整商品母图', role: 'source', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '为珍珠白与香槟金真无线降噪耳机生成完整商品母图，保持耳机与充电盒结构、颜色、材质和比例，不添加品牌或文字。' }),
-  asset({ id: 'earbuds-suite-panel-structure', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-structure.png', label: '声学结构解析', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'structure', isWhiteBackground: false, prompt: '展示耳机结构、金属网孔、翻盖与指示灯细节，商品完整且中文克制。' }),
-  asset({ id: 'earbuds-suite-panel-usage', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-usage.png', label: '自然佩戴场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'usage', isWhiteBackground: false, prompt: '成年女性在自然窗光环境中使用耳机，商品结构清楚可见。' }),
-  asset({ id: 'earbuds-suite-panel-scene', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-scene.png', label: '清晰通话场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'scene', isWhiteBackground: false, prompt: '用真实人物佩戴与产品细节呈现清晰通话体验。' }),
-  asset({ id: 'earbuds-suite-panel-identity', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-identity.png', label: '商品身份主视觉', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: '以完整耳机、充电盒和尺度关系建立商品身份。' }),
-  asset({ id: 'earbuds-suite-panel-function', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-function.png', label: '精致材质详情', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: '以完整商品和细节特写呈现珍珠白与香槟金材质。' }),
-  asset({ id: 'earbuds-suite-composite', src: '/images/home/ecommerce-showcase/earbuds-suite-composite.png', label: '完整电商套图成片', role: 'result', ratio: '1:1', intent: 'product_suite', taskId: 'canvas_df2dfe22c8926181abfa5000303c044745968abbddac21374f5491c46e3466fd', requestKey: 'showcase-20260815-earbuds-composite-v2', displayRole: 'finalComposite', isWhiteBackground: false, prompt: '将五张正式生产详情图合成为一张完整方形电商能力展示成片。' }),
+  asset({ id: 'earbuds-suite-panel-structure', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-structure.png', label: '声学结构解析', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'structure', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-structure'] }),
+  asset({ id: 'earbuds-suite-panel-usage', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-usage.png', label: '自然佩戴场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'usage', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-usage'] }),
+  asset({ id: 'earbuds-suite-panel-scene', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-scene.png', label: '清晰通话场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'scene', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-scene'] }),
+  asset({ id: 'earbuds-suite-panel-identity', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-identity.png', label: '商品身份主视觉', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-identity'] }),
+  asset({ id: 'earbuds-suite-panel-function', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-function.png', label: '续航与佩戴详情', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-function'] }),
+  asset({ id: 'earbuds-suite-composite', src: '/images/home/ecommerce-showcase/earbuds-suite-composite.png', label: '完整电商套图成片', role: 'result', ratio: '4:3', intent: 'product_suite', taskId: 'canvas_9ddb1e933e598050fe014e69aa969d52b32a230623a586e6546a7ffcb02a5197', requestKey: EARBUD_COMPOSITE_REQUEST_KEY_V3, displayRole: 'finalComposite', isWhiteBackground: false, prompt: EARBUD_COMPOSITE_PROMPT_V3 }),
 ]);
 
 export const PRODUCT_SUITE_MANIFEST = validateProductionCaseManifest({
   id: 'product-suite',
   title: '珍珠白降噪耳机商品套图',
   category: 'ecommerce',
-  prompt: '为珍珠白与香槟金真无线降噪耳机生成统一的商品主视觉、结构解析、自然佩戴与通话场景，并编排成完整电商套图。',
+  prompt: EARBUD_SUITE_REPLAY_PROMPT,
   sourceAssets: PRODUCT_SUITE_ASSETS
     .filter(item => item.role === 'source')
     .map(item => ({ id: item.id, role: 'product', url: item.src, name: item.label })),
@@ -80,7 +86,7 @@ export const PRODUCT_SUITE_MANIFEST = validateProductionCaseManifest({
   },
   remix: {
     mode: 'product_suite',
-    prompt: '为珍珠白与香槟金真无线降噪耳机生成统一的商品主视觉、结构解析、自然佩戴与通话场景，并编排成完整电商套图。',
+    prompt: EARBUD_SUITE_REPLAY_PROMPT,
     sourceAssetRoles: ['product'],
   },
 });
@@ -101,10 +107,7 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
       asset({ id: 'tryon-angle-motion', src: '/images/home/tryon-showcase/angle-motion.png', label: '动态行走', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的动态行走姿态，具有时尚感且不裁切。' }),
       asset({ id: 'tryon-angle-side', src: '/images/home/tryon-showcase/angle-side.png', label: '侧面版型', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的侧面版型视图，展示衣摆、裤型与配饰关系。' }),
       asset({ id: 'tryon-angle-back', src: '/images/home/tryon-showcase/angle-back.png', label: '背面细节', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的背面视图，保持人物与场景连续。' }),
-      asset({ id: 'tryon-selector-front-motion', src: '/images/home/tryon-showcase/tryon-selector-front-motion.png', label: '正面与动态成片', role: 'result', ratio: '4:3', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', provenance: 'production-composite', displayRole: 'selectorPreview', prompt: '将正式生产的正面与动态全身结果无裁切合成为宽幅预览。' }),
-      asset({ id: 'tryon-selector-side-back', src: '/images/home/tryon-showcase/tryon-selector-side-back.png', label: '侧面与背面成片', role: 'result', ratio: '4:3', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', provenance: 'production-composite', displayRole: 'selectorPreview', prompt: '将正式生产的侧面与背面全身结果无裁切合成为宽幅预览。' }),
-      asset({ id: 'tryon-selector-source-result', src: '/images/home/tryon-showcase/tryon-selector-source-result.png', label: '商品到街拍结果', role: 'result', ratio: '4:3', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', provenance: 'production-composite', displayRole: 'selectorPreview', prompt: '将完整商品与正式生产街拍结果合成为宽幅预览。' }),
-      asset({ id: 'tryon-angles-workflow', src: '/images/home/tryon-showcase/editorial-multi-angle-v3.webp', label: '商品到多角度成片', role: 'result', ratio: '16:9', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', provenance: 'production-composite', displayRole: 'workflowBanner', prompt: '完整展示商品套装与四个正式生产的全身时尚角度。' }),
+      asset({ id: 'tryon-angles-workflow', src: '/images/home/tryon-showcase/editorial-multi-angle-v3.webp', label: '商品到多角度成片', role: 'result', ratio: '16:9', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', provenance: 'production-composite', displayRole: 'workflowBanner', selectorPreview: true, prompt: '完整展示商品套装与四个正式生产的全身时尚角度。' }),
     ]),
   }),
   Object.freeze({

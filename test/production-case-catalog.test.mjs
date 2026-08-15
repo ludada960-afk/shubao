@@ -53,14 +53,16 @@ test('multi-angle try-on exposes four independent complete model views', () => {
   assert.equal(item.assets.find(asset => asset.displayRole === 'workflowBanner').ratio, '16:9');
 });
 
-test('product suite has one final composite, five detail sources, and three rich selector previews', () => {
+test('product suite has one wide final composite, five exact-prompt detail sources, and three rich selector previews', () => {
   const item = productionCaseById('product-suite');
   assert.ok(item.assets.some(asset => asset.role === 'source'));
   const finalAssets = item.assets.filter(asset => asset.displayRole === 'finalComposite');
   const detailAssets = item.assets.filter(asset => ['detailSource', 'selectorPreview'].includes(asset.displayRole));
   const previews = item.assets.filter(asset => asset.displayRole === 'selectorPreview');
   assert.equal(finalAssets.length, 1);
-  assert.equal(finalAssets[0].ratio, '1:1');
+  assert.equal(finalAssets[0].ratio, '4:3');
+  assert.equal(finalAssets[0].requestKey, 'showcase-20260815-earbuds-composite-v3');
+  assert.equal(finalAssets[0].taskId, 'canvas_9ddb1e933e598050fe014e69aa969d52b32a230623a586e6546a7ffcb02a5197');
   assert.equal(detailAssets.length, 5);
   assert.deepEqual(previews.map(asset => asset.selectorKind), ['structure', 'usage', 'scene']);
   assert.ok(previews.every(asset => asset.isWhiteBackground !== true));
@@ -68,11 +70,11 @@ test('product suite has one final composite, five detail sources, and three rich
   assert.doesNotMatch(item.assets.map(asset => asset.src).join('\n'), /cobalt-lamp/);
 });
 
-test('try-on selector previews are purpose-built wide frames from production-backed assets', () => {
+test('try-on selector uses one purpose-built wide fan from production-backed assets', () => {
   const item = productionCaseById('tryon-angles');
-  const previews = item.assets.filter(asset => asset.displayRole === 'selectorPreview');
-  assert.equal(previews.length, 3);
-  assert.ok(previews.every(asset => asset.ratio === '4:3'));
+  const previews = item.assets.filter(asset => asset.selectorPreview === true);
+  assert.equal(previews.length, 1);
+  assert.ok(previews.every(asset => asset.ratio === '16:9'));
   assert.ok(previews.every(asset => asset.provenance === 'production-composite'));
 });
 
@@ -87,7 +89,7 @@ test('gallery product suite metadata describes the production earbuds instead of
   assert.match(item.title, /耳机商品套图/);
   assert.doesNotMatch(item.title, /玻璃灯/);
   assert.equal(item.cover_url, '/images/home/ecommerce-showcase/earbuds-suite-composite.png');
-  assert.equal(item.ratio, '1:1');
+  assert.equal(item.ratio, '4:3');
   assert.equal(item.images.length, productionCaseById('product-suite').manifest.outputs.length);
   assert.ok(item.images.every(image => image.prompt && image.requestKey && image.taskId));
   assert.deepEqual(item.remix.sourceAssets, productionCaseById('product-suite').manifest.sourceAssets);

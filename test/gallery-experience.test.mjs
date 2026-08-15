@@ -29,7 +29,10 @@ test('ecommerce gallery mosaic layout stays inside the output canvas', () => {
 });
 
 test('gallery modal contains wheel navigation and locks page scrolling', async () => {
-  const source = await readFile(new URL('../src/NoteModal.jsx', import.meta.url), 'utf8');
+  const source = [
+    await readFile(new URL('../src/NoteModal.jsx', import.meta.url), 'utf8'),
+    await readFile(new URL('../src/gallery/ecommerceGalleryModel.js', import.meta.url), 'utf8'),
+  ].join('\n');
   assert.match(source, /document\.documentElement\.style\.overflow\s*=\s*'hidden'/);
   assert.match(source, /e\.preventDefault\(\)/);
   assert.match(source, /e\.stopPropagation\(\)/);

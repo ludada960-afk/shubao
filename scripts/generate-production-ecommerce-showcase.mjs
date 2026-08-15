@@ -5,6 +5,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import sharp from 'sharp';
 
 import { requestJson } from './verify-production-billing.mjs';
+import {
+  EARBUD_COMPOSITE_PROMPT_V3,
+  EARBUD_COMPOSITE_REQUEST_KEY_V3,
+  EARBUD_USAGE_PROMPT_V3,
+  EARBUD_USAGE_REQUEST_KEY_V3,
+} from '../src/pages/Home/productionCasePromptLibrary.js';
 
 const DEFAULT_ROOT = 'https://shuimg.cn';
 const OWNER_EMAIL = '867550189@qq.com';
@@ -15,7 +21,6 @@ const SOURCE_FIXTURE = resolve(SCRIPT_ROOT, '../public/images/home/ecommerce-sho
 const PUBLIC_ROOT = resolve(SCRIPT_ROOT, '../public/images/home/ecommerce-showcase');
 const THUMB_ROOT = resolve(SCRIPT_ROOT, '../public/images/.thumbs/home/ecommerce-showcase');
 const DETAIL_SUBMISSION_ID = 'showcase-20260815-earbuds-detail-suite-v2';
-const COMPOSITE_REQUEST_KEY = 'showcase-20260815-earbuds-composite-v2';
 const TERMINAL_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 
 const DETAIL_SHOTS = Object.freeze([
@@ -25,8 +30,6 @@ const DETAIL_SHOTS = Object.freeze([
   Object.freeze({ id: 'detail_scene', label: '真实使用场景图', file: 'earbuds-suite-panel-scene.png', purpose: '会议或居家通话场景，人物、耳机和空间关系自然，呈现清晰通话价值。' }),
   Object.freeze({ id: 'detail_function', label: '续航与佩戴详情图', file: 'earbuds-suite-panel-function.png', purpose: '以充电盒、耳机和佩戴细节解释续航与轻盈佩戴，不编造认证、价格或未经确认的数字。' }),
 ]);
-
-const COMPOSITE_PROMPT = `1:1 方形电商能力展示成片。严格使用输入的五张珍珠白与香槟金耳机详情图作为同一商品与同一视觉系统的依据，不改变耳机、充电盒、颜色、材质和金属装饰。构图参考成熟的多面板电商作品展示：上半部竖立四张有景深的详情面板，分别呈现品牌主视觉、安静通勤佩戴、声学结构和清晰通话；中央前景放大一只打开的充电盒与两只完整耳机，柔和香槟金光轨从左下贯穿到右上；左下放一个小型生成预览窗口，右下用两条简短准确中文“高效出图”“专业排版”。奶白、暖金、浅灰体系，真实高级电商质感，所有面板完整可辨，四周保留安全边距，不出现品牌 Logo、价格、水印或未经提供的参数。`;
 
 const wait = delay => new Promise(resolvePromise => setTimeout(resolvePromise, delay));
 
@@ -108,10 +111,10 @@ export function buildDetailGenerationPayload({ product, direction, quoteId }) {
   };
 }
 
-export function buildCompositePayload({ detailUrls, quoteId, requestKey = COMPOSITE_REQUEST_KEY }) {
+export function buildCompositePayload({ detailUrls, quoteId, requestKey = EARBUD_COMPOSITE_REQUEST_KEY_V3, billingActionId = `showcase-${requestKey}` }) {
   const stable = assertStableAssets(detailUrls, DETAIL_SHOTS.length);
   return {
-    prompt: COMPOSITE_PROMPT,
+    prompt: EARBUD_COMPOSITE_PROMPT_V3,
     image_url: stable[0],
     reference_images: stable.slice(1),
     reference_metadata: stable.map((url, index) => ({
@@ -119,15 +122,97 @@ export function buildCompositePayload({ detailUrls, quoteId, requestKey = COMPOS
       mention: `@详情图 ${index + 1}`,
       role: 'reference',
     })),
-    ratio: '1:1',
+    ratio: '4:3',
     resolution: '2K',
     image_model: 'image2',
     request_key: requestKey,
     creation_intent: 'visual',
     skill_id: 'free',
     billing_quote_id: required(quoteId, 'composite quote ID'),
-    billing_action_id: `showcase-${requestKey}`,
+    billing_action_id: required(billingActionId, 'composite billing action ID'),
   };
+}
+
+export function buildUsagePayload({ detailUrls, quoteId, requestKey = EARBUD_USAGE_REQUEST_KEY_V3, billingActionId = `showcase-${requestKey}` }) {
+  const stable = assertStableAssets(detailUrls, DETAIL_SHOTS.length);
+  return {
+    prompt: EARBUD_USAGE_PROMPT_V3,
+    image_url: stable[1],
+    reference_images: [stable[0], stable[2], stable[3], stable[4]],
+    reference_metadata: stable.map((url, index) => ({
+      url,
+      mention: `@耳机详情参考 ${index + 1}`,
+      role: index === 1 ? 'subject' : 'reference',
+    })),
+    ratio: '3:4',
+    resolution: '2K',
+    image_model: 'image2',
+    request_key: requestKey,
+    creation_intent: 'ecommerce',
+    skill_id: 'free',
+    billing_quote_id: required(quoteId, 'usage quote ID'),
+    billing_action_id: required(billingActionId, 'usage billing action ID'),
+  };
+}
+
+export async function requestCanvasResult({
+  request,
+  payload,
+  pollIntervalMs = 2_000,
+  maxPollAttempts = 300,
+  statusFirst = false,
+} = {}) {
+  if (typeof request !== 'function') throw new Error('Canvas request function is required');
+  if (!payload || typeof payload !== 'object') throw new Error('Canvas payload is required');
+
+  const pollStatus = async () => {
+    let lastError;
+    for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+      try {
+        const status = await request('/api/canvas/regenerate/status', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+          timeoutMs: 30_000,
+          maxAttempts: 1,
+        });
+        if (status?.status === 'completed' && status.url) {
+          return { ...status, replay: true };
+        }
+        if (status?.status === 'failed') {
+          throw Object.assign(new Error(status.error || 'Canvas generation failed durably'), { terminal: true });
+        }
+      } catch (error) {
+        if (error?.terminal === true) throw error;
+        if (statusFirst && /404|missing/i.test(String(error?.message || error))) throw error;
+        lastError = error;
+      }
+      await wait(pollIntervalMs);
+    }
+    throw lastError || new Error('Canvas generation status did not reach a terminal state');
+  };
+
+  if (statusFirst) {
+    try {
+      return await pollStatus();
+    } catch (error) {
+      if (!/404|missing/i.test(String(error?.message || error))) throw error;
+    }
+  }
+
+  try {
+    return await request('/api/canvas/regenerate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+      maxAttempts: 1,
+    });
+  } catch (error) {
+    if (!/409|502|503|504|524|timeout|aborted|in progress|temporar/i.test(String(error?.message || error))) {
+      throw error;
+    }
+    return pollStatus();
+  }
 }
 
 function assertDirection(response) {
@@ -239,10 +324,11 @@ async function downloadDetailStage({ audit, root, token, fetchImpl }) {
 
 function defaultAudit() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     stageOne: { status: 'pending', requestKey: DETAIL_SUBMISSION_ID },
-    stageTwo: { status: 'pending', requestKey: COMPOSITE_REQUEST_KEY },
+    stageTwo: { status: 'pending', requestKey: EARBUD_COMPOSITE_REQUEST_KEY_V3 },
+    usage: { status: 'pending', requestKey: EARBUD_USAGE_REQUEST_KEY_V3 },
   };
 }
 
@@ -256,6 +342,7 @@ export async function generateProductionEcommerceShowcase({
   pollIntervalMs = 2_000,
   maxPollAttempts = 300,
   resumeAudit,
+  usageBillingActionId = '',
   writeAudit = true,
   download = process.env.SHUBAO_SHOWCASE_DOWNLOAD === '1',
 } = {}) {
@@ -275,6 +362,14 @@ export async function generateProductionEcommerceShowcase({
   const balanceBefore = await request('/api/billing/balance');
   const savedAudit = resumeAudit || (writeAudit ? await readAudit() : null);
   const audit = savedAudit ? structuredClone(savedAudit) : defaultAudit();
+  audit.schemaVersion = 2;
+  if (audit.stageTwo?.requestKey !== EARBUD_COMPOSITE_REQUEST_KEY_V3) {
+    if (audit.stageTwo?.status === 'completed') audit.legacyStageTwo = audit.stageTwo;
+    audit.stageTwo = { status: 'pending', requestKey: EARBUD_COMPOSITE_REQUEST_KEY_V3 };
+  }
+  if (audit.usage?.requestKey !== EARBUD_USAGE_REQUEST_KEY_V3) {
+    audit.usage = { status: 'pending', requestKey: EARBUD_USAGE_REQUEST_KEY_V3 };
+  }
   audit.generatedAt = new Date().toISOString();
   audit.balanceBefore = balanceBefore?.balances?.ec_points || null;
 
@@ -359,71 +454,172 @@ export async function generateProductionEcommerceShowcase({
 
   if (audit.stageTwo?.status === 'completed') {
     audit.stageTwo.stableUrl = assertStableAssets([audit.stageTwo.stableUrl], 1)[0];
-    return audit;
+  } else {
+    try {
+      let quoteId = String(audit.stageTwo?.quoteId || '').trim();
+      const billingActionId = String(audit.stageTwo?.billingActionId || `showcase-${audit.stageTwo.requestKey}`).trim();
+      if (!quoteId) {
+        const quote = await request('/api/billing/quote', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sku: 'ec_image_2k', quantity: 1 }),
+          maxAttempts: 1,
+        });
+        if (quote?.quote?.totalUnits !== 1000 || !quote.quote.quoteId) {
+          throw new Error('Production showcase stage-two quote is invalid');
+        }
+        quoteId = quote.quote.quoteId;
+      }
+      audit.stageTwo = {
+        ...(audit.stageTwo || {}),
+        status: 'submitting',
+        quoteId,
+        billingActionId,
+        prompt: EARBUD_COMPOSITE_PROMPT_V3,
+      };
+      await persistAudit(audit, writeAudit);
+      const compositePayload = buildCompositePayload({
+          detailUrls: audit.stageOne.stableUrls,
+          quoteId,
+          requestKey: audit.stageTwo.requestKey,
+          billingActionId,
+      });
+      const composite = await requestCanvasResult({
+        request,
+        payload: compositePayload,
+        pollIntervalMs,
+        maxPollAttempts,
+        statusFirst: /524|timeout/i.test(String(audit.stageTwo?.error || '')),
+      });
+      const stableUrl = assertStableAssets([composite?.url], 1)[0];
+      audit.stageTwo = {
+        status: 'completed',
+        taskId: required(composite?.taskId, 'showcase composite task ID'),
+        requestKey: EARBUD_COMPOSITE_REQUEST_KEY_V3,
+        stableUrl,
+        quoteId,
+        billingActionId,
+        prompt: EARBUD_COMPOSITE_PROMPT_V3,
+        billing: composite?.billing || null,
+      };
+      if (download) {
+        audit.stageTwo.download = await downloadImage({
+          root,
+          token,
+          stableUrl,
+          targetFile: 'earbuds-suite-composite.png',
+          ratio: '4:3',
+          fetchImpl,
+        });
+      }
+      await persistAudit(audit, writeAudit);
+    } catch (cause) {
+      audit.stageTwo = {
+        ...(audit.stageTwo || {}),
+        status: 'failed',
+        failedAt: new Date().toISOString(),
+        error: String(cause?.message || cause),
+      };
+      await persistAudit(audit, writeAudit);
+      const error = new Error(`Production showcase stage two failed: ${audit.stageTwo.error}`, { cause });
+      error.audit = audit;
+      throw error;
+    }
   }
 
-  try {
-    const quote = await request('/api/billing/quote', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sku: 'ec_image_2k', quantity: 1 }),
-      maxAttempts: 1,
-    });
-    if (quote?.quote?.totalUnits !== 1000 || !quote.quote.quoteId) {
-      throw new Error('Production showcase stage-two quote is invalid');
-    }
-    const composite = await request('/api/canvas/regenerate', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(buildCompositePayload({
-        detailUrls: audit.stageOne.stableUrls,
-        quoteId: quote.quote.quoteId,
-        requestKey: audit.stageTwo?.requestKey || COMPOSITE_REQUEST_KEY,
-      })),
-      maxAttempts: 1,
-    });
-    const stableUrl = assertStableAssets([composite?.url], 1)[0];
-    audit.stageTwo = {
-      status: 'completed',
-      taskId: required(composite?.taskId, 'showcase composite task ID'),
-      requestKey: audit.stageTwo?.requestKey || COMPOSITE_REQUEST_KEY,
-      stableUrl,
-      quoteId: quote.quote.quoteId,
-      billing: composite?.billing || null,
-    };
-    if (download) {
-      audit.stageTwo.download = await downloadImage({
-        root,
-        token,
-        stableUrl,
-        targetFile: 'earbuds-suite-composite.png',
-        ratio: '1:1',
-        fetchImpl,
+  if (audit.usage?.status === 'completed') {
+    audit.usage.stableUrl = assertStableAssets([audit.usage.stableUrl], 1)[0];
+  } else {
+    try {
+      const forcedBillingActionId = String(usageBillingActionId || '').trim();
+      const billingActionId = forcedBillingActionId
+        || String(audit.usage?.billingActionId || `showcase-${audit.usage.requestKey}`).trim();
+      let quoteId = forcedBillingActionId ? '' : String(audit.usage?.quoteId || '').trim();
+      if (!quoteId) {
+        const quote = await request('/api/billing/quote', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sku: 'ec_image_2k', quantity: 1 }),
+          maxAttempts: 1,
+        });
+        if (quote?.quote?.totalUnits !== 1000 || !quote.quote.quoteId) {
+          throw new Error('Production showcase usage quote is invalid');
+        }
+        quoteId = quote.quote.quoteId;
+      }
+      audit.usage = {
+        ...(audit.usage || {}),
+        status: 'submitting',
+        quoteId,
+        billingActionId,
+        prompt: EARBUD_USAGE_PROMPT_V3,
+      };
+      await persistAudit(audit, writeAudit);
+      const usagePayload = buildUsagePayload({
+          detailUrls: audit.stageOne.stableUrls,
+          quoteId,
+          requestKey: audit.usage.requestKey,
+          billingActionId,
       });
+      const usage = await requestCanvasResult({
+        request,
+        payload: usagePayload,
+        pollIntervalMs,
+        maxPollAttempts,
+        statusFirst: /524|timeout/i.test(String(audit.usage?.error || '')),
+      });
+      const stableUrl = assertStableAssets([usage?.url], 1)[0];
+      audit.usage = {
+        status: 'completed',
+        taskId: required(usage?.taskId, 'showcase usage task ID'),
+        requestKey: EARBUD_USAGE_REQUEST_KEY_V3,
+        stableUrl,
+        quoteId,
+        billingActionId,
+        prompt: EARBUD_USAGE_PROMPT_V3,
+        billing: usage?.billing || null,
+      };
+      if (download) {
+        audit.usage.download = await downloadImage({
+          root,
+          token,
+          stableUrl,
+          targetFile: 'earbuds-suite-panel-model-usage.png',
+          ratio: '3:4',
+          fetchImpl,
+        });
+      }
+      await persistAudit(audit, writeAudit);
+    } catch (cause) {
+      audit.usage = {
+        ...(audit.usage || {}),
+        status: 'failed',
+        failedAt: new Date().toISOString(),
+        error: String(cause?.message || cause),
+      };
+      await persistAudit(audit, writeAudit);
+      const error = new Error(`Production showcase usage stage failed: ${audit.usage.error}`, { cause });
+      error.audit = audit;
+      throw error;
     }
-    const [balanceAfter, ledger] = await Promise.all([
-      request('/api/billing/balance'),
-      request('/api/billing/ledger?currency=ec_points&limit=100&offset=0'),
-    ]);
-    audit.balanceAfter = balanceAfter?.balances?.ec_points || null;
-    audit.ledgerEntry = (ledger?.entries || []).find(entry => (
-      [entry?.referenceId, entry?.reference_id].includes(stableUrl)
-      || [entry?.referenceId, entry?.reference_id].includes(audit.stageTwo.taskId)
-    )) || null;
-    await persistAudit(audit, writeAudit);
-    return audit;
-  } catch (cause) {
-    audit.stageTwo = {
-      ...(audit.stageTwo || {}),
-      status: 'failed',
-      failedAt: new Date().toISOString(),
-      error: String(cause?.message || cause),
-    };
-    await persistAudit(audit, writeAudit);
-    const error = new Error(`Production showcase stage two failed: ${audit.stageTwo.error}`, { cause });
-    error.audit = audit;
-    throw error;
   }
+
+  const [balanceAfter, ledger] = await Promise.all([
+    request('/api/billing/balance'),
+    request('/api/billing/ledger?currency=ec_points&limit=100&offset=0'),
+  ]);
+  audit.balanceAfter = balanceAfter?.balances?.ec_points || null;
+  const references = new Set([
+    audit.stageTwo.stableUrl,
+    audit.stageTwo.taskId,
+    audit.usage.stableUrl,
+    audit.usage.taskId,
+  ].filter(Boolean));
+  audit.ledgerEntries = (ledger?.entries || []).filter(entry => (
+    references.has(entry?.referenceId) || references.has(entry?.reference_id)
+  ));
+  await persistAudit(audit, writeAudit);
+  return audit;
 }
 
 function parseArguments(argv) {
@@ -434,6 +630,8 @@ function parseArguments(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === '--base-url') options.baseUrl = argv[++index] || options.baseUrl;
     else if (argv[index] === '--fixture-path') options.fixturePath = argv[++index] || SOURCE_FIXTURE;
+    else if (argv[index] === '--download') options.download = true;
+    else if (argv[index] === '--usage-billing-action-id') options.usageBillingActionId = argv[++index] || '';
   }
   return options;
 }
@@ -448,6 +646,8 @@ if (isMain) {
         stageOneStableUrls: result.stageOne.stableUrls,
         stageTwoTaskId: result.stageTwo.taskId,
         stageTwoStableUrl: result.stageTwo.stableUrl,
+        usageTaskId: result.usage.taskId,
+        usageStableUrl: result.usage.stableUrl,
       }, null, 2));
     })
     .catch(error => {

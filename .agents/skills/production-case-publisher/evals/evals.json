@@ -1,0 +1,41 @@
+{
+  "skill_name": "production-case-publisher",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "把一套 7 张真实生产的耳机电商详情图发布到灵感发现，要求用户点开后能看到每张真实提示词，点击做同款能恢复商品图和整套提示词。请给出 manifest 和验证步骤。",
+      "expected_output": "A valid production manifest with seven distinct output prompts, source product role, mosaic cover, remix data, and end-to-end verification.",
+      "files": [],
+      "expectations": [
+        "Uses a mosaic or auto cover for the seven-image suite",
+        "Preserves per-output prompt, taskId, requestKey, and ratio",
+        "Preserves the product source role and remix prompt",
+        "Includes gallery and remix verification"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "我只生成了两张模特上身图，要放进案例，不要假装成完整套图。第二张请求遇到 524，但后台任务还在。应该怎么恢复和发布？",
+      "expected_output": "A single-cover two-image case and a durable status recovery process that does not resubmit or double-charge.",
+      "files": [],
+      "expectations": [
+        "Selects a normal single cover for two outputs",
+        "Checks durable status with the same request key after 524",
+        "Does not resubmit the image provider request",
+        "Persists billing and task provenance"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "审查一个准备上线的案例：所有 6 张图的 description 都是‘展示本套方案中的视觉内容’，sourceAssets 里缺少参考模特，但做同款按钮已经接好了。判断能不能发布并给修复清单。",
+      "expected_output": "Rejects publication and requires exact per-image prompts plus the missing reference-model source role before remix can be considered reproducible.",
+      "files": [],
+      "expectations": [
+        "Rejects generic repeated prompt copy",
+        "Requires the missing reference model source asset and role",
+        "Requires validating both prompt and material restoration",
+        "Does not claim the case is reproducible before the fixes"
+      ]
+    }
+  ]
+}

@@ -74,16 +74,18 @@ test('product suite showcase uses a real premium earbuds production workflow', (
   assert.doesNotMatch(workbench, /className="ec-product-suite-source"/);
   assert.doesNotMatch(workbench, /className="ec-product-suite-results"/);
   assert.match(styles, /\.ec-product-suite-showcase/);
-  assert.match(styles, /\.ec-product-suite-final\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1/);
+  assert.match(styles, /\.ec-product-suite-final\s*\{[^}]*width:\s*min\(720px,\s*100%\)[^}]*aspect-ratio:\s*4\s*\/\s*3/);
 });
 
-test('ability selector derives a compact fan thumbnail from each real case', () => {
+test('ability selector uses three rich product previews and one wide try-on fan', () => {
   assert.match(workbench, /AbilitySelectorFan/);
   assert.match(workbench, /ec-ability-selector-fan/);
   assert.match(workbench, /displayRole === 'selectorPreview'/);
+  assert.match(workbench, /asset\.selectorPreview === true/);
+  assert.match(workbench, /assets\.length === 1 \? 'is-single' : ''/);
   assert.doesNotMatch(workbench, /ability-product-suite-wide\.webp|ability-tryon-wide\.webp/);
   assert.match(styles, /\.ec-ability-selector-option\s*\{[^}]*min-height:\s*58px/);
-  assert.match(styles, /\.ec-ability-selector-fan/);
+  assert.match(styles, /\.ec-ability-selector-fan\.is-single/);
 });
 
 test('ecommerce showcases use one continuous surface without nested panel backgrounds', () => {

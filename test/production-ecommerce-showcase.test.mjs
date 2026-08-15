@@ -6,14 +6,17 @@ import {
   buildCompositePayload,
   buildDetailDirectionPayload,
   buildDetailGenerationPayload,
+  buildUsagePayload,
   fetchImageBytes,
   generateProductionEcommerceShowcase,
+  requestCanvasResult,
 } from '../scripts/generate-production-ecommerce-showcase.mjs';
 
 const stableUrl = (digit, extension = 'png') => `/api/generated-assets/${digit.repeat(64)}.${extension}`;
 
-function productionFixture({ failDetail = false, failComposite = false } = {}) {
+function productionFixture({ failDetail = false, failComposite = false, failUsage = false } = {}) {
   const calls = [];
+  let canvasCalls = 0;
   const detailUrls = ['a', 'b', 'c', 'd', 'e'].map(value => stableUrl(value));
   const request = async (path, options = {}) => {
     const body = options.body ? JSON.parse(options.body) : null;
@@ -56,12 +59,18 @@ function productionFixture({ failDetail = false, failComposite = false } = {}) {
       };
     }
     if (path === '/api/canvas/regenerate') {
+      canvasCalls += 1;
       if (failComposite) throw new Error('provider rejected stage two');
+      if (failUsage && canvasCalls === 2) throw new Error('returned HTTP 524');
       return {
-        taskId: 'canvas_showcase_composite_task',
-        url: stableUrl('f'),
+        taskId: canvasCalls === 1 ? 'canvas_showcase_composite_task' : 'canvas_showcase_usage_task',
+        url: stableUrl(canvasCalls === 1 ? 'f' : '9'),
         billing: { status: 'settled' },
       };
+    }
+    if (path === '/api/canvas/regenerate/status') {
+      if (failUsage) throw new Error('returned HTTP 524');
+      return { status: 'completed', taskId: 'canvas_showcase_usage_task', url: stableUrl('9') };
     }
     if (path === '/api/billing/ledger?currency=ec_points&limit=100&offset=0') {
       return { entries: [{ referenceId: stableUrl('f'), status: 'settled' }] };
@@ -97,16 +106,71 @@ test('detail direction and generation payload request five distinct 3:4 commerci
   assert.equal(generationPayload.billing_quote_id, 'quote-5');
 });
 
-test('composite payload consumes only unique stable stage-one assets', () => {
+test('v3 composite payload consumes only unique stable assets in a dense 4:3 tilted layout', () => {
   const detailUrls = ['a', 'b', 'c', 'd', 'e'].map(value => stableUrl(value));
   const payload = buildCompositePayload({ detailUrls, quoteId: 'quote-1', requestKey: 'showcase-composite-v1' });
   assert.equal(payload.image_url, detailUrls[0]);
   assert.deepEqual(payload.reference_images, detailUrls.slice(1));
   assert.deepEqual(payload.reference_metadata.map(item => item.mention), ['@详情图 1', '@详情图 2', '@详情图 3', '@详情图 4', '@详情图 5']);
-  assert.equal(payload.ratio, '1:1');
+  assert.equal(payload.ratio, '4:3');
+  assert.match(payload.prompt, /shallow directional fan/i);
+  assert.match(payload.prompt, /compact icon-and-type/i);
+  assert.match(payload.request_key, /showcase-composite-v1/);
   assert.equal(payload.billing_quote_id, 'quote-1');
   assert.throws(() => assertStableAssets([detailUrls[0], detailUrls[0]]), /unique/i);
   assert.throws(() => assertStableAssets(['https://provider.example/result.png']), /stable/i);
+});
+
+test('face-forward usage payload requires a visible face and a worn earbud', () => {
+  const detailUrls = ['a', 'b', 'c', 'd', 'e'].map(value => stableUrl(value));
+  const payload = buildUsagePayload({ detailUrls, quoteId: 'quote-usage' });
+  assert.equal(payload.ratio, '3:4');
+  assert.match(payload.prompt, /face clearly visible/i);
+  assert.match(payload.prompt, /earbud (?:is )?visibly worn/i);
+  assert.match(payload.request_key, /earbuds-model-usage-v3$/);
+  assert.equal(payload.billing_quote_id, 'quote-usage');
+  assert.equal(payload.billing_action_id, 'showcase-showcase-20260815-earbuds-model-usage-v3');
+});
+
+test('usage failure preserves its quote and billing action for a no-requote retry', async () => {
+  const failedFixture = productionFixture({ failUsage: true });
+  let failedAudit;
+  await assert.rejects(
+    () => generateProductionEcommerceShowcase({
+      sessionToken: 'session',
+      request: failedFixture.request,
+      productAsset: { assetId: 'asset-earbuds', url: '/api/ecommerce/assets/earbuds.png' },
+      pollIntervalMs: 0,
+      maxPollAttempts: 1,
+      writeAudit: false,
+      download: false,
+    }),
+    error => {
+      failedAudit = error.audit;
+      assert.equal(failedAudit.usage.status, 'failed');
+      assert.equal(failedAudit.usage.quoteId, 'quote-1');
+      assert.equal(failedAudit.usage.billingActionId, 'showcase-showcase-20260815-earbuds-model-usage-v3');
+      return true;
+    },
+  );
+
+  const resumedFixture = productionFixture();
+  const resumed = await generateProductionEcommerceShowcase({
+    sessionToken: 'session',
+    request: resumedFixture.request,
+    resumeAudit: failedAudit,
+    pollIntervalMs: 0,
+    writeAudit: false,
+    download: false,
+  });
+
+  assert.equal(resumedFixture.calls.filter(call => call.path === '/api/billing/quote').length, 0);
+  const usagePayload = resumedFixture.calls.find(call => (
+    call.path === '/api/canvas/regenerate' || call.path === '/api/canvas/regenerate/status'
+  )).body;
+  assert.equal(usagePayload.billing_quote_id, 'quote-1');
+  assert.equal(usagePayload.billing_action_id, failedAudit.usage.billingActionId);
+  assert.equal(resumed.usage.status, 'completed');
 });
 
 test('stable asset download retries one transient timeout without resubmitting generation', async () => {
@@ -126,6 +190,51 @@ test('stable asset download retries one transient timeout without resubmitting g
   });
   assert.equal(attempts, 2);
   assert.equal(result.length, bytes.length);
+});
+
+test('Canvas production recovery polls durable status after a gateway timeout without resubmitting', async () => {
+  const calls = [];
+  const payload = { request_key: 'stable-request', prompt: 'same prompt' };
+  const request = async (path) => {
+    calls.push(path);
+    if (path === '/api/canvas/regenerate') throw new Error('returned HTTP 524');
+    if (calls.filter(value => value === '/api/canvas/regenerate/status').length === 1) {
+      return { status: 'processing', taskId: 'canvas-stable' };
+    }
+    return { status: 'completed', taskId: 'canvas-stable', url: stableUrl('f') };
+  };
+
+  const result = await requestCanvasResult({
+    request,
+    payload,
+    pollIntervalMs: 0,
+    maxPollAttempts: 3,
+  });
+
+  assert.equal(result.url, stableUrl('f'));
+  assert.equal(calls.filter(path => path === '/api/canvas/regenerate').length, 1);
+  assert.equal(calls.filter(path => path === '/api/canvas/regenerate/status').length, 2);
+});
+
+test('status-first recovery falls back once to the same idempotent request when production lacks the status route', async () => {
+  const calls = [];
+  const payload = { request_key: 'stable-request', prompt: 'same prompt' };
+  const request = async path => {
+    calls.push(path);
+    if (path === '/api/canvas/regenerate/status') throw new Error('returned HTTP 404');
+    return { status: 'completed', taskId: 'canvas-existing', url: stableUrl('e'), replay: true };
+  };
+
+  const result = await requestCanvasResult({
+    request,
+    payload,
+    pollIntervalMs: 0,
+    maxPollAttempts: 3,
+    statusFirst: true,
+  });
+
+  assert.equal(result.url, stableUrl('e'));
+  assert.deepEqual(calls, ['/api/canvas/regenerate/status', '/api/canvas/regenerate']);
 });
 
 test('stage two uses the five delivered assets without resubmitting stage one', async () => {

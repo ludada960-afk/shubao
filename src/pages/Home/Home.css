@@ -3011,6 +3011,23 @@
 .ec-ability-selector-fan-card.fan-card-1 { left: 37px; z-index: 3; transform: translateY(-52%); }
 .ec-ability-selector-fan-card.fan-card-2 { right: 3px; z-index: 2; transform: translateY(-50%) rotate(7deg); }
 
+.ec-ability-selector-fan.is-single {
+  width: 150px;
+  flex-basis: 150px;
+}
+
+.ec-ability-selector-fan.is-single .ec-ability-selector-fan-card {
+  left: 4px;
+  width: 142px;
+  max-height: 44px;
+  transform: translateY(-50%) rotate(-2deg);
+}
+
+.ec-ability-selector-fan.is-single .responsive-image,
+.ec-ability-selector-fan.is-single img {
+  object-fit: cover;
+}
+
 .ec-product-suite-showcase,
 .ec-tryon-showcase {
   min-height: 300px;
@@ -3105,7 +3122,7 @@
 /* Final production showcase media. */
 .ec-product-suite-showcase,
 .ec-product-suite-showcase-visual {
-  min-height: 360px;
+  min-height: 390px;
 }
 
 .ec-product-suite-showcase-visual {
@@ -3116,8 +3133,8 @@
 .ec-product-suite-final {
   position: relative;
   display: block;
-  width: min(330px, 92%);
-  aspect-ratio: 1 / 1;
+  width: min(720px, 100%);
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   padding: 0;
   border: 5px solid #fff;
@@ -3172,6 +3189,6 @@
 @media (max-width: 640px) {
   .ec-product-suite-showcase,
   .ec-product-suite-showcase-visual { min-height: 320px; }
-  .ec-product-suite-final { width: min(300px, 88vw); }
+  .ec-product-suite-final { width: min(100%, 88vw); }
   .ec-tryon-workflow-banner { width: 100%; border-width: 3px; }
 }

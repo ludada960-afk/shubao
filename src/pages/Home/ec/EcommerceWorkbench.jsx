@@ -18,9 +18,11 @@ const TRYON_MANUAL_DWELL_MS = 15000;
 
 function AbilitySelectorFan({ recipeId }) {
   const showcaseCase = productionCaseById(recipeId === 'anything_tryon' ? 'tryon-angles' : 'product-suite');
-  const assets = (showcaseCase?.assets || []).filter(asset => asset.displayRole === 'selectorPreview').slice(0, 3);
+  const assets = (showcaseCase?.assets || [])
+    .filter(asset => asset.displayRole === 'selectorPreview' || asset.selectorPreview === true)
+    .slice(0, 3);
   return (
-    <span className="ec-ability-selector-fan" aria-hidden="true">
+    <span className={`ec-ability-selector-fan ${assets.length === 1 ? 'is-single' : ''}`} aria-hidden="true">
       {assets.map((asset, index) => (
         <span key={asset.id} className={`ec-ability-selector-fan-card fan-card-${index}`} style={{ '--case-ratio': asset.ratio.replace(':', ' / ') }}>
           <ResponsiveImage src={asset.src} variant="thumb" ratio={asset.ratio} alt="" imgStyle={{ objectFit: 'cover' }} />
