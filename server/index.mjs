@@ -83,6 +83,7 @@ import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
+  createCanvasGenerationStatusHandler,
   createCanvasGenerationService,
   createCanvasRegenerateHandler,
 } from './canvasGenerationService.mjs';
@@ -3532,6 +3533,9 @@ const canvasRegenerateHandler = createCanvasRegenerateHandler({
   service: canvasGenerationService,
   billing: canvasOneShotBilling,
 });
+const canvasGenerationStatusHandler = createCanvasGenerationStatusHandler({
+  service: canvasGenerationService,
+});
 const ecommerceTaskWorkPersistence = createEcommerceTaskWorkPersistence({ upsertWork });
 const ecommerceProjectLifecycle = createEcommerceProjectLifecycle({ projectStore });
 const orchestrator = createEcommerceOrchestrator({
@@ -4104,6 +4108,7 @@ app.post('/api/compositions/:documentId/revisions', authenticateEcommerceRequest
 
 // 画布二次生成由独立持久化服务负责；路由只转交已认证 owner 与请求体。
 app.post('/api/canvas/regenerate', canvasRegenerateHandler);
+app.post('/api/canvas/regenerate/status', authenticateEcommerceRequest, canvasGenerationStatusHandler);
 
 async function readCanvasImage(imageUrl) {
   return (await imageInputReader.read(imageUrl)).buffer;

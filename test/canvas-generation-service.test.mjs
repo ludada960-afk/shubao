@@ -97,6 +97,33 @@ function createManualIntervalScheduler() {
   };
 }
 
+test('Canvas service exposes durable status for the same normalized request', async t => {
+  const pool = createManualPool();
+  const harness = createHarness({
+    imageGenerationPool: pool,
+    imageInputReader: { async read() { return { buffer: Buffer.from('image'), contentType: 'image/png' }; } },
+    providerAdapter: {
+      async submitEdit() { return { jobId: 'provider-status', status: 'queued' }; },
+      async pollUntilReady(jobId) { return { jobId, status: 'completed', outputUrl: 'https://provider.example/status.png' }; },
+    },
+  });
+  t.after(() => harness.close());
+  const input = {
+    ownerEmail: 'owner@example.com',
+    body: { prompt: 'status request', image_url: '/source.png', ratio: '3:4', request_key: 'status-key' },
+  };
+
+  assert.equal((await harness.service.inspect(input)).status, 'missing');
+  const pending = harness.service.regenerate(input);
+  assert.equal((await harness.service.inspect(input)).status, 'queued');
+  await pool.runNext();
+  const result = await pending;
+  const completed = await harness.service.inspect(input);
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.taskId, result.taskId);
+  assert.equal(completed.url, result.url);
+});
+
 test('Canvas service preserves primary and supplementary input order for indexed provider edits', async t => {
   const reads = [];
   let submittedRequest;
