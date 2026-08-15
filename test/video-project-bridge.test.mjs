@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { spawnSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,6 +10,30 @@ import { createProjectStore } from '../server/projects/projectStore.mjs';
 import { publicVideoProducts } from '../server/videoCatalog.mjs';
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
 import { createVideoProjectBridge } from '../server/videoProjectBridge.mjs';
+
+test('project bridge audit reports a missing video_assets schema as structured JSON', t => {
+  const root = mkdtempSync(join(tmpdir(), 'video-project-audit-'));
+  const database = join(root, 'works.db');
+  const db = new Database(database);
+  db.close();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const result = spawnSync(process.execPath, [
+    join(process.cwd(), 'scripts', 'audit-video-project-bridge.mjs'),
+    `--db=${database}`,
+  ], { cwd: process.cwd(), encoding: 'utf8' });
+
+  assert.equal(result.status, 1);
+  const report = JSON.parse(result.stderr);
+  assert.equal(report.ok, false);
+  assert.equal(report.mode, 'dry-run');
+  assert.equal(report.database, database);
+  assert.deepEqual(report.blockingIssues, [{
+    code: 'VIDEO_ASSETS_TABLE_MISSING',
+    message: 'video_assets table is required',
+  }]);
+  assert.doesNotMatch(result.stderr, /TypeError|\bat\s+file:/);
+});
 
 function createHarness() {
   const db = new Database(':memory:');

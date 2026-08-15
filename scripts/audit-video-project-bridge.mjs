@@ -18,6 +18,18 @@ if (!existsSync(path)) {
     const report = auditLegacyVideoAssets(db);
     console.log(JSON.stringify({ ok: true, database: path, ...report }, null, 2));
     if (report.missingOwners || report.missingAssetReferences || report.unsupportedRows) process.exitCode = 1;
+  } catch (error) {
+    const missingAssetSchema = error instanceof TypeError && error.message === 'video_assets table is required';
+    console.error(JSON.stringify({
+      mode: 'dry-run',
+      ok: false,
+      database: path,
+      blockingIssues: [{
+        code: missingAssetSchema ? 'VIDEO_ASSETS_TABLE_MISSING' : 'VIDEO_PROJECT_BRIDGE_AUDIT_FAILED',
+        message: missingAssetSchema ? 'video_assets table is required' : String(error?.message || 'video project bridge audit failed'),
+      }],
+    }, null, 2));
+    process.exitCode = 1;
   } finally {
     db.close();
   }
