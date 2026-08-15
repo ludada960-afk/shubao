@@ -50,13 +50,14 @@ test('try-on showcase uses deliberate dwell and a keyboard-accessible gallery', 
   assert.match(workbench, /ec-tryon-preview-next/);
 });
 
-test('try-on showcase renders independent zoomable assets instead of cropping one composite image', () => {
+test('try-on showcase renders complete zoomable workflow banners without re-cropping portrait sources', () => {
   assert.match(workbench, /productionCaseById\('tryon-angles'\)/);
   assert.match(workbench, /productionCaseById\('tryon-reference'\)/);
-  assert.match(workbench, /openPreview\(item\)/);
+  assert.match(workbench, /displayRole === 'workflowBanner'/);
+  assert.match(workbench, /ec-tryon-workflow-banner/);
   assert.doesNotMatch(workbench, /--tryon-image|sourcePosition|referencePosition/);
-  assert.match(styles, /\.ec-tryon-showcase-card img\s*\{[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100%;[\s\S]*?clip-path:\s*none;[\s\S]*?object-fit:\s*contain/);
-  assert.doesNotMatch(styles, /\.ec-tryon-showcase-card img\s*\{[\s\S]*?width:\s*1px/);
+  assert.match(styles, /\.ec-tryon-workflow-banner\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9/);
+  assert.match(styles, /\.ec-tryon-workflow-banner img\s*\{[^}]*object-fit:\s*contain/);
 });
 
 test('try-on showcase gives every rendered asset a stable React key', () => {
@@ -68,12 +69,18 @@ test('product suite showcase uses a real premium earbuds production workflow', (
   assert.doesNotMatch(catalog, /cobalt-lamp/);
   assert.doesNotMatch(catalog, /curated-showcase/);
   assert.match(workbench, /productionCaseById\('product-suite'\)/);
+  assert.match(workbench, /displayRole === 'finalComposite'/);
+  assert.match(workbench, /ec-product-suite-final/);
+  assert.doesNotMatch(workbench, /className="ec-product-suite-source"/);
+  assert.doesNotMatch(workbench, /className="ec-product-suite-results"/);
   assert.match(styles, /\.ec-product-suite-showcase/);
+  assert.match(styles, /\.ec-product-suite-final\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1/);
 });
 
 test('ability selector derives a compact fan thumbnail from each real case', () => {
   assert.match(workbench, /AbilitySelectorFan/);
   assert.match(workbench, /ec-ability-selector-fan/);
+  assert.match(workbench, /displayRole === 'selectorPreview'/);
   assert.doesNotMatch(workbench, /ability-product-suite-wide\.webp|ability-tryon-wide\.webp/);
   assert.match(styles, /\.ec-ability-selector-option\s*\{[^}]*min-height:\s*58px/);
   assert.match(styles, /\.ec-ability-selector-fan/);
