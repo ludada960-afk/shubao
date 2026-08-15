@@ -111,6 +111,20 @@ export function createCanvasGenerationStore(db, {
     return changed === 1 ? get(requestId) : null;
   }
 
+  function reopenForPersistence(requestId) {
+    const timestamp = new Date(nowMs()).toISOString();
+    const changed = db.prepare(`
+      UPDATE ${TABLE}
+      SET status = 'submitted', error_json = 'null', lease_token = NULL,
+        lease_expires_at = NULL, updated_at = ?
+      WHERE request_id = ?
+        AND status = 'failed'
+        AND output_url <> ''
+        AND stable_url = ''
+    `).run(timestamp, requestId).changes;
+    return changed === 1 ? get(requestId) : null;
+  }
+
   function renewLease(requestId, { leaseToken }) {
     const timestampMs = nowMs();
     const timestamp = new Date(timestampMs).toISOString();
@@ -172,6 +186,7 @@ export function createCanvasGenerationStore(db, {
     get,
     getOrCreate,
     claim,
+    reopenForPersistence,
     renewLease,
     markSubmitted(requestId, { providerJobId, leaseToken }) {
       return updateOwned(requestId, leaseToken, {

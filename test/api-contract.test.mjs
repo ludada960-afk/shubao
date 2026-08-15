@@ -715,6 +715,49 @@ test('canvas regeneration forwards supplementary visual references', async t => 
   assert.equal(requestBody.billing_action_id, requestBody.request_key);
 });
 
+test('canvas regeneration recovers a gateway timeout by polling durable status without resubmitting', async t => {
+  const originalFetch = globalThis.fetch;
+  const originalStorage = globalThis.localStorage;
+  const requests = [];
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    globalThis.localStorage = originalStorage;
+  });
+  globalThis.localStorage = { getItem: () => JSON.stringify({ email: '867550189@qq.com' }) };
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), body: JSON.parse(options.body || '{}') });
+    if (String(url).endsWith('/api/billing/quote')) {
+      return new Response(JSON.stringify({ quote: { quoteId: 'timeout-quote' } }), { status: 200 });
+    }
+    if (String(url).endsWith('/api/canvas/regenerate/status')) {
+      return new Response(JSON.stringify({
+        status: 'completed',
+        taskId: 'canvas-timeout-recovered',
+        url: '/api/generated-assets/recovered.png',
+        ratio: '3:4',
+        resolution: '2K',
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ error: 'gateway timeout' }), { status: 524 });
+  };
+
+  const { regenerateCanvasImage } = await import(`../src/services/api.js?canvas-timeout-recovery=${Date.now()}`);
+  const result = await regenerateCanvasImage({
+    prompt: '保留商品结构并生成场景图',
+    imageUrl: '/api/generated-assets/source.png',
+    ratio: '3:4',
+    includeMetadata: true,
+  });
+
+  assert.equal(result.url, '/api/generated-assets/recovered.png');
+  assert.equal(requests.filter(request => request.url.endsWith('/api/canvas/regenerate')).length, 1);
+  assert.equal(requests.filter(request => request.url.endsWith('/api/canvas/regenerate/status')).length, 1);
+  const generationBody = requests.find(request => request.url.endsWith('/api/canvas/regenerate')).body;
+  const statusBody = requests.find(request => request.url.endsWith('/api/canvas/regenerate/status')).body;
+  assert.equal(statusBody.request_key, generationBody.request_key);
+  assert.equal(statusBody.billing_action_id, generationBody.billing_action_id);
+});
+
 test('Canvas text generation sends ordered visual references to the signed vision route', async t => {
   const originalFetch = globalThis.fetch;
   const originalStorage = globalThis.localStorage;

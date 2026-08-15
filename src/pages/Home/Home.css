@@ -3011,6 +3011,23 @@
 .ec-ability-selector-fan-card.fan-card-1 { left: 37px; z-index: 3; transform: translateY(-52%); }
 .ec-ability-selector-fan-card.fan-card-2 { right: 3px; z-index: 2; transform: translateY(-50%) rotate(7deg); }
 
+.ec-ability-selector-fan.is-single {
+  width: 150px;
+  flex-basis: 150px;
+}
+
+.ec-ability-selector-fan.is-single .ec-ability-selector-fan-card {
+  left: 4px;
+  width: 142px;
+  max-height: 44px;
+  transform: translateY(-50%) rotate(-2deg);
+}
+
+.ec-ability-selector-fan.is-single .responsive-image,
+.ec-ability-selector-fan.is-single img {
+  object-fit: cover;
+}
+
 .ec-product-suite-showcase,
 .ec-tryon-showcase {
   min-height: 300px;
@@ -3100,4 +3117,78 @@
   .ec-product-suite-results .result-3 { left: 82px; width: 58px; }
   .ec-product-suite-results .result-4 { right: 32px; width: 54px; }
   .ec-tryon-showcase-visual.is-angles .ec-tryon-result-card { width: 72px; }
+}
+
+/* Final production showcase media. */
+.ec-product-suite-showcase,
+.ec-product-suite-showcase-visual {
+  min-height: 390px;
+}
+
+.ec-product-suite-showcase-visual {
+  display: grid;
+  place-items: center;
+}
+
+.ec-product-suite-final {
+  position: relative;
+  display: block;
+  width: min(720px, 100%);
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  padding: 0;
+  border: 5px solid #fff;
+  border-radius: 8px;
+  background: #f4eee8;
+  box-shadow: 0 18px 38px rgba(51, 40, 32, .18);
+  cursor: zoom-in;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.ec-product-suite-final:hover,
+.ec-product-suite-final:focus-visible {
+  outline: none;
+  transform: translateY(-4px);
+  box-shadow: 0 24px 46px rgba(51, 40, 32, .22);
+}
+
+.ec-product-suite-final .responsive-image,
+.ec-product-suite-final img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+}
+
+.ec-product-suite-final > svg {
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  right: 9px;
+  padding: 5px;
+  box-sizing: content-box;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(24, 22, 21, .66);
+}
+
+.ec-tryon-workflow-banner {
+  width: min(660px, 100%);
+  aspect-ratio: 16 / 9;
+  transform: none;
+  border-radius: 8px;
+}
+
+.ec-tryon-workflow-banner .responsive-image,
+.ec-tryon-workflow-banner img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+}
+
+@media (max-width: 640px) {
+  .ec-product-suite-showcase,
+  .ec-product-suite-showcase-visual { min-height: 320px; }
+  .ec-product-suite-final { width: min(100%, 88vw); }
+  .ec-tryon-workflow-banner { width: 100%; border-width: 3px; }
 }

@@ -2,6 +2,32 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildGalleryRemixCheckpoint } from '../src/pages/Home/galleryRemixModel.js';
 
+test('production product suite restores the exact prompt and manifest source roles', () => {
+  const checkpoint = buildGalleryRemixCheckpoint({
+    id: 'product-suite',
+    type: 'ecommerce',
+    title: '珍珠白降噪耳机商品套图',
+    intent: 'product_suite',
+    images: [{ url: '/generated-detail.png', label: '声学结构解析', role: 'detail' }],
+    remix: {
+      mode: 'product_suite',
+      prompt: '为珍珠白耳机生成统一详情套图。',
+      sourceAssets: [
+        { role: 'product', url: '/earbuds-product.png', name: '商品母图' },
+        { role: 'style', url: '/layout-reference.png', name: '排版参考' },
+      ],
+    },
+  });
+
+  const snapshot = checkpoint.version.inputSnapshot;
+  assert.equal(snapshot.description, '为珍珠白耳机生成统一详情套图。');
+  assert.equal(snapshot.abilityRecipe.id, 'product_suite');
+  assert.deepEqual(snapshot.productImages.map(item => item.url), ['/earbuds-product.png']);
+  assert.deepEqual(snapshot.referenceImages.map(item => item.url), ['/layout-reference.png']);
+  assert.equal(snapshot.productImages[0].name, '商品母图');
+  assert.doesNotMatch(snapshot.referenceImages.map(item => item.url).join('\n'), /generated-detail/);
+});
+
 test('ecommerce gallery remix restores prompt plus product and style references', () => {
   const checkpoint = buildGalleryRemixCheckpoint({
     id: 'case-1',
@@ -67,4 +93,27 @@ test('anything try-on gallery remix restores complete role inputs instead of cro
   assert.deepEqual(checkpoint.version.inputSnapshot.roleImages.scene, []);
   assert.deepEqual(checkpoint.version.inputSnapshot.productImages.map(item => item.url), ['/full-product.png']);
   assert.deepEqual(checkpoint.version.inputSnapshot.referenceImages.map(item => item.url), ['/full-model.png']);
+});
+
+test('anything try-on restores declared scene sources into the scene role', () => {
+  const checkpoint = buildGalleryRemixCheckpoint({
+    id: 'tryon-with-scene',
+    type: 'ecommerce',
+    title: '场景上身',
+    intent: 'anything_tryon',
+    remix: {
+      mode: 'anything_tryon',
+      prompt: '让完整穿搭进入参考街拍场景。',
+      sourceAssets: [
+        { role: 'product', url: '/full-product.png', name: '完整商品' },
+        { role: 'reference_model', url: '/full-model.png', name: '参考模特' },
+        { role: 'scene', url: '/street.png', name: '街拍场景' },
+      ],
+    },
+  });
+
+  const snapshot = checkpoint.version.inputSnapshot;
+  assert.deepEqual(snapshot.roleImages.items.map(item => item.url), ['/full-product.png']);
+  assert.deepEqual(snapshot.roleImages.person.map(item => item.url), ['/full-model.png']);
+  assert.deepEqual(snapshot.roleImages.scene.map(item => item.url), ['/street.png']);
 });

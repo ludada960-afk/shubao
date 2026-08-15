@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ImagePlus, Maximize2, Plus, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ImagePlus, Maximize2, Sparkles, UserRound, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
@@ -18,12 +18,14 @@ const TRYON_MANUAL_DWELL_MS = 15000;
 
 function AbilitySelectorFan({ recipeId }) {
   const showcaseCase = productionCaseById(recipeId === 'anything_tryon' ? 'tryon-angles' : 'product-suite');
-  const assets = (showcaseCase?.assets || []).slice(0, 3);
+  const assets = (showcaseCase?.assets || [])
+    .filter(asset => asset.displayRole === 'selectorPreview' || asset.selectorPreview === true)
+    .slice(0, 3);
   return (
-    <span className="ec-ability-selector-fan" aria-hidden="true">
+    <span className={`ec-ability-selector-fan ${assets.length === 1 ? 'is-single' : ''}`} aria-hidden="true">
       {assets.map((asset, index) => (
         <span key={asset.id} className={`ec-ability-selector-fan-card fan-card-${index}`} style={{ '--case-ratio': asset.ratio.replace(':', ' / ') }}>
-          <ResponsiveImage src={asset.src} variant="thumb" ratio={asset.ratio} alt="" imgStyle={{ objectFit: 'contain' }} />
+          <ResponsiveImage src={asset.src} variant="thumb" ratio={asset.ratio} alt="" imgStyle={{ objectFit: 'cover' }} />
         </span>
       ))}
     </span>
@@ -80,17 +82,14 @@ function TryOnShowcase({ personMode }) {
       eyebrow: '多视角成片',
       title: '一套穿搭，拍出完整时尚角度',
       description: '正面、四分之三、侧面与背面都保留完整造型，适合商品页和广告投放。',
-      source: angleCase.assets.find(asset => asset.role === 'source'),
-      results: angleCase.assets.filter(asset => asset.role === 'result'),
+      banner: angleCase.assets.find(asset => asset.displayRole === 'workflowBanner'),
     },
     {
       id: 'reference',
       eyebrow: '场景上身',
       title: '让完整穿搭进入真实街拍场景',
       description: '从头到脚保留商品版型与搭配关系，用动态姿态呈现可投放的时尚画面。',
-      source: referenceCase.assets.find(asset => asset.role === 'source'),
-      reference: referenceCase.assets.find(asset => asset.role === 'reference'),
-      results: referenceCase.assets.filter(asset => asset.role === 'result'),
+      banner: referenceCase.assets.find(asset => asset.displayRole === 'workflowBanner'),
     },
   ];
 
@@ -126,12 +125,15 @@ function TryOnShowcase({ personMode }) {
   }, [previewItem]);
 
   const slide = slides[activeSlide];
-  const previewItems = [slide.source, slide.reference, ...slide.results].filter(Boolean);
+  const previewItems = slides.map(item => ({ ...item.banner, title: item.title, description: item.description })).filter(item => item.src);
   const chooseSlide = index => {
     setActiveSlide(index);
     setManualRevision(revision => revision + 1);
   };
-  const openPreview = item => setPreviewItem({ ...item, index: previewItems.indexOf(item), items: previewItems, title: slide.title, description: slide.description });
+  const openPreview = item => {
+    const index = previewItems.findIndex(preview => preview.id === item.id);
+    setPreviewItem({ ...previewItems[index], index, items: previewItems });
+  };
   const movePreview = direction => setPreviewItem(current => {
     const nextIndex = (current.index + direction + current.items.length) % current.items.length;
     return { ...current.items[nextIndex], index: nextIndex, items: current.items, title: current.title, description: current.description };
@@ -154,17 +156,7 @@ function TryOnShowcase({ personMode }) {
           </div>
         </div>
         <div className={`ec-tryon-showcase-visual is-${slide.id}`} aria-live="polite">
-          {renderCard(slide.source, 'ec-tryon-showcase-source-card', '商品与穿搭素材')}
-          {slide.reference && (
-            <>
-              <span className="ec-tryon-showcase-operator" aria-hidden="true"><Plus size={20} /></span>
-              {renderCard(slide.reference, 'ec-tryon-showcase-reference-card', '参考模特')}
-            </>
-          )}
-          <span className="ec-tryon-showcase-operator" aria-hidden="true"><ArrowRight size={22} /></span>
-          <div className={`ec-tryon-showcase-results count-${slide.results.length}`}>
-            {slide.results.map((result, index) => renderCard(result, `ec-tryon-result-card card-${index}`, result.label))}
-          </div>
+          {renderCard(slide.banner, 'ec-tryon-workflow-banner', slide.banner.label)}
         </div>
       </section>
       {previewItem && (
@@ -185,15 +177,12 @@ function TryOnShowcase({ personMode }) {
 function ProductSuiteShowcase() {
   const [previewIndex, setPreviewIndex] = useState(-1);
   const suiteCase = productionCaseById('product-suite');
-  const source = suiteCase.assets.find(asset => asset.role === 'source');
-  const results = suiteCase.assets.filter(asset => asset.role === 'result');
-  const previewItems = [source, ...results].filter(Boolean);
+  const finalComposite = suiteCase.assets.find(asset => asset.displayRole === 'finalComposite');
+  const previewItems = [finalComposite].filter(Boolean);
   useEffect(() => {
     if (previewIndex < 0) return undefined;
     const onKeyDown = event => {
       if (event.key === 'Escape') setPreviewIndex(-1);
-      if (event.key === 'ArrowLeft') setPreviewIndex(current => (current - 1 + previewItems.length) % previewItems.length);
-      if (event.key === 'ArrowRight') setPreviewIndex(current => (current + 1) % previewItems.length);
     };
     globalThis.addEventListener?.('keydown', onKeyDown);
     return () => globalThis.removeEventListener?.('keydown', onKeyDown);
@@ -202,17 +191,13 @@ function ProductSuiteShowcase() {
   return <><section className="ec-product-suite-showcase" aria-label="商品套图效果预览">
     <div className="ec-product-suite-showcase-copy"><span className="ec-showcase-kicker">真实套图</span><strong>从一款商品，到可直接投放的完整视觉</strong><span>同一副珍珠白耳机，主图建立质感，场景图讲使用价值，详情长图解释功能与工艺。</span></div>
     <div className="ec-product-suite-showcase-visual">
-      <button type="button" className="ec-product-suite-source" style={{ '--case-ratio': source.ratio.replace(':', ' / ') }} onClick={() => setPreviewIndex(0)} aria-label={`放大查看${source.label}`}><ResponsiveImage src={source.src} ratio={source.ratio} alt={source.label} /><Maximize2 size={14} /></button>
-      <span className="ec-tryon-showcase-operator" aria-hidden="true"><ArrowRight size={22} /></span>
-      <div className="ec-product-suite-results">{results.map((result, index) => <button type="button" key={`${result.src}:${index}`} className={`result-${index}`} style={{ '--case-ratio': result.ratio.replace(':', ' / ') }} onClick={() => setPreviewIndex(index + 1)} aria-label={`放大查看${result.label}`}><ResponsiveImage src={result.src} ratio={result.ratio} alt={result.label} /><b>{result.label}</b><Maximize2 size={14} /></button>)}</div>
+      <button type="button" className="ec-product-suite-final" onClick={() => setPreviewIndex(0)} aria-label={`放大查看${finalComposite.label}`}><ResponsiveImage src={finalComposite.src} variant="display" ratio={finalComposite.ratio} alt={finalComposite.label} imgStyle={{ objectFit: 'contain' }} /><Maximize2 size={16} /></button>
     </div>
   </section>{preview && <div className="ec-tryon-preview-modal" role="dialog" aria-modal="true" aria-label={`${preview.label}大图`} onMouseDown={event => { if (event.target === event.currentTarget) setPreviewIndex(-1); }}>
     <div className="ec-tryon-preview-dialog">
       <button type="button" className="ec-tryon-preview-close" onClick={() => setPreviewIndex(-1)} aria-label="关闭大图"><X size={20} /></button>
-      <button type="button" className="ec-tryon-preview-previous" onClick={() => setPreviewIndex(current => (current - 1 + previewItems.length) % previewItems.length)} aria-label="查看上一张"><ArrowLeft size={20} /></button>
       <ResponsiveImage src={preview.src} variant="display" ratio={preview.ratio} alt={`${preview.label}大图`} imgStyle={{ objectFit: 'contain' }} />
-      <button type="button" className="ec-tryon-preview-next" onClick={() => setPreviewIndex(current => (current + 1) % previewItems.length)} aria-label="查看下一张"><ArrowRight size={20} /></button>
-      <div><strong>{preview.label}</strong><span>使用左右方向键切换</span></div>
+      <div><strong>{preview.label}</strong><span>正式生产套图成片</span></div>
     </div>
   </div>}</>;
 }

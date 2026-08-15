@@ -6,19 +6,8 @@ import { EC_PLATFORM_SPECS } from './constants/data';
 import { useDialog } from './components/ui/DialogProvider.jsx';
 import ResponsiveImage from './components/ResponsiveImage.jsx';
 import { predecodeResponsiveImage } from './components/responsiveImageModel.js';
-
-function ecommerceGallerySlides(item) {
-  const raw = Array.isArray(item?.images) ? item.images : Object.entries(item?.images || {});
-  const images = raw.map((image, index) => Array.isArray(image)
-    ? { url: image[1], label: image[0] || '商品展示图 ' + (index + 1), description: '展示本套方案中的商品视觉内容' }
-    : { url: image.url, label: image.label || image.style || image.role || '商品展示图 ' + (index + 1), description: image.description || image.sellingPoint || image.purpose || '展示本套方案中的商品视觉内容', width: image.width, height: image.height, size: image.size }
-  ).filter(image => image.url);
-  const cover = item?.cover_mosaic_url || item?.cover_url;
-  return [
-    ...(cover ? [{ url: cover, label: '套图总览', description: '把主图、场景、卖点与细节集中呈现，便于快速判断整套方案。', isCover: true }] : []),
-    ...images.filter(image => image.url !== cover),
-  ];
-}
+import { ecommerceGallerySlides } from './gallery/ecommerceGalleryModel.js';
+import { createCaseImagePreloader } from './gallery/caseImagePreloader.js';
 
 function tryOnWorkflowAssets(item) {
   const assets = (item?.assets || item?.images || []).map((asset, index) => ({
@@ -51,12 +40,16 @@ function EcommerceGalleryPreview({ item, onClose }) {
   const isTryOn = item?.intent === 'anything_tryon';
   const [index, setIndex] = useState(0);
   const wheelLockRef = useRef(0);
+  const preloader = useMemo(() => createCaseImagePreloader({
+    loadImage: url => predecodeResponsiveImage(url, 'display'),
+    concurrency: 2,
+  }), []);
   const current = slides[index];
   useEffect(() => {
-    if (!current?.url) return;
-    void predecodeResponsiveImage(current.url, 'display').catch(() => {});
-    if (slides[index + 1]?.url) void predecodeResponsiveImage(slides[index + 1].url, 'display').catch(() => {});
-  }, [current?.url, index, slides]);
+    setIndex(0);
+    void preloader.preload(slides.map(slide => slide.url), 0).catch(() => {});
+    return () => preloader.cancel();
+  }, [preloader, slides]);
   const handleWheel = event => {
     event.preventDefault(); event.stopPropagation();
     if (Math.abs(event.deltaY) < 8 || Date.now() - wheelLockRef.current < 180) return;
@@ -78,7 +71,7 @@ function EcommerceGalleryPreview({ item, onClose }) {
         <button className="ec-gallery-close" type="button" aria-label="关闭" onClick={onClose}><MdClose size={20} /></button>
         <span className="ec-gallery-kind">{isTryOn ? '万物上身案例' : '电商套图案例'}</span><h2>{item.title || item.product_name || '电商套图'}</h2>
         <div className="ec-gallery-meta">{isTryOn ? '商品素材 + 参考模特 → 上身结果' : `${item.platform || '电商平台'} · ${Math.max(1, slides.length - 1)} 张成品图`}</div>
-        <div className="ec-gallery-current"><span>{isTryOn ? '生成逻辑' : current.isCover ? '封面' : '第 ' + index + ' 张'}</span><h3>{isTryOn ? '完整输入与结果一起复用' : current.label}</h3><p>{isTryOn ? item.prompt : current.description}</p>{!isTryOn && dimensions && <small>{dimensions}</small>}</div>
+        <div className="ec-gallery-current"><span>{isTryOn ? '生成逻辑' : current.isCover ? '封面' : '第 ' + index + ' 张'}</span><h3>{isTryOn ? '完整输入与结果一起复用' : current.label}</h3><p>{isTryOn ? item.prompt : current.prompt || current.description}</p>{!isTryOn && dimensions && <small>{dimensions}</small>}</div>
         {!isTryOn && <div className="ec-gallery-strip" aria-label="套图图片目录">{slides.map((slide, slideIndex) => <button key={slide.url + slideIndex} type="button" className={slideIndex === index ? 'active' : ''} onClick={() => setIndex(slideIndex)} aria-label={'查看' + slide.label}>
           <span>{String(slideIndex + 1).padStart(2, '0')}</span><strong>{slide.label}</strong>
         </button>)}</div>}<div className="ec-gallery-wheel-hint">{isTryOn ? '做同款会带入全部素材、提示词与参数' : '滚动鼠标切换图片'}</div>

@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createCanvasRegenerateHandler } from '../server/canvasGenerationService.mjs';
+import {
+  createCanvasGenerationStatusHandler,
+  createCanvasRegenerateHandler,
+} from '../server/canvasGenerationService.mjs';
 
 function createResponse() {
   return {
@@ -32,6 +35,26 @@ function passthroughBilling() {
     },
   };
 }
+
+test('Canvas status handler returns processing and completed durable states without billing', async () => {
+  const states = [
+    { status: 'submitted', taskId: 'canvas-status' },
+    { status: 'completed', taskId: 'canvas-status', url: '/api/generated-assets/status.png' },
+  ];
+  const handler = createCanvasGenerationStatusHandler({
+    service: { async inspect() { return states.shift(); } },
+  });
+
+  const processing = createResponse();
+  await handler({ _userEmail: 'signed-owner@example.com', body: { prompt: 'same request' } }, processing);
+  assert.equal(processing.statusCode, 202);
+  assert.equal(processing.body.status, 'processing');
+
+  const completed = createResponse();
+  await handler({ _userEmail: 'signed-owner@example.com', body: { prompt: 'same request' } }, completed);
+  assert.equal(completed.statusCode, 200);
+  assert.equal(completed.body.url, '/api/generated-assets/status.png');
+});
 
 test('Canvas handler preserves structured retryable and validation provider errors', async () => {
   const cases = [

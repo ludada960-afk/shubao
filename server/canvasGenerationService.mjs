@@ -248,6 +248,12 @@ export function createCanvasGenerationService({
     };
   }
 
+  function reopenPersistenceFailure(job) {
+    if (job?.status !== 'failed' || !job.outputUrl || job.stableUrl) return job;
+    if (typeof store.reopenForPersistence !== 'function') return job;
+    return store.reopenForPersistence(job.requestId) || job;
+  }
+
   async function regenerate({ ownerEmail, body } = {}) {
     const request = normalizeRequest(ownerEmail, body);
     let job = store.getOrCreate({
@@ -266,6 +272,7 @@ export function createCanvasGenerationService({
         imageModel: request.imageModel,
       },
     });
+    job = reopenPersistenceFailure(job);
     if (job.status === 'completed' && job.stableUrl) {
       return {
         taskId: job.requestId,
@@ -281,6 +288,7 @@ export function createCanvasGenerationService({
     try {
       return await imageGenerationPool.run(async () => {
         job = store.get(job.requestId);
+        job = reopenPersistenceFailure(job);
         if (job?.status === 'completed' && job.stableUrl) {
           return {
             taskId: job.requestId,
@@ -294,6 +302,7 @@ export function createCanvasGenerationService({
         const claimed = store.claim(request.requestId);
         if (!claimed) {
           job = store.get(request.requestId);
+          job = reopenPersistenceFailure(job);
           if (job?.status === 'completed' && job.stableUrl) {
             return {
               taskId: job.requestId,
@@ -383,11 +392,21 @@ export function createCanvasGenerationService({
             });
           }
           heartbeat.assertOwned();
-          const asset = await generatedAssetStore.persist({
-            sourceUrl: job.outputUrl,
-            taskId: job.requestId,
-            label: 'canvas_regenerated',
-          });
+          let asset;
+          try {
+            asset = await generatedAssetStore.persist({
+              sourceUrl: job.outputUrl,
+              taskId: job.requestId,
+              label: 'canvas_regenerated',
+            });
+          } catch (cause) {
+            throw Object.assign(cause instanceof Error ? cause : new Error('Generated asset persistence failed'), {
+              status: 503,
+              code: 'CANVAS_ASSET_PERSIST_FAILED',
+              retryable: true,
+              resumeable: true,
+            });
+          }
           heartbeat.assertOwned();
           job = store.complete(job.requestId, {
             stableUrl: asset.url,
@@ -430,7 +449,38 @@ export function createCanvasGenerationService({
     }
   }
 
-  return { regenerate };
+  async function inspect({ ownerEmail, body } = {}) {
+    const request = normalizeRequest(ownerEmail, body);
+    const job = store.get(request.requestId);
+    if (!job) {
+      return { status: 'missing', taskId: request.requestId };
+    }
+    if (job.status === 'completed' && job.stableUrl) {
+      return {
+        status: 'completed',
+        taskId: job.requestId,
+        url: job.stableUrl,
+        ratio: request.selectedSize.ratio,
+        resolution: request.selectedSize.resolution,
+      };
+    }
+    if (job.status === 'failed') {
+      const error = storedError(job);
+      return {
+        status: 'failed',
+        taskId: job.requestId,
+        error: error.message,
+        code: error.code,
+        retryable: error.retryable === true,
+      };
+    }
+    return {
+      status: job.status || 'queued',
+      taskId: job.requestId,
+    };
+  }
+
+  return { regenerate, inspect };
 }
 
 export function mapCanvasGenerationError(error) {
@@ -519,6 +569,31 @@ export function createCanvasRegenerateHandler({ service, billing } = {}) {
       if (mapped.retryAfter !== null) {
         res.setHeader('Retry-After', mapped.retryAfter);
       }
+      return res.status(mapped.status).json(mapped.body);
+    }
+  };
+}
+
+export function createCanvasGenerationStatusHandler({ service } = {}) {
+  if (!service || typeof service.inspect !== 'function') {
+    throw new TypeError('Canvas generation status service is required');
+  }
+  return async function canvasGenerationStatusHandler(req, res) {
+    try {
+      const ownerEmail = cleanString(req?._userEmail).toLowerCase();
+      if (!ownerEmail) {
+        return res.status(401).json({
+          status: 'failed',
+          code: 'AUTH_SESSION_REQUIRED',
+          error: '登录状态无效或已过期，请重新登录',
+        });
+      }
+      const result = await service.inspect({ ownerEmail, body: req?.body || {} });
+      if (result.status === 'missing') return res.status(404).json(result);
+      if (result.status === 'completed' || result.status === 'failed') return res.json(result);
+      return res.status(202).json({ ...result, status: 'processing', retryAfter: 2 });
+    } catch (error) {
+      const mapped = mapCanvasGenerationError(error);
       return res.status(mapped.status).json(mapped.body);
     }
   };

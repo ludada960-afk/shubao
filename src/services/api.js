@@ -1614,6 +1614,35 @@ export async function saveWork(work, phone, { signal } = {}) {
   return null;
 }
 
+const CANVAS_RECOVERY_HTTP_STATUSES = new Set([409, 502, 503, 504, 524]);
+
+async function pollCanvasGenerationResult(requestBody, { signal, maxAttempts = 180 } = {}) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (signal?.aborted) throw signal.reason || new DOMException('The operation was aborted', 'AbortError');
+    const response = await fetch(`${API_BASE}/api/canvas/regenerate/status`, {
+      method: 'POST',
+      headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(requestBody),
+      signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data.status === 'completed' && data.url) return data;
+    if (response.ok && data.status === 'failed') {
+      throw await createApiError(new Response(JSON.stringify(data), { status: 500 }), '重新生成失败');
+    }
+    if (![200, 202, 404, 409, 502, 503, 504, 524].includes(response.status)) {
+      throw await createApiError(new Response(JSON.stringify(data), { status: response.status }), '查询生成状态失败');
+    }
+    const retryMs = Math.max(500, Math.min(5_000, Number(data.retryAfter || 2) * 1_000));
+    await waitFor(retryMs);
+  }
+  throw Object.assign(new Error('图片仍在生成，请稍后继续查看'), {
+    code: 'CANVAS_GENERATION_STATUS_TIMEOUT',
+    retryable: true,
+    resumeable: true,
+  });
+}
+
 export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = 'image2', requestKey = '', selection, creationIntent = 'ecommerce', skillId = 'free', includeMetadata = false, signal }) {
   const normalizedImageUrl = normalizeCanvasImageUrl(imageUrl);
   const normalizedImageModel = normalizeImageModel(imageModel);
@@ -1626,19 +1655,37 @@ export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages 
   const stableRequestKey = stableCanvasActionId(logicalRequestKey);
   const billingSku = generationBillingSku(normalizedImageModel, resolution);
   const billing = await quoteCanvasAction(billingSku, stableRequestKey, { signal });
-  const res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
-    method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), reference_metadata: references, ratio, resolution, image_model: normalizedImageModel, request_key: stableRequestKey, creation_intent: creationIntent, skill_id: skillId, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId }),
-    signal,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
+  const requestBody = { prompt, image_url: normalizedImageUrl, reference_images: referenceImages.map(normalizeCanvasImageUrl), reference_metadata: references, ratio, resolution, image_model: normalizedImageModel, request_key: stableRequestKey, creation_intent: creationIntent, skill_id: skillId, ...(selection ? { selection } : {}), billing_quote_id: billing.quoteId, billing_action_id: billing.actionId };
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/canvas/regenerate`, {
+      method: 'POST', headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(requestBody),
+      signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const recovered = await pollCanvasGenerationResult(requestBody, { signal });
+    return includeMetadata ? {
+      url: recovered.url,
+      taskId: String(recovered.taskId || ''),
+      replay: true,
+      ratio: String(recovered.ratio || ''),
+      resolution: String(recovered.resolution || ''),
+    } : recovered.url;
+  }
+  let data = await res.json().catch(() => ({}));
+  if (!res.ok && CANVAS_RECOVERY_HTTP_STATUSES.has(res.status)) {
+    data = await pollCanvasGenerationResult(requestBody, { signal });
+  } else if (!res.ok) {
+    throw await createApiError(new Response(JSON.stringify(data), { status: res.status }), '重新生成失败');
+  }
   if (!data.url) throw new Error(data.error || '重新生成失败');
   if (includeMetadata) {
     return {
       url: data.url,
       taskId: String(data.taskId || ''),
-      replay: Boolean(data.replay),
+      replay: Boolean(data.replay || CANVAS_RECOVERY_HTTP_STATUSES.has(res.status)),
       ratio: String(data.ratio || ''),
       resolution: String(data.resolution || ''),
     };

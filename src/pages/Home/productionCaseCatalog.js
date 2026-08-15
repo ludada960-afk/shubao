@@ -1,7 +1,16 @@
 import { productionPromptFor } from './productionCasePrompts.js';
+import { validateProductionCaseManifest } from './productionCaseManifest.js';
+import {
+  EARBUD_COMPOSITE_PROMPT_V3,
+  EARBUD_COMPOSITE_REQUEST_KEY_V3,
+  EARBUD_DETAIL_PROMPTS,
+  EARBUD_SUITE_REPLAY_PROMPT,
+  EARBUD_USAGE_PROMPT_V3,
+  EARBUD_USAGE_REQUEST_KEY_V4,
+} from './productionCasePromptLibrary.js';
 
-function asset({ id = '', src, label, role, ratio, intent, taskId = '', requestKey = '', prompt = '', provenance = 'production' }) {
-  return Object.freeze({ id, src, label, role, ratio, intent, taskId, requestKey, prompt, provenance });
+function asset({ id = '', src, label, role, ratio, intent, taskId = '', requestKey = '', prompt = '', provenance = 'production', ...metadata }) {
+  return Object.freeze({ id, src, label, role, ratio, intent, taskId, requestKey, prompt, provenance, ...metadata });
 }
 
 function chapter({ id, title, description, layout, assets }) {
@@ -14,7 +23,7 @@ function chapter({ id, title, description, layout, assets }) {
   });
 }
 
-const productionAsset = ({ id, label, ratio, taskId, requestKey, intent, prompt = productionPromptFor(id) }) => asset({
+const productionAsset = ({ id, label, ratio, taskId, requestKey, intent, prompt = productionPromptFor(id), ...metadata }) => asset({
   id,
   src: `/images/visual-recipes/cases/${id}.png`,
   label,
@@ -24,6 +33,7 @@ const productionAsset = ({ id, label, ratio, taskId, requestKey, intent, prompt 
   taskId,
   requestKey,
   prompt,
+  ...metadata,
 });
 
 function visualProductionCase({ id, chapters }) {
@@ -36,18 +46,59 @@ function visualProductionCase({ id, chapters }) {
   });
 }
 
+const PRODUCT_SUITE_ASSETS = Object.freeze([
+  asset({ id: 'earbuds-product-source', src: '/images/home/ecommerce-showcase/earbuds-product-source.png', label: '完整商品母图', role: 'source', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '为珍珠白与香槟金真无线降噪耳机生成完整商品母图，保持耳机与充电盒结构、颜色、材质和比例，不添加品牌或文字。' }),
+  asset({ id: 'earbuds-suite-panel-structure', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-structure.png', label: '声学结构解析', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'structure', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-structure'] }),
+  asset({ id: 'earbuds-suite-panel-usage', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-model-usage.png', label: '自然佩戴场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'canvas_65d1792df11385e019c60ef2a69239732fc4ca109195aedcc530d404fc601adf', requestKey: EARBUD_USAGE_REQUEST_KEY_V4, displayRole: 'selectorPreview', selectorKind: 'usage', isWhiteBackground: false, prompt: EARBUD_USAGE_PROMPT_V3 }),
+  asset({ id: 'earbuds-suite-panel-scene', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-scene.png', label: '清晰通话场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'scene', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-scene'] }),
+  asset({ id: 'earbuds-suite-panel-identity', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-identity.png', label: '商品身份主视觉', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-identity'] }),
+  asset({ id: 'earbuds-suite-panel-function', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-function.png', label: '续航与佩戴详情', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-function'] }),
+  asset({ id: 'earbuds-suite-composite', src: '/images/home/ecommerce-showcase/earbuds-suite-composite-v3.png', label: '完整电商套图成片', role: 'result', ratio: '4:3', intent: 'product_suite', taskId: 'canvas_9ddb1e933e598050fe014e69aa969d52b32a230623a586e6546a7ffcb02a5197', requestKey: EARBUD_COMPOSITE_REQUEST_KEY_V3, displayRole: 'finalComposite', isWhiteBackground: false, prompt: EARBUD_COMPOSITE_PROMPT_V3 }),
+]);
+
+export const PRODUCT_SUITE_MANIFEST = validateProductionCaseManifest({
+  id: 'product-suite',
+  title: '珍珠白降噪耳机商品套图',
+  category: 'ecommerce',
+  prompt: EARBUD_SUITE_REPLAY_PROMPT,
+  sourceAssets: PRODUCT_SUITE_ASSETS
+    .filter(item => item.role === 'source')
+    .map(item => ({ id: item.id, role: 'product', url: item.src, name: item.label })),
+  outputs: PRODUCT_SUITE_ASSETS
+    .filter(item => item.role === 'result')
+    .map(item => ({
+      id: item.id,
+      role: item.displayRole || 'detail',
+      title: item.label,
+      prompt: item.prompt,
+      url: item.src,
+      taskId: item.taskId,
+      requestKey: item.requestKey,
+      quoteId: item.quoteId || '',
+      ratio: item.ratio,
+      selectorKind: item.selectorKind,
+      displayRole: item.displayRole,
+      provenance: item.provenance,
+    })),
+  cover: {
+    strategy: 'mosaic',
+    outputIds: PRODUCT_SUITE_ASSETS
+      .filter(item => ['selectorPreview', 'detailSource'].includes(item.displayRole))
+      .map(item => item.id),
+  },
+  remix: {
+    mode: 'product_suite',
+    prompt: EARBUD_SUITE_REPLAY_PROMPT,
+    sourceAssetRoles: ['product'],
+  },
+});
+
 export const PRODUCTION_CASE_CATALOG = Object.freeze([
   Object.freeze({
     id: 'product-suite',
     status: 'production',
-    assets: Object.freeze([
-      asset({ id: 'earbuds-product-source', src: '/images/home/ecommerce-showcase/earbuds-product-source.png', label: '完整商品母图', role: 'source', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '为珍珠白与香槟金真无线降噪耳机生成完整商品母图，保持耳机与充电盒结构、颜色、材质和比例，不添加品牌或文字。' }),
-      asset({ id: 'earbuds-white', src: '/images/home/ecommerce-showcase/earbuds-white.png', label: '白底商品主图', role: 'result', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成纯净白底商品主图，完整展示珍珠白耳机与打开的充电盒，商品居中、不裁切。' }),
-      asset({ id: 'earbuds-main-lifestyle', src: '/images/home/ecommerce-showcase/earbuds-main-lifestyle.png', label: '通勤降噪主视觉', role: 'result', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成安静通勤女性佩戴场景，突出降噪与舒适佩戴价值，保持产品一致。' }),
-      asset({ id: 'earbuds-main-benefit', src: '/images/home/ecommerce-showcase/earbuds-main-benefit.png', label: '功能卖点主图', role: 'result', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成降噪、高清通话与续航卖点视觉，中文文案清晰、版式专业。' }),
-      asset({ id: 'earbuds-detail-benefit', src: '/images/home/ecommerce-showcase/earbuds-detail-benefit.png', label: '长页功能详情', role: 'result', ratio: '9:16', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成完整9:16详情长图，解释开盖即连、取出即用与降噪功能，内容不裁切。' }),
-      asset({ id: 'earbuds-detail-craft', src: '/images/home/ecommerce-showcase/earbuds-detail-craft.png', label: '长页工艺详情', role: 'result', ratio: '9:16', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '生成完整9:16材质与工艺详情长图，展示声学网、金属细节与佩戴结构。' }),
-    ]),
+    assets: PRODUCT_SUITE_ASSETS,
+    manifest: PRODUCT_SUITE_MANIFEST,
   }),
   Object.freeze({
     id: 'tryon-angles',
@@ -58,6 +109,7 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
       asset({ id: 'tryon-angle-motion', src: '/images/home/tryon-showcase/angle-motion.png', label: '动态行走', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的动态行走姿态，具有时尚感且不裁切。' }),
       asset({ id: 'tryon-angle-side', src: '/images/home/tryon-showcase/angle-side.png', label: '侧面版型', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的侧面版型视图，展示衣摆、裤型与配饰关系。' }),
       asset({ id: 'tryon-angle-back', src: '/images/home/tryon-showcase/angle-back.png', label: '背面细节', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', prompt: '同一套完整穿搭的背面视图，保持人物与场景连续。' }),
+      asset({ id: 'tryon-angles-workflow', src: '/images/home/tryon-showcase/editorial-multi-angle-v3.webp', label: '商品到多角度成片', role: 'result', ratio: '16:9', intent: 'anything_tryon', taskId: 'ec_production_tryon_complete_20260814_v1', requestKey: 'production-tryon-complete-result', provenance: 'production-composite', displayRole: 'workflowBanner', selectorPreview: true, prompt: '完整展示商品套装与四个正式生产的全身时尚角度。' }),
     ]),
   }),
   Object.freeze({
@@ -67,6 +119,7 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
       asset({ id: 'tryon-reference-product', src: '/images/home/tryon-showcase/product-flatlay.png', label: '完整商品与穿搭', role: 'source', ratio: '3:8', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '完整保留服饰套装的材质、颜色、数量与搭配关系。' }),
       asset({ id: 'tryon-reference-person', src: '/images/home/tryon-showcase/reference-person.png', label: '完整参考模特', role: 'reference', ratio: '1:4', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '参考成年模特的完整全身比例、姿态与镜头高度。' }),
       asset({ id: 'tryon-reference-result', src: '/images/home/tryon-showcase/angle-motion.png', label: '时尚街拍上身结果', role: 'result', ratio: '9:16', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', prompt: '将完整服饰套装自然穿到参考模特身上，保持人物与商品关系清晰。' }),
+      asset({ id: 'tryon-reference-workflow', src: '/images/home/tryon-showcase/tryon-reference-workflow.png', label: '商品与参考模特精准上身', role: 'result', ratio: '16:9', intent: 'anything_tryon', taskId: 'ec_c0e0e32f-686c-4184-bdd5-27a17d0bbceb', requestKey: 'production-tryon-reference-result', provenance: 'production-composite', displayRole: 'workflowBanner', prompt: '完整展示商品、参考模特与正式生产上身结果的关系。' }),
     ]),
   }),
   visualProductionCase({
@@ -103,14 +156,14 @@ export const PRODUCTION_CASE_CATALOG = Object.freeze([
     id: 'social-cover',
     chapters: [
       { id: 'social-platform', title: '同一个内容目标，不同平台有不同重心', description: '小红书攻略、公众号头图与 B 站评测分别采用原生比例和标题密度。', layout: { type: 'platform-fan' }, assets: [
-        productionAsset({ id: 'social-xhs-market', label: '小红书 · 早市攻略', ratio: '3:4', intent: 'social-cover', taskId: 'canvas_d3b088adf57022db6dba1f7fa226ebf9ed3e2a051773356d9a63a274ac32dd60', requestKey: 'showcase-20260813-social-xhs-market' }),
-        productionAsset({ id: 'social-wechat-workflow', label: '公众号 · AI复盘', ratio: '21:9', intent: 'social-cover', taskId: 'canvas_2d7e1bf2bd05cb9e8ef77f7870bbccfab4bfa90b9dc9a4d5cfc1a19e99cfddb5', requestKey: 'showcase-20260813-social-wechat-workflow' }),
-        productionAsset({ id: 'social-bilibili-coffee', label: 'B站 · 器具实测', ratio: '16:9', intent: 'social-cover', taskId: 'canvas_f38495c76aaa069c57519e807e99d8ac649da521323e5be2ea50d88e508129d4', requestKey: 'showcase-20260813-social-bilibili-coffee' }),
+        productionAsset({ id: 'social-xhs-market', label: '小红书 · 早市攻略', ratio: '3:4', intent: 'social-cover', platform: 'xiaohongshu', taskId: 'canvas_d3b088adf57022db6dba1f7fa226ebf9ed3e2a051773356d9a63a274ac32dd60', requestKey: 'showcase-20260813-social-xhs-market' }),
+        productionAsset({ id: 'social-wechat-workflow', label: '公众号 · AI复盘', ratio: '21:9', intent: 'social-cover', platform: 'wechat', taskId: 'canvas_2d7e1bf2bd05cb9e8ef77f7870bbccfab4bfa90b9dc9a4d5cfc1a19e99cfddb5', requestKey: 'showcase-20260813-social-wechat-workflow' }),
+        productionAsset({ id: 'social-bilibili-coffee', label: 'B站 · 器具实测', ratio: '16:9', intent: 'social-cover', platform: 'bilibili', taskId: 'canvas_f38495c76aaa069c57519e807e99d8ac649da521323e5be2ea50d88e508129d4', requestKey: 'showcase-20260813-social-bilibili-coffee' }),
       ] },
       { id: 'social-formats', title: '教程、改造与决策内容', description: '全屏跟练、前后改造和数码横评分别使用步骤、结果和对比结构。', layout: { type: 'platform-fan' }, assets: [
-        productionAsset({ id: 'social-douyin-stretch', label: '抖音 · 拉伸跟练', ratio: '9:16', intent: 'social-cover', taskId: 'canvas_e92f25859c8750ae06337989ebe843d157ec62dcc387fee67739a7fd25700ede', requestKey: 'showcase-20260813-social-douyin-stretch' }),
-        productionAsset({ id: 'social-xhs-rental', label: '小红书 · 租房改造', ratio: '3:4', intent: 'social-cover', taskId: 'canvas_1406eb0ab17b7433312fbb9c431713bbeca355b029483cbfa9356e20c18db390', requestKey: 'showcase-20260813-social-xhs-rental' }),
-        productionAsset({ id: 'social-bilibili-camera', label: 'B站 · 相机选择', ratio: '16:9', intent: 'social-cover', taskId: 'canvas_60ab45c50ad1bab858c3912af2990c2b40845fc1404aa16a5b2a4356c212f934', requestKey: 'showcase-20260813-social-bilibili-camera' }),
+        productionAsset({ id: 'social-xhs-rental', label: '小红书 · 租房改造', ratio: '3:4', intent: 'social-cover', platform: 'xiaohongshu', taskId: 'canvas_1406eb0ab17b7433312fbb9c431713bbeca355b029483cbfa9356e20c18db390', requestKey: 'showcase-20260813-social-xhs-rental' }),
+        productionAsset({ id: 'social-bilibili-camera', label: 'B站 · 相机选择', ratio: '16:9', intent: 'social-cover', platform: 'bilibili', taskId: 'canvas_60ab45c50ad1bab858c3912af2990c2b40845fc1404aa16a5b2a4356c212f934', requestKey: 'showcase-20260813-social-bilibili-camera' }),
+        productionAsset({ id: 'social-douyin-stretch', src: '/images/home/social-showcase/social-douyin-stretch-card.png', label: '抖音 · 拉伸跟练', ratio: '3:4', intent: 'social-cover', platform: 'douyin', provenance: 'production-composite', taskId: 'canvas_e92f25859c8750ae06337989ebe843d157ec62dcc387fee67739a7fd25700ede', requestKey: 'showcase-20260813-social-douyin-stretch' }),
       ] },
     ],
   }),

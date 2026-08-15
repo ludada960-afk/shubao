@@ -1232,6 +1232,88 @@
   }
 }
 
+/* Social covers keep their native aspect ratios in one symmetric platform row. */
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter {
+  width: min(620px, 100%);
+  height: 246px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
+  max-height: none;
+  justify-self: center;
+}
+
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0,
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
+  width: 165px;
+  height: 220px;
+  aspect-ratio: 3 / 4;
+}
+
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0 {
+  grid-column: 1;
+  grid-row: 1;
+  transform: rotate(-4deg);
+}
+
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-1 {
+  width: min(100%, 270px);
+  height: auto;
+  max-height: 170px;
+  grid-column: 2;
+  grid-row: 1;
+  transform: translateY(-7px);
+}
+
+.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
+  grid-column: 3;
+  grid-row: 1;
+  transform: rotate(4deg);
+}
+
+.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr);
+}
+
+.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter .output-0 {
+  order: 0;
+  grid-column: 1;
+  grid-row: 1;
+  transform: rotate(-4deg);
+}
+
+.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter .output-1 {
+  order: 0;
+  grid-column: 2;
+  grid-row: 1;
+  transform: translateY(-7px);
+}
+
+.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter .output-2 {
+  order: 0;
+  grid-column: 3;
+  grid-row: 1;
+  transform: rotate(4deg);
+}
+
+@media (max-width: 640px) {
+  .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0,
+  .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
+    width: 117px;
+    height: 156px;
+    max-height: 156px;
+  }
+
+  .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-1 {
+    width: min(100%, 180px);
+    max-height: 116px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .visual-skill-option,
   .visual-skill-icon svg,
@@ -1289,48 +1371,6 @@
   background: transparent;
 }
 
-.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter {
-  width: min(570px, 100%);
-  height: 246px;
-  min-height: 0;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr);
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 10px 14px;
-}
-
-.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .visual-skill-stage-card {
-  width: auto;
-  max-width: 100%;
-  border-width: 4px;
-}
-
-.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0 {
-  width: auto;
-  height: 232px;
-  max-height: 232px;
-  grid-column: 1;
-  grid-row: 1 / -1;
-}
-
-.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-1,
-.visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
-  width: min(100%, 250px);
-  height: auto;
-  max-height: 108px;
-}
-
-.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter {
-  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
-}
-
-.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter .output-0 {
-  grid-column: 2;
-  grid-row: 1 / -1;
-}
-
-.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter .output-1 { grid-column: 1; grid-row: 1; }
-.visual-layout-platform-fan.is-alternate .visual-skill-stage-outputs.is-chapter .output-2 { grid-column: 1; grid-row: 2; }
-
 .visual-ability-rail {
   min-height: 54px;
   background: rgba(255, 255, 255, .54);
@@ -1357,14 +1397,4 @@
     max-height: 220px;
   }
 
-  .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-0 {
-    height: 208px;
-    max-height: 208px;
-  }
-
-  .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-1,
-  .visual-layout-platform-fan .visual-skill-stage-outputs.is-chapter .output-2 {
-    width: 100%;
-    max-height: 96px;
-  }
 }

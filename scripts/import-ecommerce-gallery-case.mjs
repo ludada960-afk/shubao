@@ -4,6 +4,8 @@ import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
+import { validateProductionCaseManifest } from '../src/pages/Home/productionCaseManifest.js';
+
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif']);
 const ROLE_RULES = [
   { pattern: /白底|纯白/, label: '白底图', description: '展示商品完整外观与识别细节' },
@@ -35,9 +37,14 @@ export function resolveImageDeclaration(fileName, declarations = []) {
     .some(value => basename(String(value || '')).toLowerCase() === normalized)) || {};
   return {
     ...declared,
-    label: meaningful(declared.label),
+    label: meaningful(declared.label || declared.title),
     description: meaningful(declared.description),
   };
+}
+
+export function resolveCoverStrategy(strategy = 'auto', outputCount = 0) {
+  const normalized = ['mosaic', 'single', 'auto'].includes(strategy) ? strategy : 'auto';
+  return normalized === 'auto' ? (Number(outputCount) >= 4 ? 'mosaic' : 'single') : normalized;
 }
 
 const COVER_EXCLUDE = /白底|透明|png素材|抠图|去背/i;
@@ -112,7 +119,10 @@ function safeId(value) {
 }
 
 async function readOptionalMetadata(inputDir) {
-  try { return JSON.parse(await readFile(join(inputDir, 'case.json'), 'utf8')); } catch { return {}; }
+  for (const file of ['manifest.json', 'case.json']) {
+    try { return JSON.parse(await readFile(join(inputDir, file), 'utf8')); } catch {}
+  }
+  return {};
 }
 
 async function buildCover(files, outputPath) {
@@ -126,12 +136,23 @@ async function buildCover(files, outputPath) {
     .composite(composites).webp({ quality: 90, effort: 5 }).toFile(outputPath);
 }
 
-async function importCase(argv = process.argv.slice(2)) {
+async function buildSingleCover(file, outputPath) {
+  await sharp(file)
+    .rotate()
+    .resize(1200, 1600, { fit: 'cover', position: 'attention' })
+    .webp({ quality: 90, effort: 5 })
+    .toFile(outputPath);
+}
+
+export async function importCase(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   if (!args.input) throw new Error('缺少 --input，请传入一套电商图片所在的文件夹。');
   const inputDir = resolve(args.input);
   const outputRoot = resolve(args.output || 'public/gallery/ecommerce');
   const metadata = await readOptionalMetadata(inputDir);
+  const productionManifest = Array.isArray(metadata.outputs)
+    ? validateProductionCaseManifest(metadata)
+    : null;
   const sourceFiles = (await readdir(inputDir, { withFileTypes: true }))
     .filter(entry => entry.isFile() && IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase()))
     .map(entry => entry.name).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
@@ -141,7 +162,7 @@ async function importCase(argv = process.argv.slice(2)) {
   const id = safeId(args.id || metadata.id) || generatedId;
   const caseDir = join(outputRoot, id);
   await mkdir(caseDir, { recursive: true });
-  const declaredImages = Array.isArray(metadata.images) ? metadata.images : [];
+  const declaredImages = productionManifest?.outputs || (Array.isArray(metadata.images) ? metadata.images : []);
   const imported = [];
   for (let index = 0; index < sourceFiles.length; index += 1) {
     const file = sourceFiles[index];
@@ -153,27 +174,46 @@ async function importCase(argv = process.argv.slice(2)) {
     const declared = resolveImageDeclaration(file, declaredImages);
     const inferred = inferImageRole(file, index);
     imported.push({
+      ...(declared.id ? { id: declared.id } : {}),
       url: '/gallery/ecommerce/' + id + '/' + outputName,
       label: declared.label || inferred.label,
       description: declared.description || inferred.description,
+      ...(declared.role ? { role: declared.role } : {}),
+      ...(declared.prompt ? { prompt: declared.prompt } : {}),
+      ...(declared.taskId ? { taskId: declared.taskId } : {}),
+      ...(declared.requestKey ? { requestKey: declared.requestKey } : {}),
+      ...(declared.quoteId ? { quoteId: declared.quoteId } : {}),
+      ...(declared.ratio ? { ratio: declared.ratio } : {}),
       width: dimensions.width || 0,
       height: dimensions.height || 0,
       sourceFile: file,
     });
   }
-  const coverSelection = selectCoverImages(imported);
+  const requestedCoverIds = new Set(productionManifest?.cover?.outputIds || []);
+  const requestedCoverImages = requestedCoverIds.size
+    ? imported.filter(image => requestedCoverIds.has(image.id))
+    : imported;
+  const coverSelection = selectCoverImages(requestedCoverImages);
   const coverInputs = (coverSelection.length ? coverSelection : imported.slice(0, 7))
     .map(image => join(caseDir, image.url.split('/').pop()));
-  await buildCover(coverInputs, join(caseDir, 'cover.webp'));
+  const coverStrategy = resolveCoverStrategy(productionManifest?.cover?.strategy || metadata.cover_strategy || 'auto', imported.length);
+  if (coverStrategy === 'mosaic') await buildCover(coverInputs, join(caseDir, 'cover.webp'));
+  else await buildSingleCover(coverInputs[0], join(caseDir, 'cover.webp'));
   const entry = {
     id, type: 'ecommerce', title,
     category: args.category || metadata.category || '电商套图',
     platform: args.platform || metadata.platform || '淘宝/天猫',
     hint: args.hint || metadata.hint || title,
     cover_url: '/gallery/ecommerce/' + id + '/cover.webp',
-    cover_mosaic_url: '/gallery/ecommerce/' + id + '/cover.webp',
+    cover_strategy: coverStrategy,
+    ...(coverStrategy === 'mosaic' ? { cover_mosaic_url: '/gallery/ecommerce/' + id + '/cover.webp' } : {}),
     images: imported,
-    ...(metadata.remix && typeof metadata.remix === 'object' ? { remix: metadata.remix } : {}),
+    ...(productionManifest ? {
+      prompt: productionManifest.prompt,
+      sourceAssets: productionManifest.sourceAssets,
+      remix: productionManifest.remix,
+      manifest: productionManifest,
+    } : metadata.remix && typeof metadata.remix === 'object' ? { remix: metadata.remix } : {}),
   };
   await writeFile(join(caseDir, 'case.json'), JSON.stringify(entry, null, 2) + '\n', 'utf8');
   const indexPath = join(outputRoot, 'cases.json');
