@@ -96,7 +96,7 @@ test('migrates legacy video jobs and preserves a stable historical snapshot', t 
   const service = createService({ db, assetRoot, now: () => 1_000_000 });
   t.after(() => service.close());
   const columns = new Set(db.prepare('PRAGMA table_info(video_jobs)').all().map(column => column.name));
-  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'reconciliation_error', 'release_attempts', 'review_deadline_ms', 'review_attempts']) {
+  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'reconciliation_error', 'release_attempts', 'review_deadline_ms', 'review_attempts', 'current_attempt_id']) {
     assert.equal(columns.has(column), true, column);
   }
 
@@ -414,6 +414,9 @@ test('an unknown provider submission expires to an automatic credit release', as
   assert.ok(reviewing.reviewDeadlineAt > clock);
   assert.match(reviewing.error, /自动核对/);
   assert.equal(releaseCalls, 0);
+  const uncertainAttempt = db.prepare('SELECT * FROM video_job_attempts WHERE job_id = ?').get(created.job.id);
+  assert.equal(uncertainAttempt.state, 'uncertain');
+  assert.equal(uncertainAttempt.submission_key, created.job.id);
 
   clock = reviewing.reviewDeadlineAt + 1;
   const summary = service.reconcileBilling();
@@ -506,4 +509,74 @@ test('an operator can attach the recovered provider task without resubmitting', 
   assert.equal(submitCalls, 1);
   assert.equal(settleCalls, 1);
   assert.equal(service.listSubmissionReviews().length, 0);
+});
+
+test('provider attempts are durable before submission and retain the accepted task id', async t => {
+  const db = new Database(':memory:');
+  const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-attempt-ledger-'));
+  let submissionKey = '';
+  const registry = {
+    get: () => ({
+      enabled: true,
+      routeId: 'sd5-seedance-2.0',
+      model: 'sd5-seedance-2.0',
+      submit: async (_payload, key) => {
+        submissionKey = key;
+        const attempt = db.prepare('SELECT * FROM video_job_attempts WHERE submission_key = ?').get(key);
+        assert.equal(attempt.state, 'submitting');
+        assert.match(attempt.request_hash, /^[a-f0-9]{64}$/);
+        return { id: 'accepted-provider-task', progress: 1 };
+      },
+      get: async taskId => {
+        assert.equal(taskId, 'accepted-provider-task');
+        return { status: 'failed', progress: 5 };
+      },
+      download: async () => { throw new Error('download must not run'); },
+    }),
+    publicProducts: () => publicVideoProducts(),
+  };
+  const service = createService({
+    db,
+    assetRoot,
+    registry,
+    maxConcurrent: 1,
+    quoteVerify: ({ quoteId, expectedQuote }) => ({
+      quoteId,
+      currency: expectedQuote.currency,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    }),
+  });
+  t.after(() => {
+    service.close();
+    db.close();
+    rmSync(assetRoot, { recursive: true, force: true });
+  });
+
+  const created = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'attempt-ledger',
+    billingQuoteId: 'attempt-ledger-quote',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      productId: 'seedance_standard',
+      mode: 'script',
+      prompt: '持久化提交尝试',
+      duration: 5,
+      aspectRatio: '16:9',
+      resolution: '720p',
+    },
+  });
+  await new Promise(resolve => {
+    const check = () => service.getJob('owner@example.com', created.job.id)?.status === 'failed'
+      ? resolve()
+      : setTimeout(check, 2);
+    check();
+  });
+
+  assert.equal(submissionKey, created.job.id);
+  const attempts = db.prepare('SELECT * FROM video_job_attempts WHERE job_id = ? ORDER BY attempt_number').all(created.job.id);
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].submission_key, created.job.id);
+  assert.equal(attempts[0].provider_task_id, 'accepted-provider-task');
+  assert.equal(attempts[0].state, 'failed');
 });

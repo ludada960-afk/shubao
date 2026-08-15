@@ -17,6 +17,7 @@ import {
   isVideoProviderFailure,
 } from './videoProviders.mjs';
 import { createOwnerFairVideoQueue } from './videoQueue.mjs';
+import { createVideoAttemptStore } from './videoAttemptStore.mjs';
 
 const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review', 'reconciling']);
 const ACTIVE_STATUSES = new Set(['queued', 'submitting', 'processing']);
@@ -66,6 +67,7 @@ function serializeJob(row, resultUrl = row?.result_url || '') {
       : row.billing_state || 'held',
     reconciliationError: row.reconciliation_error || '',
     reviewDeadlineAt: Number(row.review_deadline_ms || 0),
+    attemptId: row.current_attempt_id || '',
     prompt: row.prompt,
     duration: row.duration,
     aspectRatio: row.aspect_ratio,
@@ -232,6 +234,7 @@ export function createVideoGeneration({
       release_attempts INTEGER NOT NULL DEFAULT 0,
       review_deadline_ms INTEGER NOT NULL DEFAULT 0,
       review_attempts INTEGER NOT NULL DEFAULT 0,
+      current_attempt_id TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       UNIQUE(owner_email, idempotency_key)
@@ -253,6 +256,7 @@ export function createVideoGeneration({
     ['release_attempts', 'INTEGER NOT NULL DEFAULT 0'],
     ['review_deadline_ms', 'INTEGER NOT NULL DEFAULT 0'],
     ['review_attempts', 'INTEGER NOT NULL DEFAULT 0'],
+    ['current_attempt_id', "TEXT NOT NULL DEFAULT ''"],
   ];
   for (const [column, definition] of migrations) {
     if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
@@ -274,6 +278,7 @@ export function createVideoGeneration({
     maxConcurrent === 0 ? 0 : Math.min(product.concurrency, Math.max(1, Number(maxConcurrent) || product.concurrency)),
   ]));
   const queue = createOwnerFairVideoQueue({ capacities: routeCapacities });
+  const attemptStore = createVideoAttemptStore({ db });
   const retryTimers = new Set();
   const circuitStates = new Map();
   let closed = false;
@@ -595,6 +600,9 @@ export function createVideoGeneration({
   }
 
   function markSubmissionUnknown(job, message = '') {
+    if (job.current_attempt_id && attemptStore.get(job.current_attempt_id)?.state === 'submitting') {
+      attemptStore.markUncertain(job.current_attempt_id, { message: clean(message, 500) || 'submission result is unknown' });
+    }
     return updateJob(job.id, {
       status: 'needs_review',
       error: clean(message, 500) || '上游受理结果待自动核对，核对期间不会重复提交或结算积分',
@@ -623,6 +631,7 @@ export function createVideoGeneration({
       ORDER BY review_deadline_ms, rowid`).all(nowMs());
     summary.checked += expiredReviews.length;
     for (const row of expiredReviews) {
+      if (row.current_attempt_id) attemptStore.markFailed(row.current_attempt_id, { code: 'VIDEO_SUBMISSION_REVIEW_EXPIRED' });
       const released = releaseHeldJob(row, { code: 'VIDEO_SUBMISSION_REVIEW_EXPIRED' });
       summary.expiredReviews += 1;
       if (released.billing_state === 'released') summary.released += 1;
@@ -643,11 +652,27 @@ export function createVideoGeneration({
           markSubmissionUnknown(job);
           return;
         }
-        updateJob(id, { status: 'submitting', error: '' });
-        const submitted = await provider.submit(buildProviderPayload({
+        const providerPayload = buildProviderPayload({
           product: getVideoProduct(job.product_id),
           job,
-        }).body, job.id);
+        }).body;
+        const attempt = attemptStore.begin({
+          jobId: job.id,
+          submissionKey: job.id,
+          payload: providerPayload,
+          provider: provider.protocol || job.provider_route,
+          model: provider.model || job.provider_route,
+          capability: {
+            productId: job.product_id,
+            mode: job.mode,
+            duration: job.duration,
+            resolution: job.resolution,
+            aspectRatio: job.aspect_ratio,
+          },
+        });
+        updateJob(id, { status: 'submitting', error: '', current_attempt_id: attempt.id });
+        const submitted = await provider.submit(providerPayload, attempt.submission_key);
+        attemptStore.markAccepted(attempt.id, submitted.id);
         job = updateJob(id, {
           status: 'processing',
           provider_task_id: clean(submitted.id, 200),
@@ -673,6 +698,7 @@ export function createVideoGeneration({
         updateJob(id, { status: 'processing', progress });
         if (status === 'completed') {
           const output = await persistOutput(job, await provider.download(job.provider_task_id, result));
+          if (job.current_attempt_id) attemptStore.markDelivered(job.current_attempt_id);
           await complete(job, output);
           return;
         }
@@ -696,9 +722,11 @@ export function createVideoGeneration({
         return;
       }
       if (error?.code === 'VIDEO_PROVIDER_UNREACHABLE' && !job.provider_task_id) {
+        if (job.current_attempt_id) attemptStore.markUncertain(job.current_attempt_id, error);
         markSubmissionUnknown(job);
         return;
       }
+      if (job.current_attempt_id) attemptStore.markFailed(job.current_attempt_id, error);
       await fail(job, error);
     }
   }
@@ -881,6 +909,7 @@ export function createVideoGeneration({
       throw httpError(409, 'VIDEO_REVIEW_NOT_PENDING', '该视频任务不在待核对状态');
     }
     if (!taskId) throw httpError(400, 'VIDEO_PROVIDER_TASK_REQUIRED', '缺少上游任务 ID');
+    if (job.current_attempt_id) attemptStore.attachProviderTask(job.current_attempt_id, taskId);
     const resolved = updateJob(job.id, {
       status: 'processing',
       provider_task_id: taskId,
@@ -897,6 +926,7 @@ export function createVideoGeneration({
     if (!job || job.status !== 'needs_review' || job.failure_class !== 'submission_unknown') {
       throw httpError(409, 'VIDEO_REVIEW_NOT_PENDING', '该视频任务不在待核对状态');
     }
+    if (job.current_attempt_id) attemptStore.markFailed(job.current_attempt_id, { code: 'VIDEO_SUBMISSION_REVIEW_REJECTED' });
     return serializeOwnedJob(releaseHeldJob(job, { code: 'VIDEO_SUBMISSION_REVIEW_REJECTED' }));
   }
 
