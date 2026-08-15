@@ -1,5 +1,22 @@
 # Subagent-Driven Development Progress
 
+## 2026-08-15 AI video platform P1 continuation
+
+- Isolated worktree: `F:/da/shubao/.worktrees/smart-layer-release-lf`; branch:
+  `codex/video-platform-p0`. Ecommerce production release `b97167d` is merged
+  at `a28bfcb`; the release owner reported production QA and the 600-second
+  canary complete before the AI-video deployment window reopened.
+- P0 upload/job/billing reliability, P1 workbench domain, protected routes and
+  authoritative completed-job candidate import are complete. The P1 UI design
+  and TDD implementation plan are committed at `1b4bb84`.
+- P1 Task 1 is complete locally: project asset versions can be imported only
+  from an owner-scoped durable `video_assets` row. URL, checksum, MIME, file
+  name and byte count are server-derived; foreign, output, empty-checksum and
+  MIME-mismatched rows are rejected. HTTP clients can submit only
+  `videoAssetId` plus non-authoritative metadata. Focused regression: 14/14.
+- Next boundary: expose the default-off workbench capability and add signed
+  project/workbench clients before rendering the six-stage React workbench.
+
 ## Active workspace
 
 - Worktree: `F:/da/shubao/.worktrees/codex-ecommerce-stability`

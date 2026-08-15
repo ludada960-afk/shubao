@@ -43,6 +43,23 @@ function seedCompletedVideoJob(db, {
     .run(jobId, ownerEmail, status, outputAssetId);
 }
 
+function seedUploadedVideoAsset(db, {
+  assetId = 'upload-1', ownerEmail = OWNER, kind = 'image', contentType = 'image/png',
+  bytes = 4096, sha256 = 'verified-upload-hash', fileName = 'product.png',
+} = {}) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS video_assets (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, kind TEXT NOT NULL,
+      content_type TEXT NOT NULL, bytes INTEGER NOT NULL, sha256 TEXT NOT NULL,
+      file_name TEXT NOT NULL
+    );
+  `);
+  db.prepare(`INSERT INTO video_assets
+    (id, owner_email, kind, content_type, bytes, sha256, file_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(assetId, ownerEmail, kind, contentType, bytes, sha256, fileName);
+}
+
 function assetWithVersions(store, projectId) {
   const asset = store.createAsset({ ownerEmail: OWNER, projectId, kind: 'product', name: '耳机' });
   const first = store.addAssetVersion({ ownerEmail: OWNER, projectId, assetId: asset.id,
@@ -73,6 +90,48 @@ test('workbench assets require an owned video project and immutable versions', t
   assert.equal(approved.approvedVersionId, first.id);
   assert.throws(() => store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
     assetId: asset.id, versionId: second.id, expectedRevision: 1 }), error => error.code === 'VERSION_CONFLICT');
+});
+
+test('uploaded media is imported as an immutable asset version from authoritative storage', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  seedUploadedVideoAsset(db);
+  seedUploadedVideoAsset(db, { assetId: 'foreign-upload', ownerEmail: 'other@example.com' });
+  seedUploadedVideoAsset(db, { assetId: 'output-upload', kind: 'output', contentType: 'video/mp4' });
+  seedUploadedVideoAsset(db, { assetId: 'unverified-upload', sha256: '' });
+  seedUploadedVideoAsset(db, { assetId: 'mismatched-upload', contentType: 'video/mp4' });
+  const asset = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'product', name: '耳机' });
+
+  const version = store.addAssetVersionFromVideoAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: asset.id,
+    videoAssetId: 'upload-1',
+    metadata: { role: 'product' },
+  });
+
+  assert.equal(version.sourceProjectAssetId, 'upload-1');
+  assert.equal(version.stableUrl, '/api/video/assets/upload-1');
+  assert.equal(version.contentHash, 'verified-upload-hash');
+  assert.equal(version.mimeType, 'image/png');
+  assert.deepEqual(version.metadata, {
+    role: 'product',
+    sourceKind: 'image',
+    fileName: 'product.png',
+    bytes: 4096,
+  });
+  assert.throws(() => store.addAssetVersionFromVideoAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: asset.id, videoAssetId: 'foreign-upload',
+  }), error => error.code === 'VIDEO_ASSET_NOT_FOUND');
+  assert.throws(() => store.addAssetVersionFromVideoAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: asset.id, videoAssetId: 'output-upload',
+  }), error => error.code === 'VIDEO_ASSET_NOT_FOUND');
+  assert.throws(() => store.addAssetVersionFromVideoAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: asset.id, videoAssetId: 'unverified-upload',
+  }), error => error.code === 'VIDEO_ASSET_NOT_READY');
+  assert.throws(() => store.addAssetVersionFromVideoAsset({
+    ownerEmail: OWNER, projectId: project.id, assetId: asset.id, videoAssetId: 'mismatched-upload',
+  }), error => error.code === 'VIDEO_ASSET_NOT_READY');
 });
 
 test('asset approval changes mark pinned shots and active clips stale without rewriting bindings', t => {

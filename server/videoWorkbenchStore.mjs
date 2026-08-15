@@ -6,6 +6,11 @@ const BINDING_ROLES = new Set([
   'first_frame', 'last_frame', 'motion_reference',
 ]);
 const SHOT_PATCH_FIELDS = new Set(['position', 'purpose', 'durationMs', 'cameraLanguage', 'prompt']);
+const SOURCE_MEDIA_MIME_PREFIX = Object.freeze({
+  image: 'image/',
+  video: 'video/',
+  audio: 'audio/',
+});
 
 function coded(code, message = code, current = null) {
   return Object.assign(new Error(message), { code, current });
@@ -266,6 +271,36 @@ export function createVideoWorkbenchStore({
         );
         return versionFromRow(db.prepare('SELECT * FROM video_workbench_asset_versions WHERE id = ?').get(id));
       })();
+    },
+
+    addAssetVersionFromVideoAsset({ ownerEmail, projectId, assetId, videoAssetId, metadata = {} }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      requireAsset(owner, project.id, assetId);
+      const sourceId = clean(videoAssetId, 256);
+      const source = sourceId ? db.prepare(`SELECT id, kind, content_type, bytes, sha256, file_name
+        FROM video_assets WHERE id = ? AND owner_email = ?`).get(sourceId, owner) : null;
+      const mimePrefix = source ? SOURCE_MEDIA_MIME_PREFIX[source.kind] : null;
+      if (!source || !mimePrefix) throw coded('VIDEO_ASSET_NOT_FOUND', 'uploaded media not found');
+      const mimeType = clean(source.content_type, 160).toLowerCase();
+      const contentHash = clean(source.sha256, 256);
+      if (!mimeType.startsWith(mimePrefix) || !contentHash || !Number.isSafeInteger(source.bytes) || source.bytes <= 0) {
+        throw coded('VIDEO_ASSET_NOT_READY', 'uploaded media is not durably verified');
+      }
+      return api.addAssetVersion({
+        ownerEmail: owner,
+        projectId: project.id,
+        assetId,
+        sourceProjectAssetId: source.id,
+        stableUrl: `/api/video/assets/${encodeURIComponent(source.id)}`,
+        contentHash,
+        mimeType,
+        metadata: {
+          ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {}),
+          sourceKind: source.kind,
+          fileName: clean(source.file_name, 500),
+          bytes: source.bytes,
+        },
+      });
     },
 
     approveAssetVersion({ ownerEmail, projectId, assetId, versionId, expectedRevision }) {

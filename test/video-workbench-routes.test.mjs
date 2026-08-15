@@ -93,6 +93,20 @@ function seedCompletedVideoJob(db, ownerEmail) {
     VALUES ('route-job', ?, 'completed', 'route-output')`).run(ownerEmail);
 }
 
+function seedUploadedVideoAsset(db, ownerEmail) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS video_assets (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, kind TEXT NOT NULL,
+      content_type TEXT NOT NULL, bytes INTEGER NOT NULL, sha256 TEXT NOT NULL,
+      file_name TEXT NOT NULL
+    );
+  `);
+  db.prepare(`INSERT INTO video_assets
+    (id, owner_email, kind, content_type, bytes, sha256, file_name)
+    VALUES ('route-upload', ?, 'image', 'image/webp', 3072, 'route-upload-hash', 'route-upload.webp')`)
+    .run(ownerEmail);
+}
+
 function signedHeaders(sessionTokens, email) {
   return { authorization: `Bearer ${sessionTokens.issue(email).token}` };
 }
@@ -127,16 +141,26 @@ test('workbench routes derive owner from the signed session and ignore body owne
 });
 
 test('workbench routes expose revisions and map conflicts without overwriting state', async t => {
-  const { app, db, project, sessionTokens } = harness();
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
   t.after(() => db.close());
+  seedUploadedVideoAsset(db, ownerEmail);
   const headers = signedHeaders(sessionTokens, 'owner@example.com');
   const asset = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/assets', {
     headers, params: { projectId: project.id }, body: { kind: 'product', name: '耳机' },
   });
   const version = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/assets/:assetId/versions', {
     headers, params: { projectId: project.id, assetId: asset.body.asset.id },
-    body: { stableUrl: '/media/a.png', contentHash: 'hash-a', mimeType: 'image/png' },
+    body: {
+      videoAssetId: 'route-upload',
+      stableUrl: 'https://attacker.invalid/image',
+      contentHash: 'forged',
+      mimeType: 'text/html',
+    },
   });
+  assert.equal(version.statusCode, 201);
+  assert.equal(version.body.version.stableUrl, '/api/video/assets/route-upload');
+  assert.equal(version.body.version.contentHash, 'route-upload-hash');
+  assert.equal(version.body.version.mimeType, 'image/webp');
   const approved = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/assets/:assetId/approve', {
     headers, params: { projectId: project.id, assetId: asset.body.asset.id },
     body: { versionId: version.body.version.id, expectedRevision: 1 },
