@@ -1,4 +1,5 @@
 import { productionPromptFor } from './productionCasePrompts.js';
+import { manifestOutputsToGalleryImages } from './productionCaseManifest.js';
 
 const clean = value => typeof value === 'string' ? value.trim() : '';
 const assetUrl = value => clean(typeof value === 'string' ? value : (value?.url || value?.src || value?.image_url));
@@ -103,16 +104,22 @@ function tryOnGalleryItem(entry) {
 }
 
 function productSuiteGalleryItem(entry) {
-  const assets = entry.assets.map(normalizedAsset).filter(Boolean);
-  const output = assets.find(asset => asset.displayRole === 'finalComposite')
-    || assets.find(asset => asset.role === 'result')
-    || assets.at(-1);
-  const prompt = clean(output?.prompt) || '保留完整商品结构，生成一套统一主图与详情视觉。';
+  const manifest = entry.manifest;
+  const assets = manifestOutputsToGalleryImages(manifest).map(normalizedAsset).filter(Boolean);
+  const output = assets.find(asset => asset.role === 'finalComposite') || assets.at(-1);
+  const prompt = manifest.remix.prompt;
   return {
-    id: `showcase-${entry.id}`, type: 'ecommerce', intent: 'product_suite', title: '珍珠白降噪耳机商品套图',
+    id: `showcase-${entry.id}`, type: 'ecommerce', intent: 'product_suite', title: manifest.title,
     prompt, body_text: prompt, cover_url: output?.url || '', image_urls: assets.map(asset => asset.url), images: assets, assets,
-    ratio: output?.ratio || '1:1', requestKey: '', imageModel: 'showcase', resolution: '2K',
-    remix: { prompt, platform: 'taobao', intent: 'product_suite', referenceAssets: assets.filter(asset => asset.role === 'source') },
+    ratio: output?.ratio || '1:1', requestKey: output?.requestKey || '', imageModel: 'image2', resolution: '2K',
+    remix: {
+      mode: manifest.remix.mode,
+      prompt,
+      platform: 'taobao',
+      intent: 'product_suite',
+      sourceAssetRoles: manifest.remix.sourceAssetRoles,
+      sourceAssets: manifest.sourceAssets,
+    },
   };
 }
 

@@ -88,6 +88,9 @@ test('gallery product suite metadata describes the production earbuds instead of
   assert.doesNotMatch(item.title, /玻璃灯/);
   assert.equal(item.cover_url, '/images/home/ecommerce-showcase/earbuds-suite-composite.png');
   assert.equal(item.ratio, '1:1');
+  assert.equal(item.images.length, productionCaseById('product-suite').manifest.outputs.length);
+  assert.ok(item.images.every(image => image.prompt && image.requestKey && image.taskId));
+  assert.deepEqual(item.remix.sourceAssets, productionCaseById('product-suite').manifest.sourceAssets);
 });
 
 test('visual cases expose six distinct production outputs across two chapters', () => {
