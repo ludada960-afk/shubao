@@ -21,6 +21,28 @@ function harness() {
   return { db, projectStore, store, project };
 }
 
+function seedCompletedVideoJob(db, {
+  jobId = 'job-1', ownerEmail = OWNER, outputAssetId = 'output-1', status = 'completed',
+} = {}) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS video_jobs (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, status TEXT NOT NULL,
+      result_asset_id TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS video_assets (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, kind TEXT NOT NULL,
+      content_type TEXT NOT NULL, bytes INTEGER NOT NULL, sha256 TEXT NOT NULL,
+      file_name TEXT NOT NULL
+    );
+  `);
+  db.prepare(`INSERT INTO video_assets
+    (id, owner_email, kind, content_type, bytes, sha256, file_name)
+    VALUES (?, ?, 'output', 'video/mp4', 1024, 'verified-output-hash', 'output.mp4')`)
+    .run(outputAssetId, ownerEmail);
+  db.prepare('INSERT INTO video_jobs (id, owner_email, status, result_asset_id) VALUES (?, ?, ?, ?)')
+    .run(jobId, ownerEmail, status, outputAssetId);
+}
+
 function assetWithVersions(store, projectId) {
   const asset = store.createAsset({ ownerEmail: OWNER, projectId, kind: 'product', name: '耳机' });
   const first = store.addAssetVersion({ ownerEmail: OWNER, projectId, assetId: asset.id,
@@ -121,6 +143,42 @@ test('candidate registration is idempotent and selection never silently rewrites
   assert.equal(projection.shots[0].selectedCandidateId, second.id);
   assert.equal(projection.timelineClips.find(item => item.id === clip.id).candidateId, first.id);
   assert.equal(projection.timelineClips.find(item => item.id === clip.id).status, 'stale');
+});
+
+test('completed generation jobs are imported as candidates from authoritative delivery records', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  seedCompletedVideoJob(db);
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 4000 });
+
+  const candidate = store.registerCandidateFromJob({
+    ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'job-1',
+  });
+  assert.equal(candidate.generationJobId, 'job-1');
+  assert.equal(candidate.outputAssetId, 'output-1');
+  assert.equal(candidate.stableUrl, '/api/video/assets/output-1');
+  assert.equal(candidate.contentHash, 'verified-output-hash');
+  assert.equal(candidate.mimeType, 'video/mp4');
+  assert.equal(store.registerCandidateFromJob({
+    ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'job-1',
+  }).id, candidate.id);
+});
+
+test('candidate job import rejects unfinished or foreign generation deliveries', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  seedCompletedVideoJob(db, { jobId: 'pending-job', outputAssetId: 'pending-output', status: 'processing' });
+  seedCompletedVideoJob(db, { jobId: 'foreign-job', ownerEmail: 'other@example.com', outputAssetId: 'foreign-output' });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 4000 });
+
+  assert.throws(() => store.registerCandidateFromJob({
+    ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'pending-job',
+  }), error => error.code === 'VIDEO_JOB_NOT_READY');
+  assert.throws(() => store.registerCandidateFromJob({
+    ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'foreign-job',
+  }), error => error.code === 'VIDEO_JOB_NOT_FOUND');
 });
 
 test('stale shots reject active timeline clips and preserve stale state on candidate selection', t => {

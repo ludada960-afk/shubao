@@ -63,6 +63,15 @@ async function uploadReferenceAsset(service, ownerEmail, kind) {
   return service.uploadAsset({ ownerEmail, kind, publicBaseUrl: 'https://example.com', ...content });
 }
 
+test('direct video asset uploads return the persisted checksum used by project assets', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'owner@example.com', 'image');
+  const stored = await service.readAsset(asset.id, 'owner@example.com');
+
+  assert.match(asset.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(asset.sha256, stored.row.sha256);
+});
+
 test('reference mode accepts a video-only reference job', async t => {
   const service = createVideoGenerationHarness(t);
   const ownerEmail = 'owner@example.com';

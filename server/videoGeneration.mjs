@@ -478,6 +478,7 @@ export function createVideoGeneration({
       kind,
       contentType: normalizedType,
       bytes: buffer.length,
+      sha256,
       url: ownerReads
         ? signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000)
         : `/api/video/assets/${encodeURIComponent(id)}`,

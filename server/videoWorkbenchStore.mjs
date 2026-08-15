@@ -373,6 +373,33 @@ export function createVideoWorkbenchStore({
       return requireCandidate(owner, project.id, shotId, id);
     },
 
+    registerCandidateFromJob({ ownerEmail, projectId, shotId, generationJobId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      requireShot(owner, project.id, shotId);
+      const jobId = clean(generationJobId, 256);
+      const job = jobId ? db.prepare(`SELECT id, status, result_asset_id FROM video_jobs
+        WHERE id = ? AND owner_email = ?`).get(jobId, owner) : null;
+      if (!job) throw coded('VIDEO_JOB_NOT_FOUND', 'video generation job not found');
+      if (job.status !== 'completed' || !clean(job.result_asset_id, 256)) {
+        throw coded('VIDEO_JOB_NOT_READY', 'video generation job is not complete');
+      }
+      const output = db.prepare(`SELECT id, kind, content_type, sha256 FROM video_assets
+        WHERE id = ? AND owner_email = ?`).get(job.result_asset_id, owner);
+      if (!output || output.kind !== 'output' || !clean(output.sha256, 256) || !clean(output.content_type, 160)) {
+        throw coded('VIDEO_JOB_NOT_READY', 'verified video delivery is missing');
+      }
+      return api.registerCandidate({
+        ownerEmail: owner,
+        projectId: project.id,
+        shotId,
+        generationJobId: job.id,
+        outputAssetId: output.id,
+        stableUrl: `/api/video/assets/${encodeURIComponent(output.id)}`,
+        contentHash: output.sha256,
+        mimeType: output.content_type,
+      });
+    },
+
     selectCandidate({ ownerEmail, projectId, shotId, candidateId, expectedRevision }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       return db.transaction(() => {

@@ -1979,3 +1979,16 @@
   the 6,479-module production build, syntax checks and `git diff --check` passed.
   No paid video generation ran. Next boundary is P0 Task 8: official tus
   resumable uploads with owner-bound sessions and immediate local previews.
+
+- 2026-08-15 AI-video P1 trustworthy candidate import is complete locally on
+  `codex/video-platform-p0`. Direct and resumable upload contracts now expose
+  the server-persisted checksum required by immutable workbench asset versions.
+  A storyboard candidate can be imported only from an owner-matched,
+  `completed` video job whose durable output asset has a verified checksum and
+  MIME type; browser-supplied output IDs, URLs, hashes and MIME types are never
+  trusted. The generation job remains the independent billing/delivery archive,
+  while the selected video project owns semantic assets, shots, candidates and
+  timeline state. Focused generation, bridge, reliability, route and workbench
+  regression passed `38/38`. No paid generation or production deployment ran.
+  Next boundary: feature-gated P1 workbench client and UI, developed with a
+  separate design/implementation contract before any public flag is enabled.

@@ -74,6 +74,25 @@ function harness({ enabled = true } = {}) {
   return { app, db, project, store, sessionTokens, ownerEmail };
 }
 
+function seedCompletedVideoJob(db, ownerEmail) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS video_jobs (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, status TEXT NOT NULL,
+      result_asset_id TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS video_assets (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, kind TEXT NOT NULL,
+      content_type TEXT NOT NULL, bytes INTEGER NOT NULL, sha256 TEXT NOT NULL,
+      file_name TEXT NOT NULL
+    );
+  `);
+  db.prepare(`INSERT INTO video_assets
+    (id, owner_email, kind, content_type, bytes, sha256, file_name)
+    VALUES ('route-output', ?, 'output', 'video/mp4', 2048, 'route-output-hash', 'route-output.mp4')`).run(ownerEmail);
+  db.prepare(`INSERT INTO video_jobs (id, owner_email, status, result_asset_id)
+    VALUES ('route-job', ?, 'completed', 'route-output')`).run(ownerEmail);
+}
+
 function signedHeaders(sessionTokens, email) {
   return { authorization: `Bearer ${sessionTokens.issue(email).token}` };
 }
@@ -141,6 +160,27 @@ test('workbench routes validate shot duration at the HTTP boundary', async t => 
   });
   assert.equal(response.statusCode, 400);
   assert.equal(response.body.code, 'INVALID_DURATION');
+});
+
+test('candidate route accepts only a completed owned job and ignores forged delivery fields', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  seedCompletedVideoJob(db, ownerEmail);
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 3000 });
+  const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/candidates', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, shotId: shot.id },
+    body: {
+      generationJobId: 'route-job', outputAssetId: 'forged', stableUrl: 'https://attacker.invalid/video',
+      contentHash: 'forged', mimeType: 'text/html',
+    },
+  });
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.candidate.outputAssetId, 'route-output');
+  assert.equal(response.body.candidate.stableUrl, '/api/video/assets/route-output');
+  assert.equal(response.body.candidate.contentHash, 'route-output-hash');
+  assert.equal(response.body.candidate.mimeType, 'video/mp4');
 });
 
 test('workbench route mounting requires dependencies only when enabled', () => {

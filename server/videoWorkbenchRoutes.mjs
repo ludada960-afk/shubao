@@ -4,6 +4,7 @@ const NOT_FOUND_CODES = new Set([
   'ASSET_VERSION_NOT_FOUND',
   'SHOT_NOT_FOUND',
   'CANDIDATE_NOT_FOUND',
+  'VIDEO_JOB_NOT_FOUND',
 ]);
 
 function ownerFor(req, authenticateOwner) {
@@ -26,6 +27,9 @@ function routeError(error, res) {
   }
   if (code === 'VERSION_CONFLICT') {
     return res.status(409).json({ code, error: '内容已在其他位置更新，请刷新后重试' });
+  }
+  if (code === 'VIDEO_JOB_NOT_READY') {
+    return res.status(409).json({ code, error: '视频仍在生成或交付结果尚未校验完成' });
   }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
@@ -108,14 +112,10 @@ export function mountVideoWorkbenchRoutes(app, { enabled = false, store, authent
     { status: 201, key: 'binding' }));
 
   app.post('/api/video/projects/:projectId/workbench/shots/:shotId/candidates', (req, res) => handle(res,
-    () => store.registerCandidate({
+    () => store.registerCandidateFromJob({
       ...input(req),
       shotId: req.params.shotId,
       generationJobId: req.body?.generationJobId,
-      outputAssetId: req.body?.outputAssetId,
-      stableUrl: req.body?.stableUrl,
-      contentHash: req.body?.contentHash,
-      mimeType: req.body?.mimeType,
     }),
     { status: 201, key: 'candidate' }));
 
