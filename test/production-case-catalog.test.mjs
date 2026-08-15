@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+
+import sharp from 'sharp';
 
 import {
   PRODUCTION_CASE_CATALOG,
@@ -53,7 +56,7 @@ test('multi-angle try-on exposes four independent complete model views', () => {
   assert.equal(item.assets.find(asset => asset.displayRole === 'workflowBanner').ratio, '16:9');
 });
 
-test('product suite has one wide final composite, five exact-prompt detail sources, and three rich selector previews', () => {
+test('product suite has one wide final composite, five exact-prompt detail sources, and three rich selector previews', async () => {
   const item = productionCaseById('product-suite');
   assert.ok(item.assets.some(asset => asset.role === 'source'));
   const finalAssets = item.assets.filter(asset => asset.displayRole === 'finalComposite');
@@ -71,6 +74,12 @@ test('product suite has one wide final composite, five exact-prompt detail sourc
   assert.equal(usagePreview.taskId, 'canvas_65d1792df11385e019c60ef2a69239732fc4ca109195aedcc530d404fc601adf');
   assert.match(usagePreview.prompt, /face clearly visible/i);
   assert.match(usagePreview.prompt, /earbud (?:is )?visibly worn/i);
+  const [compositeMetadata, usageMetadata] = await Promise.all([
+    sharp(fileURLToPath(new URL(`../public${finalAssets[0].src}`, import.meta.url))).metadata(),
+    sharp(fileURLToPath(new URL(`../public${usagePreview.src}`, import.meta.url))).metadata(),
+  ]);
+  assert.ok(Math.abs((compositeMetadata.width / compositeMetadata.height) - (4 / 3)) < 0.01);
+  assert.ok(Math.abs((usageMetadata.width / usageMetadata.height) - (3 / 4)) < 0.01);
   assert.ok(previews.every(asset => asset.isWhiteBackground !== true));
   assert.ok(previews.every(asset => asset.ratio === '3:4'));
   assert.doesNotMatch(item.assets.map(asset => asset.src).join('\n'), /cobalt-lamp/);
@@ -94,7 +103,7 @@ test('gallery product suite metadata describes the production earbuds instead of
   const [item] = source.productionGalleryItems([productionCaseById('product-suite')]);
   assert.match(item.title, /耳机商品套图/);
   assert.doesNotMatch(item.title, /玻璃灯/);
-  assert.equal(item.cover_url, '/images/home/ecommerce-showcase/earbuds-suite-composite.png');
+  assert.equal(item.cover_url, '/images/home/ecommerce-showcase/earbuds-suite-composite-v3.png');
   assert.equal(item.ratio, '4:3');
   assert.equal(item.images.length, productionCaseById('product-suite').manifest.outputs.length);
   assert.ok(item.images.every(image => image.prompt && image.requestKey && image.taskId));

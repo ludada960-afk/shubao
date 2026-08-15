@@ -507,7 +507,7 @@ export async function generateProductionEcommerceShowcase({
           root,
           token,
           stableUrl,
-          targetFile: 'earbuds-suite-composite.png',
+          targetFile: 'earbuds-suite-composite-v3.png',
           ratio: '4:3',
           fetchImpl,
         });
