@@ -93,8 +93,8 @@ This document is the acceptance ledger for every product requirement raised befo
 | --- | --- | --- |
 | Digest current site and competitor/product/open-source/social evidence before architecture | Design complete | `2026-08-15-ai-video-platform-evidence-and-options.md` |
 | Long-term route uses project memory, versioned assets, storyboard dependencies, candidate selection, timeline, declarative Skill runs, and cloneable process | Design complete | `2026-08-14-ai-video-platform-roadmap.md` |
-| P0 reliable media/job/billing/review/projection foundation and tus decision | Design complete and approved by user direction | `2026-08-15-ai-video-p0-reliability-audit.md`, `2026-08-15-ai-video-reliable-media-job-foundation-design.md` |
-| File-by-file TDD implementation plan and production implementation | Pending until the existing smart-layer correction is committed, fully regressed, and deployed |
+| P0 reliable media/job/billing/review/projection foundation and tus decision | Local implementation complete; production observation pending | Commits `3bf64ec` through `1b799ba`; local full regression `1570/1570`, build/check/diff gates passed, no paid video submission |
+| P1 asset/version, shot binding, candidate selection and timeline domain | Written design and file-by-file TDD plan ready for review; code not started | `2026-08-15-ai-video-p1-workbench-domain-design.md`, `2026-08-15-ai-video-p1-workbench-domain-implementation.md` |
 
 ## Remaining Existing-Product Exit Gate
 
@@ -102,4 +102,4 @@ This document is the acceptance ledger for every product requirement raised befo
 2. ~~Run the full repository test, build, check, collaboration, and whitespace gates.~~ Completed: 1537/1537 tests, 6479-module build, check and collaboration READY, clean diff check.
 3. Deploy only through `scripts/deploy-production.ps1` and complete public desktop/mobile Canvas regression without paid video generation.
 4. Record the release commit, live bundle, health, and any remaining risk in `RTK.md` and `.superpowers/sdd/progress.md`.
-5. Then start the AI-video P0 file-by-file TDD implementation plan.
+5. Publish and observe AI-video P0 only after the coordinated release window is explicitly reopened; do not expose P1 publicly before P0 production gates pass.
