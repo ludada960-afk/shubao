@@ -5,6 +5,8 @@ import {
   EARBUD_COMPOSITE_REQUEST_KEY_V3,
   EARBUD_DETAIL_PROMPTS,
   EARBUD_SUITE_REPLAY_PROMPT,
+  EARBUD_USAGE_PROMPT_V3,
+  EARBUD_USAGE_REQUEST_KEY_V4,
 } from './productionCasePromptLibrary.js';
 
 function asset({ id = '', src, label, role, ratio, intent, taskId = '', requestKey = '', prompt = '', provenance = 'production', ...metadata }) {
@@ -47,7 +49,7 @@ function visualProductionCase({ id, chapters }) {
 const PRODUCT_SUITE_ASSETS = Object.freeze([
   asset({ id: 'earbuds-product-source', src: '/images/home/ecommerce-showcase/earbuds-product-source.png', label: '完整商品母图', role: 'source', ratio: '1:1', intent: 'product_suite', taskId: 'ecommerce_showcase_earbuds_20260814', requestKey: 'showcase-20260814-earbuds-suite', prompt: '为珍珠白与香槟金真无线降噪耳机生成完整商品母图，保持耳机与充电盒结构、颜色、材质和比例，不添加品牌或文字。' }),
   asset({ id: 'earbuds-suite-panel-structure', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-structure.png', label: '声学结构解析', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'structure', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-structure'] }),
-  asset({ id: 'earbuds-suite-panel-usage', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-usage.png', label: '自然佩戴场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'usage', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-usage'] }),
+  asset({ id: 'earbuds-suite-panel-usage', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-model-usage.png', label: '自然佩戴场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'canvas_65d1792df11385e019c60ef2a69239732fc4ca109195aedcc530d404fc601adf', requestKey: EARBUD_USAGE_REQUEST_KEY_V4, displayRole: 'selectorPreview', selectorKind: 'usage', isWhiteBackground: false, prompt: EARBUD_USAGE_PROMPT_V3 }),
   asset({ id: 'earbuds-suite-panel-scene', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-scene.png', label: '清晰通话场景', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'selectorPreview', selectorKind: 'scene', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-scene'] }),
   asset({ id: 'earbuds-suite-panel-identity', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-identity.png', label: '商品身份主视觉', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-identity'] }),
   asset({ id: 'earbuds-suite-panel-function', src: '/images/home/ecommerce-showcase/earbuds-suite-panel-function.png', label: '续航与佩戴详情', role: 'result', ratio: '3:4', intent: 'product_suite', taskId: 'showcase-20260815-earbuds-detail-suite-v2', requestKey: 'showcase-20260815-earbuds-detail-suite-v2', displayRole: 'detailSource', isWhiteBackground: false, prompt: EARBUD_DETAIL_PROMPTS['earbuds-suite-panel-function'] }),
