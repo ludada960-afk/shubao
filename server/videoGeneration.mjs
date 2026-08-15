@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { rename, stat, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { quoteFeature } from './billing/catalog.mjs';
 import {
   DEFAULT_VIDEO_PRODUCT_ID,
@@ -199,6 +201,7 @@ export function createVideoGeneration({
       kind TEXT NOT NULL,
       content_type TEXT NOT NULL,
       bytes INTEGER NOT NULL,
+      sha256 TEXT NOT NULL DEFAULT '',
       file_name TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
@@ -241,7 +244,22 @@ export function createVideoGeneration({
     );
     CREATE INDEX IF NOT EXISTS idx_video_jobs_owner ON video_jobs(owner_email, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_video_jobs_status ON video_jobs(status, updated_at);
+    CREATE TABLE IF NOT EXISTS video_deliveries (
+      id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL UNIQUE,
+      attempt_id TEXT NOT NULL DEFAULT '',
+      provider_source TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      bytes INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      verification_state TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_deliveries_attempt ON video_deliveries(attempt_id);
   `);
+  const assetColumns = new Set(db.prepare('PRAGMA table_info(video_assets)').all().map(column => column.name));
+  if (!assetColumns.has('sha256')) db.exec("ALTER TABLE video_assets ADD COLUMN sha256 TEXT NOT NULL DEFAULT ''");
   const columns = new Set(db.prepare('PRAGMA table_info(video_jobs)').all().map(column => column.name));
   const migrations = [
     ['product_id', "TEXT NOT NULL DEFAULT 'seedance_standard'"],
@@ -476,16 +494,71 @@ export function createVideoGeneration({
     if (!contentType.startsWith('video/')) throw httpError(502, 'VIDEO_OUTPUT_TYPE_INVALID', '上游没有交付有效视频');
     const declaredBytes = Number(response.headers.get('content-length') || 0);
     if (declaredBytes > OUTPUT_LIMIT) throw httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件过大');
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (!buffer.length || buffer.length > OUTPUT_LIMIT) throw httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件无效');
+    if (!response.body) throw httpError(502, 'VIDEO_OUTPUT_BODY_MISSING', '上游没有交付视频文件');
     const id = `${crypto.randomUUID()}${extensionFor(contentType) || '.mp4'}`;
     const tempPath = resolve(outputRoot, `.${id}.tmp`);
     const finalPath = resolve(outputRoot, id);
-    await writeFile(tempPath, buffer, { flag: 'wx' });
-    await rename(tempPath, finalPath);
-    db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, file_name) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, job.owner_email, 'output', contentType, buffer.length, basename(finalPath));
-    return { id, contentType, bytes: buffer.length, url: `/api/video/assets/${id}` };
+    const hash = crypto.createHash('sha256');
+    let bytes = 0;
+    let renamed = false;
+    const meter = new Transform({
+      transform(chunk, _encoding, callback) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        bytes += buffer.length;
+        if (bytes > OUTPUT_LIMIT) return callback(httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件过大'));
+        hash.update(buffer);
+        return callback(null, buffer);
+      },
+    });
+    try {
+      await pipeline(Readable.fromWeb(response.body), meter, fs.createWriteStream(tempPath, { flags: 'wx' }));
+      if (!bytes || (declaredBytes > 0 && declaredBytes !== bytes)) {
+        throw httpError(502, 'VIDEO_OUTPUT_TRUNCATED', '上游视频文件不完整');
+      }
+      const sha256 = hash.digest('hex');
+      const expectedSha256 = clean(response.headers.get('x-content-sha256'), 100).toLowerCase();
+      if (expectedSha256 && expectedSha256 !== sha256) {
+        throw httpError(502, 'VIDEO_OUTPUT_CHECKSUM_INVALID', '上游视频文件校验失败');
+      }
+      const handle = await fs.promises.open(tempPath, 'r+');
+      try { await handle.sync(); } finally { await handle.close(); }
+      await rename(tempPath, finalPath);
+      renamed = true;
+      db.transaction(() => {
+        db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(id, job.owner_email, 'output', contentType, bytes, sha256, basename(finalPath));
+        db.prepare(`INSERT INTO video_deliveries (
+          id, job_id, attempt_id, provider_source, file_name, content_type, bytes, sha256, verification_state
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'verified')`).run(
+          id,
+          job.id,
+          job.current_attempt_id || '',
+          job.provider_task_id || '',
+          basename(finalPath),
+          contentType,
+          bytes,
+          sha256,
+        );
+      })();
+      return { id, contentType, bytes, sha256, url: `/api/video/assets/${id}` };
+    } catch (error) {
+      await fs.promises.rm(renamed ? finalPath : tempPath, { force: true }).catch(() => {});
+      throw error;
+    }
+  }
+
+  function verifiedDeliveryForJob(job) {
+    const delivery = db.prepare("SELECT * FROM video_deliveries WHERE job_id = ? AND verification_state = 'verified'").get(job.id);
+    if (!delivery) return null;
+    const asset = db.prepare('SELECT id FROM video_assets WHERE id = ? AND owner_email = ?').get(delivery.id, job.owner_email);
+    if (!asset) return null;
+    return {
+      id: delivery.id,
+      contentType: delivery.content_type,
+      bytes: Number(delivery.bytes),
+      sha256: delivery.sha256,
+      url: `/api/video/assets/${delivery.id}`,
+    };
   }
 
   async function complete(job, output) {
@@ -680,6 +753,12 @@ export function createVideoGeneration({
         });
       }
       let transientFailures = 0;
+      const recoveredDelivery = verifiedDeliveryForJob(job);
+      if (recoveredDelivery) {
+        if (job.current_attempt_id) attemptStore.markDelivered(job.current_attempt_id);
+        await complete(job, recoveredDelivery);
+        return;
+      }
       const product = getVideoProduct(job.product_id);
       const interval = Math.max(1, Number(pollIntervalMs || product.pollIntervalMs) || product.pollIntervalMs);
       for (let attempt = 0; attempt < 1440 && !closed; attempt += 1) {

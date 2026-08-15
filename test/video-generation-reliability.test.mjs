@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -500,10 +500,15 @@ test('an operator can attach the recovered provider task without resubmitting', 
 
   const resolved = service.resolveSubmissionReview(created.job.id, 'recovered-provider-task');
   assert.equal(resolved.status, 'processing');
-  await new Promise(resolve => {
-    const check = () => service.getJob('owner@example.com', created.job.id)?.status === 'completed'
-      ? resolve()
-      : setTimeout(check, 2);
+  await new Promise((resolve, reject) => {
+    const deadline = Date.now() + 2_000;
+    const check = () => {
+      const job = service.getJob('owner@example.com', created.job.id);
+      if (job?.status === 'completed') return resolve();
+      if (job?.status === 'failed') return reject(new Error(`delivery failed: ${job.error}`));
+      if (Date.now() >= deadline) return reject(new Error(`delivery timed out in state ${job?.status}`));
+      return setTimeout(check, 2);
+    };
     check();
   });
   assert.equal(submitCalls, 1);
@@ -579,4 +584,133 @@ test('provider attempts are durable before submission and retain the accepted ta
   assert.equal(attempts[0].submission_key, created.job.id);
   assert.equal(attempts[0].provider_task_id, 'accepted-provider-task');
   assert.equal(attempts[0].state, 'failed');
+});
+
+test('provider delivery streams to disk without buffering the complete video', async t => {
+  const db = new Database(':memory:');
+  const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-stream-delivery-'));
+  const chunks = [Buffer.from('streamed-'), Buffer.from('video-output')];
+  const registry = {
+    get: () => ({
+      enabled: true,
+      routeId: 'sd5-seedance-2.0',
+      model: 'sd5-seedance-2.0',
+      submit: async () => ({ id: 'stream-task', progress: 0 }),
+      get: async () => ({ status: 'completed', progress: 100 }),
+      download: async () => ({
+        headers: new Headers({ 'content-type': 'video/mp4', 'content-length': String(chunks.reduce((sum, chunk) => sum + chunk.length, 0)) }),
+        body: new ReadableStream({
+          start(controller) {
+            for (const chunk of chunks) controller.enqueue(chunk);
+            controller.close();
+          },
+        }),
+        arrayBuffer() { throw new Error('delivery must not use arrayBuffer'); },
+      }),
+    }),
+    publicProducts: () => publicVideoProducts(),
+  };
+  const service = createService({
+    db,
+    assetRoot,
+    registry,
+    maxConcurrent: 1,
+    quoteVerify: ({ quoteId, expectedQuote }) => ({ quoteId, currency: expectedQuote.currency, expiresAt: '2099-01-01T00:00:00.000Z' }),
+  });
+  t.after(() => {
+    service.close();
+    db.close();
+    rmSync(assetRoot, { recursive: true, force: true });
+  });
+
+  const created = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'stream-delivery',
+    billingQuoteId: 'stream-delivery-quote',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      productId: 'seedance_standard', mode: 'script', prompt: '流式交付测试',
+      duration: 5, aspectRatio: '16:9', resolution: '720p',
+    },
+  });
+  await new Promise((resolve, reject) => {
+    const deadline = Date.now() + 2_000;
+    const check = () => {
+      const job = service.getJob('owner@example.com', created.job.id);
+      if (job?.status === 'completed') return resolve();
+      if (job?.status === 'failed') return reject(new Error(`delivery failed: ${job.error}`));
+      if (Date.now() >= deadline) return reject(new Error(`delivery timed out in state ${job?.status}`));
+      return setTimeout(check, 2);
+    };
+    check();
+  });
+
+  const delivery = db.prepare('SELECT * FROM video_deliveries WHERE job_id = ?').get(created.job.id);
+  assert.equal(delivery.verification_state, 'verified');
+  assert.match(delivery.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(readFileSync(join(assetRoot, 'output', delivery.file_name), 'utf8'), 'streamed-video-output');
+});
+
+test('a truncated provider delivery is removed and never settled', async t => {
+  const db = new Database(':memory:');
+  const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-truncated-delivery-'));
+  let releases = 0;
+  let settlements = 0;
+  const registry = {
+    get: () => ({
+      enabled: true,
+      routeId: 'sd5-seedance-2.0',
+      submit: async () => ({ id: 'truncated-task', progress: 0 }),
+      get: async () => ({ status: 'completed', progress: 100 }),
+      download: async () => ({
+        headers: new Headers({ 'content-type': 'video/mp4', 'content-length': '20' }),
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(Buffer.from('short'));
+            controller.close();
+          },
+        }),
+      }),
+    }),
+    publicProducts: () => publicVideoProducts(),
+  };
+  const service = createService({
+    db,
+    assetRoot,
+    registry,
+    maxConcurrent: 1,
+    walletService: {
+      createHold: input => ({ id: `hold-${input.metadata.taskId}` }),
+      getBalance: () => ({ unlimited: false, availableUnits: 999999 }),
+      settleItem: () => { settlements += 1; return { status: 'settled' }; },
+      releaseItem: () => { releases += 1; return { status: 'released' }; },
+    },
+    quoteVerify: ({ quoteId, expectedQuote }) => ({ quoteId, currency: expectedQuote.currency, expiresAt: '2099-01-01T00:00:00.000Z' }),
+  });
+  t.after(() => {
+    service.close();
+    db.close();
+    rmSync(assetRoot, { recursive: true, force: true });
+  });
+
+  const created = await service.createJob({
+    ownerEmail: 'owner@example.com', idempotencyKey: 'truncated-delivery', billingQuoteId: 'truncated-delivery-quote',
+    publicBaseUrl: 'https://example.com',
+    input: { productId: 'seedance_standard', mode: 'script', prompt: '截断文件测试', duration: 5, aspectRatio: '16:9', resolution: '720p' },
+  });
+  await new Promise((resolve, reject) => {
+    const deadline = Date.now() + 2_000;
+    const check = () => {
+      const job = service.getJob('owner@example.com', created.job.id);
+      if (job?.status === 'failed') return resolve();
+      if (Date.now() >= deadline) return reject(new Error(`truncated delivery timed out in state ${job?.status}`));
+      return setTimeout(check, 2);
+    };
+    check();
+  });
+
+  assert.equal(settlements, 0);
+  assert.equal(releases, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_deliveries').get().count, 0);
+  assert.deepEqual(readdirSync(join(assetRoot, 'output')), []);
 });
