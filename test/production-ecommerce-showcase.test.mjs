@@ -11,7 +11,7 @@ import {
 
 const stableUrl = (digit, extension = 'png') => `/api/generated-assets/${digit.repeat(64)}.${extension}`;
 
-function productionFixture({ failComposite = false } = {}) {
+function productionFixture({ failDetail = false, failComposite = false } = {}) {
   const calls = [];
   const detailUrls = ['a', 'b', 'c', 'd', 'e'].map(value => stableUrl(value));
   const request = async (path, options = {}) => {
@@ -46,8 +46,11 @@ function productionFixture({ failComposite = false } = {}) {
       return {
         task: {
           id: 'ec_showcase_detail_task',
-          status: 'completed',
-          assets: detailUrls.map((url, index) => ({ id: `detail-${index + 1}`, state: 'completed', stableUrl: url })),
+          status: failDetail ? 'failed' : 'completed',
+          error: failDetail ? 'asset plan must contain at least one item' : '',
+          assets: failDetail
+            ? []
+            : detailUrls.map((url, index) => ({ id: `detail-${index + 1}`, state: 'completed', stableUrl: url })),
         },
       };
     }
@@ -70,18 +73,26 @@ function productionFixture({ failComposite = false } = {}) {
 test('detail direction and generation payload request five distinct 3:4 commercial duties', () => {
   const product = { assetId: 'asset-earbuds', url: '/api/ecommerce/assets/earbuds.png' };
   const directionPayload = buildDetailDirectionPayload({ product });
-  assert.equal(directionPayload.requested_images.length, 5);
-  assert.deepEqual(directionPayload.requested_images.map(item => item.ratio), Array(5).fill('3:4'));
-  assert.equal(new Set(directionPayload.requested_images.map(item => item.key)).size, 5);
-  assert.doesNotMatch(directionPayload.requested_images.map(item => item.label).join('\n'), /白底/);
+  assert.deepEqual(directionPayload.requested_images, [{
+    key: 'detail',
+    label: '高级耳机详情图',
+    count: 5,
+    ratio: '3:4',
+    targetRatio: '3:4',
+  }]);
 
   const generationPayload = buildDetailGenerationPayload({
     product,
     direction: { id: 'detail-suite', execution_guide: '保持完整商品。' },
     quoteId: 'quote-5',
   });
-  assert.equal(generationPayload.sizing.images.length, 5);
-  assert.deepEqual(generationPayload.sizing.images.map(item => item.ratio), Array(5).fill('3:4'));
+  assert.deepEqual(generationPayload.sizing.images, [{
+    id: 'detail',
+    ratio: '3:4',
+    targetRatio: '3:4',
+    cropPolicy: 'none',
+    count: 5,
+  }]);
   assert.equal(generationPayload.billing_quote_id, 'quote-5');
 });
 
@@ -135,6 +146,29 @@ test('stage-two failure preserves completed stage-one evidence for deliberate re
     },
   );
   assert.equal(fixture.calls.filter(call => call.path === '/api/generate-ecommerce').length, 1);
+});
+
+test('stage-one failure preserves terminal evidence and never starts stage two', async () => {
+  const fixture = productionFixture({ failDetail: true });
+  await assert.rejects(
+    () => generateProductionEcommerceShowcase({
+      sessionToken: 'session',
+      request: fixture.request,
+      productAsset: { assetId: 'asset-earbuds', url: '/api/ecommerce/assets/earbuds.png' },
+      pollIntervalMs: 0,
+      writeAudit: false,
+      download: false,
+    }),
+    error => {
+      assert.match(error.message, /stage one/i);
+      assert.equal(error.audit.stageOne.status, 'failed');
+      assert.equal(error.audit.stageOne.taskId, 'ec_showcase_detail_task');
+      assert.equal(error.audit.stageOne.error, 'asset plan must contain at least one item');
+      assert.equal(error.audit.stageTwo.status, 'pending');
+      return true;
+    },
+  );
+  assert.equal(fixture.calls.filter(call => call.path === '/api/canvas/regenerate').length, 0);
 });
 
 test('resume audit skips stage one and reuses its stable outputs', async () => {

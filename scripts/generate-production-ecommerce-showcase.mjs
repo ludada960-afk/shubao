@@ -14,8 +14,8 @@ const AUDIT_PATH = resolve(AUDIT_ROOT, 'earbuds-suite.json');
 const SOURCE_FIXTURE = resolve(SCRIPT_ROOT, '../public/images/home/ecommerce-showcase/earbuds-product-source.png');
 const PUBLIC_ROOT = resolve(SCRIPT_ROOT, '../public/images/home/ecommerce-showcase');
 const THUMB_ROOT = resolve(SCRIPT_ROOT, '../public/images/.thumbs/home/ecommerce-showcase');
-const DETAIL_SUBMISSION_ID = 'showcase-20260815-earbuds-detail-suite-v1';
-const COMPOSITE_REQUEST_KEY = 'showcase-20260815-earbuds-composite-v1';
+const DETAIL_SUBMISSION_ID = 'showcase-20260815-earbuds-detail-suite-v2';
+const COMPOSITE_REQUEST_KEY = 'showcase-20260815-earbuds-composite-v2';
 const TERMINAL_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 
 const DETAIL_SHOTS = Object.freeze([
@@ -66,17 +66,16 @@ export function buildDetailDirectionPayload({ product }) {
     product_name: '珍珠白香槟金真无线降噪耳机',
     category: '数码家电',
     platform: '淘宝',
-    description: '生成一套统一、真实、可投放的高级耳机详情视觉。锁定珍珠白耳机、香槟金装饰与圆角充电盒的结构和材质，不出现品牌、价格、认证、水印或未经确认的参数。',
+    description: `生成一套统一、真实、可投放的高级耳机详情视觉。锁定珍珠白耳机、香槟金装饰与圆角充电盒的结构和材质，不出现品牌、价格、认证、水印或未经确认的参数。五张图依次覆盖：${DETAIL_SHOTS.map(shot => `${shot.label}（${shot.purpose}）`).join('；')}。`,
     real_shots: [source.url],
     ref_shots: [],
-    requested_images: DETAIL_SHOTS.map(shot => ({
-      key: shot.id,
-      label: shot.label,
-      count: 1,
+    requested_images: [{
+      key: 'detail',
+      label: '高级耳机详情图',
+      count: DETAIL_SHOTS.length,
       ratio: '3:4',
       targetRatio: '3:4',
-      purpose: shot.purpose,
-    })),
+    }],
   };
 }
 
@@ -97,13 +96,13 @@ export function buildDetailGenerationPayload({ product, direction, quoteId }) {
       smart: false,
       resolution: '2K',
       imageModel: 'image2',
-      images: DETAIL_SHOTS.map(shot => ({
-        id: shot.id,
+      images: [{
+        id: 'detail',
         ratio: '3:4',
         targetRatio: '3:4',
         cropPolicy: 'none',
-        count: 1,
-      })),
+        count: DETAIL_SHOTS.length,
+      }],
     },
     billing_quote_id: required(quoteId, 'detail quote ID'),
   };
@@ -262,48 +261,78 @@ export async function generateProductionEcommerceShowcase({
   if (audit.stageOne?.status === 'completed') {
     audit.stageOne.stableUrls = assertStableAssets(audit.stageOne.stableUrls, DETAIL_SHOTS.length);
   } else {
-    const product = productAsset ? safeProductAsset(productAsset) : await uploadProduct({ request, fixturePath });
-    const directionResponse = await request('/api/ecommerce/design-directions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(buildDetailDirectionPayload({ product })),
-      timeoutMs: 120_000,
-      maxAttempts: 1,
-    });
-    const direction = assertDirection(directionResponse);
-    const quote = await request('/api/billing/quote', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sku: 'ec_image_2k', quantity: DETAIL_SHOTS.length }),
-      maxAttempts: 1,
-    });
-    if (quote?.quote?.totalUnits !== DETAIL_SHOTS.length * 1000 || !quote.quote.quoteId) {
-      throw new Error('Production showcase stage-one quote is invalid');
-    }
-    const started = await request('/api/generate-ecommerce', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'idempotency-key': DETAIL_SUBMISSION_ID },
-      body: JSON.stringify(buildDetailGenerationPayload({ product, direction, quoteId: quote.quote.quoteId })),
-      maxAttempts: 1,
-    });
-    const taskId = required(started?.taskId, 'showcase detail task ID');
-    let task;
-    for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
-      task = (await request(`/api/ecommerce/jobs/${encodeURIComponent(taskId)}`))?.task;
-      if (TERMINAL_STATUSES.has(task?.status)) break;
-      await wait(pollIntervalMs);
-    }
-    audit.stageOne = {
-      status: 'completed',
-      taskId,
-      requestKey: DETAIL_SUBMISSION_ID,
-      stableUrls: completedDetailStage(task),
-      quoteId: quote.quote.quoteId,
-    };
-    await persistAudit(audit, writeAudit);
-    if (download) {
-      await downloadDetailStage({ audit, root, token, fetchImpl });
+    let taskId = '';
+    let quoteId = '';
+    let task = null;
+    try {
+      const product = productAsset ? safeProductAsset(productAsset) : await uploadProduct({ request, fixturePath });
+      const directionResponse = await request('/api/ecommerce/design-directions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(buildDetailDirectionPayload({ product })),
+        timeoutMs: 120_000,
+        maxAttempts: 1,
+      });
+      const direction = assertDirection(directionResponse);
+      const quote = await request('/api/billing/quote', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sku: 'ec_image_2k', quantity: DETAIL_SHOTS.length }),
+        maxAttempts: 1,
+      });
+      if (quote?.quote?.totalUnits !== DETAIL_SHOTS.length * 1000 || !quote.quote.quoteId) {
+        throw new Error('Production showcase stage-one quote is invalid');
+      }
+      quoteId = quote.quote.quoteId;
+      const started = await request('/api/generate-ecommerce', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': DETAIL_SUBMISSION_ID },
+        body: JSON.stringify(buildDetailGenerationPayload({ product, direction, quoteId })),
+        maxAttempts: 1,
+      });
+      taskId = required(started?.taskId, 'showcase detail task ID');
+      for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+        task = (await request(`/api/ecommerce/jobs/${encodeURIComponent(taskId)}`))?.task;
+        if (TERMINAL_STATUSES.has(task?.status)) break;
+        await wait(pollIntervalMs);
+      }
+      audit.stageOne = {
+        status: 'completed',
+        taskId,
+        requestKey: DETAIL_SUBMISSION_ID,
+        stableUrls: completedDetailStage(task),
+        quoteId,
+      };
       await persistAudit(audit, writeAudit);
+      if (download) {
+        await downloadDetailStage({ audit, root, token, fetchImpl });
+        await persistAudit(audit, writeAudit);
+      }
+    } catch (cause) {
+      audit.stageOne = {
+        status: 'failed',
+        taskId,
+        requestKey: DETAIL_SUBMISSION_ID,
+        quoteId,
+        terminalStatus: String(task?.status || ''),
+        failedAt: new Date().toISOString(),
+        error: String(task?.error || cause?.message || cause),
+      };
+      try {
+        const [balanceAfter, ledger] = await Promise.all([
+          request('/api/billing/balance'),
+          request('/api/billing/ledger?currency=ec_points&limit=100&offset=0'),
+        ]);
+        audit.balanceAfter = balanceAfter?.balances?.ec_points || null;
+        audit.stageOne.ledgerEntries = (ledger?.entries || []).filter(entry => (
+          [entry?.referenceId, entry?.reference_id].includes(taskId)
+          || [entry?.idempotencyKey, entry?.idempotency_key].includes(DETAIL_SUBMISSION_ID)
+        ));
+      } catch {}
+      await persistAudit(audit, writeAudit);
+      const error = new Error(`Production showcase stage one failed: ${audit.stageOne.error}`, { cause });
+      error.audit = audit;
+      throw error;
     }
   }
 
