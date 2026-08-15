@@ -232,8 +232,9 @@ export function createVideoUploadService({
     return tusServer.handle(req, res);
   }
 
-  async function cleanExpiredUploads() {
-    const rows = db.prepare("SELECT id FROM video_upload_sessions WHERE status = 'uploading' AND expires_at <= ?").all(now());
+  async function cleanExpiredUploads(input = {}) {
+    const limit = Math.max(1, Math.min(200, Number(input?.limit) || 50));
+    const rows = db.prepare("SELECT id FROM video_upload_sessions WHERE status = 'uploading' AND expires_at <= ? ORDER BY expires_at, rowid LIMIT ?").all(now(), limit);
     for (const row of rows) {
       markExpired.run(row.id);
       await store.remove(row.id).catch(() => {});

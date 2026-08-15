@@ -770,10 +770,11 @@ export function createVideoGeneration({
     outbox.complete(event.id);
   }
 
-  function drainVideoOutbox({ force = false } = {}) {
+  function drainVideoOutbox({ force = false, limit = 100 } = {}) {
     const processed = new Set();
-    while (processed.size < 100) {
-      const event = outbox.pending(100, { force }).find(candidate => !processed.has(candidate.id));
+    const boundedLimit = Math.max(1, Math.min(200, Number(limit) || 100));
+    while (processed.size < boundedLimit) {
+      const event = outbox.pending(boundedLimit, { force }).find(candidate => !processed.has(candidate.id));
       if (!event) break;
       processed.add(event.id);
       const claimed = outbox.processing(event.id, `video-${process.pid}`);
@@ -852,8 +853,9 @@ export function createVideoGeneration({
     });
   }
 
-  function reconcileBilling() {
-    const rows = db.prepare("SELECT * FROM video_jobs WHERE billing_state IN ('release_pending','settlement_pending') ORDER BY updated_at, rowid").all();
+  function reconcileBilling(input = {}) {
+    const limit = Math.max(1, Math.min(200, Number(input?.limit) || 50));
+    const rows = db.prepare("SELECT * FROM video_jobs WHERE billing_state IN ('release_pending','settlement_pending') ORDER BY updated_at, rowid LIMIT ?").all(limit);
     const summary = { checked: rows.length, released: 0, settled: 0, pending: 0, expiredReviews: 0 };
     for (const row of rows) {
       if (row.billing_state === 'settlement_pending') {
@@ -864,7 +866,7 @@ export function createVideoGeneration({
         else summary.pending += 1;
       }
     }
-    drainVideoOutbox({ force: true });
+    drainVideoOutbox({ force: input?.force !== false, limit });
     for (const row of rows.filter(candidate => candidate.billing_state === 'settlement_pending')) {
       const reconciled = selectJob.get(row.id);
       if (reconciled?.billing_state === 'settled') summary.settled += 1;
@@ -873,7 +875,7 @@ export function createVideoGeneration({
     const expiredReviews = db.prepare(`SELECT * FROM video_jobs
       WHERE status = 'needs_review' AND failure_class = 'submission_unknown'
         AND review_deadline_ms > 0 AND review_deadline_ms <= ?
-      ORDER BY review_deadline_ms, rowid`).all(nowMs());
+      ORDER BY review_deadline_ms, rowid LIMIT ?`).all(nowMs(), limit);
     summary.checked += expiredReviews.length;
     for (const row of expiredReviews) {
       if (row.current_attempt_id) attemptStore.markFailed(row.current_attempt_id, { code: 'VIDEO_SUBMISSION_REVIEW_EXPIRED' });
@@ -903,7 +905,10 @@ export function createVideoGeneration({
         }).body;
         const attempt = attemptStore.begin({
           jobId: job.id,
-          submissionKey: job.id,
+          submissionKey: (() => {
+            const next = Number(db.prepare('SELECT COALESCE(MAX(attempt_number), 0) + 1 AS value FROM video_job_attempts WHERE job_id = ?').get(job.id)?.value || 1);
+            return next === 1 ? job.id : `${job.id}:retry:${next}`;
+          })(),
           payload: providerPayload,
           provider: provider.protocol || job.provider_route,
           model: provider.model || job.provider_route,
@@ -1194,6 +1199,120 @@ export function createVideoGeneration({
     return serializeOwnedJob(releaseHeldJob(job, { code: 'VIDEO_SUBMISSION_REVIEW_REJECTED' }));
   }
 
+  function recheckJob(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
+    if (FINAL_STATUSES.has(job.status)) throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '已结束任务不需要重新核对');
+    if (job.provider_task_id) {
+      updateJob(job.id, { status: 'processing', failure_class: '', error: '正在重新核对上游结果' });
+      enqueue(job.id);
+    } else if (job.status === 'queued') {
+      enqueue(job.id);
+    } else {
+      markSubmissionUnknown(job, '尚未取得上游任务 ID，已延长人工核对期；不会自动重复提交');
+    }
+    return serializeOwnedJob(selectJob.get(job.id));
+  }
+
+  function confirmNotSubmitted(jobId, input = {}) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job || job.status !== 'needs_review' || !['submission_unknown', 'manual_quarantine'].includes(job.failure_class)) {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '只有待核对且尚无上游任务 ID 的任务可以确认未受理');
+    }
+    if (job.provider_task_id) throw httpError(409, 'VIDEO_PROVIDER_TASK_EXISTS', '任务已有上游任务 ID，不能标记为未受理');
+    if (job.current_attempt_id) attemptStore.markNotSubmitted(job.current_attempt_id, input.reason);
+    return serializeOwnedJob(updateJob(job.id, {
+      status: 'needs_review',
+      failure_class: 'confirmed_not_submitted',
+      error: '已确认上游未受理，可安全重新提交',
+      review_deadline_ms: 0,
+    }));
+  }
+
+  function retryConfirmedNotSubmitted(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job || job.status !== 'needs_review' || job.failure_class !== 'confirmed_not_submitted'
+      || job.provider_task_id || job.billing_state !== 'held') {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '任务尚未确认“上游未受理”，不能安全重试');
+    }
+    const queued = updateJob(job.id, {
+      status: 'queued',
+      failure_class: '',
+      error: '',
+      current_attempt_id: '',
+      review_deadline_ms: 0,
+    });
+    if (!enqueue(job.id)) throw httpError(503, 'VIDEO_QUEUE_UNAVAILABLE', '视频队列暂时不可用，请稍后再试');
+    return serializeOwnedJob(queued);
+  }
+
+  function quarantineJob(jobId, input = {}) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
+    if (FINAL_STATUSES.has(job.status) || job.provider_task_id || job.billing_state !== 'held') {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '该任务已被上游受理或已经结束，不能隔离');
+    }
+    return serializeOwnedJob(updateJob(job.id, {
+      status: 'needs_review',
+      failure_class: 'manual_quarantine',
+      error: clean(input.reason, 500) || '任务已被管理员隔离，等待人工核对',
+      review_deadline_ms: 0,
+    }));
+  }
+
+  function replayProjection(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
+    if (job.delivery_state !== 'verified' || job.billing_state !== 'settled') {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '只有已验证交付且已结算的任务可以重放作品投影');
+    }
+    let eventType = 'video.job.finalize.requested';
+    let suffix = 'finalize';
+    if (projectBridge && job.project_projection_state !== 'projected') {
+      eventType = 'video.project.project.requested';
+      suffix = 'project-project';
+    } else if (job.projection_state !== 'projected') {
+      eventType = 'video.works.project.requested';
+      suffix = 'works-project';
+    }
+    const eventId = `video:${job.id}:${suffix}`;
+    ensureVideoEvent(job, eventType, suffix);
+    db.prepare(`UPDATE video_outbox SET state = 'pending', lock_owner = '', next_attempt_ms = 0,
+      last_error = '', updated_at = datetime('now', 'localtime') WHERE id = ?`).run(eventId);
+    updateJob(job.id, { status: 'reconciling', reconciliation_error: '', error: '正在重新同步作品记录' });
+    drainVideoOutbox({ force: true, limit: 10 });
+    return serializeOwnedJob(selectJob.get(job.id));
+  }
+
+  function reconcileOperations(input = {}) {
+    const limit = Math.max(1, Math.min(200, Number(input.limit) || 50));
+    const billing = reconcileBilling({ limit, force: input.force === true });
+    const staleBefore = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(new Date(nowMs() - 15 * 60_000));
+    const stale = db.prepare(`SELECT * FROM video_jobs
+      WHERE status IN ('queued','submitting','processing') AND datetime(updated_at) <= datetime(?)
+      ORDER BY updated_at, rowid LIMIT ?`).all(staleBefore, limit);
+    let resumed = 0;
+    let reviewed = 0;
+    for (const row of stale) {
+      if (row.status === 'submitting' && !row.provider_task_id) {
+        markSubmissionUnknown(row, '任务提交状态超过 15 分钟未确认，已转人工核对；不会重复提交');
+        reviewed += 1;
+      } else if (enqueue(row.id)) resumed += 1;
+    }
+    const incomplete = db.prepare(`SELECT * FROM video_jobs
+      WHERE delivery_state = 'verified' AND billing_state = 'settled'
+        AND (project_projection_state <> 'projected' OR projection_state <> 'projected' OR status = 'reconciling')
+      ORDER BY updated_at, rowid LIMIT ?`).all(limit);
+    let replayed = 0;
+    for (const row of incomplete) {
+      try { replayProjection(row.id); replayed += 1; } catch {}
+    }
+    return { billing, staleChecked: stale.length, resumed, reviewed, projectionChecked: incomplete.length, replayed };
+  }
+
   function recover() {
     reconcileBilling();
     const rows = db.prepare("SELECT id, status, provider_task_id FROM video_jobs WHERE status IN ('queued','submitting','processing') ORDER BY created_at").all();
@@ -1280,6 +1399,12 @@ export function createVideoGeneration({
     resolveSubmissionReview,
     rejectSubmissionReview,
     reconcileBilling,
+    reconcileOperations,
+    recheckJob,
+    confirmNotSubmitted,
+    retryConfirmedNotSubmitted,
+    quarantineJob,
+    replayProjection,
     recover,
     close() {
       closed = true;

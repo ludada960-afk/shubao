@@ -153,6 +153,7 @@ import {
   sendVideoAsset,
 } from './videoGeneration.mjs';
 import { createVideoUploadService } from './videoUploadService.mjs';
+import { createVideoReconciliation } from './videoReconciliation.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -185,6 +186,7 @@ if (!process.env.SHUBAO_CONTENT_BILLING_UNITS) {
 const db = initDB();
 const walletService = createWalletService(db);
 const authorizeAccountEmail = email => requireAccountAccess(db, email);
+let videoReconciliation = null;
 const adminOperations = createAdminOperations({
   db,
   walletService,
@@ -193,6 +195,7 @@ const adminOperations = createAdminOperations({
     ecommerce: orchestrator.runtimeStats(),
     video: videoGeneration.runtimeStats(),
   }),
+  videoOperations: () => videoReconciliation,
 });
 const paymentService = createPaymentService(db, walletService);
 const contentEntitlements = createContentEntitlements(db, walletService);
@@ -245,6 +248,24 @@ const videoUploadService = createVideoUploadService({
   directory: resolve(__dirname, 'video-upload-staging'),
   importAsset: input => videoGeneration.importUploadedAsset(input),
 });
+videoReconciliation = createVideoReconciliation({
+  db,
+  reconcile: input => videoGeneration.reconcileOperations(input),
+  cleanupUploads: input => videoUploadService.cleanExpiredUploads(input),
+  actions: {
+    recheck: jobId => videoGeneration.recheckJob(jobId),
+    replayProjection: jobId => videoGeneration.replayProjection(jobId),
+    confirmNotSubmitted: (jobId, input) => videoGeneration.confirmNotSubmitted(jobId, input),
+    retryConfirmedNotSubmitted: jobId => videoGeneration.retryConfirmedNotSubmitted(jobId),
+    quarantine: (jobId, input) => videoGeneration.quarantineJob(jobId, input),
+  },
+});
+const videoReconciliationSweep = setInterval(() => {
+  void videoReconciliation.run({ limit: 50 }).catch(error => {
+    console.error('[video-reconciliation] 自动恢复失败:', error?.message || error);
+  });
+}, 30_000);
+videoReconciliationSweep.unref?.();
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
   beginContentGeneration,
@@ -4988,6 +5009,7 @@ async function shutdown(signal) {
   }
   videoUploadService.close();
   videoGeneration.close();
+  clearInterval(videoReconciliationSweep);
   clearInterval(retentionSweep);
   clearTimeout(force);
   process.exit(0);

@@ -59,6 +59,18 @@ export function fetchAdminMonitoring(filters = {}) {
   return request(`/api/admin/monitoring${queryString(filters)}`, {}, '运行监控读取失败');
 }
 
+export function fetchAdminVideoOperations() {
+  return request('/api/admin/video-operations', {}, '视频任务治理数据读取失败');
+}
+
+export function reconcileAdminVideos(input) {
+  return request('/api/admin/video-operations/reconcile', jsonOptions('POST', input), '视频任务恢复失败');
+}
+
+export function operateAdminVideoJob(jobId, input) {
+  return request(`/api/admin/video-jobs/${encodeURIComponent(jobId)}/actions`, jsonOptions('POST', input), '视频任务操作失败');
+}
+
 export function fetchAdminAccounts(filters = {}) {
   return request(`/api/admin/accounts${queryString(filters)}`, {}, '账号列表读取失败');
 }

@@ -91,6 +91,14 @@ export function createVideoAttemptStore({ db } = {}) {
     markUncertain(id, error) {
       return update(id, { state: 'uncertain', error_class: 'submission_unknown', error_message: clean(error?.message, 500) });
     },
+    markNotSubmitted(id, reason = '') {
+      return update(id, {
+        state: 'confirmed_not_submitted',
+        provider_task_id: '',
+        error_class: 'confirmed_not_submitted',
+        error_message: clean(reason, 500),
+      });
+    },
     markFailed(id, error) {
       return update(id, { state: 'failed', error_class: clean(error?.code || 'provider', 120), error_message: clean(error?.message, 500) });
     },
