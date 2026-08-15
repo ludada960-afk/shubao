@@ -96,7 +96,7 @@ test('migrates legacy video jobs and preserves a stable historical snapshot', t 
   const service = createService({ db, assetRoot, now: () => 1_000_000 });
   t.after(() => service.close());
   const columns = new Set(db.prepare('PRAGMA table_info(video_jobs)').all().map(column => column.name));
-  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'reconciliation_error', 'release_attempts']) {
+  for (const column of ['product_id', 'provider_route', 'catalog_version', 'provider_cost_cny', 'failure_class', 'quote_id', 'billing_state', 'reconciliation_error', 'release_attempts', 'review_deadline_ms', 'review_attempts']) {
     assert.equal(columns.has(column), true, column);
   }
 
@@ -342,4 +342,168 @@ test('a delivered video is preserved while settlement is reconciled without refu
   assert.equal(releaseCalls, 0);
   assert.equal(settlementCalls, 2);
   assert.equal(savedWorks.length, 1);
+});
+
+test('an unknown provider submission expires to an automatic credit release', async t => {
+  const db = new Database(':memory:');
+  const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-submission-review-'));
+  let clock = 1_000_000;
+  let releaseCalls = 0;
+  const unknownSubmissionRegistry = {
+    get: () => ({
+      enabled: true,
+      routeId: 'sd5-seedance-2.0',
+      submit: async () => {
+        const error = new Error('submission response was lost');
+        error.code = 'VIDEO_PROVIDER_UNREACHABLE';
+        error.retryable = true;
+        throw error;
+      },
+      get: async () => { throw new Error('poll must not run without a provider task id'); },
+      download: async () => { throw new Error('download must not run'); },
+    }),
+    publicProducts: () => publicVideoProducts(),
+  };
+  const service = createService({
+    db,
+    assetRoot,
+    now: () => clock,
+    registry: unknownSubmissionRegistry,
+    maxConcurrent: 1,
+    walletService: {
+      createHold: input => ({ id: `hold-${input.metadata.taskId}` }),
+      getBalance: () => ({ unlimited: false, availableUnits: 999999 }),
+      settleItem: () => ({ status: 'settled' }),
+      releaseItem: () => { releaseCalls += 1; return { status: 'released' }; },
+    },
+    quoteVerify: ({ quoteId, expectedQuote }) => ({
+      quoteId,
+      currency: expectedQuote.currency,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    }),
+  });
+  t.after(() => {
+    service.close();
+    db.close();
+    rmSync(assetRoot, { recursive: true, force: true });
+  });
+
+  const created = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'unknown-submission-review',
+    billingQuoteId: 'unknown-submission-review-quote',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      productId: 'seedance_standard',
+      mode: 'script',
+      prompt: '未知受理补偿测试',
+      duration: 5,
+      aspectRatio: '16:9',
+      resolution: '720p',
+    },
+  });
+  await new Promise(resolve => {
+    const check = () => service.getJob('owner@example.com', created.job.id)?.status === 'needs_review'
+      ? resolve()
+      : setTimeout(check, 2);
+    check();
+  });
+
+  const reviewing = service.getJob('owner@example.com', created.job.id);
+  assert.equal(reviewing.billingState, 'held');
+  assert.ok(reviewing.reviewDeadlineAt > clock);
+  assert.match(reviewing.error, /自动核对/);
+  assert.equal(releaseCalls, 0);
+
+  clock = reviewing.reviewDeadlineAt + 1;
+  const summary = service.reconcileBilling();
+  const expired = service.getJob('owner@example.com', created.job.id);
+  assert.equal(summary.expiredReviews, 1);
+  assert.equal(expired.status, 'failed');
+  assert.equal(expired.billingState, 'released');
+  assert.equal(releaseCalls, 1);
+});
+
+test('an operator can attach the recovered provider task without resubmitting', async t => {
+  const db = new Database(':memory:');
+  const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-review-resolve-'));
+  let submitCalls = 0;
+  let settleCalls = 0;
+  const registry = {
+    get: () => ({
+      enabled: true,
+      routeId: 'sd5-seedance-2.0',
+      submit: async () => {
+        submitCalls += 1;
+        const error = new Error('submission response was lost');
+        error.code = 'VIDEO_PROVIDER_UNREACHABLE';
+        error.retryable = true;
+        throw error;
+      },
+      get: async taskId => {
+        assert.equal(taskId, 'recovered-provider-task');
+        return { status: 'completed', progress: 100 };
+      },
+      download: async taskId => {
+        assert.equal(taskId, 'recovered-provider-task');
+        return new Response(Buffer.from('recovered-video'), {
+          headers: { 'content-type': 'video/mp4', 'content-length': '15' },
+        });
+      },
+    }),
+    publicProducts: () => publicVideoProducts(),
+  };
+  const service = createService({
+    db,
+    assetRoot,
+    registry,
+    maxConcurrent: 1,
+    walletService: {
+      createHold: input => ({ id: `hold-${input.metadata.taskId}` }),
+      getBalance: () => ({ unlimited: false, availableUnits: 999999 }),
+      settleItem: () => { settleCalls += 1; return { status: 'settled' }; },
+      releaseItem: () => { throw new Error('resolved review must not release credits'); },
+    },
+    quoteVerify: ({ quoteId, expectedQuote }) => ({
+      quoteId,
+      currency: expectedQuote.currency,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    }),
+  });
+  t.after(() => {
+    service.close();
+    db.close();
+    rmSync(assetRoot, { recursive: true, force: true });
+  });
+
+  const created = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'operator-review-resolve',
+    billingQuoteId: 'operator-review-resolve-quote',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      productId: 'seedance_standard',
+      mode: 'script',
+      prompt: '运营核对恢复测试',
+      duration: 5,
+      aspectRatio: '16:9',
+      resolution: '720p',
+    },
+  });
+  await new Promise(resolve => {
+    const check = () => service.listSubmissionReviews().length === 1 ? resolve() : setTimeout(check, 2);
+    check();
+  });
+
+  const resolved = service.resolveSubmissionReview(created.job.id, 'recovered-provider-task');
+  assert.equal(resolved.status, 'processing');
+  await new Promise(resolve => {
+    const check = () => service.getJob('owner@example.com', created.job.id)?.status === 'completed'
+      ? resolve()
+      : setTimeout(check, 2);
+    check();
+  });
+  assert.equal(submitCalls, 1);
+  assert.equal(settleCalls, 1);
+  assert.equal(service.listSubmissionReviews().length, 0);
 });

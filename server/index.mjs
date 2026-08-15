@@ -516,7 +516,7 @@ mountBillingRoutes(app, {
   },
 });
 
-mountAdminRoutes(app, {
+const adminRouteHandlers = mountAdminRoutes(app, {
   operations: adminOperations,
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
@@ -4039,6 +4039,23 @@ app.get('/api/video/jobs', authenticateVideoRequest, (req, res) => {
 app.get('/api/video/jobs/:id', authenticateVideoRequest, (req, res) => {
   const job = videoGeneration.getJob(req._userEmail, req.params.id);
   return job ? res.json({ job }) : res.status(404).json({ error: '视频任务不存在' });
+});
+app.get('/api/admin/video-reviews', adminRouteHandlers.requireAdmin, (req, res) => {
+  res.json({ reviews: videoGeneration.listSubmissionReviews(req.query.limit) });
+});
+app.post('/api/admin/video-reviews/:id/resolve', adminRouteHandlers.requireAdmin, (req, res) => {
+  try {
+    return res.json({ job: videoGeneration.resolveSubmissionReview(req.params.id, req.body?.providerTaskId) });
+  } catch (error) {
+    return res.status(error?.status || 400).json({ error: error?.message || '视频任务核对失败', code: error?.code || 'VIDEO_REVIEW_INVALID' });
+  }
+});
+app.post('/api/admin/video-reviews/:id/reject', adminRouteHandlers.requireAdmin, (req, res) => {
+  try {
+    return res.json({ job: videoGeneration.rejectSubmissionReview(req.params.id) });
+  } catch (error) {
+    return res.status(error?.status || 400).json({ error: error?.message || '视频任务核对失败', code: error?.code || 'VIDEO_REVIEW_INVALID' });
+  }
 });
 
 function sendCompositionError(error, res) {

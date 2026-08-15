@@ -26,6 +26,7 @@ const OUTPUT_LIMIT = 100 * 1024 * 1024;
 const CIRCUIT_MIN_SAMPLES = 5;
 const CIRCUIT_WINDOW = 20;
 const CIRCUIT_COOLDOWN_MS = 15 * 60 * 1000;
+const SUBMISSION_REVIEW_TTL_MS = 30 * 60 * 1000;
 const CONTENT_TYPES = Object.freeze({
   image: new Set(['image/jpeg', 'image/png', 'image/webp']),
   video: new Set(['video/mp4', 'video/webm', 'video/quicktime']),
@@ -64,6 +65,7 @@ function serializeJob(row, resultUrl = row?.result_url || '') {
       ? 'settled'
       : row.billing_state || 'held',
     reconciliationError: row.reconciliation_error || '',
+    reviewDeadlineAt: Number(row.review_deadline_ms || 0),
     prompt: row.prompt,
     duration: row.duration,
     aspectRatio: row.aspect_ratio,
@@ -228,6 +230,8 @@ export function createVideoGeneration({
       billing_state TEXT NOT NULL DEFAULT 'held',
       reconciliation_error TEXT NOT NULL DEFAULT '',
       release_attempts INTEGER NOT NULL DEFAULT 0,
+      review_deadline_ms INTEGER NOT NULL DEFAULT 0,
+      review_attempts INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       UNIQUE(owner_email, idempotency_key)
@@ -247,6 +251,8 @@ export function createVideoGeneration({
     ['billing_state', "TEXT NOT NULL DEFAULT 'held'"],
     ['reconciliation_error', "TEXT NOT NULL DEFAULT ''"],
     ['release_attempts', 'INTEGER NOT NULL DEFAULT 0'],
+    ['review_deadline_ms', 'INTEGER NOT NULL DEFAULT 0'],
+    ['review_attempts', 'INTEGER NOT NULL DEFAULT 0'],
   ];
   for (const [column, definition] of migrations) {
     if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
@@ -588,15 +594,38 @@ export function createVideoGeneration({
     recordCircuitOutcome(failedJob, false);
   }
 
+  function markSubmissionUnknown(job, message = '') {
+    return updateJob(job.id, {
+      status: 'needs_review',
+      error: clean(message, 500) || '上游受理结果待自动核对，核对期间不会重复提交或结算积分',
+      failure_class: 'submission_unknown',
+      billing_state: 'held',
+      reconciliation_error: '',
+      review_deadline_ms: nowMs() + SUBMISSION_REVIEW_TTL_MS,
+      review_attempts: Number(job.review_attempts || 0) + 1,
+    });
+  }
+
   function reconcileBilling() {
     const rows = db.prepare("SELECT * FROM video_jobs WHERE billing_state IN ('release_pending','settlement_pending') ORDER BY updated_at, rowid").all();
-    const summary = { checked: rows.length, released: 0, settled: 0, pending: 0 };
+    const summary = { checked: rows.length, released: 0, settled: 0, pending: 0, expiredReviews: 0 };
     for (const row of rows) {
       const reconciled = row.billing_state === 'settlement_pending'
         ? settleDeliveredJob(row)
         : releaseHeldJob(row, { code: row.failure_class || 'billing_reconciliation' });
       if (reconciled.billing_state === 'released') summary.released += 1;
       else if (reconciled.billing_state === 'settled') summary.settled += 1;
+      else summary.pending += 1;
+    }
+    const expiredReviews = db.prepare(`SELECT * FROM video_jobs
+      WHERE status = 'needs_review' AND failure_class = 'submission_unknown'
+        AND review_deadline_ms > 0 AND review_deadline_ms <= ?
+      ORDER BY review_deadline_ms, rowid`).all(nowMs());
+    summary.checked += expiredReviews.length;
+    for (const row of expiredReviews) {
+      const released = releaseHeldJob(row, { code: 'VIDEO_SUBMISSION_REVIEW_EXPIRED' });
+      summary.expiredReviews += 1;
+      if (released.billing_state === 'released') summary.released += 1;
       else summary.pending += 1;
     }
     return summary;
@@ -611,7 +640,7 @@ export function createVideoGeneration({
       provider = providerForJob(job);
       if (!job.provider_task_id) {
         if (job.status === 'submitting') {
-          updateJob(id, { status: 'needs_review', error: '上游受理结果待确认，未重复提交也未结算积分' });
+          markSubmissionUnknown(job);
           return;
         }
         updateJob(id, { status: 'submitting', error: '' });
@@ -667,7 +696,7 @@ export function createVideoGeneration({
         return;
       }
       if (error?.code === 'VIDEO_PROVIDER_UNREACHABLE' && !job.provider_task_id) {
-        updateJob(id, { status: 'needs_review', error: '上游受理结果待确认，未重复提交也未结算积分', failure_class: 'submission_unknown' });
+        markSubmissionUnknown(job);
         return;
       }
       await fail(job, error);
@@ -837,12 +866,46 @@ export function createVideoGeneration({
     return owned ? signedAssetUrl(publicBaseUrl, safeId, normalizedOwner, 'playback', 24 * 60 * 60 * 1000) : '';
   }
 
+  function listSubmissionReviews(limit = 50) {
+    return db.prepare(`SELECT * FROM video_jobs
+      WHERE status = 'needs_review' AND failure_class = 'submission_unknown'
+      ORDER BY review_deadline_ms, created_at LIMIT ?`)
+      .all(Math.max(1, Math.min(200, Number(limit) || 50)))
+      .map(serializeOwnedJob);
+  }
+
+  function resolveSubmissionReview(jobId, providerTaskId) {
+    const job = selectJob.get(clean(jobId, 140));
+    const taskId = clean(providerTaskId, 200);
+    if (!job || job.status !== 'needs_review' || job.failure_class !== 'submission_unknown') {
+      throw httpError(409, 'VIDEO_REVIEW_NOT_PENDING', '该视频任务不在待核对状态');
+    }
+    if (!taskId) throw httpError(400, 'VIDEO_PROVIDER_TASK_REQUIRED', '缺少上游任务 ID');
+    const resolved = updateJob(job.id, {
+      status: 'processing',
+      provider_task_id: taskId,
+      error: '已确认上游任务，正在继续获取生成结果',
+      failure_class: '',
+      review_deadline_ms: 0,
+    });
+    enqueue(job.id);
+    return serializeOwnedJob(resolved);
+  }
+
+  function rejectSubmissionReview(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job || job.status !== 'needs_review' || job.failure_class !== 'submission_unknown') {
+      throw httpError(409, 'VIDEO_REVIEW_NOT_PENDING', '该视频任务不在待核对状态');
+    }
+    return serializeOwnedJob(releaseHeldJob(job, { code: 'VIDEO_SUBMISSION_REVIEW_REJECTED' }));
+  }
+
   function recover() {
     reconcileBilling();
     const rows = db.prepare("SELECT id, status, provider_task_id FROM video_jobs WHERE status IN ('queued','submitting','processing') ORDER BY created_at").all();
     for (const row of rows) {
       if (row.status === 'submitting' && !row.provider_task_id) {
-        updateJob(row.id, { status: 'needs_review', error: '服务重启前的上游受理结果待确认，未重复提交也未结算积分' });
+        markSubmissionUnknown(selectJob.get(row.id), '服务重启前的上游受理结果待自动核对，核对期间不会重复提交或结算积分');
       } else {
         enqueue(row.id);
       }
@@ -918,6 +981,9 @@ export function createVideoGeneration({
     readAsset,
     readSignedAsset,
     playbackUrlForAsset,
+    listSubmissionReviews,
+    resolveSubmissionReview,
+    rejectSubmissionReview,
     reconcileBilling,
     recover,
     close() {
