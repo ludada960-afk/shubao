@@ -43,10 +43,25 @@ provenance while never submitting a provider request or mutating billing.
 
 ### 3. Release gate
 
-- [ ] Run the full repository regression, static check, production build and diff check.
-- [ ] Run the non-billing workbench verifier and confirm no provider/billing writes.
-- [ ] Deploy only through `scripts/deploy-production.ps1`, keep the feature default-off,
-  and pass the full canary plus independent video/billing/gallery checks.
+- [x] Run the full repository regression, static check, production build and diff check.
+- [x] Run the non-billing workbench verifier and confirm no provider/billing writes.
+- [x] Deploy only through `scripts/deploy-production.ps1`, keep the feature default-off,
+  and pass the full canary plus independent video/billing checks.
+
+Release evidence (2026-08-16): `816457a` passed the full `1658/1658` regression,
+`npm run check`, the production build and `git diff --check`. The non-billing
+workbench verifier reported 10 projects, 40/40 successful operations and no
+provider/billing mutations. The release is active at
+`/var/www/shubao/releases/20260816-184541-816457a` with PM2 PID `2824932`;
+the authenticated production video contract and billing verifier passed and the
+600-second application canary remained healthy. The deployment wrapper lost its
+SSH lock channel after the canary and correctly refused an unfenced rollback;
+the active symlink and PM2 process were independently read-only verified after
+the wrapper exited, and the remote lock is free. A subsequent standalone gallery
+probe reported one existing image-delivery edge case (`jk/01-封面.png`,
+`thumb/webp`, HTTP 500); this commit does not touch gallery code or assets and
+the local source decodes and renders successfully, so it is tracked separately
+from this video release rather than silently attributed to the clone feature.
 
 ## Follow-up boundary
 

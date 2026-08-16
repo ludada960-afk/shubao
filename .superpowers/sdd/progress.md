@@ -16,6 +16,22 @@
   regression, build, deployment and public canary remain the next release gate;
   the workbench remains default-off and no paid video generation has run.
 
+## 2026-08-16 AI-video P2 clone/remix (production release)
+
+- Commit `816457a` is active at
+  `/var/www/shubao/releases/20260816-184541-816457a` with PM2 PID `2824932`.
+  Full regression passed `1658/1658`, `npm run check`, production build,
+  `git diff --check`, the non-billing workbench verifier, authenticated video
+  contract and billing verification all passed. The 600-second application
+  canary remained healthy and the workbench stays default-off.
+- The deployment wrapper lost its SSH lock channel after the canary and refused
+  an unfenced rollback; a read-only follow-up confirmed the active release and
+  healthy PM2 process, with the remote lock free. No paid video generation was
+  submitted. One standalone gallery probe later reported
+  `jk/01-封面.png thumb/webp` as HTTP 500; the clone release did not change
+  gallery code or assets, and local Sharp decoding succeeds, so this remains a
+  separately owned image-delivery investigation rather than a video regression.
+
 ## 2026-08-16 AI-video P2 replay manifest (production complete)
 
 - Implemented `server/videoReplayManifest.mjs` as a versioned, canonical, SHA-256
