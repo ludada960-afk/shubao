@@ -21,7 +21,7 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
     ratio: '16:9',
     width: 1600,
     height: 900,
-    sources: ['product-flatlay.png', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
+    sources: ['editorial-flatlay-v3.webp', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
   }),
   Object.freeze({
     id: 'tryon-reference-workflow',
@@ -40,7 +40,7 @@ export const TRYON_LAYOUT_PLANS = Object.freeze({
     fit: 'contain',
     blurPadding: false,
     visualBounds: Object.freeze({ left: 44, top: 74, right: 1570, bottom: 826 }),
-    product: Object.freeze({ left: 96, top: 122, width: 300, height: 650, rotation: -3, fit: 'contain' }),
+    product: Object.freeze({ left: 76, top: 142, width: 470, height: 610, rotation: -3, fit: 'contain' }),
     resultCards: Object.freeze([
       Object.freeze({ left: 710, top: 166, width: 230, height: 540, rotation: -7, fit: 'contain' }),
       Object.freeze({ left: 930, top: 126, width: 230, height: 570, rotation: -2, fit: 'contain' }),
