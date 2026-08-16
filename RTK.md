@@ -430,3 +430,12 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 该切片尚未部署。唯一发布入口因当前环境无法读取受控 SSH key 而在远端变更前停止；公网
   视频/账务检查仍通过，新 SkillRun 路由返回 `404`，因此不能声称已上线。待受控凭据恢复后，
   必须重新走 `scripts/deploy-production.ps1` 和独立 600 秒 Canary。
+
+## 2026-08-16 AI Video P2 SkillRun Step Events
+
+- 本地 SkillRun 已接入 owner/project-scoped `step.completed` 追加事件：只有声明的步骤、
+  依赖全部完成且 revision 匹配时才可推进；执行计划在读取和每次变更时稳定投影，状态由
+  `preview` 经 `running` 到 `complete`。路由与客户端均使用签名会话，不信任 body owner。
+- 聚焦回归 `31/31`、全量测试 `1669/1669`、`npm run check`、6510 模块构建、工作台验证和
+  `git diff --check` 全部通过；没有 provider/generation/usage/wallet/billing 写入，也未触发
+  付费视频生成。该切片尚未部署，待受控 SSH key 恢复后必须通过唯一入口和 600 秒 Canary。

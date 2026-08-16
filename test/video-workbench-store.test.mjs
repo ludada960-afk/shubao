@@ -132,6 +132,40 @@ test('skill runs preview declarative plans, append confirmation events, and stay
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('usage_ledger', 'wallet_transactions')").all().length, 0);
 });
 
+test('skill run step completion is dependency-gated and resumable', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const spec = {
+    skillId: 'trailer', skillVersion: 1,
+    steps: [
+      { id: 'plan', kind: 'plan', label: '拆解镜头' },
+      { id: 'assets', kind: 'assets', label: '准备素材', requires: ['plan'] },
+    ],
+  };
+  const preview = store.previewSkillRun({ ownerEmail: OWNER, projectId: project.id,
+    idempotencyKey: 'skill-step-1', spec });
+  assert.equal(preview.executionPlan.status, 'ready');
+  assert.deepEqual(preview.executionPlan.readyStepIds, ['plan']);
+  assert.throws(() => store.completeSkillRunStep({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, stepId: 'assets', expectedRevision: 1 }),
+    error => error.code === 'INVALID_SKILL_RUN');
+  const first = store.completeSkillRunStep({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, stepId: 'plan', expectedRevision: 1 });
+  assert.equal(first.status, 'running');
+  assert.equal(first.revision, 2);
+  assert.deepEqual(first.executionPlan.readyStepIds, ['assets']);
+  assert.equal(first.events.at(-1).type, 'step.completed');
+  assert.throws(() => store.completeSkillRunStep({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, stepId: 'assets', expectedRevision: 1 }),
+    error => error.code === 'VERSION_CONFLICT');
+  const complete = store.completeSkillRunStep({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, stepId: 'assets', expectedRevision: 2 });
+  assert.equal(complete.status, 'complete');
+  assert.equal(complete.executionPlan.status, 'complete');
+  assert.deepEqual(complete.executionPlan.completedStepIds, ['plan', 'assets']);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+});
+
 test('replay manifests are immutable, deduplicated and owner scoped', t => {
   const { db, projectStore, store, project } = harness();
   t.after(() => db.close());

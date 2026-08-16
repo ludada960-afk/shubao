@@ -259,6 +259,43 @@ test('owner can preview and confirm a SkillRun without creating a provider or bi
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
 });
 
+test('owner can complete dependency-ordered SkillRun steps through the protected route', async t => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const headers = { ...signedHeaders(sessionTokens, ownerEmail), 'idempotency-key': 'route-step-1' };
+  const base = '/api/video/projects/:projectId/workbench/skill-runs';
+  const created = await invoke(app, 'POST', `${base}/preview`, {
+    headers, params: { projectId: project.id }, body: { spec: {
+      skillId: 'trailer', skillVersion: 1,
+      steps: [
+        { id: 'plan', kind: 'plan', label: '拆解镜头' },
+        { id: 'assets', kind: 'assets', label: '准备素材', requires: ['plan'] },
+      ],
+    } },
+  });
+  assert.equal(created.statusCode, 201);
+  const blocked = await invoke(app, 'POST', `${base}/:runId/steps/:stepId/complete`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id, stepId: 'assets' },
+    body: { expectedRevision: 1 },
+  });
+  assert.equal(blocked.statusCode, 400);
+  assert.equal(blocked.body.code, 'INVALID_SKILL_RUN');
+  const first = await invoke(app, 'POST', `${base}/:runId/steps/:stepId/complete`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id, stepId: 'plan' },
+    body: { expectedRevision: 1 },
+  });
+  assert.equal(first.statusCode, 200);
+  assert.deepEqual(first.body.run.executionPlan.readyStepIds, ['assets']);
+  const complete = await invoke(app, 'POST', `${base}/:runId/steps/:stepId/complete`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id, stepId: 'assets' },
+    body: { expectedRevision: 2 },
+  });
+  assert.equal(complete.statusCode, 200);
+  assert.equal(complete.body.run.status, 'complete');
+  assert.equal(complete.body.run.executionPlan.status, 'complete');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+});
+
 test('workbench routes hide the owner pilot from a signed tester account', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

@@ -15,6 +15,7 @@ const shotSegment = value => pathSegment(value, '请选择有效的分镜');
 const manifestSegment = value => pathSegment(value, '请选择有效的配方快照');
 const skillRunSegment = value => pathSegment(value, '请选择有效的 SkillRun');
 const checkpointSegment = value => pathSegment(value, '请选择有效的确认节点');
+const stepSegment = value => pathSegment(value, '请选择有效的 SkillRun 步骤');
 
 function signedHeaders(headers = {}) {
   const token = getSessionToken();
@@ -216,6 +217,15 @@ export async function confirmVideoSkillCheckpoint(projectId, runId, checkpointId
     `${skillRunBase(projectId)}/${skillRunSegment(runId)}/checkpoints/${checkpointSegment(checkpointId)}/confirm`,
     { method: 'POST', ...jsonBody({ expectedRevision }) },
     '暂时无法确认视频 SkillRun 节点',
+  );
+  return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
+}
+
+export async function completeVideoSkillRunStep(projectId, runId, stepId, expectedRevision) {
+  const response = await requestJson(
+    `${skillRunBase(projectId)}/${skillRunSegment(runId)}/steps/${stepSegment(stepId)}/complete`,
+    { method: 'POST', ...jsonBody({ expectedRevision }) },
+    '暂时无法推进视频 SkillRun 步骤',
   );
   return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
 }

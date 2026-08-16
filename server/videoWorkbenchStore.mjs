@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
-import { normalizeSkillRunSpec } from './videoSkillRun.mjs';
+import { buildSkillRunExecutionPlan, normalizeSkillRunSpec } from './videoSkillRun.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -167,6 +167,11 @@ function clipFromRow(row) {
 
 function skillRunFromRow(row, events = []) {
   if (!row) return null;
+  const plan = parseJson(row.plan_json, {});
+  const completedStepIds = events
+    .filter(event => event.type === 'step.completed')
+    .map(event => parseJson(event.payload_json, {}).stepId)
+    .filter(Boolean);
   return {
     id: row.id,
     ownerEmail: row.owner_email,
@@ -176,7 +181,8 @@ function skillRunFromRow(row, events = []) {
     status: row.status,
     revision: row.revision,
     input: parseJson(row.input_json, {}),
-    plan: parseJson(row.plan_json, {}),
+    plan,
+    executionPlan: buildSkillRunExecutionPlan(plan, { completedStepIds }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     events: events.map(event => ({
@@ -882,6 +888,41 @@ export function createVideoWorkbenchStore({
           VALUES (?, ?, ?, ?, ?, 'checkpoint.confirmed', ?, ?, ?)`).run(
           randomUUID(), runId, owner, project.id, nextRevision,
           JSON.stringify({ checkpointId: normalizedCheckpointId, revision: nextRevision }), owner, changedAt,
+        );
+        return requireSkillRun(owner, project.id, runId).run;
+      })();
+    },
+
+    completeSkillRunStep({ ownerEmail, projectId, runId, stepId, expectedRevision }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedStepId = clean(stepId, 128);
+      if (!normalizedStepId) throw coded('INVALID_SKILL_RUN', 'step id is required');
+      if (!Number.isSafeInteger(Number(expectedRevision))) throw coded('VERSION_CONFLICT', 'skill run revision is required');
+      return db.transaction(() => {
+        const current = requireSkillRun(owner, project.id, runId);
+        if (current.row.revision !== Number(expectedRevision)) {
+          throw coded('VERSION_CONFLICT', 'skill run revision conflict', current.run);
+        }
+        const steps = Array.isArray(current.run.plan?.steps) ? current.run.plan.steps : [];
+        const step = steps.find(candidate => candidate.id === normalizedStepId);
+        if (!step) throw coded('INVALID_SKILL_RUN', 'step is not declared by the skill');
+        if (current.run.executionPlan.completedStepIds.includes(normalizedStepId)) {
+          throw coded('INVALID_SKILL_RUN', 'skill step is already complete');
+        }
+        if (step.requires.some(dependency => !current.run.executionPlan.completedStepIds.includes(dependency))) {
+          throw coded('INVALID_SKILL_RUN', 'skill step dependencies are incomplete');
+        }
+        const changedAt = timestamp();
+        const nextRevision = current.row.revision + 1;
+        const nextStatus = current.run.executionPlan.completedStepIds.length + 1 === steps.length
+          ? 'complete' : 'running';
+        db.prepare(`UPDATE video_skill_runs SET status = ?, revision = ?, updated_at = ? WHERE id = ?`)
+          .run(nextStatus, nextRevision, changedAt, runId);
+        db.prepare(`INSERT INTO video_skill_run_events
+          (id, run_id, owner_email, project_id, sequence, type, payload_json, actor_email, created_at)
+          VALUES (?, ?, ?, ?, ?, 'step.completed', ?, ?, ?)`).run(
+          randomUUID(), runId, owner, project.id, nextRevision,
+          JSON.stringify({ stepId: normalizedStepId, revision: nextRevision }), owner, changedAt,
         );
         return requireSkillRun(owner, project.id, runId).run;
       })();

@@ -17,6 +17,7 @@ import {
   selectShotCandidate,
   previewVideoSkillRun,
   confirmVideoSkillCheckpoint,
+  completeVideoSkillRunStep,
   updateStoryboardShot,
 } from '../src/services/videoWorkbench.js';
 import { onSessionInvalid } from '../src/services/auth.js';
@@ -140,6 +141,21 @@ test('video SkillRun client signs preview, read, and checkpoint confirmation req
   assert.equal(requests[2].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/checkpoints/approve-assets/confirm');
   assert.deepEqual(JSON.parse(requests[2].options.body), { expectedRevision: 1 });
   assert.equal(requests[2].options.headers.Authorization, 'Bearer signed-skill-session');
+});
+
+test('video SkillRun client completes a step with its expected revision', async t => {
+  installSession('signed-step-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse({ run: { id: 'run-1', status: 'running', revision: 2, events: [] } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await completeVideoSkillRunStep('project-1', 'run-1', 'plan', 1);
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/steps/plan/complete');
+  assert.deepEqual(JSON.parse(requests[0].options.body), { expectedRevision: 1 });
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-step-session');
 });
 
 test('video workbench client uses shared session invalidation on 401', async t => {

@@ -2239,3 +2239,13 @@
   `git diff --check` passed. This remains provider-free and non-billing. It is
   not deployed because the controlled SSH key is unavailable in this
   environment; do not report it as shipped.
+
+- 2026-08-16 AI-video P2 SkillRun step-event persistence is complete locally.
+  Owner-scoped `step.completed` events now enforce declared dependencies and
+  expected revisions, move runs through `preview` → `running` → `complete`,
+  and expose the deterministic execution plan on every run projection. Signed
+  route/client coverage passed `31/31`; full `npm test` passed `1669/1669`,
+  `npm run check`, the 6510-module build, `npm run verify:video-workbench-pilot`,
+  and `git diff --check` passed. No provider, generation, usage, wallet, or
+  billing writes occurred. This local slice is not deployed because the
+  controlled SSH key is unavailable.
