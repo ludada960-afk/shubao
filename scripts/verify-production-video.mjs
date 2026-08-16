@@ -29,7 +29,7 @@ async function verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken }) {
     headers: {
       'Tus-Resumable': '1.0.0',
       'Upload-Length': '1',
-      'Upload-Metadata': 'filename Y2FuYXJ5LmJpbg==,filetype YXBwbGljYXRpb24vb2N0ZXQtc3RyZWFt,kind dmlkZW8=',
+      'Upload-Metadata': 'filename Y2FuYXJ5Lm1wNA==,filetype dmlkZW8vbXA0,kind dmlkZW8=',
     },
   });
   const location = created.headers.get('location');

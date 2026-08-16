@@ -43,7 +43,12 @@ test('authenticated production verifier performs only non-billable canaries', as
   const fetchImpl = async (url, options = {}) => {
     const path = new URL(String(url)).pathname;
     const method = options.method || 'GET';
-    calls.push({ path, method, authorization: options.headers?.Authorization || options.headers?.authorization || '' });
+    calls.push({
+      path,
+      method,
+      authorization: options.headers?.Authorization || options.headers?.authorization || '',
+      uploadMetadata: options.headers?.['Upload-Metadata'] || '',
+    });
     if (path === '/api/video/capabilities') return response(catalog);
     if (path === '/api/video/jobs') return response({ jobs: [] });
     if (path === '/api/admin/video-operations') return response({ metrics: {}, attentionQueue: [], lease: null });
@@ -59,6 +64,9 @@ test('authenticated production verifier performs only non-billable canaries', as
   await verifyProductionVideo({ baseUrl: 'https://example.com', fetchImpl, sessionToken: 'signed-canary' });
 
   assert.ok(calls.some(call => call.path === '/api/video/uploads' && call.method === 'POST'));
+  const uploadCreate = calls.find(call => call.path === '/api/video/uploads' && call.method === 'POST');
+  assert.match(uploadCreate.uploadMetadata, /filename Y2FuYXJ5Lm1wNA==/);
+  assert.match(uploadCreate.uploadMetadata, /filetype dmlkZW8vbXA0/);
   assert.ok(calls.some(call => call.path === '/api/video/uploads/canary-upload' && call.method === 'DELETE'));
   assert.ok(calls.some(call => call.path === '/api/admin/video-operations'));
   assert.ok(calls.filter(call => call.path !== '/api/video/capabilities').every(call => call.authorization === 'Bearer signed-canary'));
