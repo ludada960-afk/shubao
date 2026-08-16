@@ -13,7 +13,7 @@
 - Do not touch AI-video files, routes, tests, runtime data, or its deployment window.
 - Keep `editorial-flatlay-v3.webp` complete with `contain`.
 - Keep all four model cards complete with `contain`; no cropped head, hem, shoe, or outer card edge.
-- Preserve `editorial-multi-angle-v4`, 1600x900 output, `?v=da45a36`, click-to-preview, and modal centering.
+- Preserve `editorial-multi-angle-v4`, 1600x900 output, click-to-preview, and modal centering; bump the CDN query to `?v=4fde38b` so the enlarged composite cannot be served from the prior cache key.
 
 ---
 
