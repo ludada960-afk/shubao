@@ -60,6 +60,14 @@ test('try-on showcase renders complete zoomable workflow banners without re-crop
   assert.match(styles, /\.ec-tryon-workflow-banner img\s*\{[^}]*object-fit:\s*contain/);
 });
 
+test('try-on preview modal remains centered while respecting viewport bounds', () => {
+  const modalRule = styles.match(/\.ec-tryon-preview-modal\s*\{[^}]*\}/g)?.at(-1) || '';
+  assert.match(modalRule, /align-items:\s*center/);
+  assert.match(modalRule, /justify-items:\s*center/);
+  assert.doesNotMatch(modalRule, /align-items:\s*start/);
+  assert.match(styles, /\.ec-tryon-preview-dialog\s*\{[^}]*max-height:\s*calc\(100vh/);
+});
+
 test('try-on showcase gives every rendered asset a stable React key', () => {
   assert.match(workbench, /key=\{item\.id \|\| item\.src\}/);
 });

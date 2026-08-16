@@ -30,7 +30,13 @@ test('try-on showcase composites preserve complete production assets in fixed wi
     assert.equal(multiAngle.ratio, '16:9');
     assert.equal(multiAngle.id, 'editorial-multi-angle-v4');
     assert.equal(multiAngle.sources.length, 5);
-    assert.deepEqual(multiAngle.sources, ['product-flatlay.png', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png']);
+    assert.deepEqual(multiAngle.sources, [
+      'editorial-flatlay-v3.webp',
+      'angle-front.png',
+      'angle-motion.png',
+      'angle-side.png',
+      'angle-back.png',
+    ]);
     assert.equal(reference.ratio, '16:9');
     assert.equal(reference.sources.length, 3);
   } finally {
@@ -44,6 +50,10 @@ test('try-on layout plans match the product-to-angle reference without cropped c
   assert.equal(multiAngle.resultCards.length, 4);
   assert.deepEqual(multiAngle.resultCards.map(card => card.rotation), [-7, -2, 2, 7]);
   assert.equal(multiAngle.product.fit, 'contain');
+  assert.ok(multiAngle.product.width >= 450);
+  assert.ok(multiAngle.product.height >= 600);
+  assert.ok(multiAngle.product.left >= 48);
+  assert.ok(multiAngle.product.left + multiAngle.product.width <= 600);
   assert.ok(multiAngle.resultCards.every(card => card.fit === 'contain'));
   assert.ok(multiAngle.visualBounds.top >= 24);
   assert.ok(multiAngle.visualBounds.bottom <= 876);
