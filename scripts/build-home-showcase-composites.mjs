@@ -15,13 +15,13 @@ const DEFAULT_SOCIAL_THUMB_ROOT = resolve(PROJECT_ROOT, 'public/images/.thumbs/h
 
 export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
   Object.freeze({
-    id: 'editorial-multi-angle-v3',
+    id: 'editorial-multi-angle-v4',
     kind: 'multi-angle',
     extension: 'webp',
     ratio: '16:9',
     width: 1600,
     height: 900,
-    sources: ['editorial-flatlay-v3.webp', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
+    sources: ['angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
   }),
   Object.freeze({
     id: 'tryon-reference-workflow',
@@ -35,18 +35,16 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
 ]);
 
 export const TRYON_LAYOUT_PLANS = Object.freeze({
-  'editorial-multi-angle-v3': Object.freeze({
-    stages: Object.freeze(['product', 'result-fan']),
+  'editorial-multi-angle-v4': Object.freeze({
+    stages: Object.freeze(['result-fan']),
     fit: 'cover',
     blurPadding: false,
-    visualBounds: Object.freeze({ left: 24, top: 44, right: 1584, bottom: 856 }),
-    product: Object.freeze({ left: 24, top: 72, width: 520, height: 756, rotation: -2 }),
-    arrow: Object.freeze({ kind: 'curved-editorial', left: 532, top: 318, width: 176, height: 210 }),
+    visualBounds: Object.freeze({ left: 24, top: 42, right: 1576, bottom: 858 }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 668, top: 118, width: 264, height: 664, rotation: -8 }),
-      Object.freeze({ left: 856, top: 76, width: 278, height: 706, rotation: -3 }),
-      Object.freeze({ left: 1066, top: 76, width: 278, height: 706, rotation: 3 }),
-      Object.freeze({ left: 1270, top: 118, width: 264, height: 664, rotation: 8 }),
+      Object.freeze({ left: 215, top: 104, width: 300, height: 680, rotation: -8 }),
+      Object.freeze({ left: 590, top: 76, width: 320, height: 704, rotation: -3 }),
+      Object.freeze({ left: 965, top: 76, width: 320, height: 704, rotation: 3 }),
+      Object.freeze({ left: 1340, top: 104, width: 300, height: 680, rotation: 8 }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -126,23 +124,19 @@ function multiAngleDecoration() {
   return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4b3929" flood-opacity=".16"/></filter>
-      <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#cfc8bf"/><stop offset="1" stop-color="#a99c8d"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
-    <ellipse cx="1182" cy="814" rx="390" ry="34" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
-    <path d="M548 507 C596 448 631 388 687 342" fill="none" stroke="url(#arrow)" stroke-width="22" stroke-linecap="round"/>
-    <path d="M675 311 L724 324 L699 370 Z" fill="#a99c8d"/>
+    <ellipse cx="800" cy="836" rx="640" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
 
 async function buildMultiAngle(definition) {
   const plan = TRYON_LAYOUT_PLANS[definition.id];
-  const [product, ...results] = await Promise.all([
-    placedCard(resolve(SOURCE_ROOT, definition.sources[0]), plan.product),
-    ...definition.sources.slice(1).map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
-  ]);
+  const results = await Promise.all(
+    definition.sources.map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
+  );
   return sharp(multiAngleDecoration())
-    .composite([product, ...results])
+    .composite(results)
     .png()
     .toBuffer();
 }
