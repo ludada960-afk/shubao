@@ -29,7 +29,7 @@
 - Produces `normalizeProjectMemoryFact(input)`, `normalizeProjectMemoryList(input)`, and `memoryFactSnapshot(fact)`.
 - Normalized fact shape: `{ id, key, value, source, assetRefs, status, revision, createdAt, updatedAt, deletedAt }`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 test('normalizes bounded facts and strips runtime fields', () => {
@@ -52,23 +52,23 @@ test('rejects oversized, invalid, and duplicate facts', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run: `node --test --test-concurrency=1 test/video-project-memory.test.mjs`
 
 Expected: FAIL because the memory normalizer module does not exist.
 
-- [ ] **Step 3: Implement the bounded normalizer**
+- [x] **Step 3: Implement the bounded normalizer**
 
 Implement `server/videoProjectMemory.mjs` with max 64 facts, max 128-character keys, max 8 KiB serialized value per fact, max 16 asset references, allowed sources `user`, `approved_asset`, `skill`, statuses `active`/`deleted`, depth-limited JSON validation, duplicate-key detection, sorted snapshot output, and `MEMORY_INVALID` errors.
 
-- [ ] **Step 4: Run the focused test to verify it passes**
+- [x] **Step 4: Run the focused test to verify it passes**
 
 Run: `node --test --test-concurrency=1 test/video-project-memory.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the contract**
+- [x] **Step 5: Commit the contract**
 
 Run: `git add server/videoProjectMemory.mjs test/video-project-memory.test.mjs && git commit -m "feat: define bounded project memory contract"`
 
@@ -83,35 +83,35 @@ Run: `git add server/videoProjectMemory.mjs test/video-project-memory.test.mjs &
 - Produces `setProjectMemoryFact({ ownerEmail, projectId, key, value, source, assetRefs, expectedRevision })`.
 - Produces `removeProjectMemoryFact({ ownerEmail, projectId, key, expectedRevision })`.
 
-- [ ] **Step 1: Add failing store tests**
+- [x] **Step 1: Add failing store tests**
 
 Cover: empty list; insert/update increments revision; stale update throws `VERSION_CONFLICT`; soft delete removes the fact from active list; approved version refs succeed; unapproved and other-owner refs throw coded errors; other owner cannot read or mutate.
 
-- [ ] **Step 2: Run store tests to verify failure**
+- [x] **Step 2: Run store tests to verify failure**
 
 Run: `node --test --test-concurrency=1 test/video-workbench-store.test.mjs`
 
 Expected: FAIL with missing store methods/table.
 
-- [ ] **Step 3: Add the SQLite table and conversion helper**
+- [x] **Step 3: Add the SQLite table and conversion helper**
 
 Create `video_project_memory_facts` with unique `(owner_email, project_id, fact_key)`, JSON columns, revision/status timestamps, soft-delete timestamp, foreign key to `projects`, and owner/project/status index. Parse rows through the normalizer so malformed stored data cannot escape the store API.
 
-- [ ] **Step 4: Implement transactional CRUD with approved-version validation**
+- [x] **Step 4: Implement transactional CRUD with approved-version validation**
 
 Require `projectStore.requireProject`/existing project guard, validate all asset refs against the same owner/project and `approved_version_id`, enforce expected revision, update `revision + 1`, and preserve deleted rows. Return normalized API facts.
 
-- [ ] **Step 5: Expose `memory` from `listWorkbench`**
+- [x] **Step 5: Expose `memory` from `listWorkbench`**
 
 Return `memory: listProjectMemory(...)` alongside project/assets/shots/timeline so one workbench read hydrates the panel without a second request.
 
-- [ ] **Step 6: Run store tests to verify success**
+- [x] **Step 6: Run store tests to verify success**
 
 Run: `node --test --test-concurrency=1 test/video-project-memory.test.mjs test/video-workbench-store.test.mjs`
 
 Expected: PASS with all existing store tests unchanged.
 
-- [ ] **Step 7: Commit persistence**
+- [x] **Step 7: Commit persistence**
 
 Run: `git add server/videoWorkbenchStore.mjs test/video-workbench-store.test.mjs && git commit -m "feat: persist owner-scoped project memory"`
 
@@ -129,31 +129,31 @@ Run: `git add server/videoWorkbenchStore.mjs test/video-workbench-store.test.mjs
 - `DELETE /api/video/projects/:projectId/workbench/memory/:factKey` accepts `{ expectedRevision }` and returns `{ fact }`.
 - Client exports `getVideoProjectMemory`, `upsertVideoProjectMemoryFact`, `removeVideoProjectMemoryFact`.
 
-- [ ] **Step 1: Add failing route/client tests**
+- [x] **Step 1: Add failing route/client tests**
 
 Assert signed-owner derivation, route registration, encoded fact keys, 201 for first upsert/200 for update, 409 stale revision, 404 cross-owner project, and that client validates `{ memory: [] }`/`{ fact: {} }` response shapes.
 
-- [ ] **Step 2: Run route/client tests to verify failure**
+- [x] **Step 2: Run route/client tests to verify failure**
 
 Run: `node --test --test-concurrency=1 test/video-workbench-routes.test.mjs test/video-workbench-client.test.mjs`
 
 Expected: FAIL because routes and client functions are absent.
 
-- [ ] **Step 3: Implement route dispatch and error mapping**
+- [x] **Step 3: Implement route dispatch and error mapping**
 
 Add DELETE support to the fake/real app contract only where already available, use existing `dispatch`/`handle`, record `memory.read`, `memory.upsert`, `memory.delete`, map memory not-found to 404, revision/asset-reference conflicts to 409, and invalid payloads to 400.
 
-- [ ] **Step 4: Implement client path/body helpers**
+- [x] **Step 4: Implement client path/body helpers**
 
 Add a `memoryFactSegment` using existing `pathSegment`, preserve signed headers, use JSON request bodies, and validate response arrays/objects before returning.
 
-- [ ] **Step 5: Run route/client tests to verify success**
+- [x] **Step 5: Run route/client tests to verify success**
 
 Run: `node --test --test-concurrency=1 test/video-workbench-routes.test.mjs test/video-workbench-client.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit API surface**
+- [x] **Step 6: Commit API surface**
 
 Run: `git add server/videoWorkbenchRoutes.mjs src/services/videoWorkbench.js test/video-workbench-routes.test.mjs test/video-workbench-client.test.mjs && git commit -m "feat: expose project memory API"`
 
@@ -170,27 +170,27 @@ Run: `git add server/videoWorkbenchRoutes.mjs src/services/videoWorkbench.js tes
 - `createReplayManifest` obtains active memory from the same owner/project store call.
 - Clone `planSnapshot.memory` preserves the snapshot for the new draft project.
 
-- [ ] **Step 1: Add failing replay/clone tests**
+- [x] **Step 1: Add failing replay/clone tests**
 
 Verify active facts survive with key/value/source/assetRefs/revision, deleted/runtime fields do not; manifests without memory remain valid; clone plan snapshot carries memory without owner/email/playback URL.
 
-- [ ] **Step 2: Run replay tests to verify failure**
+- [x] **Step 2: Run replay tests to verify failure**
 
 Run: `node --test --test-concurrency=1 test/video-replay-manifest.test.mjs test/video-workbench-store.test.mjs`
 
 Expected: FAIL because `buildReplayManifest` and clone snapshot do not accept memory.
 
-- [ ] **Step 3: Implement sanitized memory snapshot and store wiring**
+- [x] **Step 3: Implement sanitized memory snapshot and store wiring**
 
 Use `memoryFactSnapshot` and bounded list normalization; pass `listProjectMemory` from `createReplayManifest`; conditionally copy memory during clone.
 
-- [ ] **Step 4: Run replay/clone tests to verify success**
+- [x] **Step 4: Run replay/clone tests to verify success**
 
 Run: `node --test --test-concurrency=1 test/video-replay-manifest.test.mjs test/video-workbench-store.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit replay compatibility**
+- [x] **Step 5: Commit replay compatibility**
 
 Run: `git add server/videoReplayManifest.mjs server/videoWorkbenchStore.mjs test/video-replay-manifest.test.mjs test/video-workbench-store.test.mjs && git commit -m "feat: include project memory in video replay"`
 
@@ -205,27 +205,27 @@ Run: `git add server/videoReplayManifest.mjs server/videoWorkbenchStore.mjs test
 - Consumes `workbench.memory` and the three client helpers.
 - Produces an editable “项目记忆” section with key/value/source, revision-aware save, soft delete, loading, and error states.
 
-- [ ] **Step 1: Add failing UI assertions**
+- [x] **Step 1: Add failing UI assertions**
 
 Assert the memory heading renders from a workbench payload, save calls the PUT helper with the current revision, delete calls DELETE, and stale errors use the existing refresh/error language.
 
-- [ ] **Step 2: Run UI tests to verify failure**
+- [x] **Step 2: Run UI tests to verify failure**
 
 Run: `node --test --test-concurrency=1 test/video-project-workbench-ui.test.js`
 
 Expected: FAIL because the memory panel and handlers are absent.
 
-- [ ] **Step 3: Implement minimal panel**
+- [x] **Step 3: Implement minimal panel**
 
 Render active facts as compact rows with editable JSON text, source badge, revision, save/delete icon buttons, and one “新增事实” row. Use existing lucide icons and CSS tokens; never expose internal Skill terminology or provider controls.
 
-- [ ] **Step 4: Run UI tests and build**
+- [x] **Step 4: Run UI tests and build**
 
 Run: `node --test --test-concurrency=1 test/video-project-workbench-ui.test.js && npm run check && npm run build`
 
 Expected: PASS and a successful production build.
 
-- [ ] **Step 5: Commit the gated UI**
+- [x] **Step 5: Commit the gated UI**
 
 Run: `git add src/pages/VideoStudio/VideoProjectWorkbench.jsx src/pages/VideoStudio/VideoProjectWorkbench.css test/video-project-workbench-ui.test.js && git commit -m "feat: add project memory panel to video workbench"`
 
@@ -235,23 +235,23 @@ Run: `git add src/pages/VideoStudio/VideoProjectWorkbench.jsx src/pages/VideoStu
 - Modify: `RTK.md`
 - Modify: `docs/superpowers/plans/2026-08-14-ai-video-platform-roadmap.md` (status/evidence note only)
 
-- [ ] **Step 1: Run focused verification**
+- [x] **Step 1: Run focused verification**
 
 Run: `node --test --test-concurrency=1 test/video-project-memory.test.mjs test/video-workbench-store.test.mjs test/video-workbench-routes.test.mjs test/video-workbench-client.test.mjs test/video-replay-manifest.test.mjs test/video-project-workbench-ui.test.js`
 
 Expected: all focused tests pass.
 
-- [ ] **Step 2: Run repository gates**
+- [x] **Step 2: Run repository gates**
 
 Run: `npm test && npm run check && npm run build && git diff --check`
 
 Expected: all tests/check/build commands exit 0; runtime staging directories remain untracked.
 
-- [ ] **Step 3: Update recovery evidence**
+- [x] **Step 3: Update recovery evidence**
 
 Record table/schema, API contract, replay behavior, test counts, no-provider/no-billing guarantee, local commit, deployment status, and any SSH/deployment blocker in `RTK.md`; leave roadmap exit criteria unchecked unless production evidence exists.
 
-- [ ] **Step 4: Commit documentation**
+- [x] **Step 4: Commit documentation**
 
 Run: `git add RTK.md docs/superpowers/plans/2026-08-14-ai-video-platform-roadmap.md docs/superpowers/plans/2026-08-16-ai-video-p2-project-memory.md && git commit -m "docs: record project memory release evidence"`
 
@@ -261,10 +261,10 @@ Run: `pwsh -File scripts/deploy-production.ps1 -ReleaseRef HEAD -SkipTests` only
 
 ## Self-review checklist
 
-- [ ] Every user/project boundary is enforced by the existing authenticated owner guard.
-- [ ] Values, arrays, nesting, keys, and asset references have explicit bounded tests.
-- [ ] Soft deletes remain auditable but never appear in active UI/replay snapshots.
-- [ ] Stale revisions cannot overwrite newer facts.
-- [ ] Replay/clone remains backward compatible when no memory exists.
-- [ ] No provider, generation, usage ledger, or billing path is touched.
-- [ ] UI is gated and reuses existing workbench visual language.
+- [x] Every user/project boundary is enforced by the existing authenticated owner guard.
+- [x] Values, arrays, nesting, keys, and asset references have explicit bounded tests.
+- [x] Soft deletes remain auditable but never appear in active UI/replay snapshots.
+- [x] Stale revisions cannot overwrite newer facts.
+- [x] Replay/clone remains backward compatible when no memory exists.
+- [x] No provider, generation, usage ledger, or billing path is touched.
+- [x] UI is gated and reuses existing workbench visual language.

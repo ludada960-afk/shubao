@@ -246,6 +246,21 @@ Local incubation of the next stage is allowed only behind a default-off flag and
 
 ## 11. Immediate Next Program Slice
 
+### 2026-08-16 P2-02 project memory status
+
+P2-02 is implemented locally on `codex/video-platform-p0` at commit `01eb149`.
+The workbench now has an owner/project-scoped, bounded memory fact contract with optimistic
+revisions, soft deletion, approved-asset reference validation, replay-manifest sanitization,
+clone preservation, and a gated editor that reuses the existing workbench surface. Focused
+and repository gates pass (`23/23` focused memory/replay/store checks, `1678/1678` full tests,
+`npm run check`, and the 6510-module production build). The slice does not call a provider,
+create a generation job, write usage/billing/wallet state, or trigger paid generation.
+
+Production exit evidence is still intentionally open: this commit has not been deployed,
+the production SkillRun/memory routes remain unavailable, and the controlled SSH key is not
+readable in the current environment. P2-03/P2-04 and the P2 program exit criteria remain
+blocked on the existing P1 owner-cohort evidence and must not be presented as shipped.
+
 The first implementation spec after this roadmap is **VID-P0 Reliable Media and Job Foundation**. It must cover only:
 
 1. existing-state and schema migration;

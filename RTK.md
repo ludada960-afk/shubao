@@ -454,3 +454,25 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 本切片仍未部署。唯一发布入口因当前环境无法读取受控 SSH key 而在远端变更前停止；公网视频/账务
   检查仍通过，新 SkillRun 路由在生产返回 `404`。待受控凭据恢复后，必须重新走
   `scripts/deploy-production.ps1` 和独立 600 秒 Canary，不能据此声称已上线。
+
+## 2026-08-16 AI Video P2 Project Memory
+
+- 本地分支 `codex/video-platform-p0` 的提交 `01eb149` 新增项目记忆层。SQLite 表
+  `video_project_memory_facts` 以 `(owner_email, project_id, fact_key)` 唯一约束保存事实，
+  采用 `user`、`approved_asset`、`skill` 三类来源，最多 64 条事实、128 字符键、8 KiB
+  序列化值、16 个素材引用和 6 层 JSON 深度；事实更新使用 `expectedRevision` 乐观并发，
+  删除为可审计软删除。
+- API 为 owner 签名会话保护的
+  `GET/PUT/DELETE /api/video/projects/:projectId/workbench/memory` 及 fact-key 子路径。
+  素材引用必须属于同一 owner/project 且为 approved version；跨 owner、未批准素材、过期
+  revision 和非法边界均返回受控错误，不信任请求体中的 owner。
+- `listWorkbench` 一次返回活动 memory；回放清单只保留有界的脱敏事实；clone/remix 将
+  事实和素材引用重映射到新项目，不复用旧运行 ID、会话、provider job 或计费字段。工作台
+  的 `项目记忆` 面板沿用现有受控 workbench UI，支持 JSON 编辑、revision 保存和软删除。
+- 验证证据：项目记忆/回放/工作台定向回归 `23/23`，全量 `npm test` 为 `1678/1678`，
+  `npm run check` 通过，生产构建成功（6510 modules），`git diff --check` 通过。该切片
+  未调用 provider、未创建 generation/usage/wallet/billing 写入，也未触发付费视频生成。
+- 发布状态：`01eb149` 尚未部署；线上仍是此前已发布的 P1/P2 前置 release，新增 memory/
+  SkillRun 路由在生产不可用，不能声称已上线。当前环境无法读取受控 SSH key；恢复凭据后
+  只能通过 `scripts/deploy-production.ps1` 发布，并重新执行视频契约、账务契约和有界 600
+  秒 Canary。P2-02 的生产退出证据（至少两个真实 Skill 工作流的回放/项目记忆证据）仍未满足。
