@@ -224,6 +224,41 @@ test('owner can clone a replay manifest with an idempotency key and no billing/p
   assert.equal(missingKey.body.code, 'IDEMPOTENCY_KEY_REQUIRED');
 });
 
+test('owner can preview and confirm a SkillRun without creating a provider or billing record', async t => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const headers = { ...signedHeaders(sessionTokens, ownerEmail), 'idempotency-key': 'route-skill-1' };
+  const base = '/api/video/projects/:projectId/workbench/skill-runs';
+  const spec = {
+    skillId: 'studio-trailer', skillVersion: 1,
+    input: { concept: '城市夜骑' },
+    steps: [{ id: 'plan', kind: 'plan', label: '拆解镜头' }],
+    checkpoints: [{ id: 'approve', label: '确认镜头' }],
+  };
+  const created = await invoke(app, 'POST', `${base}/preview`, {
+    headers, params: { projectId: project.id }, body: { spec },
+  });
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.run.status, 'preview');
+  const read = await invoke(app, 'GET', `${base}/:runId`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id },
+  });
+  assert.equal(read.statusCode, 200);
+  const confirmed = await invoke(app, 'POST', `${base}/:runId/checkpoints/:checkpointId/confirm`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id, checkpointId: 'approve' },
+    body: { expectedRevision: 1 },
+  });
+  assert.equal(confirmed.statusCode, 200);
+  assert.equal(confirmed.body.run.status, 'confirmed');
+  assert.equal(confirmed.body.run.events.at(-1).type, 'checkpoint.confirmed');
+  const replayed = await invoke(app, 'POST', `${base}/preview`, {
+    headers, params: { projectId: project.id }, body: { spec: { ...spec, input: { concept: 'ignored' } } },
+  });
+  assert.equal(replayed.statusCode, 200);
+  assert.equal(replayed.body.run.id, created.body.run.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+});
+
 test('workbench routes hide the owner pilot from a signed tester account', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

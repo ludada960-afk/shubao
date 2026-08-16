@@ -10,10 +10,13 @@ import {
   createVideoReplayManifest,
   createWorkbenchAsset,
   getVideoReplayManifest,
+  getVideoSkillRun,
   getVideoWorkbench,
   importJobCandidate,
   importWorkbenchAssetVersion,
   selectShotCandidate,
+  previewVideoSkillRun,
+  confirmVideoSkillCheckpoint,
   updateStoryboardShot,
 } from '../src/services/videoWorkbench.js';
 import { onSessionInvalid } from '../src/services/auth.js';
@@ -110,7 +113,33 @@ test('video workbench client rejects invalid path IDs before fetching', async t 
 
   await assert.rejects(getVideoWorkbench('\u0000project'), /请选择有效的视频项目/);
   await assert.rejects(updateStoryboardShot('project-1', '', {}), /请选择有效的分镜/);
+  await assert.rejects(getVideoSkillRun('project-1', ''), /请选择有效的 SkillRun/);
   assert.equal(called, false);
+});
+
+test('video SkillRun client signs preview, read, and checkpoint confirmation requests', async t => {
+  installSession('signed-skill-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  const responses = [
+    { run: { id: 'run-1', status: 'preview', revision: 1, events: [] } },
+    { run: { id: 'run-1', status: 'preview', revision: 1, events: [] } },
+    { run: { id: 'run-1', status: 'confirmed', revision: 2, events: [] } },
+  ];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse(responses.shift(), options.method === 'POST' ? 201 : 200);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await previewVideoSkillRun('project-1', { skillId: 'trailer', skillVersion: 1 }, { idempotencyKey: 'skill-key-1' });
+  await getVideoSkillRun('project-1', 'run-1');
+  await confirmVideoSkillCheckpoint('project-1', 'run-1', 'approve-assets', 1);
+  assert.equal(requests[0].options.headers['Idempotency-Key'], 'skill-key-1');
+  assert.deepEqual(JSON.parse(requests[0].options.body), { spec: { skillId: 'trailer', skillVersion: 1 } });
+  assert.equal(requests[1].path, '/api/video/projects/project-1/workbench/skill-runs/run-1');
+  assert.equal(requests[2].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/checkpoints/approve-assets/confirm');
+  assert.deepEqual(JSON.parse(requests[2].options.body), { expectedRevision: 1 });
+  assert.equal(requests[2].options.headers.Authorization, 'Bearer signed-skill-session');
 });
 
 test('video workbench client uses shared session invalidation on 401', async t => {

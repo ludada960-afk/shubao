@@ -13,6 +13,8 @@ const projectSegment = value => pathSegment(value, '请选择有效的视频项�
 const assetSegment = value => pathSegment(value, '请选择有效的项目素材');
 const shotSegment = value => pathSegment(value, '请选择有效的分镜');
 const manifestSegment = value => pathSegment(value, '请选择有效的配方快照');
+const skillRunSegment = value => pathSegment(value, '请选择有效的 SkillRun');
+const checkpointSegment = value => pathSegment(value, '请选择有效的确认节点');
 
 function signedHeaders(headers = {}) {
   const token = getSessionToken();
@@ -51,6 +53,10 @@ function shotBase(projectId, shotId) {
 
 function replayManifestBase(projectId) {
   return `${workbenchBase(projectId)}/replay-manifests`;
+}
+
+function skillRunBase(projectId) {
+  return `${workbenchBase(projectId)}/skill-runs`;
 }
 
 function idempotencyKey(value) {
@@ -185,4 +191,31 @@ export async function cloneVideoReplayManifest(projectId, manifestId, {
     throw new Error('复用后的视频工作流暂时不可用，请稍后重试');
   }
   return response;
+}
+
+export async function previewVideoSkillRun(projectId, spec, { idempotencyKey: requestedKey } = {}) {
+  const response = await requestJson(`${skillRunBase(projectId)}/preview`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey(requestedKey),
+    },
+    body: JSON.stringify({ spec }),
+  }, '暂时无法预览视频 SkillRun');
+  return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
+}
+
+export async function getVideoSkillRun(projectId, runId) {
+  const response = await requestJson(`${skillRunBase(projectId)}/${skillRunSegment(runId)}`, {},
+    '暂时无法读取视频 SkillRun');
+  return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
+}
+
+export async function confirmVideoSkillCheckpoint(projectId, runId, checkpointId, expectedRevision) {
+  const response = await requestJson(
+    `${skillRunBase(projectId)}/${skillRunSegment(runId)}/checkpoints/${checkpointSegment(checkpointId)}/confirm`,
+    { method: 'POST', ...jsonBody({ expectedRevision }) },
+    '暂时无法确认视频 SkillRun 节点',
+  );
+  return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
 }

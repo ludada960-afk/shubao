@@ -84,6 +84,14 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 ## 11. 最近发布快照
 
+- 2026-08-16，AI 视频 P2 SkillRun 预览/检查点切片已在本地完成。新增有界的
+  声明式 SkillRun 规范化、owner/project 隔离的 `video_skill_runs` 与追加式
+  `video_skill_run_events`，以及预览、读取、检查点确认的签名接口。预览使用已有
+  项目幂等键，确认要求 `expectedRevision`，并只写 SkillRun 事件，不创建 provider
+  任务、generation run、usage、wallet、quote 或 billing hold。焦点回归 `30/30`、
+  全量回归 `1663/1663`、`npm run check`、6510 模块构建和 diff 检查通过；工作台仍
+  默认关闭，未触发付费视频生成。提交与生产 Canary 是唯一下一边界。
+
 - 2026-08-16，AI 视频 P2 已在本地进入 clone/remix 切片。新增
   `POST /api/video/projects/:projectId/workbench/replay-manifests/:manifestId/clone`，
   从不可变 replay manifest 原子复制出新的 owner 草稿项目，保留素材版本、分镜绑定、

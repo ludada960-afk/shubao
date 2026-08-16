@@ -2210,3 +2210,18 @@
   has accepted a paid video generation yet; the server route and UI are
   independently reversible. Temporary isolated QA folders and browser state
   are untracked and excluded from the release. No paid video generation ran.
+
+- 2026-08-16 AI-video P2 SkillRun preview/checkpoint slice is complete locally on
+  `codex/video-platform-p0`. A bounded declarative SkillRun normalizer rejects
+  oversized or invalid plans, while owner/project-scoped SQLite records retain
+  the normalized input, plan revision and append-only `skill-run.preview` /
+  `checkpoint.confirmed` events. Preview creation is idempotent through the
+  existing project idempotency table; checkpoint confirmation requires the
+  expected revision and is conflict-safe. Signed client helpers and protected
+  routes cover preview, read and confirmation. No provider job, generation run,
+  usage record, wallet entry, quote or billing hold is created by this slice.
+  Focused regression passed `30/30`; full `npm test` passed `1663/1663`,
+  `npm run check`, the 6510-module production build and `git diff --check`
+  passed. The default-off workbench remains unchanged for general users and no
+  paid video generation ran. Commit and the required production canary remain
+  the next gate.

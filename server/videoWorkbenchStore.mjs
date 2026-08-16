@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
+import { normalizeSkillRunSpec } from './videoSkillRun.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -164,6 +165,32 @@ function clipFromRow(row) {
   };
 }
 
+function skillRunFromRow(row, events = []) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    skillId: row.skill_id,
+    skillVersion: row.skill_version,
+    status: row.status,
+    revision: row.revision,
+    input: parseJson(row.input_json, {}),
+    plan: parseJson(row.plan_json, {}),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    events: events.map(event => ({
+      id: event.id,
+      runId: event.run_id,
+      sequence: event.sequence,
+      type: event.type,
+      payload: parseJson(event.payload_json, {}),
+      actorEmail: event.actor_email,
+      createdAt: event.created_at,
+    })),
+  };
+}
+
 function ensureSchema(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS video_workbench_assets (
@@ -233,6 +260,23 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_replay_manifests_project
       ON video_replay_manifests(owner_email, project_id, created_at);
+    CREATE TABLE IF NOT EXISTS video_skill_runs (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      skill_id TEXT NOT NULL, skill_version INTEGER NOT NULL, status TEXT NOT NULL,
+      input_json TEXT NOT NULL DEFAULT '{}', plan_json TEXT NOT NULL DEFAULT '{}',
+      revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_skill_runs_project
+      ON video_skill_runs(owner_email, project_id, updated_at DESC);
+    CREATE TABLE IF NOT EXISTS video_skill_run_events (
+      id TEXT PRIMARY KEY, run_id TEXT NOT NULL, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      sequence INTEGER NOT NULL, type TEXT NOT NULL, payload_json TEXT NOT NULL DEFAULT '{}',
+      actor_email TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(run_id, sequence),
+      FOREIGN KEY(run_id) REFERENCES video_skill_runs(id), FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_skill_run_events_run
+      ON video_skill_run_events(owner_email, project_id, run_id, sequence);
   `);
 }
 
@@ -280,6 +324,14 @@ export function createVideoWorkbenchStore({
       WHERE id = ? AND shot_id = ? AND owner_email = ? AND project_id = ?`).get(candidateId, shotId, owner, projectId));
     if (!candidate) throw coded('CANDIDATE_NOT_FOUND', 'candidate not found');
     return candidate;
+  };
+  const requireSkillRun = (owner, projectId, runId) => {
+    const row = db.prepare(`SELECT * FROM video_skill_runs
+      WHERE id = ? AND owner_email = ? AND project_id = ?`).get(runId, owner, projectId);
+    if (!row) throw coded('SKILL_RUN_NOT_FOUND', 'skill run not found');
+    const events = db.prepare(`SELECT * FROM video_skill_run_events
+      WHERE run_id = ? AND owner_email = ? AND project_id = ? ORDER BY sequence`).all(runId, owner, projectId);
+    return { row, run: skillRunFromRow(row, events) };
   };
   const operationCutoff = () => {
     const current = new Date(timestamp()).getTime() - (24 * 60 * 60 * 1000);
@@ -758,6 +810,80 @@ export function createVideoWorkbenchStore({
           (owner_email, route, idempotency_key, response, created_at) VALUES (?, ?, ?, ?, ?)`)
           .run(owner, route, key, JSON.stringify(result), createdAt);
         return { ...result, replayed: false };
+      })();
+    },
+
+    previewSkillRun({ ownerEmail, projectId, idempotencyKey, spec }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const key = clean(idempotencyKey, 200);
+      if (!key) throw coded('IDEMPOTENCY_KEY_REQUIRED', 'idempotency key is required');
+      const plan = normalizeSkillRunSpec(spec);
+      const route = 'POST /api/video/projects/:projectId/workbench/skill-runs/preview';
+      return db.transaction(() => {
+        const previous = db.prepare(`SELECT response FROM project_idempotency_keys
+          WHERE owner_email = ? AND route = ? AND idempotency_key = ?`).get(owner, route, key);
+        if (previous) {
+          const replayed = parseJson(previous.response, null);
+          if (!replayed?.id) throw coded('SKILL_RUN_IDEMPOTENCY_INVALID', 'stored skill run response is invalid');
+          return { ...replayed, replayed: true };
+        }
+        const createdAt = timestamp();
+        const runId = randomUUID();
+        db.prepare(`INSERT INTO video_skill_runs
+          (id, owner_email, project_id, skill_id, skill_version, status, input_json, plan_json,
+           revision, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, 'preview', ?, ?, 1, ?, ?)`).run(
+          runId, owner, project.id, plan.skillId, plan.skillVersion,
+          JSON.stringify(plan.input), JSON.stringify(plan), createdAt, createdAt,
+        );
+        db.prepare(`INSERT INTO video_skill_run_events
+          (id, run_id, owner_email, project_id, sequence, type, payload_json, actor_email, created_at)
+          VALUES (?, ?, ?, ?, 1, 'skill-run.preview', ?, ?, ?)`).run(
+          randomUUID(), runId, owner, project.id,
+          JSON.stringify({ skillId: plan.skillId, skillVersion: plan.skillVersion,
+            stepCount: plan.steps.length, checkpointCount: plan.checkpoints.length }), owner, createdAt,
+        );
+        const result = requireSkillRun(owner, project.id, runId).run;
+        db.prepare(`INSERT INTO project_idempotency_keys
+          (owner_email, route, idempotency_key, response, created_at) VALUES (?, ?, ?, ?, ?)`)
+          .run(owner, route, key, JSON.stringify(result), createdAt);
+        return { ...result, replayed: false };
+      })();
+    },
+
+    getSkillRun({ ownerEmail, projectId, runId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      return requireSkillRun(owner, project.id, runId).run;
+    },
+
+    confirmSkillCheckpoint({ ownerEmail, projectId, runId, checkpointId, expectedRevision }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedCheckpointId = clean(checkpointId, 128);
+      if (!normalizedCheckpointId) throw coded('INVALID_SKILL_RUN', 'checkpoint id is required');
+      if (!Number.isSafeInteger(Number(expectedRevision))) throw coded('VERSION_CONFLICT', 'skill run revision is required');
+      return db.transaction(() => {
+        const current = requireSkillRun(owner, project.id, runId);
+        if (current.row.revision !== Number(expectedRevision)) {
+          throw coded('VERSION_CONFLICT', 'skill run revision conflict', current.run);
+        }
+        const checkpoints = Array.isArray(current.run.plan?.checkpoints) ? current.run.plan.checkpoints : [];
+        if (!checkpoints.some(checkpoint => checkpoint.id === normalizedCheckpointId)) {
+          throw coded('INVALID_SKILL_RUN', 'checkpoint is not declared by the skill');
+        }
+        if (current.row.status !== 'preview') {
+          throw coded('INVALID_SKILL_RUN', 'skill run is not awaiting confirmation');
+        }
+        const changedAt = timestamp();
+        const nextRevision = current.row.revision + 1;
+        db.prepare(`UPDATE video_skill_runs SET status = 'confirmed', revision = ?, updated_at = ? WHERE id = ?`)
+          .run(nextRevision, changedAt, runId);
+        db.prepare(`INSERT INTO video_skill_run_events
+          (id, run_id, owner_email, project_id, sequence, type, payload_json, actor_email, created_at)
+          VALUES (?, ?, ?, ?, ?, 'checkpoint.confirmed', ?, ?, ?)`).run(
+          randomUUID(), runId, owner, project.id, nextRevision,
+          JSON.stringify({ checkpointId: normalizedCheckpointId, revision: nextRevision }), owner, changedAt,
+        );
+        return requireSkillRun(owner, project.id, runId).run;
       })();
     },
 

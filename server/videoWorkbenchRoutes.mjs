@@ -6,6 +6,7 @@ const NOT_FOUND_CODES = new Set([
   'CANDIDATE_NOT_FOUND',
   'VIDEO_JOB_NOT_FOUND',
   'VIDEO_ASSET_NOT_FOUND',
+  'SKILL_RUN_NOT_FOUND',
   'REPLAY_MANIFEST_NOT_FOUND',
 ]);
 
@@ -249,6 +250,30 @@ export function mountVideoWorkbenchRoutes(app, {
         ),
       };
     }, { status: value => (value?.replayed ? 200 : 201) },
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/skill-runs/preview', (req, res) => dispatch(
+    req, res, 'skill-run.preview', request => store.previewSkillRun({
+      ...request,
+      idempotencyKey: req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'],
+      spec: req.body?.spec,
+    }), { status: value => (value?.replayed ? 200 : 201), key: 'run' },
+  ));
+
+  app.get('/api/video/projects/:projectId/workbench/skill-runs/:runId', (req, res) => dispatch(
+    req, res, 'skill-run.read', request => store.getSkillRun({
+      ...request,
+      runId: req.params.runId,
+    }), { key: 'run' },
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/skill-runs/:runId/checkpoints/:checkpointId/confirm', (req, res) => dispatch(
+    req, res, 'skill-run.checkpoint.confirm', request => store.confirmSkillCheckpoint({
+      ...request,
+      runId: req.params.runId,
+      checkpointId: req.params.checkpointId,
+      expectedRevision: req.body?.expectedRevision,
+    }), { key: 'run' },
   ));
 
   return true;

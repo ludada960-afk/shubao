@@ -93,6 +93,45 @@ test('workbench assets require an owned video project and immutable versions', t
     assetId: asset.id, versionId: second.id, expectedRevision: 1 }), error => error.code === 'VERSION_CONFLICT');
 });
 
+test('skill runs preview declarative plans, append confirmation events, and stay non-billing', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const spec = {
+    skillId: 'product-trailer', skillVersion: 2,
+    input: { concept: '耳机广告' },
+    steps: [{ id: 'world', kind: 'plan', label: '建立世界观' }],
+    checkpoints: [{ id: 'approve-assets', label: '确认素材' }],
+    modelPolicy: { image: 'gpt-image-2' },
+    outputContract: { kind: 'storyboard' },
+  };
+  const preview = store.previewSkillRun({ ownerEmail: OWNER, projectId: project.id,
+    idempotencyKey: 'skill-preview-1', spec });
+  assert.equal(preview.status, 'preview');
+  assert.equal(preview.revision, 1);
+  assert.equal(preview.events.length, 1);
+  assert.equal(preview.events[0].type, 'skill-run.preview');
+  assert.equal(preview.plan.steps[0].id, 'world');
+
+  const replayed = store.previewSkillRun({ ownerEmail: OWNER, projectId: project.id,
+    idempotencyKey: 'skill-preview-1', spec: { ...spec, input: { concept: 'ignored' } } });
+  assert.equal(replayed.id, preview.id);
+  assert.equal(replayed.replayed, true);
+
+  const confirmed = store.confirmSkillCheckpoint({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, checkpointId: 'approve-assets', expectedRevision: 1 });
+  assert.equal(confirmed.status, 'confirmed');
+  assert.equal(confirmed.revision, 2);
+  assert.equal(confirmed.events.at(-1).type, 'checkpoint.confirmed');
+  assert.equal(confirmed.events.at(-1).payload.checkpointId, 'approve-assets');
+  assert.throws(() => store.confirmSkillCheckpoint({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, checkpointId: 'approve-assets', expectedRevision: 1 }),
+    error => error.code === 'VERSION_CONFLICT');
+  assert.throws(() => store.getSkillRun({ ownerEmail: 'other@example.com', projectId: project.id, runId: preview.id }),
+    error => error.code === 'PROJECT_NOT_FOUND');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+  assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('usage_ledger', 'wallet_transactions')").all().length, 0);
+});
+
 test('replay manifests are immutable, deduplicated and owner scoped', t => {
   const { db, projectStore, store, project } = harness();
   t.after(() => db.close());
