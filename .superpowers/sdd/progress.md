@@ -2,6 +2,21 @@
 
 ## 2026-08-16 AI-video P1 owner rollout gate
 
+- Production release `0afad54` is live at `https://shuimg.cn/` through
+  `scripts/deploy-production.ps1`. The first attempt stopped before switching
+  the active release; the retry completed installation, migration checks, PM2
+  reload, Nginx validation, and lock release. The 600-second canary passed with
+  repeated public health, gallery (117 images), ecommerce stable-asset, and
+  authenticated non-billing video-contract checks. Public capabilities remain
+  default-closed (`workbenchEnabled=false`) while both Seedance products remain
+  available. No paid video generation was submitted.
+- Independent online read-only verification returned the expected capability
+  contract (`generationEnabled=true`, `uploadMode=tus`, `workbenchEnabled=false`).
+  The previous release symlink remains the rollback target and the deployment
+  lock is free. Owner pilot opening still requires a deliberate operator decision
+  after real owner browser acceptance and stable stage SLO evidence; this release
+  does not open the public flag.
+
 - The global workbench flag remains default-off, while an owner-only server
   cohort gate now protects capability discovery and every workbench route.
   Authorized reads and mutations record append-only operation telemetry; owner

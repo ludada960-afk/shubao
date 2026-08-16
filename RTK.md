@@ -331,6 +331,20 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 ## 2026-08-16 AI Video P1 Owner Pilot Gate
 
+- P1 owner-gated workbench commit `0afad54` is now live at `https://shuimg.cn/`
+  through `scripts/deploy-production.ps1`. The first deployment attempt stopped
+  before switching the active release; a retry completed migration checks, PM2
+  reload, Nginx validation and a full 600-second canary. Repeated public health,
+  117-image gallery, ecommerce stable-asset and authenticated non-billing video
+  contract checks passed. The public capability contract still reports
+  `workbenchEnabled=false`, while the two Seedance products and `tus` upload remain
+  available. No paid generation was requested or submitted.
+- Independent online read-only verification agrees with the release output. The
+  previous symlink target remains available for rollback and the remote deployment
+  lock is free. Do not enable the owner pilot until an operator explicitly approves
+  it after owner browser acceptance and stable stage SLO evidence; deployment alone
+  does not open the flag.
+
 - 本地 owner pilot 已完成：`VIDEO_PLATFORM_P1_WORKBENCH` 仍默认关闭，服务端新增 owner
   cohort gate，能力发现和全部 workbench 路由均受保护；普通测试账号统一返回不可用 404，
   不泄露灰度资格。

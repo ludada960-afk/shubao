@@ -76,9 +76,9 @@
 - [x] Run focused rollout, route, store, admin, client, model, and UI tests.
 - [x] Run `npm test`, `npm run check`, `npm run build`, and `git diff --check`.
 - [x] Run the ten-project verifier and local owner/tester route acceptance for owner visibility plus tester invisibility. Existing P1 browser acceptance covers the workbench UI; the optional Playwright daemon was unavailable in this environment, so no paid browser generation was attempted.
-- [ ] Deploy only through `scripts/deploy-production.ps1` with the global workbench flag still false.
-- [ ] Run the full canary and online read-only verification; do not submit a paid video generation.
-- [ ] Record commit, release, rollback, test counts, verifier output, and the exact condition required before enabling the owner pilot.
+- [x] Deploy only through `scripts/deploy-production.ps1` with the global workbench flag still false. Commit `0afad54` is live at `https://shuimg.cn/` after the second deployment attempt; the first attempt stopped before release switching and did not mutate production.
+- [x] Run the full canary and online read-only verification; do not submit a paid video generation. The 600-second canary passed with repeated public health, gallery, ecommerce, and authenticated non-billing video contract checks. Public `/api/video/capabilities` returns `workbenchEnabled:false` with both Seedance products available.
+- [x] Record commit, release, rollback, test counts, verifier output, and the exact condition required before enabling the owner pilot. Release is independently reversible through the previous symlink target; enabling the owner pilot still requires the owner browser journey, stable stage funnel/SLO for a real pilot cohort, and an explicit operator decision. No paid generation was submitted in local or production validation.
 
 ## Definition of Done
 
