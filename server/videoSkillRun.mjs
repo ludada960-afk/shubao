@@ -7,6 +7,10 @@ function coded(message) {
   return Object.assign(new Error(message), { code: 'INVALID_SKILL_RUN' });
 }
 
+function stateError(message) {
+  return Object.assign(new Error(message), { code: 'INVALID_SKILL_RUN_STATE' });
+}
+
 function boundedJson(value, label) {
   if (value === undefined) return {};
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw coded(`${label} must be an object`);
@@ -42,6 +46,18 @@ export function normalizeSkillRunSpec(spec = {}) {
   if (new Set(normalizedSteps.map(step => step.id)).size !== normalizedSteps.length) throw coded('skill steps must have unique ids');
   const stepIds = new Set(normalizedSteps.map(step => step.id));
   if (normalizedSteps.some(step => step.requires.some(id => !stepIds.has(id)))) throw coded('skill step dependency is missing');
+  const byId = new Map(normalizedSteps.map(step => [step.id, step]));
+  const visiting = new Set();
+  const visited = new Set();
+  const visit = id => {
+    if (visiting.has(id)) throw coded('skill step dependency contains a cycle');
+    if (visited.has(id)) return;
+    visiting.add(id);
+    for (const dependency of byId.get(id).requires) visit(dependency);
+    visiting.delete(id);
+    visited.add(id);
+  };
+  for (const step of normalizedSteps) visit(step.id);
   const checkpoints = Array.isArray(spec.checkpoints) ? spec.checkpoints : [];
   if (checkpoints.length > MAX_CHECKPOINTS) throw coded('too many skill checkpoints');
   const normalizedCheckpoints = checkpoints.map((checkpoint, index) => {
@@ -65,3 +81,27 @@ export function normalizeSkillRunSpec(spec = {}) {
   };
 }
 
+export function buildSkillRunExecutionPlan(spec, { completedStepIds = [] } = {}) {
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw stateError('skill run spec is invalid');
+  const steps = Array.isArray(spec.steps) ? spec.steps : [];
+  const stepIds = new Set(steps.map(step => step?.id));
+  if (!Array.isArray(completedStepIds)) throw stateError('completedStepIds must be an array');
+  const completed = new Set();
+  for (const id of completedStepIds) {
+    if (typeof id !== 'string' || !stepIds.has(id) || completed.has(id)) throw stateError('completed step is invalid');
+    completed.add(id);
+  }
+  const readyStepIds = [];
+  const blockedStepIds = [];
+  for (const step of steps) {
+    if (completed.has(step.id)) continue;
+    if (step.requires.every(dependency => completed.has(dependency))) readyStepIds.push(step.id);
+    else blockedStepIds.push(step.id);
+  }
+  return {
+    completedStepIds: steps.filter(step => completed.has(step.id)).map(step => step.id),
+    readyStepIds,
+    blockedStepIds,
+    status: completed.size === steps.length ? 'complete' : readyStepIds.length ? 'ready' : 'blocked',
+  };
+}

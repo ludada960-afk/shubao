@@ -66,7 +66,24 @@
 - [ ] Deploy only through `scripts/deploy-production.ps1`; run the independent video, billing, and health checks plus canary.
 - [ ] Record commit, active release, PM2, canary, and any unrelated gallery probe findings.
 
-Release note: local commit `834cfa6` passed all local gates. The deployment
+### Task 5: Add the provider-free DAG execution preview
+
+**Files:**
+- Modify: `server/videoSkillRun.mjs`
+- Modify: `test/video-skill-run.test.mjs`
+- Create: `docs/superpowers/plans/2026-08-16-ai-video-p2-skill-executor.md`
+
+- [x] Reject cyclic step dependencies during normalization.
+- [x] Compute deterministic ready, blocked, and complete step sets from a
+  normalized spec and completed step IDs.
+- [x] Reject unknown or duplicate completed step IDs with a coded state error.
+- [x] Keep the executor pure; it performs no provider, generation, usage, or
+  billing writes.
+- [x] Focused SkillRun/workbench regression passed `33/33`; full test/build
+  gates are recorded below.
+
+Release note: local commits `834cfa6`, `29d61d1`, and the follow-up executor
+slice pass all local gates. The deployment
 script reached the remote step but could not read
 `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519`; it refused an unfenced
 rollback before mutating production. Public video and billing checks still pass,

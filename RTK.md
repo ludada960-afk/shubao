@@ -419,3 +419,14 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   P1 建立 owner cohort，完成桌面/移动浏览器验收与 10 个不触发计费的项目闭环并观察
   阶段 SLO；通过前不得开放公共开关。P2 声明式 Skill/项目记忆/精确做同款和 P3 区间
   重拍/延长/追踪替换/智能路由，继续由前序阶段证据解锁，不并行对外发布。
+
+## 2026-08-16 AI Video P2 SkillRun Execution Preview
+
+- 本地 `codex/video-platform-p0` 新增纯执行计划底座：SkillRun 规范化会拒绝循环依赖，
+  `buildSkillRunExecutionPlan` 根据已完成步骤稳定计算 ready、blocked、complete 状态，
+  并拒绝未知或重复的完成步骤。聚焦回归 `33/33`、全量测试 `1666/1666`、`npm run check`、
+  6510 模块构建和 `git diff --check` 全部通过；无 provider、generation、usage、wallet 或
+  billing 写入，也未触发付费视频生成。
+- 该切片尚未部署。唯一发布入口因当前环境无法读取受控 SSH key 而在远端变更前停止；公网
+  视频/账务检查仍通过，新 SkillRun 路由返回 `404`，因此不能声称已上线。待受控凭据恢复后，
+  必须重新走 `scripts/deploy-production.ps1` 和独立 600 秒 Canary。

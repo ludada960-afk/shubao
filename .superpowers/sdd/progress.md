@@ -2229,3 +2229,13 @@
   mutation. Public video contract and billing checks pass; the new SkillRun
   route returns `404`, confirming it is not deployed. Do not report this slice
   as shipped until the fenced deployment and 600-second Canary complete.
+
+- 2026-08-16 AI-video P2 SkillRun execution-preview groundwork is complete locally.
+  `normalizeSkillRunSpec` now rejects cyclic dependency graphs, and the pure
+  `buildSkillRunExecutionPlan` contract deterministically reports completed,
+  ready, blocked, and complete steps while rejecting unknown or duplicate
+  completion IDs. Focused workbench/SkillRun regression passed `33/33`; full
+  `npm test` passed `1666/1666`, `npm run check`, the 6510-module build, and
+  `git diff --check` passed. This remains provider-free and non-billing. It is
+  not deployed because the controlled SSH key is unavailable in this
+  environment; do not report it as shipped.
