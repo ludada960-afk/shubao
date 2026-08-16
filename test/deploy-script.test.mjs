@@ -106,6 +106,24 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /process restarted during canary/i);
 });
 
+test('production deploy proves storage headroom before creating a rollback backup', () => {
+  const preflightStart = deploy.indexOf('$storagePreflightCommand =');
+  const backupStart = deploy.indexOf('mkdir -p $remoteBackup');
+  const releaseStart = deploy.indexOf('$releaseStarted = $true');
+
+  assert.ok(preflightStart >= 0, 'the deploy must define a locked storage preflight');
+  assert.ok(preflightStart < backupStart, 'storage preflight must run before creating the rollback backup');
+  assert.ok(backupStart < releaseStart, 'the rollback backup must complete before the release window starts');
+
+  const preflight = deploy.slice(preflightStart, backupStart);
+  assert.match(preflight, /deploy-backups/);
+  assert.match(preflight, /tail -n \+3/);
+  assert.match(preflight, /df -Pk \$RemoteDir/);
+  assert.match(preflight, /required_kb=2097152/);
+  assert.match(preflight, /Production storage preflight failed/);
+  assert.doesNotMatch(preflight, /works\.db|generated-assets|uploads|video-assets/);
+});
+
 test('production release archive includes shared server runtime modules', () => {
   assert.match(deploy, /dist server shared scripts\/nginx\/shuimg\.cn\.conf/);
   assert.match(deploy, /scripts\/backfill-video-platform\.mjs/);
