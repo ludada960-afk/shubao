@@ -46,6 +46,17 @@ test('try-on showcase composites preserve complete production assets in fixed wi
 
 test('try-on layout plans match the product-to-angle reference without cropped content', () => {
   const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-v4'];
+  const rotatedBounds = ({ left, top, width, height, rotation }) => {
+    const radians = Math.abs(rotation * Math.PI / 180);
+    const rotatedWidth = (width * Math.cos(radians)) + (height * Math.sin(radians));
+    const rotatedHeight = (width * Math.sin(radians)) + (height * Math.cos(radians));
+    return {
+      left: left - ((rotatedWidth - width) / 2),
+      top: top - ((rotatedHeight - height) / 2),
+      right: left + ((rotatedWidth + width) / 2),
+      bottom: top + ((rotatedHeight + height) / 2),
+    };
+  };
   assert.deepEqual(multiAngle.stages, ['product', 'arrow', 'result-fan']);
   assert.equal(multiAngle.resultCards.length, 4);
   assert.deepEqual(multiAngle.resultCards.map(card => card.rotation), [-7, -2, 2, 7]);
@@ -58,6 +69,10 @@ test('try-on layout plans match the product-to-angle reference without cropped c
   assert.ok(multiAngle.product.left >= 48);
   assert.ok(multiAngle.product.left + multiAngle.product.width <= 600);
   assert.ok(multiAngle.resultCards.every(card => card.fit === 'contain'));
+  assert.ok([multiAngle.product, ...multiAngle.resultCards].every((card) => {
+    const bounds = rotatedBounds(card);
+    return bounds.left >= 0 && bounds.top >= 0 && bounds.right <= 1600 && bounds.bottom <= 900;
+  }));
   assert.ok(multiAngle.visualBounds.top >= 24);
   assert.ok(multiAngle.visualBounds.bottom <= 876);
   assert.ok(multiAngle.visualBounds.right - multiAngle.visualBounds.left >= 1504);

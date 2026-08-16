@@ -42,10 +42,10 @@ export const TRYON_LAYOUT_PLANS = Object.freeze({
     visualBounds: Object.freeze({ left: 44, top: 74, right: 1570, bottom: 826 }),
     product: Object.freeze({ left: 76, top: 142, width: 470, height: 610, rotation: -3, fit: 'contain' }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 710, top: 166, width: 230, height: 540, rotation: -7, fit: 'contain' }),
-      Object.freeze({ left: 930, top: 126, width: 230, height: 570, rotation: -2, fit: 'contain' }),
-      Object.freeze({ left: 1150, top: 126, width: 230, height: 570, rotation: 2, fit: 'contain' }),
-      Object.freeze({ left: 1370, top: 166, width: 230, height: 540, rotation: 7, fit: 'contain' }),
+      Object.freeze({ left: 600, top: 154, width: 250, height: 600, rotation: -7, fit: 'contain' }),
+      Object.freeze({ left: 830, top: 116, width: 250, height: 640, rotation: -2, fit: 'contain' }),
+      Object.freeze({ left: 1060, top: 116, width: 250, height: 640, rotation: 2, fit: 'contain' }),
+      Object.freeze({ left: 1290, top: 154, width: 250, height: 600, rotation: 7, fit: 'contain' }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -132,9 +132,9 @@ function multiAngleDecoration() {
       <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#d0c7bd"/><stop offset="1" stop-color="#958679"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
-    <path d="M428 452 C505 374 560 350 625 356" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
-    <path d="M608 326 L658 356 L610 388 Z" fill="#958679" opacity=".92"/>
-    <ellipse cx="800" cy="836" rx="640" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
+    <path d="M540 452 C560 416 575 390 590 372" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
+    <path d="M566 346 L616 364 L588 402 Z" fill="#958679" opacity=".92"/>
+    <ellipse cx="820" cy="836" rx="690" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
 
