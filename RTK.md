@@ -439,3 +439,18 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 聚焦回归 `31/31`、全量测试 `1669/1669`、`npm run check`、6510 模块构建、工作台验证和
   `git diff --check` 全部通过；没有 provider/generation/usage/wallet/billing 写入，也未触发
   付费视频生成。该切片尚未部署，待受控 SSH key 恢复后必须通过唯一入口和 600 秒 Canary。
+
+## 2026-08-16 AI Video P2 SkillRun Replay Snapshot
+
+- 回放清单现在保存受限的 SkillRun 配方快照：Skill 标识与版本、输入、步骤、检查点、模型策略、
+  输出契约，以及已完成步骤和执行状态。快照经过字段白名单、稳定排序和 32KB 上限处理，排除了
+  owner、project/run/step-event ID、provider job、会话和计费内部字段。
+- 创建清单时通过 owner/project 作用域解析 `skillRunId`；克隆时只把快照写入新项目版本的
+  `plan_snapshot`，不复用旧运行实例，不创建 provider/generation/usage/wallet/billing 写入。
+  这补齐了“做同款”缺少执行配方的问题，同时保持现有回放幂等和权限边界。
+- 定向回归 `35/35`、全量测试 `1671/1671`、`npm run check`、6510 模块生产构建、工作台验证和
+  `git diff --check` 全部通过；本切片没有触发付费视频生成，也没有修改电商、图库、Home、Canvas
+  或生产展示代码。
+- 本切片仍未部署。唯一发布入口因当前环境无法读取受控 SSH key 而在远端变更前停止；公网视频/账务
+  检查仍通过，新 SkillRun 路由在生产返回 `404`。待受控凭据恢复后，必须重新走
+  `scripts/deploy-production.ps1` 和独立 600 秒 Canary，不能据此声称已上线。

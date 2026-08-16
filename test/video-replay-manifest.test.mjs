@@ -44,3 +44,44 @@ test('replay manifest requires rights for every asset and a valid graph', () => 
     workbench: graph({ project: { id: 'p', kind: 'image' } }), skillId: 'skill', skillVersion: 1, rightsConfirmations: ['asset-1'],
   }), error => error.code === 'REPLAY_MANIFEST_INVALID');
 });
+
+test('replay manifest carries a bounded SkillRun recipe snapshot without runtime identity', () => {
+  const manifest = buildReplayManifest({
+    workbench: graph(),
+    skillId: 'commerce-trailer',
+    skillVersion: 3,
+    rightsConfirmations: ['asset-1'],
+    skillRun: {
+      id: 'run-internal',
+      ownerEmail: 'owner@example.com',
+      projectId: 'project-1',
+      skillId: 'commerce-trailer',
+      skillVersion: 3,
+      input: { concept: '耳机广告', ratio: '16:9' },
+      plan: {
+        steps: [{ id: 'plan', kind: 'plan', label: '拆解镜头', requires: [] }],
+        checkpoints: [{ id: 'approve', label: '确认素材' }],
+        modelPolicy: { video: 'seedance-2.5' },
+        outputContract: { kind: 'storyboard' },
+      },
+      executionPlan: { completedStepIds: ['plan'], status: 'complete' },
+      events: [{ type: 'step.completed', payload: { stepId: 'plan' } }],
+    },
+  });
+  assert.deepEqual(manifest.skillRun, {
+    skillId: 'commerce-trailer',
+    skillVersion: 3,
+    input: { concept: '耳机广告', ratio: '16:9' },
+    plan: {
+      steps: [{ id: 'plan', kind: 'plan', label: '拆解镜头', requires: [] }],
+      checkpoints: [{ id: 'approve', label: '确认素材' }],
+      modelPolicy: { video: 'seedance-2.5' },
+      outputContract: { kind: 'storyboard' },
+    },
+    execution: { completedStepIds: ['plan'], status: 'complete' },
+  });
+  const serialized = JSON.stringify(manifest.skillRun);
+  assert.equal(serialized.includes('ownerEmail'), false);
+  assert.equal(serialized.includes('run-internal'), false);
+  assert.equal(serialized.includes('step.completed'), false);
+});

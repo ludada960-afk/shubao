@@ -235,6 +235,37 @@ test('replay manifest clone creates an owner-scoped draft graph without provider
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('usage_ledger', 'wallet_transactions') ORDER BY name").all().length, 0);
 });
 
+test('replay manifest links a SkillRun recipe and clone preserves it in the project version', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  const run = store.previewSkillRun({ ownerEmail: OWNER, projectId: project.id,
+    idempotencyKey: 'recipe-run-1', spec: {
+      skillId: 'commerce-trailer', skillVersion: 4,
+      input: { concept: '耳机广告' },
+      steps: [{ id: 'plan', kind: 'plan', label: '拆解镜头' }],
+      checkpoints: [{ id: 'approve', label: '确认素材' }],
+      modelPolicy: { video: 'seedance-2.5' },
+      outputContract: { kind: 'storyboard' },
+    } });
+  const manifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'commerce-trailer', skillVersion: 4, skillRunId: run.id,
+    rightsConfirmations: [asset.id] });
+  assert.equal(manifest.skillRun.skillId, 'commerce-trailer');
+  assert.equal(manifest.skillRun.plan.steps[0].id, 'plan');
+  assert.equal('id' in manifest.skillRun, false);
+  const cloned = store.cloneReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'recipe-clone-1' });
+  const version = db.prepare(`SELECT plan_snapshot FROM project_versions
+    WHERE project_id = ? ORDER BY sequence DESC LIMIT 1`).get(cloned.project.id);
+  const plan = JSON.parse(version.plan_snapshot);
+  assert.deepEqual(plan.skillRun, manifest.skillRun);
+  assert.equal(JSON.stringify(plan).includes(run.id), false);
+  assert.equal(JSON.stringify(plan).includes('ownerEmail'), false);
+});
+
 test('replay manifest clone rejects tampered manifests and foreign owners', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());

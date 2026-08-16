@@ -74,7 +74,8 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
   await importJobCandidate('project / 1', 'shot / 1', { generationJobId: 'job-1' });
   await selectShotCandidate('project / 1', 'shot / 1', { candidateId: 'candidate / 1', expectedRevision: 2 });
   await addTimelineClip('project / 1', { shotId: 'shot / 1', candidateId: 'candidate / 1', position: 0, trimEndMs: 3000 });
-  await createVideoReplayManifest('project / 1', { skillId: 'trailer', skillVersion: 1, rightsConfirmations: ['asset-1'] });
+  await createVideoReplayManifest('project / 1', { skillId: 'trailer', skillVersion: 1,
+    skillRunId: 'run-1', rightsConfirmations: ['asset-1'] });
   await getVideoReplayManifest('project / 1', 'manifest / 1');
   await cloneVideoReplayManifest('project / 1', 'manifest / 1', { title: '复用', idempotencyKey: 'client-clone-1' });
 
@@ -98,6 +99,9 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201/clone', method: 'POST', authorization: 'Bearer signed-workbench-session' },
   ]);
   assert.deepEqual(JSON.parse(requests[2].options.body), { videoAssetId: 'upload-1', metadata: { angle: 'front' } });
+  assert.deepEqual(JSON.parse(requests[10].options.body), {
+    skillId: 'trailer', skillVersion: 1, skillRunId: 'run-1', rightsConfirmations: ['asset-1'],
+  });
   assert.equal(requests.at(-1).options.headers['Idempotency-Key'], 'client-clone-1');
   assert.deepEqual(JSON.parse(requests.at(-1).options.body), { title: '复用' });
 });

@@ -163,14 +163,21 @@ test('owner can create and read an immutable replay manifest while tester remain
     purpose: '开场', durationMs: 3000 });
   store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
     assetId: asset.id, assetVersionId: version.id, role: 'scene' });
+  const skillRun = store.previewSkillRun({ ownerEmail, projectId: project.id,
+    idempotencyKey: 'route-manifest-skill-1', spec: {
+      skillId: 'studio-trailer', skillVersion: 2,
+      input: { concept: 'studio' },
+      steps: [{ id: 'plan', kind: 'plan', label: '拆解镜头' }],
+    } });
   const path = '/api/video/projects/:projectId/workbench/replay-manifests';
   const created = await invoke(app, 'POST', path, {
     headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id },
     body: { skillId: 'studio-trailer', skillVersion: 2, modelCatalogSnapshot: { image: 'gpt-image-2' },
-      rightsConfirmations: [asset.id] },
+      skillRunId: skillRun.id, rightsConfirmations: [asset.id] },
   });
   assert.equal(created.statusCode, 201);
   const id = created.body.manifest.id;
+  assert.equal(created.body.manifest.skillRun.plan.steps[0].id, 'plan');
   assert.equal(created.body.manifest.assets[0].versions[0].playbackUrl, undefined);
   const read = await invoke(app, 'GET', `${path}/:manifestId`, {
     headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id, manifestId: id },

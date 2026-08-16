@@ -39,6 +39,35 @@ function safeValue(value, depth = 0) {
   }, {});
 }
 
+function skillRunSnapshot(run, skillId, skillVersion) {
+  if (run == null) return null;
+  if (!run || typeof run !== 'object' || Array.isArray(run)) throw invalid('skillRun is invalid');
+  if (String(run.skillId || '') !== String(skillId) || Number(run.skillVersion) !== Number(skillVersion)) {
+    throw invalid('skillRun does not match the manifest skill');
+  }
+  const plan = run.plan;
+  if (!plan || typeof plan !== 'object' || Array.isArray(plan)) throw invalid('skillRun plan is invalid');
+  const execution = run.executionPlan && typeof run.executionPlan === 'object' && !Array.isArray(run.executionPlan)
+    ? run.executionPlan : {};
+  const snapshot = {
+    skillId: String(skillId),
+    skillVersion,
+    input: safeValue(run.input || {}),
+    plan: {
+      steps: safeValue(Array.isArray(plan.steps) ? plan.steps : []),
+      checkpoints: safeValue(Array.isArray(plan.checkpoints) ? plan.checkpoints : []),
+      modelPolicy: safeValue(plan.modelPolicy || {}),
+      outputContract: safeValue(plan.outputContract || {}),
+    },
+    execution: {
+      completedStepIds: safeValue(Array.isArray(execution.completedStepIds) ? execution.completedStepIds : []),
+      status: String(execution.status || 'ready'),
+    },
+  };
+  if (Buffer.byteLength(JSON.stringify(snapshot), 'utf8') > 32_000) throw invalid('skillRun snapshot is too large');
+  return stable(snapshot);
+}
+
 export function canonicalReplayManifest(value) {
   return JSON.stringify(stable(value));
 }
@@ -129,6 +158,7 @@ export function buildReplayManifest({
   workbench,
   skillId,
   skillVersion,
+  skillRun = null,
   modelCatalogSnapshot = {},
   rightsConfirmations = [],
 } = {}) {
@@ -148,6 +178,7 @@ export function buildReplayManifest({
     schemaVersion: REPLAY_MANIFEST_SCHEMA_VERSION,
     project: { id: text(workbench.project.id, 'project id', 200), kind: 'video' },
     skill: { id: text(skillId, 'skillId', 200), version: skillVersion },
+    ...(skillRun == null ? {} : { skillRun: skillRunSnapshot(skillRun, skillId, skillVersion) }),
     modelCatalogSnapshot: stable(safeValue(modelCatalogSnapshot || {})),
     rightsConfirmations: [...rights.values()].sort((left, right) => left.assetId.localeCompare(right.assetId)),
     assets: workbench.assets.map(item => asset(item, new Set(rights.keys()))),

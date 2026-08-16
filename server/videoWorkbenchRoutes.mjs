@@ -219,6 +219,7 @@ export function mountVideoWorkbenchRoutes(app, {
       ...request,
       skillId: req.body?.skillId,
       skillVersion: req.body?.skillVersion,
+      skillRunId: req.body?.skillRunId,
       modelCatalogSnapshot: req.body?.modelCatalogSnapshot,
       rightsConfirmations: req.body?.rightsConfirmations,
     }), { status: 201, key: 'manifest' },

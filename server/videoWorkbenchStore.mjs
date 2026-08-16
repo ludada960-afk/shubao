@@ -608,13 +608,16 @@ export function createVideoWorkbenchStore({
     },
 
     createReplayManifest({
-      ownerEmail, projectId, skillId, skillVersion, modelCatalogSnapshot = {}, rightsConfirmations = [],
+      ownerEmail, projectId, skillId, skillVersion, skillRunId = null,
+      modelCatalogSnapshot = {}, rightsConfirmations = [],
     }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
+      const skillRun = skillRunId ? requireSkillRun(owner, project.id, skillRunId).run : null;
       const manifest = buildReplayManifest({
         workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
         skillId,
         skillVersion,
+        skillRun,
         modelCatalogSnapshot,
         rightsConfirmations,
       });
@@ -684,6 +687,7 @@ export function createVideoWorkbenchStore({
         };
         const planSnapshot = {
           skill: manifest.skill,
+          ...(manifest.skillRun ? { skillRun: manifest.skillRun } : {}),
           modelCatalogSnapshot: manifest.modelCatalogSnapshot || {},
           rightsConfirmations: manifest.rightsConfirmations || [],
           clone: { mode: 'draft', providerSubmission: false, billingMutation: false },
