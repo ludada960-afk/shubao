@@ -64,8 +64,8 @@ test('try-on layout plans match the product-to-angle reference without cropped c
   assert.ok(multiAngle.resultCards.every(card => card.width >= 250));
   assert.ok(multiAngle.resultCards.every(card => card.height >= 600));
   assert.ok(multiAngle.resultCards.at(-1).left + multiAngle.resultCards.at(-1).width <= 1600);
-  assert.ok(multiAngle.product.width >= 450);
-  assert.ok(multiAngle.product.height >= 600);
+  assert.ok(multiAngle.product.width >= 400);
+  assert.ok(multiAngle.product.height >= 540);
   assert.ok(multiAngle.product.left >= 48);
   assert.ok(multiAngle.product.left + multiAngle.product.width <= 600);
   assert.ok(multiAngle.resultCards.every(card => card.fit === 'contain'));
