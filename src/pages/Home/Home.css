@@ -3192,3 +3192,83 @@
   .ec-product-suite-final { width: min(100%, 88vw); }
   .ec-tryon-workflow-banner { width: 100%; border-width: 3px; }
 }
+
+/* Shared production frame: both ability stories occupy the same desktop footprint. */
+:root {
+  --ec-showcase-frame-height: 390px;
+  --ec-showcase-frame-padding-x: 22px;
+  --ec-showcase-frame-padding-y: 18px;
+}
+
+.ec-product-suite-showcase,
+.ec-tryon-showcase {
+  box-sizing: border-box;
+  height: var(--ec-showcase-frame-height);
+  min-height: var(--ec-showcase-frame-height);
+}
+
+.ec-product-suite-showcase-visual,
+.ec-tryon-showcase-visual {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  padding: var(--ec-showcase-frame-padding-y) var(--ec-showcase-frame-padding-x);
+}
+
+.ec-product-suite-final {
+  width: min(520px, 100%);
+  max-height: 100%;
+  aspect-ratio: 4 / 3;
+}
+
+.ec-tryon-workflow-banner {
+  width: min(620px, 100%);
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.ec-tryon-preview-modal {
+  box-sizing: border-box;
+  align-items: start;
+  padding: clamp(12px, 4vh, 32px) 16px;
+}
+
+.ec-tryon-preview-dialog {
+  box-sizing: border-box;
+  max-height: calc(100vh - 2 * clamp(12px, 4vh, 32px));
+}
+
+.ec-tryon-preview-dialog > .responsive-image {
+  width: 100%;
+  max-height: 72vh;
+  margin: 0 auto;
+  aspect-ratio: auto;
+  background: #f4f4f5;
+}
+
+.ec-tryon-preview-dialog > .responsive-image img {
+  object-fit: contain;
+}
+
+@media (max-width: 640px) {
+  .ec-product-suite-showcase,
+  .ec-tryon-showcase {
+    height: auto;
+    min-height: 0;
+  }
+
+  .ec-product-suite-showcase-visual,
+  .ec-tryon-showcase-visual {
+    height: 236px;
+    min-height: 236px;
+    padding: 12px 8px 16px;
+  }
+
+  .ec-product-suite-final {
+    width: min(100%, 88vw);
+  }
+
+  .ec-tryon-workflow-banner {
+    width: 100%;
+  }
+}
