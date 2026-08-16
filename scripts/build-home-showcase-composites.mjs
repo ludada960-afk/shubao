@@ -40,12 +40,12 @@ export const TRYON_LAYOUT_PLANS = Object.freeze({
     fit: 'contain',
     blurPadding: false,
     visualBounds: Object.freeze({ left: 44, top: 74, right: 1570, bottom: 826 }),
-    product: Object.freeze({ left: 80, top: 160, width: 420, height: 560, rotation: -3, fit: 'contain' }),
+    product: Object.freeze({ left: 78, top: 190, width: 360, height: 500, rotation: -3, fit: 'contain' }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 640, top: 145, width: 265, height: 650, rotation: -7, fit: 'contain' }),
-      Object.freeze({ left: 845, top: 108, width: 265, height: 650, rotation: -2, fit: 'contain' }),
-      Object.freeze({ left: 1050, top: 108, width: 265, height: 650, rotation: 2, fit: 'contain' }),
-      Object.freeze({ left: 1255, top: 145, width: 265, height: 650, rotation: 7, fit: 'contain' }),
+      Object.freeze({ left: 570, top: 130, width: 300, height: 700, rotation: -8, fit: 'contain' }),
+      Object.freeze({ left: 805, top: 95, width: 300, height: 700, rotation: -3, fit: 'contain' }),
+      Object.freeze({ left: 1040, top: 95, width: 300, height: 700, rotation: 3, fit: 'contain' }),
+      Object.freeze({ left: 1245, top: 130, width: 300, height: 700, rotation: 8, fit: 'contain' }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -132,8 +132,8 @@ function multiAngleDecoration() {
       <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#d0c7bd"/><stop offset="1" stop-color="#958679"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
-    <path d="M520 470 C542 438 565 414 596 390" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
-    <path d="M570 368 L616 388 L586 424 Z" fill="#958679" opacity=".92"/>
+    <path d="M455 470 C490 430 520 400 552 365" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
+    <path d="M528 345 L578 360 L548 402 Z" fill="#958679" opacity=".92"/>
     <ellipse cx="820" cy="836" rx="690" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
