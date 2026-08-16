@@ -3229,7 +3229,9 @@
 
 .ec-tryon-preview-modal {
   box-sizing: border-box;
-  align-items: start;
+  align-items: center;
+  justify-items: center;
+  overflow: auto;
   padding: clamp(12px, 4vh, 32px) 16px;
 }
 
