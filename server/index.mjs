@@ -77,6 +77,7 @@ import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
 import { createVideoProjectBridge } from './videoProjectBridge.mjs';
 import { createVideoWorkbenchStore } from './videoWorkbenchStore.mjs';
+import { createVideoWorkbenchRollout } from './videoWorkbenchRollout.mjs';
 import { createRetentionService } from './projects/retentionService.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
@@ -190,6 +191,12 @@ if (!process.env.SHUBAO_CONTENT_BILLING_UNITS) {
 const db = initDB(process.env.SHUBAO_DB_PATH || undefined);
 const walletService = createWalletService(db);
 const authorizeAccountEmail = email => requireAccountAccess(db, email);
+const videoPlatformFlags = readVideoPlatformFlags(process.env);
+let videoWorkbenchStore = null;
+const videoWorkbenchRollout = createVideoWorkbenchRollout({
+  enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
+  authorizeOwner: email => requireAdminAccess(db, email),
+});
 let videoReconciliation = null;
 const adminOperations = createAdminOperations({
   db,
@@ -200,6 +207,10 @@ const adminOperations = createAdminOperations({
     video: videoGeneration.runtimeStats(),
   }),
   videoOperations: () => videoReconciliation,
+  videoWorkbenchMetrics: () => ({
+    rollout: videoWorkbenchRollout.status(),
+    ...(videoWorkbenchStore?.operationalMetrics?.() || { unavailable: true }),
+  }),
 });
 const paymentService = createPaymentService(db, walletService);
 const contentEntitlements = createContentEntitlements(db, walletService);
@@ -233,8 +244,7 @@ const generatedAssetStore = createGeneratedAssetStore({
 });
 const projectStore = createProjectStore(db);
 const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
-const videoPlatformFlags = readVideoPlatformFlags(process.env);
-const videoWorkbenchStore = videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH
+videoWorkbenchStore = videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH
   ? createVideoWorkbenchStore({ db, projectStore })
   : null;
 const videoGeneration = createVideoGeneration({
@@ -585,6 +595,7 @@ mountProjectRoutes(app, {
 mountVideoWorkbenchRoutes(app, {
   enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
   store: videoWorkbenchStore,
+  authorizeCohort: videoWorkbenchRollout,
   playbackUrlForAsset({ assetId, ownerEmail, req }) {
     const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
     const host = typeof req.get === 'function' ? req.get('host') : req.headers.host;
@@ -3991,12 +4002,15 @@ app.post('/api/ecommerce/jobs/:id/retry-plan', authenticateEcommerceRequest, eco
 app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, ecommerceRouteHandlers.retryFailed);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
-app.get('/api/video/capabilities', (_req, res) => {
+app.get('/api/video/capabilities', (req, res) => {
   res.json({
     loading: false,
     ...videoGeneration.capabilities(),
     uploadMode: videoPlatformFlags.VIDEO_PLATFORM_TUS_UPLOAD ? 'tus' : 'direct',
-    workbenchEnabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
+    workbenchEnabled: videoWorkbenchRollout.enabledForRequest(req, request => authenticateContentRequest(request, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    })),
   });
 });
 app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {

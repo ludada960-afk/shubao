@@ -268,3 +268,28 @@ test('stale shots reject active timeline clips and preserve stale state on candi
     candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 2000, muted: false }),
   error => error.code === 'INVALID_TIMELINE_CANDIDATE');
 });
+
+test('operational metrics expose the pilot funnel and recent operation SLO', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 3000 });
+  store.bindShotAssetVersion({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: first.id, role: 'product' });
+  store.recordOperation({ ownerEmail: OWNER, projectId: project.id, action: 'shot.bind', outcome: 'success', latencyMs: 20 });
+  store.recordOperation({ ownerEmail: OWNER, projectId: project.id, action: 'shot.create', outcome: 'failure', latencyMs: 40, errorCode: 'INVALID_BINDING' });
+  const metrics = store.operationalMetrics();
+  assert.equal(metrics.funnel.projectsStarted, 1);
+  assert.equal(metrics.funnel.approvedAssetProjects, 1);
+  assert.equal(metrics.funnel.storyboardReadyProjects, 1);
+  assert.equal(metrics.funnel.candidateReadyProjects, 0);
+  assert.equal(metrics.operations24h.total, 2);
+  assert.equal(metrics.operations24h.failed, 1);
+  assert.equal(metrics.operations24h.successRate, 0.5);
+  assert.equal(metrics.operations24h.p95LatencyMs, 40);
+  assert.equal(metrics.health.staleShots, 0);
+  assert.equal(metrics.gate.minimumProjects, 10);
+});

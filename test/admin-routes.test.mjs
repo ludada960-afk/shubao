@@ -252,6 +252,13 @@ test('admin monitoring reports real task states, provider routes, and redacted f
   const operations = createAdminOperations({
     db,
     walletService,
+    videoWorkbenchMetrics: () => ({
+      rollout: { enabled: true, cohort: 'owner' },
+      funnel: { projectsStarted: 10, storyboardReadyProjects: 10 },
+      health: { staleShots: 0, staleClips: 0 },
+      operations24h: { successRate: 1, p95LatencyMs: 42 },
+      gate: { minimumProjects: 10, minimumStoryboardReadyProjects: 10, ready: true },
+    }),
     runtimeStatus: () => ({
       imageQueue: { active: 1, queued: 2, concurrency: 3 },
       ecommerce: { activeJobs: 1 },
@@ -268,6 +275,8 @@ test('admin monitoring reports real task states, provider routes, and redacted f
   assert.equal(result.runtime.imageQueue.queued, 2);
   assert.equal(result.recentTasks.length, 4);
   assert.equal(result.recentFailures.length, 2);
+  assert.equal(result.videoWorkbench.funnel.storyboardReadyProjects, 10);
+  assert.equal(result.videoWorkbench.operations24h.p95LatencyMs, 42);
 
   const monitoring = await invoke(app, 'GET', '/api/admin/monitoring', { headers: ownerHeaders });
   assert.equal(monitoring.statusCode, 200);

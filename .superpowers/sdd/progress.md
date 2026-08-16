@@ -1,5 +1,24 @@
 # Subagent-Driven Development Progress
 
+## 2026-08-16 AI-video P1 owner rollout gate
+
+- The global workbench flag remains default-off, while an owner-only server
+  cohort gate now protects capability discovery and every workbench route.
+  Authorized reads and mutations record append-only operation telemetry; owner
+  monitoring exposes the project-stage funnel, stale health, 24-hour success
+  rate and p95 latency. A ten-project isolated verifier reaches
+  approved-asset/storyboard readiness with 40/40 successful operations and no
+  `video_jobs`, `usage_events`, `billing_holds` or wallet mutations.
+- Focused regression passed `30/30`; full regression passed `1651/1651`;
+  `npm run check`, `npm run build` (6510 modules),
+  `npm run verify:video-workbench-pilot`, and `git diff --check` passed.
+  Local HTTP acceptance proved anonymous capability false, owner capability
+  true with project/asset/shot writes, and tester workbench access returning
+  the generic 404. Existing P1 browser acceptance remains valid for the UI;
+  the optional Playwright daemon was unavailable, so no paid video generation
+  was attempted. Production deployment is the next gate and must remain
+  default-closed.
+
 ## 2026-08-16 AI video P0/P1 production checkpoint
 
 - Production commit `5d933c2` is live at `https://shuimg.cn/` through the only

@@ -158,7 +158,13 @@ function whereForUsage(input = {}, alias = 'u') {
   return { sql: predicates.length ? `WHERE ${predicates.join(' AND ')}` : '', params };
 }
 
-export function createAdminOperations({ db, walletService, runtimeStatus = null, videoOperations = null } = {}) {
+export function createAdminOperations({
+  db,
+  walletService,
+  runtimeStatus = null,
+  videoOperations = null,
+  videoWorkbenchMetrics = null,
+} = {}) {
   if (!db || typeof db.prepare !== 'function') throw new TypeError('db is required');
   if (!walletService || typeof walletService.grant !== 'function'
     || typeof walletService.revoke !== 'function'
@@ -300,6 +306,16 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null,
     try {
       const status = runtimeStatus();
       return status && typeof status === 'object' ? status : { unavailable: true };
+    } catch {
+      return { unavailable: true };
+    }
+  }
+
+  function readVideoWorkbenchMetrics() {
+    if (typeof videoWorkbenchMetrics !== 'function') return { unavailable: true };
+    try {
+      const value = videoWorkbenchMetrics();
+      return value && typeof value === 'object' ? value : { unavailable: true };
     } catch {
       return { unavailable: true };
     }
@@ -591,6 +607,7 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null,
       generatedAt: new Date().toISOString(),
       runtime,
       jobs: jobStats(input),
+      videoWorkbench: readVideoWorkbenchMetrics(),
       providerRoutes: [...routeIds].map(routeId => ({
         ...(persistedByRoute.get(routeId) || { routeId, total: 0, active: 0, completed: 0, failed: 0, failureRate: 0 }),
         ...(runtimeRoutes.find(route => route.routeId === routeId) || {}),

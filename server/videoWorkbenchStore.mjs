@@ -180,6 +180,13 @@ function ensureSchema(db) {
       FOREIGN KEY(shot_id) REFERENCES video_storyboard_shots(id),
       FOREIGN KEY(candidate_id) REFERENCES video_shot_candidates(id)
     );
+    CREATE TABLE IF NOT EXISTS video_workbench_operations (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      action TEXT NOT NULL, outcome TEXT NOT NULL, latency_ms INTEGER NOT NULL DEFAULT 0,
+      error_code TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_workbench_operations_created
+      ON video_workbench_operations(created_at, owner_email, project_id);
   `);
 }
 
@@ -227,6 +234,10 @@ export function createVideoWorkbenchStore({
       WHERE id = ? AND shot_id = ? AND owner_email = ? AND project_id = ?`).get(candidateId, shotId, owner, projectId));
     if (!candidate) throw coded('CANDIDATE_NOT_FOUND', 'candidate not found');
     return candidate;
+  };
+  const operationCutoff = () => {
+    const current = new Date(timestamp()).getTime() - (24 * 60 * 60 * 1000);
+    return new Date(current).toISOString();
   };
   const validatePosition = position => {
     if (!Number.isSafeInteger(position) || position < 0) throw coded('INVALID_POSITION', 'position must be a non-negative integer');
@@ -515,6 +526,82 @@ export function createVideoWorkbenchStore({
         assets: assets.map(asset => ({ ...asset, versions: versions.filter(version => version.assetId === asset.id) })),
         shots,
         timelineClips,
+      };
+    },
+
+    recordOperation({ ownerEmail, projectId, action, outcome, latencyMs = 0, errorCode = '' }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedAction = clean(action, 120);
+      const normalizedOutcome = clean(outcome, 20);
+      if (!normalizedAction || !['success', 'failure'].includes(normalizedOutcome)) {
+        throw coded('INVALID_OPERATION', 'operation fields are invalid');
+      }
+      const latency = Number.isFinite(Number(latencyMs))
+        ? Math.max(0, Math.min(86_400_000, Math.round(Number(latencyMs))))
+        : 0;
+      db.prepare(`INSERT INTO video_workbench_operations
+        (id, owner_email, project_id, action, outcome, latency_ms, error_code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        randomUUID(), owner, project.id, normalizedAction, normalizedOutcome, latency,
+        clean(errorCode, 120), timestamp(),
+      );
+      return { recorded: true };
+    },
+
+    operationalMetrics() {
+      const cutoff = operationCutoff();
+      const operationRows = db.prepare(`SELECT action, outcome, latency_ms
+        FROM video_workbench_operations WHERE created_at >= ?
+        ORDER BY latency_ms ASC`).all(cutoff);
+      const total = operationRows.length;
+      const failed = operationRows.filter(row => row.outcome === 'failure').length;
+      const latencies = operationRows.map(row => Number(row.latency_ms) || 0);
+      const p95Index = total ? Math.min(total - 1, Math.ceil(total * 0.95) - 1) : -1;
+      const byAction = new Map();
+      for (const row of operationRows) {
+        const current = byAction.get(row.action) || { action: row.action, total: 0, failed: 0 };
+        current.total += 1;
+        if (row.outcome === 'failure') current.failed += 1;
+        byAction.set(row.action, current);
+      }
+      const funnel = {
+        projectsStarted: db.prepare('SELECT COUNT(DISTINCT project_id) AS count FROM video_workbench_assets').get().count,
+        approvedAssetProjects: db.prepare(`SELECT COUNT(DISTINCT project_id) AS count
+          FROM video_workbench_assets WHERE approved_version_id IS NOT NULL`).get().count,
+        storyboardReadyProjects: db.prepare(`SELECT COUNT(DISTINCT s.project_id) AS count
+          FROM video_storyboard_shots s
+          JOIN video_shot_asset_bindings b ON b.shot_id = s.id
+          JOIN video_workbench_assets a ON a.id = b.asset_id AND a.approved_version_id = b.asset_version_id
+          WHERE s.status <> 'stale'`).get().count,
+        candidateReadyProjects: db.prepare(`SELECT COUNT(DISTINCT project_id) AS count
+          FROM video_shot_candidates WHERE status IN ('available', 'selected')`).get().count,
+        timelineReadyProjects: db.prepare(`SELECT COUNT(DISTINCT project_id) AS count
+          FROM video_timeline_clips WHERE status = 'active'`).get().count,
+      };
+      const health = {
+        staleShots: db.prepare("SELECT COUNT(*) AS count FROM video_storyboard_shots WHERE status = 'stale'").get().count,
+        staleClips: db.prepare("SELECT COUNT(*) AS count FROM video_timeline_clips WHERE status = 'stale'").get().count,
+      };
+      return {
+        generatedAt: timestamp(),
+        funnel,
+        health,
+        operations24h: {
+          total,
+          succeeded: total - failed,
+          failed,
+          successRate: total ? Number(((total - failed) / total).toFixed(4)) : null,
+          p95LatencyMs: p95Index >= 0 ? latencies[p95Index] : null,
+          byAction: [...byAction.values()].sort((left, right) => right.total - left.total),
+        },
+        gate: {
+          minimumProjects: 10,
+          minimumStoryboardReadyProjects: 10,
+          ready: funnel.projectsStarted >= 10
+            && funnel.storyboardReadyProjects >= 10
+            && health.staleShots === 0
+            && health.staleClips === 0,
+        },
       };
     },
   };

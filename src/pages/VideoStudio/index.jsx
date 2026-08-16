@@ -268,7 +268,7 @@ export default function VideoStudioPage({ embedded = false }) {
         ));
       })
       .catch(() => setCapabilities({ loading: false, generationEnabled: false, workbenchEnabled: false }));
-  }, []);
+  }, [state.logged]);
 
   useEffect(() => {
     if (!state.logged) {

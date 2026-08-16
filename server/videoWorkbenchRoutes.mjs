@@ -17,6 +17,9 @@ function ownerFor(req, authenticateOwner) {
 
 function routeError(error, res) {
   const code = error?.code || 'VIDEO_WORKBENCH_REQUEST_FAILED';
+  if (code === 'VIDEO_WORKBENCH_UNAVAILABLE') {
+    return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该视频项目或内容' });
+  }
   if (code.startsWith('AUTH_SESSION_')) {
     return res.status(code === 'AUTH_SESSION_UNAUTHORIZED' ? 403 : 401).json({
       code,
@@ -38,11 +41,30 @@ function routeError(error, res) {
   return res.status(400).json({ code, error: '请求参数无效' });
 }
 
-function handle(res, action, { status = 200, key } = {}) {
+function handle(res, action, {
+  status = 200, key, store = null, operationRequest = null, operationName = '',
+} = {}) {
+  const startedAt = performance.now();
+  const observe = (outcome, error = null) => {
+    if (!store || !operationRequest || typeof store.recordOperation !== 'function' || !operationName) return;
+    try {
+      store.recordOperation({
+        ...operationRequest,
+        action: operationName,
+        outcome,
+        latencyMs: performance.now() - startedAt,
+        errorCode: error?.code || '',
+      });
+    } catch {
+      // Observability must never alter a workbench response.
+    }
+  };
   try {
     const value = action();
+    observe('success');
     return res.status(status).json(key ? { [key]: value } : value);
   } catch (error) {
+    observe('failure', error);
     return routeError(error, res);
   }
 }
@@ -72,102 +94,122 @@ export function mountVideoWorkbenchRoutes(app, {
   enabled = false,
   store,
   authenticateOwner,
+  authorizeCohort,
   playbackUrlForAsset,
 } = {}) {
   if (!enabled) return false;
   if (!store || typeof store.listWorkbench !== 'function') throw new TypeError('video workbench store is required');
   if (typeof authenticateOwner !== 'function') throw new TypeError('authenticateOwner is required');
+  if (typeof authorizeCohort?.requireEligible !== 'function') throw new TypeError('authorizeCohort is required');
   if (typeof playbackUrlForAsset !== 'function') throw new TypeError('playbackUrlForAsset is required');
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
   }
 
-  const input = req => ({ ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId });
+  const input = req => {
+    const ownerEmail = ownerFor(req, authenticateOwner);
+    authorizeCohort.requireEligible(ownerEmail);
+    return { ownerEmail, projectId: req.params.projectId };
+  };
+  const dispatch = (req, res, operationName, action, options = {}) => {
+    let request;
+    try {
+      request = input(req);
+    } catch (error) {
+      return routeError(error, res);
+    }
+    return handle(res, () => action(request), {
+      ...options,
+      store,
+      operationRequest: request,
+      operationName,
+    });
+  };
 
-  app.get('/api/video/projects/:projectId/workbench', (req, res) => handle(res, () => {
-    const request = input(req);
-    return projectPlayableMedia(store.listWorkbench(request), request.ownerEmail, req, playbackUrlForAsset);
-  }));
+  app.get('/api/video/projects/:projectId/workbench', (req, res) => dispatch(req, res, 'workbench.read', request => (
+    projectPlayableMedia(store.listWorkbench(request), request.ownerEmail, req, playbackUrlForAsset)
+  )));
 
-  app.post('/api/video/projects/:projectId/workbench/assets', (req, res) => handle(res,
-    () => store.createAsset({ ...input(req), kind: req.body?.kind, name: req.body?.name }),
-    { status: 201, key: 'asset' }));
+  app.post('/api/video/projects/:projectId/workbench/assets', (req, res) => dispatch(req, res, 'asset.create', request => (
+    store.createAsset({ ...request, kind: req.body?.kind, name: req.body?.name })
+  ), { status: 201, key: 'asset' }));
 
-  app.post('/api/video/projects/:projectId/workbench/assets/:assetId/versions', (req, res) => handle(res,
-    () => store.addAssetVersionFromVideoAsset({
-      ...input(req),
+  app.post('/api/video/projects/:projectId/workbench/assets/:assetId/versions', (req, res) => dispatch(req, res, 'asset.version.create', request => (
+    store.addAssetVersionFromVideoAsset({
+      ...request,
       assetId: req.params.assetId,
       videoAssetId: req.body?.videoAssetId,
       metadata: req.body?.metadata,
-    }),
-    { status: 201, key: 'version' }));
+    })
+  ), { status: 201, key: 'version' }));
 
-  app.post('/api/video/projects/:projectId/workbench/assets/:assetId/approve', (req, res) => handle(res,
-    () => store.approveAssetVersion({
-      ...input(req),
+  app.post('/api/video/projects/:projectId/workbench/assets/:assetId/approve', (req, res) => dispatch(req, res, 'asset.approve', request => (
+    store.approveAssetVersion({
+      ...request,
       assetId: req.params.assetId,
       versionId: req.body?.versionId,
       expectedRevision: req.body?.expectedRevision,
-    }),
-    { key: 'asset' }));
+    })
+  ), { key: 'asset' }));
 
-  app.post('/api/video/projects/:projectId/workbench/shots', (req, res) => handle(res,
-    () => store.createShot({
-      ...input(req),
+  app.post('/api/video/projects/:projectId/workbench/shots', (req, res) => dispatch(req, res, 'shot.create', request => (
+    store.createShot({
+      ...request,
       position: req.body?.position,
       purpose: req.body?.purpose,
       durationMs: req.body?.durationMs,
       cameraLanguage: req.body?.cameraLanguage,
       prompt: req.body?.prompt,
-    }),
-    { status: 201, key: 'shot' }));
+    })
+  ), { status: 201, key: 'shot' }));
 
-  app.patch('/api/video/projects/:projectId/workbench/shots/:shotId', (req, res) => handle(res,
-    () => store.updateShot({
-      ...input(req),
+  app.patch('/api/video/projects/:projectId/workbench/shots/:shotId', (req, res) => dispatch(req, res, 'shot.update', request => (
+    store.updateShot({
+      ...request,
       shotId: req.params.shotId,
       expectedRevision: req.body?.expectedRevision,
       patch: req.body?.patch,
-    }),
-    { key: 'shot' }));
+    })
+  ), { key: 'shot' }));
 
-  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/bindings', (req, res) => handle(res,
-    () => store.bindShotAssetVersion({
-      ...input(req),
+  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/bindings', (req, res) => dispatch(req, res, 'shot.bind', request => (
+    store.bindShotAssetVersion({
+      ...request,
       shotId: req.params.shotId,
       assetId: req.body?.assetId,
       assetVersionId: req.body?.assetVersionId,
       role: req.body?.role,
-    }),
-    { status: 201, key: 'binding' }));
+    })
+  ), { status: 201, key: 'binding' }));
 
-  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/candidates', (req, res) => handle(res,
-    () => store.registerCandidateFromJob({
-      ...input(req),
+  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/candidates', (req, res) => dispatch(req, res, 'candidate.create', request => (
+    store.registerCandidateFromJob({
+      ...request,
       shotId: req.params.shotId,
       generationJobId: req.body?.generationJobId,
-    }),
-    { status: 201, key: 'candidate' }));
+    })
+  ), { status: 201, key: 'candidate' }));
 
-  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/select', (req, res) => handle(res,
-    () => store.selectCandidate({
-      ...input(req),
+  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/select', (req, res) => dispatch(req, res, 'candidate.select', request => (
+    store.selectCandidate({
+      ...request,
       shotId: req.params.shotId,
       candidateId: req.body?.candidateId,
       expectedRevision: req.body?.expectedRevision,
-    })));
+    })
+  )));
 
-  app.post('/api/video/projects/:projectId/workbench/timeline/clips', (req, res) => handle(res,
-    () => store.addTimelineClip({
-      ...input(req),
+  app.post('/api/video/projects/:projectId/workbench/timeline/clips', (req, res) => dispatch(req, res, 'timeline.clip.create', request => (
+    store.addTimelineClip({
+      ...request,
       shotId: req.body?.shotId,
       candidateId: req.body?.candidateId,
       position: req.body?.position,
       trimStartMs: req.body?.trimStartMs,
       trimEndMs: req.body?.trimEndMs,
       muted: req.body?.muted,
-    }),
-    { status: 201, key: 'clip' }));
+    })
+  ), { status: 201, key: 'clip' }));
 
   return true;
 }

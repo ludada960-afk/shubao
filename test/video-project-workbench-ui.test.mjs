@@ -13,6 +13,7 @@ test('standalone video studio gates the project workbench and passes durable inp
   assert.match(page, /import VideoProjectWorkbench from '.\/VideoProjectWorkbench\.jsx'/);
   assert.match(page, /const \[uploadRevision, setUploadRevision\] = useState\(0\)/);
   assert.match(page, /capabilities\.workbenchEnabled/);
+  assert.match(page, /\}, \[state\.logged\]\);/);
   assert.match(page, /!embedded && capabilities\.workbenchEnabled && state\.logged/);
   assert.match(page, /<VideoProjectWorkbench/);
   assert.match(page, /uploadRecords=\{uploadRecords\}/);

@@ -11,6 +11,7 @@
     "build": "node scripts/verify-exports.mjs && vite build",
     "check": "node scripts/check-build.mjs",
     "audit:production": "node scripts/audit-production.mjs",
+    "verify:video-workbench-pilot": "node scripts/verify-video-workbench-pilot.mjs",
     "collab:check": "node scripts/collaboration-policy.mjs",
     "preview": "vite preview",
     "start": "concurrently \"npm run server\" \"npm run dev\""

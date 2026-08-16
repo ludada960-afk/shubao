@@ -6,6 +6,7 @@ import { ensureProjectSchema } from '../server/projects/schema.mjs';
 import { createProjectStore } from '../server/projects/projectStore.mjs';
 import { createVideoWorkbenchStore } from '../server/videoWorkbenchStore.mjs';
 import { mountVideoWorkbenchRoutes } from '../server/videoWorkbenchRoutes.mjs';
+import { createVideoWorkbenchRollout } from '../server/videoWorkbenchRollout.mjs';
 import { authenticateContentRequest, createSessionTokenService } from '../server/billing/contentBilling.mjs';
 
 const SESSION_SECRET = 'video-workbench-route-test-secret-video-workbench-route-test-secret';
@@ -64,6 +65,12 @@ function harness({ enabled = true } = {}) {
   mountVideoWorkbenchRoutes(app, {
     enabled,
     store,
+    authorizeCohort: createVideoWorkbenchRollout({
+      enabled,
+      authorizeOwner: email => email === ownerEmail
+        ? { ok: true, email }
+        : { ok: false, code: 'ACCOUNT_ADMIN_FORBIDDEN' },
+    }),
     playbackUrlForAsset({ assetId, ownerEmail }) {
       return `/api/video/media/${assetId}?owner=${encodeURIComponent(ownerEmail)}&cap=test-capability`;
     },
@@ -142,6 +149,20 @@ test('workbench routes derive owner from the signed session and ignore body owne
   });
   assert.equal(read.statusCode, 404);
   assert.equal(read.body.code, 'PROJECT_NOT_FOUND');
+});
+
+test('workbench routes hide the owner pilot from a signed tester account', async t => {
+  const { app, db, project, sessionTokens } = harness();
+  t.after(() => db.close());
+  const response = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench', {
+    headers: signedHeaders(sessionTokens, 'tester@example.com'),
+    params: { projectId: project.id },
+  });
+  assert.equal(response.statusCode, 404);
+  assert.deepEqual(response.body, {
+    code: 'PROJECT_NOT_FOUND',
+    error: '未找到该视频项目或内容',
+  });
 });
 
 test('workbench routes expose revisions and map conflicts without overwriting state', async t => {

@@ -180,6 +180,12 @@ function MonitoringPanel({ monitoring }) {
   const tasks = monitoring?.recentTasks || [];
   const failures = monitoring?.recentFailures || [];
   const videoQueue = runtime.video || {};
+  const videoWorkbench = monitoring?.videoWorkbench || {};
+  const workbenchFunnel = videoWorkbench.funnel || {};
+  const workbenchHealth = videoWorkbench.health || {};
+  const workbenchOperations = videoWorkbench.operations24h || {};
+  const workbenchGate = videoWorkbench.gate || {};
+  const workbenchReady = workbenchGate.ready === true;
   return <section className="admin-monitoring-band" aria-labelledby="admin-monitoring-title">
     <div className="admin-band-heading"><div><span>运行监控</span><h2 id="admin-monitoring-title">生成服务实时状态</h2></div><small>{monitoring?.generatedAt ? `更新于 ${dateTime(monitoring.generatedAt)}` : '暂无运行数据'}</small></div>
     <div className="admin-runtime-grid">
@@ -187,6 +193,12 @@ function MonitoringPanel({ monitoring }) {
       <article><span className="admin-runtime-icon ecommerce"><Activity size={16} /></span><div><small>电商任务</small><strong>{queueValue(runtime.ecommerce, 'activeJobs')} 个运行中</strong><span>{queueValue(jobs.active, 'active')} 个全局活跃任务</span></div></article>
       <article><span className="admin-runtime-icon video"><Video size={16} /></span><div><small>视频队列</small><strong>{queueValue(videoQueue, 'running')} 处理中</strong><span>{queueValue(videoQueue, 'queued')} 个排队 · {queueValue(routes, 'length')} 条路由</span></div></article>
       <article><span className="admin-runtime-icon failure"><Ban size={16} /></span><div><small>终态失败率</small><strong>{((Number(jobs.failureRate || 0)) * 100).toFixed(1)}%</strong><span>{Number(jobs.failed || 0).toLocaleString('zh-CN')} 个失败 / {Number(jobs.completed || 0).toLocaleString('zh-CN')} 个完成</span></div></article>
+    </div>
+    <div className={`admin-workbench-pilot-strip ${workbenchReady ? 'is-ready' : ''}`} aria-label="视频工作台试运行状态">
+      <div><span>视频工作台 · 站长试运行</span><strong>{workbenchReady ? '10 项目门禁已满足' : '默认关闭，等待验收'}</strong></div>
+      <div><small>项目漏斗</small><b>{Number(workbenchFunnel.projectsStarted || 0)}/{Number(workbenchGate.minimumProjects || 10)} 已启动 · {Number(workbenchFunnel.storyboardReadyProjects || 0)}/{Number(workbenchGate.minimumStoryboardReadyProjects || 10)} 分镜就绪</b></div>
+      <div><small>24 小时操作质量</small><b>{(Number(workbenchOperations.successRate || 0) * 100).toFixed(1)}% 成功 · P95 {Number(workbenchOperations.p95LatencyMs || 0)} ms</b></div>
+      <div><small>一致性健康</small><b>{Number(workbenchHealth.staleShots || 0)} 个过期分镜 · {Number(workbenchHealth.staleClips || 0)} 个过期片段</b></div>
     </div>
     <div className="admin-monitoring-grid">
       <div className="admin-monitoring-section"><div className="admin-band-heading compact"><div><span>供应商与路由</span><h3>视频模型通道</h3></div></div>{routes.length ? <div className="admin-route-list">{routes.map(route => <article key={`${route.routeId}:${route.productId}`}><div><strong>{route.label || route.productId || route.routeId}</strong><small>{route.routeId}</small></div><span className={`admin-route-status ${route.availability || (route.configured ? 'ready' : 'unavailable')}`}>{route.availability || (route.configured ? 'ready' : 'unavailable')}</span><dl><div><dt>处理中</dt><dd>{route.queue?.running ?? route.active ?? 0}</dd></div><div><dt>排队</dt><dd>{route.queue?.queued ?? 0}</dd></div><div><dt>失败率</dt><dd>{((Number(route.failureRate || 0)) * 100).toFixed(1)}%</dd></div></dl></article>)}</div> : <EmptyState title="暂无视频路由" detail="配置上游凭据后会显示真实通道状态" />}</div>

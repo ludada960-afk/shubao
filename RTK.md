@@ -329,6 +329,23 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 ## 2026-08-16 AI Video Foundation Production Release
 
+## 2026-08-16 AI Video P1 Owner Pilot Gate
+
+- 本地 owner pilot 已完成：`VIDEO_PLATFORM_P1_WORKBENCH` 仍默认关闭，服务端新增 owner
+  cohort gate，能力发现和全部 workbench 路由均受保护；普通测试账号统一返回不可用 404，
+  不泄露灰度资格。
+- SQLite workbench 新增 append-only operation telemetry 与只读 funnel/SLO 快照，后台展示
+  owner pilot 的 started、approved assets、storyboard ready、candidate/timeline、stale、
+  24h success rate 和 p95 latency。
+- `npm test` `1651/1651`、重点回归 `30/30`、`npm run check`、`npm run build`（6510 modules）、
+  `npm run verify:video-workbench-pilot`、`git diff --check` 全部通过。十个隔离项目全部达到
+  approved asset/storyboard readiness，40/40 operations 成功，未写入 `video_jobs`、
+  `usage_events`、`billing_holds` 或 wallet。
+- 本地 HTTP 验收已证明匿名 capability=false、owner 可创建项目/资产/分镜并读取 workbench、
+  tester 路由不可见。既有浏览器验收覆盖 P1 UI；本轮 Playwright daemon 不可用，未进行任何
+  付费视频生成。下一门槛是仅通过 `scripts/deploy-production.ps1` 做默认关闭生产发布和
+  600 秒金丝雀，随后再评估是否开启 owner pilot。
+
 - AI 视频 P0 可靠媒体、任务、尝试、交付、账务、Outbox/恢复底座，以及 P1 六阶段项目
   工作台已随提交 `5d933c2` 通过唯一入口 `scripts/deploy-production.ps1` 发布至
   `https://shuimg.cn/`。Nginx `current` 指向
