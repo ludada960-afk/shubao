@@ -46,6 +46,8 @@ test('project workbench exposes real persisted stages without provider controls 
     'importJobCandidate',
     'selectShotCandidate',
     'addTimelineClip',
+    'upsertVideoProjectMemoryFact',
+    'removeVideoProjectMemoryFact',
   ]) {
     assert.match(component, new RegExp(command));
   }
@@ -72,6 +74,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.doesNotMatch(component, /provider|模型选择|供应商/);
   assert.match(component, /内容已在其他位置更新|刷新后重试/);
   assert.match(component, /aria-label="视频项目工作台"/);
+  assert.match(component, /项目记忆/);
+  assert.match(component, /workbench\?\.memory/);
+  assert.match(component, /expectedRevision:\s*fact\.revision/);
+  assert.match(component, /removeVideoProjectMemoryFact\(projectId, fact\.key, fact\.revision\)/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);
   assert.match(component, /<video[^>]+preload="metadata"/);

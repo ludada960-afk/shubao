@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
+import { normalizeProjectMemoryFact, normalizeProjectMemoryList } from './videoProjectMemory.mjs';
 import { buildSkillRunExecutionPlan, normalizeSkillRunSpec } from './videoSkillRun.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
@@ -165,6 +166,22 @@ function clipFromRow(row) {
   };
 }
 
+function memoryFactFromRow(row) {
+  if (!row) return null;
+  return normalizeProjectMemoryFact({
+    id: row.id,
+    key: row.fact_key,
+    value: parseJson(row.value_json, null),
+    source: row.source,
+    assetRefs: parseJson(row.asset_refs_json, []),
+    status: row.status,
+    revision: row.revision,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+  });
+}
+
 function skillRunFromRow(row, events = []) {
   if (!row) return null;
   const plan = parseJson(row.plan_json, {});
@@ -283,6 +300,17 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_skill_run_events_run
       ON video_skill_run_events(owner_email, project_id, run_id, sequence);
+    CREATE TABLE IF NOT EXISTS video_project_memory_facts (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      fact_key TEXT NOT NULL, value_json TEXT NOT NULL DEFAULT 'null',
+      source TEXT NOT NULL DEFAULT 'user', asset_refs_json TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'active', revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+      UNIQUE(owner_email, project_id, fact_key),
+      FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_project_memory_facts_project
+      ON video_project_memory_facts(owner_email, project_id, status, updated_at DESC);
   `);
 }
 
@@ -607,6 +635,75 @@ export function createVideoWorkbenchStore({
       return clipFromRow(db.prepare('SELECT * FROM video_timeline_clips WHERE id = ?').get(id));
     },
 
+    listProjectMemory({ ownerEmail, projectId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const rows = db.prepare(`SELECT * FROM video_project_memory_facts
+        WHERE owner_email = ? AND project_id = ? AND status = 'active'
+        ORDER BY fact_key, updated_at DESC`).all(owner, project.id);
+      return normalizeProjectMemoryList(rows.map(memoryFactFromRow));
+    },
+
+    setProjectMemoryFact({ ownerEmail, projectId, key, value, source = 'user', assetRefs = [], expectedRevision = null }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalized = normalizeProjectMemoryFact({ key, value, source, assetRefs, revision: 1 });
+      return db.transaction(() => {
+        for (const ref of normalized.assetRefs) {
+          const asset = db.prepare(`SELECT approved_version_id FROM video_workbench_assets
+            WHERE id = ? AND owner_email = ? AND project_id = ?`).get(ref.assetId, owner, project.id);
+          if (!asset) throw coded('MEMORY_ASSET_NOT_FOUND', 'memory asset reference not found');
+          if (asset.approved_version_id !== ref.assetVersionId) {
+            throw coded('MEMORY_ASSET_VERSION_NOT_APPROVED', 'memory asset version is not approved');
+          }
+        }
+        const currentRow = db.prepare(`SELECT * FROM video_project_memory_facts
+          WHERE owner_email = ? AND project_id = ? AND fact_key = ?`).get(owner, project.id, normalized.key);
+        if (currentRow) {
+          const current = memoryFactFromRow(currentRow);
+          if (expectedRevision == null || Number(expectedRevision) !== current.revision) {
+            throw coded('VERSION_CONFLICT', 'project memory revision is stale', current);
+          }
+          const revision = current.revision + 1;
+          const changedAt = timestamp();
+          db.prepare(`UPDATE video_project_memory_facts SET value_json = ?, source = ?, asset_refs_json = ?,
+            status = 'active', revision = ?, updated_at = ?, deleted_at = NULL WHERE id = ?`).run(
+            JSON.stringify(normalized.value), normalized.source, JSON.stringify(normalized.assetRefs),
+            revision, changedAt, current.id,
+          );
+          return memoryFactFromRow(db.prepare('SELECT * FROM video_project_memory_facts WHERE id = ?').get(current.id));
+        }
+        if (expectedRevision != null) throw coded('VERSION_CONFLICT', 'project memory revision is stale');
+        const id = randomUUID();
+        const createdAt = timestamp();
+        db.prepare(`INSERT INTO video_project_memory_facts
+          (id, owner_email, project_id, fact_key, value_json, source, asset_refs_json,
+           status, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?)`).run(
+          id, owner, project.id, normalized.key, JSON.stringify(normalized.value), normalized.source,
+          JSON.stringify(normalized.assetRefs), createdAt, createdAt,
+        );
+        return memoryFactFromRow(db.prepare('SELECT * FROM video_project_memory_facts WHERE id = ?').get(id));
+      })();
+    },
+
+    removeProjectMemoryFact({ ownerEmail, projectId, key, expectedRevision }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedKey = normalizeProjectMemoryFact({ key, value: null }).key;
+      return db.transaction(() => {
+        const row = db.prepare(`SELECT * FROM video_project_memory_facts
+          WHERE owner_email = ? AND project_id = ? AND fact_key = ?`).get(owner, project.id, normalizedKey);
+        if (!row) throw coded('MEMORY_FACT_NOT_FOUND', 'project memory fact not found');
+        const current = memoryFactFromRow(row);
+        if (expectedRevision == null || Number(expectedRevision) !== current.revision) {
+          throw coded('VERSION_CONFLICT', 'project memory revision is stale', current);
+        }
+        const changedAt = timestamp();
+        db.prepare(`UPDATE video_project_memory_facts SET status = 'deleted', value_json = 'null',
+          asset_refs_json = '[]', revision = ?, updated_at = ?, deleted_at = ? WHERE id = ?`).run(
+          current.revision + 1, changedAt, changedAt, current.id,
+        );
+        return memoryFactFromRow(db.prepare('SELECT * FROM video_project_memory_facts WHERE id = ?').get(current.id));
+      })();
+    },
+
     createReplayManifest({
       ownerEmail, projectId, skillId, skillVersion, skillRunId = null,
       modelCatalogSnapshot = {}, rightsConfirmations = [],
@@ -615,6 +712,7 @@ export function createVideoWorkbenchStore({
       const skillRun = skillRunId ? requireSkillRun(owner, project.id, skillRunId).run : null;
       const manifest = buildReplayManifest({
         workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
+        memory: api.listProjectMemory({ ownerEmail: owner, projectId: project.id }),
         skillId,
         skillVersion,
         skillRun,
@@ -688,6 +786,7 @@ export function createVideoWorkbenchStore({
         const planSnapshot = {
           skill: manifest.skill,
           ...(manifest.skillRun ? { skillRun: manifest.skillRun } : {}),
+          ...(manifest.memory ? { memory: manifest.memory } : {}),
           modelCatalogSnapshot: manifest.modelCatalogSnapshot || {},
           rightsConfirmations: manifest.rightsConfirmations || [],
           clone: { mode: 'draft', providerSubmission: false, billingMutation: false },
@@ -742,6 +841,23 @@ export function createVideoWorkbenchStore({
             .run(approvedVersionId, approvedVersionId ? 'approved' : (clean(sourceAsset.status, 40) || 'draft'),
               Number.isSafeInteger(sourceAsset.revision) ? sourceAsset.revision : 1, assetId);
           if (!assetIds.has(sourceAssetId)) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'asset mapping is missing');
+        }
+
+        for (const memory of (Array.isArray(manifest.memory) ? manifest.memory : [])) {
+          const refs = (Array.isArray(memory.assetRefs) ? memory.assetRefs : []).map(ref => {
+            const assetId = assetIds.get(clean(ref?.assetId, 200));
+            const assetVersionId = versionIds.get(clean(ref?.assetVersionId, 200));
+            if (!assetId || !assetVersionId) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'memory asset reference is missing');
+            return { assetId, assetVersionId };
+          });
+          db.prepare(`INSERT INTO video_project_memory_facts
+            (id, owner_email, project_id, fact_key, value_json, source, asset_refs_json,
+             status, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`).run(
+            randomUUID(), owner, clonedProject.id, clean(memory.key, 128), JSON.stringify(memory.value ?? null),
+            clean(memory.source, 40) || 'user', JSON.stringify(refs),
+            Number.isSafeInteger(memory.revision) && memory.revision > 0 ? memory.revision : 1,
+            createdAt, createdAt,
+          );
         }
 
         const shotIds = new Map();
@@ -955,6 +1071,7 @@ export function createVideoWorkbenchStore({
         assets: assets.map(asset => ({ ...asset, versions: versions.filter(version => version.assetId === asset.id) })),
         shots,
         timelineClips,
+        memory: api.listProjectMemory({ ownerEmail: owner, projectId: project.id }),
       };
     },
 

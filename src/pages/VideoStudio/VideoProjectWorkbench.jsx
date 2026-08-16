@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Save,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { createProject, listProjects } from '../../services/projects.js';
 import {
@@ -25,7 +26,9 @@ import {
   getVideoWorkbench,
   importJobCandidate,
   importWorkbenchAssetVersion,
+  removeVideoProjectMemoryFact,
   selectShotCandidate,
+  upsertVideoProjectMemoryFact,
   updateStoryboardShot,
 } from '../../services/videoWorkbench.js';
 import {
@@ -86,6 +89,14 @@ function displayError(error) {
   return error?.message || '操作没有完成，请刷新后重试。';
 }
 
+function memoryValueText(value) {
+  return JSON.stringify(value, null, 2);
+}
+
+function memorySourceLabel(source) {
+  return ({ user: '用户设定', approved_asset: '已确认素材', skill: '工作流记录' })[source] || '项目记录';
+}
+
 function ProjectMedia({ version, name }) {
   if (!version?.stableUrl) return null;
   const mediaUrl = version.playbackUrl || version.stableUrl;
@@ -113,6 +124,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [assetKinds, setAssetKinds] = useState({});
   const [bindingChoices, setBindingChoices] = useState({});
   const [shotEdits, setShotEdits] = useState({});
+  const [memoryDrafts, setMemoryDrafts] = useState({});
+  const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
   const selectedProjectRef = useRef('');
   const requestSequenceRef = useRef(0);
@@ -326,6 +339,47 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }));
   }
 
+  function parseMemoryValue(text) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      setError('项目记忆值必须是有效 JSON，例如字符串需要加引号。');
+      return undefined;
+    }
+  }
+
+  function handleSaveMemory(fact) {
+    const text = memoryDrafts[fact.key] ?? memoryValueText(fact.value);
+    const value = parseMemoryValue(text);
+    if (value === undefined) return;
+    void runMutation(`memory:update:${fact.key}`, () => upsertVideoProjectMemoryFact(projectId, fact.key, {
+      value,
+      source: fact.source,
+      assetRefs: fact.assetRefs,
+      expectedRevision: fact.revision,
+    }));
+  }
+
+  function handleDeleteMemory(fact) {
+    void runMutation(`memory:delete:${fact.key}`, () => removeVideoProjectMemoryFact(projectId, fact.key, fact.revision));
+  }
+
+  function handleCreateMemory(event) {
+    event.preventDefault();
+    const key = newMemory.key.trim();
+    if (!key) return;
+    const value = parseMemoryValue(newMemory.value);
+    if (value === undefined) return;
+    void runMutation(`memory:create:${key}`, async () => {
+      await upsertVideoProjectMemoryFact(projectId, key, {
+        value,
+        source: newMemory.source,
+        expectedRevision: null,
+      });
+      setNewMemory({ key: '', value: '{\n  \n}', source: 'user' });
+    });
+  }
+
   if (!enabled || !logged) return null;
 
   const currentStageIndex = Math.max(0, STAGES.findIndex(stage => stage.id === stageSummary.stage));
@@ -384,6 +438,24 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         {!!approved.length && <div className="video-project-approved-assets">{approved.map(({ asset, version }) => <article key={asset.id}>
           <div className="video-project-media"><ProjectMedia version={version} name={asset.name} /></div><span><small>{ASSET_KINDS.find(([value]) => value === asset.kind)?.[1] || '素材'} · V{version.sequence}</small><strong>{asset.name}</strong><em><Check size={13} />已确认</em></span>
         </article>)}</div>}
+      </section>
+
+      <section className="video-project-band video-project-memory-band" aria-labelledby="video-memory-heading">
+        <header><div><small>记忆</small><span><h3 id="video-memory-heading">项目记忆</h3><p>保存会影响后续创作的风格、角色和交付约束，并随项目回放。</p></span></div><b>{workbench?.memory?.length || 0} 条</b></header>
+        <div className="video-project-memory-list">
+          {(workbench?.memory || []).map(fact => <article key={fact.key} className="video-project-memory-row">
+            <div className="video-project-memory-meta"><strong>{fact.key}</strong><span>{memorySourceLabel(fact.source)} · 修订 {fact.revision}</span></div>
+            <textarea aria-label={`编辑项目记忆 ${fact.key}`} value={memoryDrafts[fact.key] ?? memoryValueText(fact.value)} onChange={event => setMemoryDrafts(current => ({ ...current, [fact.key]: event.target.value }))} />
+            <div className="video-project-memory-actions"><button type="button" title="保存项目记忆" aria-label={`保存项目记忆 ${fact.key}`} disabled={Boolean(busy)} onClick={() => handleSaveMemory(fact)}>{busy === `memory:update:${fact.key}` ? <LoaderCircle className="is-spinning" size={15} /> : <Save size={15} />}</button><button type="button" title="删除项目记忆" aria-label={`删除项目记忆 ${fact.key}`} disabled={Boolean(busy)} onClick={() => handleDeleteMemory(fact)}><Trash2 size={15} /></button></div>
+          </article>)}
+          {!workbench?.memory?.length && <p className="video-project-inline-empty">还没有项目记忆。保存第一条创作约束后，后续回放会自动带上它。</p>}
+        </div>
+        <form className="video-project-memory-create" onSubmit={handleCreateMemory}>
+          <label><span>记忆键</span><input value={newMemory.key} maxLength="128" placeholder="例如：brandTone" onChange={event => setNewMemory(current => ({ ...current, key: event.target.value }))} /></label>
+          <label className="is-value"><span>记忆值（JSON）</span><textarea value={newMemory.value} maxLength="8192" onChange={event => setNewMemory(current => ({ ...current, value: event.target.value }))} /></label>
+          <label><span>来源</span><select value={newMemory.source} onChange={event => setNewMemory(current => ({ ...current, source: event.target.value }))}><option value="user">用户设定</option><option value="approved_asset">已确认素材</option><option value="skill">工作流记录</option></select></label>
+          <button type="submit" disabled={Boolean(busy) || !newMemory.key.trim()}><Plus size={15} />新增记忆</button>
+        </form>
       </section>
 
       <section className="video-project-band" aria-labelledby="video-shots-heading">

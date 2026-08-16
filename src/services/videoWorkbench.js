@@ -16,6 +16,7 @@ const manifestSegment = value => pathSegment(value, '请选择有效的配方快
 const skillRunSegment = value => pathSegment(value, '请选择有效的 SkillRun');
 const checkpointSegment = value => pathSegment(value, '请选择有效的确认节点');
 const stepSegment = value => pathSegment(value, '请选择有效的 SkillRun 步骤');
+const memoryFactSegment = value => pathSegment(value, '请选择有效的项目记忆');
 
 function signedHeaders(headers = {}) {
   const token = getSessionToken();
@@ -74,6 +75,30 @@ export async function getVideoWorkbench(projectId) {
     throw new Error('视频项目数据暂时不可用，请稍后重试');
   }
   return response;
+}
+
+export async function getVideoProjectMemory(projectId) {
+  const response = await requestJson(`${workbenchBase(projectId)}/memory`, {}, '暂时无法读取项目记忆');
+  if (!Array.isArray(response?.memory)) throw new Error('项目记忆暂时不可用，请稍后重试');
+  return response.memory;
+}
+
+export async function upsertVideoProjectMemoryFact(projectId, key, payload = {}) {
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/memory/${memoryFactSegment(key)}`,
+    { method: 'PUT', ...jsonBody(payload) },
+    '暂时无法保存项目记忆',
+  );
+  return requireValue(response, 'fact', '项目记忆暂时不可用，请稍后重试');
+}
+
+export async function removeVideoProjectMemoryFact(projectId, key, expectedRevision) {
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/memory/${memoryFactSegment(key)}`,
+    { method: 'DELETE', ...jsonBody({ expectedRevision }) },
+    '暂时无法删除项目记忆',
+  );
+  return requireValue(response, 'fact', '项目记忆暂时不可用，请稍后重试');
 }
 
 export async function createWorkbenchAsset(projectId, payload = {}) {

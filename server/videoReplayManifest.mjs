@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { memoryFactsSnapshot } from './videoProjectMemory.mjs';
 
 export const REPLAY_MANIFEST_SCHEMA_VERSION = 1;
 
@@ -161,6 +162,7 @@ export function buildReplayManifest({
   skillRun = null,
   modelCatalogSnapshot = {},
   rightsConfirmations = [],
+  memory = [],
 } = {}) {
   if (!workbench?.project?.id || workbench.project.kind !== 'video') throw invalid('video project is required');
   if (!Number.isSafeInteger(skillVersion) || skillVersion < 1) throw invalid('skillVersion is invalid');
@@ -174,6 +176,7 @@ export function buildReplayManifest({
   }
   if (!Array.isArray(workbench.assets) || !Array.isArray(workbench.shots)
     || !Array.isArray(workbench.timelineClips)) throw invalid('workbench graph is incomplete');
+  const memorySnapshot = memoryFactsSnapshot(memory);
   const manifest = {
     schemaVersion: REPLAY_MANIFEST_SCHEMA_VERSION,
     project: { id: text(workbench.project.id, 'project id', 200), kind: 'video' },
@@ -181,6 +184,7 @@ export function buildReplayManifest({
     ...(skillRun == null ? {} : { skillRun: skillRunSnapshot(skillRun, skillId, skillVersion) }),
     modelCatalogSnapshot: stable(safeValue(modelCatalogSnapshot || {})),
     rightsConfirmations: [...rights.values()].sort((left, right) => left.assetId.localeCompare(right.assetId)),
+    ...(memorySnapshot.length ? { memory: memorySnapshot } : {}),
     assets: workbench.assets.map(item => asset(item, new Set(rights.keys()))),
     shots: workbench.shots.map(shot),
     timelineClips: workbench.timelineClips.map(clip),

@@ -166,6 +166,39 @@ test('skill run step completion is dependency-gated and resumable', t => {
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
 });
 
+test('project memory is owner-scoped, revisioned, soft-deletable, and accepts only approved asset versions', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first, second } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+
+  assert.deepEqual(store.listProjectMemory({ ownerEmail: OWNER, projectId: project.id }), []);
+  const created = store.setProjectMemoryFact({ ownerEmail: OWNER, projectId: project.id,
+    key: 'heroMood', value: { tone: 'warm' }, source: 'approved_asset',
+    assetRefs: [{ assetId: asset.id, assetVersionId: first.id }] });
+  assert.equal(created.revision, 1);
+  assert.deepEqual(created.assetRefs, [{ assetId: asset.id, assetVersionId: first.id }]);
+  assert.deepEqual(store.listProjectMemory({ ownerEmail: OWNER, projectId: project.id }).map(item => item.key), ['heroMood']);
+
+  const updated = store.setProjectMemoryFact({ ownerEmail: OWNER, projectId: project.id,
+    key: 'heroMood', value: { tone: 'cool' }, expectedRevision: 1 });
+  assert.equal(updated.revision, 2);
+  assert.throws(() => store.setProjectMemoryFact({ ownerEmail: OWNER, projectId: project.id,
+    key: 'heroMood', value: { tone: 'stale' }, expectedRevision: 1 }), error => error.code === 'VERSION_CONFLICT');
+  assert.throws(() => store.setProjectMemoryFact({ ownerEmail: OWNER, projectId: project.id,
+    key: 'badRef', value: true, assetRefs: [{ assetId: asset.id, assetVersionId: second.id }] }),
+  error => error.code === 'MEMORY_ASSET_VERSION_NOT_APPROVED');
+  assert.throws(() => store.listProjectMemory({ ownerEmail: 'other@example.com', projectId: project.id }),
+    error => error.code === 'PROJECT_NOT_FOUND');
+
+  const removed = store.removeProjectMemoryFact({ ownerEmail: OWNER, projectId: project.id,
+    key: 'heroMood', expectedRevision: 2 });
+  assert.equal(removed.status, 'deleted');
+  assert.deepEqual(store.listProjectMemory({ ownerEmail: OWNER, projectId: project.id }), []);
+  assert.equal(db.prepare('SELECT status, revision FROM video_project_memory_facts WHERE fact_key = ?').get('heroMood').revision, 3);
+});
+
 test('replay manifests are immutable, deduplicated and owner scoped', t => {
   const { db, projectStore, store, project } = harness();
   t.after(() => db.close());
@@ -264,6 +297,30 @@ test('replay manifest links a SkillRun recipe and clone preserves it in the proj
   assert.deepEqual(plan.skillRun, manifest.skillRun);
   assert.equal(JSON.stringify(plan).includes(run.id), false);
   assert.equal(JSON.stringify(plan).includes('ownerEmail'), false);
+});
+
+test('replay manifest clone carries project memory with remapped approved asset references', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  store.setProjectMemoryFact({ ownerEmail: OWNER, projectId: project.id,
+    key: 'heroMood', value: { tone: 'warm' }, source: 'approved_asset',
+    assetRefs: [{ assetId: asset.id, assetVersionId: first.id }] });
+  const manifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'commerce-trailer', skillVersion: 1, rightsConfirmations: [asset.id] });
+  assert.equal(manifest.memory[0].key, 'heroMood');
+  const cloned = store.cloneReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'memory-clone-1' });
+  const graph = store.listWorkbench({ ownerEmail: OWNER, projectId: cloned.project.id });
+  assert.equal(graph.memory.length, 1);
+  assert.equal(graph.memory[0].key, 'heroMood');
+  assert.notEqual(graph.memory[0].assetRefs[0].assetId, asset.id);
+  assert.equal(graph.memory[0].assetRefs[0].assetId, graph.assets[0].id);
+  const version = db.prepare(`SELECT plan_snapshot FROM project_versions
+    WHERE project_id = ? ORDER BY sequence DESC LIMIT 1`).get(cloned.project.id);
+  assert.deepEqual(JSON.parse(version.plan_snapshot).memory, manifest.memory);
 });
 
 test('replay manifest clone rejects tampered manifests and foreign owners', t => {

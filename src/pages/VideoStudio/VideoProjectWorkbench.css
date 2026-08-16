@@ -65,6 +65,22 @@
 .video-project-approved-assets small { color: #8f867d; font-size: 10px; }
 .video-project-approved-assets strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .video-project-approved-assets em { display: inline-flex; align-items: center; gap: 4px; color: #397668; font-size: 10px; font-style: normal; }
+.video-project-memory-band { background: linear-gradient(105deg,#fffaf0 0%,#fff 72%); }
+.video-project-memory-list { margin-top: 12px; display: grid; gap: 8px; }
+.video-project-memory-row { min-width: 0; padding: 10px; display: grid; grid-template-columns: 170px minmax(0,1fr) auto; gap: 10px; align-items: start; border: 1px solid #e6dfd6; border-radius: 7px; background: #fff; }
+.video-project-memory-meta { min-width: 0; display: grid; gap: 5px; padding-top: 4px; }
+.video-project-memory-meta strong { overflow: hidden; color: #413a34; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.video-project-memory-meta span { color: #938a81; font-size: 10px; }
+.video-project-memory-row textarea { width: 100%; min-height: 58px; padding: 8px 10px; resize: vertical; border: 1px solid #ded8d0; border-radius: 6px; outline: none; color: #413a34; background: #fffdfa; font: 11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.video-project-memory-row textarea:focus,.video-project-memory-create input:focus,.video-project-memory-create textarea:focus,.video-project-memory-create select:focus { border-color: #9a86e4; box-shadow: 0 0 0 3px rgba(122,99,213,.1); }
+.video-project-memory-actions { display: flex; gap: 6px; }
+.video-project-memory-actions button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #ddd6ce; border-radius: 6px; color: #5b524b; background: #fff; }
+.video-project-memory-actions button:last-child { color: #a04d47; }
+.video-project-memory-create { margin-top: 10px; padding: 10px; display: grid; grid-template-columns: 170px minmax(0,1fr) 130px auto; align-items: end; gap: 8px; border: 1px dashed #d8cfc5; border-radius: 7px; background: rgba(255,255,255,.64); }
+.video-project-memory-create label { min-width: 0; display: grid; gap: 6px; color: #777068; font-size: 10px; }
+.video-project-memory-create input,.video-project-memory-create select,.video-project-memory-create textarea { width: 100%; min-height: 36px; padding: 8px 9px; border: 1px solid #ded8d0; border-radius: 6px; outline: none; color: #413a34; background: #fff; }
+.video-project-memory-create textarea { height: 36px; min-height: 36px; resize: vertical; font: 11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.video-project-memory-create button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 12px; border: 0; border-radius: 6px; color: #fff; background: #4a4641; font-size: 11px; font-weight: 700; }
 .video-project-shot-form { margin-top: 15px; padding: 12px; display: grid; grid-template-columns: 1.2fr 96px 1fr 1.5fr auto; align-items: end; gap: 8px; border: 1px solid #e3ddd6; border-radius: 6px; background: #f8f6f3; }
 .video-project-shot-form textarea { height: 40px; min-height: 40px; resize: vertical; }
 .video-project-shot-form .is-duration { position: relative; }
@@ -122,6 +138,8 @@
 @media(max-width:980px) {
   .video-project-stages { grid-template-columns: repeat(3,1fr); gap: 8px 0; padding-top: 10px; padding-bottom: 10px; }
   .video-project-controls { grid-template-columns: 1fr; }
+  .video-project-memory-row { grid-template-columns: 150px minmax(0,1fr) auto; }
+  .video-project-memory-create { grid-template-columns: 1fr 1.5fr 120px auto; }
   .video-project-shot-form { grid-template-columns: 1fr 100px 1fr; }
   .video-project-shot-form .is-prompt { grid-column: 1/3; }
   .video-project-shot-edit > div { grid-template-columns: 1fr 100px; }
@@ -135,6 +153,11 @@
   .video-project-stages li > span { width: 27px; height: 27px; }
   .video-project-stages li > svg { display: none; }
   .video-project-controls form { grid-template-columns: 1fr; }
+  .video-project-memory-row { grid-template-columns: 1fr auto; }
+  .video-project-memory-row textarea { grid-column: 1/-1; grid-row: 2; }
+  .video-project-memory-actions { grid-column: 2; grid-row: 1; }
+  .video-project-memory-create { grid-template-columns: 1fr; }
+  .video-project-memory-create .is-value { grid-row: auto; }
   .video-project-upload-list > article { grid-template-columns: minmax(0,1fr) 108px; }
   .video-project-upload-list > article > button { grid-column: 1/-1; }
   .video-project-shot-form { grid-template-columns: 1fr 88px; }

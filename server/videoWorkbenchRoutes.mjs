@@ -8,6 +8,8 @@ const NOT_FOUND_CODES = new Set([
   'VIDEO_ASSET_NOT_FOUND',
   'SKILL_RUN_NOT_FOUND',
   'REPLAY_MANIFEST_NOT_FOUND',
+  'MEMORY_FACT_NOT_FOUND',
+  'MEMORY_ASSET_NOT_FOUND',
 ]);
 
 function ownerFor(req, authenticateOwner) {
@@ -39,6 +41,12 @@ function routeError(error, res) {
   }
   if (code === 'VIDEO_ASSET_NOT_READY') {
     return res.status(409).json({ code, error: '素材尚未完成持久化校验，请稍后重试' });
+  }
+  if (code === 'MEMORY_ASSET_VERSION_NOT_APPROVED') {
+    return res.status(409).json({ code, error: '项目记忆只能引用已确认的素材版本' });
+  }
+  if (code === 'MEMORY_INVALID') {
+    return res.status(400).json({ code, error: '项目记忆内容无效' });
   }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
@@ -105,7 +113,8 @@ export function mountVideoWorkbenchRoutes(app, {
   if (typeof authenticateOwner !== 'function') throw new TypeError('authenticateOwner is required');
   if (typeof authorizeCohort?.requireEligible !== 'function') throw new TypeError('authorizeCohort is required');
   if (typeof playbackUrlForAsset !== 'function') throw new TypeError('playbackUrlForAsset is required');
-  if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
+  if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function'
+    || typeof app.put !== 'function' || typeof app.delete !== 'function') {
     throw new TypeError('app must provide get, post and patch');
   }
 
@@ -132,6 +141,29 @@ export function mountVideoWorkbenchRoutes(app, {
   app.get('/api/video/projects/:projectId/workbench', (req, res) => dispatch(req, res, 'workbench.read', request => (
     projectPlayableMedia(store.listWorkbench(request), request.ownerEmail, req, playbackUrlForAsset)
   )));
+
+  app.get('/api/video/projects/:projectId/workbench/memory', (req, res) => dispatch(
+    req, res, 'memory.read', request => ({ memory: store.listProjectMemory(request) }),
+  ));
+
+  app.put('/api/video/projects/:projectId/workbench/memory/:factKey', (req, res) => dispatch(
+    req, res, 'memory.upsert', request => store.setProjectMemoryFact({
+      ...request,
+      key: req.params.factKey,
+      value: req.body?.value,
+      source: req.body?.source,
+      assetRefs: req.body?.assetRefs,
+      expectedRevision: req.body?.expectedRevision,
+    }), { status: value => (value?.revision === 1 ? 201 : 200), key: 'fact' },
+  ));
+
+  app.delete('/api/video/projects/:projectId/workbench/memory/:factKey', (req, res) => dispatch(
+    req, res, 'memory.delete', request => store.removeProjectMemoryFact({
+      ...request,
+      key: req.params.factKey,
+      expectedRevision: req.body?.expectedRevision,
+    }), { key: 'fact' },
+  ));
 
   app.post('/api/video/projects/:projectId/workbench/assets', (req, res) => dispatch(req, res, 'asset.create', request => (
     store.createAsset({ ...request, kind: req.body?.kind, name: req.body?.name })

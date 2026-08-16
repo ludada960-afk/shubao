@@ -12,6 +12,9 @@ import {
   getVideoReplayManifest,
   getVideoSkillRun,
   getVideoWorkbench,
+  getVideoProjectMemory,
+  upsertVideoProjectMemoryFact,
+  removeVideoProjectMemoryFact,
   importJobCandidate,
   importWorkbenchAssetVersion,
   selectShotCandidate,
@@ -120,6 +123,36 @@ test('video workbench client rejects invalid path IDs before fetching', async t 
   await assert.rejects(updateStoryboardShot('project-1', '', {}), /请选择有效的分镜/);
   await assert.rejects(getVideoSkillRun('project-1', ''), /请选择有效的 SkillRun/);
   assert.equal(called, false);
+});
+
+test('video project memory client encodes fact keys and preserves revisions', async t => {
+  installSession('signed-memory-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  const responses = [
+    { memory: [] },
+    { fact: { key: 'hero/mood', value: { tone: 'warm' }, revision: 1 } },
+    { fact: { key: 'hero/mood', value: { tone: 'cool' }, revision: 2 } },
+  ];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse(responses.shift(), options.method === 'POST' ? 201 : 200);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await getVideoProjectMemory('project-1');
+  await upsertVideoProjectMemoryFact('project-1', 'hero/mood', {
+    value: { tone: 'warm' }, source: 'user', expectedRevision: null,
+  });
+  await removeVideoProjectMemoryFact('project-1', 'hero/mood', 1);
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/memory');
+  assert.equal(requests[1].path, '/api/video/projects/project-1/workbench/memory/hero%2Fmood');
+  assert.equal(requests[1].options.method, 'PUT');
+  assert.deepEqual(JSON.parse(requests[1].options.body), {
+    value: { tone: 'warm' }, source: 'user', expectedRevision: null,
+  });
+  assert.equal(requests[2].options.method, 'DELETE');
+  assert.deepEqual(JSON.parse(requests[2].options.body), { expectedRevision: 1 });
+  assert.equal(requests[2].options.headers.Authorization, 'Bearer signed-memory-session');
 });
 
 test('video SkillRun client signs preview, read, and checkpoint confirmation requests', async t => {

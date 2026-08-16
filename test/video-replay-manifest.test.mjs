@@ -85,3 +85,27 @@ test('replay manifest carries a bounded SkillRun recipe snapshot without runtime
   assert.equal(serialized.includes('run-internal'), false);
   assert.equal(serialized.includes('step.completed'), false);
 });
+
+test('replay manifest carries sanitized active project memory and omits deleted facts', () => {
+  const manifest = buildReplayManifest({
+    workbench: graph(),
+    skillId: 'commerce-trailer',
+    skillVersion: 3,
+    rightsConfirmations: ['asset-1'],
+    memory: [
+      {
+        id: 'fact-1', key: 'heroMood', value: { tone: 'warm' }, source: 'user',
+        assetRefs: [{ assetId: 'asset-1', assetVersionId: 'version-1' }],
+        status: 'active', revision: 2,
+        ownerEmail: 'owner@example.com', playbackUrl: 'https://signed.test/secret',
+      },
+      { id: 'fact-2', key: 'old', value: 'remove', source: 'user', status: 'deleted', revision: 2 },
+    ],
+  });
+  assert.deepEqual(manifest.memory, [{
+    key: 'heroMood', value: { tone: 'warm' }, source: 'user',
+    assetRefs: [{ assetId: 'asset-1', assetVersionId: 'version-1' }], revision: 2,
+  }]);
+  assert.equal(JSON.stringify(manifest.memory).includes('ownerEmail'), false);
+  assert.equal(JSON.stringify(manifest.memory).includes('signed.test'), false);
+});

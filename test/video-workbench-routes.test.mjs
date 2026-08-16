@@ -17,6 +17,8 @@ function createFakeApp() {
     get(path, handler) { routes.set(`GET ${path}`, handler); },
     post(path, handler) { routes.set(`POST ${path}`, handler); },
     patch(path, handler) { routes.set(`PATCH ${path}`, handler); },
+    put(path, handler) { routes.set(`PUT ${path}`, handler); },
+    delete(path, handler) { routes.set(`DELETE ${path}`, handler); },
     routes,
   };
 }
@@ -149,6 +151,38 @@ test('workbench routes derive owner from the signed session and ignore body owne
   });
   assert.equal(read.statusCode, 404);
   assert.equal(read.body.code, 'PROJECT_NOT_FOUND');
+});
+
+test('project memory routes preserve owner scope and optimistic revisions', async t => {
+  const { app, db, project, sessionTokens, store, ownerEmail } = harness();
+  t.after(() => db.close());
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const readPath = '/api/video/projects/:projectId/workbench/memory';
+  const factPath = '/api/video/projects/:projectId/workbench/memory/:factKey';
+  const read = await invoke(app, 'GET', readPath, { headers, params: { projectId: project.id } });
+  assert.equal(read.statusCode, 200);
+  assert.deepEqual(read.body.memory, []);
+  const created = await invoke(app, 'PUT', factPath, { headers,
+    params: { projectId: project.id, factKey: 'hero/mood' },
+    body: { value: { tone: 'warm' }, source: 'user' },
+  });
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.fact.key, 'hero/mood');
+  const stale = await invoke(app, 'PUT', factPath, { headers,
+    params: { projectId: project.id, factKey: 'hero/mood' },
+    body: { value: { tone: 'stale' }, expectedRevision: 0 },
+  });
+  assert.equal(stale.statusCode, 409);
+  const removed = await invoke(app, 'DELETE', factPath, { headers,
+    params: { projectId: project.id, factKey: 'hero/mood' },
+    body: { expectedRevision: 1 },
+  });
+  assert.equal(removed.statusCode, 200);
+  const denied = await invoke(app, 'GET', readPath, {
+    headers: signedHeaders(sessionTokens, 'other@example.com'), params: { projectId: project.id },
+  });
+  assert.equal(denied.statusCode, 404);
+  assert.equal(store.listProjectMemory({ ownerEmail, projectId: project.id }).length, 0);
 });
 
 test('owner can create and read an immutable replay manifest while tester remains denied', async t => {
