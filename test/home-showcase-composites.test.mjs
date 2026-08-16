@@ -28,7 +28,8 @@ test('try-on showcase composites preserve complete production assets in fixed wi
     const multiAngle = outputs.find(output => output.kind === 'multi-angle');
     const reference = outputs.find(output => output.kind === 'reference-workflow');
     assert.equal(multiAngle.ratio, '16:9');
-    assert.equal(multiAngle.sources.length, 5);
+    assert.equal(multiAngle.id, 'editorial-multi-angle-v4');
+    assert.equal(multiAngle.sources.length, 4);
     assert.equal(reference.ratio, '16:9');
     assert.equal(reference.sources.length, 3);
   } finally {
@@ -37,11 +38,15 @@ test('try-on showcase composites preserve complete production assets in fixed wi
 });
 
 test('try-on layout plans fill the frame without duplicated or blurred padding stages', () => {
-  const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-v3'];
-  assert.deepEqual(multiAngle.stages, ['product', 'result-fan']);
+  const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-v4'];
+  assert.deepEqual(multiAngle.stages, ['result-fan']);
   assert.equal(multiAngle.resultCards.length, 4);
   assert.deepEqual(multiAngle.resultCards.map(card => card.rotation), [-8, -3, 3, 8]);
-  assert.equal(multiAngle.arrow.kind, 'curved-editorial');
+  assert.equal('product' in multiAngle, false);
+  assert.equal('arrow' in multiAngle, false);
+  assert.ok(multiAngle.resultCards.every(card => card.height <= 704));
+  assert.ok(multiAngle.visualBounds.top >= 24);
+  assert.ok(multiAngle.visualBounds.bottom <= 876);
   assert.ok(multiAngle.visualBounds.right - multiAngle.visualBounds.left >= 1504);
 
   const reference = TRYON_LAYOUT_PLANS['tryon-reference-workflow'];

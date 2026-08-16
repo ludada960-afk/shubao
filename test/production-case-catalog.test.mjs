@@ -53,7 +53,10 @@ test('multi-angle try-on exposes four independent complete model views', () => {
   assert.equal(angleSources.length, 4);
   assert.equal(new Set(angleSources.map(asset => asset.src)).size, 4);
   assert.ok(angleSources.every(asset => asset.ratio === '9:16'));
-  assert.equal(item.assets.find(asset => asset.displayRole === 'workflowBanner').ratio, '16:9');
+  const workflow = item.assets.find(asset => asset.displayRole === 'workflowBanner');
+  assert.equal(workflow.ratio, '16:9');
+  assert.equal(workflow.src, '/images/home/tryon-showcase/editorial-multi-angle-v4.webp');
+  assert.equal(workflow.provenance, 'production-composite');
 });
 
 test('product suite has one wide final composite, five exact-prompt detail sources, and three rich selector previews', async () => {

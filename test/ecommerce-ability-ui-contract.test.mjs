@@ -74,7 +74,7 @@ test('product suite showcase uses a real premium earbuds production workflow', (
   assert.doesNotMatch(workbench, /className="ec-product-suite-source"/);
   assert.doesNotMatch(workbench, /className="ec-product-suite-results"/);
   assert.match(styles, /\.ec-product-suite-showcase/);
-  assert.match(styles, /\.ec-product-suite-final\s*\{[^}]*width:\s*min\(720px,\s*100%\)[^}]*aspect-ratio:\s*4\s*\/\s*3/);
+  assert.match(styles, /\.ec-product-suite-final\s*\{[^}]*width:\s*min\(520px,\s*100%\)[^}]*aspect-ratio:\s*4\s*\/\s*3/);
 });
 
 test('ability selector uses three rich product previews and one wide try-on fan', () => {
