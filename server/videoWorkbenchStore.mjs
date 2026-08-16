@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { buildReplayManifest } from './videoReplayManifest.mjs';
+import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -23,6 +23,26 @@ function normalizeOwner(value) {
 
 function clean(value, max = 1000) {
   return String(value ?? '').trim().slice(0, max);
+}
+
+function replayPayload(manifest) {
+  const {
+    id: _id, ownerEmail: _ownerEmail, projectId: _projectId, createdAt: _createdAt,
+    manifestHash: _manifestHash, ...payload
+  } = manifest || {};
+  return payload;
+}
+
+function assertReplayManifestIntegrity(row, project) {
+  const manifest = parseJson(row?.manifest_json, null);
+  if (!manifest || manifest.manifestHash !== row.manifest_hash
+    || manifest.project?.id !== project.id || manifest.project?.kind !== 'video') {
+    throw coded('REPLAY_MANIFEST_INTEGRITY_INVALID', 'replay manifest integrity check failed');
+  }
+  const canonical = canonicalReplayManifest(replayPayload(manifest));
+  const hash = crypto.createHash('sha256').update(canonical).digest('hex');
+  if (hash !== row.manifest_hash) throw coded('REPLAY_MANIFEST_INTEGRITY_INVALID', 'replay manifest hash mismatch');
+  return manifest;
 }
 
 function parseJson(value, fallback) {
@@ -570,6 +590,175 @@ export function createVideoWorkbenchStore({
         WHERE id = ? AND owner_email = ? AND project_id = ?`).get(manifestId, owner, project.id);
       if (!row) throw coded('REPLAY_MANIFEST_NOT_FOUND', 'replay manifest not found');
       return replayManifestFromRow(row);
+    },
+
+    cloneReplayManifest({ ownerEmail, projectId, manifestId, idempotencyKey, title = '' }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const key = clean(idempotencyKey, 200);
+      if (!key) throw coded('IDEMPOTENCY_KEY_REQUIRED', 'idempotency key is required');
+      const route = 'POST /api/video/projects/:projectId/workbench/replay-manifests/:manifestId/clone';
+      return db.transaction(() => {
+        const previous = db.prepare(`SELECT response FROM project_idempotency_keys
+          WHERE owner_email = ? AND route = ? AND idempotency_key = ?`).get(owner, route, key);
+        if (previous) {
+          const replayed = parseJson(previous.response, null);
+          if (!replayed?.project?.id) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'stored clone response is invalid');
+          return { ...replayed, replayed: true };
+        }
+
+        const row = db.prepare(`SELECT * FROM video_replay_manifests
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).get(manifestId, owner, project.id);
+        if (!row) throw coded('REPLAY_MANIFEST_NOT_FOUND', 'replay manifest not found');
+        const manifest = assertReplayManifestIntegrity(row, project);
+        const assets = Array.isArray(manifest.assets) ? manifest.assets : [];
+        const shots = Array.isArray(manifest.shots) ? manifest.shots : [];
+        const clips = Array.isArray(manifest.timelineClips) ? manifest.timelineClips : [];
+        const createdAt = timestamp();
+        const cloneTitle = clean(title, 200) || `${clean(project.title, 160) || '视频项目'} · 复用`;
+        const clonedProject = projectStore.createProject({ ownerEmail: owner, kind: 'video', title: cloneTitle });
+        const projectVersionId = randomUUID();
+        const inputSnapshot = {
+          replay: {
+            sourceManifestId: row.id,
+            sourceProjectId: project.id,
+            manifestHash: row.manifest_hash,
+          },
+        };
+        const planSnapshot = {
+          skill: manifest.skill,
+          modelCatalogSnapshot: manifest.modelCatalogSnapshot || {},
+          rightsConfirmations: manifest.rightsConfirmations || [],
+          clone: { mode: 'draft', providerSubmission: false, billingMutation: false },
+        };
+        db.prepare(`INSERT INTO project_versions
+          (id, project_id, parent_version_id, reason, sequence, input_snapshot, plan_snapshot, canvas_snapshot_id, created_at)
+          VALUES (?, ?, NULL, 'manual_save', 1, ?, ?, NULL, ?)`).run(
+          projectVersionId, clonedProject.id, JSON.stringify(inputSnapshot), JSON.stringify(planSnapshot), createdAt,
+        );
+        db.prepare(`UPDATE projects SET head_version_id = ?, updated_at = ? WHERE id = ?`)
+          .run(projectVersionId, createdAt, clonedProject.id);
+
+        const assetIds = new Map();
+        const versionIds = new Map();
+        const clonedAssetRows = [];
+        for (const sourceAsset of assets) {
+          const sourceAssetId = clean(sourceAsset?.id, 200);
+          if (!sourceAssetId || assetIds.has(sourceAssetId)) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'duplicate manifest asset');
+          const assetId = randomUUID();
+          assetIds.set(sourceAssetId, assetId);
+          db.prepare(`INSERT INTO video_workbench_assets
+            (id, owner_email, project_id, kind, name, status, approved_version_id, revision, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?, ?)`).run(
+            assetId, owner, clonedProject.id, clean(sourceAsset.kind, 80), clean(sourceAsset.name, 160),
+            clean(sourceAsset.status, 40) || 'draft', createdAt, createdAt,
+          );
+          clonedAssetRows.push({ sourceAsset, sourceAssetId, assetId });
+          const versions = Array.isArray(sourceAsset.versions) ? sourceAsset.versions : [];
+          if (!versions.length) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'manifest asset has no versions');
+          for (const sourceVersion of versions) {
+            const sourceVersionId = clean(sourceVersion?.id, 200);
+            if (!sourceVersionId || versionIds.has(sourceVersionId)) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'duplicate manifest asset version');
+            const versionId = randomUUID();
+            versionIds.set(sourceVersionId, versionId);
+            db.prepare(`INSERT INTO video_workbench_asset_versions
+              (id, asset_id, owner_email, project_id, sequence, source_project_asset_id,
+               stable_url, content_hash, mime_type, metadata_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+              versionId, assetId, owner, clonedProject.id,
+              Number.isSafeInteger(sourceVersion.sequence) ? sourceVersion.sequence : versions.indexOf(sourceVersion) + 1,
+              clean(sourceVersion.sourceProjectAssetId, 256) || null,
+              clean(sourceVersion.stableUrl, 2000), clean(sourceVersion.contentHash, 256),
+              clean(sourceVersion.mimeType, 160), JSON.stringify(sourceVersion.metadata || {}), createdAt,
+            );
+          }
+        }
+        for (const { sourceAsset, sourceAssetId, assetId } of clonedAssetRows) {
+          const approvedSourceId = clean(sourceAsset.approvedVersionId, 200);
+          const approvedVersionId = approvedSourceId ? versionIds.get(approvedSourceId) : null;
+          if (approvedSourceId && !approvedVersionId) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'approved asset version is missing');
+          db.prepare(`UPDATE video_workbench_assets SET approved_version_id = ?, status = ?, revision = ? WHERE id = ?`)
+            .run(approvedVersionId, approvedVersionId ? 'approved' : (clean(sourceAsset.status, 40) || 'draft'),
+              Number.isSafeInteger(sourceAsset.revision) ? sourceAsset.revision : 1, assetId);
+          if (!assetIds.has(sourceAssetId)) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'asset mapping is missing');
+        }
+
+        const shotIds = new Map();
+        const candidateIds = new Map();
+        for (const sourceShot of shots) {
+          const sourceShotId = clean(sourceShot?.id, 200);
+          if (!sourceShotId || shotIds.has(sourceShotId)) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'duplicate manifest shot');
+          const shotId = randomUUID();
+          shotIds.set(sourceShotId, shotId);
+          db.prepare(`INSERT INTO video_storyboard_shots
+            (id, owner_email, project_id, position, purpose, duration_ms, camera_language, prompt,
+             status, selected_candidate_id, revision, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`).run(
+            shotId, owner, clonedProject.id,
+            Number.isSafeInteger(sourceShot.position) ? sourceShot.position : shots.indexOf(sourceShot),
+            clean(sourceShot.purpose, 500), sourceShot.durationMs,
+            clean(sourceShot.cameraLanguage, 2000), clean(sourceShot.prompt, 8000),
+            clean(sourceShot.status, 40) || 'draft', Number.isSafeInteger(sourceShot.revision) ? sourceShot.revision : 1,
+            createdAt, createdAt,
+          );
+          const bindings = Array.isArray(sourceShot.bindings) ? sourceShot.bindings : [];
+          for (const binding of bindings) {
+            const assetId = assetIds.get(clean(binding?.assetId, 200));
+            const assetVersionId = versionIds.get(clean(binding?.assetVersionId, 200));
+            if (!assetId || !assetVersionId) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'shot binding target is missing');
+            db.prepare(`INSERT INTO video_shot_asset_bindings
+              (shot_id, asset_id, asset_version_id, owner_email, project_id, role, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+              shotId, assetId, assetVersionId, owner, clonedProject.id, clean(binding.role, 80), createdAt,
+            );
+          }
+          const candidates = Array.isArray(sourceShot.candidates) ? sourceShot.candidates : [];
+          for (const sourceCandidate of candidates) {
+            const sourceCandidateId = clean(sourceCandidate?.id, 200);
+            if (!sourceCandidateId || candidateIds.has(sourceCandidateId)) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'duplicate manifest candidate');
+            const candidateId = randomUUID();
+            candidateIds.set(sourceCandidateId, candidateId);
+            db.prepare(`INSERT INTO video_shot_candidates
+              (id, owner_email, project_id, shot_id, generation_job_id, output_asset_id,
+               stable_url, content_hash, mime_type, status, created_at)
+              VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`).run(
+              candidateId, owner, clonedProject.id, shotId, clean(sourceCandidate.outputAssetId, 256),
+              clean(sourceCandidate.stableUrl, 2000), clean(sourceCandidate.contentHash, 256),
+              clean(sourceCandidate.mimeType, 160), clean(sourceCandidate.status, 40) || 'available', createdAt,
+            );
+          }
+          const selectedSourceId = clean(sourceShot.selectedCandidateId, 200);
+          if (selectedSourceId) {
+            const selectedId = candidateIds.get(selectedSourceId);
+            if (!selectedId) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'selected candidate is missing');
+            db.prepare(`UPDATE video_storyboard_shots SET selected_candidate_id = ? WHERE id = ?`).run(selectedId, shotId);
+          }
+        }
+        for (const clip of clips) {
+          const shotId = shotIds.get(clean(clip?.shotId, 200));
+          const candidateId = candidateIds.get(clean(clip?.candidateId, 200));
+          if (!shotId || !candidateId) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'timeline clip target is missing');
+          db.prepare(`INSERT INTO video_timeline_clips
+            (id, owner_email, project_id, shot_id, candidate_id, position, trim_start_ms, trim_end_ms,
+             muted, status, revision, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+            randomUUID(), owner, clonedProject.id, shotId, candidateId,
+            Number.isSafeInteger(clip.position) ? clip.position : clips.indexOf(clip),
+            Number.isSafeInteger(clip.trimStartMs) ? clip.trimStartMs : 0,
+            Number.isSafeInteger(clip.trimEndMs) ? clip.trimEndMs : 0,
+            clip.muted ? 1 : 0, clean(clip.status, 40) || 'active',
+            Number.isSafeInteger(clip.revision) ? clip.revision : 1, createdAt, createdAt,
+          );
+        }
+        const result = {
+          project: projectStore.getProject({ ownerEmail: owner, projectId: clonedProject.id }),
+          sourceManifestId: row.id,
+          sourceManifestHash: row.manifest_hash,
+        };
+        db.prepare(`INSERT INTO project_idempotency_keys
+          (owner_email, route, idempotency_key, response, created_at) VALUES (?, ?, ?, ?, ?)`)
+          .run(owner, route, key, JSON.stringify(result), createdAt);
+        return { ...result, replayed: false };
+      })();
     },
 
     listWorkbench({ ownerEmail, projectId }) {

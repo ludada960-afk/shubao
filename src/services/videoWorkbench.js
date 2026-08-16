@@ -53,6 +53,13 @@ function replayManifestBase(projectId) {
   return `${workbenchBase(projectId)}/replay-manifests`;
 }
 
+function idempotencyKey(value) {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (normalized && normalized.length <= 200 && !/[\u0000-\u001F\u007F]/.test(normalized)) return normalized;
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `clone-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export async function getVideoWorkbench(projectId) {
   const response = await requestJson(workbenchBase(projectId), {}, '暂时无法读取视频项目');
   if (!response?.project?.id || !Array.isArray(response.assets)
@@ -153,4 +160,29 @@ export async function getVideoReplayManifest(projectId, manifestId) {
     '暂时无法读取视频创作配方',
   );
   return requireValue(response, 'manifest', '视频创作配方暂时不可用，请稍后重试');
+}
+
+export async function cloneVideoReplayManifest(projectId, manifestId, {
+  title = '',
+  idempotencyKey: requestedKey,
+} = {}) {
+  const response = await requestJson(
+    `${replayManifestBase(projectId)}/${manifestSegment(manifestId)}/clone`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey(requestedKey),
+      },
+      body: JSON.stringify({ title }),
+    },
+    '暂时无法复用视频创作配方',
+  );
+  requireValue(response, 'project', '复用后的视频项目暂时不可用，请稍后重试');
+  if (!response?.workbench || !Array.isArray(response.workbench.assets)
+    || !Array.isArray(response.workbench.shots)
+    || !Array.isArray(response.workbench.timelineClips)) {
+    throw new Error('复用后的视频工作流暂时不可用，请稍后重试');
+  }
+  return response;
 }

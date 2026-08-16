@@ -186,6 +186,44 @@ test('owner can create and read an immutable replay manifest while tester remain
   assert.equal(denied.statusCode, 404);
 });
 
+test('owner can clone a replay manifest with an idempotency key and no billing/provider mutation', async t => {
+  const { app, db, project, sessionTokens, store, ownerEmail } = harness();
+  t.after(() => db.close());
+  const asset = store.createAsset({ ownerEmail, projectId: project.id, kind: 'scene', name: 'studio' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    stableUrl: '/api/video/assets/studio', contentHash: 'studio-hash', mimeType: 'image/png' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    versionId: version.id, expectedRevision: 1 });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 3000, prompt: '镜头推进' });
+  store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: version.id, role: 'scene' });
+  const path = '/api/video/projects/:projectId/workbench/replay-manifests/:manifestId/clone';
+  const manifest = store.createReplayManifest({ ownerEmail, projectId: project.id,
+    skillId: 'studio-trailer', skillVersion: 2, rightsConfirmations: [asset.id] });
+  const headers = { ...signedHeaders(sessionTokens, ownerEmail), 'idempotency-key': 'route-clone-1' };
+  const cloned = await invoke(app, 'POST', path, {
+    headers, params: { projectId: project.id, manifestId: manifest.id }, body: { title: '工作流复用' },
+  });
+  assert.equal(cloned.statusCode, 201);
+  assert.equal(cloned.body.project.kind, 'video');
+  assert.equal(cloned.body.project.title, '工作流复用');
+  assert.equal(cloned.body.workbench.shots[0].prompt, '镜头推进');
+  assert.equal(cloned.body.billing, undefined);
+  const replayed = await invoke(app, 'POST', path, {
+    headers, params: { projectId: project.id, manifestId: manifest.id }, body: { title: 'ignored' },
+  });
+  assert.equal(replayed.statusCode, 200);
+  assert.equal(replayed.body.project.id, cloned.body.project.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+  const missingKey = await invoke(app, 'POST', path, {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, manifestId: manifest.id }, body: {},
+  });
+  assert.equal(missingKey.statusCode, 400);
+  assert.equal(missingKey.body.code, 'IDEMPOTENCY_KEY_REQUIRED');
+});
+
 test('workbench routes hide the owner pilot from a signed tester account', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

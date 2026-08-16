@@ -1,5 +1,21 @@
 # Subagent-Driven Development Progress
 
+## 2026-08-16 AI-video P2 clone/remix (local implementation)
+
+- Extended immutable replay manifests with an atomic owner-scoped clone path.
+  `cloneReplayManifest` creates a new editable video project and initial version,
+  copies approved asset versions, shot bindings, candidate selections and active
+  timeline clips, and preserves source media provenance. Candidate generation job
+  IDs are cleared deliberately: a cloned result is not a new provider delivery.
+- Added persisted manifest hash verification before writes, generic foreign-owner
+  isolation, and idempotency-key replay. The first request returns 201; a repeated
+  request returns the same draft with 200. The route hydrates the cloned workbench
+  immediately and the signed client helper validates the project/manifest IDs.
+- Focused clone/store/route/client regression passes `25/25`. No provider,
+  generation-run, usage, wallet, quote or billing-hold writes are made. Full
+  regression, build, deployment and public canary remain the next release gate;
+  the workbench remains default-off and no paid video generation has run.
+
 ## 2026-08-16 AI-video P2 replay manifest (production complete)
 
 - Implemented `server/videoReplayManifest.mjs` as a versioned, canonical, SHA-256

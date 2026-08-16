@@ -63,7 +63,8 @@ function handle(res, action, {
   try {
     const value = action();
     observe('success');
-    return res.status(status).json(key ? { [key]: value } : value);
+    const responseStatus = typeof status === 'function' ? status(value) : status;
+    return res.status(responseStatus).json(key ? { [key]: value } : value);
   } catch (error) {
     observe('failure', error);
     return routeError(error, res);
@@ -227,6 +228,27 @@ export function mountVideoWorkbenchRoutes(app, {
       ...request,
       manifestId: req.params.manifestId,
     }), { key: 'manifest' },
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/replay-manifests/:manifestId/clone', (req, res) => dispatch(
+    req, res, 'replay-manifest.clone', request => {
+      const idempotencyKey = req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'];
+      const cloned = store.cloneReplayManifest({
+        ...request,
+        manifestId: req.params.manifestId,
+        idempotencyKey,
+        title: req.body?.title,
+      });
+      return {
+        ...cloned,
+        workbench: projectPlayableMedia(
+          store.listWorkbench({ ownerEmail: request.ownerEmail, projectId: cloned.project.id }),
+          request.ownerEmail,
+          req,
+          playbackUrlForAsset,
+        ),
+      };
+    }, { status: value => (value?.replayed ? 200 : 201) },
   ));
 
   return true;

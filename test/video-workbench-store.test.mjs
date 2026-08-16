@@ -118,6 +118,66 @@ test('replay manifests are immutable, deduplicated and owner scoped', t => {
   assert.equal(row.count, 1);
 });
 
+test('replay manifest clone creates an owner-scoped draft graph without provider or billing writes', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 3000, cameraLanguage: '推镜', prompt: '耳机在窗边亮相' });
+  store.bindShotAssetVersion({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: first.id, role: 'product' });
+  const candidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id,
+    shotId: shot.id, outputAssetId: 'output-a', stableUrl: '/api/video/assets/output-a',
+    contentHash: 'output-hash', mimeType: 'video/mp4' });
+  store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: 1 });
+  store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 3000 });
+  const manifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'commerce-trailer', skillVersion: 2, modelCatalogSnapshot: { seedance: '2.5' },
+    rightsConfirmations: [asset.id] });
+
+  const cloned = store.cloneReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'clone-1', title: '耳机广告 · 复用' });
+  assert.notEqual(cloned.project.id, project.id);
+  assert.equal(cloned.project.kind, 'video');
+  assert.equal(cloned.project.title, '耳机广告 · 复用');
+  const graph = store.listWorkbench({ ownerEmail: OWNER, projectId: cloned.project.id });
+  assert.equal(graph.assets.length, 1);
+  assert.equal(graph.assets[0].versions[0].stableUrl, '/api/video/assets/a');
+  assert.equal(graph.assets[0].approvedVersionId, graph.assets[0].versions[0].id);
+  assert.equal(graph.shots[0].prompt, '耳机在窗边亮相');
+  assert.equal(graph.shots[0].bindings[0].role, 'product');
+  assert.equal(graph.shots[0].selectedCandidateId, graph.shots[0].candidates[0].id);
+  assert.equal(graph.timelineClips[0].candidateId, graph.shots[0].candidates[0].id);
+  assert.equal(graph.shots[0].candidates[0].generationJobId, null);
+
+  const replayed = store.cloneReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'clone-1', title: '被忽略的重复标题' });
+  assert.equal(replayed.project.id, cloned.project.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM projects WHERE owner_email = ?').get(OWNER).count, 2);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_generation_runs WHERE project_id = ?").get(cloned.project.id).count, 0);
+  assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('usage_ledger', 'wallet_transactions') ORDER BY name").all().length, 0);
+});
+
+test('replay manifest clone rejects tampered manifests and foreign owners', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  const manifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'skill', skillVersion: 1, rightsConfirmations: [asset.id] });
+  db.prepare('UPDATE video_replay_manifests SET manifest_json = ? WHERE id = ?')
+    .run(JSON.stringify({ ...manifest, modelCatalogSnapshot: { changed: true } }), manifest.id);
+  assert.throws(() => store.cloneReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'tampered' }), error => error.code === 'REPLAY_MANIFEST_INTEGRITY_INVALID');
+  assert.throws(() => store.cloneReplayManifest({ ownerEmail: 'other@example.com', projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'foreign' }), error => error.code === 'PROJECT_NOT_FOUND');
+});
+
 test('uploaded media is imported as an immutable asset version from authoritative storage', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());

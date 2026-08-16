@@ -6,6 +6,7 @@ import {
   approveWorkbenchAssetVersion,
   bindShotAssetVersion,
   createStoryboardShot,
+  cloneVideoReplayManifest,
   createVideoReplayManifest,
   createWorkbenchAsset,
   getVideoReplayManifest,
@@ -51,6 +52,7 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { clip: { id: 'clip-1' } },
     { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
     { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
+    { project: { id: 'clone-1', kind: 'video' }, workbench: { assets: [], shots: [], timelineClips: [] } },
   ];
   globalThis.fetch = async (path, options = {}) => {
     requests.push({ path, options });
@@ -70,6 +72,7 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
   await addTimelineClip('project / 1', { shotId: 'shot / 1', candidateId: 'candidate / 1', position: 0, trimEndMs: 3000 });
   await createVideoReplayManifest('project / 1', { skillId: 'trailer', skillVersion: 1, rightsConfirmations: ['asset-1'] });
   await getVideoReplayManifest('project / 1', 'manifest / 1');
+  await cloneVideoReplayManifest('project / 1', 'manifest / 1', { title: '复用', idempotencyKey: 'client-clone-1' });
 
   assert.deepEqual(requests.map(request => ({
     path: request.path,
@@ -88,8 +91,11 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { path: '/api/video/projects/project%20%2F%201/workbench/timeline/clips', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201', method: 'GET', authorization: 'Bearer signed-workbench-session' },
+    { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201/clone', method: 'POST', authorization: 'Bearer signed-workbench-session' },
   ]);
   assert.deepEqual(JSON.parse(requests[2].options.body), { videoAssetId: 'upload-1', metadata: { angle: 'front' } });
+  assert.equal(requests.at(-1).options.headers['Idempotency-Key'], 'client-clone-1');
+  assert.deepEqual(JSON.parse(requests.at(-1).options.body), { title: '复用' });
 });
 
 test('video workbench client rejects invalid path IDs before fetching', async t => {

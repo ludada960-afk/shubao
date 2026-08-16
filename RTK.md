@@ -84,6 +84,15 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 ## 11. 最近发布快照
 
+- 2026-08-16，AI 视频 P2 已在本地进入 clone/remix 切片。新增
+  `POST /api/video/projects/:projectId/workbench/replay-manifests/:manifestId/clone`，
+  从不可变 replay manifest 原子复制出新的 owner 草稿项目，保留素材版本、分镜绑定、
+  候选选择和时间线，并清空 generation job 归属以避免伪造供应商交付。复制前校验
+  manifest 的规范化 SHA-256，跨账号统一隐藏，重复 Idempotency-Key 返回同一草稿；
+  全程不写 provider、generation runs、usage、wallet、quote 或 billing hold。客户端已
+  增加签名调用。焦点回归 `25/25` 通过，完整回归、构建、部署和公网 Canary 尚待本切片
+  release gate；工作台仍默认关闭，未触发付费视频生成。
+
 - 2026-08-16，AI 视频 P2 “可复用创作配方”代码候选已完成。新增版本化、
   规范化 SHA-256 replay manifest，包含项目图、素材版本、分镜绑定、时间线、
   Skill/模型目录快照和版权确认；播放签名 URL 与内部账号字段不会落盘。新增
