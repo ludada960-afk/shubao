@@ -38,6 +38,7 @@ import {
 } from './videoStudioModel.js';
 import { buildVideoPlan } from './videoPlanModel.js';
 import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
+import VideoProjectWorkbench from './VideoProjectWorkbench.jsx';
 import './VideoStudio.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -172,7 +173,8 @@ function VideoPlanModal({ plan, onClose, onConfirm }) {
 
 export default function VideoStudioPage({ embedded = false }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
-  const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false });
+  const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false, workbenchEnabled: false });
+  const [activeVideoProjectId, setActiveVideoProjectId] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [mode, setMode] = useState('smart');
   const [files, setFiles] = useState({ first: [], last: [], images: [], videos: [], audios: [] });
@@ -207,7 +209,7 @@ export default function VideoStudioPage({ embedded = false }) {
   const buttonRefs = useRef({});
   const openedJobRef = useRef('');
   const uploadsRef = useRef(new Map());
-  const [, setUploadRevision] = useState(0);
+  const [uploadRevision, setUploadRevision] = useState(0);
 
   const products = Array.isArray(capabilities.products) ? capabilities.products : [];
   const selectedProduct = products.find(product => product.id === selectedProductId)
@@ -265,7 +267,7 @@ export default function VideoStudioPage({ embedded = false }) {
             : result.defaultProductId || available[0]?.id || ''
         ));
       })
-      .catch(() => setCapabilities({ loading: false, generationEnabled: false }));
+      .catch(() => setCapabilities({ loading: false, generationEnabled: false, workbenchEnabled: false }));
   }, []);
 
   useEffect(() => {
@@ -421,6 +423,7 @@ export default function VideoStudioPage({ embedded = false }) {
   }, [startUpload]);
 
   const uploadFor = useCallback(file => uploadsRef.current.get(file), []);
+  const uploadRecords = useMemo(() => Array.from(uploadsRef.current.values()), [uploadRevision]);
 
   useEffect(() => {
     if (!state.logged) {
@@ -530,6 +533,7 @@ export default function VideoStudioPage({ embedded = false }) {
       const urls = Object.fromEntries([...first, ...last, ...images, ...videos, ...audios].map(asset => [asset.id, asset.url]));
       const idempotencyKey = globalThis.crypto?.randomUUID?.() || `video-${Date.now()}`;
       const result = await createVideoJob({
+        projectId: activeVideoProjectId || undefined,
         productId: selectedProduct.id,
         mode: resolveVideoApiMode(mode, files),
         prompt: activeAnalysis.optimizedPrompt || prompt,
@@ -853,7 +857,7 @@ export default function VideoStudioPage({ embedded = false }) {
     {renderFloatingPanel()}
     {planOpen && <VideoPlanModal plan={effectivePlan} onClose={() => setPlanOpen(false)} onConfirm={() => { setPlanReviewed(true); setPlanOpen(false); }} />}
 
-    {!embedded && <section className="video-workbench"><div className="video-stage">
+    {!embedded && <section className="video-result-workbench"><div className="video-stage">
         <div className="video-frame" style={{ aspectRatio: ratio.replace(':', ' / ') }}>
           {job?.status === 'completed' && job.resultUrl
             ? <video src={job.resultUrl} controls playsInline />
@@ -867,5 +871,12 @@ export default function VideoStudioPage({ embedded = false }) {
           </button>) : <p className="video-history-empty">暂无视频任务</p>}
         </div>
       </div></section>}
+    {!embedded && capabilities.workbenchEnabled && state.logged && <VideoProjectWorkbench
+      enabled={capabilities.workbenchEnabled}
+      logged={state.logged}
+      uploadRecords={uploadRecords}
+      jobs={history}
+      onProjectChange={setActiveVideoProjectId}
+    />}
   </main>;
 }

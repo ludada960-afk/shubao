@@ -322,7 +322,7 @@
 .video-panel-field.compact { grid-template-columns: auto 120px 1fr; align-items: center; }
 .video-panel-field.compact small { color: #9b938b; font-weight: 500; }
 
-.video-workbench { max-width: 1480px; margin: 24px auto 0; }
+.video-result-workbench { max-width: 1480px; margin: 24px auto 0; }
 .video-stage { min-width: 0; padding: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid rgba(52,43,35,.08); border-radius: 12px; background: rgba(255,255,255,.88); }
 .video-frame { width: min(100%,860px); aspect-ratio: 16/9; overflow: hidden; display: grid; place-items: center; border: 1px solid #e3dfda; background: #fff; box-shadow: 0 12px 30px rgba(27,29,35,.08); }
 .video-frame video { width: 100%; height: 100%; object-fit: contain; background: #111; }

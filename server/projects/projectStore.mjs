@@ -221,6 +221,7 @@ export function createProjectStore(db, {
     ensureVideoGeneration({
       ownerEmail,
       generationRunId,
+      projectId = null,
       title = 'AI 视频项目',
       inputSnapshot = {},
       planSnapshot = {},
@@ -242,13 +243,20 @@ export function createProjectStore(db, {
             run,
           };
         }
-        const project = insertProject({ ownerEmail: owner, kind: 'video', title });
+        const project = projectId
+          ? requireProject(owner, String(projectId || '').trim())
+          : insertProject({ ownerEmail: owner, kind: 'video', title });
+        if (project.kind !== 'video') throw codedError('VIDEO_PROJECT_KIND_INVALID', 'target project must be a video project');
+        if (project.status === 'completed') throw codedError('VIDEO_PROJECT_COMPLETED', 'completed video project cannot accept another generation');
         const sourceVersionId = randomUUID();
         const createdAt = timestamp().toISOString();
+        const parentVersionId = project.headVersionId || null;
+        const sequence = db.prepare('SELECT COALESCE(MAX(sequence), 0) + 1 AS value FROM project_versions WHERE project_id = ?').get(project.id).value;
         db.prepare(`INSERT INTO project_versions
           (id, project_id, parent_version_id, reason, sequence, input_snapshot, plan_snapshot, canvas_snapshot_id, created_at)
-          VALUES (?, ?, NULL, 'generation', 1, ?, ?, NULL, ?)`).run(
-          sourceVersionId, project.id, JSON.stringify(inputSnapshot || {}), JSON.stringify(planSnapshot || {}), createdAt,
+          VALUES (?, ?, ?, 'generation', ?, ?, ?, NULL, ?)`).run(
+          sourceVersionId, project.id, parentVersionId, sequence,
+          JSON.stringify(inputSnapshot || {}), JSON.stringify(planSnapshot || {}), createdAt,
         );
         db.prepare("UPDATE projects SET status = 'running', head_version_id = ?, updated_at = ? WHERE id = ?")
           .run(sourceVersionId, createdAt, project.id);

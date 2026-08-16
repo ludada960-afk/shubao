@@ -47,18 +47,47 @@ function handle(res, action, { status = 200, key } = {}) {
   }
 }
 
-export function mountVideoWorkbenchRoutes(app, { enabled = false, store, authenticateOwner } = {}) {
+function projectPlayableMedia(workbench, ownerEmail, req, playbackUrlForAsset) {
+  const playback = assetId => playbackUrlForAsset({ assetId, ownerEmail, req });
+  return {
+    ...workbench,
+    assets: workbench.assets.map(asset => ({
+      ...asset,
+      versions: asset.versions.map(version => ({
+        ...version,
+        playbackUrl: version.sourceProjectAssetId ? playback(version.sourceProjectAssetId) : '',
+      })),
+    })),
+    shots: workbench.shots.map(shot => ({
+      ...shot,
+      candidates: shot.candidates.map(candidate => ({
+        ...candidate,
+        playbackUrl: playback(candidate.outputAssetId),
+      })),
+    })),
+  };
+}
+
+export function mountVideoWorkbenchRoutes(app, {
+  enabled = false,
+  store,
+  authenticateOwner,
+  playbackUrlForAsset,
+} = {}) {
   if (!enabled) return false;
   if (!store || typeof store.listWorkbench !== 'function') throw new TypeError('video workbench store is required');
   if (typeof authenticateOwner !== 'function') throw new TypeError('authenticateOwner is required');
+  if (typeof playbackUrlForAsset !== 'function') throw new TypeError('playbackUrlForAsset is required');
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
   }
 
   const input = req => ({ ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId });
 
-  app.get('/api/video/projects/:projectId/workbench', (req, res) => handle(res,
-    () => store.listWorkbench(input(req))));
+  app.get('/api/video/projects/:projectId/workbench', (req, res) => handle(res, () => {
+    const request = input(req);
+    return projectPlayableMedia(store.listWorkbench(request), request.ownerEmail, req, playbackUrlForAsset);
+  }));
 
   app.post('/api/video/projects/:projectId/workbench/assets', (req, res) => handle(res,
     () => store.createAsset({ ...input(req), kind: req.body?.kind, name: req.body?.name }),

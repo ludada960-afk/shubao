@@ -1064,6 +1064,18 @@ export function createVideoGeneration({
     }
     if (mode === 'remake' && !references.images.length) throw httpError(400, 'VIDEO_REFERENCE_IMAGE_REQUIRED', '爆款重构至少需要一张商品图片');
     if (mode === 'remake' && !references.videos.length) throw httpError(400, 'VIDEO_REMAKE_SOURCE_REQUIRED', '爆款重构需要一个参考视频');
+    const targetProjectId = clean(input?.projectId, 140);
+    if (targetProjectId) {
+      if (!projectBridge?.validateTarget) throw httpError(409, 'VIDEO_PROJECT_TARGET_UNAVAILABLE', '视频项目工作台暂时不可用');
+      try {
+        projectBridge.validateTarget({ ownerEmail, projectId: targetProjectId });
+      } catch (error) {
+        if (error?.code === 'PROJECT_NOT_FOUND') throw httpError(404, error.code, '未找到该视频项目');
+        if (error?.code === 'VIDEO_PROJECT_KIND_INVALID') throw httpError(400, error.code, '只能把视频任务加入视频项目');
+        if (error?.code === 'VIDEO_PROJECT_COMPLETED') throw httpError(409, error.code, '已交付项目不能继续加入生成任务');
+        throw error;
+      }
+    }
 
     const sku = videoFeatureSku({ productId: product.id, duration });
     const expectedQuote = quoteFeature(sku, 1);
@@ -1084,6 +1096,7 @@ export function createVideoGeneration({
           metadata: {
             source: 'video_generation',
             taskId: id,
+            projectId: targetProjectId || undefined,
             productId: product.id,
             providerRoute: product.routeId,
             catalogVersion: VIDEO_CATALOG_VERSION,
@@ -1110,7 +1123,7 @@ export function createVideoGeneration({
       );
       jobPersisted = true;
       if (projectBridge) {
-        const draft = projectBridge.ensureDraft(selectJob.get(id));
+        const draft = projectBridge.ensureDraft(selectJob.get(id), { projectId: targetProjectId });
         updateJob(id, {
           project_projection_state: 'pending',
           project_id: draft.project.id,

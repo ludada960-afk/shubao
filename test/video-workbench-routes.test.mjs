@@ -64,6 +64,9 @@ function harness({ enabled = true } = {}) {
   mountVideoWorkbenchRoutes(app, {
     enabled,
     store,
+    playbackUrlForAsset({ assetId, ownerEmail }) {
+      return `/api/video/media/${assetId}?owner=${encodeURIComponent(ownerEmail)}&cap=test-capability`;
+    },
     authenticateOwner(req) {
       return authenticateContentRequest(req, {
         sessionTokens,
@@ -206,6 +209,29 @@ test('candidate route accepts only a completed owned job and ignores forged deli
   assert.equal(response.body.candidate.stableUrl, '/api/video/assets/route-output');
   assert.equal(response.body.candidate.contentHash, 'route-output-hash');
   assert.equal(response.body.candidate.mimeType, 'video/mp4');
+});
+
+test('workbench read projects ephemeral playback capabilities without persisting them', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  seedUploadedVideoAsset(db, ownerEmail);
+  seedCompletedVideoJob(db, ownerEmail, project.id);
+  const asset = store.createAsset({ ownerEmail, projectId: project.id, kind: 'product', name: '耳机' });
+  store.addAssetVersionFromVideoAsset({ ownerEmail, projectId: project.id, assetId: asset.id, videoAssetId: 'route-upload' });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0, purpose: '开场', durationMs: 3000 });
+  store.registerCandidateFromJob({ ownerEmail, projectId: project.id, shotId: shot.id, generationJobId: 'route-job' });
+
+  const response = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench', {
+    headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.match(response.body.assets[0].versions[0].playbackUrl, /\/api\/video\/media\/route-upload\?.*cap=test-capability/);
+  assert.match(response.body.shots[0].candidates[0].playbackUrl, /\/api\/video\/media\/route-output\?.*cap=test-capability/);
+  assert.equal(response.body.assets[0].versions[0].stableUrl, '/api/video/assets/route-upload');
+  assert.equal(response.body.shots[0].candidates[0].stableUrl, '/api/video/assets/route-output');
+  const persisted = db.prepare('SELECT stable_url FROM video_workbench_asset_versions LIMIT 1').get();
+  assert.equal(persisted.stable_url, '/api/video/assets/route-upload');
+  assert.doesNotMatch(persisted.stable_url, /cap=/);
 });
 
 test('workbench route mounting requires dependencies only when enabled', () => {

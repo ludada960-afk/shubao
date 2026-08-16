@@ -167,6 +167,75 @@ test('new jobs persist the product, route, catalog version, and provider-cost sn
   assert.equal(result.job.providerCostCny, 3.64);
 });
 
+test('an owned editable workbench project is validated before billing and receives the new job', async t => {
+  const calls = [];
+  let holds = 0;
+  const projectBridge = {
+    validateTarget(input) {
+      calls.push(['validate', input]);
+      return { id: input.projectId, kind: 'video', status: 'draft' };
+    },
+    ensureDraft(job, options) {
+      calls.push(['draft', { jobId: job.id, ...options }]);
+      return { project: { id: options.projectId }, sourceVersion: { id: 'source-version' } };
+    },
+  };
+  const service = createVideoGenerationHarness(t, {
+    projectBridge,
+    walletService: {
+      createHold(input) { holds += 1; return { id: `hold-${input.metadata.taskId}`, status: 'held' }; },
+      getBalance() { return { unlimited: false, availableUnits: 9999 }; },
+      settleItem() { return { status: 'settled' }; },
+      releaseItem() { return { status: 'released' }; },
+    },
+  });
+
+  const result = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'target-project-job',
+    billingQuoteId: 'quote-target-project',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      projectId: 'video-project-1', productId: 'seedance_standard', mode: 'script',
+      prompt: '加入既有项目的开场镜头', duration: 8, aspectRatio: '16:9', resolution: '720p',
+    },
+  });
+
+  assert.equal(holds, 1);
+  assert.equal(result.job.projectId, 'video-project-1');
+  assert.deepEqual(calls.map(call => call[0]), ['validate', 'draft']);
+  assert.equal(calls[0][1].projectId, 'video-project-1');
+  assert.equal(calls[1][1].projectId, 'video-project-1');
+});
+
+test('an invalid workbench target is rejected before wallet hold creation', async t => {
+  let holds = 0;
+  const service = createVideoGenerationHarness(t, {
+    projectBridge: {
+      validateTarget() { throw Object.assign(new Error('missing'), { code: 'PROJECT_NOT_FOUND' }); },
+      ensureDraft() { throw new Error('draft must not be created'); },
+    },
+    walletService: {
+      createHold() { holds += 1; return { id: 'unexpected-hold' }; },
+      getBalance() { return { unlimited: false, availableUnits: 9999 }; },
+      settleItem() { return { status: 'settled' }; },
+      releaseItem() { return { status: 'released' }; },
+    },
+  });
+
+  await assert.rejects(service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'invalid-target-project-job',
+    billingQuoteId: 'quote-invalid-target-project',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      projectId: 'missing-project', productId: 'seedance_standard', mode: 'script',
+      prompt: '不会产生扣费', duration: 8, aspectRatio: '16:9', resolution: '720p',
+    },
+  }), error => error?.status === 404 && error?.code === 'PROJECT_NOT_FOUND');
+  assert.equal(holds, 0);
+});
+
 test('video assets can only be read by their normalized owner', async t => {
   const service = createVideoGenerationHarness(t);
   const asset = await uploadReferenceAsset(service, 'Owner@Example.com', 'image');

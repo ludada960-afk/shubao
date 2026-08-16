@@ -2040,3 +2040,33 @@
   timeline clips. The focused pure-model suite passes `6/6`; no UI flag was
   enabled, no paid generation ran and no runtime data changed. Next boundary:
   connect these contracts to the protected VideoStudio project workbench.
+
+- 2026-08-15 AI-video P1 project workbench is now implemented locally on
+  `codex/video-platform-p0`. The protected VideoStudio surface exposes the six
+  project/asset/storyboard/candidate/timeline/delivery stages and uses only
+  authoritative project APIs. Project creation and switching, semantic asset
+  approval, shot creation/editing/binding, completed same-project candidate
+  import/selection and timeline addition are covered by route/store/client/UI
+  tests. The selected workbench project is passed into the existing video
+  generation request, while the workbench itself never submits a provider job
+  or changes the wallet. Stable media records are projected to short-lived
+  owner-bound playback URLs, and `SHUBAO_DB_PATH` enables a disposable QA
+  database without touching runtime data.
+
+- 2026-08-15 browser acceptance completed against an isolated local server with
+  `VIDEO_PLATFORM_P1_WORKBENCH=true`, `VIDEO_PLATFORM_PROJECT_BRIDGE=true`,
+  `SHUBAO_DB_PATH=.qa-video/works.db`, and no provider credentials. A fresh
+  project was created, a local image was uploaded and approved, a storyboard
+  shot was created and bound, a second project proved isolation, and a reload
+  restored the first project's asset and shot. The image rendered from a
+  signed playback URL with natural dimensions `457x457`; desktop and 390px
+  mobile screenshots showed no horizontal overflow, and post-clear browser
+  console inspection showed no new errors. Candidate import/select and timeline
+  commit remain intentionally test-only in this run because exercising them
+  requires a completed provider video, which would spend paid credits.
+
+- 2026-08-15 P1 delivery gate is ready for final regression and the default-off
+  production release. The public flag remains disabled because no owner cohort
+  has accepted a paid video generation yet; the server route and UI are
+  independently reversible. Temporary isolated QA folders and browser state
+  are untracked and excluded from the release. No paid video generation ran.

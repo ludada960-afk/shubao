@@ -131,11 +131,12 @@ export function createVideoProjectBridge({ db, projectStore, now = () => new Dat
     };
   }
 
-  function ensureDraft(job) {
+  function ensureDraft(job, { projectId = '' } = {}) {
     const { assets, inputSnapshot, planSnapshot } = snapshots(job);
     return projectStore.ensureVideoGeneration({
       ownerEmail: job.owner_email,
       generationRunId: job.id,
+      projectId: clean(projectId, 140) || null,
       title: clean(job.prompt, 42) || 'AI 视频项目',
       inputSnapshot,
       planSnapshot,
@@ -147,6 +148,16 @@ export function createVideoProjectBridge({ db, projectStore, now = () => new Dat
 
   return {
     ensureDraft,
+
+    validateTarget({ ownerEmail, projectId }) {
+      const targetId = clean(projectId, 140);
+      if (!targetId) return null;
+      const project = projectStore.getProject({ ownerEmail, projectId: targetId });
+      if (!project) throw Object.assign(new Error('project not found'), { code: 'PROJECT_NOT_FOUND' });
+      if (project.kind !== 'video') throw Object.assign(new Error('target project must be a video project'), { code: 'VIDEO_PROJECT_KIND_INVALID' });
+      if (project.status === 'completed') throw Object.assign(new Error('completed video project cannot accept another generation'), { code: 'VIDEO_PROJECT_COMPLETED' });
+      return project;
+    },
 
     projectDelivery(job) {
       const draft = ensureDraft(job);

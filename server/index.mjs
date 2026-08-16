@@ -187,7 +187,7 @@ if (!process.env.SHUBAO_CONTENT_BILLING_UNITS) {
 }
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
-const db = initDB();
+const db = initDB(process.env.SHUBAO_DB_PATH || undefined);
 const walletService = createWalletService(db);
 const authorizeAccountEmail = email => requireAccountAccess(db, email);
 let videoReconciliation = null;
@@ -585,6 +585,12 @@ mountProjectRoutes(app, {
 mountVideoWorkbenchRoutes(app, {
   enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
   store: videoWorkbenchStore,
+  playbackUrlForAsset({ assetId, ownerEmail, req }) {
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const host = typeof req.get === 'function' ? req.get('host') : req.headers.host;
+    const publicBaseUrl = host ? `${proto}://${host}` : '';
+    return videoGeneration.playbackUrlForAsset(assetId, ownerEmail, publicBaseUrl);
+  },
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,

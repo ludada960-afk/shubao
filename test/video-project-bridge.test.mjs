@@ -117,6 +117,38 @@ test('video draft creates one transparent project and immutable source version o
   assert.equal(db.prepare('SELECT COUNT(*) AS value FROM video_assets').get().value, 3);
 });
 
+test('video draft can append its generation version to an owned editable video project', t => {
+  const { db, bridge } = createHarness();
+  t.after(() => db.close());
+  const store = createProjectStore(db, { now: () => new Date('2026-08-15T06:00:00.000Z') });
+  const project = store.createProject({ ownerEmail: 'owner@example.com', kind: 'video', title: '耳机广告计划' });
+  const planningVersion = store.createVersion({
+    ownerEmail: 'owner@example.com', projectId: project.id, reason: 'manual_save',
+    inputSnapshot: { brief: '保留耳机资产与分镜' }, planSnapshot: { stage: 'storyboard' },
+  });
+
+  const draft = bridge.ensureDraft(draftJob(), { projectId: project.id });
+
+  assert.equal(draft.project.id, project.id);
+  assert.equal(draft.sourceVersion.parentVersionId, planningVersion.id);
+  assert.equal(draft.sourceVersion.sequence, 2);
+  assert.equal(db.prepare('SELECT COUNT(*) AS value FROM projects').get().value, 1);
+});
+
+test('video draft rejects foreign, completed, and non-video target projects', t => {
+  const { db, bridge } = createHarness();
+  t.after(() => db.close());
+  const store = createProjectStore(db, { now: () => new Date('2026-08-15T06:00:00.000Z') });
+  const foreign = store.createProject({ ownerEmail: 'other@example.com', kind: 'video', title: '他人的项目' });
+  const image = store.createProject({ ownerEmail: 'owner@example.com', kind: 'xiaohongshu', title: '图片项目' });
+  const completed = store.createProject({ ownerEmail: 'owner@example.com', kind: 'video', title: '已交付项目' });
+  db.prepare("UPDATE projects SET status = 'completed' WHERE id = ?").run(completed.id);
+
+  assert.throws(() => bridge.ensureDraft(draftJob(), { projectId: foreign.id }), error => error?.code === 'PROJECT_NOT_FOUND');
+  assert.throws(() => bridge.ensureDraft(draftJob(), { projectId: image.id }), error => error?.code === 'VIDEO_PROJECT_KIND_INVALID');
+  assert.throws(() => bridge.ensureDraft(draftJob(), { projectId: completed.id }), error => error?.code === 'VIDEO_PROJECT_COMPLETED');
+});
+
 test('verified video delivery appends one result version and complete source-to-output lineage', t => {
   const { db, bridge } = createHarness();
   t.after(() => db.close());
