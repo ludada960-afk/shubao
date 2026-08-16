@@ -84,13 +84,16 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 ## 11. 最近发布快照
 
-- 2026-08-16，AI 视频 P2 “可复用创作配方”本地候选已完成。新增版本化、
+- 2026-08-16，AI 视频 P2 “可复用创作配方”代码候选已完成。新增版本化、
   规范化 SHA-256 replay manifest，包含项目图、素材版本、分镜绑定、时间线、
   Skill/模型目录快照和版权确认；播放签名 URL 与内部账号字段不会落盘。新增
   owner-scoped 不可变存储、创建/读取 API 和签名客户端，重复哈希复用，默认工作台
   仍关闭且不触碰 provider/billing/wallet。焦点 `24/24`、全量 `1655/1655`、
-  `npm run check`、6510 模块构建和视频工作台无计费验证均通过；尚未部署，下一步只
-  能通过 `scripts/deploy-production.ps1` 做 600 秒 Canary 后再进入 clone/remix。
+  `npm run check`、6510 模块构建和视频工作台无计费验证均通过。首次 P2 发布曾成功
+  切换但部署包装器在重启后读取 Canary token 时因 PowerShell SSH 无界等待而中断；
+  该版本没有执行无护栏回滚。随后电商增量覆盖了线上 P2 路由，独立校验已确认这一点。
+  `scripts/deploy-production.ps1` 现已加入 30 秒有界 SSH 捕获及回归测试，下一步必须
+  重新通过唯一入口完成稳定发布和 600 秒 Canary 后才可进入 clone/remix。
 
 - 2026-08-07，电商 Canvas 创意导出稳定性版本已由 `02e517d` 发布至
   `https://shuimg.cn/`。上线前全量回归通过 `1265/1265`，生产构建通过

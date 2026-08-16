@@ -37,8 +37,7 @@
 
 - [x] Run focused replay tests, full regression, check, build, and the non-billing pilot verifier.
 - [x] Verify owner/tester HTTP behavior and assert provider/billing tables are unchanged.
-- [ ] Deploy only through `scripts/deploy-production.ps1`, run the canary, and record the release before starting clone/remix work.
-- [ ] Deploy only through `scripts/deploy-production.ps1`, run the canary, and record the release before starting clone/remix work.
+- [ ] Deploy only through `scripts/deploy-production.ps1`, run the canary, and record the release before starting clone/remix work. The first P2 attempt switched the release successfully but the wrapper lost its post-restart token capture because PowerShell SSH capture had no bound; the release remained live after independent API checks. A bounded SSH capture regression fix is now covered by `test/production-canary-issuer.test.mjs`; rerun the release gate before marking this task complete.
 
 ## Exit gate
 

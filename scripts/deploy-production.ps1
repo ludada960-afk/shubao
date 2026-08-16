@@ -71,6 +71,48 @@ $ssh = @(
   "-o", "ServerAliveInterval=15",
   "-o", "ServerAliveCountMax=3"
 )
+
+function Invoke-BoundedSshCapture {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Command,
+    [ValidateRange(1, 300)]
+    [int]$TimeoutSeconds = 30
+  )
+
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = "ssh"
+  $processInfo.UseShellExecute = $false
+  $processInfo.CreateNoWindow = $true
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.Arguments = ((@($script:ssh) + @($script:target, $Command)) | ForEach-Object {
+    $argumentValue = [string]$_
+    if ($argumentValue.Contains('"')) {
+      throw "Bounded SSH capture argument contains an unsupported quote"
+    }
+    '"' + $argumentValue + '"'
+  }) -join ' '
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $processInfo
+  try {
+    if (-not $process.Start()) { throw "Could not start bounded SSH capture" }
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+      try { $process.Kill() } catch { }
+      $null = $process.WaitForExit(5000)
+      throw "Bounded SSH capture timed out after $TimeoutSeconds seconds"
+    }
+    $output = $process.StandardOutput.ReadToEnd()
+    if ($process.ExitCode -ne 0) {
+      throw "Bounded SSH capture failed (exit code $($process.ExitCode))"
+    }
+    return $output
+  } finally {
+    $process.Dispose()
+  }
+}
+
 $remoteLock = "/tmp/.shubao-deploy-v2.lock"
 $lockOwnerToken = "$(($commit, $stamp, $PID, [guid]::NewGuid().ToString('N')) -join '-')"
 $deploymentLockRunner = Join-Path $PSScriptRoot "deployment-lock-runner.sh"
@@ -230,8 +272,8 @@ function Invoke-LockedRemote {
 }
 
 function Get-RemotePm2ProcessId {
-  $remotePid = ((& ssh @ssh $target "pm2 pid shubao-production") -join "").Trim()
-  if ($LASTEXITCODE -ne 0 -or $remotePid -notmatch '^\d+$' -or [int64]$remotePid -le 0) {
+  $remotePid = (Invoke-BoundedSshCapture -Command "pm2 pid shubao-production" -TimeoutSeconds 30).Trim()
+  if ($remotePid -notmatch '^\d+$' -or [int64]$remotePid -le 0) {
     throw "Could not read the shubao-production PM2 process id"
   }
   return [int64]$remotePid
@@ -241,8 +283,8 @@ function Refresh-CanarySessionAfterRestart {
   $remotePid = Get-RemotePm2ProcessId
   $issuerCommand = "set -e; umask 077; node '$RemoteDir/scripts/issue-production-canary-session.mjs' --owner-email '$CanaryOwnerEmail' --process-id '$remotePid' --repo-path '$RemoteDir' > '$remoteCanarySessionFile'; chmod 600 '$remoteCanarySessionFile'"
   Invoke-LockedRemote -Command $issuerCommand -TimeoutSeconds 120 -FailureMessage "Post-restart canary session issuance failed"
-  $refreshedToken = ((& ssh @ssh $target "cat '$remoteCanarySessionFile'") -join "").Trim()
-  if ($LASTEXITCODE -ne 0 -or -not (Test-CanarySessionTokenFormat $refreshedToken)) {
+  $refreshedToken = (Invoke-BoundedSshCapture -Command "cat '$remoteCanarySessionFile'" -TimeoutSeconds 30).Trim()
+  if (-not (Test-CanarySessionTokenFormat $refreshedToken)) {
     throw "Post-restart canary session capture failed"
   }
   $script:canarySessionToken = $refreshedToken

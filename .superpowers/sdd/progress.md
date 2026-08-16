@@ -1,6 +1,6 @@
 # Subagent-Driven Development Progress
 
-## 2026-08-16 AI-video P2 replay manifest (local release candidate)
+## 2026-08-16 AI-video P2 replay manifest (release retry in progress)
 
 - Implemented `server/videoReplayManifest.mjs` as a versioned, canonical, SHA-256
   hashed replay contract. It records the owner project graph, asset/version
@@ -16,9 +16,24 @@
   `1655/1655`, `npm run check`, production build (6510 modules),
   `npm run verify:video-workbench-pilot` (10 projects, 40/40 operations,
   successRate 1, `billingMutated=false`), and `git diff --check`.
-- Not deployed yet. The only remaining P2 gate is a reviewed deployment through
-  `scripts/deploy-production.ps1`, a 600-second canary, and online route
-  verification. No paid video generation was submitted.
+- The first release attempt switched P2 to production but the deployment wrapper
+  stopped while capturing the post-restart canary token: its direct PowerShell
+  `ssh` capture had no timeout. The release was intentionally left live (no
+  unfenced rollback) and an independent check proved the public capability route;
+  authenticated verification then exposed that a later ecommerce-only release had
+  overwritten the P2 API routes. A bounded `Invoke-BoundedSshCapture` helper is now
+  covered by `test/production-canary-issuer.test.mjs`, and the P2 release is being
+  retried on top of the ecommerce ancestor before the final 600-second canary.
+  No paid video generation was submitted.
+
+## 2026-08-16 deployment tooling regression fix
+
+- `scripts/deploy-production.ps1` now runs its out-of-band PM2/token SSH reads in a
+  bounded child process. It kills and reports a stuck SSH process instead of
+  waiting indefinitely or leaving a release in an ambiguous state. The helper
+  uses the Windows PowerShell 5-compatible `ProcessStartInfo.Arguments` path.
+- Focused deployment tests passed `26/26`; full regression passed `1655/1655`,
+  `npm run check`, `npm run build` (6510 modules), and `git diff --check` passed.
 
 ## 2026-08-16 AI-video P1 owner rollout gate
 
