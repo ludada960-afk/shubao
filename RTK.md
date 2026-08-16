@@ -90,7 +90,10 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   项目幂等键，确认要求 `expectedRevision`，并只写 SkillRun 事件，不创建 provider
   任务、generation run、usage、wallet、quote 或 billing hold。焦点回归 `30/30`、
   全量回归 `1663/1663`、`npm run check`、6510 模块构建和 diff 检查通过；工作台仍
-  默认关闭，未触发付费视频生成。提交与生产 Canary 是唯一下一边界。
+  默认关闭，未触发付费视频生成。提交 `834cfa6` 已完成，但发布脚本因当前
+  进程无法读取受控 SSH 私钥而在远端变更前停止；公开视频契约与计费校验通过，
+  新 SkillRun 路由线上仍为 `404`，所以不能声称已上线。唯一下一边界是恢复受控
+  发布凭据后通过同一脚本完成 600 秒 Canary，并记录 PM2、锁释放和独立复核。
 
 - 2026-08-16，AI 视频 P2 已在本地进入 clone/remix 切片。新增
   `POST /api/video/projects/:projectId/workbench/replay-manifests/:manifestId/clone`，

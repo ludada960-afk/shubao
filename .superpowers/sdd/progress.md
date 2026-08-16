@@ -2223,5 +2223,9 @@
   Focused regression passed `30/30`; full `npm test` passed `1663/1663`,
   `npm run check`, the 6510-module production build and `git diff --check`
   passed. The default-off workbench remains unchanged for general users and no
-  paid video generation ran. Commit and the required production canary remain
-  the next gate.
+  paid video generation ran. Commit `834cfa6` is complete, but production
+  deployment is still pending: `scripts/deploy-production.ps1` could not read
+  the controlled SSH key in this environment and stopped before remote
+  mutation. Public video contract and billing checks pass; the new SkillRun
+  route returns `404`, confirming it is not deployed. Do not report this slice
+  as shipped until the fenced deployment and 600-second Canary complete.

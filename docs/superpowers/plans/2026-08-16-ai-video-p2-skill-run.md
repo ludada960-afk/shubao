@@ -65,3 +65,11 @@
 - [x] Run the non-billing workbench verifier and confirm no provider submissions or billing mutations.
 - [ ] Deploy only through `scripts/deploy-production.ps1`; run the independent video, billing, and health checks plus canary.
 - [ ] Record commit, active release, PM2, canary, and any unrelated gallery probe findings.
+
+Release note: local commit `834cfa6` passed all local gates. The deployment
+script reached the remote step but could not read
+`C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519`; it refused an unfenced
+rollback before mutating production. Public video and billing checks still pass,
+while the new SkillRun route returns `404`, confirming that this commit is not
+deployed. The release gate remains open until the controlled deployment
+credential is available to the release process.
