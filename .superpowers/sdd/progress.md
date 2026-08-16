@@ -1,5 +1,42 @@
 # Subagent-Driven Development Progress
 
+## 2026-08-16 AI video P0/P1 production checkpoint
+
+- Production commit `5d933c2` is live at `https://shuimg.cn/` through the only
+  approved entry point, `scripts/deploy-production.ps1`. Nginx serves
+  `/var/www/shubao/releases/20260816-105210-5d933c2`, PM2
+  `shubao-production` is stable on PID `2707250`, public health is ready, and
+  the remote deployment lock is free.
+- The release contains the reliable video media/job/billing foundation and the
+  owner-scoped six-stage project workbench. The public workbench remains
+  default-off (`workbenchEnabled=false`); the existing standalone video
+  generator remains available with two public Seedance products. No paid video
+  generation was requested: the local verifier reported
+  `paidGenerationRequested=false` and `providerSubmissions=0`, and production
+  verification used authenticated non-billable canaries only.
+- Release gates passed: focused storage/deployment regression `23/23`, full
+  repository regression `1643/1643`, `npm run check`, `npm run verify`, and a
+  6,510-module production build. Public verification passed for 117 gallery
+  images, two video products, billing/session contracts, and two real
+  ecommerce canaries. Tasks `ec_85448885-1c9c-4de3-b65a-9c79518a2ba6` and
+  `ec_9d4e3129-4cb1-493e-8183-7205929379ec` each delivered three stable assets;
+  the first post-observation direction probe degraded once and the bounded
+  retry succeeded before the release was accepted.
+- The first release attempt exposed a production storage failure rather than an
+  application-state failure: stale rollback backups left the root volume at
+  99% and SQLite persistence reported `ENOSPC`. Only verified stale deployment
+  backups were removed; databases, uploads, generated works, the active release
+  and rollback target were not touched. The deployment script now prunes only
+  rollback backups older than the two newest before creating a new backup and
+  refuses deployment unless at least 2 GiB is available. Independent post-release
+  `df` shows 3,448,340 KiB available (92% used) and three rollback backups.
+- Remaining gate: P1 is shipped dark, not publicly launched. Owner-cohort
+  browser acceptance, ten non-billing project completions, and the P1 stage SLO
+  must pass before enabling the flag. P2 declarative Skills/project memory and
+  P3 local reshoot/extension/tracking remain blocked by their preceding stage
+  evidence. Runtime-only `.npm-cache/`, `.qa-video/`, `server/video-assets/`
+  and `server/video-upload-staging/` remain untracked and untouched.
+
 ## 2026-08-15 AI video platform P1 continuation
 
 - Isolated worktree: `F:/da/shubao/.worktrees/smart-layer-release-lf`; branch:

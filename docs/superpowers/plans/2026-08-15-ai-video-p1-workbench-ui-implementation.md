@@ -68,11 +68,11 @@
 
 ## Task 8: Production-Safe Delivery
 
-- [ ] Merge the current production head before deployment and rerun every gate.
-- [ ] Keep the public workbench flag off unless the owner-cohort gate exists and its acceptance is complete.
-- [ ] Deploy only with `scripts/deploy-production.ps1`.
-- [ ] Verify health, PM2/Nginx release, public bundle, existing ecommerce/video contracts, default-off route behavior, and deployment lock release.
-- [ ] Record exact commit, tests, build, deployment version, public verification, non-paid status, rollback target, and remaining P2 gate in `.superpowers/sdd/progress.md` and `RTK.md`.
+- [x] Merge the current production head before deployment and rerun every gate.
+- [x] Keep the public workbench flag off unless the owner-cohort gate exists and its acceptance is complete.
+- [x] Deploy only with `scripts/deploy-production.ps1`.
+- [x] Verify health, PM2/Nginx release, public bundle, existing ecommerce/video contracts, default-off route behavior, and deployment lock release.
+- [x] Record exact commit, tests, build, deployment version, public verification, non-paid status, rollback target, and remaining P2 gate in `.superpowers/sdd/progress.md` and `RTK.md`.
 
 ## Definition of Done
 

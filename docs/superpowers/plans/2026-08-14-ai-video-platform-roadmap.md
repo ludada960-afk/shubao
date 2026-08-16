@@ -278,11 +278,27 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 | --- | --- | --- | --- |
 | Market and workflow research | Complete | Flova, TapNow, director workflow, corrected Feishu resource, and Xiaohongshu reconstruction flow reviewed without paid generation | Revalidate provider claims and prices monthly |
 | P0 design contract | Complete locally | Schema, migration, state machine, billing compensation, outbox, media lifecycle, fault matrix, and explicit non-goals exist in the P0 design/implementation specs | Revalidate the contract during production rollout |
-| P0 media foundation | Local implementation complete; production evidence pending | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, and authorization tests pass | Deploy only after the shared release window; collect browser and object-store timing evidence |
-| P0 reliable jobs and billing | Local implementation and fault suite complete; production observation pending | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Roll out flags progressively, run a controlled restart canary, then observe |
-| P1 storyboard workbench | Public release blocked by P0 production gate; local schema incubation allowed | Ten internal projects finish without platform-state or billing failure | Implement additive contracts behind a default-off flag; do not route paid traffic |
+| P0 media foundation | Production foundation live at `5d933c2`; paid generation not exercised | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, authorization, restart and non-billable production contracts pass | Observe upload/first-preview timing and object-store errors before expanding traffic |
+| P0 reliable jobs and billing | Production foundation live; fault suite and non-paid production verification pass | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Track attempt/outbox/reconciliation SLOs and run provider canaries only under an approved spend budget |
+| P1 storyboard workbench | Implemented and deployed dark; `workbenchEnabled=false` | Ten internal projects finish without platform-state or billing failure | Add an owner cohort, complete browser acceptance and ten non-billing projects, then evaluate the flag |
 | P2 Skills, memory, replay | Blocked by P1 evidence | Two real workflows can be replayed from stored inputs and a versioned manifest | Product ad first; reference reconstruction second |
 | P3 advanced local editing | Research only | Each provider capability passes three real input-variant canaries and has a whole-shot fallback | Release reshoot, extension, tracking, and action control independently |
+
+### 2026-08-16 production evidence
+
+- Exact production commit: `5d933c2`; Nginx release:
+  `/var/www/shubao/releases/20260816-105210-5d933c2`; PM2 PID: `2707250`.
+- Local quality gate: 1,643/1,643 tests, check, verify, 6,510-module build, and
+  zero paid-provider submissions from the video verification harness.
+- Production gate: ready health, 117 gallery images, two public video products,
+  authenticated non-billable video canaries, two ecommerce tasks with three
+  stable assets each, and the complete 600-second observation workflow.
+- The P1 surface is present only behind the default-off server capability.
+  Existing homepage and standalone video creation remain unchanged.
+- A production `ENOSPC` incident during the earlier attempt is now a permanent
+  release guard: retain the two newest prior rollback backups, then require at
+  least 2 GiB of free space before creating the next backup. No runtime media,
+  database or user work is part of this cleanup rule.
 
 ### First 90-day sequence
 

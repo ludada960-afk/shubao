@@ -326,3 +326,32 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   `1537/1537`、`6479` 模块生产构建、构建检查、协作策略和差异检查全部通过。当前仍待正式
   提交、生产部署和公网验收；在这些门槛完成前不得声称已上线。未触发付费视频生成，
   12 个运行态任务删除项及本地临时、诊断文件继续排除。
+
+## 2026-08-16 AI Video Foundation Production Release
+
+- AI 视频 P0 可靠媒体、任务、尝试、交付、账务、Outbox/恢复底座，以及 P1 六阶段项目
+  工作台已随提交 `5d933c2` 通过唯一入口 `scripts/deploy-production.ps1` 发布至
+  `https://shuimg.cn/`。Nginx `current` 指向
+  `/var/www/shubao/releases/20260816-105210-5d933c2`，PM2
+  `shubao-production` PID 为 `2707250`，健康接口 `ready=true`，远端部署锁已释放。
+- P1 工作台仍由服务端能力开关保持默认关闭，公开契约返回
+  `workbenchEnabled=false`；现有单次视频生成入口保留两个 Seedance 2.0 产品、`tus`
+  断点上传和原计费链路。本轮未触发付费视频生成，本地验证为
+  `paidGenerationRequested=false`、`providerSubmissions=0`，生产只执行带认证的非计费
+  视频契约 Canary。
+- 发布门通过：定向部署/空间门禁 `23/23`、全量测试 `1643/1643`、`npm run check`、
+  `npm run verify`、`6510` 模块生产构建、117 张图库、2 个公开视频产品、账务/会话契约、
+  真实电商任务和完整 600 秒观察流程。任务
+  `ec_85448885-1c9c-4de3-b65a-9c79518a2ba6` 与
+  `ec_9d4e3129-4cb1-493e-8183-7205929379ec` 均交付 3 个稳定资产；观察期后的首个方向
+  分析探针降级一次，部署脚本按上限重试后成功，未绕过验收。
+- 早先发布尝试失败的根因是陈旧回滚备份把根盘推至 99%，SQLite 持久化返回
+  `ENOSPC`，不是新视频状态机本身失效。只清理了已核实的陈旧部署备份，未触碰数据库、
+  上传、生成作品、当前 release 或必要回滚点。正式部署脚本现会在创建备份前仅保留最近
+  两个旧回滚备份，并在可用空间少于 2 GiB 时拒绝发布。独立核验可用空间为
+  `3,448,340 KiB`（根盘使用约 92%），当前保留 3 个回滚备份。
+- 长期路线继续以
+  `docs/superpowers/plans/2026-08-14-ai-video-platform-roadmap.md` 为事实源。下一门槛是给
+  P1 建立 owner cohort，完成桌面/移动浏览器验收与 10 个不触发计费的项目闭环并观察
+  阶段 SLO；通过前不得开放公共开关。P2 声明式 Skill/项目记忆/精确做同款和 P3 区间
+  重拍/延长/追踪替换/智能路由，继续由前序阶段证据解锁，不并行对外发布。
