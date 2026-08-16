@@ -21,7 +21,7 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
     ratio: '16:9',
     width: 1600,
     height: 900,
-    sources: ['angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
+    sources: ['product-flatlay.png', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
   }),
   Object.freeze({
     id: 'tryon-reference-workflow',
@@ -36,15 +36,16 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
 
 export const TRYON_LAYOUT_PLANS = Object.freeze({
   'editorial-multi-angle-v4': Object.freeze({
-    stages: Object.freeze(['result-fan']),
-    fit: 'cover',
+    stages: Object.freeze(['product', 'arrow', 'result-fan']),
+    fit: 'contain',
     blurPadding: false,
-    visualBounds: Object.freeze({ left: 24, top: 42, right: 1576, bottom: 858 }),
+    visualBounds: Object.freeze({ left: 44, top: 74, right: 1570, bottom: 826 }),
+    product: Object.freeze({ left: 96, top: 122, width: 300, height: 650, rotation: -3, fit: 'contain' }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 215, top: 104, width: 300, height: 680, rotation: -8 }),
-      Object.freeze({ left: 590, top: 76, width: 320, height: 704, rotation: -3 }),
-      Object.freeze({ left: 965, top: 76, width: 320, height: 704, rotation: 3 }),
-      Object.freeze({ left: 1340, top: 104, width: 300, height: 680, rotation: 8 }),
+      Object.freeze({ left: 710, top: 166, width: 230, height: 540, rotation: -7, fit: 'contain' }),
+      Object.freeze({ left: 930, top: 126, width: 230, height: 570, rotation: -2, fit: 'contain' }),
+      Object.freeze({ left: 1150, top: 126, width: 230, height: 570, rotation: 2, fit: 'contain' }),
+      Object.freeze({ left: 1370, top: 166, width: 230, height: 540, rotation: 7, fit: 'contain' }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -93,11 +94,15 @@ function roundedMask(width, height, radius) {
   return Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" rx="${radius}" fill="#fff"/></svg>`);
 }
 
-async function framedCover(sourcePath, { width, height, rotation = 0, border = 8, radius = 24 } = {}) {
+async function framedCover(sourcePath, { width, height, rotation = 0, border = 8, radius = 24, fit = 'cover' } = {}) {
   const contentWidth = width - (border * 2);
   const contentHeight = height - (border * 2);
   const content = await sharp(sourcePath)
-    .resize(contentWidth, contentHeight, { fit: 'cover', position: 'centre' })
+    .resize(contentWidth, contentHeight, {
+      fit,
+      position: 'centre',
+      background: fit === 'contain' ? { r: 255, g: 255, b: 255, alpha: 0 } : undefined,
+    })
     .composite([{ input: roundedMask(contentWidth, contentHeight, Math.max(8, radius - border)), blend: 'dest-in' }])
     .png()
     .toBuffer();
@@ -124,19 +129,23 @@ function multiAngleDecoration() {
   return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4b3929" flood-opacity=".16"/></filter>
+      <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#d0c7bd"/><stop offset="1" stop-color="#958679"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
+    <path d="M428 452 C505 374 560 350 625 356" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
+    <path d="M608 326 L658 356 L610 388 Z" fill="#958679" opacity=".92"/>
     <ellipse cx="800" cy="836" rx="640" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
 
 async function buildMultiAngle(definition) {
   const plan = TRYON_LAYOUT_PLANS[definition.id];
+  const product = await placedCard(resolve(SOURCE_ROOT, definition.sources[0]), plan.product);
   const results = await Promise.all(
-    definition.sources.map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
+    definition.sources.slice(1).map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
   );
   return sharp(multiAngleDecoration())
-    .composite(results)
+    .composite([product, ...results])
     .png()
     .toBuffer();
 }
