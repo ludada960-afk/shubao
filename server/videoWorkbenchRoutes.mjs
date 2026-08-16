@@ -6,6 +6,7 @@ const NOT_FOUND_CODES = new Set([
   'CANDIDATE_NOT_FOUND',
   'VIDEO_JOB_NOT_FOUND',
   'VIDEO_ASSET_NOT_FOUND',
+  'REPLAY_MANIFEST_NOT_FOUND',
 ]);
 
 function ownerFor(req, authenticateOwner) {
@@ -210,6 +211,23 @@ export function mountVideoWorkbenchRoutes(app, {
       muted: req.body?.muted,
     })
   ), { status: 201, key: 'clip' }));
+
+  app.post('/api/video/projects/:projectId/workbench/replay-manifests', (req, res) => dispatch(
+    req, res, 'replay-manifest.create', request => store.createReplayManifest({
+      ...request,
+      skillId: req.body?.skillId,
+      skillVersion: req.body?.skillVersion,
+      modelCatalogSnapshot: req.body?.modelCatalogSnapshot,
+      rightsConfirmations: req.body?.rightsConfirmations,
+    }), { status: 201, key: 'manifest' },
+  ));
+
+  app.get('/api/video/projects/:projectId/workbench/replay-manifests/:manifestId', (req, res) => dispatch(
+    req, res, 'replay-manifest.read', request => store.getReplayManifest({
+      ...request,
+      manifestId: req.params.manifestId,
+    }), { key: 'manifest' },
+  ));
 
   return true;
 }

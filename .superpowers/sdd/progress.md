@@ -1,5 +1,25 @@
 # Subagent-Driven Development Progress
 
+## 2026-08-16 AI-video P2 replay manifest (local release candidate)
+
+- Implemented `server/videoReplayManifest.mjs` as a versioned, canonical, SHA-256
+  hashed replay contract. It records the owner project graph, asset/version
+  provenance, shot bindings/candidates, timeline clips, Skill and model catalog
+  context, and explicit rights confirmations. Playback capability URLs and
+  internal owner fields are excluded; metadata is bounded and normalized.
+- Added owner-scoped immutable SQLite storage with duplicate-hash reuse and
+  authenticated `POST`/`GET` workbench replay-manifest routes plus signed client
+  helpers. The feature remains behind the existing owner-only, default-closed
+  workbench gate. Creation does not touch provider jobs, billing holds, wallets,
+  or usage tables; tester access is generic 404.
+- Verification passed: focused replay/workbench tests `24/24`, full regression
+  `1655/1655`, `npm run check`, production build (6510 modules),
+  `npm run verify:video-workbench-pilot` (10 projects, 40/40 operations,
+  successRate 1, `billingMutated=false`), and `git diff --check`.
+- Not deployed yet. The only remaining P2 gate is a reviewed deployment through
+  `scripts/deploy-production.ps1`, a 600-second canary, and online route
+  verification. No paid video generation was submitted.
+
 ## 2026-08-16 AI-video P1 owner rollout gate
 
 - Production release `0afad54` is live at `https://shuimg.cn/` through

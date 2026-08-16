@@ -93,6 +93,31 @@ test('workbench assets require an owned video project and immutable versions', t
     assetId: asset.id, versionId: second.id, expectedRevision: 1 }), error => error.code === 'VERSION_CONFLICT');
 });
 
+test('replay manifests are immutable, deduplicated and owner scoped', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 3000, prompt: '灯光亮起' });
+  store.bindShotAssetVersion({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: first.id, role: 'product' });
+  const firstManifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'commerce-trailer', skillVersion: 1, modelCatalogSnapshot: { seedance: '2.5' },
+    rightsConfirmations: [{ assetId: asset.id, confirmation: 'owned_or_licensed' }] });
+  const duplicate = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'commerce-trailer', skillVersion: 1, modelCatalogSnapshot: { seedance: '2.5' },
+    rightsConfirmations: [asset.id] });
+  assert.equal(duplicate.id, firstManifest.id);
+  assert.equal(store.getReplayManifest({ ownerEmail: OWNER, projectId: project.id, manifestId: firstManifest.id }).manifestHash,
+    firstManifest.manifestHash);
+  assert.throws(() => store.getReplayManifest({ ownerEmail: 'other@example.com', projectId: project.id,
+    manifestId: firstManifest.id }), error => error.code === 'PROJECT_NOT_FOUND');
+  const row = db.prepare('SELECT COUNT(*) AS count FROM video_replay_manifests').get();
+  assert.equal(row.count, 1);
+});
+
 test('uploaded media is imported as an immutable asset version from authoritative storage', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());

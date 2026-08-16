@@ -12,6 +12,7 @@ function pathSegment(value, message) {
 const projectSegment = value => pathSegment(value, '请选择有效的视频项目');
 const assetSegment = value => pathSegment(value, '请选择有效的项目素材');
 const shotSegment = value => pathSegment(value, '请选择有效的分镜');
+const manifestSegment = value => pathSegment(value, '请选择有效的配方快照');
 
 function signedHeaders(headers = {}) {
   const token = getSessionToken();
@@ -46,6 +47,10 @@ function workbenchBase(projectId) {
 
 function shotBase(projectId, shotId) {
   return `${workbenchBase(projectId)}/shots/${shotSegment(shotId)}`;
+}
+
+function replayManifestBase(projectId) {
+  return `${workbenchBase(projectId)}/replay-manifests`;
 }
 
 export async function getVideoWorkbench(projectId) {
@@ -131,4 +136,21 @@ export async function addTimelineClip(projectId, payload = {}) {
     ...jsonBody(payload),
   }, '暂时无法加入时间线');
   return requireValue(response, 'clip', '时间线片段暂时不可用，请稍后重试');
+}
+
+export async function createVideoReplayManifest(projectId, payload = {}) {
+  const response = await requestJson(replayManifestBase(projectId), {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法保存视频创作配方');
+  return requireValue(response, 'manifest', '视频创作配方暂时不可用，请稍后重试');
+}
+
+export async function getVideoReplayManifest(projectId, manifestId) {
+  const response = await requestJson(
+    `${replayManifestBase(projectId)}/${manifestSegment(manifestId)}`,
+    {},
+    '暂时无法读取视频创作配方',
+  );
+  return requireValue(response, 'manifest', '视频创作配方暂时不可用，请稍后重试');
 }

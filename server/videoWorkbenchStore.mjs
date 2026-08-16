@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { buildReplayManifest } from './videoReplayManifest.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -26,6 +27,21 @@ function clean(value, max = 1000) {
 
 function parseJson(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+}
+
+function replayManifestFromRow(row) {
+  if (!row) return null;
+  let manifest = {};
+  try { manifest = JSON.parse(row.manifest_json || '{}'); } catch { manifest = {}; }
+  return {
+    id: row.id,
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    manifestHash: row.manifest_hash,
+    schemaVersion: row.schema_version,
+    createdAt: row.created_at,
+    ...manifest,
+  };
 }
 
 function assetFromRow(row) {
@@ -187,6 +203,16 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_workbench_operations_created
       ON video_workbench_operations(created_at, owner_email, project_id);
+    CREATE TABLE IF NOT EXISTS video_replay_manifests (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      manifest_hash TEXT NOT NULL, schema_version INTEGER NOT NULL,
+      skill_id TEXT NOT NULL, skill_version INTEGER NOT NULL,
+      manifest_json TEXT NOT NULL, created_at TEXT NOT NULL,
+      UNIQUE(owner_email, project_id, manifest_hash),
+      FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_replay_manifests_project
+      ON video_replay_manifests(owner_email, project_id, created_at);
   `);
 }
 
@@ -501,6 +527,49 @@ export function createVideoWorkbenchStore({
         throw error;
       }
       return clipFromRow(db.prepare('SELECT * FROM video_timeline_clips WHERE id = ?').get(id));
+    },
+
+    createReplayManifest({
+      ownerEmail, projectId, skillId, skillVersion, modelCatalogSnapshot = {}, rightsConfirmations = [],
+    }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const manifest = buildReplayManifest({
+        workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
+        skillId,
+        skillVersion,
+        modelCatalogSnapshot,
+        rightsConfirmations,
+      });
+      const existing = db.prepare(`SELECT * FROM video_replay_manifests
+        WHERE owner_email = ? AND project_id = ? AND manifest_hash = ?`)
+        .get(owner, project.id, manifest.manifestHash);
+      if (existing) return replayManifestFromRow(existing);
+      const id = randomUUID();
+      const createdAt = timestamp();
+      try {
+        db.prepare(`INSERT INTO video_replay_manifests
+          (id, owner_email, project_id, manifest_hash, schema_version, skill_id, skill_version,
+           manifest_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(id, owner, project.id, manifest.manifestHash, manifest.schemaVersion,
+            manifest.skill.id, manifest.skill.version, JSON.stringify(manifest), createdAt);
+      } catch (error) {
+        if (/UNIQUE constraint failed/i.test(error.message)) {
+          const raced = db.prepare(`SELECT * FROM video_replay_manifests
+            WHERE owner_email = ? AND project_id = ? AND manifest_hash = ?`)
+            .get(owner, project.id, manifest.manifestHash);
+          if (raced) return replayManifestFromRow(raced);
+        }
+        throw error;
+      }
+      return replayManifestFromRow(db.prepare('SELECT * FROM video_replay_manifests WHERE id = ?').get(id));
+    },
+
+    getReplayManifest({ ownerEmail, projectId, manifestId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT * FROM video_replay_manifests
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(manifestId, owner, project.id);
+      if (!row) throw coded('REPLAY_MANIFEST_NOT_FOUND', 'replay manifest not found');
+      return replayManifestFromRow(row);
     },
 
     listWorkbench({ ownerEmail, projectId }) {

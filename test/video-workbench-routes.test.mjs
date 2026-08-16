@@ -151,6 +151,41 @@ test('workbench routes derive owner from the signed session and ignore body owne
   assert.equal(read.body.code, 'PROJECT_NOT_FOUND');
 });
 
+test('owner can create and read an immutable replay manifest while tester remains denied', async t => {
+  const { app, db, project, sessionTokens, store, ownerEmail } = harness();
+  t.after(() => db.close());
+  const asset = store.createAsset({ ownerEmail, projectId: project.id, kind: 'scene', name: 'studio' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    stableUrl: '/api/video/assets/studio', contentHash: 'studio-hash', mimeType: 'image/png' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    versionId: version.id, expectedRevision: 1 });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 3000 });
+  store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: version.id, role: 'scene' });
+  const path = '/api/video/projects/:projectId/workbench/replay-manifests';
+  const created = await invoke(app, 'POST', path, {
+    headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id },
+    body: { skillId: 'studio-trailer', skillVersion: 2, modelCatalogSnapshot: { image: 'gpt-image-2' },
+      rightsConfirmations: [asset.id] },
+  });
+  assert.equal(created.statusCode, 201);
+  const id = created.body.manifest.id;
+  assert.equal(created.body.manifest.assets[0].versions[0].playbackUrl, undefined);
+  const read = await invoke(app, 'GET', `${path}/:manifestId`, {
+    headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id, manifestId: id },
+  });
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.manifest.id, id);
+  const forbiddenWriteTables = db.prepare(`SELECT name FROM sqlite_master
+    WHERE type = 'table' AND name IN ('video_jobs', 'usage_ledger', 'wallet_transactions') ORDER BY name`).all();
+  assert.deepEqual(forbiddenWriteTables, []);
+  const denied = await invoke(app, 'GET', `${path}/:manifestId`, {
+    headers: signedHeaders(sessionTokens, 'tester@example.com'), params: { projectId: project.id, manifestId: id },
+  });
+  assert.equal(denied.statusCode, 404);
+});
+
 test('workbench routes hide the owner pilot from a signed tester account', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

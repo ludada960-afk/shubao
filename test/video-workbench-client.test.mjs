@@ -6,7 +6,9 @@ import {
   approveWorkbenchAssetVersion,
   bindShotAssetVersion,
   createStoryboardShot,
+  createVideoReplayManifest,
   createWorkbenchAsset,
+  getVideoReplayManifest,
   getVideoWorkbench,
   importJobCandidate,
   importWorkbenchAssetVersion,
@@ -47,6 +49,8 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { candidate: { id: 'candidate / 1' } },
     { shot: { id: 'shot / 1', selectedCandidateId: 'candidate / 1' }, candidate: { id: 'candidate / 1' } },
     { clip: { id: 'clip-1' } },
+    { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
+    { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
   ];
   globalThis.fetch = async (path, options = {}) => {
     requests.push({ path, options });
@@ -64,6 +68,8 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
   await importJobCandidate('project / 1', 'shot / 1', { generationJobId: 'job-1' });
   await selectShotCandidate('project / 1', 'shot / 1', { candidateId: 'candidate / 1', expectedRevision: 2 });
   await addTimelineClip('project / 1', { shotId: 'shot / 1', candidateId: 'candidate / 1', position: 0, trimEndMs: 3000 });
+  await createVideoReplayManifest('project / 1', { skillId: 'trailer', skillVersion: 1, rightsConfirmations: ['asset-1'] });
+  await getVideoReplayManifest('project / 1', 'manifest / 1');
 
   assert.deepEqual(requests.map(request => ({
     path: request.path,
@@ -80,6 +86,8 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { path: '/api/video/projects/project%20%2F%201/workbench/shots/shot%20%2F%201/candidates', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/shots/shot%20%2F%201/select', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/timeline/clips', method: 'POST', authorization: 'Bearer signed-workbench-session' },
+    { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests', method: 'POST', authorization: 'Bearer signed-workbench-session' },
+    { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201', method: 'GET', authorization: 'Bearer signed-workbench-session' },
   ]);
   assert.deepEqual(JSON.parse(requests[2].options.body), { videoAssetId: 'upload-1', metadata: { angle: 'front' } });
 });
