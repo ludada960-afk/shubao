@@ -37,7 +37,7 @@
 
 - [x] Run focused replay tests, full regression, check, build, and the non-billing pilot verifier.
 - [x] Verify owner/tester HTTP behavior and assert provider/billing tables are unchanged.
-- [ ] Deploy only through `scripts/deploy-production.ps1`, run the canary, and record the release before starting clone/remix work. The first P2 attempt switched the release successfully but the wrapper lost its post-restart token capture because PowerShell SSH capture had no bound; the release remained live after independent API checks. A bounded SSH capture regression fix is now covered by `test/production-canary-issuer.test.mjs`; rerun the release gate before marking this task complete.
+- [x] Deploy only through `scripts/deploy-production.ps1`, run the canary, and record the release before starting clone/remix work. Release `5b80bcd` completed the full 600-second canary with stable PM2 PID `2802100`; public health, 117-image gallery, two-product video contract, authenticated non-billing video canaries, billing verification, and ecommerce stable-asset checks passed. The wrapper's post-restart token capture now uses the bounded SSH helper covered by `test/production-canary-issuer.test.mjs`.
 
 ## Exit gate
 

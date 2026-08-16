@@ -92,8 +92,10 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   `npm run check`、6510 模块构建和视频工作台无计费验证均通过。首次 P2 发布曾成功
   切换但部署包装器在重启后读取 Canary token 时因 PowerShell SSH 无界等待而中断；
   该版本没有执行无护栏回滚。随后电商增量覆盖了线上 P2 路由，独立校验已确认这一点。
-  `scripts/deploy-production.ps1` 现已加入 30 秒有界 SSH 捕获及回归测试，下一步必须
-  重新通过唯一入口完成稳定发布和 600 秒 Canary 后才可进入 clone/remix。
+  `scripts/deploy-production.ps1` 现已加入 30 秒有界 SSH 捕获及回归测试。提交 `5b80bcd`
+  已通过唯一入口完成发布；PM2 PID `2802100` 的完整 600 秒 Canary、健康、117 张图库、
+  两个公开视频产品、认证无计费视频校验、计费校验和电商稳定资产校验均通过，锁持有进程
+  已释放，独立复核再次通过。P2 可进入 clone/remix 设计，但工作台仍保持默认关闭。
 
 - 2026-08-07，电商 Canvas 创意导出稳定性版本已由 `02e517d` 发布至
   `https://shuimg.cn/`。上线前全量回归通过 `1265/1265`，生产构建通过

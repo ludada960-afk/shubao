@@ -1,6 +1,6 @@
 # Subagent-Driven Development Progress
 
-## 2026-08-16 AI-video P2 replay manifest (release retry in progress)
+## 2026-08-16 AI-video P2 replay manifest (production complete)
 
 - Implemented `server/videoReplayManifest.mjs` as a versioned, canonical, SHA-256
   hashed replay contract. It records the owner project graph, asset/version
@@ -16,15 +16,17 @@
   `1655/1655`, `npm run check`, production build (6510 modules),
   `npm run verify:video-workbench-pilot` (10 projects, 40/40 operations,
   successRate 1, `billingMutated=false`), and `git diff --check`.
-- The first release attempt switched P2 to production but the deployment wrapper
-  stopped while capturing the post-restart canary token: its direct PowerShell
-  `ssh` capture had no timeout. The release was intentionally left live (no
-  unfenced rollback) and an independent check proved the public capability route;
-  authenticated verification then exposed that a later ecommerce-only release had
-  overwritten the P2 API routes. A bounded `Invoke-BoundedSshCapture` helper is now
-  covered by `test/production-canary-issuer.test.mjs`, and the P2 release is being
-  retried on top of the ecommerce ancestor before the final 600-second canary.
-  No paid video generation was submitted.
+- Release `5b80bcd` completed through `scripts/deploy-production.ps1` on top of the
+  ecommerce ancestor. PM2 stayed on PID `2802100` through the full 600-second
+  canary; public health, gallery (117 images), two-product video contract,
+  authenticated non-billing video canaries, billing, and ecommerce stable-asset
+  verification all passed. The deployment lock holder exited cleanly and no paid
+  video generation was submitted. Independent post-release verification repeated
+  the video, billing, and gallery checks successfully.
+- The previous P2 release attempt had been overwritten by a later ecommerce-only
+  release, which is why the first independent authenticated probe saw missing video
+  routes. This retry restored the owner-scoped replay-manifest routes without
+  reverting ecommerce changes.
 
 ## 2026-08-16 deployment tooling regression fix
 
