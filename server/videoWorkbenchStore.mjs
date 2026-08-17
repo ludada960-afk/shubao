@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
+import { buildVideoExportManifest } from './videoExportManifest.mjs';
 import { normalizeProjectMemoryFact, normalizeProjectMemoryList } from './videoProjectMemory.mjs';
 import {
   buildSkillRunExecutionPlan,
@@ -70,6 +71,18 @@ function replayManifestFromRow(row) {
     schemaVersion: row.schema_version,
     createdAt: row.created_at,
     ...manifest,
+  };
+}
+
+function exportManifestFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    manifestHash: row.manifest_hash,
+    schemaVersion: row.schema_version,
+    createdAt: row.created_at,
+    manifest: parseJson(row.manifest_json, null),
   };
 }
 
@@ -364,6 +377,15 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_replay_manifests_project
       ON video_replay_manifests(owner_email, project_id, created_at);
+    CREATE TABLE IF NOT EXISTS video_export_manifests (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      manifest_hash TEXT NOT NULL, schema_version INTEGER NOT NULL,
+      manifest_json TEXT NOT NULL, created_at TEXT NOT NULL,
+      UNIQUE(owner_email, project_id, manifest_hash),
+      FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_export_manifests_project
+      ON video_export_manifests(owner_email, project_id, created_at DESC);
     CREATE TABLE IF NOT EXISTS video_skill_runs (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
       skill_id TEXT NOT NULL, skill_version INTEGER NOT NULL, status TEXT NOT NULL,
@@ -957,6 +979,56 @@ export function createVideoWorkbenchStore({
         );
         return memoryFactFromRow(db.prepare('SELECT * FROM video_project_memory_facts WHERE id = ?').get(current.id));
       })();
+    },
+
+    createExportManifest({ ownerEmail, projectId, options = {} }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const manifest = buildVideoExportManifest({
+        workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
+        options,
+      });
+      const existing = db.prepare(`SELECT * FROM video_export_manifests
+        WHERE owner_email = ? AND project_id = ? AND manifest_hash = ?`)
+        .get(owner, project.id, manifest.manifestHash);
+      if (existing) return { ...exportManifestFromRow(existing), replayed: true };
+      const id = randomUUID();
+      const createdAt = timestamp();
+      try {
+        db.prepare(`INSERT INTO video_export_manifests
+          (id, owner_email, project_id, manifest_hash, schema_version, manifest_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`)
+          .run(id, owner, project.id, manifest.manifestHash, manifest.schemaVersion,
+            JSON.stringify(manifest), createdAt);
+      } catch (error) {
+        if (/UNIQUE constraint failed/i.test(error.message)) {
+          const raced = db.prepare(`SELECT * FROM video_export_manifests
+            WHERE owner_email = ? AND project_id = ? AND manifest_hash = ?`)
+            .get(owner, project.id, manifest.manifestHash);
+          if (raced) return { ...exportManifestFromRow(raced), replayed: true };
+        }
+        throw error;
+      }
+      return { ...exportManifestFromRow(db.prepare('SELECT * FROM video_export_manifests WHERE id = ?').get(id)), replayed: false };
+    },
+
+    getExportManifest({ ownerEmail, projectId, manifestId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT * FROM video_export_manifests
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(manifestId, owner, project.id);
+      if (!row) throw coded('EXPORT_MANIFEST_NOT_FOUND', 'export manifest not found');
+      return exportManifestFromRow(row);
+    },
+
+    listExportManifests({ ownerEmail, projectId, limit = 20 }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const requestedLimit = Number(limit);
+      const boundedLimit = Number.isFinite(requestedLimit)
+        ? Math.max(1, Math.min(50, Math.floor(requestedLimit)))
+        : 20;
+      return db.prepare(`SELECT * FROM video_export_manifests
+        WHERE owner_email = ? AND project_id = ?
+        ORDER BY created_at DESC, id DESC LIMIT ?`).all(owner, project.id, boundedLimit)
+        .map(exportManifestFromRow);
     },
 
     createReplayManifest({

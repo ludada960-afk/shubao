@@ -569,3 +569,10 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - `scripts/deploy-production.ps1` 已修复：备份时保存两个 package manifest，回滚时恢复它们并先执行
   `npm ci --omit=dev` 再启动 PM2；`test/deploy-script.test.mjs` 聚焦覆盖 `25/25`。以后回滚不会再留下
   仅恢复业务代码而依赖图不一致的状态。
+
+## 2026-08-18 AI Video Export Manifest Local Slice
+
+- 本地 `codex/video-platform-p0` 新增可审计的视频导出清单边界：只读取当前项目中非 stale 的已选视频候选、有效裁剪区间、已审核 voice/music 版本、字幕与节拍元数据，按规范化内容生成 SHA-256 hash，并通过 owner/project-scoped API 持久化与幂等读取。
+- 工作台新增“导出准备”面板，明确提示“仅生成可审计交付清单，尚未调用渲染器/供应商，不会扣积分”；没有生成下载 URL、没有提交 provider、没有创建 wallet/usage/billing 记录。导出清单不是 MP4 成品，后续仍需 renderer worker、代理文件、断点恢复与下载链路。
+- 证据：导出/工作台定向 `10/10`、相关工作台/回放定向 `74/74`、全量 `npm test` `1736/1736`、`npm run check`、6510 模块生产构建、`git diff --check`、非计费 pilot verifier 全部通过；`npm run collab:check` 因当前 linked worktree 无协作标记而按策略 BLOCKED。
+- 本切片尚未部署，生产 `workbenchEnabled=false`，未触发任何付费视频生成。完成真实 renderer 与 Stage 1 退出证据前，不得把“导出准备”描述为线上 MP4 导出已上线。

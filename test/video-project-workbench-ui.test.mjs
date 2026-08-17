@@ -62,6 +62,9 @@ test('project workbench exposes real persisted stages without provider controls 
     'listVideoReplayManifests',
     'getVideoReplayManifest',
     'cloneVideoReplayManifest',
+    'createVideoExportManifest',
+    'listVideoExportManifests',
+    'getVideoExportManifest',
   ]) {
     assert.match(component, new RegExp(command));
   }
@@ -109,6 +112,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /replayManifests/);
   assert.match(component, /创作过程预览/);
   assert.match(component, /replayManifestPreview\.shots/);
+  assert.match(component, /exportManifest/);
+  assert.match(component, /生成导出清单/);
+  assert.match(component, /尚未调用渲染器\/供应商，不会扣积分/);
+  assert.match(component, /下载 MP4 需接入渲染 worker/);
   assert.match(component, /handleCheckGenerationPlan/);
   assert.match(component, /handleCompileGenerationDraft/);
   assert.match(component, /generationDraft/);

@@ -33,9 +33,12 @@ import {
   createVideoAudioTrack,
   createVideoWorkbenchGenerationDraft,
   createVideoReplayManifest,
+  createVideoExportManifest,
   cloneVideoReplayManifest,
   getVideoReplayManifest,
   listVideoReplayManifests,
+  listVideoExportManifests,
+  getVideoExportManifest,
   getVideoWorkbench,
   getVideoWorkbenchGenerationDraft,
   getVideoWorkbenchPlan,
@@ -249,6 +252,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [replayManifest, setReplayManifest] = useState(null);
   const [replayManifests, setReplayManifests] = useState([]);
   const [replayManifestPreview, setReplayManifestPreview] = useState(null);
+  const [exportManifest, setExportManifest] = useState(null);
+  const [exportManifests, setExportManifests] = useState([]);
   const [workbenchPlan, setWorkbenchPlan] = useState(null);
   const [generationDraft, setGenerationDraft] = useState(null);
   const [skillRun, setSkillRun] = useState(null);
@@ -261,6 +266,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const selectedProjectRef = useRef('');
   const requestSequenceRef = useRef(0);
   const replayRequestSequenceRef = useRef(0);
+  const exportRequestSequenceRef = useRef(0);
   const planRequestSequenceRef = useRef(0);
 
   useEffect(() => {
@@ -347,6 +353,26 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }
   }, []);
 
+  const loadExportManifests = useCallback(async (id, { selectLatest = true } = {}) => {
+    const requestSequence = ++exportRequestSequenceRef.current;
+    if (!id) {
+      setExportManifests([]);
+      setExportManifest(null);
+      return;
+    }
+    try {
+      const manifests = await listVideoExportManifests(id, { limit: 8 });
+      if (requestSequence !== exportRequestSequenceRef.current || selectedProjectRef.current !== id) return;
+      setExportManifests(manifests);
+      setExportManifest(current => manifests.find(item => item.id === current?.id) || (selectLatest ? manifests[0] || null : current));
+    } catch (loadError) {
+      if (requestSequence !== exportRequestSequenceRef.current || selectedProjectRef.current !== id) return;
+      setExportManifests([]);
+      setExportManifest(null);
+      setError(displayError(loadError));
+    }
+  }, []);
+
   const loadProjects = useCallback(async preferredId => {
     planRequestSequenceRef.current += 1;
     setWorkbenchPlan(null);
@@ -369,6 +395,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         setSkillRun(null);
         setSkillRunExecutionPreview(null);
         void loadReplayManifests('');
+        void loadExportManifests('');
       }
       setError('');
     } catch (loadError) {
@@ -376,7 +403,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } finally {
       setLoading(false);
     }
-  }, [jobs, loadReplayManifests]);
+  }, [jobs, loadExportManifests, loadReplayManifests]);
 
   useEffect(() => {
     if (!enabled || !logged) return undefined;
@@ -400,6 +427,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     if (projectId) {
       void loadWorkbench(projectId);
       void loadReplayManifests(projectId);
+      void loadExportManifests(projectId);
     } else {
       setWorkbench(null);
       setWorkbenchPlan(null);
@@ -407,8 +435,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setSkillRun(null);
       setSkillRunExecutionPreview(null);
       void loadReplayManifests('');
+      void loadExportManifests('');
     }
-  }, [loadReplayManifests, loadWorkbench, projectId]);
+  }, [loadExportManifests, loadReplayManifests, loadWorkbench, projectId]);
 
   const runMutation = useCallback(async (key, action) => {
     if (!projectId || busy) return;
@@ -420,7 +449,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setGenerationDraft(null);
       setSkillRun(null);
       setSkillRunExecutionPreview(null);
+      setExportManifest(null);
       await loadWorkbench(projectId, { quiet: true });
+      await loadExportManifests(projectId, { selectLatest: false });
     } catch (mutationError) {
       setError(displayError(mutationError));
       if (mutationError?.status === 409 || mutationError?.code === 'VERSION_CONFLICT') {
@@ -429,7 +460,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } finally {
       setBusy('');
     }
-  }, [busy, loadWorkbench, projectId]);
+  }, [busy, loadExportManifests, loadWorkbench, projectId]);
 
   const handleCheckGenerationPlan = useCallback(async () => {
     if (!projectId || busy) return;
@@ -576,6 +607,31 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setReplayManifest(manifest);
       setReplayManifests(current => [manifest, ...current.filter(item => item.id !== manifest.id)]);
     });
+  }
+
+  async function handleCreateExportManifest() {
+    const hasActiveTimeline = workbench?.timelineClips?.some(clip => clip.status === 'active');
+    if (!projectId || busy || !hasActiveTimeline) return;
+    setBusy('export:manifest');
+    setError('');
+    try {
+      const created = await createVideoExportManifest(projectId, {
+        format: 'mp4',
+        resolution: '720p',
+        fps: 30,
+        includeAudio: true,
+        title: workbench?.project?.title || '',
+      });
+      const persisted = created?.id
+        ? await getVideoExportManifest(projectId, created.id)
+        : created;
+      setExportManifest(persisted);
+      await loadExportManifests(projectId);
+    } catch (exportError) {
+      setError(displayError(exportError));
+    } finally {
+      setBusy('');
+    }
   }
 
   function handleCloneReplayManifest() {
@@ -1184,6 +1240,19 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           </article>)}
           {!audioTracks.length && <p className="video-project-inline-empty">时间线加入镜头后，可从上方已确认素材中选择声音。</p>}
         </div>
+      </section>
+
+      <section className="video-project-band is-export" aria-labelledby="video-export-heading">
+        <header><div><small>07</small><span><h3 id="video-export-heading">导出准备</h3><p>把已确认的时间线、音轨和字幕整理成可审计的交付清单。</p></span></div><b>{exportManifests.length} 份清单</b></header>
+        <div className="video-project-export-actions">
+          <button type="button" disabled={Boolean(busy) || !workbench?.timelineClips?.some(clip => clip.status === 'active')} onClick={handleCreateExportManifest}>
+            {busy === 'export:manifest' ? <><LoaderCircle className="is-spinning" size={15} />生成中…</> : <><Film size={15} />生成导出清单</>}
+          </button>
+          <span>仅生成可审计交付清单，尚未调用渲染器/供应商，不会扣积分。</span>
+        </div>
+        {exportManifest ? <div className="video-project-export-manifest" role="status">
+          <strong>导出清单已保存</strong><span>版本 {exportManifest.schemaVersion} · {exportManifest.manifest?.durationMs ? `${(exportManifest.manifest.durationMs / 1000).toFixed(1)} 秒` : '时长待定'} · hash {exportManifest.manifestHash?.slice(0, 12)}</span>
+        </div> : <p className="video-project-inline-empty">尚未调用渲染器/供应商，不会扣积分；下载 MP4 需接入渲染 worker。</p>}
       </section>
     </>}
   </section>;

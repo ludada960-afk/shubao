@@ -12,6 +12,7 @@ const NOT_FOUND_CODES = new Set([
   'VIDEO_ASSET_NOT_FOUND',
   'SKILL_RUN_NOT_FOUND',
   'REPLAY_MANIFEST_NOT_FOUND',
+  'EXPORT_MANIFEST_NOT_FOUND',
   'MEMORY_FACT_NOT_FOUND',
   'MEMORY_ASSET_NOT_FOUND',
   'AUDIO_TRACK_NOT_FOUND',
@@ -68,6 +69,9 @@ function routeError(error, res) {
   }
   if (code === 'INVALID_TIMELINE_CLIP') {
     return res.status(400).json({ code, error: '时间线片段参数无效，请检查位置和剪辑范围' });
+  }
+  if (code === 'INVALID_VIDEO_EXPORT') {
+    return res.status(400).json({ code, error: error.message || '视频导出清单参数无效，请检查时间线和音轨' });
   }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
@@ -376,6 +380,27 @@ export function mountVideoWorkbenchRoutes(app, {
       patch: req.body?.patch,
     })
   ), { key: 'track' }));
+
+  app.post('/api/video/projects/:projectId/workbench/export-manifests', (req, res) => dispatch(
+    req, res, 'export-manifest.create', request => store.createExportManifest({
+      ...request,
+      options: req.body?.options || {},
+    }), { status: value => (value?.replayed ? 200 : 201), key: 'manifest' },
+  ));
+
+  app.get('/api/video/projects/:projectId/workbench/export-manifests', (req, res) => dispatch(
+    req, res, 'export-manifest.list', request => store.listExportManifests({
+      ...request,
+      limit: req.query?.limit,
+    }), { key: 'manifests' },
+  ));
+
+  app.get('/api/video/projects/:projectId/workbench/export-manifests/:manifestId', (req, res) => dispatch(
+    req, res, 'export-manifest.read', request => store.getExportManifest({
+      ...request,
+      manifestId: req.params.manifestId,
+    }), { key: 'manifest' },
+  ));
 
   app.post('/api/video/projects/:projectId/workbench/replay-manifests', (req, res) => dispatch(
     req, res, 'replay-manifest.create', request => store.createReplayManifest({

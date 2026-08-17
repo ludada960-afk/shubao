@@ -60,6 +60,10 @@ function replayManifestBase(projectId) {
   return `${workbenchBase(projectId)}/replay-manifests`;
 }
 
+function exportManifestBase(projectId) {
+  return `${workbenchBase(projectId)}/export-manifests`;
+}
+
 function skillRunBase(projectId) {
   return `${workbenchBase(projectId)}/skill-runs`;
 }
@@ -280,6 +284,34 @@ export async function listVideoReplayManifests(projectId, { limit } = {}) {
   );
   if (!Array.isArray(response?.manifests)) throw new Error('视频创作配方暂时不可用，请稍后重试');
   return response.manifests;
+}
+
+export async function createVideoExportManifest(projectId, options = {}) {
+  const response = await requestJson(exportManifestBase(projectId), {
+    method: 'POST',
+    ...jsonBody({ options }),
+  }, '暂时无法生成视频导出清单');
+  return requireValue(response, 'manifest', '视频导出清单暂时不可用，请稍后重试');
+}
+
+export async function listVideoExportManifests(projectId, { limit } = {}) {
+  const suffix = limit == null ? '' : `?limit=${encodeURIComponent(limit)}`;
+  const response = await requestJson(
+    `${exportManifestBase(projectId)}${suffix}`,
+    {},
+    '暂时无法读取视频导出清单',
+  );
+  if (!Array.isArray(response?.manifests)) throw new Error('视频导出清单暂时不可用，请稍后重试');
+  return response.manifests;
+}
+
+export async function getVideoExportManifest(projectId, manifestId) {
+  const response = await requestJson(
+    `${exportManifestBase(projectId)}/${manifestSegment(manifestId)}`,
+    {},
+    '暂时无法读取视频导出清单',
+  );
+  return requireValue(response, 'manifest', '视频导出清单暂时不可用，请稍后重试');
 }
 
 export async function cloneVideoReplayManifest(projectId, manifestId, {

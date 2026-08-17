@@ -2599,3 +2599,23 @@
   snapshots and restores both package manifests and runs `npm ci --omit=dev`
   before restarting PM2 during rollback; focused deployment coverage passes
   `25/25`. This hotfix is a release-safety repair, not an AI workbench release.
+
+- 2026-08-18 the local video workbench gained the first P1 export boundary in
+  `server/videoExportManifest.mjs`, `server/videoWorkbenchStore.mjs`,
+  `server/videoWorkbenchRoutes.mjs`, `src/services/videoWorkbench.js`, and
+  `src/pages/VideoStudio/VideoProjectWorkbench.jsx`. It creates a durable,
+  owner/project-scoped, SHA-256 keyed manifest only from the current active
+  timeline, non-stale selected video candidates, approved audio versions,
+  bounded subtitles/beats, and explicit format/resolution/fps options. The UI
+  says clearly that this is an auditable delivery list only; no renderer,
+  provider, URL, wallet, usage, or billing mutation is created. Retries are
+  hash-idempotent and the read/list routes are owner-scoped. Focused export and
+  workbench coverage passed `10/10` and `74/74`; the full suite passed
+  `1736/1736`; `npm run check`, the 6510-module production build, `git diff
+  --check`, and the non-billing pilot verifier passed. `npm run collab:check`
+  remains blocked because this linked worktree has no collaboration marker,
+  which is an environment policy result rather than an application failure.
+  No provider or paid video generation was triggered, and this slice has not
+  been deployed; `workbenchEnabled` remains false. A real renderer worker,
+  proxy/download recovery, and production canary remain required before
+  `VID-P1-05` can be marked complete.
