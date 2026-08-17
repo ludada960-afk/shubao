@@ -240,7 +240,7 @@ function Refresh-CanarySessionAfterRestart {
   $remotePid = Get-RemotePm2ProcessId
   $issuerCommand = "set -e; umask 077; node '$RemoteDir/scripts/issue-production-canary-session.mjs' --owner-email '$CanaryOwnerEmail' --process-id '$remotePid' --repo-path '$RemoteDir' > '$remoteCanarySessionFile'; chmod 600 '$remoteCanarySessionFile'"
   Invoke-LockedRemote -Command $issuerCommand -TimeoutSeconds 120 -FailureMessage "Post-restart canary session issuance failed"
-  $refreshedToken = ((& ssh @ssh $target "cat '$remoteCanarySessionFile'") -join "").Trim()
+  $refreshedToken = ((& ssh -n @ssh $target "cat '$remoteCanarySessionFile'") -join "").Trim()
   if ($LASTEXITCODE -ne 0 -or -not (Test-CanarySessionTokenFormat $refreshedToken)) {
     throw "Post-restart canary session capture failed"
   }
