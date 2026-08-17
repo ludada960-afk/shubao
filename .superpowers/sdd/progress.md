@@ -2384,7 +2384,7 @@
   `server/video-assets/` and `server/video-upload-staging/` remain excluded.
 
 - 2026-08-17 AI-video generation-plan approval is complete locally in commit
-  `28be845`. Added an immutable owner/project-scoped approval snapshot for a
+  `4863249`. Added an immutable owner/project-scoped approval snapshot for a
   ready preflight plan. The server recomputes the current plan and SHA-256
   fingerprint before approval, rejects stale/tampered hashes, and exposes the
   matching approval on subsequent reads; workbench mutations invalidate the
