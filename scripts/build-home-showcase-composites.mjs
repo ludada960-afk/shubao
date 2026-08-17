@@ -15,9 +15,18 @@ const DEFAULT_SOCIAL_THUMB_ROOT = resolve(PROJECT_ROOT, 'public/images/.thumbs/h
 
 export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
   Object.freeze({
-    id: 'editorial-multi-angle-v6',
-    kind: 'multi-angle',
+    id: 'editorial-multi-angle-fan-v7',
+    kind: 'multi-angle-fan',
     extension: 'webp',
+    ratio: '16:9',
+    width: 1600,
+    height: 900,
+    sources: ['angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
+  }),
+  Object.freeze({
+    id: 'editorial-multi-angle-workflow-v7',
+    kind: 'multi-angle-workflow',
+    extension: 'png',
     ratio: '16:9',
     width: 1600,
     height: 900,
@@ -35,7 +44,7 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
 ]);
 
 export const TRYON_LAYOUT_PLANS = Object.freeze({
-  'editorial-multi-angle-v6': Object.freeze({
+  'editorial-multi-angle-fan-v7': Object.freeze({
     stages: Object.freeze(['result-fan']),
     fit: 'contain',
     blurPadding: false,
@@ -45,6 +54,20 @@ export const TRYON_LAYOUT_PLANS = Object.freeze({
       Object.freeze({ left: 555, top: 100, width: 330, height: 600, rotation: -3, fit: 'contain', border: 5 }),
       Object.freeze({ left: 875, top: 100, width: 330, height: 600, rotation: 3, fit: 'contain', border: 5 }),
       Object.freeze({ left: 1195, top: 150, width: 330, height: 600, rotation: 8, fit: 'contain', border: 5 }),
+    ]),
+  }),
+  'editorial-multi-angle-workflow-v7': Object.freeze({
+    stages: Object.freeze(['product', 'arrow', 'result-fan']),
+    fit: 'contain',
+    blurPadding: false,
+    visualBounds: Object.freeze({ left: 56, top: 100, right: 1594, bottom: 800 }),
+    product: Object.freeze({ left: 72, top: 168, width: 390, height: 560, rotation: -2, fit: 'contain', border: 8, radius: 28 }),
+    arrow: Object.freeze({ left: 468, top: 292, right: 566, bottom: 535 }),
+    resultCards: Object.freeze([
+      Object.freeze({ left: 560, top: 170, width: 315, height: 560, rotation: -8, fit: 'contain', border: 5 }),
+      Object.freeze({ left: 790, top: 125, width: 315, height: 560, rotation: -3, fit: 'contain', border: 5 }),
+      Object.freeze({ left: 1020, top: 125, width: 315, height: 560, rotation: 3, fit: 'contain', border: 5 }),
+      Object.freeze({ left: 1247, top: 170, width: 315, height: 560, rotation: 8, fit: 'contain', border: 5 }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -124,7 +147,7 @@ async function placedCard(sourcePath, placement) {
   return { input, left, top };
 }
 
-function multiAngleDecoration() {
+function multiAngleDecoration({ withArrow = false } = {}) {
   return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4b3929" flood-opacity=".16"/></filter>
@@ -134,13 +157,36 @@ function multiAngleDecoration() {
   </svg>`);
 }
 
+function multiAngleArrow() {
+  return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="arrowGradient" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0" stop-color="#c9bdb0"/>
+        <stop offset="1" stop-color="#9f8d7c"/>
+      </linearGradient>
+      <marker id="arrowHead" markerWidth="28" markerHeight="28" refX="21" refY="9" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M0 0 L22 9 L0 18 Z" fill="#9f8d7c"/>
+      </marker>
+    </defs>
+    <path d="M474 540 C496 524 520 496 548 454" fill="none" stroke="url(#arrowGradient)" stroke-width="20" stroke-linecap="round"/>
+    <path d="M560 440 L536 448 L546 464 Z" fill="#9f8d7c"/>
+  </svg>`);
+}
+
 async function buildMultiAngle(definition) {
   const plan = TRYON_LAYOUT_PLANS[definition.id];
+  const hasProduct = definition.kind === 'multi-angle-workflow';
+  const product = hasProduct
+    ? await placedCard(resolve(SOURCE_ROOT, definition.sources[0]), plan.product)
+    : null;
+  const cardSources = hasProduct ? definition.sources.slice(1) : definition.sources;
   const results = await Promise.all(
-    definition.sources.slice(1).map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
+    cardSources.map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
   );
+  const layers = [...(product ? [product] : []), ...results];
+  if (hasProduct) layers.push({ input: multiAngleArrow(), left: 0, top: 0 });
   return sharp(multiAngleDecoration())
-    .composite(results)
+    .composite(layers)
     .png()
     .toBuffer();
 }
@@ -177,7 +223,7 @@ export async function buildHomeShowcaseComposites({
   if (writeThumbs) await mkdir(thumbRoot, { recursive: true });
   const outputs = [];
   for (const definition of HOME_SHOWCASE_COMPOSITES) {
-    const bytes = definition.kind === 'multi-angle'
+    const bytes = ['multi-angle-fan', 'multi-angle-workflow'].includes(definition.kind)
       ? await buildMultiAngle(definition)
       : await buildReferenceWorkflow(definition);
     const outputPath = resolve(outputRoot, `${definition.id}.${definition.extension}`);

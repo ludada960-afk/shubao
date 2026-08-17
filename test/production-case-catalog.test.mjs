@@ -55,8 +55,9 @@ test('multi-angle try-on exposes four independent complete model views', () => {
   assert.ok(angleSources.every(asset => asset.ratio === '9:16'));
   const workflow = item.assets.find(asset => asset.displayRole === 'workflowBanner');
   assert.equal(workflow.ratio, '16:9');
-  assert.equal(workflow.src, '/images/home/tryon-showcase/editorial-multi-angle-v6.webp?v=fan-only-v1');
+  assert.equal(workflow.src, '/images/home/tryon-showcase/editorial-multi-angle-workflow-v7.png?v=workflow-v7');
   assert.equal(workflow.provenance, 'production-composite');
+  assert.doesNotMatch(workflow.src, /fan-only/);
 });
 
 test('product suite has one wide final composite, five exact-prompt detail sources, and three rich selector previews', async () => {
@@ -90,10 +91,12 @@ test('product suite has one wide final composite, five exact-prompt detail sourc
 
 test('try-on selector uses one purpose-built wide fan from production-backed assets', () => {
   const item = productionCaseById('tryon-angles');
-  const previews = item.assets.filter(asset => asset.selectorPreview === true);
+  const previews = item.assets.filter(asset => asset.displayRole === 'selectorPreview');
   assert.equal(previews.length, 1);
   assert.ok(previews.every(asset => asset.ratio === '16:9'));
   assert.ok(previews.every(asset => asset.provenance === 'production-composite'));
+  assert.equal(previews[0].src, '/images/home/tryon-showcase/editorial-multi-angle-fan-v7.webp?v=fan-only-v7');
+  assert.match(previews[0].prompt, /不裁切/);
 });
 
 test('social formats declare Xiaohongshu, Bilibili, and Douyin in visual order', () => {

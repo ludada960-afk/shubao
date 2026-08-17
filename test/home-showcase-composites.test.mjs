@@ -25,12 +25,21 @@ test('try-on showcase composites preserve complete production assets in fixed wi
       assert.ok(metadata.width >= 1200);
       assert.ok(output.sources.length >= 2);
     }
-    const multiAngle = outputs.find(output => output.kind === 'multi-angle');
+    const multiAngle = outputs.find(output => output.kind === 'multi-angle-fan');
+    const workflow = outputs.find(output => output.kind === 'multi-angle-workflow');
     const reference = outputs.find(output => output.kind === 'reference-workflow');
     assert.equal(multiAngle.ratio, '16:9');
-  assert.equal(multiAngle.id, 'editorial-multi-angle-v6');
-  assert.equal(multiAngle.sources.length, 5);
+    assert.equal(multiAngle.id, 'editorial-multi-angle-fan-v7');
+    assert.equal(multiAngle.sources.length, 4);
     assert.deepEqual(multiAngle.sources, [
+      'angle-front.png',
+      'angle-motion.png',
+      'angle-side.png',
+      'angle-back.png',
+    ]);
+    assert.equal(workflow.id, 'editorial-multi-angle-workflow-v7');
+    assert.equal(workflow.sources.length, 5);
+    assert.deepEqual(workflow.sources, [
       'editorial-flatlay-matched-v1.webp',
       'angle-front.png',
       'angle-motion.png',
@@ -45,7 +54,7 @@ test('try-on showcase composites preserve complete production assets in fixed wi
 });
 
 test('try-on layout plans match the product-to-angle reference without cropped content', () => {
-  const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-v6'];
+  const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-fan-v7'];
   const rotatedBounds = ({ left, top, width, height, rotation }) => {
     const radians = Math.abs(rotation * Math.PI / 180);
     const rotatedWidth = (width * Math.cos(radians)) + (height * Math.sin(radians));
@@ -72,6 +81,18 @@ test('try-on layout plans match the product-to-angle reference without cropped c
   assert.ok(multiAngle.visualBounds.top >= 24);
   assert.ok(multiAngle.visualBounds.bottom <= 876);
   assert.ok(multiAngle.visualBounds.right - multiAngle.visualBounds.left >= 1400);
+
+  const workflow = TRYON_LAYOUT_PLANS['editorial-multi-angle-workflow-v7'];
+  assert.deepEqual(workflow.stages, ['product', 'arrow', 'result-fan']);
+  assert.equal(workflow.resultCards.length, 4);
+  assert.ok(workflow.product.width >= 360);
+  assert.ok(workflow.arrow.right > workflow.arrow.left);
+  assert.ok(workflow.arrow.bottom > workflow.arrow.top);
+  assert.ok(workflow.resultCards.every(card => card.fit === 'contain'));
+  assert.ok(workflow.resultCards.every(card => {
+    const bounds = rotatedBounds(card);
+    return bounds.left >= 0 && bounds.top >= 0 && bounds.right <= 1600 && bounds.bottom <= 900;
+  }));
 
   const reference = TRYON_LAYOUT_PLANS['tryon-reference-workflow'];
   assert.deepEqual(reference.stages, ['product', 'reference-model', 'result']);
