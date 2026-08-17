@@ -2314,3 +2314,11 @@
   This slice is not deployed because the controlled SSH key is still unreadable;
   runtime folders `.npm-cache/`, `.qa-video/`, `server/video-assets/` and
   `server/video-upload-staging/` remain excluded.
+
+- 2026-08-17 release gate for `b45abd9` was attempted through the only approved
+  `scripts/deploy-production.ps1` entry point. Local full regression (`1696/1696`),
+  6510-module build, build check, no-paid-generation probe and model-directory
+  probe passed. The script failed closed before any remote mutation because
+  `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is unreadable and SSH returned
+  `Permission denied`; the script also refused an unfenced rollback after the lock
+  was lost. No remote archive, release switch, restart, rollback or Canary ran.
