@@ -1,6 +1,8 @@
 const MAX_JSON_BYTES = 32_000;
 const MAX_STEPS = 32;
 const MAX_CHECKPOINTS = 16;
+const MAX_GUARDS = 32;
+const MAX_RETRY_KINDS = 12;
 const MAX_ID = 128;
 
 function coded(message) {
@@ -26,6 +28,55 @@ function boundedText(value, label, max = MAX_ID) {
   return text;
 }
 
+function normalizeExecutionPolicies(spec) {
+  const output = {};
+  if (spec.budgetPolicy !== undefined) {
+    const policy = spec.budgetPolicy;
+    if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw coded('budgetPolicy must be an object');
+    if (policy.currency !== 'ai_points') throw coded('budgetPolicy currency is invalid');
+    const maxPoints = Number(policy.maxPoints);
+    if (!Number.isSafeInteger(maxPoints) || maxPoints < 1 || maxPoints > 1_000_000) throw coded('budgetPolicy maxPoints is invalid');
+    const reserveMode = policy.reserveMode === undefined ? 'approved_cap' : policy.reserveMode;
+    if (!['approved_cap', 'per_step'].includes(reserveMode)) throw coded('budgetPolicy reserveMode is invalid');
+    output.budgetPolicy = { currency: 'ai_points', maxPoints, reserveMode };
+  }
+  if (spec.retryPolicy !== undefined) {
+    const policy = spec.retryPolicy;
+    if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw coded('retryPolicy must be an object');
+    const maxAttemptsPerStep = policy.maxAttemptsPerStep === undefined ? 1 : Number(policy.maxAttemptsPerStep);
+    if (!Number.isSafeInteger(maxAttemptsPerStep) || maxAttemptsPerStep < 0 || maxAttemptsPerStep > 3) throw coded('retryPolicy maxAttemptsPerStep is invalid');
+    const retryableKinds = policy.retryableKinds === undefined ? [] : policy.retryableKinds;
+    if (!Array.isArray(retryableKinds) || retryableKinds.length > MAX_RETRY_KINDS) throw coded('retryPolicy retryableKinds is invalid');
+    const normalizedKinds = retryableKinds.map(value => boundedText(value, 'retryable kind', 64));
+    if (new Set(normalizedKinds).size !== normalizedKinds.length) throw coded('retryPolicy retryableKinds must be unique');
+    output.retryPolicy = { maxAttemptsPerStep, retryableKinds: normalizedKinds };
+  }
+  let guards = [];
+  if (spec.guards !== undefined) {
+    if (!Array.isArray(spec.guards) || spec.guards.length > MAX_GUARDS) throw coded('guards are invalid');
+    guards = spec.guards.map((guard, index) => {
+      if (!guard || typeof guard !== 'object' || Array.isArray(guard)) throw coded(`guard ${index} is invalid`);
+      return {
+        id: boundedText(guard.id, `guard ${index} id`),
+        kind: boundedText(guard.kind, `guard ${index} kind`, 64),
+        label: boundedText(guard.label, `guard ${index} label`, 240),
+      };
+    });
+    if (new Set(guards.map(guard => guard.id)).size !== guards.length) throw coded('guards must have unique ids');
+    output.guards = guards;
+  }
+  if (spec.compensation !== undefined) {
+    const policy = spec.compensation;
+    if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw coded('compensation must be an object');
+    const onProviderFailure = policy.onProviderFailure === undefined ? 'release_hold' : policy.onProviderFailure;
+    const onPersistenceFailure = policy.onPersistenceFailure === undefined ? 'reconcile' : policy.onPersistenceFailure;
+    if (!['release_hold', 'retry_or_release'].includes(onProviderFailure)) throw coded('compensation provider policy is invalid');
+    if (!['reconcile', 'release_hold'].includes(onPersistenceFailure)) throw coded('compensation persistence policy is invalid');
+    output.compensation = { onProviderFailure, onPersistenceFailure };
+  }
+  return { output, guardIds: new Set(guards.map(guard => guard.id)) };
+}
+
 export function normalizeSkillRunSpec(spec = {}) {
   if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw coded('skill spec must be an object');
   const skillId = boundedText(spec.skillId, 'skillId');
@@ -42,7 +93,11 @@ export function normalizeSkillRunSpec(spec = {}) {
     const label = boundedText(step.label, `step ${index} label`, 240);
     const requires = Array.isArray(step.requires) ? step.requires.map(value => boundedText(value, 'step dependency', MAX_ID)) : [];
     if (new Set(requires).size !== requires.length) throw coded(`step ${index} has duplicate dependencies`);
-    return { id, kind, label, requires };
+    const guards = step.guards === undefined ? [] : step.guards;
+    if (!Array.isArray(guards) || guards.length > MAX_GUARDS) throw coded(`step ${index} guards are invalid`);
+    const normalizedGuards = guards.map(value => boundedText(value, `step ${index} guard`, MAX_ID));
+    if (new Set(normalizedGuards).size !== normalizedGuards.length) throw coded(`step ${index} has duplicate guards`);
+    return { id, kind, label, requires, ...(step.guards === undefined ? {} : { guards: normalizedGuards }) };
   });
   if (new Set(normalizedSteps.map(step => step.id)).size !== normalizedSteps.length) throw coded('skill steps must have unique ids');
   const stepIds = new Set(normalizedSteps.map(step => step.id));
@@ -59,6 +114,10 @@ export function normalizeSkillRunSpec(spec = {}) {
     visited.add(id);
   };
   for (const step of normalizedSteps) visit(step.id);
+  const policies = normalizeExecutionPolicies(spec);
+  if (normalizedSteps.some(step => (step.guards || []).some(id => !policies.guardIds.has(id)))) {
+    throw coded('step guard is not declared');
+  }
   const checkpoints = Array.isArray(spec.checkpoints) ? spec.checkpoints : [];
   if (checkpoints.length > MAX_CHECKPOINTS) throw coded('too many skill checkpoints');
   const normalizedCheckpoints = checkpoints.map((checkpoint, index) => {
@@ -80,6 +139,7 @@ export function normalizeSkillRunSpec(spec = {}) {
     checkpoints: normalizedCheckpoints,
     modelPolicy: boundedJson(spec.modelPolicy, 'modelPolicy'),
     outputContract: boundedJson(spec.outputContract, 'outputContract'),
+    ...policies.output,
   };
 }
 

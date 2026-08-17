@@ -29,6 +29,39 @@ test('normalizes a bounded declarative skill run spec', () => {
   });
 });
 
+test('normalizes bounded budget, retry, guard and compensation policies', () => {
+  const spec = normalizeSkillRunSpec({
+    skillId: 'product-trailer',
+    skillVersion: 2,
+    budgetPolicy: { currency: 'ai_points', maxPoints: 240, reserveMode: 'approved_cap' },
+    retryPolicy: { maxAttemptsPerStep: 2, retryableKinds: ['provider_timeout', 'delivery_timeout'] },
+    guards: [{ id: 'rights', kind: 'rights-confirmed', label: '素材已授权' }],
+    compensation: { onProviderFailure: 'release_hold', onPersistenceFailure: 'reconcile' },
+    steps: [{ id: 'world', kind: 'plan', label: '建立世界观', guards: ['rights'] }],
+  });
+  assert.deepEqual(spec.budgetPolicy, { currency: 'ai_points', maxPoints: 240, reserveMode: 'approved_cap' });
+  assert.deepEqual(spec.retryPolicy, { maxAttemptsPerStep: 2, retryableKinds: ['provider_timeout', 'delivery_timeout'] });
+  assert.deepEqual(spec.guards, [{ id: 'rights', kind: 'rights-confirmed', label: '素材已授权' }]);
+  assert.deepEqual(spec.compensation, { onProviderFailure: 'release_hold', onPersistenceFailure: 'reconcile' });
+  assert.deepEqual(spec.steps[0].guards, ['rights']);
+});
+
+test('rejects unsafe SkillRun execution policies before persistence', () => {
+  assert.throws(() => normalizeSkillRunSpec({
+    skillId: 'x', skillVersion: 1,
+    budgetPolicy: { currency: 'usd', maxPoints: 1 },
+  }), error => error.code === 'INVALID_SKILL_RUN');
+  assert.throws(() => normalizeSkillRunSpec({
+    skillId: 'x', skillVersion: 1,
+    retryPolicy: { maxAttemptsPerStep: 9 },
+  }), error => error.code === 'INVALID_SKILL_RUN');
+  assert.throws(() => normalizeSkillRunSpec({
+    skillId: 'x', skillVersion: 1,
+    guards: [{ id: 'g', kind: 'rights-confirmed', label: 'x' }],
+    steps: [{ id: 's', kind: 'plan', label: 'x', guards: ['missing'] }],
+  }), error => error.code === 'INVALID_SKILL_RUN');
+});
+
 test('rejects invalid or oversized skill run specs', () => {
   assert.throws(() => normalizeSkillRunSpec({ skillId: '', skillVersion: 1 }),
     error => error.code === 'INVALID_SKILL_RUN');

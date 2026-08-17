@@ -2466,3 +2466,14 @@
   full `npm test` passed `1709/1709`; `npm run check`, the 6510-module
   production build, and `git diff --check` passed. This remains local-only
   until the controlled SSH deployment identity is restored.
+
+- 2026-08-17 SkillRun execution policies now have a bounded declarative
+  contract. Skill specs can persist an AI-points budget cap and reservation
+  mode, bounded retry attempts with retryable error kinds, declared step
+  guards, and explicit provider/persistence compensation actions. Unknown
+  step guards, duplicate identifiers, invalid currencies, unsafe limits, and
+  unsupported compensation actions fail before persistence. Focused related
+  coverage passed `61/61`; full `npm test` passed; `npm run check`, the
+  6510-module production build, and `git diff --check` passed. This slice is
+  provider-free and billing-free, and remains local-only until the controlled
+  SSH deployment identity is restored.
