@@ -175,6 +175,7 @@ export default function VideoStudioPage({ embedded = false }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false, workbenchEnabled: false });
   const [activeVideoProjectId, setActiveVideoProjectId] = useState('');
+  const [activeVideoPlanHash, setActiveVideoPlanHash] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [mode, setMode] = useState('smart');
   const [files, setFiles] = useState({ first: [], last: [], images: [], videos: [], audios: [] });
@@ -254,6 +255,7 @@ export default function VideoStudioPage({ embedded = false }) {
       setPlanReviewed(false);
       setPlanOpen(false);
     }
+    setActiveVideoPlanHash('');
   }, [analyzedSignature, planSignature]);
 
   useEffect(() => {
@@ -534,6 +536,7 @@ export default function VideoStudioPage({ embedded = false }) {
       const idempotencyKey = globalThis.crypto?.randomUUID?.() || `video-${Date.now()}`;
       const result = await createVideoJob({
         projectId: activeVideoProjectId || undefined,
+        workbenchPlanHash: activeVideoPlanHash || undefined,
         productId: selectedProduct.id,
         mode: resolveVideoApiMode(mode, files),
         prompt: activeAnalysis.optimizedPrompt || prompt,
@@ -877,6 +880,7 @@ export default function VideoStudioPage({ embedded = false }) {
       uploadRecords={uploadRecords}
       jobs={history}
       onProjectChange={setActiveVideoProjectId}
+      onPlanApprovalChange={setActiveVideoPlanHash}
     />}
   </main>;
 }

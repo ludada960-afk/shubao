@@ -131,7 +131,7 @@ function CandidateMedia({ candidate, label }) {
   return <video src={candidate.playbackUrl || candidate.stableUrl} aria-label={label} controls playsInline preload="metadata" />;
 }
 
-export default function VideoProjectWorkbench({ enabled = false, logged = false, uploadRecords = [], jobs = [], onProjectChange }) {
+export default function VideoProjectWorkbench({ enabled = false, logged = false, uploadRecords = [], jobs = [], onProjectChange, onPlanApprovalChange }) {
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState('');
   const [workbench, setWorkbench] = useState(null);
@@ -157,7 +157,12 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
 
   useEffect(() => {
     onProjectChange?.(projectId || '');
-  }, [onProjectChange, projectId]);
+    onPlanApprovalChange?.('');
+  }, [onPlanApprovalChange, onProjectChange, projectId]);
+
+  useEffect(() => {
+    onPlanApprovalChange?.(workbenchPlan?.approval?.planHash || '');
+  }, [onPlanApprovalChange, workbenchPlan?.approval?.planHash]);
 
   const uploads = useMemo(() => availableUploadedAssets(uploadRecords), [uploadRecords]);
   const completedJobs = useMemo(() => candidateJobsForProject(jobs, projectId), [jobs, projectId]);

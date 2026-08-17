@@ -19,6 +19,8 @@ test('standalone video studio gates the project workbench and passes durable inp
   assert.match(page, /uploadRecords=\{uploadRecords\}/);
   assert.match(page, /jobs=\{history\}/);
   assert.match(page, /onProjectChange=\{setActiveVideoProjectId\}/);
+  assert.match(page, /onPlanApprovalChange=\{setActiveVideoPlanHash\}/);
+  assert.match(page, /workbenchPlanHash:\s*activeVideoPlanHash\s*\|\|\s*undefined/);
   assert.match(page, /projectId:\s*activeVideoProjectId\s*\|\|\s*undefined/);
   assert.match(page, /className="video-result-workbench"/);
   assert.doesNotMatch(page, /className="video-workbench"/);
@@ -102,6 +104,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /创作过程预览/);
   assert.match(component, /replayManifestPreview\.shots/);
   assert.match(component, /handleCheckGenerationPlan/);
+  assert.match(component, /onPlanApprovalChange/);
+  assert.match(component, /workbenchPlan\?\.approval\?\.planHash/);
   assert.match(component, /视频生成计划/);
   assert.match(component, /不会生成视频或扣除积分/);
   assert.match(component, /workbenchPlan\.quote\?\.points/);

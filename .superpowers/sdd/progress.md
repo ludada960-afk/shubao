@@ -2415,3 +2415,12 @@
   video generation/workbench coverage passed `37/37`; full `npm test` passed
   `1705/1705`; `npm run check`, the 6510-module production build and
   `git diff --check` passed. No provider or paid generation was triggered.
+
+- 2026-08-17 the VideoStudio UI now carries an approved workbench plan hash
+  into the real `/api/video/jobs` request. Selecting a different project clears
+  the inherited approval, and any change to the standalone generation plan
+  clears the hash so a stale project plan cannot be billed accidentally. The
+  server-side approval gate remains authoritative before quote verification and
+  wallet hold creation. Focused UI/video tests passed `15/15`; `npm run check`
+  and the 6510-module production build passed. No provider or paid generation
+  was triggered.
