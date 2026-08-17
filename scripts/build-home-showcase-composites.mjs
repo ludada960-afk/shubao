@@ -161,15 +161,18 @@ function multiAngleArrow() {
   return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="arrowGradient" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#c9bdb0"/>
-        <stop offset="1" stop-color="#9f8d7c"/>
+        <stop offset="0" stop-color="#b8aa9b"/>
+        <stop offset=".58" stop-color="#9f8d7c"/>
+        <stop offset="1" stop-color="#806e60"/>
       </linearGradient>
-      <marker id="arrowHead" markerWidth="28" markerHeight="28" refX="21" refY="9" orient="auto" markerUnits="userSpaceOnUse">
-        <path d="M0 0 L22 9 L0 18 Z" fill="#9f8d7c"/>
+      <filter id="arrowShadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#6e5c4d" flood-opacity=".2"/>
+      </filter>
+      <marker id="arrowHead" markerWidth="34" markerHeight="34" refX="29" refY="17" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M2 2 L31 17 L2 32 L10 17 Z" fill="url(#arrowGradient)"/>
       </marker>
     </defs>
-    <path d="M474 540 C496 524 520 496 548 454" fill="none" stroke="url(#arrowGradient)" stroke-width="20" stroke-linecap="round"/>
-    <path d="M560 440 L536 448 L546 464 Z" fill="#9f8d7c"/>
+    <path d="M462 540 C500 535 536 505 568 448" fill="none" stroke="url(#arrowGradient)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)" filter="url(#arrowShadow)"/>
   </svg>`);
 }
 
