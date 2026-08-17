@@ -15,13 +15,13 @@ const DEFAULT_SOCIAL_THUMB_ROOT = resolve(PROJECT_ROOT, 'public/images/.thumbs/h
 
 export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
   Object.freeze({
-    id: 'editorial-multi-angle-v4',
+    id: 'editorial-multi-angle-v5',
     kind: 'multi-angle',
     extension: 'webp',
     ratio: '16:9',
     width: 1600,
     height: 900,
-    sources: ['editorial-flatlay-v3.webp', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
+    sources: ['editorial-flatlay-matched-v1.webp', 'angle-front.png', 'angle-motion.png', 'angle-side.png', 'angle-back.png'],
   }),
   Object.freeze({
     id: 'tryon-reference-workflow',
@@ -35,7 +35,7 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
 ]);
 
 export const TRYON_LAYOUT_PLANS = Object.freeze({
-  'editorial-multi-angle-v4': Object.freeze({
+  'editorial-multi-angle-v5': Object.freeze({
     stages: Object.freeze(['product', 'arrow', 'result-fan']),
     fit: 'contain',
     blurPadding: false,

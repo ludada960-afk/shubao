@@ -28,10 +28,10 @@ test('try-on showcase composites preserve complete production assets in fixed wi
     const multiAngle = outputs.find(output => output.kind === 'multi-angle');
     const reference = outputs.find(output => output.kind === 'reference-workflow');
     assert.equal(multiAngle.ratio, '16:9');
-  assert.equal(multiAngle.id, 'editorial-multi-angle-v4');
+  assert.equal(multiAngle.id, 'editorial-multi-angle-v5');
   assert.equal(multiAngle.sources.length, 5);
     assert.deepEqual(multiAngle.sources, [
-      'editorial-flatlay-v3.webp',
+      'editorial-flatlay-matched-v1.webp',
       'angle-front.png',
       'angle-motion.png',
       'angle-side.png',
@@ -45,7 +45,7 @@ test('try-on showcase composites preserve complete production assets in fixed wi
 });
 
 test('try-on layout plans match the product-to-angle reference without cropped content', () => {
-  const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-v4'];
+  const multiAngle = TRYON_LAYOUT_PLANS['editorial-multi-angle-v5'];
   const rotatedBounds = ({ left, top, width, height, rotation }) => {
     const radians = Math.abs(rotation * Math.PI / 180);
     const rotatedWidth = (width * Math.cos(radians)) + (height * Math.sin(radians));
