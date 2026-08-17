@@ -2424,3 +2424,13 @@
   wallet hold creation. Focused UI/video tests passed `15/15`; `npm run check`
   and the 6510-module production build passed. No provider or paid generation
   was triggered.
+
+- 2026-08-17 release gate for candidate `424555b` was attempted through the
+  only supported `scripts/deploy-production.ps1` entry point. Full regression
+  (`1705/1705`), the 6510-module production build, build check, no-paid-
+  generation probe and gateway/model probes all passed. Deployment failed
+  closed before creating the remote runtime helper because the controlled SSH
+  identity `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is unreadable and
+  SSH returned `Permission denied`. The script refused an unfenced rollback;
+  no remote archive, release switch, restart or Canary ran. Candidate `424555b`
+  is local-only until the controlled deployment credential is restored.
