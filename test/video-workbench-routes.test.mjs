@@ -705,6 +705,35 @@ test('candidate route accepts only a completed owned job and ignores forged deli
   assert.equal(response.body.candidate.mimeType, 'video/mp4');
 });
 
+test('candidate route rejects completed jobs whose delivery is not a non-empty video', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  seedCompletedVideoJob(db, ownerEmail, project.id);
+  db.prepare('UPDATE video_assets SET content_type = ?, bytes = ? WHERE id = ?')
+    .run('image/png', 4096, 'route-output');
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '图片交付误报', durationMs: 3000 });
+  const imageResponse = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/candidates', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, shotId: shot.id },
+    body: { generationJobId: 'route-job' },
+  });
+  assert.equal(imageResponse.statusCode, 409);
+  assert.equal(imageResponse.body.code, 'VIDEO_JOB_NOT_READY');
+
+  db.prepare('UPDATE video_assets SET content_type = ?, bytes = ? WHERE id = ?')
+    .run('video/mp4', 0, 'route-output');
+  const emptyShot = store.createShot({ ownerEmail, projectId: project.id, position: 1,
+    purpose: '空文件交付误报', durationMs: 3000 });
+  const emptyResponse = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/candidates', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, shotId: emptyShot.id },
+    body: { generationJobId: 'route-job' },
+  });
+  assert.equal(emptyResponse.statusCode, 409);
+  assert.equal(emptyResponse.body.code, 'VIDEO_JOB_NOT_READY');
+});
+
 test('workbench read projects ephemeral playback capabilities without persisting them', async t => {
   const { app, db, project, store, sessionTokens, ownerEmail } = harness();
   t.after(() => db.close());

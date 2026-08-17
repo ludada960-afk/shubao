@@ -145,7 +145,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);
   assert.match(component, /<video[^>]+preload="metadata"/);
+  assert.match(component, /onError=\{\(\) => setFailed\(true\)\}/);
+  assert.match(component, /视频预览不可用/);
   assert.match(styles, /aspect-ratio/);
+  assert.match(styles, /video-project-candidate-media\.is-unavailable/);
   assert.match(styles, /video-project-direction-grid/);
   assert.match(styles, /video-project-shot-form[^\{]*\s*\{[^}]*grid-template-columns/);
   assert.match(styles, /@media\s*\(max-width:\s*640px\)/);

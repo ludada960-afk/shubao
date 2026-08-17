@@ -217,7 +217,21 @@ function ProjectMedia({ version, name }) {
 }
 
 function CandidateMedia({ candidate, label }) {
-  return <video src={candidate.playbackUrl || candidate.stableUrl} aria-label={label} controls playsInline preload="metadata" />;
+  const mediaUrl = candidate?.playbackUrl || candidate?.stableUrl || '';
+  const [failed, setFailed] = useState(!mediaUrl);
+
+  useEffect(() => {
+    setFailed(!mediaUrl);
+  }, [mediaUrl]);
+
+  if (failed) {
+    return <div className="video-project-candidate-media is-unavailable" role="img" aria-label={`${label}预览不可用`}>
+      <Film size={18} aria-hidden="true" />
+      <span>视频预览不可用</span>
+    </div>;
+  }
+
+  return <video src={mediaUrl} aria-label={label} controls playsInline preload="metadata" onError={() => setFailed(true)} />;
 }
 
 export default function VideoProjectWorkbench({ enabled = false, logged = false, uploadRecords = [], jobs = [], onProjectChange, onPlanApprovalChange }) {

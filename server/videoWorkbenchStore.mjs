@@ -673,7 +673,10 @@ export function createVideoWorkbenchStore({
       const { owner, project } = requireProject(ownerEmail, projectId);
       requireShot(owner, project.id, shotId);
       const outputId = clean(outputAssetId, 256);
-      if (!outputId || !clean(stableUrl, 2000) || !clean(contentHash, 256) || !clean(mimeType, 160)) {
+      const normalizedUrl = clean(stableUrl, 2000);
+      const normalizedHash = clean(contentHash, 256);
+      const normalizedMimeType = clean(mimeType, 160).toLowerCase();
+      if (!outputId || !normalizedUrl || !normalizedHash || !normalizedMimeType.startsWith('video/')) {
         throw coded('INVALID_BINDING', 'candidate delivery fields are required');
       }
       const existing = candidateFromRow(db.prepare(`SELECT * FROM video_shot_candidates
@@ -685,7 +688,7 @@ export function createVideoWorkbenchStore({
          stable_url, content_hash, mime_type, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, owner, project.id, shotId, clean(generationJobId, 256) || null, outputId,
-        clean(stableUrl, 2000), clean(contentHash, 256), clean(mimeType, 160), timestamp(),
+        normalizedUrl, normalizedHash, normalizedMimeType, timestamp(),
       );
       return requireCandidate(owner, project.id, shotId, id);
     },
@@ -700,9 +703,11 @@ export function createVideoWorkbenchStore({
       if (job.status !== 'completed' || !clean(job.result_asset_id, 256)) {
         throw coded('VIDEO_JOB_NOT_READY', 'video generation job is not complete');
       }
-      const output = db.prepare(`SELECT id, kind, content_type, sha256 FROM video_assets
+      const output = db.prepare(`SELECT id, kind, content_type, bytes, sha256 FROM video_assets
         WHERE id = ? AND owner_email = ?`).get(job.result_asset_id, owner);
-      if (!output || output.kind !== 'output' || !clean(output.sha256, 256) || !clean(output.content_type, 160)) {
+      const outputMimeType = clean(output?.content_type, 160).toLowerCase();
+      if (!output || output.kind !== 'output' || !Number.isSafeInteger(output.bytes) || output.bytes <= 0
+        || !clean(output.sha256, 256) || !outputMimeType.startsWith('video/')) {
         throw coded('VIDEO_JOB_NOT_READY', 'verified video delivery is missing');
       }
       return api.registerCandidate({
@@ -713,7 +718,7 @@ export function createVideoWorkbenchStore({
         outputAssetId: output.id,
         stableUrl: `/api/video/assets/${encodeURIComponent(output.id)}`,
         contentHash: output.sha256,
-        mimeType: output.content_type,
+        mimeType: outputMimeType,
       });
     },
 

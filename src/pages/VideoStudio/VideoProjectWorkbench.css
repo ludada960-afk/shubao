@@ -231,6 +231,8 @@
 .video-project-candidate-grid article { overflow: hidden; border: 1px solid #ded8d1; border-radius: 6px; background: #f6f4f1; }
 .video-project-candidate-grid article.is-selected { border-color: #78b8a8; box-shadow: 0 0 0 2px #e4f3ee; }
 .video-project-candidate-grid video { width: 100%; aspect-ratio: 16/9; display: block; object-fit: contain; background: #151515; }
+.video-project-candidate-media.is-unavailable { aspect-ratio: 16/9; min-height: 104px; display: grid; place-items: center; align-content: center; gap: 6px; color: #8d857b; background: #ece9e4; font-size: 10px; }
+.video-project-candidate-media.is-unavailable svg { color: #b1a99f; }
 .video-project-candidate-grid footer { min-height: 40px; padding: 6px 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #fff; }
 .video-project-candidate-grid footer span { color: #7f776e; font-size: 10px; }
 .video-project-candidate-grid footer button { min-height: 28px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #d9d3cc; border-radius: 5px; color: #4f4943; background: #fff; font-size: 10px; }

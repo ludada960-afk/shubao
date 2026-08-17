@@ -666,6 +666,28 @@ test('candidate job import rejects unfinished or foreign generation deliveries',
   }), error => error.code === 'VIDEO_JOB_NOT_FOUND');
 });
 
+test('candidate job import rejects non-video or empty delivery media', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 4000 });
+
+  seedCompletedVideoJob(db, { jobId: 'image-output-job', projectId: project.id,
+    outputAssetId: 'image-output' });
+  db.prepare('UPDATE video_assets SET content_type = ?, bytes = ? WHERE id = ?')
+    .run('image/png', 4096, 'image-output');
+  assert.throws(() => store.registerCandidateFromJob({
+    ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'image-output-job',
+  }), error => error.code === 'VIDEO_JOB_NOT_READY');
+
+  seedCompletedVideoJob(db, { jobId: 'empty-output-job', projectId: project.id,
+    outputAssetId: 'empty-output' });
+  db.prepare('UPDATE video_assets SET bytes = ? WHERE id = ?').run(0, 'empty-output');
+  assert.throws(() => store.registerCandidateFromJob({
+    ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'empty-output-job',
+  }), error => error.code === 'VIDEO_JOB_NOT_READY');
+});
+
 test('stale shots reject active timeline clips and preserve stale state on candidate selection', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());
