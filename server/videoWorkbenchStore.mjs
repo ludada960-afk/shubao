@@ -3,6 +3,7 @@ import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManif
 import { normalizeProjectMemoryFact, normalizeProjectMemoryList } from './videoProjectMemory.mjs';
 import { buildSkillRunExecutionPlan, normalizeSkillRunSpec } from './videoSkillRun.mjs';
 import { listVideoSkillTemplates } from './videoSkillTemplates.mjs';
+import { videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -190,6 +191,18 @@ function audioTrackFromRow(row) {
   };
 }
 
+function generationPlanApprovalFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    planHash: row.plan_hash,
+    plan: parseJson(row.plan_json, {}),
+    approvedAt: row.approved_at,
+  };
+}
+
 function memoryFactFromRow(row) {
   if (!row) return null;
   return normalizeProjectMemoryFact({
@@ -350,6 +363,13 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_project_memory_facts_project
       ON video_project_memory_facts(owner_email, project_id, status, updated_at DESC);
+    CREATE TABLE IF NOT EXISTS video_generation_plan_approvals (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      plan_hash TEXT NOT NULL, plan_json TEXT NOT NULL, approved_at TEXT NOT NULL,
+      UNIQUE(owner_email, project_id), FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_generation_plan_approvals_project
+      ON video_generation_plan_approvals(owner_email, project_id, approved_at DESC);
   `);
 }
 
@@ -1298,6 +1318,33 @@ export function createVideoWorkbenchStore({
         audioTracks,
         memory: api.listProjectMemory({ ownerEmail: owner, projectId: project.id }),
       };
+    },
+
+    getGenerationPlanApproval({ ownerEmail, projectId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      return generationPlanApprovalFromRow(db.prepare(`SELECT * FROM video_generation_plan_approvals
+        WHERE owner_email = ? AND project_id = ?`).get(owner, project.id));
+    },
+
+    approveGenerationPlan({ ownerEmail, projectId, plan, planHash }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      if (!plan || plan.status !== 'ready') throw coded('VIDEO_PLAN_NOT_READY', '只有可生成的计划才能确认');
+      const normalizedHash = clean(planHash, 128);
+      if (!/^[a-f0-9]{64}$/i.test(normalizedHash) || videoWorkbenchPlanFingerprint(plan) !== normalizedHash) {
+        throw coded('VIDEO_PLAN_HASH_INVALID', '生成计划已变化，请重新检查计划');
+      }
+      const approvedAt = timestamp();
+      const id = randomUUID();
+      db.prepare(`INSERT INTO video_generation_plan_approvals
+        (id, owner_email, project_id, plan_hash, plan_json, approved_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(owner_email, project_id) DO UPDATE SET
+          id = excluded.id, plan_hash = excluded.plan_hash, plan_json = excluded.plan_json,
+          approved_at = excluded.approved_at`).run(
+        id, owner, project.id, normalizedHash, JSON.stringify(plan), approvedAt,
+      );
+      return generationPlanApprovalFromRow(db.prepare(`SELECT * FROM video_generation_plan_approvals
+        WHERE owner_email = ? AND project_id = ?`).get(owner, project.id));
     },
 
     listSkillTemplates({ ownerEmail, projectId }) {

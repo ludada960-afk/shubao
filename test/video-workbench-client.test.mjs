@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   addTimelineClip,
+  approveVideoWorkbenchPlan,
   approveWorkbenchAssetVersion,
   bindShotAssetVersion,
   createStoryboardShot,
@@ -146,6 +147,27 @@ test('video workbench client rejects invalid path IDs before fetching', async t 
   await assert.rejects(updateStoryboardShot('project-1', '', {}), /请选择有效的分镜/);
   await assert.rejects(getVideoSkillRun('project-1', ''), /请选择有效的 SkillRun/);
   assert.equal(called, false);
+});
+
+test('video workbench client confirms a plan with its immutable hash', async t => {
+  installSession('signed-plan-session');
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (path, options = {}) => {
+    request = { path, options };
+    return jsonResponse({ approval: { id: 'approval-1', planHash: 'a'.repeat(64) } }, 201);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const approval = await approveVideoWorkbenchPlan('project-1', {
+    productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false, planHash: 'a'.repeat(64),
+  });
+  assert.equal(approval.id, 'approval-1');
+  assert.equal(request.path, '/api/video/projects/project-1/workbench/plan/approve');
+  assert.equal(request.options.method, 'POST');
+  assert.deepEqual(JSON.parse(request.options.body), {
+    productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false, planHash: 'a'.repeat(64),
+  });
+  assert.equal(request.options.headers.Authorization, 'Bearer signed-plan-session');
 });
 
 test('video project memory client encodes fact keys and preserves revisions', async t => {

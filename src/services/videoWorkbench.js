@@ -89,7 +89,18 @@ export async function getVideoWorkbenchPlan(projectId, {
     generateAudio: String(generateAudio !== false),
   });
   const response = await requestJson(`${workbenchBase(projectId)}/plan?${params.toString()}`, {}, '暂时无法检查视频生成计划');
-  return requireValue(response, 'plan', '视频生成计划暂时不可用，请稍后重试');
+  const plan = requireValue(response, 'plan', '视频生成计划暂时不可用，请稍后重试');
+  return { ...plan, approval: response.approval || null };
+}
+
+export async function approveVideoWorkbenchPlan(projectId, {
+  productId = 'seedance_standard', mode = 'smart', resolution = '720p', generateAudio = true, planHash,
+} = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/plan/approve`, {
+    method: 'POST',
+    ...jsonBody({ productId, mode, resolution, generateAudio: generateAudio !== false, planHash }),
+  }, '暂时无法确认视频生成计划');
+  return requireValue(response, 'approval', '视频生成计划确认结果暂时不可用，请稍后重试');
 }
 
 export async function getVideoProjectMemory(projectId) {

@@ -1,5 +1,5 @@
 import { buildSkillRunSpecFromTemplate } from './videoSkillTemplates.mjs';
-import { buildVideoWorkbenchPlan } from './videoWorkbenchPlan.mjs';
+import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 
 const NOT_FOUND_CODES = new Set([
   'PROJECT_NOT_FOUND',
@@ -40,6 +40,9 @@ function routeError(error, res) {
   }
   if (code === 'VERSION_CONFLICT') {
     return res.status(409).json({ code, error: '内容已在其他位置更新，请刷新后重试' });
+  }
+  if (code === 'VIDEO_PLAN_HASH_INVALID' || code === 'VIDEO_PLAN_NOT_READY') {
+    return res.status(409).json({ code, error: error.message || '生成计划已变化，请重新检查计划' });
   }
   if (code === 'VIDEO_JOB_NOT_READY') {
     return res.status(409).json({ code, error: '视频仍在生成或交付结果尚未校验完成' });
@@ -158,13 +161,39 @@ export function mountVideoWorkbenchRoutes(app, {
 
   app.get('/api/video/projects/:projectId/workbench/plan', (req, res) => dispatch(
     req, res, 'workbench.plan.read', request => ({
-      plan: buildVideoWorkbenchPlan(store.listWorkbench(request), {
+      ...(() => {
+        const plan = buildVideoWorkbenchPlan(store.listWorkbench(request), {
         productId: req.query?.productId,
         mode: req.query?.mode,
         resolution: req.query?.resolution,
         generateAudio: req.query?.generateAudio !== 'false',
-      }),
+        });
+        plan.planHash = videoWorkbenchPlanFingerprint(plan);
+        const approval = typeof store.getGenerationPlanApproval === 'function'
+          ? store.getGenerationPlanApproval(request)
+          : null;
+        return {
+          plan,
+          approval: approval && approval.planHash === videoWorkbenchPlanFingerprint(plan) ? approval : null,
+        };
+      })(),
     }),
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/plan/approve', (req, res) => dispatch(
+    req, res, 'workbench.plan.approve', request => {
+      const plan = buildVideoWorkbenchPlan(store.listWorkbench(request), {
+        productId: req.body?.productId,
+        mode: req.body?.mode,
+        resolution: req.body?.resolution,
+        generateAudio: req.body?.generateAudio !== false,
+      });
+      const planHash = videoWorkbenchPlanFingerprint(plan);
+      if (String(req.body?.planHash || '').trim() !== planHash) {
+        throw Object.assign(new Error('生成计划已变化，请重新检查计划'), { code: 'VIDEO_PLAN_HASH_INVALID' });
+      }
+      return store.approveGenerationPlan({ ...request, plan, planHash });
+    }, { status: 201, key: 'approval' },
   ));
 
   app.get('/api/video/projects/:projectId/workbench/memory', (req, res) => dispatch(

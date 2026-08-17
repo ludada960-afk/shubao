@@ -83,3 +83,11 @@ test('uses requested public product and rejects invalid planning options', () =>
   assert.equal(hidden.status, 'blocked');
   assert.equal(hidden.blockers[0].code, 'PRODUCT_OPTIONS_INVALID');
 });
+
+test('returns a structured blocker for an unknown product instead of throwing', () => {
+  const plan = buildVideoWorkbenchPlan({ shots: [] }, { productId: 'missing-product' });
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.blockers[0].code, 'PRODUCT_OPTIONS_INVALID');
+  assert.equal(plan.product.id, 'missing-product');
+  assert.equal(plan.quote.points, 0);
+});

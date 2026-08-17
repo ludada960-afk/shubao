@@ -165,6 +165,48 @@ test('exposes an owner-scoped generation preflight without creating a paid job',
   assert.equal(response.body.plan.quote.points, 0);
 });
 
+test('confirms only the current ready plan and rejects stale hashes', async t => {
+  const { app, db, project, sessionTokens, store, ownerEmail } = harness();
+  t.after(() => db.close());
+  const asset = store.createAsset({ ownerEmail, projectId: project.id, kind: 'scene', name: '演播室' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    stableUrl: '/api/video/assets/studio', contentHash: 'studio-hash', mimeType: 'image/png' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    versionId: version.id, expectedRevision: asset.revision });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 6000, prompt: '镜头从远景推进到产品特写' });
+  store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: version.id, role: 'scene' });
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const read = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench/plan', {
+    headers, params: { projectId: project.id }, query: { productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: 'false' },
+  });
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.plan.status, 'ready');
+  assert.match(read.body.plan.planHash, /^[a-f0-9]{64}$/);
+  assert.equal(read.body.approval, null);
+  const approved = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/plan/approve', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      planHash: read.body.plan.planHash,
+    },
+  });
+  assert.equal(approved.statusCode, 201);
+  assert.equal(approved.body.approval.planHash, read.body.plan.planHash);
+  const confirmed = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench/plan', {
+    headers, params: { projectId: project.id }, query: { productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: 'false' },
+  });
+  assert.equal(confirmed.body.approval.planHash, read.body.plan.planHash);
+  const stale = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/plan/approve', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      planHash: '0'.repeat(64),
+    },
+  });
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stale.body.code, 'VIDEO_PLAN_HASH_INVALID');
+});
+
 test('workbench routes derive owner from the signed session and ignore body owner fields', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

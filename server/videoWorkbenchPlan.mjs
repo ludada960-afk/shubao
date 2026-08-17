@@ -6,12 +6,26 @@ import {
   videoFeatureSku,
 } from './videoCatalog.mjs';
 import { quoteFeature } from './billing/catalog.mjs';
+import crypto from 'node:crypto';
 
 const MAX_SHOTS = 30;
 const MAX_TOTAL_DURATION_MS = 30 * 60 * 1000;
 
 function text(value, max = 400) {
   return String(value ?? '').trim().slice(0, max);
+}
+
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]));
+  }
+  return value;
+}
+
+export function videoWorkbenchPlanFingerprint(plan = {}) {
+  const { generatedAt: _generatedAt, planHash: _planHash, ...payload } = plan || {};
+  return crypto.createHash('sha256').update(JSON.stringify(stableValue(payload))).digest('hex');
 }
 
 function blocker(code, detail, shotId = '') {
@@ -45,7 +59,7 @@ function quoteForShot(productId, durationMs) {
 
 export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
   const normalized = normalizeOptions(options);
-  const product = getVideoProduct(normalized.productId);
+  let product;
   const shots = Array.isArray(workbench.shots) ? workbench.shots.slice(0, MAX_SHOTS) : [];
   const assets = approvedAssetMap(workbench);
   const blockers = [];
@@ -53,6 +67,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
   const totalDurationMs = shots.reduce((sum, shot) => sum + Math.max(0, Number(shot?.durationMs) || 0), 0);
 
   try {
+    product = getVideoProduct(normalized.productId);
     if (product.public === false) throw new Error(`${product.label} 暂不向普通账号开放`);
     validateVideoProductInput({
       productId: normalized.productId,
@@ -86,8 +101,8 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
         blockers.push(blocker('ASSET_NOT_APPROVED', '分镜引用的素材版本不是当前已确认版本。', shotId));
       }
     });
-    const quote = quoteForShot(normalized.productId, durationMs);
-    lineItems.push({ shotId, ...quote });
+    const quote = product ? quoteForShot(normalized.productId, durationMs) : null;
+    if (quote) lineItems.push({ shotId, ...quote });
     return {
       id: shotId,
       position: Number.isSafeInteger(shot?.position) ? shot.position : index,
@@ -107,7 +122,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
   return {
     status: blockers.length ? 'blocked' : 'ready',
     catalogVersion: VIDEO_CATALOG_VERSION,
-    product: { id: product.id, label: product.label, tierLabel: product.tierLabel },
+    product: product ? { id: product.id, label: product.label, tierLabel: product.tierLabel } : { id: normalized.productId, label: '未知视频产品', tierLabel: '' },
     options: normalized,
     shots: normalizedShots,
     totalDurationMs,

@@ -25,6 +25,7 @@ import {
 import { createProject, listProjects } from '../../services/projects.js';
 import {
   addTimelineClip,
+  approveVideoWorkbenchPlan,
   approveWorkbenchAssetVersion,
   bindShotAssetVersion,
   createStoryboardShot,
@@ -306,6 +307,27 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       if (requestSequence === planRequestSequenceRef.current) setBusy('');
     }
   }, [busy, projectId]);
+
+  const handleApproveGenerationPlan = useCallback(async () => {
+    if (!projectId || busy || workbenchPlan?.status !== 'ready' || !workbenchPlan.planHash) return;
+    setBusy('plan:approve');
+    setError('');
+    try {
+      const approval = await approveVideoWorkbenchPlan(projectId, {
+        productId: workbenchPlan.options?.productId,
+        mode: workbenchPlan.options?.mode,
+        resolution: workbenchPlan.options?.resolution,
+        generateAudio: workbenchPlan.options?.generateAudio,
+        planHash: workbenchPlan.planHash,
+      });
+      setWorkbenchPlan(current => current ? { ...current, approval } : current);
+    } catch (approvalError) {
+      setError(displayError(approvalError));
+      setWorkbenchPlan(null);
+    } finally {
+      setBusy('');
+    }
+  }, [busy, projectId, workbenchPlan]);
 
   function handleSaveReplayManifest() {
     if (!workbench?.project?.id || busy) return;
@@ -682,7 +704,12 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       {!!workbenchPlan.warnings?.length && <ul className="video-project-plan-warnings" aria-label="生成计划提示">
         {workbenchPlan.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}
       </ul>}
-      <footer>目录版本 {workbenchPlan.catalogVersion || workbenchPlan.quote?.catalogVersion || '未知'} · 这是只读预检，不会生成视频或扣除积分。</footer>
+      <footer>
+        <span>目录版本 {workbenchPlan.catalogVersion || workbenchPlan.quote?.catalogVersion || '未知'} · {workbenchPlan.approval ? `计划已确认 · ${workbenchPlan.approval.planHash.slice(0, 10)}` : '确认只保存计划快照，不会生成视频或扣除积分。'}</span>
+        {workbenchPlan.status === 'ready' && <button type="button" className="video-project-plan-approve" disabled={Boolean(busy) || Boolean(workbenchPlan.approval)} onClick={handleApproveGenerationPlan}>
+          {busy === 'plan:approve' ? <LoaderCircle className="is-spinning" size={13} /> : <Check size={13} />} {workbenchPlan.approval ? '计划已确认' : '确认生成计划'}
+        </button>}
+      </footer>
     </section>}
 
     <section className="video-project-band is-project" aria-labelledby="video-project-heading">

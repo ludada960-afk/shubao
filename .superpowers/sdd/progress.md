@@ -2367,7 +2367,7 @@
   was lost. No remote archive, release switch, restart, rollback or Canary ran.
 
 - 2026-08-17 AI-video P2 generation preflight is complete locally in commit
-  `93ed04a`. Added the
+  `4e7c774`. Added the
   pure `buildVideoWorkbenchPlan` contract and owner/project-scoped read route
   `GET /api/video/projects/:projectId/workbench/plan`. The preflight normalizes
   product/mode/resolution/audio options, validates shot purpose/prompt/duration,
@@ -2382,3 +2382,15 @@
   passed. The slice remains local-only because the controlled SSH identity is
   unreadable; runtime folders `.npm-cache/`, `.qa-video/`,
   `server/video-assets/` and `server/video-upload-staging/` remain excluded.
+
+- 2026-08-17 AI-video generation-plan approval is complete locally in commit
+  `28be845`. Added an immutable owner/project-scoped approval snapshot for a
+  ready preflight plan. The server recomputes the current plan and SHA-256
+  fingerprint before approval, rejects stale/tampered hashes, and exposes the
+  matching approval on subsequent reads; workbench mutations invalidate the
+  UI confirmation and a changed plan cannot be reused. The approval route is
+  metadata-only: it does not create a provider task, reserve usage, charge a
+  wallet or call a paid model. Focused coverage passed `34/34`; full `npm test`
+  passed `1704/1704`; `npm run check`, the 6510-module production build and
+  `git diff --check` passed. Production deployment is still gated on the
+  controlled SSH identity; no paid generation was triggered.
