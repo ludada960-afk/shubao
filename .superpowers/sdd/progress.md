@@ -2404,3 +2404,14 @@
   SSH returned `Permission denied`. The script refused an unfenced rollback;
   no remote archive, release switch, restart or Canary ran. The candidate is
   therefore local-only until the controlled deployment credential is restored.
+
+- 2026-08-17 real video generation now consumes workbench plan approval in
+  commit `670a2d4`. When a job explicitly carries `workbenchPlanHash`, the
+  server requires an owned editable video project and revalidates the
+  owner/project approval against the current workbench state and SHA-256 plan
+  fingerprint before creating a wallet hold. Stale, missing or unavailable
+  approvals fail with `VIDEO_PLAN_APPROVAL_REQUIRED` before billing; legacy
+  jobs without the optional hash retain their existing contract. Focused
+  video generation/workbench coverage passed `37/37`; full `npm test` passed
+  `1705/1705`; `npm run check`, the 6510-module production build and
+  `git diff --check` passed. No provider or paid generation was triggered.
