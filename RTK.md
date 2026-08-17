@@ -527,8 +527,8 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 - 视频项目工作台继续保持默认关闭，但已在本地暴露最小可用的连续性操作：仅显示已确认的
   voice/music 音频版本；存在视觉时间线后可加入音轨；重复素材版本会被禁用；已有音轨可用
-  owner-scoped optimistic revision 切换静音。面板只展示已持久化的时长/音量元数据，不伪造
-  波形、转码、TTS 或供应商结果。
+  owner-scoped optimistic revision 调整音量或切换静音。面板只展示并修改已持久化的时长/音量
+  元数据，不伪造波形、转码、TTS 或供应商结果。
 - 证据：UI/model focused tests 与全量 `npm test` `1694/1694`、`npm run check`、6510
   modules 生产构建、`git diff --check` 均通过；没有 provider、generation、usage、wallet、
   billing 或付费视频调用。提交后仍需受控 SSH key 恢复，再经唯一部署入口和 600 秒 Canary，

@@ -22,7 +22,8 @@ subtitle cues must survive the same owner/project checks as visual assets.
 - The default-off project workbench now lists only approved audio asset versions.
 - Users can add one approved voice/music version to the project timeline after at least one
   visual clip exists, and can toggle mute with optimistic revision checks.
-- The panel exposes the persisted duration and volume metadata without pretending to render or
+- The panel exposes persisted duration and volume metadata, and commits a bounded `0..2` volume
+  adjustment through the same optimistic revision contract without pretending to render or
   synthesize audio. Duplicate asset/version bindings are disabled in the UI.
 
 ## Verification

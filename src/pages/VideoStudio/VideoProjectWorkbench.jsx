@@ -372,6 +372,16 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }));
   }
 
+  function handleSetAudioVolume(track, event) {
+    if (!track?.id) return;
+    const volume = Math.min(2, Math.max(0, Number(event.target.value)));
+    if (!Number.isFinite(volume) || volume === track.volume) return;
+    void runMutation(`audio:volume:${track.id}`, () => updateVideoAudioTrack(projectId, track.id, {
+      expectedRevision: track.revision,
+      patch: { volume },
+    }));
+  }
+
   function parseMemoryValue(text) {
     try {
       return JSON.parse(text);
@@ -573,7 +583,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <div className="video-project-audio-tracks">
           {audioTracks.map(track => <article key={track.id}>
             <span className="video-project-audio-track-icon">{track.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</span>
-            <div><strong>{audioSources.find(({ asset }) => asset.id === track.assetId)?.asset.name || '项目音轨'}</strong><small>{track.kind === 'voice' ? '声线' : '配乐'} · {(track.durationMs / 1000).toFixed(1)} 秒 · 音量 {Math.round(track.volume * 100)}%</small></div>
+            <div><strong>{audioSources.find(({ asset }) => asset.id === track.assetId)?.asset.name || '项目音轨'}</strong><small>{track.kind === 'voice' ? '声线' : '配乐'} · {(track.durationMs / 1000).toFixed(1)} 秒 · 音量 {Math.round(track.volume * 100)}%</small><label className="video-project-audio-volume"><span>音量</span><input type="range" min="0" max="2" step="0.05" value={track.volume} aria-label={`调整${track.kind === 'voice' ? '声线' : '配乐'}音量`} disabled={Boolean(busy)} onChange={event => handleSetAudioVolume(track, event)} /></label></div>
             <button type="button" className="video-project-audio-toggle" disabled={Boolean(busy)} onClick={() => handleToggleAudioTrack(track)}>{track.muted ? '取消静音' : '静音'}</button>
           </article>)}
           {!audioTracks.length && <p className="video-project-inline-empty">时间线加入镜头后，可从上方已确认素材中选择声音。</p>}

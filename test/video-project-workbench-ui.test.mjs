@@ -84,6 +84,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /approvedAudioAssetVersions/);
   assert.match(component, /加入音轨/);
   assert.match(component, /取消静音|静音/);
+  assert.match(component, /handleSetAudioVolume/);
+  assert.match(component, /type="range"/);
   assert.match(styles, /video-project-band\.is-audio/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);

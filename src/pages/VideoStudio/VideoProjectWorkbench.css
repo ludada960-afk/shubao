@@ -183,6 +183,8 @@
 .video-project-audio-tracks strong { overflow: hidden; color: #403950; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .video-project-audio-sources small,
 .video-project-audio-tracks small { color: #8a8197; font-size: 10px; }
+.video-project-audio-volume { display: flex; align-items: center; gap: 7px; margin-top: 4px; color: #8a8197; font-size: 9px; }
+.video-project-audio-volume input { width: min(150px, 100%); accent-color: #6b50da; }
 .video-project-audio-sources button,
 .video-project-audio-toggle { min-height: 30px; padding: 0 10px; border: 1px solid #b8a7f4; border-radius: 6px; color: #5d42c6; background: #fff; font-size: 10px; font-weight: 800; }
 .video-project-audio-sources button:disabled,

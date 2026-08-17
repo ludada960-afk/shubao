@@ -314,9 +314,9 @@ remaps the approved asset/version IDs into the new draft project. The HTTP/clien
 authenticated and optimistic-concurrency aware.
 
 The project workbench now exposes the approved-audio list and a minimal continuity panel: add a
-confirmed voice/music version after a visual timeline clip exists, then toggle mute while keeping
-the server revision contract. It deliberately does not claim waveform rendering, transcoding,
-TTS, beat detection, or provider delivery.
+confirmed voice/music version after a visual timeline clip exists, then adjust volume or toggle
+mute while keeping the server revision contract. It deliberately does not claim waveform
+rendering, transcoding, TTS, beat detection, or provider delivery.
 
 The implementation plan is `docs/superpowers/plans/2026-08-17-ai-video-p2-audio-continuity.md`.
 This is continuity metadata, not an audio renderer or a provider integration. Focused tests,
