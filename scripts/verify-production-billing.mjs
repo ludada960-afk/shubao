@@ -69,8 +69,12 @@ export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToke
   if (balanceBefore.unlimited !== false || !pointsBalance || pointsBalance.unlimited !== false) {
     throw new Error('Canary owner does not use the real ec_points wallet');
   }
-  if (!Number.isSafeInteger(pointsBalance.availableUnits) || pointsBalance.availableUnits < 200) {
-    throw new Error('Canary owner ec_points balance is insufficient for the read-only quote probe');
+  // Quotes are non-reserving: the wallet is checked only when a generation
+  // creates a hold. Keep this probe valid for an exhausted canary wallet so a
+  // previous generation cannot make an otherwise healthy release unverifiable.
+  if (!Number.isSafeInteger(pointsBalance.availableUnits) || pointsBalance.availableUnits < 0
+    || !Number.isSafeInteger(pointsBalance.heldUnits) || pointsBalance.heldUnits < 0) {
+    throw new Error('Canary owner ec_points balance has an invalid numeric shape');
   }
   const quoteResponse = await requestJson(`${root}/api/billing/quote`, {
     method: 'POST',
