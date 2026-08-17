@@ -167,3 +167,55 @@ export function buildSkillRunExecutionPlan(spec, { completedStepIds = [] } = {})
     status: completed.size === steps.length ? 'complete' : readyStepIds.length ? 'ready' : 'blocked',
   };
 }
+
+export function buildSkillRunExecutionPreview(spec, {
+  completedStepIds = [],
+  satisfiedGuardIds = [],
+  stepCosts = {},
+} = {}) {
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw stateError('skill run spec is invalid');
+  if (!stepCosts || typeof stepCosts !== 'object' || Array.isArray(stepCosts)) throw stateError('stepCosts must be an object');
+  const steps = Array.isArray(spec.steps) ? spec.steps : [];
+  const plan = buildSkillRunExecutionPlan(spec, { completedStepIds });
+  if (!Array.isArray(satisfiedGuardIds) || satisfiedGuardIds.some(id => typeof id !== 'string')) {
+    throw stateError('satisfiedGuardIds must be an array of strings');
+  }
+  const guardIds = new Set((Array.isArray(spec.guards) ? spec.guards : []).map(guard => guard.id));
+  const satisfied = new Set(satisfiedGuardIds);
+  if (satisfied.size !== satisfiedGuardIds.length || [...satisfied].some(id => !guardIds.has(id))) {
+    throw stateError('satisfied guard is invalid');
+  }
+  for (const id of Object.keys(stepCosts)) {
+    if (!steps.some(step => step.id === id)) throw stateError('step cost is not declared');
+    const cost = Number(stepCosts[id]);
+    if (!Number.isSafeInteger(cost) || cost < 0 || cost > 1_000_000) throw stateError('step cost is invalid');
+  }
+  const completed = new Set(plan.completedStepIds);
+  const guardBlockedStepIds = [];
+  const readyStepIds = [];
+  const blockedStepIds = [];
+  for (const step of steps) {
+    if (completed.has(step.id)) continue;
+    const missingGuard = (step.guards || []).some(id => !satisfied.has(id));
+    if (missingGuard) guardBlockedStepIds.push(step.id);
+    const dependenciesReady = step.requires.every(dependency => completed.has(dependency));
+    if (!missingGuard && dependenciesReady) readyStepIds.push(step.id);
+    if (!dependenciesReady) blockedStepIds.push(step.id);
+  }
+  const estimatedPoints = steps
+    .filter(step => !completed.has(step.id))
+    .reduce((total, step) => total + (Number(stepCosts[step.id]) || 0), 0);
+  const maxPoints = Number.isSafeInteger(spec.budgetPolicy?.maxPoints) ? spec.budgetPolicy.maxPoints : null;
+  const withinLimit = maxPoints === null || estimatedPoints <= maxPoints;
+  const remainingPoints = maxPoints === null ? null : Math.max(0, maxPoints - estimatedPoints);
+  const status = completed.size === steps.length ? 'complete' : readyStepIds.length && withinLimit ? 'ready' : 'blocked';
+  return {
+    completedStepIds: plan.completedStepIds,
+    readyStepIds,
+    blockedStepIds,
+    guardBlockedStepIds,
+    estimatedPoints,
+    budget: { maxPoints, remainingPoints, withinLimit },
+    status,
+  };
+}

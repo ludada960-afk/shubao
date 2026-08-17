@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildSkillRunExecutionPlan, normalizeSkillRunSpec } from '../server/videoSkillRun.mjs';
+import { buildSkillRunExecutionPlan, buildSkillRunExecutionPreview, normalizeSkillRunSpec } from '../server/videoSkillRun.mjs';
 import {
   buildSkillRunSpecFromTemplate,
   getVideoSkillTemplate,
@@ -119,6 +119,43 @@ test('rejects unknown completed steps', () => {
   });
   assert.throws(() => buildSkillRunExecutionPlan(spec, { completedStepIds: ['missing'] }),
     error => error.code === 'INVALID_SKILL_RUN_STATE');
+});
+
+test('previews guards, budget and step costs without side effects', () => {
+  const spec = normalizeSkillRunSpec({
+    skillId: 'preview',
+    skillVersion: 1,
+    budgetPolicy: { currency: 'ai_points', maxPoints: 100, reserveMode: 'approved_cap' },
+    guards: [{ id: 'rights', kind: 'rights-confirmed', label: '素材已授权' }],
+    steps: [
+      { id: 'plan', kind: 'plan', label: 'Plan', guards: ['rights'] },
+      { id: 'render', kind: 'render', label: 'Render', requires: ['plan'] },
+    ],
+  });
+  assert.deepEqual(buildSkillRunExecutionPreview(spec, {
+    stepCosts: { plan: 20, render: 90 },
+  }), {
+    completedStepIds: [],
+    readyStepIds: [],
+    blockedStepIds: ['render'],
+    guardBlockedStepIds: ['plan'],
+    estimatedPoints: 110,
+    budget: { maxPoints: 100, remainingPoints: 0, withinLimit: false },
+    status: 'blocked',
+  });
+  assert.deepEqual(buildSkillRunExecutionPreview(spec, {
+    completedStepIds: ['plan'],
+    satisfiedGuardIds: ['rights'],
+    stepCosts: { plan: 20, render: 40 },
+  }), {
+    completedStepIds: ['plan'],
+    readyStepIds: ['render'],
+    blockedStepIds: [],
+    guardBlockedStepIds: [],
+    estimatedPoints: 40,
+    budget: { maxPoints: 100, remainingPoints: 60, withinLimit: true },
+    status: 'ready',
+  });
 });
 
 test('lists the two proven templates with existing VideoStudio modes', () => {

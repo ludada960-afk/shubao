@@ -2477,3 +2477,13 @@
   6510-module production build, and `git diff --check` passed. This slice is
   provider-free and billing-free, and remains local-only until the controlled
   SSH deployment identity is restored.
+
+- 2026-08-17 the SkillRun contract now exposes a provider-free execution
+  preview. `buildSkillRunExecutionPreview` validates completed steps, declared
+  guard confirmations, bounded per-step cost estimates, and the normalized
+  budget cap; it returns ready steps, dependency-blocked steps, guard-blocked
+  steps, remaining points, and a fail-closed status before any task or wallet
+  mutation. Focused SkillRun coverage passed `11/11`; the full test suite,
+  build check, 6510-module production build, and `git diff --check` passed.
+  No provider or paid generation was triggered; this remains local-only until
+  the controlled SSH deployment identity is restored.
