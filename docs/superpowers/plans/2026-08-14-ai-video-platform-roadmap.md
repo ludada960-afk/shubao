@@ -304,6 +304,21 @@ for production until the controlled SSH key is readable, the release is deployed
 `scripts/deploy-production.ps1`, and a production owner-scoped clone is verified with a rollback
 release and 600-second canary.
 
+### 2026-08-17 P2-06 audio continuity status
+
+P2-06 now has a local, default-off implementation on `codex/video-platform-p0`. The workbench
+stores owner/project-scoped, revisioned voice/music tracks that reference only approved audio
+asset versions, with bounded placement, volume, mute, voice-anchor, beat-marker, language, and
+subtitle-cue metadata. Replay manifests sanitize that metadata and exclude playback URLs; clone
+remaps the approved asset/version IDs into the new draft project. The HTTP/client surface is
+authenticated and optimistic-concurrency aware.
+
+The implementation plan is `docs/superpowers/plans/2026-08-17-ai-video-p2-audio-continuity.md`.
+This is continuity metadata, not an audio renderer or a provider integration. Focused tests,
+full regression, static checks, and production build remain the release gate. No paid provider
+call was made, and no production deployment is claimed while the controlled SSH key remains
+unreadable.
+
 ## 12. Research Basis
 
 - [Flova product model](https://flova.tv/zh-CN/docs/introduction/understanding-flova/): project memory, visible/editable Skills, versioned assets, dependencies, rollback, and timeline composition.
@@ -329,6 +344,7 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 | P0 reliable jobs and billing | Production foundation live; fault suite and non-paid production verification pass | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Track attempt/outbox/reconciliation SLOs and run provider canaries only under an approved spend budget |
 | P1 storyboard workbench | Implemented and deployed dark; `workbenchEnabled=false` | Ten internal projects finish without platform-state or billing failure | Add an owner cohort, complete browser acceptance and ten non-billing projects, then evaluate the flag |
 | P2 Skills, memory, replay | Blocked by P1 evidence | Two real workflows can be replayed from stored inputs and a versioned manifest | Product ad first; reference reconstruction second |
+| P2 audio continuity | Local candidate, not deployed | Approved audio assets, bounded track metadata, replay sanitization, clone remapping, and production owner-cohort evidence | Run non-billing owner-cohort replay before enabling any audio UI |
 | P3 advanced local editing | Research only | Each provider capability passes three real input-variant canaries and has a whole-shot fallback | Release reshoot, extension, tracking, and action control independently |
 
 ### 2026-08-16 production evidence

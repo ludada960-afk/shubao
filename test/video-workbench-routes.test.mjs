@@ -422,6 +422,38 @@ test('workbench routes expose revisions and map conflicts without overwriting st
   assert.equal(conflict.body.code, 'VERSION_CONFLICT');
 });
 
+test('audio continuity routes create and update owner-scoped tracks', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const voice = store.createAsset({ ownerEmail, projectId: project.id, kind: 'voice', name: '旁白' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: voice.id,
+    stableUrl: '/api/video/assets/route-voice', contentHash: 'route-voice-hash', mimeType: 'audio/mpeg' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: voice.id,
+    versionId: version.id, expectedRevision: 1 });
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const created = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/audio-tracks', {
+    headers, params: { projectId: project.id }, body: {
+      kind: 'voice', assetId: voice.id, assetVersionId: version.id, startMs: 100,
+      durationMs: 3200, language: 'zh-CN', beatMarkers: [0, 800],
+      subtitleCues: [{ startMs: 120, endMs: 700, text: '先讲重点' }],
+    },
+  });
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.track.kind, 'voice');
+  const updated = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/audio-tracks/:trackId', {
+    headers, params: { projectId: project.id, trackId: created.body.track.id },
+    body: { expectedRevision: 1, patch: { volume: 0.7, muted: true } },
+  });
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.body.track.revision, 2);
+  assert.equal(updated.body.track.volume, 0.7);
+  assert.equal(updated.body.track.muted, true);
+  const denied = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench', {
+    headers: signedHeaders(sessionTokens, 'other@example.com'), params: { projectId: project.id },
+  });
+  assert.equal(denied.statusCode, 404);
+});
+
 test('workbench routes validate shot duration at the HTTP boundary', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

@@ -350,6 +350,33 @@ test('replay manifest clone carries project memory with remapped approved asset 
   assert.deepEqual(JSON.parse(version.plan_snapshot).memory, manifest.memory);
 });
 
+test('replay manifest clone remaps approved audio tracks and preserves continuity metadata', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const voice = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'voice', name: '旁白' });
+  const version = store.addAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: voice.id,
+    stableUrl: '/api/video/assets/voice', contentHash: 'voice-hash', mimeType: 'audio/mpeg' });
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: voice.id,
+    versionId: version.id, expectedRevision: 1 });
+  const track = store.createAudioTrack({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'voice', assetId: voice.id, assetVersionId: version.id, startMs: 120,
+    durationMs: 3600, volume: 0.8, language: 'zh-CN', voiceAnchor: '克制、清晰',
+    beatMarkers: [0, 900, 1800], subtitleCues: [{ startMs: 200, endMs: 1100, text: '先讲重点' }] });
+  const manifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'product-advertisement', skillVersion: 1, rightsConfirmations: [voice.id] });
+  assert.equal(manifest.audioTracks[0].assetId, voice.id);
+  const cloned = store.cloneReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'audio-clone-1' });
+  const graph = store.listWorkbench({ ownerEmail: OWNER, projectId: cloned.project.id });
+  assert.equal(graph.audioTracks.length, 1);
+  assert.notEqual(graph.audioTracks[0].id, track.id);
+  assert.notEqual(graph.audioTracks[0].assetId, voice.id);
+  assert.equal(graph.audioTracks[0].assetId, graph.assets[0].id);
+  assert.equal(graph.audioTracks[0].assetVersionId, graph.assets[0].versions[0].id);
+  assert.deepEqual(graph.audioTracks[0].beatMarkers, [0, 900, 1800]);
+  assert.deepEqual(graph.audioTracks[0].subtitleCues, [{ startMs: 200, endMs: 1100, text: '先讲重点' }]);
+});
+
 test('replay manifest clone rejects tampered manifests and foreign owners', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());
@@ -565,4 +592,43 @@ test('operational metrics expose the pilot funnel and recent operation SLO', t =
   assert.equal(metrics.operations24h.p95LatencyMs, 40);
   assert.equal(metrics.health.staleShots, 0);
   assert.equal(metrics.gate.minimumProjects, 10);
+});
+
+test('audio continuity tracks require approved voice or music versions and preserve beats and subtitles', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const voice = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'voice', name: '旁白' });
+  const voiceVersion = store.addAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: voice.id,
+    stableUrl: '/api/video/assets/voice', contentHash: 'voice-hash', mimeType: 'audio/mpeg' });
+  const music = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'music', name: '配乐' });
+  const musicVersion = store.addAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: music.id,
+    stableUrl: '/api/video/assets/music', contentHash: 'music-hash', mimeType: 'audio/mpeg' });
+  assert.throws(() => store.createAudioTrack({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'voice', assetId: voice.id, assetVersionId: voiceVersion.id, durationMs: 4000 }),
+  error => error.code === 'AUDIO_ASSET_NOT_APPROVED');
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: voice.id, versionId: voiceVersion.id, expectedRevision: 1 });
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: music.id, versionId: musicVersion.id, expectedRevision: 1 });
+  const track = store.createAudioTrack({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'voice', assetId: voice.id, assetVersionId: voiceVersion.id, startMs: 250,
+    durationMs: 4200, language: 'zh-CN', voiceAnchor: '温和、清晰、近讲',
+    beatMarkers: [0, 1200, 2600], subtitleCues: [
+      { startMs: 250, endMs: 1400, text: '把产品讲清楚' },
+    ] });
+  assert.equal(track.revision, 1);
+  assert.deepEqual(track.beatMarkers, [0, 1200, 2600]);
+  assert.equal(track.subtitleCues[0].text, '把产品讲清楚');
+  assert.equal(store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).audioTracks.length, 1);
+  const updated = store.updateAudioTrack({ ownerEmail: OWNER, projectId: project.id, trackId: track.id,
+    expectedRevision: 1, patch: { assetId: music.id, assetVersionId: musicVersion.id, kind: 'music', volume: 0.75 } });
+  assert.equal(updated.revision, 2);
+  assert.equal(updated.kind, 'music');
+  assert.equal(updated.volume, 0.75);
+  assert.throws(() => store.updateAudioTrack({ ownerEmail: OWNER, projectId: project.id,
+    trackId: track.id, expectedRevision: 1, patch: { volume: 0.5 } }),
+  error => error.code === 'VERSION_CONFLICT');
+  assert.throws(() => store.createAudioTrack({ ownerEmail: OWNER, projectId: project.id,
+    kind: 'music', assetId: music.id, assetVersionId: musicVersion.id, durationMs: 4000,
+    beatMarkers: [100, 90] }), error => error.code === 'INVALID_AUDIO_TRACK');
 });

@@ -167,6 +167,29 @@ function clipFromRow(row) {
   };
 }
 
+function audioTrackFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    kind: row.kind,
+    assetId: row.asset_id,
+    assetVersionId: row.asset_version_id,
+    startMs: row.start_ms,
+    durationMs: row.duration_ms,
+    volume: row.volume,
+    muted: Boolean(row.muted),
+    language: row.language,
+    voiceAnchor: row.voice_anchor,
+    beatMarkers: parseJson(row.beat_markers_json, []),
+    subtitleCues: parseJson(row.subtitle_cues_json, []),
+    revision: row.revision,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function memoryFactFromRow(row) {
   if (!row) return null;
   return normalizeProjectMemoryFact({
@@ -268,6 +291,20 @@ function ensureSchema(db) {
       FOREIGN KEY(shot_id) REFERENCES video_storyboard_shots(id),
       FOREIGN KEY(candidate_id) REFERENCES video_shot_candidates(id)
     );
+    CREATE TABLE IF NOT EXISTS video_audio_tracks (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      kind TEXT NOT NULL, asset_id TEXT NOT NULL, asset_version_id TEXT NOT NULL,
+      start_ms INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL,
+      volume REAL NOT NULL DEFAULT 1, muted INTEGER NOT NULL DEFAULT 0,
+      language TEXT NOT NULL DEFAULT '', voice_anchor TEXT NOT NULL DEFAULT '',
+      beat_markers_json TEXT NOT NULL DEFAULT '[]', subtitle_cues_json TEXT NOT NULL DEFAULT '[]',
+      revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      FOREIGN KEY(project_id) REFERENCES projects(id),
+      FOREIGN KEY(asset_id) REFERENCES video_workbench_assets(id),
+      FOREIGN KEY(asset_version_id) REFERENCES video_workbench_asset_versions(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_audio_tracks_project
+      ON video_audio_tracks(owner_email, project_id, start_ms, created_at);
     CREATE TABLE IF NOT EXISTS video_workbench_operations (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
       action TEXT NOT NULL, outcome TEXT NOT NULL, latency_ms INTEGER NOT NULL DEFAULT 0,
@@ -379,6 +416,36 @@ export function createVideoWorkbenchStore({
   const validateDuration = durationMs => {
     if (!Number.isSafeInteger(durationMs) || durationMs < 500 || durationMs > 120_000) {
       throw coded('INVALID_DURATION', 'duration must be between 500 and 120000 milliseconds');
+    }
+  };
+  const validateAudioShape = ({ kind, asset, version, startMs, durationMs, volume,
+    language, voiceAnchor, beatMarkers, subtitleCues }) => {
+    if (!['voice', 'music'].includes(kind)) throw coded('INVALID_AUDIO_TRACK', 'audio track kind is invalid');
+    if (!asset || asset.kind !== kind || asset.approvedVersionId !== version?.id) {
+      throw coded('AUDIO_ASSET_NOT_APPROVED', 'audio track must use the approved matching asset version');
+    }
+    if (!String(version.mimeType || '').toLowerCase().startsWith('audio/')) {
+      throw coded('INVALID_AUDIO_TRACK', 'audio track asset must be an audio file');
+    }
+    if (!Number.isSafeInteger(startMs) || startMs < 0 || startMs > 600_000) {
+      throw coded('INVALID_AUDIO_TRACK', 'audio track start must be between 0 and 600000 milliseconds');
+    }
+    validateDuration(durationMs);
+    if (!Number.isFinite(volume) || volume < 0 || volume > 2) {
+      throw coded('INVALID_AUDIO_TRACK', 'audio track volume must be between 0 and 2');
+    }
+    if (!Array.isArray(beatMarkers) || beatMarkers.length > 128
+      || beatMarkers.some((item, index) => !Number.isSafeInteger(item) || item < 0 || item > durationMs
+        || (index > 0 && item <= beatMarkers[index - 1]))) {
+      throw coded('INVALID_AUDIO_TRACK', 'audio beat markers must be sorted within the track');
+    }
+    if (!Array.isArray(subtitleCues) || subtitleCues.length > 200 || subtitleCues.some(cue => (
+      !cue || !Number.isSafeInteger(cue.startMs) || !Number.isSafeInteger(cue.endMs)
+      || cue.startMs < 0 || cue.endMs <= cue.startMs || cue.endMs > durationMs
+      || !clean(cue.text, 240)
+    ))) throw coded('INVALID_AUDIO_TRACK', 'audio subtitle cues are invalid');
+    if (clean(language, 32).length > 32 || clean(voiceAnchor, 240).length > 240) {
+      throw coded('INVALID_AUDIO_TRACK', 'audio continuity metadata is too long');
     }
   };
 
@@ -637,6 +704,72 @@ export function createVideoWorkbenchStore({
       return clipFromRow(db.prepare('SELECT * FROM video_timeline_clips WHERE id = ?').get(id));
     },
 
+    createAudioTrack({ ownerEmail, projectId, kind, assetId, assetVersionId, startMs = 0,
+      durationMs, volume = 1, muted = false, language = '', voiceAnchor = '',
+      beatMarkers = [], subtitleCues = [] }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const asset = requireAsset(owner, project.id, assetId);
+      const version = requireVersion(owner, project.id, assetId, assetVersionId);
+      const normalizedKind = clean(kind, 20);
+      const normalizedLanguage = clean(language, 32);
+      const normalizedAnchor = clean(voiceAnchor, 240);
+      const normalizedBeats = Array.isArray(beatMarkers) ? beatMarkers.slice() : beatMarkers;
+      const normalizedCues = Array.isArray(subtitleCues) ? subtitleCues.map(cue => ({
+        startMs: cue?.startMs, endMs: cue?.endMs, text: clean(cue?.text, 240),
+      })) : subtitleCues;
+      validateAudioShape({ kind: normalizedKind, asset, version, startMs, durationMs,
+        volume: Number(volume), language: normalizedLanguage, voiceAnchor: normalizedAnchor,
+        beatMarkers: normalizedBeats, subtitleCues: normalizedCues });
+      const id = randomUUID();
+      const createdAt = timestamp();
+      db.prepare(`INSERT INTO video_audio_tracks
+        (id, owner_email, project_id, kind, asset_id, asset_version_id, start_ms, duration_ms,
+         volume, muted, language, voice_anchor, beat_markers_json, subtitle_cues_json,
+         created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        id, owner, project.id, normalizedKind, asset.id, version.id, startMs, durationMs,
+        Number(volume), muted ? 1 : 0, normalizedLanguage, normalizedAnchor,
+        JSON.stringify(normalizedBeats), JSON.stringify(normalizedCues), createdAt, createdAt,
+      );
+      return audioTrackFromRow(db.prepare('SELECT * FROM video_audio_tracks WHERE id = ?').get(id));
+    },
+
+    updateAudioTrack({ ownerEmail, projectId, trackId, expectedRevision, patch = {} }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const allowed = new Set(['kind', 'assetId', 'assetVersionId', 'startMs', 'durationMs', 'volume',
+        'muted', 'language', 'voiceAnchor', 'beatMarkers', 'subtitleCues']);
+      const keys = Object.keys(patch || {});
+      if (!keys.length || keys.some(key => !allowed.has(key))) throw coded('INVALID_AUDIO_TRACK', 'audio track patch contains unsupported fields');
+      return db.transaction(() => {
+        const row = db.prepare(`SELECT * FROM video_audio_tracks
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).get(trackId, owner, project.id);
+        const current = audioTrackFromRow(row);
+        if (!current) throw coded('AUDIO_TRACK_NOT_FOUND', 'audio track not found');
+        if (current.revision !== expectedRevision) throw coded('VERSION_CONFLICT', 'audio track revision conflict', current);
+        const next = { ...current, ...patch };
+        const asset = requireAsset(owner, project.id, next.assetId);
+        const version = requireVersion(owner, project.id, next.assetId, next.assetVersionId);
+        const normalizedLanguage = clean(next.language, 32);
+        const normalizedAnchor = clean(next.voiceAnchor, 240);
+        const normalizedBeats = Array.isArray(next.beatMarkers) ? next.beatMarkers.slice() : next.beatMarkers;
+        const normalizedCues = Array.isArray(next.subtitleCues) ? next.subtitleCues.map(cue => ({
+          startMs: cue?.startMs, endMs: cue?.endMs, text: clean(cue?.text, 240),
+        })) : next.subtitleCues;
+        validateAudioShape({ kind: clean(next.kind, 20), asset, version, startMs: next.startMs,
+          durationMs: next.durationMs, volume: Number(next.volume), language: normalizedLanguage,
+          voiceAnchor: normalizedAnchor, beatMarkers: normalizedBeats, subtitleCues: normalizedCues });
+        const changedAt = timestamp();
+        db.prepare(`UPDATE video_audio_tracks SET kind = ?, asset_id = ?, asset_version_id = ?,
+          start_ms = ?, duration_ms = ?, volume = ?, muted = ?, language = ?, voice_anchor = ?,
+          beat_markers_json = ?, subtitle_cues_json = ?, revision = revision + 1, updated_at = ?
+          WHERE id = ?`).run(
+          clean(next.kind, 20), asset.id, version.id, next.startMs, next.durationMs, Number(next.volume),
+          next.muted ? 1 : 0, normalizedLanguage, normalizedAnchor, JSON.stringify(normalizedBeats),
+          JSON.stringify(normalizedCues), changedAt, current.id,
+        );
+        return audioTrackFromRow(db.prepare('SELECT * FROM video_audio_tracks WHERE id = ?').get(current.id));
+      })();
+    },
+
     listProjectMemory({ ownerEmail, projectId }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       const rows = db.prepare(`SELECT * FROM video_project_memory_facts
@@ -774,6 +907,7 @@ export function createVideoWorkbenchStore({
         const assets = Array.isArray(manifest.assets) ? manifest.assets : [];
         const shots = Array.isArray(manifest.shots) ? manifest.shots : [];
         const clips = Array.isArray(manifest.timelineClips) ? manifest.timelineClips : [];
+        const audioTracks = Array.isArray(manifest.audioTracks) ? manifest.audioTracks : [];
         const createdAt = timestamp();
         const cloneTitle = clean(title, 200) || `${clean(project.title, 160) || '视频项目'} · 复用`;
         const clonedProject = projectStore.createProject({ ownerEmail: owner, kind: 'video', title: cloneTitle });
@@ -927,6 +1061,29 @@ export function createVideoWorkbenchStore({
             Number.isSafeInteger(clip.trimEndMs) ? clip.trimEndMs : 0,
             clip.muted ? 1 : 0, clean(clip.status, 40) || 'active',
             Number.isSafeInteger(clip.revision) ? clip.revision : 1, createdAt, createdAt,
+            );
+        }
+        for (const track of audioTracks) {
+          const assetId = assetIds.get(clean(track?.assetId, 200));
+          const assetVersionId = versionIds.get(clean(track?.assetVersionId, 200));
+          if (!assetId || !assetVersionId) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'audio track target is missing');
+          const kind = clean(track.kind, 20);
+          if (!['voice', 'music'].includes(kind)) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'audio track kind is invalid');
+          const startMs = Number.isSafeInteger(track.startMs) ? track.startMs : 0;
+          const durationMs = Number.isSafeInteger(track.durationMs) ? track.durationMs : 0;
+          if (startMs < 0 || durationMs < 500) throw coded('REPLAY_MANIFEST_CLONE_INVALID', 'audio track timing is invalid');
+          const beatMarkers = Array.isArray(track.beatMarkers) ? track.beatMarkers : [];
+          const subtitleCues = Array.isArray(track.subtitleCues) ? track.subtitleCues : [];
+          db.prepare(`INSERT INTO video_audio_tracks
+            (id, owner_email, project_id, kind, asset_id, asset_version_id, start_ms, duration_ms,
+             volume, muted, language, voice_anchor, beat_markers_json, subtitle_cues_json,
+             revision, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+            randomUUID(), owner, clonedProject.id, kind, assetId, assetVersionId, startMs, durationMs,
+            Number.isFinite(track.volume) ? track.volume : 1, track.muted ? 1 : 0,
+            clean(track.language, 32), clean(track.voiceAnchor, 240), JSON.stringify(beatMarkers),
+            JSON.stringify(subtitleCues), Number.isSafeInteger(track.revision) && track.revision > 0 ? track.revision : 1,
+            createdAt, createdAt,
           );
         }
         const result = {
@@ -1068,11 +1225,14 @@ export function createVideoWorkbenchStore({
       }));
       const timelineClips = db.prepare(`SELECT * FROM video_timeline_clips
         WHERE owner_email = ? AND project_id = ? ORDER BY position, created_at`).all(owner, project.id).map(clipFromRow);
+      const audioTracks = db.prepare(`SELECT * FROM video_audio_tracks
+        WHERE owner_email = ? AND project_id = ? ORDER BY start_ms, created_at, id`).all(owner, project.id).map(audioTrackFromRow);
       return {
         project,
         assets: assets.map(asset => ({ ...asset, versions: versions.filter(version => version.assetId === asset.id) })),
         shots,
         timelineClips,
+        audioTracks,
         memory: api.listProjectMemory({ ownerEmail: owner, projectId: project.id }),
       };
     },

@@ -12,6 +12,7 @@ const NOT_FOUND_CODES = new Set([
   'REPLAY_MANIFEST_NOT_FOUND',
   'MEMORY_FACT_NOT_FOUND',
   'MEMORY_ASSET_NOT_FOUND',
+  'AUDIO_TRACK_NOT_FOUND',
 ]);
 
 function ownerFor(req, authenticateOwner) {
@@ -49,6 +50,12 @@ function routeError(error, res) {
   }
   if (code === 'MEMORY_INVALID') {
     return res.status(400).json({ code, error: '项目记忆内容无效' });
+  }
+  if (code === 'AUDIO_ASSET_NOT_APPROVED') {
+    return res.status(409).json({ code, error: '音轨只能使用已确认的语音或配乐素材版本' });
+  }
+  if (code === 'INVALID_AUDIO_TRACK') {
+    return res.status(400).json({ code, error: '音轨参数无效，请检查时长、节拍和字幕' });
   }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
@@ -251,6 +258,32 @@ export function mountVideoWorkbenchRoutes(app, {
       muted: req.body?.muted,
     })
   ), { status: 201, key: 'clip' }));
+
+  app.post('/api/video/projects/:projectId/workbench/audio-tracks', (req, res) => dispatch(req, res, 'audio-track.create', request => (
+    store.createAudioTrack({
+      ...request,
+      kind: req.body?.kind,
+      assetId: req.body?.assetId,
+      assetVersionId: req.body?.assetVersionId,
+      startMs: req.body?.startMs,
+      durationMs: req.body?.durationMs,
+      volume: req.body?.volume,
+      muted: req.body?.muted,
+      language: req.body?.language,
+      voiceAnchor: req.body?.voiceAnchor,
+      beatMarkers: req.body?.beatMarkers,
+      subtitleCues: req.body?.subtitleCues,
+    })
+  ), { status: 201, key: 'track' }));
+
+  app.patch('/api/video/projects/:projectId/workbench/audio-tracks/:trackId', (req, res) => dispatch(req, res, 'audio-track.update', request => (
+    store.updateAudioTrack({
+      ...request,
+      trackId: req.params.trackId,
+      expectedRevision: req.body?.expectedRevision,
+      patch: req.body?.patch,
+    })
+  ), { key: 'track' }));
 
   app.post('/api/video/projects/:projectId/workbench/replay-manifests', (req, res) => dispatch(
     req, res, 'replay-manifest.create', request => store.createReplayManifest({

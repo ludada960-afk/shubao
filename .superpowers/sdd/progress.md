@@ -2249,3 +2249,19 @@
   and `git diff --check` passed. No provider, generation, usage, wallet, or
   billing writes occurred. This local slice is not deployed because the
   controlled SSH key is unavailable.
+
+- 2026-08-17 AI-video P2-06 audio continuity is complete locally on
+  `codex/video-platform-p0`. Owner/project-scoped `video_audio_tracks` now
+  preserve approved voice/music asset versions, placement, duration, volume,
+  mute state, voice anchors, beat markers, language and bounded subtitle cues.
+  Authenticated POST/PATCH routes use optimistic revisions; replay manifests
+  sanitize continuity metadata without playback URLs; clone/remix remaps the
+  approved asset/version IDs into the new draft project. Focused store/route/
+  replay/client coverage passed `51/51`; full `npm test` passed `1692/1692`;
+  `npm run check`, the 6510-module production build and `git diff --check`
+  passed. No provider, generation, usage, wallet or billing write occurred and
+  no paid video generation ran. The implementation and roadmap entries are
+  uncommitted at this checkpoint; deployment remains pending because the
+  controlled SSH key is unreadable, so this slice must not be described as
+  shipped. Runtime folders `.npm-cache/`, `.qa-video/`,
+  `server/video-assets/`, and `server/video-upload-staging/` remain excluded.

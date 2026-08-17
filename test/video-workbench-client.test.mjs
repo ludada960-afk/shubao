@@ -24,6 +24,8 @@ import {
   confirmVideoSkillCheckpoint,
   completeVideoSkillRunStep,
   updateStoryboardShot,
+  createVideoAudioTrack,
+  updateVideoAudioTrack,
 } from '../src/services/videoWorkbench.js';
 import { onSessionInvalid } from '../src/services/auth.js';
 
@@ -245,4 +247,27 @@ test('video workbench client uses shared session invalidation on 401', async t =
   await assert.rejects(getVideoWorkbench('project-1'), error => error.status === 401 && error.code === 'SESSION_INVALID');
   assert.equal(storage.get('sb-auth'), undefined);
   assert.equal(invalidations, 1);
+});
+
+test('video audio continuity client signs create and update routes', async t => {
+  installSession('signed-audio-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse({ track: { id: 'track-1', revision: options.method === 'PATCH' ? 2 : 1 } }, options.method === 'POST' ? 201 : 200);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await createVideoAudioTrack('project-1', {
+    kind: 'voice', assetId: 'asset-1', assetVersionId: 'version-1', durationMs: 4200,
+    beatMarkers: [0, 1200], subtitleCues: [{ startMs: 0, endMs: 500, text: '你好' }],
+  });
+  await updateVideoAudioTrack('project-1', 'track-1', {
+    expectedRevision: 1, patch: { volume: 0.8 },
+  });
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/audio-tracks');
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-audio-session');
+  assert.equal(requests[1].path, '/api/video/projects/project-1/workbench/audio-tracks/track-1');
+  assert.equal(requests[1].options.method, 'PATCH');
+  assert.deepEqual(JSON.parse(requests[1].options.body), { expectedRevision: 1, patch: { volume: 0.8 } });
 });

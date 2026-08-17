@@ -158,6 +158,44 @@ function clip(clipValue) {
   };
 }
 
+function audioTrack(trackValue, rights, assets) {
+  const id = text(trackValue.id, 'audio track id', 200);
+  const assetId = text(trackValue.assetId, 'audio track assetId', 200);
+  if (!rights.has(assetId)) throw invalid(`rights confirmation missing for asset ${assetId}`);
+  const sourceAsset = assets.find(item => item.id === assetId);
+  const assetVersionId = text(trackValue.assetVersionId, 'audio track assetVersionId', 200);
+  if (!sourceAsset || !sourceAsset.versions.some(version => version.id === assetVersionId)) {
+    throw invalid(`audio track ${id} asset version is missing`);
+  }
+  const kind = text(trackValue.kind, 'audio track kind', 20);
+  if (!['voice', 'music'].includes(kind)) throw invalid(`audio track ${id} kind is invalid`);
+  if (!Number.isSafeInteger(trackValue.startMs) || trackValue.startMs < 0
+    || !Number.isSafeInteger(trackValue.durationMs) || trackValue.durationMs < 500 || trackValue.durationMs > 120_000) {
+    throw invalid(`audio track ${id} duration is invalid`);
+  }
+  if (!Number.isFinite(trackValue.volume) || trackValue.volume < 0 || trackValue.volume > 2) {
+    throw invalid(`audio track ${id} volume is invalid`);
+  }
+  const beats = Array.isArray(trackValue.beatMarkers) ? trackValue.beatMarkers : [];
+  if (beats.length > 128 || beats.some((beat, index) => !Number.isSafeInteger(beat) || beat < 0
+    || beat > trackValue.durationMs || (index > 0 && beat <= beats[index - 1]))) {
+    throw invalid(`audio track ${id} beat markers are invalid`);
+  }
+  const cues = Array.isArray(trackValue.subtitleCues) ? trackValue.subtitleCues : [];
+  if (cues.length > 200 || cues.some(cue => !cue || !Number.isSafeInteger(cue.startMs)
+    || !Number.isSafeInteger(cue.endMs) || cue.startMs < 0 || cue.endMs <= cue.startMs
+    || cue.endMs > trackValue.durationMs || !String(cue.text || '').trim() || String(cue.text).length > 240)) {
+    throw invalid(`audio track ${id} subtitle cues are invalid`);
+  }
+  return {
+    id, kind, assetId, assetVersionId,
+    startMs: trackValue.startMs, durationMs: trackValue.durationMs, volume: trackValue.volume,
+    muted: Boolean(trackValue.muted), language: String(trackValue.language || '').slice(0, 32),
+    voiceAnchor: String(trackValue.voiceAnchor || '').slice(0, 240), beatMarkers: beats.slice(),
+    subtitleCues: cues.map(cue => ({ startMs: cue.startMs, endMs: cue.endMs, text: String(cue.text).trim().slice(0, 240) })),
+  };
+}
+
 export function buildReplayManifest({
   workbench,
   skillId,
@@ -192,6 +230,8 @@ export function buildReplayManifest({
     shots: workbench.shots.map(shot),
     timelineClips: workbench.timelineClips.map(clip),
   };
+  const audioTracks = Array.isArray(workbench.audioTracks) ? workbench.audioTracks : [];
+  if (audioTracks.length) manifest.audioTracks = audioTracks.map(item => audioTrack(item, rights, manifest.assets));
   const canonical = canonicalReplayManifest(manifest);
   return Object.freeze({
     ...manifest,

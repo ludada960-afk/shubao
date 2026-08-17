@@ -17,6 +17,7 @@ function graph(overrides = {}) {
       bindings: [{ assetId: 'asset-1', assetVersionId: 'version-1', role: 'scene' }], candidates: [],
     }],
     timelineClips: [],
+    audioTracks: [],
     ...overrides,
   };
 }
@@ -136,4 +137,24 @@ test('replay manifest carries sanitized active project memory and omits deleted 
   }]);
   assert.equal(JSON.stringify(manifest.memory).includes('ownerEmail'), false);
   assert.equal(JSON.stringify(manifest.memory).includes('signed.test'), false);
+});
+
+test('replay manifest carries bounded audio continuity metadata without playback URLs', () => {
+  const manifest = buildReplayManifest({
+    workbench: graph({ audioTracks: [{
+      id: 'track-1', kind: 'voice', assetId: 'asset-1', assetVersionId: 'version-1',
+      startMs: 250, durationMs: 4200, volume: 0.8, muted: false, language: 'zh-CN',
+      voiceAnchor: '温和近讲', beatMarkers: [0, 1200],
+      subtitleCues: [{ startMs: 250, endMs: 1000, text: '你好' }],
+      playbackUrl: 'https://signed.test/audio',
+    }] }),
+    skillId: 'commerce-trailer', skillVersion: 3, rightsConfirmations: ['asset-1'],
+  });
+  assert.deepEqual(manifest.audioTracks, [{
+    id: 'track-1', kind: 'voice', assetId: 'asset-1', assetVersionId: 'version-1',
+    startMs: 250, durationMs: 4200, volume: 0.8, muted: false, language: 'zh-CN',
+    voiceAnchor: '温和近讲', beatMarkers: [0, 1200],
+    subtitleCues: [{ startMs: 250, endMs: 1000, text: '你好' }],
+  }]);
+  assert.equal(JSON.stringify(manifest.audioTracks).includes('signed.test'), false);
 });

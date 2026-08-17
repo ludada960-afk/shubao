@@ -507,5 +507,18 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   `1687/1687`，`npm run check`、6510 modules 生产构建、`git diff --check` 全部通过；没有调用
   provider、generation、usage、wallet 或 billing，也没有触发付费视频生成。
 - 发布状态：该修复尚未部署。受控 SSH key 仍因环境权限不可读，不能声称线上生效；凭据恢复后必须
-  通过 `scripts/deploy-production.ps1` 发布，验证 owner 隔离、模板 ID 回放/克隆和零计费副作用，
-  再执行带回滚证据的 600 秒 Canary。
+通过 `scripts/deploy-production.ps1` 发布，验证 owner 隔离、模板 ID 回放/克隆和零计费副作用，
+再执行带回滚证据的 600 秒 Canary。
+
+## 2026-08-17 AI Video P2-06 Audio Continuity
+
+- 本地分支 `codex/video-platform-p0` 新增 owner/project-scoped、revisioned 的
+  `video_audio_tracks`。音轨只能绑定已批准的 `voice`/`music` 音频素材版本，并校验时长、
+  音量、静音、语言、声线锚点、节拍标记和字幕 cue 的边界；创建/编辑 API 使用签名会话和
+  `expectedRevision`，不信任 body owner。
+- replay manifest 会保存脱敏的连续性元数据但排除播放 URL；clone/remix 会将音轨及其已批准
+  素材版本 ID 一起映射到新草稿项目。该切片未做音频转码、波形渲染、TTS、供应商路由或付费
+  生成，属于 P2 的本地候选，不改变默认关闭的生产开关。
+- 实施计划为 `docs/superpowers/plans/2026-08-17-ai-video-p2-audio-continuity.md`。聚焦测试、
+  全量回归、静态检查和生产构建完成后，仍须通过唯一部署脚本、owner cohort 与 600 秒 Canary
+  才能推进生产状态；当前受控 SSH key 仍不可读，因此不能声称已上线。
