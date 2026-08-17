@@ -241,6 +241,22 @@ test('compiles an approved generation draft without billing or provider mutation
   assert.equal(draft.body.draft.providerSubmission, false);
   assert.equal(draft.body.draft.billingMutation, false);
   assert.equal(draft.body.draft.shots[0].references[0].sourceProjectAssetId, 'route-upload');
+  assert.ok(draft.body.draft.id);
+  assert.equal(draft.body.draft.replayed, false);
+  const replayed = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/generation-draft', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      planHash: plan.body.plan.planHash,
+    },
+  });
+  assert.equal(replayed.statusCode, 201);
+  assert.equal(replayed.body.draft.id, draft.body.draft.id);
+  assert.equal(replayed.body.draft.replayed, true);
+  const persisted = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench/generation-draft', {
+    headers, params: { projectId: project.id }, query: { planHash: plan.body.plan.planHash },
+  });
+  assert.equal(persisted.statusCode, 200);
+  assert.equal(persisted.body.draft.id, draft.body.draft.id);
   assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
 });
 

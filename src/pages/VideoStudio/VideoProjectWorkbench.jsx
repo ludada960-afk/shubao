@@ -37,6 +37,7 @@ import {
   getVideoReplayManifest,
   listVideoReplayManifests,
   getVideoWorkbench,
+  getVideoWorkbenchGenerationDraft,
   getVideoWorkbenchPlan,
   importJobCandidate,
   importWorkbenchAssetVersion,
@@ -317,6 +318,16 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
       setWorkbenchPlan(plan);
       setGenerationDraft(null);
+      if (plan.approval?.planHash && plan.approval.planHash === plan.planHash) {
+        try {
+          const persistedDraft = await getVideoWorkbenchGenerationDraft(projectId, plan.planHash);
+          if (requestSequence === planRequestSequenceRef.current && selectedProjectRef.current === projectId) {
+            setGenerationDraft(persistedDraft);
+          }
+        } catch {
+          // A saved draft is an optimization; the approved plan remains usable.
+        }
+      }
     } catch (planError) {
       if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
       setWorkbenchPlan(null);

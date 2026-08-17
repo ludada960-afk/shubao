@@ -218,9 +218,20 @@ export function mountVideoWorkbenchRoutes(app, {
         planHash: req.body?.planHash,
         approvalHash: approval?.planHash,
       });
-      return { draft };
+      const persisted = typeof store.saveGenerationDraft === 'function'
+        ? store.saveGenerationDraft({ ...request, draft })
+        : draft;
+      return { draft: persisted };
     }, { status: 201 }),
   );
+
+  app.get('/api/video/projects/:projectId/workbench/generation-draft', (req, res) => dispatch(
+    req, res, 'workbench.generation-draft.read', request => ({
+      draft: typeof store.getGenerationDraft === 'function'
+        ? store.getGenerationDraft({ ...request, planHash: req.query?.planHash })
+        : null,
+    }),
+  ));
 
   app.get('/api/video/projects/:projectId/workbench/memory', (req, res) => dispatch(
     req, res, 'memory.read', request => ({ memory: store.listProjectMemory(request) }),

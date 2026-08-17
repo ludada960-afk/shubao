@@ -203,6 +203,18 @@ function generationPlanApprovalFromRow(row) {
   };
 }
 
+function generationDraftFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    planHash: row.plan_hash,
+    createdAt: row.created_at,
+    ...parseJson(row.draft_json, {}),
+  };
+}
+
 function memoryFactFromRow(row) {
   if (!row) return null;
   return normalizeProjectMemoryFact({
@@ -370,6 +382,13 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_generation_plan_approvals_project
       ON video_generation_plan_approvals(owner_email, project_id, approved_at DESC);
+    CREATE TABLE IF NOT EXISTS video_generation_drafts (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      plan_hash TEXT NOT NULL, draft_json TEXT NOT NULL, created_at TEXT NOT NULL,
+      UNIQUE(owner_email, project_id, plan_hash), FOREIGN KEY(project_id) REFERENCES projects(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_generation_drafts_project
+      ON video_generation_drafts(owner_email, project_id, created_at DESC);
   `);
 }
 
@@ -1345,6 +1364,34 @@ export function createVideoWorkbenchStore({
       );
       return generationPlanApprovalFromRow(db.prepare(`SELECT * FROM video_generation_plan_approvals
         WHERE owner_email = ? AND project_id = ?`).get(owner, project.id));
+    },
+
+    saveGenerationDraft({ ownerEmail, projectId, draft }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedHash = clean(draft?.planHash, 128).toLowerCase();
+      if (!draft || draft.projectId !== project.id || !/^[a-f0-9]{64}$/.test(normalizedHash)) {
+        throw coded('VIDEO_PLAN_HASH_INVALID', '生成草稿与当前项目不匹配');
+      }
+      const existing = generationDraftFromRow(db.prepare(`SELECT * FROM video_generation_drafts
+        WHERE owner_email = ? AND project_id = ? AND plan_hash = ?`).get(owner, project.id, normalizedHash));
+      if (existing) return { ...existing, replayed: true };
+      const id = randomUUID();
+      const createdAt = timestamp();
+      const persistedDraft = { ...draft, planHash: normalizedHash };
+      db.prepare(`INSERT INTO video_generation_drafts
+        (id, owner_email, project_id, plan_hash, draft_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(
+        id, owner, project.id, normalizedHash, JSON.stringify(persistedDraft), createdAt,
+      );
+      return { ...generationDraftFromRow(db.prepare(`SELECT * FROM video_generation_drafts WHERE id = ?`).get(id)), replayed: false };
+    },
+
+    getGenerationDraft({ ownerEmail, projectId, planHash }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedHash = clean(planHash, 128).toLowerCase();
+      if (!/^[a-f0-9]{64}$/.test(normalizedHash)) return null;
+      return generationDraftFromRow(db.prepare(`SELECT * FROM video_generation_drafts
+        WHERE owner_email = ? AND project_id = ? AND plan_hash = ?`).get(owner, project.id, normalizedHash));
     },
 
     listSkillTemplates({ ownerEmail, projectId }) {

@@ -111,6 +111,18 @@ export async function createVideoWorkbenchGenerationDraft(projectId, payload = {
   return requireValue(response, 'draft', '视频生成草稿暂时不可用，请稍后重试');
 }
 
+export async function getVideoWorkbenchGenerationDraft(projectId, planHash) {
+  const normalizedHash = typeof planHash === 'string' ? planHash.trim() : '';
+  const params = new URLSearchParams({ planHash: normalizedHash });
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/generation-draft?${params.toString()}`,
+    {},
+    '暂时无法读取视频生成草稿',
+  );
+  if (response?.draft === null) return null;
+  return requireValue(response, 'draft', '视频生成草稿暂时不可用，请稍后重试');
+}
+
 export async function getVideoProjectMemory(projectId) {
   const response = await requestJson(`${workbenchBase(projectId)}/memory`, {}, '暂时无法读取项目记忆');
   if (!Array.isArray(response?.memory)) throw new Error('项目记忆暂时不可用，请稍后重试');
