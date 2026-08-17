@@ -2274,3 +2274,10 @@
   passed. This remains metadata-only: no waveform, transcoding, TTS, provider, usage, wallet,
   billing, or paid generation call occurred. The slice is not deployed because the controlled SSH
   key is unreadable; the runtime folders listed above remain excluded.
+
+- 2026-08-17 release gate for `b20f794` was attempted through the only approved
+  `scripts/deploy-production.ps1` entry point. Local tests/build/checks passed, then
+  SSH failed closed because `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is not readable
+  (`Permission denied`, `ubuntu@43.129.180.134: Permission denied`). No remote archive,
+  release switch, restart, rollback, or Canary ran. Treat the P2-06 workbench surface as
+  local-only until controlled credentials are restored.

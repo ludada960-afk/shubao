@@ -533,3 +533,12 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   modules 生产构建、`git diff --check` 均通过；没有 provider、generation、usage、wallet、
   billing 或付费视频调用。提交后仍需受控 SSH key 恢复，再经唯一部署入口和 600 秒 Canary，
   目前不得报告为线上生效。
+
+## 2026-08-17 AI Video P2-06 Release Gate
+
+- 已对提交 `b20f794` 执行唯一标准部署脚本；本地门禁（1694/1694、check、6510 modules build）
+  通过。
+- 远端阶段 fail-closed：`C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` 对当前进程不可读，
+  SSH 返回 `Permission denied`，因此未执行远程上传、切换、重启、回滚或 Canary。
+- 后续仅在受控凭据恢复后重跑 `scripts/deploy-production.ps1`；在此之前不得把本地 P2-06
+  音频连续性/工作台面板描述为已上线。
