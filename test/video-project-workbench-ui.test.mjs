@@ -52,6 +52,7 @@ test('project workbench exposes real persisted stages without provider controls 
     'createVideoAudioTrack',
     'updateVideoAudioTrack',
     'createVideoReplayManifest',
+    'getVideoReplayManifest',
     'cloneVideoReplayManifest',
   ]) {
     assert.match(component, new RegExp(command));
@@ -93,6 +94,12 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /起点/);
   assert.match(component, /终点/);
   assert.match(component, /保存创作配方/);
+  assert.match(component, /查看创作过程/);
+  assert.match(component, /创作过程预览/);
+  assert.match(component, /replayManifestPreview\.shots/);
+  assert.match(component, /关闭过程预览/);
+  assert.match(component, /setReplayManifestPreview\(null\);\s*setReplayManifest\(manifest\)/);
+  assert.match(component, /setReplayManifest\(null\);\s*setReplayManifestPreview\(null\)/);
   assert.match(component, /复用为新项目/);
   assert.match(component, /manifestHash/);
   assert.match(component, /type="range"/);

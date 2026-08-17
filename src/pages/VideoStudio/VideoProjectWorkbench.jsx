@@ -8,6 +8,7 @@ import {
   Clapperboard,
   Clock3,
   Copy,
+  Eye,
   Film,
   FolderKanban,
   ImagePlus,
@@ -31,6 +32,7 @@ import {
   createVideoAudioTrack,
   createVideoReplayManifest,
   cloneVideoReplayManifest,
+  getVideoReplayManifest,
   getVideoWorkbench,
   importJobCandidate,
   importWorkbenchAssetVersion,
@@ -139,6 +141,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [shotEdits, setShotEdits] = useState({});
   const [clipDrafts, setClipDrafts] = useState({});
   const [replayManifest, setReplayManifest] = useState(null);
+  const [replayManifestPreview, setReplayManifestPreview] = useState(null);
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
@@ -250,6 +253,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         skillVersion: 1,
         rightsConfirmations,
       });
+      setReplayManifestPreview(null);
       setReplayManifest(manifest);
     });
   }
@@ -262,10 +266,21 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       title: `${workbench?.project?.title || '视频项目'} · 复用`,
     }).then(cloned => {
       setReplayManifest(null);
+      setReplayManifestPreview(null);
       return loadProjects(cloned.project.id);
     }).catch(cloneError => {
       setError(displayError(cloneError));
     }).finally(() => setBusy(''));
+  }
+
+  function handleOpenReplayManifest() {
+    if (!replayManifest?.id || busy) return;
+    setBusy('replay:read');
+    setError('');
+    void getVideoReplayManifest(projectId, replayManifest.id)
+      .then(manifest => setReplayManifestPreview(manifest))
+      .catch(readError => setError(displayError(readError)))
+      .finally(() => setBusy(''));
   }
 
   async function handleCreateProject(event) {
@@ -291,6 +306,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     setProjectId(nextId);
     setWorkbench(null);
     setReplayManifest(null);
+    setReplayManifestPreview(null);
     setError('');
   }
 
@@ -524,6 +540,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         </button>
         {replayManifest?.manifestHash && <div className="video-project-replay-status" role="status">
           <span>配方已保存 · {replayManifest.manifestHash.slice(0, 10)}</span>
+          <button type="button" disabled={Boolean(busy)} onClick={handleOpenReplayManifest}>{busy === 'replay:read' ? <LoaderCircle className="is-spinning" size={14} /> : <Eye size={14} />}查看创作过程</button>
           <button type="button" disabled={Boolean(busy)} onClick={handleCloneReplayManifest}>{busy === 'replay:clone' ? <LoaderCircle className="is-spinning" size={14} /> : <Copy size={14} />}复用为新项目</button>
         </div>}
         <button type="button" className="video-project-refresh" aria-label="刷新视频项目" title="刷新视频项目" disabled={Boolean(busy) || loading} onClick={() => void loadProjects(projectId)}>
@@ -542,6 +559,26 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     </ol>
 
     {error && <div className="video-project-alert" role="alert"><CircleAlert size={17} /><span>{error}</span><button type="button" onClick={() => projectId ? void loadWorkbench(projectId) : void loadProjects()}>重试</button></div>}
+
+    {replayManifestPreview && <section className="video-project-replay-preview" aria-labelledby="video-replay-preview-heading">
+      <header>
+        <div><small>只读流程</small><h3 id="video-replay-preview-heading">创作过程预览</h3><p>这里展示已保存配方的结构摘要；不会复制私有素材地址，也不会重新生成。</p></div>
+        <button type="button" disabled={Boolean(busy)} onClick={() => setReplayManifestPreview(null)}>关闭过程预览</button>
+      </header>
+      <div className="video-project-replay-summary">
+        <div><span>工作流</span><strong>{replayManifestPreview.skill?.id || 'video-workbench'} · v{replayManifestPreview.skill?.version || 1}</strong></div>
+        <div><span>素材版本</span><strong>{replayManifestPreview.assets?.length || 0} 个</strong></div>
+        <div><span>分镜</span><strong>{replayManifestPreview.shots?.length || 0} 个</strong></div>
+        <div><span>时间线</span><strong>{replayManifestPreview.timelineClips?.length || 0} 段</strong></div>
+        <div><span>音轨</span><strong>{replayManifestPreview.audioTracks?.length || 0} 条</strong></div>
+        <div><span>版权确认</span><strong>{replayManifestPreview.rightsConfirmations?.length || 0} 项</strong></div>
+      </div>
+      <ol className="video-project-replay-shots">
+        {(replayManifestPreview.shots || []).map((shot, index) => <li key={shot.id || `${shot.purpose}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{shot.purpose || '未命名镜头'}</strong><small>{Math.round(Number(shot.durationMs || 0) / 100) / 10}s · {shot.bindings?.length || 0} 个素材绑定</small></div></li>)}
+        {!replayManifestPreview.shots?.length && <li className="is-empty">当前配方还没有分镜。</li>}
+      </ol>
+      <footer>配方校验哈希：<code>{replayManifestPreview.manifestHash}</code></footer>
+    </section>}
 
     <section className="video-project-band is-project" aria-labelledby="video-project-heading">
       <header><div><small>01</small><span><h3 id="video-project-heading">项目</h3><p>选择已有项目，或先建立一个新的创作空间。</p></span></div></header>
