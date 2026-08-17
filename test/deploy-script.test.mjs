@@ -132,6 +132,14 @@ test('production release archive includes shared server runtime modules', () => 
   assert.match(deploy, /Release archive runtime module verification failed/);
 });
 
+test('rollback backups keep large video runtime state out of code snapshots', () => {
+  for (const runtimeDirectory of ['video-assets/', 'video-upload-staging/']) {
+    const pattern = new RegExp(`--exclude=['"]${runtimeDirectory.replace('/', '\\/')}['"]`, 'g');
+    const matches = deploy.match(pattern) || [];
+    assert.ok(matches.length >= 2, `backup and rollback must both exclude ${runtimeDirectory}`);
+  }
+});
+
 test('production video cutover is verified before traffic switch and through authenticated canaries', () => {
   const restart = deploy.indexOf('pm2 startOrReload ecosystem.production.config.cjs');
   const backfill = deploy.indexOf('node scripts/backfill-video-platform.mjs');
@@ -277,7 +285,7 @@ test('first-migration rollback restores and proves legacy health before switchin
     previous = position;
   }
   assert.ok((deploy.match(/-TimeoutSeconds 2400/g) || []).length >= 2);
-  for (const runtimeDirectory of ['generated-assets/', 'uploads/', 'temp_uploads/', 'cache_img/', 'cache_overlay/', 'extension_downloads/', 'extension_tasks/', 'backups/']) {
+  for (const runtimeDirectory of ['generated-assets/', 'uploads/', 'temp_uploads/', 'video-assets/', 'video-upload-staging/', 'cache_img/', 'cache_overlay/', 'extension_downloads/', 'extension_tasks/', 'backups/']) {
     assert.match(rollback, new RegExp(`--exclude=['"]${runtimeDirectory.replace('/', '\\/')}['"]`));
   }
 });

@@ -8,9 +8,38 @@ function response(body, status = 200) {
     status,
     headers: new Headers(body?.headers || {}),
     json: async () => body,
+    text: async () => typeof body === 'string' ? body : JSON.stringify(body),
     arrayBuffer: async () => new Uint8Array([1]).buffer,
   };
 }
+
+test('production video verifier identifies the failing authenticated route when a gateway returns HTML', async () => {
+  const catalog = {
+    generationEnabled: true,
+    products: [
+      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 40000 }, long: { sku: 'fast-long', units: 46000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 62000 }, long: { sku: 'standard-long', units: 72000 } } },
+    ],
+  };
+  await assert.rejects(
+    verifyProductionVideo({
+      baseUrl: 'https://example.com',
+      sessionToken: 'signed-canary',
+      fetchImpl: async url => {
+        const path = new URL(String(url)).pathname;
+        if (path === '/api/video/capabilities') return response(catalog);
+        if (path === '/api/video/jobs') return response({ jobs: [] });
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'text/html; charset=UTF-8' }),
+          text: async () => '<!DOCTYPE html><html><body>fallback</body></html>',
+        };
+      },
+    }),
+    /Video operations response returned invalid JSON \(text\/html; charset=UTF-8\)/,
+  );
+});
 
 test('production video verifier accepts a safe public catalog without making a generation request', async () => {
   let calls = 0;

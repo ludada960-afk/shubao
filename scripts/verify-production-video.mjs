@@ -6,22 +6,38 @@ function authorizationHeaders(sessionToken, extra = {}) {
   return sessionToken ? { ...extra, Authorization: `Bearer ${sessionToken}` } : extra;
 }
 
+async function readJson(response, context) {
+  if (typeof response.text !== 'function') return response.json();
+  const contentType = response.headers?.get?.('content-type') || 'unknown content-type';
+  const body = await response.text();
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`${context} returned invalid JSON (${contentType}): ${body.slice(0, 180)}`);
+  }
+}
+
 async function verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken }) {
   const request = async (path, options = {}) => {
-    const response = await fetchImpl(`${root}${path}`, {
-      ...options,
-      headers: authorizationHeaders(sessionToken, options.headers),
-      signal: options.signal || AbortSignal.timeout(20_000),
-    });
+    let response;
+    try {
+      response = await fetchImpl(`${root}${path}`, {
+        ...options,
+        headers: authorizationHeaders(sessionToken, options.headers),
+        signal: options.signal || AbortSignal.timeout(20_000),
+      });
+    } catch (cause) {
+      throw new Error(`${options.method || 'GET'} ${path} fetch failed: ${cause?.message || cause}`);
+    }
     if (!response.ok) throw new Error(`${options.method || 'GET'} ${path} returned HTTP ${response.status}`);
     return response;
   };
   const jobsResponse = await request('/api/video/jobs');
-  const jobsBody = await jobsResponse.json();
+  const jobsBody = await readJson(jobsResponse, 'Owned video jobs response');
   if (!Array.isArray(jobsBody.jobs)) throw new Error('Owned video jobs response is incomplete');
 
   const operationsResponse = await request('/api/admin/video-operations');
-  const operations = await operationsResponse.json();
+  const operations = await readJson(operationsResponse, 'Video operations response');
   if (!operations || typeof operations !== 'object') throw new Error('Video operations response is incomplete');
 
   const created = await request('/api/video/uploads', {
@@ -42,9 +58,14 @@ async function verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken }) {
 
 export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch, sessionToken = '' } = {}) {
   const root = String(baseUrl).replace(/\/+$/, '');
-  const response = await fetchImpl(`${root}/api/video/capabilities`, { signal: AbortSignal.timeout(20_000) });
+  let response;
+  try {
+    response = await fetchImpl(`${root}/api/video/capabilities`, { signal: AbortSignal.timeout(20_000) });
+  } catch (cause) {
+    throw new Error(`GET /api/video/capabilities fetch failed: ${cause?.message || cause}`);
+  }
   if (!response.ok) throw new Error(`Video capabilities returned HTTP ${response.status}`);
-  const body = await response.json();
+  const body = await readJson(response, 'Video capabilities response');
   if (typeof body.generationEnabled !== 'boolean' || !Array.isArray(body.products)) {
     throw new Error('Video capabilities response is incomplete');
   }

@@ -2547,3 +2547,18 @@
   bodies are explicitly marked as access limits; no hidden prompt or unverified
   provider claim was promoted to a requirement. No provider or paid generation
   was triggered.
+
+- 2026-08-18 the production gate now keeps `server/video-assets` and
+  `server/video-upload-staging` out of both rollback code snapshots and release
+  backups, preventing large runtime media from exhausting the remote disk. The
+  authenticated video verifier now reports the exact route and response prefix
+  when a gateway returns HTML or a fetch fails. Focused deployment/verifier
+  coverage passed `28/28`; no provider or paid generation was triggered.
+
+- 2026-08-18 the researched shot-direction contract is now normalized by
+  `server/videoShotDirection.mjs` and attached to every analyzed planning beat.
+  It preserves legacy free-form camera language while adding bounded shot scale,
+  camera angle/move, lighting, one primary action, 180-degree continuity fields,
+  transition, gaze, screen direction, and negative prompt controls. Invalid model
+  fields fail closed to deterministic neutral values, and the planning schema
+  requires the structured direction without making a provider call.
