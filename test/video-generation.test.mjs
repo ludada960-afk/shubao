@@ -236,6 +236,42 @@ test('an invalid workbench target is rejected before wallet hold creation', asyn
   assert.equal(holds, 0);
 });
 
+test('a workbench plan hash must be approved before billing a project generation', async t => {
+  let holds = 0;
+  let approvalRequest;
+  const service = createVideoGenerationHarness(t, {
+    projectBridge: {
+      validateTarget() { return { id: 'video-project-1', kind: 'video', status: 'draft' }; },
+      ensureDraft() { throw new Error('draft must not be created'); },
+    },
+    validateWorkbenchPlanApproval(request) {
+      approvalRequest = request;
+      return false;
+    },
+    walletService: {
+      createHold() { holds += 1; return { id: 'unexpected-hold' }; },
+      getBalance() { return { unlimited: false, availableUnits: 9999 }; },
+      settleItem() { return { status: 'settled' }; },
+      releaseItem() { return { status: 'released' }; },
+    },
+  });
+
+  await assert.rejects(service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'unapproved-workbench-plan',
+    billingQuoteId: 'quote-unapproved-workbench-plan',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      projectId: 'video-project-1', workbenchPlanHash: 'a'.repeat(64),
+      productId: 'seedance_standard', mode: 'script', prompt: '未确认的工作台镜头',
+      duration: 8, aspectRatio: '16:9', resolution: '720p',
+    },
+  }), error => error?.status === 409 && error?.code === 'VIDEO_PLAN_APPROVAL_REQUIRED');
+  assert.equal(holds, 0);
+  assert.equal(approvalRequest.projectId, 'video-project-1');
+  assert.equal(approvalRequest.planHash, 'a'.repeat(64));
+});
+
 test('video assets can only be read by their normalized owner', async t => {
   const service = createVideoGenerationHarness(t);
   const asset = await uploadReferenceAsset(service, 'Owner@Example.com', 'image');

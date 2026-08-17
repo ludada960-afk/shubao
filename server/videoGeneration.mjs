@@ -195,6 +195,7 @@ export function createVideoGeneration({
   reconciliationIntervalMs = 30_000,
   ownerReads = true,
   readNewState = true,
+  validateWorkbenchPlanApproval = null,
 } = {}) {
   if (!db || !walletService || !quoteService || typeof upsertWork !== 'function') {
     throw new TypeError('video generation dependencies are required');
@@ -1074,6 +1075,27 @@ export function createVideoGeneration({
         if (error?.code === 'VIDEO_PROJECT_KIND_INVALID') throw httpError(400, error.code, '只能把视频任务加入视频项目');
         if (error?.code === 'VIDEO_PROJECT_COMPLETED') throw httpError(409, error.code, '已交付项目不能继续加入生成任务');
         throw error;
+      }
+    }
+
+    const workbenchPlanHash = clean(input?.workbenchPlanHash, 128);
+    if (workbenchPlanHash) {
+      if (!targetProjectId || typeof validateWorkbenchPlanApproval !== 'function') {
+        throw httpError(409, 'VIDEO_PLAN_APPROVAL_REQUIRED', '生成计划已变化，请重新检查并确认后再生成');
+      }
+      let approved = false;
+      try {
+        approved = await validateWorkbenchPlanApproval({
+          ownerEmail,
+          projectId: targetProjectId,
+          planHash: workbenchPlanHash,
+          input,
+        });
+      } catch {
+        approved = false;
+      }
+      if (approved !== true && approved?.ok !== true) {
+        throw httpError(409, 'VIDEO_PLAN_APPROVAL_REQUIRED', '生成计划已变化，请重新检查并确认后再生成');
       }
     }
 

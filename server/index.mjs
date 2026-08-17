@@ -160,6 +160,7 @@ import { createVideoUploadService } from './videoUploadService.mjs';
 import { createVideoReconciliation } from './videoReconciliation.mjs';
 import { readVideoPlatformFlags } from './config.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
+import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function safeCanvasClientError(error, fallback = '画布服务暂时不可用，请稍后重试') {
@@ -262,6 +263,18 @@ const videoGeneration = createVideoGeneration({
   projectBridge: videoPlatformFlags.VIDEO_PLATFORM_PROJECT_BRIDGE ? videoProjectBridge : null,
   ownerReads: videoPlatformFlags.VIDEO_PLATFORM_OWNER_READS,
   readNewState: videoPlatformFlags.VIDEO_PLATFORM_READ_NEW_STATE,
+  validateWorkbenchPlanApproval: async ({ ownerEmail, projectId, planHash, input }) => {
+    if (!videoWorkbenchStore || typeof videoWorkbenchStore.getGenerationPlanApproval !== 'function') return false;
+    const approval = videoWorkbenchStore.getGenerationPlanApproval({ ownerEmail, projectId });
+    if (!approval || approval.planHash !== planHash) return false;
+    const plan = buildVideoWorkbenchPlan(videoWorkbenchStore.listWorkbench({ ownerEmail, projectId }), {
+      productId: input?.productId,
+      mode: input?.workbenchMode || input?.mode,
+      resolution: input?.resolution,
+      generateAudio: input?.generateAudio !== false,
+    });
+    return plan.status === 'ready' && videoWorkbenchPlanFingerprint(plan) === planHash;
+  },
 });
 const videoUploadService = createVideoUploadService({
   db,
