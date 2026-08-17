@@ -2456,3 +2456,13 @@
   no remote archive, release switch, restart or 600-second Canary ran.
   Candidate `fc0897e` remains local-only until the controlled deployment
   credential is restored.
+
+- 2026-08-17 approved generation drafts are now durable and idempotent in
+  commit `9064684`. The workbench stores a project-scoped immutable draft by
+  plan hash, reuses it on repeated compilation, and exposes an owner-scoped
+  read route for refresh/recovery. The stored payload remains reference-only:
+  no private playback URLs, provider submission, wallet hold, or billing
+  mutation is introduced. Focused route/client/UI coverage passed `32/32`;
+  full `npm test` passed `1709/1709`; `npm run check`, the 6510-module
+  production build, and `git diff --check` passed. This remains local-only
+  until the controlled SSH deployment identity is restored.
