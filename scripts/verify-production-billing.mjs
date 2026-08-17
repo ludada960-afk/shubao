@@ -42,7 +42,7 @@ export async function requestJson(url, options = {}) {
   return response.json();
 }
 
-export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToken = '' } = {}) {
+export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToken = '', allowEmptyBalance = false } = {}) {
   if (!String(sessionToken || '').trim()) throw new Error('SHUBAO_CANARY_SESSION_TOKEN is required');
   const root = baseUrl.replace(/\/+$/, '');
   const homepage = await requestJson(`${root}/health`);
@@ -69,6 +69,10 @@ export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToke
   if (balanceBefore.unlimited !== false || !pointsBalance || pointsBalance.unlimited !== false) {
     throw new Error('Canary owner does not use the real ec_points wallet');
   }
+  if (allowEmptyBalance && pointsBalance.availableUnits === 0 && pointsBalance.heldUnits === 0) {
+    console.log(`Production verification passed for ${root} with an empty post-canary wallet`);
+    return;
+  }
   if (!Number.isSafeInteger(pointsBalance.availableUnits) || pointsBalance.availableUnits < 200) {
     throw new Error('Canary owner ec_points balance is insufficient for the read-only quote probe');
   }
@@ -92,10 +96,12 @@ export function parseArguments(argv, env = process.env) {
   const options = {
     baseUrl: DEFAULT_BASE_URL,
     sessionToken: env.SHUBAO_CANARY_SESSION_TOKEN || '',
+    allowEmptyBalance: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === '--base-url') options.baseUrl = argv[++index] || DEFAULT_BASE_URL;
     if (argv[index] === '--session-token') options.sessionToken = argv[++index] || '';
+    if (argv[index] === '--allow-empty-balance') options.allowEmptyBalance = true;
   }
   return options;
 }

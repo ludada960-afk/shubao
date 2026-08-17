@@ -10,6 +10,7 @@ test('production verifier reads its canary session from the process environment 
   assert.deepEqual(billingVerifier.parseArguments([], { SHUBAO_CANARY_SESSION_TOKEN: 'owner-session' }), {
     baseUrl: 'https://shuimg.cn',
     sessionToken: 'owner-session',
+    allowEmptyBalance: false,
   });
 });
 
@@ -109,4 +110,28 @@ test('production billing verifier accepts the owner real point wallet without mu
     '/api/billing/balance', '/api/billing/quote', '/api/billing/balance',
   ]);
   assert.equal(requests.find(request => request.path === '/api/billing/quote').method, 'POST');
+});
+
+test('production billing verifier accepts an empty wallet only for the post-canary gate', async t => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, options = {}) => {
+    const path = new URL(url).pathname;
+    requests.push({ path, method: options.method || 'GET' });
+    if (path === '/health') return new Response(JSON.stringify({ ok: true, imageQueue: {} }));
+    if (path === '/') return new Response(JSON.stringify({ ok: true }));
+    if (path === '/api/billing/catalog') return new Response(JSON.stringify({ products: [], providers: [] }));
+    if (path === '/api/session') return new Response(JSON.stringify({ ok: true, email: '867550189@qq.com' }));
+    if (path === '/api/billing/balance') return new Response(JSON.stringify({
+      unlimited: false,
+      balances: { ec_points: { availableUnits: 0, heldUnits: 0, unlimited: false } },
+    }));
+    throw new Error(`unexpected billing probe ${path}`);
+  };
+
+  await verifyProduction({ baseUrl: 'https://shuimg.cn', sessionToken: 'owner-token', allowEmptyBalance: true });
+  assert.deepEqual(requests.map(request => request.path), [
+    '/health', '/', '/api/billing/catalog', '/api/session', '/api/billing/balance',
+  ]);
 });

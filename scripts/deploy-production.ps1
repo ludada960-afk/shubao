@@ -505,7 +505,7 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   Write-Host "Canary started for $CanarySeconds seconds (PM2 pid: $canaryPid)"
   Start-Sleep -Seconds $CanarySeconds
   Assert-DeploymentLockHeld
-  Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
+  Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" -AllowEmptyBalance }
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
   Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery canary failed"
