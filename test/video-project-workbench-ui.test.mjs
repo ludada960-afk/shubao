@@ -120,6 +120,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /参考视频重构需要至少一个视频素材和一个替换图片素材/);
   assert.match(component, /skillRunExecutionPreview/);
   assert.match(component, /skillRun\.plan\?\.steps/);
+  assert.match(component, /next\.skillRuns/);
+  assert.match(component, /previewVideoSkillRunExecution\(id, latestSkillRun\.id\)/);
   assert.match(component, /不会生成视频或扣除积分/);
   assert.match(component, /workbenchPlan\.quote\?\.points/);
   assert.match(component, /关闭过程预览/);
