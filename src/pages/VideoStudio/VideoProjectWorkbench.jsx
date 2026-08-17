@@ -39,6 +39,7 @@ import {
   getVideoWorkbench,
   getVideoWorkbenchGenerationDraft,
   getVideoWorkbenchPlan,
+  confirmVideoSkillCheckpoint,
   previewVideoSkillRunExecution,
   previewVideoSkillTemplate,
   importJobCandidate,
@@ -443,6 +444,22 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setBusy('');
     }
   }, [busy, projectId, skillPrompt, skillTemplateId, workbench]);
+
+  const handleConfirmSkillCheckpoint = useCallback(async checkpointId => {
+    if (!projectId || !skillRun || busy) return;
+    setBusy(`skill:checkpoint:${checkpointId}`);
+    setError('');
+    try {
+      const nextRun = await confirmVideoSkillCheckpoint(projectId, skillRun.id, checkpointId, skillRun.revision);
+      const executionPreview = await previewVideoSkillRunExecution(projectId, nextRun.id, {});
+      setSkillRun(nextRun);
+      setSkillRunExecutionPreview(executionPreview);
+    } catch (confirmationError) {
+      setError(displayError(confirmationError));
+    } finally {
+      setBusy('');
+    }
+  }, [busy, projectId, skillRun]);
 
   function handleSaveReplayManifest() {
     if (!workbench?.project?.id || busy) return;
@@ -860,6 +877,19 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           <div><span>已完成</span><strong>{skillRunExecutionPreview?.completedStepIds?.length || 0} 个</strong></div>
           <div><span>预估积分</span><strong>{Number(skillRunExecutionPreview?.estimatedPoints || 0)}（预览）</strong></div>
         </div>
+        {(skillRun.plan?.checkpoints || []).length > 0 && <div className="video-project-skill-checkpoints" aria-label="SkillRun 确认节点">
+          {(skillRun.plan?.checkpoints || []).map(checkpoint => {
+            const confirmed = skillRun.confirmedCheckpointIds?.includes(checkpoint.id)
+              || skillRun.events?.some(event => event.type === 'checkpoint.confirmed' && event.payload?.checkpointId === checkpoint.id);
+            const checkpointBusy = busy === `skill:checkpoint:${checkpoint.id}`;
+            return <article key={checkpoint.id} className={confirmed ? 'is-confirmed' : ''}>
+              <div><strong>{checkpoint.label}</strong><small>{confirmed ? '已确认' : '需要确认'}</small></div>
+              <button type="button" disabled={confirmed || Boolean(busy) || !['preview', 'confirmed'].includes(skillRun.status)} onClick={() => handleConfirmSkillCheckpoint(checkpoint.id)}>
+                {checkpointBusy ? <LoaderCircle className="is-spinning" size={13} /> : <Check size={13} />} {confirmed ? '已确认' : '确认节点'}
+              </button>
+            </article>;
+          })}
+        </div>}
         <ol className="video-project-skill-steps" aria-label="SkillRun 步骤">
           {(skillRun.plan?.steps || []).map((step, index) => {
             const completed = skillRunExecutionPreview?.completedStepIds?.includes(step.id);

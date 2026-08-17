@@ -80,6 +80,18 @@
 .video-project-skill-summary span { display: block; color: #948aa5; font-size: 9px; }
 .video-project-skill-summary strong { display: flex; align-items: center; gap: 4px; margin-top: 4px; overflow: hidden; color: #403950; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .video-project-skill-summary > div:first-child strong { color: #5d49bf; }
+.video-project-skill-checkpoints { margin-top: 11px; display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 7px; }
+.video-project-skill-checkpoints article { min-width: 0; padding: 9px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #eed8c9; border-radius: 6px; background: #fffaf7; }
+.video-project-skill-checkpoints article > div { min-width: 0; display: grid; gap: 3px; }
+.video-project-skill-checkpoints strong { overflow: hidden; color: #54433a; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.video-project-skill-checkpoints small { color: #a18170; font-size: 9px; }
+.video-project-skill-checkpoints button { min-height: 27px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 9px; border: 1px solid #e9b58f; border-radius: 5px; color: #9b5d37; background: #fff; font-size: 9px; font-weight: 750; }
+.video-project-skill-checkpoints button:hover:not(:disabled) { border-color: #d99569; background: #fff3eb; }
+.video-project-skill-checkpoints button:disabled { cursor: default; opacity: .65; }
+.video-project-skill-checkpoints article.is-confirmed { border-color: #cde7d8; background: #f5fbf7; }
+.video-project-skill-checkpoints article.is-confirmed strong { color: #397668; }
+.video-project-skill-checkpoints article.is-confirmed small { color: #5d9883; }
+.video-project-skill-checkpoints article.is-confirmed button { border-color: #b8dfd3; color: #397668; background: #eaf7f2; }
 .video-project-skill-steps { margin: 11px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 7px; list-style: none; }
 .video-project-skill-steps li { min-width: 0; padding: 8px; display: grid; grid-template-columns: 26px minmax(0,1fr); gap: 8px; align-items: center; border: 1px solid #e7e1f5; border-radius: 6px; background: #fff; }
 .video-project-skill-steps li > span { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: #7562d0; background: #f0ecff; font: 700 9px/1 ui-monospace,monospace; }
@@ -264,6 +276,7 @@
   .video-project-skill-preview > header { flex-direction: column; }
   .video-project-skill-preview-form { grid-template-columns: 1fr; }
   .video-project-skill-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .video-project-skill-checkpoints { grid-template-columns: 1fr; }
   .video-project-skill-steps { grid-template-columns: 1fr; }
   .video-project-stages { padding-left: 14px; padding-right: 14px; }
   .video-project-stages li { grid-template-columns: 27px minmax(0,1fr); gap: 5px; }

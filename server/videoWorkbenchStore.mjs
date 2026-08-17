@@ -246,6 +246,10 @@ function skillRunFromRow(row, events = []) {
     .filter(event => event.type === 'guard.confirmed')
     .map(event => parseJson(event.payload_json, {}).guardId)
     .filter(Boolean))];
+  const confirmedCheckpointIds = [...new Set(events
+    .filter(event => event.type === 'checkpoint.confirmed')
+    .map(event => parseJson(event.payload_json, {}).checkpointId)
+    .filter(Boolean))];
   return {
     id: row.id,
     ownerEmail: row.owner_email,
@@ -258,6 +262,7 @@ function skillRunFromRow(row, events = []) {
     input: parseJson(row.input_json, {}),
     plan,
     confirmedGuardIds,
+    confirmedCheckpointIds,
     executionPlan: buildSkillRunExecutionPlan(plan, { completedStepIds }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1282,9 +1287,10 @@ export function createVideoWorkbenchStore({
         if (!checkpoints.some(checkpoint => checkpoint.id === normalizedCheckpointId)) {
           throw coded('INVALID_SKILL_RUN', 'checkpoint is not declared by the skill');
         }
-        if (current.row.status !== 'preview') {
+        if (!['preview', 'confirmed'].includes(current.row.status)) {
           throw coded('INVALID_SKILL_RUN', 'skill run is not awaiting confirmation');
         }
+        if (current.run.confirmedCheckpointIds.includes(normalizedCheckpointId)) return current.run;
         const changedAt = timestamp();
         const nextRevision = current.row.revision + 1;
         db.prepare(`UPDATE video_skill_runs SET status = 'confirmed', revision = ?, updated_at = ? WHERE id = ?`)

@@ -100,7 +100,10 @@ test('skill runs preview declarative plans, append confirmation events, and stay
     skillId: 'product-trailer', skillVersion: 2,
     input: { concept: '耳机广告' },
     steps: [{ id: 'world', kind: 'plan', label: '建立世界观' }],
-    checkpoints: [{ id: 'approve-assets', label: '确认素材' }],
+    checkpoints: [
+      { id: 'approve-assets', label: '确认素材' },
+      { id: 'approve-candidates', label: '确认候选' },
+    ],
     modelPolicy: { image: 'gpt-image-2' },
     outputContract: { kind: 'storyboard' },
   };
@@ -123,6 +126,16 @@ test('skill runs preview declarative plans, append confirmation events, and stay
   assert.equal(confirmed.revision, 2);
   assert.equal(confirmed.events.at(-1).type, 'checkpoint.confirmed');
   assert.equal(confirmed.events.at(-1).payload.checkpointId, 'approve-assets');
+  assert.deepEqual(confirmed.confirmedCheckpointIds, ['approve-assets']);
+  const confirmedCandidates = store.confirmSkillCheckpoint({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, checkpointId: 'approve-candidates', expectedRevision: 2 });
+  assert.equal(confirmedCandidates.status, 'confirmed');
+  assert.equal(confirmedCandidates.revision, 3);
+  assert.deepEqual(confirmedCandidates.confirmedCheckpointIds, ['approve-assets', 'approve-candidates']);
+  const idempotent = store.confirmSkillCheckpoint({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, checkpointId: 'approve-candidates', expectedRevision: 3 });
+  assert.equal(idempotent.revision, 3);
+  assert.equal(idempotent.events.length, confirmedCandidates.events.length);
   assert.throws(() => store.confirmSkillCheckpoint({ ownerEmail: OWNER, projectId: project.id,
     runId: preview.id, checkpointId: 'approve-assets', expectedRevision: 1 }),
     error => error.code === 'VERSION_CONFLICT');

@@ -2529,3 +2529,11 @@
   `24/24` plus `2/2`; full `npm test` passed `1717/1717`; `npm run check`, the
   6510-module production build, and `git diff --check` passed. No provider or
   paid generation was triggered.
+
+- 2026-08-17 SkillRun approval checkpoints are now durable, multi-stage, and
+  visible in the project workbench. The store projects confirmed checkpoint
+  ids from audit events, accepts sequential confirmations while the run is in
+  preview/confirmed state, and makes same-revision repeats idempotent; the UI
+  shows each declared checkpoint and refreshes its execution preview after
+  confirmation. Focused store/UI coverage passed `24/24` plus `2/2`. No
+  provider or paid generation was triggered.
