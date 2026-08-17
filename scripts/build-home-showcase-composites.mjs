@@ -15,7 +15,7 @@ const DEFAULT_SOCIAL_THUMB_ROOT = resolve(PROJECT_ROOT, 'public/images/.thumbs/h
 
 export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
   Object.freeze({
-    id: 'editorial-multi-angle-v5',
+    id: 'editorial-multi-angle-v6',
     kind: 'multi-angle',
     extension: 'webp',
     ratio: '16:9',
@@ -35,17 +35,17 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
 ]);
 
 export const TRYON_LAYOUT_PLANS = Object.freeze({
-  'editorial-multi-angle-v5': Object.freeze({
+  'editorial-multi-angle-v6': Object.freeze({
     stages: Object.freeze(['product', 'arrow', 'result-fan']),
     fit: 'contain',
     blurPadding: false,
-    visualBounds: Object.freeze({ left: 44, top: 74, right: 1570, bottom: 826 }),
-    product: Object.freeze({ left: 78, top: 190, width: 360, height: 500, rotation: -3, fit: 'contain' }),
+    visualBounds: Object.freeze({ left: 34, top: 74, right: 1578, bottom: 826 }),
+    product: Object.freeze({ left: 48, top: 190, width: 340, height: 500, rotation: -3, fit: 'contain' }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 570, top: 130, width: 300, height: 700, rotation: -8, fit: 'contain' }),
-      Object.freeze({ left: 805, top: 95, width: 300, height: 700, rotation: -3, fit: 'contain' }),
-      Object.freeze({ left: 1040, top: 95, width: 300, height: 700, rotation: 3, fit: 'contain' }),
-      Object.freeze({ left: 1245, top: 130, width: 300, height: 700, rotation: 8, fit: 'contain' }),
+      Object.freeze({ left: 620, top: 150, width: 290, height: 680, rotation: -8, fit: 'contain' }),
+      Object.freeze({ left: 835, top: 115, width: 290, height: 680, rotation: -3, fit: 'contain' }),
+      Object.freeze({ left: 1050, top: 115, width: 290, height: 680, rotation: 3, fit: 'contain' }),
+      Object.freeze({ left: 1260, top: 150, width: 290, height: 680, rotation: 8, fit: 'contain' }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -132,8 +132,8 @@ function multiAngleDecoration() {
       <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#d0c7bd"/><stop offset="1" stop-color="#958679"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
-    <path d="M455 470 C490 430 520 400 552 365" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
-    <path d="M528 345 L578 360 L548 402 Z" fill="#958679" opacity=".92"/>
+    <path d="M405 470 C450 425 495 385 548 340" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
+    <path d="M528 320 L584 337 L548 382 Z" fill="#958679" opacity=".92"/>
     <ellipse cx="820" cy="836" rx="690" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
