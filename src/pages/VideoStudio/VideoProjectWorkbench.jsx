@@ -35,6 +35,7 @@ import {
   getVideoReplayManifest,
   listVideoReplayManifests,
   getVideoWorkbench,
+  getVideoWorkbenchPlan,
   importJobCandidate,
   importWorkbenchAssetVersion,
   removeVideoProjectMemoryFact,
@@ -144,12 +145,14 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [replayManifest, setReplayManifest] = useState(null);
   const [replayManifests, setReplayManifests] = useState([]);
   const [replayManifestPreview, setReplayManifestPreview] = useState(null);
+  const [workbenchPlan, setWorkbenchPlan] = useState(null);
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
   const selectedProjectRef = useRef('');
   const requestSequenceRef = useRef(0);
   const replayRequestSequenceRef = useRef(0);
+  const planRequestSequenceRef = useRef(0);
 
   useEffect(() => {
     onProjectChange?.(projectId || '');
@@ -167,6 +170,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const loadWorkbench = useCallback(async (id, { quiet = false } = {}) => {
     if (!id) {
       setWorkbench(null);
+      setWorkbenchPlan(null);
       return;
     }
     const requestSequence = ++requestSequenceRef.current;
@@ -175,6 +179,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       const next = await getVideoWorkbench(id);
       if (requestSequence !== requestSequenceRef.current || selectedProjectRef.current !== id) return;
       setWorkbench(next);
+      setWorkbenchPlan(null);
       setError('');
     } catch (loadError) {
       if (requestSequence !== requestSequenceRef.current || selectedProjectRef.current !== id) return;
@@ -208,6 +213,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   }, []);
 
   const loadProjects = useCallback(async preferredId => {
+    planRequestSequenceRef.current += 1;
+    setWorkbenchPlan(null);
     setLoading(true);
     try {
       const next = videoProjects(await listProjects());
@@ -219,6 +226,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setProjectId(target);
       if (!target) {
         setWorkbench(null);
+        setWorkbenchPlan(null);
         void loadReplayManifests('');
       }
       setError('');
@@ -253,6 +261,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       void loadReplayManifests(projectId);
     } else {
       setWorkbench(null);
+      setWorkbenchPlan(null);
       void loadReplayManifests('');
     }
   }, [loadReplayManifests, loadWorkbench, projectId]);
@@ -263,6 +272,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     setError('');
     try {
       await action();
+      setWorkbenchPlan(null);
       await loadWorkbench(projectId, { quiet: true });
     } catch (mutationError) {
       setError(displayError(mutationError));
@@ -273,6 +283,29 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setBusy('');
     }
   }, [busy, loadWorkbench, projectId]);
+
+  const handleCheckGenerationPlan = useCallback(async () => {
+    if (!projectId || busy) return;
+    const requestSequence = ++planRequestSequenceRef.current;
+    setBusy('plan:read');
+    setError('');
+    try {
+      const plan = await getVideoWorkbenchPlan(projectId, {
+        productId: 'seedance_standard',
+        mode: 'smart',
+        resolution: '720p',
+        generateAudio: true,
+      });
+      if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
+      setWorkbenchPlan(plan);
+    } catch (planError) {
+      if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
+      setWorkbenchPlan(null);
+      setError(displayError(planError));
+    } finally {
+      if (requestSequence === planRequestSequenceRef.current) setBusy('');
+    }
+  }, [busy, projectId]);
 
   function handleSaveReplayManifest() {
     if (!workbench?.project?.id || busy) return;
@@ -336,9 +369,11 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
 
   function selectProject(nextId) {
     requestSequenceRef.current += 1;
+    planRequestSequenceRef.current += 1;
     selectedProjectRef.current = nextId;
     setProjectId(nextId);
     setWorkbench(null);
+    setWorkbenchPlan(null);
     setReplayManifest(null);
     setReplayManifests([]);
     setReplayManifestPreview(null);
@@ -570,6 +605,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     <header className="video-project-workbench-header">
       <div><span><Film size={16} />项目工作台</span><h2>把素材、分镜和候选版本组织成一条可回看的创作过程</h2><p>所有选择都保存到当前项目；工作台本身不会发起生成或扣除积分。</p></div>
       <div className="video-project-header-actions">
+        {projectId && <button type="button" className="video-project-plan-check" disabled={Boolean(busy) || loading} onClick={handleCheckGenerationPlan}>
+          {busy === 'plan:read' ? <LoaderCircle className="is-spinning" size={15} /> : <CircleAlert size={15} />} {busy === 'plan:read' ? '检查中…' : '检查生成计划'}
+        </button>}
         <button type="button" className="video-project-replay-save" disabled={Boolean(busy) || loading || !workbench?.assets?.length} onClick={handleSaveReplayManifest}>
           {busy === 'replay:save' ? <LoaderCircle className="is-spinning" size={15} /> : <Save size={15} />}保存创作配方
         </button>
@@ -625,6 +663,26 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         {!replayManifestPreview.shots?.length && <li className="is-empty">当前配方还没有分镜。</li>}
       </ol>
       <footer>配方校验哈希：<code>{replayManifestPreview.manifestHash}</code></footer>
+    </section>}
+
+    {projectId && workbenchPlan && <section className={`video-project-plan ${workbenchPlan.status === 'ready' ? 'is-ready' : 'is-blocked'}`} aria-labelledby="video-generation-plan-heading">
+      <header>
+        <div><small>生成前检查</small><h3 id="video-generation-plan-heading">视频生成计划</h3><p>先确认项目完整性与成本，再进入后续生成流程。</p></div>
+        <button type="button" disabled={Boolean(busy)} onClick={() => setWorkbenchPlan(null)}>清除检查结果</button>
+      </header>
+      <div className="video-project-plan-summary">
+        <div><span>状态</span><strong>{workbenchPlan.status === 'ready' ? <><Check size={13} />可进入生成</> : <><CircleAlert size={13} />暂不可生成</>}</strong></div>
+        <div><span>产品</span><strong>{workbenchPlan.product?.label || workbenchPlan.options?.productId || '视频产品'}</strong></div>
+        <div><span>分镜</span><strong>{workbenchPlan.shots?.length || 0} 个 · {(Number(workbenchPlan.totalDurationMs || 0) / 1000).toFixed(1)} 秒</strong></div>
+        <div><span>预计积分</span><strong>{Number(workbenchPlan.quote?.points || 0)} AI 积分</strong></div>
+      </div>
+      {!!workbenchPlan.blockers?.length && <ul className="video-project-plan-issues" aria-label="生成计划阻断原因">
+        {workbenchPlan.blockers.slice(0, 8).map((item, index) => <li key={`${item.code}-${item.shotId || index}`}><CircleAlert size={14} /><span>{item.detail}</span></li>)}
+      </ul>}
+      {!!workbenchPlan.warnings?.length && <ul className="video-project-plan-warnings" aria-label="生成计划提示">
+        {workbenchPlan.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}
+      </ul>}
+      <footer>目录版本 {workbenchPlan.catalogVersion || workbenchPlan.quote?.catalogVersion || '未知'} · 这是只读预检，不会生成视频或扣除积分。</footer>
     </section>}
 
     <section className="video-project-band is-project" aria-labelledby="video-project-heading">

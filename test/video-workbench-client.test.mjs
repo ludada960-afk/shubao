@@ -11,6 +11,7 @@ import {
   createWorkbenchAsset,
   getVideoReplayManifest,
   listVideoReplayManifests,
+  getVideoWorkbenchPlan,
   getVideoSkillRun,
   getVideoWorkbench,
   getVideoProjectMemory,
@@ -66,6 +67,7 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { clip: { id: 'clip-1', position: 1, trimStartMs: 250, trimEndMs: 2500, muted: true, revision: 2 } },
     { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
     { manifests: [{ id: 'manifest-1', manifestHash: 'hash-1' }] },
+    { plan: { status: 'ready', quote: { points: 62 } } },
     { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
     { project: { id: 'clone-1', kind: 'video' }, workbench: { assets: [], shots: [], timelineClips: [] } },
   ];
@@ -92,6 +94,7 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
   await createVideoReplayManifest('project / 1', { skillId: 'trailer', skillVersion: 1,
     skillRunId: 'run-1', rightsConfirmations: ['asset-1'] });
   await listVideoReplayManifests('project / 1', { limit: 12 });
+  await getVideoWorkbenchPlan('project / 1', { productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false });
   await getVideoReplayManifest('project / 1', 'manifest / 1');
   await cloneVideoReplayManifest('project / 1', 'manifest / 1', { title: '复用', idempotencyKey: 'client-clone-1' });
 
@@ -113,6 +116,7 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { path: '/api/video/projects/project%20%2F%201/workbench/timeline/clips/clip-1', method: 'PATCH', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests?limit=12', method: 'GET', authorization: 'Bearer signed-workbench-session' },
+    { path: '/api/video/projects/project%20%2F%201/workbench/plan?productId=seedance_fast&mode=smart&resolution=720p&generateAudio=false', method: 'GET', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201', method: 'GET', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201/clone', method: 'POST', authorization: 'Bearer signed-workbench-session' },
   ]);

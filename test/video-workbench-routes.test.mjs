@@ -151,6 +151,20 @@ test('exposes sanitized proven Skill template metadata through the gated workben
   }
 });
 
+test('exposes an owner-scoped generation preflight without creating a paid job', async t => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const response = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench/plan', {
+    params: { projectId: project.id },
+    query: { productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: 'false' },
+    headers: signedHeaders(sessionTokens, ownerEmail),
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.plan.status, 'blocked');
+  assert.equal(response.body.plan.blockers[0].code, 'NO_SHOTS');
+  assert.equal(response.body.plan.quote.points, 0);
+});
+
 test('workbench routes derive owner from the signed session and ignore body owner fields', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

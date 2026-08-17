@@ -26,6 +26,32 @@
 .video-project-replay-status { max-width: 280px; padding: 5px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid #cde7d8; border-radius: 7px; color: #32734d; background: #f2fbf5; font-size: 10px; }
 .video-project-replay-status span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-project-replay-status button { min-height: 26px; padding: 0 7px; border-color: #b9dec8; color: #23643d; background: #fff; font-size: 10px; }
+.video-project-plan-check { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #b9adf1; border-radius: 6px; color: #5d49bf; background: #f8f6ff; font-size: 11px; font-weight: 750; }
+.video-project-plan-check:disabled { cursor: not-allowed; opacity: .52; }
+.video-project-plan { margin: 16px 24px 0; padding: 16px; border: 1px solid #e2d9fb; border-radius: 8px; background: linear-gradient(105deg,#faf8ff 0%,#fff 72%); }
+.video-project-plan.is-ready { border-color: #cde7d8; background: linear-gradient(105deg,#f5fbf7 0%,#fff 72%); }
+.video-project-plan.is-blocked { border-color: #ecd2cc; background: linear-gradient(105deg,#fff8f6 0%,#fff 72%); }
+.video-project-plan > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.video-project-plan > header > div { min-width: 0; }
+.video-project-plan > header small { color: #7562d0; font-size: 10px; font-weight: 750; }
+.video-project-plan.is-ready > header small { color: #397668; }
+.video-project-plan.is-blocked > header small { color: #b24d42; }
+.video-project-plan h3 { margin: 4px 0 3px; font-size: 15px; }
+.video-project-plan p { margin: 0; color: #8a8197; font-size: 11px; line-height: 1.6; }
+.video-project-plan > header button { min-height: 30px; padding: 0 10px; border: 1px solid #d7cff0; border-radius: 6px; color: #6655b7; background: #fff; font-size: 10px; font-weight: 750; }
+.video-project-plan > header button:disabled { cursor: not-allowed; opacity: .52; }
+.video-project-plan-summary { margin-top: 13px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; }
+.video-project-plan-summary > div { min-width: 0; padding: 9px; border: 1px solid #e5def8; border-radius: 6px; background: rgba(255,255,255,.84); }
+.video-project-plan.is-ready .video-project-plan-summary > div { border-color: #d8eee3; }
+.video-project-plan span { display: block; color: #948aa5; font-size: 9px; }
+.video-project-plan strong { display: flex; align-items: center; gap: 4px; margin-top: 4px; overflow: hidden; color: #403950; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.video-project-plan.is-ready .video-project-plan-summary > div:first-child strong { color: #397668; }
+.video-project-plan.is-blocked .video-project-plan-summary > div:first-child strong { color: #b24d42; }
+.video-project-plan-issues,.video-project-plan-warnings { margin: 12px 0 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+.video-project-plan-issues li { min-width: 0; display: flex; align-items: flex-start; gap: 6px; color: #9b4d43; font-size: 10px; line-height: 1.5; }
+.video-project-plan-issues li svg { flex: 0 0 auto; margin-top: 1px; }
+.video-project-plan-warnings { color: #8a6c38; font-size: 10px; }
+.video-project-plan > footer { margin-top: 11px; color: #938a9e; font-size: 9px; }
 .video-project-refresh { width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center; border: 1px solid #ddd7cf; border-radius: 7px; color: #57524c; background: #fff; }
 .video-project-stages { min-height: 64px; margin: 0; padding: 0 24px; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); align-items: center; list-style: none; border-bottom: 1px solid #e9e5df; background: #fff; }
 .video-project-stages li { min-width: 0; display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 8px; color: #aaa39a; font-size: 12px; }
@@ -189,6 +215,9 @@
   .video-project-replay-preview { margin-left: 14px; margin-right: 14px; padding: 13px; }
   .video-project-replay-preview > header { flex-direction: column; }
   .video-project-replay-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .video-project-plan { margin-left: 14px; margin-right: 14px; padding: 13px; }
+  .video-project-plan > header { flex-direction: column; }
+  .video-project-plan-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .video-project-stages { padding-left: 14px; padding-right: 14px; }
   .video-project-stages li { grid-template-columns: 27px minmax(0,1fr); gap: 5px; }
   .video-project-stages li > span { width: 27px; height: 27px; }

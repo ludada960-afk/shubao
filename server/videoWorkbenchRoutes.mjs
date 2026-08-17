@@ -1,4 +1,5 @@
 import { buildSkillRunSpecFromTemplate } from './videoSkillTemplates.mjs';
+import { buildVideoWorkbenchPlan } from './videoWorkbenchPlan.mjs';
 
 const NOT_FOUND_CODES = new Set([
   'PROJECT_NOT_FOUND',
@@ -154,6 +155,17 @@ export function mountVideoWorkbenchRoutes(app, {
   app.get('/api/video/projects/:projectId/workbench', (req, res) => dispatch(req, res, 'workbench.read', request => (
     projectPlayableMedia(store.listWorkbench(request), request.ownerEmail, req, playbackUrlForAsset)
   )));
+
+  app.get('/api/video/projects/:projectId/workbench/plan', (req, res) => dispatch(
+    req, res, 'workbench.plan.read', request => ({
+      plan: buildVideoWorkbenchPlan(store.listWorkbench(request), {
+        productId: req.query?.productId,
+        mode: req.query?.mode,
+        resolution: req.query?.resolution,
+        generateAudio: req.query?.generateAudio !== 'false',
+      }),
+    }),
+  ));
 
   app.get('/api/video/projects/:projectId/workbench/memory', (req, res) => dispatch(
     req, res, 'memory.read', request => ({ memory: store.listProjectMemory(request) }),

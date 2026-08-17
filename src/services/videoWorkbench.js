@@ -79,6 +79,19 @@ export async function getVideoWorkbench(projectId) {
   return response;
 }
 
+export async function getVideoWorkbenchPlan(projectId, {
+  productId = 'seedance_standard', mode = 'smart', resolution = '720p', generateAudio = true,
+} = {}) {
+  const params = new URLSearchParams({
+    productId: String(productId),
+    mode: String(mode),
+    resolution: String(resolution),
+    generateAudio: String(generateAudio !== false),
+  });
+  const response = await requestJson(`${workbenchBase(projectId)}/plan?${params.toString()}`, {}, '暂时无法检查视频生成计划');
+  return requireValue(response, 'plan', '视频生成计划暂时不可用，请稍后重试');
+}
+
 export async function getVideoProjectMemory(projectId) {
   const response = await requestJson(`${workbenchBase(projectId)}/memory`, {}, '暂时无法读取项目记忆');
   if (!Array.isArray(response?.memory)) throw new Error('项目记忆暂时不可用，请稍后重试');

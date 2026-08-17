@@ -38,6 +38,7 @@ test('project workbench exposes real persisted stages without provider controls 
   for (const command of [
     'listProjects',
     'getVideoWorkbench',
+    'getVideoWorkbenchPlan',
     'createWorkbenchAsset',
     'importWorkbenchAssetVersion',
     'approveWorkbenchAssetVersion',
@@ -100,6 +101,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /replayManifests/);
   assert.match(component, /创作过程预览/);
   assert.match(component, /replayManifestPreview\.shots/);
+  assert.match(component, /handleCheckGenerationPlan/);
+  assert.match(component, /视频生成计划/);
+  assert.match(component, /不会生成视频或扣除积分/);
+  assert.match(component, /workbenchPlan\.quote\?\.points/);
   assert.match(component, /关闭过程预览/);
   assert.match(component, /setReplayManifestPreview\(null\);\s*setReplayManifest\(manifest\)/);
   assert.match(component, /setReplayManifest\(null\);\s*setReplayManifestPreview\(null\)/);
@@ -107,6 +112,7 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /manifestHash/);
   assert.match(component, /type="range"/);
   assert.match(styles, /video-project-band\.is-audio/);
+  assert.match(styles, /video-project-plan/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);
   assert.match(component, /<video[^>]+preload="metadata"/);

@@ -2365,3 +2365,20 @@
   `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is unreadable and SSH returned
   `Permission denied`; the script refused an unfenced rollback after the lock
   was lost. No remote archive, release switch, restart, rollback or Canary ran.
+
+- 2026-08-17 AI-video P2 generation preflight is complete locally in commit
+  `93ed04a`. Added the
+  pure `buildVideoWorkbenchPlan` contract and owner/project-scoped read route
+  `GET /api/video/projects/:projectId/workbench/plan`. The preflight normalizes
+  product/mode/resolution/audio options, validates shot purpose/prompt/duration,
+  current approved asset-version bindings and bounded project duration, then
+  quotes against the existing video catalog. The workbench now exposes
+  `检查生成计划`, invalidates a plan after project refresh or mutation, and
+  displays blockers, warnings, catalog version, shot count, duration and
+  estimated points. It is explicitly metadata-only: it creates no provider
+  task, generation run, usage event, wallet mutation, billing hold or paid-video
+  call. Focused coverage passed `33/33`; full `npm test` passed `1701/1701`;
+  `npm run check`, the 6510-module production build and `git diff --check`
+  passed. The slice remains local-only because the controlled SSH identity is
+  unreadable; runtime folders `.npm-cache/`, `.qa-video/`,
+  `server/video-assets/` and `server/video-upload-staging/` remain excluded.
