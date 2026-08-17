@@ -272,6 +272,23 @@ The first implementation spec after this roadmap is **VID-P0 Reliable Media and 
 
 Storyboard, timeline, Skill execution, and advanced editing are explicitly excluded from that first slice. This keeps the next body of work reviewable and prevents product expansion from masking reliability defects.
 
+### 2026-08-17 P2-03 proven Skill templates status
+
+P2-03 now has a local, default-off incubation slice on `codex/video-platform-p0`. It registers two
+versioned templates derived from the real VideoStudio modes and existing SkillRun DAG validator:
+`product-ad-v1` (`smart`) and `reference-video-reconstruction-v1` (`remake`). The bounded builder
+accepts only sanitized asset references and text, emits a preview-compatible SkillRun spec, and
+does not contain provider names, credentials, prices, hidden prompts, generation calls, or billing
+behavior. Owner-gated metadata and template-preview helpers are available for future workbench UI
+wiring; the preview route persists only a local plan/checkpoint record.
+
+Evidence for the local slice: focused template/workbench tests `31/31`, full regression `1685/1685`,
+`npm run check`, 6510-module production build, and `git diff --check` all pass. No paid provider call
+was made. The slice is not production-complete: the controlled SSH key is unreadable in this
+environment, so no release or 600-second canary is claimed. Before enabling it publicly, deploy via
+`scripts/deploy-production.ps1`, verify owner isolation and zero billing/provider side effects in
+production, and capture a rollback release plus the two real workflow evidence runs.
+
 ## 12. Research Basis
 
 - [Flova product model](https://flova.tv/zh-CN/docs/introduction/understanding-flova/): project memory, visible/editable Skills, versioned assets, dependencies, rollback, and timeline composition.

@@ -133,6 +133,24 @@ test('P1 workbench routes are absent while the feature flag is disabled', () => 
   }
 });
 
+test('exposes sanitized proven Skill template metadata through the gated workbench route', async () => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
+  try {
+    const response = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench/skill-templates', {
+      params: { projectId: project.id },
+      headers: signedHeaders(sessionTokens, ownerEmail),
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.body.templates.map(template => template.templateId), [
+      'product-ad-v1',
+      'reference-video-reconstruction-v1',
+    ]);
+    assert.equal(response.body.templates[0].modelPolicy.provider, undefined);
+  } finally {
+    db.close();
+  }
+});
+
 test('workbench routes derive owner from the signed session and ignore body owner fields', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());
@@ -298,6 +316,25 @@ test('owner can preview and confirm a SkillRun without creating a provider or bi
   assert.equal(replayed.statusCode, 200);
   assert.equal(replayed.body.run.id, created.body.run.id);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+});
+
+test('owner can preview a registered Skill template without provider or billing side effects', async t => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/skill-runs/preview', {
+    params: { projectId: project.id },
+    headers: { ...signedHeaders(sessionTokens, ownerEmail), 'Idempotency-Key': 'template-preview-1' },
+    body: {
+      templateId: 'product-ad-v1',
+      input: { prompt: '制作一支蓝牙耳机商品短片' },
+    },
+  });
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.run.plan.templateId, 'product-ad-v1');
+  assert.equal(response.body.run.plan.skillId, 'product-advertisement');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM sqlite_master
+    WHERE type = 'table' AND name IN ('usage_ledger', 'wallet_transactions')`).get().count, 0);
 });
 
 test('owner can complete dependency-ordered SkillRun steps through the protected route', async t => {

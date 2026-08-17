@@ -13,12 +13,14 @@ import {
   getVideoSkillRun,
   getVideoWorkbench,
   getVideoProjectMemory,
+  getVideoSkillTemplates,
   upsertVideoProjectMemoryFact,
   removeVideoProjectMemoryFact,
   importJobCandidate,
   importWorkbenchAssetVersion,
   selectShotCandidate,
   previewVideoSkillRun,
+  previewVideoSkillTemplate,
   confirmVideoSkillCheckpoint,
   completeVideoSkillRunStep,
   updateStoryboardShot,
@@ -155,6 +157,21 @@ test('video project memory client encodes fact keys and preserves revisions', as
   assert.equal(requests[2].options.headers.Authorization, 'Bearer signed-memory-session');
 });
 
+test('video Skill template client validates and signs metadata response', async t => {
+  installSession('signed-template-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse({ templates: [{ templateId: 'product-ad-v1' }] });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const templates = await getVideoSkillTemplates('project-1');
+  assert.deepEqual(templates, [{ templateId: 'product-ad-v1' }]);
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/skill-templates');
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-template-session');
+});
+
 test('video SkillRun client signs preview, read, and checkpoint confirmation requests', async t => {
   installSession('signed-skill-session');
   const originalFetch = globalThis.fetch;
@@ -178,6 +195,25 @@ test('video SkillRun client signs preview, read, and checkpoint confirmation req
   assert.equal(requests[2].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/checkpoints/approve-assets/confirm');
   assert.deepEqual(JSON.parse(requests[2].options.body), { expectedRevision: 1 });
   assert.equal(requests[2].options.headers.Authorization, 'Bearer signed-skill-session');
+});
+
+test('video Skill template client previews a template with an idempotency key', async t => {
+  installSession('signed-template-preview-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse({ run: { id: 'run-template-1', status: 'preview', revision: 1 } }, 201);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await previewVideoSkillTemplate('project-1', 'product-ad-v1', {
+    prompt: '制作商品短片',
+  }, { idempotencyKey: 'template-preview-client-1' });
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/skill-runs/preview');
+  assert.equal(requests[0].options.headers['Idempotency-Key'], 'template-preview-client-1');
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    templateId: 'product-ad-v1', input: { prompt: '制作商品短片' },
+  });
 });
 
 test('video SkillRun client completes a step with its expected revision', async t => {

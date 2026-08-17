@@ -476,3 +476,23 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   SkillRun 路由在生产不可用，不能声称已上线。当前环境无法读取受控 SSH key；恢复凭据后
   只能通过 `scripts/deploy-production.ps1` 发布，并重新执行视频契约、账务契约和有界 600
   秒 Canary。P2-02 的生产退出证据（至少两个真实 Skill 工作流的回放/项目记忆证据）仍未满足。
+
+## 2026-08-17 AI Video P2 Proven Skill Templates
+
+- 本地分支 `codex/video-platform-p0` 新增 `server/videoSkillTemplates.mjs`，注册两个版本化、
+  默认关闭的真实工作台模板：`product-ad-v1`（智能成片/产品广告）和
+  `reference-video-reconstruction-v1`（爆款重构/参考视频重构）。模板来源对应现有
+  `videoStudioModel.js` 的 `smart`、`remake` 模式，不引入新的供应商或隐藏提示词。
+- 模板输入只接受有界文本和同 owner/project 的素材 ID；服务端重新构造 SkillRun DAG、检查点、
+  能力与输出契约，拒绝越界引用和缺失参考视频/替换素材。`GET .../skill-templates` 与模板预览
+  入口沿用现有 owner/cohort gate、签名会话和幂等链路；预览只落本地计划/事件，不创建 provider、
+  generation、usage、wallet 或 billing 记录。
+- 相关文件：`server/videoSkillTemplates.mjs`、`server/videoSkillRun.mjs`、
+  `server/videoWorkbenchRoutes.mjs`、`server/videoWorkbenchStore.mjs`、
+  `src/services/videoWorkbench.js` 及三组路由/客户端/SkillRun 测试。
+- 验证证据：模板/工作台定向测试 `31/31`，全量 `npm test` 为 `1685/1685`，
+  `npm run check` 通过，生产构建成功（6510 modules），`git diff --check` 通过；本切片没有触发
+  付费视频生成。
+- 发布状态：当前切片尚未部署。受控 SSH key 在本环境仍不可读，因此不能声称线上已生效；恢复凭据后
+  必须只经 `scripts/deploy-production.ps1` 发布，并重新做 owner 隔离、零计费副作用与独立 600 秒
+  Canary。未取得这些证据前，P2-03 只算本地验证完成。

@@ -1,3 +1,5 @@
+import { buildSkillRunSpecFromTemplate } from './videoSkillTemplates.mjs';
+
 const NOT_FOUND_CODES = new Set([
   'PROJECT_NOT_FOUND',
   'WORKBENCH_ASSET_NOT_FOUND',
@@ -146,6 +148,10 @@ export function mountVideoWorkbenchRoutes(app, {
     req, res, 'memory.read', request => ({ memory: store.listProjectMemory(request) }),
   ));
 
+  app.get('/api/video/projects/:projectId/workbench/skill-templates', (req, res) => dispatch(
+    req, res, 'skill-template.read', request => ({ templates: store.listSkillTemplates(request) }),
+  ));
+
   app.put('/api/video/projects/:projectId/workbench/memory/:factKey', (req, res) => dispatch(
     req, res, 'memory.upsert', request => store.setProjectMemoryFact({
       ...request,
@@ -289,7 +295,9 @@ export function mountVideoWorkbenchRoutes(app, {
     req, res, 'skill-run.preview', request => store.previewSkillRun({
       ...request,
       idempotencyKey: req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'],
-      spec: req.body?.spec,
+      spec: req.body?.templateId
+        ? buildSkillRunSpecFromTemplate(req.body.templateId, { input: req.body?.input })
+        : req.body?.spec,
     }), { status: value => (value?.replayed ? 200 : 201), key: 'run' },
   ));
 

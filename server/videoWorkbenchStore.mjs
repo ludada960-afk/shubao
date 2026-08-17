@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
 import { normalizeProjectMemoryFact, normalizeProjectMemoryList } from './videoProjectMemory.mjs';
 import { buildSkillRunExecutionPlan, normalizeSkillRunSpec } from './videoSkillRun.mjs';
+import { listVideoSkillTemplates } from './videoSkillTemplates.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -1073,6 +1074,11 @@ export function createVideoWorkbenchStore({
         timelineClips,
         memory: api.listProjectMemory({ ownerEmail: owner, projectId: project.id }),
       };
+    },
+
+    listSkillTemplates({ ownerEmail, projectId }) {
+      requireProject(ownerEmail, projectId);
+      return listVideoSkillTemplates();
     },
 
     recordOperation({ ownerEmail, projectId, action, outcome, latencyMs = 0, errorCode = '' }) {

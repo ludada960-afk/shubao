@@ -31,6 +31,7 @@ export function normalizeSkillRunSpec(spec = {}) {
   const skillId = boundedText(spec.skillId, 'skillId');
   const skillVersion = Number(spec.skillVersion);
   if (!Number.isSafeInteger(skillVersion) || skillVersion < 1) throw coded('skillVersion is invalid');
+  const templateId = spec.templateId === undefined ? '' : boundedText(spec.templateId, 'templateId');
   const input = boundedJson(spec.input, 'input');
   const steps = Array.isArray(spec.steps) ? spec.steps : [];
   if (steps.length > MAX_STEPS) throw coded('too many skill steps');
@@ -73,6 +74,7 @@ export function normalizeSkillRunSpec(spec = {}) {
   return {
     skillId,
     skillVersion,
+    ...(templateId ? { templateId } : {}),
     input,
     steps: normalizedSteps,
     checkpoints: normalizedCheckpoints,

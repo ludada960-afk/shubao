@@ -83,6 +83,12 @@ export async function getVideoProjectMemory(projectId) {
   return response.memory;
 }
 
+export async function getVideoSkillTemplates(projectId) {
+  const response = await requestJson(`${workbenchBase(projectId)}/skill-templates`, {}, '暂时无法读取视频工作流模板');
+  if (!Array.isArray(response?.templates)) throw new Error('视频工作流模板暂时不可用，请稍后重试');
+  return response.templates;
+}
+
 export async function upsertVideoProjectMemoryFact(projectId, key, payload = {}) {
   const response = await requestJson(
     `${workbenchBase(projectId)}/memory/${memoryFactSegment(key)}`,
@@ -228,6 +234,21 @@ export async function previewVideoSkillRun(projectId, spec, { idempotencyKey: re
     },
     body: JSON.stringify({ spec }),
   }, '暂时无法预览视频 SkillRun');
+  return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
+}
+
+export async function previewVideoSkillTemplate(projectId, templateId, input = {}, {
+  idempotencyKey: requestedKey,
+} = {}) {
+  const normalizedTemplateId = typeof templateId === 'string' ? templateId.trim() : '';
+  if (!normalizedTemplateId || normalizedTemplateId.length > 128 || /[\u0000-\u001F\u007F]/.test(normalizedTemplateId)) {
+    throw new Error('请选择有效的视频工作流模板');
+  }
+  const response = await requestJson(`${skillRunBase(projectId)}/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey(requestedKey) },
+    body: JSON.stringify({ templateId: normalizedTemplateId, input }),
+  }, '暂时无法预览视频工作流模板');
   return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
 }
 
