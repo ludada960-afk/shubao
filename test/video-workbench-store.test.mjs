@@ -299,6 +299,33 @@ test('replay manifest links a SkillRun recipe and clone preserves it in the proj
   assert.equal(JSON.stringify(plan).includes('ownerEmail'), false);
 });
 
+test('template SkillRun replay preserves the template id through clone', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  const run = store.previewSkillRun({ ownerEmail: OWNER, projectId: project.id,
+    idempotencyKey: 'template-recipe-run-1', spec: {
+      templateId: 'product-ad-v1',
+      skillId: 'product-advertisement', skillVersion: 1,
+      input: { prompt: '制作商品广告' },
+      steps: [{ id: 'brief', kind: 'brief', label: '整理目标' }],
+      checkpoints: [],
+      modelPolicy: { strategy: 'capability-fit' },
+      outputContract: { maxDurationSeconds: 30 },
+    } });
+  const manifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    skillId: 'product-advertisement', skillVersion: 1, skillRunId: run.id,
+    rightsConfirmations: [asset.id] });
+  assert.equal(manifest.skillRun.templateId, 'product-ad-v1');
+  const cloned = store.cloneReplayManifest({ ownerEmail: OWNER, projectId: project.id,
+    manifestId: manifest.id, idempotencyKey: 'template-recipe-clone-1' });
+  const version = db.prepare(`SELECT plan_snapshot FROM project_versions
+    WHERE project_id = ? ORDER BY sequence DESC LIMIT 1`).get(cloned.project.id);
+  assert.equal(JSON.parse(version.plan_snapshot).skillRun.templateId, 'product-ad-v1');
+});
+
 test('replay manifest clone carries project memory with remapped approved asset references', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());

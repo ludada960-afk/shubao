@@ -86,6 +86,34 @@ test('replay manifest carries a bounded SkillRun recipe snapshot without runtime
   assert.equal(serialized.includes('step.completed'), false);
 });
 
+test('replay manifest preserves a registered template id without runtime identity', () => {
+  const manifest = buildReplayManifest({
+    workbench: graph(),
+    skillId: 'product-advertisement',
+    skillVersion: 1,
+    rightsConfirmations: ['asset-1'],
+    skillRun: {
+      id: 'run-template',
+      ownerEmail: 'owner@example.com',
+      projectId: 'project-1',
+      skillId: 'product-advertisement',
+      skillVersion: 1,
+      templateId: 'product-ad-v1',
+      input: { prompt: '制作商品广告' },
+      plan: {
+        steps: [{ id: 'brief', kind: 'brief', label: '整理目标', requires: [] }],
+        checkpoints: [],
+        modelPolicy: { strategy: 'capability-fit' },
+        outputContract: { maxDurationSeconds: 30 },
+      },
+      executionPlan: { completedStepIds: [], status: 'ready' },
+    },
+  });
+  assert.equal(manifest.skillRun.templateId, 'product-ad-v1');
+  assert.equal(JSON.stringify(manifest.skillRun).includes('run-template'), false);
+  assert.equal(JSON.stringify(manifest.skillRun).includes('ownerEmail'), false);
+});
+
 test('replay manifest carries sanitized active project memory and omits deleted facts', () => {
   const manifest = buildReplayManifest({
     workbench: graph(),

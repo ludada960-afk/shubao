@@ -65,6 +65,9 @@ function skillRunSnapshot(run, skillId, skillVersion) {
       status: String(execution.status || 'ready'),
     },
   };
+  if (run.templateId !== undefined) {
+    snapshot.templateId = text(run.templateId, 'skill templateId', 128);
+  }
   if (Buffer.byteLength(JSON.stringify(snapshot), 'utf8') > 32_000) throw invalid('skillRun snapshot is too large');
   return stable(snapshot);
 }

@@ -22,13 +22,21 @@
 ## Evidence
 
 - Focused Skill/template/workbench tests: `31/31`.
-- Full repository regression: `1685/1685`.
+- Full repository regression: `1687/1687`.
 - `npm run check`: passed.
 - Production build: passed, `6510` modules transformed.
 - `git diff --check`: passed.
 - No provider, generation, usage, wallet, or billing call was made.
 - Production deployment remains blocked by the unreadable controlled SSH key; the route is
   owner/cohort gated and remains default-off until a clean release and 600-second canary exist.
+
+## Follow-up: P2-04 replay provenance
+
+The replay manifest and clone path now preserve `templateId` from a normalized template SkillRun
+plan through the sanitized immutable snapshot and into the cloned project version. Runtime run IDs,
+owner identity, and playback URLs remain excluded. Focused replay/store coverage is included in the
+`54/54` combined run and the full repository regression is `1687/1687`; no provider or billing path
+is touched.
 
 ## Contract
 

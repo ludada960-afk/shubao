@@ -282,12 +282,27 @@ does not contain provider names, credentials, prices, hidden prompts, generation
 behavior. Owner-gated metadata and template-preview helpers are available for future workbench UI
 wiring; the preview route persists only a local plan/checkpoint record.
 
-Evidence for the local slice: focused template/workbench tests `31/31`, full regression `1685/1685`,
+Evidence for the local slice: focused template/workbench tests `31/31`, full regression `1687/1687`,
 `npm run check`, 6510-module production build, and `git diff --check` all pass. No paid provider call
 was made. The slice is not production-complete: the controlled SSH key is unreadable in this
 environment, so no release or 600-second canary is claimed. Before enabling it publicly, deploy via
 `scripts/deploy-production.ps1`, verify owner isolation and zero billing/provider side effects in
 production, and capture a rollback release plus the two real workflow evidence runs.
+
+### 2026-08-17 P2-04 exact replay template provenance status
+
+The replay boundary now preserves a registered Skill template's identity without leaking runtime
+identity. A normalized template preview stores `templateId` inside the immutable plan; the sanitized
+replay snapshot copies it only when present; and owner-scoped clone reads it back from the project
+version snapshot. This keeps “do the same” tied to the exact bounded recipe rather than to a transient
+run ID, while preserving the existing generic replay shape for older runs.
+
+Evidence for this local fix: combined SkillRun/template/workbench/replay/store tests `54/54`, full
+regression `1687/1687`, `npm run check`, 6510-module production build, and `git diff --check` all pass.
+The change is non-billing and did not call a provider or generation endpoint. P2-04 remains unchecked
+for production until the controlled SSH key is readable, the release is deployed through
+`scripts/deploy-production.ps1`, and a production owner-scoped clone is verified with a rollback
+release and 600-second canary.
 
 ## 12. Research Basis
 

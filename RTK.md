@@ -490,9 +490,22 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 相关文件：`server/videoSkillTemplates.mjs`、`server/videoSkillRun.mjs`、
   `server/videoWorkbenchRoutes.mjs`、`server/videoWorkbenchStore.mjs`、
   `src/services/videoWorkbench.js` 及三组路由/客户端/SkillRun 测试。
-- 验证证据：模板/工作台定向测试 `31/31`，全量 `npm test` 为 `1685/1685`，
+- 验证证据：模板/工作台定向测试 `31/31`，全量 `npm test` 为 `1687/1687`，
   `npm run check` 通过，生产构建成功（6510 modules），`git diff --check` 通过；本切片没有触发
   付费视频生成。
 - 发布状态：当前切片尚未部署。受控 SSH key 在本环境仍不可读，因此不能声称线上已生效；恢复凭据后
   必须只经 `scripts/deploy-production.ps1` 发布，并重新做 owner 隔离、零计费副作用与独立 600 秒
   Canary。未取得这些证据前，P2-03 只算本地验证完成。
+
+## 2026-08-17 AI Video P2-04 Template Replay Provenance
+
+- 回放清单现在保留模板来源：模板预览生成的规范化 SkillRun plan 会携带 `templateId`，
+  `videoReplayManifest` 将其写入脱敏的不可变快照，owner-scoped clone 再从 project version
+  snapshot 还原；旧的非模板运行保持原有精确对象形状。runtime run ID、owner 身份、播放 URL
+  不会进入快照。
+- 验证证据：SkillRun/模板/工作台/回放/Store 定向组合测试 `54/54`，全量 `npm test` 为
+  `1687/1687`，`npm run check`、6510 modules 生产构建、`git diff --check` 全部通过；没有调用
+  provider、generation、usage、wallet 或 billing，也没有触发付费视频生成。
+- 发布状态：该修复尚未部署。受控 SSH key 仍因环境权限不可读，不能声称线上生效；凭据恢复后必须
+  通过 `scripts/deploy-production.ps1` 发布，验证 owner 隔离、模板 ID 回放/克隆和零计费副作用，
+  再执行带回滚证据的 600 秒 Canary。

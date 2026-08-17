@@ -196,6 +196,7 @@ function skillRunFromRow(row, events = []) {
     projectId: row.project_id,
     skillId: row.skill_id,
     skillVersion: row.skill_version,
+    ...(plan.templateId ? { templateId: plan.templateId } : {}),
     status: row.status,
     revision: row.revision,
     input: parseJson(row.input_json, {}),
