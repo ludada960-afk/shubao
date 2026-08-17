@@ -2586,3 +2586,16 @@
   previous rollback snapshot (`73f3dfb` repository state); `0f06ade` is not
   online and `workbenchEnabled` remains false. No paid video generation was
   triggered.
+
+- 2026-08-18 a read-only production check caught a second release-safety defect:
+  Nginx returned 502 because PM2 had no listener on port 3002 after rollback;
+  the PM2 log identified `ERR_MODULE_NOT_FOUND` for `@tus/file-store`. The
+  rollback had restored `server/` without restoring `package.json`,
+  `package-lock.json`, or the dependency graph, leaving a mixed code/dependency
+  state. An emergency no-save install of the two existing TUS packages followed
+  by a PM2 restart restored local and public `/health` plus
+  `/api/video/capabilities` (both 200); no provider or paid video generation was
+  triggered and `workbenchEnabled` remains false. The deployment script now
+  snapshots and restores both package manifests and runs `npm ci --omit=dev`
+  before restarting PM2 during rollback; focused deployment coverage passes
+  `25/25`. This hotfix is a release-safety repair, not an AI workbench release.

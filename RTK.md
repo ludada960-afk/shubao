@@ -557,3 +557,15 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   active release 是回滚前版本（远端仓库 `73f3dfb`），`0f06ade` 尚未上线，生产
   `workbenchEnabled=false`。在主账号补足可验证的电商金丝雀额度前，不得声称本地 AI 视频
   工作台已上线，也不得绕过电商验收门禁。
+
+## 2026-08-18 AI Video Production Dependency Rollback Hotfix
+
+- 只读线上复核发现 Nginx 502：PM2 进程仍显示 online，但 3002 没有监听；日志为
+  `ERR_MODULE_NOT_FOUND: @tus/file-store`。根因是旧版回滚只恢复 `server/`，没有同时恢复
+  `package.json`、`package-lock.json` 和依赖目录，造成代码与依赖图混用。
+- 已在远端执行一次不改代码的紧急修复：按现有版本安装 `@tus/file-store`/`@tus/server` 并重启
+  PM2；`https://shuimg.cn/health` 与 `/api/video/capabilities` 已恢复 200。此操作未调用视频供应商、
+  未生成付费视频、未将 AI 工作台发布上线。
+- `scripts/deploy-production.ps1` 已修复：备份时保存两个 package manifest，回滚时恢复它们并先执行
+  `npm ci --omit=dev` 再启动 PM2；`test/deploy-script.test.mjs` 聚焦覆盖 `25/25`。以后回滚不会再留下
+  仅恢复业务代码而依赖图不一致的状态。
