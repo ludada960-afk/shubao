@@ -332,6 +332,7 @@ unreadable.
 - [TapNow](https://app.tapnow.ai/home): public process viewing, project cloning, local reshoot/extension/tracking product direction, and large node-based projects.
 - [Director workflow video](https://www.bilibili.com/video/BV1zfg36ZEXi/): staged world/character/scene/prop/shot creation with human confirmation and persistent canvas dependencies.
 - [Corrected Feishu workflow resource](https://q52zkkpo8s.feishu.cn/wiki/HUCJwu1euiroyFkeWLHcMwrPnwd): Skill package structure and project-memory workflow context.
+- [Xuan AI video corpus research](./2026-08-17-xuan-ai-video-research.md): the second Xuan-jiang film source and 19 AI-video tutorials distilled into normalized cinematography, continuity, cost-funnel, replay, and automation primitives. Access limits and unverified provider claims are recorded explicitly.
 
 ## 13. Definition of Program Success
 

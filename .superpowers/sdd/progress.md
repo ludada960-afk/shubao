@@ -2537,3 +2537,13 @@
   shows each declared checkpoint and refreshes its execution preview after
   confirmation. Focused store/UI coverage passed `24/24` plus `2/2`. No
   provider or paid generation was triggered.
+
+- 2026-08-17 the second Xuan-jiang Bilibili source and the AI-video directory in
+  the linked Feishu knowledge base were read-only researched and distilled into
+  `docs/superpowers/plans/2026-08-17-xuan-ai-video-research.md`. The note records
+  verified metadata, the accessible 19-topic corpus, cinematography/continuity/
+  workflow primitives, user value, failure modes, normalized product contracts,
+  and a staged implementation sequence. Bilibili preview and partial Feishu
+  bodies are explicitly marked as access limits; no hidden prompt or unverified
+  provider claim was promoted to a requirement. No provider or paid generation
+  was triggered.

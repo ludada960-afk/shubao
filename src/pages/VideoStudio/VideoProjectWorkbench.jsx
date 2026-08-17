@@ -469,8 +469,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }));
     void runMutation('replay:save', async () => {
       const manifest = await createVideoReplayManifest(projectId, {
-        skillId: 'video-workbench',
-        skillVersion: 1,
+        skillId: skillRun?.skillId || 'video-workbench',
+        skillVersion: skillRun?.skillVersion || 1,
+        ...(skillRun?.id ? { skillRunId: skillRun.id } : {}),
         rightsConfirmations,
       });
       setReplayManifestPreview(null);

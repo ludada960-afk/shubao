@@ -102,6 +102,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /起点/);
   assert.match(component, /终点/);
   assert.match(component, /保存创作配方/);
+  assert.match(component, /skillRun\?\.skillId/);
+  assert.match(component, /skillRunId:\s*skillRun\.id/);
   assert.match(component, /查看创作过程/);
   assert.match(component, /已保存配方/);
   assert.match(component, /replayManifests/);
