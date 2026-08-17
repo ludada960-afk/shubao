@@ -132,6 +132,19 @@ test('production release archive includes shared server runtime modules', () => 
   assert.match(deploy, /Release archive runtime module verification failed/);
 });
 
+test('rollback snapshots and restores the dependency graph before restarting the app', () => {
+  assert.match(deploy, /cp \$RemoteDir\/package\.json \$remoteBackup\/package\.json/);
+  assert.match(deploy, /cp \$RemoteDir\/package-lock\.json \$remoteBackup\/package-lock\.json/);
+  const rollback = deploy.slice(deploy.indexOf('$rollbackCommand ='));
+  assert.match(rollback, /cp \$remoteBackup\/package\.json \$RemoteDir\/package\.json/);
+  assert.match(rollback, /cp \$remoteBackup\/package-lock\.json \$RemoteDir\/package-lock\.json/);
+  assert.match(rollback, /npm ci --omit=dev/);
+  assert.ok(
+    rollback.indexOf('npm ci --omit=dev') < rollback.indexOf('pm2 startOrReload ecosystem.production.config.cjs'),
+    'rollback must reinstall the restored dependency graph before PM2 starts',
+  );
+});
+
 test('rollback backups keep large video runtime state out of code snapshots', () => {
   for (const runtimeDirectory of ['video-assets/', 'video-upload-staging/']) {
     const pattern = new RegExp(`--exclude=['"]${runtimeDirectory.replace('/', '\\/')}['"]`, 'g');
