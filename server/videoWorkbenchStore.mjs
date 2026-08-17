@@ -1386,12 +1386,22 @@ export function createVideoWorkbenchStore({
         WHERE owner_email = ? AND project_id = ? ORDER BY position, created_at`).all(owner, project.id).map(clipFromRow);
       const audioTracks = db.prepare(`SELECT * FROM video_audio_tracks
         WHERE owner_email = ? AND project_id = ? ORDER BY start_ms, created_at, id`).all(owner, project.id).map(audioTrackFromRow);
+      const skillRuns = db.prepare(`SELECT * FROM video_skill_runs
+        WHERE owner_email = ? AND project_id = ? ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT 8`)
+        .all(owner, project.id)
+        .map(row => {
+          const events = db.prepare(`SELECT * FROM video_skill_run_events
+            WHERE run_id = ? AND owner_email = ? AND project_id = ? ORDER BY sequence`)
+            .all(row.id, owner, project.id);
+          return skillRunFromRow(row, events);
+        });
       return {
         project,
         assets: assets.map(asset => ({ ...asset, versions: versions.filter(version => version.assetId === asset.id) })),
         shots,
         timelineClips,
         audioTracks,
+        skillRuns,
         memory: api.listProjectMemory({ ownerEmail: owner, projectId: project.id }),
       };
     },

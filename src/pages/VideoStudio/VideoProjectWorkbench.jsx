@@ -202,6 +202,18 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setWorkbench(next);
       setWorkbenchPlan(null);
       setGenerationDraft(null);
+      const latestSkillRun = Array.isArray(next.skillRuns) ? next.skillRuns[0] || null : null;
+      setSkillRun(latestSkillRun);
+      setSkillRunExecutionPreview(null);
+      if (latestSkillRun?.templateId) setSkillTemplateId(latestSkillRun.templateId);
+      if (latestSkillRun?.input?.prompt) setSkillPrompt(latestSkillRun.input.prompt);
+      if (latestSkillRun) {
+        void previewVideoSkillRunExecution(id, latestSkillRun.id).then(preview => {
+          if (requestSequence === requestSequenceRef.current && selectedProjectRef.current === id) {
+            setSkillRunExecutionPreview(preview);
+          }
+        }).catch(() => {});
+      }
       setError('');
     } catch (loadError) {
       if (requestSequence !== requestSequenceRef.current || selectedProjectRef.current !== id) return;

@@ -2520,3 +2520,12 @@
   inputs. Focused UI coverage passed `2/2`; full `npm test` passed
   `1717/1717`; `npm run check`, the 6510-module production build, and
   `git diff --check` passed. No provider or paid generation was triggered.
+
+- 2026-08-17 the workbench now rehydrates the latest persisted SkillRun after
+  a project refresh. The owner-scoped project projection returns the most
+  recent eight runs with their audit events; the UI restores the selected
+  template and prompt, then refreshes the read-only execution preview without
+  creating a provider task or billing record. Focused store/UI coverage passed
+  `24/24` plus `2/2`; full `npm test` passed `1717/1717`; `npm run check`, the
+  6510-module production build, and `git diff --check` passed. No provider or
+  paid generation was triggered.

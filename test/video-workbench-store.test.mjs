@@ -128,6 +128,10 @@ test('skill runs preview declarative plans, append confirmation events, and stay
     error => error.code === 'VERSION_CONFLICT');
   assert.throws(() => store.getSkillRun({ ownerEmail: 'other@example.com', projectId: project.id, runId: preview.id }),
     error => error.code === 'PROJECT_NOT_FOUND');
+  const graph = store.listWorkbench({ ownerEmail: OWNER, projectId: project.id });
+  assert.equal(graph.skillRuns[0].id, preview.id);
+  assert.equal(graph.skillRuns[0].status, 'confirmed');
+  assert.equal(graph.skillRuns[0].events.at(-1).type, 'checkpoint.confirmed');
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('usage_ledger', 'wallet_transactions')").all().length, 0);
 });
