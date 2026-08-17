@@ -17,6 +17,12 @@
 .video-project-workbench-header > div > span { display: inline-flex; align-items: center; gap: 7px; color: #6c5ed1; font-size: 12px; font-weight: 750; }
 .video-project-workbench-header h2 { margin: 8px 0 5px; font-size: 20px; line-height: 1.35; }
 .video-project-workbench-header p { margin: 0; color: #817970; font-size: 12px; line-height: 1.6; }
+.video-project-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.video-project-replay-save,.video-project-replay-status button { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d8d1ca; border-radius: 6px; color: #4a3cc4; background: #fff; font-size: 11px; font-weight: 750; }
+.video-project-replay-save:disabled,.video-project-replay-status button:disabled { cursor: not-allowed; opacity: .52; }
+.video-project-replay-status { max-width: 280px; padding: 5px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid #cde7d8; border-radius: 7px; color: #32734d; background: #f2fbf5; font-size: 10px; }
+.video-project-replay-status span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-project-replay-status button { min-height: 26px; padding: 0 7px; border-color: #b9dec8; color: #23643d; background: #fff; font-size: 10px; }
 .video-project-refresh { width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center; border: 1px solid #ddd7cf; border-radius: 7px; color: #57524c; background: #fff; }
 .video-project-stages { min-height: 64px; margin: 0; padding: 0 24px; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); align-items: center; list-style: none; border-bottom: 1px solid #e9e5df; background: #fff; }
 .video-project-stages li { min-width: 0; display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 8px; color: #aaa39a; font-size: 12px; }
@@ -155,6 +161,8 @@
   .video-project-workbench { margin-top: 18px; }
   .video-project-workbench-header,.video-project-band { padding: 18px 14px; }
   .video-project-workbench-header h2 { font-size: 17px; }
+  .video-project-header-actions { width: 100%; justify-content: flex-start; }
+  .video-project-replay-status { max-width: 100%; }
   .video-project-stages { padding-left: 14px; padding-right: 14px; }
   .video-project-stages li { grid-template-columns: 27px minmax(0,1fr); gap: 5px; }
   .video-project-stages li > span { width: 27px; height: 27px; }

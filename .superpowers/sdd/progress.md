@@ -2300,3 +2300,17 @@
   `ubuntu@43.129.180.134: Permission denied`). The log confirms no remote archive, release
   switch, restart, rollback or Canary. Keep this slice local-only until credentials are
   restored; do not claim production deployment.
+
+- 2026-08-17 AI-video P2 replay workflow surface is complete locally on
+  `codex/video-platform-p0`. The project workbench now exposes a persisted
+  `保存创作配方` action that records the current project recipe only after each
+  referenced asset is confirmed as `owned_or_licensed`; a saved manifest exposes
+  its short hash and a `复用为新项目` action that clones an owner-scoped draft,
+  then switches the UI to that new project without allowing the old project's
+  reload to overwrite it. The surface remains local metadata-only: no provider,
+  generation, usage, wallet, billing or paid-video call occurred. Focused
+  workbench/replay coverage passed `49/49`; full `npm test` passed `1696/1696`;
+  `npm run check`, the 6510-module production build and `git diff --check` passed.
+  This slice is not deployed because the controlled SSH key is still unreadable;
+  runtime folders `.npm-cache/`, `.qa-video/`, `server/video-assets/` and
+  `server/video-upload-staging/` remain excluded.

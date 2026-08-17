@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Clapperboard,
   Clock3,
+  Copy,
   Film,
   FolderKanban,
   ImagePlus,
@@ -28,6 +29,8 @@ import {
   createStoryboardShot,
   createWorkbenchAsset,
   createVideoAudioTrack,
+  createVideoReplayManifest,
+  cloneVideoReplayManifest,
   getVideoWorkbench,
   importJobCandidate,
   importWorkbenchAssetVersion,
@@ -135,6 +138,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [bindingChoices, setBindingChoices] = useState({});
   const [shotEdits, setShotEdits] = useState({});
   const [clipDrafts, setClipDrafts] = useState({});
+  const [replayManifest, setReplayManifest] = useState(null);
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
@@ -234,6 +238,36 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }
   }, [busy, loadWorkbench, projectId]);
 
+  function handleSaveReplayManifest() {
+    if (!workbench?.project?.id || busy) return;
+    const rightsConfirmations = (workbench.assets || []).map(asset => ({
+      assetId: asset.id,
+      confirmation: 'owned_or_licensed',
+    }));
+    void runMutation('replay:save', async () => {
+      const manifest = await createVideoReplayManifest(projectId, {
+        skillId: 'video-workbench',
+        skillVersion: 1,
+        rightsConfirmations,
+      });
+      setReplayManifest(manifest);
+    });
+  }
+
+  function handleCloneReplayManifest() {
+    if (!replayManifest?.id || busy) return;
+    setBusy('replay:clone');
+    setError('');
+    void cloneVideoReplayManifest(projectId, replayManifest.id, {
+      title: `${workbench?.project?.title || '视频项目'} · 复用`,
+    }).then(cloned => {
+      setReplayManifest(null);
+      return loadProjects(cloned.project.id);
+    }).catch(cloneError => {
+      setError(displayError(cloneError));
+    }).finally(() => setBusy(''));
+  }
+
   async function handleCreateProject(event) {
     event.preventDefault();
     const title = projectTitle.trim();
@@ -256,6 +290,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     selectedProjectRef.current = nextId;
     setProjectId(nextId);
     setWorkbench(null);
+    setReplayManifest(null);
     setError('');
   }
 
@@ -483,9 +518,18 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   return <section className="video-project-workbench" aria-label="视频项目工作台" aria-busy={loading || Boolean(busy)}>
     <header className="video-project-workbench-header">
       <div><span><Film size={16} />项目工作台</span><h2>把素材、分镜和候选版本组织成一条可回看的创作过程</h2><p>所有选择都保存到当前项目；工作台本身不会发起生成或扣除积分。</p></div>
-      <button type="button" className="video-project-refresh" aria-label="刷新视频项目" title="刷新视频项目" disabled={Boolean(busy) || loading} onClick={() => void loadProjects(projectId)}>
-        <RefreshCw size={17} />
-      </button>
+      <div className="video-project-header-actions">
+        <button type="button" className="video-project-replay-save" disabled={Boolean(busy) || loading || !workbench?.assets?.length} onClick={handleSaveReplayManifest}>
+          {busy === 'replay:save' ? <LoaderCircle className="is-spinning" size={15} /> : <Save size={15} />}保存创作配方
+        </button>
+        {replayManifest?.manifestHash && <div className="video-project-replay-status" role="status">
+          <span>配方已保存 · {replayManifest.manifestHash.slice(0, 10)}</span>
+          <button type="button" disabled={Boolean(busy)} onClick={handleCloneReplayManifest}>{busy === 'replay:clone' ? <LoaderCircle className="is-spinning" size={14} /> : <Copy size={14} />}复用为新项目</button>
+        </div>}
+        <button type="button" className="video-project-refresh" aria-label="刷新视频项目" title="刷新视频项目" disabled={Boolean(busy) || loading} onClick={() => void loadProjects(projectId)}>
+          <RefreshCw size={17} />
+        </button>
+      </div>
     </header>
 
     <ol className="video-project-stages" aria-label="项目进度">
