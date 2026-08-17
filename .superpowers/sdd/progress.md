@@ -2322,3 +2322,25 @@
   `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is unreadable and SSH returned
   `Permission denied`; the script also refused an unfenced rollback after the lock
   was lost. No remote archive, release switch, restart, rollback or Canary ran.
+
+- 2026-08-17 AI-video P2 replay process preview is complete locally in commit
+  `9a5f885`. The video workbench can read an owner/project-scoped replay manifest
+  and show a read-only `创作过程预览` with workflow version, asset/shot/timeline/audio/
+  rights counts, shot bindings, duration and manifest hash. The preview is explicitly
+  metadata-only: it does not expose playback URLs, copy private assets, call a provider,
+  create a generation job or mutate billing. Saving a new recipe and cloning into a new
+  project both clear stale preview state; switching projects already clears it as well.
+  Focused replay/workbench/client/route/store/manifest coverage passed `55/55`; full
+  `npm test` passed `1696/1696`; `npm run check`, the 6510-module production build and
+  `git diff --check` passed. The slice remains local-only because the controlled SSH key
+  is still unreadable; runtime folders `.npm-cache/`, `.qa-video/`, `server/video-assets/`
+  and `server/video-upload-staging/` remain excluded.
+
+- 2026-08-17 release gate for `9a5f885` was attempted through the only approved
+  `scripts/deploy-production.ps1` entry point. Gallery verification, full regression
+  (`1696/1696`), 6510-module build, build check, no-paid-generation probe and model
+  directory probe all passed. The script failed closed before any remote mutation because
+  `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is unreadable and SSH returned
+  `Permission denied`; it then refused an unfenced rollback after the lock was lost.
+  No remote archive, release switch, restart, rollback or Canary ran. Keep the replay
+  process preview local-only until controlled deployment credentials are restored.
