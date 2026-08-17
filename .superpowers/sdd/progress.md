@@ -2562,3 +2562,27 @@
   transition, gaze, screen direction, and negative prompt controls. Invalid model
   fields fail closed to deterministic neutral values, and the planning schema
   requires the structured direction without making a provider call.
+
+- 2026-08-18 candidate delivery readiness is now fail-closed in commit `0f06ade`.
+  Candidate imports reject non-video MIME types, empty or invalid byte counts,
+  missing hashes, and incomplete job output before a candidate can enter the
+  workbench. The UI renders an explicit unavailable preview instead of a blank
+  media surface. Focused store/route/UI coverage passed `49/49`; full `npm test`
+  passed `1727/1727`; `npm run check`, the 6510-module production build, and
+  `git diff --check` passed. No provider or paid video generation was triggered.
+
+- 2026-08-18 commit `77ff79e` makes the ecommerce deployment canary check the authenticated
+  owner wallet before uploading fixtures or running multimodal analysis. The
+  production owner currently has `ec_points.availableUnits=0` and recent
+  ecommerce jobs fail with `AI 积分不足，请购买套餐后继续`; the guard therefore
+  fails early without creating another known-failed job. Focused verifier coverage
+  passed `6/6`; this is a deployment safety fix, not a credit grant.
+
+- 2026-08-18 the standard deployment was attempted for `0f06ade`. Local gates,
+  remote restart/health, public gallery/video contracts, and non-billing video
+  contracts passed, but the authenticated ecommerce canary failed on the zero
+  owner wallet and the script automatically rolled back. Remote health is green,
+  the deployment lock is released, and the active production release is the
+  previous rollback snapshot (`73f3dfb` repository state); `0f06ade` is not
+  online and `workbenchEnabled` remains false. No paid video generation was
+  triggered.

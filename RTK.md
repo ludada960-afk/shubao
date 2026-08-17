@@ -542,3 +542,18 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   SSH 返回 `Permission denied`，因此未执行远程上传、切换、重启、回滚或 Canary。
 - 后续仅在受控凭据恢复后重跑 `scripts/deploy-production.ps1`；在此之前不得把本地 P2-06
   音频连续性/工作台面板描述为已上线。
+
+## 2026-08-18 AI Video Delivery Gate and Deployment Truth
+
+- 提交 `0f06ade` 将候选交付边界收紧：只有已完成、非空、带哈希且 MIME 为 `video/*` 的媒体
+  才能进入候选版本；工作台对缺失或加载失败的预览显示明确的不可用状态，不再留下空白占位。
+  定向覆盖 `49/49`，全量 `npm test` `1727/1727`，`npm run check`、6510 模块构建和
+  `git diff --check` 均通过；没有调用视频供应商或产生付费视频。
+- 提交 `77ff79e` 新增发布金丝雀前电商余额门禁：会先读取主账号 `ec_points`，余额不足 3000 单位时在上传
+  素材和多模态分析前失败，避免重试制造已知失败任务。线上只读核验显示主账号余额为 0，
+  最近电商任务错误均为“AI 积分不足，请购买套餐后继续”。
+- 已按唯一入口尝试发布 `0f06ade`：本地构建、远端重启/健康、图库/视频契约和非计费视频检查
+  均通过；电商金丝雀因余额为 0 失败，脚本已自动回滚并释放部署锁。线上健康接口正常，当前
+  active release 是回滚前版本（远端仓库 `73f3dfb`），`0f06ade` 尚未上线，生产
+  `workbenchEnabled=false`。在主账号补足可验证的电商金丝雀额度前，不得声称本地 AI 视频
+  工作台已上线，也不得绕过电商验收门禁。
