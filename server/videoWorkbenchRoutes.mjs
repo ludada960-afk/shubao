@@ -439,6 +439,14 @@ export function mountVideoWorkbenchRoutes(app, {
     }), { key: 'run' },
   ));
 
+  app.post('/api/video/projects/:projectId/workbench/skill-runs/:runId/execution-preview', (req, res) => dispatch(
+    req, res, 'skill-run.execution-preview', request => store.previewSkillRunExecution({
+      ...request,
+      runId: req.params.runId,
+      stepCosts: req.body?.stepCosts,
+    }), { key: 'executionPreview' },
+  ));
+
   app.post('/api/video/projects/:projectId/workbench/skill-runs/:runId/checkpoints/:checkpointId/confirm', (req, res) => dispatch(
     req, res, 'skill-run.checkpoint.confirm', request => store.confirmSkillCheckpoint({
       ...request,

@@ -24,6 +24,7 @@ import {
   selectShotCandidate,
   previewVideoSkillRun,
   previewVideoSkillTemplate,
+  previewVideoSkillRunExecution,
   confirmVideoSkillCheckpoint,
   confirmVideoSkillRunGuard,
   completeVideoSkillRunStep,
@@ -239,6 +240,24 @@ test('video SkillRun client signs preview, read, and checkpoint confirmation req
   assert.equal(requests[2].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/checkpoints/approve-assets/confirm');
   assert.deepEqual(JSON.parse(requests[2].options.body), { expectedRevision: 1 });
   assert.equal(requests[2].options.headers.Authorization, 'Bearer signed-skill-session');
+});
+
+test('video SkillRun client previews execution state with bounded step costs', async t => {
+  installSession('signed-execution-preview-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse({ executionPreview: {
+      runId: 'run-1', revision: 1, status: 'blocked', guardBlockedStepIds: ['plan'],
+    } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const result = await previewVideoSkillRunExecution('project-1', 'run-1', { plan: 3 });
+  assert.equal(result.revision, 1);
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/execution-preview');
+  assert.deepEqual(JSON.parse(requests[0].options.body), { stepCosts: { plan: 3 } });
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-execution-preview-session');
 });
 
 test('video Skill template client previews a template with an idempotency key', async t => {

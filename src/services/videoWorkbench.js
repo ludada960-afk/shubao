@@ -340,6 +340,15 @@ export async function getVideoSkillRun(projectId, runId) {
   return requireValue(response, 'run', '视频 SkillRun 暂时不可用，请稍后重试');
 }
 
+export async function previewVideoSkillRunExecution(projectId, runId, stepCosts = {}) {
+  const response = await requestJson(
+    `${skillRunBase(projectId)}/${skillRunSegment(runId)}/execution-preview`,
+    { method: 'POST', ...jsonBody({ stepCosts }) },
+    '暂时无法预览视频 SkillRun 执行状态',
+  );
+  return requireValue(response, 'executionPreview', '视频 SkillRun 暂时不可用，请稍后重试');
+}
+
 export async function confirmVideoSkillCheckpoint(projectId, runId, checkpointId, expectedRevision) {
   const response = await requestJson(
     `${skillRunBase(projectId)}/${skillRunSegment(runId)}/checkpoints/${checkpointSegment(checkpointId)}/confirm`,

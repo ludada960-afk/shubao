@@ -1,7 +1,11 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
 import { normalizeProjectMemoryFact, normalizeProjectMemoryList } from './videoProjectMemory.mjs';
-import { buildSkillRunExecutionPlan, normalizeSkillRunSpec } from './videoSkillRun.mjs';
+import {
+  buildSkillRunExecutionPlan,
+  buildSkillRunExecutionPreview,
+  normalizeSkillRunSpec,
+} from './videoSkillRun.mjs';
 import { listVideoSkillTemplates } from './videoSkillTemplates.mjs';
 import { videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 
@@ -1246,6 +1250,22 @@ export function createVideoWorkbenchStore({
     getSkillRun({ ownerEmail, projectId, runId }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       return requireSkillRun(owner, project.id, runId).run;
+    },
+
+    previewSkillRunExecution({ ownerEmail, projectId, runId, stepCosts = {} }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const current = requireSkillRun(owner, project.id, runId);
+      const preview = buildSkillRunExecutionPreview(current.run.plan, {
+        completedStepIds: current.run.executionPlan.completedStepIds,
+        satisfiedGuardIds: current.run.confirmedGuardIds,
+        stepCosts,
+      });
+      return {
+        ...preview,
+        runId: current.run.id,
+        revision: current.row.revision,
+        runStatus: current.row.status,
+      };
     },
 
     confirmSkillCheckpoint({ ownerEmail, projectId, runId, checkpointId, expectedRevision }) {

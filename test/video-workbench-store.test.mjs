@@ -166,6 +166,40 @@ test('skill run step completion is dependency-gated and resumable', t => {
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
 });
 
+test('skill run execution preview derives durable guards and budget without mutating state', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const preview = store.previewSkillRun({ ownerEmail: OWNER, projectId: project.id,
+    idempotencyKey: 'skill-execution-preview-1', spec: {
+      skillId: 'trailer', skillVersion: 1,
+      guards: [{ id: 'rights', kind: 'rights-confirmed', label: '素材已授权' }],
+      budgetPolicy: { currency: 'ai_points', maxPoints: 12, reserveMode: 'approved_cap' },
+      steps: [
+        { id: 'plan', kind: 'plan', label: '拆解镜头', guards: ['rights'] },
+        { id: 'assets', kind: 'assets', label: '准备素材', requires: ['plan'] },
+      ],
+    } });
+  const blocked = store.previewSkillRunExecution({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, stepCosts: { plan: 4, assets: 5 } });
+  assert.equal(blocked.revision, 1);
+  assert.deepEqual(blocked.guardBlockedStepIds, ['plan']);
+  assert.deepEqual(blocked.readyStepIds, []);
+  assert.equal(blocked.estimatedPoints, 9);
+  assert.equal(blocked.budget.remainingPoints, 3);
+  assert.equal(blocked.status, 'blocked');
+  const eventCount = db.prepare('SELECT COUNT(*) AS count FROM video_skill_run_events').get().count;
+  const confirmed = store.confirmSkillRunGuard({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, guardId: 'rights', expectedRevision: 1 });
+  const ready = store.previewSkillRunExecution({ ownerEmail: OWNER, projectId: project.id,
+    runId: preview.id, stepCosts: { plan: 4, assets: 5 } });
+  assert.equal(confirmed.revision, 2);
+  assert.equal(ready.revision, 2);
+  assert.deepEqual(ready.readyStepIds, ['plan']);
+  assert.deepEqual(ready.guardBlockedStepIds, []);
+  assert.equal(ready.status, 'ready');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_skill_run_events').get().count, eventCount + 1);
+});
+
 test('project memory is owner-scoped, revisioned, soft-deletable, and accepts only approved asset versions', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());

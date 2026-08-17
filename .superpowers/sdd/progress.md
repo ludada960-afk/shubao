@@ -2498,3 +2498,14 @@
   `git diff --check` passed. No provider or paid generation was triggered;
   this remains local-only until the controlled SSH deployment identity is
   restored.
+
+- 2026-08-17 SkillRun execution preview is now available through an
+  owner-scoped, read-only workbench API and client helper. The route derives
+  durable completed steps and confirmed guards, validates caller-supplied
+  bounded step-cost estimates, and returns ready/dependency-blocked/
+  guard-blocked steps plus budget and status without creating a provider task,
+  wallet hold, or billing record. Focused route/store/client coverage passed
+  `67/67`; full `npm test` passed `1717/1717`; `npm run check`, the 6510-module
+  production build, and `git diff --check` passed. No provider or paid
+  generation was triggered; this remains local-only until the controlled SSH
+  deployment identity is restored.

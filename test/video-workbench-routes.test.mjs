@@ -526,6 +526,31 @@ test('owner must confirm SkillRun guards before completing guarded steps', async
   assert.equal(db.prepare("SELECT COUNT(*) AS count FROM video_skill_run_events WHERE type = 'guard.confirmed'").get().count, 1);
 });
 
+test('owner can preview SkillRun execution state without creating a billing record', async t => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const headers = { ...signedHeaders(sessionTokens, ownerEmail), 'idempotency-key': 'route-execution-preview-1' };
+  const base = '/api/video/projects/:projectId/workbench/skill-runs';
+  const created = await invoke(app, 'POST', `${base}/preview`, {
+    headers, params: { projectId: project.id }, body: { spec: {
+      skillId: 'trailer', skillVersion: 1,
+      guards: [{ id: 'rights', kind: 'rights-confirmed', label: '素材已授权' }],
+      budgetPolicy: { currency: 'ai_points', maxPoints: 10, reserveMode: 'approved_cap' },
+      steps: [{ id: 'plan', kind: 'plan', label: '拆解镜头', guards: ['rights'] }],
+    } },
+  });
+  assert.equal(created.statusCode, 201);
+  const response = await invoke(app, 'POST', `${base}/:runId/execution-preview`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id },
+    body: { stepCosts: { plan: 3 } },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.executionPreview.revision, 1);
+  assert.deepEqual(response.body.executionPreview.guardBlockedStepIds, ['plan']);
+  assert.equal(response.body.executionPreview.budget.remainingPoints, 7);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
+});
+
 test('workbench routes hide the owner pilot from a signed tester account', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());
