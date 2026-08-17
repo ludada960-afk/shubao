@@ -36,16 +36,15 @@ export const HOME_SHOWCASE_COMPOSITES = Object.freeze([
 
 export const TRYON_LAYOUT_PLANS = Object.freeze({
   'editorial-multi-angle-v6': Object.freeze({
-    stages: Object.freeze(['product', 'arrow', 'result-fan']),
+    stages: Object.freeze(['result-fan']),
     fit: 'contain',
     blurPadding: false,
-    visualBounds: Object.freeze({ left: 34, top: 74, right: 1578, bottom: 826 }),
-    product: Object.freeze({ left: 40, top: 205, width: 320, height: 480, rotation: -3, fit: 'contain' }),
+    visualBounds: Object.freeze({ left: 158, top: 52, right: 1572, bottom: 832 }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 680, top: 125, width: 300, height: 550, rotation: -8, fit: 'contain' }),
-      Object.freeze({ left: 875, top: 90, width: 300, height: 550, rotation: -3, fit: 'contain' }),
-      Object.freeze({ left: 1070, top: 90, width: 300, height: 550, rotation: 3, fit: 'contain' }),
-      Object.freeze({ left: 1260, top: 125, width: 300, height: 550, rotation: 8, fit: 'contain' }),
+      Object.freeze({ left: 235, top: 150, width: 330, height: 600, rotation: -8, fit: 'contain', border: 5 }),
+      Object.freeze({ left: 555, top: 100, width: 330, height: 600, rotation: -3, fit: 'contain', border: 5 }),
+      Object.freeze({ left: 875, top: 100, width: 330, height: 600, rotation: 3, fit: 'contain', border: 5 }),
+      Object.freeze({ left: 1195, top: 150, width: 330, height: 600, rotation: 8, fit: 'contain', border: 5 }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -53,9 +52,9 @@ export const TRYON_LAYOUT_PLANS = Object.freeze({
     fit: 'cover',
     blurPadding: false,
     visualBounds: Object.freeze({ left: 24, top: 54, right: 1580, bottom: 846 }),
-    product: Object.freeze({ left: 24, top: 72, width: 508, height: 756, rotation: -2 }),
-    reference: Object.freeze({ left: 716, top: 68, width: 206, height: 764, rotation: -1 }),
-    result: Object.freeze({ left: 1350, top: 68, width: 206, height: 764, rotation: 2 }),
+    product: Object.freeze({ left: 30, top: 48, width: 548, height: 804, rotation: -2 }),
+    reference: Object.freeze({ left: 704, top: 48, width: 250, height: 804, rotation: -1 }),
+    result: Object.freeze({ left: 1308, top: 48, width: 250, height: 804, rotation: 2 }),
   }),
 });
 
@@ -129,22 +128,19 @@ function multiAngleDecoration() {
   return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4b3929" flood-opacity=".16"/></filter>
-      <linearGradient id="arrow" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#d1c8be"/><stop offset="1" stop-color="#9b8c7d"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
-    <path d="M392 520 C452 492 528 438 588 370 C608 347 624 324 635 300 L605 309 L676 271 L648 344 L642 315 C626 352 601 386 570 419 C508 483 447 527 400 555 C394 559 388 556 386 550 C384 541 386 529 392 520 Z" fill="url(#arrow)" opacity=".96"/>
-    <ellipse cx="820" cy="836" rx="690" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
+    <ellipse cx="820" cy="824" rx="650" ry="28" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
 
 async function buildMultiAngle(definition) {
   const plan = TRYON_LAYOUT_PLANS[definition.id];
-  const product = await placedCard(resolve(SOURCE_ROOT, definition.sources[0]), plan.product);
   const results = await Promise.all(
     definition.sources.slice(1).map((source, index) => placedCard(resolve(SOURCE_ROOT, source), plan.resultCards[index])),
   );
   return sharp(multiAngleDecoration())
-    .composite([product, ...results])
+    .composite(results)
     .png()
     .toBuffer();
 }

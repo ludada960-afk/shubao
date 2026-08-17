@@ -57,26 +57,21 @@ test('try-on layout plans match the product-to-angle reference without cropped c
       bottom: top + ((rotatedHeight + height) / 2),
     };
   };
-  assert.deepEqual(multiAngle.stages, ['product', 'arrow', 'result-fan']);
+  assert.deepEqual(multiAngle.stages, ['result-fan']);
   assert.equal(multiAngle.resultCards.length, 4);
   assert.deepEqual(multiAngle.resultCards.map(card => card.rotation), [-8, -3, 3, 8]);
-  assert.equal(multiAngle.product.fit, 'contain');
-  assert.ok(multiAngle.resultCards.every(card => card.width >= 300));
-  assert.ok(multiAngle.resultCards.every(card => card.height >= 550));
+  assert.ok(multiAngle.resultCards.every(card => card.width >= 320));
+  assert.ok(multiAngle.resultCards.every(card => card.height >= 580));
+  assert.ok(multiAngle.resultCards.every(card => card.border <= 5));
   assert.ok(multiAngle.resultCards.at(-1).left + multiAngle.resultCards.at(-1).width <= 1600);
-  assert.ok(multiAngle.product.width >= 300);
-  assert.ok(multiAngle.product.height >= 480);
-  assert.ok(multiAngle.product.left >= 24);
-  assert.ok(multiAngle.product.left + multiAngle.product.width <= 600);
-  assert.ok(multiAngle.resultCards[0].left - (multiAngle.product.left + multiAngle.product.width) >= 300);
   assert.ok(multiAngle.resultCards.every(card => card.fit === 'contain'));
-  assert.ok([multiAngle.product, ...multiAngle.resultCards].every((card) => {
+  assert.ok(multiAngle.resultCards.every((card) => {
     const bounds = rotatedBounds(card);
     return bounds.left >= 0 && bounds.top >= 0 && bounds.right <= 1600 && bounds.bottom <= 900;
   }));
   assert.ok(multiAngle.visualBounds.top >= 24);
   assert.ok(multiAngle.visualBounds.bottom <= 876);
-  assert.ok(multiAngle.visualBounds.right - multiAngle.visualBounds.left >= 1504);
+  assert.ok(multiAngle.visualBounds.right - multiAngle.visualBounds.left >= 1400);
 
   const reference = TRYON_LAYOUT_PLANS['tryon-reference-workflow'];
   assert.deepEqual(reference.stages, ['product', 'reference-model', 'result']);
