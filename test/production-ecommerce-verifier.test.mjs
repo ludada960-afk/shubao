@@ -198,6 +198,67 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
   assert.equal(body.direction.id, 'canary-direction-1');
 });
 
+test('ecommerce production verifier keeps polling the same paid task after transient status timeouts', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'shubao-production-canary-timeout-'));
+  const fixturePath = join(directory, 'fixture.png');
+  await writeFile(fixturePath, Buffer.from('fixture'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const thumb = await sharp({ create: { width: 640, height: 640, channels: 3, background: '#ef4444' } }).webp().toBuffer();
+  const canvas = await sharp({ create: { width: 1280, height: 1280, channels: 3, background: '#ef4444' } }).webp().toBuffer();
+  let statusAttempts = 0;
+  let generationCalls = 0;
+  let canvasSession = null;
+  const fetchImpl = async (url, options = {}) => {
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    const variant = parsed.searchParams.get('variant') || '';
+    if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
+    if (path === '/api/ecommerce/assets') {
+      const body = JSON.parse(options.body);
+      return json(body.role === 'product' ? { original: PRODUCT } : { original: REFERENCE }, 201);
+    }
+    if (path === '/api/ecommerce/design-directions') return json(completedDirections());
+    if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq-timeout.canary.signature', totalUnits: 3000 } });
+    if (path === '/api/generate-ecommerce') {
+      generationCalls += 1;
+      return json({ taskId: 'task-canary', status: 'queued' }, 202);
+    }
+    if (path === '/api/ecommerce/jobs/task-canary') {
+      statusAttempts += 1;
+      if (statusAttempts <= 3) throw new DOMException('simulated timeout', 'TimeoutError');
+      return json({ ok: true, task: completedTask() });
+    }
+    if (path === '/api/works') return json([completedWork()]);
+    if (path === new URL(STABLE_URLS[0], 'https://shuimg.cn').pathname && ['thumb', 'canvas'].includes(variant)) {
+      const body = variant === 'thumb' ? thumb : canvas;
+      return new Response(body, {
+        headers: { 'content-type': 'image/webp', 'cache-control': 'public, max-age=31536000, immutable' },
+      });
+    }
+    if (path === '/api/canvas-sessions' && options.method === 'POST') {
+      const body = JSON.parse(options.body);
+      canvasSession = { id: 'canvas-timeout', revision: 1, snapshot: body.snapshot };
+      return json({ session: canvasSession }, 201);
+    }
+    if (path === '/api/canvas-sessions/canvas-timeout/save') {
+      const body = JSON.parse(options.body);
+      canvasSession = { ...canvasSession, revision: 2, snapshot: body.snapshot };
+      return json({ session: canvasSession });
+    }
+    if (path === '/api/canvas-sessions/canvas-timeout') return json({ session: canvasSession });
+    throw new Error(`unexpected request ${path}`);
+  };
+
+  const result = await verifyProductionEcommerce({
+    baseUrl: 'https://shuimg.cn', sessionToken: 'signed-canary-token', fixturePath, fetchImpl,
+    pollIntervalMs: 0, maxPollAttempts: 4,
+  });
+
+  assert.equal(result.taskId, 'task-canary');
+  assert.equal(generationCalls, 1);
+  assert.equal(statusAttempts, 4);
+});
+
 test('ecommerce production verifier never uses a beta tester for automated deployment generation', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'shubao-production-canary-owner-'));
   const fixturePath = join(directory, 'fixture.png');

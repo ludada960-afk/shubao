@@ -362,13 +362,23 @@ export async function verifyProductionEcommerce({
   const taskId = requiredString(started?.taskId, 'Ecommerce production canary task ID');
 
   let task;
+  let lastPollError;
   for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
-    const response = await request(`${root}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`, { headers });
-    task = response?.task;
-    if (TERMINAL_STATUSES.has(task?.status)) break;
+    try {
+      const response = await request(`${root}/api/ecommerce/jobs/${encodeURIComponent(taskId)}`, { headers });
+      task = response?.task;
+      lastPollError = undefined;
+      if (TERMINAL_STATUSES.has(task?.status)) break;
+    } catch (error) {
+      // A status read can time out after the paid task was accepted. Keep the
+      // same task ID and retry its status; never replay generation or billing.
+      lastPollError = error;
+    }
+    if (attempt + 1 >= maxPollAttempts) break;
     await sleep(pollIntervalMs);
   }
   if (!TERMINAL_STATUSES.has(task?.status)) {
+    if (lastPollError && !task) throw lastPollError;
     throw new Error(`Ecommerce production canary timed out for task ${taskId}`);
   }
   const stableUrls = assertCompletedTask(task);
