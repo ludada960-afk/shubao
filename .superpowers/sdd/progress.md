@@ -2292,3 +2292,11 @@
   billing or paid-video call occurred. The slice remains local-only because the controlled SSH
   key is still unreadable; runtime folders `.npm-cache/`, `.qa-video/`, `server/video-assets/`
   and `server/video-upload-staging/` remain excluded.
+
+- 2026-08-17 release gate for `e25dc18` was attempted again through the only approved
+  `scripts/deploy-production.ps1` entry point. Local full regression, 6510-module build,
+  build check and no-paid-generation probe passed. The script then failed closed at the
+  controlled SSH identity (`C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` permission denied;
+  `ubuntu@43.129.180.134: Permission denied`). The log confirms no remote archive, release
+  switch, restart, rollback or Canary. Keep this slice local-only until credentials are
+  restored; do not claim production deployment.
