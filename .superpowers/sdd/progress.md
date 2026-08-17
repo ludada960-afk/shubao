@@ -2356,3 +2356,12 @@
   metadata-only and made no provider, generation, usage, wallet or billing call.
   Runtime folders `.npm-cache/`, `.qa-video/`, `server/video-assets/` and
   `server/video-upload-staging/` remain excluded.
+
+- 2026-08-17 release gate for `1b6a208` was attempted through
+  `scripts/deploy-production.ps1`. Full regression (`1696/1696`), the
+  6510-module production build, build check, no-paid-generation probe and model
+  directory probe all passed. Deployment then failed closed before creating the
+  remote runtime helper because the controlled SSH identity
+  `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is unreadable and SSH returned
+  `Permission denied`; the script refused an unfenced rollback after the lock
+  was lost. No remote archive, release switch, restart, rollback or Canary ran.
