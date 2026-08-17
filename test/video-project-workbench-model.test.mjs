@@ -3,6 +3,9 @@ import test from 'node:test';
 
 import {
   approvedAssetVersions,
+  approvedAudioAssetVersions,
+  audioTrackDurationMs,
+  audioTrackForAsset,
   availableUploadedAssets,
   candidateJobsForProject,
   nextShotPosition,
@@ -11,6 +14,28 @@ import {
   videoProjects,
   workbenchStageSummary,
 } from '../src/pages/VideoStudio/videoProjectWorkbenchModel.js';
+
+test('approved audio assets are limited to confirmed voice/music versions', () => {
+  const workbench = { assets: [
+    { id: 'voice', kind: 'voice', approvedVersionId: 'voice-v1', versions: [{ id: 'voice-v1', mimeType: 'audio/mpeg' }] },
+    { id: 'music', kind: 'music', approvedVersionId: 'music-v1', versions: [{ id: 'music-v1', mimeType: 'audio/wav' }] },
+    { id: 'image', kind: 'product', approvedVersionId: 'image-v1', versions: [{ id: 'image-v1', mimeType: 'audio/mpeg' }] },
+    { id: 'bad', kind: 'voice', approvedVersionId: 'bad-v1', versions: [{ id: 'bad-v1', mimeType: 'image/png' }] },
+  ] };
+  assert.deepEqual(approvedAudioAssetVersions(workbench).map(({ asset }) => asset.id), ['voice', 'music']);
+});
+
+test('audio track helpers keep duplicate detection and bounded timeline duration', () => {
+  const workbench = {
+    timelineClips: [{ status: 'active', trimEndMs: 4200 }, { status: 'stale', trimEndMs: 99999 }],
+    audioTracks: [{ id: 'track-1', assetId: 'music', assetVersionId: 'music-v1' }],
+  };
+  assert.equal(audioTrackDurationMs(workbench), 4200);
+  assert.equal(audioTrackForAsset(workbench, 'music', 'music-v1')?.id, 'track-1');
+  assert.equal(audioTrackForAsset(workbench, 'voice', 'voice-v1'), null);
+  assert.equal(audioTrackDurationMs({ timelineClips: [{ status: 'active', trimEndMs: 999999 }] }), 120000);
+  assert.equal(audioTrackDurationMs({ timelineClips: [] }), 500);
+});
 
 test('video projects are filtered and deterministically ordered without reshuffling', () => {
   const projects = videoProjects([

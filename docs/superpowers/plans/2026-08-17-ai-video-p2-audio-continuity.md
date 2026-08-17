@@ -17,12 +17,22 @@ subtitle cues must survive the same owner/project checks as visual assets.
 - Replay manifests include sanitized continuity metadata and never include playback URLs.
 - Clone remaps asset/version IDs into a new draft project and preserves the continuity fields.
 
+## Workbench Surface
+
+- The default-off project workbench now lists only approved audio asset versions.
+- Users can add one approved voice/music version to the project timeline after at least one
+  visual clip exists, and can toggle mute with optimistic revision checks.
+- The panel exposes the persisted duration and volume metadata without pretending to render or
+  synthesize audio. Duplicate asset/version bindings are disabled in the UI.
+
 ## Verification
 
 - Focused workbench/store/routes/replay/client tests pass, including owner isolation, stale
   revisions, malformed markers, manifest sanitization, and clone remapping.
 - Full repository tests, `npm run check`, production build, and `git diff --check` are required
   before landing.
+- The UI contract is covered by the workbench source test; the full local gate passed with
+  `1694/1694` tests and a `6510`-module production build after the panel was added.
 - Production rollout is a separate gate. The controlled SSH key is currently unreadable, so
   this slice must not be described as deployed until the standard deploy script and canary pass.
 

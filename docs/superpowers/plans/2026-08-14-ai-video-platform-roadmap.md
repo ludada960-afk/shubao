@@ -313,6 +313,11 @@ subtitle-cue metadata. Replay manifests sanitize that metadata and exclude playb
 remaps the approved asset/version IDs into the new draft project. The HTTP/client surface is
 authenticated and optimistic-concurrency aware.
 
+The project workbench now exposes the approved-audio list and a minimal continuity panel: add a
+confirmed voice/music version after a visual timeline clip exists, then toggle mute while keeping
+the server revision contract. It deliberately does not claim waveform rendering, transcoding,
+TTS, beat detection, or provider delivery.
+
 The implementation plan is `docs/superpowers/plans/2026-08-17-ai-video-p2-audio-continuity.md`.
 This is continuity metadata, not an audio renderer or a provider integration. Focused tests,
 full regression, static checks, and production build remain the release gate. No paid provider
@@ -344,7 +349,7 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 | P0 reliable jobs and billing | Production foundation live; fault suite and non-paid production verification pass | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Track attempt/outbox/reconciliation SLOs and run provider canaries only under an approved spend budget |
 | P1 storyboard workbench | Implemented and deployed dark; `workbenchEnabled=false` | Ten internal projects finish without platform-state or billing failure | Add an owner cohort, complete browser acceptance and ten non-billing projects, then evaluate the flag |
 | P2 Skills, memory, replay | Blocked by P1 evidence | Two real workflows can be replayed from stored inputs and a versioned manifest | Product ad first; reference reconstruction second |
-| P2 audio continuity | Local candidate, not deployed | Approved audio assets, bounded track metadata, replay sanitization, clone remapping, and production owner-cohort evidence | Run non-billing owner-cohort replay before enabling any audio UI |
+| P2 audio continuity | Local candidate, not deployed | Approved audio assets, bounded track metadata, replay sanitization, clone remapping, workbench add/mute UI, and production owner-cohort evidence | Run non-billing owner-cohort replay before enabling any audio UI |
 | P3 advanced local editing | Research only | Each provider capability passes three real input-variant canaries and has a whole-shot fallback | Release reshoot, extension, tracking, and action control independently |
 
 ### 2026-08-16 production evidence

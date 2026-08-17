@@ -48,6 +48,8 @@ test('project workbench exposes real persisted stages without provider controls 
     'addTimelineClip',
     'upsertVideoProjectMemoryFact',
     'removeVideoProjectMemoryFact',
+    'createVideoAudioTrack',
+    'updateVideoAudioTrack',
   ]) {
     assert.match(component, new RegExp(command));
   }
@@ -78,6 +80,11 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /workbench\?\.memory/);
   assert.match(component, /expectedRevision:\s*fact\.revision/);
   assert.match(component, /removeVideoProjectMemoryFact\(projectId, fact\.key, fact\.revision\)/);
+  assert.match(component, /声音与字幕/);
+  assert.match(component, /approvedAudioAssetVersions/);
+  assert.match(component, /加入音轨/);
+  assert.match(component, /取消静音|静音/);
+  assert.match(styles, /video-project-band\.is-audio/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);
   assert.match(component, /<video[^>]+preload="metadata"/);

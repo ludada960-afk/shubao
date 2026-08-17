@@ -522,3 +522,14 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 实施计划为 `docs/superpowers/plans/2026-08-17-ai-video-p2-audio-continuity.md`。聚焦测试、
   全量回归、静态检查和生产构建完成后，仍须通过唯一部署脚本、owner cohort 与 600 秒 Canary
   才能推进生产状态；当前受控 SSH key 仍不可读，因此不能声称已上线。
+
+## 2026-08-17 AI Video P2-06 Workbench Audio Surface
+
+- 视频项目工作台继续保持默认关闭，但已在本地暴露最小可用的连续性操作：仅显示已确认的
+  voice/music 音频版本；存在视觉时间线后可加入音轨；重复素材版本会被禁用；已有音轨可用
+  owner-scoped optimistic revision 切换静音。面板只展示已持久化的时长/音量元数据，不伪造
+  波形、转码、TTS 或供应商结果。
+- 证据：UI/model focused tests 与全量 `npm test` `1694/1694`、`npm run check`、6510
+  modules 生产构建、`git diff --check` 均通过；没有 provider、generation、usage、wallet、
+  billing 或付费视频调用。提交后仍需受控 SSH key 恢复，再经唯一部署入口和 600 秒 Canary，
+  目前不得报告为线上生效。

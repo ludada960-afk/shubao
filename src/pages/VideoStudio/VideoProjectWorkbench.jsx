@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Music2,
   Check,
   ChevronRight,
   CircleAlert,
@@ -15,6 +16,8 @@ import {
   Save,
   Sparkles,
   Trash2,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { createProject, listProjects } from '../../services/projects.js';
 import {
@@ -23,6 +26,7 @@ import {
   bindShotAssetVersion,
   createStoryboardShot,
   createWorkbenchAsset,
+  createVideoAudioTrack,
   getVideoWorkbench,
   importJobCandidate,
   importWorkbenchAssetVersion,
@@ -30,10 +34,14 @@ import {
   selectShotCandidate,
   upsertVideoProjectMemoryFact,
   updateStoryboardShot,
+  updateVideoAudioTrack,
 } from '../../services/videoWorkbench.js';
 import {
   approvedAssetVersions,
+  approvedAudioAssetVersions,
   availableUploadedAssets,
+  audioTrackDurationMs,
+  audioTrackForAsset,
   candidateJobsForProject,
   nextShotPosition,
   nextTimelinePosition,
@@ -339,6 +347,31 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }));
   }
 
+  function handleAddAudioTrack({ asset, version }) {
+    if (!asset?.id || !version?.id || audioTrackForAsset(workbench, asset.id, version.id)) return;
+    void runMutation(`audio:create:${asset.id}`, () => createVideoAudioTrack(projectId, {
+      kind: asset.kind,
+      assetId: asset.id,
+      assetVersionId: version.id,
+      startMs: 0,
+      durationMs: audioTrackDurationMs(workbench),
+      volume: 1,
+      muted: false,
+      language: asset.kind === 'voice' ? 'zh-CN' : '',
+      voiceAnchor: asset.kind === 'voice' ? asset.name : '',
+      beatMarkers: [],
+      subtitleCues: [],
+    }));
+  }
+
+  function handleToggleAudioTrack(track) {
+    if (!track?.id) return;
+    void runMutation(`audio:mute:${track.id}`, () => updateVideoAudioTrack(projectId, track.id, {
+      expectedRevision: track.revision,
+      patch: { muted: !track.muted },
+    }));
+  }
+
   function parseMemoryValue(text) {
     try {
       return JSON.parse(text);
@@ -385,6 +418,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const currentStageIndex = Math.max(0, STAGES.findIndex(stage => stage.id === stageSummary.stage));
   const totalDuration = (workbench?.timelineClips || []).filter(clip => clip.status === 'active')
     .reduce((sum, clip) => sum + Math.max(0, clip.trimEndMs - clip.trimStartMs), 0);
+  const audioSources = approvedAudioAssetVersions(workbench);
+  const audioTracks = Array.isArray(workbench?.audioTracks) ? workbench.audioTracks : [];
 
   return <section className="video-project-workbench" aria-label="视频项目工作台" aria-busy={loading || Boolean(busy)}>
     <header className="video-project-workbench-header">
@@ -521,6 +556,28 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         })}</div>
         {!workbench?.timelineClips?.length && <p className="video-project-inline-empty">选定镜头候选后，将它加入时间线；空时间线不会显示伪导出按钮。</p>}
         <footer className="video-project-delivery-status"><Film size={18} /><div><strong>{stageSummary.stage === 'ready' ? '基础时间线已就绪' : '继续完成上方步骤'}</strong><span>{stageSummary.stage === 'ready' ? '项目、素材版本、分镜、选定候选与时间线均已持久化。' : '交付只根据真实保存状态判断，不会提前标记完成。'}</span></div></footer>
+      </section>
+
+      <section className="video-project-band is-audio" aria-labelledby="video-audio-heading">
+        <header><div><small>06</small><span><h3 id="video-audio-heading">声音与字幕</h3><p>把已确认的声线或配乐放入项目，回放时保留连续性元数据。</p></span></div><b>{audioTracks.length} 条音轨</b></header>
+        <div className="video-project-audio-sources">
+          {audioSources.map(({ asset, version }) => {
+            const existing = audioTrackForAsset(workbench, asset.id, version.id);
+            return <article key={`${asset.id}:${version.id}`}>
+              <span><Music2 size={16} /></span><div><strong>{asset.name}</strong><small>{asset.kind === 'voice' ? '声线' : '配乐'} · V{version.sequence}</small></div>
+              <button type="button" disabled={Boolean(busy) || Boolean(existing) || !workbench?.timelineClips?.length} onClick={() => handleAddAudioTrack({ asset, version })}>{existing ? <><Check size={14} />已加入</> : '加入音轨'}</button>
+            </article>;
+          })}
+          {!audioSources.length && <p className="video-project-inline-empty">先导入并确认音频素材，确认后才能加入音轨。</p>}
+        </div>
+        <div className="video-project-audio-tracks">
+          {audioTracks.map(track => <article key={track.id}>
+            <span className="video-project-audio-track-icon">{track.muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</span>
+            <div><strong>{audioSources.find(({ asset }) => asset.id === track.assetId)?.asset.name || '项目音轨'}</strong><small>{track.kind === 'voice' ? '声线' : '配乐'} · {(track.durationMs / 1000).toFixed(1)} 秒 · 音量 {Math.round(track.volume * 100)}%</small></div>
+            <button type="button" className="video-project-audio-toggle" disabled={Boolean(busy)} onClick={() => handleToggleAudioTrack(track)}>{track.muted ? '取消静音' : '静音'}</button>
+          </article>)}
+          {!audioTracks.length && <p className="video-project-inline-empty">时间线加入镜头后，可从上方已确认素材中选择声音。</p>}
+        </div>
       </section>
     </>}
   </section>;

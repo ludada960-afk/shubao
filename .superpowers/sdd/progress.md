@@ -2265,3 +2265,12 @@
   controlled SSH key is unreadable, so this slice must not be described as
   shipped. Runtime folders `.npm-cache/`, `.qa-video/`,
   `server/video-assets/`, and `server/video-upload-staging/` remain excluded.
+
+- 2026-08-17 AI-video P2-06 workbench surface is complete locally. The default-off video project
+  workbench lists approved voice/music versions, prevents duplicate bindings, enables adding an
+  audio track after a visual clip exists, and exposes an optimistic mute toggle while retaining
+  persisted duration/volume metadata. UI/model focused coverage and the full `npm test` suite
+  passed `1694/1694`; `npm run check`, the 6510-module production build, and `git diff --check`
+  passed. This remains metadata-only: no waveform, transcoding, TTS, provider, usage, wallet,
+  billing, or paid generation call occurred. The slice is not deployed because the controlled SSH
+  key is unreadable; the runtime folders listed above remain excluded.

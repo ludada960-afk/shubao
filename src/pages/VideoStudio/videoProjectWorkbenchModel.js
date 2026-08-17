@@ -46,6 +46,24 @@ export function approvedAssetVersions(workbench) {
   });
 }
 
+export function approvedAudioAssetVersions(workbench) {
+  return approvedAssetVersions(workbench).filter(({ asset, version }) =>
+    (asset?.kind === 'voice' || asset?.kind === 'music')
+    && String(version?.mimeType || '').toLowerCase().startsWith('audio/'));
+}
+
+export function audioTrackForAsset(workbench, assetId, assetVersionId) {
+  const tracks = Array.isArray(workbench?.audioTracks) ? workbench.audioTracks : [];
+  return tracks.find(track => track?.assetId === assetId && track?.assetVersionId === assetVersionId) || null;
+}
+
+export function audioTrackDurationMs(workbench) {
+  const clips = Array.isArray(workbench?.timelineClips) ? workbench.timelineClips : [];
+  const duration = clips.filter(clip => clip?.status === 'active').reduce((max, clip) =>
+    Math.max(max, Number(clip?.trimEndMs) || 0), 0);
+  return Math.min(120000, Math.max(500, duration || 500));
+}
+
 function nextPosition(items = []) {
   const positions = (Array.isArray(items) ? items : [])
     .map(item => Number(item?.position))
