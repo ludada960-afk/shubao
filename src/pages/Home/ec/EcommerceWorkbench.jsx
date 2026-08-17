@@ -25,7 +25,7 @@ function AbilitySelectorFan({ recipeId }) {
     <span className={`ec-ability-selector-fan ${assets.length === 1 ? 'is-single' : ''}`} aria-hidden="true">
       {assets.map((asset, index) => (
         <span key={asset.id} className={`ec-ability-selector-fan-card fan-card-${index}`} style={{ '--case-ratio': asset.ratio.replace(':', ' / ') }}>
-          <ResponsiveImage src={asset.src} variant="thumb" ratio={asset.ratio} alt="" imgStyle={{ objectFit: 'cover' }} />
+          <ResponsiveImage src={asset.src} variant="thumb" ratio={asset.ratio} alt="" imgStyle={{ objectFit: assets.length === 1 ? 'contain' : 'cover' }} />
         </span>
       ))}
     </span>
@@ -269,7 +269,7 @@ export default function EcommerceWorkbench({
             {ECOMMERCE_ABILITY_RECIPES.map(recipe => {
               const selected = recipe.id === abilityRecipeId;
               return (
-                <button type="button" role="tab" key={recipe.id} className={`ec-ability-selector-option ${selected ? 'is-selected' : ''}`} aria-selected={selected} onClick={() => selectRecipe(recipe.id)}>
+                <button type="button" role="tab" key={recipe.id} className={`ec-ability-selector-option ${recipe.id === 'anything_tryon' ? 'is-wide-showcase' : ''} ${selected ? 'is-selected' : ''}`} aria-selected={selected} onClick={() => selectRecipe(recipe.id)}>
                   <AbilitySelectorFan recipeId={recipe.id} />
                   <span className="ec-ability-selector-copy"><strong>{recipe.label}</strong><span>{ABILITY_RESULT_COPY[recipe.id]}</span></span>
                   {selected && <Check size={16} className="ec-ability-selector-check" />}

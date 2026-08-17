@@ -3013,19 +3013,27 @@
 
 .ec-ability-selector-fan.is-single {
   width: 150px;
+  height: 84px;
   flex-basis: 150px;
 }
 
 .ec-ability-selector-fan.is-single .ec-ability-selector-fan-card {
-  left: 4px;
-  width: 142px;
-  max-height: 44px;
-  transform: translateY(-50%) rotate(-2deg);
+  top: 50%;
+  left: 0;
+  width: 150px;
+  height: 84px;
+  max-height: none;
+  aspect-ratio: 16 / 9;
+  transform: translateY(-50%);
 }
 
 .ec-ability-selector-fan.is-single .responsive-image,
 .ec-ability-selector-fan.is-single img {
-  object-fit: cover;
+  object-fit: contain !important;
+}
+
+.ec-ability-selector-option.is-wide-showcase {
+  min-height: 102px;
 }
 
 .ec-product-suite-showcase,
@@ -3102,6 +3110,9 @@
   .ec-product-suite-results .result-2 { width: 118px; }
   .ec-product-suite-results .result-3 { left: 102px; width: 70px; }
   .ec-product-suite-results .result-4 { right: 43px; width: 65px; }
+  .ec-ability-selector-fan.is-single { width: 108px; height: 61px; flex-basis: 108px; }
+  .ec-ability-selector-fan.is-single .ec-ability-selector-fan-card { width: 108px; height: 61px; }
+  .ec-ability-selector-option.is-wide-showcase { min-height: 78px; }
 }
 
 @media (max-width: 640px) {
@@ -3117,6 +3128,9 @@
   .ec-product-suite-results .result-3 { left: 82px; width: 58px; }
   .ec-product-suite-results .result-4 { right: 32px; width: 54px; }
   .ec-tryon-showcase-visual.is-angles .ec-tryon-result-card { width: 72px; }
+  .ec-ability-selector-fan.is-single { width: 132px; height: 74px; flex-basis: 132px; }
+  .ec-ability-selector-fan.is-single .ec-ability-selector-fan-card { width: 132px; height: 74px; }
+  .ec-ability-selector-option.is-wide-showcase { min-height: 90px; }
 }
 
 /* Final production showcase media. */

@@ -92,8 +92,12 @@ test('ability selector uses three rich product previews and one wide try-on fan'
   assert.match(workbench, /asset\.selectorPreview === true/);
   assert.match(workbench, /assets\.length === 1 \? 'is-single' : ''/);
   assert.doesNotMatch(workbench, /ability-product-suite-wide\.webp|ability-tryon-wide\.webp/);
+  assert.match(workbench, /assets\.length === 1 \? 'contain' : 'cover'/);
+  assert.match(workbench, /recipe\.id === 'anything_tryon' \? 'is-wide-showcase' : ''/);
   assert.match(styles, /\.ec-ability-selector-option\s*\{[^}]*min-height:\s*58px/);
   assert.match(styles, /\.ec-ability-selector-fan\.is-single/);
+  assert.match(styles, /\.ec-ability-selector-fan\.is-single img\s*\{[^}]*object-fit:\s*contain !important/);
+  assert.match(styles, /\.ec-ability-selector-option\.is-wide-showcase\s*\{[^}]*min-height:\s*102px/);
 });
 
 test('ecommerce showcases use one continuous surface without nested panel backgrounds', () => {
