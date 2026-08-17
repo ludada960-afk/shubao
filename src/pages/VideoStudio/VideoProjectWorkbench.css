@@ -20,6 +20,9 @@
 .video-project-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .video-project-replay-save,.video-project-replay-status button { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d8d1ca; border-radius: 6px; color: #4a3cc4; background: #fff; font-size: 11px; font-weight: 750; }
 .video-project-replay-save:disabled,.video-project-replay-status button:disabled { cursor: not-allowed; opacity: .52; }
+.video-project-replay-picker { min-height: 34px; padding: 3px 8px 3px 10px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid #d8d1ca; border-radius: 6px; color: #716876; background: #fff; font-size: 10px; font-weight: 700; }
+.video-project-replay-picker select { max-width: 150px; border: 0; outline: 0; color: #443a70; background: transparent; font-size: 10px; font-weight: 750; }
+.video-project-replay-picker select:disabled { cursor: not-allowed; opacity: .55; }
 .video-project-replay-status { max-width: 280px; padding: 5px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid #cde7d8; border-radius: 7px; color: #32734d; background: #f2fbf5; font-size: 10px; }
 .video-project-replay-status span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .video-project-replay-status button { min-height: 26px; padding: 0 7px; border-color: #b9dec8; color: #23643d; background: #fff; font-size: 10px; }

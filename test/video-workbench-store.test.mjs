@@ -218,9 +218,17 @@ test('replay manifests are immutable, deduplicated and owner scoped', t => {
   assert.equal(duplicate.id, firstManifest.id);
   assert.equal(store.getReplayManifest({ ownerEmail: OWNER, projectId: project.id, manifestId: firstManifest.id }).manifestHash,
     firstManifest.manifestHash);
+  const secondProject = projectStore.createProject({ ownerEmail: OWNER, kind: 'video', title: '另一个项目' });
+  const secondManifest = store.createReplayManifest({ ownerEmail: OWNER, projectId: secondProject.id,
+    skillId: 'commerce-trailer', skillVersion: 2, modelCatalogSnapshot: { seedance: '2.5' },
+    rightsConfirmations: [] });
+  assert.deepEqual(store.listReplayManifests({ ownerEmail: OWNER, projectId: project.id }), [firstManifest]);
+  assert.deepEqual(store.listReplayManifests({ ownerEmail: OWNER, projectId: secondProject.id }), [secondManifest]);
+  assert.throws(() => store.listReplayManifests({ ownerEmail: 'other@example.com', projectId: project.id }),
+    error => error.code === 'PROJECT_NOT_FOUND');
   assert.throws(() => store.getReplayManifest({ ownerEmail: 'other@example.com', projectId: project.id,
     manifestId: firstManifest.id }), error => error.code === 'PROJECT_NOT_FOUND');
-  const row = db.prepare('SELECT COUNT(*) AS count FROM video_replay_manifests').get();
+  const row = db.prepare('SELECT COUNT(*) AS count FROM video_replay_manifests WHERE project_id = ?').get(project.id);
   assert.equal(row.count, 1);
 });
 

@@ -33,6 +33,7 @@ import {
   createVideoReplayManifest,
   cloneVideoReplayManifest,
   getVideoReplayManifest,
+  listVideoReplayManifests,
   getVideoWorkbench,
   importJobCandidate,
   importWorkbenchAssetVersion,
@@ -141,12 +142,14 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [shotEdits, setShotEdits] = useState({});
   const [clipDrafts, setClipDrafts] = useState({});
   const [replayManifest, setReplayManifest] = useState(null);
+  const [replayManifests, setReplayManifests] = useState([]);
   const [replayManifestPreview, setReplayManifestPreview] = useState(null);
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
   const selectedProjectRef = useRef('');
   const requestSequenceRef = useRef(0);
+  const replayRequestSequenceRef = useRef(0);
 
   useEffect(() => {
     onProjectChange?.(projectId || '');
@@ -182,6 +185,28 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }
   }, []);
 
+  const loadReplayManifests = useCallback(async id => {
+    const requestSequence = ++replayRequestSequenceRef.current;
+    if (!id) {
+      setReplayManifests([]);
+      setReplayManifest(null);
+      setReplayManifestPreview(null);
+      return;
+    }
+    try {
+      const manifests = await listVideoReplayManifests(id, { limit: 20 });
+      if (requestSequence !== replayRequestSequenceRef.current || selectedProjectRef.current !== id) return;
+      setReplayManifests(manifests);
+      setReplayManifest(current => manifests.find(item => item.id === current?.id) || manifests[0] || null);
+    } catch (loadError) {
+      if (requestSequence !== replayRequestSequenceRef.current || selectedProjectRef.current !== id) return;
+      setReplayManifests([]);
+      setReplayManifest(null);
+      setReplayManifestPreview(null);
+      setError(displayError(loadError));
+    }
+  }, []);
+
   const loadProjects = useCallback(async preferredId => {
     setLoading(true);
     try {
@@ -192,14 +217,17 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         .find(id => id && next.some(project => project.id === id)) || '';
       selectedProjectRef.current = target;
       setProjectId(target);
-      if (!target) setWorkbench(null);
+      if (!target) {
+        setWorkbench(null);
+        void loadReplayManifests('');
+      }
       setError('');
     } catch (loadError) {
       setError(displayError(loadError));
     } finally {
       setLoading(false);
     }
-  }, [jobs]);
+  }, [jobs, loadReplayManifests]);
 
   useEffect(() => {
     if (!enabled || !logged) return undefined;
@@ -220,9 +248,14 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
 
   useEffect(() => {
     selectedProjectRef.current = projectId;
-    if (projectId) void loadWorkbench(projectId);
-    else setWorkbench(null);
-  }, [loadWorkbench, projectId]);
+    if (projectId) {
+      void loadWorkbench(projectId);
+      void loadReplayManifests(projectId);
+    } else {
+      setWorkbench(null);
+      void loadReplayManifests('');
+    }
+  }, [loadReplayManifests, loadWorkbench, projectId]);
 
   const runMutation = useCallback(async (key, action) => {
     if (!projectId || busy) return;
@@ -255,6 +288,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       });
       setReplayManifestPreview(null);
       setReplayManifest(manifest);
+      setReplayManifests(current => [manifest, ...current.filter(item => item.id !== manifest.id)]);
     });
   }
 
@@ -306,6 +340,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     setProjectId(nextId);
     setWorkbench(null);
     setReplayManifest(null);
+    setReplayManifests([]);
     setReplayManifestPreview(null);
     setError('');
   }
@@ -538,6 +573,18 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <button type="button" className="video-project-replay-save" disabled={Boolean(busy) || loading || !workbench?.assets?.length} onClick={handleSaveReplayManifest}>
           {busy === 'replay:save' ? <LoaderCircle className="is-spinning" size={15} /> : <Save size={15} />}保存创作配方
         </button>
+        {replayManifests.length > 0 && <label className="video-project-replay-picker">
+          <span>已保存配方</span>
+          <select aria-label="选择已保存配方" value={replayManifest?.id || ''} disabled={Boolean(busy) || loading} onChange={event => {
+            const next = replayManifests.find(item => item.id === event.target.value) || null;
+            setReplayManifest(next);
+            setReplayManifestPreview(null);
+          }}>
+            {replayManifests.map((manifest, index) => <option key={manifest.id} value={manifest.id}>
+              {manifest.skill?.id || '视频工作流'} · {manifest.manifestHash?.slice(0, 8) || `配方 ${index + 1}`}
+            </option>)}
+          </select>
+        </label>}
         {replayManifest?.manifestHash && <div className="video-project-replay-status" role="status">
           <span>配方已保存 · {replayManifest.manifestHash.slice(0, 10)}</span>
           <button type="button" disabled={Boolean(busy)} onClick={handleOpenReplayManifest}>{busy === 'replay:read' ? <LoaderCircle className="is-spinning" size={14} /> : <Eye size={14} />}查看创作过程</button>

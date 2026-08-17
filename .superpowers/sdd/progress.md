@@ -2344,3 +2344,15 @@
   `Permission denied`; it then refused an unfenced rollback after the lock was lost.
   No remote archive, release switch, restart, rollback or Canary ran. Keep the replay
   process preview local-only until controlled deployment credentials are restored.
+
+- 2026-08-17 AI-video replay manifest persistence is complete locally. Added an
+  owner/project-scoped collection endpoint and client, bounded to the newest 50
+  recipes, plus a compact workbench picker that reloads after refresh/project
+  switch and clears stale preview state before selecting another recipe. Saving
+  a new manifest prepends it to the in-memory list; historical entries retain
+  their skill id and short hash. Focused client/store/route/UI coverage passed
+  `49/49`; full `npm test` passed `1696/1696`; `npm run check`, the 6510-module
+  production build and `git diff --check` passed. The implementation is
+  metadata-only and made no provider, generation, usage, wallet or billing call.
+  Runtime folders `.npm-cache/`, `.qa-video/`, `server/video-assets/` and
+  `server/video-upload-staging/` remain excluded.

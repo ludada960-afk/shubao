@@ -309,6 +309,13 @@ export function mountVideoWorkbenchRoutes(app, {
     }), { status: 201, key: 'manifest' },
   ));
 
+  app.get('/api/video/projects/:projectId/workbench/replay-manifests', (req, res) => dispatch(
+    req, res, 'replay-manifest.list', request => store.listReplayManifests({
+      ...request,
+      limit: req.query?.limit,
+    }), { key: 'manifests' },
+  ));
+
   app.get('/api/video/projects/:projectId/workbench/replay-manifests/:manifestId', (req, res) => dispatch(
     req, res, 'replay-manifest.read', request => store.getReplayManifest({
       ...request,

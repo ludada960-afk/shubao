@@ -52,6 +52,7 @@ test('project workbench exposes real persisted stages without provider controls 
     'createVideoAudioTrack',
     'updateVideoAudioTrack',
     'createVideoReplayManifest',
+    'listVideoReplayManifests',
     'getVideoReplayManifest',
     'cloneVideoReplayManifest',
   ]) {
@@ -95,6 +96,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /终点/);
   assert.match(component, /保存创作配方/);
   assert.match(component, /查看创作过程/);
+  assert.match(component, /已保存配方/);
+  assert.match(component, /replayManifests/);
   assert.match(component, /创作过程预览/);
   assert.match(component, /replayManifestPreview\.shots/);
   assert.match(component, /关闭过程预览/);

@@ -937,6 +937,18 @@ export function createVideoWorkbenchStore({
       return replayManifestFromRow(row);
     },
 
+    listReplayManifests({ ownerEmail, projectId, limit = 20 }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const requestedLimit = Number(limit);
+      const boundedLimit = Number.isFinite(requestedLimit)
+        ? Math.max(1, Math.min(50, Math.floor(requestedLimit)))
+        : 20;
+      return db.prepare(`SELECT * FROM video_replay_manifests
+        WHERE owner_email = ? AND project_id = ?
+        ORDER BY created_at DESC, id DESC LIMIT ?`).all(owner, project.id, boundedLimit)
+        .map(replayManifestFromRow);
+    },
+
     cloneReplayManifest({ ownerEmail, projectId, manifestId, idempotencyKey, title = '' }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       const key = clean(idempotencyKey, 200);

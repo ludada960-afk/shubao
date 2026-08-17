@@ -236,6 +236,12 @@ test('owner can create and read an immutable replay manifest while tester remain
   });
   assert.equal(read.statusCode, 200);
   assert.equal(read.body.manifest.id, id);
+  const listed = await invoke(app, 'GET', path, {
+    headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id }, query: { limit: 10 },
+  });
+  assert.equal(listed.statusCode, 200);
+  assert.deepEqual(listed.body.manifests.map(manifest => manifest.id), [id]);
+  assert.equal(listed.body.manifests[0].assets[0].versions[0].playbackUrl, undefined);
   const forbiddenWriteTables = db.prepare(`SELECT name FROM sqlite_master
     WHERE type = 'table' AND name IN ('video_jobs', 'usage_ledger', 'wallet_transactions') ORDER BY name`).all();
   assert.deepEqual(forbiddenWriteTables, []);
@@ -243,6 +249,10 @@ test('owner can create and read an immutable replay manifest while tester remain
     headers: signedHeaders(sessionTokens, 'tester@example.com'), params: { projectId: project.id, manifestId: id },
   });
   assert.equal(denied.statusCode, 404);
+  const deniedList = await invoke(app, 'GET', path, {
+    headers: signedHeaders(sessionTokens, 'tester@example.com'), params: { projectId: project.id },
+  });
+  assert.equal(deniedList.statusCode, 404);
 });
 
 test('owner can clone a replay manifest with an idempotency key and no billing/provider mutation', async t => {

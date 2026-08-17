@@ -226,6 +226,17 @@ export async function getVideoReplayManifest(projectId, manifestId) {
   return requireValue(response, 'manifest', '视频创作配方暂时不可用，请稍后重试');
 }
 
+export async function listVideoReplayManifests(projectId, { limit } = {}) {
+  const suffix = limit == null ? '' : `?limit=${encodeURIComponent(limit)}`;
+  const response = await requestJson(
+    `${replayManifestBase(projectId)}${suffix}`,
+    {},
+    '暂时无法读取视频创作配方',
+  );
+  if (!Array.isArray(response?.manifests)) throw new Error('视频创作配方暂时不可用，请稍后重试');
+  return response.manifests;
+}
+
 export async function cloneVideoReplayManifest(projectId, manifestId, {
   title = '',
   idempotencyKey: requestedKey,
