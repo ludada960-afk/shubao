@@ -9,6 +9,7 @@ const CANARY_OWNER_EMAIL = '867550189@qq.com';
 const DEFAULT_FIXTURE_PATH = fileURLToPath(new URL('../test_image.png', import.meta.url));
 const TERMINAL_STATUSES = new Set(['completed', 'needs_review', 'failed', 'cancelled']);
 const DELIVERY_GROUPS = new Set(['白底图', '主图', '详情图', 'SKU', '素材']);
+const CANARY_GENERATION_UNITS = 3_000;
 
 const wait = delay => new Promise(resolve => setTimeout(resolve, delay));
 
@@ -20,6 +21,23 @@ function requiredString(value, label) {
 
 function rootUrl(baseUrl) {
   return requiredString(baseUrl, 'baseUrl').replace(/\/+$/, '');
+}
+
+export function assertCanaryWalletCapacity(balanceResponse, requiredUnits = CANARY_GENERATION_UNITS) {
+  if (!Number.isSafeInteger(requiredUnits) || requiredUnits <= 0) {
+    throw new TypeError('requiredUnits must be a positive safe integer');
+  }
+  const wallet = balanceResponse?.balances?.ec_points;
+  if (!wallet || wallet.unlimited !== false) {
+    throw new Error('Canary owner does not use the real ec_points wallet');
+  }
+  if (!Number.isSafeInteger(wallet.availableUnits) || wallet.availableUnits < 0) {
+    throw new Error('Canary owner ec_points balance has an invalid numeric shape');
+  }
+  if (wallet.availableUnits < requiredUnits) {
+    throw new Error(`Canary owner ec_points balance is ${wallet.availableUnits}; ${requiredUnits} units are required before ecommerce verification`);
+  }
+  return wallet;
 }
 
 function safeAsset(asset, label) {
@@ -332,6 +350,12 @@ export async function verifyProductionEcommerce({
     throw new Error('Production ecommerce verification must use the main owner account');
   }
 
+  // Fail before uploading assets or running multimodal analysis when the
+  // authenticated canary wallet cannot fund the exact generation contract.
+  // This prevents repeated deploy retries from creating known failed jobs.
+  const balance = await request(`${root}/api/billing/balance`, { headers });
+  assertCanaryWalletCapacity(balance);
+
   const [product, reference] = await Promise.all([
     uploadCanaryAsset({ root, headers, role: 'product', fixturePath, request }),
     uploadCanaryAsset({ root, headers, role: 'reference', fixturePath, request }),
@@ -351,7 +375,7 @@ export async function verifyProductionEcommerce({
     headers: { ...headers, 'content-type': 'application/json' },
     body: JSON.stringify({ sku: 'ec_image_2k', quantity: 3 }),
   });
-  if (quote?.quote?.totalUnits !== 3000 || !quote.quote.quoteId) {
+  if (quote?.quote?.totalUnits !== CANARY_GENERATION_UNITS || !quote.quote.quoteId) {
     throw new Error('Ecommerce production canary quote is invalid');
   }
   const started = await request(`${root}/api/generate-ecommerce`, {
