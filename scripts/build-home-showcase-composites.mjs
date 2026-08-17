@@ -42,10 +42,10 @@ export const TRYON_LAYOUT_PLANS = Object.freeze({
     visualBounds: Object.freeze({ left: 34, top: 74, right: 1578, bottom: 826 }),
     product: Object.freeze({ left: 40, top: 205, width: 320, height: 480, rotation: -3, fit: 'contain' }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 680, top: 150, width: 290, height: 680, rotation: -8, fit: 'contain' }),
-      Object.freeze({ left: 875, top: 115, width: 290, height: 680, rotation: -3, fit: 'contain' }),
-      Object.freeze({ left: 1070, top: 115, width: 290, height: 680, rotation: 3, fit: 'contain' }),
-      Object.freeze({ left: 1260, top: 150, width: 290, height: 680, rotation: 8, fit: 'contain' }),
+      Object.freeze({ left: 680, top: 125, width: 300, height: 550, rotation: -8, fit: 'contain' }),
+      Object.freeze({ left: 875, top: 90, width: 300, height: 550, rotation: -3, fit: 'contain' }),
+      Object.freeze({ left: 1070, top: 90, width: 300, height: 550, rotation: 3, fit: 'contain' }),
+      Object.freeze({ left: 1260, top: 125, width: 300, height: 550, rotation: 8, fit: 'contain' }),
     ]),
   }),
   'tryon-reference-workflow': Object.freeze({
@@ -129,11 +129,10 @@ function multiAngleDecoration() {
   return Buffer.from(`<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#4b3929" flood-opacity=".16"/></filter>
-      <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#d0c7bd"/><stop offset="1" stop-color="#958679"/></linearGradient>
+      <linearGradient id="arrow" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#d1c8be"/><stop offset="1" stop-color="#9b8c7d"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
-    <path d="M382 470 C448 425 525 368 604 316" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
-    <path d="M582 294 L638 313 L610 359 Z" fill="#958679" opacity=".92"/>
+    <path d="M392 520 C452 492 528 438 588 370 C608 347 624 324 635 300 L605 309 L676 271 L648 344 L642 315 C626 352 601 386 570 419 C508 483 447 527 400 555 C394 559 388 556 386 550 C384 541 386 529 392 520 Z" fill="url(#arrow)" opacity=".96"/>
     <ellipse cx="820" cy="836" rx="690" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
