@@ -2445,3 +2445,14 @@
   `npm run check`, the 6510-module production build, and `git diff --check`
   passed. No provider or paid generation was triggered. Deployment remains
   blocked by the unreadable controlled SSH identity documented above.
+
+- 2026-08-17 release gate for candidate `fc0897e` was attempted through the
+  only supported `scripts/deploy-production.ps1` entry point. Full regression
+  (`1709/1709`), the 6510-module production build, build check, no-paid-
+  generation probe and gateway/model probes all passed. Deployment failed
+  closed before creating the remote runtime helper because the controlled SSH
+  identity `C:\\Users\\SHEJI\\.ssh\\shubao_deploy_ed25519` is unreadable and
+  SSH returned `Permission denied`. The script refused an unfenced rollback;
+  no remote archive, release switch, restart or 600-second Canary ran.
+  Candidate `fc0897e` remains local-only until the controlled deployment
+  credential is restored.
