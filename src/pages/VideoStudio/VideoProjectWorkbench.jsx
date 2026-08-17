@@ -39,6 +39,8 @@ import {
   getVideoWorkbench,
   getVideoWorkbenchGenerationDraft,
   getVideoWorkbenchPlan,
+  previewVideoSkillRunExecution,
+  previewVideoSkillTemplate,
   importJobCandidate,
   importWorkbenchAssetVersion,
   removeVideoProjectMemoryFact,
@@ -150,6 +152,10 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [replayManifestPreview, setReplayManifestPreview] = useState(null);
   const [workbenchPlan, setWorkbenchPlan] = useState(null);
   const [generationDraft, setGenerationDraft] = useState(null);
+  const [skillRun, setSkillRun] = useState(null);
+  const [skillRunExecutionPreview, setSkillRunExecutionPreview] = useState(null);
+  const [skillTemplateId, setSkillTemplateId] = useState('product-ad-v1');
+  const [skillPrompt, setSkillPrompt] = useState('');
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
@@ -162,6 +168,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     onProjectChange?.(projectId || '');
     onPlanApprovalChange?.('');
     setGenerationDraft(null);
+    setSkillRun(null);
+    setSkillRunExecutionPreview(null);
   }, [onPlanApprovalChange, onProjectChange, projectId]);
 
   useEffect(() => {
@@ -182,6 +190,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setWorkbench(null);
       setWorkbenchPlan(null);
       setGenerationDraft(null);
+      setSkillRun(null);
+      setSkillRunExecutionPreview(null);
       return;
     }
     const requestSequence = ++requestSequenceRef.current;
@@ -230,6 +240,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     planRequestSequenceRef.current += 1;
     setWorkbenchPlan(null);
     setGenerationDraft(null);
+    setSkillRun(null);
+    setSkillRunExecutionPreview(null);
     setLoading(true);
     try {
       const next = videoProjects(await listProjects());
@@ -243,6 +255,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         setWorkbench(null);
         setWorkbenchPlan(null);
         setGenerationDraft(null);
+        setSkillRun(null);
+        setSkillRunExecutionPreview(null);
         void loadReplayManifests('');
       }
       setError('');
@@ -279,6 +293,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setWorkbench(null);
       setWorkbenchPlan(null);
       setGenerationDraft(null);
+      setSkillRun(null);
+      setSkillRunExecutionPreview(null);
       void loadReplayManifests('');
     }
   }, [loadReplayManifests, loadWorkbench, projectId]);
@@ -291,6 +307,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       await action();
       setWorkbenchPlan(null);
       setGenerationDraft(null);
+      setSkillRun(null);
+      setSkillRunExecutionPreview(null);
       await loadWorkbench(projectId, { quiet: true });
     } catch (mutationError) {
       setError(displayError(mutationError));
@@ -381,6 +399,38 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setBusy('');
     }
   }, [busy, projectId, workbenchPlan]);
+
+  const handlePreviewSkillRun = useCallback(async () => {
+    if (!projectId || busy) return;
+    setBusy('skill:preview');
+    setError('');
+    setSkillRun(null);
+    setSkillRunExecutionPreview(null);
+    try {
+      const prompt = skillPrompt.trim() || `${workbench?.project?.title || '视频项目'}：制作一支节奏清晰、适合发布的短片`;
+      const input = { prompt };
+      if (skillTemplateId === 'reference-video-reconstruction-v1') {
+        const videoAsset = (workbench?.assets || []).find(asset => (asset.versions || []).some(version => String(version.mimeType || '').startsWith('video/')));
+        const imageAssets = (workbench?.assets || []).filter(asset => (asset.versions || []).some(version => String(version.mimeType || '').startsWith('image/'))).slice(0, 6);
+        if (!videoAsset || imageAssets.length === 0) throw new Error('参考视频重构需要至少一个视频素材和一个替换图片素材。');
+        input.referenceVideo = { assetId: videoAsset.id };
+        input.replacementImages = imageAssets.map(asset => ({ assetId: asset.id }));
+      } else {
+        const imageAssets = (workbench?.assets || []).filter(asset => (asset.versions || []).some(version => String(version.mimeType || '').startsWith('image/'))).slice(0, 6);
+        if (imageAssets.length) input.images = imageAssets.map(asset => ({ assetId: asset.id }));
+      }
+      const run = await previewVideoSkillTemplate(projectId, skillTemplateId, input, { idempotencyKey: keyFor('skill-run-preview') });
+      const executionPreview = await previewVideoSkillRunExecution(projectId, run.id, {});
+      setSkillRun(run);
+      setSkillRunExecutionPreview(executionPreview);
+    } catch (previewError) {
+      setSkillRun(null);
+      setSkillRunExecutionPreview(null);
+      setError(displayError(previewError));
+    } finally {
+      setBusy('');
+    }
+  }, [busy, projectId, skillPrompt, skillTemplateId, workbench]);
 
   function handleSaveReplayManifest() {
     if (!workbench?.project?.id || busy) return;
@@ -775,6 +825,38 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <button type="button" className="video-project-plan-approve" disabled={Boolean(busy) || Boolean(generationDraft)} onClick={handleCompileGenerationDraft}>
           {busy === 'plan:draft' ? <LoaderCircle className="is-spinning" size={13} /> : <Layers3 size={13} />} {generationDraft ? '草稿已编译' : '编译逐镜头草稿'}
         </button>
+      </div>}
+    </section>}
+
+    {projectId && <section className="video-project-skill-preview" aria-labelledby="video-skill-preview-heading">
+      <header>
+        <div><small>工作流预览</small><h3 id="video-skill-preview-heading">先看清步骤，再决定是否生成</h3><p>这里只创建可回看的 SkillRun 预览并检查依赖，不会调用供应商、不扣积分。</p></div>
+        {skillRun && <button type="button" disabled={Boolean(busy)} onClick={() => { setSkillRun(null); setSkillRunExecutionPreview(null); }}>清除预览</button>}
+      </header>
+      <div className="video-project-skill-preview-form">
+        <label><span>工作流</span><select value={skillTemplateId} disabled={Boolean(busy)} onChange={event => { setSkillTemplateId(event.target.value); setSkillRun(null); setSkillRunExecutionPreview(null); }}>
+          <option value="product-ad-v1">产品广告短片</option>
+          <option value="reference-video-reconstruction-v1">参考视频重构</option>
+        </select></label>
+        <label className="is-prompt"><span>创作目标（可选）</span><input value={skillPrompt} maxLength="1200" disabled={Boolean(busy)} placeholder="例如：为新品耳机制作 15 秒发布短片" onChange={event => setSkillPrompt(event.target.value)} /></label>
+        <button type="button" className="video-project-skill-preview-button" disabled={Boolean(busy) || !workbench} onClick={handlePreviewSkillRun}>{busy === 'skill:preview' ? <LoaderCircle className="is-spinning" size={14} /> : <Sparkles size={14} />} {skillRun ? '重新预览' : '预览工作流'}</button>
+      </div>
+      {skillRun && <div className="video-project-skill-preview-result" role="status">
+        <div className="video-project-skill-summary">
+          <div><span>运行状态</span><strong>{skillRunExecutionPreview?.status === 'ready' ? <><Check size={13} />可执行</> : skillRunExecutionPreview?.status === 'blocked' ? <><CircleAlert size={13} />等待条件</> : '预览中'}</strong></div>
+          <div><span>步骤</span><strong>{skillRun.plan?.steps?.length || 0} 个</strong></div>
+          <div><span>已完成</span><strong>{skillRunExecutionPreview?.completedStepIds?.length || 0} 个</strong></div>
+          <div><span>预估积分</span><strong>{Number(skillRunExecutionPreview?.estimatedPoints || 0)}（预览）</strong></div>
+        </div>
+        <ol className="video-project-skill-steps" aria-label="SkillRun 步骤">
+          {(skillRun.plan?.steps || []).map((step, index) => {
+            const completed = skillRunExecutionPreview?.completedStepIds?.includes(step.id);
+            const ready = skillRunExecutionPreview?.readyStepIds?.includes(step.id);
+            const guarded = skillRunExecutionPreview?.guardBlockedStepIds?.includes(step.id);
+            return <li key={step.id} className={completed ? 'is-complete' : ready ? 'is-ready' : guarded ? 'is-guarded' : ''}><span>{completed ? <Check size={13} /> : String(index + 1).padStart(2, '0')}</span><div><strong>{step.label}</strong><small>{completed ? '已完成' : guarded ? '等待确认条件' : ready ? '可执行' : step.requires?.length ? `等待：${step.requires.join('、')}` : '等待前置步骤'}</small></div></li>;
+          })}
+        </ol>
+        <footer>运行 ID <code>{skillRun.id}</code> · 修订 {skillRun.revision} · 状态由服务端事件持久化。</footer>
       </div>}
     </section>}
 

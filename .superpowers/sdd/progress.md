@@ -2509,3 +2509,14 @@
   production build, and `git diff --check` passed. No provider or paid
   generation was triggered; this remains local-only until the controlled SSH
   deployment identity is restored.
+
+- 2026-08-17 the video project workbench now exposes a provider-free SkillRun
+  workflow preview. Users can choose the registered product-ad or reference-
+  video reconstruction template, provide an optional creative goal, and
+  preview the server-persisted plan, step dependencies, completed/ready/
+  guarded states, and run revision before any generation decision. The
+  reference-video path requires real persisted video and replacement-image
+  assets and fails closed when they are absent; it never fabricates media
+  inputs. Focused UI coverage passed `2/2`; full `npm test` passed
+  `1717/1717`; `npm run check`, the 6510-module production build, and
+  `git diff --check` passed. No provider or paid generation was triggered.

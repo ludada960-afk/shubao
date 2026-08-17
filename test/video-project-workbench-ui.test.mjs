@@ -41,6 +41,8 @@ test('project workbench exposes real persisted stages without provider controls 
     'listProjects',
     'getVideoWorkbench',
     'getVideoWorkbenchPlan',
+    'previewVideoSkillTemplate',
+    'previewVideoSkillRunExecution',
     'createVideoWorkbenchGenerationDraft',
     'createWorkbenchAsset',
     'importWorkbenchAssetVersion',
@@ -112,6 +114,12 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /onPlanApprovalChange/);
   assert.match(component, /workbenchPlan\?\.approval\?\.planHash/);
   assert.match(component, /视频生成计划/);
+  assert.match(component, /先看清步骤，再决定是否生成/);
+  assert.match(component, /预览工作流/);
+  assert.match(component, /不会调用供应商、不扣积分/);
+  assert.match(component, /参考视频重构需要至少一个视频素材和一个替换图片素材/);
+  assert.match(component, /skillRunExecutionPreview/);
+  assert.match(component, /skillRun\.plan\?\.steps/);
   assert.match(component, /不会生成视频或扣除积分/);
   assert.match(component, /workbenchPlan\.quote\?\.points/);
   assert.match(component, /关闭过程预览/);
