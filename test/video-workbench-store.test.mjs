@@ -537,6 +537,31 @@ test('shot edits validate ordering, duration, patch allow-list and revisions', t
     expectedRevision: 1, patch: { purpose: '旧写入' } }), error => error.code === 'VERSION_CONFLICT');
 });
 
+test('persists and updates structured shot direction, including legacy camera text', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 3000, cameraLanguage: '缓慢推进', direction: {
+      shotScale: 'close', cameraAngle: 'low_angle', cameraMove: 'dolly_in', lighting: 'rim',
+      primaryAction: '展示边缘高光', continuity: { transition: 'match_cut' }, negativePrompt: '不要水印',
+    } });
+  assert.equal(shot.direction.shotScale, 'close');
+  assert.equal(shot.direction.cameraLanguage, '缓慢推进');
+  assert.equal(shot.direction.continuity.transition, 'match_cut');
+  const updated = store.updateShot({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    expectedRevision: 1, patch: { cameraLanguage: '从左向右横移', direction: {
+      shotScale: 'wide', cameraMove: 'tracking', primaryAction: '人物走入画面',
+      continuity: { axis: 'screen_left_to_right' },
+    } } });
+  assert.equal(updated.revision, 2);
+  assert.equal(updated.cameraLanguage, '从左向右横移');
+  assert.equal(updated.direction.shotScale, 'wide');
+  assert.equal(updated.direction.cameraMove, 'tracking');
+  assert.equal(updated.direction.cameraLanguage, '从左向右横移');
+  assert.equal(updated.direction.continuity.axis, 'screen_left_to_right');
+  assert.equal(db.prepare('SELECT direction_json FROM video_storyboard_shots WHERE id = ?').get(shot.id).direction_json.includes('screen_left_to_right'), true);
+});
+
 test('candidate registration is idempotent and selection never silently rewrites timeline clips', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());

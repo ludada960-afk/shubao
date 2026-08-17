@@ -290,6 +290,7 @@ export function mountVideoWorkbenchRoutes(app, {
       durationMs: req.body?.durationMs,
       cameraLanguage: req.body?.cameraLanguage,
       prompt: req.body?.prompt,
+      direction: req.body?.direction,
     })
   ), { status: 201, key: 'shot' }));
 

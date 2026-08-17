@@ -68,6 +68,40 @@ test('builds a bounded per-shot quote for a valid three-shot plan', () => {
   assert.ok(plan.quote.lineItems.every(item => item.points > 0));
 });
 
+test('carries structured director controls into each shot plan without provider work', () => {
+  const plan = buildVideoWorkbenchPlan(workbench({
+    assets: [asset('product-1')],
+    shots: [shot('shot-1', 1, {
+      cameraLanguage: '镜头从肩部滑向商品',
+      direction: {
+        shotScale: 'close',
+        cameraAngle: 'low_angle',
+        cameraMove: 'dolly_in',
+        lighting: 'rim',
+        primaryAction: '模特抬手展示材质',
+        continuity: { axis: 'screen_left_to_right', gaze: 'toward_camera', transition: 'match_cut' },
+        negativePrompt: '不要多余手指，不要漂浮物',
+      },
+    })],
+  }));
+  assert.equal(plan.status, 'ready');
+  assert.deepEqual(plan.shots[0].direction, {
+    shotScale: 'close',
+    cameraAngle: 'low_angle',
+    cameraMove: 'dolly_in',
+    lighting: 'rim',
+    primaryAction: '模特抬手展示材质',
+    cameraLanguage: '镜头从肩部滑向商品',
+    continuity: {
+      axis: 'screen_left_to_right',
+      gaze: 'toward_camera',
+      screenDirection: 'stationary',
+      transition: 'match_cut',
+    },
+    negativePrompt: '不要多余手指，不要漂浮物',
+  });
+});
+
 test('uses requested public product and rejects invalid planning options', () => {
   const valid = buildVideoWorkbenchPlan(workbench({ assets: [asset('product-1')], shots: [shot('shot-1', 1)] }), {
     productId: 'seedance_fast',

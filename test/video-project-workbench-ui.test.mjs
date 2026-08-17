@@ -134,6 +134,11 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /setReplayManifest\(null\);\s*setReplayManifestPreview\(null\)/);
   assert.match(component, /复用为新项目/);
   assert.match(component, /manifestHash/);
+  assert.match(component, /ShotDirectionFields/);
+  assert.match(component, /normalizeShotDirectionValue\(shotDraft\.direction/);
+  assert.match(component, /const direction = normalizeShotDirectionValue\(edit\.direction, edit\.cameraLanguage\)/);
+  assert.match(component, /updateShotEdit\(shot,/);
+  assert.match(component, /结构化镜头控制/);
   assert.match(component, /type="range"/);
   assert.match(styles, /video-project-band\.is-audio/);
   assert.match(styles, /video-project-plan/);
@@ -141,6 +146,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /disabled=\{Boolean\(busy\)/);
   assert.match(component, /<video[^>]+preload="metadata"/);
   assert.match(styles, /aspect-ratio/);
+  assert.match(styles, /video-project-direction-grid/);
+  assert.match(styles, /video-project-shot-form[^\{]*\s*\{[^}]*grid-template-columns/);
   assert.match(styles, /@media\s*\(max-width:\s*640px\)/);
   assert.doesNotMatch(styles, /font-size:\s*clamp\(/);
 }

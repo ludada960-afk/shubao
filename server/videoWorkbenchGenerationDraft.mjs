@@ -1,4 +1,5 @@
 import { videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
+import { normalizeShotDirection } from './videoShotDirection.mjs';
 
 function clean(value, max = 400) {
   return String(value ?? '').trim().slice(0, max);
@@ -47,7 +48,9 @@ export function buildVideoWorkbenchGenerationDraft(workbench = {}, plan = {}, { 
       position: planShot.position,
       purpose: planShot.purpose,
       durationMs: planShot.durationMs,
+      cameraLanguage: planShot.cameraLanguage || normalizeShotDirection(planShot.direction, shot.cameraLanguage).cameraLanguage,
       prompt: planShot.prompt,
+      direction: normalizeShotDirection(planShot.direction, shot.cameraLanguage),
       references,
     };
   });

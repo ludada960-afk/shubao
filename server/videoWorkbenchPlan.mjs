@@ -7,6 +7,7 @@ import {
 } from './videoCatalog.mjs';
 import { quoteFeature } from './billing/catalog.mjs';
 import crypto from 'node:crypto';
+import { normalizeShotDirection } from './videoShotDirection.mjs';
 
 const MAX_SHOTS = 30;
 const MAX_TOTAL_DURATION_MS = 30 * 60 * 1000;
@@ -103,12 +104,15 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     });
     const quote = product ? quoteForShot(normalized.productId, durationMs) : null;
     if (quote) lineItems.push({ shotId, ...quote });
+    const direction = normalizeShotDirection(shot?.direction, shot?.cameraLanguage);
     return {
       id: shotId,
       position: Number.isSafeInteger(shot?.position) ? shot.position : index,
       purpose: text(shot?.purpose, 500),
       durationMs,
+      cameraLanguage: direction.cameraLanguage,
       prompt: text(shot?.prompt, 8000),
+      direction,
       bindingCount: bindings.length,
       status: shot?.status || 'draft',
     };

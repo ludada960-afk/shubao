@@ -20,6 +20,16 @@ function fixture() {
       purpose: 'hero reveal',
       durationMs: 8000,
       prompt: 'A premium product reveal',
+      direction: {
+        shotScale: 'macro',
+        cameraAngle: 'eye_level',
+        cameraMove: 'static',
+        lighting: 'soft_key',
+        primaryAction: '灯光扫过耳机表面',
+        cameraLanguage: '材质微距',
+        continuity: { axis: 'neutral', gaze: 'toward_camera', screenDirection: 'stationary', transition: 'cut' },
+        negativePrompt: '不要文字变形',
+      },
       bindings: [{ assetId: 'asset-1', assetVersionId: 'version-1', role: 'subject' }],
     }],
   };
@@ -41,6 +51,8 @@ test('generation draft preserves approved references without exposing media URLs
   assert.equal(draft.billingMutation, false);
   assert.equal(draft.requiresMainGeneration, true);
   assert.equal(draft.shots[0].references[0].sourceProjectAssetId, 'source-asset-1');
+  assert.equal(draft.shots[0].direction.shotScale, 'macro');
+  assert.equal(draft.shots[0].direction.primaryAction, '灯光扫过耳机表面');
   assert.equal('stableUrl' in draft.shots[0].references[0], false);
   assert.equal(draft.planHash, planHash);
 });

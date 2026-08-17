@@ -8,13 +8,14 @@ import {
 } from './videoSkillRun.mjs';
 import { listVideoSkillTemplates } from './videoSkillTemplates.mjs';
 import { videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
+import { normalizeShotDirection } from './videoShotDirection.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
   'subject', 'product', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music',
   'first_frame', 'last_frame', 'motion_reference',
 ]);
-const SHOT_PATCH_FIELDS = new Set(['position', 'purpose', 'durationMs', 'cameraLanguage', 'prompt']);
+const SHOT_PATCH_FIELDS = new Set(['position', 'purpose', 'durationMs', 'cameraLanguage', 'prompt', 'direction']);
 const SOURCE_MEDIA_MIME_PREFIX = Object.freeze({
   image: 'image/',
   video: 'video/',
@@ -107,6 +108,7 @@ function versionFromRow(row) {
 
 function shotFromRow(row) {
   if (!row) return null;
+  const cameraLanguage = row.camera_language || '';
   return {
     id: row.id,
     ownerEmail: row.owner_email,
@@ -114,7 +116,8 @@ function shotFromRow(row) {
     position: row.position,
     purpose: row.purpose,
     durationMs: row.duration_ms,
-    cameraLanguage: row.camera_language,
+    cameraLanguage,
+    direction: normalizeShotDirection(parseJson(row.direction_json, {}), cameraLanguage),
     prompt: row.prompt,
     status: row.status,
     selectedCandidateId: row.selected_candidate_id,
@@ -300,7 +303,7 @@ function ensureSchema(db) {
     CREATE TABLE IF NOT EXISTS video_storyboard_shots (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
       position INTEGER NOT NULL, purpose TEXT NOT NULL, duration_ms INTEGER NOT NULL,
-      camera_language TEXT NOT NULL DEFAULT '', prompt TEXT NOT NULL DEFAULT '',
+      camera_language TEXT NOT NULL DEFAULT '', prompt TEXT NOT NULL DEFAULT '', direction_json TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'draft', selected_candidate_id TEXT,
       revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       UNIQUE(project_id, position), FOREIGN KEY(project_id) REFERENCES projects(id)
@@ -404,6 +407,10 @@ function ensureSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_video_generation_drafts_project
       ON video_generation_drafts(owner_email, project_id, created_at DESC);
   `);
+  const shotColumns = db.prepare(`PRAGMA table_info(video_storyboard_shots)`).all();
+  if (!shotColumns.some(column => column.name === 'direction_json')) {
+    db.exec(`ALTER TABLE video_storyboard_shots ADD COLUMN direction_json TEXT NOT NULL DEFAULT '{}'`);
+  }
 }
 
 export function createVideoWorkbenchStore({
@@ -599,18 +606,20 @@ export function createVideoWorkbenchStore({
       })();
     },
 
-    createShot({ ownerEmail, projectId, position, purpose, durationMs, cameraLanguage = '', prompt = '' }) {
+    createShot({ ownerEmail, projectId, position, purpose, durationMs, cameraLanguage = '', prompt = '', direction = {} }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       validatePosition(position);
       validateDuration(durationMs);
       const id = randomUUID();
       const createdAt = timestamp();
+      const normalizedCameraLanguage = clean(cameraLanguage, 2000);
+      const normalizedDirection = normalizeShotDirection(direction, normalizedCameraLanguage);
       try {
         db.prepare(`INSERT INTO video_storyboard_shots
-          (id, owner_email, project_id, position, purpose, duration_ms, camera_language, prompt, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          (id, owner_email, project_id, position, purpose, duration_ms, camera_language, prompt, direction_json, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
           id, owner, project.id, position, clean(purpose, 500), durationMs,
-          clean(cameraLanguage, 2000), clean(prompt, 8000), createdAt, createdAt,
+          normalizedCameraLanguage, clean(prompt, 8000), JSON.stringify(normalizedDirection), createdAt, createdAt,
         );
       } catch (error) {
         if (/UNIQUE constraint failed/i.test(error.message)) throw coded('INVALID_POSITION', 'shot position already exists');
@@ -627,13 +636,15 @@ export function createVideoWorkbenchStore({
         const shot = requireShot(owner, project.id, shotId);
         if (shot.revision !== expectedRevision) throw coded('VERSION_CONFLICT', 'shot revision conflict', shot);
         const next = { ...shot, ...patch };
+        next.direction = normalizeShotDirection(patch.direction ?? shot.direction, patch.cameraLanguage ?? shot.cameraLanguage);
+        next.cameraLanguage = next.direction.cameraLanguage;
         validatePosition(next.position);
         validateDuration(next.durationMs);
         try {
           db.prepare(`UPDATE video_storyboard_shots SET position = ?, purpose = ?, duration_ms = ?,
-            camera_language = ?, prompt = ?, revision = revision + 1, updated_at = ? WHERE id = ?`)
+            camera_language = ?, prompt = ?, direction_json = ?, revision = revision + 1, updated_at = ? WHERE id = ?`)
             .run(next.position, clean(next.purpose, 500), next.durationMs, clean(next.cameraLanguage, 2000),
-              clean(next.prompt, 8000), timestamp(), shot.id);
+              clean(next.prompt, 8000), JSON.stringify(next.direction), timestamp(), shot.id);
         } catch (error) {
           if (/UNIQUE constraint failed/i.test(error.message)) throw coded('INVALID_POSITION', 'shot position already exists');
           throw error;
@@ -1120,13 +1131,14 @@ export function createVideoWorkbenchStore({
           const shotId = randomUUID();
           shotIds.set(sourceShotId, shotId);
           db.prepare(`INSERT INTO video_storyboard_shots
-            (id, owner_email, project_id, position, purpose, duration_ms, camera_language, prompt,
+            (id, owner_email, project_id, position, purpose, duration_ms, camera_language, prompt, direction_json,
              status, selected_candidate_id, revision, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`).run(
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`).run(
             shotId, owner, clonedProject.id,
             Number.isSafeInteger(sourceShot.position) ? sourceShot.position : shots.indexOf(sourceShot),
             clean(sourceShot.purpose, 500), sourceShot.durationMs,
             clean(sourceShot.cameraLanguage, 2000), clean(sourceShot.prompt, 8000),
+            JSON.stringify(normalizeShotDirection(sourceShot.direction, sourceShot.cameraLanguage)),
             clean(sourceShot.status, 40) || 'draft', Number.isSafeInteger(sourceShot.revision) ? sourceShot.revision : 1,
             createdAt, createdAt,
           );

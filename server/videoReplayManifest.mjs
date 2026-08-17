@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { memoryFactsSnapshot } from './videoProjectMemory.mjs';
+import { normalizeShotDirection } from './videoShotDirection.mjs';
 
 export const REPLAY_MANIFEST_SCHEMA_VERSION = 1;
 
@@ -137,6 +138,7 @@ function shot(shotValue) {
     purpose: text(shotValue.purpose, 'shot purpose', 1000),
     durationMs: shotValue.durationMs,
     cameraLanguage: String(shotValue.cameraLanguage || ''),
+    direction: normalizeShotDirection(shotValue.direction, shotValue.cameraLanguage),
     prompt: String(shotValue.prompt || ''),
     status: String(shotValue.status || 'draft'),
     selectedCandidateId: shotValue.selectedCandidateId || null,

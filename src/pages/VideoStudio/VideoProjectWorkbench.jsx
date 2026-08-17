@@ -92,6 +92,90 @@ const DEFAULT_BINDING_ROLE = Object.freeze({
   prop: 'prop', style: 'style', voice: 'voice', music: 'music',
 });
 
+const SHOT_DIRECTION_OPTIONS = Object.freeze({
+  shotScale: [['wide', '远景'], ['full', '全身'], ['medium', '中景'], ['close', '近景'], ['macro', '微距']],
+  cameraAngle: [['eye_level', '平视'], ['high_angle', '俯拍'], ['low_angle', '仰拍'], ['overhead', '正俯视'], ['dutch', '荷兰角'], ['over_shoulder', '过肩']],
+  cameraMove: [['static', '固定'], ['pan', '横摇'], ['tilt', '纵摇'], ['dolly_in', '推进'], ['dolly_out', '拉远'], ['tracking', '跟拍'], ['orbit', '环绕'], ['fpv', 'FPV'], ['dolly_zoom', '希区柯克变焦']],
+  lighting: [['soft_key', '柔光主光'], ['hard_key', '硬光主光'], ['rim', '轮廓光'], ['volumetric', '体积光'], ['noir', '黑色电影'], ['golden_hour', '黄金时刻'], ['blue_hour', '蓝调时刻'], ['rembrandt', '伦勃朗光'], ['high_key', '高调光'], ['low_key', '低调光']],
+  axis: [['neutral', '不指定'], ['screen_left_to_right', '左到右'], ['screen_right_to_left', '右到左']],
+  gaze: [['neutral', '不指定'], ['screen_left', '看向左侧'], ['screen_right', '看向右侧'], ['toward_camera', '看向镜头'], ['away', '避开镜头']],
+  screenDirection: [['stationary', '静止'], ['left_to_right', '左到右'], ['right_to_left', '右到左']],
+  transition: [['cut', '硬切'], ['match_cut', '匹配剪辑'], ['dissolve', '叠化'], ['whip_pan', '甩镜转场'], ['continuous', '连续镜头']],
+});
+
+const DEFAULT_SHOT_DIRECTION = Object.freeze({
+  shotScale: 'medium',
+  cameraAngle: 'eye_level',
+  cameraMove: 'static',
+  lighting: 'soft_key',
+  primaryAction: '',
+  cameraLanguage: '',
+  continuity: Object.freeze({
+    axis: 'neutral',
+    gaze: 'neutral',
+    screenDirection: 'stationary',
+    transition: 'cut',
+  }),
+  negativePrompt: '',
+});
+
+function normalizeShotDirectionValue(value = {}, legacyCamera = '') {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const continuity = source.continuity && typeof source.continuity === 'object' && !Array.isArray(source.continuity)
+    ? source.continuity : {};
+  const optionValue = (key, fallback) => SHOT_DIRECTION_OPTIONS[key].some(([option]) => option === source[key]) ? source[key] : fallback;
+  const continuityValue = (key, fallback) => SHOT_DIRECTION_OPTIONS[key].some(([option]) => option === continuity[key]) ? continuity[key] : fallback;
+  return {
+    ...DEFAULT_SHOT_DIRECTION,
+    shotScale: optionValue('shotScale', DEFAULT_SHOT_DIRECTION.shotScale),
+    cameraAngle: optionValue('cameraAngle', DEFAULT_SHOT_DIRECTION.cameraAngle),
+    cameraMove: optionValue('cameraMove', DEFAULT_SHOT_DIRECTION.cameraMove),
+    lighting: optionValue('lighting', DEFAULT_SHOT_DIRECTION.lighting),
+    primaryAction: String(source.primaryAction ?? '').trim().slice(0, 240),
+    cameraLanguage: String(source.cameraLanguage || legacyCamera || '').trim().slice(0, 160),
+    continuity: {
+      axis: continuityValue('axis', DEFAULT_SHOT_DIRECTION.continuity.axis),
+      gaze: continuityValue('gaze', DEFAULT_SHOT_DIRECTION.continuity.gaze),
+      screenDirection: continuityValue('screenDirection', DEFAULT_SHOT_DIRECTION.continuity.screenDirection),
+      transition: continuityValue('transition', DEFAULT_SHOT_DIRECTION.continuity.transition),
+    },
+    negativePrompt: String(source.negativePrompt ?? '').trim().slice(0, 400),
+  };
+}
+
+function ShotDirectionFields({ value, onChange }) {
+  const direction = normalizeShotDirectionValue(value);
+  const setField = (key, nextValue) => onChange({ ...direction, [key]: nextValue });
+  const setContinuity = (key, nextValue) => onChange({
+    ...direction,
+    continuity: { ...direction.continuity, [key]: nextValue },
+  });
+  const selectField = (key, label, className = '') => <label className={className} key={key}>
+    <span>{label}</span>
+    <select value={direction[key]} onChange={event => setField(key, event.target.value)}>
+      {SHOT_DIRECTION_OPTIONS[key].map(([option, optionLabel]) => <option key={option} value={option}>{optionLabel}</option>)}
+    </select>
+  </label>;
+  const continuitySelectField = (key, label) => <label className="is-continuity" key={key}>
+    <span>{label}</span>
+    <select value={direction.continuity[key]} onChange={event => setContinuity(key, event.target.value)}>
+      {SHOT_DIRECTION_OPTIONS[key].map(([option, optionLabel]) => <option key={option} value={option}>{optionLabel}</option>)}
+    </select>
+  </label>;
+  return <div className="video-project-direction-grid">
+    {selectField('shotScale', '景别')}
+    {selectField('cameraAngle', '机位角度')}
+    {selectField('cameraMove', '运镜')}
+    {selectField('lighting', '灯光')}
+    {continuitySelectField('axis', '轴线方向')}
+    {continuitySelectField('gaze', '人物视线')}
+    {continuitySelectField('screenDirection', '屏幕运动')}
+    {continuitySelectField('transition', '转场')}
+    <label className="is-wide"><span>主体动作</span><input maxLength="240" value={direction.primaryAction} placeholder="例如：人物停步，抬手展示产品" onChange={event => setField('primaryAction', event.target.value)} /></label>
+    <label className="is-wide"><span>连续性与负面约束</span><input maxLength="400" value={direction.negativePrompt} placeholder="例如：不改变服饰颜色，不新增人物，不跳轴" onChange={event => setField('negativePrompt', event.target.value)} /></label>
+  </div>;
+}
+
 function keyFor(prefix) {
   const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${prefix}-${id}`;
@@ -159,7 +243,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [skillPrompt, setSkillPrompt] = useState('');
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
-  const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
+  const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '', direction: normalizeShotDirectionValue() });
   const selectedProjectRef = useRef('');
   const requestSequenceRef = useRef(0);
   const replayRequestSequenceRef = useRef(0);
@@ -552,34 +636,63 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     });
   }
 
+  function updateShotEdit(shot, patch) {
+    setShotEdits(current => {
+      const previous = current[shot.id] || {};
+      const merged = {
+        purpose: previous.purpose ?? shot.purpose,
+        duration: previous.duration ?? shot.durationMs / 1000,
+        cameraLanguage: previous.cameraLanguage ?? shot.cameraLanguage,
+        prompt: previous.prompt ?? shot.prompt,
+        direction: previous.direction ?? shot.direction,
+        ...patch,
+      };
+      const direction = normalizeShotDirectionValue(merged.direction, merged.cameraLanguage);
+      return {
+        ...current,
+        [shot.id]: {
+          ...merged,
+          purpose: String(merged.purpose ?? ''),
+          cameraLanguage: direction.cameraLanguage,
+          direction,
+          prompt: String(merged.prompt ?? ''),
+        },
+      };
+    });
+  }
+
   function handleCreateShot(event) {
     event.preventDefault();
     const purpose = shotDraft.purpose.trim();
     const prompt = shotDraft.prompt.trim();
     if (!purpose || !prompt) return;
+    const direction = normalizeShotDirectionValue(shotDraft.direction, shotDraft.cameraLanguage.trim());
     void runMutation('shot:create', async () => {
       await createStoryboardShot(projectId, {
         position: nextShotPosition(workbench?.shots),
         purpose,
         durationMs: Math.round(Number(shotDraft.duration) * 1000),
-        cameraLanguage: shotDraft.cameraLanguage.trim(),
+        cameraLanguage: direction.cameraLanguage,
         prompt,
+        direction,
       });
-      setShotDraft({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
+      setShotDraft({ purpose: '', duration: 6, cameraLanguage: '', prompt: '', direction: normalizeShotDirectionValue() });
     });
   }
 
   function handleUpdateShot(shot) {
     const edit = shotEdits[shot.id];
     if (!edit) return;
+    const direction = normalizeShotDirectionValue(edit.direction, edit.cameraLanguage);
     void runMutation(`shot:update:${shot.id}`, async () => {
       await updateStoryboardShot(projectId, shot.id, {
         expectedRevision: shot.revision,
         patch: {
           purpose: String(edit.purpose || '').trim(),
           durationMs: Math.round(Number(edit.duration) * 1000),
-          cameraLanguage: String(edit.cameraLanguage || '').trim(),
+          cameraLanguage: direction.cameraLanguage,
           prompt: String(edit.prompt || '').trim(),
+          direction,
         },
       });
       setShotEdits(current => {
@@ -961,8 +1074,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <form className="video-project-shot-form" onSubmit={handleCreateShot}>
           <label><span>镜头目的</span><input required maxLength="500" value={shotDraft.purpose} placeholder="例如：3 秒内建立商品记忆点" onChange={event => setShotDraft(current => ({ ...current, purpose: event.target.value }))} /></label>
           <label className="is-duration"><span>时长</span><input required type="number" min="0.5" max="120" step="0.5" value={shotDraft.duration} onChange={event => setShotDraft(current => ({ ...current, duration: event.target.value }))} /><small>秒</small></label>
-          <label><span>镜头语言</span><input maxLength="2000" value={shotDraft.cameraLanguage} placeholder="中景跟拍，缓慢推进" onChange={event => setShotDraft(current => ({ ...current, cameraLanguage: event.target.value }))} /></label>
+          <label><span>镜头语言</span><input maxLength="2000" value={shotDraft.cameraLanguage} placeholder="中景跟拍，缓慢推进" onChange={event => setShotDraft(current => ({ ...current, cameraLanguage: event.target.value, direction: normalizeShotDirectionValue(current.direction, event.target.value) }))} /></label>
           <label className="is-prompt"><span>镜头提示</span><textarea required maxLength="8000" value={shotDraft.prompt} placeholder="只描述这一镜要发生的动作、场景与节奏" onChange={event => setShotDraft(current => ({ ...current, prompt: event.target.value }))} /></label>
+          <details className="video-project-shot-direction"><summary>结构化镜头控制</summary><ShotDirectionFields value={shotDraft.direction} onChange={direction => setShotDraft(current => ({ ...current, cameraLanguage: direction.cameraLanguage, direction }))} /></details>
           <button type="submit" disabled={Boolean(busy) || !shotDraft.purpose.trim() || !shotDraft.prompt.trim()}><Plus size={16} />添加分镜</button>
         </form>
 
@@ -989,10 +1103,11 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
             </div>
 
             <details className="video-project-shot-edit"><summary>调整镜头信息</summary><div>
-              <label><span>镜头目的</span><input value={edit?.purpose ?? shot.purpose} onChange={event => setShotEdits(current => ({ ...current, [shot.id]: { purpose: event.target.value, duration: edit?.duration ?? shot.durationMs / 1000, cameraLanguage: edit?.cameraLanguage ?? shot.cameraLanguage, prompt: edit?.prompt ?? shot.prompt } }))} /></label>
-              <label><span>时长（秒）</span><input type="number" min="0.5" max="120" step="0.5" value={edit?.duration ?? shot.durationMs / 1000} onChange={event => setShotEdits(current => ({ ...current, [shot.id]: { purpose: edit?.purpose ?? shot.purpose, duration: event.target.value, cameraLanguage: edit?.cameraLanguage ?? shot.cameraLanguage, prompt: edit?.prompt ?? shot.prompt } }))} /></label>
-              <label><span>镜头语言</span><input value={edit?.cameraLanguage ?? shot.cameraLanguage} onChange={event => setShotEdits(current => ({ ...current, [shot.id]: { purpose: edit?.purpose ?? shot.purpose, duration: edit?.duration ?? shot.durationMs / 1000, cameraLanguage: event.target.value, prompt: edit?.prompt ?? shot.prompt } }))} /></label>
-              <label className="is-wide"><span>镜头提示</span><textarea value={edit?.prompt ?? shot.prompt} onChange={event => setShotEdits(current => ({ ...current, [shot.id]: { purpose: edit?.purpose ?? shot.purpose, duration: edit?.duration ?? shot.durationMs / 1000, cameraLanguage: edit?.cameraLanguage ?? shot.cameraLanguage, prompt: event.target.value } }))} /></label>
+              <label><span>镜头目的</span><input value={edit?.purpose ?? shot.purpose} onChange={event => updateShotEdit(shot, { purpose: event.target.value })} /></label>
+              <label><span>时长（秒）</span><input type="number" min="0.5" max="120" step="0.5" value={edit?.duration ?? shot.durationMs / 1000} onChange={event => updateShotEdit(shot, { duration: event.target.value })} /></label>
+              <label><span>镜头语言</span><input value={edit?.cameraLanguage ?? shot.cameraLanguage} onChange={event => updateShotEdit(shot, { cameraLanguage: event.target.value })} /></label>
+              <label className="is-wide"><span>镜头提示</span><textarea value={edit?.prompt ?? shot.prompt} onChange={event => updateShotEdit(shot, { prompt: event.target.value })} /></label>
+              <details className="video-project-shot-direction is-wide"><summary>结构化镜头控制</summary><ShotDirectionFields value={normalizeShotDirectionValue(edit?.direction ?? shot.direction, edit?.cameraLanguage ?? shot.cameraLanguage)} onChange={direction => updateShotEdit(shot, { direction, cameraLanguage: direction.cameraLanguage })} /></details>
               <button type="button" disabled={Boolean(busy) || !edit} onClick={() => handleUpdateShot(shot)}><Save size={14} />保存调整</button>
             </div></details>
 

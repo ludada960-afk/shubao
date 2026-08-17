@@ -193,6 +193,14 @@
 .video-project-shot-form .is-duration { position: relative; }
 .video-project-shot-form .is-duration input { padding-right: 30px; }
 .video-project-shot-form .is-duration small { position: absolute; right: 10px; bottom: 12px; color: #9a9289; }
+.video-project-shot-form > .video-project-shot-direction { grid-column: 1/-1; }
+.video-project-shot-direction { min-width: 0; border: 1px solid #e3ddd6; border-radius: 6px; background: #fff; }
+.video-project-shot-direction summary { padding: 9px 11px; color: #6b5cc4; font-size: 10px; cursor: pointer; }
+.video-project-direction-grid { padding: 10px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; background: #fbfaf8; }
+.video-project-direction-grid label { min-width: 0; display: grid; gap: 5px; color: #777068; font-size: 10px; }
+.video-project-direction-grid input,.video-project-direction-grid select { width: 100%; min-height: 34px; padding: 7px 9px; border: 1px solid #ded9d2; border-radius: 6px; outline: none; color: #332f2a; background: #fff; }
+.video-project-direction-grid input:focus,.video-project-direction-grid select:focus { border-color: #9a86e4; box-shadow: 0 0 0 3px rgba(122,99,213,.1); }
+.video-project-direction-grid .is-wide { grid-column: span 2; }
 .video-project-shot-form > button { min-width: 110px; padding: 0 13px; }
 .video-project-shot-list { margin-top: 14px; display: grid; gap: 12px; }
 .video-project-shot-list > article { padding: 14px; border: 1px solid #ded8d1; border-radius: 7px; background: #fff; }
@@ -257,6 +265,7 @@
   .video-project-shot-form { grid-template-columns: 1fr 100px 1fr; }
   .video-project-shot-form .is-prompt { grid-column: 1/3; }
   .video-project-shot-edit > div { grid-template-columns: 1fr 100px; }
+  .video-project-direction-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:640px) {
   .video-project-workbench { margin-top: 18px; }
@@ -294,6 +303,8 @@
   .video-project-shot-form > label:nth-of-type(3),.video-project-shot-form .is-prompt,.video-project-shot-form > button { grid-column: 1/-1; }
   .video-project-shot-edit > div { grid-template-columns: 1fr; }
   .video-project-shot-edit .is-wide { grid-column: auto; }
+  .video-project-direction-grid { grid-template-columns: 1fr; }
+  .video-project-direction-grid .is-wide { grid-column: auto; }
   .video-project-bind-row { align-items: stretch; flex-direction: column; }
   .video-project-bind-row select { max-width: none; }
   .video-project-candidates > header { flex-direction: column; gap: 3px; }
