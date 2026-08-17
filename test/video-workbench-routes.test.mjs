@@ -493,6 +493,39 @@ test('owner can complete dependency-ordered SkillRun steps through the protected
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_generation_runs').get().count, 0);
 });
 
+test('owner must confirm SkillRun guards before completing guarded steps', async t => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const headers = { ...signedHeaders(sessionTokens, ownerEmail), 'idempotency-key': 'route-guard-1' };
+  const base = '/api/video/projects/:projectId/workbench/skill-runs';
+  const created = await invoke(app, 'POST', `${base}/preview`, {
+    headers, params: { projectId: project.id }, body: { spec: {
+      skillId: 'trailer', skillVersion: 1,
+      guards: [{ id: 'rights', kind: 'rights-confirmed', label: '素材已授权' }],
+      steps: [{ id: 'plan', kind: 'plan', label: '拆解镜头', guards: ['rights'] }],
+    } },
+  });
+  assert.equal(created.statusCode, 201);
+  const blocked = await invoke(app, 'POST', `${base}/:runId/steps/:stepId/complete`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id, stepId: 'plan' },
+    body: { expectedRevision: 1 },
+  });
+  assert.equal(blocked.statusCode, 400);
+  assert.equal(blocked.body.code, 'SKILL_RUN_GUARD_REQUIRED');
+  const confirmed = await invoke(app, 'POST', `${base}/:runId/guards/:guardId/confirm`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id, guardId: 'rights' },
+    body: { expectedRevision: 1 },
+  });
+  assert.equal(confirmed.statusCode, 200);
+  assert.deepEqual(confirmed.body.run.confirmedGuardIds, ['rights']);
+  const complete = await invoke(app, 'POST', `${base}/:runId/steps/:stepId/complete`, {
+    headers, params: { projectId: project.id, runId: created.body.run.id, stepId: 'plan' },
+    body: { expectedRevision: 2 },
+  });
+  assert.equal(complete.statusCode, 200);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM video_skill_run_events WHERE type = 'guard.confirmed'").get().count, 1);
+});
+
 test('workbench routes hide the owner pilot from a signed tester account', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

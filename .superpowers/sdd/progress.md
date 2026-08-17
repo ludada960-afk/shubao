@@ -2487,3 +2487,14 @@
   build check, 6510-module production build, and `git diff --check` passed.
   No provider or paid generation was triggered; this remains local-only until
   the controlled SSH deployment identity is restored.
+
+- 2026-08-17 SkillRun guard confirmations are now durable, owner-scoped, and
+  revisioned. A guard confirmation appends an auditable `guard.confirmed`
+  event, exposes `confirmedGuardIds`, and prevents guarded steps from being
+  completed until the required conditions are confirmed. The client helper
+  and protected HTTP route use the same optimistic revision contract. Focused
+  route/store/client coverage passed `64/64`; full `npm test` passed
+  `1714/1714`; `npm run check`, the 6510-module production build, and
+  `git diff --check` passed. No provider or paid generation was triggered;
+  this remains local-only until the controlled SSH deployment identity is
+  restored.

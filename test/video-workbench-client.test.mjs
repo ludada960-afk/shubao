@@ -25,6 +25,7 @@ import {
   previewVideoSkillRun,
   previewVideoSkillTemplate,
   confirmVideoSkillCheckpoint,
+  confirmVideoSkillRunGuard,
   completeVideoSkillRunStep,
   updateStoryboardShot,
   updateTimelineClip,
@@ -272,6 +273,21 @@ test('video SkillRun client completes a step with its expected revision', async 
   assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/steps/plan/complete');
   assert.deepEqual(JSON.parse(requests[0].options.body), { expectedRevision: 1 });
   assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-step-session');
+});
+
+test('video SkillRun client confirms a guard with its expected revision', async t => {
+  installSession('signed-guard-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    return jsonResponse({ run: { id: 'run-1', status: 'preview', revision: 2, events: [] } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  await confirmVideoSkillRunGuard('project-1', 'run-1', 'rights', 1);
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/skill-runs/run-1/guards/rights/confirm');
+  assert.deepEqual(JSON.parse(requests[0].options.body), { expectedRevision: 1 });
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer signed-guard-session');
 });
 
 test('video workbench client uses shared session invalidation on 401', async t => {

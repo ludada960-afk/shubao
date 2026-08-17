@@ -238,6 +238,10 @@ function skillRunFromRow(row, events = []) {
     .filter(event => event.type === 'step.completed')
     .map(event => parseJson(event.payload_json, {}).stepId)
     .filter(Boolean);
+  const confirmedGuardIds = [...new Set(events
+    .filter(event => event.type === 'guard.confirmed')
+    .map(event => parseJson(event.payload_json, {}).guardId)
+    .filter(Boolean))];
   return {
     id: row.id,
     ownerEmail: row.owner_email,
@@ -249,6 +253,7 @@ function skillRunFromRow(row, events = []) {
     revision: row.revision,
     input: parseJson(row.input_json, {}),
     plan,
+    confirmedGuardIds,
     executionPlan: buildSkillRunExecutionPlan(plan, { completedStepIds }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1274,6 +1279,35 @@ export function createVideoWorkbenchStore({
       })();
     },
 
+    confirmSkillRunGuard({ ownerEmail, projectId, runId, guardId, expectedRevision }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedGuardId = clean(guardId, 128);
+      if (!normalizedGuardId) throw coded('INVALID_SKILL_RUN', 'guard id is required');
+      if (!Number.isSafeInteger(Number(expectedRevision))) throw coded('VERSION_CONFLICT', 'skill run revision is required');
+      return db.transaction(() => {
+        const current = requireSkillRun(owner, project.id, runId);
+        if (current.row.revision !== Number(expectedRevision)) {
+          throw coded('VERSION_CONFLICT', 'skill run revision conflict', current.run);
+        }
+        const guards = Array.isArray(current.run.plan?.guards) ? current.run.plan.guards : [];
+        if (!guards.some(guard => guard.id === normalizedGuardId)) {
+          throw coded('INVALID_SKILL_RUN', 'guard is not declared by the skill');
+        }
+        if (current.run.confirmedGuardIds.includes(normalizedGuardId)) return current.run;
+        const changedAt = timestamp();
+        const nextRevision = current.row.revision + 1;
+        db.prepare(`UPDATE video_skill_runs SET revision = ?, updated_at = ? WHERE id = ?`)
+          .run(nextRevision, changedAt, runId);
+        db.prepare(`INSERT INTO video_skill_run_events
+          (id, run_id, owner_email, project_id, sequence, type, payload_json, actor_email, created_at)
+          VALUES (?, ?, ?, ?, ?, 'guard.confirmed', ?, ?, ?)`).run(
+          randomUUID(), runId, owner, project.id, nextRevision,
+          JSON.stringify({ guardId: normalizedGuardId, revision: nextRevision }), owner, changedAt,
+        );
+        return requireSkillRun(owner, project.id, runId).run;
+      })();
+    },
+
     completeSkillRunStep({ ownerEmail, projectId, runId, stepId, expectedRevision }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       const normalizedStepId = clean(stepId, 128);
@@ -1292,6 +1326,9 @@ export function createVideoWorkbenchStore({
         }
         if (step.requires.some(dependency => !current.run.executionPlan.completedStepIds.includes(dependency))) {
           throw coded('INVALID_SKILL_RUN', 'skill step dependencies are incomplete');
+        }
+        if ((step.guards || []).some(guardId => !current.run.confirmedGuardIds.includes(guardId))) {
+          throw coded('SKILL_RUN_GUARD_REQUIRED', 'skill step guards are not confirmed');
         }
         const changedAt = timestamp();
         const nextRevision = current.row.revision + 1;
