@@ -30,6 +30,28 @@ function hashManifest(manifest) {
   return crypto.createHash('sha256').update(canonicalJson(manifest)).digest('hex');
 }
 
+export function videoExportManifestHash(manifest) {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) throw invalid('导出清单无效');
+  const { manifestHash: _manifestHash, ...payload } = manifest;
+  return hashManifest(payload);
+}
+
+export function assertVideoExportManifestIntegrity(manifest, expectedHash = '') {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    const error = invalid('导出清单完整性校验失败');
+    error.code = 'EXPORT_MANIFEST_INTEGRITY_INVALID';
+    throw error;
+  }
+  const actualHash = videoExportManifestHash(manifest);
+  if (!manifest.manifestHash || manifest.manifestHash !== actualHash
+    || (expectedHash && expectedHash !== actualHash)) {
+    const error = invalid('导出清单完整性校验失败');
+    error.code = 'EXPORT_MANIFEST_INTEGRITY_INVALID';
+    throw error;
+  }
+  return true;
+}
+
 function normalizeOptions(options = {}, projectTitle = '') {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw invalid('导出选项无效');
   const format = options.format === undefined ? 'mp4' : String(options.format).trim().toLowerCase();
@@ -181,7 +203,7 @@ export function buildVideoExportManifest({ workbench, options = {} } = {}) {
       billingMutation: false,
     },
   };
-  return { ...manifest, manifestHash: hashManifest(manifest) };
+  return { ...manifest, manifestHash: videoExportManifestHash(manifest) };
 }
 
 export { invalid as videoExportError };

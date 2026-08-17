@@ -66,3 +66,22 @@ test('export manifest cannot be created from an empty timeline', t => {
   assert.throws(() => store.createExportManifest({ ownerEmail: OWNER, projectId: project.id }),
     error => error.code === 'INVALID_VIDEO_EXPORT');
 });
+
+test('rejects a tampered persisted export manifest instead of returning it', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  seedWorkbench(store, project.id);
+  const created = store.createExportManifest({ ownerEmail: OWNER, projectId: project.id,
+    options: { includeAudio: false } });
+  db.prepare('UPDATE video_export_manifests SET manifest_json = ? WHERE id = ?').run(
+    JSON.stringify({ ...created.manifest, options: { ...created.manifest.options, fps: 60 } }), created.id,
+  );
+  assert.throws(
+    () => store.getExportManifest({ ownerEmail: OWNER, projectId: project.id, manifestId: created.id }),
+    error => error.code === 'EXPORT_MANIFEST_INTEGRITY_INVALID',
+  );
+  assert.throws(
+    () => store.listExportManifests({ ownerEmail: OWNER, projectId: project.id }),
+    error => error.code === 'EXPORT_MANIFEST_INTEGRITY_INVALID',
+  );
+});

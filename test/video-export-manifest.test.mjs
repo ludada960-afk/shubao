@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildVideoExportManifest } from '../server/videoExportManifest.mjs';
+import {
+  assertVideoExportManifestIntegrity,
+  buildVideoExportManifest,
+  videoExportManifestHash,
+} from '../server/videoExportManifest.mjs';
 
 function workbench(overrides = {}) {
   const project = { id: 'project-1', kind: 'video', title: '耳机广告' };
@@ -51,6 +55,19 @@ test('builds a stable export manifest without owner or playback URLs', () => {
   assert.equal(first.delivery.billingMutation, false);
   assert.equal(JSON.stringify(first).includes('/private/audio'), false);
   assert.equal(JSON.stringify(first).includes('ownerEmail'), false);
+  assert.equal(videoExportManifestHash(first), first.manifestHash);
+  assert.equal(assertVideoExportManifestIntegrity(first, first.manifestHash), true);
+});
+
+test('fails closed when an export manifest payload or stored hash changes', () => {
+  const manifest = buildVideoExportManifest({ workbench: workbench() });
+  const tampered = { ...manifest, options: { ...manifest.options, fps: 60 } };
+  assert.throws(() => assertVideoExportManifestIntegrity(tampered, manifest.manifestHash), error => (
+    error.code === 'EXPORT_MANIFEST_INTEGRITY_INVALID'
+  ));
+  assert.throws(() => assertVideoExportManifestIntegrity(manifest, 'different-hash'), error => (
+    error.code === 'EXPORT_MANIFEST_INTEGRITY_INVALID'
+  ));
 });
 
 test('rejects empty, stale, mismatched, and non-video timeline clips', () => {

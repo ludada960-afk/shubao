@@ -2619,3 +2619,9 @@
   been deployed; `workbenchEnabled` remains false. A real renderer worker,
   proxy/download recovery, and production canary remain required before
   `VID-P1-05` can be marked complete.
+
+- 2026-08-18 export manifest reads now fail closed on persisted tampering: the store recomputes the canonical
+  SHA-256 payload hash and verifies `schemaVersion`/`kind` before returning a manifest. Malformed or modified rows
+  return `EXPORT_MANIFEST_INTEGRITY_INVALID`, and the route maps that to a controlled 500 asking for a fresh
+  manifest. Pure, store-tamper, and route mapping tests pass; no provider, renderer, download, or billing path was
+  introduced.

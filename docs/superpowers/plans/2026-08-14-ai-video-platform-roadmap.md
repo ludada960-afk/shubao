@@ -140,6 +140,11 @@ approved audio versions, subtitles, and bounded delivery options. It deliberatel
 provider submission, download URL, or billing mutation. The full timeline/export checkbox remains open until a
 renderer worker, proxy/asset delivery, restart recovery, and the Stage 1 exit evidence are implemented.
 
+The same local slice now fails closed on read: persisted JSON, schema version, kind, and database hash are recomputed
+before an export manifest is returned. A tampered or partially written row is surfaced as a controlled integrity
+error instead of being presented as a deliverable. This remains local-only and is not a renderer, provider, or
+production deployment.
+
 ### Stage 1 exit gate
 
 - A three-shot product advertisement can be created, refreshed, resumed after restart, selectively retried, assembled, and exported.
@@ -355,7 +360,7 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 | P0 media foundation | Production foundation live at `5d933c2`; paid generation not exercised | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, authorization, restart and non-billable production contracts pass | Observe upload/first-preview timing and object-store errors before expanding traffic |
 | P0 reliable jobs and billing | Production foundation live; fault suite and non-paid production verification pass | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Track attempt/outbox/reconciliation SLOs and run provider canaries only under an approved spend budget |
 | P1 storyboard workbench | Implemented and deployed dark; `workbenchEnabled=false` | Ten internal projects finish without platform-state or billing failure | Add an owner cohort, complete browser acceptance and ten non-billing projects, then evaluate the flag |
-| P1 export manifest boundary | Local green; renderer intentionally absent | Stable manifest hash, owner isolation, selected-candidate/stale checks, audio/subtitle bounds, no billing/provider writes | Add a durable renderer worker and proxy/download recovery before treating export as delivered |
+| P1 export manifest boundary | Local green; renderer intentionally absent | Stable manifest hash, owner isolation, selected-candidate/stale checks, audio/subtitle bounds, tamper fail-closed reads, no billing/provider writes | Add a durable renderer worker and proxy/download recovery before treating export as delivered |
 | P2 Skills, memory, replay | Blocked by P1 evidence | Two real workflows can be replayed from stored inputs and a versioned manifest | Product ad first; reference reconstruction second |
 | P2 audio continuity | Local candidate, not deployed | Approved audio assets, bounded track metadata, replay sanitization, clone remapping, workbench add/mute UI, and production owner-cohort evidence | Run non-billing owner-cohort replay before enabling any audio UI |
 | P3 advanced local editing | Research only | Each provider capability passes three real input-variant canaries and has a whole-shot fallback | Release reshoot, extension, tracking, and action control independently |

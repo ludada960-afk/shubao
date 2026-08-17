@@ -576,3 +576,8 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 工作台新增“导出准备”面板，明确提示“仅生成可审计交付清单，尚未调用渲染器/供应商，不会扣积分”；没有生成下载 URL、没有提交 provider、没有创建 wallet/usage/billing 记录。导出清单不是 MP4 成品，后续仍需 renderer worker、代理文件、断点恢复与下载链路。
 - 证据：导出/工作台定向 `10/10`、相关工作台/回放定向 `74/74`、全量 `npm test` `1736/1736`、`npm run check`、6510 模块生产构建、`git diff --check`、非计费 pilot verifier 全部通过；`npm run collab:check` 因当前 linked worktree 无协作标记而按策略 BLOCKED。
 - 本切片尚未部署，生产 `workbenchEnabled=false`，未触发任何付费视频生成。完成真实 renderer 与 Stage 1 退出证据前，不得把“导出准备”描述为线上 MP4 导出已上线。
+
+## 2026-08-18 AI Video Export Manifest Integrity
+
+- 导出清单读取现在会对持久化 JSON 重新计算 SHA-256，并校验存储的 `schemaVersion` 与 `kind`；被篡改、部分写入或哈希不一致的记录不会被当作可交付结果返回。
+- API 将此类情况统一返回 `EXPORT_MANIFEST_INTEGRITY_INVALID`（500），提示重新生成清单；该切片仍然没有渲染器、下载 URL、provider 调用或计费写入。

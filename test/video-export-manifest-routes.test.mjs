@@ -54,3 +54,25 @@ test('mounts owner-scoped export manifest routes and preserves idempotent status
   assert.equal(getResponse.body.manifest.id, 'manifest-1');
   assert.equal(sequence, 0);
 });
+
+test('maps persisted export integrity failures to a controlled server error', async () => {
+  const fakeApp = app();
+  const store = {
+    listWorkbench: () => ({ project: { id: 'project-1', kind: 'video' }, assets: [], shots: [], timelineClips: [] }),
+    listExportManifests: () => { throw Object.assign(new Error('tampered'), { code: 'EXPORT_MANIFEST_INTEGRITY_INVALID' }); },
+    recordOperation: () => {},
+  };
+  mountVideoWorkbenchRoutes(fakeApp, {
+    enabled: true,
+    store,
+    authenticateOwner: () => 'owner@example.com',
+    authorizeCohort: { requireEligible: () => ({ ok: true }) },
+    playbackUrlForAsset: () => '/media/test',
+  });
+  const res = response();
+  await fakeApp.routes.get('GET /api/video/projects/:projectId/workbench/export-manifests')(
+    { headers: {}, body: {}, query: {}, params: { projectId: 'project-1' } }, res,
+  );
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.code, 'EXPORT_MANIFEST_INTEGRITY_INVALID');
+});

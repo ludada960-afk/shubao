@@ -73,6 +73,9 @@ function routeError(error, res) {
   if (code === 'INVALID_VIDEO_EXPORT') {
     return res.status(400).json({ code, error: error.message || '视频导出清单参数无效，请检查时间线和音轨' });
   }
+  if (code === 'EXPORT_MANIFEST_INTEGRITY_INVALID') {
+    return res.status(500).json({ code, error: '导出清单校验失败，请重新生成清单' });
+  }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
 

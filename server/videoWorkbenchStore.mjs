@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
-import { buildVideoExportManifest } from './videoExportManifest.mjs';
+import { assertVideoExportManifestIntegrity, buildVideoExportManifest } from './videoExportManifest.mjs';
 import { normalizeProjectMemoryFact, normalizeProjectMemoryList } from './videoProjectMemory.mjs';
 import {
   buildSkillRunExecutionPlan,
@@ -76,13 +76,23 @@ function replayManifestFromRow(row) {
 
 function exportManifestFromRow(row) {
   if (!row) return null;
+  const manifest = parseJson(row.manifest_json, null);
+  try {
+    assertVideoExportManifestIntegrity(manifest, row.manifest_hash);
+  } catch (error) {
+    throw coded('EXPORT_MANIFEST_INTEGRITY_INVALID', 'export manifest integrity check failed');
+  }
+  if (Number(manifest.schemaVersion) !== Number(row.schema_version)
+    || manifest.kind !== 'video-export-manifest') {
+    throw coded('EXPORT_MANIFEST_INTEGRITY_INVALID', 'export manifest schema mismatch');
+  }
   return {
     id: row.id,
     projectId: row.project_id,
     manifestHash: row.manifest_hash,
     schemaVersion: row.schema_version,
     createdAt: row.created_at,
-    manifest: parseJson(row.manifest_json, null),
+    manifest,
   };
 }
 
