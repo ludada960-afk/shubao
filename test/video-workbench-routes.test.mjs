@@ -454,6 +454,47 @@ test('audio continuity routes create and update owner-scoped tracks', async t =>
   assert.equal(denied.statusCode, 404);
 });
 
+test('timeline clip route persists trim, reorder, and mute changes with revision checks', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const asset = store.createAsset({ ownerEmail, projectId: project.id, kind: 'product', name: '商品' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    stableUrl: '/api/video/assets/route-product', contentHash: 'route-product-hash', mimeType: 'image/webp' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    versionId: version.id, expectedRevision: 1 });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '商品亮相', durationMs: 4000 });
+  store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: version.id, role: 'product' });
+  const candidate = store.registerCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'route-candidate', stableUrl: '/api/video/assets/route-candidate',
+    contentHash: 'route-candidate-hash', mimeType: 'video/mp4' });
+  store.selectCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: shot.revision });
+  const clip = store.addTimelineClip({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 4000 });
+
+  const updated = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/timeline/clips/:clipId', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, clipId: clip.id },
+    body: { expectedRevision: 1, patch: { position: 1, trimStartMs: 300, trimEndMs: 2800, muted: true } },
+  });
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.body.clip.position, 1);
+  assert.equal(updated.body.clip.trimStartMs, 300);
+  assert.equal(updated.body.clip.trimEndMs, 2800);
+  assert.equal(updated.body.clip.muted, true);
+  assert.equal(updated.body.clip.revision, 2);
+
+  const conflict = await invoke(app, 'PATCH', '/api/video/projects/:projectId/workbench/timeline/clips/:clipId', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, clipId: clip.id },
+    body: { expectedRevision: 1, patch: { muted: false } },
+  });
+  assert.equal(conflict.statusCode, 409);
+  assert.equal(conflict.body.code, 'VERSION_CONFLICT');
+});
+
 test('workbench routes validate shot duration at the HTTP boundary', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

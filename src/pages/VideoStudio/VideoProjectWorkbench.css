@@ -126,8 +126,15 @@
 .video-project-timeline article.is-stale { opacity: .45; }
 .video-project-timeline article > span { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: #292722; background: #f5c27e; font-size: 10px; }
 .video-project-timeline article > div { min-width: 0; display: grid; gap: 3px; }
+.video-project-timeline-main { align-content: center; }
 .video-project-timeline strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .video-project-timeline small { color: #d0c8c0; font-size: 9px; }
+.video-project-timeline-edit { display: flex; align-items: center; gap: 5px; }
+.video-project-timeline-edit label { display: inline-flex; align-items: center; gap: 3px; color: #d0c8c0; font-size: 8px; }
+.video-project-timeline-edit input { width: 46px; min-height: 22px; padding: 2px 4px; border: 1px solid #786d63; border-radius: 4px; color: #f9f6f2; background: #403a35; font-size: 9px; }
+.video-project-timeline-actions { display: flex; align-items: center; gap: 4px; }
+.video-project-timeline-actions button { width: 24px; height: 22px; display: grid; place-items: center; border: 1px solid #786d63; border-radius: 4px; color: #f9f6f2; background: #403a35; }
+.video-project-timeline-actions button:disabled { cursor: not-allowed; opacity: .45; }
 .video-project-delivery-status { min-height: 58px; margin-top: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #d5e6df; border-radius: 6px; color: #397668; background: #f0f8f5; }
 .video-project-delivery-status div { display: grid; gap: 3px; }
 .video-project-delivery-status strong { font-size: 11px; }

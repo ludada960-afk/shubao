@@ -13,6 +13,7 @@ const NOT_FOUND_CODES = new Set([
   'MEMORY_FACT_NOT_FOUND',
   'MEMORY_ASSET_NOT_FOUND',
   'AUDIO_TRACK_NOT_FOUND',
+  'TIMELINE_CLIP_NOT_FOUND',
 ]);
 
 function ownerFor(req, authenticateOwner) {
@@ -56,6 +57,9 @@ function routeError(error, res) {
   }
   if (code === 'INVALID_AUDIO_TRACK') {
     return res.status(400).json({ code, error: '音轨参数无效，请检查时长、节拍和字幕' });
+  }
+  if (code === 'INVALID_TIMELINE_CLIP') {
+    return res.status(400).json({ code, error: '时间线片段参数无效，请检查位置和剪辑范围' });
   }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
@@ -258,6 +262,15 @@ export function mountVideoWorkbenchRoutes(app, {
       muted: req.body?.muted,
     })
   ), { status: 201, key: 'clip' }));
+
+  app.patch('/api/video/projects/:projectId/workbench/timeline/clips/:clipId', (req, res) => dispatch(req, res, 'timeline.clip.update', request => (
+    store.updateTimelineClip({
+      ...request,
+      clipId: req.params.clipId,
+      expectedRevision: req.body?.expectedRevision,
+      patch: req.body?.patch,
+    })
+  ), { key: 'clip' }));
 
   app.post('/api/video/projects/:projectId/workbench/audio-tracks', (req, res) => dispatch(req, res, 'audio-track.create', request => (
     store.createAudioTrack({

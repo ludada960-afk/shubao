@@ -46,6 +46,7 @@ test('project workbench exposes real persisted stages without provider controls 
     'importJobCandidate',
     'selectShotCandidate',
     'addTimelineClip',
+    'updateTimelineClip',
     'upsertVideoProjectMemoryFact',
     'removeVideoProjectMemoryFact',
     'createVideoAudioTrack',
@@ -85,6 +86,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /加入音轨/);
   assert.match(component, /取消静音|静音/);
   assert.match(component, /handleSetAudioVolume/);
+  assert.match(component, /handleMoveTimelineClip/);
+  assert.match(component, /handleToggleTimelineClip/);
+  assert.match(component, /起点/);
+  assert.match(component, /终点/);
   assert.match(component, /type="range"/);
   assert.match(styles, /video-project-band\.is-audio/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);

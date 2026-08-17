@@ -2281,3 +2281,14 @@
   (`Permission denied`, `ubuntu@43.129.180.134: Permission denied`). No remote archive,
   release switch, restart, rollback, or Canary ran. Treat the P2-06 workbench surface as
   local-only until controlled credentials are restored.
+
+- 2026-08-17 AI-video P2 timeline editing is complete locally on `codex/video-platform-p0`.
+  Owner/project-scoped timeline clips now support optimistic trim-range updates, position
+  swaps and mute toggles through a persisted PATCH contract; the workbench exposes start/end
+  seconds, previous/next ordering and mute controls, and reloads authoritative revisions after
+  every mutation. Focused timeline/store/route/client/UI coverage passed `49/49`; full
+  `npm test` passed `1696/1696`; `npm run check`, the 6510-module production build and
+  `git diff --check` passed. This is metadata-only: no provider, generation, usage, wallet,
+  billing or paid-video call occurred. The slice remains local-only because the controlled SSH
+  key is still unreadable; runtime folders `.npm-cache/`, `.qa-video/`, `server/video-assets/`
+  and `server/video-upload-staging/` remain excluded.

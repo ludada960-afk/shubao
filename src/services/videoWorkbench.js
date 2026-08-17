@@ -18,6 +18,7 @@ const checkpointSegment = value => pathSegment(value, '请选择有效的确认�
 const stepSegment = value => pathSegment(value, '请选择有效的 SkillRun 步骤');
 const memoryFactSegment = value => pathSegment(value, '请选择有效的项目记忆');
 const audioTrackSegment = value => pathSegment(value, '请选择有效的音轨');
+const timelineClipSegment = value => pathSegment(value, '请选择有效的时间线片段');
 
 function signedHeaders(headers = {}) {
   const token = getSessionToken();
@@ -181,6 +182,14 @@ export async function addTimelineClip(projectId, payload = {}) {
     method: 'POST',
     ...jsonBody(payload),
   }, '暂时无法加入时间线');
+  return requireValue(response, 'clip', '时间线片段暂时不可用，请稍后重试');
+}
+
+export async function updateTimelineClip(projectId, clipId, payload = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/timeline/clips/${timelineClipSegment(clipId)}`, {
+    method: 'PATCH',
+    ...jsonBody(payload),
+  }, '暂时无法更新时间线片段');
   return requireValue(response, 'clip', '时间线片段暂时不可用，请稍后重试');
 }
 

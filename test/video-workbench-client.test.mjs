@@ -24,6 +24,7 @@ import {
   confirmVideoSkillCheckpoint,
   completeVideoSkillRunStep,
   updateStoryboardShot,
+  updateTimelineClip,
   createVideoAudioTrack,
   updateVideoAudioTrack,
 } from '../src/services/videoWorkbench.js';
@@ -61,6 +62,7 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { candidate: { id: 'candidate / 1' } },
     { shot: { id: 'shot / 1', selectedCandidateId: 'candidate / 1' }, candidate: { id: 'candidate / 1' } },
     { clip: { id: 'clip-1' } },
+    { clip: { id: 'clip-1', position: 1, trimStartMs: 250, trimEndMs: 2500, muted: true, revision: 2 } },
     { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
     { manifest: { id: 'manifest-1', manifestHash: 'hash-1' } },
     { project: { id: 'clone-1', kind: 'video' }, workbench: { assets: [], shots: [], timelineClips: [] } },
@@ -81,6 +83,10 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
   await importJobCandidate('project / 1', 'shot / 1', { generationJobId: 'job-1' });
   await selectShotCandidate('project / 1', 'shot / 1', { candidateId: 'candidate / 1', expectedRevision: 2 });
   await addTimelineClip('project / 1', { shotId: 'shot / 1', candidateId: 'candidate / 1', position: 0, trimEndMs: 3000 });
+  await updateTimelineClip('project / 1', 'clip-1', {
+    expectedRevision: 1,
+    patch: { position: 1, trimStartMs: 250, trimEndMs: 2500, muted: true },
+  });
   await createVideoReplayManifest('project / 1', { skillId: 'trailer', skillVersion: 1,
     skillRunId: 'run-1', rightsConfirmations: ['asset-1'] });
   await getVideoReplayManifest('project / 1', 'manifest / 1');
@@ -101,12 +107,17 @@ test('video workbench client signs and maps every P1 mutation route', async t =>
     { path: '/api/video/projects/project%20%2F%201/workbench/shots/shot%20%2F%201/candidates', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/shots/shot%20%2F%201/select', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/timeline/clips', method: 'POST', authorization: 'Bearer signed-workbench-session' },
+    { path: '/api/video/projects/project%20%2F%201/workbench/timeline/clips/clip-1', method: 'PATCH', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests', method: 'POST', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201', method: 'GET', authorization: 'Bearer signed-workbench-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/replay-manifests/manifest%20%2F%201/clone', method: 'POST', authorization: 'Bearer signed-workbench-session' },
   ]);
   assert.deepEqual(JSON.parse(requests[2].options.body), { videoAssetId: 'upload-1', metadata: { angle: 'front' } });
   assert.deepEqual(JSON.parse(requests[10].options.body), {
+    expectedRevision: 1,
+    patch: { position: 1, trimStartMs: 250, trimEndMs: 2500, muted: true },
+  });
+  assert.deepEqual(JSON.parse(requests[11].options.body), {
     skillId: 'trailer', skillVersion: 1, skillRunId: 'run-1', rightsConfirmations: ['asset-1'],
   });
   assert.equal(requests.at(-1).options.headers['Idempotency-Key'], 'client-clone-1');

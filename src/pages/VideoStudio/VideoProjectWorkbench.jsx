@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Music2,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Clapperboard,
@@ -34,6 +35,7 @@ import {
   selectShotCandidate,
   upsertVideoProjectMemoryFact,
   updateStoryboardShot,
+  updateTimelineClip,
   updateVideoAudioTrack,
 } from '../../services/videoWorkbench.js';
 import {
@@ -132,6 +134,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [assetKinds, setAssetKinds] = useState({});
   const [bindingChoices, setBindingChoices] = useState({});
   const [shotEdits, setShotEdits] = useState({});
+  const [clipDrafts, setClipDrafts] = useState({});
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
@@ -344,6 +347,52 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       trimStartMs: 0,
       trimEndMs: shot.durationMs,
       muted: false,
+    }));
+  }
+
+  function updateClipDraft(clip, field, value) {
+    setClipDrafts(current => ({
+      ...current,
+      [clip.id]: {
+        start: current[clip.id]?.start ?? clip.trimStartMs / 1000,
+        end: current[clip.id]?.end ?? clip.trimEndMs / 1000,
+        [field]: value,
+      },
+    }));
+  }
+
+  function handleSaveClipTrim(clip) {
+    const draft = clipDrafts[clip.id];
+    if (!draft) return;
+    const trimStartMs = Math.round(Number(draft.start) * 1000);
+    const trimEndMs = Math.round(Number(draft.end) * 1000);
+    if (!Number.isFinite(trimStartMs) || !Number.isFinite(trimEndMs)) return;
+    void runMutation(`timeline:trim:${clip.id}`, async () => {
+      await updateTimelineClip(projectId, clip.id, {
+        expectedRevision: clip.revision,
+        patch: { trimStartMs, trimEndMs },
+      });
+      setClipDrafts(current => {
+        const next = { ...current };
+        delete next[clip.id];
+        return next;
+      });
+    });
+  }
+
+  function handleMoveTimelineClip(clip, delta) {
+    if (!clip?.id) return;
+    void runMutation(`timeline:position:${clip.id}`, () => updateTimelineClip(projectId, clip.id, {
+      expectedRevision: clip.revision,
+      patch: { position: Math.max(0, clip.position + delta) },
+    }));
+  }
+
+  function handleToggleTimelineClip(clip) {
+    if (!clip?.id) return;
+    void runMutation(`timeline:mute:${clip.id}`, () => updateTimelineClip(projectId, clip.id, {
+      expectedRevision: clip.revision,
+      patch: { muted: !clip.muted },
     }));
   }
 
@@ -562,7 +611,21 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <header><div><small>05</small><span><h3 id="video-timeline-heading">时间线与交付</h3><p>只接收每个镜头当前选定且未过期的候选版本。</p></span></div><b>{(totalDuration / 1000).toFixed(1)} 秒</b></header>
         <div className="video-project-timeline">{(workbench?.timelineClips || []).map((clip, index) => {
           const shot = workbench.shots.find(item => item.id === clip.shotId);
-          return <article key={clip.id} className={clip.status !== 'active' ? 'is-stale' : ''} style={{ '--clip-weight': Math.max(1, clip.trimEndMs - clip.trimStartMs) }}><span>{index + 1}</span><div><strong>{shot?.purpose || '镜头片段'}</strong><small>{((clip.trimEndMs - clip.trimStartMs) / 1000).toFixed(1)} 秒</small></div></article>;
+          const draft = clipDrafts[clip.id] || { start: clip.trimStartMs / 1000, end: clip.trimEndMs / 1000 };
+          return <article key={clip.id} className={clip.status !== 'active' ? 'is-stale' : ''} style={{ '--clip-weight': Math.max(1, clip.trimEndMs - clip.trimStartMs) }}>
+            <span>{index + 1}</span>
+            <div className="video-project-timeline-main"><strong>{shot?.purpose || '镜头片段'}</strong><small>{((clip.trimEndMs - clip.trimStartMs) / 1000).toFixed(1)} 秒{clip.muted ? ' · 已静音' : ''}</small>
+              <div className="video-project-timeline-edit" aria-label={`编辑${shot?.purpose || '镜头片段'}`}>
+                <label><span>起点</span><input type="number" min="0" step="0.1" value={draft.start} disabled={Boolean(busy)} onChange={event => updateClipDraft(clip, 'start', event.target.value)} onBlur={() => handleSaveClipTrim(clip)} /></label>
+                <label><span>终点</span><input type="number" min="0" step="0.1" value={draft.end} disabled={Boolean(busy)} onChange={event => updateClipDraft(clip, 'end', event.target.value)} onBlur={() => handleSaveClipTrim(clip)} /></label>
+              </div>
+              <div className="video-project-timeline-actions">
+                <button type="button" aria-label="片段前移" title="片段前移" disabled={Boolean(busy) || clip.status !== 'active' || clip.position === 0} onClick={() => handleMoveTimelineClip(clip, -1)}><ChevronLeft size={13} /></button>
+                <button type="button" aria-label="片段后移" title="片段后移" disabled={Boolean(busy) || clip.status !== 'active'} onClick={() => handleMoveTimelineClip(clip, 1)}><ChevronRight size={13} /></button>
+                <button type="button" aria-label={clip.muted ? '取消片段静音' : '片段静音'} title={clip.muted ? '取消片段静音' : '片段静音'} disabled={Boolean(busy) || clip.status !== 'active'} onClick={() => handleToggleTimelineClip(clip)}>{clip.muted ? <VolumeX size={13} /> : <Volume2 size={13} />}</button>
+              </div>
+            </div>
+          </article>;
         })}</div>
         {!workbench?.timelineClips?.length && <p className="video-project-inline-empty">选定镜头候选后，将它加入时间线；空时间线不会显示伪导出按钮。</p>}
         <footer className="video-project-delivery-status"><Film size={18} /><div><strong>{stageSummary.stage === 'ready' ? '基础时间线已就绪' : '继续完成上方步骤'}</strong><span>{stageSummary.stage === 'ready' ? '项目、素材版本、分镜、选定候选与时间线均已持久化。' : '交付只根据真实保存状态判断，不会提前标记完成。'}</span></div></footer>

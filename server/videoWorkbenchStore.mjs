@@ -398,6 +398,12 @@ export function createVideoWorkbenchStore({
     if (!candidate) throw coded('CANDIDATE_NOT_FOUND', 'candidate not found');
     return candidate;
   };
+  const requireClip = (owner, projectId, clipId) => {
+    const clip = clipFromRow(db.prepare(`SELECT * FROM video_timeline_clips
+      WHERE id = ? AND owner_email = ? AND project_id = ?`).get(clipId, owner, projectId));
+    if (!clip) throw coded('TIMELINE_CLIP_NOT_FOUND', 'timeline clip not found');
+    return clip;
+  };
   const requireSkillRun = (owner, projectId, runId) => {
     const row = db.prepare(`SELECT * FROM video_skill_runs
       WHERE id = ? AND owner_email = ? AND project_id = ?`).get(runId, owner, projectId);
@@ -702,6 +708,51 @@ export function createVideoWorkbenchStore({
         throw error;
       }
       return clipFromRow(db.prepare('SELECT * FROM video_timeline_clips WHERE id = ?').get(id));
+    },
+
+    updateTimelineClip({ ownerEmail, projectId, clipId, expectedRevision, patch = {} }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const allowed = new Set(['position', 'trimStartMs', 'trimEndMs', 'muted']);
+      const keys = Object.keys(patch || {});
+      if (!keys.length || keys.some(key => !allowed.has(key))) {
+        throw coded('INVALID_TIMELINE_CLIP', 'timeline clip patch contains unsupported fields');
+      }
+      return db.transaction(() => {
+        const current = requireClip(owner, project.id, clipId);
+        if (current.revision !== expectedRevision) {
+          throw coded('VERSION_CONFLICT', 'timeline clip revision conflict', current);
+        }
+        const shot = requireShot(owner, project.id, current.shotId);
+        const next = {
+          position: patch.position === undefined ? current.position : patch.position,
+          trimStartMs: patch.trimStartMs === undefined ? current.trimStartMs : patch.trimStartMs,
+          trimEndMs: patch.trimEndMs === undefined ? current.trimEndMs : patch.trimEndMs,
+          muted: patch.muted === undefined ? current.muted : Boolean(patch.muted),
+        };
+        validatePosition(next.position);
+        if (!Number.isSafeInteger(next.trimStartMs) || next.trimStartMs < 0
+          || !Number.isSafeInteger(next.trimEndMs) || next.trimEndMs <= next.trimStartMs
+          || next.trimEndMs > shot.durationMs) {
+          throw coded('INVALID_DURATION', 'timeline trim is outside shot duration');
+        }
+        const changedAt = timestamp();
+        const occupant = next.position === current.position ? null : clipFromRow(db.prepare(`SELECT *
+          FROM video_timeline_clips WHERE owner_email = ? AND project_id = ? AND position = ?`).get(
+          owner, project.id, next.position));
+        if (occupant) {
+          db.prepare(`UPDATE video_timeline_clips SET position = ?, revision = revision + 1, updated_at = ?
+            WHERE id = ? AND owner_email = ? AND project_id = ?`).run(
+            current.position, changedAt, occupant.id, owner, project.id,
+          );
+        }
+        db.prepare(`UPDATE video_timeline_clips SET position = ?, trim_start_ms = ?, trim_end_ms = ?,
+          muted = ?, revision = revision + 1, updated_at = ?
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).run(
+          next.position, next.trimStartMs, next.trimEndMs, next.muted ? 1 : 0,
+          changedAt, current.id, owner, project.id,
+        );
+        return requireClip(owner, project.id, current.id);
+      })();
     },
 
     createAudioTrack({ ownerEmail, projectId, kind, assetId, assetVersionId, startMs = 0,

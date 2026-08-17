@@ -505,6 +505,41 @@ test('candidate registration is idempotent and selection never silently rewrites
   assert.equal(projection.timelineClips.find(item => item.id === clip.id).status, 'stale');
 });
 
+test('timeline clips support owner-scoped trim, reorder, and mute updates with optimistic revisions', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const { asset, first } = assetWithVersions(store, project.id);
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id,
+    assetId: asset.id, versionId: first.id, expectedRevision: 1 });
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 4000 });
+  store.bindShotAssetVersion({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: first.id, role: 'product' });
+  const candidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'timeline-output', stableUrl: '/api/video/media/timeline-output',
+    contentHash: 'timeline-hash', mimeType: 'video/mp4' });
+  store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, expectedRevision: 1 });
+  const clip = store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    candidateId: candidate.id, position: 0, trimStartMs: 0, trimEndMs: 4000 });
+
+  const updated = store.updateTimelineClip({ ownerEmail: OWNER, projectId: project.id,
+    clipId: clip.id, expectedRevision: 1,
+    patch: { position: 2, trimStartMs: 500, trimEndMs: 2600, muted: true } });
+  assert.equal(updated.position, 2);
+  assert.equal(updated.trimStartMs, 500);
+  assert.equal(updated.trimEndMs, 2600);
+  assert.equal(updated.muted, true);
+  assert.equal(updated.revision, 2);
+
+  assert.throws(() => store.updateTimelineClip({ ownerEmail: OWNER, projectId: project.id,
+    clipId: clip.id, expectedRevision: 1, patch: { muted: false } }),
+  error => error.code === 'VERSION_CONFLICT');
+  assert.throws(() => store.updateTimelineClip({ ownerEmail: OWNER, projectId: project.id,
+    clipId: clip.id, expectedRevision: 2, patch: { trimStartMs: 3000, trimEndMs: 3000 } }),
+  error => error.code === 'INVALID_DURATION');
+});
+
 test('completed generation jobs are imported as candidates from authoritative delivery records', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());
