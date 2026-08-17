@@ -581,3 +581,7 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 
 - 导出清单读取现在会对持久化 JSON 重新计算 SHA-256，并校验存储的 `schemaVersion` 与 `kind`；被篡改、部分写入或哈希不一致的记录不会被当作可交付结果返回。
 - API 将此类情况统一返回 `EXPORT_MANIFEST_INTEGRITY_INVALID`（500），提示重新生成清单；该切片仍然没有渲染器、下载 URL、provider 调用或计费写入。
+
+## 2026-08-18 AI Video Export Duration Feedback Fix
+
+- 工作台导出状态现在从 `manifest.timeline.durationMs` 读取清单时长；此前错误读取顶层 `manifest.durationMs` 会让成功保存的清单一直显示“时长待定”。已补充 UI 回归断言，未引入 provider、渲染器或计费路径。

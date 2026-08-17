@@ -2625,3 +2625,8 @@
   return `EXPORT_MANIFEST_INTEGRITY_INVALID`, and the route maps that to a controlled 500 asking for a fresh
   manifest. Pure, store-tamper, and route mapping tests pass; no provider, renderer, download, or billing path was
   introduced.
+
+- 2026-08-18 fixed the workbench export status feedback to read the persisted duration from
+  `manifest.timeline.durationMs` (the canonical manifest shape), instead of the invalid top-level path that left
+  every successful manifest displaying “时长待定”. A focused UI regression test now guards the nested path; full
+  tests, checks, production build, and the non-billing pilot remain green.

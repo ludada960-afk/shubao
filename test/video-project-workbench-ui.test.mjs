@@ -114,6 +114,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /replayManifestPreview\.shots/);
   assert.match(component, /exportManifest/);
   assert.match(component, /生成导出清单/);
+  assert.match(component, /exportManifest\.manifest\?\.timeline\?\.durationMs/);
+  assert.doesNotMatch(component, /exportManifest\.manifest\?\.durationMs\s*\?/);
   assert.match(component, /尚未调用渲染器\/供应商，不会扣积分/);
   assert.match(component, /下载 MP4 需接入渲染 worker/);
   assert.match(component, /handleCheckGenerationPlan/);

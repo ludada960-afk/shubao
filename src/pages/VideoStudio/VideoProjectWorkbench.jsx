@@ -1251,7 +1251,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           <span>仅生成可审计交付清单，尚未调用渲染器/供应商，不会扣积分。</span>
         </div>
         {exportManifest ? <div className="video-project-export-manifest" role="status">
-          <strong>导出清单已保存</strong><span>版本 {exportManifest.schemaVersion} · {exportManifest.manifest?.durationMs ? `${(exportManifest.manifest.durationMs / 1000).toFixed(1)} 秒` : '时长待定'} · hash {exportManifest.manifestHash?.slice(0, 12)}</span>
+          <strong>导出清单已保存</strong><span>版本 {exportManifest.schemaVersion} · {exportManifest.manifest?.timeline?.durationMs ? `${(exportManifest.manifest.timeline.durationMs / 1000).toFixed(1)} 秒` : '时长待定'} · hash {exportManifest.manifestHash?.slice(0, 12)}</span>
         </div> : <p className="video-project-inline-empty">尚未调用渲染器/供应商，不会扣积分；下载 MP4 需接入渲染 worker。</p>}
       </section>
     </>}
