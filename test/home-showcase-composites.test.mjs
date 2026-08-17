@@ -64,10 +64,11 @@ test('try-on layout plans match the product-to-angle reference without cropped c
   assert.ok(multiAngle.resultCards.every(card => card.width >= 290));
   assert.ok(multiAngle.resultCards.every(card => card.height >= 680));
   assert.ok(multiAngle.resultCards.at(-1).left + multiAngle.resultCards.at(-1).width <= 1600);
-  assert.ok(multiAngle.product.width >= 340);
+  assert.ok(multiAngle.product.width >= 300);
   assert.ok(multiAngle.product.height >= 480);
-  assert.ok(multiAngle.product.left >= 48);
+  assert.ok(multiAngle.product.left >= 24);
   assert.ok(multiAngle.product.left + multiAngle.product.width <= 600);
+  assert.ok(multiAngle.resultCards[0].left - (multiAngle.product.left + multiAngle.product.width) >= 300);
   assert.ok(multiAngle.resultCards.every(card => card.fit === 'contain'));
   assert.ok([multiAngle.product, ...multiAngle.resultCards].every((card) => {
     const bounds = rotatedBounds(card);

@@ -40,11 +40,11 @@ export const TRYON_LAYOUT_PLANS = Object.freeze({
     fit: 'contain',
     blurPadding: false,
     visualBounds: Object.freeze({ left: 34, top: 74, right: 1578, bottom: 826 }),
-    product: Object.freeze({ left: 48, top: 190, width: 340, height: 500, rotation: -3, fit: 'contain' }),
+    product: Object.freeze({ left: 40, top: 205, width: 320, height: 480, rotation: -3, fit: 'contain' }),
     resultCards: Object.freeze([
-      Object.freeze({ left: 620, top: 150, width: 290, height: 680, rotation: -8, fit: 'contain' }),
-      Object.freeze({ left: 835, top: 115, width: 290, height: 680, rotation: -3, fit: 'contain' }),
-      Object.freeze({ left: 1050, top: 115, width: 290, height: 680, rotation: 3, fit: 'contain' }),
+      Object.freeze({ left: 680, top: 150, width: 290, height: 680, rotation: -8, fit: 'contain' }),
+      Object.freeze({ left: 875, top: 115, width: 290, height: 680, rotation: -3, fit: 'contain' }),
+      Object.freeze({ left: 1070, top: 115, width: 290, height: 680, rotation: 3, fit: 'contain' }),
       Object.freeze({ left: 1260, top: 150, width: 290, height: 680, rotation: 8, fit: 'contain' }),
     ]),
   }),
@@ -132,8 +132,8 @@ function multiAngleDecoration() {
       <linearGradient id="arrow" x1="0" x2="1"><stop stop-color="#d0c7bd"/><stop offset="1" stop-color="#958679"/></linearGradient>
     </defs>
     <rect width="1600" height="900" fill="#f7f5f2"/>
-    <path d="M405 470 C450 425 495 385 548 340" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
-    <path d="M528 320 L584 337 L548 382 Z" fill="#958679" opacity=".92"/>
+    <path d="M382 470 C448 425 525 368 604 316" fill="none" stroke="url(#arrow)" stroke-width="18" stroke-linecap="round" opacity=".92"/>
+    <path d="M582 294 L638 313 L610 359 Z" fill="#958679" opacity=".92"/>
     <ellipse cx="820" cy="836" rx="690" ry="32" fill="#5d4939" opacity=".08" filter="url(#shadow)"/>
   </svg>`);
 }
