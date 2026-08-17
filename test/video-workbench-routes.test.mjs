@@ -207,6 +207,43 @@ test('confirms only the current ready plan and rejects stale hashes', async t =>
   assert.equal(stale.body.code, 'VIDEO_PLAN_HASH_INVALID');
 });
 
+test('compiles an approved generation draft without billing or provider mutation', async t => {
+  const { app, db, project, sessionTokens, store, ownerEmail } = harness();
+  t.after(() => db.close());
+  const asset = store.createAsset({ ownerEmail, projectId: project.id, kind: 'scene', name: '演播室' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    sourceProjectAssetId: 'route-upload', stableUrl: '/api/video/assets/studio', contentHash: 'studio-hash', mimeType: 'image/png' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    versionId: version.id, expectedRevision: asset.revision });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 6000, prompt: '镜头从远景推进到产品特写' });
+  store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: version.id, role: 'scene' });
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const plan = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench/plan', {
+    headers, params: { projectId: project.id },
+    query: { productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: 'false' },
+  });
+  const approved = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/plan/approve', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      planHash: plan.body.plan.planHash,
+    },
+  });
+  assert.equal(approved.statusCode, 201);
+  const draft = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/generation-draft', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      planHash: plan.body.plan.planHash,
+    },
+  });
+  assert.equal(draft.statusCode, 201);
+  assert.equal(draft.body.draft.providerSubmission, false);
+  assert.equal(draft.body.draft.billingMutation, false);
+  assert.equal(draft.body.draft.shots[0].references[0].sourceProjectAssetId, 'route-upload');
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
+});
+
 test('workbench routes derive owner from the signed session and ignore body owner fields', async t => {
   const { app, db, project, sessionTokens } = harness();
   t.after(() => db.close());

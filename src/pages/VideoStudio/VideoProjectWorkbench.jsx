@@ -31,6 +31,7 @@ import {
   createStoryboardShot,
   createWorkbenchAsset,
   createVideoAudioTrack,
+  createVideoWorkbenchGenerationDraft,
   createVideoReplayManifest,
   cloneVideoReplayManifest,
   getVideoReplayManifest,
@@ -147,6 +148,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [replayManifests, setReplayManifests] = useState([]);
   const [replayManifestPreview, setReplayManifestPreview] = useState(null);
   const [workbenchPlan, setWorkbenchPlan] = useState(null);
+  const [generationDraft, setGenerationDraft] = useState(null);
   const [memoryDrafts, setMemoryDrafts] = useState({});
   const [newMemory, setNewMemory] = useState({ key: '', value: '{\n  \n}', source: 'user' });
   const [shotDraft, setShotDraft] = useState({ purpose: '', duration: 6, cameraLanguage: '', prompt: '' });
@@ -158,6 +160,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   useEffect(() => {
     onProjectChange?.(projectId || '');
     onPlanApprovalChange?.('');
+    setGenerationDraft(null);
   }, [onPlanApprovalChange, onProjectChange, projectId]);
 
   useEffect(() => {
@@ -177,6 +180,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     if (!id) {
       setWorkbench(null);
       setWorkbenchPlan(null);
+      setGenerationDraft(null);
       return;
     }
     const requestSequence = ++requestSequenceRef.current;
@@ -186,10 +190,13 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       if (requestSequence !== requestSequenceRef.current || selectedProjectRef.current !== id) return;
       setWorkbench(next);
       setWorkbenchPlan(null);
+      setGenerationDraft(null);
       setError('');
     } catch (loadError) {
       if (requestSequence !== requestSequenceRef.current || selectedProjectRef.current !== id) return;
       setWorkbench(null);
+      setWorkbenchPlan(null);
+      setGenerationDraft(null);
       setError(displayError(loadError));
     } finally {
       if (requestSequence === requestSequenceRef.current) setLoading(false);
@@ -221,6 +228,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const loadProjects = useCallback(async preferredId => {
     planRequestSequenceRef.current += 1;
     setWorkbenchPlan(null);
+    setGenerationDraft(null);
     setLoading(true);
     try {
       const next = videoProjects(await listProjects());
@@ -233,6 +241,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       if (!target) {
         setWorkbench(null);
         setWorkbenchPlan(null);
+        setGenerationDraft(null);
         void loadReplayManifests('');
       }
       setError('');
@@ -268,6 +277,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } else {
       setWorkbench(null);
       setWorkbenchPlan(null);
+      setGenerationDraft(null);
       void loadReplayManifests('');
     }
   }, [loadReplayManifests, loadWorkbench, projectId]);
@@ -279,6 +289,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     try {
       await action();
       setWorkbenchPlan(null);
+      setGenerationDraft(null);
       await loadWorkbench(projectId, { quiet: true });
     } catch (mutationError) {
       setError(displayError(mutationError));
@@ -295,6 +306,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     const requestSequence = ++planRequestSequenceRef.current;
     setBusy('plan:read');
     setError('');
+    setGenerationDraft(null);
     try {
       const plan = await getVideoWorkbenchPlan(projectId, {
         productId: 'seedance_standard',
@@ -304,9 +316,11 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       });
       if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
       setWorkbenchPlan(plan);
+      setGenerationDraft(null);
     } catch (planError) {
       if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
       setWorkbenchPlan(null);
+      setGenerationDraft(null);
       setError(displayError(planError));
     } finally {
       if (requestSequence === planRequestSequenceRef.current) setBusy('');
@@ -326,9 +340,32 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         planHash: workbenchPlan.planHash,
       });
       setWorkbenchPlan(current => current ? { ...current, approval } : current);
+      setGenerationDraft(null);
     } catch (approvalError) {
       setError(displayError(approvalError));
       setWorkbenchPlan(null);
+      setGenerationDraft(null);
+    } finally {
+      setBusy('');
+    }
+  }, [busy, projectId, workbenchPlan]);
+
+  const handleCompileGenerationDraft = useCallback(async () => {
+    if (!projectId || busy || workbenchPlan?.status !== 'ready' || !workbenchPlan.approval?.planHash) return;
+    setBusy('plan:draft');
+    setError('');
+    try {
+      const draft = await createVideoWorkbenchGenerationDraft(projectId, {
+        productId: workbenchPlan.options?.productId,
+        mode: workbenchPlan.options?.mode,
+        resolution: workbenchPlan.options?.resolution,
+        generateAudio: workbenchPlan.options?.generateAudio,
+        planHash: workbenchPlan.planHash,
+      });
+      setGenerationDraft(draft);
+    } catch (draftError) {
+      setGenerationDraft(null);
+      setError(displayError(draftError));
     } finally {
       setBusy('');
     }
@@ -401,6 +438,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     setProjectId(nextId);
     setWorkbench(null);
     setWorkbenchPlan(null);
+    setGenerationDraft(null);
     setReplayManifest(null);
     setReplayManifests([]);
     setReplayManifestPreview(null);
@@ -695,7 +733,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     {projectId && workbenchPlan && <section className={`video-project-plan ${workbenchPlan.status === 'ready' ? 'is-ready' : 'is-blocked'}`} aria-labelledby="video-generation-plan-heading">
       <header>
         <div><small>生成前检查</small><h3 id="video-generation-plan-heading">视频生成计划</h3><p>先确认项目完整性与成本，再进入后续生成流程。</p></div>
-        <button type="button" disabled={Boolean(busy)} onClick={() => setWorkbenchPlan(null)}>清除检查结果</button>
+        <button type="button" disabled={Boolean(busy)} onClick={() => { setWorkbenchPlan(null); setGenerationDraft(null); }}>清除检查结果</button>
       </header>
       <div className="video-project-plan-summary">
         <div><span>状态</span><strong>{workbenchPlan.status === 'ready' ? <><Check size={13} />可进入生成</> : <><CircleAlert size={13} />暂不可生成</>}</strong></div>
@@ -715,6 +753,18 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           {busy === 'plan:approve' ? <LoaderCircle className="is-spinning" size={13} /> : <Check size={13} />} {workbenchPlan.approval ? '计划已确认' : '确认生成计划'}
         </button>}
       </footer>
+      {workbenchPlan.status === 'ready' && workbenchPlan.approval && <div className="video-project-generation-draft" role="status">
+        <div>
+          <small>下一步</small>
+          <strong>{generationDraft ? '逐镜头生成草稿已编译' : '把已确认计划编译成逐镜头草稿'}</strong>
+          <span>{generationDraft
+            ? `${generationDraft.shots?.length || 0} 个镜头 · ${generationDraft.shots?.reduce((count, shot) => count + (shot.references?.length || 0), 0) || 0} 个素材引用 · 不会发起供应商任务或扣除积分。`
+            : '只读取已确认素材版本与分镜绑定，供主视频生成入口继续执行。'}</span>
+        </div>
+        <button type="button" className="video-project-plan-approve" disabled={Boolean(busy) || Boolean(generationDraft)} onClick={handleCompileGenerationDraft}>
+          {busy === 'plan:draft' ? <LoaderCircle className="is-spinning" size={13} /> : <Layers3 size={13} />} {generationDraft ? '草稿已编译' : '编译逐镜头草稿'}
+        </button>
+      </div>}
     </section>}
 
     <section className="video-project-band is-project" aria-labelledby="video-project-heading">

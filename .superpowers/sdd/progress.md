@@ -2434,3 +2434,14 @@
   SSH returned `Permission denied`. The script refused an unfenced rollback;
   no remote archive, release switch, restart or Canary ran. Candidate `424555b`
   is local-only until the controlled deployment credential is restored.
+
+- 2026-08-17 the approved workbench plan now compiles into a reference-only
+  per-shot generation draft. Commit pending after local gates. The draft route
+  rechecks the current plan fingerprint, approval hash, approved asset versions,
+  and shot bindings, then returns ordered shot prompts and provenance IDs while
+  deliberately omitting private media URLs. The UI exposes this step only after
+  plan approval and states that it does not submit a provider task or mutate
+  billing. Focused coverage passed `25/25`; full `npm test` passed `1709/1709`;
+  `npm run check`, the 6510-module production build, and `git diff --check`
+  passed. No provider or paid generation was triggered. Deployment remains
+  blocked by the unreadable controlled SSH identity documented above.

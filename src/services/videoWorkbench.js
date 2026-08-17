@@ -103,6 +103,14 @@ export async function approveVideoWorkbenchPlan(projectId, {
   return requireValue(response, 'approval', '视频生成计划确认结果暂时不可用，请稍后重试');
 }
 
+export async function createVideoWorkbenchGenerationDraft(projectId, payload = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/generation-draft`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法编译视频生成草稿');
+  return requireValue(response, 'draft', '视频生成草稿暂时不可用，请稍后重试');
+}
+
 export async function getVideoProjectMemory(projectId) {
   const response = await requestJson(`${workbenchBase(projectId)}/memory`, {}, '暂时无法读取项目记忆');
   if (!Array.isArray(response?.memory)) throw new Error('项目记忆暂时不可用，请稍后重试');

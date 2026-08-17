@@ -1,5 +1,6 @@
 import { buildSkillRunSpecFromTemplate } from './videoSkillTemplates.mjs';
 import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
+import { buildVideoWorkbenchGenerationDraft } from './videoWorkbenchGenerationDraft.mjs';
 
 const NOT_FOUND_CODES = new Set([
   'PROJECT_NOT_FOUND',
@@ -43,6 +44,9 @@ function routeError(error, res) {
   }
   if (code === 'VIDEO_PLAN_HASH_INVALID' || code === 'VIDEO_PLAN_NOT_READY') {
     return res.status(409).json({ code, error: error.message || '生成计划已变化，请重新检查计划' });
+  }
+  if (code === 'VIDEO_PLAN_APPROVAL_REQUIRED') {
+    return res.status(409).json({ code, error: error.message || '请先确认当前生成计划' });
   }
   if (code === 'VIDEO_JOB_NOT_READY') {
     return res.status(409).json({ code, error: '视频仍在生成或交付结果尚未校验完成' });
@@ -195,6 +199,28 @@ export function mountVideoWorkbenchRoutes(app, {
       return store.approveGenerationPlan({ ...request, plan, planHash });
     }, { status: 201, key: 'approval' },
   ));
+
+  app.post('/api/video/projects/:projectId/workbench/generation-draft', (req, res) => dispatch(
+    req, res, 'workbench.generation-draft', request => {
+      const options = {
+        productId: req.body?.productId,
+        mode: req.body?.mode,
+        resolution: req.body?.resolution,
+        generateAudio: req.body?.generateAudio !== false,
+      };
+      const workbench = store.listWorkbench(request);
+      const plan = buildVideoWorkbenchPlan(workbench, options);
+      const planHash = videoWorkbenchPlanFingerprint(plan);
+      const approval = typeof store.getGenerationPlanApproval === 'function'
+        ? store.getGenerationPlanApproval(request)
+        : null;
+      const draft = buildVideoWorkbenchGenerationDraft(workbench, { ...plan, planHash }, {
+        planHash: req.body?.planHash,
+        approvalHash: approval?.planHash,
+      });
+      return { draft };
+    }, { status: 201 }),
+  );
 
   app.get('/api/video/projects/:projectId/workbench/memory', (req, res) => dispatch(
     req, res, 'memory.read', request => ({ memory: store.listProjectMemory(request) }),
