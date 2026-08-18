@@ -105,6 +105,7 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
       referenceColor={plog ? '#8b5cf6' : '#c2185b'}
       maxProductImages={6}
       maxReferenceImages={3}
+      tilted={false}
     />
   );
 }
@@ -121,11 +122,20 @@ function XhsInputTemplate({
   mentionImages,
   onMention,
   onGenerate,
-  optionsOpen,
-  onOptionsToggle,
-  optionsPanel,
+  activeOption,
+  onOptionToggle,
+  optionPanels,
   canGenerate,
 }) {
+  const options = plog ? [
+    ['structure', '发布结构', '9 张碎片 · 标题 · 正文'],
+    ['style', '视觉风格', '保留生活感'],
+    ['layout', '排版方式', '生活碎片结构'],
+  ] : [
+    ['structure', '发布结构', '9 张配图 · 标题 · 正文'],
+    ['content', '内容策略', '一句话主题'],
+    ['references', '视觉参考', '分析素材与风格'],
+  ];
   return (
     <div className={`xhs-input-template${plog ? ' is-plog' : ''}`}>
       <div className="ec-xhs-composer">
@@ -149,19 +159,13 @@ function XhsInputTemplate({
       <div className="ec-workbench-actions xhs-template-actions">
         <div className="ec-workbench-primary-row">
           <div className="ec-workbench-tools xhs-template-tools">
-            <button type="button" className={`ec-config-trigger${optionsOpen ? ' is-open' : ''}`} onClick={onOptionsToggle} aria-expanded={optionsOpen}>
-              <span className="ec-config-trigger-copy"><span>{plog ? 'Plog 设置' : '生成设置'}</span><strong>{plog ? '9 张碎片 · 情绪文案' : '9 张配图 · 标题 · 正文'}</strong></span><ChevronDown size={13} />
-            </button>
-            <button type="button" className="ec-config-trigger" onClick={onOptionsToggle} aria-label="视觉方向">
-              <span className="ec-config-trigger-copy"><span>视觉方向</span><strong>{plog ? '保留生活感' : '智能匹配'}</strong></span><ChevronDown size={13} />
-            </button>
-            <button type="button" className="ec-config-trigger" onClick={onOptionsToggle} aria-label="发布规范">
-              <span className="ec-config-trigger-copy"><span>发布规范</span><strong>小红书结构</strong></span><ChevronDown size={13} />
-            </button>
+            {options.map(([key, label, value]) => <button type="button" key={key} className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}`} onClick={() => onOptionToggle(key)} aria-expanded={activeOption === key} aria-controls={`xhs-option-panel-${key}`}>
+              <span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span><ChevronDown size={13} />
+            </button>)}
           </div>
           <button type="button" className="ec-workbench-next" onClick={onGenerate} disabled={!canGenerate}>{plog ? '生成 Plog' : '生成图文'} <span aria-hidden="true">→</span></button>
         </div>
-        {optionsOpen && <div className="xhs-template-options">{optionsPanel}</div>}
+        {activeOption && optionPanels?.[activeOption] && <div id={`xhs-option-panel-${activeOption}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[activeOption]}</div>}
       </div>
     </div>
   );
@@ -210,6 +214,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [toast, setToast] = useState(null);
   const [topicsOpen, setTopicsOpen] = useState(false);
   const [plogOptionsOpen, setPlogOptionsOpen] = useState(false);
+  const [xhsActiveOption, setXhsActiveOption] = useState(null);
+  const [plogActiveOption, setPlogActiveOption] = useState(null);
   const [extractingProduct, setExtractingProduct] = useState(false); // 插件数据反推加载中
   const ecFileRef = useRef(null);
   const [showRefModal, setShowRefModal] = useState(false);
@@ -933,9 +939,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               onMention={image => insertMentionInTextarea(xhsPromptRef, inputText, setText, image.label)}
               onGenerate={doGenXHS}
               canGenerate={Boolean(inputText.trim())}
-              optionsOpen={topicsOpen}
-              onOptionsToggle={() => setTopicsOpen(open => !open)}
-              optionsPanel={<div><strong>选择一个主题快速开始</strong><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setTopicsOpen(false); }}>{hint}</button>)}</div></div>}
+              activeOption={xhsActiveOption}
+              onOptionToggle={key => setXhsActiveOption(current => current === key ? null : key)}
+              optionPanels={{
+                structure: <div><strong>小红书发布结构</strong><p>固定生成 1 张封面 + 8 张内容页，并同时交付标题、正文和标签。</p></div>,
+                content: <div><strong>选择一个主题快速开始</strong><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setXhsActiveOption(null); }}>{hint}</button>)}</div></div>,
+                references: <div><strong>参考素材如何参与</strong><p>我的素材最多 6 张，用于保留主体、人物与生活细节；风格参考最多 3 张，用于分析构图、色调和版式，不复制主体。</p></div>,
+              }}
             />
           ) : (
             <XhsInputTemplate
@@ -951,9 +961,13 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               onMention={image => insertMentionInTextarea(plogPromptRef, plogText, setPlogText, image.label)}
               onGenerate={doGenPlog}
               canGenerate={Boolean(plogText.trim())}
-              optionsOpen={plogOptionsOpen}
-              onOptionsToggle={() => setPlogOptionsOpen(open => !open)}
-              optionsPanel={<div><strong>调整 Plog 的视觉表达</strong><div className="xhs-option-heading">色调风格</div><div className="xhs-option-list">{[{ k:'ins-minimal', label:'Ins 极简' }, { k:'korean-clear', label:'韩系清透' }, { k:'japanese-cream', label:'日系奶油' }, { k:'film-vintage', label:'胶片复古' }].map(item => <button type="button" key={item.k} className={plogStyle === item.k ? 'is-selected' : ''} onClick={() => setPlogStyle(item.k)}>{item.label}</button>)}</div><div className="xhs-option-heading">排版样式</div><div className="xhs-option-list">{[{ k:'casual', label:'碎片风' }, { k:'polaroid', label:'拍立得' }, { k:'cinematic', label:'电影感' }, { k:'journal', label:'手账风' }, { k:'magazine', label:'杂志风' }].map(item => <button type="button" key={item.k} className={plogLayout === item.k ? 'is-selected' : ''} onClick={() => setPlogLayout(item.k)}>{item.label}</button>)}</div></div>}
+              activeOption={plogActiveOption}
+              onOptionToggle={key => setPlogActiveOption(current => current === key ? null : key)}
+              optionPanels={{
+                structure: <div><strong>Plog 发布结构</strong><p>固定生成 9 张生活碎片，并同时交付标题、情绪正文和标签。</p></div>,
+                style: <div><strong>调整 Plog 色调风格</strong><div className="xhs-option-list">{[{ k:'ins-minimal', label:'Ins 极简' }, { k:'korean-clear', label:'韩系清透' }, { k:'japanese-cream', label:'日系奶油' }, { k:'film-vintage', label:'胶片复古' }].map(item => <button type="button" key={item.k} className={plogStyle === item.k ? 'is-selected' : ''} onClick={() => setPlogStyle(item.k)}>{item.label}</button>)}</div></div>,
+                layout: <div><strong>调整 Plog 排版方式</strong><div className="xhs-option-list">{[{ k:'casual', label:'碎片风' }, { k:'polaroid', label:'拍立得' }, { k:'cinematic', label:'电影感' }, { k:'journal', label:'手账风' }, { k:'magazine', label:'杂志风' }].map(item => <button type="button" key={item.k} className={plogLayout === item.k ? 'is-selected' : ''} onClick={() => setPlogLayout(item.k)}>{item.label}</button>)}</div></div>,
+              }}
             />
           )}
           {err && <div className="error-bar">{err}</div>}

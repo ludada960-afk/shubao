@@ -143,6 +143,21 @@ export function ensureProjectSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_project_assets_owner
       ON project_assets(owner_email, project_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS project_asset_lineage (
+      project_id TEXT NOT NULL,
+      source_asset_id TEXT NOT NULL,
+      target_asset_id TEXT NOT NULL,
+      relation TEXT NOT NULL,
+      generation_run_id TEXT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(project_id, source_asset_id, target_asset_id, relation),
+      FOREIGN KEY(project_id) REFERENCES projects(id),
+      FOREIGN KEY(source_asset_id) REFERENCES project_assets(id),
+      FOREIGN KEY(target_asset_id) REFERENCES project_assets(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_asset_lineage_target
+      ON project_asset_lineage(project_id, target_asset_id);
   `);
   const assetColumns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
   if (!assetColumns.includes('asset_id')) db.exec("ALTER TABLE project_assets ADD COLUMN asset_id TEXT NOT NULL DEFAULT ''");

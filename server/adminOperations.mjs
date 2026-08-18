@@ -158,7 +158,13 @@ function whereForUsage(input = {}, alias = 'u') {
   return { sql: predicates.length ? `WHERE ${predicates.join(' AND ')}` : '', params };
 }
 
-export function createAdminOperations({ db, walletService, runtimeStatus = null } = {}) {
+export function createAdminOperations({
+  db,
+  walletService,
+  runtimeStatus = null,
+  videoOperations = null,
+  videoWorkbenchMetrics = null,
+} = {}) {
   if (!db || typeof db.prepare !== 'function') throw new TypeError('db is required');
   if (!walletService || typeof walletService.grant !== 'function'
     || typeof walletService.revoke !== 'function'
@@ -168,6 +174,11 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
   if (runtimeStatus !== null && typeof runtimeStatus !== 'function') {
     throw new TypeError('runtimeStatus must be a function');
   }
+  if (videoOperations !== null && typeof videoOperations !== 'function' && typeof videoOperations !== 'object') {
+    throw new TypeError('videoOperations must be an object or provider function');
+  }
+
+  const resolveVideoOperations = () => typeof videoOperations === 'function' ? videoOperations() : videoOperations;
 
   const tableExists = name => Boolean(db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
@@ -295,6 +306,16 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
     try {
       const status = runtimeStatus();
       return status && typeof status === 'object' ? status : { unavailable: true };
+    } catch {
+      return { unavailable: true };
+    }
+  }
+
+  function readVideoWorkbenchMetrics() {
+    if (typeof videoWorkbenchMetrics !== 'function') return { unavailable: true };
+    try {
+      const value = videoWorkbenchMetrics();
+      return value && typeof value === 'object' ? value : { unavailable: true };
     } catch {
       return { unavailable: true };
     }
@@ -586,6 +607,7 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
       generatedAt: new Date().toISOString(),
       runtime,
       jobs: jobStats(input),
+      videoWorkbench: readVideoWorkbenchMetrics(),
       providerRoutes: [...routeIds].map(routeId => ({
         ...(persistedByRoute.get(routeId) || { routeId, total: 0, active: 0, completed: 0, failed: 0, failureRate: 0 }),
         ...(runtimeRoutes.find(route => route.routeId === routeId) || {}),
@@ -619,6 +641,54 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
     };
   }
 
+  function videoOperationsMetrics() {
+    const service = resolveVideoOperations();
+    return service?.metrics?.() || {
+      unavailable: true,
+      backlog: {},
+      ageBuckets: {},
+      segments: [],
+      attention: [],
+    };
+  }
+
+  async function runVideoReconciliation(actorEmail, input = {}) {
+    const service = resolveVideoOperations();
+    if (!service?.run) throw Object.assign(new Error('视频恢复服务暂不可用'), { code: 'VIDEO_OPERATION_UNAVAILABLE', status: 503 });
+    const reason = nonEmpty(input.reason, 'reason');
+    const idempotencyKey = nonEmpty(input.idempotencyKey, 'idempotencyKey');
+    const result = await service.run({ limit: input.limit, force: input.force === true });
+    recordAudit({
+      actorEmail,
+      action: 'video.reconcile',
+      targetEmail: actorEmail,
+      reason,
+      before: null,
+      after: result,
+      idempotencyKey: `admin-audit:video-reconcile:${idempotencyKey}`,
+    });
+    return result;
+  }
+
+  async function operateVideoJob(actorEmail, jobId, input = {}) {
+    const service = resolveVideoOperations();
+    if (!service?.operate) throw Object.assign(new Error('视频运维服务暂不可用'), { code: 'VIDEO_OPERATION_UNAVAILABLE', status: 503 });
+    const reason = nonEmpty(input.reason, 'reason');
+    const idempotencyKey = nonEmpty(input.idempotencyKey, 'idempotencyKey');
+    const result = await service.operate(jobId, { ...input, reason, idempotencyKey });
+    const targetEmail = result?.after?.ownerEmail || result?.before?.ownerEmail || actorEmail;
+    recordAudit({
+      actorEmail,
+      action: `video.${nonEmpty(input.action, 'action')}`,
+      targetEmail,
+      reason,
+      before: result?.before || null,
+      after: result?.after || result,
+      idempotencyKey: `admin-audit:video:${idempotencyKey}`,
+    });
+    return result;
+  }
+
   return {
     summary,
     monitoring,
@@ -629,5 +699,8 @@ export function createAdminOperations({ db, walletService, runtimeStatus = null 
     setPermissions,
     adjustCredits,
     listAudit,
+    videoOperationsMetrics,
+    runVideoReconciliation,
+    operateVideoJob,
   };
 }

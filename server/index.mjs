@@ -76,12 +76,16 @@ import {
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
+import { createVideoProjectBridge } from './videoProjectBridge.mjs';
+import { createVideoWorkbenchStore } from './videoWorkbenchStore.mjs';
+import { createVideoWorkbenchRollout } from './videoWorkbenchRollout.mjs';
 import { createRetentionService } from './projects/retentionService.mjs';
 import { createCompositionStore } from './projects/compositionStore.mjs';
 import { createCompositionAssetAuthorizer, createCompositionService } from './composition/compositionService.mjs';
 import { createPixelLayers } from './composition/layerService.mjs';
 import { exportPsd, validatePsdStructure } from './composition/psdExporter.mjs';
 import { mountProjectRoutes } from './projects/projectRoutes.mjs';
+import { mountVideoWorkbenchRoutes } from './videoWorkbenchRoutes.mjs';
 import { mountWorkRoutes } from './worksRoutes.mjs';
 import {
   createCanvasGenerationStatusHandler,
@@ -153,7 +157,11 @@ import {
   readRequestBuffer,
   sendVideoAsset,
 } from './videoGeneration.mjs';
+import { createVideoUploadService } from './videoUploadService.mjs';
+import { createVideoReconciliation } from './videoReconciliation.mjs';
+import { readVideoPlatformFlags } from './config.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
+import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function safeCanvasClientError(error, fallback = '画布服务暂时不可用，请稍后重试') {
@@ -182,9 +190,16 @@ if (!process.env.SHUBAO_CONTENT_BILLING_UNITS) {
 }
 
 // 作品、任务、用户额度统一使用 SQLite，避免 JSON 文件并发覆盖。
-const db = initDB();
+const db = initDB(process.env.SHUBAO_DB_PATH || undefined);
 const walletService = createWalletService(db);
 const authorizeAccountEmail = email => requireAccountAccess(db, email);
+const videoPlatformFlags = readVideoPlatformFlags(process.env);
+let videoWorkbenchStore = null;
+const videoWorkbenchRollout = createVideoWorkbenchRollout({
+  enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
+  authorizeOwner: email => requireAdminAccess(db, email),
+});
+let videoReconciliation = null;
 const adminOperations = createAdminOperations({
   db,
   walletService,
@@ -192,6 +207,11 @@ const adminOperations = createAdminOperations({
     imageQueue: imageGenerationPool.stats(),
     ecommerce: orchestrator.runtimeStats(),
     video: videoGeneration.runtimeStats(),
+  }),
+  videoOperations: () => videoReconciliation,
+  videoWorkbenchMetrics: () => ({
+    rollout: videoWorkbenchRollout.status(),
+    ...(videoWorkbenchStore?.operationalMetrics?.() || { unavailable: true }),
   }),
 });
 const paymentService = createPaymentService(db, walletService);
@@ -224,6 +244,11 @@ const generatedAssetStore = createGeneratedAssetStore({
     void imageDelivery.prewarmGeneratedVariants(asset.id).catch(() => {});
   },
 });
+const projectStore = createProjectStore(db);
+const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
+videoWorkbenchStore = videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH
+  ? createVideoWorkbenchStore({ db, projectStore })
+  : null;
 const videoGeneration = createVideoGeneration({
   db,
   walletService,
@@ -235,7 +260,49 @@ const videoGeneration = createVideoGeneration({
   baseUrl: process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   minimaxBaseUrl: process.env.MINIMAX_VIDEO_BASE_URL || process.env.IP233_VIDEO_BASE_URL || 'https://api-new.ip233.com/v1',
   allowHiddenProducts: process.env.MINIMAX_VIDEO_PUBLIC_ENABLED === 'true',
+  assetSigningSecret: authSessionSecret,
+  projectBridge: videoPlatformFlags.VIDEO_PLATFORM_PROJECT_BRIDGE ? videoProjectBridge : null,
+  ownerReads: videoPlatformFlags.VIDEO_PLATFORM_OWNER_READS,
+  readNewState: videoPlatformFlags.VIDEO_PLATFORM_READ_NEW_STATE,
+  validateWorkbenchPlanApproval: async ({ ownerEmail, projectId, planHash, input }) => {
+    if (!videoWorkbenchStore || typeof videoWorkbenchStore.getGenerationPlanApproval !== 'function') return false;
+    const approval = videoWorkbenchStore.getGenerationPlanApproval({ ownerEmail, projectId });
+    if (!approval || approval.planHash !== planHash) return false;
+    const plan = buildVideoWorkbenchPlan(videoWorkbenchStore.listWorkbench({ ownerEmail, projectId }), {
+      productId: input?.productId,
+      mode: input?.workbenchMode || input?.mode,
+      resolution: input?.resolution,
+      generateAudio: input?.generateAudio !== false,
+    });
+    return plan.status === 'ready' && videoWorkbenchPlanFingerprint(plan) === planHash;
+  },
 });
+const videoUploadService = createVideoUploadService({
+  db,
+  directory: resolve(__dirname, 'video-upload-staging'),
+  importAsset: input => videoGeneration.importUploadedAsset(input),
+});
+videoReconciliation = createVideoReconciliation({
+  db,
+  reconcile: input => videoGeneration.reconcileOperations(input),
+  cleanupUploads: input => videoUploadService.cleanExpiredUploads(input),
+  readAttempts: videoPlatformFlags.VIDEO_PLATFORM_ATTEMPTS,
+  readOutbox: videoPlatformFlags.VIDEO_PLATFORM_OUTBOX,
+  readNewState: videoPlatformFlags.VIDEO_PLATFORM_READ_NEW_STATE,
+  actions: {
+    recheck: jobId => videoGeneration.recheckJob(jobId),
+    replayProjection: jobId => videoGeneration.replayProjection(jobId),
+    confirmNotSubmitted: (jobId, input) => videoGeneration.confirmNotSubmitted(jobId, input),
+    retryConfirmedNotSubmitted: jobId => videoGeneration.retryConfirmedNotSubmitted(jobId),
+    quarantine: (jobId, input) => videoGeneration.quarantineJob(jobId, input),
+  },
+});
+const videoReconciliationSweep = setInterval(() => {
+  void videoReconciliation.run({ limit: 50 }).catch(error => {
+    console.error('[video-reconciliation] 自动恢复失败:', error?.message || error);
+  });
+}, 30_000);
+videoReconciliationSweep.unref?.();
 const persistGeneratedAsset = createGeneratedAssetPersister({ generatedAssetStore });
 const runBilledContentSse = createBilledSseRunner({
   beginContentGeneration,
@@ -245,7 +312,6 @@ const runBilledContentSse = createBilledSseRunner({
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
-const projectStore = createProjectStore(db);
 const retentionService = createRetentionService({
   db,
   assetStore: {
@@ -517,7 +583,7 @@ mountBillingRoutes(app, {
   },
 });
 
-mountAdminRoutes(app, {
+const adminRouteHandlers = mountAdminRoutes(app, {
   operations: adminOperations,
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
@@ -532,6 +598,24 @@ mountAdminRoutes(app, {
 
 mountProjectRoutes(app, {
   projectStore,
+  authenticateOwner(req) {
+    return authenticateContentRequest(req, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    });
+  },
+});
+
+mountVideoWorkbenchRoutes(app, {
+  enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
+  store: videoWorkbenchStore,
+  authorizeCohort: videoWorkbenchRollout,
+  playbackUrlForAsset({ assetId, ownerEmail, req }) {
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const host = typeof req.get === 'function' ? req.get('host') : req.headers.host;
+    const publicBaseUrl = host ? `${proto}://${host}` : '';
+    return videoGeneration.playbackUrlForAsset(assetId, ownerEmail, publicBaseUrl);
+  },
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,
@@ -2371,10 +2455,19 @@ mountWorkRoutes(app, {
     });
   },
   mapError: contentBillingHttpError,
-  listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => ({
-    ...work,
-    retention: retentionService.describeWork({ ownerEmail, work }),
-  })),
+  listWorks: ownerEmail => getAllWorks({ ownerEmail }).map(work => {
+    const stableVideoUrl = String(work.video_url || work.video?.url || '');
+    const assetId = /^\/api\/video\/assets\/([^/?#]+)$/.exec(stableVideoUrl)?.[1] || '';
+    const playbackUrl = assetId ? videoGeneration.playbackUrlForAsset(assetId, ownerEmail) : '';
+    return {
+      ...work,
+      ...(playbackUrl ? {
+        video_url: playbackUrl,
+        video: { ...(work.video || {}), url: playbackUrl },
+      } : {}),
+      retention: retentionService.describeWork({ ownerEmail, work }),
+    };
+  }),
   listTrash: ownerEmail => getDeletedWorks({ ownerEmail }),
   saveOwnedWork: (work, ownerEmail) => upsertWork(work, { ownerEmail }),
   deleteOwnedWork: (saveKey, ownerEmail) => softDeleteWork(saveKey, { ownerEmail }),
@@ -3948,8 +4041,16 @@ app.post('/api/ecommerce/jobs/:id/retry-plan', authenticateEcommerceRequest, eco
 app.post('/api/ecommerce/jobs/:id/retry-failed', authenticateEcommerceRequest, ecommerceRouteHandlers.retryFailed);
 app.get('/api/ecommerce/jobs/:id', authenticateEcommerceRequest, ecommerceRouteHandlers.getJob);
 
-app.get('/api/video/capabilities', (_req, res) => {
-  res.json({ loading: false, ...videoGeneration.capabilities() });
+app.get('/api/video/capabilities', (req, res) => {
+  res.json({
+    loading: false,
+    ...videoGeneration.capabilities(),
+    uploadMode: videoPlatformFlags.VIDEO_PLATFORM_TUS_UPLOAD ? 'tus' : 'direct',
+    workbenchEnabled: videoWorkbenchRollout.enabledForRequest(req, request => authenticateContentRequest(request, {
+      sessionTokens: contentSessionTokens,
+      authorizeEmail: authorizeAccountEmail,
+    })),
+  });
 });
 app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
   const {
@@ -3962,8 +4063,8 @@ app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {
       .map(value => String(value || '').trim()).filter(Boolean))].slice(0, 9);
     const images = [];
     for (const id of imageIds) {
-      const asset = await videoGeneration.readAsset(id);
-      if (!asset || asset.row.owner_email !== req._userEmail || asset.row.kind !== 'image') {
+      const asset = await videoGeneration.readAsset(id, req._userEmail);
+      if (!asset || asset.row.kind !== 'image') {
         const error = new Error('视频方案包含无效或无权访问的分析素材');
         error.status = 400;
         error.code = 'VIDEO_PLAN_ASSET_INVALID';
@@ -4018,8 +4119,27 @@ app.post('/api/video/assets', authenticateVideoRequest, async (req, res) => {
     return res.status(error?.status || 500).json({ code: error?.code, error: error?.message || '素材上传失败' });
   }
 });
-app.get('/api/video/assets/:id', async (req, res) => {
-  const asset = await videoGeneration.readAsset(req.params.id);
+app.all(['/api/video/uploads', '/api/video/uploads/:id'], authenticateVideoRequest, (req, res) => {
+  if (!videoPlatformFlags.VIDEO_PLATFORM_TUS_UPLOAD) {
+    return res.status(409).json({ code: 'VIDEO_TUS_DISABLED', error: '可续传上传暂时不可用，请使用兼容上传' });
+  }
+  void videoUploadService.handle(req, res);
+});
+app.get('/api/video/upload-results/:id', authenticateVideoRequest, (req, res) => {
+  videoUploadService.handleResult(req, res, req.params.id);
+});
+app.get('/api/video/assets/:id', authenticateVideoRequest, async (req, res) => {
+  const asset = await videoGeneration.readAsset(req.params.id, req._userEmail);
+  if (!asset) return res.status(404).end('video asset not found');
+  return sendVideoAsset(req, res, asset);
+});
+app.get('/api/video/media/:id', async (req, res) => {
+  const asset = await videoGeneration.readSignedAsset({
+    id: req.params.id,
+    purpose: req.query.purpose,
+    expires: req.query.expires,
+    signature: req.query.signature,
+  });
   if (!asset) return res.status(404).end('video asset not found');
   return sendVideoAsset(req, res, asset);
 });
@@ -4049,6 +4169,23 @@ app.get('/api/video/jobs', authenticateVideoRequest, (req, res) => {
 app.get('/api/video/jobs/:id', authenticateVideoRequest, (req, res) => {
   const job = videoGeneration.getJob(req._userEmail, req.params.id);
   return job ? res.json({ job }) : res.status(404).json({ error: '视频任务不存在' });
+});
+app.get('/api/admin/video-reviews', adminRouteHandlers.requireAdmin, (req, res) => {
+  res.json({ reviews: videoGeneration.listSubmissionReviews(req.query.limit) });
+});
+app.post('/api/admin/video-reviews/:id/resolve', adminRouteHandlers.requireAdmin, (req, res) => {
+  try {
+    return res.json({ job: videoGeneration.resolveSubmissionReview(req.params.id, req.body?.providerTaskId) });
+  } catch (error) {
+    return res.status(error?.status || 400).json({ error: error?.message || '视频任务核对失败', code: error?.code || 'VIDEO_REVIEW_INVALID' });
+  }
+});
+app.post('/api/admin/video-reviews/:id/reject', adminRouteHandlers.requireAdmin, (req, res) => {
+  try {
+    return res.json({ job: videoGeneration.rejectSubmissionReview(req.params.id) });
+  } catch (error) {
+    return res.status(error?.status || 400).json({ error: error?.message || '视频任务核对失败', code: error?.code || 'VIDEO_REVIEW_INVALID' });
+  }
 });
 
 function sendCompositionError(error, res) {
@@ -5011,6 +5148,10 @@ async function shutdown(signal) {
   if (!ecommerceIdle || !imageQueueIdle) {
     console.error('[shutdown] 后台任务未在排空期限内完成，将由持久化租约在新进程恢复');
   }
+  videoUploadService.close();
+  videoGeneration.close();
+  clearInterval(videoReconciliationSweep);
+  clearInterval(retentionSweep);
   clearTimeout(force);
   process.exit(0);
 }

@@ -2,7 +2,7 @@
 
 日期：2026-08-15
 
-状态：待产品路线确认
+状态：路线 C 已确认；P0 已完成本地实现与自动化门禁，生产观察证据仍待发布窗口
 
 关联路线图：`docs/superpowers/plans/2026-08-14-ai-video-platform-roadmap.md`
 
@@ -115,15 +115,9 @@
 
 ### 4.2 “屿帆AI”公开线索
 
-公开索引可确认该账号至少有以下方向：
+目前可稳定取得的公开证据仅是第三方作者资料页：其自述为“屿帆AI创始人”，并引导用户到同名公众号查看教程。没有取得微信公众号文章全文，也没有找到可由官方来源交叉验证的文章目录。
 
-- `AI演唱会`：先寻找有传播潜力的方向，再把全过程训练/整理为可复用 Skill。
-- `AI视频“噪点”终极解决大法!`：针对大场景噪点、塑料感进行修复，并将有效过程固化为可复用 Skill。
-- 公开视频涉及摄像机运动、人物自然说话、节奏、灯光和 Vibe Cutting。
-
-这些内容可用于提炼能力方向：镜头语法、表演/口型、节奏、灯光、连续性、局部修复和 Skill 复用。
-
-边界：目前只取得公开索引摘要和公开视频证据，没有稳定取得微信公众号文章全文。因此不能把文章中未见到的具体步骤伪装成已验证事实；后续若取得用户提供的原文或稳定公开全文，再补充逐条实现映射。
+因此，本路线不把任何具体文章标题、步骤、参数或“邪修”方法写成已验证事实。镜头语法、表演/口型、节奏、灯光、连续性、局部修复和 Skill 复用等能力方向，只采用 Flova、TapNow、Runway、LTX、Comfy/Wan 等可访问官方资料和已查看公开视频所支持的证据。后续若用户提供原文或稳定公开全文，再建立“原文方法 -> 可测产品原语 -> 实现/退出标准”的逐条映射。
 
 ## 5. 开源与成熟方案复用矩阵
 
@@ -138,6 +132,16 @@
 | Remotion | 约 5.6 万星，自定义许可证 | 程序化合成/导出候选 | 仅在许可证和成本审查通过后采用 |
 | DesignCombo/React Video Editor | React 时间线/Remotion 生态，许可证需逐项核验 | UI 与时间线结构参考 | 不在许可证未确认时直接复制 |
 | mjj-ai-studio | 低采用量，MIT | 脚本/分镜/资产/多供应商的演示参考 | 不作为成熟底座 |
+
+### 5.1 可复核的一手来源
+
+- Flova 产品模型、项目记忆、Skill、资产版本、分镜和时间线：<https://flova.tv/zh-CN/docs/introduction/understanding-flova/>、<https://flova.tv/zh-CN/docs/tutorials/quick-guide/?flovatv=1>、<https://flova.tv/zh-CN/agent-cli/>。
+- TapNow 产品与公开创作过程入口：<https://app.tapnow.ai/home>；用户指定的导演 Skill 文档：<https://q52zkkpo8s.feishu.cn/wiki/HUCJwu1euiroyFkeWLHcMwrPnwd>；对应公开视频：<https://www.bilibili.com/video/BV1zfg36ZEXi/>。
+- Runway 参考资产、长视频组装、Agent、表演捕捉、Studio 和 Story Panels：<https://help.runwayml.com/hc/en-us/articles/40042718905875-Creating-with-Gen-4-Image-References>、<https://help.runwayml.com/hc/en-us/articles/26871350018835-How-to-create-longer-videos-and-films>、<https://help.runwayml.com/hc/en-us/articles/51601639579667-Creating-with-Runway-Agent>、<https://help.runwayml.com/hc/en-us/articles/42311337895827-Performance-Capture-with-Act-Two>、<https://help.runwayml.com/hc/en-us/articles/52685547867667-Trimming-and-Assembling-Clips-in-Studio>、<https://help.runwayml.com/hc/en-us/articles/50985233945747-Story-Panels>。
+- LTX 产品与开源边界：<https://website.ltx.studio/>、<https://github.com/Lightricks/ltx-desktop/>、<https://github.com/Lightricks/LTX-Desktop/blob/main/backend/performance_runner/README.md>、<https://github.com/Lightricks/LTX-Video>、<https://github.com/Lightricks/ComfyUI-LTXVideo/blob/master/LICENSE>。
+- Comfy/Wan 工作流和服务化接口：<https://docs.comfy.org/tutorials/video/wan/wan2_2>、<https://docs.comfy.org/tutorials/video/wan/wan2-2-animate>、<https://docs.comfy.org/tutorials/video/wan/fun-control>、<https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/websockets_api_example.py>、<https://github.com/Wan-Video/Wan2.2>、<https://github.com/Wan-Video/Wan-skills>。
+- 开源模型许可证风险示例：LivePortrait 代码许可证见 <https://github.com/KlingAIResearch/LivePortrait/blob/main/LICENSE>，身份模型依赖边界需单独审查；ConsisID 见 <https://github.com/PKU-YuanGroup/ConsisID>。
+- “屿帆AI”仅作为作者身份线索的第三方资料页：<https://dy3.feigua.cn/bloggeropen/35BE9ADEC5E1EB51>。该页不能证明微信公众号文章正文或具体教程步骤。
 
 复用原则：
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import sharp from 'sharp';
 
-import { verifyProductionEcommerce } from '../scripts/verify-production-ecommerce.mjs';
+import { assertCanaryWalletCapacity, verifyProductionEcommerce } from '../scripts/verify-production-ecommerce.mjs';
 
 const PRODUCT = { assetId: 'a'.repeat(64) + '.png', url: '/api/generated-assets/' + 'a'.repeat(64) + '.png' };
 const REFERENCE = { assetId: 'b'.repeat(64) + '.png', url: '/api/generated-assets/' + 'b'.repeat(64) + '.png' };
@@ -51,6 +51,44 @@ function completedDirections() {
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
+
+const FUNDED_BALANCE = {
+  balances: { ec_points: { unlimited: false, availableUnits: 3_000, heldUnits: 0 } },
+};
+
+test('ecommerce canary wallet guard fails closed before any paid input work', () => {
+  assert.deepEqual(assertCanaryWalletCapacity(FUNDED_BALANCE), FUNDED_BALANCE.balances.ec_points);
+  assert.throws(
+    () => assertCanaryWalletCapacity({ balances: { ec_points: { unlimited: false, availableUnits: 0, heldUnits: 0 } } }),
+    /balance is 0; 3000 units are required/,
+  );
+  assert.throws(
+    () => assertCanaryWalletCapacity({ balances: { ec_points: { unlimited: true, availableUnits: 0, heldUnits: 0 } } }),
+    /real ec_points wallet/,
+  );
+});
+
+test('ecommerce production verifier checks capacity before uploading canary assets', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'shubao-production-canary-wallet-'));
+  const fixturePath = join(directory, 'fixture.png');
+  await writeFile(fixturePath, Buffer.from('fixture'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const requests = [];
+  const fetchImpl = async url => {
+    const path = new URL(url).pathname;
+    requests.push(path);
+    if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
+    if (path === '/api/billing/balance') return json({
+      balances: { ec_points: { unlimited: false, availableUnits: 0, heldUnits: 0 } },
+    });
+    throw new Error(`unexpected request ${path}`);
+  };
+  await assert.rejects(
+    verifyProductionEcommerce({ sessionToken: 'signed-canary-token', fixturePath, fetchImpl }),
+    /balance is 0; 3000 units are required/,
+  );
+  assert.deepEqual(requests, ['/api/session', '/api/billing/balance']);
+});
 
 function completedTask() {
   const assetPlan = [
@@ -138,6 +176,7 @@ test('ecommerce production verifier checks delivery metadata, source continuity,
     const variant = parsed.searchParams.get('variant') || '';
     requests.push({ path, variant, options });
     if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
+    if (path === '/api/billing/balance') return json(FUNDED_BALANCE);
     if (path === '/api/ecommerce/assets') {
       const body = JSON.parse(options.body);
       return json(body.role === 'product' ? { original: PRODUCT } : { original: REFERENCE }, 201);
@@ -213,6 +252,7 @@ test('ecommerce production verifier keeps polling the same paid task after trans
     const path = parsed.pathname;
     const variant = parsed.searchParams.get('variant') || '';
     if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
+    if (path === '/api/billing/balance') return json(FUNDED_BALANCE);
     if (path === '/api/ecommerce/assets') {
       const body = JSON.parse(options.body);
       return json(body.role === 'product' ? { original: PRODUCT } : { original: REFERENCE }, 201);
@@ -285,6 +325,8 @@ test('ecommerce production verifier rejects partial delivery and never treats it
   const fetchImpl = async url => {
     const path = new URL(url).pathname;
     if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
+    if (path === '/api/billing/balance') return json(FUNDED_BALANCE);
+    if (path === '/api/billing/balance') return json(FUNDED_BALANCE);
     if (path === '/api/ecommerce/assets') return json({ original: PRODUCT }, 201);
     if (path === '/api/ecommerce/design-directions') return json(completedDirections());
     if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
@@ -306,6 +348,7 @@ test('ecommerce production verifier includes failed task diagnostics in the reje
   const fetchImpl = async url => {
     const path = new URL(url).pathname;
     if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
+    if (path === '/api/billing/balance') return json(FUNDED_BALANCE);
     if (path === '/api/ecommerce/assets') return json({ original: PRODUCT }, 201);
     if (path === '/api/ecommerce/design-directions') return json(completedDirections());
     if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });

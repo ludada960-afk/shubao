@@ -35,9 +35,9 @@ function sendError(res, error) {
 }
 
 function wrap(fn) {
-  return (req, res) => {
+  return async (req, res) => {
     try {
-      return fn(req, res);
+      return await fn(req, res);
     } catch (error) {
       return sendError(res, error);
     }
@@ -76,6 +76,13 @@ export function createAdminRouteHandlers({ operations, authenticateOwner, author
     permissions: wrap((req, res) => res.json({ account: operations.setPermissions(req.adminActorEmail, req.params.email, req.body) })),
     credits: wrap((req, res) => res.json({ adjustment: operations.adjustCredits(req.adminActorEmail, req.params.email, req.body) })),
     audit: wrap((req, res) => res.json(operations.listAudit(req.query))),
+    videoOperations: wrap((req, res) => res.json(operations.videoOperationsMetrics())),
+    reconcileVideos: wrap(async (req, res) => res.json({
+      result: await operations.runVideoReconciliation(req.adminActorEmail, req.body),
+    })),
+    operateVideoJob: wrap(async (req, res) => res.json({
+      result: await operations.operateVideoJob(req.adminActorEmail, req.params.id, req.body),
+    })),
   };
 }
 
@@ -93,5 +100,8 @@ export function mountAdminRoutes(app, deps) {
   app.put('/api/admin/accounts/:email/permissions', handlers.requireAdmin, handlers.permissions);
   app.post('/api/admin/accounts/:email/credits', handlers.requireAdmin, handlers.credits);
   app.get('/api/admin/audit', handlers.requireAdmin, handlers.audit);
+  app.get('/api/admin/video-operations', handlers.requireAdmin, handlers.videoOperations);
+  app.post('/api/admin/video-operations/reconcile', handlers.requireAdmin, handlers.reconcileVideos);
+  app.post('/api/admin/video-jobs/:id/actions', handlers.requireAdmin, handlers.operateVideoJob);
   return handlers;
 }
