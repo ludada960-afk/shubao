@@ -563,3 +563,28 @@ the four-scenario renderer reconciliation dry-run, and `verify-video-platform.mj
 pass. The dry-run reports `providerCalls=0` and `billingMutated=false`. This closes the local contract gate only;
 output proxy/download recovery, real moderation/storage attestations, measured provider quality/latency/cost, rollback,
 canary, and explicit feature-flag approval remain required before deployment.
+
+## 24. Integrated Core Release Gate (2026-08-18)
+
+The provider-neutral foundation is integrated into `codex/ecommerce-stability` at `9225816` and deployed through the
+single production entry point. The release does not enable the P1 workbench and does not call a paid video provider.
+
+- Local evidence: full repository regression `1821/1821`, `npm run check`, production build (`6520` modules),
+  `git diff --check`, collaboration policy check, reconciliation dry-run, and
+  `verify-video-platform.mjs --local --no-paid-generation` all passed.
+- Production evidence: `https://shuimg.cn/health` returned `200` with `ok=true` and `ready=true`; gallery verification
+  covered `117` images; the public video contract exposed `2` products; authenticated production canaries were
+  non-billable; the remote video backfill was empty; and the no-paid verifier reported `providerSubmissions=0` with no
+  billing mutation.
+- The deployment script completed its `600` second canary, saved the PM2 startup snapshot, released the remote lock,
+  and reported the deployed revision as `9225816`. A later local XHS-only commit `90c919d` is outside this AI-video
+  release and must be treated separately.
+- The research gate is closed for the publicly verifiable material: both requested Bilibili director workflows, the
+  Feishu AI-video index, Flova/TapNow/流影 patterns, and the open-source/license review are recorded in this roadmap.
+  Full hidden Feishu attachments and all 屿帆AI WeChat article bodies were not reliably retrievable; no article-specific
+  implementation claim is made from inaccessible material.
+
+This release is a verified reliability foundation, not a finished AI-video studio. `VIDEO_PLATFORM_P1_WORKBENCH=false`
+remains intentional. The next release must add the asset/storyboard/timeline UI only after output proxy/download
+recovery, governed moderation/storage attestations, provider capability and cost review, and an explicitly approved
+non-default provider canary.

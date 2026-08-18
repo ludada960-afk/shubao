@@ -342,3 +342,20 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - 生产 release 为 `20260818-100741-548b8ca`，公网健康 `200/ready=true`，独立生产审计 `27/27`；真实电商验收任务 `ec_cc614959-5889-4b1c-82c0-e9e39eba309f` 交付 3 个稳定资产并通过作品/Canvas 持久化和缩略图检查。未触发付费视频生成。
 - 本次本地部署进程与远端锁通道在版本切换后断开，远端已完成切换但本地未能回收 600 秒 Canary 输出，因此不把本轮记为“完整 600 秒 Canary 已通过”；已通过独立公网审计、健康检查和真实电商验收，远端部署锁已确认释放。
 - 用户未提交的 Canvas、诊断、临时文件和运行态任务删除项继续保留，未加入本次提交。
+
+## 2026-08-18 AI Video Provider-Neutral Foundation Release
+
+- AI 视频可靠性底座已整合到 `codex/ecommerce-stability` 的 `9225816`，并通过唯一入口
+  `scripts/deploy-production.ps1` 部署到 `https://shuimg.cn/`。部署脚本完成 600 秒 Canary、PM2 启动快照、
+  公网健康/图库/视频契约验证并释放远端锁；健康接口重试返回 `200`、`ok=true`、`ready=true`。
+- 本地全量回归 `1821/1821`、`npm run check`、生产构建 `6520` modules、`git diff --check`、协作策略、
+  reconciliation dry-run 和 `verify-video-platform.mjs --local --no-paid-generation` 均通过。远端无积压任务、
+  无迁移标记、`providerSubmissions=0`、无账务变更；没有触发付费视频生成。
+- 本次上线内容是 owner 鉴权读取、TUS 断点上传、持久化 attempts/outbox、renderer lease/recovery、重启恢复、
+  reconciliation 和严格 preflight binding。`VIDEO_PLATFORM_P1_WORKBENCH=false` 保持关闭，不能把它描述成已完成
+  的 AI 导演台或时间线编辑器。
+- 两个 B 站导演视频、Feishu AI 视频目录、Flova/TapNow/流影及开源许可研究已经写入路线图。隐藏的 Feishu
+  附件正文和“屿帆AI”公众号全部文章正文在当前环境无法稳定取得，因此没有虚构不可验证的文章结论；后续只能基于
+  用户提供的导出或可访问正文继续补证。
+- 部署后本地出现的 `90c919d` 是独立 XHS 展示提交，不属于本次 AI 视频 release；12 个 extension task 删除项、
+  `.tmp/`、诊断脚本和可视化临时文件继续保留，不能误恢复、误删除或误暂存。
