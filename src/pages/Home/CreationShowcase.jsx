@@ -61,7 +61,7 @@ function ContentPreview({ entry, plog = false, onOpen }) {
   return (
     <div className="creation-showcase-content-preview">
       <div className="creation-showcase-content-images">
-        {pages.map(page => <button type="button" className={`creation-showcase-content-image image-${page.index + 1}`} key={`${page.src}-${page.index}`} onClick={() => onOpen?.(page.index)} aria-label={`放大查看${page.alt}`}><ResponsiveImage src={page.src} variant="thumb" ratio="3:4" alt={page.alt} imgStyle={{ objectFit: 'cover' }} /><span>{page.index + 1}</span></button>)}
+        {pages.map(page => <button type="button" className={`creation-showcase-content-image image-${page.index + 1}`} key={`${page.src}-${page.index}`} onClick={() => onOpen?.(page.index)} aria-label={`放大查看${page.alt}`}><ResponsiveImage src={page.src} variant="thumb" ratio="3:4" alt={page.alt} loading="eager" fetchPriority={page.index === 0 ? 'high' : 'auto'} imgStyle={{ objectFit: 'cover' }} /><span>{page.index + 1}</span></button>)}
       </div>
       <div className="creation-showcase-content-copy">
         <span className="creation-showcase-content-platform">小红书 · {source.cat || '图文笔记'}</span>
