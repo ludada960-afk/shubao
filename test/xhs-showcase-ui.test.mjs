@@ -4,12 +4,11 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../src/pages/Home/CreationShowcase.jsx', import.meta.url), 'utf8');
 
-test('XHS showcase exposes a full publish preview contract', () => {
-  assert.match(source, /role="dialog"/);
-  assert.match(source, /aria-modal="true"/);
-  assert.match(source, /小红书发布预览/);
-  assert.match(source, /完整正文/);
-  assert.match(source, /上一张/);
-  assert.match(source, /下一张/);
-  assert.match(source, /Escape/);
+test('XHS showcase reuses the shared publish modal contract', () => {
+  assert.match(source, /import NoteModal from '\.\.\/\.\.\/NoteModal\.jsx'/);
+  assert.match(source, /body_text: getXhsPublishBody\(entry\)/);
+  assert.match(source, /hashtags: Array\.isArray\(entry\.tags\)/);
+  assert.match(source, /initialImageIndex=\{initialIndex\}/);
+  assert.match(source, /creation-showcase-body creation-showcase-content-body/);
+  assert.match(source, /creation-showcase-content-tabs/);
 });

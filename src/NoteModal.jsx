@@ -87,9 +87,9 @@ function EcommerceGalleryPreview({ item, onClose }) {
   </div>;
 }
 
-export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery, onSendToCanvas }) {
+export default function NoteModal({ item, onClose, textRegen, onDownload, onItemUpdate, onRegenStart, onUnlock, onGallery, onSendToCanvas, initialImageIndex = 0 }) {
   const dialog = useDialog();
-  const [imgIdx, setImgIdx] = useState(0);
+  const [imgIdx, setImgIdx] = useState(() => Math.max(0, Number(initialImageIndex) || 0));
   const [zoom, setZoom] = useState(false);
   const [rgIdx, setRgIdx] = useState(null);
   const [copied, setCopied] = useState(false);

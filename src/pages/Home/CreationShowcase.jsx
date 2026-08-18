@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, Clapperboard, Maximize2, Sparkles, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowRight, ChevronLeft, ChevronRight, Clapperboard, Maximize2, Sparkles } from 'lucide-react';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
+import NoteModal from '../../NoteModal.jsx';
 import { GALLERY } from '../../constants/data';
 import { productionCaseById } from './productionCaseCatalog.js';
 import { normalizeShowcase } from './creationShowcaseModel.js';
-import { buildXhsPublishPages, getNextXhsPublishIndex, getXhsPublishBody } from './xhsPublishPreviewModel.js';
+import { buildXhsPublishPages, getXhsPublishBody } from './xhsPublishPreviewModel.js';
 import './CreationShowcase.css';
 
 const COPY = {
@@ -76,47 +77,19 @@ function ContentPreview({ entry, plog = false, onOpen }) {
 }
 
 function XhsPublishPreview({ entry, initialIndex = 0, onClose }) {
-  const pages = useMemo(() => buildXhsPublishPages(entry), [entry]);
-  const [pageIndex, setPageIndex] = useState(Math.min(Math.max(initialIndex, 0), Math.max(pages.length - 1, 0)));
-
-  useEffect(() => {
-    const onKeyDown = event => {
-      if (event.key === 'Escape') onClose();
-      if (event.key === 'ArrowLeft') setPageIndex(index => getNextXhsPublishIndex(index, -1, pages.length));
-      if (event.key === 'ArrowRight') setPageIndex(index => getNextXhsPublishIndex(index, 1, pages.length));
+  const item = useMemo(() => {
+    if (!entry) return null;
+    return {
+      ...entry,
+      body_text: getXhsPublishBody(entry),
+      hashtags: Array.isArray(entry.tags) ? entry.tags : [],
+      _galleryItem: true,
+      _galleryType: 'content',
     };
-    globalThis.addEventListener?.('keydown', onKeyDown);
-    return () => globalThis.removeEventListener?.('keydown', onKeyDown);
-  }, [onClose, pages.length]);
+  }, [entry, initialIndex]);
 
-  if (!entry || pages.length === 0) return null;
-  const activePage = pages[pageIndex] || pages[0];
-  const tags = Array.isArray(entry.tags) ? entry.tags : [];
-  return (
-    <div className="xhs-publish-preview-modal" role="dialog" aria-modal="true" aria-label="小红书发布预览" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="xhs-publish-preview-dialog" onMouseDown={event => event.stopPropagation()}>
-        <div className="xhs-publish-preview-header"><div><span>小红书发布预览</span><strong>图片、标题、正文和标签，一次检查</strong></div><button type="button" onClick={onClose} aria-label="关闭预览"><X size={18} /></button></div>
-        <div className="xhs-publish-preview-main">
-          <div className="xhs-publish-preview-media">
-            <ResponsiveImage src={activePage.src} variant="display" ratio="3:4" alt={activePage.alt} imgStyle={{ objectFit: 'contain' }} />
-            <div className="xhs-publish-preview-media-nav"><button type="button" onClick={() => setPageIndex(index => getNextXhsPublishIndex(index, -1, pages.length))} aria-label="上一张"><ChevronLeft size={18} /></button><span>{pageIndex + 1} / {pages.length}</span><button type="button" onClick={() => setPageIndex(index => getNextXhsPublishIndex(index, 1, pages.length))} aria-label="下一张"><ChevronRight size={18} /></button></div>
-          </div>
-          <article className="xhs-publish-preview-article">
-            <span className="xhs-publish-preview-platform">小红书 · {entry.cat || '图文笔记'}</span>
-            <h4>{entry.title}</h4>
-            <div className="xhs-publish-preview-section-label">完整正文</div>
-            <div className="xhs-publish-preview-body">{getXhsPublishBody(entry)}</div>
-            <div className="xhs-publish-preview-section-label">全部标签</div>
-            <div className="xhs-publish-preview-tags">{tags.length ? tags.map(tag => <span key={tag}>{tag}</span>) : <span>暂无标签</span>}</div>
-            <small><Sparkles size={13} /> 已生成 {pages.length} 张配图 · 标题 · 正文 · 标签</small>
-          </article>
-        </div>
-        <nav className="xhs-publish-preview-thumbs" aria-label="切换发布配图">
-          {pages.map(page => <button type="button" key={`${page.src}-${page.index}`} className={page.index === pageIndex ? 'is-active' : ''} aria-label={`查看第${page.index + 1}张`} aria-pressed={page.index === pageIndex} onClick={() => setPageIndex(page.index)}><ResponsiveImage src={page.src} variant="thumb" ratio="3:4" alt={page.alt} imgStyle={{ objectFit: 'cover' }} /><span>{page.index + 1}</span></button>)}
-        </nav>
-      </div>
-    </div>
-  );
+  if (!item || buildXhsPublishPages(item).length === 0) return null;
+  return <NoteModal item={item} initialImageIndex={initialIndex} onClose={onClose} />;
 }
 
 function ContentShowcase({ entry }) {
@@ -149,19 +122,20 @@ function ContentShowcase({ entry }) {
         <div><span className="creation-showcase-eyebrow">发布成品案例</span><h3>一句话生成一套能直接发布的小红书内容</h3><p>图片、标题、正文和标签一起生成，按发布结构统一检查。</p></div>
         <span className="creation-showcase-output"><Sparkles size={14} />内容创作</span>
       </div>
-      <div className="creation-showcase-content-stage">
-        <div className="creation-showcase-content-stage-copy">
+      <div className="creation-showcase-body creation-showcase-content-body">
+        <div className="creation-showcase-copy creation-showcase-content-copy-shell">
           <span>{active.eyebrow}</span>
           <strong>{active.title}</strong>
           <p>{active.description}</p>
           <div className="creation-showcase-content-tabs" role="tablist" aria-label="图文案例切换">
             {cases.map((item, index) => <button type="button" key={item.id} role="tab" aria-selected={index === caseIndex} className={index === caseIndex ? 'is-active' : ''} onClick={() => { setCaseIndex(index); setPreviewIndex(null); }}>{item.label}</button>)}
           </div>
+          <div className="creation-showcase-copy-footer"><span>案例仅用于展示能力</span><ArrowRight size={15} /></div>
         </div>
-        <div className="creation-showcase-content-stage-art"><ContentPreview entry={active.entry} plog={active.id === 'plog-empty'} onOpen={active.id === 'plog-empty' ? undefined : setPreviewIndex} /></div>
-        <div className="creation-showcase-content-facts" aria-label="案例交付内容">
-          {active.facts.map(([number, label, value]) => <div key={number}><span>{number}</span><small>{label}</small><strong>{value}</strong></div>)}
-        </div>
+        <div className="creation-showcase-visual creation-showcase-content-visual"><ContentPreview entry={active.entry} plog={active.id === 'plog-empty'} onOpen={active.id === 'plog-empty' ? undefined : setPreviewIndex} /></div>
+      </div>
+      <div className="creation-showcase-content-facts" aria-label="案例交付内容">
+        {active.facts.map(([number, label, value]) => <div key={number}><span>{number}</span><small>{label}</small><strong>{value}</strong></div>)}
       </div>
       {active.entry && previewIndex !== null && <XhsPublishPreview entry={active.entry} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} />}
     </section>

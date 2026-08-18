@@ -128,13 +128,12 @@ function XhsInputTemplate({
   canGenerate,
 }) {
   const options = plog ? [
-    ['structure', '发布结构', '9 张碎片 · 标题 · 正文'],
-    ['style', '视觉风格', '保留生活感'],
-    ['layout', '排版方式', '生活碎片结构'],
+    ['structure', '发布结构', '固定 9 张 · 标题 · 正文'],
+    ['style', '内容风格', '保留生活感'],
+    ['layout', '图片节奏', '生活碎片结构'],
   ] : [
-    ['structure', '发布结构', '9 张配图 · 标题 · 正文'],
-    ['content', '内容策略', '一句话主题'],
-    ['references', '视觉参考', '分析素材与风格'],
+    ['structure', '发布结构', '固定 9 张 · 标题 · 正文'],
+    ['content', '热门主题', '一句话快速开始'],
   ];
   return (
     <div className={`xhs-input-template${plog ? ' is-plog' : ''}`}>
@@ -159,13 +158,18 @@ function XhsInputTemplate({
       <div className="ec-workbench-actions xhs-template-actions">
         <div className="ec-workbench-primary-row">
           <div className="ec-workbench-tools xhs-template-tools">
-            {options.map(([key, label, value]) => <button type="button" key={key} className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}`} onClick={() => onOptionToggle(key)} aria-expanded={activeOption === key} aria-controls={`xhs-option-panel-${key}`}>
-              <span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span><ChevronDown size={13} />
-            </button>)}
+            {options.map(([key, label, value]) => {
+              const isStatic = key === 'structure';
+              return <div className={`xhs-template-option-slot${isStatic ? ' is-static' : ''}`} key={key}>
+                <button type="button" className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}${isStatic ? ' is-static' : ''}`} onClick={isStatic ? undefined : () => onOptionToggle(key)} disabled={isStatic} aria-expanded={!isStatic && activeOption === key} aria-controls={!isStatic ? `xhs-option-panel-${key}` : undefined}>
+                  <span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{!isStatic && <ChevronDown size={13} />}
+                </button>
+                {!isStatic && activeOption === key && optionPanels?.[key] && <div id={`xhs-option-panel-${key}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[key]}</div>}
+              </div>;
+            })}
           </div>
           <button type="button" className="ec-workbench-next" onClick={onGenerate} disabled={!canGenerate}>{plog ? '生成 Plog' : '生成图文'} <span aria-hidden="true">→</span></button>
         </div>
-        {activeOption && optionPanels?.[activeOption] && <div id={`xhs-option-panel-${activeOption}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[activeOption]}</div>}
       </div>
     </div>
   );
@@ -943,8 +947,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               onOptionToggle={key => setXhsActiveOption(current => current === key ? null : key)}
               optionPanels={{
                 structure: <div><strong>小红书发布结构</strong><p>固定生成 1 张封面 + 8 张内容页，并同时交付标题、正文和标签。</p></div>,
-                content: <div><strong>选择一个主题快速开始</strong><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setXhsActiveOption(null); }}>{hint}</button>)}</div></div>,
-                references: <div><strong>参考素材如何参与</strong><p>我的素材最多 6 张，用于保留主体、人物与生活细节；风格参考最多 3 张，用于分析构图、色调和版式，不复制主体。</p></div>,
+                content: <div><strong>选择一个主题快速开始</strong><p>主题只提供创作起点，不会锁死后续内容；你仍然可以继续修改输入框。</p><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setXhsActiveOption(null); }}>{hint}</button>)}</div></div>,
               }}
             />
           ) : (
