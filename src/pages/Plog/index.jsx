@@ -10,7 +10,7 @@ import {
   buildContentPendingAction,
   createContentDraftId,
 } from '../contentGenerationModel.js';
-import ContentReferencePicker from '../../components/creation/ContentReferencePicker.jsx';
+import SupplementAssetDeck from '../Home/ec/components/SupplementAssetDeck.jsx';
 
 // ── 风格包 ──
 const PLOG_STYLES = {
@@ -525,11 +525,21 @@ export default function PlogPage() {
         </div>
 
         {/* ── 参考素材上传 ── */}
-        <ContentReferencePicker
-          styleImages={styleImages}
-          sourceImages={sourceImages}
-          onAdd={addRoleFiles}
-          onRemove={removeRoleFile}
+        <SupplementAssetDeck
+          productImages={sourceImages.map((url, index) => ({ id: `plog-source-${index}`, url, status: 'loaded', isAdded: true }))}
+          referenceImages={styleImages.map((url, index) => ({ id: `plog-style-${index}`, url, status: 'loaded', isAdded: true }))}
+          onAddProductImages={files => addRoleFiles('source', files)}
+          onAddReferenceImages={files => addRoleFiles('style', files)}
+          onRemoveProductImage={image => removeRoleFile('source', sourceImages.findIndex(url => url === image?.url))}
+          onRemoveReferenceImage={image => removeRoleFile('style', styleImages.findIndex(url => url === image?.url))}
+          productTitle="生活素材"
+          productHint="保留人物、空间与生活细节"
+          referenceTitle="风格参考"
+          referenceHint="借鉴构图、色调与版式，不复制主体"
+          productColor="#be185d"
+          referenceColor="#8b5cf6"
+          maxProductImages={6}
+          maxReferenceImages={3}
         />
 
         {/* ── 生成按钮 ── */}

@@ -45,7 +45,7 @@ import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import CreationShowcase from './CreationShowcase.jsx';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
-import ContentReferencePicker from '../../components/creation/ContentReferencePicker.jsx';
+import SupplementAssetDeck from './ec/components/SupplementAssetDeck.jsx';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
 import './Home.css';
 
@@ -69,6 +69,44 @@ function insertMentionInTextarea(fieldRef, currentValue, setValue, label) {
   };
   if (globalThis.requestAnimationFrame) globalThis.requestAnimationFrame(restore);
   else globalThis.setTimeout?.(restore, 0);
+}
+
+function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = false }) {
+  const toImages = (values, role) => values.map((url, index) => ({
+    id: `${plog ? 'plog' : 'xhs'}-${role}-${index}`,
+    url,
+    status: 'loaded',
+    isAdded: true,
+  }));
+  const removeAt = role => image => {
+    const values = role === 'style' ? styleImages : sourceImages;
+    const index = values.findIndex(url => url === image?.url);
+    if (index >= 0) onRemove(role, index);
+  };
+  return (
+    <SupplementAssetDeck
+      productImages={toImages(sourceImages, 'source')}
+      referenceImages={toImages(styleImages, 'style')}
+      onAddProductImages={files => onAdd('source', files)}
+      onAddReferenceImages={files => onAdd('style', files)}
+      onRemoveProductImage={removeAt('source')}
+      onRemoveReferenceImage={removeAt('style')}
+      productTitle={plog ? '生活素材' : '我的素材'}
+      productHint={plog ? '保留人物、空间与生活细节' : '保留主体、人物与产品细节'}
+      referenceTitle="风格参考"
+      referenceHint="借鉴构图、色调与版式，不复制主体"
+      productSuggestions={[
+        { label: '主体清晰图' }, { label: '人物或空间' }, { label: '细节补充图' },
+      ]}
+      referenceSuggestions={[
+        { label: '整体气质' }, { label: '构图参考' }, { label: '色调与版式' },
+      ]}
+      productColor={plog ? '#be185d' : '#e84142'}
+      referenceColor={plog ? '#8b5cf6' : '#c2185b'}
+      maxProductImages={6}
+      maxReferenceImages={3}
+    />
+  );
 }
 
 export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMode: xhsSubModeProp, setXhsSubMode: setXhsSubModeProp, recoveryCheckpoint = null }) {
@@ -877,13 +915,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
               <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
                 <div style={{ gridColumn:'1 / -1' }}>
-                  <ContentReferencePicker
-                    compact
-                    styleImages={refImages}
-                    sourceImages={xhsSourceImages}
-                    onAdd={addRoleImages}
-                    onRemove={removeRoleImage}
-                  />
+                  <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onRemove={removeRoleImage} />
                 </div>
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!inputText && (
@@ -919,13 +951,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
               <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
                 <div style={{ gridColumn:'1 / -1' }}>
-                  <ContentReferencePicker
-                    compact
-                    styleImages={plogStyleImages}
-                    sourceImages={plogSourceImages}
-                    onAdd={addPlogRoleImages}
-                    onRemove={removePlogRoleImage}
-                  />
+                  <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onRemove={removePlogRoleImage} />
                 </div>
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!plogText && (
@@ -1199,13 +1225,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         <div className="ph-sub">例如：厦门3天2夜旅游攻略、百元蓝牙耳机测评</div>
                       </div>
                     </div>
-                    <ContentReferencePicker
-                      compact
-                      styleImages={refImages}
-                      sourceImages={xhsSourceImages}
-                      onAdd={addRoleImages}
-                      onRemove={removeRoleImage}
-                    />
+                    <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onRemove={removeRoleImage} />
                     <div className="ref-images-row">
                       <ImageMentionPicker
                         images={xhsMentionImages}
@@ -1235,13 +1255,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         <div className="ph-sub">例如：独居日常｜周末宅家看书喝咖啡</div>
                       </div>
                     </div>
-                    <ContentReferencePicker
-                      compact
-                      styleImages={plogStyleImages}
-                      sourceImages={plogSourceImages}
-                      onAdd={addPlogRoleImages}
-                      onRemove={removePlogRoleImage}
-                    />
+                    <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onRemove={removePlogRoleImage} />
                     <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'#FAFBFC', borderTop:'1.5px solid var(--border)' }}>
                       <ImageMentionPicker
                         images={plogMentionImages}

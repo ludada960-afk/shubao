@@ -23,6 +23,7 @@ export default function SupplementImageCard({
   type,
   onRemove,
   onPreview,
+  suggestions,
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -32,6 +33,7 @@ export default function SupplementImageCard({
 
   // 获取建议文本
   const getSuggestion = () => {
+    if (Array.isArray(suggestions)) return suggestions[index] || null;
     if (type === 'product') {
       return getNextProductImageSuggestion(index);
     }

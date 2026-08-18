@@ -35,6 +35,16 @@ export default function SupplementAssetDeck({
   onRemoveProductImage,
   onRemoveReferenceImage,
   onPreviewImage,
+  productTitle = '补充产品图',
+  productHint = '多角度拍摄，提升生成效果',
+  referenceTitle = '补充参考图',
+  referenceHint = '竞品/爆款风格参考',
+  productSuggestions = PRODUCT_IMAGE_SUGGESTIONS,
+  referenceSuggestions = REFERENCE_IMAGE_SUGGESTIONS,
+  productColor = '#7c3aed',
+  referenceColor = '#ec4899',
+  maxProductImages = 6,
+  maxReferenceImages = 6,
 }) {
   const productInputRef = useRef(null);
   const referenceInputRef = useRef(null);
@@ -84,12 +94,14 @@ export default function SupplementAssetDeck({
   // 上传按钮组件
   const UploadButton = ({ type, onClick, count }) => {
     const isProduct = type === 'product';
-    const color = isProduct ? '#7c3aed' : '#ec4899';
+    const color = isProduct ? productColor : referenceColor;
+    const max = isProduct ? maxProductImages : maxReferenceImages;
     const placeholder = getUploadPlaceholderText(count, type);
 
     return (
       <div
-        onClick={onClick}
+        onClick={count >= max ? undefined : onClick}
+        aria-disabled={count >= max}
         style={{
           width: 80,
           height: 80,
@@ -100,7 +112,8 @@ export default function SupplementAssetDeck({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 4,
-          cursor: 'pointer',
+          cursor: count >= max ? 'default' : 'pointer',
+          opacity: count >= max ? 0.55 : 1,
           transition: 'all 0.15s',
           background: '#fff',
           flexShrink: 0,
@@ -124,7 +137,7 @@ export default function SupplementAssetDeck({
             padding: '0 4px',
           }}
         >
-          {placeholder}
+          {count >= max ? '已达上传上限' : placeholder}
         </span>
       </div>
     );
@@ -132,9 +145,10 @@ export default function SupplementAssetDeck({
 
   // 建议提示组件
   const SuggestionTips = ({ type }) => {
-    const suggestions = type === 'product' ? PRODUCT_IMAGE_SUGGESTIONS : REFERENCE_IMAGE_SUGGESTIONS;
-    const color = type === 'product' ? '#7c3aed' : '#ec4899';
-    const title = type === 'product' ? '产品图建议' : '参考图建议';
+    const isProduct = type === 'product';
+    const suggestions = isProduct ? productSuggestions : referenceSuggestions;
+    const color = isProduct ? productColor : referenceColor;
+    const title = isProduct ? `${productTitle}建议` : `${referenceTitle}建议`;
 
     return (
       <div
@@ -163,7 +177,7 @@ export default function SupplementAssetDeck({
           style={{
             fontSize: 11,
             fontWeight: 600,
-            color: '#7c3aed',
+            color: productColor,
             marginBottom: 8,
             display: 'flex',
             alignItems: 'center',
@@ -171,9 +185,9 @@ export default function SupplementAssetDeck({
           }}
         >
           <span>📸</span>
-          补充产品图
+          {productTitle}
           <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>
-            · 多角度拍摄，提升生成效果
+            · {productHint}
           </span>
           {stats.product.inherited > 0 && (
             <span
@@ -181,8 +195,8 @@ export default function SupplementAssetDeck({
                 marginLeft: 'auto',
                 padding: '2px 6px',
                 borderRadius: 4,
-                background: '#7c3aed20',
-                color: '#7c3aed',
+                background: `${productColor}20`,
+                color: productColor,
                 fontSize: 9,
               }}
             >
@@ -218,7 +232,7 @@ export default function SupplementAssetDeck({
             }}
           >
             {/* 已有图片 */}
-            {allProductImages.map((img, idx) => (
+            {allProductImages.slice(0, maxProductImages).map((img, idx) => (
               <SupplementImageCard
                 key={img.id || idx}
                 image={img}
@@ -226,15 +240,12 @@ export default function SupplementAssetDeck({
                 type="product"
                 onRemove={onRemoveProductImage}
                 onPreview={onPreviewImage}
+                suggestions={productSuggestions}
               />
             ))}
 
             {/* 上传按钮 */}
-            <UploadButton
-              type="product"
-              count={allProductImages.length}
-              onClick={() => productInputRef.current?.click()}
-            />
+            {allProductImages.length < maxProductImages && <UploadButton type="product" count={allProductImages.length} onClick={() => productInputRef.current?.click()} />}
           </div>
 
           {/* 隐藏的文件输入 */}
@@ -279,7 +290,7 @@ export default function SupplementAssetDeck({
           style={{
             fontSize: 11,
             fontWeight: 600,
-            color: '#ec4899',
+            color: referenceColor,
             marginBottom: 8,
             display: 'flex',
             alignItems: 'center',
@@ -287,9 +298,9 @@ export default function SupplementAssetDeck({
           }}
         >
           <span>🎨</span>
-          补充参考图
+          {referenceTitle}
           <span style={{ fontSize: 10, color: '#999', fontWeight: 400 }}>
-            · 竞品/爆款风格参考
+            · {referenceHint}
           </span>
           {/* 可选标记 */}
           <span
@@ -311,8 +322,8 @@ export default function SupplementAssetDeck({
                 marginLeft: 4,
                 padding: '2px 6px',
                 borderRadius: 4,
-                background: '#ec489920',
-                color: '#ec4899',
+                background: `${referenceColor}20`,
+                color: referenceColor,
                 fontSize: 9,
               }}
             >
@@ -348,7 +359,7 @@ export default function SupplementAssetDeck({
             }}
           >
             {/* 已有图片 */}
-            {allReferenceImages.map((img, idx) => (
+            {allReferenceImages.slice(0, maxReferenceImages).map((img, idx) => (
               <SupplementImageCard
                 key={img.id || idx}
                 image={img}
@@ -356,15 +367,12 @@ export default function SupplementAssetDeck({
                 type="reference"
                 onRemove={onRemoveReferenceImage}
                 onPreview={onPreviewImage}
+                suggestions={referenceSuggestions}
               />
             ))}
 
             {/* 上传按钮 */}
-            <UploadButton
-              type="reference"
-              count={allReferenceImages.length}
-              onClick={() => referenceInputRef.current?.click()}
-            />
+            {allReferenceImages.length < maxReferenceImages && <UploadButton type="reference" count={allReferenceImages.length} onClick={() => referenceInputRef.current?.click()} />}
           </div>
 
           {/* 隐藏的文件输入 */}
