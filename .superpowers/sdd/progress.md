@@ -2630,3 +2630,11 @@
   `manifest.timeline.durationMs` (the canonical manifest shape), instead of the invalid top-level path that left
   every successful manifest displaying “时长待定”. A focused UI regression test now guards the nested path; full
   tests, checks, production build, and the non-billing pilot remain green.
+
+- 2026-08-18 the export handoff is now a durable, fail-closed renderer-job contract. A current export manifest can be
+  idempotently frozen as `waiting_renderer`; only guarded `rendering`/`failed`/retry/`completed`/`canceled`
+  transitions are accepted, completion requires a non-empty output asset and URL, and every row carries a canonical
+  SHA-256 job hash. Before creation or a worker transition, the store rebuilds the current manifest and rejects stale
+  timelines with `EXPORT_JOB_STALE`. The API exposes queue/read/list routes only; no renderer, provider, download,
+  usage, wallet, or billing path is called. Focused job/state/store/route/client coverage passes `14/14`; this slice
+  remains local-only and does not mark `VID-P1-05` complete.

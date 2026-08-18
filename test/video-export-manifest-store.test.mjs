@@ -85,3 +85,57 @@ test('rejects a tampered persisted export manifest instead of returning it', t =
     error => error.code === 'EXPORT_MANIFEST_INTEGRITY_INVALID',
   );
 });
+
+test('hands a current export manifest to a durable renderer job idempotently', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  seedWorkbench(store, project.id);
+  const manifest = store.createExportManifest({ ownerEmail: OWNER, projectId: project.id,
+    options: { format: 'mp4', resolution: '720p', fps: 30, includeAudio: false } });
+  const created = store.createExportJob({ ownerEmail: OWNER, projectId: project.id, manifestId: manifest.id });
+  assert.equal(created.replayed, false);
+  assert.equal(created.state, 'waiting_renderer');
+  assert.equal(created.providerSubmission, false);
+  assert.equal(created.billingMutation, false);
+  const replayed = store.createExportJob({ ownerEmail: OWNER, projectId: project.id, manifestId: manifest.id });
+  assert.equal(replayed.replayed, true);
+  assert.equal(replayed.id, created.id);
+  assert.equal(store.getExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id }).id, created.id);
+  assert.deepEqual(store.listExportJobs({ ownerEmail: OWNER, projectId: project.id }).map(item => item.id), [created.id]);
+  const rendering = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'rendering' });
+  assert.equal(rendering.attempt, 1);
+  const failed = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'failed', errorCode: 'RENDER_TIMEOUT', errorMessage: '超时' });
+  assert.equal(failed.errorCode, 'RENDER_TIMEOUT');
+  const retry = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'waiting_renderer' });
+  assert.equal(retry.errorCode, '');
+  const renderingAgain = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'rendering' });
+  const completed = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'completed', outputAssetId: 'video-output-1', outputUrl: '/video/output-1.mp4' });
+  assert.equal(renderingAgain.attempt, 2);
+  assert.equal(completed.state, 'completed');
+  assert.equal(completed.outputAssetId, 'video-output-1');
+  assert.throws(() => store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'rendering' }), error => error.code === 'EXPORT_JOB_INVALID_TRANSITION');
+});
+
+test('does not hand off a manifest after the timeline changes and rejects tampered jobs', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  seedWorkbench(store, project.id);
+  const manifest = store.createExportManifest({ ownerEmail: OWNER, projectId: project.id,
+    options: { includeAudio: false } });
+  const created = store.createExportJob({ ownerEmail: OWNER, projectId: project.id, manifestId: manifest.id });
+  const clip = store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).timelineClips[0];
+  store.updateTimelineClip({ ownerEmail: OWNER, projectId: project.id, clipId: clip.id,
+    expectedRevision: clip.revision, patch: { trimEndMs: 3500 } });
+  assert.equal(store.getExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id }).state, 'waiting_renderer');
+  assert.throws(() => store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'rendering' }), error => error.code === 'EXPORT_JOB_STALE');
+  db.prepare('UPDATE video_export_jobs SET state = ? WHERE id = ?').run('rendering', created.id);
+  assert.throws(() => store.getExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id }),
+    error => error.code === 'EXPORT_JOB_INTEGRITY_INVALID');
+});

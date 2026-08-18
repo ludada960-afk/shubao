@@ -13,6 +13,7 @@ const projectSegment = value => pathSegment(value, '请选择有效的视频项�
 const assetSegment = value => pathSegment(value, '请选择有效的项目素材');
 const shotSegment = value => pathSegment(value, '请选择有效的分镜');
 const manifestSegment = value => pathSegment(value, '请选择有效的配方快照');
+const exportJobSegment = value => pathSegment(value, '请选择有效的渲染任务');
 const skillRunSegment = value => pathSegment(value, '请选择有效的 SkillRun');
 const checkpointSegment = value => pathSegment(value, '请选择有效的确认节点');
 const guardSegment = value => pathSegment(value, '请选择有效的 SkillRun guard');
@@ -62,6 +63,10 @@ function replayManifestBase(projectId) {
 
 function exportManifestBase(projectId) {
   return `${workbenchBase(projectId)}/export-manifests`;
+}
+
+function exportJobBase(projectId) {
+  return `${workbenchBase(projectId)}/export-jobs`;
 }
 
 function skillRunBase(projectId) {
@@ -312,6 +317,30 @@ export async function getVideoExportManifest(projectId, manifestId) {
     '暂时无法读取视频导出清单',
   );
   return requireValue(response, 'manifest', '视频导出清单暂时不可用，请稍后重试');
+}
+
+export async function createVideoExportJob(projectId, manifestId) {
+  const response = await requestJson(exportJobBase(projectId), {
+    method: 'POST',
+    ...jsonBody({ manifestId }),
+  }, '暂时无法交接视频渲染任务');
+  return requireValue(response, 'job', '视频渲染任务暂时不可用，请稍后重试');
+}
+
+export async function listVideoExportJobs(projectId, { limit } = {}) {
+  const suffix = limit == null ? '' : `?limit=${encodeURIComponent(limit)}`;
+  const response = await requestJson(`${exportJobBase(projectId)}${suffix}`, {}, '暂时无法读取视频渲染任务');
+  if (!Array.isArray(response?.jobs)) throw new Error('视频渲染任务暂时不可用，请稍后重试');
+  return response.jobs;
+}
+
+export async function getVideoExportJob(projectId, jobId) {
+  const response = await requestJson(
+    `${exportJobBase(projectId)}/${exportJobSegment(jobId)}`,
+    {},
+    '暂时无法读取视频渲染任务',
+  );
+  return requireValue(response, 'job', '视频渲染任务暂时不可用，请稍后重试');
 }
 
 export async function cloneVideoReplayManifest(projectId, manifestId, {

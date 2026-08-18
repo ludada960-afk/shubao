@@ -585,3 +585,13 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 ## 2026-08-18 AI Video Export Duration Feedback Fix
 
 - 工作台导出状态现在从 `manifest.timeline.durationMs` 读取清单时长；此前错误读取顶层 `manifest.durationMs` 会让成功保存的清单一直显示“时长待定”。已补充 UI 回归断言，未引入 provider、渲染器或计费路径。
+
+## 2026-08-18 AI Video Renderer Handoff Contract
+
+- 导出清单现在可以在本地被幂等冻结为 owner/project-scoped 的 `video_export_jobs` 任务，初始状态为
+  `waiting_renderer`。状态机只允许 `rendering -> failed/completed/canceled`、失败重试回到等待和终态锁定，
+  完成必须带非空输出资产与地址；任务与清单均用 SHA-256 做完整性校验。
+- 创建或内部 worker 状态迁移前会重建当前时间线清单；用户编辑时间线后旧任务返回 `EXPORT_JOB_STALE`，
+  不会把过期版本送入未来渲染器。读取篡改行返回 `EXPORT_JOB_INTEGRITY_INVALID`。
+- `POST/GET /api/video/projects/:projectId/workbench/export-jobs` 及详情读取只负责任务交接和状态查询，
+  没有真实 renderer/provider、下载 URL、usage/wallet/billing 副作用，工作台仍默认关闭，生产未部署。

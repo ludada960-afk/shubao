@@ -13,6 +13,7 @@ const NOT_FOUND_CODES = new Set([
   'SKILL_RUN_NOT_FOUND',
   'REPLAY_MANIFEST_NOT_FOUND',
   'EXPORT_MANIFEST_NOT_FOUND',
+  'EXPORT_JOB_NOT_FOUND',
   'MEMORY_FACT_NOT_FOUND',
   'MEMORY_ASSET_NOT_FOUND',
   'AUDIO_TRACK_NOT_FOUND',
@@ -75,6 +76,21 @@ function routeError(error, res) {
   }
   if (code === 'EXPORT_MANIFEST_INTEGRITY_INVALID') {
     return res.status(500).json({ code, error: '导出清单校验失败，请重新生成清单' });
+  }
+  if (code === 'EXPORT_JOB_INTEGRITY_INVALID') {
+    return res.status(500).json({ code, error: '渲染任务校验失败，请重新生成任务' });
+  }
+  if (code === 'EXPORT_JOB_STALE') {
+    return res.status(409).json({ code, error: '时间线已变化，请重新生成导出清单' });
+  }
+  if (code === 'EXPORT_JOB_INVALID_TRANSITION') {
+    return res.status(409).json({ code, error: '渲染任务当前状态不允许此操作' });
+  }
+  if (code === 'EXPORT_JOB_OUTPUT_REQUIRED') {
+    return res.status(400).json({ code, error: '渲染完成必须提供输出资产' });
+  }
+  if (code === 'EXPORT_JOB_INVALID') {
+    return res.status(400).json({ code, error: error.message || '渲染任务参数无效' });
   }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
@@ -403,6 +419,27 @@ export function mountVideoWorkbenchRoutes(app, {
       ...request,
       manifestId: req.params.manifestId,
     }), { key: 'manifest' },
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/export-jobs', (req, res) => dispatch(
+    req, res, 'export-job.create', request => store.createExportJob({
+      ...request,
+      manifestId: req.body?.manifestId,
+    }), { status: value => (value?.replayed ? 200 : 202), key: 'job' },
+  ));
+
+  app.get('/api/video/projects/:projectId/workbench/export-jobs', (req, res) => dispatch(
+    req, res, 'export-job.list', request => store.listExportJobs({
+      ...request,
+      limit: req.query?.limit,
+    }), { key: 'jobs' },
+  ));
+
+  app.get('/api/video/projects/:projectId/workbench/export-jobs/:jobId', (req, res) => dispatch(
+    req, res, 'export-job.read', request => store.getExportJob({
+      ...request,
+      jobId: req.params.jobId,
+    }), { key: 'job' },
   ));
 
   app.post('/api/video/projects/:projectId/workbench/replay-manifests', (req, res) => dispatch(

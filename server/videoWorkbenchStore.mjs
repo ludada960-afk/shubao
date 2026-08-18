@@ -1,6 +1,12 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
 import { assertVideoExportManifestIntegrity, buildVideoExportManifest } from './videoExportManifest.mjs';
+import {
+  assertVideoExportJobCurrent,
+  assertVideoExportJobIntegrity,
+  createVideoExportJob,
+  transitionVideoExportJob,
+} from './videoExportJob.mjs';
 import { normalizeProjectMemoryFact, normalizeProjectMemoryList } from './videoProjectMemory.mjs';
 import {
   buildSkillRunExecutionPlan,
@@ -94,6 +100,38 @@ function exportManifestFromRow(row) {
     createdAt: row.created_at,
     manifest,
   };
+}
+
+function exportJobFromRow(row) {
+  if (!row) return null;
+  const job = {
+    id: row.id,
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    manifestId: row.manifest_id,
+    manifestHash: row.manifest_hash,
+    state: row.state,
+    attempt: Number(row.attempt),
+    renderer: row.renderer,
+    providerSubmission: Boolean(row.provider_submission),
+    billingMutation: Boolean(row.billing_mutation),
+    outputAssetId: row.output_asset_id || '',
+    outputUrl: row.output_url || '',
+    errorCode: row.error_code || '',
+    errorMessage: row.error_message || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    startedAt: row.started_at || '',
+    completedAt: row.completed_at || '',
+    canceledAt: row.canceled_at || '',
+    jobHash: row.job_hash,
+  };
+  try {
+    assertVideoExportJobIntegrity(job);
+  } catch {
+    throw coded('EXPORT_JOB_INTEGRITY_INVALID', 'export job integrity check failed');
+  }
+  return job;
 }
 
 function assetFromRow(row) {
@@ -396,6 +434,23 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_export_manifests_project
       ON video_export_manifests(owner_email, project_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS video_export_jobs (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      manifest_id TEXT NOT NULL, manifest_hash TEXT NOT NULL,
+      state TEXT NOT NULL DEFAULT 'waiting_renderer', attempt INTEGER NOT NULL DEFAULT 0,
+      renderer TEXT NOT NULL DEFAULT 'external-worker',
+      provider_submission INTEGER NOT NULL DEFAULT 0, billing_mutation INTEGER NOT NULL DEFAULT 0,
+      output_asset_id TEXT NOT NULL DEFAULT '', output_url TEXT NOT NULL DEFAULT '',
+      error_code TEXT NOT NULL DEFAULT '', error_message TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      started_at TEXT NOT NULL DEFAULT '', completed_at TEXT NOT NULL DEFAULT '',
+      canceled_at TEXT NOT NULL DEFAULT '', job_hash TEXT NOT NULL,
+      UNIQUE(owner_email, project_id, manifest_id, manifest_hash),
+      FOREIGN KEY(project_id) REFERENCES projects(id),
+      FOREIGN KEY(manifest_id) REFERENCES video_export_manifests(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_export_jobs_project
+      ON video_export_jobs(owner_email, project_id, created_at DESC);
     CREATE TABLE IF NOT EXISTS video_skill_runs (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
       skill_id TEXT NOT NULL, skill_version INTEGER NOT NULL, status TEXT NOT NULL,
@@ -1039,6 +1094,109 @@ export function createVideoWorkbenchStore({
         WHERE owner_email = ? AND project_id = ?
         ORDER BY created_at DESC, id DESC LIMIT ?`).all(owner, project.id, boundedLimit)
         .map(exportManifestFromRow);
+    },
+
+    createExportJob({ ownerEmail, projectId, manifestId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const manifestRow = db.prepare(`SELECT * FROM video_export_manifests
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(manifestId, owner, project.id);
+      if (!manifestRow) throw coded('EXPORT_MANIFEST_NOT_FOUND', 'export manifest not found');
+      const manifestRecord = exportManifestFromRow(manifestRow);
+      const currentManifest = buildVideoExportManifest({
+        workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
+        options: manifestRecord.manifest.options,
+      });
+      if (currentManifest.manifestHash !== manifestRecord.manifestHash) {
+        throw coded('EXPORT_JOB_STALE', 'export manifest changed after it was created');
+      }
+      const existing = db.prepare(`SELECT * FROM video_export_jobs
+        WHERE owner_email = ? AND project_id = ? AND manifest_id = ? AND manifest_hash = ?`)
+        .get(owner, project.id, manifestRecord.id, manifestRecord.manifestHash);
+      if (existing) return { ...exportJobFromRow(existing), replayed: true };
+      const createdAt = timestamp();
+      const job = createVideoExportJob({
+        id: randomUUID(),
+        ownerEmail: owner,
+        projectId: project.id,
+        manifestId: manifestRecord.id,
+        manifest: manifestRecord.manifest,
+        createdAt,
+      });
+      try {
+        db.prepare(`INSERT INTO video_export_jobs
+          (id, owner_email, project_id, manifest_id, manifest_hash, state, attempt, renderer,
+           provider_submission, billing_mutation, output_asset_id, output_url, error_code,
+           error_message, created_at, updated_at, started_at, completed_at, canceled_at, job_hash)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          job.id, job.ownerEmail, job.projectId, job.manifestId, job.manifestHash, job.state,
+          job.attempt, job.renderer, Number(job.providerSubmission), Number(job.billingMutation),
+          job.outputAssetId, job.outputUrl, job.errorCode, job.errorMessage, job.createdAt,
+          job.updatedAt, job.startedAt, job.completedAt, job.canceledAt, job.jobHash,
+        );
+      } catch (error) {
+        if (/UNIQUE constraint failed/i.test(error.message)) {
+          const raced = db.prepare(`SELECT * FROM video_export_jobs
+            WHERE owner_email = ? AND project_id = ? AND manifest_id = ? AND manifest_hash = ?`)
+            .get(owner, project.id, manifestRecord.id, manifestRecord.manifestHash);
+          if (raced) return { ...exportJobFromRow(raced), replayed: true };
+        }
+        throw error;
+      }
+      return { ...exportJobFromRow(db.prepare('SELECT * FROM video_export_jobs WHERE id = ?').get(job.id)), replayed: false };
+    },
+
+    getExportJob({ ownerEmail, projectId, jobId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT * FROM video_export_jobs
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(jobId, owner, project.id);
+      if (!row) throw coded('EXPORT_JOB_NOT_FOUND', 'export job not found');
+      return exportJobFromRow(row);
+    },
+
+    listExportJobs({ ownerEmail, projectId, limit = 20 }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const requestedLimit = Number(limit);
+      const boundedLimit = Number.isFinite(requestedLimit)
+        ? Math.max(1, Math.min(50, Math.floor(requestedLimit)))
+        : 20;
+      return db.prepare(`SELECT * FROM video_export_jobs
+        WHERE owner_email = ? AND project_id = ?
+        ORDER BY created_at DESC, id DESC LIMIT ?`).all(owner, project.id, boundedLimit)
+        .map(exportJobFromRow);
+    },
+
+    transitionExportJob({ ownerEmail, projectId, jobId, nextState, errorCode, errorMessage, outputAssetId, outputUrl }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      return db.transaction(() => {
+        const row = db.prepare(`SELECT * FROM video_export_jobs
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).get(jobId, owner, project.id);
+        if (!row) throw coded('EXPORT_JOB_NOT_FOUND', 'export job not found');
+        const job = exportJobFromRow(row);
+        const manifestRow = db.prepare(`SELECT * FROM video_export_manifests
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).get(job.manifestId, owner, project.id);
+        if (!manifestRow) throw coded('EXPORT_MANIFEST_NOT_FOUND', 'export manifest not found');
+        const manifestRecord = exportManifestFromRow(manifestRow);
+        const currentManifest = buildVideoExportManifest({
+          workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
+          options: manifestRecord.manifest.options,
+        });
+        assertVideoExportJobCurrent(job, {
+          manifestId: manifestRecord.id,
+          manifest: currentManifest,
+        });
+        const next = transitionVideoExportJob(job, nextState, {
+          now: timestamp(), errorCode, errorMessage, outputAssetId, outputUrl,
+        });
+        db.prepare(`UPDATE video_export_jobs SET state = ?, attempt = ?, renderer = ?,
+          provider_submission = ?, billing_mutation = ?, output_asset_id = ?, output_url = ?,
+          error_code = ?, error_message = ?, updated_at = ?, started_at = ?, completed_at = ?,
+          canceled_at = ?, job_hash = ? WHERE id = ? AND owner_email = ? AND project_id = ?`).run(
+          next.state, next.attempt, next.renderer, Number(next.providerSubmission), Number(next.billingMutation),
+          next.outputAssetId, next.outputUrl, next.errorCode, next.errorMessage, next.updatedAt,
+          next.startedAt, next.completedAt, next.canceledAt, next.jobHash, next.id, owner, project.id,
+        );
+        return exportJobFromRow(db.prepare('SELECT * FROM video_export_jobs WHERE id = ?').get(job.id));
+      })();
     },
 
     createReplayManifest({

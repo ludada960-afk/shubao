@@ -145,6 +145,14 @@ before an export manifest is returned. A tampered or partially written row is su
 error instead of being presented as a deliverable. This remains local-only and is not a renderer, provider, or
 production deployment.
 
+The next handoff boundary is also implemented locally: an export manifest can be frozen into an owner/project-scoped,
+SHA-256 keyed `video_export_job` in `waiting_renderer`, with idempotent creation and guarded transitions through
+`rendering`, `failed`, retry, `canceled`, and `completed`. The store re-builds the current manifest before handing a
+job to a renderer, so timeline edits make the handoff stale instead of silently exporting an old cut. Persisted job
+rows fail closed on hash/state/provider/billing flags, and the API exposes only queue/read operations; there is still
+no renderer worker, provider submission, download URL, usage, wallet, or billing mutation. This is a local contract
+for the next renderer implementation, not a shipped video export feature.
+
 ### Stage 1 exit gate
 
 - A three-shot product advertisement can be created, refreshed, resumed after restart, selectively retried, assembled, and exported.
