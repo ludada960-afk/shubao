@@ -43,6 +43,7 @@ import {
 } from './ec/ecommerceTaskProgressModel.js';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
+import CreationShowcase from './CreationShowcase.jsx';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
 import ContentReferencePicker from '../../components/creation/ContentReferencePicker.jsx';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
@@ -831,6 +832,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
     return (
       <div>
+        <CreationShowcase mode="content" subMode={xhsSubMode} />
         {/* ═══ 白色卡片（标签在白色上）═══ */}
         <div style={{
           borderRadius: 20, margin: '0 16px',

@@ -1,0 +1,41 @@
+.creation-showcase { margin: 20px 0 24px; border: 1px solid rgba(34, 27, 22, .08); border-radius: 18px; overflow: hidden; background: #fffaf4; box-shadow: 0 12px 30px rgba(65, 45, 29, .08); }
+.creation-showcase-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 18px 22px 14px; border-bottom: 1px solid rgba(34, 27, 22, .07); }
+.creation-showcase-eyebrow { color: #a65b37; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.creation-showcase-heading h3 { margin: 4px 0 4px; color: #27211d; font-size: 19px; line-height: 1.3; }
+.creation-showcase-heading p { margin: 0; color: #83776e; font-size: 12px; line-height: 1.6; }
+.creation-showcase-output { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 7px 10px; border: 1px solid rgba(166, 91, 55, .2); border-radius: 999px; color: #a65b37; background: rgba(255, 255, 255, .64); font-size: 11px; font-weight: 700; }
+.creation-showcase-body { display: grid; grid-template-columns: minmax(180px, .65fr) minmax(0, 1.7fr); gap: 18px; align-items: stretch; padding: 18px 22px 22px; }
+.creation-showcase-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 4px 0; }
+.creation-showcase-copy > span { color: #a65b37; font-size: 11px; font-weight: 700; }
+.creation-showcase-copy strong { margin-top: 9px; color: #2d2621; font-size: 22px; line-height: 1.28; }
+.creation-showcase-copy p { margin: 10px 0 0; color: #756a62; font-size: 13px; line-height: 1.75; }
+.creation-showcase-copy-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 22px; color: #a99587; font-size: 11px; }
+.creation-showcase-visual { min-width: 0; }
+.creation-showcase-ecommerce-preview, .creation-showcase-video-preview, .creation-showcase-visual-preview { position: relative; min-height: 230px; }
+.creation-showcase-ecommerce-hero, .creation-showcase-video-frame, .creation-showcase-visual-frame { position: relative; overflow: hidden; height: 100%; min-height: 230px; border: 1px solid rgba(34, 27, 22, .08); border-radius: 12px; background: #f1e8df; }
+.creation-showcase-ecommerce-hero img, .creation-showcase-video-frame img, .creation-showcase-visual-frame img { display: block; width: 100%; height: 100%; min-height: 230px; object-fit: cover; }
+.creation-showcase-preview-badge, .creation-showcase-visual-frame > span { position: absolute; right: 12px; bottom: 12px; padding: 6px 9px; border-radius: 7px; color: #fff; background: rgba(36, 30, 26, .72); font-size: 11px; font-weight: 700; }
+.creation-showcase-ecommerce-panels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.creation-showcase-ecommerce-panels > div { position: relative; overflow: hidden; aspect-ratio: 3 / 2; border-radius: 8px; background: #eee4da; }
+.creation-showcase-ecommerce-panels img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.creation-showcase-ecommerce-panels span { position: absolute; left: 7px; bottom: 6px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.5); font-size: 10px; font-weight: 700; }
+.creation-showcase-content-preview { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(180px, .75fr); gap: 12px; min-height: 260px; padding: 10px; border: 1px solid rgba(191, 46, 86, .13); border-radius: 12px; background: #fff; }
+.creation-showcase-content-images { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); gap: 5px; min-height: 255px; }
+.creation-showcase-content-image { position: relative; min-width: 0; overflow: hidden; border-radius: 6px; background: #f2eee9; }
+.creation-showcase-content-image:first-child { grid-column: span 2; grid-row: span 2; }
+.creation-showcase-content-image img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: cover; }
+.creation-showcase-content-image span { position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; border-radius: 50%; color: #fff; background: rgba(30, 24, 20, .62); font-size: 9px; line-height: 16px; text-align: center; }
+.creation-showcase-content-copy { display: flex; min-width: 0; flex-direction: column; padding: 6px 5px 4px; }
+.creation-showcase-content-platform { color: #c24d68; font-size: 10px; font-weight: 700; }
+.creation-showcase-content-copy strong { margin-top: 8px; color: #292321; font-size: 15px; line-height: 1.4; }
+.creation-showcase-content-copy p { display: -webkit-box; overflow: hidden; margin: 9px 0 0; color: #7b706c; font-size: 11px; line-height: 1.65; -webkit-box-orient: vertical; -webkit-line-clamp: 6; }
+.creation-showcase-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 10px; }
+.creation-showcase-tags span { color: #bc5871; font-size: 10px; }
+.creation-showcase-content-copy small { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; color: #a4958e; font-size: 10px; }
+.creation-showcase-play-mark { position: absolute; top: 50%; left: 50%; display: grid; width: 48px; height: 48px; place-items: center; transform: translate(-50%, -50%); border-radius: 50%; color: #fff; background: rgba(45, 35, 30, .72); }
+.creation-showcase-video-chapters { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; color: #7d6d62; font-size: 11px; }
+.creation-showcase-video-chapters svg { color: #b36b48; }
+.creation-showcase-preview-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 9px; color: #8c7a6f; font-size: 11px; }
+.creation-showcase-preview-nav button { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid rgba(34, 27, 22, .12); border-radius: 50%; color: #5e5149; background: #fff; cursor: pointer; }
+.creation-showcase-preview-nav button:hover { border-color: #b36b48; color: #b36b48; }
+@media (max-width: 760px) { .creation-showcase-heading, .creation-showcase-body { padding-left: 15px; padding-right: 15px; } .creation-showcase-heading { display: block; } .creation-showcase-output { margin-top: 10px; } .creation-showcase-body { grid-template-columns: 1fr; gap: 12px; } .creation-showcase-copy strong { font-size: 18px; } .creation-showcase-copy-footer { display: none; } .creation-showcase-content-preview { grid-template-columns: 1fr; } .creation-showcase-content-copy { min-height: 145px; } }

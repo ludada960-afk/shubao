@@ -37,6 +37,7 @@ import {
 } from './videoStudioModel.js';
 import { buildVideoPlan } from './videoPlanModel.js';
 import { inspectVideoPlanningFiles } from './videoAssetAnalysis.js';
+import CreationShowcase from '../Home/CreationShowcase.jsx';
 import './VideoStudio.css';
 
 const RATIOS = ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
@@ -665,6 +666,7 @@ export default function VideoStudioPage({ embedded = false }) {
 
     <section className="video-composer" aria-label="视频生成工作区">
       <header className="video-composer-heading"><span><Clapperboard size={16} />视频生成</span><h2>把创意素材变成吸引人的短片</h2><p>选择创作方式，上传参考素材，再描述你要的镜头和节奏。</p></header>
+      <CreationShowcase mode="video" />
       <div className="video-mode-tabs" role="tablist" aria-label="视频创作模式">
         {VIDEO_CREATION_MODES.map(item => {
           const ModeIcon = VIDEO_MODE_ICONS[item.id] || Clapperboard;
