@@ -635,3 +635,29 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
 - This closes the local reconciliation dry-run gate only. The authenticated worker persistence/restart slice,
   provider capability/cost/rights/moderation review, measured canary, and rollback evidence remain open. No real
   provider, paid video generation, public worker route, or production deployment was used.
+
+## 2026-08-18 AI Video Authenticated Renderer Worker (Local Only)
+
+- `server/videoRendererWorker.mjs` now requires an explicit `workerId` and `leaseToken`, reads the
+  owner/project-scoped current attempt, claims or recovers its lease, runs the provider-neutral reconciliation state
+  machine, and writes the resulting outbox/job state through one transactional store method. There is no public
+  worker route.
+- `videoWorkbenchStore` now exposes internal `getRendererAttempt` and `persistRendererReconciliation` methods. They
+  rebuild and hash the current export manifest, bind the incoming event to the current attempt, verify the persisted
+  request hash/attempt count and lease, and reject stale or cross-project writes before mutation.
+- Terminal completion is delivery-gated: both a non-empty output asset id and stable output URL are required.
+  Missing output is recorded as `RENDERER_OUTPUT_MISSING`; forged callback identity and stale attempts fail closed,
+  while duplicate terminal reconciliation remains idempotent.
+- A file-backed worker test closes and reopens SQLite between a queued submit and completion. It proves the stable
+  request idempotency key is reused, the attempt count stays at one, and provider/billing flags remain false.
+
+Evidence captured on 2026-08-18: renderer adapter/reconciliation/worker focus `12/12`, full `npm test` `1768/1768`,
+`npm run check`, 6510-module production build, `git diff --check`, 10-project/40-operation non-billing pilot, and
+the four-scenario reconciliation dry-run all pass. `npm run collab:check` is blocked only because this linked worktree
+has no collaboration marker. No provider credentials, upload, wallet hold, usage event, billing mutation, paid video
+generation, public worker route, or production deployment was used; `workbenchEnabled=false` remains enforced.
+
+This closes the local authenticated persistence/restart gate, not renderer delivery. Before any provider canary we
+still need a provider capability/cost/rights/moderation review, output proxy/storage and download recovery, measured
+quality/latency/cost evidence, and an explicit rollback plan. The existing production routes remain the only source
+of truth; this worker must be integrated behind the existing feature flag rather than creating a second queue.

@@ -1349,6 +1349,110 @@ export function createVideoWorkbenchStore({
       return exportJobFromRow(row);
     },
 
+    getRendererAttempt({ ownerEmail, projectId, jobId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const row = db.prepare(`SELECT * FROM video_export_jobs
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(jobId, owner, project.id);
+      if (!row) throw coded('EXPORT_JOB_NOT_FOUND', 'export job not found');
+      const job = exportJobFromRow(row);
+      if (job.state !== 'rendering' || job.attempt < 1) {
+        throw coded('RENDER_OUTBOX_NOT_FOUND', 'rendering job has no active renderer attempt');
+      }
+      const manifestRow = db.prepare(`SELECT * FROM video_export_manifests
+        WHERE id = ? AND owner_email = ? AND project_id = ?`).get(job.manifestId, owner, project.id);
+      if (!manifestRow) throw coded('EXPORT_MANIFEST_NOT_FOUND', 'export manifest not found');
+      const manifestRecord = exportManifestFromRow(manifestRow);
+      const manifest = buildVideoExportManifest({
+        workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
+        options: manifestRecord.manifest.options,
+      });
+      assertVideoExportJobCurrent(job, { manifestId: manifestRecord.id, manifest });
+      const eventRow = db.prepare(`SELECT * FROM video_renderer_outbox
+        WHERE owner_email = ? AND project_id = ? AND request_id = ?`)
+        .get(owner, project.id, rendererOutboxId(job.id, job.attempt));
+      const event = rendererOutboxFromRow(eventRow);
+      if (!event || event.jobId !== job.id || event.requestId !== `${job.id}:attempt:${job.attempt}`) {
+        throw coded('RENDER_OUTBOX_NOT_FOUND', 'active renderer attempt is missing');
+      }
+      return { job, manifest, request: event.payload, event };
+    },
+
+    persistRendererReconciliation({
+      ownerEmail, projectId, jobId, event, workerId, leaseToken,
+      outputAssetId = '', outputUrl = '', errorCode = '', errorMessage = '',
+    }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const worker = clean(workerId, 200);
+      const token = clean(leaseToken, 200);
+      if (!worker || !token) throw coded('RENDER_RECONCILIATION_INVALID', 'renderer worker lease is required');
+      if (!event || typeof event !== 'object') throw coded('RENDER_RECONCILIATION_INVALID', 'renderer event is required');
+      assertVideoRendererOutboxIntegrity(event);
+      if (!['processing', 'failed', 'completed', 'canceled'].includes(event.state)) {
+        throw coded('RENDER_RECONCILIATION_INVALID', 'renderer event state is not persistable');
+      }
+      return db.transaction(() => {
+        const jobRow = db.prepare(`SELECT * FROM video_export_jobs
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).get(jobId, owner, project.id);
+        if (!jobRow) throw coded('EXPORT_JOB_NOT_FOUND', 'export job not found');
+        const job = exportJobFromRow(jobRow);
+        const manifestRow = db.prepare(`SELECT * FROM video_export_manifests
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).get(job.manifestId, owner, project.id);
+        if (!manifestRow) throw coded('EXPORT_MANIFEST_NOT_FOUND', 'export manifest not found');
+        const manifestRecord = exportManifestFromRow(manifestRow);
+        const manifest = buildVideoExportManifest({
+          workbench: api.listWorkbench({ ownerEmail: owner, projectId: project.id }),
+          options: manifestRecord.manifest.options,
+        });
+        assertVideoExportJobCurrent(job, { manifestId: manifestRecord.id, manifest });
+        if (event.id !== rendererOutboxId(job.id, job.attempt)
+          || event.jobId !== job.id || event.projectId !== project.id
+          || event.requestId !== `${job.id}:attempt:${job.attempt}`) {
+          throw coded('RENDER_RECONCILIATION_STALE', 'renderer event does not belong to the current attempt');
+        }
+        const persistedRow = db.prepare(`SELECT * FROM video_renderer_outbox
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).get(event.id, owner, project.id);
+        const persisted = rendererOutboxFromRow(persistedRow);
+        if (!persisted || persisted.requestHash !== event.requestHash
+          || persisted.attempts !== event.attempts || persisted.jobId !== event.jobId
+          || persisted.requestId !== event.requestId) {
+          throw coded('RENDER_RECONCILIATION_STALE', 'renderer event is stale');
+        }
+        if (event.state === 'processing') {
+          if (job.state !== 'rendering' || job.workerId !== worker || job.leaseToken !== token
+            || event.workerId !== worker || event.leaseToken !== token) {
+            throw coded('RENDER_OUTBOX_LEASE_LOST', 'renderer worker lease does not match the active job');
+          }
+          persistRendererOutbox(db, event, owner, project.id);
+        } else if (['failed', 'completed', 'canceled'].includes(event.state)) {
+          if (job.state === 'rendering') {
+            if (job.workerId !== worker || job.leaseToken !== token) {
+              throw coded('RENDER_OUTBOX_LEASE_LOST', 'renderer worker lease does not match the active job');
+            }
+            if (event.state === 'completed' && (!clean(outputAssetId, 200) || !clean(outputUrl, 2000))) {
+              throw coded('EXPORT_JOB_OUTPUT_REQUIRED', 'completed renderer event must include output asset and url');
+            }
+            const next = transitionVideoExportJob(job, event.state, {
+              now: event.updatedAt,
+              errorCode: clean(errorCode, 160) || event.lastErrorCode || 'RENDERER_FAILED',
+              errorMessage: clean(errorMessage, 2000) || event.lastError,
+              outputAssetId: clean(outputAssetId, 200),
+              outputUrl: clean(outputUrl, 2000),
+              workerId: worker,
+              leaseToken: token,
+            });
+            persistExportJob(db, next, owner, project.id);
+          } else if (job.state !== event.state) {
+            throw coded('RENDER_RECONCILIATION_STALE', 'job and renderer event terminal states differ');
+          }
+          persistRendererOutbox(db, event, owner, project.id);
+        }
+        return {
+          job: exportJobFromRow(db.prepare('SELECT * FROM video_export_jobs WHERE id = ?').get(job.id)),
+          event: rendererOutboxFromRow(db.prepare('SELECT * FROM video_renderer_outbox WHERE id = ?').get(event.id)),
+        };
+      })();
+    },
+
     listExportJobs({ ownerEmail, projectId, limit = 20 }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       const requestedLimit = Number(limit);

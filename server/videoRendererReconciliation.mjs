@@ -44,7 +44,14 @@ function normalizeProviderResult(result, request, externalJobId = '') {
   if (result.requestId !== request.requestId || result.requestHash !== request.requestHash) {
     throw coded('RENDER_RECONCILIATION_INVALID', 'renderer 回调与当前请求不匹配');
   }
-  return { externalJobId: external, status, errorCode: String(result.errorCode || '').trim(), errorMessage: String(result.errorMessage || '').trim() };
+  return {
+    externalJobId: external,
+    status,
+    errorCode: String(result.errorCode || '').trim(),
+    errorMessage: String(result.errorMessage || '').trim(),
+    outputAssetId: String(result.outputAssetId || '').trim(),
+    outputUrl: String(result.outputUrl || '').trim(),
+  };
 }
 
 function assertInputs(event, request) {
@@ -130,7 +137,13 @@ export async function reconcileVideoRendererAttempt({
   if (status === 'completed') {
     const completed = completeVideoRendererOutboxEvent(current, { workerId, leaseToken, now: startedAt });
     trace.push({ step: 'complete', state: completed.state });
-    return { event: completed, externalJobId, trace };
+    return {
+      event: completed,
+      externalJobId,
+      outputAssetId: submission.outputAssetId,
+      outputUrl: submission.outputUrl,
+      trace,
+    };
   }
   if (status === 'failed') {
     const failed = transitionFailure(current, {
@@ -168,7 +181,13 @@ export async function reconcileVideoRendererAttempt({
     if (status === 'completed') {
       const completed = completeVideoRendererOutboxEvent(current, { workerId, leaseToken, now: pollTime });
       trace.push({ step: 'complete', state: completed.state });
-      return { event: completed, externalJobId, trace };
+      return {
+        event: completed,
+        externalJobId,
+        outputAssetId: result.outputAssetId,
+        outputUrl: result.outputUrl,
+        trace,
+      };
     }
     if (status === 'failed') {
       const failed = transitionFailure(current, {

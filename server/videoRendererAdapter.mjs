@@ -126,12 +126,16 @@ function normalizeProviderResponse(response, request) {
   if (response.requestHash !== undefined && response.requestHash !== request.requestHash) {
     throw coded('RENDERER_RESPONSE_INVALID', '外部回调哈希不匹配');
   }
-  return {
+  const normalized = {
     externalJobId,
     status,
     requestId: request.requestId,
     requestHash: request.requestHash,
   };
+  for (const field of ['outputAssetId', 'outputUrl', 'errorCode', 'errorMessage']) {
+    if (response[field] !== undefined) normalized[field] = String(response[field] || '').trim();
+  }
+  return normalized;
 }
 
 export function createVideoRendererAdapter({

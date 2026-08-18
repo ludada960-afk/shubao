@@ -2662,3 +2662,17 @@
   retry, timeout, and invalid-submit callback with `providerCalls=0` and `billingMutated=false`; full tests pass
   `1765/1765`, check/build/pilot/diff gates pass, and the linked-worktree collaboration check remains an explicit
   environment-policy block. This is still local-only; no provider canary, paid generation, or deployment occurred.
+
+- 2026-08-18 authenticated renderer-worker persistence is now implemented locally in
+  `server/videoRendererWorker.mjs` and `test/video-renderer-worker.test.mjs`. The worker requires an explicit
+  worker id and lease token, claims the persisted outbox attempt, reconciles it through the provider-neutral
+  adapter, and atomically writes the outbox/job terminal state through owner/project-scoped store methods.
+  A completed event must carry both a non-empty output asset id and stable output URL; forged callback identity,
+  stale attempts, missing output, and lease mismatch fail closed. A file-backed restart test proves the same
+  idempotency key resumes the queued attempt after reopening SQLite without increasing attempts or mutating
+  provider/billing flags. Adapter/reconciliation/worker focus is `12/12`; full `npm test` is `1768/1768`,
+  `npm run check`, 6510-module build, `git diff --check`, the 10-project non-billing pilot, and the four-scenario
+  renderer dry-run all pass. `npm run collab:check` remains blocked only by the linked-worktree marker policy.
+  No provider, upload, usage, wallet, billing, paid video generation, public worker route, or production deployment
+  was used; `workbenchEnabled` remains false. The next gate is provider capability/cost/rights/moderation review,
+  a measured canary with rollback evidence, and only then a controlled production exposure.

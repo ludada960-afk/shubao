@@ -496,3 +496,24 @@ pass. `npm run collab:check` remains policy-blocked only because this linked wor
 it is not an application test failure. This closes the local dry-run gate, not renderer delivery: the next gate is
 authenticated worker persistence/restart recovery and an explicit cost, rights, moderation, and rollback review.
 No provider canary or production deployment is authorized by this slice.
+
+## 21. Authenticated Worker Persistence and Restart Recovery (2026-08-18)
+
+This milestone makes the renderer handoff executable without selecting a provider. A private worker accepts only an
+explicit worker identity and lease token, claims the persisted outbox attempt, calls the injected provider-neutral
+reconciliation state machine, and atomically writes the resulting event and export job through the existing SQLite
+workbench store. The worker cannot be called through a public route and the default adapter still fails closed.
+
+The persistence contract is deliberately strict: the current export manifest and job/request hashes are rebuilt on
+every read; the incoming event must match the current attempt, request id, request hash, and attempt count; terminal
+completion requires both a non-empty output asset identifier and stable URL; lease mismatch, stale state, forged
+callback identity, or missing output produces a controlled failure rather than a false success. A file-backed restart
+test closes and reopens SQLite between queued submit and completion, proving the same idempotency key resumes without
+duplicating the attempt or changing provider/billing guards.
+
+The local evidence is `12/12` renderer adapter/reconciliation/worker focus, full `1768/1768` tests, `npm run check`,
+the 6510-module build, the non-billing pilot, and the deterministic reconciliation dry-run. No real provider,
+storage upload, wallet/usage/billing mutation, paid video generation, or production deployment occurred. The next
+gate is not UI polish or a blind provider switch: first complete capability, cost, rights, moderation, output-storage,
+quality, latency, and rollback review; then run a measured non-default canary and only afterward consider enabling the
+existing workbench flag. The existing production job/billing routes remain the sole source of truth.
