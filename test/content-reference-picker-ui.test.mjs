@@ -17,9 +17,11 @@ test('XHS and Plog pages use grouped reference assets instead of a single Plog i
     fs.readFile(new URL('../src/pages/Home/XhsContentMode.jsx', import.meta.url), 'utf8'),
     fs.readFile(new URL('../src/pages/Plog/index.jsx', import.meta.url), 'utf8'),
   ]);
-  assert.match(home, /ContentReferencePicker/);
+  assert.match(home, /SupplementAssetDeck/);
   assert.match(home, /referenceAssets/);
-  assert.match(standalone, /ContentReferencePicker/);
+  assert.match(standalone, /SupplementAssetDeck/);
   assert.match(standalone, /referenceAssets/);
+  assert.match(home, /maxProductImages=\{6\}/);
+  assert.match(home, /maxReferenceImages=\{3\}/);
   assert.doesNotMatch(home, /最多 1 张/);
 });
