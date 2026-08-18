@@ -12,6 +12,12 @@
 .video-project-workbench button,.video-project-workbench input,.video-project-workbench select,.video-project-workbench textarea { font: inherit; }
 .video-project-workbench button { cursor: pointer; }
 .video-project-workbench button:disabled,.video-project-workbench select:disabled { cursor: not-allowed; opacity: .52; }
+.video-project-planning-banner { min-height: 42px; padding: 9px 24px; display: flex; align-items: center; gap: 9px; border-bottom: 1px solid #d9e9e1; color: #356d58; background: linear-gradient(105deg,#effaf4 0%,#f8fcfa 60%,#fff 100%); }
+.video-project-planning-banner > svg { flex: 0 0 auto; color: #2f9b70; }
+.video-project-planning-banner > div { min-width: 0; display: flex; align-items: baseline; gap: 8px; flex: 1; }
+.video-project-planning-banner strong { font-size: 11px; white-space: nowrap; }
+.video-project-planning-banner span { color: #668277; font-size: 10px; line-height: 1.45; }
+.video-project-planning-banner code { flex: 0 0 auto; padding: 3px 6px; border: 1px solid #c8e4d5; border-radius: 4px; color: #397668; background: rgba(255,255,255,.75); font: 9px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; }
 .video-project-workbench-header { min-height: 104px; padding: 22px 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; border-bottom: 1px solid #e9e5df; background: linear-gradient(105deg,#fff4dd 0%,#fffaf1 45%,#fff 76%); }
 .video-project-workbench-header > div { min-width: 0; }
 .video-project-workbench-header > div > span { display: inline-flex; align-items: center; gap: 7px; color: #6c5ed1; font-size: 12px; font-weight: 750; }
@@ -290,6 +296,9 @@
 }
 @media(max-width:640px) {
   .video-project-workbench { margin-top: 18px; }
+  .video-project-planning-banner { align-items: flex-start; padding: 9px 14px; }
+  .video-project-planning-banner > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .video-project-planning-banner code { display: none; }
   .video-project-workbench-header,.video-project-band { padding: 18px 14px; }
   .video-project-workbench-header h2 { font-size: 17px; }
   .video-project-header-actions { width: 100%; justify-content: flex-start; }

@@ -45,7 +45,7 @@ async function invoke(app, method, path, request = {}) {
   return res;
 }
 
-function harness({ enabled = true } = {}) {
+function harness({ enabled = true, planningOnly = false } = {}) {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
   ensureProjectSchema(db);
@@ -66,9 +66,11 @@ function harness({ enabled = true } = {}) {
   const app = createFakeApp();
   mountVideoWorkbenchRoutes(app, {
     enabled,
+    planningOnly,
     store,
     authorizeCohort: createVideoWorkbenchRollout({
       enabled,
+      mode: planningOnly ? 'planning' : 'live',
       authorizeOwner: email => email === ownerEmail
         ? { ok: true, email }
         : { ok: false, code: 'ACCOUNT_ADMIN_FORBIDDEN' },
@@ -131,6 +133,25 @@ test('P1 workbench routes are absent while the feature flag is disabled', () => 
   } finally {
     db.close();
   }
+});
+
+test('planning mode keeps authentication ahead of the renderer-job guard', async t => {
+  const { app, db, project, sessionTokens, ownerEmail } = harness({ planningOnly: true });
+  t.after(() => db.close());
+  const anonymous = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/export-jobs', {
+    params: { projectId: project.id },
+    body: { manifestId: 'missing-manifest' },
+  });
+  assert.equal(anonymous.statusCode, 401);
+  assert.equal(anonymous.body.code, 'AUTH_SESSION_REQUIRED');
+
+  const owner = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/export-jobs', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id },
+    body: { manifestId: 'missing-manifest' },
+  });
+  assert.equal(owner.statusCode, 409);
+  assert.equal(owner.body.code, 'VIDEO_WORKBENCH_PLANNING_ONLY');
 });
 
 test('exposes sanitized proven Skill template metadata through the gated workbench route', async () => {

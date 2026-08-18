@@ -21,7 +21,30 @@ test('video workbench rollout admits only an active owner cohort', () => {
   });
   assert.equal(rollout.isEligible('owner@example.com'), true);
   assert.equal(rollout.isEligible('tester@example.com'), false);
-  assert.deepEqual(rollout.status(), { enabled: true, cohort: 'owner' });
+  assert.deepEqual(rollout.status(), {
+    enabled: true,
+    mode: 'live',
+    planningOnly: false,
+    cohort: 'owner',
+  });
+});
+
+test('planning rollout advertises a provider-neutral mode without changing owner eligibility', () => {
+  const rollout = createVideoWorkbenchRollout({
+    enabled: true,
+    mode: 'planning',
+    authorizeOwner: email => email === 'owner@example.com'
+      ? { ok: true, email }
+      : { ok: false },
+  });
+  assert.equal(rollout.isEligible('owner@example.com'), true);
+  assert.equal(rollout.planningOnly, true);
+  assert.deepEqual(rollout.status(), {
+    enabled: true,
+    mode: 'planning',
+    planningOnly: true,
+    cohort: 'owner',
+  });
 });
 
 test('capability discovery is false for anonymous or ineligible requests', () => {

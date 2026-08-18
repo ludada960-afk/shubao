@@ -1480,6 +1480,31 @@ export async function readRequestBuffer(req, maxBytes) {
   return Buffer.concat(chunks);
 }
 
+export function parseVideoRange(value, size) {
+  if (!value) return null;
+  if (!Number.isSafeInteger(size) || size <= 0) return false;
+  const range = String(value).trim();
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+  if (!match || (!match[1] && !match[2])) return false;
+
+  let start;
+  let end;
+  if (!match[1]) {
+    const suffixLength = Number(match[2]);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) return false;
+    start = Math.max(size - suffixLength, 0);
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+  }
+
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= size) {
+    return false;
+  }
+  return { start, end };
+}
+
 export function sendVideoAsset(req, res, asset) {
   const range = clean(req.headers.range, 100);
   res.setHeader('Content-Type', asset.row.content_type);
@@ -1490,11 +1515,12 @@ export function sendVideoAsset(req, res, asset) {
     fs.createReadStream(asset.filePath).pipe(res);
     return;
   }
-  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-  if (!match) return res.status(416).end();
-  const start = match[1] ? Number(match[1]) : 0;
-  const end = match[2] ? Math.min(Number(match[2]), asset.size - 1) : asset.size - 1;
-  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= asset.size) return res.status(416).end();
+  const parsed = parseVideoRange(range, asset.size);
+  if (!parsed) {
+    res.setHeader('Content-Range', `bytes */${asset.size}`);
+    return res.status(416).end();
+  }
+  const { start, end } = parsed;
   res.status(206);
   res.setHeader('Content-Range', `bytes ${start}-${end}/${asset.size}`);
   res.setHeader('Content-Length', end - start + 1);

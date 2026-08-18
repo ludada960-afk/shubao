@@ -173,7 +173,7 @@ function VideoPlanModal({ plan, onClose, onConfirm }) {
 
 export default function VideoStudioPage({ embedded = false }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
-  const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false, workbenchEnabled: false });
+  const [capabilities, setCapabilities] = useState({ loading: true, generationEnabled: false, workbenchEnabled: false, workbenchMode: 'planning', workbenchPlanningOnly: false });
   const [activeVideoProjectId, setActiveVideoProjectId] = useState('');
   const [activeVideoPlanHash, setActiveVideoPlanHash] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -269,7 +269,7 @@ export default function VideoStudioPage({ embedded = false }) {
             : result.defaultProductId || available[0]?.id || ''
         ));
       })
-      .catch(() => setCapabilities({ loading: false, generationEnabled: false, workbenchEnabled: false }));
+      .catch(() => setCapabilities({ loading: false, generationEnabled: false, workbenchEnabled: false, workbenchMode: 'planning', workbenchPlanningOnly: false }));
   }, [state.logged]);
 
   useEffect(() => {
@@ -877,6 +877,8 @@ export default function VideoStudioPage({ embedded = false }) {
     {!embedded && capabilities.workbenchEnabled && state.logged && <VideoProjectWorkbench
       enabled={capabilities.workbenchEnabled}
       logged={state.logged}
+      mode={capabilities.workbenchMode}
+      planningOnly={capabilities.workbenchPlanningOnly}
       uploadRecords={uploadRecords}
       jobs={history}
       onProjectChange={setActiveVideoProjectId}

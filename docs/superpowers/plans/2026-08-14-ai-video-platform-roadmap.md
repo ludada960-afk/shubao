@@ -588,3 +588,24 @@ This release is a verified reliability foundation, not a finished AI-video studi
 remains intentional. The next release must add the asset/storyboard/timeline UI only after output proxy/download
 recovery, governed moderation/storage attestations, provider capability and cost review, and an explicitly approved
 non-default provider canary.
+## 25. Provider-Neutral Planning Workbench Slice (2026-08-18)
+
+The first product-facing slice of the long-term video plan is now implemented as an owner-only planning mode. It
+exposes the project, asset, storyboard, candidate, timeline, project-memory, Skill preview, replay-manifest and
+generation-preflight workflows without selecting a provider or spending credits.
+
+- `VIDEO_PLATFORM_P1_PLANNING=true` is an additive default. The live renderer flag
+  `VIDEO_PLATFORM_P1_WORKBENCH` remains `false`, so enabling planning cannot accidentally enable a paid provider.
+- Capability discovery reports `workbenchMode` and `workbenchPlanningOnly`; the workbench shows a visible planning
+  banner and keeps the provider-neutral contract explicit rather than presenting a fake Generate button.
+- Export-job creation is rejected only after authentication and owner-cohort authorization. Anonymous callers still
+  receive the normal auth response; an eligible owner receives `VIDEO_WORKBENCH_PLANNING_ONLY` and no export job,
+  provider submission, wallet mutation or usage event is created.
+- The route, rollout, capability, UI and full workbench suites cover the new mode. This is an intentional planning
+  release, not a claim that live rendering is ready. Live enablement still requires the provider capability/cost/
+  rights/moderation/storage/quality/latency/rollback gate and a measured non-default canary.
+
+This slice is the implementation bridge between the publicly researched product pattern and ShuBao's existing
+reliability foundation: users can assemble and review a real project graph, while the system refuses to pretend that
+an unconfigured renderer succeeded. The next implementation slice is authenticated asset proxy/download recovery
+and a durable project/workbench browser QA pass, followed by a non-provider worker canary.

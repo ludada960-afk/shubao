@@ -1994,3 +1994,14 @@
 - 为避免首屏九宫格出现懒加载骨架，小红书案例的 9 张静态展示图改为首屏加载；本地后端联动验证 9 个图片节点均有实际宽度，桌面截图完整，390px 移动端无横向溢出。
 - 全量回归 `1613/1613`，生产构建转换 `6493` 个模块，`npm run check` 与 `git diff --check` 通过。
 - `scripts/deploy-production.ps1 -CanarySeconds 600 -PublicWarmupSeconds 60` 已完成，版本 `45ab6b6` 已部署到 `https://shuimg.cn/`；图库 117 张、视频公共契约、电商稳定资产验收和 canary 均通过，部署锁已释放。公网独立验收 `/health` 与首页均为 HTTP 200，线上小红书预览弹窗确认包含完整正文和 9 张缩略图。canary 期间一次公共视频契约瞬时网络失败由脚本自动重试后通过，未触发视频生成。
+
+## 2026-08-18 AI Video Planning Workbench Slice
+
+- 将 provider-neutral 规划模式接入视频能力发现与所有者工作台：`VIDEO_PLATFORM_P1_PLANNING=true`，而实时渲染
+  `VIDEO_PLATFORM_P1_WORKBENCH=false` 仍保持关闭。项目、素材、分镜、候选、时间线、项目记忆、Skill 预览、
+  创作配方和生成预检均可编辑/回看，但不会选择供应商、提交视频任务或扣除积分。
+- 规划模式在 UI 中显示明确的“不会调用供应商，也不会扣除积分”状态；导出任务路由在鉴权与所有者 cohort
+  校验之后返回 `VIDEO_WORKBENCH_PLANNING_ONLY`，匿名请求仍返回 401，避免泄露模式信息或绕过权限。
+- 本地焦点回归 `48/48`（包含新增规划路由鉴权门禁与媒体 Range 恢复），全量回归
+  `1830/1830`、生产构建转换 `6520` 个模块、协作门禁、无付费视频验证和部署前生产契约检查均已通过。
+  试点验证为 `10` 个项目、`40/40` 操作成功，`providerSubmissions=0`、`billingMutated=false`；当前没有触发视频生成、供应商调用、钱包/用量变更。

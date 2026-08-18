@@ -10,6 +10,18 @@ test('P1 video workbench is explicitly default-off', () => {
   assert.ok(VIDEO_PLATFORM_FLAG_NAMES.includes('VIDEO_PLATFORM_P1_WORKBENCH'));
 });
 
+test('P1 planning workbench is owner-only and provider-neutral by default', () => {
+  const flags = readVideoPlatformFlags({});
+  assert.equal(flags.VIDEO_PLATFORM_P1_PLANNING, true);
+  assert.ok(VIDEO_PLATFORM_FLAG_NAMES.includes('VIDEO_PLATFORM_P1_PLANNING'));
+});
+
+test('P1 planning workbench accepts explicit boolean values only', () => {
+  assert.equal(readVideoPlatformFlags({ VIDEO_PLATFORM_P1_PLANNING: 'off' }).VIDEO_PLATFORM_P1_PLANNING, false);
+  assert.equal(readVideoPlatformFlags({ VIDEO_PLATFORM_P1_PLANNING: 'enabled' }).VIDEO_PLATFORM_P1_PLANNING, true);
+  assert.throws(() => readVideoPlatformFlags({ VIDEO_PLATFORM_P1_PLANNING: 'maybe' }), /VIDEO_PLATFORM_P1_PLANNING/);
+});
+
 test('P1 video workbench accepts explicit boolean values only', () => {
   assert.equal(readVideoPlatformFlags({ VIDEO_PLATFORM_P1_WORKBENCH: 'true' }).VIDEO_PLATFORM_P1_WORKBENCH, true);
   assert.equal(readVideoPlatformFlags({ VIDEO_PLATFORM_P1_WORKBENCH: 'off' }).VIDEO_PLATFORM_P1_WORKBENCH, false);
@@ -19,8 +31,10 @@ test('P1 video workbench accepts explicit boolean values only', () => {
 test('the server mounts the workbench only behind its default-off flag', () => {
   const source = fs.readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
   assert.match(source, /VIDEO_PLATFORM_P1_WORKBENCH\s*\?/);
-  assert.match(source, /mountVideoWorkbenchRoutes\(app,\s*\{[\s\S]*enabled:\s*videoPlatformFlags\.VIDEO_PLATFORM_P1_WORKBENCH/);
+  assert.match(source, /VIDEO_PLATFORM_P1_PLANNING/);
+  assert.match(source, /mountVideoWorkbenchRoutes\(app,\s*\{[\s\S]*enabled:\s*videoWorkbenchEnabled/);
   assert.match(source, /workbenchEnabled:\s*videoWorkbenchRollout\.enabledForRequest/);
+  assert.match(source, /workbenchMode:/);
   assert.match(source, /authorizeCohort:\s*videoWorkbenchRollout/);
 });
 

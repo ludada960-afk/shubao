@@ -50,6 +50,9 @@ function routeError(error, res) {
   if (code === 'VIDEO_PLAN_APPROVAL_REQUIRED') {
     return res.status(409).json({ code, error: error.message || '请先确认当前生成计划' });
   }
+  if (code === 'VIDEO_WORKBENCH_PLANNING_ONLY') {
+    return res.status(409).json({ code, error: '当前处于零额度规划模式，暂不交接渲染任务' });
+  }
   if (code === 'VIDEO_PREFLIGHT_INPUT_INVALID') {
     return res.status(400).json({ code, error: error.message || '视频提交前预检参数无效' });
   }
@@ -157,6 +160,7 @@ function projectPlayableMedia(workbench, ownerEmail, req, playbackUrlForAsset) {
 
 export function mountVideoWorkbenchRoutes(app, {
   enabled = false,
+  planningOnly = false,
   store,
   authenticateOwner,
   authorizeCohort,
@@ -183,6 +187,14 @@ export function mountVideoWorkbenchRoutes(app, {
       request = input(req);
     } catch (error) {
       return routeError(error, res);
+    }
+    // Authenticate and enforce the owner cohort before exposing mode-specific
+    // behavior. An anonymous caller must still receive the auth response,
+    // while an eligible owner gets the explicit planning-mode contract.
+    if (planningOnly && operationName === 'export-job.create') {
+      return routeError(Object.assign(new Error('planning workbench cannot create renderer jobs'), {
+        code: 'VIDEO_WORKBENCH_PLANNING_ONLY',
+      }), res);
     }
     return handle(res, () => action(request), {
       ...options,

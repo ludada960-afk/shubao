@@ -194,9 +194,16 @@ const db = initDB(process.env.SHUBAO_DB_PATH || undefined);
 const walletService = createWalletService(db);
 const authorizeAccountEmail = email => requireAccountAccess(db, email);
 const videoPlatformFlags = readVideoPlatformFlags(process.env);
+// The owner-only planning workbench is provider-neutral and safe to expose
+// before the live renderer gate. Live rendering stays separately gated so a
+// planning session can never be mistaken for a paid generation session.
+const videoWorkbenchEnabled = videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH
+  || videoPlatformFlags.VIDEO_PLATFORM_P1_PLANNING;
+const videoWorkbenchMode = videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH ? 'live' : 'planning';
 let videoWorkbenchStore = null;
 const videoWorkbenchRollout = createVideoWorkbenchRollout({
-  enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
+  enabled: videoWorkbenchEnabled,
+  mode: videoWorkbenchMode,
   authorizeOwner: email => requireAdminAccess(db, email),
 });
 let videoReconciliation = null;
@@ -246,7 +253,7 @@ const generatedAssetStore = createGeneratedAssetStore({
 });
 const projectStore = createProjectStore(db);
 const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
-videoWorkbenchStore = videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH
+videoWorkbenchStore = videoWorkbenchEnabled
   ? createVideoWorkbenchStore({ db, projectStore })
   : null;
 const videoGeneration = createVideoGeneration({
@@ -607,7 +614,8 @@ mountProjectRoutes(app, {
 });
 
 mountVideoWorkbenchRoutes(app, {
-  enabled: videoPlatformFlags.VIDEO_PLATFORM_P1_WORKBENCH,
+  enabled: videoWorkbenchEnabled,
+  planningOnly: videoWorkbenchRollout.planningOnly,
   store: videoWorkbenchStore,
   authorizeCohort: videoWorkbenchRollout,
   playbackUrlForAsset({ assetId, ownerEmail, req }) {
@@ -4050,6 +4058,8 @@ app.get('/api/video/capabilities', (req, res) => {
       sessionTokens: contentSessionTokens,
       authorizeEmail: authorizeAccountEmail,
     })),
+    workbenchMode: videoWorkbenchRollout.mode,
+    workbenchPlanningOnly: videoWorkbenchRollout.planningOnly,
   });
 });
 app.post('/api/video/plans', authenticateVideoRequest, async (req, res) => {

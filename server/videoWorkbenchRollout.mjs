@@ -13,9 +13,10 @@ function unavailable() {
   });
 }
 
-export function createVideoWorkbenchRollout({ enabled = false, authorizeOwner } = {}) {
+export function createVideoWorkbenchRollout({ enabled = false, mode = 'live', authorizeOwner } = {}) {
   if (typeof authorizeOwner !== 'function') throw new TypeError('authorizeOwner is required');
   const globalEnabled = enabled === true;
+  const rolloutMode = mode === 'planning' ? 'planning' : 'live';
 
   function isEligible(value) {
     if (!globalEnabled) return false;
@@ -47,7 +48,9 @@ export function createVideoWorkbenchRollout({ enabled = false, authorizeOwner } 
       return email;
     },
     status() {
-      return { enabled: globalEnabled, cohort: 'owner' };
+      return { enabled: globalEnabled, mode: rolloutMode, planningOnly: rolloutMode === 'planning', cohort: 'owner' };
     },
+    mode: rolloutMode,
+    planningOnly: rolloutMode === 'planning',
   });
 }

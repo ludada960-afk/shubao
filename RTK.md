@@ -359,3 +359,14 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   用户提供的导出或可访问正文继续补证。
 - 部署后本地出现的 `90c919d` 是独立 XHS 展示提交，不属于本次 AI 视频 release；12 个 extension task 删除项、
   `.tmp/`、诊断脚本和可视化临时文件继续保留，不能误恢复、误删除或误暂存。
+
+## 2026-08-19 AI Video Planning And Media Recovery Gate
+
+- 新增 provider-neutral 规划工作台门禁：`VIDEO_PLATFORM_P1_PLANNING=true`，实时渲染仍为
+  `VIDEO_PLATFORM_P1_WORKBENCH=false`。所有者可以编辑项目、素材、分镜、候选、时间线、项目记忆、Skill 运行和回放，
+  但工作台明确禁止供应商提交、导出渲染任务和积分变更。
+- 根据 B 站 `BV1p7gP6CErH` 与 Feishu AI 视频目录补齐的产品原语已写入路线图：批准素材版本、镜头方向、动作/灯光/轴线、
+  候选选择、低清到高清漏斗、任务幂等和过程回放。没有触发付费视频生成。
+- 视频资产 Range 下载新增标准后缀区间解析和 `416 Content-Range` 契约，防止断点预览从错误位置恢复；新增测试后全量回归
+  `1830/1830`、生产构建 `6520` 模块、构建检查、协作门禁与本地无付费验证均通过。明确排除 12 个运行态任务删除项、
+  `.tmp/`、诊断脚本和可视化临时文件。

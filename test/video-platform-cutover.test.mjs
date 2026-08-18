@@ -57,7 +57,7 @@ function createLegacyDatabase() {
   return db;
 }
 
-test('P0 video platform flags default on while future workbench remains default-off', () => {
+test('P0 video platform flags default on while live workbench remains default-off', () => {
   const defaults = readVideoPlatformFlags({});
   assert.deepEqual(Object.keys(defaults).sort(), [...VIDEO_PLATFORM_FLAG_NAMES].sort());
   assert.equal(defaults.VIDEO_PLATFORM_P1_WORKBENCH, false);
@@ -72,6 +72,7 @@ test('P0 video platform flags default on while future workbench remains default-
     VIDEO_PLATFORM_PROJECT_BRIDGE: 'no',
     VIDEO_PLATFORM_TUS_UPLOAD: 'FALSE',
     VIDEO_PLATFORM_READ_NEW_STATE: 'disabled',
+    VIDEO_PLATFORM_P1_PLANNING: 'false',
   });
   assert.ok(Object.values(rolledBack).every(value => value === false));
   assert.throws(() => readVideoPlatformFlags({ VIDEO_PLATFORM_OUTBOX: 'sometimes' }), /VIDEO_PLATFORM_OUTBOX/);

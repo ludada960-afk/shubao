@@ -239,7 +239,7 @@ function CandidateMedia({ candidate, label }) {
   return <video src={mediaUrl} aria-label={label} controls playsInline preload="metadata" onError={() => setFailed(true)} />;
 }
 
-export default function VideoProjectWorkbench({ enabled = false, logged = false, uploadRecords = [], jobs = [], onProjectChange, onPlanApprovalChange }) {
+export default function VideoProjectWorkbench({ enabled = false, logged = false, mode = 'planning', planningOnly = false, uploadRecords = [], jobs = [], onProjectChange, onPlanApprovalChange }) {
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState('');
   const [workbench, setWorkbench] = useState(null);
@@ -983,6 +983,11 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const preflight = workbenchPreflight?.preflight || null;
 
   return <section className="video-project-workbench" aria-label="视频项目工作台" aria-busy={loading || Boolean(busy)}>
+    {planningOnly && <div className="video-project-planning-banner" role="status">
+      <ShieldCheck size={16} aria-hidden="true" />
+      <div><strong>规划模式</strong><span>可编辑项目、素材、分镜和时间线；不会调用供应商，也不会扣除积分。</span></div>
+      <code>{mode === 'planning' ? 'provider-neutral' : mode}</code>
+    </div>}
     <header className="video-project-workbench-header">
       <div><span><Film size={16} />项目工作台</span><h2>把素材、分镜和候选版本组织成一条可回看的创作过程</h2><p>所有选择都保存到当前项目；工作台本身不会发起生成或扣除积分。</p></div>
       <div className="video-project-header-actions">
