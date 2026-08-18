@@ -168,11 +168,11 @@ function multiAngleArrow() {
       <filter id="arrowShadow" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#6e5c4d" flood-opacity=".2"/>
       </filter>
-      <marker id="arrowHead" markerWidth="34" markerHeight="34" refX="29" refY="17" orient="auto" markerUnits="userSpaceOnUse">
-        <path d="M2 2 L31 17 L2 32 L10 17 Z" fill="url(#arrowGradient)"/>
+      <marker id="arrowHead" markerWidth="46" markerHeight="46" refX="38" refY="23" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M3 3 L43 23 L3 43 L13 23 Z" fill="url(#arrowGradient)"/>
       </marker>
     </defs>
-    <path d="M462 540 C500 535 536 505 568 448" fill="none" stroke="url(#arrowGradient)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)" filter="url(#arrowShadow)"/>
+    <path d="M466 568 C495 566 518 547 535 521 C548 501 555 477 559 451" fill="none" stroke="url(#arrowGradient)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)" filter="url(#arrowShadow)"/>
   </svg>`);
 }
 

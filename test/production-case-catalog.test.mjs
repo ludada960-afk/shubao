@@ -55,7 +55,7 @@ test('multi-angle try-on exposes four independent complete model views', () => {
   assert.ok(angleSources.every(asset => asset.ratio === '9:16'));
   const workflow = item.assets.find(asset => asset.displayRole === 'workflowBanner');
   assert.equal(workflow.ratio, '16:9');
-  assert.equal(workflow.src, '/images/home/tryon-showcase/editorial-multi-angle-workflow-v7.png?v=workflow-v8');
+  assert.equal(workflow.src, '/images/home/tryon-showcase/editorial-multi-angle-workflow-v7.png?v=workflow-v9');
   assert.equal(workflow.provenance, 'production-composite');
   assert.doesNotMatch(workflow.src, /fan-only/);
 });
