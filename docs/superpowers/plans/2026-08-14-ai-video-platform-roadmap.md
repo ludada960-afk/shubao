@@ -460,3 +460,39 @@ The first renderer handoff is now durable locally, but it is intentionally still
 - The internal store methods are not exposed as a public “fake render” API. No provider submission, object upload, wallet hold, usage event, or billing mutation is permitted in this slice.
 
 Evidence for this local slice: focused job/store tests `12/12`, full suite `1751/1751`, `npm run check`, 6510-module production build, `git diff --check`, and the 10-project non-billing pilot all pass. This does **not** mark renderer delivery complete or enable the production workbench. The next gate is a provider-neutral renderer adapter plus an outbox/reconciliation worker, with a dry-run implementation first; only after fault tests and cost/rights gates pass can a real provider be enabled.
+
+## 19. Provider-Neutral Renderer Request and Outbox (2026-08-18)
+
+The next reliability boundary is implemented locally without selecting or calling a video provider:
+
+- `videoRendererAdapter.mjs` builds a versioned `video-render-request` from the current rendering job and export manifest. The request carries stable `requestId`/`idempotencyKey`, manifest/job hashes, bounded timeline and audio metadata, and explicit `providerSubmission=false`/`billingMutation=false` guards.
+- `videoRendererOutbox.mjs` provides a hashed `renderer.submit.requested` event with pending/processing/failed/completed/canceled states, worker leases, retry scheduling, and terminal-state guards. Provider responses are normalized only when an adapter is explicitly supplied; the default adapter fails closed with `RENDERER_NOT_CONFIGURED`.
+- The SQLite workbench creates one outbox event per export attempt inside the same state transition that enters `rendering`, and synchronizes failed/completed/canceled terminal states. Existing databases create the outbox table and indexes on open; duplicate request IDs are idempotent and payload-hash mismatches fail closed.
+- No provider credentials, upload, wallet hold, usage event, billing mutation, or public worker route is introduced. The production workbench remains default-off.
+
+Evidence for this local slice: adapter/outbox/job/store focused tests `18/18` pass before the full release gate. The required next gate is an authenticated reconciliation worker in dry-run mode: claim outbox events, renew leases, record normalized provider status, reconcile lost callbacks, and prove retry/timeout/duplicate/fault paths without a provider call. Only after that matrix, cost/rights checks, and a measured provider canary may a real renderer be enabled.
+
+## 20. Authenticated Reconciliation Dry-Run (2026-08-18)
+
+The provider-neutral reconciliation boundary is now implemented and verified locally. It remains deliberately
+disconnected from provider credentials, media upload, wallet settlement, usage accounting, and public routes:
+
+- `videoRendererReconciliation.mjs` runs the claim -> submit -> poll -> terminal state machine against an injected
+  adapter. A stable request ID and request hash are checked before every transition; a stale event, manifest, job,
+  or lease is rejected before the original outbox row is mutated.
+- The adapter is fail-closed for explicit callback identity: a supplied `requestId` or `requestHash` must match the
+  request that was submitted. Missing callback identity is filled from the stable request only for adapters that do
+  not return it. This prevents a malformed or cross-job callback from being normalized into a valid result.
+- Queued/running callbacks can be polled, lost submit responses can be retried with the same idempotency key,
+  deadlines become retryable `RENDER_TIMEOUT` failures, and duplicate terminal reconciliation is a no-op. Invalid
+  submit/poll callbacks are rejected without converting the event into a retryable provider failure.
+- `scripts/verify-video-renderer-reconciliation-dry-run.mjs` exercises four deterministic scenarios: normal
+  completion, lost-submit retry, timeout, and invalid-submit callback. It asserts event integrity and
+  `billingMutated=false` while reporting `providerCalls=0`.
+
+Evidence captured on 2026-08-18: full `npm test` `1765/1765`, `npm run check`, 6510-module production build,
+`git diff --check`, the 10-project/40-operation non-billing pilot, and the four-scenario reconciliation dry-run all
+pass. `npm run collab:check` remains policy-blocked only because this linked worktree has no collaboration marker;
+it is not an application test failure. This closes the local dry-run gate, not renderer delivery: the next gate is
+authenticated worker persistence/restart recovery and an explicit cost, rights, moderation, and rollback review.
+No provider canary or production deployment is authorized by this slice.

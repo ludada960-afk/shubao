@@ -295,7 +295,7 @@ test('completed video jobs converge through billing, project lineage, works proj
   assert.equal(db.prepare('SELECT COUNT(*) AS value FROM project_assets').get().value, 2);
   assert.equal(db.prepare('SELECT COUNT(*) AS value FROM project_asset_lineage').get().value, 1);
   assert.deepEqual(
-    db.prepare('SELECT event_type, state FROM video_outbox WHERE aggregate_id = ? ORDER BY created_at, event_type')
+    db.prepare('SELECT event_type, state FROM video_outbox WHERE aggregate_id = ? ORDER BY event_type')
       .all(created.job.id).map(row => [row.event_type, row.state]),
     [
       ['video.billing.settle.requested', 'done'],

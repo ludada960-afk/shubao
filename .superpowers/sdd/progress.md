@@ -2646,3 +2646,19 @@
   Focused job/store coverage passes `12/12`; full `npm test` passes `1751/1751`; check, production build,
   `git diff --check`, and the 10-project non-billing pilot pass. No provider, upload, usage, wallet, or billing path
   was introduced; the workbench remains default-off and `VID-P1-05` remains open pending a real adapter/outbox.
+
+- 2026-08-18 the local renderer boundary now emits a provider-neutral, hashed request and a durable
+  `renderer.submit.requested` outbox event per export attempt. The adapter validates manifest/job hashes and
+  stable idempotency keys; the outbox supports worker leases, retry scheduling, and terminal-state synchronization
+  without provider, upload, usage, wallet, or billing side effects. Adapter/outbox/job/store focused coverage is
+  `18/18`; the reconciliation worker and any real provider canary remain intentionally unimplemented, and the
+  production workbench remains default-off.
+
+- 2026-08-18 the provider-neutral reconciliation dry-run is now implemented locally. The injected-adapter state
+  machine claims and renews outbox leases, retries a lost submit with the same idempotency key, polls queued/running
+  attempts, times out deterministically, treats duplicate terminal callbacks as no-ops, and rejects stale or
+  cross-job callback hashes before mutating the event. The adapter now preserves and verifies explicit callback
+  `requestId`/`requestHash` instead of rewriting them. The deterministic verifier covers completion, lost-submit
+  retry, timeout, and invalid-submit callback with `providerCalls=0` and `billingMutated=false`; full tests pass
+  `1765/1765`, check/build/pilot/diff gates pass, and the linked-worktree collaboration check remains an explicit
+  environment-policy block. This is still local-only; no provider canary, paid generation, or deployment occurred.

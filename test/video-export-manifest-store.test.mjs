@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 import { ensureProjectSchema } from '../server/projects/schema.mjs';
 import { createProjectStore } from '../server/projects/projectStore.mjs';
 import { createVideoWorkbenchStore } from '../server/videoWorkbenchStore.mjs';
+import { assertVideoRendererOutboxIntegrity } from '../server/videoRendererOutbox.mjs';
 
 const OWNER = 'export-owner@example.com';
 
@@ -105,19 +106,53 @@ test('hands a current export manifest to a durable renderer job idempotently', t
   const rendering = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
     jobId: created.id, nextState: 'rendering' });
   assert.equal(rendering.attempt, 1);
+  const firstOutbox = db.prepare(`SELECT * FROM video_renderer_outbox
+    WHERE job_id = ? AND request_id = ?`).get(created.id, `${created.id}:attempt:1`);
+  assert.ok(firstOutbox);
+  assert.equal(firstOutbox.state, 'pending');
+  assert.equal(firstOutbox.provider_submission, 0);
+  assert.equal(firstOutbox.billing_mutation, 0);
+  const firstPayload = JSON.parse(firstOutbox.payload_json);
+  assert.equal(firstPayload.jobHash, rendering.jobHash);
+  assert.equal(firstPayload.ownerEmail, undefined);
+  assert.equal(assertVideoRendererOutboxIntegrity({
+    id: firstOutbox.id,
+    eventType: firstOutbox.event_type,
+    jobId: firstOutbox.job_id,
+    projectId: firstOutbox.project_id,
+    requestId: firstOutbox.request_id,
+    requestHash: firstOutbox.request_hash,
+    payload: firstPayload,
+    state: firstOutbox.state,
+    attempts: firstOutbox.attempts,
+    nextAttemptAt: firstOutbox.next_attempt_at,
+    workerId: firstOutbox.worker_id,
+    leaseToken: firstOutbox.lease_token,
+    leaseExpiresAt: firstOutbox.lease_expires_at,
+    lastErrorCode: firstOutbox.last_error_code,
+    lastError: firstOutbox.last_error,
+    providerSubmission: Boolean(firstOutbox.provider_submission),
+    billingMutation: Boolean(firstOutbox.billing_mutation),
+    createdAt: firstOutbox.created_at,
+    updatedAt: firstOutbox.updated_at,
+    eventHash: firstOutbox.event_hash,
+  }), true);
   const failed = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
     jobId: created.id, nextState: 'failed', errorCode: 'RENDER_TIMEOUT', errorMessage: '超时' });
   assert.equal(failed.errorCode, 'RENDER_TIMEOUT');
+  assert.equal(db.prepare('SELECT state FROM video_renderer_outbox WHERE id = ?').get(firstOutbox.id).state, 'failed');
   const retry = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
     jobId: created.id, nextState: 'waiting_renderer' });
   assert.equal(retry.errorCode, '');
   const renderingAgain = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
     jobId: created.id, nextState: 'rendering' });
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_renderer_outbox WHERE job_id = ?').get(created.id).count, 2);
   const completed = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
     jobId: created.id, nextState: 'completed', outputAssetId: 'video-output-1', outputUrl: '/video/output-1.mp4' });
   assert.equal(renderingAgain.attempt, 2);
   assert.equal(completed.state, 'completed');
   assert.equal(completed.outputAssetId, 'video-output-1');
+  assert.equal(db.prepare('SELECT state FROM video_renderer_outbox WHERE request_id = ?').get(`${created.id}:attempt:2`).state, 'completed');
   assert.throws(() => store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
     jobId: created.id, nextState: 'rendering' }), error => error.code === 'EXPORT_JOB_INVALID_TRANSITION');
 });
@@ -152,6 +187,13 @@ test('persists worker leases, rejects takeover, and recovers an expired job', t 
   assert.equal(claimed.state, 'rendering');
   assert.equal(claimed.workerId, 'worker-a');
   assert.equal(claimed.leaseToken, 'lease-a');
+  const claimedOutbox = db.prepare('SELECT * FROM video_renderer_outbox WHERE request_id = ?').get(`${created.id}:attempt:1`);
+  assert.ok(claimedOutbox);
+  assert.equal(claimedOutbox.state, 'processing');
+  assert.equal(claimedOutbox.worker_id, 'worker-a');
+  assert.equal(claimedOutbox.lease_token, 'lease-a');
+  assert.equal(claimedOutbox.attempts, 1);
+  assert.equal(JSON.parse(claimedOutbox.payload_json).jobHash, claimed.jobHash);
   assert.throws(() => store.claimExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
     workerId: 'worker-b', leaseToken: 'lease-b' }), error => error.code === 'EXPORT_JOB_LEASE_BUSY');
   assert.throws(() => store.renewExportJobLease({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
@@ -170,6 +212,10 @@ test('persists worker leases, rejects takeover, and recovers an expired job', t 
   const renewed = store.renewExportJobLease({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
     workerId: 'worker-b', leaseToken: 'lease-b', leaseMs: 30_000 });
   assert.equal(renewed.leaseToken, 'lease-b');
+  const renewedOutbox = db.prepare('SELECT * FROM video_renderer_outbox WHERE request_id = ?').get(`${created.id}:attempt:2`);
+  assert.equal(renewedOutbox.state, 'processing');
+  assert.equal(renewedOutbox.worker_id, 'worker-b');
+  assert.equal(renewedOutbox.lease_token, 'lease-b');
   const completed = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
     nextState: 'completed', workerId: 'worker-b', leaseToken: 'lease-b',
     outputAssetId: 'asset-output', outputUrl: '/video/output.mp4' });
@@ -177,6 +223,8 @@ test('persists worker leases, rejects takeover, and recovers an expired job', t 
   assert.equal(completed.workerId, '');
   assert.equal(completed.providerSubmission, false);
   assert.equal(completed.billingMutation, false);
+  assert.equal(db.prepare('SELECT state FROM video_renderer_outbox WHERE request_id = ?').get(`${created.id}:attempt:1`).state, 'failed');
+  assert.equal(db.prepare('SELECT state FROM video_renderer_outbox WHERE request_id = ?').get(`${created.id}:attempt:2`).state, 'completed');
   const columns = db.prepare('PRAGMA table_info(video_export_jobs)').all().map(column => column.name);
   assert.deepEqual(columns.filter(column => ['worker_id', 'lease_token', 'lease_expires_at'].includes(column)),
     ['worker_id', 'lease_token', 'lease_expires_at']);
@@ -206,4 +254,5 @@ test('adds renderer lease columns when opening a legacy export-job table', t => 
   assert.ok(columns.includes('worker_id'));
   assert.ok(columns.includes('lease_token'));
   assert.ok(columns.includes('lease_expires_at'));
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'video_renderer_outbox'").get().count, 1);
 });

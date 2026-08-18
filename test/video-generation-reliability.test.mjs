@@ -344,7 +344,7 @@ test('a delivered video is preserved while settlement is reconciled without refu
   assert.equal(releaseCalls, 0);
   assert.equal(settlementCalls, 2);
   assert.equal(savedWorks.length, 1);
-  const outbox = db.prepare('SELECT event_type, state FROM video_outbox WHERE aggregate_id = ? ORDER BY created_at, event_type').all(created.job.id);
+  const outbox = db.prepare('SELECT event_type, state FROM video_outbox WHERE aggregate_id = ? ORDER BY event_type').all(created.job.id);
   assert.deepEqual(outbox.map(event => [event.event_type, event.state]), [
     ['video.billing.settle.requested', 'done'],
     ['video.job.finalize.requested', 'done'],

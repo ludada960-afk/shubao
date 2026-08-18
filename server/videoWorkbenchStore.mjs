@@ -1,6 +1,17 @@
 import crypto from 'node:crypto';
 import { buildReplayManifest, canonicalReplayManifest } from './videoReplayManifest.mjs';
 import { assertVideoExportManifestIntegrity, buildVideoExportManifest } from './videoExportManifest.mjs';
+import { buildVideoRendererRequest } from './videoRendererAdapter.mjs';
+import {
+  cancelVideoRendererOutboxEvent,
+  claimVideoRendererOutboxEvent,
+  completeVideoRendererOutboxEvent,
+  createVideoRendererOutboxEvent,
+  failVideoRendererOutboxEvent,
+  recoverExpiredVideoRendererOutboxEvent,
+  renewVideoRendererOutboxLease,
+  assertVideoRendererOutboxIntegrity,
+} from './videoRendererOutbox.mjs';
 import {
   assertVideoExportJobCurrent,
   assertVideoExportJobIntegrity,
@@ -140,6 +151,38 @@ function exportJobFromRow(row) {
   return job;
 }
 
+function rendererOutboxFromRow(row) {
+  if (!row) return null;
+  const event = {
+    id: row.id,
+    eventType: row.event_type,
+    jobId: row.job_id,
+    projectId: row.project_id,
+    requestId: row.request_id,
+    requestHash: row.request_hash,
+    payload: parseJson(row.payload_json, null),
+    state: row.state,
+    attempts: Number(row.attempts),
+    nextAttemptAt: row.next_attempt_at,
+    workerId: row.worker_id || '',
+    leaseToken: row.lease_token || '',
+    leaseExpiresAt: row.lease_expires_at || '',
+    lastErrorCode: row.last_error_code || '',
+    lastError: row.last_error || '',
+    providerSubmission: Boolean(row.provider_submission),
+    billingMutation: Boolean(row.billing_mutation),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    eventHash: row.event_hash,
+  };
+  try {
+    assertVideoRendererOutboxIntegrity(event);
+  } catch {
+    throw coded('RENDER_OUTBOX_INTEGRITY_INVALID', 'renderer outbox integrity check failed');
+  }
+  return event;
+}
+
 function persistExportJob(db, job, owner, projectId) {
   db.prepare(`UPDATE video_export_jobs SET state = ?, attempt = ?, renderer = ?,
     provider_submission = ?, billing_mutation = ?, output_asset_id = ?, output_url = ?,
@@ -151,6 +194,109 @@ function persistExportJob(db, job, owner, projectId) {
     job.startedAt, job.completedAt, job.canceledAt, job.workerId, job.leaseToken,
     job.leaseExpiresAt, job.jobHash, job.id, owner, projectId,
   );
+}
+
+function persistRendererOutbox(db, event, owner, projectId) {
+  db.prepare(`UPDATE video_renderer_outbox SET event_type = ?, job_id = ?, request_id = ?,
+    request_hash = ?, payload_json = ?, state = ?, attempts = ?, next_attempt_at = ?,
+    worker_id = ?, lease_token = ?, lease_expires_at = ?, last_error_code = ?, last_error = ?,
+    provider_submission = ?, billing_mutation = ?, updated_at = ?, event_hash = ?
+    WHERE id = ? AND owner_email = ? AND project_id = ?`).run(
+    event.eventType, event.jobId, event.requestId, event.requestHash, JSON.stringify(event.payload),
+    event.state, event.attempts, event.nextAttemptAt, event.workerId, event.leaseToken,
+    event.leaseExpiresAt, event.lastErrorCode, event.lastError, Number(event.providerSubmission),
+    Number(event.billingMutation), event.updatedAt, event.eventHash, event.id, owner, projectId,
+  );
+}
+
+function rendererOutboxId(jobId, attempt) {
+  return `${jobId}:attempt:${attempt}`;
+}
+
+function createRendererOutboxForJob(db, {
+  owner, projectId, job, manifest, now,
+}) {
+  const request = buildVideoRendererRequest({ job, manifest, now: now || job.updatedAt });
+  const event = createVideoRendererOutboxEvent({
+    id: rendererOutboxId(job.id, job.attempt),
+    request,
+    createdAt: now || job.updatedAt,
+  });
+  db.prepare(`INSERT OR IGNORE INTO video_renderer_outbox
+    (id, owner_email, project_id, job_id, event_type, request_id, request_hash, payload_json,
+     state, attempts, next_attempt_at, worker_id, lease_token, lease_expires_at,
+     last_error_code, last_error, provider_submission, billing_mutation, created_at, updated_at, event_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    event.id, owner, projectId, event.jobId, event.eventType, event.requestId, event.requestHash,
+    JSON.stringify(event.payload), event.state, event.attempts, event.nextAttemptAt, event.workerId,
+    event.leaseToken, event.leaseExpiresAt, event.lastErrorCode, event.lastError,
+    Number(event.providerSubmission), Number(event.billingMutation), event.createdAt,
+    event.updatedAt, event.eventHash,
+  );
+  const persisted = rendererOutboxFromRow(db.prepare(`SELECT * FROM video_renderer_outbox
+    WHERE id = ? AND owner_email = ? AND project_id = ?`).get(event.id, owner, projectId));
+  if (!persisted || persisted.requestHash !== event.requestHash || persisted.eventHash !== event.eventHash) {
+    throw coded('RENDER_OUTBOX_INTEGRITY_INVALID', 'renderer outbox event already exists with different payload');
+  }
+  return persisted;
+}
+
+function syncRendererOutboxForJob(db, {
+  owner, projectId, job, nextState, errorCode, errorMessage, now, workerId, leaseToken,
+}) {
+  const row = db.prepare(`SELECT * FROM video_renderer_outbox
+    WHERE owner_email = ? AND project_id = ? AND request_id = ?`)
+    .get(owner, projectId, rendererOutboxId(job.id, job.attempt));
+  if (!row) return null;
+  const event = rendererOutboxFromRow(row);
+  let next = event;
+  if (nextState === 'failed') {
+    next = event.state === 'processing' && workerId && leaseToken
+      ? failVideoRendererOutboxEvent(event, {
+        now, workerId, leaseToken, errorCode: errorCode || 'EXPORT_JOB_FAILED', errorMessage,
+      })
+      : event.state === 'processing'
+        ? recoverExpiredVideoRendererOutboxEvent(event, { now })
+        : failVideoRendererOutboxEvent(event, {
+          now, errorCode: errorCode || 'EXPORT_JOB_FAILED', errorMessage,
+        });
+  } else if (nextState === 'completed') {
+    next = completeVideoRendererOutboxEvent(event, { now, workerId, leaseToken });
+  } else if (nextState === 'canceled') {
+    next = cancelVideoRendererOutboxEvent(event, { now, workerId, leaseToken, errorCode, errorMessage });
+  }
+  if (next !== event) persistRendererOutbox(db, next, owner, projectId);
+  return next;
+}
+
+function claimRendererOutboxForJob(db, {
+  owner, projectId, job, workerId, leaseToken, leaseMs, now,
+}) {
+  const event = rendererOutboxFromRow(db.prepare(`SELECT * FROM video_renderer_outbox
+    WHERE owner_email = ? AND project_id = ? AND request_id = ?`).get(
+    owner, projectId, rendererOutboxId(job.id, job.attempt),
+  ));
+  if (!event) throw coded('RENDER_OUTBOX_NOT_FOUND', 'renderer outbox event not found');
+  const claimed = claimVideoRendererOutboxEvent(event, {
+    workerId, leaseToken, leaseMs, now,
+  });
+  persistRendererOutbox(db, claimed, owner, projectId);
+  return claimed;
+}
+
+function renewRendererOutboxForJob(db, {
+  owner, projectId, job, workerId, leaseToken, leaseMs, now,
+}) {
+  const event = rendererOutboxFromRow(db.prepare(`SELECT * FROM video_renderer_outbox
+    WHERE owner_email = ? AND project_id = ? AND request_id = ?`).get(
+    owner, projectId, rendererOutboxId(job.id, job.attempt),
+  ));
+  if (!event) throw coded('RENDER_OUTBOX_NOT_FOUND', 'renderer outbox event not found');
+  const renewed = renewVideoRendererOutboxLease(event, {
+    workerId, leaseToken, leaseMs, now,
+  });
+  persistRendererOutbox(db, renewed, owner, projectId);
+  return renewed;
 }
 
 function assetFromRow(row) {
@@ -472,6 +618,24 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_export_jobs_project
       ON video_export_jobs(owner_email, project_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS video_renderer_outbox (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+      job_id TEXT NOT NULL, event_type TEXT NOT NULL, request_id TEXT NOT NULL,
+      request_hash TEXT NOT NULL, payload_json TEXT NOT NULL,
+      state TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT NOT NULL, worker_id TEXT NOT NULL DEFAULT '',
+      lease_token TEXT NOT NULL DEFAULT '', lease_expires_at TEXT NOT NULL DEFAULT '',
+      last_error_code TEXT NOT NULL DEFAULT '', last_error TEXT NOT NULL DEFAULT '',
+      provider_submission INTEGER NOT NULL DEFAULT 0, billing_mutation INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, event_hash TEXT NOT NULL,
+      UNIQUE(owner_email, project_id, request_id),
+      FOREIGN KEY(project_id) REFERENCES projects(id),
+      FOREIGN KEY(job_id) REFERENCES video_export_jobs(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_renderer_outbox_pending
+      ON video_renderer_outbox(owner_email, project_id, state, next_attempt_at, created_at);
+    CREATE INDEX IF NOT EXISTS idx_video_renderer_outbox_job
+      ON video_renderer_outbox(owner_email, project_id, job_id, created_at);
     CREATE TABLE IF NOT EXISTS video_skill_runs (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
       skill_id TEXT NOT NULL, skill_version INTEGER NOT NULL, status TEXT NOT NULL,
@@ -1230,6 +1394,17 @@ export function createVideoWorkbenchStore({
           next.startedAt, next.completedAt, next.canceledAt, next.workerId, next.leaseToken,
           next.leaseExpiresAt, next.jobHash, next.id, owner, project.id,
         );
+        if (next.state === 'rendering') {
+          createRendererOutboxForJob(db, {
+            owner, projectId: project.id, job: next, manifest: currentManifest, now: next.updatedAt,
+          });
+        } else if (['failed', 'completed', 'canceled'].includes(next.state)) {
+          syncRendererOutboxForJob(db, {
+            owner, projectId: project.id, job: next, nextState: next.state,
+            errorCode: next.errorCode, errorMessage: next.errorMessage, now: next.updatedAt,
+            workerId, leaseToken,
+          });
+        }
         return exportJobFromRow(db.prepare('SELECT * FROM video_export_jobs WHERE id = ?').get(job.id));
       })();
     },
@@ -1254,6 +1429,13 @@ export function createVideoWorkbenchStore({
           workerId, leaseToken, leaseMs, now: timestamp(),
         });
         persistExportJob(db, claimed, owner, project.id);
+        createRendererOutboxForJob(db, {
+          owner, projectId: project.id, job: claimed, manifest: currentManifest, now: claimed.updatedAt,
+        });
+        claimRendererOutboxForJob(db, {
+          owner, projectId: project.id, job: claimed, workerId: claimed.workerId,
+          leaseToken: claimed.leaseToken, leaseMs, now: claimed.updatedAt,
+        });
         return exportJobFromRow(db.prepare('SELECT * FROM video_export_jobs WHERE id = ?').get(job.id));
       })();
     },
@@ -1278,6 +1460,9 @@ export function createVideoWorkbenchStore({
           workerId, leaseToken, leaseMs, now: timestamp(),
         });
         persistExportJob(db, renewed, owner, project.id);
+        renewRendererOutboxForJob(db, {
+          owner, projectId: project.id, job: renewed, workerId, leaseToken, leaseMs, now: renewed.updatedAt,
+        });
         return exportJobFromRow(db.prepare('SELECT * FROM video_export_jobs WHERE id = ?').get(job.id));
       })();
     },
@@ -1301,6 +1486,10 @@ export function createVideoWorkbenchStore({
         const recovered = recoverExpiredVideoExportJob(job, { now: recoveryTime || timestamp() });
         if (recovered === job) return job;
         persistExportJob(db, recovered, owner, project.id);
+        syncRendererOutboxForJob(db, {
+          owner, projectId: project.id, job: recovered, nextState: 'failed',
+          errorCode: recovered.errorCode, errorMessage: recovered.errorMessage, now: recovered.updatedAt,
+        });
         return exportJobFromRow(db.prepare('SELECT * FROM video_export_jobs WHERE id = ?').get(job.id));
       })();
     },

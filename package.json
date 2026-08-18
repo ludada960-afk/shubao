@@ -12,6 +12,7 @@
     "check": "node scripts/check-build.mjs",
     "audit:production": "node scripts/audit-production.mjs",
     "verify:video-workbench-pilot": "node scripts/verify-video-workbench-pilot.mjs",
+    "verify:video-renderer-reconciliation-dry-run": "node scripts/verify-video-renderer-reconciliation-dry-run.mjs",
     "collab:check": "node scripts/collaboration-policy.mjs",
     "preview": "vite preview",
     "start": "concurrently \"npm run server\" \"npm run dev\""

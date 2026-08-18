@@ -608,3 +608,30 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   renderer/provider，也没有触发付费视频生成。
 - 下一门禁是 provider-neutral renderer adapter、outbox/reconciliation 和断线故障矩阵；在这些完成前不能把排队状态描述成已生成 MP4，
   也不能开放生产视频工作台。
+
+## 2026-08-18 AI Video Provider-Neutral Renderer Outbox (Local Only)
+
+- 本地新增 `videoRendererAdapter.mjs` 与 `videoRendererOutbox.mjs`。当前时间线清单进入 `rendering` 时，事务内生成带
+  `requestId`、幂等键、清单/任务哈希的 `video-render-request` 和 `renderer.submit.requested` outbox 事件；每次导出尝试只允许一个稳定请求。
+- outbox 支持 pending/processing/failed/completed/canceled、worker 租约、续租、重试时间和终态保护；事件与请求均做 SHA-256 完整性校验，
+  payload 不一致或伪造状态会 fail-closed。失败/完成/取消会跟随导出任务状态同步，旧数据库打开时自动创建表和索引。
+- 默认 adapter 没有供应商实现时明确返回 `RENDERER_NOT_CONFIGURED`；即使注入测试 adapter，也只返回规范化外部任务信息，不写 provider、usage、wallet 或 billing。
+- 定向 adapter/outbox/job/store 覆盖 `18/18` 已通过；本地未触发付费视频生成，生产 `workbenchEnabled=false`，没有部署这条 AI 视频路径。
+- 下一步不是直接接真实模型，而是做 authenticated reconciliation worker 的 dry-run：领取 outbox、续租、轮询/回调幂等、丢失结果恢复、超时重试和故障注入，完成后再申请 provider canary。
+
+## 2026-08-18 AI Video Reconciliation Dry-Run (Local Only)
+
+- `server/videoRendererReconciliation.mjs` now provides the provider-neutral claim/submit/poll/retry/timeout state
+  machine against an injected adapter. It validates job, manifest, request, and lease identity before mutation,
+  preserves stable idempotency on lost-submit retries, and leaves duplicate terminal callbacks harmless.
+- `server/videoRendererAdapter.mjs` is fail-closed for explicit response identity: returned `requestId` and
+  `requestHash` must match the request; malformed submit responses are rejected rather than rewritten into a
+  seemingly valid task.
+- `scripts/verify-video-renderer-reconciliation-dry-run.mjs` covers normal completion, lost-submit retry, timeout,
+  and invalid callback. It proves `providerCalls=0`, `billingMutated=false`, and integrity-preserving failure paths.
+- Evidence: `npm test` `1765/1765`, `npm run check`, 6510-module build, `git diff --check`, the 10-project/40-operation
+  non-billing pilot, and the four-scenario dry-run all pass. `npm run collab:check` is blocked only by the linked
+  worktree collaboration-marker policy.
+- This closes the local reconciliation dry-run gate only. The authenticated worker persistence/restart slice,
+  provider capability/cost/rights/moderation review, measured canary, and rollback evidence remain open. No real
+  provider, paid video generation, public worker route, or production deployment was used.
