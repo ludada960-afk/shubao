@@ -34,7 +34,7 @@ function galleryTypeLabel(type, item) {
     const labels = { free: '自由创作', poster: '海报设计', 'social-cover': '社媒封面', 'brand-kv': '品牌主视觉', anything_tryon: '万物上身' };
     return labels[item.visualSkillId] || labels[item.skillId] || '视觉案例';
   }
-  return '小红书图文';
+  return item?._plogResult || item?.type === 'xhs-plog' ? 'Plog 生活碎片' : '小红书图文';
 }
 
 function galleryTypeIcon(type) {
@@ -107,12 +107,28 @@ export default function GallerySection({ maxItems = 200, showHeader = true, onUs
       image_urls: (work.images || work.imageRecords || []).map(image => typeof image === 'string' ? image : image?.url).filter(Boolean),
     })), [state.works]);
 
+  const contentWorks = useMemo(() => [
+    ...(Array.isArray(state.works) ? state.works : []),
+    ...(state.result ? [state.result] : []),
+  ]
+    .filter(work => work?._contentResult || work?._plogResult || work?.type === 'xhs-content' || work?.type === 'xhs-plog')
+    .map(work => ({
+      ...work,
+      id: work.id || work._saveKey || `content-${work.title || 'work'}`,
+      type: work.type || (work._plogResult ? 'xhs-plog' : 'xhs-content'),
+      _isUserWork: true,
+      title: work.title || (work._plogResult ? 'Plog 生活碎片' : '小红书图文'),
+      cover_url: work.cover_url || work.images?.cover || '',
+      image_urls: Array.isArray(work.image_urls) ? work.image_urls : [],
+    })), [state.result, state.works]);
+
   const candidateItems = useMemo(() => stableGalleryItems([
+    contentWorks,
     mergeGalleryReplayPrompts(GALLERY, galleryPrompts),
     productionGalleryItems(PRODUCTION_CASE_CATALOG),
     visualWorks,
     ecommerceCases,
-  ]), [ecommerceCases, visualWorks]);
+  ]), [contentWorks, ecommerceCases, galleryPrompts, visualWorks]);
   const [galleryItems, setGalleryItems] = useState(() => candidateItems);
   useEffect(() => {
     setGalleryItems(current => appendGalleryItemsWithoutReordering(current, candidateItems));
@@ -141,7 +157,7 @@ export default function GallerySection({ maxItems = 200, showHeader = true, onUs
       hashtags: item.hashtags || item.tags || [],
       category: item.category || item.cat || '',
       _inputText: item.hint || promptText,
-      _galleryItem: true,
+      _galleryItem: !item._isUserWork,
       _galleryType: type,
       _ecResult: type === 'ecommerce',
     } });

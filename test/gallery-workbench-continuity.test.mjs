@@ -41,6 +41,15 @@ test('late ecommerce cases are promoted so newly published inspiration is visibl
   assert.match(gallery, /setGalleryItems\(current => stableGalleryItems\(\[items, current\]\)\)/);
 });
 
+test('saved XHS and Plog works enter inspiration as editable user works', async () => {
+  const gallery = await readFile(new URL('./src/pages/Home/GallerySection.jsx', root), 'utf8');
+
+  assert.match(gallery, /_contentResult\s*\|\|\s*work\?\._plogResult/);
+  assert.match(gallery, /_isUserWork:\s*true/);
+  assert.match(gallery, /_galleryItem:\s*!item\._isUserWork/);
+  assert.match(gallery, /state\.result/);
+});
+
 test('the global task dock is the only ecommerce progress surface', async () => {
   const app = await readFile(new URL('./src/App.jsx', root), 'utf8');
 
