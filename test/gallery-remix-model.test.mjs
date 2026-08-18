@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildGalleryRemixCheckpoint } from '../src/pages/Home/galleryRemixModel.js';
+import { mergeGalleryReplayPrompts } from '../src/pages/Home/galleryReplayModel.js';
 
 test('production product suite restores the exact prompt and manifest source roles', () => {
   const checkpoint = buildGalleryRemixCheckpoint({
@@ -69,6 +70,29 @@ test('xiaohongshu gallery remix restores copy and up to three visual references'
     '/gallery/xhs/2.webp',
     '/gallery/xhs/3.webp',
   ]);
+});
+
+test('prompt-only xiaohongshu gallery remix restores the prompt without gallery images', () => {
+  const checkpoint = buildGalleryRemixCheckpoint({
+    id: 'xm',
+    title: '厦门旅行攻略',
+    prompt: '厦门3天2夜旅游攻略',
+    promptOnlyReplay: true,
+    cover_url: '/gallery/xhs/cover.webp',
+    image_urls: ['/gallery/xhs/2.webp', '/gallery/xhs/3.webp'],
+  });
+
+  assert.equal(checkpoint.version.inputSnapshot.text, '厦门3天2夜旅游攻略');
+  assert.deepEqual(checkpoint.version.inputSnapshot.referenceImages, []);
+});
+
+test('gallery prompt metadata replaces the built-in hint without changing case identity', () => {
+  const items = [{ id: 'xm', title: '厦门旅行攻略', hint: '旧提示', promptOnlyReplay: true }];
+  const merged = mergeGalleryReplayPrompts(items, [{ id: 'xm', prompt: '厦门3天2夜旅游攻略' }]);
+
+  assert.equal(merged[0].id, 'xm');
+  assert.equal(merged[0].prompt, '厦门3天2夜旅游攻略');
+  assert.equal(merged[0].promptOnlyReplay, true);
 });
 
 test('anything try-on gallery remix restores complete role inputs instead of cropped outputs', () => {

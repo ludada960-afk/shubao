@@ -2391,6 +2391,19 @@ app.get('/api/proxy-image', async (req, res) => {
 
 // 薯包出品本地图片服务
 const GALLERY_DIR = resolve(__dirname, '../薯包出品');
+app.get('/api/gallery-prompts', (req, res) => {
+  const entries = Object.entries(GALLERY_FILE_MAP).flatMap(([id, folder]) => {
+    try {
+      const prompt = fs.readFileSync(join(GALLERY_DIR, folder, '提示词.txt'), 'utf8').trim();
+      return prompt ? [{ id, prompt }] : [];
+    } catch {
+      return [];
+    }
+  });
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(entries);
+});
+
 app.get('/api/gallery-image', async (req, res) => {
   const { id, file } = req.query;
   if (!id || !file) return res.status(400).end('missing params');

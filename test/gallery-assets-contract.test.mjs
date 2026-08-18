@@ -57,6 +57,18 @@ test('every inspiration image URL resolves to a versioned source asset', () => {
   assert.equal(readdirSync(galleryRoot, { withFileTypes: true }).filter(entry => entry.isDirectory()).length, 14);
 });
 
+test('every built-in xiaohongshu case has one prompt-only replay file', () => {
+  for (const item of GALLERY) {
+    const folder = folderById[item.id];
+    const promptPath = join(galleryRoot, folder, '提示词.txt');
+    assert.equal(existsSync(promptPath), true, `${item.id} is missing 提示词.txt`);
+    const prompt = readFileSync(promptPath, 'utf8').trim();
+    assert.ok(prompt, `${item.id} has an empty replay prompt`);
+    assert.equal(prompt.split(/\r?\n/).length, 1, `${item.id} replay prompt must be one line`);
+    assert.equal(item.promptOnlyReplay, true, `${item.id} is not marked prompt-only`);
+  }
+});
+
 test('production deployment owns, validates, and rolls back the complete gallery asset set', () => {
   const deploy = readFileSync(new URL('../scripts/deploy-production.ps1', import.meta.url), 'utf8');
   assert.match(deploy, /galleryAssets/i);

@@ -127,8 +127,8 @@ export function buildGalleryRemixCheckpoint(item = {}) {
     version: {
       id: `gallery:${id}:remix`,
       inputSnapshot: {
-        text: cleanText(item?.remix?.prompt) || cleanText(item._inputText) || cleanText(item.hint) || title,
-        referenceImages,
+        text: cleanText(item?.remix?.prompt) || cleanText(item.prompt) || cleanText(item._inputText) || cleanText(item.hint) || title,
+        referenceImages: item.promptOnlyReplay ? [] : referenceImages,
       },
     },
   };

@@ -5,6 +5,7 @@ import { GALLERY } from '../../constants/data';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { predecodeResponsiveImage } from '../../components/responsiveImageModel.js';
 import { buildGalleryRemixCheckpoint } from './galleryRemixModel.js';
+import { mergeGalleryReplayPrompts } from './galleryReplayModel.js';
 import { PRODUCTION_CASE_CATALOG } from './productionCaseCatalog.js';
 import { appendGalleryItemsWithoutReordering, productionGalleryItems, stableGalleryColumns, stableGalleryItems, tryOnWorkflowCards } from './galleryModel.js';
 
@@ -64,6 +65,7 @@ function TryOnWorkflowCard({ item, priority }) {
 export default function GallerySection({ maxItems = 200, showHeader = true, onUseSameStyle }) {
   const { state, dispatch } = useApp();
   const [ecommerceCases, setEcommerceCases] = useState([]);
+  const [galleryPrompts, setGalleryPrompts] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const loadMoreRef = useRef(null);
@@ -76,6 +78,15 @@ export default function GallerySection({ maxItems = 200, showHeader = true, onUs
       .then(items => { if (active && Array.isArray(items)) setEcommerceCases(items); })
       .catch(() => { if (active) setEcommerceCases([]); })
       .finally(() => { if (active) setCasesLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/gallery-prompts')
+      .then(response => response.ok ? response.json() : [])
+      .then(entries => { if (active && Array.isArray(entries)) setGalleryPrompts(entries); })
+      .catch(() => { if (active) setGalleryPrompts([]); });
     return () => { active = false; };
   }, []);
 
@@ -92,7 +103,7 @@ export default function GallerySection({ maxItems = 200, showHeader = true, onUs
     })), [state.works]);
 
   const candidateItems = useMemo(() => stableGalleryItems([
-    GALLERY,
+    mergeGalleryReplayPrompts(GALLERY, galleryPrompts),
     productionGalleryItems(PRODUCTION_CASE_CATALOG),
     visualWorks,
     ecommerceCases,
