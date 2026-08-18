@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Settings, ImagePlus, X } from 'lucide-react';
+import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Settings } from 'lucide-react';
 import { MdAutoAwesome, MdExpandMore, MdAdd, MdEdit, MdGpsFixed, MdPalette, MdRefresh, MdContentCopy, MdVerified, MdChevronRight, MdVisibility, MdCheck, MdClose, MdRotateLeft, MdLightbulb, MdAddPhotoAlternate } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
@@ -109,26 +109,6 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
   );
 }
 
-function XhsCompactImageCard({ url, label, role, index, onRemove }) {
-  return (
-    <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
-      <img src={url} alt={label} />
-      <span className="ec-xhs-card-caption">{label}</span>
-      <button type="button" className="ec-xhs-card-remove" aria-label={`移除${label}`} onClick={() => onRemove(index)}><X size={10} /></button>
-    </div>
-  );
-}
-
-function XhsCompactAddCard({ role, label, meta, optional = false, onClick, title }) {
-  return (
-    <button type="button" className={`ec-xhs-upload-card ec-xhs-add-card ec-xhs-card-${role}`} onClick={onClick} title={title}>
-      <span className="ec-xhs-add-icon"><ImagePlus size={20} /></span>
-      {optional && <span className="ec-xhs-optional">可选</span>}
-      <span className="ec-xhs-card-title">{label}</span><span className="ec-xhs-card-meta">{meta}</span>
-    </button>
-  );
-}
-
 function XhsInputTemplate({
   plog,
   text,
@@ -146,21 +126,16 @@ function XhsInputTemplate({
   optionsPanel,
   canGenerate,
 }) {
-  const sourceInputRef = useRef(null);
-  const styleInputRef = useRef(null);
-  const openUpload = role => (role === 'source' ? sourceInputRef : styleInputRef).current?.click();
   return (
     <div className={`xhs-input-template${plog ? ' is-plog' : ''}`}>
       <div className="ec-xhs-composer">
-        <div className="ec-xhs-media-column">
-          <div className="ec-xhs-media-strip">
-            {sourceImages.map((url, index) => <XhsCompactImageCard key={`${url}-${index}`} url={url} role="product" label={`${plog ? '生活素材' : '我的素材'} ${index + 1}`} index={index} onRemove={indexToRemove => onRemove('source', indexToRemove)} />)}
-            {sourceImages.length < 6 && <XhsCompactAddCard role="product" label={sourceImages.length ? '继续添加' : plog ? '生活素材' : '我的素材'} meta={sourceImages.length ? '补充细节' : plog ? '人物或空间' : '主体清晰图'} onClick={() => openUpload('source')} title={plog ? '上传生活素材' : '上传我的素材'} />}
-            <span className="ec-xhs-multiply" aria-hidden="true">×</span>
-            {styleImages.map((url, index) => <XhsCompactImageCard key={`${url}-${index}`} url={url} role="reference" label={`风格参考 ${index + 1}`} index={index} onRemove={indexToRemove => onRemove('style', indexToRemove)} />)}
-            {styleImages.length < 3 && <XhsCompactAddCard role="reference" label={styleImages.length ? '继续添加' : '风格参考'} meta="构图或色调" optional onClick={() => openUpload('style')} title="上传风格参考" />}
-          </div>
-        </div>
+        <XhsSupplementDeck
+          plog={plog}
+          sourceImages={sourceImages}
+          styleImages={styleImages}
+          onAdd={onAdd}
+          onRemove={onRemove}
+        />
         <div className="ec-textarea-wrap ec-xhs-prompt">
           {!text && <div className="ec-textarea-placeholder ec-xhs-placeholder">
             <span className="ec-placeholder-line">{plog ? '描述你想记录的生活瞬间' : '写什么？一句话就够了'}</span>
@@ -171,8 +146,6 @@ function XhsInputTemplate({
         </div>
         <div className="ec-workbench-mention-row"><ImageMentionPicker images={mentionImages} selectionMode="insert" onToggle={onMention} /></div>
       </div>
-      <input ref={sourceInputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAdd('source', event.target.files); event.currentTarget.value = ''; }} />
-      <input ref={styleInputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAdd('style', event.target.files); event.currentTarget.value = ''; }} />
       <div className="ec-workbench-actions xhs-template-actions">
         <div className="ec-workbench-primary-row">
           <div className="ec-workbench-tools xhs-template-tools">
