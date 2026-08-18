@@ -7,6 +7,7 @@ import {
   buildVisualWorkRecord,
   createVisualRun,
   resolveVisualSkillRatio,
+  visualGenerationEstimate,
   updateVisualRunSlot,
   visualRetryIndexes,
 } from '../src/pages/Home/visualCreationModel.js';
@@ -69,6 +70,27 @@ test('visual recipes expose platform-native ratios and a reusable generation sna
   assert.equal(work.replay.skillControl, '公众号');
   assert.deepEqual(work.replay.referenceAssets, [{ assetId: 'ref-1', url: '/api/generated-assets/ref-1.png' }]);
   assert.equal(work.images[0].taskId, 'task-remix-1');
+});
+
+test('free creation visual language options explain their output with example imagery', () => {
+  const free = VISUAL_CREATION_SKILLS.find(skill => skill.id === 'free');
+  assert.deepEqual(free.control.options, ['智能匹配', '写实摄影', '风格插画']);
+  assert.deepEqual(free.control.optionMeta.map(option => option.value), free.control.options);
+  assert.ok(free.control.optionMeta.every(option => option.image && option.description));
+  assert.ok(free.control.optionMeta.every(option => option.image.startsWith('/images/visual-recipes/cases/')));
+});
+
+test('visual generation estimate follows the same model and resolution units as billing', () => {
+  assert.deepEqual(visualGenerationEstimate({ imageModel: 'image2', resolution: '2K', count: 1 }), {
+    points: 1,
+    unitsPerImage: 1000,
+    quantity: 1,
+  });
+  assert.deepEqual(visualGenerationEstimate({ imageModel: 'image2', resolution: '4K', count: 3 }), {
+    points: 6,
+    unitsPerImage: 2000,
+    quantity: 3,
+  });
 });
 
 test('visual skill ratio falls back to a ratio supported by the selected recipe', () => {

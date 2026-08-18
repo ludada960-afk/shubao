@@ -15,21 +15,20 @@ const cardBase = {
   display: 'flex', alignItems: 'center', gap: 8,
 };
 
-export default function GenSettingsPanel({ value, onChange }) {
+export default function GenSettingsPanel({ value, onChange, showHeader = true }) {
   const safeValue = value || {};
   const selectedModel = normalizeImageModel(safeValue.imageModel);
   const set = (key, val) => onChange?.({ ...safeValue, [key]: val });
 
   return (
     <div style={{ padding: 0 }}>
-      {/* 头部 */}
-      <div style={{
+      {showHeader && <div style={{
         padding: '14px 16px 12px',
         borderBottom: '1px solid rgba(0,0,0,0.06)',
       }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: 0.3 }}>生图设置</div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>按商品用途控制清晰度与画面约束</div>
-      </div>
+      </div>}
 
       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>

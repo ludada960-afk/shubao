@@ -12,7 +12,7 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /regenerateCanvasImage/);
   assert.match(source, /includeMetadata:\s*true/);
   assert.match(source, /taskId:\s*result\.taskId/);
-  assert.match(source, /generationUnits/);
+  assert.match(source, /visualGenerationEstimate/);
   assert.match(source, /saveWork/);
   assert.match(source, /buildVisualCanvasResult/);
   assert.match(source, /JPG、PNG、WebP/);
@@ -51,10 +51,24 @@ test('visual creation is a complete conversation-style image workbench', () => {
   assert.match(source, /创作配方/);
   assert.match(source, /画面规格/);
   assert.match(source, /生成设置/);
-  assert.ok(
-    source.indexOf('visual-config-panel') > source.indexOf('visual-creation-composer'),
-    'Skill 扩展参数应属于生成工作台，而不是案例展示区',
-  );
+  assert.match(source, /createPortal/);
+  assert.match(source, /id="visual-floating-panel"/);
+  assert.match(source, /configButtonRefs/);
+  assert.match(source, /repositionConfigPanel/);
+  assert.match(source, /getVisualPanelPosition/);
+  assert.match(source, /GenSettingsPanel/);
+  assert.match(source, /VisualRecipePanel/);
+  assert.match(source, /VisualSpecsPanel/);
+  assert.match(source, /optionMeta/);
+  assert.match(source, /visual-style-option-image/);
+  assert.match(source, /visualGenerationEstimate/);
+  assert.match(source, /canGenerate/);
+  assert.match(source, /disabled=\{!canGenerate \|\| busy\}/);
+  assert.match(source, /输出画幅/);
+  assert.doesNotMatch(source, /visual-panel-section-heading[^]*?<strong>画面规格<\/strong>/);
+  assert.match(styles, /\.visual-choice-card/);
+  assert.match(styles, /\.visual-ratio-card/);
+  assert.match(styles, /\.visual-panel-note/);
   assert.match(source, /recoveryCheckpoint/);
   assert.doesNotMatch(source, /className="visual-skill-preview"/);
   assert.doesNotMatch(source, /className="visual-skill-facts"/);

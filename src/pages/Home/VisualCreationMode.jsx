@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Check, Info, LayoutTemplate, Layers3, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
 import {
   MdAddPhotoAlternate,
   MdAlternateEmail,
@@ -24,10 +26,11 @@ import {
 
 import { useApp } from '../../store/AppContext';
 import { uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../services/api';
-import { IMAGE_MODELS, generationUnits } from '../../services/imageModelCatalog.js';
+import { IMAGE_MODELS } from '../../services/imageModelCatalog.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
+import GenSettingsPanel from './ec/GenSettingsPanel.jsx';
 import {
   VISUAL_CREATION_SKILLS,
   VISUAL_RATIO_OPTIONS,
@@ -39,6 +42,7 @@ import {
   visualRunIsBusy,
   visualSkillById,
   resolveVisualSkillRatio,
+  visualGenerationEstimate,
 } from './visualCreationModel.js';
 import './VisualCreationMode.css';
 
@@ -67,6 +71,123 @@ function showcaseLoadingPolicy(index) {
   return {
     loading: index < 3 ? 'eager' : 'lazy',
     fetchPriority: index === 0 ? 'high' : 'auto',
+  };
+}
+
+const VISUAL_RATIO_META = {
+  '1:1': { shape: [24, 24], usage: '方形主视觉' },
+  '3:4': { shape: [21, 28], usage: '竖版内容' },
+  '4:3': { shape: [28, 21], usage: '横版画面' },
+  '9:16': { shape: [18, 32], usage: '全屏竖版' },
+  '16:9': { shape: [32, 18], usage: '宽屏横幅' },
+  '21:9': { shape: [34, 15], usage: '超宽主视觉' },
+};
+
+const VISUAL_OPTION_ICONS = [Sparkles, Palette, LayoutTemplate, Layers3];
+const VISUAL_PANEL_ICONS = [LayoutTemplate, Layers3, Type, Palette];
+const VISUAL_OPTION_HINTS = {
+  智能匹配: '由主体、场景与参考素材自动平衡',
+  写实摄影: '控制真实光线、材质与空间关系',
+  风格插画: '强化笔触、色彩与想象力表达',
+  主标题优先: '先建立阅读焦点，再组织辅助信息',
+  产品优先: '让主体占据最清晰的视觉位置',
+  活动信息优先: '为活动内容预留明确的传播层级',
+};
+
+function VisualRatioShape({ ratio, active }) {
+  const [width, height] = VISUAL_RATIO_META[ratio]?.shape || [24, 24];
+  return (
+    <svg className="visual-ratio-shape" width={width + 4} height={height + 4} viewBox={`0 0 ${width + 4} ${height + 4}`} aria-hidden="true">
+      <rect x="2" y="2" width={width} height={height} rx="3" fill={active ? '#7c3aed' : 'transparent'} stroke={active ? '#7c3aed' : 'rgba(0,0,0,.32)'} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, panelValues, updatePanelValue, busy }) {
+  return (
+    <div className="visual-subpanel">
+      <div className="visual-panel-section">
+        <div className="visual-panel-section-heading"><Sparkles /><div><strong>{selectedSkill.control.label}</strong><small>决定这组画面的主导表达方式</small></div></div>
+        <div className="visual-choice-list">
+          {selectedSkill.control.options.map((option, index) => {
+            const Icon = VISUAL_OPTION_ICONS[index % VISUAL_OPTION_ICONS.length];
+            const selected = skillControl === option;
+            const optionMeta = selectedSkill.control.optionMeta?.find(item => item.value === option);
+            return (
+              <button type="button" key={option} className={`visual-choice-card${optionMeta ? ' visual-style-option' : ''}${selected ? ' is-selected' : ''}`} onClick={() => !busy && updateSkillControl(option)} disabled={busy} aria-pressed={selected}>
+                {optionMeta ? <img className="visual-style-option-image" src={optionMeta.image} alt="" loading="lazy" /> : <span className="visual-choice-icon"><Icon /></span>}
+                <span className="visual-choice-copy"><strong>{option}</strong><small>{optionMeta?.description || VISUAL_OPTION_HINTS[option] || `为${selectedSkill.title}选择更明确的${selectedSkill.control.label}倾向`}</small></span>
+                {selected && <Check className="visual-choice-check" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {selectedSkill.panels?.map((panel, panelIndex) => {
+        const PanelIcon = VISUAL_PANEL_ICONS[panelIndex % VISUAL_PANEL_ICONS.length];
+        const currentValue = panelValues[panel.id] || panel.options[0];
+        return (
+          <div className="visual-panel-section" key={panel.id}>
+            <div className="visual-panel-section-heading"><PanelIcon /><div><strong>{panel.label}</strong><small>只调整本次生成需要强调的局部规则</small></div></div>
+            <div className="visual-choice-grid">
+              {panel.options.map((option, index) => {
+                const selected = currentValue === option;
+                const Icon = VISUAL_OPTION_ICONS[(panelIndex + index + 1) % VISUAL_OPTION_ICONS.length];
+                return <button type="button" key={option} className={`visual-choice-card visual-choice-card-compact${selected ? ' is-selected' : ''}`} onClick={() => !busy && updatePanelValue(panel.id, option)} disabled={busy} aria-pressed={selected}><span className="visual-choice-icon"><Icon /></span><span className="visual-choice-copy"><strong>{option}</strong></span>{selected && <Check className="visual-choice-check" />}</button>;
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function VisualSpecsPanel({ selectedSkill, ratio, count, onRatioChange, onCountChange, busy }) {
+  const options = VISUAL_RATIO_OPTIONS.filter(option => selectedSkill.ratios?.includes(option.id));
+  return (
+    <div className="visual-subpanel">
+      <div className="visual-panel-section">
+        <div className="visual-panel-section-heading"><Monitor /><div><strong>输出画幅</strong><small>选择与当前创作方向匹配的画面比例</small></div></div>
+        <div className="visual-ratio-grid">
+          {options.map(option => {
+            const selected = ratio === option.id;
+            return <button type="button" key={option.id} className={`visual-ratio-card${selected ? ' is-selected' : ''}`} onClick={() => !busy && onRatioChange(option.id)} disabled={busy} aria-pressed={selected}><span className="visual-ratio-shape-wrap"><VisualRatioShape ratio={option.id} active={selected} /></span><span><strong>{option.label.replace(/\s+/g, ' ')}</strong><small>{VISUAL_RATIO_META[option.id]?.usage}</small></span>{selected && <Check className="visual-choice-check" />}</button>;
+          })}
+        </div>
+      </div>
+      <div className="visual-panel-section">
+        <div className="visual-panel-section-heading"><Layers3 /><div><strong>生成数量</strong><small>一次生成多张，方便比较不同构图方向</small></div></div>
+        <div className="visual-count-grid">
+          {[1, 2, 3, 4].map(value => <button type="button" key={value} className={`visual-count-card${count === value ? ' is-selected' : ''}`} onClick={() => !busy && onCountChange(value)} disabled={busy} aria-pressed={count === value}><strong>{value}</strong><span>{value === 1 ? '单张探索' : `${value} 张对比`}</span>{count === value && <Check />}</button>)}
+        </div>
+      </div>
+      <div className="visual-panel-note"><Info /><span>模型、清晰度与生成数量会同步影响预计 AI 积分；生成前仍可随时调整。</span></div>
+    </div>
+  );
+}
+
+function getVisualPanelPosition(panelId, button) {
+  const rect = button.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const baseWidth = { recipe: 440, specs: 500, settings: 460 }[panelId] || 460;
+  const desiredHeight = { recipe: 520, specs: 460, settings: 620 }[panelId] || 460;
+  const width = Math.min(Math.max(baseWidth, 400), Math.max(320, viewportWidth - 32));
+  const left = Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 16));
+  const gap = 10;
+  const availableAbove = Math.max(0, rect.top - gap - 16);
+  const availableBelow = Math.max(0, viewportHeight - rect.bottom - gap - 16);
+  const openAbove = viewportWidth <= 640 || availableAbove >= Math.min(260, desiredHeight) || availableAbove >= availableBelow;
+  const availableSpace = openAbove ? availableAbove : availableBelow;
+
+  return {
+    left,
+    top: openAbove ? undefined : Math.max(16, rect.bottom + gap),
+    bottom: openAbove ? Math.max(16, viewportHeight - rect.top + gap) : undefined,
+    width,
+    maxHeight: Math.max(180, Math.min(desiredHeight, availableSpace || desiredHeight)),
+    anchorX: rect.left + rect.width / 2,
   };
 }
 
@@ -102,6 +223,13 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
   const [showMentionMenu, setShowMentionMenu] = useState(false);
   const [previewItem, setPreviewItem] = useState(null);
   const [activeConfigPanel, setActiveConfigPanel] = useState(null);
+  const [configPanelPos, setConfigPanelPos] = useState({
+    left: 16,
+    bottom: 100,
+    width: 520,
+    maxHeight: 420,
+    anchorX: 260,
+  });
   const [skillControlValues, setSkillControlValues] = useState(() => Object.fromEntries(
     VISUAL_CREATION_SKILLS.map(skill => [skill.id, skill.control?.options?.[0] || '']),
   ));
@@ -113,13 +241,16 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
   const fileInputRef = useRef(null);
   const promptRef = useRef(null);
   const abortRef = useRef(null);
+  const configButtonRefs = useRef({});
   const restoredCheckpointRef = useRef('');
 
   const selectedSkill = visualSkillById(skillId);
   const busy = uploading || visualRunIsBusy(run);
   const retryIndexes = visualRetryIndexes(run);
   const successfulSlots = run?.slots?.filter(slot => slot.status === 'completed') || [];
-  const estimatedPoints = ((generationUnits(imageModel, resolution) || 0) * count) / 1000;
+  const canGenerate = Boolean(prompt.trim() || references.length);
+  const generationEstimate = visualGenerationEstimate({ imageModel, resolution, count });
+  const estimatedPoints = generationEstimate.points;
   const showcases = selectedSkill.showcases || [];
   const selectedShowcase = showcases[showcaseSlide] || showcases[0];
   const previewItems = selectedShowcase?.assets || [];
@@ -368,9 +499,9 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
   };
 
   const startGeneration = async () => {
-    if (!prompt.trim()) {
-      setError('请先描述你想创作的画面');
-      promptRef.current?.focus();
+    if (!canGenerate) {
+      setError('请先输入画面描述或上传参考素材');
+      if (!prompt.trim()) promptRef.current?.focus();
       return;
     }
     if (!state.logged) {
@@ -439,9 +570,46 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
     setPanelValues(current => ({ ...current, [id]: value }));
   };
 
+  const repositionConfigPanel = useCallback(() => {
+    if (!activeConfigPanel) return;
+    const button = configButtonRefs.current[activeConfigPanel];
+    if (!button) return;
+    setConfigPanelPos(getVisualPanelPosition(activeConfigPanel, button));
+  }, [activeConfigPanel]);
+
+  useEffect(() => {
+    if (!activeConfigPanel) return undefined;
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') setActiveConfigPanel(null);
+    };
+    const closeOnOutsideClick = event => {
+      const panel = document.getElementById('visual-floating-panel');
+      const button = configButtonRefs.current[activeConfigPanel];
+      if (panel?.contains(event.target) || button?.contains(event.target)) return;
+      setActiveConfigPanel(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    const timer = window.setTimeout(() => window.addEventListener('mousedown', closeOnOutsideClick), 0);
+    window.addEventListener('resize', repositionConfigPanel);
+    window.addEventListener('scroll', repositionConfigPanel, true);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('mousedown', closeOnOutsideClick);
+      window.removeEventListener('resize', repositionConfigPanel);
+      window.removeEventListener('scroll', repositionConfigPanel, true);
+    };
+  }, [activeConfigPanel, repositionConfigPanel]);
+
   const toggleConfigPanel = panelId => {
     if (busy) return;
-    setActiveConfigPanel(current => current === panelId ? null : panelId);
+    if (activeConfigPanel === panelId) {
+      setActiveConfigPanel(null);
+      return;
+    }
+    const button = configButtonRefs.current[panelId];
+    if (button) setConfigPanelPos(getVisualPanelPosition(panelId, button));
+    setActiveConfigPanel(panelId);
   };
 
   const showcaseCard = (item, className, index = 0) => item ? (
@@ -461,6 +629,45 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
       <MdZoomOutMap aria-hidden="true" />
     </button>
   ) : null;
+
+  const renderConfigPanel = () => {
+    if (!activeConfigPanel) return null;
+    const panelMeta = {
+      recipe: { title: `${selectedSkill.title}方向`, description: '调整本次最重要的画面侧重', icon: <WandSparkles /> },
+      specs: { title: '画面规格', description: '设置发布比例与本次生成数量', icon: <LayoutTemplate /> },
+      settings: { title: '生成设置', description: '沿用电商生图的模型与清晰度控制', icon: <MdHighQuality /> },
+    }[activeConfigPanel];
+    return createPortal(
+      <div
+        id="visual-floating-panel"
+        className="visual-config-panel"
+        role="dialog"
+        aria-label={panelMeta?.title || '生成配置面板'}
+        style={{
+          position: 'fixed',
+          left: configPanelPos.left,
+          top: configPanelPos.top,
+          bottom: configPanelPos.bottom,
+          width: configPanelPos.width,
+          maxHeight: configPanelPos.maxHeight,
+          zIndex: 1100,
+          transformOrigin: 'bottom center',
+          '--visual-panel-anchor-x': `${Math.max(28, Math.min(configPanelPos.width - 28, configPanelPos.anchorX - configPanelPos.left))}px`,
+        }}
+      >
+        <div className="visual-config-panel-header">
+          <span className="visual-config-panel-icon">{panelMeta?.icon}</span>
+          <div><strong>{panelMeta?.title}</strong><span>{panelMeta?.description}</span></div>
+        </div>
+        <div className="visual-config-panel-body">
+          {activeConfigPanel === 'recipe' && <VisualRecipePanel selectedSkill={selectedSkill} skillControl={skillControl} updateSkillControl={updateSkillControl} panelValues={panelValues} updatePanelValue={updatePanelValue} busy={busy} />}
+          {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} count={count} onRatioChange={setRatio} onCountChange={setCount} busy={busy} />}
+          {activeConfigPanel === 'settings' && <GenSettingsPanel showHeader={false} value={{ imageModel, resolution }} onChange={next => { setImageModel(next.imageModel); setResolution(next.resolution); }} />}
+        </div>
+      </div>,
+      document.body,
+    );
+  };
 
   return (
     <section className="visual-creation" aria-labelledby="visual-creation-title">
@@ -599,50 +806,22 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
 
         <div className="visual-parameter-bar">
           <div className="visual-config-cluster" aria-label="生成配置">
-            <button type="button" className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
+            <button type="button" ref={element => { configButtonRefs.current.recipe = element; }} className={`visual-config-trigger${activeConfigPanel === 'recipe' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'recipe'} onClick={() => toggleConfigPanel('recipe')}>
               <MdAutoAwesome aria-hidden="true" />
               <span className="visual-config-trigger-copy"><small>创作配方</small><strong>{selectedSkill.title} · {skillControl}</strong></span>
               <MdTune aria-hidden="true" />
             </button>
-            <button type="button" className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
+            <button type="button" ref={element => { configButtonRefs.current.specs = element; }} className={`visual-config-trigger${activeConfigPanel === 'specs' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'specs'} onClick={() => toggleConfigPanel('specs')}>
               <MdAspectRatio aria-hidden="true" />
               <span className="visual-config-trigger-copy"><small>画面规格</small><strong>{ratio} · {count} 张</strong></span>
               <MdTune aria-hidden="true" />
             </button>
-            <button type="button" className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
+            <button type="button" ref={element => { configButtonRefs.current.settings = element; }} className={`visual-config-trigger${activeConfigPanel === 'settings' ? ' is-open' : ''}`} aria-expanded={activeConfigPanel === 'settings'} onClick={() => toggleConfigPanel('settings')}>
               <MdHighQuality aria-hidden="true" />
               <span className="visual-config-trigger-copy"><small>生成设置</small><strong>{model.label} · {resolution}</strong></span>
               <MdTune aria-hidden="true" />
             </button>
           </div>
-          {activeConfigPanel && (
-            <div className="visual-config-panel" role="dialog" aria-label="生成配置面板">
-              {activeConfigPanel === 'recipe' && (
-                <>
-                  <div className="visual-config-panel-heading"><strong>{selectedSkill.title}方向</strong><span>只调整本次最重要的画面侧重</span></div>
-                  <label className="visual-config-field"><span>{selectedSkill.control.label}</span><select value={skillControl} onChange={event => updateSkillControl(event.target.value)} disabled={busy}>{selectedSkill.control.options.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
-                </>
-              )}
-              {activeConfigPanel === 'specs' && (
-                <>
-                  <div className="visual-config-panel-heading"><strong>画面规格</strong><span>先确定发布比例，再设置本次生成数量</span></div>
-                  <div className="visual-config-panel-grid">
-                    <label className="visual-config-field"><span>输出画幅</span><select value={ratio} onChange={event => setRatio(event.target.value)} disabled={busy}>{VISUAL_RATIO_OPTIONS.filter(option => selectedSkill.ratios?.includes(option.id)).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
-                    <fieldset className="visual-config-field visual-count-control" disabled={busy}><legend>生成数量</legend><div>{[1, 2, 3, 4].map(value => <button type="button" key={value} className={count === value ? 'is-selected' : ''} aria-pressed={count === value} onClick={() => setCount(value)}>{value} 张</button>)}</div></fieldset>
-                  </div>
-                </>
-              )}
-              {activeConfigPanel === 'settings' && (
-                <>
-                  <div className="visual-config-panel-heading"><strong>生成设置</strong><span>沿用电商生图的模型与清晰度控制</span></div>
-                  <div className="visual-config-panel-grid">
-                    <label className="visual-config-field"><span>图片模型</span><select value={imageModel} onChange={event => setImageModel(event.target.value)} disabled={busy}>{IMAGE_MODELS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
-                    <label className="visual-config-field"><span>清晰度</span><select value={resolution} onChange={event => setResolution(event.target.value)} disabled={busy}>{['1K', '2K', '4K'].map(option => <option key={option} value={option}>{option}</option>)}</select></label>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
           <span className="visual-cost" title={`${model.label} ${resolution} 预计用量`}>
             预计 {estimatedPoints} AI 积分
           </span>
@@ -650,11 +829,12 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
             type="button"
             className="visual-generate-button"
             onClick={startGeneration}
-            disabled={busy}
+            disabled={!canGenerate || busy}
           >
             {busy ? <><span className="visual-spinner" />{uploading ? '上传中' : '生成中'}</> : <><MdSend />生成图片</>}
           </button>
         </div>
+        {renderConfigPanel()}
       </div>
 
       {(error || notice) && (

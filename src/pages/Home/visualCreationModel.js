@@ -1,4 +1,5 @@
 import { isPersistentEcommerceImageUrl } from '../../utils/workRecords.js';
+import { generationUnits } from '../../services/imageModelCatalog.js';
 import { productionCaseById } from './productionCaseCatalog.js';
 
 function visualShowcases(caseId, first, second) {
@@ -22,6 +23,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     control: Object.freeze({
       label: '画面语言',
       options: Object.freeze(['智能匹配', '写实摄影', '风格插画']),
+      optionMeta: Object.freeze([
+        Object.freeze({ value: '智能匹配', image: '/images/visual-recipes/cases/free-tide-lab.png', description: '由主体、场景与参考素材自动平衡' }),
+        Object.freeze({ value: '写实摄影', image: '/images/visual-recipes/cases/free-output.png', description: '控制真实光线、材质与空间关系' }),
+        Object.freeze({ value: '风格插画', image: '/images/visual-recipes/cases/free-paper-city.png', description: '强化笔触、色彩与想象力表达' }),
+      ]),
     }),
     panels: Object.freeze([
       Object.freeze({ id: 'composition', label: '构图关系', options: Object.freeze(['自动规划', '主体延展', '连续叙事']) }),
@@ -142,6 +148,16 @@ export function resolveVisualSkillRatio(skillId, requestedRatio) {
   const skill = visualSkillById(skillId);
   const supported = Array.isArray(skill.ratios) && skill.ratios.length ? skill.ratios : ['1:1'];
   return supported.includes(requestedRatio) ? requestedRatio : supported[0];
+}
+
+export function visualGenerationEstimate({ imageModel = 'image2', resolution = '2K', count = 1 } = {}) {
+  const unitsPerImage = generationUnits(imageModel, resolution) || 0;
+  const quantity = Math.max(1, Math.min(4, Number.parseInt(count, 10) || 1));
+  return {
+    points: Number(((unitsPerImage * quantity) / 1000).toFixed(3)),
+    unitsPerImage,
+    quantity,
+  };
 }
 
 export function createVisualRun({ runId, count = 1, createdAt = Date.now() } = {}) {
