@@ -45,6 +45,7 @@ export default function SupplementAssetDeck({
   referenceColor = '#ec4899',
   maxProductImages = 6,
   maxReferenceImages = 6,
+  tilted = true,
 }) {
   const productInputRef = useRef(null);
   const referenceInputRef = useRef(null);
@@ -57,6 +58,10 @@ export default function SupplementAssetDeck({
 
   // 统计信息
   const stats = getSupplementStats(allProductImages, allReferenceImages);
+  const productCardTransform = tilted ? 'rotate(1.5deg)' : 'none';
+  const productTrackTransform = tilted ? 'rotate(-1.5deg)' : 'none';
+  const referenceCardTransform = tilted ? 'rotate(-1.5deg)' : 'none';
+  const referenceTrackTransform = tilted ? 'rotate(1.5deg)' : 'none';
 
   // 处理文件选择
   const handleProductFileSelect = useCallback(
@@ -205,10 +210,10 @@ export default function SupplementAssetDeck({
           )}
         </div>
 
-        {/* 产品图卡片 - 轻微右倾 */}
+        {/* 产品图卡片 */}
         <div
           style={{
-            transform: 'rotate(1.5deg)',
+            transform: productCardTransform,
             borderRadius: 12,
             background: 'linear-gradient(135deg, #FAF7F2 0%, #F5F0FF 100%)',
             border: '2px dashed rgba(124,58,237,0.2)',
@@ -226,7 +231,7 @@ export default function SupplementAssetDeck({
               gap: 12,
               overflowX: 'auto',
               paddingBottom: 20, // 为建议标签留出空间
-              transform: 'rotate(-1.5deg)', // 抵消父容器倾斜
+              transform: productTrackTransform,
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(124,58,237,0.3) transparent',
             }}
@@ -332,10 +337,10 @@ export default function SupplementAssetDeck({
           )}
         </div>
 
-        {/* 参考图卡片 - 轻微左倾 */}
+        {/* 参考图卡片 */}
         <div
           style={{
-            transform: 'rotate(-1.5deg)',
+            transform: referenceCardTransform,
             borderRadius: 12,
             background: 'linear-gradient(135deg, #FFF5F7 0%, #FDF2F8 100%)',
             border: '2px dashed rgba(236,72,153,0.2)',
@@ -353,7 +358,7 @@ export default function SupplementAssetDeck({
               gap: 12,
               overflowX: 'auto',
               paddingBottom: 20,
-              transform: 'rotate(1.5deg)', // 抵消父容器倾斜
+              transform: referenceTrackTransform,
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(236,72,153,0.3) transparent',
             }}
