@@ -68,6 +68,11 @@ export function selectCoverImages(images, limit = 7) {
     .map(entry => entry.image);
 }
 
+export const COVER_TILE_RESIZE_OPTIONS = Object.freeze({
+  fit: 'contain',
+  background: '#ffffff',
+});
+
 export function createMosaicLayout(count, width = 1200, height = 1600, gap = 8) {
   const safeCount = Math.max(0, Math.min(7, Number(count) || 0));
   if (!safeCount) return [];
@@ -125,10 +130,10 @@ async function readOptionalMetadata(inputDir) {
   return {};
 }
 
-async function buildCover(files, outputPath) {
+export async function buildCover(files, outputPath) {
   const layout = createMosaicLayout(files.length);
   const composites = await Promise.all(layout.map(async (tile, index) => ({
-    input: await sharp(files[index]).rotate().resize(tile.width, tile.height, { fit: 'cover', position: 'attention' }).webp({ quality: 90 }).toBuffer(),
+    input: await sharp(files[index]).rotate().resize(tile.width, tile.height, COVER_TILE_RESIZE_OPTIONS).webp({ quality: 90 }).toBuffer(),
     left: tile.x,
     top: tile.y,
   })));
@@ -139,7 +144,7 @@ async function buildCover(files, outputPath) {
 async function buildSingleCover(file, outputPath) {
   await sharp(file)
     .rotate()
-    .resize(1200, 1600, { fit: 'cover', position: 'attention' })
+    .resize(1200, 1600, COVER_TILE_RESIZE_OPTIONS)
     .webp({ quality: 90, effort: 5 })
     .toFile(outputPath);
 }

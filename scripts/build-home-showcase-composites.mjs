@@ -172,7 +172,7 @@ function multiAngleArrow() {
         <path d="M3 3 L43 23 L3 43 L13 23 Z" fill="url(#arrowGradient)"/>
       </marker>
     </defs>
-    <path d="M466 568 C495 566 518 547 535 521 C548 501 555 477 559 451" fill="none" stroke="url(#arrowGradient)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)" filter="url(#arrowShadow)"/>
+    <path d="M466 568 C482 566 494 552 505 533 C514 516 518 496 520 478" fill="none" stroke="url(#arrowGradient)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)" filter="url(#arrowShadow)"/>
   </svg>`);
 }
 

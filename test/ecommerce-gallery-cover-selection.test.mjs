@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolveImageDeclaration, selectCoverImages } from '../scripts/import-ecommerce-gallery-case.mjs';
+import { COVER_TILE_RESIZE_OPTIONS, resolveImageDeclaration, selectCoverImages } from '../scripts/import-ecommerce-gallery-case.mjs';
+
+test('cover tiles preserve the complete source image inside each frame', () => {
+  assert.equal(COVER_TILE_RESIZE_OPTIONS.fit, 'contain');
+  assert.equal(COVER_TILE_RESIZE_OPTIONS.background, '#ffffff');
+});
 
 test('cover selection excludes production assets and favors persuasive imagery', () => {
   const selected = selectCoverImages([
