@@ -8,6 +8,7 @@ import {
 import { quoteFeature } from './billing/catalog.mjs';
 import crypto from 'node:crypto';
 import { normalizeShotDirection } from './videoShotDirection.mjs';
+import { buildVideoRendererPreflight } from './videoRendererPreflight.mjs';
 
 const MAX_SHOTS = 30;
 const MAX_TOTAL_DURATION_MS = 30 * 60 * 1000;
@@ -123,7 +124,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
   }
   const units = blockers.length ? 0 : lineItems.reduce((sum, item) => sum + item.units, 0);
   const points = blockers.length ? 0 : lineItems.reduce((sum, item) => sum + item.points, 0);
-  return {
+  const plan = {
     status: blockers.length ? 'blocked' : 'ready',
     catalogVersion: VIDEO_CATALOG_VERSION,
     product: product ? { id: product.id, label: product.label, tierLabel: product.tierLabel } : { id: normalized.productId, label: '未知视频产品', tierLabel: '' },
@@ -141,5 +142,21 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
       lineItems: blockers.length ? [] : lineItems,
     },
     generatedAt: new Date().toISOString(),
+  };
+  return {
+    ...plan,
+    preflight: buildVideoRendererPreflight({
+      plan,
+      workbench,
+      capabilities: options.capabilities,
+      rightsConfirmations: options.rightsConfirmations,
+      moderation: options.moderation,
+      storage: options.storage,
+      enforce: options.enforcePreflight === true,
+      budgetCapPoints: options.budgetCapPoints,
+      requireRights: options.requireRights,
+      requireModeration: options.requireModeration,
+      requireStorage: options.requireStorage,
+    }),
   };
 }

@@ -661,3 +661,39 @@ This closes the local authenticated persistence/restart gate, not renderer deliv
 still need a provider capability/cost/rights/moderation review, output proxy/storage and download recovery, measured
 quality/latency/cost evidence, and an explicit rollback plan. The existing production routes remain the only source
 of truth; this worker must be integrated behind the existing feature flag rather than creating a second queue.
+
+## 2026-08-18 Generation Preflight Gate (Local Only)
+
+- Added `server/videoRendererPreflight.mjs`, a deterministic provider-neutral preflight contract for the next renderer
+  boundary. It checks catalog capabilities (mode, resolution, per-shot/total duration, audio, reference counts),
+  asset rights confirmations, moderation state, budget caps, and durable output storage. Strict mode blocks missing
+  governance attestations; advisory mode reports them as warnings for planning.
+- Added owner-scoped `POST /api/video/projects/:projectId/workbench/preflight`. The route rebuilds the current server
+  plan, returns a stable `preflightHash`, and exposes explicit `providerSubmission=false` and `billingMutation=false`
+  guards. The frontend workbench now has a “提交前预检” action and visibly separates plan approval from the future
+  provider-submission gate.
+- The client intentionally does not invent moderation or storage evidence. A strict check therefore reports those
+  blockers until the governed media pipeline supplies real attestations; no fake “ready to generate” state is shown.
+- Evidence before the full release gate: preflight/plan/routes/client/UI focus `50/50` and `git diff --check` passed.
+  Full suite, check, build, pilot and renderer dry-run remain to be rerun after this slice. No provider credentials,
+  upload, wallet/usage/billing mutation, paid video generation, public worker route, or production deployment was
+  used; `workbenchEnabled=false` remains enforced.
+
+The next implementation gate is to persist moderation/storage attestations with the same owner/project scope, bind a
+strict preflight hash to the authenticated renderer worker, and add output proxy/download recovery. A provider canary
+is still prohibited until those contracts plus measured quality/latency/cost and rollback evidence pass.
+
+Current continuation status (2026-08-18): strict preflight binding is now implemented locally. Export jobs persist the
+attestation JSON and `preflightHash` inside their immutable job hash; current-plan recomputation rejects forged or
+stale proofs. Provider-neutral requests carry `preflightHash`/`preflightStatus=ready`, and the authenticated worker
+supports `requirePreflight`, refusing legacy jobs before lease claim or provider calls. Focused
+preflight/export-job/adapter/store/worker/route/client/UI coverage is `68/68`; no provider credentials, paid video
+generation, public worker route, or production deployment was used and `workbenchEnabled=false` remains enforced.
+Full suite/check/build/pilot/dry-run and output proxy/download recovery remain release gates before any canary.
+
+Verification update (2026-08-18): post-binding full `npm test` is `1780/1780`; `npm run check`, 6510-module build,
+`git diff --check`, the 10-project/40-operation non-billing pilot, the four-scenario renderer reconciliation dry-run,
+and `node scripts/verify-video-platform.mjs --local --no-paid-generation` all pass. The dry-run reports zero provider
+calls and zero billing mutation. No provider credentials, paid generation, public worker route, or production deploy
+was used. Remaining release gates are output proxy/download recovery, real moderation/storage attestations, measured
+provider quality/latency/cost, rollback evidence, and an explicitly approved non-default canary.

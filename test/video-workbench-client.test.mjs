@@ -13,6 +13,7 @@ import {
   getVideoReplayManifest,
   listVideoReplayManifests,
   getVideoWorkbenchPlan,
+  getVideoWorkbenchPreflight,
   getVideoSkillRun,
   getVideoWorkbench,
   getVideoProjectMemory,
@@ -170,6 +171,36 @@ test('video workbench client confirms a plan with its immutable hash', async t =
     productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false, planHash: 'a'.repeat(64),
   });
   assert.equal(request.options.headers.Authorization, 'Bearer signed-plan-session');
+});
+
+test('video workbench client runs a strict preflight without provider or billing side effects', async t => {
+  installSession('signed-preflight-session');
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (path, options = {}) => {
+    request = { path, options };
+    return jsonResponse({ preflight: {
+      plan: { status: 'ready' },
+      preflight: { status: 'blocked', blockers: [{ code: 'MODERATION_NOT_PASSED' }] },
+      providerSubmission: false,
+      billingMutation: false,
+    } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const result = await getVideoWorkbenchPreflight('project-1', {
+    productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+    rightsConfirmations: [{ assetId: 'asset-1', assetVersionId: 'version-1', confirmed: true }],
+  });
+  assert.equal(result.preflight.status, 'blocked');
+  assert.equal(result.providerSubmission, false);
+  assert.equal(result.billingMutation, false);
+  assert.equal(request.path, '/api/video/projects/project-1/workbench/preflight');
+  assert.equal(request.options.method, 'POST');
+  assert.deepEqual(JSON.parse(request.options.body), {
+    productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+    rightsConfirmations: [{ assetId: 'asset-1', assetVersionId: 'version-1', confirmed: true }],
+  });
+  assert.equal(request.options.headers.Authorization, 'Bearer signed-preflight-session');
 });
 
 test('video project memory client encodes fact keys and preserves revisions', async t => {

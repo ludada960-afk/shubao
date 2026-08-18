@@ -103,6 +103,28 @@ export async function getVideoWorkbenchPlan(projectId, {
   return { ...plan, approval: response.approval || null };
 }
 
+export async function getVideoWorkbenchPreflight(projectId, {
+  productId = 'seedance_standard', mode = 'smart', resolution = '720p', generateAudio = true,
+  rightsConfirmations = [], moderation, storage, budgetCapPoints,
+} = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/preflight`, {
+    method: 'POST',
+    ...jsonBody({
+      productId,
+      mode,
+      resolution,
+      generateAudio: generateAudio !== false,
+      rightsConfirmations,
+      ...(moderation ? { moderation } : {}),
+      ...(storage ? { storage } : {}),
+      ...(Number.isFinite(Number(budgetCapPoints)) ? { budgetCapPoints: Number(budgetCapPoints) } : {}),
+    }),
+  }, '暂时无法完成视频提交前预检');
+  const result = requireValue(response, 'preflight', '视频提交前预检结果暂时不可用，请稍后重试');
+  if (!result.preflight || typeof result.preflight !== 'object') throw new Error('视频提交前预检结果暂时不可用，请稍后重试');
+  return result;
+}
+
 export async function approveVideoWorkbenchPlan(projectId, {
   productId = 'seedance_standard', mode = 'smart', resolution = '720p', generateAudio = true, planHash,
 } = {}) {
@@ -319,10 +341,13 @@ export async function getVideoExportManifest(projectId, manifestId) {
   return requireValue(response, 'manifest', '视频导出清单暂时不可用，请稍后重试');
 }
 
-export async function createVideoExportJob(projectId, manifestId) {
+export async function createVideoExportJob(projectId, manifestId, { preflight, requirePreflight = false } = {}) {
+  const body = { manifestId };
+  if (preflight !== undefined) body.preflight = preflight;
+  if (requirePreflight === true) body.requirePreflight = true;
   const response = await requestJson(exportJobBase(projectId), {
     method: 'POST',
-    ...jsonBody({ manifestId }),
+    ...jsonBody(body),
   }, '暂时无法交接视频渲染任务');
   return requireValue(response, 'job', '视频渲染任务暂时不可用，请稍后重试');
 }

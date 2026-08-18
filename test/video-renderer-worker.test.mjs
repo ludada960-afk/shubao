@@ -158,3 +158,20 @@ test('rejects a completed callback without output and marks the job as missing o
   assert.equal(failed.errorCode, 'RENDERER_OUTPUT_MISSING');
   assert.equal(db.prepare('SELECT state FROM video_renderer_outbox WHERE job_id = ?').get(job.id).state, 'failed');
 });
+
+test('refuses to claim a legacy job when strict preflight is required', async t => {
+  const { db, store, project } = makeHarness();
+  t.after(() => db.close());
+  const job = createJob(store, project.id);
+  let providerCalls = 0;
+  await assert.rejects(
+    runVideoRendererWorkerOnce({
+      store, ownerEmail: OWNER, projectId: project.id, jobId: job.id,
+      adapter: { submit: async () => { providerCalls += 1; return {}; } },
+      workerId: 'worker-a', leaseToken: 'lease-a', now: NOW, requirePreflight: true,
+    }),
+    error => error.code === 'RENDER_PREFLIGHT_REQUIRED',
+  );
+  assert.equal(providerCalls, 0);
+  assert.equal(store.getExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: job.id }).state, 'waiting_renderer');
+});

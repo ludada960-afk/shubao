@@ -41,6 +41,7 @@ test('project workbench exposes real persisted stages without provider controls 
     'listProjects',
     'getVideoWorkbench',
     'getVideoWorkbenchPlan',
+    'getVideoWorkbenchPreflight',
     'previewVideoSkillTemplate',
     'previewVideoSkillRunExecution',
     'confirmVideoSkillCheckpoint',
@@ -119,6 +120,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /尚未调用渲染器\/供应商，不会扣积分/);
   assert.match(component, /下载 MP4 需接入渲染 worker/);
   assert.match(component, /handleCheckGenerationPlan/);
+  assert.match(component, /handlePreflightGeneration/);
+  assert.match(component, /workbenchPreflight/);
   assert.match(component, /handleCompileGenerationDraft/);
   assert.match(component, /generationDraft/);
   assert.match(component, /编译逐镜头草稿/);
@@ -126,6 +129,9 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /onPlanApprovalChange/);
   assert.match(component, /workbenchPlan\?\.approval\?\.planHash/);
   assert.match(component, /视频生成计划/);
+  assert.match(component, /提交前预检/);
+  assert.match(component, /版权\/使用权|版权确认/);
+  assert.match(component, /不会调用供应商，也不会扣除积分/);
   assert.match(component, /先看清步骤，再决定是否生成/);
   assert.match(component, /预览工作流/);
   assert.match(component, /不会调用供应商、不扣积分/);
@@ -151,6 +157,7 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /type="range"/);
   assert.match(styles, /video-project-band\.is-audio/);
   assert.match(styles, /video-project-plan/);
+  assert.match(styles, /video-project-preflight/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);
   assert.match(component, /<video[^>]+preload="metadata"/);

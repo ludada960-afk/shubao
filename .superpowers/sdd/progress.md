@@ -2676,3 +2676,27 @@
   No provider, upload, usage, wallet, billing, paid video generation, public worker route, or production deployment
   was used; `workbenchEnabled` remains false. The next gate is provider capability/cost/rights/moderation review,
   a measured canary with rollback evidence, and only then a controlled production exposure.
+
+- 2026-08-18 a deterministic generation preflight gate was added locally. `server/videoRendererPreflight.mjs`
+  normalizes the server catalog capability snapshot and checks mode/resolution/duration/audio/reference limits,
+  rights confirmations, moderation status, budget caps, and durable output storage before any future renderer submit.
+  Strict and advisory governance modes are explicit; repeated immutable inputs produce the same `preflightHash`.
+  The owner-scoped `/workbench/preflight` route and frontend “提交前预检” panel expose blockers without calling a
+  provider or mutating wallet/usage/billing. Focused preflight/plan/routes/client/UI coverage passed `50/50` before
+  the full release gate. No provider credentials, paid video generation, public worker route, or production deployment
+  was used; `workbenchEnabled=false` remains enforced. Full suite/check/build/pilot/dry-run are the next verification
+  step, followed by persisted moderation/storage attestations and strict-worker binding before any canary.
+
+- 2026-08-18 strict preflight binding is now implemented locally. Export jobs persist the attestation JSON and
+  `preflightHash` inside their immutable job hash; every renderer-attempt read recomputes the current workbench plan
+  and rejects forged or stale proofs. Provider-neutral requests carry `preflightHash`/`preflightStatus=ready`, and the
+  authenticated worker accepts `requirePreflight=true`, refusing legacy jobs before lease claim or provider calls.
+  Focused preflight/export-job/adapter/store/worker/route/client/UI coverage is `68/68`; no provider, paid generation,
+  public worker route, or production deployment was used. Full repository regression, build, pilot, dry-run, and
+  output proxy/download recovery remain release gates; `workbenchEnabled=false` remains enforced.
+
+- 2026-08-18 verification closed the local contract gate: full `npm test` is `1780/1780`, `npm run check`, the
+  6510-module production build, `git diff --check`, the 10-project/40-operation non-billing pilot, the four-scenario
+  renderer dry-run, and `verify-video-platform.mjs --local --no-paid-generation` pass. The dry-run proves
+  `providerCalls=0` and `billingMutated=false`. This is not a production release; output proxy/download recovery,
+  real moderation/storage attestations, provider quality/latency/cost, rollback, and canary evidence remain open.

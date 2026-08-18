@@ -11,6 +11,7 @@ import {
   transitionVideoExportJob,
 } from '../server/videoExportJob.mjs';
 import { videoExportManifestHash } from '../server/videoExportManifest.mjs';
+import { buildVideoRendererPreflight } from '../server/videoRendererPreflight.mjs';
 
 const manifestPayload = {
   schemaVersion: 1,
@@ -21,6 +22,24 @@ const manifestPayload = {
   delivery: { status: 'manifest_ready', renderer: 'external-worker', providerSubmission: false, billingMutation: false },
 };
 const manifest = { ...manifestPayload, manifestHash: videoExportManifestHash(manifestPayload) };
+
+const strictPreflight = buildVideoRendererPreflight({
+  plan: {
+    status: 'ready',
+    options: { productId: 'seedance_standard', mode: 'smart', resolution: '720p', generateAudio: false },
+    shots: [{ id: 'shot-1', durationMs: 4000 }],
+    totalDurationMs: 4000,
+    quote: { points: 62 },
+  },
+  workbench: {
+    assets: [{ id: 'scene-1', kind: 'scene' }],
+    shots: [{ id: 'shot-1', bindings: [{ assetId: 'scene-1', assetVersionId: 'scene-v1' }] }],
+  },
+  rightsConfirmations: [{ assetId: 'scene-1', assetVersionId: 'scene-v1', confirmed: true }],
+  moderation: { status: 'passed', policyVersion: 'video-safe-v1', checkedAt: '2026-08-18T08:00:00.000Z' },
+  storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+  enforce: true,
+});
 
 function job() {
   return createVideoExportJob({
@@ -43,6 +62,21 @@ test('creates a durable renderer handoff without provider or billing side effect
   assert.equal(created.outputAssetId, '');
   assert.equal(created.outputUrl, '');
   assert.equal(assertVideoExportJobIntegrity(created), true);
+});
+
+test('binds a strict preflight attestation into the immutable export job hash', () => {
+  const created = createVideoExportJob({
+    id: 'export-job-preflight', ownerEmail: 'owner@example.com', projectId: 'project-1',
+    manifestId: 'manifest-1', manifest, preflight: strictPreflight,
+    createdAt: '2026-08-18T08:00:00.000Z',
+  });
+  assert.equal(created.preflightHash, strictPreflight.preflightHash);
+  assert.ok(created.preflightJson.includes(strictPreflight.preflightHash));
+  assert.equal(assertVideoExportJobIntegrity(created), true);
+  assert.throws(
+    () => assertVideoExportJobIntegrity({ ...created, preflightJson: created.preflightJson.replace('scene-v1', 'forged') }),
+    error => error.code === 'EXPORT_JOB_INTEGRITY_INVALID',
+  );
 });
 
 test('supports claim, failure, retry and completion with guarded transitions', () => {

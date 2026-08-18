@@ -11,6 +11,7 @@ import {
   createVideoExportJob,
 } from '../server/videoExportJob.mjs';
 import { videoExportManifestHash } from '../server/videoExportManifest.mjs';
+import { buildVideoRendererPreflight } from '../server/videoRendererPreflight.mjs';
 
 const manifestPayload = {
   schemaVersion: 1,
@@ -29,10 +30,33 @@ const manifestPayload = {
 };
 const manifest = { ...manifestPayload, manifestHash: videoExportManifestHash(manifestPayload) };
 
+const preflight = buildVideoRendererPreflight({
+  plan: {
+    status: 'ready',
+    options: { productId: 'seedance_standard', mode: 'smart', resolution: '720p', generateAudio: false },
+    shots: [{ id: 'shot-1', durationMs: 4000 }], totalDurationMs: 4000, quote: { points: 62 },
+  },
+  workbench: {
+    assets: [{ id: 'scene-1', kind: 'scene' }],
+    shots: [{ id: 'shot-1', bindings: [{ assetId: 'scene-1', assetVersionId: 'scene-v1' }] }],
+  },
+  rightsConfirmations: [{ assetId: 'scene-1', assetVersionId: 'scene-v1', confirmed: true }],
+  moderation: { status: 'passed', policyVersion: 'video-safe-v1', checkedAt: '2026-08-18T08:00:00.000Z' },
+  storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+  enforce: true,
+});
+
 function job() {
   return createVideoExportJob({
     id: 'export-job-1', ownerEmail: 'owner@example.com', projectId: 'project-1', manifestId: 'manifest-1',
     manifest, createdAt: '2026-08-18T08:00:00.000Z',
+  });
+}
+
+function preflightJob() {
+  return createVideoExportJob({
+    id: 'export-job-preflight', ownerEmail: 'owner@example.com', projectId: 'project-1', manifestId: 'manifest-1',
+    manifest, preflight, createdAt: '2026-08-18T08:00:00.000Z',
   });
 }
 
@@ -51,6 +75,17 @@ test('builds a provider-neutral request from a leased export job with stable ide
   assert.equal(request.billingMutation, false);
   assert.equal(request.ownerEmail, undefined);
   assert.equal(request.timeline.clips[0].candidate.outputAssetId, 'asset-1');
+  assert.equal(assertVideoRendererRequestIntegrity(request), true);
+});
+
+test('carries the strict preflight hash into the provider-neutral renderer request', () => {
+  const claimed = claimVideoExportJob(preflightJob(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  const request = buildVideoRendererRequest({ job: claimed, manifest, now: claimed.updatedAt });
+  assert.equal(request.preflightHash, preflight.preflightHash);
+  assert.equal(request.preflightStatus, 'ready');
   assert.equal(assertVideoRendererRequestIntegrity(request), true);
 });
 

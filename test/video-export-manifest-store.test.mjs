@@ -6,6 +6,7 @@ import { ensureProjectSchema } from '../server/projects/schema.mjs';
 import { createProjectStore } from '../server/projects/projectStore.mjs';
 import { createVideoWorkbenchStore } from '../server/videoWorkbenchStore.mjs';
 import { assertVideoRendererOutboxIntegrity } from '../server/videoRendererOutbox.mjs';
+import { buildVideoWorkbenchPlan } from '../server/videoWorkbenchPlan.mjs';
 
 const OWNER = 'export-owner@example.com';
 
@@ -30,6 +31,8 @@ function seedWorkbench(store, projectId) {
     versionId: videoVersion.id, expectedRevision: videoAsset.revision });
   const shot = store.createShot({ ownerEmail: OWNER, projectId, position: 0,
     purpose: '产品亮相', durationMs: 4000, prompt: '稳定镜头' });
+  store.bindShotAssetVersion({ ownerEmail: OWNER, projectId, shotId: shot.id,
+    assetId: videoAsset.id, assetVersionId: videoVersion.id, role: 'product' });
   const candidate = store.registerCandidate({ ownerEmail: OWNER, projectId, shotId: shot.id,
     outputAssetId: videoAsset.id, stableUrl: '/api/video/assets/video', contentHash: 'video-hash', mimeType: 'video/mp4' });
   store.selectCandidate({ ownerEmail: OWNER, projectId, shotId: shot.id,
@@ -155,6 +158,36 @@ test('hands a current export manifest to a durable renderer job idempotently', t
   assert.equal(db.prepare('SELECT state FROM video_renderer_outbox WHERE request_id = ?').get(`${created.id}:attempt:2`).state, 'completed');
   assert.throws(() => store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
     jobId: created.id, nextState: 'rendering' }), error => error.code === 'EXPORT_JOB_INVALID_TRANSITION');
+});
+
+test('requires and revalidates a strict preflight before renderer handoff', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const seeded = seedWorkbench(store, project.id);
+  const workbench = store.listWorkbench({ ownerEmail: OWNER, projectId: project.id });
+  const plan = buildVideoWorkbenchPlan(workbench, {
+    productId: 'seedance_standard', mode: 'smart', resolution: '720p', generateAudio: false,
+    enforcePreflight: true,
+    rightsConfirmations: [{ assetId: seeded.videoAsset.id, assetVersionId: seeded.videoVersion.id, confirmed: true }],
+    moderation: { status: 'passed', policyVersion: 'video-safe-v1', checkedAt: '2026-08-18T08:00:00.000Z' },
+    storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+  });
+  assert.equal(plan.preflight.status, 'ready');
+  const manifest = store.createExportManifest({ ownerEmail: OWNER, projectId: project.id,
+    options: { format: 'mp4', resolution: '720p', fps: 30, includeAudio: false } });
+  const created = store.createExportJob({ ownerEmail: OWNER, projectId: project.id, manifestId: manifest.id,
+    preflight: plan.preflight, requirePreflight: true });
+  assert.equal(created.preflightHash, plan.preflight.preflightHash);
+  const rendering = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id,
+    jobId: created.id, nextState: 'rendering' });
+  const attempt = store.getRendererAttempt({ ownerEmail: OWNER, projectId: project.id, jobId: created.id });
+  assert.equal(attempt.preflight.preflightHash, plan.preflight.preflightHash);
+  assert.equal(attempt.request.preflightHash, plan.preflight.preflightHash);
+  db.prepare('UPDATE video_export_jobs SET preflight_json = ? WHERE id = ?').run(
+    JSON.stringify({ ...plan.preflight, preflightHash: 'f'.repeat(64) }), created.id,
+  );
+  assert.throws(() => store.getExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: rendering.id }),
+    error => error.code === 'EXPORT_JOB_INTEGRITY_INVALID');
 });
 
 test('does not hand off a manifest after the timeline changes and rejects tampered jobs', t => {

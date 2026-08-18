@@ -517,3 +517,49 @@ storage upload, wallet/usage/billing mutation, paid video generation, or product
 gate is not UI polish or a blind provider switch: first complete capability, cost, rights, moderation, output-storage,
 quality, latency, and rollback review; then run a measured non-default canary and only afterward consider enabling the
 existing workbench flag. The existing production job/billing routes remain the sole source of truth.
+
+## 22. Deterministic Generation Preflight Gate (2026-08-18)
+
+The workbench now has a provider-neutral, strict preflight boundary that runs before any future renderer submission.
+It is deliberately separate from plan approval: approving a plan stores an auditable snapshot, while preflight decides
+whether that snapshot is currently safe to submit.
+
+- `server/videoRendererPreflight.mjs` normalizes the product capability snapshot, checks mode/resolution/duration/audio
+  limits, counts unique per-shot references, verifies rights confirmations, moderation status, budget caps, and the
+  durable output-storage contract. It returns deterministic `preflightHash`, blockers, warnings, and explicit
+  `providerSubmission=false`/`billingMutation=false` guards.
+- `POST /api/video/projects/:projectId/workbench/preflight` is owner/cohort scoped and rebuilds the current workbench
+  plan from the server catalog. The client renders the result as a submission gate and explains that the check does
+  not call a provider or spend credits.
+- Advisory mode is available to surface governance warnings during planning; strict mode is required for a future
+  renderer handoff. The current UI does not fabricate moderation or storage attestations, so those missing contracts
+  remain visible blockers until the governed media pipeline supplies them.
+- The preflight hash excludes volatile timestamps and nested plan hashes. Repeated checks of the same immutable inputs
+  therefore produce the same fingerprint, making later outbox requests and audit records idempotent.
+
+Evidence for the initial preflight slice was `50/50`; after binding the attestation to export jobs and renderer
+requests, the focused contract suite is now `68/68`. No provider credentials, upload, wallet hold, usage event,
+billing mutation, paid video generation, or public worker route was used. The workbench remains default-off and this
+slice is not deployed. The remaining release gates are the full repository regression, production build, output proxy/
+download recovery, real moderation/storage attestations, and a measured non-default canary with quality, latency,
+cost, and rollback evidence.
+
+## 23. Strict Preflight Binding (2026-08-18)
+
+The strict preflight is now part of the durable renderer handoff rather than a UI-only check. Export jobs persist the
+attestation JSON and its hash inside the immutable job hash; reads recompute the current workbench plan and reject a
+stale or forged attestation. Provider-neutral renderer requests carry `preflightHash` and `preflightStatus=ready`, and
+the authenticated worker can be run with `requirePreflight=true`, refusing legacy jobs before claiming a lease or
+calling an adapter. Idempotent retries cannot silently switch to a different preflight for the same manifest.
+
+The new store, job, adapter, worker, route, client, and UI tests cover the binding, tamper, stale-plan, restart,
+lease, and zero-provider-call paths. Focused evidence is `68/68`; the full release gate is intentionally still
+pending. This remains a local, provider-neutral implementation with `workbenchEnabled=false` and no production
+deployment.
+
+Verification update (2026-08-18): post-binding full repository regression is `1780/1780` with zero failures;
+`npm run check`, the 6510-module production build, `git diff --check`, the 10-project/40-operation non-billing pilot,
+the four-scenario renderer reconciliation dry-run, and `verify-video-platform.mjs --local --no-paid-generation` all
+pass. The dry-run reports `providerCalls=0` and `billingMutated=false`. This closes the local contract gate only;
+output proxy/download recovery, real moderation/storage attestations, measured provider quality/latency/cost, rollback,
+canary, and explicit feature-flag approval remain required before deployment.

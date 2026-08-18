@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { assertVideoExportManifestIntegrity } from './videoExportManifest.mjs';
+import { assertVideoRendererPreflightIntegrity } from './videoRendererPreflight.mjs';
 
 const STATES = new Set(['waiting_renderer', 'rendering', 'failed', 'completed', 'canceled']);
 const TRANSITIONS = Object.freeze({
@@ -55,17 +56,27 @@ export function createVideoExportJob({
   manifestId,
   manifest,
   createdAt,
+  preflight = null,
 } = {}) {
   const normalizedManifestId = requiredString(manifestId, '导出清单');
   assertManifest(manifest);
   const normalizedManifestHash = requiredString(manifest.manifestHash, '导出清单哈希');
   const created = timestamp(createdAt, '创建时间');
+  const candidatePreflight = preflight?.preflight && typeof preflight.preflight === 'object'
+    ? preflight.preflight
+    : preflight;
+  if (candidatePreflight !== null && candidatePreflight !== undefined) {
+    assertVideoRendererPreflightIntegrity(candidatePreflight);
+  }
+  const persistedPreflight = candidatePreflight ? JSON.stringify(candidatePreflight) : '';
   const job = {
     id: requiredString(id, '渲染任务'),
     ownerEmail: requiredString(ownerEmail, '账号').toLowerCase(),
     projectId: requiredString(projectId, '项目'),
     manifestId: normalizedManifestId,
     manifestHash: normalizedManifestHash,
+    preflightHash: candidatePreflight?.preflightHash || '',
+    preflightJson: persistedPreflight,
     state: 'waiting_renderer',
     attempt: 0,
     renderer: 'external-worker',
@@ -103,11 +114,27 @@ export function assertVideoExportJobIntegrity(job) {
   const leaseIsEmpty = leaseFields.every(value => value === '');
   const leaseIsComplete = leaseFields.every(value => typeof value === 'string' && value.trim())
     && !Number.isNaN(Date.parse(job.leaseExpiresAt));
+  const preflightHash = job.preflightHash === undefined ? '' : job.preflightHash;
+  const preflightJson = job.preflightJson === undefined ? '' : job.preflightJson;
+  let preflightIsValid = false;
+  if (typeof preflightHash === 'string' && !preflightHash.trim()) {
+    preflightIsValid = preflightJson === '';
+  } else if (typeof preflightHash === 'string' && /^[a-f0-9]{64}$/i.test(preflightHash)
+    && typeof preflightJson === 'string' && preflightJson.trim()) {
+    try {
+      const parsed = JSON.parse(preflightJson);
+      assertVideoRendererPreflightIntegrity(parsed);
+      preflightIsValid = parsed.preflightHash === preflightHash;
+    } catch {
+      preflightIsValid = false;
+    }
+  }
   if (!STATES.has(job.state) || !Number.isInteger(job.attempt) || job.attempt < 0
     || job.providerSubmission !== false || job.billingMutation !== false
     || !leaseIsEmpty && !leaseIsComplete
     || job.state !== 'rendering' && !leaseIsEmpty
     || typeof job.workerId !== 'string' || typeof job.leaseToken !== 'string' || typeof job.leaseExpiresAt !== 'string'
+    || !preflightIsValid
     || typeof job.jobHash !== 'string' || videoExportJobHash(job) !== job.jobHash) {
     throw coded('EXPORT_JOB_INTEGRITY_INVALID', '渲染任务完整性校验失败');
   }

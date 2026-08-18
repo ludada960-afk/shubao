@@ -50,6 +50,16 @@ function routeError(error, res) {
   if (code === 'VIDEO_PLAN_APPROVAL_REQUIRED') {
     return res.status(409).json({ code, error: error.message || '请先确认当前生成计划' });
   }
+  if (code === 'VIDEO_PREFLIGHT_INPUT_INVALID') {
+    return res.status(400).json({ code, error: error.message || '视频提交前预检参数无效' });
+  }
+  if (code === 'RENDER_PREFLIGHT_REQUIRED' || code === 'RENDER_PREFLIGHT_STALE'
+    || code === 'EXPORT_JOB_PREFLIGHT_MISMATCH') {
+    return res.status(409).json({ code, error: error.message || '视频渲染预检已变化，请重新检查后再提交' });
+  }
+  if (code === 'RENDER_PREFLIGHT_INVALID') {
+    return res.status(400).json({ code, error: error.message || '视频渲染预检证明无效' });
+  }
   if (code === 'VIDEO_JOB_NOT_READY') {
     return res.status(409).json({ code, error: '视频仍在生成或交付结果尚未校验完成' });
   }
@@ -205,6 +215,29 @@ export function mountVideoWorkbenchRoutes(app, {
         };
       })(),
     }),
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/preflight', (req, res) => dispatch(
+    req, res, 'workbench.preflight', request => {
+      const options = {
+        productId: req.body?.productId,
+        mode: req.body?.mode,
+        resolution: req.body?.resolution,
+        generateAudio: req.body?.generateAudio !== false,
+        enforcePreflight: true,
+        rightsConfirmations: req.body?.rightsConfirmations,
+        moderation: req.body?.moderation,
+        storage: req.body?.storage,
+        budgetCapPoints: req.body?.budgetCapPoints,
+      };
+      const plan = buildVideoWorkbenchPlan(store.listWorkbench(request), options);
+      return {
+        plan,
+        preflight: plan.preflight,
+        providerSubmission: false,
+        billingMutation: false,
+      };
+    }, { key: 'preflight' },
   ));
 
   app.post('/api/video/projects/:projectId/workbench/plan/approve', (req, res) => dispatch(
@@ -425,6 +458,8 @@ export function mountVideoWorkbenchRoutes(app, {
     req, res, 'export-job.create', request => store.createExportJob({
       ...request,
       manifestId: req.body?.manifestId,
+      preflight: req.body?.preflight,
+      requirePreflight: req.body?.requirePreflight === true,
     }), { status: value => (value?.replayed ? 200 : 202), key: 'job' },
   ));
 

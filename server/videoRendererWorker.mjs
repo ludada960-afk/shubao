@@ -31,6 +31,9 @@ function shouldFailClosed(code) {
     'RENDER_RECONCILIATION_STALE',
     'RENDERER_RESPONSE_INVALID',
     'EXPORT_JOB_OUTPUT_REQUIRED',
+    'RENDER_PREFLIGHT_INVALID',
+    'RENDER_PREFLIGHT_STALE',
+    'RENDER_PREFLIGHT_REQUIRED',
   ]).has(code);
 }
 
@@ -53,6 +56,7 @@ export async function runVideoRendererWorkerOnce({
   deadlineAt = '',
   retryAt = '',
   autoRecoverExpired = true,
+  requirePreflight = false,
 } = {}) {
   if (!store || typeof store.getExportJob !== 'function'
     || typeof store.claimExportJob !== 'function'
@@ -68,6 +72,10 @@ export async function runVideoRendererWorkerOnce({
   const startedAt = nowValue(now);
   let current = store.getExportJob({ ownerEmail: owner, projectId: project, jobId: job });
   const trace = [];
+
+  if (requirePreflight && !current.preflightHash) {
+    throw coded('RENDER_PREFLIGHT_REQUIRED', '渲染任务没有严格预检证明，不能交接供应商');
+  }
 
   if (current.state === 'completed' || current.state === 'canceled') {
     return { job: current, event: null, externalJobId: '', trace: [{ step: 'noop-terminal', state: current.state }], providerCalls: 0 };
@@ -151,7 +159,9 @@ export async function runVideoRendererWorkerOnce({
             nextState: 'failed',
             workerId: worker,
             leaseToken: token,
-            errorCode: error.code === 'EXPORT_JOB_OUTPUT_REQUIRED' ? 'RENDERER_OUTPUT_MISSING' : 'RENDER_RECONCILIATION_INVALID',
+            errorCode: error.code === 'EXPORT_JOB_OUTPUT_REQUIRED'
+              ? 'RENDERER_OUTPUT_MISSING'
+              : error.code.startsWith('RENDER_PREFLIGHT_') ? error.code : 'RENDER_RECONCILIATION_INVALID',
             errorMessage: String(error.message || error.code).slice(0, 2000),
           });
         }

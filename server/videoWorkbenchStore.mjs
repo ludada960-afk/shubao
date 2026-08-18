@@ -28,7 +28,8 @@ import {
   normalizeSkillRunSpec,
 } from './videoSkillRun.mjs';
 import { listVideoSkillTemplates } from './videoSkillTemplates.mjs';
-import { videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
+import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
+import { assertVideoRendererPreflightIntegrity } from './videoRendererPreflight.mjs';
 import { normalizeShotDirection } from './videoShotDirection.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
@@ -79,6 +80,38 @@ function parseJson(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
+function normalizePreflight(value) {
+  if (value?.preflight && typeof value.preflight === 'object') return value.preflight;
+  return value;
+}
+
+function assertCurrentRendererPreflight({ api, ownerEmail, projectId, preflight }) {
+  const normalized = normalizePreflight(preflight);
+  assertVideoRendererPreflightIntegrity(normalized);
+  const attestation = normalized.attestation;
+  const requirements = attestation.requirements;
+  const governance = attestation.governance || {};
+  const currentPlan = buildVideoWorkbenchPlan(
+    api.listWorkbench({ ownerEmail, projectId }),
+    {
+      ...(attestation.plan?.options || {}),
+      capabilities: attestation.capabilitySnapshot,
+      rightsConfirmations: governance.rights,
+      moderation: governance.moderation,
+      storage: governance.storage,
+      enforcePreflight: true,
+      budgetCapPoints: requirements.budgetCapPoints,
+      requireRights: requirements.requireRights,
+      requireModeration: requirements.requireModeration,
+      requireStorage: requirements.requireStorage,
+    },
+  );
+  if (currentPlan.preflight?.preflightHash !== normalized.preflightHash) {
+    throw coded('RENDER_PREFLIGHT_STALE', '渲染预检证明与当前项目状态不一致，请重新预检');
+  }
+  return currentPlan;
+}
+
 function replayManifestFromRow(row) {
   if (!row) return null;
   let manifest = {};
@@ -124,6 +157,8 @@ function exportJobFromRow(row) {
     projectId: row.project_id,
     manifestId: row.manifest_id,
     manifestHash: row.manifest_hash,
+    preflightHash: row.preflight_hash || '',
+    preflightJson: row.preflight_json || '',
     state: row.state,
     attempt: Number(row.attempt),
     renderer: row.renderer,
@@ -602,6 +637,7 @@ function ensureSchema(db) {
     CREATE TABLE IF NOT EXISTS video_export_jobs (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
       manifest_id TEXT NOT NULL, manifest_hash TEXT NOT NULL,
+      preflight_hash TEXT NOT NULL DEFAULT '', preflight_json TEXT NOT NULL DEFAULT '',
       state TEXT NOT NULL DEFAULT 'waiting_renderer', attempt INTEGER NOT NULL DEFAULT 0,
       renderer TEXT NOT NULL DEFAULT 'external-worker',
       provider_submission INTEGER NOT NULL DEFAULT 0, billing_mutation INTEGER NOT NULL DEFAULT 0,
@@ -686,6 +722,8 @@ function ensureSchema(db) {
   const exportJobColumns = db.prepare(`PRAGMA table_info(video_export_jobs)`).all();
   const exportJobColumnNames = new Set(exportJobColumns.map(column => column.name));
   for (const [name, definition] of [
+    ['preflight_hash', "TEXT NOT NULL DEFAULT ''"],
+    ['preflight_json', "TEXT NOT NULL DEFAULT ''"],
     ['worker_id', "TEXT NOT NULL DEFAULT ''"],
     ['lease_token', "TEXT NOT NULL DEFAULT ''"],
     ['lease_expires_at', "TEXT NOT NULL DEFAULT ''"],
@@ -1290,8 +1328,12 @@ export function createVideoWorkbenchStore({
         .map(exportManifestFromRow);
     },
 
-    createExportJob({ ownerEmail, projectId, manifestId }) {
+    createExportJob({ ownerEmail, projectId, manifestId, preflight = null, requirePreflight = false }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
+      const normalizedPreflight = normalizePreflight(preflight);
+      if (requirePreflight && !normalizedPreflight) {
+        throw coded('RENDER_PREFLIGHT_REQUIRED', '创建渲染任务前必须完成严格预检');
+      }
       const manifestRow = db.prepare(`SELECT * FROM video_export_manifests
         WHERE id = ? AND owner_email = ? AND project_id = ?`).get(manifestId, owner, project.id);
       if (!manifestRow) throw coded('EXPORT_MANIFEST_NOT_FOUND', 'export manifest not found');
@@ -1303,10 +1345,32 @@ export function createVideoWorkbenchStore({
       if (currentManifest.manifestHash !== manifestRecord.manifestHash) {
         throw coded('EXPORT_JOB_STALE', 'export manifest changed after it was created');
       }
+      if (normalizedPreflight) {
+        assertCurrentRendererPreflight({
+          api,
+          ownerEmail: owner,
+          projectId: project.id,
+          preflight: normalizedPreflight,
+        });
+        const planResolution = String(normalizedPreflight.attestation.plan?.options?.resolution || '').toLowerCase();
+        const manifestResolution = String(manifestRecord.manifest.options?.resolution || '').toLowerCase();
+        if (planResolution && manifestResolution && planResolution !== manifestResolution) {
+          throw coded('RENDER_PREFLIGHT_STALE', '预检清晰度与导出清单不一致，请重新预检');
+        }
+      }
       const existing = db.prepare(`SELECT * FROM video_export_jobs
         WHERE owner_email = ? AND project_id = ? AND manifest_id = ? AND manifest_hash = ?`)
         .get(owner, project.id, manifestRecord.id, manifestRecord.manifestHash);
-      if (existing) return { ...exportJobFromRow(existing), replayed: true };
+      if (existing) {
+        const existingJob = exportJobFromRow(existing);
+        if (normalizedPreflight && existingJob.preflightHash !== normalizedPreflight.preflightHash) {
+          throw coded('EXPORT_JOB_PREFLIGHT_MISMATCH', '已有渲染任务绑定了不同的预检证明');
+        }
+        if (requirePreflight && !existingJob.preflightHash) {
+          throw coded('RENDER_PREFLIGHT_REQUIRED', '已有渲染任务缺少严格预检证明，请重新创建任务');
+        }
+        return { ...existingJob, replayed: true };
+      }
       const createdAt = timestamp();
       const job = createVideoExportJob({
         id: randomUUID(),
@@ -1315,15 +1379,17 @@ export function createVideoWorkbenchStore({
         manifestId: manifestRecord.id,
         manifest: manifestRecord.manifest,
         createdAt,
+        preflight: normalizedPreflight,
       });
       try {
         db.prepare(`INSERT INTO video_export_jobs
-          (id, owner_email, project_id, manifest_id, manifest_hash, state, attempt, renderer,
+          (id, owner_email, project_id, manifest_id, manifest_hash, preflight_hash, preflight_json, state, attempt, renderer,
            provider_submission, billing_mutation, output_asset_id, output_url, error_code,
            error_message, created_at, updated_at, started_at, completed_at, canceled_at,
            worker_id, lease_token, lease_expires_at, job_hash)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-          job.id, job.ownerEmail, job.projectId, job.manifestId, job.manifestHash, job.state,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          job.id, job.ownerEmail, job.projectId, job.manifestId, job.manifestHash, job.preflightHash,
+          job.preflightJson, job.state,
           job.attempt, job.renderer, Number(job.providerSubmission), Number(job.billingMutation),
           job.outputAssetId, job.outputUrl, job.errorCode, job.errorMessage, job.createdAt,
           job.updatedAt, job.startedAt, job.completedAt, job.canceledAt, job.workerId,
@@ -1334,7 +1400,13 @@ export function createVideoWorkbenchStore({
           const raced = db.prepare(`SELECT * FROM video_export_jobs
             WHERE owner_email = ? AND project_id = ? AND manifest_id = ? AND manifest_hash = ?`)
             .get(owner, project.id, manifestRecord.id, manifestRecord.manifestHash);
-          if (raced) return { ...exportJobFromRow(raced), replayed: true };
+          if (raced) {
+            const racedJob = exportJobFromRow(raced);
+            if (normalizedPreflight && racedJob.preflightHash !== normalizedPreflight.preflightHash) {
+              throw coded('EXPORT_JOB_PREFLIGHT_MISMATCH', '已有渲染任务绑定了不同的预检证明');
+            }
+            return { ...racedJob, replayed: true };
+          }
         }
         throw error;
       }
@@ -1367,6 +1439,11 @@ export function createVideoWorkbenchStore({
         options: manifestRecord.manifest.options,
       });
       assertVideoExportJobCurrent(job, { manifestId: manifestRecord.id, manifest });
+      let preflight = null;
+      if (job.preflightHash) {
+        preflight = parseJson(job.preflightJson, null);
+        assertCurrentRendererPreflight({ api, ownerEmail: owner, projectId: project.id, preflight });
+      }
       const eventRow = db.prepare(`SELECT * FROM video_renderer_outbox
         WHERE owner_email = ? AND project_id = ? AND request_id = ?`)
         .get(owner, project.id, rendererOutboxId(job.id, job.attempt));
@@ -1374,7 +1451,7 @@ export function createVideoWorkbenchStore({
       if (!event || event.jobId !== job.id || event.requestId !== `${job.id}:attempt:${job.attempt}`) {
         throw coded('RENDER_OUTBOX_NOT_FOUND', 'active renderer attempt is missing');
       }
-      return { job, manifest, request: event.payload, event };
+      return { job, manifest, preflight, request: event.payload, event };
     },
 
     persistRendererReconciliation({
@@ -1404,6 +1481,10 @@ export function createVideoWorkbenchStore({
           options: manifestRecord.manifest.options,
         });
         assertVideoExportJobCurrent(job, { manifestId: manifestRecord.id, manifest });
+        if (job.preflightHash) {
+          const preflight = parseJson(job.preflightJson, null);
+          assertCurrentRendererPreflight({ api, ownerEmail: owner, projectId: project.id, preflight });
+        }
         if (event.id !== rendererOutboxId(job.id, job.attempt)
           || event.jobId !== job.id || event.projectId !== project.id
           || event.requestId !== `${job.id}:attempt:${job.attempt}`) {

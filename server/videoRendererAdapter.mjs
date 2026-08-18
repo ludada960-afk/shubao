@@ -69,6 +69,7 @@ export function buildVideoRendererRequest({ job, manifest, now } = {}) {
     jobState: job.state,
     attempt,
     renderer: job.renderer,
+    ...(job.preflightHash ? { preflightHash: job.preflightHash, preflightStatus: 'ready' } : {}),
     options: copy(manifest.options),
     timeline: copy(manifest.timeline),
     audio: copy(manifest.audio),
@@ -97,6 +98,9 @@ export function assertVideoRendererRequestIntegrity(request, expectedHash = '') 
     throw coded('RENDER_REQUEST_INTEGRITY_INVALID', '渲染请求字段无效');
   }
   const expectedRequestId = `${request.jobId}:attempt:${request.attempt}`;
+  const preflightFieldsValid = request.preflightHash === undefined
+    ? (request.preflightStatus === undefined || request.preflightStatus === 'not_run')
+    : /^[a-f0-9]{64}$/i.test(String(request.preflightHash)) && request.preflightStatus === 'ready';
   if (request.schemaVersion !== 1 || request.kind !== 'video-render-request'
     || !REQUEST_STATES.has(request.jobState) || request.jobState !== 'rendering'
     || !Number.isInteger(request.attempt) || request.attempt < 1
@@ -105,6 +109,7 @@ export function assertVideoRendererRequestIntegrity(request, expectedHash = '') 
     || !request.options || typeof request.options !== 'object' || Array.isArray(request.options)
     || !request.timeline || typeof request.timeline !== 'object' || !Array.isArray(request.timeline.clips)
     || !request.audio || typeof request.audio !== 'object' || !Array.isArray(request.audio.tracks)
+    || !preflightFieldsValid
     || request.providerSubmission !== false || request.billingMutation !== false
     || typeof request.requestHash !== 'string' || videoRendererRequestHash(request) !== request.requestHash
     || expectedHash && expectedHash !== request.requestHash) {

@@ -757,6 +757,44 @@ test('workbench read projects ephemeral playback capabilities without persisting
   assert.doesNotMatch(persisted.stable_url, /cap=/);
 });
 
+test('preflight route enforces governance without creating a paid generation job', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const asset = store.createAsset({ ownerEmail, projectId: project.id, kind: 'scene', name: '演播室' });
+  const version = store.addAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    stableUrl: '/api/video/assets/studio', contentHash: 'studio-hash', mimeType: 'image/png' });
+  store.approveAssetVersion({ ownerEmail, projectId: project.id, assetId: asset.id,
+    versionId: version.id, expectedRevision: asset.revision });
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 6000, prompt: '镜头从远景推进到产品特写' });
+  store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
+    assetId: asset.id, assetVersionId: version.id, role: 'scene' });
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/preflight', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      rightsConfirmations: [{ assetId: asset.id, assetVersionId: version.id, confirmed: true }],
+      moderation: { status: 'passed', policyVersion: 'video-safe-v1' },
+      storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+    },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.preflight.plan.preflight.status, 'ready');
+  assert.equal(response.body.preflight.providerSubmission, false);
+  assert.equal(response.body.preflight.billingMutation, false);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
+
+  const blocked = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/preflight', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      moderation: { status: 'passed' },
+      storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+    },
+  });
+  assert.equal(blocked.statusCode, 200);
+  assert.ok(blocked.body.preflight.plan.preflight.blockers.some(item => item.code === 'RIGHTS_CONFIRMATION_MISSING'));
+});
+
 test('workbench route mounting requires dependencies only when enabled', () => {
   const app = createFakeApp();
   assert.doesNotThrow(() => mountVideoWorkbenchRoutes(app, { enabled: false }));

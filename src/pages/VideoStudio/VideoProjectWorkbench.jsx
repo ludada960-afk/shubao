@@ -17,6 +17,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Volume2,
@@ -42,6 +43,7 @@ import {
   getVideoWorkbench,
   getVideoWorkbenchGenerationDraft,
   getVideoWorkbenchPlan,
+  getVideoWorkbenchPreflight,
   confirmVideoSkillCheckpoint,
   previewVideoSkillRunExecution,
   previewVideoSkillTemplate,
@@ -255,6 +257,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [exportManifest, setExportManifest] = useState(null);
   const [exportManifests, setExportManifests] = useState([]);
   const [workbenchPlan, setWorkbenchPlan] = useState(null);
+  const [workbenchPreflight, setWorkbenchPreflight] = useState(null);
   const [generationDraft, setGenerationDraft] = useState(null);
   const [skillRun, setSkillRun] = useState(null);
   const [skillRunExecutionPreview, setSkillRunExecutionPreview] = useState(null);
@@ -272,6 +275,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   useEffect(() => {
     onProjectChange?.(projectId || '');
     onPlanApprovalChange?.('');
+    setWorkbenchPreflight(null);
     setGenerationDraft(null);
     setSkillRun(null);
     setSkillRunExecutionPreview(null);
@@ -294,6 +298,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     if (!id) {
       setWorkbench(null);
       setWorkbenchPlan(null);
+      setWorkbenchPreflight(null);
       setGenerationDraft(null);
       setSkillRun(null);
       setSkillRunExecutionPreview(null);
@@ -306,6 +311,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       if (requestSequence !== requestSequenceRef.current || selectedProjectRef.current !== id) return;
       setWorkbench(next);
       setWorkbenchPlan(null);
+      setWorkbenchPreflight(null);
       setGenerationDraft(null);
       const latestSkillRun = Array.isArray(next.skillRuns) ? next.skillRuns[0] || null : null;
       setSkillRun(latestSkillRun);
@@ -376,6 +382,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const loadProjects = useCallback(async preferredId => {
     planRequestSequenceRef.current += 1;
     setWorkbenchPlan(null);
+    setWorkbenchPreflight(null);
     setGenerationDraft(null);
     setSkillRun(null);
     setSkillRunExecutionPreview(null);
@@ -391,6 +398,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       if (!target) {
         setWorkbench(null);
         setWorkbenchPlan(null);
+        setWorkbenchPreflight(null);
         setGenerationDraft(null);
         setSkillRun(null);
         setSkillRunExecutionPreview(null);
@@ -431,6 +439,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } else {
       setWorkbench(null);
       setWorkbenchPlan(null);
+      setWorkbenchPreflight(null);
       setGenerationDraft(null);
       setSkillRun(null);
       setSkillRunExecutionPreview(null);
@@ -446,6 +455,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     try {
       await action();
       setWorkbenchPlan(null);
+      setWorkbenchPreflight(null);
       setGenerationDraft(null);
       setSkillRun(null);
       setSkillRunExecutionPreview(null);
@@ -467,6 +477,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     const requestSequence = ++planRequestSequenceRef.current;
     setBusy('plan:read');
     setError('');
+    setWorkbenchPreflight(null);
     setGenerationDraft(null);
     try {
       const plan = await getVideoWorkbenchPlan(projectId, {
@@ -477,6 +488,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       });
       if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
       setWorkbenchPlan(plan);
+      setWorkbenchPreflight(null);
       setGenerationDraft(null);
       if (plan.approval?.planHash && plan.approval.planHash === plan.planHash) {
         try {
@@ -491,12 +503,41 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } catch (planError) {
       if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
       setWorkbenchPlan(null);
+      setWorkbenchPreflight(null);
       setGenerationDraft(null);
       setError(displayError(planError));
     } finally {
       if (requestSequence === planRequestSequenceRef.current) setBusy('');
     }
   }, [busy, projectId]);
+
+  const handlePreflightGeneration = useCallback(async () => {
+    if (!projectId || busy || !workbenchPlan) return;
+    const requestSequence = ++planRequestSequenceRef.current;
+    setBusy('plan:preflight');
+    setError('');
+    try {
+      const result = await getVideoWorkbenchPreflight(projectId, {
+        productId: workbenchPlan.options?.productId,
+        mode: workbenchPlan.options?.mode,
+        resolution: workbenchPlan.options?.resolution,
+        generateAudio: workbenchPlan.options?.generateAudio,
+        rightsConfirmations: approved.map(({ asset, version }) => ({
+          assetId: asset.id,
+          assetVersionId: version.id,
+          confirmed: true,
+        })),
+      });
+      if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
+      setWorkbenchPreflight(result);
+    } catch (preflightError) {
+      if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
+      setWorkbenchPreflight(null);
+      setError(displayError(preflightError));
+    } finally {
+      if (requestSequence === planRequestSequenceRef.current) setBusy('');
+    }
+  }, [approved, busy, projectId, workbenchPlan]);
 
   const handleApproveGenerationPlan = useCallback(async () => {
     if (!projectId || busy || workbenchPlan?.status !== 'ready' || !workbenchPlan.planHash) return;
@@ -939,6 +980,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     .reduce((sum, clip) => sum + Math.max(0, clip.trimEndMs - clip.trimStartMs), 0);
   const audioSources = approvedAudioAssetVersions(workbench);
   const audioTracks = Array.isArray(workbench?.audioTracks) ? workbench.audioTracks : [];
+  const preflight = workbenchPreflight?.preflight || null;
 
   return <section className="video-project-workbench" aria-label="视频项目工作台" aria-busy={loading || Boolean(busy)}>
     <header className="video-project-workbench-header">
@@ -1007,13 +1049,29 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     {projectId && workbenchPlan && <section className={`video-project-plan ${workbenchPlan.status === 'ready' ? 'is-ready' : 'is-blocked'}`} aria-labelledby="video-generation-plan-heading">
       <header>
         <div><small>生成前检查</small><h3 id="video-generation-plan-heading">视频生成计划</h3><p>先确认项目完整性与成本，再进入后续生成流程。</p></div>
-        <button type="button" disabled={Boolean(busy)} onClick={() => { setWorkbenchPlan(null); setGenerationDraft(null); }}>清除检查结果</button>
+        <button type="button" disabled={Boolean(busy)} onClick={() => { setWorkbenchPlan(null); setWorkbenchPreflight(null); setGenerationDraft(null); }}>清除检查结果</button>
       </header>
       <div className="video-project-plan-summary">
         <div><span>状态</span><strong>{workbenchPlan.status === 'ready' ? <><Check size={13} />可进入生成</> : <><CircleAlert size={13} />暂不可生成</>}</strong></div>
         <div><span>产品</span><strong>{workbenchPlan.product?.label || workbenchPlan.options?.productId || '视频产品'}</strong></div>
         <div><span>分镜</span><strong>{workbenchPlan.shots?.length || 0} 个 · {(Number(workbenchPlan.totalDurationMs || 0) / 1000).toFixed(1)} 秒</strong></div>
         <div><span>预计积分</span><strong>{Number(workbenchPlan.quote?.points || 0)} AI 积分</strong></div>
+      </div>
+      <div className={`video-project-preflight ${preflight?.status === 'ready' ? 'is-ready' : preflight?.status === 'blocked' ? 'is-blocked' : 'is-idle'}`}>
+        <header>
+          <div><small>供应商提交门禁</small><strong>{preflight?.status === 'ready' ? <><ShieldCheck size={14} />提交条件已满足</> : preflight?.status === 'blocked' ? <><CircleAlert size={14} />提交前仍有阻断</> : '尚未执行严格预检'}</strong></div>
+          <button type="button" disabled={Boolean(busy) || workbenchPlan.status !== 'ready'} onClick={handlePreflightGeneration}>
+            {busy === 'plan:preflight' ? <><LoaderCircle className="is-spinning" size={13} />预检中…</> : <><ShieldCheck size={13} />提交前预检</>}
+          </button>
+        </header>
+        <p>只校验模型能力、素材使用权、内容审核、预算和持久化输出契约；不会调用供应商，也不会扣除积分。</p>
+        {preflight?.status === 'ready' && <div className="video-project-preflight-meta"><span>预检哈希</span><code>{preflight.preflightHash?.slice(0, 16) || '未知'}</code><span>参考素材</span><b>{preflight.referenceStats?.total || 0} 个/镜头</b></div>}
+        {!!preflight?.blockers?.length && <ul className="video-project-preflight-issues" aria-label="供应商提交阻断原因">
+          {preflight.blockers.slice(0, 8).map((item, index) => <li key={`${item.code}-${item.shotId || index}`}><CircleAlert size={13} /><span>{item.detail}</span></li>)}
+        </ul>}
+        {!!preflight?.warnings?.length && <ul className="video-project-preflight-warnings" aria-label="供应商提交预警">
+          {preflight.warnings.slice(0, 6).map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}
+        </ul>}
       </div>
       {!!workbenchPlan.blockers?.length && <ul className="video-project-plan-issues" aria-label="生成计划阻断原因">
         {workbenchPlan.blockers.slice(0, 8).map((item, index) => <li key={`${item.code}-${item.shotId || index}`}><CircleAlert size={14} /><span>{item.detail}</span></li>)}
