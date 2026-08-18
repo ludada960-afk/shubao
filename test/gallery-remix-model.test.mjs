@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { buildGalleryRemixCheckpoint } from '../src/pages/Home/galleryRemixModel.js';
 import { mergeGalleryReplayPrompts } from '../src/pages/Home/galleryReplayModel.js';
@@ -52,6 +53,46 @@ test('ecommerce gallery remix restores prompt plus product and style references'
     '/gallery/ecommerce/case-1/scene.webp',
     '/gallery/ecommerce/case-1/detail.webp',
   ]);
+});
+
+test('stainless sauce container case replays the supplied product image only', () => {
+  const checkpoint = buildGalleryRemixCheckpoint({
+    id: 'stainless-steel-sauce-container',
+    type: 'ecommerce',
+    title: '这是一款不锈钢便捷酱料盒，帮我生成一套电商图',
+    hint: '不锈钢便捷酱料盒电商套图',
+    images: [
+      { url: '/gallery/ecommerce/stainless-steel-sauce-container/01.webp', label: '场景卖点主图' },
+      { url: '/gallery/ecommerce/stainless-steel-sauce-container/06.webp', label: '标准白底图' },
+    ],
+    remix: {
+      mode: 'product_suite',
+      prompt: '这是一款不锈钢便捷酱料盒，帮我生成一套电商图。',
+      sourceAssets: [{
+        role: 'product',
+        url: '/gallery/ecommerce/stainless-steel-sauce-container/source-8888.jpg',
+        name: '不锈钢便捷酱料盒参考图',
+      }],
+    },
+  });
+
+  const snapshot = checkpoint.version.inputSnapshot;
+  assert.equal(snapshot.description, '这是一款不锈钢便捷酱料盒，帮我生成一套电商图。');
+  assert.deepEqual(snapshot.productImages.map(item => item.url), [
+    '/gallery/ecommerce/stainless-steel-sauce-container/source-8888.jpg',
+  ]);
+  assert.deepEqual(snapshot.referenceImages, []);
+  assert.doesNotMatch(JSON.stringify(snapshot), /01\.webp|06\.webp/);
+});
+
+test('published stainless sauce container manifest records its replay input', async () => {
+  const caseFile = JSON.parse(await readFile(new URL('../public/gallery/ecommerce/stainless-steel-sauce-container/case.json', import.meta.url), 'utf8'));
+  assert.equal(caseFile.remix.prompt, '这是一款不锈钢便捷酱料盒，帮我生成一套电商图。');
+  assert.deepEqual(caseFile.remix.sourceAssets, [{
+    role: 'product',
+    url: '/gallery/ecommerce/stainless-steel-sauce-container/source-8888.jpg',
+    name: '不锈钢便捷酱料盒参考图',
+  }]);
 });
 
 test('xiaohongshu gallery remix restores copy and up to three visual references', () => {

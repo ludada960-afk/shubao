@@ -5,6 +5,25 @@
   "category": "厨房收纳",
   "platform": "淘宝/天猫",
   "hint": "不锈钢便捷酱料盒电商套图",
+  "sourceAssets": [
+    {
+      "role": "product",
+      "url": "/gallery/ecommerce/stainless-steel-sauce-container/source-8888.jpg",
+      "name": "不锈钢便捷酱料盒参考图"
+    }
+  ],
+  "remix": {
+    "mode": "product_suite",
+    "prompt": "这是一款不锈钢便捷酱料盒，帮我生成一套电商图。",
+    "sourceAssets": [
+      {
+        "role": "product",
+        "url": "/gallery/ecommerce/stainless-steel-sauce-container/source-8888.jpg",
+        "name": "不锈钢便捷酱料盒参考图"
+      }
+    ],
+    "sourceAssetRoles": ["product"]
+  },
   "cover_url": "/gallery/ecommerce/stainless-steel-sauce-container/cover.webp",
   "cover_mosaic_url": "/gallery/ecommerce/stainless-steel-sauce-container/cover.webp",
   "images": [
