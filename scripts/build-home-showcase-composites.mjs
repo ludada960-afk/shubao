@@ -93,12 +93,9 @@ export const SOCIAL_SHOWCASE_ADAPTATIONS = Object.freeze([
 ]);
 
 export const MULTI_ANGLE_ARROW_GEOMETRY = Object.freeze({
-  shaftWidth: 12,
-  headWidth: 64,
-  headLength: 56,
-  shaftEnd: Object.freeze({ x: 520, y: 478 }),
-  headBaseCenter: Object.freeze({ x: 520, y: 478 }),
-  headTip: Object.freeze({ x: 553, y: 451 }),
+  source: 'Phosphor Icons ArrowBendUpRight Bold',
+  pathCount: 1,
+  markerCount: 0,
 });
 
 async function fullFrame(sourcePath, width, height) {
@@ -178,8 +175,8 @@ function multiAngleArrow() {
         <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#6e5c4d" flood-opacity=".2"/>
       </filter>
     </defs>
-    <path d="M466 568 C482 566 494 552 505 533 C514 516 518 496 520 478" fill="none" stroke="url(#arrowGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" filter="url(#arrowShadow)"/>
-    <path d="M504 494 L553 451 L541 510 Z" fill="url(#arrowGradient)" filter="url(#arrowShadow)"/>
+    <!-- MIT-licensed Phosphor ArrowBendUpRight Bold silhouette: one continuous arrow shape. -->
+    <path d="M232.49,112.49l-48,48a12,12,0,0,1-17-17L195,116H128a84.09,84.09,0,0,0-84,84,12,12,0,0,1-24,0A108.12,108.12,0,0,1,128,92h67L167.51,64.48a12,12,0,0,1,17-17l48,48A12,12,0,0,1,232.49,112.49Z" transform="translate(456 344) scale(.48 .72)" fill="url(#arrowGradient)" filter="url(#arrowShadow)"/>
   </svg>`);
 }
 

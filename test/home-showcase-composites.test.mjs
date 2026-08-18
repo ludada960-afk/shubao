@@ -15,11 +15,10 @@ import {
   buildSocialShowcaseAdaptations,
 } from '../scripts/build-home-showcase-composites.mjs';
 
-test('multi-angle workflow arrow keeps a narrow shaft connected to a larger head', () => {
-  assert.ok(MULTI_ANGLE_ARROW_GEOMETRY.shaftWidth < 30);
-  assert.ok(MULTI_ANGLE_ARROW_GEOMETRY.headWidth > 46);
-  assert.ok(MULTI_ANGLE_ARROW_GEOMETRY.headLength > MULTI_ANGLE_ARROW_GEOMETRY.shaftWidth * 2);
-  assert.deepEqual(MULTI_ANGLE_ARROW_GEOMETRY.shaftEnd, MULTI_ANGLE_ARROW_GEOMETRY.headBaseCenter);
+test('multi-angle workflow arrow is one continuous licensed icon path', () => {
+  assert.equal(MULTI_ANGLE_ARROW_GEOMETRY.source, 'Phosphor Icons ArrowBendUpRight Bold');
+  assert.equal(MULTI_ANGLE_ARROW_GEOMETRY.pathCount, 1);
+  assert.equal(MULTI_ANGLE_ARROW_GEOMETRY.markerCount, 0);
 });
 
 test('try-on showcase composites preserve complete production assets in fixed wide formats', async () => {
