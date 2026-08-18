@@ -141,6 +141,11 @@ export async function buildCover(files, outputPath) {
     .composite(composites).webp({ quality: 90, effort: 5 }).toFile(outputPath);
 }
 
+async function versionedCoverUrl(path, outputPath) {
+  const revision = createHash('sha1').update(await readFile(outputPath)).digest('hex').slice(0, 12);
+  return `${path}?v=${revision}`;
+}
+
 async function buildSingleCover(file, outputPath) {
   await sharp(file)
     .rotate()
@@ -202,16 +207,18 @@ export async function importCase(argv = process.argv.slice(2)) {
   const coverInputs = (coverSelection.length ? coverSelection : imported.slice(0, 7))
     .map(image => join(caseDir, image.url.split('/').pop()));
   const coverStrategy = resolveCoverStrategy(productionManifest?.cover?.strategy || metadata.cover_strategy || 'auto', imported.length);
-  if (coverStrategy === 'mosaic') await buildCover(coverInputs, join(caseDir, 'cover.webp'));
-  else await buildSingleCover(coverInputs[0], join(caseDir, 'cover.webp'));
+  const coverPath = join(caseDir, 'cover.webp');
+  if (coverStrategy === 'mosaic') await buildCover(coverInputs, coverPath);
+  else await buildSingleCover(coverInputs[0], coverPath);
+  const coverUrl = await versionedCoverUrl('/gallery/ecommerce/' + id + '/cover.webp', coverPath);
   const entry = {
     id, type: 'ecommerce', title,
     category: args.category || metadata.category || '电商套图',
     platform: args.platform || metadata.platform || '淘宝/天猫',
     hint: args.hint || metadata.hint || title,
-    cover_url: '/gallery/ecommerce/' + id + '/cover.webp',
+    cover_url: coverUrl,
     cover_strategy: coverStrategy,
-    ...(coverStrategy === 'mosaic' ? { cover_mosaic_url: '/gallery/ecommerce/' + id + '/cover.webp' } : {}),
+    ...(coverStrategy === 'mosaic' ? { cover_mosaic_url: coverUrl } : {}),
     images: imported,
     ...(productionManifest ? {
       prompt: productionManifest.prompt,

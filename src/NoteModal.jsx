@@ -43,7 +43,7 @@ function EcommerceGalleryPreview({ item, onClose }) {
   const [index, setIndex] = useState(0);
   const wheelLockRef = useRef(0);
   const preloader = useMemo(() => createCaseImagePreloader({
-    loadImage: url => predecodeResponsiveImage(url, 'display'),
+    loadImage: url => predecodeResponsiveImage(url, 'full'),
     concurrency: 2,
   }), []);
   const current = slides[index];
@@ -63,7 +63,7 @@ function EcommerceGalleryPreview({ item, onClose }) {
   return <div className="ec-gallery-overlay animate-fade-in" onClick={onClose}>
     <div className="ec-gallery-modal animate-scale-in" onClick={event => event.stopPropagation()} onWheel={handleWheel}>
       <div className="ec-gallery-visual">
-        {isTryOn ? <TryOnGalleryWorkflow item={item} /> : <ResponsiveImage src={current.url} alt={current.label} variant="display" ratio={current.width && current.height ? `${current.width}:${current.height}` : item?.ratio || '3:4'} priority sizes="min(72vw, 980px)"
+        {isTryOn ? <TryOnGalleryWorkflow item={item} /> : <ResponsiveImage src={current.url} alt={current.label} variant="full" ratio={current.width && current.height ? `${current.width}:${current.height}` : item?.ratio || '3:4'} priority sizes="min(72vw, 980px)"
           style={{ width: '100%', height: '100%', background: '#f5f5f5' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
         {!isTryOn && index > 0 && <button className="ec-gallery-nav ec-gallery-prev" type="button" aria-label="上一张" onClick={() => setIndex(value => value - 1)}><MdArrowBack size={20} /></button>}
         {!isTryOn && index < slides.length - 1 && <button className="ec-gallery-nav ec-gallery-next" type="button" aria-label="下一张" onClick={() => setIndex(value => value + 1)}><MdArrowForward size={20} /></button>}

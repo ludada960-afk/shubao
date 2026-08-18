@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { COVER_TILE_RESIZE_OPTIONS, resolveImageDeclaration, selectCoverImages } from '../scripts/import-ecommerce-gallery-case.mjs';
+
+const ecommerceCasePreviewSource = readFileSync(new URL('../src/NoteModal.jsx', import.meta.url), 'utf8');
 
 test('cover tiles preserve the complete source image inside each frame', () => {
   assert.equal(COVER_TILE_RESIZE_OPTIONS.fit, 'contain');
   assert.equal(COVER_TILE_RESIZE_OPTIONS.background, '#ffffff');
+});
+
+test('ecommerce detail preview requests the original image and contains it inside the viewport', () => {
+  assert.match(ecommerceCasePreviewSource, /<ResponsiveImage src=\{current\.url\}[^>]+variant="full"/);
+  assert.match(ecommerceCasePreviewSource, /imgStyle=\{\{ width: '100%', height: '100%', objectFit: 'contain' \}\}/);
 });
 
 test('cover selection excludes production assets and favors persuasive imagery', () => {

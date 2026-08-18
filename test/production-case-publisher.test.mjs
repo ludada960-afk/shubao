@@ -59,6 +59,7 @@ test('manifest import preserves exact prompts, production provenance, and source
 
   assert.equal(entry.cover_strategy, 'mosaic');
   assert.equal(entry.cover_mosaic_url, entry.cover_url);
+  assert.match(entry.cover_url, /^\/gallery\/ecommerce\/production-earbuds\/cover\.webp\?v=[a-f0-9]{12}$/);
   assert.deepEqual(entry.sourceAssets, manifest.sourceAssets);
   assert.deepEqual(entry.remix, manifest.remix);
   assert.deepEqual(persisted.images.map(image => image.prompt), outputs.map(item => item.prompt));
