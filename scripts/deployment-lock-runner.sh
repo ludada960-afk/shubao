@@ -12,7 +12,30 @@ command -v timeout >/dev/null 2>&1 || exit 127
 
 exec flock -n "$lock_path" sh -c '
 owner_token=$1
+heartbeat_pid=""
+
+stop_heartbeat() {
+  if [ -n "$heartbeat_pid" ]; then
+    kill "$heartbeat_pid" 2>/dev/null || true
+    wait "$heartbeat_pid" 2>/dev/null || true
+  fi
+}
+
+trap stop_heartbeat EXIT
+trap "stop_heartbeat; exit 143" INT TERM
+
 printf "LOCK_ACQUIRED:%s\n" "$owner_token"
+
+# Keep long canary waits alive at the application protocol layer. The
+# foreground PowerShell reader treats this marker as an informational line and
+# continues waiting for the request-specific LOCK_RESULT marker.
+(
+  while :; do
+    sleep 15
+    printf "LOCK_HEARTBEAT\n"
+  done
+) &
+heartbeat_pid=$!
 
 while IFS=: read -r request_id timeout_seconds command_payload input_payload; do
   # Windows PowerShell 5.1 may prepend a UTF-8 BOM when it first opens the

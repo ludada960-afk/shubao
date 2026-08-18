@@ -149,7 +149,6 @@ test('deployment lock is process-backed and the foreground fences every producti
   assert.match(deploy, /\.Kill\(/);
   assert.doesNotMatch(deploy, /Start-Job/);
   assert.doesNotMatch(deploy, /mmin \+/);
-  assert.doesNotMatch(deploy, /heartbeat/);
   assert.ok((deploy.match(/Assert-DeploymentLockHeld/g) || []).length >= 5);
   assert.ok((deploy.match(/Invoke-LockedRemote\s+-Command/g) || []).length >= 8);
   assert.match(deploy, /deployment-lock-runner\.sh/);
@@ -157,6 +156,9 @@ test('deployment lock is process-backed and the foreground fences every producti
   assert.match(deploymentLockRunner, /base64\s+-d/);
   assert.match(deploymentLockRunner, /input_payload=.*tr -d/);
   assert.match(deploymentLockRunner, /LOCK_REQUEST:/);
+  assert.match(deploymentLockRunner, /LOCK_HEARTBEAT/);
+  assert.match(deploymentLockRunner, /heartbeat_pid/);
+  assert.match(deploymentLockRunner, /sleep 15/);
   assert.match(deploymentLockRunner, /utf8_bom=\$\(printf "\\357\\273\\277"\)/);
   assert.match(deploymentLockRunner, /request_id=\$\{request_id#"\$utf8_bom"\}/);
   assert.match(deploymentLockRunner, /LOCK_PROTOCOL_ERROR:invalid request id/);
