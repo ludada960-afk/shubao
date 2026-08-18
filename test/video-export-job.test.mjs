@@ -4,7 +4,10 @@ import test from 'node:test';
 import {
   assertVideoExportJobCurrent,
   assertVideoExportJobIntegrity,
+  claimVideoExportJob,
   createVideoExportJob,
+  recoverExpiredVideoExportJob,
+  renewVideoExportJobLease,
   transitionVideoExportJob,
 } from '../server/videoExportJob.mjs';
 import { videoExportManifestHash } from '../server/videoExportManifest.mjs';
@@ -76,4 +79,53 @@ test('rejects malformed completion, forged job hashes and stale manifest handoff
     manifestHash: videoExportManifestHash(changedManifestPayload),
   };
   assert.throws(() => assertVideoExportJobCurrent(created, { manifestId: 'manifest-1', manifest: changedManifest }), error => error.code === 'EXPORT_JOB_STALE');
+});
+
+test('claims one renderer lease, renews it, and requires the lease owner to complete', () => {
+  const claimed = claimVideoExportJob(job(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  assert.equal(claimed.state, 'rendering');
+  assert.equal(claimed.attempt, 1);
+  assert.equal(claimed.leaseExpiresAt, '2026-08-18T08:01:30.000Z');
+  assert.throws(() => claimVideoExportJob(claimed, {
+    workerId: 'worker-b', leaseToken: 'lease-b', now: '2026-08-18T08:01:01.000Z',
+  }), error => error.code === 'EXPORT_JOB_LEASE_BUSY');
+  assert.throws(() => renewVideoExportJobLease(claimed, {
+    workerId: 'worker-b', leaseToken: 'lease-a', now: '2026-08-18T08:01:05.000Z',
+  }), error => error.code === 'EXPORT_JOB_LEASE_LOST');
+  const renewed = renewVideoExportJobLease(claimed, {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:05.000Z',
+  });
+  assert.equal(renewed.leaseExpiresAt, '2026-08-18T08:01:35.000Z');
+  assert.throws(() => transitionVideoExportJob(renewed, 'completed', {
+    now: '2026-08-18T08:01:10.000Z', outputAssetId: 'asset-1', outputUrl: '/asset-1',
+  }), error => error.code === 'EXPORT_JOB_LEASE_LOST');
+  const completed = transitionVideoExportJob(renewed, 'completed', {
+    now: '2026-08-18T08:01:10.000Z', workerId: 'worker-a', leaseToken: 'lease-a',
+    outputAssetId: 'asset-1', outputUrl: '/asset-1',
+  });
+  assert.equal(completed.state, 'completed');
+  assert.equal(completed.leaseToken, '');
+  assert.equal(completed.workerId, '');
+});
+
+test('recovers an expired lease exactly once without provider or billing mutation', () => {
+  const claimed = claimVideoExportJob(job(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 1_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  const recovered = recoverExpiredVideoExportJob(claimed, { now: '2026-08-18T08:01:01.000Z' });
+  assert.equal(recovered.state, 'failed');
+  assert.equal(recovered.errorCode, 'EXPORT_JOB_LEASE_EXPIRED');
+  assert.equal(recovered.workerId, '');
+  assert.equal(recovered.leaseToken, '');
+  assert.equal(recovered.providerSubmission, false);
+  assert.equal(recovered.billingMutation, false);
+  assert.deepEqual(recoverExpiredVideoExportJob(recovered, { now: '2026-08-18T08:02:00.000Z' }), recovered);
+  assert.throws(() => renewVideoExportJobLease(recovered, {
+    workerId: 'worker-a', leaseToken: 'lease-a', now: '2026-08-18T08:01:02.000Z',
+  }), error => error.code === 'EXPORT_JOB_LEASE_LOST');
 });

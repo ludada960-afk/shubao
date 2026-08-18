@@ -80,6 +80,9 @@ export function createVideoExportJob({
     startedAt: '',
     completedAt: '',
     canceledAt: '',
+    workerId: '',
+    leaseToken: '',
+    leaseExpiresAt: '',
   };
   return { ...job, jobHash: videoExportJobHash(job) };
 }
@@ -96,8 +99,15 @@ export function assertVideoExportJobIntegrity(job) {
   } catch {
     throw coded('EXPORT_JOB_INTEGRITY_INVALID', '渲染任务字段无效');
   }
+  const leaseFields = [job.workerId, job.leaseToken, job.leaseExpiresAt];
+  const leaseIsEmpty = leaseFields.every(value => value === '');
+  const leaseIsComplete = leaseFields.every(value => typeof value === 'string' && value.trim())
+    && !Number.isNaN(Date.parse(job.leaseExpiresAt));
   if (!STATES.has(job.state) || !Number.isInteger(job.attempt) || job.attempt < 0
     || job.providerSubmission !== false || job.billingMutation !== false
+    || !leaseIsEmpty && !leaseIsComplete
+    || job.state !== 'rendering' && !leaseIsEmpty
+    || typeof job.workerId !== 'string' || typeof job.leaseToken !== 'string' || typeof job.leaseExpiresAt !== 'string'
     || typeof job.jobHash !== 'string' || videoExportJobHash(job) !== job.jobHash) {
     throw coded('EXPORT_JOB_INTEGRITY_INVALID', '渲染任务完整性校验失败');
   }
@@ -123,12 +133,23 @@ export function transitionVideoExportJob(job, nextState, {
   errorMessage = '',
   outputAssetId = '',
   outputUrl = '',
+  workerId = '',
+  leaseToken = '',
 } = {}) {
   assertVideoExportJobIntegrity(job);
+  const changedAt = timestamp(now, '更新时间');
+  const hasLease = Boolean(job.workerId || job.leaseToken || job.leaseExpiresAt);
+  if (hasLease) {
+    if (job.workerId !== String(workerId || '').trim() || job.leaseToken !== String(leaseToken || '').trim()) {
+      throw coded('EXPORT_JOB_LEASE_LOST', '渲染任务租约不属于当前 worker');
+    }
+    if (Date.parse(job.leaseExpiresAt) <= Date.parse(changedAt)) {
+      throw coded('EXPORT_JOB_LEASE_LOST', '渲染任务租约已过期');
+    }
+  }
   if (!STATES.has(nextState) || !TRANSITIONS[job.state]?.has(nextState)) {
     throw coded('EXPORT_JOB_INVALID_TRANSITION', `不允许从 ${job.state} 转为 ${nextState}`);
   }
-  const changedAt = timestamp(now, '更新时间');
   const next = { ...job, state: nextState, updatedAt: changedAt };
   if (nextState === 'rendering') {
     next.attempt += 1;
@@ -159,5 +180,98 @@ export function transitionVideoExportJob(job, nextState, {
     next.errorMessage = String(errorMessage || '用户取消渲染').trim();
     next.canceledAt = changedAt;
   }
+  if (nextState !== 'rendering') {
+    next.workerId = '';
+    next.leaseToken = '';
+    next.leaseExpiresAt = '';
+  }
+  return { ...next, jobHash: videoExportJobHash(next) };
+}
+
+function leaseDuration(value) {
+  const duration = Number(value);
+  if (!Number.isFinite(duration) || duration < 1_000 || duration > 15 * 60 * 1_000) {
+    throw coded('EXPORT_JOB_INVALID', '租约时长必须在 1 秒到 15 分钟之间');
+  }
+  return Math.floor(duration);
+}
+
+function leaseExpiry(now, duration) {
+  const expiry = new Date(Date.parse(now) + duration);
+  if (!Number.isFinite(expiry.getTime())) throw coded('EXPORT_JOB_INVALID', '租约时间无效');
+  return expiry.toISOString();
+}
+
+export function claimVideoExportJob(job, {
+  workerId,
+  leaseToken = crypto.randomUUID(),
+  now,
+  leaseMs = 30_000,
+} = {}) {
+  assertVideoExportJobIntegrity(job);
+  if (job.state !== 'waiting_renderer') {
+    throw coded('EXPORT_JOB_LEASE_BUSY', '渲染任务已被其他 worker 领取或已结束');
+  }
+  const worker = requiredString(workerId, 'worker');
+  const token = requiredString(leaseToken, '租约令牌');
+  const claimedAt = timestamp(now, '领取时间');
+  const duration = leaseDuration(leaseMs);
+  const next = {
+    ...job,
+    state: 'rendering',
+    attempt: job.attempt + 1,
+    startedAt: claimedAt,
+    updatedAt: claimedAt,
+    workerId: worker,
+    leaseToken: token,
+    leaseExpiresAt: leaseExpiry(claimedAt, duration),
+    errorCode: '',
+    errorMessage: '',
+  };
+  return { ...next, jobHash: videoExportJobHash(next) };
+}
+
+export function renewVideoExportJobLease(job, {
+  workerId,
+  leaseToken,
+  now,
+  leaseMs = 30_000,
+} = {}) {
+  assertVideoExportJobIntegrity(job);
+  if (job.state !== 'rendering' || !job.workerId || !job.leaseToken || !job.leaseExpiresAt) {
+    throw coded('EXPORT_JOB_LEASE_LOST', '渲染任务没有可续租的活动租约');
+  }
+  const worker = requiredString(workerId, 'worker');
+  const token = requiredString(leaseToken, '租约令牌');
+  const renewedAt = timestamp(now, '续租时间');
+  if (job.workerId !== worker || job.leaseToken !== token) {
+    throw coded('EXPORT_JOB_LEASE_LOST', '渲染任务租约不属于当前 worker');
+  }
+  if (Date.parse(job.leaseExpiresAt) <= Date.parse(renewedAt)) {
+    throw coded('EXPORT_JOB_LEASE_LOST', '渲染任务租约已过期');
+  }
+  const next = {
+    ...job,
+    updatedAt: renewedAt,
+    leaseExpiresAt: leaseExpiry(renewedAt, leaseDuration(leaseMs)),
+  };
+  return { ...next, jobHash: videoExportJobHash(next) };
+}
+
+export function recoverExpiredVideoExportJob(job, { now } = {}) {
+  assertVideoExportJobIntegrity(job);
+  if (job.state !== 'rendering' || !job.leaseExpiresAt) return job;
+  const recoveredAt = timestamp(now, '恢复时间');
+  if (Date.parse(job.leaseExpiresAt) > Date.parse(recoveredAt)) return job;
+  const next = {
+    ...job,
+    state: 'failed',
+    updatedAt: recoveredAt,
+    errorCode: 'EXPORT_JOB_LEASE_EXPIRED',
+    errorMessage: '渲染 worker 租约已过期，任务可重新领取',
+    workerId: '',
+    leaseToken: '',
+    leaseExpiresAt: '',
+  };
   return { ...next, jobHash: videoExportJobHash(next) };
 }

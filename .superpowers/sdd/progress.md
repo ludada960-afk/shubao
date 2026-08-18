@@ -2638,3 +2638,11 @@
   timelines with `EXPORT_JOB_STALE`. The API exposes queue/read/list routes only; no renderer, provider, download,
   usage, wallet, or billing path is called. Focused job/state/store/route/client coverage passes `14/14`; this slice
   remains local-only and does not mark `VID-P1-05` complete.
+
+- 2026-08-18 renderer handoff leases are now durable and recoverable locally. `video_export_jobs` migrates
+  `worker_id`, `lease_token`, and `lease_expires_at` for legacy databases. Claim, renew, and completion are owner-
+  guarded; an expired rendering lease is recovered once to `failed` and must be explicitly retried. Hash and current-
+  manifest checks still run before every worker operation, so timeline edits cannot be rendered from a stale handoff.
+  Focused job/store coverage passes `12/12`; full `npm test` passes `1751/1751`; check, production build,
+  `git diff --check`, and the 10-project non-billing pilot pass. No provider, upload, usage, wallet, or billing path
+  was introduced; the workbench remains default-off and `VID-P1-05` remains open pending a real adapter/outbox.

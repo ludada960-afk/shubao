@@ -595,3 +595,16 @@ git -c safe.directory=F:/da/shubao/.worktrees/codex-ecommerce-stability -C .work
   不会把过期版本送入未来渲染器。读取篡改行返回 `EXPORT_JOB_INTEGRITY_INVALID`。
 - `POST/GET /api/video/projects/:projectId/workbench/export-jobs` 及详情读取只负责任务交接和状态查询，
   没有真实 renderer/provider、下载 URL、usage/wallet/billing 副作用，工作台仍默认关闭，生产未部署。
+
+## 2026-08-18 AI Video Renderer Lease and Recovery (Local Only)
+
+- `video_export_jobs` 现在持久化 `worker_id`、`lease_token`、`lease_expires_at`，启动时会给旧 SQLite 表自动迁移这三列。
+- worker 只能领取 `waiting_renderer` 任务，只有持有匹配且未过期租约的 worker 才能续租或完成；租约过期会一次性恢复为
+  `failed/EXPORT_JOB_LEASE_EXPIRED`，显式回到 `waiting_renderer` 后才能重试。整个恢复过程不改 provider、usage、钱包或计费。
+- 领取、续租、恢复和状态迁移前都会重新构建当前时间线清单并校验清单/任务哈希；用户编辑时间线后，旧 handoff
+  fail-closed，不会送入未来 renderer。
+- 证据：租约 job/store 定向 `12/12`、全量 `npm test` `1751/1751`、`npm run check`、6510 模块构建、`git diff --check`
+  和 10 项非计费视频工作台 pilot 均通过；`billingMutated=false`。这只是本地可靠性切片，生产 `workbenchEnabled=false`，没有真实
+  renderer/provider，也没有触发付费视频生成。
+- 下一门禁是 provider-neutral renderer adapter、outbox/reconciliation 和断线故障矩阵；在这些完成前不能把排队状态描述成已生成 MP4，
+  也不能开放生产视频工作台。

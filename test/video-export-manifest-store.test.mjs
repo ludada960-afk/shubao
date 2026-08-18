@@ -139,3 +139,71 @@ test('does not hand off a manifest after the timeline changes and rejects tamper
   assert.throws(() => store.getExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id }),
     error => error.code === 'EXPORT_JOB_INTEGRITY_INVALID');
 });
+
+test('persists worker leases, rejects takeover, and recovers an expired job', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  seedWorkbench(store, project.id);
+  const manifest = store.createExportManifest({ ownerEmail: OWNER, projectId: project.id,
+    options: { includeAudio: false, title: '租约测试' } });
+  const created = store.createExportJob({ ownerEmail: OWNER, projectId: project.id, manifestId: manifest.id });
+  const claimed = store.claimExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 1_000 });
+  assert.equal(claimed.state, 'rendering');
+  assert.equal(claimed.workerId, 'worker-a');
+  assert.equal(claimed.leaseToken, 'lease-a');
+  assert.throws(() => store.claimExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    workerId: 'worker-b', leaseToken: 'lease-b' }), error => error.code === 'EXPORT_JOB_LEASE_BUSY');
+  assert.throws(() => store.renewExportJobLease({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    workerId: 'worker-b', leaseToken: 'lease-a' }), error => error.code === 'EXPORT_JOB_LEASE_LOST');
+  const recovered = store.recoverExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    now: '2026-08-18T08:00:01.000Z' });
+  assert.equal(recovered.state, 'failed');
+  assert.equal(recovered.errorCode, 'EXPORT_JOB_LEASE_EXPIRED');
+  assert.equal(recovered.leaseToken, '');
+  const retry = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    nextState: 'waiting_renderer' });
+  assert.equal(retry.state, 'waiting_renderer');
+  const reclaimed = store.claimExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    workerId: 'worker-b', leaseToken: 'lease-b', leaseMs: 30_000 });
+  assert.equal(reclaimed.attempt, 2);
+  const renewed = store.renewExportJobLease({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    workerId: 'worker-b', leaseToken: 'lease-b', leaseMs: 30_000 });
+  assert.equal(renewed.leaseToken, 'lease-b');
+  const completed = store.transitionExportJob({ ownerEmail: OWNER, projectId: project.id, jobId: created.id,
+    nextState: 'completed', workerId: 'worker-b', leaseToken: 'lease-b',
+    outputAssetId: 'asset-output', outputUrl: '/video/output.mp4' });
+  assert.equal(completed.state, 'completed');
+  assert.equal(completed.workerId, '');
+  assert.equal(completed.providerSubmission, false);
+  assert.equal(completed.billingMutation, false);
+  const columns = db.prepare('PRAGMA table_info(video_export_jobs)').all().map(column => column.name);
+  assert.deepEqual(columns.filter(column => ['worker_id', 'lease_token', 'lease_expires_at'].includes(column)),
+    ['worker_id', 'lease_token', 'lease_expires_at']);
+});
+
+test('adds renderer lease columns when opening a legacy export-job table', t => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  ensureProjectSchema(db);
+  db.exec(`CREATE TABLE video_export_jobs (
+    id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL,
+    manifest_id TEXT NOT NULL, manifest_hash TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'waiting_renderer', attempt INTEGER NOT NULL DEFAULT 0,
+    renderer TEXT NOT NULL DEFAULT 'external-worker',
+    provider_submission INTEGER NOT NULL DEFAULT 0, billing_mutation INTEGER NOT NULL DEFAULT 0,
+    output_asset_id TEXT NOT NULL DEFAULT '', output_url TEXT NOT NULL DEFAULT '',
+    error_code TEXT NOT NULL DEFAULT '', error_message TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    started_at TEXT NOT NULL DEFAULT '', completed_at TEXT NOT NULL DEFAULT '',
+    canceled_at TEXT NOT NULL DEFAULT '', job_hash TEXT NOT NULL
+  )`);
+  const now = () => new Date('2026-08-18T08:00:00.000Z');
+  const projectStore = createProjectStore(db, { now, randomUUID: () => 'legacy-project' });
+  createVideoWorkbenchStore({ db, projectStore, now, randomUUID: () => 'legacy-id' });
+  t.after(() => db.close());
+  const columns = db.prepare('PRAGMA table_info(video_export_jobs)').all().map(column => column.name);
+  assert.ok(columns.includes('worker_id'));
+  assert.ok(columns.includes('lease_token'));
+  assert.ok(columns.includes('lease_expires_at'));
+});

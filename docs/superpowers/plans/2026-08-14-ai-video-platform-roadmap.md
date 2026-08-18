@@ -448,3 +448,15 @@ Public creator examples and official product documentation repeatedly validate t
 | Prompt timing and camera language | Structured shot direction translated by provider adapter | The UI shows intent; adapters produce provider-specific parameters |
 
 The public index confirms the existence and AI-video focus of the creator account “屿帆AI”, but the WeChat article bodies were not reliably accessible in this environment. Article-specific steps are therefore not treated as verified requirements. They should be added only from user-provided article URLs/exports or another lawful stable source.
+
+## 18. Renderer Lease and Recovery Slice (2026-08-18)
+
+The first renderer handoff is now durable locally, but it is intentionally still a pre-provider boundary:
+
+- `video_export_jobs` stores `worker_id`, `lease_token`, and `lease_expires_at`; existing SQLite databases migrate these columns on open.
+- A worker can claim one `waiting_renderer` job, renew only its own unexpired lease, and complete/fail/cancel only with the matching lease token.
+- An expired rendering lease is recovered exactly once into `failed` with `EXPORT_JOB_LEASE_EXPIRED`; the source timeline and billing state remain unchanged and the job must explicitly return to `waiting_renderer` before retry.
+- Job and manifest hashes are recomputed on every read/write, and the current timeline is rebuilt before claim, renew, recovery, or transition. Timeline edits therefore invalidate the old handoff instead of rendering stale work.
+- The internal store methods are not exposed as a public “fake render” API. No provider submission, object upload, wallet hold, usage event, or billing mutation is permitted in this slice.
+
+Evidence for this local slice: focused job/store tests `12/12`, full suite `1751/1751`, `npm run check`, 6510-module production build, `git diff --check`, and the 10-project non-billing pilot all pass. This does **not** mark renderer delivery complete or enable the production workbench. The next gate is a provider-neutral renderer adapter plus an outbox/reconciliation worker, with a dry-run implementation first; only after fault tests and cost/rights gates pass can a real provider be enabled.
