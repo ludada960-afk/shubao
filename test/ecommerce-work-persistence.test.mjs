@@ -44,6 +44,31 @@ test('persists ecommerce work metadata and stable generated asset URLs in SQLite
   });
 });
 
+test('persists one prompt record per generated image for future case replay', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'shubao-prompt-work-test-'));
+  t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });
+  initDB(join(dir, 'works.db'));
+
+  const work = {
+    _saveKey: 'plog-prompt-work-1',
+    title: '雨后回家',
+    cover_url: 'https://image.example/cover.png',
+    image_urls: ['https://image.example/1.png', 'https://image.example/2.png'],
+    cover_prompt: 'cover prompt',
+    image_prompts: [
+      { page_id: 0, prompt: 'cover prompt', shot_role: 'anchor', reference_use: 'subject' },
+      { page_id: 1, prompt: 'detail prompt', shot_role: 'detail', reference_use: 'none' },
+      { page_id: 2, prompt: 'pause prompt', shot_role: 'pause', reference_use: 'environment' },
+    ],
+  };
+
+  upsertWork(work);
+
+  const saved = getAllWorks()[0];
+  assert.equal(saved.cover_prompt, work.cover_prompt);
+  assert.deepEqual(saved.image_prompts, work.image_prompts);
+});
+
 test('moves works to a recoverable trash state instead of deleting data', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'shubao-ec-trash-test-'));
   t.after(async () => { closeDB(); await rm(dir, { recursive: true, force: true }); });

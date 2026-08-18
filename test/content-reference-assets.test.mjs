@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { resolveContentReferenceImages } from '../server/contentReferenceAssets.mjs';
+import { resolveContentReferenceGroups, resolveContentReferenceImages } from '../server/contentReferenceAssets.mjs';
 
 const FIRST = `${'a'.repeat(64)}.jpg`;
 const SECOND = `${'b'.repeat(64)}.png`;
@@ -69,4 +69,19 @@ test('content references reject ownership and missing stored originals', async (
   await assert.rejects(() => resolveContentReferenceImages({
     ownerEmail: 'creator@example.com', referenceAssetIds: [FIRST], ...missing,
   }), /参考素材已不可用/);
+});
+
+test('grouped content references resolve style and source assets independently', async () => {
+  const deps = services();
+  const groups = await resolveContentReferenceGroups({
+    ownerEmail: 'creator@example.com',
+    referenceAssets: { style: [FIRST], source: [SECOND] },
+    ...deps,
+  });
+  assert.equal(groups.style[0], `data:image/jpeg;base64,${Buffer.from(FIRST).toString('base64')}`);
+  assert.equal(groups.source[0], `data:image/png;base64,${Buffer.from(SECOND).toString('base64')}`);
+  assert.deepEqual(deps.checked, [
+    { ownerEmail: 'creator@example.com', assetId: FIRST },
+    { ownerEmail: 'creator@example.com', assetId: SECOND },
+  ]);
 });

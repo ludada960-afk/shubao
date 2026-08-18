@@ -27,6 +27,18 @@ const FALLBACK_PAGE_ROLES = [
   ['summary', '总结与互动'],
 ];
 
+const PLOG_SHOT_ROLES = [
+  { id: 'anchor', label: '开场锚点', referenceUse: 'subject', direction: '一个能立刻说明这段生活发生在哪里、正在发生什么的主画面' },
+  { id: 'context', label: '环境关系', referenceUse: 'environment', direction: '带出主体与空间、天气、时间或周边关系的广角画面' },
+  { id: 'subject', label: '当下主体', referenceUse: 'subject', direction: '主体自然出现，不摆拍过度，保留真实比例和状态' },
+  { id: 'action', label: '动作过程', referenceUse: 'subject', direction: '一个正在发生的动作或过程，允许轻微运动感' },
+  { id: 'detail', label: '手边细节', referenceUse: 'detail', direction: '与主题直接相关的物件、手部、食物或材质近景' },
+  { id: 'texture', label: '光影质感', referenceUse: 'environment', direction: '光线、表面、反射或声音感的视觉化片段' },
+  { id: 'pause', label: '节奏留白', referenceUse: 'none', direction: '安静的空镜、边角或不抢戏的停顿画面' },
+  { id: 'imperfect', label: '不完美帧', referenceUse: 'subject', direction: '轻微失焦、偏斜、遮挡或抓拍感，但必须有情绪价值' },
+  { id: 'closer', label: '柔和收尾', referenceUse: 'environment', direction: '比开场更安静的收尾，留下余韵而不是再次制造高潮' },
+];
+
 function hashString(value) {
   let hash = 2166136261;
   for (const char of String(value || 'xhs')) {
@@ -88,6 +100,7 @@ export function createDynamicXhsFallback({ text, direction } = {}) {
       info_blocks: [],
       layout_hint: `以“${pageTitle || label}”为单一阅读重点，主视觉与文字分层，保留安全边距。`,
       visual_intent: `${d.visual}；只呈现原文能够支持的主体和场景。`,
+      reference_use: role === 'comparison' ? 'comparison' : (['context', 'detail'].includes(role) ? 'environment' : 'subject'),
     };
   });
   return {
@@ -127,6 +140,7 @@ export function compileDynamicXhsVisual({ analysis, direction } = {}) {
       const story = cleanText(page.story, title).slice(0, 180);
       return {
         page_id: index + 1,
+        reference_use: page.reference_use || 'none',
         prompt: `小红书竖版3:4内容页，第${index + 1}页。统一视觉系统：${visualSystem}。本页采用${compositions[index]}，页面职责是“${cleanText(page.role, '内容推进')}”。主视觉和场景依据：${cleanText(page.visual_intent, story)}。本页事实内容：${story}。只显示少量准确简体中文，主标题“${title}”，不得添加策划之外的数据、产品功效、价格或个人经历。主视觉、标题和辅助信息层级清楚，与前后页面构图有变化，四周保留5%安全边距。`,
       };
     }),
@@ -137,20 +151,13 @@ export function compileDynamicXhsVisual({ analysis, direction } = {}) {
 export function createDynamicPlogFallback({ text, direction, count = 9 } = {}) {
   const d = direction || deriveXhsCreativeDirection(text || 'plog-default');
   const fragments = sourceFragments(text);
-  const shots = rotate([
-    ['开场环境', 'wide establishing shot with natural context'],
-    ['当下主体', 'eye-level medium shot of the main real subject'],
-    ['手边细节', 'close-up detail of an object explicitly supported by the text'],
-    ['动作过程', 'candid process shot with natural movement'],
-    ['光线变化', 'quiet light-and-shadow transition grounded in the same setting'],
-    ['空间关系', 'side-angle composition showing subject and surroundings'],
-    ['局部质感', 'macro texture detail with restrained depth of field'],
-    ['收尾片段', 'calm closing moment with visual breathing room'],
-    ['回望总结', 'final reflective frame echoing the opening without invented events'],
-  ], d.seed % 9);
+  const shots = rotate(PLOG_SHOT_ROLES, d.seed % PLOG_SHOT_ROLES.length);
   const lenses = Array.from({ length: count }, (_, index) => ({
-    zh: `${shots[index % shots.length][0]}：${fragments[index % fragments.length].slice(0, 14)}`,
-    en: `${shots[index % shots.length][1]}. Stay faithful to: ${fragments[index % fragments.length]}.`,
+    zh: `${shots[index % shots.length].label}：${fragments[index % fragments.length].slice(0, 14)}`,
+    en: `${shots[index % shots.length].direction}. Stay faithful to: ${fragments[index % fragments.length]}.`,
+    shot_role: shots[index % shots.length].id,
+    reference_use: shots[index % shots.length].referenceUse,
+    variation_note: shots[index % shots.length].direction,
   }));
   return {
     caption: cleanText(fragments[0], '生活碎片').slice(0, 28),
@@ -179,7 +186,7 @@ export function buildDynamicXhsAnalysisRequest({ text, visionContext = '', direc
   const d = direction || deriveXhsCreativeDirection('xhs-default');
   return {
     systemPrompt: `你是薯包AI的小红书内容总策划。你不按固定赛道模板写稿，而是先理解输入事实、参考图和读者任务，再选择最适合这一篇内容的叙事结构。\n本轮创意方向：${d.name}。叙事线：${d.arc}。文字语气：${d.voice}。必须避开：${d.avoid}。\n只输出合法JSON，不要Markdown代码围栏。不得编造输入中没有的价格、地点、品牌、功效、评分、经历或效果；缺失信息就写“未提供”或换成不依赖该事实的表达。每一页只解决一个阅读任务，页面之间要有明显的信息推进。`,
-    userPrompt: `用户原始内容：\n${compactSourceText(text, 1200)}\n\n${visionContext ? `参考图观察：\n${compactSourceText(visionContext, 900)}\n\n` : ''}请完成一次独立策划，只输出紧凑JSON：\n{"topic":"主题","title":"20字以内标题","body_text":"300字以内可发布正文","hashtags":["#标签"],"creative_brief":{"audience":"读者","promise":"价值","evidence":["已知事实"],"voice":"语气","visual_system":"视觉系统","variation_note":"差异"},"pages":[{"page_id":1,"role":"职责","title":"12字内页标题","hook":"短钩子","story":"60字内本页事实内容","layout_hint":"构图层级","visual_intent":"主体视角场景"}]}\n必须输出恰好8个内容页(page_id 1-8)，加上独立封面共9张。每页只解决一个阅读任务并形成信息推进；角色按内容自然决定，不要套用固定行业页序。`,
+    userPrompt: `用户原始内容：\n${compactSourceText(text, 1200)}\n\n${visionContext ? `参考图观察：\n${compactSourceText(visionContext, 900)}\n\n` : ''}请完成一次独立策划，只输出紧凑JSON：\n{"topic":"主题","title":"20字以内标题","body_text":"300字以内可发布正文","hashtags":["#标签"],"creative_brief":{"audience":"读者","promise":"价值","evidence":["已知事实"],"voice":"语气","visual_system":"视觉系统","variation_note":"差异"},"pages":[{"page_id":1,"role":"职责","title":"12字内页标题","hook":"短钩子","story":"60字内本页事实内容","layout_hint":"构图层级","visual_intent":"主体视角场景","reference_use":"none|subject|environment|comparison"}]}\n必须输出恰好8个内容页(page_id 1-8)，加上独立封面共9张。每页只解决一个阅读任务并形成信息推进；角色按内容自然决定，不要套用固定行业页序。reference_use 只表示本页是否需要保留用户素材主体，不表示把风格参考图直接复制进生图。`,
   };
 }
 
@@ -200,6 +207,9 @@ export function normalizeDynamicXhsAnalysis(parsed, { direction, text } = {}) {
       info_blocks: Array.isArray(page.info_blocks) ? page.info_blocks.slice(0, 5) : [],
       layout_hint: cleanText(page.layout_hint, '以一个清晰主视觉配合少量信息卡，保留安全边距。'),
       visual_intent: cleanText(page.visual_intent, '围绕本页事实选择最能说明问题的主体、视角和场景。'),
+      reference_use: ['none', 'subject', 'environment', 'comparison', 'style'].includes(page.reference_use)
+        ? page.reference_use
+        : (role === 'comparison' ? 'comparison' : (['context', 'detail'].includes(role) ? 'environment' : 'subject')),
     };
   });
   const d = direction || deriveXhsCreativeDirection(text || 'xhs-default');
@@ -231,11 +241,12 @@ export function buildDynamicXhsVisualRequest({ analysis, direction }) {
     info_blocks: page.info_blocks,
     layout_hint: page.layout_hint,
     visual_intent: page.visual_intent,
+    reference_use: page.reference_use,
   }));
   const brief = analysis?.creative_brief || {};
   return {
     systemPrompt: `你是小红书视觉总监。根据一份已经完成的内容策划，为每一页设计独立但属于同一套的图片。不要调用固定赛道模板；用本轮方向“${d.name}”统一节奏，但让每页的主体、角度、构图和信息职责有变化。所有事实来自策划，禁止新增数据。图片需要包含少量、准确、可读的简体中文文字；不要把大段正文塞进图里。`,
-    userPrompt: `标题：${analysis?.title || ''}\n主题：${analysis?.category || ''}\n视觉简报：${JSON.stringify(brief)}\n页面策划：${JSON.stringify(pages)}\n\n只输出合法JSON：\n{"visual_system":"色彩、字体气质、网格和图文节奏","cover_prompt":"封面GPT-Image-2提示词","image_prompts":[{"page_id":1,"prompt":"内容页1的完整提示词"}]}\n必须有8条image_prompts，page_id为1-8。每条都要说明：竖版3:4、页面主视觉、主体视角、构图层级、文字区域与确切文字、和上一页不同的画面职责、留出安全边距。`,
+    userPrompt: `标题：${analysis?.title || ''}\n主题：${analysis?.category || ''}\n视觉简报：${JSON.stringify(brief)}\n页面策划：${JSON.stringify(pages)}\n\n只输出合法JSON：\n{"visual_system":"色彩、字体气质、网格和图文节奏","cover_prompt":"封面GPT-Image-2提示词","image_prompts":[{"page_id":1,"prompt":"内容页1的完整提示词"}]}\n必须有8条image_prompts，page_id为1-8。每条都要说明：竖版3:4、页面主视觉、主体视角、构图层级、文字区域与确切文字、和上一页不同的画面职责、是否需要保留用户素材主体、留出安全边距；style 参考只借鉴视觉原则，不复用参考图主体或文字。`,
   };
 }
 
@@ -266,7 +277,7 @@ export function buildDynamicPlogRequest({ text, scene, direction, count = 9 }) {
   const d = direction || deriveXhsCreativeDirection('plog-default');
   return {
     systemPrompt: `你是生活方式内容导演。为一组Plog照片设计动态镜头，不使用固定赛道镜头库。围绕“${d.name}”组织节奏：${d.arc}。镜头必须忠于用户输入，不凭空加入人物、产品、地点或事件；每张照片只承担一个画面任务，且角度、景别或时间关系要有变化。`,
-    userPrompt: `用户内容：${String(text || '').trim()}\n当前识别场景（仅供参考）：${scene || '未分类'}\n请输出合法JSON：{"caption":"一条自然的套图标题","copy_lines":["9条短句"],"lenses":[{"zh":"中文镜头名","en":"English image direction"}]}。必须恰好${count}条lenses和${count}条copy_lines；不要固定使用同一组表情符号或鸡汤句。`,
+    userPrompt: `用户内容：${String(text || '').trim()}\n当前识别场景（仅供参考）：${scene || '未分类'}\n请输出合法JSON：{"caption":"一条自然的套图标题","copy_lines":["9条短句"],"lenses":[{"shot_role":"anchor|context|subject|action|detail|texture|pause|imperfect|closer","reference_use":"none|subject|environment|detail","zh":"中文镜头名","en":"English image direction","variation_note":"与相邻页的变化"}]}。必须恰好${count}条lenses和${count}条copy_lines；镜头职责可以重排，但至少覆盖一个开场锚点、一个环境关系、一个细节、一个动作或主体状态、一个节奏停顿和一个收尾；不要固定使用同一组表情符号或鸡汤句。`,
   };
 }
 
@@ -274,7 +285,15 @@ export function normalizeDynamicPlogPlan(parsed, count = 9) {
   if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.lenses) || parsed.lenses.length < 4) return null;
   const lenses = Array.from({ length: count }, (_, index) => {
     const item = parsed.lenses[index] || {};
-    return { zh: cleanText(item.zh, `生活片段 ${index + 1}`), en: cleanText(item.en, cleanText(item.zh, 'a natural everyday moment')) };
+    const fallback = PLOG_SHOT_ROLES[index % PLOG_SHOT_ROLES.length];
+    const validReferenceUses = new Set(['none', 'subject', 'environment', 'detail']);
+    return {
+      zh: cleanText(item.zh, `${fallback.label} ${index + 1}`),
+      en: cleanText(item.en, cleanText(item.zh, 'a natural everyday moment')),
+      shot_role: cleanText(item.shot_role, fallback.id),
+      reference_use: validReferenceUses.has(item.reference_use) ? item.reference_use : fallback.referenceUse,
+      variation_note: cleanText(item.variation_note, fallback.direction),
+    };
   });
   const copyLines = Array.from({ length: count }, (_, index) => cleanText(parsed.copy_lines?.[index], lenses[index].zh));
   return { caption: cleanText(parsed.caption, '生活碎片'), copyLines, lenses };

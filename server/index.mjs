@@ -66,7 +66,8 @@ import { imageGenerationPool } from './imageGenerationPool.mjs';
 import { createGeneratedAssetStore, stableAssetDataUrl } from './generatedAssets.mjs';
 import { createImageDelivery } from './imageDelivery.mjs';
 import { GALLERY_FILE_MAP, GALLERY_IMAGE_EXTENSIONS } from './galleryCatalog.mjs';
-import { resolveContentReferenceImages } from './contentReferenceAssets.mjs';
+import { resolveContentReferenceGroups } from './contentReferenceAssets.mjs';
+import { normalizeReferenceGroups, referenceUsageLabel, selectSourceInputs } from './contentReferenceRouter.mjs';
 import {
   createImageInputReader,
   imageBufferToDataUrl,
@@ -885,12 +886,13 @@ async function generateImage(prompt, category, isCover, jkContext, customSize, r
 async function callImageAPI(fullPrompt, customSize, refImageBase64) {
   const size = customSize || resolveGenerationSize({ resolution: '2K', ratio: '3:4' }).size;
   const inputAssets = [];
-  if (refImageBase64) {
-    const match = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=\s]+)$/i.exec(String(refImageBase64));
+  const references = Array.isArray(refImageBase64) ? refImageBase64 : (refImageBase64 ? [refImageBase64] : []);
+  for (const [index, reference] of references.entries()) {
+    const match = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=\s]+)$/i.exec(String(reference));
     if (!match) throw new Error('参考图必须是 PNG、JPEG 或 WebP data URI');
     const buffer = Buffer.from(match[2].replace(/\s/g, ''), 'base64');
     if (!buffer.length) throw new Error('参考图不能为空');
-    inputAssets.push({ buffer, contentType: match[1].toLowerCase(), fileName: 'legacy-reference.png' });
+    inputAssets.push({ buffer, contentType: match[1].toLowerCase(), fileName: `content-reference-${index + 1}.png` });
   }
   return imageGenerationPool.run(async () => {
     const submitted = await ecommerceProviderAdapter.submitEdit({
@@ -2069,17 +2071,21 @@ async function runXhsPreview(req, res) {
   });
 }
 
-async function generateXhsContentSet({ text, images, send, generationId, workId }) {
+async function generateXhsContentSet({ text, images, referenceGroups, send, generationId, workId }) {
   console.log('\n=== 开始工作流: "' + text.slice(0, 40) + '..." ===');
   send('progress', { step: 'content_analysis', msg: '正在分析内容...' });
   const creativeDirection = deriveXhsCreativeDirection(generationId || text);
+  const groups = normalizeReferenceGroups(referenceGroups || { style: images });
+  if (!groups.style.length && Array.isArray(images)) groups.style = images.slice(0, 3);
 
   // 【XHS 参考图 Vision 分析】
   let visionContext = '';
-  if (images?.length) {
+  const visionImages = [...groups.style, ...groups.source].slice(0, 6);
+  if (visionImages.length) {
     send('progress', { step: 'vision', msg: '正在分析参考图...' });
     try {
-      const visionPrompt = `你是一个小红书内容与视觉分析专家。分析这些参考图，区分可验证的画面事实和可借鉴的方法，不要照抄参考图中的具体文案，用 JSON 返回：
+      const styleCount = groups.style.length;
+      const visionPrompt = `你是一个小红书内容与视觉分析专家。分析这些参考图，严格区分“风格参考”和“我的素材”。风格参考只提取可复用的方法，不要照抄具体文案、人物、商品或构图；我的素材只记录能直接确认的主体、环境和物件事实。用 JSON 返回：
 {
   "color_palette": ["#hex1", "#hex2", "#hex3"],
   "style_vibe": "风格描述（简约/清新/复古/治愈/高级/可爱等）",
@@ -2091,25 +2097,26 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
   "text_hierarchy": "标题、副标题、标签和正文的层级关系",
   "reusable_principles": ["可借鉴但不照抄的设计原则"],
   "aesthetic_tags": ["标签1", "标签2"]
-}`;
+}\n本次输入顺序：前 ${styleCount} 张是风格参考，后面是我的素材。`;
       const visionResult = await callMiniLLM(
         visionPrompt,
-        images.slice(0, 3),
+        visionImages,
         '分析这些参考图的视觉风格',
         { signal: AbortSignal.timeout(45_000) },
       );
       const parsed = JSON.parse((visionResult || '{}').replace(/```(json)?/g, '').trim());
       if (parsed?.color_palette?.length || parsed?.style_vibe) {
-        visionContext = '\n\n[参考图视觉特征]\n' +
-          (parsed.style_vibe ? `风格：${parsed.style_vibe}\n` : '') +
+          visionContext = '\n\n[参考图视觉特征]\n' +
+            (parsed.style_vibe ? `风格：${parsed.style_vibe}\n` : '') +
           (parsed.mood ? `氛围：${parsed.mood}\n` : '') +
           (parsed.color_palette?.length ? `色调：${parsed.color_palette.join('、')}\n` : '') +
           (parsed.lighting ? `光线：${parsed.lighting}\n` : '') +
           (parsed.composition ? `构图：${parsed.composition}\n` : '') +
           (parsed.subject_facts?.length ? `可确认主体：${parsed.subject_facts.join('、')}\n` : '') +
-          (parsed.narrative_pattern ? `内容组织：${parsed.narrative_pattern}\n` : '') +
-          (parsed.text_hierarchy ? `文字层级：${parsed.text_hierarchy}\n` : '') +
-          (parsed.reusable_principles?.length ? `可借鉴原则：${parsed.reusable_principles.join('、')}\n` : '');
+            (parsed.narrative_pattern ? `内容组织：${parsed.narrative_pattern}\n` : '') +
+            (parsed.text_hierarchy ? `文字层级：${parsed.text_hierarchy}\n` : '') +
+            (parsed.reusable_principles?.length ? `可借鉴原则：${parsed.reusable_principles.join('、')}\n` : '') +
+            (groups.source.length ? `我的素材只可确认：${parsed.subject_facts?.join('、') || '以生成任务中的用户素材为准'}\n` : '');
       }
     } catch (e) {
       console.warn('[XHS Vision] 参考图分析失败（不阻断）:', e.message);
@@ -2123,8 +2130,8 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
 
   // 并发生图（每完成一张就推送）
   const allPrompts = [
-    { id: 'cover', prompt: visual.coverPrompt, category: analysis.category },
-    ...visual.imagePrompts.map(p => ({ id: 'p' + p.page_id, prompt: p.prompt, category: analysis.category })),
+    { id: 'cover', index: 0, reference_use: groups.source.length ? 'subject' : 'none', prompt: visual.coverPrompt, category: analysis.category },
+    ...visual.imagePrompts.map(p => ({ ...p, id: 'p' + p.page_id, index: p.page_id, prompt: p.prompt, category: analysis.category })),
   ];
 
   // ===== 产品类赛道（美妆护肤/好物评测/数码3C等）内容页强制显示产品 =====
@@ -2146,11 +2153,14 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
   const results = await generateCompleteImageSet({
     tasks: allPrompts,
     execute: async task => {
+      const sourceInputs = selectSourceInputs({ groups, task });
       const source = await generateImage(
         task.prompt,
         task.category,
         task.id === 'cover',
         task.jkContext,
+        undefined,
+        sourceInputs,
       );
       return await persistGeneratedAsset({ source, generationId, label: `xhs-${task.id}` });
     },
@@ -2179,6 +2189,8 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
     creative_direction: analysis.creative_direction || creativeDirection.id,
     creative_seed: analysis.creative_seed || creativeDirection.seed,
     creative_brief: analysis.creative_brief || null,
+    reference_usage: referenceUsageLabel(groups),
+    reference_assets: { style_count: groups.style.length, source_count: groups.source.length },
   };
   if (!isCompleteContentDelivery(delivery)) {
     const error = new Error('生成结果未形成九张唯一稳定图片，额度将原路退回');
@@ -2190,13 +2202,14 @@ async function generateXhsContentSet({ text, images, send, generationId, workId 
 }
 
 app.post('/api/generate', async (req, res) => {
-  const { text, images, referenceAssetIds } = req.body || {};
+  const { text, images, referenceAssetIds, referenceAssets } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
   if (req._contentPreview === true) return runXhsPreview(req, res);
-  let resolvedImages;
+  let resolvedReferenceGroups;
   try {
-    resolvedImages = await resolveContentReferenceImages({
+    resolvedReferenceGroups = await resolveContentReferenceGroups({
       ownerEmail: req._userEmail,
+      referenceAssets,
       referenceAssetIds,
       legacyImages: images,
       assetUploadService: ecommerceAssetUploadService,
@@ -2210,7 +2223,7 @@ app.post('/api/generate', async (req, res) => {
     ownerEmail: req._userEmail,
     generationId: req.body?.generationId,
     mode: 'xhs',
-    generate: context => generateXhsContentSet({ ...context, text: text.trim(), images: resolvedImages }),
+    generate: context => generateXhsContentSet({ ...context, text: text.trim(), referenceGroups: resolvedReferenceGroups }),
   });
 });
 
@@ -4705,6 +4718,7 @@ async function runPlogPreview(req, res) {
 async function generatePlogContentSet({
   text,
   refImage,
+  referenceGroups,
   style,
   layout,
   coverVariant,
@@ -4714,6 +4728,8 @@ async function generatePlogContentSet({
   workId,
 }) {
   const options = plogOptions({ style, layout, coverVariant });
+  const groups = normalizeReferenceGroups(referenceGroups || { style: refImage ? [refImage] : [] });
+  if (!groups.style.length && refImage) groups.style = [refImage];
   send('progress', { step: 'scene', msg: '正在分析场景...' });
   const scene = classifyScene(text);
   const creativeDirection = deriveXhsCreativeDirection(generationId || text);
@@ -4738,10 +4754,31 @@ async function generatePlogContentSet({
     }
   }
 
-  send('progress', { step: 'tone', msg: refImage ? '正在分析参考图色调...' : '已选风格色调' });
-  const toneInfo = refImage
-    ? await extractToneFromImage(refImage, callMiniLLM)
+  const toneSource = groups.style[0] || groups.source[0];
+  send('progress', { step: 'tone', msg: toneSource ? '正在分析参考素材的色调与生活质感...' : '已选风格色调' });
+  const toneInfo = toneSource
+    ? await extractToneFromImage(toneSource, callMiniLLM)
     : null;
+  let referenceContext = '';
+  const contextImages = [...groups.style, ...groups.source].slice(0, 6);
+  if (contextImages.length) {
+    try {
+      const contextRaw = await callMiniLLM(
+        '你是生活方式摄影分析师。区分风格参考和用户生活素材，只输出可验证事实与可借鉴的视觉方法，不复制具体文字、人物或物件。',
+        contextImages,
+        `前 ${groups.style.length} 张是风格参考，其余是用户生活素材。请输出JSON：{"style_principles":["色调/光线/材质/构图方法"],"source_facts":["用户素材中能直接确认的主体、空间和物件"],"mood":"氛围"}`,
+        { signal: AbortSignal.timeout(45_000), maxTokens: 1800, temperature: 0.25 },
+      );
+      const parsed = JSON.parse((contextRaw || '').replace(/```(?:json)?/g, '').trim().match(/\{[\s\S]*\}/)?.[0] || '{}');
+      referenceContext = [
+        parsed.mood ? `氛围：${parsed.mood}` : '',
+        parsed.style_principles?.length ? `风格方法：${parsed.style_principles.join('、')}` : '',
+        parsed.source_facts?.length ? `用户素材事实：${parsed.source_facts.join('、')}` : '',
+      ].filter(Boolean).join('。');
+    } catch (error) {
+      console.warn('[plog reference] 素材分析失败（不阻断）:', error.message);
+    }
+  }
 
   send('progress', { step: 'generating', msg: '正在绘制 Plog 图片...', total: totalCount, current: 0 });
   let completedCount = 0;
@@ -4750,16 +4787,21 @@ async function generatePlogContentSet({
     return {
       id: isCover ? 'cover' : 'p' + index,
       index,
+      reference_use: lenses[index]?.reference_use || 'none',
       prompt: buildPlogPrompt({
         lens: lenses[index], style: options.style, toneInfo, isCover, index, totalCount,
         category: scene, layout: options.layout, coverVariant: options.coverVariant,
-      }),
+      }) + (referenceContext ? ` Reference analysis: ${referenceContext}. ` : '')
+        + (lenses[index]?.reference_use && lenses[index].reference_use !== 'none'
+          ? 'Use the supplied user source image as the subject or environment anchor for this shot; do not import unrelated objects from it. '
+          : ''),
     };
   });
   const results = await generateCompleteImageSet({
     tasks,
     execute: async task => {
-      const source = await callImageAPI(task.prompt, null, null);
+      const sourceInputs = selectSourceInputs({ groups, task });
+      const source = await callImageAPI(task.prompt, null, sourceInputs);
       return persistGeneratedAsset({ source, generationId, label: 'plog-' + task.id });
     },
     onComplete: (entry, task) => {
@@ -4785,6 +4827,14 @@ async function generatePlogContentSet({
 
   const coverUrl = results.find(result => result.id === 'cover')?.url || '';
   const imageUrls = results.filter(result => result.id !== 'cover').map(result => result.url);
+  // Keep the exact prompt used for every delivered image so saved works can be
+  // promoted to Inspiration cases and later regenerated without guessing.
+  const imagePrompts = tasks.map(task => ({
+    page_id: task.index,
+    prompt: task.prompt,
+    shot_role: lenses[task.index]?.shot_role || '',
+    reference_use: task.reference_use,
+  }));
   return {
     scene,
     style: options.style,
@@ -4793,27 +4843,36 @@ async function generatePlogContentSet({
     caption: creativePlan?.caption || generatePlogCaption(scene, scene, options.style),
     copyLines: creativePlan?.copyLines || generatePlogCopy(scene, lenses, toneInfo),
     cover_url: coverUrl,
+    cover_prompt: imagePrompts[0]?.prompt || '',
     image_urls: imageUrls,
+    image_prompts: imagePrompts,
     image_count: imageUrls.length,
     total_count: totalCount,
     toneInfo,
     creative_direction: creativeDirection.id,
     creative_seed: creativeDirection.seed,
+    creative_brief: {
+      promise: '用有呼吸感的生活镜头整理一段可回看的记忆',
+      shot_roles: lenses.map(lens => lens.shot_role).filter(Boolean),
+      variation_note: '镜头职责、景别和节奏由本轮文本与素材动态决定',
+    },
+    reference_usage: referenceUsageLabel(groups),
+    reference_assets: { style_count: groups.style.length, source_count: groups.source.length },
   };
 }
 
 // ── Plog 生活氛围感（V2：独立引擎，与种草完全隔离）──
 app.post('/api/plog-generate', async (req, res) => {
-  const { text, refImage, referenceAssetIds, style, layout, coverVariant, skipEnrich } = req.body || {};
+  const { text, refImage, referenceAssetIds, referenceAssets, style, layout, coverVariant, skipEnrich } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
   if (req._contentPreview === true) return runPlogPreview(req, res);
-  let resolvedRefImage;
+  let resolvedReferenceGroups;
   try {
-    [resolvedRefImage] = await resolveContentReferenceImages({
+    resolvedReferenceGroups = await resolveContentReferenceGroups({
       ownerEmail: req._userEmail,
+      referenceAssets,
       referenceAssetIds,
       legacyImages: refImage ? [refImage] : [],
-      limit: 1,
       assetUploadService: ecommerceAssetUploadService,
       generatedAssetStore,
     });
@@ -4828,7 +4887,7 @@ app.post('/api/plog-generate', async (req, res) => {
     generate: context => generatePlogContentSet({
       ...context,
       text: text.trim(),
-      refImage: resolvedRefImage,
+      referenceGroups: resolvedReferenceGroups,
       style,
       layout,
       coverVariant,

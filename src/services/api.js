@@ -925,6 +925,7 @@ export function generateContent(text, images, {
   preview = false,
   generationId,
   referenceAssetIds,
+  referenceAssets,
   ...options
 } = {}) {
   return generateContentStream('/api/generate', {
@@ -933,6 +934,7 @@ export function generateContent(text, images, {
     preview,
     ...(generationId ? { generationId } : {}),
     ...(Array.isArray(referenceAssetIds) && referenceAssetIds.length ? { referenceAssetIds } : {}),
+    ...(referenceAssets && typeof referenceAssets === 'object' ? { referenceAssets } : {}),
   }, options);
 }
 
@@ -946,6 +948,7 @@ export function generatePlogContent({
   preview = false,
   generationId,
   referenceAssetIds,
+  referenceAssets,
 } = {}, options = {}) {
   return generateContentStream('/api/plog-generate', {
     text,
@@ -957,6 +960,7 @@ export function generatePlogContent({
     ...(skipEnrich ? { skipEnrich: true } : {}),
     ...(generationId ? { generationId } : {}),
     ...(Array.isArray(referenceAssetIds) && referenceAssetIds.length ? { referenceAssetIds } : {}),
+    ...(referenceAssets && typeof referenceAssets === 'object' ? { referenceAssets } : {}),
   }, options);
 }
 

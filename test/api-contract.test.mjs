@@ -143,13 +143,22 @@ test('paid content APIs send owned reference asset IDs rather than raw resumable
 
   const { generateContent, generatePlogContent } = await import(`../src/services/api.js?content-assets=${Date.now()}`);
   await generateContent('夏日通勤', [], { referenceAssetIds: ['a'.repeat(64) + '.jpg'] });
-  await generatePlogContent({ text: '下班后的咖啡', referenceAssetIds: ['b'.repeat(64) + '.png'] });
+  await generatePlogContent({
+    text: '下班后的咖啡',
+    referenceAssets: {
+      style: ['b'.repeat(64) + '.png'],
+      source: ['c'.repeat(64) + '.webp'],
+    },
+  });
 
   assert.deepEqual(bodies[0].images, []);
   assert.deepEqual(bodies[0].referenceAssetIds, ['a'.repeat(64) + '.jpg']);
   assert.equal(bodies[0].images.includes?.('data:image/png;base64,unsafe') || false, false);
   assert.equal(bodies[1].refImage, undefined);
-  assert.deepEqual(bodies[1].referenceAssetIds, ['b'.repeat(64) + '.png']);
+  assert.deepEqual(bodies[1].referenceAssets, {
+    style: ['b'.repeat(64) + '.png'],
+    source: ['c'.repeat(64) + '.webp'],
+  });
 });
 
 test('active owner and draft task resumes with GET polling, emits only a delivered stable image once, and never posts a duplicate', async t => {

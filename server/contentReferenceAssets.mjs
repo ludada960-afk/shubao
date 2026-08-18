@@ -1,4 +1,5 @@
 import { stableAssetDataUrl } from './generatedAssets.mjs';
+import { CONTENT_REFERENCE_LIMITS, normalizeReferenceGroups } from './contentReferenceRouter.mjs';
 
 const ASSET_ID = /^[a-f0-9]{64}\.(?:jpg|png|webp)$/;
 
@@ -39,4 +40,40 @@ export async function resolveContentReferenceImages({
     images.push(stableAssetDataUrl(stored));
   }
   return images;
+}
+
+/**
+ * Resolve the two user-facing reference roles without allowing a style image
+ * to silently become a subject-preserving image-to-image input.
+ */
+export async function resolveContentReferenceGroups({
+  ownerEmail,
+  referenceAssets,
+  referenceAssetIds,
+  legacyImages,
+  assetUploadService,
+  generatedAssetStore,
+} = {}) {
+  const normalized = normalizeReferenceGroups({ referenceAssets, referenceAssetIds });
+  const legacy = Array.isArray(legacyImages) ? legacyImages : [];
+  const styleLegacy = normalized.style.length ? normalized.style : legacy;
+  const [style, source] = await Promise.all([
+    resolveContentReferenceImages({
+      ownerEmail,
+      referenceAssetIds: normalized.style,
+      legacyImages: styleLegacy,
+      limit: CONTENT_REFERENCE_LIMITS.style,
+      assetUploadService,
+      generatedAssetStore,
+    }),
+    resolveContentReferenceImages({
+      ownerEmail,
+      referenceAssetIds: normalized.source,
+      legacyImages: normalized.source,
+      limit: CONTENT_REFERENCE_LIMITS.source,
+      assetUploadService,
+      generatedAssetStore,
+    }),
+  ]);
+  return { style, source };
 }

@@ -28,10 +28,11 @@ test('dynamic XHS analysis plans eight editable pages without fixed tracks', () 
   assert.match(request.userPrompt, /恰好8个内容页/);
   const analysis = normalizeDynamicXhsAnalysis({
     topic: '城市记录', title: '周末城市漫游', body_text: '从街角开始记录。',
-    pages: Array.from({ length: 8 }, (_, i) => ({ page_id: i + 1, title: `第${i + 1}页`, story: '真实内容' })),
+    pages: Array.from({ length: 8 }, (_, i) => ({ page_id: i + 1, title: `第${i + 1}页`, story: '真实内容', reference_use: i === 2 ? 'comparison' : 'subject' })),
   }, { direction });
   assert.equal(analysis.pages.length, 8);
   assert.equal(analysis.creative_direction, direction.id);
+  assert.equal(analysis.pages[2].reference_use, 'comparison');
 });
 
 test('dynamic visual and Plog plans normalize to complete delivery shapes', () => {
@@ -46,6 +47,8 @@ test('dynamic visual and Plog plans normalize to complete delivery shapes', () =
   const plog = normalizeDynamicPlogPlan({ caption: '周末片段', lenses: Array.from({ length: 9 }, (_, i) => ({ zh: `镜头${i + 1}`, en: `shot ${i + 1}` })), copy_lines: Array.from({ length: 9 }, (_, i) => `句子${i + 1}`) });
   assert.equal(plog.lenses.length, 9);
   assert.equal(plog.copyLines.length, 9);
+  assert.ok(plog.lenses.every(lens => lens.shot_role));
+  assert.ok(plog.lenses.every(lens => ['none', 'subject', 'environment', 'detail'].includes(lens.reference_use)));
 });
 
 test('content planning can request complete JSON and legacy LLM failures use the verified gateway', () => {
@@ -76,6 +79,9 @@ test('model-independent fallbacks preserve the nine-page contract without fixed 
   });
   assert.equal(plog.lenses.length, 9);
   assert.equal(plog.copyLines.length, 9);
+  assert.ok(new Set(plog.lenses.map(lens => lens.shot_role)).size >= 6);
+  assert.ok(plog.lenses.some(lens => lens.shot_role === 'pause'));
+  assert.ok(plog.lenses.some(lens => lens.shot_role === 'closer'));
 });
 
 test('content generation keeps compact planning, complete-set retries and a long client stream window', () => {
@@ -85,6 +91,10 @@ test('content generation keeps compact planning, complete-set retries and a long
   assert.match(server, /return createDynamicXhsFallback/);
   assert.match(server, /return compileDynamicXhsVisual/);
   assert.match(server, /generateCompleteImageSet\(\{[\s\S]*label: 'plog-'/);
+  assert.match(server, /cover_prompt: imagePrompts\[0\]\?\.prompt/);
+  assert.match(server, /image_prompts: imagePrompts/);
+  assert.match(server, /page_id: task\.index/);
+  assert.match(server, /shot_role: lenses\[task\.index\]\?\.shot_role/);
   assert.ok((server.match(/signal:\s*AbortSignal\.timeout\(45_000\)/g) || []).length >= 3);
   assert.match(client, /720000/);
   assert.match(client, /generateContentStream[\s\S]*headers:\s*signedSessionHeaders\(\{ 'Content-Type': 'application\/json' \}\)/);

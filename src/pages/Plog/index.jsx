@@ -10,6 +10,7 @@ import {
   buildContentPendingAction,
   createContentDraftId,
 } from '../contentGenerationModel.js';
+import ContentReferencePicker from '../../components/creation/ContentReferencePicker.jsx';
 
 // ── 风格包 ──
 const PLOG_STYLES = {
@@ -67,8 +68,8 @@ export default function PlogPage() {
   const [selectedStyle, setSelectedStyle] = useState('ins-minimal');
   const [selectedLayout, setSelectedLayout] = useState('casual');
   const [selectedCover, setSelectedCover] = useState('collage');
-  const [refImage, setRefImage] = useState(null);
-  const [refPreview, setRefPreview] = useState('');
+  const [styleImages, setStyleImages] = useState([]);
+  const [sourceImages, setSourceImages] = useState([]);
   const [genState, setGenState] = useState('idle');
   const [results, setResults] = useState(null);
   const [err, setErr] = useState('');
@@ -78,9 +79,9 @@ export default function PlogPage() {
   const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState({ current: 0, total: 9 });
   const timerRef = useRef(null);
-  const fileInputRef = useRef(null);
   const [plogDraftId, setPlogDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'plog' }));
   const [referenceAssetIds, setReferenceAssetIds] = useState([]);
+  const [sourceAssetIds, setSourceAssetIds] = useState([]);
 
   useEffect(() => {
     setPlogDraftId(createContentDraftId({ ownerEmail, source: 'plog' }));
@@ -89,6 +90,9 @@ export default function PlogPage() {
     setSelectedLayout('casual');
     setSelectedCover('collage');
     setReferenceAssetIds([]);
+    setSourceAssetIds([]);
+    setStyleImages([]);
+    setSourceImages([]);
   }, [ownerEmail]);
 
   useEffect(() => {
@@ -99,60 +103,39 @@ export default function PlogPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [genState]);
 
-  // ── 参考图上传 ──
-  const handleRefFile = useCallback((file) => {
-    if (!file || !file.type.startsWith('image/')) return;
-    if (file.size > 5 * 1024 * 1024) { setErr('图片太大，请选择5MB以内的图片'); return; }
-    setErr('');
-    setReferenceAssetIds([]);
-    setRefImage(file);
-    setRefPreview(URL.createObjectURL(file));
-  }, []);
-
-  const handleFileChange = useCallback((e) => { handleRefFile(e.target.files?.[0]); e.target.value = ''; }, [handleRefFile]);
-
-  useEffect(() => {
-    const handlePaste = (e) => { const f = e.clipboardData?.files?.[0]; if (f) handleRefFile(f); };
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [handleRefFile]);
-
-  const clearRef = useCallback(() => {
-    if (refPreview) URL.revokeObjectURL(refPreview);
-    setRefImage(null);
-    setRefPreview('');
-    setReferenceAssetIds([]);
-  }, [refPreview]);
-
-  const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
   // ── 生成 ──
   const handleGenerate = async () => {
     if (!text.trim()) return;
     const usePreview = !state.logged;
-    let ownedReferenceAssetIds = referenceAssetIds;
+    let ownedReferenceAssetIds = [...referenceAssetIds, ...sourceAssetIds];
+    let ownedStyleAssetIds = referenceAssetIds;
+    let ownedSourceAssetIds = sourceAssetIds;
     setErr('');
     setGenState('loading');
     setResults(null);
     setProgress({ current: 0, total: 9 });
     dispatch({ type: 'START_GEN' });
     try {
-      if (!usePreview && refImage) {
-        const uploaded = await uploadEcommerceAssets([refImage], 'reference');
-        ownedReferenceAssetIds = uploaded.map(asset => asset.assetId);
-        setReferenceAssetIds(ownedReferenceAssetIds);
+      if (!usePreview && (styleImages.length || sourceImages.length)) {
+        const [styleUploads, sourceUploads] = await Promise.all([
+          styleImages.length ? uploadEcommerceAssets(styleImages, 'style') : Promise.resolve([]),
+          sourceImages.length ? uploadEcommerceAssets(sourceImages, 'reference') : Promise.resolve([]),
+        ]);
+        ownedStyleAssetIds = styleUploads.map(asset => asset.assetId);
+        ownedSourceAssetIds = sourceUploads.map(asset => asset.assetId);
+        ownedReferenceAssetIds = [...ownedStyleAssetIds, ...ownedSourceAssetIds];
+        setReferenceAssetIds(ownedStyleAssetIds);
+        setSourceAssetIds(ownedSourceAssetIds);
       }
       const result = await generatePlogContent({
         text: text.trim(),
         style: selectedStyle,
         layout: selectedLayout,
         coverVariant: selectedCover,
-        refImage: usePreview && refImage ? await readFileAsBase64(refImage) : undefined,
+        referenceAssets: {
+          style: usePreview ? styleImages : ownedStyleAssetIds,
+          source: usePreview ? sourceImages : ownedSourceAssetIds,
+        },
         referenceAssetIds: ownedReferenceAssetIds,
         preview: usePreview,
       }, {
@@ -195,6 +178,28 @@ export default function PlogPage() {
     }
     if (timerRef.current) clearInterval(timerRef.current);
   };
+
+  const addRoleFiles = useCallback((role, files) => {
+    const selected = Array.from(files || []).filter(file => file?.type?.startsWith('image/'));
+    const max = role === 'style' ? 3 : 6;
+    const setter = role === 'style' ? setStyleImages : setSourceImages;
+    const resetIds = role === 'style' ? setReferenceAssetIds : setSourceAssetIds;
+    resetIds([]);
+    selected.slice(0, max).forEach(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        setErr('图片太大，请选择5MB以内的图片');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = event => setter(current => current.length >= max ? current : [...current, event.target.result]);
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const removeRoleFile = useCallback((role, index) => {
+    (role === 'style' ? setStyleImages : setSourceImages)(current => current.filter((_, itemIndex) => itemIndex !== index));
+    (role === 'style' ? setReferenceAssetIds : setSourceAssetIds)([]);
+  }, []);
 
   const allImages = results ? [
     ...(results.cover_url ? [{ label: '封面', url: results.cover_url, isCover: true }] : []),
@@ -519,32 +524,13 @@ export default function PlogPage() {
           </div>
         </div>
 
-        {/* ── 参考图上传 ── */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #eee', marginBottom: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>📷 参考图（可选）</span>
-            <span style={{ fontSize: 10, color: '#aaa' }}>拖入或粘贴</span>
-          </div>
-          {!refPreview ? (
-            <div onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#999'; }}
-              onDragLeave={e => { e.currentTarget.style.borderColor = '#ddd'; }}
-              onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#ddd'; handleRefFile(e.dataTransfer?.files?.[0]); }}
-              style={{ border: '2px dashed #ddd', borderRadius: 12, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', transition: 'all .15s' }}>
-              <div style={{ fontSize: 24, marginBottom: 4 }}>🖼️</div>
-              <div style={{ fontSize: 11, color: '#999' }}>点击或拖入参考图</div>
-              <div style={{ fontSize: 10, color: '#ccc', marginTop: 2 }}>AI 将自动统一色调</div>
-            </div>
-          ) : (
-            <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
-              <img src={refPreview} alt="参考图" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 12 }} />
-              <div onClick={clearRef}
-                style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12 }}>✕</div>
-              <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 9, color: '#fff', background: 'rgba(0,0,0,0.5)', padding: '1px 8px', borderRadius: 3 }}>色调参考</div>
-            </div>
-          )}
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-        </div>
+        {/* ── 参考素材上传 ── */}
+        <ContentReferencePicker
+          styleImages={styleImages}
+          sourceImages={sourceImages}
+          onAdd={addRoleFiles}
+          onRemove={removeRoleFile}
+        />
 
         {/* ── 生成按钮 ── */}
         <div style={{ marginBottom: 14 }}>
@@ -596,6 +582,11 @@ export default function PlogPage() {
                 <span>🎨 {PLOG_STYLES[results.style]?.name || results.style}</span>
                 <span>🎭 {LAYOUT_TEMPLATES[results.layout]?.name || results.layout}</span>
               </div>
+              {results.reference_usage && (
+                <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid #f0ede8', fontSize: 10, color: '#8b8175', lineHeight: 1.55 }}>
+                  {results.reference_usage}
+                </div>
+              )}
             </div>
 
             {/* 排版渲染 */}

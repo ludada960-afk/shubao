@@ -44,6 +44,7 @@ import {
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
+import ContentReferencePicker from '../../components/creation/ContentReferencePicker.jsx';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
 import './Home.css';
 
@@ -76,10 +77,11 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const workVersion = Number(state._workVersion || 0);
   const [err, setErr] = useState('');
   const [refImages, setRefImages] = useState([]);
-  const fileRef = useRef(null);
+  const [xhsSourceImages, setXhsSourceImages] = useState([]);
   const xhsPromptRef = useRef(null);
   const [xhsContentDraftId, setXhsContentDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'xhs-content' }));
   const [xhsReferenceAssetIds, setXhsReferenceAssetIds] = useState([]);
+  const [xhsSourceAssetIds, setXhsSourceAssetIds] = useState([]);
   // 小红书子模式：content(种草) / plog(生活碎片) — 支持外部传入或内部管理
   const [xhsSubModeInternal, setXhsSubModeInternal] = useState('content');
   const xhsSubMode = xhsSubModeProp !== undefined ? xhsSubModeProp : xhsSubModeInternal;
@@ -89,12 +91,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const [plogText, setPlogText] = useState('');
   const [plogStyle, setPlogStyle] = useState('ins-minimal');
   const [plogLayout, setPlogLayout] = useState('casual');
-  const [plogRefImg, setPlogRefImg] = useState(null);
-  const [plogRefPreview, setPlogRefPreview] = useState('');
-  const plogFileRef = useRef(null);
+  const [plogStyleImages, setPlogStyleImages] = useState([]);
+  const [plogSourceImages, setPlogSourceImages] = useState([]);
   const plogPromptRef = useRef(null);
   const [homePlogDraftId, setHomePlogDraftId] = useState(() => createContentDraftId({ ownerEmail, source: 'xhs-plog' }));
   const [homePlogReferenceAssetIds, setHomePlogReferenceAssetIds] = useState([]);
+  const [homePlogSourceAssetIds, setHomePlogSourceAssetIds] = useState([]);
 
   const [ecName, setEcName] = useState('');
   const [ecCat, setEcCat] = useState('美妆护肤');
@@ -184,12 +186,16 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
         setRefImages(snapshot.referenceImages.filter(value => typeof value === 'string' && value.trim()).slice(0, 3));
         setXhsReferenceAssetIds([]);
       }
+      if (Array.isArray(snapshot.referenceAssets?.source)) {
+        setXhsSourceAssetIds(snapshot.referenceAssets.source);
+      }
     }
     if (kind === 'plog') {
       setPlogText(typeof snapshot.text === 'string' ? snapshot.text : '');
       if (typeof snapshot.style === 'string') setPlogStyle(snapshot.style);
       if (typeof snapshot.layout === 'string') setPlogLayout(snapshot.layout);
       if (Array.isArray(snapshot.referenceAssetIds)) setHomePlogReferenceAssetIds(snapshot.referenceAssetIds);
+      if (Array.isArray(snapshot.referenceAssets?.source)) setHomePlogSourceAssetIds(snapshot.referenceAssets.source);
     }
   }, [recoveryCheckpoint]);
 
@@ -225,26 +231,28 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     setHomePlogDraftId(createContentDraftId({ ownerEmail, source: 'xhs-plog' }));
     dispatch({ type: 'SET_INPUT', text: '' });
     setXhsReferenceAssetIds([]);
+    setXhsSourceAssetIds([]);
+    setRefImages([]);
+    setXhsSourceImages([]);
     setPlogText('');
     setPlogStyle('ins-minimal');
     setPlogLayout('casual');
     setHomePlogReferenceAssetIds([]);
+    setHomePlogSourceAssetIds([]);
+    setPlogStyleImages([]);
+    setPlogSourceImages([]);
   }, [ownerEmail]);
 
   const setMode = (m) => dispatch({ type: 'SET_MODE', mode: m });
   const setText = (t) => dispatch({ type: 'SET_INPUT', text: t });
-  const xhsMentionImages = useMemo(() => refImages.map((url, index) => ({
-    id: `xhs-reference-${index}`,
-    url,
-    name: `参考图 ${index + 1}`,
-    role: 'reference',
-  })), [refImages]);
-  const plogMentionImages = useMemo(() => plogRefPreview ? [{
-    id: 'plog-reference-1',
-    url: plogRefPreview,
-    name: '参考图 1',
-    role: 'reference',
-  }] : [], [plogRefPreview]);
+  const xhsMentionImages = useMemo(() => [
+    ...refImages.map((url, index) => ({ id: `xhs-style-${index}`, url, name: `风格参考 ${index + 1}`, role: 'style' })),
+    ...xhsSourceImages.map((url, index) => ({ id: `xhs-source-${index}`, url, name: `我的素材 ${index + 1}`, role: 'source' })),
+  ], [refImages, xhsSourceImages]);
+  const plogMentionImages = useMemo(() => [
+    ...plogStyleImages.map((url, index) => ({ id: `plog-style-${index}`, url, name: `风格参考 ${index + 1}`, role: 'style' })),
+    ...plogSourceImages.map((url, index) => ({ id: `plog-source-${index}`, url, name: `生活素材 ${index + 1}`, role: 'source' })),
+  ], [plogStyleImages, plogSourceImages]);
 
   // 检查书签工具返回的提取数据
   useEffect(() => {
@@ -628,20 +636,31 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   const doGenXHS = async () => {
     if (!inputText.trim()) return;
     const usePreview = !logged;
-    let referenceAssetIds = xhsReferenceAssetIds;
+    let ownedStyleAssetIds = xhsReferenceAssetIds;
+    let ownedSourceAssetIds = xhsSourceAssetIds;
+    let referenceAssetIds = [...ownedStyleAssetIds, ...ownedSourceAssetIds];
     setErr('');
     dispatch({ type: 'START_GEN' });
     // 创建 AbortController 以便组件卸载时中断
     genAbortRef.current = new AbortController();
     try {
-      if (!usePreview && refImages.length) {
-        const uploaded = await uploadEcommerceAssets(refImages, 'reference', { signal: genAbortRef.current.signal });
-        referenceAssetIds = uploaded.map(asset => asset.assetId);
-        setXhsReferenceAssetIds(referenceAssetIds);
+      if (!usePreview && (refImages.length || xhsSourceImages.length)) {
+        const [styleUploads, sourceUploads] = await Promise.all([
+          refImages.length ? uploadEcommerceAssets(refImages, 'style', { signal: genAbortRef.current.signal }) : Promise.resolve([]),
+          xhsSourceImages.length ? uploadEcommerceAssets(xhsSourceImages, 'reference', { signal: genAbortRef.current.signal }) : Promise.resolve([]),
+        ]);
+        ownedStyleAssetIds = styleUploads.map(asset => asset.assetId);
+        ownedSourceAssetIds = sourceUploads.map(asset => asset.assetId);
+        referenceAssetIds = [...ownedStyleAssetIds, ...ownedSourceAssetIds];
+        setXhsReferenceAssetIds(ownedStyleAssetIds);
+        setXhsSourceAssetIds(ownedSourceAssetIds);
       }
-      // SSE 流式回调：用后端真实进度替换假定时器
       const result = await generateContent(inputText, usePreview ? refImages : [], {
         preview: usePreview,
+        referenceAssets: {
+          style: usePreview ? refImages : ownedStyleAssetIds,
+          source: usePreview ? xhsSourceImages : ownedSourceAssetIds,
+        },
         referenceAssetIds,
         signal: genAbortRef.current.signal,
         onProgress: (d) => {
@@ -681,31 +700,35 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
     }
   };
 
-  const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
   const doGenPlog = async () => {
     if (!plogText.trim()) return;
     const usePreview = !logged;
-    let referenceAssetIds = homePlogReferenceAssetIds;
+    let ownedStyleAssetIds = homePlogReferenceAssetIds;
+    let ownedSourceAssetIds = homePlogSourceAssetIds;
+    let referenceAssetIds = [...ownedStyleAssetIds, ...ownedSourceAssetIds];
     setErr('');
     dispatch({ type: 'START_GEN' });
     try {
-      if (!usePreview && plogRefImg) {
-        const uploaded = await uploadEcommerceAssets([plogRefImg], 'reference');
-        referenceAssetIds = uploaded.map(asset => asset.assetId);
-        setHomePlogReferenceAssetIds(referenceAssetIds);
+      if (!usePreview && (plogStyleImages.length || plogSourceImages.length)) {
+        const [styleUploads, sourceUploads] = await Promise.all([
+          plogStyleImages.length ? uploadEcommerceAssets(plogStyleImages, 'style') : Promise.resolve([]),
+          plogSourceImages.length ? uploadEcommerceAssets(plogSourceImages, 'reference') : Promise.resolve([]),
+        ]);
+        ownedStyleAssetIds = styleUploads.map(asset => asset.assetId);
+        ownedSourceAssetIds = sourceUploads.map(asset => asset.assetId);
+        referenceAssetIds = [...ownedStyleAssetIds, ...ownedSourceAssetIds];
+        setHomePlogReferenceAssetIds(ownedStyleAssetIds);
+        setHomePlogSourceAssetIds(ownedSourceAssetIds);
       }
       const result = await generatePlogContent({
         text: plogText.trim(),
         style: plogStyle,
         layout: plogLayout,
         coverVariant: 'collage',
-        refImage: usePreview && plogRefImg ? await readFileAsBase64(plogRefImg) : undefined,
+        referenceAssets: {
+          style: usePreview ? plogStyleImages : ownedStyleAssetIds,
+          source: usePreview ? plogSourceImages : ownedSourceAssetIds,
+        },
         referenceAssetIds,
         preview: usePreview,
       }, {
@@ -747,6 +770,32 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       reader.onload = (ev) => setter(p => p.length >= max ? p : [...p, ev.target.result]);
       reader.readAsDataURL(f);
     });
+  };
+
+  const addRoleImages = (role, files) => {
+    const style = role === 'style';
+    if (style) setXhsReferenceAssetIds([]);
+    else setXhsSourceAssetIds([]);
+    addRefImage(files, style ? setRefImages : setXhsSourceImages, style ? refImages : xhsSourceImages, style ? 3 : 6);
+  };
+
+  const removeRoleImage = (role, index) => {
+    const style = role === 'style';
+    (style ? setRefImages : setXhsSourceImages)(current => current.filter((_, itemIndex) => itemIndex !== index));
+    (style ? setXhsReferenceAssetIds : setXhsSourceAssetIds)([]);
+  };
+
+  const addPlogRoleImages = (role, files) => {
+    const style = role === 'style';
+    if (style) setHomePlogReferenceAssetIds([]);
+    else setHomePlogSourceAssetIds([]);
+    addRefImage(files, style ? setPlogStyleImages : setPlogSourceImages, style ? plogStyleImages : plogSourceImages, style ? 3 : 6);
+  };
+
+  const removePlogRoleImage = (role, index) => {
+    const style = role === 'style';
+    (style ? setPlogStyleImages : setPlogSourceImages)(current => current.filter((_, itemIndex) => itemIndex !== index));
+    (style ? setHomePlogReferenceAssetIds : setHomePlogSourceAssetIds)([]);
   };
 
   const isXHS = mode === 'content';
@@ -825,26 +874,14 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           {xhsSubMode === 'content' && (
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
               <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
-                <div style={{ padding:'16px 12px', display:'flex', flexDirection:'column', alignItems:'center' }}>
-                  <button onClick={() => fileRef.current?.click()}
-                    style={{
-                      width:86, height:108,
-                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
-                      borderRadius:16, border:'2px dashed var(--border)', background:'#fff',
-                      boxShadow:'0 14px 36px rgba(57,45,26,0.10)',
-                      cursor:'pointer', fontFamily:'inherit',
-                      transform:'rotate(-5deg)', transition:'all 0.2s',
-                      overflow:'hidden',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor='var(--accent)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform='rotate(-5deg)'; e.currentTarget.style.borderColor='var(--border)'; }}>
-                    <span style={{ display:'grid', width:40, height:40, placeItems:'center', borderRadius:'50%', background:'#f8f3ea', color:'var(--text-secondary)', boxShadow:'0 10px 24px rgba(57,45,26,0.12)' }}>
-                      <MdAddPhotoAlternate size={20} />
-                    </span>
-                    <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
-                    <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 3 张</span>
-                  </button>
-                  <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { setXhsReferenceAssetIds([]); addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value=''; }} />
+                <div style={{ gridColumn:'1 / -1' }}>
+                  <ContentReferencePicker
+                    compact
+                    styleImages={refImages}
+                    sourceImages={xhsSourceImages}
+                    onAdd={addRoleImages}
+                    onRemove={removeRoleImage}
+                  />
                 </div>
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!inputText && (
@@ -866,13 +903,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 </div>
               </div>
               <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap', alignItems:'center' }}>
-                  {refImages.map((src, i) => (
-                    <div key={i} style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)', flexShrink:0 }}>
-                      <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                      <div onClick={() => { setXhsReferenceAssetIds([]); setRefImages(p => p.filter((_,j) => j!==i)); }}
-                        style={{ position:'absolute', top:1, right:1, width:16, height:16, borderRadius:'50%', background:'rgba(0,0,0,0.6)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:8 }}>✕</div>
-                    </div>
-                  ))}
                 <ImageMentionPicker
                   images={xhsMentionImages}
                   selectionMode="insert"
@@ -886,26 +916,14 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
           {xhsSubMode === 'plog' && (
             <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
               <div style={{ display:'grid', gridTemplateColumns:'130px minmax(0,1fr)', gap:12, flex:1, borderRadius:16, padding:'4px', background:'linear-gradient(90deg, #FAF0E4 0%, #FBF3EA 50%, #FDF9F5 75%, #FFFFFF 100%)' }}>
-                <div style={{ padding:'16px 12px', display:'flex', flexDirection:'column', alignItems:'center' }}>
-                  <button onClick={() => plogFileRef.current?.click()}
-                    style={{
-                      width:86, height:108,
-                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6,
-                      borderRadius:16, border:'2px dashed var(--border)', background:'#fff',
-                      boxShadow:'0 14px 36px rgba(57,45,26,0.10)',
-                      cursor:'pointer', fontFamily:'inherit',
-                      transform:'rotate(-5deg)', transition:'all 0.2s',
-                      overflow:'hidden',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px) rotate(0deg)'; e.currentTarget.style.borderColor='var(--accent)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform='rotate(-5deg)'; e.currentTarget.style.borderColor='var(--border)'; }}>
-                    <span style={{ display:'grid', width:40, height:40, placeItems:'center', borderRadius:'50%', background:'#f8f3ea', color:'var(--text-secondary)', boxShadow:'0 10px 24px rgba(57,45,26,0.12)' }}>
-                      <MdAddPhotoAlternate size={20} />
-                    </span>
-                    <span style={{ fontSize:12, fontWeight:900, color:'var(--text-secondary)' }}>加图</span>
-                    <span style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)' }}>最多 1 张</span>
-                  </button>
-                  <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => { const f=e.target.files?.[0]; if(f){setHomePlogReferenceAssetIds([]);setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));} e.target.value=''; }} />
+                <div style={{ gridColumn:'1 / -1' }}>
+                  <ContentReferencePicker
+                    compact
+                    styleImages={plogStyleImages}
+                    sourceImages={plogSourceImages}
+                    onAdd={addPlogRoleImages}
+                    onRemove={removePlogRoleImage}
+                  />
                 </div>
                 <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
                   {!plogText && (
@@ -927,14 +945,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 </div>
               </div>
               <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8 }}>
-                {plogRefPreview && <>
-                  <div style={{ position:'relative', width:52, height:52, borderRadius:10, overflow:'hidden', border:'1px solid var(--border)' }}>
-                    <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    <div onClick={() => { setHomePlogReferenceAssetIds([]); setPlogRefImg(null); setPlogRefPreview(''); }}
-                      style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700 }}>×</div>
-                  </div>
-                  <span style={{ fontSize:12, color:'var(--text-muted)' }}>参考图</span>
-                </>}
                 <ImageMentionPicker
                   images={plogMentionImages}
                   selectionMode="insert"
@@ -1187,18 +1197,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         <div className="ph-sub">例如：厦门3天2夜旅游攻略、百元蓝牙耳机测评</div>
                       </div>
                     </div>
+                    <ContentReferencePicker
+                      compact
+                      styleImages={refImages}
+                      sourceImages={xhsSourceImages}
+                      onAdd={addRoleImages}
+                      onRemove={removeRoleImage}
+                    />
                     <div className="ref-images-row">
-                      {refImages.map((src, i) => (
-                        <div key={i} className="ref-thumb"><img src={src} alt="" /><div className="ref-remove" onClick={() => { setXhsReferenceAssetIds([]); setRefImages(p => p.filter((_, j) => j !== i)); }}>×</div></div>
-                      ))}
-                      {refImages.length < 3 && <div className="ref-add" onClick={() => fileRef.current?.click()}><Upload size={14} /></div>}
-                      <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { setXhsReferenceAssetIds([]); addRefImage(e.target.files, setRefImages, refImages, 3); e.target.value = ''; }} />
                       <ImageMentionPicker
                         images={xhsMentionImages}
                         selectionMode="insert"
                         onToggle={image => insertMentionInTextarea(xhsPromptRef, inputText, setText, image.label)}
                       />
-                      <span className="ref-hint">参考图（可选，最多3张）</span>
+                      <span className="ref-hint">素材会保留主体，风格参考只影响视觉方法</span>
                     </div>
                     <div className="tags-cloud-wrap">
                       <div className="tags-hint"><span>💡 试试这些热门主题，点击即可填入</span></div>
@@ -1221,30 +1233,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                         <div className="ph-sub">例如：独居日常｜周末宅家看书喝咖啡</div>
                       </div>
                     </div>
-                    {/* 参考图（与种草图文一样的样式） */}
+                    <ContentReferencePicker
+                      compact
+                      styleImages={plogStyleImages}
+                      sourceImages={plogSourceImages}
+                      onAdd={addPlogRoleImages}
+                      onRemove={removePlogRoleImage}
+                    />
                     <div className="ref-images-row" style={{ borderBottom:'none', padding:'12px 16px', background:'#FAFBFC', borderTop:'1.5px solid var(--border)' }}>
-                      {plogRefPreview ? (
-                        <div style={{ position:'relative', width:60, height:60, borderRadius:8, overflow:'hidden', border:'2px solid #ddd', flex:'0 0 auto' }}>
-                          <img src={plogRefPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                          <div onClick={() => { setHomePlogReferenceAssetIds([]); setPlogRefImg(null); setPlogRefPreview(''); }}
-                            style={{ position:'absolute', top:-5, right:-5, width:18, height:18, borderRadius:'50%', background:'#FF3B5C', color:'#fff', fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', border:'2px solid #fff', fontWeight:700, lineHeight:1 }}>×</div>
-                        </div>
-                      ) : (
-                        <div onClick={() => plogFileRef.current?.click()}
-                          style={{ width:60, height:60, borderRadius:8, border:'2px dashed #ccc', display:'flex', alignItems:'center', justifyContent:'center', color:'#999', cursor:'pointer', fontSize:20, background:'#fff', flex:'0 0 auto' }}>
-                          +
-                        </div>
-                      )}
-                      <span style={{ fontSize:13, color:'#999' }}>参考图（可选，AI自动统一整组色调）</span>
                       <ImageMentionPicker
                         images={plogMentionImages}
                         selectionMode="insert"
                         onToggle={image => insertMentionInTextarea(plogPromptRef, plogText, setPlogText, image.label)}
                       />
-                      <input ref={plogFileRef} type="file" accept="image/*" hidden onChange={e => {
-                        const f=e.target.files?.[0]; if(f){setHomePlogReferenceAssetIds([]);setPlogRefImg(f);setPlogRefPreview(URL.createObjectURL(f));}
-                        e.target.value='';
-                      }} />
+                      <span style={{ fontSize:13, color:'#999' }}>生活素材用于保留真实主体，风格参考用于统一视觉气质</span>
                     </div>
                     {/* 风格 + 排版设置 */}
                     <div className="tags-cloud-wrap" style={{ borderTop:'none', padding:'8px 16px 10px' }}>
