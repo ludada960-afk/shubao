@@ -4,6 +4,11 @@ import {
   isDirectCreationMode,
   normalizeShowcase,
 } from '../src/pages/Home/creationShowcaseModel.js';
+import {
+  contentResultPages,
+  contentResultSummary,
+  isContentResult,
+} from '../src/pages/Home/contentResultModel.js';
 
 test('content and visual are direct creation modes while ecommerce and video remain confirmed flows', () => {
   assert.equal(isDirectCreationMode('content'), true);
@@ -40,3 +45,18 @@ test('invalid modes fall back to content without mutating supplied entry data', 
   assert.deepEqual(entry, { id: 'demo', kind: 'content-set', assets: [{ src: '/cover.png' }] });
 });
 
+test('content results retain one prompt record for the cover and every content page', () => {
+  const item = {
+    type: 'xhs-content',
+    cover_url: '/cover.png',
+    image_urls: ['/one.png', '/two.png'],
+    cover_prompt: 'cover prompt',
+    image_prompts: [{ page_id: 1, prompt: 'page one' }, { page_id: 2, prompt: 'page two' }],
+  };
+  const pages = contentResultPages(item);
+
+  assert.deepEqual(pages.map(page => page.pageId), [0, 1, 2]);
+  assert.deepEqual(pages.map(page => page.prompt), ['cover prompt', 'page one', 'page two']);
+  assert.deepEqual(contentResultSummary(item), { pageCount: 3, promptCount: 3, hasPublishCopy: false });
+  assert.equal(isContentResult(item), true);
+});

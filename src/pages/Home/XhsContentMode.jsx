@@ -715,7 +715,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       if (!accepted) throw new Error('服务端尚未完成稳定作品交付，请稍后重试');
       dispatch({ type: 'SET_STAGE', stage: 4 });
       await new Promise(r => setTimeout(r, 800));
-      const work = { ...accepted.result, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
+      const work = { ...accepted.result, type: 'xhs-content', _contentResult: true, _inputText: inputText, _saveKey: 'gen-' + Date.now(), _preview: usePreview, at: new Date().toLocaleDateString('zh-CN'), id: Date.now() };
       dispatch({ type: 'SET_RESULT', result: work });
       if (!usePreview) {
         await saveWork(work, state.phone).catch(() => null);
@@ -779,7 +779,20 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       });
       const accepted = acceptAuthoritativeContentCompletion(result);
       if (!accepted) throw new Error('服务端尚未完成稳定作品交付，请稍后重试');
-      const work = { ...accepted.result, _plogResult: true, _preview: usePreview, _saveKey: 'plog-' + Date.now(), images: { cover: accepted.result.cover_url } };
+      const plogCopy = Array.isArray(accepted.result.copyLines) ? accepted.result.copyLines.join('\n') : accepted.result.copyLines;
+      const work = {
+        ...accepted.result,
+        type: 'xhs-plog',
+        _contentResult: true,
+        _plogResult: true,
+        _inputText: plogText,
+        title: accepted.result.title || accepted.result.caption || plogText.trim().slice(0, 42),
+        body_text: accepted.result.body_text || plogCopy || accepted.result.caption || '',
+        hashtags: accepted.result.hashtags || [],
+        _preview: usePreview,
+        _saveKey: 'plog-' + Date.now(),
+        images: { cover: accepted.result.cover_url },
+      };
       dispatch({ type: 'SET_RESULT', result: work });
       if (logged) {
         await saveWork(work, state.phone).catch(() => null);

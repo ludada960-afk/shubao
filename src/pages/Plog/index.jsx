@@ -147,12 +147,20 @@ export default function PlogPage() {
       });
       const accepted = acceptAuthoritativeContentCompletion(result);
       if (!accepted) throw new Error('服务端尚未完成稳定作品交付，请稍后重试');
-      setResults(accepted.result);
+      const plogCopy = Array.isArray(accepted.result.copyLines) ? accepted.result.copyLines.join('\n') : accepted.result.copyLines;
+      const normalizedResult = {
+        ...accepted.result,
+        _inputText: text,
+        title: accepted.result.title || accepted.result.caption || text.trim().slice(0, 42),
+        body_text: accepted.result.body_text || plogCopy || accepted.result.caption || '',
+        hashtags: accepted.result.hashtags || [],
+      };
+      setResults(normalizedResult);
       setGenState('done');
       dispatch({ type: 'CLOSE_RESULT' });
       if (state.logged) {
         await saveWork({
-          ...accepted.result,
+          ...normalizedResult,
           _plogResult: true,
           _saveKey: `plog-${Date.now()}`,
           images: { cover: accepted.result.cover_url },

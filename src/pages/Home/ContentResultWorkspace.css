@@ -1,0 +1,29 @@
+.content-result-overlay { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 22px; background: rgba(18, 17, 16, .58); backdrop-filter: blur(9px); }
+.content-result-workspace { display: flex; width: min(1180px, 96vw); max-height: min(850px, 94vh); flex-direction: column; overflow: hidden; border: 1px solid rgba(34, 27, 22, .1); border-radius: 12px; background: #fffdfb; box-shadow: 0 28px 90px rgba(27, 20, 15, .28); }
+.content-result-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 24px 16px; border-bottom: 1px solid #eee7e2; }
+.content-result-header span { display: inline-flex; align-items: center; gap: 5px; color: #b9475f; font-size: 11px; font-weight: 800; }
+.content-result-header h1 { max-width: 760px; margin: 6px 0 4px; color: #27211e; font-size: 21px; line-height: 1.35; }
+.content-result-header p { margin: 0; color: #8a7c74; font-size: 12px; }
+.content-result-close { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #e8dfd9; border-radius: 50%; color: #665b55; background: #fff; cursor: pointer; }
+.content-result-layout { display: grid; min-height: 0; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); overflow: auto; }
+.content-result-gallery { min-width: 0; padding: 20px 22px 24px; background: #f8f3ee; }
+.content-result-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; max-width: 610px; margin: 0 auto; }
+.content-result-grid button { position: relative; min-width: 0; aspect-ratio: 3 / 4; overflow: hidden; padding: 0; border: 2px solid transparent; border-radius: 8px; background: #eae1da; cursor: pointer; }
+.content-result-grid button.is-selected { border-color: #b9475f; box-shadow: 0 0 0 2px rgba(185, 71, 95, .15); }
+.content-result-grid img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.content-result-grid span { position: absolute; top: 6px; left: 6px; padding: 3px 5px; border-radius: 4px; color: #fff; background: rgba(31, 24, 20, .62); font: 700 10px/1 ui-monospace, monospace; }
+.content-result-prompt { max-width: 610px; margin: 14px auto 0; padding: 12px 14px; border: 1px solid #eadfd8; border-radius: 9px; background: #fff; }
+.content-result-prompt > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #423732; font-size: 12px; }
+.content-result-prompt > div span { display: inline-flex; align-items: center; gap: 3px; color: #7b9277; font-size: 10px; }
+.content-result-prompt p { display: -webkit-box; overflow: auto; max-height: 90px; margin: 7px 0 0; color: #766a63; font-size: 11px; line-height: 1.65; white-space: pre-wrap; -webkit-box-orient: vertical; }
+.content-result-copy { display: flex; min-width: 0; flex-direction: column; padding: 26px 24px 20px; background: #fffdfb; }
+.content-result-copy-head > span { color: #b9475f; font-size: 11px; font-weight: 800; }
+.content-result-copy-head strong { display: block; margin-top: 7px; color: #2d2622; font-size: 18px; line-height: 1.4; }
+.content-result-body { min-height: 0; margin-top: 15px; overflow: auto; color: #665b55; font-size: 13px; line-height: 1.8; }
+.content-result-body p { margin: 0 0 7px; }
+.content-result-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.content-result-tags span { color: #b9475f; font-size: 11px; }
+.content-result-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: auto; padding-top: 18px; }
+.content-result-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 34px; padding: 0 11px; border: 1px solid #e7ddd6; border-radius: 7px; color: #574b45; background: #fff; font: 700 11px/1 inherit; cursor: pointer; }
+.content-result-actions button:hover { border-color: #b9475f; color: #a83f57; }
+@media (max-width: 760px) { .content-result-overlay { padding: 0; } .content-result-workspace { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; } .content-result-header { padding: 16px; } .content-result-header h1 { font-size: 17px; } .content-result-layout { display: block; } .content-result-gallery { padding: 13px; } .content-result-copy { min-height: 300px; padding: 18px 16px 20px; } }

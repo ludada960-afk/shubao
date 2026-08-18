@@ -8,6 +8,8 @@ import ResponsiveImage from './components/ResponsiveImage.jsx';
 import { predecodeResponsiveImage } from './components/responsiveImageModel.js';
 import { ecommerceGallerySlides } from './gallery/ecommerceGalleryModel.js';
 import { createCaseImagePreloader } from './gallery/caseImagePreloader.js';
+import ContentResultWorkspace from './pages/Home/ContentResultWorkspace.jsx';
+import { isContentResult } from './pages/Home/contentResultModel.js';
 
 function tryOnWorkflowAssets(item) {
   const assets = (item?.assets || item?.images || []).map((asset, index) => ({
@@ -227,6 +229,10 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
 
   if (item._galleryItem && item._galleryType === 'ecommerce') {
     return <EcommerceGalleryPreview item={item} onClose={onClose} />;
+  }
+
+  if (isContentResult(item)) {
+    return <ContentResultWorkspace item={item} onClose={onClose} onDownload={handleExport} onSendToCanvas={onSendToCanvas} />;
   }
 
   // ═══════ EC 结果展示 ═══════
