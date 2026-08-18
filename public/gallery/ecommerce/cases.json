@@ -1,5 +1,406 @@
 [
   {
+    "id": "baby-bottle-product-suite",
+    "type": "ecommerce",
+    "title": "给这个奶瓶生成一套商品图",
+    "category": "母婴用品",
+    "platform": "淘宝/天猫",
+    "hint": "给这个奶瓶生成一套商品图",
+    "cover_url": "/gallery/ecommerce/baby-bottle-product-suite/cover.webp",
+    "cover_strategy": "mosaic",
+    "cover_mosaic_url": "/gallery/ecommerce/baby-bottle-product-suite/cover.webp",
+    "images": [
+      {
+        "id": "white-background",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/01.webp",
+        "label": "标准识别白底图",
+        "description": "完整展示奶瓶的橙色与透明色组合及整体结构",
+        "role": "white_background",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:white-background",
+        "ratio": "1:1",
+        "width": 2048,
+        "height": 2048,
+        "sourceFile": "01-standard-identification.png"
+      },
+      {
+        "id": "main-text-1",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/02.webp",
+        "label": "商品识别主图",
+        "description": "用首屏主视觉建立奶瓶的商品识别与核心卖点",
+        "role": "main_text",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-1",
+        "ratio": "1:1",
+        "width": 2048,
+        "height": 2048,
+        "sourceFile": "02-product-hero.png"
+      },
+      {
+        "id": "main-text-2",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/03.webp",
+        "label": "核心利益主图",
+        "description": "突出商品可见结构与核心利益的主视觉",
+        "role": "main_text",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-2",
+        "ratio": "1:1",
+        "width": 2048,
+        "height": 2048,
+        "sourceFile": "03-core-benefit.png"
+      },
+      {
+        "id": "main-text-3",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/04.webp",
+        "label": "使用场景主图",
+        "description": "展示奶瓶进入真实使用场景的方式",
+        "role": "main_text",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-3",
+        "ratio": "1:1",
+        "width": 2048,
+        "height": 2048,
+        "sourceFile": "04-use-scene.png"
+      },
+      {
+        "id": "main-text-4",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/05.webp",
+        "label": "品质证明主图",
+        "description": "用可见轮廓与细节建立商品品质感",
+        "role": "main_text",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-4",
+        "ratio": "1:1",
+        "width": 2048,
+        "height": 2048,
+        "sourceFile": "05-quality-proof.png"
+      },
+      {
+        "id": "detail-slice-exterior-structure",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/06.webp",
+        "label": "尺寸适配详情图",
+        "description": "展示奶瓶的外形比例与尺寸适配信息",
+        "role": "detail_slice_exterior_structure",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-exterior-structure",
+        "ratio": "9:16",
+        "width": 1152,
+        "height": 2048,
+        "sourceFile": "06-size-detail.png"
+      },
+      {
+        "id": "detail-slice-surface-finish",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/07.webp",
+        "label": "真实使用详情图",
+        "description": "用真实使用画面展示奶瓶的日常使用状态",
+        "role": "detail_slice_surface_finish",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-surface-finish",
+        "ratio": "9:16",
+        "width": 1152,
+        "height": 2048,
+        "sourceFile": "07-use-detail.png"
+      },
+      {
+        "id": "detail-slice-surface-texture",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/08.webp",
+        "label": "结构与功能详情图",
+        "description": "展示奶瓶可见结构与功能相关的细节",
+        "role": "detail_slice_surface_texture",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-surface-texture",
+        "ratio": "9:16",
+        "width": 1152,
+        "height": 2048,
+        "sourceFile": "08-structure-detail.png"
+      },
+      {
+        "id": "detail-slice-visible-feature",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/09.webp",
+        "label": "清洁维护详情图",
+        "description": "展示输入材料可以确认的清洁与维护画面",
+        "role": "detail_slice_visible_feature",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-visible-feature",
+        "ratio": "9:16",
+        "width": 1152,
+        "height": 2048,
+        "sourceFile": "09-cleaning-detail.png"
+      },
+      {
+        "id": "detail-slice-visible-material",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/10.webp",
+        "label": "材质做工详情图",
+        "description": "突出奶瓶的可见材质、做工与表面细节",
+        "role": "detail_slice_visible_material",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-visible-material",
+        "ratio": "9:16",
+        "width": 1152,
+        "height": 2048,
+        "sourceFile": "10-material-detail.png"
+      },
+      {
+        "id": "detail-slice-visual-form",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/11.webp",
+        "label": "核心卖点详情图",
+        "description": "用局部放大和信息层级承接奶瓶核心卖点",
+        "role": "detail_slice_visual_form",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-visual-form",
+        "ratio": "9:16",
+        "width": 1152,
+        "height": 2048,
+        "sourceFile": "11-core-selling-detail.png"
+      },
+      {
+        "id": "transparent",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/12.webp",
+        "label": "透明商品素材",
+        "description": "保留透明背景的奶瓶素材，便于后续排版",
+        "role": "transparent",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+        "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:transparent",
+        "ratio": "1:1",
+        "width": 2048,
+        "height": 2048,
+        "sourceFile": "12-transparent-product.png"
+      }
+    ],
+    "prompt": "给这个奶瓶生成一套商品图。",
+    "sourceAssets": [
+      {
+        "role": "product",
+        "url": "/gallery/ecommerce/baby-bottle-product-suite/source-baby-bottle.jpg",
+        "name": "奶瓶参考图"
+      }
+    ],
+    "remix": {
+      "mode": "product_suite",
+      "prompt": "给这个奶瓶生成一套商品图。",
+      "sourceAssets": [
+        {
+          "role": "product",
+          "url": "/gallery/ecommerce/baby-bottle-product-suite/source-baby-bottle.jpg",
+          "name": "奶瓶参考图"
+        }
+      ],
+      "sourceAssetRoles": [
+        "product"
+      ]
+    },
+    "manifest": {
+      "id": "baby-bottle-product-suite",
+      "title": "给这个奶瓶生成一套商品图",
+      "category": "母婴用品",
+      "platform": "淘宝/天猫",
+      "prompt": "给这个奶瓶生成一套商品图。",
+      "sourceAssets": [
+        {
+          "role": "product",
+          "url": "/gallery/ecommerce/baby-bottle-product-suite/source-baby-bottle.jpg",
+          "name": "奶瓶参考图"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "white-background",
+          "file": "01-standard-identification.png",
+          "role": "white_background",
+          "title": "标准识别白底图",
+          "label": "标准识别白底图",
+          "description": "完整展示奶瓶的橙色与透明色组合及整体结构",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/6d59b478c39e1682ae6d1b598f29fb92c6313f575b58013eafe47ce7811a80bc.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:white-background",
+          "ratio": "1:1"
+        },
+        {
+          "id": "main-text-1",
+          "file": "02-product-hero.png",
+          "role": "main_text",
+          "title": "商品识别主图",
+          "label": "商品识别主图",
+          "description": "用首屏主视觉建立奶瓶的商品识别与核心卖点",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/005142abdb99149deac6702d9a1c6312789592e6ff5e66b6bda2245fa19bf77e.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-1",
+          "ratio": "1:1"
+        },
+        {
+          "id": "main-text-2",
+          "file": "03-core-benefit.png",
+          "role": "main_text",
+          "title": "核心利益主图",
+          "label": "核心利益主图",
+          "description": "突出商品可见结构与核心利益的主视觉",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/c8ede91e2f5d209bd107839bd2cc9f3189dacc3d707e33d01f7519ae7e6bf096.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-2",
+          "ratio": "1:1"
+        },
+        {
+          "id": "main-text-3",
+          "file": "04-use-scene.png",
+          "role": "main_text",
+          "title": "使用场景主图",
+          "label": "使用场景主图",
+          "description": "展示奶瓶进入真实使用场景的方式",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/b6fd78f68c6fe9b23c9b0b314fda177e1ceff876d49112225fb4553e47d6c692.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-3",
+          "ratio": "1:1"
+        },
+        {
+          "id": "main-text-4",
+          "file": "05-quality-proof.png",
+          "role": "main_text",
+          "title": "品质证明主图",
+          "label": "品质证明主图",
+          "description": "用可见轮廓与细节建立商品品质感",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/2016340d5f5573240462f3722738a8a007307e008d368f814d8420d898cf27d7.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:main-text-4",
+          "ratio": "1:1"
+        },
+        {
+          "id": "detail-slice-exterior-structure",
+          "file": "06-size-detail.png",
+          "role": "detail_slice_exterior_structure",
+          "title": "尺寸适配详情图",
+          "label": "尺寸适配详情图",
+          "description": "展示奶瓶的外形比例与尺寸适配信息",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/b4c8ca2132a48176a501bc5d714330bd73e34365b2260387d95240145c59bf26.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-exterior-structure",
+          "ratio": "9:16"
+        },
+        {
+          "id": "detail-slice-surface-finish",
+          "file": "07-use-detail.png",
+          "role": "detail_slice_surface_finish",
+          "title": "真实使用详情图",
+          "label": "真实使用详情图",
+          "description": "用真实使用画面展示奶瓶的日常使用状态",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/f4ef553f33f6171b16e5c8ca6fc9a79d3d3a0fd3f0df6a8a24323afeec13ce95.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-surface-finish",
+          "ratio": "9:16"
+        },
+        {
+          "id": "detail-slice-surface-texture",
+          "file": "08-structure-detail.png",
+          "role": "detail_slice_surface_texture",
+          "title": "结构与功能详情图",
+          "label": "结构与功能详情图",
+          "description": "展示奶瓶可见结构与功能相关的细节",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/eaf1015b0cf962e910119d0bf3dbcc20d39327dc2cfaf04091085e5740d04c9f.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-surface-texture",
+          "ratio": "9:16"
+        },
+        {
+          "id": "detail-slice-visible-feature",
+          "file": "09-cleaning-detail.png",
+          "role": "detail_slice_visible_feature",
+          "title": "清洁维护详情图",
+          "label": "清洁维护详情图",
+          "description": "展示输入材料可以确认的清洁与维护画面",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/36d6ea7f0549a53698159df68c2ee46cbbdf97058bb148ddb3ac7314a5a102ed.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-visible-feature",
+          "ratio": "9:16"
+        },
+        {
+          "id": "detail-slice-visible-material",
+          "file": "10-material-detail.png",
+          "role": "detail_slice_visible_material",
+          "title": "材质做工详情图",
+          "label": "材质做工详情图",
+          "description": "突出奶瓶的可见材质、做工与表面细节",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/71cdcc162181b2da4f1e89008bef36dd0975ffbaee8720f2dc5ca9ac5db7884e.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-visible-material",
+          "ratio": "9:16"
+        },
+        {
+          "id": "detail-slice-visual-form",
+          "file": "11-core-selling-detail.png",
+          "role": "detail_slice_visual_form",
+          "title": "核心卖点详情图",
+          "label": "核心卖点详情图",
+          "description": "用局部放大和信息层级承接奶瓶核心卖点",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/305d054d70b5f239505fb9ac45f7cbbc68fc3802d019f86209211253182ba707.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:detail-slice-visual-form",
+          "ratio": "9:16"
+        },
+        {
+          "id": "transparent",
+          "file": "12-transparent-product.png",
+          "role": "transparent",
+          "title": "透明商品素材",
+          "label": "透明商品素材",
+          "description": "保留透明背景的奶瓶素材，便于后续排版",
+          "prompt": "给这个奶瓶生成一套商品图。",
+          "url": "/api/generated-assets/a3eec7f65476028ed519ef60365786f09543252eac8edf1b715ed395f13333e0.png",
+          "taskId": "ec_request_c5100959-e966-4413-808f-6ed5f478253d",
+          "requestKey": "ec_request_c5100959-e966-4413-808f-6ed5f478253d:transparent",
+          "ratio": "1:1"
+        }
+      ],
+      "cover": {
+        "strategy": "mosaic",
+        "outputIds": [
+          "main-text-1",
+          "main-text-2",
+          "main-text-3",
+          "main-text-4",
+          "detail-slice-exterior-structure",
+          "detail-slice-surface-finish",
+          "detail-slice-surface-texture"
+        ]
+      },
+      "remix": {
+        "mode": "product_suite",
+        "prompt": "给这个奶瓶生成一套商品图。",
+        "sourceAssets": [
+          {
+            "role": "product",
+            "url": "/gallery/ecommerce/baby-bottle-product-suite/source-baby-bottle.jpg",
+            "name": "奶瓶参考图"
+          }
+        ],
+        "sourceAssetRoles": [
+          "product"
+        ]
+      }
+    }
+  },
+  {
     "id": "stainless-steel-sauce-container",
     "type": "ecommerce",
     "title": "这是一款不锈钢便捷酱料盒，帮我生成一套电商图",
@@ -23,7 +424,9 @@
           "name": "不锈钢便捷酱料盒参考图"
         }
       ],
-      "sourceAssetRoles": ["product"]
+      "sourceAssetRoles": [
+        "product"
+      ]
     },
     "cover_url": "/gallery/ecommerce/stainless-steel-sauce-container/cover.webp",
     "cover_mosaic_url": "/gallery/ecommerce/stainless-steel-sauce-container/cover.webp",

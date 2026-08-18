@@ -95,6 +95,21 @@ test('published stainless sauce container manifest records its replay input', as
   }]);
 });
 
+test('published baby bottle suite replays the supplied product image without references', async () => {
+  const caseFile = JSON.parse(await readFile(new URL('../public/gallery/ecommerce/baby-bottle-product-suite/case.json', import.meta.url), 'utf8'));
+  const checkpoint = buildGalleryRemixCheckpoint(caseFile);
+  const snapshot = checkpoint.version.inputSnapshot;
+  assert.equal(caseFile.remix.prompt, '给这个奶瓶生成一套商品图。');
+  assert.equal(caseFile.images.length, 12);
+  assert.equal(caseFile.cover_strategy, 'mosaic');
+  assert.deepEqual(snapshot.productImages.map(item => item.url), [
+    '/gallery/ecommerce/baby-bottle-product-suite/source-baby-bottle.jpg',
+  ]);
+  assert.deepEqual(snapshot.referenceImages, []);
+  assert.equal(snapshot.description, '给这个奶瓶生成一套商品图。');
+  assert.doesNotMatch(JSON.stringify(snapshot), /01\.webp|02\.webp|12\.webp/);
+});
+
 test('xiaohongshu gallery remix restores copy and up to three visual references', () => {
   const checkpoint = buildGalleryRemixCheckpoint({
     id: 'note-1',
