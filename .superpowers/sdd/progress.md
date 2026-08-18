@@ -1945,3 +1945,44 @@
   The design is self-reviewed and is waiting for the required written product
   approval before a file-by-file TDD implementation plan. No production code,
   deploy, paid video generation or runtime-owned files were changed.
+
+- 2026-08-15 the complete existing-product requirement/evidence audit is now
+  recorded in
+  `docs/superpowers/specs/2026-08-15-existing-product-requirements-evidence-audit.md`.
+  Every previously stated ecommerce, free-creation, gallery, upload/caret,
+  Canvas, reliability/admin and AI-video requirement is mapped to code, tests
+  and production evidence or an explicit limitation. The only newly proven
+  undeployed behavior gap was smart layering: success must replace the source
+  image and pending placeholder at the same frame, preserve source provenance
+  without a live source edge, initially show one collapsed layer-group
+  composite, and on the first layer extraction hide that composite while
+  revealing all real child layers. Failure keeps the source image. The change
+  was developed red-green and the focused Canvas suite passes 77/77. A final
+  relation-migration review added coverage so source-node workflow edges move
+  to the replacement group instead of disappearing; the focused interaction
+  suite passes 71/71. The full repository passes 1537/1537, the production build
+  transforms 6479 modules, build check and collaboration policy pass, and the
+  diff check is clean. Commit, production deployment and public verification
+  remain pending. No paid video generation ran, and the 12 runtime
+  extension-task deletions plus local temporary/diagnosis files remain excluded.
+
+## 2026-08-18 Ecommerce Showcase Production Deployment
+
+- `df4a7a7` 修复商品套图与万物上身的展示关系：主展示保留同套服饰素材、连续弯曲箭头和四张完整模特卡片；顶部万物上身选择器单独使用四卡片完整缩略图，避免把两个展示需求混用。
+- 正式执行 `scripts/deploy-production.ps1 -CanarySeconds 600 -PublicWarmupSeconds 60`，构建、全量测试 `1574/1574`、生产构建 `6483` 模块、图库/视频/运行时检查和 600 秒 canary 全部通过。
+- 公网 `https://shuimg.cn/health` 返回 `ok=true, ready=true`；主展示资源 `editorial-multi-angle-workflow-v7.png` 与选择器资源 `editorial-multi-angle-fan-v7.webp` 均返回 HTTP 200；远端 `index-BbzpPMof.js` 与本地构建 hash 一致。
+- 两次真实电商生产验收均通过，任务分别生成 3 个稳定资源；AI 视频线程未触碰、未部署。
+
+## 2026-08-18 Inspiration Gallery Prompt Replay
+
+- 内置 14 个小红书图文案例现在从各自 `薯包出品/<案例>/提示词.txt` 提供复用提示词；服务端新增 `/api/gallery-prompts` 元数据接口，前端异步合并提示词但不改变案例顺序。
+- 点击这些案例的“做同款”会进入小红书图文制作区，checkpoint 使用文件中的单句提示词，并明确清空 `referenceImages`；电商、视觉案例和普通内容案例复用逻辑保持不变。
+- 定向素材/复用回归通过 `10/10`，全量回归 `1577/1577`，生产构建 `6484` 模块，`npm run check` 与协作检查通过；本轮未部署、未触发付费生成。
+
+## 2026-08-18 XHS And Plog Reference Generation Release
+
+- `7896195` 完成小红书图文与 Plog 的语义参考素材链路：风格参考用于视觉分析，用户素材按镜头职责选择性参与图生图；XHS 风格参考最多 3 张、用户素材最多 6 张，Plog 复用电商素材上传样式并支持分组上传。
+- Plog 与 XHS 作品均保存封面及每张内容图的实际生成提示词；Plog 额外保存 `page_id`、`shot_role`、`reference_use`，用于灵感发现案例展示和后续复用。
+- 聚焦回归 `18/18`，全量回归 `1592/1592`，生产构建 `6486` 模块，`npm run check`、协作检查和差异检查通过。
+- 生产 release `20260818-100741-548b8ca` 已切换，公网健康检查为 `200/ready=true`，生产审计 `27/27`；真实电商验收任务交付 3 个稳定资产并通过作品、Canvas、缩略图持久化检查。未触发付费视频生成。
+- 远端锁已确认释放；由于版本切换后本地部署进程与远端锁通道断开，未把本轮记为完整 600 秒 Canary 已通过。

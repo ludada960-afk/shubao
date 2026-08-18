@@ -7,7 +7,6 @@ import { buildImageMentions, removeImageMention } from '../../../components/crea
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
 import { productionCaseById } from '../productionCaseCatalog.js';
-import CreationShowcase from '../CreationShowcase.jsx';
 
 const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
@@ -286,7 +285,8 @@ export default function EcommerceWorkbench({
         <span>{isTryOn ? '商品定细节，模特定呈现。' : subheading}</span>
       </div>
 
-      <CreationShowcase mode="ecommerce" subMode={isTryOn ? 'anything_tryon' : 'product_suite'} />
+      {isTryOn && <TryOnShowcase personMode={personMode} />}
+      {!isTryOn && <ProductSuiteShowcase />}
 
       <div className={`ec-xhs-composer ${isTryOn ? 'is-tryon-composer' : ''}`}>
         <div className="ec-xhs-media-column">

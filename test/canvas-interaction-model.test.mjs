@@ -7,6 +7,7 @@ import {
   getContextMenuPosition,
   getContextPanelPosition,
   expandCanvasDragSelection,
+  expandCanvasLayerGroup,
   isCanvasConnectionVisible,
   pickCanvasLayerAtPoint,
   multiSelectionActionsForNodes,
@@ -14,6 +15,7 @@ import {
   MULTI_SELECTION_ACTIONS,
   applyMultiSelectionAction,
   shouldPersistCanvasMutation,
+  replaceCanvasNodeWithLayerResult,
 } from '../src/pages/EcCanvas/canvasInteractionModel.js';
 
 test('layer extraction picks the visible semantic layer without moving the collapsed source', () => {
@@ -147,4 +149,51 @@ test('connections disappear when either endpoint is hidden', () => {
   assert.equal(isCanvasConnectionVisible(edge, [{ id: 'a', hidden: true }, { id: 'b' }]), false);
   assert.equal(isCanvasConnectionVisible(edge, [{ id: 'a' }, { id: 'b', hidden: true }]), false);
   assert.equal(isCanvasConnectionVisible(edge, [{ id: 'a' }]), false);
+});
+
+test('successful smart layering replaces the source and pending nodes without disturbing unrelated canvas state', () => {
+  const state = replaceCanvasNodeWithLayerResult({
+    nodes: [
+      { id: 'source', kind: 'image' },
+      { id: 'pending', kind: 'layer-group', status: 'processing' },
+      { id: 'other', kind: 'image' },
+    ],
+    connections: [
+      { id: 'source-pending', fromNodeId: 'source', toNodeId: 'pending' },
+      { id: 'other-source', fromNodeId: 'other', toNodeId: 'source' },
+      { id: 'source-output', fromNodeId: 'source', toNodeId: 'other-output' },
+      { id: 'unrelated', fromNodeId: 'other', toNodeId: 'other-output' },
+    ],
+    sourceNodeId: 'source',
+    pendingNodeId: 'pending',
+    groupNode: { id: 'group', kind: 'layer-group' },
+    childNodes: [{ id: 'child', kind: 'image', parentLayerGroupId: 'group' }],
+    resultConnections: [{ id: 'group-child', fromNodeId: 'group', toNodeId: 'child' }],
+  });
+
+  assert.deepEqual(state.nodes.map(node => node.id), ['other', 'group', 'child']);
+  assert.deepEqual(state.connections, [
+    { id: 'other-source', fromNodeId: 'other', toNodeId: 'group' },
+    { id: 'source-output', fromNodeId: 'group', toNodeId: 'other-output' },
+    { id: 'unrelated', fromNodeId: 'other', toNodeId: 'other-output' },
+    { id: 'group-child', fromNodeId: 'group', toNodeId: 'child' },
+  ]);
+});
+
+test('extracting a smart layer hides the collapsed composite and reveals every real child layer', () => {
+  const nodes = [
+    { id: 'group', kind: 'layer-group', layerExpanded: false, hidden: false },
+    { id: 'background', parentLayerGroupId: 'group', hidden: true },
+    { id: 'product', parentLayerGroupId: 'group', hidden: true },
+    { id: 'copy', parentLayerGroupId: 'group', hidden: true },
+    { id: 'unrelated', kind: 'image', hidden: false },
+  ];
+
+  assert.deepEqual(expandCanvasLayerGroup(nodes, 'group'), [
+    { id: 'group', kind: 'layer-group', layerExpanded: true, hidden: true },
+    { id: 'background', parentLayerGroupId: 'group', hidden: false },
+    { id: 'product', parentLayerGroupId: 'group', hidden: false },
+    { id: 'copy', parentLayerGroupId: 'group', hidden: false },
+    { id: 'unrelated', kind: 'image', hidden: false },
+  ]);
 });

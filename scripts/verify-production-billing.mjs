@@ -42,7 +42,7 @@ export async function requestJson(url, options = {}) {
   return response.json();
 }
 
-export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToken = '', allowEmptyBalance = false } = {}) {
+export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToken = '', allowEmptyBalance = false, canaryOwnerEmail = process.env.SHUBAO_CANARY_OWNER_EMAIL || CANARY_OWNER_EMAIL } = {}) {
   if (!String(sessionToken || '').trim()) throw new Error('SHUBAO_CANARY_SESSION_TOKEN is required');
   const root = baseUrl.replace(/\/+$/, '');
   const homepage = await requestJson(`${root}/health`);
@@ -61,8 +61,9 @@ export async function verifyProduction({ baseUrl = DEFAULT_BASE_URL, sessionToke
 
   const headers = { authorization: `Bearer ${sessionToken}` };
   const session = await requestJson(`${root}/api/session`, { headers });
-  if (String(session?.email || '').trim().toLowerCase() !== CANARY_OWNER_EMAIL) {
-    throw new Error('Production verification must use the main owner account');
+  const expectedOwnerEmail = String(canaryOwnerEmail || CANARY_OWNER_EMAIL).trim().toLowerCase();
+  if (String(session?.email || '').trim().toLowerCase() !== expectedOwnerEmail) {
+    throw new Error(`Production verification must use the configured canary account (${expectedOwnerEmail})`);
   }
   const balanceBefore = await requestJson(`${root}/api/billing/balance`, { headers });
   const pointsBalance = balanceBefore.balances?.ec_points;

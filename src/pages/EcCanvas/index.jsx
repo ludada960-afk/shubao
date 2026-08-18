@@ -60,7 +60,7 @@ import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
-import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, selectedCanvasBounds } from './canvasInteractionModel.js';
+import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
@@ -1105,11 +1105,7 @@ export default function EcCanvas() {
     if (pointerMode.kind === 'layer-extract') {
       const point = toWorldPoint(e);
       if (Math.hypot(point.x - pointerMode.start.x, point.y - pointerMode.start.y) <= 2) return;
-      setNodes(previous => previous.map(node => {
-        if (node.id === pointerMode.sourceNodeId) return { ...node, layerExpanded: true };
-        if (node.id === pointerMode.targetNodeId) return { ...node, hidden: false };
-        return node;
-      }));
+      setNodes(previous => expandCanvasLayerGroup(previous, pointerMode.sourceNodeId));
       setSelected(pointerMode.targetNodeId);
       setMultiSelected(new Set([pointerMode.targetNodeId]));
       pendingDragRef.current = { ids: new Set([pointerMode.targetNodeId]), start: pointerMode.start, point };
@@ -1401,7 +1397,7 @@ export default function EcCanvas() {
       kind: 'layer-group',
       status: 'processing',
       progressLabel: '正在识别商品、背景和文字',
-      x: Number.isFinite(anchor.x) ? anchor.x : source.x + source.w + GAP * 2,
+      x: Number.isFinite(anchor.x) ? anchor.x : source.x,
       y: Number.isFinite(anchor.y) ? anchor.y : source.y,
       w: Math.max(220, source.w || 240),
       h: Math.max(120, source.h || 240),
@@ -1434,17 +1430,25 @@ export default function EcCanvas() {
         anchor,
         runId: createCanvasGenerationRunId(),
       });
-      setNodes(previous => previous
-        .filter(node => node.id !== pendingId)
-        .concat({
-          ...result.groupNode,
-          layerStatus: data.status || 'complete',
-          layerCapabilities: data.capabilities || {},
-        }, result.nodes));
-      setConnections(previous => {
-        const retained = removeConnectionsForNodes(previous, new Set([pendingId]));
-        return [...retained, ...result.connections];
-      });
+      const groupNode = {
+        ...result.groupNode,
+        layerStatus: data.status || 'complete',
+        layerCapabilities: data.capabilities || {},
+      };
+      setNodes(previous => replaceCanvasNodeWithLayerResult({
+        nodes: previous,
+        sourceNodeId: result.replacedSourceNodeId,
+        pendingNodeId: pendingId,
+        groupNode,
+        childNodes: result.nodes,
+      }).nodes);
+      setConnections(previous => replaceCanvasNodeWithLayerResult({
+        connections: previous,
+        sourceNodeId: result.replacedSourceNodeId,
+        pendingNodeId: pendingId,
+        groupNode,
+        resultConnections: result.connections,
+      }).connections);
       const groupNodeId = result.groupNode.id;
       setSelected(groupNodeId);
       setMultiSelected(new Set([groupNodeId]));
@@ -2192,7 +2196,7 @@ export default function EcCanvas() {
       return;
     }
     if (handler === 'layer-edit') {
-      await handleSmartLayerMaterialization(node, { x: node.x + node.w + GAP * 2, y: node.y });
+      await handleSmartLayerMaterialization(node, { x: node.x, y: node.y });
       return;
     }
     if (handler === 'add-reference') {
@@ -3647,6 +3651,7 @@ export default function EcCanvas() {
                 return <CanvasGenerationNode
                   key={node.id}
                   node={node}
+                  layerChildren={nodes.filter(child => child.parentLayerGroupId === node.id)}
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}

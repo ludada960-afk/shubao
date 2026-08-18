@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Settings } from 'lucide-react';
+import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Settings, ImagePlus, X } from 'lucide-react';
 import { MdAutoAwesome, MdExpandMore, MdAdd, MdEdit, MdGpsFixed, MdPalette, MdRefresh, MdContentCopy, MdVerified, MdChevronRight, MdVisibility, MdCheck, MdClose, MdRotateLeft, MdLightbulb, MdAddPhotoAlternate } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
@@ -106,6 +106,91 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
       maxProductImages={6}
       maxReferenceImages={3}
     />
+  );
+}
+
+function XhsCompactImageCard({ url, label, role, index, onRemove }) {
+  return (
+    <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
+      <img src={url} alt={label} />
+      <span className="ec-xhs-card-caption">{label}</span>
+      <button type="button" className="ec-xhs-card-remove" aria-label={`移除${label}`} onClick={() => onRemove(index)}><X size={10} /></button>
+    </div>
+  );
+}
+
+function XhsCompactAddCard({ role, label, meta, optional = false, onClick, title }) {
+  return (
+    <button type="button" className={`ec-xhs-upload-card ec-xhs-add-card ec-xhs-card-${role}`} onClick={onClick} title={title}>
+      <span className="ec-xhs-add-icon"><ImagePlus size={20} /></span>
+      {optional && <span className="ec-xhs-optional">可选</span>}
+      <span className="ec-xhs-card-title">{label}</span><span className="ec-xhs-card-meta">{meta}</span>
+    </button>
+  );
+}
+
+function XhsInputTemplate({
+  plog,
+  text,
+  promptRef,
+  onTextChange,
+  sourceImages,
+  styleImages,
+  onAdd,
+  onRemove,
+  mentionImages,
+  onMention,
+  onGenerate,
+  optionsOpen,
+  onOptionsToggle,
+  optionsPanel,
+  canGenerate,
+}) {
+  const sourceInputRef = useRef(null);
+  const styleInputRef = useRef(null);
+  const openUpload = role => (role === 'source' ? sourceInputRef : styleInputRef).current?.click();
+  return (
+    <div className={`xhs-input-template${plog ? ' is-plog' : ''}`}>
+      <div className="ec-xhs-composer">
+        <div className="ec-xhs-media-column">
+          <div className="ec-xhs-media-strip">
+            {sourceImages.map((url, index) => <XhsCompactImageCard key={`${url}-${index}`} url={url} role="product" label={`${plog ? '生活素材' : '我的素材'} ${index + 1}`} index={index} onRemove={indexToRemove => onRemove('source', indexToRemove)} />)}
+            {sourceImages.length < 6 && <XhsCompactAddCard role="product" label={sourceImages.length ? '继续添加' : plog ? '生活素材' : '我的素材'} meta={sourceImages.length ? '补充细节' : plog ? '人物或空间' : '主体清晰图'} onClick={() => openUpload('source')} title={plog ? '上传生活素材' : '上传我的素材'} />}
+            <span className="ec-xhs-multiply" aria-hidden="true">×</span>
+            {styleImages.map((url, index) => <XhsCompactImageCard key={`${url}-${index}`} url={url} role="reference" label={`风格参考 ${index + 1}`} index={index} onRemove={indexToRemove => onRemove('style', indexToRemove)} />)}
+            {styleImages.length < 3 && <XhsCompactAddCard role="reference" label={styleImages.length ? '继续添加' : '风格参考'} meta="构图或色调" optional onClick={() => openUpload('style')} title="上传风格参考" />}
+          </div>
+        </div>
+        <div className="ec-textarea-wrap ec-xhs-prompt">
+          {!text && <div className="ec-textarea-placeholder ec-xhs-placeholder">
+            <span className="ec-placeholder-line">{plog ? '描述你想记录的生活瞬间' : '写什么？一句话就够了'}</span>
+            <span className="ec-placeholder-line ec-xhs-example-first">{plog ? '例：周末午后，阳光洒进房间，猫趴在窗台打盹' : '例：厦门 3 天 2 夜旅游攻略，适合第一次去'}</span>
+            <span className="ec-placeholder-line">{plog ? '例：下班路上买了一束花，回家插在玻璃瓶里' : '例：平价好用的防晒霜推荐，学生党预算'}</span>
+          </div>}
+          <textarea ref={promptRef} value={text} onChange={onTextChange} className={!text ? 'ec-empty' : ''} aria-label={plog ? '描述生活碎片' : '描述小红书图文主题'} />
+        </div>
+        <div className="ec-workbench-mention-row"><ImageMentionPicker images={mentionImages} selectionMode="insert" onToggle={onMention} /></div>
+      </div>
+      <input ref={sourceInputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAdd('source', event.target.files); event.currentTarget.value = ''; }} />
+      <input ref={styleInputRef} type="file" accept="image/*" multiple hidden onChange={event => { onAdd('style', event.target.files); event.currentTarget.value = ''; }} />
+      <div className="ec-workbench-actions xhs-template-actions">
+        <div className="ec-workbench-primary-row">
+          <div className="ec-workbench-tools xhs-template-tools">
+            <button type="button" className={`ec-config-trigger${optionsOpen ? ' is-open' : ''}`} onClick={onOptionsToggle} aria-expanded={optionsOpen}>
+              <span className="ec-config-trigger-copy"><span>{plog ? 'Plog 设置' : '生成设置'}</span><strong>{plog ? '9 张碎片 · 情绪文案' : '9 张配图 · 标题 · 正文'}</strong></span><ChevronDown size={13} />
+            </button>
+            <button type="button" className="ec-config-trigger" onClick={onOptionsToggle} aria-label="视觉方向">
+              <span className="ec-config-trigger-copy"><span>视觉方向</span><strong>{plog ? '保留生活感' : '智能匹配'}</strong></span><ChevronDown size={13} />
+            </button>
+            <button type="button" className="ec-config-trigger" onClick={onOptionsToggle} aria-label="发布规范">
+              <span className="ec-config-trigger-copy"><span>发布规范</span><strong>小红书结构</strong></span><ChevronDown size={13} />
+            </button>
+          </div>
+          <button type="button" className="ec-workbench-next" onClick={onGenerate} disabled={!canGenerate}>{plog ? '生成 Plog' : '生成图文'} <span aria-hidden="true">→</span></button>
+        </div>
+        {optionsOpen && <div className="xhs-template-options">{optionsPanel}</div>}
+      </div>
+    </div>
   );
 }
 
@@ -854,6 +939,54 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
   /* ═════ compactMode: 纯 XHS 输入表单（灵图AI下拉面板风格）═════ */
   if (compactMode) {
+    return (
+      <div className="xhs-content-surface">
+        <CreationShowcase mode="content" />
+        <div className="xhs-composer-card">
+          <div className="xhs-mode-tabs" role="tablist" aria-label="小红书创作类型">
+            <button type="button" role="tab" aria-selected={xhsSubMode === 'content'} className={xhsSubMode === 'content' ? 'is-active' : ''} onClick={() => setXhsSubMode('content')}>📝 种草图文</button>
+            <button type="button" role="tab" aria-selected={xhsSubMode === 'plog'} className={xhsSubMode === 'plog' ? 'is-active is-plog' : ''} onClick={() => setXhsSubMode('plog')}>📸 Plog 生活碎片</button>
+          </div>
+          {xhsSubMode === 'content' ? (
+            <XhsInputTemplate
+              text={inputText}
+              promptRef={xhsPromptRef}
+              onTextChange={event => { setText(event.target.value); setErr(''); }}
+              sourceImages={xhsSourceImages}
+              styleImages={refImages}
+              onAdd={addRoleImages}
+              onRemove={removeRoleImage}
+              mentionImages={xhsMentionImages}
+              onMention={image => insertMentionInTextarea(xhsPromptRef, inputText, setText, image.label)}
+              onGenerate={doGenXHS}
+              canGenerate={Boolean(inputText.trim())}
+              optionsOpen={topicsOpen}
+              onOptionsToggle={() => setTopicsOpen(open => !open)}
+              optionsPanel={<div><strong>选择一个主题快速开始</strong><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setTopicsOpen(false); }}>{hint}</button>)}</div></div>}
+            />
+          ) : (
+            <XhsInputTemplate
+              plog
+              text={plogText}
+              promptRef={plogPromptRef}
+              onTextChange={event => setPlogText(event.target.value)}
+              sourceImages={plogSourceImages}
+              styleImages={plogStyleImages}
+              onAdd={addPlogRoleImages}
+              onRemove={removePlogRoleImage}
+              mentionImages={plogMentionImages}
+              onMention={image => insertMentionInTextarea(plogPromptRef, plogText, setPlogText, image.label)}
+              onGenerate={doGenPlog}
+              canGenerate={Boolean(plogText.trim())}
+              optionsOpen={plogOptionsOpen}
+              onOptionsToggle={() => setPlogOptionsOpen(open => !open)}
+              optionsPanel={<div><strong>调整 Plog 的视觉表达</strong><div className="xhs-option-heading">色调风格</div><div className="xhs-option-list">{[{ k:'ins-minimal', label:'Ins 极简' }, { k:'korean-clear', label:'韩系清透' }, { k:'japanese-cream', label:'日系奶油' }, { k:'film-vintage', label:'胶片复古' }].map(item => <button type="button" key={item.k} className={plogStyle === item.k ? 'is-selected' : ''} onClick={() => setPlogStyle(item.k)}>{item.label}</button>)}</div><div className="xhs-option-heading">排版样式</div><div className="xhs-option-list">{[{ k:'casual', label:'碎片风' }, { k:'polaroid', label:'拍立得' }, { k:'cinematic', label:'电影感' }, { k:'journal', label:'手账风' }, { k:'magazine', label:'杂志风' }].map(item => <button type="button" key={item.k} className={plogLayout === item.k ? 'is-selected' : ''} onClick={() => setPlogLayout(item.k)}>{item.label}</button>)}</div></div>}
+            />
+          )}
+          {err && <div className="error-bar">{err}</div>}
+        </div>
+      </div>
+    );
     // 灵图AI风格下拉面板样式
     const panelStyle = {
       background: '#fff',

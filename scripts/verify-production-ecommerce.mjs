@@ -311,6 +311,7 @@ async function uploadCanaryAsset({ root, headers, role, fixturePath, request }) 
 export async function verifyProductionEcommerce({
   baseUrl = DEFAULT_BASE_URL,
   sessionToken = '',
+  canaryOwnerEmail = process.env.SHUBAO_CANARY_OWNER_EMAIL || CANARY_OWNER_EMAIL,
   fixturePath = DEFAULT_FIXTURE_PATH,
   fetchImpl = fetch,
   pollIntervalMs = 2_000,
@@ -336,8 +337,9 @@ export async function verifyProductionEcommerce({
   if (session?.ok !== true || !String(session?.email || '').trim()) {
     throw new Error('Canary session is not authenticated');
   }
-  if (String(session.email).trim().toLowerCase() !== CANARY_OWNER_EMAIL) {
-    throw new Error('Production ecommerce verification must use the main owner account');
+  const expectedOwnerEmail = String(canaryOwnerEmail || CANARY_OWNER_EMAIL).trim().toLowerCase();
+  if (String(session.email).trim().toLowerCase() !== expectedOwnerEmail) {
+    throw new Error(`Production ecommerce verification must use the configured canary account (${expectedOwnerEmail})`);
   }
 
   const [product, reference] = await Promise.all([

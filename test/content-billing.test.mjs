@@ -1087,6 +1087,7 @@ function extractBalancedBlock(source, openingBrace) {
   let depth = 0;
   let state = 'code';
   let escaped = false;
+  let regexInClass = false;
   for (let index = openingBrace; index < source.length; index += 1) {
     const char = source[index];
     const next = source[index + 1];
@@ -1108,6 +1109,12 @@ function extractBalancedBlock(source, openingBrace) {
       }
       if (char === '\\') {
         escaped = true;
+        continue;
+      }
+      if (state === 'regex') {
+        if (char === '[') regexInClass = true;
+        if (char === ']') regexInClass = false;
+        if (char === '/' && !regexInClass) state = 'code';
         continue;
       }
       const closing = state === 'single' ? "'" : state === 'double' ? '"' : '`';
@@ -1134,6 +1141,12 @@ function extractBalancedBlock(source, openingBrace) {
     }
     if (char === '`') {
       state = 'template';
+      continue;
+    }
+    const previous = source[index - 1] || '';
+    if (char === '/' && next !== '/' && next !== '*' && (!previous || /[([{:;,=!?&|+\-*%^~<>\n\r]/.test(previous))) {
+      state = 'regex';
+      regexInClass = false;
       continue;
     }
     if (char === '{') depth += 1;

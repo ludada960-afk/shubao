@@ -46,11 +46,18 @@ function Invoke-WithCanarySession {
     [Parameter(Mandatory = $true)]
     [scriptblock]$Command
   )
+  $previousCanaryOwnerEmail = $env:SHUBAO_CANARY_OWNER_EMAIL
   try {
     $env:SHUBAO_CANARY_SESSION_TOKEN = $script:canarySessionToken
+    $env:SHUBAO_CANARY_OWNER_EMAIL = $CanaryOwnerEmail
     & $Command
   } finally {
     Remove-Item Env:SHUBAO_CANARY_SESSION_TOKEN -ErrorAction SilentlyContinue
+    if ($null -eq $previousCanaryOwnerEmail) {
+      Remove-Item Env:SHUBAO_CANARY_OWNER_EMAIL -ErrorAction SilentlyContinue
+    } else {
+      $env:SHUBAO_CANARY_OWNER_EMAIL = $previousCanaryOwnerEmail
+    }
   }
 }
 

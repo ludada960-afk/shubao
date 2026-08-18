@@ -272,7 +272,7 @@ test('ecommerce production verifier never uses a beta tester for automated deplo
 
   await assert.rejects(
     verifyProductionEcommerce({ sessionToken: 'collaborator-token', fixturePath, fetchImpl }),
-    /main owner account/i,
+    /configured canary account/i,
   );
   assert.deepEqual(requests, ['/api/session']);
 });

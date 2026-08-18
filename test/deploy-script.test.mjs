@@ -66,6 +66,11 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /--exclude='server\/works\.db'/);
   assert.match(deploy, /--exclude='server\/\.auth-session-secret'/);
   assert.match(deploy, /deploy-backups/);
+  assert.match(deploy, /Pre-deploy backup retention cleanup failed/i);
+  assert.match(deploy, /Pre-deploy static release retention cleanup failed/i);
+  assert.match(deploy, /Production disk preflight failed/i);
+  assert.match(deploy, /tail -n \+3/);
+  assert.match(deploy, /3145728/);
   assert.match(deploy, /tail -n \+4/);
   assert.match(deploy, /old backup retention cleanup failed/i);
   assert.match(deploymentLockRunner, /flock -n/);
@@ -113,6 +118,8 @@ test('PowerShell canary token validation is case-sensitive and rejects trailing 
   const helperPath = fileURLToPath(canarySessionHelperUrl).replaceAll("'", "''");
   const evaluate = token => spawnSync('powershell', [
     '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
     '-Command',
     `. '${helperPath}'; if (Test-CanarySessionTokenFormat $env:TOKEN_UNDER_TEST) { exit 0 } else { exit 1 }`,
   ], { env: { ...process.env, TOKEN_UNDER_TEST: token } }).status === 0;

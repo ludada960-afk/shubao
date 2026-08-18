@@ -258,6 +258,12 @@
 .ec-canvas-generation-node.is-processing { border-style: dashed; border-color: #8b5cf6; animation: ecCanvasGeneratingCard 1.5s ease-in-out infinite; }
 .ec-canvas-generation-node.is-processing::after { position: absolute; inset: -2px; border: 1px solid rgba(139, 92, 246, .72); border-radius: 9px; box-shadow: 0 0 18px rgba(139, 92, 246, .28); content: ''; pointer-events: none; animation: ecCanvasGeneratingGlow 1.5s ease-in-out infinite; }
 .ec-canvas-generation-node.is-layer-group { background: #f6f7f9; }
+.ec-canvas-layer-composite { position: absolute; inset: 0; overflow: hidden; border-radius: 7px; background: #fff; pointer-events: none; }
+.ec-canvas-layer-composite-item { position: absolute; overflow: hidden; pointer-events: none; }
+.ec-canvas-layer-composite-item > div,
+.ec-canvas-layer-composite-item img { display: block; width: 100%; height: 100%; }
+.ec-canvas-layer-composite-item.is-text { overflow: visible; white-space: pre-wrap; }
+.ec-canvas-layer-composite-item.is-text > span { display: block; width: 100%; height: 100%; box-sizing: border-box; line-height: 1.2; overflow-wrap: anywhere; }
 .ec-canvas-generation-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 28px; text-align: center; }
 .ec-canvas-generation-placeholder strong { color: #545d69; font-size: 14px; }
 .ec-canvas-generation-placeholder span { max-width: 390px; color: #9aa2ad; font-size: 11px; line-height: 1.55; }

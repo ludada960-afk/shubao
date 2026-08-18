@@ -77,7 +77,7 @@ test('production billing verifier never uses a beta tester for automated deploym
 
   await assert.rejects(
     verifyProduction({ baseUrl: 'https://shuimg.cn', sessionToken: 'collaborator-token' }),
-    /main owner account/i,
+    /configured canary account/i,
   );
   assert.deepEqual(requests, ['/health', '/', '/api/billing/catalog', '/api/session']);
 });

@@ -39,8 +39,8 @@ test('new smart-layer actions materialize real child nodes instead of opening a 
     'smart layering must bypass the legacy workbench node',
   );
   assert.match(canvas, /materializeCanvasLayers\(\{/);
-  assert.match(canvas, /\.concat\(\{[\s\S]*?\.\.\.result\.groupNode[\s\S]*?\},\s*result\.nodes\)/);
-  assert.match(canvas, /\[\.\.\.retained,\s*\.\.\.result\.connections\]/);
+  assert.match(canvas, /replaceCanvasNodeWithLayerResult\(\{[\s\S]*?sourceNodeId:\s*result\.replacedSourceNodeId[\s\S]*?groupNode[\s\S]*?childNodes:\s*result\.nodes/);
+  assert.match(canvas, /replaceCanvasNodeWithLayerResult\(\{[\s\S]*?resultConnections:\s*result\.connections/);
 });
 
 test('text composition retains a real source image layer for pixel-layer export', async () => {
