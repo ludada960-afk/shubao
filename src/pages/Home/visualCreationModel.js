@@ -55,6 +55,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     control: Object.freeze({
       label: '信息重点',
       options: Object.freeze(['主标题优先', '产品优先', '活动信息优先']),
+      optionMeta: Object.freeze([
+        Object.freeze({ value: '主标题优先', image: '/images/visual-recipes/cases/poster-theatre.png', description: '先建立唯一阅读焦点，再组织辅助信息' }),
+        Object.freeze({ value: '产品优先', image: '/images/visual-recipes/cases/poster-farmers-market.png', description: '让主体或商品占据最清晰的视觉位置' }),
+        Object.freeze({ value: '活动信息优先', image: '/images/visual-recipes/cases/poster-night-ride.png', description: '把时间、地点与行动信息放到传播焦点' }),
+      ]),
     }),
     panels: Object.freeze([
       Object.freeze({ id: 'headline', label: '标题层级', options: Object.freeze(['主标题优先', '标题 + 卖点', '标题 + 行动信息']) }),
@@ -82,6 +87,12 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     control: Object.freeze({
       label: '发布平台',
       options: Object.freeze(['小红书', '公众号', 'B站', '抖音']),
+      optionMeta: Object.freeze([
+        Object.freeze({ value: '小红书', image: '/images/visual-recipes/cases/social-xhs-market.png', description: '竖版封面优先，强化标题与主体的缩略图识别' }),
+        Object.freeze({ value: '公众号', image: '/images/visual-recipes/cases/social-wechat-workflow.png', description: '横向头图优先，保留文章主题与阅读入口' }),
+        Object.freeze({ value: 'B站', image: '/images/visual-recipes/cases/social-bilibili-camera.png', description: '突出人物或内容看点，适配视频封面阅读' }),
+        Object.freeze({ value: '抖音', image: '/images/visual-recipes/cases/social-douyin-stretch.png', description: '全屏竖版构图，先抓住动作与情绪焦点' }),
+      ]),
     }),
     panels: Object.freeze([
       Object.freeze({ id: 'platform', label: '平台构图', options: Object.freeze(['移动端缩略图', '横向头图', '视频封面', '全屏竖版']) }),
@@ -109,6 +120,11 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
     control: Object.freeze({
       label: '延展方向',
       options: Object.freeze(['产品聚焦', '场景延展', '材质叙事']),
+      optionMeta: Object.freeze([
+        Object.freeze({ value: '产品聚焦', image: '/images/visual-recipes/cases/brand-kv-output.png', description: '让产品成为画面中最清晰、最稳定的识别中心' }),
+        Object.freeze({ value: '场景延展', image: '/images/visual-recipes/cases/brand-slow-hotel.png', description: '把品牌气质延展到完整空间与使用场景' }),
+        Object.freeze({ value: '材质叙事', image: '/images/visual-recipes/cases/brand-seed-paper.png', description: '用材质、光影和细节建立可持续的品牌语言' }),
+      ]),
     }),
     panels: Object.freeze([
       Object.freeze({ id: 'touchpoint', label: '品牌触点', options: Object.freeze(['主KV', '零售横幅', '社媒方图', '现场导视']) }),

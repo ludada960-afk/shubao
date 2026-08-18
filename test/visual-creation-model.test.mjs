@@ -80,6 +80,21 @@ test('free creation visual language options explain their output with example im
   assert.ok(free.control.optionMeta.every(option => option.image.startsWith('/images/visual-recipes/cases/')));
 });
 
+test('primary visual controls use an example image for every choice', () => {
+  for (const skill of VISUAL_CREATION_SKILLS) {
+    const options = skill.control.options;
+    assert.deepEqual(skill.control.optionMeta?.map(option => option.value), options, `${skill.id} options need visual examples`);
+    assert.ok(skill.control.optionMeta.every(option => option.image && option.description));
+    assert.ok(skill.control.optionMeta.every(option => option.image.startsWith('/images/visual-recipes/cases/')));
+  }
+  const poster = VISUAL_CREATION_SKILLS.find(skill => skill.id === 'poster');
+  assert.deepEqual(poster.control.optionMeta.map(option => option.image), [
+    '/images/visual-recipes/cases/poster-theatre.png',
+    '/images/visual-recipes/cases/poster-farmers-market.png',
+    '/images/visual-recipes/cases/poster-night-ride.png',
+  ]);
+});
+
 test('visual generation estimate follows the same model and resolution units as billing', () => {
   assert.deepEqual(visualGenerationEstimate({ imageModel: 'image2', resolution: '2K', count: 1 }), {
     points: 1,

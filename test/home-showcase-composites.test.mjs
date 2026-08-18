@@ -8,11 +8,19 @@ import sharp from 'sharp';
 
 import {
   HOME_SHOWCASE_COMPOSITES,
+  MULTI_ANGLE_ARROW_GEOMETRY,
   SOCIAL_SHOWCASE_ADAPTATIONS,
   TRYON_LAYOUT_PLANS,
   buildHomeShowcaseComposites,
   buildSocialShowcaseAdaptations,
 } from '../scripts/build-home-showcase-composites.mjs';
+
+test('multi-angle workflow arrow keeps a narrow shaft connected to a larger head', () => {
+  assert.ok(MULTI_ANGLE_ARROW_GEOMETRY.shaftWidth < 30);
+  assert.ok(MULTI_ANGLE_ARROW_GEOMETRY.headWidth > 46);
+  assert.ok(MULTI_ANGLE_ARROW_GEOMETRY.headLength > MULTI_ANGLE_ARROW_GEOMETRY.shaftWidth * 2);
+  assert.deepEqual(MULTI_ANGLE_ARROW_GEOMETRY.shaftEnd, MULTI_ANGLE_ARROW_GEOMETRY.headBaseCenter);
+});
 
 test('try-on showcase composites preserve complete production assets in fixed wide formats', async () => {
   const outputRoot = await mkdtemp(join(tmpdir(), 'shubao-showcase-'));

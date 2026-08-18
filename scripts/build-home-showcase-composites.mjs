@@ -92,6 +92,15 @@ export const SOCIAL_SHOWCASE_ADAPTATIONS = Object.freeze([
   }),
 ]);
 
+export const MULTI_ANGLE_ARROW_GEOMETRY = Object.freeze({
+  shaftWidth: 12,
+  headWidth: 64,
+  headLength: 56,
+  shaftEnd: Object.freeze({ x: 520, y: 478 }),
+  headBaseCenter: Object.freeze({ x: 520, y: 478 }),
+  headTip: Object.freeze({ x: 553, y: 451 }),
+});
+
 async function fullFrame(sourcePath, width, height) {
   const background = await sharp(sourcePath)
     .resize(width, height, { fit: 'cover', position: 'attention' })
@@ -168,11 +177,9 @@ function multiAngleArrow() {
       <filter id="arrowShadow" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#6e5c4d" flood-opacity=".2"/>
       </filter>
-      <marker id="arrowHead" markerWidth="46" markerHeight="46" refX="38" refY="23" orient="auto" markerUnits="userSpaceOnUse">
-        <path d="M3 3 L43 23 L3 43 L13 23 Z" fill="url(#arrowGradient)"/>
-      </marker>
     </defs>
-    <path d="M466 568 C482 566 494 552 505 533 C514 516 518 496 520 478" fill="none" stroke="url(#arrowGradient)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowHead)" filter="url(#arrowShadow)"/>
+    <path d="M466 568 C482 566 494 552 505 533 C514 516 518 496 520 478" fill="none" stroke="url(#arrowGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" filter="url(#arrowShadow)"/>
+    <path d="M504 494 L553 451 L541 510 Z" fill="url(#arrowGradient)" filter="url(#arrowShadow)"/>
   </svg>`);
 }
 
