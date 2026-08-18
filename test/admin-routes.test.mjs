@@ -46,7 +46,7 @@ async function invoke(app, method, path, request = {}) {
   return res;
 }
 
-function harness() {
+function harness({ videoOperations = null } = {}) {
   const db = new Database(':memory:');
   ensureBillingSchema(db);
   bootstrapDefaultAccountAccess(db);
@@ -59,7 +59,7 @@ function harness() {
     ownerEmail: '240485042@qq.com', currency: 'ec_points', units: 100000,
     idempotencyKey: 'tester-seed', sourceType: 'admin_grant', sourceId: 'migration',
   });
-  const operations = createAdminOperations({ db, walletService });
+  const operations = createAdminOperations({ db, walletService, videoOperations });
   const app = createFakeApp();
   mountAdminRoutes(app, {
     operations,
@@ -72,6 +72,43 @@ function harness() {
   });
   return { app, db, walletService };
 }
+
+test('admin video operations are protected and audited without destructive bulk actions', async t => {
+  const calls = [];
+  const videoOperations = {
+    metrics: () => ({ backlog: { reviewPending: 1 }, attention: [{ id: 'video-1' }] }),
+    run: async input => ({ limit: input.limit, reconciliation: { checked: 1 } }),
+    operate: async (jobId, input) => {
+      calls.push([jobId, input.action]);
+      return {
+        action: input.action,
+        before: { id: jobId, ownerEmail: '240485042@qq.com', status: 'needs_review' },
+        after: { id: jobId, ownerEmail: '240485042@qq.com', status: 'queued' },
+      };
+    },
+  };
+  const { app, db } = harness({ videoOperations });
+  t.after(() => db.close());
+
+  assert.equal((await invoke(app, 'GET', '/api/admin/video-operations')).statusCode, 401);
+  const dashboard = await invoke(app, 'GET', '/api/admin/video-operations', { headers: ownerHeaders });
+  assert.equal(dashboard.statusCode, 200);
+  assert.equal(dashboard.body.backlog.reviewPending, 1);
+
+  const action = await invoke(app, 'POST', '/api/admin/video-jobs/:id/actions', {
+    headers: ownerHeaders,
+    params: { id: 'video-1' },
+    body: {
+      action: 'retry_confirmed_not_submitted', reason: '已在供应商后台确认未受理',
+      idempotencyKey: 'video-retry-1',
+    },
+  });
+  assert.equal(action.statusCode, 200);
+  assert.deepEqual(calls, [['video-1', 'retry_confirmed_not_submitted']]);
+  const audit = await invoke(app, 'GET', '/api/admin/audit', { headers: ownerHeaders });
+  assert.equal(audit.body.entries[0].action, 'video.retry_confirmed_not_submitted');
+  assert.equal(audit.body.entries[0].targetEmail, '240485042@qq.com');
+});
 
 function installMonitoringTables(db) {
   db.exec(`
@@ -215,6 +252,13 @@ test('admin monitoring reports real task states, provider routes, and redacted f
   const operations = createAdminOperations({
     db,
     walletService,
+    videoWorkbenchMetrics: () => ({
+      rollout: { enabled: true, cohort: 'owner' },
+      funnel: { projectsStarted: 10, storyboardReadyProjects: 10 },
+      health: { staleShots: 0, staleClips: 0 },
+      operations24h: { successRate: 1, p95LatencyMs: 42 },
+      gate: { minimumProjects: 10, minimumStoryboardReadyProjects: 10, ready: true },
+    }),
     runtimeStatus: () => ({
       imageQueue: { active: 1, queued: 2, concurrency: 3 },
       ecommerce: { activeJobs: 1 },
@@ -231,6 +275,8 @@ test('admin monitoring reports real task states, provider routes, and redacted f
   assert.equal(result.runtime.imageQueue.queued, 2);
   assert.equal(result.recentTasks.length, 4);
   assert.equal(result.recentFailures.length, 2);
+  assert.equal(result.videoWorkbench.funnel.storyboardReadyProjects, 10);
+  assert.equal(result.videoWorkbench.operations24h.p95LatencyMs, 42);
 
   const monitoring = await invoke(app, 'GET', '/api/admin/monitoring', { headers: ownerHeaders });
   assert.equal(monitoring.statusCode, 200);

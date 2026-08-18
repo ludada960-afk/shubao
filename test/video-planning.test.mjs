@@ -5,6 +5,39 @@ import {
   createVideoPlanningService,
   normalizeVideoPlanAnalysis,
 } from '../server/videoPlanning.mjs';
+import { normalizeShotDirection } from '../server/videoShotDirection.mjs';
+
+test('shot direction normalizes researched cinematography controls without mutating input', () => {
+  const source = {
+    shotScale: 'macro',
+    cameraAngle: 'overhead',
+    cameraMove: 'dolly_in',
+    lighting: 'rembrandt',
+    primaryAction: '手指打开耳机盒',
+    continuity: { axis: 'screen_left_to_right', gaze: 'toward_camera', screenDirection: 'left_to_right', transition: 'match_cut' },
+    negativePrompt: '不要改变产品结构',
+  };
+  const normalized = normalizeShotDirection(source);
+  assert.deepEqual(source, {
+    shotScale: 'macro',
+    cameraAngle: 'overhead',
+    cameraMove: 'dolly_in',
+    lighting: 'rembrandt',
+    primaryAction: '手指打开耳机盒',
+    continuity: { axis: 'screen_left_to_right', gaze: 'toward_camera', screenDirection: 'left_to_right', transition: 'match_cut' },
+    negativePrompt: '不要改变产品结构',
+  });
+  assert.equal(normalized.shotScale, source.shotScale);
+  assert.equal(normalized.cameraAngle, source.cameraAngle);
+  assert.equal(normalized.cameraMove, source.cameraMove);
+  assert.equal(normalized.lighting, source.lighting);
+  assert.equal(normalized.primaryAction, source.primaryAction);
+  assert.deepEqual(normalized.continuity, source.continuity);
+  assert.equal(normalized.negativePrompt, source.negativePrompt);
+  assert.equal(normalizeShotDirection({ shotScale: 'invented', cameraMove: 'bad' }).shotScale, 'medium');
+  assert.equal(normalizeShotDirection({ shotScale: 'invented', cameraMove: 'bad' }).cameraMove, 'static');
+  assert.equal(normalizeShotDirection({ primaryAction: 'x'.repeat(400) }).primaryAction.length, 240);
+});
 
 test('video planning request distinguishes the three creation modes and forbids invented facts', () => {
   for (const mode of ['smart', 'frame', 'remake']) {
@@ -21,6 +54,8 @@ test('video planning request distinguishes the three creation modes and forbids 
     assert.match(request.systemPrompt, /smart=智能成片/);
     assert.match(request.systemPrompt, /frame=首尾帧过渡/);
     assert.match(request.systemPrompt, /remake=爆款重构/);
+    assert.match(request.systemPrompt, /shotScale/);
+    assert.match(request.systemPrompt, /primaryAction/);
     assert.match(request.userPrompt, new RegExp(`创作模式：${mode}`));
   }
 });
@@ -48,7 +83,7 @@ test('video planning service forwards inspected frames and reports its analysis 
         assets: [{ name: 'product.png', role: '商品', observations: ['浅色瓶身'], retain: ['瓶身比例'], use: '首镜头特写', confidence: 'high' }],
         beats: [
           { time: '0-2s', label: '建立商品', detail: '商品特写', source: 'product.png' },
-          { time: '2-6s', label: '推进动作', detail: '镜头进入场景', source: 'reference.mp4' },
+          { time: '2-6s', label: '推进动作', detail: '镜头进入场景', source: 'reference.mp4', direction: { shotScale: 'wide', cameraMove: 'tracking', primaryAction: '人物走入画面' } },
           { time: '6-8s', label: '完成交付', detail: '稳定回到商品', source: 'product.png' },
         ],
         risks: ['参考视频与输出画幅不同'],
@@ -74,4 +109,8 @@ test('video planning service forwards inspected frames and reports its analysis 
   assert.equal(plan.analysisBasis.audioTracks, 1);
   assert.equal(plan.analysisBasis.transcriptAvailable, false);
   assert.equal(plan.beats.length, 3);
+  assert.equal(plan.beats[1].direction.shotScale, 'wide');
+  assert.equal(plan.beats[1].direction.cameraMove, 'tracking');
+  assert.equal(plan.beats[1].direction.primaryAction, '人物走入画面');
+  assert.equal(plan.beats[0].direction.shotScale, 'medium');
 });

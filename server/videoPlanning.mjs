@@ -1,3 +1,5 @@
+import { normalizeShotDirection } from './videoShotDirection.mjs';
+
 const MODES = new Set(['smart', 'frame', 'remake']);
 
 function clean(value, max = 1200) {
@@ -34,6 +36,7 @@ function normalizeBeat(value, index, duration) {
     source: clean(beat.source, 100) || '提示词',
     camera: clean(beat.camera, 120),
     audio: clean(beat.audio, 120),
+    direction: normalizeShotDirection(beat.direction, beat.camera),
   };
 }
 
@@ -93,7 +96,7 @@ export function buildVideoPlanningRequest(input = {}) {
   const systemPrompt = `你是商业短视频导演和多模态素材分析师。你必须只依据用户提示词、素材清单和实际提供的关键帧做判断，不得虚构未看见的商品、人物、品牌、台词或音频语义。\n
 目标是生成一份可以直接交给视频模型执行的方案。区分三类任务：smart=智能成片；frame=首尾帧过渡，必须严格守住起止构图；remake=爆款重构，只借鉴参考视频节奏和镜头结构，不复制人物、品牌或受版权保护内容。\n
 音频只提供时长和能量曲线，没有语音转写；你只能判断节奏和动态，不能猜测歌词或台词。\n
-返回严格 JSON：{"summary":"","creativeStrategy":"","assets":[{"name":"","role":"","observations":[""],"retain":[""],"use":"","confidence":"high|medium|low"}],"beats":[{"time":"0-3s","label":"","detail":"","source":"","camera":"","audio":""}],"risks":[""],"optimizedPrompt":""}。beats 至少 3 段，时间覆盖完整成片；optimizedPrompt 必须具体包含主体、动作、镜头、场景、节奏、素材引用和禁止项。`;
+返回严格 JSON：{"summary":"","creativeStrategy":"","assets":[{"name":"","role":"","observations":[""],"retain":[""],"use":"","confidence":"high|medium|low"}],"beats":[{"time":"0-3s","label":"","detail":"","source":"","camera":"","audio":"","direction":{"shotScale":"wide|full|medium|close|macro","cameraAngle":"eye_level|high_angle|low_angle|overhead|dutch|over_shoulder","cameraMove":"static|pan|tilt|dolly_in|dolly_out|tracking|orbit|fpv|dolly_zoom","lighting":"soft_key|hard_key|rim|volumetric|noir|golden_hour|blue_hour|rembrandt|high_key|low_key","primaryAction":"","continuity":{"axis":"neutral|screen_left_to_right|screen_right_to_left","gaze":"neutral|screen_left|screen_right|toward_camera|away","screenDirection":"stationary|left_to_right|right_to_left","transition":"cut|match_cut|dissolve|whip_pan|continuous"},"negativePrompt":""}}],"risks":[""],"optimizedPrompt":""}。每个 beat 只能有一个 primaryAction，镜头至少遵守 180 度轴线和 30 度变轴规则；beats 至少 3 段，时间覆盖完整成片；optimizedPrompt 必须具体包含主体、动作、镜头、场景、节奏、素材引用和禁止项。`;
   const userPrompt = [
     `创作模式：${mode}`,
     `用户要求：${clean(input.prompt, 1200)}`,

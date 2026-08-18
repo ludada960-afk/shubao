@@ -1,6 +1,6 @@
 # AI Video Platform Long-Term Execution Roadmap
 
-> **For agentic workers:** Each stage is an independent product increment. Before changing code for a stage, write and approve a stage-specific design and implementation plan, then use `superpowers:subagent-driven-development` or `superpowers:executing-plans` task by task. Checkboxes in this document track program gates, not individual coding steps.
+> **For agentic workers:** Each stage is an independent product increment. Before changing code for a stage, write and approve a stage-specific design and implementation plan, then use `superpowers:executing-plans` task by task. Checkboxes in this document track program gates, not individual coding steps.
 
 **Goal:** Turn Shubao from a collection of one-shot video model forms into a reliable, reusable AI video production system built around projects, approved assets, shots, versioned generation attempts, a timeline, and replayable workflows.
 
@@ -27,6 +27,20 @@ The program is feasible, but only as a staged platform build.
 3. **Recommended staged platform:** reliability first, then shot-based production, then reusable Skills, then advanced editing. Every stage produces usable customer value and has an explicit stop gate.
 
 ## 2. Product Contract
+
+### 2.0 Reference architecture decision
+
+The product skeleton is fixed as follows so later implementation does not drift into another model-selection form:
+
+| Layer | Reference | What Shubao adopts | Boundary |
+|---|---|---|---|
+| Product and domain skeleton | Flova | Project memory, approved asset versions, shot dependencies, storyboard, timeline, visible workflow history, replayable Skills | Flova is a product reference, not a code dependency |
+| Spend and approval UX | Runway Agent | Show and review the plan before paid generation; choose models by capability; keep per-shot candidates and an integrated final cut | Provider/model detail stays behind an advanced disclosure |
+| Discovery and growth loop | TapNow/TapTV | Final work -> creation-process preview -> read-only project -> clone/remix | Private inputs are never copied across owners |
+| Local/open execution option | LTX Desktop, ComfyUI, Wan | Isolated worker/API candidates for proven workflows, previews, and capability canaries | Never make their node UI the normal-user product; license, weights, security, and operations require separate gates |
+| Existing Shubao foundation | VideoStudio, Canvas, projects, billing, gallery | Reuse the existing single-shot generator, project/version store, media delivery, billing ledger, and recipe replay | No second queue, wallet, project store, or gallery publisher |
+
+This choice is deliberately asymmetric: Flova supplies the product model; Runway and TapNow supply selected interaction patterns; open-source projects may supply isolated execution components only after a build-versus-buy review.
 
 ### 2.1 What the user sees
 
@@ -88,13 +102,15 @@ Dashboards must break down success, first-frame time, delivery latency, retries,
 
 ### Deliverables
 
-- [ ] **VID-P0-01 Media ingest:** instant local preview, content hash, durable original, image thumbnail variants, video poster and low-bitrate proxy, resumable upload, and authorization-preserving stable URLs.
-- [ ] **VID-P0-02 Job state machine:** `draft -> held -> queued -> submitting -> accepted -> processing -> persisting -> settled -> completed`, with explicit `needs_review`, `failed_released`, and `cancelled_released` terminals.
-- [ ] **VID-P0-03 Idempotency and outbox:** one idempotency key covers quote, hold, provider submission, result persistence, and settlement; durable events drive retries without duplicating side effects.
-- [ ] **VID-P0-04 Recovery:** startup reconciliation for expired leases, accepted provider tasks, persisted-but-unsettled results, and held terminal failures.
-- [ ] **VID-P0-05 Provider capability registry:** inputs, maximum references, duration, resolution, audio, first/last frame, local edit support, price snapshot, concurrency, polling interval, and circuit state live on the server.
-- [ ] **VID-P0-06 Operations:** structured failure classes, per-attempt cost, queue depth, time-in-state, task timeline, and admin drill-down from user-facing task to provider attempt and ledger entries.
-- [ ] **VID-P0-07 Fault suite:** provider timeout before/after acceptance, duplicate webhook, process kill during persistence, object-store failure, billing timeout, insufficient points, moderation block, and deleted source asset.
+- [x] **VID-P0-01 Media ingest, local implementation:** content hash, resumable upload session, owner authorization, stable delivery and project linkage are implemented. Browser-observed poster/proxy SLO remains a production gate.
+- [x] **VID-P0-02 Job state machine, local implementation:** accepted, processing, persisting, settlement/release and review states have durable handling and compatibility reads.
+- [x] **VID-P0-03 Idempotency and outbox, local implementation:** provider attempts and durable delivery events are persisted without duplicating paid side effects.
+- [x] **VID-P0-04 Recovery, local implementation:** startup/admin reconciliation covers uncertain submissions, accepted tasks, persisted deliveries, and billing compensation.
+- [x] **VID-P0-05 Provider capability registry, local implementation:** server-side validation and routing remain the source of truth.
+- [x] **VID-P0-06 Operations, local implementation:** owner/admin reads, attempt history, outbox state, reconciliation operations, and project bridge are feature-gated.
+- [x] **VID-P0-07 Fault suite, local evidence:** the P0 test suite and full regression pass locally without paid generation.
+
+**Status note (2026-08-15):** the P0 code slice is complete on the local feature branch. It is not a production-complete claim. Production deployment, flag rollout, browser timing evidence, controlled restart recovery, and observation-window metrics are still pending. P1 must not be exposed publicly until those exit gates pass.
 
 ### Stage 0 exit gate
 
@@ -117,6 +133,25 @@ Dashboards must break down success, first-frame time, delivery latency, retries,
 - [ ] **VID-P1-05 Basic timeline:** reorder, trim, mute, voice/music placement, subtitle track, preview proxy, and export. Complex multi-track effects remain out of scope.
 - [ ] **VID-P1-06 Selective recovery:** retry or replace one failed shot without regenerating successful shots.
 - [ ] **VID-P1-07 Cost guard:** show estimated range and maximum authorization before generation; stop automatically at the approved ceiling.
+
+**Status note (2026-08-18):** the first `VID-P1-05` export sub-slice is complete locally: an owner/project-scoped,
+content-hashed export manifest can be created idempotently from the current non-stale selected timeline,
+approved audio versions, subtitles, and bounded delivery options. It deliberately stops before a renderer,
+provider submission, download URL, or billing mutation. The full timeline/export checkbox remains open until a
+renderer worker, proxy/asset delivery, restart recovery, and the Stage 1 exit evidence are implemented.
+
+The same local slice now fails closed on read: persisted JSON, schema version, kind, and database hash are recomputed
+before an export manifest is returned. A tampered or partially written row is surfaced as a controlled integrity
+error instead of being presented as a deliverable. This remains local-only and is not a renderer, provider, or
+production deployment.
+
+The next handoff boundary is also implemented locally: an export manifest can be frozen into an owner/project-scoped,
+SHA-256 keyed `video_export_job` in `waiting_renderer`, with idempotent creation and guarded transitions through
+`rendering`, `failed`, retry, `canceled`, and `completed`. The store re-builds the current manifest before handing a
+job to a renderer, so timeline edits make the handoff stale instead of silently exporting an old cut. Persisted job
+rows fail closed on hash/state/provider/billing flags, and the API exposes only queue/read operations; there is still
+no renderer worker, provider submission, download URL, usage, wallet, or billing mutation. This is a local contract
+for the next renderer implementation, not a shipped video export feature.
 
 ### Stage 1 exit gate
 
@@ -217,7 +252,33 @@ Release each item behind a provider-specific capability gate:
 - Monthly: provider capability and price snapshots; disable products whose verified economics or reliability no longer meet their gate.
 - Per stage: continue, narrow, or stop based on exit metrics. Do not preserve a feature merely because engineering time was spent on it.
 
+### Definition of Ready and Done
+
+| Gate | Required evidence |
+|---|---|
+| Ready for implementation | User problem, current-code reuse map, non-goals, schema and API contract, billing semantics, failure matrix, license/security review, feature flag and rollback owner |
+| Ready for internal use | Focused TDD suite, full regression/build, migration/backfill proof, no-paid simulation, owner isolation, restart recovery, operational dashboard and support playbook |
+| Ready for production flag | Clean isolated release, desktop/mobile browser QA, canary budget approval, public asset hash, PM2/Nginx health, rollback release, zero unexplained billing state |
+| Done | Production observation meets the stage SLO, support can diagnose from job to attempt to ledger, documentation and `RTK.md` reflect reality, and every exposed control changes stored behavior |
+
+Local incubation of the next stage is allowed only behind a default-off flag and an additive schema. It cannot change existing production routes, trigger paid work, or be presented as shipped before the preceding production gate is satisfied.
+
 ## 11. Immediate Next Program Slice
+
+### 2026-08-16 P2-02 project memory status
+
+P2-02 is implemented locally on `codex/video-platform-p0` at commit `01eb149`.
+The workbench now has an owner/project-scoped, bounded memory fact contract with optimistic
+revisions, soft deletion, approved-asset reference validation, replay-manifest sanitization,
+clone preservation, and a gated editor that reuses the existing workbench surface. Focused
+and repository gates pass (`23/23` focused memory/replay/store checks, `1678/1678` full tests,
+`npm run check`, and the 6510-module production build). The slice does not call a provider,
+create a generation job, write usage/billing/wallet state, or trigger paid generation.
+
+Production exit evidence is still intentionally open: this commit has not been deployed,
+the production SkillRun/memory routes remain unavailable, and the controlled SSH key is not
+readable in the current environment. P2-03/P2-04 and the P2 program exit criteria remain
+blocked on the existing P1 owner-cohort evidence and must not be presented as shipped.
 
 The first implementation spec after this roadmap is **VID-P0 Reliable Media and Job Foundation**. It must cover only:
 
@@ -230,6 +291,58 @@ The first implementation spec after this roadmap is **VID-P0 Reliable Media and 
 
 Storyboard, timeline, Skill execution, and advanced editing are explicitly excluded from that first slice. This keeps the next body of work reviewable and prevents product expansion from masking reliability defects.
 
+### 2026-08-17 P2-03 proven Skill templates status
+
+P2-03 now has a local, default-off incubation slice on `codex/video-platform-p0`. It registers two
+versioned templates derived from the real VideoStudio modes and existing SkillRun DAG validator:
+`product-ad-v1` (`smart`) and `reference-video-reconstruction-v1` (`remake`). The bounded builder
+accepts only sanitized asset references and text, emits a preview-compatible SkillRun spec, and
+does not contain provider names, credentials, prices, hidden prompts, generation calls, or billing
+behavior. Owner-gated metadata and template-preview helpers are available for future workbench UI
+wiring; the preview route persists only a local plan/checkpoint record.
+
+Evidence for the local slice: focused template/workbench tests `31/31`, full regression `1687/1687`,
+`npm run check`, 6510-module production build, and `git diff --check` all pass. No paid provider call
+was made. The slice is not production-complete: the controlled SSH key is unreadable in this
+environment, so no release or 600-second canary is claimed. Before enabling it publicly, deploy via
+`scripts/deploy-production.ps1`, verify owner isolation and zero billing/provider side effects in
+production, and capture a rollback release plus the two real workflow evidence runs.
+
+### 2026-08-17 P2-04 exact replay template provenance status
+
+The replay boundary now preserves a registered Skill template's identity without leaking runtime
+identity. A normalized template preview stores `templateId` inside the immutable plan; the sanitized
+replay snapshot copies it only when present; and owner-scoped clone reads it back from the project
+version snapshot. This keeps “do the same” tied to the exact bounded recipe rather than to a transient
+run ID, while preserving the existing generic replay shape for older runs.
+
+Evidence for this local fix: combined SkillRun/template/workbench/replay/store tests `54/54`, full
+regression `1687/1687`, `npm run check`, 6510-module production build, and `git diff --check` all pass.
+The change is non-billing and did not call a provider or generation endpoint. P2-04 remains unchecked
+for production until the controlled SSH key is readable, the release is deployed through
+`scripts/deploy-production.ps1`, and a production owner-scoped clone is verified with a rollback
+release and 600-second canary.
+
+### 2026-08-17 P2-06 audio continuity status
+
+P2-06 now has a local, default-off implementation on `codex/video-platform-p0`. The workbench
+stores owner/project-scoped, revisioned voice/music tracks that reference only approved audio
+asset versions, with bounded placement, volume, mute, voice-anchor, beat-marker, language, and
+subtitle-cue metadata. Replay manifests sanitize that metadata and exclude playback URLs; clone
+remaps the approved asset/version IDs into the new draft project. The HTTP/client surface is
+authenticated and optimistic-concurrency aware.
+
+The project workbench now exposes the approved-audio list and a minimal continuity panel: add a
+confirmed voice/music version after a visual timeline clip exists, then adjust volume or toggle
+mute while keeping the server revision contract. It deliberately does not claim waveform
+rendering, transcoding, TTS, beat detection, or provider delivery.
+
+The implementation plan is `docs/superpowers/plans/2026-08-17-ai-video-p2-audio-continuity.md`.
+This is continuity metadata, not an audio renderer or a provider integration. Focused tests,
+full regression, static checks, and production build remain the release gate. No paid provider
+call was made, and no production deployment is claimed while the controlled SSH key remains
+unreadable.
+
 ## 12. Research Basis
 
 - [Flova product model](https://flova.tv/zh-CN/docs/introduction/understanding-flova/): project memory, visible/editable Skills, versioned assets, dependencies, rollback, and timeline composition.
@@ -238,6 +351,7 @@ Storyboard, timeline, Skill execution, and advanced editing are explicitly exclu
 - [TapNow](https://app.tapnow.ai/home): public process viewing, project cloning, local reshoot/extension/tracking product direction, and large node-based projects.
 - [Director workflow video](https://www.bilibili.com/video/BV1zfg36ZEXi/): staged world/character/scene/prop/shot creation with human confirmation and persistent canvas dependencies.
 - [Corrected Feishu workflow resource](https://q52zkkpo8s.feishu.cn/wiki/HUCJwu1euiroyFkeWLHcMwrPnwd): Skill package structure and project-memory workflow context.
+- [Xuan AI video corpus research](./2026-08-17-xuan-ai-video-research.md): the second Xuan-jiang film source and 19 AI-video tutorials distilled into normalized cinematography, continuity, cost-funnel, replay, and automation primitives. Access limits and unverified provider claims are recorded explicitly.
 
 ## 13. Definition of Program Success
 
@@ -250,12 +364,30 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 | Program slice | Status on 2026-08-14 | Evidence required to advance | Next action |
 | --- | --- | --- | --- |
 | Market and workflow research | Complete | Flova, TapNow, director workflow, corrected Feishu resource, and Xiaohongshu reconstruction flow reviewed without paid generation | Revalidate provider claims and prices monthly |
-| P0 design contract | Next | Approved schema, migration, state machine, billing compensation, outbox, media lifecycle, fault matrix, and explicit non-goals | Write the P0 technical spec before changing production tables |
-| P0 media foundation | Not started | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, and authorization tests pass | Implement behind a feature flag after P0 contract approval |
-| P0 reliable jobs and billing | Partial legacy foundation, not accepted | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Migrate existing image/video routes incrementally; do not fork another queue |
-| P1 storyboard workbench | Blocked by P0 | Ten internal projects finish without platform-state or billing failure | Build assets, shots, candidate approval, then a basic timeline |
+| P0 design contract | Complete locally | Schema, migration, state machine, billing compensation, outbox, media lifecycle, fault matrix, and explicit non-goals exist in the P0 design/implementation specs | Revalidate the contract during production rollout |
+| P0 media foundation | Production foundation live at `5d933c2`; paid generation not exercised | Local preview does not wait for cloud upload; stable originals, thumbnails, posters, proxies, resumable upload, authorization, restart and non-billable production contracts pass | Observe upload/first-preview timing and object-store errors before expanding traffic |
+| P0 reliable jobs and billing | Production foundation live; fault suite and non-paid production verification pass | Fault injection proves no duplicate provider submission, lost result, double settlement, or charged terminal failure | Track attempt/outbox/reconciliation SLOs and run provider canaries only under an approved spend budget |
+| P1 storyboard workbench | Implemented and deployed dark; `workbenchEnabled=false` | Ten internal projects finish without platform-state or billing failure | Add an owner cohort, complete browser acceptance and ten non-billing projects, then evaluate the flag |
+| P1 export manifest boundary | Local green; renderer intentionally absent | Stable manifest hash, owner isolation, selected-candidate/stale checks, audio/subtitle bounds, tamper fail-closed reads, no billing/provider writes | Add a durable renderer worker and proxy/download recovery before treating export as delivered |
 | P2 Skills, memory, replay | Blocked by P1 evidence | Two real workflows can be replayed from stored inputs and a versioned manifest | Product ad first; reference reconstruction second |
+| P2 audio continuity | Local candidate, not deployed | Approved audio assets, bounded track metadata, replay sanitization, clone remapping, workbench add/mute UI, and production owner-cohort evidence | Run non-billing owner-cohort replay before enabling any audio UI |
 | P3 advanced local editing | Research only | Each provider capability passes three real input-variant canaries and has a whole-shot fallback | Release reshoot, extension, tracking, and action control independently |
+
+### 2026-08-16 production evidence
+
+- Exact production commit: `5d933c2`; Nginx release:
+  `/var/www/shubao/releases/20260816-105210-5d933c2`; PM2 PID: `2707250`.
+- Local quality gate: 1,643/1,643 tests, check, verify, 6,510-module build, and
+  zero paid-provider submissions from the video verification harness.
+- Production gate: ready health, 117 gallery images, two public video products,
+  authenticated non-billable video canaries, two ecommerce tasks with three
+  stable assets each, and the complete 600-second observation workflow.
+- The P1 surface is present only behind the default-off server capability.
+  Existing homepage and standalone video creation remain unchanged.
+- A production `ENOSPC` incident during the earlier attempt is now a permanent
+  release guard: retain the two newest prior rollback backups, then require at
+  least 2 GiB of free space before creating the next backup. No runtime media,
+  database or user work is part of this cleanup rule.
 
 ### First 90-day sequence
 
@@ -272,3 +404,162 @@ This ledger is the durable program checkpoint. A checkbox changes only when its 
 - Provider/model choice stays server-configured and capability-gated. The user chooses Fast, Stable, or High quality; advanced model selection remains optional.
 - A feature is not complete when a button renders. It is complete only when its stored input changes provider behavior, survives refresh/restart, settles correctly, and has a tested failure path.
 - Gallery “view process / do the same” requires full provenance: original assets, prompts, parameters, catalog snapshot, selected versions, project graph, and rights confirmations. A final image alone is never treated as a replayable workflow.
+
+## 15. Current-System Reuse Map
+
+| New video-platform responsibility | Existing Shubao source of truth | Required change |
+|---|---|---|
+| Project ownership/versioning | `server/projects/*` and `server/videoProjectBridge.mjs` | Add video-workbench entities linked to existing projects; never create another project database |
+| Single-shot generation | `server/videoGeneration.mjs`, `server/videoProviders.mjs`, current VideoStudio | Treat each shot candidate as a normal reliable generation job |
+| Upload and media delivery | `server/videoUploadService.mjs`, generated assets and authorized delivery | Add poster/proxy variants and background processing without blocking local preview |
+| Billing and unit economics | Existing wallet holds, settle/release, usage events and admin reconciliation | Attribute each attempt and successful delivered second to project/shot/template |
+| Human approval | Current planning confirmation and Canvas selection patterns | Persist plan approval and candidate selection as auditable transitions |
+| Timeline/export | Current Canvas asset placement and export primitives | Introduce a minimal durable clip list before adding professional editing complexity |
+| Skill/replay | `server/visualCreationSkills.mjs`, gallery recipe/remix contracts | Replace hidden prompt bundles with versioned manifests and exact provenance |
+| Operations | Video attempts, outbox, reconciliation, admin operations | Add project/shot drill-down and stage SLOs; keep one operational truth |
+
+## 16. Reuse and License Gate
+
+| Candidate | License/evidence | Proposed use | Adoption gate |
+|---|---|---|---|
+| LTX Desktop | Apache-2.0 application code; model weights use separate terms | Architecture/performance-test reference and optional isolated local worker | Pin version; validate model license, GPU floor, cold start, output integrity and commercial terms |
+| LTX-2 weights | Community license with commercial conditions | Optional capability canary, never assumed available | Legal review and revenue-threshold check before any production use |
+| Wan2.2 / Wan skills | Apache-2.0 repositories | Optional self-hosted T2V/I2V/action experiments | Quality, VRAM, latency, moderation, security and delivered-second cost must beat managed fallback for a defined segment |
+| ComfyUI | GPL-3.0 ecosystem with third-party custom nodes | Isolated workflow runner or reference implementation | Process/API boundary, dependency allow-list, sandbox, SBOM, reproducible workflow lock and legal review |
+| VideoHelperSuite/custom nodes | Mixed community maintenance and operational risk | Research only until proven | No production dependency without ownership, soak tests, upgrade/rollback plan and license verification |
+| LivePortrait | MIT code, but default InsightFace models have non-commercial restrictions | Research for portrait driving | Replace restricted detector/model assets and verify all transitive licenses |
+| ConsisID | Apache-2.0 research code | Identity-consistency benchmark | Research benchmark only until quality, performance, moderation and maintenance gates pass |
+
+Mature open source is a way to reduce implementation risk, not a substitute for product and operations ownership. Shubao owns the customer-facing domain model, authorization, billing, state machine, quality gates and support path regardless of the execution worker.
+
+## 17. Practical Creator Methods as Product Primitives
+
+Public creator examples and official product documentation repeatedly validate the following methods. They become testable product primitives rather than opaque “tips”:
+
+| Creator method | Product primitive | Testable output |
+|---|---|---|
+| Character/product/environment reference sheets | Approved asset versions and named bindings | A shot records exactly which reference versions it used |
+| Reference-video breakdown | Shot detection, beat map and editable storyboard proposal | User can accept/reorder/reject the proposed shots before spend |
+| First/last frame control | Versioned keyframe bindings | Provider route is allowed only if it supports the required binding |
+| Pose/performance transfer | Motion-reference asset plus capability-gated route | Input rights and model capability are validated before submission |
+| Low-resolution draft then enhance | Candidate funnel with explicit HD promotion | Only selected candidates incur enhancement cost |
+| Per-shot repair | Shot retry, interval reshoot where supported, whole-shot fallback | Successful clips remain untouched and billing is attributed per attempt |
+| Music/voice continuity | Voice, music and beat assets with immutable versions | Timeline clips retain audio provenance and synchronization metadata |
+| Prompt timing and camera language | Structured shot direction translated by provider adapter | The UI shows intent; adapters produce provider-specific parameters |
+
+The public index confirms the existence and AI-video focus of the creator account “屿帆AI”, but the WeChat article bodies were not reliably accessible in this environment. Article-specific steps are therefore not treated as verified requirements. They should be added only from user-provided article URLs/exports or another lawful stable source.
+
+## 18. Renderer Lease and Recovery Slice (2026-08-18)
+
+The first renderer handoff is now durable locally, but it is intentionally still a pre-provider boundary:
+
+- `video_export_jobs` stores `worker_id`, `lease_token`, and `lease_expires_at`; existing SQLite databases migrate these columns on open.
+- A worker can claim one `waiting_renderer` job, renew only its own unexpired lease, and complete/fail/cancel only with the matching lease token.
+- An expired rendering lease is recovered exactly once into `failed` with `EXPORT_JOB_LEASE_EXPIRED`; the source timeline and billing state remain unchanged and the job must explicitly return to `waiting_renderer` before retry.
+- Job and manifest hashes are recomputed on every read/write, and the current timeline is rebuilt before claim, renew, recovery, or transition. Timeline edits therefore invalidate the old handoff instead of rendering stale work.
+- The internal store methods are not exposed as a public “fake render” API. No provider submission, object upload, wallet hold, usage event, or billing mutation is permitted in this slice.
+
+Evidence for this local slice: focused job/store tests `12/12`, full suite `1751/1751`, `npm run check`, 6510-module production build, `git diff --check`, and the 10-project non-billing pilot all pass. This does **not** mark renderer delivery complete or enable the production workbench. The next gate is a provider-neutral renderer adapter plus an outbox/reconciliation worker, with a dry-run implementation first; only after fault tests and cost/rights gates pass can a real provider be enabled.
+
+## 19. Provider-Neutral Renderer Request and Outbox (2026-08-18)
+
+The next reliability boundary is implemented locally without selecting or calling a video provider:
+
+- `videoRendererAdapter.mjs` builds a versioned `video-render-request` from the current rendering job and export manifest. The request carries stable `requestId`/`idempotencyKey`, manifest/job hashes, bounded timeline and audio metadata, and explicit `providerSubmission=false`/`billingMutation=false` guards.
+- `videoRendererOutbox.mjs` provides a hashed `renderer.submit.requested` event with pending/processing/failed/completed/canceled states, worker leases, retry scheduling, and terminal-state guards. Provider responses are normalized only when an adapter is explicitly supplied; the default adapter fails closed with `RENDERER_NOT_CONFIGURED`.
+- The SQLite workbench creates one outbox event per export attempt inside the same state transition that enters `rendering`, and synchronizes failed/completed/canceled terminal states. Existing databases create the outbox table and indexes on open; duplicate request IDs are idempotent and payload-hash mismatches fail closed.
+- No provider credentials, upload, wallet hold, usage event, billing mutation, or public worker route is introduced. The production workbench remains default-off.
+
+Evidence for this local slice: adapter/outbox/job/store focused tests `18/18` pass before the full release gate. The required next gate is an authenticated reconciliation worker in dry-run mode: claim outbox events, renew leases, record normalized provider status, reconcile lost callbacks, and prove retry/timeout/duplicate/fault paths without a provider call. Only after that matrix, cost/rights checks, and a measured provider canary may a real renderer be enabled.
+
+## 20. Authenticated Reconciliation Dry-Run (2026-08-18)
+
+The provider-neutral reconciliation boundary is now implemented and verified locally. It remains deliberately
+disconnected from provider credentials, media upload, wallet settlement, usage accounting, and public routes:
+
+- `videoRendererReconciliation.mjs` runs the claim -> submit -> poll -> terminal state machine against an injected
+  adapter. A stable request ID and request hash are checked before every transition; a stale event, manifest, job,
+  or lease is rejected before the original outbox row is mutated.
+- The adapter is fail-closed for explicit callback identity: a supplied `requestId` or `requestHash` must match the
+  request that was submitted. Missing callback identity is filled from the stable request only for adapters that do
+  not return it. This prevents a malformed or cross-job callback from being normalized into a valid result.
+- Queued/running callbacks can be polled, lost submit responses can be retried with the same idempotency key,
+  deadlines become retryable `RENDER_TIMEOUT` failures, and duplicate terminal reconciliation is a no-op. Invalid
+  submit/poll callbacks are rejected without converting the event into a retryable provider failure.
+- `scripts/verify-video-renderer-reconciliation-dry-run.mjs` exercises four deterministic scenarios: normal
+  completion, lost-submit retry, timeout, and invalid-submit callback. It asserts event integrity and
+  `billingMutated=false` while reporting `providerCalls=0`.
+
+Evidence captured on 2026-08-18: full `npm test` `1765/1765`, `npm run check`, 6510-module production build,
+`git diff --check`, the 10-project/40-operation non-billing pilot, and the four-scenario reconciliation dry-run all
+pass. `npm run collab:check` remains policy-blocked only because this linked worktree has no collaboration marker;
+it is not an application test failure. This closes the local dry-run gate, not renderer delivery: the next gate is
+authenticated worker persistence/restart recovery and an explicit cost, rights, moderation, and rollback review.
+No provider canary or production deployment is authorized by this slice.
+
+## 21. Authenticated Worker Persistence and Restart Recovery (2026-08-18)
+
+This milestone makes the renderer handoff executable without selecting a provider. A private worker accepts only an
+explicit worker identity and lease token, claims the persisted outbox attempt, calls the injected provider-neutral
+reconciliation state machine, and atomically writes the resulting event and export job through the existing SQLite
+workbench store. The worker cannot be called through a public route and the default adapter still fails closed.
+
+The persistence contract is deliberately strict: the current export manifest and job/request hashes are rebuilt on
+every read; the incoming event must match the current attempt, request id, request hash, and attempt count; terminal
+completion requires both a non-empty output asset identifier and stable URL; lease mismatch, stale state, forged
+callback identity, or missing output produces a controlled failure rather than a false success. A file-backed restart
+test closes and reopens SQLite between queued submit and completion, proving the same idempotency key resumes without
+duplicating the attempt or changing provider/billing guards.
+
+The local evidence is `12/12` renderer adapter/reconciliation/worker focus, full `1768/1768` tests, `npm run check`,
+the 6510-module build, the non-billing pilot, and the deterministic reconciliation dry-run. No real provider,
+storage upload, wallet/usage/billing mutation, paid video generation, or production deployment occurred. The next
+gate is not UI polish or a blind provider switch: first complete capability, cost, rights, moderation, output-storage,
+quality, latency, and rollback review; then run a measured non-default canary and only afterward consider enabling the
+existing workbench flag. The existing production job/billing routes remain the sole source of truth.
+
+## 22. Deterministic Generation Preflight Gate (2026-08-18)
+
+The workbench now has a provider-neutral, strict preflight boundary that runs before any future renderer submission.
+It is deliberately separate from plan approval: approving a plan stores an auditable snapshot, while preflight decides
+whether that snapshot is currently safe to submit.
+
+- `server/videoRendererPreflight.mjs` normalizes the product capability snapshot, checks mode/resolution/duration/audio
+  limits, counts unique per-shot references, verifies rights confirmations, moderation status, budget caps, and the
+  durable output-storage contract. It returns deterministic `preflightHash`, blockers, warnings, and explicit
+  `providerSubmission=false`/`billingMutation=false` guards.
+- `POST /api/video/projects/:projectId/workbench/preflight` is owner/cohort scoped and rebuilds the current workbench
+  plan from the server catalog. The client renders the result as a submission gate and explains that the check does
+  not call a provider or spend credits.
+- Advisory mode is available to surface governance warnings during planning; strict mode is required for a future
+  renderer handoff. The current UI does not fabricate moderation or storage attestations, so those missing contracts
+  remain visible blockers until the governed media pipeline supplies them.
+- The preflight hash excludes volatile timestamps and nested plan hashes. Repeated checks of the same immutable inputs
+  therefore produce the same fingerprint, making later outbox requests and audit records idempotent.
+
+Evidence for the initial preflight slice was `50/50`; after binding the attestation to export jobs and renderer
+requests, the focused contract suite is now `68/68`. No provider credentials, upload, wallet hold, usage event,
+billing mutation, paid video generation, or public worker route was used. The workbench remains default-off and this
+slice is not deployed. The remaining release gates are the full repository regression, production build, output proxy/
+download recovery, real moderation/storage attestations, and a measured non-default canary with quality, latency,
+cost, and rollback evidence.
+
+## 23. Strict Preflight Binding (2026-08-18)
+
+The strict preflight is now part of the durable renderer handoff rather than a UI-only check. Export jobs persist the
+attestation JSON and its hash inside the immutable job hash; reads recompute the current workbench plan and reject a
+stale or forged attestation. Provider-neutral renderer requests carry `preflightHash` and `preflightStatus=ready`, and
+the authenticated worker can be run with `requirePreflight=true`, refusing legacy jobs before claiming a lease or
+calling an adapter. Idempotent retries cannot silently switch to a different preflight for the same manifest.
+
+The new store, job, adapter, worker, route, client, and UI tests cover the binding, tamper, stale-plan, restart,
+lease, and zero-provider-call paths. Focused evidence is `68/68`; the full release gate is intentionally still
+pending. This remains a local, provider-neutral implementation with `workbenchEnabled=false` and no production
+deployment.
+
+Verification update (2026-08-18): post-binding full repository regression is `1780/1780` with zero failures;
+`npm run check`, the 6510-module production build, `git diff --check`, the 10-project/40-operation non-billing pilot,
+the four-scenario renderer reconciliation dry-run, and `verify-video-platform.mjs --local --no-paid-generation` all
+pass. The dry-run reports `providerCalls=0` and `billingMutated=false`. This closes the local contract gate only;
+output proxy/download recovery, real moderation/storage attestations, measured provider quality/latency/cost, rollback,
+canary, and explicit feature-flag approval remain required before deployment.

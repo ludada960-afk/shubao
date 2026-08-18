@@ -61,5 +61,8 @@ test('deploy refreshes the canary token after restart without logging it', () =>
   assert.ok(restart >= 0 && restart < refresh, 'canary refresh must happen after the restarted app is healthy');
   assert.ok(refresh < billing, 'canary refresh must happen before authenticated billing verification');
   assert.match(deploy, /chmod 600[^\n]*remoteCanarySessionFile/);
+  assert.match(deploy, /function\s+Invoke-BoundedSshCapture/i);
+  assert.match(deploy, /Invoke-BoundedSshCapture[^\n]*-TimeoutSeconds\s+30/i);
+  assert.match(deploy, /WaitForExit\([^\n]*TimeoutSeconds\s*\*\s*1000/i);
   assert.doesNotMatch(deploy, /Write-(?:Host|Output)[^\n]*canarySessionToken/i);
 });

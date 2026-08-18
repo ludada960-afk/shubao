@@ -1193,7 +1193,7 @@ function assertBefore(source, earlier, later, message) {
 
 test('server initializes durable billing, signed sessions, trusted proxy IPs, and token-only paid auth', async () => {
   const server = await fs.readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
-  assert.match(server, /const db = initDB\(\);/);
+  assert.match(server, /const db = initDB\(process\.env\.SHUBAO_DB_PATH\s*\|\|\s*undefined\);/);
   assert.match(server, /const walletService = createWalletService\(db\);/);
   assert.doesNotMatch(server, /createWalletService\(db,\s*\{\s*isUnlimited:/);
   assert.match(server, /createContentEntitlements\(db, walletService\)/);

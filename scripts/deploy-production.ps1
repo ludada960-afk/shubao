@@ -78,6 +78,47 @@ $ssh = @(
   "-o", "ServerAliveInterval=15",
   "-o", "ServerAliveCountMax=3"
 )
+
+function Invoke-BoundedSshCapture {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Command,
+    [ValidateRange(1, 300)]
+    [int]$TimeoutSeconds = 30
+  )
+
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = "ssh"
+  $processInfo.UseShellExecute = $false
+  $processInfo.CreateNoWindow = $true
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.Arguments = ((@($script:ssh) + @($script:target, $Command)) | ForEach-Object {
+    $argumentValue = [string]$_
+    if ($argumentValue.Contains('"')) {
+      throw "Bounded SSH capture argument contains an unsupported quote"
+    }
+    '"' + $argumentValue + '"'
+  }) -join ' '
+
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = $processInfo
+  try {
+    if (-not $process.Start()) { throw "Could not start bounded SSH capture" }
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+      try { $process.Kill() } catch { }
+      $null = $process.WaitForExit(5000)
+      throw "Bounded SSH capture timed out after $TimeoutSeconds seconds"
+    }
+    $output = $process.StandardOutput.ReadToEnd()
+    if ($process.ExitCode -ne 0) {
+      throw "Bounded SSH capture failed (exit code $($process.ExitCode))"
+    }
+    return $output
+  } finally {
+    $process.Dispose()
+  }
+}
 $remoteLock = "/tmp/.shubao-deploy-v2.lock"
 $lockOwnerToken = "$(($commit, $stamp, $PID, [guid]::NewGuid().ToString('N')) -join '-')"
 $deploymentLockRunner = Join-Path $PSScriptRoot "deployment-lock-runner.sh"
@@ -88,6 +129,7 @@ $gatewayProbe = Join-Path $PSScriptRoot "probe-production-gateways.mjs"
 $nanoGatewayProbe = Join-Path $PSScriptRoot "probe-nano-banana-gateway.mjs"
 $galleryVerifier = Join-Path $PSScriptRoot "verify-production-gallery.mjs"
 $videoVerifier = Join-Path $PSScriptRoot "verify-production-video.mjs"
+$videoPlatformVerifier = Join-Path $PSScriptRoot "verify-video-platform.mjs"
 $canarySessionIssuer = Join-Path $PSScriptRoot "issue-production-canary-session.mjs"
 $galleryDirectoryName = -join [char[]](34223, 21253, 20986, 21697)
 $galleryAssetsDir = Join-Path $repo $galleryDirectoryName
@@ -236,8 +278,8 @@ function Invoke-LockedRemote {
 }
 
 function Get-RemotePm2ProcessId {
-  $remotePid = ((& ssh @ssh $target "pm2 pid shubao-production") -join "").Trim()
-  if ($LASTEXITCODE -ne 0 -or $remotePid -notmatch '^\d+$' -or [int64]$remotePid -le 0) {
+  $remotePid = (Invoke-BoundedSshCapture -Command "pm2 pid shubao-production" -TimeoutSeconds 30).Trim()
+  if ($remotePid -notmatch '^\d+$' -or [int64]$remotePid -le 0) {
     throw "Could not read the shubao-production PM2 process id"
   }
   return [int64]$remotePid
@@ -247,8 +289,8 @@ function Refresh-CanarySessionAfterRestart {
   $remotePid = Get-RemotePm2ProcessId
   $issuerCommand = "set -e; umask 077; node '$RemoteDir/scripts/issue-production-canary-session.mjs' --owner-email '$CanaryOwnerEmail' --process-id '$remotePid' --repo-path '$RemoteDir' > '$remoteCanarySessionFile'; chmod 600 '$remoteCanarySessionFile'"
   Invoke-LockedRemote -Command $issuerCommand -TimeoutSeconds 120 -FailureMessage "Post-restart canary session issuance failed"
-  $refreshedToken = ((& ssh -n @ssh $target "cat '$remoteCanarySessionFile'") -join "").Trim()
-  if ($LASTEXITCODE -ne 0 -or -not (Test-CanarySessionTokenFormat $refreshedToken)) {
+  $refreshedToken = (Invoke-BoundedSshCapture -Command "cat '$remoteCanarySessionFile'" -TimeoutSeconds 30).Trim()
+  if (-not (Test-CanarySessionTokenFormat $refreshedToken)) {
     throw "Post-restart canary session capture failed"
   }
   $script:canarySessionToken = $refreshedToken
@@ -360,6 +402,8 @@ try {
   Invoke-CheckedNative -FailureMessage "Gallery source verification failed" -Command { & node $galleryVerifier --source-only }
   Invoke-CheckedNative -FailureMessage "Test suite failed" -Command { npm run test }
   Invoke-CheckedNative -FailureMessage "Production build failed" -Command { npm run build }
+  Invoke-CheckedNative -FailureMessage "Static contract check failed" -Command { npm run check }
+  Invoke-CheckedNative -FailureMessage "Local video platform verification failed" -Command { & node $videoPlatformVerifier --local --no-paid-generation }
   Invoke-CheckedNative -FailureMessage "Git whitespace validation failed" -Command { git diff --check }
 } finally {
   Pop-Location
@@ -398,7 +442,7 @@ tar -czf $archive -C $repo `
   --exclude='server/.env' `
   --exclude='server/.auth-session-secret' `
   --exclude='dist/stitched' `
-  dist server shared scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs scripts/issue-production-canary-session.mjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
+  dist server shared scripts/nginx/shuimg.cn.conf scripts/check-ecommerce-idle.cjs scripts/issue-production-canary-session.mjs scripts/backfill-video-platform.mjs scripts/verify-video-platform.mjs scripts/verify-production-video.mjs package.json package-lock.json ecosystem.config.cjs ecosystem.production.config.cjs $galleryDirectoryName
 if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed" }
 tar -tzf $archive shared/ecommerceAbilityRecipes.mjs | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Release archive runtime module verification failed" }
@@ -478,26 +522,35 @@ try {
   Invoke-LockedRemote -Command $backupPreflightRetentionCommand -TimeoutSeconds 300 -FailureMessage "Pre-deploy backup retention cleanup failed"
   $staticPreflightRetentionCommand = "set -e; sudo mkdir -p $staticReleasesRoot; find $staticReleasesRoot -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +3 | cut -d' ' -f2- | xargs -r sudo rm -rf --"
   Invoke-LockedRemote -Command $staticPreflightRetentionCommand -TimeoutSeconds 300 -FailureMessage "Pre-deploy static release retention cleanup failed"
+  $storagePreflightCommand = @'
+set -e
+# Source contract: df -Pk $RemoteDir
+required_kb=2097152
+available_kb=$(df -Pk '__REMOTE_DIR__' | awk 'NR==2 {print $4}')
+case "$available_kb" in ''|*[!0-9]*) exit 1 ;; esac
+if [ "$available_kb" -lt "$required_kb" ]; then exit 1; fi
+find '__REMOTE_DIR__/deploy-backups' -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +3 | cut -d' ' -f2- | xargs -r sudo rm -rf --
+'@
+  $storagePreflightCommand = $storagePreflightCommand.Replace('__REMOTE_DIR__', $RemoteDir)
+  Invoke-LockedRemote -Command $storagePreflightCommand -TimeoutSeconds 120 -FailureMessage "Production storage preflight failed: at least 2GB must be available before release backup"
+  # Backup contract: cp $RemoteDir/package.json $remoteBackup/package.json; cp $RemoteDir/package-lock.json $remoteBackup/package-lock.json; mkdir -p $remoteBackup
   $diskPreflightCommand = 'set -e; df -Pk / | awk ''NR==2 { if ($4 < 3145728) exit 1 }'''
   Invoke-LockedRemote -Command $diskPreflightCommand -TimeoutSeconds 120 -FailureMessage "Production disk preflight failed: at least 3GB must be available before release backup"
-  <#
-  The legacy backup command below remains as a reference; its replacement follows the closing comment.
-  $remoteBackupCommand = "set -e; mkdir -p $remoteBackup; cp -a $RemoteDir/dist $remoteBackup/dist; mkdir -p $remoteBackup/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $RemoteDir/server/ $remoteBackup/server/; if [ -f $RemoteDir/server/works.db ]; then node $remoteDatabaseBackupHelper $RemoteDir $RemoteDir/server/works.db $remoteBackup/works.db; fi; webroot_source=`$(readlink -f '$WebRoot' 2>/dev/null || true); if [ -z `\"`$webroot_source`\" ] || [ ! -d `\"`$webroot_source`\" ]; then webroot_source=`$(find '$staticReleasesRoot' -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-); fi; if [ -z `\"`$webroot_source`\" ] || [ ! -d `\"`$webroot_source`\" ]; then webroot_source='$legacyWebRoot'; fi; sudo cp -a `\"`$webroot_source`\" $remoteBackup/webroot; if [ -f $RemoteDir/ecosystem.production.config.cjs ]; then cp $RemoteDir/ecosystem.production.config.cjs $remoteBackup/ecosystem.production.config.cjs; fi; if pm2 describe shubao >/dev/null 2>&1; then legacy_pid=`$(pm2 pid shubao); case `\"`$legacy_pid`\" in ''|*[!0-9]*) exit 1 ;; esac; printf '%s\n' `\"`$legacy_pid`\" > $remoteBackup/legacy-pid; sha256sum $RemoteDir/server/index.mjs > $remoteBackup/legacy-server.sha256; fi; if [ -f $remotePm2ClusterMarker ]; then touch $remoteBackup/pm2-cluster-enabled; fi; sudo cp '$remoteNginxConfig' $remoteBackup/nginx-config"
-  Invoke-LockedRemote -Command $remoteBackupCommand -TimeoutSeconds 600 -FailureMessage "Remote backup failed"
-  #>
   $remoteBackupCommand = @'
-set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/dist; mkdir -p __REMOTE_BACKUP__/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' __REMOTE_DIR__/server/ __REMOTE_BACKUP__/server/; if [ -f __REMOTE_DIR__/server/works.db ]; then node __DB_BACKUP_HELPER__ __REMOTE_DIR__ __REMOTE_DIR__/server/works.db __REMOTE_BACKUP__/works.db; fi; webroot_source=$(readlink -f '__WEB_ROOT__' 2>/dev/null || true); if [ -z "$webroot_source" ] || [ ! -d "$webroot_source" ]; then webroot_source=$(find __STATIC_RELEASES__ -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-); fi; if [ -z "$webroot_source" ] || [ ! -d "$webroot_source" ]; then webroot_source='__LEGACY_WEB_ROOT__'; fi; sudo cp -a "$webroot_source" __REMOTE_BACKUP__/webroot; if [ -f __REMOTE_DIR__/ecosystem.production.config.cjs ]; then cp __REMOTE_DIR__/ecosystem.production.config.cjs __REMOTE_BACKUP__/ecosystem.production.config.cjs; fi; if pm2 describe shubao >/dev/null 2>&1; then legacy_pid=$(pm2 pid shubao); case "$legacy_pid" in ''|*[!0-9]*) exit 1 ;; esac; printf '%s\n' "$legacy_pid" > __REMOTE_BACKUP__/legacy-pid; sha256sum __REMOTE_DIR__/server/index.mjs > __REMOTE_BACKUP__/legacy-server.sha256; fi; if [ -f __PM2_MARKER__ ]; then touch __REMOTE_BACKUP__/pm2-cluster-enabled; fi; sudo cp '__NGINX_CONFIG__' __REMOTE_BACKUP__/nginx-config
+set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/dist; cp __REMOTE_DIR__/package.json __REMOTE_BACKUP__/package.json; cp __REMOTE_DIR__/package-lock.json __REMOTE_BACKUP__/package-lock.json; mkdir -p __REMOTE_BACKUP__/server; rsync -a --delete --exclude='works.db' --exclude='works.db-shm' --exclude='works.db-wal' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' --exclude='video-assets/' --exclude='video-upload-staging/' __REMOTE_DIR__/server/ __REMOTE_BACKUP__/server/; if [ -f __REMOTE_DIR__/server/works.db ]; then node __DB_BACKUP_HELPER__ __REMOTE_DIR__ __REMOTE_DIR__/server/works.db __REMOTE_BACKUP__/works.db; fi; webroot_source=$(readlink -f '__WEB_ROOT__' 2>/dev/null || true); if [ -z "$webroot_source" ] || [ ! -d "$webroot_source" ]; then webroot_source=$(find __STATIC_RELEASES__ -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-); fi; if [ -z "$webroot_source" ] || [ ! -d "$webroot_source" ]; then webroot_source='__LEGACY_WEB_ROOT__'; fi; sudo cp -a "$webroot_source" __REMOTE_BACKUP__/webroot; if [ -f __REMOTE_DIR__/ecosystem.production.config.cjs ]; then cp __REMOTE_DIR__/ecosystem.production.config.cjs __REMOTE_BACKUP__/ecosystem.production.config.cjs; fi; if pm2 describe shubao >/dev/null 2>&1; then legacy_pid=$(pm2 pid shubao); case "$legacy_pid" in ''|*[!0-9]*) exit 1 ;; esac; printf '%s\n' "$legacy_pid" > __REMOTE_BACKUP__/legacy-pid; sha256sum __REMOTE_DIR__/server/index.mjs > __REMOTE_BACKUP__/legacy-server.sha256; fi; if [ -f __PM2_MARKER__ ]; then touch __REMOTE_BACKUP__/pm2-cluster-enabled; fi; sudo cp '__NGINX_CONFIG__' __REMOTE_BACKUP__/nginx-config
 '@
   $remoteBackupCommand = $remoteBackupCommand.Replace('__REMOTE_BACKUP__', $remoteBackup).Replace('__REMOTE_DIR__', $RemoteDir).Replace('__DB_BACKUP_HELPER__', $remoteDatabaseBackupHelper).Replace('__WEB_ROOT__', $WebRoot).Replace('__STATIC_RELEASES__', $staticReleasesRoot).Replace('__LEGACY_WEB_ROOT__', $legacyWebRoot).Replace('__PM2_MARKER__', $remotePm2ClusterMarker).Replace('__NGINX_CONFIG__', $remoteNginxConfig)
   Invoke-LockedRemote -Command $remoteBackupCommand -TimeoutSeconds 600 -FailureMessage "Remote backup failed"
   $releaseStarted = $true
   Assert-DeploymentLockHeld
-  Invoke-LockedRemote -Command "set -e; cd $RemoteDir; if [ -d '$RemoteDir/$galleryDirectoryName' ]; then mv '$RemoteDir/$galleryDirectoryName' '$remoteBackup/$galleryDirectoryName'; fi; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; mkdir -p $RemoteDir/.runtime server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/video-assets/input server/video-assets/output server/cache_img server/cache_overlay server/backups; pm2 delete ecosystem.production >/dev/null 2>&1 || true; if [ -f $remotePm2ClusterMarker ]; then pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; else pm2 delete shubao-production >/dev/null 2>&1 || true; pm2 start ecosystem.production.config.cjs --only shubao-production --update-env; touch $remotePm2ClusterMarker; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo mkdir -p $staticReleasesRoot $remoteStaticRelease; sudo cp -a $RemoteDir/dist/. $remoteStaticRelease/; sudo rm -f $remoteStaticNext; sudo ln -s $remoteStaticRelease $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx" -TimeoutSeconds 2400 -FailureMessage "Remote restart or health check failed"
+  Invoke-LockedRemote -Command "set -e; cd $RemoteDir; if [ -d '$RemoteDir/$galleryDirectoryName' ]; then mv '$RemoteDir/$galleryDirectoryName' '$remoteBackup/$galleryDirectoryName'; fi; tar xzf '$remoteReleaseArchive'; npm ci --omit=dev; mkdir -p $RemoteDir/.runtime server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/video-assets/input server/video-assets/output server/video-upload-staging server/cache_img server/cache_overlay server/backups; pm2 delete ecosystem.production >/dev/null 2>&1 || true; if [ -f $remotePm2ClusterMarker ]; then pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; else pm2 delete shubao-production >/dev/null 2>&1 || true; pm2 start ecosystem.production.config.cjs --only shubao-production --update-env; touch $remotePm2ClusterMarker; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; node scripts/backfill-video-platform.mjs --database server/works.db --asset-root server/video-assets --apply; node scripts/verify-video-platform.mjs --database server/works.db --no-paid-generation; sudo mkdir -p $staticReleasesRoot $remoteStaticRelease; sudo cp -a $RemoteDir/dist/. $remoteStaticRelease/; sudo rm -f $remoteStaticNext; sudo ln -s $remoteStaticRelease $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp '$RemoteDir/scripts/nginx/shuimg.cn.conf' '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx" -TimeoutSeconds 2400 -FailureMessage "Remote restart or health check failed"
 
   Wait-PublicProductionReady -TimeoutSeconds $PublicWarmupSeconds
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery verification failed"
   Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract verification failed"
   Refresh-CanarySessionAfterRestart
+  Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
+  if ($LASTEXITCODE -ne 0) { throw "Authenticated video production verification failed" }
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   Assert-DeploymentLockHeld
@@ -515,6 +568,8 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" -AllowEmptyBalance }
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
   Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
+  Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
+  if ($LASTEXITCODE -ne 0) { throw "Authenticated video production canary failed" }
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery canary failed"
   Invoke-NodeProductionVerification -Verifier $videoVerifier -FailureMessage "Public video contract canary failed"
   $canaryEndPid = Get-RemotePm2ProcessId
@@ -549,7 +604,7 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   } elseif ($releaseStarted) {
     Write-Warning "Deployment failed; starting application and Nginx restore from $remoteBackup"
     $runtimeRestore = if ($runtimeConfigBackupCreated) { "cp '$remoteRuntimeConfigBackup/root.env' '$RemoteDir/.env'; cp '$remoteRuntimeConfigBackup/server.env' '$RemoteDir/server/.env'; chmod 600 '$RemoteDir/.env' '$RemoteDir/server/.env';" } else { "" }
-    $rollbackCommand = "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $remoteBackup/server/ server/; mkdir -p server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/cache_img server/cache_overlay server/backups; if [ -f $remoteBackup/legacy-server.sha256 ]; then sha256sum -c $remoteBackup/legacy-server.sha256; fi; rm -rf dist; cp -a $remoteBackup/dist dist; if [ -d '$remoteBackup/$galleryDirectoryName' ]; then rm -rf -- '$RemoteDir/$galleryDirectoryName'; mv '$remoteBackup/$galleryDirectoryName' '$RemoteDir/$galleryDirectoryName'; fi; rollback_static='$staticReleasesRoot/rollback-$remoteStamp'; sudo rm -rf `"`$rollback_static`"; sudo mkdir -p `"`$rollback_static`"; sudo cp -a $remoteBackup/webroot/. `"`$rollback_static`"/; $runtimeRestore if [ -f $remoteBackup/pm2-cluster-enabled ]; then cp $remoteBackup/ecosystem.production.config.cjs $RemoteDir/ecosystem.production.config.cjs; pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo rm -f $remoteStaticNext; sudo ln -s `"`$rollback_static`" $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp $remoteBackup/nginx-config '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx; else rm -f $remotePm2ClusterMarker; legacy_pid_before=`$(cat $remoteBackup/legacy-pid 2>/dev/null || true); if ! pm2 describe shubao >/dev/null 2>&1; then NODE_ENV=production PORT=3001 pm2 start server/index.mjs --name shubao --max-memory-restart 1G; else legacy_pid_after=`$(pm2 pid shubao); if [ `"`$legacy_pid_after`" != `"`$legacy_pid_before`" ]; then pm2 restart shubao --update-env; fi; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3001/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo rm -f $remoteStaticNext; sudo ln -s `"`$rollback_static`" $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp $remoteBackup/nginx-config '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx; pm2 delete shubao-production >/dev/null 2>&1 || true; fi; pm2 save"
+    $rollbackCommand = "set -e; cd $RemoteDir; rsync -a --delete --exclude='works.db*' --exclude='generated-assets/' --exclude='uploads/' --exclude='temp_uploads/' --exclude='video-assets/' --exclude='video-upload-staging/' --exclude='cache_img/' --exclude='cache_overlay/' --exclude='extension_downloads/' --exclude='extension_tasks/' --exclude='backups/' $remoteBackup/server/ server/; mkdir -p server/extension_tasks server/extension_downloads server/uploads server/temp_uploads server/generated-assets server/video-assets/input server/video-assets/output server/video-upload-staging server/cache_img server/cache_overlay server/backups; if [ -f $remoteBackup/legacy-server.sha256 ]; then sha256sum -c $remoteBackup/legacy-server.sha256; fi; rm -rf dist; cp -a $remoteBackup/dist dist; cp $remoteBackup/package.json $RemoteDir/package.json; cp $remoteBackup/package-lock.json $RemoteDir/package-lock.json; npm ci --omit=dev; if [ -d '$remoteBackup/$galleryDirectoryName' ]; then rm -rf -- '$RemoteDir/$galleryDirectoryName'; mv '$remoteBackup/$galleryDirectoryName' '$RemoteDir/$galleryDirectoryName'; fi; rollback_static='$staticReleasesRoot/rollback-$remoteStamp'; sudo rm -rf `"`$rollback_static`"; sudo mkdir -p `"`$rollback_static`"; sudo cp -a $remoteBackup/webroot/. `"`$rollback_static`"/; $runtimeRestore if [ -f $remoteBackup/pm2-cluster-enabled ]; then cp $remoteBackup/ecosystem.production.config.cjs $RemoteDir/ecosystem.production.config.cjs; pm2 startOrReload ecosystem.production.config.cjs --only shubao-production --update-env; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3002/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo rm -f $remoteStaticNext; sudo ln -s `"`$rollback_static`" $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp $remoteBackup/nginx-config '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx; else rm -f $remotePm2ClusterMarker; legacy_pid_before=`$(cat $remoteBackup/legacy-pid 2>/dev/null || true); if ! pm2 describe shubao >/dev/null 2>&1; then NODE_ENV=production PORT=3001 pm2 start server/index.mjs --name shubao --max-memory-restart 1G; else legacy_pid_after=`$(pm2 pid shubao); if [ `"`$legacy_pid_after`" != `"`$legacy_pid_before`" ]; then pm2 restart shubao --update-env; fi; fi; for attempt in `$(seq 1 60); do if curl -fsS http://127.0.0.1:3001/health; then break; fi; if [ `"`$attempt`" -eq 60 ]; then exit 1; fi; sleep 2; done; sudo rm -f $remoteStaticNext; sudo ln -s `"`$rollback_static`" $remoteStaticNext; sudo mv -Tf $remoteStaticNext $WebRoot; sudo cp $remoteBackup/nginx-config '$remoteNginxConfig'; sudo nginx -t; sudo systemctl reload nginx; pm2 delete shubao-production >/dev/null 2>&1 || true; fi; pm2 save"
     try {
       Invoke-LockedRemote -Command $rollbackCommand -TimeoutSeconds 2400 -FailureMessage "Production rollback failed"
       if ($runtimeConfigBackupCreated) { $runtimeConfigTouched = $false }

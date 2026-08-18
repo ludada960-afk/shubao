@@ -14,7 +14,7 @@ test('video pricing tier is derived server-side from delivery resolution and dur
   assert.equal(videoFeatureSku({ productId: 'seedance_fast', duration: 9 }), 'video_seedance_fast_long');
 });
 
-function createVideoGenerationHarness(t) {
+function createVideoGenerationHarness(t, overrides = {}) {
   const db = new Database(':memory:');
   const assetRoot = mkdtempSync(join(tmpdir(), 'video-generation-test-'));
   t.after(() => {
@@ -49,6 +49,8 @@ function createVideoGenerationHarness(t) {
       throw new Error('fetch should not be called in validation tests');
     },
     maxConcurrent: 0,
+    assetSigningSecret: 'test-video-asset-signing-secret',
+    ...overrides,
   });
 }
 
@@ -60,6 +62,15 @@ async function uploadReferenceAsset(service, ownerEmail, kind) {
   }[kind];
   return service.uploadAsset({ ownerEmail, kind, publicBaseUrl: 'https://example.com', ...content });
 }
+
+test('direct video asset uploads return the persisted checksum used by project assets', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'owner@example.com', 'image');
+  const stored = await service.readAsset(asset.id, 'owner@example.com');
+
+  assert.match(asset.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(asset.sha256, stored.row.sha256);
+});
 
 test('reference mode accepts a video-only reference job', async t => {
   const service = createVideoGenerationHarness(t);
@@ -154,6 +165,165 @@ test('new jobs persist the product, route, catalog version, and provider-cost sn
   assert.equal(result.job.providerRoute, 'sd5-seedance-2.0');
   assert.equal(result.job.catalogVersion, VIDEO_CATALOG_VERSION);
   assert.equal(result.job.providerCostCny, 3.64);
+});
+
+test('an owned editable workbench project is validated before billing and receives the new job', async t => {
+  const calls = [];
+  let holds = 0;
+  const projectBridge = {
+    validateTarget(input) {
+      calls.push(['validate', input]);
+      return { id: input.projectId, kind: 'video', status: 'draft' };
+    },
+    ensureDraft(job, options) {
+      calls.push(['draft', { jobId: job.id, ...options }]);
+      return { project: { id: options.projectId }, sourceVersion: { id: 'source-version' } };
+    },
+  };
+  const service = createVideoGenerationHarness(t, {
+    projectBridge,
+    walletService: {
+      createHold(input) { holds += 1; return { id: `hold-${input.metadata.taskId}`, status: 'held' }; },
+      getBalance() { return { unlimited: false, availableUnits: 9999 }; },
+      settleItem() { return { status: 'settled' }; },
+      releaseItem() { return { status: 'released' }; },
+    },
+  });
+
+  const result = await service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'target-project-job',
+    billingQuoteId: 'quote-target-project',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      projectId: 'video-project-1', productId: 'seedance_standard', mode: 'script',
+      prompt: '加入既有项目的开场镜头', duration: 8, aspectRatio: '16:9', resolution: '720p',
+    },
+  });
+
+  assert.equal(holds, 1);
+  assert.equal(result.job.projectId, 'video-project-1');
+  assert.deepEqual(calls.map(call => call[0]), ['validate', 'draft']);
+  assert.equal(calls[0][1].projectId, 'video-project-1');
+  assert.equal(calls[1][1].projectId, 'video-project-1');
+});
+
+test('an invalid workbench target is rejected before wallet hold creation', async t => {
+  let holds = 0;
+  const service = createVideoGenerationHarness(t, {
+    projectBridge: {
+      validateTarget() { throw Object.assign(new Error('missing'), { code: 'PROJECT_NOT_FOUND' }); },
+      ensureDraft() { throw new Error('draft must not be created'); },
+    },
+    walletService: {
+      createHold() { holds += 1; return { id: 'unexpected-hold' }; },
+      getBalance() { return { unlimited: false, availableUnits: 9999 }; },
+      settleItem() { return { status: 'settled' }; },
+      releaseItem() { return { status: 'released' }; },
+    },
+  });
+
+  await assert.rejects(service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'invalid-target-project-job',
+    billingQuoteId: 'quote-invalid-target-project',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      projectId: 'missing-project', productId: 'seedance_standard', mode: 'script',
+      prompt: '不会产生扣费', duration: 8, aspectRatio: '16:9', resolution: '720p',
+    },
+  }), error => error?.status === 404 && error?.code === 'PROJECT_NOT_FOUND');
+  assert.equal(holds, 0);
+});
+
+test('a workbench plan hash must be approved before billing a project generation', async t => {
+  let holds = 0;
+  let approvalRequest;
+  const service = createVideoGenerationHarness(t, {
+    projectBridge: {
+      validateTarget() { return { id: 'video-project-1', kind: 'video', status: 'draft' }; },
+      ensureDraft() { throw new Error('draft must not be created'); },
+    },
+    validateWorkbenchPlanApproval(request) {
+      approvalRequest = request;
+      return false;
+    },
+    walletService: {
+      createHold() { holds += 1; return { id: 'unexpected-hold' }; },
+      getBalance() { return { unlimited: false, availableUnits: 9999 }; },
+      settleItem() { return { status: 'settled' }; },
+      releaseItem() { return { status: 'released' }; },
+    },
+  });
+
+  await assert.rejects(service.createJob({
+    ownerEmail: 'owner@example.com',
+    idempotencyKey: 'unapproved-workbench-plan',
+    billingQuoteId: 'quote-unapproved-workbench-plan',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      projectId: 'video-project-1', workbenchPlanHash: 'a'.repeat(64),
+      productId: 'seedance_standard', mode: 'script', prompt: '未确认的工作台镜头',
+      duration: 8, aspectRatio: '16:9', resolution: '720p',
+    },
+  }), error => error?.status === 409 && error?.code === 'VIDEO_PLAN_APPROVAL_REQUIRED');
+  assert.equal(holds, 0);
+  assert.equal(approvalRequest.projectId, 'video-project-1');
+  assert.equal(approvalRequest.planHash, 'a'.repeat(64));
+});
+
+test('video assets can only be read by their normalized owner', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'Owner@Example.com', 'image');
+
+  const owned = await service.readAsset(asset.id, ' owner@example.com ');
+  assert.equal(owned?.row.id, asset.id);
+  assert.equal(owned?.row.owner_email, 'owner@example.com');
+  assert.equal(await service.readAsset(asset.id, 'other@example.com'), null);
+  assert.equal(await service.readAsset(asset.id, ''), null);
+});
+
+test('video asset URLs are purpose-bound expiring capabilities', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'owner@example.com', 'video');
+  const accessUrl = new URL(asset.url);
+
+  assert.equal(accessUrl.pathname, `/api/video/media/${asset.id}`);
+  const accessed = await service.readSignedAsset({
+    id: asset.id,
+    purpose: accessUrl.searchParams.get('purpose'),
+    expires: accessUrl.searchParams.get('expires'),
+    signature: accessUrl.searchParams.get('signature'),
+  });
+  assert.equal(accessed?.row.id, asset.id);
+  assert.equal(await service.readSignedAsset({
+    id: asset.id,
+    purpose: 'provider',
+    expires: accessUrl.searchParams.get('expires'),
+    signature: accessUrl.searchParams.get('signature'),
+  }), null);
+  assert.equal(await service.readSignedAsset({
+    id: asset.id,
+    purpose: accessUrl.searchParams.get('purpose'),
+    expires: '1',
+    signature: accessUrl.searchParams.get('signature'),
+  }), null);
+  assert.equal(await service.readSignedAsset({
+    id: asset.id,
+    purpose: accessUrl.searchParams.get('purpose'),
+    expires: accessUrl.searchParams.get('expires'),
+    signature: `${accessUrl.searchParams.get('signature')}tampered`,
+  }), null);
+});
+
+test('stored video result URLs can be reminted for owned work playback', async t => {
+  const service = createVideoGenerationHarness(t);
+  const asset = await uploadReferenceAsset(service, 'owner@example.com', 'video');
+
+  const playbackUrl = new URL(service.playbackUrlForAsset(asset.id, 'owner@example.com', 'https://example.com'));
+  assert.equal(playbackUrl.pathname, `/api/video/media/${asset.id}`);
+  assert.equal(playbackUrl.searchParams.get('purpose'), 'playback');
+  assert.equal(service.playbackUrlForAsset(asset.id, 'other@example.com'), '');
 });
 
 test('an accepted upstream task is never submitted again after retryable polling failures', async t => {

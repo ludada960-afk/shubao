@@ -31,6 +31,9 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /function\s+Invoke-CheckedNative/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run test/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run build/i);
+  assert.match(deploy, /Invoke-CheckedNative[^\n]*npm run check/i);
+  assert.match(deploy, /verify-video-platform\.mjs/i);
+  assert.match(deploy, /--local --no-paid-generation/i);
   assert.match(deploy, /Invoke-CheckedNative[^\n]*git diff --check/i);
   assert.match(deploy, /if\s*\(\$LASTEXITCODE\s*-ne\s*0\)\s*\{\s*throw/i);
   assert.match(deploy, /backup-runtime-db\.cjs/i);
@@ -108,10 +111,64 @@ test('production deploy protects runtime state and has a reversible release gate
   assert.match(deploy, /process restarted during canary/i);
 });
 
+test('production deploy proves storage headroom before creating a rollback backup', () => {
+  const preflightStart = deploy.indexOf('$storagePreflightCommand =');
+  const backupStart = deploy.indexOf('mkdir -p $remoteBackup');
+  const releaseStart = deploy.indexOf('$releaseStarted = $true');
+
+  assert.ok(preflightStart >= 0, 'the deploy must define a locked storage preflight');
+  assert.ok(preflightStart < backupStart, 'storage preflight must run before creating the rollback backup');
+  assert.ok(backupStart < releaseStart, 'the rollback backup must complete before the release window starts');
+
+  const preflight = deploy.slice(preflightStart, backupStart);
+  assert.match(preflight, /deploy-backups/);
+  assert.match(preflight, /tail -n \+3/);
+  assert.match(preflight, /df -Pk \$RemoteDir/);
+  assert.match(preflight, /required_kb=2097152/);
+  assert.match(preflight, /Production storage preflight failed/);
+  assert.doesNotMatch(preflight, /works\.db|generated-assets|uploads|video-assets/);
+});
+
 test('production release archive includes shared server runtime modules', () => {
   assert.match(deploy, /dist server shared scripts\/nginx\/shuimg\.cn\.conf/);
+  assert.match(deploy, /scripts\/backfill-video-platform\.mjs/);
+  assert.match(deploy, /scripts\/verify-video-platform\.mjs/);
   assert.match(deploy, /tar -tzf \$archive shared\/ecommerceAbilityRecipes\.mjs/);
   assert.match(deploy, /Release archive runtime module verification failed/);
+});
+
+test('rollback snapshots and restores the dependency graph before restarting the app', () => {
+  assert.match(deploy, /cp \$RemoteDir\/package\.json \$remoteBackup\/package\.json/);
+  assert.match(deploy, /cp \$RemoteDir\/package-lock\.json \$remoteBackup\/package-lock\.json/);
+  const rollback = deploy.slice(deploy.indexOf('$rollbackCommand ='));
+  assert.match(rollback, /cp \$remoteBackup\/package\.json \$RemoteDir\/package\.json/);
+  assert.match(rollback, /cp \$remoteBackup\/package-lock\.json \$RemoteDir\/package-lock\.json/);
+  assert.match(rollback, /npm ci --omit=dev/);
+  assert.ok(
+    rollback.indexOf('npm ci --omit=dev') < rollback.indexOf('pm2 startOrReload ecosystem.production.config.cjs'),
+    'rollback must reinstall the restored dependency graph before PM2 starts',
+  );
+});
+
+test('rollback backups keep large video runtime state out of code snapshots', () => {
+  for (const runtimeDirectory of ['video-assets/', 'video-upload-staging/']) {
+    const pattern = new RegExp(`--exclude=['"]${runtimeDirectory.replace('/', '\\/')}['"]`, 'g');
+    const matches = deploy.match(pattern) || [];
+    assert.ok(matches.length >= 2, `backup and rollback must both exclude ${runtimeDirectory}`);
+  }
+});
+
+test('production video cutover is verified before traffic switch and through authenticated canaries', () => {
+  const restart = deploy.indexOf('pm2 startOrReload ecosystem.production.config.cjs');
+  const backfill = deploy.indexOf('node scripts/backfill-video-platform.mjs');
+  const verifyPlatform = deploy.indexOf('node scripts/verify-video-platform.mjs');
+  const trafficSwitch = deploy.indexOf('sudo mv -Tf $remoteStaticNext $WebRoot');
+  assert.ok(restart >= 0 && restart < backfill);
+  assert.ok(backfill < verifyPlatform && verifyPlatform < trafficSwitch);
+  assert.match(deploy, /--asset-root server\/video-assets --apply/);
+  assert.match(deploy, /--database server\/works\.db --no-paid-generation/);
+  assert.match(deploy, /Authenticated video production verification failed/);
+  assert.match(deploy, /Authenticated video production canary failed/);
 });
 
 test('PowerShell canary token validation is case-sensitive and rejects trailing input', { skip: process.platform !== 'win32' }, () => {
@@ -248,7 +305,7 @@ test('first-migration rollback restores and proves legacy health before switchin
     previous = position;
   }
   assert.ok((deploy.match(/-TimeoutSeconds 2400/g) || []).length >= 2);
-  for (const runtimeDirectory of ['generated-assets/', 'uploads/', 'temp_uploads/', 'cache_img/', 'cache_overlay/', 'extension_downloads/', 'extension_tasks/', 'backups/']) {
+  for (const runtimeDirectory of ['generated-assets/', 'uploads/', 'temp_uploads/', 'video-assets/', 'video-upload-staging/', 'cache_img/', 'cache_overlay/', 'extension_downloads/', 'extension_tasks/', 'backups/']) {
     assert.match(rollback, new RegExp(`--exclude=['"]${runtimeDirectory.replace('/', '\\/')}['"]`));
   }
 });

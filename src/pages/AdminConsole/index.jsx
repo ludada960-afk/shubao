@@ -31,7 +31,10 @@ import {
   fetchAdminAudit,
   fetchAdminMonitoring,
   fetchAdminSummary,
+  fetchAdminVideoOperations,
   ledgerUnitsToVisiblePoints,
+  operateAdminVideoJob,
+  reconcileAdminVideos,
   updateAdminAccount,
   updateAdminPermissions,
 } from '../../services/admin.js';
@@ -53,6 +56,12 @@ const ACTION_LABELS = {
   'account.permissions.replace': '调整权限',
   'credits.grant': '发放额度',
   'credits.revoke': '回收额度',
+  'video.reconcile': '视频任务恢复',
+  'video.recheck': '重新核对视频任务',
+  'video.replay_projection': '重放视频作品同步',
+  'video.confirm_not_submitted': '确认上游未受理',
+  'video.retry_confirmed_not_submitted': '安全重试视频任务',
+  'video.quarantine': '隔离视频任务',
 };
 
 function uid(prefix) {
@@ -156,6 +165,14 @@ function queueValue(queue, key) {
   return Number(queue?.[key] || 0).toLocaleString('zh-CN');
 }
 
+function duration(value) {
+  const milliseconds = Number(value);
+  if (!Number.isFinite(milliseconds)) return '暂无';
+  if (milliseconds < 60_000) return `${Math.max(1, Math.round(milliseconds / 1000))} 秒`;
+  if (milliseconds < 3_600_000) return `${Math.round(milliseconds / 60_000)} 分钟`;
+  return `${(milliseconds / 3_600_000).toFixed(1)} 小时`;
+}
+
 function MonitoringPanel({ monitoring }) {
   const runtime = monitoring?.runtime || {};
   const jobs = monitoring?.jobs?.totals || {};
@@ -163,6 +180,12 @@ function MonitoringPanel({ monitoring }) {
   const tasks = monitoring?.recentTasks || [];
   const failures = monitoring?.recentFailures || [];
   const videoQueue = runtime.video || {};
+  const videoWorkbench = monitoring?.videoWorkbench || {};
+  const workbenchFunnel = videoWorkbench.funnel || {};
+  const workbenchHealth = videoWorkbench.health || {};
+  const workbenchOperations = videoWorkbench.operations24h || {};
+  const workbenchGate = videoWorkbench.gate || {};
+  const workbenchReady = workbenchGate.ready === true;
   return <section className="admin-monitoring-band" aria-labelledby="admin-monitoring-title">
     <div className="admin-band-heading"><div><span>运行监控</span><h2 id="admin-monitoring-title">生成服务实时状态</h2></div><small>{monitoring?.generatedAt ? `更新于 ${dateTime(monitoring.generatedAt)}` : '暂无运行数据'}</small></div>
     <div className="admin-runtime-grid">
@@ -171,11 +194,101 @@ function MonitoringPanel({ monitoring }) {
       <article><span className="admin-runtime-icon video"><Video size={16} /></span><div><small>视频队列</small><strong>{queueValue(videoQueue, 'running')} 处理中</strong><span>{queueValue(videoQueue, 'queued')} 个排队 · {queueValue(routes, 'length')} 条路由</span></div></article>
       <article><span className="admin-runtime-icon failure"><Ban size={16} /></span><div><small>终态失败率</small><strong>{((Number(jobs.failureRate || 0)) * 100).toFixed(1)}%</strong><span>{Number(jobs.failed || 0).toLocaleString('zh-CN')} 个失败 / {Number(jobs.completed || 0).toLocaleString('zh-CN')} 个完成</span></div></article>
     </div>
+    <div className={`admin-workbench-pilot-strip ${workbenchReady ? 'is-ready' : ''}`} aria-label="视频工作台试运行状态">
+      <div><span>视频工作台 · 站长试运行</span><strong>{workbenchReady ? '10 项目门禁已满足' : '默认关闭，等待验收'}</strong></div>
+      <div><small>项目漏斗</small><b>{Number(workbenchFunnel.projectsStarted || 0)}/{Number(workbenchGate.minimumProjects || 10)} 已启动 · {Number(workbenchFunnel.storyboardReadyProjects || 0)}/{Number(workbenchGate.minimumStoryboardReadyProjects || 10)} 分镜就绪</b></div>
+      <div><small>24 小时操作质量</small><b>{(Number(workbenchOperations.successRate || 0) * 100).toFixed(1)}% 成功 · P95 {Number(workbenchOperations.p95LatencyMs || 0)} ms</b></div>
+      <div><small>一致性健康</small><b>{Number(workbenchHealth.staleShots || 0)} 个过期分镜 · {Number(workbenchHealth.staleClips || 0)} 个过期片段</b></div>
+    </div>
     <div className="admin-monitoring-grid">
       <div className="admin-monitoring-section"><div className="admin-band-heading compact"><div><span>供应商与路由</span><h3>视频模型通道</h3></div></div>{routes.length ? <div className="admin-route-list">{routes.map(route => <article key={`${route.routeId}:${route.productId}`}><div><strong>{route.label || route.productId || route.routeId}</strong><small>{route.routeId}</small></div><span className={`admin-route-status ${route.availability || (route.configured ? 'ready' : 'unavailable')}`}>{route.availability || (route.configured ? 'ready' : 'unavailable')}</span><dl><div><dt>处理中</dt><dd>{route.queue?.running ?? route.active ?? 0}</dd></div><div><dt>排队</dt><dd>{route.queue?.queued ?? 0}</dd></div><div><dt>失败率</dt><dd>{((Number(route.failureRate || 0)) * 100).toFixed(1)}%</dd></div></dl></article>)}</div> : <EmptyState title="暂无视频路由" detail="配置上游凭据后会显示真实通道状态" />}</div>
       <div className="admin-monitoring-section"><div className="admin-band-heading compact"><div><span>失败诊断</span><h3>高频失败原因</h3></div></div>{failures.length ? <div className="admin-failure-list">{failures.map(item => <article key={`${item.service}:${item.failureClass}:${item.message}`}><span>{item.count}</span><div><strong>{SERVICE_LABELS[item.service] || item.service}</strong><small>{item.message}</small></div></article>)}</div> : <EmptyState title="暂无失败记录" detail="出现失败任务后会在这里聚合原因" />}</div>
     </div>
     <div className="admin-monitoring-section admin-recent-tasks"><div className="admin-band-heading compact"><div><span>任务追踪</span><h3>最近任务</h3></div><small>{tasks.length} 条</small></div>{tasks.length ? <div className="admin-task-list">{tasks.slice(0, 10).map(task => <article key={`${task.service}:${task.id}`} className={task.error ? 'has-error' : ''}><span className={`admin-task-dot ${task.status}`} /><div><strong>{SERVICE_LABELS[task.service] || task.service}</strong><small>{task.id} · {task.ownerEmail}</small>{task.error && <p><b>{task.failureClass || '失败原因'}</b>{task.error}</p>}</div><span className={`admin-task-status ${task.status}`}>{jobStatusLabel(task.status)}</span><time>{dateTime(task.updatedAt)}</time></article>)}</div> : <EmptyState title="暂无任务记录" detail="用户提交生成任务后会显示在这里" />}</div>
+  </section>;
+}
+
+const VIDEO_ATTENTION_LABELS = {
+  submission_review: '待确认上游是否受理',
+  manual_review: '待人工核对',
+  release_pending: '退回积分待收口',
+  settlement_pending: '交付结算待收口',
+  projection_pending: '作品同步待重放',
+  stale_active: '长时间未更新',
+};
+
+function videoActionsFor(item) {
+  if (item.failureClass === 'confirmed_not_submitted') {
+    return [{ id: 'retry_confirmed_not_submitted', label: '安全重试', tone: 'primary' }];
+  }
+  if (item.reason === 'projection_pending') {
+    return [{ id: 'replay_projection', label: '重放作品同步', tone: 'primary' }];
+  }
+  if (item.reason === 'submission_review' || item.failureClass === 'submission_unknown'
+    || (item.reason === 'manual_review' && item.failureClass === 'manual_quarantine')) {
+    return [
+      { id: 'recheck', label: '重新核对' },
+      { id: 'confirm_not_submitted', label: '确认未受理', tone: 'primary' },
+    ];
+  }
+  return [{ id: 'recheck', label: '重新核对', tone: 'primary' }];
+}
+
+function VideoOperationsPanel({ operations, onChanged }) {
+  const [busy, setBusy] = useState('');
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const backlog = operations?.backlog || {};
+  const ages = operations?.ageBuckets || {};
+  const attention = operations?.attention || [];
+  const segments = operations?.segments || [];
+
+  const execute = async (key, label, work) => {
+    const reason = globalThis.prompt?.(`请填写“${label}”原因，该记录会进入审计日志：`, label);
+    if (!reason?.trim()) return;
+    setBusy(key);
+    setMessage({ type: '', text: '' });
+    try {
+      await work(reason.trim());
+      setMessage({ type: 'success', text: `${label}已完成，任务状态已重新读取。` });
+      await onChanged();
+    } catch (nextError) {
+      setMessage({ type: 'error', text: nextError.message || `${label}失败` });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const reconcileNow = () => execute('reconcile', '手动恢复视频任务', reason => reconcileAdminVideos({
+    reason,
+    limit: 50,
+    force: true,
+    idempotencyKey: uid('video-reconcile'),
+  }));
+
+  const operate = (item, action) => execute(`${item.id}:${action.id}`, action.label, reason => operateAdminVideoJob(item.id, {
+    action: action.id,
+    reason,
+    idempotencyKey: uid(`video-${action.id}`),
+  }));
+
+  return <section className="admin-video-operations" aria-labelledby="admin-video-operations-title">
+    <div className="admin-band-heading"><div><span>可恢复性与人工收口</span><h2 id="admin-video-operations-title">视频任务治理</h2></div><button type="button" className="admin-secondary-button" disabled={Boolean(busy)} onClick={reconcileNow}>{busy === 'reconcile' ? <LoaderCircle className="spin" size={15} /> : <RefreshCw size={15} />}运行有界恢复</button></div>
+    {message.text && <div className={`admin-video-message ${message.type}`}>{message.type === 'success' ? <Check size={15} /> : <Ban size={15} />}{message.text}</div>}
+    <div className="admin-video-backlog">
+      <article><small>待人工核对</small><strong>{Number(backlog.reviewPending || 0)}</strong><span>不会自动重复提交</span></article>
+      <article><small>生成中</small><strong>{Number(backlog.submitting || 0) + Number(backlog.processing || 0)}</strong><span>{Number(backlog.queued || 0)} 个排队</span></article>
+      <article><small>账务待收口</small><strong>{Number(backlog.settlementPending || 0) + Number(backlog.releasePending || 0)}</strong><span>结算与退回均可重入</span></article>
+      <article><small>作品同步待重放</small><strong>{Number(backlog.projectionPending || 0)}</strong><span>已交付资产不重复生成</span></article>
+    </div>
+    <div className="admin-video-ages" aria-label="任务年龄分布"><span>5 分钟内 <b>{Number(ages.under5m || 0)}</b></span><span>5–15 分钟 <b>{Number(ages.from5To15m || 0)}</b></span><span>15–30 分钟 <b>{Number(ages.from15To30m || 0)}</b></span><span>30 分钟以上 <b>{Number(ages.over30m || 0)}</b></span></div>
+    <div className="admin-video-operations-grid">
+      <div className="admin-video-attention"><div className="admin-band-heading compact"><div><span>仅列出需要决策的任务</span><h3>待处理队列</h3></div><small>{attention.length} 条</small></div>{attention.length ? <div className="admin-video-attention-list">{attention.map(item => <article key={item.id}>
+        <div className="admin-video-job-copy"><strong>{VIDEO_ATTENTION_LABELS[item.reason] || item.reason}</strong><small>{item.id} · {item.ownerEmail}</small><span>{item.error || item.failureClass || '暂无错误说明'} · 已等待 {duration(item.ageMs)}</span></div>
+        <div className="admin-video-job-state"><span>{jobStatusLabel(item.status)}</span><small>{item.providerRoute || item.productId || '未选定路由'}</small></div>
+        <div className="admin-video-job-actions">{videoActionsFor(item).map(action => <button type="button" key={action.id} className={action.tone === 'primary' ? 'is-primary' : ''} disabled={Boolean(busy)} onClick={() => operate(item, action)}>{busy === `${item.id}:${action.id}` && <LoaderCircle className="spin" size={13} />}{action.label}</button>)}</div>
+      </article>)}</div> : <EmptyState title="暂无待人工任务" detail="异常任务会保留账务和上游证据后出现在这里" />}</div>
+      <div className="admin-video-segments"><div className="admin-band-heading compact"><div><span>按真实尝试口径</span><h3>模型交付表现</h3></div><small>{segments.length} 个分组</small></div>{segments.length ? <div className="admin-video-segment-table"><div className="head"><span>路由 / 能力</span><span>成功</span><span>首结果</span><span>总交付</span><span>重试</span><span>成本</span></div>{segments.map(item => <div className="row" key={`${item.provider}:${item.model}:${item.capability}`}><span><strong>{item.model}</strong><small>{item.provider} · {item.capability}</small></span><b>{(Number(item.successRate || 0) * 100).toFixed(1)}%</b><b>{duration(item.firstResultMs)}</b><b>{duration(item.deliveryMs)}</b><b>{(Number(item.retryRate || 0) * 100).toFixed(1)}%</b><b>{preciseMoney(item.providerCostCny)}</b></div>)}</div> : <EmptyState title="暂无视频交付样本" detail="产生第一次真实视频尝试后将显示成功率与耗时" />}</div>
+    </div>
   </section>;
 }
 
@@ -422,6 +535,7 @@ export default function AdminConsolePage() {
   const [accounts, setAccounts] = useState([]);
   const [audit, setAudit] = useState([]);
   const [monitoring, setMonitoring] = useState(null);
+  const [videoOperations, setVideoOperations] = useState(null);
   const [query, setQuery] = useState('');
   const [selectedEmail, setSelectedEmail] = useState('');
   const [loading, setLoading] = useState(true);
@@ -434,16 +548,18 @@ export default function AdminConsolePage() {
     quiet ? setRefreshing(true) : setLoading(true);
     setError('');
     try {
-      const [nextSummary, nextAccounts, nextAudit, nextMonitoring] = await Promise.all([
+      const [nextSummary, nextAccounts, nextAudit, nextMonitoring, nextVideoOperations] = await Promise.all([
         fetchAdminSummary(),
         fetchAdminAccounts({ limit: 100 }),
         fetchAdminAudit({ limit: 30 }),
         fetchAdminMonitoring({ limit: 30 }),
+        fetchAdminVideoOperations(),
       ]);
       setSummary(nextSummary);
       setAccounts(nextAccounts.accounts || []);
       setAudit(nextAudit.entries || []);
       setMonitoring(nextMonitoring);
+      setVideoOperations(nextVideoOperations);
     } catch (nextError) {
       setError(nextError.message || '管理后台加载失败');
     } finally {
@@ -504,6 +620,8 @@ export default function AdminConsolePage() {
       <UpstreamLedgerPanel ledger={summary?.upstreamLedger} />
 
       <MonitoringPanel monitoring={monitoring} />
+
+      <VideoOperationsPanel operations={videoOperations} onChanged={() => load({ quiet: true })} />
 
       <section className="admin-accounts-band" aria-labelledby="admin-accounts-title">
         <div className="admin-band-heading"><div><span>账号与权限</span><h2 id="admin-accounts-title">内测账号</h2></div><label className="admin-search"><Search size={15} /><input value={query} placeholder="搜索邮箱或备注" onChange={event => setQuery(event.target.value)} /></label></div>

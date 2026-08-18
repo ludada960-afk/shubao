@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import { rename, stat, writeFile } from 'node:fs/promises';
+import { copyFile, link, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { quoteFeature } from './billing/catalog.mjs';
 import {
   DEFAULT_VIDEO_PRODUCT_ID,
@@ -17,8 +19,10 @@ import {
   isVideoProviderFailure,
 } from './videoProviders.mjs';
 import { createOwnerFairVideoQueue } from './videoQueue.mjs';
+import { createVideoAttemptStore } from './videoAttemptStore.mjs';
+import { createVideoOutbox } from './videoOutbox.mjs';
 
-const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review']);
+const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review', 'reconciling']);
 const ACTIVE_STATUSES = new Set(['queued', 'submitting', 'processing']);
 const RATIOS = new Set(['21:9', '16:9', '4:3', '1:1', '3:4', '9:16']);
 const INPUT_LIMITS = Object.freeze({ image: 10 * 1024 * 1024, video: 50 * 1024 * 1024, audio: 15 * 1024 * 1024 });
@@ -26,6 +30,7 @@ const OUTPUT_LIMIT = 100 * 1024 * 1024;
 const CIRCUIT_MIN_SAMPLES = 5;
 const CIRCUIT_WINDOW = 20;
 const CIRCUIT_COOLDOWN_MS = 15 * 60 * 1000;
+const SUBMISSION_REVIEW_TTL_MS = 30 * 60 * 1000;
 const CONTENT_TYPES = Object.freeze({
   image: new Set(['image/jpeg', 'image/png', 'image/webp']),
   video: new Set(['video/mp4', 'video/webm', 'video/quicktime']),
@@ -48,7 +53,7 @@ function parseJson(value, fallback) {
   try { return JSON.parse(value || ''); } catch { return fallback; }
 }
 
-function serializeJob(row) {
+function serializeJob(row, resultUrl = row?.result_url || '') {
   if (!row) return null;
   return {
     id: row.id,
@@ -60,6 +65,18 @@ function serializeJob(row) {
     catalogVersion: row.catalog_version || 'legacy-seedance-v1',
     providerCostCny: Number(row.provider_cost_cny ?? 3.64),
     failureClass: row.failure_class || '',
+    billingState: row.status === 'completed' && (!row.billing_state || row.billing_state === 'held')
+      ? 'settled'
+      : row.billing_state || 'held',
+    deliveryState: row.delivery_state || (row.status === 'completed' ? 'verified' : 'none'),
+    projectProjectionState: row.project_projection_state || (row.status === 'completed' ? 'projected' : 'none'),
+    projectionState: row.projection_state || (row.status === 'completed' ? 'projected' : 'none'),
+    projectId: row.project_id || '',
+    sourceVersionId: row.source_version_id || '',
+    resultVersionId: row.result_version_id || '',
+    reconciliationError: row.reconciliation_error || '',
+    reviewDeadlineAt: Number(row.review_deadline_ms || 0),
+    attemptId: row.current_attempt_id || '',
     prompt: row.prompt,
     duration: row.duration,
     aspectRatio: row.aspect_ratio,
@@ -68,7 +85,7 @@ function serializeJob(row) {
     seed: row.seed,
     references: parseJson(row.refs_json, {}),
     progress: row.progress,
-    resultUrl: row.result_url || '',
+    resultUrl,
     error: row.error || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -169,10 +186,16 @@ export function createVideoGeneration({
   model,
   fetchImpl,
   providerRegistry,
+  projectBridge = null,
   allowHiddenProducts = false,
+  assetSigningSecret = '',
   now = Date.now,
   pollIntervalMs = 5000,
   maxConcurrent = 2,
+  reconciliationIntervalMs = 30_000,
+  ownerReads = true,
+  readNewState = true,
+  validateWorkbenchPlanApproval = null,
 } = {}) {
   if (!db || !walletService || !quoteService || typeof upsertWork !== 'function') {
     throw new TypeError('video generation dependencies are required');
@@ -189,6 +212,7 @@ export function createVideoGeneration({
       kind TEXT NOT NULL,
       content_type TEXT NOT NULL,
       bytes INTEGER NOT NULL,
+      sha256 TEXT NOT NULL DEFAULT '',
       file_name TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     );
@@ -219,13 +243,40 @@ export function createVideoGeneration({
       provider_cost_cny REAL NOT NULL DEFAULT 3.64,
       failure_class TEXT NOT NULL DEFAULT '',
       quote_id TEXT NOT NULL DEFAULT '',
+      billing_state TEXT NOT NULL DEFAULT 'held',
+      delivery_state TEXT NOT NULL DEFAULT 'none',
+      project_projection_state TEXT NOT NULL DEFAULT 'none',
+      projection_state TEXT NOT NULL DEFAULT 'none',
+      project_id TEXT NOT NULL DEFAULT '',
+      source_version_id TEXT NOT NULL DEFAULT '',
+      result_version_id TEXT NOT NULL DEFAULT '',
+      reconciliation_error TEXT NOT NULL DEFAULT '',
+      release_attempts INTEGER NOT NULL DEFAULT 0,
+      review_deadline_ms INTEGER NOT NULL DEFAULT 0,
+      review_attempts INTEGER NOT NULL DEFAULT 0,
+      current_attempt_id TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       UNIQUE(owner_email, idempotency_key)
     );
     CREATE INDEX IF NOT EXISTS idx_video_jobs_owner ON video_jobs(owner_email, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_video_jobs_status ON video_jobs(status, updated_at);
+    CREATE TABLE IF NOT EXISTS video_deliveries (
+      id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL UNIQUE,
+      attempt_id TEXT NOT NULL DEFAULT '',
+      provider_source TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      bytes INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      verification_state TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_deliveries_attempt ON video_deliveries(attempt_id);
   `);
+  const assetColumns = new Set(db.prepare('PRAGMA table_info(video_assets)').all().map(column => column.name));
+  if (!assetColumns.has('sha256')) db.exec("ALTER TABLE video_assets ADD COLUMN sha256 TEXT NOT NULL DEFAULT ''");
   const columns = new Set(db.prepare('PRAGMA table_info(video_jobs)').all().map(column => column.name));
   const migrations = [
     ['product_id', "TEXT NOT NULL DEFAULT 'seedance_standard'"],
@@ -235,10 +286,24 @@ export function createVideoGeneration({
     ['provider_cost_cny', 'REAL NOT NULL DEFAULT 4.355'],
     ['failure_class', "TEXT NOT NULL DEFAULT ''"],
     ['quote_id', "TEXT NOT NULL DEFAULT ''"],
+    ['billing_state', "TEXT NOT NULL DEFAULT 'held'"],
+    ['delivery_state', "TEXT NOT NULL DEFAULT 'none'"],
+    ['project_projection_state', "TEXT NOT NULL DEFAULT 'none'"],
+    ['projection_state', "TEXT NOT NULL DEFAULT 'none'"],
+    ['project_id', "TEXT NOT NULL DEFAULT ''"],
+    ['source_version_id', "TEXT NOT NULL DEFAULT ''"],
+    ['result_version_id', "TEXT NOT NULL DEFAULT ''"],
+    ['reconciliation_error', "TEXT NOT NULL DEFAULT ''"],
+    ['release_attempts', 'INTEGER NOT NULL DEFAULT 0'],
+    ['review_deadline_ms', 'INTEGER NOT NULL DEFAULT 0'],
+    ['review_attempts', 'INTEGER NOT NULL DEFAULT 0'],
+    ['current_attempt_id', "TEXT NOT NULL DEFAULT ''"],
   ];
   for (const [column, definition] of migrations) {
     if (!columns.has(column)) db.exec(`ALTER TABLE video_jobs ADD COLUMN ${column} ${definition}`);
   }
+  db.prepare("UPDATE video_jobs SET billing_state = 'settled' WHERE status = 'completed' AND billing_state = 'held'").run();
+  db.prepare("UPDATE video_jobs SET delivery_state = 'verified', project_projection_state = 'projected', projection_state = 'projected' WHERE status = 'completed'").run();
 
   const registry = providerRegistry || createVideoProviderRegistry({
     baseUrl,
@@ -255,9 +320,12 @@ export function createVideoGeneration({
     maxConcurrent === 0 ? 0 : Math.min(product.concurrency, Math.max(1, Number(maxConcurrent) || product.concurrency)),
   ]));
   const queue = createOwnerFairVideoQueue({ capacities: routeCapacities });
+  const attemptStore = createVideoAttemptStore({ db });
+  const outbox = createVideoOutbox({ db, now });
   const retryTimers = new Set();
   const circuitStates = new Map();
   let closed = false;
+  const signingSecret = clean(assetSigningSecret, 500) || crypto.randomBytes(32).toString('base64url');
 
   function jobForOwner(ownerEmail, id) {
     return db.prepare('SELECT * FROM video_jobs WHERE id = ? AND owner_email = ?').get(id, ownerEmail);
@@ -357,8 +425,38 @@ export function createVideoGeneration({
     }
   }
 
-  function publicAssetUrl(publicBaseUrl, id) {
-    return `${clean(publicBaseUrl, 500).replace(/\/+$/, '')}/api/video/assets/${encodeURIComponent(id)}`;
+  function signedAssetPayload({ id, ownerEmail, purpose, expires }) {
+    return [basename(clean(id, 140)), clean(ownerEmail, 320).toLowerCase(), clean(purpose, 40), String(expires)].join('\n');
+  }
+
+  function signAsset(input) {
+    return crypto.createHmac('sha256', signingSecret).update(signedAssetPayload(input)).digest('base64url');
+  }
+
+  function signedAssetUrl(publicBaseUrl, id, ownerEmail, purpose = 'playback', ttlMs = 60 * 60 * 1000) {
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    const expires = nowMs() + Math.max(60_000, Number(ttlMs) || 0);
+    const signature = signAsset({ id, ownerEmail: normalizedOwner, purpose, expires });
+    const query = new URLSearchParams({ purpose, expires: String(expires), signature });
+    const base = clean(publicBaseUrl, 500).replace(/\/+$/, '');
+    return `${base}/api/video/media/${encodeURIComponent(id)}?${query}`;
+  }
+
+  function serializeOwnedJob(row) {
+    if (!row) return null;
+    const resultUrl = row.result_asset_id
+      ? (ownerReads
+        ? signedAssetUrl('', row.result_asset_id, row.owner_email, 'playback', 24 * 60 * 60 * 1000)
+        : `/api/video/assets/${encodeURIComponent(row.result_asset_id)}`)
+      : row.result_url || '';
+    if (readNewState) return serializeJob(row, resultUrl);
+    return serializeJob({
+      ...row,
+      billing_state: row.status === 'completed' ? 'settled' : row.billing_state,
+      delivery_state: row.status === 'completed' ? 'verified' : 'none',
+      project_projection_state: row.status === 'completed' ? 'projected' : 'none',
+      projection_state: row.status === 'completed' ? 'projected' : 'none',
+    }, resultUrl);
   }
 
   async function uploadAsset({ ownerEmail, kind, contentType, buffer, publicBaseUrl }) {
@@ -368,12 +466,66 @@ export function createVideoGeneration({
     if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > INPUT_LIMITS[kind]) {
       throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件大小不符合要求');
     }
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!normalizedOwner) throw httpError(401, 'VIDEO_ASSET_OWNER_REQUIRED', '登录已失效，请重新登录');
     const id = `${crypto.randomUUID()}${extensionFor(normalizedType)}`;
     const fileName = resolve(inputRoot, id);
     await writeFile(fileName, buffer, { flag: 'wx' });
-    db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, file_name) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, ownerEmail, kind, normalizedType, buffer.length, basename(fileName));
-    return { id, kind, contentType: normalizedType, bytes: buffer.length, url: publicAssetUrl(publicBaseUrl, id) };
+    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+    db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(id, normalizedOwner, kind, normalizedType, buffer.length, sha256, basename(fileName));
+    return {
+      id,
+      kind,
+      contentType: normalizedType,
+      bytes: buffer.length,
+      sha256,
+      url: ownerReads
+        ? signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000)
+        : `/api/video/assets/${encodeURIComponent(id)}`,
+    };
+  }
+
+  async function importUploadedAsset({ ownerEmail, kind, contentType, sourcePath, bytes, sha256, publicBaseUrl }) {
+    if (!Object.hasOwn(INPUT_LIMITS, kind)) throw httpError(400, 'VIDEO_ASSET_KIND_INVALID', '素材类型不支持');
+    const normalizedType = clean(contentType, 100).toLowerCase().split(';')[0];
+    if (!CONTENT_TYPES[kind].has(normalizedType)) throw httpError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!normalizedOwner) throw httpError(401, 'VIDEO_ASSET_OWNER_REQUIRED', '登录已失效，请重新登录');
+    const size = Number(bytes);
+    const sourceInfo = await stat(sourcePath);
+    if (!Number.isSafeInteger(size) || size <= 0 || size > INPUT_LIMITS[kind] || sourceInfo.size !== size) {
+      throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件大小不符合要求');
+    }
+    const normalizedSha256 = clean(sha256, 64).toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(normalizedSha256)) throw httpError(422, 'VIDEO_ASSET_CHECKSUM_INVALID', '素材文件校验失败');
+    const id = `${crypto.randomUUID()}${extensionFor(normalizedType)}`;
+    const destination = resolve(inputRoot, id);
+    try {
+      try {
+        await link(sourcePath, destination);
+      } catch (error) {
+        if (!['EXDEV', 'EPERM', 'EACCES'].includes(error?.code)) throw error;
+        await copyFile(sourcePath, destination, fs.constants.COPYFILE_EXCL);
+      }
+      const handle = await fs.promises.open(destination, 'r+');
+      try { await handle.sync(); } finally { await handle.close(); }
+      db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(id, normalizedOwner, kind, normalizedType, size, normalizedSha256, basename(destination));
+      return {
+        id,
+        kind,
+        contentType: normalizedType,
+        bytes: size,
+        sha256: normalizedSha256,
+        url: ownerReads
+          ? signedAssetUrl(publicBaseUrl, id, normalizedOwner, 'playback', 24 * 60 * 60 * 1000)
+          : `/api/video/assets/${encodeURIComponent(id)}`,
+      };
+    } catch (error) {
+      await fs.promises.rm(destination, { force: true }).catch(() => {});
+      throw error;
+    }
   }
 
   function normalizeReferences(ownerEmail, input, publicBaseUrl) {
@@ -402,7 +554,10 @@ export function createVideoGeneration({
       images,
       videos,
       audios,
-      urls: Object.fromEntries(rows.map(row => [row.id, publicAssetUrl(publicBaseUrl, row.id)])),
+      urls: Object.fromEntries(rows.map(row => [
+        row.id,
+        signedAssetUrl(publicBaseUrl, row.id, ownerEmail, 'provider', 60 * 60 * 1000),
+      ])),
     };
   }
 
@@ -419,42 +574,96 @@ export function createVideoGeneration({
     if (!contentType.startsWith('video/')) throw httpError(502, 'VIDEO_OUTPUT_TYPE_INVALID', '上游没有交付有效视频');
     const declaredBytes = Number(response.headers.get('content-length') || 0);
     if (declaredBytes > OUTPUT_LIMIT) throw httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件过大');
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (!buffer.length || buffer.length > OUTPUT_LIMIT) throw httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件无效');
+    if (!response.body) throw httpError(502, 'VIDEO_OUTPUT_BODY_MISSING', '上游没有交付视频文件');
     const id = `${crypto.randomUUID()}${extensionFor(contentType) || '.mp4'}`;
     const tempPath = resolve(outputRoot, `.${id}.tmp`);
     const finalPath = resolve(outputRoot, id);
-    await writeFile(tempPath, buffer, { flag: 'wx' });
-    await rename(tempPath, finalPath);
-    db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, file_name) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, job.owner_email, 'output', contentType, buffer.length, basename(finalPath));
-    return { id, contentType, bytes: buffer.length, url: `/api/video/assets/${id}` };
+    const hash = crypto.createHash('sha256');
+    let bytes = 0;
+    let renamed = false;
+    const meter = new Transform({
+      transform(chunk, _encoding, callback) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        bytes += buffer.length;
+        if (bytes > OUTPUT_LIMIT) return callback(httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '上游视频文件过大'));
+        hash.update(buffer);
+        return callback(null, buffer);
+      },
+    });
+    try {
+      await pipeline(Readable.fromWeb(response.body), meter, fs.createWriteStream(tempPath, { flags: 'wx' }));
+      if (!bytes || (declaredBytes > 0 && declaredBytes !== bytes)) {
+        throw httpError(502, 'VIDEO_OUTPUT_TRUNCATED', '上游视频文件不完整');
+      }
+      const sha256 = hash.digest('hex');
+      const expectedSha256 = clean(response.headers.get('x-content-sha256'), 100).toLowerCase();
+      if (expectedSha256 && expectedSha256 !== sha256) {
+        throw httpError(502, 'VIDEO_OUTPUT_CHECKSUM_INVALID', '上游视频文件校验失败');
+      }
+      const handle = await fs.promises.open(tempPath, 'r+');
+      try { await handle.sync(); } finally { await handle.close(); }
+      await rename(tempPath, finalPath);
+      renamed = true;
+      db.transaction(() => {
+        db.prepare('INSERT INTO video_assets (id, owner_email, kind, content_type, bytes, sha256, file_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(id, job.owner_email, 'output', contentType, bytes, sha256, basename(finalPath));
+        db.prepare(`INSERT INTO video_deliveries (
+          id, job_id, attempt_id, provider_source, file_name, content_type, bytes, sha256, verification_state
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'verified')`).run(
+          id,
+          job.id,
+          job.current_attempt_id || '',
+          job.provider_task_id || '',
+          basename(finalPath),
+          contentType,
+          bytes,
+          sha256,
+        );
+      })();
+      return { id, contentType, bytes, sha256, url: `/api/video/assets/${id}` };
+    } catch (error) {
+      await fs.promises.rm(renamed ? finalPath : tempPath, { force: true }).catch(() => {});
+      throw error;
+    }
+  }
+
+  function verifiedDeliveryForJob(job) {
+    const delivery = db.prepare("SELECT * FROM video_deliveries WHERE job_id = ? AND verification_state = 'verified'").get(job.id);
+    if (!delivery) return null;
+    const asset = db.prepare('SELECT id FROM video_assets WHERE id = ? AND owner_email = ?').get(delivery.id, job.owner_email);
+    if (!asset) return null;
+    return {
+      id: delivery.id,
+      contentType: delivery.content_type,
+      bytes: Number(delivery.bytes),
+      sha256: delivery.sha256,
+      url: `/api/video/assets/${delivery.id}`,
+    };
   }
 
   async function complete(job, output) {
-    const settlement = walletService.settleItem(job.hold_id, 'video', {
-      referenceType: 'video_generation',
-      referenceId: output.id,
-      providerCostCny: Number(job.provider_cost_cny),
-      idempotencyKey: `video-settle:${job.id}`,
-      metadata: {
-        taskId: job.id,
-        productId: job.product_id,
-        providerRoute: job.provider_route,
-        catalogVersion: job.catalog_version,
-        resolution: job.resolution,
-        duration: job.duration,
-      },
-    });
-    const completedJob = updateJob(job.id, {
-      status: 'completed',
-      progress: 100,
-      result_asset_id: output.id,
-      result_url: output.url,
-      error: '',
-      failure_class: '',
-    });
-    recordCircuitOutcome(completedJob, true);
+    const deliveredJob = db.transaction(() => {
+      const updated = updateJob(job.id, {
+        status: 'reconciling',
+        progress: 99,
+        result_asset_id: output.id,
+        result_url: output.url,
+        error: '成片已交付，正在确认积分结算',
+        failure_class: '',
+        billing_state: 'settlement_pending',
+        delivery_state: 'verified',
+        project_projection_state: projectBridge ? 'pending' : 'projected',
+        projection_state: 'pending',
+        reconciliation_error: '',
+      });
+      ensureVideoEvent(updated, 'video.billing.settle.requested', 'billing-settle');
+      return updated;
+    })();
+    recordCircuitOutcome(deliveredJob, true);
+    drainVideoOutbox();
+  }
+
+  function upsertCompletedVideoWork(job, settlement) {
     upsertWork({
       _saveKey: `video:${job.id}`,
       _phone: job.owner_email,
@@ -466,9 +675,9 @@ export function createVideoGeneration({
       _videoResult: true,
       workType: 'video',
       generationType: 'video',
-      video_url: output.url,
+      video_url: job.result_url,
       video: {
-        url: output.url,
+        url: job.result_url,
         duration: job.duration,
         aspectRatio: job.aspect_ratio,
         resolution: job.resolution,
@@ -479,22 +688,220 @@ export function createVideoGeneration({
     }, { ownerEmail: job.owner_email });
   }
 
-  async function fail(job, error) {
-    const failureClass = isVideoProviderFailure(error) ? 'provider' : 'delivery';
+  function ensureVideoEvent(job, eventType, suffix) {
+    return outbox.ensure({
+      id: `video:${job.id}:${suffix}`,
+      aggregateId: job.id,
+      eventType,
+      payload: { jobId: job.id },
+    });
+  }
+
+  function processVideoEvent(event) {
+    const job = selectJob.get(event.aggregate_id);
+    if (!job) {
+      outbox.complete(event.id);
+      return;
+    }
+    if (event.event_type === 'video.billing.settle.requested') {
+      walletService.settleItem(job.hold_id, 'video', {
+        referenceType: 'video_generation',
+        referenceId: job.result_asset_id,
+        providerCostCny: Number(job.provider_cost_cny),
+        idempotencyKey: `video-settle:${job.id}`,
+        metadata: {
+          taskId: job.id,
+          productId: job.product_id,
+          providerRoute: job.provider_route,
+          catalogVersion: job.catalog_version,
+          resolution: job.resolution,
+          duration: job.duration,
+        },
+      });
+      db.transaction(() => {
+        const settledJob = updateJob(job.id, {
+          status: 'reconciling',
+          progress: 99,
+          error: '成片已交付，正在同步作品库',
+          billing_state: 'settled',
+          reconciliation_error: '',
+        });
+        outbox.complete(event.id);
+        ensureVideoEvent(
+          settledJob,
+          projectBridge ? 'video.project.project.requested' : 'video.works.project.requested',
+          projectBridge ? 'project-project' : 'works-project',
+        );
+      })();
+      return;
+    }
+    if (event.event_type === 'video.project.project.requested') {
+      const projected = projectBridge.projectDelivery(job);
+      db.transaction(() => {
+        const projectedJob = updateJob(job.id, {
+          status: 'reconciling',
+          progress: 99,
+          error: '成片已交付，正在同步作品库',
+          project_projection_state: 'projected',
+          project_id: projected.project.id,
+          source_version_id: projected.sourceVersion.id,
+          result_version_id: projected.resultVersion.id,
+          reconciliation_error: '',
+        });
+        outbox.complete(event.id);
+        ensureVideoEvent(projectedJob, 'video.works.project.requested', 'works-project');
+      })();
+      return;
+    }
+    if (event.event_type === 'video.works.project.requested') {
+      upsertCompletedVideoWork(job, { status: 'settled' });
+      db.transaction(() => {
+        const projectedJob = updateJob(job.id, {
+          status: 'reconciling',
+          progress: 99,
+          error: '成片已交付，正在完成任务记录',
+          projection_state: 'projected',
+          reconciliation_error: '',
+        });
+        outbox.complete(event.id);
+        ensureVideoEvent(projectedJob, 'video.job.finalize.requested', 'finalize');
+      })();
+      return;
+    }
+    if (event.event_type === 'video.job.finalize.requested') {
+      if (job.delivery_state !== 'verified' || job.billing_state !== 'settled'
+        || job.project_projection_state !== 'projected' || job.projection_state !== 'projected') {
+        throw new Error('video finalization prerequisites are incomplete');
+      }
+      db.transaction(() => {
+        updateJob(job.id, {
+          status: 'completed',
+          progress: 100,
+          error: '',
+          reconciliation_error: '',
+        });
+        outbox.complete(event.id);
+      })();
+      return;
+    }
+    outbox.complete(event.id);
+  }
+
+  function drainVideoOutbox({ force = false, limit = 100 } = {}) {
+    const processed = new Set();
+    const boundedLimit = Math.max(1, Math.min(200, Number(limit) || 100));
+    while (processed.size < boundedLimit) {
+      const event = outbox.pending(boundedLimit, { force }).find(candidate => !processed.has(candidate.id));
+      if (!event) break;
+      processed.add(event.id);
+      const claimed = outbox.processing(event.id, `video-${process.pid}`);
+      if (claimed?.state !== 'processing') continue;
+      try {
+        processVideoEvent(claimed);
+      } catch (error) {
+        const job = selectJob.get(claimed.aggregate_id);
+        if (job) {
+          const settlementPending = claimed.event_type === 'video.billing.settle.requested';
+          const projectPending = claimed.event_type === 'video.project.project.requested';
+          updateJob(job.id, {
+            status: 'reconciling',
+            progress: 99,
+            error: settlementPending
+              ? '成片已交付，积分结算确认中'
+              : projectPending ? '成片已交付，项目记录同步中' : '成片已交付，作品库同步中',
+            billing_state: settlementPending ? 'settlement_pending' : job.billing_state,
+            project_projection_state: projectPending ? 'pending' : job.project_projection_state,
+            projection_state: settlementPending ? job.projection_state : 'pending',
+            reconciliation_error: clean(error?.message, 500) || 'video outbox delivery failed',
+          });
+        }
+        outbox.fail(claimed.id, error, 5_000);
+      }
+    }
+  }
+
+  function releaseHeldJob(job, error) {
+    const failureClass = job.failure_class || (isVideoProviderFailure(error) ? 'provider' : 'delivery');
     try {
       walletService.releaseItem(job.hold_id, 'video', {
         reason: `video_failed:${clean(error?.code || error?.message, 100) || 'unknown'}`,
         idempotencyKey: `video-release:${job.id}`,
         metadata: { taskId: job.id, productId: job.product_id, providerRoute: job.provider_route },
       });
-    } catch {}
-    const failedJob = updateJob(job.id, {
-      status: 'failed',
-      error: '本次没有交付成片，冻结积分已退回',
-      progress: 0,
-      failure_class: failureClass,
-    });
+      return updateJob(job.id, {
+        status: 'failed',
+        error: '本次没有交付成片，冻结积分已退回',
+        progress: 0,
+        failure_class: failureClass,
+        billing_state: 'released',
+        reconciliation_error: '',
+        release_attempts: Number(job.release_attempts || 0) + 1,
+      });
+    } catch (releaseError) {
+      return updateJob(job.id, {
+        status: 'reconciling',
+        error: '本次没有交付成片，冻结积分退回处理中',
+        progress: 0,
+        failure_class: failureClass,
+        billing_state: 'release_pending',
+        reconciliation_error: clean(releaseError?.message, 500) || 'credit release failed',
+        release_attempts: Number(job.release_attempts || 0) + 1,
+      });
+    }
+  }
+
+  async function fail(job, error) {
+    const failedJob = releaseHeldJob(job, error);
     recordCircuitOutcome(failedJob, false);
+  }
+
+  function markSubmissionUnknown(job, message = '') {
+    if (job.current_attempt_id && attemptStore.get(job.current_attempt_id)?.state === 'submitting') {
+      attemptStore.markUncertain(job.current_attempt_id, { message: clean(message, 500) || 'submission result is unknown' });
+    }
+    return updateJob(job.id, {
+      status: 'needs_review',
+      error: clean(message, 500) || '上游受理结果待自动核对，核对期间不会重复提交或结算积分',
+      failure_class: 'submission_unknown',
+      billing_state: 'held',
+      reconciliation_error: '',
+      review_deadline_ms: nowMs() + SUBMISSION_REVIEW_TTL_MS,
+      review_attempts: Number(job.review_attempts || 0) + 1,
+    });
+  }
+
+  function reconcileBilling(input = {}) {
+    const limit = Math.max(1, Math.min(200, Number(input?.limit) || 50));
+    const rows = db.prepare("SELECT * FROM video_jobs WHERE billing_state IN ('release_pending','settlement_pending') ORDER BY updated_at, rowid LIMIT ?").all(limit);
+    const summary = { checked: rows.length, released: 0, settled: 0, pending: 0, expiredReviews: 0 };
+    for (const row of rows) {
+      if (row.billing_state === 'settlement_pending') {
+        ensureVideoEvent(row, 'video.billing.settle.requested', 'billing-settle');
+      } else {
+        const reconciled = releaseHeldJob(row, { code: row.failure_class || 'billing_reconciliation' });
+        if (reconciled.billing_state === 'released') summary.released += 1;
+        else summary.pending += 1;
+      }
+    }
+    drainVideoOutbox({ force: input?.force !== false, limit });
+    for (const row of rows.filter(candidate => candidate.billing_state === 'settlement_pending')) {
+      const reconciled = selectJob.get(row.id);
+      if (reconciled?.billing_state === 'settled') summary.settled += 1;
+      else summary.pending += 1;
+    }
+    const expiredReviews = db.prepare(`SELECT * FROM video_jobs
+      WHERE status = 'needs_review' AND failure_class = 'submission_unknown'
+        AND review_deadline_ms > 0 AND review_deadline_ms <= ?
+      ORDER BY review_deadline_ms, rowid LIMIT ?`).all(nowMs(), limit);
+    summary.checked += expiredReviews.length;
+    for (const row of expiredReviews) {
+      if (row.current_attempt_id) attemptStore.markFailed(row.current_attempt_id, { code: 'VIDEO_SUBMISSION_REVIEW_EXPIRED' });
+      const released = releaseHeldJob(row, { code: 'VIDEO_SUBMISSION_REVIEW_EXPIRED' });
+      summary.expiredReviews += 1;
+      if (released.billing_state === 'released') summary.released += 1;
+      else summary.pending += 1;
+    }
+    return summary;
   }
 
   async function processJob(id) {
@@ -506,14 +913,33 @@ export function createVideoGeneration({
       provider = providerForJob(job);
       if (!job.provider_task_id) {
         if (job.status === 'submitting') {
-          updateJob(id, { status: 'needs_review', error: '上游受理结果待确认，未重复提交也未结算积分' });
+          markSubmissionUnknown(job);
           return;
         }
-        updateJob(id, { status: 'submitting', error: '' });
-        const submitted = await provider.submit(buildProviderPayload({
+        const providerPayload = buildProviderPayload({
           product: getVideoProduct(job.product_id),
           job,
-        }).body, job.id);
+        }).body;
+        const attempt = attemptStore.begin({
+          jobId: job.id,
+          submissionKey: (() => {
+            const next = Number(db.prepare('SELECT COALESCE(MAX(attempt_number), 0) + 1 AS value FROM video_job_attempts WHERE job_id = ?').get(job.id)?.value || 1);
+            return next === 1 ? job.id : `${job.id}:retry:${next}`;
+          })(),
+          payload: providerPayload,
+          provider: provider.protocol || job.provider_route,
+          model: provider.model || job.provider_route,
+          capability: {
+            productId: job.product_id,
+            mode: job.mode,
+            duration: job.duration,
+            resolution: job.resolution,
+            aspectRatio: job.aspect_ratio,
+          },
+        });
+        updateJob(id, { status: 'submitting', error: '', current_attempt_id: attempt.id });
+        const submitted = await provider.submit(providerPayload, attempt.submission_key);
+        attemptStore.markAccepted(attempt.id, submitted.id);
         job = updateJob(id, {
           status: 'processing',
           provider_task_id: clean(submitted.id, 200),
@@ -521,6 +947,12 @@ export function createVideoGeneration({
         });
       }
       let transientFailures = 0;
+      const recoveredDelivery = verifiedDeliveryForJob(job);
+      if (recoveredDelivery) {
+        if (job.current_attempt_id) attemptStore.markDelivered(job.current_attempt_id);
+        await complete(job, recoveredDelivery);
+        return;
+      }
       const product = getVideoProduct(job.product_id);
       const interval = Math.max(1, Number(pollIntervalMs || product.pollIntervalMs) || product.pollIntervalMs);
       for (let attempt = 0; attempt < 1440 && !closed; attempt += 1) {
@@ -539,6 +971,7 @@ export function createVideoGeneration({
         updateJob(id, { status: 'processing', progress });
         if (status === 'completed') {
           const output = await persistOutput(job, await provider.download(job.provider_task_id, result));
+          if (job.current_attempt_id) attemptStore.markDelivered(job.current_attempt_id);
           await complete(job, output);
           return;
         }
@@ -562,9 +995,11 @@ export function createVideoGeneration({
         return;
       }
       if (error?.code === 'VIDEO_PROVIDER_UNREACHABLE' && !job.provider_task_id) {
-        updateJob(id, { status: 'needs_review', error: '上游受理结果待确认，未重复提交也未结算积分', failure_class: 'submission_unknown' });
+        if (job.current_attempt_id) attemptStore.markUncertain(job.current_attempt_id, error);
+        markSubmissionUnknown(job);
         return;
       }
+      if (job.current_attempt_id) attemptStore.markFailed(job.current_attempt_id, error);
       await fail(job, error);
     }
   }
@@ -581,10 +1016,12 @@ export function createVideoGeneration({
   }
 
   async function createJob({ ownerEmail, idempotencyKey, billingQuoteId, publicBaseUrl, input }) {
+    ownerEmail = clean(ownerEmail, 320).toLowerCase();
+    if (!ownerEmail) throw httpError(401, 'VIDEO_OWNER_REQUIRED', '登录已失效，请重新登录');
     const requestKey = clean(idempotencyKey, 120);
     if (!requestKey) throw httpError(400, 'VIDEO_IDEMPOTENCY_REQUIRED', '缺少防重复提交标识');
     const replay = db.prepare('SELECT * FROM video_jobs WHERE owner_email = ? AND idempotency_key = ?').get(ownerEmail, requestKey);
-    if (replay) return { job: serializeJob(replay), replay: true };
+    if (replay) return { job: serializeOwnedJob(replay), replay: true };
     const activeCount = db.prepare("SELECT COUNT(*) AS count FROM video_jobs WHERE owner_email = ? AND status IN ('queued','submitting','processing')").get(ownerEmail).count;
     if (activeCount >= 2) throw httpError(429, 'VIDEO_USER_CONCURRENCY_LIMIT', '同一账号最多同时处理 2 个视频任务');
 
@@ -628,6 +1065,39 @@ export function createVideoGeneration({
     }
     if (mode === 'remake' && !references.images.length) throw httpError(400, 'VIDEO_REFERENCE_IMAGE_REQUIRED', '爆款重构至少需要一张商品图片');
     if (mode === 'remake' && !references.videos.length) throw httpError(400, 'VIDEO_REMAKE_SOURCE_REQUIRED', '爆款重构需要一个参考视频');
+    const targetProjectId = clean(input?.projectId, 140);
+    if (targetProjectId) {
+      if (!projectBridge?.validateTarget) throw httpError(409, 'VIDEO_PROJECT_TARGET_UNAVAILABLE', '视频项目工作台暂时不可用');
+      try {
+        projectBridge.validateTarget({ ownerEmail, projectId: targetProjectId });
+      } catch (error) {
+        if (error?.code === 'PROJECT_NOT_FOUND') throw httpError(404, error.code, '未找到该视频项目');
+        if (error?.code === 'VIDEO_PROJECT_KIND_INVALID') throw httpError(400, error.code, '只能把视频任务加入视频项目');
+        if (error?.code === 'VIDEO_PROJECT_COMPLETED') throw httpError(409, error.code, '已交付项目不能继续加入生成任务');
+        throw error;
+      }
+    }
+
+    const workbenchPlanHash = clean(input?.workbenchPlanHash, 128);
+    if (workbenchPlanHash) {
+      if (!targetProjectId || typeof validateWorkbenchPlanApproval !== 'function') {
+        throw httpError(409, 'VIDEO_PLAN_APPROVAL_REQUIRED', '生成计划已变化，请重新检查并确认后再生成');
+      }
+      let approved = false;
+      try {
+        approved = await validateWorkbenchPlanApproval({
+          ownerEmail,
+          projectId: targetProjectId,
+          planHash: workbenchPlanHash,
+          input,
+        });
+      } catch {
+        approved = false;
+      }
+      if (approved !== true && approved?.ok !== true) {
+        throw httpError(409, 'VIDEO_PLAN_APPROVAL_REQUIRED', '生成计划已变化，请重新检查并确认后再生成');
+      }
+    }
 
     const sku = videoFeatureSku({ productId: product.id, duration });
     const expectedQuote = quoteFeature(sku, 1);
@@ -635,6 +1105,7 @@ export function createVideoGeneration({
     const id = crypto.randomUUID();
     const admission = admitProduct(product.id);
     let hold;
+    let jobPersisted = false;
     try {
       try {
         hold = walletService.createHold({
@@ -647,6 +1118,7 @@ export function createVideoGeneration({
           metadata: {
             source: 'video_generation',
             taskId: id,
+            projectId: targetProjectId || undefined,
             productId: product.id,
             providerRoute: product.routeId,
             catalogVersion: VIDEO_CATALOG_VERSION,
@@ -671,6 +1143,17 @@ export function createVideoGeneration({
         resolution, input?.generateAudio === false ? 0 : 1, seed, JSON.stringify(references), hold.id,
         product.id, product.routeId, VIDEO_CATALOG_VERSION, expectedQuote.providerCostCny, '', verified.quoteId,
       );
+      jobPersisted = true;
+      if (projectBridge) {
+        const draft = projectBridge.ensureDraft(selectJob.get(id), { projectId: targetProjectId });
+        updateJob(id, {
+          project_projection_state: 'pending',
+          project_id: draft.project.id,
+          source_version_id: draft.sourceVersion.id,
+        });
+      } else {
+        updateJob(id, { project_projection_state: 'projected' });
+      }
     } catch (error) {
       if (admission.status === 'probe') releaseProductProbe(product.id);
       if (hold) {
@@ -682,30 +1165,22 @@ export function createVideoGeneration({
           });
         } catch {}
       }
+      if (jobPersisted) db.prepare('DELETE FROM video_jobs WHERE id = ? AND provider_task_id = ?').run(id, '');
       throw error;
     }
     if (!enqueue(id)) {
       if (admission.status === 'probe') releaseProductProbe(product.id);
-      try {
-        walletService.releaseItem(hold.id, 'video', {
-          reason: 'video_queue_closed',
-          idempotencyKey: `video-release:${id}`,
-          metadata: { taskId: id, productId: product.id, providerRoute: product.routeId },
-        });
-      } catch {}
-      updateJob(id, {
-        status: 'failed',
-        error: '视频队列暂时不可用，冻结积分已退回',
-        failure_class: 'delivery',
-      });
+      releaseHeldJob(selectJob.get(id), { code: 'VIDEO_QUEUE_UNAVAILABLE' });
       throw httpError(503, 'VIDEO_QUEUE_UNAVAILABLE', '视频队列暂时不可用，请稍后重试', { retryable: true });
     }
-    return { job: serializeJob(selectJob.get(id)), replay: false };
+    return { job: serializeOwnedJob(selectJob.get(id)), replay: false };
   }
 
-  async function readAsset(id) {
+  async function readAsset(id, ownerEmail) {
     const safeId = basename(clean(id, 140));
-    const row = db.prepare('SELECT * FROM video_assets WHERE id = ?').get(safeId);
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!safeId || !normalizedOwner) return null;
+    const row = db.prepare('SELECT * FROM video_assets WHERE id = ? AND owner_email = ?').get(safeId, normalizedOwner);
     if (!row) return null;
     const folder = row.kind === 'output' ? outputRoot : inputRoot;
     const filePath = resolve(folder, row.file_name);
@@ -715,16 +1190,196 @@ export function createVideoGeneration({
     } catch { return null; }
   }
 
+  async function readSignedAsset({ id, purpose, expires, signature }) {
+    const safeId = basename(clean(id, 140));
+    const normalizedPurpose = clean(purpose, 40);
+    const expiresAt = Number(expires);
+    const provided = clean(signature, 200);
+    if (!safeId || !['playback', 'provider'].includes(normalizedPurpose)) return null;
+    if (!Number.isSafeInteger(expiresAt) || expiresAt <= nowMs() || !provided) return null;
+    const row = db.prepare('SELECT owner_email FROM video_assets WHERE id = ?').get(safeId);
+    if (!row) return null;
+    const expected = signAsset({ id: safeId, ownerEmail: row.owner_email, purpose: normalizedPurpose, expires: expiresAt });
+    const expectedBuffer = Buffer.from(expected);
+    const providedBuffer = Buffer.from(provided);
+    if (expectedBuffer.length !== providedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, providedBuffer)) return null;
+    return readAsset(safeId, row.owner_email);
+  }
+
+  function playbackUrlForAsset(id, ownerEmail, publicBaseUrl = '') {
+    const safeId = basename(clean(id, 140));
+    const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
+    if (!safeId || !normalizedOwner) return '';
+    const owned = db.prepare('SELECT 1 FROM video_assets WHERE id = ? AND owner_email = ?').get(safeId, normalizedOwner);
+    return owned ? signedAssetUrl(publicBaseUrl, safeId, normalizedOwner, 'playback', 24 * 60 * 60 * 1000) : '';
+  }
+
+  function listSubmissionReviews(limit = 50) {
+    return db.prepare(`SELECT * FROM video_jobs
+      WHERE status = 'needs_review' AND failure_class = 'submission_unknown'
+      ORDER BY review_deadline_ms, created_at LIMIT ?`)
+      .all(Math.max(1, Math.min(200, Number(limit) || 50)))
+      .map(serializeOwnedJob);
+  }
+
+  function resolveSubmissionReview(jobId, providerTaskId) {
+    const job = selectJob.get(clean(jobId, 140));
+    const taskId = clean(providerTaskId, 200);
+    if (!job || job.status !== 'needs_review' || job.failure_class !== 'submission_unknown') {
+      throw httpError(409, 'VIDEO_REVIEW_NOT_PENDING', '该视频任务不在待核对状态');
+    }
+    if (!taskId) throw httpError(400, 'VIDEO_PROVIDER_TASK_REQUIRED', '缺少上游任务 ID');
+    if (job.current_attempt_id) attemptStore.attachProviderTask(job.current_attempt_id, taskId);
+    const resolved = updateJob(job.id, {
+      status: 'processing',
+      provider_task_id: taskId,
+      error: '已确认上游任务，正在继续获取生成结果',
+      failure_class: '',
+      review_deadline_ms: 0,
+    });
+    enqueue(job.id);
+    return serializeOwnedJob(resolved);
+  }
+
+  function rejectSubmissionReview(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job || job.status !== 'needs_review' || job.failure_class !== 'submission_unknown') {
+      throw httpError(409, 'VIDEO_REVIEW_NOT_PENDING', '该视频任务不在待核对状态');
+    }
+    if (job.current_attempt_id) attemptStore.markFailed(job.current_attempt_id, { code: 'VIDEO_SUBMISSION_REVIEW_REJECTED' });
+    return serializeOwnedJob(releaseHeldJob(job, { code: 'VIDEO_SUBMISSION_REVIEW_REJECTED' }));
+  }
+
+  function recheckJob(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
+    if (FINAL_STATUSES.has(job.status)) throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '已结束任务不需要重新核对');
+    if (job.provider_task_id) {
+      updateJob(job.id, { status: 'processing', failure_class: '', error: '正在重新核对上游结果' });
+      enqueue(job.id);
+    } else if (job.status === 'queued') {
+      enqueue(job.id);
+    } else {
+      markSubmissionUnknown(job, '尚未取得上游任务 ID，已延长人工核对期；不会自动重复提交');
+    }
+    return serializeOwnedJob(selectJob.get(job.id));
+  }
+
+  function confirmNotSubmitted(jobId, input = {}) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job || job.status !== 'needs_review' || !['submission_unknown', 'manual_quarantine'].includes(job.failure_class)) {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '只有待核对且尚无上游任务 ID 的任务可以确认未受理');
+    }
+    if (job.provider_task_id) throw httpError(409, 'VIDEO_PROVIDER_TASK_EXISTS', '任务已有上游任务 ID，不能标记为未受理');
+    if (job.current_attempt_id) attemptStore.markNotSubmitted(job.current_attempt_id, input.reason);
+    return serializeOwnedJob(updateJob(job.id, {
+      status: 'needs_review',
+      failure_class: 'confirmed_not_submitted',
+      error: '已确认上游未受理，可安全重新提交',
+      review_deadline_ms: 0,
+    }));
+  }
+
+  function retryConfirmedNotSubmitted(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job || job.status !== 'needs_review' || job.failure_class !== 'confirmed_not_submitted'
+      || job.provider_task_id || job.billing_state !== 'held') {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '任务尚未确认“上游未受理”，不能安全重试');
+    }
+    const queued = updateJob(job.id, {
+      status: 'queued',
+      failure_class: '',
+      error: '',
+      current_attempt_id: '',
+      review_deadline_ms: 0,
+    });
+    if (!enqueue(job.id)) throw httpError(503, 'VIDEO_QUEUE_UNAVAILABLE', '视频队列暂时不可用，请稍后再试');
+    return serializeOwnedJob(queued);
+  }
+
+  function quarantineJob(jobId, input = {}) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
+    if (FINAL_STATUSES.has(job.status) || job.provider_task_id || job.billing_state !== 'held') {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '该任务已被上游受理或已经结束，不能隔离');
+    }
+    return serializeOwnedJob(updateJob(job.id, {
+      status: 'needs_review',
+      failure_class: 'manual_quarantine',
+      error: clean(input.reason, 500) || '任务已被管理员隔离，等待人工核对',
+      review_deadline_ms: 0,
+    }));
+  }
+
+  function replayProjection(jobId) {
+    const job = selectJob.get(clean(jobId, 140));
+    if (!job) throw httpError(404, 'VIDEO_JOB_NOT_FOUND', '视频任务不存在');
+    if (job.delivery_state !== 'verified' || job.billing_state !== 'settled') {
+      throw httpError(409, 'VIDEO_OPERATION_STATE_INVALID', '只有已验证交付且已结算的任务可以重放作品投影');
+    }
+    let eventType = 'video.job.finalize.requested';
+    let suffix = 'finalize';
+    if (projectBridge && job.project_projection_state !== 'projected') {
+      eventType = 'video.project.project.requested';
+      suffix = 'project-project';
+    } else if (job.projection_state !== 'projected') {
+      eventType = 'video.works.project.requested';
+      suffix = 'works-project';
+    }
+    const eventId = `video:${job.id}:${suffix}`;
+    ensureVideoEvent(job, eventType, suffix);
+    db.prepare(`UPDATE video_outbox SET state = 'pending', lock_owner = '', next_attempt_ms = 0,
+      last_error = '', updated_at = datetime('now', 'localtime') WHERE id = ?`).run(eventId);
+    updateJob(job.id, { status: 'reconciling', reconciliation_error: '', error: '正在重新同步作品记录' });
+    drainVideoOutbox({ force: true, limit: 10 });
+    return serializeOwnedJob(selectJob.get(job.id));
+  }
+
+  function reconcileOperations(input = {}) {
+    const limit = Math.max(1, Math.min(200, Number(input.limit) || 50));
+    const billing = reconcileBilling({ limit, force: input.force === true });
+    const staleBefore = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(new Date(nowMs() - 15 * 60_000));
+    const stale = db.prepare(`SELECT * FROM video_jobs
+      WHERE status IN ('queued','submitting','processing') AND datetime(updated_at) <= datetime(?)
+      ORDER BY updated_at, rowid LIMIT ?`).all(staleBefore, limit);
+    let resumed = 0;
+    let reviewed = 0;
+    for (const row of stale) {
+      if (row.status === 'submitting' && !row.provider_task_id) {
+        markSubmissionUnknown(row, '任务提交状态超过 15 分钟未确认，已转人工核对；不会重复提交');
+        reviewed += 1;
+      } else if (enqueue(row.id)) resumed += 1;
+    }
+    const incomplete = db.prepare(`SELECT * FROM video_jobs
+      WHERE delivery_state = 'verified' AND billing_state = 'settled'
+        AND (project_projection_state <> 'projected' OR projection_state <> 'projected' OR status = 'reconciling')
+      ORDER BY updated_at, rowid LIMIT ?`).all(limit);
+    let replayed = 0;
+    for (const row of incomplete) {
+      try { replayProjection(row.id); replayed += 1; } catch {}
+    }
+    return { billing, staleChecked: stale.length, resumed, reviewed, projectionChecked: incomplete.length, replayed };
+  }
+
   function recover() {
+    reconcileBilling();
     const rows = db.prepare("SELECT id, status, provider_task_id FROM video_jobs WHERE status IN ('queued','submitting','processing') ORDER BY created_at").all();
     for (const row of rows) {
       if (row.status === 'submitting' && !row.provider_task_id) {
-        updateJob(row.id, { status: 'needs_review', error: '服务重启前的上游受理结果待确认，未重复提交也未结算积分' });
+        markSubmissionUnknown(selectJob.get(row.id), '服务重启前的上游受理结果待自动核对，核对期间不会重复提交或结算积分');
       } else {
         enqueue(row.id);
       }
     }
   }
+
+  const reconciliationTimer = setInterval(() => {
+    if (!closed) reconcileBilling();
+  }, Math.max(5_000, Number(reconciliationIntervalMs) || 30_000));
+  reconciliationTimer.unref?.();
 
   return {
     runtimeStats() {
@@ -781,18 +1436,32 @@ export function createVideoGeneration({
       };
     },
     uploadAsset,
+    importUploadedAsset,
     createJob,
-    getJob(ownerEmail, id) { return serializeJob(jobForOwner(ownerEmail, id)); },
+    getJob(ownerEmail, id) { return serializeOwnedJob(jobForOwner(ownerEmail, id)); },
     listJobs(ownerEmail, limit = 20) {
       return db.prepare('SELECT * FROM video_jobs WHERE owner_email = ? ORDER BY created_at DESC LIMIT ?')
-        .all(ownerEmail, Math.max(1, Math.min(50, Number(limit) || 20))).map(serializeJob);
+        .all(ownerEmail, Math.max(1, Math.min(50, Number(limit) || 20))).map(serializeOwnedJob);
     },
     readAsset,
+    readSignedAsset,
+    playbackUrlForAsset,
+    listSubmissionReviews,
+    resolveSubmissionReview,
+    rejectSubmissionReview,
+    reconcileBilling,
+    reconcileOperations,
+    recheckJob,
+    confirmNotSubmitted,
+    retryConfirmedNotSubmitted,
+    quarantineJob,
+    replayProjection,
     recover,
     close() {
       closed = true;
       for (const timer of retryTimers) clearTimeout(timer);
       retryTimers.clear();
+      clearInterval(reconciliationTimer);
       queue.close();
     },
   };
@@ -815,7 +1484,7 @@ export function sendVideoAsset(req, res, asset) {
   const range = clean(req.headers.range, 100);
   res.setHeader('Content-Type', asset.row.content_type);
   res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader('Cache-Control', asset.row.kind === 'output' ? 'private, max-age=86400' : 'public, max-age=3600');
+  res.setHeader('Cache-Control', asset.row.kind === 'output' ? 'private, max-age=86400' : 'private, max-age=3600');
   if (!range) {
     res.setHeader('Content-Length', asset.size);
     fs.createReadStream(asset.filePath).pipe(res);

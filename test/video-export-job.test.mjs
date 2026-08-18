@@ -1,0 +1,165 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  assertVideoExportJobCurrent,
+  assertVideoExportJobIntegrity,
+  claimVideoExportJob,
+  createVideoExportJob,
+  recoverExpiredVideoExportJob,
+  renewVideoExportJobLease,
+  transitionVideoExportJob,
+} from '../server/videoExportJob.mjs';
+import { videoExportManifestHash } from '../server/videoExportManifest.mjs';
+import { buildVideoRendererPreflight } from '../server/videoRendererPreflight.mjs';
+
+const manifestPayload = {
+  schemaVersion: 1,
+  kind: 'video-export-manifest',
+  options: { format: 'mp4', resolution: '720p', fps: 30, includeAudio: false, title: '测试短片' },
+  timeline: { durationMs: 4000, clips: [{ id: 'clip-1', durationMs: 4000 }] },
+  audio: { includeAudio: false, tracks: [] },
+  delivery: { status: 'manifest_ready', renderer: 'external-worker', providerSubmission: false, billingMutation: false },
+};
+const manifest = { ...manifestPayload, manifestHash: videoExportManifestHash(manifestPayload) };
+
+const strictPreflight = buildVideoRendererPreflight({
+  plan: {
+    status: 'ready',
+    options: { productId: 'seedance_standard', mode: 'smart', resolution: '720p', generateAudio: false },
+    shots: [{ id: 'shot-1', durationMs: 4000 }],
+    totalDurationMs: 4000,
+    quote: { points: 62 },
+  },
+  workbench: {
+    assets: [{ id: 'scene-1', kind: 'scene' }],
+    shots: [{ id: 'shot-1', bindings: [{ assetId: 'scene-1', assetVersionId: 'scene-v1' }] }],
+  },
+  rightsConfirmations: [{ assetId: 'scene-1', assetVersionId: 'scene-v1', confirmed: true }],
+  moderation: { status: 'passed', policyVersion: 'video-safe-v1', checkedAt: '2026-08-18T08:00:00.000Z' },
+  storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+  enforce: true,
+});
+
+function job() {
+  return createVideoExportJob({
+    id: 'export-job-1',
+    ownerEmail: 'owner@example.com',
+    projectId: 'project-1',
+    manifestId: 'manifest-1',
+    manifest,
+    createdAt: '2026-08-18T08:00:00.000Z',
+  });
+}
+
+test('creates a durable renderer handoff without provider or billing side effects', () => {
+  const created = job();
+  assert.equal(created.state, 'waiting_renderer');
+  assert.equal(created.attempt, 0);
+  assert.equal(created.renderer, 'external-worker');
+  assert.equal(created.providerSubmission, false);
+  assert.equal(created.billingMutation, false);
+  assert.equal(created.outputAssetId, '');
+  assert.equal(created.outputUrl, '');
+  assert.equal(assertVideoExportJobIntegrity(created), true);
+});
+
+test('binds a strict preflight attestation into the immutable export job hash', () => {
+  const created = createVideoExportJob({
+    id: 'export-job-preflight', ownerEmail: 'owner@example.com', projectId: 'project-1',
+    manifestId: 'manifest-1', manifest, preflight: strictPreflight,
+    createdAt: '2026-08-18T08:00:00.000Z',
+  });
+  assert.equal(created.preflightHash, strictPreflight.preflightHash);
+  assert.ok(created.preflightJson.includes(strictPreflight.preflightHash));
+  assert.equal(assertVideoExportJobIntegrity(created), true);
+  assert.throws(
+    () => assertVideoExportJobIntegrity({ ...created, preflightJson: created.preflightJson.replace('scene-v1', 'forged') }),
+    error => error.code === 'EXPORT_JOB_INTEGRITY_INVALID',
+  );
+});
+
+test('supports claim, failure, retry and completion with guarded transitions', () => {
+  const claimed = transitionVideoExportJob(job(), 'rendering', { now: '2026-08-18T08:01:00.000Z' });
+  assert.equal(claimed.attempt, 1);
+  assert.equal(claimed.startedAt, '2026-08-18T08:01:00.000Z');
+
+  const failed = transitionVideoExportJob(claimed, 'failed', {
+    now: '2026-08-18T08:02:00.000Z', errorCode: 'RENDER_TIMEOUT', errorMessage: 'renderer timed out',
+  });
+  assert.equal(failed.errorCode, 'RENDER_TIMEOUT');
+  const retry = transitionVideoExportJob(failed, 'waiting_renderer', { now: '2026-08-18T08:03:00.000Z' });
+  assert.equal(retry.errorCode, '');
+  const completed = transitionVideoExportJob(
+    transitionVideoExportJob(retry, 'rendering', { now: '2026-08-18T08:04:00.000Z' }),
+    'completed', { now: '2026-08-18T08:05:00.000Z', outputAssetId: 'asset-1', outputUrl: '/api/video/assets/asset-1' },
+  );
+  assert.equal(completed.attempt, 2);
+  assert.equal(completed.state, 'completed');
+  assert.equal(completed.outputAssetId, 'asset-1');
+  assert.equal(completed.completedAt, '2026-08-18T08:05:00.000Z');
+  assert.throws(() => transitionVideoExportJob(completed, 'rendering'), error => error.code === 'EXPORT_JOB_INVALID_TRANSITION');
+});
+
+test('rejects malformed completion, forged job hashes and stale manifest handoffs', () => {
+  const created = job();
+  const claimed = transitionVideoExportJob(created, 'rendering', { now: '2026-08-18T08:01:00.000Z' });
+  assert.throws(() => transitionVideoExportJob(claimed, 'completed'), error => error.code === 'EXPORT_JOB_OUTPUT_REQUIRED');
+  assert.throws(() => assertVideoExportJobIntegrity({ ...created, state: 'rendering' }), error => error.code === 'EXPORT_JOB_INTEGRITY_INVALID');
+  assert.throws(() => assertVideoExportJobCurrent(created, { manifestId: 'manifest-2', manifest }), error => error.code === 'EXPORT_JOB_STALE');
+  const changedManifestPayload = { ...manifestPayload, timeline: { durationMs: 5000, clips: [{ id: 'clip-1', durationMs: 5000 }] } };
+  const changedManifest = {
+    ...changedManifestPayload,
+    manifestHash: videoExportManifestHash(changedManifestPayload),
+  };
+  assert.throws(() => assertVideoExportJobCurrent(created, { manifestId: 'manifest-1', manifest: changedManifest }), error => error.code === 'EXPORT_JOB_STALE');
+});
+
+test('claims one renderer lease, renews it, and requires the lease owner to complete', () => {
+  const claimed = claimVideoExportJob(job(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  assert.equal(claimed.state, 'rendering');
+  assert.equal(claimed.attempt, 1);
+  assert.equal(claimed.leaseExpiresAt, '2026-08-18T08:01:30.000Z');
+  assert.throws(() => claimVideoExportJob(claimed, {
+    workerId: 'worker-b', leaseToken: 'lease-b', now: '2026-08-18T08:01:01.000Z',
+  }), error => error.code === 'EXPORT_JOB_LEASE_BUSY');
+  assert.throws(() => renewVideoExportJobLease(claimed, {
+    workerId: 'worker-b', leaseToken: 'lease-a', now: '2026-08-18T08:01:05.000Z',
+  }), error => error.code === 'EXPORT_JOB_LEASE_LOST');
+  const renewed = renewVideoExportJobLease(claimed, {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:05.000Z',
+  });
+  assert.equal(renewed.leaseExpiresAt, '2026-08-18T08:01:35.000Z');
+  assert.throws(() => transitionVideoExportJob(renewed, 'completed', {
+    now: '2026-08-18T08:01:10.000Z', outputAssetId: 'asset-1', outputUrl: '/asset-1',
+  }), error => error.code === 'EXPORT_JOB_LEASE_LOST');
+  const completed = transitionVideoExportJob(renewed, 'completed', {
+    now: '2026-08-18T08:01:10.000Z', workerId: 'worker-a', leaseToken: 'lease-a',
+    outputAssetId: 'asset-1', outputUrl: '/asset-1',
+  });
+  assert.equal(completed.state, 'completed');
+  assert.equal(completed.leaseToken, '');
+  assert.equal(completed.workerId, '');
+});
+
+test('recovers an expired lease exactly once without provider or billing mutation', () => {
+  const claimed = claimVideoExportJob(job(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 1_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  const recovered = recoverExpiredVideoExportJob(claimed, { now: '2026-08-18T08:01:01.000Z' });
+  assert.equal(recovered.state, 'failed');
+  assert.equal(recovered.errorCode, 'EXPORT_JOB_LEASE_EXPIRED');
+  assert.equal(recovered.workerId, '');
+  assert.equal(recovered.leaseToken, '');
+  assert.equal(recovered.providerSubmission, false);
+  assert.equal(recovered.billingMutation, false);
+  assert.deepEqual(recoverExpiredVideoExportJob(recovered, { now: '2026-08-18T08:02:00.000Z' }), recovered);
+  assert.throws(() => renewVideoExportJobLease(recovered, {
+    workerId: 'worker-a', leaseToken: 'lease-a', now: '2026-08-18T08:01:02.000Z',
+  }), error => error.code === 'EXPORT_JOB_LEASE_LOST');
+});

@@ -91,6 +91,8 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.match(page, /生成设置/);
   assert.match(page, /embedded = false/);
   assert.match(page, /在画布中继续/);
+  assert.match(page, /任务、素材与结果自动保存/);
+  assert.match(page, /job\?\.projectId \? `项目已保存/);
   assert.match(page, /type: 'SET_RESULT'/);
   assert.match(page, /type: 'NAVIGATE', page: 'ec-canvas'/);
   assert.match(home, /mode: 'video'/);
@@ -99,6 +101,12 @@ test('video studio is an authenticated durable billed workspace embedded in home
   assert.doesNotMatch(server, /app\.get\('\/api\/video\/capabilities',\s*authenticateEcommerceRequest/);
   assert.match(server, /\/api\/video\/jobs/);
   assert.match(server, /\/api\/video\/plans/);
+  assert.match(server, /app\.get\('\/api\/video\/assets\/:id',\s*authenticateVideoRequest/);
+  assert.match(server, /videoGeneration\.readAsset\(req\.params\.id, req\._userEmail\)/);
+  assert.match(server, /videoGeneration\.readAsset\(id, req\._userEmail\)/);
+  assert.match(server, /app\.get\('\/api\/video\/media\/:id'/);
+  assert.match(server, /videoGeneration\.readSignedAsset/);
+  assert.match(server, /videoGeneration\.playbackUrlForAsset\(assetId, ownerEmail\)/);
   assert.match(server, /video_plan_analysis/);
   assert.match(videoService, /export function analyzeVideoPlan/);
   assert.match(assetAnalysis, /videoMetadata/);
@@ -158,4 +166,34 @@ test('pricing presents only the real checkout price', async () => {
   assert.doesNotMatch(catalog, /compareAtFen/);
   assert.doesNotMatch(modal, /正式版价|公测价|line-through/);
   assert.match(modal, /选择套餐/);
+});
+
+test('video assets preview immediately and upload resumably without proxy buffering', async () => {
+  const [page, videoService, uploadClient, uploadServer, server, nginx] = await Promise.all([
+    source('../src/pages/VideoStudio/index.jsx'),
+    source('../src/services/video.js'),
+    source('../src/services/videoUploadClient.js'),
+    source('../server/videoUploadService.mjs'),
+    source('../server/index.mjs'),
+    source('../scripts/nginx/shuimg.cn.conf'),
+  ]);
+  assert.match(uploadClient, /from 'tus-js-client'/);
+  assert.match(uploadClient, /createImmediateMediaPreview/);
+  assert.match(uploadClient, /retryDelays/);
+  assert.match(uploadClient, /onProgress/);
+  assert.match(uploadClient, /removeFingerprintOnSuccess:\s*true/);
+  assert.match(videoService, /createVideoAssetUpload/);
+  assert.match(page, /upload\.asset\?\.url/);
+  assert.match(page, /上传中/);
+  assert.match(page, /重试上传/);
+  assert.match(page, /ensureUpload/);
+  assert.match(uploadServer, /new Server\(/);
+  assert.match(uploadServer, /new FileStore\(/);
+  assert.match(uploadServer, /createReadStream/);
+  assert.match(uploadServer, /sha256/);
+  assert.match(uploadServer, /owner_email/);
+  assert.match(server, /\/api\/video\/uploads/);
+  assert.match(server, /\/api\/video\/upload-results\/\:id/);
+  assert.match(nginx, /client_max_body_size\s+64m/);
+  assert.match(nginx, /proxy_request_buffering\s+off/);
 });
