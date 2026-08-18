@@ -35,6 +35,12 @@ test('inspiration gallery keeps production visual cases mixed with legacy catego
   assert.doesNotMatch(model, /PRODUCTION_CASE_CATALOG\.filter\(entry => entry\.status === 'production'\)\.flatMap\(entry => entry\.assets/);
 });
 
+test('late ecommerce cases are promoted so newly published inspiration is visible immediately', async () => {
+  const gallery = await readFile(new URL('./src/pages/Home/GallerySection.jsx', root), 'utf8');
+
+  assert.match(gallery, /setGalleryItems\(current => stableGalleryItems\(\[items, current\]\)\)/);
+});
+
 test('the global task dock is the only ecommerce progress surface', async () => {
   const app = await readFile(new URL('./src/App.jsx', root), 'utf8');
 

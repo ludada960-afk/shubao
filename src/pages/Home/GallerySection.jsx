@@ -75,7 +75,12 @@ export default function GallerySection({ maxItems = 200, showHeader = true, onUs
     let active = true;
     fetch('/gallery/ecommerce/cases.json')
       .then(response => response.ok ? response.json() : [])
-      .then(items => { if (active && Array.isArray(items)) setEcommerceCases(items); })
+      .then(items => {
+        if (active && Array.isArray(items)) {
+          setEcommerceCases(items);
+          setGalleryItems(current => stableGalleryItems([items, current]));
+        }
+      })
       .catch(() => { if (active) setEcommerceCases([]); })
       .finally(() => { if (active) setCasesLoading(false); });
     return () => { active = false; };
