@@ -297,3 +297,34 @@ test('ecommerce production verifier rejects partial delivery and never treats it
     /ended as needs_review/,
   );
 });
+
+test('ecommerce production verifier includes failed task diagnostics in the rejection', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'shubao-production-canary-failure-'));
+  const fixturePath = join(directory, 'fixture.png');
+  await writeFile(fixturePath, Buffer.from('fixture'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const fetchImpl = async url => {
+    const path = new URL(url).pathname;
+    if (path === '/api/session') return json({ ok: true, email: '867550189@qq.com' });
+    if (path === '/api/ecommerce/assets') return json({ original: PRODUCT }, 201);
+    if (path === '/api/ecommerce/design-directions') return json(completedDirections());
+    if (path === '/api/billing/quote') return json({ quote: { quoteId: 'bq1.canary.signature', totalUnits: 3000 } });
+    if (path === '/api/generate-ecommerce') return json({ taskId: 'task-failed', status: 'queued' }, 202);
+    if (path === '/api/ecommerce/jobs/task-failed') {
+      return json({ ok: true, task: {
+        id: 'task-failed',
+        status: 'failed',
+        error: 'AI 积分不足，请购买套餐后继续',
+        assets: [{ assetId: 'asset-failed', state: 'failed', error: 'insufficient credits' }],
+      } });
+    }
+    throw new Error(`unexpected request ${path}`);
+  };
+  await assert.rejects(
+    verifyProductionEcommerce({ sessionToken: 'signed-canary-token', fixturePath, fetchImpl, pollIntervalMs: 0 }),
+    error => error instanceof Error
+      && /task task-failed ended as failed/.test(error.message)
+      && /AI 积分不足/.test(error.message)
+      && /asset-failed:failed:insufficient credits/.test(error.message),
+  );
+});

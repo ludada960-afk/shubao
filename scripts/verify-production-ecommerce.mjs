@@ -126,9 +126,17 @@ function assertPlanContract(assetPlan) {
   }
 }
 
-function assertCompletedTask(task) {
+function assertCompletedTask(task, taskId = '') {
   if (!task || typeof task !== 'object') throw new Error('Ecommerce task response is invalid');
-  if (task.status !== 'completed') throw new Error(`Ecommerce production canary ended as ${task.status || 'unknown'}`);
+  if (task.status !== 'completed') {
+    const assetErrors = Array.isArray(task.assets)
+      ? task.assets
+        .map(asset => `${asset?.assetId || 'unknown'}:${asset?.state || 'unknown'}${asset?.error ? `:${asset.error}` : ''}`)
+        .join('; ')
+      : '';
+    const detail = [task.error, task.progress?.error, assetErrors].filter(value => String(value || '').trim()).join(' | ');
+    throw new Error(`Ecommerce production canary task ${taskId || task.id || 'unknown'} ended as ${task.status || 'unknown'}${detail ? `: ${detail}` : ''}`);
+  }
   if (!Array.isArray(task.assetPlan) || task.assetPlan.length !== 3) {
     throw new Error('Ecommerce production canary did not produce an exact three-item plan');
   }
@@ -381,7 +389,7 @@ export async function verifyProductionEcommerce({
     if (lastPollError && !task) throw lastPollError;
     throw new Error(`Ecommerce production canary timed out for task ${taskId}`);
   }
-  const stableUrls = assertCompletedTask(task);
+  const stableUrls = assertCompletedTask(task, taskId);
   const works = await request(`${root}/api/works`, { headers });
   const work = Array.isArray(works) ? works.find(candidate => candidate?.taskId === taskId) : null;
   assertWorkContract({ work, task, stableUrls, product, reference });
