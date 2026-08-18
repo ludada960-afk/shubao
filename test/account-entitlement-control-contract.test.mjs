@@ -38,3 +38,14 @@ test('authoritative balance refresh tracks pending and error states behind the s
   assert.match(refresh, /status:\s*'error'/);
   assert.match(refresh, /sessionRequestGate\.isCurrent\(/);
 });
+
+test('admin self-credit and direct payment settlement refresh the visible balance', async () => {
+  const admin = await source('../src/pages/AdminConsole/index.jsx');
+  const payment = await source('../src/components/business/Modals.jsx');
+  const pricing = await source('../src/pages/Pricing/index.jsx');
+
+  assert.match(admin, /kind === 'credits' && account\.email === actorEmail/);
+  assert.match(admin, /refreshBillingBalance\(\)\.catch\(\(\) => \{\}\)/);
+  assert.match(payment, /order\?\.status === 'credited'[\s\S]*?refreshBillingBalance\(\)\.catch\(\(\) => \{\}\)/);
+  assert.match(pricing, /order\?\.status === 'credited'[\s\S]*?refreshBillingBalance\(\)\.catch\(\(\) => \{\}\)/);
+});

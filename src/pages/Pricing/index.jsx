@@ -216,6 +216,7 @@ export default function PricingPage() {
       } else if (order?.status === 'credited') {
         paymentKeysRef.current.delete(requestKey);
         clearPendingPaymentOrder();
+        await refreshBillingBalance().catch(() => {});
       }
     } catch (error) {
       setOrderStatus(error?.message || '订单创建失败，请稍后重试。');

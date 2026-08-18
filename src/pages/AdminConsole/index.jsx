@@ -242,6 +242,7 @@ function UnitEconomicsPanel({ catalog }) {
 }
 
 function AccountEditor({ account, actorEmail, onClose, onChanged }) {
+  const { refreshBillingBalance } = useApp();
   const [draft, setDraft] = useState(() => ({
     role: account.role,
     status: account.status,
@@ -262,6 +263,9 @@ function AccountEditor({ account, actorEmail, onClose, onChanged }) {
       const next = result.account || result.adjustment || result;
       setMessage({ type: 'success', text: kind === 'credits' ? '额度已写入真实账本' : '账号配置已保存' });
       await onChanged(next);
+      if (kind === 'credits' && account.email === actorEmail) {
+        await refreshBillingBalance().catch(() => {});
+      }
     } catch (error) {
       setMessage({ type: 'error', text: error.message || '操作失败' });
     } finally {

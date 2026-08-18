@@ -380,6 +380,7 @@ export function PricingModal() {
       } else if (order?.status === 'credited') {
         paymentKeysRef.current.delete(requestKey);
         clearPendingPaymentOrder();
+        await refreshBillingBalance().catch(() => {});
       }
     } catch (error) {
       setPaymentStatus(error?.message || '订单创建失败，请稍后重试。');
