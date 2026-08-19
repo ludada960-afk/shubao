@@ -102,6 +102,48 @@ test('carries structured director controls into each shot plan without provider 
   });
 });
 
+test('surfaces non-blocking continuity review findings before generation', () => {
+  const plan = buildVideoWorkbenchPlan(workbench({
+    assets: [asset('product-1')],
+    shots: [
+      shot('shot-2', 2, {
+        direction: {
+          primaryAction: '',
+          continuity: { axis: 'screen_right_to_left', screenDirection: 'right_to_left', transition: 'cut' },
+        },
+      }),
+      shot('shot-1', 1, {
+        direction: {
+          primaryAction: '人物举起商品',
+          continuity: { axis: 'screen_left_to_right', screenDirection: 'left_to_right', transition: 'cut' },
+        },
+      }),
+    ],
+  }));
+
+  assert.equal(plan.status, 'ready');
+  assert.equal(plan.continuityReview.status, 'review');
+  assert.deepEqual(plan.continuityReview.issues.map(issue => issue.code).sort(), [
+    'AXIS_REVERSAL_REVIEW',
+    'SCREEN_DIRECTION_REVERSAL_REVIEW',
+    'SHOT_PRIMARY_ACTION_MISSING',
+  ].sort());
+  assert.deepEqual(plan.continuityReview.issues.find(issue => issue.code === 'SHOT_PRIMARY_ACTION_MISSING').shotIds, ['shot-2']);
+  assert.equal(plan.quote.points > 0, true);
+});
+
+test('keeps a clean continuity review when directions are neutral and actions are explicit', () => {
+  const plan = buildVideoWorkbenchPlan(workbench({
+    assets: [asset('product-1')],
+    shots: [
+      shot('shot-1', 1, { direction: { primaryAction: '商品停在画面中心' } }),
+      shot('shot-2', 2, { direction: { primaryAction: '手部打开包装' } }),
+    ],
+  }));
+  assert.equal(plan.continuityReview.status, 'clear');
+  assert.deepEqual(plan.continuityReview.issues, []);
+});
+
 test('uses requested public product and rejects invalid planning options', () => {
   const valid = buildVideoWorkbenchPlan(workbench({ assets: [asset('product-1')], shots: [shot('shot-1', 1)] }), {
     productId: 'seedance_fast',

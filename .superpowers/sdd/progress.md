@@ -1995,6 +1995,18 @@
 - 全量回归 `1613/1613`，生产构建转换 `6493` 个模块，`npm run check` 与 `git diff --check` 通过。
 - `scripts/deploy-production.ps1 -CanarySeconds 600 -PublicWarmupSeconds 60` 已完成，版本 `45ab6b6` 已部署到 `https://shuimg.cn/`；图库 117 张、视频公共契约、电商稳定资产验收和 canary 均通过，部署锁已释放。公网独立验收 `/health` 与首页均为 HTTP 200，线上小红书预览弹窗确认包含完整正文和 9 张缩略图。canary 期间一次公共视频契约瞬时网络失败由脚本自动重试后通过，未触发视频生成。
 
+## 2026-08-19 AI Video Asset Delivery And Provenance Hardening
+
+- 新增视频资产 HTTP 恢复契约：稳定 `ETag`、`Last-Modified`、安全的 inline 文件名、`If-Range` 续传、条件请求 `304`、
+  无正文 `HEAD` 和不可满足区间 `416`。现有 owner 鉴权、私有缓存策略和正常 `206` Range 语义保持不变。
+- 候选卡片和数据库新增不可伪造的来源状态：规划候选为 `planned`，没有历史 attempt 快照的旧任务为
+  `unverified-legacy`，只有同时拥有 provider、model、上游 request/task id、request hash、catalog version、生成时间和
+  `provider-attempt` 来源标记时才为 `verified`；来源状态在工作台可见并随 replay/clone 传递。
+- 新 B 站 `BV1p7gP6CErH` 通过 yt-dlp 取得只读 360p 副本并提取 30 帧；飞书 Seedance 2.5 正文已核验最小版本、素材职责、
+  事件时间轴、局部时空编辑、白模/绿幕、失败归因和版权质检。未触发视频生成或任何计费。
+- 本轮聚焦回归 `32/32`（资产交付 `7/7`、工作台存储 `25/25`）和工作台 UI `2/2` 通过；全量回归、构建、部署和公网
+  验收仍以本记录后续命令输出为准，不能提前宣称已上线。
+
 ## 2026-08-18 AI Video Planning Workbench Slice
 
 - 将 provider-neutral 规划模式接入视频能力发现与所有者工作台：`VIDEO_PLATFORM_P1_PLANNING=true`，而实时渲染
@@ -2005,3 +2017,35 @@
 - 本地焦点回归 `48/48`（包含新增规划路由鉴权门禁与媒体 Range 恢复），全量回归
   `1830/1830`、生产构建转换 `6520` 个模块、协作门禁、无付费视频验证和部署前生产契约检查均已通过。
   试点验证为 `10` 个项目、`40/40` 操作成功，`providerSubmissions=0`、`billingMutated=false`；当前没有触发视频生成、供应商调用、钱包/用量变更。
+
+## 2026-08-19 AI Video Release Gate Result
+
+- 本轮最终本地证据：全量回归 `1840/1840`、生产构建 `6520` modules、`npm run check`、协作门禁、无付费视频验证、
+  renderer reconciliation dry-run、40 操作规划试点和本地生产审计 `27/27` 均通过；试点记录
+  `providerSubmissions=0`、`billingMutated=false`。
+- `scripts/deploy-production.ps1 -CanarySeconds 600 -PublicWarmupSeconds 60` 已执行，但在远端 helper/锁创建前因当前环境
+  无法读取 `C:\Users\SHEJI\.ssh\shubao_deploy_ed25519` 而被服务器拒绝；远端没有文件、进程、锁、账务或供应商任务变更，
+  本轮没有 600 秒公网 Canary，因此不得宣称本轮已上线。
+- 后续恢复只能重跑唯一正式部署脚本并重新取得公网健康、资产、视频契约、账务隔离与 Canary 证据；实时视频渲染和付费供应商调用
+  仍保持关闭。用户运行态删除项和临时文件继续排除。
+
+## 2026-08-19 AI Video Single-Shot Recovery Plan
+
+- 新增 provider-neutral 单镜头恢复计划：`replace_candidate` 与 `rebuild_shot` 两种模式均记录镜头快照、受影响时间线片段、
+  保留的相邻镜头、有限原因文本和稳定 `planHash`；计划可验证、可审计，篡改会 fail closed。
+- 新增 `video_shot_recovery_plans` 持久化表和工作台入口“建立单镜头重拍计划”。相同请求按 hash 幂等返回，不创建供应商任务、
+  不扣积分、不写 wallet/usage 账务，也不触发付费视频生成。
+- 本轮聚焦回归 `60/60` 已通过（纯逻辑、存储、HTTP 路由、重复提交和 UI wiring）。这只是 P1 可靠性切片；真实供应商执行、
+  逐镜头高清生成、时间线合成和商业化 canary 仍需在能力/版权/审核/存储/成本/质量门禁完成后单独启用。
+- 当前切片尚未重新部署；上一轮正式部署因本执行环境无法读取 `C:\Users\SHEJI\.ssh\shubao_deploy_ed25519` 而在远端 helper/锁创建前停止，
+  因此不得把本地测试结果写成线上已更新。运行态删除项和临时文件继续保持原样。
+
+## 2026-08-19 AI Video Recovery Verification Refresh
+
+- 修正一个过时的 UI 测试契约：小红书首页已经使用 `XhsSupplementDeck` 的 `sourceImages/styleImages` 上限，测试不再要求
+  已删除的 `maxProductImages/maxReferenceImages` 属性；Plog 独立页仍保留共享 `SupplementAssetDeck`。聚焦回归最终为 `60/60`。
+- 全量串行回归最终为 `1846/1846`，生产构建成功并转换 `6520` 个模块，`npm run check`、`npm run collab:check`、
+  `git diff --check` 均通过。`verify-video-platform --local --no-paid-generation` 返回 `ok=true`、`providerSubmissions=0`；
+  renderer reconciliation dry-run、40 操作规划试点和本地生产审计 `27/27` 均通过，试点 `billingMutated=false`。
+- 本轮没有供应商调用、视频生成、上传、wallet hold、结算或 usage 变更。正式部署脚本此前在远端 helper/锁创建前因
+  `C:\Users\SHEJI\.ssh\shubao_deploy_ed25519` 无法读取而停止；本地 AI 视频切片仍未上线，线上仍是上一版 `9225816` 基础底座。

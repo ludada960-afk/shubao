@@ -55,6 +55,13 @@ test('generation draft preserves approved references without exposing media URLs
   assert.equal(draft.shots[0].direction.primaryAction, '灯光扫过耳机表面');
   assert.equal('stableUrl' in draft.shots[0].references[0], false);
   assert.equal(draft.planHash, planHash);
+  assert.equal(draft.schemaVersion, 2);
+  assert.equal(draft.continuityReview.status, 'clear');
+  assert.deepEqual(draft.continuityReview.issues, []);
+  assert.equal(draft.preflight.status, 'ready');
+  assert.match(draft.preflight.preflightHash, /^[a-f0-9]{64}$/);
+  assert.equal(draft.preflight.requirements.enforce, false);
+  assert.equal(draft.preflight.blockers.length, 0);
 });
 
 test('generation draft rejects stale approval before compiling', () => {

@@ -253,6 +253,14 @@ export async function selectShotCandidate(projectId, shotId, payload = {}) {
   return response;
 }
 
+export async function createShotRecoveryPlan(projectId, shotId, payload = {}) {
+  const response = await requestJson(`${shotBase(projectId, shotId)}/recovery-plans`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法建立镜头恢复计划');
+  return requireValue(response, 'plan', '镜头恢复计划暂时不可用，请稍后重试');
+}
+
 export async function addTimelineClip(projectId, payload = {}) {
   const response = await requestJson(`${workbenchBase(projectId)}/timeline/clips`, {
     method: 'POST',

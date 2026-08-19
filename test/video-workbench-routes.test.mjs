@@ -261,6 +261,12 @@ test('compiles an approved generation draft without billing or provider mutation
   assert.equal(draft.statusCode, 201);
   assert.equal(draft.body.draft.providerSubmission, false);
   assert.equal(draft.body.draft.billingMutation, false);
+  assert.equal(draft.body.draft.schemaVersion, 2);
+  assert.equal(draft.body.draft.continuityReview.status, 'review');
+  assert.ok(draft.body.draft.continuityReview.issues.some(issue => issue.code === 'SHOT_PRIMARY_ACTION_MISSING'));
+  assert.equal(draft.body.draft.preflight.status, 'ready');
+  assert.match(draft.body.draft.preflight.preflightHash, /^[a-f0-9]{64}$/);
+  assert.equal(draft.body.draft.preflight.requirements.enforce, false);
   assert.equal(draft.body.draft.shots[0].references[0].sourceProjectAssetId, 'route-upload');
   assert.ok(draft.body.draft.id);
   assert.equal(draft.body.draft.replayed, false);
@@ -753,6 +759,68 @@ test('candidate route rejects completed jobs whose delivery is not a non-empty v
   });
   assert.equal(emptyResponse.statusCode, 409);
   assert.equal(emptyResponse.body.code, 'VIDEO_JOB_NOT_READY');
+});
+
+test('shot recovery route persists an idempotent zero-cost plan and returns it on replay', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const firstShot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '失败镜头', durationMs: 3000, prompt: '产品亮相' });
+  const secondShot = store.createShot({ ownerEmail, projectId: project.id, position: 1,
+    purpose: '保留镜头', durationMs: 3000, prompt: '细节收束' });
+  const firstCandidate = store.registerCandidate({ ownerEmail, projectId: project.id, shotId: firstShot.id,
+    outputAssetId: 'route-recovery-a', stableUrl: '/api/video/assets/route-recovery-a',
+    contentHash: 'route-recovery-hash-a', mimeType: 'video/mp4' });
+  const secondCandidate = store.registerCandidate({ ownerEmail, projectId: project.id, shotId: secondShot.id,
+    outputAssetId: 'route-recovery-b', stableUrl: '/api/video/assets/route-recovery-b',
+    contentHash: 'route-recovery-hash-b', mimeType: 'video/mp4' });
+  store.selectCandidate({ ownerEmail, projectId: project.id, shotId: firstShot.id,
+    candidateId: firstCandidate.id, expectedRevision: firstShot.revision });
+  store.selectCandidate({ ownerEmail, projectId: project.id, shotId: secondShot.id,
+    candidateId: secondCandidate.id, expectedRevision: secondShot.revision });
+  store.addTimelineClip({ ownerEmail, projectId: project.id, shotId: firstShot.id,
+    candidateId: firstCandidate.id, position: 0, trimStartMs: 0, trimEndMs: 3000 });
+  store.addTimelineClip({ ownerEmail, projectId: project.id, shotId: secondShot.id,
+    candidateId: secondCandidate.id, position: 1, trimStartMs: 0, trimEndMs: 3000 });
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const first = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/recovery-plans', {
+    headers, params: { projectId: project.id, shotId: firstShot.id },
+    body: { mode: 'replace_candidate', reason: '上游超时' },
+  });
+  assert.equal(first.statusCode, 201);
+  assert.equal(first.body.plan.providerSubmission, false);
+  assert.equal(first.body.plan.billingMutation, false);
+  assert.equal(first.body.plan.replayed, false);
+  assert.equal(first.body.plan.preserve.shotIds[0], secondShot.id);
+
+  const replayed = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/recovery-plans', {
+    headers, params: { projectId: project.id, shotId: firstShot.id },
+    body: { mode: 'replace_candidate', reason: '上游超时' },
+  });
+  assert.equal(replayed.statusCode, 200);
+  assert.equal(replayed.body.plan.id, first.body.plan.id);
+  assert.equal(replayed.body.plan.replayed, true);
+  const workbench = await invoke(app, 'GET', '/api/video/projects/:projectId/workbench', {
+    headers, params: { projectId: project.id },
+  });
+  assert.equal(workbench.statusCode, 200);
+  assert.equal(workbench.body.recoveryPlans.length, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_recovery_plans').get().count, 1);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
+});
+
+test('shot recovery route rejects unsupported modes without creating a plan', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '镜头', durationMs: 3000, prompt: '动作' });
+  const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/shots/:shotId/recovery-plans', {
+    headers: signedHeaders(sessionTokens, ownerEmail), params: { projectId: project.id, shotId: shot.id },
+    body: { mode: 'provider_override' },
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.body.code, 'SHOT_RECOVERY_INVALID');
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_recovery_plans').get().count, 0);
 });
 
 test('workbench read projects ephemeral playback capabilities without persisting them', async t => {

@@ -53,6 +53,9 @@ function routeError(error, res) {
   if (code === 'VIDEO_WORKBENCH_PLANNING_ONLY') {
     return res.status(409).json({ code, error: '当前处于零额度规划模式，暂不交接渲染任务' });
   }
+  if (code === 'SHOT_RECOVERY_INVALID') {
+    return res.status(400).json({ code, error: error.message || '镜头恢复计划参数无效' });
+  }
   if (code === 'VIDEO_PREFLIGHT_INPUT_INVALID') {
     return res.status(400).json({ code, error: error.message || '视频提交前预检参数无效' });
   }
@@ -397,6 +400,15 @@ export function mountVideoWorkbenchRoutes(app, {
       expectedRevision: req.body?.expectedRevision,
     })
   )));
+
+  app.post('/api/video/projects/:projectId/workbench/shots/:shotId/recovery-plans', (req, res) => dispatch(
+    req, res, 'shot.recovery-plan.create', request => store.createShotRecoveryPlan({
+      ...request,
+      shotId: req.params.shotId,
+      reason: req.body?.reason,
+      mode: req.body?.mode,
+    }), { status: value => (value?.replayed ? 200 : 201), key: 'plan' },
+  ));
 
   app.post('/api/video/projects/:projectId/workbench/timeline/clips', (req, res) => dispatch(req, res, 'timeline.clip.create', request => (
     store.addTimelineClip({

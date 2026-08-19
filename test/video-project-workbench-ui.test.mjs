@@ -48,6 +48,7 @@ test('project workbench exposes real persisted stages without provider controls 
     'previewVideoSkillRunExecution',
     'confirmVideoSkillCheckpoint',
     'createVideoWorkbenchGenerationDraft',
+    'createShotRecoveryPlan',
     'createWorkbenchAsset',
     'importWorkbenchAssetVersion',
     'approveWorkbenchAssetVersion',
@@ -133,6 +134,16 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /onPlanApprovalChange/);
   assert.match(component, /workbenchPlan\?\.approval\?\.planHash/);
   assert.match(component, /视频生成计划/);
+  assert.match(component, /continuityReview/);
+  assert.match(component, /video-project-continuity-review/);
+  assert.match(component, /镜头连续性/);
+  assert.match(component, /video-project-generation-draft-meta/);
+  assert.match(component, /handleCreateShotRecoveryPlan/);
+  assert.match(component, /建立单镜头重拍计划/);
+  assert.match(component, /不调用供应商 · 不扣积分/);
+  assert.match(component, /生成草稿审计摘要/);
+  assert.match(component, /连续性：/);
+  assert.match(component, /预检摘要：/);
   assert.match(component, /提交前预检/);
   assert.match(component, /版权\/使用权|版权确认/);
   assert.match(component, /不会调用供应商，也不会扣除积分/);
@@ -161,14 +172,21 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /type="range"/);
   assert.match(styles, /video-project-band\.is-audio/);
   assert.match(styles, /video-project-plan/);
+  assert.match(styles, /video-project-continuity-review/);
+  assert.match(styles, /video-project-generation-draft-meta/);
+  assert.match(styles, /video-project-recovery-row/);
+  assert.match(styles, /video-project-recovery-status/);
   assert.match(styles, /video-project-preflight/);
   assert.match(component, /aria-busy=\{loading \|\| Boolean\(busy\)\}/);
   assert.match(component, /disabled=\{Boolean\(busy\)/);
   assert.match(component, /<video[^>]+preload="metadata"/);
   assert.match(component, /onError=\{\(\) => setFailed\(true\)\}/);
   assert.match(component, /视频预览不可用/);
+  assert.match(component, /候选来源未核验|来源已核验|规划候选/);
+  assert.match(component, /provenanceStatus/);
   assert.match(styles, /aspect-ratio/);
   assert.match(styles, /video-project-candidate-media\.is-unavailable/);
+  assert.match(styles, /video-project-candidate-provenance/);
   assert.match(styles, /video-project-direction-grid/);
   assert.match(styles, /video-project-shot-form[^\{]*\s*\{[^}]*grid-template-columns/);
   assert.match(styles, /@media\s*\(max-width:\s*640px\)/);

@@ -31,6 +31,8 @@ import { listVideoSkillTemplates } from './videoSkillTemplates.mjs';
 import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
 import { assertVideoRendererPreflightIntegrity } from './videoRendererPreflight.mjs';
 import { normalizeShotDirection } from './videoShotDirection.mjs';
+import { normalizeVideoProvenance, verifiedVideoProvenance } from './videoProvenance.mjs';
+import { assertShotRecoveryPlanIntegrity, buildShotRecoveryPlan } from './videoShotRecovery.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -402,6 +404,11 @@ function bindingFromRow(row) {
 
 function candidateFromRow(row) {
   if (!row) return null;
+  const fallbackStatus = row.generation_job_id ? 'unverified-legacy' : 'planned';
+  const storedProvenance = parseJson(row.provenance_json, {});
+  const storedStatus = clean(storedProvenance?.status, 40)
+    || (row.provenance_status && row.provenance_status !== 'planned' ? clean(row.provenance_status, 40) : fallbackStatus);
+  const provenance = normalizeVideoProvenance(storedProvenance, storedStatus);
   return {
     id: row.id,
     ownerEmail: row.owner_email,
@@ -413,6 +420,8 @@ function candidateFromRow(row) {
     contentHash: row.content_hash,
     mimeType: row.mime_type,
     status: row.status,
+    provenanceStatus: provenance.status,
+    provenance,
     createdAt: row.created_at,
   };
 }
@@ -480,6 +489,23 @@ function generationDraftFromRow(row) {
     planHash: row.plan_hash,
     createdAt: row.created_at,
     ...parseJson(row.draft_json, {}),
+  };
+}
+
+function shotRecoveryPlanFromRow(row) {
+  if (!row) return null;
+  const payload = parseJson(row.plan_json, {});
+  return {
+    ...payload,
+    id: row.id,
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    shotId: row.shot_id,
+    status: row.status,
+    revision: row.revision,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    planHash: row.plan_hash,
   };
 }
 
@@ -581,6 +607,7 @@ function ensureSchema(db) {
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL, shot_id TEXT NOT NULL,
       generation_job_id TEXT, output_asset_id TEXT NOT NULL, stable_url TEXT NOT NULL,
       content_hash TEXT NOT NULL, mime_type TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'available',
+      provenance_status TEXT NOT NULL DEFAULT 'planned', provenance_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL, UNIQUE(shot_id, output_asset_id),
       FOREIGN KEY(shot_id) REFERENCES video_storyboard_shots(id)
     );
@@ -714,6 +741,15 @@ function ensureSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_video_generation_drafts_project
       ON video_generation_drafts(owner_email, project_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS video_shot_recovery_plans (
+      id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, project_id TEXT NOT NULL, shot_id TEXT NOT NULL,
+      plan_hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'planned', revision INTEGER NOT NULL DEFAULT 1,
+      plan_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      UNIQUE(owner_email, project_id, shot_id, plan_hash),
+      FOREIGN KEY(project_id) REFERENCES projects(id), FOREIGN KEY(shot_id) REFERENCES video_storyboard_shots(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_shot_recovery_plans_project
+      ON video_shot_recovery_plans(owner_email, project_id, created_at DESC);
   `);
   const shotColumns = db.prepare(`PRAGMA table_info(video_storyboard_shots)`).all();
   if (!shotColumns.some(column => column.name === 'direction_json')) {
@@ -730,6 +766,21 @@ function ensureSchema(db) {
   ]) {
     if (!exportJobColumnNames.has(name)) db.exec(`ALTER TABLE video_export_jobs ADD COLUMN ${name} ${definition}`);
   }
+  const candidateColumns = new Set(db.prepare('PRAGMA table_info(video_shot_candidates)').all().map(column => column.name));
+  for (const [name, definition] of [
+    ['provenance_status', "TEXT NOT NULL DEFAULT 'planned'"],
+    ['provenance_json', "TEXT NOT NULL DEFAULT '{}'"],
+  ]) {
+    if (!candidateColumns.has(name)) db.exec(`ALTER TABLE video_shot_candidates ADD COLUMN ${name} ${definition}`);
+  }
+}
+
+function tableExists(db, tableName) {
+  return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName));
+}
+
+function tableColumns(db, tableName) {
+  return new Set(db.prepare(`PRAGMA table_info(${tableName})`).all().map(column => column.name));
 }
 
 export function createVideoWorkbenchStore({
@@ -988,7 +1039,8 @@ export function createVideoWorkbenchStore({
         WHERE shot_id = ? AND role = ? AND asset_id = ?`).get(shotId, role, assetId));
     },
 
-    registerCandidate({ ownerEmail, projectId, shotId, generationJobId = null, outputAssetId, stableUrl, contentHash, mimeType }) {
+    registerCandidate({ ownerEmail, projectId, shotId, generationJobId = null, outputAssetId, stableUrl, contentHash, mimeType,
+      provenance = null }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       requireShot(owner, project.id, shotId);
       const outputId = clean(outputAssetId, 256);
@@ -1002,12 +1054,15 @@ export function createVideoWorkbenchStore({
         WHERE shot_id = ? AND output_asset_id = ?`).get(shotId, outputId));
       if (existing) return existing;
       const id = randomUUID();
+      const provenanceStatus = generationJobId ? 'unverified-legacy' : 'planned';
+      const normalizedProvenance = normalizeVideoProvenance(provenance, provenanceStatus);
       db.prepare(`INSERT INTO video_shot_candidates
         (id, owner_email, project_id, shot_id, generation_job_id, output_asset_id,
-         stable_url, content_hash, mime_type, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+         stable_url, content_hash, mime_type, provenance_status, provenance_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, owner, project.id, shotId, clean(generationJobId, 256) || null, outputId,
-        normalizedUrl, normalizedHash, normalizedMimeType, timestamp(),
+        normalizedUrl, normalizedHash, normalizedMimeType, normalizedProvenance.status,
+        JSON.stringify(normalizedProvenance), timestamp(),
       );
       return requireCandidate(owner, project.id, shotId, id);
     },
@@ -1016,7 +1071,10 @@ export function createVideoWorkbenchStore({
       const { owner, project } = requireProject(ownerEmail, projectId);
       requireShot(owner, project.id, shotId);
       const jobId = clean(generationJobId, 256);
-      const job = jobId ? db.prepare(`SELECT id, status, result_asset_id FROM video_jobs
+      const jobColumns = tableExists(db, 'video_jobs') ? tableColumns(db, 'video_jobs') : new Set();
+      const jobFields = ['id', 'status', 'result_asset_id', 'provider_route', 'catalog_version',
+        'provider_cost_cny', 'current_attempt_id', 'updated_at'].filter(field => jobColumns.has(field));
+      const job = jobId && jobFields.length >= 3 ? db.prepare(`SELECT ${jobFields.join(', ')} FROM video_jobs
         WHERE id = ? AND owner_email = ? AND project_id = ?`).get(jobId, owner, project.id) : null;
       if (!job) throw coded('VIDEO_JOB_NOT_FOUND', 'video generation job not found');
       if (job.status !== 'completed' || !clean(job.result_asset_id, 256)) {
@@ -1029,6 +1087,22 @@ export function createVideoWorkbenchStore({
         || !clean(output.sha256, 256) || !outputMimeType.startsWith('video/')) {
         throw coded('VIDEO_JOB_NOT_READY', 'verified video delivery is missing');
       }
+      let provenance = normalizeVideoProvenance(null, 'unverified-legacy');
+      if (job.current_attempt_id && tableExists(db, 'video_job_attempts')) {
+        const attempt = db.prepare(`SELECT provider, model, request_hash, provider_task_id
+          FROM video_job_attempts WHERE id = ? AND job_id = ?`).get(job.current_attempt_id, job.id);
+        if (attempt) {
+          provenance = verifiedVideoProvenance({
+            provider: attempt.provider,
+            model: attempt.model,
+            requestId: attempt.provider_task_id,
+            requestHash: attempt.request_hash,
+            catalogVersion: job.catalog_version,
+            costCny: job.provider_cost_cny,
+            generatedAt: job.updated_at || timestamp(),
+          });
+        }
+      }
       return api.registerCandidate({
         ownerEmail: owner,
         projectId: project.id,
@@ -1038,6 +1112,7 @@ export function createVideoWorkbenchStore({
         stableUrl: `/api/video/assets/${encodeURIComponent(output.id)}`,
         contentHash: output.sha256,
         mimeType: outputMimeType,
+        provenance,
       });
     },
 
@@ -2129,6 +2204,9 @@ export function createVideoWorkbenchStore({
         WHERE owner_email = ? AND project_id = ? ORDER BY position, created_at`).all(owner, project.id).map(clipFromRow);
       const audioTracks = db.prepare(`SELECT * FROM video_audio_tracks
         WHERE owner_email = ? AND project_id = ? ORDER BY start_ms, created_at, id`).all(owner, project.id).map(audioTrackFromRow);
+      const recoveryPlans = db.prepare(`SELECT * FROM video_shot_recovery_plans
+        WHERE owner_email = ? AND project_id = ? ORDER BY created_at DESC, id DESC LIMIT 50`)
+        .all(owner, project.id).map(shotRecoveryPlanFromRow);
       const skillRuns = db.prepare(`SELECT * FROM video_skill_runs
         WHERE owner_email = ? AND project_id = ? ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT 8`)
         .all(owner, project.id)
@@ -2144,9 +2222,27 @@ export function createVideoWorkbenchStore({
         shots,
         timelineClips,
         audioTracks,
+        recoveryPlans,
         skillRuns,
         memory: api.listProjectMemory({ ownerEmail: owner, projectId: project.id }),
       };
+    },
+
+    createShotRecoveryPlan({ ownerEmail, projectId, shotId, reason = '', mode = 'replace_candidate' }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      const plan = buildShotRecoveryPlan(api.listWorkbench({ ownerEmail: owner, projectId: project.id }), { shotId, reason, mode });
+      assertShotRecoveryPlanIntegrity(plan);
+      const existing = db.prepare(`SELECT * FROM video_shot_recovery_plans
+        WHERE owner_email = ? AND project_id = ? AND shot_id = ? AND plan_hash = ?`)
+        .get(owner, project.id, plan.shot.id, plan.planHash);
+      if (existing) return { ...shotRecoveryPlanFromRow(existing), replayed: true };
+      const id = randomUUID();
+      const createdAt = timestamp();
+      db.prepare(`INSERT INTO video_shot_recovery_plans
+        (id, owner_email, project_id, shot_id, plan_hash, status, revision, plan_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, owner, project.id, plan.shot.id, plan.planHash, plan.status, 1, JSON.stringify(plan), createdAt, createdAt);
+      return { ...shotRecoveryPlanFromRow(db.prepare('SELECT * FROM video_shot_recovery_plans WHERE id = ?').get(id)), replayed: false };
     },
 
     getGenerationPlanApproval({ ownerEmail, projectId }) {

@@ -1186,7 +1186,7 @@ export function createVideoGeneration({
     const filePath = resolve(folder, row.file_name);
     try {
       const info = await stat(filePath);
-      return { row, filePath, size: info.size };
+      return { row, filePath, size: info.size, mtimeMs: info.mtimeMs };
     } catch { return null; }
   }
 
@@ -1505,13 +1505,65 @@ export function parseVideoRange(value, size) {
   return { start, end };
 }
 
+function requestHeader(req, name) {
+  const headers = req?.headers || {};
+  return headers[name] || headers[name.toLowerCase()] || '';
+}
+
+function assetLastModified(asset) {
+  const mtimeMs = Number(asset?.mtimeMs);
+  if (Number.isFinite(mtimeMs) && mtimeMs > 0) return new Date(Math.floor(mtimeMs / 1000) * 1000);
+  const createdAt = clean(asset?.row?.created_at, 80).replace(' ', 'T');
+  const parsed = Date.parse(createdAt);
+  return Number.isFinite(parsed) ? new Date(Math.floor(parsed / 1000) * 1000) : null;
+}
+
+function assetEtag(asset) {
+  const checksum = clean(asset?.row?.sha256, 64).toLowerCase();
+  if (/^[a-f0-9]{64}$/.test(checksum)) return `"${checksum}"`;
+  const fallback = [clean(asset?.row?.id, 256), Number(asset?.size) || 0, Number(asset?.mtimeMs) || 0].join(':');
+  return `"${crypto.createHash('sha256').update(fallback).digest('hex')}"`;
+}
+
+function matchesEntityTag(value, etag) {
+  const normalized = clean(value, 1000);
+  if (!normalized) return false;
+  return normalized.split(',').some(candidate => {
+    const token = candidate.trim();
+    return token === '*' || token.replace(/^W\//i, '') === etag;
+  });
+}
+
+function matchesIfRange(value, etag, lastModified) {
+  const normalized = clean(value, 200);
+  if (!normalized) return true;
+  if (normalized.startsWith('"') || /^W\//i.test(normalized)) return normalized === etag;
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) && lastModified && lastModified.getTime() <= parsed;
+}
+
 export function sendVideoAsset(req, res, asset) {
-  const range = clean(req.headers.range, 100);
+  const method = clean(req?.method, 16).toUpperCase() || 'GET';
+  const etag = assetEtag(asset);
+  const lastModified = assetLastModified(asset);
+  const rangeHeader = clean(requestHeader(req, 'range'), 100);
+  const range = rangeHeader && matchesIfRange(requestHeader(req, 'if-range'), etag, lastModified)
+    ? rangeHeader
+    : '';
   res.setHeader('Content-Type', asset.row.content_type);
   res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('ETag', etag);
+  if (lastModified) res.setHeader('Last-Modified', lastModified.toUTCString());
+  const fileName = basename(clean(asset.row.file_name, 500) || clean(asset.row.id, 256) || 'media');
+  res.setHeader('Content-Disposition', `inline; filename="${fileName.replace(/["\r\n]/g, '_')}"`);
   res.setHeader('Cache-Control', asset.row.kind === 'output' ? 'private, max-age=86400' : 'private, max-age=3600');
+  if (matchesEntityTag(requestHeader(req, 'if-none-match'), etag)) {
+    res.status(304);
+    return res.end();
+  }
   if (!range) {
     res.setHeader('Content-Length', asset.size);
+    if (method === 'HEAD') return res.end();
     fs.createReadStream(asset.filePath).pipe(res);
     return;
   }
@@ -1524,5 +1576,6 @@ export function sendVideoAsset(req, res, asset) {
   res.status(206);
   res.setHeader('Content-Range', `bytes ${start}-${end}/${asset.size}`);
   res.setHeader('Content-Length', end - start + 1);
+  if (method === 'HEAD') return res.end();
   fs.createReadStream(asset.filePath, { start, end }).pipe(res);
 }

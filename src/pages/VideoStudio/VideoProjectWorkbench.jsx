@@ -33,6 +33,7 @@ import {
   createWorkbenchAsset,
   createVideoAudioTrack,
   createVideoWorkbenchGenerationDraft,
+  createShotRecoveryPlan,
   createVideoReplayManifest,
   createVideoExportManifest,
   cloneVideoReplayManifest,
@@ -207,6 +208,18 @@ function memoryValueText(value) {
 
 function memorySourceLabel(source) {
   return ({ user: '用户设定', approved_asset: '已确认素材', skill: '工作流记录' })[source] || '项目记录';
+}
+
+function candidateProvenanceLabel(status) {
+  if (status === 'verified') return '来源已核验';
+  if (status === 'unverified-legacy') return '候选来源未核验';
+  return '规划候选';
+}
+
+function candidateProvenanceClass(status) {
+  if (status === 'verified') return 'is-verified';
+  if (status === 'unverified-legacy') return 'is-unverified';
+  return 'is-planned';
 }
 
 function ProjectMedia({ version, name }) {
@@ -838,6 +851,16 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }));
   }
 
+  function handleCreateShotRecoveryPlan(shot) {
+    if (!shot?.id || busy) return;
+    void runMutation(`recovery:${shot.id}`, () => createShotRecoveryPlan(projectId, shot.id, {
+      mode: 'replace_candidate',
+      reason: shot.selectedCandidateId
+        ? '当前镜头候选需要单镜头重拍，保留其他镜头与时间线。'
+        : '当前镜头尚无可交付候选，建立单镜头恢复计划。',
+    }));
+  }
+
   function handleAddTimeline(shot) {
     const candidate = selectedCandidateForShot(shot);
     if (!candidate) return;
@@ -981,6 +1004,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const audioSources = approvedAudioAssetVersions(workbench);
   const audioTracks = Array.isArray(workbench?.audioTracks) ? workbench.audioTracks : [];
   const preflight = workbenchPreflight?.preflight || null;
+  const continuityReview = workbenchPlan?.continuityReview || null;
 
   return <section className="video-project-workbench" aria-label="视频项目工作台" aria-busy={loading || Boolean(busy)}>
     {planningOnly && <div className="video-project-planning-banner" role="status">
@@ -1062,6 +1086,18 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <div><span>分镜</span><strong>{workbenchPlan.shots?.length || 0} 个 · {(Number(workbenchPlan.totalDurationMs || 0) / 1000).toFixed(1)} 秒</strong></div>
         <div><span>预计积分</span><strong>{Number(workbenchPlan.quote?.points || 0)} AI 积分</strong></div>
       </div>
+      {continuityReview && (workbenchPlan.shots?.length || 0) > 0 && <section className={`video-project-continuity-review ${continuityReview.status === 'review' ? 'is-review' : 'is-clear'}`} aria-label="镜头连续性检查">
+        <header>
+          <div><small>导演检查</small><strong>{continuityReview.status === 'review' ? <><CircleAlert size={14} />需要复核</> : <><Check size={14} />连续性通过</>}</strong></div>
+          <span>仅作生成前提示，不阻断计划，也不会调用供应商。</span>
+        </header>
+        {!!continuityReview.issues?.length ? <ul>
+          {continuityReview.issues.slice(0, 8).map((issue, index) => <li key={`${issue.code}-${issue.shotIds?.join('-') || index}`}>
+            <span>{issue.shotIds?.length ? `镜头 ${issue.shotIds.join(' → ')}` : '镜头序列'}</span>
+            <p>{issue.detail}</p>
+          </li>)}
+        </ul> : <p>轴线、屏幕运动方向与每个镜头的主体动作已经明确。</p>}
+      </section>}
       <div className={`video-project-preflight ${preflight?.status === 'ready' ? 'is-ready' : preflight?.status === 'blocked' ? 'is-blocked' : 'is-idle'}`}>
         <header>
           <div><small>供应商提交门禁</small><strong>{preflight?.status === 'ready' ? <><ShieldCheck size={14} />提交条件已满足</> : preflight?.status === 'blocked' ? <><CircleAlert size={14} />提交前仍有阻断</> : '尚未执行严格预检'}</strong></div>
@@ -1097,6 +1133,11 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           <span>{generationDraft
             ? `${generationDraft.shots?.length || 0} 个镜头 · ${generationDraft.shots?.reduce((count, shot) => count + (shot.references?.length || 0), 0) || 0} 个素材引用 · 不会发起供应商任务或扣除积分。`
             : '只读取已确认素材版本与分镜绑定，供主视频生成入口继续执行。'}</span>
+          {generationDraft && <div className="video-project-generation-draft-meta" aria-label="生成草稿审计摘要">
+            <span className={generationDraft.continuityReview?.status === 'review' ? 'is-review' : ''}>连续性：{generationDraft.continuityReview?.status === 'clear' ? '通过' : generationDraft.continuityReview?.status === 'review' ? '需要复核' : '未记录'}</span>
+            <span className={generationDraft.preflight?.status === 'ready' ? 'is-ready' : generationDraft.preflight?.status === 'blocked' ? 'is-blocked' : ''}>预检摘要：{generationDraft.preflight?.status === 'ready' ? '可用' : generationDraft.preflight?.status === 'blocked' ? '有阻断' : '未绑定'}</span>
+            {generationDraft.preflight?.preflightHash && <code>{generationDraft.preflight.preflightHash.slice(0, 10)}</code>}
+          </div>}
         </div>
         <button type="button" className="video-project-plan-approve" disabled={Boolean(busy) || Boolean(generationDraft)} onClick={handleCompileGenerationDraft}>
           {busy === 'plan:draft' ? <LoaderCircle className="is-spinning" size={13} /> : <Layers3 size={13} />} {generationDraft ? '草稿已编译' : '编译逐镜头草稿'}
@@ -1215,6 +1256,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
 
         <div className="video-project-shot-list">{(workbench?.shots || []).map((shot, index) => {
           const selected = selectedCandidateForShot(shot);
+          const recoveryPlan = (workbench?.recoveryPlans || []).find(plan => plan.shotId === shot.id);
           const edit = shotEdits[shot.id];
           const existingJobIds = new Set((shot.candidates || []).map(candidate => candidate.generationJobId));
           const bindingValue = bindingChoices[shot.id] || '';
@@ -1249,10 +1291,16 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
               {!!completedJobs.length && <div className="video-project-job-imports">{completedJobs.map(job => <button type="button" key={job.id} disabled={Boolean(busy) || existingJobIds.has(job.id)} onClick={() => handleImportCandidate(shot, job)}>{existingJobIds.has(job.id) ? '已导入' : `导入：${String(job.prompt || '已完成成片').slice(0, 24)}`}</button>)}</div>}
               <div className="video-project-candidate-grid">{(shot.candidates || []).map((candidate, candidateIndex) => <article key={candidate.id} className={selected?.id === candidate.id ? 'is-selected' : ''}>
                 <CandidateMedia candidate={candidate} label={`镜头${index + 1}候选${candidateIndex + 1}`} />
-                <footer><span>版本 {candidateIndex + 1}</span><button type="button" disabled={Boolean(busy) || selected?.id === candidate.id} onClick={() => handleSelectCandidate(shot, candidate)}>{selected?.id === candidate.id ? <><Check size={14} />已选定</> : '选用此版'}</button></footer>
+                <footer><span>版本 {candidateIndex + 1}</span><span className={`video-project-candidate-provenance ${candidateProvenanceClass(candidate.provenanceStatus)}`} title={candidate.provenanceStatus === 'verified' ? '已记录供应商、模型、上游任务和请求摘要' : candidate.provenanceStatus === 'unverified-legacy' ? '历史任务缺少完整的供应商来源快照' : '尚未调用供应商，仅用于规划和排练'}>{candidateProvenanceLabel(candidate.provenanceStatus)}</span><button type="button" disabled={Boolean(busy) || selected?.id === candidate.id} onClick={() => handleSelectCandidate(shot, candidate)}>{selected?.id === candidate.id ? <><Check size={14} />已选定</> : '选用此版'}</button></footer>
               </article>)}</div>
               {!shot.candidates?.length && <p className="video-project-inline-empty">当前镜头还没有候选。先在上方完成一次属于本项目的视频任务，再导入这里。</p>}
             </section>
+            <div className="video-project-recovery-row">
+              <button type="button" className="video-project-recovery-action" disabled={Boolean(busy)} onClick={() => handleCreateShotRecoveryPlan(shot)}>
+                {busy === `recovery:${shot.id}` ? <><LoaderCircle size={14} className="is-spinning" />保存中</> : <><RefreshCw size={14} />建立单镜头重拍计划</>}
+              </button>
+              {recoveryPlan && <span className="video-project-recovery-status"><ShieldCheck size={13} />已保存 · 不调用供应商 · 不扣积分 · {recoveryPlan.planHash?.slice(0, 10)}</span>}
+            </div>
             <button type="button" className="video-project-timeline-action" disabled={Boolean(busy) || !selected || activeClipShotIds.has(shot.id) || shot.status === 'stale'} onClick={() => handleAddTimeline(shot)}>{activeClipShotIds.has(shot.id) ? <><Check size={15} />已加入时间线</> : '把选定版本加入时间线'}</button>
           </article>;
         })}</div>

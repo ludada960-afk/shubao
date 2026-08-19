@@ -44,6 +44,83 @@ export function normalizeShotDirection(value = {}, legacyCamera = '') {
   };
 }
 
+function continuityIssue(code, detail, shotIds) {
+  return {
+    code,
+    detail: clean(detail, 320),
+    shotIds: shotIds.filter(Boolean),
+  };
+}
+
+/**
+ * Review adjacent shots before generation without turning creative choices into
+ * hard blockers. The director can deliberately cross the axis, but the plan
+ * must make that choice visible so the creator can confirm it first.
+ */
+export function reviewShotContinuity(shots = []) {
+  const ordered = (Array.isArray(shots) ? shots : [])
+    .map((shot, index) => ({ shot, index }))
+    .sort((left, right) => {
+      const leftPosition = Number.isFinite(Number(left.shot?.position))
+        ? Number(left.shot.position)
+        : left.index;
+      const rightPosition = Number.isFinite(Number(right.shot?.position))
+        ? Number(right.shot.position)
+        : right.index;
+      return leftPosition - rightPosition || left.index - right.index;
+    })
+    .map(({ shot }) => shot);
+
+  const issues = [];
+  ordered.forEach(shot => {
+    const id = clean(shot?.id, 200);
+    const direction = object(shot?.direction);
+    if (!clean(direction.primaryAction, 240)) {
+      issues.push(continuityIssue(
+        'SHOT_PRIMARY_ACTION_MISSING',
+        `镜头 ${id || '未命名'} 未明确一个主体动作，请在生成前补充。`,
+        [id],
+      ));
+    }
+  });
+
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1];
+    const current = ordered[index];
+    const previousContinuity = object(object(previous?.direction).continuity);
+    const currentContinuity = object(object(current?.direction).continuity);
+    const previousId = clean(previous?.id, 200);
+    const currentId = clean(current?.id, 200);
+    if (
+      previousContinuity.axis !== 'neutral'
+      && currentContinuity.axis !== 'neutral'
+      && previousContinuity.axis !== currentContinuity.axis
+    ) {
+      issues.push(continuityIssue(
+        'AXIS_REVERSAL_REVIEW',
+        `镜头 ${previousId || '未命名'} → ${currentId || '未命名'} 的轴线方向发生反转，请确认是否有明确的空间重建。`,
+        [previousId, currentId],
+      ));
+    }
+    if (
+      previousContinuity.screenDirection !== 'stationary'
+      && currentContinuity.screenDirection !== 'stationary'
+      && previousContinuity.screenDirection !== currentContinuity.screenDirection
+    ) {
+      issues.push(continuityIssue(
+        'SCREEN_DIRECTION_REVERSAL_REVIEW',
+        `镜头 ${previousId || '未命名'} → ${currentId || '未命名'} 的屏幕运动方向发生反转，请确认剪辑节奏和转场意图。`,
+        [previousId, currentId],
+      ));
+    }
+  }
+
+  return {
+    status: issues.length ? 'review' : 'clear',
+    issues,
+  };
+}
+
 export const VIDEO_SHOT_DIRECTION_OPTIONS = Object.freeze({
   shotScale: [...SHOT_SCALES],
   cameraAngle: [...CAMERA_ANGLES],

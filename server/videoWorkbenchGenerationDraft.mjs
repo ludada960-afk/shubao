@@ -13,6 +13,47 @@ function approvedAssetMap(workbench) {
   return new Map((Array.isArray(workbench?.assets) ? workbench.assets : []).map(asset => [asset.id, asset]));
 }
 
+function continuityReviewSnapshot(review) {
+  const source = review && typeof review === 'object' && !Array.isArray(review) ? review : {};
+  const status = ['clear', 'review'].includes(source.status) ? source.status : 'unknown';
+  const issues = Array.isArray(source.issues) ? source.issues.slice(0, 16).map(issue => ({
+    code: clean(issue?.code, 120),
+    detail: clean(issue?.detail, 500),
+    shotIds: Array.isArray(issue?.shotIds)
+      ? issue.shotIds.map(shotId => clean(shotId, 200)).filter(Boolean).slice(0, 8)
+      : [],
+  })).filter(issue => issue.code && issue.detail) : [];
+  return { schemaVersion: 1, status, issues };
+}
+
+function preflightSnapshot(preflight) {
+  const source = preflight && typeof preflight === 'object' && !Array.isArray(preflight) ? preflight : {};
+  const requirements = source.requirements && typeof source.requirements === 'object' && !Array.isArray(source.requirements)
+    ? source.requirements
+    : {};
+  const normalizeMessages = value => Array.isArray(value)
+    ? value.slice(0, 16).map(item => ({
+      code: clean(item?.code, 120),
+      detail: clean(item?.detail, 500),
+    })).filter(item => item.code && item.detail)
+    : [];
+  const budgetCapPoints = Number.isSafeInteger(Number(requirements.budgetCapPoints))
+    ? Number(requirements.budgetCapPoints)
+    : null;
+  const hash = clean(source.preflightHash, 128).toLowerCase();
+  return {
+    schemaVersion: Number.isSafeInteger(Number(source.schemaVersion)) ? Number(source.schemaVersion) : 1,
+    status: ['ready', 'blocked'].includes(source.status) ? source.status : 'missing',
+    preflightHash: /^[a-f0-9]{64}$/.test(hash) ? hash : '',
+    requirements: {
+      enforce: requirements.enforce === true,
+      budgetCapPoints,
+    },
+    blockers: normalizeMessages(source.blockers),
+    warnings: normalizeMessages(source.warnings),
+  };
+}
+
 export function buildVideoWorkbenchGenerationDraft(workbench = {}, plan = {}, { planHash, approvalHash } = {}) {
   if (!plan || plan.status !== 'ready') throw coded('VIDEO_PLAN_NOT_READY', '只有可生成的计划才能编译生成草稿');
   const fingerprint = videoWorkbenchPlanFingerprint(plan);
@@ -56,12 +97,14 @@ export function buildVideoWorkbenchGenerationDraft(workbench = {}, plan = {}, { 
   });
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     projectId: clean(workbench?.project?.id, 200),
     planHash: fingerprint,
     providerSubmission: false,
     billingMutation: false,
     requiresMainGeneration: true,
+    continuityReview: continuityReviewSnapshot(plan.continuityReview),
+    preflight: preflightSnapshot(plan.preflight),
     product: plan.product,
     options: plan.options,
     totalDurationMs: plan.totalDurationMs,

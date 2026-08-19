@@ -4,9 +4,26 @@ import Database from 'better-sqlite3';
 
 import { ensureProjectSchema } from '../server/projects/schema.mjs';
 import { createProjectStore } from '../server/projects/projectStore.mjs';
+import { normalizeVideoProvenance } from '../server/videoProvenance.mjs';
 import { createVideoWorkbenchStore } from '../server/videoWorkbenchStore.mjs';
 
 const OWNER = 'owner@example.com';
+
+test('verified video provenance requires the request hash binding', () => {
+  const base = {
+    status: 'verified',
+    provider: 'provider-a',
+    model: 'model-a',
+    requestId: 'request-a',
+    catalogVersion: 'catalog-a',
+    generatedAt: '2026-08-15T08:00:00.000Z',
+    source: 'provider-attempt',
+  };
+  assert.deepEqual(normalizeVideoProvenance(base, 'unverified-legacy'), {
+    status: 'unverified-legacy',
+  });
+  assert.equal(normalizeVideoProvenance({ ...base, requestHash: 'hash-a' }).status, 'verified');
+});
 
 function harness() {
   const db = new Database(':memory:');
@@ -23,12 +40,15 @@ function harness() {
 
 function seedCompletedVideoJob(db, {
   jobId = 'job-1', ownerEmail = OWNER, projectId = '', outputAssetId = 'output-1', status = 'completed',
+  providerRoute = '', catalogVersion = '', providerCostCny = 0, currentAttemptId = '',
 } = {}) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS video_jobs (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, status TEXT NOT NULL,
       project_id TEXT NOT NULL DEFAULT '',
-      result_asset_id TEXT NOT NULL DEFAULT ''
+      result_asset_id TEXT NOT NULL DEFAULT '', provider_route TEXT NOT NULL DEFAULT '',
+      catalog_version TEXT NOT NULL DEFAULT '', provider_cost_cny REAL NOT NULL DEFAULT 0,
+      current_attempt_id TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS video_assets (
       id TEXT PRIMARY KEY, owner_email TEXT NOT NULL, kind TEXT NOT NULL,
@@ -40,8 +60,12 @@ function seedCompletedVideoJob(db, {
     (id, owner_email, kind, content_type, bytes, sha256, file_name)
     VALUES (?, ?, 'output', 'video/mp4', 1024, 'verified-output-hash', 'output.mp4')`)
     .run(outputAssetId, ownerEmail);
-  db.prepare('INSERT INTO video_jobs (id, owner_email, project_id, status, result_asset_id) VALUES (?, ?, ?, ?, ?)')
-    .run(jobId, ownerEmail, projectId, status, outputAssetId);
+  db.prepare(`INSERT INTO video_jobs
+    (id, owner_email, project_id, status, result_asset_id, provider_route, catalog_version,
+     provider_cost_cny, current_attempt_id, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(jobId, ownerEmail, projectId, status, outputAssetId, providerRoute, catalogVersion,
+      providerCostCny, currentAttemptId, '2026-08-15T08:00:00.000Z');
 }
 
 function seedUploadedVideoAsset(db, {
@@ -644,6 +668,49 @@ test('completed generation jobs are imported as candidates from authoritative de
   }).id, candidate.id);
 });
 
+test('candidate provenance distinguishes planning, legacy, and verified delivery sources', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '开场', durationMs: 4000 });
+
+  const planned = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'planned-output', stableUrl: '/api/video/assets/planned-output',
+    contentHash: 'planned-hash', mimeType: 'video/mp4' });
+  assert.equal(planned.provenanceStatus, 'planned');
+  assert.deepEqual(planned.provenance, { status: 'planned' });
+
+  const legacy = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    generationJobId: 'legacy-job', outputAssetId: 'legacy-output',
+    stableUrl: '/api/video/assets/legacy-output', contentHash: 'legacy-hash', mimeType: 'video/mp4' });
+  assert.equal(legacy.provenanceStatus, 'unverified-legacy');
+  assert.equal(legacy.provenance.status, 'unverified-legacy');
+
+  seedCompletedVideoJob(db, {
+    jobId: 'verified-job', projectId: project.id, outputAssetId: 'verified-output',
+    providerRoute: 'provider-route', catalogVersion: 'catalog-v2', providerCostCny: 2.5,
+    currentAttemptId: 'verified-job:1',
+  });
+  db.exec(`CREATE TABLE video_job_attempts (
+    id TEXT PRIMARY KEY, job_id TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL,
+    request_hash TEXT NOT NULL, provider_task_id TEXT NOT NULL, state TEXT NOT NULL
+  )`);
+  db.prepare(`INSERT INTO video_job_attempts
+    (id, job_id, provider, model, request_hash, provider_task_id, state)
+    VALUES (?, ?, ?, ?, ?, ?, 'delivered')`)
+    .run('verified-job:1', 'verified-job', 'seedance', 'seedance-2.5', 'request-hash', 'provider-task-1');
+
+  const verified = store.registerCandidateFromJob({ ownerEmail: OWNER, projectId: project.id,
+    shotId: shot.id, generationJobId: 'verified-job' });
+  assert.equal(verified.provenanceStatus, 'verified');
+  assert.deepEqual(verified.provenance, {
+    status: 'verified', provider: 'seedance', model: 'seedance-2.5',
+    requestId: 'provider-task-1', requestHash: 'request-hash',
+    catalogVersion: 'catalog-v2', costCny: 2.5,
+    generatedAt: '2026-08-15T08:00:00.000Z', source: 'provider-attempt',
+  });
+});
+
 test('candidate job import rejects unfinished or foreign generation deliveries', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());
@@ -772,4 +839,46 @@ test('audio continuity tracks require approved voice or music versions and prese
   assert.throws(() => store.createAudioTrack({ ownerEmail: OWNER, projectId: project.id,
     kind: 'music', assetId: music.id, assetVersionId: musicVersion.id, durationMs: 4000,
     beatMarkers: [100, 90] }), error => error.code === 'INVALID_AUDIO_TRACK');
+});
+
+test('shot recovery plans persist idempotently and never create provider or billing records', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const firstShot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
+    purpose: '产品亮相', durationMs: 3000, prompt: '产品从暗处亮起' });
+  const secondShot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 1,
+    purpose: '细节收束', durationMs: 3000, prompt: '镜头停在细节' });
+  const firstCandidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id,
+    shotId: firstShot.id, outputAssetId: 'recovery-output-a', stableUrl: '/api/video/assets/recovery-output-a',
+    contentHash: 'recovery-hash-a', mimeType: 'video/mp4' });
+  const secondCandidate = store.registerCandidate({ ownerEmail: OWNER, projectId: project.id,
+    shotId: secondShot.id, outputAssetId: 'recovery-output-b', stableUrl: '/api/video/assets/recovery-output-b',
+    contentHash: 'recovery-hash-b', mimeType: 'video/mp4' });
+  store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: firstShot.id,
+    candidateId: firstCandidate.id, expectedRevision: firstShot.revision });
+  store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: secondShot.id,
+    candidateId: secondCandidate.id, expectedRevision: secondShot.revision });
+  store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: firstShot.id,
+    candidateId: firstCandidate.id, position: 0, trimStartMs: 0, trimEndMs: 3000 });
+  store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: secondShot.id,
+    candidateId: secondCandidate.id, position: 1, trimStartMs: 0, trimEndMs: 3000 });
+
+  const created = store.createShotRecoveryPlan({ ownerEmail: OWNER, projectId: project.id,
+    shotId: firstShot.id, reason: '只重拍失败镜头', mode: 'replace_candidate' });
+  assert.equal(created.replayed, false);
+  assert.equal(created.providerSubmission, false);
+  assert.equal(created.billingMutation, false);
+  assert.deepEqual(created.replace.timelineClipIds.length, 1);
+  assert.deepEqual(created.preserve.shotIds, [secondShot.id]);
+  assert.deepEqual(created.preserve.timelineClipIds, [
+    store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).timelineClips.find(clip => clip.shotId === secondShot.id).id,
+  ]);
+
+  const replayed = store.createShotRecoveryPlan({ ownerEmail: OWNER, projectId: project.id,
+    shotId: firstShot.id, reason: '只重拍失败镜头', mode: 'replace_candidate' });
+  assert.equal(replayed.replayed, true);
+  assert.equal(replayed.id, created.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM video_shot_recovery_plans WHERE project_id = ?').get(project.id).count, 1);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
+  assert.deepEqual(store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).recoveryPlans.map(plan => plan.id), [created.id]);
 });

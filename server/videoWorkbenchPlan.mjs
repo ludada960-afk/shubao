@@ -7,7 +7,7 @@ import {
 } from './videoCatalog.mjs';
 import { quoteFeature } from './billing/catalog.mjs';
 import crypto from 'node:crypto';
-import { normalizeShotDirection } from './videoShotDirection.mjs';
+import { normalizeShotDirection, reviewShotContinuity } from './videoShotDirection.mjs';
 import { buildVideoRendererPreflight } from './videoRendererPreflight.mjs';
 
 const MAX_SHOTS = 30;
@@ -118,6 +118,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
       status: shot?.status || 'draft',
     };
   });
+  const continuityReview = reviewShotContinuity(normalizedShots);
 
   if (normalized.generateAudio && !Array.isArray(workbench.audioTracks)) {
     warnings.push('当前项目没有音轨记录，将按视频产品默认声音设置报价。');
@@ -130,6 +131,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     product: product ? { id: product.id, label: product.label, tierLabel: product.tierLabel } : { id: normalized.productId, label: '未知视频产品', tierLabel: '' },
     options: normalized,
     shots: normalizedShots,
+    continuityReview,
     totalDurationMs,
     blockers,
     warnings,

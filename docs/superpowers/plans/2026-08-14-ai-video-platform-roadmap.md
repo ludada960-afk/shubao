@@ -609,3 +609,75 @@ This slice is the implementation bridge between the publicly researched product 
 reliability foundation: users can assemble and review a real project graph, while the system refuses to pretend that
 an unconfigured renderer succeeded. The next implementation slice is authenticated asset proxy/download recovery
 and a durable project/workbench browser QA pass, followed by a non-provider worker canary.
+
+## 26. Asset Delivery Validators and Candidate Provenance (2026-08-19)
+
+This slice closes two concrete replay and recovery gaps without enabling a provider:
+
+- `sendVideoAsset` now emits a stable content validator (`ETag`), `Last-Modified`, an inline filename, and byte-range
+  semantics that honor `If-Range`. Matching `If-None-Match` returns `304`; `HEAD` returns headers without opening a
+  response body; invalid ranges remain `416` with `Content-Range`. The existing owner authorization and private
+  cache policy are unchanged. This makes browser previews and interrupted downloads resumable without re-reading a
+  complete media file.
+- `video_shot_candidates` stores an immutable `provenance_status` and canonical `provenance_json`. New planning
+  candidates are explicitly `planned`; candidates imported from old jobs without an attempt snapshot are explicitly
+  `unverified-legacy`; a completed job is `verified` only when its durable attempt provides provider, model, upstream
+  request/task ID, request hash, catalog version, generation time, and source marker. Missing fields fail closed to
+  `unverified-legacy` rather than inventing a model or claiming that a historical case used a known provider.
+- The provenance snapshot is derived from the existing `video_job_attempts` record and job catalog/cost snapshot. It
+  is therefore independent of UI labels and can be carried into process replay/clone and future case-gallery detail.
+
+Release evidence for this slice is now complete locally: focused asset delivery `7/7`, workbench store `25/25`,
+workbench UI `2/2`, full repository regression `1840/1840`, production build (`6520` modules), `npm run check`,
+collaboration policy, no-paid-generation verifier, renderer reconciliation dry-run, 40-operation planning pilot, and
+local production audit `27/27` all passed. The pilot recorded `providerSubmissions=0` and `billingMutated=false`.
+
+The only unfinished gate is the remote release itself. `scripts/deploy-production.ps1 -CanarySeconds 600
+-PublicWarmupSeconds 60` was run through every local gate, but stopped before creating the remote helper directory or
+deployment lock because `C:\Users\SHEJI\.ssh\shubao_deploy_ed25519` is not readable in this execution environment and
+the server rejected public-key authentication. No remote file, process, lock, billing record, or provider task was
+changed, so this slice is **not** claimed as deployed or publicly canaried. No provider submission, video generation,
+upload, wallet hold, settlement, or usage mutation occurred.
+
+## 27. Continuity Review and Generation Draft Audit Snapshot (2026-08-19)
+
+The planning workbench now carries the director-review result all the way into the generation draft without
+submitting a provider job:
+
+- `reviewShotContinuity` sorts shots by position and reports explicit review issues for a missing primary action,
+  adjacent axis reversal, or adjacent screen-motion reversal. The result is deliberately non-blocking: creative
+  choices remain editable, but the user sees the affected shot IDs before compiling a draft.
+- The workbench renders the review beside the existing preflight gate. A clear result is green; a review result is
+  amber and explains that it is a generation-before-review hint. Neither state calls a provider or mutates billing.
+- Generation drafts are now schema version `2` and persist bounded snapshots of `continuityReview` and `preflight`
+  (status, issue codes/details, shot IDs, requirements, blockers/warnings, and a validated preflight hash). Media
+  URLs, private prompt payloads, and provider credentials are not copied into this audit metadata.
+- The HTTP route and replay path use the same immutable draft contract. Existing schema-version-1 drafts remain
+  readable because the client treats absent snapshots as `unknown`/`missing` rather than claiming a pass.
+
+This closes the specific reliability gap identified while studying the second Bilibili director workflow and the
+Feishu AI-video index: a human review point must be explicit, persisted, and replayable before shot generation is
+ever enabled. It is still a planning-only slice. The next product work remains P1 asset library, storyboard and
+timeline interaction, selective per-shot recovery, and a measured non-default provider canary; none of those gates
+are implied by this local snapshot change.
+
+## 28. Deterministic Single-Shot Recovery Plans (2026-08-19)
+
+The first selective-recovery slice is now implemented without invoking a provider or changing billing. A failed or
+rejected shot can produce a durable, auditable recovery plan that records the exact shot snapshot, affected timeline
+clips, candidate replacement mode, preserved neighboring shots, bounded user reason, and a stable plan hash.
+
+- `server/videoShotRecovery.mjs` defines the provider-neutral recovery contract. It supports `replace_candidate` and
+  `rebuild_shot`, rejects unknown modes, bounds free-text reasons, and fails closed if the plan is tampered with.
+- `video_shot_recovery_plans` persists the plan with owner/project/shot scope, revision, status, canonical hash and
+  immutable JSON. Repeating the same request is idempotent: it returns the existing plan and never creates a provider
+  job, wallet transaction, usage event, or billing mutation.
+- The workbench exposes `建立单镜头重拍计划` beside each shot and shows the saved hash plus the explicit
+  `不调用供应商 · 不扣积分` contract. This is a recovery handoff, not a fake Generate button; provider execution is
+  still behind the future capability, rights, moderation, storage, cost, quality and canary gates.
+- Focused evidence is `60/60` for recovery logic, persistence, route idempotency, unsupported modes and UI wiring.
+  The repository regression and local release gates were refreshed after this slice: `1846/1846` tests, production
+  build (`6520` modules), `npm run check`, collaboration policy, no-paid verifier, renderer reconciliation dry-run,
+  the 40-operation planning pilot, and local production audit `27/27` all pass. No online release is implied by the
+  local implementation; the deployment attempt stopped before remote helper/lock creation because the SSH key was
+  unreadable in this environment.

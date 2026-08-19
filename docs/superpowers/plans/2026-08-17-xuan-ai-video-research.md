@@ -12,13 +12,32 @@ not a claim that every provider feature has been independently generated or paid
 - [Bilibili: 烧3万块，踩坑无数，爆款科幻AI大片工作流全分享](https://www.bilibili.com/video/BV1p7gP6CErH/)
 - [Xuan酱的 AI 知识库](https://my.feishu.cn/wiki/RxmAw9xGhiFx0CkptXFcGxFNn8c)
 
-The Bilibili API verified the video metadata: `BV1p7gP6CErH`, 828 seconds,
-published 2026-08-14, author `Xuan_酱`, and a stated spend of more than 30,000
-RMB for a galaxy-archaeology science-fiction film. The public player exposed only
-a short preview in this environment, and the local ffmpeg binary was unavailable,
-so this note does not invent a frame-by-frame transcript. The Feishu index and
-publicly exposed document bodies were read without login, generation, or payment;
-some documents expose headings and summaries rather than their full private body.
+The Bilibili metadata was independently resolved with the page/API and a local
+read-only download: `BV1p7gP6CErH`, uploader `Xuan_酱`, duration `827.584` seconds
+(13:47), published 2026-08-14, with the description that the team spent more than
+30,000 RMB on a galaxy-archaeology science-fiction film. The public page carries
+an AI-generated-content label and has these chapter boundaries: `开头` (0–121s),
+`怎么写剧本` (121–219s), `怎么做美术资产与人物设定` (219–344s), `怎么做分镜图`
+(344–545s), and `怎么生视频` (545–828s). No subtitles were exposed by the
+extractor, so this is not presented as a word-for-word transcript.
+
+For a reproducible visual check, the video was downloaded at 360p with audio and
+30 representative frames were extracted using the repository's `video-analyzer`
+workflow. The local evidence is intentionally untracked under
+`.tmp/xuan-bv1p7gP6CErH/` (`xuan.mp4` and `frames/frame_*.jpg`); it is not a
+production asset. The frames show a dense canvas asset graph, presenter-led asset
+and reference planning, a generation bar with reference inputs/model/ratio/
+resolution/camera controls, storyboard cards and timeline controls, first-frame
+references, shot prompts, and a TapNow creation-process gallery. These observations
+confirm a staged director workflow, not a single prompt-to-video request.
+
+The Feishu index and publicly exposed document bodies were read without login,
+generation, or payment. The Seedance 2.5 tutorial body was expanded and read by
+chapter; it documents 50 multimodal references, minimum-viable-first generation,
+event-driven timing, local time/region edits, Maya/Blender white-model and
+green-screen inputs, and post-generation rights/quality checks. Some other entries
+expose headings and summaries rather than their full private body, so this note
+does not invent hidden attachment contents.
 
 ## AI-Video Corpus
 
