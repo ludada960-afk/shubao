@@ -2084,3 +2084,11 @@
 - AI 视频线程长期目标：把视频工作台建设为可商业化交付的视频领域能力，覆盖项目、分镜、候选版本、时间线、音频、渲染/交付、恢复和视频专属 UI，并严格通过统一项目资产契约接入；不得把视频领域细节塞入 Canvas 的生成逻辑。
 - AI 视频线程职责：仅修改视频领域文件及其测试，完成 `video_workbench` 到 canonical `project_assets` 的适配；视频输出必须能被 Canvas/Works 消费，视频本体、缩略图/抽帧、来源资产和 generation run 必须保留可追溯 lineage。发现共享层缺口时提交接口需求，不抢改主线程拥有的共享文件。
 - 协同规则：不新建第三个开发线程；双方以 canonical asset contract 为唯一跨域边界，先确认文件所有权和接口，再实现；视频线程回报精确变更文件、commit、测试结果和剩余风险，主线程负责审核、整合、全量本地验收和最终发布。未完成验证前不得声称跨域集成完成；本阶段不触发真实生成、账务变更或生产部署。
+
+## 2026-08-20 Canvas Project Asset Bridge
+
+- 主线程提交 `42a4998`：Works 增加 owner-scoped 项目素材库，展示 canonical image/video/audio assets；导入画布只接受
+  `projectId + projectAssetId + contentHash + stableUrl`，按 canonical key 幂等，图片继续走缩略图交付，视频/音频保留稳定媒体 URL。
+- Canvas 新增项目素材导入适配和音频节点，导入不会调用 provider、创建生成任务或扣除积分；MIME 类型优先于客户端展示提示，避免媒体类型伪造影响渲染。
+- 本地证据：定向 `20/20`、全量 `1899/1899`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过；匿名首页和移动端无溢出检查通过。真实登录态下的私有项目素材卡片交互仍未伪造会话验证。
+- 该提交涉及 `src/pages/EcCanvas/`，上线必须按 `full` 生产门禁执行；视频线程领域文件未修改，继续由视频线程维护并通过 canonical asset contract 消费该桥接。
