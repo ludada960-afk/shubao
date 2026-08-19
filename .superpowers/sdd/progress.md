@@ -2058,9 +2058,15 @@
 
 ## 2026-08-19 Creative Domain Navigation And Validation Policy
 
-- 本轮提交：`d8af0f3`（`feat: add creative domain navigation and validation profiles`）。
+- 本轮提交：`da6fc48`（`feat: add creative domain navigation and validation profiles`）。
 
 - 新增顶部创作域导航：电商视觉、视频创作、内容发布、自由视觉、工作台。视频保持单一入口；桌面端使用暖白玻璃 Mega menu，滚动后收紧，支持 80ms 悬停打开、180ms 离开关闭、键盘导航；移动端使用抽屉和单层手风琴。
 - 导航入口复用现有 `NAVIGATE`、`SET_MODE`、`OPEN_CANVAS`，并通过一次性客户端启动意图直达万物上身、Plog、海报/封面/品牌主视觉等工作台选项；不新增网络请求，不触发生成或计费。
 - 新增 `auto/frontend/full` 生产验收分层。纯导航壳和静态 UI 可跳过真实电商生图；服务端、账务、生成、共享状态、画布和无法判断的改动 fail closed 到完整门禁。修正部署脚本中验收分类器路径初始化顺序。
 - 全量回归 `1856/1856`，聚焦回归 `40/40`，生产构建转换 `6523` 个模块（使用 Windows 下保留 `dist` 输出目录的方式），`npm run check`、`npm run collab:check`、`git diff --check` 均通过；本轮未部署、未触发红苹果、电商生成或账务变更。导航壳层可判为 `frontend`，但本次为直达具体工作台而增加的首页/共享客户端启动意图接线，按 `auto` 保守判为 `full`；只有人工确认该接线不影响业务动作后，才应显式使用 `-ValidationProfile frontend`。
+
+## 2026-08-19 Creative Domain Navigation Production Deployment
+
+- 正式部署提交：`da6fc48`，其父提交包含并上线了另一线程的 `e8e06cd` XHS/Plog 电商布局修复；部署包在后续本地提交 `5f2b027` 产生前构建，因此 `5f2b027` 的 AI 视频验收门禁不在本次线上版本内。
+- 使用 `-ValidationProfile full` 执行正式部署。全量回归 `1860/1860`，生产构建转换 `6523` 个模块，构建后检查通过，协作检查和差异检查通过；视频验收报告 `paidGenerationRequested: false`、`providerSubmissions: 0`。
+- 线上 `https://shuimg.cn` 健康检查、图库 `117` 张、视频合同 `2` 个公开产品、认证非计费视频 canary、账务验证均通过。真实电商首轮任务 `ec_009c1eea-3c46-4d26-b2d5-bcf9ed9685b1` 和金丝雀末轮任务 `ec_6298b8d6-26e5-4034-a20d-f27861a7b5f1` 均完成并返回 `3` 个稳定素材；`600` 秒金丝雀观察通过，部署锁已释放。
