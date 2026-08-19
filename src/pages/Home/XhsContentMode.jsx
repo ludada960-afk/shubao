@@ -163,13 +163,20 @@ function XhsInputTemplate({
           onAdd={onAdd}
           onRemove={onRemove}
         />
-        <div className="ec-textarea-wrap ec-xhs-prompt">
-          {!text && <div className="ec-textarea-placeholder ec-xhs-placeholder">
-            <span className="ec-placeholder-line">{plog ? '描述你想记录的生活瞬间' : '写什么？一句话就够了'}</span>
-            <span className="ec-placeholder-line ec-xhs-example-first">{plog ? '例：周末午后，阳光洒进房间，猫趴在窗台打盹' : '例：厦门 3 天 2 夜旅游攻略，适合第一次去'}</span>
-            <span className="ec-placeholder-line">{plog ? '例：下班路上买了一束花，回家插在玻璃瓶里' : '例：平价好用的防晒霜推荐，学生党预算'}</span>
-          </div>}
-          <textarea ref={promptRef} value={text} onChange={onTextChange} className={!text ? 'ec-empty' : ''} aria-label={plog ? '描述生活碎片' : '描述小红书图文主题'} />
+        <div className="ec-textarea-wrap ec-xhs-prompt" onClick={event => { if (event.target !== promptRef.current) promptRef.current?.focus(); }}>
+          <textarea
+            ref={promptRef}
+            value={text}
+            onChange={onTextChange}
+            className="xhs-prompt-field"
+            placeholder={plog ? '描述你想记录的生活瞬间' : '写什么？一句话就够了'}
+            aria-label={plog ? '描述生活碎片' : '描述小红书图文主题'}
+            aria-describedby={`xhs-prompt-hints-${plog ? 'plog' : 'content'}`}
+          />
+          <div id={`xhs-prompt-hints-${plog ? 'plog' : 'content'}`} className="xhs-prompt-hints" aria-hidden="true">
+            <span>{plog ? '例：周末午后，阳光洒进房间，猫趴在窗台打盹' : '例：厦门 3 天 2 夜旅游攻略，适合第一次去'}</span>
+            <span>{plog ? '例：下班路上买了一束花，回家插在玻璃瓶里' : '例：平价好用的防晒霜推荐，学生党预算'}</span>
+          </div>
         </div>
         <div className="ec-workbench-mention-row"><ImageMentionPicker images={mentionImages} selectionMode="insert" onToggle={onMention} /></div>
       </div>
@@ -1065,23 +1072,18 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div style={{ gridColumn:'1 / -1' }}>
                   <XhsSupplementDeck styleImages={refImages} sourceImages={xhsSourceImages} onAdd={addRoleImages} onRemove={removeRoleImage} />
                 </div>
-                <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
-                  {!inputText && (
-                    <div className="ec-textarea-placeholder" style={{ fontSize:15, lineHeight:'28px' }}>
-                      <span className="ec-placeholder-line"><span className="ec-cursor" aria-hidden="true"></span>写什么？一句话就够了</span>
-                      <span className="ec-placeholder-line" style={{ marginTop:28 }}>例：厦门3天2夜旅游攻略</span>
-                      <span className="ec-placeholder-line">例：平价好用的防晒霜推荐</span>
-                      <span className="ec-placeholder-line">例：独居女生的晚间护肤流程</span>
-                    </div>
-                  )}
+                <div className="ec-textarea-wrap xhs-legacy-prompt" onClick={event => { if (event.target !== xhsPromptRef.current) xhsPromptRef.current?.focus(); }}>
                   <textarea ref={xhsPromptRef} value={inputText} onChange={e => { setText(e.target.value); setErr(''); }}
-                    className={!inputText ? 'ec-empty' : ''}
+                    className="xhs-prompt-field"
+                    placeholder="写什么？一句话就够了"
+                    aria-label="描述小红书图文主题"
                     style={{
-                      width:'100%', flex:1, minHeight:180, border:'none', background:'transparent',
+                      width:'100%', flex:1, minHeight:120, border:'none', background:'transparent',
                       fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
                       outline:'none', resize:'none', fontFamily:'inherit',
                       position:'relative', zIndex:1,
                     }} />
+                  <div className="xhs-prompt-hints" aria-hidden="true"><span>例：厦门 3 天 2 夜旅游攻略</span><span>例：平价好用的防晒霜推荐</span></div>
                 </div>
               </div>
               <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap', alignItems:'center' }}>
@@ -1101,23 +1103,18 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
                 <div style={{ gridColumn:'1 / -1' }}>
                   <XhsSupplementDeck plog styleImages={plogStyleImages} sourceImages={plogSourceImages} onAdd={addPlogRoleImages} onRemove={removePlogRoleImage} />
                 </div>
-                <div className="ec-textarea-wrap" style={{ flex:1, display:'flex', flexDirection:'column', padding:'12px 20px 12px 8px' }}>
-                  {!plogText && (
-                    <div className="ec-textarea-placeholder" style={{ fontSize:15, lineHeight:'28px' }}>
-                      <span className="ec-placeholder-line"><span className="ec-cursor" aria-hidden="true"></span>描述你想记录的生活瞬间</span>
-                      <span className="ec-placeholder-line" style={{ marginTop:28 }}>例：周末午后，阳光洒进房间，猫趴在窗台打盹</span>
-                      <span className="ec-placeholder-line">例：下班路上买了一束花，回家插在玻璃瓶里</span>
-                      <span className="ec-placeholder-line">例：雨天窝在沙发上看书喝热可可</span>
-                    </div>
-                  )}
+                <div className="ec-textarea-wrap xhs-legacy-prompt" onClick={event => { if (event.target !== plogPromptRef.current) plogPromptRef.current?.focus(); }}>
                   <textarea ref={plogPromptRef} value={plogText} onChange={e => setPlogText(e.target.value)}
-                    className={!plogText ? 'ec-empty' : ''}
+                    className="xhs-prompt-field"
+                    placeholder="描述你想记录的生活瞬间"
+                    aria-label="描述 Plog 生活碎片"
                     style={{
-                      width:'100%', flex:1, minHeight:180, border:'none', background:'transparent',
+                      width:'100%', flex:1, minHeight:120, border:'none', background:'transparent',
                       fontSize:15, lineHeight:'28px', color:'var(--text-primary)',
                       outline:'none', resize:'none', fontFamily:'inherit',
                       position:'relative', zIndex:1,
                     }} />
+                  <div className="xhs-prompt-hints" aria-hidden="true"><span>例：周末午后，阳光洒进房间，猫趴在窗台打盹</span><span>例：雨天窝在沙发上看书喝热可可</span></div>
                 </div>
               </div>
               <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:8 }}>

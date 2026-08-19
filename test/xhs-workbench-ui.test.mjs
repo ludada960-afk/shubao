@@ -58,3 +58,18 @@ test('XHS workbench keeps the ecommerce spacing and full article body', () => {
   assert.doesNotMatch(xhs, /\['structure', '发布方案'/);
   assert.doesNotMatch(xhs, /\['rules', '发布规范'/);
 });
+
+test('XHS prompt owns a visible native caret and focuses from its full surface', () => {
+  assert.match(xhs, /onClick=\{event => \{ if \(event\.target !== promptRef\.current\) promptRef\.current\?\.focus\(\); \}\}/);
+  assert.match(xhs, /className="xhs-prompt-field"/);
+  assert.match(xhs, /placeholder=\{plog \? '描述你想记录的生活瞬间' : '写什么？一句话就够了'\}/);
+  assert.doesNotMatch(xhs, /className=\{!text \? 'ec-empty' : ''\}/);
+  assert.doesNotMatch(showcaseStyles, /textarea\.ec-empty\s*\{\s*caret-color/);
+});
+
+test('XHS publish showcase uses a bounded 3x3 contact sheet and clamps copy', () => {
+  assert.match(showcaseStyles, /\.creation-showcase-content-images \{ display: grid; grid-template-columns: repeat\(3/);
+  assert.match(showcaseStyles, /aspect-ratio: 1 \/ 1/);
+  assert.match(showcaseStyles, /-webkit-line-clamp: 7/);
+  assert.match(showcaseStyles, /\.xhs-case-showcase \.creation-showcase-content-images \{ width: 100%; min-height: 0/);
+});
