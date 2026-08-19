@@ -43,6 +43,19 @@ function jsonBody(value) {
   };
 }
 
+function normalizeBudgetCap(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  if (!['number', 'string'].includes(typeof value)) {
+    throw new Error('预算上限必须是非负整数积分');
+  }
+  const normalized = Number(value);
+  if (!Number.isSafeInteger(normalized) || normalized < 0) {
+    throw new Error('预算上限必须是非负整数积分');
+  }
+  return normalized;
+}
+
 function requireValue(response, key, message) {
   const value = response?.[key];
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(message);
@@ -91,13 +104,16 @@ export async function getVideoWorkbench(projectId) {
 
 export async function getVideoWorkbenchPlan(projectId, {
   productId = 'seedance_standard', mode = 'smart', resolution = '720p', generateAudio = true,
+  budgetCapPoints,
 } = {}) {
+  const normalizedBudgetCap = normalizeBudgetCap(budgetCapPoints);
   const params = new URLSearchParams({
     productId: String(productId),
     mode: String(mode),
     resolution: String(resolution),
     generateAudio: String(generateAudio !== false),
   });
+  if (normalizedBudgetCap !== null) params.set('budgetCapPoints', String(normalizedBudgetCap));
   const response = await requestJson(`${workbenchBase(projectId)}/plan?${params.toString()}`, {}, '暂时无法检查视频生成计划');
   const plan = requireValue(response, 'plan', '视频生成计划暂时不可用，请稍后重试');
   return { ...plan, approval: response.approval || null };
@@ -107,6 +123,7 @@ export async function getVideoWorkbenchPreflight(projectId, {
   productId = 'seedance_standard', mode = 'smart', resolution = '720p', generateAudio = true,
   rightsConfirmations = [], moderation, storage, budgetCapPoints,
 } = {}) {
+  const normalizedBudgetCap = normalizeBudgetCap(budgetCapPoints);
   const response = await requestJson(`${workbenchBase(projectId)}/preflight`, {
     method: 'POST',
     ...jsonBody({
@@ -117,7 +134,7 @@ export async function getVideoWorkbenchPreflight(projectId, {
       rightsConfirmations,
       ...(moderation ? { moderation } : {}),
       ...(storage ? { storage } : {}),
-      ...(Number.isFinite(Number(budgetCapPoints)) ? { budgetCapPoints: Number(budgetCapPoints) } : {}),
+      ...(normalizedBudgetCap !== null ? { budgetCapPoints: normalizedBudgetCap } : {}),
     }),
   }, '暂时无法完成视频提交前预检');
   const result = requireValue(response, 'preflight', '视频提交前预检结果暂时不可用，请稍后重试');
@@ -127,10 +144,13 @@ export async function getVideoWorkbenchPreflight(projectId, {
 
 export async function approveVideoWorkbenchPlan(projectId, {
   productId = 'seedance_standard', mode = 'smart', resolution = '720p', generateAudio = true, planHash,
+  budgetCapPoints,
 } = {}) {
+  const normalizedBudgetCap = normalizeBudgetCap(budgetCapPoints);
   const response = await requestJson(`${workbenchBase(projectId)}/plan/approve`, {
     method: 'POST',
-    ...jsonBody({ productId, mode, resolution, generateAudio: generateAudio !== false, planHash }),
+    ...jsonBody({ productId, mode, resolution, generateAudio: generateAudio !== false, planHash,
+      ...(normalizedBudgetCap !== null ? { budgetCapPoints: normalizedBudgetCap } : {}) }),
   }, '暂时无法确认视频生成计划');
   return requireValue(response, 'approval', '视频生成计划确认结果暂时不可用，请稍后重试');
 }

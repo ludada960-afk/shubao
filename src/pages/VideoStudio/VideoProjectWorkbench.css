@@ -46,7 +46,14 @@
 .video-project-plan p { margin: 0; color: #8a8197; font-size: 11px; line-height: 1.6; }
 .video-project-plan > header button { min-height: 30px; padding: 0 10px; border: 1px solid #d7cff0; border-radius: 6px; color: #6655b7; background: #fff; font-size: 10px; font-weight: 750; }
 .video-project-plan > header button:disabled { cursor: not-allowed; opacity: .52; }
-.video-project-plan-summary { margin-top: 13px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; }
+.video-project-budget-field { margin: 14px 24px 0; padding: 10px 12px; display: flex; align-items: flex-end; gap: 14px; border: 1px solid #e4dcf8; border-radius: 7px; background: rgba(255,255,255,.78); }
+.video-project-budget-field label { min-width: 190px; display: grid; gap: 5px; color: #5d49bf; font-size: 10px; font-weight: 750; }
+.video-project-budget-field input { width: 170px; min-height: 32px; padding: 0 9px; border: 1px solid #d8cff2; border-radius: 6px; color: #403950; background: #fff; font: inherit; }
+.video-project-budget-field input:focus { outline: 2px solid rgba(121,87,245,.22); outline-offset: 1px; border-color: #7957f5; }
+.video-project-budget-field input::placeholder { color: #a49bb2; font-weight: 500; }
+.video-project-budget-field input:disabled { cursor: not-allowed; opacity: .55; }
+.video-project-budget-field small { flex: 1; color: #8a8197; font-size: 10px; line-height: 1.5; }
+.video-project-plan-summary { margin-top: 13px; display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 7px; }
 .video-project-plan-summary > div { min-width: 0; padding: 9px; border: 1px solid #e5def8; border-radius: 6px; background: rgba(255,255,255,.84); }
 .video-project-plan.is-ready .video-project-plan-summary > div { border-color: #d8eee3; }
 .video-project-plan span { display: block; color: #948aa5; font-size: 9px; }
@@ -338,6 +345,9 @@
   .video-project-replay-preview > header { flex-direction: column; }
   .video-project-replay-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .video-project-plan { margin-left: 14px; margin-right: 14px; padding: 13px; }
+  .video-project-budget-field { margin-left: 14px; margin-right: 14px; align-items: stretch; flex-direction: column; gap: 8px; }
+  .video-project-budget-field label { min-width: 0; }
+  .video-project-budget-field input { width: 100%; }
   .video-project-plan > header { flex-direction: column; }
   .video-project-plan-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .video-project-continuity-review > header { align-items: flex-start; flex-direction: column; gap: 4px; }

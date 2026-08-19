@@ -173,6 +173,29 @@ test('video workbench client confirms a plan with its immutable hash', async t =
   assert.equal(request.options.headers.Authorization, 'Bearer signed-plan-session');
 });
 
+test('video workbench client carries a validated budget cap across plan, approval and preflight', async t => {
+  installSession('signed-budget-session');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (path, options = {}) => {
+    requests.push({ path, options });
+    if (String(path).includes('/plan?')) return jsonResponse({ plan: { planHash: 'b'.repeat(64), options: { budgetCapPoints: 120 } } });
+    if (String(path).includes('/preflight')) return jsonResponse({ preflight: { plan: {}, preflight: { status: 'ready' }, providerSubmission: false, billingMutation: false } });
+    return jsonResponse({ approval: { id: 'approval-budget', planHash: 'b'.repeat(64) } }, 201);
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await getVideoWorkbenchPlan('project-1', { budgetCapPoints: '120' });
+  await approveVideoWorkbenchPlan('project-1', { budgetCapPoints: 120, planHash: 'b'.repeat(64) });
+  await getVideoWorkbenchPreflight('project-1', { budgetCapPoints: 120 });
+
+  assert.equal(requests[0].path, '/api/video/projects/project-1/workbench/plan?productId=seedance_standard&mode=smart&resolution=720p&generateAudio=true&budgetCapPoints=120');
+  assert.equal(JSON.parse(requests[1].options.body).budgetCapPoints, 120);
+  assert.equal(JSON.parse(requests[2].options.body).budgetCapPoints, 120);
+  await assert.rejects(getVideoWorkbenchPlan('project-1', { budgetCapPoints: '12.5' }), /预算上限必须是非负整数积分/);
+  assert.equal(requests.length, 3);
+});
+
 test('video workbench client runs a strict preflight without provider or billing side effects', async t => {
   installSession('signed-preflight-session');
   const originalFetch = globalThis.fetch;

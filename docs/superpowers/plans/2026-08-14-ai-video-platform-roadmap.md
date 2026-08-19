@@ -134,6 +134,13 @@ Dashboards must break down success, first-frame time, delivery latency, retries,
 - [ ] **VID-P1-06 Selective recovery:** retry or replace one failed shot without regenerating successful shots.
 - [ ] **VID-P1-07 Cost guard:** show estimated range and maximum authorization before generation; stop automatically at the approved ceiling.
 
+**Status note (2026-08-19):** the local cost-guard contract is implemented: a nullable non-negative integer
+budget cap is carried through the plan fingerprint, strict preflight, approval, and generation-draft replay;
+the server rejects over-cap approval/draft compilation and the UI clears stale plan state when the cap changes.
+The estimate remains visible as the real quote, and local acceptance proves zero provider/billing mutation. The
+checkbox remains open until the renderer worker enforces the same ceiling at actual settlement and the Stage 1
+release evidence exists.
+
 **Status note (2026-08-18):** the first `VID-P1-05` export sub-slice is complete locally: an owner/project-scoped,
 content-hashed export manifest can be created idempotently from the current non-stale selected timeline,
 approved audio versions, subtitles, and bounded delivery options. It deliberately stops before a renderer,

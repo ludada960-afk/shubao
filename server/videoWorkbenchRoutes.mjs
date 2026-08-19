@@ -1,5 +1,9 @@
 import { buildSkillRunSpecFromTemplate } from './videoSkillTemplates.mjs';
-import { buildVideoWorkbenchPlan, videoWorkbenchPlanFingerprint } from './videoWorkbenchPlan.mjs';
+import {
+  assertVideoWorkbenchBudget,
+  buildVideoWorkbenchPlan,
+  videoWorkbenchPlanFingerprint,
+} from './videoWorkbenchPlan.mjs';
 import { buildVideoWorkbenchGenerationDraft } from './videoWorkbenchGenerationDraft.mjs';
 
 const NOT_FOUND_CODES = new Set([
@@ -46,6 +50,9 @@ function routeError(error, res) {
   }
   if (code === 'VIDEO_PLAN_HASH_INVALID' || code === 'VIDEO_PLAN_NOT_READY') {
     return res.status(409).json({ code, error: error.message || '生成计划已变化，请重新检查计划' });
+  }
+  if (code === 'VIDEO_PLAN_BUDGET_EXCEEDED') {
+    return res.status(409).json({ code, error: error.message || '生成计划超过本次预算上限' });
   }
   if (code === 'VIDEO_PLAN_APPROVAL_REQUIRED') {
     return res.status(409).json({ code, error: error.message || '请先确认当前生成计划' });
@@ -219,6 +226,7 @@ export function mountVideoWorkbenchRoutes(app, {
         mode: req.query?.mode,
         resolution: req.query?.resolution,
         generateAudio: req.query?.generateAudio !== 'false',
+        budgetCapPoints: req.query?.budgetCapPoints,
         });
         plan.planHash = videoWorkbenchPlanFingerprint(plan);
         const approval = typeof store.getGenerationPlanApproval === 'function'
@@ -262,7 +270,9 @@ export function mountVideoWorkbenchRoutes(app, {
         mode: req.body?.mode,
         resolution: req.body?.resolution,
         generateAudio: req.body?.generateAudio !== false,
+        budgetCapPoints: req.body?.budgetCapPoints,
       });
+      assertVideoWorkbenchBudget(plan);
       const planHash = videoWorkbenchPlanFingerprint(plan);
       if (String(req.body?.planHash || '').trim() !== planHash) {
         throw Object.assign(new Error('生成计划已变化，请重新检查计划'), { code: 'VIDEO_PLAN_HASH_INVALID' });
@@ -278,9 +288,11 @@ export function mountVideoWorkbenchRoutes(app, {
         mode: req.body?.mode,
         resolution: req.body?.resolution,
         generateAudio: req.body?.generateAudio !== false,
+        budgetCapPoints: req.body?.budgetCapPoints,
       };
       const workbench = store.listWorkbench(request);
       const plan = buildVideoWorkbenchPlan(workbench, options);
+      assertVideoWorkbenchBudget(plan);
       const planHash = videoWorkbenchPlanFingerprint(plan);
       const approval = typeof store.getGenerationPlanApproval === 'function'
         ? store.getGenerationPlanApproval(request)

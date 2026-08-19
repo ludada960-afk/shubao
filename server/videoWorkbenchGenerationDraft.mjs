@@ -37,8 +37,13 @@ function preflightSnapshot(preflight) {
       detail: clean(item?.detail, 500),
     })).filter(item => item.code && item.detail)
     : [];
-  const budgetCapPoints = Number.isSafeInteger(Number(requirements.budgetCapPoints))
-    ? Number(requirements.budgetCapPoints)
+  const rawBudgetCapPoints = requirements.budgetCapPoints;
+  const numericBudgetCapPoints = ['number', 'string'].includes(typeof rawBudgetCapPoints)
+    && String(rawBudgetCapPoints).trim() !== ''
+    ? Number(rawBudgetCapPoints)
+    : NaN;
+  const budgetCapPoints = Number.isSafeInteger(numericBudgetCapPoints) && numericBudgetCapPoints >= 0
+    ? numericBudgetCapPoints
     : null;
   const hash = clean(source.preflightHash, 128).toLowerCase();
   return {

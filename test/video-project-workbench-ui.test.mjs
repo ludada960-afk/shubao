@@ -145,6 +145,10 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /连续性：/);
   assert.match(component, /预检摘要：/);
   assert.match(component, /提交前预检/);
+  assert.match(component, /budgetCapPoints/);
+  assert.match(component, /本次预算上限/);
+  assert.match(component, /预算上限/);
+  assert.match(styles, /video-project-budget-field/);
   assert.match(component, /版权\/使用权|版权确认/);
   assert.match(component, /不会调用供应商，也不会扣除积分/);
   assert.match(component, /先看清步骤，再决定是否生成/);

@@ -17,6 +17,23 @@ function text(value, max = 400) {
   return String(value ?? '').trim().slice(0, max);
 }
 
+function coded(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+
+function normalizeBudgetCap(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  if (!['number', 'string'].includes(typeof value)) {
+    throw coded('VIDEO_PREFLIGHT_INPUT_INVALID', '预算上限必须是非负整数积分');
+  }
+  const normalized = Number(value);
+  if (!Number.isSafeInteger(normalized) || normalized < 0) {
+    throw coded('VIDEO_PREFLIGHT_INPUT_INVALID', '预算上限必须是非负整数积分');
+  }
+  return normalized;
+}
+
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === 'object') {
@@ -43,7 +60,7 @@ function normalizeOptions(options = {}) {
   const mode = text(options.mode, 40).toLowerCase() || 'smart';
   const resolution = text(options.resolution, 20).toLowerCase() || '720p';
   const generateAudio = options.generateAudio !== false;
-  return { productId, mode, resolution, generateAudio };
+  return { productId, mode, resolution, generateAudio, budgetCapPoints: normalizeBudgetCap(options.budgetCapPoints) };
 }
 
 function quoteForShot(productId, durationMs) {
@@ -125,6 +142,13 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
   }
   const units = blockers.length ? 0 : lineItems.reduce((sum, item) => sum + item.units, 0);
   const points = blockers.length ? 0 : lineItems.reduce((sum, item) => sum + item.points, 0);
+  const budgetPolicy = {
+    currency: 'ai_points',
+    estimatedPoints: points,
+    maximumPoints: points,
+    requestedCapPoints: normalized.budgetCapPoints,
+    withinCap: normalized.budgetCapPoints === null || points <= normalized.budgetCapPoints,
+  };
   const plan = {
     status: blockers.length ? 'blocked' : 'ready',
     catalogVersion: VIDEO_CATALOG_VERSION,
@@ -133,6 +157,7 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
     shots: normalizedShots,
     continuityReview,
     totalDurationMs,
+    budgetPolicy,
     blockers,
     warnings,
     quote: {
@@ -155,10 +180,20 @@ export function buildVideoWorkbenchPlan(workbench = {}, options = {}) {
       moderation: options.moderation,
       storage: options.storage,
       enforce: options.enforcePreflight === true,
-      budgetCapPoints: options.budgetCapPoints,
+      budgetCapPoints: normalized.budgetCapPoints,
       requireRights: options.requireRights,
       requireModeration: options.requireModeration,
       requireStorage: options.requireStorage,
     }),
   };
+}
+
+export function assertVideoWorkbenchBudget(plan = {}) {
+  if (plan?.budgetPolicy?.withinCap === false) {
+    throw coded(
+      'VIDEO_PLAN_BUDGET_EXCEEDED',
+      `预估 ${plan.budgetPolicy.estimatedPoints} 积分超过本次预算上限 ${plan.budgetPolicy.requestedCapPoints} 积分`,
+    );
+  }
+  return true;
 }

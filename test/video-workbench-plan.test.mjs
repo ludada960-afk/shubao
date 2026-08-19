@@ -68,6 +68,32 @@ test('builds a bounded per-shot quote for a valid three-shot plan', () => {
   assert.ok(plan.quote.lineItems.every(item => item.points > 0));
 });
 
+test('keeps a real quote while carrying a normalized budget cap into the plan fingerprint', () => {
+  const workbenchValue = workbench({
+    assets: [asset('product-1')],
+    shots: [shot('shot-1', 1)],
+  });
+  const uncapped = buildVideoWorkbenchPlan(workbenchValue);
+  const capped = buildVideoWorkbenchPlan(workbenchValue, { budgetCapPoints: '100' });
+  assert.equal(capped.status, 'ready');
+  assert.equal(capped.options.budgetCapPoints, 100);
+  assert.equal(capped.quote.points, uncapped.quote.points);
+  assert.equal(capped.budgetPolicy.requestedCapPoints, 100);
+  assert.equal(capped.budgetPolicy.withinCap, capped.quote.points <= 100);
+  assert.notEqual(capped.options.budgetCapPoints, uncapped.options.budgetCapPoints);
+});
+
+test('rejects an invalid budget cap instead of silently treating it as unlimited', () => {
+  for (const budgetCapPoints of ['12.5', true]) {
+    assert.throws(
+      () => buildVideoWorkbenchPlan(workbench({ assets: [asset('product-1')], shots: [shot('shot-1', 1)] }), {
+        budgetCapPoints,
+      }),
+      error => error?.code === 'VIDEO_PREFLIGHT_INPUT_INVALID',
+    );
+  }
+});
+
 test('carries structured director controls into each shot plan without provider work', () => {
   const plan = buildVideoWorkbenchPlan(workbench({
     assets: [asset('product-1')],

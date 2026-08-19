@@ -61,7 +61,25 @@ test('generation draft preserves approved references without exposing media URLs
   assert.equal(draft.preflight.status, 'ready');
   assert.match(draft.preflight.preflightHash, /^[a-f0-9]{64}$/);
   assert.equal(draft.preflight.requirements.enforce, false);
+  assert.equal(draft.preflight.requirements.budgetCapPoints, null);
   assert.equal(draft.preflight.blockers.length, 0);
+});
+
+test('generation draft preserves a configured budget cap in the immutable preflight snapshot', () => {
+  const workbench = fixture();
+  const plan = buildVideoWorkbenchPlan(workbench, {
+    productId: 'seedance_standard',
+    mode: 'smart',
+    resolution: '720p',
+    generateAudio: true,
+    budgetCapPoints: 100,
+  });
+  assert.equal(plan.status, 'ready');
+  const planHash = videoWorkbenchPlanFingerprint(plan);
+  const draft = buildVideoWorkbenchGenerationDraft(workbench, plan, { planHash, approvalHash: planHash });
+
+  assert.equal(draft.preflight.requirements.budgetCapPoints, 100);
+  assert.equal(draft.options.budgetCapPoints, 100);
 });
 
 test('generation draft rejects stale approval before compiling', () => {

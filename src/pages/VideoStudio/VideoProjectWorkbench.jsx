@@ -202,6 +202,16 @@ function displayError(error) {
   return error?.message || '操作没有完成，请刷新后重试。';
 }
 
+function normalizeBudgetCapInput(value) {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) return undefined;
+  const points = Number(normalized);
+  if (!Number.isSafeInteger(points) || points < 0) {
+    throw new Error('预算上限必须是非负整数积分');
+  }
+  return points;
+}
+
 function memoryValueText(value) {
   return JSON.stringify(value, null, 2);
 }
@@ -270,6 +280,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [exportManifest, setExportManifest] = useState(null);
   const [exportManifests, setExportManifests] = useState([]);
   const [workbenchPlan, setWorkbenchPlan] = useState(null);
+  const [budgetCapPoints, setBudgetCapPoints] = useState('');
   const [workbenchPreflight, setWorkbenchPreflight] = useState(null);
   const [generationDraft, setGenerationDraft] = useState(null);
   const [skillRun, setSkillRun] = useState(null);
@@ -290,6 +301,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     onPlanApprovalChange?.('');
     setWorkbenchPreflight(null);
     setGenerationDraft(null);
+    setBudgetCapPoints('');
     setSkillRun(null);
     setSkillRunExecutionPreview(null);
   }, [onPlanApprovalChange, onProjectChange, projectId]);
@@ -487,6 +499,13 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
 
   const handleCheckGenerationPlan = useCallback(async () => {
     if (!projectId || busy) return;
+    let budgetCap;
+    try {
+      budgetCap = normalizeBudgetCapInput(budgetCapPoints);
+    } catch (budgetError) {
+      setError(budgetError.message);
+      return;
+    }
     const requestSequence = ++planRequestSequenceRef.current;
     setBusy('plan:read');
     setError('');
@@ -498,6 +517,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         mode: 'smart',
         resolution: '720p',
         generateAudio: true,
+        budgetCapPoints: budgetCap,
       });
       if (requestSequence !== planRequestSequenceRef.current || selectedProjectRef.current !== projectId) return;
       setWorkbenchPlan(plan);
@@ -522,7 +542,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } finally {
       if (requestSequence === planRequestSequenceRef.current) setBusy('');
     }
-  }, [busy, projectId]);
+  }, [budgetCapPoints, busy, projectId]);
 
   const handlePreflightGeneration = useCallback(async () => {
     if (!projectId || busy || !workbenchPlan) return;
@@ -535,6 +555,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         mode: workbenchPlan.options?.mode,
         resolution: workbenchPlan.options?.resolution,
         generateAudio: workbenchPlan.options?.generateAudio,
+        budgetCapPoints: workbenchPlan.options?.budgetCapPoints,
         rightsConfirmations: approved.map(({ asset, version }) => ({
           assetId: asset.id,
           assetVersionId: version.id,
@@ -563,6 +584,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         resolution: workbenchPlan.options?.resolution,
         generateAudio: workbenchPlan.options?.generateAudio,
         planHash: workbenchPlan.planHash,
+        budgetCapPoints: workbenchPlan.options?.budgetCapPoints,
       });
       setWorkbenchPlan(current => current ? { ...current, approval } : current);
       setGenerationDraft(null);
@@ -586,6 +608,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         resolution: workbenchPlan.options?.resolution,
         generateAudio: workbenchPlan.options?.generateAudio,
         planHash: workbenchPlan.planHash,
+        budgetCapPoints: workbenchPlan.options?.budgetCapPoints,
       });
       setGenerationDraft(draft);
     } catch (draftError) {
@@ -1053,6 +1076,30 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       })}
     </ol>
 
+    {projectId && <div className="video-project-budget-field" aria-label="视频生成预算设置">
+      <label htmlFor="video-project-budget-cap">
+        <span>本次预算上限（AI 积分）</span>
+        <input
+          id="video-project-budget-cap"
+          type="number"
+          min="0"
+          step="1"
+          inputMode="numeric"
+          value={budgetCapPoints}
+          disabled={Boolean(busy) || loading}
+          placeholder="不设上限"
+          aria-describedby="video-project-budget-help"
+          onChange={event => {
+            setBudgetCapPoints(event.target.value);
+            setWorkbenchPlan(null);
+            setWorkbenchPreflight(null);
+            setGenerationDraft(null);
+          }}
+        />
+      </label>
+      <small id="video-project-budget-help">留空表示不设上限；填写后会在计划、预检和审批中保持同一预算快照。</small>
+    </div>}
+
     {error && <div className="video-project-alert" role="alert"><CircleAlert size={17} /><span>{error}</span><button type="button" onClick={() => projectId ? void loadWorkbench(projectId) : void loadProjects()}>重试</button></div>}
 
     {replayManifestPreview && <section className="video-project-replay-preview" aria-labelledby="video-replay-preview-heading">
@@ -1085,6 +1132,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         <div><span>产品</span><strong>{workbenchPlan.product?.label || workbenchPlan.options?.productId || '视频产品'}</strong></div>
         <div><span>分镜</span><strong>{workbenchPlan.shots?.length || 0} 个 · {(Number(workbenchPlan.totalDurationMs || 0) / 1000).toFixed(1)} 秒</strong></div>
         <div><span>预计积分</span><strong>{Number(workbenchPlan.quote?.points || 0)} AI 积分</strong></div>
+        <div><span>预算状态</span><strong>{workbenchPlan.budgetPolicy?.requestedCapPoints === null || workbenchPlan.budgetPolicy?.requestedCapPoints === undefined
+          ? '未设上限'
+          : `${workbenchPlan.quote?.points || 0} / ${workbenchPlan.budgetPolicy.requestedCapPoints} AI 积分`}</strong></div>
       </div>
       {continuityReview && (workbenchPlan.shots?.length || 0) > 0 && <section className={`video-project-continuity-review ${continuityReview.status === 'review' ? 'is-review' : 'is-clear'}`} aria-label="镜头连续性检查">
         <header>
