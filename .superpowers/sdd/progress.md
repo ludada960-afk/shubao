@@ -2049,3 +2049,9 @@
   renderer reconciliation dry-run、40 操作规划试点和本地生产审计 `27/27` 均通过，试点 `billingMutated=false`。
 - 本轮没有供应商调用、视频生成、上传、wallet hold、结算或 usage 变更。正式部署脚本此前在远端 helper/锁创建前因
   `C:\Users\SHEJI\.ssh\shubao_deploy_ed25519` 无法读取而停止；本地 AI 视频切片仍未上线，线上仍是上一版 `9225816` 基础底座。
+
+## 2026-08-19 XHS/Plog Ecommerce Layout Follow-up
+
+- 按最新截图继续收敛小红书图文与 Plog：九宫格使用共享 390px 展示框并让每张图填满自身格子，移除案例下方三块静态说明；种草案例选择器复用电商扇形卡片但适配三张竖图，Plog 保留空案例位。
+- 输入区移除无实际操作效果的生成设置、发布结构、文章信息和发布规范入口；图文只保留主题填充，Plog 只保留内容风格与图片节奏，素材上传继续复用电商卡片并增强“可选”标签。
+- 聚焦回归 `10/10`、生产构建 `6523` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 通过；本轮未部署，未触发生图或账务操作。工作树中既有导航契约失败仍属用户并行改动，未纳入本提交。

@@ -62,7 +62,7 @@ function ContentPreview({ entry, plog = false, onOpen }) {
   return (
     <div className="creation-showcase-content-preview">
       <div className="creation-showcase-content-images">
-        {pages.map(page => <button type="button" className={`creation-showcase-content-image image-${page.index + 1}`} key={`${page.src}-${page.index}`} onClick={() => onOpen?.(page.index)} aria-label={`放大查看${page.alt}`}><ResponsiveImage src={page.src} variant="thumb" ratio="3:4" alt={page.alt} loading="eager" fetchPriority={page.index === 0 ? 'high' : 'auto'} imgStyle={{ objectFit: 'cover' }} /><span>{page.index + 1}</span></button>)}
+        {pages.map(page => <button type="button" className={`creation-showcase-content-image image-${page.index + 1}`} key={`${page.src}-${page.index}`} onClick={() => onOpen?.(page.index)} aria-label={`放大查看${page.alt}`}><ResponsiveImage className="creation-showcase-content-image-media" src={page.src} variant="thumb" ratio="auto" alt={page.alt} loading="eager" fetchPriority={page.index === 0 ? 'high' : 'auto'} style={{ width: '100%', height: '100%' }} imgStyle={{ width: '100%', height: '100%', objectFit: 'cover' }} /><span>{page.index + 1}</span></button>)}
       </div>
       <div className="creation-showcase-content-copy">
         <span className="creation-showcase-content-platform">小红书 · {source.cat || '图文笔记'}</span>
@@ -101,14 +101,12 @@ function ContentShowcase({ entry, subMode = 'content' }) {
         title: '生活素材整理成一套有情绪的记录',
         description: 'Plog 真实案例暂未入库。上传生活素材并完成第一次生成后，这里会替换成真实的九宫格和文案成品。',
         entry: null,
-        facts: [['01', '图片结构', '9 张生活碎片'], ['02', '内容交付', '情绪文案与标签'], ['03', '当前状态', '案例暂未入库']],
       }
     : {
         eyebrow: '小红书图文 · 真实案例',
         title: '厦门 3 天 2 夜，一套图文直接发布',
         description: '从一句旅行主题开始，统一生成封面、行程图片、标题、正文和标签，用户可以直接检查和编辑。',
         entry: entry || GALLERY.find(item => item.id === 'xm'),
-        facts: [['01', '图片结构', '9 张发布配图'], ['02', '内容交付', '标题 · 正文 · 标签'], ['03', '使用方式', '检查后直接发布']],
       };
   return (
     <div className={`creation-showcase creation-showcase-content${isPlog ? ' is-plog' : ''}`} aria-label="小红书图文与Plog案例展示">
@@ -122,9 +120,6 @@ function ContentShowcase({ entry, subMode = 'content' }) {
         </div>
         <div className="ec-product-suite-showcase-visual creation-showcase-visual creation-showcase-content-visual"><ContentPreview entry={active.entry} plog={isPlog} onOpen={isPlog ? undefined : setPreviewIndex} /></div>
       </section>
-      <div className="creation-showcase-content-facts" aria-label="案例交付内容">
-        {active.facts.map(([number, label, value]) => <div key={number}><span>{number}</span><small>{label}</small><strong>{value}</strong></div>)}
-      </div>
       {active.entry && previewIndex !== null && <XhsPublishPreview entry={active.entry} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} />}
     </div>
   );

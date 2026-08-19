@@ -49,5 +49,12 @@ test('XHS reuses the ecommerce upload cards and localizes only the content label
 test('XHS workbench keeps the ecommerce spacing and full article body', () => {
   assert.match(showcaseStyles, /\.xhs-input-template \.ec-xhs-composer \{ padding: 8px 10px 10px/);
   assert.match(showcaseStyles, /\.xhs-template-tools \{ display: grid/);
-  assert.match(xhs, /9 张生活记录 \| 1 篇正文/);
+  assert.match(showcaseStyles, /\.creation-showcase-content-image-media img/);
+  assert.match(showcaseStyles, /\.xhs-ability-selector \.ec-ability-selector-fan-card \{ top: 50%; width: 56px; height: 74px/);
+  assert.match(showcaseStyles, /\.xhs-workbench-card \{ margin: 0; padding: 0; border: 0/);
+  assert.match(xhs, /\['style', '内容风格'/);
+  assert.match(xhs, /\['topic', '热门主题'/);
+  assert.doesNotMatch(xhs, /\['settings', '生成设置'/);
+  assert.doesNotMatch(xhs, /\['structure', '发布方案'/);
+  assert.doesNotMatch(xhs, /\['rules', '发布规范'/);
 });

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Settings, Images, Palette, FileText, SlidersHorizontal, Settings2, LayoutPanelTop } from 'lucide-react';
+import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Palette, LayoutPanelTop } from 'lucide-react';
 import { MdAutoAwesome, MdExpandMore, MdAdd, MdEdit, MdGpsFixed, MdPalette, MdRefresh, MdContentCopy, MdVerified, MdChevronRight, MdVisibility, MdCheck, MdClose, MdRotateLeft, MdLightbulb, MdAddPhotoAlternate } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
@@ -148,19 +148,10 @@ function XhsInputTemplate({
   canGenerate,
 }) {
   const options = plog ? [
-    ['settings', '生成设置', '图文 3:4', <Settings2 size={15} />],
-    ['structure', '发布方案', '9 张生活记录 | 1 篇正文', <Images size={15} />],
     ['style', '内容风格', '保留生活感', <Palette size={15} />],
     ['layout', '图片节奏', '生活碎片结构', <LayoutPanelTop size={15} />],
-    ['info', '文章信息', '标题 · 正文 · 标签', <FileText size={15} />],
-    ['rules', '发布规范', '小红书生活记录', <SlidersHorizontal size={15} />],
   ] : [
-    ['settings', '生成设置', '图文 3:4', <Settings2 size={15} />],
-    ['structure', '发布方案', '1 张封面 | 8 张内容页', <Images size={15} />],
-    ['style', '内容风格', '旅行攻略', <Palette size={15} />],
-    ['layout', '图片节奏', '九宫格排版', <LayoutPanelTop size={15} />],
-    ['info', '文章信息', '标题 · 正文 · 标签', <FileText size={15} />],
-    ['rules', '发布规范', '小红书发布', <SlidersHorizontal size={15} />],
+    ['topic', '热门主题', '点击填入灵感', <MdLightbulb size={15} />],
   ];
   return (
     <div className={`xhs-input-template${plog ? ' is-plog' : ''}`}>
@@ -969,12 +960,7 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               activeOption={xhsActiveOption}
               onOptionToggle={key => setXhsActiveOption(current => current === key ? null : key)}
               optionPanels={{
-                settings: <div><strong>生成设置</strong><p>按小红书原生竖版比例生成，默认输出 1 张封面和 8 张内容页。</p></div>,
-                structure: <div><strong>小红书发布结构</strong><p>固定生成 1 张封面 + 8 张内容页，并同时交付标题、正文和标签。</p></div>,
-                style: <div><strong>内容风格</strong><p>旅行攻略会优先整理行程、预算、路线和实用提醒，保留可核对的信息密度。</p><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setXhsActiveOption(null); }}>{hint}</button>)}</div></div>,
-                layout: <div><strong>图片节奏</strong><p>封面先给结论，后续页面按行程、预算、美食和避坑信息展开。</p></div>,
-                info: <div><strong>文章信息</strong><p>标题、正文和标签会与 9 张图片一起交付，可在生成后继续检查和编辑。</p></div>,
-                rules: <div><strong>小红书发布规范</strong><p>正文保持简体中文，标签放在正文末尾，内容按照小红书发布结构整理。</p></div>,
+                topic: <div><strong>热门主题</strong><p>选择一个主题后会直接填入输入框，仍然可以继续修改。</p><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setXhsActiveOption(null); }}>{hint}</button>)}</div></div>,
               }}
             />
           ) : (
@@ -994,12 +980,8 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               activeOption={plogActiveOption}
               onOptionToggle={key => setPlogActiveOption(current => current === key ? null : key)}
               optionPanels={{
-                settings: <div><strong>生成设置</strong><p>按小红书原生竖版比例生成 9 张生活记录图。</p></div>,
-                structure: <div><strong>Plog 发布结构</strong><p>固定生成 9 张生活碎片，并同时交付标题、情绪正文和标签。</p></div>,
                 style: <div><strong>调整 Plog 色调风格</strong><div className="xhs-option-list">{[{ k:'ins-minimal', label:'Ins 极简' }, { k:'korean-clear', label:'韩系清透' }, { k:'japanese-cream', label:'日系奶油' }, { k:'film-vintage', label:'胶片复古' }].map(item => <button type="button" key={item.k} className={plogStyle === item.k ? 'is-selected' : ''} onClick={() => setPlogStyle(item.k)}>{item.label}</button>)}</div></div>,
                 layout: <div><strong>调整 Plog 排版方式</strong><div className="xhs-option-list">{[{ k:'casual', label:'碎片风' }, { k:'polaroid', label:'拍立得' }, { k:'cinematic', label:'电影感' }, { k:'journal', label:'手账风' }, { k:'magazine', label:'杂志风' }].map(item => <button type="button" key={item.k} className={plogLayout === item.k ? 'is-selected' : ''} onClick={() => setPlogLayout(item.k)}>{item.label}</button>)}</div></div>,
-                info: <div><strong>文章信息</strong><p>标题、情绪正文和标签会与 9 张生活记录一起交付。</p></div>,
-                rules: <div><strong>小红书生活记录规范</strong><p>保留真实生活感，正文与图片节奏保持一致，生成后可以继续编辑。</p></div>,
               }}
             />
           )}

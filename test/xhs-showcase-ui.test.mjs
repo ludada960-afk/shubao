@@ -14,5 +14,6 @@ test('XHS showcase reuses the shared publish modal contract', () => {
   assert.match(source, /<p>\{getXhsPublishBody\(source\)\}<\/p>/);
   assert.match(source, /subMode === 'plog'/);
   assert.match(source, /案例暂未入库/);
+  assert.doesNotMatch(source, /creation-showcase-content-facts/);
   assert.doesNotMatch(source, /creation-showcase-content-tabs/);
 });
