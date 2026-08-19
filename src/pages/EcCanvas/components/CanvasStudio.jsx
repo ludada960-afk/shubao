@@ -1130,3 +1130,40 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
     <ResizeHandles visible={selected && !editing && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
+
+export function CanvasAudioNode({
+  node,
+  selected = false,
+  dimmed = false,
+  onPointerDown,
+  onContextMenu,
+  onHoverChange,
+  onResizeStart,
+}) {
+  return <article
+    data-canvas-node-id={node.id}
+    className={`ec-canvas-media-node is-${selected ? 'selected' : 'idle'} ${dimmed ? 'is-dimmed' : ''}`}
+    style={{ left: node.x, top: node.y, width: node.w, zIndex: Number.isFinite(node.zIndex) ? node.zIndex : undefined, visibility: node.hidden ? 'hidden' : 'visible' }}
+    onPointerDown={event => onPointerDown?.(event, node.id)}
+    onContextMenu={event => { event.preventDefault(); onContextMenu?.(event, node); }}
+    onMouseEnter={() => onHoverChange?.(node.id)}
+    onMouseLeave={() => onHoverChange?.(null)}
+  >
+    <div className="ec-canvas-media-frame" style={{ height: node.h, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, padding: 14, boxSizing: 'border-box', background: '#f8fafc' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#475569', fontSize: 12, fontWeight: 750 }}>
+        <Volume2 size={18} aria-hidden="true" />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || node.displayLabel || '项目音频'}</span>
+      </div>
+      <audio
+        controls
+        preload="metadata"
+        src={node.url}
+        aria-label={node.name || node.displayLabel || '项目音频'}
+        style={{ width: '100%', height: 32 }}
+        onPointerDown={event => event.stopPropagation()}
+      />
+    </div>
+    {node.showMeta !== false && <footer><strong>{node.name || node.displayLabel || '项目音频'}</strong><span>{[node.group, node.role].filter(Boolean).join(' · ')}</span></footer>}
+    <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
+  </article>;
+}

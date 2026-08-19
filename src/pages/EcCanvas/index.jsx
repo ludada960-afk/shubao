@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
-import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary } from 'react-icons/md';
+import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary, MdMusicNote } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
 import {
@@ -34,6 +34,7 @@ import { CanvasBottomToolbar, CanvasLayersPanel, CanvasLeftRail, CanvasTopBar, C
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import {
   CanvasAddMenu,
+  CanvasAudioNode,
   CanvasDeriveMenu,
   CanvasEcommerceComposer,
   CanvasFocusedEditor,
@@ -50,11 +51,11 @@ import {
 } from './components/CanvasStudio.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
+import { createCanvasSession, listProjectAssets, listProjects, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
-import { createCanvasSnapshot, createFreshCanvasSession, restoreCanvasSnapshot } from './canvasSessionModel.js';
+import { createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
@@ -530,6 +531,9 @@ export default function EcCanvas() {
   const [workCategory, setWorkCategory] = useState('all');
   const [pastWorks, setPastWorks] = useState([]);
   const [trashWorks, setTrashWorks] = useState([]);
+  const [projectAssetLibrary, setProjectAssetLibrary] = useState([]);
+  const [projectAssetLibraryLoading, setProjectAssetLibraryLoading] = useState(false);
+  const [projectAssetLibraryError, setProjectAssetLibraryError] = useState('');
   const [zoomImg, setZoomImg] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [toast, setToast] = useState(null);
@@ -906,6 +910,57 @@ export default function EcCanvas() {
     };
     load();
   }, [phone, result?.browserQa]);
+
+  useEffect(() => {
+    if (tab !== 'works' || !state.logged || result?.browserQa) {
+      setProjectAssetLibrary([]);
+      setProjectAssetLibraryError('');
+      setProjectAssetLibraryLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setProjectAssetLibraryLoading(true);
+    setProjectAssetLibraryError('');
+    void (async () => {
+      try {
+        const projects = await listProjects();
+        const orderedProjects = (Array.isArray(projects) ? projects : [])
+          .filter(project => project?.id)
+          .sort((left, right) => (left.id === result.projectId ? -1 : 0) - (right.id === result.projectId ? -1 : 0))
+          .slice(0, 24);
+        const lists = await Promise.all(orderedProjects.map(async project => {
+          try {
+            const assets = await listProjectAssets(project.id);
+            return (Array.isArray(assets) ? assets : []).map(asset => ({
+              ...asset,
+              projectId: asset.projectId || project.id,
+              projectTitle: project.title || project.name || '未命名项目',
+            }));
+          } catch {
+            return [];
+          }
+        }));
+        if (cancelled) return;
+        const seen = new Set();
+        const assets = lists.flat().filter(asset => {
+          const mediaKind = String(asset.mediaKind || asset.media_kind || '').toLowerCase();
+          if (!['image', 'video', 'audio'].includes(mediaKind)) return false;
+          const key = `${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`;
+          if (!asset.projectAssetId || !asset.contentHash || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setProjectAssetLibrary(assets);
+      } catch (error) {
+        if (cancelled) return;
+        setProjectAssetLibrary([]);
+        setProjectAssetLibraryError(error?.message || '项目素材暂时无法读取');
+      } finally {
+        if (!cancelled) setProjectAssetLibraryLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [result?.browserQa, result?.projectId, state.logged, tab]);
 
   // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
   // 注意：ref 初始值为空函数，在下面的 useEffect 中更新
@@ -3245,6 +3300,26 @@ export default function EcCanvas() {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     setTab('canvas');
   };
+  const handleImportProjectAsset = useCallback((asset) => {
+    const imported = importProjectAssetToCanvas({
+      asset,
+      source: 'project-library',
+      session: { nodes, connections, viewport },
+    });
+    if (!imported.added) {
+      showToast(imported.reason === 'already-imported' ? '这个素材已经在当前画布中' : '项目素材缺少可验证的稳定引用', 'info');
+      if (imported.nodeId) setSelected(imported.nodeId);
+      return;
+    }
+    draftReadyRef.current = true;
+    canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `project-asset-${Date.now()}` });
+    setNodes(imported.session.nodes);
+    setConnections(imported.session.connections);
+    setSelected(imported.node.id);
+    setMultiSelected(new Set([imported.node.id]));
+    setTab('canvas');
+    showToast('项目素材已加入画布，不会产生生成或扣费', 'success');
+  }, [connections, nodes, result, showToast, viewport]);
   const deleteWork = async (id) => {
     const work = pastWorks.find(x => x.id === id);
     if (!work) return;
@@ -3681,6 +3756,18 @@ export default function EcCanvas() {
                   onDoubleClick={node => openImagePreview({ url: node.url, label: node.name || node.displayLabel || '图片预览' })}
                 />;
               }
+              if (node.kind === 'audio') {
+                return <CanvasAudioNode
+                  key={node.id}
+                  node={node}
+                  selected={selectedNodeState}
+                  dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
+                  onPointerDown={handleNodeDown}
+                  onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+                  onHoverChange={setHoveredNodeId}
+                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
+                />;
+              }
               if (node.kind === 'text') {
                 return <StudioTextNode
                   key={node.id}
@@ -3929,6 +4016,48 @@ export default function EcCanvas() {
               onClick={() => setWorkCategory(option.id)}
             >{option.label}<span>{workCategoryCounts[option.id]}</span></button>)}
           </div>}
+          {tab === 'works' && state.logged && (
+            <section aria-labelledby="canvas-project-assets-title" style={{ marginBottom: 22 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+                <div>
+                  <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 16, lineHeight: 1.3, color: '#1f2937' }}>项目素材</h2>
+                  <div style={{ marginTop: 4, color: '#8a929d', fontSize: 11 }}>图片、视频和音频</div>
+                </div>
+                <span style={{ color: '#9aa1aa', fontSize: 11 }}>{projectAssetLibrary.length} 个</span>
+              </div>
+              {projectAssetLibraryLoading ? (
+                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>正在读取素材</div>
+              ) : projectAssetLibraryError ? (
+                <div role="alert" style={{ padding: '14px 16px', border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLibraryError}</div>
+              ) : projectAssetLibrary.length ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
+                  {projectAssetLibrary.map(asset => {
+                    const mediaKind = String(asset.mediaKind || '').toLowerCase();
+                    const label = asset.name || asset.role || (mediaKind === 'video' ? '项目视频' : mediaKind === 'audio' ? '项目音频' : '项目图片');
+                    return <button
+                      key={`${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`}
+                      type="button"
+                      title="加入当前画布"
+                      onClick={() => handleImportProjectAsset(asset)}
+                      style={{ minWidth: 0, padding: 0, overflow: 'hidden', textAlign: 'left', border: '1px solid #e7eaee', borderRadius: 10, background: '#fff', color: '#26313c', cursor: 'pointer' }}
+                    >
+                      <div style={{ height: 104, display: 'grid', placeItems: 'center', overflow: 'hidden', background: mediaKind === 'video' ? '#111827' : '#f4f5f7' }}>
+                        {mediaKind === 'image' ? <ResponsiveImage src={proxyImg(asset.stableUrl)} variant="thumb" ratio="1:1" alt="" style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
+                          : mediaKind === 'video' ? <video src={asset.stableUrl} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <MdMusicNote size={28} color="#64748b" />}
+                      </div>
+                      <div style={{ padding: '8px 9px 9px' }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700 }}>{label}</div>
+                        <div style={{ marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#8a929d' }}>{asset.projectTitle}</div>
+                      </div>
+                    </button>;
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>暂无可用项目素材</div>
+              )}
+            </section>
+          )}
           {!state.logged && tab === 'works' ? (
             <div className="ec-canvas-work-empty">
               <MdCollections size={42} />

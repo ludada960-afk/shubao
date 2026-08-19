@@ -1,6 +1,7 @@
 import { layoutAssetLanes } from './canvasGeometry.js';
-import { createUploadedImageNodes } from './canvasStudioModel.js';
-import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
+import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
+import { createUploadedImageNodes, createUploadedVideoNodes } from './canvasStudioModel.js';
+import { attachCanvasProjectAssetRef, buildCanvasAssetRef, canvasProjectAssetRefKey } from './canvasAssetReferenceModel.js';
 
 function safeId(value, fallback) {
   const normalized = String(value || '').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -39,6 +40,82 @@ export function createCanvasSnapshot({ nodes = [], connections = [], viewport = 
 
 export function restoreCanvasSnapshot(snapshot = {}) {
   return createCanvasSnapshot(snapshot);
+}
+
+function audioNodeFromAsset(asset, ref, position, now) {
+  return attachCanvasProjectAssetRef({
+    id: `audio_project_${now}`,
+    assetId: ref.assetId || ref.projectAssetId,
+    kind: 'audio',
+    provenance: 'source',
+    status: 'ready',
+    url: ref.stableUrl,
+    name: visibleName(asset.name || asset.label || ref.role, '项目音频'),
+    displayLabel: visibleName(asset.name || asset.label || ref.role, '项目音频'),
+    group: '音频',
+    role: ref.role || 'audio',
+    duration: Number(asset.duration || asset.durationMs) || 0,
+    sourceNodeIds: [],
+    editable: true,
+    showMeta: true,
+    x: position.x,
+    y: position.y,
+    w: 320,
+    h: 96,
+    rotation: 0,
+    locked: false,
+    hidden: false,
+    projectAssetSource: 'project-library',
+  }, ref);
+}
+
+export function importProjectAssetToCanvas({ asset = {}, session = {}, source = 'project-library' } = {}) {
+  const snapshot = createCanvasSnapshot(session);
+  const ref = buildCanvasAssetRef(asset);
+  if (!ref) return { added: false, reason: 'invalid-project-asset', session: snapshot };
+
+  const key = canvasProjectAssetRefKey(ref);
+  const existing = snapshot.nodes.find(node => canvasProjectAssetRefKey(node?.assetRef || node) === key);
+  if (existing) return { added: false, reason: 'already-imported', nodeId: existing.id, session: snapshot };
+
+  const isImage = ref.mediaKind === 'image';
+  const isVideo = ref.mediaKind === 'video';
+  const width = isImage ? 240 : 320;
+  const height = isImage
+    ? Math.round(width / (Number(ref.width) > 0 && Number(ref.height) > 0 ? Number(ref.width) / Number(ref.height) : 1))
+    : (isVideo ? 180 : 96);
+  const position = findCanvasBlankPlacement({
+    width,
+    height,
+    viewport: snapshot.viewport,
+    nodes: snapshot.nodes,
+    preferred: { x: 80, y: 80 },
+    sourceNode: snapshot.nodes.find(node => node?.kind === 'image' || node?.kind === 'video'),
+  });
+  const normalizedAsset = {
+    ...asset,
+    ...ref,
+    url: ref.stableUrl,
+    stableUrl: ref.stableUrl,
+    name: asset.name || asset.label || ref.role,
+  };
+  const now = Date.now();
+  const created = isImage
+    ? createUploadedImageNodes({ assets: [normalizedAsset], x: position.x, y: position.y, now })[0]
+    : isVideo
+      ? createUploadedVideoNodes({ assets: [normalizedAsset], x: position.x, y: position.y, now })[0]
+      : audioNodeFromAsset(normalizedAsset, ref, position, now);
+  if (!created) return { added: false, reason: 'invalid-project-asset', session: snapshot };
+  const node = {
+    ...created,
+    projectAssetSource: source,
+    projectAssetRef: ref,
+  };
+  return {
+    added: true,
+    node,
+    session: { ...snapshot, nodes: [...snapshot.nodes, node] },
+  };
 }
 
 export function createFreshCanvasSession({ work = {}, productAssets = [], outputs = [] } = {}) {

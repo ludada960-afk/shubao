@@ -9,12 +9,12 @@ function integerOrNull(value) {
 }
 
 function mediaKindFor(value = {}) {
-  const explicit = clean(value.mediaKind || value.media_kind).toLowerCase();
-  if (MEDIA_KINDS.has(explicit)) return explicit;
   const mimeType = clean(value.mimeType || value.mime_type).toLowerCase();
   if (mimeType.startsWith('image/')) return 'image';
   if (mimeType.startsWith('video/')) return 'video';
   if (mimeType.startsWith('audio/')) return 'audio';
+  const explicit = clean(value.mediaKind || value.media_kind).toLowerCase();
+  if (MEDIA_KINDS.has(explicit)) return explicit;
   return 'document';
 }
 
@@ -37,6 +37,16 @@ export function normalizeCanvasProjectAssetRef(value = {}, { projectId = '' } = 
     width: integerOrNull(ref?.width),
     height: integerOrNull(ref?.height),
   };
+}
+
+export function buildCanvasAssetRef(value = {}, options = {}) {
+  const ref = normalizeCanvasProjectAssetRef({
+    ...value,
+    projectId: value?.projectId || value?.project_id || options.projectId,
+    role: value?.role || options.role,
+  });
+  if (!ref || !['image', 'video', 'audio'].includes(ref.mediaKind)) return null;
+  return ref;
 }
 
 export function canvasProjectAssetRefKey(value = {}) {
