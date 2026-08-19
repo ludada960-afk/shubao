@@ -13,6 +13,14 @@ function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
+function mediaKindFromMimeType(value) {
+  const mimeType = String(value || '').toLowerCase();
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  return 'document';
+}
+
 function projectAssetFromRow(row) {
   if (!row) return null;
   return {
@@ -27,11 +35,7 @@ function projectAssetFromRow(row) {
     contentHash: row.content_hash,
     stableUrl: row.stable_url,
     mimeType: row.mime_type,
-    mediaKind: String(row.mime_type || '').toLowerCase().startsWith('image/')
-      ? 'image'
-      : String(row.mime_type || '').toLowerCase().startsWith('video/')
-        ? 'video'
-        : String(row.mime_type || '').toLowerCase().startsWith('audio/') ? 'audio' : 'document',
+    mediaKind: mediaKindFromMimeType(row.mime_type),
     width: row.width,
     height: row.height,
     expiresAt: row.expires_at,
@@ -57,6 +61,54 @@ function projectAssetLibraryItemFromRow(row) {
       updatedAt: row.project_updated_at,
     },
   };
+}
+
+function projectAssetLineageRefFromRow(row) {
+  return {
+    projectAssetId: row.lineage_asset_id,
+    assetId: row.lineage_asset_external_id,
+    versionId: row.lineage_version_id,
+    generationRunId: row.lineage_generation_run_id,
+    role: row.lineage_role,
+    parentAssetId: row.lineage_parent_asset_id,
+    contentHash: row.lineage_content_hash,
+    stableUrl: row.lineage_stable_url,
+    mimeType: row.lineage_mime_type,
+    mediaKind: mediaKindFromMimeType(row.lineage_mime_type),
+    width: row.lineage_width,
+    height: row.lineage_height,
+    retentionClass: row.lineage_retention_class,
+    retentionState: row.lineage_retention_state,
+    createdAt: row.lineage_asset_created_at,
+    relation: row.lineage_relation,
+    relationGenerationRunId: row.lineage_relation_generation_run_id,
+    relationCreatedAt: row.lineage_relation_created_at,
+    project: {
+      id: row.lineage_project_id,
+      kind: row.lineage_project_kind,
+      title: row.lineage_project_title,
+      status: row.lineage_project_status,
+      updatedAt: row.lineage_project_updated_at,
+    },
+  };
+}
+
+function externalProjectAssetRefs(asset) {
+  const metadata = asset?.metadata && typeof asset.metadata === 'object' ? asset.metadata : {};
+  const candidates = [metadata.sourceProjectAssetRef, metadata.importedFromProjectAsset]
+    .filter(value => value && typeof value === 'object' && !Array.isArray(value));
+  const seen = new Set();
+  return candidates.map(value => ({
+    projectId: String(value.projectId || '').trim(),
+    projectAssetId: String(value.projectAssetId || '').trim(),
+    role: String(value.role || 'reference').trim(),
+    expectedContentHash: String(value.expectedContentHash || '').trim(),
+  })).filter(value => {
+    const key = `${value.projectId}:${value.projectAssetId}:${value.expectedContentHash}`;
+    if (!value.projectId || !value.projectAssetId || !value.expectedContentHash || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function cleanProjectAssetValue(value, name, max = 2000) {
@@ -296,6 +348,82 @@ export function createProjectStore(db, {
       return projectAssetFromRow(db.prepare(`SELECT * FROM project_assets
         WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`)
         .get(projectAssetId, project.ownerEmail, project.id));
+    },
+
+    getProjectAssetLineage({ ownerEmail, projectId, projectAssetId }) {
+      const project = requireProject(ownerEmail, projectId);
+      const assetRow = db.prepare(`SELECT pa.*, p.kind AS project_kind, p.title AS project_title,
+          p.status AS project_status, p.updated_at AS project_updated_at
+        FROM project_assets pa
+        JOIN projects p ON p.id = pa.project_id
+        WHERE pa.id = ? AND pa.owner_email = ? AND pa.project_id = ?
+          AND pa.deleted_at IS NULL AND p.deleted_at IS NULL`).get(
+        projectAssetId, project.ownerEmail, project.id,
+      );
+      if (!assetRow) return null;
+      const asset = projectAssetLibraryItemFromRow(assetRow);
+      const refColumns = `
+        l.relation AS lineage_relation,
+        l.generation_run_id AS lineage_relation_generation_run_id,
+        l.created_at AS lineage_relation_created_at,
+        linked.id AS lineage_asset_id,
+        linked.asset_id AS lineage_asset_external_id,
+        linked.version_id AS lineage_version_id,
+        linked.generation_run_id AS lineage_generation_run_id,
+        linked.role AS lineage_role,
+        linked.parent_asset_id AS lineage_parent_asset_id,
+        linked.content_hash AS lineage_content_hash,
+        linked.stable_url AS lineage_stable_url,
+        linked.mime_type AS lineage_mime_type,
+        linked.width AS lineage_width,
+        linked.height AS lineage_height,
+        linked.retention_class AS lineage_retention_class,
+        linked.retention_state AS lineage_retention_state,
+        linked.created_at AS lineage_asset_created_at,
+        p.id AS lineage_project_id,
+        p.kind AS lineage_project_kind,
+        p.title AS lineage_project_title,
+        p.status AS lineage_project_status,
+        p.updated_at AS lineage_project_updated_at`;
+      const relationJoins = `
+        JOIN project_assets linked ON linked.id = LINKED_ID
+          AND linked.owner_email = ? AND linked.project_id = ? AND linked.deleted_at IS NULL
+        JOIN projects p ON p.id = linked.project_id AND p.owner_email = linked.owner_email AND p.deleted_at IS NULL`;
+      const parentRows = db.prepare(`SELECT ${refColumns}
+        FROM project_asset_lineage l
+        ${relationJoins.replace('LINKED_ID', 'l.source_asset_id')}
+        WHERE l.project_id = ? AND l.target_asset_id = ?
+        ORDER BY l.created_at DESC, linked.created_at DESC, linked.id DESC`).all(
+        project.ownerEmail, project.id, project.id, asset.projectAssetId,
+      );
+      const childRows = db.prepare(`SELECT ${refColumns}
+        FROM project_asset_lineage l
+        ${relationJoins.replace('LINKED_ID', 'l.target_asset_id')}
+        WHERE l.project_id = ? AND l.source_asset_id = ?
+        ORDER BY l.created_at DESC, linked.created_at DESC, linked.id DESC`).all(
+        project.ownerEmail, project.id, project.id, asset.projectAssetId,
+      );
+      const sourceReferences = externalProjectAssetRefs(asset).map(reference => {
+        const sourceProject = db.prepare(`SELECT id, kind, title, status, updated_at
+          FROM projects WHERE id = ? AND owner_email = ? AND deleted_at IS NULL`)
+          .get(reference.projectId, project.ownerEmail);
+        return {
+          ...reference,
+          project: sourceProject ? {
+            id: sourceProject.id,
+            kind: sourceProject.kind,
+            title: sourceProject.title,
+            status: sourceProject.status,
+            updatedAt: sourceProject.updated_at,
+          } : null,
+        };
+      });
+      return {
+        asset,
+        parents: parentRows.map(projectAssetLineageRefFromRow),
+        children: childRows.map(projectAssetLineageRefFromRow),
+        sourceReferences,
+      };
     },
 
     listProjectAssets({ ownerEmail, projectId, mediaKind = '' } = {}) {

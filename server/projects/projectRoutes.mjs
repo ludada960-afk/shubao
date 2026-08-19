@@ -92,6 +92,15 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
       }) });
     } catch (error) { return routeError(error, res); }
   });
+  app.get('/api/projects/:projectId/assets/:assetId/lineage', (req, res) => {
+    try {
+      const lineage = projectStore.getProjectAssetLineage({
+        ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId, projectAssetId: req.params.assetId,
+      });
+      if (!lineage) return res.status(404).json({ code: 'PROJECT_ASSET_NOT_FOUND', error: '未找到该项目素材' });
+      return res.json({ lineage });
+    } catch (error) { return routeError(error, res); }
+  });
   app.get('/api/projects/:projectId/assets/:assetId', (req, res) => {
     try {
       const asset = projectStore.getProjectAsset({

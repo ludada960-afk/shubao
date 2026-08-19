@@ -51,7 +51,7 @@ import {
 } from './components/CanvasStudio.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
+import { createCanvasSession, getProjectAssetLineage, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
@@ -535,6 +535,7 @@ export default function EcCanvas() {
   const [projectAssetMediaFilter, setProjectAssetMediaFilter] = useState('');
   const [projectAssetLibraryLoading, setProjectAssetLibraryLoading] = useState(false);
   const [projectAssetLibraryError, setProjectAssetLibraryError] = useState('');
+  const [projectAssetLineage, setProjectAssetLineage] = useState(null);
   const [zoomImg, setZoomImg] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [toast, setToast] = useState(null);
@@ -3312,6 +3313,18 @@ export default function EcCanvas() {
     setTab('canvas');
     showToast('项目素材已加入画布，不会产生生成或扣费', 'success');
   }, [connections, nodes, result, showToast, viewport]);
+  const handleInspectProjectAsset = useCallback(async (asset) => {
+    if (!asset?.projectId || !asset?.projectAssetId) return;
+    setProjectAssetLineage({ asset, loading: true, error: '', data: null });
+    try {
+      const data = await getProjectAssetLineage(asset.projectId, asset.projectAssetId);
+      setProjectAssetLineage(current => current?.asset?.projectAssetId === asset.projectAssetId
+        ? { asset, loading: false, error: '', data } : current);
+    } catch (error) {
+      setProjectAssetLineage(current => current?.asset?.projectAssetId === asset.projectAssetId
+        ? { asset, loading: false, error: error?.message || '素材关系暂时无法读取', data: null } : current);
+    }
+  }, []);
   const deleteWork = async (id) => {
     const work = pastWorks.find(x => x.id === id);
     if (!work) return;
@@ -4035,24 +4048,28 @@ export default function EcCanvas() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
                   {projectAssetLibrary.map(asset => {
                     const mediaKind = String(asset.mediaKind || '').toLowerCase();
-                    const label = asset.name || asset.role || (mediaKind === 'video' ? '项目视频' : mediaKind === 'audio' ? '项目音频' : '项目图片');
-                    return <button
+                    const label = asset.metadata?.displayName || asset.assetId || asset.role || (mediaKind === 'video' ? '项目视频' : mediaKind === 'audio' ? '项目音频' : '项目图片');
+                    const projectTitle = asset.project?.title || asset.projectTitle || '未命名项目';
+                    return <article
                       key={`${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`}
-                      type="button"
-                      title="加入当前画布"
-                      onClick={() => handleImportProjectAsset(asset)}
                       style={{ minWidth: 0, padding: 0, overflow: 'hidden', textAlign: 'left', border: '1px solid #e7eaee', borderRadius: 10, background: '#fff', color: '#26313c', cursor: 'pointer' }}
                     >
-                      <div style={{ height: 104, display: 'grid', placeItems: 'center', overflow: 'hidden', background: mediaKind === 'video' ? '#111827' : '#f4f5f7' }}>
+                      <button type="button" title="加入当前画布" onClick={() => handleImportProjectAsset(asset)} style={{ display: 'block', width: '100%', padding: 0, border: 0, background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+                        <div style={{ height: 104, display: 'grid', placeItems: 'center', overflow: 'hidden', background: mediaKind === 'video' ? '#111827' : '#f4f5f7' }}>
                         {mediaKind === 'image' ? <ResponsiveImage src={proxyImg(asset.stableUrl)} variant="thumb" ratio="1:1" alt="" style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                           : mediaKind === 'video' ? <video src={asset.stableUrl} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : <MdMusicNote size={28} color="#64748b" />}
-                      </div>
-                      <div style={{ padding: '8px 9px 9px' }}>
+                        </div>
+                        <div style={{ padding: '8px 9px 4px' }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700 }}>{label}</div>
-                        <div style={{ marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#8a929d' }}>{asset.projectTitle}</div>
+                        <div style={{ marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#8a929d' }}>{projectTitle}</div>
+                        </div>
+                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px 8px', borderTop: '1px solid #f1f3f5' }}>
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#9aa1aa' }}>{asset.role || '稳定引用'}</span>
+                        <button type="button" aria-label={`查看${label}的来源和派生关系`} title="查看来源和派生关系" onClick={() => handleInspectProjectAsset(asset)} style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#64748b', fontSize: 10, cursor: 'pointer' }}>关系</button>
                       </div>
-                    </button>;
+                    </article>;
                   })}
                 </div>
               ) : (
@@ -4221,6 +4238,35 @@ export default function EcCanvas() {
               {exportDelivery.destination && <button type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={handleStartExport} style={{ border: 0, borderRadius: 8, padding: '9px 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#047857', color: '#fff', fontWeight: 800, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .55 : 1 }}><MdFileDownload size={14} /> {exportDelivery.status === 'success' ? '再次导出' : '开始导出'}</button>}
             </div>
           </div>
+        </div>
+      )}
+
+      {projectAssetLineage && (
+        <div role="presentation" onMouseDown={() => setProjectAssetLineage(null)} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="project-asset-lineage-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(520px, 100%)', maxHeight: 'min(680px, 92vh)', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 14, background: '#fff', boxShadow: '0 24px 80px rgba(15,23,42,.24)' }}>
+            <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '18px 20px 14px', borderBottom: '1px solid #eef0f2' }}>
+              <div style={{ minWidth: 0 }}>
+                <h2 id="project-asset-lineage-title" style={{ margin: 0, color: '#1f2937', fontSize: 17 }}>素材关系</h2>
+                <div style={{ marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#667085', fontSize: 12 }}>{projectAssetLineage.asset?.metadata?.displayName || projectAssetLineage.asset?.assetId || '项目素材'}</div>
+              </div>
+              <button type="button" aria-label="关闭素材关系" title="关闭" onClick={() => setProjectAssetLineage(null)} style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, flex: '0 0 auto', border: 0, borderRadius: 7, background: '#f3f4f6', color: '#4b5563', cursor: 'pointer' }}><MdClose size={17} /></button>
+            </header>
+            <div style={{ padding: '16px 20px 20px' }}>
+              {projectAssetLineage.loading ? <div style={{ color: '#667085', fontSize: 13 }}>正在读取素材关系</div> : projectAssetLineage.error ? <div role="alert" style={{ padding: 12, border: '1px solid #fecaca', borderRadius: 8, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLineage.error}</div> : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8, marginBottom: 16 }}>
+                    <div style={{ padding: '10px 11px', borderRadius: 8, background: '#f8fafc' }}><strong style={{ display: 'block', color: '#334155', fontSize: 12 }}>当前项目</strong><span style={{ display: 'block', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b', fontSize: 11 }}>{projectAssetLineage.data?.asset?.project?.title || '未命名项目'}</span></div>
+                    <div style={{ padding: '10px 11px', borderRadius: 8, background: '#f8fafc' }}><strong style={{ display: 'block', color: '#334155', fontSize: 12 }}>内容指纹</strong><span style={{ display: 'block', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b', fontSize: 11 }}>{String(projectAssetLineage.data?.asset?.contentHash || '').slice(0, 16) || '无'}</span></div>
+                  </div>
+                  {[['来源素材', projectAssetLineage.data?.parents || [], '暂无同项目来源'], ['派生结果', projectAssetLineage.data?.children || [], '暂无同项目派生']].map(([title, items, empty]) => <section key={title} style={{ marginTop: 14 }}>
+                    <h3 style={{ margin: '0 0 8px', color: '#334155', fontSize: 13 }}>{title}<span style={{ marginLeft: 6, color: '#94a3b8', fontWeight: 500 }}>{items.length}</span></h3>
+                    {items.length ? <div style={{ display: 'grid', gap: 7 }}>{items.map(item => <div key={`${item.projectAssetId}:${item.relation}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 10px', border: '1px solid #eef0f2', borderRadius: 8 }}><div style={{ minWidth: 0 }}><strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#475569', fontSize: 12 }}>{item.assetId || '项目素材'}</strong><span style={{ display: 'block', marginTop: 3, color: '#94a3b8', fontSize: 10 }}>{item.project?.title || '当前项目'} · {item.relation || '关联'}</span></div><span style={{ flex: '0 0 auto', color: '#94a3b8', fontSize: 10 }}>{String(item.contentHash || '').slice(0, 10)}</span></div>)}</div> : <div style={{ color: '#94a3b8', fontSize: 12 }}>{empty}</div>}
+                  </section>)}
+                  {!!projectAssetLineage.data?.sourceReferences?.length && <section style={{ marginTop: 18 }}><h3 style={{ margin: '0 0 8px', color: '#334155', fontSize: 13 }}>跨项目引用<span style={{ marginLeft: 6, color: '#94a3b8', fontWeight: 500 }}>{projectAssetLineage.data.sourceReferences.length}</span></h3><div style={{ display: 'grid', gap: 7 }}>{projectAssetLineage.data.sourceReferences.map(reference => <div key={`${reference.projectId}:${reference.projectAssetId}`} style={{ padding: '9px 10px', border: '1px solid #e0e7ff', borderRadius: 8, background: '#f8faff' }}><strong style={{ display: 'block', color: '#475569', fontSize: 12 }}>{reference.project?.title || '来源项目'}</strong><span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: 10 }}>{reference.projectAssetId} · {reference.role}</span></div>)}</div></section>}
+                </>
+              )}
+            </div>
+          </section>
         </div>
       )}
 

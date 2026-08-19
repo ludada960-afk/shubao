@@ -127,6 +127,16 @@ export async function getProjectAsset(projectId, projectAssetId) {
   return response.asset;
 }
 
+export async function getProjectAssetLineage(projectId, projectAssetId) {
+  const response = await requestJson(
+    `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}/lineage`,
+    {},
+    '暂时无法读取素材关系',
+  );
+  if (!response?.lineage?.asset?.projectAssetId) throw new Error('素材关系暂时不可用，请稍后重试');
+  return response.lineage;
+}
+
 export async function createProjectVersion(projectId, payload = {}) {
   const response = await requestJson(`/api/projects/${projectPathSegment(projectId)}/versions`, {
     method: 'POST',

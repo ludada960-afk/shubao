@@ -11,6 +11,7 @@ import {
   dismissRecoveryCheckpoint,
   loadCanvasSession,
   getProject,
+  getProjectAssetLineage,
   listProjectAssetLibrary,
   listProjects,
   listRecoveryCheckpoints,
@@ -194,6 +195,20 @@ test('project asset library client sends signed URL-encoded filters', async t =>
 
   const assets = await listProjectAssetLibrary({ projectKind: 'ecommerce', mediaKind: 'image', limit: 20 });
   assert.equal(assets[0].projectAssetId, 'asset-1');
+});
+
+test('project asset lineage client encodes both IDs and uses the signed session', async t => {
+  installSession('signed-lineage-token');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/projects/project%20one/assets/asset%2Fone/lineage');
+    assert.equal(options.headers.Authorization, 'Bearer signed-lineage-token');
+    return jsonResponse({ lineage: { asset: { projectAssetId: 'asset/one' }, parents: [], children: [], sourceReferences: [] } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const lineage = await getProjectAssetLineage('project one', 'asset/one');
+  assert.equal(lineage.asset.projectAssetId, 'asset/one');
 });
 
 test('Canvas session client creates, saves, and restores an encoded owner session', async t => {

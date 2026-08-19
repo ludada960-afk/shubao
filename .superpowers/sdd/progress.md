@@ -2119,3 +2119,12 @@
 - 完整 `600` 秒公网金丝雀通过，三轮真实电商验收均交付 `3` 个稳定素材；最终线上电商 active jobs 为 `0`、图片队列为 `0`，
   未授权请求 `/api/project-assets` 返回 `401`，证明统一资产库仍受 owner session 保护。
 - 视频线程本轮仍没有返回新的共享变更；主线程只修改统一项目资产读取、Canvas 和视频工作台消费端，后续继续按 canonical asset contract 协同。
+
+## 2026-08-20 Project Asset Lineage Readback
+
+- 主线程新增 owner-scoped `GET /api/projects/:projectId/assets/:assetId/lineage`：同项目生成关系从
+  `project_asset_lineage` 读取，跨项目视频引用只展示已校验的 `sourceProjectAssetRef` 元数据，不伪造同项目血缘。
+- Canvas Works 的项目素材卡片修正素材名称和项目标题来源，增加关系入口和来源/派生/跨项目引用弹层；导入仍是纯引用，
+  不生成、不扣费。视频线程领域文件未修改，继续消费统一资产接口。
+- 定向 `43/43`、全量 `1904/1904`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、
+  `git diff --check` 均通过；390px 与桌面浏览器无横向溢出，匿名私有资产请求仍返回 401。本轮未部署、未触发真实生成或账务变更。

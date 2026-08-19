@@ -121,14 +121,21 @@ test('project asset read routes are owner-scoped and support media filtering', a
 
   const listed = await invoke(app, 'GET', '/api/projects/:projectId/assets', { headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id }, query: { mediaKind: 'video' } });
   const read = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId', { headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id, assetId: video.projectAssetId } });
+  const lineage = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId/lineage', { headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id, assetId: video.projectAssetId } });
   const denied = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId', { headers: signedHeaders(sessionTokens, 'other@example.com'), params: { projectId: project.id, assetId: video.projectAssetId } });
+  const deniedLineage = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId/lineage', { headers: signedHeaders(sessionTokens, 'other@example.com'), params: { projectId: project.id, assetId: video.projectAssetId } });
 
   assert.equal(listed.statusCode, 200);
   assert.equal(listed.body.assets.length, 1);
   assert.equal(listed.body.assets[0].mediaKind, 'video');
   assert.equal(read.body.asset.projectAssetId, video.projectAssetId);
+  assert.equal(lineage.statusCode, 200);
+  assert.equal(lineage.body.lineage.asset.projectAssetId, video.projectAssetId);
+  assert.deepEqual(lineage.body.lineage.parents, []);
   assert.equal(denied.statusCode, 404);
   assert.equal(denied.body.code, 'PROJECT_NOT_FOUND');
+  assert.equal(deniedLineage.statusCode, 404);
+  assert.equal(deniedLineage.body.code, 'PROJECT_NOT_FOUND');
 });
 
 test('unified project asset library is signed, filtered, and display-safe', async t => {
