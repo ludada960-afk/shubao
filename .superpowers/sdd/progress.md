@@ -2110,3 +2110,12 @@
 - 本地证据：定向 `41/41`、全量 `1902/1902`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、
   `git diff --check` 通过；390px 浏览器检查无横向溢出。视频线程没有返回新的共享变更，本轮未修改其领域文件。
 - 该提交包含服务端、Canvas 和视频工作台，若发布必须按 `full` 生产门禁执行；尚未把本条本地证据写成线上证据。
+
+## 2026-08-20 Unified Project Asset Library Production Release
+
+- 正式部署提交 `21de16e` 已上线 `https://shuimg.cn`，使用 `full` 生产门禁；远端锁已释放。
+- 发布前全量 `1902/1902`、生产构建 `6524` modules、构建检查、协作检查和差异检查通过；线上健康 `ready=true`，
+  图片图库 `117` 张，公开视频合同 `2` 个，视频认证非计费 canary 通过，`providerSubmissions=0`。
+- 完整 `600` 秒公网金丝雀通过，三轮真实电商验收均交付 `3` 个稳定素材；最终线上电商 active jobs 为 `0`、图片队列为 `0`，
+  未授权请求 `/api/project-assets` 返回 `401`，证明统一资产库仍受 owner session 保护。
+- 视频线程本轮仍没有返回新的共享变更；主线程只修改统一项目资产读取、Canvas 和视频工作台消费端，后续继续按 canonical asset contract 协同。
