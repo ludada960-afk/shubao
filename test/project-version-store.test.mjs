@@ -63,6 +63,53 @@ test('creates and lists canonical project assets with owner isolation and idempo
   assert.throws(() => store.getProjectAsset({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: first.projectAssetId }), error => error?.code === 'PROJECT_NOT_FOUND');
 });
 
+test('persists structured media metadata without weakening canonical asset identity', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video', title: '媒体元数据' });
+  const metadata = {
+    durationMs: 8200,
+    aspectRatio: '9:16',
+    thumbnailProjectAssetId: 'thumbnail-asset-1',
+    sourceProjectAssetIds: ['source-asset-1'],
+    generationRunId: 'generation-run-1',
+  };
+  const asset = store.createProjectAsset({
+    ownerEmail,
+    projectId: project.id,
+    assetId: 'video-output-1',
+    role: 'output',
+    stableUrl: '/api/video/assets/video-output-1',
+    contentHash: 'video-output-hash',
+    mimeType: 'video/mp4',
+    metadata,
+  });
+
+  assert.deepEqual(asset.metadata, metadata);
+  assert.deepEqual(store.getProjectAsset({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId }).metadata, metadata);
+  assert.deepEqual(store.listProjectAssets({ ownerEmail, projectId: project.id })[0].metadata, metadata);
+});
+
+test('rejects invalid or oversized project asset metadata', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video' });
+  const base = {
+    ownerEmail,
+    projectId: project.id,
+    assetId: 'metadata-invalid',
+    stableUrl: '/api/video/assets/metadata-invalid',
+    contentHash: 'metadata-invalid-hash',
+    mimeType: 'video/mp4',
+  };
+  assert.throws(() => store.createProjectAsset({ ...base, metadata: [] }), /metadata must be an object/);
+  const nonSerializable = { toJSON: () => undefined };
+  assert.throws(() => store.createProjectAsset({ ...base, metadata: nonSerializable }), /metadata must be JSON serializable/);
+  assert.throws(() => store.createProjectAsset({ ...base, metadata: { note: 'x'.repeat(16_001) } }), /metadata is too large/);
+});
+
 test('links canonical project assets idempotently and rejects cross-project links', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

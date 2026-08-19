@@ -132,6 +132,7 @@ export function ensureProjectSchema(db) {
       mime_type TEXT NOT NULL,
       width INTEGER,
       height INTEGER,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
       expires_at TEXT,
       retention_class TEXT NOT NULL,
       created_at TEXT NOT NULL,
@@ -161,6 +162,7 @@ export function ensureProjectSchema(db) {
   `);
   const assetColumns = db.prepare('PRAGMA table_info(project_assets)').all().map(column => column.name);
   if (!assetColumns.includes('asset_id')) db.exec("ALTER TABLE project_assets ADD COLUMN asset_id TEXT NOT NULL DEFAULT ''");
+  if (!assetColumns.includes('metadata_json')) db.exec("ALTER TABLE project_assets ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'");
   if (!assetColumns.includes('retention_state')) db.exec("ALTER TABLE project_assets ADD COLUMN retention_state TEXT NOT NULL DEFAULT 'active'");
   if (!assetColumns.includes('marked_at')) db.exec('ALTER TABLE project_assets ADD COLUMN marked_at TEXT');
   if (!assetColumns.includes('isolated_at')) db.exec('ALTER TABLE project_assets ADD COLUMN isolated_at TEXT');

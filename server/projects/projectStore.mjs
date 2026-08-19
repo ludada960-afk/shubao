@@ -37,6 +37,7 @@ function projectAssetFromRow(row) {
     expiresAt: row.expires_at,
     retentionClass: row.retention_class,
     retentionState: row.retention_state,
+    metadata: parse(row.metadata_json, {}),
     createdAt: row.created_at,
     deletedAt: row.deleted_at,
   };
@@ -47,6 +48,20 @@ function cleanProjectAssetValue(value, name, max = 2000) {
   if (!normalized) throw new TypeError(`${name} is required`);
   if (normalized.length > max || /[\u0000-\u001F\u007F]/.test(normalized)) throw new TypeError(`${name} is invalid`);
   return normalized;
+}
+
+function normalizeProjectAssetMetadata(value) {
+  if (value == null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) throw new TypeError('metadata must be an object');
+  let serialized;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    throw new TypeError('metadata must be JSON serializable');
+  }
+  if (typeof serialized !== 'string') throw new TypeError('metadata must be JSON serializable');
+  if (serialized.length > 16_000) throw new TypeError('metadata is too large');
+  return JSON.parse(serialized);
 }
 
 function codedError(code, message) {
@@ -225,6 +240,7 @@ export function createProjectStore(db, {
       height = null,
       parentAssetId = null,
       retentionClass = 'source',
+      metadata = {},
     }) {
       const owner = normalizeOwner(ownerEmail);
       const project = requireProject(owner, projectId);
@@ -233,6 +249,7 @@ export function createProjectStore(db, {
       const url = cleanProjectAssetValue(stableUrl, 'stableUrl');
       const hash = cleanProjectAssetValue(contentHash, 'contentHash', 256);
       const type = cleanProjectAssetValue(mimeType, 'mimeType', 160).toLowerCase();
+      const metadataJson = JSON.stringify(normalizeProjectAssetMetadata(metadata));
       if (/^https?:\/\//i.test(url)) throw new TypeError('stableUrl must be an owned application asset URL');
       if (versionId) requireVersion(project.id, versionId);
       if (parentAssetId) {
@@ -249,11 +266,11 @@ export function createProjectStore(db, {
       const createdAt = timestamp().toISOString();
       db.prepare(`INSERT INTO project_assets
         (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, parent_asset_id,
-         content_hash, stable_url, mime_type, width, height, retention_class, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+         content_hash, stable_url, mime_type, width, height, metadata_json, retention_class, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, externalAssetId, owner, project.id, versionId, generationRunId, normalizedRole, parentAssetId,
         hash, url, type, Number.isSafeInteger(width) ? width : null, Number.isSafeInteger(height) ? height : null,
-        cleanProjectAssetValue(retentionClass, 'retentionClass', 40), createdAt,
+        metadataJson, cleanProjectAssetValue(retentionClass, 'retentionClass', 40), createdAt,
       );
       return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(id));
     },
