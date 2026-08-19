@@ -2092,3 +2092,11 @@
 - Canvas 新增项目素材导入适配和音频节点，导入不会调用 provider、创建生成任务或扣除积分；MIME 类型优先于客户端展示提示，避免媒体类型伪造影响渲染。
 - 本地证据：定向 `20/20`、全量 `1899/1899`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过；匿名首页和移动端无溢出检查通过。真实登录态下的私有项目素材卡片交互仍未伪造会话验证。
 - 该提交涉及 `src/pages/EcCanvas/`，上线必须按 `full` 生产门禁执行；视频线程领域文件未修改，继续由视频线程维护并通过 canonical asset contract 消费该桥接。
+
+## 2026-08-20 Canvas Project Asset Bridge Production Release
+
+- 正式部署提交 `3d9c86d`（包含功能提交 `42a4998`）已上线 `https://shuimg.cn`；部署脚本按 `full` 执行并完成远端锁释放。
+- 发布前全量回归 `1899/1899`、生产构建 `6524` modules、构建检查、协作检查和差异检查通过；线上健康 `ready`，图库 `117` 张，公开视频合同 `2` 个，
+  认证视频 canary 通过，视频 `providerSubmissions=0`、`paidGenerationRequested=false`。
+- 完整 `600` 秒公网金丝雀通过，真实电商验收两轮均返回 `3` 个稳定素材；最终线上电商活跃任务 `0`、图片队列 active/queued 均为 `0`，部署锁已释放。
+- 本轮没有修改视频线程文件；视频线程继续负责视频域能力，主线程维护 canonical project assets、Canvas/Works 桥接和发布验收。
