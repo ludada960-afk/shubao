@@ -33,6 +33,7 @@ import { assertVideoRendererPreflightIntegrity } from './videoRendererPreflight.
 import { normalizeShotDirection } from './videoShotDirection.mjs';
 import { normalizeVideoProvenance, verifiedVideoProvenance } from './videoProvenance.mjs';
 import { assertShotRecoveryPlanIntegrity, buildShotRecoveryPlan } from './videoShotRecovery.mjs';
+import { assertCanonicalProjectAssetRef } from './projects/projectAssetContract.mjs';
 
 const ASSET_KINDS = new Set(['product', 'person', 'wardrobe', 'scene', 'prop', 'style', 'voice', 'music']);
 const BINDING_ROLES = new Set([
@@ -56,6 +57,42 @@ function normalizeOwner(value) {
 
 function clean(value, max = 1000) {
   return String(value ?? '').trim().slice(0, max);
+}
+
+function projectAssetIdFromRef(value) {
+  if (value && typeof value === 'object') return clean(value.projectAssetId || value.id, 256);
+  return clean(value, 256);
+}
+
+function publicProjectAssetRef(asset, { role = '', expectedContentHash = '' } = {}) {
+  if (!asset) return null;
+  const metadata = asset.metadata && typeof asset.metadata === 'object' && !Array.isArray(asset.metadata)
+    ? asset.metadata : {};
+  const normalizedRole = clean(role || asset.role || 'reference', 80);
+  const normalizedHash = clean(expectedContentHash || asset.contentHash, 256);
+  const ref = assertCanonicalProjectAssetRef({
+    projectId: asset.projectId,
+    projectAssetId: asset.projectAssetId,
+    role: normalizedRole,
+    expectedContentHash: normalizedHash,
+  }, asset);
+  return {
+    ...ref,
+    assetId: clean(asset.assetId, 256),
+    contentHash: clean(asset.contentHash, 256),
+    mimeType: clean(asset.mimeType, 160).toLowerCase(),
+    width: Number.isSafeInteger(asset.width) ? asset.width : null,
+    height: Number.isSafeInteger(asset.height) ? asset.height : null,
+    durationMs: Number.isSafeInteger(asset.durationMs) ? asset.durationMs
+      : Number.isSafeInteger(metadata.durationMs) ? metadata.durationMs : null,
+    aspectRatio: clean(asset.aspectRatio || metadata.aspectRatio, 40) || null,
+    thumbnailProjectAssetId: projectAssetIdFromRef(asset.thumbnailProjectAssetId || metadata.thumbnailProjectAssetId) || null,
+    sourceProjectAssetIds: Array.isArray(asset.sourceProjectAssetIds || metadata.sourceProjectAssetIds)
+      ? (asset.sourceProjectAssetIds || metadata.sourceProjectAssetIds).map(item => projectAssetIdFromRef(item)).filter(Boolean)
+      : [],
+    generationRunId: clean(asset.generationRunId || metadata.generationRunId, 256) || null,
+    retentionState: clean(asset.retentionState, 40) || null,
+  };
 }
 
 function replayPayload(manifest) {
@@ -365,6 +402,8 @@ function versionFromRow(row) {
     contentHash: row.content_hash,
     mimeType: row.mime_type,
     metadata: parseJson(row.metadata_json, {}),
+    projectAssetRef: null,
+    projectAssetRefStatus: row.source_project_asset_id ? 'unverified-legacy' : 'missing',
     createdAt: row.created_at,
   };
 }
@@ -409,6 +448,8 @@ function candidateFromRow(row) {
   const storedStatus = clean(storedProvenance?.status, 40)
     || (row.provenance_status && row.provenance_status !== 'planned' ? clean(row.provenance_status, 40) : fallbackStatus);
   const provenance = normalizeVideoProvenance(storedProvenance, storedStatus);
+  const projectAssetRef = storedProvenance?.projectAssetRef && typeof storedProvenance.projectAssetRef === 'object'
+    ? storedProvenance.projectAssetRef : null;
   return {
     id: row.id,
     ownerEmail: row.owner_email,
@@ -422,6 +463,8 @@ function candidateFromRow(row) {
     status: row.status,
     provenanceStatus: provenance.status,
     provenance,
+    projectAssetRef,
+    projectAssetRefStatus: projectAssetRef?.projectAssetId ? 'unverified-legacy' : 'missing',
     createdAt: row.created_at,
   };
 }
@@ -786,11 +829,14 @@ function tableColumns(db, tableName) {
 export function createVideoWorkbenchStore({
   db,
   projectStore,
+  projectAssetStore = null,
+  projectAssetBridge = null,
   now = () => new Date(),
   randomUUID = crypto.randomUUID,
 } = {}) {
   if (!db?.prepare || !projectStore?.getProject) throw new TypeError('video workbench requires db and projectStore');
   ensureSchema(db);
+  const canonicalAssetStore = projectAssetBridge || projectAssetStore || projectStore;
 
   const timestamp = () => {
     const value = now();
@@ -804,6 +850,63 @@ export function createVideoWorkbenchStore({
     if (!project || project.kind !== 'video') throw coded('PROJECT_NOT_FOUND', 'video project not found');
     return { owner, project };
   };
+  const requireCanonicalProjectAsset = ({ ownerEmail, projectId, projectAssetId, expectedContentHash, role = 'reference' }) => {
+    if (typeof canonicalAssetStore?.getProjectAsset !== 'function') {
+      throw coded('PROJECT_ASSET_BRIDGE_UNAVAILABLE', 'canonical project asset bridge is unavailable');
+    }
+    const canonicalId = projectAssetIdFromRef(projectAssetId);
+    if (!canonicalId) throw coded('PROJECT_ASSET_REF_INVALID', 'projectAssetId is required');
+    const asset = canonicalAssetStore.getProjectAsset({ ownerEmail, projectId, projectAssetId: canonicalId });
+    if (!asset) throw coded('PROJECT_ASSET_NOT_FOUND', 'canonical project asset not found');
+    try {
+      return { asset, ref: publicProjectAssetRef(asset, { role, expectedContentHash }) };
+    } catch (error) {
+      throw coded('PROJECT_ASSET_REF_INVALID', error?.message || 'canonical project asset reference is invalid');
+    }
+  };
+  const createCanonicalProjectAsset = ({ ownerEmail, projectId, assetId, role, stableUrl, contentHash, mimeType,
+    width = null, height = null, durationMs = null, aspectRatio = null, thumbnailProjectAssetId = null,
+    sourceProjectAssetIds = [], generationRunId = null, retentionClass = 'source', metadata = {} }) => {
+    if (typeof canonicalAssetStore?.createProjectAsset !== 'function') {
+      throw coded('PROJECT_ASSET_BRIDGE_UNAVAILABLE', 'canonical project asset bridge is unavailable');
+    }
+    const asset = canonicalAssetStore.createProjectAsset({
+      ownerEmail,
+      projectId,
+      assetId,
+      role,
+      stableUrl,
+      contentHash,
+      mimeType,
+      width,
+      height,
+      retentionClass,
+      generationRunId,
+      metadata: {
+        ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {}),
+        ...(durationMs === null ? {} : { durationMs }),
+        ...(aspectRatio ? { aspectRatio } : {}),
+        ...(thumbnailProjectAssetId ? { thumbnailProjectAssetId } : {}),
+        ...(Array.isArray(sourceProjectAssetIds) && sourceProjectAssetIds.length ? { sourceProjectAssetIds } : {}),
+      },
+    });
+    return requireCanonicalProjectAsset({
+      ownerEmail,
+      projectId,
+      projectAssetId: asset.projectAssetId,
+      expectedContentHash: asset.contentHash,
+      role,
+    });
+  };
+  const lookupCanonicalProjectAsset = ({ ownerEmail, projectId, projectAssetId, expectedContentHash, role = 'reference' }) => {
+    if (!projectAssetId) return null;
+    try {
+      return requireCanonicalProjectAsset({ ownerEmail, projectId, projectAssetId, expectedContentHash, role });
+    } catch (error) {
+      if (['PROJECT_ASSET_NOT_FOUND', 'PROJECT_ASSET_REF_INVALID'].includes(error?.code)) return null;
+      throw error;
+    }
+  };
   const requireAsset = (owner, projectId, assetId) => {
     const asset = assetFromRow(db.prepare(`SELECT * FROM video_workbench_assets
       WHERE id = ? AND owner_email = ? AND project_id = ?`).get(assetId, owner, projectId));
@@ -816,6 +919,20 @@ export function createVideoWorkbenchStore({
     if (!version) throw coded('ASSET_VERSION_NOT_FOUND', 'asset version not found');
     return version;
   };
+  const hydrateVersion = version => {
+    const canonical = lookupCanonicalProjectAsset({
+      ownerEmail: version.ownerEmail,
+      projectId: version.projectId,
+      projectAssetId: version.sourceProjectAssetId,
+      expectedContentHash: version.contentHash,
+      role: 'reference',
+    });
+    return {
+      ...version,
+      projectAssetRef: canonical?.ref || null,
+      projectAssetRefStatus: canonical?.ref ? 'verified' : (version.sourceProjectAssetId ? 'unverified-legacy' : 'missing'),
+    };
+  };
   const requireShot = (owner, projectId, shotId) => {
     const shot = shotFromRow(db.prepare(`SELECT * FROM video_storyboard_shots
       WHERE id = ? AND owner_email = ? AND project_id = ?`).get(shotId, owner, projectId));
@@ -827,6 +944,22 @@ export function createVideoWorkbenchStore({
       WHERE id = ? AND shot_id = ? AND owner_email = ? AND project_id = ?`).get(candidateId, shotId, owner, projectId));
     if (!candidate) throw coded('CANDIDATE_NOT_FOUND', 'candidate not found');
     return candidate;
+  };
+  const hydrateCandidate = candidate => {
+    const canonical = candidate.projectAssetRef?.projectAssetId
+      ? lookupCanonicalProjectAsset({
+        ownerEmail: candidate.ownerEmail,
+        projectId: candidate.projectId,
+        projectAssetId: candidate.projectAssetRef.projectAssetId,
+        expectedContentHash: candidate.projectAssetRef.expectedContentHash || candidate.contentHash,
+        role: candidate.projectAssetRef.role || 'generated-video',
+      })
+      : null;
+    return {
+      ...candidate,
+      projectAssetRef: canonical?.ref || null,
+      projectAssetRefStatus: canonical?.ref ? 'verified' : (candidate.projectAssetRef?.projectAssetId ? 'unverified-legacy' : 'missing'),
+    };
   };
   const requireClip = (owner, projectId, clipId) => {
     const clip = clipFromRow(db.prepare(`SELECT * FROM video_timeline_clips
@@ -899,25 +1032,93 @@ export function createVideoWorkbenchStore({
       return requireAsset(owner, project.id, id);
     },
 
-    addAssetVersion({ ownerEmail, projectId, assetId, sourceProjectAssetId = null, stableUrl, contentHash, mimeType, metadata = {} }) {
+    addAssetVersion({ ownerEmail, projectId, assetId, sourceProjectAssetId = null, projectAssetRef = null,
+      stableUrl, contentHash, mimeType, metadata = {} }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       requireAsset(owner, project.id, assetId);
-      const url = clean(stableUrl, 2000);
-      const hash = clean(contentHash, 256);
-      const type = clean(mimeType, 160);
-      if (!url || !hash || !type) throw coded('INVALID_BINDING', 'stableUrl, contentHash and mimeType are required');
+      const suppliedMetadata = metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {};
+      let canonical = projectAssetRef
+        ? requireCanonicalProjectAsset({
+          ownerEmail: owner,
+          projectId: project.id,
+          projectAssetId: projectAssetRef,
+          expectedContentHash: contentHash,
+          role: projectAssetRef?.role || 'reference',
+        })
+        : null;
+      const requestedUrl = clean(stableUrl, 2000);
+      const requestedHash = clean(contentHash, 256);
+      const requestedType = clean(mimeType, 160).toLowerCase();
+      if (!requestedUrl || !requestedHash || !requestedType) {
+        throw coded('INVALID_BINDING', 'stableUrl, contentHash and mimeType are required');
+      }
+      if (!canonical && sourceProjectAssetId) {
+        canonical = lookupCanonicalProjectAsset({
+          ownerEmail: owner,
+          projectId: project.id,
+          projectAssetId: sourceProjectAssetId,
+          expectedContentHash: requestedHash,
+          role: suppliedMetadata.role || 'reference',
+        });
+        if (!canonical) {
+          canonical = createCanonicalProjectAsset({
+            ownerEmail: owner,
+            projectId: project.id,
+            assetId: projectAssetIdFromRef(sourceProjectAssetId),
+            role: clean(suppliedMetadata.role, 80) || 'reference',
+            stableUrl: requestedUrl,
+            contentHash: requestedHash,
+            mimeType: requestedType,
+            metadata: suppliedMetadata,
+            retentionClass: 'source',
+          });
+        }
+      }
+      if (!canonical) {
+        const urlAssetId = requestedUrl.match(/\/([^/?#]+)(?:[?#].*)?$/)?.[1] || '';
+        let fallbackAssetId = projectAssetIdFromRef(sourceProjectAssetId) || urlAssetId;
+        try {
+          fallbackAssetId = decodeURIComponent(fallbackAssetId);
+        } catch {
+          // Keep the URL token when it is not valid URI encoding.
+        }
+        canonical = createCanonicalProjectAsset({
+          ownerEmail: owner,
+          projectId: project.id,
+          assetId: fallbackAssetId || `${assetId}-${requestedHash}`,
+          role: clean(suppliedMetadata.role, 80) || 'reference',
+          stableUrl: requestedUrl,
+          contentHash: requestedHash,
+          mimeType: requestedType,
+          metadata: suppliedMetadata,
+          retentionClass: 'source',
+        });
+      }
+      const url = clean(canonical?.asset?.stableUrl || requestedUrl, 2000);
+      const hash = clean(canonical?.asset?.contentHash || requestedHash, 256);
+      const type = clean(canonical?.asset?.mimeType || requestedType, 160).toLowerCase();
       return db.transaction(() => {
+        const existing = db.prepare(`SELECT * FROM video_workbench_asset_versions
+          WHERE owner_email = ? AND project_id = ? AND asset_id = ?
+            AND ((source_project_asset_id = ?) OR (source_project_asset_id IS NULL AND ? IS NULL))
+            AND stable_url = ? AND content_hash = ? AND mime_type = ?
+          ORDER BY sequence LIMIT 1`).get(
+          owner, project.id, assetId, canonical?.ref?.projectAssetId || null,
+          canonical?.ref?.projectAssetId || null, url, hash, type,
+        );
+        if (existing) return hydrateVersion(versionFromRow(existing));
         const sequence = db.prepare(`SELECT COALESCE(MAX(sequence), 0) + 1 AS value
-          FROM video_workbench_asset_versions WHERE asset_id = ?`).get(assetId).value;
+          FROM video_workbench_asset_versions WHERE asset_id = ? AND owner_email = ? AND project_id = ?`)
+          .get(assetId, owner, project.id).value;
         const id = randomUUID();
         db.prepare(`INSERT INTO video_workbench_asset_versions
           (id, asset_id, owner_email, project_id, sequence, source_project_asset_id,
            stable_url, content_hash, mime_type, metadata_json, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-          id, assetId, owner, project.id, sequence, clean(sourceProjectAssetId, 256) || null,
-          url, hash, type, JSON.stringify(metadata || {}), timestamp(),
+          id, assetId, owner, project.id, sequence, canonical?.ref?.projectAssetId || null,
+          url, hash, type, JSON.stringify(suppliedMetadata), timestamp(),
         );
-        return versionFromRow(db.prepare('SELECT * FROM video_workbench_asset_versions WHERE id = ?').get(id));
+        return hydrateVersion(versionFromRow(db.prepare('SELECT * FROM video_workbench_asset_versions WHERE id = ?').get(id)));
       })();
     },
 
@@ -934,20 +1135,32 @@ export function createVideoWorkbenchStore({
       if (!mimeType.startsWith(mimePrefix) || !contentHash || !Number.isSafeInteger(source.bytes) || source.bytes <= 0) {
         throw coded('VIDEO_ASSET_NOT_READY', 'uploaded media is not durably verified');
       }
+      const sourceMetadata = {
+        ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {}),
+        sourceKind: source.kind,
+        fileName: clean(source.file_name, 500),
+        bytes: source.bytes,
+      };
+      const canonical = createCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId: project.id,
+        assetId: source.id,
+        role: clean(sourceMetadata.role, 80) || 'reference',
+        stableUrl: `/api/video/assets/${encodeURIComponent(source.id)}`,
+        contentHash,
+        mimeType,
+        metadata: sourceMetadata,
+        retentionClass: 'source',
+      });
       return api.addAssetVersion({
         ownerEmail: owner,
         projectId: project.id,
         assetId,
-        sourceProjectAssetId: source.id,
-        stableUrl: `/api/video/assets/${encodeURIComponent(source.id)}`,
+        projectAssetRef: canonical.ref,
+        stableUrl: canonical.asset.stableUrl,
         contentHash,
         mimeType,
-        metadata: {
-          ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {}),
-          sourceKind: source.kind,
-          fileName: clean(source.file_name, 500),
-          bytes: source.bytes,
-        },
+        metadata: sourceMetadata,
       });
     },
 
@@ -1040,7 +1253,7 @@ export function createVideoWorkbenchStore({
     },
 
     registerCandidate({ ownerEmail, projectId, shotId, generationJobId = null, outputAssetId, stableUrl, contentHash, mimeType,
-      provenance = null }) {
+      provenance = null, projectAssetRef = null }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       requireShot(owner, project.id, shotId);
       const outputId = clean(outputAssetId, 256);
@@ -1055,7 +1268,10 @@ export function createVideoWorkbenchStore({
       if (existing) return existing;
       const id = randomUUID();
       const provenanceStatus = generationJobId ? 'unverified-legacy' : 'planned';
-      const normalizedProvenance = normalizeVideoProvenance(provenance, provenanceStatus);
+      const normalizedProvenance = normalizeVideoProvenance({
+        ...(provenance && typeof provenance === 'object' ? provenance : {}),
+        ...(projectAssetRef ? { projectAssetRef } : {}),
+      }, provenanceStatus);
       db.prepare(`INSERT INTO video_shot_candidates
         (id, owner_email, project_id, shot_id, generation_job_id, output_asset_id,
          stable_url, content_hash, mime_type, provenance_status, provenance_json, created_at)
@@ -1087,6 +1303,37 @@ export function createVideoWorkbenchStore({
         || !clean(output.sha256, 256) || !outputMimeType.startsWith('video/')) {
         throw coded('VIDEO_JOB_NOT_READY', 'verified video delivery is missing');
       }
+      const sourceProjectAssetIds = db.prepare(`SELECT DISTINCT v.source_project_asset_id, pa.content_hash
+        FROM video_shot_asset_bindings b
+        JOIN video_workbench_asset_versions v ON v.id = b.asset_version_id
+        JOIN project_assets pa ON pa.id = v.source_project_asset_id
+        WHERE b.owner_email = ? AND b.project_id = ? AND b.shot_id = ?
+          AND v.source_project_asset_id IS NOT NULL`).all(owner, project.id, shotId)
+        .map(row => lookupCanonicalProjectAsset({
+          ownerEmail: owner,
+          projectId: project.id,
+          projectAssetId: row.source_project_asset_id,
+          expectedContentHash: row.content_hash,
+          role: 'reference',
+        })?.ref?.projectAssetId)
+        .filter(Boolean);
+      const canonical = createCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId: project.id,
+        assetId: output.id,
+        role: 'generated-video',
+        stableUrl: `/api/video/assets/${encodeURIComponent(output.id)}`,
+        contentHash: output.sha256,
+        mimeType: outputMimeType,
+        generationRunId: job.id,
+        metadata: {
+          sourceKind: 'video-output',
+          bytes: output.bytes,
+          generationJobId: job.id,
+          ...(sourceProjectAssetIds.length ? { sourceProjectAssetIds } : {}),
+        },
+        retentionClass: 'generated',
+      });
       let provenance = normalizeVideoProvenance(null, 'unverified-legacy');
       if (job.current_attempt_id && tableExists(db, 'video_job_attempts')) {
         const attempt = db.prepare(`SELECT provider, model, request_hash, provider_task_id
@@ -1113,6 +1360,7 @@ export function createVideoWorkbenchStore({
         contentHash: output.sha256,
         mimeType: outputMimeType,
         provenance,
+        projectAssetRef: canonical.ref,
       });
     },
 
@@ -1213,6 +1461,37 @@ export function createVideoWorkbenchStore({
           WHERE id = ? AND owner_email = ? AND project_id = ?`).run(
           next.position, next.trimStartMs, next.trimEndMs, next.muted ? 1 : 0,
           changedAt, current.id, owner, project.id,
+        );
+        return requireClip(owner, project.id, current.id);
+      })();
+    },
+
+    replaceTimelineClipCandidate({ ownerEmail, projectId, clipId, expectedRevision, candidateId }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      return db.transaction(() => {
+        const current = requireClip(owner, project.id, clipId);
+        if (current.revision !== expectedRevision) {
+          throw coded('VERSION_CONFLICT', 'timeline clip revision conflict', current);
+        }
+        const shot = requireShot(owner, project.id, current.shotId);
+        const candidate = requireCandidate(owner, project.id, shot.id, candidateId);
+        if (shot.status === 'stale' || shot.selectedCandidateId !== candidate.id) {
+          throw coded('INVALID_TIMELINE_CANDIDATE', 'timeline clip replacement must use the current candidate of a non-stale shot');
+        }
+        if (current.status === 'active') {
+          if (current.candidateId !== candidate.id) {
+            throw coded('INVALID_TIMELINE_CANDIDATE', 'active timeline clip cannot be replaced implicitly');
+          }
+          return current;
+        }
+        if (current.status !== 'stale') {
+          throw coded('INVALID_TIMELINE_CANDIDATE', 'only a stale timeline clip can be replaced');
+        }
+        const changedAt = timestamp();
+        db.prepare(`UPDATE video_timeline_clips SET candidate_id = ?, status = 'active',
+          revision = revision + 1, updated_at = ?
+          WHERE id = ? AND owner_email = ? AND project_id = ?`).run(
+          candidate.id, changedAt, current.id, owner, project.id,
         );
         return requireClip(owner, project.id, current.id);
       })();
@@ -2189,11 +2468,13 @@ export function createVideoWorkbenchStore({
       const assets = db.prepare(`SELECT * FROM video_workbench_assets
         WHERE owner_email = ? AND project_id = ? ORDER BY created_at, id`).all(owner, project.id).map(assetFromRow);
       const versions = db.prepare(`SELECT * FROM video_workbench_asset_versions
-        WHERE owner_email = ? AND project_id = ? ORDER BY asset_id, sequence`).all(owner, project.id).map(versionFromRow);
+        WHERE owner_email = ? AND project_id = ? ORDER BY asset_id, sequence`).all(owner, project.id)
+        .map(versionFromRow).map(hydrateVersion);
       const bindings = db.prepare(`SELECT * FROM video_shot_asset_bindings
         WHERE owner_email = ? AND project_id = ? ORDER BY created_at, asset_id`).all(owner, project.id).map(bindingFromRow);
       const candidates = db.prepare(`SELECT * FROM video_shot_candidates
-        WHERE owner_email = ? AND project_id = ? ORDER BY created_at, id`).all(owner, project.id).map(candidateFromRow);
+        WHERE owner_email = ? AND project_id = ? ORDER BY created_at, id`).all(owner, project.id)
+        .map(candidateFromRow).map(hydrateCandidate);
       const shots = db.prepare(`SELECT * FROM video_storyboard_shots
         WHERE owner_email = ? AND project_id = ? ORDER BY position, created_at`).all(owner, project.id).map(row => ({
         ...shotFromRow(row),

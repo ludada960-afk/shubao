@@ -29,6 +29,20 @@ export function normalizeVideoProvenance(input = null, fallbackStatus = 'planned
   const costCny = finiteCost(source.costCny);
   const generatedAt = cleanDate(source.generatedAt);
   const provenanceSource = clean(source.source, 80);
+  const sourceProjectAssetRef = source.projectAssetRef && typeof source.projectAssetRef === 'object'
+    && !Array.isArray(source.projectAssetRef) ? source.projectAssetRef : null;
+  const projectAssetRef = sourceProjectAssetRef
+    && clean(sourceProjectAssetRef.projectId, 256)
+    && clean(sourceProjectAssetRef.projectAssetId, 256)
+    && clean(sourceProjectAssetRef.role, 80)
+    && clean(sourceProjectAssetRef.expectedContentHash, 256)
+    ? {
+      projectId: clean(sourceProjectAssetRef.projectId, 256),
+      projectAssetId: clean(sourceProjectAssetRef.projectAssetId, 256),
+      role: clean(sourceProjectAssetRef.role, 80),
+      expectedContentHash: clean(sourceProjectAssetRef.expectedContentHash, 256),
+    }
+    : null;
 
   if (provider) value.provider = provider;
   if (model) value.model = model;
@@ -38,6 +52,7 @@ export function normalizeVideoProvenance(input = null, fallbackStatus = 'planned
   if (costCny !== null) value.costCny = costCny;
   if (generatedAt) value.generatedAt = generatedAt;
   if (provenanceSource) value.source = provenanceSource;
+  if (projectAssetRef) value.projectAssetRef = projectAssetRef;
 
   if (status === 'verified') {
     const complete = value.provider && value.model && value.requestId
@@ -45,7 +60,7 @@ export function normalizeVideoProvenance(input = null, fallbackStatus = 'planned
       && value.source === 'provider-attempt';
     if (!complete) return { status: 'unverified-legacy' };
   }
-  if (status === 'planned') return { status: 'planned' };
+  if (status === 'planned') return value;
   return value;
 }
 

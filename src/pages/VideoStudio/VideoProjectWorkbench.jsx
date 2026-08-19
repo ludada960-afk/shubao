@@ -52,6 +52,7 @@ import {
   importWorkbenchAssetVersion,
   removeVideoProjectMemoryFact,
   selectShotCandidate,
+  replaceTimelineClipCandidate,
   upsertVideoProjectMemoryFact,
   updateStoryboardShot,
   updateTimelineClip,
@@ -943,6 +944,15 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }));
   }
 
+  function handleReplaceTimelineClip(clip, shot) {
+    const selected = selectedCandidateForShot(shot);
+    if (!clip?.id || !shot?.id || !selected?.id || clip.status !== 'stale') return;
+    void runMutation(`timeline:replace:${clip.id}`, () => replaceTimelineClipCandidate(projectId, clip.id, {
+      expectedRevision: clip.revision,
+      candidateId: selected.id,
+    }));
+  }
+
   function handleAddAudioTrack({ asset, version }) {
     if (!asset?.id || !version?.id || audioTrackForAsset(workbench, asset.id, version.id)) return;
     void runMutation(`audio:create:${asset.id}`, () => createVideoAudioTrack(projectId, {
@@ -1370,6 +1380,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
                 <label><span>终点</span><input type="number" min="0" step="0.1" value={draft.end} disabled={Boolean(busy)} onChange={event => updateClipDraft(clip, 'end', event.target.value)} onBlur={() => handleSaveClipTrim(clip)} /></label>
               </div>
               <div className="video-project-timeline-actions">
+                {clip.status === 'stale' && selectedCandidateForShot(shot)?.id && <button type="button" className="video-project-timeline-replace" aria-label="应用新候选" title="应用当前选定候选" disabled={Boolean(busy)} onClick={() => handleReplaceTimelineClip(clip, shot)}>{busy === `timeline:replace:${clip.id}` ? <LoaderCircle className="is-spinning" size={13} /> : <RefreshCw size={13} />}</button>}
                 <button type="button" aria-label="片段前移" title="片段前移" disabled={Boolean(busy) || clip.status !== 'active' || clip.position === 0} onClick={() => handleMoveTimelineClip(clip, -1)}><ChevronLeft size={13} /></button>
                 <button type="button" aria-label="片段后移" title="片段后移" disabled={Boolean(busy) || clip.status !== 'active'} onClick={() => handleMoveTimelineClip(clip, 1)}><ChevronRight size={13} /></button>
                 <button type="button" aria-label={clip.muted ? '取消片段静音' : '片段静音'} title={clip.muted ? '取消片段静音' : '片段静音'} disabled={Boolean(busy) || clip.status !== 'active'} onClick={() => handleToggleTimelineClip(clip)}>{clip.muted ? <VolumeX size={13} /> : <Volume2 size={13} />}</button>

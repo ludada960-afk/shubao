@@ -297,6 +297,14 @@ export async function updateTimelineClip(projectId, clipId, payload = {}) {
   return requireValue(response, 'clip', '时间线片段暂时不可用，请稍后重试');
 }
 
+export async function replaceTimelineClipCandidate(projectId, clipId, payload = {}) {
+  const response = await requestJson(`${workbenchBase(projectId)}/timeline/clips/${timelineClipSegment(clipId)}/replace-candidate`, {
+    method: 'POST',
+    ...jsonBody(payload),
+  }, '暂时无法应用新的视频候选');
+  return requireValue(response, 'clip', '时间线片段暂时不可用，请稍后重试');
+}
+
 export async function createVideoAudioTrack(projectId, payload = {}) {
   const response = await requestJson(`${workbenchBase(projectId)}/audio-tracks`, {
     method: 'POST',

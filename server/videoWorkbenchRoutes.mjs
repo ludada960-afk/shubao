@@ -94,6 +94,9 @@ function routeError(error, res) {
   if (code === 'INVALID_TIMELINE_CLIP') {
     return res.status(400).json({ code, error: '时间线片段参数无效，请检查位置和剪辑范围' });
   }
+  if (code === 'INVALID_TIMELINE_CANDIDATE') {
+    return res.status(409).json({ code, error: '候选版本已变化，请刷新镜头后再应用' });
+  }
   if (code === 'INVALID_VIDEO_EXPORT') {
     return res.status(400).json({ code, error: error.message || '视频导出清单参数无效，请检查时间线和音轨' });
   }
@@ -155,14 +158,16 @@ function projectPlayableMedia(workbench, ownerEmail, req, playbackUrlForAsset) {
       ...asset,
       versions: asset.versions.map(version => ({
         ...version,
-        playbackUrl: version.sourceProjectAssetId ? playback(version.sourceProjectAssetId) : '',
+        playbackUrl: version.sourceProjectAssetId
+          ? playback(version.projectAssetRef?.assetId || version.sourceProjectAssetId)
+          : '',
       })),
     })),
     shots: workbench.shots.map(shot => ({
       ...shot,
       candidates: shot.candidates.map(candidate => ({
         ...candidate,
-        playbackUrl: playback(candidate.outputAssetId),
+        playbackUrl: playback(candidate.projectAssetRef?.assetId || candidate.outputAssetId),
       })),
     })),
   };
@@ -440,6 +445,15 @@ export function mountVideoWorkbenchRoutes(app, {
       clipId: req.params.clipId,
       expectedRevision: req.body?.expectedRevision,
       patch: req.body?.patch,
+    })
+  ), { key: 'clip' }));
+
+  app.post('/api/video/projects/:projectId/workbench/timeline/clips/:clipId/replace-candidate', (req, res) => dispatch(req, res, 'timeline.clip.replace-candidate', request => (
+    store.replaceTimelineClipCandidate({
+      ...request,
+      clipId: req.params.clipId,
+      expectedRevision: req.body?.expectedRevision,
+      candidateId: req.body?.candidateId,
     })
   ), { key: 'clip' }));
 

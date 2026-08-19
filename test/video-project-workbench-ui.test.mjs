@@ -56,6 +56,7 @@ test('project workbench exposes real persisted stages without provider controls 
     'bindShotAssetVersion',
     'importJobCandidate',
     'selectShotCandidate',
+    'replaceTimelineClipCandidate',
     'addTimelineClip',
     'updateTimelineClip',
     'upsertVideoProjectMemoryFact',
@@ -108,6 +109,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /handleSetAudioVolume/);
   assert.match(component, /handleMoveTimelineClip/);
   assert.match(component, /handleToggleTimelineClip/);
+  assert.match(component, /handleReplaceTimelineClip/);
+  assert.match(component, /应用新候选/);
   assert.match(component, /起点/);
   assert.match(component, /终点/);
   assert.match(component, /保存创作配方/);

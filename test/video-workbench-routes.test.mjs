@@ -318,7 +318,7 @@ test('compiles an approved generation draft without billing or provider mutation
   assert.match(draft.body.draft.preflight.preflightHash, /^[a-f0-9]{64}$/);
   assert.equal(draft.body.draft.preflight.requirements.enforce, false);
   assert.equal(draft.body.draft.preflight.requirements.budgetCapPoints, 1000);
-  assert.equal(draft.body.draft.shots[0].references[0].sourceProjectAssetId, 'route-upload');
+  assert.equal(draft.body.draft.shots[0].references[0].sourceProjectAssetId, version.sourceProjectAssetId);
   assert.ok(draft.body.draft.id);
   assert.equal(draft.body.draft.replayed, false);
   const replayed = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/generation-draft', {
@@ -748,6 +748,43 @@ test('timeline clip route persists trim, reorder, and mute changes with revision
   });
   assert.equal(conflict.statusCode, 409);
   assert.equal(conflict.body.code, 'VERSION_CONFLICT');
+});
+
+test('timeline clip replacement route applies only the selected replacement candidate', async t => {
+  const { app, db, project, store, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const shot = store.createShot({ ownerEmail, projectId: project.id, position: 0,
+    purpose: '候选替换', durationMs: 4000 });
+  const first = store.registerCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'route-replace-a', stableUrl: '/api/video/assets/route-replace-a',
+    contentHash: 'route-replace-a-hash', mimeType: 'video/mp4' });
+  const second = store.registerCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    outputAssetId: 'route-replace-b', stableUrl: '/api/video/assets/route-replace-b',
+    contentHash: 'route-replace-b-hash', mimeType: 'video/mp4' });
+  store.selectCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: first.id, expectedRevision: shot.revision });
+  const clip = store.addTimelineClip({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: first.id, position: 0, trimStartMs: 0, trimEndMs: 4000 });
+  store.selectCandidate({ ownerEmail, projectId: project.id, shotId: shot.id,
+    candidateId: second.id, expectedRevision: 2 });
+
+  const replaced = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/timeline/clips/:clipId/replace-candidate', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, clipId: clip.id },
+    body: { expectedRevision: 2, candidateId: second.id },
+  });
+  assert.equal(replaced.statusCode, 200);
+  assert.equal(replaced.body.clip.status, 'active');
+  assert.equal(replaced.body.clip.candidateId, second.id);
+  assert.equal(replaced.body.clip.revision, 3);
+
+  const staleRevision = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/timeline/clips/:clipId/replace-candidate', {
+    headers: signedHeaders(sessionTokens, ownerEmail),
+    params: { projectId: project.id, clipId: clip.id },
+    body: { expectedRevision: 2, candidateId: second.id },
+  });
+  assert.equal(staleRevision.statusCode, 409);
+  assert.equal(staleRevision.body.code, 'VERSION_CONFLICT');
 });
 
 test('workbench routes validate shot duration at the HTTP boundary', async t => {

@@ -477,7 +477,7 @@ test('replay manifest clone rejects tampered manifests and foreign owners', t =>
 });
 
 test('uploaded media is imported as an immutable asset version from authoritative storage', t => {
-  const { db, store, project } = harness();
+  const { db, projectStore, store, project } = harness();
   t.after(() => db.close());
   seedUploadedVideoAsset(db);
   seedUploadedVideoAsset(db, { assetId: 'foreign-upload', ownerEmail: 'other@example.com' });
@@ -494,11 +494,23 @@ test('uploaded media is imported as an immutable asset version from authoritativ
     metadata: { role: 'product' },
   });
 
-  assert.equal(version.sourceProjectAssetId, 'upload-1');
+  const canonical = projectStore.getProjectAsset({ ownerEmail: OWNER, projectId: project.id, projectAssetId: version.sourceProjectAssetId });
+  assert.ok(canonical);
+  assert.notEqual(version.sourceProjectAssetId, 'upload-1');
+  assert.equal(canonical.assetId, 'upload-1');
+  assert.equal(canonical.projectId, project.id);
+  assert.equal(canonical.stableUrl, '/api/video/assets/upload-1');
+  assert.equal(version.sourceProjectAssetId, canonical.projectAssetId);
   assert.equal(version.stableUrl, '/api/video/assets/upload-1');
   assert.equal(version.contentHash, 'verified-upload-hash');
   assert.equal(version.mimeType, 'image/png');
   assert.deepEqual(version.metadata, {
+    role: 'product',
+    sourceKind: 'image',
+    fileName: 'product.png',
+    bytes: 4096,
+  });
+  assert.deepEqual(canonical.metadata, {
     role: 'product',
     sourceKind: 'image',
     fileName: 'product.png',
@@ -516,6 +528,20 @@ test('uploaded media is imported as an immutable asset version from authoritativ
   assert.throws(() => store.addAssetVersionFromVideoAsset({
     ownerEmail: OWNER, projectId: project.id, assetId: asset.id, videoAssetId: 'mismatched-upload',
   }), error => error.code === 'VIDEO_ASSET_NOT_READY');
+});
+
+test('ordinary workbench versions receive a canonical asset identity when no source id is supplied', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const asset = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'voice', name: '旁白' });
+  const version = store.addAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: asset.id,
+    stableUrl: '/api/video/assets/voice-track', contentHash: 'voice-track-hash', mimeType: 'audio/mpeg' });
+  const canonical = projectStore.getProjectAsset({ ownerEmail: OWNER, projectId: project.id,
+    projectAssetId: version.sourceProjectAssetId });
+  assert.ok(canonical);
+  assert.equal(canonical.assetId, 'voice-track');
+  assert.equal(canonical.mediaKind, 'audio');
+  assert.equal(version.projectAssetRefStatus, 'verified');
 });
 
 test('asset approval changes mark pinned shots and active clips stale without rewriting bindings', t => {
@@ -613,6 +639,48 @@ test('candidate registration is idempotent and selection never silently rewrites
   assert.equal(projection.timelineClips.find(item => item.id === clip.id).status, 'stale');
 });
 
+test('stale timeline clips can be replaced by the newly selected candidate without rewriting other shots', t => {
+  const { db, store, project } = harness();
+  t.after(() => db.close());
+  const shots = [0, 1, 2].map(position => store.createShot({
+    ownerEmail: OWNER, projectId: project.id, position, purpose: `镜头${position + 1}`, durationMs: 3000,
+  }));
+  const candidates = shots.map((shot, index) => ({
+    first: store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+      outputAssetId: `replace-a-${index}`, stableUrl: `/api/video/assets/replace-a-${index}`,
+      contentHash: `replace-a-hash-${index}`, mimeType: 'video/mp4' }),
+    second: store.registerCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+      outputAssetId: `replace-b-${index}`, stableUrl: `/api/video/assets/replace-b-${index}`,
+      contentHash: `replace-b-hash-${index}`, mimeType: 'video/mp4' }),
+  }));
+  const clips = shots.map((shot, index) => {
+    store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+      candidateId: candidates[index].first.id, expectedRevision: shot.revision });
+    return store.addTimelineClip({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+      candidateId: candidates[index].first.id, position: index, trimStartMs: 0, trimEndMs: 3000 });
+  });
+
+  const selected = store.selectCandidate({ ownerEmail: OWNER, projectId: project.id, shotId: shots[1].id,
+    candidateId: candidates[1].second.id, expectedRevision: 2 });
+  assert.equal(selected.candidate.id, candidates[1].second.id);
+  assert.equal(store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).timelineClips
+    .find(clip => clip.id === clips[1].id).status, 'stale');
+
+  const replaced = store.replaceTimelineClipCandidate({ ownerEmail: OWNER, projectId: project.id,
+    clipId: clips[1].id, expectedRevision: 2, candidateId: candidates[1].second.id });
+  assert.equal(replaced.status, 'active');
+  assert.equal(replaced.candidateId, candidates[1].second.id);
+  const projection = store.listWorkbench({ ownerEmail: OWNER, projectId: project.id });
+  assert.deepEqual(projection.timelineClips.map(clip => [clip.position, clip.status, clip.candidateId]), [
+    [0, 'active', candidates[0].first.id],
+    [1, 'active', candidates[1].second.id],
+    [2, 'active', candidates[2].first.id],
+  ]);
+  assert.throws(() => store.replaceTimelineClipCandidate({ ownerEmail: OWNER, projectId: project.id,
+    clipId: clips[1].id, expectedRevision: replaced.revision, candidateId: candidates[1].first.id }),
+  error => error.code === 'INVALID_TIMELINE_CANDIDATE');
+});
+
 test('timeline clips support owner-scoped trim, reorder, and mute updates with optimistic revisions', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());
@@ -649,11 +717,19 @@ test('timeline clips support owner-scoped trim, reorder, and mute updates with o
 });
 
 test('completed generation jobs are imported as candidates from authoritative delivery records', t => {
-  const { db, store, project } = harness();
+  const { db, projectStore, store, project } = harness();
   t.after(() => db.close());
   seedCompletedVideoJob(db, { projectId: project.id });
   const shot = store.createShot({ ownerEmail: OWNER, projectId: project.id, position: 0,
     purpose: '开场', durationMs: 4000 });
+  const sourceAsset = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'product', name: '耳机' });
+  const sourceVersion = store.addAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: sourceAsset.id,
+    sourceProjectAssetId: 'source-upload', stableUrl: '/api/video/assets/source-upload',
+    contentHash: 'source-upload-hash', mimeType: 'image/png' });
+  store.approveAssetVersion({ ownerEmail: OWNER, projectId: project.id, assetId: sourceAsset.id,
+    versionId: sourceVersion.id, expectedRevision: sourceAsset.revision });
+  store.bindShotAssetVersion({ ownerEmail: OWNER, projectId: project.id, shotId: shot.id,
+    assetId: sourceAsset.id, assetVersionId: sourceVersion.id, role: 'product' });
 
   const candidate = store.registerCandidateFromJob({
     ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'job-1',
@@ -663,6 +739,14 @@ test('completed generation jobs are imported as candidates from authoritative de
   assert.equal(candidate.stableUrl, '/api/video/assets/output-1');
   assert.equal(candidate.contentHash, 'verified-output-hash');
   assert.equal(candidate.mimeType, 'video/mp4');
+  const canonical = projectStore.getProjectAsset({ ownerEmail: OWNER, projectId: project.id,
+    projectAssetId: store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).shots[0].candidates[0].projectAssetRef?.projectAssetId });
+  assert.ok(canonical);
+  assert.equal(canonical.assetId, 'output-1');
+  assert.equal(canonical.mimeType, 'video/mp4');
+  assert.equal(canonical.generationRunId, 'job-1');
+  assert.deepEqual(canonical.metadata.sourceProjectAssetIds, [sourceVersion.sourceProjectAssetId]);
+  assert.equal(store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).shots[0].candidates[0].projectAssetRefStatus, 'verified');
   assert.equal(store.registerCandidateFromJob({
     ownerEmail: OWNER, projectId: project.id, shotId: shot.id, generationJobId: 'job-1',
   }).id, candidate.id);
@@ -708,6 +792,13 @@ test('candidate provenance distinguishes planning, legacy, and verified delivery
     requestId: 'provider-task-1', requestHash: 'request-hash',
     catalogVersion: 'catalog-v2', costCny: 2.5,
     generatedAt: '2026-08-15T08:00:00.000Z', source: 'provider-attempt',
+    projectAssetRef: {
+      projectId: project.id,
+      projectAssetId: store.listWorkbench({ ownerEmail: OWNER, projectId: project.id }).shots[0].candidates
+        .find(item => item.generationJobId === 'verified-job').projectAssetRef.projectAssetId,
+      role: 'generated-video',
+      expectedContentHash: 'verified-output-hash',
+    },
   });
 });
 

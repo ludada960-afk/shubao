@@ -31,6 +31,7 @@ import {
   completeVideoSkillRunStep,
   updateStoryboardShot,
   updateTimelineClip,
+  replaceTimelineClipCandidate,
   createVideoAudioTrack,
   updateVideoAudioTrack,
 } from '../src/services/videoWorkbench.js';
@@ -150,6 +151,27 @@ test('video workbench client rejects invalid path IDs before fetching', async t 
   await assert.rejects(updateStoryboardShot('project-1', '', {}), /请选择有效的分镜/);
   await assert.rejects(getVideoSkillRun('project-1', ''), /请选择有效的 SkillRun/);
   assert.equal(called, false);
+});
+
+test('video workbench client applies a selected replacement candidate with optimistic revision', async t => {
+  installSession('signed-replacement-session');
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (path, options = {}) => {
+    request = { path, options };
+    return jsonResponse({ clip: { id: 'clip-1', status: 'active', candidateId: 'candidate-b', revision: 3 } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const clip = await replaceTimelineClipCandidate('project / 1', 'clip / 1', {
+    expectedRevision: 2,
+    candidateId: 'candidate-b',
+  });
+  assert.equal(clip.candidateId, 'candidate-b');
+  assert.equal(request.path, '/api/video/projects/project%20%2F%201/workbench/timeline/clips/clip%20%2F%201/replace-candidate');
+  assert.equal(request.options.method, 'POST');
+  assert.equal(request.options.headers.Authorization, 'Bearer signed-replacement-session');
+  assert.deepEqual(JSON.parse(request.options.body), { expectedRevision: 2, candidateId: 'candidate-b' });
 });
 
 test('video workbench client confirms a plan with its immutable hash', async t => {
