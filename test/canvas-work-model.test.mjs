@@ -22,12 +22,23 @@ test('video works remain visible without image thumbnails and filter as video', 
       title: '商品短视频',
       video_url: '/api/video/assets/result.mp4',
       video: { duration: 8, resolution: '720p' },
+      projectAssetRefs: [{
+        projectId: 'video-project-1',
+        projectAssetId: 'video-result-1',
+        assetId: 'result.mp4',
+        contentHash: 'video-hash',
+        stableUrl: '/api/video/assets/result.mp4',
+        mimeType: 'video/mp4',
+        role: 'generated_video',
+      }],
     }],
   });
   assert.equal(works.length, 1);
   assert.equal(works[0].videoUrl, '/api/video/assets/result.mp4');
   assert.equal(canvasWorkCategory(works[0]), 'video');
   assert.equal(filterCanvasWorks(works, 'video').length, 1);
+  assert.equal(works[0].projectAssetRefs[0].projectAssetId, 'video-result-1');
+  assert.equal(buildCanvasImportResult(works[0], { importId: 'video-import' }).projectAssetRefs[0].mediaKind, 'video');
 });
 
 test('Canvas work panel keeps only the signed owner local works and preserves server metadata', () => {

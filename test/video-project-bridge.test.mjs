@@ -209,6 +209,7 @@ test('completed video jobs converge through billing, project lineage, works proj
   const projectStore = createProjectStore(db, { now });
   let settlementCalls = 0;
   let projectedWorks = 0;
+  let projectedWork = null;
   const registry = {
     get: () => ({
       enabled: true,
@@ -239,7 +240,7 @@ test('completed video jobs converge through billing, project lineage, works proj
       currency: expectedQuote.currency,
       expiresAt: '2099-01-01T00:00:00.000Z',
     }) },
-    upsertWork: () => { projectedWorks += 1; },
+    upsertWork: work => { projectedWorks += 1; projectedWork = work; },
     pollIntervalMs: 1,
     maxConcurrent: 1,
   });
@@ -288,6 +289,12 @@ test('completed video jobs converge through billing, project lineage, works proj
   assert.ok(completed.projectId);
   assert.ok(completed.sourceVersionId);
   assert.ok(completed.resultVersionId);
+  assert.equal(completed.projectAssetRef.projectId, completed.projectId);
+  assert.equal(completed.projectAssetRef.role, 'generated_video');
+  assert.equal(completed.projectAssetRef.mimeType, 'video/mp4');
+  assert.equal(completed.projectAssetRef.contentHash.length, 64);
+  assert.equal(projectedWork.projectAssetRefs[0].projectAssetId, completed.projectAssetRef.projectAssetId);
+  assert.equal(projectedWork.projectAssetRefs[0].contentHash, completed.projectAssetRef.contentHash);
   assert.equal(settlementCalls, 1);
   assert.equal(projectedWorks, 1);
   assert.equal(db.prepare('SELECT COUNT(*) AS value FROM projects').get().value, 1);

@@ -1,3 +1,5 @@
+import { assertCanonicalProjectAssetRef } from './projects/projectAssetContract.mjs';
+
 function clean(value, max = 7000) {
   return String(value ?? '').trim().slice(0, max);
 }
@@ -193,6 +195,34 @@ export function createVideoProjectBridge({ db, projectStore, now = () => new Dat
         },
         sourceAssetIds: assets.map(asset => asset.assetId),
       });
+    },
+
+    deliveryProjectAssetRef(job) {
+      const projectId = clean(job?.project_id, 140);
+      const generationRunId = clean(job?.id, 140);
+      if (!projectId || !generationRunId) return null;
+      const asset = projectStore.listProjectAssets({
+        ownerEmail: job.owner_email,
+        projectId,
+      }).find(candidate => candidate.generationRunId === generationRunId && candidate.role === 'generated_video');
+      if (!asset) return null;
+      const ref = assertCanonicalProjectAssetRef({
+        projectId: asset.projectId,
+        projectAssetId: asset.projectAssetId,
+        role: asset.role,
+        expectedContentHash: asset.contentHash,
+      }, asset);
+      return {
+        ...ref,
+        assetId: asset.assetId,
+        contentHash: asset.contentHash,
+        mimeType: asset.mimeType,
+        width: asset.width,
+        height: asset.height,
+        durationMs: Number.isSafeInteger(asset.metadata?.durationMs) ? asset.metadata.durationMs : null,
+        generationRunId: asset.generationRunId,
+        retentionClass: asset.retentionClass,
+      };
     },
 
     auditLegacyAssets() {

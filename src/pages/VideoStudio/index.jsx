@@ -643,7 +643,9 @@ export default function VideoStudioPage({ embedded = false }) {
         category: 'video',
         videoUrl: videoJob.resultUrl,
         video_url: videoJob.resultUrl,
-        video: { url: videoJob.resultUrl },
+        projectId: videoJob.projectId || '',
+        projectAssetRefs: videoJob.projectAssetRef ? [videoJob.projectAssetRef] : [],
+        video: { url: videoJob.resultUrl, ...(videoJob.projectAssetRef ? { projectAssetRef: videoJob.projectAssetRef } : {}) },
         canvasImportId: globalThis.crypto?.randomUUID?.() || `video-${videoJob.id}-${Date.now()}`,
       },
     });

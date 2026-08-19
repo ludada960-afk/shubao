@@ -53,7 +53,7 @@ function parseJson(value, fallback) {
   try { return JSON.parse(value || ''); } catch { return fallback; }
 }
 
-function serializeJob(row, resultUrl = row?.result_url || '') {
+function serializeJob(row, resultUrl = row?.result_url || '', projectAssetRef = null) {
   if (!row) return null;
   return {
     id: row.id,
@@ -86,6 +86,7 @@ function serializeJob(row, resultUrl = row?.result_url || '') {
     references: parseJson(row.refs_json, {}),
     progress: row.progress,
     resultUrl,
+    projectAssetRef,
     error: row.error || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -449,14 +450,15 @@ export function createVideoGeneration({
         ? signedAssetUrl('', row.result_asset_id, row.owner_email, 'playback', 24 * 60 * 60 * 1000)
         : `/api/video/assets/${encodeURIComponent(row.result_asset_id)}`)
       : row.result_url || '';
-    if (readNewState) return serializeJob(row, resultUrl);
+    const projectAssetRef = projectBridge?.deliveryProjectAssetRef?.(row) || null;
+    if (readNewState) return serializeJob(row, resultUrl, projectAssetRef);
     return serializeJob({
       ...row,
       billing_state: row.status === 'completed' ? 'settled' : row.billing_state,
       delivery_state: row.status === 'completed' ? 'verified' : 'none',
       project_projection_state: row.status === 'completed' ? 'projected' : 'none',
       projection_state: row.status === 'completed' ? 'projected' : 'none',
-    }, resultUrl);
+    }, resultUrl, projectAssetRef);
   }
 
   async function uploadAsset({ ownerEmail, kind, contentType, buffer, publicBaseUrl }) {
@@ -664,6 +666,7 @@ export function createVideoGeneration({
   }
 
   function upsertCompletedVideoWork(job, settlement) {
+    const projectAssetRef = projectBridge?.deliveryProjectAssetRef?.(job) || null;
     upsertWork({
       _saveKey: `video:${job.id}`,
       _phone: job.owner_email,
@@ -683,7 +686,10 @@ export function createVideoGeneration({
         resolution: job.resolution,
         generateAudio: job.generate_audio === 1,
         productId: job.product_id,
+        ...(projectAssetRef ? { projectAssetRef } : {}),
       },
+      projectId: job.project_id || projectAssetRef?.projectId || '',
+      projectAssetRefs: projectAssetRef ? [projectAssetRef] : [],
       billing: { status: settlement.status, currency: 'ec_points' },
     }, { ownerEmail: job.owner_email });
   }
