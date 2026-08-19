@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ImagePlus, Maximize2, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Maximize2, Sparkles, UserRound, X } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
@@ -7,6 +7,7 @@ import { buildImageMentions, removeImageMention } from '../../../components/crea
 import { buildUploadDeck, nextProductSlot } from './workbenchState';
 import { ECOMMERCE_ABILITY_RECIPES } from '../../../../shared/ecommerceAbilityRecipes.mjs';
 import { productionCaseById } from '../productionCaseCatalog.js';
+import { EcommerceAddCard, EcommerceImageCard } from './components/EcommerceAssetCards.jsx';
 
 const ABILITY_RESULT_COPY = {
   product_suite: '生成整套主图与详情视觉',
@@ -32,31 +33,8 @@ function AbilitySelectorFan({ recipeId }) {
   );
 }
 
-function ImageCard({ role, image, label, index, onRemove }) {
-  return (
-    <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
-      <ResponsiveImage src={image.url} variant="thumb" ratio="4:5" alt={label} style={{ width: '100%', height: '100%', background: '#fff' }} imgStyle={{ objectFit: 'cover' }} />
-      <span className="ec-xhs-card-caption">{label}</span>
-      {image.status && <span className="ec-xhs-card-status">{image.status}</span>}
-      {!image.locked && (
-        <button type="button" className="ec-xhs-card-remove" aria-label={`移除${label}`} onClick={() => onRemove(index)}>
-          <X size={10} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function AddCard({ role, label, meta, onClick, title, optional = false }) {
-  return (
-    <button type="button" className={`ec-xhs-upload-card ec-xhs-add-card ec-xhs-card-${role}`} onClick={onClick} title={title}>
-      <span className="ec-xhs-add-icon"><ImagePlus size={20} /></span>
-      {optional && <span className="ec-xhs-optional">可选</span>}
-      <span className="ec-xhs-card-title">{label}</span>
-      <span className="ec-xhs-card-meta">{meta}</span>
-    </button>
-  );
-}
+const ImageCard = EcommerceImageCard;
+const AddCard = EcommerceAddCard;
 
 function TryOnImageStack({ images, label, role, onRemove, onAdd, max = 5 }) {
   return (

@@ -67,7 +67,7 @@ function ContentPreview({ entry, plog = false, onOpen }) {
       <div className="creation-showcase-content-copy">
         <span className="creation-showcase-content-platform">小红书 · {source.cat || '图文笔记'}</span>
         <strong>{source.title}</strong>
-        <p>{getXhsPublishBody(source).split('\n').filter(Boolean).slice(0, 4).join(' ')}</p>
+        <p>{getXhsPublishBody(source)}</p>
         <div className="creation-showcase-tags">{(source.tags || []).map(tag => <span key={tag}>{tag}</span>)}</div>
         <button type="button" className="creation-showcase-content-open" onClick={() => onOpen?.(0)}><Maximize2 size={13} />查看完整发布预览</button>
         <small><Sparkles size={12} /> 已生成 9 张配图 · 标题 · 正文 · 标签</small>
@@ -111,25 +111,22 @@ function ContentShowcase({ entry, subMode = 'content' }) {
         facts: [['01', '图片结构', '9 张发布配图'], ['02', '内容交付', '标题 · 正文 · 标签'], ['03', '使用方式', '检查后直接发布']],
       };
   return (
-    <section className={`creation-showcase creation-showcase-content${isPlog ? ' is-plog' : ''}`} aria-label="小红书图文与Plog案例展示">
-      <div className="creation-showcase-heading">
-        <div><span className="creation-showcase-eyebrow">发布成品案例</span><h3>一句话生成一套能直接发布的小红书内容</h3><p>图片、标题、正文和标签一起生成，按发布结构统一检查。</p></div>
-        <span className="creation-showcase-output"><Sparkles size={14} />内容创作</span>
-      </div>
-      <div className="creation-showcase-body creation-showcase-content-body">
-        <div className="creation-showcase-copy creation-showcase-content-copy-shell">
+    <div className={`creation-showcase creation-showcase-content${isPlog ? ' is-plog' : ''}`} aria-label="小红书图文与Plog案例展示">
+      <div className="ec-workbench-heading xhs-case-heading"><strong>一句话生成一套能直接发布的小红书内容</strong><span>图片、标题、正文和标签一起生成，按发布结构统一检查。</span></div>
+      <section className="ec-product-suite-showcase xhs-case-showcase creation-showcase-body creation-showcase-content-body">
+        <div className="ec-product-suite-showcase-copy creation-showcase-copy creation-showcase-content-copy-shell">
           <span>{active.eyebrow}</span>
           <strong>{active.title}</strong>
           <p>{active.description}</p>
           <div className="creation-showcase-copy-footer"><span>案例仅用于展示能力</span><ArrowRight size={15} /></div>
         </div>
-        <div className="creation-showcase-visual creation-showcase-content-visual"><ContentPreview entry={active.entry} plog={active.id === 'plog-empty'} onOpen={active.id === 'plog-empty' ? undefined : setPreviewIndex} /></div>
-      </div>
+        <div className="ec-product-suite-showcase-visual creation-showcase-visual creation-showcase-content-visual"><ContentPreview entry={active.entry} plog={isPlog} onOpen={isPlog ? undefined : setPreviewIndex} /></div>
+      </section>
       <div className="creation-showcase-content-facts" aria-label="案例交付内容">
         {active.facts.map(([number, label, value]) => <div key={number}><span>{number}</span><small>{label}</small><strong>{value}</strong></div>)}
       </div>
       {active.entry && previewIndex !== null && <XhsPublishPreview entry={active.entry} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} />}
-    </section>
+    </div>
   );
 }
 

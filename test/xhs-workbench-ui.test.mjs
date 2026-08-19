@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const deck = await readFile(new URL('../src/pages/Home/ec/components/SupplementAssetDeck.jsx', import.meta.url), 'utf8');
+const ecommerceCards = await readFile(new URL('../src/pages/Home/ec/components/EcommerceAssetCards.jsx', import.meta.url), 'utf8');
 const xhs = await readFile(new URL('../src/pages/Home/XhsContentMode.jsx', import.meta.url), 'utf8');
 const showcaseStyles = await readFile(new URL('../src/pages/Home/CreationShowcase.css', import.meta.url), 'utf8');
 
 test('shared deck keeps ecommerce default and allows straight XHS rendering', () => {
   assert.match(deck, /tilted\s*=\s*true/);
-  assert.match(xhs, /tilted=\{false\}/);
+  assert.match(xhs, /EcommerceImageCard/);
 });
 
 test('XHS controls use independent option keys and upward panel class', () => {
@@ -19,8 +20,8 @@ test('XHS controls use independent option keys and upward panel class', () => {
 
 test('XHS compact workbench puts content and Plog in the shared top selector', () => {
   assert.match(xhs, /function XhsModeSelector/);
-  assert.match(xhs, /className="xhs-mode-selector"/);
-  assert.match(xhs, /className=\{`xhs-mode-card/);
+  assert.match(xhs, /className="ec-ability-selector xhs-ability-selector"/);
+  assert.match(xhs, /className=\{`ec-ability-selector-option/);
   assert.match(xhs, /aria-selected=\{selected\}/);
   assert.match(xhs, /<CreationShowcase mode="content" subMode=\{xhsSubMode\}/);
   assert.doesNotMatch(xhs, /className="xhs-mode-tabs"/);
@@ -32,21 +33,21 @@ test('XHS option trigger points upward while its panel is open', () => {
 });
 
 test('XHS selector styles keep the fan cards and mobile panel inside the workbench', () => {
-  assert.match(showcaseStyles, /\.xhs-mode-fan-card\.fan-card-0/);
-  assert.match(showcaseStyles, /\.xhs-mode-fan\.is-empty/);
+  assert.match(showcaseStyles, /\.xhs-ability-selector \.ec-ability-selector-fan\.is-empty/);
   assert.match(showcaseStyles, /\.xhs-workbench-card/);
-  assert.match(showcaseStyles, /\.xhs-template-option-slot \{ position: static; \}/);
   assert.match(showcaseStyles, /\.xhs-template-options--upward \{ left: 50%;/);
 });
 
-test('Plog localizes the shared upload deck without creating a second component', () => {
-  assert.match(xhs, /productUploadLabel=\{plog \? '上传生活素材' : '上传我的素材'/);
-  assert.match(xhs, /productContinuationLabel=\{plog \? '继续添加生活素材' : '继续添加我的素材'/);
+test('XHS reuses the ecommerce upload cards and localizes only the content labels', () => {
+  assert.match(xhs, /EcommerceImageCard/);
+  assert.match(xhs, /EcommerceAddCard/);
+  assert.match(xhs, /我的素材/);
+  assert.match(xhs, /生活素材/);
+  assert.match(ecommerceCards, /ec-xhs-upload-card/);
 });
 
-test('XHS upload deck receives the ecommerce card shell and compact prompt surface', () => {
-  assert.match(xhs, /className="xhs-supplement-deck"/);
-  assert.match(showcaseStyles, /\.xhs-supplement-deck \{ display: grid/);
-  assert.match(showcaseStyles, /\.xhs-supplement-deck \.supplement-asset-deck-card/);
-  assert.match(showcaseStyles, /\.xhs-input-template \.ec-xhs-prompt \{ min-height: 142px/);
+test('XHS workbench keeps the ecommerce spacing and full article body', () => {
+  assert.match(showcaseStyles, /\.xhs-input-template \.ec-xhs-composer \{ padding: 8px 10px 10px/);
+  assert.match(showcaseStyles, /\.xhs-template-tools \{ display: grid/);
+  assert.match(xhs, /9 张生活记录 \| 1 篇正文/);
 });

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Settings } from 'lucide-react';
+import { Upload, ChevronRight, ShoppingCart, Target, RefreshCw, Copy, Monitor, ChevronDown, ChevronUp, Eye, RotateCcw as RotateIcon, Settings, Images, Palette, FileText, SlidersHorizontal, Settings2, LayoutPanelTop } from 'lucide-react';
 import { MdAutoAwesome, MdExpandMore, MdAdd, MdEdit, MdGpsFixed, MdPalette, MdRefresh, MdContentCopy, MdVerified, MdChevronRight, MdVisibility, MdCheck, MdClose, MdRotateLeft, MdLightbulb, MdAddPhotoAlternate } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
@@ -45,7 +45,7 @@ import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
 import CreationShowcase from './CreationShowcase.jsx';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
-import SupplementAssetDeck from './ec/components/SupplementAssetDeck.jsx';
+import { EcommerceAddCard, EcommerceImageCard } from './ec/components/EcommerceAssetCards.jsx';
 import { buildXhsPublishPages } from './xhsPublishPreviewModel.js';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
 import './Home.css';
@@ -80,7 +80,8 @@ function XhsModeSelector({ value, onChange }) {
     { key: 'plog', label: 'Plog 生活碎片', description: '9 张生活记录 · 情绪文案', eyebrow: '案例暂未入库', images: [] },
   ];
   return (
-    <div className="xhs-mode-selector" role="tablist" aria-label="小红书创作类型">
+    <div className="ec-ability-selector xhs-ability-selector" role="tablist" aria-label="小红书创作类型">
+      <div className="ec-ability-selector-options">
       {modes.map(mode => {
         const selected = value === mode.key;
         return (
@@ -88,63 +89,44 @@ function XhsModeSelector({ value, onChange }) {
             type="button"
             role="tab"
             aria-selected={selected}
-            className={`xhs-mode-card${selected ? ' is-selected' : ''}${mode.key === 'plog' ? ' is-plog' : ''}`}
+            className={`ec-ability-selector-option${selected ? ' is-selected' : ''}${mode.key === 'plog' ? ' is-plog' : ''}`}
             key={mode.key}
             onClick={() => onChange(mode.key)}
           >
-            <span className={`xhs-mode-fan${mode.images.length === 0 ? ' is-empty' : ''}`} aria-hidden="true">
+            <span className={`ec-ability-selector-fan${mode.images.length === 0 ? ' is-empty' : ''}`} aria-hidden="true">
               {mode.images.length > 0
-                ? mode.images.map((image, index) => <span className={`xhs-mode-fan-card fan-card-${index}`} key={`${image.src}-${index}`}><img src={image.src} alt="" /></span>)
-                : <span className="xhs-mode-fan-empty">案例暂未入库</span>}
+                ? mode.images.map((image, index) => <span className={`ec-ability-selector-fan-card fan-card-${index}`} style={{ '--case-ratio': '3 / 4' }} key={`${image.src}-${index}`}><img src={image.src} alt="" /></span>)
+                : <span className="ec-ability-selector-fan-empty">案例暂未入库</span>}
             </span>
-            <span className="xhs-mode-card-copy"><small>{mode.eyebrow}</small><strong>{mode.label}</strong><span>{mode.description}</span></span>
-            {selected && <MdCheck className="xhs-mode-card-check" size={18} aria-hidden="true" />}
+            <span className="ec-ability-selector-copy"><small>{mode.eyebrow}</small><strong>{mode.label}</strong><span>{mode.description}</span></span>
+            {selected && <MdCheck className="ec-ability-selector-check" size={18} aria-hidden="true" />}
           </button>
         );
       })}
+      </div>
     </div>
   );
 }
 
 function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = false }) {
-  const toImages = (values, role) => values.map((url, index) => ({
-    id: `${plog ? 'plog' : 'xhs'}-${role}-${index}`,
-    url,
-    status: 'loaded',
-    isAdded: true,
-  }));
-  const removeAt = role => image => {
-    const values = role === 'style' ? styleImages : sourceImages;
-    const index = values.findIndex(url => url === image?.url);
-    if (index >= 0) onRemove(role, index);
+  const sourceInputRef = useRef(null);
+  const styleInputRef = useRef(null);
+  const handleFile = (role, event) => {
+    if (event.target.files?.length) onAdd(role, event.target.files);
+    event.target.value = '';
   };
   return (
-    <SupplementAssetDeck
-      productImages={toImages(sourceImages, 'source')}
-      referenceImages={toImages(styleImages, 'style')}
-      onAddProductImages={files => onAdd('source', files)}
-      onAddReferenceImages={files => onAdd('style', files)}
-      onRemoveProductImage={removeAt('source')}
-      onRemoveReferenceImage={removeAt('style')}
-      productTitle={plog ? '生活素材' : '我的素材'}
-      productHint={plog ? '保留人物、空间与生活细节' : '保留主体、人物与产品细节'}
-      productUploadLabel={plog ? '上传生活素材' : '上传我的素材'}
-      productContinuationLabel={plog ? '继续添加生活素材' : '继续添加我的素材'}
-      referenceTitle="风格参考"
-      referenceHint="借鉴构图、色调与版式，不复制主体"
-      productSuggestions={[
-        { label: '主体清晰图' }, { label: '人物或空间' }, { label: '细节补充图' },
-      ]}
-      referenceSuggestions={[
-        { label: '整体气质' }, { label: '构图参考' }, { label: '色调与版式' },
-      ]}
-      productColor={plog ? '#be185d' : '#e84142'}
-      referenceColor={plog ? '#8b5cf6' : '#c2185b'}
-      maxProductImages={6}
-      maxReferenceImages={3}
-      tilted={false}
-      className="xhs-supplement-deck"
-    />
+    <div className="ec-xhs-media-column xhs-ecommerce-media-column">
+      <div className="ec-xhs-media-strip xhs-ecommerce-media-strip">
+        {sourceImages.map((url, index) => <EcommerceImageCard key={`${url}-${index}`} role="product" image={{ url, status: 'loaded' }} label={`${plog ? '生活素材' : '我的素材'} ${index + 1}`} index={index} onRemove={() => onRemove('source', index)} />)}
+        {sourceImages.length < 6 && <EcommerceAddCard role="product" label={sourceImages.length ? '继续添加' : (plog ? '生活素材' : '我的素材')} meta={sourceImages.length ? '补充素材' : '主体与生活细节'} title={plog ? '添加生活素材' : '添加我的素材'} onClick={() => sourceInputRef.current?.click()} />}
+        <span className="ec-xhs-multiply" aria-hidden="true">×</span>
+        {styleImages.map((url, index) => <EcommerceImageCard key={`${url}-${index}`} role="reference" image={{ url, status: 'loaded' }} label={`风格参考 ${index + 1}`} index={index} onRemove={() => onRemove('style', index)} />)}
+        {styleImages.length < 3 && <EcommerceAddCard role="reference" label="风格参考" meta="构图或色调" optional title="添加风格参考" onClick={() => styleInputRef.current?.click()} />}
+      </div>
+      <input ref={sourceInputRef} type="file" accept="image/*" multiple hidden onChange={event => handleFile('source', event)} />
+      <input ref={styleInputRef} type="file" accept="image/*" multiple hidden onChange={event => handleFile('style', event)} />
+    </div>
   );
 }
 
@@ -166,12 +148,19 @@ function XhsInputTemplate({
   canGenerate,
 }) {
   const options = plog ? [
-    ['structure', '发布结构', '固定 9 张 · 标题 · 正文'],
-    ['style', '内容风格', '保留生活感'],
-    ['layout', '图片节奏', '生活碎片结构'],
+    ['settings', '生成设置', '图文 3:4', <Settings2 size={15} />],
+    ['structure', '发布方案', '9 张生活记录 | 1 篇正文', <Images size={15} />],
+    ['style', '内容风格', '保留生活感', <Palette size={15} />],
+    ['layout', '图片节奏', '生活碎片结构', <LayoutPanelTop size={15} />],
+    ['info', '文章信息', '标题 · 正文 · 标签', <FileText size={15} />],
+    ['rules', '发布规范', '小红书生活记录', <SlidersHorizontal size={15} />],
   ] : [
-    ['structure', '发布结构', '固定 9 张 · 标题 · 正文'],
-    ['content', '热门主题', '一句话快速开始'],
+    ['settings', '生成设置', '图文 3:4', <Settings2 size={15} />],
+    ['structure', '发布方案', '1 张封面 | 8 张内容页', <Images size={15} />],
+    ['style', '内容风格', '旅行攻略', <Palette size={15} />],
+    ['layout', '图片节奏', '九宫格排版', <LayoutPanelTop size={15} />],
+    ['info', '文章信息', '标题 · 正文 · 标签', <FileText size={15} />],
+    ['rules', '发布规范', '小红书发布', <SlidersHorizontal size={15} />],
   ];
   return (
     <div className={`xhs-input-template${plog ? ' is-plog' : ''}`}>
@@ -196,13 +185,12 @@ function XhsInputTemplate({
       <div className="ec-workbench-actions xhs-template-actions">
         <div className="ec-workbench-primary-row">
           <div className="ec-workbench-tools xhs-template-tools">
-            {options.map(([key, label, value]) => {
-              const isStatic = key === 'structure';
-              return <div className={`xhs-template-option-slot${isStatic ? ' is-static' : ''}`} key={key}>
-                <button type="button" className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}${isStatic ? ' is-static' : ''}`} onClick={isStatic ? undefined : () => onOptionToggle(key)} disabled={isStatic} aria-expanded={!isStatic && activeOption === key} aria-controls={!isStatic ? `xhs-option-panel-${key}` : undefined}>
-                  <span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{!isStatic && (activeOption === key ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />)}
+            {options.map(([key, label, value, icon]) => {
+              return <div className="xhs-template-option-slot" key={key}>
+                <button type="button" className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}`} onClick={() => onOptionToggle(key)} aria-expanded={activeOption === key} aria-controls={`xhs-option-panel-${key}`}>
+                  <span className="xhs-template-option-icon" aria-hidden="true">{icon}</span><span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{activeOption === key ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />}
                 </button>
-                {!isStatic && activeOption === key && optionPanels?.[key] && <div id={`xhs-option-panel-${key}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[key]}</div>}
+                {activeOption === key && optionPanels?.[key] && <div id={`xhs-option-panel-${key}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[key]}</div>}
               </div>;
             })}
           </div>
@@ -981,8 +969,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               activeOption={xhsActiveOption}
               onOptionToggle={key => setXhsActiveOption(current => current === key ? null : key)}
               optionPanels={{
+                settings: <div><strong>生成设置</strong><p>按小红书原生竖版比例生成，默认输出 1 张封面和 8 张内容页。</p></div>,
                 structure: <div><strong>小红书发布结构</strong><p>固定生成 1 张封面 + 8 张内容页，并同时交付标题、正文和标签。</p></div>,
-                content: <div><strong>选择一个主题快速开始</strong><p>主题只提供创作起点，不会锁死后续内容；你仍然可以继续修改输入框。</p><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setXhsActiveOption(null); }}>{hint}</button>)}</div></div>,
+                style: <div><strong>内容风格</strong><p>旅行攻略会优先整理行程、预算、路线和实用提醒，保留可核对的信息密度。</p><div className="xhs-option-list">{QUICK_HINTS.map(hint => <button type="button" key={hint} onClick={() => { setText(hint); setXhsActiveOption(null); }}>{hint}</button>)}</div></div>,
+                layout: <div><strong>图片节奏</strong><p>封面先给结论，后续页面按行程、预算、美食和避坑信息展开。</p></div>,
+                info: <div><strong>文章信息</strong><p>标题、正文和标签会与 9 张图片一起交付，可在生成后继续检查和编辑。</p></div>,
+                rules: <div><strong>小红书发布规范</strong><p>正文保持简体中文，标签放在正文末尾，内容按照小红书发布结构整理。</p></div>,
               }}
             />
           ) : (
@@ -1002,9 +994,12 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
               activeOption={plogActiveOption}
               onOptionToggle={key => setPlogActiveOption(current => current === key ? null : key)}
               optionPanels={{
+                settings: <div><strong>生成设置</strong><p>按小红书原生竖版比例生成 9 张生活记录图。</p></div>,
                 structure: <div><strong>Plog 发布结构</strong><p>固定生成 9 张生活碎片，并同时交付标题、情绪正文和标签。</p></div>,
                 style: <div><strong>调整 Plog 色调风格</strong><div className="xhs-option-list">{[{ k:'ins-minimal', label:'Ins 极简' }, { k:'korean-clear', label:'韩系清透' }, { k:'japanese-cream', label:'日系奶油' }, { k:'film-vintage', label:'胶片复古' }].map(item => <button type="button" key={item.k} className={plogStyle === item.k ? 'is-selected' : ''} onClick={() => setPlogStyle(item.k)}>{item.label}</button>)}</div></div>,
                 layout: <div><strong>调整 Plog 排版方式</strong><div className="xhs-option-list">{[{ k:'casual', label:'碎片风' }, { k:'polaroid', label:'拍立得' }, { k:'cinematic', label:'电影感' }, { k:'journal', label:'手账风' }, { k:'magazine', label:'杂志风' }].map(item => <button type="button" key={item.k} className={plogLayout === item.k ? 'is-selected' : ''} onClick={() => setPlogLayout(item.k)}>{item.label}</button>)}</div></div>,
+                info: <div><strong>文章信息</strong><p>标题、情绪正文和标签会与 9 张生活记录一起交付。</p></div>,
+                rules: <div><strong>小红书生活记录规范</strong><p>保留真实生活感，正文与图片节奏保持一致，生成后可以继续编辑。</p></div>,
               }}
             />
           )}
