@@ -37,6 +37,8 @@ export default function SupplementAssetDeck({
   onPreviewImage,
   productTitle = '补充产品图',
   productHint = '多角度拍摄，提升生成效果',
+  productUploadLabel = '',
+  productContinuationLabel = '',
   referenceTitle = '补充参考图',
   referenceHint = '竞品/爆款风格参考',
   productSuggestions = PRODUCT_IMAGE_SUGGESTIONS,
@@ -101,7 +103,11 @@ export default function SupplementAssetDeck({
     const isProduct = type === 'product';
     const color = isProduct ? productColor : referenceColor;
     const max = isProduct ? maxProductImages : maxReferenceImages;
-    const placeholder = getUploadPlaceholderText(count, type);
+    const placeholder = count === 0 && isProduct && productUploadLabel
+      ? productUploadLabel
+      : count > 0 && isProduct && productContinuationLabel
+        ? productContinuationLabel
+        : getUploadPlaceholderText(count, type);
 
     return (
       <div

@@ -46,12 +46,15 @@ import Button from '../../components/ui/Button';
 import CreationShowcase from './CreationShowcase.jsx';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
 import SupplementAssetDeck from './ec/components/SupplementAssetDeck.jsx';
+import { buildXhsPublishPages } from './xhsPublishPreviewModel.js';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
 import './Home.css';
 
 // 提取会话守卫（模块级，跨 StrictMode 双渲染保持状态）
 let _extractSessionToken = null;
 let observedEcommerceWorkVersion = 0;
+const XHS_CASE_ENTRY = GALLERY.find(item => item.id === 'xm');
+const XHS_CASE_FAN_IMAGES = buildXhsPublishPages(XHS_CASE_ENTRY).slice(0, 3);
 
 function insertMentionInTextarea(fieldRef, currentValue, setValue, label) {
   const field = fieldRef.current;
@@ -69,6 +72,38 @@ function insertMentionInTextarea(fieldRef, currentValue, setValue, label) {
   };
   if (globalThis.requestAnimationFrame) globalThis.requestAnimationFrame(restore);
   else globalThis.setTimeout?.(restore, 0);
+}
+
+function XhsModeSelector({ value, onChange }) {
+  const modes = [
+    { key: 'content', label: '种草图文', description: '9 张配图 · 标题 · 正文', eyebrow: '真实案例', images: XHS_CASE_FAN_IMAGES },
+    { key: 'plog', label: 'Plog 生活碎片', description: '9 张生活记录 · 情绪文案', eyebrow: '案例暂未入库', images: [] },
+  ];
+  return (
+    <div className="xhs-mode-selector" role="tablist" aria-label="小红书创作类型">
+      {modes.map(mode => {
+        const selected = value === mode.key;
+        return (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            className={`xhs-mode-card${selected ? ' is-selected' : ''}${mode.key === 'plog' ? ' is-plog' : ''}`}
+            key={mode.key}
+            onClick={() => onChange(mode.key)}
+          >
+            <span className={`xhs-mode-fan${mode.images.length === 0 ? ' is-empty' : ''}`} aria-hidden="true">
+              {mode.images.length > 0
+                ? mode.images.map((image, index) => <span className={`xhs-mode-fan-card fan-card-${index}`} key={`${image.src}-${index}`}><img src={image.src} alt="" /></span>)
+                : <span className="xhs-mode-fan-empty">案例暂未入库</span>}
+            </span>
+            <span className="xhs-mode-card-copy"><small>{mode.eyebrow}</small><strong>{mode.label}</strong><span>{mode.description}</span></span>
+            {selected && <MdCheck className="xhs-mode-card-check" size={18} aria-hidden="true" />}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = false }) {
@@ -93,6 +128,8 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
       onRemoveReferenceImage={removeAt('style')}
       productTitle={plog ? '生活素材' : '我的素材'}
       productHint={plog ? '保留人物、空间与生活细节' : '保留主体、人物与产品细节'}
+      productUploadLabel={plog ? '上传生活素材' : ''}
+      productContinuationLabel={plog ? '继续添加生活素材' : ''}
       referenceTitle="风格参考"
       referenceHint="借鉴构图、色调与版式，不复制主体"
       productSuggestions={[
@@ -162,7 +199,7 @@ function XhsInputTemplate({
               const isStatic = key === 'structure';
               return <div className={`xhs-template-option-slot${isStatic ? ' is-static' : ''}`} key={key}>
                 <button type="button" className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}${isStatic ? ' is-static' : ''}`} onClick={isStatic ? undefined : () => onOptionToggle(key)} disabled={isStatic} aria-expanded={!isStatic && activeOption === key} aria-controls={!isStatic ? `xhs-option-panel-${key}` : undefined}>
-                  <span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{!isStatic && <ChevronDown size={13} />}
+                  <span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{!isStatic && (activeOption === key ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />)}
                 </button>
                 {!isStatic && activeOption === key && optionPanels?.[key] && <div id={`xhs-option-panel-${key}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[key]}</div>}
               </div>;
@@ -924,12 +961,9 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
   if (compactMode) {
     return (
       <div className="xhs-content-surface">
-        <CreationShowcase mode="content" />
-        <div className="xhs-composer-card">
-          <div className="xhs-mode-tabs" role="tablist" aria-label="小红书创作类型">
-            <button type="button" role="tab" aria-selected={xhsSubMode === 'content'} className={xhsSubMode === 'content' ? 'is-active' : ''} onClick={() => setXhsSubMode('content')}>📝 种草图文</button>
-            <button type="button" role="tab" aria-selected={xhsSubMode === 'plog'} className={xhsSubMode === 'plog' ? 'is-active is-plog' : ''} onClick={() => setXhsSubMode('plog')}>📸 Plog 生活碎片</button>
-          </div>
+        <XhsModeSelector value={xhsSubMode} onChange={setXhsSubMode} />
+        <CreationShowcase mode="content" subMode={xhsSubMode} />
+        <div className="xhs-workbench-card">
           {xhsSubMode === 'content' ? (
             <XhsInputTemplate
               text={inputText}

@@ -10,5 +10,7 @@ test('XHS showcase reuses the shared publish modal contract', () => {
   assert.match(source, /hashtags: Array\.isArray\(entry\.tags\)/);
   assert.match(source, /initialImageIndex=\{initialIndex\}/);
   assert.match(source, /creation-showcase-body creation-showcase-content-body/);
-  assert.match(source, /creation-showcase-content-tabs/);
+  assert.match(source, /subMode === 'plog'/);
+  assert.match(source, /案例暂未入库/);
+  assert.doesNotMatch(source, /creation-showcase-content-tabs/);
 });

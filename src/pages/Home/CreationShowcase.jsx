@@ -51,7 +51,7 @@ function ContentPreview({ entry, plog = false, onOpen }) {
     return (
       <div className="creation-showcase-content-empty">
         <span className="creation-showcase-empty-mark"><Sparkles size={18} /></span>
-        <strong>Plog 案例待补充</strong>
+        <strong>案例暂未入库</strong>
         <p>生成第一套生活碎片后，这里会展示九宫格、情绪文案和发布结构。</p>
         <small>当前不使用虚构案例</small>
       </div>
@@ -92,32 +92,26 @@ function XhsPublishPreview({ entry, initialIndex = 0, onClose }) {
   return <NoteModal item={item} initialImageIndex={initialIndex} onClose={onClose} />;
 }
 
-function ContentShowcase({ entry }) {
-  const [caseIndex, setCaseIndex] = useState(0);
+function ContentShowcase({ entry, subMode = 'content' }) {
   const [previewIndex, setPreviewIndex] = useState(null);
-  const cases = [
-    {
-      id: 'xhs-xiamen',
-      label: '种草图文',
-      eyebrow: '小红书图文 · 真实案例',
-      title: '厦门 3 天 2 夜，一套图文直接发布',
-      description: '从一句旅行主题开始，统一生成封面、行程图片、标题、正文和标签，用户可以直接检查和编辑。',
-      entry: entry || GALLERY.find(item => item.id === 'xm'),
-      facts: [['01', '图片结构', '9 张发布配图'], ['02', '内容交付', '标题 · 正文 · 标签'], ['03', '使用方式', '检查后直接发布']],
-    },
-    {
-      id: 'plog-empty',
-      label: 'Plog 生活碎片',
-      eyebrow: 'Plog · 案例位',
-      title: '生活素材整理成一套有情绪的记录',
-      description: 'Plog 生成案例尚未入库。用户上传生活素材并完成第一次生成后，这里会替换成真实的九宫格和文案成品。',
-      entry: null,
-      facts: [['01', '图片结构', '9 张生活碎片'], ['02', '内容交付', '情绪文案与标签'], ['03', '当前状态', '等待真实案例']],
-    },
-  ];
-  const active = cases[caseIndex];
+  const isPlog = subMode === 'plog';
+  const active = isPlog
+    ? {
+        eyebrow: 'Plog · 案例位',
+        title: '生活素材整理成一套有情绪的记录',
+        description: 'Plog 真实案例暂未入库。上传生活素材并完成第一次生成后，这里会替换成真实的九宫格和文案成品。',
+        entry: null,
+        facts: [['01', '图片结构', '9 张生活碎片'], ['02', '内容交付', '情绪文案与标签'], ['03', '当前状态', '案例暂未入库']],
+      }
+    : {
+        eyebrow: '小红书图文 · 真实案例',
+        title: '厦门 3 天 2 夜，一套图文直接发布',
+        description: '从一句旅行主题开始，统一生成封面、行程图片、标题、正文和标签，用户可以直接检查和编辑。',
+        entry: entry || GALLERY.find(item => item.id === 'xm'),
+        facts: [['01', '图片结构', '9 张发布配图'], ['02', '内容交付', '标题 · 正文 · 标签'], ['03', '使用方式', '检查后直接发布']],
+      };
   return (
-    <section className="creation-showcase creation-showcase-content" aria-label="小红书图文与Plog案例展示">
+    <section className={`creation-showcase creation-showcase-content${isPlog ? ' is-plog' : ''}`} aria-label="小红书图文与Plog案例展示">
       <div className="creation-showcase-heading">
         <div><span className="creation-showcase-eyebrow">发布成品案例</span><h3>一句话生成一套能直接发布的小红书内容</h3><p>图片、标题、正文和标签一起生成，按发布结构统一检查。</p></div>
         <span className="creation-showcase-output"><Sparkles size={14} />内容创作</span>
@@ -127,9 +121,6 @@ function ContentShowcase({ entry }) {
           <span>{active.eyebrow}</span>
           <strong>{active.title}</strong>
           <p>{active.description}</p>
-          <div className="creation-showcase-content-tabs" role="tablist" aria-label="图文案例切换">
-            {cases.map((item, index) => <button type="button" key={item.id} role="tab" aria-selected={index === caseIndex} className={index === caseIndex ? 'is-active' : ''} onClick={() => { setCaseIndex(index); setPreviewIndex(null); }}>{item.label}</button>)}
-          </div>
           <div className="creation-showcase-copy-footer"><span>案例仅用于展示能力</span><ArrowRight size={15} /></div>
         </div>
         <div className="creation-showcase-visual creation-showcase-content-visual"><ContentPreview entry={active.entry} plog={active.id === 'plog-empty'} onOpen={active.id === 'plog-empty' ? undefined : setPreviewIndex} /></div>
@@ -154,7 +145,7 @@ function VisualPreview({ assets, index, onChange }) {
 }
 
 export function CreationShowcase({ mode = 'content', subMode = '', entry }) {
-  if (mode === 'content') return <ContentShowcase entry={entry?.content || entry} />;
+  if (mode === 'content') return <ContentShowcase entry={entry?.content || entry} subMode={subMode} />;
   const showcase = normalizeShowcase({ mode, subMode, entry });
   const [visualIndex, setVisualIndex] = useState(0);
   const assets = useMemo(() => assetListFor(showcase.mode, showcase.subMode, entry), [showcase.mode, showcase.subMode, entry]);
