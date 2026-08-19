@@ -7,6 +7,8 @@ import {
   getVideoExportManifest,
   getVideoExportJob,
   listVideoExportJobs,
+  recoverVideoExportJob,
+  retryVideoExportJob,
   listVideoExportManifests,
 } from '../src/services/videoWorkbench.js';
 
@@ -49,12 +51,18 @@ test('video export job client keeps the renderer handoff owner-scoped', async t 
   await createVideoExportJob('project / 1', 'manifest / 1');
   await listVideoExportJobs('project / 1', { limit: 5 });
   await getVideoExportJob('project / 1', 'job / 1');
+  await recoverVideoExportJob('project / 1', 'job / 1');
+  await retryVideoExportJob('project / 1', 'job / 1');
   assert.deepEqual(requests.map(({ path, options }) => ({
     path, method: options.method || 'GET', authorization: options.headers.Authorization,
   })), [
     { path: '/api/video/projects/project%20%2F%201/workbench/export-jobs', method: 'POST', authorization: 'Bearer export-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/export-jobs?limit=5', method: 'GET', authorization: 'Bearer export-session' },
     { path: '/api/video/projects/project%20%2F%201/workbench/export-jobs/job%20%2F%201', method: 'GET', authorization: 'Bearer export-session' },
+    { path: '/api/video/projects/project%20%2F%201/workbench/export-jobs/job%20%2F%201/recover', method: 'POST', authorization: 'Bearer export-session' },
+    { path: '/api/video/projects/project%20%2F%201/workbench/export-jobs/job%20%2F%201/retry', method: 'POST', authorization: 'Bearer export-session' },
   ]);
   assert.deepEqual(JSON.parse(requests[0].options.body), { manifestId: 'manifest / 1' });
+  assert.deepEqual(JSON.parse(requests[3].options.body), {});
+  assert.deepEqual(JSON.parse(requests[4].options.body), {});
 });

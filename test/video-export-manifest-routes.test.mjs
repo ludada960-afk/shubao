@@ -84,9 +84,11 @@ test('mounts renderer handoff routes without exposing provider execution', async
     createExportJob: ({ manifestId }) => ({
       id: 'job-1', manifestId, state: 'waiting_renderer', replayed: manifestId === 'manifest-replay',
       providerSubmission: false, billingMutation: false,
+      ownerEmail: 'owner@example.com', preflightJson: '{"secret":true}',
+      workerId: 'worker-secret', leaseToken: 'lease-secret', leaseExpiresAt: 'future', jobHash: 'hash-secret',
     }),
-    listExportJobs: () => [{ id: 'job-1', state: 'waiting_renderer' }],
-    getExportJob: () => ({ id: 'job-1', state: 'waiting_renderer' }),
+    listExportJobs: () => [{ id: 'job-1', state: 'waiting_renderer', leaseToken: 'lease-secret' }],
+    getExportJob: () => ({ id: 'job-1', state: 'waiting_renderer', preflightJson: '{"secret":true}' }),
     recordOperation: () => {},
   };
   mountVideoWorkbenchRoutes(fakeApp, {
@@ -108,6 +110,10 @@ test('mounts renderer handoff routes without exposing provider execution', async
   await invoke('POST', '/api/video/projects/:projectId/workbench/export-jobs', request({ manifestId: 'manifest-1' }), created);
   assert.equal(created.statusCode, 202);
   assert.equal(created.body.job.providerSubmission, false);
+  assert.equal(created.body.job.ownerEmail, undefined);
+  assert.equal(created.body.job.preflightJson, undefined);
+  assert.equal(created.body.job.leaseToken, undefined);
+  assert.equal(created.body.job.jobHash, undefined);
   const replayed = response();
   await invoke('POST', '/api/video/projects/:projectId/workbench/export-jobs', request({ manifestId: 'manifest-replay' }), replayed);
   assert.equal(replayed.statusCode, 200);
@@ -117,6 +123,8 @@ test('mounts renderer handoff routes without exposing provider execution', async
   const read = response();
   await invoke('GET', '/api/video/projects/:projectId/workbench/export-jobs/:jobId', request({}, {}, { projectId: 'project-1', jobId: 'job-1' }), read);
   assert.equal(read.body.job.id, 'job-1');
+  assert.equal(read.body.job.preflightJson, undefined);
+  assert.equal(read.body.job.leaseToken, undefined);
 });
 
 test('maps stale renderer handoffs to a conflict response', async () => {
@@ -139,4 +147,68 @@ test('maps stale renderer handoffs to a conflict response', async () => {
   );
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.code, 'EXPORT_JOB_STALE');
+});
+
+test('mounts owner-scoped renderer recovery and retry without provider or billing mutation', async () => {
+  const fakeApp = app();
+  const calls = [];
+  const store = {
+    listWorkbench: () => ({ project: { id: 'project-1', kind: 'video' }, assets: [], shots: [], timelineClips: [] }),
+    recoverExportJob: request => {
+      calls.push(['recover', request]);
+      return { id: request.jobId, projectId: request.projectId, state: 'failed', providerSubmission: false, billingMutation: false };
+    },
+    transitionExportJob: request => {
+      calls.push(['retry', request]);
+      return { id: request.jobId, projectId: request.projectId, state: request.nextState, providerSubmission: false, billingMutation: false };
+    },
+    recordOperation: () => {},
+  };
+  mountVideoWorkbenchRoutes(fakeApp, {
+    enabled: true,
+    store,
+    authenticateOwner: () => 'owner@example.com',
+    authorizeCohort: { requireEligible: () => ({ ok: true }) },
+    playbackUrlForAsset: () => '/media/test',
+  });
+  const request = (body, params = { projectId: 'project-1', jobId: 'job-1' }) => ({ headers: {}, body, query: {}, params });
+  const recovered = response();
+  await fakeApp.routes.get('POST /api/video/projects/:projectId/workbench/export-jobs/:jobId/recover')(
+    request({ now: '2026-08-20T00:00:00.000Z' }), recovered,
+  );
+  const retried = response();
+  await fakeApp.routes.get('POST /api/video/projects/:projectId/workbench/export-jobs/:jobId/retry')(
+    request({}), retried,
+  );
+  assert.equal(recovered.body.job.state, 'failed');
+  assert.equal(retried.body.job.state, 'waiting_renderer');
+  assert.deepEqual(calls, [
+    ['recover', { ownerEmail: 'owner@example.com', projectId: 'project-1', jobId: 'job-1' }],
+    ['retry', { ownerEmail: 'owner@example.com', projectId: 'project-1', jobId: 'job-1', nextState: 'waiting_renderer' }],
+  ]);
+  assert.equal(retried.body.job.providerSubmission, false);
+  assert.equal(retried.body.job.billingMutation, false);
+});
+
+test('planning-only workbench rejects renderer recovery and retry', async () => {
+  const fakeApp = app();
+  const store = { listWorkbench: () => ({ project: { id: 'project-1' }, assets: [], shots: [], timelineClips: [] }), recordOperation: () => {} };
+  mountVideoWorkbenchRoutes(fakeApp, {
+    enabled: true,
+    planningOnly: true,
+    store,
+    authenticateOwner: () => 'owner@example.com',
+    authorizeCohort: { requireEligible: () => ({ ok: true }) },
+    playbackUrlForAsset: () => '/media/test',
+  });
+  const request = { headers: {}, body: {}, query: {}, params: { projectId: 'project-1', jobId: 'job-1' } };
+  for (const path of [
+    'POST /api/video/projects/:projectId/workbench/export-jobs/:jobId/recover',
+    'POST /api/video/projects/:projectId/workbench/export-jobs/:jobId/retry',
+  ]) {
+    const res = response();
+    await fakeApp.routes.get(path)(request, res);
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.body.code, 'VIDEO_WORKBENCH_PLANNING_ONLY');
+  }
 });

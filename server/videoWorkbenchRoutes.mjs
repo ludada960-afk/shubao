@@ -18,6 +18,7 @@ const NOT_FOUND_CODES = new Set([
   'REPLAY_MANIFEST_NOT_FOUND',
   'EXPORT_MANIFEST_NOT_FOUND',
   'EXPORT_JOB_NOT_FOUND',
+  'RENDER_OUTBOX_NOT_FOUND',
   'MEMORY_FACT_NOT_FOUND',
   'MEMORY_ASSET_NOT_FOUND',
   'AUDIO_TRACK_NOT_FOUND',
@@ -122,7 +123,8 @@ function routeError(error, res) {
 }
 
 function handle(res, action, {
-  status = 200, key, store = null, operationRequest = null, operationName = '',
+  status = 200, key, transform = value => value,
+  store = null, operationRequest = null, operationName = '',
 } = {}) {
   const startedAt = performance.now();
   const observe = (outcome, error = null) => {
@@ -143,11 +145,32 @@ function handle(res, action, {
     const value = action();
     observe('success');
     const responseStatus = typeof status === 'function' ? status(value) : status;
-    return res.status(responseStatus).json(key ? { [key]: value } : value);
+    const responseValue = transform(value);
+    return res.status(responseStatus).json(key ? { [key]: responseValue } : responseValue);
   } catch (error) {
     observe('failure', error);
     return routeError(error, res);
   }
+}
+
+// Renderer leases and preflight payloads are server/worker facts. Keep them
+// out of browser responses even when a store method returns its internal row.
+function publicExportJob(job) {
+  if (!job || typeof job !== 'object') return job;
+  const publicFields = [
+    'id', 'projectId', 'manifestId', 'manifestHash', 'preflightHash',
+    'state', 'attempt', 'renderer', 'providerSubmission', 'billingMutation',
+    'outputAssetId', 'outputUrl', 'errorCode', 'errorMessage',
+    'createdAt', 'updatedAt', 'startedAt', 'completedAt', 'canceledAt',
+    'replayed',
+  ];
+  return Object.fromEntries(publicFields
+    .filter(field => Object.prototype.hasOwnProperty.call(job, field))
+    .map(field => [field, job[field]]));
+}
+
+function publicExportJobs(jobs) {
+  return Array.isArray(jobs) ? jobs.map(publicExportJob) : jobs;
 }
 
 function projectPlayableMedia(workbench, ownerEmail, req, playbackUrlForAsset) {
@@ -206,7 +229,7 @@ export function mountVideoWorkbenchRoutes(app, {
     // Authenticate and enforce the owner cohort before exposing mode-specific
     // behavior. An anonymous caller must still receive the auth response,
     // while an eligible owner gets the explicit planning-mode contract.
-    if (planningOnly && operationName === 'export-job.create') {
+    if (planningOnly && ['export-job.create', 'export-job.recover', 'export-job.retry'].includes(operationName)) {
       return routeError(Object.assign(new Error('planning workbench cannot create renderer jobs'), {
         code: 'VIDEO_WORKBENCH_PLANNING_ONLY',
       }), res);
@@ -510,21 +533,37 @@ export function mountVideoWorkbenchRoutes(app, {
       manifestId: req.body?.manifestId,
       preflight: req.body?.preflight,
       requirePreflight: req.body?.requirePreflight === true,
-    }), { status: value => (value?.replayed ? 200 : 202), key: 'job' },
+    }), { status: value => (value?.replayed ? 200 : 202), key: 'job',
+      transform: publicExportJob },
   ));
 
   app.get('/api/video/projects/:projectId/workbench/export-jobs', (req, res) => dispatch(
     req, res, 'export-job.list', request => store.listExportJobs({
       ...request,
       limit: req.query?.limit,
-    }), { key: 'jobs' },
+    }), { key: 'jobs', transform: publicExportJobs },
   ));
 
   app.get('/api/video/projects/:projectId/workbench/export-jobs/:jobId', (req, res) => dispatch(
     req, res, 'export-job.read', request => store.getExportJob({
       ...request,
       jobId: req.params.jobId,
-    }), { key: 'job' },
+    }), { key: 'job', transform: publicExportJob },
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/export-jobs/:jobId/recover', (req, res) => dispatch(
+    req, res, 'export-job.recover', request => store.recoverExportJob({
+      ...request,
+      jobId: req.params.jobId,
+    }), { key: 'job', transform: publicExportJob },
+  ));
+
+  app.post('/api/video/projects/:projectId/workbench/export-jobs/:jobId/retry', (req, res) => dispatch(
+    req, res, 'export-job.retry', request => store.transitionExportJob({
+      ...request,
+      jobId: req.params.jobId,
+      nextState: 'waiting_renderer',
+    }), { key: 'job', transform: publicExportJob },
   ));
 
   app.post('/api/video/projects/:projectId/workbench/replay-manifests', (req, res) => dispatch(

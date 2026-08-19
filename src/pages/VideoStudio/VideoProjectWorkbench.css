@@ -416,3 +416,15 @@
 .video-project-export-manifest { min-height: 52px; margin-top: 12px; padding: 9px 11px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; border: 1px solid #cfe0f5; border-radius: 7px; color: #37608f; background: rgba(239,247,255,.8); }
 .video-project-export-manifest strong { font-size: 11px; }
 .video-project-export-manifest span { color: #6d829a; font-size: 10px; }
+.video-project-export-job { min-height: 52px; margin-top: 9px; padding: 9px 11px; display: flex; align-items: center; flex-wrap: wrap; gap: 7px 12px; border: 1px solid #dbe3ef; border-radius: 7px; color: #40536c; background: rgba(248,250,253,.92); }
+.video-project-export-job > div { display: inline-flex; align-items: center; gap: 8px; }
+.video-project-export-job strong { font-size: 11px; color: #23334a; }
+.video-project-export-job small { flex: 1 1 240px; color: #718198; font-size: 10px; }
+.video-project-export-job-state { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+.video-project-export-job-state.is-waiting_renderer { color: #7553bf; background: #f0eaff; }
+.video-project-export-job-state.is-rendering { color: #1669a9; background: #e3f2ff; }
+.video-project-export-job-state.is-failed { color: #a64a36; background: #fff0ed; }
+.video-project-export-job-state.is-completed { color: #2b7c59; background: #e7f7ee; }
+.video-project-export-job-state.is-canceled { color: #6e7784; background: #edf0f4; }
+.video-project-export-job button { min-height: 28px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #cad8ea; border-radius: 6px; color: #3166ad; background: #fff; font-size: 10px; font-weight: 800; }
+.video-project-export-job button:disabled { cursor: not-allowed; opacity: .48; }

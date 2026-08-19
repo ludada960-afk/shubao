@@ -41,6 +41,10 @@ import {
   listVideoReplayManifests,
   listVideoExportManifests,
   getVideoExportManifest,
+  createVideoExportJob,
+  listVideoExportJobs,
+  recoverVideoExportJob,
+  retryVideoExportJob,
   getVideoWorkbench,
   getVideoWorkbenchGenerationDraft,
   getVideoWorkbenchPlan,
@@ -280,6 +284,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const [replayManifestPreview, setReplayManifestPreview] = useState(null);
   const [exportManifest, setExportManifest] = useState(null);
   const [exportManifests, setExportManifests] = useState([]);
+  const [exportJob, setExportJob] = useState(null);
+  const [exportJobs, setExportJobs] = useState([]);
   const [workbenchPlan, setWorkbenchPlan] = useState(null);
   const [budgetCapPoints, setBudgetCapPoints] = useState('');
   const [workbenchPreflight, setWorkbenchPreflight] = useState(null);
@@ -295,6 +301,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const requestSequenceRef = useRef(0);
   const replayRequestSequenceRef = useRef(0);
   const exportRequestSequenceRef = useRef(0);
+  const exportJobRequestSequenceRef = useRef(0);
   const planRequestSequenceRef = useRef(0);
 
   useEffect(() => {
@@ -405,6 +412,27 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     }
   }, []);
 
+  const loadExportJobs = useCallback(async (id, { selectLatest = true } = {}) => {
+    const requestSequence = ++exportJobRequestSequenceRef.current;
+    if (!id) {
+      setExportJobs([]);
+      setExportJob(null);
+      return;
+    }
+    try {
+      const jobs = await listVideoExportJobs(id, { limit: 8 });
+      if (requestSequence !== exportJobRequestSequenceRef.current || selectedProjectRef.current !== id) return;
+      setExportJobs(jobs);
+      setExportJob(current => jobs.find(item => item.id === current?.id)
+        || (selectLatest ? jobs[0] || null : current));
+    } catch (loadError) {
+      if (requestSequence !== exportJobRequestSequenceRef.current || selectedProjectRef.current !== id) return;
+      setExportJobs([]);
+      setExportJob(null);
+      setError(displayError(loadError));
+    }
+  }, []);
+
   const loadProjects = useCallback(async preferredId => {
     planRequestSequenceRef.current += 1;
     setWorkbenchPlan(null);
@@ -430,6 +458,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         setSkillRunExecutionPreview(null);
         void loadReplayManifests('');
         void loadExportManifests('');
+        void loadExportJobs('');
       }
       setError('');
     } catch (loadError) {
@@ -437,7 +466,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } finally {
       setLoading(false);
     }
-  }, [jobs, loadExportManifests, loadReplayManifests]);
+  }, [jobs, loadExportJobs, loadExportManifests, loadReplayManifests]);
 
   useEffect(() => {
     if (!enabled || !logged) return undefined;
@@ -462,6 +491,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       void loadWorkbench(projectId);
       void loadReplayManifests(projectId);
       void loadExportManifests(projectId);
+      void loadExportJobs(projectId);
     } else {
       setWorkbench(null);
       setWorkbenchPlan(null);
@@ -471,8 +501,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setSkillRunExecutionPreview(null);
       void loadReplayManifests('');
       void loadExportManifests('');
+      void loadExportJobs('');
     }
-  }, [loadExportManifests, loadReplayManifests, loadWorkbench, projectId]);
+  }, [loadExportJobs, loadExportManifests, loadReplayManifests, loadWorkbench, projectId]);
 
   const runMutation = useCallback(async (key, action) => {
     if (!projectId || busy) return;
@@ -488,6 +519,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       setExportManifest(null);
       await loadWorkbench(projectId, { quiet: true });
       await loadExportManifests(projectId, { selectLatest: false });
+      await loadExportJobs(projectId, { selectLatest: false });
     } catch (mutationError) {
       setError(displayError(mutationError));
       if (mutationError?.status === 409 || mutationError?.code === 'VERSION_CONFLICT') {
@@ -496,7 +528,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     } finally {
       setBusy('');
     }
-  }, [busy, loadExportManifests, loadWorkbench, projectId]);
+  }, [busy, loadExportJobs, loadExportManifests, loadWorkbench, projectId]);
 
   const handleCheckGenerationPlan = useCallback(async () => {
     if (!projectId || busy) return;
@@ -705,8 +737,45 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         : created;
       setExportManifest(persisted);
       await loadExportManifests(projectId);
+      if (!planningOnly && persisted?.id) {
+        const job = await createVideoExportJob(projectId, persisted.id);
+        setExportJob(job);
+        await loadExportJobs(projectId);
+      } else {
+        setExportJob(null);
+      }
     } catch (exportError) {
       setError(displayError(exportError));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleRecoverExportJob() {
+    if (!projectId || !exportJob?.id || busy || exportJob.state !== 'rendering') return;
+    setBusy('export:recover');
+    setError('');
+    try {
+      const recovered = await recoverVideoExportJob(projectId, exportJob.id);
+      setExportJob(recovered);
+      await loadExportJobs(projectId);
+    } catch (recoverError) {
+      setError(displayError(recoverError));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleRetryExportJob() {
+    if (!projectId || !exportJob?.id || busy || exportJob.state !== 'failed' || planningOnly) return;
+    setBusy('export:retry');
+    setError('');
+    try {
+      const retried = await retryVideoExportJob(projectId, exportJob.id);
+      setExportJob(retried);
+      await loadExportJobs(projectId);
+    } catch (retryError) {
+      setError(displayError(retryError));
     } finally {
       setBusy('');
     }
@@ -1420,11 +1489,17 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           <button type="button" disabled={Boolean(busy) || !workbench?.timelineClips?.some(clip => clip.status === 'active')} onClick={handleCreateExportManifest}>
             {busy === 'export:manifest' ? <><LoaderCircle className="is-spinning" size={15} />生成中…</> : <><Film size={15} />生成导出清单</>}
           </button>
-          <span>仅生成可审计交付清单，尚未调用渲染器/供应商，不会扣积分。</span>
+          <span>先保存可审计清单，再交接本地渲染任务；清单阶段尚未调用渲染器/供应商，不会扣积分。</span>
         </div>
         {exportManifest ? <div className="video-project-export-manifest" role="status">
           <strong>导出清单已保存</strong><span>版本 {exportManifest.schemaVersion} · {exportManifest.manifest?.timeline?.durationMs ? `${(exportManifest.manifest.timeline.durationMs / 1000).toFixed(1)} 秒` : '时长待定'} · hash {exportManifest.manifestHash?.slice(0, 12)}</span>
-        </div> : <p className="video-project-inline-empty">尚未调用渲染器/供应商，不会扣积分；下载 MP4 需接入渲染 worker。</p>}
+        </div> : <p className="video-project-inline-empty">尚未生成导出清单；下载 MP4 需接入渲染 worker。</p>}
+        {exportJob && <div className="video-project-export-job" role="status">
+          <div><strong>渲染任务</strong><span className={`video-project-export-job-state is-${exportJob.state}`}>{({ waiting_renderer: '等待渲染器', rendering: '渲染中', failed: '需要重试', completed: '已完成', canceled: '已取消' })[exportJob.state] || exportJob.state}</span></div>
+          <small>任务 {exportJob.id.slice(0, 12)} · 尝试 {exportJob.attempt || 0} · {exportJob.providerSubmission ? '已交接供应商' : '尚未调用供应商'} · {exportJob.billingMutation ? '已计费' : '未计费'}</small>
+          {exportJob.state === 'rendering' && <button type="button" disabled={Boolean(busy)} onClick={handleRecoverExportJob}>{busy === 'export:recover' ? <><LoaderCircle className="is-spinning" size={14} />恢复中…</> : <><RefreshCw size={14} />检查租约</>}</button>}
+          {exportJob.state === 'failed' && !planningOnly && <button type="button" disabled={Boolean(busy)} onClick={handleRetryExportJob}>{busy === 'export:retry' ? <><LoaderCircle className="is-spinning" size={14} />重试中…</> : <><RefreshCw size={14} />重新排队</>}</button>}
+        </div>}
       </section>
     </>}
   </section>;

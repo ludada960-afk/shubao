@@ -404,6 +404,24 @@ export async function getVideoExportJob(projectId, jobId) {
   return requireValue(response, 'job', '视频渲染任务暂时不可用，请稍后重试');
 }
 
+export async function recoverVideoExportJob(projectId, jobId) {
+  const response = await requestJson(
+    `${exportJobBase(projectId)}/${exportJobSegment(jobId)}/recover`,
+    { method: 'POST', ...jsonBody({}) },
+    '暂时无法恢复视频渲染任务',
+  );
+  return requireValue(response, 'job', '视频渲染任务暂时不可用，请稍后重试');
+}
+
+export async function retryVideoExportJob(projectId, jobId) {
+  const response = await requestJson(
+    `${exportJobBase(projectId)}/${exportJobSegment(jobId)}/retry`,
+    { method: 'POST', ...jsonBody({}) },
+    '暂时无法重试视频渲染任务',
+  );
+  return requireValue(response, 'job', '视频渲染任务暂时不可用，请稍后重试');
+}
+
 export async function cloneVideoReplayManifest(projectId, manifestId, {
   title = '',
   idempotencyKey: requestedKey,
