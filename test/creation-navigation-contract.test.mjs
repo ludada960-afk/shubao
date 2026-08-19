@@ -12,9 +12,9 @@ test('left navigation keeps video, canvas, and works on distinct destinations', 
 });
 
 test('source routing keeps video on the second nav and canvas on the third nav', async () => {
-  const source = await fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
-  assert.match(source, /label: '视频创作'[\s\S]*?page: 'video-studio'/);
-  assert.match(source, /label: '画布'[\s\S]*?page: 'ec-canvas'/);
+  const source = await fs.readFile(new URL('../src/components/layout/creativeDomainNavigation.js', import.meta.url), 'utf8');
+  assert.match(source, /id: 'video-studio'[\s\S]*?page: 'video-studio'/);
+  assert.match(source, /id: 'canvas'[\s\S]*?OPEN_CANVAS/);
 });
 
 test('home keeps the four creation modes in the primary creation hub', async () => {
@@ -24,4 +24,3 @@ test('home keeps the four creation modes in the primary creation hub', async () 
   assert.match(source, /mode: 'content'/);
   assert.match(source, /mode: 'visual'/);
 });
-

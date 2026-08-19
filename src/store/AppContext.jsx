@@ -39,6 +39,7 @@ const initialState = {
   pendingPaidAction: null,
   // 模式
   mode: 'ecommerce',  // content | ecommerce — 默认电商生图
+  creationLaunch: null,
   priceTab: 'credits',
   // 作品集
   works: [],
@@ -97,6 +98,8 @@ function reducer(state, action) {
       return { ...state, page: 'home', genState: 'idle', result: null, galleryItem: null, _workVersion: (state._workVersion || 0) + 1 };
     case 'SET_MODE':
       return { ...state, mode: action.mode };
+    case 'SET_CREATION_LAUNCH':
+      return { ...state, creationLaunch: action.launch || null };
     case 'SET_INPUT':
       return { ...state, inputText: action.text };
     case 'START_GEN':

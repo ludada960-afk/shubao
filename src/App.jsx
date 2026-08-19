@@ -5,7 +5,7 @@ import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
 import { MdCheck } from 'react-icons/md';
-import { Sparkles, LayoutGrid, SquarePlay, FolderOpen, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -28,91 +28,7 @@ import { signOut } from './services/auth';
 import { shouldShowNoteModal } from './routing/resultRouting';
 import { buildContentCanvasResult } from './utils/contentCanvasHandoff.js';
 import AccountEntitlementControl from './components/billing/AccountEntitlementControl.jsx';
-
-/* ═══════ 左侧导航栏（3按钮精简版）═══════ */
-function SideNav() {
-  const { state, dispatch } = useApp();
-  const { page } = state;
-
-  // 生图（新建）/ 画布 / 作品 — 语义清晰，无重叠
-  const items = [
-    {
-      icon: Sparkles,
-      motion: 'sparkles',
-      label: '生图',
-      isPrimary: true,       // 主行动按钮，始终紫色强调
-      active: page === 'home',
-      onClick: () => dispatch({ type: 'NEW_WORK' }),  // 彻底重置状态，强制 remount
-    },
-    {
-      icon: SquarePlay,
-      motion: 'video',
-      label: '视频创作',
-      active: page === 'video-studio',
-      onClick: () => {
-        if (!state.logged) {
-          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'video-studio', source: state.page } });
-          dispatch({ type: 'SHOW_LOGIN', show: true });
-          return;
-        }
-        dispatch({ type: 'NAVIGATE', page: 'video-studio' });
-      },
-    },
-    {
-      icon: LayoutGrid,
-      motion: 'grid',
-      label: '画布',
-      active: page === 'ec-canvas',
-      onClick: () => {
-        // 画布是个人工作台：先完成受邀账号登录，再允许进入。
-        if (!state.logged) {
-          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } });
-          dispatch({ type: 'SHOW_LOGIN', show: true });
-          return;
-        }
-        dispatch({ type: 'OPEN_CANVAS' });
-      },
-    },
-    {
-      icon: FolderOpen,
-      motion: 'folder',
-      label: '作品',
-      active: false,
-      onClick: () => {
-        if (!state.logged) {
-          dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'works', source: state.page } });
-          dispatch({ type: 'SHOW_LOGIN', show: true });
-          return;
-        }
-        dispatch({ type: 'OPEN_CANVAS', tab: 'works' });
-      },
-    },
-  ];
-
-  return (
-    <div className="app-side-nav">
-      {items.map((item, i) => {
-        const Icon = item.icon;
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={item.onClick}
-            aria-label={item.label}
-            aria-current={item.active ? 'page' : undefined}
-            data-nav-icon={item.motion}
-            className={`app-side-nav-item${item.isPrimary ? ' is-primary' : ''}${item.active ? ' is-active' : ''}`}
-          >
-            <span className={`app-side-nav-icon motion-${item.motion}`} aria-hidden="true">
-              <Icon size={item.isPrimary ? 19 : 20} strokeWidth={2.1} />
-            </span>
-            <span className="app-side-nav-tooltip" role="tooltip" aria-hidden="true">{item.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+import CreativeDomainNav from './components/layout/CreativeDomainNav.jsx';
 
 /* ═══════ TopBar（无容器，直接浮在页面）═══════ */
 function TopBar() {
@@ -144,6 +60,8 @@ function TopBar() {
             薯包 AI
           </span>
         </div>
+
+        <CreativeDomainNav />
 
         {/* Right: 按钮组 */}
         <div className="topbar-actions">
@@ -270,7 +188,6 @@ function AppRouter() {
   });
 
   return (<>
-    {page !== 'ec-canvas' && <SideNav />}
     <TaskSidebar />
     {page !== 'ec-canvas' && <TopBar />}
     <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>

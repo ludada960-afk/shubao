@@ -22,6 +22,11 @@ const canarySessionHelper = existsSync(canarySessionHelperUrl) ? readFileSync(ca
 
 test('production deploy protects runtime state and has a reversible release gate', () => {
   assert.match(deploy, /SHUBAO_CANARY_SESSION_TOKEN is required for authenticated production deployment/);
+  assert.match(deploy, /ValidateSet\('auto', 'frontend', 'full'\)/);
+  assert.match(deploy, /Production validation profile:/);
+  assert.match(deploy, /Skipped real ecommerce production verification for frontend-only release/);
+  assert.match(deploy, /Skipped real ecommerce production canary for frontend-only release/);
+  assert.match(deploy, /production-validation-scope\.mjs/);
   assert.match(canarySessionHelper, /-cmatch\s+['"]\^eyJ[^\r\n]+\\z['"]/);
   assert.match(deploy, /GetEnvironmentVariable\(['"]SHUBAO_CANARY_SESSION_TOKEN['"],\s*['"]User['"]\)/);
   assert.match(deploy, /function\s+Invoke-WithCanarySession/i);

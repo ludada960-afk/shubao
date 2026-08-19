@@ -5,8 +5,9 @@ import { readFile } from 'node:fs/promises';
 const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('video studio is an authenticated durable billed workspace embedded in home and canvas', async () => {
-  const [app, home, page, styles, canvas, workModel, server, generation, videoModel, videoService, assetAnalysis] = await Promise.all([
+  const [app, nav, home, page, styles, canvas, workModel, server, generation, videoModel, videoService, assetAnalysis] = await Promise.all([
     source('../src/App.jsx'),
+    source('../src/components/layout/CreativeDomainNav.jsx'),
     source('../src/pages/Home/index.jsx'),
     source('../src/pages/VideoStudio/index.jsx'),
     source('../src/pages/VideoStudio/VideoStudio.css'),
@@ -19,7 +20,7 @@ test('video studio is an authenticated durable billed workspace embedded in home
     source('../src/pages/VideoStudio/videoAssetAnalysis.js'),
   ]);
   assert.match(app, /video-studio/);
-  assert.match(app, /视频创作/);
+  assert.match(nav, /creativeDomainNavigation/);
   assert.match(page, /VIDEO_CREATION_MODES/);
   assert.match(page, /quoteForVideoProduct/);
   assert.match(page, /productId:\s*selectedProduct\.id/);

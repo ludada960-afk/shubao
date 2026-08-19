@@ -78,7 +78,7 @@ const GLASS_PANEL = {
 };
 
 /* ═══════ EcMode — 三段式第一步：参数配置 ═══════ */
-export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckpoint = null }) {
+export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckpoint = null, initialRecipeId = null }) {
   const { state, dispatch } = useApp();
   const ownerEmail = String(state.email || state.phone || '')
     .trim()
@@ -487,6 +487,15 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     }
     setAssetUploadError('');
   };
+
+  useEffect(() => {
+    if (!initialRecipeId || initialRecipeId === abilityRecipeId) return;
+    try {
+      handleRecipeChange(getEcommerceAbilityRecipe(initialRecipeId).id);
+    } catch {
+      // Ignore stale navigation intents and keep the default recipe.
+    }
+  }, [initialRecipeId]);
 
   const removeProdImg = index => removeRoleImage(abilityRecipeId === 'anything_tryon' ? 'items' : 'product', index);
   const removeRefImg = index => removeRoleImage(abilityRecipeId === 'anything_tryon' ? 'scene' : 'reference', index);

@@ -203,7 +203,7 @@ function selectedReferencePayload(assets) {
   }));
 }
 
-export default function VisualCreationMode({ recoveryCheckpoint = null }) {
+export default function VisualCreationMode({ recoveryCheckpoint = null, initialSkillId = null }) {
   const { state, dispatch, refreshBillingBalance } = useApp();
   const [skillId, setSkillId] = useState('free');
   const [prompt, setPrompt] = useState('');
@@ -254,6 +254,11 @@ export default function VisualCreationMode({ recoveryCheckpoint = null }) {
   const showcases = selectedSkill.showcases || [];
   const selectedShowcase = showcases[showcaseSlide] || showcases[0];
   const previewItems = selectedShowcase?.assets || [];
+
+  useEffect(() => {
+    if (!initialSkillId || initialSkillId === skillId) return;
+    setSkillId(visualSkillById(initialSkillId).id);
+  }, [initialSkillId]);
 
   useEffect(() => {
     if (!previewItem) return undefined;

@@ -669,13 +669,14 @@ test('production billing hold creates exactly one item per planned asset', async
 test('commerce configuration and navigation controls keep native button semantics', async () => {
   const ecMode = await fs.readFile(new URL('../src/pages/Home/EcMode.jsx', import.meta.url), 'utf8');
   const skuPanel = await fs.readFile(new URL('../src/pages/Home/ec/SkuPanel.jsx', import.meta.url), 'utf8');
-  const app = await fs.readFile(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const nav = await fs.readFile(new URL('../src/components/layout/CreativeDomainNav.jsx', import.meta.url), 'utf8');
 
   assert.match(ecMode, /<button\s+type="button"\s+key=\{btn\.key\}/);
   assert.match(ecMode, /aria-expanded=\{isOpen\}/);
   assert.match(skuPanel, /<button type="button" aria-label=\{`删除变体 \$\{idx \+ 1\}`\}/);
   assert.doesNotMatch(skuPanel, /<div onClick=\{\(\) => rm\(sku\.id\)\}/);
-  assert.match(app, /<button\s+key=\{i\}\s+type="button"[\s\S]{0,240}aria-current=/);
+  assert.match(nav, /role="menubar"/);
+  assert.match(nav, /aria-expanded=\{open\}/);
 });
 
 test('product link extraction visibly discloses its AI point price', async () => {

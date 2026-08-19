@@ -25,6 +25,7 @@ export default function HomePage() {
   const [xhsSubMode, setXhsSubMode] = useState('content');
   const [ecStep, setEcStep] = useState(1);  // 三段式：1=参数配置, 2=设计方向确认, 3=无限画布
   const [recoveryCheckpoint, setRecoveryCheckpoint] = useState(null);
+  const consumedLaunchRef = useRef('');
   const ecParamsRef = useRef({});  // 第一步收集的参数
   const modeShowcaseRef = useRef(null);
 
@@ -70,6 +71,18 @@ export default function HomePage() {
       setEcStep(1);
     }
   }, [state.genState]);
+
+  useEffect(() => {
+    const launch = state.creationLaunch;
+    if (!launch?.nonce || consumedLaunchRef.current === launch.nonce) return;
+    consumedLaunchRef.current = launch.nonce;
+    setEcStep(1);
+    setRecoveryCheckpoint(null);
+    if (launch.mode && state.mode !== launch.mode) dispatch({ type: 'SET_MODE', mode: launch.mode });
+    if (launch.subMode) setXhsSubMode(launch.subMode);
+    dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+    requestAnimationFrame(() => document.getElementById('creation-workbench')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  }, [dispatch, state.creationLaunch, state.mode]);
 
   const restoreCheckpoint = checkpoint => {
     const kind = checkpoint?.project?.kind;
@@ -173,9 +186,10 @@ export default function HomePage() {
               {isVideo ? <VideoStudioPage embedded /> : isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : !isVisual ? (
                 <EcMode ecStep={ecStep} setEcStep={setEcStep}
                   onStepChange={(params) => { ecParamsRef.current = params; }}
-                  recoveryCheckpoint={recoveryCheckpoint} />
+                  recoveryCheckpoint={recoveryCheckpoint}
+                  initialRecipeId={state.creationLaunch?.recipeId || null} />
               ) : null}
-              <div hidden={!isVisual}><VisualCreationMode recoveryCheckpoint={recoveryCheckpoint} /></div>
+              <div hidden={!isVisual}><VisualCreationMode recoveryCheckpoint={recoveryCheckpoint} initialSkillId={state.creationLaunch?.skillId || null} /></div>
             </div>
           </div>
         </div>

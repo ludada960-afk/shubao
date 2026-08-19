@@ -9,6 +9,8 @@ param(
   [int]$CanarySeconds = 600,
   [ValidateRange(0, 600)]
   [int]$PublicWarmupSeconds = 180,
+  [ValidateSet('auto', 'frontend', 'full')]
+  [string]$ValidationProfile = 'auto',
   [ValidatePattern('^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')]
   [string]$CanaryOwnerEmail = "867550189@qq.com"
 )
@@ -67,6 +69,22 @@ $commit = ((& git -C $repo rev-parse --short HEAD) -join "").Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commit)) {
   throw "Could not resolve the release commit"
 }
+$validationScopeHelper = Join-Path $PSScriptRoot 'production-validation-scope.mjs'
+$runRealEcommerceVerification = $true
+if ($ValidationProfile -eq 'frontend') {
+  $runRealEcommerceVerification = $false
+} elseif ($ValidationProfile -eq 'auto') {
+  $releaseFiles = @(& git -C $repo diff --name-only HEAD^ HEAD 2>$null)
+  if ($LASTEXITCODE -ne 0 -or $releaseFiles.Count -eq 0) {
+    throw "Could not determine release file scope; use -ValidationProfile full to force the complete production gate"
+  }
+  $resolvedValidationProfile = ((& node $validationScopeHelper --files $releaseFiles) -join "").Trim()
+  if ($LASTEXITCODE -ne 0 -or $resolvedValidationProfile -notin @('frontend', 'full')) {
+    throw "Production validation scope classification failed"
+  }
+  $runRealEcommerceVerification = $resolvedValidationProfile -eq 'full'
+}
+Write-Host "Production validation profile: $ValidationProfile (real ecommerce gate: $runRealEcommerceVerification)"
 $archive = Join-Path $env:TEMP "shubao-deploy-$commit-$stamp.tgz"
 $target = "$User@$HostName"
 $ssh = @(
@@ -167,6 +185,9 @@ if (-not (Test-Path -LiteralPath $deploymentLockRunner -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $canarySessionIssuer -PathType Leaf)) {
   throw "Production canary session issuer is missing"
+}
+if (-not (Test-Path -LiteralPath $validationScopeHelper -PathType Leaf)) {
+  throw "Production validation scope helper is missing"
 }
 $deploymentSucceeded = $false
 
@@ -555,10 +576,15 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   if ($LASTEXITCODE -ne 0) { throw "Public production verification failed" }
   Assert-DeploymentLockHeld
   $initialVerificationPid = Get-RemotePm2ProcessId
-  Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed" }
-  $initialVerificationEndPid = Get-RemotePm2ProcessId
-  if ($initialVerificationEndPid -ne $initialVerificationPid) {
-    throw "PM2 process restarted during initial ecommerce verification: $initialVerificationPid -> $initialVerificationEndPid"
+  if ($runRealEcommerceVerification) {
+    Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production verification failed" }
+    $initialVerificationEndPid = Get-RemotePm2ProcessId
+    if ($initialVerificationEndPid -ne $initialVerificationPid) {
+      throw "PM2 process restarted during initial ecommerce verification: $initialVerificationPid -> $initialVerificationEndPid"
+    }
+  } else {
+    $initialVerificationEndPid = $initialVerificationPid
+    Write-Host "Skipped real ecommerce production verification for frontend-only release"
   }
 
   $canaryPid = $initialVerificationEndPid
@@ -567,7 +593,11 @@ set -e; mkdir -p __REMOTE_BACKUP__; cp -a __REMOTE_DIR__/dist __REMOTE_BACKUP__/
   Assert-DeploymentLockHeld
   Invoke-WithCanarySession -Command { & (Join-Path $PSScriptRoot "verify-production-billing.ps1") -BaseUrl "https://shuimg.cn" -AllowEmptyBalance }
   if ($LASTEXITCODE -ne 0) { throw "Public production canary failed" }
-  Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
+  if ($runRealEcommerceVerification) {
+    Invoke-WithCanarySession -Command { Invoke-EcommerceProductionVerification -FailureMessage "Authenticated ecommerce production canary failed" }
+  } else {
+    Write-Host "Skipped real ecommerce production canary for frontend-only release"
+  }
   Invoke-WithCanarySession -Command { & node $videoVerifier --base-url "https://shuimg.cn" }
   if ($LASTEXITCODE -ne 0) { throw "Authenticated video production canary failed" }
   Invoke-NodeProductionVerification -Verifier $galleryVerifier -FailureMessage "Public gallery canary failed"
