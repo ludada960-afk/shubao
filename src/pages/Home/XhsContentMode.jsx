@@ -128,8 +128,8 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
       onRemoveReferenceImage={removeAt('style')}
       productTitle={plog ? '生活素材' : '我的素材'}
       productHint={plog ? '保留人物、空间与生活细节' : '保留主体、人物与产品细节'}
-      productUploadLabel={plog ? '上传生活素材' : ''}
-      productContinuationLabel={plog ? '继续添加生活素材' : ''}
+      productUploadLabel={plog ? '上传生活素材' : '上传我的素材'}
+      productContinuationLabel={plog ? '继续添加生活素材' : '继续添加我的素材'}
       referenceTitle="风格参考"
       referenceHint="借鉴构图、色调与版式，不复制主体"
       productSuggestions={[
@@ -143,6 +143,7 @@ function XhsSupplementDeck({ styleImages, sourceImages, onAdd, onRemove, plog = 
       maxProductImages={6}
       maxReferenceImages={3}
       tilted={false}
+      className="xhs-supplement-deck"
     />
   );
 }

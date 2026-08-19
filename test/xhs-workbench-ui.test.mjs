@@ -40,6 +40,13 @@ test('XHS selector styles keep the fan cards and mobile panel inside the workben
 });
 
 test('Plog localizes the shared upload deck without creating a second component', () => {
-  assert.match(xhs, /productUploadLabel=\{plog \? '上传生活素材'/);
-  assert.match(xhs, /productContinuationLabel=\{plog \? '继续添加生活素材'/);
+  assert.match(xhs, /productUploadLabel=\{plog \? '上传生活素材' : '上传我的素材'/);
+  assert.match(xhs, /productContinuationLabel=\{plog \? '继续添加生活素材' : '继续添加我的素材'/);
+});
+
+test('XHS upload deck receives the ecommerce card shell and compact prompt surface', () => {
+  assert.match(xhs, /className="xhs-supplement-deck"/);
+  assert.match(showcaseStyles, /\.xhs-supplement-deck \{ display: grid/);
+  assert.match(showcaseStyles, /\.xhs-supplement-deck \.supplement-asset-deck-card/);
+  assert.match(showcaseStyles, /\.xhs-input-template \.ec-xhs-prompt \{ min-height: 142px/);
 });

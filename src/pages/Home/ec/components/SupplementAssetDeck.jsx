@@ -48,6 +48,7 @@ export default function SupplementAssetDeck({
   maxProductImages = 6,
   maxReferenceImages = 6,
   tilted = true,
+  className = '',
 }) {
   const productInputRef = useRef(null);
   const referenceInputRef = useRef(null);
@@ -112,6 +113,7 @@ export default function SupplementAssetDeck({
     return (
       <div
         onClick={count >= max ? undefined : onClick}
+        className={`supplement-upload-button supplement-upload-button--${type}`}
         aria-disabled={count >= max}
         style={{
           width: 80,
@@ -162,7 +164,7 @@ export default function SupplementAssetDeck({
     const title = isProduct ? `${productTitle}建议` : `${referenceTitle}建议`;
 
     return (
-      <div
+      <div className={`supplement-suggestion supplement-suggestion--${type}`}
         style={{
           marginTop: 8,
           padding: '8px 10px',
@@ -180,11 +182,11 @@ export default function SupplementAssetDeck({
   };
 
   return (
-    <div style={{ display: 'flex', width: '100%', minWidth: 0, gap: 16, flexWrap: 'wrap' }}>
+    <div className={`supplement-asset-deck ${className}`} style={{ display: 'flex', width: '100%', minWidth: 0, gap: 16, flexWrap: 'wrap' }}>
       {/* 左侧：产品图上传区 */}
-      <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+      <div className="supplement-asset-deck-lane supplement-asset-deck-lane--product" style={{ flex: '1 1 320px', minWidth: 0 }}>
         {/* 标题 */}
-        <div
+        <div className="supplement-asset-deck-header"
           style={{
             fontSize: 11,
             fontWeight: 600,
@@ -217,7 +219,7 @@ export default function SupplementAssetDeck({
         </div>
 
         {/* 产品图卡片 */}
-        <div
+        <div className="supplement-asset-deck-card supplement-asset-deck-card--product"
           style={{
             transform: productCardTransform,
             borderRadius: 12,
@@ -230,6 +232,7 @@ export default function SupplementAssetDeck({
           <div
             ref={productScrollRef}
             onWheel={(e) => handleWheel(e, productScrollRef)}
+            className="supplement-asset-deck-track supplement-asset-deck-track--product"
             style={{
               display: 'flex',
               minWidth: 0,
@@ -275,7 +278,7 @@ export default function SupplementAssetDeck({
       </div>
 
       {/* 中间：乘号 */}
-      <div
+      <div className="supplement-asset-deck-divider"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -295,9 +298,9 @@ export default function SupplementAssetDeck({
       </div>
 
       {/* 右侧：参考图上传区 */}
-      <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+      <div className="supplement-asset-deck-lane supplement-asset-deck-lane--reference" style={{ flex: '1 1 320px', minWidth: 0 }}>
         {/* 标题 */}
-        <div
+        <div className="supplement-asset-deck-header"
           style={{
             fontSize: 11,
             fontWeight: 600,
@@ -344,7 +347,7 @@ export default function SupplementAssetDeck({
         </div>
 
         {/* 参考图卡片 */}
-        <div
+        <div className="supplement-asset-deck-card supplement-asset-deck-card--reference"
           style={{
             transform: referenceCardTransform,
             borderRadius: 12,
@@ -357,6 +360,7 @@ export default function SupplementAssetDeck({
           <div
             ref={referenceScrollRef}
             onWheel={(e) => handleWheel(e, referenceScrollRef)}
+            className="supplement-asset-deck-track supplement-asset-deck-track--reference"
             style={{
               display: 'flex',
               minWidth: 0,

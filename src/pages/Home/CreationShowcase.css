@@ -91,11 +91,22 @@
 .xhs-workbench-card { margin: 0; padding: 18px; border: 1px solid rgba(34, 27, 22, .07); border-radius: 16px; background: #fff; box-shadow: 0 16px 38px rgba(57, 45, 26, .09); }
 .xhs-workbench-card .xhs-input-template { box-shadow: none; }
 .xhs-input-template { overflow: visible; border: 1px solid rgba(34, 27, 22, .07); border-radius: 14px; background: #fffaf4; }
-.xhs-input-template .ec-xhs-composer { padding: 8px 10px 10px; border-radius: 14px 14px 0 0; }
+.xhs-input-template .ec-xhs-composer { padding: 12px 14px 10px; border-radius: 14px 14px 0 0; }
 .xhs-input-template .ec-xhs-media-strip { padding-top: 9px; }
-.xhs-input-template .ec-xhs-prompt { min-height: 126px; }
-.xhs-input-template .ec-xhs-prompt textarea { min-height: 126px; }
-.xhs-template-actions { position: relative; padding: 12px 2px 2px; border-top: 1px solid rgba(28,25,23,.08); background: #fff; }
+.xhs-supplement-deck { display: grid !important; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 10px !important; align-items: stretch; }
+.xhs-supplement-deck .supplement-asset-deck-lane { min-width: 0 !important; }
+.xhs-supplement-deck .supplement-asset-deck-card { min-height: 136px; padding: 10px !important; border: 1px solid rgba(41, 35, 31, .1) !important; border-radius: 12px !important; background: linear-gradient(145deg, #fffdf9 0%, #f8f4ff 100%) !important; box-shadow: 0 8px 22px rgba(65, 48, 34, .07); transform: none !important; }
+.xhs-supplement-deck .supplement-asset-deck-card--reference { background: linear-gradient(145deg, #fffdfd 0%, #fff4f8 100%) !important; }
+.xhs-supplement-deck .supplement-asset-deck-track { min-height: 112px; align-items: center; padding: 2px 2px 12px !important; transform: none !important; }
+.xhs-supplement-deck .supplement-asset-deck-divider { width: 24px; padding-top: 62px !important; }
+.xhs-supplement-deck .supplement-upload-button { width: 92px !important; height: 112px !important; border: 1px dashed rgba(124, 58, 237, .34) !important; border-radius: 10px !important; background: rgba(255,255,255,.9) !important; box-shadow: 0 5px 14px rgba(75, 53, 38, .08); }
+.xhs-supplement-deck .supplement-upload-button--reference { border-color: rgba(190, 24, 93, .28) !important; }
+.xhs-supplement-deck .supplement-suggestion { margin-top: 7px !important; border-radius: 7px !important; background: rgba(255,255,255,.76) !important; }
+.xhs-supplement-deck .supplement-suggestion--product { color: #75645a !important; }
+.xhs-supplement-deck .supplement-suggestion--reference { color: #75645a !important; }
+.xhs-input-template .ec-xhs-prompt { min-height: 142px; margin-top: 12px; padding: 14px 16px; border: 1px solid rgba(34, 27, 22, .08); border-radius: 12px; background: linear-gradient(135deg, #fffdfa 0%, #fff8f0 100%); }
+.xhs-input-template .ec-xhs-prompt textarea { min-height: 112px; }
+.xhs-template-actions { position: relative; margin: 0 2px 2px; padding: 12px 2px 2px; border-top: 1px solid rgba(28,25,23,.08); background: #fff; }
 .xhs-template-tools { overflow: visible; flex-wrap: nowrap; padding: 0 2px 3px; scrollbar-width: thin; }
 .xhs-input-template .ec-workbench-tools.xhs-template-tools { overflow: visible !important; }
 .xhs-template-option-slot { position: relative; flex: 0 0 auto; }
@@ -129,6 +140,9 @@
   .xhs-mode-fan.is-empty { width: 94px; height: 60px; }
   .xhs-mode-card-copy strong { font-size: 14px; }
   .xhs-workbench-card { padding: 12px 9px; border-radius: 14px; }
+  .xhs-supplement-deck { grid-template-columns: minmax(0, 1fr); gap: 8px !important; }
+  .xhs-supplement-deck .supplement-asset-deck-divider { display: none; }
+  .xhs-supplement-deck .supplement-asset-deck-card { min-height: 126px; }
   .xhs-template-actions .ec-workbench-primary-row { display: flex; flex-direction: column; }
   .xhs-input-template .ec-workbench-tools.xhs-template-tools { width: 100%; overflow: visible !important; flex-wrap: wrap; }
   .xhs-template-option-slot { max-width: 100%; }
