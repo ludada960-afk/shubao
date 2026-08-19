@@ -54,7 +54,7 @@ test('canonical project asset references require project, asset and expected has
 
 - [ ] **Step 2: Run the focused test and confirm it fails because the bridge modules do not exist.**
 
-Run: `node --test test/project-asset-contract.test.mjs`  
+Run: `node --test test/project-asset-contract.test.mjs`
 Expected: FAIL with module-not-found errors.
 
 - [ ] **Step 3: Implement the minimal server and client normalizers.**
@@ -63,7 +63,7 @@ The server helper must trim strings, reject control characters and overlong valu
 
 - [ ] **Step 4: Run the focused test and confirm it passes.**
 
-Run: `node --test test/project-asset-contract.test.mjs`  
+Run: `node --test test/project-asset-contract.test.mjs`
 Expected: all focused tests pass.
 
 - [ ] **Step 5: Commit only the contract helper and focused test.**
