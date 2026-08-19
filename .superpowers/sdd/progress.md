@@ -2128,3 +2128,10 @@
   不生成、不扣费。视频线程领域文件未修改，继续消费统一资产接口。
 - 定向 `43/43`、全量 `1904/1904`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、
   `git diff --check` 均通过；390px 与桌面浏览器无横向溢出，匿名私有资产请求仍返回 401。本轮未部署、未触发真实生成或账务变更。
+
+## 2026-08-20 Project Asset Lineage Release Blocker
+
+- `e9fef88` 已通过两次完整 `full` 发布前门禁：全量 `1904/1904`、构建 `6524` modules、视频非计费验收
+  `providerSubmissions=0`，但两次均在远端 release backup 前的生产根分区 3GB 可用空间预检失败。
+- 部署脚本两次均恢复运行时网关配置、释放远端锁，未创建 release backup、未重启 PM2、未切换静态版本；线上健康仍为
+  `ready=true`，active ecommerce jobs `0`，线上保持此前 `21de16e` 版本。未删除生产资产或历史备份来绕过预检。
