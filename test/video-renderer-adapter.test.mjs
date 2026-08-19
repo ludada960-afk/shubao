@@ -43,6 +43,7 @@ const preflight = buildVideoRendererPreflight({
   rightsConfirmations: [{ assetId: 'scene-1', assetVersionId: 'scene-v1', confirmed: true }],
   moderation: { status: 'passed', policyVersion: 'video-safe-v1', checkedAt: '2026-08-18T08:00:00.000Z' },
   storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+  budgetCapPoints: 100,
   enforce: true,
 });
 
@@ -86,7 +87,26 @@ test('carries the strict preflight hash into the provider-neutral renderer reque
   const request = buildVideoRendererRequest({ job: claimed, manifest, now: claimed.updatedAt });
   assert.equal(request.preflightHash, preflight.preflightHash);
   assert.equal(request.preflightStatus, 'ready');
+  assert.deepEqual(request.budgetPolicy, {
+    currency: 'ai_points',
+    estimatedPoints: 62,
+    maximumPoints: 62,
+    requestedCapPoints: 100,
+    withinCap: true,
+  });
   assert.equal(assertVideoRendererRequestIntegrity(request), true);
+});
+
+test('rejects a forged budget attestation without a matching request hash', () => {
+  const claimed = claimVideoExportJob(preflightJob(), {
+    workerId: 'worker-a', leaseToken: 'lease-a', leaseMs: 30_000,
+    now: '2026-08-18T08:01:00.000Z',
+  });
+  const request = buildVideoRendererRequest({ job: claimed, manifest, now: claimed.updatedAt });
+  assert.throws(() => assertVideoRendererRequestIntegrity({
+    ...request,
+    budgetPolicy: { ...request.budgetPolicy, requestedCapPoints: 1 },
+  }), error => error.code === 'RENDER_REQUEST_INTEGRITY_INVALID');
 });
 
 test('fails closed for stale manifests and forged renderer requests', () => {

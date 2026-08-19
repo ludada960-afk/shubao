@@ -33,6 +33,71 @@ function copy(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function budgetPoints(value, label) {
+  const normalized = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  if (!Number.isSafeInteger(normalized) || normalized < 0) {
+    throw coded('RENDER_REQUEST_INTEGRITY_INVALID', `${label}无效`);
+  }
+  return normalized;
+}
+
+function budgetCap(value) {
+  if (value === null || value === undefined || value === '') return null;
+  return budgetPoints(value, '预算上限');
+}
+
+/**
+ * Pull the immutable quote and cap from the strict preflight stored on the
+ * export job. This is an attestation for the provider-neutral handoff, not a
+ * provider billing result; actual usage settlement remains a later contract.
+ */
+function budgetPolicyFromPreflight(job) {
+  if (!job?.preflightHash) return null;
+  let preflight;
+  try {
+    preflight = JSON.parse(job.preflightJson || '');
+  } catch {
+    throw coded('RENDER_REQUEST_STALE', '渲染请求的预检证明无法读取');
+  }
+  const attestation = preflight?.attestation;
+  const requirements = attestation?.requirements;
+  const quote = attestation?.plan?.quote;
+  if (!requirements || !quote || requirements.enforce !== true) {
+    throw coded('RENDER_REQUEST_STALE', '渲染请求缺少严格预算证明');
+  }
+  const estimatedPoints = budgetPoints(Number(quote.points), '预估积分');
+  const maximumPoints = budgetPoints(Number(quote.maximumPoints ?? quote.points), '最高积分');
+  const requestedCapPoints = budgetCap(requirements.budgetCapPoints);
+  const withinCap = requestedCapPoints === null || estimatedPoints <= requestedCapPoints;
+  if (!withinCap) {
+    throw coded('RENDER_REQUEST_BUDGET_EXCEEDED', '渲染请求超过预算上限');
+  }
+  return {
+    currency: 'ai_points',
+    estimatedPoints,
+    maximumPoints,
+    requestedCapPoints,
+    withinCap,
+  };
+}
+
+function validBudgetPolicy(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || value.currency !== 'ai_points'
+    || !Number.isSafeInteger(value.estimatedPoints) || value.estimatedPoints < 0
+    || !Number.isSafeInteger(value.maximumPoints) || value.maximumPoints < 0
+    || value.maximumPoints < value.estimatedPoints
+    || !(value.requestedCapPoints === null
+      || (Number.isSafeInteger(value.requestedCapPoints) && value.requestedCapPoints >= 0))
+    || value.withinCap !== true
+    || value.requestedCapPoints !== null && value.estimatedPoints > value.requestedCapPoints) {
+    return false;
+  }
+  return true;
+}
+
 function payloadWithoutHash(request) {
   const { requestHash: _requestHash, ...payload } = request || {};
   return payload;
@@ -70,6 +135,7 @@ export function buildVideoRendererRequest({ job, manifest, now } = {}) {
     attempt,
     renderer: job.renderer,
     ...(job.preflightHash ? { preflightHash: job.preflightHash, preflightStatus: 'ready' } : {}),
+    ...(job.preflightHash ? { budgetPolicy: budgetPolicyFromPreflight(job) } : {}),
     options: copy(manifest.options),
     timeline: copy(manifest.timeline),
     audio: copy(manifest.audio),
@@ -101,6 +167,7 @@ export function assertVideoRendererRequestIntegrity(request, expectedHash = '') 
   const preflightFieldsValid = request.preflightHash === undefined
     ? (request.preflightStatus === undefined || request.preflightStatus === 'not_run')
     : /^[a-f0-9]{64}$/i.test(String(request.preflightHash)) && request.preflightStatus === 'ready';
+  const budgetPolicyValid = request.budgetPolicy === undefined || validBudgetPolicy(request.budgetPolicy);
   if (request.schemaVersion !== 1 || request.kind !== 'video-render-request'
     || !REQUEST_STATES.has(request.jobState) || request.jobState !== 'rendering'
     || !Number.isInteger(request.attempt) || request.attempt < 1
@@ -110,6 +177,7 @@ export function assertVideoRendererRequestIntegrity(request, expectedHash = '') 
     || !request.timeline || typeof request.timeline !== 'object' || !Array.isArray(request.timeline.clips)
     || !request.audio || typeof request.audio !== 'object' || !Array.isArray(request.audio.tracks)
     || !preflightFieldsValid
+    || !budgetPolicyValid
     || request.providerSubmission !== false || request.billingMutation !== false
     || typeof request.requestHash !== 'string' || videoRendererRequestHash(request) !== request.requestHash
     || expectedHash && expectedHash !== request.requestHash) {

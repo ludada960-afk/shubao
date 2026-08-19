@@ -42,5 +42,6 @@
 - 服务端、客户端和工作台 UI 已贯通预算输入；预算值进入计划选项与哈希，报价仍展示真实预估值。
 - 计划审批和生成草稿在服务端重新计算并拒绝超限计划；草稿重放会保留 `null`（未设上限）或具体积分上限，不能把未设置误解为零预算。
 - 非数字、负数、小数和布尔值均 fail closed；输入变更会清除旧计划、预检和草稿状态。
+- 新建严格预检任务的 provider-neutral renderer request 会携带不可变 `budgetPolicy` 证明（币种、预估积分、最高积分、请求上限和 `withinCap`），并在请求构建/完整性校验时拒绝超限或伪造证明；旧请求仍保持兼容。该证明不等同于供应商实际用量或扣费，真实结算仍需独立的 worker/账务契约。
 - 聚焦视频工作台回归：58/58；全量回归：1868/1868；构建、静态检查、协作检查和 `git diff --check` 均通过。
 - `npm run verify:video-acceptance` 通过，且 provider submissions、billing mutations、paid generation requests 均为 0。该增量未部署，生产 full 门禁仍待明确发布窗口。

@@ -30,6 +30,9 @@ function shouldFailClosed(code) {
     'RENDER_RECONCILIATION_INVALID',
     'RENDER_RECONCILIATION_STALE',
     'RENDERER_RESPONSE_INVALID',
+    'RENDER_REQUEST_STALE',
+    'RENDER_REQUEST_INTEGRITY_INVALID',
+    'RENDER_REQUEST_BUDGET_EXCEEDED',
     'EXPORT_JOB_OUTPUT_REQUIRED',
     'RENDER_PREFLIGHT_INVALID',
     'RENDER_PREFLIGHT_STALE',
@@ -161,7 +164,8 @@ export async function runVideoRendererWorkerOnce({
             leaseToken: token,
             errorCode: error.code === 'EXPORT_JOB_OUTPUT_REQUIRED'
               ? 'RENDERER_OUTPUT_MISSING'
-              : error.code.startsWith('RENDER_PREFLIGHT_') ? error.code : 'RENDER_RECONCILIATION_INVALID',
+              : error.code.startsWith('RENDER_PREFLIGHT_') || error.code.startsWith('RENDER_REQUEST_')
+                ? error.code : 'RENDER_RECONCILIATION_INVALID',
             errorMessage: String(error.message || error.code).slice(0, 2000),
           });
         }
