@@ -13,6 +13,42 @@ function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
+function projectAssetFromRow(row) {
+  if (!row) return null;
+  return {
+    projectAssetId: row.id,
+    assetId: row.asset_id || '',
+    ownerEmail: row.owner_email,
+    projectId: row.project_id,
+    versionId: row.version_id,
+    generationRunId: row.generation_run_id,
+    role: row.role,
+    parentAssetId: row.parent_asset_id,
+    contentHash: row.content_hash,
+    stableUrl: row.stable_url,
+    mimeType: row.mime_type,
+    mediaKind: String(row.mime_type || '').toLowerCase().startsWith('image/')
+      ? 'image'
+      : String(row.mime_type || '').toLowerCase().startsWith('video/')
+        ? 'video'
+        : String(row.mime_type || '').toLowerCase().startsWith('audio/') ? 'audio' : 'document',
+    width: row.width,
+    height: row.height,
+    expiresAt: row.expires_at,
+    retentionClass: row.retention_class,
+    retentionState: row.retention_state,
+    createdAt: row.created_at,
+    deletedAt: row.deleted_at,
+  };
+}
+
+function cleanProjectAssetValue(value, name, max = 2000) {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) throw new TypeError(`${name} is required`);
+  if (normalized.length > max || /[\u0000-\u001F\u007F]/.test(normalized)) throw new TypeError(`${name} is invalid`);
+  return normalized;
+}
+
 function codedError(code, message) {
   return Object.assign(new Error(message), { code });
 }
@@ -173,6 +209,84 @@ export function createProjectStore(db, {
 
     getProject({ ownerEmail, projectId }) {
       return projectFromRow(db.prepare('SELECT * FROM projects WHERE id = ? AND owner_email = ? AND deleted_at IS NULL').get(projectId, normalizeOwner(ownerEmail)));
+    },
+
+    createProjectAsset({
+      ownerEmail,
+      projectId,
+      versionId = null,
+      generationRunId = null,
+      assetId,
+      role = 'reference',
+      stableUrl,
+      contentHash,
+      mimeType,
+      width = null,
+      height = null,
+      parentAssetId = null,
+      retentionClass = 'source',
+    }) {
+      const owner = normalizeOwner(ownerEmail);
+      const project = requireProject(owner, projectId);
+      const externalAssetId = cleanProjectAssetValue(assetId, 'assetId', 256);
+      const normalizedRole = cleanProjectAssetValue(role, 'role', 80);
+      const url = cleanProjectAssetValue(stableUrl, 'stableUrl');
+      const hash = cleanProjectAssetValue(contentHash, 'contentHash', 256);
+      const type = cleanProjectAssetValue(mimeType, 'mimeType', 160).toLowerCase();
+      if (/^https?:\/\//i.test(url)) throw new TypeError('stableUrl must be an owned application asset URL');
+      if (versionId) requireVersion(project.id, versionId);
+      if (parentAssetId) {
+        const parent = db.prepare(`SELECT id FROM project_assets
+          WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).get(parentAssetId, owner, project.id);
+        if (!parent) throw codedError('PROJECT_ASSET_NOT_FOUND', 'parent project asset not found');
+      }
+      const existing = db.prepare(`SELECT * FROM project_assets
+        WHERE owner_email = ? AND project_id = ? AND asset_id = ? AND content_hash = ?
+          AND stable_url = ? AND deleted_at IS NULL
+        ORDER BY created_at DESC LIMIT 1`).get(owner, project.id, externalAssetId, hash, url);
+      if (existing) return projectAssetFromRow(existing);
+      const id = crypto.randomUUID();
+      const createdAt = timestamp().toISOString();
+      db.prepare(`INSERT INTO project_assets
+        (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, parent_asset_id,
+         content_hash, stable_url, mime_type, width, height, retention_class, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        id, externalAssetId, owner, project.id, versionId, generationRunId, normalizedRole, parentAssetId,
+        hash, url, type, Number.isSafeInteger(width) ? width : null, Number.isSafeInteger(height) ? height : null,
+        cleanProjectAssetValue(retentionClass, 'retentionClass', 40), createdAt,
+      );
+      return projectAssetFromRow(db.prepare('SELECT * FROM project_assets WHERE id = ?').get(id));
+    },
+
+    getProjectAsset({ ownerEmail, projectId, projectAssetId }) {
+      const project = requireProject(ownerEmail, projectId);
+      return projectAssetFromRow(db.prepare(`SELECT * FROM project_assets
+        WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`)
+        .get(projectAssetId, project.ownerEmail, project.id));
+    },
+
+    listProjectAssets({ ownerEmail, projectId, mediaKind = '' } = {}) {
+      const project = requireProject(ownerEmail, projectId);
+      const assets = db.prepare(`SELECT * FROM project_assets
+        WHERE owner_email = ? AND project_id = ? AND deleted_at IS NULL
+        ORDER BY created_at DESC, id DESC`).all(project.ownerEmail, project.id).map(projectAssetFromRow);
+      const kind = String(mediaKind || '').trim().toLowerCase();
+      return kind ? assets.filter(asset => asset.mediaKind === kind) : assets;
+    },
+
+    linkProjectAsset({ ownerEmail, projectId, sourceProjectAssetId, targetProjectAssetId, relation, generationRunId = null }) {
+      const project = requireProject(ownerEmail, projectId);
+      const source = db.prepare(`SELECT id FROM project_assets
+        WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).get(sourceProjectAssetId, project.ownerEmail, project.id);
+      const target = db.prepare(`SELECT id FROM project_assets
+        WHERE id = ? AND owner_email = ? AND project_id = ? AND deleted_at IS NULL`).get(targetProjectAssetId, project.ownerEmail, project.id);
+      if (!source || !target) throw codedError('PROJECT_ASSET_NOT_FOUND', 'project asset not found');
+      const normalizedRelation = cleanProjectAssetValue(relation, 'relation', 80);
+      const createdAt = timestamp().toISOString();
+      db.prepare(`INSERT OR IGNORE INTO project_asset_lineage
+        (project_id, source_asset_id, target_asset_id, relation, generation_run_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(project.id, source.id, target.id, normalizedRelation, generationRunId || null, createdAt);
+      return { projectId: project.id, sourceProjectAssetId: source.id, targetProjectAssetId: target.id, relation: normalizedRelation };
     },
 
     listProjects({ ownerEmail, includeCompleted = true } = {}) {

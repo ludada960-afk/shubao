@@ -9,6 +9,9 @@ function routeError(error, res) {
   if (code === 'PROJECT_NOT_FOUND' || code === 'VERSION_NOT_FOUND' || code === 'DOCUMENT_NOT_FOUND') {
     return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该项目' });
   }
+  if (code === 'PROJECT_ASSET_NOT_FOUND') {
+    return res.status(404).json({ code, error: '未找到该项目素材' });
+  }
   if (code === 'VERSION_CONFLICT') {
     return res.status(409).json({ code, error: '内容已在其他位置更新，请刷新后重试' });
   }
@@ -69,6 +72,22 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
       const project = projectStore.getProject({ ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId });
       if (!project) return res.status(404).json({ code: 'PROJECT_NOT_FOUND', error: '未找到该项目' });
       return res.json({ project });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.get('/api/projects/:projectId/assets', (req, res) => {
+    try {
+      return res.json({ assets: projectStore.listProjectAssets({
+        ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId, mediaKind: req.query?.mediaKind,
+      }) });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.get('/api/projects/:projectId/assets/:assetId', (req, res) => {
+    try {
+      const asset = projectStore.getProjectAsset({
+        ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId, projectAssetId: req.params.assetId,
+      });
+      if (!asset) return res.status(404).json({ code: 'PROJECT_ASSET_NOT_FOUND', error: '未找到该项目素材' });
+      return res.json({ asset });
     } catch (error) { return routeError(error, res); }
   });
   app.post('/api/projects/:projectId/versions', (req, res) => {

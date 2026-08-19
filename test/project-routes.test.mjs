@@ -111,6 +111,26 @@ test('project and version routes return 404 for a different signed owner', async
   assert.equal(version.body.code, 'PROJECT_NOT_FOUND');
 });
 
+test('project asset read routes are owner-scoped and support media filtering', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'video', title: '素材读取' });
+  const video = projectStore.createProjectAsset({ ownerEmail: owner, projectId: project.id, assetId: 'video-1', stableUrl: '/api/video/assets/video-1', contentHash: 'video-hash', mimeType: 'video/mp4' });
+  projectStore.createProjectAsset({ ownerEmail: owner, projectId: project.id, assetId: 'image-1', stableUrl: '/api/generated-assets/image-1.webp', contentHash: 'image-hash', mimeType: 'image/webp' });
+
+  const listed = await invoke(app, 'GET', '/api/projects/:projectId/assets', { headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id }, query: { mediaKind: 'video' } });
+  const read = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId', { headers: signedHeaders(sessionTokens, owner), params: { projectId: project.id, assetId: video.projectAssetId } });
+  const denied = await invoke(app, 'GET', '/api/projects/:projectId/assets/:assetId', { headers: signedHeaders(sessionTokens, 'other@example.com'), params: { projectId: project.id, assetId: video.projectAssetId } });
+
+  assert.equal(listed.statusCode, 200);
+  assert.equal(listed.body.assets.length, 1);
+  assert.equal(listed.body.assets[0].mediaKind, 'video');
+  assert.equal(read.body.asset.projectAssetId, video.projectAssetId);
+  assert.equal(denied.statusCode, 404);
+  assert.equal(denied.body.code, 'PROJECT_NOT_FOUND');
+});
+
 test('signed owners can create an explicit recovery checkpoint and complete their project', async t => {
   const { app, db, sessionTokens } = createHarness();
   t.after(() => db.close());

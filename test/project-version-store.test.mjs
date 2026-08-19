@@ -44,6 +44,41 @@ test('creates immutable owner-scoped project versions', t => {
   assert.deepEqual(version.inputSnapshot, { prompt: '清爽夏季水杯' });
 });
 
+test('creates and lists canonical project assets with owner isolation and idempotent replay', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video', title: '素材契约' });
+  const version = store.createVersion({ ownerEmail, projectId: project.id, reason: 'manual_save' });
+  const input = {
+    ownerEmail, projectId: project.id, versionId: version.id, assetId: 'upload-1', role: 'reference',
+    stableUrl: '/api/video/assets/upload-1', contentHash: 'hash-1', mimeType: 'video/mp4', retentionClass: 'source',
+  };
+  const first = store.createProjectAsset(input);
+  const replay = store.createProjectAsset(input);
+  assert.equal(replay.projectAssetId, first.projectAssetId);
+  assert.equal(first.mediaKind, 'video');
+  assert.equal(store.listProjectAssets({ ownerEmail, projectId: project.id, mediaKind: 'video' }).length, 1);
+  assert.throws(() => store.listProjectAssets({ ownerEmail: 'other@example.com', projectId: project.id }), error => error?.code === 'PROJECT_NOT_FOUND');
+  assert.throws(() => store.getProjectAsset({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: first.projectAssetId }), error => error?.code === 'PROJECT_NOT_FOUND');
+});
+
+test('links canonical project assets idempotently and rejects cross-project links', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce' });
+  const source = store.createProjectAsset({ ownerEmail, projectId: project.id, assetId: 'source', stableUrl: '/api/generated-assets/source.webp', contentHash: 'source-hash', mimeType: 'image/webp' });
+  const target = store.createProjectAsset({ ownerEmail, projectId: project.id, assetId: 'target', stableUrl: '/api/generated-assets/target.webp', contentHash: 'target-hash', mimeType: 'image/webp' });
+  const first = store.linkProjectAsset({ ownerEmail, projectId: project.id, sourceProjectAssetId: source.projectAssetId, targetProjectAssetId: target.projectAssetId, relation: 'generated_from', generationRunId: 'run-1' });
+  const replay = store.linkProjectAsset({ ownerEmail, projectId: project.id, sourceProjectAssetId: source.projectAssetId, targetProjectAssetId: target.projectAssetId, relation: 'generated_from', generationRunId: 'run-1' });
+  assert.deepEqual(replay, first);
+  assert.equal(db.prepare('SELECT COUNT(*) AS value FROM project_asset_lineage').get().value, 1);
+  const other = store.createProject({ ownerEmail: 'other@example.com', kind: 'video' });
+  const foreign = store.createProjectAsset({ ownerEmail: 'other@example.com', projectId: other.id, assetId: 'foreign', stableUrl: '/api/video/assets/foreign', contentHash: 'foreign-hash', mimeType: 'video/mp4' });
+  assert.throws(() => store.linkProjectAsset({ ownerEmail, projectId: project.id, sourceProjectAssetId: source.projectAssetId, targetProjectAssetId: foreign.projectAssetId, relation: 'generated_from' }), error => error?.code === 'PROJECT_ASSET_NOT_FOUND');
+});
+
 test('lists recovery checkpoints with their immutable source version and without another owner records', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

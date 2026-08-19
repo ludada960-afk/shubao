@@ -97,6 +97,25 @@ export async function getProject(projectId) {
   return response.project;
 }
 
+export async function listProjectAssets(projectId, mediaKind = '') {
+  const response = await requestJson(
+    `/api/projects/${projectPathSegment(projectId)}/assets${mediaKind ? `?mediaKind=${encodeURIComponent(mediaKind)}` : ''}`,
+    {},
+    '暂时无法读取项目素材',
+  );
+  return Array.isArray(response?.assets) ? response.assets : [];
+}
+
+export async function getProjectAsset(projectId, projectAssetId) {
+  const response = await requestJson(
+    `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}`,
+    {},
+    '暂时无法读取项目素材',
+  );
+  if (!response?.asset?.projectAssetId) throw new Error('项目素材暂时不可用，请稍后重试');
+  return response.asset;
+}
+
 export async function createProjectVersion(projectId, payload = {}) {
   const response = await requestJson(`/api/projects/${projectPathSegment(projectId)}/versions`, {
     method: 'POST',
