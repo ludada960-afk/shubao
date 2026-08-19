@@ -289,7 +289,7 @@ function Refresh-CanarySessionAfterRestart {
   $remotePid = Get-RemotePm2ProcessId
   $issuerCommand = "set -e; umask 077; node '$RemoteDir/scripts/issue-production-canary-session.mjs' --owner-email '$CanaryOwnerEmail' --process-id '$remotePid' --repo-path '$RemoteDir' > '$remoteCanarySessionFile'; chmod 600 '$remoteCanarySessionFile'"
   Invoke-LockedRemote -Command $issuerCommand -TimeoutSeconds 120 -FailureMessage "Post-restart canary session issuance failed"
-  $refreshedToken = (Invoke-BoundedSshCapture -Command "cat '$remoteCanarySessionFile'" -TimeoutSeconds 30).Trim()
+  $refreshedToken = (Invoke-BoundedSshCapture -Command "cat '$remoteCanarySessionFile'" -TimeoutSeconds 120).Trim()
   if (-not (Test-CanarySessionTokenFormat $refreshedToken)) {
     throw "Post-restart canary session capture failed"
   }
