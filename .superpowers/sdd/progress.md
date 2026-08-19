@@ -2100,3 +2100,13 @@
   认证视频 canary 通过，视频 `providerSubmissions=0`、`paidGenerationRequested=false`。
 - 完整 `600` 秒公网金丝雀通过，真实电商验收两轮均返回 `3` 个稳定素材；最终线上电商活跃任务 `0`、图片队列 active/queued 均为 `0`，部署锁已释放。
 - 本轮没有修改视频线程文件；视频线程继续负责视频域能力，主线程维护 canonical project assets、Canvas/Works 桥接和发布验收。
+
+## 2026-08-20 Unified Project Asset Library Read Path
+
+- 主线程提交 `4fc5892`：新增 owner-scoped `/api/project-assets` 聚合读取接口，返回脱敏的项目摘要和 canonical
+  asset identity，支持项目、项目类型、媒体类型和数量过滤；增加 owner/created-at 索引，避免资产库随项目数增长重复遍历。
+- Canvas Works 和视频工作台改用同一资产库接口；Canvas 提供全部/图片/视频/音频筛选，视频跨项目素材导入继续通过
+  `importProjectAssetVersion` 和 canonical hash 校验，不触发生成或账务。
+- 本地证据：定向 `41/41`、全量 `1902/1902`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、
+  `git diff --check` 通过；390px 浏览器检查无横向溢出。视频线程没有返回新的共享变更，本轮未修改其领域文件。
+- 该提交包含服务端、Canvas 和视频工作台，若发布必须按 `full` 生产门禁执行；尚未把本条本地证据写成线上证据。
