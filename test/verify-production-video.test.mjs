@@ -102,3 +102,65 @@ test('authenticated production verifier performs only non-billable canaries', as
   assert.equal(calls.some(call => call.path === '/api/video/jobs' && call.method === 'POST'), false);
   assert.equal(calls.some(call => call.method === 'PATCH'), false);
 });
+
+test('authenticated cleanup retries transient network failures without retrying upload creation', async () => {
+  const calls = [];
+  const catalog = {
+    generationEnabled: true,
+    products: [
+      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 40000 }, long: { sku: 'fast-long', units: 46000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 62000 }, long: { sku: 'standard-long', units: 72000 } } },
+    ],
+  };
+  let deleteAttempts = 0;
+  const fetchImpl = async (url, options = {}) => {
+    const path = new URL(String(url)).pathname;
+    const method = options.method || 'GET';
+    calls.push(`${method} ${path}`);
+    if (path === '/api/video/capabilities') return response(catalog);
+    if (path === '/api/video/jobs') return response({ jobs: [] });
+    if (path === '/api/admin/video-operations') return response({ metrics: {}, attentionQueue: [], lease: null });
+    if (path === '/api/video/uploads' && method === 'POST') {
+      const created = response({}, 201);
+      created.headers = new Headers({ location: '/api/video/uploads/canary-upload' });
+      return created;
+    }
+    if (path === '/api/video/uploads/canary-upload' && method === 'DELETE') {
+      deleteAttempts += 1;
+      if (deleteAttempts < 3) throw new Error('socket reset');
+      return response({}, 204);
+    }
+    throw new Error(`unexpected request ${method} ${path}`);
+  };
+
+  await verifyProductionVideo({ baseUrl: 'https://example.com', fetchImpl, sessionToken: 'signed-canary', sleep: async () => {} });
+
+  assert.equal(calls.filter(call => call === 'POST /api/video/uploads').length, 1);
+  assert.equal(calls.filter(call => call === 'DELETE /api/video/uploads/canary-upload').length, 3);
+});
+
+test('authenticated cleanup treats an already-removed ephemeral upload as success', async () => {
+  const catalog = {
+    generationEnabled: true,
+    products: [
+      { id: 'seedance_fast', quotes: { short: { sku: 'fast-short', units: 40000 }, long: { sku: 'fast-long', units: 46000 } } },
+      { id: 'seedance_standard', quotes: { short: { sku: 'standard-short', units: 62000 }, long: { sku: 'standard-long', units: 72000 } } },
+    ],
+  };
+  const fetchImpl = async (url, options = {}) => {
+    const path = new URL(String(url)).pathname;
+    const method = options.method || 'GET';
+    if (path === '/api/video/capabilities') return response(catalog);
+    if (path === '/api/video/jobs') return response({ jobs: [] });
+    if (path === '/api/admin/video-operations') return response({ metrics: {}, attentionQueue: [], lease: null });
+    if (path === '/api/video/uploads' && method === 'POST') {
+      const created = response({}, 201);
+      created.headers = new Headers({ location: '/api/video/uploads/already-gone' });
+      return created;
+    }
+    if (path === '/api/video/uploads/already-gone' && method === 'DELETE') return response({}, 404);
+    throw new Error(`unexpected request ${method} ${path}`);
+  };
+
+  await verifyProductionVideo({ baseUrl: 'https://example.com', fetchImpl, sessionToken: 'signed-canary', sleep: async () => {} });
+});

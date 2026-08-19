@@ -1,6 +1,8 @@
 import { pathToFileURL } from 'node:url';
 
 const DEFAULT_BASE_URL = 'https://shuimg.cn';
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const DEFAULT_RETRY_DELAYS_MS = Object.freeze([250, 750]);
 
 function authorizationHeaders(sessionToken, extra = {}) {
   return sessionToken ? { ...extra, Authorization: `Bearer ${sessionToken}` } : extra;
@@ -17,20 +19,39 @@ async function readJson(response, context) {
   }
 }
 
-async function verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken }) {
+async function verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken, sleep = delay => new Promise(resolve => setTimeout(resolve, delay)) }) {
   const request = async (path, options = {}) => {
-    let response;
-    try {
-      response = await fetchImpl(`${root}${path}`, {
-        ...options,
-        headers: authorizationHeaders(sessionToken, options.headers),
-        signal: options.signal || AbortSignal.timeout(20_000),
-      });
-    } catch (cause) {
-      throw new Error(`${options.method || 'GET'} ${path} fetch failed: ${cause?.message || cause}`);
+    const method = String(options.method || 'GET').toUpperCase();
+    const retryable = options.retryable ?? (method === 'GET' || method === 'DELETE');
+    const maxAttempts = options.maxAttempts ?? (retryable ? DEFAULT_RETRY_DELAYS_MS.length + 1 : 1);
+    let lastCause;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      let response;
+      try {
+        response = await fetchImpl(`${root}${path}`, {
+          ...options,
+          headers: authorizationHeaders(sessionToken, options.headers),
+          signal: options.signal || AbortSignal.timeout(20_000),
+        });
+      } catch (cause) {
+        lastCause = cause;
+        if (retryable && attempt < maxAttempts - 1) {
+          await sleep(DEFAULT_RETRY_DELAYS_MS[Math.min(attempt, DEFAULT_RETRY_DELAYS_MS.length - 1)]);
+          continue;
+        }
+        throw new Error(`${method} ${path} fetch failed: ${cause?.message || cause}`);
+      }
+      if (response.ok) return response;
+      // DELETE is used only for an ephemeral canary upload. A lost response can
+      // leave the server already cleaned, so 404 is the desired end state.
+      if (method === 'DELETE' && options.allowAlreadyGone && response.status === 404) return response;
+      if (retryable && RETRYABLE_STATUS_CODES.has(response.status) && attempt < maxAttempts - 1) {
+        await sleep(DEFAULT_RETRY_DELAYS_MS[Math.min(attempt, DEFAULT_RETRY_DELAYS_MS.length - 1)]);
+        continue;
+      }
+      throw new Error(`${method} ${path} returned HTTP ${response.status}`);
     }
-    if (!response.ok) throw new Error(`${options.method || 'GET'} ${path} returned HTTP ${response.status}`);
-    return response;
+    throw new Error(`${method} ${path} fetch failed: ${lastCause?.message || 'request exhausted'}`);
   };
   const jobsResponse = await request('/api/video/jobs');
   const jobsBody = await readJson(jobsResponse, 'Owned video jobs response');
@@ -51,12 +72,16 @@ async function verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken }) {
   const location = created.headers.get('location');
   if (!location) throw new Error('Video upload canary did not return a location');
   const uploadPath = new URL(location, root).pathname;
-  await request(uploadPath, { method: 'DELETE', headers: { 'Tus-Resumable': '1.0.0' } });
+  await request(uploadPath, {
+    method: 'DELETE',
+    headers: { 'Tus-Resumable': '1.0.0' },
+    allowAlreadyGone: true,
+  });
 
   return { ownedJobs: jobsBody.jobs.length, uploadCreatedAndCancelled: true, operationsVisible: true };
 }
 
-export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch, sessionToken = '' } = {}) {
+export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchImpl = fetch, sessionToken = '', sleep } = {}) {
   const root = String(baseUrl).replace(/\/+$/, '');
   let response;
   try {
@@ -85,7 +110,7 @@ export async function verifyProductionVideo({ baseUrl = DEFAULT_BASE_URL, fetchI
   if (body.generationEnabled && !body.products.some(product => product.id === 'seedance_standard')) {
     throw new Error('Video generation is enabled without a stable public product');
   }
-  const canaries = sessionToken ? await verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken }) : null;
+  const canaries = sessionToken ? await verifyAuthenticatedCanaries({ root, fetchImpl, sessionToken, sleep }) : null;
   process.stdout.write(`Production video contract passed (${body.products.length} public products, generation ${body.generationEnabled ? 'enabled' : 'disabled'}${canaries ? ', authenticated non-billable canaries passed' : ''})\n`);
   return { ...body, canaries };
 }

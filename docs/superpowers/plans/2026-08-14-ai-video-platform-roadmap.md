@@ -681,3 +681,29 @@ clips, candidate replacement mode, preserved neighboring shots, bounded user rea
   the 40-operation planning pilot, and local production audit `27/27` all pass. No online release is implied by the
   local implementation; the deployment attempt stopped before remote helper/lock creation because the SSH key was
   unreadable in this environment.
+
+## 29. Objective Acceptance Gates (2026-08-19)
+
+The acceptance rule is now risk-based and quota-safe. The external navigation task's review clarified that a
+production generation script is not a general smoke test: it creates a real task and therefore cannot be run merely
+to prove that a static page or a planning-only video change still renders.
+
+- `auto` is the default deployment classifier and fails closed. Server, shared state, billing, generation routes,
+  asset persistence, Canvas, video/ecommerce workbenches, scripts, dependencies, build configuration, or unknown
+  scope require the full production gate. Only a demonstrably non-business UI/static/docs/test change may use the
+  frontend gate.
+- Pure UI, research, and documentation work uses local evidence: `npm test`, `npm run build`, `npm run check`,
+  `npm run collab:check`, `git diff --check`, and local browser checks. It does not call real ecommerce or video
+  generation.
+- AI-video changes use `npm run verify:video-acceptance` as the default L0 contract. The report must be
+  `ok=true`, `providerSubmissions=0`, `billingMutated=false`, and `paidGenerationRequested=false`. This gate is
+  backed by platform, renderer-reconciliation, and workbench-pilot checks rather than a screenshot-only assertion.
+- Online video verification is separated into read-only L3, non-billable TUS L4, and user-approved real-generation
+  L5. A failed or lost TUS delete response is retried finitely; a subsequent 404 is treated as already-cleaned,
+  while upload creation is never retried automatically.
+
+Evidence for this acceptance slice: full regression `1860/1860`, `npm run verify:video-acceptance` with zero
+provider submissions and no billing mutation, focused production-video verifier tests `6/6`, build/check/collab
+checks, and `git diff --check`. This records an objective release gate; it does not claim that the provider-backed
+AI-video workbench is production-enabled. The remaining product roadmap gates stay open and must be advanced one
+bounded, provider-neutral slice at a time.
