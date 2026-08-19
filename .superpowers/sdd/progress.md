@@ -2070,3 +2070,9 @@
 - 正式部署提交：`da6fc48`，其父提交包含并上线了另一线程的 `e8e06cd` XHS/Plog 电商布局修复；部署包在后续本地提交 `5f2b027` 产生前构建，因此 `5f2b027` 的 AI 视频验收门禁不在本次线上版本内。
 - 使用 `-ValidationProfile full` 执行正式部署。全量回归 `1860/1860`，生产构建转换 `6523` 个模块，构建后检查通过，协作检查和差异检查通过；视频验收报告 `paidGenerationRequested: false`、`providerSubmissions: 0`。
 - 线上 `https://shuimg.cn` 健康检查、图库 `117` 张、视频合同 `2` 个公开产品、认证非计费视频 canary、账务验证均通过。真实电商首轮任务 `ec_009c1eea-3c46-4d26-b2d5-bcf9ed9685b1` 和金丝雀末轮任务 `ec_6298b8d6-26e5-4034-a20d-f27861a7b5f1` 均完成并返回 `3` 个稳定素材；`600` 秒金丝雀观察通过，部署锁已释放。
+
+## 2026-08-19 Creative Navigation Stabilization Deployment
+
+- 正式部署提交：`afad5cc`，仅包含本次导航交互修复；另一线程的 AI 视频提交 `78108bf` 未纳入本次发布。
+- 桌面 Mega menu 改为 fixed portal 层，增加 pointer-safe bridge、延迟关闭、外部点击/焦点/Escape 关闭和更强的 active/open 状态。顶级域只负责打开并固定面板，子项和 CTA 负责跳转；视频暂不拆分子分类。
+- 验证：`1863/1863` 测试、生产构建 `6523 modules`、静态检查、117 张图库、视频公开契约、认证非计费视频 canary、账务检查和 600 秒前端金丝雀均通过。使用 `frontend` 验收范围，跳过真实电商生图，未产生付费 provider submission。
