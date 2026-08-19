@@ -11,6 +11,10 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
   assert.match(component, /creative-nav-viewport/);
   assert.match(shellCss, /\.creative-nav-viewport\s*\{[\s\S]*position:\s*fixed/);
   assert.match(shellCss, /\.creative-nav-viewport-bridge\s*\{/);
+  assert.match(component, /creative-nav-signature/);
+  assert.match(component, /creative-nav-link-icon/);
+  assert.match(component, /creative-nav-arrow-left/);
+  assert.match(shellCss, /\.creative-nav-signature\s*\{/);
 });
 
 test('top-level domain clicks pin the menu instead of launching the first child', () => {

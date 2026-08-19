@@ -5,7 +5,7 @@ import React, { useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { TaskProvider } from './store/taskStore';
 import { MdCheck } from 'react-icons/md';
-import { ShieldCheck } from 'lucide-react';
+import { FolderOpen, LayoutGrid, ShieldCheck, Sparkles, SquarePlay } from 'lucide-react';
 import { IMAGES } from './constants/images';
 import { LoginModal, PricingModal } from './components/business/Modals';
 import TaskSidebar from './components/task/TaskSidebar';
@@ -29,6 +29,79 @@ import { shouldShowNoteModal } from './routing/resultRouting';
 import { buildContentCanvasResult } from './utils/contentCanvasHandoff.js';
 import AccountEntitlementControl from './components/billing/AccountEntitlementControl.jsx';
 import CreativeDomainNav from './components/layout/CreativeDomainNav.jsx';
+
+function SideNav() {
+  const { state, dispatch } = useApp();
+  const { page } = state;
+  const requestLogin = destination => {
+    dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination, source: state.page } });
+    dispatch({ type: 'SHOW_LOGIN', show: true });
+  };
+  const items = [
+    {
+      icon: Sparkles,
+      motion: 'sparkles',
+      label: '开始创作',
+      isPrimary: true,
+      active: page === 'home',
+      onClick: () => dispatch({ type: 'NEW_WORK' }),
+    },
+    {
+      icon: SquarePlay,
+      motion: 'video',
+      label: '视频创作',
+      active: page === 'video-studio',
+      onClick: () => {
+        if (!state.logged) return requestLogin('video-studio');
+        dispatch({ type: 'NAVIGATE', page: 'video-studio' });
+      },
+    },
+    {
+      icon: LayoutGrid,
+      motion: 'grid',
+      label: '画布',
+      active: page === 'ec-canvas',
+      onClick: () => {
+        if (!state.logged) return requestLogin('ec-canvas');
+        dispatch({ type: 'OPEN_CANVAS' });
+      },
+    },
+    {
+      icon: FolderOpen,
+      motion: 'folder',
+      label: '作品',
+      active: false,
+      onClick: () => {
+        if (!state.logged) return requestLogin('works');
+        dispatch({ type: 'OPEN_CANVAS', tab: 'works' });
+      },
+    },
+  ];
+
+  return (
+    <nav className="app-side-nav" aria-label="快速创作导航">
+      {items.map(item => {
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.onClick}
+            aria-label={item.label}
+            aria-current={item.active ? 'page' : undefined}
+            data-nav-icon={item.motion}
+            className={`app-side-nav-item${item.isPrimary ? ' is-primary' : ''}${item.active ? ' is-active' : ''}`}
+          >
+            <span className={`app-side-nav-icon motion-${item.motion}`} aria-hidden="true">
+              <Icon size={item.isPrimary ? 19 : 20} strokeWidth={2.1} />
+            </span>
+            <span className="app-side-nav-tooltip" role="tooltip" aria-hidden="true">{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
 
 /* ═══════ TopBar（无容器，直接浮在页面）═══════ */
 function TopBar() {
@@ -188,6 +261,7 @@ function AppRouter() {
   });
 
   return (<>
+    {page !== 'ec-canvas' && <SideNav />}
     <TaskSidebar />
     {page !== 'ec-canvas' && <TopBar />}
     <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: 16, color: '#999' }}>加载中…</div>}>

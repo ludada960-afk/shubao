@@ -2,8 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRight,
+  BookOpenText,
   ChevronDown,
   Clapperboard,
+  FolderOpen,
+  Image,
   LayoutDashboard,
   Menu,
   NotebookPen,
@@ -28,6 +31,29 @@ const ICONS = {
   'wand-sparkles': WandSparkles,
   'layout-dashboard': LayoutDashboard,
 };
+
+const ITEM_ICONS = {
+  'commerce-suite': ShoppingBag,
+  'commerce-tryon': WandSparkles,
+  'commerce-canvas': LayoutDashboard,
+  'video-studio': Clapperboard,
+  'content-xhs': NotebookPen,
+  'content-plog': BookOpenText,
+  'visual-free': WandSparkles,
+  'visual-poster': Image,
+  'visual-social-cover': Image,
+  'visual-brand-kv': Sparkles,
+  canvas: LayoutDashboard,
+  works: FolderOpen,
+};
+
+const DOMAIN_THEMES = Object.freeze({
+  commerce: 'commerce',
+  video: 'video',
+  content: 'content',
+  visual: 'visual',
+  workspace: 'workspace',
+});
 
 function isProtectedTarget(action) {
   return action?.type === 'OPEN_CANVAS' || (action?.type === 'NAVIGATE' && action.page === 'video-studio');
@@ -100,7 +126,8 @@ function CreativeDomainNav() {
         window.innerWidth - width - 16,
         rect.left + rect.width / 2 - width / 2,
       ));
-      setPanelPosition({ left, top: rect.bottom, width });
+      const arrowLeft = Math.max(30, Math.min(width - 30, rect.left + rect.width / 2 - left));
+      setPanelPosition({ left, top: rect.bottom, width, arrowLeft });
     };
     updatePanelPosition();
     window.addEventListener('resize', updatePanelPosition, { passive: true });
@@ -239,10 +266,15 @@ function CreativeDomainNav() {
 
   const renderGroupPanel = group => {
     const Icon = ICONS[group.icon] || Sparkles;
+    const theme = DOMAIN_THEMES[group.id] || 'commerce';
     return (
-      <div className="creative-nav-panel" id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
+      <div className={`creative-nav-panel creative-nav-panel--${theme}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
         <div className="creative-nav-panel-intro">
-          <span className="creative-nav-panel-icon"><Icon size={20} strokeWidth={1.8} /></span>
+          <div className="creative-nav-domain-mark" aria-hidden="true">
+            <span className="creative-nav-domain-grid" />
+            <span className="creative-nav-panel-icon"><Icon size={22} strokeWidth={1.8} /></span>
+            <span className="creative-nav-domain-spark" />
+          </div>
           <small>{group.eyebrow}</small>
           <strong>{group.label}</strong>
           <p>{group.description}</p>
@@ -251,7 +283,7 @@ function CreativeDomainNav() {
           </button>
         </div>
         <div className="creative-nav-panel-links">
-          <span className="creative-nav-section-label">进入工作台</span>
+          <div className="creative-nav-section-heading"><span>入口</span><small>{String(group.items.length).padStart(2, '0')} 个方向</small></div>
           {group.items.map((item, index) => (
             <button
               type="button"
@@ -261,11 +293,19 @@ function CreativeDomainNav() {
               onClick={() => runTarget(group.id, item.id)}
               onKeyDown={event => handlePanelKeyDown(event, group.id, index)}
             >
+              <span className="creative-nav-link-icon" aria-hidden="true">{React.createElement(ITEM_ICONS[item.id] || Icon, { size: 17, strokeWidth: 1.8 })}</span>
               <span><strong>{item.label}</strong><small>{item.description}</small></span>
               <ArrowRight size={15} />
             </button>
           ))}
           <div className="creative-nav-panel-note"><Sparkles size={13} /> 所有结果都可以继续进入画布编辑</div>
+        </div>
+        <div className="creative-nav-signature" aria-hidden="true">
+          <span className="creative-nav-signature-label">SHUBAO / {String(group.id).toUpperCase()}</span>
+          <span className="creative-nav-signature-orbit creative-nav-signature-orbit--one" />
+          <span className="creative-nav-signature-orbit creative-nav-signature-orbit--two" />
+          <span className="creative-nav-signature-core"><Icon size={28} strokeWidth={1.35} /></span>
+          <span className="creative-nav-signature-caption">从想法到成品<br /><b>一条可继续的创作路径</b></span>
         </div>
       </div>
     );
@@ -279,7 +319,12 @@ function CreativeDomainNav() {
       <div
         ref={viewportRef}
         className="creative-nav-viewport"
-        style={{ left: panelPosition.left, top: panelPosition.top, width: panelPosition.width }}
+        style={{
+          left: panelPosition.left,
+          top: panelPosition.top,
+          width: panelPosition.width,
+          '--creative-nav-arrow-left': `${panelPosition.arrowLeft}px`,
+        }}
         onPointerEnter={clearCloseTimer}
         onPointerLeave={scheduleDesktopClose}
       >

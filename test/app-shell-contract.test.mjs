@@ -12,9 +12,14 @@ test('app shell uses the creative domain navigation contract', () => {
   assert.match(app, /import '\.\/styles\/app-shell\.css'/);
   assert.doesNotMatch(topBarBlock, /position:\s*'sticky'|top:\s*0/);
   assert.match(app, /CreativeDomainNav/);
-  assert.doesNotMatch(app, /<SideNav \/>/);
+  assert.match(app, /function SideNav\(\)/);
+  assert.match(app, /className="app-side-nav"/);
+  assert.match(app, /page !== 'ec-canvas' && <SideNav \/>/);
+  assert.match(app, /const canAdmin = state\.accountAccess\?\.role === 'owner'/);
   assert.match(shellCss, /\.creative-nav-desktop \{/);
   assert.match(shellCss, /\.creative-nav-panel \{/);
+  assert.match(shellCss, /grid-template-columns:\s*minmax\(220px, 1fr\) auto minmax\(220px, 1fr\)/);
+  assert.doesNotMatch(shellCss.match(/\.creative-nav-panel \{([\s\S]*?)\n\}/)?.[1] || '', /translateX\(-50%\)/);
   assert.match(shellCss, /\.creative-nav-mobile-drawer \{/);
   assert.match(shellCss, /\.creative-nav-trigger:focus-visible/);
   assert.match(shellCss, /@media \(max-width:\s*639px\)[\s\S]*?\.creative-nav-mobile-trigger/);
