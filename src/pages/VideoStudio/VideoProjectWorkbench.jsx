@@ -23,7 +23,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { createProject, listProjects } from '../../services/projects.js';
+import { createProject, listProjectAssets, listProjects } from '../../services/projects.js';
 import {
   addTimelineClip,
   approveVideoWorkbenchPlan,
@@ -53,6 +53,7 @@ import {
   previewVideoSkillRunExecution,
   previewVideoSkillTemplate,
   importJobCandidate,
+  importProjectAssetVersion,
   importWorkbenchAssetVersion,
   removeVideoProjectMemoryFact,
   selectShotCandidate,
@@ -269,6 +270,7 @@ function CandidateMedia({ candidate, label }) {
 
 export default function VideoProjectWorkbench({ enabled = false, logged = false, mode = 'planning', planningOnly = false, uploadRecords = [], jobs = [], onProjectChange, onPlanApprovalChange }) {
   const [projects, setProjects] = useState([]);
+  const [reusableProjectAssets, setReusableProjectAssets] = useState([]);
   const [projectId, setProjectId] = useState('');
   const [workbench, setWorkbench] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -324,6 +326,8 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   const stageSummary = useMemo(() => workbenchStageSummary(workbench), [workbench]);
   const importedSourceIds = useMemo(() => new Set((workbench?.assets || []).flatMap(asset =>
     (asset.versions || []).map(version => version.sourceProjectAssetId).filter(Boolean))), [workbench]);
+  const importedSourceProjectAssetIds = useMemo(() => new Set((workbench?.assets || []).flatMap(asset =>
+    (asset.versions || []).map(version => version.metadata?.sourceProjectAssetRef?.projectAssetId).filter(Boolean))), [workbench]);
   const activeClipShotIds = useMemo(() => new Set((workbench?.timelineClips || [])
     .filter(clip => clip.status === 'active').map(clip => clip.shotId)), [workbench]);
 
@@ -442,8 +446,17 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
     setSkillRunExecutionPreview(null);
     setLoading(true);
     try {
-      const next = videoProjects(await listProjects());
+      const allProjects = await listProjects();
+      const next = videoProjects(allProjects);
       setProjects(next);
+      const sourceProjects = allProjects.filter(project => project?.kind !== 'video' && !project?.deletedAt);
+      const sourceGroups = await Promise.all(sourceProjects.map(async project => ({
+        project,
+        assets: await listProjectAssets(project.id),
+      })));
+      setReusableProjectAssets(sourceGroups.flatMap(({ project, assets }) => assets
+        .filter(asset => ['image', 'video', 'audio'].includes(asset.mediaKind))
+        .map(asset => ({ ...asset, sourceProject: project }))));
       const jobProjectId = jobs.find(item => item?.projectId && next.some(project => project.id === item.projectId))?.projectId;
       const target = [preferredId, selectedProjectRef.current, jobProjectId, next[0]?.id]
         .find(id => id && next.some(project => project.id === id)) || '';
@@ -471,10 +484,19 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
   useEffect(() => {
     if (!enabled || !logged) return undefined;
     let active = true;
-    listProjects().then(result => {
+    listProjects().then(async result => {
       if (!active) return;
       const next = videoProjects(result);
       setProjects(next);
+      const sourceProjects = result.filter(project => project?.kind !== 'video' && !project?.deletedAt);
+      const sourceGroups = await Promise.all(sourceProjects.map(async project => ({
+        project,
+        assets: await listProjectAssets(project.id),
+      })));
+      if (!active) return;
+      setReusableProjectAssets(sourceGroups.flatMap(({ project, assets }) => assets
+        .filter(asset => ['image', 'video', 'audio'].includes(asset.mediaKind))
+        .map(asset => ({ ...asset, sourceProject: project }))));
       const jobProjectId = jobs.find(item => item?.projectId && next.some(project => project.id === item.projectId))?.projectId;
       const target = jobProjectId || next[0]?.id || '';
       selectedProjectRef.current = target;
@@ -846,6 +868,27 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
         videoAssetId: upload.asset.id,
         metadata: { source: 'video-studio-upload' },
       });
+      await approveWorkbenchAssetVersion(projectId, asset.id, {
+        versionId: version.id,
+        expectedRevision: asset.revision,
+      });
+    });
+  }
+
+  function handleImportProjectAsset(sourceAsset) {
+    const sourceId = sourceAsset.projectAssetId;
+    const kind = assetKinds[sourceId] || (sourceAsset.mediaKind === 'video' ? 'scene' : sourceAsset.mediaKind === 'audio' ? 'music' : 'style');
+    void runMutation(`project-asset:${sourceId}`, async () => {
+      const asset = await createWorkbenchAsset(projectId, {
+        kind,
+        name: sourceAsset.metadata?.displayName || sourceAsset.assetId || '已有项目素材',
+      });
+      const version = await importProjectAssetVersion(projectId, asset.id, {
+        projectId: sourceAsset.sourceProject.id,
+        projectAssetId: sourceAsset.projectAssetId,
+        role: kind,
+        expectedContentHash: sourceAsset.contentHash,
+      }, { source: 'project-asset-library' });
       await approveWorkbenchAssetVersion(projectId, asset.id, {
         versionId: version.id,
         expectedRevision: asset.revision,
@@ -1349,6 +1392,24 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
           })}
           {!uploads.length && <p className="video-project-inline-empty">先在上方上传图片、视频或音频；上传完成后会出现在这里。</p>}
         </div>
+        {!!reusableProjectAssets.length && <div className="video-project-library">
+          <div className="video-project-library-heading"><strong>已有项目素材</strong><span>从你自己的图片项目导入，导入只建立引用和版本，不会生成或扣积分。</span></div>
+          <div className="video-project-upload-list">
+            {reusableProjectAssets.map(sourceAsset => {
+              const sourceId = sourceAsset.projectAssetId;
+              const imported = importedSourceProjectAssetIds.has(sourceId);
+              const label = sourceAsset.metadata?.displayName || sourceAsset.assetId || '已有项目素材';
+              return <article key={`${sourceAsset.sourceProject.id}:${sourceId}`}>
+                <div className="video-project-library-media"><ProjectMedia version={sourceAsset} name={label} /></div>
+                <div><strong>{label}</strong><small>{sourceAsset.sourceProject.title || '图片项目'} · {sourceAsset.mediaKind === 'video' ? '视频' : sourceAsset.mediaKind === 'audio' ? '音频' : '图片'}</small></div>
+                <select aria-label={`设置已有素材${label}的素材类型`} disabled={Boolean(busy) || imported} value={assetKinds[sourceId] || (sourceAsset.mediaKind === 'video' ? 'scene' : sourceAsset.mediaKind === 'audio' ? 'music' : 'style')} onChange={event => setAssetKinds(current => ({ ...current, [sourceId]: event.target.value }))}>
+                  {ASSET_KINDS.map(([value, optionLabel]) => <option key={value} value={value}>{optionLabel}</option>)}
+                </select>
+                <button type="button" disabled={Boolean(busy) || imported} onClick={() => handleImportProjectAsset(sourceAsset)}>{imported ? <><Check size={15} />已导入</> : busy === `project-asset:${sourceId}` ? <><LoaderCircle className="is-spinning" />导入中</> : '导入并确认'}</button>
+              </article>;
+            })}
+          </div>
+        </div>}
         {!!approved.length && <div className="video-project-approved-assets">{approved.map(({ asset, version }) => <article key={asset.id}>
           <div className="video-project-media"><ProjectMedia version={version} name={asset.name} /></div><span><small>{ASSET_KINDS.find(([value]) => value === asset.kind)?.[1] || '素材'} · V{version.sequence}</small><strong>{asset.name}</strong><em><Check size={13} />已确认</em></span>
         </article>)}</div>}

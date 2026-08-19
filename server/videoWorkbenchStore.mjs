@@ -1164,6 +1164,66 @@ export function createVideoWorkbenchStore({
       });
     },
 
+    addAssetVersionFromProjectAsset({ ownerEmail, projectId, assetId, sourceProjectId,
+      sourceProjectAssetId, expectedContentHash, role = 'reference', metadata = {} }) {
+      const { owner, project } = requireProject(ownerEmail, projectId);
+      requireAsset(owner, project.id, assetId);
+      const sourceProject = projectStore.getProject({ ownerEmail: owner, projectId: sourceProjectId });
+      if (!sourceProject) throw coded('PROJECT_NOT_FOUND', 'source project not found');
+      const sourceAsset = canonicalAssetStore?.getProjectAsset?.({
+        ownerEmail: owner,
+        projectId: sourceProject.id,
+        projectAssetId: sourceProjectAssetId,
+      });
+      if (!sourceAsset) throw coded('PROJECT_ASSET_NOT_FOUND', 'source project asset not found');
+      let sourceRef;
+      try {
+        sourceRef = publicProjectAssetRef(sourceAsset, {
+          role: clean(role, 80) || 'reference',
+          expectedContentHash,
+        });
+      } catch (error) {
+        throw coded('PROJECT_ASSET_REF_INVALID', error?.message || 'source project asset reference is invalid');
+      }
+      const sourceMetadata = sourceAsset.metadata && typeof sourceAsset.metadata === 'object'
+        ? sourceAsset.metadata : {};
+      const imported = createCanonicalProjectAsset({
+        ownerEmail: owner,
+        projectId: project.id,
+        assetId: sourceAsset.assetId || sourceAsset.projectAssetId,
+        role: sourceRef.role,
+        stableUrl: sourceAsset.stableUrl,
+        contentHash: sourceAsset.contentHash,
+        mimeType: sourceAsset.mimeType,
+        width: sourceAsset.width,
+        height: sourceAsset.height,
+        retentionClass: sourceAsset.retentionClass || 'source',
+        metadata: {
+          ...sourceMetadata,
+          ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {}),
+          importedFromProjectAsset: {
+            projectId: sourceRef.projectId,
+            projectAssetId: sourceRef.projectAssetId,
+            expectedContentHash: sourceRef.expectedContentHash,
+          },
+        },
+      });
+      return api.addAssetVersion({
+        ownerEmail: owner,
+        projectId: project.id,
+        assetId,
+        projectAssetRef: imported.ref.projectAssetId,
+        stableUrl: imported.asset.stableUrl,
+        contentHash: imported.asset.contentHash,
+        mimeType: imported.asset.mimeType,
+        metadata: {
+          ...sourceMetadata,
+          ...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {}),
+          sourceProjectAssetRef: sourceRef,
+        },
+      });
+    },
+
     approveAssetVersion({ ownerEmail, projectId, assetId, versionId, expectedRevision }) {
       const { owner, project } = requireProject(ownerEmail, projectId);
       return db.transaction(() => {

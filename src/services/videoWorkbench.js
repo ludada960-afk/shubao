@@ -222,6 +222,15 @@ export async function importWorkbenchAssetVersion(projectId, assetId, payload = 
   return requireValue(response, 'version', '项目素材版本暂时不可用，请稍后重试');
 }
 
+export async function importProjectAssetVersion(projectId, assetId, sourceProjectAssetRef, metadata = {}) {
+  const response = await requestJson(
+    `${workbenchBase(projectId)}/assets/${assetSegment(assetId)}/versions`,
+    { method: 'POST', ...jsonBody({ sourceProjectAssetRef, metadata }) },
+    '暂时无法导入已有项目素材',
+  );
+  return requireValue(response, 'version', '已有项目素材暂时不可用，请稍后重试');
+}
+
 export async function approveWorkbenchAssetVersion(projectId, assetId, payload = {}) {
   const response = await requestJson(
     `${workbenchBase(projectId)}/assets/${assetSegment(assetId)}/approve`,

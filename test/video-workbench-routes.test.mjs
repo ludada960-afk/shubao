@@ -85,7 +85,7 @@ function harness({ enabled = true, planningOnly = false } = {}) {
       });
     },
   });
-  return { app, db, project, store, sessionTokens, ownerEmail };
+  return { app, db, project, projectStore, store, sessionTokens, ownerEmail };
 }
 
 function seedCompletedVideoJob(db, ownerEmail, projectId) {
@@ -675,6 +675,49 @@ test('workbench routes expose revisions and map conflicts without overwriting st
   });
   assert.equal(conflict.statusCode, 409);
   assert.equal(conflict.body.code, 'VERSION_CONFLICT');
+});
+
+test('workbench route imports a same-owner project asset with server-resolved media facts', async t => {
+  const { app, db, project, projectStore, sessionTokens, ownerEmail } = harness();
+  t.after(() => db.close());
+  const sourceProject = projectStore.createProject({ ownerEmail, kind: 'xiaohongshu', title: '内容素材' });
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail,
+    projectId: sourceProject.id,
+    assetId: 'xhs-image-1',
+    role: 'reference',
+    stableUrl: '/api/generated-assets/xhs-image-1',
+    contentHash: 'xhs-image-hash',
+    mimeType: 'image/png',
+  });
+  const headers = signedHeaders(sessionTokens, ownerEmail);
+  const asset = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/assets', {
+    headers, params: { projectId: project.id }, body: { kind: 'style', name: '内容参考' },
+  });
+  const imported = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/assets/:assetId/versions', {
+    headers,
+    params: { projectId: project.id, assetId: asset.body.asset.id },
+    body: {
+      sourceProjectAssetRef: {
+        projectId: sourceProject.id,
+        projectAssetId: sourceAsset.projectAssetId,
+        role: 'style',
+        expectedContentHash: sourceAsset.contentHash,
+      },
+      stableUrl: 'https://attacker.invalid/ignored',
+      contentHash: 'attacker-hash',
+      mimeType: 'text/html',
+    },
+  });
+  assert.equal(imported.statusCode, 201);
+  assert.equal(imported.body.version.stableUrl, sourceAsset.stableUrl);
+  assert.equal(imported.body.version.contentHash, sourceAsset.contentHash);
+  assert.equal(imported.body.version.mimeType, sourceAsset.mimeType);
+  assert.equal(imported.body.version.metadata.sourceProjectAssetRef.projectId, sourceProject.id);
+  assert.equal(imported.body.version.metadata.sourceProjectAssetRef.projectAssetId, sourceAsset.projectAssetId);
+  assert.equal(imported.body.version.metadata.sourceProjectAssetRef.role, 'style');
+  assert.equal(imported.body.version.metadata.sourceProjectAssetRef.stableUrl, sourceAsset.stableUrl);
+  assert.equal(imported.body.version.metadata.sourceProjectAssetRef.contentHash, sourceAsset.contentHash);
 });
 
 test('audio continuity routes create and update owner-scoped tracks', async t => {

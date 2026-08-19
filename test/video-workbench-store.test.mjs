@@ -117,6 +117,58 @@ test('workbench assets require an owned video project and immutable versions', t
     assetId: asset.id, versionId: second.id, expectedRevision: 1 }), error => error.code === 'VERSION_CONFLICT');
 });
 
+test('imports an owner-scoped project asset into video without trusting browser media facts', t => {
+  const { db, projectStore, store, project } = harness();
+  t.after(() => db.close());
+  const sourceProject = projectStore.createProject({ ownerEmail: OWNER, kind: 'ecommerce', title: '商品素材库' });
+  const sourceAsset = projectStore.createProjectAsset({
+    ownerEmail: OWNER,
+    projectId: sourceProject.id,
+    assetId: 'product-original-1',
+    role: 'product',
+    stableUrl: '/api/generated-assets/product-original-1',
+    contentHash: 'source-content-hash',
+    mimeType: 'image/webp',
+    width: 1200,
+    height: 1200,
+    metadata: { displayName: '珍珠白耳机' },
+  });
+  const workbenchAsset = store.createAsset({ ownerEmail: OWNER, projectId: project.id, kind: 'product', name: '耳机主体' });
+  const version = store.addAssetVersionFromProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    sourceProjectId: sourceProject.id,
+    sourceProjectAssetId: sourceAsset.projectAssetId,
+    expectedContentHash: sourceAsset.contentHash,
+    role: 'product',
+  });
+
+  assert.equal(version.mimeType, 'image/webp');
+  assert.equal(version.contentHash, sourceAsset.contentHash);
+  assert.equal(version.metadata.sourceProjectAssetRef.projectId, sourceProject.id);
+  assert.equal(version.metadata.sourceProjectAssetRef.projectAssetId, sourceAsset.projectAssetId);
+  assert.notEqual(version.sourceProjectAssetId, sourceAsset.projectAssetId);
+  assert.equal(projectStore.listProjectAssets({ ownerEmail: OWNER, projectId: project.id }).length, 1);
+  assert.throws(() => store.addAssetVersionFromProjectAsset({
+    ownerEmail: 'other@example.com',
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    sourceProjectId: sourceProject.id,
+    sourceProjectAssetId: sourceAsset.projectAssetId,
+    expectedContentHash: sourceAsset.contentHash,
+  }), error => error.code === 'PROJECT_NOT_FOUND');
+  assert.throws(() => store.addAssetVersionFromProjectAsset({
+    ownerEmail: OWNER,
+    projectId: project.id,
+    assetId: workbenchAsset.id,
+    sourceProjectId: sourceProject.id,
+    sourceProjectAssetId: sourceAsset.projectAssetId,
+    expectedContentHash: 'tampered-hash',
+  }), error => error.code === 'PROJECT_ASSET_REF_INVALID');
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'wallet_transactions'").get().count, 0);
+});
+
 test('skill runs preview declarative plans, append confirmation events, and stay non-billing', t => {
   const { db, store, project } = harness();
   t.after(() => db.close());

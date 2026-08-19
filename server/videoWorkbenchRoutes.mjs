@@ -376,12 +376,22 @@ export function mountVideoWorkbenchRoutes(app, {
   ), { status: 201, key: 'asset' }));
 
   app.post('/api/video/projects/:projectId/workbench/assets/:assetId/versions', (req, res) => dispatch(req, res, 'asset.version.create', request => (
-    store.addAssetVersionFromVideoAsset({
-      ...request,
-      assetId: req.params.assetId,
-      videoAssetId: req.body?.videoAssetId,
-      metadata: req.body?.metadata,
-    })
+    req.body?.sourceProjectAssetRef
+      ? store.addAssetVersionFromProjectAsset({
+        ...request,
+        assetId: req.params.assetId,
+        sourceProjectId: req.body.sourceProjectAssetRef.projectId,
+        sourceProjectAssetId: req.body.sourceProjectAssetRef.projectAssetId,
+        expectedContentHash: req.body.sourceProjectAssetRef.expectedContentHash,
+        role: req.body.sourceProjectAssetRef.role,
+        metadata: req.body?.metadata,
+      })
+      : store.addAssetVersionFromVideoAsset({
+        ...request,
+        assetId: req.params.assetId,
+        videoAssetId: req.body?.videoAssetId,
+        metadata: req.body?.metadata,
+      })
   ), { status: 201, key: 'version' }));
 
   app.post('/api/video/projects/:projectId/workbench/assets/:assetId/approve', (req, res) => dispatch(req, res, 'asset.approve', request => (
