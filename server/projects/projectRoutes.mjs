@@ -67,6 +67,17 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
       return res.status(201).json(value);
     } catch (error) { return routeError(error, res); }
   });
+  app.get('/api/project-assets', (req, res) => {
+    try {
+      return res.json({ assets: projectStore.listProjectAssetLibrary({
+        ownerEmail: ownerFor(req, authenticateOwner),
+        projectId: req.query?.projectId,
+        projectKind: req.query?.projectKind,
+        mediaKind: req.query?.mediaKind,
+        limit: req.query?.limit,
+      }) });
+    } catch (error) { return routeError(error, res); }
+  });
   app.get('/api/projects/:projectId', (req, res) => {
     try {
       const project = projectStore.getProject({ ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId });

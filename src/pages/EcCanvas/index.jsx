@@ -51,7 +51,7 @@ import {
 } from './components/CanvasStudio.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, listProjectAssets, listProjects, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
+import { createCanvasSession, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
@@ -532,6 +532,7 @@ export default function EcCanvas() {
   const [pastWorks, setPastWorks] = useState([]);
   const [trashWorks, setTrashWorks] = useState([]);
   const [projectAssetLibrary, setProjectAssetLibrary] = useState([]);
+  const [projectAssetMediaFilter, setProjectAssetMediaFilter] = useState('');
   const [projectAssetLibraryLoading, setProjectAssetLibraryLoading] = useState(false);
   const [projectAssetLibraryError, setProjectAssetLibraryError] = useState('');
   const [zoomImg, setZoomImg] = useState(null);
@@ -923,33 +924,24 @@ export default function EcCanvas() {
     setProjectAssetLibraryError('');
     void (async () => {
       try {
-        const projects = await listProjects();
-        const orderedProjects = (Array.isArray(projects) ? projects : [])
-          .filter(project => project?.id)
-          .sort((left, right) => (left.id === result.projectId ? -1 : 0) - (right.id === result.projectId ? -1 : 0))
-          .slice(0, 24);
-        const lists = await Promise.all(orderedProjects.map(async project => {
-          try {
-            const assets = await listProjectAssets(project.id);
-            return (Array.isArray(assets) ? assets : []).map(asset => ({
-              ...asset,
-              projectId: asset.projectId || project.id,
-              projectTitle: project.title || project.name || '未命名项目',
-            }));
-          } catch {
-            return [];
-          }
-        }));
+        const library = await listProjectAssetLibrary({ mediaKind: projectAssetMediaFilter, limit: 200 });
         if (cancelled) return;
         const seen = new Set();
-        const assets = lists.flat().filter(asset => {
-          const mediaKind = String(asset.mediaKind || asset.media_kind || '').toLowerCase();
-          if (!['image', 'video', 'audio'].includes(mediaKind)) return false;
-          const key = `${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`;
-          if (!asset.projectAssetId || !asset.contentHash || seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
+        const assets = (Array.isArray(library) ? library : [])
+          .sort((left, right) => (left.project?.id === result.projectId ? -1 : 0) - (right.project?.id === result.projectId ? -1 : 0))
+          .map(asset => ({
+            ...asset,
+            projectId: asset.projectId || asset.project?.id,
+            projectTitle: asset.projectTitle || asset.project?.title || '未命名项目',
+          }))
+          .filter(asset => {
+            const mediaKind = String(asset.mediaKind || asset.media_kind || '').toLowerCase();
+            if (!['image', 'video', 'audio'].includes(mediaKind)) return false;
+            const key = `${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`;
+            if (!asset.projectAssetId || !asset.contentHash || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
         setProjectAssetLibrary(assets);
       } catch (error) {
         if (cancelled) return;
@@ -960,7 +952,7 @@ export default function EcCanvas() {
       }
     })();
     return () => { cancelled = true; };
-  }, [result?.browserQa, result?.projectId, state.logged, tab]);
+  }, [projectAssetMediaFilter, result?.browserQa, result?.projectId, state.logged, tab]);
 
   // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
   // 注意：ref 初始值为空函数，在下面的 useEffect 中更新
@@ -4024,6 +4016,16 @@ export default function EcCanvas() {
                   <div style={{ marginTop: 4, color: '#8a929d', fontSize: 11 }}>图片、视频和音频</div>
                 </div>
                 <span style={{ color: '#9aa1aa', fontSize: 11 }}>{projectAssetLibrary.length} 个</span>
+              </div>
+              <div role="tablist" aria-label="项目素材类型" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {[['', '全部'], ['image', '图片'], ['video', '视频'], ['audio', '音频']].map(([value, label]) => <button
+                  key={value || 'all'}
+                  type="button"
+                  role="tab"
+                  aria-selected={projectAssetMediaFilter === value}
+                  onClick={() => setProjectAssetMediaFilter(value)}
+                  style={{ padding: '5px 10px', border: `1px solid ${projectAssetMediaFilter === value ? '#cbd5e1' : '#edf0f3'}`, borderRadius: 999, background: projectAssetMediaFilter === value ? '#f1f5f9' : '#fff', color: '#475569', fontSize: 11, cursor: 'pointer' }}
+                >{label}</button>)}
               </div>
               {projectAssetLibraryLoading ? (
                 <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>正在读取素材</div>

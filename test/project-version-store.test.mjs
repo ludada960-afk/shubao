@@ -63,6 +63,31 @@ test('creates and lists canonical project assets with owner isolation and idempo
   assert.throws(() => store.getProjectAsset({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: first.projectAssetId }), error => error?.code === 'PROJECT_NOT_FOUND');
 });
 
+test('lists a display-safe owner project asset library across projects with server filters', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'owner@example.com';
+  const ecommerce = store.createProject({ ownerEmail, kind: 'ecommerce', title: '商品项目' });
+  const video = store.createProject({ ownerEmail, kind: 'video', title: '视频项目' });
+  const other = store.createProject({ ownerEmail: 'other@example.com', kind: 'ecommerce', title: '不应出现' });
+  store.createProjectAsset({ ownerEmail, projectId: ecommerce.id, assetId: 'product-image', stableUrl: '/api/generated-assets/product-image.webp', contentHash: 'product-hash', mimeType: 'image/webp' });
+  store.createProjectAsset({ ownerEmail, projectId: video.id, assetId: 'video-clip', stableUrl: '/api/video/assets/video-clip', contentHash: 'video-hash', mimeType: 'video/mp4' });
+  store.createProjectAsset({ ownerEmail: 'other@example.com', projectId: other.id, assetId: 'foreign-image', stableUrl: '/api/generated-assets/foreign.webp', contentHash: 'foreign-hash', mimeType: 'image/webp' });
+
+  const all = store.listProjectAssetLibrary({ ownerEmail, limit: 20 });
+  const videos = store.listProjectAssetLibrary({ ownerEmail, mediaKind: 'video', limit: 20 });
+  const commerce = store.listProjectAssetLibrary({ ownerEmail, projectKind: 'ecommerce', limit: 20 });
+
+  assert.equal(all.length, 2);
+  assert.equal(all.some(asset => 'ownerEmail' in asset), false);
+  assert.deepEqual(all.map(asset => asset.project.title).sort(), ['商品项目', '视频项目']);
+  assert.equal(videos.length, 1);
+  assert.equal(videos[0].project.kind, 'video');
+  assert.equal(commerce.length, 1);
+  assert.equal(commerce[0].mediaKind, 'image');
+  assert.throws(() => store.listProjectAssetLibrary({ ownerEmail, mediaKind: 'document' }), /unknown mediaKind/);
+});
+
 test('persists structured media metadata without weakening canonical asset identity', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

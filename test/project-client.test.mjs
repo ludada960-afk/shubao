@@ -11,6 +11,7 @@ import {
   dismissRecoveryCheckpoint,
   loadCanvasSession,
   getProject,
+  listProjectAssetLibrary,
   listProjects,
   listRecoveryCheckpoints,
   saveCanvasSession,
@@ -179,6 +180,20 @@ test('project discovery rejects an invalid project ID before fetching', async t 
 
   await assert.rejects(getProject('\u0000project'), /请选择有效的项目/);
   assert.equal(called, false);
+});
+
+test('project asset library client sends signed URL-encoded filters', async t => {
+  installSession('signed-asset-library');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/project-assets?projectKind=ecommerce&mediaKind=image&limit=20');
+    assert.equal(options.headers.Authorization, 'Bearer signed-asset-library');
+    return jsonResponse({ assets: [{ projectAssetId: 'asset-1', mediaKind: 'image', project: { id: 'project-1' } }] });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const assets = await listProjectAssetLibrary({ projectKind: 'ecommerce', mediaKind: 'image', limit: 20 });
+  assert.equal(assets[0].projectAssetId, 'asset-1');
 });
 
 test('Canvas session client creates, saves, and restores an encoded owner session', async t => {

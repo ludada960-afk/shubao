@@ -106,6 +106,17 @@ export async function listProjectAssets(projectId, mediaKind = '') {
   return Array.isArray(response?.assets) ? response.assets : [];
 }
 
+export async function listProjectAssetLibrary({ projectId = '', projectKind = '', mediaKind = '', limit = 200 } = {}) {
+  const query = new URLSearchParams();
+  if (projectId) query.set('projectId', projectId);
+  if (projectKind) query.set('projectKind', projectKind);
+  if (mediaKind) query.set('mediaKind', mediaKind);
+  if (limit != null) query.set('limit', String(limit));
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const response = await requestJson(`/api/project-assets${suffix}`, {}, '暂时无法读取项目素材库');
+  return Array.isArray(response?.assets) ? response.assets : [];
+}
+
 export async function getProjectAsset(projectId, projectAssetId) {
   const response = await requestJson(
     `/api/projects/${projectPathSegment(projectId)}/assets/${pathSegment(projectAssetId, '请选择有效的项目素材')}`,

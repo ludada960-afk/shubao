@@ -43,6 +43,22 @@ function projectAssetFromRow(row) {
   };
 }
 
+function projectAssetLibraryItemFromRow(row) {
+  const asset = projectAssetFromRow(row);
+  if (!asset) return null;
+  const { ownerEmail: _ownerEmail, ...displayAsset } = asset;
+  return {
+    ...displayAsset,
+    project: {
+      id: row.project_id,
+      kind: row.project_kind,
+      title: row.project_title,
+      status: row.project_status,
+      updatedAt: row.project_updated_at,
+    },
+  };
+}
+
 function cleanProjectAssetValue(value, name, max = 2000) {
   const normalized = String(value ?? '').trim();
   if (!normalized) throw new TypeError(`${name} is required`);
@@ -289,6 +305,46 @@ export function createProjectStore(db, {
         ORDER BY created_at DESC, id DESC`).all(project.ownerEmail, project.id).map(projectAssetFromRow);
       const kind = String(mediaKind || '').trim().toLowerCase();
       return kind ? assets.filter(asset => asset.mediaKind === kind) : assets;
+    },
+
+    listProjectAssetLibrary({ ownerEmail, projectId = '', projectKind = '', mediaKind = '', limit = 200 } = {}) {
+      const owner = normalizeOwner(ownerEmail);
+      if (!owner) throw new TypeError('ownerEmail is required');
+      const normalizedProjectId = String(projectId || '').trim();
+      const normalizedProjectKind = String(projectKind || '').trim().toLowerCase();
+      const normalizedMediaKind = String(mediaKind || '').trim().toLowerCase();
+      if (normalizedProjectKind && !PROJECT_KINDS.has(normalizedProjectKind)) throw new TypeError('unknown projectKind');
+      if (normalizedMediaKind && !['image', 'video', 'audio'].includes(normalizedMediaKind)) throw new TypeError('unknown mediaKind');
+      const boundedLimit = Number.isSafeInteger(Number(limit))
+        ? Math.min(500, Math.max(1, Number(limit)))
+        : 200;
+      const clauses = [
+        'pa.owner_email = ?',
+        'pa.deleted_at IS NULL',
+        'p.owner_email = pa.owner_email',
+        'p.deleted_at IS NULL',
+      ];
+      const params = [owner];
+      if (normalizedProjectId) {
+        clauses.push('pa.project_id = ?');
+        params.push(normalizedProjectId);
+      }
+      if (normalizedProjectKind) {
+        clauses.push('p.kind = ?');
+        params.push(normalizedProjectKind);
+      }
+      if (normalizedMediaKind) {
+        clauses.push('pa.mime_type LIKE ?');
+        params.push(`${normalizedMediaKind}/%`);
+      }
+      params.push(boundedLimit);
+      return db.prepare(`SELECT pa.*, p.kind AS project_kind, p.title AS project_title,
+          p.status AS project_status, p.updated_at AS project_updated_at
+        FROM project_assets pa
+        JOIN projects p ON p.id = pa.project_id
+        WHERE ${clauses.join(' AND ')}
+        ORDER BY pa.created_at DESC, pa.id DESC
+        LIMIT ?`).all(...params).map(projectAssetLibraryItemFromRow);
     },
 
     linkProjectAsset({ ownerEmail, projectId, sourceProjectAssetId, targetProjectAssetId, relation, generationRunId = null }) {

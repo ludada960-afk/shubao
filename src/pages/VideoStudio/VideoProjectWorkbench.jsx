@@ -23,7 +23,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { createProject, listProjectAssets, listProjects } from '../../services/projects.js';
+import { createProject, listProjectAssetLibrary, listProjects } from '../../services/projects.js';
 import {
   addTimelineClip,
   approveVideoWorkbenchPlan,
@@ -206,6 +206,12 @@ function displayError(error) {
     return '内容已在其他位置更新，已刷新项目，请检查后重试。';
   }
   return error?.message || '操作没有完成，请刷新后重试。';
+}
+
+function reusableAssetsFromLibrary(assets) {
+  return (Array.isArray(assets) ? assets : [])
+    .filter(asset => ['image', 'video', 'audio'].includes(asset.mediaKind) && asset.project?.kind !== 'video')
+    .map(asset => ({ ...asset, sourceProject: asset.project }));
 }
 
 function normalizeBudgetCapInput(value) {
@@ -449,14 +455,7 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       const allProjects = await listProjects();
       const next = videoProjects(allProjects);
       setProjects(next);
-      const sourceProjects = allProjects.filter(project => project?.kind !== 'video' && !project?.deletedAt);
-      const sourceGroups = await Promise.all(sourceProjects.map(async project => ({
-        project,
-        assets: await listProjectAssets(project.id),
-      })));
-      setReusableProjectAssets(sourceGroups.flatMap(({ project, assets }) => assets
-        .filter(asset => ['image', 'video', 'audio'].includes(asset.mediaKind))
-        .map(asset => ({ ...asset, sourceProject: project }))));
+      setReusableProjectAssets(reusableAssetsFromLibrary(await listProjectAssetLibrary({ limit: 200 })));
       const jobProjectId = jobs.find(item => item?.projectId && next.some(project => project.id === item.projectId))?.projectId;
       const target = [preferredId, selectedProjectRef.current, jobProjectId, next[0]?.id]
         .find(id => id && next.some(project => project.id === id)) || '';
@@ -488,15 +487,9 @@ export default function VideoProjectWorkbench({ enabled = false, logged = false,
       if (!active) return;
       const next = videoProjects(result);
       setProjects(next);
-      const sourceProjects = result.filter(project => project?.kind !== 'video' && !project?.deletedAt);
-      const sourceGroups = await Promise.all(sourceProjects.map(async project => ({
-        project,
-        assets: await listProjectAssets(project.id),
-      })));
+      const library = await listProjectAssetLibrary({ limit: 200 });
       if (!active) return;
-      setReusableProjectAssets(sourceGroups.flatMap(({ project, assets }) => assets
-        .filter(asset => ['image', 'video', 'audio'].includes(asset.mediaKind))
-        .map(asset => ({ ...asset, sourceProject: project }))));
+      setReusableProjectAssets(reusableAssetsFromLibrary(library));
       const jobProjectId = jobs.find(item => item?.projectId && next.some(project => project.id === item.projectId))?.projectId;
       const target = jobProjectId || next[0]?.id || '';
       selectedProjectRef.current = target;

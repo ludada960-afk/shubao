@@ -131,6 +131,29 @@ test('project asset read routes are owner-scoped and support media filtering', a
   assert.equal(denied.body.code, 'PROJECT_NOT_FOUND');
 });
 
+test('unified project asset library is signed, filtered, and display-safe', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'library-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'ecommerce', title: '统一素材库' });
+  projectStore.createProjectAsset({ ownerEmail: owner, projectId: project.id, assetId: 'library-image', stableUrl: '/api/generated-assets/library-image.webp', contentHash: 'library-image-hash', mimeType: 'image/webp' });
+  const listed = await invoke(app, 'GET', '/api/project-assets', {
+    headers: signedHeaders(sessionTokens, owner),
+    query: { mediaKind: 'image', projectKind: 'ecommerce', limit: '20' },
+  });
+  const denied = await invoke(app, 'GET', '/api/project-assets', {
+    headers: signedHeaders(sessionTokens, 'other@example.com'),
+    query: { mediaKind: 'image' },
+  });
+
+  assert.equal(listed.statusCode, 200);
+  assert.equal(listed.body.assets.length, 1);
+  assert.equal(listed.body.assets[0].project.title, '统一素材库');
+  assert.equal('ownerEmail' in listed.body.assets[0], false);
+  assert.equal(denied.statusCode, 200);
+  assert.deepEqual(denied.body.assets, []);
+});
+
 test('signed owners can create an explicit recovery checkpoint and complete their project', async t => {
   const { app, db, sessionTokens } = createHarness();
   t.after(() => db.close());

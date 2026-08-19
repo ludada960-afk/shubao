@@ -144,6 +144,8 @@ export function ensureProjectSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_project_assets_owner
       ON project_assets(owner_email, project_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_project_assets_owner_created
+      ON project_assets(owner_email, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS project_asset_lineage (
       project_id TEXT NOT NULL,

@@ -94,7 +94,8 @@ test('project workbench exposes real persisted stages without provider controls 
   assert.match(component, /videoAssetId:\s*upload\.asset\.id/);
   assert.match(component, /sourceProjectAssetRef/);
   assert.match(component, /已有项目素材/);
-  assert.match(component, /listProjectAssets/);
+  assert.match(component, /listProjectAssetLibrary/);
+  assert.match(component, /reusableAssetsFromLibrary/);
   assert.match(component, /generationJobId:\s*job\.id/);
   assert.match(component, /expectedRevision:\s*asset\.revision/);
   assert.match(component, /expectedRevision:\s*shot\.revision/);

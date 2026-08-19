@@ -110,8 +110,8 @@ test('legacy URL-only assets are rejected without mutating the Canvas session', 
 test('Canvas Works entry exposes the owner-scoped project asset library without generation hooks', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const studio = await readFile(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
-  assert.match(source, /listProjects\(\)/);
-  assert.match(source, /listProjectAssets\(project\.id\)/);
+  assert.match(source, /listProjectAssetLibrary\(/);
+  assert.match(source, /项目素材类型/);
   assert.match(source, /handleImportProjectAsset/);
   assert.match(source, /importProjectAssetToCanvas/);
   assert.match(source, /项目素材/);
