@@ -1,5 +1,6 @@
 import { layoutAssetLanes } from './canvasGeometry.js';
 import { createUploadedImageNodes } from './canvasStudioModel.js';
+import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 
 function safeId(value, fallback) {
   const normalized = String(value || '').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -42,7 +43,7 @@ export function restoreCanvasSnapshot(snapshot = {}) {
 
 export function createFreshCanvasSession({ work = {}, productAssets = [], outputs = [] } = {}) {
   const workId = safeId(work.id || work._saveKey || work.taskId, 'work');
-  const normalizedProducts = productAssets.filter(asset => asset?.url).map((asset, index) => ({
+  const normalizedProducts = productAssets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => ({
     ...asset,
     assetId: safeId(asset.assetId || asset.id, `product-${index + 1}`),
     name: visibleName(asset.name || asset.label, `产品图 ${index + 1}`),
@@ -73,9 +74,9 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
   };
   const hasSource = sourceNodes.length > 0;
   const sourceId = sourceNode.id;
-  const outputSeeds = outputs.filter(asset => asset?.url).map((asset, index) => {
+  const outputSeeds = outputs.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => {
     const assetId = safeId(asset.assetId || asset.id || asset.key, `asset-${index + 1}`);
-    return {
+    return attachCanvasProjectAssetRef({
       ...asset,
       id: `output-${assetId}`,
       assetId,
@@ -89,7 +90,7 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
       ratio: asset.ratio || '1:1',
       sourceNodeIds: hasSource ? [sourceId] : [],
       editable: true,
-    };
+    }, asset, { projectId: work.projectId });
   });
   const outputNodes = layoutAssetLanes({ sourceNode, assets: outputSeeds });
   const connections = hasSource ? outputNodes.map(node => ({

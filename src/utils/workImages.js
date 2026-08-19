@@ -2,7 +2,7 @@ function normalizeEntry(value, key, index) {
   const isObject = value && typeof value === 'object';
   const url = typeof value === 'string'
     ? value
-    : value?.url || value?.src || value?.image_url || value?.cover_url || '';
+    : value?.url || value?.stableUrl || value?.stable_url || value?.src || value?.image_url || value?.cover_url || '';
   if (!url) return null;
   const normalizedKey = isObject
     ? value.key || value.sourceKey || key || `image_${index + 1}`

@@ -1,4 +1,5 @@
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
+import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 
 const MIN_NODE_WIDTH = 160;
 const MIN_NODE_HEIGHT = 56;
@@ -355,15 +356,15 @@ function closestRatio(width, height) {
 export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = Date.now() } = {}) {
   const width = 240;
   const gap = 38;
-  return assets.filter(asset => asset?.url).map((asset, index) => {
+  return assets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => {
     const ratio = asset.ratio || closestRatio(asset.width, asset.height);
-    return {
+    return attachCanvasProjectAssetRef({
       id: `upload_${now}_${index}`,
       assetId: asset.assetId || `upload-asset-${now}-${index}`,
       kind: 'image',
       provenance: 'source',
       status: 'ready',
-      url: asset.url,
+      url: asset.url || asset.stableUrl,
       name: asset.name || `上传图片 ${index + 1}`,
       displayLabel: asset.name || `上传图片 ${index + 1}`,
       group: '',
@@ -382,21 +383,21 @@ export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = D
       flipY: false,
       locked: false,
       hidden: false,
-    };
+    }, asset);
   });
 }
 
 export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = Date.now() } = {}) {
   const width = 320;
   const gap = 42;
-  return assets.filter(asset => asset?.url).map((asset, index) => ({
+  return assets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => attachCanvasProjectAssetRef({
     id: `video_upload_${now}_${index}`,
     assetId: asset.id || asset.assetId || `video-asset-${now}-${index}`,
     videoAssetId: asset.id || asset.videoAssetId || '',
     kind: 'video',
     provenance: 'source',
     status: 'ready',
-    url: asset.url,
+    url: asset.url || asset.stableUrl,
     name: asset.name || `上传视频 ${index + 1}`,
     displayLabel: asset.name || `上传视频 ${index + 1}`,
     group: '视频',
@@ -414,5 +415,5 @@ export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = D
     rotation: 0,
     locked: false,
     hidden: false,
-  }));
+  }, asset));
 }

@@ -1,5 +1,6 @@
 import { inferWorkType, mergeWorkCollections } from '../../utils/workRecords.js';
 import { normalizeWorkImages } from '../../utils/workImages.js';
+import { attachCanvasProjectAssetRef, collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -55,6 +56,7 @@ function normalizePanelWork(work = {}) {
     images,
     videoUrl,
     video: work.video || (videoUrl ? { url: videoUrl } : null),
+    projectAssetRefs: collectCanvasProjectAssetRefs({ work }),
     createdAt: work.createdAt || work.at || '',
     workType,
   };
@@ -77,7 +79,7 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
     image.key || image.label || `image_${index + 1}`,
     image.url,
   ]));
-  return {
+  const result = {
     ...work,
     images,
     imageRecords,
@@ -92,6 +94,8 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
     _saveKey: work._saveKey || '',
     canvasImportId: importId || globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,
   };
+  result.projectAssetRefs = collectCanvasProjectAssetRefs({ work: result });
+  return result;
 }
 
 export function canvasOutputImages(result = {}) {
@@ -108,7 +112,7 @@ export function collectCanvasWorkImages({ baseImages = [], nodes = [] } = {}) {
     const complete = node?.status === 'ready' || node?.status === 'success';
     if (!url || !complete || !outputKinds.has(node?.kind) || seen.has(url)) continue;
     seen.add(url);
-    images.push({
+    images.push(attachCanvasProjectAssetRef({
       key: cleanString(node.assetId || node.id) || `canvas_${images.length + 1}`,
       label: cleanString(node.displayLabel || node.name) || '画布创作',
       displayName: cleanString(node.displayLabel || node.name) || '画布创作',
@@ -118,7 +122,7 @@ export function collectCanvasWorkImages({ baseImages = [], nodes = [] } = {}) {
       ratio: cleanString(node.ratio),
       size: cleanString(node.size),
       source: 'canvas',
-    });
+    }, node));
   }
   return images;
 }
