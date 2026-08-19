@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the icon-only global navigation with a responsive creative-domain navigation that exposes direct creation entry points without changing generation or billing behavior.
+**Goal:** Replace the fragile hover-only creative-domain navigation with a responsive, layered navigation viewport that exposes direct creation entry points without changing generation or billing behavior.
 
-**Architecture:** Add a focused `CreativeDomainNav` component with static navigation configuration and local open/scroll/mobile state. Wire existing AppContext actions through small navigation callbacks, render it from `App.jsx` for non-canvas pages, and remove the old four-item global SideNav. Keep the legacy unused `Navbar` untouched unless build or import analysis proves it is active.
+**Architecture:** Keep the static navigation configuration and AppContext wiring, but render the desktop panel through a `document.body` portal with viewport coordinates derived from the active trigger. Hover/focus previews a group, clicking a top-level trigger pins the panel open, and clicking a child entry performs navigation. A transparent bridge and pointer-aware close timer make the trigger and panel one continuous interaction surface. Mobile remains an accordion drawer.
 
 **Tech Stack:** React 18, existing AppContext reducer, Lucide React, CSS media queries, native browser focus/keyboard events, existing Vite test/build scripts.
 
@@ -15,26 +15,28 @@
 - Use existing navigation actions: `NAVIGATE`, `SET_MODE`, `OPEN_CANVAS`, `SET_LOGIN_INTENT`, and `SHOW_LOGIN`.
 - Preserve the user-owned runtime changes listed in `RTK.md`; never stage runtime databases, uploads, `dist`, `.tmp`, or diagnostic files.
 - Respect reduced motion, keyboard focus, 44px touch targets, and no horizontal overflow at 390px.
+- A top-level domain click only opens or pins its panel; it never navigates directly to the first child.
+- The desktop panel must not be positioned inside a trigger slot or depend on the home page stacking context.
+- The panel closes on outside pointer interaction, Escape, or focus leaving the navigation; moving from trigger to panel keeps it open.
 
 ---
 
-### Task 1: Navigation configuration and behavior tests
+### Task 1: Navigation interaction regression contract
 
 **Files:**
 - Create: `src/components/layout/creativeDomainNavigation.js`
-- Create: `test/creative-domain-navigation.test.mjs`
+- Create: `test/creative-domain-navigation-interaction.test.mjs`
 
 **Interfaces:**
-- Produces `CREATIVE_NAV_GROUPS`, `getNavigationTarget(groupId, itemId)`, and `isNavigationGroupActive(groupId, state)`.
-- Each item has `{ id, label, description, icon, target }`; each target is a serializable action descriptor or a callback key consumed by the component.
+- Produces source-level contracts for a portal-backed viewport and explicit top-level click semantics.
 
-- [ ] **Step 1: Write failing tests** for the five groups, the single video item, the free-visual item labels, and active-state mapping.
-- [ ] **Step 2: Run `npm test -- --runInBand test/creative-domain-navigation.test.mjs` and confirm failure because the module does not exist.**
-- [ ] **Step 3: Implement the static configuration and pure helpers with no React or side effects.**
+- [ ] **Step 1: Write failing tests** for `createPortal`, a fixed `.creative-nav-viewport`, pointer enter/leave retention, outside pointer close, and a trigger click that calls `toggleDesktopGroup` instead of `runTarget`.
+- [ ] **Step 2: Run `node --test test/creative-domain-navigation-interaction.test.mjs` and confirm the old implementation fails these contracts.**
+- [ ] **Step 3: Keep the existing static configuration unchanged and implement the interaction contract in the component and shell CSS.**
 - [ ] **Step 4: Run the focused test and confirm all assertions pass.**
-- [ ] **Step 5: Commit the configuration and test as `feat: define creative domain navigation model`.**
+- [ ] **Step 5: Commit the interaction regression contract and implementation as `fix: stabilize creative navigation viewport interaction`.**
 
-### Task 2: Desktop navigation component
+### Task 2: Desktop viewport and trigger behavior
 
 **Files:**
 - Create: `src/components/layout/CreativeDomainNav.jsx`
@@ -46,12 +48,12 @@
 - `CreativeDomainNav` consumes `state` and `dispatch` from `useApp`.
 - It renders `nav.app-creative-nav`, a desktop trigger row, and a menu panel with `aria-expanded`/`aria-controls`.
 
-- [ ] **Step 1: Extend the focused tests with the required DOM contract strings and keep them failing for the missing component.**
-- [ ] **Step 2: Implement the component with 80ms open and 180ms close timers, outside-pointer close, click-to-navigate, and existing login intent behavior.**
-- [ ] **Step 3: Add the desktop material layer, active states, menu columns, focus styles, and no-layout-shift compressed state.**
-- [ ] **Step 4: Replace `SideNav` rendering in `App.jsx` with `CreativeDomainNav`; do not render it for `ec-canvas`.**
+- [ ] **Step 1: Render the active group with `createPortal(..., document.body)` inside `.creative-nav-viewport` and place it from the active trigger's `getBoundingClientRect()`.
+- [ ] **Step 2: Add a `toggleDesktopGroup` click handler that pins an open group and leaves child actions in `runTarget`.
+- [ ] **Step 3: Add a 260ms pointer-retention timer, a transparent bridge between trigger and panel, and document-level outside pointer/focus close.
+- [ ] **Step 4: Raise the topbar stacking layer and make the default/open/active states visually explicit without shifting the page layout.
 - [ ] **Step 5: Run focused tests, `npm run check`, and `npm run build`.**
-- [ ] **Step 6: Commit as `feat: add creative domain mega navigation`.**
+- [ ] **Step 6: Commit as `fix: stabilize creative navigation viewport interaction`.**
 
 ### Task 3: Mobile drawer and accessibility behavior
 
@@ -69,11 +71,11 @@
 - [ ] **Step 4: Run focused tests and full `npm test`.**
 - [ ] **Step 5: Commit as `feat: make creative navigation mobile accessible`.**
 
-### Task 4: Browser verification and cleanup
+### Task 4: Browser verification and production release
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-08-19-creative-domain-navigation-design.md` only if verification reveals a contract correction.
-- Modify: `.superpowers/sdd/progress.md` with the verified commit and residual risks.
+- Modify: `.superpowers/sdd/progress.md` with the verified commit, production release, and residual risks.
 
 **Interfaces:**
 - No production interface changes; this task verifies the existing navigation destinations and visual states.
@@ -82,4 +84,5 @@
 - [ ] **Step 2: Verify desktop default, hover/open menu, direct click navigation, scroll compression, outside close, and canvas exclusion.**
 - [ ] **Step 3: Verify 390px drawer, accordion, fixed bottom action, Escape close, no horizontal overflow, and console error count.**
 - [ ] **Step 4: Run `npm test`, `npm run check`, `npm run build`, and `git diff --check`.**
-- [ ] **Step 5: Record exact test/build evidence and remaining risks in the progress ledger; do not deploy without explicit request.**
+- [ ] **Step 5: Record exact test/build evidence and remaining risks in the progress ledger.**
+- [ ] **Step 6: Run `scripts/deploy-production.ps1 -ValidationProfile full -CanarySeconds 600 -PublicWarmupSeconds 180` and wait for health, real ecommerce, video contract, billing, and canary evidence before reporting success.**

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowRight,
   ChevronDown,
@@ -38,6 +39,11 @@ function CreativeDomainNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileGroupId, setMobileGroupId] = useState('commerce');
   const [scrolled, setScrolled] = useState(false);
+  const [panelPosition, setPanelPosition] = useState(null);
+  const [pinnedGroupId, setPinnedGroupId] = useState(null);
+  const navRootRef = useRef(null);
+  const viewportRef = useRef(null);
+  const triggerRefs = useRef({});
   const closeTimer = useRef(null);
   const openTimer = useRef(null);
 
@@ -54,6 +60,56 @@ function CreativeDomainNav() {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previousOverflow; };
   }, [mobileOpen]);
+
+  useEffect(() => {
+    const handleDocumentPointerDown = event => {
+      if (!openGroupId) return;
+      if (navRootRef.current?.contains(event.target) || viewportRef.current?.contains(event.target)) return;
+      closeDesktopMenu();
+    };
+    const handleDocumentFocusIn = event => {
+      if (!openGroupId) return;
+      if (navRootRef.current?.contains(event.target) || viewportRef.current?.contains(event.target)) return;
+      closeDesktopMenu();
+    };
+    const handleDocumentKeyDown = event => {
+      if (event.key !== 'Escape' || !openGroupId) return;
+      event.preventDefault();
+      const groupId = openGroupId;
+      closeDesktopMenu();
+      triggerRefs.current[groupId]?.focus();
+    };
+    document.addEventListener('pointerdown', handleDocumentPointerDown);
+    document.addEventListener('focusin', handleDocumentFocusIn);
+    document.addEventListener('keydown', handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleDocumentPointerDown);
+      document.removeEventListener('focusin', handleDocumentFocusIn);
+      document.removeEventListener('keydown', handleDocumentKeyDown);
+    };
+  }, [openGroupId]);
+
+  useEffect(() => {
+    if (!openGroupId) return undefined;
+    const updatePanelPosition = () => {
+      const trigger = triggerRefs.current[openGroupId];
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const width = Math.min(760, Math.max(320, window.innerWidth - 32));
+      const left = Math.max(16, Math.min(
+        window.innerWidth - width - 16,
+        rect.left + rect.width / 2 - width / 2,
+      ));
+      setPanelPosition({ left, top: rect.bottom, width });
+    };
+    updatePanelPosition();
+    window.addEventListener('resize', updatePanelPosition, { passive: true });
+    window.addEventListener('scroll', updatePanelPosition, { passive: true });
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition);
+    };
+  }, [openGroupId]);
 
   useEffect(() => {
     if (!mobileOpen) return undefined;
@@ -84,19 +140,36 @@ function CreativeDomainNav() {
     clearOpenTimer();
     openTimer.current = window.setTimeout(() => {
       setOpenGroupId(groupId);
+      if (pinnedGroupId) setPinnedGroupId(groupId);
+      setPanelPosition(null);
       openTimer.current = null;
     }, 80);
+  };
+
+  const toggleDesktopGroup = groupId => {
+    clearCloseTimer();
+    clearOpenTimer();
+    if (openGroupId === groupId && pinnedGroupId === groupId) {
+      closeDesktopMenu();
+      return;
+    }
+    setPinnedGroupId(groupId);
+    setOpenGroupId(groupId);
+    setPanelPosition(null);
   };
 
   const closeDesktopMenu = () => {
     clearCloseTimer();
     clearOpenTimer();
     setOpenGroupId(null);
+    setPinnedGroupId(null);
+    setPanelPosition(null);
   };
 
   const scheduleDesktopClose = () => {
+    if (pinnedGroupId) return;
     clearCloseTimer();
-    closeTimer.current = window.setTimeout(closeDesktopMenu, 180);
+    closeTimer.current = window.setTimeout(closeDesktopMenu, 260);
   };
 
   const requestLogin = action => {
@@ -198,16 +271,35 @@ function CreativeDomainNav() {
     );
   };
 
+  const renderDesktopViewport = () => {
+    if (!openGroupId || !panelPosition || typeof document === 'undefined') return null;
+    const group = CREATIVE_NAV_GROUPS.find(entry => entry.id === openGroupId);
+    if (!group) return null;
+    return createPortal(
+      <div
+        ref={viewportRef}
+        className="creative-nav-viewport"
+        style={{ left: panelPosition.left, top: panelPosition.top, width: panelPosition.width }}
+        onPointerEnter={clearCloseTimer}
+        onPointerLeave={scheduleDesktopClose}
+      >
+        <div className="creative-nav-viewport-bridge" aria-hidden="true" />
+        {renderGroupPanel(group)}
+      </div>,
+      document.body,
+    );
+  };
+
   return (
-    <div className={`creative-nav-wrap${scrolled ? ' is-scrolled' : ''}${openGroupId ? ' is-open' : ''}`} onMouseLeave={scheduleDesktopClose}>
-      <div className="creative-nav-desktop" onMouseEnter={() => { clearCloseTimer(); clearOpenTimer(); }}>
+    <div ref={navRootRef} className={`creative-nav-wrap${scrolled ? ' is-scrolled' : ''}${openGroupId ? ' is-open' : ''}`}>
+      <div className="creative-nav-desktop" onPointerEnter={() => { clearCloseTimer(); clearOpenTimer(); }} onPointerLeave={scheduleDesktopClose}>
         <div className="creative-nav-triggers" role="menubar" aria-label="创作入口">
           {CREATIVE_NAV_GROUPS.map(group => {
             const active = isNavigationGroupActive(group.id, state);
             const open = group.id === openGroupId;
             const Icon = ICONS[group.icon] || Sparkles;
             return (
-              <div className={`creative-nav-trigger-slot${open ? ' is-open' : ''}`} key={group.id} onMouseEnter={() => openDesktopGroup(group.id)}>
+              <div className={`creative-nav-trigger-slot${open ? ' is-open' : ''}`} key={group.id} onPointerEnter={() => openDesktopGroup(group.id)}>
                 <button
                   type="button"
                   id={`creative-nav-trigger-${group.id}`}
@@ -216,7 +308,8 @@ function CreativeDomainNav() {
                   aria-haspopup="true"
                   aria-expanded={open}
                   aria-controls={`creative-nav-panel-${group.id}`}
-                  onClick={() => runTarget(group.id, group.items[0].id)}
+                  ref={node => { triggerRefs.current[group.id] = node; }}
+                  onClick={() => toggleDesktopGroup(group.id)}
                   onFocus={event => {
                     if (!event.currentTarget.matches(':focus-visible')) return;
                     clearCloseTimer();
@@ -227,12 +320,13 @@ function CreativeDomainNav() {
                 >
                   <Icon size={15} strokeWidth={2} /> <span>{group.label}</span><ChevronDown size={13} className="creative-nav-chevron" />
                 </button>
-                {open && renderGroupPanel(group)}
               </div>
             );
           })}
         </div>
       </div>
+
+      {renderDesktopViewport()}
 
       <button type="button" className="creative-nav-mobile-trigger" aria-label={mobileOpen ? '关闭创作导航' : '打开创作导航'} aria-expanded={mobileOpen} onClick={() => setMobileOpen(value => !value)}>
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}<span>创作</span>
