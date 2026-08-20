@@ -291,15 +291,35 @@ test('production asset authorization accepts only owner project version evidence
     ownerEmail,
     projectId: project.id,
     reason: 'generation',
-    inputSnapshot: { productAssets: [{ assetId: 'snapshot-input.png' }] },
+    inputSnapshot: { productAssets: [{ assetId: 'snapshot-input.png' }], untrustedAssetId: 'foreign-snapshot.png' },
     planSnapshot: { result: { stableUrl: '/api/generated-assets/snapshot-output.png' } },
   });
+  for (const [assetId, stableUrl] of [
+    ['snapshot-input.png', '/api/generated-assets/snapshot-input.png'],
+    ['snapshot-output.png', '/api/generated-assets/snapshot-output.png'],
+  ]) {
+    db.prepare(`INSERT INTO project_assets (
+      id, asset_id, owner_email, project_id, version_id, role, content_hash, stable_url,
+      mime_type, retention_class, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      `project-${assetId}`, assetId, ownerEmail, project.id, version.id, 'reference', assetId,
+      stableUrl, 'image/png', 'completed', new Date().toISOString(),
+    );
+  }
   db.prepare(`INSERT INTO project_assets (
     id, owner_email, project_id, version_id, role, content_hash, stable_url,
     mime_type, retention_class, created_at
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     'project-asset-row', ownerEmail, project.id, version.id, 'generated', 'hash',
     '/api/generated-assets/project-output.png', 'image/png', 'completed', new Date().toISOString(),
+  );
+  const foreignProject = projectStore.createProject({ ownerEmail: 'other@example.com', kind: 'ecommerce' });
+  db.prepare(`INSERT INTO project_assets (
+    id, asset_id, owner_email, project_id, role, content_hash, stable_url,
+    mime_type, retention_class, created_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    'foreign-project-asset', 'foreign-canonical.png', 'other@example.com', foreignProject.id,
+    'reference', 'foreign-hash', '/api/generated-assets/foreign-canonical.png', 'image/png', 'completed', new Date().toISOString(),
   );
   const composition = compositionStore.createDocument({
     ownerEmail,
@@ -326,6 +346,8 @@ test('production asset authorization accepts only owner project version evidence
   assert.equal(authorize({ ...context, assetId: 'composition-output.png' }), true);
   assert.equal(authorize({ ...context, assetId: 'composition-pixel-layer.png' }), true);
   assert.equal(authorize({ ...context, assetId: 'composition-pixel-mask.png' }), true);
+  assert.equal(authorize({ ...context, assetId: 'foreign-snapshot.png' }), false);
+  assert.equal(authorize({ ...context, assetId: 'foreign-canonical.png' }), false);
   assert.equal(authorize({ ...context, ownerEmail: 'other@example.com', assetId: 'snapshot-input.png' }), false);
   assert.equal(authorize({ ...context, versionId: 'other-version', assetId: 'snapshot-input.png' }), false);
   assert.equal(authorize({ ...context, assetId: 'global-only.png' }), false);

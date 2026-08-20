@@ -42,13 +42,6 @@ function referenceMatchesAsset(value, assetId) {
   }
 }
 
-function jsonReferencesAsset(value, assetId) {
-  if (referenceMatchesAsset(value, assetId)) return true;
-  if (Array.isArray(value)) return value.some(item => jsonReferencesAsset(item, assetId));
-  if (!value || typeof value !== 'object') return false;
-  return Object.values(value).some(item => jsonReferencesAsset(item, assetId));
-}
-
 function compositionLayersReferenceAsset(layers, assetId) {
   if (!Array.isArray(layers)) return false;
   return layers.some(layer => layer?.kind === 'image' && [
@@ -68,14 +61,12 @@ export function createCompositionAssetAuthorizer({ db } = {}) {
     const owner = normalizeOwner(ownerEmail);
     const normalizedAssetId = cleanAssetId(assetId);
     if (!owner || !projectId || !versionId || !normalizedAssetId) return false;
-    const version = db.prepare(`SELECT pv.input_snapshot, pv.plan_snapshot
+    const version = db.prepare(`SELECT pv.id
       FROM project_versions pv
       JOIN projects p ON p.id = pv.project_id
       WHERE pv.id = ? AND pv.project_id = ? AND p.owner_email = ? AND p.deleted_at IS NULL`)
       .get(versionId, projectId, owner);
     if (!version) return false;
-    if (jsonReferencesAsset(parseJson(version.input_snapshot), normalizedAssetId)
-      || jsonReferencesAsset(parseJson(version.plan_snapshot), normalizedAssetId)) return true;
     const projectAssets = db.prepare(`SELECT id, stable_url FROM project_assets
       WHERE owner_email = ? AND project_id = ? AND deleted_at IS NULL
         AND (version_id IS NULL OR version_id = ?)`)
