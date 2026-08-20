@@ -611,6 +611,7 @@ export function createProjectStore(db, {
           const stableUrl = String(asset?.stableUrl || '').trim();
           const contentHash = String(asset?.contentHash || '').trim();
           if (!assetId || !stableUrl) continue;
+          if (!contentHash) throw codedError('VIDEO_ASSET_NOT_READY', 'video source asset is not durably verified');
           db.prepare(`INSERT OR IGNORE INTO project_assets
             (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'source', ?)`).run(

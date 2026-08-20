@@ -362,6 +362,24 @@ test('derives ecommerce asset identity from the stable URL before accepting snap
   assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp' });
 });
 
+test('does not fabricate a video source asset hash when the source is not verified', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  assert.throws(() => store.ensureVideoGeneration({
+    ownerEmail: 'video-owner@example.com',
+    generationRunId: 'video-unverified-source',
+    title: '未校验视频源',
+    inputSnapshot: {},
+    planSnapshot: {},
+    assets: [{
+      assetId: 'upload-1',
+      stableUrl: '/api/video/assets/upload-1',
+      mimeType: 'video/mp4',
+      contentHash: '',
+    }],
+  }), error => error?.code === 'VIDEO_ASSET_NOT_READY');
+});
+
 test('records a partial ecommerce result version without claiming the project is completed', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

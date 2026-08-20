@@ -2156,4 +2156,13 @@
   `npm run check`、`npm run collab:check`、`git diff --check` 均通过。本轮没有供应商调用、视频生成、账务变更或生产部署。
 - 同步修正 legacy Works 迁移写入：带内容寻址稳定 URL 的历史 WebP/PNG 资产沿用真实哈希和 MIME，非内容寻址的旧 URL 保持原有兼容回退；
   迁移回归 `3/3` 通过，避免同一资产在新旧入口进入资产库后出现身份漂移。
+
+## 2026-08-20 Video Source Asset Fail-Closed Boundary
+
+- 修正视频草稿进入 canonical `project_assets` 的源素材写入：上传源没有真实校验哈希时不再用 `assetId` 伪造 `content_hash`，而是以
+  `VIDEO_ASSET_NOT_READY` 失败并回滚项目草稿写入；已验证的视频上传仍按原有 owner、MIME、字节数和 SHA-256 契约进入资产库。
+- 定向视频/项目回归 `27/27`，Git 已跟踪测试集全量 `1909/1909`，生产构建 `6524` modules、`npm run check`、
+  `npm run collab:check`、`git diff --check` 均通过。本轮没有供应商调用、视频生成、账务变更或生产部署。
+- 直接 `npm test` 当前被视频线程同时新增但尚未跟踪的 `test/video-renderer-worker-batch.test.mjs` 阻断；该文件属于视频线程，主线程未修改、未删除、未暂存。
+  等视频线程完成该测试后，再由其自行纳入完整测试闭环；不能把这次隔离后的 tracked 全量结果误报成未跟踪测试也已通过。
 - 生产发布继续保留既有远端磁盘空间预检阻塞，不删除线上数据、不绕过 `full` 门禁；视频线程仍按一次性协同通知继续原定视频工作，主线程未修改视频领域文件。
