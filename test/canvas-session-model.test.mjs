@@ -104,6 +104,17 @@ test('explicit Canvas snapshots preserve nodes, connections, and a valid viewpor
   assert.notEqual(restored.nodes, snapshot.nodes);
 });
 
+test('durable Canvas snapshots strip transient media URLs even for legacy nodes without a project ref', () => {
+  const playbackUrl = '/api/video/media/legacy-output?purpose=playback&signature=expired';
+  const snapshot = createCanvasSnapshot({
+    nodes: [{ id: 'legacy-video', kind: 'video', url: playbackUrl, playbackUrl, videoAssetId: 'legacy-output' }],
+  });
+
+  assert.equal(snapshot.nodes[0].url, '/api/video/assets/legacy-output');
+  assert.equal(snapshot.nodes[0].stableUrl, '/api/video/assets/legacy-output');
+  assert.equal(snapshot.nodes[0].playbackUrl, undefined);
+});
+
 test('restoring a server Canvas snapshot preserves transient media playback while durable snapshots remove it', () => {
   const source = {
     nodes: [{

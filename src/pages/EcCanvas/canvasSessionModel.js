@@ -2,6 +2,7 @@ import { layoutAssetLanes } from './canvasGeometry.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { createUploadedImageNodes, createUploadedVideoNodes } from './canvasStudioModel.js';
 import { attachCanvasProjectAssetRef, buildCanvasAssetRef, canvasProjectAssetRefKey } from './canvasAssetReferenceModel.js';
+import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 
 function safeId(value, fallback) {
   const normalized = String(value || '').trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -32,7 +33,7 @@ function durableCanvasValue(value) {
     next.url = stableUrl;
     delete next.playbackUrl;
   }
-  return next;
+  return stripTransientWorkPlayback(next);
 }
 
 function normalizedViewport(viewport = {}) {
