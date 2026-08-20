@@ -2272,3 +2272,10 @@
 - 新增 `canvasMediaAssetRefs` 与 `restoreCanvasMediaPlayback`：启动时从草稿节点提取去重、display-safe 的 canonical `(projectId, projectAssetId)` 引用，按 owner-scoped `getProjectAsset` 读取短期 `playbackUrl`，只更新当前节点运行时播放地址，稳定 `assetRef` 和本地快照身份不变；读取失败则保留元数据，不阻断画布打开。
 - 定向 Canvas session/work/跨域回归 `29/29`，生产构建 `6524` modules 和 `npm run collab:check` 通过。当前联合工作树全量 `npm test` 未通过 `4` 个并行 creative-navigation 合同断言，失败文件属于并行导航线程，主线程未修改、未暂存；因此本轮不进入生产发布。
 - 本轮没有触发供应商、真实生成、账务或生产部署。
+
+## 2026-08-20 Cached Work Media Recovery
+
+- 继续审计发现首次打开本地缓存的 AI 视频 Work 时可能没有 Canvas 草稿，旧逻辑因此不会进入草稿媒体恢复分支，直接以 durable `stableUrl` 初始化媒体节点。
+- 调整 Canvas 初始化：无论节点来自本地草稿还是缓存 Work 的新建 session，都先提取 canonical 媒体引用，再通过 owner-scoped `getProjectAsset` 获取临时播放能力；异步回写只替换匹配节点的运行时 URL，不覆盖用户编辑或 canonical ref。
+- 新增“无本地草稿打开缓存视频 Work”回归；Canvas/项目定向回归 `17/17`，构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 联合工作树全量测试仍受并行 creative-navigation 改动的 `4` 个既有合同断言影响，主线程未修改或暂存其文件；本轮不进入生产发布。
