@@ -4448,12 +4448,18 @@ export default function EcCanvas() {
                       <button key={`${asset.projectAssetId || asset.assetId || index}`} type="button" onClick={() => openImagePreview({ url: proxyImg(asset.url || asset.stableUrl), label: asset.name || asset.label || `项目图片 ${index + 1}` })} style={{ width: 180, height: 72, padding: 0, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, flexShrink: 0, cursor: 'zoom-in', background: '#f3f4f6' }}>
                         <ResponsiveImage src={proxyImg(asset.url || asset.stableUrl)} variant="thumb" ratio="1:1" alt={asset.name || asset.label || `项目图片 ${index + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
-                    )) : !work.videoUrl && !work.images?.length && work.mediaAssets?.length ? work.mediaAssets.map((asset, index) => (
-                      <div key={`${asset.projectAssetId || asset.assetId || index}`} style={{ minWidth: 180, height: 72, display: 'flex', alignItems: 'center', gap: 9, padding: '0 12px', boxSizing: 'border-box', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, background: '#f8fafc', color: '#475569' }}>
-                        <MdMusicNote size={20} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{asset.name || asset.displayName || asset.role || `音频素材 ${index + 1}`}</span>
-                      </div>
                     )) : null}
+                    {(work.mediaAssets || []).map((asset, index) => {
+                      const mediaUrl = asset.playbackUrl || asset.url || asset.stableUrl;
+                      if (!mediaUrl || (asset.mediaKind === 'video' && work.videoUrl)) return null;
+                      const label = asset.name || asset.displayName || asset.role || `${asset.mediaKind === 'video' ? '视频' : '音频'}素材 ${index + 1}`;
+                      return asset.mediaKind === 'video' ? <video key={`media-${asset.projectAssetId || asset.assetId || index}`} src={mediaUrl} controls playsInline preload="metadata" aria-label={label} style={{ width: 220, height: 124, objectFit: 'contain', borderRadius: 8, background: '#111827', flexShrink: 0 }} /> : asset.mediaKind === 'audio' ? (
+                        <div key={`media-${asset.projectAssetId || asset.assetId || index}`} style={{ minWidth: 240, height: 72, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5, padding: '0 10px', boxSizing: 'border-box', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, background: '#f8fafc', color: '#475569', flexShrink: 0 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}><MdMusicNote size={20} />{label}</span>
+                          <audio src={mediaUrl} controls preload="metadata" aria-label={label} style={{ width: '100%', height: 30 }} />
+                        </div>
+                      ) : null;
+                    })}
                   </div>
                 </div>
               ))}

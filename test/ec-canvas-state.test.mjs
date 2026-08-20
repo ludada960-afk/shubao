@@ -285,6 +285,9 @@ test('Canvas Work projection preserves media-only sources for later recovery', (
   assert.match(canvasSource, /const saveKey = result\._saveKey \|\| canvasGeneratedWorkKeyRef\.current/);
   assert.match(canvasSource, /\$\{work\.mediaAssets\?\.length \|\| 0\} 个媒体素材/);
   assert.match(canvasSource, /MdMusicNote size=\{20\}/);
+  assert.match(canvasSource, /const mediaUrl = asset\.playbackUrl \|\| asset\.url \|\| asset\.stableUrl/);
+  assert.match(canvasSource, /asset\.mediaKind === 'video' \? <video[\s\S]*?src=\{mediaUrl\}/);
+  assert.match(canvasSource, /asset\.mediaKind === 'audio' \? \([\s\S]*?<audio[\s\S]*?src=\{mediaUrl\}/);
 });
 
 test('project library imports create a durable Canvas work context before switching tabs', () => {
