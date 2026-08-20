@@ -136,7 +136,7 @@ test('Canvas Works entry exposes the owner-scoped project asset library without 
   assert.match(source, /项目素材/);
   assert.match(source, /不会产生生成或扣费/);
   assert.match(source, /node\.kind === 'audio'/);
-  assert.match(source, /mediaKind === 'video' \? <video src=\{asset\.stableUrl\}/);
+  assert.match(source, /mediaKind === 'video' \? <video src=\{asset\.playbackUrl \|\| asset\.stableUrl\}/);
   assert.match(source, /CanvasAudioNode/);
   assert.match(studio, /<audio/);
 });

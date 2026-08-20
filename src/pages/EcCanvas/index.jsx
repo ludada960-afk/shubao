@@ -4057,7 +4057,7 @@ export default function EcCanvas() {
                       <button type="button" title="加入当前画布" onClick={() => handleImportProjectAsset(asset)} style={{ display: 'block', width: '100%', padding: 0, border: 0, background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
                         <div style={{ height: 104, display: 'grid', placeItems: 'center', overflow: 'hidden', background: mediaKind === 'video' ? '#111827' : '#f4f5f7' }}>
                         {mediaKind === 'image' ? <ResponsiveImage src={proxyImg(asset.stableUrl)} variant="thumb" ratio="1:1" alt="" style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
-                          : mediaKind === 'video' ? <video src={asset.stableUrl} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : mediaKind === 'video' ? <video src={asset.playbackUrl || asset.stableUrl} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : <MdMusicNote size={28} color="#64748b" />}
                         </div>
                         <div style={{ padding: '8px 9px 4px' }}>
