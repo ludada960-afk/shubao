@@ -341,6 +341,32 @@ test('every Works import carries a fresh Canvas session token', () => {
   assert.match(canvasSource, /result\.canvasImportId/);
 });
 
+test('switching Canvas works resets the remote snapshot identity before autosave', () => {
+  const resultIdentityBlock = canvasSource.match(/useEffect\(\(\) => \{\s*canvasGeneratedWorkKeyRef\.current = result\._saveKey \|\| ''[\s\S]*?\}, \[result\.id, result\._saveKey, result\.canvasImportId\]\);/)?.[0] || '';
+  assert.match(resultIdentityBlock, /remoteSnapshotRef\.current = ''/);
+  assert.match(canvasSource, /const nextCanvasSession = result\.canvasSession\?\.id[\s\S]*?canvasSessionRef\.current = nextCanvasSession/);
+});
+
+test('Canvas autosave ignores an older result after the active work changes', () => {
+  assert.match(canvasSource, /const canvasPersistenceGenerationRef = useRef\(0\)/);
+  assert.match(canvasSource, /canvasPersistenceGenerationRef\.current \+= 1/);
+  const autosaveBlock = canvasSource.match(/remoteSaveTimerRef\.current = setTimeout\(async \(\) => \{[\s\S]*?\n    \}, 1200\);/)?.[0] || '';
+  assert.match(autosaveBlock, /const persistenceGeneration = canvasPersistenceGenerationRef\.current/);
+  assert.match(autosaveBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
+});
+
+test('manual Canvas save ignores a stale response after the active work changes', () => {
+  const saveBlock = canvasSource.match(/const handleCanvasSessionSave = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(saveBlock, /const persistenceGeneration = canvasPersistenceGenerationRef\.current/);
+  assert.match(saveBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
+});
+
+test('Canvas restore ignores a stale session response after the active work changes', () => {
+  const restoreBlock = canvasSource.match(/const handleCanvasSessionRestore = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(restoreBlock, /const persistenceGeneration = canvasPersistenceGenerationRef\.current/);
+  assert.match(restoreBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
+});
+
 test('fresh Canvas imports hydrate durable text compositions from the project version', () => {
   assert.match(canvasSource, /listTextCompositions/);
   assert.match(canvasSource, /projectId: result\.projectId/);

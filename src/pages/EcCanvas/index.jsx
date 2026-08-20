@@ -571,6 +571,7 @@ export default function EcCanvas() {
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
   const projectAssetImportBusyRef = useRef(false);
+  const canvasPersistenceGenerationRef = useRef(0);
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
   const workOutputFingerprintRef = useRef('');
@@ -586,6 +587,8 @@ export default function EcCanvas() {
   useEffect(() => {
     canvasGeneratedWorkKeyRef.current = result._saveKey || '';
     workOutputFingerprintRef.current = '';
+    remoteSnapshotRef.current = '';
+    canvasPersistenceGenerationRef.current += 1;
   }, [result.id, result._saveKey, result.canvasImportId]);
 
   useEffect(() => {
@@ -808,9 +811,14 @@ export default function EcCanvas() {
     setMultiSelected(new Set());
     setConnectionDraft(null);
     setConnectionPicker(null);
-    setCanvasSession(result.canvasSession?.id
+    const nextCanvasSession = result.canvasSession?.id
       ? result.canvasSession
-      : result.canvasSessionId ? { id: result.canvasSessionId, revision: result.canvasSessionRevision || 1 } : null);
+      : result.canvasSessionId ? { id: result.canvasSessionId, revision: result.canvasSessionRevision || 1 } : null;
+    if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
+    remoteSaveTimerRef.current = null;
+    remoteSnapshotRef.current = '';
+    canvasSessionRef.current = nextCanvasSession;
+    setCanvasSession(nextCanvasSession);
     const mediaRefs = canvasMediaAssetRefs(newNodes);
     if (!result.browserQa && mediaRefs.length) {
       void Promise.all(mediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))).then(assets => {
@@ -916,12 +924,14 @@ export default function EcCanvas() {
     if (fingerprint === remoteSnapshotRef.current) return undefined;
 
     remoteSaveTimerRef.current = setTimeout(async () => {
+      const persistenceGeneration = canvasPersistenceGenerationRef.current;
       setCanvasSessionBusy(true);
       try {
         const currentSession = canvasSessionRef.current;
         const session = currentSession?.id
           ? await saveCanvasSession(currentSession.id, { expectedRevision: currentSession.revision, snapshot })
           : await createCanvasSession({ projectId, baseVersionId, snapshot });
+        if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
         remoteSnapshotRef.current = fingerprint;
         canvasSessionRef.current = session;
         setCanvasSession(session);
@@ -3734,12 +3744,14 @@ export default function EcCanvas() {
       showToast('当前作品缺少可保存的项目版本', 'error');
       return;
     }
+    const persistenceGeneration = canvasPersistenceGenerationRef.current;
     setCanvasSessionBusy(true);
     try {
       const snapshot = createCanvasSnapshot({ nodes, connections, viewport });
       const session = canvasSession?.id
         ? await saveCanvasSession(canvasSession.id, { expectedRevision: canvasSession.revision, snapshot })
         : await createCanvasSession({ projectId, baseVersionId, snapshot });
+      if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
       setCanvasSession(session);
       const saveKey = result._saveKey || canvasGeneratedWorkKeyRef.current;
       if (saveKey) {
@@ -3756,6 +3768,7 @@ export default function EcCanvas() {
           canvasSessionRevision: session.revision,
         }, phone);
       }
+      if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
       dispatch({
         type: 'SET_RESULT',
         result: { ...result, canvasSession: session, canvasSessionId: session.id, canvasSessionRevision: session.revision },
@@ -3774,9 +3787,11 @@ export default function EcCanvas() {
       showToast('请先保存画布，再使用恢复命令', 'info');
       return;
     }
+    const persistenceGeneration = canvasPersistenceGenerationRef.current;
     setCanvasSessionBusy(true);
     try {
       const session = await loadCanvasSession(sessionId);
+      if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
       const snapshot = restoreCanvasSnapshot(session.snapshot);
       setNodes(snapshot.nodes.map(normalizeCanvasNode));
       setConnections(snapshot.connections.map(normalizeCanvasConnection));

@@ -2333,3 +2333,9 @@
 - 存储事务使用 SQLite immediate write lock，避免并发版本创建竞争同一 sequence；客户端只将幂等键写入请求头，不把它伪装成业务版本 payload。Canvas 媒体项目基础版本和电商 durable project lifecycle 均使用派生版本 key，统一恢复语义。
 - 新增存储、路由、客户端、生命周期和 Canvas 契约回归。全量 `npm test` `1962/1962`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
 - 本轮只修改主线程项目版本/Canvas/生命周期边界及对应测试；视频线程、导航线程、用户运行态和未跟踪研究/截图未修改、未暂存。未调用供应商、真实生成或账务，未部署；线上仍为 `e823283`，本地提交涉及 server/project/asset/Canvas 路径，发布前必须通过 full production gate。
+
+## 2026-08-20 Canvas Persistence Generation Boundary
+
+- 修复跨作品切换时的 Canvas 持久化竞态：切换 Works/Canvas 结果会清空旧远端快照指纹、取消旧保存计时器并同步更新会话 ref；自动保存、手动保存和恢复请求都携带当前持久化代次，旧作品的迟到响应不会覆盖新作品的节点、会话或结果上下文。
+- 新增四条 Canvas 竞态契约回归，覆盖相同快照跨作品切换、自动保存迟到响应、手动保存迟到响应和恢复迟到响应。聚焦资产/项目/Canvas `145/145`、全量 `npm test` `1966/1966`、隔离生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 标准 `npm run build` 在清理既有 `dist/images` 时被本工作树已有的 5174 Vite dev server 触发 Windows `ENOTEMPTY`；未停止并行服务，改用同一导出校验和 Vite 配置输出到隔离 `dist-codex-build-20260820` 完成编译验证。未调用供应商、真实生成、账务或生产部署；视频/导航线程及运行态未修改、未暂存，线上仍为 `e823283`。
