@@ -68,6 +68,21 @@ test('strips transient media playback from durable Work records while preserving
   assert.equal(durable.projectAssetRefs[0].playbackUrl, undefined);
 });
 
+test('normalizes absolute application playback URLs before durable Work persistence', () => {
+  const durable = stripTransientWorkPlayback({
+    video_url: 'https://shuimg.cn/api/video/media/absolute-video?purpose=playback&signature=temporary',
+    video: {
+      url: 'https://shuimg.cn/api/video/media/absolute-video?purpose=playback&signature=temporary',
+      playbackUrl: 'https://shuimg.cn/api/video/media/absolute-video?purpose=playback&signature=temporary',
+    },
+  });
+
+  assert.equal(durable.video_url, '/api/video/assets/absolute-video');
+  assert.equal(durable.video.url, '/api/video/assets/absolute-video');
+  assert.equal(durable.video.stableUrl, '/api/video/assets/absolute-video');
+  assert.equal(durable.video.playbackUrl, undefined);
+});
+
 test('uses server works first and deduplicates stale local ecommerce copies by task and stable images', () => {
   const server = {
     _ecResult: true,

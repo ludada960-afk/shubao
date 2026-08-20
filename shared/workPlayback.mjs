@@ -4,8 +4,11 @@ function clean(value) {
 
 function stableVideoUrl(value) {
   const url = clean(value);
-  if (/^\/api\/video\/assets\/[^/?#]+$/i.test(url)) return url;
-  const match = /^\/api\/video\/media\/([^/?#]+)(?:[?#].*)?$/i.exec(url);
+  const path = (() => {
+    if (url.startsWith('/')) return url.split(/[?#]/, 1)[0];
+    try { return new URL(url).pathname; } catch { return ''; }
+  })();
+  const match = /^\/api\/video\/(?:assets|media)\/([^/?#]+)$/i.exec(path);
   return match ? `/api/video/assets/${match[1]}` : '';
 }
 
