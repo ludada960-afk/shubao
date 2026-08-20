@@ -858,11 +858,21 @@ export default function EcCanvas() {
     if (!draft && persistedSessionId) {
       void loadCanvasSession(persistedSessionId).then(remoteSession => {
         if (cancelled) return;
-        const snapshot = restoreCanvasSnapshot(remoteSession.snapshot);
-        setNodes(snapshot.nodes.map(normalizeCanvasNode));
-        setConnections(snapshot.connections.map(normalizeCanvasConnection));
-        setViewport(snapshot.viewport);
+        const remoteSnapshot = restoreCanvasSnapshot(remoteSession.snapshot);
+        setNodes(remoteSnapshot.nodes.map(normalizeCanvasNode));
+        setConnections(remoteSnapshot.connections.map(normalizeCanvasConnection));
+        setViewport(remoteSnapshot.viewport);
         setCanvasSession(remoteSession);
+        const remoteMediaRefs = canvasMediaAssetRefs(remoteSnapshot.nodes);
+        if (remoteMediaRefs.length) {
+          void Promise.all(remoteMediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null)))
+            .then(assets => {
+              if (cancelled) return;
+              const resolvedAssets = assets.filter(Boolean);
+              if (!resolvedAssets.length) return;
+              setNodes(previous => restoreCanvasMediaPlayback(previous, resolvedAssets).map(normalizeCanvasNode));
+            });
+        }
       }).catch(() => {});
     }
     if (result.projectId && (result.resultVersionId || result.sourceVersionId)) {
@@ -3869,6 +3879,15 @@ export default function EcCanvas() {
       setSelected(null);
       setMultiSelected(new Set());
       setCanvasSession(session);
+      const restoredMediaRefs = canvasMediaAssetRefs(snapshot.nodes);
+      if (restoredMediaRefs.length) {
+        const resolvedAssets = (await Promise.all(restoredMediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))))
+          .filter(Boolean);
+        if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
+        if (resolvedAssets.length) {
+          setNodes(restoreCanvasMediaPlayback(snapshot.nodes, resolvedAssets).map(normalizeCanvasNode));
+        }
+      }
       showToast('已恢复保存的画布', 'success');
     } catch (error) {
       showToast(error?.message || '画布恢复失败', 'error');

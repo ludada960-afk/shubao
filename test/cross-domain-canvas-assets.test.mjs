@@ -147,3 +147,15 @@ test('Canvas opening a cached video Work remints playback even without a local d
   assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)/);
   assert.doesNotMatch(source, /if \(draft && initialSnapshot\?\.nodes\?\.length\) \{/);
 });
+
+test('Canvas remote-session recovery remints playback URLs for restored media nodes', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(source, /const remoteSnapshot = restoreCanvasSnapshot\(remoteSession\.snapshot\);[\s\S]*?const remoteMediaRefs = canvasMediaAssetRefs\(remoteSnapshot\.nodes\);/);
+  assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)[\s\S]*?restoreCanvasMediaPlayback\(previous, resolvedAssets\)/);
+});
+
+test('explicit Canvas restore remints playback URLs before replacing the active nodes', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(source, /const restoredMediaRefs = canvasMediaAssetRefs\(snapshot\.nodes\);/);
+  assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)[\s\S]*?restoreCanvasMediaPlayback\(snapshot\.nodes, resolvedAssets\)/);
+});
