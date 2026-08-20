@@ -912,7 +912,6 @@ export default function EcCanvas() {
       void Promise.all(mediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))).then(assets => {
         if (cancelled) return;
         const resolvedAssets = assets.filter(Boolean);
-        if (!resolvedAssets.length) return;
         setNodes(previous => restoreCanvasMediaPlayback(previous, resolvedAssets).map(normalizeCanvasNode));
       });
     }
@@ -931,7 +930,6 @@ export default function EcCanvas() {
             .then(assets => {
               if (cancelled) return;
               const resolvedAssets = assets.filter(Boolean);
-              if (!resolvedAssets.length) return;
               setNodes(previous => restoreCanvasMediaPlayback(previous, resolvedAssets).map(normalizeCanvasNode));
             });
         }
@@ -3972,9 +3970,7 @@ export default function EcCanvas() {
         const resolvedAssets = (await Promise.all(restoredMediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))))
           .filter(Boolean);
         if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
-        if (resolvedAssets.length) {
-          setNodes(restoreCanvasMediaPlayback(snapshot.nodes, resolvedAssets).map(normalizeCanvasNode));
-        }
+        setNodes(restoreCanvasMediaPlayback(snapshot.nodes, resolvedAssets).map(normalizeCanvasNode));
       }
       showToast('已恢复保存的画布', 'success');
     } catch (error) {

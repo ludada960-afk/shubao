@@ -153,10 +153,12 @@ test('Canvas remote-session recovery remints playback URLs for restored media no
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   assert.match(source, /const remoteSnapshot = restoreCanvasSnapshot\(remoteSession\.snapshot\);[\s\S]*?const remoteMediaRefs = canvasMediaAssetRefs\(remoteSnapshot\.nodes\);/);
   assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)[\s\S]*?restoreCanvasMediaPlayback\(previous, resolvedAssets\)/);
+  assert.doesNotMatch(source, /const resolvedAssets = assets\.filter\(Boolean\);\s*if \(!resolvedAssets\.length\) return;/);
 });
 
 test('explicit Canvas restore remints playback URLs before replacing the active nodes', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   assert.match(source, /const restoredMediaRefs = canvasMediaAssetRefs\(snapshot\.nodes\);/);
   assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)[\s\S]*?restoreCanvasMediaPlayback\(snapshot\.nodes, resolvedAssets\)/);
+  assert.doesNotMatch(source, /if \(resolvedAssets\.length\) \{\s*setNodes\(restoreCanvasMediaPlayback/);
 });
