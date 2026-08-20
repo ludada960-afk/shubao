@@ -533,6 +533,7 @@ export default function EcCanvas() {
   const [workCategory, setWorkCategory] = useState('all');
   const [pastWorks, setPastWorks] = useState([]);
   const [trashWorks, setTrashWorks] = useState([]);
+  const [worksLoading, setWorksLoading] = useState(false);
   const [projectAssetLibrary, setProjectAssetLibrary] = useState([]);
   const [projectAssetMediaFilter, setProjectAssetMediaFilter] = useState('');
   const [projectAssetLibraryLoading, setProjectAssetLibraryLoading] = useState(false);
@@ -1056,33 +1057,42 @@ export default function EcCanvas() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    setWorksLoading(true);
     const load = async () => {
-      if (result?.browserQa) {
-        setPastWorks([]);
-        setTrashWorks([]);
-        return;
-      }
-      let localWorks = [];
-      let serverWorks = [];
       try {
-        const parsed = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
-        localWorks = Array.isArray(parsed) ? parsed : [];
-      } catch {}
-      const cachedWorks = loadCachedWorks(phone);
-      if (cachedWorks.length) {
-        setPastWorks(normalizeCanvasWorkPanel({ localWorks, serverWorks: cachedWorks, ownerEmail: phone }));
+        if (result?.browserQa) {
+          setPastWorks([]);
+          setTrashWorks([]);
+          return;
+        }
+        let localWorks = [];
+        let serverWorks = [];
+        try {
+          const parsed = JSON.parse(localStorage.getItem('shubao_ec_works') || '[]');
+          localWorks = Array.isArray(parsed) ? parsed : [];
+        } catch {}
+        const cachedWorks = loadCachedWorks(phone);
+        if (!cancelled && cachedWorks.length) {
+          setPastWorks(normalizeCanvasWorkPanel({ localWorks, serverWorks: cachedWorks, ownerEmail: phone }));
+        }
+        try {
+          serverWorks = await loadWorks(phone);
+        } catch {}
+        if (cancelled) return;
+        const localTrash = (() => {
+          try { return JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]'); } catch { return []; }
+        })();
+        const serverTrash = await loadTrash(phone);
+        if (cancelled) return;
+        setPastWorks(normalizeCanvasWorkPanel({ localWorks, serverWorks, ownerEmail: phone }));
+        setTrashWorks(normalizeCanvasWorkPanel({ localWorks: localTrash, serverWorks: serverTrash, ownerEmail: phone }));
+      } finally {
+        if (!cancelled) setWorksLoading(false);
       }
-      try { 
-        serverWorks = await loadWorks(phone);
-      } catch {}
-      const localTrash = (() => {
-        try { return JSON.parse(localStorage.getItem('shubao_ec_trash') || '[]'); } catch { return []; }
-      })();
-      const serverTrash = await loadTrash(phone);
-      setPastWorks(normalizeCanvasWorkPanel({ localWorks, serverWorks, ownerEmail: phone }));
-      setTrashWorks(normalizeCanvasWorkPanel({ localWorks: localTrash, serverWorks: serverTrash, ownerEmail: phone }));
     };
     load();
+    return () => { cancelled = true; };
   }, [phone, result?.browserQa]);
 
   useEffect(() => {
@@ -4409,6 +4419,8 @@ export default function EcCanvas() {
               <span>你的电商套图、小红书图文、AI 视频、自由创作和画布内容都会保存在这里</span>
               <button type="button" onClick={() => dispatch({ type: 'SHOW_LOGIN', show: true })}>立即登录</button>
             </div>
+          ) : worksLoading && (tab === 'works' || tab === 'trash') ? (
+            <div role="status" style={{ textAlign: 'center', padding: '80px 20px', color: '#8a929d', fontSize: 13 }}>正在读取作品</div>
           ) : ((tab === 'trash' ? trashWorks : visibleWorks).length === 0) ? (
             <div style={{ textAlign: 'center', padding: '80px 20px' }}>
               <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.15 }}>{tab === 'trash' ? '🗑️' : '📁'}</div>

@@ -39,6 +39,14 @@ test('canvas browser QA fixture does not make unauthorized works requests', () =
   assert.match(canvasPage, /setPastWorks\(\[\]\);\s*setTrashWorks\(\[\]\);\s*return;/);
 });
 
+test('Works loading does not flash an empty state or accept a stale account response', () => {
+  assert.match(canvasPage, /const \[worksLoading, setWorksLoading\] = useState\(false\)/);
+  assert.match(canvasPage, /let cancelled = false;[\s\S]*?setWorksLoading\(true\)/);
+  assert.match(canvasPage, /if \(cancelled\) return;[\s\S]*?setPastWorks\(normalizeCanvasWorkPanel/);
+  assert.match(canvasPage, /setWorksLoading\(false\);[\s\S]*?return \(\) => \{ cancelled = true; \};/);
+  assert.match(canvasPage, /正在读取作品/);
+});
+
 test('visual browser QA state opens the visual workbench with a replayable gallery work', () => {
   const state = createCanvasBrowserQaState({ enabled: true, search: '?qa=visual' });
 
