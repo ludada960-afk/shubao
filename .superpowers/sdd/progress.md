@@ -2179,3 +2179,9 @@
 
 - 主线程提交 `62d48dc`：电商完成路径现在拒绝外部或含控制字符的结果 URL，并在写入结果版本前失败；外链不会进入 canonical `project_assets`，项目仍保持运行中。
 - 项目版本、legacy 迁移、路由和视频桥接定向回归 `45/45` 通过；本轮没有供应商调用、真实生成、账务变更或生产部署。
+
+## 2026-08-20 Canonical Asset URL Gate
+
+- 主线程提交 `1d71c2d`：`createProjectAsset` 统一要求稳定地址为无控制字符的应用内 `/api/...` URL，协议相对地址、外部 HTTP(S) 和其他非应用地址全部拒绝；电商与视频专用写入路径继续共享同一边界。
+- 定向项目/迁移/视频桥接回归保持 `45/45` 通过；`npm run build` 已通过并转换 `6524` modules，随后单独执行 `npm run check`、`npm run collab:check` 和 `git diff --check` 均通过。
+- 联合工作树仍有视频线程的 `server/videoRendererWorker.mjs`、未跟踪批处理测试，以及并行导航文件的未提交改动；主线程不修改、不暂存、不轮询这些文件。直接全量测试在这些并行变更完成前不作为发布证据。
