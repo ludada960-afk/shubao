@@ -51,7 +51,7 @@ import {
 } from './components/CanvasStudio.jsx';
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
-import { createCanvasSession, getProjectAsset, getProjectAssetLineage, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
+import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, saveCanvasSession } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
@@ -63,6 +63,7 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, expandCanvasDragSelection, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes, getCanvasComposerPresentation, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle } from './canvasStudioModel.js';
+import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
@@ -654,6 +655,86 @@ export default function EcCanvas() {
       setToast(null);
     }, 3000);
   }, []);
+
+  const ensureCanvasMediaProject = useCallback(async (title = 'Canvas 媒体项目') => {
+    if (!state.logged) return null;
+    const existingProjectId = String(result.projectId || '').trim();
+    const existingVersionId = String(result.resultVersionId || result.sourceVersionId || '').trim();
+    if (existingProjectId && existingVersionId) return {
+      projectId: existingProjectId,
+      baseVersionId: existingVersionId,
+    };
+
+    canvasSaveKeyRef.current ||= canvasDraftKey({
+      ...result,
+      canvasImportId: `media-upload-${Date.now()}`,
+    });
+    let projectId = existingProjectId;
+    if (!projectId) {
+      const project = await createProject({
+        kind: 'video',
+        title: String(title || '').trim() || 'Canvas 媒体项目',
+        idempotencyKey: `canvas-media:${canvasSaveKeyRef.current}`,
+      });
+      projectId = project.id;
+    }
+    let baseVersionId = existingVersionId;
+    if (!baseVersionId) {
+      const version = await createProjectVersion(projectId, {
+        reason: 'manual_save',
+        inputSnapshot: { surface: 'canvas', mediaImport: true },
+        planSnapshot: { surface: 'canvas', mediaImport: true },
+      });
+      baseVersionId = version.id;
+    }
+    dispatch({
+      type: 'SET_RESULT',
+      result: {
+        ...result,
+        projectId,
+        sourceVersionId: baseVersionId,
+      },
+    });
+    return { projectId, baseVersionId };
+  }, [dispatch, result, state.logged]);
+
+  const importCanvasMediaAsset = useCallback(async (asset, projectContext, role, displayName = '') => {
+    if (!projectContext || !asset?.id) return { asset, imported: false };
+    const canonical = await importVideoAssetToProject(projectContext.projectId, {
+      videoAssetId: asset.id,
+      role,
+      metadata: displayName ? { displayName } : {},
+    });
+    const playbackUrl = canonical.playbackUrl || canonical.stableUrl || asset.url || '';
+    return {
+      imported: true,
+      asset: {
+        ...asset,
+        ...canonical,
+        id: asset.id,
+        videoAssetId: asset.id,
+        url: playbackUrl,
+        playbackUrl,
+      },
+    };
+  }, []);
+
+  const importCanvasMediaAssets = useCallback(async (assets, projectContext, role) => {
+    const imported = [];
+    const failed = [];
+    for (const asset of assets) {
+      try {
+        imported.push(await importCanvasMediaAsset(asset, projectContext, role, asset.name || 'Canvas 媒体素材'));
+      } catch (error) {
+        imported.push({ asset, imported: false });
+        failed.push({ asset, error });
+      }
+    }
+    return {
+      assets: imported.map(item => item.asset),
+      failed,
+    };
+  }, [importCanvasMediaAsset]);
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -3190,20 +3271,28 @@ export default function EcCanvas() {
     event.target.value = '';
     if (!files.length) return;
     const uploadStartedAt = Date.now();
+    canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `video-upload-${uploadStartedAt}` });
     setPromptLoading(true);
     try {
       const assets = [];
       for (const file of files) assets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      let projectContext = null;
+      try {
+        projectContext = await ensureCanvasMediaProject(files[0]?.name || 'Canvas 视频项目');
+      } catch {}
+      const imported = await importCanvasMediaAssets(assets, projectContext, 'reference-video');
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
-      const uploadedNodes = createUploadedVideoNodes({ assets, x: worldX, y: worldY, now: uploadStartedAt });
+      const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: worldX, y: worldY, now: uploadStartedAt });
       draftReadyRef.current = true;
-      canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `video-upload-${uploadStartedAt}` });
       setNodes(previous => [...previous, ...uploadedNodes]);
       setSelected(uploadedNodes[0]?.id || null);
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
-      showToast(`已加入 ${uploadedNodes.length} 个视频，可继续引用生成`, 'success');
+      const failedCount = imported.failed.length + (!projectContext ? assets.length : 0);
+      showToast(failedCount
+        ? `已加入 ${uploadedNodes.length} 个视频，但 ${failedCount} 个素材尚未归档到项目，可稍后重试`
+        : `已加入 ${uploadedNodes.length} 个视频，已归档到项目，可继续引用生成`, failedCount ? 'info' : 'success');
     } catch (error) {
       showToast(error.message || '视频上传失败，请重试', 'error');
     } finally {
@@ -3218,6 +3307,7 @@ export default function EcCanvas() {
       : files.filter(file => file?.type?.startsWith('image/')).slice(0, 8);
     if (!accepted.length || !composer) return;
     const uploadStartedAt = Date.now();
+    canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${uploadStartedAt}` });
     try {
       const imageFiles = accepted.filter(file => file.type.startsWith('image/'));
       const videoFiles = accepted.filter(file => file.type.startsWith('video/'));
@@ -3232,23 +3322,30 @@ export default function EcCanvas() {
       }).map(node => ({ ...node, role }));
       const videoAssets = [];
       for (const file of videoFiles) videoAssets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      const audioAssets = [];
+      for (const file of audioFiles) audioAssets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
+      let projectContext = null;
+      if (videoAssets.length || audioAssets.length) {
+        try {
+          projectContext = await ensureCanvasMediaProject(composer.prompt || 'Canvas 视频素材项目');
+        } catch {}
+      }
+      const importedVideos = await importCanvasMediaAssets(videoAssets, projectContext, 'reference-video');
+      const importedAudios = await importCanvasMediaAssets(audioAssets, projectContext, 'reference-audio');
       const videoNodes = createUploadedVideoNodes({
-        assets: videoAssets,
-        x: composer.x - Math.max(1, videoAssets.length) * 360 - 36,
+        assets: importedVideos.assets,
+        x: composer.x - Math.max(1, importedVideos.assets.length) * 360 - 36,
         y: composer.y + (imageNodes.length ? 112 : 0),
         now: uploadStartedAt,
       }).map(node => ({ ...node, role }));
-      const audioAssets = [];
-      for (const file of audioFiles) audioAssets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
-      const audioNodes = audioAssets.map((asset, index) => ({
+      const audioNodes = importedAudios.assets.map((asset, index) => attachCanvasProjectAssetRef({
         id: `audio_upload_${uploadStartedAt}_${index}`, assetId: asset.id, videoAssetId: asset.id, kind: 'audio', provenance: 'source', status: 'ready',
-        url: asset.url, name: asset.name || `参考音频 ${index + 1}`, displayLabel: asset.name || `参考音频 ${index + 1}`, group: '音频', role,
+        url: asset.url || asset.stableUrl, name: asset.name || `参考音频 ${index + 1}`, displayLabel: asset.name || `参考音频 ${index + 1}`, group: '音频', role,
         x: composer.x - 300, y: composer.y + 150 + index * 92, w: 264, h: 72, sourceNodeIds: [], editable: true, showMeta: true,
-      }));
+      }, asset));
       const uploadedNodes = [...imageNodes, ...videoNodes, ...audioNodes];
       const uploadedIds = uploadedNodes.map(node => node.id);
       draftReadyRef.current = true;
-      canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `upload-${uploadStartedAt}` });
       setNodes(previous => previous
         .map(node => node.id === composerId
           ? {
@@ -3261,13 +3358,18 @@ export default function EcCanvas() {
       setConnections(previous => uploadedIds.reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
       setSelected(composerId);
       setMultiSelected(new Set([composerId]));
-      showToast(persistedAssets.some(asset => asset.temporary)
-        ? `已连接 ${uploadedNodes.length} 个素材（当前网络不可用，仅保留本地预览）`
-        : `已连接 ${uploadedNodes.length} 个素材`, persistedAssets.some(asset => asset.temporary) ? 'info' : 'success');
+      const durableImportFailures = importedVideos.failed.length + importedAudios.failed.length;
+      const importFailureCount = durableImportFailures + (!projectContext ? videoAssets.length + audioAssets.length : 0);
+      const temporaryImages = persistedAssets.some(asset => asset.temporary);
+      showToast(temporaryImages
+        ? `已连接 ${uploadedNodes.length} 个素材（图片仅保留本地预览）`
+        : importFailureCount
+          ? `已连接 ${uploadedNodes.length} 个素材，但 ${importFailureCount} 个媒体尚未归档到项目，可稍后重试`
+          : `已连接 ${uploadedNodes.length} 个素材，媒体已归档到项目`, temporaryImages || importFailureCount ? 'info' : 'success');
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
     }
-  }, [nodes, result, showToast]);
+  }, [ensureCanvasMediaProject, importCanvasMediaAssets, nodes, result, showToast]);
 
   const removeComposerSource = useCallback((composerId, sourceId) => {
     const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);

@@ -253,6 +253,16 @@ test('Canvas persists uploaded source assets through durable ecommerce storage',
   assert.doesNotMatch(canvasSource, /temporary:\s*true/);
 });
 
+test('Canvas promotes uploaded video and audio into the owner-scoped project asset library', () => {
+  assert.match(canvasSource, /createProject, createProjectVersion/);
+  assert.match(canvasSource, /importVideoAssetToProject/);
+  assert.match(canvasSource, /ensureCanvasMediaProject/);
+  assert.match(canvasSource, /handleCanvasVideoUpload[\s\S]*?importCanvasMediaAssets\(assets, projectContext, 'reference-video'\)/);
+  assert.match(canvasSource, /handleComposerSourceUpload[\s\S]*?importCanvasMediaAssets\(audioAssets, projectContext, 'reference-audio'\)/);
+  assert.match(canvasSource, /attachCanvasProjectAssetRef\(\{[\s\S]*?kind: 'audio'/);
+  assert.doesNotMatch(canvasSource, /importVideoAssetToProject\([\s\S]{0,220}ownerEmail/);
+});
+
 test('double-click image preview is a keyboard-accessible dialog', () => {
   assert.match(canvasSource, /role="dialog" aria-modal="true" aria-label=\{`\$\{zoomImg\.label \|\| '图片'\}大图预览`\}/);
   assert.match(canvasSource, /button type="button" aria-label="关闭大图预览"/);

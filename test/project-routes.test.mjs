@@ -35,7 +35,7 @@ async function invoke(app, method, path, request = {}) {
   return res;
 }
 
-function createHarness() {
+function createHarness({ importVideoAsset = null } = {}) {
   const db = new Database(':memory:');
   ensureProjectSchema(db);
   let sequence = 0;
@@ -47,6 +47,7 @@ function createHarness() {
   const app = createFakeApp();
   mountProjectRoutes(app, {
     projectStore,
+    importVideoAsset,
     resolveAssetPlaybackUrl({ asset, ownerEmail }) {
       return asset.mediaKind === 'video'
         ? `/api/video/media/${asset.assetId}?owner=${encodeURIComponent(ownerEmail)}&cap=test-capability`
@@ -143,6 +144,60 @@ test('project asset read routes are owner-scoped and support media filtering', a
   assert.equal(denied.body.code, 'PROJECT_NOT_FOUND');
   assert.equal(deniedLineage.statusCode, 404);
   assert.equal(deniedLineage.body.code, 'PROJECT_NOT_FOUND');
+});
+
+test('imports an owner-scoped uploaded media asset into the project asset library', async t => {
+  const imported = [];
+  const { app, db, projectStore, sessionTokens } = createHarness({
+    importVideoAsset: async input => {
+      imported.push(input);
+      return projectStore.createProjectAsset({
+        ownerEmail: input.ownerEmail,
+        projectId: input.projectId,
+        assetId: input.videoAssetId,
+        role: input.role,
+        stableUrl: `/api/video/assets/${input.videoAssetId}`,
+        contentHash: 'b'.repeat(64),
+        mimeType: 'audio/mpeg',
+        metadata: input.metadata,
+      });
+    },
+  });
+  t.after(() => db.close());
+  const owner = 'owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'video', title: '上传媒体' });
+  const response = await invoke(app, 'POST', '/api/projects/:projectId/assets/import-media', {
+    headers: signedHeaders(sessionTokens, owner),
+    params: { projectId: project.id },
+    body: {
+      ownerEmail: 'attacker@example.com',
+      videoAssetId: 'voice-1.mp3',
+      role: 'voice',
+      metadata: { displayName: '旁白' },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.asset.projectId, project.id);
+  assert.equal(response.body.asset.mediaKind, 'audio');
+  assert.equal(imported.length, 1);
+  assert.equal(imported[0].ownerEmail, owner);
+  assert.equal(imported[0].projectId, project.id);
+  assert.equal(imported[0].videoAssetId, 'voice-1.mp3');
+  assert.equal(imported[0].metadata.displayName, '旁白');
+});
+
+test('media import is unavailable instead of accepting a raw client asset id', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const project = projectStore.createProject({ ownerEmail: 'owner@example.com', kind: 'video', title: '未启用上传导入' });
+  const response = await invoke(app, 'POST', '/api/projects/:projectId/assets/import-media', {
+    headers: signedHeaders(sessionTokens, 'owner@example.com'),
+    params: { projectId: project.id },
+    body: { videoAssetId: 'forged', role: 'reference' },
+  });
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.code, 'PROJECT_MEDIA_IMPORT_UNAVAILABLE');
 });
 
 test('unified project asset library is signed, filtered, and display-safe', async t => {

@@ -12,6 +12,7 @@ import {
   loadCanvasSession,
   getProject,
   getProjectAssetLineage,
+  importVideoAssetToProject,
   listProjectAssetLibrary,
   listProjects,
   listRecoveryCheckpoints,
@@ -209,6 +210,32 @@ test('project asset lineage client encodes both IDs and uses the signed session'
 
   const lineage = await getProjectAssetLineage('project one', 'asset/one');
   assert.equal(lineage.asset.projectAssetId, 'asset/one');
+});
+
+test('project media import client uses signed owner context and never sends owner authority', async t => {
+  installSession('signed-media-import-token');
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, options = {}) => {
+    assert.equal(path, '/api/projects/project%20one/assets/import-media');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.headers.Authorization, 'Bearer signed-media-import-token');
+    const body = JSON.parse(options.body);
+    assert.deepEqual(body, {
+      videoAssetId: 'upload/one.mp4',
+      role: 'reference-video',
+      metadata: { displayName: '产品视频' },
+    });
+    assert.equal('ownerEmail' in body, false);
+    return jsonResponse({ asset: { projectAssetId: 'canonical-1', mediaKind: 'video' } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const asset = await importVideoAssetToProject('project one', {
+    videoAssetId: 'upload/one.mp4',
+    role: 'reference-video',
+    metadata: { displayName: '产品视频' },
+  });
+  assert.equal(asset.projectAssetId, 'canonical-1');
 });
 
 test('Canvas session client creates, saves, and restores an encoded owner session', async t => {

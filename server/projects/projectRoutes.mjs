@@ -12,6 +12,18 @@ function routeError(error, res) {
   if (code === 'PROJECT_ASSET_NOT_FOUND') {
     return res.status(404).json({ code, error: '未找到该项目素材' });
   }
+  if (code === 'VIDEO_ASSET_NOT_FOUND') {
+    return res.status(404).json({ code, error: '素材不存在或不属于当前账号' });
+  }
+  if (code === 'VIDEO_ASSET_NOT_READY') {
+    return res.status(409).json({ code, error: '素材尚未完成持久化校验，请稍后重试' });
+  }
+  if (code === 'VIDEO_ASSET_METADATA_INVALID') {
+    return res.status(400).json({ code, error: '素材元数据无效' });
+  }
+  if (code === 'PROJECT_MEDIA_IMPORT_UNAVAILABLE') {
+    return res.status(503).json({ code, error: '当前暂不支持把该媒体加入项目，请稍后重试' });
+  }
   if (code === 'VERSION_CONFLICT') {
     return res.status(409).json({ code, error: '内容已在其他位置更新，请刷新后重试' });
   }
@@ -73,7 +85,12 @@ export function createSessionHandler({ authenticateOwner }) {
   };
 }
 
-export function mountProjectRoutes(app, { projectStore, authenticateOwner, resolveAssetPlaybackUrl = null }) {
+export function mountProjectRoutes(app, {
+  projectStore,
+  authenticateOwner,
+  resolveAssetPlaybackUrl = null,
+  importVideoAsset = null,
+} = {}) {
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
   }
@@ -124,6 +141,26 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner, resol
       return res.json({ assets: projectStore.listProjectAssets({
         ownerEmail, projectId: req.params.projectId, mediaKind: req.query?.mediaKind,
       }).map(asset => withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl })) });
+    } catch (error) { return routeError(error, res); }
+  });
+  app.post('/api/projects/:projectId/assets/import-media', async (req, res) => {
+    try {
+      if (typeof importVideoAsset !== 'function') {
+        throw Object.assign(new Error('media import is unavailable'), { code: 'PROJECT_MEDIA_IMPORT_UNAVAILABLE' });
+      }
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const asset = await importVideoAsset({
+        ownerEmail,
+        projectId: req.params.projectId,
+        videoAssetId: req.body?.videoAssetId,
+        role: req.body?.role,
+        metadata: req.body?.metadata,
+        req,
+      });
+      if (!asset?.projectAssetId) {
+        throw Object.assign(new Error('imported project asset is invalid'), { code: 'PROJECT_ASSET_NOT_FOUND' });
+      }
+      return res.json({ asset: withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl }) });
     } catch (error) { return routeError(error, res); }
   });
   app.get('/api/projects/:projectId/assets/:assetId/lineage', (req, res) => {

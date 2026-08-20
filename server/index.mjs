@@ -76,6 +76,7 @@ import {
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
+import { createVideoProjectAssetImporter } from './projects/projectVideoAssetImport.mjs';
 import { createVideoProjectBridge } from './videoProjectBridge.mjs';
 import { createVideoWorkbenchStore } from './videoWorkbenchStore.mjs';
 import { createVideoWorkbenchRollout } from './videoWorkbenchRollout.mjs';
@@ -284,6 +285,10 @@ const videoGeneration = createVideoGeneration({
     });
     return plan.status === 'ready' && videoWorkbenchPlanFingerprint(plan) === planHash;
   },
+});
+const importVideoAssetToProject = createVideoProjectAssetImporter({
+  projectStore,
+  readVideoAsset: videoGeneration.readAsset,
 });
 const videoUploadService = createVideoUploadService({
   db,
@@ -606,6 +611,7 @@ const adminRouteHandlers = mountAdminRoutes(app, {
 
 mountProjectRoutes(app, {
   projectStore,
+  importVideoAsset: importVideoAssetToProject,
   resolveAssetPlaybackUrl({ asset, ownerEmail, req }) {
     const match = /^\/api\/video\/(?:assets|media)\/([^/?#]+)$/i.exec(String(asset?.stableUrl || '').trim());
     if (!match) return '';

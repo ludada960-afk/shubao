@@ -2285,3 +2285,10 @@
 - 发现并记录一个独立的长期边界：Canvas 直接上传但尚未进入视频生成/项目导入的视频或音频，当前仍是 `video_assets` 摄取记录，尚未建立 `project_assets` 身份。现有生成前视频桥接会在任务进入项目时创建 canonical source asset，因此不改变本轮已验证链路；后续如要让“仅上传到 Canvas 也能长期作为项目资产复用”，必须由主线程和视频线程先定义带项目上下文的服务端摄取/幂等接口，再单独实现和验收，不能在客户端伪造 project asset ref。
 - 本轮全量回归 `npm test` `1944/1944`、`npm run check`、`npm run collab:check`、`git diff --check` 均通过；未触发供应商、真实生成、账务或生产部署。线上仍为 `c98be11`，本地 Canvas/Works 恢复提交不在生产 release 内。
 - 联合工作树全量测试仍受并行 creative-navigation 改动的 `4` 个既有合同断言影响，主线程未修改或暂存其文件；本轮不进入生产发布。
+
+## 2026-08-20 Canvas Uploaded Media Canonicalization
+
+- 修复此前审计出的 Canvas 直接上传缺口：视频/音频上传完成后不再只停留在 `video_assets` 摄取记录；已有项目直接导入 `project_assets`，空白 Canvas 会幂等创建非计费 `video` 项目及 `manual_save` 版本，再以 owner-scoped 服务端校验导入。
+- 新增 `POST /api/projects/:projectId/assets/import-media` 与 `createVideoProjectAssetImporter`：只接受当前账号拥有、文件已落盘、SHA-256/MIME/字节数完整且不是 output 的媒体；稳定身份写入项目资产，播放能力仍由服务端临时签发。客户端不传 owner 权限字段，音频节点同样携带 canonical asset ref。
+- 新增项目客户端、路由、导入器和 Canvas 上传回归；定向 `node --test test/project-video-asset-import.test.mjs test/project-routes.test.mjs test/project-client.test.mjs test/ec-canvas-state.test.mjs` 为 `69/69`，生产构建 `6524` modules 通过，`git diff --check` 通过。
+- 本轮只修改主线程资产/项目/Canvas边界，视频线程领域文件未修改；未触发供应商、真实生成、账务或生产部署。线上仍为 `c98be11`，本地本轮提交需经过 full production gate 后才可发布。
