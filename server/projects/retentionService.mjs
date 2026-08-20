@@ -65,6 +65,25 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
         AND (revision.background_asset_id = ? OR revision.rendered_asset_id = ? OR revision.layers LIKE ?) LIMIT 1`)
       .get(asset.projectId, asset.ownerEmail, asset.assetId, asset.assetId, `%${asset.assetId}%`);
     if (composition) return true;
+    if (hasTable('video_workbench_asset_versions')) {
+      const videoVersion = db.prepare(`SELECT 1 FROM video_workbench_asset_versions
+        WHERE owner_email = ? AND project_id = ? AND source_project_asset_id = ? LIMIT 1`)
+        .get(asset.ownerEmail, asset.projectId, asset.id);
+      if (videoVersion) return true;
+    }
+    for (const [table, column] of [
+      ['video_shot_candidates', 'provenance_json'],
+      ['video_replay_manifests', 'manifest_json'],
+      ['video_export_manifests', 'manifest_json'],
+      ['video_generation_drafts', 'draft_json'],
+      ['video_project_memory_facts', 'asset_refs_json'],
+    ]) {
+      if (!hasTable(table) || !hasColumn(table, column)) continue;
+      const videoReference = db.prepare(`SELECT 1 FROM ${table}
+        WHERE owner_email = ? AND project_id = ? AND (${column} LIKE ? OR ${column} LIKE ?) LIMIT 1`)
+        .get(asset.ownerEmail, asset.projectId, `%${asset.id}%`, `%${asset.stableUrl}%`);
+      if (videoReference) return true;
+    }
     const dispute = db.prepare(`SELECT 1 FROM billing_holds hold
       LEFT JOIN billing_hold_items item ON item.hold_id = hold.id
       LEFT JOIN project_generation_runs run ON run.hold_id = hold.id

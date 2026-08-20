@@ -193,6 +193,52 @@ test('a Canvas session from another owner cannot protect an expired project asse
   db.close();
 });
 
+test('a confirmed video workbench version protects its canonical project asset', () => {
+  const { db, removed, retention } = createHarness();
+  db.exec(`CREATE TABLE video_workbench_asset_versions (
+    id TEXT PRIMARY KEY,
+    owner_email TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    source_project_asset_id TEXT,
+    metadata_json TEXT NOT NULL DEFAULT '{}'
+  )`);
+  insertAsset(db, { id: 'video-reference', retentionState: 'marked' });
+  db.prepare(`INSERT INTO video_workbench_asset_versions
+    (id, owner_email, project_id, source_project_asset_id)
+    VALUES ('video-version-1', 'owner@example.com', 'project-1', 'link-video-reference')`).run();
+
+  const report = retention.isolateMarked();
+
+  assert.deepEqual(report.protectedAssetIds, ['video-reference']);
+  assert.deepEqual(report.isolatedAssetIds, []);
+  assert.deepEqual(removed, []);
+  assert.equal(db.prepare("SELECT retention_state FROM project_assets WHERE asset_id = 'video-reference'").get().retention_state, 'marked');
+  db.close();
+});
+
+test('a video replay manifest reference protects its canonical project asset', () => {
+  const { db, removed, retention } = createHarness();
+  db.exec(`CREATE TABLE video_replay_manifests (
+    id TEXT PRIMARY KEY,
+    owner_email TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    manifest_json TEXT NOT NULL
+  )`);
+  insertAsset(db, { id: 'video-manifest-reference', retentionState: 'marked' });
+  db.prepare(`INSERT INTO video_replay_manifests
+    (id, owner_email, project_id, manifest_json)
+    VALUES ('manifest-1', 'owner@example.com', 'project-1', ?)`).run(JSON.stringify({
+      projectAssetId: 'link-video-manifest-reference',
+    }));
+
+  const report = retention.isolateMarked();
+
+  assert.deepEqual(report.protectedAssetIds, ['video-manifest-reference']);
+  assert.deepEqual(report.isolatedAssetIds, []);
+  assert.deepEqual(removed, []);
+  db.close();
+});
+
 test('a same-named asset from another owner cannot delay cleanup or delete shared bytes', () => {
   const { db, removed, retention } = createHarness();
   db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)
