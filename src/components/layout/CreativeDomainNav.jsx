@@ -2,20 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRight,
-  BookOpenText,
   ChevronDown,
-  Clapperboard,
-  FolderOpen,
-  Image,
-  LayoutDashboard,
   Menu,
-  NotebookPen,
   Plus,
-  ShoppingBag,
   Sparkles,
-  WandSparkles,
   X,
 } from 'lucide-react';
+import {
+  FilmStrip,
+  MagicWand,
+  Notebook,
+  Package,
+  SquaresFour,
+} from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
 import {
   CREATIVE_NAV_GROUPS,
@@ -25,26 +24,11 @@ import {
 } from './creativeDomainNavigation.js';
 
 const ICONS = {
-  'shopping-bag': ShoppingBag,
-  clapperboard: Clapperboard,
-  'notebook-pen': NotebookPen,
-  'wand-sparkles': WandSparkles,
-  'layout-dashboard': LayoutDashboard,
-};
-
-const ITEM_ICONS = {
-  'commerce-suite': ShoppingBag,
-  'commerce-tryon': WandSparkles,
-  'commerce-canvas': LayoutDashboard,
-  'video-studio': Clapperboard,
-  'content-xhs': NotebookPen,
-  'content-plog': BookOpenText,
-  'visual-free': WandSparkles,
-  'visual-poster': Image,
-  'visual-social-cover': Image,
-  'visual-brand-kv': Sparkles,
-  canvas: LayoutDashboard,
-  works: FolderOpen,
+  'shopping-bag': Package,
+  clapperboard: FilmStrip,
+  'notebook-pen': Notebook,
+  'wand-sparkles': MagicWand,
+  'layout-dashboard': SquaresFour,
 };
 
 const DOMAIN_THEMES = Object.freeze({
@@ -264,26 +248,47 @@ function CreativeDomainNav() {
     document.getElementById(`creative-nav-item-${groupId}-${nextIndex}`)?.focus();
   };
 
+  const handlePanelVisualPointerMove = event => {
+    const visual = event.currentTarget;
+    const rect = visual.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+    visual.style.setProperty('--nav-pointer-x', x.toFixed(2));
+    visual.style.setProperty('--nav-pointer-y', y.toFixed(2));
+  };
+
+  const handlePanelVisualPointerLeave = event => {
+    event.currentTarget.style.setProperty('--nav-pointer-x', '0');
+    event.currentTarget.style.setProperty('--nav-pointer-y', '0');
+  };
+
   const renderGroupPanel = group => {
     const Icon = ICONS[group.icon] || Sparkles;
     const theme = DOMAIN_THEMES[group.id] || 'commerce';
+    const isSingleDestination = group.items.length === 1;
+    const primaryLabel = isSingleDestination ? `进入${group.items[0].label}` : '开始创作';
     return (
-      <div className={`creative-nav-panel creative-nav-panel--${theme}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
+      <div className={`creative-nav-panel creative-nav-panel--${theme}${isSingleDestination ? ' is-single-destination' : ''}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
         <div className="creative-nav-panel-intro">
-          <div className="creative-nav-domain-mark" aria-hidden="true">
+          <div
+            className="creative-nav-domain-mark"
+            aria-hidden="true"
+            onPointerMove={handlePanelVisualPointerMove}
+            onPointerLeave={handlePanelVisualPointerLeave}
+          >
             <span className="creative-nav-domain-grid" />
-            <span className="creative-nav-panel-icon"><Icon size={22} strokeWidth={1.8} /></span>
+            <span className="creative-nav-panel-icon"><Icon size={34} weight="duotone" /></span>
             <span className="creative-nav-domain-spark" />
           </div>
-          <small>{group.eyebrow}</small>
+          <div className="creative-nav-panel-kicker"><small>{group.eyebrow}</small><small>{String(group.items.length).padStart(2, '0')} 个入口</small></div>
           <strong>{group.label}</strong>
           <p>{group.description}</p>
           <button type="button" className="creative-nav-panel-primary" onClick={() => runTarget(group.id, group.items[0].id)}>
-            开始创作 <ArrowRight size={15} />
+            {primaryLabel} <ArrowRight size={15} />
           </button>
         </div>
         <div className="creative-nav-panel-links">
-          <div className="creative-nav-section-heading"><span>入口</span><small>{String(group.items.length).padStart(2, '0')} 个方向</small></div>
+          <div className="creative-nav-section-heading"><span>{isSingleDestination ? '立即开始' : '选择创作方向'}</span><small>按目标进入</small></div>
           {group.items.map((item, index) => (
             <button
               type="button"
@@ -293,19 +298,12 @@ function CreativeDomainNav() {
               onClick={() => runTarget(group.id, item.id)}
               onKeyDown={event => handlePanelKeyDown(event, group.id, index)}
             >
-              <span className="creative-nav-link-icon" aria-hidden="true">{React.createElement(ITEM_ICONS[item.id] || Icon, { size: 17, strokeWidth: 1.8 })}</span>
+              <span className="creative-nav-link-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
               <span><strong>{item.label}</strong><small>{item.description}</small></span>
-              <ArrowRight size={15} />
+              <span className="creative-nav-link-action"><small>进入</small><ArrowRight size={17} /></span>
             </button>
           ))}
           <div className="creative-nav-panel-note"><Sparkles size={13} /> 所有结果都可以继续进入画布编辑</div>
-        </div>
-        <div className="creative-nav-signature" aria-hidden="true">
-          <span className="creative-nav-signature-label">SHUBAO / {String(group.id).toUpperCase()}</span>
-          <span className="creative-nav-signature-orbit creative-nav-signature-orbit--one" />
-          <span className="creative-nav-signature-orbit creative-nav-signature-orbit--two" />
-          <span className="creative-nav-signature-core"><Icon size={28} strokeWidth={1.35} /></span>
-          <span className="creative-nav-signature-caption">从想法到成品<br /><b>一条可继续的创作路径</b></span>
         </div>
       </div>
     );
@@ -363,7 +361,7 @@ function CreativeDomainNav() {
                   }}
                   onKeyDown={event => handleTriggerKeyDown(event, group.id)}
                 >
-                  <Icon size={15} strokeWidth={2} /> <span>{group.label}</span><ChevronDown size={13} className="creative-nav-chevron" />
+                  <Icon size={17} weight="duotone" /> <span>{group.label}</span><ChevronDown size={13} className="creative-nav-chevron" />
                 </button>
               </div>
             );
@@ -377,7 +375,7 @@ function CreativeDomainNav() {
         {mobileOpen ? <X size={20} /> : <Menu size={20} />}<span>创作</span>
       </button>
 
-      {mobileOpen && (
+      {mobileOpen && typeof document !== 'undefined' && createPortal(
         <div className="creative-nav-mobile-backdrop" role="presentation" onClick={() => setMobileOpen(false)}>
           <aside className="creative-nav-mobile-drawer" role="dialog" aria-modal="true" aria-label="创作导航" onClick={event => event.stopPropagation()}>
             <div className="creative-nav-mobile-head"><div><small>薯包 AI</small><strong>选择你的创作方向</strong></div><button type="button" aria-label="关闭创作导航" onClick={() => setMobileOpen(false)}><X size={19} /></button></div>
@@ -387,7 +385,7 @@ function CreativeDomainNav() {
                 const expanded = mobileGroupId === group.id;
                 return (
                   <section className={`creative-nav-mobile-group${expanded ? ' is-expanded' : ''}`} key={group.id}>
-                    <button type="button" className="creative-nav-mobile-group-button" aria-expanded={expanded} onClick={() => setMobileGroupId(expanded ? null : group.id)}><Icon size={17} /><span>{group.label}</span><ChevronDown size={16} /></button>
+                    <button type="button" className="creative-nav-mobile-group-button" aria-expanded={expanded} onClick={() => setMobileGroupId(expanded ? null : group.id)}><Icon size={19} weight="duotone" /><span>{group.label}</span><ChevronDown size={16} /></button>
                     {expanded && <div className="creative-nav-mobile-links">{group.items.map(item => <button type="button" key={item.id} onClick={() => runTarget(group.id, item.id)}><span><strong>{item.label}</strong><small>{item.description}</small></span><ArrowRight size={15} /></button>)}</div>}
                   </section>
                 );
@@ -395,7 +393,8 @@ function CreativeDomainNav() {
             </div>
             <button type="button" className="creative-nav-mobile-primary" onClick={() => runTarget(mobileGroupId || 'commerce', CREATIVE_NAV_GROUPS.find(group => group.id === (mobileGroupId || 'commerce'))?.items[0]?.id)}><Plus size={16} /> 开始创作</button>
           </aside>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

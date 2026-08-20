@@ -9,12 +9,15 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
   assert.match(component, /createPortal/);
   assert.match(component, /document\.body/);
   assert.match(component, /creative-nav-viewport/);
+  assert.match(component, /creative-nav-mobile-backdrop[\s\S]*document\.body/);
   assert.match(shellCss, /\.creative-nav-viewport\s*\{[\s\S]*position:\s*fixed/);
   assert.match(shellCss, /\.creative-nav-viewport-bridge\s*\{/);
-  assert.match(component, /creative-nav-signature/);
-  assert.match(component, /creative-nav-link-icon/);
+  assert.match(component, /creative-nav-domain-mark/);
+  assert.match(component, /creative-nav-link-index/);
+  assert.match(component, /is-single-destination/);
   assert.match(component, /creative-nav-arrow-left/);
-  assert.match(shellCss, /\.creative-nav-signature\s*\{/);
+  assert.match(shellCss, /\.creative-nav-link-index\s*\{/);
+  assert.match(shellCss, /\.creative-nav-panel\.is-single-destination/);
 });
 
 test('top-level domain clicks pin the menu instead of launching the first child', () => {
@@ -30,4 +33,11 @@ test('pointer transitions and outside interaction keep the viewport usable', () 
   assert.match(component, /pointerdown/);
   assert.match(component, /focusin/);
   assert.match(component, /clearCloseTimer/);
+});
+
+test('panel motion stays on the visual anchor and supports reduced motion', () => {
+  assert.match(component, /handlePanelVisualPointerMove/);
+  assert.match(component, /--nav-pointer-x/);
+  assert.match(shellCss, /\.creative-nav-panel-icon[\s\S]*translate\(calc\(var\(--nav-pointer-x\)/);
+  assert.match(shellCss, /prefers-reduced-motion/);
 });

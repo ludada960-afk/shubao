@@ -19,6 +19,8 @@ test('app shell uses the creative domain navigation contract', () => {
   assert.match(shellCss, /\.creative-nav-desktop \{/);
   assert.match(shellCss, /\.creative-nav-panel \{/);
   assert.match(shellCss, /grid-template-columns:\s*minmax\(220px, 1fr\) auto minmax\(220px, 1fr\)/);
+  assert.match(shellCss, /grid-template-columns:\s*minmax\(230px, \.78fr\) minmax\(360px, 1\.22fr\)/);
+  assert.doesNotMatch(shellCss, /\.creative-nav-signature\s*\{/);
   assert.doesNotMatch(shellCss.match(/\.creative-nav-panel \{([\s\S]*?)\n\}/)?.[1] || '', /translateX\(-50%\)/);
   assert.match(shellCss, /\.creative-nav-mobile-drawer \{/);
   assert.match(shellCss, /\.creative-nav-trigger:focus-visible/);
