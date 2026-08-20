@@ -2265,3 +2265,10 @@
 - 进一步收紧客户端跨域边界：视频结果引用现在复用 Canvas 既有 `buildCanvasAssetRef` 规范化器，仅写入 display-safe 的项目、资产、哈希、稳定 URL、MIME、媒体类型和有限尺寸字段；服务端扩展字段（例如 owner 身份）不会进入 Canvas 节点或快照。
 - 新增敏感字段隔离回归；定向 Canvas/项目恢复回归 `28/28`，全量 `npm test` `1941/1941`、生产构建 `6524` modules 通过。提交前仍需复核 `check`、`collab:check` 和差异检查。
 - 本轮没有触发供应商、真实生成、账务或生产部署。
+
+## 2026-08-20 Local Canvas Draft Media Recovery
+
+- 主线程审计发现 Canvas 本地草稿恢复路径优先读取 `localStorage` 中的 durable `stableUrl`，会绕过远端 Canvas session 已有的 playback capability 重签逻辑；视频和音频草稿刷新后可能因浏览器无法携带 session header 而空白。
+- 新增 `canvasMediaAssetRefs` 与 `restoreCanvasMediaPlayback`：启动时从草稿节点提取去重、display-safe 的 canonical `(projectId, projectAssetId)` 引用，按 owner-scoped `getProjectAsset` 读取短期 `playbackUrl`，只更新当前节点运行时播放地址，稳定 `assetRef` 和本地快照身份不变；读取失败则保留元数据，不阻断画布打开。
+- 定向 Canvas session/work/跨域回归 `29/29`，生产构建 `6524` modules 和 `npm run collab:check` 通过。当前联合工作树全量 `npm test` 未通过 `4` 个并行 creative-navigation 合同断言，失败文件属于并行导航线程，主线程未修改、未暂存；因此本轮不进入生产发布。
+- 本轮没有触发供应商、真实生成、账务或生产部署。
