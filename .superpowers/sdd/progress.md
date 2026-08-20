@@ -2246,3 +2246,10 @@
 - 修正 `canvasVideoAsset`：优先提取带稳定 URL、内容哈希和 MIME 的 canonical 视频资产引用，同时把短期 URL 仅作为运行时 playback capability 传入 Canvas。durable snapshot 仍由既有边界还原稳定 URL并移除 transient playback 字段，旧版没有 canonical ref 的视频继续兼容旧路径。
 - 新增 VideoStudio handoff 回归，验证运行时播放 URL、canonical project asset identity 与持久化快照三者边界；全量 `npm test` `1937/1937`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
 - 本轮没有触发供应商、真实生成、账务或生产部署；代码尚未进入线上 release，视频线程文件保持未修改、未暂存。
+
+## 2026-08-20 Canvas Video Result Identity
+
+- 继续审计 Canvas 内部视频生成器，发现成片轮询完成后 composer 节点只写入播放 URL 和 `videoAssetId`，没有保留服务端返回的 `projectAssetRef`；这会让 Canvas 内生成的视频在后续快照/Works 投影中失去 canonical project asset 关联。
+- 新增 `canvasVideoResultPatch`，统一把已交付 job 的运行时播放地址、资产 ID 和 canonical project asset ref 投影到 Canvas 节点；既有 durable snapshot 仍负责把 transient playback URL 还原为稳定 URL，缺少 canonical ref 的历史 job 保持兼容。
+- 新增生成结果身份回归；全量 `npm test` `1938/1938`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 本轮没有触发供应商、真实生成、账务或生产部署；视频线程文件保持未修改、未暂存。
