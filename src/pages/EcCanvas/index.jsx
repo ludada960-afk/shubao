@@ -56,7 +56,7 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, restoreCanvasSnapshot } from './canvasSessionModel.js';
-import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
+import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
@@ -2630,10 +2630,10 @@ export default function EcCanvas() {
         updateComposerNode(composer.id, { progress: job.progress || 3, progressLabel: `视频生成中 ${job.progress || 0}%`, videoJobId: job.id });
       }
       if (job.status !== 'completed' || !job.resultUrl) throw new Error(job.error || '本次视频没有交付成片，积分已退回');
+      const videoResultPatch = canvasVideoResultPatch(job);
       updateComposerNode(composer.id, {
         status: 'success',
-        url: job.resultUrl,
-        videoAssetId: job.resultAssetId || '',
+        ...(videoResultPatch || { url: job.resultUrl, videoAssetId: job.resultAssetId || '' }),
         videoJobId: job.id,
         name: String(composer.prompt).trim().slice(0, 32) || 'AI 视频',
         displayLabel: 'AI 视频成片',

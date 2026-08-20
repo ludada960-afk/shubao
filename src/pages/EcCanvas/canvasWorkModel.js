@@ -57,6 +57,21 @@ export function canvasVideoAsset(work = {}) {
   };
 }
 
+export function canvasVideoResultPatch(job = {}) {
+  const asset = canvasVideoAsset({
+    ...job,
+    videoUrl: job.resultUrl || job.videoUrl,
+    videoAssetId: job.resultAssetId || job.videoAssetId,
+    name: job.name || job.product_name || job.prompt,
+  });
+  if (!asset) return null;
+  return {
+    url: asset.url,
+    videoAssetId: asset.assetId,
+    ...(job.projectAssetRef ? { projectAssetRef: job.projectAssetRef } : {}),
+  };
+}
+
 export function canvasWorkCategory(work = {}) {
   return inferWorkType(work);
 }

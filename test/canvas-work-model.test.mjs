@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   buildCanvasImportResult,
   canvasVideoAsset,
+  canvasVideoResultPatch,
   canvasWorkCategory,
   canvasOutputImages,
   canvasWorkOutputFingerprint,
@@ -65,6 +66,36 @@ test('VideoStudio handoff binds the canonical project asset to the Canvas runtim
   const durable = createCanvasSnapshot({ nodes: [node] });
   assert.equal(durable.nodes[0].url, '/api/video/assets/output-1.mp4');
   assert.equal('playbackUrl' in durable.nodes[0], false);
+});
+
+test('Canvas video generation keeps the delivered project asset ref on the result node', () => {
+  const patch = canvasVideoResultPatch({
+    id: 'video-job-2',
+    resultUrl: '/api/video/media/output-2?purpose=playback&expires=123&signature=test',
+    resultAssetId: 'output-2.mp4',
+    projectAssetRef: {
+      projectId: 'video-project-2',
+      projectAssetId: 'video-result-2',
+      assetId: 'output-2.mp4',
+      stableUrl: '/api/video/assets/output-2.mp4',
+      contentHash: 'b'.repeat(64),
+      mimeType: 'video/mp4',
+      role: 'generated_video',
+    },
+  });
+  assert.deepEqual(patch, {
+    url: '/api/video/media/output-2?purpose=playback&expires=123&signature=test',
+    videoAssetId: 'output-2.mp4',
+    projectAssetRef: {
+      projectId: 'video-project-2',
+      projectAssetId: 'video-result-2',
+      assetId: 'output-2.mp4',
+      stableUrl: '/api/video/assets/output-2.mp4',
+      contentHash: 'b'.repeat(64),
+      mimeType: 'video/mp4',
+      role: 'generated_video',
+    },
+  });
 });
 
 test('Canvas work panel keeps only the signed owner local works and preserves server metadata', () => {
