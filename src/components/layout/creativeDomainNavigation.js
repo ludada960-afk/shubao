@@ -7,9 +7,9 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
     icon: 'shopping-bag',
     primaryAction: { type: 'SET_MODE', mode: 'ecommerce' },
     items: Object.freeze([
-      Object.freeze({ id: 'commerce-suite', label: '商品套图', description: '主图、场景图、详情图一次规划', action: { type: 'SET_MODE', mode: 'ecommerce' }, launch: { mode: 'ecommerce', recipeId: 'product_suite' } }),
-      Object.freeze({ id: 'commerce-tryon', label: '万物上身', description: '把商品自然放入人物与真实场景', action: { type: 'SET_MODE', mode: 'ecommerce' }, launch: { mode: 'ecommerce', recipeId: 'anything_tryon' } }),
-      Object.freeze({ id: 'commerce-canvas', label: '电商画布', description: '继续编辑、编排与导出成品', action: { type: 'OPEN_CANVAS' } }),
+      Object.freeze({ id: 'commerce-suite', label: '商品套图', description: '主图、场景图、详情图一次规划', icon: 'cards-three', motion: 'layers', action: { type: 'SET_MODE', mode: 'ecommerce' }, launch: { mode: 'ecommerce', recipeId: 'product_suite' } }),
+      Object.freeze({ id: 'commerce-tryon', label: '万物上身', description: '把商品自然放入人物与真实场景', icon: 't-shirt', motion: 'tryon', action: { type: 'SET_MODE', mode: 'ecommerce' }, launch: { mode: 'ecommerce', recipeId: 'anything_tryon' } }),
+      Object.freeze({ id: 'commerce-canvas', label: '电商画布', description: '继续编辑、编排与导出成品', icon: 'frame-corners', motion: 'canvas', action: { type: 'OPEN_CANVAS' } }),
     ]),
   }),
   Object.freeze({
@@ -20,7 +20,7 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
     icon: 'clapperboard',
     primaryAction: { type: 'NAVIGATE', page: 'video-studio' },
     items: Object.freeze([
-      Object.freeze({ id: 'video-studio', label: '视频创作', description: '从素材、分镜到候选版本，进入视频工作台', action: { type: 'NAVIGATE', page: 'video-studio' } }),
+      Object.freeze({ id: 'video-studio', label: '视频创作', description: '从素材、分镜到候选版本，进入视频工作台', icon: 'film-strip', motion: 'film', action: { type: 'NAVIGATE', page: 'video-studio' } }),
     ]),
   }),
   Object.freeze({
@@ -31,8 +31,8 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
     icon: 'notebook-pen',
     primaryAction: { type: 'SET_MODE', mode: 'content' },
     items: Object.freeze([
-      Object.freeze({ id: 'content-xhs', label: '小红书图文', description: '封面、配图、标题、正文和标签一起生成', action: { type: 'SET_MODE', mode: 'content' }, launch: { mode: 'content', subMode: 'content' } }),
-      Object.freeze({ id: 'content-plog', label: 'Plog 生活记录', description: '把生活素材整理成有情绪的发布成品', action: { type: 'SET_MODE', mode: 'content' }, launch: { mode: 'content', subMode: 'plog' } }),
+      Object.freeze({ id: 'content-xhs', label: '小红书图文', description: '封面、配图、标题、正文和标签一起生成', icon: 'notebook', motion: 'pages', action: { type: 'SET_MODE', mode: 'content' }, launch: { mode: 'content', subMode: 'content' } }),
+      Object.freeze({ id: 'content-plog', label: 'Plog 生活记录', description: '把生活素材整理成有情绪的发布成品', icon: 'camera', motion: 'camera', action: { type: 'SET_MODE', mode: 'content' }, launch: { mode: 'content', subMode: 'plog' } }),
     ]),
   }),
   Object.freeze({
@@ -43,10 +43,10 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
     icon: 'wand-sparkles',
     primaryAction: { type: 'SET_MODE', mode: 'visual' },
     items: Object.freeze([
-      Object.freeze({ id: 'visual-free', label: '自由创作', description: '开放定义主体、场景、构图与画面语言', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'free' } }),
-      Object.freeze({ id: 'visual-poster', label: '海报设计', description: '先建立视觉焦点，再组织信息层级', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'poster' } }),
-      Object.freeze({ id: 'visual-social-cover', label: '社媒封面', description: '让主题在移动端缩略图中一眼可读', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'social-cover' } }),
-      Object.freeze({ id: 'visual-brand-kv', label: '品牌主视觉', description: '把品牌调性扩展成统一画面语言', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'brand-kv' } }),
+      Object.freeze({ id: 'visual-free', label: '自由创作', description: '开放定义主体、场景、构图与画面语言', icon: 'magic-wand', motion: 'magic', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'free' } }),
+      Object.freeze({ id: 'visual-poster', label: '海报设计', description: '先建立视觉焦点，再组织信息层级', icon: 'shapes', motion: 'layout', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'poster' } }),
+      Object.freeze({ id: 'visual-social-cover', label: '社媒封面', description: '让主题在移动端缩略图中一眼可读', icon: 'image-square', motion: 'cover', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'social-cover' } }),
+      Object.freeze({ id: 'visual-brand-kv', label: '品牌主视觉', description: '把品牌调性扩展成统一画面语言', icon: 'presentation', motion: 'orbit', action: { type: 'SET_MODE', mode: 'visual' }, launch: { mode: 'visual', skillId: 'brand-kv' } }),
     ]),
   }),
   Object.freeze({
@@ -57,8 +57,8 @@ export const CREATIVE_NAV_GROUPS = Object.freeze([
     icon: 'layout-dashboard',
     primaryAction: { type: 'OPEN_CANVAS' },
     items: Object.freeze([
-      Object.freeze({ id: 'canvas', label: '无限画布', description: '把生成结果继续编排成完整视觉', action: { type: 'OPEN_CANVAS' } }),
-      Object.freeze({ id: 'works', label: '我的作品', description: '查看已保存的创作和可恢复项目', action: { type: 'OPEN_CANVAS', tab: 'works' } }),
+      Object.freeze({ id: 'canvas', label: '无限画布', description: '把生成结果继续编排成完整视觉', icon: 'stack-simple', motion: 'workspace', action: { type: 'OPEN_CANVAS' } }),
+      Object.freeze({ id: 'works', label: '我的作品', description: '查看已保存的创作和可恢复项目', icon: 'folder-open', motion: 'archive', action: { type: 'OPEN_CANVAS', tab: 'works' } }),
     ]),
   }),
 ]);

@@ -2292,3 +2292,10 @@
 - 新增 `POST /api/projects/:projectId/assets/import-media` 与 `createVideoProjectAssetImporter`：只接受当前账号拥有、文件已落盘、SHA-256/MIME/字节数完整且不是 output 的媒体；稳定身份写入项目资产，播放能力仍由服务端临时签发。客户端不传 owner 权限字段，音频节点同样携带 canonical asset ref。
 - 新增项目客户端、路由、导入器和 Canvas 上传回归；定向 `node --test test/project-video-asset-import.test.mjs test/project-routes.test.mjs test/project-client.test.mjs test/ec-canvas-state.test.mjs` 为 `69/69`，生产构建 `6524` modules 通过，`git diff --check` 通过。
 - 本轮只修改主线程资产/项目/Canvas边界，视频线程领域文件未修改；未触发供应商、真实生成、账务或生产部署。线上仍为 `c98be11`，本地本轮提交需经过 full production gate 后才可发布。
+
+## 2026-08-20 Creative Navigation Motion Refresh
+
+- 导航面板按已确认方案收敛为单一居中的目标列表：移除左侧说明栏、重复领域图标、编号和重复 CTA；保留电商、视频、内容、自由视觉、工作台五个一级入口，视频继续保持单一功能入口。
+- 每个目的地补充语义 Phosphor 图标和独立 motion 标识；桌面悬停/键盘聚焦触发分层、试穿、画布扩展、胶片推进、翻页、魔法棒等 CSS 动效，面板保留触发按钮到面板的 pointer bridge；移动端同步使用稳定三列入口布局，减少动态偏好关闭关键帧和变换。
+- 变更范围限定为 `CreativeDomainNav.jsx`、`creativeDomainNavigation.js`、`app-shell.css` 及导航契约测试；设计规格和实施计划已记录。定向测试 `6/6`、浏览器桌面/移动/键盘验收通过，全量 `npm test` `1951/1951`、`npm run build` `6524` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 通过。
+- 本轮尚未部署；生产发布必须使用 `scripts/deploy-production.ps1 -ValidationProfile auto`，由最新提交范围自动判定前端变更并跳过无关的真实电商红苹果验收，同时保留健康、静态资源、审计和 Canary 门禁。并行视频工作台及运行态文件未修改、未暂存。

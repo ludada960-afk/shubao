@@ -9,11 +9,20 @@ import {
   X,
 } from 'lucide-react';
 import {
+  Camera,
+  CardsThree,
   FilmStrip,
+  FolderOpen,
+  FrameCorners,
+  ImageSquare,
   MagicWand,
   Notebook,
   Package,
+  Presentation,
+  Shapes,
   SquaresFour,
+  StackSimple,
+  TShirt,
 } from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
 import {
@@ -29,6 +38,21 @@ const ICONS = {
   'notebook-pen': Notebook,
   'wand-sparkles': MagicWand,
   'layout-dashboard': SquaresFour,
+};
+
+const ITEM_ICONS = {
+  'cards-three': CardsThree,
+  't-shirt': TShirt,
+  'frame-corners': FrameCorners,
+  'film-strip': FilmStrip,
+  notebook: Notebook,
+  camera: Camera,
+  'magic-wand': MagicWand,
+  shapes: Shapes,
+  'image-square': ImageSquare,
+  presentation: Presentation,
+  'stack-simple': StackSimple,
+  'folder-open': FolderOpen,
 };
 
 const DOMAIN_THEMES = Object.freeze({
@@ -106,10 +130,7 @@ function CreativeDomainNav() {
       if (!trigger) return;
       const rect = trigger.getBoundingClientRect();
       const width = Math.min(760, Math.max(320, window.innerWidth - 32));
-      const left = Math.max(16, Math.min(
-        window.innerWidth - width - 16,
-        rect.left + rect.width / 2 - width / 2,
-      ));
+      const left = Math.max(16, (window.innerWidth - width) / 2);
       const arrowLeft = Math.max(30, Math.min(width - 30, rect.left + rect.width / 2 - left));
       setPanelPosition({ left, top: rect.bottom, width, arrowLeft });
     };
@@ -248,61 +269,32 @@ function CreativeDomainNav() {
     document.getElementById(`creative-nav-item-${groupId}-${nextIndex}`)?.focus();
   };
 
-  const handlePanelVisualPointerMove = event => {
-    const visual = event.currentTarget;
-    const rect = visual.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
-    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
-    visual.style.setProperty('--nav-pointer-x', x.toFixed(2));
-    visual.style.setProperty('--nav-pointer-y', y.toFixed(2));
-  };
-
-  const handlePanelVisualPointerLeave = event => {
-    event.currentTarget.style.setProperty('--nav-pointer-x', '0');
-    event.currentTarget.style.setProperty('--nav-pointer-y', '0');
-  };
-
   const renderGroupPanel = group => {
-    const Icon = ICONS[group.icon] || Sparkles;
     const theme = DOMAIN_THEMES[group.id] || 'commerce';
-    const isSingleDestination = group.items.length === 1;
-    const primaryLabel = isSingleDestination ? `进入${group.items[0].label}` : '开始创作';
     return (
-      <div className={`creative-nav-panel creative-nav-panel--${theme}${isSingleDestination ? ' is-single-destination' : ''}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
-        <div className="creative-nav-panel-intro">
-          <div
-            className="creative-nav-domain-mark"
-            aria-hidden="true"
-            onPointerMove={handlePanelVisualPointerMove}
-            onPointerLeave={handlePanelVisualPointerLeave}
-          >
-            <span className="creative-nav-domain-grid" />
-            <span className="creative-nav-panel-icon"><Icon size={34} weight="duotone" /></span>
-            <span className="creative-nav-domain-spark" />
-          </div>
-          <div className="creative-nav-panel-kicker"><small>{group.eyebrow}</small><small>{String(group.items.length).padStart(2, '0')} 个入口</small></div>
-          <strong>{group.label}</strong>
-          <p>{group.description}</p>
-          <button type="button" className="creative-nav-panel-primary" onClick={() => runTarget(group.id, group.items[0].id)}>
-            {primaryLabel} <ArrowRight size={15} />
-          </button>
-        </div>
+      <div className={`creative-nav-panel creative-nav-panel--${theme}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
         <div className="creative-nav-panel-links">
-          <div className="creative-nav-section-heading"><span>{isSingleDestination ? '立即开始' : '选择创作方向'}</span><small>按目标进入</small></div>
-          {group.items.map((item, index) => (
-            <button
-              type="button"
-              id={`creative-nav-item-${group.id}-${index}`}
-              className="creative-nav-link"
-              key={item.id}
-              onClick={() => runTarget(group.id, item.id)}
-              onKeyDown={event => handlePanelKeyDown(event, group.id, index)}
-            >
-              <span className="creative-nav-link-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-              <span><strong>{item.label}</strong><small>{item.description}</small></span>
-              <span className="creative-nav-link-action"><small>进入</small><ArrowRight size={17} /></span>
-            </button>
-          ))}
+          <div className="creative-nav-panel-heading"><span>{group.label}</span><small>选择创作方向</small></div>
+          {group.items.map((item, index) => {
+            const ItemIcon = ITEM_ICONS[item.icon] || Sparkles;
+            return (
+              <button
+                type="button"
+                id={`creative-nav-item-${group.id}-${index}`}
+                className={`creative-nav-link creative-nav-link--${item.motion}`}
+                key={item.id}
+                onClick={() => runTarget(group.id, item.id)}
+                onKeyDown={event => handlePanelKeyDown(event, group.id, index)}
+              >
+                <span className="creative-nav-item-icon" aria-hidden="true">
+                  <span className="creative-nav-item-motion" />
+                  <ItemIcon size={25} weight="duotone" />
+                </span>
+                <span className="creative-nav-link-copy"><strong>{item.label}</strong><small>{item.description}</small></span>
+                <span className="creative-nav-link-action"><small>进入</small><ArrowRight size={18} /></span>
+              </button>
+            );
+          })}
           <div className="creative-nav-panel-note"><Sparkles size={13} /> 所有结果都可以继续进入画布编辑</div>
         </div>
       </div>
@@ -386,7 +378,7 @@ function CreativeDomainNav() {
                 return (
                   <section className={`creative-nav-mobile-group${expanded ? ' is-expanded' : ''}`} key={group.id}>
                     <button type="button" className="creative-nav-mobile-group-button" aria-expanded={expanded} onClick={() => setMobileGroupId(expanded ? null : group.id)}><Icon size={19} weight="duotone" /><span>{group.label}</span><ChevronDown size={16} /></button>
-                    {expanded && <div className="creative-nav-mobile-links">{group.items.map(item => <button type="button" key={item.id} onClick={() => runTarget(group.id, item.id)}><span><strong>{item.label}</strong><small>{item.description}</small></span><ArrowRight size={15} /></button>)}</div>}
+                    {expanded && <div className="creative-nav-mobile-links">{group.items.map(item => { const ItemIcon = ITEM_ICONS[item.icon] || Sparkles; return <button type="button" className={`creative-nav-mobile-link creative-nav-link--${item.motion}`} key={item.id} onClick={() => runTarget(group.id, item.id)}><span className="creative-nav-item-icon" aria-hidden="true"><ItemIcon size={21} weight="duotone" /></span><span><strong>{item.label}</strong><small>{item.description}</small></span><ArrowRight size={15} /></button>; })}</div>}
                   </section>
                 );
               })}

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { CREATIVE_NAV_GROUPS } from '../src/components/layout/creativeDomainNavigation.js';
 
 const component = fs.readFileSync(new URL('../src/components/layout/CreativeDomainNav.jsx', import.meta.url), 'utf8');
 const shellCss = fs.readFileSync(new URL('../src/styles/app-shell.css', import.meta.url), 'utf8');
@@ -12,12 +13,27 @@ test('desktop creative navigation renders its panel in a fixed body-level viewpo
   assert.match(component, /creative-nav-mobile-backdrop[\s\S]*document\.body/);
   assert.match(shellCss, /\.creative-nav-viewport\s*\{[\s\S]*position:\s*fixed/);
   assert.match(shellCss, /\.creative-nav-viewport-bridge\s*\{/);
-  assert.match(component, /creative-nav-domain-mark/);
-  assert.match(component, /creative-nav-link-index/);
-  assert.match(component, /is-single-destination/);
+  assert.match(component, /creative-nav-panel-heading/);
+  assert.match(component, /creative-nav-item-icon/);
+  assert.doesNotMatch(component, /creative-nav-domain-mark/);
+  assert.doesNotMatch(component, /creative-nav-link-index/);
+  assert.doesNotMatch(component, /is-single-destination/);
   assert.match(component, /creative-nav-arrow-left/);
-  assert.match(shellCss, /\.creative-nav-link-index\s*\{/);
-  assert.match(shellCss, /\.creative-nav-panel\.is-single-destination/);
+  assert.match(shellCss, /\.creative-nav-panel-heading\s*\{/);
+  assert.match(shellCss, /\.creative-nav-item-icon\s*\{/);
+  assert.doesNotMatch(shellCss, /\.creative-nav-link-index\s*\{/);
+  assert.doesNotMatch(shellCss, /\.creative-nav-panel-intro\s*\{/);
+});
+
+test('every destination has semantic icon and motion metadata while video stays a single entry', () => {
+  const items = CREATIVE_NAV_GROUPS.flatMap(group => group.items);
+  assert.equal(CREATIVE_NAV_GROUPS.find(group => group.id === 'video')?.items.length, 1);
+  assert.ok(items.length >= 12);
+  for (const item of items) {
+    assert.match(item.icon, /^[a-z-]+$/);
+    assert.match(item.motion, /^[a-z-]+$/);
+  }
+  assert.equal(new Set(items.map(item => item.motion)).size, items.length);
 });
 
 test('top-level domain clicks pin the menu instead of launching the first child', () => {
@@ -35,9 +51,11 @@ test('pointer transitions and outside interaction keep the viewport usable', () 
   assert.match(component, /clearCloseTimer/);
 });
 
-test('panel motion stays on the visual anchor and supports reduced motion', () => {
-  assert.match(component, /handlePanelVisualPointerMove/);
-  assert.match(component, /--nav-pointer-x/);
-  assert.match(shellCss, /\.creative-nav-panel-icon[\s\S]*translate\(calc\(var\(--nav-pointer-x\)/);
+test('destination motion is explicit, pointer-safe, and supports reduced motion', () => {
+  assert.match(component, /creative-nav-item-motion/);
+  assert.match(component, /item\.motion/);
+  assert.match(shellCss, /\.creative-nav-link--layers/);
+  assert.match(shellCss, /\.creative-nav-link--magic/);
+  assert.match(shellCss, /@media \(hover:\s*hover\) and \(pointer:\s*fine\)/);
   assert.match(shellCss, /prefers-reduced-motion/);
 });
