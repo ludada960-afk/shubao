@@ -11,6 +11,16 @@ function asDate(value) {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+function parseMetadata(value) {
+  if (typeof value !== 'string' || !value.trim()) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function assetFromRow(row) {
   return {
     id: row.id,
@@ -18,6 +28,7 @@ function assetFromRow(row) {
     ownerEmail: String(row.owner_email || '').trim().toLowerCase(),
     projectId: row.project_id,
     stableUrl: row.stable_url,
+    contentHash: row.content_hash,
     expiresAt: row.expires_at,
     retentionState: row.retention_state,
     retentionPinned: Number(row.retention_pinned) === 1 || row.retention_class === 'permanent',
@@ -43,6 +54,26 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
     && db.prepare(`PRAGMA table_info(${table})`).all().some(entry => entry.name === column);
   const protectedByReference = (asset, current) => {
     if (asset.retentionPinned) return true;
+    const importedSource = db.prepare(`SELECT metadata_json FROM project_assets
+      WHERE owner_email = ? AND deleted_at IS NULL
+        AND (metadata_json LIKE '%sourceProjectAssetRef%' OR metadata_json LIKE '%importedFromProjectAsset%')`)
+      .all(asset.ownerEmail)
+      .some(row => {
+        const metadata = parseMetadata(row.metadata_json);
+        const references = [metadata.sourceProjectAssetRef, metadata.importedFromProjectAsset]
+          .filter(value => value && typeof value === 'object' && !Array.isArray(value));
+        return references.some(reference => {
+          const projectId = String(reference.projectId || '').trim();
+          const projectAssetId = String(reference.projectAssetId || '').trim();
+          const expectedContentHash = String(reference.expectedContentHash || '').trim();
+          if (projectId !== asset.projectId || projectAssetId !== asset.id
+            || expectedContentHash !== String(asset.contentHash || '').trim()) return false;
+          return Boolean(db.prepare(`SELECT 1 FROM project_assets
+            WHERE id = ? AND owner_email = ? AND project_id = ? AND content_hash = ? AND deleted_at IS NULL LIMIT 1`)
+            .get(asset.id, asset.ownerEmail, projectId, expectedContentHash));
+        });
+      });
+    if (importedSource) return true;
     const canvas = db.prepare(`SELECT 1 FROM canvas_sessions
       WHERE owner_email = ? AND project_id = ? AND status IN ('active', 'saved') AND expires_at > ?
         AND (snapshot LIKE ? OR snapshot LIKE ?) LIMIT 1`)

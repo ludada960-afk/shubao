@@ -242,6 +242,54 @@ test('a video replay manifest reference protects its canonical project asset', (
   db.close();
 });
 
+test('a cross-project imported asset protects its authoritative source by owner and hash', () => {
+  const { db, removed, retention } = createHarness();
+  db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)
+    VALUES ('project-2', 'owner@example.com', 'video', '', 'completed', '2026-06-01T00:00:00.000Z', '2026-06-01T00:00:00.000Z')`).run();
+  db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)
+    VALUES ('project-foreign', 'other@example.com', 'video', '', 'completed', '2026-06-01T00:00:00.000Z', '2026-06-01T00:00:00.000Z')`).run();
+  insertAsset(db, { id: 'external-source', retentionState: 'marked' });
+  insertAsset(db, { id: 'hash-mismatch-source', retentionState: 'marked' });
+  insertAsset(db, { id: 'foreign-owner-source', retentionState: 'marked' });
+  db.prepare(`INSERT INTO project_assets
+    (id, asset_id, owner_email, project_id, role, stable_url, mime_type, content_hash, metadata_json, retention_class, retention_state, created_at)
+    VALUES ('imported-copy', 'external-source', 'owner@example.com', 'project-2', 'style',
+      '/api/generated-assets/external-source.png', 'image/png', 'source-hash', ?, 'source', 'active', '2026-07-29T00:00:00.000Z')`).run(JSON.stringify({
+    importedFromProjectAsset: {
+      projectId: 'project-1',
+      projectAssetId: 'link-external-source',
+      expectedContentHash: 'external-source',
+    },
+  }));
+  db.prepare(`INSERT INTO project_assets
+    (id, asset_id, owner_email, project_id, role, stable_url, mime_type, content_hash, metadata_json, retention_class, retention_state, created_at)
+    VALUES ('mismatched-copy', 'hash-mismatch-source', 'owner@example.com', 'project-2', 'style',
+      '/api/generated-assets/hash-mismatch-source.png', 'image/png', 'wrong-copy-hash', ?, 'source', 'active', '2026-07-29T00:00:00.000Z')`).run(JSON.stringify({
+    importedFromProjectAsset: {
+      projectId: 'project-1',
+      projectAssetId: 'link-hash-mismatch-source',
+      expectedContentHash: 'tampered-hash',
+    },
+  }));
+  db.prepare(`INSERT INTO project_assets
+    (id, asset_id, owner_email, project_id, role, stable_url, mime_type, content_hash, metadata_json, retention_class, retention_state, created_at)
+    VALUES ('foreign-copy', 'foreign-owner-source', 'other@example.com', 'project-foreign', 'style',
+      '/api/generated-assets/foreign-owner-source.png', 'image/png', 'foreign-copy-hash', ?, 'source', 'active', '2026-07-29T00:00:00.000Z')`).run(JSON.stringify({
+    importedFromProjectAsset: {
+      projectId: 'project-1',
+      projectAssetId: 'link-foreign-owner-source',
+      expectedContentHash: 'foreign-owner-source',
+    },
+  }));
+
+  const report = retention.isolateMarked();
+
+  assert.deepEqual(report.protectedAssetIds, ['external-source']);
+  assert.deepEqual(report.isolatedAssetIds.sort(), ['foreign-owner-source', 'hash-mismatch-source']);
+  assert.deepEqual(removed, []);
+  db.close();
+});
+
 test('a pinned asset stays active and is never marked by retention cleanup', () => {
   const { db, removed, retention } = createHarness();
   insertAsset(db, { id: 'pinned-reference', retentionState: 'active' });
