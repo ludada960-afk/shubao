@@ -177,3 +177,25 @@ test('local Canvas drafts remint media playback from canonical project asset ref
   assert.equal(recovered[0].projectAssetRef.stableUrl, '/api/video/assets/video-1');
   assert.equal(recovered[1].assetRef.stableUrl, '/api/video/assets/audio-1');
 });
+
+test('Canvas marks media playback recovery failures without losing canonical identity', () => {
+  const nodes = [{
+    id: 'audio-draft-1',
+    kind: 'audio',
+    url: '/api/video/assets/audio-1',
+    projectAssetRef: {
+      projectId: 'project-1', projectAssetId: 'asset-2', assetId: 'audio-1',
+      contentHash: 'hash-2', stableUrl: '/api/video/assets/audio-1', mimeType: 'audio/mpeg',
+    },
+  }];
+  const recovered = restoreCanvasMediaPlayback(nodes, []);
+  assert.equal(recovered[0].mediaPlaybackStatus, 'unavailable');
+  assert.match(recovered[0].mediaPlaybackError, /项目素材库/);
+  assert.equal(recovered[0].projectAssetRef.projectAssetId, 'asset-2');
+  const retried = restoreCanvasMediaPlayback(recovered, [{
+    ...nodes[0].projectAssetRef, playbackUrl: '/api/video/media/audio-1?purpose=playback&cap=retry',
+  }]);
+  assert.equal(retried[0].mediaPlaybackStatus, undefined);
+  assert.equal(retried[0].mediaPlaybackError, undefined);
+  assert.match(retried[0].url, /purpose=playback/);
+});

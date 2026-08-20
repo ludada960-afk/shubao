@@ -73,7 +73,16 @@ export function restoreCanvasMediaPlayback(nodes = [], assets = []) {
   return (Array.isArray(nodes) ? nodes : []).map(node => {
     const ref = canonicalMediaRef(node);
     const playbackUrl = playbackByKey.get(canvasProjectAssetRefKey(ref || {}));
-    return playbackUrl ? { ...node, url: playbackUrl, playbackUrl } : node;
+    if (playbackUrl) {
+      const { mediaPlaybackStatus: _status, mediaPlaybackError: _error, ...rest } = node;
+      return { ...rest, url: playbackUrl, playbackUrl };
+    }
+    if (!ref) return node;
+    return {
+      ...node,
+      mediaPlaybackStatus: 'unavailable',
+      mediaPlaybackError: '暂时无法恢复播放地址，请稍后重试或从项目素材库重新保留素材',
+    };
   });
 }
 

@@ -269,6 +269,8 @@ test('Canvas project asset library exposes local discovery and retention state c
   assert.match(canvasSource, /aria-label="搜索项目素材"/);
   assert.match(canvasSource, /aria-label="筛选素材保留状态"/);
   assert.match(canvasSource, /projectAssetRetentionStatus\(asset\)/);
+  assert.match(canvasSource, /canReuseProjectAsset\(asset\)/);
+  assert.match(canvasSource, /素材已到期或待清理，请先长期保留后再使用/);
   assert.match(canvasSource, /没有符合当前搜索或筛选条件的素材/);
 });
 

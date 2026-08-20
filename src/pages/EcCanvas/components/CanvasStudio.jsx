@@ -452,7 +452,7 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       onFocus={() => onTextSelect?.(node.id)}
       onInput={event => onTextChange?.(node.id, event.currentTarget.textContent || '')}
       onBlur={() => onTextBlur?.(node.id)}
-    >{node.text || ''}</div> : isVideo && node.url ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+    >{node.text || ''}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>
@@ -463,6 +463,7 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
       {node.status === 'processing' && <small>{node.progressLabel || '正在处理...'}</small>}
+      {node.mediaPlaybackError && <small className="is-error">{node.mediaPlaybackError}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
     </div>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
@@ -1154,14 +1155,14 @@ export function CanvasAudioNode({
         <Volume2 size={18} aria-hidden="true" />
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name || node.displayLabel || '项目音频'}</span>
       </div>
-      <audio
+      {node.mediaPlaybackStatus === 'unavailable' ? <div role="status" style={{ color: '#b45309', fontSize: 11, lineHeight: 1.5 }}>{node.mediaPlaybackError || '音频播放地址暂时不可用，请稍后重试'}</div> : <audio
         controls
         preload="metadata"
         src={node.url}
         aria-label={node.name || node.displayLabel || '项目音频'}
         style={{ width: '100%', height: 32 }}
         onPointerDown={event => event.stopPropagation()}
-      />
+      />}
     </div>
     {node.showMeta !== false && <footer><strong>{node.name || node.displayLabel || '项目音频'}</strong><span>{[node.group, node.role].filter(Boolean).join(' · ')}</span></footer>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />

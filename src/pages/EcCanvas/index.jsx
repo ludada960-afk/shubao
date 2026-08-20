@@ -60,7 +60,7 @@ import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, i
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
-import { filterProjectAssetLibrary, normalizeProjectAssetLibrary, projectAssetRetentionStatus, PROJECT_ASSET_RETENTION_FILTERS } from '../Works/projectAssetLibraryModel.js';
+import { canReuseProjectAsset, filterProjectAssetLibrary, normalizeProjectAssetLibrary, projectAssetRetentionStatus, PROJECT_ASSET_RETENTION_FILTERS } from '../Works/projectAssetLibraryModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
@@ -3604,6 +3604,10 @@ export default function EcCanvas() {
   };
   const handleImportProjectAsset = useCallback(async (asset) => {
     if (projectAssetImportBusyRef.current) return;
+    if (!canReuseProjectAsset(asset)) {
+      showToast('素材已到期或待清理，请先长期保留后再使用', 'info');
+      return;
+    }
     projectAssetImportBusyRef.current = true;
     try {
       const imported = importProjectAssetToCanvas({
@@ -4476,6 +4480,7 @@ export default function EcCanvas() {
                     const label = asset.metadata?.displayName || asset.assetId || asset.role || (mediaKind === 'video' ? '项目视频' : mediaKind === 'audio' ? '项目音频' : '项目图片');
                     const projectTitle = asset.project?.title || asset.projectTitle || '未命名项目';
                     const retention = projectAssetRetentionStatus(asset);
+                    const reusable = canReuseProjectAsset(asset);
                     return <article
                       key={`${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`}
                       style={{ minWidth: 0, padding: 0, overflow: 'hidden', textAlign: 'left', border: '1px solid #e7eaee', borderRadius: 10, background: '#fff', color: '#26313c', cursor: 'pointer' }}
@@ -4497,7 +4502,7 @@ export default function EcCanvas() {
                         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#9aa1aa' }}>{asset.role || '稳定引用'}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
                           <button type="button" aria-label={asset.retentionPinned ? `取消长期保留${label}` : `长期保留${label}`} aria-pressed={Boolean(asset.retentionPinned)} title={asset.retentionPinned ? '取消长期保留' : '长期保留'} disabled={projectAssetRetentionBusy === `${asset.projectId}:${asset.projectAssetId}`} onClick={() => handleToggleProjectAssetRetention(asset)} style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: `1px solid ${asset.retentionPinned ? '#bfdbfe' : '#e5e7eb'}`, borderRadius: 6, background: asset.retentionPinned ? '#eff6ff' : '#fff', color: asset.retentionPinned ? '#2563eb' : '#94a3b8', cursor: 'pointer' }}><MdPushPin size={13} /></button>
-                          <button type="button" title="加入当前画布" onClick={() => handleImportProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: '1px solid #dbeafe', borderRadius: 6, background: '#eff6ff', color: '#2563eb', fontSize: 10, cursor: 'pointer' }}>加入</button>
+                          <button type="button" disabled={!reusable} aria-label={reusable ? `加入当前画布${label}` : `先长期保留${label}`} title={reusable ? '加入当前画布' : '素材已到期或待清理，请先长期保留'} onClick={() => handleImportProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: `1px solid ${reusable ? '#dbeafe' : '#e5e7eb'}`, borderRadius: 6, background: reusable ? '#eff6ff' : '#f8fafc', color: reusable ? '#2563eb' : '#98a2b3', fontSize: 10, cursor: reusable ? 'pointer' : 'not-allowed' }}>{reusable ? '加入' : '先保留'}</button>
                           <button type="button" aria-label={`查看${label}的来源和派生关系`} title="查看来源和派生关系" onClick={() => handleInspectProjectAsset(asset)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 6px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#64748b', fontSize: 10, cursor: 'pointer' }}>关系</button>
                         </div>
                       </div>

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  canReuseProjectAsset,
   filterProjectAssetLibrary,
   normalizeProjectAssetLibrary,
   projectAssetRetentionStatus,
@@ -28,6 +29,9 @@ test('reports actionable retention states for pinned, managed, and expiring asse
     id: 'managed', label: '保留至 2026-08-21', detail: '可随时长期保留', tone: 'managed',
   });
   assert.equal(projectAssetRetentionStatus({ retentionState: 'marked', expiresAt: '2026-08-19T00:00:00.000Z' }, now).id, 'attention');
+  assert.equal(canReuseProjectAsset({ retentionState: 'marked', expiresAt: '2026-08-19T00:00:00.000Z' }, now), false);
+  assert.equal(canReuseProjectAsset({ retentionState: 'active', expiresAt: '2026-08-21T00:00:00.000Z' }, now), true);
+  assert.equal(canReuseProjectAsset({ retentionPinned: true }, now), true);
 });
 
 test('filters asset library by metadata, project, and retention state', () => {

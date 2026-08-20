@@ -49,6 +49,10 @@ export function projectAssetRetentionStatus(asset = {}, now = new Date()) {
   };
 }
 
+export function canReuseProjectAsset(asset = {}, now = new Date()) {
+  return projectAssetRetentionStatus(asset, now).id !== 'attention';
+}
+
 export function normalizeProjectAssetLibrary(assets = [], { currentProjectId = '' } = {}) {
   const seen = new Set();
   return (Array.isArray(assets) ? assets : [])
