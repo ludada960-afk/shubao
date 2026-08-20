@@ -371,6 +371,11 @@ test('Canvas session recovery remints transient media playback without changing 
   assert.equal(persisted.nodes[0].url, asset.stableUrl);
   assert.equal(persisted.nodes[0].playbackUrl, undefined);
   assert.equal(persisted.nodes[0].assetRef.stableUrl, asset.stableUrl);
+
+  db.prepare('UPDATE canvas_sessions SET snapshot = ? WHERE id = ?').run(JSON.stringify(snapshot), created.body.session.id);
+  const legacyRead = projectStore.getCanvasSession({ ownerEmail: owner, sessionId: created.body.session.id }).snapshot;
+  assert.equal(legacyRead.nodes[0].url, asset.stableUrl);
+  assert.equal(legacyRead.nodes[0].playbackUrl, undefined);
 });
 
 test('signed owners can create an explicit recovery checkpoint and complete their project', async t => {

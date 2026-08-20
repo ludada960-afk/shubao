@@ -259,7 +259,7 @@ function canvasFromRow(row) {
     baseVersionId: row.base_version_id,
     status: row.status,
     revision: row.revision,
-    snapshot: parse(row.snapshot, {}),
+    snapshot: stripTransientWorkPlayback(parse(row.snapshot, {})),
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
