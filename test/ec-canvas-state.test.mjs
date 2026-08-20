@@ -263,6 +263,18 @@ test('Canvas promotes uploaded video and audio into the owner-scoped project ass
   assert.doesNotMatch(canvasSource, /importVideoAssetToProject\([\s\S]{0,220}ownerEmail/);
 });
 
+test('Canvas Work projection preserves media-only sources for later recovery', () => {
+  assert.match(canvasSource, /collectCanvasMediaAssets/);
+  assert.match(canvasSource, /const resultMediaAssets = collectCanvasMediaAssets\(result\)/);
+  assert.match(canvasSource, /hasCurrent = imageList\.length > 0 \|\| Boolean\(resultVideoUrl\) \|\| resultMediaAssets\.length > 0/);
+  assert.match(canvasSource, /createFreshCanvasSession\(\{ work: result, mediaAssets: resultMediaAssets \}\)/);
+  assert.match(canvasSource, /const canvasWorkMediaFields = useCallback/);
+  assert.match(canvasSource, /mediaAssets,\s*projectAssetRefs/);
+  assert.match(canvasSource, /const saveKey = result\._saveKey \|\| canvasGeneratedWorkKeyRef\.current/);
+  assert.match(canvasSource, /\$\{work\.mediaAssets\?\.length \|\| 0\} 个媒体素材/);
+  assert.match(canvasSource, /MdMusicNote size=\{20\}/);
+});
+
 test('double-click image preview is a keyboard-accessible dialog', () => {
   assert.match(canvasSource, /role="dialog" aria-modal="true" aria-label=\{`\$\{zoomImg\.label \|\| '图片'\}大图预览`\}/);
   assert.match(canvasSource, /button type="button" aria-label="关闭大图预览"/);
@@ -327,7 +339,7 @@ test('an explicit Canvas save records the session handle on its owner-scoped Wor
 });
 
 test('generated outputs from a blank Canvas are saved into the unified work collection', () => {
-  const autosaveBlock = canvasSource.match(/const fingerprint = canvasWorkOutputFingerprint[\s\S]*?\}, \[nodes, phone, pointerMode\?\.kind, result\]\);/)?.[0] || '';
+  const autosaveBlock = canvasSource.match(/const fingerprint = canvasWorkOutputFingerprint[\s\S]*?\}, \[[^\]]*canvasWorkMediaFields[^\]]*\]\);/)?.[0] || '';
   assert.doesNotMatch(autosaveBlock, /!result\._saveKey/);
   assert.match(autosaveBlock, /canvasGeneratedWorkKeyRef\.current/);
   assert.match(autosaveBlock, /await saveWork\(workResult, phone\)/);

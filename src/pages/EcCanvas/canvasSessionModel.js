@@ -168,7 +168,7 @@ export function importProjectAssetToCanvas({ asset = {}, session = {}, source = 
   };
 }
 
-export function createFreshCanvasSession({ work = {}, productAssets = [], outputs = [] } = {}) {
+export function createFreshCanvasSession({ work = {}, productAssets = [], outputs = [], mediaAssets = [] } = {}) {
   const workId = safeId(work.id || work._saveKey || work.taskId, 'work');
   const normalizedProducts = productAssets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => ({
     ...asset,
@@ -183,24 +183,8 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
       provenance: 'source',
       sourceNodeIds: [],
     }));
-  const sourceNode = sourceNodes[0] || {
-    id: `source-${workId}-anchor`,
-    kind: 'image',
-    status: 'ready',
-    name: visibleName(work.product_name || work.name, '产品母图'),
-    displayLabel: visibleName(work.product_name || work.name, '产品母图'),
-    x: 32,
-    y: 72,
-    w: 240,
-    h: 240,
-    url: '',
-    showMeta: false,
-    isProductSource: true,
-    provenance: 'source',
-    sourceNodeIds: [],
-  };
   const hasSource = sourceNodes.length > 0;
-  const sourceId = sourceNode.id;
+  const sourceId = sourceNodes[0]?.id || '';
   const outputSeeds = outputs.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => {
     const assetId = safeId(asset.assetId || asset.id || asset.key, `asset-${index + 1}`);
     return attachCanvasProjectAssetRef({
@@ -219,7 +203,23 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
       editable: true,
     }, asset, { projectId: work.projectId });
   });
-  const outputNodes = layoutAssetLanes({ sourceNode, assets: outputSeeds });
+  const sourceNode = sourceNodes[0] || (outputSeeds.length ? {
+    id: `source-${workId}-anchor`,
+    kind: 'image',
+    status: 'ready',
+    name: visibleName(work.product_name || work.name, '产品母图'),
+    displayLabel: visibleName(work.product_name || work.name, '产品母图'),
+    x: 32,
+    y: 72,
+    w: 240,
+    h: 240,
+    url: '',
+    showMeta: false,
+    isProductSource: true,
+    provenance: 'source',
+    sourceNodeIds: [],
+  } : null);
+  const outputNodes = sourceNode ? layoutAssetLanes({ sourceNode, assets: outputSeeds }) : [];
   const connections = hasSource ? outputNodes.map(node => ({
     id: `edge-${sourceId}-${node.id}`,
     fromNodeId: sourceId,
@@ -232,11 +232,25 @@ export function createFreshCanvasSession({ work = {}, productAssets = [], output
     type: 'source-output',
     label: '',
   })) : [];
+  const mediaSession = (Array.isArray(mediaAssets) ? mediaAssets : [])
+    .filter(asset => {
+      const ref = buildCanvasAssetRef(asset);
+      return ['video', 'audio'].includes(ref?.mediaKind);
+    })
+    .reduce((current, asset) => importProjectAssetToCanvas({
+      asset,
+      session: current,
+      source: 'work-media',
+    }).session, {
+      nodes: [...sourceNodes, ...outputNodes],
+      connections,
+      viewport: { x: 80, y: 40, scale: 1 },
+    });
   return {
     id: freshSessionId(),
     workId,
     createdAt: Date.now(),
-    nodes: [...sourceNodes, ...outputNodes],
-    connections,
+    nodes: mediaSession.nodes,
+    connections: mediaSession.connections,
   };
 }

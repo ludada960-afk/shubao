@@ -56,7 +56,8 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction } from './canvasActionRegistry.js';
 import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
-import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasWorkImages, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
+import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
+import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
@@ -599,7 +600,8 @@ export default function EcCanvas() {
   }, [activeComposerSurface]);
   const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
   const resultVideoUrl = String(result.video_url || result.videoUrl || result.video?.url || result._videoResult?.url || '').trim();
-  const hasCurrent = imageList.length > 0 || Boolean(resultVideoUrl);
+  const resultMediaAssets = collectCanvasMediaAssets(result);
+  const hasCurrent = imageList.length > 0 || Boolean(resultVideoUrl) || resultMediaAssets.length > 0;
   const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
   const exportScope = selectDeliverableNodes(nodes, exportSelectionIds);
@@ -669,6 +671,7 @@ export default function EcCanvas() {
       ...result,
       canvasImportId: `media-upload-${Date.now()}`,
     });
+    canvasGeneratedWorkKeyRef.current ||= canvasSaveKeyRef.current;
     let projectId = existingProjectId;
     if (!projectId) {
       const project = await createProject({
@@ -736,6 +739,27 @@ export default function EcCanvas() {
     };
   }, [importCanvasMediaAsset]);
 
+  const canvasMediaFields = useCallback((work, currentNodes) => {
+    const mediaAssets = collectCanvasMediaAssets(work, currentNodes);
+    if (!mediaAssets.length) return {};
+    return {
+      mediaAssets,
+      projectAssetRefs: collectCanvasProjectAssetRefs({
+        work: { ...work, mediaAssets },
+        nodes: currentNodes,
+      }),
+    };
+  }, []);
+
+  const canvasWorkMediaFields = useCallback((work, currentNodes) => {
+    const fields = canvasMediaFields(work, currentNodes);
+    if (!fields.mediaAssets?.length) return fields;
+    return {
+      ...fields,
+      mediaAssets: durableCanvasMediaAssets(work, currentNodes),
+    };
+  }, [canvasMediaFields]);
+
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
@@ -754,7 +778,10 @@ export default function EcCanvas() {
         work: result,
         productAssets: productAssetsForCanvas(result),
         outputs: imageList,
+        mediaAssets: resultMediaAssets,
       })
+      : resultMediaAssets.length
+        ? createFreshCanvasSession({ work: result, mediaAssets: resultMediaAssets })
       : {
         nodes: createUploadedVideoNodes({
           assets: [videoAsset || {
@@ -859,6 +886,7 @@ export default function EcCanvas() {
         workType: result.workType || 'ecommerce',
         images: imageRecords,
         imageRecords,
+        ...canvasWorkMediaFields(result, nodes),
       };
       const saved = await saveWork(workResult, phone);
       if (!saved) return;
@@ -870,7 +898,7 @@ export default function EcCanvas() {
       }));
     }, 900);
     return () => clearTimeout(timer);
-  }, [nodes, phone, pointerMode?.kind, result]);
+  }, [canvasWorkMediaFields, nodes, phone, pointerMode?.kind, result]);
 
   useEffect(() => {
     canvasSessionRef.current = canvasSession;
@@ -895,10 +923,13 @@ export default function EcCanvas() {
         remoteSnapshotRef.current = fingerprint;
         canvasSessionRef.current = session;
         setCanvasSession(session);
-        if (result._saveKey) {
+        const saveKey = result._saveKey || canvasGeneratedWorkKeyRef.current;
+        if (saveKey) {
           const workResult = {
             ...result,
+            _saveKey: saveKey,
             imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes }),
+            ...canvasWorkMediaFields(result, nodes),
           };
           delete workResult.canvasSession;
           await saveWork({ ...workResult, canvasSessionId: session.id, canvasSessionRevision: session.revision }, phone);
@@ -914,7 +945,7 @@ export default function EcCanvas() {
       }
     }, 1200);
     return () => clearTimeout(remoteSaveTimerRef.current);
-  }, [canvasSessionBusy, connections, dispatch, nodes, phone, pointerMode?.kind, result, viewport]);
+  }, [canvasSessionBusy, canvasWorkMediaFields, connections, dispatch, nodes, phone, pointerMode?.kind, result, viewport]);
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
@@ -3286,6 +3317,17 @@ export default function EcCanvas() {
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
       const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: worldX, y: worldY, now: uploadStartedAt });
       draftReadyRef.current = true;
+      const mediaFields = canvasMediaFields(result, uploadedNodes);
+      if (projectContext || Object.keys(mediaFields).length) {
+        dispatch({
+          type: 'SET_RESULT',
+          result: {
+            ...result,
+            ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
+            ...mediaFields,
+          },
+        });
+      }
       setNodes(previous => [...previous, ...uploadedNodes]);
       setSelected(uploadedNodes[0]?.id || null);
       setMultiSelected(new Set(uploadedNodes.map(node => node.id)));
@@ -3346,6 +3388,17 @@ export default function EcCanvas() {
       const uploadedNodes = [...imageNodes, ...videoNodes, ...audioNodes];
       const uploadedIds = uploadedNodes.map(node => node.id);
       draftReadyRef.current = true;
+      const mediaFields = canvasMediaFields(result, uploadedNodes);
+      if (projectContext || Object.keys(mediaFields).length) {
+        dispatch({
+          type: 'SET_RESULT',
+          result: {
+            ...result,
+            ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
+            ...mediaFields,
+          },
+        });
+      }
       setNodes(previous => previous
         .map(node => node.id === composerId
           ? {
@@ -3369,7 +3422,7 @@ export default function EcCanvas() {
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
     }
-  }, [ensureCanvasMediaProject, importCanvasMediaAssets, nodes, result, showToast]);
+  }, [canvasMediaFields, dispatch, ensureCanvasMediaProject, importCanvasMediaAssets, nodes, result, showToast]);
 
   const removeComposerSource = useCallback((composerId, sourceId) => {
     const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);
@@ -3640,10 +3693,13 @@ export default function EcCanvas() {
         ? await saveCanvasSession(canvasSession.id, { expectedRevision: canvasSession.revision, snapshot })
         : await createCanvasSession({ projectId, baseVersionId, snapshot });
       setCanvasSession(session);
-      if (result._saveKey) {
+      const saveKey = result._saveKey || canvasGeneratedWorkKeyRef.current;
+      if (saveKey) {
           const workResult = {
             ...result,
+            _saveKey: saveKey,
             imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes }),
+            ...canvasWorkMediaFields(result, nodes),
           };
         delete workResult.canvasSession;
         await saveWork({
@@ -3662,7 +3718,7 @@ export default function EcCanvas() {
     } finally {
       setCanvasSessionBusy(false);
     }
-  }, [canvasSession, connections, dispatch, nodes, phone, result, showToast, viewport]);
+  }, [canvasSession, canvasWorkMediaFields, connections, dispatch, nodes, phone, result, showToast, viewport]);
 
   const handleCanvasSessionRestore = useCallback(async () => {
     const sessionId = canvasSession?.id || result.canvasSessionId;
@@ -4210,7 +4266,11 @@ export default function EcCanvas() {
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{work.name}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#999', marginTop: 3 }}>
                         <span className={`ec-canvas-work-kind is-${canvasWorkCategory(work)}`}>{canvasWorkCategory(work) === 'ecommerce' ? '电商' : canvasWorkCategory(work) === 'xhs' ? '小红书' : canvasWorkCategory(work) === 'video' ? '视频' : canvasWorkCategory(work)}</span>
-                        <span>{canvasWorkCategory(work) === 'video' ? `${work.video?.duration || 0} 秒 · ${String(work.video?.resolution || '').toUpperCase()}` : `${work.images?.length || 0} 张图片`}</span>
+                        <span>{canvasWorkCategory(work) === 'video'
+                          ? work.video?.duration
+                            ? `${work.video.duration} 秒 · ${String(work.video?.resolution || '').toUpperCase()}`
+                            : `${work.mediaAssets?.length || 0} 个媒体素材`
+                          : `${work.images?.length || 0} 张图片`}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -4228,6 +4288,12 @@ export default function EcCanvas() {
                         <ResponsiveImage src={img} variant="thumb" ratio="1:1" alt={img.label || `作品图片 ${i + 1}`} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'cover' }} />
                       </button>
                     ))}
+                    {!work.videoUrl && !work.images?.length && work.mediaAssets?.length ? work.mediaAssets.map((asset, index) => (
+                      <div key={`${asset.projectAssetId || asset.assetId || index}`} style={{ minWidth: 180, height: 72, display: 'flex', alignItems: 'center', gap: 9, padding: '0 12px', boxSizing: 'border-box', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, background: '#f8fafc', color: '#475569' }}>
+                        <MdMusicNote size={20} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{asset.name || asset.displayName || asset.role || `音频素材 ${index + 1}`}</span>
+                      </div>
+                    )) : null}
                   </div>
                 </div>
               ))}

@@ -70,6 +70,7 @@ export function attachCanvasProjectAssetRef(target = {}, asset = {}, options = {
 export function collectCanvasProjectAssetRefs({ work = {}, nodes = [] } = {}) {
   const candidates = [
     ...(Array.isArray(work.projectAssetRefs) ? work.projectAssetRefs : []),
+    ...(Array.isArray(work.mediaAssets) ? work.mediaAssets : []),
     ...(Array.isArray(work.imageRecords) ? work.imageRecords : []),
     ...(Array.isArray(work.images) ? work.images : []),
     ...(Array.isArray(work.productAssets) ? work.productAssets : []),

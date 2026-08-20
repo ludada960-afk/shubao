@@ -29,8 +29,46 @@ function allWorkImages(work = {}) {
   });
 }
 
+function mediaAssetCandidates(work = {}, nodes = []) {
+  return [
+    ...(Array.isArray(work.mediaAssets) ? work.mediaAssets : []),
+    ...(Array.isArray(work.projectAssetRefs) ? work.projectAssetRefs : []),
+    ...(Array.isArray(nodes) ? nodes : []),
+  ];
+}
+
+export function collectCanvasMediaAssets(work = {}, nodes = []) {
+  const seen = new Set();
+  return mediaAssetCandidates(work, nodes).map(candidate => {
+    const ref = buildCanvasAssetRef(candidate);
+    if (!ref || !['video', 'audio'].includes(ref.mediaKind)) return null;
+    const key = `${ref.projectId}:${ref.projectAssetId}:${ref.contentHash}`;
+    if (seen.has(key)) return null;
+    seen.add(key);
+    const playbackUrl = cleanString(candidate?.playbackUrl || candidate?.url || candidate?.src);
+    const name = cleanString(candidate?.name || candidate?.displayName || candidate?.label || candidate?.metadata?.displayName);
+    return {
+      ...ref,
+      url: playbackUrl || ref.stableUrl,
+      ...(playbackUrl ? { playbackUrl } : {}),
+      ...(name ? { name, displayName: name } : {}),
+      ...(Number.isFinite(Number(candidate?.duration)) && Number(candidate.duration) > 0
+        ? { duration: Number(candidate.duration) }
+        : {}),
+    };
+  }).filter(Boolean);
+}
+
+export function durableCanvasMediaAssets(work = {}, nodes = []) {
+  return collectCanvasMediaAssets(work, nodes).map(asset => {
+    const { playbackUrl, ...durable } = asset;
+    return { ...durable, url: durable.stableUrl };
+  });
+}
+
 function workVideoUrl(work = {}) {
-  return cleanString(work.video_url || work.videoUrl || work.video?.url || work._videoResult?.url);
+  return cleanString(work.video_url || work.videoUrl || work.video?.url || work._videoResult?.url)
+    || cleanString(collectCanvasMediaAssets(work).find(asset => asset.mediaKind === 'video')?.url);
 }
 
 function projectVideoAssetRef(work = {}) {
@@ -82,7 +120,7 @@ export function canvasVideoResultPatch(job = {}) {
 }
 
 export function canvasWorkCategory(work = {}) {
-  return inferWorkType(work);
+  return collectCanvasMediaAssets(work).length ? 'video' : inferWorkType(work);
 }
 
 export function filterCanvasWorks(works = [], category = 'all') {
@@ -94,7 +132,8 @@ function normalizePanelWork(work = {}) {
   const images = allWorkImages(work);
   const workType = canvasWorkCategory(work);
   const videoUrl = workVideoUrl(work);
-  if (!images.length && !videoUrl) return null;
+  const mediaAssets = collectCanvasMediaAssets(work);
+  if (!images.length && !videoUrl && !mediaAssets.length) return null;
   return {
     ...work,
     id: work.id || work.taskId || work._saveKey || images[0]?.url || videoUrl || Date.now(),
@@ -105,6 +144,7 @@ function normalizePanelWork(work = {}) {
     videoUrl,
     video: work.video || (videoUrl ? { url: videoUrl } : null),
     projectAssetRefs: collectCanvasProjectAssetRefs({ work }),
+    mediaAssets,
     createdAt: work.createdAt || work.at || '',
     workType,
   };
@@ -122,6 +162,7 @@ export function normalizeCanvasWorkPanel({ localWorks = [], serverWorks = [], ow
 
 export function buildCanvasImportResult(work = {}, { importId } = {}) {
   const imageRecords = allWorkImages(work);
+  const mediaAssets = collectCanvasMediaAssets(work);
   const videoUrl = workVideoUrl(work);
   const images = Object.fromEntries(imageRecords.map((image, index) => [
     image.key || image.label || `image_${index + 1}`,
@@ -134,6 +175,7 @@ export function buildCanvasImportResult(work = {}, { importId } = {}) {
     videoUrl,
     video_url: videoUrl,
     video: work.video || (videoUrl ? { url: videoUrl } : null),
+    mediaAssets,
     productAssets: normalizeWorkImages(work.productAssets || work.product_assets || work.productImages || work.source_images || work.sourceImages),
     product_name: displayName(work),
     _ecResult: true,

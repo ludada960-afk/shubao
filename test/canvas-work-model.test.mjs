@@ -9,12 +9,14 @@ import {
   canvasWorkCategory,
   canvasOutputImages,
   canvasWorkOutputFingerprint,
+  collectCanvasMediaAssets,
   collectCanvasWorkImages,
+  durableCanvasMediaAssets,
   filterCanvasWorks,
   normalizeCanvasWorkPanel,
 } from '../src/pages/EcCanvas/canvasWorkModel.js';
 import { createUploadedVideoNodes } from '../src/pages/EcCanvas/canvasStudioModel.js';
-import { createCanvasSnapshot } from '../src/pages/EcCanvas/canvasSessionModel.js';
+import { createCanvasSnapshot, createFreshCanvasSession } from '../src/pages/EcCanvas/canvasSessionModel.js';
 
 test('video works remain visible without image thumbnails and filter as video', () => {
   const works = normalizeCanvasWorkPanel({
@@ -43,6 +45,75 @@ test('video works remain visible without image thumbnails and filter as video', 
   assert.equal(filterCanvasWorks(works, 'video').length, 1);
   assert.equal(works[0].projectAssetRefs[0].projectAssetId, 'video-result-1');
   assert.equal(buildCanvasImportResult(works[0], { importId: 'video-import' }).projectAssetRefs[0].mediaKind, 'video');
+});
+
+test('media-only Works retain canonical video and audio sources for Canvas recovery', () => {
+  const media = {
+    projectAssetRefs: [
+      {
+        projectId: 'media-project-1',
+        projectAssetId: 'video-asset-1',
+        assetId: 'source-video-1',
+        contentHash: 'a'.repeat(64),
+        stableUrl: '/api/video/assets/source-video-1',
+        playbackUrl: '/api/video/media/source-video-1?cap=short',
+        mimeType: 'video/mp4',
+        role: 'reference-video',
+      },
+      {
+        projectId: 'media-project-1',
+        projectAssetId: 'audio-asset-1',
+        assetId: 'source-audio-1',
+        contentHash: 'b'.repeat(64),
+        stableUrl: '/api/video/assets/source-audio-1',
+        playbackUrl: '/api/video/media/source-audio-1?cap=short',
+        mimeType: 'audio/mpeg',
+        role: 'reference-audio',
+      },
+    ],
+  };
+  const mediaAssets = collectCanvasMediaAssets(media);
+  assert.deepEqual(mediaAssets.map(asset => [asset.mediaKind, asset.projectAssetId]), [
+    ['video', 'video-asset-1'],
+    ['audio', 'audio-asset-1'],
+  ]);
+  assert.equal(mediaAssets[0].playbackUrl, '/api/video/media/source-video-1?cap=short');
+  const durable = durableCanvasMediaAssets(media);
+  assert.equal(durable[0].url, '/api/video/assets/source-video-1');
+  assert.equal('playbackUrl' in durable[0], false);
+
+  const panel = normalizeCanvasWorkPanel({ serverWorks: [{
+    _saveKey: 'media-only-work',
+    projectId: 'media-project-1',
+    workType: 'video',
+    projectAssetRefs: media.projectAssetRefs,
+  }], ownerEmail: 'owner@example.com' });
+  assert.equal(panel.length, 1);
+  assert.equal(panel[0].mediaAssets.length, 2);
+  const imported = buildCanvasImportResult(panel[0], { importId: 'media-import' });
+  assert.equal(imported.mediaAssets.length, 2);
+  assert.equal(imported.canvasImportId, 'media-import');
+});
+
+test('Canvas recovery session materializes media-only Work sources as reusable nodes', () => {
+  const session = createFreshCanvasSession({
+    work: { id: 'media-work', projectId: 'media-project-1' },
+    mediaAssets: [{
+      projectId: 'media-project-1',
+      projectAssetId: 'audio-asset-1',
+      assetId: 'source-audio-1',
+      contentHash: 'c'.repeat(64),
+      stableUrl: '/api/video/assets/source-audio-1',
+      playbackUrl: '/api/video/media/source-audio-1?cap=short',
+      mimeType: 'audio/mpeg',
+      role: 'reference-audio',
+      name: '旁白',
+    }],
+  });
+  assert.equal(session.nodes.length, 1);
+  assert.equal(session.nodes[0].kind, 'audio');
+  assert.equal(session.nodes[0].url, '/api/video/media/source-audio-1?cap=short');
+  assert.equal(session.nodes[0].assetRef.projectAssetId, 'audio-asset-1');
 });
 
 test('VideoStudio handoff binds the canonical project asset to the Canvas runtime playback node', () => {

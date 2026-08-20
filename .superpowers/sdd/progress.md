@@ -2299,3 +2299,10 @@
 - 每个目的地补充语义 Phosphor 图标和独立 motion 标识；桌面悬停/键盘聚焦触发分层、试穿、画布扩展、胶片推进、翻页、魔法棒等 CSS 动效，面板保留触发按钮到面板的 pointer bridge；移动端同步使用稳定三列入口布局，减少动态偏好关闭关键帧和变换。
 - 变更范围限定为 `CreativeDomainNav.jsx`、`creativeDomainNavigation.js`、`app-shell.css` 及导航契约测试；设计规格和实施计划已记录。定向测试 `6/6`、浏览器桌面/移动/键盘验收通过，全量 `npm test` `1951/1951`、`npm run build` `6524` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 通过。
 - 本轮尚未部署；生产发布必须使用 `scripts/deploy-production.ps1 -ValidationProfile auto`，由最新提交范围自动判定前端变更并跳过无关的真实电商红苹果验收，同时保留健康、静态资源、审计和 Canary 门禁。并行视频工作台及运行态文件未修改、未暂存。
+
+## 2026-08-20 Canvas Works Media Projection
+
+- 继续收口 Canvas/Works 资产闭环：视频或音频媒体-only Work 现在会从 Work 元数据、canonical `projectAssetRefs` 和画布媒体节点统一投影，保留稳定 `(projectId, projectAssetId, contentHash)` 身份，并能在重新打开 Canvas 时恢复为可引用的媒体节点；Works 不再因为没有图片缩略图而丢弃这类记录。
+- Work 持久化前会移除短期 `playbackUrl`，只保存 canonical stable URL 和媒体身份；已有 owner-scoped playback decorator 在读取 Works 或 Canvas 时重新签发运行时播放能力。Canvas 初始化不再为纯媒体 Work 制造无效的空图片源节点；有图片输出但无产品源时仍保留布局锚点以兼容历史 output-only Work。
+- 新增 Canvas work model/session 回归及静态组件契约，覆盖媒体去重、durable/runtime URL 边界、音频节点恢复和媒体-only Works 面板呈现。最终全量 `npm test` `1954/1954`、`npm run build` `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 本轮只修改主线程 Canvas/项目资产投影及测试文件；视频线程的工作台、渲染器、音轨和导航运行态改动未修改、未暂存。未触发供应商、真实生成、账务或生产部署；线上仍为 `c98be11`，本地提交需另行通过 full production gate 后才能发布。
