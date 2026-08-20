@@ -3620,7 +3620,8 @@ export default function EcCanvas() {
   const deleteWork = async (id) => {
     const work = pastWorks.find(x => x.id === id);
     if (!work) return;
-    if (work._saveKey) await softDeleteWork(work._saveKey);
+    const deleted = work._saveKey ? await softDeleteWork(work._saveKey) : true;
+    if (!deleted) return showToast('移入回收站失败，请重试', 'error');
     const trashItem = { ...work, deletedAt: Date.now() };
     const next = pastWorks.filter(x => x.id !== id);
     setPastWorks(next);

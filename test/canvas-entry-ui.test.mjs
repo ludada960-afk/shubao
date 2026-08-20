@@ -60,6 +60,15 @@ test('Works actions are keyboard-accessible and named for assistive technology',
   assert.doesNotMatch(source, /<div onClick=\{\(\) => deleteWork\(work\.id\)\}/);
 });
 
+test('Works only updates local trash after the server confirms deletion', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  const deleteBlock = source.match(/const deleteWork = async \(id\) => \{[\s\S]*?\n  \};/)?.[0] || '';
+  assert.match(deleteBlock, /const deleted = work\._saveKey \? await softDeleteWork\(work\._saveKey\) : true/);
+  assert.match(deleteBlock, /if \(!deleted\) return showToast\('移入回收站失败，请重试', 'error'\)/);
+  assert.match(deleteBlock, /if \(!deleted\)[\s\S]*?setPastWorks/);
+  assert.doesNotMatch(deleteBlock, /softDeleteWork\(work\._saveKey\)[\s\S]*?setPastWorks[\s\S]*?if \(!/);
+});
+
 test('browser segmentation reports progress on the transient workflow node and edge', async () => {
   const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
   const css = await readFile(new URL('../src/pages/EcCanvas/EcCanvas.css', import.meta.url), 'utf8');
