@@ -141,6 +141,16 @@ function stableAssetIdFromUrl(value) {
   return match ? match[1] : '';
 }
 
+function stableAssetContentHash(value) {
+  const assetId = stableAssetIdFromUrl(value);
+  return assetId.match(/^([a-f0-9]{64})\.(?:jpg|png|webp)$/i)?.[1] || '';
+}
+
+function stableAssetMimeType(value) {
+  const extension = stableAssetIdFromUrl(value).match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  return extension === 'jpg' ? 'image/jpeg' : extension === 'webp' ? 'image/webp' : extension === 'png' ? 'image/png' : '';
+}
+
 function terminalConflict(currentStatus, requestedStatus) {
   return codedError(
     'GENERATION_RUN_TERMINAL_CONFLICT',
@@ -842,11 +852,17 @@ export function createProjectStore(db, {
           const stableUrl = String(resultAsset?.stableUrl || '').trim();
           const assetId = stableAssetIdFromUrl(stableUrl);
           if (!assetId) continue;
+          const contentHash = stableAssetContentHash(stableUrl)
+            || String(resultAsset?.contentHash || '').trim()
+            || assetId;
+          const mimeType = stableAssetMimeType(stableUrl)
+            || String(resultAsset?.mimeType || '').trim().toLowerCase()
+            || 'image/png';
           db.prepare(`INSERT OR IGNORE INTO project_assets
             (id, asset_id, owner_email, project_id, version_id, generation_run_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'generated', ?, ?, 'image/png', ?, ?)`)
-            .run(`${project.id}:${assetId}`, assetId, owner, project.id, resultVersionId, runId, assetId, stableUrl,
-              resultStatus === 'completed' ? 'completed' : 'unfinished', completedAt);
+            VALUES (?, ?, ?, ?, ?, ?, 'generated', ?, ?, ?, ?, ?)`)
+            .run(`${project.id}:${assetId}`, assetId, owner, project.id, resultVersionId, runId, contentHash, stableUrl,
+              mimeType, resultStatus === 'completed' ? 'completed' : 'unfinished', completedAt);
         }
         if (resultStatus === 'completed') {
           db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?

@@ -312,6 +312,56 @@ test('atomically ensures and completes an ecommerce generation lifecycle idempot
   assert.equal(completedReplay.resultVersion.id, completed.resultVersion.id);
 });
 
+test('stores the authoritative hash and MIME for each ecommerce result asset', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = store.ensureEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-authoritative-asset',
+    title: '真实资产元数据',
+    inputSnapshot: {},
+    planSnapshot: { fingerprint: 'authoritative-plan', items: [{ id: 'hero' }] },
+  });
+  const contentHash = 'a'.repeat(64);
+  const stableUrl = `/api/generated-assets/${contentHash}.webp`;
+
+  store.completeEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-authoritative-asset',
+    resultInputSnapshot: {
+      assets: [{ assetId: 'hero', state: 'completed', stableUrl, contentHash, mimeType: 'image/webp' }],
+    },
+    resultPlanSnapshot: { fingerprint: 'authoritative-plan' },
+  });
+
+  const row = db.prepare('SELECT content_hash, mime_type, stable_url FROM project_assets WHERE project_id = ?').get(input.project.id);
+  assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp', stable_url: stableUrl });
+});
+
+test('derives ecommerce asset identity from the stable URL before accepting snapshot metadata', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const input = store.ensureEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-authoritative-url',
+    title: '稳定 URL 身份',
+    inputSnapshot: {},
+    planSnapshot: { fingerprint: 'url-plan', items: [{ id: 'hero' }] },
+  });
+  const contentHash = 'c'.repeat(64);
+  const stableUrl = `/api/generated-assets/${contentHash}.webp`;
+
+  store.completeEcommerceGeneration({
+    ownerEmail: 'asset-owner@example.com',
+    generationRunId: 'ecommerce-authoritative-url',
+    resultInputSnapshot: { assets: [{ assetId: 'hero', state: 'completed', stableUrl, contentHash: 'forged-hash', mimeType: 'image/png' }] },
+    resultPlanSnapshot: { fingerprint: 'url-plan' },
+  });
+
+  const row = db.prepare('SELECT content_hash, mime_type FROM project_assets WHERE project_id = ?').get(input.project.id);
+  assert.deepEqual(row, { content_hash: contentHash, mime_type: 'image/webp' });
+});
+
 test('records a partial ecommerce result version without claiming the project is completed', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

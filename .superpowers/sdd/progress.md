@@ -2146,3 +2146,12 @@
 - 协同规则本轮重新一次性通知视频线程：视频线程继续完成原定视频工作，不等待主线程、不因询问停工；只有共享接口阻塞、数据安全风险或实际冲突才集中反馈。
   主线程继续拥有 canonical project assets、Canvas/Works、跨域接口、质量门和最终发布，双方不轮询式互相打断。
 - `e9fef88` 的生产发布仍受此前远端根分区可用空间预检阻塞；没有删除线上资产、历史备份或绕过 full 门禁，线上继续保持已发布版本并由健康检查负责观察。
+
+## 2026-08-20 Ecommerce Canonical Asset Metadata Hardening
+
+- 修正电商生成完成时的 canonical `project_assets` 写入：此前内容哈希被错误地写成资产文件名，MIME 永远固定为 `image/png`；
+  现在服务端从受信任的 `/api/generated-assets/<sha256>.<ext>` 稳定 URL 推导真实内容哈希和 MIME，只有非标准历史 URL 才使用兼容回退。
+- 项目版本快照仍严格保持公开交付字段，不把内部哈希/MIME 扩散到 Works/Canvas 恢复快照；真实元数据只留在 owner-scoped canonical asset 行，供跨 Canvas、Works、视频工作台引用和保留策略使用。
+- 新增回归覆盖真实 WebP 元数据、稳定 URL 优先级和伪造快照字段；定向 `24/24`、全量 `1907/1907`、生产构建 `6524` modules、
+  `npm run check`、`npm run collab:check`、`git diff --check` 均通过。本轮没有供应商调用、视频生成、账务变更或生产部署。
+- 生产发布继续保留既有远端磁盘空间预检阻塞，不删除线上数据、不绕过 `full` 门禁；视频线程仍按一次性协同通知继续原定视频工作，主线程未修改视频领域文件。
