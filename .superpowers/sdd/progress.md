@@ -2166,3 +2166,11 @@
 - 直接 `npm test` 当前被视频线程同时新增但尚未跟踪的 `test/video-renderer-worker-batch.test.mjs` 阻断；该文件属于视频线程，主线程未修改、未删除、未暂存。
   等视频线程完成该测试后，再由其自行纳入完整测试闭环；不能把这次隔离后的 tracked 全量结果误报成未跟踪测试也已通过。
 - 生产发布继续保留既有远端磁盘空间预检阻塞，不删除线上数据、不绕过 `full` 门禁；视频线程仍按一次性协同通知继续原定视频工作，主线程未修改视频领域文件。
+
+## 2026-08-20 Video Canonical Delivery And Lineage Hardening
+
+- 主线程提交 `3b68601`：视频源素材和视频输出进入 canonical `project_assets` 前必须同时具备稳定标识、应用内稳定 URL、内容哈希和合法媒体类型；不再把 `assetId` 当作输出哈希，也不再用默认 `video/mp4` 掩盖未校验输出。失败发生在事务提交前，项目和版本状态保持不变。
+- 主线程提交 `a3b0f1d`：拒绝视频源/输出的外部 HTTP(S) 或控制字符 URL；同一视频项目的后续生成即使复用同一个外部 `assetId`，也会按新的 source version 建立独立 canonical 行，避免 `INSERT OR IGNORE` 复用旧版本并丢失 source lineage。
+- 定向项目/视频桥接回归 `32/32` 通过；构建、构建后检查和协作检查在本轮提交前通过，提交后只需复核无关工作树变化。
+- 当前直接 `npm test` 含视频线程尚未完成的未跟踪 `test/video-renderer-worker-batch.test.mjs`，结果为 `1913/1917`；Git 跟踪测试为 `1911/1912`，唯一失败来自并行导航改动使既有 `creative-nav-signature` 合同尚未同步。主线程没有修改、删除或暂存这些并行文件，不把隔离结果误报为全工作树绿灯。
+- 视频线程继续独立完成 `server/videoRendererWorker.mjs` 及其测试；主线程不轮询、不介入实现。生产仍未部署，未触发视频供应商、真实生成、账务或额度变更。
