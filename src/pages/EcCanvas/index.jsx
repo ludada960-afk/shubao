@@ -570,6 +570,7 @@ export default function EcCanvas() {
   const videoUploadRef = useRef(null);
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
+  const projectAssetImportBusyRef = useRef(false);
   const remoteSaveTimerRef = useRef(null);
   const remoteSnapshotRef = useRef('');
   const workOutputFingerprintRef = useRef('');
@@ -3459,51 +3460,70 @@ export default function EcCanvas() {
     setTab('canvas');
   };
   const handleImportProjectAsset = useCallback(async (asset) => {
-    const imported = importProjectAssetToCanvas({
-      asset,
-      source: 'project-library',
-      session: { nodes, connections, viewport },
-    });
-    if (!imported.added) {
-      showToast(imported.reason === 'already-imported' ? '这个素材已经在当前画布中' : '项目素材缺少可验证的稳定引用', 'info');
-      if (imported.nodeId) setSelected(imported.nodeId);
-      return;
-    }
-    const mediaKind = String(asset?.mediaKind || asset?.media_kind || '').toLowerCase();
-    const label = asset?.metadata?.displayName || asset?.assetId || asset?.role || '项目素材';
-    let projectContext = null;
-    if (state.logged && !result.browserQa) {
-      try {
-        projectContext = await ensureCanvasMediaProject(`${label} Canvas 项目`, mediaKind === 'image' ? 'ecommerce' : 'video');
-      } catch {
-        projectContext = null;
+    if (projectAssetImportBusyRef.current) return;
+    projectAssetImportBusyRef.current = true;
+    try {
+      const imported = importProjectAssetToCanvas({
+        asset,
+        source: 'project-library',
+        session: { nodes, connections, viewport },
+      });
+      if (!imported.added) {
+        showToast(imported.reason === 'already-imported' ? '这个素材已经在当前画布中' : '项目素材缺少可验证的稳定引用', 'info');
+        if (imported.nodeId) setSelected(imported.nodeId);
+        return;
       }
-    }
-    draftReadyRef.current = true;
-    canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `project-asset-${Date.now()}` });
-    canvasGeneratedWorkKeyRef.current ||= canvasSaveKeyRef.current;
-    const nextResult = {
-      ...result,
-      ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
-      _saveKey: result._saveKey || canvasGeneratedWorkKeyRef.current,
-    };
-    if (projectContext) dispatch({ type: 'SET_RESULT', result: nextResult });
-    setNodes(imported.session.nodes);
-    setConnections(imported.session.connections);
-    setSelected(imported.node.id);
-    setMultiSelected(new Set([imported.node.id]));
-    if (state.logged) {
-      const workResult = {
-        ...nextResult,
-        product_name: nextResult.product_name || label,
-        images: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: imported.session.nodes }),
-        imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: imported.session.nodes }),
-        ...canvasWorkMediaFields(nextResult, imported.session.nodes),
+      const mediaKind = String(asset?.mediaKind || asset?.media_kind || '').toLowerCase();
+      const label = asset?.metadata?.displayName || asset?.assetId || asset?.role || '项目素材';
+      let projectContext = null;
+      if (state.logged && !result.browserQa) {
+        try {
+          projectContext = await ensureCanvasMediaProject(`${label} Canvas 项目`, mediaKind === 'image' ? 'ecommerce' : 'video');
+        } catch {
+          projectContext = null;
+        }
+      }
+      draftReadyRef.current = true;
+      canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `project-asset-${Date.now()}` });
+      canvasGeneratedWorkKeyRef.current ||= canvasSaveKeyRef.current;
+      const nextResult = {
+        ...result,
+        ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
+        _saveKey: result._saveKey || canvasGeneratedWorkKeyRef.current,
       };
-      await saveWork(workResult, phone);
+      if (projectContext) dispatch({ type: 'SET_RESULT', result: nextResult });
+      setNodes(imported.session.nodes);
+      setConnections(imported.session.connections);
+      setSelected(imported.node.id);
+      setMultiSelected(new Set([imported.node.id]));
+      let savedWork = null;
+      if (state.logged) {
+        const workResult = {
+          ...nextResult,
+          product_name: nextResult.product_name || label,
+          images: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: imported.session.nodes }),
+          imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(nextResult), nodes: imported.session.nodes }),
+          ...canvasWorkMediaFields(nextResult, imported.session.nodes),
+        };
+        try {
+          savedWork = await saveWork(workResult, phone);
+        } catch {
+          savedWork = null;
+        }
+      }
+      setTab('canvas');
+      const remoteArchived = Boolean(savedWork?._saveKey);
+      showToast(
+        projectContext && remoteArchived
+          ? '项目素材已加入画布并保存，不会产生生成或扣费'
+          : projectContext
+            ? '项目素材已加入画布，本地草稿已保留，云端作品暂未保存'
+            : '项目素材已加入画布，本地草稿已保留',
+        projectContext && remoteArchived ? 'success' : 'info',
+      );
+    } finally {
+      projectAssetImportBusyRef.current = false;
     }
-    setTab('canvas');
-    showToast(projectContext ? '项目素材已加入画布并保存，不会产生生成或扣费' : '项目素材已加入画布，本地草稿已保留', projectContext ? 'success' : 'info');
   }, [canvasWorkMediaFields, connections, dispatch, ensureCanvasMediaProject, nodes, phone, result, showToast, state.logged, viewport]);
   const handleInspectProjectAsset = useCallback(async (asset) => {
     if (!asset?.projectId || !asset?.projectAssetId) return;

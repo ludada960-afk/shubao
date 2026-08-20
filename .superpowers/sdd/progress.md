@@ -2319,3 +2319,10 @@
 - 导航动态交互已通过唯一入口 `scripts/deploy-production.ps1 -ValidationProfile frontend` 发布至 `https://shuimg.cn/`；线上 `current` 指向 `/var/www/shubao/releases/20260820-130655-e823283`，PM2 `shubao-production` 在线，健康接口返回 `200/ready`，部署锁已释放。
 - 发布前全量 `npm test` `1954/1954`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 通过；公网图库 `117` 张、公开视频契约 `2` 个产品、认证非计费视频 canary 和 `600` 秒生产 canary 通过。前端专项发布按规范跳过真实电商红苹果验收，未产生付费生成。
 - 本次发布包按归档时的共享工作树打包；导航提交为 `e823283`，共享线程随后完成 `f521363` Canvas 媒体持久化提交。发布后 curl/SSH 复核线上首页与健康接口 `200`、PM2 PID `4159840` 在线。远端磁盘约 `95%` 使用率，未阻断本次发布但需要后续清理备份/发布物并建立容量门禁。
+
+## 2026-08-20 Project Library Canvas Import Single-Flight
+
+- 收口项目素材库导入的并发边界：Canvas 导入现在由组件级 single-flight 锁保护整个异步流程，重复点击不会并行创建多个非计费项目版本或覆盖彼此的导入状态；无效素材分支也会在 finally 中释放锁。
+- 远端作品归档反馈改为以 `saveWork` 的服务端返回结果为准；服务端保存失败时仍保留 Canvas 本地草稿和已加入的节点，但明确提示云端作品暂未保存，不再显示“已保存”的成功反馈。
+- 新增导入并发与远端归档失败回归。聚焦 Canvas/项目/Works `71/71`、全量 `npm test` `1958/1958`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 本轮仍只修改主线程 Canvas 及进度账本；视频线程文件和用户运行态未修改、未暂存。没有供应商调用、真实生成、账务变更或生产部署；线上仍为 `e823283`，本地提交涉及 asset/project/Canvas 路径，发布前必须另行通过 full production gate。

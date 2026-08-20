@@ -288,6 +288,22 @@ test('project library imports create a durable Canvas work context before switch
   assert.match(canvasSource, /!work\.videoUrl && !work\.images\?\.length && work\.productAssets\?\.length/);
 });
 
+test('project library imports are single-flight and do not duplicate project versions', () => {
+  const importBlock = canvasSource.match(/const handleImportProjectAsset = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(canvasSource, /const projectAssetImportBusyRef = useRef\(false\)/);
+  assert.match(importBlock, /if \(projectAssetImportBusyRef\.current\) return/);
+  assert.match(importBlock, /projectAssetImportBusyRef\.current = true/);
+  assert.match(importBlock, /projectAssetImportBusyRef\.current = false/);
+});
+
+test('project library imports distinguish local recovery from remote archive failure', () => {
+  const importBlock = canvasSource.match(/const handleImportProjectAsset = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(importBlock, /let savedWork = null/);
+  assert.match(importBlock, /savedWork = await saveWork/);
+  assert.match(importBlock, /Boolean\(savedWork\?\._saveKey\)/);
+  assert.match(importBlock, /云端作品暂未保存/);
+});
+
 test('double-click image preview is a keyboard-accessible dialog', () => {
   assert.match(canvasSource, /role="dialog" aria-modal="true" aria-label=\{`\$\{zoomImg\.label \|\| '图片'\}大图预览`\}/);
   assert.match(canvasSource, /button type="button" aria-label="关闭大图预览"/);
