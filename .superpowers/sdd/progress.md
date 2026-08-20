@@ -2209,3 +2209,9 @@
 - 主线程审计发现合成授权器此前会把项目版本快照里出现的任意 `assetId` 当成已授权素材，再从全局生成素材存储读取；版本快照不是资产所有权证明，存在跨项目/跨 owner 读取风险。
 - 提交 `d378d27`：合成背景、图层和后续 PSD/像素处理的授权只接受当前 owner、当前 project、当前 version 下未删除的 canonical `project_assets`，或已持久化的 owner-scoped composition revision；伪造快照字段和其他项目 canonical asset 均拒绝。
 - 合成定向回归 `6/6` 通过。本轮没有供应商调用、真实生成、账务变更或生产部署，视频线程继续独立工作。
+
+## 2026-08-20 Project Media Playback Recovery Boundary
+
+- 主线程审计发现 Canvas/Works 项目素材库会把视频和音频的 canonical `stableUrl` 直接交给媒体元素；该 URL 需要自定义 session header，而浏览器 `<video>/<audio>` 不会携带该 header，导致跨域资产在画布中无法稳定预览。
+- 提交 `b16e221`：项目资产路由在 owner 校验后动态补发短期 `playbackUrl`，生产端复用现有视频签名播放能力；canonical `stableUrl` 和 `assetRef` 保持不变，不把播放凭据写进项目快照。Canvas 内存节点使用 playback URL，`createCanvasSnapshot` 会递归还原 stable URL 并移除 transient playback 字段。
+- 项目路由、视频生成、项目桥接、视频工作台和 Canvas 定向回归 `106/106`；本轮未触发供应商调用、真实生成、账务变更或生产部署。
