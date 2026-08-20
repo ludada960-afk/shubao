@@ -2185,3 +2185,9 @@
 - 主线程提交 `1d71c2d`：`createProjectAsset` 统一要求稳定地址为无控制字符的应用内 `/api/...` URL，协议相对地址、外部 HTTP(S) 和其他非应用地址全部拒绝；电商与视频专用写入路径继续共享同一边界。
 - 定向项目/迁移/视频桥接回归保持 `45/45` 通过；`npm run build` 已通过并转换 `6524` modules，随后单独执行 `npm run check`、`npm run collab:check` 和 `git diff --check` 均通过。
 - 联合工作树仍有视频线程的 `server/videoRendererWorker.mjs`、未跟踪批处理测试，以及并行导航文件的未提交改动；主线程不修改、不暂存、不轮询这些文件。直接全量测试在这些并行变更完成前不作为发布证据。
+
+## 2026-08-20 Retention Owner Isolation
+
+- 主线程使用系统化调试和 TDD 复现并修正 retention 保护查询的 owner 边界：实际 `works` 表存在 `owner_email`，但旧查询只按稳定 URL 匹配，可能让其他账号的 Work 延长本账号资产保留期。现在真实表按 `owner_email + stable_url` 匹配；缺少 owner 列的历史迁移表保留兼容查询，避免误删无法证明归属的旧资产。
+- 提交 `3d61c56`。Retention、项目、迁移、路由和视频桥接定向回归 `53/53`；Git 跟踪测试 `1917/1917`，直接 `npm test` `1922/1922`；构建 `6524` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 均通过。
+- 视频线程已自行完成其批处理测试/导航同步，主线程未修改或暂存其文件。当前联合工作树仍有其未提交修改，尚未形成可供主线程审核的正式交接 commit；本轮不触发生产部署或真实生成。
