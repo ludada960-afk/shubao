@@ -186,7 +186,7 @@ function XhsInputTemplate({
             {options.map(([key, label, value, icon]) => {
               return <div className="xhs-template-option-slot" key={key}>
                 <button type="button" className={`ec-config-trigger${activeOption === key ? ' is-open' : ''}`} onClick={() => onOptionToggle(key)} aria-expanded={activeOption === key} aria-controls={`xhs-option-panel-${key}`}>
-                  <span className="xhs-template-option-icon" aria-hidden="true">{icon}</span><span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{activeOption === key ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />}
+                  <span className="xhs-template-option-icon" aria-hidden="true">{icon}</span><span className="ec-config-trigger-copy"><span>{label}</span><strong>{value}</strong></span>{activeOption === key ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronUp size={13} aria-hidden="true" />}
                 </button>
                 {activeOption === key && optionPanels?.[key] && <div id={`xhs-option-panel-${key}`} className="xhs-template-options xhs-template-options--upward" role="region">{optionPanels[key]}</div>}
               </div>;

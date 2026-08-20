@@ -102,7 +102,7 @@
 .creation-showcase-content-open { display: inline-flex; width: fit-content; align-items: center; gap: 6px; margin-top: 13px; padding: 7px 10px; border: 1px solid rgba(190, 24, 93, .18); border-radius: 7px; color: #a33f60; background: #fff7f8; font: inherit; font-size: 10px; font-weight: 750; cursor: pointer; }
 .creation-showcase-content-open:hover { border-color: rgba(190, 24, 93, .38); background: #fff0f4; }
 
-.xhs-content-surface { width: min(1240px, 100%); margin: 0 auto; padding: 0 16px 34px; box-sizing: border-box; }
+.xhs-content-surface { width: min(1240px, 100%); margin: 0 auto; padding: 0 16px 8px; box-sizing: border-box; }
 .xhs-mode-selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; padding: 6px; border: 1px solid rgba(34, 27, 22, .07); border-radius: 13px; background: linear-gradient(110deg, #fffaf1 0%, #fff 55%, #fff7fb 100%); }
 .xhs-mode-card { position: relative; display: flex; min-width: 0; min-height: 102px; align-items: center; gap: 14px; padding: 9px 42px 9px 11px; overflow: visible; border: 1px solid transparent; border-radius: 10px; color: #342f2b; background: rgba(255, 255, 255, .72); text-align: left; cursor: pointer; font: inherit; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease, background .2s ease; }
 .xhs-mode-card:hover { transform: translateY(-1px); border-color: #e8b2bf; background: #fff; box-shadow: 0 8px 18px rgba(96, 47, 58, .09); }
@@ -151,13 +151,13 @@
 .xhs-prompt-hints span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xhs-legacy-prompt { display: flex; flex-direction: column; min-height: 156px; padding: 12px 20px 8px 8px !important; cursor: text; }
 .xhs-legacy-prompt .xhs-prompt-field { flex: 1 1 auto; box-sizing: border-box; }
-.xhs-template-actions { position: relative; margin: 0; padding: 12px 2px 14px; border-top: 1px solid rgba(28,25,23,.08); background: #fff; }
-.xhs-template-tools { display: grid !important; grid-template-columns: 1fr 1.55fr .92fr 1fr 1.08fr 1fr; gap: 10px !important; align-items: stretch !important; min-width: 0; padding: 0 0 3px; }
-.xhs-input-template .ec-workbench-tools.xhs-template-tools { overflow: visible !important; flex-wrap: nowrap; }
-.xhs-template-option-slot { position: relative; min-width: 0; }
+.xhs-template-actions { position: relative; margin: 0; padding: 10px 2px 10px; border-top: 1px solid rgba(28,25,23,.08); background: #fff; }
+.xhs-template-tools { display: flex !important; justify-self: start; width: fit-content; max-width: 100%; flex: 0 1 auto !important; gap: 10px !important; align-items: stretch !important; min-width: 0; padding: 0 0 2px; overflow: visible !important; }
+.xhs-input-template .ec-workbench-tools.xhs-template-tools { flex-wrap: nowrap; }
+.xhs-template-option-slot { position: relative; width: fit-content; min-width: 0; flex: 0 0 auto; }
 .xhs-template-option-icon { display: inline-grid; flex: 0 0 auto; place-items: center; color: #6254e7; }
 .xhs-template-actions .ec-workbench-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
-.xhs-template-actions .ec-config-trigger { width: 100%; min-width: 0 !important; cursor: pointer; }
+.xhs-template-actions .ec-config-trigger { width: fit-content; min-width: 126px !important; cursor: pointer; }
 .xhs-template-actions .ec-workbench-next { min-width: 126px; height: 40px; padding: 0 22px; border-radius: 12px; }
 .xhs-template-options { margin: 0; padding: 14px 16px; border: 1px solid rgba(255,255,255,.86); border-radius: 8px; color: #554941; background: rgba(252,252,253,.96); font-size: 12px; box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06); backdrop-filter: blur(24px) saturate(135%); }
 .xhs-template-options--upward { position: absolute; left: 50%; bottom: calc(100% + 10px); z-index: 20; width: min(520px, calc(100vw - 32px)); transform: translateX(-50%); }
@@ -168,9 +168,9 @@
 .xhs-option-list button { padding: 7px 10px; border: 1px solid rgba(34,27,22,.1); border-radius: 7px; color: #6f625a; background: #fff; font: inherit; font-size: 11px; cursor: pointer; }
 .xhs-option-list button:hover, .xhs-option-list button.is-selected { border-color: #be185d; color: #be185d; background: #fff4f8; }
 
-/* XHS controls are a compact action bar: only controls with a real effect remain. */
-.xhs-template-tools { grid-template-columns: minmax(190px, 1fr) !important; max-width: 360px; }
-.xhs-template-tools:has(.xhs-template-option-slot:nth-child(2)) { grid-template-columns: repeat(2, minmax(170px, 1fr)) !important; max-width: 720px; }
+/* XHS controls reuse the ecommerce action bar: content-sized controls on the left, CTA on the right. */
+.xhs-template-actions .ec-workbench-primary-row { grid-template-columns: minmax(0, 1fr) auto; }
+.xhs-template-tools:has(.xhs-template-option-slot:nth-child(2)) { max-width: 100%; }
 .xhs-template-actions .ec-config-trigger { min-height: 56px; }
 .xhs-template-actions .ec-workbench-next:disabled { opacity: 1; background: #e6e3e1 !important; color: #aaa39e !important; box-shadow: none !important; cursor: not-allowed; }
 .xhs-template-option-slot:has(.ec-config-trigger[aria-controls="xhs-option-panel-topic"]) .ec-config-trigger { border-color: rgba(190, 24, 93, .22) !important; }
@@ -198,7 +198,7 @@
   .xhs-input-template .ec-workbench-tools.xhs-template-tools { width: 100%; overflow: visible !important; flex-wrap: wrap; }
   .xhs-template-option-slot { max-width: 100%; }
   .xhs-template-tools,
-  .xhs-template-tools:has(.xhs-template-option-slot:nth-child(2)) { grid-template-columns: 1fr !important; max-width: none; }
+  .xhs-template-tools:has(.xhs-template-option-slot:nth-child(2)) { width: 100%; max-width: 100%; overflow-x: auto !important; }
   .xhs-template-actions .ec-workbench-next { width: 100%; height: 42px; }
   .xhs-template-option-slot { position: static; }
   .xhs-template-options--upward { left: 50%; width: min(520px, calc(100vw - 28px)); transform: translateX(-50%); }

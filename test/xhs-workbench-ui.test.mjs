@@ -28,7 +28,8 @@ test('XHS compact workbench puts content and Plog in the shared top selector', (
 });
 
 test('XHS option trigger points upward while its panel is open', () => {
-  assert.match(xhs, /activeOption === key \? <ChevronUp/);
+  assert.match(xhs, /activeOption === key \? <ChevronDown/);
+  assert.match(xhs, /: <ChevronUp/);
   assert.match(xhs, /xhs-template-options--upward/);
 });
 
@@ -48,7 +49,10 @@ test('XHS reuses the ecommerce upload cards and localizes only the content label
 
 test('XHS workbench keeps the ecommerce spacing and full article body', () => {
   assert.match(showcaseStyles, /\.xhs-input-template \.ec-xhs-composer \{ padding: 8px 10px 10px/);
-  assert.match(showcaseStyles, /\.xhs-template-tools \{ display: grid/);
+  assert.match(showcaseStyles, /\.xhs-template-tools \{ display: flex/);
+  assert.match(showcaseStyles, /justify-self: start;/);
+  assert.match(showcaseStyles, /width: fit-content; max-width: 100%;/);
+  assert.match(showcaseStyles, /padding: 10px 2px 10px/);
   assert.match(showcaseStyles, /\.creation-showcase-content-image-media img/);
   assert.match(showcaseStyles, /\.xhs-ability-selector \.ec-ability-selector-fan-card \{ top: 50%; width: 56px; height: 74px/);
   assert.match(showcaseStyles, /\.xhs-workbench-card \{ margin: 0; padding: 0; border: 0/);
