@@ -132,6 +132,28 @@ function normalizeProjectAssetMetadata(value) {
   return JSON.parse(serialized);
 }
 
+function canvasAssetReferences(snapshot) {
+  const references = [];
+  const visit = value => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    const hasAssetIdentity = Object.hasOwn(value, 'projectAssetId')
+      || Object.hasOwn(value, 'project_asset_id')
+      || Object.hasOwn(value, 'assetRef')
+      || Object.hasOwn(value, 'projectAssetRef');
+    if (hasAssetIdentity) references.push(value.assetRef || value.projectAssetRef || value);
+    Object.entries(value).forEach(([key, child]) => {
+      if (key === 'assetRef' || key === 'projectAssetRef') return;
+      visit(child);
+    });
+  };
+  visit(snapshot);
+  return references;
+}
+
 function codedError(code, message) {
   return Object.assign(new Error(message), { code });
 }
@@ -266,6 +288,25 @@ export function createProjectStore(db, {
     const version = versionFromRow(db.prepare('SELECT * FROM project_versions WHERE id = ? AND project_id = ?').get(versionId, projectId));
     if (!version) throw codedError('VERSION_NOT_FOUND', 'project version not found');
     return version;
+  };
+  const assertCanvasSnapshotAssets = (ownerEmail, snapshot) => {
+    for (const reference of canvasAssetReferences(snapshot)) {
+      const referencedProjectId = String(reference?.projectId || reference?.project_id || '').trim();
+      const projectAssetId = String(reference?.projectAssetId || reference?.project_asset_id || '').trim();
+      const contentHash = String(reference?.contentHash || reference?.content_hash || '').trim();
+      const stableUrl = String(reference?.stableUrl || reference?.stable_url || '').trim();
+      if (!referencedProjectId || !projectAssetId || !contentHash || !stableUrl) {
+        throw codedError('CANVAS_ASSET_NOT_FOUND', 'canvas asset reference is incomplete');
+      }
+      const row = db.prepare(`SELECT pa.id
+        FROM project_assets pa
+        JOIN projects p ON p.id = pa.project_id AND p.owner_email = pa.owner_email AND p.deleted_at IS NULL
+        WHERE pa.id = ? AND pa.owner_email = ? AND pa.project_id = ?
+          AND pa.content_hash = ? AND pa.stable_url = ? AND pa.deleted_at IS NULL`).get(
+        projectAssetId, normalizeOwner(ownerEmail), referencedProjectId, contentHash, stableUrl,
+      );
+      if (!row) throw codedError('CANVAS_ASSET_NOT_FOUND', 'canvas asset reference is not owned or authoritative');
+    }
   };
   const hydrateCheckpoint = row => {
     const checkpoint = checkpointFromRow(row);
@@ -734,6 +775,7 @@ export function createProjectStore(db, {
     createCanvasSession({ ownerEmail, projectId, baseVersionId, snapshot = {}, expiresAt = null }) {
       const project = requireProject(ownerEmail, projectId);
       requireVersion(project.id, baseVersionId);
+      assertCanvasSnapshotAssets(project.ownerEmail, snapshot);
       const created = timestamp();
       const expiry = expiresAt ? new Date(expiresAt) : new Date(created.getTime() + canvasTtlMs);
       const id = randomUUID();
@@ -751,11 +793,15 @@ export function createProjectStore(db, {
 
     saveCanvasSession({ ownerEmail, sessionId, expectedRevision, snapshot }) {
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new TypeError('expectedRevision must be a positive integer');
+      const owner = normalizeOwner(ownerEmail);
+      const current = db.prepare('SELECT project_id FROM canvas_sessions WHERE id = ? AND owner_email = ?').get(sessionId, owner);
+      if (!current) throw codedError('PROJECT_NOT_FOUND', 'canvas session not found');
+      assertCanvasSnapshotAssets(owner, snapshot);
       const updatedAt = timestamp().toISOString();
       const changed = db.prepare(`UPDATE canvas_sessions
         SET snapshot = ?, revision = revision + 1, status = 'saved', updated_at = ?
         WHERE id = ? AND owner_email = ? AND revision = ? AND status IN ('active', 'saved')`)
-        .run(JSON.stringify(snapshot || {}), updatedAt, sessionId, normalizeOwner(ownerEmail), expectedRevision).changes;
+        .run(JSON.stringify(snapshot || {}), updatedAt, sessionId, owner, expectedRevision).changes;
       if (changed !== 1) throw codedError('VERSION_CONFLICT', 'canvas session revision changed');
       return api.getCanvasSession({ ownerEmail, sessionId });
     },

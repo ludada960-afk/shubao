@@ -250,6 +250,117 @@ test('saves canvas sessions with optimistic revisions and supports explicit disc
   assert.equal(store.discardCanvasSession({ ownerEmail: 'owner@example.com', sessionId: session.id }).status, 'discarded');
 });
 
+test('rejects a Canvas snapshot that references another owner project asset', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'canvas-owner@example.com';
+  const otherOwner = 'other-owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '画布项目' });
+  const version = store.createVersion({ ownerEmail, projectId: project.id, reason: 'manual_save' });
+  const foreignProject = store.createProject({ ownerEmail: otherOwner, kind: 'video', title: '其他项目' });
+  const foreignAsset = store.createProjectAsset({
+    ownerEmail: otherOwner,
+    projectId: foreignProject.id,
+    assetId: 'foreign-asset',
+    stableUrl: '/api/video/assets/foreign-asset',
+    contentHash: 'foreign-hash',
+    mimeType: 'video/mp4',
+  });
+
+  assert.throws(() => store.createCanvasSession({
+    ownerEmail,
+    projectId: project.id,
+    baseVersionId: version.id,
+    snapshot: {
+      nodes: [{
+        id: 'foreign-node',
+        assetRef: {
+          projectId: foreignProject.id,
+          projectAssetId: foreignAsset.projectAssetId,
+          contentHash: foreignAsset.contentHash,
+          stableUrl: foreignAsset.stableUrl,
+          mimeType: foreignAsset.mimeType,
+        },
+      }],
+    },
+  }), error => error?.code === 'CANVAS_ASSET_NOT_FOUND');
+
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM canvas_sessions').get().count, 0);
+});
+
+test('allows a Canvas snapshot to reuse an authoritative asset from another project of the same owner', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'canvas-owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '目标项目' });
+  const version = store.createVersion({ ownerEmail, projectId: project.id, reason: 'manual_save' });
+  const sourceProject = store.createProject({ ownerEmail, kind: 'video', title: '来源项目' });
+  const sourceAsset = store.createProjectAsset({
+    ownerEmail,
+    projectId: sourceProject.id,
+    assetId: 'reusable-asset',
+    stableUrl: '/api/video/assets/reusable-asset',
+    contentHash: 'reusable-hash',
+    mimeType: 'video/mp4',
+  });
+
+  const session = store.createCanvasSession({
+    ownerEmail,
+    projectId: project.id,
+    baseVersionId: version.id,
+    snapshot: { nodes: [{ assetRef: {
+      projectId: sourceProject.id,
+      projectAssetId: sourceAsset.projectAssetId,
+      contentHash: sourceAsset.contentHash,
+      stableUrl: sourceAsset.stableUrl,
+      mimeType: sourceAsset.mimeType,
+    } }] },
+  });
+
+  assert.equal(session.projectId, project.id);
+});
+
+test('rejects saving a Canvas snapshot that introduces another owner project asset', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'canvas-owner@example.com';
+  const otherOwner = 'other-owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '画布保存项目' });
+  const version = store.createVersion({ ownerEmail, projectId: project.id, reason: 'manual_save' });
+  const session = store.createCanvasSession({
+    ownerEmail,
+    projectId: project.id,
+    baseVersionId: version.id,
+    snapshot: { nodes: [{ id: 'safe-node', type: 'text' }] },
+  });
+  const foreignProject = store.createProject({ ownerEmail: otherOwner, kind: 'video', title: '外部项目' });
+  const foreignAsset = store.createProjectAsset({
+    ownerEmail: otherOwner,
+    projectId: foreignProject.id,
+    assetId: 'foreign-save-asset',
+    stableUrl: '/api/video/assets/foreign-save-asset',
+    contentHash: 'foreign-save-hash',
+    mimeType: 'video/mp4',
+  });
+
+  assert.throws(() => store.saveCanvasSession({
+    ownerEmail,
+    sessionId: session.id,
+    expectedRevision: session.revision,
+    snapshot: { nodes: [{ assetRef: {
+      projectId: foreignProject.id,
+      projectAssetId: foreignAsset.projectAssetId,
+      contentHash: foreignAsset.contentHash,
+      stableUrl: foreignAsset.stableUrl,
+      mimeType: foreignAsset.mimeType,
+    } }] },
+  }), error => error?.code === 'CANVAS_ASSET_NOT_FOUND');
+
+  const restored = store.getCanvasSession({ ownerEmail, sessionId: session.id });
+  assert.equal(restored.revision, 1);
+  assert.deepEqual(restored.snapshot, { nodes: [{ id: 'safe-node', type: 'text' }] });
+});
+
 test('links a generation run and completes a project with an accepted result version', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());
