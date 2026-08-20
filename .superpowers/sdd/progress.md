@@ -2203,3 +2203,9 @@
 - 主线程使用回归先复现并修正 retention 清理的第二层 owner 问题：此前同名 `asset_id` 的其他 owner 引用会阻止当前账号清理，且删除条件按 `asset_id` 可能批量改写其他账号记录；争议账单、生成运行和合成引用也缺少完整 owner 过滤。
 - 提交 `eada5f7`：保护判断按资产 owner 限定，删除按单条 canonical project asset 记录执行；底层二进制只有在所有 owner 均无剩余引用时才移除，避免跨账号误删共享文件或延长生命周期。新增外部同名资产和外部争议账单回归；retention、项目、路由、迁移及 Canvas 定向 `54/54` 通过。
 - 本轮没有触发供应商调用、真实生成、账务变更或生产部署；视频线程文件保持未修改、未暂存、未轮询。
+
+## 2026-08-20 Composition Canonical Asset Authorization
+
+- 主线程审计发现合成授权器此前会把项目版本快照里出现的任意 `assetId` 当成已授权素材，再从全局生成素材存储读取；版本快照不是资产所有权证明，存在跨项目/跨 owner 读取风险。
+- 提交 `d378d27`：合成背景、图层和后续 PSD/像素处理的授权只接受当前 owner、当前 project、当前 version 下未删除的 canonical `project_assets`，或已持久化的 owner-scoped composition revision；伪造快照字段和其他项目 canonical asset 均拒绝。
+- 合成定向回归 `6/6` 通过。本轮没有供应商调用、真实生成、账务变更或生产部署，视频线程继续独立工作。
