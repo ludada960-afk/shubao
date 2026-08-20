@@ -1,6 +1,6 @@
 import { inferWorkType, mergeWorkCollections } from '../../utils/workRecords.js';
 import { normalizeWorkImages } from '../../utils/workImages.js';
-import { attachCanvasProjectAssetRef, collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
+import { attachCanvasProjectAssetRef, buildCanvasAssetRef, collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -39,7 +39,14 @@ function projectVideoAssetRef(work = {}) {
     work.video?.projectAssetRef,
     ...(Array.isArray(work.projectAssetRefs) ? work.projectAssetRefs : []),
   ];
-  return candidates.find(ref => ref && typeof ref === 'object' && cleanString(ref.stableUrl) && cleanString(ref.contentHash) && cleanString(ref.mimeType)) || null;
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object' || !cleanString(candidate.stableUrl || candidate.stable_url)
+      || !cleanString(candidate.contentHash || candidate.content_hash)
+      || !cleanString(candidate.mimeType || candidate.mime_type)) continue;
+    const ref = buildCanvasAssetRef(candidate);
+    if (ref?.mediaKind === 'video') return ref;
+  }
+  return null;
 }
 
 export function canvasVideoAsset(work = {}) {

@@ -57,12 +57,14 @@ test('VideoStudio handoff binds the canonical project asset to the Canvas runtim
       contentHash: 'a'.repeat(64),
       mimeType: 'video/mp4',
       role: 'generated_video',
+      ownerEmail: 'must-not-persist@example.com',
     }],
   });
   const node = createUploadedVideoNodes({ assets: [asset] })[0];
   assert.equal(node.url, asset.url);
   assert.equal(node.assetRef.stableUrl, '/api/video/assets/output-1.mp4');
   assert.equal(node.assetRef.projectAssetId, 'video-result-1');
+  assert.equal('ownerEmail' in node.assetRef, false);
   const durable = createCanvasSnapshot({ nodes: [node] });
   assert.equal(durable.nodes[0].url, '/api/video/assets/output-1.mp4');
   assert.equal('playbackUrl' in durable.nodes[0], false);
@@ -81,6 +83,9 @@ test('Canvas video generation keeps the delivered project asset ref on the resul
       contentHash: 'b'.repeat(64),
       mimeType: 'video/mp4',
       role: 'generated_video',
+      mediaKind: 'video',
+      width: null,
+      height: null,
     },
   });
   assert.deepEqual(patch, {
@@ -93,7 +98,10 @@ test('Canvas video generation keeps the delivered project asset ref on the resul
       stableUrl: '/api/video/assets/output-2.mp4',
       contentHash: 'b'.repeat(64),
       mimeType: 'video/mp4',
+      mediaKind: 'video',
       role: 'generated_video',
+      width: null,
+      height: null,
     },
   });
 });
