@@ -22,6 +22,19 @@ function clone(value, fallback) {
   try { return JSON.parse(JSON.stringify(value)); } catch { return fallback; }
 }
 
+function durableCanvasValue(value) {
+  if (Array.isArray(value)) return value.map(durableCanvasValue);
+  if (!value || typeof value !== 'object') return value;
+  const next = Object.fromEntries(Object.entries(value).map(([key, child]) => [key, durableCanvasValue(child)]));
+  const ref = next.assetRef || next.projectAssetRef;
+  const stableUrl = typeof ref?.stableUrl === 'string' ? ref.stableUrl.trim() : '';
+  if (stableUrl && (next.url || next.playbackUrl)) {
+    next.url = stableUrl;
+    delete next.playbackUrl;
+  }
+  return next;
+}
+
 function normalizedViewport(viewport = {}) {
   return {
     x: Number.isFinite(viewport.x) ? viewport.x : 80,
@@ -32,7 +45,7 @@ function normalizedViewport(viewport = {}) {
 
 export function createCanvasSnapshot({ nodes = [], connections = [], viewport = {} } = {}) {
   return {
-    nodes: clone(Array.isArray(nodes) ? nodes : [], []),
+    nodes: durableCanvasValue(clone(Array.isArray(nodes) ? nodes : [], [])),
     connections: clone(Array.isArray(connections) ? connections : [], []),
     viewport: normalizedViewport(viewport),
   };
@@ -49,7 +62,7 @@ function audioNodeFromAsset(asset, ref, position, now) {
     kind: 'audio',
     provenance: 'source',
     status: 'ready',
-    url: ref.stableUrl,
+    url: asset.playbackUrl || ref.stableUrl,
     name: visibleName(asset.name || asset.label || ref.role, '项目音频'),
     displayLabel: visibleName(asset.name || asset.label || ref.role, '项目音频'),
     group: '音频',
@@ -95,7 +108,7 @@ export function importProjectAssetToCanvas({ asset = {}, session = {}, source = 
   const normalizedAsset = {
     ...asset,
     ...ref,
-    url: ref.stableUrl,
+    url: asset.playbackUrl || ref.stableUrl,
     stableUrl: ref.stableUrl,
     name: asset.name || asset.label || ref.role,
   };

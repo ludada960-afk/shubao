@@ -47,6 +47,11 @@ function createHarness() {
   const app = createFakeApp();
   mountProjectRoutes(app, {
     projectStore,
+    resolveAssetPlaybackUrl({ asset, ownerEmail }) {
+      return asset.mediaKind === 'video'
+        ? `/api/video/media/${asset.assetId}?owner=${encodeURIComponent(ownerEmail)}&cap=test-capability`
+        : '';
+    },
     authenticateOwner(req) {
       return authenticateContentRequest(req, { sessionTokens, authorizeEmail: email => ({ ok: true, email }) });
     },
@@ -129,6 +134,8 @@ test('project asset read routes are owner-scoped and support media filtering', a
   assert.equal(listed.body.assets.length, 1);
   assert.equal(listed.body.assets[0].mediaKind, 'video');
   assert.equal(read.body.asset.projectAssetId, video.projectAssetId);
+  assert.equal(read.body.asset.stableUrl, '/api/video/assets/video-1');
+  assert.match(read.body.asset.playbackUrl, /^\/api\/video\/media\/video-1\?/);
   assert.equal(lineage.statusCode, 200);
   assert.equal(lineage.body.lineage.asset.projectAssetId, video.projectAssetId);
   assert.deepEqual(lineage.body.lineage.parents, []);
@@ -159,6 +166,30 @@ test('unified project asset library is signed, filtered, and display-safe', asyn
   assert.equal('ownerEmail' in listed.body.assets[0], false);
   assert.equal(denied.statusCode, 200);
   assert.deepEqual(denied.body.assets, []);
+});
+
+test('project asset playback URLs are transient and never replace the canonical stable URL', async t => {
+  const { app, db, projectStore, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const owner = 'playback-owner@example.com';
+  const project = projectStore.createProject({ ownerEmail: owner, kind: 'video', title: '播放地址' });
+  projectStore.createProjectAsset({
+    ownerEmail: owner,
+    projectId: project.id,
+    assetId: 'preview-video',
+    stableUrl: '/api/video/assets/preview-video',
+    contentHash: 'preview-hash',
+    mimeType: 'video/mp4',
+  });
+
+  const response = await invoke(app, 'GET', '/api/project-assets', {
+    headers: signedHeaders(sessionTokens, owner),
+    query: { mediaKind: 'video' },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.assets[0].stableUrl, '/api/video/assets/preview-video');
+  assert.match(response.body.assets[0].playbackUrl, /^\/api\/video\/media\/preview-video\?/);
 });
 
 test('signed owners can create an explicit recovery checkpoint and complete their project', async t => {

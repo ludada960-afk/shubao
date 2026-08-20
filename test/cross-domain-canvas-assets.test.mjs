@@ -84,6 +84,25 @@ test('imports image, video and audio project assets as canonical Canvas source n
   assert.equal(session.nodes.find(node => node.projectAssetId === 'asset-3').assetRef.mediaKind, 'audio');
 });
 
+test('uses transient playback URLs for media nodes while keeping stable asset identity in the snapshot', () => {
+  const asset = {
+    ...projectAsset,
+    projectAssetId: 'asset-playback',
+    assetId: 'clip.mp4',
+    stableUrl: '/api/video/assets/clip.mp4',
+    playbackUrl: '/api/video/media/clip.mp4?expires=123&signature=transient',
+    contentHash: 'hash-playback',
+    mimeType: 'video/mp4',
+    mediaKind: 'video',
+  };
+  const imported = importProjectAssetToCanvas({ asset, session: createCanvasSnapshot() });
+  assert.equal(imported.node.url, asset.playbackUrl);
+  assert.equal(imported.node.assetRef.stableUrl, asset.stableUrl);
+  const snapshot = createCanvasSnapshot(imported.session);
+  assert.equal(snapshot.nodes[0].url, asset.stableUrl);
+  assert.equal('playbackUrl' in snapshot.nodes[0], false);
+});
+
 test('re-importing the same canonical asset is idempotent and preserves the session', () => {
   const first = importProjectAssetToCanvas({ asset: projectAsset, session: createCanvasSnapshot() });
   const second = importProjectAssetToCanvas({ asset: projectAsset, session: first.session });

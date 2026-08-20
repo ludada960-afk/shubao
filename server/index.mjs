@@ -605,6 +605,14 @@ const adminRouteHandlers = mountAdminRoutes(app, {
 
 mountProjectRoutes(app, {
   projectStore,
+  resolveAssetPlaybackUrl({ asset, ownerEmail, req }) {
+    const match = /^\/api\/video\/(?:assets|media)\/([^/?#]+)$/i.exec(String(asset?.stableUrl || '').trim());
+    if (!match) return '';
+    const proto = String(req?.headers?.['x-forwarded-proto'] || req?.protocol || 'https').split(',')[0].trim();
+    const host = typeof req?.get === 'function' ? req.get('host') : req?.headers?.host;
+    const publicBaseUrl = host ? `${proto}://${host}` : '';
+    return videoGeneration.playbackUrlForAsset(decodeURIComponent(match[1]), ownerEmail, publicBaseUrl);
+  },
   authenticateOwner(req) {
     return authenticateContentRequest(req, {
       sessionTokens: contentSessionTokens,

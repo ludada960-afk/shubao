@@ -29,6 +29,18 @@ function ownerFor(req, authenticateOwner) {
   return typeof result === 'string' ? result : result?.email;
 }
 
+function withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl } = {}) {
+  if (!asset || typeof resolveAssetPlaybackUrl !== 'function') return asset;
+  try {
+    const playbackUrl = resolveAssetPlaybackUrl({ asset, ownerEmail, req });
+    return typeof playbackUrl === 'string' && playbackUrl.trim()
+      ? { ...asset, playbackUrl: playbackUrl.trim() }
+      : asset;
+  } catch {
+    return asset;
+  }
+}
+
 export function createSessionHandler({ authenticateOwner }) {
   return (req, res) => {
     try {
@@ -41,7 +53,7 @@ export function createSessionHandler({ authenticateOwner }) {
   };
 }
 
-export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
+export function mountProjectRoutes(app, { projectStore, authenticateOwner, resolveAssetPlaybackUrl = null }) {
   if (!app || typeof app.get !== 'function' || typeof app.post !== 'function' || typeof app.patch !== 'function') {
     throw new TypeError('app must provide get, post and patch');
   }
@@ -69,13 +81,14 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
   });
   app.get('/api/project-assets', (req, res) => {
     try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
       return res.json({ assets: projectStore.listProjectAssetLibrary({
-        ownerEmail: ownerFor(req, authenticateOwner),
+        ownerEmail,
         projectId: req.query?.projectId,
         projectKind: req.query?.projectKind,
         mediaKind: req.query?.mediaKind,
         limit: req.query?.limit,
-      }) });
+      }).map(asset => withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl })) });
     } catch (error) { return routeError(error, res); }
   });
   app.get('/api/projects/:projectId', (req, res) => {
@@ -87,9 +100,10 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
   });
   app.get('/api/projects/:projectId/assets', (req, res) => {
     try {
+      const ownerEmail = ownerFor(req, authenticateOwner);
       return res.json({ assets: projectStore.listProjectAssets({
-        ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId, mediaKind: req.query?.mediaKind,
-      }) });
+        ownerEmail, projectId: req.params.projectId, mediaKind: req.query?.mediaKind,
+      }).map(asset => withPlaybackUrl(asset, { ownerEmail, req, resolveAssetPlaybackUrl })) });
     } catch (error) { return routeError(error, res); }
   });
   app.get('/api/projects/:projectId/assets/:assetId/lineage', (req, res) => {
@@ -103,9 +117,10 @@ export function mountProjectRoutes(app, { projectStore, authenticateOwner }) {
   });
   app.get('/api/projects/:projectId/assets/:assetId', (req, res) => {
     try {
-      const asset = projectStore.getProjectAsset({
-        ownerEmail: ownerFor(req, authenticateOwner), projectId: req.params.projectId, projectAssetId: req.params.assetId,
-      });
+      const ownerEmail = ownerFor(req, authenticateOwner);
+      const asset = withPlaybackUrl(projectStore.getProjectAsset({
+        ownerEmail, projectId: req.params.projectId, projectAssetId: req.params.assetId,
+      }), { ownerEmail, req, resolveAssetPlaybackUrl });
       if (!asset) return res.status(404).json({ code: 'PROJECT_ASSET_NOT_FOUND', error: '未找到该项目素材' });
       return res.json({ asset });
     } catch (error) { return routeError(error, res); }
