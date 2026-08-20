@@ -2259,3 +2259,9 @@
 - 提交前复核发现客户端结果投影不应原样接受不完整的 `projectAssetRef`。`canvasVideoResultPatch` 现在仅保留同时具备项目资产 ID、稳定 URL、内容哈希和 MIME 的 canonical 引用；不完整引用会被丢弃，运行时播放 URL 和结果资产 ID仍保持可用。
 - 新增不完整引用回归；定向 Canvas/项目恢复回归 `28/28`，全量 `npm test` `1941/1941`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
 - 本轮没有触发供应商、真实生成、账务或生产部署；线上仍是 `c98be11`，本地提交需经过独立 full production gate 后才可发布。
+
+## 2026-08-20 Display-Safe Video Ref Projection
+
+- 进一步收紧客户端跨域边界：视频结果引用现在复用 Canvas 既有 `buildCanvasAssetRef` 规范化器，仅写入 display-safe 的项目、资产、哈希、稳定 URL、MIME、媒体类型和有限尺寸字段；服务端扩展字段（例如 owner 身份）不会进入 Canvas 节点或快照。
+- 新增敏感字段隔离回归；定向 Canvas/项目恢复回归 `28/28`，全量 `npm test` `1941/1941`、生产构建 `6524` modules 通过。提交前仍需复核 `check`、`collab:check` 和差异检查。
+- 本轮没有触发供应商、真实生成、账务或生产部署。
