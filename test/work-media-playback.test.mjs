@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { decorateOwnedWorkPlayback } from '../server/projects/workMediaPlayback.mjs';
@@ -57,4 +58,12 @@ test('Works playback decoration fails open for non-video assets and unavailable 
     ownerEmail: 'owner@example.com',
     resolveAssetPlaybackUrl: () => '',
   }), work);
+});
+
+test('trash Works use the same owner-scoped playback decoration as active Works', async () => {
+  const source = await readFile(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const trashBlock = source.match(/listTrash: ownerEmail =>[\s\S]*?\n\s*saveOwnedWork:/)?.[0] || '';
+  assert.match(trashBlock, /getDeletedWorks\(\{ ownerEmail \}\)/);
+  assert.match(trashBlock, /decorateOwnedWorkPlayback/);
+  assert.match(trashBlock, /resolveAssetPlaybackUrl/);
 });

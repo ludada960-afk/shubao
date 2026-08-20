@@ -2536,7 +2536,12 @@ mountWorkRoutes(app, {
       retention: retentionService.describeWork({ ownerEmail, work }),
     };
   }),
-  listTrash: ownerEmail => getDeletedWorks({ ownerEmail }),
+  listTrash: ownerEmail => getDeletedWorks({ ownerEmail }).map(work => decorateOwnedWorkPlayback(work, {
+    ownerEmail,
+    resolveAssetPlaybackUrl: ({ asset, ownerEmail: owner }) => (
+      videoGeneration.playbackUrlForAsset(asset.assetId, owner)
+    ),
+  })),
   saveOwnedWork: (work, ownerEmail) => upsertWork(work, { ownerEmail }),
   deleteOwnedWork: (saveKey, ownerEmail) => softDeleteWork(saveKey, { ownerEmail }),
   restoreOwnedWork: (saveKey, ownerEmail) => restoreWork(saveKey, { ownerEmail }),
