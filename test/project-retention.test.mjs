@@ -177,6 +177,22 @@ test('a Work from another owner cannot protect an expired project asset', () => 
   db.close();
 });
 
+test('a Canvas session from another owner cannot protect an expired project asset', () => {
+  const { db, removed, retention } = createHarness();
+  insertAsset(db, { id: 'canvas-owner-isolated', retentionState: 'marked' });
+  db.prepare(`INSERT INTO canvas_sessions
+    (id, owner_email, project_id, base_version_id, snapshot, expires_at, created_at, updated_at)
+    VALUES ('foreign-canvas', 'other@example.com', 'project-1', 'version-1', ?, '2026-08-01T00:00:00.000Z', '2026-07-01T00:00:00.000Z', '2026-07-01T00:00:00.000Z')`)
+    .run(JSON.stringify({ assetId: 'canvas-owner-isolated' }));
+
+  const report = retention.isolateMarked();
+
+  assert.deepEqual(report.protectedAssetIds, []);
+  assert.deepEqual(report.isolatedAssetIds, ['canvas-owner-isolated']);
+  assert.deepEqual(removed, []);
+  db.close();
+});
+
 test('a same-named asset from another owner cannot delay cleanup or delete shared bytes', () => {
   const { db, removed, retention } = createHarness();
   db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)

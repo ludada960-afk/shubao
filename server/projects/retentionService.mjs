@@ -42,9 +42,9 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
     && db.prepare(`PRAGMA table_info(${table})`).all().some(entry => entry.name === column);
   const protectedByReference = (asset, current) => {
     const canvas = db.prepare(`SELECT 1 FROM canvas_sessions
-      WHERE project_id = ? AND status IN ('active', 'saved') AND expires_at > ?
+      WHERE owner_email = ? AND project_id = ? AND status IN ('active', 'saved') AND expires_at > ?
         AND (snapshot LIKE ? OR snapshot LIKE ?) LIMIT 1`)
-      .get(asset.projectId, current.toISOString(), `%${asset.assetId}%`, `%${asset.stableUrl}%`);
+      .get(asset.ownerEmail, asset.projectId, current.toISOString(), `%${asset.assetId}%`, `%${asset.stableUrl}%`);
     if (canvas) return true;
     const run = db.prepare(`SELECT 1 FROM project_generation_runs
       WHERE project_id = ? AND owner_email = ? AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled') LIMIT 1`)
