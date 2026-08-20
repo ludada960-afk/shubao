@@ -1060,6 +1060,25 @@ export function createProjectStore(db, {
       return runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ?').get(generationRunId));
     },
 
+    getGenerationRun({ ownerEmail, generationRunId }) {
+      const owner = normalizeOwner(ownerEmail);
+      const runId = String(generationRunId || '').trim();
+      if (!owner) throw new TypeError('ownerEmail is required');
+      if (!runId) throw new TypeError('generationRunId is required');
+      return runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ? AND owner_email = ?').get(runId, owner));
+    },
+
+    getGenerationRunIdentity({ generationRunId }) {
+      const runId = String(generationRunId || '').trim();
+      if (!runId) throw new TypeError('generationRunId is required');
+      const run = runFromRow(db.prepare('SELECT * FROM project_generation_runs WHERE id = ?').get(runId));
+      return run ? { id: run.id, ownerEmail: run.ownerEmail, kind: run.kind, projectId: run.projectId } : null;
+    },
+
+    terminateGeneration(input = {}) {
+      return api.terminateEcommerceGeneration(input);
+    },
+
     completeProject({ ownerEmail, projectId, acceptedVersionId, generationRunId = null }) {
       const project = requireProject(ownerEmail, projectId);
       requireVersion(project.id, acceptedVersionId);
@@ -1094,6 +1113,9 @@ export function createProjectStore(db, {
         }
         db.prepare(`UPDATE projects SET status = 'completed', accepted_version_id = ?, head_version_id = ?, completed_at = ?, updated_at = ?
           WHERE id = ? AND owner_email = ?`).run(acceptedVersionId, acceptedVersionId, completedAt, completedAt, project.id, project.ownerEmail);
+        db.prepare(`UPDATE project_assets SET retention_class = 'completed'
+          WHERE project_id = ? AND owner_email = ? AND version_id = ? AND deleted_at IS NULL
+            AND retention_class = 'unfinished'`).run(project.id, project.ownerEmail, acceptedVersionId);
         db.prepare("UPDATE recovery_checkpoints SET status = 'consumed' WHERE project_id = ? AND owner_email = ? AND status = 'available'")
           .run(project.id, project.ownerEmail);
       }).immediate();

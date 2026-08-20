@@ -354,6 +354,10 @@ export function createBilledSseRunner({
   renewContentGenerationLease = beginContentGeneration?.renewLease,
   completeContentGeneration,
   failContentGeneration,
+  onStart = null,
+  prepareDelivery = null,
+  onComplete = null,
+  onFailure = null,
   onReleaseError = error => console.error('[content-billing] release failed:', error.message),
   now = Date.now,
   heartbeatMs = null,
@@ -470,6 +474,7 @@ export function createBilledSseRunner({
     }
 
     let lifecycleHandled = false;
+    let lifecycleContext = null;
     let heartbeat = null;
     let transportHeartbeat = null;
     try {
@@ -481,13 +486,27 @@ export function createBilledSseRunner({
       transportHeartbeat?.unref?.();
       let delivery;
       try {
+        if (typeof onStart === 'function') {
+          lifecycleContext = await onStart({ ownerEmail, begun });
+        }
         delivery = await generate({
           send: (type, data) => transport.send(type, data),
           generationId: begun.generationId,
           workId: begun.workId,
           leaseToken: begun.leaseToken,
           billing: begun.billing,
+          project: lifecycleContext,
         });
+        if (typeof prepareDelivery === 'function') {
+          const prepared = await prepareDelivery({ ownerEmail, begun, delivery, context: lifecycleContext });
+          if (prepared && typeof prepared === 'object' && !Array.isArray(prepared)
+            && Object.hasOwn(prepared, 'delivery')) {
+            delivery = prepared.delivery;
+            lifecycleContext = prepared.context || lifecycleContext;
+          } else {
+            delivery = prepared;
+          }
+        }
       } finally {
         heartbeat.stop();
         await heartbeat.settle();
@@ -501,6 +520,13 @@ export function createBilledSseRunner({
       });
       lifecycleHandled = true;
       if (completed.jobStatus === 'failed') {
+        if (typeof onFailure === 'function') {
+          try {
+            await onFailure({ ownerEmail, begun, completed, context: lifecycleContext });
+          } catch (lifecycleError) {
+            onReleaseError(lifecycleError, completed.error);
+          }
+        }
         transport.send('error', {
           error: describeContentGenerationFailure(completed.error, completed.billing),
           code: completed.error?.code || 'CONTENT_DELIVERY_EMPTY',
@@ -509,6 +535,13 @@ export function createBilledSseRunner({
           billing: completed.billing,
         });
       } else {
+        if (typeof onComplete === 'function') {
+          try {
+            await onComplete({ ownerEmail, begun, completed, delivery, context: lifecycleContext });
+          } catch (lifecycleError) {
+            onReleaseError(lifecycleError, null);
+          }
+        }
         transport.send('complete', completedEvent(completed, completed.action === 'replay'));
       }
       return completed;
@@ -524,6 +557,13 @@ export function createBilledSseRunner({
         lifecycleHandled = true;
       } catch (releaseError) {
         onReleaseError(releaseError, error);
+      }
+      if (typeof onFailure === 'function') {
+        try {
+          await onFailure({ ownerEmail, begun, error, context: lifecycleContext });
+        } catch (lifecycleError) {
+          onReleaseError(lifecycleError, error);
+        }
       }
       transport.send('error', {
         error: describeContentGenerationFailure(error, failed?.billing),

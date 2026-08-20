@@ -76,6 +76,7 @@ import {
 import { createGenerationJobs } from './generationJobs.mjs';
 import { createCanvasGenerationStore } from './canvasGenerationStore.mjs';
 import { createProjectStore } from './projects/projectStore.mjs';
+import { createContentProjectLifecycle } from './projects/contentProjectLifecycle.mjs';
 import { createVideoProjectAssetImporter } from './projects/projectVideoAssetImport.mjs';
 import { createImageProjectAssetImporter } from './projects/projectImageAssetImport.mjs';
 import { createVideoProjectBridge } from './videoProjectBridge.mjs';
@@ -255,6 +256,7 @@ const generatedAssetStore = createGeneratedAssetStore({
   },
 });
 const projectStore = createProjectStore(db);
+const contentProjectLifecycle = createContentProjectLifecycle({ projectStore });
 const videoProjectBridge = createVideoProjectBridge({ db, projectStore });
 videoWorkbenchStore = videoWorkbenchEnabled
   ? createVideoWorkbenchStore({ db, projectStore })
@@ -331,6 +333,30 @@ const runBilledContentSse = createBilledSseRunner({
   beginContentGeneration,
   completeContentGeneration,
   failContentGeneration,
+  onStart: ({ ownerEmail, begun }) => contentProjectLifecycle.begin({
+    ownerEmail,
+    generationId: begun.generationId,
+    mode: begun.mode,
+  }),
+  prepareDelivery: ({ ownerEmail, delivery, context }) => contentProjectLifecycle.prepareResult({
+    ownerEmail,
+    context,
+    delivery,
+  }).then(project => ({
+    context: project,
+    delivery: {
+      ...delivery,
+      projectId: project.projectId,
+      projectKind: project.projectKind,
+      sourceVersionId: project.sourceVersionId,
+      resultVersionId: project.resultVersionId,
+      projectAssetRefs: project.projectAssetRefs,
+    },
+  })),
+  onComplete: ({ ownerEmail, completed, context }) => completed.jobStatus === 'completed'
+    ? contentProjectLifecycle.complete({ ownerEmail, context })
+    : contentProjectLifecycle.terminate({ ownerEmail, context, status: 'needs_review' }),
+  onFailure: ({ ownerEmail, context }) => contentProjectLifecycle.terminate({ ownerEmail, context }),
 });
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
