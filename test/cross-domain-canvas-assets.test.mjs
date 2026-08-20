@@ -140,3 +140,10 @@ test('Canvas Works entry exposes the owner-scoped project asset library without 
   assert.match(source, /CanvasAudioNode/);
   assert.match(studio, /<audio/);
 });
+
+test('Canvas opening a cached video Work remints playback even without a local draft', async () => {
+  const source = await readFile(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(source, /const mediaRefs = canvasMediaAssetRefs\(newNodes\)/);
+  assert.match(source, /getProjectAsset\(ref\.projectId, ref\.projectAssetId\)/);
+  assert.doesNotMatch(source, /if \(draft && initialSnapshot\?\.nodes\?\.length\) \{/);
+});

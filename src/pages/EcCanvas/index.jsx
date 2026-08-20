@@ -701,16 +701,14 @@ export default function EcCanvas() {
     setCanvasSession(result.canvasSession?.id
       ? result.canvasSession
       : result.canvasSessionId ? { id: result.canvasSessionId, revision: result.canvasSessionRevision || 1 } : null);
-    if (draft && initialSnapshot?.nodes?.length) {
-      const mediaRefs = canvasMediaAssetRefs(initialSnapshot.nodes);
-      if (mediaRefs.length) {
-        void Promise.all(mediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))).then(assets => {
-          if (cancelled) return;
-          const resolvedAssets = assets.filter(Boolean);
-          if (!resolvedAssets.length) return;
-          setNodes(previous => restoreCanvasMediaPlayback(previous, resolvedAssets).map(normalizeCanvasNode));
-        });
-      }
+    const mediaRefs = canvasMediaAssetRefs(newNodes);
+    if (!result.browserQa && mediaRefs.length) {
+      void Promise.all(mediaRefs.map(ref => getProjectAsset(ref.projectId, ref.projectAssetId).catch(() => null))).then(assets => {
+        if (cancelled) return;
+        const resolvedAssets = assets.filter(Boolean);
+        if (!resolvedAssets.length) return;
+        setNodes(previous => restoreCanvasMediaPlayback(previous, resolvedAssets).map(normalizeCanvasNode));
+      });
     }
     const persistedSessionId = result.canvasSession?.id || result.canvasSessionId;
     if (!draft && persistedSessionId) {
