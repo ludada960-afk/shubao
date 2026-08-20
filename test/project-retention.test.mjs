@@ -176,3 +176,40 @@ test('a Work from another owner cannot protect an expired project asset', () => 
   assert.deepEqual(removed, []);
   db.close();
 });
+
+test('a same-named asset from another owner cannot delay cleanup or delete shared bytes', () => {
+  const { db, removed, retention } = createHarness();
+  db.prepare(`INSERT INTO projects (id, owner_email, kind, title, status, created_at, updated_at)
+    VALUES ('project-other', 'other@example.com', 'video', '', 'completed', '2026-06-01T00:00:00.000Z', '2026-06-01T00:00:00.000Z')`).run();
+  insertAsset(db, { id: 'shared-owner-key', retentionState: 'isolated' });
+  db.prepare(`INSERT INTO project_assets
+    (id, asset_id, owner_email, project_id, role, stable_url, mime_type, content_hash, retention_class, retention_state, created_at)
+    VALUES ('link-foreign-shared-owner-key', 'shared-owner-key', 'other@example.com', 'project-other', 'generated',
+      '/api/generated-assets/shared-owner-key.png', 'image/png', 'foreign-hash', 'completed', 'active', '2026-07-29T00:00:00.000Z')`).run();
+
+  const report = retention.deleteIsolated();
+
+  assert.deepEqual(report.deletedAssetIds, ['shared-owner-key']);
+  assert.deepEqual(removed, []);
+  assert.equal(db.prepare("SELECT retention_state FROM project_assets WHERE id = 'link-shared-owner-key'").get().retention_state, 'deleted');
+  assert.equal(db.prepare("SELECT retention_state FROM project_assets WHERE id = 'link-foreign-shared-owner-key'").get().retention_state, 'active');
+  db.close();
+});
+
+test('a disputed hold from another owner cannot protect an expired project asset', () => {
+  const { db, removed, retention } = createHarness();
+  db.prepare(`INSERT INTO billing_holds
+    (id, owner_email, currency, quote_id, status, total_units, settled_units, released_units, idempotency_key, expires_at, metadata)
+    VALUES ('foreign-dispute', 'other@example.com', 'ec_points', 'quote-foreign', 'disputed', 1, 0, 0, 'hold-foreign', '2026-08-30T00:00:00.000Z', '{}')`).run();
+  db.prepare(`INSERT INTO billing_hold_items
+    (id, hold_id, item_key, sku, units, status, reference_id)
+    VALUES ('foreign-dispute-item', 'foreign-dispute', 'item', 'ec_image_2k', 1, 'settled', 'billing-dispute')`).run();
+  insertAsset(db, { id: 'billing-dispute', retentionState: 'marked' });
+
+  const report = retention.isolateMarked();
+
+  assert.deepEqual(report.protectedAssetIds, []);
+  assert.deepEqual(report.isolatedAssetIds, ['billing-dispute']);
+  assert.deepEqual(removed, []);
+  db.close();
+});

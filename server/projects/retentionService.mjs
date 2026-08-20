@@ -47,8 +47,8 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
       .get(asset.projectId, current.toISOString(), `%${asset.assetId}%`, `%${asset.stableUrl}%`);
     if (canvas) return true;
     const run = db.prepare(`SELECT 1 FROM project_generation_runs
-      WHERE project_id = ? AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled') LIMIT 1`)
-      .get(asset.projectId);
+      WHERE project_id = ? AND owner_email = ? AND status NOT IN ('completed', 'needs_review', 'failed', 'cancelled') LIMIT 1`)
+      .get(asset.projectId, asset.ownerEmail);
     if (run) return true;
     let work = null;
     if (hasTable('works')) {
@@ -61,16 +61,18 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
     if (work) return true;
     const composition = db.prepare(`SELECT 1 FROM composition_revisions revision
       JOIN composition_documents document ON document.id = revision.document_id
-      WHERE document.project_id = ? AND (revision.background_asset_id = ? OR revision.rendered_asset_id = ? OR revision.layers LIKE ?) LIMIT 1`)
-      .get(asset.projectId, asset.assetId, asset.assetId, `%${asset.assetId}%`);
+      WHERE document.project_id = ? AND document.owner_email = ?
+        AND (revision.background_asset_id = ? OR revision.rendered_asset_id = ? OR revision.layers LIKE ?) LIMIT 1`)
+      .get(asset.projectId, asset.ownerEmail, asset.assetId, asset.assetId, `%${asset.assetId}%`);
     if (composition) return true;
     const dispute = db.prepare(`SELECT 1 FROM billing_holds hold
       LEFT JOIN billing_hold_items item ON item.hold_id = hold.id
       LEFT JOIN project_generation_runs run ON run.hold_id = hold.id
-      WHERE hold.status = 'disputed' AND (
+      WHERE hold.status = 'disputed' AND hold.owner_email = ?
+        AND (run.owner_email IS NULL OR run.owner_email = ?) AND (
         hold.metadata LIKE ? OR hold.metadata LIKE ? OR item.reference_id = ? OR run.project_id = ?
       ) LIMIT 1`)
-      .get(`%${asset.assetId}%`, `%${asset.stableUrl}%`, asset.assetId, asset.projectId);
+      .get(asset.ownerEmail, asset.ownerEmail, `%${asset.assetId}%`, `%${asset.stableUrl}%`, asset.assetId, asset.projectId);
     return Boolean(dispute);
   };
   const report = () => ({ markedAssetIds: [], isolatedAssetIds: [], deletedAssetIds: [], protectedAssetIds: [] });
@@ -118,8 +120,9 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
       if (!isolatedAt || isolatedAt.getTime() + effectiveGraceMs > current.getTime()) continue;
       const references = db.prepare("SELECT * FROM project_assets WHERE asset_id = ? AND deleted_at IS NULL").all(asset.assetId)
         .map(assetFromRow);
-      const protectedReference = references.find(reference => protectedByReference(reference, current));
-      const pendingReference = references.find(reference => {
+      const ownedReferences = references.filter(reference => reference.ownerEmail === asset.ownerEmail);
+      const protectedReference = ownedReferences.find(reference => protectedByReference(reference, current));
+      const pendingReference = ownedReferences.find(reference => {
         const referenceRow = db.prepare('SELECT isolated_at, retention_state FROM project_assets WHERE id = ?').get(reference.id);
         const referenceIsolatedAt = asDate(referenceRow?.isolated_at);
         return reference.retentionState !== 'isolated' || !referenceIsolatedAt || referenceIsolatedAt.getTime() + effectiveGraceMs > current.getTime();
@@ -131,9 +134,10 @@ export function createRetentionService({ db, assetStore = noOpAssetStore(), now 
         result.protectedAssetIds.push(asset.assetId);
         continue;
       }
-      assetStore.remove(asset.assetId);
-      db.prepare("UPDATE project_assets SET retention_state = 'deleted', deleted_at = ? WHERE asset_id = ? AND deleted_at IS NULL")
-        .run(current.toISOString(), asset.assetId);
+      db.prepare("UPDATE project_assets SET retention_state = 'deleted', deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+        .run(current.toISOString(), asset.id);
+      const remainingReferences = db.prepare("SELECT 1 FROM project_assets WHERE asset_id = ? AND deleted_at IS NULL LIMIT 1").get(asset.assetId);
+      if (!remainingReferences) assetStore.remove(asset.assetId);
       result.deletedAssetIds.push(asset.assetId);
     }
     return result;
