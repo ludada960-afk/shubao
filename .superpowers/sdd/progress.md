@@ -2253,3 +2253,9 @@
 - 新增 `canvasVideoResultPatch`，统一把已交付 job 的运行时播放地址、资产 ID 和 canonical project asset ref 投影到 Canvas 节点；既有 durable snapshot 仍负责把 transient playback URL 还原为稳定 URL，缺少 canonical ref 的历史 job 保持兼容。
 - 新增生成结果身份回归；全量 `npm test` `1938/1938`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
 - 本轮没有触发供应商、真实生成、账务或生产部署；视频线程文件保持未修改、未暂存。
+
+## 2026-08-20 Canonical Video Result Validation
+
+- 提交前复核发现客户端结果投影不应原样接受不完整的 `projectAssetRef`。`canvasVideoResultPatch` 现在仅保留同时具备项目资产 ID、稳定 URL、内容哈希和 MIME 的 canonical 引用；不完整引用会被丢弃，运行时播放 URL 和结果资产 ID仍保持可用。
+- 新增不完整引用回归；定向 Canvas/项目恢复回归 `28/28`，全量 `npm test` `1941/1941`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 本轮没有触发供应商、真实生成、账务或生产部署；线上仍是 `c98be11`，本地提交需经过独立 full production gate 后才可发布。
