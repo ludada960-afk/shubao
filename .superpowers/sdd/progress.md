@@ -2233,3 +2233,9 @@
 - 新增 `server/projects/workMediaPlayback.mjs`，对 owner 已授权的 Works 响应做读取时装饰：视频和音频统一保留 `stableUrl`，动态补发短期 `playbackUrl` 并把运行时 `url` 指向播放地址；图片和非媒体 URL 不受影响，签发失败则保留可读 metadata。原始 Work 对象不被改写，短期 token 不会持久化。
 - `/api/works` 已接入该装饰器，并继续用未装饰的原始 Work 计算 retention，避免 transient URL 改变保留判断。新增嵌套视频/音频、跨层 project asset ref、非媒体和失败回退回归；聚焦回归 `30/30` 通过。
 - 本轮仍未触发供应商、真实生成、账务或生产部署；代码尚未进入线上 release。后续需完成提交前审查、全量测试、构建、协作检查和差异检查，再决定是否进入 full production gate。
+
+## 2026-08-20 Canvas Project Library Playback Boundary
+
+- 继续审计发现项目素材库接口虽然已经返回 transient `playbackUrl`，Canvas 右侧项目素材预览卡片却仍直接使用 canonical `stableUrl` 渲染视频；导入动作正确，导入前预览仍可能因浏览器无法携带 session header 而空白。
+- 修正 Canvas 项目素材卡片采用 `asset.playbackUrl || asset.stableUrl`，图片缩略图代理和 canonical asset ref 保持不变；保存快照仍由已有 durable snapshot 逻辑去除 transient playback 字段。
+- Canvas 跨域资产、项目路由和会话恢复定向回归 `26/26`，提交 `ab097e8`；随后全量回归 `1936/1936`、生产构建 `6524` modules 通过。本轮未触发供应商、真实生成、账务或生产部署。
