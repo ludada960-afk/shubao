@@ -367,6 +367,21 @@ test('Canvas restore ignores a stale session response after the active work chan
   assert.match(restoreBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
 });
 
+test('Canvas Work autosave ignores a stale archive response after the active work changes', () => {
+  const workAutosaveBlock = canvasSource.match(/const persistenceGeneration = canvasPersistenceGenerationRef\.current;[\s\S]*?const timer = setTimeout\(async \(\) => \{[\s\S]*?\n    \}, 900\);/)?.[0] || '';
+  assert.match(workAutosaveBlock, /const persistenceGeneration = canvasPersistenceGenerationRef\.current/);
+  assert.match(workAutosaveBlock, /canvasPersistenceGenerationRef\.current !== persistenceGeneration/);
+});
+
+test('manual Canvas save reports a Work archive failure without claiming full success', () => {
+  const saveBlock = canvasSource.match(/const handleCanvasSessionSave = useCallback\([\s\S]*?\n  \}, \[[^\]]*\]\);/)?.[0] || '';
+  assert.match(saveBlock, /let savedWork = null/);
+  assert.match(saveBlock, /savedWork = await saveWork/);
+  assert.match(saveBlock, /云端作品暂未保存/);
+  assert.match(saveBlock, /canvasSessionRef\.current = session/);
+  assert.match(saveBlock, /remoteSnapshotRef\.current = JSON\.stringify\(snapshot\)/);
+});
+
 test('fresh Canvas imports hydrate durable text compositions from the project version', () => {
   assert.match(canvasSource, /listTextCompositions/);
   assert.match(canvasSource, /projectId: result\.projectId/);

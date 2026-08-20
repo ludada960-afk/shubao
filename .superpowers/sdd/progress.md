@@ -2339,3 +2339,10 @@
 - 修复跨作品切换时的 Canvas 持久化竞态：切换 Works/Canvas 结果会清空旧远端快照指纹、取消旧保存计时器并同步更新会话 ref；自动保存、手动保存和恢复请求都携带当前持久化代次，旧作品的迟到响应不会覆盖新作品的节点、会话或结果上下文。
 - 新增四条 Canvas 竞态契约回归，覆盖相同快照跨作品切换、自动保存迟到响应、手动保存迟到响应和恢复迟到响应。聚焦资产/项目/Canvas `145/145`、全量 `npm test` `1966/1966`、隔离生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
 - 标准 `npm run build` 在清理既有 `dist/images` 时被本工作树已有的 5174 Vite dev server 触发 Windows `ENOTEMPTY`；未停止并行服务，改用同一导出校验和 Vite 配置输出到隔离 `dist-codex-build-20260820` 完成编译验证。未调用供应商、真实生成、账务或生产部署；视频/导航线程及运行态未修改、未暂存，线上仍为 `e823283`。
+
+## 2026-08-20 Canvas Work Archive Truth Boundary
+
+- 收口 Canvas Works 自动归档的迟到响应：自动归档定时器现在绑定当前持久化代次，在作品切换前后分别检查代次；旧作品的 `saveWork` 返回不会再污染当前 Works 列表、输出指纹或生成作品身份。
+- 手动保存现在区分画布会话和作品归档两个结果：会话成功后立即同步 session ref 与远端快照指纹，避免重复自动保存；作品归档失败时保留本地草稿并明确提示“云端作品暂未保存”，不再无条件宣称完整成功。
+- 新增两条回归契约；聚焦 Canvas 代际/归档测试 `6/6`，全量 `npm test` `1968/1968`，隔离 Vite 构建 `6524` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 均通过。标准 `npm run build` 仍受既有 5174 Vite 进程占用 `dist/images` 的 Windows `ENOTEMPTY` 影响，本轮未停止并行服务。
+- 本轮只修改主线程 Canvas 和对应回归测试；视频线程、导航线程、用户运行态及未跟踪研究/截图未修改、未暂存。未调用供应商、真实生成、账务或生产部署；线上仍为 `e823283`，本地改动涉及 asset/project/Canvas 路径，发布前必须通过 full production gate。

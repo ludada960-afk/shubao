@@ -887,7 +887,9 @@ export default function EcCanvas() {
       workOutputFingerprintRef.current = fingerprint;
       return undefined;
     }
+    const persistenceGeneration = canvasPersistenceGenerationRef.current;
     const timer = setTimeout(async () => {
+      if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
       canvasGeneratedWorkKeyRef.current ||= `canvas-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
       const workResult = {
         ...result,
@@ -899,7 +901,7 @@ export default function EcCanvas() {
         ...canvasWorkMediaFields(result, nodes),
       };
       const saved = await saveWork(workResult, phone);
-      if (!saved) return;
+      if (!saved || canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
       if (saved._saveKey) canvasGeneratedWorkKeyRef.current = saved._saveKey;
       workOutputFingerprintRef.current = fingerprint;
       setPastWorks(previous => normalizeCanvasWorkPanel({
@@ -3752,28 +3754,39 @@ export default function EcCanvas() {
         ? await saveCanvasSession(canvasSession.id, { expectedRevision: canvasSession.revision, snapshot })
         : await createCanvasSession({ projectId, baseVersionId, snapshot });
       if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
+      canvasSessionRef.current = session;
       setCanvasSession(session);
+      remoteSnapshotRef.current = JSON.stringify(snapshot);
       const saveKey = result._saveKey || canvasGeneratedWorkKeyRef.current;
+      let savedWork = null;
       if (saveKey) {
-          const workResult = {
-            ...result,
-            _saveKey: saveKey,
-            imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes }),
-            ...canvasWorkMediaFields(result, nodes),
-          };
+        const workResult = {
+          ...result,
+          _saveKey: saveKey,
+          imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes }),
+          ...canvasWorkMediaFields(result, nodes),
+        };
         delete workResult.canvasSession;
-        await saveWork({
-          ...workResult,
-          canvasSessionId: session.id,
-          canvasSessionRevision: session.revision,
-        }, phone);
+        try {
+          savedWork = await saveWork({
+            ...workResult,
+            canvasSessionId: session.id,
+            canvasSessionRevision: session.revision,
+          }, phone);
+        } catch {
+          savedWork = null;
+        }
       }
       if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
       dispatch({
         type: 'SET_RESULT',
         result: { ...result, canvasSession: session, canvasSessionId: session.id, canvasSessionRevision: session.revision },
       });
-      showToast('画布已保存', 'success');
+      const archiveSucceeded = !saveKey || Boolean(savedWork);
+      showToast(
+        archiveSucceeded ? '画布已保存' : '画布已保存，本地草稿已保留，云端作品暂未保存',
+        archiveSucceeded ? 'success' : 'info',
+      );
     } catch (error) {
       showToast(error?.message || '画布保存失败', 'error');
     } finally {
