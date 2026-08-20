@@ -2135,3 +2135,14 @@
   `providerSubmissions=0`，但两次均在远端 release backup 前的生产根分区 3GB 可用空间预检失败。
 - 部署脚本两次均恢复运行时网关配置、释放远端锁，未创建 release backup、未重启 PM2、未切换静态版本；线上健康仍为
   `ready=true`，active ecommerce jobs `0`，线上保持此前 `21de16e` 版本。未删除生产资产或历史备份来绕过预检。
+
+## 2026-08-20 Project Asset Lineage Verification Hardening
+
+- 修正跨项目来源引用的真实性边界：`GET /api/projects/:projectId/assets/:assetId/lineage` 现在只有在同一 owner 下，
+  `project_assets.id`、`project_id`、`content_hash` 和未删除的源项目全部精确匹配时，才返回 `verified=true`、源资产摘要和项目摘要。
+  资产不存在、哈希不匹配或引用伪造的来源不会被展示，避免把未验证的 metadata 当成资产血缘。
+- 新增存储回归覆盖真实跨项目源资产和篡改/缺失资产两种情况。定向回归 `36/36`、全量回归 `1905/1905`、生产构建
+  `6524` modules、`npm run check`、`npm run collab:check` 和 `git diff --check` 均通过；本轮没有供应商调用、视频生成、账务变更或生产部署。
+- 协同规则本轮重新一次性通知视频线程：视频线程继续完成原定视频工作，不等待主线程、不因询问停工；只有共享接口阻塞、数据安全风险或实际冲突才集中反馈。
+  主线程继续拥有 canonical project assets、Canvas/Works、跨域接口、质量门和最终发布，双方不轮询式互相打断。
+- `e9fef88` 的生产发布仍受此前远端根分区可用空间预检阻塞；没有删除线上资产、历史备份或绕过 full 门禁，线上继续保持已发布版本并由健康检查负责观察。

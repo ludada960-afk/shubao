@@ -157,9 +157,10 @@ test('reads owner-scoped lineage and validated cross-project source references w
   const ownerEmail = 'owner@example.com';
   const project = store.createProject({ ownerEmail, kind: 'ecommerce', title: '血缘读取' });
   const sourceProject = store.createProject({ ownerEmail, kind: 'ecommerce', title: '源项目' });
+  const externalSource = store.createProjectAsset({ ownerEmail, projectId: sourceProject.id, assetId: 'external-source', stableUrl: '/api/generated-assets/external-source.webp', contentHash: 'external-hash', mimeType: 'image/webp' });
   const source = store.createProjectAsset({ ownerEmail, projectId: project.id, assetId: 'source', stableUrl: '/api/generated-assets/source.webp', contentHash: 'source-hash', mimeType: 'image/webp' });
   const target = store.createProjectAsset({ ownerEmail, projectId: project.id, assetId: 'target', stableUrl: '/api/generated-assets/target.webp', contentHash: 'target-hash', mimeType: 'image/webp', metadata: {
-    sourceProjectAssetRef: { projectId: sourceProject.id, projectAssetId: 'source-project-asset', role: 'reference', expectedContentHash: 'external-hash' },
+    sourceProjectAssetRef: { projectId: sourceProject.id, projectAssetId: externalSource.projectAssetId, role: 'reference', expectedContentHash: externalSource.contentHash },
   } });
   store.linkProjectAsset({ ownerEmail, projectId: project.id, sourceProjectAssetId: source.projectAssetId, targetProjectAssetId: target.projectAssetId, relation: 'generated_from', generationRunId: 'run-1' });
 
@@ -169,12 +170,30 @@ test('reads owner-scoped lineage and validated cross-project source references w
   assert.equal(lineage.parents[0].relation, 'generated_from');
   assert.equal(lineage.parents[0].relationGenerationRunId, 'run-1');
   assert.equal(lineage.sourceReferences[0].project.title, '源项目');
+  assert.equal(lineage.sourceReferences[0].verified, true);
+  assert.equal(lineage.sourceReferences[0].sourceAsset.projectAssetId, externalSource.projectAssetId);
   assert.equal('ownerEmail' in lineage.asset, false);
   assert.equal('ownerEmail' in lineage.parents[0], false);
   assert.throws(
     () => store.getProjectAssetLineage({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: target.projectAssetId }),
     error => error?.code === 'PROJECT_NOT_FOUND',
   );
+});
+
+test('does not expose a cross-project source when its asset or hash is not authoritative', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'owner@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video', title: '目标视频' });
+  const sourceProject = store.createProject({ ownerEmail, kind: 'ecommerce', title: '源商品' });
+  const source = store.createProjectAsset({ ownerEmail, projectId: sourceProject.id, assetId: 'real-source', stableUrl: '/api/generated-assets/real-source.webp', contentHash: 'real-hash', mimeType: 'image/webp' });
+  const target = store.createProjectAsset({ ownerEmail, projectId: project.id, assetId: 'target', stableUrl: '/api/video/assets/target', contentHash: 'target-hash', mimeType: 'video/mp4', metadata: {
+    sourceProjectAssetRef: { projectId: sourceProject.id, projectAssetId: source.projectAssetId, role: 'reference', expectedContentHash: 'tampered-hash' },
+    importedFromProjectAsset: { projectId: sourceProject.id, projectAssetId: 'missing-asset', role: 'reference', expectedContentHash: 'missing-hash' },
+  } });
+
+  const lineage = store.getProjectAssetLineage({ ownerEmail, projectId: project.id, projectAssetId: target.projectAssetId });
+  assert.deepEqual(lineage.sourceReferences, []);
 });
 
 test('lists recovery checkpoints with their immutable source version and without another owner records', t => {

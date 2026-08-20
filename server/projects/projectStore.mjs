@@ -403,20 +403,36 @@ export function createProjectStore(db, {
         ORDER BY l.created_at DESC, linked.created_at DESC, linked.id DESC`).all(
         project.ownerEmail, project.id, project.id, asset.projectAssetId,
       );
-      const sourceReferences = externalProjectAssetRefs(asset).map(reference => {
-        const sourceProject = db.prepare(`SELECT id, kind, title, status, updated_at
-          FROM projects WHERE id = ? AND owner_email = ? AND deleted_at IS NULL`)
-          .get(reference.projectId, project.ownerEmail);
-        return {
+      const sourceReferences = externalProjectAssetRefs(asset).flatMap(reference => {
+        const sourceRow = db.prepare(`SELECT pa.*, p.kind AS project_kind, p.title AS project_title,
+            p.status AS project_status, p.updated_at AS project_updated_at
+          FROM project_assets pa
+          JOIN projects p ON p.id = pa.project_id
+          WHERE pa.id = ? AND pa.project_id = ? AND pa.owner_email = ?
+            AND pa.deleted_at IS NULL AND p.deleted_at IS NULL
+            AND pa.content_hash = ?`).get(
+          reference.projectAssetId, reference.projectId, project.ownerEmail, reference.expectedContentHash,
+        );
+        if (!sourceRow) return [];
+        const sourceAsset = projectAssetLibraryItemFromRow(sourceRow);
+        return [{
           ...reference,
-          project: sourceProject ? {
-            id: sourceProject.id,
-            kind: sourceProject.kind,
-            title: sourceProject.title,
-            status: sourceProject.status,
-            updatedAt: sourceProject.updated_at,
-          } : null,
-        };
+          verified: true,
+          sourceAsset: {
+            projectAssetId: sourceAsset.projectAssetId,
+            assetId: sourceAsset.assetId,
+            versionId: sourceAsset.versionId,
+            role: sourceAsset.role,
+            contentHash: sourceAsset.contentHash,
+            stableUrl: sourceAsset.stableUrl,
+            mimeType: sourceAsset.mimeType,
+            mediaKind: sourceAsset.mediaKind,
+            width: sourceAsset.width,
+            height: sourceAsset.height,
+            createdAt: sourceAsset.createdAt,
+          },
+          project: sourceAsset.project,
+        }];
       });
       return {
         asset,
