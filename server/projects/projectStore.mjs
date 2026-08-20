@@ -1019,10 +1019,16 @@ export function createProjectStore(db, {
           const assetId = String(asset?.assetId || '').trim();
           const stableUrl = String(asset?.stableUrl || '').trim();
           if (!assetId || !stableUrl) continue;
+          const contentHash = stableAssetContentHash(stableUrl)
+            || String(asset?.contentHash || '').trim()
+            || assetId;
+          const mimeType = stableAssetMimeType(stableUrl)
+            || String(asset?.mimeType || '').trim().toLowerCase()
+            || 'image/png';
           db.prepare(`INSERT OR IGNORE INTO project_assets
             (id, asset_id, owner_email, project_id, version_id, role, content_hash, stable_url, mime_type, retention_class, created_at)
-            VALUES (?, ?, ?, ?, ?, 'generated', ?, ?, 'image/png', 'completed', ?)`)
-            .run(`${project.id}:${assetId}`, assetId, owner, project.id, version.id, assetId, stableUrl, createdAt);
+            VALUES (?, ?, ?, ?, ?, 'generated', ?, ?, ?, 'completed', ?)`)
+            .run(`${project.id}:${assetId}`, assetId, owner, project.id, version.id, contentHash, stableUrl, mimeType, createdAt);
         }
         const completed = api.completeProject({ ownerEmail: owner, projectId: project.id, acceptedVersionId: version.id });
         return { project: completed, version, migrated: true };

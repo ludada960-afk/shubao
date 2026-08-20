@@ -30,6 +30,24 @@ test('migrates a legacy ecommerce work once without duplicating its stable asset
   db.close();
 });
 
+test('migrates hashed legacy assets with their authoritative MIME and content hash', () => {
+  const db = new Database(':memory:');
+  ensureProjectSchema(db);
+  const store = createProjectStore(db, { randomUUID: (() => { let n = 0; return () => `id-${++n}`; })(), now: () => new Date('2026-07-30T12:00:00.000Z') });
+  const contentHash = 'd'.repeat(64);
+  const stableUrl = `/api/generated-assets/${contentHash}.webp`;
+
+  const result = migrateLegacyWorkOnRead({
+    ownerEmail: 'owner@example.com',
+    projectStore: store,
+    work: { _saveKey: 'legacy-webp-work', _ecResult: true, product_name: 'WebP 历史作品', images: [{ url: stableUrl }] },
+  });
+
+  const asset = db.prepare('SELECT content_hash, mime_type, stable_url FROM project_assets WHERE project_id = ?').get(result.project.id);
+  assert.deepEqual(asset, { content_hash: contentHash, mime_type: 'image/webp', stable_url: stableUrl });
+  db.close();
+});
+
 test('does not create a duplicate migration project for a Work already linked to a project', () => {
   const db = new Database(':memory:');
   ensureProjectSchema(db);
