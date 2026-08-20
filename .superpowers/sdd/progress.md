@@ -2215,3 +2215,8 @@
 - 主线程审计发现 Canvas/Works 项目素材库会把视频和音频的 canonical `stableUrl` 直接交给媒体元素；该 URL 需要自定义 session header，而浏览器 `<video>/<audio>` 不会携带该 header，导致跨域资产在画布中无法稳定预览。
 - 提交 `b16e221`：项目资产路由在 owner 校验后动态补发短期 `playbackUrl`，生产端复用现有视频签名播放能力；canonical `stableUrl` 和 `assetRef` 保持不变，不把播放凭据写进项目快照。Canvas 内存节点使用 playback URL，`createCanvasSnapshot` 会递归还原 stable URL 并移除 transient playback 字段。
 - 项目路由、视频生成、项目桥接、视频工作台和 Canvas 定向回归 `106/106`；本轮未触发供应商调用、真实生成、账务变更或生产部署。
+
+## 2026-08-20 Canvas Retention Owner Boundary
+
+- 主线程继续审计 retention 的引用保护查询，发现 Canvas 会话保护条件只按 `project_id` 和快照内容匹配，没有同时约束会话 owner；这对正常 UUID 项目通常不显现，但会让历史迁移或异常数据污染资产保留判断。
+- 提交前修复：Canvas retention 保护现在要求 `owner_email + project_id` 同时匹配；新增跨 owner Canvas 会话回归，确保不会延长其他账号项目资产的生命周期。定向 retention 回归 `11/11` 通过。
