@@ -263,6 +263,15 @@ test('Canvas promotes uploaded video and audio into the owner-scoped project ass
   assert.doesNotMatch(canvasSource, /importVideoAssetToProject\([\s\S]{0,220}ownerEmail/);
 });
 
+test('Canvas project asset library exposes local discovery and retention state controls', () => {
+  assert.match(canvasSource, /normalizeProjectAssetLibrary/);
+  assert.match(canvasSource, /filterProjectAssetLibrary/);
+  assert.match(canvasSource, /aria-label="搜索项目素材"/);
+  assert.match(canvasSource, /aria-label="筛选素材保留状态"/);
+  assert.match(canvasSource, /projectAssetRetentionStatus\(asset\)/);
+  assert.match(canvasSource, /没有符合当前搜索或筛选条件的素材/);
+});
+
 test('Canvas promotes uploaded images into the owner-scoped project asset library', () => {
   assert.match(canvasSource, /importImageAssetToProject/);
   assert.match(canvasSource, /importCanvasImageAssets/);

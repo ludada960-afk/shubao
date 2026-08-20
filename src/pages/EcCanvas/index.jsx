@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
 import { MdArrowBack, MdArrowDownward, MdArrowUpward, MdDownload, MdGridOn, MdCollections, MdAdd, MdDelete, MdOpenInNew, MdZoomIn, MdZoomOut, MdFitScreen, MdClose, MdLink, MdAutoFixHigh, MdImageSearch, MdEdit, MdCategory, MdMergeType, MdCheckBoxOutlineBlank, MdCheckBox, MdCrop, MdTextFields, MdLayers, MdTune, MdTranslate, MdHighQuality, MdAspectRatio, MdFileDownload, MdAddPhotoAlternate, MdCenterFocusStrong, MdSave, MdRestore, MdVideoLibrary, MdMusicNote, MdPushPin } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
 import { loadCachedWorks, loadWorks, saveWork, proxyImg, deleteWork as softDeleteWork, loadTrash, restoreWork, reversePrompt, removeBg, stitchLongImage, regenerateCanvasImage, generateEcommerceSuite, getDesignDirections, transformCanvasImage, analyzeCanvasLayers, createCanvasSegmentationPlan, recognizeCanvasText, replaceCanvasText, uploadEcommerceAssets, createTextComposition, listTextCompositions, saveTextCompositionRevision, createCanvasPixelLayers, exportCanvasPsd } from '../../services/api';
@@ -60,6 +60,7 @@ import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, i
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
 import { buildCanvasImportResult, canvasOutputImages, canvasVideoAsset, canvasVideoResultPatch, canvasWorkCategory, canvasWorkOutputFingerprint, collectCanvasMediaAssets, collectCanvasWorkImages, durableCanvasMediaAssets, filterCanvasWorks, normalizeCanvasWorkPanel } from './canvasWorkModel.js';
 import { cleanupLegacyCanvasStorage } from '../Works/retentionModel.js';
+import { filterProjectAssetLibrary, normalizeProjectAssetLibrary, projectAssetRetentionStatus, PROJECT_ASSET_RETENTION_FILTERS } from '../Works/projectAssetLibraryModel.js';
 import TextLayerInspector from './components/TextLayerInspector.jsx';
 import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
@@ -540,6 +541,8 @@ export default function EcCanvas() {
   const [projectAssetLibraryLoading, setProjectAssetLibraryLoading] = useState(false);
   const [projectAssetLibraryError, setProjectAssetLibraryError] = useState('');
   const [projectAssetRetentionBusy, setProjectAssetRetentionBusy] = useState('');
+  const [projectAssetQuery, setProjectAssetQuery] = useState('');
+  const [projectAssetRetentionFilter, setProjectAssetRetentionFilter] = useState('all');
   const [projectAssetLineage, setProjectAssetLineage] = useState(null);
   const [zoomImg, setZoomImg] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
@@ -1170,23 +1173,7 @@ export default function EcCanvas() {
       try {
         const library = await listProjectAssetLibrary({ mediaKind: projectAssetMediaFilter, limit: 200 });
         if (cancelled) return;
-        const seen = new Set();
-        const assets = (Array.isArray(library) ? library : [])
-          .sort((left, right) => (left.project?.id === result.projectId ? -1 : 0) - (right.project?.id === result.projectId ? -1 : 0))
-          .map(asset => ({
-            ...asset,
-            projectId: asset.projectId || asset.project?.id,
-            projectTitle: asset.projectTitle || asset.project?.title || '未命名项目',
-          }))
-          .filter(asset => {
-            const mediaKind = String(asset.mediaKind || asset.media_kind || '').toLowerCase();
-            if (!['image', 'video', 'audio'].includes(mediaKind)) return false;
-            const key = `${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`;
-            if (!asset.projectAssetId || !asset.contentHash || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-        setProjectAssetLibrary(assets);
+        setProjectAssetLibrary(normalizeProjectAssetLibrary(library, { currentProjectId: result.projectId }));
       } catch (error) {
         if (cancelled) return;
         setProjectAssetLibrary([]);
@@ -1197,6 +1184,11 @@ export default function EcCanvas() {
     })();
     return () => { cancelled = true; };
   }, [projectAssetMediaFilter, result?.browserQa, result?.projectId, state.logged, tab]);
+
+  const visibleProjectAssetLibrary = useMemo(() => filterProjectAssetLibrary(projectAssetLibrary, {
+    query: projectAssetQuery,
+    retentionFilter: projectAssetRetentionFilter,
+  }), [projectAssetLibrary, projectAssetQuery, projectAssetRetentionFilter]);
 
   // B10: 全局键盘快捷键（使用 ref 避免循环依赖）
   // 注意：ref 初始值为空函数，在下面的 useEffect 中更新
@@ -4438,9 +4430,30 @@ export default function EcCanvas() {
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
                 <div>
                   <h2 id="canvas-project-assets-title" style={{ margin: 0, fontSize: 16, lineHeight: 1.3, color: '#1f2937' }}>项目素材</h2>
-                  <div style={{ marginTop: 4, color: '#8a929d', fontSize: 11 }}>图片、视频和音频</div>
+                  <div style={{ marginTop: 4, color: '#8a929d', fontSize: 11 }}>图片、视频和音频 · 可搜索、可长期保留、可继续使用</div>
                 </div>
-                <span style={{ color: '#9aa1aa', fontSize: 11 }}>{projectAssetLibrary.length} 个</span>
+                <span style={{ color: '#9aa1aa', fontSize: 11 }}>{visibleProjectAssetLibrary.length}{visibleProjectAssetLibrary.length !== projectAssetLibrary.length ? ` / ${projectAssetLibrary.length}` : ''} 个</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) auto', gap: 8, marginBottom: 9 }}>
+                <label style={{ position: 'relative', minWidth: 0 }}>
+                  <span className="sr-only">搜索项目素材</span>
+                  <input
+                    type="search"
+                    value={projectAssetQuery}
+                    onChange={event => setProjectAssetQuery(event.target.value)}
+                    placeholder="搜索素材名称、项目或角色"
+                    aria-label="搜索项目素材"
+                    style={{ width: '100%', height: 32, boxSizing: 'border-box', padding: '0 10px', border: '1px solid #e1e5eb', borderRadius: 8, outline: 0, color: '#334155', fontSize: 11, background: '#fff' }}
+                  />
+                </label>
+                <select
+                  aria-label="筛选素材保留状态"
+                  value={projectAssetRetentionFilter}
+                  onChange={event => setProjectAssetRetentionFilter(event.target.value)}
+                  style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid #e1e5eb', borderRadius: 8, background: '#fff', color: '#475569', fontSize: 11 }}
+                >
+                  {PROJECT_ASSET_RETENTION_FILTERS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
               </div>
               <div role="tablist" aria-label="项目素材类型" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                 {[['', '全部'], ['image', '图片'], ['video', '视频'], ['audio', '音频']].map(([value, label]) => <button
@@ -4456,12 +4469,13 @@ export default function EcCanvas() {
                 <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>正在读取素材</div>
               ) : projectAssetLibraryError ? (
                 <div role="alert" style={{ padding: '14px 16px', border: '1px solid #fecaca', borderRadius: 10, background: '#fff7f7', color: '#b42318', fontSize: 12 }}>{projectAssetLibraryError}</div>
-              ) : projectAssetLibrary.length ? (
+              ) : visibleProjectAssetLibrary.length ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
-                  {projectAssetLibrary.map(asset => {
+                  {visibleProjectAssetLibrary.map(asset => {
                     const mediaKind = String(asset.mediaKind || '').toLowerCase();
                     const label = asset.metadata?.displayName || asset.assetId || asset.role || (mediaKind === 'video' ? '项目视频' : mediaKind === 'audio' ? '项目音频' : '项目图片');
                     const projectTitle = asset.project?.title || asset.projectTitle || '未命名项目';
+                    const retention = projectAssetRetentionStatus(asset);
                     return <article
                       key={`${asset.projectId}:${asset.projectAssetId}:${asset.contentHash}`}
                       style={{ minWidth: 0, padding: 0, overflow: 'hidden', textAlign: 'left', border: '1px solid #e7eaee', borderRadius: 10, background: '#fff', color: '#26313c', cursor: 'pointer' }}
@@ -4476,6 +4490,7 @@ export default function EcCanvas() {
                         <div style={{ padding: '8px 9px 4px' }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700 }}>{label}</div>
                         <div style={{ marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: '#8a929d' }}>{projectTitle}</div>
+                        <div title={retention.detail} style={{ display: 'inline-flex', maxWidth: '100%', marginTop: 6, padding: '2px 5px', borderRadius: 4, background: retention.tone === 'pinned' ? '#eff6ff' : retention.tone === 'attention' ? '#fff7ed' : '#f8fafc', color: retention.tone === 'pinned' ? '#2563eb' : retention.tone === 'attention' ? '#b45309' : '#64748b', fontSize: 9, lineHeight: 1.3 }}>{retention.label}</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px 8px', borderTop: '1px solid #f1f3f5' }}>
@@ -4490,7 +4505,7 @@ export default function EcCanvas() {
                   })}
                 </div>
               ) : (
-                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>暂无可用项目素材</div>
+                <div style={{ padding: '18px 16px', border: '1px solid #edf0f3', borderRadius: 10, background: '#fff', color: '#8a929d', fontSize: 12 }}>{projectAssetLibrary.length ? '没有符合当前搜索或筛选条件的素材' : '暂无可用项目素材'}</div>
               )}
             </section>
           )}
