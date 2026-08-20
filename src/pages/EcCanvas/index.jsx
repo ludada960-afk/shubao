@@ -4430,11 +4430,11 @@ export default function EcCanvas() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <div onClick={() => openWork(work)} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdOpenInNew size={14} /></div>
+                      <button type="button" aria-label={`打开${work.name}`} title="打开作品" onClick={() => openWork(work)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(124,58,237,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#7c3aed' }}><MdOpenInNew size={14} /></button>
                       {tab === 'trash' ? (
-                        <div onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</div>
+                        <button type="button" aria-label="恢复作品" onClick={() => restoreDeletedWork(work)} title="恢复作品" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#059669', fontSize: 11, fontWeight: 700 }}>恢复</button>
                       ) : (
-                        <div onClick={() => deleteWork(work.id)} title="移入回收站" style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(239,68,68,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}><MdDelete size={14} /></div>
+                        <button type="button" aria-label="移入回收站" onClick={() => deleteWork(work.id)} title="移入回收站" style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(239,68,68,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}><MdDelete size={14} /></button>
                       )}
                     </div>
                   </div>
