@@ -98,6 +98,21 @@ test('Canvas video generation keeps the delivered project asset ref on the resul
   });
 });
 
+test('Canvas video result patch drops an incomplete project asset ref instead of persisting it', () => {
+  assert.deepEqual(canvasVideoResultPatch({
+    resultUrl: '/api/video/media/output-3?purpose=playback&expires=123&signature=test',
+    resultAssetId: 'output-3.mp4',
+    projectAssetRef: {
+      projectId: 'video-project-3',
+      projectAssetId: 'video-result-3',
+      stableUrl: '/api/video/assets/output-3.mp4',
+    },
+  }), {
+    url: '/api/video/media/output-3?purpose=playback&expires=123&signature=test',
+    videoAssetId: 'output-3.mp4',
+  });
+});
+
 test('Canvas work panel keeps only the signed owner local works and preserves server metadata', () => {
   const localWorks = [
     {

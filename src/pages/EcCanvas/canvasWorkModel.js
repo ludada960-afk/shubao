@@ -58,17 +58,19 @@ export function canvasVideoAsset(work = {}) {
 }
 
 export function canvasVideoResultPatch(job = {}) {
-  const asset = canvasVideoAsset({
+  const video = {
     ...job,
     videoUrl: job.resultUrl || job.videoUrl,
     videoAssetId: job.resultAssetId || job.videoAssetId,
     name: job.name || job.product_name || job.prompt,
-  });
+  };
+  const asset = canvasVideoAsset(video);
   if (!asset) return null;
+  const ref = projectVideoAssetRef(video);
   return {
     url: asset.url,
     videoAssetId: asset.assetId,
-    ...(job.projectAssetRef ? { projectAssetRef: job.projectAssetRef } : {}),
+    ...(ref ? { projectAssetRef: ref } : {}),
   };
 }
 
