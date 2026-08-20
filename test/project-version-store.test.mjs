@@ -130,6 +130,7 @@ test('pins a canonical project asset for long-term reuse and restores its prior 
     mimeType: 'image/webp',
     retentionClass: 'generated',
   });
+  db.prepare("UPDATE project_assets SET expires_at = '2026-08-15T00:00:00.000Z' WHERE id = ?").run(asset.projectAssetId);
 
   const pinned = store.setProjectAssetRetention({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, pinned: true });
   const replayed = store.setProjectAssetRetention({ ownerEmail, projectId: project.id, projectAssetId: asset.projectAssetId, pinned: true });
@@ -145,6 +146,7 @@ test('pins a canonical project asset for long-term reuse and restores its prior 
   assert.equal(unpinned.retentionPinned, false);
   assert.equal(unpinned.retentionClass, 'generated');
   assert.equal(unpinned.retentionState, 'active');
+  assert.equal(unpinned.expiresAt, '2026-08-15T00:00:00.000Z');
   assert.equal(db.prepare('SELECT retention_class_before_pin FROM project_assets WHERE id = ?').get(asset.projectAssetId).retention_class_before_pin, null);
   assert.throws(
     () => store.setProjectAssetRetention({ ownerEmail: 'other@example.com', projectId: project.id, projectAssetId: asset.projectAssetId, pinned: true }),
