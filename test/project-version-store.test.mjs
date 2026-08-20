@@ -44,6 +44,58 @@ test('creates immutable owner-scoped project versions', t => {
   assert.deepEqual(version.inputSnapshot, { prompt: '清爽夏季水杯' });
 });
 
+test('replays an idempotent version without advancing project history', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'version-idempotency@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video', title: '恢复项目' });
+  const first = store.createVersion({
+    ownerEmail,
+    projectId: project.id,
+    reason: 'manual_save',
+    inputSnapshot: { surface: 'canvas' },
+    idempotencyKey: 'canvas-media-version:one',
+  });
+  const replay = store.createVersion({
+    ownerEmail,
+    projectId: project.id,
+    reason: 'manual_save',
+    inputSnapshot: { surface: 'canvas' },
+    idempotencyKey: 'canvas-media-version:one',
+  });
+
+  assert.equal(replay.id, first.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_versions WHERE project_id = ?').get(project.id).count, 1);
+  assert.equal(store.getProject({ ownerEmail, projectId: project.id }).headVersionId, first.id);
+});
+
+test('rejects an idempotency replay whose version payload changed', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'version-idempotency-payload@example.com';
+  const project = store.createProject({ ownerEmail, kind: 'video', title: '请求指纹' });
+  store.createVersion({ ownerEmail, projectId: project.id, reason: 'manual_save', inputSnapshot: { surface: 'canvas' }, idempotencyKey: 'version-fingerprint' });
+
+  assert.throws(
+    () => store.createVersion({ ownerEmail, projectId: project.id, reason: 'manual_save', inputSnapshot: { surface: 'other' }, idempotencyKey: 'version-fingerprint' }),
+    error => error?.code === 'IDEMPOTENCY_CONFLICT',
+  );
+});
+
+test('rejects reusing a version idempotency key for another project', t => {
+  const { db, store } = createHarness();
+  t.after(() => db.close());
+  const ownerEmail = 'version-idempotency-conflict@example.com';
+  const firstProject = store.createProject({ ownerEmail, kind: 'video', title: '第一个项目' });
+  const secondProject = store.createProject({ ownerEmail, kind: 'video', title: '第二个项目' });
+  store.createVersion({ ownerEmail, projectId: firstProject.id, reason: 'manual_save', idempotencyKey: 'same-version-key' });
+
+  assert.throws(
+    () => store.createVersion({ ownerEmail, projectId: secondProject.id, reason: 'manual_save', idempotencyKey: 'same-version-key' }),
+    error => error?.code === 'IDEMPOTENCY_CONFLICT',
+  );
+});
+
 test('creates and lists canonical project assets with owner isolation and idempotent replay', t => {
   const { db, store } = createHarness();
   t.after(() => db.close());

@@ -39,6 +39,7 @@ test('durable creation records the source input before generation begins', async
   assert.equal(result.version.id, 'version-1');
   assert.deepEqual(calls.map(([type]) => type), ['project', 'version']);
   assert.deepEqual(calls[1][1].inputSnapshot, { description: '陶瓷杯' });
+  assert.equal(calls[1][1].idempotencyKey, 'draft-1:version');
 });
 
 test('completed creation archives output, clears recovery state and returns a fresh editor', async () => {

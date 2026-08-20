@@ -137,10 +137,12 @@ test('project lifecycle client creates versions, checkpoints, and completion thr
   t.after(() => { globalThis.fetch = originalFetch; });
 
   assert.equal((await createProject({ kind: 'ecommerce', title: '水杯', idempotencyKey: 'draft-1' })).id, 'project-1');
-  assert.equal((await createProjectVersion('project-1', { reason: 'generation', inputSnapshot: { description: '水杯' } })).id, 'version-1');
+  assert.equal((await createProjectVersion('project-1', { reason: 'generation', inputSnapshot: { description: '水杯' }, idempotencyKey: 'draft-1:version' })).id, 'version-1');
   assert.equal((await createRecoveryCheckpoint('project-1', { versionId: 'version-1', reason: 'payment_required' })).id, 'checkpoint-1');
   assert.equal((await completeProject('project-1', { acceptedVersionId: 'version-1' })).status, 'completed');
   assert.equal(requests.every(request => request.options.headers.Authorization === 'Bearer signed-token'), true);
+  assert.equal(requests[1].options.headers['Idempotency-Key'], 'draft-1:version');
+  assert.equal(JSON.parse(requests[1].options.body).idempotencyKey, undefined);
 });
 
 test('project discovery client lists and reads signed owner projects', async t => {

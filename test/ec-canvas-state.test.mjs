@@ -286,6 +286,7 @@ test('project library imports create a durable Canvas work context before switch
   assert.match(importBlock, /不会产生生成或扣费/);
   assert.match(canvasSource, /const mediaAssets = collectCanvasMediaAssets\(work, currentNodes\);[\s\S]*?const projectAssetRefs = collectCanvasProjectAssetRefs/);
   assert.match(canvasSource, /!work\.videoUrl && !work\.images\?\.length && work\.productAssets\?\.length/);
+  assert.match(canvasSource, /createProjectVersion\(projectId, \{[\s\S]*?idempotencyKey: `canvas-media-version:/);
 });
 
 test('project library imports are single-flight and do not duplicate project versions', () => {

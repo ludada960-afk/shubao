@@ -158,6 +158,23 @@ function codedError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
+function normalizeOptionalIdempotencyKey(value) {
+  const key = String(value || '').trim();
+  if (!key) return '';
+  if (key.length > 200 || /[\u0000-\u001F\u007F]/.test(key)) {
+    throw new TypeError('idempotencyKey is invalid');
+  }
+  return key;
+}
+
+function stableSerialize(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
 function stableAssetIdFromUrl(value) {
   const match = String(value || '').match(/\/api\/generated-assets\/([^/?#]+)$/i);
   return match ? match[1] : '';
@@ -570,10 +587,30 @@ export function createProjectStore(db, {
       return rows.map(projectFromRow);
     },
 
-    createVersion({ ownerEmail, projectId, parentVersionId = null, reason, inputSnapshot = {}, planSnapshot = {}, canvasSnapshotId = null }) {
+    createVersion({ ownerEmail, projectId, parentVersionId = null, reason, inputSnapshot = {}, planSnapshot = {}, canvasSnapshotId = null, idempotencyKey = '' }) {
       if (!VERSION_REASONS.has(reason)) throw new TypeError('unknown version reason');
+      const key = normalizeOptionalIdempotencyKey(idempotencyKey);
+      const fingerprint = key ? stableSerialize({
+        projectId,
+        parentVersionId,
+        reason,
+        inputSnapshot: inputSnapshot || {},
+        planSnapshot: planSnapshot || {},
+        canvasSnapshotId,
+      }) : '';
       return db.transaction(() => {
         const project = requireProject(ownerEmail, projectId);
+        if (key) {
+          const previous = db.prepare(`SELECT response FROM project_idempotency_keys
+            WHERE owner_email = ? AND route = 'POST /api/projects/:projectId/versions' AND idempotency_key = ?`).get(project.ownerEmail, key);
+          if (previous) {
+            const replay = parse(previous.response, {});
+            if (replay.projectId !== project.id || !replay.version?.id || (replay.fingerprint && replay.fingerprint !== fingerprint)) {
+              throw codedError('IDEMPOTENCY_CONFLICT', 'idempotency key belongs to another project');
+            }
+            return replay.version;
+          }
+        }
         if (parentVersionId) requireVersion(project.id, parentVersionId);
         const sequence = db.prepare('SELECT COALESCE(MAX(sequence), 0) + 1 AS value FROM project_versions WHERE project_id = ?').get(project.id).value;
         const id = randomUUID();
@@ -585,8 +622,15 @@ export function createProjectStore(db, {
           JSON.stringify(inputSnapshot || {}), JSON.stringify(planSnapshot || {}), canvasSnapshotId, createdAt,
         );
         db.prepare('UPDATE projects SET head_version_id = ?, updated_at = ? WHERE id = ?').run(id, createdAt, project.id);
-        return versionFromRow(db.prepare('SELECT * FROM project_versions WHERE id = ?').get(id));
-      })();
+        const version = versionFromRow(db.prepare('SELECT * FROM project_versions WHERE id = ?').get(id));
+        if (key) {
+          db.prepare(`INSERT INTO project_idempotency_keys (owner_email, route, idempotency_key, response, created_at)
+            VALUES (?, 'POST /api/projects/:projectId/versions', ?, ?, ?)`).run(
+            project.ownerEmail, key, JSON.stringify({ projectId: project.id, fingerprint, version }), createdAt,
+          );
+        }
+        return version;
+      }).immediate();
     },
 
     createCheckpoint({ ownerEmail, projectId, versionId, generationRunId = null, reason, expiresAt = null }) {

@@ -2326,3 +2326,10 @@
 - 远端作品归档反馈改为以 `saveWork` 的服务端返回结果为准；服务端保存失败时仍保留 Canvas 本地草稿和已加入的节点，但明确提示云端作品暂未保存，不再显示“已保存”的成功反馈。
 - 新增导入并发与远端归档失败回归。聚焦 Canvas/项目/Works `71/71`、全量 `npm test` `1958/1958`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
 - 本轮仍只修改主线程 Canvas 及进度账本；视频线程文件和用户运行态未修改、未暂存。没有供应商调用、真实生成、账务变更或生产部署；线上仍为 `e823283`，本地提交涉及 asset/project/Canvas 路径，发布前必须另行通过 full production gate。
+
+## 2026-08-20 Project Version Idempotency Boundary
+
+- 收口项目版本创建的跨标签页、网络重试和页面重放边界：`POST /api/projects/:projectId/versions` 现在接收 owner-scoped `Idempotency-Key`，以稳定请求指纹校验重放；同一请求返回原版本，不推进 sequence，不创建第二条历史；同 key 跨项目或请求内容改变时 fail closed 为 `409 IDEMPOTENCY_CONFLICT`。
+- 存储事务使用 SQLite immediate write lock，避免并发版本创建竞争同一 sequence；客户端只将幂等键写入请求头，不把它伪装成业务版本 payload。Canvas 媒体项目基础版本和电商 durable project lifecycle 均使用派生版本 key，统一恢复语义。
+- 新增存储、路由、客户端、生命周期和 Canvas 契约回归。全量 `npm test` `1962/1962`、生产构建 `6524` modules、`npm run check`、`npm run collab:check`、`git diff --check` 均通过。
+- 本轮只修改主线程项目版本/Canvas/生命周期边界及对应测试；视频线程、导航线程、用户运行态和未跟踪研究/截图未修改、未暂存。未调用供应商、真实生成或账务，未部署；线上仍为 `e823283`，本地提交涉及 server/project/asset/Canvas 路径，发布前必须通过 full production gate。

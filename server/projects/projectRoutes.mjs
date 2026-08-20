@@ -33,6 +33,9 @@ function routeError(error, res) {
   if (code === 'IDEMPOTENCY_KEY_REQUIRED') {
     return res.status(400).json({ code, error: '请求标识缺失，请重试' });
   }
+  if (code === 'IDEMPOTENCY_CONFLICT') {
+    return res.status(409).json({ code, error: '请求标识已用于其他项目，请重新操作' });
+  }
   return res.status(400).json({ code, error: '请求参数无效' });
 }
 
@@ -189,6 +192,7 @@ export function mountProjectRoutes(app, {
         parentVersionId: req.body?.parentVersionId || null, reason: req.body?.reason,
         inputSnapshot: req.body?.inputSnapshot || {}, planSnapshot: req.body?.planSnapshot || {},
         canvasSnapshotId: req.body?.canvasSnapshotId || null,
+        idempotencyKey: req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'] || '',
       });
       return res.status(201).json({ version });
     } catch (error) { return routeError(error, res); }

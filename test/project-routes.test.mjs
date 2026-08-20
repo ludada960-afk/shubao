@@ -93,6 +93,31 @@ test('project creation trusts the signed owner and replays an idempotent request
   assert.equal(replay.body.project.id, first.body.project.id);
 });
 
+test('version creation replays an idempotent request without creating a second version', async t => {
+  const { app, db, sessionTokens } = createHarness();
+  t.after(() => db.close());
+  const projectResponse = await invoke(app, 'POST', '/api/projects', {
+    headers: signedHeaders(sessionTokens, 'version-owner@example.com', 'version-project'),
+    body: { kind: 'video', title: 'Canvas 媒体项目' },
+  });
+  const projectId = projectResponse.body.project.id;
+  const request = {
+    headers: signedHeaders(sessionTokens, 'version-owner@example.com', 'canvas-media-version:one'),
+    params: { projectId },
+    body: { reason: 'manual_save', inputSnapshot: { surface: 'canvas' } },
+  };
+  const first = await invoke(app, 'POST', '/api/projects/:projectId/versions', request);
+  const replay = await invoke(app, 'POST', '/api/projects/:projectId/versions', {
+    ...request,
+    body: { reason: 'manual_save', inputSnapshot: { surface: 'canvas' } },
+  });
+
+  assert.equal(first.statusCode, 201);
+  assert.equal(replay.statusCode, 201);
+  assert.equal(replay.body.version.id, first.body.version.id);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM project_versions WHERE project_id = ?').get(projectId).count, 1);
+});
+
 test('project and version routes return 404 for a different signed owner', async t => {
   const { app, db, sessionTokens } = createHarness();
   t.after(() => db.close());
@@ -313,12 +338,12 @@ test('signed owners can create an explicit recovery checkpoint and complete thei
     body: { kind: 'ecommerce', title: '待恢复的水杯套图' },
   });
   const versionResponse = await invoke(app, 'POST', '/api/projects/:projectId/versions', {
-    headers,
+    headers: signedHeaders(sessionTokens, 'owner@example.com', 'project-lifecycle:source'),
     params: { projectId: projectResponse.body.project.id },
     body: { reason: 'generation', inputSnapshot: { description: '水杯' } },
   });
   const checkpoint = await invoke(app, 'POST', '/api/projects/:projectId/checkpoints', {
-    headers,
+    headers: signedHeaders(sessionTokens, 'owner@example.com', 'project-lifecycle:checkpoint'),
     params: { projectId: projectResponse.body.project.id },
     body: { versionId: versionResponse.body.version.id, reason: 'payment_required' },
   });
@@ -328,12 +353,12 @@ test('signed owners can create an explicit recovery checkpoint and complete thei
   assert.deepEqual(checkpoint.body.checkpoint.version.inputSnapshot, { description: '水杯' });
 
   const resultVersion = await invoke(app, 'POST', '/api/projects/:projectId/versions', {
-    headers,
+    headers: signedHeaders(sessionTokens, 'owner@example.com', 'project-lifecycle:result'),
     params: { projectId: projectResponse.body.project.id },
     body: { reason: 'accepted_result', inputSnapshot: { description: '水杯' } },
   });
   const completed = await invoke(app, 'POST', '/api/projects/:projectId/complete', {
-    headers,
+    headers: signedHeaders(sessionTokens, 'owner@example.com', 'project-lifecycle:complete'),
     params: { projectId: projectResponse.body.project.id },
     body: { acceptedVersionId: resultVersion.body.version.id },
   });

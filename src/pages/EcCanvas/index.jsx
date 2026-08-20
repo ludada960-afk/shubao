@@ -688,6 +688,7 @@ export default function EcCanvas() {
         reason: 'manual_save',
         inputSnapshot: { surface: 'canvas', mediaImport: true },
         planSnapshot: { surface: 'canvas', mediaImport: true },
+        idempotencyKey: `canvas-media-version:${canvasSaveKeyRef.current}`,
       });
       baseVersionId = version.id;
     }

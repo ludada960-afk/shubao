@@ -101,6 +101,7 @@ export async function beginDurableProject({
     reason: 'generation',
     inputSnapshot: clone(inputSnapshot || {}),
     planSnapshot: clone(planSnapshot || {}),
+    ...(idempotencyKey ? { idempotencyKey: `${idempotencyKey}:version` } : {}),
   });
   const version = versionResult?.version || versionResult;
   if (!version?.id) throw new Error('项目版本创建失败，请稍后重试');

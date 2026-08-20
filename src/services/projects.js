@@ -157,9 +157,15 @@ export async function getProjectAssetLineage(projectId, projectAssetId) {
 }
 
 export async function createProjectVersion(projectId, payload = {}) {
+  const { idempotencyKey = '', ...versionPayload } = payload || {};
+  const headers = {
+    ...jsonBody().headers,
+    ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+  };
   const response = await requestJson(`/api/projects/${projectPathSegment(projectId)}/versions`, {
     method: 'POST',
-    ...jsonBody(payload),
+    headers,
+    body: JSON.stringify(versionPayload),
   }, '暂时无法保存任务内容');
   if (!response?.version?.id) throw new Error('任务版本暂时不可用，请稍后重试');
   return response.version;
